@@ -134,9 +134,9 @@ pub use physics::cell_separation::{
     IncrementalFiltrationResult, PeripheralRecovery,
 };
 pub use physics::cell_separation::{
-    fahraeus_lindqvist_viscosity, plasma_skimming_hematocrit, quemada_viscosity,
-    secomb_network_viscosity, secomb_phase_separation_x0, three_population_equilibria,
-    ThreePopEquilibria,
+    amini_confinement_correction, fahraeus_lindqvist_viscosity, plasma_skimming_hematocrit,
+    quemada_viscosity, secomb_network_viscosity, secomb_phase_separation_x0,
+    three_population_equilibria, ThreePopEquilibria,
 };
 pub use physics::vascular::non_newtonian_flow_split_exponent;
 pub use physics::vascular::womersley_pulsatility_index;

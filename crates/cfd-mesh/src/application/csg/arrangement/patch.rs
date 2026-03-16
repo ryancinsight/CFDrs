@@ -336,7 +336,7 @@ pub(crate) fn patch_small_boundary_holes(faces: &mut Vec<FaceData>, pool: &Verte
                     }
                 }
             }
-            apply_vertex_merge(faces, &merge_map);
+            apply_vertex_merge(faces, &merge_map, pool);
         }
 
         // -- (c) Rebuild boundary, trace loops. -------------------------------
@@ -416,7 +416,7 @@ pub(crate) fn patch_small_boundary_holes(faces: &mut Vec<FaceData>, pool: &Verte
                     }
                 }
             }
-            apply_vertex_merge(faces, &global_merge);
+            apply_vertex_merge(faces, &global_merge, pool);
         }
 
         // -- (e) Step 7: fill non-degenerate loops. ---------------------------

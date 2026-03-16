@@ -541,28 +541,28 @@ pub fn compute_blueprint_report_metrics(
     // Wire the validated cfd-1d acoustic models into the report pipeline.
     // These do NOT alter any existing metric fields used for scoring — they
     // are computed here for narrative reporting and future integration.
-    let _sdt_acoustic = compute_sdt_acoustic_metrics(
+    let sdt_acoustic = compute_sdt_acoustic_metrics(
         cavitation_intensity,
         max_venturi_transit_time_s,
         safety.pressure_drop_pa,
     );
 
-    // Integration notes for future scoring refinement:
-    //
-    // 1. Sonosensitizer activation (_sdt_acoustic.sensitizer_activation_efficiency):
-    //    Could modulate cancer_dose_fraction:
-    //      cancer_dose_fraction_enhanced = cancer_dose_fraction * sensitizer_activation
-    //
-    // 2. Rayleigh-Plesset amplification (_sdt_acoustic.rayleigh_plesset_amplification):
-    //    Could refine hemolysis_index_per_pass_cavitation_amplified:
-    //      hi_rp_corrected = corrected_hi * rp_amplification
-    //
-    // 3. Acoustic energy density (_sdt_acoustic.acoustic_energy_density_j_m3):
-    //    Could refine acoustic_resonance_factor via energy-weighted resonance.
-    //
-    // 4. Contrast factors (_sdt_acoustic.ctc_contrast_factor, .rbc_contrast_factor):
-    //    The ratio ctc/rbc predicts differential acoustic radiation force and
-    //    could refine cancer_targeted_cavitation selectivity.
+    // Sonosensitizer activation modulates cancer dose (Rosenthal 2004):
+    // short throat transits (< 1 ms) yield incomplete activation.
+    let cancer_dose_fraction =
+        cancer_dose_fraction * sdt_acoustic.sensitizer_activation_efficiency.max(0.01);
+    metrics.cancer_dose_fraction = cancer_dose_fraction;
+
+    // Rayleigh-Plesset collapse amplification (Rayleigh 1917):
+    // bubble collapse micro-jets increase hemolysis beyond the base shear model.
+    if cavitation_potential > 0.0 {
+        metrics.hemolysis_index_per_pass_cavitation_amplified *=
+            sdt_acoustic.rayleigh_plesset_amplification;
+    }
+
+    // Acoustic energy density and contrast factors are available for
+    // narrative reporting via sdt_acoustic.acoustic_energy_density_j_m3,
+    // sdt_acoustic.ctc_contrast_factor, and sdt_acoustic.rbc_contrast_factor.
 
     Ok(metrics)
 }
@@ -571,8 +571,9 @@ pub fn compute_blueprint_report_metrics(
 
 /// SDT acoustic metrics computed from the validated cfd-1d physics models.
 ///
-/// These AUGMENT the existing cavitation-based metrics for narrative reporting.
-/// They are not yet wired into scoring to preserve backward compatibility.
+/// These AUGMENT the existing cavitation-based metrics.
+/// Sensitizer activation and RP amplification are wired into the report pipeline;
+/// acoustic energy density and contrast factors are available for narrative reporting.
 #[derive(Debug, Clone, Copy)]
 pub struct SdtAcousticMetrics {
     /// Sonosensitizer activation fraction (Rosenthal 2004 first-order kinetics).

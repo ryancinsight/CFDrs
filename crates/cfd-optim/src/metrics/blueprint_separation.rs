@@ -144,9 +144,28 @@ pub fn compute_blueprint_separation_metrics(
     }
 
     let cascade = mixed_cascade_separation_kappa_aware(&cascade_stages);
+
+    // Amini (2014) confinement-dependent lift correction.
+    // For narrow treatment channels (D_h < 200 µm), cancer cells experience
+    // enhanced focusing due to wall confinement (κ > κ_ref = 0.1).
+    // This multiplier increases the effective cancer_center_fraction.
+    let cancer_center_corrected = if let Some(last_stage) = cascade_stages.last() {
+        let treatment_dh_m = last_stage.treatment_dh_m;
+        if treatment_dh_m > 0.0 {
+            let ctc_diameter = 17.5e-6; // MCF7 breast cancer CTC diameter [m]
+            let kappa = ctc_diameter / (2.0 * treatment_dh_m).max(1e-9);
+            let amini_factor = cfd_1d::amini_confinement_correction(kappa);
+            (cascade.cancer_center_fraction * amini_factor).clamp(0.0, 1.0)
+        } else {
+            cascade.cancer_center_fraction
+        }
+    } else {
+        cascade.cancer_center_fraction
+    };
+
     Ok(BlueprintSeparationMetrics {
         stage_summaries,
-        cancer_center_fraction: cascade.cancer_center_fraction,
+        cancer_center_fraction: cancer_center_corrected,
         wbc_center_fraction: cascade.wbc_center_fraction,
         rbc_peripheral_fraction: cascade.rbc_peripheral_fraction,
         separation_efficiency: cascade.separation_efficiency,

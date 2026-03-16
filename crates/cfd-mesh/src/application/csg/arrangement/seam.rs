@@ -274,7 +274,7 @@ pub(crate) fn stitch_boundary_seams(faces: &mut Vec<FaceData>, pool: &VertexPool
             );
         }
 
-        apply_vertex_merge(faces, &merge_map);
+        apply_vertex_merge(faces, &merge_map, pool);
     }
 
     // === Pass 2: bounded nearest-boundary-vertex merge (last resort) ===
@@ -332,7 +332,7 @@ pub(crate) fn stitch_boundary_seams(faces: &mut Vec<FaceData>, pool: &VertexPool
             );
         }
 
-        apply_vertex_merge(faces, &merge_map);
+        apply_vertex_merge(faces, &merge_map, pool);
     }
 }
 
@@ -418,7 +418,7 @@ pub(crate) fn stitch_boundary_seams_conservative(faces: &mut Vec<FaceData>, pool
             );
         }
 
-        apply_vertex_merge(faces, &merge_map);
+        apply_vertex_merge(faces, &merge_map, pool);
     }
 }
 

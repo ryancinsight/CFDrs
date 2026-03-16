@@ -65,14 +65,21 @@ pub fn evaluate_blueprint_genetic_refinement(
     let rbc_shield = (1.0 - evaluation.venturi.rbc_exposure_fraction).clamp(0.0, 1.0);
     let wbc_shield = (1.0 - evaluation.venturi.wbc_exposure_fraction).clamp(0.0, 1.0);
 
-    let dean_norm = evaluation
+    let max_dean = evaluation
         .venturi
         .placements
         .iter()
         .map(|placement| placement.dean_number)
-        .fold(0.0_f64, f64::max)
-        / 100.0;
-    let dean_norm = dean_norm.clamp(0.0, 1.0);
+        .fold(0.0_f64, f64::max);
+
+    // Bayat-Rezai (2017) millifluidic Dean enhancement factor.
+    // For rectangular channels at Re < 500, the friction factor enhancement
+    // from secondary flow is: f/f_straight = 1 + 0.085 * De^0.48
+    // This amplifies the Dean score by ~25% for typical millifluidic Dean
+    // numbers (De = 20-50), reflecting stronger secondary vortex focusing
+    // than the classical Ito (1959) circular-tube prediction.
+    let bayat_factor = cfd_1d::bayat_rezai_enhancement(max_dean);
+    let dean_norm = (max_dean / 100.0 * bayat_factor.sqrt()).clamp(0.0, 1.0);
 
     let lineage_norm = candidate.blueprint.lineage().map_or(0.0, |lineage| {
         (lineage.mutations.len() as f64 / 5.0).clamp(0.0, 1.0)

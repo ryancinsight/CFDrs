@@ -139,6 +139,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             0.05,
             ms,
             2,
+            1,
         );
         write_stl(
             &result,
@@ -160,6 +161,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             0.05,
             ms,
             2,
+            1,
         );
         write_stl(
             &result,
@@ -180,6 +182,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             v_cyl - v_intersect,
             0.05,
             ms,
+            -2,
             2,
         );
         write_stl(
@@ -196,7 +199,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128, expected_chi: i64) {
+fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128, expected_chi: i64, expected_comps: usize) {
     let vol = mesh.signed_volume();
     let n = analyze_normals(mesh);
     let err = (vol - expected).abs() / expected.abs().max(1e-12);
@@ -209,7 +212,7 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
     let n_comps = connected_components(&mesh.faces, &adj).len();
 
     let chi_ok = wt.euler_characteristic == Some(expected_chi);
-    let comps_ok = n_comps == 1;
+    let comps_ok = n_comps == expected_comps;
     let norm_ok = n.inward_faces == 0;
     let any_issue = !wt.is_watertight || !chi_ok || !comps_ok || !norm_ok;
 
@@ -228,11 +231,11 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
         if chi_ok { "PASS" } else { "WARN" }
     );
     println!(
-        "    Components : {n_comps}  [{}]",
+        "    Components : {n_comps}  (expected {expected_comps})  [{}]",
         if comps_ok {
             "PASS"
         } else {
-            "WARN phantom islands"
+            "WARN"
         }
     );
     println!(
@@ -268,11 +271,16 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
             );
         }
         if !comps_ok {
+            let adj2 = AdjacencyGraph::build(&mesh.faces, mesh.edges_ref().unwrap());
+            let comps = connected_components(&mesh.faces, &adj2);
             println!(
                 "       - {} connected component(s): {} phantom island(s) present",
-                n_comps,
-                n_comps.saturating_sub(1)
+                comps.len(),
+                comps.len().saturating_sub(1)
             );
+            for (i, comp) in comps.iter().enumerate() {
+                println!("         [{i}] {} faces", comp.len());
+            }
         }
         if !norm_ok {
             println!(

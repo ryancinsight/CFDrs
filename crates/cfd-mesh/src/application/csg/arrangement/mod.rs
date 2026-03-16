@@ -154,25 +154,8 @@ use classify::FragRecord;
 use coplanar_groups::{build_coplanar_group_index, process_coplanar_groups};
 use fragment_classification::classify_kept_fragments;
 use fragment_refinement::{append_corefined_fragments, consolidate_cross_mesh_vertices};
-use propagate::propagate_seam_vertices;
+use propagate::propagate_seam_vertices_until_stable;
 use result_finalization::finalize_boolean_faces;
-
-fn propagate_seam_vertices_until_stable(
-    faces: &[FaceData],
-    segs: &mut [Vec<SnapSegment>],
-    pool: &VertexPool,
-) {
-    const MAX_PROPAGATION_PASSES: usize = 8;
-
-    for _ in 0..MAX_PROPAGATION_PASSES {
-        let before: usize = segs.iter().map(Vec::len).sum();
-        propagate_seam_vertices(faces, segs, pool);
-        let after: usize = segs.iter().map(Vec::len).sum();
-        if after == before {
-            break;
-        }
-    }
-}
 
 /// Perform a Boolean operation on two **curved** (non-flat-face) face soups
 /// using the Mesh Arrangement pipeline.

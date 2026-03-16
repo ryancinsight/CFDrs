@@ -277,6 +277,45 @@ pub fn propagate_seam_vertices(
     }
 }
 
+/// Repeatedly apply [`propagate_seam_vertices`] until no new segments are
+/// generated, ensuring transitive seam propagation converges.
+///
+/// ## Algorithm — Fixed-Point Propagation
+///
+/// Each pass may inject new snap-segments into faces adjacent to already-
+/// segmented faces.  Those newly-segmented faces may in turn have neighbours
+/// that need propagation.  The loop terminates when a pass adds zero new
+/// segments (segment count is monotonically non-decreasing).
+///
+/// ## Theorem — Termination
+///
+/// **Statement.**  Propagation converges in at most $D$ passes, where $D$ is
+/// the diameter of the face-adjacency graph restricted to faces touched by
+/// intersection curves.
+///
+/// **Proof.**  Each pass extends segments by one adjacency hop.  After pass $k$,
+/// every face within $k$ hops of an originally-segmented face has been
+/// processed.  Since the affected face set is finite (bounded by the mesh
+/// face count $F$) and the segment count is monotonically non-decreasing,
+/// the total number of passes is at most $\min(D, F)$.  The guard constant
+/// `MAX_PROPAGATION_PASSES = 8` provides an $O(1)$ upper bound for safety.  ∎
+pub(crate) fn propagate_seam_vertices_until_stable(
+    faces: &[FaceData],
+    segs: &mut [Vec<SnapSegment>],
+    pool: &VertexPool,
+) {
+    const MAX_PROPAGATION_PASSES: usize = 8;
+
+    for _ in 0..MAX_PROPAGATION_PASSES {
+        let before: usize = segs.iter().map(Vec::len).sum();
+        propagate_seam_vertices(faces, segs, pool);
+        let after: usize = segs.iter().map(Vec::len).sum();
+        if after == before {
+            break;
+        }
+    }
+}
+
 // ══ Phase 2d helper: seam vertex injection into barrel rim faces ═══════════════
 
 /// Inject snap segments into barrel rim faces so they are corefined at every

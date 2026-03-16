@@ -506,6 +506,20 @@ pub(crate) fn ear_clip_fill(
         if !found_ear {
             // No ear found — polygon may be self-intersecting in projection.
             // Fall back to fan triangulation from vertex 0 for remaining polygon.
+            //
+            // Winding consistency: each fan triangle's normal is checked against
+            // the Newell-method loop normal.  If the dot product is negative the
+            // triangle has inverted winding relative to the boundary loop, so we
+            // flip vertex order to maintain orientation coherence.
+            //
+            // ## Theorem — Fan Winding Correction
+            //
+            // For a simple boundary loop with Newell normal N̂, a fan triangle
+            // T = (v₀, vᵢ, vᵢ₊₁) has cross product C = (vᵢ−v₀)×(vᵢ₊₁−v₀).
+            // If C·N̂ > 0, T is consistently oriented with the loop; if C·N̂ < 0,
+            // switching to (v₀, vᵢ₊₁, vᵢ) yields −C whose dot with N̂ is positive.
+            // For non-convex loops, some fan triangles necessarily have C·N̂ < 0,
+            // so the winding flip is required to avoid surface-normal inversions.  ∎
             for i in 1..indices.len() - 1 {
                 let a = indices[0];
                 let b = indices[i];
@@ -514,10 +528,15 @@ pub(crate) fn ear_clip_fill(
                 let pa = pool.position(va);
                 let pb = pool.position(vb);
                 let pc = pool.position(vc);
-                if (pb - pa).cross(&(pc - pa)).norm_squared() > 1e-30
+                let cross = (pb - pa).cross(&(pc - pa));
+                if cross.norm_squared() > 1e-30
                     && !would_create_nm(va, vb, vc, valence)
                 {
-                    out.push(FaceData::untagged(va, vb, vc));
+                    if cross.dot(&normal) >= 0.0 {
+                        out.push(FaceData::untagged(va, vb, vc));
+                    } else {
+                        out.push(FaceData::untagged(va, vc, vb));
+                    }
                     record_triangle(va, vb, vc, valence);
                     count += 1;
                 }

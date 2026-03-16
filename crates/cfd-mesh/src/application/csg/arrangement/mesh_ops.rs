@@ -7,6 +7,7 @@ use hashbrown::{HashMap, HashSet};
 
 use crate::domain::core::index::VertexId;
 use crate::infrastructure::storage::face_store::FaceData;
+use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 /// Build directed boundary half-edges for a face soup.
 ///
@@ -44,7 +45,27 @@ pub(crate) fn merge_root(merge: &HashMap<VertexId, VertexId>, mut v: VertexId) -
 ///
 /// `merge` is interpreted as `discard -> keep` mapping. Chains are followed
 /// transitively (`a->b`, `b->c` => `a->c`).
-pub(crate) fn apply_vertex_merge(faces: &mut Vec<FaceData>, merge: &HashMap<VertexId, VertexId>) {
+///
+/// ## Degenerate face removal
+///
+/// After remapping, a face is removed if:
+/// 1. **Collapsed vertices** — any two of the three vertex IDs are equal, OR
+/// 2. **Collinear vertices** — all three vertex IDs are distinct but the
+///    positions are (nearly) collinear, producing a zero-area triangle.
+///
+/// ## Theorem — Collinear Detection via Cross-Product Magnitude
+///
+/// For triangle $(p_0, p_1, p_2)$, the area is $\tfrac12 \lVert (p_1-p_0)
+/// \times (p_2-p_0) \rVert$.  The face is degenerate when $\lVert (p_1-p_0)
+/// \times (p_2-p_0) \rVert^2 \le \varepsilon$ for machine-zero tolerance
+/// $\varepsilon = 10^{-30}$.  This catches all three failure modes: identical
+/// vertices (zero edge), collinear vertices (zero cross product), and
+/// near-degenerate slivers.  ∎
+pub(crate) fn apply_vertex_merge(
+    faces: &mut Vec<FaceData>,
+    merge: &HashMap<VertexId, VertexId>,
+    pool: &VertexPool,
+) {
     if merge.is_empty() {
         return;
     }
@@ -56,9 +77,18 @@ pub(crate) fn apply_vertex_merge(faces: &mut Vec<FaceData>, merge: &HashMap<Vert
     }
 
     faces.retain(|f| {
-        f.vertices[0] != f.vertices[1]
-            && f.vertices[1] != f.vertices[2]
-            && f.vertices[2] != f.vertices[0]
+        // Collapsed vertices (two or more equal after merge)
+        if f.vertices[0] == f.vertices[1]
+            || f.vertices[1] == f.vertices[2]
+            || f.vertices[2] == f.vertices[0]
+        {
+            return false;
+        }
+        // Collinear but distinct vertices (zero-area triangle)
+        let p0 = pool.position(f.vertices[0]);
+        let p1 = pool.position(f.vertices[1]);
+        let p2 = pool.position(f.vertices[2]);
+        (p1 - p0).cross(&(p2 - p0)).norm_squared() > 1e-30
     });
     dedup_faces_unordered(faces);
 }
@@ -95,10 +125,14 @@ mod tests {
 
     #[test]
     fn apply_vertex_merge_removes_degenerate_and_duplicate_faces() {
-        let v0 = VertexId::new(0);
-        let v1 = VertexId::new(1);
-        let v2 = VertexId::new(2);
-        let v3 = VertexId::new(3);
+        use crate::domain::core::scalar::Real;
+
+        let mut pool = VertexPool::new(1.0 as Real);
+        let up = nalgebra::Vector3::<Real>::new(0.0, 0.0, 1.0);
+        let v0 = pool.insert_unique(nalgebra::Point3::new(0.0, 0.0, 0.0), up);
+        let v1 = pool.insert_unique(nalgebra::Point3::new(1.0, 0.0, 0.0), up);
+        let v2 = pool.insert_unique(nalgebra::Point3::new(0.0, 1.0, 0.0), up);
+        let v3 = pool.insert_unique(nalgebra::Point3::new(0.0, 2.0, 0.0), up);
 
         let mut faces = vec![
             FaceData::untagged(v0, v1, v2),
@@ -110,8 +144,30 @@ mod tests {
         let mut merge = HashMap::new();
         merge.insert(v3, v2);
 
-        apply_vertex_merge(&mut faces, &merge);
+        apply_vertex_merge(&mut faces, &merge, &pool);
         assert_eq!(faces.len(), 1);
         assert_eq!(faces[0].vertices, [v0, v1, v2]);
+    }
+
+    #[test]
+    fn apply_vertex_merge_removes_collinear_zero_area_faces() {
+        use crate::domain::core::scalar::Real;
+
+        let mut pool = VertexPool::new(1.0 as Real);
+        let up = nalgebra::Vector3::<Real>::new(0.0, 0.0, 1.0);
+        let v0 = pool.insert_unique(nalgebra::Point3::new(0.0, 0.0, 0.0), up);
+        let v1 = pool.insert_unique(nalgebra::Point3::new(1.0, 0.0, 0.0), up);
+        let v2 = pool.insert_unique(nalgebra::Point3::new(0.5, 0.0, 0.0), up);
+        // v0, v1, v2 are collinear — face area = 0
+        let v3 = pool.insert_unique(nalgebra::Point3::new(2.0, 0.0, 0.0), up);
+
+        // Merge v3 -> v1 so the merge map is non-empty (triggers filtering).
+        let mut merge = HashMap::new();
+        merge.insert(v3, v1);
+        let mut faces = vec![
+            FaceData::untagged(v0, v1, v2), // collinear → zero area
+        ];
+        apply_vertex_merge(&mut faces, &merge, &pool);
+        assert!(faces.is_empty(), "collinear zero-area face should be culled");
     }
 }

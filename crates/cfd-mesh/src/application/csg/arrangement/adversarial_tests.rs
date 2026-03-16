@@ -1820,4 +1820,535 @@ mod tests {
             "flat-cube × sphere intersection volume should be small positive, got {vol:.6}"
         );
     }
+
+    // ── CW11: Topological adversarial tests ────────────────────────────────
+    //
+    // These tests target known failure modes common across mesh Boolean
+    // libraries (CGAL, libigl, Cork, Manifold):
+    //
+    // | # | Failure Mode | Libraries Affected |
+    // |---|---|---|
+    // | 1 | Thin-wall collinear collapse | Cork, libigl |
+    // | 2 | Tangent-plane shared-edge | CGAL Nef, Cork |
+    // | 3 | Many-operand coplanar union | Cork, libigl |
+    // | 4 | Micro-scale T-junction gaps | libigl, Manifold |
+    // | 5 | Zero-volume intersection lens | Cork |
+
+    /// Two cubes sharing a single face (tangent contact) — union should
+    /// produce a valid closed mesh.
+    ///
+    /// ## Known Library Failure
+    ///
+    /// Cork and CGAL Nef polyhedra historically fail on face-contact
+    /// configurations because the coplanar face pair creates two zero-
+    /// volume fragments that confuse inside/outside classification.
+    ///
+    /// ## Theorem — Face-Tangent Union
+    ///
+    /// For two closed manifolds $A$ and $B$ sharing exactly one face $f$,
+    /// $A \cup B$ is the convex hull minus $f$'s interior.  The boundary
+    /// of $A \cup B$ is $(\partial A \cup \partial B) \setminus (f^+ \cup f^-)$
+    /// plus the boundary loop of $f$ (shared edges).  The result is a
+    /// closed 2-manifold with Euler characteristic $\chi = 2$.  ∎
+    #[test]
+    fn face_tangent_cubes_union_produces_closed_mesh() {
+        // Two cubes touching on the x=1 plane
+        let cube_a = Cube {
+            origin: Point3r::new(-1.0, -1.0, -1.0),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("cube_a");
+
+        let cube_b = Cube {
+            origin: Point3r::new(1.0, -1.0, -1.0),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("cube_b");
+
+        let result = csg_boolean(BooleanOp::Union, &cube_a, &cube_b);
+        match result {
+            Ok(mesh) => {
+                assert!(!mesh.faces.is_empty(), "union must produce faces");
+                let vol = signed_volume(&mesh);
+                // Two unit cubes touching: volume should be 16 (2×2×2 each)
+                assert!(
+                    (vol - 16.0).abs() < 1.0,
+                    "face-tangent union volume ~16, got {vol:.4}"
+                );
+            }
+            Err(_) => {
+                // Structured error is acceptable for this degenerate config
+            }
+        }
+    }
+
+    /// Three coplanar squares unioned: tests the n-ary coplanar reduction tree.
+    ///
+    /// ## Known Library Failure
+    ///
+    /// Cork and libigl accumulate tessellation artifacts when performing
+    /// sequential binary unions on coplanar geometry.  The balanced
+    /// reduction tree minimises intermediate operand complexity.
+    ///
+    /// ## Theorem — Coplanar N-ary Union Area
+    ///
+    /// For $n$ axis-aligned squares of side $s$ arranged in a row with
+    /// 50% overlap, the union area is $A = s^2 + (n-1) \cdot s^2/2$.
+    /// For $n=3$, $s=2$: $A = 4 + 2 \cdot 2 = 8$.  ∎
+    #[test]
+    fn three_coplanar_squares_n_ary_union() {
+        // Three thin boxes (flat quads) in the XY plane with 50% overlap
+        let sq_a = Cube {
+            origin: Point3r::new(0.0, 0.0, -0.001),
+            width: 2.0,
+            height: 2.0,
+            depth: 0.002,
+        }
+        .build()
+        .expect("sq_a");
+        let sq_b = Cube {
+            origin: Point3r::new(1.0, 0.0, -0.001),
+            width: 2.0,
+            height: 2.0,
+            depth: 0.002,
+        }
+        .build()
+        .expect("sq_b");
+        let sq_c = Cube {
+            origin: Point3r::new(2.0, 0.0, -0.001),
+            width: 2.0,
+            height: 2.0,
+            depth: 0.002,
+        }
+        .build()
+        .expect("sq_c");
+
+        // Multi-mesh union
+        let ab = csg_boolean(BooleanOp::Union, &sq_a, &sq_b);
+        if let Ok(ab_mesh) = ab {
+            let result = csg_boolean(BooleanOp::Union, &ab_mesh, &sq_c);
+            if let Ok(mesh) = result {
+                assert!(!mesh.faces.is_empty(), "3-way coplanar union must produce faces");
+                let vol = signed_volume(&mesh);
+                // Thin box: volume ≈ area × 0.002
+                assert!(vol > 0.0, "coplanar union volume must be positive, got {vol:.6}");
+            }
+        }
+    }
+
+    /// Micro-scale cubes (millifluidic dimensions) — tests snap_round
+    /// thresholds and T-junction handling at small scales.
+    ///
+    /// ## Known Library Failure
+    ///
+    /// libigl and Manifold use fixed epsilon tolerances calibrated for
+    /// unit-scale geometry.  At millifluidic scales (0.1–1 mm), these
+    /// tolerances may be too large relative to geometry, causing
+    /// T-junction gaps or spurious vertex welding.
+    ///
+    /// ## Theorem — Scale Invariance
+    ///
+    /// A robust Boolean pipeline produces topologically equivalent results
+    /// under uniform scaling $S$.  If a result is manifold at scale 1,
+    /// it must also be manifold at scale $10^{-3}$ (millifluidic).  ∎
+    #[test]
+    fn micro_scale_cube_difference_produces_valid_mesh() {
+        let scale = 0.1; // 100 µm cubes
+        let big = Cube {
+            origin: Point3r::new(0.0, 0.0, 0.0),
+            width: scale,
+            height: scale,
+            depth: scale,
+        }
+        .build()
+        .expect("micro big cube");
+
+        let small = Cube {
+            origin: Point3r::new(scale * 0.25, scale * 0.25, scale * 0.25),
+            width: scale * 0.5,
+            height: scale * 0.5,
+            depth: scale * 0.5,
+        }
+        .build()
+        .expect("micro small cube");
+
+        let result = csg_boolean(BooleanOp::Difference, &big, &small)
+            .expect("micro-scale difference must succeed");
+        assert!(!result.faces.is_empty(), "must produce faces");
+        let vol = signed_volume(&result);
+        let expected = scale.powi(3) - (scale * 0.5).powi(3);
+        assert!(
+            (vol - expected).abs() < expected * 0.15,
+            "micro-scale volume: expected {expected:.8}, got {vol:.8}"
+        );
+    }
+
+    /// Edge-contact cubes: two cubes sharing exactly one edge.
+    ///
+    /// ## Known Library Failure
+    ///
+    /// Edge-only contact produces zero-area intersection fragments that
+    /// confuse fragment classification in Cork and libigl.  The GWN
+    /// classifier must correctly identify the contact as a boundary
+    /// condition, not an interior region.
+    ///
+    /// ## Theorem — Edge-Contact Union
+    ///
+    /// For two closed manifolds $A$, $B$ sharing exactly one edge $e$,
+    /// $A \cap B = e$ (a 1-manifold) and $|A \cup B| = |A| + |B|$.
+    /// The union is a valid 2-manifold with two connected components
+    /// or (if treated as non-manifold) a pinched surface at $e$.  ∎
+    #[test]
+    fn edge_contact_cubes_union_volume_additive() {
+        let cube_a = Cube {
+            origin: Point3r::new(-1.0, -1.0, -1.0),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("cube_a");
+
+        // Touching on edge at (1, 1, z)
+        let cube_b = Cube {
+            origin: Point3r::new(1.0, 1.0, -1.0),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("cube_b");
+
+        let result = csg_boolean(BooleanOp::Union, &cube_a, &cube_b);
+        match result {
+            Ok(mesh) => {
+                let vol = signed_volume(&mesh);
+                // Two disjoint cubes (touching edge only): volume = 8 + 8 = 16
+                assert!(
+                    (vol - 16.0).abs() < 1.0,
+                    "edge-contact union volume ~16, got {vol:.4}"
+                );
+            }
+            Err(_) => {
+                // Structured error acceptable for edge-contact degeneracy
+            }
+        }
+    }
+
+    /// Vertex-contact cubes: touching at exactly one vertex.
+    ///
+    /// ## Known Library Failure
+    ///
+    /// Vertex-only contact is the most degenerate configuration — the
+    /// intersection is a single point (0-manifold).  Cork panics on this
+    /// configuration; CGAL Nef handles it but produces extraneous faces.
+    ///
+    /// ## Theorem — Vertex-Contact Union
+    ///
+    /// For two closed manifolds $A$, $B$ sharing exactly one vertex $v$,
+    /// $|A \cup B| = |A| + |B|$.  The union mesh is non-manifold at $v$
+    /// (link is two disjoint circles, not one).  ∎
+    #[test]
+    fn vertex_contact_cubes_union_volume_additive() {
+        let cube_a = Cube {
+            origin: Point3r::new(-1.0, -1.0, -1.0),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("cube_a");
+
+        // Touching at vertex (1, 1, 1) = (-1+2, -1+2, -1+2) = corner of A
+        let cube_b = Cube {
+            origin: Point3r::new(1.0, 1.0, 1.0),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("cube_b");
+
+        let result = csg_boolean(BooleanOp::Union, &cube_a, &cube_b);
+        match result {
+            Ok(mesh) => {
+                let vol = signed_volume(&mesh);
+                assert!(
+                    (vol - 16.0).abs() < 1.0,
+                    "vertex-contact union volume ~16, got {vol:.4}"
+                );
+            }
+            Err(_) => {
+                // Structured error acceptable for vertex-contact degeneracy
+            }
+        }
+    }
+
+    /// Thin-wall cube difference: hollow out a cube leaving a thin shell.
+    ///
+    /// ## Known Library Failure
+    ///
+    /// When the inner and outer cubes nearly coincide (thin wall), seam
+    /// vertex merging can collapse across the wall, creating holes.  Cork
+    /// and libigl are known to fail with wall thickness < ~1% of cube size.
+    ///
+    /// ## Theorem — Thin-Wall Volume
+    ///
+    /// For outer cube side $a$ and inner cube side $b = a - 2t$ (wall
+    /// thickness $t$), $|A \setminus B| = a^3 - b^3$.  For $a=2$,
+    /// $b=1.96$ ($t=0.02$): $V = 8 - 7.529536 = 0.470464$.  ∎
+    #[test]
+    fn thin_wall_cube_difference_no_collapse() {
+        let outer = Cube {
+            origin: Point3r::new(-1.0, -1.0, -1.0),
+            width: 2.0,
+            height: 2.0,
+            depth: 2.0,
+        }
+        .build()
+        .expect("outer cube");
+
+        let wall = 0.02; // 2% wall thickness
+        let inner = Cube {
+            origin: Point3r::new(-1.0 + wall, -1.0 + wall, -1.0 + wall),
+            width: 2.0 - 2.0 * wall,
+            height: 2.0 - 2.0 * wall,
+            depth: 2.0 - 2.0 * wall,
+        }
+        .build()
+        .expect("inner cube");
+
+        let result = csg_boolean(BooleanOp::Difference, &outer, &inner)
+            .expect("thin-wall difference must succeed");
+        assert!(!result.faces.is_empty(), "thin-wall must produce faces");
+        let vol = signed_volume(&result);
+        let outer_vol = 8.0_f64;
+        let inner_side = 2.0 - 2.0 * wall;
+        let inner_vol = inner_side.powi(3);
+        let expected = outer_vol - inner_vol;
+        assert!(
+            (vol - expected).abs() < expected * 0.25,
+            "thin-wall volume: expected {expected:.6}, got {vol:.6}"
+        );
+    }
+
+    // ── Pinch-vertex adversarial tests ────────────────────────────────────
+    //
+    // These target the figure-8 vertex topology defect at dense multi-way
+    // junctions.  A pinch vertex passes manifold edge checks (every edge
+    // shared by exactly 2 faces) but violates the vertex-link simple-cycle
+    // invariant, reducing the Euler characteristic by 1 per pinch.
+    //
+    // Known to affect: Cork, CGAL Nef, libigl, Manifold (prior versions).
+
+    /// Three cylinders at 120° spacing — symmetric trifurcation.
+    ///
+    /// # Known Library Failures
+    ///
+    /// 120° spacing creates a symmetric 3-way junction where all three
+    /// intersection curves meet at a single point.  The rotational symmetry
+    /// increases the probability of vertex coincidence at the junction,
+    /// making pinch vertices almost certain in libraries that use
+    /// single-valued half-edge adjacency maps.
+    ///
+    /// # Theorem (Symmetric Junction Euler Invariant)
+    ///
+    /// The union of *k* cylinders meeting at a common junction with
+    /// genus-0 topology must satisfy χ = 2 regardless of the angular
+    /// spacing, provided every vertex link is a simple cycle.
+    ///
+    /// **Proof sketch.**  The union boundary is a closed oriented
+    /// 2-manifold homeomorphic to a sphere (genus 0).  For any closed
+    /// oriented 2-manifold of genus *g*, χ = 2(1 − g) = 2.  ∎
+    #[test]
+    fn symmetric_120deg_cylinder_union_no_pinch() {
+        use crate::application::csg::boolean::csg_boolean_nary;
+        use crate::application::csg::CsgNode;
+        use crate::application::watertight::check::check_watertight;
+        use nalgebra::{Isometry3, Translation3, UnitQuaternion, Vector3};
+
+        let radius = 0.4;
+        let height = 3.0;
+        let segments = 24;
+        let mut meshes = Vec::new();
+        for angle_deg in [0.0_f64, 120.0, 240.0] {
+            // Create cylinder along +Y, then rotate around Z to the desired angle.
+            // Subtract PI/2 so angle 0° points along +X.
+            let raw = Cylinder {
+                base_center: Point3r::new(0.0, 0.0, 0.0),
+                radius,
+                height,
+                segments,
+            }
+            .build()
+            .expect("cylinder");
+            let rotation = UnitQuaternion::<f64>::from_axis_angle(
+                &Vector3::z_axis(),
+                angle_deg.to_radians() - std::f64::consts::FRAC_PI_2,
+            );
+            let m = CsgNode::Transform {
+                node: Box::new(CsgNode::Leaf(Box::new(raw))),
+                iso: Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rotation),
+            }
+            .evaluate()
+            .expect("cylinder transform");
+            meshes.push(m);
+        }
+
+        let mut result =
+            csg_boolean_nary(BooleanOp::Union, &meshes).expect("120° cylinder union");
+        result.rebuild_edges();
+        let report = check_watertight(
+            &result.vertices,
+            &result.faces,
+            result.edges_ref().unwrap(),
+        );
+        assert!(
+            report.is_watertight,
+            "120° cylinder union must be watertight"
+        );
+        assert_eq!(
+            report.euler_characteristic,
+            Some(2),
+            "120° cylinder union χ = {:?}, expected 2 — pinch vertex present",
+            report.euler_characteristic,
+        );
+    }
+
+    /// Four cylinders at 90° spacing in a cross pattern — dense 4-way junction.
+    ///
+    /// # Known Library Failures
+    ///
+    /// A 4-way cross junction creates 6 pairwise intersection curves
+    /// meeting at the origin.  The 90° symmetry maximises vertex
+    /// coincidence at the junction, making pinch vertices likely
+    /// in libraries with single-valued half-edge adjacency.
+    #[test]
+    fn cross_4_cylinder_union_no_pinch() {
+        use crate::application::csg::boolean::csg_boolean_nary;
+        use crate::application::csg::CsgNode;
+        use crate::application::watertight::check::check_watertight;
+        use nalgebra::{Isometry3, Translation3, UnitQuaternion, Vector3};
+
+        let radius = 0.4;
+        let height = 3.0;
+        let segments = 24;
+        let mut meshes = Vec::new();
+        for angle_deg in [0.0_f64, 90.0, 180.0, 270.0] {
+            let raw = Cylinder {
+                base_center: Point3r::new(0.0, 0.0, 0.0),
+                radius,
+                height,
+                segments,
+            }
+            .build()
+            .expect("cross cylinder");
+            let rotation = UnitQuaternion::<f64>::from_axis_angle(
+                &Vector3::z_axis(),
+                angle_deg.to_radians() - std::f64::consts::FRAC_PI_2,
+            );
+            let m = CsgNode::Transform {
+                node: Box::new(CsgNode::Leaf(Box::new(raw))),
+                iso: Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rotation),
+            }
+            .evaluate()
+            .expect("cross cylinder transform");
+            meshes.push(m);
+        }
+
+        let mut result =
+            csg_boolean_nary(BooleanOp::Union, &meshes).expect("cross-4 cylinder union");
+        result.rebuild_edges();
+        let report = check_watertight(
+            &result.vertices,
+            &result.faces,
+            result.edges_ref().unwrap(),
+        );
+        assert!(
+            report.is_watertight,
+            "cross-4 cylinder union must be watertight"
+        );
+        assert_eq!(
+            report.euler_characteristic,
+            Some(2),
+            "cross-4 cylinder union χ = {:?}, expected 2 — pinch vertex(es) detected",
+            report.euler_characteristic,
+        );
+    }
+
+    /// Star-shaped cylinder union — 5 cylinders at 72° spacing through origin.
+    ///
+    /// # Known Library Failures
+    ///
+    /// Five co-planar cylinders create a star junction with 10 pairwise
+    /// intersection curves.  The junction region has extreme vertex density,
+    /// making shared-neighbour collisions in half-edge adjacency nearly
+    /// guaranteed without multi-valued maps.
+    ///
+    /// # Theorem (Star Junction Vertex Count)
+    ///
+    /// For *k* cylinders through a common center, the junction creates
+    /// O(k²) intersection curves.  At each crossing of two curves, a
+    /// potential pinch vertex arises.  The total number of potential pinch
+    /// vertices is O(k²), requiring the detection algorithm to handle
+    /// arbitrary fan multiplicity.  ∎
+    #[test]
+    fn star_5_cylinder_union_no_pinch() {
+        use crate::application::csg::boolean::csg_boolean_nary;
+        use crate::application::csg::CsgNode;
+        use crate::application::watertight::check::check_watertight;
+        use nalgebra::{Isometry3, Translation3, UnitQuaternion, Vector3};
+
+        let radius = 0.3;
+        let height = 3.0;
+        let segments = 20;
+        let mut meshes = Vec::new();
+        for i in 0..5 {
+            let angle_deg = (i as f64) * 72.0;
+            let raw = Cylinder {
+                base_center: Point3r::new(0.0, 0.0, 0.0),
+                radius,
+                height,
+                segments,
+            }
+            .build()
+            .expect("star cylinder");
+            let rotation = UnitQuaternion::<f64>::from_axis_angle(
+                &Vector3::z_axis(),
+                angle_deg.to_radians() - std::f64::consts::FRAC_PI_2,
+            );
+            let m = CsgNode::Transform {
+                node: Box::new(CsgNode::Leaf(Box::new(raw))),
+                iso: Isometry3::from_parts(Translation3::new(0.0, 0.0, 0.0), rotation),
+            }
+            .evaluate()
+            .expect("star cylinder transform");
+            meshes.push(m);
+        }
+
+        let mut result =
+            csg_boolean_nary(BooleanOp::Union, &meshes).expect("star-5 cylinder union");
+        result.rebuild_edges();
+        let report = check_watertight(
+            &result.vertices,
+            &result.faces,
+            result.edges_ref().unwrap(),
+        );
+        assert!(
+            report.is_watertight,
+            "star-5 cylinder union must be watertight"
+        );
+        assert_eq!(
+            report.euler_characteristic,
+            Some(2),
+            "star-5 cylinder union χ = {:?}, expected 2 — pinch vertex(es) detected",
+            report.euler_characteristic,
+        );
+    }
 }

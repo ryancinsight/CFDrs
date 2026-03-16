@@ -81,7 +81,7 @@ pub fn solve_blueprint_candidate<'bp>(
 
     let config = cfd_1d::solver::core::SolverConfig {
         tolerance: 1.0e-5,
-        max_iterations: if cfg!(debug_assertions) { 50 } else { 1000 },
+        max_iterations: if cfg!(debug_assertions) { 50 } else { 500 },
     };
     let solver = NetworkSolver::<f64, CassonBlood<f64>>::with_config(config);
     let primary_problem = NetworkProblem::new(network);

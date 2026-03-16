@@ -1,7 +1,7 @@
 //! Shared disjoint-set union (DSU) for arrangement phases.
 //!
 //! Provides a single union-find implementation with union-by-size and path
-//! compression for coplanar grouping and fragment-component labeling.
+//! halving for coplanar grouping and fragment-component labeling.
 
 /// Disjoint-set union over contiguous indices `[0, n)`.
 ///

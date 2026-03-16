@@ -181,6 +181,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             v_a,
             0.20,
             ms,
+            0,
         );
 
         write_stl(
@@ -340,7 +341,7 @@ fn report_union(label: &str, mesh: &mut IndexedMesh, v_naive: f64, ms: u128) {
 /// Report for operations with an approximate expected volume (difference).
 /// Volume error is compared against `expected` with tolerance `tol` (fraction,
 /// e.g. 0.20 = 20 %).
-fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128) {
+fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128, expected_chi: i64) {
     let vol = mesh.signed_volume();
     let n = analyze_normals(mesh);
     let err = (vol - expected).abs() / expected.abs().max(1e-12);
@@ -352,7 +353,7 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
     let adj = AdjacencyGraph::build(&mesh.faces, mesh.edges_ref().unwrap());
     let n_comps = connected_components(&mesh.faces, &adj).len();
 
-    let chi_ok = wt.euler_characteristic == Some(2);
+    let chi_ok = wt.euler_characteristic == Some(expected_chi);
     let comps_ok = n_comps == 1;
     let norm_ok = n.inward_faces == 0;
     let any_issue = !wt.is_watertight || !chi_ok || !comps_ok || !norm_ok;
@@ -365,8 +366,9 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
         "    Watertight : {}  (boundary={}, non-manifold={})",
         wt.is_watertight, wt.boundary_edge_count, wt.non_manifold_edge_count
     );
+    let genus = (2 - expected_chi) / 2;
     println!(
-        "    Euler χ    : {:?}  (expected 2)  [{}]",
+        "    Euler χ    : {:?}  (expected {expected_chi}, genus {genus})  [{}]",
         wt.euler_characteristic,
         if chi_ok { "PASS" } else { "WARN" }
     );
@@ -406,7 +408,7 @@ fn report(label: &str, mesh: &mut IndexedMesh, expected: f64, tol: f64, ms: u128
         }
         if !chi_ok {
             println!(
-                "       - Euler χ = {:?} (expected 2): phantom islands or non-manifold topology",
+                "       - Euler χ = {:?} (expected {expected_chi}): phantom islands or non-manifold topology",
                 wt.euler_characteristic
             );
         }
@@ -454,6 +456,19 @@ fn connectivity_report(label: &str, mesh: &mut IndexedMesh, expected_components:
         "    Euler χ    : {} (expected {} for {} genus-0 body/bodies)",
         euler, expected_euler, expected_components,
     );
+    // V-E-F breakdown for diagnosis.
+    {
+        let mut seen_verts = hashbrown::HashSet::new();
+        for face in mesh.faces.iter() {
+            for &vid in &face.vertices {
+                seen_verts.insert(vid);
+            }
+        }
+        let v = seen_verts.len() as i64;
+        let e = edges.len() as i64;
+        let f = mesh.faces.len() as i64;
+        println!("    V-E-F      : V={v}  E={e}  F={f}  ({v}-{e}+{f}={})", v - e + f);
+    }
     println!("    Components : {}", components.len());
     for (i, comp) in components.iter().enumerate() {
         println!("      [{i}] {} faces", comp.len());

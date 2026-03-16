@@ -82,8 +82,10 @@ impl BlueprintGeneticOptimizer {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        let mut eval_cache: HashMap<String, BlueprintObjectiveEvaluation> = HashMap::new();
+
         for _generation in 0..self.max_generations {
-            let ranked = rank_population(self.goal, &population)?;
+            let ranked = rank_population(self.goal, &population, &mut eval_cache)?;
             if ranked.is_empty() {
                 return Err(OptimError::EmptyCandidates);
             }
@@ -220,11 +222,24 @@ impl BlueprintGeneticOptimizer {
 fn rank_population(
     goal: OptimizationGoal,
     population: &[BlueprintCandidate],
+    eval_cache: &mut HashMap<String, BlueprintObjectiveEvaluation>,
 ) -> Result<Vec<BlueprintRankedCandidate>, OptimError> {
     let mut ranked = population
         .iter()
         .map(|candidate| {
-            evaluate_goal(candidate, goal).map(|evaluation| BlueprintRankedCandidate {
+            // Re-use cached evaluations for elites carried across generations,
+            // avoiding redundant evaluate_goal() calls (~15 ms each).
+            let key = candidate_key(candidate).ok();
+            let evaluation = if let Some(cached) = key.as_deref().and_then(|k| eval_cache.get(k)) {
+                Ok(cached.clone())
+            } else {
+                let eval = evaluate_goal(candidate, goal)?;
+                if let Some(k) = key {
+                    eval_cache.insert(k, eval.clone());
+                }
+                Ok(eval)
+            };
+            evaluation.map(|evaluation| BlueprintRankedCandidate {
                 rank: 0,
                 candidate: candidate.clone(),
                 evaluation,
