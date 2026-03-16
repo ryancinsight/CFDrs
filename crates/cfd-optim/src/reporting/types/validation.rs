@@ -20,8 +20,8 @@ pub struct ValidationRow {
     /// Whether the 2D FVM SIMPLE solver converged and the velocity field is physical.
     #[serde(default)]
     pub two_d_converged: bool,
-    /// Whether the throat Reynolds number exceeds the Stokes-flow validity limit (Re > 1).
-    /// When true the 3D Stokes FEM ΔP will be << Bernoulli (inertia-dominated flow).
+    /// Whether the throat Reynolds number exceeds the laminar Navier-Stokes validity limit (Re > 2000).
+    /// When true the 3D Laminar FEM ΔP will be << Bernoulli (inertia-dominated turbulent flow).
     #[serde(default)]
-    pub high_re_stokes_mismatch: bool,
+    pub high_re_laminar_mismatch: bool,
 }

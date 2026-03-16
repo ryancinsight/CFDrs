@@ -8,7 +8,7 @@
 
 use cfd_validation::benchmarking::{
     analysis::{PerformanceAnalyzer, RegressionConfig, TrendType},
-    suite::{BenchmarkConfig, BenchmarkResult, BenchmarkStatus, BenchmarkSuite},
+    BenchmarkConfig, BenchmarkResult, BenchmarkStatus, BenchmarkSuite,
 };
 use cfd_validation::reporting::PerformanceMetrics;
 use std::time::Duration;

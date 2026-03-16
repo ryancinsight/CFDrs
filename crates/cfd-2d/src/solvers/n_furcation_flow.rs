@@ -162,7 +162,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> NFurcationSolver
             for j in 0..ny {
                 let x = ns_solver.grid.x_center(i) + bbox[0];
                 let y = ns_solver.grid.y_center(j) + bbox[2];
-                ns_solver.field.mask[i][j] = geometry.contains(x, y);
+                ns_solver.field.mask[(i, j)] = geometry.contains(x, y);
             }
         }
         Self {
@@ -186,13 +186,13 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> NFurcationSolver
         // Fused boundary scan: inlet (column 0) and right-outlet (column nx-1)
         // share the same j-loop, avoiding a second pass over 0..ny.
         let (q_parent, mut total_out) = (0..ny).fold((T::zero(), T::zero()), |(qp, qo), j| {
-            let qp_next = if self.ns_solver.field.mask[0][j] {
-                qp + self.ns_solver.field.u[0][j] * dy
+            let qp_next = if self.ns_solver.field.mask[(0, j)] {
+                qp + self.ns_solver.field.u[(0, j)] * dy
             } else {
                 qp
             };
-            let qo_next = if self.ns_solver.field.mask[nx - 1][j] {
-                qo + self.ns_solver.field.u[nx][j] * dy
+            let qo_next = if self.ns_solver.field.mask[(nx - 1, j)] {
+                qo + self.ns_solver.field.u[(nx, j)] * dy
             } else {
                 qo
             };
@@ -201,11 +201,11 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> NFurcationSolver
 
         // Top and bottom boundary outflux (branches exiting vertically).
         for i in 0..nx {
-            if self.ns_solver.field.mask[i][ny - 1] {
-                total_out += self.ns_solver.field.v[i][ny] * dx;
+            if self.ns_solver.field.mask[(i, ny - 1)] {
+                total_out += self.ns_solver.field.v[(i, ny)] * dx;
             }
-            if self.ns_solver.field.mask[i][0] {
-                total_out -= self.ns_solver.field.v[i][0] * dx; // v is negative, so -v is out flux
+            if self.ns_solver.field.mask[(i, 0)] {
+                total_out -= self.ns_solver.field.v[(i, 0)] * dx; // v is negative, so -v is out flux
             }
         }
 

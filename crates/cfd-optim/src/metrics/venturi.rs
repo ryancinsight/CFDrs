@@ -42,23 +42,17 @@ pub fn compute_blueprint_venturi_metrics(
     let n_placements = topology.venturi_placements.len();
     let mut placements = Vec::with_capacity(n_placements);
 
-    // Pre-build O(1) index: channel id → position in channel_samples slice.
-    // Using &str keys avoids String allocation on every lookup.
     let sample_index: HashMap<&str, usize> = solve
         .channel_samples
         .iter()
         .enumerate()
         .map(|(i, s)| (s.id, i))
         .collect();
-    // Track consumed sample indices (usize) instead of cloning Strings.
     let mut used_indices: HashSet<usize> = HashSet::with_capacity(n_placements);
-
-    // Accumulate cavitation strength inline to avoid a second pass over `placements`.
     let mut cavitation_strength_sum = 0.0_f64;
 
-    for placement in &topology.venturi_placements {
-        // 1. Exact-match or prefix-match via the pre-built index (O(1)).
-        // 2. Fall back to any unused venturi channel (linear, rare path).
+    let mut sample_to_placement = HashMap::new();
+    for (p_idx, placement) in topology.venturi_placements.iter().enumerate() {
         let sample_idx = sample_index
             .get(placement.target_channel_id.as_str())
             .copied()
@@ -88,82 +82,133 @@ pub fn compute_blueprint_venturi_metrics(
                     placement.target_channel_id
                 ),
             })?;
-        let sample = &solve.channel_samples[sample_idx];
-        let mut resolved_placement = placement.clone();
-        resolved_placement.target_channel_id = sample.id.to_string();
-        let area_inlet_m2 = (placement.throat_geometry.inlet_width_m
-            * placement.throat_geometry.throat_height_m)
-            .max(1.0e-18);
-        let area_throat_m2 = (placement.throat_geometry.throat_width_m
-            * placement.throat_geometry.throat_height_m)
-            .max(1.0e-18);
-        let upstream_velocity_m_s = sample.flow_m3_s.abs() / area_inlet_m2;
-        let throat_velocity_m_s = sample.flow_m3_s.abs() / area_throat_m2;
-        let screening = evaluate_venturi_screening(VenturiScreeningInput {
-            upstream_pressure_pa: candidate.operating_point.absolute_inlet_pressure_pa()
-                + sample.from_pressure_pa.max(0.0),
-            upstream_velocity_m_s,
-            throat_velocity_m_s,
-            throat_hydraulic_diameter_m: 2.0
-                * placement.throat_geometry.throat_width_m
-                * placement.throat_geometry.throat_height_m
-                / (placement.throat_geometry.throat_width_m
-                    + placement.throat_geometry.throat_height_m)
-                    .max(1.0e-18),
-            throat_length_m: placement.throat_geometry.throat_length_m,
-            density_kg_m3: BLOOD_DENSITY_KG_M3,
-            viscosity_pa_s: BLOOD_VISCOSITY_PA_S,
-            vapor_pressure_pa: BLOOD_VAPOR_PRESSURE_PA,
-            vena_contracta_coeff: VENTURI_CC,
-            diffuser_recovery_coeff: DIFFUSER_DISCHARGE_COEFF,
-        });
-        let dean_site = cfd_schematics::BlueprintTopologyFactory::estimate_dean_site(
-            &candidate.blueprint,
-            &resolved_placement,
-            sample.flow_m3_s.abs(),
-            BLOOD_VISCOSITY_PA_S / BLOOD_DENSITY_KG_M3,
-        )
-        .unwrap_or_default();
-        // Accumulate saturating cavitation strength inline (avoids a second pass).
-        //
-        // # Theorem — Saturating cavitation strength
-        //
-        // For cavitation number σ, the per-placement strength function
-        //   f(σ) = max(0, 1−σ) / (1 + max(0, 1−σ))
-        //
-        // satisfies:
-        //   1. f(σ) ∈ [0, 1) for all σ           (bounded, never reaches 1)
-        //   2. f(σ) = 0 ⟺ σ ≥ 1                  (no cavitation → zero contribution)
-        //   3. ∂f/∂σ < 0 for σ < 1               (monotone: lower σ ⟹ stronger cavitation)
-        //   4. lim_{σ→−∞} f(σ) = 1               (asymptotic saturation)
-        //
-        // **Proof sketch:**
-        //   Let s = max(0, 1−σ). Then f = s/(1+s).
-        //   • s ≥ 0 ⟹ f ≥ 0; s/(1+s) < 1 for finite s ⟹ f ∈ [0,1). ∎ (1)
-        //   • σ ≥ 1 ⟹ s = 0 ⟹ f = 0. ∎ (2)
-        //   • For σ < 1: ds/dσ = −1, df/ds = 1/(1+s)² > 0, so df/dσ < 0. ∎ (3)
-        //   • σ→−∞ ⟹ s→∞ ⟹ s/(1+s)→1. ∎ (4)
-        //
-        // This replaces the previous `(1−σ).clamp(0,1)` which collapsed all
-        // σ < 0 designs to identical scores, preventing discrimination among
-        // strongly cavitating venturi configurations (e.g. σ = −0.93 vs −0.88).
-        let cav_s = (1.0 - screening.cavitation_number).max(0.0);
-        cavitation_strength_sum += cav_s / (1.0 + cav_s);
-
-        placements.push(VenturiPlacementMetrics {
-            placement_id: placement.placement_id.clone(),
-            target_channel_id: sample.id.to_string(),
-            cavitation_number: screening.cavitation_number,
-            effective_throat_velocity_m_s: screening.effective_throat_velocity_m_s,
-            throat_static_pressure_pa: screening.throat_static_pressure_pa,
-            diffuser_recovery_pa: screening.diffuser_recovery_pa,
-            dean_number: dean_site.dean_number,
-            curvature_radius_m: dean_site.curvature_radius_m,
-            arc_length_m: dean_site.arc_length_m,
-        });
+        sample_to_placement.insert(sample_idx, p_idx);
     }
 
-    let cavitation_term = cavitation_strength_sum.clamp(0.0, 1.0);
+    let mut in_degree: HashMap<&str, usize> = HashMap::new();
+    let mut adj: HashMap<&str, Vec<usize>> = HashMap::new();
+    for (i, sample) in solve.channel_samples.iter().enumerate() {
+        *in_degree.entry(sample.to_node).or_insert(0) += 1;
+        in_degree.entry(sample.from_node).or_insert(0);
+        adj.entry(sample.from_node).or_default().push(i);
+    }
+    
+    let mut queue: Vec<&str> = in_degree
+        .iter()
+        .filter_map(|(n, &d)| if d == 0 { Some(*n) } else { None })
+        .collect();
+    let mut sorted_indices = Vec::with_capacity(solve.channel_samples.len());
+    while let Some(node) = queue.pop() {
+        if let Some(edges) = adj.get(node) {
+            for &edge_idx in edges {
+                sorted_indices.push(edge_idx);
+                let to_node = solve.channel_samples[edge_idx].to_node;
+                if let Some(d) = in_degree.get_mut(to_node) {
+                    *d -= 1;
+                    if *d == 0 {
+                        queue.push(to_node);
+                    }
+                }
+            }
+        }
+    }
+    if sorted_indices.len() != solve.channel_samples.len() {
+        sorted_indices = (0..solve.channel_samples.len()).collect();
+    }
+
+    let transport = cfd_core::physics::cavitation::nuclei_transport::NucleiTransport::new(
+        cfd_core::physics::cavitation::nuclei_transport::NucleiTransportConfig::default()
+    );
+
+    let mut node_nuclei: HashMap<&str, f64> = HashMap::new();
+    let mut placements_out = vec![None; n_placements];
+
+    for idx in sorted_indices {
+        let sample = &solve.channel_samples[idx];
+        let phi_in = node_nuclei.get(sample.from_node).copied().unwrap_or(0.0);
+        
+        let velocity = sample.flow_m3_s.abs() / sample.cross_section.area().max(1e-18);
+        let transit_time_s = sample.length_m / velocity.max(1e-9);
+        let phi_arrival = transport.advect_1d_dissolution(phi_in, transit_time_s);
+        let mut phi_out = phi_arrival;
+
+        if let Some(&p_idx) = sample_to_placement.get(&idx) {
+            let placement = &topology.venturi_placements[p_idx];
+            let mut resolved_placement = placement.clone();
+            resolved_placement.target_channel_id = sample.id.to_string();
+            let area_inlet_m2 = (placement.throat_geometry.inlet_width_m
+                * placement.throat_geometry.throat_height_m)
+                .max(1.0e-18);
+            let area_throat_m2 = (placement.throat_geometry.throat_width_m
+                * placement.throat_geometry.throat_height_m)
+                .max(1.0e-18);
+            let upstream_velocity_m_s = sample.flow_m3_s.abs() / area_inlet_m2;
+            let throat_velocity_m_s = sample.flow_m3_s.abs() / area_throat_m2;
+            let screening = evaluate_venturi_screening(VenturiScreeningInput {
+                upstream_pressure_pa: candidate.operating_point.absolute_inlet_pressure_pa()
+                    + sample.from_pressure_pa.max(0.0),
+                upstream_velocity_m_s,
+                throat_velocity_m_s,
+                throat_hydraulic_diameter_m: 2.0
+                    * placement.throat_geometry.throat_width_m
+                    * placement.throat_geometry.throat_height_m
+                    / (placement.throat_geometry.throat_width_m
+                        + placement.throat_geometry.throat_height_m)
+                        .max(1.0e-18),
+                throat_length_m: placement.throat_geometry.throat_length_m,
+                density_kg_m3: BLOOD_DENSITY_KG_M3,
+                viscosity_pa_s: BLOOD_VISCOSITY_PA_S,
+                vapor_pressure_pa: BLOOD_VAPOR_PRESSURE_PA,
+                vena_contracta_coeff: VENTURI_CC,
+                diffuser_recovery_coeff: DIFFUSER_DISCHARGE_COEFF,
+                upstream_nuclei_fraction: phi_arrival,
+            });
+            phi_out = screening.outlet_nuclei_fraction;
+
+            let dean_site = cfd_schematics::BlueprintTopologyFactory::estimate_dean_site(
+                &candidate.blueprint,
+                &resolved_placement,
+                sample.flow_m3_s.abs(),
+                BLOOD_VISCOSITY_PA_S / BLOOD_DENSITY_KG_M3,
+            )
+            .unwrap_or_default();
+            
+            // Cavitation strength: use log-linear mapping to preserve sensitivity
+            // across the full σ range. For σ close to 1: mild cavitation → low score.
+            // For σ << 0: strong cavitation → higher score, but not saturated.
+            // f(σ) = ln(1 + max(0, 1-σ)) / ln(2) gives 0 at σ=1, 1 at σ=0,
+            // ~2.6 at σ=-5, growing logarithmically without saturation.
+            let cav_s = (1.0 - screening.cavitation_number).max(0.0);
+            cavitation_strength_sum += (1.0 + cav_s).ln() / 2.0_f64.ln();
+
+            placements_out[p_idx] = Some(VenturiPlacementMetrics {
+                placement_id: placement.placement_id.clone(),
+                target_channel_id: sample.id.to_string(),
+                cavitation_number: screening.cavitation_number,
+                effective_throat_velocity_m_s: screening.effective_throat_velocity_m_s,
+                throat_static_pressure_pa: screening.throat_static_pressure_pa,
+                diffuser_recovery_pa: screening.diffuser_recovery_pa,
+                dean_number: dean_site.dean_number,
+                curvature_radius_m: dean_site.curvature_radius_m,
+                arc_length_m: dean_site.arc_length_m,
+            });
+        }
+        
+        // Update to_node
+        let existing = node_nuclei.entry(sample.to_node).or_insert(0.0);
+        *existing = existing.max(phi_out);
+    }
+    
+    for p in placements_out {
+        if let Some(metrics) = p {
+            placements.push(metrics);
+        }
+    }
+
+    // Normalize by placement count so multi-throat designs aren't
+    // automatically favored over single-throat designs by accumulation.
+    let n_placements = topology.venturi_placements.len().max(1) as f64;
+    let cavitation_term = (cavitation_strength_sum / n_placements).clamp(0.0, 1.0);
     let rbc_exposure_fraction = (1.0 - separation.rbc_peripheral_fraction).clamp(0.0, 1.0);
     let wbc_exposure_fraction = separation.wbc_center_fraction.clamp(0.0, 1.0);
 

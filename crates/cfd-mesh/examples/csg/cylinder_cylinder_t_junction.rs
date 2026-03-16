@@ -193,14 +193,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let t0 = Instant::now();
         let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean(BooleanOp::Difference, &cyl_a, &cyl_b)?;
         let ms = t0.elapsed().as_millis();
-        // Crossbar carves through the stem diameter → through-channel → genus-1 → χ = 0.
+        // Crossbar carves into the stem top cap → saddle indent → genus-0 → χ = 2.
         report(
             "Difference (A \\\\ B)",
             &mut result,
             v_cyl - v_intersect,
             0.05,
             ms,
-            0,
+            2,
         );
         write_stl(
             &result,

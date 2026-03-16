@@ -12,6 +12,7 @@ use crate::reporting::{
     GoalAuditEntry, GoalAuditStatus, Milestone12LineageKey, Milestone12ReportDesign,
     Milestone12Stage, ParetoPoint, ParetoTag,
 };
+use cfd_schematics::{BlueprintTopologyFactory, VenturiPlacementMode};
 
 use super::report::{write_stage_summary, Milestone12GaSummary, GA_SUMMARY_PATH};
 use super::types::{Milestone12GaRun, Milestone12StageArtifact};
@@ -22,7 +23,7 @@ pub fn run_milestone12_ga() -> Result<Milestone12GaRun, Box<dyn std::error::Erro
     let (_, out_dir, figures_dir) = resolve_output_directories()?;
     let is_fast = fast_mode();
     let ga_population = if is_fast {
-        fast_env("M12_FAST_GA_POPULATION", 12)
+        fast_env("M12_FAST_GA_POPULATION", 25)
     } else {
         80
     };
@@ -47,7 +48,27 @@ pub fn run_milestone12_ga() -> Result<Milestone12GaRun, Box<dyn std::error::Erro
         }
     }
     if let Some(opt2_best) = option2_ranked.first() {
-        seeds.push(opt2_best.candidate.clone());
+        let dean_seed = opt2_best
+            .candidate
+            .topology_spec()
+            .ok()
+            .map(|spec| {
+                let mut spec = spec.clone();
+                for placement in &mut spec.venturi_placements {
+                    placement.placement_mode = VenturiPlacementMode::CurvaturePeakDeanNumber;
+                }
+                spec
+            })
+            .and_then(|spec| BlueprintTopologyFactory::build(&spec).ok())
+            .map(|blueprint| {
+                crate::domain::BlueprintCandidate::new(
+                    format!("{}-ga-dean-seed", opt2_best.candidate.id),
+                    blueprint,
+                    opt2_best.candidate.operating_point.clone(),
+                )
+            })
+            .unwrap_or_else(|| opt2_best.candidate.clone());
+        seeds.push(dean_seed);
     }
     if seeds.is_empty() {
         return Err("GA seed selection: no Option 1 or Option 2 ranked designs on disk".into());

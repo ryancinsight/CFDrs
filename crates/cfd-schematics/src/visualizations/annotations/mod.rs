@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 pub use geometry::{
     center_biased_main_path, classify_node_roles, infer_terminal_nodes_by_x, node_degrees,
     project_markers_along_path, therapy_zone_presence, throat_count_from_blueprint_metadata,
+    venturi_marker_points_from_blueprint,
 };
 
 /// Marker role for node/throat annotation points.

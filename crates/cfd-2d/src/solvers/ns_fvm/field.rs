@@ -17,6 +17,7 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
+use crate::solvers::ns_fvm::array2d::{Array2D, Mask2D};
 use super::boundary::BloodModel;
 use super::grid::StaggeredGrid2D;
 use nalgebra::RealField;
@@ -26,29 +27,29 @@ use num_traits::{Float, FromPrimitive};
 #[derive(Debug, Clone)]
 pub struct FlowField2D<T: RealField + Copy> {
     /// u-velocity at vertical faces [nx+1][ny]
-    pub u: Vec<Vec<T>>,
+    pub u: Array2D<T>,
     /// v-velocity at horizontal faces [nx][ny+1]
-    pub v: Vec<Vec<T>>,
+    pub v: Array2D<T>,
     /// Pressure at cell centers [nx][ny]
-    pub p: Vec<Vec<T>>,
+    pub p: Array2D<T>,
     /// Viscosity at cell centers [nx][ny]
-    pub mu: Vec<Vec<T>>,
+    pub mu: Array2D<T>,
     /// Shear rate at cell centers [nx][ny]
-    pub gamma_dot: Vec<Vec<T>>,
+    pub gamma_dot: Array2D<T>,
     /// Fluid mask (true = fluid, false = solid)
-    pub mask: Vec<Vec<bool>>,
+    pub mask: Mask2D,
 }
 
 impl<T: RealField + Copy + FromPrimitive + Float> FlowField2D<T> {
     /// Create a new zero-initialised flow field for an `nx × ny` grid.
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
-            u: vec![vec![T::zero(); ny]; nx + 1],
-            v: vec![vec![T::zero(); ny + 1]; nx],
-            p: vec![vec![T::zero(); ny]; nx],
-            mu: vec![vec![T::zero(); ny]; nx],
-            gamma_dot: vec![vec![T::zero(); ny]; nx],
-            mask: vec![vec![true; ny]; nx],
+            u: Array2D::new(nx + 1, ny, T::zero()),
+            v: Array2D::new(nx, ny + 1, T::zero()),
+            p: Array2D::new(nx, ny, T::zero()),
+            mu: Array2D::new(nx, ny, T::zero()),
+            gamma_dot: Array2D::new(nx, ny, T::zero()),
+            mask: Array2D::new(nx, ny, true),
         }
     }
 
@@ -59,26 +60,26 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowField2D<T> {
     pub fn compute_shear_rate(&self, i: usize, j: usize, dx: T, dy: T) -> T {
         let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
-        let dudx = if i < self.u.len() - 1 {
-            (self.u[i + 1][j] - self.u[i][j]) / dx
+        let dudx = if i < self.u.rows() - 1 {
+            (self.u[(i + 1, j)] - self.u[(i, j)]) / dx
         } else {
             T::zero()
         };
-        let dvdy = if j < self.v[0].len() - 1 {
-            (self.v[i][j + 1] - self.v[i][j]) / dy
+        let dvdy = if j < self.v.cols() - 1 {
+            (self.v[(i, j + 1)] - self.v[(i, j)]) / dy
         } else {
             T::zero()
         };
-        let dudy = if j > 0 && j < self.u[0].len() - 1 && i < self.u.len() - 1 {
-            let u_up = (self.u[i][j + 1] + self.u[i + 1][j + 1]) / two;
-            let u_dn = (self.u[i][j - 1] + self.u[i + 1][j - 1]) / two;
+        let dudy = if j > 0 && j < self.u.cols() - 1 && i < self.u.rows() - 1 {
+            let u_up = (self.u[(i, j + 1)] + self.u[(i + 1, j + 1)]) / two;
+            let u_dn = (self.u[(i, j - 1)] + self.u[(i + 1, j - 1)]) / two;
             (u_up - u_dn) / (two * dy)
         } else {
             T::zero()
         };
-        let dvdx = if i > 0 && i < self.v.len() - 1 && j < self.v[0].len() - 1 {
-            let v_r = (self.v[i + 1][j] + self.v[i + 1][j + 1]) / two;
-            let v_l = (self.v[i - 1][j] + self.v[i - 1][j + 1]) / two;
+        let dvdx = if i > 0 && i < self.v.rows() - 1 && j < self.v.cols() - 1 {
+            let v_r = (self.v[(i + 1, j)] + self.v[(i + 1, j + 1)]) / two;
+            let v_l = (self.v[(i - 1, j)] + self.v[(i - 1, j + 1)]) / two;
             (v_r - v_l) / (two * dx)
         } else {
             T::zero()
@@ -105,13 +106,13 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowField2D<T> {
         for i in 0..grid.nx {
             for j in 0..grid.ny {
                 let gamma = self.compute_shear_rate(i, j, grid.dx, grid.dy);
-                self.gamma_dot[i][j] = gamma;
+                self.gamma_dot[(i, j)] = gamma;
                 let mu_computed = match blood {
                     BloodModel::Casson(m) => m.apparent_viscosity(gamma),
                     BloodModel::CarreauYasuda(m) => m.apparent_viscosity(gamma),
                     BloodModel::Newtonian(mu) => *mu,
                 };
-                self.mu[i][j] = self.mu[i][j] * (one - alpha_mu) + mu_computed * alpha_mu;
+                self.mu[(i, j)] = self.mu[(i, j)] * (one - alpha_mu) + mu_computed * alpha_mu;
             }
         }
     }
@@ -121,16 +122,14 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowField2D<T> {
         let max_u = self
             .u
             .iter()
-            .flatten()
             .map(|&v| Float::abs(v))
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .max_by(|a: &T, b: &T| a.partial_cmp(b).unwrap())
             .unwrap_or(T::zero());
         let max_v = self
             .v
             .iter()
-            .flatten()
             .map(|&v| Float::abs(v))
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .max_by(|a: &T, b: &T| a.partial_cmp(b).unwrap())
             .unwrap_or(T::zero());
         Float::max(max_u, max_v)
     }

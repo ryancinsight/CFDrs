@@ -33,8 +33,8 @@
 //!   saddle point problems." *Acta Numerica* 14:1–137.
 
 use crate::linear_solver::{
-    BiCGSTAB, BlockDiagonalPreconditioner, DirectSparseSolver, IncompleteLU, IterativeSolverConfig,
-    GMRES,
+    AlgebraicMultigrid, AMGConfig, BiCGSTAB, BlockDiagonalPreconditioner, DirectSparseSolver,
+    IncompleteLU, IterativeSolverConfig, GMRES,
 };
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};
@@ -146,7 +146,32 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
         let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
         let solver = GMRES::new(self.config, restart);
 
-        // ── Tier 2: GMRES + BlockDiagonal preconditioner (saddle-point) ───────
+        // ── Tier 2: GMRES + Algebraic Multigrid (AMG) ─────────────────────────
+        // AMG is exceptionally fast for Poisson and SPD systems (like pressure correction
+        // in fractional step algorithms). For saddle-point systems it may fail setup or diverge,
+        // safely falling back to block preconditioning.
+        match AlgebraicMultigrid::new(matrix, AMGConfig::default()) {
+            Ok(amg) => match solver.solve_preconditioned(matrix, rhs, &amg, &mut x) {
+                Ok(monitor) => {
+                    tracing::debug!(
+                        "LinearSolverChain: GMRES+AMG converged in {} iters",
+                        monitor.iteration
+                    );
+                    return Ok(x);
+                }
+                Err(e) => {
+                    tracing::warn!("LinearSolverChain: GMRES+AMG failed ({e})");
+                }
+            },
+            Err(e) => {
+                tracing::debug!("LinearSolverChain: AMG setup skipped/failed ({e})");
+            }
+        }
+
+        let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
+        let solver = GMRES::new(self.config, restart);
+
+        // ── Tier 3: GMRES + BlockDiagonal preconditioner (saddle-point) ───────
         match BlockDiagonalPreconditioner::new(matrix, n_velocity_dof, n_pressure_dof) {
             Ok(block_precond) => {
                 match solver.solve_preconditioned(matrix, rhs, &block_precond, &mut x) {
@@ -167,7 +192,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
             }
         }
 
-        // ── Tier 3: GMRES unpreconditioned ────────────────────────────────────
+        // ── Tier 4: GMRES unpreconditioned ────────────────────────────────────
         x.fill(T::zero());
         match solver.solve_unpreconditioned(matrix, rhs, &mut x) {
             Ok(monitor) => {
@@ -182,7 +207,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
             }
         }
 
-        // ── Tier 4: GMRES + ILU preconditioner ───────────────────────────────
+        // ── Tier 5: GMRES + ILU preconditioner ───────────────────────────────
         x.fill(T::zero());
         match IncompleteLU::new(matrix) {
             Ok(ilu) => match solver.solve_preconditioned(matrix, rhs, &ilu, &mut x) {
@@ -202,7 +227,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
             }
         }
 
-        // ── Tier 5: BiCGSTAB (last resort) ────────────────────────────────────
+        // ── Tier 6: BiCGSTAB (last resort) ────────────────────────────────────
         x.fill(T::zero());
         let bicg = BiCGSTAB::new(self.config);
         bicg.solve_unpreconditioned(matrix, rhs, &mut x)
@@ -265,9 +290,32 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
 
         let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
         let solver = GMRES::new(self.config, restart);
+        
+        // ── Tier 2: GMRES + Algebraic Multigrid (AMG) ─────────────────────────
+        match AlgebraicMultigrid::new(matrix, AMGConfig::default()) {
+            Ok(amg) => match solver.solve_preconditioned(matrix, rhs, &amg, &mut x) {
+                Ok(monitor) => {
+                    tracing::debug!(
+                        "LinearSolverChain(warm): GMRES+AMG converged in {} iters",
+                        monitor.iteration
+                    );
+                    return Ok(x);
+                }
+                Err(e) => {
+                    tracing::warn!("LinearSolverChain(warm): GMRES+AMG failed ({e})");
+                    reset(&mut x);
+                }
+            },
+            Err(e) => {
+                tracing::debug!("LinearSolverChain(warm): AMG setup skipped/failed ({e})");
+            }
+        }
+
+        let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
+        let solver = GMRES::new(self.config, restart);
         let mut block_precond_constructed = false;
 
-        // ── Tier 2: GMRES + BlockDiagonal preconditioner ──────────────────────
+        // ── Tier 3: GMRES + BlockDiagonal preconditioner ──────────────────────
         match BlockDiagonalPreconditioner::new(matrix, n_velocity_dof, n_pressure_dof) {
             Ok(block_precond) => {
                 block_precond_constructed = true;
@@ -290,7 +338,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
             }
         }
 
-        // ── Tier 3: GMRES unpreconditioned ────────────────────────────────────
+        // ── Tier 4: GMRES unpreconditioned ────────────────────────────────────
         // Skip if block preconditioner was built but GMRES stagnated — for
         // saddle-point systems, unpreconditioned will be strictly worse.
         if !block_precond_constructed {
@@ -309,7 +357,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
             }
         }
 
-        // ── Tier 4: GMRES + ILU preconditioner ───────────────────────────────
+        // ── Tier 5: GMRES + ILU preconditioner ───────────────────────────────
         reset(&mut x);
         match IncompleteLU::new(matrix) {
             Ok(ilu) => match solver.solve_preconditioned(matrix, rhs, &ilu, &mut x) {
@@ -329,7 +377,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
             }
         }
 
-        // ── Tier 5: BiCGSTAB (last resort) ────────────────────────────────────
+        // ── Tier 6: BiCGSTAB (last resort) ────────────────────────────────────
         reset(&mut x);
         let bicg = BiCGSTAB::new(self.config);
         bicg.solve_unpreconditioned(matrix, rhs, &mut x)

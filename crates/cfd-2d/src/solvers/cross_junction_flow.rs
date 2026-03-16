@@ -155,7 +155,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSol
             for j in 0..ny {
                 let x = ns_solver.grid.x_center(i) + bbox[0];
                 let y = ns_solver.grid.y_center(j) + bbox[2];
-                ns_solver.field.mask[i][j] = geometry.contains(x, y);
+                ns_solver.field.mask[(i, j)] = geometry.contains(x, y);
             }
         }
 
@@ -184,32 +184,32 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSol
         // West (x = 0, inlet)
         let mut q_west = T::zero();
         for j in 0..ny {
-            if self.ns_solver.field.mask[0][j] {
-                q_west += self.ns_solver.field.u[0][j] * dy;
+            if self.ns_solver.field.mask[(0, j)] {
+                q_west += self.ns_solver.field.u[(0, j)] * dy;
             }
         }
 
         // East (x = nx)
         let mut q_east = T::zero();
         for j in 0..ny {
-            if self.ns_solver.field.mask[nx - 1][j] {
-                q_east += self.ns_solver.field.u[nx][j] * dy;
+            if self.ns_solver.field.mask[(nx - 1, j)] {
+                q_east += self.ns_solver.field.u[(nx, j)] * dy;
             }
         }
 
         // South (y = 0)
         let mut q_south = T::zero();
         for i in 0..nx {
-            if self.ns_solver.field.mask[i][0] {
-                q_south += self.ns_solver.field.v[i][0] * dx;
+            if self.ns_solver.field.mask[(i, 0)] {
+                q_south += self.ns_solver.field.v[(i, 0)] * dx;
             }
         }
 
         // North (y = ny)
         let mut q_north = T::zero();
         for i in 0..nx {
-            if self.ns_solver.field.mask[i][ny - 1] {
-                q_north += self.ns_solver.field.v[i][ny] * dx;
+            if self.ns_solver.field.mask[(i, ny - 1)] {
+                q_north += self.ns_solver.field.v[(i, ny)] * dx;
             }
         }
 
@@ -224,8 +224,8 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSol
 
         // Compute junction pressure loss ΔP between west and east centroids.
         let j_mid = ny / 2;
-        let p_west = self.ns_solver.field.p[1][j_mid];
-        let p_east = self.ns_solver.field.p[nx - 2][j_mid];
+        let p_west = self.ns_solver.field.p[(1, j_mid)];
+        let p_east = self.ns_solver.field.p[(nx - 2, j_mid)];
         let dp_junction = p_west - p_east;
 
         Ok(CrossJunctionSolution {

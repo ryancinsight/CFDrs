@@ -19,6 +19,8 @@ pub struct CavitationVofConfig {
     pub damage_model: Option<CavitationDamage<f64>>,
     /// Rayleigh-Plesset bubble dynamics
     pub bubble_dynamics: Option<BubbleDynamicsConfig>,
+    /// Passive scalar tracking for cavitation nuclei cascade
+    pub nuclei_transport: Option<cfd_core::physics::cavitation::nuclei_transport::NucleiTransportConfig<f64>>,
     /// Cavitation inception threshold
     pub inception_threshold: f64,
     /// Maximum void fraction allowed

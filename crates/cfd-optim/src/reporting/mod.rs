@@ -7,7 +7,6 @@
 //! [`narrative`] | Milestone 12 narrative templating + figure manifest generation |
 //! [`svg_primitives`] | Low-level SVG rendering primitives and generic bar-chart builder |
 
-mod contract_trace;
 mod design_record;
 mod figures;
 mod guardrails;
@@ -17,8 +16,6 @@ mod narrative;
 mod ranking;
 mod report_math;
 mod report_metrics;
-mod svg_primitives;
-mod template;
 mod validation_runner;
 
 pub use design_record::{

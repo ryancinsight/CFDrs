@@ -3,9 +3,13 @@
 use std::fmt::Write as _;
 
 use crate::analysis::RobustnessReport;
-use crate::constraints::{EXPANSION_RATIO_LOW_RISK, VENTURI_EXPANSION_RATIO_HIGH_RISK};
+use crate::constraints::{
+    EXPANSION_RATIO_LOW_RISK, MILESTONE_TREATMENT_DURATION_MIN,
+    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG,
+    VENTURI_EXPANSION_RATIO_HIGH_RISK,
+};
 use crate::reporting::ranking::oncology_priority_score;
-use crate::reporting::{Milestone12ReportDesign, ValidationRow};
+use crate::reporting::Milestone12ReportDesign;
 
 /// Format a boolean gate as a PASS/FAIL string for markdown tables.
 fn pass_fail(value: bool) -> &'static str {
@@ -34,6 +38,45 @@ fn cavitation_regime_clause(sigma: f64) -> String {
         format!(
             "σ = {sigma:.4} is above the hydrodynamic cavitation threshold, so the venturi is not operating in a cavitation-capable regime"
         )
+    }
+}
+
+fn reference_patient_context(design: &Milestone12ReportDesign) -> (String, f64) {
+    design
+        .candidate
+        .operating_point
+        .patient_context
+        .as_ref()
+        .map_or_else(
+            || {
+                (
+                    format!(
+                        "{:.1} kg neonatal reference",
+                        PEDIATRIC_REFERENCE_WEIGHT_KG
+                    ),
+                    PEDIATRIC_REFERENCE_WEIGHT_KG * PEDIATRIC_BLOOD_VOLUME_ML_PER_KG,
+                )
+            },
+            |ctx| {
+                (
+                    format!("{} ({:.1} kg)", ctx.label, ctx.weight_kg),
+                    ctx.blood_volume_ml.max(1.0),
+                )
+            },
+        )
+}
+
+fn extracorporeal_flow_band(q_ml_min: f64) -> &'static str {
+    if q_ml_min < 150.0 {
+        "below conventional dialysis blood-pump flow and closest to low-flow therapeutic perfusion or single-chip apheresis operation"
+    } else if q_ml_min < 200.0 {
+        "between micro-apheresis throughput and the low end of conventional dialysis blood flow"
+    } else if q_ml_min <= 400.0 {
+        "inside the conventional dialysis blood-flow band (approximately 200-400 mL/min)"
+    } else if q_ml_min <= 600.0 {
+        "above the conventional dialysis mid-band and closer to high-flow leukapheresis / high-throughput extracorporeal operation"
+    } else {
+        "above the workspace's standard dialysis/high-throughput sweep envelope"
     }
 }
 
@@ -170,7 +213,7 @@ pub(super) fn build_robustness_section(robustness: &[RobustnessReport], fast_mod
         return "\
 ### Option 2 Robustness Screening (Perturbations +/-10%/+/-20%)\n\n\
 *Robustness screening was not computed in this run (fast mode). \
-Re-run without `M12_FAST=1` to populate.*\n"
+    Re-run with robustness enabled to populate.*\n"
             .to_string();
     }
     let _ = fast_mode;
@@ -182,6 +225,9 @@ Re-run without `M12_FAST=1` to populate.*\n"
         "- Robust pass-rate: **{}/{}** candidates\n",
         robust_count,
         robustness.len()
+    );
+    out.push_str(
+        "<div align=\"center\">\n\n<p><strong>Table 15.</strong> Robustness screening results</p>\n\n",
     );
     out.push_str(
         "| Candidate | Nominal score | Min score | Max score | CV | Robust | Worst-case parameter |\n",
@@ -200,89 +246,7 @@ Re-run without `M12_FAST=1` to populate.*\n"
             r.worst_case_param
         );
     }
-    out
-}
-
-pub(super) fn build_validation_section(rows: &[ValidationRow], fast_mode: bool) -> String {
-    if rows.is_empty() {
-        let _ = fast_mode;
-        return "\
-### Multi-Fidelity Pressure-Drop Validation (Selected Venturi Designs)\n\n\
-*Multi-fidelity validation is produced by the companion example \
-`cargo run -p cfd-optim --example milestone12_validation --no-default-features`. \
-This report run did not embed 2D/3D validation rows.*\n"
-            .to_string();
-    }
-    let _ = fast_mode;
-    let mut out = String::new();
-    out.push_str("### Multi-Fidelity Pressure-Drop Validation (Selected Venturi Designs)\n\n");
-    let unconverged_count = rows.iter().filter(|row| !row.two_d_converged).count();
-    let inertial_count = rows
-        .iter()
-        .filter(|row| row.high_re_stokes_mismatch)
-        .count();
-    if unconverged_count > 0 || inertial_count > 0 {
-        let _ = writeln!(
-            out,
-            "These rows are diagnostic rather than confirmatory wherever the companion solver falls outside its validity range. Unconverged 2D rows: **{}**. Inertial rows where the 3D Stokes model is not valid: **{}**.\n",
-            unconverged_count,
-            inertial_count
-        );
-    } else {
-        out.push_str(
-            "All embedded rows lie within the nominal validity envelope of the companion solvers and may be interpreted as confirmation-grade cross-fidelity checks.\n\n",
-        );
-    }
-    out.push_str("| Track | Candidate | dp1D Bernoulli+K+f (Pa) | dp2D FVM (Pa) | dp3D FEM (Pa) | 1D\u{2013}2D diff (%) | 2D\u{2013}3D diff (%) | Mass error (%) | 2D Conv? | Re regime |\n");
-    out.push_str("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | :---: | :---: |\n");
-    for row in rows {
-        let conv_flag = if row.two_d_converged { "YES" } else { "NO" };
-        let re_label = if row.high_re_stokes_mismatch {
-            "inertial (3D Stokes invalid)"
-        } else {
-            "creeping (Stokes valid)"
-        };
-        let _ = writeln!(
-            out,
-            "| {} | `{}` | {:.2} | {:.2} | {:.2} | {:.2} | {:.2} | {:.2} | {} | {} |",
-            row.track,
-            row.id,
-            row.dp_1d_bernoulli_pa,
-            row.dp_2d_fvm_pa,
-            row.dp_3d_fem_pa,
-            row.agreement_1d_2d_pct,
-            row.agreement_2d_3d_pct,
-            row.mass_error_3d_pct,
-            conv_flag,
-            re_label
-        );
-    }
-
-    // Add explanatory notes when any solver is outside its validity range.
-    let any_high_re = rows.iter().any(|r| r.high_re_stokes_mismatch);
-    let any_2d_nonconv = rows.iter().any(|r| !r.two_d_converged);
-    if any_high_re || any_2d_nonconv {
-        out.push_str("\n**Validation Notes:**\n\n");
-    }
-    if any_high_re {
-        out.push_str(
-            "- **Re regime \u{2014} inertial**: The 3D Taylor\u{2013}Hood Stokes FEM is skipped for \
-Re\u{2009}>\u{2009}50 (the solver omits \u{03c1}(u\u{00b7}\u{2207})u and cannot represent inertia-dominated \
-flows). The 1D model includes Bernoulli dynamic pressure, Idelchik contraction / \
-Borda\u{2013}Carnot expansion loss coefficients, and Darcy\u{2013}Weisbach pipe friction in the throat \
-(f\u{2009}=\u{2009}64/Re laminar, Haaland turbulent). For high contraction-ratio venturis where the \
-throat length-to-hydraulic-diameter ratio L/D\u{2095}\u{2009}\u{226b}\u{2009}1, viscous friction dominates.\n",
-        );
-    }
-    if any_2d_nonconv {
-        out.push_str(
-            "- **2D FVM \u{2014} skipped/non-converged**: For contraction ratios CR\u{2009}>\u{2009}80, the 2D \
-Cartesian immersed-boundary solver cannot resolve the throat (sub-cell geometry). \
-In these cases dp2D reports the 1D estimate. For moderate CR designs that run the 2D \
-SIMPLE solver, the velocity field is initialised from 1D mass-continuity (parabolic profile) \
-which gives ~33% agreement with 1D for converged cases.\n",
-        );
-    }
+    out.push_str("\n</div>");
     out
 }
 
@@ -335,7 +299,7 @@ strict eligibility gating produced {opt1_pool} Option 1 qualified designs \
 (AsymmetricSplitVenturiCavitationSelectivity track). The ranked pool therefore reflects only physically admissible \
 designs that preserve selective split-width partitioning, treatment-lane residence time, and \
 healthy-cell protection. The following sub-sections present the selected designs (§5.1), gate \
-evidence (§5.2), robustness and multi-fidelity validation (§5.3), design visualizations (§5.4), \
+evidence (§5.2), robustness validation (§5.3), design visualizations (§5.4), \
 derived metric formulas (§5.5), and operating limits (§5.6). Extracorporeal circuit volume is \
 reported explicitly as ECV = Σ(L_i A_i) = Q_in t_res, and each selected design is benchmarked \
 against the 3 kg neonatal reference limit of 25.5 mL (10% of 3 × 85 mL blood volume).",
@@ -603,6 +567,104 @@ extracorporeal circuits."
     )
 }
 
+pub(super) fn build_treatment_time_analysis(option2: &Milestone12ReportDesign) -> String {
+    use crate::constraints::{
+        PEDIATRIC_FLOW_CAUTION_ML_MIN, PEDIATRIC_MAX_FLOW_ML_MIN_PER_KG,
+        PEDIATRIC_REFERENCE_WEIGHT_KG,
+    };
+
+    let m = &option2.metrics;
+    let q_ml_min = option2.flow_rate_ml_min().max(1.0e-9);
+    let q_ml_s = q_ml_min / 60.0;
+    let feed_hematocrit = option2
+        .candidate
+        .operating_point
+        .feed_hematocrit
+        .clamp(0.0, 0.95);
+    let plasma_fraction = (1.0 - feed_hematocrit).max(0.05);
+    let (patient_label, blood_volume_ml) = reference_patient_context(option2);
+    let plasma_volume_ml = blood_volume_ml * plasma_fraction;
+    let ecv_ml = m.total_ecv_ml.max(0.0);
+    let circuit_turnover_s = if q_ml_s > 0.0 { ecv_ml / q_ml_s } else { 0.0 };
+    let treatment_residence_ms = m.mean_residence_time_s.max(0.0) * 1.0e3;
+    let treatment_share_pct = if circuit_turnover_s > 0.0 {
+        100.0 * m.mean_residence_time_s.max(0.0) / circuit_turnover_s
+    } else {
+        0.0
+    };
+    let ecv_pct_plasma = if plasma_volume_ml > 0.0 {
+        100.0 * ecv_ml / plasma_volume_ml
+    } else {
+        0.0
+    };
+    let time_to_one_pv_min = if q_ml_min * plasma_fraction > 0.0 {
+        plasma_volume_ml / (q_ml_min * plasma_fraction)
+    } else {
+        0.0
+    };
+    let time_to_one_point_five_pv_min = 1.5 * time_to_one_pv_min;
+    let session_15_min = MILESTONE_TREATMENT_DURATION_MIN;
+    let processed_plasma_15_ml = q_ml_min * session_15_min * plasma_fraction;
+    let pv_15 = if plasma_volume_ml > 0.0 {
+        processed_plasma_15_ml / plasma_volume_ml
+    } else {
+        0.0
+    };
+    let pv_30 = 2.0 * pv_15;
+    let pv_60 = 4.0 * pv_15;
+
+    let ped_ceiling_ml_min = PEDIATRIC_FLOW_CAUTION_ML_MIN;
+    let ped_ml_kg_min = PEDIATRIC_MAX_FLOW_ML_MIN_PER_KG;
+    let ped_weight = PEDIATRIC_REFERENCE_WEIGHT_KG;
+    let flow_vs_ped = q_ml_min / ped_ceiling_ml_min;
+    let ped_access_note = if q_ml_min <= ped_ceiling_ml_min {
+        format!(
+            "Within the pediatric catheter-achievable envelope \
+({ped_ceiling_ml_min:.0} mL/min = {ped_weight:.0} kg × {ped_ml_kg_min:.0} mL/kg/min)."
+        )
+    } else {
+        format!(
+            "**{flow_vs_ped:.1}× the pediatric catheter ceiling** \
+({ped_ceiling_ml_min:.0} mL/min = {ped_weight:.0} kg × {ped_ml_kg_min:.0} mL/kg/min). \
+This flow rate requires large-bore vascular access (surgical cut-down, AV fistula, or \
+ECMO-grade cannulae) that is not standard for the neonatal reference patient. \
+Scoring applies a pediatric high-flow penalty (risk = {ped_risk:.2}) to guide the \
+optimizer toward catheter-compatible operating points.",
+            ped_risk = m.pediatric_flow_excess_risk,
+        )
+    };
+
+    format!(
+        "Treatment-time performance is reported on a plasma-volume basis familiar from extracorporeal purification and apheresis workflows. \
+For the selected Option 2 operating point, the reference patient is {patient_label}, feed hematocrit = {feed_hematocrit:.2}, \
+and plasma volume is estimated as V_plasma = V_blood × (1 − Hct). At {q_ml_min:.1} mL/min the device operates {flow_band}.\n\n\
+**Vascular access context:** Catheter-based pediatric extracorporeal circuits (apheresis, CRRT, \
+therapeutic plasma exchange) typically operate at 5–10 mL/kg/min. {ped_access_note}\n\n\
+The circuit holdup/turnover time (V_ECV / Q) and the treatment-zone residence time are separated below so reviewers can \
+distinguish overall extracorporeal dwell from the actual cavitation-exposure interval per pass.\n\n\
+<div align=\"center\">\n\n\
+<p><strong>Table 5.7.</strong> Treatment-time analysis benchmarked to plasma-volume processing</p>\n\n\
+| Quantity | Value | Interpretation |\n\
+| --- | ---: | --- |\n\
+| Reference blood volume (mL) | {blood_volume_ml:.1} | Derived from patient context or the 3 kg neonatal reference used elsewhere in the report. |\n\
+| Reference plasma volume (mL) | {plasma_volume_ml:.1} | Bulk plasma inventory available for plasma-volume-equivalent processing. |\n\
+| Operating blood flow (mL/min) | {q_ml_min:.1} | Primary extracorporeal throughput setpoint. |\n\
+| Pediatric flow ceiling (mL/min) | {ped_ceiling_ml_min:.0} | Weight-scaled maximum for catheter-based access ({ped_weight:.0} kg × {ped_ml_kg_min:.0} mL/kg/min). Flows above this require surgical vascular access. |\n\
+| Pediatric flow excess risk | {ped_risk:.2} | 0 = within catheter envelope; 1 = fully exceeds pediatric ceiling. Applies a scoring penalty of up to 15%. |\n\
+| Millifluidic extracorporeal volume, ECV (mL) | {ecv_ml:.3} | Device prime / blood-contacting hold-up volume. |\n\
+| ECV as % of plasma volume | {ecv_pct_plasma:.2} | Small values indicate low extracorporeal hold-up relative to circulating plasma. |\n\
+| Circuit turnover time, V_ECV / Q (s) | {circuit_turnover_s:.2} | Time for one device-volume replacement at the selected flow rate. |\n\
+| Treatment-zone residence per pass (ms) | {treatment_residence_ms:.2} | Mean cavitation/therapy exposure duration per pass through the active treatment region. |\n\
+| Residence as % of full circuit turnover | {treatment_share_pct:.2} | Fraction of device dwell spent in the treatment region rather than transport plumbing. |\n\
+| Plasma processed in {session_15_min:.0} min (mL) | {processed_plasma_15_ml:.1} | Session-equivalent plasma throughput for the milestone reference window. |\n\
+| Plasma-volume equivalents in {session_15_min:.0} / 30 / 60 min | {pv_15:.2} / {pv_30:.2} / {pv_60:.2} | Useful for comparing against dialysis/plasmapheresis-style dose accounting. |\n\
+| Time to process 1.0 / 1.5 plasma volumes (min) | {time_to_one_pv_min:.1} / {time_to_one_point_five_pv_min:.1} | Single-pass transit time for one and one-and-a-half plasma-volume equivalents at the operating flow rate. This is **not** the clinical session duration — actual treatment requires many recirculating passes (see plasma-volume equivalents row above for cumulative throughput over typical 15–60 min sessions). |\n\
+\n</div>",
+        flow_band = extracorporeal_flow_band(q_ml_min),
+        ped_risk = m.pediatric_flow_excess_risk,
+    )
+}
+
 /// Build the CRI expansion-sensitivity table for the PST topology parameter space.
 ///
 /// # Theorem (Expansion Stasis Risk)
@@ -630,7 +692,7 @@ pub(super) fn build_cri_expansion_sensitivity() -> String {
     let mut out = String::new();
     out.push_str("<div align=\"center\">\n");
     out.push_str("<table>\n");
-    out.push_str("<caption><strong>Table 5.7.</strong> Expansion-driven clot-risk contribution across the swept Milestone 12 channel-width / venturi-throat design space. Lower <code>CRI_exp</code> values are preferred.</caption>\n");
+    out.push_str("<caption><strong>Table 5.8.</strong> Expansion-driven clot-risk contribution across the swept Milestone 12 channel-width / venturi-throat design space. Lower <code>CRI_exp</code> values are preferred.</caption>\n");
     out.push_str("<thead>\n<tr><th>Channel width (mm)</th><th>Throat Ø (µm)</th><th>w/d ratio</th><th>p_stage</th><th>P(vt1)</th><th>P(vt2)</th><th>CRI_exp (vt1)</th><th>CRI_exp (vt2)</th></tr>\n</thead>\n<tbody>\n");
 
     for &w_mm in &WIDTHS_MM {
@@ -719,7 +781,7 @@ mod tests {
     fn cri_expansion_sensitivity_renders_centered_html_table() {
         let html = build_cri_expansion_sensitivity();
         assert!(html.contains("<div align=\"center\">"));
-        assert!(html.contains("<caption><strong>Table 5.7."));
+        assert!(html.contains("<caption><strong>Table 5.8."));
         assert!(html.contains("<table>"));
         assert!(html.contains("</table>"));
     }

@@ -125,10 +125,22 @@ pub fn compute_blueprint_separation_metrics(
             }
         }
 
+        // Compute inflow velocity. Total flow for the chip = 500 mL/min = 8.333e-6 m3/s
+        let chip_flow_rate_m3_s = 500.0 / 60.0 / 1e6;
+        let parent_area_m2 = total_branch_width_m * stage.branches[0].route.height_m;
+        // In a real network this would be scaled by upstream splits, but for the linear blueprint proxy
+        // we assume the full chip flow (per parallel sequence) passes through this stage's parent.
+        let parent_v_in_m_s = if parent_area_m2 > 1e-12 {
+            chip_flow_rate_m3_s / parent_area_m2
+        } else {
+            0.0
+        };
+
         cascade_stages.push(CascadeStage {
             arm_q_fracs,
             n_arms: stage.branches.len() as u8,
             treatment_dh_m,
+            parent_v_in_m_s,
             peripheral_recoveries,
             n_recoveries,
         });

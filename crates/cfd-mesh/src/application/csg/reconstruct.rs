@@ -127,10 +127,10 @@ pub fn reconstruct_mesh(faces: &[FaceData], pool: &VertexPool) -> IndexedMesh {
 /// # Algorithm
 ///
 /// Scans all face edges to find the minimum edge length `L_min`, then
-/// returns `0.05 × L_min` (5 % of the shortest edge).  This merges
-/// near-duplicate seam vertices from CDT co-refinement (typical gap
-/// `~0.004`–`0.008` from floating-point plane-crossing) while keeping
-/// distinct surface vertices (typically `≥ 0.05` apart) separate.
+/// returns `min(1e-4, 0.01 × L_min)`.  The `1e-4` cap preserves the
+/// proven default for normal-scale geometry; the `0.01 × L_min` term
+/// tightens the tolerance proportionally for micro-scale meshes where
+/// `1e-4` would be too coarse relative to face sizes.
 ///
 /// # Theorem — Welding Safety
 ///
@@ -139,15 +139,17 @@ pub fn reconstruct_mesh(faces: &[FaceData], pool: &VertexPool) -> IndexedMesh {
 ///
 /// **Proof sketch**: Let `e = (u, v)` be an edge with `‖u − v‖ ≥ L_min`.
 /// Spatial-hash insertion welds a new point `p` to an existing point `q`
-/// only when `‖p − q‖ < tol`.  Since `tol = 0.05 × L_min < L_min / 2`,
+/// only when `‖p − q‖ < tol`.  Since `tol ≤ 0.01 × L_min ≪ L_min / 2`,
 /// the two endpoints satisfy `‖u − v‖ ≥ L_min > 2 × tol`, so they
 /// land in different hash cells and are never welded.  ∎
 ///
 /// # Fallback
 ///
 /// If `faces` is empty or all edges are degenerate (length `0`), returns
-/// `1e-15` — an ultra-tight tolerance that effectively disables welding.
+/// the default `1e-4`.
 fn adaptive_reconstruct_tolerance(faces: &[FaceData], pool: &VertexPool) -> Real {
+    const DEFAULT_TOL: Real = 1e-4;
+
     let mut min_sq = Real::INFINITY;
     for face in faces {
         let [a, b, c] = face.vertices;
@@ -169,11 +171,13 @@ fn adaptive_reconstruct_tolerance(faces: &[FaceData], pool: &VertexPool) -> Real
         }
     }
     if min_sq.is_infinite() || min_sq <= 0.0 {
-        return 1e-15;
+        return DEFAULT_TOL;
     }
     let l_min = min_sq.sqrt();
-    // 5 % of minimum edge length, floored at a safe minimum.
-    (0.05 * l_min).max(1e-15)
+    // 1 % of minimum edge length, capped by the proven default.
+    // Only tightens tolerance for micro-scale geometry; never loosens
+    // beyond 1e-4 for normal / large-scale operands.
+    (0.01 * l_min).min(DEFAULT_TOL).max(1e-15)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

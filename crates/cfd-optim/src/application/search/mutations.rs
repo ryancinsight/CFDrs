@@ -89,7 +89,24 @@ pub fn generate_ga_mutations(
         .map_err(OptimError::InvalidParameter)?;
         mutated.push(BlueprintCandidate::new(
             format!("{}-ga-s-{}", seed.id, target_channel_id),
-            serpentine_mutation,
+            serpentine_mutation.clone(),
+            seed.operating_point.clone(),
+        ));
+
+        let serpentine_dean_venturi = BlueprintTopologyFactory::mutate(
+            &serpentine_mutation,
+            BlueprintTopologyMutation::SetTreatmentChannelVenturi {
+                target_channel_id: target_channel_id.clone(),
+                serial_throat_count: 4,
+                throat_geometry: venturi_geometry.clone(),
+                placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
+            },
+            TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
+        )
+        .map_err(OptimError::InvalidParameter)?;
+        mutated.push(BlueprintCandidate::new(
+            format!("{}-ga-svd-{}", seed.id, target_channel_id),
+            serpentine_dean_venturi,
             seed.operating_point.clone(),
         ));
 
@@ -227,7 +244,7 @@ pub fn promote_option1_candidate_to_ga_seed(
     let promoted = promote_milestone12_option1_to_option2(
         &seed.blueprint,
         1,
-        VenturiPlacementMode::StraightSegment,
+        VenturiPlacementMode::CurvaturePeakDeanNumber,
     )
     .map_err(OptimError::InvalidParameter)?;
     Ok(BlueprintCandidate::new(

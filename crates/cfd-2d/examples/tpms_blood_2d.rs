@@ -72,6 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         0.3,  // alpha_p  (pressure under-relaxation)
         0.8,  // alpha_mu (viscosity under-relaxation)
         5,    // viscosity_update_interval
+        1,    // n_correctors (1 = SIMPLE, >1 = PISO)
     );
 
     let blood = BloodModel::CarreauYasuda(blood_params.clone());
@@ -101,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let y_top = height - wall_depth;
 
             let is_fluid = y_centre > y_bot && y_centre < y_top;
-            solver.field.mask[i][j] = is_fluid;
+            solver.field.mask[(i, j)] = is_fluid;
 
             if !is_fluid {
                 n_solid += 1;
@@ -164,17 +165,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let i_expansion = nx / 2; // x ≈ λ/2: widest
     let j_centre = ny / 2;
 
-    // Velocity at staggered u faces: u[i][j] for i in 0..nx+1
-    let u_constr = solver.field.u[i_constriction + 1][j_centre];
-    let u_expand = solver.field.u[i_expansion][j_centre];
-    let u_inlet_sim = solver.field.u[1][j_centre];
-    let u_outlet_sim = solver.field.u[nx - 1][j_centre];
+    // Velocity at staggered u faces: u[(i, j)] for i in 0..nx+1
+    let u_constr = solver.field.u[(i_constriction + 1, j_centre)];
+    let u_expand = solver.field.u[(i_expansion, j_centre)];
+    let u_inlet_sim = solver.field.u[(1, j_centre)];
+    let u_outlet_sim = solver.field.u[(nx - 1, j_centre)];
 
     // Global max velocity
     let mut u_max = 0.0_f64;
     for i in 0..=nx {
         for j in 0..ny {
-            u_max = u_max.max(solver.field.u[i][j].abs());
+            u_max = u_max.max(solver.field.u[(i, j)].abs());
         }
     }
 
@@ -186,8 +187,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Viscosity (cell-centred)
-    let mu_constr = solver.field.mu[i_constriction.min(nx - 1)][j_centre];
-    let mu_expand = solver.field.mu[i_expansion.min(nx - 1)][j_centre];
+    let mu_constr = solver.field.mu[(i_constriction.min(nx - 1), j_centre)];
+    let mu_expand = solver.field.mu[(i_expansion.min(nx - 1), j_centre)];
     println!("  Viscosity at constriction: {:.4} mPa·s", mu_constr * 1e3);
     println!("  Viscosity at expansion   : {:.4} mPa·s", mu_expand * 1e3);
     println!();
@@ -195,8 +196,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  local viscosity (Carreau-Yasuda μ → μ_∞ at high γ̇).");
 
     // Pressure drop
-    let p_in = solver.field.p[0][j_centre];
-    let p_out = solver.field.p[nx - 1][j_centre];
+    let p_in = solver.field.p[(0, j_centre)];
+    let p_out = solver.field.p[(nx - 1, j_centre)];
     let dp = p_in - p_out;
     println!();
     println!(
@@ -213,9 +214,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for i in 1..nx {
         // Find first fluid cell from bottom
         for j in 0..ny {
-            if solver.field.mask[i][j] {
-                let mu_w = solver.field.mu[i][j];
-                let u_w = solver.field.u[i][j];
+            if solver.field.mask[(i, j)] {
+                let mu_w = solver.field.mu[(i, j)];
+                let u_w = solver.field.u[(i, j)];
                 let tau = mu_w * u_w.abs() / (dy * 0.5);
                 tau_max = tau_max.max(tau);
                 tau_sum += tau;

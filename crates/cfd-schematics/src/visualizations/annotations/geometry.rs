@@ -2,11 +2,11 @@
 
 use crate::domain::model::{ChannelSpec, NetworkBlueprint};
 use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
-use crate::geometry::metadata::{ChannelVenturiSpec, VenturiGeometryMetadata};
+use crate::geometry::metadata::{ChannelVenturiSpec, ChannelVisualRole, VenturiGeometryMetadata};
 use crate::geometry::Point2D;
 use petgraph::algo::astar;
 use petgraph::{Directed, Graph};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use super::MarkerRole;
 
@@ -105,6 +105,100 @@ pub fn throat_count_from_blueprint_metadata(blueprint: &NetworkBlueprint) -> usi
             })
             .count()
     }
+}
+
+/// Project venturi-throat markers onto the actual venturi-bearing channels of
+/// a blueprint instead of collapsing them onto a single centerline surrogate.
+#[must_use]
+pub fn venturi_marker_points_from_blueprint(blueprint: &NetworkBlueprint) -> Vec<Point2D> {
+    let lane_paths = treatment_lane_paths(blueprint);
+    let mut markers = Vec::new();
+    for channel in &blueprint.channels {
+        let throat_count = channel_venturi_spec(channel)
+            .filter(|spec| spec.is_ctc_stream)
+            .map(|spec| usize::from(spec.n_throats))
+            .or_else(|| channel.venturi_geometry.as_ref().map(|_| 1))
+            .unwrap_or(0);
+        if throat_count == 0 || channel.path.len() < 2 {
+            continue;
+        }
+
+        let centroid_y = channel_centroid_y(channel);
+        let distributed = if throat_count > 1 {
+            lane_paths
+                .iter()
+                .find(|(lane_y, _)| (centroid_y - *lane_y).abs() <= 0.75)
+                .map(|(_, lane_path)| {
+                    let (lane_x_min, lane_x_max) = x_span(lane_path);
+                    let lane_span = (lane_x_max - lane_x_min).max(1.0e-6);
+                    project_markers_along_path(
+                        lane_path,
+                        throat_count,
+                        (lane_x_min + 0.15 * lane_span, lane_x_max - 0.15 * lane_span),
+                    )
+                })
+        } else {
+            None
+        };
+
+        markers.extend(distributed.unwrap_or_else(|| {
+            project_markers_along_path(&channel.path, throat_count, (f64::NEG_INFINITY, f64::INFINITY))
+        }));
+    }
+    markers
+}
+
+fn treatment_lane_paths(blueprint: &NetworkBlueprint) -> Vec<(f64, Vec<Point2D>)> {
+    let mut grouped: BTreeMap<i32, Vec<(f64, Vec<Point2D>)>> = BTreeMap::new();
+    for channel in &blueprint.channels {
+        if channel.therapy_zone != Some(TherapyZone::CancerTarget)
+            || channel.visual_role == Some(ChannelVisualRole::Trunk)
+            || channel.path.len() < 2
+        {
+            continue;
+        }
+        let centroid_y = channel_centroid_y(channel);
+        let bucket = (centroid_y * 2.0).round() as i32;
+        let (x_min, _) = x_span(&channel.path);
+        let mut path = channel.path.clone();
+        let (first_x, last_x) = x_span(&path);
+        if first_x > last_x {
+            path.reverse();
+        }
+        grouped.entry(bucket).or_default().push((x_min, path));
+    }
+
+    grouped
+        .into_iter()
+        .map(|(bucket, mut segments)| {
+            segments.sort_by(|left, right| left.0.total_cmp(&right.0));
+            let mut lane = Vec::new();
+            for (_, segment) in segments {
+                if lane
+                    .last()
+                    .zip(segment.first())
+                    .is_some_and(|(last, first)| *last == *first)
+                {
+                    lane.extend(segment.into_iter().skip(1));
+                } else {
+                    lane.extend(segment);
+                }
+            }
+            (bucket as f64 / 2.0, lane)
+        })
+        .filter(|(_, lane)| lane.len() >= 2)
+        .collect()
+}
+
+fn channel_centroid_y(channel: &ChannelSpec) -> f64 {
+    channel.path.iter().map(|(_, y)| *y).sum::<f64>() / channel.path.len() as f64
+}
+
+fn x_span(path: &[Point2D]) -> (f64, f64) {
+    path.iter().fold(
+        (f64::INFINITY, f64::NEG_INFINITY),
+        |(x_min, x_max), (x, _)| (x_min.min(*x), x_max.max(*x)),
+    )
 }
 
 /// Detect whether the blueprint carries therapy-zone channel metadata.

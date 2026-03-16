@@ -32,6 +32,8 @@ pub struct SIMPLEConfig<T: RealField + Copy> {
     pub alpha_mu: T,
     /// Non-Newtonian viscosity update every N outer iterations (1 = every iter)
     pub viscosity_update_interval: usize,
+    /// Number of pressure correction loops per outer iteration (1 = SIMPLE, >1 = PISO)
+    pub n_correctors: usize,
 }
 
 impl<T: RealField + Copy + FromPrimitive> Default for SIMPLEConfig<T> {
@@ -44,6 +46,7 @@ impl<T: RealField + Copy + FromPrimitive> Default for SIMPLEConfig<T> {
             alpha_p: T::from_f64(0.3).expect("0.3 fits in T"),
             alpha_mu: T::one(),
             viscosity_update_interval: 1,
+            n_correctors: 1, // Default to traditional SIMPLE
         }
     }
 }
@@ -61,6 +64,7 @@ impl<T: RealField + Copy + FromPrimitive> SIMPLEConfig<T> {
         alpha_p: T,
         alpha_mu: T,
         viscosity_update_interval: usize,
+        n_correctors: usize,
     ) -> Self {
         assert!(
             alpha_u > T::zero() && alpha_u <= T::one(),
@@ -81,6 +85,7 @@ impl<T: RealField + Copy + FromPrimitive> SIMPLEConfig<T> {
             alpha_p,
             alpha_mu,
             viscosity_update_interval,
+            n_correctors,
         }
     }
 }

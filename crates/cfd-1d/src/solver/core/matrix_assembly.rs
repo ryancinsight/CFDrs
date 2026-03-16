@@ -263,7 +263,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
 mod tests {
     use super::*;
     use crate::domain::network::{Edge, Network, Node};
-    use cfd_core::physics::boundary::BoundaryCondition;
     use cfd_core::physics::fluid::ConstantPropertyFluid;
     use cfd_schematics::domain::model::{EdgeKind, NodeKind};
     use petgraph::graph::Graph;

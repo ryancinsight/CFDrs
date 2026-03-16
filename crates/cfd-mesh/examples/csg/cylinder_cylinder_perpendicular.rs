@@ -182,7 +182,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             v_cyl - v_intersect,
             0.05,
             ms,
-            -2,
+            4,
             2,
         );
         write_stl(

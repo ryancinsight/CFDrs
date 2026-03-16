@@ -222,7 +222,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
             for j in 0..ny {
                 let x = ns_solver.grid.x_center(i) + bbox[0];
                 let y = ns_solver.grid.y_center(j) + bbox[2];
-                ns_solver.field.mask[i][j] = geometry.contains(x, y);
+                ns_solver.field.mask[(i, j)] = geometry.contains(x, y);
             }
         }
 
@@ -251,7 +251,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
         let mut mid_y = T::zero();
         let mut y_coords = Vec::new();
         for j in 0..ny {
-            if self.ns_solver.field.mask[nx - 1][j] {
+            if self.ns_solver.field.mask[(nx - 1, j)] {
                 y_coords.push(self.ns_solver.grid.y_center(j));
             }
         }
@@ -263,8 +263,8 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
         }
 
         for j in 0..ny {
-            if self.ns_solver.field.mask[nx - 1][j] {
-                let uj = self.ns_solver.field.u[nx][j];
+            if self.ns_solver.field.mask[(nx - 1, j)] {
+                let uj = self.ns_solver.field.u[(nx, j)];
                 let q_local = uj * dy;
                 if self.ns_solver.grid.y_center(j) > mid_y {
                     q_d1 += q_local;
@@ -276,8 +276,8 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
 
         let mut q_in_actual = T::zero();
         for j in 0..ny {
-            if self.ns_solver.field.mask[0][j] {
-                q_in_actual += self.ns_solver.field.u[0][j] * dy;
+            if self.ns_solver.field.mask[(0, j)] {
+                q_in_actual += self.ns_solver.field.u[(0, j)] * dy;
             }
         }
         let q_parent = q_in_actual;

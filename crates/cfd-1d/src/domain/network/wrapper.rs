@@ -51,8 +51,19 @@ pub struct EdgeProperties<T: RealField + Copy> {
     pub resistance: T,
     /// Channel geometry if applicable
     pub geometry: Option<ChannelGeometry<T>>,
+    /// Whether the hydraulic coefficients must be recomputed as flow changes.
+    pub resistance_update_policy: ResistanceUpdatePolicy,
     /// Additional properties
     pub properties: HashMap<String, T>,
+}
+
+/// Update policy for per-edge hydraulic coefficients during Picard iteration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResistanceUpdatePolicy {
+    /// Resistance law is flow-invariant for the selected reduced-order model.
+    FlowInvariant,
+    /// Resistance law depends on the current flow state and must be refreshed.
+    FlowDependent,
 }
 
 use crate::domain::channel::{ChannelType, CrossSection, SurfaceProperties, Wettability};
@@ -124,6 +135,7 @@ impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for EdgeProperties<
             hydraulic_diameter,
             resistance,
             geometry,
+            resistance_update_policy: ResistanceUpdatePolicy::FlowDependent,
             properties: HashMap::new(),
         }
     }
@@ -363,6 +375,12 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
 
             // Get geometry and other properties from self.properties
             if let Some(props) = self.properties.get(&edge_idx) {
+                if matches!(
+                    props.resistance_update_policy,
+                    ResistanceUpdatePolicy::FlowInvariant
+                ) {
+                    continue;
+                }
                 if let Some(geometry) = &props.geometry {
                     // Map channel::ChannelGeometry to resistance::ChannelGeometry
                     let res_geometry = match &geometry.cross_section {

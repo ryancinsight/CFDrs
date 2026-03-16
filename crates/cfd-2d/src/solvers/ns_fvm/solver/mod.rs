@@ -59,9 +59,9 @@ pub struct NavierStokesSolver2D<T: RealField + Copy + Float + FromPrimitive> {
     /// SIMPLE configuration
     pub config: SIMPLEConfig<T>,
     /// Central coefficient storage for u-momentum
-    a_p_u: Vec<Vec<T>>,
+    a_p_u: crate::solvers::ns_fvm::array2d::Array2D<T>,
     /// Central coefficient storage for v-momentum
-    a_p_v: Vec<Vec<T>>,
+    a_p_v: crate::solvers::ns_fvm::array2d::Array2D<T>,
 }
 
 impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
@@ -72,9 +72,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         density: T,
         config: SIMPLEConfig<T>,
     ) -> Self {
-        let field = FlowField2D::new(grid.nx, grid.ny);
-        let a_p_u = vec![vec![T::one(); grid.ny]; grid.nx + 1];
-        let a_p_v = vec![vec![T::one(); grid.ny + 1]; grid.nx];
+        let field = FlowField2D::<T>::new(grid.nx, grid.ny);
+        let a_p_u = crate::solvers::ns_fvm::array2d::Array2D::new(grid.nx + 1, grid.ny, T::one());
+        let a_p_v = crate::solvers::ns_fvm::array2d::Array2D::new(grid.nx, grid.ny + 1, T::one());
         Self {
             grid,
             field,
@@ -98,7 +98,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         };
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
-                self.field.mu[i][j] = mu_init;
+                self.field.mu[(i, j)] = mu_init;
             }
         }
     }
@@ -116,8 +116,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             for j in 0..ny {
                 let dy_j = self.grid.dy_at(j);
                 let imb = rho
-                    * ((self.field.u[i + 1][j] - self.field.u[i][j]) * dy_j
-                        + (self.field.v[i][j + 1] - self.field.v[i][j]) * dx);
+                    * ((self.field.u[(i + 1, j)] - self.field.u[(i, j)]) * dy_j
+                        + (self.field.v[(i, j + 1)] - self.field.v[(i, j)]) * dx);
                 cont_sum += imb * imb;
             }
         }
@@ -129,8 +129,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
     /// Drive the SIMPLE loop to steady state.
     pub fn solve(&mut self, u_inlet: T) -> Result<SolveResult<T>, Error> {
         self.initialize_viscosity();
-        self.a_p_u = vec![vec![T::one(); self.grid.ny]; self.grid.nx + 1];
-        self.a_p_v = vec![vec![T::one(); self.grid.ny + 1]; self.grid.nx];
+        self.a_p_u = crate::solvers::ns_fvm::array2d::Array2D::new(self.grid.nx + 1, self.grid.ny, T::one());
+        self.a_p_v = crate::solvers::ns_fvm::array2d::Array2D::new(self.grid.nx, self.grid.ny + 1, T::one());
 
         let ny = self.grid.ny;
 
@@ -138,7 +138,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let mut y_coords = Vec::new();
         let mut dy_cells = Vec::new();
         for j in 0..ny {
-            if self.field.mask[0][j] {
+            if self.field.mask[(0, j)] {
                 y_coords.push(self.grid.y_center(j));
                 dy_cells.push(self.grid.dy_at(j));
             }
@@ -151,17 +151,17 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 + (dy_cells[0] + dy_cells[dy_cells.len() - 1])
                     * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
             for j in 0..ny {
-                if self.field.mask[0][j] {
+                if self.field.mask[(0, j)] {
                     let dy_j = self.grid.dy_at(j);
                     let y_local = (self.grid.y_center(j) - y_min)
                         + T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) * dy_j;
                     let y_frac = y_local / h;
-                    self.field.u[0][j] = T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero)
+                    self.field.u[(0, j)] = T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero)
                         * u_inlet
                         * y_frac
                         * (T::one() - y_frac);
                 } else {
-                    self.field.u[0][j] = T::zero();
+                    self.field.u[(0, j)] = T::zero();
                 }
             }
         }
@@ -179,7 +179,11 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         for iteration in 0..self.config.max_iterations {
             self.solve_u_momentum(&bc_inlet, &bc_outlet, u_inlet)?;
             self.solve_v_momentum(&bc_wall_noslip, &bc_wall_noslip)?;
-            self.solve_pressure_correction()?;
+
+            // Execute PISO pressure correction loops (n_correctors = 1 for SIMPLE, >1 for PISO)
+            for _ in 0..self.config.n_correctors {
+                self.solve_pressure_correction()?;
+            }
 
             // Global mass-flux correction: scale outlet face velocities so
             // that Q_outlet = Q_inlet exactly.  Applied after the initial
@@ -234,18 +238,18 @@ mod tests {
     #[test]
     fn test_flow_field_creation() {
         let field = FlowField2D::<f64>::new(10, 5);
-        assert_eq!(field.u.len(), 11);
-        assert_eq!(field.v.len(), 10);
-        assert_eq!(field.p.len(), 10);
-        assert_eq!(field.u[0].len(), 5);
-        assert_eq!(field.v[0].len(), 6);
+        assert_eq!(field.u.rows(), 11);
+        assert_eq!(field.v.rows(), 10);
+        assert_eq!(field.p.rows(), 10);
+        assert_eq!(field.u.cols(), 5);
+        assert_eq!(field.v.cols(), 6);
     }
 
     #[test]
     fn test_simple_solver_newtonian() {
         let grid = StaggeredGrid2D::<f64>::new(20, 10, 0.2, 0.01);
         let blood = BloodModel::Newtonian(1.0e-3);
-        let config = SIMPLEConfig::new(200, 1e-4, 0.5, 0.3, 0.5, 1);
+        let config = SIMPLEConfig::new(200, 1e-4, 0.5, 0.3, 0.5, 1, 1);
         let mut solver = NavierStokesSolver2D::new(grid, blood, 998.0, config);
         let result = solver.solve(0.01).unwrap();
         assert!(result.iterations > 0);
@@ -255,7 +259,7 @@ mod tests {
     fn test_simple_solver_non_newtonian() {
         let grid = StaggeredGrid2D::<f64>::new(10, 5, 0.05, 0.0025);
         let blood = BloodModel::Casson(CassonBlood::normal_blood());
-        let config = SIMPLEConfig::new(100, 1e-3, 0.3, 0.2, 0.4, 1);
+        let config = SIMPLEConfig::new(100, 1e-3, 0.3, 0.2, 0.4, 1, 1);
         let mut solver = NavierStokesSolver2D::new(grid, blood, 1060.0, config);
         assert!(solver.solve(0.005).is_ok());
     }

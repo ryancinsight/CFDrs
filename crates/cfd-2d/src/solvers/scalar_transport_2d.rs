@@ -24,7 +24,7 @@
 //! Boundedness follows directly from the non-negative coefficients and the
 //! Scarborough criterion.
 
-use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
+use crate::solvers::ns_fvm::{array2d::Array2D, FlowField2D, StaggeredGrid2D};
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
@@ -57,17 +57,17 @@ impl<T: RealField + Copy + FromPrimitive> Default for ScalarTransportConfig<T> {
 /// 2D Scalar Transport Solver
 pub struct ScalarTransportSolver2D<T: RealField + Copy + Float + FromPrimitive> {
     /// Concentration field [nx][ny] (stored at cell centers)
-    pub c: Vec<Vec<T>>,
+    pub c: Array2D<T>,
     /// Previous iteration for convergence check.
-    _c_old: Vec<Vec<T>>,
+    _c_old: Array2D<T>,
 }
 
 impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
     /// Create new scalar transport solver
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
-            c: vec![vec![T::zero(); ny]; nx],
-            _c_old: vec![vec![T::zero(); ny]; nx],
+            c: Array2D::new(nx, ny, T::zero()),
+            _c_old: Array2D::new(nx, ny, T::zero()),
         }
     }
 
@@ -96,7 +96,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
 
             for i in 0..nx {
                 for j in 0..ny {
-                    if !field.mask[i][j] {
+                    if !field.mask[(i, j)] {
                         continue;
                     }
 
@@ -107,18 +107,18 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
                     let mut b = zero;
 
                     // East
-                    let f_e = field.u[i + 1][j] * dy;
+                    let f_e = field.u[(i + 1, j)] * dy;
                     let d_e = gamma * dy / dx;
-                    if i < nx - 1 && field.mask[i + 1][j] {
+                    if i < nx - 1 && field.mask[(i + 1, j)] {
                         a_e = d_e + Float::max(-f_e, zero);
-                    } else if i == nx - 1 || !field.mask[i + 1][j] {
+                    } else if i == nx - 1 || !field.mask[(i + 1, j)] {
                         // Outlet or internal wall boundary (zero gradient)
                     }
 
                     // West
-                    let f_w = field.u[i][j] * dy;
+                    let f_w = field.u[(i, j)] * dy;
                     let d_w = gamma * dy / dx;
-                    if i > 0 && field.mask[i - 1][j] {
+                    if i > 0 && field.mask[(i - 1, j)] {
                         a_w = d_w + Float::max(f_w, zero);
                     } else {
                         // Inlet or wall. If u > 0, it's an inlet.
@@ -129,23 +129,23 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
                     }
 
                     // North
-                    let f_n = field.v[i][j + 1] * dx;
+                    let f_n = field.v[(i, j + 1)] * dx;
                     let d_n = gamma * dx / dy;
-                    if j < ny - 1 && field.mask[i][j + 1] {
+                    if j < ny - 1 && field.mask[(i, j + 1)] {
                         a_n = d_n + Float::max(-f_n, zero);
                     }
 
                     // South
-                    let f_s = field.v[i][j] * dx;
+                    let f_s = field.v[(i, j)] * dx;
                     let d_s = gamma * dx / dy;
-                    if j > 0 && field.mask[i][j - 1] {
+                    if j > 0 && field.mask[(i, j - 1)] {
                         a_s = d_s + Float::max(f_s, zero);
                     }
 
                     let a_p = a_e + a_w + a_n + a_s + (f_e - f_w + f_n - f_s);
                     // Add inlet terms to a_p if applicable
                     let mut a_p_eff = a_p;
-                    if (i == 0 || (i > 0 && !field.mask[i - 1][j])) && f_w > zero {
+                    if (i == 0 || (i > 0 && !field.mask[(i - 1, j)])) && f_w > zero {
                         let d_in = gamma * dy / (half * dx);
                         a_p_eff += d_in;
                     }
@@ -153,36 +153,36 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
                     if Float::abs(a_p_eff)
                         > T::from_f64(1e-30).unwrap_or_else(num_traits::Zero::zero)
                     {
-                        let c_e = if i < nx - 1 && field.mask[i + 1][j] {
-                            self.c[i + 1][j]
+                        let c_e = if i < nx - 1 && field.mask[(i + 1, j)] {
+                            self.c[(i + 1, j)]
                         } else {
-                            self.c[i][j]
+                            self.c[(i, j)]
                         };
-                        let c_w = if i > 0 && field.mask[i - 1][j] {
-                            self.c[i - 1][j]
+                        let c_w = if i > 0 && field.mask[(i - 1, j)] {
+                            self.c[(i - 1, j)]
                         } else {
                             zero
                         };
-                        let c_n = if j < ny - 1 && field.mask[i][j + 1] {
-                            self.c[i][j + 1]
+                        let c_n = if j < ny - 1 && field.mask[(i, j + 1)] {
+                            self.c[(i, j + 1)]
                         } else {
-                            self.c[i][j]
+                            self.c[(i, j)]
                         };
-                        let c_s = if j > 0 && field.mask[i][j - 1] {
-                            self.c[i][j - 1]
+                        let c_s = if j > 0 && field.mask[(i, j - 1)] {
+                            self.c[(i, j - 1)]
                         } else {
-                            self.c[i][j]
+                            self.c[(i, j)]
                         };
 
                         let c_target =
                             (a_e * c_e + a_w * c_w + a_n * c_n + a_s * c_s + b) / a_p_eff;
-                        let c_new = (one - omega) * self.c[i][j] + omega * c_target;
+                        let c_new = (one - omega) * self.c[(i, j)] + omega * c_target;
 
-                        let diff = Float::abs(c_new - self.c[i][j]);
+                        let diff = Float::abs(c_new - self.c[(i, j)]);
                         if diff > max_diff {
                             max_diff = diff;
                         }
-                        self.c[i][j] = c_new;
+                        self.c[(i, j)] = c_new;
                     }
                 }
             }

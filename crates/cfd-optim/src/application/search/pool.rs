@@ -31,6 +31,7 @@ use std::sync::Arc;
 
 use rayon::prelude::*;
 
+use crate::application::orchestration::ScanProgress;
 use crate::application::objectives::BlueprintObjectiveEvaluation;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
@@ -281,10 +282,31 @@ impl EvaluatedPool {
     /// Candidates that fail physics evaluation are silently dropped.
     /// The pool is shrunk to fit after construction to release excess capacity.
     pub fn from_candidates(candidates: &[BlueprintCandidate]) -> Self {
+        Self::build_pool(candidates, None)
+    }
+
+    /// Build a pool by evaluating all candidates in parallel with heartbeat logging.
+    #[must_use]
+    pub fn from_candidates_with_progress(
+        candidates: &[BlueprintCandidate],
+        progress_label: &'static str,
+    ) -> Self {
+        Self::build_pool(candidates, Some(progress_label))
+    }
+
+    fn build_pool(
+        candidates: &[BlueprintCandidate],
+        progress_label: Option<&'static str>,
+    ) -> Self {
+        let progress =
+            progress_label.map(|label| Arc::new(ScanProgress::new(label, candidates.len())));
         let raw: Vec<(CandidateIdentity, BlueprintEvaluation, ScoringSnapshot)> = candidates
             .par_iter()
             .filter_map(|c| {
                 let eval = evaluate_blueprint_candidate(c).ok()?;
+                if let Some(progress) = &progress {
+                    progress.record();
+                }
                 let identity = CandidateIdentity {
                     id: c.id.clone(),
                     blueprint_name: c.blueprint.name.clone(),
@@ -293,6 +315,10 @@ impl EvaluatedPool {
                 Some((identity, eval, snapshot))
             })
             .collect();
+
+        if let Some(progress) = &progress {
+            progress.finish();
+        }
 
         let mut identities = Vec::with_capacity(raw.len());
         let mut evaluations = Vec::with_capacity(raw.len());

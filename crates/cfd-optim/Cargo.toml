@@ -28,6 +28,7 @@ cfd-3d.workspace = true
 cfd-mesh.workspace = true
 cfd-math.workspace = true
 cfd-schematics.workspace = true
+cfd-validation.workspace = true
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 

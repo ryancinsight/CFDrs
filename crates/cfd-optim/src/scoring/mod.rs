@@ -101,7 +101,15 @@ fn score_candidate_impl(
                 0.05 * (metrics.throat_temperature_rise_k / FDA_THROAT_TEMP_RISE_LIMIT_K)
                     .clamp(0.0, 1.0)
             };
-            ((raw - coag_penalty - thermal_penalty) * hi_gate).max(INFEASIBILITY_FLOOR)
+            // Pediatric high-flow penalty: penalises flow rates exceeding the
+            // weight-scaled vascular access ceiling (10 mL/kg/min for neonatal
+            // reference).  Max penalty 0.15 — strong enough to steer the optimizer
+            // toward catheter-achievable flows but not so severe as to create a
+            // cliff (preserves gradient for adult-context re-use).
+            let pediatric_flow_penalty =
+                0.15 * metrics.pediatric_flow_excess_risk;
+            ((raw - coag_penalty - thermal_penalty - pediatric_flow_penalty) * hi_gate)
+                .max(INFEASIBILITY_FLOOR)
         }
         ScoreMode::SmoothPenalty => {
             // Smooth sigmoid multiplier: provides a non-zero gradient for the GA
@@ -150,7 +158,10 @@ fn score_candidate_impl(
                 0.05 * (metrics.throat_temperature_rise_k / FDA_THROAT_TEMP_RISE_LIMIT_K)
                     .clamp(0.0, 1.0)
             };
-            (raw * feasibility - coag_penalty - thermal_penalty).max(INFEASIBILITY_FLOOR)
+            let pediatric_flow_penalty =
+                0.15 * metrics.pediatric_flow_excess_risk;
+            (raw * feasibility - coag_penalty - thermal_penalty - pediatric_flow_penalty)
+                .max(INFEASIBILITY_FLOOR)
         }
     }
 }

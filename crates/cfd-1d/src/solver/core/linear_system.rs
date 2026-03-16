@@ -6,9 +6,10 @@
 //! wide conductance ratios (6+ orders of magnitude) typical of millifluidic
 //! networks:
 //!
-//! 1. **Small systems (n ≤ 256)**: Direct dense factorisation via LU
-//!    (with QR fallback on singular matrices). Dense solvers avoid the
-//!    preconditioning difficulties of iterative methods on tiny systems.
+//! 1. **Small systems (n ≤ 256)**: Direct sparse factorisation.
+//!    SPD systems use sparse direct solve with Cholesky-style ordering,
+//!    while non-SPD systems use sparse LU. Dense LU/QR is retained as a
+//!    fallback if the sparse direct path fails numerically.
 //!
 //! 2. **Large SPD systems (n > 256, positive-definite Laplacian)**:
 //!    Jacobi-preconditioned Conjugate Gradient. The diagonal Jacobi
@@ -25,12 +26,13 @@
 //! falls through to the dense LU/QR tier regardless of system size.
 
 use cfd_core::error::Result;
+use cfd_math::linear_solver::DirectSparseSolver;
 use cfd_math::linear_solver::Preconditioner;
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixExt;
 use nalgebra::{DMatrix, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use num_traits::FromPrimitive;
+use num_traits::{Float, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
 /// Linear solver method selection
@@ -49,13 +51,13 @@ pub struct LinearSystemSolver<T: RealField + Copy> {
     tolerance: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Default for LinearSystemSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> Default for LinearSystemSolver<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
+impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
     const DIRECT_SOLVE_NODE_THRESHOLD: usize = 256;
 
     /// Create a new linear system solver
@@ -73,6 +75,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
         self
     }
 
+    /// Set the maximum iteration budget for iterative solves.
+    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
+        self.max_iterations = max_iterations;
+        self
+    }
+
     /// Set tolerance
     pub fn with_tolerance(mut self, tolerance: T) -> Self {
         self.tolerance = tolerance;
@@ -85,7 +93,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
         T: Copy,
     {
         if a.nrows() <= Self::DIRECT_SOLVE_NODE_THRESHOLD {
-            return Self::solve_dense_fallback(a, b);
+            let direct_result = match self.method {
+                LinearSolverMethod::ConjugateGradient => Self::solve_sparse_direct_spd(a, b),
+                LinearSolverMethod::BiCGSTAB => Self::solve_sparse_direct_general(a, b),
+            };
+            return match direct_result {
+                Ok(x) if self.solution_meets_residual_target(a, &x, b) => Ok(x),
+                Ok(_) | Err(_) => Self::solve_dense_fallback(a, b),
+            };
         }
 
         // Initial guess
@@ -100,7 +115,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                     use_parallel_spmv: false,
                 };
                 let solver = ConjugateGradient::<T>::new(config);
-                let mut x = x0.clone();
+                let mut x = x0;
                 let precond = DiagJacobi::new(a)?;
                 match solver.solve(a, b, &mut x, Some(&precond)) {
                     Ok(_) if self.solution_meets_residual_target(a, &x, b) => Ok(x),
@@ -116,7 +131,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
                     use_parallel_spmv: false,
                 };
                 let solver = BiCGSTAB::<T>::new(config);
-                let mut x = x0.clone();
+                let mut x = x0;
                 let precond = DiagJacobi::new(a)?;
                 match solver.solve(a, b, &mut x, Some(&precond)) {
                     Ok(_) if self.solution_meets_residual_target(a, &x, b) => Ok(x),
@@ -156,7 +171,31 @@ impl<T: RealField + Copy + FromPrimitive + Copy> LinearSystemSolver<T> {
             let residual = ax_i - b[row_idx];
             norm += residual * residual;
         }
-        norm.sqrt()
+        <T as Float>::sqrt(norm)
+    }
+
+    fn solve_sparse_direct_spd(a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>>
+    where
+        T: ToPrimitive,
+    {
+        DirectSparseSolver {
+            max_size: Self::DIRECT_SOLVE_NODE_THRESHOLD,
+            ordering: 0,
+            pivot_tolerance: 1e-12,
+        }
+        .solve(a, b)
+    }
+
+    fn solve_sparse_direct_general(a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>>
+    where
+        T: ToPrimitive,
+    {
+        DirectSparseSolver {
+            max_size: Self::DIRECT_SOLVE_NODE_THRESHOLD,
+            ordering: 1,
+            pivot_tolerance: 1e-12,
+        }
+        .solve(a, b)
     }
 
     fn solve_dense_fallback(a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>> {

@@ -8,7 +8,19 @@ pub(super) struct CavitationDimensions {
     pub throats: &'static [f64],
 }
 
-static CAV_FLOWS: [f64; 3] = [5.000e-6, 6.667e-6, 8.333e-6];
+/// Cavitation-tier flow rates [m³/s].
+///
+/// The sweep now spans from pediatric-achievable rates (30 mL/min ≈ 10 mL/kg/min
+/// for the 3 kg neonatal reference) through adult high-flow leukapheresis.
+/// Previous values (300/400/500 mL/min) excluded the entire pediatric operating
+/// envelope and required surgical-grade vascular access (AV fistula or ECMO cannulae).
+static CAV_FLOWS: [f64; 5] = [
+    5.000e-7, // 30 mL/min — pediatric ceiling (3 kg × 10 mL/kg/min)
+    1.333e-6, // 80 mL/min — pediatric high / small-child low
+    3.333e-6, // 200 mL/min — adolescent / adult low-flow cavitation
+    5.000e-6, // 300 mL/min — adult mid-flow cavitation
+    8.333e-6, // 500 mL/min — adult high-flow (requires large-bore access)
+];
 static CAV_GAUGES: [f64; 3] = [300_000.0, 400_000.0, 500_000.0];
 static CAV_THROATS: [f64; 3] = [30e-6, 35e-6, 45e-6];
 
@@ -19,9 +31,9 @@ impl CavitationDimensions {
         #[cfg(any(test, debug_assertions))]
         {
             Self {
-                flows: &CAV_FLOWS[0..1],
-                gauges: &CAV_GAUGES[0..1],
-                throats: &CAV_THROATS[0..1],
+                flows: &CAV_FLOWS[..1],
+                gauges: &CAV_GAUGES[..1],
+                throats: &CAV_THROATS[..1],
             }
         }
         #[cfg(not(any(test, debug_assertions)))]

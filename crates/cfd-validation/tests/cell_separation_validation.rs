@@ -459,6 +459,7 @@ fn test_kappa_aware_cascade_selective_enrichment() {
         arm_q_fracs: [0.5, 0.25, 0.25, 0.0, 0.0],
         n_arms: 3,
         treatment_dh_m: treatment_dh,
+        parent_v_in_m_s: 0.02,
         peripheral_recoveries: [None, None, None, None],
         n_recoveries: 0,
     };

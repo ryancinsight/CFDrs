@@ -3,7 +3,7 @@
 //! Measures execution time, throughput, and identifies performance bottlenecks
 //! in CFD algorithms and data structures.
 
-use super::utils::{BenchmarkStats, BenchmarkTimer};
+use super::timing::{BenchmarkStats, BenchmarkTimer};
 use crate::manufactured::navier_stokes::NavierStokesManufacturedSolution;
 use cfd_core::error::{Error, Result};
 use nalgebra::{RealField, Scalar};

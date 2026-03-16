@@ -9,7 +9,7 @@
 
 use cfd_validation::benchmarking::{
     analysis::{PerformanceAnalyzer, RegressionConfig},
-    suite::{BenchmarkConfig, BenchmarkStatus, BenchmarkSuite},
+    BenchmarkConfig, BenchmarkStatus, BenchmarkSuite,
 };
 use cfd_validation::geometry::{CircularDomain, RectangularDomain};
 use cfd_validation::manufactured::{

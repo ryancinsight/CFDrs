@@ -53,7 +53,8 @@ pub enum Milestone12RequestedStage {
 }
 
 impl Milestone12RequestedStage {
-    pub const ALL: [Self; 4] = [Self::Option1, Self::Option2, Self::Ga, Self::Validation];
+    /// Default report stages. Validation is excluded (run separately via `--stages validation`).
+    pub const ALL: [Self; 3] = [Self::Option1, Self::Option2, Self::Ga];
 
     #[must_use]
     pub const fn label(self) -> &'static str {

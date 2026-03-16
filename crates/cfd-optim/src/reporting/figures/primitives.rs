@@ -26,6 +26,24 @@ pub(super) fn write_bar_svg(
     let yh = 500.0;
     axis(&mut svg, x0, y0, xw, yh);
 
+    for i in 0..=5 {
+        let frac = f64::from(i) / 5.0;
+        let val = y_max * frac;
+        let ty = y0 - yh * frac;
+        let _ = write!(
+            svg,
+            r##"<line x1="{x0:.2}" y1="{ty:.2}" x2="{:.2}" y2="{ty:.2}" stroke="#ecf0f1" stroke-width="1"/>"##,
+            x0 + xw
+        );
+        let _ = write!(
+            svg,
+            r##"<text x="{:.2}" y="{:.2}" font-size="12" text-anchor="end" fill="#7f8c8d">{:.1}</text>"##,
+            x0 - 8.0,
+            ty + 4.0,
+            val
+        );
+    }
+
     let bw = xw / data.len() as f64 * 0.65;
     let gap = xw / data.len() as f64 * 0.35;
     for (i, (label, value)) in data.iter().enumerate() {
@@ -43,14 +61,15 @@ pub(super) fn write_bar_svg(
         );
         let _ = write!(
             svg,
-            r##"<text x="{:.2}" y="{:.2}" font-size="13" fill="#2c3e50">{label}</text>"##,
-            left,
+            r##"<text x="{:.2}" y="{:.2}" font-size="13" text-anchor="middle" fill="#2c3e50">{}</text>"##,
+            left + bw * 0.5,
             y0 + 24.0
+            ,escape_xml(label)
         );
         let _ = write!(
             svg,
-            r##"<text x="{:.2}" y="{:.2}" font-size="12" fill="#2c3e50">{:.3}</text>"##,
-            left,
+            r##"<text x="{:.2}" y="{:.2}" font-size="12" text-anchor="middle" fill="#2c3e50">{:.3}</text>"##,
+            left + bw * 0.5,
             top - 8.0,
             value
         );
@@ -92,7 +111,7 @@ pub(super) fn svg_start(svg: &mut impl std::fmt::Write, width: f64, height: f64)
         r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width:.0}" height="{height:.0}" viewBox="0 0 {width:.0} {height:.0}">"#
     );
     let _ =
-        svg.write_str(r#"<rect x=\"0\" y=\"0\" width=\"100%\" height=\"100%\" fill=\"white\"/>"#);
+        svg.write_str(r##"<rect x="0" y="0" width="100%" height="100%" fill="white"/>"##);
     let _ = svg.write_str(
         r##"<defs><marker id="arrowhead-flow" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,8 L10,4 z" fill="#566573"/></marker></defs>"##,
     );

@@ -22,7 +22,7 @@
 //! reduces the residual norm $\|\mathbf{r}\| = \|\mathbf{b} - \mathbf{A}\mathbf{x}\|$
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
-
+pub mod array2d;
 pub mod boundary;
 pub mod config;
 pub mod field;

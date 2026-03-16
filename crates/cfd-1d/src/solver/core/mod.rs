@@ -36,7 +36,7 @@ use cfd_core::error::Result;
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind};
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
 use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::{Float, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
 /// Solver configuration
@@ -112,7 +112,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone> NetworkSolve
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone>
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: FluidTrait<T> + Clone>
     NetworkSolver<T, F>
 {
     /// Solve the network flow problem iteratively for non-linear systems.
@@ -164,6 +164,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
         let mut last_solution = nalgebra::DVector::zeros(n);
         let mut last_flow_rates = network.flow_rates.clone();
         let mut diagnostics = PrimarySolveDiagnostics::default();
+        network.residuals.clear();
+        network.residuals.reserve(self.config.max_iterations);
 
         if Self::is_linear_static_network(&network) {
             diagnostics.matrix_treated_as_linear_static = true;
@@ -187,6 +189,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
             network.last_solver_method = Some(method);
             let solution = LinearSystemSolver::new()
                 .with_method(method)
+                .with_tolerance(self.config.tolerance)
+                .with_max_iterations(self.config.max_iterations)
                 .solve(&matrix, &rhs)
                 .map_err(|source| {
                     PrimarySolveError::new(
@@ -234,6 +238,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
             std::collections::VecDeque::with_capacity(anderson_depth);
 
         let mut selected_method: Option<LinearSolverMethod> = None;
+        let mut adaptive_solver: Option<LinearSystemSolver<T>> = None;
 
         for iter in 0..self.config.max_iterations {
             diagnostics.picard_iterations = iter + 1;
@@ -257,11 +262,19 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
                 selected_method = Some(method);
                 network.last_solver_method = Some(method);
                 diagnostics.linear_solver_method = Some(method);
+                adaptive_solver = Some(
+                    LinearSystemSolver::new()
+                        .with_method(method)
+                        .with_tolerance(self.config.tolerance)
+                        .with_max_iterations(self.config.max_iterations),
+                );
             }
 
-            let adaptive_solver = LinearSystemSolver::new()
-                .with_method(selected_method.unwrap_or(LinearSolverMethod::ConjugateGradient));
-            let picard_solution = adaptive_solver.solve(&matrix, &rhs).map_err(|source| {
+            let picard_solution = adaptive_solver
+                .as_ref()
+                .expect("adaptive solver must be initialized after method detection")
+                .solve(&matrix, &rhs)
+                .map_err(|source| {
                 PrimarySolveError::new(
                     SolveFailureReason::LinearSolverFailure,
                     diagnostics.clone(),
@@ -349,8 +362,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
                 flow_diff_sq += diff * diff;
                 flow_norm_sq += new_flow * new_flow;
             }
-            let flow_change = flow_diff_sq.sqrt();
-            let flow_norm = flow_norm_sq.sqrt();
+            let flow_change = <T as Float>::sqrt(flow_diff_sq);
+            let flow_norm = <T as Float>::sqrt(flow_norm_sq);
             let relative_flow_change = if flow_norm > T::default_epsilon() {
                 flow_change / flow_norm
             } else {
@@ -380,7 +393,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
         let all_edges_linear = network
             .graph
             .edge_weights()
-            .all(|edge| edge.quad_coeff.abs() <= eps);
+            .all(|edge| <T as Float>::abs(edge.quad_coeff) <= eps);
         let no_geometry_updates = network
             .properties
             .values()
@@ -406,7 +419,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
                     is_spd = false;
                     break;
                 } else {
-                    sum_off += val.abs();
+                    sum_off += <T as Float>::abs(*val);
                 }
             }
             if !is_spd {
@@ -518,7 +531,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
             let accelerated_residual = Self::compute_residual_norm(matrix, &accelerated, rhs, n);
             if accelerated_residual.is_finite()
                 && accelerated_step_norm <= picard_step_norm
-                && accelerated_residual <= picard_residual.max(T::default_epsilon())
+                && accelerated_residual
+                    <= <T as Float>::max(picard_residual, T::default_epsilon())
             {
                 return accelerated;
             }
@@ -565,7 +579,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
             let r_i = ax_i - rhs[i];
             norm += r_i * r_i;
         }
-        norm.sqrt()
+        <T as Float>::sqrt(norm)
     }
 
     fn update_network_solution(
@@ -613,7 +627,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone> Solver<T>
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: FluidTrait<T> + Clone>
+    Solver<T>
     for NetworkSolver<T, F>
 {
     type Problem = NetworkProblem<T, F>;

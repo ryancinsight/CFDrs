@@ -17,7 +17,6 @@ use cfd_1d::{
     // Network types — re-exported at crate root from domain::network
     ComponentType,
     CrossSection,
-    Edge,
     EdgeProperties,
     Network,
     NetworkBuilder,
@@ -55,7 +54,7 @@ impl<T: RealField + Copy + FromPrimitive> StenosisValidation<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> LiteratureValidation<T>
     for StenosisValidation<T>
 {
     fn validate(&self) -> Result<ValidationReport<T>> {
@@ -105,10 +104,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
             // R = 128 * mu * L / (pi * D^4). mu_water ~ 1e-3.
             let mu = T::from_f64(1e-3).unwrap_or_else(num_traits::Zero::zero);
             let r_init = T::from_f64(128.0).unwrap_or_else(num_traits::Zero::zero) * mu * l
-                / (pi * d.powi(4));
+                / (pi * num_traits::Float::powi(d, 4));
 
             EdgeProperties {
                 id: String::new(), // Overwritten by network map
+                resistance_update_policy: cfd_1d::ResistanceUpdatePolicy::FlowDependent,
                 component_type: ComponentType::Pipe,
                 length: l,
                 area,
@@ -155,25 +155,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
         let solution = solver.solve_network(&problem)?;
 
         // 8. Analysis and Validation
-        let q1 = solution
-            .flow_rates
-            .get(&e1)
-            .copied()
-            .unwrap_or(T::zero())
-            .abs();
-        let q3 = solution
-            .flow_rates
-            .get(&e3)
-            .copied()
-            .unwrap_or(T::zero())
-            .abs();
-        let q_err = (q1 - q3).abs();
+        let q1 = num_traits::Float::abs(solution.flow_rates.get(&e1).copied().unwrap_or(T::zero()));
+        let q3 = num_traits::Float::abs(solution.flow_rates.get(&e3).copied().unwrap_or(T::zero()));
+        let q_err = num_traits::Float::abs(q1 - q3);
 
-        let dp1 = (*solution.pressures.get(&n_inlet).unwrap()
-            - *solution.pressures.get(&n1).unwrap())
-        .abs();
+        let dp1 = num_traits::Float::abs(*solution.pressures.get(&n_inlet).unwrap() - *solution.pressures.get(&n1).unwrap());
         let dp3 =
-            (*solution.pressures.get(&n2).unwrap() - *solution.pressures.get(&n3).unwrap()).abs();
+            num_traits::Float::abs(*solution.pressures.get(&n2).unwrap() - *solution.pressures.get(&n3).unwrap());
 
         let grad1 = dp1 / l_wide;
         let grad3 = dp3 / l_narrow;
@@ -190,7 +178,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
         let mut details = String::new();
         use petgraph::visit::EdgeRef;
         for edge_ref in solution.graph.edge_references() {
-            let w: &Edge<T> = edge_ref.weight();
+            let w = edge_ref.weight();
             details.push_str(&format!(
                 "Edge {} R: {:e}, k: {:e}\n",
                 edge_ref.id().index(),
@@ -264,7 +252,7 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationValidation<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
+impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> LiteratureValidation<T>
     for BifurcationValidation<T>
 {
     fn validate(&self) -> Result<ValidationReport<T>> {
@@ -294,10 +282,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
             // Initial resistance guess
             let mu = T::from_f64(1e-3).unwrap_or_else(num_traits::Zero::zero);
             let r_init = T::from_f64(128.0).unwrap_or_else(num_traits::Zero::zero) * mu * l
-                / (pi * d.powi(4));
+                / (pi * num_traits::Float::powi(d, 4));
 
             EdgeProperties {
                 id: String::new(),
+                resistance_update_policy: cfd_1d::ResistanceUpdatePolicy::FlowDependent,
                 component_type: ComponentType::Pipe,
                 length: l,
                 area,
@@ -360,28 +349,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
 
         let solution = solver.solve_network(&problem)?;
 
-        let q_parent = solution
-            .flow_rates
-            .get(&e_parent)
-            .copied()
-            .unwrap_or(T::zero())
-            .abs();
-        let q_b1 = solution
-            .flow_rates
-            .get(&e_branch1)
-            .copied()
-            .unwrap_or(T::zero())
-            .abs();
-        let q_b2 = solution
-            .flow_rates
-            .get(&e_branch2)
-            .copied()
-            .unwrap_or(T::zero())
-            .abs();
+        let q_parent = num_traits::Float::abs(solution.flow_rates.get(&e_parent).copied().unwrap_or(T::zero()));
+        let q_b1 = num_traits::Float::abs(solution.flow_rates.get(&e_branch1).copied().unwrap_or(T::zero()));
+        let q_b2 = num_traits::Float::abs(solution.flow_rates.get(&e_branch2).copied().unwrap_or(T::zero()));
 
         // 1. Mass Conservation
         let sum_out = q_b1 + q_b2;
-        let mass_err = (q_parent - sum_out).abs();
+        let mass_err = num_traits::Float::abs(q_parent - sum_out);
 
         // 2. Flow Splitting
         let flow_ratio = q_b1 / q_b2;

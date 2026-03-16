@@ -6,7 +6,7 @@ use std::path::Path;
 
 use super::primitives::{axis, svg_end, svg_start, svg_title, write_bar_svg, write_bar_svg_owned};
 use super::process::write_placeholder;
-use crate::reporting::{Milestone12ReportDesign, ParetoPoint, ParetoTag, ValidationRow};
+use crate::reporting::{Milestone12ReportDesign, ParetoPoint};
 
 /// Adapter that bridges `std::io::Write` → `std::fmt::Write`, enabling
 /// `write!()` macros (which use `fmt::Write`) to stream directly to a
@@ -73,132 +73,205 @@ pub(super) fn write_cavitation_distribution_figure(
     option2: &[Milestone12ReportDesign],
     ga: &[Milestone12ReportDesign],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut neg = 0usize;
-    let mut zero_to_one = 0usize;
-    let mut ge_one = 0usize;
-    let mut nonfinite = 0usize;
+    let data: Vec<(String, f64, &str)> = option2
+        .iter()
+        .take(5)
+        .map(|d| (format!("O2-R{}", d.rank), d.metrics.cavitation_number, "Option2"))
+        .chain(
+            ga.iter()
+                .take(5)
+                .map(|d| (format!("GA-R{}", d.rank), d.metrics.cavitation_number, "GA")),
+        )
+        .filter(|(_, sigma, _)| sigma.is_finite())
+        .collect();
 
-    for d in option2.iter().chain(ga.iter()) {
-        let s = d.metrics.cavitation_number;
-        if !s.is_finite() {
-            nonfinite += 1;
-        } else if s < 0.0 {
-            neg += 1;
-        } else if s < 1.0 {
-            zero_to_one += 1;
-        } else {
-            ge_one += 1;
+    if data.is_empty() {
+        return write_placeholder(
+            path,
+            "Selected-Design Cavitation Number (σ)",
+            "No finite cavitation numbers available.",
+        );
+    }
+
+    let sigma_min = data.iter().map(|(_, sigma, _)| *sigma).fold(f64::INFINITY, f64::min);
+    let sigma_max = data
+        .iter()
+        .map(|(_, sigma, _)| *sigma)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let y_min = sigma_min.min(0.0) - 0.1 * (sigma_max - sigma_min).max(0.25);
+    let y_max = sigma_max.max(1.0) + 0.1 * (sigma_max - sigma_min).max(0.25);
+
+    let mut svg = String::new();
+    let w = 1100.0;
+    let h = 700.0;
+    svg_start(&mut svg, w, h);
+    svg_title(&mut svg, "Selected-Design Cavitation Number (σ)");
+    let x0 = 100.0;
+    let y0 = 620.0;
+    let xw = 900.0;
+    let yh = 500.0;
+    axis(&mut svg, x0, y0, xw, yh);
+
+    for i in 0..=5 {
+        let frac = f64::from(i) / 5.0;
+        let val = y_min + frac * (y_max - y_min);
+        let ty = y0 - yh * frac;
+        let _ = write!(
+            svg,
+            r##"<line x1="{x0:.2}" y1="{ty:.2}" x2="{:.2}" y2="{ty:.2}" stroke="#ecf0f1" stroke-width="1"/>"##,
+            x0 + xw
+        );
+        let _ = write!(
+            svg,
+            r##"<text x="{:.2}" y="{:.2}" font-size="12" text-anchor="end" fill="#7f8c8d">{:.2}</text>"##,
+            x0 - 8.0,
+            ty + 4.0,
+            val
+        );
+    }
+
+    for &(threshold, color) in &[(0.0, "#c0392b"), (1.0, "#d4ac0d")] {
+        if threshold >= y_min && threshold <= y_max {
+            let frac = (threshold - y_min) / (y_max - y_min);
+            let ty = y0 - yh * frac;
+            let _ = write!(
+                svg,
+                r##"<line x1="{x0:.2}" y1="{ty:.2}" x2="{:.2}" y2="{ty:.2}" stroke="{color}" stroke-width="2" stroke-dasharray="8 6"/>"##,
+                x0 + xw
+            );
+            let _ = write!(
+                svg,
+                r##"<text x="{:.2}" y="{:.2}" font-size="12" fill="{color}">σ={threshold:.0}</text>"##,
+                x0 + xw - 42.0,
+                ty - 6.0
+            );
         }
     }
 
-    let data = vec![
-        ("σ<0", neg as f64),
-        ("0≤σ<1", zero_to_one as f64),
-        ("σ≥1", ge_one as f64),
-        ("nonfinite", nonfinite as f64),
-    ];
-    let max = data.iter().map(|(_, v)| *v).fold(1.0, f64::max);
-    write_bar_svg(
-        path,
-        "Cavitation Number (σ) Distribution",
-        &data,
-        (max + 1.0).max(1.0),
-        "Cavitation Number Range",
-        "Number of Designs",
-    )
+    let step = xw / data.len() as f64;
+    for (index, (label, sigma, tag)) in data.iter().enumerate() {
+        let cx = x0 + step * (index as f64 + 0.5);
+        let cy = y0 - yh * ((*sigma - y_min) / (y_max - y_min)).clamp(0.0, 1.0);
+        let (fill, stroke) = if *tag == "Option2" {
+            ("#2e86de", "#1a5276")
+        } else {
+            ("#d35400", "#873600")
+        };
+        let _ = write!(
+            svg,
+            r#"<circle cx="{cx:.2}" cy="{cy:.2}" r="8" fill="{fill}" stroke="{stroke}" stroke-width="2"/>"#
+        );
+        let _ = write!(
+            svg,
+            r##"<text x="{cx:.2}" y="{:.2}" font-size="12" text-anchor="middle" fill="#2c3e50">{}</text>"##,
+            y0 + 24.0,
+            super::primitives::escape_xml(label)
+        );
+        let _ = write!(
+            svg,
+            r##"<text x="{cx:.2}" y="{:.2}" font-size="12" text-anchor="middle" fill="#2c3e50">{sigma:.3}</text>"##,
+            cy - 12.0
+        );
+    }
+
+    let _ = write!(
+        svg,
+        r##"<text x="{:.1}" y="668" font-size="16" fill="#34495e">Selected Venturi Designs</text>"##,
+        x0 + xw * 0.38
+    );
+    svg.push_str(r##"<text x="18" y="340" transform="rotate(-90 18,340)" font-size="16" fill="#34495e">Cavitation Number (σ)</text>"##);
+    svg.push_str(r##"<circle cx="820" cy="92" r="6" fill="#2e86de" stroke="#1a5276" stroke-width="2"/><text x="832" y="96" font-size="12" fill="#34495e">Option 2</text>"##);
+    svg.push_str(r##"<circle cx="820" cy="112" r="6" fill="#d35400" stroke="#873600" stroke-width="2"/><text x="832" y="116" font-size="12" fill="#34495e">GA</text>"##);
+    svg_end(&mut svg);
+    std::fs::write(path, svg)?;
+    Ok(())
 }
 
 pub(super) fn write_pareto_figure(
     path: &Path,
     option2: &[Milestone12ReportDesign],
     ga: &[Milestone12ReportDesign],
-    option2_pool_all: &[ParetoPoint],
-    ga_pool_all: &[ParetoPoint],
+    _option2_pool_all: &[ParetoPoint],
+    _ga_pool_all: &[ParetoPoint],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Selected designs — extract Pareto coords from their metrics.
-    let selected: Vec<(f64, f64, f64, &str)> = option2
+    let selected: Vec<(String, f64, f64, f64, &str)> = option2
         .iter()
+        .take(5)
         .map(|d| {
             (
+                format!("O2-R{}", d.rank),
                 d.metrics.cancer_targeted_cavitation,
                 d.metrics.rbc_venturi_protection,
                 d.score,
                 "Option2",
             )
         })
-        .chain(ga.iter().map(|d| {
+        .chain(ga.iter().take(5).map(|d| {
             (
+                format!("GA-R{}", d.rank),
                 d.metrics.cancer_targeted_cavitation,
                 d.metrics.rbc_venturi_protection,
                 d.score,
                 "GA",
             )
         }))
+        .filter(|(_, x, y, _, _)| x.is_finite() && y.is_finite())
         .collect();
 
-    if selected.is_empty() && option2_pool_all.is_empty() && ga_pool_all.is_empty() {
+    if selected.is_empty() {
         return write_placeholder(
             path,
-            "Pareto Front — Oncology Objectives",
+            "Selected-Design Oncology Trade-Off Frontier",
             "No ranked data available.",
         );
     }
 
-    // Compute data range for auto-scaling axes without intermediate Vec.
-    // Y-axis uses rbc_venturi_protection instead of therapeutic_window_score:
-    // TWS ≈ k × TTCI (nearly collinear) because lysis_risk_index varies too
-    // little across designs, collapsing the Pareto front to a line.
-    // rbc_venturi_protection is genuinely inversely correlated with TTCI —
-    // aggressive cavitation raises TTCI but reduces healthy-cell shielding —
-    // producing a meaningful multi-objective trade-off surface.
     let (x_min, x_max, y_min, y_max) = {
-        let pool_iter = option2_pool_all
-            .iter()
-            .map(|p| (p.cancer_targeted_cavitation, p.rbc_venturi_protection))
-            .chain(
-                ga_pool_all
-                    .iter()
-                    .map(|p| (p.cancer_targeted_cavitation, p.rbc_venturi_protection)),
-            );
-        let sel_iter = selected.iter().map(|(x, y, _, _)| (*x, *y));
         let (mut xmn, mut xmx, mut ymn, mut ymx) = (
             f64::INFINITY,
             f64::NEG_INFINITY,
             f64::INFINITY,
             f64::NEG_INFINITY,
         );
-        let mut any = false;
-        for (x, y) in pool_iter.chain(sel_iter) {
-            if x.is_finite() && y.is_finite() {
-                any = true;
-                xmn = xmn.min(x);
-                xmx = xmx.max(x);
-                ymn = ymn.min(y);
-                ymx = ymx.max(y);
-            }
+        for (_, x, y, _, _) in &selected {
+            xmn = xmn.min(*x);
+            xmx = xmx.max(*x);
+            ymn = ymn.min(*y);
+            ymx = ymx.max(*y);
         }
-        if any {
-            let x_span = (xmx - xmn).max(0.01);
-            let y_span = (ymx - ymn).max(0.01);
-            (
-                xmn - 0.1 * x_span,
-                xmx + 0.1 * x_span,
-                ymn - 0.1 * y_span,
-                ymx + 0.1 * y_span,
-            )
-        } else {
-            (0.0, 1.0, 0.0, 1.0)
-        }
+        let x_span = (xmx - xmn).max(0.01);
+        let y_span = (ymx - ymn).max(0.01);
+        (
+            xmn - 0.12 * x_span,
+            xmx + 0.12 * x_span,
+            ymn - 0.12 * y_span,
+            ymx + 0.12 * y_span,
+        )
     };
 
-    // Stream SVG directly to file via BufWriter to avoid materialising the
-    // entire document in memory (can exceed 5 MB for large background pools).
+    let frontier: Vec<(f64, f64)> = {
+        let mut nondominated = Vec::new();
+        'outer: for (_, x, y, _, _) in &selected {
+            for (_, ox, oy, _, _) in &selected {
+                if (ox > x || oy > y) && ox >= x && oy >= y {
+                    continue 'outer;
+                }
+            }
+            nondominated.push((*x, *y));
+        }
+        nondominated.sort_by(|left, right| left.0.total_cmp(&right.0));
+        nondominated.dedup_by(|left, right| {
+            (left.0 - right.0).abs() <= 1.0e-9 && (left.1 - right.1).abs() <= 1.0e-9
+        });
+        nondominated
+    };
+
     let file = std::fs::File::create(path)?;
     let mut svg = FmtToIo(std::io::BufWriter::new(file));
     let w = 1100.0;
     let h = 700.0;
     svg_start(&mut svg, w, h);
-    svg_title(&mut svg, "Pareto Front — Oncology Objectives");
+    svg_title(&mut svg, "Selected-Design Oncology Trade-Off Frontier");
     let x0 = 100.0;
     let y0 = 620.0;
     let xw = 900.0;
@@ -231,36 +304,27 @@ pub(super) fn write_pareto_figure(
     svg.write_str(r##"<text x="420" y="668" font-size="16" fill="#34495e">Tumor-Targeted Cavitation Index</text>"##)?;
     svg.write_str(r##"<text x="18" y="340" transform="rotate(-90 18,340)" font-size="16" fill="#34495e">Healthy-Cell Protection (RBC Venturi)</text>"##)?;
 
-    // Background pool: small translucent dots — iterate slices directly
-    // instead of collecting into an intermediate Vec of references.
-    for point in option2_pool_all.iter().chain(ga_pool_all.iter()) {
-        let cx = point.cancer_targeted_cavitation;
-        let cy = point.rbc_venturi_protection;
-        if !cx.is_finite() || !cy.is_finite() {
-            continue;
-        }
-        let x = x0 + xw * ((cx - x_min) / (x_max - x_min)).clamp(0.0, 1.0);
-        let y = y0 - yh * ((cy - y_min) / (y_max - y_min)).clamp(0.0, 1.0);
-        let color = if point.tag == ParetoTag::Option2 {
-            "#85c1e9"
-        } else {
-            "#f0b27a"
-        };
+    if frontier.len() >= 2 {
+        let polyline = frontier
+            .iter()
+            .map(|(cx, cy)| {
+                let x = x0 + xw * ((*cx - x_min) / (x_max - x_min)).clamp(0.0, 1.0);
+                let y = y0 - yh * ((*cy - y_min) / (y_max - y_min)).clamp(0.0, 1.0);
+                format!("{x:.2},{y:.2}")
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
         let _ = write!(
             svg,
-            r#"<circle cx="{x:.2}" cy="{y:.2}" r="4" fill="{color}" fill-opacity="0.35"/>"#
+            r##"<polyline points="{polyline}" fill="none" stroke="#7d3c98" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>"##
         );
     }
 
-    // Selected top designs: larger, opaque, with stroke
-    for &(cx, cy, score, tag) in &selected {
-        if !cx.is_finite() || !cy.is_finite() {
-            continue;
-        }
+    for (label, cx, cy, score, tag) in &selected {
         let x = x0 + xw * ((cx - x_min) / (x_max - x_min)).clamp(0.0, 1.0);
         let y = y0 - yh * ((cy - y_min) / (y_max - y_min)).clamp(0.0, 1.0);
         let r = 6.0 + 6.0 * score.clamp(0.0, 1.0);
-        let (fill, stroke) = if tag == "Option2" {
+        let (fill, stroke) = if *tag == "Option2" {
             ("#2e86de", "#1a5276")
         } else {
             ("#d35400", "#873600")
@@ -269,24 +333,26 @@ pub(super) fn write_pareto_figure(
             svg,
             r#"<circle cx="{x:.2}" cy="{y:.2}" r="{r:.2}" fill="{fill}" fill-opacity="0.85" stroke="{stroke}" stroke-width="2"/>"#
         );
+        let _ = write!(
+            svg,
+            r##"<text x="{:.2}" y="{:.2}" font-size="12" fill="#2c3e50">{}</text>"##,
+            x + 10.0,
+            y - 10.0,
+            super::primitives::escape_xml(label)
+        );
     }
 
-    // Legend
     let _ = write!(
         svg,
-        r##"<circle cx="820" cy="92" r="4" fill="#85c1e9" fill-opacity="0.5"/><text x="830" y="96" font-size="12" fill="#34495e">Option2 pool</text>"##
+        r##"<line x1="820" y1="90" x2="846" y2="90" stroke="#7d3c98" stroke-width="3"/><text x="854" y="94" font-size="12" fill="#34495e">Frontier</text>"##
     );
     let _ = write!(
         svg,
-        r##"<circle cx="820" cy="112" r="4" fill="#f0b27a" fill-opacity="0.5"/><text x="830" y="116" font-size="12" fill="#34495e">GA pool</text>"##
+        r##"<circle cx="820" cy="112" r="6" fill="#2e86de" stroke="#1a5276" stroke-width="2"/><text x="832" y="116" font-size="12" fill="#34495e">Option 2</text>"##
     );
     let _ = write!(
         svg,
-        r##"<circle cx="820" cy="132" r="6" fill="#2e86de" stroke="#1a5276" stroke-width="2"/><text x="832" y="136" font-size="12" fill="#34495e">Selected Option2</text>"##
-    );
-    let _ = write!(
-        svg,
-        r##"<circle cx="820" cy="152" r="6" fill="#d35400" stroke="#873600" stroke-width="2"/><text x="832" y="156" font-size="12" fill="#34495e">Selected GA</text>"##
+        r##"<circle cx="820" cy="132" r="6" fill="#d35400" stroke="#873600" stroke-width="2"/><text x="832" y="136" font-size="12" fill="#34495e">GA</text>"##
     );
 
     svg_end(&mut svg);
@@ -330,37 +396,6 @@ pub(super) fn write_pediatric_ecv_figure(
         y_max.max(100.0),
         "Selected Design",
         "% of 25.5 mL Limit",
-    )
-}
-
-pub(super) fn write_multifidelity_figure(
-    path: &Path,
-    rows: &[ValidationRow],
-    fast_mode: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if rows.is_empty() {
-        let note = if fast_mode {
-            "FAST mode skipped multi-fidelity validation."
-        } else {
-            "No multi-fidelity validation rows available."
-        };
-        return write_placeholder(path, "Multi-Fidelity Pressure-Drop Comparison", note);
-    }
-    let mut data: Vec<(String, f64)> = Vec::new();
-    for (i, row) in rows.iter().enumerate() {
-        let label_base = if i % 2 == 0 { "A" } else { "B" };
-        data.push((format!("{label_base}-1D"), row.dp_1d_bernoulli_pa.max(0.0)));
-        data.push((format!("{label_base}-2D"), row.dp_2d_fvm_pa.max(0.0)));
-        data.push((format!("{label_base}-3D"), row.dp_3d_fem_pa.max(0.0)));
-    }
-    let max = data.iter().map(|(_, v)| *v).fold(1.0, f64::max);
-    write_bar_svg_owned(
-        path,
-        "Multi-Fidelity Pressure-Drop Comparison",
-        &data,
-        max * 1.1,
-        "Solver Fidelity Level",
-        "Pressure Drop (Pa)",
     )
 }
 

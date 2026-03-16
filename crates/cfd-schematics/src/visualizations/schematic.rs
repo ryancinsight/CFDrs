@@ -379,21 +379,27 @@ fn build_auto_annotations(blueprint: &NetworkBlueprint) -> SchematicAnnotations 
     }
 
     if throat_count > 0 {
-        let main_path = crate::visualizations::annotations::center_biased_main_path(blueprint);
-        let box_dims = blueprint.box_dims;
-        let zone = (box_dims.0 * 0.35, box_dims.0 * 0.65);
-        for (idx, point) in crate::visualizations::annotations::project_markers_along_path(
-            &main_path,
-            throat_count,
-            zone,
-        )
-        .iter()
-        .enumerate()
-        {
-            annotations.markers.push(
-                AnnotationMarker::new(*point, MarkerRole::VenturiThroat)
-                    .with_label(format!("TH{}", idx + 1), true),
-            );
+        let actual_points =
+            crate::visualizations::annotations::venturi_marker_points_from_blueprint(blueprint);
+        if actual_points.is_empty() {
+            let main_path = crate::visualizations::annotations::center_biased_main_path(blueprint);
+            let box_dims = blueprint.box_dims;
+            let zone = (box_dims.0 * 0.35, box_dims.0 * 0.65);
+            for point in crate::visualizations::annotations::project_markers_along_path(
+                &main_path,
+                throat_count,
+                zone,
+            ) {
+                annotations
+                    .markers
+                    .push(AnnotationMarker::new(point, MarkerRole::VenturiThroat));
+            }
+        } else {
+            for point in actual_points {
+                annotations
+                    .markers
+                    .push(AnnotationMarker::new(point, MarkerRole::VenturiThroat));
+            }
         }
     }
 

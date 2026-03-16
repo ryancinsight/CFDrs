@@ -116,6 +116,8 @@ use crate::infrastructure::storage::vertex_pool::VertexPool;
 
 #[cfg(test)]
 pub mod adversarial_tests;
+#[cfg(test)]
+pub mod adversarial_tests_2;
 pub mod boolean_csg;
 #[cfg(test)]
 pub mod boolean_csg_tests;

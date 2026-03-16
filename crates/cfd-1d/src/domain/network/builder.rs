@@ -3,7 +3,7 @@
 use super::{
     blueprint_validation::validate_blueprint_for_1d_solve,
     junction_losses::apply_blueprint_junction_losses, Edge, EdgeProperties, EdgeType, NetworkGraph,
-    Node, NodeType,
+    Node, NodeType, ResistanceUpdatePolicy,
 };
 use cfd_core::error::Result;
 use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
@@ -89,20 +89,20 @@ where
 
     let mut builder = NetworkBuilder::<T>::new();
     // Map NodeId string → petgraph NodeIndex (pre-sized to avoid rehashes)
-    let mut node_map: HashMap<String, petgraph::graph::NodeIndex> =
+    let mut node_map: HashMap<&str, petgraph::graph::NodeIndex> =
         HashMap::with_capacity(blueprint.nodes.len());
 
     for node_spec in &blueprint.nodes {
         let node = Node::new(node_spec.id.as_str().to_string(), node_spec.kind);
         let idx = builder.add_node(node);
-        node_map.insert(node_spec.id.as_str().to_string(), idx);
+        node_map.insert(node_spec.id.as_str(), idx);
     }
 
     // Collect (EdgeIndex, ChannelSpec ref) for post-build property population.
     let mut edge_specs: Vec<(
         petgraph::graph::EdgeIndex,
         &cfd_schematics::domain::model::ChannelSpec,
-    )> = Vec::new();
+    )> = Vec::with_capacity(blueprint.channels.len());
 
     for ch_spec in &blueprint.channels {
         let serial_venturi_throats = ch_spec
@@ -306,6 +306,7 @@ where
             resistance: T::from_f64(ch_spec.resistance)
                 .expect("Mathematical constant conversion compromised"),
             geometry: Some(channel_geometry),
+            resistance_update_policy: ResistanceUpdatePolicy::FlowDependent,
             properties: HashMap::new(),
         };
         network.add_edge_properties(*edge_idx, props);
@@ -339,6 +340,32 @@ where
     }
 
     let _junction_stats = apply_blueprint_junction_losses(&mut network, blueprint);
+    let eps = T::default_epsilon();
+    for (edge_idx, ch_spec) in &edge_specs {
+        let has_venturi = ch_spec.venturi_geometry.is_some()
+            || ch_spec
+                .metadata
+                .as_ref()
+                .and_then(|meta| meta.get::<VenturiGeometryMetadata>())
+                .is_some();
+        let update_policy = match ch_spec.channel_shape {
+            ChannelShape::Serpentine { .. } => ResistanceUpdatePolicy::FlowDependent,
+            ChannelShape::Straight if has_venturi => ResistanceUpdatePolicy::FlowDependent,
+            ChannelShape::Straight => network
+                .graph
+                .edge_weight(*edge_idx)
+                .map_or(ResistanceUpdatePolicy::FlowDependent, |edge| {
+                    if edge.quad_coeff.abs() <= eps {
+                        ResistanceUpdatePolicy::FlowInvariant
+                    } else {
+                        ResistanceUpdatePolicy::FlowDependent
+                    }
+                }),
+        };
+        if let Some(props) = network.properties.get_mut(edge_idx) {
+            props.resistance_update_policy = update_policy;
+        }
+    }
 
     // ── Dean-flow correction post-pass ───────────────────────────────────────
     //

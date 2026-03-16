@@ -293,6 +293,22 @@ pub struct SdtMetrics {
     #[serde(default)]
     pub clotting_flow_compliant_10ml_s: bool,
 
+    /// Pediatric high-flow excess risk ∈ [0, 1].
+    ///
+    /// Risk rises linearly from 0.0 at the pediatric caution threshold
+    /// (weight × 10 mL/kg/min, e.g. 30 mL/min for 3 kg) to 1.0 at
+    /// 3× that threshold (90 mL/min for 3 kg).  Flow rates above the
+    /// ceiling are clinically unrealistic without surgical-grade vascular
+    /// access (AV fistula, ECMO cannulae) that is inappropriate for the
+    /// neonatal reference patient.
+    #[serde(default)]
+    pub pediatric_flow_excess_risk: f64,
+
+    /// `true` if operating flow rate is at or below the pediatric caution
+    /// threshold (`PEDIATRIC_REFERENCE_WEIGHT_KG × PEDIATRIC_MAX_FLOW_ML_MIN_PER_KG`).
+    #[serde(default)]
+    pub pediatric_flow_compliant: bool,
+
     /// True when the treatment zone uses venturi throats (hydrodynamic SDT).
     #[serde(default)]
     pub venturi_treatment_enabled: bool,

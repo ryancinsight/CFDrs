@@ -230,54 +230,59 @@ impl BlueprintTopologyFactory {
         blueprint: &NetworkBlueprint,
         spec: &BlueprintTopologySpec,
     ) -> BlueprintTopologySpec {
-        let mapping = Self::selective_treatment_channel_mapping(blueprint, spec);
-        if mapping.is_empty() {
+        let expanded = Self::selective_materialized_venturi_placements(blueprint, spec);
+        if expanded.is_empty() {
             return spec.clone();
         }
 
         let mut resolved = spec.clone();
-        for placement in &mut resolved.venturi_placements {
-            if let Some(materialized_id) = mapping.get(&placement.target_channel_id) {
-                placement.target_channel_id.clone_from(materialized_id);
-            }
-        }
+        resolved.venturi_placements = expanded;
         resolved
     }
 
-    fn selective_treatment_channel_mapping(
+    fn selective_materialized_venturi_placements(
         blueprint: &NetworkBlueprint,
         spec: &BlueprintTopologySpec,
-    ) -> std::collections::HashMap<String, String> {
+    ) -> Vec<VenturiPlacementSpec> {
         if spec.split_stages.is_empty() || spec.venturi_placements.is_empty() {
-            return std::collections::HashMap::new();
+            return Vec::new();
         }
 
-        let expected_ids = spec
-            .venturi_placements
-            .iter()
-            .map(|placement| placement.target_channel_id.clone())
-            .collect::<Vec<_>>();
-        let placement_count = expected_ids.len();
-
-        let actual_ids = Self::ordered_merge_side_treatment_channels(blueprint, true);
-        let actual_ids = if actual_ids.len() == placement_count {
-            actual_ids
+        let preferred = Self::leading_merge_side_treatment_channels(blueprint, true);
+        let fallback = Self::leading_merge_side_treatment_channels(blueprint, false);
+        let actual_ids = if fallback.len() > preferred.len() {
+            fallback
+        } else if preferred.is_empty() {
+            fallback
         } else {
-            let fallback = Self::ordered_merge_side_treatment_channels(blueprint, false);
-            if fallback.len() >= placement_count {
-                fallback.into_iter().take(placement_count).collect()
-            } else {
-                return std::collections::HashMap::new();
-            }
+            preferred
         };
 
-        expected_ids
+        if actual_ids.is_empty() {
+            return Vec::new();
+        }
+
+        let template = spec
+            .venturi_placements
+            .iter()
+            .max_by_key(|placement| placement.serial_throat_count)
+            .or_else(|| spec.venturi_placements.first())
+            .expect("non-empty venturi placements required for selective expansion");
+
+        actual_ids
             .into_iter()
-            .zip(actual_ids)
+            .enumerate()
+            .map(|(idx, materialized_id)| VenturiPlacementSpec {
+                placement_id: format!("venturi_{idx}"),
+                target_channel_id: materialized_id,
+                serial_throat_count: template.serial_throat_count,
+                throat_geometry: template.throat_geometry.clone(),
+                placement_mode: template.placement_mode,
+            })
             .collect()
     }
 
-    fn ordered_merge_side_treatment_channels(
+    fn leading_merge_side_treatment_channels(
         blueprint: &NetworkBlueprint,
         require_venturi: bool,
     ) -> Vec<String> {
@@ -311,8 +316,13 @@ impl BlueprintTopologyFactory {
                 .then(left.2.total_cmp(&right.2))
                 .then(left.0.cmp(&right.0))
         });
+        let Some((_, lead_x, _)) = channels.first() else {
+            return Vec::new();
+        };
+        let lead_x = *lead_x;
         channels
             .into_iter()
+            .filter(|(_, centroid_x, _)| (*centroid_x - lead_x).abs() <= 1.0e-6)
             .map(|(channel_id, _, _)| channel_id)
             .collect()
     }
@@ -900,6 +910,7 @@ mod tests {
         BlueprintTopologySpec, SerpentineSpec, SplitKind, TopologyOptimizationStage,
         TreatmentActuationMode, VenturiPlacementMode,
     };
+    use crate::domain::therapy_metadata::TherapyZone;
 
     fn base_blueprint() -> crate::NetworkBlueprint {
         let request = enumerate_milestone12_topologies()
@@ -907,6 +918,52 @@ mod tests {
             .find(|request| request.design_name == "Tri-BASE")
             .expect("tri base request");
         crate::build_milestone12_blueprint(&request).expect("base blueprint")
+    }
+
+    fn treatment_venturi_channel_count(blueprint: &crate::NetworkBlueprint) -> usize {
+        blueprint
+            .channels
+            .iter()
+            .filter(|channel| {
+                channel.venturi_geometry.is_some()
+                    && channel.therapy_zone == Some(TherapyZone::CancerTarget)
+            })
+            .count()
+    }
+
+    fn inserted_treatment_split_merge_blueprint(split_kind: SplitKind) -> crate::NetworkBlueprint {
+        let blueprint = base_blueprint();
+        let target_channel_id = blueprint
+            .treatment_channel_ids()
+            .into_iter()
+            .next()
+            .expect("treatment channel");
+        let topology = blueprint.topology_spec().expect("topology");
+        let route = topology
+            .channel_route(&target_channel_id)
+            .expect("treatment route");
+
+        BlueprintTopologyFactory::mutate(
+            &blueprint,
+            BlueprintTopologyMutation::InsertTreatmentSplitMerge {
+                target_channel_id,
+                split_kind,
+                treatment_serpentine: None,
+                venturi_serial_throat_count: Some(1),
+                venturi_throat_geometry: Some(crate::ThroatGeometrySpec {
+                    throat_width_m: 65.0e-6,
+                    throat_height_m: route.height_m,
+                    throat_length_m: 240.0e-6,
+                    inlet_width_m: route.width_m,
+                    outlet_width_m: route.width_m,
+                    convergent_half_angle_deg: 7.0,
+                    divergent_half_angle_deg: 7.0,
+                }),
+                venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
+            },
+            TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
+        )
+        .expect("split-merge mutation")
     }
 
     #[test]
@@ -1006,5 +1063,47 @@ mod tests {
             )),
             "every declared venturi placement must materialize venturi geometry on a matching channel"
         );
+    }
+
+    #[test]
+    fn inserted_center_bifurcation_expands_venturis_across_both_child_channels() {
+        let blueprint = inserted_treatment_split_merge_blueprint(SplitKind::NFurcation(2));
+        let topology = blueprint.topology_spec().expect("resolved topology");
+
+        assert_eq!(treatment_venturi_channel_count(&blueprint), 2);
+        assert_eq!(topology.venturi_placements.len(), 2);
+        assert!(topology.venturi_placements.iter().all(|placement| {
+            blueprint.channels.iter().any(|channel| {
+                channel.id.as_str() == placement.target_channel_id
+                    && channel.therapy_zone == Some(TherapyZone::CancerTarget)
+                    && channel.venturi_geometry.is_some()
+            })
+        }));
+    }
+
+    #[test]
+    fn inserted_center_trifurcation_expands_venturis_across_all_child_channels() {
+        let blueprint = inserted_treatment_split_merge_blueprint(SplitKind::NFurcation(3));
+        let topology = blueprint.topology_spec().expect("resolved topology");
+
+        assert_eq!(treatment_venturi_channel_count(&blueprint), 3);
+        assert_eq!(topology.venturi_placements.len(), 3);
+        assert!(topology.venturi_placements.iter().all(|placement| {
+            blueprint.channels.iter().any(|channel| {
+                channel.id.as_str() == placement.target_channel_id
+                    && channel.therapy_zone == Some(TherapyZone::CancerTarget)
+                    && channel.venturi_geometry.is_some()
+            })
+        }));
+    }
+
+    #[test]
+    fn venturis_never_materialize_on_healthy_bypass_channels() {
+        let blueprint = inserted_treatment_split_merge_blueprint(SplitKind::NFurcation(3));
+
+        assert!(blueprint.channels.iter().all(|channel| {
+            !(channel.therapy_zone == Some(TherapyZone::HealthyBypass)
+                && channel.venturi_geometry.is_some())
+        }));
     }
 }

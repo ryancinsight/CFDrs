@@ -145,7 +145,7 @@ pub use physics::vascular::womersley_pulsatility_index;
 pub use domain::network::{
     validate_blueprint_for_1d_solve, BoundaryCondition, ChannelProperties, ComponentType, Edge,
     EdgeProperties, EdgeType, Network, NetworkBuilder, NetworkBuilderSink, NetworkGraph,
-    NetworkMetadata, Node, NodeProperties, NodeType,
+    NetworkMetadata, Node, NodeProperties, NodeType, ResistanceUpdatePolicy,
 };
 
 // Export solver functionality

@@ -39,6 +39,7 @@ use num_traits::FromPrimitive;
 /// - `density[j * nx + i]`
 /// - `velocity[(j * nx + i) * 2 + d]` (d=0 → x, d=1 → y)
 /// - `pressure[j * nx + i]` (optional, only if `with_pressure()` called)
+/// - `nuclei_fraction[j * nx + i]` (optional, only if `with_nuclei()` called)
 #[derive(Debug, Clone)]
 pub struct MacroscopicQuantities<T: RealField + Copy> {
     /// Flat density field; index `j * nx + i`.
@@ -47,6 +48,8 @@ pub struct MacroscopicQuantities<T: RealField + Copy> {
     pub velocity: Vec<T>,
     /// Optional flat pressure field; index `j * nx + i`.
     pub pressure: Option<Vec<T>>,
+    /// Optional flat nuclei volume fraction field; index `j * nx + i`.
+    pub nuclei_fraction: Option<Vec<T>>,
     /// Grid columns
     pub nx: usize,
     /// Grid rows
@@ -62,6 +65,7 @@ impl<T: RealField + Copy + FromPrimitive> MacroscopicQuantities<T> {
             density: vec![T::one(); n],
             velocity: vec![T::zero(); n * 2],
             pressure: None,
+            nuclei_fraction: None,
             nx,
             ny,
         }
@@ -74,12 +78,19 @@ impl<T: RealField + Copy + FromPrimitive> MacroscopicQuantities<T> {
         self
     }
 
+    /// Enable nuclei fraction tracking (allocates one extra field).
+    #[must_use]
+    pub fn with_nuclei(mut self) -> Self {
+        self.nuclei_fraction = Some(vec![T::zero(); self.nx * self.ny]);
+        self
+    }
+
     /// Update all macroscopic fields from the flat distribution buffer.
     ///
     /// # Invariant (Theorem — Moment Consistency)
     /// After this call, `density[j, i]` equals $\sum_q f_q(i,j)$ and
     /// `velocity[j, i]` equals $(\sum_q e_{q,x} f_q) / \rho$, both exact.
-    pub fn update_from_distributions(&mut self, f: &[T]) {
+    pub fn update_from_distributions(&mut self, f: &[T], g: Option<&[T]>) {
         let nx = self.nx;
         let ny = self.ny;
 
@@ -94,6 +105,10 @@ impl<T: RealField + Copy + FromPrimitive> MacroscopicQuantities<T> {
 
                 if let Some(ref mut pressure) = self.pressure {
                     pressure[cell] = compute_pressure(rho);
+                }
+                
+                if let (Some(g_slice), Some(ref mut nuclei)) = (g, &mut self.nuclei_fraction) {
+                    nuclei[cell] = compute_density_flat(g_slice, j, i, nx);
                 }
             }
         }

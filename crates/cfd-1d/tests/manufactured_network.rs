@@ -2,6 +2,7 @@ use approx::assert_relative_eq;
 use cfd_1d::domain::network::ComponentType;
 use cfd_1d::{
     Edge, EdgeProperties, EdgeType, Network, NetworkBuilder, NetworkProblem, NetworkSolver,
+    ResistanceUpdatePolicy,
 };
 use cfd_core::compute::solver::traits::Solver;
 use cfd_core::error::Result;
@@ -36,6 +37,7 @@ fn test_series_additivity() -> Result<()> {
         hydraulic_diameter: None,
         resistance: 2.0,
         geometry: None,
+        resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
     };
     let props2 = EdgeProperties {
@@ -46,6 +48,7 @@ fn test_series_additivity() -> Result<()> {
         hydraulic_diameter: None,
         resistance: 3.0,
         geometry: None,
+        resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
     };
     net.add_edge_properties(eidx1, props1);
@@ -100,6 +103,7 @@ fn test_parallel_quadratic_branches() -> Result<()> {
         hydraulic_diameter: None,
         resistance: 1.0,
         geometry: None,
+        resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
     };
     let props2 = EdgeProperties {
@@ -110,6 +114,7 @@ fn test_parallel_quadratic_branches() -> Result<()> {
         hydraulic_diameter: None,
         resistance: 2.0,
         geometry: None,
+        resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
     };
     let props3 = EdgeProperties {
@@ -120,6 +125,7 @@ fn test_parallel_quadratic_branches() -> Result<()> {
         hydraulic_diameter: None,
         resistance: 1e-9,
         geometry: None,
+        resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
     };
     net.add_edge_properties(eidx1, props1);
@@ -198,6 +204,7 @@ fn test_parallel_additivity() -> Result<()> {
         hydraulic_diameter: None,
         resistance: 2.0,
         geometry: None,
+        resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
     };
     let props2 = EdgeProperties {
@@ -208,6 +215,7 @@ fn test_parallel_additivity() -> Result<()> {
         hydraulic_diameter: None,
         resistance: 3.0,
         geometry: None,
+        resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
     };
     let props3 = EdgeProperties {
@@ -218,6 +226,7 @@ fn test_parallel_additivity() -> Result<()> {
         hydraulic_diameter: None,
         resistance: 1e-9,
         geometry: None,
+        resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
     };
     net.add_edge_properties(eidx1, props1);
@@ -325,6 +334,7 @@ fn test_quadratic_resistance() -> Result<()> {
         hydraulic_diameter: None,
         resistance: 1.0,
         geometry: None,
+        resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
     };
     net.add_edge_properties(eidx1, props1);

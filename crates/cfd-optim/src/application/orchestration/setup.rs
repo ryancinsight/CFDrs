@@ -30,17 +30,8 @@ pub fn resolve_output_directories(
         .to_path_buf();
 
     let report_root = workspace_root.join("report");
-    let (out_dir, figures_dir) = if fast_mode() {
-        (
-            report_root.join("milestone12").join("draft"),
-            report_root.join("figures").join("draft"),
-        )
-    } else {
-        (
-            report_root.join("milestone12"),
-            report_root.join("figures"),
-        )
-    };
+    let out_dir = report_root.join("milestone12");
+    let figures_dir = report_root.join("figures");
     std::fs::create_dir_all(&out_dir)?;
     std::fs::create_dir_all(&figures_dir)?;
 
@@ -62,14 +53,16 @@ pub fn ensure_release_reports() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Check the `M12_FAST` environment variable.
+///
+/// Fast mode is the default; set `M12_FAST=0|false|no` to force a full run.
 pub fn fast_mode() -> bool {
     std::env::var("M12_FAST")
         .ok()
         .map(|v| {
             let s = v.trim().to_ascii_lowercase();
-            s == "1" || s == "true" || s == "yes"
+            !(s == "0" || s == "false" || s == "no")
         })
-        .unwrap_or(false)
+        .unwrap_or(true)
 }
 
 /// Parse an environment variable as `usize`, falling back to `default` (min 1).

@@ -109,6 +109,10 @@ pub struct CavitationVofSolver {
     damage_field: Option<DMatrix<f64>>,
     /// Bubble radius field for Rayleigh-Plesset
     bubble_radius_field: Option<DMatrix<f64>>,
+    /// Passive scalar tracking for cavitation nuclei cascade
+    nuclei_field: Option<DMatrix<f64>>,
+    /// Nuclei transport evaluator
+    nuclei_transport: Option<cfd_core::physics::cavitation::nuclei_transport::NucleiTransport<f64>>,
 }
 
 impl CavitationVofSolver {
@@ -140,6 +144,14 @@ impl CavitationVofSolver {
         } else {
             None
         };
+        
+        let nuclei_field = if config.nuclei_transport.is_some() {
+            Some(DMatrix::zeros(nx, ny * nz))
+        } else {
+            None
+        };
+        
+        let nuclei_transport = config.nuclei_transport.map(cfd_core::physics::cavitation::nuclei_transport::NucleiTransport::new);
 
         Ok(Self {
             vof_solver,
@@ -150,6 +162,8 @@ impl CavitationVofSolver {
             inception_field,
             damage_field,
             bubble_radius_field,
+            nuclei_field,
+            nuclei_transport,
         })
     }
 
@@ -168,6 +182,9 @@ impl CavitationVofSolver {
         let cavitation_source =
             self.calculate_cavitation_source(dt, velocity_field, pressure_field, density_field);
 
+        // 2b. Advect and diffuse cavitation nuclei tracking the active cavitation
+        self.update_nuclei_advection_diffusion(dt, velocity_field, &cavitation_source);
+
         // 3. Update VOF with cavitation source term
         for idx in 0..self.vof_solver.alpha.len() {
             self.vof_solver.alpha[idx] =
@@ -183,6 +200,66 @@ impl CavitationVofSolver {
         self.update_damage(dt, pressure_field, density_field);
 
         Ok(())
+    }
+
+    fn update_nuclei_advection_diffusion(
+        &mut self,
+        dt: f64,
+        velocity_field: &[Vector3<f64>],
+        cavitation_source: &DMatrix<f64>,
+    ) {
+        let nx = self.vof_solver.nx;
+        let ny = self.vof_solver.ny;
+        let nz = self.vof_solver.nz;
+        let dx = self.vof_solver.dx;
+        let dy = self.vof_solver.dy;
+        let dz = self.vof_solver.dz;
+
+        if let (Some(nuclei), Some(transport)) = (&mut self.nuclei_field, &self.nuclei_transport) {
+            let mut next_nuclei = nuclei.clone();
+
+            for i in 0..nx {
+                for j in 0..ny {
+                    for k in 0..nz {
+                        let idx = self.vof_solver.index(i, j, k);
+                        let col = j + k * ny;
+
+                        let u = velocity_field[idx];
+                        let mut flux_x = 0.0;
+                        let mut flux_y = 0.0;
+                        let mut flux_z = 0.0;
+
+                        // 1st-order upwind advection
+                        if u.x > 0.0 && i > 0 {
+                            flux_x = u.x * (nuclei[(i, col)] - nuclei[(i - 1, col)]) / dx;
+                        } else if u.x < 0.0 && i < nx - 1 {
+                            flux_x = u.x * (nuclei[(i + 1, col)] - nuclei[(i, col)]) / dx;
+                        }
+
+                        if u.y > 0.0 && j > 0 {
+                            flux_y = u.y * (nuclei[(i, col)] - nuclei[(i, col - 1)]) / dy;
+                        } else if u.y < 0.0 && j < ny - 1 {
+                            flux_y = u.y * (nuclei[(i, col + 1)] - nuclei[(i, col)]) / dy;
+                        }
+
+                        if u.z > 0.0 && k > 0 {
+                            flux_z = u.z * (nuclei[(i, col)] - nuclei[(i, col - ny)]) / dz;
+                        } else if u.z < 0.0 && k < nz - 1 {
+                            flux_z = u.z * (nuclei[(i, col + ny)] - nuclei[(i, col)]) / dz;
+                        }
+
+                        let s_net = transport.calculate_net_reaction_rate(
+                            nuclei[(i, col)],
+                            cavitation_source[(i, col)].max(0.0), // Only vapor generation acts as a nuclei source
+                        );
+
+                        next_nuclei[(i, col)] += dt * (-flux_x - flux_y - flux_z + s_net);
+                        next_nuclei[(i, col)] = next_nuclei[(i, col)].max(0.0);
+                    }
+                }
+            }
+            std::mem::swap(nuclei, &mut next_nuclei);
+        }
     }
 
     fn update_bubble_dynamics(
@@ -259,7 +336,12 @@ impl CavitationVofSolver {
                     let void_fraction = self.vof_solver.alpha[idx].clamp(0.0, 1.0);
                     let density_liquid = density_field[(i, col)];
                     let density_vapor = self.config.vapor_density;
-                    let vapor_pressure = self.config.vapor_pressure;
+                    let mut vapor_pressure = self.config.vapor_pressure;
+                    
+                    // Cascade effect: modify vapor pressure assumption if pre-existing nuclei are advected
+                    if let Some(nuclei) = &self.nuclei_field {
+                        vapor_pressure += nuclei[(i, col)] * 10_000.0;
+                    }
 
                     // Calculate cavitation number (relative to vapor pressure)
                     let ref_vel = velocity_field[idx].norm();
@@ -555,6 +637,7 @@ mod tests {
             liquid_viscosity: 1e-3,
             vapor_density: 0.017,
             sound_speed: 1500.0,
+            nuclei_transport: None,
         }
     }
 

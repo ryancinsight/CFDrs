@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 
 use crate::application::orchestration::{
-    ensure_release_reports, fast_env, fast_mode, init_tracing, is_selective_report_topology,
+    ensure_release_reports, fast_env, fast_mode, init_tracing,
     resolve_output_directories, save_figure,
 };
 use crate::application::search::pool::EvaluatedPool;
@@ -152,34 +152,116 @@ pub fn run_milestone12_option1() -> Result<Milestone12Option1Run, Box<dyn std::e
     let total_candidates = all_params.len();
 
     let eval_cap = if is_fast {
-        fast_env("M12_FAST_ACOUSTIC_EVAL_MAX", 200)
+        fast_env("M12_FAST_ACOUSTIC_EVAL_MAX", 1000)
     } else {
         total_candidates
     };
 
-    // Filter to non-venturi selective topologies. Materialize transiently
-    // for the filter check, then keep only the lightweight params.
-    let selective_params: Vec<CandidateParams> = all_params
+    // Filter to non-venturi selective topologies.
+    let all_selective: Vec<CandidateParams> = all_params
         .into_iter()
-        .filter(|params| {
-            // Quick venturi check from params — avoids full materialization.
-            if params.is_venturi() {
-                return false;
-            }
-            let candidate = params.materialize();
-            is_selective_report_topology(&candidate)
-        })
-        .take(eval_cap)
+        .filter(|params| !params.is_venturi())
         .collect();
 
-    // Audit + sequence coverage need full candidates, but only transiently.
-    let to_evaluate: Vec<BlueprintCandidate> =
-        selective_params.iter().map(|p| p.materialize()).collect();
-    let audit_entries = audit_goal_candidates(&to_evaluate, goal);
-    let sequence_coverage = summarize_sequence_coverage(&to_evaluate, &audit_entries);
+    // ── Focused/strided optimization (3 phases) ──
+    //
+    // Phase 1: Coarse stride across ALL params → find best-scoring region
+    // Phase 2: Medium stride within the winning family → find best stride pair
+    // Phase 3: Dense fill between the two best adjacent stride points
+    //
+    // Budget split: 25% coarse, 25% family stride, 50% dense fill.
+    let phase1_budget = eval_cap / 4;
+    let phase2_budget = eval_cap / 4;
+    let phase3_budget = eval_cap / 2;
+
+    // Phase 1: coarse stride across all families
+    let stride1 = (all_selective.len() / phase1_budget.max(1)).max(1);
+    let phase1_params: Vec<CandidateParams> = all_selective
+        .iter()
+        .step_by(stride1)
+        .take(phase1_budget)
+        .cloned()
+        .collect();
+    let phase1_candidates: Vec<BlueprintCandidate> =
+        phase1_params.iter().map(|p| p.materialize()).collect();
+    let audit_entries = audit_goal_candidates(&phase1_candidates, goal);
+    let sequence_coverage = summarize_sequence_coverage(&phase1_candidates, &audit_entries);
     let audit = write_goal_audit_report(&out_dir, "option1_audit", &audit_entries)?;
 
-    let pool = EvaluatedPool::from_candidates(&to_evaluate);
+    let pool1 = EvaluatedPool::from_candidates(&phase1_candidates);
+    let best1 = pool1.top_k(1, goal)?;
+    let winning_family = best1
+        .first()
+        .and_then(|e| {
+            phase1_params.iter().find(|p| {
+                let c = p.materialize();
+                c.id == e.candidate_id
+            })
+        })
+        .map(|p| p.seq_tag())
+        .unwrap_or_default();
+    drop(pool1);
+    drop(phase1_candidates);
+
+    // Phase 2: stride within the winning family
+    let family_params: Vec<CandidateParams> = all_selective
+        .iter()
+        .filter(|p| p.seq_tag() == winning_family)
+        .cloned()
+        .collect();
+    let stride2 = (family_params.len() / phase2_budget.max(1)).max(1);
+    let phase2_indices: Vec<usize> = (0..family_params.len())
+        .step_by(stride2)
+        .take(phase2_budget)
+        .collect();
+    let phase2_candidates: Vec<BlueprintCandidate> = phase2_indices
+        .iter()
+        .map(|&i| family_params[i].materialize())
+        .collect();
+    let pool2 = EvaluatedPool::from_candidates(&phase2_candidates);
+    let best2 = pool2.top_k(2, goal)?;
+    drop(pool2);
+    drop(phase2_candidates);
+
+    // Find the two best stride-point indices to densely fill between.
+    let best2_ids: Vec<String> = best2.iter().map(|e| e.candidate_id.clone()).collect();
+    let mut best_indices: Vec<usize> = phase2_indices
+        .iter()
+        .filter(|&&i| {
+            let c = family_params[i].materialize();
+            best2_ids.contains(&c.id)
+        })
+        .copied()
+        .collect();
+    best_indices.sort();
+
+    // Phase 3: dense fill between the two best stride points
+    let (fill_lo, fill_hi) = if best_indices.len() >= 2 {
+        (best_indices[0].saturating_sub(stride2), best_indices[1] + stride2)
+    } else if let Some(&idx) = best_indices.first() {
+        (idx.saturating_sub(stride2 * 2), (idx + stride2 * 2).min(family_params.len()))
+    } else {
+        (0, family_params.len().min(phase3_budget))
+    };
+    let phase3_params: Vec<CandidateParams> = family_params
+        [fill_lo..fill_hi.min(family_params.len())]
+        .iter()
+        .take(phase3_budget)
+        .cloned()
+        .collect();
+
+    // Merge all phases, deduplicate by idx.
+    let mut seen_idx = std::collections::HashSet::with_capacity(eval_cap);
+    let final_params: Vec<CandidateParams> = phase1_params
+        .into_iter()
+        .chain(phase2_indices.iter().map(|&i| family_params[i].clone()))
+        .chain(phase3_params)
+        .filter(|p| seen_idx.insert(p.idx))
+        .collect();
+
+    let to_evaluate: Vec<BlueprintCandidate> =
+        final_params.iter().map(|p| p.materialize()).collect();
+    let pool = EvaluatedPool::from_candidates_with_progress(&to_evaluate, "option1 scan");
     let shortlist_size = if is_fast { 3 } else { 5 };
     let eligible_count = pool.count_eligible(goal);
     let top_results = pool.top_k(shortlist_size, goal)?;

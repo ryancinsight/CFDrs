@@ -39,7 +39,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
             for j in 0..ny {
                 let x = ns_solver.grid.x_center(i) + bbox[0];
                 let y = ns_solver.grid.y_center(j) + bbox[2];
-                ns_solver.field.mask[i][j] = geometry.contains(x, y);
+                ns_solver.field.mask[(i, j)] = geometry.contains(x, y);
             }
         }
 
@@ -126,8 +126,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
 
         // Find last fluid column (outlet)
         for j in 0..ny {
-            if self.ns_solver.field.mask[nx - 1][j] {
-                let ci = self.scalar_solver.c[nx - 1][j];
+            if self.ns_solver.field.mask[(nx - 1, j)] {
+                let ci = self.scalar_solver.c[(nx - 1, j)];
                 sum_c += ci;
                 sum_c_sq += ci * ci;
                 count += 1;
@@ -159,12 +159,12 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
         let mut count_out = 0;
 
         for j in 0..ny {
-            if self.ns_solver.field.mask[0][j] {
-                p_in += self.ns_solver.field.p[0][j];
+            if self.ns_solver.field.mask[(0, j)] {
+                p_in += self.ns_solver.field.p[(0, j)];
                 count_in += 1;
             }
-            if self.ns_solver.field.mask[nx - 1][j] {
-                p_out += self.ns_solver.field.p[nx - 1][j];
+            if self.ns_solver.field.mask[(nx - 1, j)] {
+                p_out += self.ns_solver.field.p[(nx - 1, j)];
                 count_out += 1;
             }
         }

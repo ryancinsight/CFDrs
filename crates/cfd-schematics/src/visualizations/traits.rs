@@ -211,8 +211,8 @@ impl Default for VisualRoleStyles {
             center_treatment: LineStyle::solid(Color::rgb(140, 50, 160), 1.5),
             peripheral_bypass: LineStyle::solid(Color::rgb(55, 120, 185), 1.5),
             merge_collector: LineStyle::solid(Color::rgb(40, 130, 130), 1.2),
-            // Red for venturi throats — the only red element in the schematic.
-            venturi_throat: LineStyle::solid(Color::rgb(210, 40, 40), 2.0),
+            // Match center treatment color — rely on annotation dots for venturi throats
+            venturi_throat: LineStyle::solid(Color::rgb(140, 50, 160), 1.5),
         }
     }
 }
@@ -239,7 +239,7 @@ impl Default for ChannelTypeStyles {
         Self {
             straight_style: LineStyle::solid(Color::rgb(0, 0, 0), 1.0), // Black
             curved_style: LineStyle::solid(Color::rgb(0, 100, 200), 1.5), // Blue
-            tapered_style: LineStyle::solid(Color::rgb(210, 40, 40), 2.0), // Red — tapered/frustum channels ARE venturi throats
+            tapered_style: LineStyle::solid(Color::rgb(0, 0, 0), 1.0), // Black — rely on dots instead of red lines
         }
     }
 }

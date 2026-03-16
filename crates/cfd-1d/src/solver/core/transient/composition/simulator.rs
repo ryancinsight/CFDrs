@@ -248,7 +248,7 @@ impl TransientCompositionSimulator {
     /// the hydraulic network is re-solved, and composition mixing is computed from
     /// the resulting flow field.
     pub fn simulate_with_pressure_events<
-        T: RealField + Copy + FromPrimitive + ToPrimitive,
+        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,

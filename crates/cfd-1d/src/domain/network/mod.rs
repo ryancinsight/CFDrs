@@ -23,7 +23,9 @@ pub use graph::{NetworkGraph, NetworkGraphExt};
 pub use metadata::NetworkMetadata;
 pub use node::{Node, NodeProperties};
 pub use sink::NetworkBuilderSink;
-pub use wrapper::{EdgeProperties, EdgeWithProperties, Network, ParallelEdge};
+pub use wrapper::{
+	EdgeProperties, EdgeWithProperties, Network, ParallelEdge, ResistanceUpdatePolicy,
+};
 
 // Re-export boundary conditions from core
 pub use cfd_core::physics::boundary::BoundaryCondition;

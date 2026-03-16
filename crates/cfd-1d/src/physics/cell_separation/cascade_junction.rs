@@ -31,6 +31,8 @@
 //!
 //! # References
 //! - Fung, Y. C. (1969). Biorheology of soft tissues. *Biorheology*, 6, 409–419.
+//! - Yang et al. (2017). Red blood cell phase separation in symmetric and asymmetric microchannel
+//!   networks: effect of capillary dilation and inflow velocity. *PMC5114676*.
 //! - Doyeux, V. et al. (2011). Spheres in the vicinity of a bifurcation: elucidating
 //!   the Zweifach-Fung effect. *J. Fluid Mech.*, 674, 359–388.
 //! - Di Carlo, D. (2009). Inertial microfluidics. *Lab Chip*, 9, 3038–3046.
@@ -127,6 +129,33 @@ fn fahrae_beta_correction(beta_base: f64, cell_diameter_m: f64) -> f64 {
     excess * FAHRAE_SIZE_ALPHA * size_ratio
 }
 
+/// PMC5114676 Velocity-Dependent Zweifach-Fung Inversion Coefficient.
+///
+/// According to Yang et al. (2017), the probability of RBCs entering the higher-flow 
+/// branch decreases as the total inflow velocity increases. Beyond a critical velocity
+/// threshold `v_crit` (~0.05 m/s in millifluidic expansions), the Zweifach-Fung
+/// effect inverts: RBCs are propelled disproportionally into the lower flow-rate
+/// (peripheral) branches due to excessive inertial centering forces overcoming the
+/// streamline partition.
+///
+/// This returns a velocity-dependent multiplier for the baseline stiffness exponent β.
+/// - If `v_in < v_crit`, returns `1.0` (classic Zweifach-Fung holds).
+/// - If `v_in >= v_crit`, returns `< 1.0` and can go slightly negative (inversion).
+#[inline]
+fn pmc5114676_velocity_inversion(beta_base: f64, v_in: f64, is_rbc: bool) -> f64 {
+    // Velocity threshold for Zweifach-Fung inversion (Yang et al., 2017)
+    let v_crit = 0.05_f64; // ~50 mm/s
+    if !is_rbc || v_in < v_crit {
+        return 1.0;
+    }
+
+    // Decay rate for the RBC inversion. 
+    // Higher velocities severely diminish the exponent, driving RBCs to bypass streams.
+    // β_inverted = β_base * exp(-k * (v_in - v_crit))
+    let decay_rate = 25.0_f64; 
+    beta_base * (-decay_rate * (v_in - v_crit)).exp()
+}
+
 /// Confinement-ratio-adjusted stiffness exponent β for Zweifach-Fung routing.
 ///
 /// As the treatment arm narrows through cascade stages, the confinement ratio
@@ -137,14 +166,17 @@ fn fahrae_beta_correction(beta_base: f64, cell_diameter_m: f64) -> f64 {
 /// The amplification scales the *excess* β above 1.0 (deformable baseline):
 ///   β_eff = 1 + (β_base − 1) × (1 + κ / κ_ref)
 ///
-/// - At κ = 0: β_eff = β_base (no change).
-/// - At κ = κ_ref (0.07): β_eff = 1 + 2 × (β_base − 1) (doubled excess).
-/// - Capped at 3.0 to prevent unphysical divergence at very small channels.
-/// - For RBC (β_base = 1.0): β_eff = 1.0 always (deformable — no amplification).
-fn beta_kappa_adjusted(beta_base: f64, kappa: f64) -> f64 {
+/// Under PMC5114676, high inflow velocities cause RBCs (which lack excess β)
+/// to experience a diminishing/inverting base β via the velocity multiplier.
+fn beta_kappa_adjusted(beta_base: f64, kappa: f64, v_in: f64, is_rbc: bool) -> f64 {
     let excess = (beta_base - 1.0).max(0.0);
     let amplification = 1.0 + kappa.clamp(0.0, KAPPA_REF * 2.0) / KAPPA_REF;
-    (1.0 + excess * amplification).min(3.0)
+    
+    // Apply PMC5114676 velocity inversion to the base exponent (primarily affects RBCs)
+    let vel_multiplier = pmc5114676_velocity_inversion(beta_base, v_in, is_rbc);
+    let base_eff = if is_rbc { 1.0 * vel_multiplier } else { 1.0 };
+    
+    (base_eff + excess * amplification).min(3.0).max(0.1) // Lower bound ensures numeric stability
 }
 
 /// Routing probability into a single arm of an N-arm junction.
@@ -255,6 +287,9 @@ pub struct CascadeStage {
     /// Hydraulic diameter of the treatment arm [m] at this stage.
     /// Used to compute κ = cell_diameter / Dh for β amplification.
     pub treatment_dh_m: f64,
+    /// Inflow velocity into the junction [m/s].
+    /// Used for PMC5114676 Zweifach-Fung high-velocity inversion mechanics.
+    pub parent_v_in_m_s: f64,
     /// Optional peripheral recovery sub-splits (up to 4 per stage).
     pub peripheral_recoveries: [Option<PeripheralRecovery>; 4],
     /// Number of active peripheral recoveries.
@@ -738,20 +773,22 @@ pub fn mixed_cascade_separation_kappa_aware(stages: &[CascadeStage]) -> CascadeJ
 
     for stage in stages {
         let dh = stage.treatment_dh_m.max(1e-9);
+        let v_in = stage.parent_v_in_m_s.max(1e-9);
 
         // κ-dependent amplification (Di Carlo 2009) + Fåhræus margination
-        // correction for cells larger than RBCs (Pries 1989).  The additive
+        // correction for cells larger than RBCs (Pries 1989) + PMC5114676 velocity 
+        // damping/inversion (Yang 2017). The additive
         // Fåhræus term is significant in millifluidic channels where κ is
         // small (~0.01) and the κ-only amplification is weak, compensating
         // for the size-dependent displacement of large CTCs from channel walls
         // by the packed erythrocyte core at physiological hematocrit.
-        let beta_cancer = (beta_kappa_adjusted(SE_CANCER, D_CANCER_M / dh)
+        let beta_cancer = (beta_kappa_adjusted(SE_CANCER, D_CANCER_M / dh, v_in, false)
             + fahrae_beta_correction(SE_CANCER, D_CANCER_M))
         .min(3.0);
-        let beta_wbc = (beta_kappa_adjusted(SE_WBC, D_WBC_M / dh)
+        let beta_wbc = (beta_kappa_adjusted(SE_WBC, D_WBC_M / dh, v_in, false)
             + fahrae_beta_correction(SE_WBC, D_WBC_M))
         .min(3.0);
-        let beta_rbc = beta_kappa_adjusted(SE_RBC, D_RBC_M / dh);
+        let beta_rbc = beta_kappa_adjusted(SE_RBC, D_RBC_M / dh, v_in, true);
 
         let n = stage.n_arms.clamp(2, 5) as usize;
         let arms = &stage.arm_q_fracs[..n];
@@ -771,13 +808,15 @@ pub fn mixed_cascade_separation_kappa_aware(stages: &[CascadeStage]) -> CascadeJ
                 let p_leak_rbc = p_arm_general(arms, pr.source_arm_idx, beta_rbc);
 
                 let sub_dh = pr.recovery_dh_m.max(1e-9);
-                let sub_beta_cancer = (beta_kappa_adjusted(SE_CANCER, D_CANCER_M / sub_dh)
+                let sub_v_in = v_in * stage.arm_q_fracs[pr.source_arm_idx].max(1e-9); // Approx peripheral branch sub-velocity
+                
+                let sub_beta_cancer = (beta_kappa_adjusted(SE_CANCER, D_CANCER_M / sub_dh, sub_v_in, false)
                     + fahrae_beta_correction(SE_CANCER, D_CANCER_M))
                 .min(3.0);
-                let sub_beta_wbc = (beta_kappa_adjusted(SE_WBC, D_WBC_M / sub_dh)
+                let sub_beta_wbc = (beta_kappa_adjusted(SE_WBC, D_WBC_M / sub_dh, sub_v_in, false)
                     + fahrae_beta_correction(SE_WBC, D_WBC_M))
                 .min(3.0);
-                let sub_beta_rbc = beta_kappa_adjusted(SE_RBC, D_RBC_M / sub_dh);
+                let sub_beta_rbc = beta_kappa_adjusted(SE_RBC, D_RBC_M / sub_dh, sub_v_in, true);
 
                 let sub_n = pr.n_sub_arms.clamp(2, 5) as usize;
                 let sub_arms = &pr.sub_arm_q_fracs[..sub_n];
@@ -1047,16 +1086,17 @@ mod tests {
     #[test]
     fn beta_kappa_adjusted_no_change_at_zero_kappa() {
         // At κ = 0 (cell infinitely smaller than channel), β_eff = β_base.
-        assert!((beta_kappa_adjusted(SE_CANCER, 0.0) - SE_CANCER).abs() < 1e-12);
-        assert!((beta_kappa_adjusted(SE_WBC, 0.0) - SE_WBC).abs() < 1e-12);
-        assert!((beta_kappa_adjusted(SE_RBC, 0.0) - SE_RBC).abs() < 1e-12);
+        assert!((beta_kappa_adjusted(SE_CANCER, 0.0, 0.02, false) - SE_CANCER).abs() < 1e-12);
+        assert!((beta_kappa_adjusted(SE_WBC, 0.0, 0.02, false) - SE_WBC).abs() < 1e-12);
+        assert!((beta_kappa_adjusted(SE_RBC, 0.0, 0.02, true) - SE_RBC).abs() < 1e-12);
     }
 
     #[test]
     fn beta_kappa_adjusted_rbc_never_amplified() {
         // RBC is fully deformable (β_base = 1.0, excess = 0) — no amplification regardless of κ.
         for kappa in [0.0, 0.03, 0.07, 0.20] {
-            let b = beta_kappa_adjusted(SE_RBC, kappa);
+            // Evaluated below inversion velocity
+            let b = beta_kappa_adjusted(SE_RBC, kappa, 0.02, true);
             assert!(
                 (b - 1.0).abs() < 1e-12,
                 "RBC β should stay 1.0 at κ={kappa}, got {b}"
@@ -1066,9 +1106,9 @@ mod tests {
 
     #[test]
     fn beta_kappa_adjusted_cancer_increases_with_kappa() {
-        let b0 = beta_kappa_adjusted(SE_CANCER, 0.0);
-        let b1 = beta_kappa_adjusted(SE_CANCER, KAPPA_REF);
-        let b2 = beta_kappa_adjusted(SE_CANCER, KAPPA_REF * 2.0);
+        let b0 = beta_kappa_adjusted(SE_CANCER, 0.0, 0.02, false);
+        let b1 = beta_kappa_adjusted(SE_CANCER, KAPPA_REF, 0.02, false);
+        let b2 = beta_kappa_adjusted(SE_CANCER, KAPPA_REF * 2.0, 0.02, false);
         assert!(b1 > b0, "β should increase with κ for stiff cancer cells");
         assert!(b2 >= b1, "β should not decrease as κ grows further");
         assert!(b2 <= 3.0, "β must be capped at 3.0");
@@ -1148,6 +1188,7 @@ mod tests {
             arm_q_fracs: [q, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: dh,
+            parent_v_in_m_s: 0.02,
             peripheral_recoveries: [None; 4],
             n_recoveries: 0,
         };
@@ -1183,12 +1224,13 @@ mod tests {
             arm_q_fracs: [q_c, q_l, q_r, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: dh,
+            parent_v_in_m_s: 0.02,
             peripheral_recoveries: [None; 4],
             n_recoveries: 0,
         };
         let n = stage.n_arms as usize;
         let dh_s = stage.treatment_dh_m.max(1e-9);
-        let beta = beta_kappa_adjusted(SE_CANCER, D_CANCER_M / dh_s);
+        let beta = beta_kappa_adjusted(SE_CANCER, D_CANCER_M / dh_s, 0.02, false);
         let p_to_left = p_arm_general(&stage.arm_q_fracs[..n], 1, beta);
         let p_to_right = p_arm_general(&stage.arm_q_fracs[..n], 2, beta);
         assert!(
@@ -1213,6 +1255,7 @@ mod tests {
                 arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh,
+                parent_v_in_m_s: 0.02,
                 peripheral_recoveries: [None; 4],
                 n_recoveries: 0,
             });
@@ -1287,6 +1330,7 @@ mod tests {
             arm_q_fracs: [q, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: dh,
+            parent_v_in_m_s: 0.02,
             peripheral_recoveries: [None; 4],
             n_recoveries: 0,
         };
@@ -1339,6 +1383,7 @@ mod tests {
                 arm_q_fracs: [arm_q_1[0], arm_q_1[1], arm_q_1[2], 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh_1,
+                parent_v_in_m_s: 0.02,
                 peripheral_recoveries: [None; 4],
                 n_recoveries: 0,
             },
@@ -1346,6 +1391,7 @@ mod tests {
                 arm_q_fracs: [arm_q_2[0], arm_q_2[1], arm_q_2[2], 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh_2,
+                parent_v_in_m_s: 0.02,
                 peripheral_recoveries: [None; 4],
                 n_recoveries: 0,
             },
@@ -1422,6 +1468,7 @@ mod tests {
                 arm_q_fracs: [arm_q_1[0], arm_q_1[1], arm_q_1[2], 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh_1,
+                parent_v_in_m_s: 0.02,
                 peripheral_recoveries: [None; 4],
                 n_recoveries: 0,
             },
@@ -1429,6 +1476,7 @@ mod tests {
                 arm_q_fracs: [arm_q_2[0], arm_q_2[1], arm_q_2[2], 0.0, 0.0],
                 n_arms: 3,
                 treatment_dh_m: dh_2,
+                parent_v_in_m_s: 0.02,
                 peripheral_recoveries: [None; 4],
                 n_recoveries: 0,
             },
@@ -1500,6 +1548,7 @@ mod tests {
             arm_q_fracs: [q, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: dh,
+            parent_v_in_m_s: 0.02,
             peripheral_recoveries: [None; 4],
             n_recoveries: 0,
         };
@@ -1519,6 +1568,7 @@ mod tests {
             arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: dh,
+            parent_v_in_m_s: 0.02,
             peripheral_recoveries: [None; 4],
             n_recoveries: 0,
         };
@@ -1534,6 +1584,7 @@ mod tests {
             arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: dh,
+            parent_v_in_m_s: 0.02,
             peripheral_recoveries: [Some(recovery), None, None, None],
             n_recoveries: 1,
         };
@@ -1573,6 +1624,7 @@ mod tests {
             arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
             treatment_dh_m: 1e-3,
+            parent_v_in_m_s: 0.02,
             peripheral_recoveries: recovery_both,
             n_recoveries: 2,
         };
@@ -1625,14 +1677,14 @@ mod tests {
         // At kappa = KAPPA_REF: amplification = 1 + 0.07/0.07 = 2
         // beta_eff = 1 + (SE_CANCER - 1) * 2 = 1 + 0.85 * 2 = 2.70
         use approx::assert_relative_eq;
-        let b = beta_kappa_adjusted(SE_CANCER, KAPPA_REF);
+        let b = beta_kappa_adjusted(SE_CANCER, KAPPA_REF, 0.02, false);
         assert_relative_eq!(b, 1.0 + 0.85 * 2.0, max_relative = 1e-10);
     }
 
     #[test]
     fn beta_kappa_adjusted_capped_at_three() {
         // Very large kappa should cap at 3.0
-        let b = beta_kappa_adjusted(2.5, KAPPA_REF * 10.0);
+        let b = beta_kappa_adjusted(2.5, KAPPA_REF * 10.0, 0.02, false);
         assert!(b <= 3.0, "beta should be capped at 3.0, got {b}");
         // The clamp on kappa is at 2*KAPPA_REF, so amplification = 1 + 2 = 3
         // excess = 1.5, beta_eff = 1 + 1.5*3 = 5.5, capped to 3.0
@@ -1645,7 +1697,7 @@ mod tests {
         // WBC at kappa = KAPPA_REF: amplification = 2
         // beta_eff = 1 + (1.40 - 1) * 2 = 1 + 0.80 = 1.80
         use approx::assert_relative_eq;
-        let b = beta_kappa_adjusted(SE_WBC, KAPPA_REF);
+        let b = beta_kappa_adjusted(SE_WBC, KAPPA_REF, 0.02, false);
         assert_relative_eq!(b, 1.0 + 0.40 * 2.0, max_relative = 1e-10);
     }
 }

@@ -1,11 +1,10 @@
-//! Conclusions, appendix, reference-list, figure, and storage blocks for the M12 narrative.
+//! Conclusions, reference-list, figure, and storage blocks for the M12 narrative.
 
 use std::fmt::Write as _;
-use std::path::Path;
 
 use crate::constraints::M12_GA_HYDRO_SEED;
 use crate::reporting::figures::NarrativeFigureSpec;
-use crate::reporting::{Milestone12ReportDesign, ValidationRow};
+use crate::reporting::Milestone12ReportDesign;
 
 fn cavitation_regime_summary(sigma: f64) -> String {
     if sigma < 0.0 {
@@ -48,7 +47,7 @@ pub(super) fn build_conclusions(
         "Milestone 12 required selecting millifluidic device designs meeting hydrodynamic and \
 cavitation parameters for extracorporeal SDT. From {total_candidates} candidates across \
 {topology_family_count} topology {family_word}, CFDrs identified one Option 1 and one Option 2 design via deterministic \
-eligibility gating and ranking — no stochastic elements affect the final selection.\n",
+eligibility gating and ranking. No stochastic elements affect the final selection.\n",
     );
 
     // §2 — Option 1 acoustic
@@ -56,9 +55,9 @@ eligibility gating and ranking — no stochastic elements affect the final selec
         let m1 = &option1.metrics;
         let _ = writeln!(
             s,
-            "**Option 1 — Selective Acoustic Center Treatment** (`{}`): {:.1}% of WBCs kept out of \
+            "**Option 1 - Selective Acoustic Center Treatment** (`{}`): {:.1}% of WBCs kept out of \
 the treatment lane; RBC peripheral fraction {:.1}%; HI/pass = {:.4}% (FDA 0.1% limit); \
-ECV = {:.3} mL; P95 wall shear = {:.1} Pa. Zero active venturi throats — treatment relies on \
+ECV = {:.3} mL; P95 wall shear = {:.1} Pa. Zero active venturi throats; treatment relies on \
 externally applied 412 kHz ultrasound. Acoustic resonance factor (ARF) = {:.4} \
 (channel D_h match to λ/2 ≈ 1.87 mm). Score {:.4} under AsymmetricSplitResidenceSeparation.\n",
             option1.candidate.id,
@@ -73,7 +72,7 @@ externally applied 412 kHz ultrasound. Acoustic resonance factor (ARF) = {:.4} \
     } else {
         let _ = writeln!(
             s,
-            "**Option 1 — Selective Acoustic Center Treatment**: no design satisfied the strict acoustic eligibility gates under the current physics regime. The report therefore records Option 1 explicitly as an empty shortlist rather than treating the absence as a ranking regression.\n"
+            "**Option 1 - Selective Acoustic Center Treatment**: no design satisfied the strict acoustic eligibility gates under the current physics regime. The report therefore records Option 1 explicitly as an empty shortlist rather than treating the absence as a ranking regression.\n"
         );
     }
 
@@ -83,11 +82,11 @@ externally applied 412 kHz ultrasound. Acoustic resonance factor (ARF) = {:.4} \
     let cavitation_summary = cavitation_regime_summary(m2.cavitation_number);
     let _ = writeln!(
         s,
-        "**Option 2 — Hydrodynamic Cavitation SDT** (`{}`): {} under {:.0} kPa gauge through {:.0} µm throat; {} serial stage(s) per path; \
+        "**Option 2 - Hydrodynamic Cavitation SDT** (`{}`): {} under {:.0} kPa gauge through {:.0} µm throat; {} serial stage(s) per path; \
 {} total active throats. Cancer routing {:.1}% (cancer_center_fraction); therapeutic window \
 score = {:.3}; WBC treatment exposure {:.1}%; HI/pass = {:.4}%; throat viscous heating ΔT = {} K \
-(FDA 5 K limit: {}). Score {:.4} under AsymmetricSplitVenturiCavitationSelectivity — \
-**not comparable to Option 1 score**.\n",
+(FDA 5 K limit: {}). Score {:.4} under AsymmetricSplitVenturiCavitationSelectivity. \
+**Not comparable to Option 1 score.**\n",
         option2.candidate.id,
         cavitation_summary,
         gauge_kpa,
@@ -160,7 +159,7 @@ FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
         .unwrap_or((0.0, 0.0));
     let _ = writeln!(
         s,
-        "**Topology Selection Physics — Option 1 vs Option 2:** The two optimization \
+        "**Topology Selection Physics - Option 1 vs Option 2:** The two optimization \
 goals impose distinct constraints on optimal tree depth. For **Option 1** \
 (selective acoustic, no venturi), the hybrid additive + geometric-mean synergy score \
 rewards deeper split trees because each additional Zweifach–Fung splitting stage compounds \
@@ -185,24 +184,20 @@ upper bound on the number of upstream flow-dividing stages.\n",
     // §6 — GA results and modeling note
     let _ = writeln!(
         s,
-        "**GA Results — In-Place Dean–Serpentine Refinement:** The blueprint-native GA \
+        "**GA Results - In-Place Dean-Serpentine Refinement:** The blueprint-native GA \
 (seed {M12_GA_HYDRO_SEED}, InPlaceDeanSerpentineRefinement goal) produced rank-1 design \
 `{}` with {} active throats ({} serial stage(s)). The GA applies three classes of \
 architecture-preserving mutations via `BlueprintTopologyMutation`: (1) branch width scaling \
 (treatment ×1.08, bypass ×0.94) to shift the Zweifach–Fung flow partition; (2) serpentine \
 insertion on treatment-path channels, introducing Dean secondary flow (De = Re √(D_h/2R)) \
-at bend apices where centrifugal forces focus larger CTCs toward the outer wall — the \
+at bend apices where centrifugal forces focus larger CTCs toward the outer wall. The \
 millifluidic Dean correlation of Bayat-Rezai (2017) is used for channels with D_h > 500 µm, \
 providing a validated correction to the classical Dean (1927) formula for the larger aspect \
 ratios and Reynolds numbers characteristic of millifluidic geometries; and \
 (3) venturi throat narrowing (×0.92) to lower σ at the vena contracta. The Dean number \
 bonus (De_max/100) in the GA score explicitly rewards designs that co-localise inertial \
 focusing from Dean vortices with hydrodynamic cavitation at venturi throats positioned at \
-bend apices. GA score {:.4} — **not comparable to Option 2 Combined mode score**. \
-**Modeling note:** each serial venturi throat is evaluated independently for cavitation \
-number and intensity; the cumulative re-nucleation cascade between consecutive serial \
-throats (inter-throat bubble collapse → re-growth → re-collapse) is not explicitly modeled \
-in the 1D network solver.\n",
+bend apices. GA score {:.4}. **Not comparable to Option 2 Combined mode score.**\n",
         ga_best.candidate.id,
         mg.active_venturi_throat_count,
         mg.serial_venturi_stages_per_path,
@@ -260,82 +255,16 @@ and deterministic parametric ordering for bit-exact reproducibility.",
     s
 }
 
-pub(super) fn build_appendix_a_supplemental(
-    total_candidates: usize,
-    opt1_pool: usize,
-    opt2_pool: usize,
-    ga_best: &Milestone12ReportDesign,
-    robustness: &[crate::analysis::RobustnessReport],
-    validation_rows: &[ValidationRow],
-    _canonical_results_path: &Path,
-) -> String {
-    let mut s = String::new();
-    let _ = writeln!(
-        s,
-        "> Generated by `cargo run -p cfd-optim --example milestone12_report --no-default-features`.\n\
-> Full canonical data: `report/milestone12_results.md`\n"
-    );
-    let _ = writeln!(s, "**Dataset Counts**\n");
-    let _ = writeln!(s, "- Total generated candidates: **{total_candidates}**");
-    let _ = writeln!(
-        s,
-        "- Option 1 eligibility pool (selective acoustic): **{opt1_pool}**"
-    );
-    let _ = writeln!(
-        s,
-        "- Option 2 eligibility pool (selective venturi, σ<1): **{opt2_pool}**\n"
-    );
-    let _ = writeln!(s, "**GA Reproducibility**\n");
-    let _ = writeln!(s, "- HydroSDT GA RNG seed: `{M12_GA_HYDRO_SEED}`");
-    let _ = writeln!(
-        s,
-        "- GA rank-1: `{}` (score {:.4}, sigma {:.4})\n",
-        ga_best.candidate.id, ga_best.score, ga_best.metrics.cavitation_number
-    );
-    if robustness.is_empty() {
-        let _ = writeln!(
-            s,
-            "**Robustness Screening:** *Not computed in this run. Re-run without `M12_FAST=1`.*\n"
-        );
-    } else {
-        let robust_count = robustness.iter().filter(|r| r.is_robust).count();
-        let _ = writeln!(
-            s,
-            "**Robustness Screening:** {robust_count}/{} candidates robust.\n",
-            robustness.len()
-        );
-    }
-    if validation_rows.is_empty() {
-        let _ = writeln!(
-            s,
-            "**Multi-Fidelity Validation:** *Not computed in this run. Re-run without `M12_FAST=1`.*\n"
-        );
-    } else {
-        let _ = writeln!(
-            s,
-            "**Multi-Fidelity Validation:** {} entries computed. See §5.3 for full table.\n",
-            validation_rows.len()
-        );
-    }
-    let _ = writeln!(
-        s,
-        "**Serial Venturi Modeling Note:** Each serial venturi throat is evaluated \
-independently for cavitation number and intensity in the 1D network solver. The cumulative \
-re-nucleation cascade between consecutive serial throats is not explicitly modeled.\n"
-    );
-    s
-}
-
 pub(super) fn build_references_block() -> String {
     "\
-1. ANSI/SLAS 1-2004 — Microplates — Footprint Dimensions.\n\
-2. Giersiepen, M., et al. \"Estimation of shear stress-related blood damage in heart valve prostheses — in vitro comparison of 25 aortic valves.\" *International Journal of Artificial Organs*, 13(5):300–306, 1990.\n\
+1. ANSI/SLAS 1-2004, Microplates, Footprint Dimensions.\n\
+2. Giersiepen, M., et al. \"Estimation of shear stress-related blood damage in heart valve prostheses: in vitro comparison of 25 aortic valves.\" *International Journal of Artificial Organs*, 13(5):300–306, 1990.\n\
 3. Brennen, C.E. *Cavitation and Bubble Dynamics*. Oxford University Press, 1995. [Eq. 3.12, cavitation number inception criterion.]\n\
 4. Ohl, S.-W., et al. \"Sonoporation from jetting cavitation bubbles.\" *Biophysical Journal*, 91(11):4285–4295, 2006. [5× membrane lysis amplification at bubble collapse; basis for `LYSIS_CAVITATION_AMPLIFICATION = 5.0`.]\n\
 5. Hellums, J.D. \"1993 Whitaker Lecture: Biorheology in thrombosis research.\" *Annals of Biomedical Engineering*, 22(5):445–455, 1994. [PAI exponent model, Eq. 3: n=1.325, m=0.462.]\n\
 6. Di Carlo, D. \"Inertial microfluidics.\" *Lab on a Chip*, 9(21):3038–3046, 2009. [κ_RBC = a_RBC / D_h confinement criterion for inertial focusing; threshold 0.07.]\n\
 7. Zweifach, B.W. and Fung, Y.C. \"Phase separation in capillary networks.\" *Microvascular Research*, 1971. [β_RBC = 1.0 for passive tracer routing at millifluidic scales.]\n\
-8. FDA 2019 Guidance — *Nonclinical Tests and Recommended Labeling for Intravascular Administration Sets, Blood Administration Sets, and Blood Component Administration Sets*. [FDA predicate: Maquet RotaFlow, K143453, 1% hemolysis ceiling.]\n\
+8. FDA 2019 Guidance, *Nonclinical Tests and Recommended Labeling for Intravascular Administration Sets, Blood Administration Sets, and Blood Component Administration Sets*. [FDA predicate: Maquet RotaFlow, K143453, 1% hemolysis ceiling.]\n\
 9. Lentner, C. (Ed.) *Geigy Scientific Tables, Vol. 3: Physical Chemistry, Composition of Blood.* Novartis, 1984. [Table 30: neonatal reference blood volume 85 mL/kg; basis for `PEDIATRIC_BLOOD_VOLUME_ML_PER_KG = 85.0`.]\n\
 10. Dean, W.R. \"Note on the motion of fluid in a curved pipe.\" *Philosophical Magazine*, 4(20):208–223, 1927. [Dean number and secondary flow in curved channels; basis for `CurvaturePeakDeanNumber` venturi placement mode.]\n\
 11. Taskin, M.E., et al. \"Evaluation of Eulerian and Lagrangian models for hemolysis estimation.\" *ASAIO Journal*, 58(4):363–372, 2012. [Strain-based hemolysis model; alternative to Giersiepen (1990) for cumulative strain history.]\n\
@@ -346,13 +275,13 @@ pub(super) fn build_references_block() -> String {
 16. Durst, F., et al. \"The development lengths of laminar pipe and channel flows.\" *Journal of Fluids Engineering*, 127(6):1154–1160, 2005. [Developing-flow entrance correction for short venturi throats with L/D_h < 20.]\n\
 17. White, F.M. *Fluid Mechanics*, 7th ed. McGraw-Hill, 2011. [Cross-section averaged throat velocity for cavitation number computation.]\n\
 18. Bayat, P. and Rezai, P. \"Semi-empirical estimation of Dean flow velocity in curved microchannels.\" *Scientific Reports*, 7:13655, 2017. [Millifluidic Dean correlation for D_h > 500 µm; validated correction for large aspect ratios.]\n\
-19. Gor'kov, L.P. \"On the forces acting on a small particle in an acoustical field in an ideal fluid.\" *Soviet Physics — Doklady*, 6(9):773–775, 1962. [Acoustic radiation force and energy density; basis for `acoustic_contrast_factor()` and `acoustic_energy_density()`.]\n\
-20. Bruus, H. \"Acoustofluidics 7: The acoustic radiation force on small particles.\" *Lab on a Chip*, 12(6):1014–1021, 2012. [Comprehensive review of acoustic radiation force in microfluidics; basis for radiation force model F = 4πa³ΦkE_ac·sin(2kx).]\n\
-21. Rosenthal, I., et al. \"Sonodynamic therapy — a review of the synergistic effects of drugs and ultrasound.\" *Ultrasonics Sonochemistry*, 11(6):349–363, 2004. [First-order sonosensitizer activation kinetics η = 1−exp(−k·I·t); basis for `sonosensitizer_activation_efficiency()`.]\n\
+19. Gor'kov, L.P. \"On the forces acting on a small particle in an acoustical field in an ideal fluid.\" *Soviet Physics Doklady*, 6(9):773–775, 1962. [Acoustic radiation force and energy density; basis for `acoustic_contrast_factor()` and `acoustic_energy_density()`.]\n\
+20. Bruus, H. \"Acoustofluidics 7: The acoustic radiation force on small particles.\" *Lab on a Chip*, 12(6):1014-1021, 2012. [Acoustic radiation force in microfluidics; basis for radiation force model F = 4πa³ΦkE_ac·sin(2kx).]\n\
+21. Rosenthal, I., et al. \"Sonodynamic therapy: a review of the synergistic effects of drugs and ultrasound.\" *Ultrasonics Sonochemistry*, 11(6):349–363, 2004. [First-order sonosensitizer activation kinetics η = 1−exp(−k·I·t); basis for `sonosensitizer_activation_efficiency()`.]\n\
 22. Rayleigh, Lord. \"On the pressure developed in a liquid during the collapse of a spherical cavity.\" *Philosophical Magazine*, 34(200):94–98, 1917. [Bubble collapse time t_c = 0.915R√(ρ/p) and jet velocity; basis for `cavitation_hemolysis_amplification()`.]\n\
 23. Secomb, T.W. \"Blood flow in the microcirculation.\" *Annual Review of Fluid Mechanics*, 49:443–461, 2017. [Network blood viscosity model including in-vivo correction and phase separation parameter X₀.]\n\
 24. Gosling, R.G. and King, D.H. \"Arterial assessment by Doppler-shift ultrasound.\" *Proceedings of the Royal Society of Medicine*, 67(6):447–449, 1974. [Pulsatility index PI = (V_sys−V_dia)/V_mean for Womersley pulsatile flow characterization.]\n\
-25. SonALAsense Internal Data — CFDrs canonical simulation data (see Appendix A)."
+25. SonALAsense Internal Data, CFDrs canonical simulation data."
         .to_string()
 }
 
@@ -384,18 +313,16 @@ pub(super) fn build_figure_sections(specs: &[NarrativeFigureSpec]) -> String {
 
 pub(super) fn build_storage_policy_section() -> String {
     "\
-To ensure integrity, security, and accessibility of Milestone 12 computational data, SonALAsense applies policy-aligned storage controls across its managed engineering systems.\n\n\
-**Data Governance and Access Control:** versioned simulation/report assets are maintained in the SonALAsense GitHub repository with controlled branch/merge workflows and auditable change history.\n\n\
-**Secure Collaboration and Operational Storage:** project data packages and controlled shared artifacts are managed in SonALAsense Egnyte with role-based access and organization-managed retention policies.\n\n\
-**Backup, Recovery, and Traceability:** canonical milestone outputs are regenerated deterministically from source code and preserved alongside run artifacts to support reproducible milestone evidence.\n"
+Milestone 12 computational data is stored under the following controls.\n\n\
+**Version Control:** Simulation and report assets are maintained in the SonALAsense GitHub repository with branch/merge workflows and auditable change history.\n\n\
+**Shared Storage:** Project data packages and shared artifacts are managed in SonALAsense Egnyte with role-based access and organization-managed retention policies.\n\n\
+**Reproducibility:** Canonical milestone outputs are regenerated deterministically from source code and preserved alongside run artifacts.\n"
         .to_string()
 }
 
 pub(super) fn build_storage_artifact_index() -> String {
     "\
-- Canonical results: Appendix A (embedded below)\n\
-- Figure manifest: Appendix B (embedded below)\n\
 - Figures: inline throughout §5 Results\n\
-- Generation artifacts: top-5 JSON, validation summaries, robustness outputs, and GA artifacts are included in Appendix A canonical data"
+- Generation artifacts: top-5 JSON, validation summaries, robustness outputs, and GA artifacts are stored in the canonical run output directory"
         .to_string()
 }

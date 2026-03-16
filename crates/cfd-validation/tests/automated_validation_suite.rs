@@ -5,8 +5,9 @@
 //! - Performance benchmarking for efficiency assessment
 //! - Automated regression detection and reporting
 
+use cfd_validation::benchmarking::config::BenchmarkConfig;
 use cfd_validation::benchmarking::suite::{
-    BenchmarkConfig, BenchmarkResult, BenchmarkStatus, BenchmarkSuite,
+    BenchmarkResult, BenchmarkStatus, BenchmarkSuite,
 };
 use cfd_validation::manufactured::ManufacturedSolution;
 use cfd_validation::manufactured::{ManufacturedDiffusion, TaylorGreenManufactured};

@@ -5,7 +5,7 @@
 //! 2. Performance benchmarking
 //! 3. Quality assessment
 
-use cfd_validation::benchmarking::suite::{
+use cfd_validation::benchmarking::{
     BenchmarkConfig, BenchmarkResult, BenchmarkStatus, BenchmarkSuite,
 };
 use cfd_validation::manufactured::{

@@ -181,7 +181,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             v_a,
             0.20,
             ms,
-            0,
+            2,
         );
 
         write_stl(

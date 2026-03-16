@@ -7,6 +7,7 @@
 pub mod constants;
 pub mod damage;
 pub mod models;
+pub mod nuclei_transport;
 pub mod number;
 pub mod rayleigh_plesset;
 pub mod regimes;
@@ -15,6 +16,7 @@ pub mod venturi;
 // Re-export main types
 pub use damage::CavitationDamage;
 pub use models::CavitationModel;
+pub use nuclei_transport::{NucleiTransport, NucleiTransportConfig};
 pub use number::CavitationNumber;
 pub use rayleigh_plesset::RayleighPlesset;
 pub use regimes::{CavitationRegime, CavitationRegimeAnalysis, CavitationRegimeClassifier};

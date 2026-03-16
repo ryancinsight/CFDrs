@@ -136,7 +136,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
             for j in 0..ny {
                 let x = solver.grid.x_center(i);
                 let y = solver.grid.y_center(j) - half_h;
-                solver.field.mask[i][j] = geometry.contains(x, y);
+                solver.field.mask[(i, j)] = geometry.contains(x, y);
             }
         }
     }
@@ -154,9 +154,9 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
 
         // Average inlet velocity from the first internal u-faces — zero-alloc fold.
         let (u_sum_in, count_inlet) = (0..ny)
-            .filter(|&j| self.solver.field.mask[0][j])
+            .filter(|&j| self.solver.field.mask[(0, j)])
             .fold((T::zero(), 0usize), |(s, n), j| {
-                (s + self.solver.field.u[1][j], n + 1)
+                (s + self.solver.field.u[(1, j)], n + 1)
             });
         let u_inlet_sim = if count_inlet > 0 {
             u_sum_in / T::from_usize(count_inlet).unwrap_or_else(T::one)
@@ -167,11 +167,11 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         // Find throat section: cell with maximum u-velocity — single flat_map fold.
         let (u_max, p_throat) = (0..nx)
             .flat_map(|i| (0..ny).map(move |j| (i, j)))
-            .filter(|&(i, j)| self.solver.field.mask[i][j])
+            .filter(|&(i, j)| self.solver.field.mask[(i, j)])
             .fold((T::zero(), T::zero()), |(u_best, p_best), (i, j)| {
-                let u = self.solver.field.u[i][j];
+                let u = self.solver.field.u[(i, j)];
                 if u > u_best {
-                    (u, self.solver.field.p[i][j])
+                    (u, self.solver.field.p[(i, j)])
                 } else {
                     (u_best, p_best)
                 }
@@ -196,9 +196,9 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
             })
             .unwrap_or(nx / 2);
         let (u_sum_throat, count_throat) = (0..ny)
-            .filter(|&j| self.solver.field.mask[i_throat][j])
+            .filter(|&j| self.solver.field.mask[(i_throat, j)])
             .fold((T::zero(), 0usize), |(s, n), j| {
-                (s + self.solver.field.u[i_throat][j], n + 1)
+                (s + self.solver.field.u[(i_throat, j)], n + 1)
             });
         let u_throat_mean = if count_throat > 0 {
             u_sum_throat / T::from_usize(count_throat).unwrap_or_else(T::one)
@@ -208,9 +208,9 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
 
         // Average outlet pressure from the last fluid column — zero-alloc fold.
         let (p_sum_out, count_outlet) = (0..ny)
-            .filter(|&j| self.solver.field.mask[nx - 1][j])
+            .filter(|&j| self.solver.field.mask[(nx - 1, j)])
             .fold((T::zero(), 0usize), |(s, n), j| {
-                (s + self.solver.field.p[nx - 1][j], n + 1)
+                (s + self.solver.field.p[(nx - 1, j)], n + 1)
             });
         let p_outlet = if count_outlet > 0 {
             p_sum_out / T::from_usize(count_outlet).unwrap_or_else(T::one)
@@ -218,7 +218,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
             T::zero()
         };
 
-        let p_inlet = self.solver.field.p[0][ny / 2]; // Reference inlet pressure
+        let p_inlet = self.solver.field.p[(0, ny / 2)]; // Reference inlet pressure
 
         let dp_throat = p_throat - p_inlet;
         let dp_recovery = p_outlet - p_inlet;

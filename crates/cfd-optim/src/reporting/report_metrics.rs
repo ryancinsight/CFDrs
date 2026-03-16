@@ -18,7 +18,8 @@ use crate::constraints::{
     CLOTTING_SHEAR_LOW_RISK_INV_S, C_P_BLOOD_J_KG_K, DEAD_VOLUME_SHEAR_THRESHOLD_INV_S,
     EXPANSION_RATIO_LOW_RISK, FDA_MAX_WALL_SHEAR_PA, FDA_THROAT_TEMP_RISE_LIMIT_K,
     FDA_TRANSIENT_SHEAR_PA, FDA_TRANSIENT_TIME_S, MILESTONE_TREATMENT_DURATION_MIN,
-    PATIENT_BLOOD_VOLUME_ML, PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG,
+    PATIENT_BLOOD_VOLUME_ML, PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_FLOW_CAUTION_ML_MIN,
+    PEDIATRIC_FLOW_EXCESSIVE_ML_MIN, PEDIATRIC_REFERENCE_WEIGHT_KG,
     PLATE_HEIGHT_MM, PLATE_WIDTH_MM, P_ATM_PA, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
     VENTURI_EXPANSION_RATIO_HIGH_RISK, VENTURI_VEL_RATIO_REF,
 };
@@ -426,6 +427,12 @@ pub fn compute_blueprint_report_metrics(
         + metrics.dead_volume_stasis_risk)
         / 5.0;
     metrics.clotting_flow_compliant_10ml_s = flow_rate_ml_min >= CLOTTING_BFR_STRICT_10MLS_ML_MIN;
+    metrics.pediatric_flow_excess_risk = direct_linear_risk(
+        flow_rate_ml_min,
+        PEDIATRIC_FLOW_CAUTION_ML_MIN,
+        PEDIATRIC_FLOW_EXCESSIVE_ML_MIN,
+    );
+    metrics.pediatric_flow_compliant = flow_rate_ml_min <= PEDIATRIC_FLOW_CAUTION_ML_MIN;
     metrics.venturi_treatment_enabled = active_venturi_throat_count > 0;
     metrics.treatment_zone_mode = match topology.treatment_mode {
         TreatmentActuationMode::UltrasoundOnly => "UltrasoundOnly",
@@ -597,15 +604,15 @@ pub struct SdtAcousticMetrics {
 
     /// Acoustic energy density [J/m³] at 100 kPa pressure amplitude in blood.
     /// E_ac = p₀²/(4ρc²).
-    pub acoustic_energy_density_j_m3: f64,
+    pub _acoustic_energy_density_j_m3: f64,
 
     /// Acoustic contrast factor Φ for CTCs in plasma (Gor'kov 1962).
     /// Positive → migrates toward pressure nodes.
-    pub ctc_contrast_factor: f64,
+    pub _ctc_contrast_factor: f64,
 
     /// Acoustic contrast factor Φ for RBCs in plasma (Gor'kov 1962).
     /// Positive → migrates toward pressure nodes.
-    pub rbc_contrast_factor: f64,
+    pub _rbc_contrast_factor: f64,
 }
 
 /// Compute SDT acoustic metrics from the validated cfd-1d physics models.
@@ -662,9 +669,9 @@ pub fn compute_sdt_acoustic_metrics(
     SdtAcousticMetrics {
         sensitizer_activation_efficiency: sensitizer_activation,
         rayleigh_plesset_amplification: rp_amplification,
-        acoustic_energy_density_j_m3: e_acoustic,
-        ctc_contrast_factor: ctc_contrast,
-        rbc_contrast_factor: rbc_contrast,
+        _acoustic_energy_density_j_m3: e_acoustic,
+        _ctc_contrast_factor: ctc_contrast,
+        _rbc_contrast_factor: rbc_contrast,
     }
 }
 
@@ -684,15 +691,15 @@ mod tests {
             "rayleigh_plesset_amplification must be finite"
         );
         assert!(
-            m.acoustic_energy_density_j_m3.is_finite(),
+            m._acoustic_energy_density_j_m3.is_finite(),
             "acoustic_energy_density_j_m3 must be finite"
         );
         assert!(
-            m.ctc_contrast_factor.is_finite(),
+            m._ctc_contrast_factor.is_finite(),
             "ctc_contrast_factor must be finite"
         );
         assert!(
-            m.rbc_contrast_factor.is_finite(),
+            m._rbc_contrast_factor.is_finite(),
             "rbc_contrast_factor must be finite"
         );
         // Activation should be in (0, 1) for non-zero inputs
@@ -719,7 +726,7 @@ mod tests {
         );
         // RP amplification and energy density are independent of cavitation intensity
         assert!(m.rayleigh_plesset_amplification > 1.0);
-        assert!(m.acoustic_energy_density_j_m3 > 0.0);
+        assert!(m._acoustic_energy_density_j_m3 > 0.0);
     }
 
     #[test]
@@ -728,7 +735,7 @@ mod tests {
         for pressure_drop in [0.0, 10_000.0, 100_000.0, 500_000.0] {
             let m = compute_sdt_acoustic_metrics(0.5, 0.001, pressure_drop);
             assert!(
-                m.acoustic_energy_density_j_m3 > 0.0,
+                m._acoustic_energy_density_j_m3 > 0.0,
                 "energy density must be positive at pressure_drop={pressure_drop}"
             );
         }

@@ -105,6 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         element_type: ElementType::Tetrahedron,
         quadrature_order: 2,
         grad_div_penalty: 0.0,
+        grad_div_gamma: 1.0,
     };
 
     // Create FEM solver

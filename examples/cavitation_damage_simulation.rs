@@ -142,6 +142,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         liquid_viscosity: 0.001,  // 1.0 mPa·s (Water @ 20°C)
         vapor_density: 0.017,     // 0.017 kg/m³
         sound_speed: 1482.0,      // 1482 m/s
+        nuclei_transport: None,
     };
 
     // Initialize cavitation-VOF solver

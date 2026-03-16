@@ -106,6 +106,29 @@ pub const PEDIATRIC_BLOOD_VOLUME_ML_PER_KG: f64 = 85.0;
 /// Reference pediatric weight [kg] used in milestone-12 cumulative-safety projections.
 pub const PEDIATRIC_REFERENCE_WEIGHT_KG: f64 = 3.0;
 
+/// Maximum extracorporeal blood flow per kilogram of body weight [mL/min/kg].
+///
+/// Clinical reference: catheter-based pediatric extracorporeal circuits (apheresis,
+/// CRRT, therapeutic plasma exchange) typically operate at 5-10 mL/kg/min.
+/// ECMO can reach 100-150 mL/kg/min but requires surgical cannulation.
+/// This threshold represents the upper bound for non-surgical vascular access
+/// (dual-lumen central venous catheter) in pediatric patients.
+pub const PEDIATRIC_MAX_FLOW_ML_MIN_PER_KG: f64 = 10.0;
+
+/// Flow rate [mL/min] above which pediatric high-flow risk begins to rise.
+///
+/// Computed as `PEDIATRIC_REFERENCE_WEIGHT_KG × PEDIATRIC_MAX_FLOW_ML_MIN_PER_KG`.
+/// For the 3 kg neonatal reference this equals 30 mL/min.
+pub const PEDIATRIC_FLOW_CAUTION_ML_MIN: f64 =
+    PEDIATRIC_REFERENCE_WEIGHT_KG * PEDIATRIC_MAX_FLOW_ML_MIN_PER_KG;
+
+/// Flow rate [mL/min] at which pediatric high-flow risk saturates to 1.0.
+///
+/// Set at 3× the caution threshold to provide a smooth scoring ramp.
+/// Beyond this flow rate (90 mL/min for the 3 kg reference) the penalty
+/// is fully applied; the optimizer receives no further incentive to increase flow.
+pub const PEDIATRIC_FLOW_EXCESSIVE_ML_MIN: f64 = PEDIATRIC_FLOW_CAUTION_ML_MIN * 3.0;
+
 /// Milestone-12 therapy window for cumulative hemolysis projection [min].
 pub const MILESTONE_TREATMENT_DURATION_MIN: f64 = 15.0;
 

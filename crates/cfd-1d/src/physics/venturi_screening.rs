@@ -29,6 +29,9 @@ pub struct VenturiScreeningInput {
     pub vena_contracta_coeff: f64,
     /// Diffuser recovery coefficient.
     pub diffuser_recovery_coeff: f64,
+    /// Upstream bubble nuclei volume fraction.
+    #[serde(default)]
+    pub upstream_nuclei_fraction: f64,
 }
 
 /// Output of a throat-level venturi screening evaluation.
@@ -46,6 +49,8 @@ pub struct VenturiScreeningResult {
     pub cavitation_number: f64,
     /// Diffuser static-pressure recovery estimate [Pa].
     pub diffuser_recovery_pa: f64,
+    /// Downstream bubble nuclei volume fraction after generation.
+    pub outlet_nuclei_fraction: f64,
 }
 
 /// Convert a half-angle taper into an equivalent taper length [m].
@@ -102,11 +107,19 @@ pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> VenturiScreen
     let throat_static_raw = input.upstream_pressure_pa - bernoulli_drop - friction_drop;
     let throat_static = throat_static_raw.max(0.0);
     let dyn_p = 0.5 * input.density_kg_m3 * v_eff * v_eff;
+    
+    // Cascade effect: upstream nuclei elevate the effective vapor pressure
+    // making inception more likely.
+    let effective_vapor_pressure_pa = input.vapor_pressure_pa + input.upstream_nuclei_fraction * 10_000.0;
+
     let cavitation_number = if dyn_p > 1e-12 {
-        (throat_static_raw - input.vapor_pressure_pa) / dyn_p
+        (throat_static_raw - effective_vapor_pressure_pa) / dyn_p
     } else {
         f64::INFINITY
     };
+
+    let outlet_nuclei_fraction =
+        (input.upstream_nuclei_fraction + (1.0 - cavitation_number).max(0.0)).clamp(0.0, 1.0);
 
     let diffuser_recovery = input.diffuser_recovery_coeff
         * 0.5
@@ -120,5 +133,6 @@ pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> VenturiScreen
         throat_static_pressure_pa: throat_static,
         cavitation_number,
         diffuser_recovery_pa: diffuser_recovery,
+        outlet_nuclei_fraction,
     }
 }

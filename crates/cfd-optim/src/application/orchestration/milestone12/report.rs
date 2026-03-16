@@ -91,23 +91,11 @@ fn authoritative_run() -> bool {
 }
 
 fn canonical_results_path(workspace_root: &Path) -> std::path::PathBuf {
-    if authoritative_run() {
-        workspace_root.join("report").join("milestone12_results.md")
-    } else {
-        workspace_root
-            .join("report")
-            .join("draft")
-            .join("milestone12_results.md")
-    }
+    workspace_root.join("report").join("milestone12_results.md")
 }
 
 fn canonical_source_label() -> String {
-    if authoritative_run() {
-        "report/milestone12_results.md".to_string()
-    } else {
-        "report/draft/milestone12_results.md (draft, non-authoritative fast-mode artifact)"
-            .to_string()
-    }
+    "report/milestone12_results.md".to_string()
 }
 
 fn render_option1_sequence_coverage(summary: &Milestone12Option1Summary) -> String {

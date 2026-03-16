@@ -18,7 +18,7 @@ pub(crate) fn populate_venturi_mask<T>(
         for j in 0..ny {
             let x = solver.grid.x_center(i);
             let y = solver.grid.y_center(j) - half_h;
-            solver.field.mask[i][j] = geom.contains(x, y);
+            solver.field.mask[(i, j)] = geom.contains(x, y);
         }
     }
 }
@@ -37,7 +37,7 @@ pub(crate) fn populate_circular_mask<T>(
     for i in 0..nx {
         for j in 0..ny {
             let y = solver.grid.y_center(j);
-            solver.field.mask[i][j] = Float::abs(y - center_y) <= radius;
+            solver.field.mask[(i, j)] = Float::abs(y - center_y) <= radius;
         }
     }
 }
@@ -57,13 +57,13 @@ where
 
     for i in 1..nx.saturating_sub(1) {
         for j in 1..ny.saturating_sub(1) {
-            if !solver.field.mask[i][j] {
+            if !solver.field.mask[(i, j)] {
                 continue;
             }
-            let next_to_wall = !solver.field.mask[i - 1][j]
-                || !solver.field.mask[i + 1][j]
-                || !solver.field.mask[i][j - 1]
-                || !solver.field.mask[i][j + 1]
+            let next_to_wall = !solver.field.mask[(i - 1, j)]
+                || !solver.field.mask[(i + 1, j)]
+                || !solver.field.mask[(i, j - 1)]
+                || !solver.field.mask[(i, j + 1)]
                 || i == 1
                 || i == nx - 2
                 || j == 1
@@ -73,7 +73,7 @@ where
             }
 
             let gamma = solver.field.compute_shear_rate(i, j, dx, dy);
-            let tau = solver.field.mu[i][j] * gamma;
+            let tau = solver.field.mu[(i, j)] * gamma;
             if tau > max_tau {
                 max_tau = tau;
             }
@@ -106,11 +106,11 @@ where
     let mut open_width = T::zero();
 
     for j in 0..solver.grid.ny {
-        if !solver.field.mask[outlet_cell][j] {
+        if !solver.field.mask[(outlet_cell, j)] {
             continue;
         }
         let dy = solver.grid.dy_at(j);
-        integrated_velocity += solver.field.u[outlet_face][j] * dy;
+        integrated_velocity += solver.field.u[(outlet_face, j)] * dy;
         open_width += dy;
     }
 

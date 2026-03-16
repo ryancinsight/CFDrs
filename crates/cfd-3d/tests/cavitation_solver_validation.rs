@@ -44,6 +44,7 @@ fn test_cavitation_inception() {
         liquid_viscosity: 1.002e-3,
         vapor_density: 0.023,
         sound_speed: 1500.0,
+        nuclei_transport: None,
     };
 
     let mut solver = CavitationVofSolver::new(10, 10, 10, config).unwrap();
@@ -112,6 +113,7 @@ fn test_damage_accumulation() {
         liquid_viscosity: 1.002e-3,
         vapor_density: 0.023,
         sound_speed: 1500.0,
+        nuclei_transport: None,
     };
 
     let mut solver = CavitationVofSolver::new(10, 10, 10, config).unwrap();
@@ -185,6 +187,7 @@ fn test_sonoluminescence_energy_field_requires_collapse_and_is_finite() {
         liquid_viscosity: 1.002e-3,
         vapor_density: 0.023,
         sound_speed: 1500.0,
+        nuclei_transport: None,
     };
 
     let mut solver = CavitationVofSolver::new(6, 4, 3, config).unwrap();
@@ -242,6 +245,7 @@ fn test_mass_conservation() {
         liquid_viscosity: 1.002e-3,
         vapor_density: 0.023,
         sound_speed: 1500.0,
+        nuclei_transport: None,
     };
 
     let mut solver = CavitationVofSolver::new(20, 10, 10, config).unwrap();
@@ -329,6 +333,7 @@ fn test_bubble_dynamics_integration() {
         liquid_viscosity: 1.002e-3,
         vapor_density: 0.023,
         sound_speed: 1500.0,
+        nuclei_transport: None,
     };
 
     let mut solver = CavitationVofSolver::new(5, 5, 5, config).unwrap();
@@ -409,6 +414,7 @@ fn test_cavitation_statistics() {
         liquid_viscosity: 1.002e-3,
         vapor_density: 0.023,
         sound_speed: 1500.0,
+        nuclei_transport: None,
     };
 
     let mut solver = CavitationVofSolver::new(10, 10, 10, config).unwrap();
@@ -520,6 +526,7 @@ fn test_cavitation_model_comparison() {
             liquid_viscosity: 1.002e-3,
             vapor_density: 0.023,
             sound_speed: 1500.0,
+            nuclei_transport: None,
         };
 
         let mut solver = CavitationVofSolver::new(5, 5, 5, config).unwrap();

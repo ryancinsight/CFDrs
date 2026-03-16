@@ -7,11 +7,11 @@ use serde::{Deserialize, Serialize};
 use super::process::{write_creation_optimization_process_figure, write_placeholder};
 use super::svg::{
     write_cavitation_distribution_figure, write_cross_mode_figure, write_ga_convergence_figure,
-    write_head_to_head_figure, write_multifidelity_figure, write_pareto_figure,
+    write_head_to_head_figure, write_pareto_figure,
     write_pediatric_ecv_figure,
 };
 use crate::constraints::{PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG};
-use crate::reporting::{Milestone12ReportDesign, ParetoPoint, ValidationRow};
+use crate::reporting::{Milestone12ReportDesign, ParetoPoint};
 
 /// Figure metadata used for dynamic table-of-contents and section rendering.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,7 +34,6 @@ pub struct FigureGenerationInput<'a> {
     pub ga_top: &'a [Milestone12ReportDesign],
     pub option2_pool_all: &'a [ParetoPoint],
     pub ga_pool_all: &'a [ParetoPoint],
-    pub validation_rows: &'a [ValidationRow],
     pub ga_best_per_gen: &'a [f64],
     pub fast_mode: bool,
 }
@@ -111,13 +110,6 @@ pub fn generate_m12_report_figures(
         first_ranked(input.option2_ranked),
         first_ranked(input.ga_top),
     )?;
-    if !input.validation_rows.is_empty() {
-        write_multifidelity_figure(
-            &figures_dir.join("m12_multifidelity_dp.svg"),
-            input.validation_rows,
-            input.fast_mode,
-        )?;
-    }
     if !input.ga_best_per_gen.is_empty() {
         write_ga_convergence_figure(
             &figures_dir.join("m12_ga_convergence.svg"),
@@ -222,19 +214,19 @@ pub fn generate_m12_report_figures(
         ),
         spec(
             9,
-            "Cavitation Number (σ) Distribution",
+            "Selected-Design Cavitation Number (σ)",
             "m12_cavitation_distribution.svg",
             figure_path_prefix,
-            "Distribution of cavitation-number regimes across the selected venturi-capable designs. Values with 0 < σ < 1 are inception-capable; σ < 0 indicates sub-vapor-pressure throat operation and stronger hydrodynamic cavitation.",
-            "Cavitation sigma category bars",
+            "Selected-design cavitation-number values for the top-ranked Option 2 and GA venturi designs, with reference lines at σ = 0 and σ = 1. This view is intended to diagnose whether each selected design is below vapor pressure, inception-capable, or above the cavitation threshold rather than merely counting regime buckets.",
+            "Selected design sigma scatter",
         ),
         spec(
             10,
-            "Pareto Front — Oncology Objectives",
+            "Selected-Design Oncology Trade-Off Frontier",
             "m12_pareto_oncology.svg",
             figure_path_prefix,
-            "Pareto trade-off between tumor-targeted cavitation intensity and healthy-cell protection. Upper-right designs simultaneously maximize cancer-targeted treatment intensity and minimize RBC collateral exposure, making the frontier a concise view of the main Milestone 12 oncology trade space.",
-            "Pareto oncology scatter",
+            "Trade-off frontier across the top-ranked Option 2 and GA designs only, showing tumor-targeted cavitation intensity versus healthy-cell protection. The frontier line highlights the nondominated selected designs instead of burying them inside a dense background pool.",
+            "Selected design oncology frontier",
         ),
         spec(
             11,
@@ -245,25 +237,9 @@ pub fn generate_m12_report_figures(
             "Pediatric ECV margin bars",
         ),
     ];
-    if !input.validation_rows.is_empty() {
+    if !input.ga_best_per_gen.is_empty() {
         specs.push(spec(
             12,
-            "Multi-Fidelity Pressure-Drop Comparison",
-            "m12_multifidelity_dp.svg",
-            figure_path_prefix,
-            "Multi-fidelity pressure-drop comparison across the companion 1D, 2D, and 3D solvers. Rows that are unconverged in 2D or outside the validity range of the 3D Stokes model should be interpreted as diagnostic solver-audit evidence, not as confirmation-grade agreement.",
-            "Multi fidelity pressure drop bars",
-        ));
-    }
-    if !input.ga_best_per_gen.is_empty() {
-        // Renumber dynamically to follow the pediatric ECV figure.
-        let ga_fig_num = if input.validation_rows.is_empty() {
-            12
-        } else {
-            13
-        };
-        specs.push(spec(
-            ga_fig_num,
             "GA Fitness Convergence",
             "m12_ga_convergence.svg",
             figure_path_prefix,

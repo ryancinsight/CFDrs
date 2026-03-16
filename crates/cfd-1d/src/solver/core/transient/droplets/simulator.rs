@@ -101,7 +101,7 @@ impl TransientDropletSimulator {
     /// This convenience API first computes transient composition states using
     /// pressure events and then runs droplet tracking with the default split policy.
     pub fn simulate_with_pressure_events<
-        T: RealField + Copy + FromPrimitive + ToPrimitive,
+        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -122,7 +122,7 @@ impl TransientDropletSimulator {
 
     /// Simulate droplet states with pressure events and an explicit split policy.
     pub fn simulate_with_pressure_events_and_policy<
-        T: RealField + Copy + FromPrimitive + ToPrimitive,
+        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,

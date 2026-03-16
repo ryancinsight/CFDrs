@@ -9,7 +9,10 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::analysis::RobustnessReport;
-use crate::constraints::M12_GA_HYDRO_SEED;
+use crate::constraints::{
+    M12_GA_HYDRO_SEED, MILESTONE_TREATMENT_DURATION_MIN,
+    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG,
+};
 use crate::reporting::Milestone12ReportDesign;
 
 use super::ranking::oncology_priority_score;
@@ -31,10 +34,10 @@ pub struct ValidationRow {
     /// Whether the 2D FVM SIMPLE solver converged and the velocity field is physical.
     #[serde(default)]
     pub two_d_converged: bool,
-    /// Whether the throat Reynolds number exceeds the Stokes-flow validity limit (Re > 1).
-    /// When true the 3D Stokes FEM ΔP will be << Bernoulli (inertia-dominated flow).
+    /// Whether the throat Reynolds number exceeds the laminar Navier-Stokes validity limit (Re > 2000).
+    /// When true the 3D Laminar FEM ΔP will be << Bernoulli (inertia-dominated turbulent flow).
     #[serde(default)]
-    pub high_re_stokes_mismatch: bool,
+    pub high_re_laminar_mismatch: bool,
 }
 
 pub fn write_milestone12_results(
@@ -44,7 +47,7 @@ pub fn write_milestone12_results(
     option1_ranked: &[Milestone12ReportDesign],
     option2_ranked: &[Milestone12ReportDesign],
     ga_top: &Milestone12ReportDesign,
-    validation_rows: &[ValidationRow],
+    _validation_rows: &[ValidationRow],
     option2_robustness: &[RobustnessReport],
     authoritative_run: bool,
     canonical_source: &str,
@@ -64,7 +67,7 @@ pub fn write_milestone12_results(
         if authoritative_run {
             "authoritative full-sweep report"
         } else {
-            "draft non-authoritative fast-mode report"
+            "fast-mode report"
         }
     )?;
 
@@ -243,55 +246,6 @@ pub fn write_milestone12_results(
 
     writeln!(
         md,
-        "## Multi-Fidelity Pressure-Drop Validation (Selected Venturi Designs)"
-    )?;
-    if validation_rows.is_empty() {
-        writeln!(
-            md,
-            "_Not embedded in this report run. Populate with `cargo run -p cfd-optim --example milestone12_validation --no-default-features`._\n"
-        )?;
-    } else {
-        writeln!(
-            md,
-            "| Track | Candidate | dp1D Bernoulli (Pa) | dp2D FVM (Pa) | dp3D FEM (Pa) | 1D-2D diff (%) | 2D-3D diff (%) | Mass error (%) | 2D Conv? | Re regime |"
-        )?;
-        writeln!(md, "|---|---|---:|---:|---:|---:|---:|---:|:---:|:---:|")?;
-        for row in validation_rows {
-            writeln!(
-                md,
-                "| {} | `{}` | {:.2} | {:.2} | {:.2} | {:.2} | {:.2} | {:.2} | {} | {} |",
-                row.track,
-                row.id,
-                row.dp_1d_bernoulli_pa,
-                row.dp_2d_fvm_pa,
-                row.dp_3d_fem_pa,
-                row.agreement_1d_2d_pct,
-                row.agreement_2d_3d_pct,
-                row.mass_error_3d_pct,
-                if row.two_d_converged { "yes" } else { "NO" },
-                if row.high_re_stokes_mismatch {
-                    "inertial (3D Stokes invalid)"
-                } else {
-                    "Stokes ok"
-                },
-            )?;
-        }
-        let any_high_re = validation_rows.iter().any(|r| r.high_re_stokes_mismatch);
-        let any_unconverged_2d = validation_rows.iter().any(|r| !r.two_d_converged);
-        if any_high_re || any_unconverged_2d {
-            writeln!(md, "\n**Validation Notes:**")?;
-            if any_high_re {
-                writeln!(md, "- **Re regime — inertial (3D Stokes invalid)**: The 3D FEM uses Taylor-Hood Stokes equations (creeping-flow, Re≪1). At the operating throat Re > 1 (inertia-dominated), the Stokes solver underestimates ΔP by ~1/Re relative to Bernoulli. The 1D/3D discrepancy is expected physics, not a numerical error.")?;
-            }
-            if any_unconverged_2d {
-                writeln!(md, "- **2D FVM NO (non-converged)**: The SIMPLE pressure–velocity solver exhausted its iteration budget before reaching the tolerance. The 2D ΔP value is from an unconverged field and should not be used for comparison.")?;
-            }
-        }
-        writeln!(md)?;
-    }
-
-    writeln!(
-        md,
         "## Limits Of Usage (From Selected Option 2 Oncology-Directed Design)"
     )?;
     writeln!(
@@ -340,6 +294,63 @@ pub fn write_milestone12_results(
         } else {
             "FAIL"
         }
+    )?;
+
+    let q_ml_min = option2.flow_rate_ml_min().max(1.0e-9);
+    let q_ml_s = q_ml_min / 60.0;
+    let feed_hematocrit = option2
+        .candidate
+        .operating_point
+        .feed_hematocrit
+        .clamp(0.0, 0.95);
+    let plasma_fraction = (1.0 - feed_hematocrit).max(0.05);
+    let blood_volume_ml = option2
+        .candidate
+        .operating_point
+        .patient_context
+        .as_ref()
+        .map_or(
+            PEDIATRIC_REFERENCE_WEIGHT_KG * PEDIATRIC_BLOOD_VOLUME_ML_PER_KG,
+            |ctx| ctx.blood_volume_ml.max(1.0),
+        );
+    let plasma_volume_ml = blood_volume_ml * plasma_fraction;
+    let circuit_turnover_s = option2.metrics.total_ecv_ml / q_ml_s;
+    let time_to_one_pv_min = plasma_volume_ml / (q_ml_min * plasma_fraction);
+    let processed_plasma_15_ml = q_ml_min * MILESTONE_TREATMENT_DURATION_MIN * plasma_fraction;
+    let pv_15 = processed_plasma_15_ml / plasma_volume_ml;
+
+    writeln!(md, "\n## Treatment-Time Analysis")?;
+    writeln!(
+        md,
+        "- Feed hematocrit: **{feed_hematocrit:.2}** → plasma fraction **{plasma_fraction:.2}**"
+    )?;
+    writeln!(
+        md,
+        "- Reference blood / plasma volume: **{blood_volume_ml:.1} mL / {plasma_volume_ml:.1} mL**"
+    )?;
+    writeln!(
+        md,
+        "- Millifluidic ECV: **{:.3} mL** ({:.2}% of plasma volume)",
+        option2.metrics.total_ecv_ml,
+        100.0 * option2.metrics.total_ecv_ml / plasma_volume_ml
+    )?;
+    writeln!(
+        md,
+        "- Circuit turnover time (`ECV / Q`): **{circuit_turnover_s:.2} s**"
+    )?;
+    writeln!(
+        md,
+        "- Treatment-zone residence time per pass: **{:.2} ms**",
+        option2.metrics.mean_residence_time_s * 1.0e3
+    )?;
+    writeln!(
+        md,
+        "- Plasma processed in {:.0} min: **{processed_plasma_15_ml:.1} mL** ({pv_15:.2} plasma-volume equivalents)",
+        MILESTONE_TREATMENT_DURATION_MIN
+    )?;
+    writeln!(
+        md,
+        "- Time to process one plasma volume under single-pass operation: **{time_to_one_pv_min:.1} min**"
     )?;
 
     std::fs::write(path, md)?;
@@ -397,6 +408,7 @@ mod tests {
 
         let rendered = std::fs::read_to_string(path).expect("rendered markdown should exist");
         assert!(rendered.contains("WBC treatment exposure"));
+        assert!(rendered.contains("Treatment-Time Analysis"));
         assert!(!rendered.contains("WBC recovery"));
         assert!(!rendered.to_ascii_lowercase().contains("leukapheresis"));
     }

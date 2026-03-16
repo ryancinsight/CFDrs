@@ -10,7 +10,7 @@ use crate::application::objectives::{
 };
 use crate::application::orchestration::{
     blueprint_lineage_key, ensure_release_reports, fast_env, fast_mode, init_tracing,
-    is_selective_report_topology, resolve_output_directories, save_figure, ScanProgress,
+    resolve_output_directories, save_figure, ScanProgress,
 };
 use crate::delivery::{load_top5_report_json, save_pareto_points, save_top5_report_json};
 use crate::design::{build_milestone12_candidate_params, CandidateParams};
@@ -31,10 +31,7 @@ struct LightweightResult {
     params: CandidateParams,
     lineage_key: Option<Milestone12LineageKey>,
     is_venturi: bool,
-    option1_score: Option<f64>,
     option2_score: Option<f64>,
-    cancer_targeted_cavitation: f64,
-    rbc_venturi_protection: f64,
 }
 
 pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::error::Error>> {
@@ -54,26 +51,32 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
 
     // In fast mode, cap evaluation to avoid hanging on the full space.
     let eval_cap = if is_fast {
-        fast_env("M12_FAST_VENTURI_EVAL_MAX", 200)
+        fast_env("M12_FAST_VENTURI_EVAL_MAX", 1000)
     } else {
         total_candidates
     };
 
-    // Filter params to selective-report topologies.
-    // Materialize one at a time to check, then drop immediately.
-    // Apply eval_cap to bound the work in fast mode.
-    let selective_params: Vec<CandidateParams> = all_params
-        .into_iter()
-        .filter(|params| {
-            let candidate = params.materialize();
-            is_selective_report_topology(&candidate)
-        })
-        .take(eval_cap)
+    // ── Focused/strided optimization (3 phases) ──
+    // Phase 1: Coarse stride across ALL params → find best topology family
+    // Phase 2: Medium stride within winning family → find best stride pair
+    // Phase 3: Dense fill between the two best adjacent stride points
+    let all_params_vec = all_params;
+    let phase1_budget = eval_cap / 4;
+    let phase2_budget = eval_cap / 4;
+    let phase3_budget = eval_cap / 2;
+
+    // Phase 1: coarse stride
+    let stride1 = (all_params_vec.len() / phase1_budget.max(1)).max(1);
+    let phase1_params: Vec<CandidateParams> = all_params_vec
+        .iter()
+        .step_by(stride1)
+        .take(phase1_budget)
+        .cloned()
         .collect();
 
-    // Audit on a capped subset — materialize transiently.
-    let audit_cap = selective_params.len().min(100);
-    let selective_for_audit: Vec<BlueprintCandidate> = selective_params
+    // Audit on phase1 subset.
+    let audit_cap = phase1_params.len().min(100);
+    let selective_for_audit: Vec<BlueprintCandidate> = phase1_params
         .iter()
         .take(audit_cap)
         .map(|p| p.materialize())
@@ -82,6 +85,76 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
     let audit = write_goal_audit_report(&out_dir, "option2_audit", &audit_entries)?;
     drop(selective_for_audit);
     drop(audit_entries);
+
+    // Phase 1 scoring: find best topology family.
+    let mut best_score = f64::NEG_INFINITY;
+    let mut winning_family = String::new();
+    for p in &phase1_params {
+        let candidate = p.materialize();
+        if let Ok(eval) = evaluate_blueprint_candidate(&candidate) {
+            let is_venturi = candidate
+                .topology_spec()
+                .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi);
+            if is_venturi {
+                if let Some(score) = score_selective_venturi_cavitation(&eval, true) {
+                    if score > best_score {
+                        best_score = score;
+                        winning_family = p.seq_tag();
+                    }
+                }
+            }
+        }
+    }
+
+    // Phase 2: stride within winning family
+    let family_params: Vec<CandidateParams> = all_params_vec
+        .iter()
+        .filter(|p| p.seq_tag() == winning_family)
+        .cloned()
+        .collect();
+    let stride2 = (family_params.len() / phase2_budget.max(1)).max(1);
+    let phase2_indices: Vec<usize> = (0..family_params.len())
+        .step_by(stride2)
+        .take(phase2_budget)
+        .collect();
+
+    // Score phase2 stride points, find best pair.
+    let mut scored_indices: Vec<(usize, f64)> = Vec::with_capacity(phase2_indices.len());
+    for &i in &phase2_indices {
+        let candidate = family_params[i].materialize();
+        if let Ok(eval) = evaluate_blueprint_candidate(&candidate) {
+            if let Some(score) = score_selective_venturi_cavitation(&eval, true) {
+                scored_indices.push((i, score));
+            }
+        }
+    }
+    scored_indices.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let mut best_indices: Vec<usize> = scored_indices.iter().take(2).map(|&(i, _)| i).collect();
+    best_indices.sort();
+
+    // Phase 3: dense fill between best stride pair
+    let (fill_lo, fill_hi) = if best_indices.len() >= 2 {
+        (best_indices[0].saturating_sub(stride2), best_indices[1] + stride2)
+    } else if let Some(&idx) = best_indices.first() {
+        (idx.saturating_sub(stride2 * 2), (idx + stride2 * 2).min(family_params.len()))
+    } else {
+        (0, family_params.len().min(phase3_budget))
+    };
+    let phase3_params: Vec<CandidateParams> = family_params
+        [fill_lo..fill_hi.min(family_params.len())]
+        .iter()
+        .take(phase3_budget)
+        .cloned()
+        .collect();
+
+    // Merge all phases, deduplicate by idx.
+    let mut seen_idx = std::collections::HashSet::with_capacity(eval_cap);
+    let selective_params: Vec<CandidateParams> = phase1_params
+        .into_iter()
+        .chain(phase2_indices.iter().map(|&i| family_params[i].clone()))
+        .chain(phase3_params)
+        .filter(|p| seen_idx.insert(p.idx))
+        .collect();
 
     let progress = Arc::new(ScanProgress::new("option2 scan", selective_params.len()));
     let have_option1_for_par = have_option1;
@@ -159,10 +232,7 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
                     params,
                     lineage_key,
                     is_venturi,
-                    option1_score,
                     option2_score,
-                    cancer_targeted_cavitation,
-                    rbc_venturi_protection,
                 });
             }
             // `candidate` and `evaluation` are dropped here — no accumulation.

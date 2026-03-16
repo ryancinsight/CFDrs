@@ -44,12 +44,34 @@ pub fn evaluate_blueprint_genetic_refinement(
     candidate: &BlueprintCandidate,
     evaluation: BlueprintEvaluation,
 ) -> Result<BlueprintObjectiveEvaluation, OptimError> {
-    if candidate
-        .topology_spec()
-        .map_or(true, |topology| topology.venturi_placements.is_empty())
-    {
+    let topology = candidate.topology_spec().map_err(|e| {
+        OptimError::InvalidParameter(format!(
+            "GA refinement scoring requires canonical topology metadata for '{}': {e}",
+            candidate.id
+        ))
+    })?;
+
+    if topology.venturi_placements.is_empty() {
         return Err(OptimError::InvalidParameter(format!(
             "GA refinement scoring requires venturi treatment geometry, but candidate '{}' has no venturi placements",
+            candidate.id
+        )));
+    }
+
+    if !topology.has_serpentine() {
+        return Err(OptimError::InvalidParameter(format!(
+            "GA refinement scoring requires serpentine treatment geometry, but candidate '{}' has no serpentine channels",
+            candidate.id
+        )));
+    }
+
+    if !topology
+        .venturi_placements
+        .iter()
+        .any(|placement| placement.placement_mode == cfd_schematics::VenturiPlacementMode::CurvaturePeakDeanNumber)
+    {
+        return Err(OptimError::InvalidParameter(format!(
+            "GA refinement scoring requires curvature-based Dean venturi placement, but candidate '{}' only carries non-Dean throat placements",
             candidate.id
         )));
     }

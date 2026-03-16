@@ -8,6 +8,7 @@ pub mod error_metrics;
 pub mod linear_solver;
 pub mod test_cases;
 pub mod validation_result;
+pub mod venturi_cross_fidelity;
 
 // Re-export main types
 pub use error_metrics::{compute_error_metrics, ErrorMetrics};

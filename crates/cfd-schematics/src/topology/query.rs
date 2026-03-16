@@ -261,11 +261,11 @@ impl BlueprintTopologySpec {
             .collect();
         let tree_label = stage_labels.join("→");
 
-        let leaf_count = self.terminal_branch_count();
         let suffix = if self.has_venturi() {
-            format!(" + {leaf_count}× Venturi")
+            format!(" + {}× Venturi", self.venturi_count())
         } else if self.has_serpentine() {
-            format!(" + {leaf_count}× Serpentine")
+            let arm_count = self.serpentine_arm_count();
+            format!(" + {arm_count}× Serpentine")
         } else {
             String::new()
         };
@@ -525,5 +525,38 @@ impl BlueprintTopologySpec {
         self.split_stages
             .first()
             .map_or(false, |s| s.split_kind == SplitKind::NFurcation(3))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::topology::presets::enumerate_milestone12_topologies;
+    use crate::TreatmentActuationMode;
+
+    #[test]
+    fn display_name_uses_actual_venturi_count_not_leaf_count() {
+        let mut request = enumerate_milestone12_topologies()
+            .into_iter()
+            .find(|request| request.design_name == "PentaTriBi-BASE")
+            .expect("PentaTriBi-BASE request");
+        request.treatment_mode = TreatmentActuationMode::VenturiCavitation;
+        request.venturi_throat_count = 1;
+
+        let blueprint = crate::build_milestone12_blueprint(&request).expect("venturi blueprint");
+        let topology = blueprint.topology_spec().expect("resolved topology");
+
+        let expected = format!(
+            "{} + {}× Venturi",
+            topology.stage_sequence_label(),
+            topology.venturi_count()
+        );
+        let incorrect = format!(
+            "{} + {}× Venturi",
+            topology.stage_sequence_label(),
+            topology.terminal_branch_count()
+        );
+
+        assert_eq!(topology.display_name(), expected);
+        assert_ne!(topology.display_name(), incorrect);
     }
 }

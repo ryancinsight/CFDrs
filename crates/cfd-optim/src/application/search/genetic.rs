@@ -85,11 +85,13 @@ impl BlueprintGeneticOptimizer {
         let mut eval_cache: HashMap<String, BlueprintObjectiveEvaluation> =
             HashMap::with_capacity(self.population * 2);
 
-        for _generation in 0..self.max_generations {
-            // Bound eval_cache to prevent unbounded memory growth across
-            // generations. Keep at most 2× population size (~48 entries
-            // × ~5 KB = ~240 KB) — sufficient for elite carry-forward
-            // without accumulating stale entries.
+        // ── Phase 1: Broad exploration (topology mutations) ──
+        // Standard GA loop: elites + topology mutations (serpentine, venturi,
+        // split-merge). Budget: first 2/3 of generations.
+        let explore_gens = (self.max_generations * 2 / 3).max(1);
+        let refine_gens = self.max_generations - explore_gens;
+
+        for _generation in 0..explore_gens {
             if eval_cache.len() > self.population * 4 {
                 eval_cache.clear();
             }
@@ -102,8 +104,6 @@ impl BlueprintGeneticOptimizer {
             best_per_generation.push(evaluation_score_or_zero(&ranked[0].evaluation));
             retain_archive(&mut archive, ranked.iter().cloned());
 
-            // Intermediate truncation: prevent unbounded archive growth.
-            // Keep top 500 by score every 20 generations (~160 MB → ~80 MB peak).
             if _generation % 20 == 19 && archive.len() > 500 {
                 let mut sorted: Vec<(String, BlueprintRankedCandidate)> =
                     archive.drain().collect();
@@ -123,9 +123,6 @@ impl BlueprintGeneticOptimizer {
                 .collect();
             let mut seen = population_keys(&next_population);
 
-            // Iterate elites by index to avoid cloning the entire elite
-            // set. We borrow next_population[i] only to generate mutations,
-            // then push new mutations without aliasing.
             for i in 0..elite_count {
                 for mutation in generate_ga_mutations(&next_population[i])? {
                     let key = candidate_key(&mutation)?;
@@ -156,6 +153,68 @@ impl BlueprintGeneticOptimizer {
             population = next_population;
         }
 
+        // ── Phase 2: Focused refinement (operating-point perturbations) ──
+        // Take the current best candidate and densely explore nearby
+        // operating points: fine-grained flow rate and pressure sweeps
+        // around the optimum found in Phase 1.
+        if refine_gens > 0 {
+            let ranked = rank_population(self.goal, &population, &mut eval_cache)?;
+            if let Some(best) = ranked.first() {
+                let base = &best.candidate;
+                let base_q = base.operating_point.flow_rate_m3_s;
+                let base_p = base.operating_point.inlet_gauge_pa;
+                let base_ht = base.operating_point.feed_hematocrit;
+
+                // Focused perturbation: ±10%, ±20% in Q and P (4×4=16 candidates).
+                // Capped to population size to avoid blowup.
+                let factors = [0.80, 0.90, 1.10, 1.20];
+                let mut refine_pop: Vec<BlueprintCandidate> =
+                    Vec::with_capacity(self.population);
+                let mut refine_seen = HashSet::new();
+
+                for &qf in &factors {
+                    for &pf in &factors {
+                        let c = BlueprintCandidate::new(
+                            format!("{}-refine-q{:.0}-p{:.0}", base.id, qf * 100.0, pf * 100.0),
+                            base.blueprint.clone(),
+                            crate::domain::OperatingPoint {
+                                flow_rate_m3_s: base_q * qf,
+                                inlet_gauge_pa: base_p * pf,
+                                feed_hematocrit: base_ht,
+                                patient_context: base.operating_point.patient_context.clone(),
+                            },
+                        );
+                        if let Ok(key) = candidate_key(&c) {
+                            if refine_seen.insert(key) {
+                                refine_pop.push(c);
+                            }
+                        }
+                        if refine_pop.len() >= self.population {
+                            break;
+                        }
+                    }
+                    if refine_pop.len() >= self.population {
+                        break;
+                    }
+                }
+
+                // Run refinement generations on the focused population
+                population = refine_pop;
+                for _gen in 0..refine_gens {
+                    let ranked = rank_population(self.goal, &population, &mut eval_cache)?;
+                    if ranked.is_empty() {
+                        break;
+                    }
+                    best_per_generation.push(evaluation_score_or_zero(&ranked[0].evaluation));
+                    retain_archive(&mut archive, ranked.iter().cloned());
+
+                    // Keep best half, add perturbations of new best
+                    let keep = (ranked.len() / 2).max(1).min(self.population);
+                    population = ranked.into_iter().take(keep).map(|r| r.candidate).collect();
+                }
+            }
+        }
+
         let mut all_candidates: Vec<BlueprintRankedCandidate> = archive.into_values().collect();
         all_candidates.sort_unstable_by(|left, right| {
             evaluation_score_or_zero(&right.evaluation)
@@ -174,6 +233,23 @@ impl BlueprintGeneticOptimizer {
                 .evaluation
                 .clone()
                 .with_baseline_scores(&baseline_scores);
+        }
+
+        all_candidates.sort_unstable_by(|left, right| {
+            right
+                .evaluation
+                .exceeds_all_baselines
+                .unwrap_or(false)
+                .cmp(&left.evaluation.exceeds_all_baselines.unwrap_or(false))
+                .then_with(|| {
+                    evaluation_score_or_zero(&right.evaluation)
+                        .total_cmp(&evaluation_score_or_zero(&left.evaluation))
+                })
+                .then_with(|| left.candidate.id.cmp(&right.candidate.id))
+        });
+
+        for (index, candidate) in all_candidates.iter_mut().enumerate() {
+            candidate.rank = index + 1;
         }
 
         if all_candidates.len() < self.top_k {
