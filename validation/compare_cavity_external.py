@@ -121,6 +121,14 @@ def compare_solutions(cfd_python_result, external_result, Re: float):
         cfd_python_result["u"] = new_u
         cfd_python_result["v"] = new_v
         cfd_python_result["p"] = new_p
+
+        # Also interpolate centerlines using 1D interpolation
+        cfd_python_result["u_centerline"] = np.interp(ext_solver.y, cfd_python_result["y"], cfd_python_result["u_centerline"])
+        cfd_python_result["v_centerline"] = np.interp(ext_solver.x, cfd_python_result["x"], cfd_python_result["v_centerline"])
+
+        # Update coordinates to match the external grid for proper plotting
+        cfd_python_result["x"] = ext_solver.x
+        cfd_python_result["y"] = ext_solver.y
     
     # Compute L2 errors
     u_diff = cfd_python_result["u"] - ext_sol["u"]
