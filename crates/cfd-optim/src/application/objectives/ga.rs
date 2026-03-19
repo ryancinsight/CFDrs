@@ -3,6 +3,28 @@ use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
 use crate::metrics::BlueprintEvaluation;
 
+fn acoustic_residence_support_score(evaluation: &BlueprintEvaluation) -> f64 {
+    let residence_norm = (evaluation.residence.treatment_residence_time_s / 1.0).clamp(0.0, 1.0);
+    let flow_frac = evaluation.residence.treatment_flow_fraction.clamp(0.0, 1.0);
+    let sep = evaluation.separation.separation_efficiency.clamp(0.0, 1.0);
+    let cancer = evaluation.separation.cancer_center_fraction.clamp(0.0, 1.0);
+    let wbc_exclusion = (1.0 - evaluation.separation.wbc_center_fraction).clamp(0.0, 1.0);
+    let rbc_exclusion = evaluation.separation.rbc_peripheral_fraction.clamp(0.0, 1.0);
+    let safety = evaluation.safety.main_channel_margin.clamp(0.0, 1.0);
+
+    let base = 0.22 * cancer
+        + 0.18 * sep
+        + 0.16 * residence_norm
+        + 0.12 * flow_frac
+        + 0.12 * wbc_exclusion
+        + 0.10 * rbc_exclusion
+        + 0.10 * safety;
+    let healthy_cell_shielding = (wbc_exclusion * rbc_exclusion).sqrt();
+    let synergy = 0.12
+        * (sep * cancer * residence_norm.max(0.01) * healthy_cell_shielding.max(0.01)).powf(0.25);
+    (base + synergy).clamp(0.0, 1.0)
+}
+
 /// Score for the in-place Dean serpentine refinement objective (GA stage).
 ///
 /// Evaluates how well in-place modifications — converting straight treatment
@@ -80,9 +102,11 @@ pub fn evaluate_blueprint_genetic_refinement(
         .venturi
         .cavitation_selectivity_score
         .clamp(0.0, 1.0);
+    let acoustic_support = acoustic_residence_support_score(&evaluation);
     let sep = evaluation.separation.separation_efficiency.clamp(0.0, 1.0);
     let safety = evaluation.safety.main_channel_margin.clamp(0.0, 1.0);
     let residence_norm = (evaluation.residence.treatment_residence_time_s / 1.0).clamp(0.0, 1.0);
+    let flow_frac = evaluation.residence.treatment_flow_fraction.clamp(0.0, 1.0);
     let cancer = evaluation.separation.cancer_center_fraction.clamp(0.0, 1.0);
     let rbc_shield = (1.0 - evaluation.venturi.rbc_exposure_fraction).clamp(0.0, 1.0);
     let wbc_shield = (1.0 - evaluation.venturi.wbc_exposure_fraction).clamp(0.0, 1.0);
@@ -108,23 +132,28 @@ pub fn evaluate_blueprint_genetic_refinement(
         (lineage.mutations.len() as f64 / 5.0).clamp(0.0, 1.0)
     });
 
-    let base = 0.20 * cav
-        + 0.15 * cancer
-        + 0.12 * sep
-        + 0.12 * residence_norm
-        + 0.10 * rbc_shield
-        + 0.08 * wbc_shield
-        + 0.08 * safety
-        + 0.08 * dean_norm
-        + 0.07 * lineage_norm;
+    let base = 0.34 * acoustic_support
+        + 0.16 * cav
+        + 0.10 * cancer
+        + 0.08 * sep
+        + 0.08 * rbc_shield
+        + 0.06 * wbc_shield
+        + 0.06 * safety
+        + 0.07 * dean_norm
+        + 0.05 * lineage_norm;
 
     // Curvature-driven secondary flow is rewarded only when it coexists with
     // strong treatment-lane enrichment and venturi cavitation support.
-    let synergy_base =
-        cav * cancer * residence_norm.max(0.01) * rbc_shield.max(0.01) * dean_norm.max(0.01);
+    let synergy_base = acoustic_support.max(0.01)
+        * cav.max(0.01)
+        * cancer.max(0.01)
+        * flow_frac.max(0.01)
+        * residence_norm.max(0.01)
+        * rbc_shield.max(0.01)
+        * dean_norm.max(0.01);
     // Guard: all inputs are clamped to [0, 1] so the product is non-negative,
     // but add explicit floor to prevent NaN from powf on negative values.
-    let synergy = 0.12 * synergy_base.max(0.0).powf(0.2);
+    let synergy = 0.18 * synergy_base.max(0.0).powf(0.2);
     let screening_reasons = [(
         evaluation.safety.main_channel_margin <= 0.0,
         "main-channel safety margin must remain positive",

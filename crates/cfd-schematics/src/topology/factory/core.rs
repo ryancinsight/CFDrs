@@ -556,6 +556,9 @@ impl BlueprintTopologyFactory {
         }
 
         let mut result = Self::build(&new_spec)?;
+        if let Some(existing_lineage) = blueprint.lineage.clone() {
+            result.lineage = Some(existing_lineage);
+        }
         if let Some(source_hints) = blueprint.render_hints() {
             if source_hints.mirror_x || source_hints.mirror_y {
                 Self::mirror_blueprint_geometry(
@@ -604,8 +607,21 @@ impl BlueprintTopologyFactory {
         let v_avg = flow_m3_s / area;
         let reynolds = v_avg * d_h / kinematic_viscosity_m2_s;
 
+        let spec_serpentine = blueprint.topology_spec().and_then(|topology| {
+            topology
+                .channel_route(&placement.target_channel_id)
+                .and_then(|route| route.serpentine.clone())
+                .or_else(|| {
+                    topology
+                        .treatment_channel_ids()
+                        .into_iter()
+                        .filter_map(|channel_id| topology.channel_route(&channel_id))
+                        .find_map(|route| route.serpentine.clone())
+                })
+        });
+
         // Estimate curvature radius from polyline path (3-point circumradius)
-        let curve_radius_m = channel
+        let path_curve_radius_m = channel
             .path
             .windows(3)
             .filter_map(|pts| {
@@ -627,8 +643,19 @@ impl BlueprintTopologyFactory {
                 let r = ((ax - ux).powi(2) + (ay - uy).powi(2)).sqrt();
                 Some(r * 1e-3) // mm → m
             })
-            .next()
+            .next();
+        let spec_curve_radius_m = spec_serpentine.as_ref().map(|serpentine| serpentine.bend_radius_m);
+        let curve_radius_m = spec_curve_radius_m
+            .or(path_curve_radius_m)
             .unwrap_or(5.0e-3);
+
+        let spec_arc_length_m = spec_serpentine.as_ref().map(|serpentine| {
+            let segments = serpentine.segments.max(1) as f64;
+            let straight_length = segments * serpentine.segment_length_m.max(0.0);
+            let bend_length = segments * std::f64::consts::PI * serpentine.bend_radius_m.max(0.0);
+            (straight_length + bend_length).max(channel.length_m)
+        });
+        let arc_length_m = spec_arc_length_m.unwrap_or(channel.length_m);
 
         // De = Re √(D_h / (2 R_c))
         let dean_num = if curve_radius_m > 0.0 {
@@ -640,7 +667,7 @@ impl BlueprintTopologyFactory {
         Some(DeanSiteEstimate {
             dean_number: dean_num,
             curvature_radius_m: curve_radius_m,
-            arc_length_m: channel.length_m,
+            arc_length_m,
         })
     }
 

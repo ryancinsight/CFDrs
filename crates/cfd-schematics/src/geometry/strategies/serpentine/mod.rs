@@ -82,6 +82,12 @@ impl SerpentineChannelStrategy {
                 let sine_value = (wave_phase + phase_offset).sin();
                 (square_sharpness * sine_value).tanh()
             }
+            WaveShape::Triangular => {
+                // Triangle wave: 2/pi * asin(sin(phase)) gives a linear
+                // ramp between -1 and +1 with sharp apices at the peaks.
+                let phase = wave_phase + phase_offset;
+                (2.0 / std::f64::consts::PI) * phase.sin().asin()
+            }
         }
     }
 }

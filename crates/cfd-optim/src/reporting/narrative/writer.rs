@@ -8,14 +8,15 @@ use serde::{Deserialize, Serialize};
 use super::addenda::{
     build_conclusions, build_figure_sections, build_figure_toc_rows,
     build_references_block, build_storage_artifact_index, build_storage_policy_section,
+    build_workspace_configuration_section,
 };
 use super::contract::load_m12_contract_text;
 use super::sections::{
     build_cavitation_formulas_intro, build_cri_expansion_sensitivity, build_limits_of_usage,
     build_limits_of_usage_intro, build_option2_top5_table, build_results_intro,
     build_robustness_section, build_selected_table, build_selected_table_intro,
-    build_strict_core_intro, build_strict_core_table, build_top5_intro,
-    build_treatment_time_analysis, build_tri_cell_intro, build_tri_cell_table,
+    build_serpentine_venturi_discussion, build_strict_core_intro, build_strict_core_table,
+    build_top5_intro, build_treatment_time_analysis, build_tri_cell_intro, build_tri_cell_table,
     physics_model_inventory,
 };
 use super::template::render_template_strict;
@@ -40,11 +41,23 @@ pub struct M12Metadata {
     pub investigator_email: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Milestone12GaRankingAuditEntry {
+    pub rank: usize,
+    pub candidate_id: String,
+    pub score: f64,
+    pub adjusted_selection_score: f64,
+    pub geometry_concentration_penalty: f64,
+    pub operating_point_diversity_penalty: f64,
+}
+
 /// Inputs used to render the narrative report.
 pub struct Milestone12NarrativeInput<'a> {
     pub authoritative_run: bool,
     pub canonical_source: String,
     pub total_candidates: usize,
+    pub option1_evaluated_count: usize,
+    pub option2_evaluated_count: usize,
     pub option1_pool_len: usize,
     pub option2_pool_len: usize,
     pub option1_sequence_summary_markdown: String,
@@ -56,6 +69,7 @@ pub struct Milestone12NarrativeInput<'a> {
     pub validation_rows: &'a [ValidationRow],
     pub option2_robustness: &'a [RobustnessReport],
     pub ga_best_per_gen: &'a [f64],
+    pub ga_ranking_audit: &'a [Milestone12GaRankingAuditEntry],
     pub topology_family_count: usize,
     pub fast_mode: bool,
 }
@@ -150,9 +164,32 @@ pub fn write_milestone12_narrative_report(
             input.topology_family_count,
             option1,
             option2,
+            input.ga_top,
             ga_best,
             input.ga_best_per_gen,
+            input.ga_ranking_audit,
+            if input.option2_robustness.is_empty() { 16 } else { 17 },
         ),
+    );
+    values.insert(
+        "WORKSPACE_CONFIGURATION_SECTION".to_string(),
+        build_workspace_configuration_section(),
+    );
+    values.insert(
+        "TABLE_DERIVED_CAPTION_NUMBER".to_string(),
+        if input.option2_robustness.is_empty() {
+            "13".to_string()
+        } else {
+            "14".to_string()
+        },
+    );
+    values.insert(
+        "TABLE_ABBREVIATIONS_CAPTION_NUMBER".to_string(),
+        if input.option2_robustness.is_empty() {
+            "17".to_string()
+        } else {
+            "18".to_string()
+        },
     );
     values.insert("REFERENCES_BLOCK".to_string(), build_references_block());
 
@@ -240,20 +277,20 @@ fn insert_data_values(
     option2: &Milestone12ReportDesign,
     ga_best: &Milestone12ReportDesign,
 ) {
-    let abstract_validation_sentence = if input.fast_mode {
-        "Robustness screening was not computed in this fast-mode run."
+    let abstract_validation_sentence = if input.option2_robustness.is_empty() {
+        String::new()
     } else {
-        "Selected designs were screened for robustness under +/-10%/+/-20% operating-parameter perturbations."
+        "Selected designs were screened for robustness under +/-10%/+/-20% operating-parameter perturbations.".to_string()
     };
-    let methods_pipeline_step7 = if input.fast_mode {
-        "7. **Deferred robustness** — When `M12_FAST=1` is enabled, robustness screening is intentionally skipped."
+    let methods_pipeline_step7 = if input.option2_robustness.is_empty() {
+        String::new()
     } else {
-        "7. **Robustness screening** — Selected designs are ranked and screened here under operating-parameter perturbations."
+        "7. **Robustness screening**: selected designs are ranked and screened under operating-parameter perturbations.".to_string()
     };
-    let milestone_scope_sentence = if input.fast_mode {
-        "Milestone 12 requires selecting optimal design(s) that satisfy hydrodynamic and cavitation parameters. This fast-mode report documents the deterministic execution of the CFDrs pipeline from candidate generation through strict gating, scoring, and ranking, while explicitly deferring robustness screening."
+    let milestone_scope_sentence = if input.option2_robustness.is_empty() {
+        "Milestone 12 requires selecting optimal design(s) that satisfy hydrodynamic and cavitation parameters. This report covers the CFDrs pipeline from candidate generation through strict gating, scoring, and ranking.".to_string()
     } else {
-        "Milestone 12 requires selecting optimal design(s) that satisfy hydrodynamic and cavitation parameters. This report documents the deterministic execution of the CFDrs pipeline from candidate generation through strict gating, scoring, ranking, and robustness screening."
+        "Milestone 12 requires selecting optimal design(s) that satisfy hydrodynamic and cavitation parameters. This report covers the CFDrs pipeline from candidate generation through strict gating, scoring, ranking, and robustness screening.".to_string()
     };
     values.insert(
         "TOTAL_CANDIDATES".to_string(),
@@ -261,7 +298,12 @@ fn insert_data_values(
     );
     values.insert(
         "RUN_AUTHORITY_NOTE".to_string(),
-        if input.authoritative_run {
+        if input.fast_mode {
+            format!(
+                "Selected figures and ranked conclusions reflect the authoritative strided fast-mode Milestone 12 sweep. The full design space contains {} candidates, but evaluation budget is intentionally concentrated on stride-selected topology families and then densely filled only inside the winning family.",
+                input.total_candidates,
+            )
+        } else if input.authoritative_run {
             format!(
                 "Selected figures and ranked conclusions reflect the complete Milestone 12 topology sweep across all {} candidates.",
                 input.total_candidates,
@@ -293,15 +335,15 @@ fn insert_data_values(
     values.insert("GA_SEED".to_string(), M12_GA_HYDRO_SEED.to_string());
     values.insert(
         "ABSTRACT_VALIDATION_SENTENCE".to_string(),
-        abstract_validation_sentence.to_string(),
+        abstract_validation_sentence,
     );
     values.insert(
         "METHODS_PIPELINE_STEP7".to_string(),
-        methods_pipeline_step7.to_string(),
+        methods_pipeline_step7,
     );
     values.insert(
         "MILESTONE_SCOPE_SENTENCE".to_string(),
-        milestone_scope_sentence.to_string(),
+        milestone_scope_sentence,
     );
     values.insert(
         "FIG_PROCESS".to_string(),
@@ -319,9 +361,177 @@ fn insert_data_values(
 
 /// Wrap a markdown table in a centered div with a numbered caption.
 fn centered_table(caption: &str, table: &str) -> String {
+    let rendered_table = if looks_like_markdown_table(table) {
+        markdown_table_to_compact_html(table)
+    } else {
+        table.to_string()
+    };
+
     format!(
-        "<div align=\"center\">\n\n<p><strong>{caption}</strong></p>\n\n{table}\n</div>"
+        "<div align=\"center\">\n\n<p><strong>{caption}</strong></p>\n\n{rendered_table}\n</div>"
     )
+}
+
+fn looks_like_markdown_table(table: &str) -> bool {
+    let mut lines = table.lines().filter(|line| !line.trim().is_empty());
+    matches!(lines.next(), Some(line) if line.trim_start().starts_with('|'))
+        && matches!(lines.next(), Some(line) if line.contains("---"))
+}
+
+fn markdown_table_to_compact_html(table: &str) -> String {
+    let mut lines = table.lines().filter(|line| !line.trim().is_empty());
+    let Some(header_line) = lines.next() else {
+        return table.to_string();
+    };
+    let Some(separator_line) = lines.next() else {
+        return table.to_string();
+    };
+    if !separator_line.contains("---") {
+        return table.to_string();
+    }
+
+    let headers = parse_markdown_table_row(header_line);
+    if headers.is_empty() {
+        return table.to_string();
+    }
+
+    let rows: Vec<Vec<String>> = lines
+        .filter(|line| line.trim_start().starts_with('|'))
+        .map(parse_markdown_table_row)
+        .collect();
+
+    let mut html = String::new();
+    html.push_str(
+        "<table style=\"width:88%; max-width:6.2in; margin:0 auto; border-collapse:collapse; table-layout:fixed; font-size:8.5pt; line-height:1.15;\">\n<thead><tr>",
+    );
+    for header in &headers {
+        html.push_str(&format!(
+            "<th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal; width:{};\">{}</th>",
+            column_width_for_header(header),
+            render_table_cell_inline_markdown(header)
+        ));
+    }
+    html.push_str("</tr></thead>\n<tbody>");
+
+    for row in rows {
+        html.push_str("<tr>");
+        for (index, cell) in row.iter().enumerate() {
+            let header = headers.get(index).map(String::as_str).unwrap_or("");
+            let alignment = if is_numeric_column(header) {
+                "center"
+            } else {
+                "left"
+            };
+            html.push_str(&format!(
+                "<td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:{}; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{}</td>",
+                alignment,
+                render_table_cell_inline_markdown(cell)
+            ));
+        }
+        html.push_str("</tr>\n");
+    }
+    html.push_str("</tbody></table>");
+    html
+}
+
+fn parse_markdown_table_row(row: &str) -> Vec<String> {
+    row.trim()
+        .trim_matches('|')
+        .split('|')
+        .map(|cell| cell.trim().to_string())
+        .collect()
+}
+
+fn column_width_for_header(header: &str) -> &'static str {
+    let normalized = header.to_ascii_lowercase();
+    if normalized.contains("candidate") {
+        "22%"
+    } else if normalized.contains("track") {
+        "14%"
+    } else if normalized.contains("topology") {
+        "14%"
+    } else if normalized.contains("mode") {
+        "10%"
+    } else if normalized.contains("parameter") {
+        "18%"
+    } else if normalized.contains("reference") {
+        "16%"
+    } else if normalized.contains("model") {
+        "16%"
+    } else if normalized.contains("crate") {
+        "10%"
+    } else {
+        "8%"
+    }
+}
+
+fn is_numeric_column(header: &str) -> bool {
+    let normalized = header.to_ascii_lowercase();
+    normalized.contains("score")
+        || normalized.contains("sigma")
+        || normalized.contains("dose")
+        || normalized.contains("exposure")
+        || normalized.contains("fraction")
+        || normalized.contains("efficiency")
+        || normalized.contains("count")
+        || normalized.contains("rank")
+        || normalized.contains("shear")
+        || normalized.contains("ecv")
+        || normalized.contains("risk")
+        || normalized.contains("cv")
+        || normalized.contains("min")
+        || normalized.contains("max")
+        || normalized.contains("status")
+}
+
+fn render_table_cell_inline_markdown(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = String::new();
+    let mut idx = 0;
+    while idx < bytes.len() {
+        if idx + 1 < bytes.len() && bytes[idx] == b'*' && bytes[idx + 1] == b'*' {
+            if let Some(end) = text[idx + 2..].find("**") {
+                out.push_str("<strong>");
+                out.push_str(&html_escape(&text[idx + 2..idx + 2 + end]));
+                out.push_str("</strong>");
+                idx += 2 + end + 2;
+                continue;
+            }
+        }
+        if bytes[idx] == b'`' {
+            if let Some(end) = text[idx + 1..].find('`') {
+                out.push_str("<code>");
+                out.push_str(&html_escape(&text[idx + 1..idx + 1 + end]));
+                out.push_str("</code>");
+                idx += 1 + end + 1;
+                continue;
+            }
+        }
+        let ch = text[idx..].chars().next().expect("valid char boundary");
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            _ => out.push(ch),
+        }
+        idx += ch.len_utf8();
+    }
+    out
+}
+
+fn html_escape(text: &str) -> String {
+    text.chars()
+        .map(|ch| match ch {
+            '&' => "&amp;".to_string(),
+            '<' => "&lt;".to_string(),
+            '>' => "&gt;".to_string(),
+            '"' => "&quot;".to_string(),
+            '\'' => "&#39;".to_string(),
+            _ => ch.to_string(),
+        })
+        .collect()
 }
 
 fn insert_table_values(
@@ -330,10 +540,13 @@ fn insert_table_values(
     option1: Option<&Milestone12ReportDesign>,
     option2: &Milestone12ReportDesign,
 ) {
+    let has_robustness = !input.option2_robustness.is_empty();
     values.insert(
         "RESULTS_INTRO".to_string(),
         build_results_intro(
             input.total_candidates,
+            input.option1_evaluated_count,
+            input.option2_evaluated_count,
             input.option1_pool_len,
             input.option2_pool_len,
         ),
@@ -345,7 +558,7 @@ fn insert_table_values(
     values.insert(
         "SELECTED_TABLE".to_string(),
         centered_table(
-            "Table 10. Selected designs comparison",
+            "Table 8. Selected designs comparison",
             &build_selected_table(option1, option2),
         ),
     );
@@ -356,14 +569,14 @@ fn insert_table_values(
     values.insert(
         "OPTION2_TOP5_TABLE".to_string(),
         centered_table(
-            "Table 11. Option 2 top-5 deterministic ranking",
+            "Table 9. Option 2 top-5 deterministic ranking",
             &build_option2_top5_table(input.option2_ranked),
         ),
     );
     values.insert(
         "OPTION1_SEQUENCE_FAMILY_SUMMARY".to_string(),
         centered_table(
-            "Table 12. Option 1 topology-family coverage and ranking",
+            "Table 10. Option 1 topology-family coverage and ranking",
             &input.option1_sequence_summary_markdown,
         ),
     );
@@ -374,7 +587,7 @@ fn insert_table_values(
     values.insert(
         "TRI_CELL_TABLE".to_string(),
         centered_table(
-            "Table 13. Three-population routing evidence",
+            "Table 11. Three-population routing evidence",
             &build_tri_cell_table(input.option2_ranked, input.ga_top),
         ),
     );
@@ -382,13 +595,13 @@ fn insert_table_values(
     values.insert(
         "STRICT_CORE_TABLE".to_string(),
         centered_table(
-            "Table 14. Eligibility gate evidence",
+            "Table 12. Eligibility gate evidence",
             &build_strict_core_table(input.option2_ranked, input.ga_top),
         ),
     );
     values.insert(
         "ROBUSTNESS_SECTION".to_string(),
-        build_robustness_section(input.option2_robustness, input.fast_mode),
+        build_robustness_section(input.option2_robustness, input.fast_mode, 13),
     );
     values.insert(
         "CAVITATION_FORMULAS_INTRO".to_string(),
@@ -404,14 +617,18 @@ fn insert_table_values(
     );
     values.insert(
         "TREATMENT_TIME_ANALYSIS".to_string(),
-        build_treatment_time_analysis(option2),
+        build_treatment_time_analysis(option2, if has_robustness { 15 } else { 14 }),
     );
     values.insert(
         "CRI_EXPANSION_SENSITIVITY".to_string(),
-        build_cri_expansion_sensitivity(),
+        build_cri_expansion_sensitivity(if has_robustness { 16 } else { 15 }),
     );
     values.insert(
         "PHYSICS_MODEL_INVENTORY".to_string(),
         physics_model_inventory(),
+    );
+    values.insert(
+        "SERPENTINE_VENTURI_DISCUSSION".to_string(),
+        build_serpentine_venturi_discussion(option2, input.ga_top.first()),
     );
 }

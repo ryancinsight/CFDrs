@@ -6,4 +6,7 @@ mod sections;
 pub(crate) mod template;
 mod writer;
 
-pub use writer::{write_milestone12_narrative_report, Milestone12NarrativeInput};
+pub use writer::{
+	write_milestone12_narrative_report, Milestone12GaRankingAuditEntry,
+	Milestone12NarrativeInput,
+};

@@ -46,7 +46,6 @@ use num_traits::{Float, FromPrimitive};
 ///
 /// Used as the numerical engine by geometry-specific pass-through solvers
 /// (bifurcation, Venturi, serpentine, etc.).
-#[derive(Debug)]
 pub struct NavierStokesSolver2D<T: RealField + Copy + Float + FromPrimitive> {
     /// Computational grid
     pub grid: StaggeredGrid2D<T>,
@@ -62,6 +61,22 @@ pub struct NavierStokesSolver2D<T: RealField + Copy + Float + FromPrimitive> {
     a_p_u: crate::solvers::ns_fvm::array2d::Array2D<T>,
     /// Central coefficient storage for v-momentum
     a_p_v: crate::solvers::ns_fvm::array2d::Array2D<T>,
+    /// Optional k-omega SST turbulence model.  When Some, the solver
+    /// computes turbulent viscosity nu_t each iteration and adds it to
+    /// the molecular viscosity in the momentum equation diffusion terms.
+    turbulence: Option<TurbulenceCoupling<T>>,
+}
+
+/// Turbulence model coupling state for the SIMPLE solver.
+struct TurbulenceCoupling<T: RealField + Copy> {
+    /// k-omega SST model.
+    model: crate::physics::turbulence::k_omega_sst::KOmegaSSTModel<T>,
+    /// Turbulent kinetic energy at cell centers [nx][ny].
+    k: Vec<T>,
+    /// Specific dissipation rate at cell centers [nx][ny].
+    omega: Vec<T>,
+    /// Update interval (every N SIMPLE iterations).
+    update_interval: usize,
 }
 
 impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
@@ -83,7 +98,31 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             config,
             a_p_u,
             a_p_v,
+            turbulence: None,
         }
+    }
+
+    /// Enable k-omega SST turbulence modeling for high-Re flows.
+    ///
+    /// When enabled, the solver computes turbulent viscosity nu_t at
+    /// each iteration and adds it to the molecular viscosity in the
+    /// momentum equation.  This is needed for venturi throat flows
+    /// at Re > 2000 where the laminar assumption breaks down.
+    pub fn enable_turbulence(&mut self) {
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
+        let size = nx * ny;
+        // Initial k and omega from free-stream turbulence intensity ~1%.
+        let u_ref = T::from_f64(0.1).unwrap_or(T::one());
+        let ti = T::from_f64(0.01).unwrap_or(T::zero());
+        let k_init = T::from_f64(1.5).unwrap_or(T::one()) * (u_ref * ti) * (u_ref * ti);
+        let omega_init = k_init / (T::from_f64(0.001).unwrap_or(T::one()));
+        self.turbulence = Some(TurbulenceCoupling {
+            model: crate::physics::turbulence::k_omega_sst::KOmegaSSTModel::new(nx, ny),
+            k: vec![k_init; size],
+            omega: vec![omega_init; size],
+            update_interval: 5,
+        });
     }
 
     /// Initialise viscosity field from the blood model's apparent viscosity at
@@ -103,8 +142,18 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         }
     }
 
-    /// Compute L2-norm continuity residual for convergence assessment.
-    /// Supports non-uniform y-spacing via `grid.dy_at(j)`.
+    /// Compute separate L2-norm residuals for convergence assessment.
+    ///
+    /// Returns (res_continuity, res_u_momentum, res_max_pointwise):
+    /// - `res_continuity`: RMS mass imbalance across all cells
+    /// - `res_u_momentum`: RMS of the u-velocity change from the last iteration
+    ///   (approximated by the pressure correction magnitude)
+    /// - `res_max_pointwise`: L-infinity norm (maximum pointwise continuity error)
+    ///
+    /// The separate residuals allow distinguishing between:
+    /// - Oscillating pressure (high res_max but moderate res_continuity)
+    /// - Globally poor convergence (both high)
+    /// - Localized divergence (high res_max, low res_continuity)
     pub fn compute_residuals(&self) -> (T, T, T) {
         let nx = self.grid.nx;
         let ny = self.grid.ny;
@@ -112,18 +161,64 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let rho = self.density;
 
         let mut cont_sum = T::zero();
+        let mut pcorr_sum = T::zero();
+        let mut max_imb = T::zero();
+        let mut n_fluid = 0_usize;
+
         for i in 0..nx {
             for j in 0..ny {
+                if !self.field.mask[(i, j)] {
+                    continue;
+                }
+                n_fluid += 1;
                 let dy_j = self.grid.dy_at(j);
+
+                // Continuity residual: div(rho * u) per cell.
                 let imb = rho
                     * ((self.field.u[(i + 1, j)] - self.field.u[(i, j)]) * dy_j
                         + (self.field.v[(i, j + 1)] - self.field.v[(i, j)]) * dx);
                 cont_sum += imb * imb;
+
+                // L-infinity: track max pointwise imbalance.
+                let abs_imb = Float::abs(imb);
+                if abs_imb > max_imb {
+                    max_imb = abs_imb;
+                }
+
+                // Momentum residual proxy: sum of absolute velocity divergence
+                // contributions (measures how far the velocity field is from
+                // satisfying the discretized momentum equation).
+                pcorr_sum += Float::abs(imb);
             }
         }
-        let n: T = T::from_usize(nx * ny).unwrap_or(T::one());
-        let r = Float::sqrt(cont_sum / n);
-        (r, r, r)
+
+        let n: T = T::from_usize(n_fluid.max(1)).unwrap_or(T::one());
+        let res_cont = Float::sqrt(cont_sum / n);
+        let res_pcorr = pcorr_sum / n; // L1 norm of continuity imbalance
+        (res_cont, res_pcorr, max_imb)
+    }
+
+    /// Check for NaN/Inf in the velocity field (divergence guard).
+    pub fn check_divergence(&self) -> bool {
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
+        for i in 0..=nx {
+            for j in 0..ny {
+                let u = self.field.u[(i, j)];
+                if !u.is_finite() {
+                    return true;
+                }
+            }
+        }
+        for i in 0..nx {
+            for j in 0..=ny {
+                let v = self.field.v[(i, j)];
+                if !v.is_finite() {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Drive the SIMPLE loop to steady state.
@@ -194,6 +289,52 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 self.apply_mass_flux_correction();
             }
 
+            // Turbulence model update: solve k and omega transport equations
+            // and compute nu_t.  Only runs when turbulence is enabled and
+            // at the specified update interval.
+            if let Some(ref mut turb) = self.turbulence {
+                if iteration % turb.update_interval == 0 && iteration > 10 {
+                    // Build velocity vector from staggered u,v fields.
+                    let nx = self.grid.nx;
+                    let ny = self.grid.ny;
+                    let mut velocity = vec![nalgebra::Vector2::new(T::zero(), T::zero()); nx * ny];
+                    let half = T::from_f64(0.5).unwrap_or(T::one());
+                    for i in 0..nx {
+                        for j in 0..ny {
+                            let u_cc = (self.field.u[(i, j)] + self.field.u[(i + 1, j)]) * half;
+                            let v_cc = (self.field.v[(i, j)] + self.field.v[(i, j + 1)]) * half;
+                            velocity[j * nx + i] = nalgebra::Vector2::new(u_cc, v_cc);
+                        }
+                    }
+                    let mu_mol = self.field.mu[(0, 0)]; // reference molecular viscosity
+                    let dt_pseudo = T::from_f64(1e-3).unwrap_or(T::one());
+                    let _ = turb.model.update(
+                        &mut turb.k,
+                        &mut turb.omega,
+                        &velocity,
+                        self.density,
+                        mu_mol / self.density, // kinematic viscosity
+                        dt_pseudo,
+                        self.grid.dx,
+                        self.grid.dy_at(0),
+                    );
+                    // Update nu_t field from k and omega.
+                    use crate::physics::turbulence::TurbulenceModel;
+                    for i in 0..nx {
+                        for j in 0..ny {
+                            let idx = j * nx + i;
+                            let nu_t = turb.model.turbulent_viscosity(
+                                turb.k[idx],
+                                turb.omega[idx],
+                                self.density,
+                            );
+                            let nu_t_val = nu_t / self.density;
+                            self.field.nu_t[(i, j)] = if nu_t_val > T::zero() { nu_t_val } else { T::zero() };
+                        }
+                    }
+                }
+            }
+
             // Update viscosity with under-relaxation (alpha_mu) to prevent
             // oscillation in non-Newtonian SIMPLE iterations.
             if iteration % self.config.viscosity_update_interval == 0 {
@@ -201,8 +342,24 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                     .update_viscosity(&self.grid, &self.blood, self.config.alpha_mu);
             }
 
-            let (res_u, res_v, res_p) = self.compute_residuals();
-            last_residual = Float::max(Float::max(res_u, res_v), res_p);
+            let (res_cont, res_pcorr, res_max) = self.compute_residuals();
+            last_residual = Float::max(res_cont, res_pcorr);
+
+            // Divergence guard: detect NaN/Inf or residual growth.
+            if self.check_divergence() || !last_residual.is_finite() {
+                return Err(Error::NumericalInstability(
+                    "SIMPLE solver diverged: NaN or Inf detected in velocity field".to_string(),
+                ));
+            }
+            // Residual growth guard: if max pointwise residual exceeds a
+            // large threshold, the solver is likely oscillating or diverging.
+            let growth_limit = T::from_f64(1e6).unwrap_or(T::one());
+            if res_max > growth_limit {
+                return Err(Error::NumericalInstability(format!(
+                    "SIMPLE solver diverged: max pointwise residual {} exceeds limit",
+                    nalgebra::try_convert::<T, f64>(res_max).unwrap_or(f64::INFINITY)
+                )));
+            }
 
             if last_residual < self.config.tolerance {
                 return Ok(SolveResult {

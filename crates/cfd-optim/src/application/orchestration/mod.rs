@@ -22,6 +22,6 @@ pub use milestone12::{
 };
 pub use progress::ScanProgress;
 pub use setup::{
-    ensure_release_reports, fast_env, fast_mode, init_tracing, option2_mode,
-    resolve_output_directories,
+    ensure_release_reports, fast_env, fast_mode, init_tracing, milestone12_ranked_pool_size,
+    option2_mode, resolve_output_directories,
 };

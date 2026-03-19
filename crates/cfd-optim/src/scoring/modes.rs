@@ -351,11 +351,16 @@ fn score_hydrodynamic_cavitation_sdt(metrics: &SdtMetrics, w: &SdtWeights) -> f6
     let wbc_cav = metrics.wbc_targeted_cavitation.clamp(0.0, 1.0);
     let cancer_term = (0.70 * cancer_cav + 0.30 * oncology_selective).clamp(0.0, 1.0);
 
+    // WBC exclusion: reward designs where WBCs are EXCLUDED from the
+    // venturi treatment zone.  Higher wbc_cav means more WBC exposure
+    // to cavitation (bad for healthy cells), so we invert it.
+    let wbc_exclusion = (1.0 - metrics.wbc_recovery.clamp(0.0, 1.0)).clamp(0.0, 1.0);
+
     let base = w.hydro_cancer_cav * cancer_term
         + w.hydro_sep3 * sep3
         + w.hydro_rbc_protection * rbc_prot
         + w.hydro_sonolum * sono
-        + w.hydro_wbc_cav * wbc_cav;
+        + w.hydro_wbc_cav * wbc_exclusion;
 
     // Synergy bonus: strong cancer targeting AND effective cell separation.
     let synergy = if cancer_term > 0.30 && sep3 > 0.30 {

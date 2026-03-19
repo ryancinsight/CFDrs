@@ -75,7 +75,9 @@ impl SerpentineChannelStrategy {
         let max_full_periods = (usable_length / min_cycle_span).floor().max(1.0);
         let requested_full_periods = match self.config.wave_shape {
             crate::config::WaveShape::Square => self.config.wave_density_factor.ceil(),
-            crate::config::WaveShape::Sine => self.config.wave_density_factor.round(),
+            crate::config::WaveShape::Sine | crate::config::WaveShape::Triangular => {
+                self.config.wave_density_factor.round()
+            }
         }
         .clamp(1.0, max_full_periods);
 
@@ -151,10 +153,10 @@ impl SerpentineChannelStrategy {
         let base_points = context.geometry_config.generation.serpentine_points;
         let n_points = self.calculate_required_wave_points(requested_half_periods, base_points);
         let min_points_per_half_period =
-            if matches!(self.config.wave_shape, crate::config::WaveShape::Square) {
-                6.0
-            } else {
-                12.0
+            match self.config.wave_shape {
+                crate::config::WaveShape::Square => 6.0,
+                crate::config::WaveShape::Triangular => 8.0,
+                crate::config::WaveShape::Sine => 12.0,
             };
         let max_resolvable_half_periods =
             ((n_points - 1) as f64 / min_points_per_half_period).max(1.0);
@@ -166,7 +168,7 @@ impl SerpentineChannelStrategy {
         {
             half_periods = 2.0;
         }
-        if !matches!(self.config.wave_shape, crate::config::WaveShape::Square) {
+        if matches!(self.config.wave_shape, crate::config::WaveShape::Sine | crate::config::WaveShape::Triangular) {
             let central_window = (1.0 - start_guard - end_guard).max(0.0);
             if central_window < 0.35 && max_resolvable_half_periods >= 4.0 {
                 half_periods = half_periods.max(4.0).min(max_resolvable_half_periods);
@@ -245,10 +247,12 @@ impl SerpentineChannelStrategy {
             }
         }
 
-        let min_radius = if matches!(self.config.wave_shape, crate::config::WaveShape::Square) {
-            channel_diameter
-        } else {
-            channel_diameter * 0.5
+        let min_radius = match self.config.wave_shape {
+            crate::config::WaveShape::Square => channel_diameter,
+            // Triangular apices are sharper than sine but not as abrupt as
+            // square; use 0.75x channel diameter as the minimum radius.
+            crate::config::WaveShape::Triangular => channel_diameter * 0.75,
+            crate::config::WaveShape::Sine => channel_diameter * 0.5,
         };
         self.enforce_min_bend_radius(&mut path, min_radius, 4);
 

@@ -38,6 +38,11 @@ pub struct FlowField2D<T: RealField + Copy> {
     pub gamma_dot: Array2D<T>,
     /// Fluid mask (true = fluid, false = solid)
     pub mask: Mask2D,
+    /// Turbulent eddy viscosity at cell centers [nx][ny].
+    /// Zero for laminar simulations.  When a turbulence model is active,
+    /// this is added to the molecular viscosity in the momentum equation
+    /// diffusion terms: mu_effective = mu + rho * nu_t.
+    pub nu_t: Array2D<T>,
 }
 
 impl<T: RealField + Copy + FromPrimitive + Float> FlowField2D<T> {
@@ -50,6 +55,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowField2D<T> {
             mu: Array2D::new(nx, ny, T::zero()),
             gamma_dot: Array2D::new(nx, ny, T::zero()),
             mask: Array2D::new(nx, ny, true),
+            nu_t: Array2D::new(nx, ny, T::zero()),
         }
     }
 

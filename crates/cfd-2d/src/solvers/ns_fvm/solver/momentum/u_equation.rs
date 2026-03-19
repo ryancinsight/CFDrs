@@ -35,15 +35,17 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             for j in 0..ny {
                 let dy_j = self.grid.dy_at(j);
 
+                // Effective viscosity = molecular + turbulent (rho * nu_t).
+                // For laminar flows nu_t = 0 and this reduces to mu alone.
                 let mu_e = if i < nx {
-                    self.field.mu[(i, j)]
+                    self.field.mu[(i, j)] + rho * self.field.nu_t[(i, j)]
                 } else {
-                    self.field.mu[(nx - 1, j)]
+                    self.field.mu[(nx - 1, j)] + rho * self.field.nu_t[(nx - 1, j)]
                 };
                 let mu_w = if i > 0 {
-                    self.field.mu[(i - 1, j)]
+                    self.field.mu[(i - 1, j)] + rho * self.field.nu_t[(i - 1, j)]
                 } else {
-                    self.field.mu[(0, j)]
+                    self.field.mu[(0, j)] + rho * self.field.nu_t[(0, j)]
                 };
                 let mu_face = (mu_e + mu_w) / (one + one);
 
@@ -84,8 +86,25 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 let f_n = rho * v_n * dx;
                 let f_s = rho * v_s * dx;
 
-                let a_e = Float::max(d_e - f_e * half, zero) + Float::max(-f_e, zero);
-                let a_w = Float::max(d_w + f_w * half, zero) + Float::max(f_w, zero);
+                // Hybrid convection scheme: central differencing at Pe < 2,
+                // upwind at Pe >= 2.  This gives second-order accuracy in
+                // low-Pe regions (channel cores) while maintaining stability
+                // near walls and in high-velocity throat regions.
+                let two = one + one;
+                let pe_e = Float::abs(f_e) / d_e;
+                let pe_w = Float::abs(f_w) / d_w;
+                let a_e = if pe_e <= two {
+                    d_e - f_e * half // central
+                } else {
+                    d_e + Float::max(zero, -f_e) // upwind
+                };
+                let a_w = if pe_w <= two {
+                    d_w + f_w * half
+                } else {
+                    d_w + Float::max(zero, f_w)
+                };
+                // North/south faces remain upwind (cross-stream direction
+                // typically has low velocity so upwind is stable and adequate).
                 let a_n = Float::max(d_n - f_n * half, zero) + Float::max(-f_n, zero);
                 let a_s = Float::max(d_s + f_s * half, zero) + Float::max(f_s, zero);
 

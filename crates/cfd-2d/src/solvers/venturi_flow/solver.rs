@@ -141,6 +141,14 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         }
     }
 
+    /// Enable turbulence modeling for high-Re venturi flows.
+    /// Also switches to PISO (2 pressure corrections per iteration) for
+    /// better pressure-velocity coupling at transitional Reynolds numbers.
+    pub fn enable_high_re_mode(&mut self) {
+        self.solver.enable_turbulence();
+        self.solver.config.n_correctors = 2; // PISO
+    }
+
     /// Solve the Venturi flow for a given inlet velocity
     pub fn solve(&mut self, u_inlet: T) -> CfdResult<VenturiFlowSolution<T>> {
         let solve_result = self

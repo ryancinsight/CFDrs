@@ -192,6 +192,7 @@ pub fn serpentine_series_spec(
         segments: segment_count,
         bend_radius_m: width_m * 0.5,
         segment_length_m,
+        wave_type: crate::topology::SerpentineWaveType::Sine,
     });
     let series_channels = (0..segment_count)
         .map(|index| {
@@ -235,6 +236,7 @@ pub fn venturi_serpentine_series_spec(
         segments: segment_count,
         bend_radius_m: main_width_m * 0.5,
         segment_length_m,
+        wave_type: crate::topology::SerpentineWaveType::Sine,
     });
     let mut series_channels = vec![
         series_channel(
@@ -310,6 +312,7 @@ pub fn serpentine_bend_venturi_series_spec(
         segments: segment_count,
         bend_radius_m,
         segment_length_m,
+        wave_type: crate::topology::SerpentineWaveType::Sine,
     });
     let mut series_channels = Vec::with_capacity(segment_count + n_venturis * 3);
     let mut venturi_placements = Vec::with_capacity(n_venturis);
@@ -437,6 +440,7 @@ pub fn spiral_serpentine_series_spec(
                     segments: 4,
                     bend_radius_m,
                     segment_length_m: turn_length_m * 0.25,
+                    wave_type: crate::topology::SerpentineWaveType::Sine,
                 }),
             )
         })

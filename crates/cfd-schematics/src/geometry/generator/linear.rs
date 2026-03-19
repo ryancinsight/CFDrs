@@ -60,6 +60,7 @@ fn apply_series_channel_metadata(
         channel.channel_shape = ChannelShape::Serpentine {
             segments: serpentine.segments,
             bend_radius_m: serpentine.bend_radius_m,
+            wave_type: serpentine.wave_type,
         };
     }
     if let Some(venturi) = venturi {

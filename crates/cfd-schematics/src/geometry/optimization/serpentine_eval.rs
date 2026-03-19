@@ -23,7 +23,9 @@ fn calculate_safe_full_periods(
     let max_full_periods = (channel_length / min_cycle_span).floor().max(1.0);
     let requested_full_periods = match serpentine_config.wave_shape {
         crate::config::WaveShape::Square => serpentine_config.wave_density_factor.ceil(),
-        crate::config::WaveShape::Sine => serpentine_config.wave_density_factor.round(),
+        crate::config::WaveShape::Sine | crate::config::WaveShape::Triangular => {
+            serpentine_config.wave_density_factor.round()
+        }
     }
     .clamp(1.0, max_full_periods);
 
@@ -180,6 +182,9 @@ pub(super) fn generate_simplified_serpentine_path(
                 let sine_value = wave_phase.sin();
                 let sharpness = constants::SQUARE_WAVE_SHARPNESS;
                 (sharpness * sine_value).tanh()
+            }
+            crate::config::WaveShape::Triangular => {
+                (2.0 / std::f64::consts::PI) * wave_phase.sin().asin()
             }
         };
         let wave_amplitude = amplitude * envelope * wave_value;

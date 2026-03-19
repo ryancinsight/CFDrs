@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use crate::{BlueprintCandidate, OptimError, SdtMetrics};
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +26,21 @@ pub struct ParetoPoint {
 pub enum ParetoTag {
     Option2,
     Ga,
+}
+
+const GA_NON_HYDROSDT_PENALTY: f64 = 0.25;
+const GA_NO_CAVITATION_GAIN_PENALTY: f64 = 0.10;
+const GA_CAVITATION_GAIN_MARGIN_DEFAULT: f64 = 0.01;
+
+fn hydrosdt_cavitation_gain_margin() -> f64 {
+    static MARGIN: OnceLock<f64> = OnceLock::new();
+    *MARGIN.get_or_init(|| {
+        std::env::var("M12_GA_CAVITATION_GAIN_MARGIN")
+            .ok()
+            .and_then(|value| value.parse::<f64>().ok())
+            .filter(|value| value.is_finite() && *value >= 0.0)
+            .unwrap_or(GA_CAVITATION_GAIN_MARGIN_DEFAULT)
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,7 +126,6 @@ impl Milestone12ReportDesign {
             .and_then(|spec| spec.venturi_placements.first())
             .map(|placement| placement.throat_geometry.throat_width_m * 1.0e6)
     }
-
     #[must_use]
     pub fn throat_length_um(&self) -> Option<f64> {
         self.candidate
@@ -118,6 +134,125 @@ impl Milestone12ReportDesign {
             .and_then(|spec| spec.venturi_placements.first())
             .map(|placement| placement.throat_geometry.throat_length_m * 1.0e6)
     }
+}
+
+#[must_use]
+pub fn pareto_point_from_report_design(
+    design: &Milestone12ReportDesign,
+    tag: ParetoTag,
+) -> ParetoPoint {
+    ParetoPoint {
+        cancer_targeted_cavitation: design.metrics.cancer_targeted_cavitation,
+        rbc_venturi_protection: design.metrics.rbc_venturi_protection,
+        score: design.score,
+        tag,
+    }
+}
+
+#[must_use]
+pub fn pareto_pool_from_report_designs(
+    designs: &[Milestone12ReportDesign],
+    tag: ParetoTag,
+    limit: usize,
+) -> Vec<ParetoPoint> {
+    designs
+        .iter()
+        .filter(|design| {
+            design.metrics.cancer_targeted_cavitation.is_finite()
+                && design.metrics.rbc_venturi_protection.is_finite()
+        })
+        .take(limit)
+        .map(|design| pareto_point_from_report_design(design, tag))
+        .collect()
+}
+
+#[must_use]
+pub fn is_hydrosdt_venturi_report_candidate(design: &Milestone12ReportDesign) -> bool {
+    design.metrics.active_venturi_throat_count > 0
+        && design.metrics.serial_venturi_stages_per_path > 0
+        && design.metrics.cavitation_number.is_finite()
+        && design.metrics.cavitation_number < 1.0
+        && design.metrics.cancer_targeted_cavitation > 0.0
+}
+
+#[must_use]
+pub fn cavitation_gain_over_baseline(
+    design: &Milestone12ReportDesign,
+    baseline_option2: &Milestone12ReportDesign,
+) -> f64 {
+    design.metrics.serial_cavitation_dose_fraction
+        - baseline_option2.metrics.serial_cavitation_dose_fraction
+}
+
+#[must_use]
+pub fn improves_hydrosdt_cavitation(
+    design: &Milestone12ReportDesign,
+    baseline_option2: &Milestone12ReportDesign,
+) -> bool {
+    is_hydrosdt_venturi_report_candidate(design)
+        && cavitation_gain_over_baseline(design, baseline_option2)
+            > hydrosdt_cavitation_gain_margin()
+}
+
+#[must_use]
+pub fn ga_report_selection_score(
+    design: &Milestone12ReportDesign,
+    baseline_option2: &Milestone12ReportDesign,
+) -> f64 {
+    if !is_hydrosdt_venturi_report_candidate(design) {
+        return design.score - GA_NON_HYDROSDT_PENALTY;
+    }
+
+    let cavitation_gain = cavitation_gain_over_baseline(design, baseline_option2);
+    let required_margin = hydrosdt_cavitation_gain_margin();
+    if cavitation_gain > required_margin {
+        design.score
+    } else {
+        design.score
+            - GA_NO_CAVITATION_GAIN_PENALTY
+            - (required_margin - cavitation_gain).max(0.0)
+    }
+}
+
+#[must_use]
+pub fn rank_ga_hydrosdt_report_designs(
+    raw_ranked: &[Milestone12ReportDesign],
+    baseline_option2: &Milestone12ReportDesign,
+) -> Vec<Milestone12ReportDesign> {
+    let mut hydrosdt_ranked: Vec<Milestone12ReportDesign> = raw_ranked
+        .iter()
+        .filter(|design| is_hydrosdt_venturi_report_candidate(design))
+        .cloned()
+        .collect();
+
+    hydrosdt_ranked.sort_by(|left, right| {
+        ga_report_selection_score(right, baseline_option2)
+            .total_cmp(&ga_report_selection_score(left, baseline_option2))
+            .then_with(|| right.score.total_cmp(&left.score))
+            .then_with(|| {
+                right
+                    .metrics
+                    .serial_cavitation_dose_fraction
+                    .total_cmp(&left.metrics.serial_cavitation_dose_fraction)
+            })
+            .then_with(|| left.candidate.id.cmp(&right.candidate.id))
+    });
+
+    let improving_ranked: Vec<Milestone12ReportDesign> = hydrosdt_ranked
+        .iter()
+        .filter(|design| improves_hydrosdt_cavitation(design, baseline_option2))
+        .cloned()
+        .collect();
+
+    let mut ranked = if improving_ranked.is_empty() {
+        hydrosdt_ranked
+    } else {
+        improving_ranked
+    };
+    for (index, design) in ranked.iter_mut().enumerate() {
+        design.rank = index + 1;
+    }
+    ranked
 }
 
 pub fn compute_blueprint_report_metrics(

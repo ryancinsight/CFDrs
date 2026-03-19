@@ -394,6 +394,60 @@ impl NetworkBlueprint {
         self.unresolved_channel_overlap_count() > 0
     }
 
+    /// Analyze physical footprint overlap between all channel pairs.
+    ///
+    /// Returns [`ChannelOverlapAnalysis`] with the worst-case overlap fraction
+    /// and the width ratio at the most-overlapping pair.  When channels of
+    /// different widths overlap, the velocity mismatch at the merge zone
+    /// creates inertial cell-sorting effects (larger/stiffer CTCs entering
+    /// from a narrow high-velocity channel experience different drag/lift
+    /// than RBCs from a wide low-velocity bypass).  The width ratio quantifies
+    /// this mismatch so downstream scoring can account for unmodeled
+    /// separation physics.
+    #[must_use]
+    pub fn channel_overlap_analysis(&self) -> ChannelOverlapAnalysis {
+        let channels_with_paths: Vec<(usize, f64)> = self
+            .channels
+            .iter()
+            .enumerate()
+            .filter(|(_, ch)| ch.path.len() >= 2)
+            .map(|(i, ch)| {
+                let w = match ch.cross_section {
+                    super::CrossSectionSpec::Rectangular { width_m, .. } => width_m * 1e3,
+                    super::CrossSectionSpec::Circular { diameter_m } => diameter_m * 1e3,
+                };
+                (i, w)
+            })
+            .collect();
+
+        let mut worst = ChannelOverlapAnalysis::default();
+        for (ai, (idx_a, w_a)) in channels_with_paths.iter().enumerate() {
+            let path_a = &self.channels[*idx_a].path;
+            for (idx_b, w_b) in &channels_with_paths[ai + 1..] {
+                let path_b = &self.channels[*idx_b].path;
+                let min_dist = min_path_distance(path_a, path_b);
+                let half_sum = (w_a + w_b) * 0.5;
+                if min_dist < half_sum {
+                    let narrower = w_a.min(*w_b).max(1e-9);
+                    let overlap_frac = ((half_sum - min_dist) / narrower).clamp(0.0, 1.0);
+                    if overlap_frac > worst.max_overlap_fraction {
+                        let wider = w_a.max(*w_b).max(1e-9);
+                        worst.max_overlap_fraction = overlap_frac;
+                        worst.width_ratio_at_worst = wider / narrower;
+                        worst.overlap_pair_count += 1;
+                    }
+                }
+            }
+        }
+        worst
+    }
+
+    /// Convenience: maximum overlap fraction (delegates to full analysis).
+    #[must_use]
+    pub fn max_channel_overlap_fraction(&self) -> f64 {
+        self.channel_overlap_analysis().max_overlap_fraction
+    }
+
     /// Check that the blueprint is structurally consistent:
     /// - at least one node and one channel
     /// - every channel's `from`/`to` node ID exists in `self.nodes`
@@ -566,4 +620,39 @@ mod tests {
             1
         );
     }
+}
+
+/// Summary of physical channel footprint overlap in a blueprint.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ChannelOverlapAnalysis {
+    /// Maximum overlap fraction across all channel pairs [0, 1].
+    /// 0.0 = no overlap; 1.0 = one channel fully inside another.
+    pub max_overlap_fraction: f64,
+
+    /// Width ratio (wider / narrower) at the most-overlapping channel pair.
+    /// A ratio of 1.0 means equal-width channels (symmetric merge).
+    /// A ratio > 2.0 means a narrow channel merging into a channel more than
+    /// twice its width, creating a velocity mismatch at the merge zone that
+    /// produces inertial cell sorting: larger/stiffer CTCs from the narrow
+    /// high-velocity channel experience different drag and lift forces than
+    /// RBCs entering from the wide low-velocity bypass.
+    pub width_ratio_at_worst: f64,
+
+    /// Number of channel pairs with any physical footprint overlap.
+    pub overlap_pair_count: usize,
+}
+
+/// Minimum Euclidean distance between two polyline paths, sampled at all
+/// vertices of both paths (O(n*m) but paths are short in practice).
+fn min_path_distance(path_a: &[(f64, f64)], path_b: &[(f64, f64)]) -> f64 {
+    let mut min_d = f64::INFINITY;
+    for &(ax, ay) in path_a {
+        for &(bx, by) in path_b {
+            let d = ((ax - bx).powi(2) + (ay - by).powi(2)).sqrt();
+            if d < min_d {
+                min_d = d;
+            }
+        }
+    }
+    min_d
 }

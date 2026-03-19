@@ -19,7 +19,9 @@ mod report_metrics;
 mod validation_runner;
 
 pub use design_record::{
-    compute_blueprint_report_metrics, Milestone12ReportDesign, ParetoPoint, ParetoTag,
+    compute_blueprint_report_metrics, pareto_pool_from_report_designs,
+    is_hydrosdt_venturi_report_candidate, rank_ga_hydrosdt_report_designs,
+    Milestone12ReportDesign, ParetoPoint, ParetoTag,
 };
 pub use guardrails::{
     is_milestone12_lineage_topology, milestone12_lineage_key, validate_milestone12_candidate,
@@ -30,6 +32,9 @@ pub use milestone12_audit::{
     audit_goal_candidates, write_goal_audit_report, GoalAuditArtifacts, GoalAuditEntry,
     GoalAuditStatus,
 };
-pub use narrative::{write_milestone12_narrative_report, Milestone12NarrativeInput};
+pub use narrative::{
+    write_milestone12_narrative_report, Milestone12GaRankingAuditEntry,
+    Milestone12NarrativeInput,
+};
 pub use ranking::{pct_diff, shortlist_report_designs, sort_report_designs};
 pub use validation_runner::run_milestone12_validation;

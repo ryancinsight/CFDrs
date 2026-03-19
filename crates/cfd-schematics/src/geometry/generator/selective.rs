@@ -17,6 +17,9 @@ use std::collections::{HashMap, HashSet};
 pub struct CenterSerpentinePathSpec {
     pub segments: usize,
     pub bend_radius_m: f64,
+    /// Waveform type for the serpentine path.  Defaults to Sine when
+    /// constructed from legacy topology specs that omit this field.
+    pub wave_type: crate::topology::SerpentineWaveType,
 }
 
 use crate::geometry::builders::ChannelExt;
@@ -217,7 +220,11 @@ impl SelectiveTreeBuilder {
             length_m
         };
         let final_shape = match shape {
-            Some(ChannelShape::Serpentine { segments, bend_radius_m }) => {
+            Some(ChannelShape::Serpentine {
+                segments,
+                bend_radius_m,
+                wave_type,
+            }) => {
                 if bend_radius_m == 0.0 {
                     path.first()
                         .zip(path.last())
@@ -225,7 +232,11 @@ impl SelectiveTreeBuilder {
                             infer_serpentine_shape(&path, *start, *end, width_m * 1.0e3)
                         })
                 } else {
-                    ChannelShape::Serpentine { segments, bend_radius_m }
+                    ChannelShape::Serpentine {
+                        segments,
+                        bend_radius_m,
+                        wave_type,
+                    }
                 }
             }
             Some(other) => other,
@@ -382,6 +393,7 @@ impl SelectiveTreeBuilder {
                 center_serp.map(|_| ChannelShape::Serpentine {
                     segments: 2,
                     bend_radius_m: 0.0,
+                    wave_type: crate::topology::SerpentineWaveType::Sine,
                 }),
                 None,
             );
@@ -434,6 +446,7 @@ impl SelectiveTreeBuilder {
                 center_serp.map(|_| ChannelShape::Serpentine {
                     segments: 2,
                     bend_radius_m: 0.0,
+                    wave_type: crate::topology::SerpentineWaveType::Sine,
                 }),
                 None,
             );
@@ -630,6 +643,7 @@ impl SelectiveTreeBuilder {
                 center_serp.map(|spec| ChannelShape::Serpentine {
                     segments: spec.segments,
                     bend_radius_m: spec.bend_radius_m,
+                    wave_type: spec.wave_type,
                 }),
                 None,
             );
@@ -671,6 +685,7 @@ impl SelectiveTreeBuilder {
             center_serp.map(|spec| ChannelShape::Serpentine {
                 segments: spec.segments,
                 bend_radius_m: spec.bend_radius_m,
+                wave_type: spec.wave_type,
             }),
             None,
         );
@@ -712,6 +727,7 @@ impl SelectiveTreeBuilder {
             center_serp.map(|spec| ChannelShape::Serpentine {
                 segments: spec.segments,
                 bend_radius_m: spec.bend_radius_m,
+                wave_type: spec.wave_type,
             }),
             None,
         );
@@ -761,6 +777,7 @@ impl SelectiveTreeBuilder {
                 center_serp.map(|spec| ChannelShape::Serpentine {
                     segments: spec.segments,
                     bend_radius_m: spec.bend_radius_m,
+                    wave_type: spec.wave_type,
                 }),
                 None,
             );
@@ -1392,14 +1409,74 @@ pub fn create_primitive_selective_tree_geometry(
         ..Default::default()
     };
 
-    let mut blueprint = super::create_geometry(
-        request.box_dims_mm,
-        &splits,
-        &geometry_config,
-        &ChannelTypeConfig::AllStraight,
-    );
-    annotate_primitive_tree(&mut blueprint, request);
-    blueprint
+    let split_depth = splits.len().max(1);
+    let total_branches = splits
+        .iter()
+        .fold(1usize, |product, split| product.saturating_mul(split.branch_count()));
+    let retry_scales = [1.0, 1.2, 1.45, 1.75, 2.1, 2.5];
+    let mut last_blueprint = None;
+
+    for retry_scale in retry_scales {
+        let internal_dims = expanded_generation_box_dims(
+            request.box_dims_mm,
+            split_depth,
+            total_branches,
+            retry_scale,
+        );
+        let mut blueprint = super::create_geometry(
+            internal_dims,
+            &splits,
+            &geometry_config,
+            &ChannelTypeConfig::AllStraight,
+        );
+        if internal_dims != request.box_dims_mm {
+            scale_blueprint_geometry(&mut blueprint, request.box_dims_mm);
+        }
+        annotate_primitive_tree(&mut blueprint, request);
+        if blueprint.unresolved_channel_overlap_count() == 0 {
+            return blueprint;
+        }
+        last_blueprint = Some(blueprint);
+    }
+
+    last_blueprint.expect("primitive selective tree generation should produce a blueprint")
+}
+
+fn expanded_generation_box_dims(
+    target_dims: (f64, f64),
+    split_depth: usize,
+    total_branches: usize,
+    retry_scale: f64,
+) -> (f64, f64) {
+    let depth_scale = (1.0 + 0.18 * split_depth.saturating_sub(1) as f64) * retry_scale;
+    let branch_scale = ((total_branches as f64) / 9.0).sqrt().clamp(1.0, 3.2) * retry_scale;
+    let width = target_dims.0 * depth_scale.max(1.0);
+    let height = target_dims.1 * branch_scale.max(1.0);
+    (width, height)
+}
+
+fn scale_blueprint_geometry(blueprint: &mut NetworkBlueprint, target_dims: (f64, f64)) {
+    let source_dims = blueprint.box_dims;
+    if source_dims.0 <= 0.0 || source_dims.1 <= 0.0 {
+        return;
+    }
+    let scale_x = target_dims.0 / source_dims.0;
+    let scale_y = target_dims.1 / source_dims.1;
+
+    let scale_point = |(x, y): Point2D| (x * scale_x, y * scale_y);
+
+    for node in &mut blueprint.nodes {
+        node.point = scale_point(node.point);
+    }
+    for channel in &mut blueprint.channels {
+        channel.path = channel.path.iter().copied().map(scale_point).collect();
+    }
+    blueprint.box_outline = blueprint
+        .box_outline
+        .iter()
+        .map(|(start, end)| (scale_point(*start), scale_point(*end)))
+        .collect();
+    blueprint.box_dims = target_dims;
 }
 
 /// Build a primitive selective tree directly from a declarative topology spec
@@ -1445,6 +1522,7 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
                 .map(|serpentine| CenterSerpentinePathSpec {
                     segments: serpentine.segments,
                     bend_radius_m: serpentine.bend_radius_m,
+                    wave_type: serpentine.wave_type,
                 }));
 
         match stage.split_kind {
@@ -1708,8 +1786,6 @@ fn annotate_primitive_tree(system: &mut NetworkBlueprint, request: &PrimitiveSel
             starts_at_treatment_leaf && max_x > mid_x + 1e-6 && min_x >= mid_x - 1e-6;
         let touches_treatment_leaf =
             starts_at_treatment_leaf || treatment_leaves.contains(&channel.to);
-        let is_split_side_treatment_mirror =
-            touches_treatment_leaf && max_x <= mid_x + 1e-6 && min_x < mid_x - 1e-6;
         let is_trunk = touches_inlet || touches_outlet;
 
         let physical_width = if touches_inlet || touches_outlet {
@@ -1750,11 +1826,12 @@ fn annotate_primitive_tree(system: &mut NetworkBlueprint, request: &PrimitiveSel
             TherapyZone::HealthyBypass
         });
 
-        if is_treatment
-            && (is_treatment_window_channel || is_split_side_treatment_mirror)
+        let should_overlay_serpentine = is_treatment
+            && !is_trunk
             && request.center_serpentine.is_some()
-            && !request.treatment_branch_venturi_enabled
-        {
+            && (!request.treatment_branch_venturi_enabled || !is_treatment_window_channel);
+
+        if should_overlay_serpentine {
             if let Some(spec) = request.center_serpentine {
                 // When the generator produced a straight channel (empty path), seed
                 // the serpentine overlay with the endpoint node positions so the
@@ -1765,7 +1842,16 @@ fn annotate_primitive_tree(system: &mut NetworkBlueprint, request: &PrimitiveSel
                     points.clone()
                 };
                 let serpentine_path =
-                    serpentine_overlay_path(&source_points, physical_width, spec, 1.5);
+                    serpentine_overlay_path(
+                        &source_points,
+                        physical_width,
+                        spec,
+                        if request.treatment_branch_venturi_enabled {
+                            1.1
+                        } else {
+                            1.5
+                        },
+                    );
                 channel.path = serpentine_path;
                 channel.length_m = channel_length_from_points_or_endpoints(
                     &channel.path,
@@ -2016,6 +2102,35 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn primitive_selective_penta_quad_tri_is_geometry_authorable() {
+        let blueprint = create_primitive_selective_tree_geometry(&PrimitiveSelectiveTreeRequest {
+            name: "primitive-selective-penta-quad-tri".to_string(),
+            box_dims_mm: (127.76, 85.47),
+            split_sequence: vec![
+                PrimitiveSelectiveSplitKind::Penta,
+                PrimitiveSelectiveSplitKind::Quad,
+                PrimitiveSelectiveSplitKind::Tri,
+            ],
+            main_width_m: 4.0e-3,
+            throat_width_m: 35.0e-6,
+            throat_length_m: 180.0e-6,
+            channel_height_m: 1.0e-3,
+            first_trifurcation_center_frac: 0.45,
+            later_trifurcation_center_frac: 0.45,
+            bifurcation_treatment_frac: 0.68,
+            treatment_branch_venturi_enabled: true,
+            treatment_branch_throat_count: 1,
+            center_serpentine: None,
+        });
+
+        assert_eq!(blueprint.box_dims, (127.76, 85.47));
+        assert_eq!(blueprint.unresolved_channel_overlap_count(), 0);
+        blueprint
+            .validate()
+            .expect("Penta->Quad->Tri primitive selective tree should remain planar");
     }
 
     #[test]
@@ -2538,6 +2653,7 @@ fn infer_serpentine_shape(
         return ChannelShape::Serpentine {
             segments: 2,
             bend_radius_m: (channel_width_mm * 0.5) * 1.0e-3,
+            wave_type: crate::topology::SerpentineWaveType::Sine,
         };
     }
 
@@ -2548,6 +2664,7 @@ fn infer_serpentine_shape(
         return ChannelShape::Serpentine {
             segments: 2,
             bend_radius_m: (channel_width_mm * 0.5) * 1.0e-3,
+            wave_type: crate::topology::SerpentineWaveType::Sine,
         };
     }
 
@@ -2585,5 +2702,6 @@ fn infer_serpentine_shape(
     ChannelShape::Serpentine {
         segments: turns.saturating_add(1).max(2),
         bend_radius_m: bend_radius_mm * 1.0e-3,
+        wave_type: crate::topology::SerpentineWaveType::Sine,
     }
 }

@@ -12,6 +12,11 @@ use crate::error::OptimError;
 use super::blueprint_graph::BlueprintSolveSummary;
 use super::blueprint_separation::BlueprintSeparationMetrics;
 
+fn cavitation_strength_from_sigma(cavitation_number: f64) -> f64 {
+    let strength = (1.0 - cavitation_number).max(0.0);
+    strength / (1.0 + strength)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VenturiPlacementMetrics {
     pub placement_id: String,
@@ -29,6 +34,7 @@ pub struct VenturiPlacementMetrics {
 pub struct BlueprintVenturiMetrics {
     pub placements: Vec<VenturiPlacementMetrics>,
     pub cavitation_selectivity_score: f64,
+    pub venturi_flow_fraction: f64,
     pub rbc_exposure_fraction: f64,
     pub wbc_exposure_fraction: f64,
 }
@@ -173,13 +179,7 @@ pub fn compute_blueprint_venturi_metrics(
             )
             .unwrap_or_default();
             
-            // Cavitation strength: use log-linear mapping to preserve sensitivity
-            // across the full σ range. For σ close to 1: mild cavitation → low score.
-            // For σ << 0: strong cavitation → higher score, but not saturated.
-            // f(σ) = ln(1 + max(0, 1-σ)) / ln(2) gives 0 at σ=1, 1 at σ=0,
-            // ~2.6 at σ=-5, growing logarithmically without saturation.
-            let cav_s = (1.0 - screening.cavitation_number).max(0.0);
-            cavitation_strength_sum += (1.0 + cav_s).ln() / 2.0_f64.ln();
+            cavitation_strength_sum += cavitation_strength_from_sigma(screening.cavitation_number);
 
             placements_out[p_idx] = Some(VenturiPlacementMetrics {
                 placement_id: placement.placement_id.clone(),
@@ -229,6 +229,7 @@ pub fn compute_blueprint_venturi_metrics(
     Ok(BlueprintVenturiMetrics {
         placements,
         cavitation_selectivity_score,
+        venturi_flow_fraction: solve.venturi_flow_fraction,
         rbc_exposure_fraction,
         wbc_exposure_fraction,
     })

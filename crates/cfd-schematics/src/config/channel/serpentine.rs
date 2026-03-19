@@ -13,14 +13,30 @@ pub enum OptimizationProfile {
     Thorough,
 }
 
-/// Wave shape types for serpentine channels
+/// Wave shape types for serpentine channels.
+///
+/// Each variant produces a distinct bend geometry that affects Dean secondary
+/// flow, bend minor losses, and cell focusing behavior in the 1D solver:
+///
+/// - **Sine**: smooth curvature, gradual Dean vortex onset/decay at each bend.
+/// - **Square**: near-constant-radius U-turns with abrupt transitions; highest
+///   K-factor minor losses but most compact footprint.
+/// - **Triangular**: linear ramps between direction reversals; moderate
+///   curvature concentration at apices with lower overall path length than sine.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum WaveShape {
-    /// Smooth sine wave (default) - provides natural, flowing curves
+    /// Smooth sine wave (default) - natural flowing curves with gradual
+    /// curvature transitions.
     #[default]
     Sine,
-    /// Square wave - provides sharp, angular transitions
+    /// Square wave - sharp angular transitions (tanh-smoothed for
+    /// manufacturability).  Produces the highest local curvature at
+    /// direction reversals.
     Square,
+    /// Triangular wave - linear ramps with sharp apices.  Curvature is
+    /// concentrated at the apex points (direction reversals) with zero
+    /// curvature along the straight ramp sections.
+    Triangular,
 }
 
 /// Configuration for serpentine (S-shaped) channels

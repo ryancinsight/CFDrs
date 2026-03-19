@@ -148,7 +148,8 @@ pub use topology::presets::{
 pub use topology::{
     BlueprintTopologyFactory, BlueprintTopologyMutation, BlueprintTopologySpec, BranchRole,
     BranchSpec, ChannelRouteSpec, DeanSiteEstimate, ParallelChannelSpec, RecoverySubSplit,
-    SeriesChannelSpec, SerpentineSpec, SplitKind, SplitStageSpec, SubBranchSpec,
+    SeriesChannelSpec, SerpentineSpec, SerpentineWaveType, SplitKind, SplitStageSpec,
+    SubBranchSpec,
     ThroatGeometrySpec, TopologyChannelSpec, TopologyLineageEvent, TopologyLineageMetadata,
     TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementMode, VenturiPlacementSpec,
 };

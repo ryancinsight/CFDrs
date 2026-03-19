@@ -4,7 +4,99 @@ use std::fmt::Write as _;
 
 use crate::constraints::M12_GA_HYDRO_SEED;
 use crate::reporting::figures::NarrativeFigureSpec;
-use crate::reporting::Milestone12ReportDesign;
+use crate::reporting::{Milestone12GaRankingAuditEntry, Milestone12ReportDesign};
+
+fn parse_lineage_operator(metadata: &str) -> Option<&str> {
+    metadata.split(';').find_map(|part| {
+        let (key, value) = part.split_once('=')?;
+        (key == "operator").then_some(value)
+    })
+}
+
+fn ancestry_event_counts(design: &Milestone12ReportDesign) -> (usize, usize) {
+    design
+        .candidate
+        .blueprint()
+        .lineage()
+        .map(|lineage| {
+            lineage
+                .mutations
+                .iter()
+                .fold((0_usize, 0_usize), |mut counts, event| {
+                    let operator = parse_lineage_operator(&event.mutation).unwrap_or("");
+                    if operator.starts_with("operating_point") {
+                        counts.1 += 1;
+                    } else {
+                        counts.0 += 1;
+                    }
+                    counts
+                })
+        })
+        .unwrap_or((0, 0))
+}
+
+fn build_ga_ranking_tradeoff_table(
+    selected: &Milestone12GaRankingAuditEntry,
+    displaced: &Milestone12GaRankingAuditEntry,
+    table_number: usize,
+) -> String {
+    format!(
+        "<div align=\"center\">\n\n<p><strong>Table {}.</strong> GA ancestry-adjusted final ranking tradeoff</p>\n\n<table style=\"width:88%; max-width:6.2in; margin:0 auto; border-collapse:collapse; table-layout:fixed; font-size:8.5pt; line-height:1.15;\">\n<thead><tr><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal; width:18%;\">Finalist</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal; width:34%;\">Candidate ID</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal; width:8%;\">Raw score</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal; width:10%;\">Adjusted score</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal; width:10%;\">Geometry penalty</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal; width:10%;\">Operating-point penalty</th></tr></thead>\n<tbody><tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Selected GA rank-1</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\"><code>{}</code></td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{:.4}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{:.4}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{:.3}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{:.3}</td></tr><tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Highest raw-score finalist</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\"><code>{}</code></td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{:.4}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{:.4}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{:.3}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{:.3}</td></tr></tbody></table>\n</div>",
+        table_number,
+        selected.candidate_id,
+        selected.score,
+        selected.adjusted_selection_score,
+        selected.geometry_concentration_penalty,
+        selected.operating_point_diversity_penalty,
+        displaced.candidate_id,
+        displaced.score,
+        displaced.adjusted_selection_score,
+        displaced.geometry_concentration_penalty,
+        displaced.operating_point_diversity_penalty,
+    )
+}
+
+fn current_geometry_penalty_weight() -> f64 {
+    std::env::var("M12_GA_GEOMETRY_PENALTY_WEIGHT")
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .filter(|value| value.is_finite() && *value >= 0.0)
+        .unwrap_or(0.00043)
+}
+
+fn current_cavitation_gain_margin() -> f64 {
+    std::env::var("M12_GA_CAVITATION_GAIN_MARGIN")
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .filter(|value| value.is_finite() && *value >= 0.0)
+        .unwrap_or(0.01)
+}
+
+pub(super) fn build_workspace_configuration_section() -> String {
+    format!(
+        "The Milestone 12 reporting pipeline exposes the following workspace-level configuration knobs for HydroSDT GA shortlist formation and audit reproducibility.\n\n- `M12_GA_GEOMETRY_PENALTY_WEIGHT` = `{:.5}`. Applies the lineage-concentration penalty used to demote GA shortlists dominated by repeated geometry ancestry from the same serpentine family.\n- `M12_GA_CAVITATION_GAIN_MARGIN` = `{:.3}`. Requires a GA venturi design to exceed the deterministic Option 2 baseline cumulative cavitation dose by at least this amount before it remains in the report-ranked HydroSDT subset.\n\nIf these environment variables are unset, the defaults above are applied automatically during report generation.",
+        current_geometry_penalty_weight(),
+        current_cavitation_gain_margin(),
+    )
+}
+
+fn geometry_displacement_threshold(
+    selected: &Milestone12GaRankingAuditEntry,
+    displaced: &Milestone12GaRankingAuditEntry,
+) -> Option<f64> {
+    let geometry_gap = displaced.geometry_concentration_penalty
+        - selected.geometry_concentration_penalty;
+    if geometry_gap <= 0.0 {
+        return None;
+    }
+
+    let operating_point_weight = 0.00020;
+    let numerator = displaced.score - selected.score
+        + operating_point_weight
+            * (selected.operating_point_diversity_penalty
+                - displaced.operating_point_diversity_penalty);
+    Some(numerator / geometry_gap)
+}
 
 fn cavitation_regime_summary(sigma: f64) -> String {
     if sigma < 0.0 {
@@ -21,8 +113,11 @@ pub(super) fn build_conclusions(
     topology_family_count: usize,
     option1: Option<&Milestone12ReportDesign>,
     option2: &Milestone12ReportDesign,
+    ga_top: &[Milestone12ReportDesign],
     ga_best: &Milestone12ReportDesign,
     ga_best_per_gen: &[f64],
+    ga_ranking_audit: &[Milestone12GaRankingAuditEntry],
+    tradeoff_table_number: usize,
 ) -> String {
     let m2 = &option2.metrics;
     let mg = &ga_best.metrics;
@@ -80,6 +175,7 @@ externally applied 412 kHz ultrasound. Acoustic resonance factor (ARF) = {:.4} \
     let gauge_kpa = option2.inlet_gauge_kpa();
     let d_throat_um = option2.throat_width_um().unwrap_or(0.0);
     let cavitation_summary = cavitation_regime_summary(m2.cavitation_number);
+    let cavitation_gain_margin = current_cavitation_gain_margin();
     let _ = writeln!(
         s,
         "**Option 2 - Hydrodynamic Cavitation SDT** (`{}`): {} under {:.0} kPa gauge through {:.0} µm throat; {} serial stage(s) per path; \
@@ -114,7 +210,7 @@ score = {:.3}; WBC treatment exposure {:.1}%; HI/pass = {:.4}%; throat viscous h
             s,
             "**Safety and FDA Compliance:** Both designs pass all five hard eligibility gates. \
 Max P95 wall shear: Option 1 = {:.1} Pa, Option 2 = {:.1} Pa (FDA 150 Pa sustained limit). \
-Throat transit time exception: {:.2e} s {} 5 ms threshold. \
+Venturi-channel transit time: {:.2e} s ({} 5 ms transient threshold, so {} shear limit applies). \
 Clotting risk index = {:.4} at nominal flow; flow caution flags are `Q>=200={}` and `Q>=600={}` \
 for this selected operating point. ECV = {:.3} mL within pediatric circuit targets. \
 FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
@@ -122,6 +218,7 @@ FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
             m2.wall_shear_p95_pa,
             m2.throat_transit_time_s,
             if m2.throat_transit_time_s < 5e-3 { "<" } else { "≥" },
+            if m2.throat_transit_time_s < 5e-3 { "transient 300 Pa" } else { "sustained 150 Pa" },
             m2.clotting_risk_index,
             if m2.clotting_flow_compliant { "PASS" } else { "FAIL" },
             if m2.clotting_flow_compliant_10ml_s { "PASS" } else { "FAIL" },
@@ -132,10 +229,11 @@ FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
     } else {
         let _ = writeln!(
             s,
-            "**Safety and FDA Compliance:** The selected Option 2 design passes all five hard eligibility gates. Option 1 produced no eligible shortlist under the current physics regime, so no acoustic selected-design safety row exists for this run. Option 2 P95 wall shear = {:.1} Pa (FDA 150 Pa sustained limit). Throat transit time exception: {:.2e} s {} 5 ms threshold. Clotting risk index = {:.4} at nominal flow; flow caution flags are `Q>=200={}` and `Q>=600={}` for this selected operating point. ECV = {:.3} mL within pediatric circuit targets. FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
+            "**Safety and FDA Compliance:** The selected Option 2 design passes all five hard eligibility gates. Option 1 produced no eligible shortlist under the current physics regime, so no acoustic selected-design safety row exists for this run. Option 2 P95 wall shear = {:.1} Pa (FDA 150 Pa sustained limit). Venturi-channel transit time: {:.2e} s ({} 5 ms transient threshold, so {} shear limit applies). Clotting risk index = {:.4} at nominal flow; flow caution flags are `Q>=200={}` and `Q>=600={}` for this selected operating point. ECV = {:.3} mL within pediatric circuit targets. FDA thermal compliance (42 °C ceiling) for Option 2: {} ({} K rise).\n",
             m2.wall_shear_p95_pa,
             m2.throat_transit_time_s,
             if m2.throat_transit_time_s < 5e-3 { "<" } else { "≥" },
+            if m2.throat_transit_time_s < 5e-3 { "transient 300 Pa" } else { "sustained 150 Pa" },
             m2.clotting_risk_index,
             if m2.clotting_flow_compliant { "PASS" } else { "FAIL" },
             if m2.clotting_flow_compliant_10ml_s { "PASS" } else { "FAIL" },
@@ -186,23 +284,101 @@ upper bound on the number of upstream flow-dividing stages.\n",
         s,
         "**GA Results - In-Place Dean-Serpentine Refinement:** The blueprint-native GA \
 (seed {M12_GA_HYDRO_SEED}, InPlaceDeanSerpentineRefinement goal) produced rank-1 design \
-`{}` with {} active throats ({} serial stage(s)). The GA applies three classes of \
-architecture-preserving mutations via `BlueprintTopologyMutation`: (1) branch width scaling \
-(treatment ×1.08, bypass ×0.94) to shift the Zweifach–Fung flow partition; (2) serpentine \
-insertion on treatment-path channels, introducing Dean secondary flow (De = Re √(D_h/2R)) \
-at bend apices where centrifugal forces focus larger CTCs toward the outer wall. The \
-millifluidic Dean correlation of Bayat-Rezai (2017) is used for channels with D_h > 500 µm, \
-providing a validated correction to the classical Dean (1927) formula for the larger aspect \
-ratios and Reynolds numbers characteristic of millifluidic geometries; and \
-(3) venturi throat narrowing (×0.92) to lower σ at the vena contracta. The Dean number \
-bonus (De_max/100) in the GA score explicitly rewards designs that co-localise inertial \
-focusing from Dean vortices with hydrodynamic cavitation at venturi throats positioned at \
-bend apices. GA score {:.4}. **Not comparable to Option 2 Combined mode score.**\n",
+`{}` with {} venturi throat geometries ({} serial stage(s)); note that throats may not \
+produce hydrodynamic cavitation at all operating points — σ >> 1 indicates the throats function \
+as Dean-focusing constrictions rather than cavitation sources. The GA applies three classes of \
+architecture-preserving mutations and crossover operations: (1) multi-regime treatment-lane \
+serpentine variants spanning compact, smooth, dense, and long curvature profiles to modulate \
+Dean secondary flow (De = Re √(D_h/2R)) at bend apices where centrifugal forces focus larger \
+CTCs toward the outer wall; (2) venturi retargeting / throat-geometry edits that alter serial \
+throat count and constriction ratio to lower σ at the vena contracta; and (3) compatible-parent \
+crossover plus diversity-aware survivor selection so operating-point advantages and topology \
+features from distinct high-performing parents can be recombined instead of only stacked along a \
+single lineage. The millifluidic Dean correlation of Bayat-Rezai (2017) is used for channels \
+with D_h > 500 µm, providing a validated correction to the classical Dean (1927) formula for the \
+larger aspect ratios and Reynolds numbers characteristic of millifluidic geometries. The Dean \
+number bonus (De_max/100) in the GA score explicitly rewards designs that co-localise inertial \
+focusing from Dean vortices with hydrodynamic cavitation at venturi throats positioned at bend \
+apices. For HydroSDT shortlist selection, GA venturi candidates must exceed the deterministic \
+Option 2 baseline cumulative cavitation dose by at least {:.3} to remain in the report-ranked \
+subset. GA score {:.4}. **Not comparable to Option 2 Combined mode score.**\n",
         ga_best.candidate.id,
         mg.active_venturi_throat_count,
         mg.serial_venturi_stages_per_path,
+        cavitation_gain_margin,
         ga_best.score,
     );
+
+    if ga_top.len() >= 2 {
+        let runner_up = &ga_top[1];
+        let ga_sep = ga_best.metrics.three_pop_sep_efficiency;
+        let runner_up_sep = runner_up.metrics.three_pop_sep_efficiency;
+        let _ = writeln!(
+            s,
+            "Within the top GA shortlist, three-population separation remains nearly flat \
+({ga_sep:.4} for rank-1 versus {runner_up_sep:.4} for rank-2), so rank-1 wins mainly by \
+maintaining stronger cavitation-driven treatment performance under comparable routing \
+selectivity rather than by a large change in bulk separation architecture.\n"
+        );
+    }
+
+    let (geometry_event_count, operating_point_event_count) = ancestry_event_counts(ga_best);
+    let _ = writeln!(
+        s,
+        "The rank-1 ancestry audit records {geometry_event_count} geometry-lineage events and \
+{operating_point_event_count} operating-point refinement event(s), indicating that the winning \
+GA family reflects deep inherited topology ancestry with limited late-stage flow/pressure tuning \
+rather than a purely local last-step tweak.\n"
+    );
+
+    if let Some(selected) = ga_ranking_audit.first() {
+        let displaced_raw_winner = ga_ranking_audit.iter().max_by(|left, right| {
+            left.score
+                .total_cmp(&right.score)
+                .then_with(|| left.rank.cmp(&right.rank))
+        });
+        if let Some(displaced) = displaced_raw_winner {
+            if displaced.candidate_id != selected.candidate_id || (displaced.score - selected.score).abs() > 1.0e-12 {
+                let _ = writeln!(
+                    s,
+                    "The ancestry-adjusted ranking selected `{}` at adjusted score {:.4} \
+(raw {:.4}; geometry penalty {:.3}; operating-point penalty {:.3}) over the highest raw-score \
+finalist `{}` (raw {:.4}; adjusted {:.4}) because the displaced design carried a larger geometry \
+concentration penalty of {:.3}{}.\n",
+                    selected.candidate_id,
+                    selected.adjusted_selection_score,
+                    selected.score,
+                    selected.geometry_concentration_penalty,
+                    selected.operating_point_diversity_penalty,
+                    displaced.candidate_id,
+                    displaced.score,
+                    displaced.adjusted_selection_score,
+                    displaced.geometry_concentration_penalty,
+                    if displaced.operating_point_diversity_penalty > 0.0 {
+                        format!(
+                            " and operating-point monoculture penalty {:.3}",
+                            displaced.operating_point_diversity_penalty
+                        )
+                    } else {
+                        String::new()
+                    },
+                );
+                let _ = writeln!(
+                    s,
+                    "The direct ranking tradeoff is summarized below.\n\n{}",
+                    build_ga_ranking_tradeoff_table(selected, displaced, tradeoff_table_number)
+                );
+                if let Some(threshold) = geometry_displacement_threshold(selected, displaced) {
+                    let _ = writeln!(
+                        s,
+                        "At the current operating-point coefficient (0.00020), any geometry penalty coefficient above {:.6} is sufficient to let this lower-concentration finalist displace the higher raw-score design; this run used {:.6}.\n",
+                        threshold,
+                        current_geometry_penalty_weight(),
+                    );
+                }
+            }
+        }
+    }
 
     // §6b — GA convergence note (flat fitness indicates local optimality of seed)
     if ga_best_per_gen.len() >= 2 {
@@ -212,8 +388,8 @@ bend apices. GA score {:.4}. **Not comparable to Option 2 Combined mode score.**
             let _ = writeln!(
                 s,
                 "The GA did not improve upon the seed design across {} generations, indicating \
-the parametric selection was already locally optimal under the available mutation operators \
-(branch width scaling, serpentine insertion, venturi throat narrowing).\n",
+the parametric selection was already locally optimal under the available mutation and crossover \
+operators in this run.\n",
                 ga_best_per_gen.len(),
             );
         } else {
@@ -221,8 +397,9 @@ the parametric selection was already locally optimal under the available mutatio
             let _ = writeln!(
                 s,
                 "Over {} generations the GA improved the best score by {improvement:.4} \
-(from {first:.4} to {last:.4}), confirming that architecture-preserving mutations \
-discovered beneficial topological refinements beyond the parametric sweep.\n",
+(from {first:.4} to {last:.4}), confirming that diversity-aware survivor selection together with \
+architecture-preserving mutation and crossover discovered beneficial refinements beyond the \
+parametric sweep.\n",
                 ga_best_per_gen.len(),
             );
         }

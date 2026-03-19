@@ -309,6 +309,28 @@ pub struct SdtMetrics {
     #[serde(default)]
     pub pediatric_flow_compliant: bool,
 
+    /// Maximum physical footprint overlap fraction between any two channels
+    /// in the blueprint geometry [0, 1].
+    ///
+    /// - 0.0: no channels physically overlap (independent resistances valid).
+    /// - < 0.1: shared walls only (acceptable, common in compact designs).
+    /// - > 0.5: significant merging where independent-resistance 1D model
+    ///   may underpredict the effective hydraulic diameter.
+    #[serde(default)]
+    pub channel_overlap_fraction: f64,
+
+    /// Width ratio (wider / narrower) at the most-overlapping channel pair.
+    ///
+    /// When channels of different widths merge, the velocity mismatch at the
+    /// junction creates passive inertial cell sorting: larger/stiffer CTCs
+    /// entering from a narrow high-velocity channel experience different
+    /// drag and lift than RBCs from a wide low-velocity bypass.
+    /// A ratio near 1.0 means symmetric merging (no sorting effect).
+    /// A ratio > 2.0 indicates significant velocity mismatch that may
+    /// enhance or degrade cell separation depending on geometry.
+    #[serde(default)]
+    pub overlap_width_ratio: f64,
+
     /// True when the treatment zone uses venturi throats (hydrodynamic SDT).
     #[serde(default)]
     pub venturi_treatment_enabled: bool,

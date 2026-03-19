@@ -36,11 +36,38 @@ pub enum VenturiPlacementMode {
     DiffuserShoulder,
 }
 
+/// Serpentine waveform type for the 1D physics model.
+///
+/// Controls both the 2D rendering path shape and the 1D solver's bend loss
+/// model.  Different waveforms produce distinct curvature profiles that
+/// affect Dean secondary flow intensity and minor loss coefficients.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SerpentineWaveType {
+    /// Smooth sinusoidal bends.  Curvature is distributed continuously
+    /// along each half-period.  Produces moderate Dean numbers with
+    /// gradual onset/decay.
+    #[default]
+    Sine,
+    /// Near-square-wave U-turns (tanh-smoothed).  Curvature is
+    /// concentrated at the direction reversals with near-constant-velocity
+    /// straight segments between them.  Highest K-factor minor losses.
+    Square,
+    /// Triangular (zigzag) path.  Linear ramps between sharp apices.
+    /// Curvature is zero along the ramps and singular at the apex
+    /// points, producing very localized Dean vortex peaks.
+    Triangular,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SerpentineSpec {
     pub segments: usize,
     pub bend_radius_m: f64,
     pub segment_length_m: f64,
+    /// Waveform type controlling bend geometry and 1D loss model.
+    /// Defaults to `Sine` for backward compatibility with existing
+    /// topology specs that omit this field.
+    #[serde(default)]
+    pub wave_type: SerpentineWaveType,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -207,14 +207,14 @@ pub(super) fn build_strict_core_table(
     out
 }
 
-pub(super) fn build_robustness_section(robustness: &[RobustnessReport], fast_mode: bool) -> String {
+pub(super) fn build_robustness_section(
+    robustness: &[RobustnessReport],
+    fast_mode: bool,
+    table_number: usize,
+) -> String {
     if robustness.is_empty() {
         let _ = fast_mode;
-        return "\
-### Option 2 Robustness Screening (Perturbations +/-10%/+/-20%)\n\n\
-*Robustness screening was not computed in this run (fast mode). \
-    Re-run with robustness enabled to populate.*\n"
-            .to_string();
+    return String::new();
     }
     let _ = fast_mode;
     let mut out = String::new();
@@ -226,9 +226,10 @@ pub(super) fn build_robustness_section(robustness: &[RobustnessReport], fast_mod
         robust_count,
         robustness.len()
     );
-    out.push_str(
-        "<div align=\"center\">\n\n<p><strong>Table 15.</strong> Robustness screening results</p>\n\n",
-    );
+    out.push_str(&format!(
+        "<div align=\"center\">\n\n<p><strong>Table {}.</strong> Robustness screening results</p>\n\n",
+        table_number,
+    ));
     out.push_str(
         "| Candidate | Nominal score | Min score | Max score | CV | Robust | Worst-case parameter |\n",
     );
@@ -289,13 +290,16 @@ pub(super) fn build_limits_of_usage(option2: &Milestone12ReportDesign) -> String
 
 pub(super) fn build_results_intro(
     total_candidates: usize,
+    option1_evaluated_count: usize,
+    option2_evaluated_count: usize,
     opt1_pool: usize,
     opt2_pool: usize,
 ) -> String {
     format!(
         "From {total_candidates} total candidates generated from canonical Milestone 12 split-sequence scaffolds, \
-strict eligibility gating produced {opt1_pool} Option 1 qualified designs \
-(AsymmetricSplitResidenceSeparation track) and {opt2_pool} Option 2 qualified designs \
+the authoritative strided fast workflow evaluated {option1_evaluated_count} Option 1 candidates \
+and {option2_evaluated_count} Option 2 candidates before strict eligibility gating. That gating then produced \
+{opt1_pool} Option 1 qualified designs (AsymmetricSplitResidenceSeparation track) and {opt2_pool} Option 2 qualified designs \
 (AsymmetricSplitVenturiCavitationSelectivity track). The ranked pool therefore reflects only physically admissible \
 designs that preserve selective split-width partitioning, treatment-lane residence time, and \
 healthy-cell protection. The following sub-sections present the selected designs (§5.1), gate \
@@ -316,12 +320,12 @@ pub(super) fn build_selected_table_intro(
     let option1_summary = if let Some(option1) = option1 {
         let m1 = &option1.metrics;
         format!(
-            "**Option 1 — Selective Acoustic Center Treatment** \
+            "**Option 1 - Selective Acoustic Center Treatment** \
 (`{}`, score {:.4}): branch-diameter biasing keeps {:.0}% of WBCs out of the treatment lane \
 per pass while concentrating CTC-rich flow for ultrasound exposure; HI/pass = {:.4}% \
 (FDA 0.1% non-therapeutic limit); ECV = {:.3} mL \
 ({:.1}% of the 3 kg neonatal circuit-volume limit). \
-This design carries zero active venturi throats — treatment relies entirely on externally \
+This design carries zero active venturi throats; treatment relies entirely on externally \
 applied 412 kHz ultrasound acting on cells concentrated in the center lane.",
             option1.candidate.id,
             option1.score,
@@ -331,12 +335,12 @@ applied 412 kHz ultrasound acting on cells concentrated in the center lane.",
             pediatric_limit_pct(m1.total_ecv_ml),
         )
     } else {
-        "**Option 1 — Selective Acoustic Center Treatment**: no design satisfied the strict acoustic eligibility gates under the current physics regime, so the report records Option 1 explicitly as an empty shortlist.".to_string()
+        "**Option 1 - Selective Acoustic Center Treatment**: no design satisfied the strict acoustic eligibility gates under the current physics regime, so the report records Option 1 explicitly as an empty shortlist.".to_string()
     };
     let cavitation_clause = cavitation_regime_clause(m2.cavitation_number);
     format!(
         "{}\n\n\
-**Option 2 — Selective Venturi Hydrodynamic Cavitation** \
+**Option 2 - Selective Venturi Hydrodynamic Cavitation** \
 (`{}`, score {:.4}): {} at {} serial venturi throat(s) per path; {:.0}% of CTCs route through the venturi \
 treatment lane (cancer_center_fraction); WBC treatment exposure = {:.0}%; therapeutic window \
 score = {:.3}; HI/pass = {:.4}%; ECV = {:.3} mL ({:.1}% of the same neonatal limit). \
@@ -415,7 +419,7 @@ effective viscosity above the Casson baseline. \
 For the selected design: {ccf_pct:.0}% of CTCs enter the venturi treatment lane \
 (cancer_center_fraction); {wbc_pct:.0}% of WBCs enter the treatment lane, so {:.0}% are kept out \
 of the treatment region before all flowpaths remerge upstream of the outlet; {rbc_pct:.0}% of RBCs \
-pass through venturi throats (rbc_venturi_exposure) — reducing this fraction is the primary \
+pass through venturi throats (rbc_venturi_exposure). Reducing this fraction is the primary \
 hemocompatibility lever. \
 Composite three-population separation efficiency = {:.4}.",
         (1.0 - m.wbc_recovery) * 100.0,
@@ -426,7 +430,7 @@ Composite three-population separation efficiency = {:.4}.",
         let _ = write!(
             s,
             " GA rank-1 (`{}`) achieves cancer_center_fraction={:.4}, \
-wbc_treatment_exposure={:.4}, rbc_venturi_exposure={:.4} — a narrower, more cavitation-intensive \
+wbc_treatment_exposure={:.4}, rbc_venturi_exposure={:.4}, a narrower, more cavitation-intensive \
 configuration than the parametric Option 2 selection.",
             ga.candidate.id,
             gm.cancer_center_fraction,
@@ -442,24 +446,24 @@ pub(super) fn build_strict_core_intro() -> String {
 ANSI/SLAS plate standards, and Hagen–Poiseuille network feasibility. A design failing any \
 gate receives the infeasibility floor score (0.001) and is excluded from the eligible pool \
 regardless of objective metrics.\n\n\
-1. **Pressure feasible** — total pressure drop Δp must not exceed the inlet gauge budget. \
+1. **Pressure feasible**: total pressure drop Δp must not exceed the inlet gauge budget. \
 For the 1D lumped-element Hagen–Poiseuille model, Δp = Σ (128 μ L Q / π D_h⁴) across all \
 channel segments (Casson-corrected blood viscosity μ ≈ 3.5 mPa·s at γ̇ > 100 s⁻¹). \
 This ensures the device can be driven by clinically available extracorporeal pump heads.\n\n\
-2. **Plate fits** — chip body dimensions ≤ 127.76 × 85.47 mm (ANSI/SLAS 1-2004, 96-well \
+2. **Plate fits**: chip body dimensions ≤ 127.76 × 85.47 mm (ANSI/SLAS 1-2004, 96-well \
 format), ensuring compatibility with standard fluorescence microscopy stages and optical \
 delivery windows for sonosensitiser activation.\n\n\
-3. **FDA main-channel compliance** — sustained wall shear stress τ_w = μ γ̇_w must not \
+3. **FDA main-channel compliance**: sustained wall shear stress τ_w = μ γ̇_w must not \
 exceed 150 Pa in any non-venturi channel. This threshold is derived from the Giersiepen \
 (1990) hemolysis correlation at exposure times typical of millifluidic transit (10–500 ms); \
 the Taskin (2012) strain-based hemolysis model is available as an alternative predictor \
 for designs where cumulative strain history dominates over instantaneous shear. Venturi \
 throats are excluded from this gate and evaluated separately under the transient shear \
 exception (≤ 300 Pa for ≤ 5 ms transit).\n\n\
-4. **σ finite** — the Bernoulli cavitation number σ = (p∞ − pᵥ)/(½ρv²) must converge \
+4. **σ finite**: the Bernoulli cavitation number σ = (p∞ − pᵥ)/(½ρv²) must converge \
 to a finite real value, confirming the 1D network solver produced a physically meaningful \
 flow field (no zero-flow or infinite-velocity singularities).\n\n\
-5. **σ < 1** — confirms entry into the incipient-cavitation window at the venturi throat. \
+5. **σ < 1**: confirms entry into the incipient-cavitation window at the venturi throat. \
 At 0 < σ < 1, the throat is cavitation-capable and susceptible to vapor/gas nucleus growth; \
 σ < 0 is the stronger regime in which the local static pressure at the vena contracta drops \
 below the vapour pressure of blood (pᵥ ≈ 6.3 kPa at 37 °C). Bubble collapse dynamics follow \
@@ -479,9 +483,13 @@ pub(super) fn build_cavitation_formulas_intro(option2: &Milestone12ReportDesign)
     let mut out = format!(
         "These derived metrics translate raw 1D Hagen–Poiseuille network physics (pressure drop, \
 wall shear rate, flow partition fractions) into clinically interpretable quantities.\n\n\
-**Cavitation number** σ = (p∞ − pᵥ) / (½ρv²_throat), where p∞ is the far-field \
-(inlet) absolute pressure, pᵥ ≈ 6.3 kPa (blood vapor pressure at 37 °C), and \
-v_throat is the cross-section averaged throat velocity (White 2011). For short venturi \
+**Cavitation number** σ = (p_throat − pᵥ,eff) / (½ρv²_eff), where p_throat is the \
+local static pressure at the vena contracta (inlet pressure minus Bernoulli contraction \
+drop and Darcy-Weisbach friction loss through the converging section), \
+pᵥ,eff = pᵥ + φ × 10 kPa is the effective vapor pressure including upstream nuclei \
+cascade (φ = nuclei volume fraction, pᵥ ≈ 6.3 kPa at 37 °C), and \
+v_eff = v_throat / C_d is the effective throat velocity corrected by the \
+Reynolds-dependent discharge coefficient (White 2011, ISO 5167). For short venturi \
 throats where L/D_h < 20, the Durst (2005) developing-flow entrance correction is \
 available to account for the non-parabolic velocity profile in the entrance region, \
 which increases the effective centreline velocity and wall shear relative to the \
@@ -489,7 +497,7 @@ fully-developed assumption. σ < 1 indicates incipient hydrodynamic cavitation; 
 σ < 0 implies p_throat < pᵥ (strong cavitation). \
 Cavitation potential C_p = max(0, 1 − σ).\n\n\
 **Cavitation intensity** I_cav = C_p × (0.5 + 0.5 × κ), where κ is the constriction \
-score — the logarithmic velocity ratio ln(v_throat/v_upstream) normalised by ln(v_ref). \
+score, the logarithmic velocity ratio ln(v_throat/v_upstream) normalized by ln(v_ref). \
 This couples bubble nucleation probability (C_p) with collapse violence (proportional \
 to kinetic energy at the vena contracta).\n\n\
 **Tumor-targeted cavitation index** TTCI = f_cancer,center × I_cav, where \
@@ -501,7 +509,9 @@ where L_risk = HI × (1 + 5 × f_rbc,venturi × H_local) is the lysis risk index
 TWS → 1 when cancer-targeted cavitation is high relative to blood damage.\n\n\
 **Sonoluminescence proxy** S = clamp(C_p × (p_abs/p_vap)^((κ_poly−1)/κ_poly) / S_ref, 0, 1), \
 modelling the adiabatic collapse temperature ratio for sonosensitiser (5-ALA, Ce6) \
-photoactivation under polytropic bubble dynamics (κ_poly = 1.4).\n\n\
+photoactivation under polytropic bubble dynamics (κ_poly = 1.25, Storey & Szeri 2000; \
+accounts for partial heat transfer during collapse, more conservative than the fully \
+adiabatic value γ = 1.4).\n\n\
 For the selected Option 2 design: TTCI = {:.4}, TWS = {:.4}, \
 lysis_risk_index = {:.4e}, sonoluminescence_proxy = {:.4}, \
 oncology_selectivity_index = {:.4}, cancer_rbc_cavitation_bias = {:.4}.",
@@ -518,7 +528,7 @@ oncology_selectivity_index = {:.4}, cancer_rbc_cavitation_bias = {:.4}.",
             "\n\n**Negative σ interpretation:** The selected Option 2 design has σ = {:.4}, \
 confirming that the local static pressure at the vena contracta drops below the vapor \
 pressure of blood (p_v ≈ 6.3 kPa at 37 °C). Negative σ is the desired operating regime \
-for Option 2 — it indicates active hydrodynamic cavitation at the venturi throat without \
+for Option 2: it indicates active hydrodynamic cavitation at the venturi throat without \
 requiring external acoustic energy input.",
             m.cavitation_number,
         );
@@ -561,13 +571,16 @@ extracorporeal circuits."
     format!(
         "Limits are derived from the selected Option 2 operating point ({q_ml_min:.1} mL/min, \
 {gauge_kpa:.0} kPa gauge). {q600_text} At this operating point, {cavitation_clause}. Viscous heating in the \
-{:.0} µm venturi throat is {temp_str} K — {thermal_verdict}: the FDA 42 °C \
+{:.0} µm venturi throat is {temp_str} K, {thermal_verdict} the FDA 42 °C \
 (37 + 5 K) temperature ceiling.",
         option2.throat_width_um().unwrap_or(0.0),
     )
 }
 
-pub(super) fn build_treatment_time_analysis(option2: &Milestone12ReportDesign) -> String {
+pub(super) fn build_treatment_time_analysis(
+    option2: &Milestone12ReportDesign,
+    table_number: usize,
+) -> String {
     use crate::constraints::{
         PEDIATRIC_FLOW_CAUTION_ML_MIN, PEDIATRIC_MAX_FLOW_ML_MIN_PER_KG,
         PEDIATRIC_REFERENCE_WEIGHT_KG,
@@ -643,22 +656,24 @@ therapeutic plasma exchange) typically operate at 5–10 mL/kg/min. {ped_access_
 The circuit holdup/turnover time (V_ECV / Q) and the treatment-zone residence time are separated below so reviewers can \
 distinguish overall extracorporeal dwell from the actual cavitation-exposure interval per pass.\n\n\
 <div align=\"center\">\n\n\
-<p><strong>Table 5.7.</strong> Treatment-time analysis benchmarked to plasma-volume processing</p>\n\n\
-| Quantity | Value | Interpretation |\n\
-| --- | ---: | --- |\n\
-| Reference blood volume (mL) | {blood_volume_ml:.1} | Derived from patient context or the 3 kg neonatal reference used elsewhere in the report. |\n\
-| Reference plasma volume (mL) | {plasma_volume_ml:.1} | Bulk plasma inventory available for plasma-volume-equivalent processing. |\n\
-| Operating blood flow (mL/min) | {q_ml_min:.1} | Primary extracorporeal throughput setpoint. |\n\
-| Pediatric flow ceiling (mL/min) | {ped_ceiling_ml_min:.0} | Weight-scaled maximum for catheter-based access ({ped_weight:.0} kg × {ped_ml_kg_min:.0} mL/kg/min). Flows above this require surgical vascular access. |\n\
-| Pediatric flow excess risk | {ped_risk:.2} | 0 = within catheter envelope; 1 = fully exceeds pediatric ceiling. Applies a scoring penalty of up to 15%. |\n\
-| Millifluidic extracorporeal volume, ECV (mL) | {ecv_ml:.3} | Device prime / blood-contacting hold-up volume. |\n\
-| ECV as % of plasma volume | {ecv_pct_plasma:.2} | Small values indicate low extracorporeal hold-up relative to circulating plasma. |\n\
-| Circuit turnover time, V_ECV / Q (s) | {circuit_turnover_s:.2} | Time for one device-volume replacement at the selected flow rate. |\n\
-| Treatment-zone residence per pass (ms) | {treatment_residence_ms:.2} | Mean cavitation/therapy exposure duration per pass through the active treatment region. |\n\
-| Residence as % of full circuit turnover | {treatment_share_pct:.2} | Fraction of device dwell spent in the treatment region rather than transport plumbing. |\n\
-| Plasma processed in {session_15_min:.0} min (mL) | {processed_plasma_15_ml:.1} | Session-equivalent plasma throughput for the milestone reference window. |\n\
-| Plasma-volume equivalents in {session_15_min:.0} / 30 / 60 min | {pv_15:.2} / {pv_30:.2} / {pv_60:.2} | Useful for comparing against dialysis/plasmapheresis-style dose accounting. |\n\
-| Time to process 1.0 / 1.5 plasma volumes (min) | {time_to_one_pv_min:.1} / {time_to_one_point_five_pv_min:.1} | Single-pass transit time for one and one-and-a-half plasma-volume equivalents at the operating flow rate. This is **not** the clinical session duration — actual treatment requires many recirculating passes (see plasma-volume equivalents row above for cumulative throughput over typical 15–60 min sessions). |\n\
+<p><strong>Table {table_number}.</strong> Treatment-time analysis benchmarked to plasma-volume processing</p>\n\n\
+<table style=\"width:88%; max-width:6.2in; margin:0 auto; border-collapse:collapse; table-layout:fixed; font-size:8.5pt; line-height:1.15;\">\n\
+<thead><tr><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal; width:22%;\">Quantity</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal; width:10%;\">Value</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal; width:48%;\">Interpretation</th></tr></thead>\n\
+<tbody>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Reference blood volume (mL)</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{blood_volume_ml:.1}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Derived from patient context or the 3 kg neonatal reference used elsewhere in the report.</td></tr>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Reference plasma volume (mL)</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{plasma_volume_ml:.1}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Bulk plasma inventory available for plasma-volume-equivalent processing.</td></tr>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Operating blood flow (mL/min)</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{q_ml_min:.1}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Primary extracorporeal throughput setpoint.</td></tr>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Pediatric flow ceiling (mL/min)</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{ped_ceiling_ml_min:.0}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Weight-scaled maximum for catheter-based access ({ped_weight:.0} kg × {ped_ml_kg_min:.0} mL/kg/min). Flows above this require surgical vascular access.</td></tr>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Pediatric flow excess risk</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{ped_risk:.2}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">0 = within catheter envelope; 1 = fully exceeds pediatric ceiling. Applies a scoring penalty of up to 15%.</td></tr>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Millifluidic extracorporeal volume, ECV (mL)</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{ecv_ml:.3}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Device prime / blood-contacting hold-up volume.</td></tr>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">ECV as % of plasma volume</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{ecv_pct_plasma:.2}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Small values indicate low extracorporeal hold-up relative to circulating plasma.</td></tr>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Circuit turnover time, V_ECV / Q (s)</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{circuit_turnover_s:.2}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Time for one device-volume replacement at the selected flow rate.</td></tr>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Treatment-zone residence per pass (ms)</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{treatment_residence_ms:.2}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Mean cavitation or therapy exposure duration per pass through the active treatment region.</td></tr>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Residence as % of full circuit turnover</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{treatment_share_pct:.2}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Fraction of device dwell spent in the treatment region rather than transport plumbing.</td></tr>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Plasma processed in {session_15_min:.0} min (mL)</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{processed_plasma_15_ml:.1}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Session-equivalent plasma throughput for the milestone reference window.</td></tr>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Plasma-volume equivalents in {session_15_min:.0} / 30 / 60 min</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{pv_15:.2} / {pv_30:.2} / {pv_60:.2}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Useful for comparing against dialysis or plasmapheresis-style dose accounting.</td></tr>\n\
+<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Time to process 1.0 / 1.5 plasma volumes (min)</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">{time_to_one_pv_min:.1} / {time_to_one_point_five_pv_min:.1}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Single-pass transit time for one and one-and-a-half plasma-volume equivalents at the operating flow rate. This is <strong>not</strong> the clinical session duration. Actual treatment requires many recirculating passes.</td></tr>\n\
+</tbody></table>\n\
 \n</div>",
         flow_band = extracorporeal_flow_band(q_ml_min),
         ped_risk = m.pediatric_flow_excess_risk,
@@ -680,7 +695,7 @@ distinguish overall extracorporeal dwell from the actual cavitation-exposure int
 /// The table spans all `SELECTIVE_TREE_WIDTHS × SELECTIVE_TREE_THROATS` combinations
 /// and reports vt1 (n=1) and vt2 (n=2) columns so design engineers can read the
 /// hemocompatibility cost directly from the chosen width/throat pairing.
-pub(super) fn build_cri_expansion_sensitivity() -> String {
+pub(super) fn build_cri_expansion_sensitivity(table_number: usize) -> String {
     const WIDTHS_MM: [f64; 3] = [4.0, 6.0, 8.0];
     const THROATS_UM: [f64; 6] = [35.0, 45.0, 55.0, 75.0, 100.0, 120.0];
     const CRI_WEIGHT: f64 = 0.20;
@@ -691,9 +706,12 @@ pub(super) fn build_cri_expansion_sensitivity() -> String {
 
     let mut out = String::new();
     out.push_str("<div align=\"center\">\n");
-    out.push_str("<table>\n");
-    out.push_str("<caption><strong>Table 5.8.</strong> Expansion-driven clot-risk contribution across the swept Milestone 12 channel-width / venturi-throat design space. Lower <code>CRI_exp</code> values are preferred.</caption>\n");
-    out.push_str("<thead>\n<tr><th>Channel width (mm)</th><th>Throat Ø (µm)</th><th>w/d ratio</th><th>p_stage</th><th>P(vt1)</th><th>P(vt2)</th><th>CRI_exp (vt1)</th><th>CRI_exp (vt2)</th></tr>\n</thead>\n<tbody>\n");
+    out.push_str("<table style=\"width:88%; max-width:6.2in; margin:0 auto; border-collapse:collapse; table-layout:fixed; font-size:8.5pt; line-height:1.15;\">\n");
+    out.push_str(&format!(
+        "<caption style=\"caption-side:top; margin-bottom:8px;\"><strong>Table {}.</strong> Expansion-driven clot-risk contribution across the swept Milestone 12 channel-width / venturi-throat design space. Lower <code>CRI_exp</code> values are preferred.</caption>\n",
+        table_number,
+    ));
+    out.push_str("<thead>\n<tr><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Channel width (mm)</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Throat Ø (µm)</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">w/d ratio</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">p_stage</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">P(vt1)</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">P(vt2)</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">CRI_exp (vt1)</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">CRI_exp (vt2)</th></tr>\n</thead>\n<tbody>\n");
 
     for &w_mm in &WIDTHS_MM {
         for &d_um in &THROATS_UM {
@@ -703,7 +721,7 @@ pub(super) fn build_cri_expansion_sensitivity() -> String {
             let p_vt2 = 1.0 - (1.0 - p_stage).powi(2);
             let _ = writeln!(
                 out,
-                "<tr><td>{w_mm:.0}</td><td>{d_um:.0}</td><td>{ratio:.1}</td><td>{p_stage:.3}</td><td>{p_vt1:.3}</td><td>{p_vt2:.3}</td><td>{:.4}</td><td>{:.4}</td></tr>",
+                "<tr><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{w_mm:.0}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{d_um:.0}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{ratio:.1}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{p_stage:.3}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{p_vt1:.3}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{p_vt2:.3}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{:.4}</td><td style=\"border:1px solid #d9d9d9; padding:3px 4px; text-align:center; vertical-align:top;\">{:.4}</td></tr>",
                 CRI_WEIGHT * p_vt1,
                 CRI_WEIGHT * p_vt2,
             );
@@ -767,6 +785,99 @@ selected designs.
     .to_string()
 }
 
+/// Build the discussion section for serpentine venturi placement physics
+/// (Figures 13 and 14 companion text).
+///
+/// Explains how bend-apex positioning, serial pressure decay, and mirrored
+/// curvature variation interact to determine per-throat cavitation performance.
+pub(super) fn build_serpentine_venturi_discussion(
+    option2: &Milestone12ReportDesign,
+    ga_best: Option<&Milestone12ReportDesign>,
+) -> String {
+    let m = &option2.metrics;
+    let n_throats = m.active_venturi_throat_count;
+    let n_stages = m.serial_venturi_stages_per_path;
+    let sigma = m.cavitation_number;
+
+    let ga_section = ga_best
+        .map(|ga| {
+            let gm = &ga.metrics;
+            format!(
+                " The GA rank-1 design (`{}`) uses {} serial stage(s) per path with \
+sigma = {:.4} at the strongest throat. The GA score includes a Dean number \
+term (`De_max / 100`) that rewards co-localization of inertial focusing and \
+cavitation. The Bayat-Rezai (2017) friction enhancement factor \
+f/f_s = 1 + 0.085 * De^0.48 accounts for increased mixing at millifluidic \
+bend geometries with D_h > 500 um.",
+                ga.candidate.id,
+                gm.serial_venturi_stages_per_path,
+                gm.cavitation_number,
+            )
+        })
+        .unwrap_or_default();
+
+    format!(
+        "### 5.9 Serpentine Venturi Placement Analysis\n\n\
+Figure 13 decomposes the per-throat physics for the GA-optimized serpentine design. \
+Three effects interact at each venturi position along the treatment path:\n\n\
+**1. Serial pressure decay.** Each venturi throat and its approach/diffuser \
+segment consumes a portion of the available inlet pressure. With {n_throats} active \
+throats across {n_stages} serial stage(s), the upstream static pressure at the last \
+throat is lower than at the first. Because the cavitation number \
+sigma = (p_upstream - p_vapor) / (0.5 * rho * v_throat^2) depends on the local \
+upstream pressure, downstream positions have higher sigma (weaker cavitation). \
+For the selected Option 2 design (total pressure drop = {:.0} kPa), the treatment-path \
+share of this drop distributes roughly linearly across serial positions. This limits \
+the practical number of serial stages: adding a 7th or 8th throat may push the \
+final positions above sigma = 1, eliminating cavitation entirely.\n\n\
+**2. Mirrored curvature variation.** Real serpentine channels alternate between \
+tighter inner bends and wider outer bends. The Dean number \
+De = Re * sqrt(D_h / 2R) is inversely proportional to the square root of the \
+bend radius R, so inner bends (smaller R) produce stronger secondary \
+flow. This alternating De pattern means that odd-numbered bends (inner turns) \
+provide stronger CTC pre-focusing than even-numbered bends. Venturi throats at \
+inner-bend apices see a more concentrated CTC stream entering the constriction, \
+increasing the fraction of cancer cells that experience cavitation.\n\n\
+**3. Dean-cavitation co-localization.** The `CurvaturePeakDeanNumber` placement \
+mode positions venturi throats at bend apices where the Dean secondary flow is \
+strongest. At these sites, centrifugal forces in the curved channel drive larger, \
+less-deformable CTCs (diameter 10-15 um) toward the outer wall, while smaller RBCs \
+(diameter ~8 um) remain on inner streamlines. The venturi constriction at the bend \
+apex then subjects the CTC-enriched outer-wall flow to the highest throat velocity \
+and lowest local pressure, maximizing the cavitation dose delivered to cancer cells \
+while partially shielding RBCs on the low-velocity inner streamlines.\n\n\
+**4. Curvature-friction coupling in the 1D solver.** The SerpentineModel in cfd-1d \
+applies the Ito (1959) curvature enhancement to the Hagen-Poiseuille friction factor \
+when computing channel resistance: f_curved = f_straight * enhancement(De). For \
+millifluidic channels (D_h > 500 um, Re < 500), the Bayat-Rezai (2017) correlation \
+f/f_s = 1 + 0.085 * De^0.48 is also available. This coupling means that converting \
+a straight treatment channel to a serpentine increases its hydraulic resistance, \
+which shifts the Zweifach-Fung flow partition: less flow enters the higher-resistance \
+serpentine treatment path, and more flow diverts to the lower-resistance bypass arms. \
+The 1D network solver captures this redistribution, so the GA's serpentine mutations \
+produce measurable changes in throat velocity, sigma, and cell partitioning at \
+downstream venturi positions.\n\n\
+Figure 14 complements this per-throat physics view with a direct side-by-side \
+treatment-lane zoom of the best serpentine-capable Option 2 and GA geometries. \
+That local zoom is not meant to restate the overall track winners; it isolates the \
+specific design mechanism tested by the authoritative strided fast sweep: using \
+serpentine curvature to raise treatment-path residence time for ultrasound exposure \
+while selectively placing venturi throats at Dean-favorable sites that preserve or \
+increase cavitation delivery to the cancer-focused stream. The panel-level residence, \
+cavitation, and bend-radius annotations make that local trade-off explicit.\n\n\
+For the selected Option 2 design, the first throat operates at sigma = {sigma:.4}, \
+placing it {} the hydrodynamic cavitation threshold.{ga_section}",
+        m.total_pressure_drop_pa * 1e-3,
+        if sigma < 0.0 {
+            "well below"
+        } else if sigma < 1.0 {
+            "within"
+        } else {
+            "above"
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{build_cri_expansion_sensitivity, cavitation_regime_clause};
@@ -779,10 +890,10 @@ mod tests {
 
     #[test]
     fn cri_expansion_sensitivity_renders_centered_html_table() {
-        let html = build_cri_expansion_sensitivity();
+        let html = build_cri_expansion_sensitivity(15);
         assert!(html.contains("<div align=\"center\">"));
-        assert!(html.contains("<caption><strong>Table 5.8."));
-        assert!(html.contains("<table>"));
+        assert!(html.contains("<caption style=\"caption-side:top; margin-bottom:8px;\"><strong>Table 15."));
+        assert!(html.contains("<table style="));
         assert!(html.contains("</table>"));
     }
 }

@@ -129,6 +129,7 @@ pub fn with_branch_serpentine(
         segments,
         bend_radius_m,
         segment_length_m,
+        wave_type: crate::topology::SerpentineWaveType::Sine,
     });
     Some(spec)
 }

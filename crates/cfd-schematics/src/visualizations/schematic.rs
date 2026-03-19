@@ -465,6 +465,24 @@ fn explicit_or_generated_path(
     parallel_slot: Option<(usize, usize)>,
     box_dims: (f64, f64),
 ) -> Vec<Point2D> {
+    if let crate::domain::model::ChannelShape::Serpentine {
+        segments,
+        bend_radius_m,
+        ..
+    } = channel_spec.channel_shape
+    {
+        if !channel_spec.path.is_empty() {
+            return if path_has_visible_serpentine_curvature(
+                &channel_spec.path,
+                bend_radius_m * 1.0e3,
+            ) {
+                channel_spec.path.clone()
+            } else {
+                generated_serpentine_path(from, to, segments, bend_radius_m * 1.0e3)
+            };
+        }
+    }
+
     if !channel_spec.path.is_empty() {
         return channel_spec.path.clone();
     }
@@ -486,6 +504,7 @@ fn explicit_or_generated_path(
         crate::domain::model::ChannelShape::Serpentine {
             segments,
             bend_radius_m,
+            ..
         } => generated_serpentine_path(from, to, segments, bend_radius_m * 1.0e3),
         crate::domain::model::ChannelShape::Straight => vec![from, to],
     }
@@ -529,6 +548,32 @@ fn generated_parallel_path(
         end.1 - dy * shoulder + ny * offset_mm,
     );
     vec![start, entry, exit, end]
+}
+
+fn path_has_visible_serpentine_curvature(path: &[Point2D], bend_radius_mm: f64) -> bool {
+    if path.len() < 3 {
+        return false;
+    }
+
+    let start = path[0];
+    let end = *path.last().expect("path has at least one point");
+    let dx = end.0 - start.0;
+    let dy = end.1 - start.1;
+    let chord = dx.hypot(dy);
+    if chord <= 1.0e-9 {
+        return false;
+    }
+
+    let nx = -dy / chord;
+    let ny = dx / chord;
+    let min_expected_offset_mm = (bend_radius_mm * 0.25).max(0.75);
+    let offsets = path
+        .iter()
+        .map(|point| ((point.0 - start.0) * nx) + ((point.1 - start.1) * ny))
+        .filter(|offset| offset.abs() >= min_expected_offset_mm)
+        .collect::<Vec<_>>();
+
+    offsets.iter().any(|offset| *offset > 0.0) && offsets.iter().any(|offset| *offset < 0.0)
 }
 
 fn channel_category_from_blueprint(
@@ -901,6 +946,7 @@ mod tests {
         channel.channel_shape = ChannelShape::Serpentine {
             segments: 5,
             bend_radius_m: 2.0e-3,
+            wave_type: crate::topology::SerpentineWaveType::Sine,
         };
         assert_eq!(
             channel_category_from_blueprint(&channel),

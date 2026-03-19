@@ -282,6 +282,13 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
         }
     }
 
+    /// Override the bend type (e.g. to `BendType::Sharp` for square waves).
+    #[must_use]
+    pub fn with_bend_type(mut self, bend_type: BendType) -> Self {
+        self.bend_type = bend_type;
+        self
+    }
+
     /// Create a millifluidic serpentine with rectangular cross-section
     pub fn millifluidic_rectangular(
         width: f64,
@@ -310,12 +317,6 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
                 radius_to_dh_ratio: r_dh_f64,
             },
         }
-    }
-
-    /// Set bend type
-    pub fn with_bend_type(mut self, bend_type: BendType) -> Self {
-        self.bend_type = bend_type;
-        self
     }
 
     /// Number of bends (= num_segments - 1)
@@ -472,16 +473,21 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
             // Small but nonzero
         };
 
-        // --- 1. Straight segment friction ---
+        // --- 1. Friction with Dean curvature enhancement ---
         let f_straight = self.base_friction_factor(re_safe);
+        let dean = self.dean_number(re_safe);
+        let f_effective = f_straight * self.curvature_enhancement(dean);
 
-        // Pressure drop from friction in straight segments (NO curvature correction for straight parts):
-        // ΔP_friction = f × (L/D_h) × (ρV²/2)
-        // Note: Curvature enhancement is NOT applied to straight sections,
-        // only to bend regions via the bend loss coefficient.
+        // Pressure drop from friction along the serpentine path length.
+        // The curvature enhancement factor (Ito 1959 / Bayat-Rezai 2017)
+        // accounts for the increased friction due to Dean secondary flow in
+        // curved channel sections.  Without this correction, serpentine
+        // channels produce nearly identical resistance to straight channels,
+        // making the GA's serpentine insertion mutations invisible to the
+        // 1D flow solver.
         let half = T::one() / (T::one() + T::one());
         let dp_friction =
-            f_straight * (self.straight_length / dh) * half * density * velocity * velocity;
+            f_effective * (self.straight_length / dh) * half * density * velocity * velocity;
 
         // --- 3. Bend minor losses ---
         let n_bends = T::from_usize(self.num_bends()).unwrap_or_else(T::zero);

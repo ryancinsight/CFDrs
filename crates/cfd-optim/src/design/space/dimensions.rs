@@ -64,7 +64,12 @@ pub(super) const SELECTIVE_CENTERLINE_VT_COUNTS: [u8; 4] = [1, 2, 3, 4];
 static MILESTONE12_FLOWS: [f64; 4] = [1.333e-6, 1.667e-6, 2.000e-6, 3.333e-6];
 static MILESTONE12_GAUGES: [f64; 4] = [25_000.0, 50_000.0, 100_000.0, 200_000.0];
 static MILESTONE12_THROATS: [f64; 6] = [35e-6, 45e-6, 55e-6, 75e-6, 100e-6, 120e-6];
-static MILESTONE12_WIDTHS: [f64; 3] = [4.0e-3, 6.0e-3, 8.0e-3];
+/// Channel widths [m] for the Milestone 12 selective sweep.
+///
+/// The range spans from narrow (1.5 mm, where treatment channels at deep
+/// split stages reach D_h < 200 um for confinement-dependent CTC/WBC
+/// selectivity) to wide (8 mm, for high-flow acoustic-only designs).
+static MILESTONE12_WIDTHS: [f64; 5] = [1.5e-3, 2.0e-3, 4.0e-3, 6.0e-3, 8.0e-3];
 
 pub(super) struct Milestone12Dimensions {
     pub flows: &'static [f64],

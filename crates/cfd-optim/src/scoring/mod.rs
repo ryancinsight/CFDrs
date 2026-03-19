@@ -108,7 +108,24 @@ fn score_candidate_impl(
             // cliff (preserves gradient for adult-context re-use).
             let pediatric_flow_penalty =
                 0.15 * metrics.pediatric_flow_excess_risk;
-            ((raw - coag_penalty - thermal_penalty - pediatric_flow_penalty) * hi_gate)
+            // Channel overlap penalty: the 1D independent-resistance model
+            // loses accuracy when channels physically merge.  However, when
+            // overlapping channels have different widths (ratio > 2), the
+            // velocity mismatch at the merge zone creates passive inertial
+            // cell sorting that may enhance separation.  The penalty is
+            // therefore reduced for high width ratios (potential sorting
+            // benefit) and full strength for symmetric merges (ratio ~ 1).
+            let overlap_raw = ((metrics.channel_overlap_fraction - 0.3) / 0.7).clamp(0.0, 1.0);
+            // Width-ratio discount: ratio 1.0 -> factor 1.0 (full penalty);
+            // ratio 3.0+ -> factor 0.3 (70% discount for sorting benefit).
+            let ratio_discount = if metrics.overlap_width_ratio > 1.0 {
+                (1.0 / metrics.overlap_width_ratio.min(3.0)).max(0.3)
+            } else {
+                1.0
+            };
+            let overlap_penalty = 0.05 * overlap_raw * ratio_discount;
+            ((raw - coag_penalty - thermal_penalty - pediatric_flow_penalty - overlap_penalty)
+                * hi_gate)
                 .max(INFEASIBILITY_FLOOR)
         }
         ScoreMode::SmoothPenalty => {
@@ -160,7 +177,15 @@ fn score_candidate_impl(
             };
             let pediatric_flow_penalty =
                 0.15 * metrics.pediatric_flow_excess_risk;
-            (raw * feasibility - coag_penalty - thermal_penalty - pediatric_flow_penalty)
+            let overlap_raw = ((metrics.channel_overlap_fraction - 0.3) / 0.7).clamp(0.0, 1.0);
+            let ratio_discount = if metrics.overlap_width_ratio > 1.0 {
+                (1.0 / metrics.overlap_width_ratio.min(3.0)).max(0.3)
+            } else {
+                1.0
+            };
+            let overlap_penalty = 0.05 * overlap_raw * ratio_discount;
+            (raw * feasibility - coag_penalty - thermal_penalty - pediatric_flow_penalty
+                - overlap_penalty)
                 .max(INFEASIBILITY_FLOOR)
         }
     }

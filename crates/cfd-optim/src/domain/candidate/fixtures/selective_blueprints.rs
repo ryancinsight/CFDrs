@@ -64,6 +64,7 @@ pub(crate) fn canonical_option1_request() -> Milestone12TopologyRequest {
         segments: 4,
         bend_radius_m: 1.3e-3,
         segment_length_m: 5.0e-3,
+        wave_type: cfd_schematics::SerpentineWaveType::Sine,
     });
     request
 }
@@ -141,6 +142,7 @@ pub(crate) fn stage0_venturi_candidate(
         segments: 6,
         bend_radius_m: 1.1e-3,
         segment_length_m: 4.0e-3,
+        wave_type: cfd_schematics::SerpentineWaveType::Sine,
     });
     request.treatment_mode = TreatmentActuationMode::VenturiCavitation;
     request.venturi_throat_count = 2;

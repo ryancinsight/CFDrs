@@ -804,6 +804,8 @@ mod tests {
         assert!(catalog.iter().any(|request| request.design_name == "Penta-XY"));
         // Multi-layer Quad/Penta cascades
         assert!(catalog.iter().any(|request| request.design_name == "QuadTriBi-BASE"));
+        assert!(catalog.iter().any(|request| request.design_name == "PentaQuadBi-BASE"));
+        assert!(catalog.iter().any(|request| request.design_name == "PentaQuadTri-XY"));
         assert!(catalog.iter().any(|request| request.design_name == "PentaTriBi-XY"));
         assert!(catalog.iter().any(|request| request.design_name == "QuadBi-X"));
         assert!(catalog.iter().any(|request| request.design_name == "PentaTri-Y"));

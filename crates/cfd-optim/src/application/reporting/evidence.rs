@@ -243,6 +243,7 @@ mod tests {
             venturi: BlueprintVenturiMetrics {
                 placements: Vec::new(),
                 cavitation_selectivity_score: 0.7,
+                venturi_flow_fraction: 0.45,
                 rbc_exposure_fraction: 0.15,
                 wbc_exposure_fraction: 0.2,
             },

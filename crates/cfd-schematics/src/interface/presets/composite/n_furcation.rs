@@ -91,6 +91,7 @@ pub fn n_furcation_serpentine_rect(
                 segments: segments.max(2),
                 bend_radius_m: main_width_m * 0.5,
                 segment_length_m,
+                wave_type: crate::topology::SerpentineWaveType::Sine,
             }),
         ),
         TreatmentActuationMode::UltrasoundOnly,

@@ -45,6 +45,7 @@ fn generator_center_serpentine(
     normalized_center_serpentine(center_serpentine).map(|spec| CenterSerpentinePathSpec {
         segments: spec.segments,
         bend_radius_m: spec.bend_radius_m,
+        wave_type: Default::default(),
     })
 }
 
@@ -267,6 +268,7 @@ pub fn asymmetric_bifurcation_serpentine_rect(
         segments: segments.max(2),
         bend_radius_m: wide_width_m * 0.5,
         segment_length_m,
+        wave_type: crate::topology::SerpentineWaveType::Sine,
     });
     canonical_parallel_blueprint(
         name,
@@ -292,6 +294,7 @@ pub fn asymmetric_bifurcation_serpentine_rect(
                     segments: segments.max(2),
                     bend_radius_m: narrow_width_m * 0.5,
                     segment_length_m,
+                    wave_type: crate::topology::SerpentineWaveType::Sine,
                 }),
             ),
         ],

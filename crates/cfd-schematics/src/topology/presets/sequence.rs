@@ -55,6 +55,10 @@ pub enum PrimitiveSplitSequence {
     QuadTriBi,
     /// Pentafurcation → bifurcation (10 leaves).
     PentaBi,
+    /// Pentafurcation → quadfurcation → bifurcation (40 leaves).
+    PentaQuadBi,
+    /// Pentafurcation → quadfurcation → trifurcation (60 leaves).
+    PentaQuadTri,
     /// Pentafurcation → trifurcation (15 leaves).
     PentaTri,
     /// Pentafurcation → trifurcation → bifurcation (30 leaves).
@@ -70,7 +74,7 @@ impl PrimitiveSplitSequence {
             Self::TriBi | Self::TriTri | Self::TriQuad | Self::TriPenta
             | Self::QuadBi | Self::QuadTri | Self::PentaBi | Self::PentaTri => 2,
             Self::TriBiBi | Self::TriBiTri | Self::TriTriBi | Self::TriTriTri
-            | Self::QuadTriBi | Self::PentaTriBi => 3,
+            | Self::QuadTriBi | Self::PentaQuadBi | Self::PentaQuadTri | Self::PentaTriBi => 3,
         }
     }
 
@@ -94,6 +98,8 @@ impl PrimitiveSplitSequence {
             Self::QuadTri => "Quad\u{2192}Tri",
             Self::QuadTriBi => "Quad\u{2192}Tri\u{2192}Bi",
             Self::PentaBi => "Penta\u{2192}Bi",
+            Self::PentaQuadBi => "Penta\u{2192}Quad\u{2192}Bi",
+            Self::PentaQuadTri => "Penta\u{2192}Quad\u{2192}Tri",
             Self::PentaTri => "Penta\u{2192}Tri",
             Self::PentaTriBi => "Penta\u{2192}Tri\u{2192}Bi",
         }
@@ -158,7 +164,7 @@ pub const TRI_FIRST_SEQUENCES: [PrimitiveSplitSequence; 9] = [
 /// All primitive split sequences including non-tri-first variants for
 /// broader parametric sweeps where the root stage may be Bi, Tri, Quad,
 /// or Penta.
-pub const ALL_SELECTIVE_SEQUENCES: [PrimitiveSplitSequence; 18] = [
+pub const ALL_SELECTIVE_SEQUENCES: [PrimitiveSplitSequence; 20] = [
     PrimitiveSplitSequence::Bi,
     PrimitiveSplitSequence::Tri,
     PrimitiveSplitSequence::TriBi,
@@ -175,6 +181,8 @@ pub const ALL_SELECTIVE_SEQUENCES: [PrimitiveSplitSequence; 18] = [
     PrimitiveSplitSequence::QuadTri,
     PrimitiveSplitSequence::QuadTriBi,
     PrimitiveSplitSequence::PentaBi,
+    PrimitiveSplitSequence::PentaQuadBi,
+    PrimitiveSplitSequence::PentaQuadTri,
     PrimitiveSplitSequence::PentaTri,
     PrimitiveSplitSequence::PentaTriBi,
 ];
@@ -183,7 +191,7 @@ pub const ALL_SELECTIVE_SEQUENCES: [PrimitiveSplitSequence; 18] = [
 ///
 /// Includes single-stage roots (Bi, Tri, Quad, Penta) plus multi-layer
 /// Quad-first and Penta-first cascading split sequences.
-pub const MILESTONE12_SWEEP_SEQUENCES: [PrimitiveSplitSequence; 10] = [
+pub const MILESTONE12_SWEEP_SEQUENCES: [PrimitiveSplitSequence; 12] = [
     PrimitiveSplitSequence::Bi,
     PrimitiveSplitSequence::Tri,
     PrimitiveSplitSequence::Quad,
@@ -192,6 +200,8 @@ pub const MILESTONE12_SWEEP_SEQUENCES: [PrimitiveSplitSequence; 10] = [
     PrimitiveSplitSequence::QuadTri,
     PrimitiveSplitSequence::QuadTriBi,
     PrimitiveSplitSequence::PentaBi,
+    PrimitiveSplitSequence::PentaQuadBi,
+    PrimitiveSplitSequence::PentaQuadTri,
     PrimitiveSplitSequence::PentaTri,
     PrimitiveSplitSequence::PentaTriBi,
 ];

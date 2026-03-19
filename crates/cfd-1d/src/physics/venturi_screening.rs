@@ -82,7 +82,27 @@ pub fn discharge_coefficient_from_convergent_half_angle_deg(half_angle_deg: f64)
 /// Evaluate venturi throat screening quantities from local 1D state.
 #[must_use]
 pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> VenturiScreeningResult {
-    let v_eff = input.throat_velocity_m_s / input.vena_contracta_coeff.max(1e-9);
+    // Reynolds-dependent discharge coefficient correction.
+    // At low Re, viscous boundary layers in the convergent section
+    // reduce the effective throat velocity beyond what the inviscid
+    // vena-contracta coefficient predicts.
+    //
+    // - Re > 2300 (turbulent): C_d = base vena-contracta coeff (ISO 5167)
+    // - Re 500-2300 (laminar): C_d reduced linearly to 92% of base
+    // - Re < 500 (creeping): C_d reduced to 85% of base
+    let v_raw = input.throat_velocity_m_s / input.vena_contracta_coeff.max(1e-9);
+    let re_raw = input.density_kg_m3 * v_raw * input.throat_hydraulic_diameter_m.max(1e-18)
+        / input.viscosity_pa_s.max(1e-18);
+    let cd_correction = if re_raw > 2300.0 {
+        1.0
+    } else if re_raw > 500.0 {
+        0.92 + 0.08 * (re_raw - 500.0) / 1800.0
+    } else {
+        0.85 + 0.07 * (re_raw / 500.0)
+    };
+    let effective_cc = input.vena_contracta_coeff * cd_correction;
+    let v_eff = input.throat_velocity_m_s / effective_cc.max(1e-9);
+
     let bernoulli_drop = 0.5
         * input.density_kg_m3
         * (v_eff * v_eff - input.upstream_velocity_m_s * input.upstream_velocity_m_s).max(0.0);
@@ -118,10 +138,41 @@ pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> VenturiScreen
         f64::INFINITY
     };
 
+    // Nuclei generation at the throat: use the physical model from
+    // NucleiTransport.  Cavitation (sigma < 1) generates nuclei from
+    // bubble collapse; the generation rate scales with the cavitation
+    // intensity (1 - sigma).  The dissolution during throat transit
+    // partially offsets generation.
+    let throat_transit_s = input.throat_length_m / v_eff.max(1e-9);
+    let cavitation_source = (1.0 - cavitation_number).max(0.0);
+    let transport = cfd_core::physics::cavitation::nuclei_transport::NucleiTransport::new(
+        cfd_core::physics::cavitation::nuclei_transport::NucleiTransportConfig::default(),
+    );
+    let net_rate = transport.calculate_net_reaction_rate(
+        input.upstream_nuclei_fraction,
+        cavitation_source,
+    );
     let outlet_nuclei_fraction =
-        (input.upstream_nuclei_fraction + (1.0 - cavitation_number).max(0.0)).clamp(0.0, 1.0);
+        (input.upstream_nuclei_fraction + net_rate * throat_transit_s).clamp(0.0, 1.0);
 
+    // Diffuser pressure recovery with Re-dependent efficiency.
+    // At low Re (< 500), the boundary layer fills more of the diffuser
+    // cross-section, reducing the pressure recovery.  At high Re (> 2000),
+    // separation in the diffuser limits recovery to ~60-80% of ideal.
+    //
+    // Re-dependent correction based on Idelchik (2007), Diagram 5-2:
+    // - Re > 2000: eta = base coefficient (turbulent, ~0.7-0.8)
+    // - Re 200-2000: eta decreases linearly to 60% of base
+    // - Re < 200: eta = 50% of base (viscous losses dominate)
+    let re_correction = if re_throat > 2000.0 {
+        1.0
+    } else if re_throat > 200.0 {
+        0.60 + 0.40 * (re_throat - 200.0) / 1800.0
+    } else {
+        0.50 + 0.10 * (re_throat / 200.0)
+    };
     let diffuser_recovery = input.diffuser_recovery_coeff
+        * re_correction
         * 0.5
         * input.density_kg_m3
         * (v_eff * v_eff - input.upstream_velocity_m_s * input.upstream_velocity_m_s).max(0.0);

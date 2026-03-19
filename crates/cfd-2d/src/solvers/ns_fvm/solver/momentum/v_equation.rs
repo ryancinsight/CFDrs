@@ -36,15 +36,16 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 let dy_j = self.grid.dy_at(j);
                 let dy_cv = (dy_jm1 + dy_j) * half;
 
+                // Effective viscosity = molecular + turbulent.
                 let mu_n = if j < ny {
-                    self.field.mu[(i, j)]
+                    self.field.mu[(i, j)] + rho * self.field.nu_t[(i, j)]
                 } else {
-                    self.field.mu[(i, ny - 1)]
+                    self.field.mu[(i, ny - 1)] + rho * self.field.nu_t[(i, ny - 1)]
                 };
                 let mu_s = if j > 0 {
-                    self.field.mu[(i, j - 1)]
+                    self.field.mu[(i, j - 1)] + rho * self.field.nu_t[(i, j - 1)]
                 } else {
-                    self.field.mu[(i, 0)]
+                    self.field.mu[(i, 0)] + rho * self.field.nu_t[(i, 0)]
                 };
                 let mu_face = (mu_n + mu_s) / (one + one);
 
@@ -77,10 +78,23 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                     rho * v_old[(i, j)] * dx
                 };
 
+                // Hybrid convection: east/west remain upwind (cross-stream),
+                // north/south use hybrid (streamwise for v-equation).
                 let a_e = Float::max(d_e - f_e * half, zero) + Float::max(-f_e, zero);
                 let a_w = Float::max(d_w + f_w * half, zero) + Float::max(f_w, zero);
-                let a_n = Float::max(d_n - f_n * half, zero) + Float::max(-f_n, zero);
-                let a_s = Float::max(d_s + f_s * half, zero) + Float::max(f_s, zero);
+                let two = one + one;
+                let pe_n = Float::abs(f_n) / d_n;
+                let pe_s = Float::abs(f_s) / d_s;
+                let a_n = if pe_n <= two {
+                    d_n - f_n * half
+                } else {
+                    d_n + Float::max(zero, -f_n)
+                };
+                let a_s = if pe_s <= two {
+                    d_s + f_s * half
+                } else {
+                    d_s + Float::max(zero, f_s)
+                };
 
                 let mut a_p = a_e + a_w + a_n + a_s + (f_e - f_w) + (f_n - f_s);
                 if a_p < T::from_f64(1e-30).unwrap_or(zero) {

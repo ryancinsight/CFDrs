@@ -4,6 +4,7 @@ mod manifest;
 mod primitives;
 pub(in crate::reporting) mod process;
 mod svg;
+mod treatment_lane;
 
 pub use manifest::generate_m12_report_figures;
 pub use manifest::{FigureGenerationInput, NarrativeFigureSpec};

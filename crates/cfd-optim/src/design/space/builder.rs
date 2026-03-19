@@ -45,6 +45,7 @@ pub(crate) fn primitive_selective_candidate(
             segments: serpentine_segments,
             bend_radius_m: SERPENTINE_BEND_RADIUS_M,
             segment_length_m: TREATMENT_WIDTH_MM * 1e-3,
+            wave_type: cfd_schematics::SerpentineWaveType::Sine,
         }),
         venturi_placement_mode: VenturiPlacementMode::StraightSegment,
         venturi_target_channel_ids: Vec::new(),

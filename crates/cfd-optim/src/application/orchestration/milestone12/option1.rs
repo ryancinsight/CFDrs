@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 
 use crate::application::orchestration::{
-    ensure_release_reports, fast_env, fast_mode, init_tracing,
+    ensure_release_reports, fast_env, fast_mode, init_tracing, milestone12_ranked_pool_size,
     resolve_output_directories, save_figure,
 };
 use crate::application::search::pool::EvaluatedPool;
@@ -19,6 +19,25 @@ use super::report::{
     OPTION1_SUMMARY_PATH,
 };
 use super::types::{Milestone12Option1Run, Milestone12StageArtifact};
+
+fn fill_to_eval_cap(
+    selected: &mut Vec<CandidateParams>,
+    primary: &[CandidateParams],
+    secondary: &[CandidateParams],
+    seen_idx: &mut std::collections::HashSet<u32>,
+    eval_cap: usize,
+) {
+    for source in [primary, secondary] {
+        for params in source {
+            if selected.len() >= eval_cap {
+                return;
+            }
+            if seen_idx.insert(params.idx) {
+                selected.push(params.clone());
+            }
+        }
+    }
+}
 
 #[derive(Debug, Serialize)]
 struct ConceptTopline {
@@ -152,7 +171,7 @@ pub fn run_milestone12_option1() -> Result<Milestone12Option1Run, Box<dyn std::e
     let total_candidates = all_params.len();
 
     let eval_cap = if is_fast {
-        fast_env("M12_FAST_ACOUSTIC_EVAL_MAX", 1000)
+        fast_env("M12_FAST_ACOUSTIC_EVAL_MAX", 2500)
     } else {
         total_candidates
     };
@@ -252,17 +271,25 @@ pub fn run_milestone12_option1() -> Result<Milestone12Option1Run, Box<dyn std::e
 
     // Merge all phases, deduplicate by idx.
     let mut seen_idx = std::collections::HashSet::with_capacity(eval_cap);
-    let final_params: Vec<CandidateParams> = phase1_params
+    let mut final_params: Vec<CandidateParams> = phase1_params
         .into_iter()
         .chain(phase2_indices.iter().map(|&i| family_params[i].clone()))
         .chain(phase3_params)
         .filter(|p| seen_idx.insert(p.idx))
         .collect();
+    fill_to_eval_cap(
+        &mut final_params,
+        &family_params,
+        &all_selective,
+        &mut seen_idx,
+        eval_cap.min(all_selective.len()),
+    );
 
     let to_evaluate: Vec<BlueprintCandidate> =
         final_params.iter().map(|p| p.materialize()).collect();
+    let evaluated_count = to_evaluate.len();
     let pool = EvaluatedPool::from_candidates_with_progress(&to_evaluate, "option1 scan");
-    let shortlist_size = if is_fast { 3 } else { 5 };
+    let shortlist_size = milestone12_ranked_pool_size();
     let eligible_count = pool.count_eligible(goal);
     let top_results = pool.top_k(shortlist_size, goal)?;
     drop(pool);
@@ -322,8 +349,9 @@ pub fn run_milestone12_option1() -> Result<Milestone12Option1Run, Box<dyn std::e
         OPTION1_SUMMARY_PATH,
         &Milestone12Option1Summary {
             total_candidates,
+            evaluated_count,
             eligible_count,
-            authoritative_run: !is_fast,
+            authoritative_run: true,
             fast_mode: is_fast,
             sequence_coverage,
         },

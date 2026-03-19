@@ -183,13 +183,18 @@ pub enum EdgeKind {
 pub enum ChannelShape {
     /// Regular straight duct — Hagen-Poiseuille / Shah-London resistance only.
     Straight,
-    /// Serpentine channel with 180° U-turns — triggers Dean flow corrections
+    /// Serpentine channel with 180° U-turns - triggers Dean flow corrections
     /// and bend minor-loss K-factors in the 1D solver.
     Serpentine {
         /// Number of straight segments between turns.
         segments: usize,
         /// Radius of curvature at U-turn bends \[m\].
         bend_radius_m: f64,
+        /// Waveform type (sine, square, triangular).  Controls the bend
+        /// K-factor model: square waves use `BendType::Sharp`, sine and
+        /// triangular use `BendType::Smooth` with the specified R/D_h.
+        #[serde(default)]
+        wave_type: crate::topology::SerpentineWaveType,
     },
 }
 

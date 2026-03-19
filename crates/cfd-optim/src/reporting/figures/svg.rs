@@ -76,11 +76,25 @@ pub(super) fn write_cavitation_distribution_figure(
     let data: Vec<(String, f64, &str)> = option2
         .iter()
         .take(5)
-        .map(|d| (format!("O2-R{}", d.rank), d.metrics.cavitation_number, "Option2"))
+        .enumerate()
+        .map(|(idx, d)| {
+            (
+                format!("O2-R{}", idx + 1),
+                d.metrics.cavitation_number,
+                "Option2",
+            )
+        })
         .chain(
             ga.iter()
                 .take(5)
-                .map(|d| (format!("GA-R{}", d.rank), d.metrics.cavitation_number, "GA")),
+                .enumerate()
+                .map(|(idx, d)| {
+                    (
+                        format!("GA-R{}", idx + 1),
+                        d.metrics.cavitation_number,
+                        "GA",
+                    )
+                }),
         )
         .filter(|(_, sigma, _)| sigma.is_finite())
         .collect();
@@ -93,13 +107,24 @@ pub(super) fn write_cavitation_distribution_figure(
         );
     }
 
-    let sigma_min = data.iter().map(|(_, sigma, _)| *sigma).fold(f64::INFINITY, f64::min);
-    let sigma_max = data
+    let sigma_positive_max = data
         .iter()
         .map(|(_, sigma, _)| *sigma)
-        .fold(f64::NEG_INFINITY, f64::max);
-    let y_min = sigma_min.min(0.0) - 0.1 * (sigma_max - sigma_min).max(0.25);
-    let y_max = sigma_max.max(1.0) + 0.1 * (sigma_max - sigma_min).max(0.25);
+        .filter(|sigma| *sigma >= 1.0)
+        .fold(1.0_f64, f64::max);
+
+    let map_sigma_to_plot = |sigma: f64| -> f64 {
+        if sigma < 1.0 {
+            sigma.clamp(-2.0, 1.0)
+        } else {
+            1.0 + sigma.log10().clamp(0.0, sigma_positive_max.log10().max(0.1))
+        }
+    };
+
+    let plot_min = -2.0;
+    let plot_max = 1.0 + sigma_positive_max.log10().max(0.1);
+    let y_min = plot_min - 0.15 * (plot_max - plot_min).max(1.0);
+    let y_max = plot_max + 0.10 * (plot_max - plot_min).max(1.0);
 
     let mut svg = String::new();
     let w = 1100.0;
@@ -116,6 +141,11 @@ pub(super) fn write_cavitation_distribution_figure(
         let frac = f64::from(i) / 5.0;
         let val = y_min + frac * (y_max - y_min);
         let ty = y0 - yh * frac;
+        let label = if val <= 1.0 {
+            format!("{val:.2}")
+        } else {
+            format!("1 + log10(σ) = {val:.2}")
+        };
         let _ = write!(
             svg,
             r##"<line x1="{x0:.2}" y1="{ty:.2}" x2="{:.2}" y2="{ty:.2}" stroke="#ecf0f1" stroke-width="1"/>"##,
@@ -123,16 +153,17 @@ pub(super) fn write_cavitation_distribution_figure(
         );
         let _ = write!(
             svg,
-            r##"<text x="{:.2}" y="{:.2}" font-size="12" text-anchor="end" fill="#7f8c8d">{:.2}</text>"##,
+            r##"<text x="{:.2}" y="{:.2}" font-size="12" text-anchor="end" fill="#7f8c8d">{}</text>"##,
             x0 - 8.0,
             ty + 4.0,
-            val
+            super::primitives::escape_xml(&label)
         );
     }
 
     for &(threshold, color) in &[(0.0, "#c0392b"), (1.0, "#d4ac0d")] {
-        if threshold >= y_min && threshold <= y_max {
-            let frac = (threshold - y_min) / (y_max - y_min);
+        let plot_threshold = map_sigma_to_plot(threshold);
+        if plot_threshold >= y_min && plot_threshold <= y_max {
+            let frac = (plot_threshold - y_min) / (y_max - y_min);
             let ty = y0 - yh * frac;
             let _ = write!(
                 svg,
@@ -151,7 +182,8 @@ pub(super) fn write_cavitation_distribution_figure(
     let step = xw / data.len() as f64;
     for (index, (label, sigma, tag)) in data.iter().enumerate() {
         let cx = x0 + step * (index as f64 + 0.5);
-        let cy = y0 - yh * ((*sigma - y_min) / (y_max - y_min)).clamp(0.0, 1.0);
+        let plot_sigma = map_sigma_to_plot(*sigma);
+        let cy = y0 - yh * ((plot_sigma - y_min) / (y_max - y_min)).clamp(0.0, 1.0);
         let (fill, stroke) = if *tag == "Option2" {
             ("#2e86de", "#1a5276")
         } else {
@@ -169,8 +201,13 @@ pub(super) fn write_cavitation_distribution_figure(
         );
         let _ = write!(
             svg,
-            r##"<text x="{cx:.2}" y="{:.2}" font-size="12" text-anchor="middle" fill="#2c3e50">{sigma:.3}</text>"##,
+            r##"<text x="{cx:.2}" y="{:.2}" font-size="12" text-anchor="middle" fill="#2c3e50">{}</text>"##,
             cy - 12.0
+            , if *sigma < 1.0 {
+                format!("{sigma:.3}")
+            } else {
+                format!(">1 ({sigma:.1})")
+            }
         );
     }
 
@@ -179,7 +216,8 @@ pub(super) fn write_cavitation_distribution_figure(
         r##"<text x="{:.1}" y="668" font-size="16" fill="#34495e">Selected Venturi Designs</text>"##,
         x0 + xw * 0.38
     );
-    svg.push_str(r##"<text x="18" y="340" transform="rotate(-90 18,340)" font-size="16" fill="#34495e">Cavitation Number (σ)</text>"##);
+    svg.push_str(r##"<text x="18" y="340" transform="rotate(-90 18,340)" font-size="16" fill="#34495e">σ (linear below 1, log-scaled above 1)</text>"##);
+    svg.push_str(r##"<text x="110" y="86" font-size="12" fill="#7f8c8d">Raw σ labels are shown above each point; values above 1 are plotted on a log-compressed non-cavitating branch.</text>"##);
     svg.push_str(r##"<circle cx="820" cy="92" r="6" fill="#2e86de" stroke="#1a5276" stroke-width="2"/><text x="832" y="96" font-size="12" fill="#34495e">Option 2</text>"##);
     svg.push_str(r##"<circle cx="820" cy="112" r="6" fill="#d35400" stroke="#873600" stroke-width="2"/><text x="832" y="116" font-size="12" fill="#34495e">GA</text>"##);
     svg_end(&mut svg);
@@ -191,24 +229,25 @@ pub(super) fn write_pareto_figure(
     path: &Path,
     option2: &[Milestone12ReportDesign],
     ga: &[Milestone12ReportDesign],
-    _option2_pool_all: &[ParetoPoint],
-    _ga_pool_all: &[ParetoPoint],
+    option2_pool_all: &[ParetoPoint],
+    ga_pool_all: &[ParetoPoint],
 ) -> Result<(), Box<dyn std::error::Error>> {
     let selected: Vec<(String, f64, f64, f64, &str)> = option2
         .iter()
         .take(5)
-        .map(|d| {
+        .enumerate()
+        .map(|(idx, d)| {
             (
-                format!("O2-R{}", d.rank),
+                format!("O2-R{}", idx + 1),
                 d.metrics.cancer_targeted_cavitation,
                 d.metrics.rbc_venturi_protection,
                 d.score,
                 "Option2",
             )
         })
-        .chain(ga.iter().take(5).map(|d| {
+        .chain(ga.iter().take(5).enumerate().map(|(idx, d)| {
             (
-                format!("GA-R{}", d.rank),
+                format!("GA-R{}", idx + 1),
                 d.metrics.cancer_targeted_cavitation,
                 d.metrics.rbc_venturi_protection,
                 d.score,
@@ -218,7 +257,26 @@ pub(super) fn write_pareto_figure(
         .filter(|(_, x, y, _, _)| x.is_finite() && y.is_finite())
         .collect();
 
-    if selected.is_empty() {
+    let background: Vec<(f64, f64, f64, &str)> = option2_pool_all
+        .iter()
+        .filter(|p| p.cancer_targeted_cavitation.is_finite() && p.rbc_venturi_protection.is_finite())
+        .map(|p| (
+            p.cancer_targeted_cavitation,
+            p.rbc_venturi_protection,
+            p.score,
+            "Option2",
+        ))
+        .chain(ga_pool_all.iter().filter(|p| {
+            p.cancer_targeted_cavitation.is_finite() && p.rbc_venturi_protection.is_finite()
+        }).map(|p| (
+            p.cancer_targeted_cavitation,
+            p.rbc_venturi_protection,
+            p.score,
+            "GA",
+        )))
+        .collect();
+
+    if selected.is_empty() && background.is_empty() {
         return write_placeholder(
             path,
             "Selected-Design Oncology Trade-Off Frontier",
@@ -233,6 +291,12 @@ pub(super) fn write_pareto_figure(
             f64::INFINITY,
             f64::NEG_INFINITY,
         );
+        for (x, y, _, _) in &background {
+            xmn = xmn.min(*x);
+            xmx = xmx.max(*x);
+            ymn = ymn.min(*y);
+            ymx = ymx.max(*y);
+        }
         for (_, x, y, _, _) in &selected {
             xmn = xmn.min(*x);
             xmx = xmx.max(*x);
@@ -251,8 +315,8 @@ pub(super) fn write_pareto_figure(
 
     let frontier: Vec<(f64, f64)> = {
         let mut nondominated = Vec::new();
-        'outer: for (_, x, y, _, _) in &selected {
-            for (_, ox, oy, _, _) in &selected {
+        'outer: for (x, y, _, _) in &background {
+            for (ox, oy, _, _) in &background {
                 if (ox > x || oy > y) && ox >= x && oy >= y {
                     continue 'outer;
                 }
@@ -304,6 +368,19 @@ pub(super) fn write_pareto_figure(
     svg.write_str(r##"<text x="420" y="668" font-size="16" fill="#34495e">Tumor-Targeted Cavitation Index</text>"##)?;
     svg.write_str(r##"<text x="18" y="340" transform="rotate(-90 18,340)" font-size="16" fill="#34495e">Healthy-Cell Protection (RBC Venturi)</text>"##)?;
 
+    if !background.is_empty() {
+        for (cx, cy, score, tag) in &background {
+            let x = x0 + xw * ((*cx - x_min) / (x_max - x_min)).clamp(0.0, 1.0);
+            let y = y0 - yh * ((*cy - y_min) / (y_max - y_min)).clamp(0.0, 1.0);
+            let r = 2.0 + 1.5 * score.clamp(0.0, 1.0);
+            let fill = if *tag == "Option2" { "#85c1e9" } else { "#f5b041" };
+            let _ = write!(
+                svg,
+                r#"<circle cx="{x:.2}" cy="{y:.2}" r="{r:.2}" fill="{fill}" fill-opacity="0.20" stroke="none"/>"#
+            );
+        }
+    }
+
     if frontier.len() >= 2 {
         let polyline = frontier
             .iter()
@@ -344,15 +421,19 @@ pub(super) fn write_pareto_figure(
 
     let _ = write!(
         svg,
-        r##"<line x1="820" y1="90" x2="846" y2="90" stroke="#7d3c98" stroke-width="3"/><text x="854" y="94" font-size="12" fill="#34495e">Frontier</text>"##
+        r##"<line x1="820" y1="90" x2="846" y2="90" stroke="#7d3c98" stroke-width="3"/><text x="854" y="94" font-size="12" fill="#34495e">Frontier (full pool)</text>"##
     );
     let _ = write!(
         svg,
-        r##"<circle cx="820" cy="112" r="6" fill="#2e86de" stroke="#1a5276" stroke-width="2"/><text x="832" y="116" font-size="12" fill="#34495e">Option 2</text>"##
+        r##"<circle cx="820" cy="102" r="4" fill="#85c1e9" fill-opacity="0.35"/><text x="832" y="106" font-size="12" fill="#34495e">Background pool</text>"##
     );
     let _ = write!(
         svg,
-        r##"<circle cx="820" cy="132" r="6" fill="#d35400" stroke="#873600" stroke-width="2"/><text x="832" y="136" font-size="12" fill="#34495e">GA</text>"##
+        r##"<circle cx="820" cy="122" r="6" fill="#2e86de" stroke="#1a5276" stroke-width="2"/><text x="832" y="126" font-size="12" fill="#34495e">Option 2 selected</text>"##
+    );
+    let _ = write!(
+        svg,
+        r##"<circle cx="820" cy="142" r="6" fill="#d35400" stroke="#873600" stroke-width="2"/><text x="832" y="146" font-size="12" fill="#34495e">GA selected</text>"##
     );
 
     svg_end(&mut svg);
@@ -516,6 +597,297 @@ pub(super) fn write_ga_convergence_figure(
             r##"<circle cx="{x:.2}" cy="{y:.2}" r="4" fill="#8e44ad" fill-opacity="0.8"/>"##
         );
     }
+
+    let tail_len = best_per_gen.len().min(5);
+    let tail_start = best_per_gen.len().saturating_sub(tail_len);
+    let tail_delta = if tail_len >= 2 {
+        best_per_gen[best_per_gen.len() - 1] - best_per_gen[tail_start]
+    } else {
+        0.0
+    };
+    let trajectory_note = if tail_delta > 1.0e-3 {
+        format!("Still improving: Δbest(last {} gen) = +{:.4}", tail_len, tail_delta)
+    } else if tail_delta < -1.0e-3 {
+        format!("Best fitness regressed over last {} gen by {:.4}", tail_len, tail_delta)
+    } else {
+        format!("Near-plateau: |Δbest(last {} gen)| = {:.4}", tail_len, tail_delta.abs())
+    };
+    let _ = write!(
+        svg,
+        r##"<text x="690" y="88" font-size="14" fill="#6c3483">{}</text>"##,
+        super::primitives::escape_xml(&trajectory_note)
+    );
+
+    svg_end(&mut svg);
+    svg.0.flush()?;
+    Ok(())
+}
+
+/// Per-venturi-placement data for the Dean-venturi figure.
+pub(super) struct DeanVenturiPoint {
+    pub label: String,
+    pub dean_number: f64,
+    pub cavitation_number: f64,
+    pub throat_velocity_m_s: f64,
+    /// Upstream static pressure at this venturi position [kPa].
+    pub upstream_pressure_kpa: f64,
+    /// Curvature radius at this bend [mm].
+    pub bend_radius_mm: f64,
+}
+
+/// Generate a figure showing how venturi placement position along a serpentine
+/// channel influences Dean number, cavitation strength, and available upstream
+/// pressure at each bend.
+///
+/// - Blue bars (left Y-axis): Dean number.  Alternates high/low because
+///   mirrored serpentine U-turns produce tighter inner bends and wider outer
+///   bends.
+/// - Orange bars (left Y-axis, shared scale): cavitation strength (1 - sigma).
+///   Decreases along the path as upstream pressure is consumed by preceding
+///   throats.
+/// - Dashed green line: upstream static pressure at each throat position [kPa].
+///   Shows the serial pressure decay that limits downstream cavitation.
+pub(super) fn write_dean_venturi_placement_figure(
+    path: &Path,
+    title: &str,
+    points: &[DeanVenturiPoint],
+) -> Result<(), Box<dyn std::error::Error>> {
+    if points.is_empty() {
+        return super::process::write_placeholder(
+            path,
+            title,
+            "No venturi placement data available for serpentine designs.",
+        );
+    }
+
+    let file = std::fs::File::create(path)?;
+    let mut svg = FmtToIo(std::io::BufWriter::new(file));
+    let w = 1100.0;
+    let h = 780.0;
+    svg_start(&mut svg, w, h);
+    svg_title(&mut svg, title);
+
+    let x0 = 110.0;
+    let y0 = 660.0;
+    let xw = 820.0;
+    let yh = 510.0;
+    axis(&mut svg, x0, y0, xw, yh);
+
+    // ---- Data ranges ----
+    let de_max = points
+        .iter()
+        .map(|p| p.dean_number)
+        .fold(1.0_f64, f64::max);
+    let cav_strength: Vec<f64> = points
+        .iter()
+        .map(|p| (1.0 - p.cavitation_number).max(0.0))
+        .collect();
+    let cs_max = cav_strength.iter().copied().fold(0.01_f64, f64::max);
+    // Shared left-axis max: accommodate both De and cavitation strength.
+    // Normalise cavitation strength bars relative to De scale so they
+    // are visually comparable.
+    let left_max = de_max.max(1.0) * 1.20;
+
+    // Pressure range for the right-axis overlay line.
+    let p_min = points
+        .iter()
+        .map(|p| p.upstream_pressure_kpa)
+        .fold(f64::INFINITY, f64::min);
+    let p_max = points
+        .iter()
+        .map(|p| p.upstream_pressure_kpa)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let p_span = (p_max - p_min).max(1.0);
+    let p_lo = p_min - 0.10 * p_span;
+    let p_hi = p_max + 0.10 * p_span;
+
+    // ---- Left Y-axis ticks (De / cavitation strength) ----
+    for i in 0..=5 {
+        let frac = f64::from(i) / 5.0;
+        let val = left_max * frac;
+        let ty = y0 - yh * frac;
+        let _ = write!(
+            svg,
+            r##"<line x1="{x0:.1}" y1="{ty:.1}" x2="{:.1}" y2="{ty:.1}" stroke="#ecf0f1" stroke-width="1"/>"##,
+            x0 + xw
+        );
+        let _ = write!(
+            svg,
+            r##"<text x="{:.1}" y="{:.1}" font-size="11" text-anchor="end" fill="#2c3e50">{:.0}</text>"##,
+            x0 - 8.0,
+            ty + 4.0,
+            val
+        );
+    }
+
+    // ---- Right Y-axis ticks (upstream pressure kPa) ----
+    let rx = x0 + xw;
+    for i in 0..=5 {
+        let frac = f64::from(i) / 5.0;
+        let val = p_lo + frac * (p_hi - p_lo);
+        let ty = y0 - yh * frac;
+        let _ = write!(
+            svg,
+            r##"<text x="{:.1}" y="{:.1}" font-size="11" text-anchor="start" fill="#27ae60">{:.0}</text>"##,
+            rx + 8.0,
+            ty + 4.0,
+            val
+        );
+    }
+    // Right Y axis line (green for pressure)
+    let _ = write!(
+        svg,
+        r##"<line x1="{rx:.1}" y1="{y0:.1}" x2="{rx:.1}" y2="{:.1}" stroke="#27ae60" stroke-width="2"/>"##,
+        y0 - yh
+    );
+
+    // ---- Grouped bars ----
+    let n = points.len();
+    let group_w = xw / n as f64;
+    let bar_w = group_w * 0.32;
+    let gap = group_w * 0.06;
+
+    // Scale factor to render cavitation strength bars on the same left axis.
+    // We scale cs values into De units so they share the axis.
+    let cs_to_de = if cs_max > 1e-12 { de_max / cs_max } else { 1.0 };
+
+    for (i, pt) in points.iter().enumerate() {
+        let group_x = x0 + group_w * i as f64;
+        let center_x = group_x + group_w * 0.5;
+
+        // ---- Dean number bar (blue) ----
+        let de_h = yh * (pt.dean_number / left_max).clamp(0.0, 1.0);
+        let de_top = y0 - de_h;
+        let de_x = group_x + gap;
+        let _ = write!(
+            svg,
+            r##"<rect x="{de_x:.1}" y="{de_top:.1}" width="{bar_w:.1}" height="{de_h:.1}" fill="#2e86de" fill-opacity="0.85" rx="2"/>"##
+        );
+        let _ = write!(
+            svg,
+            r##"<text x="{:.1}" y="{:.1}" font-size="10" text-anchor="middle" fill="#1a5276" font-weight="600">{:.0}</text>"##,
+            de_x + bar_w * 0.5,
+            de_top - 5.0,
+            pt.dean_number
+        );
+
+        // ---- Cavitation strength bar (orange), scaled to De axis ----
+        let cs = cav_strength[i];
+        let cs_scaled = cs * cs_to_de;
+        let cs_h = yh * (cs_scaled / left_max).clamp(0.0, 1.0);
+        let cs_top = y0 - cs_h;
+        let cs_x = de_x + bar_w + gap;
+        let _ = write!(
+            svg,
+            r##"<rect x="{cs_x:.1}" y="{cs_top:.1}" width="{bar_w:.1}" height="{cs_h:.1}" fill="#d35400" fill-opacity="0.85" rx="2"/>"##
+        );
+        // Show sigma value above the bar.
+        let _ = write!(
+            svg,
+            r##"<text x="{:.1}" y="{:.1}" font-size="9" text-anchor="middle" fill="#873600">{}</text>"##,
+            cs_x + bar_w * 0.5,
+            cs_top - 5.0,
+            if pt.cavitation_number.is_finite() {
+                format!("{:.2}", pt.cavitation_number)
+            } else {
+                "inf".to_string()
+            }
+        );
+
+        // ---- X-axis labels ----
+        let _ = write!(
+            svg,
+            r##"<text x="{center_x:.1}" y="{:.1}" font-size="11" text-anchor="middle" fill="#2c3e50" font-weight="600">{}</text>"##,
+            y0 + 18.0,
+            super::primitives::escape_xml(&pt.label)
+        );
+        // Bend radius and velocity sub-labels.
+        let _ = write!(
+            svg,
+            r##"<text x="{center_x:.1}" y="{:.1}" font-size="9" text-anchor="middle" fill="#7f8c8d">R={:.2} mm</text>"##,
+            y0 + 32.0,
+            pt.bend_radius_mm
+        );
+        let _ = write!(
+            svg,
+            r##"<text x="{center_x:.1}" y="{:.1}" font-size="9" text-anchor="middle" fill="#7f8c8d">{:.1} m/s</text>"##,
+            y0 + 44.0,
+            pt.throat_velocity_m_s
+        );
+    }
+
+    // ---- Pressure decay overlay line (green, dashed) ----
+    if n >= 2 {
+        let mut line_pts = String::new();
+        for (i, pt) in points.iter().enumerate() {
+            let cx = x0 + group_w * (i as f64 + 0.5);
+            let p_frac = ((pt.upstream_pressure_kpa - p_lo) / (p_hi - p_lo)).clamp(0.0, 1.0);
+            let cy = y0 - yh * p_frac;
+            let _ = write!(line_pts, "{cx:.1},{cy:.1} ");
+        }
+        let _ = write!(
+            svg,
+            r##"<polyline fill="none" stroke="#27ae60" stroke-width="2.5" stroke-dasharray="8 5" points="{line_pts}"/>"##
+        );
+        // Dot markers on the pressure line.
+        for (i, pt) in points.iter().enumerate() {
+            let cx = x0 + group_w * (i as f64 + 0.5);
+            let p_frac = ((pt.upstream_pressure_kpa - p_lo) / (p_hi - p_lo)).clamp(0.0, 1.0);
+            let cy = y0 - yh * p_frac;
+            let _ = write!(
+                svg,
+                r##"<circle cx="{cx:.1}" cy="{cy:.1}" r="4" fill="#27ae60"/>"##
+            );
+            let _ = write!(
+                svg,
+                r##"<text x="{cx:.1}" y="{:.1}" font-size="9" text-anchor="middle" fill="#1e8449">{:.0} kPa</text>"##,
+                cy - 8.0,
+                pt.upstream_pressure_kpa
+            );
+        }
+    }
+
+    // ---- Axis labels ----
+    let _ = write!(
+        svg,
+        r##"<text x="{:.1}" y="720" font-size="14" fill="#34495e">Venturi Placement (along serpentine treatment path)</text>"##,
+        x0 + xw * 0.22
+    );
+    let _ = write!(
+        svg,
+        r##"<text x="16" y="{:.1}" transform="rotate(-90 16,{:.1})" font-size="14" fill="#2c3e50">Dean Number / Cavitation Strength</text>"##,
+        y0 - yh * 0.5,
+        y0 - yh * 0.5
+    );
+    let _ = write!(
+        svg,
+        r##"<text x="{:.1}" y="{:.1}" transform="rotate(90 {:.1},{:.1})" font-size="14" fill="#27ae60">Upstream Pressure (kPa)</text>"##,
+        rx + 50.0,
+        y0 - yh * 0.5,
+        rx + 50.0,
+        y0 - yh * 0.5
+    );
+
+    // ---- Legend ----
+    let ly = 86.0;
+    let _ = write!(
+        svg,
+        r##"<rect x="120" y="{ly:.0}" width="12" height="12" fill="#2e86de" fill-opacity="0.85" rx="2"/><text x="138" y="{:.0}" font-size="11" fill="#34495e">Dean number (De)</text>"##,
+        ly + 11.0
+    );
+    let _ = write!(
+        svg,
+        r##"<rect x="310" y="{ly:.0}" width="12" height="12" fill="#d35400" fill-opacity="0.85" rx="2"/><text x="328" y="{:.0}" font-size="11" fill="#34495e">Cavitation strength (1-σ, label = σ)</text>"##,
+        ly + 11.0
+    );
+    let _ = write!(
+        svg,
+        r##"<line x1="560" y1="{:.0}" x2="590" y2="{:.0}" stroke="#27ae60" stroke-width="2.5" stroke-dasharray="6 4"/><circle cx="575" cy="{:.0}" r="3" fill="#27ae60"/><text x="598" y="{:.0}" font-size="11" fill="#34495e">Upstream pressure (kPa)</text>"##,
+        ly + 6.0,
+        ly + 6.0,
+        ly + 6.0,
+        ly + 11.0
+    );
 
     svg_end(&mut svg);
     svg.0.flush()?;

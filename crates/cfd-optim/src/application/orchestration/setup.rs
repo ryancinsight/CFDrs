@@ -74,6 +74,18 @@ pub fn fast_env(name: &str, default: usize) -> usize {
         .max(1)
 }
 
+/// Number of ranked full-design artifacts to retain per Milestone 12 stage.
+///
+/// Defaults to 1500 so report generation and downstream analysis can compare a
+/// materially larger ranked pool than the human-facing top-5 tables.
+pub fn milestone12_ranked_pool_size() -> usize {
+    std::env::var("M12_RANKED_POOL_SIZE")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(1500)
+        .max(1)
+}
+
 /// Standard Option 2 scoring mode: adult oncology patient (70 kg), 50/50
 /// CombinedSdtLeukapheresis.
 pub fn option2_mode() -> OptimMode {

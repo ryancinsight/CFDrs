@@ -31,6 +31,11 @@ use crate::metrics::{
     ChannelHemolysis, SdtMetrics,
 };
 
+fn cavitation_strength_from_sigma(cavitation_number: f64) -> f64 {
+    let strength = (1.0 - cavitation_number).max(0.0);
+    strength / (1.0 + strength)
+}
+
 /// Compute the full set of report-grade SDT metrics for a single blueprint candidate.
 ///
 /// # NOW INTEGRATED acoustic / cavitation physics
@@ -115,6 +120,11 @@ pub fn compute_blueprint_report_metrics(
         strongest_venturi.map_or(f64::INFINITY, |placement| placement.cavitation_number);
     let cavitation_potential = if cavitation_number.is_finite() {
         (1.0 - cavitation_number).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let cavitation_strength = if cavitation_number.is_finite() {
+        cavitation_strength_from_sigma(cavitation_number)
     } else {
         0.0
     };
@@ -266,14 +276,14 @@ pub fn compute_blueprint_report_metrics(
         })
         .map_or(0.0, |score| score.clamp(0.0, 1.0));
     let cavitation_intensity =
-        cavitation_potential * (0.5 + 0.5 * constriction_score.clamp(0.0, 1.0));
+        cavitation_strength * (0.5 + 0.5 * constriction_score.clamp(0.0, 1.0));
 
     let treatment_fraction = topology.therapy_channel_fraction().clamp(0.0, 1.0);
     let serial_dose_fraction = if serial_venturi_stages_per_path == 0 {
         treatment_fraction
     } else {
         solve.venturi_flow_fraction
-            * (1.0 - (1.0 - cavitation_potential).powi(serial_venturi_stages_per_path as i32))
+            * (1.0 - (1.0 - cavitation_strength).powi(serial_venturi_stages_per_path as i32))
     }
     .clamp(0.0, 1.0);
     let cancer_targeted_cavitation =
@@ -289,7 +299,7 @@ pub fn compute_blueprint_report_metrics(
     let collapse_ref = (SONO_REF_P_ABS_PA / BLOOD_VAPOR_PRESSURE_PA.max(1.0))
         .powf((BUBBLE_POLYTROPIC_K - 1.0) / BUBBLE_POLYTROPIC_K);
     let sonoluminescence_proxy =
-        (cavitation_potential * (collapse_ratio / collapse_ref)).clamp(0.0, 1.0);
+        (cavitation_strength * (collapse_ratio / collapse_ref)).clamp(0.0, 1.0);
 
     let cancer_dose_fraction = separation.cancer_center_fraction.clamp(0.0, 1.0)
         * if active_venturi_throat_count > 0 {
@@ -351,7 +361,11 @@ pub fn compute_blueprint_report_metrics(
     metrics.hemolysis_index_per_pass = corrected_hi;
     metrics.flow_uniformity = solve.flow_uniformity;
     metrics.well_coverage_fraction = treatment_fraction;
-    metrics.mean_residence_time_s = solve.mean_residence_time_s;
+    // Use TREATMENT-ZONE residence time, not total device residence.
+    // The treatment zone is the subset of channels where therapy (cavitation,
+    // ultrasound) is applied.  The total device residence includes all bypass
+    // arms and is always longer.
+    metrics.mean_residence_time_s = residence.treatment_residence_time_s;
     metrics.total_pressure_drop_pa = safety.pressure_drop_pa;
     metrics.total_path_length_mm = total_path_length_mm;
     metrics.pressure_feasible = safety.pressure_feasible;
@@ -375,6 +389,9 @@ pub fn compute_blueprint_report_metrics(
     metrics.flow_rate_ml_min = flow_rate_ml_min;
     metrics.plate_fits =
         topology.box_dims_mm.0 <= PLATE_WIDTH_MM && topology.box_dims_mm.1 <= PLATE_HEIGHT_MM;
+    let overlap = candidate.blueprint.channel_overlap_analysis();
+    metrics.channel_overlap_fraction = overlap.max_overlap_fraction;
+    metrics.overlap_width_ratio = overlap.width_ratio_at_worst;
     metrics.n_outlet_ports = candidate
         .blueprint
         .nodes
@@ -436,7 +453,13 @@ pub fn compute_blueprint_report_metrics(
     metrics.venturi_treatment_enabled = active_venturi_throat_count > 0;
     metrics.treatment_zone_mode = match topology.treatment_mode {
         TreatmentActuationMode::UltrasoundOnly => "UltrasoundOnly",
-        TreatmentActuationMode::VenturiCavitation => "VenturiThroats",
+        TreatmentActuationMode::VenturiCavitation => {
+            if topology.has_serpentine() {
+                "UltrasoundPlusVenturiThroats"
+            } else {
+                "VenturiThroats"
+            }
+        }
     }
     .to_string();
     metrics.active_venturi_throat_count = active_venturi_throat_count;

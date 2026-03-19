@@ -6,6 +6,7 @@ use super::{
     Node, NodeType, ResistanceUpdatePolicy,
 };
 use cfd_core::error::Result;
+use crate::physics::resistance::models::BendType;
 use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -335,6 +336,50 @@ where
             if let Some(edge) = network.graph.edge_weight_mut(*edge_idx) {
                 edge.resistance = r;
                 edge.quad_coeff = k;
+
+                if let Some(dh_val) = dh {
+                    let dh_f64 = nalgebra::try_convert::<T, f64>(dh_val).unwrap_or(1e-3);
+                    let l_f64 = nalgebra::try_convert::<T, f64>(length).unwrap_or(0.01);
+                    let l_over_dh = l_f64 / dh_f64.max(1e-12);
+
+                    // Durst (2005) entrance length correction for short channels.
+                    // Channels with L/D_h < 50 experience developing-flow entrance
+                    // effects that increase the effective resistance.
+                    if l_over_dh < 50.0 {
+                        let re_estimate = 10.0_f64;
+                        let multiplier = crate::physics::resistance::models::durst_resistance_multiplier(
+                            re_estimate, l_over_dh,
+                        );
+                        let mult_t = T::from_f64(multiplier).unwrap_or(T::one());
+                        edge.resistance = edge.resistance * mult_t;
+                    }
+
+                    // Fahraeus-Lindqvist apparent viscosity correction for
+                    // channels with D_h < 300 um (venturi throats, narrow
+                    // treatment channels).  Blood viscosity drops in small
+                    // vessels due to the cell-free layer near walls.
+                    // The HP resistance R ~ mu, so we scale R by the
+                    // viscosity ratio: R_corrected = R_base * (mu_FL / mu_bulk).
+                    if dh_f64 < 300.0e-6 {
+                        let fl = cfd_core::physics::fluid::blood::FahraeuasLindqvist::new(
+                            dh_f64, 0.45,
+                        );
+                        if fl.is_significant() {
+                            let mu_rel = fl.relative_viscosity();
+                            // mu_rel is the ratio mu_apparent / mu_plasma.
+                            // The bulk (Casson) viscosity already includes
+                            // the hematocrit effect, so we apply the F-L
+                            // reduction as a fraction of the Casson value.
+                            // For D = 100 um, mu_rel is typically ~0.7-0.85
+                            // relative to bulk.  We use the F-L reduction
+                            // normalized to the large-vessel limit (mu_45).
+                            let mu_45_large = 3.2_f64; // Pries asymptote
+                            let reduction = (mu_rel / mu_45_large).clamp(0.5, 1.0);
+                            let reduction_t = T::from_f64(reduction).unwrap_or(T::one());
+                            edge.resistance = edge.resistance * reduction_t;
+                        }
+                    }
+                }
             }
         }
     }
@@ -387,6 +432,7 @@ where
             let ChannelShape::Serpentine {
                 segments: total_segments,
                 bend_radius_m,
+                wave_type,
             } = ch_spec.channel_shape
             else {
                 continue;
@@ -439,8 +485,18 @@ where
 
             let total_length = length_t * T::from_usize(total_segments).unwrap_or(T::one());
 
-            let serp_model =
-                SerpentineModel::new(total_length, total_segments, cross_section, bend_r);
+            let serp_model = {
+                use cfd_schematics::SerpentineWaveType;
+                let base = SerpentineModel::new(total_length, total_segments, cross_section, bend_r);
+                match wave_type {
+                    // Square waves have abrupt direction reversals -> sharp
+                    // bend K-factors (Idelchik 2007 C1=2.2, C2=250).
+                    SerpentineWaveType::Square => base.with_bend_type(BendType::Sharp),
+                    // Sine and triangular use the default smooth bend type
+                    // derived from the R/D_h ratio in SerpentineModel::new().
+                    SerpentineWaveType::Sine | SerpentineWaveType::Triangular => base,
+                }
+            };
 
             let mut conds: FC<T> = FC::new(T::zero());
             conds.flow_rate =

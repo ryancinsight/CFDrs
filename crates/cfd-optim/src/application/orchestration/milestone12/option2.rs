@@ -10,7 +10,7 @@ use crate::application::objectives::{
 };
 use crate::application::orchestration::{
     blueprint_lineage_key, ensure_release_reports, fast_env, fast_mode, init_tracing,
-    resolve_output_directories, save_figure, ScanProgress,
+    milestone12_ranked_pool_size, resolve_output_directories, save_figure, ScanProgress,
 };
 use crate::delivery::{load_top5_report_json, save_pareto_points, save_top5_report_json};
 use crate::design::{build_milestone12_candidate_params, CandidateParams};
@@ -23,6 +23,25 @@ use crate::reporting::{
 
 use super::report::{write_stage_summary, Milestone12Option2Summary, OPTION2_SUMMARY_PATH};
 use super::types::{Milestone12Option2Run, Milestone12StageArtifact};
+
+fn fill_to_eval_cap(
+    selected: &mut Vec<CandidateParams>,
+    primary: &[CandidateParams],
+    secondary: &[CandidateParams],
+    seen_idx: &mut std::collections::HashSet<u32>,
+    eval_cap: usize,
+) {
+    for source in [primary, secondary] {
+        for params in source {
+            if selected.len() >= eval_cap {
+                return;
+            }
+            if seen_idx.insert(params.idx) {
+                selected.push(params.clone());
+            }
+        }
+    }
+}
 
 /// Lightweight result stored during parallel evaluation — holds the candidate
 /// ID and lineage key instead of the full ~15 KB `BlueprintCandidate`.
@@ -39,6 +58,7 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
     ensure_release_reports()?;
     let (_, out_dir, figures_dir) = resolve_output_directories()?;
     let is_fast = fast_mode();
+    let retained_pool_size = milestone12_ranked_pool_size();
     let goal = OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity;
 
     // Keep lightweight params (~100 bytes each) instead of full candidates (~15 KB).
@@ -51,7 +71,7 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
 
     // In fast mode, cap evaluation to avoid hanging on the full space.
     let eval_cap = if is_fast {
-        fast_env("M12_FAST_VENTURI_EVAL_MAX", 1000)
+        fast_env("M12_FAST_VENTURI_EVAL_MAX", 2500)
     } else {
         total_candidates
     };
@@ -149,14 +169,22 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
 
     // Merge all phases, deduplicate by idx.
     let mut seen_idx = std::collections::HashSet::with_capacity(eval_cap);
-    let selective_params: Vec<CandidateParams> = phase1_params
+    let mut selective_params: Vec<CandidateParams> = phase1_params
         .into_iter()
         .chain(phase2_indices.iter().map(|&i| family_params[i].clone()))
         .chain(phase3_params)
         .filter(|p| seen_idx.insert(p.idx))
         .collect();
+    fill_to_eval_cap(
+        &mut selective_params,
+        &family_params,
+        &all_params_vec,
+        &mut seen_idx,
+        eval_cap.min(all_params_vec.len()),
+    );
 
-    let progress = Arc::new(ScanProgress::new("option2 scan", selective_params.len()));
+    let evaluated_count = selective_params.len();
+    let progress = Arc::new(ScanProgress::new("option2 scan", evaluated_count));
     let have_option1_for_par = have_option1;
 
     // --- Streaming evaluation with lazy materialization ---
@@ -291,12 +319,16 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         .collect();
     drop(option1_lineage_keys);
 
-    // Select top-5 indices into the `deferred` vec.
+    // Select the retained ranked-pool indices into the `deferred` vec.
     let selected_deferred_indices: Vec<usize> = if viable_lineages.is_empty() {
-        // No shared lineage — sort all venturi by score, take top 5.
+        // No shared lineage — sort all venturi by score, take the retained pool.
         let mut sorted: Vec<(usize, f64)> = option2_deferred;
         sorted.sort_by(|a, b| b.1.total_cmp(&a.1));
-        sorted.into_iter().take(5).map(|(i, _)| i).collect()
+        sorted
+            .into_iter()
+            .take(retained_pool_size)
+            .map(|(i, _)| i)
+            .collect()
     } else {
         // Sort viable lineages by best Option 2 score — O(n) direct index
         // lookup instead of O(n²) find_map scan.
@@ -315,7 +347,7 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         });
         let mut winning = viable_lineages
             .iter()
-            .find(|(_, indices)| indices.len() >= 5)
+            .find(|(_, indices)| indices.len() >= retained_pool_size)
             .or(viable_lineages.first())
             .ok_or("no shared Option 1 → Option 2 lineage retained venturi candidates")?
             .1
@@ -326,13 +358,12 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
             let sb = deferred[b].option2_score.unwrap_or(f64::NEG_INFINITY);
             sb.total_cmp(&sa)
         });
-        winning.truncate(5);
+        winning.truncate(retained_pool_size);
         winning
     };
     drop(viable_lineages);
 
-    // --- Re-materialize ONLY the final top-5 candidates ---
-    // 5 × 15 KB = 75 KB instead of 50K × 15 KB = 750 MB.
+    // --- Re-materialize ONLY the retained ranked candidates ---
     let mut option2_pool: Vec<Milestone12ReportDesign> =
         Vec::with_capacity(selected_deferred_indices.len());
     for &idx in &selected_deferred_indices {
@@ -389,8 +420,9 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         OPTION2_SUMMARY_PATH,
         &Milestone12Option2Summary {
             total_candidates,
+            evaluated_count,
             eligible_count,
-            authoritative_run: !is_fast,
+            authoritative_run: true,
             fast_mode: is_fast,
         },
     )?;

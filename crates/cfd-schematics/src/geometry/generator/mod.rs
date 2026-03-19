@@ -135,6 +135,7 @@ impl GeometryGenerator {
             return ChannelShape::Serpentine {
                 segments: 2,
                 bend_radius_m: (channel_width * 0.5) * 1.0e-3,
+                wave_type: crate::topology::SerpentineWaveType::Sine,
             };
         }
 
@@ -145,6 +146,7 @@ impl GeometryGenerator {
             return ChannelShape::Serpentine {
                 segments: 2,
                 bend_radius_m: (channel_width * 0.5) * 1.0e-3,
+                wave_type: crate::topology::SerpentineWaveType::Sine,
             };
         }
 
@@ -183,6 +185,7 @@ impl GeometryGenerator {
         ChannelShape::Serpentine {
             segments: turns.saturating_add(1).max(2),
             bend_radius_m: bend_radius_mm * 1.0e-3,
+            wave_type: crate::topology::SerpentineWaveType::Sine,
         }
     }
 
@@ -925,6 +928,7 @@ mod tests {
                 ChannelShape::Serpentine {
                     segments,
                     bend_radius_m,
+                    wave_type: _,
                 } => {
                     assert!(
                         segments >= 2,

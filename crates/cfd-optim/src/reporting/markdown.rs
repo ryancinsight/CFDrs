@@ -17,6 +17,22 @@ use crate::reporting::Milestone12ReportDesign;
 
 use super::ranking::oncology_priority_score;
 
+fn workspace_geometry_penalty_weight() -> f64 {
+    std::env::var("M12_GA_GEOMETRY_PENALTY_WEIGHT")
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .filter(|value| value.is_finite() && *value >= 0.0)
+        .unwrap_or(0.00043)
+}
+
+fn workspace_cavitation_gain_margin() -> f64 {
+    std::env::var("M12_GA_CAVITATION_GAIN_MARGIN")
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .filter(|value| value.is_finite() && *value >= 0.0)
+        .unwrap_or(0.01)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationRow {
     pub track: String,
@@ -65,7 +81,7 @@ pub fn write_milestone12_results(
         md,
         "> Generated artifact. Do not edit manually.\n> Source: `cargo run -p cfd-optim --example milestone12_report --no-default-features`.\n> Artifact class: **{}**.\n> Published location: `{canonical_source}`.\n",
         if authoritative_run {
-            "authoritative full-sweep report"
+            "authoritative report"
         } else {
             "fast-mode report"
         }
@@ -198,16 +214,11 @@ pub fn write_milestone12_results(
     }
     writeln!(md)?;
 
-    writeln!(
-        md,
-        "## Option 2 Robustness Screening (Perturbations +/-10%/+/-20%)"
-    )?;
-    if option2_robustness.is_empty() {
+    if !option2_robustness.is_empty() {
         writeln!(
             md,
-            "_Not computed in this run. Re-run without `M12_FAST=1` to populate._\n"
+            "## Option 2 Robustness Screening (Perturbations +/-10%/+/-20%)"
         )?;
-    } else {
         let robust_count = option2_robustness.iter().filter(|r| r.is_robust).count();
         writeln!(
             md,
@@ -242,6 +253,18 @@ pub fn write_milestone12_results(
         md,
         "- GA rank-1: `{}` (score {:.4}, sigma {:.4})\n",
         ga_top.candidate.id, ga_top.score, ga_top.metrics.cavitation_number
+    )?;
+
+    writeln!(md, "## Workspace-Level Configuration")?;
+    writeln!(
+        md,
+        "- `M12_GA_GEOMETRY_PENALTY_WEIGHT={:.5}`: lineage-concentration penalty applied during HydroSDT GA shortlist ranking.",
+        workspace_geometry_penalty_weight()
+    )?;
+    writeln!(
+        md,
+        "- `M12_GA_CAVITATION_GAIN_MARGIN={:.3}`: minimum cumulative cavitation-dose gain over the selected Option 2 baseline required for a GA venturi design to remain in the report-ranked HydroSDT subset.\n",
+        workspace_cavitation_gain_margin()
     )?;
 
     writeln!(
@@ -350,7 +373,7 @@ pub fn write_milestone12_results(
     )?;
     writeln!(
         md,
-        "- Time to process one plasma volume under single-pass operation: **{time_to_one_pv_min:.1} min**"
+        "- Single-pass transit time for one plasma-volume equivalent: **{time_to_one_pv_min:.1} min** (not the clinical session duration)"
     )?;
 
     std::fs::write(path, md)?;

@@ -8,8 +8,9 @@ use crate::application::orchestration::{
 };
 use crate::delivery::{load_pareto_points, load_top5_report_json};
 use crate::reporting::{
-    write_milestone12_narrative_report, write_milestone12_results, Milestone12NarrativeInput,
-    ValidationRow,
+    pareto_pool_from_report_designs, rank_ga_hydrosdt_report_designs, ParetoTag,
+    write_milestone12_narrative_report, write_milestone12_results,
+    Milestone12GaRankingAuditEntry, Milestone12NarrativeInput, ValidationRow,
 };
 
 use super::ga::run_milestone12_ga;
@@ -38,6 +39,8 @@ pub(crate) struct Milestone12SequenceCoverage {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct Milestone12Option1Summary {
     pub total_candidates: usize,
+    #[serde(default)]
+    pub evaluated_count: usize,
     pub eligible_count: usize,
     #[serde(default)]
     pub authoritative_run: bool,
@@ -50,6 +53,8 @@ pub(crate) struct Milestone12Option1Summary {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct Milestone12Option2Summary {
     pub total_candidates: usize,
+    #[serde(default)]
+    pub evaluated_count: usize,
     pub eligible_count: usize,
     #[serde(default)]
     pub authoritative_run: bool,
@@ -59,6 +64,8 @@ pub(crate) struct Milestone12Option2Summary {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct Milestone12GaSummary {
+    #[serde(default)]
+    pub evaluated_count: usize,
     #[serde(default)]
     pub authoritative_run: bool,
     #[serde(default)]
@@ -87,7 +94,7 @@ pub(crate) const GA_SUMMARY_PATH: &str = "ga_stage_summary.json";
 const REPORT_MANIFEST_PATH: &str = "report_manifest.json";
 
 fn authoritative_run() -> bool {
-    !crate::application::orchestration::fast_mode()
+    true
 }
 
 fn canonical_results_path(workspace_root: &Path) -> std::path::PathBuf {
@@ -179,6 +186,16 @@ fn read_option2_robustness(
     Ok(serde_json::from_str(&fs::read_to_string(path)?)?)
 }
 
+fn read_ga_ranking_audit(
+    out_dir: &Path,
+) -> Result<Vec<Milestone12GaRankingAuditEntry>, Box<dyn std::error::Error>> {
+    let path = out_dir.join("ga_lineage_audit_top5.json");
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    Ok(serde_json::from_str(&fs::read_to_string(path)?)?)
+}
+
 pub fn refresh_milestone12_reports(
     requested_stages: &[Milestone12RequestedStage],
 ) -> Result<Vec<Milestone12StageArtifact>, Box<dyn std::error::Error>> {
@@ -199,6 +216,17 @@ pub fn refresh_milestone12_reports(
         load_pareto_points(&out_dir.join("option2_pool_all.json"))?;
     let ga_pool_all =
         load_pareto_points(&out_dir.join("ga_pool_all.json"))?;
+    let ga_ranked_for_report = rank_ga_hydrosdt_report_designs(&ga_ranked, &option2_ranked[0]);
+    let selected_ga_ranked = if ga_ranked_for_report.is_empty() {
+        ga_ranked.clone()
+    } else {
+        ga_ranked_for_report
+    };
+    let ga_pool_for_report = if ga_pool_all.is_empty() {
+        pareto_pool_from_report_designs(&selected_ga_ranked, ParetoTag::Ga, 200)
+    } else {
+        ga_pool_all
+    };
 
     let option1_summary: Milestone12Option1Summary =
         read_summary(&out_dir.join(OPTION1_SUMMARY_PATH))?;
@@ -207,6 +235,7 @@ pub fn refresh_milestone12_reports(
     let ga_summary: Milestone12GaSummary = read_summary(&out_dir.join(GA_SUMMARY_PATH))?;
     let validation_rows = read_validation_rows(&out_dir)?;
     let option2_robustness = read_option2_robustness(&out_dir)?;
+    let ga_ranking_audit = read_ga_ranking_audit(&out_dir)?;
 
     let canonical = canonical_results_path(&workspace_root);
     if let Some(parent) = canonical.parent() {
@@ -220,7 +249,7 @@ pub fn refresh_milestone12_reports(
         option2_summary.eligible_count.max(option2_ranked.len()),
         &option1_ranked,
         &option2_ranked,
-        &ga_ranked[0],
+        &selected_ga_ranked[0],
         &validation_rows,
         &option2_robustness,
         authoritative_run(),
@@ -237,17 +266,20 @@ pub fn refresh_milestone12_reports(
             total_candidates: option1_summary
                 .total_candidates
                 .max(option2_summary.total_candidates),
+            option1_evaluated_count: option1_summary.evaluated_count,
+            option2_evaluated_count: option2_summary.evaluated_count,
             option1_pool_len: option1_summary.eligible_count.max(option1_ranked.len()),
             option2_pool_len: option2_summary.eligible_count.max(option2_ranked.len()),
             option1_sequence_summary_markdown: render_option1_sequence_coverage(&option1_summary),
             option1_ranked: &option1_ranked,
             option2_ranked: &option2_ranked,
-            ga_top: &ga_ranked,
+            ga_top: &selected_ga_ranked,
             option2_pool_all: &option2_pool_all,
-            ga_pool_all: &ga_pool_all,
+            ga_pool_all: &ga_pool_for_report,
             validation_rows: &validation_rows,
             option2_robustness: &option2_robustness,
             ga_best_per_gen: &ga_summary.best_per_generation,
+            ga_ranking_audit: &ga_ranking_audit,
             topology_family_count: option1_summary.sequence_coverage.len().max(1),
             fast_mode: crate::application::orchestration::fast_mode(),
         },
