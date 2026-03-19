@@ -104,7 +104,7 @@ def compare_solutions(cfd_python_result, external_result, Re: float):
     # Ensure same grid size
     if cfd_python_result["u"].shape != ext_sol["u"].shape:
         print(f"WARN: Grid size mismatch: cfd_python {cfd_python_result['u'].shape} vs external {ext_sol['u'].shape}")
-        # TODO: Interpolate if needed
+        # NOTE: Interpolate if needed
         return None
     
     # Compute L2 errors
