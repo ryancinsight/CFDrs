@@ -75,10 +75,12 @@ mod blood;
 mod poiseuille_2d;
 mod result_types;
 mod solver_2d;
+mod hemolysis;
 mod solver_3d;
 mod womersley;
 
 pub use bifurcation::{PyBifurcationSolver, PyTrifurcationResult, PyTrifurcationSolver};
+pub use hemolysis::*;
 pub use blood::*;
 pub use poiseuille_2d::{PyPoiseuilleConfig, PyPoiseuilleResult, PyPoiseuilleSolver};
 pub use result_types::PyBifurcationResult;
@@ -107,6 +109,9 @@ fn cfd_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCarreauYasudaBlood>()?;
     m.add_class::<PyCrossBlood>()?;
     m.add_class::<PyFahraeuasLindqvist>()?;
+
+    // Hemolysis models
+    m.add_class::<PyHemolysisModel>()?;
 
     // Womersley pulsatile flow
     m.add_class::<PyWomersleyNumber>()?;
