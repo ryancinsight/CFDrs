@@ -1,0 +1,11 @@
+--- .github/workflows/performance-benchmarking.yml
++++ .github/workflows/performance-benchmarking.yml
+@@ -75,7 +75,7 @@
+     - name: Build benchmarks
+       run: cargo build --release --bench performance_benchmarks
+
+-    - name: Run comprehensive benchmarks
++    - name: Run performance benchmarks
+       if: github.event.inputs.benchmark_type == 'comprehensive' || github.event_name != 'workflow_dispatch'
+       run: |
+         cargo bench --bench performance_benchmarks | tee benchmark_results.txt
