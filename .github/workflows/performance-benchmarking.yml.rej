@@ -1,0 +1,10 @@
+--- performance-benchmarking.yml
++++ performance-benchmarking.yml
+@@ -40,6 +40,7 @@
+         run: |
+           sudo apt-get update
+           sudo apt-get install -y valgrind linux-tools-common
++          sudo apt-get install -y libfontconfig1-dev pkg-config
+
+     - name: Build benchmarks
+       run: cargo build --release --bench performance_benchmarks
