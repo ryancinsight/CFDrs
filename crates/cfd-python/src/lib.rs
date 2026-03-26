@@ -77,8 +77,12 @@ mod result_types;
 mod solver_2d;
 mod solver_3d;
 mod womersley;
+mod cavitation;
+mod hemolysis;
 
 pub use bifurcation::{PyBifurcationSolver, PyTrifurcationResult, PyTrifurcationSolver};
+pub use cavitation::*;
+pub use hemolysis::*;
 pub use blood::*;
 pub use poiseuille_2d::{PyPoiseuilleConfig, PyPoiseuilleResult, PyPoiseuilleSolver};
 pub use result_types::PyBifurcationResult;
@@ -148,6 +152,11 @@ fn cfd_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // 1D Venturi resistance solver
     m.add_class::<PyVenturiSolver1D>()?;
     m.add_class::<PyVenturiResult1D>()?;
+
+    // Cavitation and Hemolysis
+    m.add_class::<PyRayleighPlesset>()?;
+    m.add_class::<PyCavitationRegimeClassifier>()?;
+    m.add_class::<PyHemolysisModel>()?;
 
     // Add submodule for validation utilities
     let validation = PyModule::new_bound(m.py(), "validation")?;
