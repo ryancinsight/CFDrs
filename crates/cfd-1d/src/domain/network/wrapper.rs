@@ -22,10 +22,10 @@ pub struct Network<T: RealField + Copy, F: FluidTrait<T> = ConstantPropertyFluid
     pub fluid: F,
     /// Prescribed boundary conditions
     boundary_conditions: HashMap<NodeIndex, BoundaryCondition<T>>,
-    /// Node pressures
-    pub pressures: HashMap<NodeIndex, T>,
-    /// Edge flow rates
-    pub flow_rates: HashMap<EdgeIndex, T>,
+    /// Node pressures indexed by `NodeIndex::index()`.
+    pub pressures: Vec<T>,
+    /// Edge flow rates indexed by `EdgeIndex::index()`.
+    pub flow_rates: Vec<T>,
     /// Edge properties
     pub properties: HashMap<EdgeIndex, EdgeProperties<T>>,
     /// Residuals from the last solver run
@@ -164,12 +164,14 @@ pub struct ParallelEdge<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
     /// Create a new network
     pub fn new(graph: NetworkGraph<T>, fluid: F) -> Self {
+        let n_nodes = graph.node_count();
+        let n_edges = graph.edge_count();
         Self {
             graph,
             fluid,
             boundary_conditions: HashMap::new(),
-            pressures: HashMap::new(),
-            flow_rates: HashMap::new(),
+            pressures: vec![T::zero(); n_nodes],
+            flow_rates: vec![T::zero(); n_edges],
             properties: HashMap::new(),
             residuals: Vec::new(),
             last_solver_method: None,
@@ -193,7 +195,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                     .get(&edge_idx)
                     .map(|props| EdgeWithProperties {
                         id: edge_data.id.clone(),
-                        flow_rate: *self.flow_rates.get(&edge_idx).unwrap_or(&T::zero()),
+                        flow_rate: self.flow_rates.get(edge_idx.index()).copied().unwrap_or(T::zero()),
                         nodes: (from, to),
                         properties: props,
                     })
@@ -206,13 +208,13 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         self.graph.node_weights()
     }
 
-    /// Get node pressures
-    pub fn pressures(&self) -> &HashMap<NodeIndex, T> {
+    /// Get node pressures as a slice indexed by `NodeIndex::index()`.
+    pub fn pressures(&self) -> &[T] {
         &self.pressures
     }
 
-    /// Get edge flow rates
-    pub fn flow_rates(&self) -> &HashMap<EdgeIndex, T> {
+    /// Get edge flow rates as a slice indexed by `EdgeIndex::index()`.
+    pub fn flow_rates(&self) -> &[T] {
         &self.flow_rates
     }
 
@@ -230,7 +232,11 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                 component_values: None,
             },
         );
-        self.pressures.insert(node, pressure);
+        let idx = node.index();
+        if idx >= self.pressures.len() {
+            self.pressures.resize(idx + 1, T::zero());
+        }
+        self.pressures[idx] = pressure;
     }
 
     /// Set a Neumann (flow) boundary condition
@@ -246,14 +252,22 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
     /// Explicitly set a boundary condition
     pub fn set_boundary_condition(&mut self, node: NodeIndex, condition: BoundaryCondition<T>) {
         if let BoundaryCondition::Dirichlet { value, .. } = &condition {
-            self.pressures.insert(node, *value);
+            let idx = node.index();
+            if idx >= self.pressures.len() {
+                self.pressures.resize(idx + 1, T::zero());
+            }
+            self.pressures[idx] = *value;
         }
         self.boundary_conditions.insert(node, condition);
     }
 
     /// Set flow rate for an edge
     pub fn set_flow_rate(&mut self, edge: EdgeIndex, flow_rate: T) {
-        self.flow_rates.insert(edge, flow_rate);
+        let idx = edge.index();
+        if idx >= self.flow_rates.len() {
+            self.flow_rates.resize(idx + 1, T::zero());
+        }
+        self.flow_rates[idx] = flow_rate;
         if let Some(edge_data) = self.graph.edge_weight_mut(edge) {
             edge_data.flow_rate = flow_rate;
         }
@@ -291,14 +305,16 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
 
     /// Update network state from solution vector
     pub fn update_from_solution(&mut self, solution: &DVector<T>) -> Result<()> {
-        self.pressures.clear();
-        for (idx, &value) in solution.iter().enumerate() {
-            let node_idx = NodeIndex::new(idx);
-            self.pressures.insert(node_idx, value);
+        // Direct copy: pressures[i] = solution[i]
+        let n = solution.len();
+        self.pressures.resize(n, T::zero());
+        for i in 0..n {
+            self.pressures[i] = solution[i];
         }
 
-        self.flow_rates.clear();
         let epsilon = T::default_epsilon();
+        let n_edges = self.graph.edge_count();
+        self.flow_rates.resize(n_edges, T::zero());
         let edge_indices: Vec<_> = self.graph.edge_indices().collect();
 
         for edge_idx in edge_indices {
@@ -351,7 +367,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             }
             let flow = dp / r_eff;
 
-            self.flow_rates.insert(edge_idx, flow);
+            self.flow_rates[edge_idx.index()] = flow;
 
             if let Some(edge) = self.graph.edge_weight_mut(edge_idx) {
                 edge.flow_rate = flow;
@@ -371,7 +387,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         let calculator = crate::physics::resistance::ResistanceCalculator::new();
 
         for edge_idx in edge_indices {
-            let flow_rate = *self.flow_rates.get(&edge_idx).unwrap_or(&T::zero());
+            let flow_rate = self.flow_rates.get(edge_idx.index()).copied().unwrap_or(T::zero());
 
             // Get geometry and other properties from self.properties
             if let Some(props) = self.properties.get(&edge_idx) {

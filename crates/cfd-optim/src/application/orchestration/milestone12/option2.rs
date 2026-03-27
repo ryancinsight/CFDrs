@@ -150,7 +150,7 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
     }
     scored_indices.sort_by(|a, b| b.1.total_cmp(&a.1));
     let mut best_indices: Vec<usize> = scored_indices.iter().take(2).map(|&(i, _)| i).collect();
-    best_indices.sort();
+    best_indices.sort_unstable();
 
     // Phase 3: dense fill between best stride pair
     let (fill_lo, fill_hi) = if best_indices.len() >= 2 {
@@ -198,12 +198,9 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         .for_each(|params| {
             let progress_ref = &progress;
             let candidate = params.materialize();
-            let evaluation = match evaluate_blueprint_candidate(&candidate) {
-                Ok(evaluation) => evaluation,
-                Err(_) => {
-                    progress_ref.record();
-                    return;
-                }
+            let evaluation = if let Ok(evaluation) = evaluate_blueprint_candidate(&candidate) { evaluation } else {
+                progress_ref.record();
+                return;
             };
             progress_ref.record();
 
@@ -221,7 +218,7 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
             let option2_score = if is_venturi {
                 let has_placements = candidate
                     .topology_spec()
-                    .map_or(false, |t| !t.venturi_placements.is_empty());
+                    .is_ok_and(|t| !t.venturi_placements.is_empty());
                 score_selective_venturi_cavitation(&evaluation, has_placements)
             } else {
                 None

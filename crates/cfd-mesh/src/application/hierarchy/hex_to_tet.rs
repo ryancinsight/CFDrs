@@ -494,10 +494,7 @@ mod tests {
             let six_v = tet_six_volume(mesh, cell);
             assert!(
                 six_v > volume_tol,
-                "Degenerate tetrahedron at cell {} with 6V={:.3e}, tol={:.3e}",
-                i,
-                six_v,
-                volume_tol
+                "Degenerate tetrahedron at cell {i} with 6V={six_v:.3e}, tol={volume_tol:.3e}"
             );
         }
     }

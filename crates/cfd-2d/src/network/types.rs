@@ -33,6 +33,8 @@ pub struct Channel2dResult<T> {
     pub field_outlet_flow_error_pct: T,
     /// Transit time through the channel [s].
     pub transit_time_s: T,
+    /// Eulerian-Lagrangian separation efficiency over the solved 2D field [%].
+    pub field_separation_efficiency_pct: Option<T>,
     /// Giersiepen (1990) haemolysis index contribution (dimensionless).
     pub hemolysis_index: T,
     /// Authoritative cfd-1d reference trace for this channel.

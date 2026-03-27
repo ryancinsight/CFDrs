@@ -151,7 +151,7 @@ fn test_strain_rate_zero_for_rigid_rotation() {
 /// Theorem: tr(σ) = −3p for incompressible Newtonian flow.
 #[test]
 fn test_stress_trace_is_neg_3p() {
-    use cfd_3d::fem::stress::{strain_rate_tensor, stress_tensor};
+    use cfd_3d::fem::stress::{strain_rate_tensor, stress_tensor_with_fluid};
     use cfd_core::physics::fluid::ConstantPropertyFluid;
 
     let fluid = ConstantPropertyFluid::new("test".into(), 1000.0, 0.001, 4186.0, 0.6, 1500.0);
@@ -160,7 +160,7 @@ fn test_stress_trace_is_neg_3p() {
     let grad_u = Matrix3::new(1.0, 0.5, 0.0, 0.5, -2.0, 0.3, 0.0, 0.3, 1.0);
     let eps = strain_rate_tensor(&grad_u);
     let pressure = 42.0;
-    let sigma = stress_tensor(&fluid, pressure, &eps);
+    let sigma = stress_tensor_with_fluid(&fluid, pressure, &eps);
     let trace = sigma[(0, 0)] + sigma[(1, 1)] + sigma[(2, 2)];
 
     // For incompressible (tr(ε̇)=0): σ = −pI + 2με̇, so tr(σ) = −3p + 2μ·tr(ε̇) = −3p.

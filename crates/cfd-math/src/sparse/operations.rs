@@ -95,8 +95,7 @@ pub fn spmv<T: RealField + Copy>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVect
 
 fn parallel_threshold<T: RealField + Copy>(a: &CsrMatrix<T>) -> usize {
     let cores = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1);
+        .map_or(1, |n| n.get());
     let rows = a.nrows();
     let cols = a.ncols();
     let nnz = a.nnz();
@@ -105,7 +104,7 @@ fn parallel_threshold<T: RealField + Copy>(a: &CsrMatrix<T>) -> usize {
     } else {
         nnz as f64 / (rows * cols) as f64
     };
-    let avg_nnz_per_row = if rows == 0 { 0 } else { nnz / rows };
+    let avg_nnz_per_row = nnz.checked_div(rows).unwrap_or(0);
     let base = 256_usize.saturating_mul(cores);
     let density_factor = if density >= 0.05 {
         0.5

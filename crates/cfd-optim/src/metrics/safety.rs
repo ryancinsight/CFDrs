@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::constraints::{BLOOD_VISCOSITY_PA_S, FDA_MAX_WALL_SHEAR_PA, FDA_TRANSIENT_TIME_S};
+use cfd_2d::physics::non_newtonian::CarreauYasudaModel;
+use crate::constraints::{FDA_MAX_WALL_SHEAR_PA, FDA_TRANSIENT_TIME_S};
 use crate::domain::BlueprintCandidate;
 
 use super::blueprint_graph::BlueprintSolveSummary;
@@ -24,11 +25,14 @@ pub fn compute_blueprint_safety_metrics(
     let mut max_venturi_shear_pa = 0.0_f64;
     let mut max_venturi_transit_time_s = 0.0_f64;
 
+    let cy_model = CarreauYasudaModel::<f64>::typical_blood();
+
     for sample in &solve.channel_samples {
         let area_m2 = sample.cross_section.area().max(1.0e-18);
         let mean_velocity_m_s = sample.flow_m3_s.abs() / area_m2;
         let shear_rate_inv_s = sample.cross_section.wall_shear_rate(mean_velocity_m_s);
-        let shear_pa = BLOOD_VISCOSITY_PA_S * shear_rate_inv_s;
+        let apparent_viscosity_pa_s = cy_model.apparent_viscosity(shear_rate_inv_s);
+        let shear_pa = apparent_viscosity_pa_s * shear_rate_inv_s;
         let transit_time_s = sample.length_m / mean_velocity_m_s.max(1.0e-18);
 
         if sample.is_venturi_channel {

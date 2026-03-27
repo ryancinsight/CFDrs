@@ -58,9 +58,9 @@ pub struct NavierStokesSolver2D<T: RealField + Copy + Float + FromPrimitive> {
     /// SIMPLE configuration
     pub config: SIMPLEConfig<T>,
     /// Central coefficient storage for u-momentum
-    a_p_u: crate::solvers::ns_fvm::array2d::Array2D<T>,
+    a_p_u: crate::grid::array2d::Array2D<T>,
     /// Central coefficient storage for v-momentum
-    a_p_v: crate::solvers::ns_fvm::array2d::Array2D<T>,
+    a_p_v: crate::grid::array2d::Array2D<T>,
     /// Optional k-omega SST turbulence model.  When Some, the solver
     /// computes turbulent viscosity nu_t each iteration and adds it to
     /// the molecular viscosity in the momentum equation diffusion terms.
@@ -88,8 +88,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         config: SIMPLEConfig<T>,
     ) -> Self {
         let field = FlowField2D::<T>::new(grid.nx, grid.ny);
-        let a_p_u = crate::solvers::ns_fvm::array2d::Array2D::new(grid.nx + 1, grid.ny, T::one());
-        let a_p_v = crate::solvers::ns_fvm::array2d::Array2D::new(grid.nx, grid.ny + 1, T::one());
+        let a_p_u = crate::grid::array2d::Array2D::new(grid.nx + 1, grid.ny, T::one());
+        let a_p_v = crate::grid::array2d::Array2D::new(grid.nx, grid.ny + 1, T::one());
         Self {
             grid,
             field,
@@ -224,8 +224,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
     /// Drive the SIMPLE loop to steady state.
     pub fn solve(&mut self, u_inlet: T) -> Result<SolveResult<T>, Error> {
         self.initialize_viscosity();
-        self.a_p_u = crate::solvers::ns_fvm::array2d::Array2D::new(self.grid.nx + 1, self.grid.ny, T::one());
-        self.a_p_v = crate::solvers::ns_fvm::array2d::Array2D::new(self.grid.nx, self.grid.ny + 1, T::one());
+        self.a_p_u = crate::grid::array2d::Array2D::new(self.grid.nx + 1, self.grid.ny, T::one());
+        self.a_p_v = crate::grid::array2d::Array2D::new(self.grid.nx, self.grid.ny + 1, T::one());
 
         let ny = self.grid.ny;
 
@@ -245,18 +245,35 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             let h = y_max - y_min
                 + (dy_cells[0] + dy_cells[dy_cells.len() - 1])
                     * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+            
+            let mut discrete_sum = T::zero();
+            
             for j in 0..ny {
                 if self.field.mask[(0, j)] {
                     let dy_j = self.grid.dy_at(j);
                     let y_local = (self.grid.y_center(j) - y_min)
                         + T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) * dy_j;
                     let y_frac = y_local / h;
-                    self.field.u[(0, j)] = T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero)
+                    let u_val = T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero)
                         * u_inlet
                         * y_frac
                         * (T::one() - y_frac);
+                    self.field.u[(0, j)] = u_val;
+                    discrete_sum += u_val * dy_j;
                 } else {
                     self.field.u[(0, j)] = T::zero();
+                }
+            }
+
+            // Normalise the discrete profile so numerical mass flux matches continuous theory precisely
+            let target_sum = u_inlet * h;
+            let tiny = T::from_f64(1e-30).unwrap_or_else(num_traits::Zero::zero);
+            if discrete_sum > tiny {
+                let normalize_factor = target_sum / discrete_sum;
+                for j in 0..ny {
+                    if self.field.mask[(0, j)] {
+                        self.field.u[(0, j)] *= normalize_factor;
+                    }
                 }
             }
         }
@@ -375,6 +392,50 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             residual: last_residual,
             converged: false,
         })
+    }
+}
+
+impl<T: RealField + Copy + Float + FromPrimitive> crate::solvers::cell_tracking::physics::VelocityFieldInterpolator for NavierStokesSolver2D<T> {
+    fn velocity_at(&self, x: f64, y: f64) -> (f64, f64) {
+        let x_t = T::from_f64(x).unwrap_or(T::zero());
+        let y_t = T::from_f64(y).unwrap_or(T::zero());
+
+        // Simple nearest-cell approximation for (u, v) using staggered grid edges
+        let i = (x_t / self.grid.dx).to_usize().unwrap_or(0).min(self.grid.nx.saturating_sub(1));
+        
+        let j = match &self.grid.y_faces {
+            Some(yf) => {
+                let mut found = 0;
+                for k in 0..self.grid.ny {
+                    if y_t >= yf[k] && y_t <= yf[k + 1] {
+                        found = k;
+                        break;
+                    }
+                }
+                found
+            }
+            None => (y_t / self.grid.dy).to_usize().unwrap_or(0),
+        }.min(self.grid.ny.saturating_sub(1));
+
+        let half = T::from_f64(0.5).unwrap_or(T::zero());
+        // Staggered u is at vertical faces (i, j) and (i+1, j)
+        let u_c = (self.field.u[(i, j)] + self.field.u[(i + 1, j)]) * half;
+        // Staggered v is at horizontal faces (i, j) and (i, j+1)
+        let v_c = (self.field.v[(i, j)] + self.field.v[(i, j + 1)]) * half;
+
+        (u_c.to_f64().unwrap_or(0.0), v_c.to_f64().unwrap_or(0.0))
+    }
+
+    fn is_fluid(&self, x: f64, y: f64) -> bool {
+        let lx_f64 = self.grid.lx.to_f64().unwrap_or(0.0);
+        let ly_f64 = self.grid.ly.to_f64().unwrap_or(0.0);
+        x >= 0.0 && x <= lx_f64 && y >= 0.0 && y <= ly_f64
+    }
+
+    fn bounds(&self) -> (f64, f64, f64, f64) {
+        let lx_f64 = self.grid.lx.to_f64().unwrap_or(0.0);
+        let ly_f64 = self.grid.ly.to_f64().unwrap_or(0.0);
+        (0.0, lx_f64, 0.0, ly_f64)
     }
 }
 

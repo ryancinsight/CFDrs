@@ -495,7 +495,7 @@ pub fn inject_cap_seam_into_barrels(
         // Deduplication via sort+dedup on the candidate index list.
         let mut candidates: Vec<usize> = Vec::new();
         for k in 0..=4_u8 {
-            let t = k as Real * 0.25;
+            let t = Real::from(k) * 0.25;
             let sample = pa + edge * t;
             let home = GridCell::from_point_round(&sample, inv_cell);
             for cell in home.neighborhood_27() {

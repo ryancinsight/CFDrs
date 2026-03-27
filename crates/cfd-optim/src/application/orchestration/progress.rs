@@ -56,17 +56,14 @@ impl ScanProgress {
                 break;
             }
             let new_next = (next_log_at + self.log_step).min(self.total.max(1));
-            match self.next_log_at.compare_exchange(
+            if self.next_log_at.compare_exchange(
                 next_log_at,
                 new_next,
                 Ordering::Relaxed,
                 Ordering::Relaxed,
-            ) {
-                Ok(_) => {
-                    self.log(processed);
-                    break;
-                }
-                Err(_) => continue,
+            ).is_ok() {
+                self.log(processed);
+                break;
             }
         }
     }

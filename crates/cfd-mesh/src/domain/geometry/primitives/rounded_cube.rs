@@ -394,8 +394,7 @@ mod tests {
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(
             report.is_watertight,
-            "rounded_cube must be watertight: {:?}",
-            report
+            "rounded_cube must be watertight: {report:?}"
         );
         assert_eq!(report.euler_characteristic, Some(2));
     }

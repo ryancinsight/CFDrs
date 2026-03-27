@@ -13,6 +13,7 @@
 //! consistency. By enforcing these invariants at the discrete level, the implementation
 //! guarantees stability and physical realism.
 
+use crate::grid::array2d::Array2D;
 use crate::grid::{Grid2D, StructuredGrid2D};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
@@ -29,9 +30,9 @@ pub struct IncompressibleFlowProblem<T: RealField + Copy> {
     /// Fluid properties
     pub fluid: ConstantPropertyFluid<T>,
     /// Initial velocity field
-    pub initial_velocity: Vec<Vec<Vector2<T>>>,
+    pub initial_velocity: Array2D<Vector2<T>>,
     /// Initial pressure field
-    pub initial_pressure: Vec<Vec<T>>,
+    pub initial_pressure: Array2D<T>,
     /// Time step for transient simulations
     pub time_step: Option<T>,
     /// Simulation end time
@@ -52,21 +53,21 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
             grid,
             boundary_conditions,
             fluid,
-            initial_velocity: vec![vec![Vector2::zeros(); ny]; nx],
-            initial_pressure: vec![vec![T::zero(); ny]; nx],
+            initial_velocity: Array2D::new(nx, ny, Vector2::zeros()),
+            initial_pressure: Array2D::new(nx, ny, T::zero()),
             time_step: None,
             end_time: None,
         }
     }
 
     /// Set initial velocity field
-    pub fn with_initial_velocity(mut self, velocity: Vec<Vec<Vector2<T>>>) -> Self {
+    pub fn with_initial_velocity(mut self, velocity: Array2D<Vector2<T>>) -> Self {
         self.initial_velocity = velocity;
         self
     }
 
     /// Set initial pressure field
-    pub fn with_initial_pressure(mut self, pressure: Vec<Vec<T>>) -> Self {
+    pub fn with_initial_pressure(mut self, pressure: Array2D<T>) -> Self {
         self.initial_pressure = pressure;
         self
     }
@@ -86,13 +87,13 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
     /// Validate problem setup
     pub fn validate(&self) -> cfd_core::error::Result<()> {
         // Check grid dimensions match initial fields
-        if self.initial_velocity.len() != self.grid.nx() {
+        if self.initial_velocity.rows() != self.grid.nx() {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Initial velocity field dimensions don't match grid".into(),
             ));
         }
 
-        if !self.initial_velocity.is_empty() && self.initial_velocity[0].len() != self.grid.ny() {
+        if self.initial_velocity.cols() != self.grid.ny() {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Initial velocity field dimensions don't match grid".into(),
             ));
@@ -136,9 +137,9 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
 #[derive(Debug, Clone)]
 pub struct IncompressibleFlowSolution<T: RealField + Copy> {
     /// Final velocity field
-    pub velocity: Vec<Vec<Vector2<T>>>,
+    pub velocity: Array2D<Vector2<T>>,
     /// Final pressure field
-    pub pressure: Vec<Vec<T>>,
+    pub pressure: Array2D<T>,
     /// Number of iterations to convergence
     pub iterations: usize,
     /// Final residual
@@ -150,8 +151,8 @@ pub struct IncompressibleFlowSolution<T: RealField + Copy> {
 impl<T: RealField + Copy> IncompressibleFlowSolution<T> {
     /// Create new solution
     pub fn new(
-        velocity: Vec<Vec<Vector2<T>>>,
-        pressure: Vec<Vec<T>>,
+        velocity: Array2D<Vector2<T>>,
+        pressure: Array2D<T>,
         iterations: usize,
         residual: T,
         time: T,
@@ -169,8 +170,7 @@ impl<T: RealField + Copy> IncompressibleFlowSolution<T> {
     pub fn max_velocity_magnitude(&self) -> T {
         self.velocity
             .iter()
-            .flat_map(|row| row.iter())
-            .map(nalgebra::Matrix::magnitude)
+            .map(|v| v.norm())
             .fold(T::zero(), |acc, mag| if mag > acc { mag } else { acc })
     }
 
@@ -178,7 +178,6 @@ impl<T: RealField + Copy> IncompressibleFlowSolution<T> {
     pub fn max_pressure(&self) -> T {
         self.pressure
             .iter()
-            .flat_map(|row| row.iter())
             .copied()
             .fold(T::zero(), |acc, p| if p > acc { p } else { acc })
     }

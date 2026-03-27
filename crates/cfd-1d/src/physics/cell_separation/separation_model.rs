@@ -58,7 +58,7 @@
 //! - Gossett, D. R. & Di Carlo, D. (2009). *Anal. Chem.*, 81, 8459–8465.
 //! - Hur, S. C. et al. (2011). *Lab Chip*, 11, 912–920.
 
-use crate::physics::cell_separation::margination::{lateral_equilibrium, EquilibriumResult};
+use crate::physics::cell_separation::margination::{lateral_equilibrium, lateral_velocity_m_s, EquilibriumResult};
 use crate::physics::cell_separation::properties::CellProperties;
 use serde::{Deserialize, Serialize};
 
@@ -116,6 +116,7 @@ pub struct CellSeparationAnalysis {
 /// let model = CellSeparationModel::new(
 ///     500e-6,  // channel width [m]
 ///     200e-6,  // channel height [m]
+///     0.01,    // channel length [m]
 ///     None,    // straight channel (no curvature)
 /// );
 ///
@@ -135,6 +136,8 @@ pub struct CellSeparationModel {
     pub channel_width_m: f64,
     /// Channel height [m] (shorter dimension for rectangular channels).
     pub channel_height_m: f64,
+    /// Channel length [m].
+    pub channel_length_m: f64,
     /// Radius of curvature [m] for curved channels, or `None` for straight.
     pub bend_radius_m: Option<f64>,
     /// Center-channel split position `x̃_split` ∈ (0, 1).
@@ -150,12 +153,14 @@ impl CellSeparationModel {
     /// # Arguments
     /// - `channel_width_m` — channel width [m]
     /// - `channel_height_m` — channel height [m] (shorter dimension)
+    /// - `channel_length_m` — channel length [m]
     /// - `bend_radius_m` — radius of curvature [m], or `None` for straight
     #[must_use]
-    pub fn new(channel_width_m: f64, channel_height_m: f64, bend_radius_m: Option<f64>) -> Self {
+    pub fn new(channel_width_m: f64, channel_height_m: f64, channel_length_m: f64, bend_radius_m: Option<f64>) -> Self {
         Self {
             channel_width_m,
             channel_height_m,
+            channel_length_m,
             bend_radius_m,
             x_tilde_split: 0.3,
         }
@@ -214,7 +219,7 @@ impl CellSeparationModel {
             will_focus: false,
         };
 
-        let target_eq = lateral_equilibrium(
+        let mut target_eq = lateral_equilibrium(
             target,
             fluid_density_kg_m3,
             dynamic_viscosity_pa_s,
@@ -225,7 +230,7 @@ impl CellSeparationModel {
         )
         .unwrap_or_else(make_dispersed);
 
-        let background_eq = lateral_equilibrium(
+        let mut background_eq = lateral_equilibrium(
             background,
             fluid_density_kg_m3,
             dynamic_viscosity_pa_s,
@@ -235,6 +240,51 @@ impl CellSeparationModel {
             self.bend_radius_m,
         )
         .unwrap_or_else(make_dispersed);
+
+        // RK4 Transient Integration
+        // Compute the actual geometric focusing over the physically bounded residence time.
+        // dx/dt = - v_drift / (H/2)   (where positive v_drift points toward center reducing x_tilde).
+        let integrate_trajectory = |cell: &CellProperties, x_tilde_limit: f64| -> f64 {
+            if mean_velocity_m_s <= 1e-12 || self.channel_length_m <= 1e-12 {
+                return 0.5;
+            }
+            let t_transit = self.channel_length_m / mean_velocity_m_s;
+            let n_steps = 100;
+            let dt = t_transit / f64::from(n_steps);
+            let length_scale = self.channel_height_m / 2.0;
+
+            let mut x = 0.5; // Start horizontally dispersed
+            for _ in 0..n_steps {
+                if (x - x_tilde_limit).abs() < 1e-4 {
+                    x = x_tilde_limit;
+                    break;
+                }
+                
+                let dxdt = |pos: f64| -> f64 {
+                    let v = lateral_velocity_m_s(
+                        pos, cell, fluid_density_kg_m3, dynamic_viscosity_pa_s, mean_velocity_m_s,
+                        self.channel_width_m, self.channel_height_m, self.bend_radius_m
+                    );
+                    -v / length_scale
+                };
+
+                let k1 = dxdt(x);
+                let k2 = dxdt(x + 0.5 * dt * k1);
+                let k3 = dxdt(x + 0.5 * dt * k2);
+                let k4 = dxdt(x + dt * k3);
+                
+                x += (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
+                x = x.clamp(0.0, 0.95);
+            }
+            x
+        };
+
+        if target_eq.will_focus {
+            target_eq.x_tilde_eq = integrate_trajectory(target, target_eq.x_tilde_eq);
+        }
+        if background_eq.will_focus {
+            background_eq.x_tilde_eq = integrate_trajectory(background, background_eq.x_tilde_eq);
+        }
 
         // Separation efficiency: |x̃_target − x̃_background|.
         // Computed unconditionally — even when neither cell truly focuses

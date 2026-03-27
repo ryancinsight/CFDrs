@@ -79,7 +79,7 @@ mod tests {
         }
         .build()
         .expect("Lidinoid sphere");
-        assert!(mesh.faces.len() > 0);
+        assert!(!mesh.faces.is_empty());
     }
 
     #[test]

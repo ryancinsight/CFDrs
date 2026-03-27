@@ -137,11 +137,10 @@ impl ShellMeshPipeline {
             // Port `end` is on the inner wall. Vector goes from start (outer) to end (inner).
             let mut dir = p2 - p1;
             let len = dir.norm();
-            if len > 1e-6 {
-                dir.normalize_mut();
-            } else {
+            if len <= 1e-6 {
                 continue;
             }
+            dir.normalize_mut();
 
             // Extend slightly inwards by 0.5 mm for a clean CSG union interface.
             let p2_extended = p2 + dir * 0.5;
@@ -241,7 +240,7 @@ impl ShellMeshPipeline {
 
             let mesh =
                 build_tpms_box_graded(surface, *bounds, fill.resolution, fill.iso_value, period_fn)
-                    .map_err(|e| MeshError::Other(format!("TPMS grading error: {:?}", e)))?;
+                    .map_err(|e| MeshError::Other(format!("TPMS grading error: {e:?}")))?;
             Ok(mesh)
         } else {
             // Uniform TPMS
@@ -252,7 +251,7 @@ impl ShellMeshPipeline {
                 iso_value: fill.iso_value,
             };
             let mesh = build_tpms_box(surface, &params)
-                .map_err(|e| MeshError::Other(format!("TPMS error: {:?}", e)))?;
+                .map_err(|e| MeshError::Other(format!("TPMS error: {e:?}")))?;
             Ok(mesh)
         }
     }

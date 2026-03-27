@@ -116,8 +116,7 @@ mod tests {
         let result = intersect_triangles(&t1, &pa, &t2, &pb);
         assert!(
             matches!(result, IntersectionType::Segment { .. }),
-            "expected Segment, got {:?}",
-            result
+            "expected Segment, got {result:?}"
         );
         if let IntersectionType::Segment { start, end } = result {
             let len = (end - start).norm();

@@ -274,6 +274,7 @@ mod cross_fidelity_physics_tests {
         ConstantPropertyFluid::new("blood".to_string(), RHO, MU, 3617.0, 0.52, 1570.0)
     }
 
+    #[allow(deprecated)]
     fn straight_blueprint(w: f64, h: f64, l: f64) -> NetworkBlueprint {
         let mut bp = NetworkBlueprint::new("duct");
         bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));

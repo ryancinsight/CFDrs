@@ -24,7 +24,6 @@
 //! **Reference**: Lallemand & Luo (2000), §IV.
 
 use super::traits::CollisionOperator;
-use crate::solvers::lbm::lattice::D2Q9;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -61,7 +60,12 @@ pub struct RelaxationMatrix<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> RelaxationMatrix<T> {
-    /// Create default relaxation matrix
+    /// Create default relaxation matrix.
+    ///
+    /// The M-matrix row ordering (Lallemand & Luo 2000) maps moment indices as:
+    /// 0→ρ, 1→e, 2→ε, 3→j_x, 4→q_x, 5→j_y, 6→q_y, 7→p_xx, 8→p_xy.
+    ///
+    /// Conserved moments (ρ, j_x, j_y) at indices 0, 3, 5 must have s_k = 0.
     pub fn default_d2q9(tau: T) -> Self {
         let omega = T::one() / tau;
 
@@ -73,15 +77,15 @@ impl<T: RealField + Copy + FromPrimitive> RelaxationMatrix<T> {
 
         Self {
             s: [
-                T::zero(), // s0: density (conserved)
-                T::zero(), // s1: momentum x (conserved)
-                T::zero(), // s2: momentum y (conserved)
-                s_e,       // s3: energy (bulk viscosity control)
-                s_eps,     // s4: energy squared
-                s_q,       // s5: energy flux x
-                s_q,       // s6: energy flux y
-                omega,     // s7: stress xx (kinematic viscosity)
-                omega,     // s8: stress xy (kinematic viscosity)
+                T::zero(), // s0: density ρ (conserved)
+                s_e,       // s1: energy e (bulk viscosity control)
+                s_eps,     // s2: energy squared ε
+                T::zero(), // s3: momentum j_x (conserved)
+                s_q,       // s4: energy flux q_x
+                T::zero(), // s5: momentum j_y (conserved)
+                s_q,       // s6: energy flux q_y
+                omega,     // s7: stress p_xx − p_yy (kinematic viscosity)
+                omega,     // s8: stress p_xy (kinematic viscosity)
             ],
         }
     }
@@ -124,39 +128,41 @@ impl<T: RealField + Copy + FromPrimitive> MrtCollision<T> {
             }
         }
 
-        // Build the inverse transformation matrix M^(-1)
-        // Pre-computed values for D2Q9 from the literature
-        let inv_9 = T::from_f64(1.0 / 9.0).expect("1/9 is representable in IEEE 754");
-        let inv_36 = T::from_f64(1.0 / 36.0).expect("1/36 is representable in IEEE 754");
-        let inv_6 = T::from_f64(1.0 / 6.0).expect("1/6 is representable in IEEE 754");
-        let inv_12 = T::from_f64(1.0 / 12.0).expect("1/12 is representable in IEEE 754");
-        let inv_4 = T::from_f64(1.0 / 4.0).expect("1/4 is representable in IEEE 754");
-        let two = T::from_f64(2.0).expect("2.0 is representable in IEEE 754");
+        // Exact M⁻¹ derived from the orthogonality of M.
+        //
+        // The Lallemand-Luo M matrix is row-orthogonal: M·Mᵀ = diag(‖r_k‖²)
+        // with ‖r_k‖² = [9, 36, 36, 6, 12, 6, 12, 4, 4] for k = 0..8.
+        //
+        // Therefore M⁻¹ = Mᵀ · diag(1/‖r_k‖²), i.e. M⁻¹[q][k] = M[k][q] / ‖r_k‖².
+        //
+        // Pre-computed rows (one per velocity direction q = 0..8):
+        #[rustfmt::skip]
+        const M_INV_ROWS: [[f64; 9]; 9] = [
+            // q=0: (0,0) rest
+            [ 1.0/9.0, -4.0/36.0,  4.0/36.0,  0.0/6.0,  0.0/12.0,  0.0/6.0,  0.0/12.0,  0.0/4.0,  0.0/4.0],
+            // q=1: (1,0)
+            [ 1.0/9.0, -1.0/36.0, -2.0/36.0,  1.0/6.0, -2.0/12.0,  0.0/6.0,  0.0/12.0,  1.0/4.0,  0.0/4.0],
+            // q=2: (0,1)
+            [ 1.0/9.0, -1.0/36.0, -2.0/36.0,  0.0/6.0,  0.0/12.0,  1.0/6.0, -2.0/12.0, -1.0/4.0,  0.0/4.0],
+            // q=3: (-1,0)
+            [ 1.0/9.0, -1.0/36.0, -2.0/36.0, -1.0/6.0,  2.0/12.0,  0.0/6.0,  0.0/12.0,  1.0/4.0,  0.0/4.0],
+            // q=4: (0,-1)
+            [ 1.0/9.0, -1.0/36.0, -2.0/36.0,  0.0/6.0,  0.0/12.0, -1.0/6.0,  2.0/12.0, -1.0/4.0,  0.0/4.0],
+            // q=5: (1,1)
+            [ 1.0/9.0,  2.0/36.0,  1.0/36.0,  1.0/6.0,  1.0/12.0,  1.0/6.0,  1.0/12.0,  0.0/4.0,  1.0/4.0],
+            // q=6: (-1,1)
+            [ 1.0/9.0,  2.0/36.0,  1.0/36.0, -1.0/6.0, -1.0/12.0,  1.0/6.0,  1.0/12.0,  0.0/4.0, -1.0/4.0],
+            // q=7: (-1,-1)
+            [ 1.0/9.0,  2.0/36.0,  1.0/36.0, -1.0/6.0, -1.0/12.0, -1.0/6.0, -1.0/12.0,  0.0/4.0,  1.0/4.0],
+            // q=8: (1,-1)
+            [ 1.0/9.0,  2.0/36.0,  1.0/36.0,  1.0/6.0,  1.0/12.0, -1.0/6.0, -1.0/12.0,  0.0/4.0, -1.0/4.0],
+        ];
 
         for q in 0..9 {
-            let vel = D2Q9::VELOCITIES[q];
-            let cx = T::from_i32(vel.0).expect("lattice velocity is a small integer");
-            let cy = T::from_i32(vel.1).expect("lattice velocity is a small integer");
-
-            m_inv[q][0] = inv_9;
-
-            if q == 0 {
-                m_inv[q][1] = -inv_9 * two * two; // -4/9
-                m_inv[q][2] = inv_9 * two * two; //  4/9
-            } else if q < 5 {
-                m_inv[q][1] = -inv_36;
-                m_inv[q][2] = -inv_36 * two;
-            } else {
-                m_inv[q][1] = inv_36 * two;
-                m_inv[q][2] = inv_36;
+            for k in 0..9 {
+                m_inv[q][k] = T::from_f64(M_INV_ROWS[q][k])
+                    .expect("MRT inverse matrix entries are exact f64 constants");
             }
-
-            m_inv[q][3] = inv_6 * cx;
-            m_inv[q][4] = -inv_12 * cx;
-            m_inv[q][5] = inv_6 * cy;
-            m_inv[q][6] = -inv_12 * cy;
-            m_inv[q][7] = inv_4 * (cx * cx - cy * cy);
-            m_inv[q][8] = inv_4 * cx * cy;
         }
 
         (m, m_inv)
@@ -239,3 +245,186 @@ impl<T: RealField + Copy + FromPrimitive> MrtCollision<T> {
         m_eq
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    /// Viscosity-relaxation round-trip: ν → τ → ν.
+    /// MRT uses the same viscosity formula as BGK (stress moment relaxation).
+    #[test]
+    fn viscosity_round_trip() {
+        let nu = 0.01_f64;
+        let dt = 1.0;
+        let dx = 1.0;
+        let cs2 = 1.0 / 3.0;
+        let tau = 0.5 + nu * dt / (cs2 * dx * dx);
+        let mrt = MrtCollision::<f64>::new(tau);
+        let nu_recovered = mrt.viscosity(dt, dx);
+        assert_relative_eq!(nu_recovered, nu, epsilon = 1e-12);
+    }
+
+    /// Equilibrium moments: the equilibrium_moments function must produce
+    /// moment 0 = ρ, moment 3 = ρ·u_x, moment 5 = ρ·u_y (conserved).
+    #[test]
+    fn equilibrium_moments_conserved_quantities() {
+        let rho = 1.05_f64;
+        let u = [0.08_f64, -0.03];
+        let m_eq = MrtCollision::<f64>::equilibrium_moments(rho, u);
+
+        // Moment 0 = density
+        assert_relative_eq!(m_eq[0], rho, epsilon = 1e-14);
+        // Moment 3 = j_x = ρ u_x
+        assert_relative_eq!(m_eq[3], rho * u[0], epsilon = 1e-14);
+        // Moment 5 = j_y = ρ u_y
+        assert_relative_eq!(m_eq[5], rho * u[1], epsilon = 1e-14);
+    }
+
+    /// Relaxation matrix: conserved moments (indices 0, 3, 5) must have
+    /// relaxation rate s_k = 0. Non-conserved moments must have s_k ∈ (0, 2).
+    #[test]
+    fn relaxation_rates_conservation_and_stability() {
+        let tau = 0.8_f64;
+        let s = RelaxationMatrix::<f64>::default_d2q9(tau);
+
+        // Conserved moments: s = 0
+        assert_relative_eq!(s.s[0], 0.0, epsilon = 1e-14); // density
+        assert_relative_eq!(s.s[3], 0.0, epsilon = 1e-14); // j_x
+        assert_relative_eq!(s.s[5], 0.0, epsilon = 1e-14); // j_y
+
+        // Non-conserved moments: s ∈ (0, 2) (Theorem — MRT Linear Stability)
+        for k in [1, 2, 4, 6, 7, 8] {
+            assert!(
+                s.s[k] > 0.0 && s.s[k] < 2.0,
+                "s[{k}] = {} not in (0, 2)",
+                s.s[k]
+            );
+        }
+    }
+
+    /// Transformation matrix M: row 0 sums to 9 (density moment = Σf_q),
+    /// row 3 is the x-momentum (dot with e_x), row 5 is y-momentum.
+    #[test]
+    fn transformation_matrix_structure() {
+        let mrt = MrtCollision::<f64>::new(1.0);
+
+        // Row 0 (density): all ones → sum = 9
+        let row0_sum: f64 = mrt.m[0].iter().sum();
+        assert_relative_eq!(row0_sum, 9.0, epsilon = 1e-14);
+
+        // Row 3 (j_x): should match e_x velocities [0,1,0,-1,0,1,-1,-1,1]
+        let expected_row3 = [0.0, 1.0, 0.0, -1.0, 0.0, 1.0, -1.0, -1.0, 1.0];
+        for q in 0..9 {
+            assert_relative_eq!(mrt.m[3][q], expected_row3[q], epsilon = 1e-14);
+        }
+
+        // Row 5 (j_y): should match e_y velocities [0,0,1,0,-1,1,1,-1,-1]
+        let expected_row5 = [0.0, 0.0, 1.0, 0.0, -1.0, 1.0, 1.0, -1.0, -1.0];
+        for q in 0..9 {
+            assert_relative_eq!(mrt.m[5][q], expected_row5[q], epsilon = 1e-14);
+        }
+    }
+
+    /// M·M⁻¹ = I₉ₓ₉: the product of the transformation matrix and its inverse
+    /// must be the identity matrix.
+    #[test]
+    fn m_times_m_inv_is_identity() {
+        let mrt = MrtCollision::<f64>::new(1.0);
+
+        for i in 0..9 {
+            for j in 0..9 {
+                let mut dot = 0.0_f64;
+                for k in 0..9 {
+                    dot += mrt.m[i][k] * mrt.m_inv[k][j];
+                }
+                let expected = if i == j { 1.0 } else { 0.0 };
+                assert_relative_eq!(
+                    dot, expected,
+                    epsilon = 1e-12,
+                );
+            }
+        }
+    }
+
+    /// Conserved-moment invariance: density ρ and momenta j_x, j_y must be
+    /// unchanged by MRT collision (s₀ = s₃ = s₅ = 0 in default_d2q9).
+    #[test]
+    fn conserved_moments_preserved() {
+        use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
+
+        let nx = 1_usize;
+        let ny = 1_usize;
+        let tau = 0.8_f64;
+        let mrt = MrtCollision::<f64>::new(tau);
+
+        let rho = 1.05_f64;
+        let u = [0.08_f64, -0.03];
+
+        // Build equilibrium + perturbation
+        let mut f = vec![0.0_f64; 9];
+        for q in 0..9 {
+            let w = D2Q9::WEIGHTS[q];
+            f[q] = equilibrium(rho, &u, q, w, D2Q9::VELOCITIES[q])
+                + 0.001 * (q as f64 - 4.0);
+        }
+
+        // Recompute exact density and momentum from perturbed f
+        let rho_before: f64 = f.iter().sum();
+        let jx_before: f64 = f.iter().enumerate()
+            .map(|(q, &fq)| f64::from(D2Q9::VELOCITIES[q].0) * fq)
+            .sum();
+        let jy_before: f64 = f.iter().enumerate()
+            .map(|(q, &fq)| f64::from(D2Q9::VELOCITIES[q].1) * fq)
+            .sum();
+
+        let density = vec![rho_before];
+        let velocity = vec![jx_before / rho_before, jy_before / rho_before];
+
+        mrt.collide(&mut f, &density, &velocity, nx, ny);
+
+        let rho_after: f64 = f.iter().sum();
+        let jx_after: f64 = f.iter().enumerate()
+            .map(|(q, &fq)| f64::from(D2Q9::VELOCITIES[q].0) * fq)
+            .sum();
+        let jy_after: f64 = f.iter().enumerate()
+            .map(|(q, &fq)| f64::from(D2Q9::VELOCITIES[q].1) * fq)
+            .sum();
+
+        assert_relative_eq!(rho_after, rho_before, epsilon = 1e-12);
+        assert_relative_eq!(jx_after, jx_before, epsilon = 1e-12);
+        assert_relative_eq!(jy_after, jy_before, epsilon = 1e-12);
+    }
+
+    /// Equilibrium fixed point: applying MRT to f = f^eq must leave f unchanged.
+    #[test]
+    fn equilibrium_is_fixed_point() {
+        use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
+
+        let nx = 1_usize;
+        let ny = 1_usize;
+        let tau = 1.0_f64;
+        let mrt = MrtCollision::<f64>::new(tau);
+
+        let rho = 1.0_f64;
+        let u = [0.05_f64, 0.02];
+
+        let mut f = vec![0.0_f64; 9];
+        for q in 0..9 {
+            let w = D2Q9::WEIGHTS[q];
+            f[q] = equilibrium(rho, &u, q, w, D2Q9::VELOCITIES[q]);
+        }
+        let f_orig = f.clone();
+
+        let density = vec![rho];
+        let velocity = vec![u[0], u[1]];
+        mrt.collide(&mut f, &density, &velocity, nx, ny);
+
+        for q in 0..9 {
+            assert_relative_eq!(f[q], f_orig[q], epsilon = 1e-12);
+        }
+    }
+}
+
+
+

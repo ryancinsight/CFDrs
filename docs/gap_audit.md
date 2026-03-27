@@ -114,6 +114,7 @@
 | **CRITICAL-007** |  Critical | CFD-MESH | Fake Mesh Refinement (Empty Methods) | **CLOSED** |
 | **MAJOR-008** |  Major | CFD-MESH | Missing Distributed Mesh Support | **CLOSED** |
 | **CRITICAL-009** | ✅ Closed | CFD-MATH | Ruge-Stüben Coarsening Fine-to-Coarse Mapping Bug | **CLOSED** |
+| **CRITICAL-010** | 🚨 Critical | CFD-3D | Fake Unstructured FEM Domains (0-Element Mocks) | **OPEN** |
 
 ---
 
@@ -243,19 +244,6 @@ This bug violates the audit framework's evidence hierarchy:
 - ❌ **Mathematical Proofs**: Mapping does not match Ruge-Stüben theorem
 - ❌ **Literature Validation**: Code diverges from Ruge-Stüben (1987) Algorithm 2
 - ⚠️ **Empirical Testing**: Tests incomplete (didn't check mapping correctness)
-
-### Estimated Impact
-
-- **Immediate**: Block AMG use in production until fixed
-- **Short-term**: 2-5 hours total remediation time
-- **Long-term**: Expected 2-5x AMG convergence improvement after fix
-
----
-
-
-# Audit Recommendations
-
-## IMMEDIATE (Sprint 1.83.0 - Critical Fix Required)
 
 1. ✅ **FIX CRITICAL-009: Ruge-Stüben Fine-to-Coarse Mapping Bug** (2-5 hours, HIGHEST PRIORITY)
    - Update mapping assignment in `coarsening.rs` to use coarse point indices

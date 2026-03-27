@@ -81,7 +81,7 @@ use crate::domain::geometry::predicates::{orient_2d_arr, Orientation};
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 
-use crate::application::delaunay::pslg::vertex::PslgVertexId;
+use crate::application::delaunay::dim2::pslg::vertex::PslgVertexId;
 use crate::application::delaunay::{Cdt, Pslg};
 use crate::domain::core::constants::{
     COREFINE_EDGE_EPS, COREFINE_WELD_TOL_SQ, DEGENERATE_NORMAL_REL_SQ,
@@ -224,7 +224,7 @@ pub fn build_seam_vertex_map(
                     // (min→max).
                     let t_canon = if va_id <= vb_id { t } else { 1.0 - t };
 
-                    let entry = map.entry(key).or_insert_with(Vec::new);
+                    let entry = map.entry(key).or_default();
                     if !entry.iter().any(|&(_, v)| v == vid) {
                         entry.push((t_canon, vid));
                     }
@@ -377,17 +377,14 @@ pub fn corefine_face(
                             break;
                         }
                     }
-                    match best {
-                        Some(v) => v,
-                        None => {
-                            // Fallback: insert and add (shouldn't happen
-                            // if build_seam_vertex_map was complete).
-                            let v = pool.insert_or_weld(p3d, face_n_unit);
-                            if !edge_steiners[ei].iter().any(|&(_, sv)| sv == v) {
-                                edge_steiners[ei].push((t, v));
-                            }
-                            v
+                    if let Some(v) = best { v } else {
+                        // Fallback: insert and add (shouldn't happen
+                        // if build_seam_vertex_map was complete).
+                        let v = pool.insert_or_weld(p3d, face_n_unit);
+                        if !edge_steiners[ei].iter().any(|&(_, sv)| sv == v) {
+                            edge_steiners[ei].push((t, v));
                         }
+                        v
                     }
                 } else {
                     let v = pool.insert_or_weld(p3d, face_n_unit);

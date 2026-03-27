@@ -80,7 +80,7 @@ mod tests {
         }
         .build()
         .expect("Schwarz D sphere");
-        assert!(mesh.faces.len() > 0);
+        assert!(!mesh.faces.is_empty());
     }
 
     #[test]

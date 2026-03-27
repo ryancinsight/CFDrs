@@ -318,7 +318,7 @@ impl GeometryGenerator {
             node_builder.build()
         } else {
             // Fast path for no metadata
-            NodeSpec::new_at(format!("node_{}", id), NodeKind::Junction, p)
+            NodeSpec::new_at(format!("node_{id}"), NodeKind::Junction, p)
         };
 
         self.nodes.push(node);
@@ -450,9 +450,9 @@ impl GeometryGenerator {
         } else {
             // Fast path for no metadata
             let mut channel = ChannelSpec::new_pipe_rect(
-                format!("ch_{}", id),
-                format!("node_{}", from_id),
-                format!("node_{}", to_id),
+                format!("ch_{id}"),
+                format!("node_{from_id}"),
+                format!("node_{to_id}"),
                 physical_length_m,
                 channel_width * 1e-3,
                 self.config.channel_height * 1e-3,

@@ -204,6 +204,7 @@ pub fn analyze_normals(mesh: &IndexedMesh) -> NormalAnalysis {
     };
 
     // Outer loop handles disconnected patches (multiple connected components).
+    #[allow(clippy::while_let_loop)]
     loop {
         let Some(seed_fi) = find_seed(&orientation) else {
             break;

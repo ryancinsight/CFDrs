@@ -259,6 +259,63 @@ pub fn inertial_lift_force_n(
     cl * fluid_density_kg_m3 * mean_velocity_m_s * mean_velocity_m_s * a.powi(4) / (h * h)
 }
 
+// ── Lateral Drift Velocity ────────────────────────────────────────────────────
+
+/// Transient lateral drift velocity [m/s] at a given lateral position `x̃`.
+///
+/// Determined by balancing the net lateral forces (`F_L - F_D`) against
+/// Stokes drag (`F_{drag} = 3 \pi \mu a v_{drift}`).
+///
+/// Positive velocity points toward the channel center.
+///
+/// # Arguments
+/// - `x_tilde` — normalised lateral position ∈ [0, 1] (0 = center, 1 = wall)
+/// - `cell` — cell physical properties
+/// - `fluid_density_kg_m3` — fluid density [kg/m³]
+/// - `dynamic_viscosity_pa_s` — fluid dynamic viscosity [Pa·s]
+/// - `mean_velocity_m_s` — mean channel velocity [m/s]
+/// - `channel_width_m` — channel width [m]
+/// - `channel_height_m` — channel height (shorter dimension) [m]
+/// - `bend_radius_m` — radius of curvature [m], or `None` for a straight channel
+#[inline]
+#[must_use]
+pub fn lateral_velocity_m_s(
+    x_tilde: f64,
+    cell: &CellProperties,
+    fluid_density_kg_m3: f64,
+    dynamic_viscosity_pa_s: f64,
+    mean_velocity_m_s: f64,
+    channel_width_m: f64,
+    channel_height_m: f64,
+    bend_radius_m: Option<f64>,
+) -> f64 {
+    let dh = 2.0 * channel_width_m * channel_height_m / (channel_width_m + channel_height_m);
+    let f_lift = inertial_lift_force_n(
+        x_tilde,
+        cell,
+        fluid_density_kg_m3,
+        mean_velocity_m_s,
+        channel_height_m,
+    );
+
+    let f_dean = if let Some(r) = bend_radius_m {
+        if r > 0.0 {
+            let re = fluid_density_kg_m3 * mean_velocity_m_s * dh / dynamic_viscosity_pa_s;
+            let de = dean_number(re, dh, r);
+            dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m)
+        } else {
+            0.0
+        }
+    } else {
+        0.0
+    };
+
+    let net_force_n = f_lift - f_dean;
+    let stokes_coeff = 3.0 * std::f64::consts::PI * dynamic_viscosity_pa_s * cell.diameter_m;
+    
+    net_force_n / stokes_coeff.max(1e-30)
+}
+
 // ── Equilibrium position solver ───────────────────────────────────────────────
 
 /// Result of a lateral equilibrium position calculation.

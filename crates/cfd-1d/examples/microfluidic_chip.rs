@@ -60,6 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         (edge3, resistance_2, "channel_3"),
     ] {
         let props = EdgeProperties {
+            resistance_update_policy: cfd_1d::domain::network::ResistanceUpdatePolicy::FlowInvariant,
             id: id.to_string(),
             component_type: cfd_1d::domain::network::ComponentType::Pipe,
             resistance,
@@ -133,7 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let node_indices = [inlet, junction, outlet_1, outlet_2];
     let node_names = ["inlet", "junction", "outlet_1", "outlet_2"];
     for (idx, name) in node_indices.iter().zip(node_names.iter()) {
-        if let Some(&pressure) = pressures.get(idx) {
+        if let Some(&pressure) = pressures.get(idx.index()) {
             println!("   {}: {:.1} Pa", name, pressure);
         }
     }
@@ -141,7 +142,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Edge flow rates
     println!("\n➡️  Flow Rates:");
     let mut total_flow: f64 = 0.0;
-    for (edge_idx, flow_rate) in flow_rates.iter() {
+    for (edge_idx, flow_rate) in flow_rates.iter().enumerate() {
         let flow_ml_min = flow_rate * 1e6 * 60.0; // Convert m³/s to mL/min
         println!(
             "   Edge {:?}: {:.3} mL/min ({:.2e} m³/s)",
@@ -157,7 +158,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Calculate Reynolds number for main channel
     let fluid = solved_network.fluid();
     let diameter = hydraulic_diameter;
-    let avg_velocity: f64 = if let Some((_edge_idx, flow)) = flow_rates.iter().next() {
+    let avg_velocity: f64 = if let Some((_edge_idx, flow)) = flow_rates.iter().enumerate().next() {
         flow.abs() / area
     } else {
         0.0

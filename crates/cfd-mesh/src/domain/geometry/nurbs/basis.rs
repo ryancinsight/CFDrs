@@ -171,9 +171,7 @@ mod tests {
             let sum: f64 = n.iter().sum();
             assert!(
                 (sum - 1.0).abs() < 1e-12,
-                "partition of unity violated at t={}: sum={}",
-                t,
-                sum
+                "partition of unity violated at t={t}: sum={sum}"
             );
         }
     }
@@ -182,11 +180,11 @@ mod tests {
     fn non_negativity() {
         let kv = KnotVector::clamped_uniform(5, 3);
         for i in 0..20 {
-            let t = i as f64 / 20.0;
+            let t = f64::from(i) / 20.0;
             let span = kv.find_span(t, 5);
             let n = eval_basis(span, t, 3, &kv);
             for (j, &v) in n.iter().enumerate() {
-                assert!(v >= -1e-14, "basis N[{}] = {} < 0 at t={}", j, v, t);
+                assert!(v >= -1e-14, "basis N[{j}] = {v} < 0 at t={t}");
             }
         }
     }

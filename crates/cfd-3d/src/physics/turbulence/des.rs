@@ -42,6 +42,7 @@
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
+use cfd_core::physics::fluid::BloodModel;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -78,9 +79,14 @@ pub struct DESModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromP
     ///
     /// **Reference**: Spalart et al. (2006), *Theor. Comput. Fluid Dyn.* 20:181-195.
     pub use_ddes: bool,
-    /// Molecular kinematic viscosity [m²/s] for DDES shielding computation.
-    /// Only used when `use_ddes` is true. Default: 1.5e-5 (air at 20°C).
-    pub molecular_viscosity: T,
+    /// Reference kinematic viscosity [m²/s] for DDES shielding computation.
+    /// Only used if `blood_model` is None and `use_ddes` is true. Default: 1.5e-5 (air at 20°C).
+    pub kinematic_viscosity: T,
+    /// Optional non-Newtonian blood model. If provided, local shear-dependent kinematic
+    /// viscosity is evaluated for DDES shielding (delaying LES activation).
+    pub blood_model: Option<BloodModel<T>>,
+    /// Fluid density [kg/m³], required if `blood_model` is used.
+    pub fluid_density: T,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESModel<T> {
@@ -102,8 +108,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
             cs: <T as FromPrimitive>::from_f64(SMAGORINSKY_CS_DEFAULT)
                 .expect("SMAGORINSKY_CS_DEFAULT is an IEEE 754 representable f64 constant"),
             use_ddes: false,
-            molecular_viscosity: <T as FromPrimitive>::from_f64(1.5e-5)
+            kinematic_viscosity: <T as FromPrimitive>::from_f64(1.5e-5)
                 .expect("1.5e-5 is an IEEE 754 representable f64 constant"),
+            blood_model: None,
+            fluid_density: T::one(),
         }
     }
 
@@ -117,8 +125,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
             delta_max,
             cs,
             use_ddes: false,
-            molecular_viscosity: <T as FromPrimitive>::from_f64(1.5e-5)
+            kinematic_viscosity: <T as FromPrimitive>::from_f64(1.5e-5)
                 .expect("1.5e-5 is an IEEE 754 representable f64 constant"),
+            blood_model: None,
+            fluid_density: T::one(),
         }
     }
 }
@@ -207,7 +217,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 
                 // Convert to f64 for the shielding function
                 let nu_t_f64 = nu_t_approx.to_f64().unwrap_or(0.0);
-                let nu_f64 = self.molecular_viscosity.to_f64().unwrap_or(1.5e-5);
+                
+                let nu_f64 = if let Some(model) = &self.blood_model {
+                    let strain_rate_t = num_traits::Float::sqrt(two * s_sq);
+                    let mu = model.viscosity(strain_rate_t);
+                    let density_f64 = self.fluid_density.to_f64().unwrap_or(1.0);
+                    let mu_f64 = mu.to_f64().unwrap_or(1.5e-5);
+                    mu_f64 / density_f64
+                } else {
+                    self.kinematic_viscosity.to_f64().unwrap_or(1.5e-5)
+                };
+
                 let d_f64 = d.to_f64().unwrap_or(1.0);
                 let strain_f64 = num_traits::Float::sqrt(s_sq).to_f64().unwrap_or(0.0);
                 let vort_f64 = num_traits::Float::sqrt(w_sq).to_f64().unwrap_or(0.0);

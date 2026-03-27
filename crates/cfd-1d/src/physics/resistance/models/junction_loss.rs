@@ -240,6 +240,29 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossMod
             T::from_f64(2300.0).expect("Mathematical constant conversion compromised"),
         )
     }
+
+    fn validate_invariants<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        conditions: &FlowConditions<T>,
+    ) -> Result<()> {
+        self.validate_mach_number(fluid, conditions)?;
+        if self.branch_diameter_m <= 0.0 {
+            return Err(Error::PhysicsViolation("branch_diameter_m must be positive".into()));
+        }
+        if self.branch_area_m2 <= 0.0 {
+            return Err(Error::PhysicsViolation("branch_area_m2 must be positive".into()));
+        }
+        if self.junction_length_m < 0.0 {
+            return Err(Error::PhysicsViolation("junction_length_m must be non-negative".into()));
+        }
+        if let Some(run_area) = self.run_area_m2 {
+            if run_area <= 0.0 {
+                return Err(Error::PhysicsViolation("run_area_m2 must be positive if specified".into()));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -329,5 +352,19 @@ mod tests {
         let m = make_model(JunctionType::Tee, JunctionFlowDirection::Dividing);
         assert!(m.run_area_m2.is_none());
         assert!((m.loss_coefficient() - 1.0).abs() < 1e-10);
+    }
+    
+    #[test]
+    fn invalid_geometry_rejected() {
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().unwrap();
+        let cond = FlowConditions::new(0.01);
+        
+        let mut m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
+        m.branch_area_m2 = -1e-6;
+        assert!(m.validate_invariants(&fluid, &cond).is_err());
+        
+        let mut m2 = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
+        m2.run_area_m2 = Some(-1e-6);
+        assert!(m2.validate_invariants(&fluid, &cond).is_err());
     }
 }

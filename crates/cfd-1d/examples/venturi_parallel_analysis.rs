@@ -181,12 +181,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for spec in &channel_specs {
             let eidx = edge_id_map[spec.id.as_str()];
             let e = solution.graph.edge_weight(eidx).unwrap();
-            let q = solution.flow_rates.get(&eidx).copied().unwrap_or(0.0).abs();
+            let q = solution.flow_rates.get(eidx.index()).copied().unwrap_or(0.0).abs();
 
             // Upstream/downstream pressures
             let (src, tgt) = solution.graph.edge_endpoints(eidx).unwrap();
-            let p_up = solution.pressures.get(&src).copied().unwrap_or(0.0);
-            let p_dn = solution.pressures.get(&tgt).copied().unwrap_or(0.0);
+            let p_up = solution.pressures.get(src.index()).copied().unwrap_or(0.0);
+            let p_dn = solution.pressures.get(tgt.index()).copied().unwrap_or(0.0);
             let dp = (p_up - p_dn).abs();
 
             let props = solution.properties.get(&eidx);
@@ -318,7 +318,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let n = solution.graph.node_weight(idx).unwrap();
                 serde_json::json!({
                     "id": n.id,
-                    "pressure_pa": solution.pressures.get(&idx).unwrap_or(&0.0),
+                    "pressure_pa": solution.pressures.get(idx.index()).unwrap_or(&0.0),
                     "type": format!("{:?}", n.node_type)
                 })
             })

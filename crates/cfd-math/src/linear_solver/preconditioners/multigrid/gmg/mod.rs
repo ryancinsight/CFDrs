@@ -429,7 +429,7 @@ mod tests {
         gmg: &'a GeometricMultigrid<f64>,
     }
 
-    impl<'a> NonlinearOperator<f64> for LinearPoissonOperator<'a> {
+    impl NonlinearOperator<f64> for LinearPoissonOperator<'_> {
         fn apply(&self, u: &DVector<f64>, level: usize) -> DVector<f64> {
             let matrix = &self.gmg.matrices[level];
             matrix * u
@@ -525,9 +525,7 @@ mod tests {
         assert!(iterations <= max_iter);
         assert!(
             residual_norm < tolerance,
-            "Residual norm {} is not < {}",
-            residual_norm,
-            tolerance
+            "Residual norm {residual_norm} is not < {tolerance}"
         );
 
         // Compare with standard linear solve

@@ -31,10 +31,12 @@
 pub mod bessel;
 pub mod bifurcation;
 pub mod murrays_law;
+pub mod structured_tree;
 pub mod womersley;
 
 pub use bifurcation::{Bifurcation, BifurcationNetwork, JunctionType};
 pub use murrays_law::{non_newtonian_flow_split_exponent, MurraysLaw, OptimalBifurcation};
+pub use structured_tree::OlufsenParameters;
 pub use womersley::{
     womersley_pulsatility_index, WomersleyFlow, WomersleyNumber, WomersleyProfile,
 };

@@ -528,4 +528,20 @@ mod tests {
             }
         }
     }
+
+    /// Sigmoid penalty boundary values.
+    ///
+    /// `sigmoid_penalty(m) = clamp(0.5 + 5m, 0, 1)`:
+    /// - At boundary (m=0): 0.5 (50% penalty)
+    /// - At m=+0.1: 1.0 (fully feasible)
+    /// - At m=−0.1: 0.0 (fully infeasible)
+    #[test]
+    fn sigmoid_penalty_boundary_values() {
+        assert_eq!(sigmoid_penalty(0.0), 0.5);
+        assert_eq!(sigmoid_penalty(0.1), 1.0);
+        assert_eq!(sigmoid_penalty(-0.1), 0.0);
+        // Deep interior / exterior
+        assert_eq!(sigmoid_penalty(1.0), 1.0);
+        assert_eq!(sigmoid_penalty(-1.0), 0.0);
+    }
 }

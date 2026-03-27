@@ -171,8 +171,7 @@ mod tests {
         let error = (report.signed_volume - expected).abs() / expected;
         assert!(
             error < 1e-9,
-            "volume error {:.2e} should be machine eps",
-            error
+            "volume error {error:.2e} should be machine eps"
         );
     }
 

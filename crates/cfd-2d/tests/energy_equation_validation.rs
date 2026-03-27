@@ -1,12 +1,13 @@
-//! Analytical validation tests for energy equation
-//!
-//! Validates the energy equation solver against known analytical solutions:
-//! 1. **1D Steady Conduction**: T(x) = T0 + (T1-T0)*x/L
-//! 2. **2D Convection-Diffusion**: Method of Manufactured Solutions (MMS)
-//!
-//! References:
-//! - Patankar, S.V. (1980). Numerical Heat Transfer and Fluid Flow
-//! - Versteeg, H.K. & Malalasekera, W. (2007). An Introduction to CFD
+use cfd_2d::grid::array2d::Array2D;
+// Analytical validation tests for energy equation
+//
+// Validates the energy equation solver against known analytical solutions:
+// 1. **1D Steady Conduction**: T(x) = T0 + (T1-T0)*x/L
+// 2. **2D Convection-Diffusion**: Method of Manufactured Solutions (MMS)
+//
+// References:
+// - Patankar, S.V. (1980). Numerical Heat Transfer and Fluid Flow
+// - Versteeg, H.K. & Malalasekera, W. (2007). An Introduction to CFD
 
 use cfd_2d::physics::EnergyEquationSolver;
 use cfd_core::physics::boundary::BoundaryCondition;
@@ -68,8 +69,8 @@ fn test_1d_steady_conduction_analytical() {
     }
 
     // Zero velocity field (pure conduction)
-    let u_velocity = vec![vec![0.0; ny]; nx];
-    let v_velocity = vec![vec![0.0; ny]; nx];
+    let u_velocity = Array2D::new(nx, ny, 0.0);
+    let v_velocity = Array2D::new(nx, ny, 0.0);
 
     // Time step for steady state (large enough to converge)
     let dt = 0.001;
@@ -89,7 +90,7 @@ fn test_1d_steady_conduction_analytical() {
     for i in 1..nx - 1 {
         let x = i as f64 * dx;
         let t_analytical = t0 + (t1 - t0) * x / l;
-        let t_numerical = solver.temperature[i][j_center];
+        let t_numerical = solver.temperature[(i, j_center)];
         let error = (t_numerical - t_analytical).abs();
         max_error = max_error.max(error);
     }
@@ -136,13 +137,13 @@ fn test_2d_transient_convection_diffusion_mms() {
         for j in 0..ny {
             let x = i as f64 * dx;
             let y = j as f64 * dy;
-            solver.temperature[i][j] = (PI * x).sin() * (PI * y).sin();
+            solver.temperature[(i, j)] = (PI * x).sin() * (PI * y).sin();
         }
     }
 
     // Constant velocity field
-    let u_velocity = vec![vec![u0; ny]; nx];
-    let v_velocity = vec![vec![v0; ny]; nx];
+    let u_velocity = Array2D::new(nx, ny, u0);
+    let v_velocity = Array2D::new(nx, ny, v0);
 
     // Set boundary conditions (Dirichlet with manufactured solution)
     let mut boundary_conditions = HashMap::new();
@@ -157,7 +158,7 @@ fn test_2d_transient_convection_diffusion_mms() {
             for j in 1..ny - 1 {
                 let x = i as f64 * dx;
                 let y = j as f64 * dy;
-                solver.heat_source[i][j] = u0 * PI * (PI * x).cos() * (PI * y).sin() * decay
+                solver.heat_source[(i, j)] = u0 * PI * (PI * x).cos() * (PI * y).sin() * decay
                     + v0 * PI * (PI * x).sin() * (PI * y).cos() * decay;
             }
         }
@@ -220,7 +221,7 @@ fn test_2d_transient_convection_diffusion_mms() {
             let x = i as f64 * dx;
             let y = j as f64 * dy;
             let t_analytical = (PI * x).sin() * (PI * y).sin() * decay;
-            let t_numerical = solver.temperature[i][j];
+            let t_numerical = solver.temperature[(i, j)];
             let error = (t_numerical - t_analytical).abs();
             max_error = max_error.max(error);
             rms_error += error * error;
@@ -258,8 +259,8 @@ fn test_uniform_temperature_conservation() {
     let mut solver = EnergyEquationSolver::<f64>::new(nx, ny, t_uniform, alpha);
 
     // Zero velocity (pure diffusion)
-    let u_velocity = vec![vec![0.0; ny]; nx];
-    let v_velocity = vec![vec![0.0; ny]; nx];
+    let u_velocity = Array2D::new(nx, ny, 0.0);
+    let v_velocity = Array2D::new(nx, ny, 0.0);
 
     // Adiabatic boundaries (no heat flux)
     let mut boundary_conditions = HashMap::new();
@@ -285,7 +286,7 @@ fn test_uniform_temperature_conservation() {
     // Verify temperature remains uniform
     for i in 0..nx {
         for j in 0..ny {
-            let temp_diff = solver.temperature[i][j] - t_uniform;
+            let temp_diff = solver.temperature[(i, j)] - t_uniform;
             let error: f64 = temp_diff.abs();
             assert!(
                 error < 1e-10,
@@ -312,13 +313,13 @@ fn test_steady_heat_source_balance() {
     let q_source = 100.0; // W/m³
     for i in 0..nx {
         for j in 0..ny {
-            solver.heat_source[i][j] = q_source;
+            solver.heat_source[(i, j)] = q_source;
         }
     }
 
     // Zero velocity
-    let u_velocity = vec![vec![0.0; ny]; nx];
-    let v_velocity = vec![vec![0.0; ny]; nx];
+    let u_velocity = Array2D::new(nx, ny, 0.0);
+    let v_velocity = Array2D::new(nx, ny, 0.0);
 
     // Fixed temperature boundaries
     let t_boundary = 300.0;
@@ -367,7 +368,7 @@ fn test_steady_heat_source_balance() {
     }
 
     // Verify temperature is above boundary temperature (heat is added)
-    let t_center = solver.temperature[nx / 2][ny / 2];
+    let t_center = solver.temperature[(nx / 2, ny / 2)];
     assert!(
         t_center > t_boundary,
         "Center temperature ({}) should be above boundary temperature ({}) due to heat source",
@@ -378,10 +379,10 @@ fn test_steady_heat_source_balance() {
     // Verify symmetry (temperature should be symmetric about center)
     for i in 1..nx / 2 {
         for j in 1..ny / 2 {
-            let t1 = solver.temperature[i][j];
-            let t2 = solver.temperature[nx - 1 - i][j];
-            let t3 = solver.temperature[i][ny - 1 - j];
-            let t4 = solver.temperature[nx - 1 - i][ny - 1 - j];
+            let t1 = solver.temperature[(i, j)];
+            let t2 = solver.temperature[(nx - 1 - i, j)];
+            let t3 = solver.temperature[(i, ny - 1 - j)];
+            let t4 = solver.temperature[(nx - 1 - i, ny - 1 - j)];
 
             let max_diff = (t1 - t2).abs().max((t1 - t3).abs()).max((t1 - t4).abs());
             assert!(
@@ -392,3 +393,4 @@ fn test_steady_heat_source_balance() {
         }
     }
 }
+

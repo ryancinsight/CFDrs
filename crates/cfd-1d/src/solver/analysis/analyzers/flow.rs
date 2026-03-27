@@ -116,7 +116,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowAnalyzer<T> {
                 let node_idx = NodeIndex::new(idx);
                 for edge_ref in network.graph.edges(node_idx) {
                     let edge_idx = edge_ref.id();
-                    if let Some(&flow) = network.flow_rates().get(&edge_idx) {
+                    if let Some(&flow) = network.flow_rates().get(edge_idx.index()) {
                         total += Float::abs(flow);
                     }
                 }

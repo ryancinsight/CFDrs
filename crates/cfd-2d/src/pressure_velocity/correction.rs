@@ -26,6 +26,7 @@
 use super::config::PressureLinearSolver;
 use super::pressure::PressureCorrectionSolver;
 use cfd_math::linear_solver::preconditioners::{AlgebraicMultigrid, IdentityPreconditioner};
+use crate::grid::array2d::Array2D;
 use cfd_math::linear_solver::IterativeLinearSolver;
 use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{DVector, RealField};
@@ -139,7 +140,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         fields: &crate::fields::SimulationFields<T>,
         dt: T,
         rho: T,
-    ) -> cfd_core::error::Result<Vec<Vec<T>>> {
+    ) -> cfd_core::error::Result<Array2D<T>> {
         let nx = self.grid.nx;
         let ny = self.grid.ny;
         let dx = self.grid.dx;
@@ -148,7 +149,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         let n = (nx - 2) * (ny - 2);
 
         if n <= 1 {
-            return Ok(vec![vec![T::zero(); ny]; nx]);
+            return Ok(Array2D::new(nx, ny, T::zero()));
         }
 
         let reference_idx = 0usize;
@@ -253,13 +254,13 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
     /// Solve pressure correction equation using face velocities (Rhie-Chow)
     pub fn solve_pressure_correction_from_faces(
         &self,
-        u_face: &[Vec<T>],
-        v_face: &[Vec<T>],
-        d_x: &[Vec<T>],
-        d_y: &[Vec<T>],
+        u_face: &Array2D<T>,
+        v_face: &Array2D<T>,
+        d_x: &Array2D<T>,
+        d_y: &Array2D<T>,
         rho: T,
         fields: &crate::fields::SimulationFields<T>,
-    ) -> cfd_core::error::Result<Vec<Vec<T>>> {
+    ) -> cfd_core::error::Result<Array2D<T>> {
         let nx = self.grid.nx;
         let ny = self.grid.ny;
         let dx = self.grid.dx;
@@ -267,7 +268,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
 
         let n = (nx - 2) * (ny - 2);
         if n <= 1 {
-            return Ok(vec![vec![T::zero(); ny]; nx]);
+            return Ok(Array2D::new(nx, ny, T::zero()));
         }
 
         let reference_idx = 0usize;
@@ -301,10 +302,10 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                     continue;
                 }
 
-                let de = d_x[i][j];
-                let dw = d_x[i - 1][j];
-                let dn = d_y[i][j];
-                let ds = d_y[i][j - 1];
+                let de = d_x[(i, j)];
+                let dw = d_x[(i - 1, j)];
+                let dn = d_y[(i, j)];
+                let ds = d_y[(i, j - 1)];
 
                 let ae = de * dx2_inv;
                 let aw = dw * dx2_inv;
@@ -348,7 +349,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                 }
 
                 let div_u =
-                    (u_face[i][j] - u_face[i - 1][j]) / dx + (v_face[i][j] - v_face[i][j - 1]) / dy;
+                    (u_face[(i, j)] - u_face[(i - 1, j)]) / dx + (v_face[(i, j)] - v_face[(i, j - 1)]) / dy;
                 rhs[row_idx] = -rho * div_u;
             }
         }
@@ -366,11 +367,11 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         solution: &DVector<T>,
         reference_idx: usize,
         map_index: &dyn Fn(usize) -> Option<usize>,
-    ) -> cfd_core::error::Result<Vec<Vec<T>>> {
+    ) -> cfd_core::error::Result<Array2D<T>> {
         let nx = self.grid.nx;
         let ny = self.grid.ny;
 
-        let mut p_correction = vec![vec![T::zero(); ny]; nx];
+        let mut p_correction = Array2D::new(nx, ny, T::zero());
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
                 let idx = (i - 1) * (ny - 2) + (j - 1);
@@ -381,18 +382,18 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                 } else {
                     T::zero()
                 };
-                p_correction[i][j] = value;
+                p_correction[(i, j)] = value;
             }
         }
 
         // Neumann BCs (zero gradient)
         for i in 0..nx {
-            p_correction[i][0] = p_correction[i][1];
-            p_correction[i][ny - 1] = p_correction[i][ny - 2];
+            p_correction[(i, 0)] = p_correction[(i, 1)];
+            p_correction[(i, ny - 1)] = p_correction[(i, ny - 2)];
         }
         for j in 0..ny {
-            p_correction[0][j] = p_correction[1][j];
-            p_correction[nx - 1][j] = p_correction[nx - 2][j];
+            p_correction[(0, j)] = p_correction[(1, j)];
+            p_correction[(nx - 1, j)] = p_correction[(nx - 2, j)];
         }
 
         Ok(p_correction)
@@ -424,13 +425,11 @@ mod tests {
         let rho = 1.0;
         let p_corr = solver.solve_pressure_correction(&fields, dt, rho).unwrap();
 
-        for row in &p_corr {
-            for &val in row {
-                assert!(
-                    val.abs() < 1e-10,
-                    "Expected near-zero pressure correction, got {val}"
-                );
-            }
+        for &val in p_corr.iter() {
+            assert!(
+                val.abs() < 1e-10,
+                "Expected near-zero pressure correction, got {val}"
+            );
         }
     }
 
@@ -455,10 +454,8 @@ mod tests {
         let rho = 1000.0;
         let p_corr = solver.solve_pressure_correction(&fields, dt, rho).unwrap();
 
-        for row in &p_corr {
-            for &val in row {
-                assert!(val.is_finite(), "Pressure correction contains NaN or Inf");
-            }
+        for &val in p_corr.iter() {
+            assert!(val.is_finite(), "Pressure correction contains NaN or Inf");
         }
     }
 

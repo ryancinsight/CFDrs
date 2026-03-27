@@ -175,8 +175,8 @@ proptest! {
         for edge_idx in edges {
             let e = solved.graph.edge_weight(edge_idx).expect("test invariant");
             let (src, tgt) = solved.graph.edge_endpoints(edge_idx).expect("test invariant");
-            let p_src = solved.pressures().get(&src).copied().unwrap_or(0.0);
-            let p_tgt = solved.pressures().get(&tgt).copied().unwrap_or(0.0);
+            let p_src = solved.pressures().get(src.index()).copied().unwrap_or(0.0);
+            let p_tgt = solved.pressures().get(tgt.index()).copied().unwrap_or(0.0);
             let q = (p_src - p_tgt) / e.resistance;
 
             if tgt == n_split {

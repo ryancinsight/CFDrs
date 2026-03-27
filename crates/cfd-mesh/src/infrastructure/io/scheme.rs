@@ -257,7 +257,7 @@ pub fn from_blueprint(
                 cfd_schematics::domain::model::CrossSectionSpec::Rectangular {
                     height_m, ..
                 } => (height_m * 1000.0) as Real,
-                _ => inlet_w,
+                cfd_schematics::domain::model::CrossSectionSpec::Circular { .. } => inlet_w,
             };
 
             ChannelProfile::Rectangular {

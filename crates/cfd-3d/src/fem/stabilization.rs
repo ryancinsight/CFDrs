@@ -322,4 +322,56 @@ mod tests {
         assert_relative_eq!(grad_div_parameter(h, 1.0), 0.04, epsilon = 1e-15);
         assert_relative_eq!(grad_div_parameter(h, 10.0), 0.4, epsilon = 1e-15);
     }
+
+    /// Advection limit: Pe → ∞ ⟹ τ_SUPG → h / (2|u|).
+    ///
+    /// Theorem (Brooks & Hughes 1982): For large Pe (convection-dominated),
+    /// the (4ν/h²)² diffusion term becomes negligible and
+    /// τ ≈ 1/√((2|u|/h)²) = h/(2|u|).
+    #[test]
+    fn supg_advection_limit() {
+        let h = 0.1_f64;
+        let u_mag = 100.0_f64; // Large velocity → large Pe
+        let nu = 1e-6_f64; // Tiny viscosity
+        let vel = Vector3::new(u_mag, 0.0, 0.0);
+        let params = StabilizationParameters::new(h, nu, vel, None);
+
+        let tau = params.tau_supg();
+        let expected = h / (2.0 * u_mag); // 0.0005
+        assert_relative_eq!(tau, expected, epsilon = 1e-8);
+    }
+
+    /// Diffusion limit: Pe → 0 ⟹ τ_SUPG → h² / (4ν).
+    ///
+    /// Theorem: For small Pe (diffusion-dominated), the (2|u|/h)²
+    /// advection term vanishes and τ ≈ 1/√((4ν/h²)²) = h²/(4ν).
+    #[test]
+    fn supg_diffusion_limit() {
+        let h = 0.1_f64;
+        let nu = 1.0_f64; // Large viscosity
+        let u_mag = 1e-10_f64; // Tiny velocity → Pe ≈ 0
+        let vel = Vector3::new(u_mag, 0.0, 0.0);
+        let params = StabilizationParameters::new(h, nu, vel, None);
+
+        let tau = params.tau_supg();
+        let expected = h * h / (4.0 * nu); // 0.0025
+        assert_relative_eq!(tau, expected, epsilon = 1e-8);
+    }
+
+    /// Positivity: τ_SUPG > 0 for non-trivial inputs (h > 0, ν > 0).
+    #[test]
+    fn supg_positivity() {
+        for &u_mag in &[0.01, 1.0, 100.0] {
+            for &nu in &[1e-6, 0.01, 1.0] {
+                let vel = Vector3::new(u_mag, 0.0, 0.0);
+                let params = StabilizationParameters::new(0.1, nu, vel, None);
+                let tau = params.tau_supg();
+                assert!(
+                    tau > 0.0,
+                    "τ_SUPG must be positive for |u|={u_mag}, ν={nu}, got {tau}"
+                );
+            }
+        }
+    }
 }
+

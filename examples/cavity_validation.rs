@@ -70,7 +70,7 @@ fn main() -> Result<()> {
     let mut total_error = 0.0;
     for &(y_pos, u_ghia) in GHIA_RE100_U.iter() {
         let j = ((y_pos * (ny - 1) as f64).round() as usize).min(ny - 1);
-        let u_computed = velocity_field[i_center][j].x;
+        let u_computed = velocity_field[(i_center, j)].x;
         let error = (u_computed - u_ghia).abs();
         total_error += error * error;
 
@@ -86,16 +86,16 @@ fn main() -> Result<()> {
 
     // Check for physics validity
     let stream_function = solver.stream_function();
-    let has_circulation = stream_function
-        .iter()
-        .skip(1)
-        .take(nx.saturating_sub(2))
-        .any(|row| {
-            row.iter()
-                .skip(1)
-                .take(ny.saturating_sub(2))
-                .any(|&psi| psi.abs() > 1e-3)
-        });
+    let mut has_circulation = false;
+    for i in 1..nx.saturating_sub(1) {
+        for j in 1..ny.saturating_sub(1) {
+            if stream_function[(i, j)].abs() > 1e-3 {
+                has_circulation = true;
+                break;
+            }
+        }
+        if has_circulation { break; }
+    }
 
     println!("\n=== PHYSICS CHECK ===");
     if has_circulation {

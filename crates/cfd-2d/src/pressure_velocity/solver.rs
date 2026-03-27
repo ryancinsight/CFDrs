@@ -9,6 +9,7 @@
 
 use super::{PressureCorrectionSolver, PressureVelocityConfig, RhieChowInterpolation};
 use crate::fields::SimulationFields;
+use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use crate::physics::{MomentumComponent, MomentumSolver};
 use nalgebra::{RealField, Vector2};
@@ -29,9 +30,9 @@ pub struct PressureVelocitySolver<T: RealField + Copy> {
     /// Rhie-Chow interpolation (optional)
     rhie_chow: Option<RhieChowInterpolation<T>>,
     /// Current velocity field
-    u: Vec<Vec<Vector2<T>>>,
+    u: Array2D<Vector2<T>>,
     /// Current pressure field
-    p: Vec<Vec<T>>,
+    p: Array2D<T>,
     /// Iteration counter
     iterations: usize,
 }
@@ -65,8 +66,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
             momentum_solver,
             pressure_solver,
             rhie_chow,
-            u: vec![vec![Vector2::zeros(); ny]; nx],
-            p: vec![vec![T::zero(); ny]; nx],
+            u: Array2D::new(nx, ny, Vector2::zeros()),
+            p: Array2D::new(nx, ny, T::zero()),
             iterations: 0,
         })
     }
@@ -78,7 +79,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
     }
 
     /// Set initial conditions
-    pub fn set_initial_conditions(&mut self, u_init: Vec<Vec<Vector2<T>>>, p_init: Vec<Vec<T>>) {
+    pub fn set_initial_conditions(&mut self, u_init: Array2D<Vector2<T>>, p_init: Array2D<T>) {
         self.u = u_init;
         self.p = p_init;
         self.iterations = 0;
@@ -99,9 +100,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
         // Copy current state to fields
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
-                state_buffer.set_velocity_at(i, j, &self.u[i][j]);
+                state_buffer.set_velocity_at(i, j, &self.u[(i, j)]);
                 if let Some(p) = state_buffer.p.at_mut(i, j) {
-                    *p = self.p[i][j];
+                    *p = self.p[(i, j)];
                 }
             }
         }
@@ -113,10 +114,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
             .solve(MomentumComponent::V, &mut state_buffer, self.config.dt)?;
 
         // Extract predicted velocity field
-        let mut u_star = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
+        let mut u_star = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
-                u_star[i][j] = Vector2::new(state_buffer.u.at(i, j), state_buffer.v.at(i, j));
+                u_star[(i, j)] = Vector2::new(state_buffer.u.at(i, j), state_buffer.v.at(i, j));
             }
         }
 
@@ -181,14 +182,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
     }
 
     /// Calculate residual between two velocity fields
-    fn calculate_residual(&self, previous: &[Vec<Vector2<T>>], current: &[Vec<Vector2<T>>]) -> T {
+    fn calculate_residual(&self, previous: &Array2D<Vector2<T>>, current: &Array2D<Vector2<T>>) -> T {
         let nx = self.grid.nx;
         let ny = self.grid.ny;
 
         let mut max_diff = T::zero();
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
-                let diff = (current[i][j] - previous[i][j]).norm();
+                let diff = (current[(i, j)] - previous[(i, j)]).norm();
                 if diff > max_diff {
                     max_diff = diff;
                 }
@@ -199,12 +200,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
     }
 
     /// Get current velocity field
-    pub fn velocity(&self) -> &[Vec<Vector2<T>>] {
+    pub fn velocity(&self) -> &Array2D<Vector2<T>> {
         &self.u
     }
 
     /// Get current pressure field
-    pub fn pressure(&self) -> &[Vec<T>] {
+    pub fn pressure(&self) -> &Array2D<T> {
         &self.p
     }
 
@@ -229,8 +230,8 @@ mod tests {
     fn solver_creation_with_valid_configuration() {
         let solver = make_solver(8, 8);
         assert_eq!(solver.iterations(), 0);
-        assert!(!solver.velocity().is_empty());
-        assert!(!solver.pressure().is_empty());
+        assert!(!solver.velocity().as_slice().is_empty());
+        assert!(!solver.pressure().as_slice().is_empty());
     }
 
     #[test]
@@ -240,10 +241,10 @@ mod tests {
         let solver = PressureVelocitySolver::new(grid, config).unwrap();
 
         // Velocity field dimensions should match grid
-        assert_eq!(solver.velocity().len(), 10);
-        assert_eq!(solver.velocity()[0].len(), 6);
-        assert_eq!(solver.pressure().len(), 10);
-        assert_eq!(solver.pressure()[0].len(), 6);
+        assert_eq!(solver.velocity().rows(), 10);
+        assert_eq!(solver.velocity().cols(), 6);
+        assert_eq!(solver.pressure().rows(), 10);
+        assert_eq!(solver.pressure().cols(), 6);
     }
 
     #[test]
@@ -261,8 +262,8 @@ mod tests {
     #[test]
     fn set_initial_conditions_resets_iteration_count() {
         let mut solver = make_solver(4, 4);
-        let u_init = vec![vec![Vector2::new(1.0, 0.0); 4]; 4];
-        let p_init = vec![vec![0.0; 4]; 4];
+        let u_init = Array2D::new(4, 4, Vector2::new(1.0, 0.0));
+        let p_init = Array2D::new(4, 4, 0.0);
         solver.set_initial_conditions(u_init, p_init);
         assert_eq!(solver.iterations(), 0);
     }

@@ -101,7 +101,7 @@ pub fn throat_count_from_blueprint_metadata(blueprint: &NetworkBlueprint) -> usi
                     || channel
                         .metadata
                         .as_ref()
-                        .is_some_and(|meta| meta.contains::<VenturiGeometryMetadata>())
+                        .is_some_and(crate::geometry::metadata::MetadataContainer::contains::<VenturiGeometryMetadata>)
             })
             .count()
     }
@@ -184,7 +184,7 @@ fn treatment_lane_paths(blueprint: &NetworkBlueprint) -> Vec<(f64, Vec<Point2D>)
                     lane.extend(segment);
                 }
             }
-            (bucket as f64 / 2.0, lane)
+            (f64::from(bucket) / 2.0, lane)
         })
         .filter(|(_, lane)| lane.len() >= 2)
         .collect()

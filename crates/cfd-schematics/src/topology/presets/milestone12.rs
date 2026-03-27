@@ -170,10 +170,10 @@ fn apply_request_mirror(
     } else {
         let topology = blueprint.topology_spec();
         blueprint.render_hints = Some(BlueprintRenderHints {
-            stage_sequence: topology.map_or_else(String::new, |spec| spec.stage_sequence_label()),
-            split_layers: topology.map_or(0, |spec| spec.visible_split_layers()),
-            throat_count_hint: topology.map_or(0, |spec| spec.venturi_count()),
-            treatment_label: if topology.is_some_and(|spec| spec.has_venturi()) {
+            stage_sequence: topology.map_or_else(String::new, super::super::model::BlueprintTopologySpec::stage_sequence_label),
+            split_layers: topology.map_or(0, super::super::model::BlueprintTopologySpec::visible_split_layers),
+            throat_count_hint: topology.map_or(0, super::super::model::BlueprintTopologySpec::venturi_count),
+            treatment_label: if topology.is_some_and(super::super::model::BlueprintTopologySpec::has_venturi) {
                 "venturi".to_string()
             } else {
                 "ultrasound".to_string()
@@ -416,14 +416,11 @@ pub fn milestone12_primitive_selective_tree_spec(
         assert_eq!(
             split_kind.branch_count(),
             stage_layout.branches.len(),
-            "Milestone 12 stage {} branch count must match {:?}",
-            stage_index,
-            split_kind
+            "Milestone 12 stage {stage_index} branch count must match {split_kind:?}"
         );
         assert_eq!(
             stage_layout.split_kind, split_kind,
-            "Milestone 12 stage {} split_kind must match the sequence SSOT",
-            stage_index
+            "Milestone 12 stage {stage_index} split_kind must match the sequence SSOT"
         );
         let serpentine = is_last
             .then_some(request.center_serpentine.clone())

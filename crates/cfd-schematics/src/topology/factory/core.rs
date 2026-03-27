@@ -100,9 +100,9 @@ impl BlueprintTopologyFactory {
         let lineage = Self::lineage_for_spec(spec);
 
         let mut blueprint = if spec.has_series_path() && spec.split_stages.is_empty() {
-            Self::build_series_path(spec, lineage)?
+            Self::build_series_path(spec, lineage)
         } else if spec.has_parallel_paths() && spec.split_stages.is_empty() {
-            Self::build_parallel_path(spec, lineage)?
+            Self::build_parallel_path(spec, lineage)
         } else {
             Self::build_split_tree(spec, lineage)?
         };
@@ -122,21 +122,21 @@ impl BlueprintTopologyFactory {
     fn build_series_path(
         spec: &BlueprintTopologySpec,
         lineage: TopologyLineageMetadata,
-    ) -> Result<NetworkBlueprint, String> {
+    ) -> crate::domain::model::NetworkBlueprint {
         let mut blueprint = create_series_geometry_from_spec(spec);
         blueprint.lineage = Some(lineage);
         blueprint.render_hints = Some(Self::render_hints_for_spec(spec));
-        Ok(blueprint)
+        blueprint
     }
 
     fn build_parallel_path(
         spec: &BlueprintTopologySpec,
         lineage: TopologyLineageMetadata,
-    ) -> Result<NetworkBlueprint, String> {
+    ) -> crate::domain::model::NetworkBlueprint {
         let mut blueprint = create_parallel_geometry_from_spec(spec);
         blueprint.lineage = Some(lineage);
         blueprint.render_hints = Some(Self::render_hints_for_spec(spec));
-        Ok(blueprint)
+        blueprint
     }
 
     /// Construct a split-tree blueprint via the canonical GeometryGeneratorBuilder.
@@ -171,7 +171,7 @@ impl BlueprintTopologyFactory {
         .with_render_hints(Self::render_hints_for_spec(spec))
         .build();
 
-        blueprint.name = spec.design_name.clone();
+        blueprint.name.clone_from(&spec.design_name);
 
         // Reconcile auto-generated channel IDs with the spec's semantic names
         Self::reconcile_channel_ids(&mut blueprint, spec);
@@ -250,9 +250,7 @@ impl BlueprintTopologyFactory {
 
         let preferred = Self::leading_merge_side_treatment_channels(blueprint, true);
         let fallback = Self::leading_merge_side_treatment_channels(blueprint, false);
-        let actual_ids = if fallback.len() > preferred.len() {
-            fallback
-        } else if preferred.is_empty() {
+        let actual_ids = if fallback.len() > preferred.len() || preferred.is_empty() {
             fallback
         } else {
             preferred
@@ -432,7 +430,7 @@ impl BlueprintTopologyFactory {
             } => {
                 let route = new_spec
                     .channel_route(&target_channel_id)
-                    .ok_or_else(|| format!("Treatment channel '{}' not found", target_channel_id))?;
+                    .ok_or_else(|| format!("Treatment channel '{target_channel_id}' not found"))?;
                 if route.therapy_zone != TherapyZone::CancerTarget {
                     return Err(format!(
                         "venturi mutation requires a CancerTarget channel, but '{}' is {:?}",
@@ -468,8 +466,7 @@ impl BlueprintTopologyFactory {
                 let (stage_id, branch_label) = resolve_stage_branch_for_channel(&new_spec, &target_channel_id)
                     .ok_or_else(|| {
                         format!(
-                            "treatment-channel serpentine update requires split-stage channel '{}'",
-                            target_channel_id
+                            "treatment-channel serpentine update requires split-stage channel '{target_channel_id}'"
                         )
                     })?;
                 let branch = new_spec
@@ -479,8 +476,7 @@ impl BlueprintTopologyFactory {
                     .and_then(|stage| stage.branches.iter_mut().find(|branch| branch.label == branch_label))
                     .ok_or_else(|| {
                         format!(
-                            "branch '{}' in stage '{}' not found for channel '{}'",
-                            branch_label, stage_id, target_channel_id
+                            "branch '{branch_label}' in stage '{stage_id}' not found for channel '{target_channel_id}'"
                         )
                     })?;
                 branch.route.serpentine = serpentine;
@@ -496,25 +492,23 @@ impl BlueprintTopologyFactory {
                 let (stage_id, branch_label) = resolve_stage_branch_for_channel(&new_spec, &target_channel_id)
                     .ok_or_else(|| {
                         format!(
-                            "split-merge insertion requires split-stage treatment channel '{}'",
-                            target_channel_id
+                            "split-merge insertion requires split-stage treatment channel '{target_channel_id}'"
                         )
                     })?;
                 let stage_index = new_spec
                     .split_stages
                     .iter()
                     .position(|stage| stage.stage_id == stage_id)
-                    .ok_or_else(|| format!("stage '{}' not found", stage_id))?;
+                    .ok_or_else(|| format!("stage '{stage_id}' not found"))?;
                 let parent_branch = new_spec.split_stages[stage_index]
                     .branches
                     .iter()
                     .find(|branch| branch.label == branch_label)
-                    .ok_or_else(|| format!("branch '{}' not found in '{}'", branch_label, stage_id))?
+                    .ok_or_else(|| format!("branch '{branch_label}' not found in '{stage_id}'"))?
                     .clone();
                 if !parent_branch.treatment_path || parent_branch.route.therapy_zone != TherapyZone::CancerTarget {
                     return Err(format!(
-                        "split-merge insertion requires CancerTarget treatment channel '{}'",
-                        target_channel_id
+                        "split-merge insertion requires CancerTarget treatment channel '{target_channel_id}'"
                     ));
                 }
 
@@ -624,7 +618,7 @@ impl BlueprintTopologyFactory {
         let path_curve_radius_m = channel
             .path
             .windows(3)
-            .filter_map(|pts| {
+            .find_map(|pts| {
                 let (ax, ay) = pts[0];
                 let (bx, by) = pts[1];
                 let (cx, cy) = pts[2];
@@ -642,8 +636,7 @@ impl BlueprintTopologyFactory {
                     / d;
                 let r = ((ax - ux).powi(2) + (ay - uy).powi(2)).sqrt();
                 Some(r * 1e-3) // mm → m
-            })
-            .next();
+            });
         let spec_curve_radius_m = spec_serpentine.as_ref().map(|serpentine| serpentine.bend_radius_m);
         let curve_radius_m = spec_curve_radius_m
             .or(path_curve_radius_m)
@@ -1056,7 +1049,8 @@ mod tests {
                 target_channel_id,
                 split_kind: SplitKind::NFurcation(3),
                 treatment_serpentine: Some(SerpentineSpec {
-                    segments: 5,
+                    wave_type: crate::topology::SerpentineWaveType::Sine,
+                    segments: 4,
                     bend_radius_m: 1.2e-3,
                     segment_length_m: 4.0e-3,
                 }),

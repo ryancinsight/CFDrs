@@ -12,6 +12,7 @@ use cfd_3d::vof::{
     InterfaceReconstruction, VofConfig,
 };
 use cfd_core::physics::cavitation::{damage::CavitationDamage, models::CavitationModel};
+use cfd_core::physics::fluid::BloodModel;
 use nalgebra::{DMatrix, Vector3};
 
 #[test]
@@ -41,7 +42,7 @@ fn test_cavitation_inception() {
         relaxation_time: 1e-6,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
-        liquid_viscosity: 1.002e-3,
+        liquid_blood_model: BloodModel::Newtonian(1.002e-3),
         vapor_density: 0.023,
         sound_speed: 1500.0,
         nuclei_transport: None,
@@ -110,7 +111,7 @@ fn test_damage_accumulation() {
         relaxation_time: 0.1,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
-        liquid_viscosity: 1.002e-3,
+        liquid_blood_model: BloodModel::Newtonian(1.002e-3),
         vapor_density: 0.023,
         sound_speed: 1500.0,
         nuclei_transport: None,
@@ -184,7 +185,7 @@ fn test_sonoluminescence_energy_field_requires_collapse_and_is_finite() {
         relaxation_time: 1e-6,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
-        liquid_viscosity: 1.002e-3,
+        liquid_blood_model: BloodModel::Newtonian(1.002e-3),
         vapor_density: 0.023,
         sound_speed: 1500.0,
         nuclei_transport: None,
@@ -242,7 +243,7 @@ fn test_mass_conservation() {
         relaxation_time: 0.1,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
-        liquid_viscosity: 1.002e-3,
+        liquid_blood_model: BloodModel::Newtonian(1.002e-3),
         vapor_density: 0.023,
         sound_speed: 1500.0,
         nuclei_transport: None,
@@ -330,7 +331,7 @@ fn test_bubble_dynamics_integration() {
         relaxation_time: 0.1,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
-        liquid_viscosity: 1.002e-3,
+        liquid_blood_model: BloodModel::Newtonian(1.002e-3),
         vapor_density: 0.023,
         sound_speed: 1500.0,
         nuclei_transport: None,
@@ -411,7 +412,7 @@ fn test_cavitation_statistics() {
         relaxation_time: 1e-6,
         vapor_pressure: 2330.0,
         liquid_density: 998.0,
-        liquid_viscosity: 1.002e-3,
+        liquid_blood_model: BloodModel::Newtonian(1.002e-3),
         vapor_density: 0.023,
         sound_speed: 1500.0,
         nuclei_transport: None,
@@ -523,7 +524,7 @@ fn test_cavitation_model_comparison() {
             relaxation_time: 1e-6,
             vapor_pressure: 2330.0,
             liquid_density: 998.0,
-            liquid_viscosity: 1.002e-3,
+            liquid_blood_model: BloodModel::Newtonian(1.002e-3),
             vapor_density: 0.023,
             sound_speed: 1500.0,
             nuclei_transport: None,

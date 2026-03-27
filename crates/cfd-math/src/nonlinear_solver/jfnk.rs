@@ -124,7 +124,7 @@ where
     eps: T,
 }
 
-impl<'a, T, F> JvpOperator<'a, T, F>
+impl<T, F> JvpOperator<'_, T, F>
 where
     T: RealField + Copy + Float,
     F: Fn(&DVector<T>) -> DVector<T>,

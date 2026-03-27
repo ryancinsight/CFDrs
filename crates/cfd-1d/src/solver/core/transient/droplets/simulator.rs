@@ -416,7 +416,7 @@ impl TransientDropletSimulator {
 
         if let Some(_hop) = (0..hops_remaining).next() {
             let edge_idx = EdgeIndex::new(branch.channel_index);
-            let q = *network.flow_rates.get(&edge_idx).unwrap_or(&T::zero());
+            let q = network.flow_rates.get(edge_idx.index()).copied().unwrap_or(T::zero());
             if q.abs() <= eps {
                 out_branches.push(branch);
                 return Ok(());
@@ -671,7 +671,7 @@ impl TransientDropletSimulator {
 
             let src = edge_ref.source();
             let dst = edge_ref.target();
-            let q = *network.flow_rates.get(&edge_idx).unwrap_or(&T::zero());
+            let q = network.flow_rates.get(edge_idx.index()).copied().unwrap_or(T::zero());
 
             if q.abs() <= eps {
                 continue;

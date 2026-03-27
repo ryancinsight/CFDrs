@@ -177,8 +177,7 @@ mod tests {
         let error = (report.signed_volume - expected).abs() / expected;
         assert!(
             error < 1e-9,
-            "volume error {:.2e} should be < 1e-9 (exact geometry)",
-            error
+            "volume error {error:.2e} should be < 1e-9 (exact geometry)"
         );
     }
 

@@ -158,6 +158,21 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for HagenPoiseuille
         // Call Mach number validation
         self.validate_mach_number(fluid, conditions)?;
 
+        if self.diameter <= T::zero() {
+            return Err(cfd_core::error::Error::PhysicsViolation(format!(
+                "Invalid geometry: diameter = {} <= 0 for model '{}'",
+                self.diameter,
+                self.model_name()
+            )));
+        }
+        if self.length < T::zero() {
+            return Err(cfd_core::error::Error::PhysicsViolation(format!(
+                "Invalid geometry: length = {} < 0 for model '{}'",
+                self.length,
+                self.model_name()
+            )));
+        }
+
         // Entrance length validation: L/D > 10
         let ratio = self.length / self.diameter;
         let limit = T::from_f64(10.0).expect("Mathematical constant conversion compromised");
@@ -223,5 +238,19 @@ mod tests {
         // D halved by 10x → R increases by 10^4 = 10000x (D^4 in denominator)
         assert!(r_small > r_large * 9000.0, "small diameter should produce much larger resistance");
         assert_relative_eq!(r_small / r_large, 1e4, max_relative = 1e-10);
+    }
+    
+    #[test]
+    fn negative_dimensions_rejected() {
+        let conditions = FlowConditions::new(0.0);
+        
+        let neg_diam = HagenPoiseuilleModel::new(-0.001_f64, 0.01_f64);
+        assert!(neg_diam.validate_invariants(&water(), &conditions).is_err());
+        
+        let zero_diam = HagenPoiseuilleModel::new(0.0_f64, 0.01_f64);
+        assert!(zero_diam.validate_invariants(&water(), &conditions).is_err());
+        
+        let neg_length = HagenPoiseuilleModel::new(0.001_f64, -0.01_f64);
+        assert!(neg_length.validate_invariants(&water(), &conditions).is_err());
     }
 }

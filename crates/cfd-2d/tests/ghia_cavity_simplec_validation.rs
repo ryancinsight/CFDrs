@@ -623,7 +623,6 @@ where
     // For a divergence-free field, pressure correction should be small
     let max_correction = p_correction
         .iter()
-        .flat_map(|row| row.iter())
         .map(|v| v.abs())
         .fold(0.0_f64, f64::max);
 

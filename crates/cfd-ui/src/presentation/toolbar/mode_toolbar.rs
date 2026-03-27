@@ -12,4 +12,8 @@ pub enum EditMode {
     Rotate,
     /// Object scaling mode.
     Scale,
+    /// Measurement mode (pick geometry to measure).
+    Measure,
+    /// 2D sketch drawing mode.
+    Sketch,
 }

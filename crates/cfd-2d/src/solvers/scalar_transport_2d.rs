@@ -24,7 +24,8 @@
 //! Boundedness follows directly from the non-negative coefficients and the
 //! Scarborough criterion.
 
-use crate::solvers::ns_fvm::{array2d::Array2D, FlowField2D, StaggeredGrid2D};
+use crate::grid::array2d::Array2D;
+use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};

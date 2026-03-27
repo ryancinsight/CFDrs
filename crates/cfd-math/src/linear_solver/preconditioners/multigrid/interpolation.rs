@@ -492,13 +492,11 @@ mod tests {
 
         assert!(
             (w10 - 0.5).abs() < 1e-10,
-            "Weight w10 should be 0.5, got {}",
-            w10
+            "Weight w10 should be 0.5, got {w10}"
         );
         assert!(
             (w11 - 0.5).abs() < 1e-10,
-            "Weight w11 should be 0.5, got {}",
-            w11
+            "Weight w11 should be 0.5, got {w11}"
         );
     }
 
@@ -604,17 +602,15 @@ mod tests {
             .get_entry(1, 1)
             .map_or(0.0, |e| e.into_value());
 
-        println!("Weights for point 1: w(0)={}, w(3)={}", w1_0, w1_3);
+        println!("Weights for point 1: w(0)={w1_0}, w(3)={w1_3}");
 
         assert!(
             (w1_0 - 2.0 / 3.0).abs() < 1e-10,
-            "Expected 2/3, got {}",
-            w1_0
+            "Expected 2/3, got {w1_0}"
         );
         assert!(
             (w1_3 - 1.0 / 3.0).abs() < 1e-10,
-            "Expected 1/3, got {}",
-            w1_3
+            "Expected 1/3, got {w1_3}"
         );
     }
 }

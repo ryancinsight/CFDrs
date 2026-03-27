@@ -368,8 +368,7 @@ pub fn write_milestone12_results(
     )?;
     writeln!(
         md,
-        "- Plasma processed in {:.0} min: **{processed_plasma_15_ml:.1} mL** ({pv_15:.2} plasma-volume equivalents)",
-        MILESTONE_TREATMENT_DURATION_MIN
+        "- Plasma processed in {MILESTONE_TREATMENT_DURATION_MIN:.0} min: **{processed_plasma_15_ml:.1} mL** ({pv_15:.2} plasma-volume equivalents)"
     )?;
     writeln!(
         md,

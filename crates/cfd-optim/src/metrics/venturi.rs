@@ -325,4 +325,32 @@ mod tests {
             "CurvaturePeakDeanNumber must select a Dean site at least as strong as StraightSegment"
         );
     }
+
+    /// Zero cavitation: f(σ) = 0 for σ ≥ 1.
+    ///
+    /// The saturating function `f(σ) = max(0, 1−σ) / (1 + max(0, 1−σ))`
+    /// returns 0 when there is no cavitation (σ ≥ 1).
+    #[test]
+    fn cavitation_strength_zero_above_sigma_one() {
+        assert_eq!(super::cavitation_strength_from_sigma(1.0), 0.0);
+        assert_eq!(super::cavitation_strength_from_sigma(1.5), 0.0);
+        assert_eq!(super::cavitation_strength_from_sigma(100.0), 0.0);
+    }
+
+    /// Bounded output: f(σ) ∈ [0, 1) for all σ.
+    ///
+    /// The function f(σ) = s/(1+s) with s = max(0, 1−σ) is bounded:
+    /// - f ≥ 0 because s ≥ 0.
+    /// - f < 1 because s/(1+s) < 1 for all finite s.
+    /// - f → 1 as σ → −∞ (asymptotic saturation).
+    #[test]
+    fn cavitation_strength_bounded() {
+        for sigma in [-1000.0, -10.0, -1.0, 0.0, 0.5, 0.99] {
+            let f = super::cavitation_strength_from_sigma(sigma);
+            assert!(f >= 0.0, "f({sigma}) = {f} < 0");
+            assert!(f < 1.0, "f({sigma}) = {f} >= 1");
+        }
+        // Asymptotic: σ = -1000 should be close to 1
+        assert!(super::cavitation_strength_from_sigma(-1000.0) > 0.999);
+    }
 }

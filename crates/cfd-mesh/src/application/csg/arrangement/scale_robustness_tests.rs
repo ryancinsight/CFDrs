@@ -221,19 +221,16 @@ mod tests {
         .expect("cube b");
 
         // Must not panic.
-        match csg_boolean(BooleanOp::Intersection, &a, &b) {
-            Ok(result) => {
-                let vol = signed_volume(&result);
-                // Thin intersection wedge: ~2×2×0.01 = 0.04
-                assert!(
-                    vol < 0.1,
-                    "thin wedge intersection volume must be small: got {vol:.6}"
-                );
-            }
-            Err(_) => {
-                // Acceptable: some degenerate configurations may legitimately
-                // produce empty intersections.
-            }
+        if let Ok(result) = csg_boolean(BooleanOp::Intersection, &a, &b) {
+            let vol = signed_volume(&result);
+            // Thin intersection wedge: ~2×2×0.01 = 0.04
+            assert!(
+                vol < 0.1,
+                "thin wedge intersection volume must be small: got {vol:.6}"
+            );
+        } else {
+            // Acceptable: some degenerate configurations may legitimately
+            // produce empty intersections.
         }
     }
 
@@ -249,17 +246,14 @@ mod tests {
         let cyl_b = cylinder_at_scale(0.8, 32);
 
         // Must not panic or OOM with dense T-T pairs.
-        match csg_boolean(BooleanOp::Intersection, &cyl_a, &cyl_b) {
-            Ok(result) => {
-                assert!(
-                    !result.faces.is_empty(),
-                    "dense cylinder intersection must be non-empty"
-                );
-            }
-            Err(_) => {
-                // Intersection failure is acceptable for dense degenerate
-                // configurations, but panic/OOM is not.
-            }
+        if let Ok(result) = csg_boolean(BooleanOp::Intersection, &cyl_a, &cyl_b) {
+            assert!(
+                !result.faces.is_empty(),
+                "dense cylinder intersection must be non-empty"
+            );
+        } else {
+            // Intersection failure is acceptable for dense degenerate
+            // configurations, but panic/OOM is not.
         }
     }
 
@@ -281,20 +275,17 @@ mod tests {
         let b = offset_cube_at_scale(s, s); // 50% overlap
 
         // Subtract B from A — must not panic.
-        match csg_boolean(BooleanOp::Difference, &a, &b) {
-            Ok(result) => {
-                let vol_a = signed_volume(&a);
-                let vol_result = signed_volume(&result);
-                // A \ B should be ~50% of A (half subtracted).
-                let ratio = vol_result / vol_a;
-                assert!(
-                    ratio > 0.3 && ratio < 0.7,
-                    "millifluidic A\\B ratio must be ≈0.5, got {ratio:.4}"
-                );
-            }
-            Err(_) => {
-                // Acceptable if CDT corefine falls back, but panic is not.
-            }
+        if let Ok(result) = csg_boolean(BooleanOp::Difference, &a, &b) {
+            let vol_a = signed_volume(&a);
+            let vol_result = signed_volume(&result);
+            // A \ B should be ~50% of A (half subtracted).
+            let ratio = vol_result / vol_a;
+            assert!(
+                ratio > 0.3 && ratio < 0.7,
+                "millifluidic A\\B ratio must be ≈0.5, got {ratio:.4}"
+            );
+        } else {
+            // Acceptable if CDT corefine falls back, but panic is not.
         }
     }
 
@@ -317,19 +308,16 @@ mod tests {
         let vol_a = signed_volume(&a);
         let vol_b = signed_volume(&b);
 
-        match csg_boolean(BooleanOp::Union, &a, &b) {
-            Ok(result) => {
-                let vol_union = signed_volume(&result);
-                // Union of 50% overlapping cubes: volume = 1.5 × single cube
-                let expected = vol_a + vol_b;
-                assert!(
-                    vol_union > 0.3 * expected && vol_union <= expected * 1.05,
-                    "10 µm union volume unexpected: expected≤{expected:.2e}, got {vol_union:.2e}"
-                );
-            }
-            Err(_) => {
-                // May fail at extreme micro-scale; no panic required.
-            }
+        if let Ok(result) = csg_boolean(BooleanOp::Union, &a, &b) {
+            let vol_union = signed_volume(&result);
+            // Union of 50% overlapping cubes: volume = 1.5 × single cube
+            let expected = vol_a + vol_b;
+            assert!(
+                vol_union > 0.3 * expected && vol_union <= expected * 1.05,
+                "10 µm union volume unexpected: expected≤{expected:.2e}, got {vol_union:.2e}"
+            );
+        } else {
+            // May fail at extreme micro-scale; no panic required.
         }
     }
 
@@ -394,22 +382,19 @@ mod tests {
         .build()
         .expect("cube b");
 
-        match csg_boolean(BooleanOp::Union, &a, &b) {
-            Ok(result) => {
-                let vol_a = signed_volume(&a);
-                let vol_b = signed_volume(&b);
-                let vol_union = signed_volume(&result);
-                // Touching cubes: union = vol_a + vol_b (no overlap).
-                let expected = vol_a + vol_b;
-                let rel_err = (vol_union - expected).abs() / expected;
-                assert!(
-                    rel_err < 0.10,
-                    "touching cubes union: expected={expected:.6}, got={vol_union:.6}, err={rel_err:.4}"
-                );
-            }
-            Err(_) => {
-                // Edge-touching is a legal degenerate configuration.
-            }
+        if let Ok(result) = csg_boolean(BooleanOp::Union, &a, &b) {
+            let vol_a = signed_volume(&a);
+            let vol_b = signed_volume(&b);
+            let vol_union = signed_volume(&result);
+            // Touching cubes: union = vol_a + vol_b (no overlap).
+            let expected = vol_a + vol_b;
+            let rel_err = (vol_union - expected).abs() / expected;
+            assert!(
+                rel_err < 0.10,
+                "touching cubes union: expected={expected:.6}, got={vol_union:.6}, err={rel_err:.4}"
+            );
+        } else {
+            // Edge-touching is a legal degenerate configuration.
         }
     }
 

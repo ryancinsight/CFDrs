@@ -107,7 +107,7 @@ impl PlottersRenderer {
                 chart
                     .draw_series(std::iter::once(PathElement::new(
                         vec![*p1, *p2],
-                        wall_style.clone(),
+                        wall_style,
                     )))
                     .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
             }
@@ -147,7 +147,7 @@ impl PlottersRenderer {
                     chart
                         .draw_series(std::iter::once(PathElement::new(
                             vec![(x_start, y_start), (x_end, y_end)],
-                            hatch_stroke.clone(),
+                            hatch_stroke,
                         )))
                         .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
                 }

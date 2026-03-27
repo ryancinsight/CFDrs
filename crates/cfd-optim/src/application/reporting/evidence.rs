@@ -71,14 +71,12 @@ pub fn validate_canonical_manifest(manifest: &EvidenceRunManifest) -> Result<(),
             .find(|entry| entry.goal == goal)
             .ok_or_else(|| {
                 OptimError::InvalidParameter(format!(
-                    "canonical report is missing evidence for {:?}",
-                    goal
+                    "canonical report is missing evidence for {goal:?}"
                 ))
             })?;
         if evidence.component_audit.is_empty() {
             return Err(OptimError::InvalidParameter(format!(
-                "canonical report is missing component audit entries for {:?}",
-                goal
+                "canonical report is missing component audit entries for {goal:?}"
             )));
         }
         let missing = missing_required_figures(goal, &evidence.figures);

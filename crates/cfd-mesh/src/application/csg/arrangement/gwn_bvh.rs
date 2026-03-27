@@ -159,7 +159,7 @@ fn build_recursive(
 
     // Interior: choose longest-AABB axis as split dimension.
     let axis = longest_axis_of_centroids(src, &sorted[start..end]);
-    let mid = (start + end) / 2;
+    let mid = usize::midpoint(start, end);
 
     // Partial sort: ensure the lower half has smaller centroid on `axis`.
     sorted[start..end].select_nth_unstable_by(mid - start, |&a, &b| {

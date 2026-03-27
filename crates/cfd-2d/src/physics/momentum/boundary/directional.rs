@@ -65,13 +65,12 @@ pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
                     rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                 }
             },
-            BoundaryCondition::Neumann { gradient } => {
-                if *gradient == T::zero() {
+            BoundaryCondition::Neumann { gradient }
+                if *gradient == T::zero() => {
                     matrix.add_entry(idx, idx, T::one())?;
                     matrix.add_entry(idx, idx + 1, -T::one())?;
                     rhs[idx] = T::zero();
                 }
-            }
             BoundaryCondition::Periodic { partner: _ } => {
                 matrix.add_entry(idx, idx, T::one())?;
                 matrix.add_entry(idx, idx + nx - 1, -T::one())?;
@@ -179,13 +178,12 @@ pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
                     rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                 }
             },
-            BoundaryCondition::Neumann { gradient } => {
-                if *gradient == T::zero() {
+            BoundaryCondition::Neumann { gradient }
+                if *gradient == T::zero() => {
                     matrix.add_entry(idx, idx, T::one())?;
                     matrix.add_entry(idx, idx - 1, -T::one())?;
                     rhs[idx] = T::zero();
                 }
-            }
             BoundaryCondition::Periodic { partner: _ } => {
                 matrix.add_entry(idx, idx, T::one())?;
                 matrix.add_entry(idx, j * nx, -T::one())?;
@@ -268,13 +266,12 @@ pub(super) fn apply_north_boundary<T: RealField + Copy + FromPrimitive>(
                     rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                 }
             },
-            BoundaryCondition::Neumann { gradient } => {
-                if *gradient == T::zero() {
+            BoundaryCondition::Neumann { gradient }
+                if *gradient == T::zero() => {
                     matrix.add_entry(idx, idx, T::one())?;
                     matrix.add_entry(idx, idx - nx, -T::one())?;
                     rhs[idx] = T::zero();
                 }
-            }
             BoundaryCondition::Periodic { partner: _ } => {
                 matrix.add_entry(idx, idx, T::one())?;
                 matrix.add_entry(idx, i, -T::one())?;
@@ -357,13 +354,12 @@ pub(super) fn apply_south_boundary<T: RealField + Copy + FromPrimitive>(
                     rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                 }
             },
-            BoundaryCondition::Neumann { gradient } => {
-                if *gradient == T::zero() {
+            BoundaryCondition::Neumann { gradient }
+                if *gradient == T::zero() => {
                     matrix.add_entry(idx, idx, T::one())?;
                     matrix.add_entry(idx, idx + nx, -T::one())?;
                     rhs[idx] = T::zero();
                 }
-            }
             BoundaryCondition::Periodic { partner: _ } => {
                 matrix.add_entry(idx, idx, T::one())?;
                 matrix.add_entry(idx, (ny - 1) * nx + i, -T::one())?;

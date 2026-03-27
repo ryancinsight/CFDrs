@@ -640,7 +640,7 @@ impl<T: Scalar> IndexedMesh<T> {
             }),
         );
         if signed_vol < T::zero() {
-            for (_fi, face) in self.faces.iter_mut().enumerate() {
+            for face in self.faces.iter_mut() {
                 face.flip();
             }
         }
@@ -978,8 +978,7 @@ mod tests {
         );
         assert!(
             vol_after > 0.0,
-            "orient_outward must produce positive signed volume, got {}",
-            vol_after
+            "orient_outward must produce positive signed volume, got {vol_after}"
         );
     }
 
@@ -1011,8 +1010,7 @@ mod tests {
         );
         assert!(
             vol_after > 0.0,
-            "orient_outward must not break already-outward mesh, got {}",
-            vol_after
+            "orient_outward must not break already-outward mesh, got {vol_after}"
         );
     }
 
@@ -1066,8 +1064,7 @@ mod tests {
         );
         assert!(
             vol > 0.0,
-            "two disjoint tets must both orient outward (positive vol), got {}",
-            vol
+            "two disjoint tets must both orient outward (positive vol), got {vol}"
         );
     }
 

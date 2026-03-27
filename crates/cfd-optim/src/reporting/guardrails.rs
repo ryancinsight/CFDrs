@@ -21,12 +21,7 @@ pub fn is_milestone12_lineage_topology(candidate: &BlueprintCandidate) -> bool {
         spec.is_selective_routing()
             && matches!(
                 spec.split_stages.first().map(|stage| stage.split_kind),
-                Some(
-                    cfd_schematics::SplitKind::NFurcation(2)
-                        | cfd_schematics::SplitKind::NFurcation(3)
-                        | cfd_schematics::SplitKind::NFurcation(4)
-                        | cfd_schematics::SplitKind::NFurcation(5)
-                )
+                Some(cfd_schematics::SplitKind::NFurcation(2..=5))
             )
     })
 }

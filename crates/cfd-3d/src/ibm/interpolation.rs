@@ -171,3 +171,62 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Inter
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    /// Compact support: δ(r) = 0 for |r| ≥ support radius.
+    ///
+    /// Roma 3-pt: support = 3/2. Roma 4-pt, Peskin 4-pt: support = 2.
+    #[test]
+    fn compact_support() {
+        let k3 = InterpolationKernel::<f64>::new(DeltaFunction::RomaPeskin3, 1.0);
+        let k4r = InterpolationKernel::<f64>::new(DeltaFunction::RomaPeskin4, 1.0);
+        let k4p = InterpolationKernel::<f64>::new(DeltaFunction::Peskin4, 1.0);
+
+        // Roma 3-pt: zero at r ≥ 1.5
+        assert_eq!(k3.delta(1.5), 0.0);
+        assert_eq!(k3.delta(2.0), 0.0);
+        assert_eq!(k3.delta(10.0), 0.0);
+
+        // Roma 4-pt: zero at r ≥ 2
+        assert_eq!(k4r.delta(2.0), 0.0);
+        assert_eq!(k4r.delta(3.0), 0.0);
+
+        // Peskin 4-pt: zero at r ≥ 2
+        assert_eq!(k4p.delta(2.0), 0.0);
+        assert_eq!(k4p.delta(5.0), 0.0);
+    }
+
+    /// Non-negativity: δ(r) ≥ 0 for all r (Roma 3-pt).
+    ///
+    /// Theorem (Roma, Peskin & Berger 1999): φ₃(r) ≥ 0 for all r.
+    #[test]
+    fn non_negativity_roma3() {
+        let k = InterpolationKernel::<f64>::new(DeltaFunction::RomaPeskin3, 1.0);
+
+        for i in 0..100 {
+            let r = i as f64 * 0.03; // r ∈ [0, 3)
+            let val = k.delta(r);
+            assert!(
+                val >= 0.0,
+                "Roma 3-pt delta({r}) = {val} < 0"
+            );
+        }
+    }
+
+    /// Partition of unity: Σ_{j∈Z} δ(r − j) = 1 for Roma 3-pt at r = 0.25.
+    ///
+    /// Theorem (Roma, Peskin & Berger 1999): Σ φ₃(r − j) = 1 ∀ r.
+    /// For r = 0.25, the stencil is j ∈ {-1, 0, 1} (within support).
+    #[test]
+    fn partition_of_unity_roma3() {
+        let k = InterpolationKernel::<f64>::new(DeltaFunction::RomaPeskin3, 1.0);
+
+        let r = 0.25_f64;
+        let sum: f64 = (-2..=2).map(|j| k.delta(r - j as f64)).sum();
+        assert_relative_eq!(sum, 1.0, epsilon = 1e-12);
+    }
+}

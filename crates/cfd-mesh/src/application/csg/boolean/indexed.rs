@@ -819,7 +819,7 @@ fn collapse_degenerate_faces(mesh: &mut IndexedMesh) {
 
             for face in mesh.faces.iter() {
                 let mut verts = face.vertices;
-                for v in verts.iter_mut() {
+                for v in &mut verts {
                     if *v == remove {
                         *v = keep;
                     }
@@ -862,7 +862,7 @@ fn collapse_degenerate_faces(mesh: &mut IndexedMesh) {
 
                     // Compute post-collapse vertices.
                     let mut new_verts = face.vertices;
-                    for v in new_verts.iter_mut() {
+                    for v in &mut new_verts {
                         if *v == remove {
                             *v = keep;
                         }
@@ -895,7 +895,7 @@ fn collapse_degenerate_faces(mesh: &mut IndexedMesh) {
 
         // Commit: rewrite all face references from `remove` → `keep`.
         for face in mesh.faces.iter_mut() {
-            for v in face.vertices.iter_mut() {
+            for v in &mut face.vertices {
                 if *v == remove {
                     *v = keep;
                 }
@@ -1094,7 +1094,7 @@ fn split_non_manifold_vertices(mesh: &mut IndexedMesh) {
             for &fi in component {
                 let fid = FaceId::from_usize(fi);
                 let face_mut = mesh.faces.get_mut(fid);
-                for vref in face_mut.vertices.iter_mut() {
+                for vref in &mut face_mut.vertices {
                     if *vref == v {
                         *vref = new_v;
                     }
@@ -1246,7 +1246,7 @@ fn split_figure8_pinch_vertices(mesh: &mut IndexedMesh) -> usize {
             for &fi in component {
                 let fid = FaceId::from_usize(fi);
                 let face_mut = mesh.faces.get_mut(fid);
-                for vref in face_mut.vertices.iter_mut() {
+                for vref in &mut face_mut.vertices {
                     if *vref == v {
                         *vref = new_v;
                     }
@@ -1262,6 +1262,677 @@ fn split_figure8_pinch_vertices(mesh: &mut IndexedMesh) -> usize {
         );
     }
     total_splits
+}
+
+// ── Boundary vertex merging ──────────────────────────────────────────────────
+
+/// Merge nearby boundary vertices to close sliver gaps at intersection curves.
+///
+/// Identifies boundary vertices (those on boundary edges) and merges pairs
+/// within a small adaptive tolerance.  This closes small gaps left by CSG
+/// arrangement precision limits at complex intersection curves.
+///
+/// # Theorem — Boundary Vertex Merge Convergence
+///
+/// Each merge reduces the boundary edge count by exactly 2 (the two half-edges
+/// incident to the merged vertex pair become interior).  The process terminates
+/// when no further merges are possible (fixed-point).  ∎
+fn merge_nearby_boundary_vertices_with_mult(mesh: &mut IndexedMesh, merge_mult: f64) {
+    // Adaptive tolerance: `merge_mult` fraction of the mean edge length,
+    // clamped to [0.01, 0.2] mm.  The escalating repair pipeline calls this
+    // with progressively wider multipliers (0.05 → 0.40).
+    let mean_edge_len = {
+        mesh.rebuild_edges();
+        let edges = match mesh.edges_ref() {
+            Some(e) => e,
+            None => return,
+        };
+        let (sum, count) = edges
+            .iter()
+            .map(|e| {
+                let pa = mesh.vertices.position(e.vertices.0);
+                let pb = mesh.vertices.position(e.vertices.1);
+                (pa - pb).norm()
+            })
+            .fold((0.0_f64, 0usize), |(s, c), d| (s + d, c + 1));
+        if count == 0 {
+            return;
+        }
+        sum / count as f64
+    };
+    // Scale-relative tolerance: `merge_mult` fraction of mean edge length,
+    // clamped to [1% .. 20%] of mean edge length.  Using a relative clamp
+    // instead of absolute [0.01, 0.2] makes the algorithm scale-invariant:
+    // micro-scale geometry (1e-5) gets a proportionally tight tolerance
+    // instead of an absolute 0.01 that dwarfs the mesh.
+    let tol = mean_edge_len * merge_mult.clamp(0.01, 0.20);
+    let max_iter = 30;
+
+    // Pairs that caused a χ decrease (topology-damaging merges); skip on retry.
+    let mut skip_pairs: hashbrown::HashSet<(VertexId, VertexId)> = hashbrown::HashSet::new();
+
+    for _iter in 0..max_iter {
+        mesh.rebuild_edges();
+        let edges_ref = match mesh.edges_ref() {
+            Some(e) => e,
+            None => break,
+        };
+
+        // Phase 1: collect boundary vertex IDs.
+        let mut boundary_verts: hashbrown::HashSet<VertexId> = hashbrown::HashSet::new();
+        for edge in edges_ref.iter() {
+            if edge.is_boundary() {
+                boundary_verts.insert(edge.vertices.0);
+                boundary_verts.insert(edge.vertices.1);
+            }
+        }
+
+        if boundary_verts.is_empty() {
+            break;
+        }
+
+        let bv: Vec<VertexId> = boundary_verts.iter().copied().collect();
+
+        // Phase 2: find closest boundary-boundary pair within tolerance,
+        // skipping pairs that previously caused a χ decrease.
+        //
+        // Uses a spatial hash grid with cell size = tol so that only
+        // vertices in the 27-cell neighbourhood are compared, reducing
+        // worst-case O(B²) to O(B) expected.
+        let inv_tol = 1.0 / tol;
+        let mut best: Option<(VertexId, VertexId, f64)> = None;
+        {
+            let mut grid: hashbrown::HashMap<(i64, i64, i64), Vec<usize>> =
+                hashbrown::HashMap::new();
+            let bv_pos: Vec<nalgebra::Point3<f64>> = bv
+                .iter()
+                .map(|&v| *mesh.vertices.position(v))
+                .collect();
+            for i in 0..bv.len() {
+                let p = &bv_pos[i];
+                let cx = (p.x * inv_tol).floor() as i64;
+                let cy = (p.y * inv_tol).floor() as i64;
+                let cz = (p.z * inv_tol).floor() as i64;
+                grid.entry((cx, cy, cz)).or_default().push(i);
+            }
+            for i in 0..bv.len() {
+                let pi = &bv_pos[i];
+                let cx = (pi.x * inv_tol).floor() as i64;
+                let cy = (pi.y * inv_tol).floor() as i64;
+                let cz = (pi.z * inv_tol).floor() as i64;
+                for dx in -1..=1_i64 {
+                    for dy in -1..=1_i64 {
+                        for dz in -1..=1_i64 {
+                            if let Some(cell) = grid.get(&(cx + dx, cy + dy, cz + dz)) {
+                                for &j in cell {
+                                    if j <= i {
+                                        continue;
+                                    }
+                                    let pair_key = if bv[i] < bv[j] {
+                                        (bv[i], bv[j])
+                                    } else {
+                                        (bv[j], bv[i])
+                                    };
+                                    if skip_pairs.contains(&pair_key) {
+                                        continue;
+                                    }
+                                    let pj = &bv_pos[j];
+                                    let d = (pi - pj).norm();
+                                    if d < tol
+                                        && (best.is_none() || d < best.unwrap().2) {
+                                            best = Some((bv[i], bv[j], d));
+                                        }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Phase 3: if no boundary-boundary pair found, try boundary-to-interior
+        // using a spatial hash grid with cell size = per_vertex_tol.
+        if best.is_none() {
+            let per_vertex_tol = tol * 0.5;
+            let inv_pvt = 1.0 / per_vertex_tol;
+            // Build grid over interior vertices only.
+            let all_vids: Vec<VertexId> = mesh.vertices.iter().map(|(id, _)| id).collect();
+            let mut igrid: hashbrown::HashMap<(i64, i64, i64), Vec<VertexId>> =
+                hashbrown::HashMap::new();
+            for &ivid in &all_vids {
+                if boundary_verts.contains(&ivid) {
+                    continue;
+                }
+                let ip = mesh.vertices.position(ivid);
+                let cx = (ip.x * inv_pvt).floor() as i64;
+                let cy = (ip.y * inv_pvt).floor() as i64;
+                let cz = (ip.z * inv_pvt).floor() as i64;
+                igrid.entry((cx, cy, cz)).or_default().push(ivid);
+            }
+            for &bvid in &bv {
+                let bp = mesh.vertices.position(bvid);
+                let cx = (bp.x * inv_pvt).floor() as i64;
+                let cy = (bp.y * inv_pvt).floor() as i64;
+                let cz = (bp.z * inv_pvt).floor() as i64;
+                for dx in -1..=1_i64 {
+                    for dy in -1..=1_i64 {
+                        for dz in -1..=1_i64 {
+                            if let Some(cell) = igrid.get(&(cx + dx, cy + dy, cz + dz)) {
+                                for &ivid in cell {
+                                    let pair_key = if bvid < ivid {
+                                        (bvid, ivid)
+                                    } else {
+                                        (ivid, bvid)
+                                    };
+                                    if skip_pairs.contains(&pair_key) {
+                                        continue;
+                                    }
+                                    let ip = mesh.vertices.position(ivid);
+                                    let d = (bp - ip).norm();
+                                    if d < per_vertex_tol
+                                        && (best.is_none() || d < best.unwrap().2) {
+                                            best = Some((ivid, bvid, d));
+                                        }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let (keep, remove, _dist) = match best {
+            Some(b) => b,
+            None => break,
+        };
+
+        // --- Euler-preserving guard ---
+        // Save face-store snapshot before merge so we can revert if χ
+        // decreases.  A decrease means the merge created a topological
+        // handle (common at dense N-way junctions where two boundary
+        // loops should not be connected).
+        let faces_snapshot: Vec<FaceData> = mesh.faces.iter().copied().collect();
+
+        // Compute χ using referenced vertices only.
+        fn quick_euler_referenced(mesh: &IndexedMesh) -> i64 {
+            let mut referenced: hashbrown::HashSet<VertexId> = hashbrown::HashSet::new();
+            let mut edge_set: hashbrown::HashSet<(VertexId, VertexId)> =
+                hashbrown::HashSet::new();
+            let f = mesh.faces.len();
+            for face in mesh.faces.iter() {
+                let vs = &face.vertices;
+                referenced.insert(vs[0]);
+                referenced.insert(vs[1]);
+                referenced.insert(vs[2]);
+                for k in 0..3 {
+                    let a = vs[k];
+                    let b = vs[(k + 1) % 3];
+                    let key = if a < b { (a, b) } else { (b, a) };
+                    edge_set.insert(key);
+                }
+            }
+            referenced.len() as i64 - edge_set.len() as i64 + f as i64
+        }
+
+        let chi_before = quick_euler_referenced(mesh);
+
+        // Merge: replace all references to `remove` with `keep`.
+        let mut changed = false;
+        for face in mesh.faces.iter_mut() {
+            for v in &mut face.vertices {
+                if *v == remove {
+                    *v = keep;
+                    changed = true;
+                }
+            }
+        }
+
+        if !changed {
+            break;
+        }
+
+        collapse_degenerate_faces(mesh);
+        mesh.rebuild_edges();
+
+        let chi_after = quick_euler_referenced(mesh);
+
+        // If χ decreased, this merge created a topological handle.
+        // Revert and skip this pair.
+        if chi_after < chi_before {
+            mesh.faces.clear();
+            for face_data in faces_snapshot {
+                mesh.faces.push(face_data);
+            }
+            mesh.rebuild_edges();
+            let pair_key = if keep < remove { (keep, remove) } else { (remove, keep) };
+            skip_pairs.insert(pair_key);
+            continue; // Try next pair instead of breaking.
+        }
+
+        split_non_manifold_edges(mesh);
+        collapse_degenerate_faces(mesh);
+        mesh.rebuild_edges();
+
+        if !mesh.is_watertight() {
+            let es = crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(
+                &mesh.faces,
+            );
+            crate::application::watertight::seal::seal_boundary_loops(
+                &mut mesh.vertices,
+                &mut mesh.faces,
+                &es,
+                crate::domain::core::index::RegionId::INVALID,
+            );
+            collapse_degenerate_faces(mesh);
+                mesh.rebuild_edges();
+        }
+
+        if mesh.is_watertight() {
+            break;
+        }
+    }
+}
+
+/// Merge coincident vertices and compact the vertex pool.
+///
+/// 1. **Dedup**: merge vertices with ‖p_i − p_j‖ < ε (union-find).
+/// 2. **Compact**: remove unreferenced vertices, re-index face references.
+///
+/// # Theorem — Vertex Pool Compaction Preserves Euler–Poincaré
+///
+/// `check_watertight` computes V as `vertex_pool.len()`.  CSG operations
+/// leave dead vertices (from input meshes and merged duplicates) which
+/// inflate V.  Compaction removes these, yielding V = |referenced vertices|
+/// and restoring V − E + F = 2(1−g).  ∎
+fn merge_coincident_vertices(mesh: &mut IndexedMesh) {
+    let n = mesh.vertices.len();
+    if n == 0 {
+        return;
+    }
+
+    // Phase 1: merge coincident vertices (dedup) via spatial hash grid.
+    //
+    // # Algorithm — Grid-Accelerated Vertex Deduplication
+    //
+    // Partition R³ into axis-aligned cells of side ε.  Each vertex is
+    // assigned to cell (⌊x/ε⌋, ⌊y/ε⌋, ⌊z/ε⌋).  Two vertices can be
+    // within distance ε only if their cells differ by at most 1 on every
+    // axis (the 3×3×3 = 27-cell neighbourhood).
+    //
+    // # Theorem — Grid Neighbourhood Soundness
+    //
+    // If ‖p−q‖ < ε then |⌊p_k/ε⌋ − ⌊q_k/ε⌋| ≤ 1 for k∈{x,y,z}.
+    //
+    // *Proof.* |p_k − q_k| ≤ ‖p−q‖ < ε.  The floor of two reals that
+    // differ by less than ε can differ by at most 1.  ∎
+    //
+    // Complexity drops from O(V²) to O(V) expected for uniformly
+    // distributed vertices (each cell has O(1) occupants on average).
+    //
+    // Scale-relative tolerance: ε = 1e-4 × mean_edge_length.  This is
+    // 3 orders of magnitude below the edge scale, safely catching
+    // near-coincident vertices from independent CSG intersection
+    // computations while never fusing distinct geometry.  Using a
+    // relative epsilon (instead of absolute 1e-6) makes the function
+    // scale-invariant for micro- and macro-scale meshes.
+    let mean_edge = {
+        let mut sum = 0.0_f64;
+        let mut cnt = 0usize;
+        for face in mesh.faces.iter() {
+            for k in 0..3 {
+                let a = mesh.vertices.position(face.vertices[k]);
+                let b = mesh.vertices.position(face.vertices[(k + 1) % 3]);
+                sum += (a - b).norm();
+                cnt += 1;
+            }
+        }
+        if cnt == 0 { return; }
+        sum / cnt as f64
+    };
+    let eps = (mean_edge * 1e-4).max(1e-15);
+    let eps_sq = eps * eps;
+    let inv_eps = 1.0 / eps;
+    let mut parent: Vec<u32> = (0..n as u32).collect();
+
+    fn find(parent: &mut [u32], mut x: u32) -> u32 {
+        while parent[x as usize] != x {
+            parent[x as usize] = parent[parent[x as usize] as usize];
+            x = parent[x as usize];
+        }
+        x
+    }
+
+    // Build spatial hash: cell → list of vertex indices.
+    let mut grid: hashbrown::HashMap<(i64, i64, i64), Vec<usize>> =
+        hashbrown::HashMap::new();
+    let positions: Vec<nalgebra::Point3<f64>> = (0..n)
+        .map(|i| *mesh.vertices.position(VertexId(i as u32)))
+        .collect();
+    for i in 0..n {
+        let p = &positions[i];
+        let cx = (p.x * inv_eps).floor() as i64;
+        let cy = (p.y * inv_eps).floor() as i64;
+        let cz = (p.z * inv_eps).floor() as i64;
+        grid.entry((cx, cy, cz)).or_default().push(i);
+    }
+
+    // For each vertex, check the 27-cell neighbourhood for coincident vertices.
+    for i in 0..n {
+        let pi = &positions[i];
+        let cx = (pi.x * inv_eps).floor() as i64;
+        let cy = (pi.y * inv_eps).floor() as i64;
+        let cz = (pi.z * inv_eps).floor() as i64;
+        for dx in -1..=1_i64 {
+            for dy in -1..=1_i64 {
+                for dz in -1..=1_i64 {
+                    if let Some(cell) = grid.get(&(cx + dx, cy + dy, cz + dz)) {
+                        for &j in cell {
+                            if j <= i {
+                                continue;
+                            }
+                            let pj = &positions[j];
+                            if (pi - pj).norm_squared() < eps_sq {
+                                let ci = find(&mut parent, i as u32);
+                                let cj = find(&mut parent, j as u32);
+                                if ci != cj {
+                                    let (lo, hi) =
+                                        if ci < cj { (ci, cj) } else { (cj, ci) };
+                                    parent[hi as usize] = lo;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Flatten union-find: old_id → canonical_id.
+    let dedup: Vec<u32> = (0..n).map(|i| find(&mut parent, i as u32)).collect();
+
+    // Phase 2: remap face references through dedup mapping.
+    let face_list: Vec<FaceData> = mesh.faces.iter().copied().collect();
+    let mut remapped_faces: Vec<FaceData> = Vec::with_capacity(face_list.len());
+    for mut face in face_list {
+        for v in &mut face.vertices {
+            *v = VertexId(dedup[v.0 as usize]);
+        }
+        if face.vertices[0] != face.vertices[1]
+            && face.vertices[1] != face.vertices[2]
+            && face.vertices[2] != face.vertices[0]
+        {
+            remapped_faces.push(face);
+        }
+    }
+
+    // Phase 3: compact — collect referenced vertex IDs and build new pool.
+    let mut referenced = hashbrown::HashSet::new();
+    for face in &remapped_faces {
+        for &v in &face.vertices {
+            referenced.insert(v.0);
+        }
+    }
+
+    // Sort referenced IDs for deterministic new-index assignment.
+    let mut ref_ids: Vec<u32> = referenced.into_iter().collect();
+    ref_ids.sort_unstable();
+
+    // Build old → new index mapping.
+    let mut old_to_new = vec![u32::MAX; n];
+    let mut new_pool = mesh.vertices.empty_clone();
+    for &old_id in &ref_ids {
+        let vid = VertexId(old_id);
+        let pos = *mesh.vertices.position(vid);
+        let normal = *mesh.vertices.normal(vid);
+        let new_id = new_pool.insert_unique(pos, normal);
+        old_to_new[old_id as usize] = new_id.0;
+    }
+
+    // Re-index face references.
+    mesh.faces = crate::infrastructure::storage::face_store::FaceStore::new();
+    for mut face in remapped_faces {
+        for v in &mut face.vertices {
+            *v = VertexId(old_to_new[v.0 as usize]);
+        }
+        mesh.faces.push(face);
+    }
+    mesh.vertices = new_pool;
+    mesh.rebuild_edges();
+}
+
+// ── Non-manifold edge splitting ──────────────────────────────────────────────
+
+/// Resolve non-manifold edges by removing excess faces.
+///
+/// A 2-manifold requires every edge to be shared by exactly 2 faces.
+/// CSG arrangement can produce edges with 3+ faces at intersection curves.
+/// This function keeps the **best-oriented pair** sharing each non-manifold
+/// edge and removes the rest.
+///
+/// # Selection criterion (deterministic)
+///
+/// For a non-manifold edge (u,v) with k > 2 incident faces, the correct
+/// manifold pair consists of the two faces whose half-edges form a consistent
+/// orientation: one face has the directed edge u→v and the other has v→u.
+/// Among all such consistent pairs, we select the pair whose normals have the
+/// **largest mutual dot product** (most co-planar / smoothest dihedral angle),
+/// breaking ties by smallest face index.  This deterministic criterion avoids
+/// the prior HashMap-order-dependent selection that could discard the
+/// geometrically correct faces.
+///
+/// # Theorem — Non-Manifold Edge Elimination
+///
+/// After removal, every edge has at most 2 faces.  The removed faces'
+/// other edges may become boundary edges (1 face) or remain manifold
+/// (2 faces).  The resulting mesh has no non-manifold edges.  ∎
+fn split_non_manifold_edges(mesh: &mut IndexedMesh) {
+    let face_list: Vec<FaceData> = mesh.faces.iter().copied().collect();
+
+    // Build undirected edge → face index map.
+    let mut edge_faces: hashbrown::HashMap<(VertexId, VertexId), Vec<usize>> = hashbrown::HashMap::new();
+    for (fi, face) in face_list.iter().enumerate() {
+        let v = face.vertices;
+        for &(a, b) in &[(v[0], v[1]), (v[1], v[2]), (v[2], v[0])] {
+            let key = if a < b { (a, b) } else { (b, a) };
+            edge_faces.entry(key).or_default().push(fi);
+        }
+    }
+
+    // Collect faces nominated for removal across all non-manifold edges.
+    // For each non-manifold edge, pick the best pair and mark the rest.
+    let mut faces_to_remove: hashbrown::HashSet<usize> = hashbrown::HashSet::new();
+
+    for (&(u, v), fis) in &edge_faces {
+        if fis.len() <= 2 {
+            continue;
+        }
+
+        // Classify each face by its directed half-edge orientation for (u,v).
+        // forward = has u→v, reverse = has v→u.
+        let mut forward: Vec<usize> = Vec::new();
+        let mut reverse: Vec<usize> = Vec::new();
+
+        for &fi in fis {
+            let fv = face_list[fi].vertices;
+            let has_uv = (0..3).any(|k| fv[k] == u && fv[(k + 1) % 3] == v);
+            if has_uv {
+                forward.push(fi);
+            } else {
+                reverse.push(fi);
+            }
+        }
+
+        // Pick the best consistent pair (one forward, one reverse) by
+        // maximum normal dot product (smoothest dihedral).
+        let mut best_pair: Option<(usize, usize, f64)> = None;
+        for &fi_fwd in &forward {
+            let n_fwd = face_normal_of(&face_list[fi_fwd], &mesh.vertices);
+            for &fi_rev in &reverse {
+                let n_rev = face_normal_of(&face_list[fi_rev], &mesh.vertices);
+                let dot = match (n_fwd, n_rev) {
+                    (Some(a), Some(b)) => a.dot(&b),
+                    _ => f64::NEG_INFINITY,
+                };
+                let better = match best_pair {
+                    None => true,
+                    Some((_, _, best_dot)) => {
+                        dot > best_dot || (dot == best_dot && fi_fwd.min(fi_rev) < best_pair.unwrap().0.min(best_pair.unwrap().1))
+                    }
+                };
+                if better {
+                    best_pair = Some((fi_fwd, fi_rev, dot));
+                }
+            }
+        }
+
+        // Mark all faces on this edge except the best pair for removal.
+        let (keep_a, keep_b) = if let Some((a, b, _)) = best_pair { (a, b) } else {
+            // No consistent pair found — keep the first two by index
+            // (deterministic fallback).
+            let mut sorted = fis.clone();
+            sorted.sort_unstable();
+            (sorted[0], sorted[1])
+        };
+        for &fi in fis {
+            if fi != keep_a && fi != keep_b {
+                faces_to_remove.insert(fi);
+            }
+        }
+    }
+
+    if faces_to_remove.is_empty() {
+        return;
+    }
+
+    let mut clean_faces: Vec<FaceData> = Vec::with_capacity(
+        face_list.len() - faces_to_remove.len(),
+    );
+    for (fi, face) in face_list.iter().enumerate() {
+        if !faces_to_remove.contains(&fi) {
+            clean_faces.push(*face);
+        }
+    }
+    mesh.faces = crate::infrastructure::storage::face_store::FaceStore::new();
+    for face in clean_faces {
+        mesh.faces.push(face);
+    }
+}
+
+/// Compute the unit normal of a face, or `None` if degenerate.
+fn face_normal_of(
+    face: &FaceData,
+    vertices: &VertexPool,
+) -> Option<nalgebra::Vector3<f64>> {
+    crate::domain::geometry::normal::triangle_normal(
+        vertices.position(face.vertices[0]),
+        vertices.position(face.vertices[1]),
+        vertices.position(face.vertices[2]),
+    )
+}
+
+/// Remove "fin" faces — phantom faces at CSG junctions whose normals point
+/// sharply away from all edge-adjacent neighbors.
+///
+/// # Detection criterion
+///
+/// For each face *f*, compute `max_dot = max_{g ∈ adj(f)} n_f · n_g` over
+/// all edge-adjacent faces *g*.  When `max_dot < cos(120°) = −0.5`, face *f*
+/// has no neighbor even approximately co-oriented — it is a fin artifact
+/// from incorrect CSG face classification.
+///
+/// # Theorem — Fin Face Invariant
+///
+/// On a genus-0 closed 2-manifold with outward-consistent orientation, every
+/// face has at least one edge neighbor with `n_f · n_g > 0` (both face the
+/// same half-space locally).  A face violating this invariant is not part of
+/// the intended surface.  Removing it and re-sealing preserves the manifold
+/// topology.  ∎
+fn remove_fin_faces(mesh: &mut IndexedMesh) {
+    use crate::domain::geometry::normal::triangle_normal;
+
+    let face_list: Vec<FaceData> = mesh.faces.iter().copied().collect();
+    let n_faces = face_list.len();
+    if n_faces == 0 {
+        return;
+    }
+
+    // Compute per-face normals.
+    let face_normals: Vec<Option<nalgebra::Vector3<f64>>> = face_list
+        .iter()
+        .map(|f| {
+            let a = mesh.vertices.position(f.vertices[0]);
+            let b = mesh.vertices.position(f.vertices[1]);
+            let c = mesh.vertices.position(f.vertices[2]);
+            triangle_normal(a, b, c)
+        })
+        .collect();
+
+    // Build undirected edge → face adjacency.
+    let mut edge_adj: hashbrown::HashMap<(VertexId, VertexId), Vec<usize>> = hashbrown::HashMap::new();
+    for (fi, face) in face_list.iter().enumerate() {
+        let v = face.vertices;
+        for &(a, b) in &[(v[0], v[1]), (v[1], v[2]), (v[2], v[0])] {
+            let key = if a < b { (a, b) } else { (b, a) };
+            edge_adj.entry(key).or_default().push(fi);
+        }
+    }
+
+    // For each face, find the maximum dot product with any edge neighbor.
+    let cos_threshold = -0.94_f64; // cos(160°) — only flags extreme folds
+    let mut fin_faces: hashbrown::HashSet<usize> = hashbrown::HashSet::new();
+
+    for fi in 0..n_faces {
+        let n_f = match face_normals[fi] {
+            Some(n) => n,
+            None => continue,
+        };
+
+        // Gather all distinct edge-neighbor face indices.
+        let v = face_list[fi].vertices;
+        let mut neighbors = Vec::new();
+        for &(a, b) in &[(v[0], v[1]), (v[1], v[2]), (v[2], v[0])] {
+            let key = if a < b { (a, b) } else { (b, a) };
+            if let Some(adj_faces) = edge_adj.get(&key) {
+                for &nfi in adj_faces {
+                    if nfi != fi {
+                        neighbors.push(nfi);
+                    }
+                }
+            }
+        }
+
+        if neighbors.is_empty() {
+            continue;
+        }
+
+        // Find the maximum agreement with any neighbor.
+        let max_dot = neighbors
+            .iter()
+            .filter_map(|&nfi| face_normals[nfi].map(|n_g| n_f.dot(&n_g)))
+            .fold(f64::NEG_INFINITY, f64::max);
+
+        if max_dot < cos_threshold {
+            fin_faces.insert(fi);
+        }
+    }
+
+    if fin_faces.is_empty() {
+        return;
+    }
+
+    // Remove fin faces.
+    let mut clean_faces: Vec<FaceData> =
+        Vec::with_capacity(n_faces - fin_faces.len());
+    for (fi, face) in face_list.iter().enumerate() {
+        if !fin_faces.contains(&fi) {
+            clean_faces.push(*face);
+        }
+    }
+    mesh.faces = crate::infrastructure::storage::face_store::FaceStore::new();
+    for face in clean_faces {
+        mesh.faces.push(face);
+    }
+    mesh.rebuild_edges();
 }
 
 
@@ -2175,681 +2846,5 @@ mod tests {
             report.euler_characteristic,
         );
     }
-}
-
-// ── Boundary vertex merging ──────────────────────────────────────────────────
-
-/// Merge nearby boundary vertices to close sliver gaps at intersection curves.
-///
-/// Identifies boundary vertices (those on boundary edges) and merges pairs
-/// within a small adaptive tolerance.  This closes small gaps left by CSG
-/// arrangement precision limits at complex intersection curves.
-///
-/// # Theorem — Boundary Vertex Merge Convergence
-///
-/// Each merge reduces the boundary edge count by exactly 2 (the two half-edges
-/// incident to the merged vertex pair become interior).  The process terminates
-/// when no further merges are possible (fixed-point).  ∎
-fn merge_nearby_boundary_vertices_with_mult(mesh: &mut IndexedMesh, merge_mult: f64) {
-    // Adaptive tolerance: `merge_mult` fraction of the mean edge length,
-    // clamped to [0.01, 0.2] mm.  The escalating repair pipeline calls this
-    // with progressively wider multipliers (0.05 → 0.40).
-    let mean_edge_len = {
-        mesh.rebuild_edges();
-        let edges = match mesh.edges_ref() {
-            Some(e) => e,
-            None => return,
-        };
-        let (sum, count) = edges
-            .iter()
-            .map(|e| {
-                let pa = mesh.vertices.position(e.vertices.0);
-                let pb = mesh.vertices.position(e.vertices.1);
-                (pa - pb).norm()
-            })
-            .fold((0.0_f64, 0usize), |(s, c), d| (s + d, c + 1));
-        if count == 0 {
-            return;
-        }
-        sum / count as f64
-    };
-    // Scale-relative tolerance: `merge_mult` fraction of mean edge length,
-    // clamped to [1% .. 20%] of mean edge length.  Using a relative clamp
-    // instead of absolute [0.01, 0.2] makes the algorithm scale-invariant:
-    // micro-scale geometry (1e-5) gets a proportionally tight tolerance
-    // instead of an absolute 0.01 that dwarfs the mesh.
-    let tol = mean_edge_len * merge_mult.clamp(0.01, 0.20);
-    let max_iter = 30;
-
-    // Pairs that caused a χ decrease (topology-damaging merges); skip on retry.
-    let mut skip_pairs: hashbrown::HashSet<(VertexId, VertexId)> = hashbrown::HashSet::new();
-
-    for _iter in 0..max_iter {
-        mesh.rebuild_edges();
-        let edges_ref = match mesh.edges_ref() {
-            Some(e) => e,
-            None => break,
-        };
-
-        // Phase 1: collect boundary vertex IDs.
-        let mut boundary_verts: hashbrown::HashSet<VertexId> = hashbrown::HashSet::new();
-        for edge in edges_ref.iter() {
-            if edge.is_boundary() {
-                boundary_verts.insert(edge.vertices.0);
-                boundary_verts.insert(edge.vertices.1);
-            }
-        }
-
-        if boundary_verts.is_empty() {
-            break;
-        }
-
-        let bv: Vec<VertexId> = boundary_verts.iter().copied().collect();
-
-        // Phase 2: find closest boundary-boundary pair within tolerance,
-        // skipping pairs that previously caused a χ decrease.
-        //
-        // Uses a spatial hash grid with cell size = tol so that only
-        // vertices in the 27-cell neighbourhood are compared, reducing
-        // worst-case O(B²) to O(B) expected.
-        let inv_tol = 1.0 / tol;
-        let mut best: Option<(VertexId, VertexId, f64)> = None;
-        {
-            let mut grid: hashbrown::HashMap<(i64, i64, i64), Vec<usize>> =
-                hashbrown::HashMap::new();
-            let bv_pos: Vec<nalgebra::Point3<f64>> = bv
-                .iter()
-                .map(|&v| *mesh.vertices.position(v))
-                .collect();
-            for i in 0..bv.len() {
-                let p = &bv_pos[i];
-                let cx = (p.x * inv_tol).floor() as i64;
-                let cy = (p.y * inv_tol).floor() as i64;
-                let cz = (p.z * inv_tol).floor() as i64;
-                grid.entry((cx, cy, cz)).or_default().push(i);
-            }
-            for i in 0..bv.len() {
-                let pi = &bv_pos[i];
-                let cx = (pi.x * inv_tol).floor() as i64;
-                let cy = (pi.y * inv_tol).floor() as i64;
-                let cz = (pi.z * inv_tol).floor() as i64;
-                for dx in -1..=1_i64 {
-                    for dy in -1..=1_i64 {
-                        for dz in -1..=1_i64 {
-                            if let Some(cell) = grid.get(&(cx + dx, cy + dy, cz + dz)) {
-                                for &j in cell {
-                                    if j <= i {
-                                        continue;
-                                    }
-                                    let pair_key = if bv[i] < bv[j] {
-                                        (bv[i], bv[j])
-                                    } else {
-                                        (bv[j], bv[i])
-                                    };
-                                    if skip_pairs.contains(&pair_key) {
-                                        continue;
-                                    }
-                                    let pj = &bv_pos[j];
-                                    let d = (pi - pj).norm();
-                                    if d < tol {
-                                        if best.is_none() || d < best.unwrap().2 {
-                                            best = Some((bv[i], bv[j], d));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Phase 3: if no boundary-boundary pair found, try boundary-to-interior
-        // using a spatial hash grid with cell size = per_vertex_tol.
-        if best.is_none() {
-            let per_vertex_tol = tol * 0.5;
-            let inv_pvt = 1.0 / per_vertex_tol;
-            // Build grid over interior vertices only.
-            let all_vids: Vec<VertexId> = mesh.vertices.iter().map(|(id, _)| id).collect();
-            let mut igrid: hashbrown::HashMap<(i64, i64, i64), Vec<VertexId>> =
-                hashbrown::HashMap::new();
-            for &ivid in &all_vids {
-                if boundary_verts.contains(&ivid) {
-                    continue;
-                }
-                let ip = mesh.vertices.position(ivid);
-                let cx = (ip.x * inv_pvt).floor() as i64;
-                let cy = (ip.y * inv_pvt).floor() as i64;
-                let cz = (ip.z * inv_pvt).floor() as i64;
-                igrid.entry((cx, cy, cz)).or_default().push(ivid);
-            }
-            for &bvid in &bv {
-                let bp = mesh.vertices.position(bvid);
-                let cx = (bp.x * inv_pvt).floor() as i64;
-                let cy = (bp.y * inv_pvt).floor() as i64;
-                let cz = (bp.z * inv_pvt).floor() as i64;
-                for dx in -1..=1_i64 {
-                    for dy in -1..=1_i64 {
-                        for dz in -1..=1_i64 {
-                            if let Some(cell) = igrid.get(&(cx + dx, cy + dy, cz + dz)) {
-                                for &ivid in cell {
-                                    let pair_key = if bvid < ivid {
-                                        (bvid, ivid)
-                                    } else {
-                                        (ivid, bvid)
-                                    };
-                                    if skip_pairs.contains(&pair_key) {
-                                        continue;
-                                    }
-                                    let ip = mesh.vertices.position(ivid);
-                                    let d = (bp - ip).norm();
-                                    if d < per_vertex_tol {
-                                        if best.is_none() || d < best.unwrap().2 {
-                                            best = Some((ivid, bvid, d));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        let (keep, remove, _dist) = match best {
-            Some(b) => b,
-            None => break,
-        };
-
-        // --- Euler-preserving guard ---
-        // Save face-store snapshot before merge so we can revert if χ
-        // decreases.  A decrease means the merge created a topological
-        // handle (common at dense N-way junctions where two boundary
-        // loops should not be connected).
-        let faces_snapshot: Vec<FaceData> = mesh.faces.iter().copied().collect();
-
-        // Compute χ using referenced vertices only.
-        fn quick_euler_referenced(mesh: &IndexedMesh) -> i64 {
-            let mut referenced: hashbrown::HashSet<VertexId> = hashbrown::HashSet::new();
-            let mut edge_set: hashbrown::HashSet<(VertexId, VertexId)> =
-                hashbrown::HashSet::new();
-            let f = mesh.faces.len();
-            for face in mesh.faces.iter() {
-                let vs = &face.vertices;
-                referenced.insert(vs[0]);
-                referenced.insert(vs[1]);
-                referenced.insert(vs[2]);
-                for k in 0..3 {
-                    let a = vs[k];
-                    let b = vs[(k + 1) % 3];
-                    let key = if a < b { (a, b) } else { (b, a) };
-                    edge_set.insert(key);
-                }
-            }
-            referenced.len() as i64 - edge_set.len() as i64 + f as i64
-        }
-
-        let chi_before = quick_euler_referenced(mesh);
-
-        // Merge: replace all references to `remove` with `keep`.
-        let mut changed = false;
-        for face in mesh.faces.iter_mut() {
-            for v in face.vertices.iter_mut() {
-                if *v == remove {
-                    *v = keep;
-                    changed = true;
-                }
-            }
-        }
-
-        if !changed {
-            break;
-        }
-
-        collapse_degenerate_faces(mesh);
-        mesh.rebuild_edges();
-
-        let chi_after = quick_euler_referenced(mesh);
-
-        // If χ decreased, this merge created a topological handle.
-        // Revert and skip this pair.
-        if chi_after < chi_before {
-            mesh.faces.clear();
-            for face_data in faces_snapshot {
-                mesh.faces.push(face_data);
-            }
-            mesh.rebuild_edges();
-            let pair_key = if keep < remove { (keep, remove) } else { (remove, keep) };
-            skip_pairs.insert(pair_key);
-            continue; // Try next pair instead of breaking.
-        }
-
-        split_non_manifold_edges(mesh);
-        collapse_degenerate_faces(mesh);
-        mesh.rebuild_edges();
-
-        if !mesh.is_watertight() {
-            let es = crate::infrastructure::storage::edge_store::EdgeStore::from_face_store(
-                &mesh.faces,
-            );
-            crate::application::watertight::seal::seal_boundary_loops(
-                &mut mesh.vertices,
-                &mut mesh.faces,
-                &es,
-                crate::domain::core::index::RegionId::INVALID,
-            );
-            collapse_degenerate_faces(mesh);
-                mesh.rebuild_edges();
-        }
-
-        if mesh.is_watertight() {
-            break;
-        }
-    }
-}
-
-/// Merge coincident vertices and compact the vertex pool.
-///
-/// 1. **Dedup**: merge vertices with ‖p_i − p_j‖ < ε (union-find).
-/// 2. **Compact**: remove unreferenced vertices, re-index face references.
-///
-/// # Theorem — Vertex Pool Compaction Preserves Euler–Poincaré
-///
-/// `check_watertight` computes V as `vertex_pool.len()`.  CSG operations
-/// leave dead vertices (from input meshes and merged duplicates) which
-/// inflate V.  Compaction removes these, yielding V = |referenced vertices|
-/// and restoring V − E + F = 2(1−g).  ∎
-fn merge_coincident_vertices(mesh: &mut IndexedMesh) {
-    let n = mesh.vertices.len();
-    if n == 0 {
-        return;
-    }
-
-    // Phase 1: merge coincident vertices (dedup) via spatial hash grid.
-    //
-    // # Algorithm — Grid-Accelerated Vertex Deduplication
-    //
-    // Partition R³ into axis-aligned cells of side ε.  Each vertex is
-    // assigned to cell (⌊x/ε⌋, ⌊y/ε⌋, ⌊z/ε⌋).  Two vertices can be
-    // within distance ε only if their cells differ by at most 1 on every
-    // axis (the 3×3×3 = 27-cell neighbourhood).
-    //
-    // # Theorem — Grid Neighbourhood Soundness
-    //
-    // If ‖p−q‖ < ε then |⌊p_k/ε⌋ − ⌊q_k/ε⌋| ≤ 1 for k∈{x,y,z}.
-    //
-    // *Proof.* |p_k − q_k| ≤ ‖p−q‖ < ε.  The floor of two reals that
-    // differ by less than ε can differ by at most 1.  ∎
-    //
-    // Complexity drops from O(V²) to O(V) expected for uniformly
-    // distributed vertices (each cell has O(1) occupants on average).
-    //
-    // Scale-relative tolerance: ε = 1e-4 × mean_edge_length.  This is
-    // 3 orders of magnitude below the edge scale, safely catching
-    // near-coincident vertices from independent CSG intersection
-    // computations while never fusing distinct geometry.  Using a
-    // relative epsilon (instead of absolute 1e-6) makes the function
-    // scale-invariant for micro- and macro-scale meshes.
-    let mean_edge = {
-        let mut sum = 0.0_f64;
-        let mut cnt = 0usize;
-        for face in mesh.faces.iter() {
-            for k in 0..3 {
-                let a = mesh.vertices.position(face.vertices[k]);
-                let b = mesh.vertices.position(face.vertices[(k + 1) % 3]);
-                sum += (a - b).norm();
-                cnt += 1;
-            }
-        }
-        if cnt == 0 { return; }
-        sum / cnt as f64
-    };
-    let eps = (mean_edge * 1e-4).max(1e-15);
-    let eps_sq = eps * eps;
-    let inv_eps = 1.0 / eps;
-    let mut parent: Vec<u32> = (0..n as u32).collect();
-
-    fn find(parent: &mut [u32], mut x: u32) -> u32 {
-        while parent[x as usize] != x {
-            parent[x as usize] = parent[parent[x as usize] as usize];
-            x = parent[x as usize];
-        }
-        x
-    }
-
-    // Build spatial hash: cell → list of vertex indices.
-    let mut grid: hashbrown::HashMap<(i64, i64, i64), Vec<usize>> =
-        hashbrown::HashMap::new();
-    let positions: Vec<nalgebra::Point3<f64>> = (0..n)
-        .map(|i| *mesh.vertices.position(VertexId(i as u32)))
-        .collect();
-    for i in 0..n {
-        let p = &positions[i];
-        let cx = (p.x * inv_eps).floor() as i64;
-        let cy = (p.y * inv_eps).floor() as i64;
-        let cz = (p.z * inv_eps).floor() as i64;
-        grid.entry((cx, cy, cz)).or_default().push(i);
-    }
-
-    // For each vertex, check the 27-cell neighbourhood for coincident vertices.
-    for i in 0..n {
-        let pi = &positions[i];
-        let cx = (pi.x * inv_eps).floor() as i64;
-        let cy = (pi.y * inv_eps).floor() as i64;
-        let cz = (pi.z * inv_eps).floor() as i64;
-        for dx in -1..=1_i64 {
-            for dy in -1..=1_i64 {
-                for dz in -1..=1_i64 {
-                    if let Some(cell) = grid.get(&(cx + dx, cy + dy, cz + dz)) {
-                        for &j in cell {
-                            if j <= i {
-                                continue;
-                            }
-                            let pj = &positions[j];
-                            if (pi - pj).norm_squared() < eps_sq {
-                                let ci = find(&mut parent, i as u32);
-                                let cj = find(&mut parent, j as u32);
-                                if ci != cj {
-                                    let (lo, hi) =
-                                        if ci < cj { (ci, cj) } else { (cj, ci) };
-                                    parent[hi as usize] = lo;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Flatten union-find: old_id → canonical_id.
-    let dedup: Vec<u32> = (0..n).map(|i| find(&mut parent, i as u32)).collect();
-
-    // Phase 2: remap face references through dedup mapping.
-    let face_list: Vec<FaceData> = mesh.faces.iter().copied().collect();
-    let mut remapped_faces: Vec<FaceData> = Vec::with_capacity(face_list.len());
-    for mut face in face_list {
-        for v in &mut face.vertices {
-            *v = VertexId(dedup[v.0 as usize]);
-        }
-        if face.vertices[0] != face.vertices[1]
-            && face.vertices[1] != face.vertices[2]
-            && face.vertices[2] != face.vertices[0]
-        {
-            remapped_faces.push(face);
-        }
-    }
-
-    // Phase 3: compact — collect referenced vertex IDs and build new pool.
-    let mut referenced = hashbrown::HashSet::new();
-    for face in &remapped_faces {
-        for &v in &face.vertices {
-            referenced.insert(v.0);
-        }
-    }
-
-    // Sort referenced IDs for deterministic new-index assignment.
-    let mut ref_ids: Vec<u32> = referenced.into_iter().collect();
-    ref_ids.sort_unstable();
-
-    // Build old → new index mapping.
-    let mut old_to_new = vec![u32::MAX; n];
-    let mut new_pool = mesh.vertices.empty_clone();
-    for &old_id in &ref_ids {
-        let vid = VertexId(old_id);
-        let pos = *mesh.vertices.position(vid);
-        let normal = *mesh.vertices.normal(vid);
-        let new_id = new_pool.insert_unique(pos, normal);
-        old_to_new[old_id as usize] = new_id.0;
-    }
-
-    // Re-index face references.
-    mesh.faces = crate::infrastructure::storage::face_store::FaceStore::new();
-    for mut face in remapped_faces {
-        for v in &mut face.vertices {
-            *v = VertexId(old_to_new[v.0 as usize]);
-        }
-        mesh.faces.push(face);
-    }
-    mesh.vertices = new_pool;
-    mesh.rebuild_edges();
-}
-
-// ── Non-manifold edge splitting ──────────────────────────────────────────────
-
-/// Resolve non-manifold edges by removing excess faces.
-///
-/// A 2-manifold requires every edge to be shared by exactly 2 faces.
-/// CSG arrangement can produce edges with 3+ faces at intersection curves.
-/// This function keeps the **best-oriented pair** sharing each non-manifold
-/// edge and removes the rest.
-///
-/// # Selection criterion (deterministic)
-///
-/// For a non-manifold edge (u,v) with k > 2 incident faces, the correct
-/// manifold pair consists of the two faces whose half-edges form a consistent
-/// orientation: one face has the directed edge u→v and the other has v→u.
-/// Among all such consistent pairs, we select the pair whose normals have the
-/// **largest mutual dot product** (most co-planar / smoothest dihedral angle),
-/// breaking ties by smallest face index.  This deterministic criterion avoids
-/// the prior HashMap-order-dependent selection that could discard the
-/// geometrically correct faces.
-///
-/// # Theorem — Non-Manifold Edge Elimination
-///
-/// After removal, every edge has at most 2 faces.  The removed faces'
-/// other edges may become boundary edges (1 face) or remain manifold
-/// (2 faces).  The resulting mesh has no non-manifold edges.  ∎
-fn split_non_manifold_edges(mesh: &mut IndexedMesh) {
-    let face_list: Vec<FaceData> = mesh.faces.iter().copied().collect();
-
-    // Build undirected edge → face index map.
-    let mut edge_faces: hashbrown::HashMap<(VertexId, VertexId), Vec<usize>> = hashbrown::HashMap::new();
-    for (fi, face) in face_list.iter().enumerate() {
-        let v = face.vertices;
-        for &(a, b) in &[(v[0], v[1]), (v[1], v[2]), (v[2], v[0])] {
-            let key = if a < b { (a, b) } else { (b, a) };
-            edge_faces.entry(key).or_default().push(fi);
-        }
-    }
-
-    // Collect faces nominated for removal across all non-manifold edges.
-    // For each non-manifold edge, pick the best pair and mark the rest.
-    let mut faces_to_remove: hashbrown::HashSet<usize> = hashbrown::HashSet::new();
-
-    for (&(u, v), fis) in &edge_faces {
-        if fis.len() <= 2 {
-            continue;
-        }
-
-        // Classify each face by its directed half-edge orientation for (u,v).
-        // forward = has u→v, reverse = has v→u.
-        let mut forward: Vec<usize> = Vec::new();
-        let mut reverse: Vec<usize> = Vec::new();
-
-        for &fi in fis {
-            let fv = face_list[fi].vertices;
-            let has_uv = (0..3).any(|k| fv[k] == u && fv[(k + 1) % 3] == v);
-            if has_uv {
-                forward.push(fi);
-            } else {
-                reverse.push(fi);
-            }
-        }
-
-        // Pick the best consistent pair (one forward, one reverse) by
-        // maximum normal dot product (smoothest dihedral).
-        let mut best_pair: Option<(usize, usize, f64)> = None;
-        for &fi_fwd in &forward {
-            let n_fwd = face_normal_of(&face_list[fi_fwd], &mesh.vertices);
-            for &fi_rev in &reverse {
-                let n_rev = face_normal_of(&face_list[fi_rev], &mesh.vertices);
-                let dot = match (n_fwd, n_rev) {
-                    (Some(a), Some(b)) => a.dot(&b),
-                    _ => f64::NEG_INFINITY,
-                };
-                let better = match best_pair {
-                    None => true,
-                    Some((_, _, best_dot)) => {
-                        dot > best_dot || (dot == best_dot && fi_fwd.min(fi_rev) < best_pair.unwrap().0.min(best_pair.unwrap().1))
-                    }
-                };
-                if better {
-                    best_pair = Some((fi_fwd, fi_rev, dot));
-                }
-            }
-        }
-
-        // Mark all faces on this edge except the best pair for removal.
-        let (keep_a, keep_b) = match best_pair {
-            Some((a, b, _)) => (a, b),
-            None => {
-                // No consistent pair found — keep the first two by index
-                // (deterministic fallback).
-                let mut sorted = fis.clone();
-                sorted.sort_unstable();
-                (sorted[0], sorted[1])
-            }
-        };
-        for &fi in fis {
-            if fi != keep_a && fi != keep_b {
-                faces_to_remove.insert(fi);
-            }
-        }
-    }
-
-    if faces_to_remove.is_empty() {
-        return;
-    }
-
-    let mut clean_faces: Vec<FaceData> = Vec::with_capacity(
-        face_list.len() - faces_to_remove.len(),
-    );
-    for (fi, face) in face_list.iter().enumerate() {
-        if !faces_to_remove.contains(&fi) {
-            clean_faces.push(*face);
-        }
-    }
-    mesh.faces = crate::infrastructure::storage::face_store::FaceStore::new();
-    for face in clean_faces {
-        mesh.faces.push(face);
-    }
-}
-
-/// Compute the unit normal of a face, or `None` if degenerate.
-fn face_normal_of(
-    face: &FaceData,
-    vertices: &VertexPool,
-) -> Option<nalgebra::Vector3<f64>> {
-    crate::domain::geometry::normal::triangle_normal(
-        vertices.position(face.vertices[0]),
-        vertices.position(face.vertices[1]),
-        vertices.position(face.vertices[2]),
-    )
-}
-
-/// Remove "fin" faces — phantom faces at CSG junctions whose normals point
-/// sharply away from all edge-adjacent neighbors.
-///
-/// # Detection criterion
-///
-/// For each face *f*, compute `max_dot = max_{g ∈ adj(f)} n_f · n_g` over
-/// all edge-adjacent faces *g*.  When `max_dot < cos(120°) = −0.5`, face *f*
-/// has no neighbor even approximately co-oriented — it is a fin artifact
-/// from incorrect CSG face classification.
-///
-/// # Theorem — Fin Face Invariant
-///
-/// On a genus-0 closed 2-manifold with outward-consistent orientation, every
-/// face has at least one edge neighbor with `n_f · n_g > 0` (both face the
-/// same half-space locally).  A face violating this invariant is not part of
-/// the intended surface.  Removing it and re-sealing preserves the manifold
-/// topology.  ∎
-fn remove_fin_faces(mesh: &mut IndexedMesh) {
-    use crate::domain::geometry::normal::triangle_normal;
-
-    let face_list: Vec<FaceData> = mesh.faces.iter().copied().collect();
-    let n_faces = face_list.len();
-    if n_faces == 0 {
-        return;
-    }
-
-    // Compute per-face normals.
-    let face_normals: Vec<Option<nalgebra::Vector3<f64>>> = face_list
-        .iter()
-        .map(|f| {
-            let a = mesh.vertices.position(f.vertices[0]);
-            let b = mesh.vertices.position(f.vertices[1]);
-            let c = mesh.vertices.position(f.vertices[2]);
-            triangle_normal(a, b, c)
-        })
-        .collect();
-
-    // Build undirected edge → face adjacency.
-    let mut edge_adj: hashbrown::HashMap<(VertexId, VertexId), Vec<usize>> = hashbrown::HashMap::new();
-    for (fi, face) in face_list.iter().enumerate() {
-        let v = face.vertices;
-        for &(a, b) in &[(v[0], v[1]), (v[1], v[2]), (v[2], v[0])] {
-            let key = if a < b { (a, b) } else { (b, a) };
-            edge_adj.entry(key).or_default().push(fi);
-        }
-    }
-
-    // For each face, find the maximum dot product with any edge neighbor.
-    let cos_threshold = -0.94_f64; // cos(160°) — only flags extreme folds
-    let mut fin_faces: hashbrown::HashSet<usize> = hashbrown::HashSet::new();
-
-    for fi in 0..n_faces {
-        let n_f = match face_normals[fi] {
-            Some(n) => n,
-            None => continue,
-        };
-
-        // Gather all distinct edge-neighbor face indices.
-        let v = face_list[fi].vertices;
-        let mut neighbors = Vec::new();
-        for &(a, b) in &[(v[0], v[1]), (v[1], v[2]), (v[2], v[0])] {
-            let key = if a < b { (a, b) } else { (b, a) };
-            if let Some(adj_faces) = edge_adj.get(&key) {
-                for &nfi in adj_faces {
-                    if nfi != fi {
-                        neighbors.push(nfi);
-                    }
-                }
-            }
-        }
-
-        if neighbors.is_empty() {
-            continue;
-        }
-
-        // Find the maximum agreement with any neighbor.
-        let max_dot = neighbors
-            .iter()
-            .filter_map(|&nfi| face_normals[nfi].map(|n_g| n_f.dot(&n_g)))
-            .fold(f64::NEG_INFINITY, f64::max);
-
-        if max_dot < cos_threshold {
-            fin_faces.insert(fi);
-        }
-    }
-
-    if fin_faces.is_empty() {
-        return;
-    }
-
-    // Remove fin faces.
-    let mut clean_faces: Vec<FaceData> =
-        Vec::with_capacity(n_faces - fin_faces.len());
-    for (fi, face) in face_list.iter().enumerate() {
-        if !fin_faces.contains(&fi) {
-            clean_faces.push(*face);
-        }
-    }
-    mesh.faces = crate::infrastructure::storage::face_store::FaceStore::new();
-    for face in clean_faces {
-        mesh.faces.push(face);
-    }
-    mesh.rebuild_edges();
 }
 

@@ -96,7 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .edge_references()
         .find(|e| e.weight().id == "valve1")
     {
-        let flow = solution.flow_rates.get(&edge_ref.id()).unwrap();
+        let flow = solution.flow_rates.get(edge_ref.id().index()).unwrap();
         println!("   Valve Flow Rate: {:.4e} m^3/s", flow);
         println!("   Valve Flow Rate: {:.2} mL/min", flow * 1e6 * 60.0);
     }
@@ -107,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .node_indices()
         .find(|&i| solution.graph[i].id == "junction")
     {
-        let pressure = solution.pressures.get(&node_idx).unwrap();
+        let pressure = solution.pressures.get(node_idx.index()).unwrap();
         println!("   Junction Pressure: {:.2} Pa", pressure);
     }
 

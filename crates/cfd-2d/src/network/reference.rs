@@ -147,7 +147,7 @@ where
             solved.graph.node_weight(idx).map(|node| {
                 (
                     node.id.clone(),
-                    *solved.pressures().get(&idx).unwrap_or(&T::zero()),
+                    *solved.pressures().get(idx.index()).unwrap_or(&T::zero()),
                 )
             })
         })

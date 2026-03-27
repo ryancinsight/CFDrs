@@ -21,7 +21,7 @@ pub use composite::{
     triple_trifurcation_venturi_rect, venturi_serpentine_rect, CenterSerpentineSpec,
 };
 pub use n_furcation::{
-    bifurcation_rect, n_furcation_rect, symmetric_bifurcation, symmetric_n_furcation,
+    bifurcation_rect, pentafurcation_rect, quadfurcation_rect, n_furcation_rect, symmetric_bifurcation, symmetric_n_furcation,
     symmetric_trifurcation, trifurcation_rect,
 };
 pub use serpentine::{serpentine_chain, serpentine_rect, serpentine_venturi_rect};

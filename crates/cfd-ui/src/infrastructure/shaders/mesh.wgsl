@@ -1,4 +1,5 @@
-// Mesh vertex/fragment shader — Phong illumination with per-vertex normals.
+// Mesh vertex/fragment shader — Phong illumination with per-vertex normals
+// and up to 6 clip planes for section view support.
 //
 // Supports three shading modes via uniform:
 //   0 = flat (face normal from cross product)
@@ -17,8 +18,19 @@ struct ViewUniforms {
     field_active: u32,
 };
 
+struct ClipUniforms {
+    planes: array<vec4<f32>, 6>,
+    enable_mask: u32,
+    _pad0: u32,
+    _pad1: u32,
+    _pad2: u32,
+};
+
 @group(0) @binding(0)
 var<uniform> uniforms: ViewUniforms;
+
+@group(1) @binding(0)
+var<uniform> clip: ClipUniforms;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -75,6 +87,17 @@ fn field_colormap(t: f32) -> vec3<f32> {
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    // Clip plane discard: discard fragments behind any active plane.
+    for (var i = 0u; i < 6u; i = i + 1u) {
+        if ((clip.enable_mask & (1u << i)) != 0u) {
+            let p = clip.planes[i];
+            let dist = dot(vec3<f32>(p.x, p.y, p.z), input.world_position) + p.w;
+            if (dist < 0.0) {
+                discard;
+            }
+        }
+    }
+
     // Wireframe mode: solid gray, no lighting.
     if uniforms.shading_mode == 2u {
         return vec4<f32>(0.3, 0.3, 0.3, 1.0);

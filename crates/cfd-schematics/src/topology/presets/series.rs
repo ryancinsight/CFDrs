@@ -188,7 +188,7 @@ pub fn serpentine_series_spec(
     height_m: f64,
 ) -> BlueprintTopologySpec {
     let segment_count = segments.max(1);
-    let serpentine = (segment_count > 1).then(|| SerpentineSpec {
+    let serpentine = (segment_count > 1).then_some(SerpentineSpec {
         segments: segment_count,
         bend_radius_m: width_m * 0.5,
         segment_length_m,
@@ -232,7 +232,7 @@ pub fn venturi_serpentine_series_spec(
     let l_throat = throat_length_m.max(2.0 * throat_width_m);
     let l_taper = 5.0 * (main_width_m + throat_width_m) * 0.5;
     let segment_count = segments.max(1);
-    let serpentine = (segment_count > 1).then(|| SerpentineSpec {
+    let serpentine = (segment_count > 1).then_some(SerpentineSpec {
         segments: segment_count,
         bend_radius_m: main_width_m * 0.5,
         segment_length_m,

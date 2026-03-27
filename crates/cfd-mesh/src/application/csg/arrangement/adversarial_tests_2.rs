@@ -21,7 +21,7 @@
 mod tests {
     use crate::application::csg::boolean::{csg_boolean, csg_boolean_nary, BooleanOp};
     use crate::application::csg::detect_self_intersect::detect_self_intersections;
-    use crate::application::watertight::check::check_watertight;
+    
     use crate::domain::core::scalar::Point3r;
     use crate::domain::geometry::primitives::{Cube, Cylinder, PrimitiveMesh, Torus, UvSphere};
     use crate::domain::mesh::IndexedMesh;
@@ -225,7 +225,7 @@ mod tests {
         let cubes: Vec<IndexedMesh> = (0..10)
             .map(|i| {
                 Cube {
-                    origin: Point3r::new(i as f64 * 1.0, -1.0, -1.0),
+                    origin: Point3r::new(f64::from(i) * 1.0, -1.0, -1.0),
                     width: 2.0,
                     height: 2.0,
                     depth: 2.0,
@@ -600,7 +600,7 @@ mod tests {
     fn five_cube_nary_intersection_shrinks() {
         let cubes: Vec<IndexedMesh> = (0..5)
             .map(|i| {
-                let offset = i as f64 * 0.3;
+                let offset = f64::from(i) * 0.3;
                 Cube {
                     origin: Point3r::new(-1.0 + offset, -1.0, -1.0),
                     width: 2.0,

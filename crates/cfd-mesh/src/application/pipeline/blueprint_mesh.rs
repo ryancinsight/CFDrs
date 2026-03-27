@@ -538,8 +538,7 @@ fn synthesize_layout(
             if x_right <= x_left {
                 return Err(MeshError::ChannelError {
                     message: format!(
-                        "serpentine channel diameter {:.3} mm too large for plate width {:.2} mm",
-                        max_dia_mm, chip_w
+                        "serpentine channel diameter {max_dia_mm:.3} mm too large for plate width {chip_w:.2} mm"
                     ),
                 });
             }
@@ -857,7 +856,7 @@ fn synthesize_complex_layout(
     }
     // Sort each group for deterministic layout.
     for group in depth_groups.values_mut() {
-        group.sort();
+        group.sort_unstable();
     }
 
     // Assign 2D positions:

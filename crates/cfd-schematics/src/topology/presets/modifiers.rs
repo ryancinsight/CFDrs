@@ -185,6 +185,7 @@ mod tests {
                         width_m: 1.5e-3,
                         height_m: 1.0e-3,
                         serpentine: Some(SerpentineSpec {
+                            wave_type: crate::topology::SerpentineWaveType::Sine,
                             segments: 4,
                             bend_radius_m: 1.2e-3,
                             segment_length_m: 4.5e-3,
@@ -295,6 +296,7 @@ mod tests {
         assert_eq!(
             updated.split_stages[0].branches[1].route.serpentine,
             Some(SerpentineSpec {
+                wave_type: crate::topology::SerpentineWaveType::Sine,
                 segments: 5,
                 bend_radius_m: 1.8e-3,
                 segment_length_m: 4.0e-3,

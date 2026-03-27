@@ -58,11 +58,10 @@ pub fn ensure_release_reports() -> Result<(), Box<dyn std::error::Error>> {
 pub fn fast_mode() -> bool {
     std::env::var("M12_FAST")
         .ok()
-        .map(|v| {
+        .is_none_or(|v| {
             let s = v.trim().to_ascii_lowercase();
             !(s == "0" || s == "false" || s == "no")
         })
-        .unwrap_or(true)
 }
 
 /// Parse an environment variable as `usize`, falling back to `default` (min 1).

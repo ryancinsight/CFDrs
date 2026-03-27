@@ -31,6 +31,7 @@ struct JunctionLossProfile {
     run_angle_ref_deg: f64,
 }
 
+#[allow(clippy::too_many_lines, clippy::match_same_arms)]
 pub(crate) fn apply_blueprint_junction_losses<T, F>(
     network: &mut Network<T, F>,
     blueprint: &NetworkBlueprint,
@@ -49,11 +50,9 @@ where
     let p_ref_t = T::from_f64(101_325.0).expect("Mathematical constant conversion compromised");
     let rho_blood: T = network
         .fluid
-        .properties_at(rho_ref_t, p_ref_t)
-        .map(|state| state.density)
-        .unwrap_or_else(|_| {
+        .properties_at(rho_ref_t, p_ref_t).map_or_else(|_| {
             T::from_f64(1060.0).expect("Mathematical constant conversion compromised")
-        });
+        }, |state| state.density);
     let two: T = T::one() + T::one();
 
     let blueprint_node_meta: HashMap<
@@ -214,6 +213,7 @@ fn classify_run_and_branch_edges(
             (Vec::new(), [incoming.to_vec(), outgoing.to_vec()].concat())
         }
         Some(JunctionFamily::Merge) => (outgoing.to_vec(), incoming.to_vec()),
+        #[allow(clippy::match_same_arms)]
         Some(JunctionFamily::Bifurcation | JunctionFamily::Trifurcation | JunctionFamily::Tee) => {
             if in_deg == 1 && out_deg >= 2 {
                 (incoming.to_vec(), outgoing.to_vec())

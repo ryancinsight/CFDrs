@@ -378,7 +378,7 @@ mod tests {
         ] {
             let wn = gwn::<f64>(&Point3r::new(x, y, z), &faces, &pool);
             assert!(
-                wn >= -1.0 && wn <= 1.0,
+                (-1.0..=1.0).contains(&wn),
                 "GWN ({x},{y},{z}) out of [-1,1]: {wn}"
             );
         }
@@ -409,7 +409,7 @@ mod tests {
             "GWN<f32> at vertex must be finite, got {wn}"
         );
         assert!(
-            wn >= -1.0 && wn <= 1.0,
+            (-1.0..=1.0).contains(&wn),
             "GWN<f32> must be in [-1, 1], got {wn}"
         );
     }
@@ -428,7 +428,7 @@ mod tests {
             wn.is_finite(),
             "GWN on degenerate face must be finite, got {wn}"
         );
-        assert!(wn >= -1.0 && wn <= 1.0, "GWN must be in [-1,1], got {wn}");
+        assert!((-1.0..=1.0).contains(&wn), "GWN must be in [-1,1], got {wn}");
     }
 
     /// GWN of far-exterior points is always ≈ 0 for a closed manifold.

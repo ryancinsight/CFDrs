@@ -421,9 +421,7 @@ mod tests {
         write_openfoam_polymesh(&mesh, &dir, &[]).unwrap();
         let content = std::fs::read_to_string(dir.join("faces")).unwrap();
         let count_line = content
-            .lines()
-            .filter(|l| l.trim().parse::<usize>().is_ok())
-            .next()
+            .lines().find(|l| l.trim().parse::<usize>().is_ok())
             .unwrap_or("");
         assert_eq!(count_line.trim(), "4", "tetrahedron has 4 faces");
         std::fs::remove_dir_all(&dir).ok();

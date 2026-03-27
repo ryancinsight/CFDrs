@@ -55,8 +55,8 @@ fn test_solver_ohms_law_single_edge() {
         .graph
         .edge_references()
         .map(|e| {
-            let p_from = solved.pressures().get(&e.source()).copied().unwrap_or(0.0);
-            let p_to = solved.pressures().get(&e.target()).copied().unwrap_or(0.0);
+            let p_from = solved.pressures().get(e.source().index()).copied().unwrap_or(0.0);
+            let p_to = solved.pressures().get(e.target().index()).copied().unwrap_or(0.0);
             (p_from - p_to) / e.weight().resistance
         })
         .collect();
@@ -105,8 +105,8 @@ fn test_solver_y_junction_kcl() {
     let mut q_into_mid = 0.0_f64;
     let mut q_out_of_mid = 0.0_f64;
     for e in solved.graph.edge_references() {
-        let p_from = solved.pressures().get(&e.source()).copied().unwrap_or(0.0);
-        let p_to = solved.pressures().get(&e.target()).copied().unwrap_or(0.0);
+        let p_from = solved.pressures().get(e.source().index()).copied().unwrap_or(0.0);
+        let p_to = solved.pressures().get(e.target().index()).copied().unwrap_or(0.0);
         let q = (p_from - p_to) / e.weight().resistance;
         if e.target() == n_mid {
             q_into_mid += q;

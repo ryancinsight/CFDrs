@@ -287,12 +287,11 @@ fn tri_interval(pv: &[Real; 3], dv: &[Real; 3]) -> (Real, Real) {
     for &(i, j) in &[(0usize, 1usize), (1, 2), (2, 0)] {
         let di = dv[i];
         let dj = dv[j];
-        if di.abs() >= COPLANAR_EPS && dj.abs() >= COPLANAR_EPS && (di > 0.0) != (dj > 0.0) {
-            if n < 3 {
+        if di.abs() >= COPLANAR_EPS && dj.abs() >= COPLANAR_EPS && (di > 0.0) != (dj > 0.0)
+            && n < 3 {
                 t[n] = lerp_crossing(pv[i], pv[j], di, dj);
                 n += 1;
             }
-        }
     }
 
     if n == 0 {

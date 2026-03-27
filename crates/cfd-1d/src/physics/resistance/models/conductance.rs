@@ -44,13 +44,13 @@ pub fn parallel_channel_flow_fractions(widths: &[f64]) -> Vec<f64> {
     if widths.is_empty() {
         return Vec::new();
     }
-    let total_cond: f64 = widths.iter().map(|w| w.powi(3)).sum();
+    let total_cond: f64 = widths.iter().map(|w| w.max(0.0).powi(3)).sum();
     if total_cond > 1.0e-30 {
-        widths.iter().map(|w| w.powi(3) / total_cond).collect()
+        widths.iter().map(|w| w.max(0.0).powi(3) / total_cond).collect()
     } else {
-        let total_width: f64 = widths.iter().sum();
+        let total_width: f64 = widths.iter().map(|w| w.max(0.0)).sum();
         if total_width > 0.0 {
-            widths.iter().map(|w| w / total_width).collect()
+            widths.iter().map(|w| w.max(0.0) / total_width).collect()
         } else {
             vec![0.0; widths.len()]
         }
@@ -136,5 +136,19 @@ mod tests {
         assert!((per_stage[0] - 8.0 / 9.0).abs() < 1e-12);
         assert!((per_stage[1] - 0.5).abs() < 1e-12);
         assert!((cum - 4.0 / 9.0).abs() < 1e-12);
+    }
+    
+    #[test]
+    fn negative_widths_clamped_to_zero() {
+        // Negative widths should be ignored (clamped to zero)
+        let fracs = parallel_channel_flow_fractions(&[-1.0, 1.0]);
+        // Since -1.0 is clamped to 0.0, the total conductance comes fully from the 1.0 channel
+        assert_eq!(fracs[0], 0.0);
+        assert_eq!(fracs[1], 1.0);
+        
+        // If all are negative, should fallback securely to zeros
+        let fracs2 = parallel_channel_flow_fractions(&[-2.0, -1.0]);
+        assert_eq!(fracs2[0], 0.0);
+        assert_eq!(fracs2[1], 0.0);
     }
 }

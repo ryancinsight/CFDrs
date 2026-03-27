@@ -162,7 +162,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Extract 1D results per channel
     let inlet_p: f64 = inlet_nodes
         .iter()
-        .filter_map(|idx| solved.pressures.get(idx))
+        .filter_map(|idx| solved.pressures.get(idx.index()).copied())
         .sum::<f64>()
         / inlet_nodes.len() as f64;
 
@@ -190,11 +190,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .expect("edge must have endpoints");
         let q = solved
             .flow_rates
-            .get(&eid)
+            .get(eid.index())
             .copied()
             .unwrap_or(edge.flow_rate);
-        let p_from = solved.pressures.get(&from_idx).copied().unwrap_or(0.0);
-        let p_to = solved.pressures.get(&to_idx).copied().unwrap_or(0.0);
+        let p_from = solved.pressures.get(from_idx.index()).copied().unwrap_or(0.0);
+        let p_to = solved.pressures.get(to_idx.index()).copied().unwrap_or(0.0);
         let dp = (p_from - p_to).abs();
 
         // Estimate wall shear from 1D Poiseuille: τ_w = 6μQ / (w·h²) (rectangular)

@@ -223,7 +223,7 @@ mod tests {
         let mut mesh = Mesh::new("test_tet".to_string(), 3);
         // Add 4 nodes for tetrahedron
         for i in 0..4 {
-            mesh.add_node(Point3::new(i as f64, 0.0, 0.0));
+            mesh.add_node(Point3::new(f64::from(i), 0.0, 0.0));
         }
 
         mesh.add_element(ElementType::Tetrahedron, vec![0, 1, 2, 3], 0);
@@ -247,7 +247,7 @@ mod tests {
         let mut mesh = Mesh::new("test_hex".to_string(), 3);
         // Add 8 nodes
         for i in 0..8 {
-            mesh.add_node(Point3::new(i as f64, 0.0, 0.0));
+            mesh.add_node(Point3::new(f64::from(i), 0.0, 0.0));
         }
 
         mesh.add_element(ElementType::Hexahedron, vec![0, 1, 2, 3, 4, 5, 6, 7], 0);
@@ -260,7 +260,7 @@ mod tests {
     fn test_pyramid_edges() {
         let mut mesh = Mesh::new("test_pyr".to_string(), 3);
         for i in 0..5 {
-            mesh.add_node(Point3::new(i as f64, 0.0, 0.0));
+            mesh.add_node(Point3::new(f64::from(i), 0.0, 0.0));
         }
 
         mesh.add_element(ElementType::Pyramid, vec![0, 1, 2, 3, 4], 0);
@@ -273,7 +273,7 @@ mod tests {
     fn test_prism_edges() {
         let mut mesh = Mesh::new("test_prism".to_string(), 3);
         for i in 0..6 {
-            mesh.add_node(Point3::new(i as f64, 0.0, 0.0));
+            mesh.add_node(Point3::new(f64::from(i), 0.0, 0.0));
         }
 
         mesh.add_element(ElementType::Prism, vec![0, 1, 2, 3, 4, 5], 0);

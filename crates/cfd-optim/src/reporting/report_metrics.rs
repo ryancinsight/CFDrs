@@ -188,12 +188,12 @@ pub fn compute_blueprint_report_metrics(
         } else {
             bypass_hi_values.push(corrected_channel_hi);
         }
-        if !sample.is_venturi_channel {
-            main_shears.push(shear_pa);
-            main_transits.push(transit_time_s);
-        } else {
+        if sample.is_venturi_channel {
             max_venturi_transit_time_s = max_venturi_transit_time_s.max(transit_time_s);
             max_venturi_shear_rate_inv_s = max_venturi_shear_rate_inv_s.max(shear_rate_inv_s);
+        } else {
+            main_shears.push(shear_pa);
+            main_transits.push(transit_time_s);
         }
         if shear_rate_inv_s < DEAD_VOLUME_SHEAR_THRESHOLD_INV_S {
             dead_volume_m3 += sample.length_m * area_m2;

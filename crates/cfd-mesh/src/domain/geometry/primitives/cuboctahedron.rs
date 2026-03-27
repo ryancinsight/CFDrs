@@ -226,8 +226,7 @@ mod tests {
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(
             report.is_watertight,
-            "cuboctahedron must be watertight: {:?}",
-            report
+            "cuboctahedron must be watertight: {report:?}"
         );
         assert_eq!(report.euler_characteristic, Some(2));
     }

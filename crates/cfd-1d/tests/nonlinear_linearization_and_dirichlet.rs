@@ -77,7 +77,7 @@ fn update_from_solution_picard_step_correct_sign_and_magnitude() -> Result<()> {
     x[inlet.index()] = 10.0; // Pa
     x[outlet.index()] = 4.0; // Pa
     network.update_from_solution(&x)?;
-    let q = *network.flow_rates.get(&edge_idx).expect("test invariant");
+    let q = *network.flow_rates.get(edge_idx.index()).expect("test invariant");
 
     // Sign must align with the positive ΔP direction (inlet higher than outlet).
     assert!(q > 0.0, "Flow should align with positive ΔP direction");

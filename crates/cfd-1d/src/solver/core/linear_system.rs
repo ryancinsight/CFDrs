@@ -119,8 +119,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
                 let precond = DiagJacobi::new(a)?;
                 match solver.solve(a, b, &mut x, Some(&precond)) {
                     Ok(_) if self.solution_meets_residual_target(a, &x, b) => Ok(x),
-                    Err(_) => Self::solve_dense_fallback(a, b),
-                    Ok(_) => Self::solve_dense_fallback(a, b),
+                    Err(_) | Ok(_) => Self::solve_dense_fallback(a, b),
                 }
             }
             LinearSolverMethod::BiCGSTAB => {
@@ -135,8 +134,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
                 let precond = DiagJacobi::new(a)?;
                 match solver.solve(a, b, &mut x, Some(&precond)) {
                     Ok(_) if self.solution_meets_residual_target(a, &x, b) => Ok(x),
-                    Err(_) => Self::solve_dense_fallback(a, b),
-                    Ok(_) => Self::solve_dense_fallback(a, b),
+                    Err(_) | Ok(_) => Self::solve_dense_fallback(a, b),
                 }
             }
         }
@@ -210,11 +208,11 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
 
         // QR fallback (rare): rebuild dense from sparse.
         let dense2 = Self::sparse_to_dense(a);
-        dense2.qr().solve(b).ok_or_else(|| {
+        dense2.qr().solve(b).ok_or(
             cfd_core::error::Error::Numerical(
                 cfd_core::error::NumericalErrorKind::DivisionByZero,
             )
-        })
+        )
     }
 
     fn sparse_to_dense(a: &CsrMatrix<T>) -> DMatrix<T> {

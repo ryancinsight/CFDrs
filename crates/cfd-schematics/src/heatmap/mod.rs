@@ -127,17 +127,15 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
         s,
         r##"<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
-     width="{sw:.0}" height="{sh:.0}" viewBox="0 0 {sw:.0} {sh:.0}">
+     width="{svg_w:.0}" height="{svg_h:.0}" viewBox="0 0 {svg_w:.0} {svg_h:.0}">
   <defs>
     <linearGradient id="cavGrad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%"   style="stop-color:#FFD700"/>
       <stop offset="100%" style="stop-color:#CC0000"/>
     </linearGradient>
   </defs>
-  <rect width="{sw:.0}" height="{sh:.0}" fill="#F5F5F5"/>
-"##,
-        sw = svg_w,
-        sh = svg_h
+  <rect width="{svg_w:.0}" height="{svg_h:.0}" fill="#F5F5F5"/>
+"##
     );
 
     // ── Title ─────────────────────────────────────────────────────────────────
@@ -154,10 +152,9 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
     // ── Plate background rectangle ────────────────────────────────────────────
     let _ = write!(
         s,
-        r##"  <rect x="{:.1}" y="{:.1}" width="{:.1}" height="{:.1}"
+        r##"  <rect x="{MARGIN_X:.1}" y="{MARGIN_Y:.1}" width="{plate_px_w:.1}" height="{plate_px_h:.1}"
         rx="7" ry="7" fill="white" stroke="#AAAAAA" stroke-width="1.5"/>
-"##,
-        MARGIN_X, MARGIN_Y, plate_px_w, plate_px_h
+"##
     );
 
     // ── Treatment zone highlight ──────────────────────────────────────────────
@@ -178,6 +175,7 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
 
     // ── Wells ─────────────────────────────────────────────────────────────────
     let row_labels: [char; 8] = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    #[allow(clippy::needless_range_loop)]
     for row in 0..8_usize {
         for col in 0..12_usize {
             let cx_mm = WELL_A1_X + col as f64 * PITCH;
@@ -194,9 +192,9 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
 
             let _ = write!(
                 s,
-                r##"  <circle cx="{:.1}" cy="{:.1}" r="{:.1}"
+                r#"  <circle cx="{:.1}" cy="{:.1}" r="{:.1}"
           fill="{fill}" stroke="{stroke_col}" stroke-width="{sw}"/>
-"##,
+"#,
                 px_x(cx_mm),
                 px_y(cy_mm),
                 mm_to_px(WELL_R)
@@ -265,9 +263,9 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
             // Bar body
             let _ = write!(
                 s,
-                r##"  <rect x="{bx:.1}" y="{bar_top:.1}" width="{bar_w:.1}" height="{bar_h:.1}"
+                r#"  <rect x="{bx:.1}" y="{bar_top:.1}" width="{bar_w:.1}" height="{bar_h:.1}"
           fill="{fill}" rx="3" ry="3" opacity="{opacity:.2}"/>
-"##
+"#
             );
 
             // Label (top of bar)

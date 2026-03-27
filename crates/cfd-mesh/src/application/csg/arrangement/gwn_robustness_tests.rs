@@ -483,7 +483,7 @@ mod tests {
         }
         // At least 90% of faces should have consistent normals
         // (some near poles may have marginal scores due to tessellation)
-        let ratio = positive_count as f64 / total_checked as f64;
+        let ratio = f64::from(positive_count) / f64::from(total_checked);
         assert!(
             ratio > 0.9,
             "WNNC: only {positive_count}/{total_checked} ({r:.1}%) faces consistent",

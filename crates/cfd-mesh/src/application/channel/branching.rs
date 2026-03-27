@@ -182,7 +182,8 @@ fn build_branching_surface<T: Copy + RealField + Float + FromPrimitive + ToPrimi
     let ic = mesh.add_vertex(Point3r::new(0.0, 0.0, 0.0), Vector3r::new(0.0, 0.0, -1.0));
     for ia in 0..n_ang {
         let ia1 = (ia + 1) % n_ang;
-        mesh.add_face_with_region(ic, parent_rings[0][ia1], parent_rings[0][ia], inlet_region);
+        let fid = mesh.add_face_with_region(ic, parent_rings[0][ia1], parent_rings[0][ia], inlet_region);
+        mesh.mark_boundary(fid, "inlet");
     }
 
     // Daughter tubes.
@@ -226,12 +227,13 @@ fn build_branching_surface<T: Copy + RealField + Float + FromPrimitive + ToPrimi
         );
         for ia in 0..n_ang {
             let ia1 = (ia + 1) % n_ang;
-            mesh.add_face_with_region(
+            let fid = mesh.add_face_with_region(
                 oc,
                 daughter_rings[last][ia],
                 daughter_rings[last][ia1],
                 outlet_region,
             );
+            mesh.mark_boundary(fid, format!("outlet_{}", d));
         }
     }
 

@@ -197,14 +197,11 @@ fn test_cg_ill_conditioned_no_panic_no_nan() {
     let solver = ConjugateGradient::new(config);
     // We only require no panic and no NaN — convergence may fail gracefully.
     let result = solver.solve(&a, &b, &mut x, Some(&IdentityPreconditioner));
-    match result {
-        Ok(_) => {
-            // If it converged, the solution must be finite.
-            assert!(x.iter().all(|v| v.is_finite()), "solution must be finite");
-        }
-        Err(_) => {
-            // Graceful failure is acceptable for extreme ill-conditioning.
-        }
+    if let Ok(_) = result {
+        // If it converged, the solution must be finite.
+        assert!(x.iter().all(|v| v.is_finite()), "solution must be finite");
+    } else {
+        // Graceful failure is acceptable for extreme ill-conditioning.
     }
     // No panics, no NaN — the test reaching here proves that.
     assert!(

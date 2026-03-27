@@ -40,6 +40,7 @@ pub enum SolvePathStatus {
 
 /// Diagnostics captured from the primary `cfd-1d` solve attempt.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct PrimarySolveDiagnostics {
     /// Number of Picard iterations executed on the primary path.
     pub picard_iterations: usize,
@@ -57,19 +58,6 @@ pub struct PrimarySolveDiagnostics {
     pub failure_detail: Option<String>,
 }
 
-impl Default for PrimarySolveDiagnostics {
-    fn default() -> Self {
-        Self {
-            picard_iterations: 0,
-            linear_solver_method: None,
-            last_residual_norm: None,
-            last_solution_change_norm: None,
-            matrix_treated_as_linear_static: false,
-            degraded_geometry_for_recovery: false,
-            failure_detail: None,
-        }
-    }
-}
 
 /// Error emitted when the trusted primary solve path failed.
 #[derive(Debug)]

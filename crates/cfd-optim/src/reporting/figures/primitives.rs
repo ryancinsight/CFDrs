@@ -111,7 +111,7 @@ pub(super) fn svg_start(svg: &mut impl std::fmt::Write, width: f64, height: f64)
         r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width:.0}" height="{height:.0}" viewBox="0 0 {width:.0} {height:.0}">"#
     );
     let _ =
-        svg.write_str(r##"<rect x="0" y="0" width="100%" height="100%" fill="white"/>"##);
+        svg.write_str(r#"<rect x="0" y="0" width="100%" height="100%" fill="white"/>"#);
     let _ = svg.write_str(
         r##"<defs><marker id="arrowhead-flow" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,8 L10,4 z" fill="#566573"/></marker></defs>"##,
     );

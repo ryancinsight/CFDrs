@@ -458,11 +458,38 @@ impl<
         Ok(())
     }
 
+    /// Assemble the global saddle-point system from element-level contributions.
+    ///
+    /// # Per-Element Viscosity (Generalised-Newtonian Extension)
+    ///
+    /// When `problem.element_viscosities` is `Some(vec)`, the assembly uses
+    /// per-element viscosity `μ_e = vec[e]` instead of the global constant
+    /// `problem.fluid.viscosity`. This enables generalised-Newtonian
+    /// constitutive models (Carreau-Yasuda, Casson) via outer Picard
+    /// iteration without modifying the assembly kernel.
+    ///
+    /// The mathematical equivalence: the global stiffness matrix becomes
+    ///
+    /// ```text
+    /// K = Σ_e  μ_e · K̃_e
+    /// ```
+    ///
+    /// where $\tilde{K}_e$ is the unit-viscosity element stiffness matrix.
+    /// This is standard globalisation with element-varying material
+    /// properties (Zienkiewicz & Taylor, 2000, §10.3).
+    ///
+    /// # Parallelization
+    ///
+    /// Element-level assembly is data-parallel via `rayon::par_iter().fold().reduce()`.
+    /// Each thread accumulates into a local `HashMap<(row, col), T>` and
+    /// `DVector<T>`. Thread-local maps are merged, then inserted into the
+    /// global `SparseMatrixBuilder`.
     fn assemble_system(
         &mut self,
         problem: &StokesFlowProblem<T>,
         previous_solution: Option<&StokesFlowSolution<T>>,
     ) -> Result<(SparseMatrix<T>, DVector<T>)> {
+
         let n_nodes = problem.mesh.vertex_count();
         let n_corner_nodes = problem.n_corner_nodes;
         let n_velocity_dof = n_nodes * 3;
@@ -805,7 +832,12 @@ impl<
         // Track if any pressure boundary condition is applied
         let mut has_pressure_bc = false;
 
-        for (&node_idx, bc) in &problem.boundary_conditions {
+        // Extract and uniquely sort boundary conditions to guarantee exact deterministic linear matrix
+        // assembly across identical geometries on multi-threaded parallel executors with randomized `HashMap`s.
+        let mut sorted_bcs: Vec<_> = problem.boundary_conditions.iter().collect();
+        sorted_bcs.sort_unstable_by_key(|(&k, _)| k);
+
+        for (&node_idx, bc) in sorted_bcs {
             match bc {
                 BoundaryCondition::VelocityInlet { velocity } => {
                     inlet_nodes += 1;

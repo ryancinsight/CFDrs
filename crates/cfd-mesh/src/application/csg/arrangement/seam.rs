@@ -523,14 +523,14 @@ mod tests {
             let mut verts = Vec::new();
 
             for (x, y, z) in coords {
-                let p = Point3r::new(x as f64 * 0.01, y as f64 * 0.01, z as f64 * 0.01);
+                let p = Point3r::new(f64::from(x) * 0.01, f64::from(y) * 0.01, f64::from(z) * 0.01);
                 verts.push(pool.insert_or_weld(p, n));
             }
 
             verts.sort();
             verts.dedup();
 
-            let max_d = max_step as f64 * 0.01;
+            let max_d = f64::from(max_step) * 0.01;
             let max_dist_sq = max_d * max_d;
 
             let fast = build_greedy_nearest_merge_map(&verts, max_dist_sq, &pool);

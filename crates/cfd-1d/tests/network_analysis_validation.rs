@@ -25,8 +25,8 @@ fn compute_flow_rates(network: &Network<f64>) -> Vec<f64> {
         let edge_data = edge_ref.weight();
 
         // Get pressures (default to 0 if not set)
-        let p_from = network.pressures().get(&from_node).copied().unwrap_or(0.0);
-        let p_to = network.pressures().get(&to_node).copied().unwrap_or(0.0);
+        let p_from = network.pressures().get(from_node.index()).copied().unwrap_or(0.0);
+        let p_to = network.pressures().get(to_node.index()).copied().unwrap_or(0.0);
 
         // Q = (P_from - P_to) / R
         let flow = (p_from - p_to) / edge_data.resistance;

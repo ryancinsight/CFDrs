@@ -13,12 +13,14 @@
 //! and ensuring that the sum of face area vectors for any closed cell is exactly zero:
 //! $\sum_f \mathbf{A}_f = \mathbf{0}$.
 
+pub mod array2d;
 pub mod boundary;
 pub mod refinement;
 pub mod structured;
 pub mod traits;
 pub mod unstructured;
 
+pub use array2d::{Array2D, Mask2D};
 pub use boundary::BoundaryType;
 pub use refinement::{AdaptiveGrid2D, RefinementCriterion};
 pub use structured::StructuredGrid2D;

@@ -42,9 +42,9 @@ pub struct BlueprintSolveSummary<'a> {
     pub channel_samples: Vec<BlueprintSolveSample<'a>>,
 }
 
-pub fn solve_blueprint_candidate<'bp>(
-    candidate: &'bp BlueprintCandidate,
-) -> Result<BlueprintSolveSummary<'bp>, OptimError> {
+pub fn solve_blueprint_candidate(
+    candidate: &BlueprintCandidate,
+) -> Result<BlueprintSolveSummary<'_>, OptimError> {
     let blood = CassonBlood::<f64>::normal_blood();
     let mut network = network_from_blueprint(&candidate.blueprint, blood).map_err(|error| {
         OptimError::PhysicsError {
@@ -132,7 +132,7 @@ pub fn solve_blueprint_candidate<'bp>(
                 if inlet_nodes.contains(&from_index) {
                     inlet_flow_unit += fallback_solved
                         .flow_rates
-                        .get(&edge_index)
+                        .get(edge_index.index())
                         .copied()
                         .unwrap_or(edge_ref.weight().flow_rate)
                         .abs();
@@ -145,12 +145,13 @@ pub fn solve_blueprint_candidate<'bp>(
                 });
             }
             let scale = candidate.operating_point.flow_rate_m3_s / inlet_flow_unit;
-            for pressure in fallback_solved.pressures.values_mut() {
+            for pressure in &mut fallback_solved.pressures {
                 *pressure *= scale;
             }
             let edge_indices: Vec<_> = fallback_solved.graph.edge_indices().collect();
             for edge_index in edge_indices {
-                if let Some(flow) = fallback_solved.flow_rates.get_mut(&edge_index) {
+                let idx = edge_index.index();
+                if let Some(flow) = fallback_solved.flow_rates.get_mut(idx) {
                     *flow *= scale;
                     if let Some(edge) = fallback_solved.graph.edge_weight_mut(edge_index) {
                         edge.flow_rate = *flow;
@@ -171,7 +172,7 @@ pub fn solve_blueprint_candidate<'bp>(
 
     let inlet_pressure_pa = inlet_nodes
         .iter()
-        .filter_map(|index| solved.pressures.get(index).copied())
+        .filter_map(|index| solved.pressures.get(index.index()).copied())
         .sum::<f64>()
         / inlet_nodes.len() as f64;
 
@@ -184,12 +185,12 @@ pub fn solve_blueprint_candidate<'bp>(
         };
         let from_pressure_pa = solved
             .pressures
-            .get(&from_index)
+            .get(from_index.index())
             .copied()
             .unwrap_or_default();
         let flow_m3_s = solved
             .flow_rates
-            .get(&edge_index)
+            .get(edge_index.index())
             .copied()
             .unwrap_or(edge_ref.weight().flow_rate);
         edge_by_id.insert(edge_ref.weight().id.as_str(), (flow_m3_s, from_pressure_pa));

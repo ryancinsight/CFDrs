@@ -1059,7 +1059,7 @@ mod tests {
         // Regular hexagon in XY plane
         let hex: Vec<Point3r> = (0..6)
             .map(|i| {
-                let angle = i as f64 * std::f64::consts::FRAC_PI_3;
+                let angle = f64::from(i) * std::f64::consts::FRAC_PI_3;
                 Point3r::new(angle.cos(), angle.sin(), 0.0)
             })
             .collect();
@@ -1191,7 +1191,7 @@ mod tests {
         let cubes: Vec<_> = (0..5)
             .map(|i| {
                 Cube {
-                    origin: Point3r::new(i as f64 * 3.0, 0.0, 0.0),
+                    origin: Point3r::new(f64::from(i) * 3.0, 0.0, 0.0),
                     width: 1.0,
                     height: 1.0,
                     depth: 1.0,
@@ -1497,17 +1497,14 @@ mod tests {
         .build()
         .expect("sphere");
 
-        match csg_boolean(BooleanOp::Intersection, &cube, &sphere) {
-            Ok(result) => {
-                let vol = signed_volume(&result);
-                assert!(
-                    vol < 0.01,
-                    "disjoint intersection must have near-zero volume: {vol:.8}"
-                );
-            }
-            Err(_) => {
-                // An error for empty intersection is also acceptable.
-            }
+        if let Ok(result) = csg_boolean(BooleanOp::Intersection, &cube, &sphere) {
+            let vol = signed_volume(&result);
+            assert!(
+                vol < 0.01,
+                "disjoint intersection must have near-zero volume: {vol:.8}"
+            );
+        } else {
+            // An error for empty intersection is also acceptable.
         }
     }
 
@@ -1568,7 +1565,7 @@ mod tests {
             "sphere-sphere intersection volume should be near 1.3, got {vol:.4}"
         );
         assert!(
-            result.faces.len() > 0,
+            !result.faces.is_empty(),
             "intersection must produce faces"
         );
     }
@@ -1872,19 +1869,16 @@ mod tests {
         .expect("cube_b");
 
         let result = csg_boolean(BooleanOp::Union, &cube_a, &cube_b);
-        match result {
-            Ok(mesh) => {
-                assert!(!mesh.faces.is_empty(), "union must produce faces");
-                let vol = signed_volume(&mesh);
-                // Two unit cubes touching: volume should be 16 (2×2×2 each)
-                assert!(
-                    (vol - 16.0).abs() < 1.0,
-                    "face-tangent union volume ~16, got {vol:.4}"
-                );
-            }
-            Err(_) => {
-                // Structured error is acceptable for this degenerate config
-            }
+        if let Ok(mesh) = result {
+            assert!(!mesh.faces.is_empty(), "union must produce faces");
+            let vol = signed_volume(&mesh);
+            // Two unit cubes touching: volume should be 16 (2×2×2 each)
+            assert!(
+                (vol - 16.0).abs() < 1.0,
+                "face-tangent union volume ~16, got {vol:.4}"
+            );
+        } else {
+            // Structured error is acceptable for this degenerate config
         }
     }
 
@@ -2026,18 +2020,15 @@ mod tests {
         .expect("cube_b");
 
         let result = csg_boolean(BooleanOp::Union, &cube_a, &cube_b);
-        match result {
-            Ok(mesh) => {
-                let vol = signed_volume(&mesh);
-                // Two disjoint cubes (touching edge only): volume = 8 + 8 = 16
-                assert!(
-                    (vol - 16.0).abs() < 1.0,
-                    "edge-contact union volume ~16, got {vol:.4}"
-                );
-            }
-            Err(_) => {
-                // Structured error acceptable for edge-contact degeneracy
-            }
+        if let Ok(mesh) = result {
+            let vol = signed_volume(&mesh);
+            // Two disjoint cubes (touching edge only): volume = 8 + 8 = 16
+            assert!(
+                (vol - 16.0).abs() < 1.0,
+                "edge-contact union volume ~16, got {vol:.4}"
+            );
+        } else {
+            // Structured error acceptable for edge-contact degeneracy
         }
     }
 
@@ -2076,17 +2067,14 @@ mod tests {
         .expect("cube_b");
 
         let result = csg_boolean(BooleanOp::Union, &cube_a, &cube_b);
-        match result {
-            Ok(mesh) => {
-                let vol = signed_volume(&mesh);
-                assert!(
-                    (vol - 16.0).abs() < 1.0,
-                    "vertex-contact union volume ~16, got {vol:.4}"
-                );
-            }
-            Err(_) => {
-                // Structured error acceptable for vertex-contact degeneracy
-            }
+        if let Ok(mesh) = result {
+            let vol = signed_volume(&mesh);
+            assert!(
+                (vol - 16.0).abs() < 1.0,
+                "vertex-contact union volume ~16, got {vol:.4}"
+            );
+        } else {
+            // Structured error acceptable for vertex-contact degeneracy
         }
     }
 
@@ -2310,7 +2298,7 @@ mod tests {
         let segments = 20;
         let mut meshes = Vec::new();
         for i in 0..5 {
-            let angle_deg = (i as f64) * 72.0;
+            let angle_deg = f64::from(i) * 72.0;
             let raw = Cylinder {
                 base_center: Point3r::new(0.0, 0.0, 0.0),
                 radius,

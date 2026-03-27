@@ -8,7 +8,7 @@ description = "CAD-like GUI for millifluidic CFD simulation"
 
 [features]
 default = ["gpu"]
-gpu = ["dep:wgpu"]
+gpu = []
 gpui-window = ["dep:gpui"]
 
 [dependencies]
@@ -23,7 +23,7 @@ cfd-2d = { workspace = true }
 cfd-3d = { workspace = true }
 
 # GPU rendering (matches workspace wgpu 0.19)
-wgpu = { workspace = true, optional = true }
+wgpu = { workspace = true }
 bytemuck = { workspace = true }
 pollster = { workspace = true }
 

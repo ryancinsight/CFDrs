@@ -145,8 +145,8 @@ mod tests {
         let min_abs = (0..20_u32)
             .flat_map(|i| (0..20_u32).map(move |j| (i, j)))
             .map(|(i, j)| {
-                let x = -2.5 + i as f64 * 0.25;
-                let y = -2.5 + j as f64 * 0.25;
+                let x = -2.5 + f64::from(i) * 0.25;
+                let y = -2.5 + f64::from(j) * 0.25;
                 Iwp.field(x, y, 0.0, k).abs()
             })
             .fold(f64::INFINITY, f64::min);

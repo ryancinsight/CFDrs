@@ -35,6 +35,29 @@
 //! ```
 //!
 //! For a well-designed diffuser with 5–7° half-angle, $C_p \approx 0.8–0.9$.
+//!
+//! # Theorem — Picard Iteration Convergence for Generalised-Newtonian Stokes
+//!
+//! Given the viscosity function $\mu: \mathbb{R}^+ \to [\mu_\infty, \mu_0]$ is
+//! Lipschitz-continuous with constant $L_\mu$, the Picard iteration
+//!
+//! ```text
+//! μ^{(k+1)} = μ(γ̇(u^{(k)}))
+//! ```
+//!
+//! converges to a fixed point in $H^1$ norm provided $L_\mu < \rho / C_K$
+//! where $C_K$ is the Korn inequality constant and $\rho$ is the coercivity
+//! constant of the bilinear form $a(\cdot, \cdot)$.
+//!
+//! **Proof sketch.** The mapping $T: \mu \mapsto \mu(\dot{\gamma}(\mathbf{u}(\mu)))$
+//! is a contraction on $[\mu_\infty, \mu_0]$ under the stated bound. The Stokes
+//! operator with bounded viscosity is coercive on $H^1_0$, so the linear solve
+//! at each step is well-posed. Convergence follows from the Banach fixed-point
+//! theorem.
+//!
+//! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
+//! power-law systems." *Math. Comp.* 82:1247–1268.
+
 
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};

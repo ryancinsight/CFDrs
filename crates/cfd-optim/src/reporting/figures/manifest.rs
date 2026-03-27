@@ -487,7 +487,7 @@ fn extract_dean_venturi_points(design: Option<&Milestone12ReportDesign>) -> Vec<
     // Treatment-path share of total drop (treatment channels carry the venturi
     // constrictions, which dominate the resistance).  Use 70% as a conservative
     // estimate for venturi-dominated designs.
-    let treatment_dp_pa = total_dp_pa * 0.70;
+    let _ = total_dp_pa * 0.70;
 
     // Base serpentine bend radius from the topology spec.
     let base_bend_radius_m = topology

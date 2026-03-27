@@ -265,6 +265,35 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachMo
         // Call Mach number validation
         self.validate_mach_number(fluid, conditions)?;
 
+        if self.hydraulic_diameter <= T::zero() {
+            return Err(cfd_core::error::Error::PhysicsViolation(format!(
+                "Invalid geometry: hydraulic diameter = {} <= 0 for model '{}'",
+                self.hydraulic_diameter,
+                self.model_name()
+            )));
+        }
+        if self.area <= T::zero() {
+            return Err(cfd_core::error::Error::PhysicsViolation(format!(
+                "Invalid geometry: area = {} <= 0 for model '{}'",
+                self.area,
+                self.model_name()
+            )));
+        }
+        if self.length < T::zero() {
+            return Err(cfd_core::error::Error::PhysicsViolation(format!(
+                "Invalid geometry: length = {} < 0 for model '{}'",
+                self.length,
+                self.model_name()
+            )));
+        }
+        if self.roughness < T::zero() {
+            return Err(cfd_core::error::Error::PhysicsViolation(format!(
+                "Invalid geometry: roughness = {} < 0 for model '{}'",
+                self.roughness,
+                self.model_name()
+            )));
+        }
+
         // Entrance length validation: L/Dh > 10
         let ratio = self.length / self.hydraulic_diameter;
         let limit = T::from_f64(10.0).expect("Mathematical constant conversion compromised");
@@ -505,5 +534,23 @@ mod tests {
         let (r2, k2) = model.calculate_coefficients(&fluid, &cond_turb).unwrap();
         assert!((r2 - 0.0).abs() < 1e-12, "Turbulent R should be zero, got {r2}");
         assert!(k2 > 0.0, "Turbulent K should be positive, got {k2}");
+    }
+    
+    #[test]
+    fn negative_dimensions_rejected() {
+        let fluid = water();
+        let cond = conditions_with_re(50_000.0);
+        
+        let neg_dh = DarcyWeisbachModel::new(-0.01, 0.0001, 1.0, 0.0001);
+        assert!(neg_dh.validate_invariants(&fluid, &cond).is_err());
+        
+        let neg_a = DarcyWeisbachModel::new(0.01, -0.0001, 1.0, 0.0001);
+        assert!(neg_a.validate_invariants(&fluid, &cond).is_err());
+        
+        let neg_l = DarcyWeisbachModel::new(0.01, 0.0001, -1.0, 0.0001);
+        assert!(neg_l.validate_invariants(&fluid, &cond).is_err());
+        
+        let neg_r = DarcyWeisbachModel::new(0.01, 0.0001, 1.0, -0.0001);
+        assert!(neg_r.validate_invariants(&fluid, &cond).is_err());
     }
 }

@@ -42,7 +42,7 @@ mod tests {
 
         use crate::physics::fluid::traits::Fluid;
         let props = fluid.properties_at(300.0, 101325.0).unwrap();
-        assert_relative_eq!(props.dynamic_viscosity, 2.5811388300841898);
+        assert_relative_eq!(props.dynamic_viscosity, 2.581_138_830_084_19);
         assert!(!fluid.is_temperature_dependent());
     }
 
@@ -69,7 +69,7 @@ mod tests {
         assert_eq!(fluid.reference_temperature(), Some(t_ref));
 
         let props_ref = fluid.properties_at(t_ref, 101325.0).unwrap();
-        assert_relative_eq!(props_ref.dynamic_viscosity, 2.5811388300841898);
+        assert_relative_eq!(props_ref.dynamic_viscosity, 2.581_138_830_084_19);
 
         let t_high = 350.0;
         let props_high = fluid.properties_at(t_high, 101325.0).unwrap();

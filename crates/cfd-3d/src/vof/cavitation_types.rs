@@ -7,6 +7,7 @@ use crate::vof::config::VofConfig;
 use cfd_core::physics::cavitation::{damage::CavitationDamage, models::CavitationModel};
 
 use super::bubble_dynamics::BubbleDynamicsConfig;
+use cfd_core::physics::fluid::BloodModel;
 
 /// Cavitation-VOF solver configuration
 #[derive(Debug, Clone)]
@@ -31,8 +32,8 @@ pub struct CavitationVofConfig {
     pub vapor_pressure: f64,
     /// Liquid density (kg/m³)
     pub liquid_density: f64,
-    /// Liquid viscosity (Pa·s)
-    pub liquid_viscosity: f64,
+    /// Liquid blood rheology model
+    pub liquid_blood_model: BloodModel<f64>,
     /// Vapor density (kg/m³)
     pub vapor_density: f64,
     /// Speed of sound in liquid (m/s)

@@ -51,8 +51,7 @@ fn reference_patient_context(design: &Milestone12ReportDesign) -> (String, f64) 
             || {
                 (
                     format!(
-                        "{:.1} kg neonatal reference",
-                        PEDIATRIC_REFERENCE_WEIGHT_KG
+                        "{PEDIATRIC_REFERENCE_WEIGHT_KG:.1} kg neonatal reference"
                     ),
                     PEDIATRIC_REFERENCE_WEIGHT_KG * PEDIATRIC_BLOOD_VOLUME_ML_PER_KG,
                 )
@@ -227,8 +226,7 @@ pub(super) fn build_robustness_section(
         robustness.len()
     );
     out.push_str(&format!(
-        "<div align=\"center\">\n\n<p><strong>Table {}.</strong> Robustness screening results</p>\n\n",
-        table_number,
+        "<div align=\"center\">\n\n<p><strong>Table {table_number}.</strong> Robustness screening results</p>\n\n",
     ));
     out.push_str(
         "| Candidate | Nominal score | Min score | Max score | CV | Robust | Worst-case parameter |\n",
@@ -708,8 +706,7 @@ pub(super) fn build_cri_expansion_sensitivity(table_number: usize) -> String {
     out.push_str("<div align=\"center\">\n");
     out.push_str("<table style=\"width:88%; max-width:6.2in; margin:0 auto; border-collapse:collapse; table-layout:fixed; font-size:8.5pt; line-height:1.15;\">\n");
     out.push_str(&format!(
-        "<caption style=\"caption-side:top; margin-bottom:8px;\"><strong>Table {}.</strong> Expansion-driven clot-risk contribution across the swept Milestone 12 channel-width / venturi-throat design space. Lower <code>CRI_exp</code> values are preferred.</caption>\n",
-        table_number,
+        "<caption style=\"caption-side:top; margin-bottom:8px;\"><strong>Table {table_number}.</strong> Expansion-driven clot-risk contribution across the swept Milestone 12 channel-width / venturi-throat design space. Lower <code>CRI_exp</code> values are preferred.</caption>\n",
     ));
     out.push_str("<thead>\n<tr><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Channel width (mm)</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">Throat Ø (µm)</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">w/d ratio</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">p_stage</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">P(vt1)</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">P(vt2)</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">CRI_exp (vt1)</th><th style=\"border:1px solid #cfcfcf; padding:3px 4px; text-align:center; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal;\">CRI_exp (vt2)</th></tr>\n</thead>\n<tbody>\n");
 

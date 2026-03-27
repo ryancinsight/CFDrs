@@ -146,7 +146,7 @@ fn test_bisection_residual_near_zero() {
 /// Cancer vs RBC separation efficiency must be positive in a 200µm × 100µm channel.
 #[test]
 fn test_cancer_rbc_separation_efficiency_positive() {
-    let model = CellSeparationModel::new(200e-6, 100e-6, None);
+    let model = CellSeparationModel::new(200e-6, 100e-6, 0.01, None);
     let cancer = CellProperties::mcf7_breast_cancer();
     let rbc = CellProperties::red_blood_cell();
 
@@ -164,7 +164,7 @@ fn test_cancer_rbc_separation_efficiency_positive() {
 /// Purity must be in [0, 1] for the default channel and flow conditions.
 #[test]
 fn test_purity_bounded_in_zero_to_one() {
-    let model = CellSeparationModel::new(200e-6, 100e-6, None);
+    let model = CellSeparationModel::new(200e-6, 100e-6, 0.01, None);
     let cancer = CellProperties::mcf7_breast_cancer();
     let rbc = CellProperties::red_blood_cell();
 
@@ -222,7 +222,7 @@ fn test_curved_channel_shifts_equilibrium_outward() {
 /// `will_focus = false`) so callers can use a partial signal.
 #[test]
 fn test_large_channel_returns_none_for_neither_focuses() {
-    let model = CellSeparationModel::new(10e-3, 10e-3, None); // 1 cm × 1 cm — huge
+    let model = CellSeparationModel::new(10e-3, 10e-3, 0.01, None); // 1 cm × 1 cm — huge
     let cancer = CellProperties::mcf7_breast_cancer();
     let rbc = CellProperties::red_blood_cell();
 

@@ -180,8 +180,10 @@ pub enum EdgeKind {
 /// pressure gradient ∂p/∂r ≈ ρu²/R that drives counter-rotating Dean vortices,
 /// increasing wall shear stress beyond the Hagen-Poiseuille value.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum ChannelShape {
     /// Regular straight duct — Hagen-Poiseuille / Shah-London resistance only.
+    #[default]
     Straight,
     /// Serpentine channel with 180° U-turns - triggers Dean flow corrections
     /// and bend minor-loss K-factors in the 1D solver.
@@ -198,11 +200,6 @@ pub enum ChannelShape {
     },
 }
 
-impl Default for ChannelShape {
-    fn default() -> Self {
-        Self::Straight
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelSpec {

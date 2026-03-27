@@ -15,6 +15,7 @@
 
 use super::config::PressureLinearSolver;
 use crate::fields::Field2D;
+use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use cfd_math::linear_solver::preconditioners::AlgebraicMultigrid;
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, GMRES};
@@ -71,8 +72,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
     /// Correct velocity field using pressure correction gradient
     pub fn correct_velocity(
         &self,
-        u_star: &mut [Vec<Vector2<T>>],
-        p_correction: &[Vec<T>],
+        u_star: &mut Array2D<Vector2<T>>,
+        p_correction: &Array2D<T>,
         ap_u: &Field2D<T>,
         ap_v: &Field2D<T>,
         _rho: T,
@@ -90,28 +91,30 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
                 if !fields.mask.at(i, j) {
-                    u_star[i][j].x = T::zero();
-                    u_star[i][j].y = T::zero();
+                    u_star[(i, j)].x = T::zero();
+                    u_star[(i, j)].y = T::zero();
                     continue;
                 }
 
-                let dp_dx = (p_correction[i + 1][j] - p_correction[i - 1][j]) / (two * dx);
-                let dp_dy = (p_correction[i][j + 1] - p_correction[i][j - 1]) / (two * dy);
+                let dp_dx = (p_correction[(i + 1, j)] - p_correction[(i - 1, j)]) / (two * dx);
+                let dp_dy = (p_correction[(i, j + 1)] - p_correction[(i, j - 1)]) / (two * dy);
 
                 let factor_u = volume / ap_u.at(i, j);
                 let factor_v = volume / ap_v.at(i, j);
 
-                u_star[i][j].x -= alpha * factor_u * dp_dx;
-                u_star[i][j].y -= alpha * factor_v * dp_dy;
+                u_star[(i, j)].x -= alpha * factor_u * dp_dx;
+                u_star[(i, j)].y -= alpha * factor_v * dp_dy;
             }
         }
     }
 
     /// Correct pressure field with under-relaxation
-    pub fn correct_pressure(&self, p: &mut [Vec<T>], p_correction: &[Vec<T>], alpha: T) {
-        for i in 0..p.len() {
-            for j in 0..p[i].len() {
-                p[i][j] += alpha * p_correction[i][j];
+    pub fn correct_pressure(&self, p: &mut Array2D<T>, p_correction: &Array2D<T>, alpha: T) {
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
+        for i in 0..nx {
+            for j in 0..ny {
+                p[(i, j)] += alpha * p_correction[(i, j)];
             }
         }
     }

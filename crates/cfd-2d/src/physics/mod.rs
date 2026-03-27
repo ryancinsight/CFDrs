@@ -169,15 +169,24 @@
 //!
 //! Patankar, S.V. (1980). Numerical Heat Transfer and Fluid Flow. Hemisphere Publishing.
 
+/// Acoustic force field physics.
+pub mod acoustics;
 pub mod energy;
 pub mod immersed_boundary;
 pub mod momentum;
+/// Non-Newtonian fluid rheology models (shear-thinning, yield stress).
+pub mod non_newtonian;
+/// 2D Streamtube partitioning for branch separation logic.
+pub mod streamtube;
 pub mod turbulence;
 pub mod vorticity_stream;
 
 // Re-export main physics types
+pub use acoustics::GorkovPotential;
 pub use energy::EnergyEquationSolver;
 pub use immersed_boundary::{BoundaryPoint, ImmersedBoundaryConfig, ImmersedBoundaryMethod};
 pub use momentum::{MomentumCoefficients, MomentumComponent, MomentumSolver};
+pub use non_newtonian::carreau_yasuda::CarreauYasudaModel;
+pub use streamtube::ZweifachFung2D;
 pub use turbulence::{KEpsilonModel, WallFunction};
 pub use vorticity_stream::VorticityStreamSolver;

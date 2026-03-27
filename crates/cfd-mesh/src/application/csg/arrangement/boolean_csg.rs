@@ -98,7 +98,7 @@ fn resolve_short_circuit_boolean(
     let mut all_coplanar = true;
     let mut reference_basis: Option<crate::application::csg::coplanar::basis::PlaneBasis> = None;
 
-    for mesh_faces in meshes.iter() {
+    for mesh_faces in meshes {
         if mesh_faces.is_empty() {
             continue;
         }
@@ -165,9 +165,9 @@ fn resolve_short_circuit_boolean(
             } else {
                 // Union / Intersection: balanced reduction tree (commutative & associative)
                 let mut level: Vec<Vec<FaceData>> =
-                    meshes.iter().map(|m| m.clone()).collect();
+                    meshes.to_vec();
                 while level.len() > 1 {
-                    let mut next_level = Vec::with_capacity((level.len() + 1) / 2);
+                    let mut next_level = Vec::with_capacity(level.len().div_ceil(2));
                     let mut i = 0;
                     while i + 1 < level.len() {
                         let merged = crate::application::csg::coplanar::boolean_coplanar(

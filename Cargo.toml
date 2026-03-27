@@ -11,11 +11,10 @@ members = [
     "crates/cfd-optim",
     "crates/cfd-validation",
     "crates/cfd-python",
+    "crates/cfd-ui",
     "xtask",
 ]
-exclude = [
-    "crates/cfd-ui",
-]
+exclude = []
 resolver = "2"
 
 [workspace.package]
@@ -55,10 +54,6 @@ slotmap = "1.0"
 
 # Mesh / geometry
 geometry-predicates = "0.3"
-rstar               = "0.12"
-kiddo               = "5.2"
-bvh                 = "0.9"
-spade               = "2.9"
 
 # Documentation
 aquamarine = "0.5"
@@ -106,10 +101,6 @@ opt-level = 0
 
 [profile.test]
 opt-level = 2
-
-# PyO3 extension building
-[profile.release.package."cfd-python"]
-opt-level = 3
 
 # Root package for examples
 [package]

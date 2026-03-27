@@ -71,12 +71,12 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
 
         // Find max and min pressures
         let max_pressure = pressures
-            .values()
+            .iter()
             .copied()
             .fold(T::zero(), |a, b| if a > b { a } else { b });
         let min_pressure =
             pressures
-                .values()
+                .iter()
                 .copied()
                 .fold(max_pressure, |a, b| if a < b { a } else { b });
 
@@ -92,7 +92,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
                 let node_idx = NodeIndex::new(idx);
                 for edge_ref in network.graph.edges(node_idx) {
                     let edge_idx = edge_ref.id();
-                    if let Some(&flow) = network.flow_rates().get(&edge_idx) {
+                    if let Some(&flow) = network.flow_rates().get(edge_idx.index()) {
                         total += Float::abs(flow);
                     }
                 }
@@ -131,7 +131,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
                 let pressures = network.pressures();
 
                 if let (Some(&p_from), Some(&p_to)) =
-                    (pressures.get(&from_idx), pressures.get(&to_idx))
+                    (pressures.get(from_idx.index()), pressures.get(to_idx.index()))
                 {
                     let pressure_drop = Float::abs(p_from - p_to);
                     total_power += pressure_drop * Float::abs(flow_rate);

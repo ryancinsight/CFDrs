@@ -1,6 +1,8 @@
-//! Mesh render pipeline — wgpu render pipeline for Phong-shaded mesh rendering.
+//! Mesh render pipeline — wgpu render pipeline for Phong-shaded mesh rendering
+//! with up to 6 clip planes for section views.
 
 use bytemuck::Zeroable;
+use crate::infrastructure::gpu::clip_uniform::ClipUniforms;
 use crate::infrastructure::gpu::mesh_buffer::GpuMeshBuffer;
 use wgpu::util::DeviceExt;
 
@@ -38,20 +40,26 @@ pub struct ViewUniforms {
     pub field_active: u32,
 }
 
-/// The mesh render pipeline, including the wgpu pipeline and uniform resources.
+/// The mesh render pipeline with two bind groups: view uniforms and clip planes.
 pub struct MeshRenderPipeline {
     /// The wgpu render pipeline.
     pub pipeline: wgpu::RenderPipeline,
-    /// Bind group layout for uniforms.
-    pub bind_group_layout: wgpu::BindGroupLayout,
-    /// Uniform buffer.
+    /// Bind group layout for view uniforms (group 0).
+    pub view_bind_group_layout: wgpu::BindGroupLayout,
+    /// Bind group layout for clip uniforms (group 1).
+    pub clip_bind_group_layout: wgpu::BindGroupLayout,
+    /// View uniform buffer.
     pub uniform_buffer: wgpu::Buffer,
-    /// Bind group referencing the uniform buffer.
+    /// Clip uniform buffer.
+    pub clip_uniform_buffer: wgpu::Buffer,
+    /// Bind group for view uniforms.
     pub bind_group: wgpu::BindGroup,
+    /// Bind group for clip uniforms.
+    pub clip_bind_group: wgpu::BindGroup,
 }
 
 impl MeshRenderPipeline {
-    /// Create the mesh render pipeline with default shaders.
+    /// Create the mesh render pipeline with clip plane support.
     pub fn new(device: &wgpu::Device) -> Self {
         let shader_source = include_str!("../shaders/mesh.wgsl");
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -59,38 +67,53 @@ impl MeshRenderPipeline {
             source: wgpu::ShaderSource::Wgsl(shader_source.into()),
         });
 
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("mesh uniforms layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
+        // Group 0: view uniforms.
+        let view_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("mesh view uniforms layout"),
+                entries: &[uniform_binding_entry(0)],
+            });
+
+        // Group 1: clip uniforms.
+        let clip_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("mesh clip uniforms layout"),
+                entries: &[uniform_binding_entry(0)],
+            });
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("mesh uniforms"),
+            label: Some("mesh view uniforms"),
             contents: bytemuck::bytes_of(&ViewUniforms::zeroed()),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
+        let clip_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("mesh clip uniforms"),
+            contents: bytemuck::bytes_of(&ClipUniforms::zeroed()),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("mesh bind group"),
-            layout: &bind_group_layout,
+            label: Some("mesh view bind group"),
+            layout: &view_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: uniform_buffer.as_entire_binding(),
             }],
         });
 
+        let clip_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("mesh clip bind group"),
+            layout: &clip_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: clip_uniform_buffer.as_entire_binding(),
+            }],
+        });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("mesh pipeline layout"),
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &[&view_bind_group_layout, &clip_bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -133,14 +156,36 @@ impl MeshRenderPipeline {
 
         Self {
             pipeline,
-            bind_group_layout,
+            view_bind_group_layout,
+            clip_bind_group_layout,
             uniform_buffer,
+            clip_uniform_buffer,
             bind_group,
+            clip_bind_group,
         }
     }
 
-    /// Update the uniform buffer with new view data.
+    /// Update the view uniform buffer.
     pub fn update_uniforms(&self, queue: &wgpu::Queue, uniforms: &ViewUniforms) {
         queue.write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(uniforms));
+    }
+
+    /// Update the clip plane uniform buffer.
+    pub fn update_clip_uniforms(&self, queue: &wgpu::Queue, clip: &ClipUniforms) {
+        queue.write_buffer(&self.clip_uniform_buffer, 0, bytemuck::bytes_of(clip));
+    }
+}
+
+/// Helper to create a uniform buffer binding entry.
+fn uniform_binding_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Uniform,
+            has_dynamic_offset: false,
+            min_binding_size: None,
+        },
+        count: None,
     }
 }

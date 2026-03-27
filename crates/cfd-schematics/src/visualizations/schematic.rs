@@ -95,7 +95,7 @@ pub(crate) fn channel_system_from_blueprint(
     blueprint: &NetworkBlueprint,
     box_dims_hint: Option<(f64, f64)>,
     output_path: Option<&str>,
-) -> VisualizationResult<RenderChannelSystem> {
+) -> crate::visualizations::schematic::RenderChannelSystem {
     let box_dims = box_dims_hint.unwrap_or(blueprint.box_dims);
     let (node_points, auto_layout_used) = blueprint_node_positions(blueprint, box_dims);
     if !auto_layout_used.is_empty() {
@@ -113,11 +113,11 @@ pub(crate) fn channel_system_from_blueprint(
         channel_categories.push(category);
     }
 
-    Ok(RenderChannelSystem {
+    crate::visualizations::schematic::RenderChannelSystem {
         box_outline: blueprint_box_outline(blueprint, box_dims),
         channel_paths,
         channel_categories,
-    })
+    }
 }
 
 /// Returns `(all_positions, auto_layout_applied)` where `auto_layout_applied` contains
@@ -144,10 +144,10 @@ fn blueprint_node_positions(
                     .map(|layout| (layout.x_mm, layout.y_mm))
             })
             .or_else(|| {
-                if node_spec.point != (0.0, 0.0) {
-                    Some(node_spec.point)
-                } else {
+                if node_spec.point == (0.0, 0.0) {
                     None
+                } else {
+                    Some(node_spec.point)
                 }
             });
         let point = explicit.unwrap_or_else(|| {
@@ -381,6 +381,7 @@ fn build_auto_annotations(blueprint: &NetworkBlueprint) -> SchematicAnnotations 
     if throat_count > 0 {
         let actual_points =
             crate::visualizations::annotations::venturi_marker_points_from_blueprint(blueprint);
+        let mut th_idx = 1usize;
         if actual_points.is_empty() {
             let main_path = crate::visualizations::annotations::center_biased_main_path(blueprint);
             let box_dims = blueprint.box_dims;
@@ -392,13 +393,15 @@ fn build_auto_annotations(blueprint: &NetworkBlueprint) -> SchematicAnnotations 
             ) {
                 annotations
                     .markers
-                    .push(AnnotationMarker::new(point, MarkerRole::VenturiThroat));
+                    .push(AnnotationMarker::new(point, MarkerRole::VenturiThroat).with_label(format!("TH{th_idx}"), true));
+                th_idx += 1;
             }
         } else {
             for point in actual_points {
                 annotations
                     .markers
-                    .push(AnnotationMarker::new(point, MarkerRole::VenturiThroat));
+                    .push(AnnotationMarker::new(point, MarkerRole::VenturiThroat).with_label(format!("TH{th_idx}"), true));
+                th_idx += 1;
             }
         }
     }
@@ -891,8 +894,10 @@ fn auto_layout_positions(
 #[must_use]
 pub fn centerline_vertices(blueprint: &NetworkBlueprint) -> Vec<Point2D> {
     channel_system_from_blueprint(blueprint, Some(blueprint.box_dims), None)
-        .map(|system| system.channel_paths.into_iter().flatten().collect())
-        .unwrap_or_default()
+        .channel_paths
+        .into_iter()
+        .flatten()
+        .collect()
 }
 
 #[cfg(test)]

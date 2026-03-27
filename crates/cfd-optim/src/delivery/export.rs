@@ -93,7 +93,7 @@ pub fn save_blueprint_schematic_svg(
     validate_blueprint_for_1d_solve(blueprint)?;
     let output_path = path.to_string_lossy();
     let mut config = RenderConfig::well_plate_96_report_annotated();
-    config.title = blueprint.name.clone();
+    config.title.clone_from(&blueprint.name);
     plot_blueprint_auto_annotated(blueprint, &output_path, &config)?;
     Ok(())
 }

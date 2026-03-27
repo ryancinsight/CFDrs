@@ -390,7 +390,7 @@ mod tests {
     fn fan_triangulate_pentagon() {
         let poly: Vec<Point3r> = (0..5)
             .map(|i| {
-                let angle = i as Real * std::f64::consts::TAU / 5.0;
+                let angle = Real::from(i) * std::f64::consts::TAU / 5.0;
                 Point3r::new(angle.cos(), angle.sin(), 0.0)
             })
             .collect();

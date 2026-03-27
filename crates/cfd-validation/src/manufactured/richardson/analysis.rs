@@ -583,7 +583,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
             cache_miss_rate: format!("{:.1}% estimated", cache_miss_rate * 100.0),
         };
 
-        let max_threads = available_parallelism().map(|p| p.get()).unwrap_or(1).max(1);
+        let max_threads = available_parallelism().map_or(1, |p| p.get()).max(1);
         let parallel_measure = |threads: usize| -> f64 {
             let pool = ThreadPoolBuilder::new()
                 .num_threads(threads)

@@ -145,8 +145,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut node_pressure = HashMap::<usize, f64>::new();
 
     // Extract node pressures
-    for (nidx, &p) in &solution.pressures {
-        if let Some(node) = solution.graph.node_weight(*nidx) {
+    for (nidx, &p) in solution.pressures.iter().enumerate() {
+        if let Some(node) = solution.graph.node_weight(petgraph::graph::NodeIndex::new(nidx)) {
             if let Ok(id) = node.id.trim_start_matches("node_").parse::<usize>() {
                 node_pressure.insert(id, p);
             }
@@ -156,11 +156,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut max_hemolysis = 0.0_f64;
     let mut max_shear = 0.0_f64;
 
-    for (eidx, &q) in &solution.flow_rates {
-        let Some(edge) = solution.graph.edge_weight(*eidx) else {
+    for (eidx, &q) in solution.flow_rates.iter().enumerate() {
+        let Some(edge) = solution.graph.edge_weight(petgraph::graph::EdgeIndex::new(eidx)) else {
             continue;
         };
-        let props = solution.properties.get(eidx);
+        let props = solution.properties.get(&petgraph::graph::EdgeIndex::new(eidx));
 
         // Parse channel ID
         let chan_id = match edge.id.trim_start_matches("chan_").parse::<usize>() {

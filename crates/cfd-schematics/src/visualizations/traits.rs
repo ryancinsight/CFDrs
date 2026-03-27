@@ -223,13 +223,11 @@ impl VisualRoleStyles {
     pub fn get_style(&self, role: crate::geometry::metadata::ChannelVisualRole) -> &LineStyle {
         use crate::geometry::metadata::ChannelVisualRole;
         match role {
-            ChannelVisualRole::Trunk => &self.trunk,
+            ChannelVisualRole::Trunk | ChannelVisualRole::Diffuser | ChannelVisualRole::InternalLink => &self.trunk,
             ChannelVisualRole::CenterTreatment => &self.center_treatment,
             ChannelVisualRole::PeripheralBypass => &self.peripheral_bypass,
             ChannelVisualRole::MergeCollector => &self.merge_collector,
             ChannelVisualRole::VenturiThroat => &self.venturi_throat,
-            // Diffuser and InternalLink share the trunk neutral style
-            ChannelVisualRole::Diffuser | ChannelVisualRole::InternalLink => &self.trunk,
         }
     }
 }

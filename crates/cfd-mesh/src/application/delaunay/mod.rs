@@ -112,46 +112,40 @@
 //! guarantees correct topology even for nearly-degenerate inputs — no
 //! epsilon-based fallbacks.
 
-pub mod constraint;
-pub mod convert;
-pub mod pslg;
-pub mod refinement;
-pub mod smoothing;
-pub mod triangulation;
-
-#[cfg(test)]
-mod tests;
+pub mod core;
+pub mod dim2;
+pub mod dim3;
 
 // ── Primary re-exports ────────────────────────────────────────────────────────
 
 /// The Planar Straight-Line Graph input representation.
-pub use pslg::graph::Pslg;
+pub use dim2::pslg::graph::Pslg;
 /// PSLG validation error.
-pub use pslg::graph::PslgValidationError;
+pub use dim2::pslg::graph::PslgValidationError;
 
 /// A single vertex handle in the PSLG / triangulation.
-pub use pslg::vertex::PslgVertexId;
+pub use dim2::pslg::vertex::PslgVertexId;
 
 /// A constraint segment handle.
-pub use pslg::segment::PslgSegmentId;
+pub use dim2::pslg::segment::PslgSegmentId;
 
 /// The core Delaunay triangulation data structure.
-pub use triangulation::triangle::TriangleId;
+pub use dim2::triangulation::triangle::TriangleId;
 
 /// Constrained Delaunay Triangulation.
-pub use constraint::enforce::Cdt;
+pub use dim2::constraint::enforce::Cdt;
 
 /// Ruppert's mesh refinement engine.
-pub use refinement::ruppert::RuppertRefiner;
+pub use dim2::refinement::ruppert::RuppertRefiner;
 
 /// Triangle quality metric.
-pub use refinement::quality::TriangleQuality;
+pub use dim2::refinement::quality::TriangleQuality;
 
 /// Anisotropic metric tensor for metric-weighted Ruppert refinement.
-pub use refinement::metric::MetricTensor;
+pub use dim2::refinement::metric::MetricTensor;
 
 /// Laplacian mesh smoother (uniform, boundary-preserving).
-pub use smoothing::LaplacianSmoother;
+pub use dim2::smoothing::LaplacianSmoother;
 
 /// Angle-quality–guarded Laplacian mesh smoother.
-pub use smoothing::AngleBasedSmoother;
+pub use dim2::smoothing::AngleBasedSmoother;

@@ -315,7 +315,7 @@ pub(crate) fn snap_round_tjunctions(faces: &mut Vec<FaceData>, pool: &VertexPool
 
         // Apply splits: replace each face with two sub-faces.
         // Process in reverse order of face index to avoid invalidating indices.
-        splits.sort_by(|a, b| b.0.cmp(&a.0));
+        splits.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
         for (fi, a, b, v) in &splits {
             let face = &faces[*fi];
             // Find the third vertex (not a or b).

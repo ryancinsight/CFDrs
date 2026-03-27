@@ -1080,15 +1080,15 @@ impl SelectiveTreeBuilder {
                 Some(JunctionFamily::Trifurcation),
             ),
             (
-                "merge_bypass",
+                "merge_center",
                 100.0,
                 y_mid,
                 NodeKind::Junction,
                 Some(JunctionFamily::Merge),
             ),
             (
-                "merge_center",
-                100.0,
+                "periph_merge",
+                104.0,
                 y_mid,
                 NodeKind::Junction,
                 Some(JunctionFamily::Merge),
@@ -1157,31 +1157,47 @@ impl SelectiveTreeBuilder {
             (("upper", "split2_upper"), upper),
             (("lower", "split2_lower"), lower),
         ] {
-            for (suffix, y, width) in [
-                ("L", ys[0], outer_leaf_w),
-                ("C", ys[1], outer_ctr_w),
-                ("R", ys[2], outer_leaf_w),
-            ] {
-                let start_pt = self
-                    .nodes
-                    .iter()
-                    .find(|n| n.id == self.node_ids[split])
-                    .unwrap()
-                    .point;
-                self.add_channel(
-                    &format!("{prefix}_{suffix}"),
-                    split,
-                    "merge_bypass",
-                    vec![start_pt, (54.0, y), (90.0, y), (100.0, y_mid)],
-                    width,
-                    req.branch_length_m,
-                    req.channel_height_m,
-                    ChannelVisualRole::PeripheralBypass,
-                    TherapyZone::HealthyBypass,
-                    None,
-                    None,
-                );
-            }
+            let m1_name = format!("merge_{prefix}_1");
+            let m2_name = format!("merge_{prefix}_2");
+            let dir = if prefix == "upper" { -1.0 } else { 1.0 };
+            let m1_y = ys[1] + 2.0 * dir;
+            let m2_y = ys[1];
+
+            self.add_node(&m1_name, (96.0, m1_y), NodeKind::Junction, Some(JunctionFamily::Merge));
+            self.add_node(&m2_name, (104.0, m2_y), NodeKind::Junction, Some(JunctionFamily::Merge));
+
+            let start_pt = self.nodes.iter().find(|n| n.id == self.node_ids[split]).unwrap().point;
+
+            self.add_channel(
+                &format!("{prefix}_L"), split, &m1_name,
+                vec![start_pt, (54.0, ys[0]), (90.0, ys[0]), (96.0, m1_y)], outer_leaf_w,
+                req.branch_length_m, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None,
+            );
+
+            self.add_channel(
+                &format!("{prefix}_C"), split, &m1_name,
+                vec![start_pt, (54.0, ys[1]), (90.0, ys[1]), (96.0, m1_y)], outer_ctr_w,
+                req.branch_length_m, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None,
+            );
+
+            self.add_channel(
+                &format!("{prefix}_R"), split, &m2_name,
+                vec![start_pt, (54.0, ys[2]), (90.0, ys[2]), (104.0, m2_y)], outer_leaf_w,
+                req.branch_length_m, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None,
+            );
+
+            let m1_to_m2_w = (outer_leaf_w + outer_ctr_w).min(req.throat_width_m * 4.0);
+            self.add_channel(
+                &format!("{prefix}_m1_to_m2"), &m1_name, &m2_name,
+                vec![(96.0, m1_y), (104.0, m2_y)], m1_to_m2_w,
+                req.branch_length_m * 0.1, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None,
+            );
+
+            self.add_channel(
+                &format!("{prefix}_to_bypass"), &m2_name, "periph_merge",
+                vec![(104.0, m2_y), (104.0, y_mid)], side1,
+                req.branch_length_m * 0.2, req.channel_height_m, ChannelVisualRole::PeripheralBypass, TherapyZone::HealthyBypass, None, None,
+            );
         }
         let center_side_w = (ctr1 * (1.0 - split2_center_frac) * 0.5).max(req.throat_width_m);
         let center_ctr_w = (ctr1 * split2_center_frac).max(req.throat_width_m);
@@ -1310,12 +1326,13 @@ impl SelectiveTreeBuilder {
                 None,
             );
         }
+        // Removed bypass_to_merge since upper and lower sweep straight to periph_merge
         self.add_channel(
-            "bypass_to_merge",
-            "merge_bypass",
+            "periph_to_merge",
+            "periph_merge",
             "merge_out",
-            vec![(100.0, y_mid), (118.0, y_mid)],
-            req.main_width_m * (1.0 - split1_center_frac),
+            vec![(104.0, y_mid), (118.0, y_mid)],
+            req.main_width_m,
             req.trunk_length_m,
             req.channel_height_m,
             ChannelVisualRole::MergeCollector,
@@ -1726,8 +1743,9 @@ fn annotate_primitive_tree(system: &mut NetworkBlueprint, request: &PrimitiveSel
     let treatment_width = if first_tri {
         (request.main_width_m * request.first_trifurcation_center_frac).max(request.throat_width_m)
     } else {
-        request.main_width_m
+        (request.main_width_m * request.bifurcation_treatment_frac).max(request.throat_width_m)
     };
+
 
     for node in &mut system.nodes {
         let degree = adjacency.get(&node.id).map_or(0, Vec::len);
@@ -1784,7 +1802,7 @@ fn annotate_primitive_tree(system: &mut NetworkBlueprint, request: &PrimitiveSel
         let starts_at_treatment_leaf = treatment_leaves.contains(&channel.from);
         let is_treatment_window_channel =
             starts_at_treatment_leaf && max_x > mid_x + 1e-6 && min_x >= mid_x - 1e-6;
-        let touches_treatment_leaf =
+        let _touches_treatment_leaf =
             starts_at_treatment_leaf || treatment_leaves.contains(&channel.to);
         let is_trunk = touches_inlet || touches_outlet;
 
@@ -1893,6 +1911,7 @@ fn annotate_primitive_tree(system: &mut NetworkBlueprint, request: &PrimitiveSel
                 height_m: request.channel_height_m,
                 inter_throat_spacing_m: request.throat_length_m * 2.0,
             });
+            metadata.insert(channel.venturi_geometry.clone().unwrap());
         } else if !is_treatment {
             let metadata = channel.metadata.get_or_insert_with(MetadataContainer::new);
             metadata.insert(ChannelVenturiSpec {
@@ -2249,6 +2268,7 @@ mod tests {
             center_serpentine: Some(CenterSerpentinePathSpec {
                 segments: 5,
                 bend_radius_m: 3.0e-3,
+                wave_type: crate::SerpentineWaveType::default(),
             }),
         });
 
@@ -2329,6 +2349,7 @@ mod tests {
             center_serpentine: Some(CenterSerpentinePathSpec {
                 segments: 5,
                 bend_radius_m: 3.0e-3,
+                wave_type: crate::SerpentineWaveType::default(),
             }),
         });
 

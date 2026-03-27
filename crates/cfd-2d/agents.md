@@ -70,6 +70,7 @@ src/
       streaming.rs            Streaming step + BC application
       equilibrium.rs          Maxwell-Boltzmann equilibrium distribution
       validation.rs           Poiseuille / lid-driven cavity reference
+      multiphase/             Shan-Chen pseudopotential cohesive liquid-liquid forces
     simple.rs               SIMPLE algorithm (Patankar 1980)
     simplec_pimple.rs       SIMPLEC (Van Doormal & Raithby) + PIMPLE loop
     cavity.rs               Lid-driven cavity solver (Ghia benchmark support)
@@ -103,6 +104,9 @@ src/
       coefficients.rs       SIMPLE/PISO face coefficients (aₑ, aₙ, …)
       corrections.rs        QUICK / TVD coefficient corrections
       muscl.rs              MUSCL slope limiters (van Leer, minmod, superbee)
+    non_newtonian/          Rheology (Carreau-Yasuda shear thinning)
+    acoustics/              Gor'kov Acoustic Radiation Force (ARF) fields
+    streamtube/             2D fractional streamtube partition calculation
     energy/                 Energy equation (buoyancy-driven) — optional
     vorticity/              Vorticity-streamfunction ψ–ω formulation
 
@@ -199,6 +203,8 @@ MRT variant uses transformation matrix M for improved stability at `Re > 100`.
 | `physics/turbulence/k_omega_sst.rs` | Menter SST blending: k-ε far, k-ω near wall |
 | `discretization/tvd.rs` | TVD condition: ‖Δu^{n+1}‖ ≤ ‖Δu^n‖ (no new extrema) |
 | `pressure_velocity/rhie_chow.rs` | Rhie-Chow eliminates pressure-velocity decoupling |
+| `solvers/drift_diffusion_2d.rs` | Drift limits: Upwind M-Matrix ensures strict non-negativity C(x) ≥ 0 |
+| `physics/acoustics/gorkov.rs` | Acoustic Contrast: ∇U pushes Φ>0 to nodes, Φ<0 to antinodes |
 
 ---
 

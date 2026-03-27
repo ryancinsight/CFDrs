@@ -32,6 +32,7 @@
 
 use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
+use crate::grid::array2d::Array2D;
 use crate::pressure_velocity::RhieChowInterpolation;
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -45,7 +46,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         rhie_chow: &RhieChowInterpolation<T>,
         fields: &SimulationFields<T>,
         dt: Option<T>,
-    ) -> Vec<Vec<Vector2<T>>> {
+    ) -> Array2D<Vector2<T>> {
         let mut velocity_field =
             crate::fields::Field2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
         for i in 0..self.grid.nx {
@@ -54,7 +55,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             }
         }
 
-        let mut consistent_velocity = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
+        let mut consistent_velocity = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
 
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
@@ -68,7 +69,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         i,
                         j,
                     );
-                    consistent_velocity[i][j].x = u_face;
+                    consistent_velocity[(i, j)].x = u_face;
                 }
 
                 if j < self.grid.ny - 1 {
@@ -81,7 +82,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         i,
                         j,
                     );
-                    consistent_velocity[i][j].y = v_face;
+                    consistent_velocity[(i, j)].y = v_face;
                 }
             }
         }
@@ -93,7 +94,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     /// Apply boundary conditions to face velocities
     pub(super) fn apply_velocity_boundary_conditions(
         &self,
-        face_velocity: &mut [Vec<Vector2<T>>],
+        face_velocity: &mut Array2D<Vector2<T>>,
         _fields: &SimulationFields<T>,
     ) {
         use cfd_core::physics::boundary::{BoundaryCondition, WallType};
@@ -105,10 +106,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             for i in 0..self.grid.nx {
                 match wall_type {
                     WallType::NoSlip => {
-                        face_velocity[i][self.grid.ny - 1] = Vector2::zeros();
+                        face_velocity[(i, self.grid.ny - 1)] = Vector2::zeros();
                     }
                     WallType::Moving { velocity } => {
-                        face_velocity[i][self.grid.ny - 1] = Vector2::new(velocity[0], velocity[1]);
+                        face_velocity[(i, self.grid.ny - 1)] = Vector2::new(velocity[0], velocity[1]);
                     }
                     _ => {}
                 }
@@ -120,10 +121,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             for i in 0..self.grid.nx {
                 match wall_type {
                     WallType::NoSlip => {
-                        face_velocity[i][0] = Vector2::zeros();
+                        face_velocity[(i, 0)] = Vector2::zeros();
                     }
                     WallType::Moving { velocity } => {
-                        face_velocity[i][0] = Vector2::new(velocity[0], velocity[1]);
+                        face_velocity[(i, 0)] = Vector2::new(velocity[0], velocity[1]);
                     }
                     _ => {}
                 }
@@ -135,10 +136,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             for j in 0..self.grid.ny {
                 match wall_type {
                     WallType::NoSlip => {
-                        face_velocity[0][j] = Vector2::zeros();
+                        face_velocity[(0, j)] = Vector2::zeros();
                     }
                     WallType::Moving { velocity } => {
-                        face_velocity[0][j] = Vector2::new(velocity[0], velocity[1]);
+                        face_velocity[(0, j)] = Vector2::new(velocity[0], velocity[1]);
                     }
                     _ => {}
                 }
@@ -150,10 +151,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             for j in 0..self.grid.ny {
                 match wall_type {
                     WallType::NoSlip => {
-                        face_velocity[self.grid.nx - 1][j] = Vector2::zeros();
+                        face_velocity[(self.grid.nx - 1, j)] = Vector2::zeros();
                     }
                     WallType::Moving { velocity } => {
-                        face_velocity[self.grid.nx - 1][j] = Vector2::new(velocity[0], velocity[1]);
+                        face_velocity[(self.grid.nx - 1, j)] = Vector2::new(velocity[0], velocity[1]);
                     }
                     _ => {}
                 }
@@ -167,26 +168,26 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         fields: &mut SimulationFields<T>,
         dt: T,
         rho: T,
-    ) -> cfd_core::error::Result<Vec<Vec<T>>> {
+    ) -> cfd_core::error::Result<Array2D<T>> {
         if let Some(ref rhie_chow) = self.rhie_chow {
             let consistent_velocity =
                 self.interpolate_consistent_velocity(rhie_chow, fields, Some(dt));
 
-            let mut u_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx - 1];
-            let mut v_face = vec![vec![T::zero(); self.grid.ny - 1]; self.grid.nx];
-            let mut d_x = vec![vec![T::zero(); self.grid.ny]; self.grid.nx - 1];
-            let mut d_y = vec![vec![T::zero(); self.grid.ny - 1]; self.grid.nx];
+            let mut u_face = Array2D::new(self.grid.nx - 1, self.grid.ny, T::zero());
+            let mut v_face = Array2D::new(self.grid.nx, self.grid.ny - 1, T::zero());
+            let mut d_x = Array2D::new(self.grid.nx - 1, self.grid.ny, T::zero());
+            let mut d_y = Array2D::new(self.grid.nx, self.grid.ny - 1, T::zero());
 
             for i in 0..self.grid.nx - 1 {
                 for j in 0..self.grid.ny {
-                    u_face[i][j] = consistent_velocity[i][j].x;
-                    d_x[i][j] = rhie_chow.d_face_x(i, j, self.grid.dx, self.grid.dy);
+                    u_face[(i, j)] = consistent_velocity[(i, j)].x;
+                    d_x[(i, j)] = rhie_chow.d_face_x(i, j, self.grid.dx, self.grid.dy);
                 }
             }
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny - 1 {
-                    v_face[i][j] = consistent_velocity[i][j].y;
-                    d_y[i][j] = rhie_chow.d_face_y(i, j, self.grid.dx, self.grid.dy);
+                    v_face[(i, j)] = consistent_velocity[(i, j)].y;
+                    d_y[(i, j)] = rhie_chow.d_face_y(i, j, self.grid.dx, self.grid.dy);
                 }
             }
 

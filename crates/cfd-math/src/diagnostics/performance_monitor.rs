@@ -51,7 +51,7 @@ impl AdaptivePerformanceMonitor {
         Self {
             metrics: Arc::new(Mutex::new(HashMap::new())),
             last_calibration: Arc::new(Mutex::new(Instant::now())),
-            calibration_interval: Duration::from_secs(60), // Calibrate every minute
+            calibration_interval: Duration::from_mins(1), // Calibrate every minute
         }
     }
 

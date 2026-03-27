@@ -54,6 +54,12 @@ fn fast_venturi_seed() -> BlueprintCandidate {
         venturi_throat_length_m: 1.2e-3,
         venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
         venturi_target_channel_ids: Vec::new(),
+        center_serpentine: Some(cfd_schematics::SerpentineSpec {
+            wave_type: cfd_schematics::topology::SerpentineWaveType::Sine,
+            segments: 4,
+            bend_radius_m: 1.0e-3,
+            segment_length_m: 6.0e-3,
+        }),
         ..base
     };
 
@@ -74,6 +80,12 @@ fn fast_acoustic_seed() -> BlueprintCandidate {
         treatment_mode: TreatmentActuationMode::UltrasoundOnly,
         venturi_throat_count: 0,
         venturi_target_channel_ids: Vec::new(),
+        center_serpentine: Some(cfd_schematics::SerpentineSpec {
+            wave_type: cfd_schematics::topology::SerpentineWaveType::Sine,
+            segments: 4,
+            bend_radius_m: 1.0e-3,
+            segment_length_m: 6.0e-3,
+        }),
         ..base
     };
 

@@ -14,9 +14,11 @@
 //! The kinematic viscosity is related to the relaxation time $\tau$ by $\nu = c_s^2 (\tau - 0.5)\Delta t$.
 
 mod bgk;
+mod carreau_yasuda;
 mod mrt;
 mod traits;
 
 pub use bgk::BgkCollision;
+pub use carreau_yasuda::CarreauYasudaBgk;
 pub use mrt::{MrtCollision, RelaxationMatrix};
 pub use traits::CollisionOperator;

@@ -83,24 +83,20 @@ impl<T: RealField + Copy> MatrixAssembler<T> {
     }
 }
 
-/// Per-node Dirichlet and Neumann boundary condition values, indexed by node index.
-struct BoundaryClassification<T> {
-    dirichlet: Vec<Option<T>>,
-    neumann: Vec<Option<T>>,
-}
-
 impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAssembler<T> {
     /// Classify boundary conditions into Dirichlet and Neumann arrays.
     ///
-    /// Returns `(dirichlet_values, neumann_sources)` where each entry corresponds
-    /// to a node index. Validates that at least one Dirichlet BC exists and that
+    /// Validates that at least one Dirichlet BC exists and that
     /// no isolated nodes lack a Dirichlet condition.
-    fn classify_boundary_conditions<F: FluidTrait<T>>(
+    pub fn classify_boundary_conditions_into<F: FluidTrait<T>>(
         network: &Network<T, F>,
-        n: usize,
-    ) -> Result<BoundaryClassification<T>> {
-        let mut dirichlet_values: Vec<Option<T>> = vec![None; n];
-        let mut neumann_sources: Vec<Option<T>> = vec![None; n];
+        dirichlet_values: &mut [Option<T>],
+        neumann_sources: &mut [Option<T>],
+    ) -> Result<()> {
+        let n = network.node_count();
+        dirichlet_values.fill(None);
+        neumann_sources.fill(None);
+
         let mut has_dirichlet = false;
 
         for (&node_idx, bc) in network.boundary_conditions() {
@@ -156,32 +152,25 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
             }
         }
 
-        Ok(BoundaryClassification {
-            dirichlet: dirichlet_values,
-            neumann: neumann_sources,
-        })
+        Ok(())
     }
 
     /// Assemble the linear system matrix and right-hand side vector
     ///
-    /// This builds the system Ax = b where:
-    /// - A is the conductance matrix
-    /// - x is the pressure vector
-    /// - b is the source/sink vector
-    pub fn assemble<F: FluidTrait<T>>(
+    /// The boundary conditions must be pre-classified in the workspace
+    /// before calling this function.
+    pub fn assemble_into<F: FluidTrait<T>>(
         &self,
         network: &Network<T, F>,
-    ) -> Result<(CsrMatrix<T>, DVector<T>)> {
+        workspace: &mut crate::solver::core::workspace::SolverWorkspace<T>,
+    ) -> Result<CsrMatrix<T>> {
         let n = network.node_count();
         let mut coo = CooMatrix::new(n, n);
-        let mut rhs = DVector::zeros(n);
+        let rhs = &mut workspace.rhs;
+        rhs.fill(T::zero());
 
-        // Invariants: units [A]=conductance [m³/(Pa·s)] or dimensionless, [b]=flow rate [m³/s] or pressure [Pa]
-        // Interior rows: sum(G_ij * (P_i - P_j)) = Q_ext_i => G_ii*P_i + sum(G_ij*P_j) = Q_ext_i
-        // Dirichlet rows: 1 * P_i = P_fixed_i
-        let bc = Self::classify_boundary_conditions(network, n)?;
-        let dirichlet_values = bc.dirichlet;
-        let neumann_sources = bc.neumann;
+        let dirichlet_values = &workspace.dirichlet_values;
+        let neumann_sources = &workspace.neumann_sources;
 
         // Use a simple, sequential loop for better performance and clarity
         // Exact Dirichlet enforcement via row-replacement:
@@ -239,23 +228,37 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
         }
 
         // Apply Neumann sources to RHS
-        for (idx, source) in neumann_sources.into_iter().enumerate() {
+        for (idx, source) in neumann_sources.iter().enumerate() {
             if let Some(flow_rate) = source {
-                rhs[idx] += flow_rate;
+                rhs[idx] += *flow_rate;
             }
         }
 
         // Inject identity rows for Dirichlet nodes with exact values
-        for (idx, dir_val) in dirichlet_values.into_iter().enumerate() {
+        for (idx, dir_val) in dirichlet_values.iter().enumerate() {
             if let Some(pressure) = dir_val {
                 coo.push(idx, idx, T::one());
-                rhs[idx] = pressure;
+                rhs[idx] = *pressure;
             }
         }
 
-        let matrix = CsrMatrix::from(&coo);
+        Ok(CsrMatrix::from(&coo))
+    }
 
-        Ok((matrix, rhs))
+    /// Assemble the linear system matrix and right-hand side vector (allocates workspace)
+    pub fn assemble<F: FluidTrait<T>>(
+        &self,
+        network: &Network<T, F>,
+    ) -> Result<(CsrMatrix<T>, DVector<T>)> {
+        let n = network.node_count();
+        let mut workspace = crate::solver::core::workspace::SolverWorkspace::new(n, 1);
+        Self::classify_boundary_conditions_into(
+            network,
+            &mut workspace.dirichlet_values,
+            &mut workspace.neumann_sources,
+        )?;
+        let matrix = self.assemble_into(network, &mut workspace)?;
+        Ok((matrix, workspace.rhs))
     }
 }
 

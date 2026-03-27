@@ -8,6 +8,8 @@
 //! flow: dependence on diameter and hematocrit", *Am. J. Physiol.*
 //! 263(6):H1770-H1778.
 
+use cfd_core::physics::fluid::blood::FahraeuasLindqvist;
+
 /// Fahraeus-Lindqvist apparent viscosity for microvessels (Pries et al. 1992).
 ///
 /// ## Theorem — Fahraeus-Lindqvist Effect (Fahraeus & Lindqvist 1931)
@@ -54,39 +56,12 @@ pub fn fahraeus_lindqvist_viscosity(
     hematocrit: f64,
     mu_plasma_pa_s: f64,
 ) -> f64 {
-    // Clamp inputs to physically meaningful ranges
-    let d = diameter_um.max(1.0); // Avoid division by zero / nonsensical values
-    let ht = hematocrit.clamp(0.0, 0.99);
-
-    // For large vessels (D > 300 µm), use bulk viscosity (no CFL effect).
-    // Bulk relative viscosity at the given hematocrit using the same Pries formula
-    // evaluated at D = 300 µm (smoothly transitions to bulk).
-    let d_eff = if d > 300.0 { 300.0 } else { d };
-
-    // C parameter: captures diameter-dependent hematocrit sensitivity
-    // C = 0.8 + exp(-0.075·D) · (-1 + 1/(1 + 1e-11·D^12))
-    let c = 0.8 + (-0.075 * d_eff).exp() * (-1.0 + 1.0 / (1.0 + 1e-11 * d_eff.max(1.0).powf(12.0)));
-
-    // eta_0.45: relative viscosity at 45% hematocrit as function of diameter
-    // eta_0.45 = 6.0·exp(-0.085·D) + 3.2 - 2.44·exp(-0.06·D^0.645)
-    let eta_045 = 6.0 * (-0.085 * d_eff).exp() + 3.2 - 2.44 * (-0.06 * d_eff.max(1.0).powf(0.645)).exp();
-
-    // Relative viscosity at the given hematocrit:
-    // eta_rel = 1 + (eta_045 - 1) · ((1-Ht)^C - 1) / ((1-0.45)^C - 1)
-    let ref_hct = 0.45_f64;
-    let numerator = (1.0 - ht).clamp(0.001, 1.0).powf(c) - 1.0;
-    let denominator = (1.0 - ref_hct).clamp(0.001, 1.0).powf(c) - 1.0;
-
-    let eta_rel = if denominator.abs() < 1e-30 {
-        // Edge case: C is so large that both terms are essentially -1
-        1.0
-    } else {
-        1.0 + (eta_045 - 1.0) * numerator / denominator
-    };
-
-    // Ensure viscosity is at least plasma viscosity
-    mu_plasma_pa_s * eta_rel.max(1.0)
+    let diameter_m = diameter_um * 1e-6;
+    let fl = FahraeuasLindqvist::<f64>::new(diameter_m, hematocrit);
+    fl.pries_relative_viscosity() * mu_plasma_pa_s
 }
+
+
 
 /// Secomb (2017) in-vivo apparent viscosity for microvascular networks.
 ///
@@ -134,39 +109,11 @@ pub fn secomb_network_viscosity(
     hematocrit: f64,
     mu_plasma_pa_s: f64,
 ) -> f64 {
-    // Clamp inputs to physically meaningful ranges
-    let d = diameter_um.max(1.0);
-    let ht = hematocrit.clamp(0.0, 0.99);
+    let diameter_m = diameter_um * 1e-6;
+    let fl = FahraeuasLindqvist::<f64>::new(diameter_m, hematocrit);
+    fl.secomb_relative_viscosity() * mu_plasma_pa_s
 
     // For large vessels (D > 300 µm), cap at D=300 (same convention as Pries)
-    let d_eff = if d > 300.0 { 300.0 } else { d };
-
-    // Secomb (2017) refined C(D) coefficient:
-    // C = (0.8 + exp(-0.075·D)) · (-1 + 1/(1 + 1e-11·D^12)) + 1/(1 + 1e-11·D^12)
-    //
-    // This differs from Pries (1992) by the additive term 1/(1 + 1e-11·D^12)
-    // which provides a smoother transition for intermediate diameters.
-    let d12_term = 1.0 / (1.0 + 1e-11 * d_eff.max(1.0).powf(12.0));
-    let c = (0.8 + (-0.075 * d_eff).exp()) * (-1.0 + d12_term) + d12_term;
-
-    // eta_0.45: relative viscosity at 45% hematocrit (Pries 1992 parameterization,
-    // shared with Secomb 2017)
-    let eta_045 = 6.0 * (-0.085 * d_eff).exp() + 3.2 - 2.44 * (-0.06 * d_eff.max(1.0).powf(0.645)).exp();
-
-    // Relative viscosity at the given hematocrit:
-    // eta_rel = 1 + (eta_045 - 1) · ((1 - Ht)^C - 1) / ((1 - 0.45)^C - 1)
-    let ref_hct = 0.45_f64;
-    let numerator = (1.0 - ht).clamp(0.001, 1.0).powf(c) - 1.0;
-    let denominator = (1.0 - ref_hct).clamp(0.001, 1.0).powf(c) - 1.0;
-
-    let eta_rel = if denominator.abs() < 1e-30 {
-        1.0
-    } else {
-        1.0 + (eta_045 - 1.0) * numerator / denominator
-    };
-
-    // Ensure viscosity is at least plasma viscosity
-    mu_plasma_pa_s * eta_rel.max(1.0)
 }
 
 /// Secomb (2017) phase-separation parameter for bifurcation hematocrit partitioning.

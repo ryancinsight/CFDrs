@@ -104,3 +104,31 @@ pub fn trifurcation_rect(
     let name_str = name.into();
     symmetric_n_furcation(&name_str, 1, 3, parent_width_m, height_m, parent_length_m)
 }
+
+/// Rectangular-channel symmetric quadfurcation (1 inlet -> 4 daughters).
+#[must_use]
+pub fn quadfurcation_rect(
+    name: impl Into<String>,
+    parent_length_m: f64,
+    _daughter_length_m: f64,
+    parent_width_m: f64,
+    _daughter_width_m: f64,
+    height_m: f64,
+) -> NetworkBlueprint {
+    let name_str = name.into();
+    symmetric_n_furcation(&name_str, 1, 4, parent_width_m, height_m, parent_length_m)
+}
+
+/// Rectangular-channel symmetric pentafurcation (1 inlet -> 5 daughters).
+#[must_use]
+pub fn pentafurcation_rect(
+    name: impl Into<String>,
+    parent_length_m: f64,
+    _daughter_length_m: f64,
+    parent_width_m: f64,
+    _daughter_width_m: f64,
+    height_m: f64,
+) -> NetworkBlueprint {
+    let name_str = name.into();
+    symmetric_n_furcation(&name_str, 1, 5, parent_width_m, height_m, parent_length_m)
+}

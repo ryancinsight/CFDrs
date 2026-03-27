@@ -143,4 +143,39 @@ mod tests {
         assert_eq!(dims.cavitation.gauges.len(), 1);
         assert_eq!(dims.cavitation.throats.len(), 1);
     }
+
+    /// All fraction values from `pst_frac_slices` must be in (0, 1).
+    ///
+    /// Fractions represent channel width ratios; values outside (0, 1)
+    /// produce degenerate geometries (zero-width or wider-than-parent arms).
+    #[test]
+    fn pst_frac_slices_values_in_unit_interval() {
+        for has_tri_int in [false, true] {
+            for has_tri in [false, true] {
+                for has_bi in [false, true] {
+                    let (pre, tri, bi) =
+                        super::pst_frac_slices(has_tri_int, has_tri, has_bi);
+                    for &v in pre.iter().chain(tri.iter()).chain(bi.iter()) {
+                        assert!(
+                            v > 0.0 && v < 1.0,
+                            "frac {v} outside (0,1) for tri_int={has_tri_int}, tri={has_tri}, bi={has_bi}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// Enabling `has_intermediate_tri` returns a wider pretri slice
+    /// than the default single-element slice.
+    #[test]
+    fn pst_frac_slices_expand_with_intermediate_tri() {
+        let (pre_default, _, _) = super::pst_frac_slices(false, false, false);
+        let (pre_expanded, _, _) = super::pst_frac_slices(true, false, false);
+        assert!(
+            pre_expanded.len() > pre_default.len(),
+            "intermediate tri should expand pretri slice"
+        );
+    }
 }
+

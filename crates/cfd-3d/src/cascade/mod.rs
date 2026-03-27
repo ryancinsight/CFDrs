@@ -24,6 +24,29 @@
 //! accepts a `Vec<CascadeChannelSpec>` with pre-computed geometry and flow
 //! rates.  This keeps the crate dependency graph acyclic and allows callers
 //! in `cfd-optim` to integrate 1D → 3D coupling externally.
+//!
+//! # Theorem — Picard Iteration Convergence for Generalised-Newtonian Stokes
+//!
+//! Given the viscosity function $\mu: \mathbb{R}^+ \to [\mu_\infty, \mu_0]$ is
+//! Lipschitz-continuous with constant $L_\mu$, the Picard iteration
+//!
+//! ```text
+//! μ^{(k+1)} = μ(γ̇(u^{(k)}))
+//! ```
+//!
+//! converges to a fixed point in $H^1$ norm provided $L_\mu < \rho / C_K$
+//! where $C_K$ is the Korn inequality constant and $\rho$ is the coercivity
+//! constant of the bilinear form $a(\cdot, \cdot)$.
+//!
+//! **Proof sketch.** The mapping $T: \mu \mapsto \mu(\dot{\gamma}(\mathbf{u}(\mu)))$
+//! is a contraction on $[\mu_\infty, \mu_0]$ under the stated bound. The Stokes
+//! operator with bounded viscosity is coercive on $H^1_0$, so the linear solve
+//! at each step is well-posed. Convergence follows from the Banach fixed-point
+//! theorem.
+//!
+//! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
+//! power-law systems." *Math. Comp.* 82:1247–1268.
+
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
@@ -487,8 +510,7 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         let mu = self
             .fluid
             .properties_at(310.0, 0.0)
-            .map(|p| p.dynamic_viscosity)
-            .unwrap_or(3.5e-3);
+            .map_or(3.5e-3, |p| p.dynamic_viscosity);
 
         // Pre-compute z-range once (instead of inside the face loop).
         let z_range = mesh

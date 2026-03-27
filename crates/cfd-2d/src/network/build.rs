@@ -121,6 +121,8 @@ where
             let density_t = T::from_f64(self.density).unwrap_or_else(T::one);
             let config = SIMPLEConfig {
                 max_iterations: 5_000,
+                // Use default Patankar under-relaxation (alpha_u=0.7, alpha_p=0.3, n_correctors=1)
+                // to maintain steady-state convergence through venturi throats
                 ..SIMPLEConfig::default()
             };
             let mut solver = NavierStokesSolver2D::new(grid, self.blood.clone(), density_t, config);

@@ -308,8 +308,7 @@ fn crossover_child(
                 let family = donor_route
                     .serpentine
                     .as_ref()
-                    .map(|serpentine| classify_serpentine_family(donor_route, serpentine))
-                    .unwrap_or("serpentine_neutral");
+                    .map_or("serpentine_neutral", |serpentine| classify_serpentine_family(donor_route, serpentine));
                 child_blueprint = apply_labeled_mutation(
                     &child_blueprint,
                     BlueprintTopologyMutation::SetTreatmentChannelSerpentine {
@@ -333,8 +332,7 @@ fn crossover_child(
                 },
                 TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
                 format!(
-                    "family=venturi_transfer;lane={};operator=crossover_venturi_transfer",
-                    donor_channel_id
+                    "family=venturi_transfer;lane={donor_channel_id};operator=crossover_venturi_transfer"
                 ),
             )
             ?;
@@ -531,7 +529,7 @@ pub fn generate_ga_mutations(
                     venturi_placement_mode: VenturiPlacementMode::StraightSegment,
                 },
                 TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-                format!("family=split_merge_{:?};lane={target_channel_id};operator=split_merge", split_kind),
+                format!("family=split_merge_{split_kind:?};lane={target_channel_id};operator=split_merge"),
             )
             ?;
             mutated.push(BlueprintCandidate::new(
@@ -551,7 +549,7 @@ pub fn generate_ga_mutations(
                     venturi_placement_mode: VenturiPlacementMode::StraightSegment,
                 },
                 TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-                format!("family=split_merge_serpentine_{:?};lane={target_channel_id};operator=split_merge_serpentine", split_kind),
+                format!("family=split_merge_serpentine_{split_kind:?};lane={target_channel_id};operator=split_merge_serpentine"),
             )
             ?;
             mutated.push(BlueprintCandidate::new(
@@ -571,7 +569,7 @@ pub fn generate_ga_mutations(
                     venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
                 },
                 TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-                format!("family=split_merge_venturi_{:?};lane={target_channel_id};operator=split_merge_venturi", split_kind),
+                format!("family=split_merge_venturi_{split_kind:?};lane={target_channel_id};operator=split_merge_venturi"),
             )
             ?;
             mutated.push(BlueprintCandidate::new(

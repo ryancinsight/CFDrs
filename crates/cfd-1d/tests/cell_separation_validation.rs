@@ -108,7 +108,7 @@ fn test_cell_separation_model_cancer_rbc_purity() {
     let rbc = CellProperties::red_blood_cell();
 
     // 500 µm × 100 µm channel, straight
-    let model = CellSeparationModel::new(500e-6, 100e-6, None).with_split(0.35);
+    let model = CellSeparationModel::new(500e-6, 100e-6, 0.01, None).with_split(0.35);
 
     let q = 1e-6 / 60.0; // 1 mL/min
     let v = q / (500e-6 * 100e-6);
@@ -204,13 +204,13 @@ fn test_dean_flow_enhances_separation() {
     let v = q / (w * h);
 
     // Straight channel
-    let straight = CellSeparationModel::new(w, h, None);
+    let straight = CellSeparationModel::new(w, h, 0.01, None);
     let straight_analysis = straight
         .analyze(&cancer, &rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, v)
         .expect("straight channel analysis must succeed");
 
     // Curved channel (R = 5 mm)
-    let curved = CellSeparationModel::new(w, h, Some(5e-3));
+    let curved = CellSeparationModel::new(w, h, 0.01, Some(5e-3));
     let curved_analysis = curved
         .analyze(&cancer, &rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, v)
         .expect("curved channel analysis must succeed");

@@ -7,7 +7,6 @@
 use crate::domain::core::index::VertexId;
 use crate::domain::core::scalar::Scalar;
 use crate::domain::mesh::IndexedMesh;
-use crate::infrastructure::storage::face_store::FaceData;
 use nalgebra::Point3;
 use std::collections::HashMap;
 
@@ -29,10 +28,11 @@ impl P2MeshConverter {
         // Insert midpoint nodes for every unique edge.
         let mut edge_mid: HashMap<(VertexId, VertexId), VertexId> = HashMap::new();
 
-        // Collect new faces to replace the originals.
-        let mut new_faces: Vec<FaceData> = Vec::new();
+        // Replace all faces with the subdivided set.
+        out.faces.clear();
+        out.boundary_labels.clear();
 
-        for (_f_id, face) in mesh.faces.iter_enumerated() {
+        for (f_id, face) in mesh.faces.iter_enumerated() {
             let [v0, v1, v2] = face.vertices;
             let region = face.region;
 
@@ -42,16 +42,18 @@ impl P2MeshConverter {
             let m20 = Self::get_or_create_midpoint(&mut edge_mid, &mut out, v2, v0);
 
             // 1:4 subdivision: 3 corner triangles + 1 central triangle.
-            new_faces.push(FaceData::new(v0, m01, m20, region));
-            new_faces.push(FaceData::new(m01, v1, m12, region));
-            new_faces.push(FaceData::new(m20, m12, v2, region));
-            new_faces.push(FaceData::new(m01, m12, m20, region));
-        }
+            let nf0 = out.faces.add_triangle_with_region(v0, m01, m20, region);
+            let nf1 = out.faces.add_triangle_with_region(m01, v1, m12, region);
+            let nf2 = out.faces.add_triangle_with_region(m20, m12, v2, region);
+            let nf3 = out.faces.add_triangle_with_region(m01, m12, m20, region);
 
-        // Replace all faces with the subdivided set.
-        out.faces.clear();
-        for face in new_faces {
-            out.faces.push(face);
+            // Propagate boundary labels to all four sub-triangles.
+            if let Some(label) = mesh.boundary_labels.get(&f_id) {
+                out.boundary_labels.insert(nf0, label.clone());
+                out.boundary_labels.insert(nf1, label.clone());
+                out.boundary_labels.insert(nf2, label.clone());
+                out.boundary_labels.insert(nf3, label.clone());
+            }
         }
 
         out

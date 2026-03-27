@@ -37,7 +37,7 @@ impl BlueprintTopologySpec {
             .iter()
             .map(|p| p.serial_throat_count as usize)
             .sum::<usize>()
-            .max(if self.has_venturi() { 1 } else { 0 })
+            .max(usize::from(self.has_venturi()))
     }
 
     /// Number of venturi stages running in PARALLEL (for flow-per-venturi).
@@ -121,17 +121,17 @@ impl BlueprintTopologySpec {
             .split_stages
             .iter()
             .flat_map(|stage| stage.branches.iter())
-            .map(|branch| branch.route.serpentine.is_some() as usize)
+            .map(|branch| usize::from(branch.route.serpentine.is_some()))
             .sum::<usize>()
             + self
                 .series_channels
                 .iter()
-                .map(|channel| channel.route.serpentine.is_some() as usize)
+                .map(|channel| usize::from(channel.route.serpentine.is_some()))
                 .sum::<usize>()
             + self
                 .parallel_channels
                 .iter()
-                .map(|channel| channel.route.serpentine.is_some() as usize)
+                .map(|channel| usize::from(channel.route.serpentine.is_some()))
                 .sum::<usize>();
         count.max(1)
     }
@@ -524,7 +524,7 @@ impl BlueprintTopologySpec {
     pub fn first_stage_is_trifurcation(&self) -> bool {
         self.split_stages
             .first()
-            .map_or(false, |s| s.split_kind == SplitKind::NFurcation(3))
+            .is_some_and(|s| s.split_kind == SplitKind::NFurcation(3))
     }
 }
 

@@ -252,7 +252,7 @@ fn render_panel(
             .join(" ");
         let _ = write!(
             svg,
-            r##"<polyline points="{points}" fill="none" stroke="{}" stroke-width="{:.1}" stroke-linecap="round" stroke-linejoin="round"/>"##,
+            r#"<polyline points="{points}" fill="none" stroke="{}" stroke-width="{:.1}" stroke-linecap="round" stroke-linejoin="round"/>"#,
             stroke.color,
             stroke.width_px
         );

@@ -499,8 +499,7 @@ mod tests {
             let h = curvature.get(&v).copied().unwrap_or(0.0);
             assert!(
                 h > 0.0,
-                "box corner {:?} should have positive curvature, got {h}",
-                v
+                "box corner {v:?} should have positive curvature, got {h}"
             );
         }
     }
@@ -526,8 +525,7 @@ mod tests {
 
         let faces: Vec<FaceData> = mesh
             .faces
-            .iter()
-            .map(|f| *f)
+            .iter().copied()
             .collect();
 
         let curvature = vertex_curvature_from_soup(&faces, &mesh.vertices);

@@ -382,8 +382,7 @@ mod tests {
         let error = (report.signed_volume - expected).abs() / expected;
         assert!(
             error < 1e-10,
-            "square sweep volume must be exact, error={:.2e}",
-            error
+            "square sweep volume must be exact, error={error:.2e}"
         );
     }
 

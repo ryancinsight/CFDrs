@@ -219,8 +219,8 @@ impl TransientCompositionSimulator {
             }
 
             let mut effective_flow_rates: HashMap<usize, T> = HashMap::new();
-            for (edge_idx, q) in &network.flow_rates {
-                effective_flow_rates.insert(edge_idx.index(), *q);
+            for (i, &q) in network.flow_rates.iter().enumerate() {
+                effective_flow_rates.insert(i, q);
             }
             for (edge_index, flow_rate) in &active_flow_overrides {
                 effective_flow_rates.insert(*edge_index, *flow_rate);
@@ -306,8 +306,8 @@ impl TransientCompositionSimulator {
             working_network = solver.solve_network(&problem)?;
 
             let mut effective_flow_rates: HashMap<usize, T> = HashMap::new();
-            for (edge_idx, q) in &working_network.flow_rates {
-                effective_flow_rates.insert(edge_idx.index(), *q);
+            for (i, &q) in working_network.flow_rates.iter().enumerate() {
+                effective_flow_rates.insert(i, q);
             }
 
             let node_mixtures = Self::solve_node_mixtures(

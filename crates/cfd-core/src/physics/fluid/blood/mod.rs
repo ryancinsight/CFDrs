@@ -146,9 +146,7 @@ mod tests {
         ] {
             assert!(
                 mu > 0.003 && mu < 0.010,
-                "{} viscosity at 100 s⁻¹ = {} Pa·s out of expected range",
-                name,
-                mu
+                "{name} viscosity at 100 s⁻¹ = {mu} Pa·s out of expected range"
             );
         }
     }

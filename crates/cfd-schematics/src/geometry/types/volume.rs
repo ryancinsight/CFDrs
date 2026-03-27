@@ -93,8 +93,7 @@ impl NetworkBlueprint {
             total_fluid_volume_ul,
             channel_count: channel_summaries.len(),
             display_label: format!(
-                "Volume: {:.3} uL over {:.2} mm",
-                total_fluid_volume_ul, total_channel_length_mm
+                "Volume: {total_fluid_volume_ul:.3} uL over {total_channel_length_mm:.2} mm"
             ),
         }
     }

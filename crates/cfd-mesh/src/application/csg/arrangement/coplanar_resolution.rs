@@ -8,6 +8,7 @@ use super::super::coplanar::basis::PlaneBasis;
 use crate::infrastructure::storage::face_store::FaceData;
 use crate::infrastructure::storage::vertex_pool::VertexPool;
 
+#[allow(clippy::if_same_then_else)]
 fn accumulate_oriented_faces(
     op: BooleanOp,
     faces_by_mesh: &[Vec<FaceData>],

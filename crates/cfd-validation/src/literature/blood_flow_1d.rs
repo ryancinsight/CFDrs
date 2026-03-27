@@ -155,13 +155,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Lite
         let solution = solver.solve_network(&problem)?;
 
         // 8. Analysis and Validation
-        let q1 = num_traits::Float::abs(solution.flow_rates.get(&e1).copied().unwrap_or(T::zero()));
-        let q3 = num_traits::Float::abs(solution.flow_rates.get(&e3).copied().unwrap_or(T::zero()));
+        let q1 = num_traits::Float::abs(solution.flow_rates.get(e1.index()).copied().unwrap_or(T::zero()));
+        let q3 = num_traits::Float::abs(solution.flow_rates.get(e3.index()).copied().unwrap_or(T::zero()));
         let q_err = num_traits::Float::abs(q1 - q3);
 
-        let dp1 = num_traits::Float::abs(*solution.pressures.get(&n_inlet).unwrap() - *solution.pressures.get(&n1).unwrap());
+        let dp1 = num_traits::Float::abs(solution.pressures[n_inlet.index()] - solution.pressures[n1.index()]);
         let dp3 =
-            num_traits::Float::abs(*solution.pressures.get(&n2).unwrap() - *solution.pressures.get(&n3).unwrap());
+            num_traits::Float::abs(solution.pressures[n2.index()] - solution.pressures[n3.index()]);
 
         let grad1 = dp1 / l_wide;
         let grad3 = dp3 / l_narrow;
@@ -349,9 +349,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Lite
 
         let solution = solver.solve_network(&problem)?;
 
-        let q_parent = num_traits::Float::abs(solution.flow_rates.get(&e_parent).copied().unwrap_or(T::zero()));
-        let q_b1 = num_traits::Float::abs(solution.flow_rates.get(&e_branch1).copied().unwrap_or(T::zero()));
-        let q_b2 = num_traits::Float::abs(solution.flow_rates.get(&e_branch2).copied().unwrap_or(T::zero()));
+        let q_parent = num_traits::Float::abs(solution.flow_rates.get(e_parent.index()).copied().unwrap_or(T::zero()));
+        let q_b1 = num_traits::Float::abs(solution.flow_rates.get(e_branch1.index()).copied().unwrap_or(T::zero()));
+        let q_b2 = num_traits::Float::abs(solution.flow_rates.get(e_branch2.index()).copied().unwrap_or(T::zero()));
 
         // 1. Mass Conservation
         let sum_out = q_b1 + q_b2;

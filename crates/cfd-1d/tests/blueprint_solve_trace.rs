@@ -7,6 +7,8 @@
 //! - Pressure drops across channels are consistent with their computed resistances.
 //! - Symmetric topologies produce symmetric flow distributions.
 
+#![allow(deprecated)] // NetworkBlueprint::new() used intentionally
+
 use cfd_1d::{
     domain::network::network_from_blueprint, Network, NetworkProblem, NetworkSolver, SolverConfig,
 };
@@ -97,7 +99,7 @@ fn node_pressure(network: &Network<f64, Water>, id: &str) -> f64 {
         .unwrap_or_else(|| panic!("node '{}' not found", id));
     *network
         .pressures()
-        .get(&idx)
+        .get(idx.index())
         .unwrap_or_else(|| panic!("no pressure for node '{}'", id))
 }
 
@@ -110,7 +112,7 @@ fn edge_flow(network: &Network<f64, Water>, id: &str) -> f64 {
         .unwrap_or_else(|| panic!("edge '{}' not found", id));
     *network
         .flow_rates()
-        .get(&eidx)
+        .get(eidx.index())
         .unwrap_or_else(|| panic!("no flow rate for edge '{}'", id))
 }
 
@@ -438,17 +440,17 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
 
     // ── 1. All node pressures are finite ────────────────────────────────────
     let pressures = network.pressures();
-    for (idx, &p) in pressures {
+    for (idx, &p) in pressures.iter().enumerate() {
         let id = network
             .graph
-            .node_weight(*idx)
+            .node_weight(petgraph::graph::NodeIndex::new(idx))
             .map(|n| n.id.as_str())
             .unwrap_or("?");
         assert!(p.is_finite(), "node '{id}' has non-finite pressure {p}");
         // Outlet nodes must be at P_REF; all others above it (flow driven network).
         let is_outlet = network
             .graph
-            .node_weight(*idx)
+            .node_weight(petgraph::graph::NodeIndex::new(idx))
             .map_or(false, |n| n.node_type == NodeType::Outlet);
         if is_outlet {
             assert!(
@@ -462,10 +464,10 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
 
     // ── 2. All channel flow rates are finite and non-zero ────────────────────
     let flow_rates = network.flow_rates();
-    for (eidx, &q) in flow_rates {
+    for (idx, &q) in flow_rates.iter().enumerate() {
         let id = network
             .graph
-            .edge_weight(*eidx)
+            .edge_weight(petgraph::graph::EdgeIndex::new(idx))
             .map(|e| e.id.as_str())
             .unwrap_or("?");
         assert!(q.is_finite(), "edge '{id}' has non-finite flow {q}");
@@ -490,12 +492,12 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
         let outflow: f64 = network
             .graph
             .edges_directed(node_idx, Direction::Outgoing)
-            .map(|eref| flow_rates.get(&eref.id()).copied().unwrap_or(0.0))
+            .map(|eref| flow_rates.get(eref.id().index()).copied().unwrap_or(0.0))
             .sum();
         let inflow: f64 = network
             .graph
             .edges_directed(node_idx, Direction::Incoming)
-            .map(|eref| flow_rates.get(&eref.id()).copied().unwrap_or(0.0))
+            .map(|eref| flow_rates.get(eref.id().index()).copied().unwrap_or(0.0))
             .sum();
         let net_flow = outflow - inflow;
 
@@ -514,7 +516,7 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
             network
                 .graph
                 .edges_directed(outlet_idx, Direction::Incoming)
-                .map(|eref| flow_rates.get(&eref.id()).copied().unwrap_or(0.0))
+                .map(|eref| flow_rates.get(eref.id().index()).copied().unwrap_or(0.0))
                 .sum::<f64>()
         })
         .sum::<f64>()

@@ -73,6 +73,7 @@ fn main() {
         let serp = ChannelShape::Serpentine {
             segments: SERP_SEGMENTS,
             bend_radius_m: SERP_BEND_RADIUS_M,
+            wave_type: cfd_schematics::SerpentineWaveType::default(),
         };
         mutated.channels[left_idx].channel_shape = serp;
         mutated.channels[right_idx].channel_shape = serp;

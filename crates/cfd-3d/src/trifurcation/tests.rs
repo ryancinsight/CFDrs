@@ -29,6 +29,7 @@ mod tests {
             nonlinear_tolerance: 1e-4,
             max_linear_iterations: 1000,
             linear_tolerance: 1e-6,
+            target_mesh_size: Some(0.01 / 3.0),
         };
 
         let solver = TrifurcationSolver3D::new(geometry, config);

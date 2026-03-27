@@ -348,7 +348,7 @@ fn score_hydrodynamic_cavitation_sdt(metrics: &SdtMetrics, w: &SdtWeights) -> f6
     let sep3 = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
     let rbc_prot = metrics.rbc_venturi_protection.clamp(0.0, 1.0);
     let sono = metrics.sonoluminescence_proxy.clamp(0.0, 1.0);
-    let wbc_cav = metrics.wbc_targeted_cavitation.clamp(0.0, 1.0);
+    let _wbc_cav = metrics.wbc_targeted_cavitation.clamp(0.0, 1.0);
     let cancer_term = (0.70 * cancer_cav + 0.30 * oncology_selective).clamp(0.0, 1.0);
 
     // WBC exclusion: reward designs where WBCs are EXCLUDED from the

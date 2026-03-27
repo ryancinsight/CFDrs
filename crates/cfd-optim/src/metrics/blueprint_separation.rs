@@ -1,4 +1,8 @@
-use cfd_1d::{mixed_cascade_separation_kappa_aware, CascadeStage, PeripheralRecovery};
+use cfd_1d::{
+    acoustic_contrast_factor, mixed_cascade_separation_kappa_aware, CascadeStage, PeripheralRecovery,
+    KAPPA_CTC, KAPPA_PLASMA, RHO_CTC, RHO_PLASMA,
+};
+use cfd_schematics::topology::TreatmentActuationMode;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::BlueprintCandidate;
@@ -157,24 +161,66 @@ pub fn compute_blueprint_separation_metrics(
 
     let cascade = mixed_cascade_separation_kappa_aware(&cascade_stages);
 
-    // Amini (2014) confinement-dependent lift correction.
-    // For narrow treatment channels (D_h < 200 µm), cancer cells experience
-    // enhanced focusing due to wall confinement (κ > κ_ref = 0.1).
-    // This multiplier increases the effective cancer_center_fraction.
-    let cancer_center_corrected = if let Some(last_stage) = cascade_stages.last() {
-        let treatment_dh_m = last_stage.treatment_dh_m;
-        if treatment_dh_m > 0.0 {
-            let ctc_diameter = 17.5e-6; // MCF7 breast cancer CTC diameter [m]
-            // Clamp kappa to physical range [0, 0.5]. Amini (2014) validated
-            // for κ ∈ [0.07, 0.3]; beyond 0.5 the particle blocks the channel.
-            let kappa = (ctc_diameter / (2.0 * treatment_dh_m).max(1e-9)).clamp(0.0, 0.5);
-            let amini_factor = cfd_1d::amini_confinement_correction(kappa);
-            (cascade.cancer_center_fraction * amini_factor).clamp(0.0, 1.0)
+    let is_acoustic = topology.treatment_mode == TreatmentActuationMode::UltrasoundOnly
+        || topology.treatment_mode == TreatmentActuationMode::VenturiCavitation;
+
+    let cancer_center_corrected = if is_acoustic {
+        let mut total_acoustic_yield = 0.0_f64;
+        let ctc_radius = 17.5e-6_f64 / 2.0;
+        let pressure_amp_pa = 500_000.0_f64; // proxy for 30Vpp equivalent
+        let e_ac = cfd_1d::acoustic_energy_density(
+            pressure_amp_pa,
+            RHO_PLASMA,
+            cfd_1d::physics::hemolysis::acoustic_radiation::SPEED_OF_SOUND_PLASMA,
+        );
+        let phi_ctc = acoustic_contrast_factor(RHO_CTC, RHO_PLASMA, KAPPA_CTC, KAPPA_PLASMA);
+        let mu = 0.0035_f64;
+
+        for stage in &cascade_stages {
+            if stage.treatment_dh_m > 0.0 && stage.parent_v_in_m_s > 0.0 {
+                // Approximate treatment length per stage
+                let stage_length_m = 0.04;
+                let t_transit = stage_length_m / stage.parent_v_in_m_s;
+                let w = stage.treatment_dh_m;
+                let k = std::f64::consts::PI / w;
+
+                // Theorem: Gor'kov Acoustic Radiation Force Drift.
+                // Transverse migration velocity v_drift = F_RAD / (6 * pi * mu * R)
+                // where F_RAD_max = 4 * pi / 3 * R^3 * E_ac * k * Phi
+                let f_rad_max = (4.0 * std::f64::consts::PI / 3.0)
+                    * ctc_radius.powi(3)
+                    * k
+                    * e_ac
+                    * phi_ctc;
+                let v_drift = f_rad_max / (6.0 * std::f64::consts::PI * mu * ctc_radius);
+
+                // Migration distance to centerline is w/4 on average
+                let t_mig = (w / 4.0) / v_drift.max(1.0e-15);
+                // Exponential yield model for drift in uniform flow
+                let yield_frac = 1.0 - (-t_transit / t_mig).exp();
+                total_acoustic_yield += yield_frac * (1.0 / cascade_stages.len() as f64);
+            }
+        }
+        (cascade.cancer_center_fraction
+            + (1.0 - cascade.cancer_center_fraction) * total_acoustic_yield)
+            .clamp(0.0, 1.0)
+    } else {
+        // Amini (2014) confinement-dependent lift correction.
+        // For narrow treatment channels (D_h < 200 µm), cancer cells experience
+        // enhanced focusing due to wall confinement (κ > κ_ref = 0.1).
+        if let Some(last_stage) = cascade_stages.last() {
+            let treatment_dh_m = last_stage.treatment_dh_m;
+            if treatment_dh_m > 0.0 {
+                let ctc_diameter = 17.5e-6; // MCF7 breast cancer CTC diameter [m]
+                let kappa = (ctc_diameter / (2.0 * treatment_dh_m).max(1e-9)).clamp(0.0, 0.5);
+                let amini_factor = cfd_1d::amini_confinement_correction(kappa);
+                (cascade.cancer_center_fraction * amini_factor).clamp(0.0, 1.0)
+            } else {
+                cascade.cancer_center_fraction
+            }
         } else {
             cascade.cancer_center_fraction
         }
-    } else {
-        cascade.cancer_center_fraction
     };
 
     Ok(BlueprintSeparationMetrics {
@@ -187,20 +233,55 @@ pub fn compute_blueprint_separation_metrics(
     })
 }
 
-fn conductance_flow_fractions(branch_widths: &[f64], height_m: f64) -> Vec<f64> {
-    let h = height_m.max(1.0e-9);
-    let conductances = branch_widths
-        .iter()
-        .map(|width| {
-            let width = width.max(1.0e-9);
-            let resistance = 1.0 / (width.powi(3) * h);
-            let minor_loss_factor = 1.3 * (width / h).sqrt();
-            1.0 / (resistance * (1.0 + minor_loss_factor * width / h))
-        })
-        .collect::<Vec<_>>();
-    let total = conductances.iter().sum::<f64>().max(1.0e-18);
-    conductances
-        .into_iter()
-        .map(|conductance| conductance / total)
-        .collect()
+fn conductance_flow_fractions(branch_widths: &[f64], _height_m: f64) -> Vec<f64> {
+    // Theorem: Exact 2D Zweifach-Fung separation fraction via fully-developed parabolic profile.
+    // For a rectangular junction of total width W = Σ w_i, the depth-averaged
+    // velocity profile is U(y) = U_max * [1 - (2y/W)^2] for y ∈ [-W/2, W/2].
+    // The fraction of flow entering branch i is the analytical integral of U(y)
+    // over the branch's streamtube extent [y_left, y_right], normalised by total flow.
+    //
+    // Proof:
+    // I(y) = ∫ [1 - (y/W_half)^2] dy = y - y^3 / (3 * W_half^2)
+    // Fractional flow = ( I(y_right) - I(y_left) ) / ( I(W_half) - I(-W_half) )
+    // Total integrated flow = 4/3 W_half.
+    //
+    // This removes the empirical 'minor_loss_factor' assumption and guarantees
+    // exact mass conservation and strict matching with 2D streamtube models.
+
+    let total_width: f64 = branch_widths.iter().copied().sum();
+    if total_width <= 1.0e-18 {
+        return vec![0.0; branch_widths.len()];
+    }
+
+    let w_half = total_width / 2.0;
+
+    // Indefinite analytical integral of the parabolic profile
+    let evaluate_integral = |y: f64| -> f64 {
+        y - y.powi(3) / (3.0 * w_half.powi(2).max(1.0e-18))
+    };
+
+    let total_integral = evaluate_integral(w_half) - evaluate_integral(-w_half);
+    if total_integral <= 1.0e-18 {
+        return vec![1.0 / branch_widths.len() as f64; branch_widths.len()];
+    }
+
+    let mut fractions = Vec::with_capacity(branch_widths.len());
+    let mut current_y = -w_half;
+
+    for &w in branch_widths {
+        let next_y = (current_y + w).clamp(-w_half, w_half);
+        let q_frac = (evaluate_integral(next_y) - evaluate_integral(current_y)) / total_integral;
+        fractions.push(q_frac.max(0.0));
+        current_y = next_y;
+    }
+
+    // Normalise to guarantee exact sum = 1.0
+    let sum: f64 = fractions.iter().sum();
+    if sum > 1.0e-18 {
+        for f in &mut fractions {
+            *f /= sum;
+        }
+    }
+
+    fractions
 }

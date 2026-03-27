@@ -186,8 +186,8 @@ pub fn classify_face(
         plane.classify(pool.position(face.vertices[2])),
     ];
 
-    let any_pos = signs.iter().any(|s| *s == Orientation::Positive);
-    let any_neg = signs.iter().any(|s| *s == Orientation::Negative);
+    let any_pos = signs.contains(&Orientation::Positive);
+    let any_neg = signs.contains(&Orientation::Negative);
 
     let class = match (any_pos, any_neg) {
         (true, true) => FacePlaneClass::Straddling,
@@ -301,8 +301,8 @@ pub fn refine_faces_with_plane(
             vertex_signs[&face.vertices[1]],
             vertex_signs[&face.vertices[2]],
         ];
-        let any_pos = signs.iter().any(|s| *s == Orientation::Positive);
-        let any_neg = signs.iter().any(|s| *s == Orientation::Negative);
+        let any_pos = signs.contains(&Orientation::Positive);
+        let any_neg = signs.contains(&Orientation::Negative);
 
         match (any_pos, any_neg) {
             (true, false) => inside.push(*face),

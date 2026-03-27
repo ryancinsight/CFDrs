@@ -620,15 +620,13 @@ mod tests {
         let ns = NurbsSurface::from_bspline(bs.clone());
         for i in 0..=5 {
             for j in 0..=5 {
-                let u = i as Real / 5.0;
-                let v = j as Real / 5.0;
+                let u = Real::from(i) / 5.0;
+                let v = Real::from(j) / 5.0;
                 let pb = bs.point(u, v);
                 let pn = ns.point(u, v);
                 assert!(
                     (pb - pn).norm() < 1e-12,
-                    "unit-weight NURBS != B-spline at ({}, {})",
-                    u,
-                    v
+                    "unit-weight NURBS != B-spline at ({u}, {v})"
                 );
             }
         }

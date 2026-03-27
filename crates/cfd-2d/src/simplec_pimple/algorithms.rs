@@ -32,6 +32,7 @@
 
 use super::config::AlgorithmType;
 use super::solver::SimplecPimpleSolver;
+use crate::grid::array2d::Array2D;
 use crate::fields::SimulationFields;
 use crate::physics::MomentumComponent;
 use nalgebra::{RealField, Vector2};
@@ -178,8 +179,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         let mut converged = false;
 
         let mut u_prev = self.extract_velocity_field(fields);
-        let mut u_star = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
-        let mut u_corrected = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
+        let mut u_star = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
+        let mut u_corrected = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
         let mut continuity_residual =
             T::max_value().unwrap_or_else(|| T::from_f64(1e30).unwrap_or_else(T::one));
 
@@ -204,7 +205,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             // Step 3: Extract predicted velocity field u*
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny {
-                    u_star[i][j] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
+                    u_star[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
                 }
             }
 
@@ -214,7 +215,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             // Step 5: Correct velocities using pressure gradients
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny {
-                    u_corrected[i][j] = u_star[i][j];
+                    u_corrected[(i, j)] = u_star[(i, j)];
                 }
             }
             {
@@ -231,15 +232,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             }
 
             // Step 6: Correct pressure with under-relaxation
-            let mut p_vec = self.field2d_to_vec2d(&fields.p);
+            let mut p_vec = self.field2d_to_array2d(&fields.p);
             self.pressure_solver
                 .correct_pressure(&mut p_vec, &p_correction, self.config.alpha_p);
-            self.vec2d_to_field2d(&mut fields.p, &p_vec);
+            self.array2d_to_field2d(&mut fields.p, &p_vec);
 
             // Step 7: Update velocity fields (u* already relaxed in momentum solve)
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny {
-                    fields.set_velocity_at(i, j, &u_corrected[i][j]);
+                    fields.set_velocity_at(i, j, &u_corrected[(i, j)]);
                 }
             }
 
@@ -250,7 +251,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             continuity_residual = self.compute_continuity_residual(fields, Some(dt));
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny {
-                    u_prev[i][j] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
+                    u_prev[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
                 }
             }
 
@@ -305,16 +306,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         rho: T,
     ) -> cfd_core::error::Result<T> {
         let u_initial = self.extract_velocity_field(fields);
-        let mut u_before_outer = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
-        let mut u_star = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
-        let mut u_corrected = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
-        let mut u_current = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
+        let mut u_before_outer = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
+        let mut u_star = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
+        let mut u_corrected = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
+        let mut u_current = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
         let max_outer_iterations = self.config.n_outer_correctors.max(3);
 
         for _outer_iter in 0..max_outer_iterations {
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny {
-                    u_before_outer[i][j] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
+                    u_before_outer[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
                 }
             }
 
@@ -334,7 +335,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny {
-                    u_star[i][j] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
+                    u_star[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
                 }
             }
 
@@ -352,7 +353,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                     let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
                     for i in 0..self.grid.nx {
                         for j in 0..self.grid.ny {
-                            u_corrected[i][j] = u_star[i][j];
+                            u_corrected[(i, j)] = u_star[(i, j)];
                         }
                     }
                     self.pressure_solver.correct_velocity(
@@ -365,17 +366,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         fields,
                     );
 
-                    let mut p_vec = self.field2d_to_vec2d(&fields.p);
+                    let mut p_vec = self.field2d_to_array2d(&fields.p);
                     self.pressure_solver.correct_pressure(
                         &mut p_vec,
                         &p_correction,
                         self.config.alpha_p,
                     );
-                    self.vec2d_to_field2d(&mut fields.p, &p_vec);
+                    self.array2d_to_field2d(&mut fields.p, &p_vec);
 
                     for i in 0..self.grid.nx {
                         for j in 0..self.grid.ny {
-                            fields.set_velocity_at(i, j, &u_corrected[i][j]);
+                            fields.set_velocity_at(i, j, &u_corrected[(i, j)]);
                         }
                     }
                 }
@@ -384,7 +385,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             // Check outer loop convergence
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny {
-                    u_current[i][j] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
+                    u_current[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
                 }
             }
             let outer_residual =

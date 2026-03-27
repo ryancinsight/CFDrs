@@ -185,7 +185,7 @@ fn realizable_k_epsilon_bounded_c_mu_across_strain_rates() {
     for &s in &strain_magnitudes {
         // Simple shear: du/dy = s, all others zero
         let grad = [[0.0, s], [0.0, 0.0]];
-        let c_mu = model.realizable_c_mu(&grad, k, epsilon);
+        let c_mu = cfd_2d::physics::turbulence::k_epsilon::realizable::realizable_c_mu(&model, &grad, k, epsilon);
 
         assert!(
             c_mu > 0.0,
@@ -198,8 +198,8 @@ fn realizable_k_epsilon_bounded_c_mu_across_strain_rates() {
     }
 
     // Verify that C_mu decreases with increasing strain rate
-    let c_mu_low = model.realizable_c_mu(&[[0.0, 1.0], [0.0, 0.0]], k, epsilon);
-    let c_mu_high = model.realizable_c_mu(&[[0.0, 100.0], [0.0, 0.0]], k, epsilon);
+    let c_mu_low = cfd_2d::physics::turbulence::k_epsilon::realizable::realizable_c_mu(&model, &[[0.0, 1.0], [0.0, 0.0]], k, epsilon);
+    let c_mu_high = cfd_2d::physics::turbulence::k_epsilon::realizable::realizable_c_mu(&model, &[[0.0, 100.0], [0.0, 0.0]], k, epsilon);
     assert!(
         c_mu_high < c_mu_low,
         "C_mu should decrease with increasing strain: low={c_mu_low}, high={c_mu_high}"

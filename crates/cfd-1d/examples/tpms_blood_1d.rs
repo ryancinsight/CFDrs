@@ -234,7 +234,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("═══════════════════════════════════════════════════════");
     for idx in solution.graph.node_indices() {
         let n = solution.graph.node_weight(idx).unwrap();
-        let p = *solution.pressures.get(&idx).unwrap_or(&0.0);
+        let p = *solution.pressures.get(idx.index()).unwrap_or(&0.0);
         println!(
             "  {:10} : {:>10.2} Pa  ({:>7.2} mmHg)",
             n.id,
@@ -249,7 +249,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("═══════════════════════════════════════════════════════");
     for idx in solution.graph.edge_indices() {
         let e = solution.graph.edge_weight(idx).unwrap();
-        let q = *solution.flow_rates.get(&idx).unwrap_or(&0.0);
+        let q = *solution.flow_rates.get(idx.index()).unwrap_or(&0.0);
         let props = solution.properties.get(&idx);
 
         let (velocity, shear_rate) = if let Some(p) = props {
@@ -276,12 +276,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── 7. Flow Distribution Analysis ────────────────────────────────────────
     let q_upper = solution
         .flow_rates
-        .get(&edge_indices["ch_upper_1"])
+        .get(edge_indices["ch_upper_1"].index())
         .unwrap_or(&0.0)
         .abs();
     let q_lower = solution
         .flow_rates
-        .get(&edge_indices["ch_lower_1"])
+        .get(edge_indices["ch_lower_1"].index())
         .unwrap_or(&0.0)
         .abs();
     let q_total = q_upper + q_lower;

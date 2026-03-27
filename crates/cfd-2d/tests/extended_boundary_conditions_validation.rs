@@ -1,15 +1,16 @@
-//! Analytical validation tests for extended boundary conditions
-//!
-//! Validates periodic, symmetry, and pressure boundary conditions:
-//! 1. **Periodic Channel Flow**: Fully-developed Poiseuille flow with cyclic boundaries
-//! 2. **Symmetric Cavity**: Mirror reflection invariance
-//! 3. **Pressure-Driven Flow**: Pressure gradient momentum balance
-//! 4. **Periodic Energy Transport**: Temperature conservation with cyclic boundaries
-//!
-//! References:
-//! - Patankar, S.V. (1980). Numerical Heat Transfer and Fluid Flow, Chapter 4
-//! - OpenFOAM Programmer's Guide: Boundary Conditions
-//! - Versteeg, H.K. & Malalasekera, W. (2007). An Introduction to CFD, Chapter 11
+use cfd_2d::grid::array2d::Array2D;
+// Analytical validation tests for extended boundary conditions
+//
+// Validates periodic, symmetry, and pressure boundary conditions:
+// 1. **Periodic Channel Flow**: Fully-developed Poiseuille flow with cyclic boundaries
+// 2. **Symmetric Cavity**: Mirror reflection invariance
+// 3. **Pressure-Driven Flow**: Pressure gradient momentum balance
+// 4. **Periodic Energy Transport**: Temperature conservation with cyclic boundaries
+//
+// References:
+// - Patankar, S.V. (1980). Numerical Heat Transfer and Fluid Flow, Chapter 4
+// - OpenFOAM Programmer's Guide: Boundary Conditions
+// - Versteeg, H.K. & Malalasekera, W. (2007). An Introduction to CFD, Chapter 11
 
 use cfd_2d::physics::EnergyEquationSolver;
 use cfd_core::physics::boundary::BoundaryCondition;
@@ -292,7 +293,7 @@ fn test_periodic_energy_transport() {
         for j in 0..ny {
             let x = i as f64 * dx;
             let perturbation = 10.0 * (2.0 * std::f64::consts::PI * x / lx).sin();
-            solver.temperature[i][j] = t_init + perturbation;
+            solver.temperature[(i, j)] = t_init + perturbation;
         }
     }
 
@@ -300,7 +301,7 @@ fn test_periodic_energy_transport() {
     let mut initial_energy = 0.0;
     for i in 0..nx {
         for j in 0..ny {
-            initial_energy += solver.temperature[i][j];
+            initial_energy += solver.temperature[(i, j)];
         }
     }
     initial_energy *= dx * dy; // Integrate over domain
@@ -331,8 +332,8 @@ fn test_periodic_energy_transport() {
     }
 
     // Evolve for several time steps
-    let u_velocity = vec![vec![0.0; ny]; nx];
-    let v_velocity = vec![vec![0.0; ny]; nx];
+    let u_velocity = Array2D::new(nx, ny, 0.0);
+    let v_velocity = Array2D::new(nx, ny, 0.0);
 
     for _ in 0..10 {
         solver
@@ -344,7 +345,7 @@ fn test_periodic_energy_transport() {
     let mut final_energy = 0.0;
     for i in 0..nx {
         for j in 0..ny {
-            final_energy += solver.temperature[i][j];
+            final_energy += solver.temperature[(i, j)];
         }
     }
     final_energy *= dx * dy;
@@ -362,8 +363,8 @@ fn test_periodic_energy_transport() {
 
     // Validate periodicity: T(0,j) ≈ T(nx-1,j)
     for j in 0..ny {
-        let t_west = solver.temperature[0][j];
-        let t_east = solver.temperature[nx - 1][j];
+        let t_west = solver.temperature[(0, j)];
+        let t_east = solver.temperature[(nx - 1, j)];
         let periodic_error = (t_west - t_east).abs() / t_init;
 
         assert!(
@@ -378,3 +379,4 @@ fn test_periodic_energy_transport() {
         );
     }
 }
+

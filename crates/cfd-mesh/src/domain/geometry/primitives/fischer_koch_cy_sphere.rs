@@ -81,7 +81,7 @@ mod tests {
         }
         .build()
         .expect("Fischer-Koch C(Y) sphere");
-        assert!(mesh.faces.len() > 0);
+        assert!(!mesh.faces.is_empty());
     }
 
     #[test]

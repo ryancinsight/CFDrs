@@ -663,4 +663,58 @@ mod tests {
             assert!(w2 >= 0.0);
         }
     }
+
+    /// Constant preservation: WENO5 derivative of a constant function = 0.
+    ///
+    /// For φ(x) = C = const, the 7-point stencil is [C, C, C, C, C, C, C]
+    /// and dφ/dx = 0 regardless of velocity direction.
+    #[test]
+    fn weno5_constant_derivative_is_zero() {
+        let c = 3.7_f64;
+        let h = 0.1_f64;
+        let v = [c; 7];
+
+        // Positive velocity
+        let d_pos = weno5_derivative(v, h, 1.0);
+        assert!((d_pos).abs() < 1e-14, "d_pos = {d_pos}");
+
+        // Negative velocity
+        let d_neg = weno5_derivative(v, h, -1.0);
+        assert!((d_neg).abs() < 1e-14, "d_neg = {d_neg}");
+
+        // Zero velocity
+        let d_zero = weno5_derivative(v, h, 0.0);
+        assert!((d_zero).abs() < 1e-14, "d_zero = {d_zero}");
+    }
+
+    /// Linear exactness: WENO5 derivative of φ(x) = slope·x equals slope.
+    ///
+    /// For a linear function on a uniform grid with spacing h,
+    /// φ_{i+k} = φ_i + k·slope·h. All 3rd-order sub-stencil reconstructions
+    /// produce the same value, so WENO5 recovers the exact derivative.
+    #[test]
+    fn weno5_linear_exactness() {
+        let h = 0.1_f64;
+        let slope = 2.5_f64;
+        let phi_center = 1.0_f64;
+
+        // Build 7-point stencil for φ(x) = phi_center + slope * (k * h)
+        // centered at k = 0 (index 3)
+        let v: [f64; 7] = std::array::from_fn(|k| {
+            phi_center + slope * ((k as f64 - 3.0) * h)
+        });
+
+        let d_pos = weno5_derivative(v, h, 1.0);
+        assert!(
+            (d_pos - slope).abs() < 1e-12,
+            "linear d_pos = {d_pos}, expected {slope}"
+        );
+
+        let d_neg = weno5_derivative(v, h, -1.0);
+        assert!(
+            (d_neg - slope).abs() < 1e-12,
+            "linear d_neg = {d_neg}, expected {slope}"
+        );
+    }
 }
+

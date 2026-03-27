@@ -98,3 +98,112 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         grad
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    /// Reference tetrahedron P1 gradients: vertices at
+    /// v0=(0,0,0), v1=(1,0,0), v2=(0,1,0), v3=(0,0,1).
+    /// Barycentric coords: L1=1-x-y-z, L2=x, L3=y, L4=z.
+    /// ∇L1=(-1,-1,-1), ∇L2=(1,0,0), ∇L3=(0,1,0), ∇L4=(0,0,1).
+    fn reference_tet_shape() -> LagrangeTet10<f64> {
+        let p1_gradients = Matrix3x4::new(
+            -1.0, 1.0, 0.0, 0.0, // row x
+            -1.0, 0.0, 1.0, 0.0, // row y
+            -1.0, 0.0, 0.0, 1.0, // row z
+        );
+        LagrangeTet10::new(p1_gradients)
+    }
+
+    /// Partition of unity: ΣN_i(L) = 1 for any L with Σ L_k = 1.
+    ///
+    /// Theorem (Ciarlet 1978): The P2 Lagrange basis satisfies
+    /// Σ_{i=0}^{9} N_i(x) = 1 for all x in the element, which follows
+    /// from (ΣL_i)² = 1.
+    #[test]
+    fn partition_of_unity() {
+        let shape = reference_tet_shape();
+
+        // Interior point
+        let l = [0.1, 0.2, 0.3, 0.4];
+        let n = shape.values(&l);
+        let sum: f64 = n.iter().sum();
+        assert_relative_eq!(sum, 1.0, epsilon = 1e-14);
+
+        // Centroid
+        let l_centroid = [0.25, 0.25, 0.25, 0.25];
+        let n_c = shape.values(&l_centroid);
+        let sum_c: f64 = n_c.iter().sum();
+        assert_relative_eq!(sum_c, 1.0, epsilon = 1e-14);
+
+        // Near-vertex
+        let l_near = [0.9, 0.05, 0.03, 0.02];
+        let n_nv = shape.values(&l_near);
+        let sum_nv: f64 = n_nv.iter().sum();
+        assert_relative_eq!(sum_nv, 1.0, epsilon = 1e-14);
+    }
+
+    /// Kronecker delta: N_i(x_j) = δ_{ij} at the 10 nodal points.
+    ///
+    /// The 10 nodes of the P2 tet are: 4 corners (where exactly one L_k=1)
+    /// and 6 mid-edge points (where exactly two L_k = 0.5).
+    #[test]
+    fn kronecker_delta_at_nodes() {
+        let shape = reference_tet_shape();
+
+        // Corner nodes: L = (1,0,0,0), (0,1,0,0), (0,0,1,0), (0,0,0,1)
+        let corners: [[f64; 4]; 4] = [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ];
+
+        for (node_idx, l) in corners.iter().enumerate() {
+            let n = shape.values(l);
+            for i in 0..10 {
+                let expected = if i == node_idx { 1.0 } else { 0.0 };
+                assert_relative_eq!(
+                    n[i], expected,
+                    epsilon = 1e-14,
+                );
+            }
+        }
+
+        // Mid-edge nodes: edges (0,1),(1,2),(2,0),(0,3),(1,3),(2,3)
+        // with L at midpoint = 0.5 for each endpoint
+        let edges = [(0, 1), (1, 2), (2, 0), (0, 3), (1, 3), (2, 3)];
+        for (edge_idx, &(a, b)) in edges.iter().enumerate() {
+            let mut l = [0.0_f64; 4];
+            l[a] = 0.5;
+            l[b] = 0.5;
+            let n = shape.values(&l);
+            let mid_node = 4 + edge_idx;
+            for i in 0..10 {
+                let expected = if i == mid_node { 1.0 } else { 0.0 };
+                assert_relative_eq!(
+                    n[i], expected,
+                    epsilon = 1e-14,
+                );
+            }
+        }
+    }
+
+    /// Gradient consistency: Σ∇N_i = 0 (constant completeness).
+    ///
+    /// Since Σ N_i = 1 everywhere, differentiating gives Σ ∇N_i = 0.
+    #[test]
+    fn gradient_sum_is_zero() {
+        let shape = reference_tet_shape();
+        let l = [0.15, 0.25, 0.35, 0.25];
+        let grad = shape.gradients(&l);
+
+        // Sum over all 10 shape function gradients (columns)
+        for row in 0..3 {
+            let sum: f64 = (0..10).map(|col| grad[(row, col)]).sum();
+            assert_relative_eq!(sum, 0.0, epsilon = 1e-13);
+        }
+    }
+}

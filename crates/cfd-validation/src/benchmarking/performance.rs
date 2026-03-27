@@ -778,7 +778,7 @@ mod tests {
 
         let result = benchmark
             .benchmark_simple("test_operation", || {
-                std::thread::sleep(std::time::Duration::from_millis(1));
+                std::thread::sleep(std::time::Duration::from_millis(50));
             })
             .unwrap();
 

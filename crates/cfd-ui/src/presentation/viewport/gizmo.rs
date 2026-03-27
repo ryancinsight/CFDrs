@@ -1,22 +1,9 @@
-//! Axis gizmo — coordinate axis indicator overlay.
+//! Axis gizmo — legacy configuration re-exported from `axis_indicator`.
+//!
+//! This module re-exports `AxisIndicatorConfig` under the old name for
+//! backward compatibility during the Phase 1+2 migration.
 
-/// Configuration for the axis gizmo displayed in the viewport corner.
-#[derive(Clone, Debug)]
-pub struct AxisGizmo {
-    /// Size of the gizmo in pixels.
-    pub size_px: u32,
-    /// Whether the gizmo is visible.
-    pub visible: bool,
-    /// Position in the viewport (from top-left corner).
-    pub offset_px: (u32, u32),
-}
+pub use super::axis_indicator::AxisIndicatorConfig;
 
-impl Default for AxisGizmo {
-    fn default() -> Self {
-        Self {
-            size_px: 80,
-            visible: true,
-            offset_px: (20, 20),
-        }
-    }
-}
+/// Legacy alias for `AxisIndicatorConfig`.
+pub type AxisGizmo = AxisIndicatorConfig;

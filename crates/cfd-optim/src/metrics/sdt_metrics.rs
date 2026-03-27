@@ -315,7 +315,7 @@ pub struct SdtMetrics {
     /// - 0.0: no channels physically overlap (independent resistances valid).
     /// - < 0.1: shared walls only (acceptable, common in compact designs).
     /// - > 0.5: significant merging where independent-resistance 1D model
-    ///   may underpredict the effective hydraulic diameter.
+    ///   > may underpredict the effective hydraulic diameter.
     #[serde(default)]
     pub channel_overlap_fraction: f64,
 
@@ -761,9 +761,24 @@ pub struct SdtMetrics {
     #[serde(default)]
     pub per_channel_hemolysis: Vec<ChannelHemolysis>,
 
+    /// Acoustic resonance factor representing the alignment of channel width with the
+    /// ultrasound half-wavelength.
+    ///
+    /// ## Theorem — Half-Wavelength Resonance
+    /// For a standing acoustic wave to form a stable pressure node at the channel
+    /// centerline, the channel hydraulic diameter $D_h$ must match $n$ half-wavelengths:
+    /// $D_h = n \lambda / 2$.
+    ///
+    /// This metrics returns `1.0` for a perfect match ($n=1$), decaying linearly
+    /// to `0.0` as the geometry deviates by $\pm \lambda / 2$. This strictly enforces
+    /// the topological constraint that SDT treatment channels must be acoustically resonant.
     #[serde(default)]
     pub acoustic_resonance_factor: f64,
 
+    /// Channel resonance score (synonym for `acoustic_resonance_factor`).
+    ///
+    /// Extracted by taking the maximum `resonance_match(D_h)` across all 
+    /// active treatment channels in the network.
     #[serde(default)]
     pub channel_resonance_score: f64,
 

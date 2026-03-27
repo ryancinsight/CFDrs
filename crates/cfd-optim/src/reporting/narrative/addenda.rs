@@ -18,7 +18,7 @@ fn ancestry_event_counts(design: &Milestone12ReportDesign) -> (usize, usize) {
         .candidate
         .blueprint()
         .lineage()
-        .map(|lineage| {
+        .map_or((0, 0), |lineage| {
             lineage
                 .mutations
                 .iter()
@@ -32,7 +32,6 @@ fn ancestry_event_counts(design: &Milestone12ReportDesign) -> (usize, usize) {
                     counts
                 })
         })
-        .unwrap_or((0, 0))
 }
 
 fn build_ga_ranking_tradeoff_table(

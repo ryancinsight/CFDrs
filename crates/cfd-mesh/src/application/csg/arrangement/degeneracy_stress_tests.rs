@@ -109,18 +109,15 @@ mod tests {
         .expect("sphere b");
 
         let result = csg_boolean(BooleanOp::Intersection, &a, &b);
-        match result {
-            Ok(mesh) => {
-                // Intersection exists but may be very small
-                let v = signed_volume(&mesh);
-                assert!(
-                    v < 0.1,
-                    "near-tangent intersection volume {v} must be small"
-                );
-            }
-            Err(_) => {
-                // Empty intersection is acceptable for near-tangent case
-            }
+        if let Ok(mesh) = result {
+            // Intersection exists but may be very small
+            let v = signed_volume(&mesh);
+            assert!(
+                v < 0.1,
+                "near-tangent intersection volume {v} must be small"
+            );
+        } else {
+            // Empty intersection is acceptable for near-tangent case
         }
     }
 
@@ -471,18 +468,15 @@ mod tests {
         .expect("outer");
 
         let result = csg_boolean(BooleanOp::Difference, &inner, &outer);
-        match result {
-            Ok(mesh) => {
-                let v = signed_volume(&mesh);
-                assert!(
-                    v < 0.1 || mesh.face_count() == 0,
-                    "inner − outer must be empty or near-zero, got volume {v} with {} faces",
-                    mesh.face_count()
-                );
-            }
-            Err(_) => {
-                // Error (empty result) is acceptable
-            }
+        if let Ok(mesh) = result {
+            let v = signed_volume(&mesh);
+            assert!(
+                v < 0.1 || mesh.face_count() == 0,
+                "inner − outer must be empty or near-zero, got volume {v} with {} faces",
+                mesh.face_count()
+            );
+        } else {
+            // Error (empty result) is acceptable
         }
     }
 }

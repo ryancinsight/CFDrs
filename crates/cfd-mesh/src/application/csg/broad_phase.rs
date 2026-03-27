@@ -263,9 +263,9 @@ mod tests {
         for tri in raw {
             let p = |k: usize| -> Point3r {
                 Point3r::new(
-                    tri[k] as f64 * 0.1,
-                    tri[k + 1] as f64 * 0.1,
-                    tri[k + 2] as f64 * 0.1,
+                    f64::from(tri[k]) * 0.1,
+                    f64::from(tri[k + 1]) * 0.1,
+                    f64::from(tri[k + 2]) * 0.1,
                 )
             };
             let v0 = pool.insert_or_weld(p(0), n);

@@ -293,21 +293,18 @@ impl<T: RealField + Copy + Float + std::fmt::Debug> AndersonAccelerator<T> {
                 AndersonMethod::NormalEquations => self.solve_normal_equations(&f),
             };
 
-            match gamma_opt {
-                Some(gamma) => {
-                    // x_next = x + β·f − (ΔX + β·ΔF) · γ
-                    for (j, g_j) in gamma.iter().enumerate() {
-                        let term = &self.delta_x[j] + &self.delta_f[j] * self.config.relaxation;
-                        x_next -= term * *g_j;
-                    }
+            if let Some(gamma) = gamma_opt {
+                // x_next = x + β·f − (ΔX + β·ΔF) · γ
+                for (j, g_j) in gamma.iter().enumerate() {
+                    let term = &self.delta_x[j] + &self.delta_f[j] * self.config.relaxation;
+                    x_next -= term * *g_j;
                 }
-                None => {
-                    // Degenerate subproblem — clear history and recover with plain relaxation
-                    self.delta_x.clear();
-                    self.delta_f.clear();
-                    if let Some(qr) = &mut self.qr_state {
-                        qr.reset();
-                    }
+            } else {
+                // Degenerate subproblem — clear history and recover with plain relaxation
+                self.delta_x.clear();
+                self.delta_f.clear();
+                if let Some(qr) = &mut self.qr_state {
+                    qr.reset();
                 }
             }
         }

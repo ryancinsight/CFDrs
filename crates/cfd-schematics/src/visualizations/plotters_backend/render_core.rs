@@ -129,7 +129,7 @@ impl PlottersRenderer {
         overlay: &AnalysisOverlay,
     ) -> VisualizationResult<()> {
         let renderable =
-            channel_system_from_blueprint(system, Some(system.box_dims), Some(output_path))?;
+            channel_system_from_blueprint(system, Some(system.box_dims), Some(output_path));
         let (length, width) = system.box_dims;
         let x_buffer = length * config.margin_fraction;
         let y_buffer = width * config.margin_fraction;
@@ -169,6 +169,8 @@ impl PlottersRenderer {
             }))
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
+        #[allow(clippy::items_after_statements)]
+        const MAX_STROKE_MULT: u32 = 6;
         let (min_width, max_width) = {
             let mut lo = f64::INFINITY;
             let mut hi = f64::NEG_INFINITY;
@@ -180,14 +182,13 @@ impl PlottersRenderer {
             (lo, hi)
         };
 
-        const MAX_STROKE_MULT: u32 = 6;
         let width_multiplier = |w: f64| -> u32 {
             if max_width <= min_width {
                 return 1;
             }
             let rounded = (w * 1e6).round() / 1e6;
             let ratio = (rounded - min_width) / (max_width - min_width);
-            let mult = ratio.powf(0.8).mul_add((MAX_STROKE_MULT - 1) as f64, 1.0);
+            let mult = ratio.powf(0.8).mul_add(f64::from(MAX_STROKE_MULT - 1), 1.0);
             (mult.round() as u32).clamp(1, MAX_STROKE_MULT)
         };
 
@@ -211,16 +212,17 @@ impl PlottersRenderer {
                     .channel_categories
                     .get(i)
                     .copied()
-                    .unwrap_or_else(|| match channel.channel_shape {
-                        ChannelShape::Straight => ChannelTypeCategory::Straight,
-                        ChannelShape::Serpentine { .. } => ChannelTypeCategory::Straight,
+                    .unwrap_or(match channel.channel_shape {
+                        ChannelShape::Straight | ChannelShape::Serpentine { .. } => {
+                            ChannelTypeCategory::Straight
+                        }
                     });
                 config.channel_type_styles.get_style(category).clone()
             };
 
             let channel_width_mm = channel.cross_section.dims().0 * 1e3;
             let stroke = if max_width > min_width {
-                (base_style.width * width_multiplier(channel_width_mm) as f64).round() as u32
+                (base_style.width * f64::from(width_multiplier(channel_width_mm))).round() as u32
             } else {
                 base_style.width.round() as u32
             }

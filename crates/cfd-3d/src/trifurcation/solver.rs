@@ -14,6 +14,29 @@
 //!
 //! $D_0^3 = D_1^3 + D_2^3 + D_3^3$ minimises total viscous dissipation
 //! plus metabolic blood-volume maintenance cost.
+//!
+//! # Theorem — Picard Iteration Convergence for Generalised-Newtonian Stokes
+//!
+//! Given the viscosity function $\mu: \mathbb{R}^+ \to [\mu_\infty, \mu_0]$ is
+//! Lipschitz-continuous with constant $L_\mu$, the Picard iteration
+//!
+//! ```text
+//! μ^{(k+1)} = μ(γ̇(u^{(k)}))
+//! ```
+//!
+//! converges to a fixed point in $H^1$ norm provided $L_\mu < \rho / C_K$
+//! where $C_K$ is the Korn inequality constant and $\rho$ is the coercivity
+//! constant of the bilinear form $a(\cdot, \cdot)$.
+//!
+//! **Proof sketch.** The mapping $T: \mu \mapsto \mu(\dot{\gamma}(\mathbf{u}(\mu)))$
+//! is a contraction on $[\mu_\infty, \mu_0]$ under the stated bound. The Stokes
+//! operator with bounded viscosity is coercive on $H^1_0$, so the linear solve
+//! at each step is well-posed. Convergence follows from the Banach fixed-point
+//! theorem.
+//!
+//! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
+//! power-law systems." *Math. Comp.* 82:1247–1268.
+
 
 use crate::trifurcation::geometry::TrifurcationGeometry3D;
 use cfd_core::conversion::SafeFromF64;
@@ -41,6 +64,8 @@ pub struct TrifurcationConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + 
     pub max_linear_iterations: usize,
     /// Convergence tolerance for the linear solver
     pub linear_tolerance: T,
+    /// Target mesh element size (default is None, auto-derived from d_parent / 8.0)
+    pub target_mesh_size: Option<T>,
 }
 
 impl<
@@ -61,6 +86,7 @@ impl<
             nonlinear_tolerance: T::from_f64_or_one(1e-4),
             max_linear_iterations: 1000,
             linear_tolerance: T::from_f64_or_one(1e-6),
+            target_mesh_size: None,
         }
     }
 }
@@ -112,28 +138,31 @@ impl<
     ) -> Result<TrifurcationSolution3D<T>> {
         use crate::fem::{FemConfig, FemSolver, StokesFlowProblem};
         use cfd_core::physics::boundary::BoundaryCondition;
-        use cfd_mesh::BranchingMeshBuilder;
+        use cfd_mesh::application::delaunay::dim3::SdfMesher;
         use std::collections::HashMap;
 
-        // 1. Generate Mesh
-        let mesh_builder = BranchingMeshBuilder::trifurcation(
-            self.geometry.d_parent,
-            self.geometry.l_parent,
-            self.geometry.d_daughters[0],
-            self.geometry.l_daughters[0],
-            self.geometry.branching_angles[0],
-            8, // resolution factor
-        );
-        let base_mesh = match mesh_builder.build_surface() {
-            Ok(m) => m,
-            Err(e) => return Err(Error::Solver(format!("{e:?}"))),
+        // 1. Generate Volumetric Mesh from exact SDF
+        let geom_f64 = crate::trifurcation::TrifurcationGeometry3D {
+            d_parent: self.geometry.d_parent.to_f64().unwrap(),
+            l_parent: self.geometry.l_parent.to_f64().unwrap(),
+            d_daughters: [self.geometry.d_daughters[0].to_f64().unwrap(), self.geometry.d_daughters[1].to_f64().unwrap(), self.geometry.d_daughters[2].to_f64().unwrap()],
+            l_daughters: [self.geometry.l_daughters[0].to_f64().unwrap(), self.geometry.l_daughters[1].to_f64().unwrap(), self.geometry.l_daughters[2].to_f64().unwrap()],
+            l_transition: self.geometry.l_transition.to_f64().unwrap(),
+            transition: crate::bifurcation::ConicalTransition::SmoothCone { length: self.geometry.l_transition.to_f64().unwrap() },
+            branching_angles: [self.geometry.branching_angles[0].to_f64().unwrap(), self.geometry.branching_angles[1].to_f64().unwrap(), self.geometry.branching_angles[2].to_f64().unwrap()],
         };
-        let tet_mesh =
-            cfd_mesh::application::hierarchy::hex_to_tet::HexToTetConverter::convert(&base_mesh);
-        let mesh =
-            cfd_mesh::application::hierarchy::hierarchical_mesh::P2MeshConverter::convert_to_p2(
-                &tet_mesh,
-            );
+        let target_h = if let Some(h) = self.config.target_mesh_size {
+            h.to_f64().unwrap()
+        } else {
+            geom_f64.d_parent / 8.0_f64
+        };
+        let mut mesher = SdfMesher::<f64>::new(target_h);
+        // Disable boundary snapping to prevent degenerate tetrahedra (slivers) and rsparse panics
+        mesher.snap_iterations = 0;
+        let mesh = mesher.build_volume(&geom_f64);
+
+        println!("DEBUG: Volumetric meshing complete. Vertices: {}, Cells: {}, Boundary Faces: {}", 
+                 mesh.vertex_count(), mesh.cell_count(), mesh.boundary_faces().len());
 
         let stats_vertex_count = mesh.vertex_count();
         let stats_cell_count = mesh.cell_count();
@@ -163,38 +192,81 @@ impl<
         let u_inlet = q_inlet_target / inlet_area;
 
         // ── Classify boundary faces ───────────────────────────────────────────
-        // AxialBoundaryClassifier replaces the three marked_faces iteration passes
-        // (inlet / outlet_* / wall).  The per-label outlet map preserves per-outlet
-        // pressure assignment needed for the trifurcation case.
-        let face_sets = crate::fem::AxialBoundaryClassifier::new(&mesh, 8).classify();
+        // The TrifurcationGeometry3D branches in the XY plane, so AxialBoundaryClassifier (Z-axis)
+        // is invalid. We manually classify based on Euclidean distance to geometric endpoints.
+        let mut face_sets = crate::fem::boundary_classifier::BoundaryFaceSets::default();
+        let p_inlet = nalgebra::Point3::new(-geom_f64.l_parent, 0.0, 0.0);
+        let mut p_outlets = [nalgebra::Point3::origin(); 3];
+        for i in 0..3 {
+            let angle = geom_f64.branching_angles[i];
+            let dir = nalgebra::Vector3::new(angle.cos(), angle.sin(), 0.0);
+            p_outlets[i] = nalgebra::Point3::origin() + dir * geom_f64.l_daughters[i];
+        }
+        
+        for f_id in mesh.boundary_faces() {
+            let face = mesh.faces.get(f_id);
+            let mut z_sum = nalgebra::Vector3::zeros();
+            let mut count = 0.0;
+            for &v_idx in &face.vertices {
+                z_sum += mesh.vertices.get(v_idx).position.coords;
+                count += 1.0;
+                face_sets.boundary_vertices.insert(v_idx.as_usize());
+            }
+            let centroid = nalgebra::Point3::from(z_sum / count);
+            
+            let tol_inlet = geom_f64.d_parent / 2.0 + target_h;
+            if nalgebra::distance(&centroid, &p_inlet) <= tol_inlet {
+                for &v_idx in &face.vertices { face_sets.inlet_nodes.insert(v_idx.as_usize()); }
+                continue;
+            }
+            
+            let mut is_outlet = false;
+            for i in 0..3 {
+                let tol_outlet = geom_f64.d_daughters[i] / 2.0 + target_h;
+                if nalgebra::distance(&centroid, &p_outlets[i]) <= tol_outlet {
+                    let per_label = face_sets.outlet_nodes_by_label.entry(format!("outlet_{}", i)).or_default();
+                    for &v_idx in &face.vertices {
+                        let id = v_idx.as_usize();
+                        face_sets.outlet_nodes.insert(id);
+                        per_label.insert(id);
+                    }
+                    is_outlet = true;
+                    break;
+                }
+            }
+            if is_outlet { continue; }
+            
+            // Neither inlet nor outlet -> wall
+            for &v_idx in &face.vertices { face_sets.wall_nodes.insert(v_idx.as_usize()); }
+        }
+
         tracing::debug!(
-            count = mesh.boundary_faces().len(),
-            "Trifurcation boundary face count"
+            count = face_sets.boundary_vertices.len(),
+            "Trifurcation boundary face vertices identified"
         );
 
         // Apply inlet BCs (highest priority)
         for &v_idx in &face_sets.inlet_nodes {
             boundary_conditions.insert(
                 v_idx,
-                BoundaryCondition::VelocityInlet {
-                    velocity: Vector3::new(u_inlet.to_f64().unwrap_or(0.0), 0.0_f64, 0.0_f64),
+                cfd_core::physics::boundary::BoundaryCondition::VelocityInlet {
+                    velocity: nalgebra::Vector3::new(u_inlet.to_f64().unwrap_or(0.0), 0.0_f64, 0.0_f64),
                 },
             );
         }
 
-        // Apply per-outlet pressure BCs using the per-label map (outlet_0, outlet_1, outlet_2)
+        // Apply per-outlet pressure BCs using the per-label map
         for (label, nodes) in &face_sets.outlet_nodes_by_label {
-            // Parse the outlet index from the label suffix (e.g. "outlet_2" → 2).
             let idx = label
                 .strip_prefix("outlet_")
                 .and_then(|s| s.parse::<usize>().ok())
-                .expect("Outlet label should have a valid integer suffix")
+                .unwrap_or(0)
                 .min(self.config.outlet_pressures.len().saturating_sub(1));
             let pressure = self.config.outlet_pressures[idx].to_f64().unwrap_or(0.0);
             for &v_idx in nodes {
                 boundary_conditions
                     .entry(v_idx)
-                    .or_insert(BoundaryCondition::PressureOutlet { pressure });
+                    .or_insert(cfd_core::physics::boundary::BoundaryCondition::PressureOutlet { pressure });
             }
         }
 
@@ -202,15 +274,17 @@ impl<
         for &v_idx in &face_sets.wall_nodes {
             boundary_conditions
                 .entry(v_idx)
-                .or_insert(BoundaryCondition::Dirichlet {
+                .or_insert(cfd_core::physics::boundary::BoundaryCondition::Dirichlet {
                     value: 0.0_f64,
                     component_values: Some(vec![Some(0.0_f64), Some(0.0_f64), Some(0.0_f64), None]),
                 });
         }
 
-        tracing::debug!(
-            count = boundary_conditions.len(),
-            "Trifurcation boundary nodes constrained"
+        println!("DEBUG: Extracted BC sets! Inlet: {}, Outlet: {}, Wall: {}. Total BCs: {}", 
+            face_sets.inlet_nodes.len(), 
+            face_sets.outlet_nodes.len(), 
+            face_sets.wall_nodes.len(), 
+            boundary_conditions.len()
         );
 
         // 3. Set up FEM Problem
@@ -223,11 +297,12 @@ impl<
             speed_of_sound: fluid_props.speed_of_sound.to_f64().unwrap_or(0.0),
         };
 
+        let total_vertices = mesh.vertex_count();
         let mut problem = StokesFlowProblem::<f64>::new(
             mesh,
             constant_fluid,
             boundary_conditions,
-            tet_mesh.vertex_count(),
+            total_vertices,
         );
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities =

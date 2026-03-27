@@ -237,8 +237,8 @@ mod tests {
     #[test]
     fn boolean_dag_union_exact() {
         let domain = Aabb::new(Point3r::new(0.0, 0.0, 0.0), Point3r::new(10.0, 10.0, 10.0));
-        let mut a = SparseVoxelOctree::new(domain.clone());
-        let mut b = SparseVoxelOctree::new(domain.clone());
+        let mut a = SparseVoxelOctree::new(domain);
+        let mut b = SparseVoxelOctree::new(domain);
 
         let target_a = Aabb::new(Point3r::new(1.0, 1.0, 1.0), Point3r::new(4.0, 4.0, 4.0));
         let target_b = Aabb::new(Point3r::new(3.0, 3.0, 3.0), Point3r::new(6.0, 6.0, 6.0));

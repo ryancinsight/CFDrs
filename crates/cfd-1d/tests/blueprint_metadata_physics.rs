@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::physics::resistance::models::{
     FlowConditions, SerpentineCrossSection, SerpentineModel,
@@ -81,6 +83,7 @@ fn serpentine_analysis(channel: &ChannelSpec) -> (usize, f64, f64, f64) {
         ChannelShape::Serpentine {
             segments,
             bend_radius_m,
+            wave_type: _,
         } => (segments, bend_radius_m),
         _ => panic!("channel must carry inferred serpentine metadata"),
     };
@@ -467,10 +470,12 @@ fn inferred_selective_serpentine_metadata_changes_1d_losses() {
     let tight = selective_serpentine_blueprint(CenterSerpentinePathSpec {
         segments: 9,
         bend_radius_m: 0.45e-3,
+        wave_type: cfd_schematics::SerpentineWaveType::Sine,
     });
     let gentle = selective_serpentine_blueprint(CenterSerpentinePathSpec {
         segments: 5,
         bend_radius_m: 2.2e-3,
+        wave_type: cfd_schematics::SerpentineWaveType::Sine,
     });
 
     let tight_channel = blueprint_channel(&tight, "center_lv0");

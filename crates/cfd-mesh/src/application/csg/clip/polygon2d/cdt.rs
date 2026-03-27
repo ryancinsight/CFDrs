@@ -353,10 +353,10 @@ mod tests {
             clip in prop::collection::vec((-40_i16..40_i16, -40_i16..40_i16), 3..10)
         ) {
             let subj_poly: Vec<[Real;2]> = subj.into_iter()
-                .map(|(x,y)| [x as Real * 0.25, y as Real * 0.25])
+                .map(|(x,y)| [Real::from(x) * 0.25, Real::from(y) * 0.25])
                 .collect();
             let clip_poly: Vec<[Real;2]> = clip.into_iter()
-                .map(|(x,y)| [x as Real * 0.25, y as Real * 0.25])
+                .map(|(x,y)| [Real::from(x) * 0.25, Real::from(y) * 0.25])
                 .collect();
 
             let subj_edges = EdgeAabb2d::from_polygon(&subj_poly);

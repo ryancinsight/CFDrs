@@ -187,7 +187,7 @@ mod tests {
         let dynamic_pressure = 0.5 * fluid.density * velocity * velocity;
         let f_calc = delta_p * diameter / (length * dynamic_pressure);
 
-        println!("Calculated Friction Factor: {}", f_calc);
+        println!("Calculated Friction Factor: {f_calc}");
 
         // Standard Colebrook-White value for Re=500,000 and eps/D=0.0015 is approx 0.0218
         // Our iterative solution yields ~0.02217, which is within 2% of the chart value.
@@ -197,9 +197,7 @@ mod tests {
         // Verify result is within 2% of expected value (chart reading tolerance)
         assert!(
             error < 0.02,
-            "Friction factor {} deviates too much from expected {}",
-            f_calc,
-            expected_f
+            "Friction factor {f_calc} deviates too much from expected {expected_f}"
         );
     }
 }

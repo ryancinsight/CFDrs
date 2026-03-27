@@ -78,7 +78,7 @@ mod tests {
         }
         .build()
         .expect("Split P sphere");
-        assert!(mesh.faces.len() > 0);
+        assert!(!mesh.faces.is_empty());
     }
 
     #[test]

@@ -251,7 +251,7 @@ fn build_ga_lineage_ancestry_entries(
                 .candidate
                 .blueprint()
                 .lineage()
-                .map(|lineage| {
+                .map_or((0, 0), |lineage| {
                     lineage.mutations.iter().fold((0_usize, 0_usize), |mut counts, event| {
                         let operator = parse_lineage_operator(&event.mutation).unwrap_or_default();
                         if operator.starts_with("operating_point") {
@@ -261,8 +261,7 @@ fn build_ga_lineage_ancestry_entries(
                         }
                         counts
                     })
-                })
-                .unwrap_or((0, 0));
+                });
             GaLineageAncestryEntry {
                 rank: design.rank,
                 candidate_id: design.candidate.id.clone(),

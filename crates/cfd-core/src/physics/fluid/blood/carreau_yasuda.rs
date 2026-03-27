@@ -269,10 +269,7 @@ mod tests {
             let mu = blood.apparent_viscosity(gamma);
             assert!(
                 mu < prev_viscosity,
-                "Viscosity should decrease: μ({}) = {} should be less than {}",
-                gamma,
-                mu,
-                prev_viscosity
+                "Viscosity should decrease: μ({gamma}) = {mu} should be less than {prev_viscosity}"
             );
             prev_viscosity = mu;
         }
@@ -287,16 +284,14 @@ mod tests {
         let mu_1 = blood.apparent_viscosity(1.0);
         assert!(
             mu_1 > 0.02 && mu_1 < 0.05,
-            "μ(1 s⁻¹) = {} Pa·s should be ~0.035 Pa·s",
-            mu_1
+            "μ(1 s⁻¹) = {mu_1} Pa·s should be ~0.035 Pa·s"
         );
 
         // At γ̇ = 100 s⁻¹: μ ≈ 0.005 Pa·s
         let mu_100 = blood.apparent_viscosity(100.0);
         assert!(
             mu_100 > 0.003 && mu_100 < 0.01,
-            "μ(100 s⁻¹) = {} Pa·s should be ~0.005 Pa·s",
-            mu_100
+            "μ(100 s⁻¹) = {mu_100} Pa·s should be ~0.005 Pa·s"
         );
     }
 }

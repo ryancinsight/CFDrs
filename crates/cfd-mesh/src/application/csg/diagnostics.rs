@@ -12,14 +12,13 @@ pub(crate) fn trace_enabled() -> bool {
     static TRACE_ENABLED: OnceLock<bool> = OnceLock::new();
     *TRACE_ENABLED.get_or_init(|| {
         std::env::var("CFD_MESH_CSG_TRACE")
-            .map(|v| {
+            .is_ok_and(|v| {
                 let s = v.trim();
                 s == "1"
                     || s.eq_ignore_ascii_case("true")
                     || s.eq_ignore_ascii_case("yes")
                     || s.eq_ignore_ascii_case("on")
             })
-            .unwrap_or(false)
     })
 }
 

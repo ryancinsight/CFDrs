@@ -189,8 +189,7 @@ mod tests {
         let report = check_watertight(&mesh.vertices, &mesh.faces, &edges);
         assert!(
             report.is_watertight,
-            "dodecahedron must be watertight: {:?}",
-            report
+            "dodecahedron must be watertight: {report:?}"
         );
         assert_eq!(report.euler_characteristic, Some(2));
     }

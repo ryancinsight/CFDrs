@@ -52,6 +52,16 @@
 //! 1. Chorin, A. J. (1968): "Numerical solution of the Navier-Stokes equations"
 //! 2. Temam, R. (1969): foundational convergence analysis for numerical Navier-Stokes schemes.
 //! 3. Guermond, Minev & Shen (2006): "An overview of projection methods"
+//!
+//! # Generalised-Newtonian Extension
+//!
+//! When `problem.element_viscosities` is populated (e.g. from a Picard
+//! iteration over a Carreau-Yasuda model), the momentum prediction step
+//! uses per-element viscosity $\mu_e$ instead of `problem.fluid.viscosity`.
+//! This extends the Chorin projection to non-Newtonian fluids
+//! (Guermond et al., 2006, §5.3). The Poisson pressure step and velocity
+//! correction are viscosity-independent and require no modification.
+
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
@@ -713,7 +723,10 @@ impl<
 
         let mut applied_bcs = HashSet::new();
 
-        for (&node_idx, bc) in &problem.boundary_conditions {
+        let mut sorted_bcs: Vec<_> = problem.boundary_conditions.iter().collect();
+        sorted_bcs.sort_unstable_by_key(|(&k, _)| k);
+
+        for (&node_idx, bc) in sorted_bcs {
             match bc {
                 BoundaryCondition::VelocityInlet { velocity } => {
                     for d in 0..3 {
@@ -776,7 +789,10 @@ impl<
         problem: &StokesFlowProblem<T>,
         velocity: &mut DVector<T>,
     ) -> Result<()> {
-        for (&node_idx, bc) in &problem.boundary_conditions {
+        let mut sorted_bcs: Vec<_> = problem.boundary_conditions.iter().collect();
+        sorted_bcs.sort_unstable_by_key(|(&k, _)| k);
+
+        for (&node_idx, bc) in sorted_bcs {
             match bc {
                 BoundaryCondition::VelocityInlet {
                     velocity: inlet_vel,

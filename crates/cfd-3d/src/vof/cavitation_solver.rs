@@ -127,7 +127,7 @@ impl CavitationVofSolver {
                 ny,
                 nz,
                 config.liquid_density,
-                config.liquid_viscosity,
+                config.liquid_blood_model.clone(),
                 config.vapor_pressure,
             )
         });
@@ -458,7 +458,7 @@ impl CavitationVofSolver {
                                 let rp = RayleighPlesset {
                                     initial_radius: radius, // Use current as estimate
                                     liquid_density: self.config.liquid_density,
-                                    liquid_viscosity: self.config.liquid_viscosity,
+                                    liquid_viscosity: self.config.liquid_blood_model.viscosity(0.0),
                                     surface_tension: self
                                         .config
                                         .vof_config
@@ -564,7 +564,7 @@ impl CavitationVofSolver {
         let rp = RayleighPlesset::<f64> {
             initial_radius: bubble_cfg.initial_radius,
             liquid_density: self.config.liquid_density,
-            liquid_viscosity: self.config.liquid_viscosity,
+            liquid_viscosity: self.config.liquid_blood_model.viscosity(0.0),
             surface_tension: bubble_cfg.surface_tension,
             vapor_pressure: self.config.vapor_pressure,
             polytropic_index: bubble_cfg.polytropic_exponent,
@@ -618,6 +618,7 @@ mod tests {
     use super::*;
     use crate::vof::config::VofConfig;
     use cfd_core::physics::cavitation::models::CavitationModel;
+    use cfd_core::physics::fluid::BloodModel;
 
     /// Helper: build a minimal CavitationVofConfig with Kunz model.
     fn make_config() -> CavitationVofConfig {
@@ -634,7 +635,7 @@ mod tests {
             relaxation_time: 1e-4,
             vapor_pressure: 2300.0,   // ~water at 20 C
             liquid_density: 1000.0,
-            liquid_viscosity: 1e-3,
+            liquid_blood_model: BloodModel::Newtonian(1e-3),
             vapor_density: 0.017,
             sound_speed: 1500.0,
             nuclei_transport: None,

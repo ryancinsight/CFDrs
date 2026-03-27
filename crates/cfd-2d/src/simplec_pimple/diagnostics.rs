@@ -17,6 +17,7 @@
 //! Laplacian scaling of the Poisson operator.
 
 use super::solver::SimplecPimpleSolver;
+use crate::grid::array2d::Array2D;
 use crate::fields::SimulationFields;
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -27,13 +28,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     /// Calculate velocity residual between two velocity fields (L∞ norm)
     pub(super) fn calculate_velocity_residual_from_vectors(
         &self,
-        old_velocity: &[Vec<Vector2<T>>],
-        new_velocity: &[Vec<Vector2<T>>],
+        old_velocity: &Array2D<Vector2<T>>,
+        new_velocity: &Array2D<Vector2<T>>,
     ) -> T {
         let mut max_residual = T::zero();
         for i in 1..self.grid.nx - 1 {
             for j in 1..self.grid.ny - 1 {
-                let residual = (new_velocity[i][j] - old_velocity[i][j]).norm();
+                let residual = (new_velocity[(i, j)] - old_velocity[(i, j)]).norm();
                 if residual > max_residual {
                     max_residual = residual;
                 }
@@ -69,14 +70,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     /// correction equation solves.
     pub(super) fn calculate_continuity_residual_from_faces(
         &self,
-        face_velocity: &[Vec<Vector2<T>>],
+        face_velocity: &Array2D<Vector2<T>>,
     ) -> T {
         let mut max_divergence = T::zero();
 
         for i in 1..self.grid.nx - 1 {
             for j in 1..self.grid.ny - 1 {
-                let du_dx = (face_velocity[i][j].x - face_velocity[i - 1][j].x) / self.grid.dx;
-                let dv_dy = (face_velocity[i][j].y - face_velocity[i][j - 1].y) / self.grid.dy;
+                let du_dx = (face_velocity[(i, j)].x - face_velocity[(i - 1, j)].x) / self.grid.dx;
+                let dv_dy = (face_velocity[(i, j)].y - face_velocity[(i, j - 1)].y) / self.grid.dy;
                 let abs_div = (du_dx + dv_dy).abs();
                 if abs_div > max_divergence {
                     max_divergence = abs_div;
@@ -107,32 +108,32 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     pub(super) fn extract_velocity_field(
         &self,
         fields: &SimulationFields<T>,
-    ) -> Vec<Vec<Vector2<T>>> {
-        let mut velocity = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
+    ) -> Array2D<Vector2<T>> {
+        let mut velocity = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
-                velocity[i][j] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
+                velocity[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
             }
         }
         velocity
     }
 
-    /// Convert `Field2D<T>` to `Vec<Vec<T>>`
-    pub(super) fn field2d_to_vec2d(&self, field: &crate::fields::Field2D<T>) -> Vec<Vec<T>> {
-        let mut result = vec![vec![T::zero(); self.grid.ny]; self.grid.nx];
+    /// Convert `Field2D<T>` to `Array2D<T>`
+    pub(super) fn field2d_to_array2d(&self, field: &crate::fields::Field2D<T>) -> Array2D<T> {
+        let mut result = Array2D::new(self.grid.nx, self.grid.ny, T::zero());
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
-                result[i][j] = field[(i, j)];
+                result[(i, j)] = field[(i, j)];
             }
         }
         result
     }
 
-    /// Convert `Vec<Vec<T>>` to `Field2D<T>`
-    pub(super) fn vec2d_to_field2d(&self, field: &mut crate::fields::Field2D<T>, vec: &[Vec<T>]) {
+    /// Convert `Array2D<T>` to `Field2D<T>`
+    pub(super) fn array2d_to_field2d(&self, field: &mut crate::fields::Field2D<T>, vec: &Array2D<T>) {
         for i in 0..self.grid.nx {
             for j in 0..self.grid.ny {
-                field[(i, j)] = vec[i][j];
+                field[(i, j)] = vec[(i, j)];
             }
         }
     }

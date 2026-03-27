@@ -609,7 +609,7 @@ mod tests {
         let kv = KnotVector::clamped_uniform(2, 2);
         let nc = NurbsCurve::new(pts, weights, kv, 2).unwrap();
         for i in 0..=10 {
-            let t = i as Real / 10.0;
+            let t = Real::from(i) / 10.0;
             let pb = bs.point(t);
             let pn = nc.point(t);
             assert!(
@@ -633,14 +633,12 @@ mod tests {
 
         // Sample 11 points and check that they lie on the unit circle
         for i in 0..=10 {
-            let t = i as Real / 10.0;
+            let t = Real::from(i) / 10.0;
             let pt = curve.point(t);
             let r = (pt[0] * pt[0] + pt[1] * pt[1]).sqrt();
             assert!(
                 (r - 1.0).abs() < 1e-10,
-                "quarter-circle point not on unit circle at t={}: r={}",
-                t,
-                r
+                "quarter-circle point not on unit circle at t={t}: r={r}"
             );
         }
     }

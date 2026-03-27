@@ -416,7 +416,7 @@ fn markdown_table_to_compact_html(table: &str) -> String {
     for row in rows {
         html.push_str("<tr>");
         for (index, cell) in row.iter().enumerate() {
-            let header = headers.get(index).map(String::as_str).unwrap_or("");
+            let header = headers.get(index).map_or("", String::as_str);
             let alignment = if is_numeric_column(header) {
                 "center"
             } else {
@@ -446,17 +446,13 @@ fn column_width_for_header(header: &str) -> &'static str {
     let normalized = header.to_ascii_lowercase();
     if normalized.contains("candidate") {
         "22%"
-    } else if normalized.contains("track") {
-        "14%"
-    } else if normalized.contains("topology") {
+    } else if normalized.contains("track") || normalized.contains("topology") {
         "14%"
     } else if normalized.contains("mode") {
         "10%"
     } else if normalized.contains("parameter") {
         "18%"
-    } else if normalized.contains("reference") {
-        "16%"
-    } else if normalized.contains("model") {
+    } else if normalized.contains("reference") || normalized.contains("model") {
         "16%"
     } else if normalized.contains("crate") {
         "10%"

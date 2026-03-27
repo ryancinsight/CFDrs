@@ -15,7 +15,7 @@
 use std::fs;
 use std::io::BufWriter;
 
-use cfd_mesh::application::delaunay::convert::indexed_mesh::to_indexed_mesh;
+use cfd_mesh::application::delaunay::dim2::convert::indexed_mesh::to_indexed_mesh;
 use cfd_mesh::application::delaunay::{Cdt, Pslg, RuppertRefiner, TriangleQuality};
 use cfd_mesh::infrastructure::io::stl;
 
@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build Delaunay triangulation directly from points
     let dt =
-        cfd_mesh::application::delaunay::triangulation::DelaunayTriangulation::from_points(&points);
+        cfd_mesh::application::delaunay::dim2::triangulation::DelaunayTriangulation::from_points(&points);
 
     println!("   Vertices : {}", dt.vertex_count());
     println!("   Triangles: {}", dt.triangle_count());
@@ -242,7 +242,7 @@ struct QualityStats {
 
 /// Compute quality statistics for a triangulation.
 fn compute_quality_stats(
-    dt: &cfd_mesh::application::delaunay::triangulation::DelaunayTriangulation,
+    dt: &cfd_mesh::application::delaunay::dim2::triangulation::DelaunayTriangulation,
 ) -> QualityStats {
     let mut min_angle: f64 = f64::MAX;
     let mut min_re: f64 = f64::MAX;

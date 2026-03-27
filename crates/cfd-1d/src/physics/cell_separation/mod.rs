@@ -31,7 +31,7 @@
 //! let cancer = CellProperties::mcf7_breast_cancer();
 //! let healthy = CellProperties::red_blood_cell();
 //!
-//! let model = CellSeparationModel::new(500e-6, 200e-6, None);
+//! let model = CellSeparationModel::new(500e-6, 200e-6, 0.01, None);
 //! let analysis = model.analyze(&cancer, &healthy, 1060.0, 3.5e-3, 0.05)
 //!     .expect("cells must focus (κ > 0.07)");
 //!
@@ -47,13 +47,16 @@
 //!   *Phys. Rev. Lett.*, 108, 028104.
 
 pub mod cascade_junction;
+pub mod cell_free_layer;
 pub mod cell_interaction;
+pub mod fahraeus_effect;
 pub mod fahraeus_lindqvist;
 pub mod margination;
 pub mod plasma_skimming;
 pub mod properties;
 pub mod rouleaux_aggregation;
 pub mod separation_model;
+pub mod zweifach_fung;
 
 pub use cascade_junction::{
     cascade_junction_separation, cascade_junction_separation_cross_junction,
@@ -72,10 +75,16 @@ pub use margination::{
 pub use fahraeus_lindqvist::{
     fahraeus_lindqvist_viscosity, secomb_network_viscosity, secomb_phase_separation_x0,
 };
+pub use cell_free_layer::{cfl_width_fedosov, cfl_width_sharan_popel, two_layer_viscosity};
+pub use fahraeus_effect::{discharge_hematocrit, tube_hematocrit, tube_hematocrit_ratio};
 pub use plasma_skimming::plasma_skimming_hematocrit;
 pub use properties::CellProperties;
 pub use rouleaux_aggregation::quemada_viscosity;
 pub use separation_model::{CellSeparationAnalysis, CellSeparationModel};
+pub use zweifach_fung::{
+    confinement_ratio, critical_fractional_flow, zweifach_fung_daughter_hematocrits,
+    zweifach_fung_rbc_fraction,
+};
 
 // ── Three-population simultaneous model ─────────────────────────────────────
 
@@ -214,5 +223,76 @@ pub fn three_population_equilibria(
         cancer_center_fraction,
         wbc_center_fraction,
         rbc_peripheral_fraction,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Typical millifluidic conditions for blood flow.
+    /// Width = 500 µm, height = 200 µm, Q = 50 µL/min = 8.33e-10 m³/s.
+    const WIDTH: f64 = 500e-6;
+    const HEIGHT: f64 = 200e-6;
+    const Q: f64 = 8.33e-10;
+    const RHO: f64 = 1060.0;
+    const MU: f64 = 3.5e-3;
+    const HCT: f64 = 0.30;
+
+    /// Ordering invariant: cancer cells focus more centripetally than RBCs.
+    /// cancer_eq ≤ rbc_eq (lower x̃ = closer to center).
+    #[test]
+    fn ordering_cancer_center_rbc_wall() {
+        let eq = three_population_equilibria(WIDTH, HEIGHT, Q, RHO, MU, HCT, None);
+        assert!(
+            eq.cancer_eq <= eq.rbc_eq,
+            "Cancer (x̃={:.3}) should focus closer to center than RBC (x̃={:.3})",
+            eq.cancer_eq,
+            eq.rbc_eq
+        );
+    }
+
+    /// All fractions must be in [0, 1].
+    #[test]
+    fn fractions_bounded() {
+        let eq = three_population_equilibria(WIDTH, HEIGHT, Q, RHO, MU, HCT, None);
+        assert!(
+            eq.cancer_center_fraction >= 0.0 && eq.cancer_center_fraction <= 1.0,
+            "cancer_center_fraction = {} out of [0,1]",
+            eq.cancer_center_fraction
+        );
+        assert!(
+            eq.wbc_center_fraction >= 0.0 && eq.wbc_center_fraction <= 1.0,
+            "wbc_center_fraction = {} out of [0,1]",
+            eq.wbc_center_fraction
+        );
+        assert!(
+            eq.rbc_peripheral_fraction >= 0.0 && eq.rbc_peripheral_fraction <= 1.0,
+            "rbc_peripheral_fraction = {} out of [0,1]",
+            eq.rbc_peripheral_fraction
+        );
+    }
+
+    /// Cancer-WBC separation is always non-negative.
+    #[test]
+    fn cancer_wbc_separation_nonneg() {
+        let eq = three_population_equilibria(WIDTH, HEIGHT, Q, RHO, MU, HCT, None);
+        assert!(
+            eq.cancer_wbc_sep >= 0.0,
+            "cancer_wbc_sep = {} should be >= 0",
+            eq.cancer_wbc_sep
+        );
+    }
+
+    /// At zero hematocrit, WBC CFL correction is minimal.
+    /// WBC equilibrium should still be bounded.
+    #[test]
+    fn zero_hematocrit_wbc_bounded() {
+        let eq = three_population_equilibria(WIDTH, HEIGHT, Q, RHO, MU, 0.0, None);
+        assert!(
+            eq.wbc_eq >= 0.0 && eq.wbc_eq <= 1.0,
+            "WBC x̃ = {} out of [0,1] at HCT=0",
+            eq.wbc_eq
+        );
     }
 }

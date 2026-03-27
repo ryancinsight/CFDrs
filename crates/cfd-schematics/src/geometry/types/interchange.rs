@@ -163,14 +163,12 @@ impl NetworkBlueprint {
                         .nodes
                         .iter()
                         .find(|node| node.id == channel.from)
-                        .map(|node| node.point)
-                        .unwrap_or((0.0, 0.0));
+                        .map_or((0.0, 0.0), |node| node.point);
                     let to_point = self
                         .nodes
                         .iter()
                         .find(|node| node.id == channel.to)
-                        .map(|node| node.point)
-                        .unwrap_or(from_point);
+                        .map_or(from_point, |node| node.point);
                     vec![from_point, to_point]
                 } else {
                     channel.path.clone()

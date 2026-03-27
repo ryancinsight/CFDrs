@@ -131,32 +131,27 @@ pub fn validate_throat_geometry(
 ) -> Result<(), String> {
     if geometry.throat_width_m <= 0.0 {
         return Err(format!(
-            "Venturi '{}': throat_width_m must be positive",
-            placement_id
+            "Venturi '{placement_id}': throat_width_m must be positive"
         ));
     }
     if geometry.throat_height_m <= 0.0 {
         return Err(format!(
-            "Venturi '{}': throat_height_m must be positive",
-            placement_id
+            "Venturi '{placement_id}': throat_height_m must be positive"
         ));
     }
     if geometry.throat_length_m <= 0.0 {
         return Err(format!(
-            "Venturi '{}': throat_length_m must be positive",
-            placement_id
+            "Venturi '{placement_id}': throat_length_m must be positive"
         ));
     }
     if geometry.inlet_width_m <= 0.0 {
         return Err(format!(
-            "Venturi '{}': inlet_width_m must be positive",
-            placement_id
+            "Venturi '{placement_id}': inlet_width_m must be positive"
         ));
     }
     if geometry.outlet_width_m <= 0.0 {
         return Err(format!(
-            "Venturi '{}': outlet_width_m must be positive",
-            placement_id
+            "Venturi '{placement_id}': outlet_width_m must be positive"
         ));
     }
     if geometry.convergent_half_angle_deg <= 0.0 || geometry.convergent_half_angle_deg >= 90.0 {

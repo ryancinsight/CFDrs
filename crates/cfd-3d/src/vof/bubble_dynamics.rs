@@ -22,9 +22,28 @@
 //! viscous dissipation and surface tension work.
 //!
 //! **Reference**: Plesset, M.S. (1949). J. Appl. Mech. 16:277–282.
+//!
+//! # Theorem — Non-Newtonian Apparent Viscosity at Bubble Wall
+//!
+//! The macroscopic shear rate $\dot{\gamma}$ at a spherical bubble wall expanding
+//! or collapsing radially in a stationary fluid is analytically given by:
+//!
+//! ```text
+//! \dot{\gamma}_{wall} = \sqrt{12} \left| \frac{\dot{R}}{R} \right|
+//! ```
+//!
+//! **Proof sketch**: For purely radial flow $u_r = \dot{R} (R/r)^2$, the rate-of-strain
+//! tensor components are non-zero only on the diagonal: $S_{rr} = -2\dot{R}R^2/r^3$ and
+//! $S_{\theta\theta} = S_{\phi\phi} = \dot{R}R^2/r^3$. The second invariant
+//! $S_{ij}S_{ij}$ evaluated at the wall $r=R$ is $3(\dot{R}/R)^2$. The shear rate
+//! magnitude $\dot{\gamma} = \sqrt{2 S_{ij}S_{ij}} = \sqrt{12} |\dot{R}/R|$.
+//!
+//! This local shear rate dictates the apparent dynamic viscosity $\mu(\dot{\gamma})$
+//! for non-Newtonian fluids like blood during the Rayleigh-Plesset integration.
 
 use cfd_core::error::Result;
 use cfd_core::physics::cavitation::rayleigh_plesset::RayleighPlesset;
+use cfd_core::physics::fluid::BloodModel;
 use nalgebra::Vector3;
 use std::collections::HashMap;
 
@@ -49,6 +68,8 @@ pub struct BubbleDynamicsSolver {
     radii: HashMap<(usize, usize, usize), f64>,
     /// Current bubble wall velocities per grid cell
     velocities: HashMap<(usize, usize, usize), f64>,
+    /// Non-Newtonian blood model for apparent viscosity
+    blood_model: BloodModel<f64>,
 }
 
 impl BubbleDynamicsSolver {
@@ -59,7 +80,7 @@ impl BubbleDynamicsSolver {
         ny: usize,
         nz: usize,
         liquid_density: f64,
-        liquid_viscosity: f64,
+        blood_model: BloodModel<f64>,
         vapor_pressure: f64,
     ) -> Self {
         let mut configs = HashMap::new();
@@ -67,13 +88,14 @@ impl BubbleDynamicsSolver {
         let mut velocities = HashMap::new();
 
         // Initialize bubbles at each grid cell
+        let initial_viscosity = blood_model.viscosity(0.0);
         for i in 0..nx {
             for j in 0..ny {
                 for k in 0..nz {
                     let rp = RayleighPlesset {
                         initial_radius: config.initial_radius,
                         liquid_density,
-                        liquid_viscosity,
+                        liquid_viscosity: initial_viscosity,
                         surface_tension: config.surface_tension,
                         vapor_pressure,
                         polytropic_index: config.polytropic_exponent,
@@ -89,6 +111,7 @@ impl BubbleDynamicsSolver {
             configs,
             radii,
             velocities,
+            blood_model,
         }
     }
 
@@ -106,10 +129,16 @@ impl BubbleDynamicsSolver {
         let key = (i, j, k);
         let config = self
             .configs
-            .get(&key)
+            .get_mut(&key)
             .ok_or_else(|| cfd_core::error::Error::Solver("Bubble config not found".to_string()))?;
         let radius = *self.radii.get(&key).unwrap_or(&config.initial_radius);
         let velocity = *self.velocities.get(&key).unwrap_or(&0.0);
+
+        // Calculate apparent viscosity at the bubble wall.
+        // theorem: The shear rate at a spherical bubble wall expanding/collapsing radially
+        // is given by γ̇_wall = √12 |Ṙ / R|.
+        let shear_rate = 12.0_f64.sqrt() * (velocity.abs() / radius.max(1e-12));
+        config.liquid_viscosity = self.blood_model.viscosity(shear_rate);
 
         // Calculate acceleration using Rayleigh-Plesset equation
         let acceleration = config.bubble_acceleration(radius, velocity, pressure);

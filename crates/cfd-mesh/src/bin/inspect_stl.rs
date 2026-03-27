@@ -30,6 +30,7 @@
 #![allow(clippy::items_after_statements)]
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::cast_precision_loss)]
 
 use cfd_mesh::domain::core::scalar::{Point3r, Real, Vector3r};
 use std::collections::HashMap;

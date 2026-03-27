@@ -142,9 +142,7 @@ fn summarize_sequence_coverage(
             let dominant_limiter = accumulator
                 .limiter_counts
                 .into_iter()
-                .max_by_key(|(_, count)| *count)
-                .map(|(reason, _)| reason)
-                .unwrap_or_else(|| "eligible under current physics".to_string());
+                .max_by_key(|(_, count)| *count).map_or_else(|| "eligible under current physics".to_string(), |(reason, _)| reason);
             Milestone12SequenceCoverage {
                 sequence_label,
                 total_candidates: accumulator.total_candidates,
@@ -252,7 +250,7 @@ pub fn run_milestone12_option1() -> Result<Milestone12Option1Run, Box<dyn std::e
         })
         .copied()
         .collect();
-    best_indices.sort();
+    best_indices.sort_unstable();
 
     // Phase 3: dense fill between the two best stride points
     let (fill_lo, fill_hi) = if best_indices.len() >= 2 {
@@ -299,7 +297,7 @@ pub fn run_milestone12_option1() -> Result<Milestone12Option1Run, Box<dyn std::e
     let mut candidate_map: HashMap<String, BlueprintCandidate> =
         HashMap::with_capacity(needed_ids.len());
     for candidate in to_evaluate {
-        if needed_ids.iter().any(|id| *id == candidate.id) {
+        if needed_ids.contains(&candidate.id) {
             candidate_map.insert(candidate.id.clone(), candidate);
         }
     }

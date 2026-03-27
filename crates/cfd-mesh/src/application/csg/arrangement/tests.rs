@@ -230,8 +230,7 @@ fn coplanar_caps_no_double_counting() {
     // And it must be positive.
     assert!(
         union_vol > 0.1,
-        "union vol {:.4} should be positive",
-        union_vol
+        "union vol {union_vol:.4} should be positive"
     );
 
     // Intersection must be positive (the lens barrel is non-empty).
@@ -239,8 +238,7 @@ fn coplanar_caps_no_double_counting() {
     let inter_vol = signed_volume(&inter_mesh);
     assert!(
         inter_vol > 0.05,
-        "intersection vol {:.4} should be positive",
-        inter_vol
+        "intersection vol {inter_vol:.4} should be positive"
     );
 
     // Inclusion-exclusion: vol(A) + vol(B) Ã¢â€°Ë† vol(AÃ¢Ë†ÂªB) + vol(AÃ¢Ë†Â©B)
@@ -460,15 +458,15 @@ fn parallel_cylinder_union_is_watertight() {
             if edge.valence() == 1 {
                 let pa = *result.vertices.position(edge.vertices.0);
                 let pb = *result.vertices.position(edge.vertices.1);
-                let mid_z = (pa.z + pb.z) / 2.0;
+                let mid_z = f64::midpoint(pa.z, pb.z);
                 boundary_positions.push((pa, pb, mid_z));
             }
         }
         boundary_positions
             .sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
         eprintln!("=== Boundary edges ({}) ===", boundary_positions.len());
-        for (a, b, _z) in boundary_positions.iter() {
-            let mid_y = (a.y + b.y) / 2.0;
+        for (a, b, _z) in &boundary_positions {
+            let mid_y = f64::midpoint(a.y, b.y);
             eprintln!(
                 "  yÃ¢â€°Ë†{:.4}  ({:.4},{:.4},{:.4}) Ã¢â€ â€™ ({:.4},{:.4},{:.4})",
                 mid_y, a.x, a.y, a.z, b.x, b.y, b.z
@@ -603,7 +601,7 @@ fn asymmetric_cylinder_union_is_watertight() {
             "=== Asymmetric boundary edges ({}) ===",
             boundary_positions.len()
         );
-        for (a, b) in boundary_positions.iter() {
+        for (a, b) in &boundary_positions {
             eprintln!(
                 "  ({:.6},{:.6},{:.6}) Ã¢â€ â€™ ({:.6},{:.6},{:.6})",
                 a.x, a.y, a.z, b.x, b.y, b.z
@@ -800,7 +798,7 @@ fn v_shape_right_branch_is_watertight() {
             "=== right_branch boundary edges ({}) ===",
             boundary_positions.len()
         );
-        for (a, b) in boundary_positions.iter() {
+        for (a, b) in &boundary_positions {
             eprintln!(
                 "  ({:.6},{:.6},{:.6}) Ã¢â€ â€™ ({:.6},{:.6},{:.6})",
                 a.x, a.y, a.z, b.x, b.y, b.z
@@ -926,7 +924,7 @@ fn elbow_cylinder_union_is_watertight() {
             "=== Elbow+Arm boundary edges ({}) ===",
             boundary_positions.len()
         );
-        for (a, b) in boundary_positions.iter() {
+        for (a, b) in &boundary_positions {
             eprintln!(
                 "  ({:.6},{:.6},{:.6}) Ã¢â€ â€™ ({:.6},{:.6},{:.6})",
                 a.x, a.y, a.z, b.x, b.y, b.z

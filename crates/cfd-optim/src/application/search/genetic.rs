@@ -345,7 +345,7 @@ impl BlueprintGeneticOptimizer {
         let explore_gens = (self.max_generations * 2 / 3).max(1);
         let refine_gens = self.max_generations - explore_gens;
 
-        for _generation in 0..explore_gens {
+        for generation in 0..explore_gens {
             if eval_cache.len() > self.population * 4 {
                 eval_cache.clear();
             }
@@ -358,7 +358,7 @@ impl BlueprintGeneticOptimizer {
             best_per_generation.push(evaluation_score_or_zero(&ranked[0].evaluation));
             retain_archive(&mut archive, ranked.iter().cloned());
 
-            if _generation % 20 == 19 && archive.len() > 500 {
+            if generation % 20 == 19 && archive.len() > 500 {
                 let mut sorted: Vec<(CandidateFingerprint, BlueprintRankedCandidate)> =
                     archive.drain().collect();
                 sorted.sort_unstable_by(|(_, a), (_, b)| {

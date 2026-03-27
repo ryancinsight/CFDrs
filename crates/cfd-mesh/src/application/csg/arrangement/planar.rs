@@ -411,7 +411,7 @@ mod tests {
         ) {
             let unique_pts: Vec<[Real; 2]> = pts
                 .into_iter()
-                .map(|(x, y)| [x as Real * 0.05, y as Real * 0.05])
+                .map(|(x, y)| [Real::from(x) * 0.05, Real::from(y) * 0.05])
                 .collect();
 
             let p1 = unique_pts[0];
@@ -449,7 +449,7 @@ mod tests {
         ) {
             let unique_pts: Vec<[Real; 2]> = pts
                 .into_iter()
-                .map(|(x, y)| [x as Real * 0.05, y as Real * 0.05])
+                .map(|(x, y)| [Real::from(x) * 0.05, Real::from(y) * 0.05])
                 .collect();
 
             let p1 = unique_pts[0];

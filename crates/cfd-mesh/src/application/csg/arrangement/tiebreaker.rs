@@ -100,6 +100,7 @@ pub(super) fn coplanarity_tiebreak_prepared(
 }
 
 #[inline]
+#[allow(clippy::comparison_chain)]
 fn majority_vote(interior: i32, exterior: i32) -> Option<FragmentClass> {
     if interior > exterior {
         Some(FragmentClass::CoplanarOpposite)

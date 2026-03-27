@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn histogram_uniform_values_fills_all_bins() {
-        let values: Vec<Real> = (0..100).map(|i| i as Real).collect();
+        let values: Vec<Real> = (0..100).map(|i| Real::from(i)).collect();
         let h = Histogram::compute(&values, 10).unwrap();
         assert_eq!(h.bins.len(), 10);
         // Each bin should have 10 values.
@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn histogram_percentile_median_is_central() {
         // 0..100 uniform, 10 bins → p50 should be near 50.
-        let values: Vec<Real> = (0..100).map(|i| i as Real).collect();
+        let values: Vec<Real> = (0..100).map(|i| Real::from(i)).collect();
         let h = Histogram::compute(&values, 10).unwrap();
         let p50 = h.percentile(0.5).unwrap();
         assert!(

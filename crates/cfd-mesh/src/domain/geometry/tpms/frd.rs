@@ -116,7 +116,7 @@ mod tests {
         let min_abs = (0..25_u32)
             .flat_map(|i| (0..25_u32).map(move |j| (i, j)))
             .map(|(i, j)| {
-                Frd.field(-2.5 + i as f64 * 0.2, -2.5 + j as f64 * 0.2, 0.5, k)
+                Frd.field(-2.5 + f64::from(i) * 0.2, -2.5 + f64::from(j) * 0.2, 0.5, k)
                     .abs()
             })
             .fold(f64::INFINITY, f64::min);

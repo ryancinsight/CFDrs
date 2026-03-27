@@ -12,6 +12,10 @@ use cfd_mesh::domain::core::index::VertexId;
 use cfd_mesh::IndexedMesh;
 
 /// A GPU-ready vertex with position, normal, and region tag.
+///
+/// The `field_value` field also serves as the face ID encoding for the pick
+/// shader (bitcast `f32` → `u32` in WGSL). When field visualization is
+/// inactive, `field_value` stores the face index for GPU picking.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MeshVertex {
@@ -19,9 +23,9 @@ pub struct MeshVertex {
     pub position: [f32; 3],
     /// Surface normal (may be zero if not computed).
     pub normal: [f32; 3],
-    /// Region identifier for color-coding boundary patches.
+    /// Region/node identifier for color-coding and pick pass node encoding.
     pub region_id: u32,
-    /// Per-vertex scalar field value (simulation results, 0.0 if unused).
+    /// Per-vertex scalar field value, or face ID for pick pass (bitcast u32).
     pub field_value: f32,
 }
 
@@ -67,9 +71,9 @@ pub fn convert_mesh(mesh: &IndexedMesh<f64>) -> GpuMeshData {
         });
     }
 
-    // Build the index array, assigning region IDs from faces.
+    // Build the index array, assigning region IDs and face IDs from faces.
     let mut indices = Vec::with_capacity(mesh.face_count() * 3);
-    for face in mesh.faces.iter() {
+    for (face_idx, face) in mesh.faces.iter().enumerate() {
         let [v0, v1, v2] = face.vertices;
         let i0 = lookup_index(&id_to_index, v0);
         let i1 = lookup_index(&id_to_index, v1);
@@ -77,9 +81,14 @@ pub fn convert_mesh(mesh: &IndexedMesh<f64>) -> GpuMeshData {
 
         // Tag each vertex with the region from its face.
         let region = face.region.0;
+        // Encode face index as f32 via bitcast for the pick shader.
+        let face_id_f32 = f32::from_bits(face_idx as u32);
         vertices[i0 as usize].region_id = region;
         vertices[i1 as usize].region_id = region;
         vertices[i2 as usize].region_id = region;
+        vertices[i0 as usize].field_value = face_id_f32;
+        vertices[i1 as usize].field_value = face_id_f32;
+        vertices[i2 as usize].field_value = face_id_f32;
 
         indices.push(i0);
         indices.push(i1);

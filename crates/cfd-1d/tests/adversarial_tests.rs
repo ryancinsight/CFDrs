@@ -172,13 +172,13 @@ fn test_nan_resistance_does_not_panic() {
         Err(_) => {} // Graceful rejection
         Ok(solved) => {
             // Solver ran; check either NaN propagated or flow is trivially zero/nan
-            let pressures: Vec<f64> = solved.pressures().values().copied().collect();
+            let pressures: Vec<f64> = solved.pressures().iter().copied().collect();
             let flows: Vec<f64> = solved
                 .graph
                 .edge_references()
                 .map(|e| {
-                    let p_src = solved.pressures().get(&e.source()).copied().unwrap_or(0.0);
-                    let p_tgt = solved.pressures().get(&e.target()).copied().unwrap_or(0.0);
+                    let p_src = solved.pressures().get(e.source().index()).copied().unwrap_or(0.0);
+                    let p_tgt = solved.pressures().get(e.target().index()).copied().unwrap_or(0.0);
                     (p_src - p_tgt) / e.weight().resistance
                 })
                 .collect();
@@ -260,8 +260,8 @@ fn test_two_dirichlet_nodes_solve_correctly() {
         .graph
         .edge_references()
         .map(|e| {
-            let p_src = result.pressures().get(&e.source()).copied().unwrap_or(0.0);
-            let p_tgt = result.pressures().get(&e.target()).copied().unwrap_or(0.0);
+            let p_src = result.pressures().get(e.source().index()).copied().unwrap_or(0.0);
+            let p_tgt = result.pressures().get(e.target().index()).copied().unwrap_or(0.0);
             (p_src - p_tgt) / e.weight().resistance
         })
         .collect();

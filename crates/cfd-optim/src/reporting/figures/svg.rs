@@ -167,12 +167,12 @@ pub(super) fn write_cavitation_distribution_figure(
             let ty = y0 - yh * frac;
             let _ = write!(
                 svg,
-                r##"<line x1="{x0:.2}" y1="{ty:.2}" x2="{:.2}" y2="{ty:.2}" stroke="{color}" stroke-width="2" stroke-dasharray="8 6"/>"##,
+                r#"<line x1="{x0:.2}" y1="{ty:.2}" x2="{:.2}" y2="{ty:.2}" stroke="{color}" stroke-width="2" stroke-dasharray="8 6"/>"#,
                 x0 + xw
             );
             let _ = write!(
                 svg,
-                r##"<text x="{:.2}" y="{:.2}" font-size="12" fill="{color}">σ={threshold:.0}</text>"##,
+                r#"<text x="{:.2}" y="{:.2}" font-size="12" fill="{color}">σ={threshold:.0}</text>"#,
                 x0 + xw - 42.0,
                 ty - 6.0
             );
@@ -547,11 +547,7 @@ pub(super) fn write_ga_convergence_figure(
     let n_gen = best_per_gen.len();
     let x_ticks = 5.min(n_gen.saturating_sub(1)).max(1);
     for i in 0..=x_ticks {
-        let gen_idx = if x_ticks == 0 {
-            0
-        } else {
-            i * (n_gen - 1) / x_ticks
-        };
+        let gen_idx = (i * (n_gen - 1)).checked_div(x_ticks).unwrap_or(0);
         let frac = if n_gen <= 1 {
             0.5
         } else {
@@ -606,9 +602,9 @@ pub(super) fn write_ga_convergence_figure(
         0.0
     };
     let trajectory_note = if tail_delta > 1.0e-3 {
-        format!("Still improving: Δbest(last {} gen) = +{:.4}", tail_len, tail_delta)
+        format!("Still improving: Δbest(last {tail_len} gen) = +{tail_delta:.4}")
     } else if tail_delta < -1.0e-3 {
-        format!("Best fitness regressed over last {} gen by {:.4}", tail_len, tail_delta)
+        format!("Best fitness regressed over last {tail_len} gen by {tail_delta:.4}")
     } else {
         format!("Near-plateau: |Δbest(last {} gen)| = {:.4}", tail_len, tail_delta.abs())
     };

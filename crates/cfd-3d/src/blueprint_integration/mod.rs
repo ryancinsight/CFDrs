@@ -73,6 +73,8 @@ pub struct ChannelCrossFidelityTrace {
     pub two_d_outlet_flow_error_pct: Option<f64>,
     /// Mean wall shear extracted from the cfd-2d field [Pa], when computed.
     pub two_d_field_wall_shear_mean_pa: Option<f64>,
+    /// Eulerian-Lagrangian separation efficiency over the solved 2D field [%], when computed.
+    pub two_d_field_separation_efficiency_pct: Option<f64>,
     /// Whether the cfd-2d solve converged for this channel, when computed.
     pub two_d_converged: Option<bool>,
 }
@@ -148,7 +150,7 @@ pub fn process_blueprint_with_reference_trace(
 
     let two_d_result = if config.run_2d_reference {
         let builder = Network2dBuilderSink::new(
-            BloodModel::Newtonian(config.viscosity_pa_s),
+            BloodModel::CarreauYasuda(cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood()),
             config.density_kg_m3,
             config.total_flow_rate_m3_s,
             config.two_d_grid_nx,
@@ -202,6 +204,8 @@ pub fn process_blueprint_with_reference_trace(
                     .map(|channel| channel.field_outlet_flow_error_pct),
                 two_d_field_wall_shear_mean_pa: two_d
                     .map(|channel| channel.field_wall_shear_mean_pa),
+                two_d_field_separation_efficiency_pct: two_d
+                    .and_then(|channel| channel.field_separation_efficiency_pct),
                 two_d_converged: two_d.map(|channel| channel.solve_result.converged),
             })
         })

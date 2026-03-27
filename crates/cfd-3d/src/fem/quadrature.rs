@@ -72,3 +72,36 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
         &self.weights
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    /// Weight sum: Σw_k = 1/6 (volume of the reference tetrahedron).
+    ///
+    /// Theorem (Keast 1986): A valid quadrature rule on the reference tet
+    /// must integrate the constant function 1 exactly, yielding
+    /// Σw_k = Vol(T_ref) = 1/6.
+    #[test]
+    fn weight_sum_equals_reference_tet_volume() {
+        let quad = TetrahedronQuadrature::<f64>::keast_degree_3();
+        let sum: f64 = quad.weights().iter().sum();
+        assert_relative_eq!(sum, 1.0 / 6.0, epsilon = 1e-14);
+    }
+
+    /// Linear polynomial exactness: the Keast degree-3 rule integrates
+    /// linear functions exactly.
+    ///
+    /// For f(x,y,z) = x on the reference tet {x+y+z ≤ 1, x,y,z ≥ 0}:
+    /// ∫_T x dV = 1/24 (analytically derived from triple integral).
+    #[test]
+    fn linear_polynomial_exactness() {
+        let quad = TetrahedronQuadrature::<f64>::keast_degree_3();
+        let mut integral = 0.0_f64;
+        for (pt, w) in quad.points().iter().zip(quad.weights().iter()) {
+            integral += w * pt.x; // f(x,y,z) = x
+        }
+        assert_relative_eq!(integral, 1.0 / 24.0, epsilon = 1e-14);
+    }
+}

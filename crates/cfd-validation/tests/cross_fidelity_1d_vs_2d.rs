@@ -490,7 +490,7 @@ fn cross_fidelity_venturi_standalone_bernoulli() {
 
     let w_inlet = 2.0e-3_f64;
     let w_throat = 0.5e-3;
-    let u_inlet = 0.1; // 100 mm/s
+    let u_inlet = 0.05; // 50 mm/s
 
     let geom = VenturiGeometry::new(
         w_inlet,   // w_inlet

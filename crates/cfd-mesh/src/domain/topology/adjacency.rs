@@ -119,7 +119,7 @@ impl AdjacencyGraph {
 
         // Vertex neighbors: duplicates are impossible (uniqueness theorem).
         // Face neighbors: defensive dedup for degenerate input.
-        for v in face_neighbors.iter_mut() {
+        for v in &mut face_neighbors {
             v.sort_unstable();
             v.dedup();
         }
@@ -247,8 +247,7 @@ mod tests {
             assert_eq!(
                 adj.vertex_valence(vid(i)),
                 3,
-                "vertex {} should have valence 3 in a tetrahedron",
-                i
+                "vertex {i} should have valence 3 in a tetrahedron"
             );
         }
     }
@@ -271,8 +270,7 @@ mod tests {
             assert_eq!(
                 adj.vertex_faces(vid(i)).len(),
                 3,
-                "vertex {} should be incident to 3 faces in a tetrahedron",
-                i
+                "vertex {i} should be incident to 3 faces in a tetrahedron"
             );
         }
     }
@@ -296,8 +294,7 @@ mod tests {
             assert_eq!(
                 adj.face_neighbors(FaceId::from_usize(i)).len(),
                 3,
-                "face {} should have 3 face-neighbors in a tetrahedron",
-                i
+                "face {i} should have 3 face-neighbors in a tetrahedron"
             );
         }
     }
@@ -323,9 +320,7 @@ mod tests {
             let val = adj.vertex_valence(vid(i));
             assert!(
                 val >= 3,
-                "cube vertex {} has valence {} (expected ≥ 3)",
-                i,
-                val
+                "cube vertex {i} has valence {val} (expected ≥ 3)"
             );
         }
     }
@@ -339,8 +334,7 @@ mod tests {
         for i in 0..12 {
             assert!(
                 !adj.face_neighbors(FaceId::from_usize(i)).is_empty(),
-                "cube face {} should have at least one neighbor",
-                i
+                "cube face {i} should have at least one neighbor"
             );
         }
     }
@@ -500,8 +494,7 @@ mod tests {
             assert_eq!(
                 sorted.len(),
                 before,
-                "vertex {} has duplicate neighbors",
-                i
+                "vertex {i} has duplicate neighbors"
             );
         }
     }
@@ -526,9 +519,7 @@ mod tests {
             for &nbr in adj.face_neighbors(fid) {
                 assert!(
                     adj.face_neighbors(nbr).contains(&fid),
-                    "face {} lists face {:?} as neighbor, but not vice-versa",
-                    i,
-                    nbr
+                    "face {i} lists face {nbr:?} as neighbor, but not vice-versa"
                 );
             }
         }

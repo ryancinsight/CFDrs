@@ -3,13 +3,17 @@
 //! This module provides a comprehensive solver for analyzing fluid flow in microfluidic
 //! networks using sparse linear algebra and circuit analogies.
 
+mod anderson_acceleration;
 mod convergence;
 mod geometry;
 mod linear_system;
 mod matrix_assembly;
 mod problem;
+mod solver_detection;
 mod state;
 mod status;
+/// Workspace state and allocation for the 1D solver loop.
+pub mod workspace;
 /// Transient solvers for composition and droplet tracking over time.
 pub mod transient;
 
@@ -20,6 +24,7 @@ pub use matrix_assembly::MatrixAssembler;
 pub use problem::NetworkProblem;
 pub use state::NetworkState;
 pub use status::{PrimarySolveDiagnostics, PrimarySolveError, SolveFailureReason, SolvePathStatus};
+pub use workspace::SolverWorkspace;
 
 pub use transient::composition::{
     CompositionState, EdgeFlowEvent, InletCompositionEvent, MixtureComposition,
@@ -147,6 +152,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
     }
 
     /// Solve the network and return explicit diagnostics for the trusted primary path.
+    #[allow(clippy::too_many_lines, clippy::result_large_err)]
     pub fn solve_network_with_diagnostics(
         &self,
         problem: &NetworkProblem<T, F>,
@@ -161,7 +167,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
 
         let mut network = problem.network.clone();
         let n = network.node_count();
-        let mut last_solution = nalgebra::DVector::zeros(n);
+        let anderson_depth = 5;
+        let mut workspace = workspace::SolverWorkspace::new(n, anderson_depth);
+
+        MatrixAssembler::<T>::classify_boundary_conditions_into(
+            &network,
+            &mut workspace.dirichlet_values,
+            &mut workspace.neumann_sources,
+        ).map_err(|source| {
+            PrimarySolveError::new(
+                SolveFailureReason::InvalidGeometryContract,
+                PrimarySolveDiagnostics::default(),
+                source,
+            )
+        })?;
+
         let mut last_flow_rates = network.flow_rates.clone();
         let mut diagnostics = PrimarySolveDiagnostics::default();
         network.residuals.clear();
@@ -169,14 +189,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
 
         if Self::is_linear_static_network(&network) {
             diagnostics.matrix_treated_as_linear_static = true;
-            let (matrix, rhs) = self.assembler.assemble(&network).map_err(|source| {
+            let matrix = self.assembler.assemble_into(&network, &mut workspace).map_err(|source| {
                 PrimarySolveError::new(
                     SolveFailureReason::MatrixAssemblyInvalid,
                     diagnostics.clone(),
                     source,
                 )
             })?;
-            Self::validate_linear_system(&matrix, &rhs).map_err(|source| {
+            Self::validate_linear_system(&matrix, &workspace.rhs).map_err(|source| {
                 PrimarySolveError::new(
                     SolveFailureReason::MatrixAssemblyInvalid,
                     diagnostics.clone(),
@@ -191,7 +211,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
                 .with_method(method)
                 .with_tolerance(self.config.tolerance)
                 .with_max_iterations(self.config.max_iterations)
-                .solve(&matrix, &rhs)
+                .solve(&matrix, &workspace.rhs)
                 .map_err(|source| {
                     PrimarySolveError::new(
                         SolveFailureReason::LinearSolverFailure,
@@ -208,7 +228,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
                     }),
                 ));
             }
-            let residual_norm = Self::compute_residual_norm(&matrix, &solution, &rhs, n);
+            let residual_norm = Self::compute_residual_norm(&matrix, &solution, &workspace.rhs, n);
             diagnostics.last_residual_norm = Self::scalar_to_f64(residual_norm);
             diagnostics.last_solution_change_norm = Self::scalar_to_f64(solution.norm());
             if !residual_norm.is_finite() {
@@ -231,25 +251,19 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
             return Ok((network, diagnostics));
         }
 
-        let anderson_depth = 5;
-        let mut anderson_residuals: std::collections::VecDeque<nalgebra::DVector<T>> =
-            std::collections::VecDeque::with_capacity(anderson_depth);
-        let mut anderson_iterates: std::collections::VecDeque<nalgebra::DVector<T>> =
-            std::collections::VecDeque::with_capacity(anderson_depth);
-
         let mut selected_method: Option<LinearSolverMethod> = None;
         let mut adaptive_solver: Option<LinearSystemSolver<T>> = None;
 
         for iter in 0..self.config.max_iterations {
             diagnostics.picard_iterations = iter + 1;
-            let (matrix, rhs) = self.assembler.assemble(&network).map_err(|source| {
+            let matrix = self.assembler.assemble_into(&network, &mut workspace).map_err(|source| {
                 PrimarySolveError::new(
                     SolveFailureReason::MatrixAssemblyInvalid,
                     diagnostics.clone(),
                     source,
                 )
             })?;
-            Self::validate_linear_system(&matrix, &rhs).map_err(|source| {
+            Self::validate_linear_system(&matrix, &workspace.rhs).map_err(|source| {
                 PrimarySolveError::new(
                     SolveFailureReason::MatrixAssemblyInvalid,
                     diagnostics.clone(),
@@ -273,7 +287,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
             let picard_solution = adaptive_solver
                 .as_ref()
                 .expect("adaptive solver must be initialized after method detection")
-                .solve(&matrix, &rhs)
+                .solve(&matrix, &workspace.rhs)
                 .map_err(|source| {
                 PrimarySolveError::new(
                     SolveFailureReason::LinearSolverFailure,
@@ -290,7 +304,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
                     }),
                 ));
             }
-            let picard_residual = Self::compute_residual_norm(&matrix, &picard_solution, &rhs, n);
+            let picard_residual = Self::compute_residual_norm(&matrix, &picard_solution, &workspace.rhs, n);
             if !picard_residual.is_finite() {
                 diagnostics.last_residual_norm = Self::scalar_to_f64(picard_residual);
                 return Err(PrimarySolveError::new(
@@ -306,18 +320,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
                 iter,
                 n,
                 picard_solution,
-                &last_solution,
-                &mut anderson_residuals,
-                &mut anderson_iterates,
+                &mut workspace,
                 anderson_depth,
                 &matrix,
-                &rhs,
                 picard_residual,
             );
 
-            let residual_norm = Self::compute_residual_norm(&matrix, &solution, &rhs, n);
-            let rhs_norm = rhs.norm();
-            let solution_change_norm = (&solution - &last_solution).norm();
+            let residual_norm = Self::compute_residual_norm(&matrix, &solution, &workspace.rhs, n);
+            let rhs_norm = workspace.rhs.norm();
+            let solution_change_norm = (&solution - &workspace.last_solution).norm();
             diagnostics.last_residual_norm = Self::scalar_to_f64(residual_norm);
             diagnostics.last_solution_change_norm = Self::scalar_to_f64(solution_change_norm);
             if !residual_norm.is_finite() || !solution_change_norm.is_finite() {
@@ -333,10 +344,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
 
             let converged = self
                 .convergence
-                .has_converged_dual(&solution, &last_solution, residual_norm, rhs_norm)
+                .has_converged_dual(&solution, &workspace.last_solution, residual_norm, rhs_norm)
                 .map_err(|source| {
                     let reason = match &source {
-                        Error::Convergence(ConvergenceErrorKind::InvalidValue { .. })
+                        Error::Convergence(ConvergenceErrorKind::InvalidValue)
                         | Error::Numerical(NumericalErrorKind::InvalidValue { .. }) => {
                             SolveFailureReason::NonFiniteResidual
                         }
@@ -356,8 +367,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
 
             let mut flow_diff_sq = T::zero();
             let mut flow_norm_sq = T::zero();
-            for (idx, &new_flow) in &network.flow_rates {
-                let old_flow = last_flow_rates.get(idx).copied().unwrap_or(T::zero());
+            for (i, &new_flow) in network.flow_rates.iter().enumerate() {
+                let old_flow = last_flow_rates.get(i).copied().unwrap_or(T::zero());
                 let diff = new_flow - old_flow;
                 flow_diff_sq += diff * diff;
                 flow_norm_sq += new_flow * new_flow;
@@ -375,7 +386,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
                 return Ok((network, diagnostics));
             }
 
-            last_solution = solution;
+            workspace.last_solution = solution;
             last_flow_rates.clone_from(&network.flow_rates);
         }
 
@@ -388,242 +399,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
         ))
     }
 
-    fn is_linear_static_network(network: &Network<T, F>) -> bool {
-        let eps = T::default_epsilon();
-        let all_edges_linear = network
-            .graph
-            .edge_weights()
-            .all(|edge| <T as Float>::abs(edge.quad_coeff) <= eps);
-        let no_geometry_updates = network
-            .properties
-            .values()
-            .all(|props| props.geometry.is_none());
-        all_edges_linear && no_geometry_updates
-    }
-
-    /// Detect whether the assembled matrix is SPD via diagonal dominance check.
-    ///
-    /// The Laplacian sign structure (positive diagonal, non-positive off-diagonal)
-    /// is topologically invariant, so this classification is stable across
-    /// Picard iterations.
-    fn detect_solver_method(matrix: &nalgebra_sparse::CsrMatrix<T>) -> LinearSolverMethod {
-        let mut is_spd = true;
-        for i in 0..matrix.nrows() {
-            let row = matrix.row(i);
-            let mut diag = T::zero();
-            let mut sum_off = T::zero();
-            for (j, val) in row.col_indices().iter().zip(row.values()) {
-                if *j == i {
-                    diag = *val;
-                } else if *val > T::zero() {
-                    is_spd = false;
-                    break;
-                } else {
-                    sum_off += <T as Float>::abs(*val);
-                }
-            }
-            if !is_spd {
-                break;
-            }
-            let is_identity_dirichlet = diag == T::one() && sum_off == T::zero();
-            if (diag < sum_off || diag <= T::zero()) && !is_identity_dirichlet {
-                is_spd = false;
-                break;
-            }
-        }
-        if is_spd {
-            LinearSolverMethod::ConjugateGradient
-        } else {
-            LinearSolverMethod::BiCGSTAB
-        }
-    }
-
-    /// Apply Anderson acceleration (depth m=5) to the Picard iterate sequence.
-    ///
-    /// Minimises the fixed-point residual in the least-squares sense over the
-    /// last m iterates (Walker & Ni 2011).
-    fn anderson_accelerate(
-        iter: usize,
-        n: usize,
-        picard_solution: nalgebra::DVector<T>,
-        last_solution: &nalgebra::DVector<T>,
-        residuals: &mut std::collections::VecDeque<nalgebra::DVector<T>>,
-        iterates: &mut std::collections::VecDeque<nalgebra::DVector<T>>,
-        depth: usize,
-    ) -> nalgebra::DVector<T> {
-        if iter == 0 || n <= 1 {
-            if iter == 0 {
-                let residual = &picard_solution - last_solution;
-                residuals.push_back(residual);
-                iterates.push_back(picard_solution.clone());
-            }
-            return picard_solution;
-        }
-
-        let residual = &picard_solution - last_solution;
-        if residuals.len() >= depth {
-            residuals.pop_front();
-            iterates.pop_front();
-        }
-        residuals.push_back(residual);
-        iterates.push_back(picard_solution.clone());
-
-        let m = residuals.len();
-        if m < 2 {
-            return picard_solution;
-        }
-
-        let ncols = m - 1;
-        let r_last = &residuals[m - 1];
-        let mut gram = nalgebra::DMatrix::<T>::zeros(ncols, ncols);
-        let mut rhs_ls = nalgebra::DVector::<T>::zeros(ncols);
-
-        for j in 0..ncols {
-            let dr_j = &residuals[j] - r_last;
-            rhs_ls[j] = dr_j.dot(r_last);
-            for k in j..ncols {
-                let dr_k = &residuals[k] - r_last;
-                let val = dr_j.dot(&dr_k);
-                gram[(j, k)] = val;
-                gram[(k, j)] = val;
-            }
-        }
-
-        nalgebra::linalg::LU::new(gram)
-            .solve(&rhs_ls)
-            .map_or(picard_solution, |lu| {
-                let alpha_sum: T = lu.iter().fold(T::zero(), |acc, &a| acc + a);
-                let one_minus_sum = T::one() - alpha_sum;
-                let x_last = &iterates[m - 1];
-                let mut accelerated = x_last * one_minus_sum + r_last * one_minus_sum;
-                for j in 0..ncols {
-                    accelerated += (&iterates[j] + &residuals[j]) * lu[j];
-                }
-                accelerated
-            })
-    }
-
-    fn select_next_iterate(
-        iter: usize,
-        n: usize,
-        picard_solution: nalgebra::DVector<T>,
-        last_solution: &nalgebra::DVector<T>,
-        residuals: &mut std::collections::VecDeque<nalgebra::DVector<T>>,
-        iterates: &mut std::collections::VecDeque<nalgebra::DVector<T>>,
-        depth: usize,
-        matrix: &nalgebra_sparse::CsrMatrix<T>,
-        rhs: &nalgebra::DVector<T>,
-        picard_residual: T,
-    ) -> nalgebra::DVector<T> {
-        let picard_step_norm = (&picard_solution - last_solution).norm();
-        let accelerated = Self::anderson_accelerate(
-            iter,
-            n,
-            picard_solution.clone(),
-            last_solution,
-            residuals,
-            iterates,
-            depth,
-        );
-
-        if Self::vector_is_finite(&accelerated) {
-            let accelerated_step_norm = (&accelerated - last_solution).norm();
-            let accelerated_residual = Self::compute_residual_norm(matrix, &accelerated, rhs, n);
-            if accelerated_residual.is_finite()
-                && accelerated_step_norm <= picard_step_norm
-                && accelerated_residual
-                    <= <T as Float>::max(picard_residual, T::default_epsilon())
-            {
-                return accelerated;
-            }
-        }
-
-        let backup_damped = Self::damped_picard(last_solution, &picard_solution, 0.5);
-        if Self::vector_is_finite(&backup_damped) {
-            let damped_step_norm = (&backup_damped - last_solution).norm();
-            if damped_step_norm < picard_step_norm {
-                return backup_damped;
-            }
-        }
-
-        if Self::vector_is_finite(&accelerated) {
-            accelerated
-        } else {
-            picard_solution
-        }
-    }
-
-    fn damped_picard(
-        last_solution: &nalgebra::DVector<T>,
-        picard_solution: &nalgebra::DVector<T>,
-        alpha: f64,
-    ) -> nalgebra::DVector<T> {
-        let alpha = T::from_f64(alpha).expect("Mathematical constant conversion compromised");
-        last_solution + (picard_solution - last_solution) * alpha
-    }
-
-    /// Compute the L2 norm of the linear-system residual ||Ax - b||₂.
-    fn compute_residual_norm(
-        matrix: &nalgebra_sparse::CsrMatrix<T>,
-        solution: &nalgebra::DVector<T>,
-        rhs: &nalgebra::DVector<T>,
-        n: usize,
-    ) -> T {
-        let mut norm = T::zero();
-        for i in 0..n {
-            let row = matrix.row(i);
-            let mut ax_i = T::zero();
-            for (j, val) in row.col_indices().iter().zip(row.values()) {
-                ax_i += *val * solution[*j];
-            }
-            let r_i = ax_i - rhs[i];
-            norm += r_i * r_i;
-        }
-        <T as Float>::sqrt(norm)
-    }
-
     fn update_network_solution(
         &self,
         network: &mut Network<T, F>,
         solution: &nalgebra::DVector<T>,
     ) -> Result<()> {
-        // Update network pressures and flows from solution vector
         network.update_from_solution(solution)
-    }
-
-    fn validate_linear_system(
-        matrix: &nalgebra_sparse::CsrMatrix<T>,
-        rhs: &nalgebra::DVector<T>,
-    ) -> Result<()> {
-        if matrix.nrows() == 0 || matrix.ncols() == 0 {
-            return Err(Error::InvalidConfiguration(
-                "Assembled network matrix is empty".to_string(),
-            ));
-        }
-        for row_idx in 0..matrix.nrows() {
-            let row = matrix.row(row_idx);
-            for value in row.values() {
-                if !value.is_finite() {
-                    return Err(Error::Numerical(NumericalErrorKind::InvalidValue {
-                        value: format!("matrix[{row_idx}] is non-finite"),
-                    }));
-                }
-            }
-        }
-        if rhs.iter().any(|value| !value.is_finite()) {
-            return Err(Error::Numerical(NumericalErrorKind::InvalidValue {
-                value: "RHS contains non-finite entries".to_string(),
-            }));
-        }
-        Ok(())
-    }
-
-    fn vector_is_finite(values: &nalgebra::DVector<T>) -> bool {
-        values.iter().all(|value| value.is_finite())
-    }
-
-    fn scalar_to_f64(value: T) -> Option<f64> {
-        value.to_f64()
     }
 }
 

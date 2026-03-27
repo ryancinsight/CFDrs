@@ -137,7 +137,7 @@ pub fn symmetric_n_furcation_spec(
 
         for i in 0..splits {
             let (role, treatment) =
-                if (splits % 2 != 0 && i == splits / 2) || (splits % 2 == 0 && i == 0) {
+                if (!splits.is_multiple_of(2) && i == splits / 2) || (splits.is_multiple_of(2) && i == 0) {
                     (BranchRole::Treatment, true)
                 } else {
                     (BranchRole::Neutral, false)

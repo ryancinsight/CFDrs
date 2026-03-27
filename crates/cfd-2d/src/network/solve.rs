@@ -5,6 +5,9 @@ use num_traits::{Float, FromPrimitive, ToPrimitive};
 
 use super::postprocess::{extract_field_outlet_flow_rate, extract_field_wall_shear};
 use super::types::{Channel2dResult, Network2DSolver, Network2dResult};
+use crate::solvers::cell_tracking::physics::{CellTrackerConfig, VelocityFieldInterpolator};
+use crate::solvers::cell_tracking::population::{CellPopulation, TrackedCell};
+use crate::solvers::cell_tracking::tracker::CellTracker;
 
 /// Minimum cross-section area (m²) used to guard against division by zero
 /// when computing velocity from flow rate.
@@ -70,6 +73,68 @@ where
                     .unwrap_or(0.0);
                 let hi_t = T::from_f64(hi).unwrap_or_else(T::zero);
 
+                // Run Eulerian-Lagrangian Tracking to determine Separation Efficiency
+                let mut sep_eff_pct = None;
+                if let cfd_schematics::domain::model::CrossSectionSpec::Rectangular { .. } = entry.cross_section {
+                    // Only compute separation metric for rectangular networks, mimicking the 1D model
+                    let cnf = CellTrackerConfig {
+                        viscosity: entry.viscosity_pa_s,
+                        fluid_density: 1060.0, // Assuming standard blood density used in example
+                        hydraulic_diameter_m: entry.cross_section.hydraulic_diameter(),
+                        u_max: u_mean,
+                        ..Default::default()
+                    };
+                    let tracker = CellTracker::new(&entry.solver, cnf);
+
+                    // Seed cells uniformly at inlet
+                    let n_per_pop = 50;
+                    let mut cells = Vec::with_capacity(n_per_pop * 2);
+                    let (x_min, _, y_min, y_max) = entry.solver.bounds();
+                    let h_bounds = y_max - y_min;
+
+                    for i in 0..n_per_pop {
+                        let y = y_min + h_bounds * 0.05 + h_bounds * 0.9 * (i as f64 / (n_per_pop - 1) as f64);
+                        cells.push(TrackedCell {
+                            population: CellPopulation::CTC, x: x_min + 1e-6, y, vx: u_mean, vy: 0.0, id: i,
+                        });
+                        cells.push(TrackedCell {
+                            population: CellPopulation::RBC, x: x_min + 1e-6, y, vx: u_mean, vy: 0.0, id: n_per_pop + i,
+                        });
+                    }
+
+                    // 10us time step, 5,000,000 steps = 50 seconds transit time budget
+                    let trajectories = tracker.trace_cells(&cells, 1e-5, 5_000_000);
+                    
+                    // Compute continuous separation metric matching the 1D analytical model:
+                    // η = |ỹ_CTC - ỹ_RBC| where ỹ is the normalized lateral coordinate ∈ [0, 1]
+                    let mut sum_y_ctc = 0.0;
+                    let mut count_ctc = 0;
+                    let mut sum_y_rbc = 0.0;
+                    let mut count_rbc = 0;
+                    
+                    for traj in &trajectories {
+                        if let Some(pos) = traj.positions.last() {
+                            let y_tilde = (pos[1] - y_min) / h_bounds.max(1e-12);
+                            match traj.population {
+                                CellPopulation::CTC => {
+                                    sum_y_ctc += y_tilde;
+                                    count_ctc += 1;
+                                }
+                                CellPopulation::RBC | CellPopulation::WBC => {
+                                    sum_y_rbc += y_tilde;
+                                    count_rbc += 1;
+                                }
+                            }
+                        }
+                    }
+                    
+                    let y_tilde_ctc = if count_ctc > 0 { sum_y_ctc / f64::from(count_ctc) } else { 0.5 };
+                    let y_tilde_rbc = if count_rbc > 0 { sum_y_rbc / f64::from(count_rbc) } else { 0.5 };
+                    let diff_pct = (y_tilde_ctc - y_tilde_rbc).abs() * 100.0;
+
+                    sep_eff_pct = Some(T::from_f64(diff_pct).unwrap_or(T::zero()));
+                }
+
                 Ok(Channel2dResult {
                     channel_id: entry.id.clone(),
                     therapy_zone: entry.therapy_zone,
@@ -82,6 +147,7 @@ where
                     field_outlet_flow_error_m3_s: outlet_flow_error,
                     field_outlet_flow_error_pct: outlet_flow_error_pct,
                     transit_time_s: T::from_f64(t_s).unwrap_or_else(T::zero),
+                    field_separation_efficiency_pct: sep_eff_pct,
                     hemolysis_index: hi_t,
                     reference_trace: entry.reference_trace.clone(),
                 })

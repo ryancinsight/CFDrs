@@ -280,4 +280,23 @@ mod tests {
             "Zero pore radius should return error"
         );
     }
+
+    /// Validate invariant: negative or zero dimensions return error.
+    #[test]
+    fn test_membrane_zero_dimensions_error() {
+        let fluid = water();
+        let cond = FlowConditions::new(0.0);
+        
+        // Zero thickness
+        let m1 = MembranePoreModel::<f64>::new(0.0, 1e-3, 1e-3, 0.5e-6, 0.2);
+        assert!(m1.validate_invariants(&fluid, &cond).is_err(), "Zero thickness should return error");
+
+        // Negative width
+        let m2 = MembranePoreModel::<f64>::new(10e-6, -1e-3, 1e-3, 0.5e-6, 0.2);
+        assert!(m2.validate_invariants(&fluid, &cond).is_err(), "Negative width should return error");
+        
+        // Negative radius
+        let m3 = MembranePoreModel::<f64>::new(10e-6, 1e-3, 1e-3, -0.5e-6, 0.2);
+        assert!(m3.validate_invariants(&fluid, &cond).is_err(), "Negative radius should return error");
+    }
 }

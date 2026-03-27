@@ -581,7 +581,7 @@ mod tests {
         let mut all_same = true;
         let (first_id, _) = g.insert_or_weld(center);
         for i in 1..=50 {
-            let offset = (i as f64) * 1e-5; // << eps
+            let offset = f64::from(i) * 1e-5; // << eps
             let p = pt(center.x + offset, center.y - offset, center.z);
             let (id, _) = g.insert_or_weld(p);
             if id != first_id {
@@ -690,11 +690,11 @@ mod tests {
         let cluster_sep = 5.0 * eps; // well separated
 
         for cluster_idx in 0..10 {
-            let base_x = cluster_idx as f64 * cluster_sep;
+            let base_x = f64::from(cluster_idx) * cluster_sep;
             let first_id = g.insert_or_weld(pt(base_x, 0.0, 0.0)).0;
             // Insert 5 more points clustered within eps/10
             for j in 1..=5 {
-                let offset = j as f64 * eps * 0.05;
+                let offset = f64::from(j) * eps * 0.05;
                 let (id, _) = g.insert_or_weld(pt(base_x + offset, 0.0, 0.0));
                 assert_eq!(id, first_id, "cluster point must weld to cluster's first");
             }
@@ -722,7 +722,7 @@ mod tests {
                         dz as f64 * eps * 0.3,
                     );
                     // These are all within eps of seed (max dist = sqrt(3)*0.3*eps ≈ 0.52*eps < eps)
-                    if let Some(_) = g.query_nearest(&query) {
+                    if g.query_nearest(&query).is_some() {
                         found_count += 1;
                     }
                 }
@@ -754,7 +754,7 @@ mod tests {
             "vertex count must not exceed insertion count"
         );
         assert!(
-            g.len() >= 1,
+            !g.is_empty(),
             "at least one vertex must exist"
         );
     }

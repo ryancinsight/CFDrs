@@ -85,8 +85,7 @@ impl Default for ScalingConfig {
         Self {
             min_processors: 1,
             max_processors: std::thread::available_parallelism()
-                .map(|p| p.get())
-                .unwrap_or(4),
+                .map_or(4, |p| p.get()),
             processor_multiplier: 2,
             efficiency_threshold: 0.5, // 50% efficiency threshold
             reference_timing: None,

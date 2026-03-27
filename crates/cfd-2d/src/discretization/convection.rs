@@ -265,4 +265,44 @@ mod tests {
         let unknown: Box<dyn ConvectionScheme<f64>> = ConvectionSchemeFactory::create("unknown");
         assert_eq!(unknown.name(), "First-Order Upwind");
     }
+
+    /// Power-law at Pe = 0 (no convection): should reduce to central differencing.
+    /// When fe = fw = 0, the power-law function returns (1-0)^5 = 1, so
+    /// ae = de·1 + max(0,0) = de, aw = dw·1 + max(0,0) = dw (pure diffusion).
+    #[test]
+    fn test_power_law_pure_diffusion() {
+        let scheme = PowerLawScheme;
+        let de = 2.0_f64;
+        let dw = 2.0_f64;
+        let (ae, aw) = scheme.coefficients(0.0, 0.0, de, dw);
+        // pe_e = 0/2 = 0, power_law(0) = 1.0, ae = 2·1 + max(0,0) = 2
+        assert!((ae - de).abs() < 1e-12, "Power-law ae at Pe=0 mismatch: {ae}");
+        assert!((aw - dw).abs() < 1e-12, "Power-law aw at Pe=0 mismatch: {aw}");
+    }
+
+    /// Hybrid scheme: switches at Pe = 2.
+    /// - Pe < 2 → central difference coefficients
+    /// - Pe ≥ 2 → upwind coefficients
+    #[test]
+    fn test_hybrid_switching() {
+        let scheme = HybridScheme;
+
+        // Low Peclet (Pe = 1 < 2): should use central difference
+        // fe = 1.0, de = 1.0, Pe_e = |fe|/de = 1, below threshold
+        let (ae_low, _aw_low) = scheme.coefficients(1.0, -1.0, 1.0, 1.0);
+        // Central: ae = de - fe/2 = 1 - 0.5 = 0.5
+        assert!(
+            (ae_low - 0.5_f64).abs() < 1e-12,
+            "Hybrid should use central at Pe=1: ae={ae_low}"
+        );
+
+        // High Peclet (Pe = 4 > 2): should use upwind
+        // fe = 4.0, de = 1.0, Pe_e = 4
+        let (ae_high, _) = scheme.coefficients(4.0, -4.0, 1.0, 1.0);
+        // Upwind: ae = de + max(0, -fe) = 1 + max(0,-4) = 1
+        assert!(
+            (ae_high - 1.0_f64).abs() < 1e-12,
+            "Hybrid should use upwind at Pe=4: ae={ae_high}"
+        );
+    }
 }

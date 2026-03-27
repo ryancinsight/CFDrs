@@ -4,7 +4,7 @@
 //! the `CfdApp` struct that manages the `WorkspaceState` and viewport renderer.
 
 use crate::presentation::workspace::WorkspaceState;
-use crate::presentation::viewport::viewport_view::ViewportRenderer;
+use crate::presentation::viewport::viewport_view::{RenderOverlays, ViewportRenderer};
 
 /// The main application container.
 pub struct CfdApp {
@@ -32,6 +32,6 @@ impl CfdApp {
     pub fn render_viewport(&self) -> Option<Vec<u8>> {
         let renderer = self.renderer.as_ref()?;
         let camera = self.state.document.scene.camera();
-        Some(renderer.render(camera))
+        Some(renderer.render(camera, &self.state.clip_planes, &RenderOverlays::default()))
     }
 }

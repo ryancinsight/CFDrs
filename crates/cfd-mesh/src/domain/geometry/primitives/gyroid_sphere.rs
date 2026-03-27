@@ -80,7 +80,7 @@ mod tests {
         }
         .build()
         .expect("gyroid sphere");
-        assert!(mesh.faces.len() > 0);
+        assert!(!mesh.faces.is_empty());
     }
 
     #[test]

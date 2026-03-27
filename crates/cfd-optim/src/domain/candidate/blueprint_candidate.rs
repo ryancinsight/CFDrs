@@ -53,8 +53,7 @@ impl BlueprintCandidate {
         match self
             .blueprint
             .lineage()
-            .map(|lineage| lineage.current_stage)
-            .unwrap_or(TopologyOptimizationStage::AsymmetricSplitResidenceSeparation)
+            .map_or(TopologyOptimizationStage::AsymmetricSplitResidenceSeparation, |lineage| lineage.current_stage)
         {
             TopologyOptimizationStage::AsymmetricSplitResidenceSeparation => {
                 OptimizationGoal::AsymmetricSplitResidenceSeparation

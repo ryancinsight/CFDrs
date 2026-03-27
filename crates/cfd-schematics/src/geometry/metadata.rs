@@ -732,8 +732,7 @@ impl FdaCavitationCompliance {
             mi_equiv,
             fda_mi_compliant: mi_equiv < Self::FDA_MI_LIMIT,
             therapeutic_mi_lower: Self::INERTIAL_CAV_THRESHOLD_MI,
-            in_therapeutic_window: mi_equiv >= Self::INERTIAL_CAV_THRESHOLD_MI
-                && mi_equiv < Self::FDA_MI_LIMIT,
+            in_therapeutic_window: (Self::INERTIAL_CAV_THRESHOLD_MI..Self::FDA_MI_LIMIT).contains(&mi_equiv),
         }
     }
 }

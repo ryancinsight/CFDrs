@@ -188,7 +188,7 @@ fn polyline_length_mm(path: &[(f64, f64)]) -> f64 {
 
 fn rounded_path_signature(path: &[(f64, f64)]) -> String {
     path.iter()
-        .map(|(x, y)| format!("{:.6}:{:.6}", x, y))
+        .map(|(x, y)| format!("{x:.6}:{y:.6}"))
         .collect::<Vec<_>>()
         .join(";")
 }

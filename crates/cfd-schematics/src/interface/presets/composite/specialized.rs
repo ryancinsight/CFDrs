@@ -45,7 +45,7 @@ fn generator_center_serpentine(
     normalized_center_serpentine(center_serpentine).map(|spec| CenterSerpentinePathSpec {
         segments: spec.segments,
         bend_radius_m: spec.bend_radius_m,
-        wave_type: Default::default(),
+        wave_type: crate::SerpentineWaveType::default(),
     })
 }
 
@@ -823,7 +823,7 @@ pub fn cascade_tri_bi_tri_selective_rect(
 /// - `throat_width_m`       — throat constriction width [m].
 /// - `throat_length_m`      — length of each throat segment [m].
 /// - `inter_throat_spacing_m` — re-development length between throats; must be
-///                              `> 10 × D_h` (Shah & London 1978, §2-3).
+///   `> 10 * D_h` (Shah & London 1978, §2-3).
 #[must_use]
 #[allow(clippy::too_many_arguments)]
 pub fn double_trifurcation_cif_venturi_rect(
