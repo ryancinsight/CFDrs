@@ -45,3 +45,4 @@ report/
 *.dll
 *.so
 *.dylib
+crates/cfd-python/.venv/
