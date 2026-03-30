@@ -21,3 +21,5 @@
 *.out
 *.csv
 *.tsv
+venv
+.venv/
