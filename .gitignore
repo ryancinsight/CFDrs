@@ -46,4 +46,4 @@ report/
 *.so
 *.dylib
 crates/cfd-python/.venv/
-.venv/
+crates/cfd-python/.venv/
