@@ -54,12 +54,29 @@ print(f"  R_c = {R_c_python*1e6:.4f} μm")
 print(f"  P_Blake = {P_Blake_python:.2f} Pa = {P_Blake_python/1000:.2f} kPa")
 
 if has_cfd_python:
-    # TODO: Check if cfd_python exposes Blake threshold calculation
-    # For now, document that Rust implementation is in regimes.rs
     print(f"\nRust implementation:")
     print(f"  Located in: crates/cfd-core/src/physics/cavitation/regimes.rs")
     print(f"  Method: blake_threshold() and blake_critical_radius()")
     print(f"  Formula matches Python implementation ✓")
+
+    try:
+        rp_model = cfd_python.RayleighPlesset(
+            initial_radius=R_0,
+            liquid_density=WATER_DENSITY,
+            liquid_viscosity=WATER_VISCOSITY,
+            surface_tension=WATER_SURFACE_TENSION,
+            vapor_pressure=WATER_VAPOR_PRESSURE,
+            polytropic_index=1.4
+        )
+        classifier = cfd_python.CavitationRegimeClassifier(rp_model, P_inf)
+        blake_rust = classifier.blake_threshold()
+        diff_pct = abs(blake_rust - P_Blake_python) / P_Blake_python * 100
+        print(f"\n  Cross-validation against Python implementation:")
+        print(f"    Rust = {blake_rust:.2f} Pa, Diff = {diff_pct:.4f}%")
+        assert diff_pct < 0.01, f"Mismatch in Blake threshold calculation"
+        print("  ✓ Cross-validation passed")
+    except AttributeError:
+         print(f"\n  Note: Blake threshold API not fully mapped in Python bindings")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -104,9 +121,19 @@ if has_cfd_python:
     print(f"  Type: CarreauYasudaBlood")
     print(f"  Method: apparent_viscosity(shear_rate)")
     
-    # Try to test if we can create a blood model
-    # Note: This depends on cfd_python API structure
-    print(f"\n  TODO: Add cfd_python API test if blood model is exposed")
+    try:
+        rust_blood = cfd_python.CarreauYasudaBlood()
+        print("\n  Cross-validation against Python implementation:")
+        for gamma_dot in test_shear_rates:
+            mu_python = carreau_yasuda_python(gamma_dot)
+            mu_rust = rust_blood.apparent_viscosity(gamma_dot)
+            diff_pct = abs(mu_rust - mu_python) / mu_python * 100
+            print(f"    γ̇ = {gamma_dot:7.0f} s⁻¹: Rust = {mu_rust*1000:7.4f} mPa·s, Diff = {diff_pct:.4f}%")
+            assert diff_pct < 0.01, f"Mismatch at gamma={gamma_dot}"
+        print("  ✓ Cross-validation passed")
+    except AttributeError:
+        print(f"\n  Note: Blood model API not fully mapped in Python bindings")
+
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -147,7 +174,19 @@ if has_cfd_python:
     print(f"\nRust implementation:")
     print(f"  Located in: crates/cfd-core/src/physics/hemolysis/giersiepen.rs")
     print(f"  Method: calculate_damage(shear_stress, exposure_time)")
-    print(f"\n  TODO: Add cfd_python API test if hemolysis model is exposed")
+
+    try:
+        rust_hemolysis = cfd_python.HemolysisModel.giersiepen_standard()
+        print("\n  Cross-validation against Python implementation:")
+        for tau, t in test_cases:
+            damage_python = giersiepen_python(tau, t)
+            damage_rust = rust_hemolysis.damage_index(tau, t)
+            diff_pct = abs(damage_rust - damage_python) / damage_python * 100
+            print(f"    τ = {tau:5.1f} Pa, t = {t:4.2f} s: Rust = {damage_rust:8.6f}, Diff = {diff_pct:.4f}%")
+            assert diff_pct < 0.01, f"Mismatch at tau={tau}, t={t}"
+        print("  ✓ Cross-validation passed")
+    except AttributeError:
+        print(f"\n  Note: Hemolysis model API not fully mapped in Python bindings")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
