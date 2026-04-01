@@ -1,0 +1,3 @@
+[submodule "crates/gaia"]
+	path = crates/gaia
+	url = https://github.com/ryancinsight/gaia.git

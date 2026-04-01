@@ -3,7 +3,7 @@ members = [
     "crates/cfd-core",
     "crates/cfd-math",
     "crates/cfd-io",
-    "crates/cfd-mesh",
+    "crates/gaia",
     "crates/cfd-schematics",
     "crates/cfd-1d",
     "crates/cfd-2d",
@@ -76,19 +76,22 @@ proptest = "1.4"
 criterion = "0.5"
 
 # GPU compute
-wgpu = "0.19"
+wgpu = { version = "0.19", features = ["fragile-send-sync-non-atomic-wasm", "webgl"] }
 
 # Internal crates
 cfd-core = { path = "crates/cfd-core", default-features = false }
 cfd-math = { path = "crates/cfd-math" }
 cfd-io = { path = "crates/cfd-io" }
-cfd-mesh = { path = "crates/cfd-mesh" }
+cfd-mesh = { package = "gaia", path = "crates/gaia" }
 cfd-schematics = { path = "crates/cfd-schematics" }
 cfd-1d = { path = "crates/cfd-1d" }
 cfd-2d = { path = "crates/cfd-2d" }
 cfd-3d = { path = "crates/cfd-3d" }
 cfd-optim = { path = "crates/cfd-optim" }
 cfd-validation = { path = "crates/cfd-validation" }
+
+[patch."https://github.com/ryancinsight/CFDrs.git"]
+cfd-schematics = { path = "crates/cfd-schematics" }
 
 [profile.release]
 opt-level = 3
@@ -144,7 +147,7 @@ nalgebra.workspace = true
 num-traits.workspace = true
 simba.workspace = true
 petgraph.workspace = true
-wgpu = { version = "0.19", optional = true }
+wgpu = { version = "0.19", optional = true, features = ["fragile-send-sync-non-atomic-wasm", "webgl"] }
 mpi = { version = "0.8", optional = true, default-features = false }
 rand.workspace = true
 tracing = { workspace = true }
@@ -248,4 +251,12 @@ harness = false
 
 [[bench]]
 name = "cfd_3d_benchmarks"
+harness = false
+
+[[bench]]
+name = "delaunay_3d"
+harness = false
+
+[[bench]]
+name = "fem_assembly"
 harness = false

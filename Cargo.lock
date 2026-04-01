@@ -1028,10 +1028,10 @@ dependencies = [
  "cfd-core",
  "cfd-io",
  "cfd-math",
- "cfd-mesh",
  "cfd-schematics",
  "cfd-validation",
  "criterion",
+ "gaia",
  "nalgebra",
  "nalgebra-sparse",
  "num-complex 0.4.6",
@@ -1058,11 +1058,11 @@ dependencies = [
  "cfd-core",
  "cfd-io",
  "cfd-math",
- "cfd-mesh",
  "cfd-schematics",
  "cfd-validation",
  "criterion",
  "crossbeam",
+ "gaia",
  "nalgebra",
  "nalgebra-sparse",
  "num-traits",
@@ -1150,30 +1150,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cfd-mesh"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "approx 0.5.1",
- "aquamarine",
- "cfd-schematics",
- "criterion",
- "geometry-predicates",
- "hashbrown 0.15.5",
- "indexmap",
- "nalgebra",
- "num-traits",
- "proptest",
- "rayon",
- "serde",
- "serde_json",
- "slotmap",
- "thiserror 1.0.69",
- "tracing",
- "zip",
-]
-
-[[package]]
 name = "cfd-optim"
 version = "0.1.0"
 dependencies = [
@@ -1184,9 +1160,9 @@ dependencies = [
  "cfd-3d",
  "cfd-core",
  "cfd-math",
- "cfd-mesh",
  "cfd-schematics",
  "cfd-validation",
+ "gaia",
  "nalgebra",
  "petgraph",
  "plotters",
@@ -1208,8 +1184,8 @@ dependencies = [
  "cfd-2d",
  "cfd-3d",
  "cfd-core",
- "cfd-mesh",
  "cfd-validation",
+ "gaia",
  "nalgebra",
  "ndarray 0.16.1",
  "num-traits",
@@ -1243,12 +1219,12 @@ dependencies = [
  "cfd-core",
  "cfd-io",
  "cfd-math",
- "cfd-mesh",
  "cfd-optim",
  "cfd-schematics",
  "cfd-validation",
  "chrono",
  "criterion",
+ "gaia",
  "mpi",
  "nalgebra",
  "nalgebra-sparse",
@@ -1280,8 +1256,10 @@ dependencies = [
  "cfd-core",
  "cfd-io",
  "cfd-math",
- "cfd-mesh",
  "cfd-schematics",
+ "console_error_panic_hook",
+ "gaia",
+ "getrandom 0.2.17",
  "gpui",
  "image 0.25.10",
  "nalgebra",
@@ -1297,6 +1275,9 @@ dependencies = [
  "thiserror 1.0.69",
  "tracing",
  "tracing-subscriber",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
  "wgpu",
 ]
 
@@ -1312,10 +1293,10 @@ dependencies = [
  "cfd-core",
  "cfd-io",
  "cfd-math",
- "cfd-mesh",
  "cfd-schematics",
  "chrono",
  "criterion",
+ "gaia",
  "nalgebra",
  "nalgebra-sparse",
  "num-complex 0.4.6",
@@ -1619,6 +1600,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
+]
+
+[[package]]
+name = "console_error_panic_hook"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2774,6 +2765,31 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
+]
+
+[[package]]
+name = "gaia"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "approx 0.5.1",
+ "aquamarine",
+ "cfd-schematics",
+ "criterion",
+ "geometry-predicates",
+ "hashbrown 0.15.5",
+ "indexmap",
+ "nalgebra",
+ "num-traits",
+ "proptest",
+ "rand 0.8.5",
+ "rayon",
+ "serde",
+ "serde_json",
+ "slotmap",
+ "thiserror 1.0.69",
+ "tracing",
+ "zip",
 ]
 
 [[package]]
@@ -4600,9 +4616,9 @@ dependencies = [
 
 [[package]]
 name = "num-conv"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf97ec579c3c42f953ef76dbf8d55ac91fb219dde70e49aa4a6b7d74e9919050"
+checksum = "c6673768db2d862beb9b39a78fdcb1a69439615d5794a1be50caa9bc92c81967"
 
 [[package]]
 name = "num-derive"

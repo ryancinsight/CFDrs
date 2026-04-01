@@ -21,7 +21,7 @@ Mathematical Proofs → Formal Verification → Empirical Validation → Product
 ## Agent Doc Audit Status
 
 - Crate-level `agents.md` files (`crates/*/agents.md`) were audited against `Cargo.toml`, `src/lib.rs`, and top-level `src/` trees on **2026-02-26**.
-- `crates/cfd-mesh/agents.md` was converted to a hybrid format: current agent-reference snapshot up top, historical rewrite proposal notes preserved below.
+- `crates/gaia/agents.md` was converted to a hybrid format: current agent-reference snapshot up top, historical rewrite proposal notes preserved below.
 - `cfd-optim` documentation claims were refreshed to current code-truth (24 PST split sequences via `BlueprintTopologySpec`, topology fully centralised in `cfd-schematics`, no `DesignTopology` enum in `cfd-optim`).
 - Workspace warning cleanup completed on **2026-02-26**:
   - Removed non-root profile config from `crates/cfd-python/Cargo.toml`.
@@ -37,7 +37,7 @@ Cargo.toml            workspace root; resolver = "2"
 crates/
   cfd-core            Core traits, boundary conditions, GPU/CPU dispatch, fluid properties
   cfd-math            Linear solvers (GMRES/CG/BiCGSTAB/AMG), SIMD SpMV, spectral/DG/WENO
-  cfd-mesh            Half-edge mesh, CSG Boolean ops, watertight validation, OpenFOAM I/O
+  gaia                Half-edge mesh, CSG Boolean ops, watertight validation, OpenFOAM I/O
   cfd-io              VTK/HDF5/CSV read-write, checkpointing, parallel I/O
   cfd-schematics      Design-time topology, geometry generation, 2D schematic rendering
   cfd-1d              1D lumped-network Hagen-Poiseuille solver for channel networks
@@ -59,7 +59,7 @@ tests/               Integration tests
 ```
 cfd-core
   └─► cfd-math
-        └─► cfd-mesh
+        └─► gaia
               └─► cfd-io
                     └─► cfd-schematics
                               ├─► cfd-1d
@@ -73,9 +73,9 @@ All crates depend on `cfd-core`. `cfd-python` wraps the workspace for PyO3.
 
 ---
 
-## Active Phase — `cfd-mesh` Rewrite
+## Active Phase — `gaia` Rewrite
 
-`crates/cfd-mesh/agents.md` tracks the crate-level rewrite plan in detail.
+`crates/gaia/agents.md` tracks the crate-level rewrite plan in detail.
 
 | Phase | Status | Deliverable |
 |-------|--------|-------------|
@@ -244,7 +244,7 @@ Most tests and CI run with `--no-default-features` to avoid the `wgpu` GPU overh
 | Integration | `tests/` + nextest | Cross-crate pipelines; mesh build → validate → I/O round-trip |
 | Property-based | `proptest` | Theorems (idempotency, volume identity, twin involution, …) |
 | Debug invariants | `#[cfg(debug_assertions)]` | Mesh topology checks after every mutation |
-| Fuzzing | `cargo-fuzz` | STL / JSON parsers (targets in `crates/cfd-mesh/fuzz/`) |
+| Fuzzing | `cargo-fuzz` | STL / JSON parsers (targets in `crates/gaia/fuzz/`) |
 | Benchmarks | `criterion` | Solver throughput; SIMD vs scalar; scaling analysis |
 
 **No mocks, stubs, or fixture-driven approximations.** Validate against closed-form mathematics.
@@ -298,7 +298,7 @@ Each crate has its own `agents.md` with module structure, key APIs, theorems, an
 |------|-------------|
 | `crates/cfd-core/agents.md` | Foundation: physics models, GPU/MPI/SIMD compute, plugin system |
 | `crates/cfd-math/agents.md` | Numerical methods: GMRES/CG/AMG, spectral/DG/WENO, time steppers |
-| `crates/cfd-mesh/agents.md` | Half-edge mesh, CSG, OpenFOAM I/O — phase plan Phases 1–10 |
+| `crates/gaia/agents.md` | Half-edge mesh, CSG, OpenFOAM I/O — phase plan Phases 1–10 |
 | `crates/cfd-io/agents.md` | VTK/CSV/checkpoint/JSON I/O |
 | `crates/cfd-schematics/agents.md` | Topology authority: NodeSpec/ChannelSpec, presets, visualisation |
 | `crates/cfd-1d/agents.md` | Lumped-network Hagen-Poiseuille solver, resistance models, vascular |
