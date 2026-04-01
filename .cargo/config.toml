@@ -23,3 +23,10 @@ bench-gpu = "bench --package cfd-validation --bench gpu_turbulence_benchmark"
 # Python bindings
 build-python = "run --package xtask -- build-wheel --release"
 setup-validation = "run --package xtask -- all --plot"
+
+# WASM target: increase stack size (default 1MB → 8MB) and initial memory
+# to prevent allocation-failure panics during large Bowyer-Watson meshes.
+[target.wasm32-unknown-unknown]
+rustflags = [
+    "-C", "link-arg=-z", "-C", "link-arg=stack-size=8388608",
+]

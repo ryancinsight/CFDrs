@@ -95,16 +95,26 @@ impl PlottersRenderer {
 
     fn render_bitmap(
         &self,
-        system: &NetworkBlueprint,
-        output_path: &str,
-        config: &RenderConfig,
-        overlay: &AnalysisOverlay,
+        #[allow(unused_variables)] system: &NetworkBlueprint,
+        #[allow(unused_variables)] output_path: &str,
+        #[allow(unused_variables)] config: &RenderConfig,
+        #[allow(unused_variables)] overlay: &AnalysisOverlay,
     ) -> VisualizationResult<()> {
-        let root =
-            BitMapBackend::new(output_path, (config.width, config.height)).into_drawing_area();
-        root.fill(&convert_color(&config.background_color))
-            .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
-        self.render_with_backend(system, config, root, output_path, overlay)
+        #[cfg(target_arch = "wasm32")]
+        {
+            Err(VisualizationError::UnsupportedFormat {
+                format: "PNG/JPEG".to_string(),
+                message: "Bitmap filesystem exports are not supported on WebAssembly".to_string(),
+            })
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let root =
+                BitMapBackend::new(output_path, (config.width, config.height)).into_drawing_area();
+            root.fill(&convert_color(&config.background_color))
+                .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
+            self.render_with_backend(system, config, root, output_path, overlay)
+        }
     }
 
     fn render_svg(

@@ -282,7 +282,6 @@ pub fn insert_intersection_nodes(system: &mut NetworkBlueprint) -> IntersectionR
 
     // Build a map: original_channel_index → Vec<(crossing_index, role)>
     // where role indicates whether this channel is A or B in the crossing.
-    #[allow(clippy::items_after_statements)]
     struct SplitInfo {
         junction_node_id: String,
         /// Parametric position along this channel's centerline segment.

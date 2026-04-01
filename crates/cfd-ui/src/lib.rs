@@ -18,3 +18,6 @@ pub mod domain;
 pub mod application;
 pub mod infrastructure;
 pub mod presentation;
+
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;

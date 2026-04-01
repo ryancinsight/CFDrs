@@ -17,6 +17,7 @@ pub enum FileFilter {
 }
 
 impl FileFilter {
+    #[cfg(not(target_arch = "wasm32"))]
     fn label(&self) -> &str {
         match self {
             Self::Stl => "STL Files",
@@ -31,6 +32,7 @@ impl FileFilter {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn extensions(&self) -> &[&str] {
         match self {
             Self::Stl => &["stl"],
@@ -48,19 +50,42 @@ impl FileFilter {
 
 /// Show an open-file dialog with the given filter. Returns the selected path.
 pub fn open_file(filter: FileFilter) -> Option<PathBuf> {
-    rfd::FileDialog::new()
-        .add_filter(filter.label(), filter.extensions())
-        .pick_file()
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = filter;
+        None
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        rfd::FileDialog::new()
+            .add_filter(filter.label(), filter.extensions())
+            .pick_file()
+    }
 }
 
 /// Show a save-file dialog with the given filter. Returns the selected path.
 pub fn save_file(filter: FileFilter) -> Option<PathBuf> {
-    rfd::FileDialog::new()
-        .add_filter(filter.label(), filter.extensions())
-        .save_file()
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = filter;
+        None
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        rfd::FileDialog::new()
+            .add_filter(filter.label(), filter.extensions())
+            .save_file()
+    }
 }
 
 /// Show a folder picker dialog. Returns the selected directory path.
 pub fn pick_folder() -> Option<PathBuf> {
-    rfd::FileDialog::new().pick_folder()
+    #[cfg(target_arch = "wasm32")]
+    {
+        None
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        rfd::FileDialog::new().pick_folder()
+    }
 }

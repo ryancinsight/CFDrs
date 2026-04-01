@@ -137,7 +137,6 @@ impl<
         fluid: &F,
     ) -> Result<TrifurcationSolution3D<T>> {
         use crate::fem::{FemConfig, FemSolver, StokesFlowProblem};
-        use cfd_core::physics::boundary::BoundaryCondition;
         use cfd_mesh::application::delaunay::dim3::SdfMesher;
         use std::collections::HashMap;
 

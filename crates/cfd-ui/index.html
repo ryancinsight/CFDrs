@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CFDrs — 3D Mesh Visualizer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0d0d14;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* -- Top bar -- */
+        #toolbar {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: 48px;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16162a 100%);
+            border-bottom: 1px solid #2a2a44;
+            display: flex; align-items: center; gap: 12px;
+            padding: 0 16px;
+            z-index: 100;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+        }
+        #toolbar .logo {
+            font-weight: 700; font-size: 15px;
+            background: linear-gradient(135deg, #4fc3f7, #7c4dff);
+            background-clip: text;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            letter-spacing: 0.5px;
+        }
+        #toolbar .sep { width: 1px; height: 24px; background: #333; }
+        .tb-btn {
+            background: #22223a; border: 1px solid #333;
+            color: #ccc; padding: 6px 14px; border-radius: 6px;
+            font-size: 12px; cursor: pointer; transition: all 0.15s;
+        }
+        .tb-btn:hover { background: #2d2d50; border-color: #4fc3f7; color: #fff; }
+        .tb-btn.active { background: #4fc3f7; color: #0d0d14; border-color: #4fc3f7; }
+        .tb-select {
+            background: #22223a; border: 1px solid #333;
+            color: #ccc; padding: 5px 10px; border-radius: 6px; font-size: 12px;
+        }
+        #mesh-info {
+            margin-left: auto; font-size: 11px; color: #888;
+            font-family: 'Consolas', monospace;
+        }
+
+        /* -- Canvas -- */
+        #viewer { position: fixed; top: 48px; left: 0; right: 0; bottom: 0; }
+
+        /* -- Drag overlay -- */
+        #drop-overlay {
+            display: none;
+            position: fixed; top: 48px; left: 0; right: 0; bottom: 0;
+            background: rgba(79, 195, 247, 0.08);
+            border: 3px dashed #4fc3f7;
+            z-index: 200;
+            justify-content: center; align-items: center;
+            font-size: 20px; color: #4fc3f7; font-weight: 600;
+        }
+        #drop-overlay.visible { display: flex; }
+
+        /* -- Status -- */
+        #status-bar {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            height: 24px; background: #111122;
+            border-top: 1px solid #222;
+            display: flex; align-items: center; padding: 0 12px;
+            font-size: 11px; color: #666;
+            font-family: 'Consolas', monospace;
+        }
+    </style>
+    <!-- Import map for ESM Three.js -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="toolbar">
+        <span class="logo">CFDrs Mesh Inspector</span>
+        <div class="sep"></div>
+        <button class="tb-btn" id="btn-import" title="Import STL / OBJ file">📂 Import Mesh</button>
+        <input type="file" id="file-input" accept=".stl,.obj" style="display:none">
+        <div class="sep"></div>
+        <label style="font-size:12px; color:#888">Generate:</label>
+        <select class="tb-select" id="gen-select">
+            <option value="">— select —</option>
+            <option value="cylinder">Delaunay Cylinder</option>
+            <option value="sphere">Delaunay Sphere</option>
+        </select>
+        <label style="font-size:12px; color:#888">Res:</label>
+        <input type="number" id="gen-res" value="0.15" min="0.05" max="1.0" step="0.01"
+               style="width:60px" class="tb-select">
+        <button class="tb-btn" id="btn-generate">▶ Generate</button>
+        <div class="sep"></div>
+
+        <button class="tb-btn" id="btn-wireframe">Wireframe</button>
+        <button class="tb-btn" id="btn-normals">Normals</button>
+        <span id="mesh-info">No mesh loaded</span>
+    </div>
+
+    <div id="viewer"></div>
+    <div id="drop-overlay">Drop STL / OBJ file here</div>
+    <div id="status-bar">Ready</div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+        import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+        import init, { generate_delaunay_cylinder, generate_delaunay_sphere, ping } from './wasm-dist/cfd_ui.js?v=20260329b';
+
+        // ── State ──
+        let scene, camera, renderer, controls;
+        let currentMesh = null;
+        let normalHelper = null;
+        let wireframeMode = false;
+        let normalsVisible = false;
+        let wasmReady = false;
+
+        // ── Init Three.js ──
+        function initScene() {
+            const container = document.getElementById('viewer');
+            const w = container.clientWidth, h = container.clientHeight;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0d0d14);
+
+            camera = new THREE.PerspectiveCamera(45, w / h, 0.01, 1000);
+            camera.position.set(3, 2, 3);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+
+            // Lights
+            const ambient = new THREE.AmbientLight(0x404060, 0.6);
+            scene.add(ambient);
+            const dir1 = new THREE.DirectionalLight(0xffffff, 0.8);
+            dir1.position.set(5, 8, 5);
+            scene.add(dir1);
+            const dir2 = new THREE.DirectionalLight(0x8888ff, 0.3);
+            dir2.position.set(-3, -2, -4);
+            scene.add(dir2);
+
+            // Grid
+            const grid = new THREE.GridHelper(10, 20, 0x222244, 0x181830);
+            scene.add(grid);
+
+            // Axes
+            const axes = new THREE.AxesHelper(1.5);
+            scene.add(axes);
+
+            window.addEventListener('resize', () => {
+                const w2 = container.clientWidth, h2 = container.clientHeight;
+                camera.aspect = w2 / h2;
+                camera.updateProjectionMatrix();
+                renderer.setSize(w2, h2);
+            });
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // ── Mesh loading ──
+        function clearMesh() {
+            if (currentMesh) { scene.remove(currentMesh); currentMesh = null; }
+            if (normalHelper) { scene.remove(normalHelper); normalHelper = null; }
+        }
+
+        function setMesh(geometry, name) {
+            clearMesh();
+            geometry.computeVertexNormals();
+            geometry.computeBoundingSphere();
+
+            const mat = new THREE.MeshPhongMaterial({
+                color: 0x4fc3f7,
+                specular: 0x222244,
+                shininess: 40,
+                side: THREE.DoubleSide,
+                wireframe: wireframeMode,
+                flatShading: true,
+            });
+
+            currentMesh = new THREE.Mesh(geometry, mat);
+            scene.add(currentMesh);
+
+            // Center and fit camera
+            geometry.computeBoundingBox();
+            const box = geometry.boundingBox;
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            currentMesh.position.sub(center);
+
+            const size = box.getSize(new THREE.Vector3()).length();
+            camera.position.set(size * 1.2, size * 0.8, size * 1.2);
+            controls.target.set(0, 0, 0);
+            controls.update();
+
+            // Info
+            const vCount = geometry.attributes.position.count;
+            const tCount = geometry.index ? geometry.index.count / 3 : vCount / 3;
+            document.getElementById('mesh-info').textContent =
+                `${name} | V: ${vCount.toLocaleString()} | T: ${tCount.toLocaleString()}`;
+            setStatus(`Loaded: ${name}`);
+        }
+
+        function loadFromJson(jsonStr, name) {
+            const data = JSON.parse(jsonStr);
+            const geometry = new THREE.BufferGeometry();
+
+            const positions = new Float32Array(data.vertices);
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+            if (data.normals && data.normals.length > 0) {
+                const normals = new Float32Array(data.normals);
+                geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+            }
+
+            if (data.indices && data.indices.length > 0) {
+                const indices = new Uint32Array(data.indices);
+                geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+            }
+
+            setMesh(geometry, name);
+        }
+
+        function loadSTL(buffer, name) {
+            const loader = new STLLoader();
+            const geometry = loader.parse(buffer);
+            setMesh(geometry, name);
+        }
+
+        function loadOBJ(text, name) {
+            const loader = new OBJLoader();
+            const obj = loader.parse(text);
+            obj.traverse(child => {
+                if (child.isMesh) {
+                    setMesh(child.geometry, name);
+                }
+            });
+        }
+
+        // ── File handling ──
+        function handleFile(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            setStatus(`Loading ${file.name}...`);
+
+            const reader = new FileReader();
+
+            if (ext === 'stl') {
+                reader.onload = (e) => loadSTL(e.target.result, file.name);
+                reader.readAsArrayBuffer(file);
+            } else if (ext === 'obj') {
+                reader.onload = (e) => loadOBJ(e.target.result, file.name);
+                reader.readAsText(file);
+            } else {
+                setStatus(`Unsupported format: .${ext}`);
+            }
+        }
+
+        // ── Drag and drop ──
+        const overlay = document.getElementById('drop-overlay');
+        document.addEventListener('dragover', e => { e.preventDefault(); overlay.classList.add('visible'); });
+        document.addEventListener('dragleave', e => {
+            if (e.relatedTarget === null) overlay.classList.remove('visible');
+        });
+        document.addEventListener('drop', e => {
+            e.preventDefault();
+            overlay.classList.remove('visible');
+            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+        });
+
+        // ── Button handlers ──
+        document.getElementById('btn-import').addEventListener('click', () => {
+            document.getElementById('file-input').click();
+        });
+        document.getElementById('file-input').addEventListener('change', e => {
+            if (e.target.files.length > 0) handleFile(e.target.files[0]);
+        });
+
+        document.getElementById('btn-wireframe').addEventListener('click', () => {
+            wireframeMode = !wireframeMode;
+            document.getElementById('btn-wireframe').classList.toggle('active', wireframeMode);
+            if (currentMesh) currentMesh.material.wireframe = wireframeMode;
+        });
+
+        document.getElementById('btn-normals').addEventListener('click', () => {
+            normalsVisible = !normalsVisible;
+            document.getElementById('btn-normals').classList.toggle('active', normalsVisible);
+            if (normalHelper) { scene.remove(normalHelper); normalHelper = null; }
+            if (normalsVisible && currentMesh) {
+                const geo = currentMesh.geometry;
+                const pos = geo.attributes.position;
+                const norm = geo.attributes.normal;
+                if (pos && norm) {
+                    const pts = [];
+                    const len = 0.05;
+                    for (let i = 0; i < pos.count; i++) {
+                        const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i);
+                        const nx = norm.getX(i), ny = norm.getY(i), nz = norm.getZ(i);
+                        pts.push(new THREE.Vector3(px, py, pz));
+                        pts.push(new THREE.Vector3(px + nx * len, py + ny * len, pz + nz * len));
+                    }
+                    const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+                    normalHelper = new THREE.LineSegments(lineGeo,
+                        new THREE.LineBasicMaterial({ color: 0xff4444, linewidth: 1 }));
+                    normalHelper.position.copy(currentMesh.position);
+                    scene.add(normalHelper);
+                }
+            }
+        });
+
+        document.getElementById('btn-generate').addEventListener('click', () => {
+            if (!wasmReady) { setStatus('WASM not ready yet'); return; }
+            const kind = document.getElementById('gen-select').value;
+            const res = parseFloat(document.getElementById('gen-res').value) || 0.15;
+            if (!kind) { setStatus('Select a mesh type first'); return; }
+
+            setStatus(`Generating Delaunay ${kind} (res=${res})...`);
+            setTimeout(() => {
+                try {
+                    let json;
+                    if (kind === 'cylinder') {
+                        json = generate_delaunay_cylinder(res);
+                    } else if (kind === 'sphere') {
+                        json = generate_delaunay_sphere(res);
+                    }
+                    loadFromJson(json, `Delaunay ${kind} (res=${res})`);
+                } catch (err) {
+                    setStatus(`Generation failed: ${err}`);
+                    console.error(err);
+                }
+            }, 50);
+        });
+
+        function setStatus(msg) {
+            document.getElementById('status-bar').textContent = msg;
+        }
+
+        // ── Boot ──
+        initScene();
+        setStatus('Initializing WASM...');
+
+        try {
+            await init('./wasm-dist/cfd_ui_bg.wasm?v=' + Date.now());
+            const pong = ping();
+            console.log('WASM ping result:', pong);
+            wasmReady = true;
+            setStatus('Ready — Import a mesh file or generate a Delaunay mesh');
+            console.log('CFDrs WASM mesh engine initialized');
+        } catch (err) {
+            console.error('WASM init failed:', err);
+            setStatus('WASM init failed (mesh import still works) — ' + err);
+        }
+    </script>
+</body>
+</html>

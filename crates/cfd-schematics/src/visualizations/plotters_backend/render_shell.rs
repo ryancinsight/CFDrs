@@ -32,15 +32,25 @@ impl PlottersRenderer {
 
     fn render_shell_bitmap(
         &self,
-        cuboid: &ShellCuboid,
-        output_path: &str,
-        config: &RenderConfig,
+        #[allow(unused_variables)] cuboid: &ShellCuboid,
+        #[allow(unused_variables)] output_path: &str,
+        #[allow(unused_variables)] config: &RenderConfig,
     ) -> VisualizationResult<()> {
-        let root =
-            BitMapBackend::new(output_path, (config.width, config.height)).into_drawing_area();
-        root.fill(&convert_color(&config.background_color))
-            .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
-        self.draw_shell_on_backend(cuboid, config, root, output_path)
+        #[cfg(target_arch = "wasm32")]
+        {
+            Err(VisualizationError::UnsupportedFormat {
+                format: "PNG/JPEG".to_string(),
+                message: "Bitmap filesystem exports are not supported on WebAssembly".to_string(),
+            })
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let root =
+                BitMapBackend::new(output_path, (config.width, config.height)).into_drawing_area();
+            root.fill(&convert_color(&config.background_color))
+                .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
+            self.draw_shell_on_backend(cuboid, config, root, output_path)
+        }
     }
 
     fn render_shell_svg(

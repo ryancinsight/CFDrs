@@ -1,16 +1,41 @@
-# Sprint 1.91.0 Checklist: Advanced Validation Framework Expansion
+# Sprint 1.95.1 Checklist: CFD-MESH 3D Performance Optimization
 
 ## Sprint Overview
-**Goal**: Extend CFD validation capabilities with advanced MMS testing, Richardson extrapolation, and performance benchmarking for production-ready scaling validation.
+**Goal**: Resolve WASM OOM and execution panics by flattening memory arrays and ensuring zero-allocation loops in 3D Delaunay generation.
 
 **Success Criteria**:
-- ✅ MMS coverage extended to complex geometries (circular, annular domains)
-- ✅ Richardson extrapolation fully automated with convergence analysis
-- ✅ Performance benchmarking framework operational with scaling analysis
-- ✅ All validation tests passing with comprehensive error metrics
-- ✅ Documentation complete with examples and performance guidelines
+- ✅ `BowyerWatson3D::insert_point` executes with 0 heap allocations per point.
+- ✅ Delaunay sphere WASM generation at `res=0.15` completes successfully without `unreachable` panic.
+- ✅ 100% of property tests pass in `cfd-mesh`.
+- ✅ No approximations or empirical epsilon tuning.
 
 ## Current Sprint Tasks
+
+### Phase 1: Foundation & Audit (0-10%)
+- [x] **Task 1.1**: Audit WASM OOM root cause.
+  - [x] Identify O(N²) quadratic allocation overhead in `BowyerWatson3D::insert_point`.
+  - [x] Create gap analysis for memory structures.
+
+### Phase 2: Execution (10-50%)
+- [x] **Task 2.1**: Refactor `BowyerWatson3D` Memory
+  - [x] Add `cavity_cache: HashMap` and `next_tetrahedra: Vec` inside the `BowyerWatson3D` struct.
+  - [x] Use `clear()` and variable swapping to prevent reallocations.
+  - [x] Implement mathematical proof of invariant preservation in docs.
+- [x] **Task 2.2**: Optimize `SdfMesher::build_volume`
+  - [x] Pre-allocate `bwid_to_vid`, `used`, and `mesh` internals using exact point counting.
+  - [x] Test bounding-box culling efficiency.
+
+### Phase 3: Verification (50%+)
+- [x] **Task 3.1**: Property Validation
+  - [x] Execute `cargo nextest run -p cfd-mesh`.
+  - [x] Verify Euler-Poincaré invariant on coarse and fine meshes.
+- [x] **Task 3.2**: WASM End-to-End
+  - [x] Rebuild `cfd-ui` WASM target.
+  - [x] Confirm generation completes in the browser at fine resolutions.
+
+---
+
+# Sprint 1.91.0 Checklist: Advanced Validation Framework Expansion
 
 ### Phase 1: MMS Framework Extension (Week 1-2)
 - [x] **Task 1.1**: Design MMS geometry abstraction layer ✅ COMPLETED

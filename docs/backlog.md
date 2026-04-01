@@ -1,7 +1,24 @@
 # CFD Suite Backlog
 
-## Sprint 1.91.0: Advanced Validation Framework Expansion
+## Sprint 1.95.1: CFD-MESH 3D Performance & Memory Optimization
 **Status**: In Progress
+**Start Date**: March 29, 2026
+
+### Sprint Objectives
+- Eliminate WASM memory exhaustion (OOM) during high-resolution 3D mesh generation.
+- Refactor `BowyerWatson3D` kernel for strictly zero-allocation execution inside the point insertion loop.
+- Flatten memory structures (O(N) contiguous buffers) for WASM/heap efficiency.
+- Prove invariants mathematically via property tests, ensuring exact numerical determinism.
+
+### Sprint Backlog Items
+
+#### Core Memory Flattening
+- [x] **MESH-PERF-001**: Lift `HashMap` and `Vec` allocations out of `BowyerWatson3D::insert_point`.
+- [x] **MESH-PERF-002**: Pre-allocate `IndexedMesh` internal arrays in `build_volume` using AABB heuristic.
+- [x] **MESH-PERF-003**: Optimize `SdfMesher` BCC lattice generation loops to prevent over-allocation.
+
+## Sprint 1.91.0: Advanced Validation Framework Expansion
+**Status**: Archived
 **Start Date**: November 2, 2025
 
 ### Sprint Objectives

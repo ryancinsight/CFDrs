@@ -28,6 +28,178 @@
 			],
 			"isBackground": false,
 			"group": "build"
+		},
+		{
+			"label": "cargo-test-gaia-no-default-features",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"-p",
+				"gaia",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-test-cfd-validation-analytical-poiseuille-3d",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"-p",
+				"cfd-validation",
+				"--test",
+				"analytical_poiseuille_3d",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-test-cfd-validation-analytical-poiseuille-3d",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"-p",
+				"cfd-validation",
+				"--test",
+				"analytical_poiseuille_3d",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-test-cfd-validation-analytical-poiseuille-3d",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"-p",
+				"cfd-validation",
+				"--test",
+				"analytical_poiseuille_3d",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-test-cfd-validation-analytical-poiseuille-3d",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"-p",
+				"cfd-validation",
+				"--test",
+				"analytical_poiseuille_3d",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-check-gaia-examples-cfdrs",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"gaia",
+				"--examples",
+				"--no-default-features",
+				"--features",
+				"cfdrs-integration"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-check-cfd-schematics-examples",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-schematics",
+				"--examples",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-check-root-benches-no-default-features",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--benches",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-check-targeted-new-benches",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--bench",
+				"delaunay_3d",
+				"--bench",
+				"fem_assembly",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-check-cfd-ui-wasm",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-ui",
+				"--target",
+				"wasm32-unknown-unknown",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-check-cfd-python-abi3",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$env:PYO3_USE_ABI3_FORWARD_COMPATIBILITY='1'; cargo check -p cfd-python --no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-check-cfd-ui-wasm",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-ui",
+				"--target",
+				"wasm32-unknown-unknown",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
 		}
 	]
 }

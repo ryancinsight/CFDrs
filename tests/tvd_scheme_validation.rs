@@ -84,7 +84,6 @@ fn exact_solution_advection(
 }
 
 #[test]
-#[ignore]
 fn test_muscl2_superbee_monotonicity() {
     let scheme = MUSCLScheme::muscl2_superbee();
     assert_eq!(scheme.order(), 2);
@@ -93,39 +92,57 @@ fn test_muscl2_superbee_monotonicity() {
     let mut phi = create_test_grid();
     square_wave(&mut phi, 1.0, 0.2, 0.5);
 
-    // Evolve for one time step
+    // Pre-compute all N+1 interface fluxes.
+    //
+    // `reconstruct_face_value_x(&phi, v, cell_idx, 0)` for positive velocity
+    // returns the left-state MUSCL reconstruction at face `cell_idx + 1/2`
+    // (the right interface of cell `cell_idx`).
+    //
+    // Convention: flux[i] = F_{i-1/2} (the flux entering cell i from left).
+    //   flux[0]  = F_{-1/2}     = phi[0]  (left boundary, no influx)
+    //   flux[i]  = F_{i-1/2}    = reconstruct(phi, v, i-1, 0)  for i in 1..NX
+    //   flux[NX] = F_{NX-1/2}   = reconstruct(phi, v, NX-1, 0)
     let velocity = 1.0;
     let dt = DX * 0.5; // CFL = 0.5
+    let cfl = velocity * dt / DX;
+
+    let mut flux = vec![0.0_f64; NX + 1];
+    // Left boundary: F_{-1/2} = outflow from cell 0 (no left neighbour)
+    flux[0] = phi.data[(0, 0)];
+    // Interior + right boundary faces
+    for i in 0..NX {
+        flux[i + 1] = scheme.reconstruct_face_value_x(&phi, velocity, i, 0);
+    }
+
+    // Single-step conservative FVM update:
+    // phi_new[i] = phi[i] - CFL * (F_{i+1/2} - F_{i-1/2})
+    //            = phi[i] - CFL * (flux[i+1] - flux[i])
     let mut phi_new = create_test_grid();
-
-    for i in 0..NX - 1 {
-        let face_value = scheme.reconstruct_face_value_x(&phi, velocity, i, 0);
-        let face_value_next = scheme.reconstruct_face_value_x(&phi, velocity, i + 1, 0);
-
-        // Apply upwind advection: φ_new[i] = φ[i] - velocity * dt/dx * (face_value_next - face_value)
-        let flux_diff = face_value_next - face_value;
-        phi_new.data[(i, 0)] = phi.data[(i, 0)] - velocity * dt / DX * flux_diff;
+    for i in 0..NX {
+        phi_new.data[(i, 0)] = phi.data[(i, 0)] - cfl * (flux[i + 1] - flux[i]);
     }
 
-    // Check monotonicity: no new extrema created
-    // Also check TVD property: no oscillations
-    for i in 1..NX - 1 {
-        let phi_i = phi.data[(i, 0)];
-        let phi_im1 = phi.data[(i - 1, 0)];
-        let phi_ip1 = phi.data[(i + 1, 0)];
+    // Verify global TVD property: TV(u^{n+1}) ≤ TV(u^n)
+    //
+    // # Theorem — TVD Stability (Harten 1983)
+    //
+    // A monotone flux scheme with limiter ψ satisfying 0 ≤ ψ(r) ≤ min(2r, 2)
+    // is Total Variation Diminishing: TV(u^{n+1}) ≤ TV(u^n) where
+    // TV(u) = Σ_{i=1}^{N-1} |u_{i} − u_{i-1}|.
+    //
+    // Reference: Harten, A. (1983). "High resolution schemes for hyperbolic
+    // conservation laws." J. Comput. Phys. 49:357–393.
+    let tv_original: f64 = (1..NX)
+        .map(|i| (phi.data[(i, 0)] - phi.data[(i - 1, 0)]).abs())
+        .sum();
+    let tv_new: f64 = (1..NX)
+        .map(|i| (phi_new.data[(i, 0)] - phi_new.data[(i - 1, 0)]).abs())
+        .sum();
 
-        // TVD condition: total variation should not increase
-        let tv_original = (phi_i - phi_im1).abs() + (phi_ip1 - phi_i).abs();
-        let tv_new = (phi_new.data[(i, 0)] - phi_new.data[(i - 1, 0)]).abs()
-            + (phi_new.data[(i + 1, 0)] - phi_new.data[(i, 0)]).abs();
-
-        // Total variation should not increase significantly (allowing for some numerical diffusion)
-        assert!(
-            tv_new <= tv_original * 2.0,
-            "TVD condition severely violated at i={}",
-            i
-        );
-    }
+    assert!(
+        tv_new <= tv_original + 1e-10,
+        "Global TVD condition violated: TV(u^{{n+1}}) = {tv_new:.6e} > TV(u^n) = {tv_original:.6e}"
+    );
 }
 
 #[test]

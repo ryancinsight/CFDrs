@@ -90,17 +90,11 @@
 ## Algorithm Audit  FAILED
 
 ### RESOLVED-007: Fake Mesh Refinement
-- **Location**: `crates/cfd-mesh/src/refinement/mod.rs`
+- **Location**: `crates/gaia/src/refinement/mod.rs`
 - **Issue**: `UniformRefinement` and `AdaptiveRefinement` methods were empty placeholders returning `Ok(())`.
 - **Remediation**: Updated methods to explicitly return `MeshError::NotImplemented`. This removes the deceptive "working" status and correctly signals that the feature is pending implementation.
 
 ### RESOLVED-008: Missing Distributed Mesh Support
-- **Location**: `crates/cfd-mesh/src/mesh.rs`
-- **Issue**: The `Mesh` struct lacked fields for domain decomposition.
-- **Remediation**: Added `global_id` and `partition_id` fields to `Vertex` and `Cell` structs, and `partition_id` to the `Mesh` struct. Added builder methods `with_distributed_info` to easily set these properties.
-
----
-
 # Critical Audit Findings (Open Issues)
 
 | ID | Severity | Component | Issue | Status |
@@ -111,10 +105,11 @@
 | **CRITICAL-004** |  Critical | CFD-CORE | Fake Distributed GMRES (Placeholder Solver) | **CLOSED** |
 | **CRITICAL-005** |  Critical | CFD-CORE | Fake Additive Schwarz (Identity Solver) | **CLOSED** |
 | **MAJOR-006** |  Major | CFD-CORE | Fake Block Jacobi (Unit Diagonal Assumption) | **CLOSED** |
+| **CRITICAL-011** | 🔴 Critical | CFD-MESH | WASM OOM due to O(N²) allocation overhead in Bowyer-Watson | **OPEN** |
 | **CRITICAL-007** |  Critical | CFD-MESH | Fake Mesh Refinement (Empty Methods) | **CLOSED** |
 | **MAJOR-008** |  Major | CFD-MESH | Missing Distributed Mesh Support | **CLOSED** |
 | **CRITICAL-009** | ✅ Closed | CFD-MATH | Ruge-Stüben Coarsening Fine-to-Coarse Mapping Bug | **CLOSED** |
-| **CRITICAL-010** | 🚨 Critical | CFD-3D | Fake Unstructured FEM Domains (0-Element Mocks) | **OPEN** |
+| **CRITICAL-010** | ✅ Closed | CFD-3D | Fake Unstructured FEM Domains (0-Element Mocks) | **CLOSED** |
 
 ---
 
