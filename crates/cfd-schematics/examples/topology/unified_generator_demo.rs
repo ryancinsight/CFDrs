@@ -6,9 +6,7 @@ use cfd_schematics::{
         metadata::PerformanceMetadata,
         SplitType,
     },
-    visualizations::schematic::plot_geometry,
 };
-use std::path::PathBuf;
 
 #[path = "../shared/mod.rs"]
 mod shared;
@@ -93,12 +91,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("4. Generating Visualizations");
 
-    shared::save_example_output_with_name(
+    shared::output::save_example_output_with_name(
         &standard_system,
         "unified_generator_demo",
         "standard_system",
     );
-    shared::save_example_output_with_name(
+    shared::output::save_example_output_with_name(
         &metadata_system,
         "unified_generator_demo",
         "metadata_system",

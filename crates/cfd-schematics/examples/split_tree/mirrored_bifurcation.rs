@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("------------------------");
 
     let system = symmetric_bifurcation("mirrored_bifurcation", 30.0e-3, 50.0e-3, 2.0e-3, 2.0e-3);
-    shared::save_example_output(&system, "mirrored_bifurcation");
+    shared::output::save_example_output(&system, "mirrored_bifurcation");
 
     Ok(())
 }

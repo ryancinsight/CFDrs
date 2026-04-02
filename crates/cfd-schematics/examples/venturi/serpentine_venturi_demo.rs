@@ -21,8 +21,6 @@
 //! concentration and wall shear — ideal for CTC cavitation in SDT.
 
 use cfd_schematics::interface::presets::serpentine_venturi_rect;
-use cfd_schematics::visualizations::schematic::plot_blueprint_auto_annotated;
-use cfd_schematics::visualizations::traits::RenderConfig;
 #[path = "../shared/mod.rs"]
 mod shared;
 

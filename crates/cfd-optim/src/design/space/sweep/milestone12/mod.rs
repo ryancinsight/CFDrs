@@ -7,13 +7,27 @@ pub use parameters::CandidateParams;
 
 use crate::domain::BlueprintCandidate;
 
+#[cfg(any(test, debug_assertions))]
+static MILESTONE12_PARAM_CACHE: std::sync::OnceLock<Vec<CandidateParams>> =
+    std::sync::OnceLock::new();
+
 /// Return lightweight parameter tuples (~100 bytes each) without
 /// materializing full `BlueprintCandidate` objects (~10-15 KB each).
 /// Callers should materialize on-demand inside evaluation loops to avoid
 /// holding 500K × 15 KB ≈ 7.5 GB in memory at once.
 #[must_use]
 pub fn build_milestone12_candidate_params_only() -> Vec<CandidateParams> {
-    generate_milestone12_candidate_params()
+    #[cfg(any(test, debug_assertions))]
+    {
+        return MILESTONE12_PARAM_CACHE
+            .get_or_init(generate_milestone12_candidate_params)
+            .clone();
+    }
+
+    #[cfg(not(any(test, debug_assertions)))]
+    {
+        generate_milestone12_candidate_params()
+    }
 }
 
 /// Build the canonical Milestone 12 candidate space by generating parameter

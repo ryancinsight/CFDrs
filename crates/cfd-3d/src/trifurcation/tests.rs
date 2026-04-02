@@ -8,28 +8,32 @@ mod tests {
 
     #[test]
     fn test_trifurcation_mass_conservation() {
-        let l_transition = 0.002;
+        let l_transition = 50e-6;
         let geometry = TrifurcationGeometry3D {
-            d_parent: 0.01,
-            l_parent: 0.05,
-            d_daughters: [0.01, 0.01, 0.01],
-            l_daughters: [0.02, 0.02, 0.02],
+            d_parent: 100e-6,
+            l_parent: 500e-6,
+            d_daughters: [80e-6, 80e-6, 80e-6],
+            l_daughters: [500e-6, 500e-6, 500e-6],
             l_transition,
             transition: ConicalTransition::SmoothCone {
                 length: l_transition,
             },
-            branching_angles: [0.5, 0.0, -0.5], // radians (~28 degrees)
+            branching_angles: [
+                std::f64::consts::PI / 4.0,
+                0.0,
+                -std::f64::consts::PI / 4.0,
+            ],
         };
 
         let config = TrifurcationConfig3D {
-            inlet_flow_rate: 1.0e-7, // m^3/s (lower flow rate for blood)
+            inlet_flow_rate: 1.0e-9,
             inlet_pressure: 100.0,   // Pa
             outlet_pressures: [0.0, 0.0, 0.0],
             max_nonlinear_iterations: 20,
             nonlinear_tolerance: 1e-4,
             max_linear_iterations: 1000,
             linear_tolerance: 1e-6,
-            target_mesh_size: Some(0.01 / 3.0),
+            target_mesh_size: None,
         };
 
         let solver = TrifurcationSolver3D::new(geometry, config);

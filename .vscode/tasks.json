@@ -200,6 +200,845 @@
 			],
 			"isBackground": false,
 			"group": "build"
+		},
+		{
+			"label": "cargo-test-cfd-optim-template",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"-p",
+				"cfd-optim",
+				"strict_renderer",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "cargo-test-cfd-optim-reporting",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"-p",
+				"cfd-optim",
+				"reporting::",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "cargo-test-workspace-no-default-features",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--workspace",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "cargo-check-cfd-schematics-examples",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-schematics",
+				"--examples",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-check-cfd-schematics-examples",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-schematics",
+				"--examples",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-check-cfd-schematics-examples",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-schematics",
+				"--examples",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-check-cfd-schematics-examples",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-schematics",
+				"--examples",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cargo-test-cfd-3d-trifurcation-validation",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"-p",
+				"cfd-3d",
+				"trifurcation::validation::tests::test_trifurcation_blood_flow",
+				"--lib",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "cargo-test-cfd-3d-trifurcation-validation",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"-p",
+				"cfd-3d",
+				"trifurcation::validation::tests::test_trifurcation_blood_flow",
+				"--lib",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-workspace-timeout-scan",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"cargo nextest run --workspace --no-default-features --config-file .config/nextest.toml --status-level all --final-status-level all --failure-output immediate-final --success-output never *> target/nextest-workspace.log; $code = $LASTEXITCODE; Get-Content target/nextest-workspace.log -Tail 80; exit $code"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-workspace-timeout-scan-no-fail-fast",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"cargo nextest run --workspace --no-default-features --config-file .config/nextest.toml --no-fail-fast --status-level slow --final-status-level slow --failure-output immediate-final --success-output never *> target/nextest-workspace-full.log; $code = $LASTEXITCODE; Select-String -Path target/nextest-workspace-full.log -Pattern 'SLOW \\[|FAIL \\[' | Select-Object -Last 80; exit $code"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-workspace-timeout-scan-no-fail-fast",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"cargo nextest run --workspace --no-default-features --config-file .config/nextest.toml --no-fail-fast --status-level slow --final-status-level slow --failure-output immediate-final --success-output never *> target/nextest-workspace-full.log; $code = $LASTEXITCODE; Select-String -Path target/nextest-workspace-full.log -Pattern \"SLOW \\[|FAIL \\[\" | Select-Object -Last 120; exit $code"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-workspace-timeout-scan-no-fail-fast-cmd",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cargo nextest run --workspace --no-default-features --config-file .config/nextest.toml --no-fail-fast --status-level slow --final-status-level slow --failure-output immediate-final --success-output never > target\\nextest-workspace-full.log 2>&1 & set ERR=%ERRORLEVEL% & findstr /c:\"SLOW [\" /c:\"FAIL [\" target\\nextest-workspace-full.log & exit /b %ERR%"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cfd-optim-slow-lib-tests",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-optim",
+				"--lib",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"-E",
+				"test(milestone12_candidate_space_is_selective_only) or test(milestone12_candidate_space_contains_both_acoustic_and_venturi_modes) or test(milestone12_lineage_accepts_bi_and_quad_roots_from_canonical_candidate_space)",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cfd-optim-option1-slow-test",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-optim",
+				"--test",
+				"milestone12_option1",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"-E",
+				"test(option1_candidate_space_covers_mirrored_bi_tri_quad_penta_catalog)",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cfd-optim-slow-lib-tests-cmd",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cargo nextest run -p cfd-optim --lib --no-default-features --config-file .config/nextest.toml -E \"test(milestone12_candidate_space_is_selective_only) or test(milestone12_candidate_space_contains_both_acoustic_and_venturi_modes) or test(milestone12_lineage_accepts_bi_and_quad_roots_from_canonical_candidate_space)\" --status-level all --final-status-level all --failure-output immediate-final --success-output never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cfd-optim-option1-slow-test-cmd",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cargo nextest run -p cfd-optim --test milestone12_option1 --no-default-features --config-file .config/nextest.toml -E \"test(option1_candidate_space_covers_mirrored_bi_tri_quad_penta_catalog)\" --status-level all --final-status-level all --failure-output immediate-final --success-output never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cfd-optim-option1-slow-test-cmd",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cargo nextest run -p cfd-optim --test milestone12_option1 --no-default-features --config-file .config/nextest.toml -E \"test(=option1_candidate_space_covers_mirrored_bi_tri_quad_penta_catalog)\" --status-level all --final-status-level all --failure-output immediate-final --success-output never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cfd-optim-slow-lib-tests-cmd-exact",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cargo nextest run -p cfd-optim --lib --no-default-features --config-file .config/nextest.toml -E \"test(=design::space::tests::milestone12_candidate_space_is_selective_only) or test(=design::space::tests::milestone12_candidate_space_contains_both_acoustic_and_venturi_modes) or test(=reporting::guardrails::tests::milestone12_lineage_accepts_bi_and_quad_roots_from_canonical_candidate_space)\" --status-level all --final-status-level all --failure-output immediate-final --success-output never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cfd-optim-design-space-filter",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-optim",
+				"--lib",
+				"milestone12_candidate_space_",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cfd-optim-guardrails-filter",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-optim",
+				"--lib",
+				"milestone12_lineage_accepts_bi_and_quad_roots_from_canonical_candidate_space",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cfd-optim-design-space-filter",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-optim",
+				"--lib",
+				"milestone12_candidate_space_",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cfd-optim-guardrails-filter",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-optim",
+				"--lib",
+				"milestone12_lineage_accepts_bi_and_quad_roots_from_canonical_candidate_space",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-workspace-slow-scan-updated",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cargo nextest run --workspace --no-default-features --config-file .config/nextest.toml --no-fail-fast --status-level slow --final-status-level slow --failure-output immediate-final --success-output never > target\\nextest-workspace-updated.log 2>&1 & set ERR=%ERRORLEVEL% & findstr /c:\"SLOW [\" target\\nextest-workspace-updated.log & exit /b %ERR%"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-workspace-slow-scan-log-only",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"--workspace",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--no-fail-fast",
+				"--status-level",
+				"slow",
+				"--final-status-level",
+				"slow",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cross-fidelity-trifurcation-dominance",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-validation",
+				"--test",
+				"cross_fidelity_trifurcation",
+				"cross_fidelity_trifurcation_dominance",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cross-fidelity-trifurcation-dominance",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-validation",
+				"--test",
+				"cross_fidelity_trifurcation",
+				"cross_fidelity_trifurcation_dominance",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cross-fidelity-trifurcation-dominance",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-validation",
+				"--test",
+				"cross_fidelity_trifurcation",
+				"cross_fidelity_trifurcation_dominance",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cross-fidelity-trifurcation-dominance",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-validation",
+				"--test",
+				"cross_fidelity_trifurcation",
+				"cross_fidelity_trifurcation_dominance",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cross-fidelity-trifurcation-dominance",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-validation",
+				"--test",
+				"cross_fidelity_trifurcation",
+				"cross_fidelity_trifurcation_dominance",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-trifurcation-mass-debug",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-3d",
+				"--lib",
+				"test_trifurcation_mass_conservation",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"immediate-final"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cross-fidelity-blueprint-complex",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"--test",
+				"cross_fidelity_blueprint",
+				"cross_fidelity_blueprint_complex_branching",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cross-fidelity-blueprint-complex",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"--test",
+				"cross_fidelity_blueprint",
+				"cross_fidelity_blueprint_complex_branching",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cross-fidelity-trifurcation-dominance",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-validation",
+				"--test",
+				"cross_fidelity_trifurcation",
+				"cross_fidelity_trifurcation_dominance",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cross-fidelity-trifurcation-dominance-debug",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-validation",
+				"--test",
+				"cross_fidelity_trifurcation",
+				"cross_fidelity_trifurcation_dominance",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"immediate-final"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-cross-fidelity-trifurcation-dominance",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-validation",
+				"--test",
+				"cross_fidelity_trifurcation",
+				"cross_fidelity_trifurcation_dominance",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-workspace-final-scan",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"--workspace",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--no-fail-fast",
+				"--status-level",
+				"slow",
+				"--final-status-level",
+				"slow",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-trifurcation-mass-focused",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-3d",
+				"--lib",
+				"test_trifurcation_mass_conservation",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-trifurcation-validation-focused",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"-p",
+				"cfd-3d",
+				"--lib",
+				"test_trifurcation_blood_flow",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--status-level",
+				"all",
+				"--final-status-level",
+				"all",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-workspace-final-scan-clean",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"--workspace",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--no-fail-fast",
+				"--status-level",
+				"slow",
+				"--final-status-level",
+				"slow",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-workspace-failure-only-post-trif",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"nextest",
+				"run",
+				"--workspace",
+				"--no-default-features",
+				"--config-file",
+				".config/nextest.toml",
+				"--no-fail-fast",
+				"--status-level",
+				"fail",
+				"--final-status-level",
+				"fail",
+				"--failure-output",
+				"immediate-final",
+				"--success-output",
+				"never"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "nextest-workspace-no-incremental-post-trif",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-NoLogo",
+				"-Command",
+				"$env:CARGO_INCREMENTAL='0'; cargo nextest run --workspace --no-default-features --config-file .config/nextest.toml --no-fail-fast --status-level slow --final-status-level slow --failure-output immediate-final --success-output never"
+			],
+			"isBackground": false,
+			"group": "test"
 		}
 	]
 }

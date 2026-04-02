@@ -10,7 +10,6 @@
 use cfd_schematics::{
     config::{presets, ArcConfig, ChannelTypeConfig, GeometryConfig},
     geometry::{generator::create_geometry, SplitType},
-    visualizations::schematic::plot_geometry,
 };
 #[path = "../shared/mod.rs"]
 mod shared;

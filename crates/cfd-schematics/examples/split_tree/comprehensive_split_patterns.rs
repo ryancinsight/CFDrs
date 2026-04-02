@@ -7,9 +7,7 @@
 use cfd_schematics::{
     config::{ChannelTypeConfig, GeometryConfig},
     geometry::{generator::create_geometry, SplitType},
-    visualizations::{schematic::plot_geometry_auto_annotated, traits::RenderConfig},
 };
-use std::path::PathBuf;
 
 #[path = "../shared/mod.rs"]
 mod shared;
@@ -42,12 +40,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("quadruple", vec![SplitType::Bifurcation; 4], (500.0, 250.0)),
     ];
 
-    let render_config = RenderConfig::default();
+    // let render_config = RenderConfig::default();
 
     for (name, splits, box_dims) in bifurcation_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
         let filename = format!("bifurcation_{}", name);
-        shared::save_example_output_with_name(&system, "comprehensive_split_patterns", &filename);
+        shared::output::save_example_output_with_name(
+            &system,
+            "comprehensive_split_patterns",
+            &filename,
+        );
 
         tracing::info!(
             "   ✓ {}: {} channels, {} nodes",
@@ -80,7 +82,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (name, splits, box_dims) in trifurcation_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
         let filename = format!("trifurcation_{}", name);
-        shared::save_example_output_with_name(&system, "comprehensive_split_patterns", &filename);
+        shared::output::save_example_output_with_name(
+            &system,
+            "comprehensive_split_patterns",
+            &filename,
+        );
 
         tracing::info!(
             "   ✓ {}: {} channels, {} nodes",
@@ -127,7 +133,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (name, splits, box_dims) in mixed_patterns {
         let system = create_geometry(box_dims, &splits, &config, &channel_config);
         let filename = format!("mixed_{}", name);
-        shared::save_example_output_with_name(&system, "comprehensive_split_patterns", &filename);
+        shared::output::save_example_output_with_name(
+            &system,
+            "comprehensive_split_patterns",
+            &filename,
+        );
 
         tracing::info!(
             "   ✓ {}: {} channels, {} nodes",

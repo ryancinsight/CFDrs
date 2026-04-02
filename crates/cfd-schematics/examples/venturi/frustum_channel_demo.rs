@@ -16,7 +16,6 @@
 use cfd_schematics::{
     config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, TaperProfile},
     geometry::{generator::create_geometry, SplitType},
-    visualizations::schematic::plot_geometry,
 };
 #[path = "../shared/mod.rs"]
 mod shared;

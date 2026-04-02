@@ -18,8 +18,6 @@ use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
 use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::SplitType;
-use cfd_schematics::visualizations::schematic::plot_geometry_auto_annotated;
-use cfd_schematics::visualizations::traits::RenderConfig;
 use std::path::Path;
 
 #[path = "../shared/mod.rs"]
@@ -58,7 +56,6 @@ fn main() {
     let leaf_pairs = find_leaf_channel_pairs(&base);
     println!("Found {} leaf channel pairs to swap", leaf_pairs.len());
 
-    let config = RenderConfig::default();
 
     // Render the base (all straight).
     shared::save_example_output_with_name(

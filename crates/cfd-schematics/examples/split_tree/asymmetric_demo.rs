@@ -3,7 +3,7 @@ use cfd_schematics::geometry::{create_geometry, SplitType};
 
 #[path = "../shared/mod.rs"]
 mod shared;
-use shared::save_example_output;
+use shared::output::save_example_output;
 
 fn main() {
     println!("Asymmetric Bifurcation Demo");

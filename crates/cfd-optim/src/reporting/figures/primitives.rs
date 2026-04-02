@@ -142,10 +142,36 @@ pub(super) fn axis(svg: &mut impl std::fmt::Write, x0: f64, y0: f64, xw: f64, yh
     );
 }
 
+/// Escape the XML-sensitive subset used by SVG text nodes.
+///
+/// # Algorithm
+/// Performs a single left-to-right pass and expands only `&`, `<`, and `>`.
+///
+/// # Theorem
+/// `escape_xml` preserves the order of all input characters and replaces each
+/// escapable character with its XML entity exactly once.
+///
+/// **Proof sketch**
+/// The scan visits each character once in source order. Non-escapable
+/// characters are appended unchanged; escapable characters are mapped to one
+/// fixed entity string. Because the function never revisits or rewrites output
+/// that it has already emitted, it cannot reorder, duplicate, or double-escape
+/// characters introduced by earlier replacements.
 pub(super) fn escape_xml(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
+    if !text.as_bytes().iter().any(|byte| matches!(byte, b'&' | b'<' | b'>')) {
+        return text.to_string();
+    }
+
+    let mut escaped = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 /// Estimate average character width for a proportional sans-serif font.
@@ -230,6 +256,29 @@ pub(super) fn process_box(
             );
             text_y += body_line_h;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{escape_xml, wrap_text};
+
+    #[test]
+    fn escape_xml_leaves_plain_text_unchanged() {
+        assert_eq!(escape_xml("Alpha 123"), "Alpha 123");
+    }
+
+    #[test]
+    fn escape_xml_escapes_xml_metacharacters_once() {
+        assert_eq!(
+            escape_xml("A&B <tag>"),
+            "A&amp;B &lt;tag&gt;"
+        );
+    }
+
+    #[test]
+    fn wrap_text_returns_single_empty_line_for_blank_input() {
+        assert_eq!(wrap_text("   ", 8), vec![String::new()]);
     }
 }
 

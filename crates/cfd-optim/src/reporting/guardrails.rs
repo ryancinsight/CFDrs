@@ -124,10 +124,24 @@ pub fn validate_milestone12_candidate(
 #[cfg(test)]
 mod tests {
     use super::{is_milestone12_lineage_topology, milestone12_lineage_key};
-    use crate::build_milestone12_blueprint_candidate_space;
+    use crate::design::build_milestone12_candidate_params;
     use crate::domain::fixtures::{
         canonical_option1_candidate, canonical_option2_candidate, operating_point,
     };
+
+    fn root_family_label(
+        candidate: &crate::design::CandidateParams,
+    ) -> &'static str {
+        match candidate.request.split_kinds.first() {
+            Some(cfd_schematics::SplitKind::NFurcation(2)) => "Bi",
+            Some(cfd_schematics::SplitKind::NFurcation(4)) => "Quad",
+            Some(cfd_schematics::SplitKind::NFurcation(5)) => "Penta",
+            Some(cfd_schematics::SplitKind::NFurcation(3)) => "Tri",
+            Some(cfd_schematics::SplitKind::NFurcation(_)) | None => {
+                panic!("unexpected milestone12 root family")
+            }
+        }
+    }
 
     #[test]
     fn milestone12_lineage_key_matches_option1_and_option2_of_same_scaffold() {
@@ -143,27 +157,21 @@ mod tests {
 
     #[test]
     fn milestone12_lineage_accepts_bi_and_quad_roots_from_canonical_candidate_space() {
-        let candidates = build_milestone12_blueprint_candidate_space()
-            .expect("candidate space should build from cfd-schematics SSOT");
+        let candidates = build_milestone12_candidate_params();
 
         let bi = candidates
             .iter()
-            .find(|candidate| {
-                candidate
-                    .topology_spec()
-                    .is_ok_and(|spec| spec.stage_sequence_label() == "Bi")
-            })
+            .find(|candidate| !candidate.is_venturi() && root_family_label(candidate) == "Bi")
             .expect("Bi-root candidate should exist");
         let quad = candidates
             .iter()
-            .find(|candidate| {
-                candidate
-                    .topology_spec()
-                    .is_ok_and(|spec| spec.stage_sequence_label() == "Quad")
-            })
+            .find(|candidate| !candidate.is_venturi() && root_family_label(candidate) == "Quad")
             .expect("Quad-root candidate should exist");
 
-        assert!(is_milestone12_lineage_topology(bi));
-        assert!(is_milestone12_lineage_topology(quad));
+        let bi = bi.materialize();
+        let quad = quad.materialize();
+
+        assert!(is_milestone12_lineage_topology(&bi));
+        assert!(is_milestone12_lineage_topology(&quad));
     }
 }

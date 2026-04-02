@@ -12,13 +12,25 @@
 //! 6. FDA safety constraints are respected (wall shear < 150 Pa sustained)
 
 use cfd_optim::{
-    build_milestone12_blueprint_candidate_space, evaluate_blueprint_candidate, evaluate_goal,
+    build_milestone12_candidate_params, evaluate_blueprint_candidate, evaluate_goal,
     BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
 };
 use cfd_schematics::{
     build_milestone12_blueprint, enumerate_milestone12_topologies, TreatmentActuationMode,
 };
 use std::collections::HashSet;
+
+fn root_family_label(request: &cfd_schematics::Milestone12TopologyRequest) -> &'static str {
+    match request.split_kinds.first() {
+        Some(cfd_schematics::SplitKind::NFurcation(2)) => "Bi",
+        Some(cfd_schematics::SplitKind::NFurcation(3)) => "Tri",
+        Some(cfd_schematics::SplitKind::NFurcation(4)) => "Quad",
+        Some(cfd_schematics::SplitKind::NFurcation(5)) => "Penta",
+        Some(cfd_schematics::SplitKind::NFurcation(_)) | None => {
+            panic!("unexpected milestone12 root family in canonical catalog")
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Fast fixture constructors — build candidates directly from the topology
@@ -99,41 +111,26 @@ fn option1_candidate_space_contains_acoustic_selective_topologies() {
 
 #[test]
 fn option1_candidate_space_covers_mirrored_bi_tri_quad_penta_catalog() {
-    // This test validates that `build_milestone12_blueprint_candidate_space`
-    // covers every topology family × mirror variant in the canonical catalog.
-    // It must use the real space builder.
+    // Validate that the canonical parameter sweep covers every topology family
+    // × mirror variant in the Milestone 12 catalog without eagerly materializing
+    // the full blueprint space.
     let catalog = enumerate_milestone12_topologies();
-    let candidates = build_milestone12_blueprint_candidate_space().expect("candidate space builds");
+    let candidates = build_milestone12_candidate_params();
 
     let available: HashSet<(String, bool, bool)> = candidates
         .iter()
-        .filter(|candidate| {
-            candidate
-                .topology_spec()
-                .map(|spec| !spec.has_venturi() && !spec.split_stages.is_empty())
-                .unwrap_or(false)
-        })
-        .filter_map(|candidate| {
-            let topology = candidate.topology_spec().ok()?;
-            let hints = candidate.blueprint().render_hints()?;
-            Some((
-                topology.stage_sequence_label(),
-                hints.mirror_x,
-                hints.mirror_y,
-            ))
+        .filter(|candidate| !candidate.is_venturi() && !candidate.request.split_kinds.is_empty())
+        .map(|candidate| {
+            (
+                root_family_label(&candidate.request).to_string(),
+                candidate.request.mirror_x,
+                candidate.request.mirror_y,
+            )
         })
         .collect();
 
     for request in catalog {
-        let family = match request.split_kinds.first() {
-            Some(cfd_schematics::SplitKind::NFurcation(2)) => "Bi",
-            Some(cfd_schematics::SplitKind::NFurcation(3)) => "Tri",
-            Some(cfd_schematics::SplitKind::NFurcation(4)) => "Quad",
-            Some(cfd_schematics::SplitKind::NFurcation(5)) => "Penta",
-            Some(cfd_schematics::SplitKind::NFurcation(_)) | None => {
-                panic!("unexpected milestone12 root family in canonical catalog")
-            }
-        };
+        let family = root_family_label(&request);
         assert!(
             available.contains(&(family.to_string(), request.mirror_x, request.mirror_y)),
             "candidate space must materialize canonical catalog family {} (mirror_x={}, mirror_y={})",

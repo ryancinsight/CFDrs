@@ -194,13 +194,43 @@ impl<
         // The TrifurcationGeometry3D branches in the XY plane, so AxialBoundaryClassifier (Z-axis)
         // is invalid. We manually classify based on Euclidean distance to geometric endpoints.
         let mut face_sets = crate::fem::boundary_classifier::BoundaryFaceSets::default();
-        let p_inlet = nalgebra::Point3::new(-geom_f64.l_parent, 0.0, 0.0);
-        let mut p_outlets = [nalgebra::Point3::origin(); 3];
+        let inlet_axis = nalgebra::Vector3::new(-1.0, 0.0, 0.0);
+        let mut outlet_axes = [nalgebra::Vector3::zeros(); 3];
         for i in 0..3 {
             let angle = geom_f64.branching_angles[i];
             let dir = nalgebra::Vector3::new(angle.cos(), angle.sin(), 0.0);
-            p_outlets[i] = nalgebra::Point3::origin() + dir * geom_f64.l_daughters[i];
+            outlet_axes[i] = dir;
         }
+        let axial_tol = 1.5 * target_h;
+        let radial_tol = target_h;
+
+        let radial_distance = |point: nalgebra::Point3<f64>, axis: nalgebra::Vector3<f64>| {
+            let axial = point.coords.dot(&axis);
+            (point.coords - axis * axial).norm()
+        };
+        let face_axis_alignment = |
+            face: &cfd_mesh::infrastructure::storage::face_store::FaceData,
+            axis: nalgebra::Vector3<f64>,
+        | -> f64 {
+            if face.vertices.len() < 3 {
+                return 0.0_f64;
+            }
+            let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
+            let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
+            let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
+            let n_vec = (v1 - v0).cross(&(v2 - v0));
+            let norm = n_vec.norm();
+            if norm <= 1e-12_f64 {
+                return 0.0_f64;
+            }
+            n_vec.normalize().dot(&axis).abs()
+        };
+        let endcap_alignment_min: f64 = 0.8_f64;
+
+        let mut boundary_face_centroids = Vec::with_capacity(mesh.boundary_faces().len());
+        let mut boundary_faces_by_label: HashMap<String, Vec<FaceId>> = HashMap::new();
+        let mut inlet_projection_max = f64::NEG_INFINITY;
+        let mut outlet_projection_max = [f64::NEG_INFINITY; 3];
         
         for f_id in mesh.boundary_faces() {
             let face = mesh.faces.get(f_id);
@@ -212,18 +242,56 @@ impl<
                 face_sets.boundary_vertices.insert(v_idx.as_usize());
             }
             let centroid = nalgebra::Point3::from(z_sum / count);
-            
-            let tol_inlet = geom_f64.d_parent / 2.0 + target_h;
-            if nalgebra::distance(&centroid, &p_inlet) <= tol_inlet {
+
+            if radial_distance(centroid, inlet_axis) <= geom_f64.d_parent / 2.0 + radial_tol
+                && face_axis_alignment(face, inlet_axis) >= endcap_alignment_min
+            {
+                inlet_projection_max = inlet_projection_max.max(centroid.coords.dot(&inlet_axis));
+            }
+            for i in 0..3 {
+                if radial_distance(centroid, outlet_axes[i])
+                    <= geom_f64.d_daughters[i] / 2.0 + radial_tol
+                    && face_axis_alignment(face, outlet_axes[i]) >= endcap_alignment_min
+                {
+                    outlet_projection_max[i] =
+                        outlet_projection_max[i].max(centroid.coords.dot(&outlet_axes[i]));
+                }
+            }
+            boundary_face_centroids.push((f_id, centroid));
+        }
+
+        for (f_id, centroid) in boundary_face_centroids {
+            let face = mesh.faces.get(f_id);
+
+            let inlet_projection = centroid.coords.dot(&inlet_axis);
+            let inlet_radial = radial_distance(centroid, inlet_axis);
+            if inlet_projection >= inlet_projection_max - axial_tol
+                && inlet_radial <= geom_f64.d_parent / 2.0 + radial_tol
+                && face_axis_alignment(face, inlet_axis) >= endcap_alignment_min
+            {
+                boundary_faces_by_label
+                    .entry("inlet".to_string())
+                    .or_default()
+                    .push(f_id);
                 for &v_idx in &face.vertices { face_sets.inlet_nodes.insert(v_idx.as_usize()); }
                 continue;
             }
             
             let mut is_outlet = false;
             for i in 0..3 {
-                let tol_outlet = geom_f64.d_daughters[i] / 2.0 + target_h;
-                if nalgebra::distance(&centroid, &p_outlets[i]) <= tol_outlet {
-                    let per_label = face_sets.outlet_nodes_by_label.entry(format!("outlet_{}", i)).or_default();
+                let outlet_axis = outlet_axes[i];
+                let outlet_projection = centroid.coords.dot(&outlet_axis);
+                let outlet_radial = radial_distance(centroid, outlet_axis);
+                if outlet_projection >= outlet_projection_max[i] - axial_tol
+                    && outlet_radial <= geom_f64.d_daughters[i] / 2.0 + radial_tol
+                    && face_axis_alignment(face, outlet_axis) >= endcap_alignment_min
+                {
+                    let label = format!("outlet_{}", i);
+                    boundary_faces_by_label
+                        .entry(label.clone())
+                        .or_default()
+                        .push(f_id);
+                    let per_label = face_sets.outlet_nodes_by_label.entry(label).or_default();
                     for &v_idx in &face.vertices {
                         let id = v_idx.as_usize();
                         face_sets.outlet_nodes.insert(id);
@@ -309,7 +377,10 @@ impl<
         let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
-        let fem_config = FemConfig::<f64>::default();
+        let mut fem_config = FemConfig::<f64>::default();
+        fem_config.base.convergence.max_iterations = self.config.max_linear_iterations;
+        fem_config.base.convergence.tolerance =
+            self.config.linear_tolerance.to_f64().unwrap_or(1e-6_f64);
         let mut solver = FemSolver::new(fem_config);
         let mut last_solution: Option<crate::fem::StokesFlowSolution<f64>> = None;
         let mut anderson_accelerator = cfd_math::nonlinear_solver::AndersonAccelerator::<f64>::new(
@@ -388,24 +459,42 @@ impl<
         let mesh = &problem.mesh;
 
         // 5. Build Result
-        let q_parent_fem = <T as From<f64>>::from(self.calculate_boundary_flow_f64(
+        let empty_faces: [FaceId; 0] = [];
+
+        let q_parent_fem = <T as From<f64>>::from(self.calculate_boundary_flow_on_faces_f64(
             mesh,
             &fem_solution,
+            boundary_faces_by_label
+                .get("inlet")
+                .map(Vec::as_slice)
+                .unwrap_or(&empty_faces),
             "inlet",
         )?);
-        let q_d1 = <T as From<f64>>::from(self.calculate_boundary_flow_f64(
+        let q_d1 = <T as From<f64>>::from(self.calculate_boundary_flow_on_faces_f64(
             mesh,
             &fem_solution,
+            boundary_faces_by_label
+                .get("outlet_0")
+                .map(Vec::as_slice)
+                .unwrap_or(&empty_faces),
             "outlet_0",
         )?);
-        let q_d2 = <T as From<f64>>::from(self.calculate_boundary_flow_f64(
+        let q_d2 = <T as From<f64>>::from(self.calculate_boundary_flow_on_faces_f64(
             mesh,
             &fem_solution,
+            boundary_faces_by_label
+                .get("outlet_1")
+                .map(Vec::as_slice)
+                .unwrap_or(&empty_faces),
             "outlet_1",
         )?);
-        let q_d3 = <T as From<f64>>::from(self.calculate_boundary_flow_f64(
+        let q_d3 = <T as From<f64>>::from(self.calculate_boundary_flow_on_faces_f64(
             mesh,
             &fem_solution,
+            boundary_faces_by_label
+                .get("outlet_2")
+                .map(Vec::as_slice)
+                .unwrap_or(&empty_faces),
             "outlet_2",
         )?);
 
@@ -436,57 +525,51 @@ impl<
 
         let wss = [wss_parent, wss_d1, wss_d2, wss_d3];
 
-        let p_inlet_avg = {
-            let mut sum = T::zero();
-            let mut cnt: usize = 0;
-            for f_idx in 0..mesh.face_count() {
-                let fid = FaceId::from_usize(f_idx);
-                if mesh.boundary_label(fid) == Some("inlet") {
-                    let face = mesh.faces.get(fid);
-                    for &vi in &face.vertices {
-                        let vi_u = vi.as_usize();
-                        if vi_u < fem_solution.n_corner_nodes {
-                            sum += T::from_f64_or_one(fem_solution.get_pressure(vi_u));
-                            cnt += 1;
-                        }
-                    }
-                }
-            }
-            if cnt > 0 {
-                sum / T::from_usize(cnt)
-                    .expect("inlet pressure averaging count is always a representable usize")
-            } else {
-                self.config.inlet_pressure
-            }
-        };
+        let p_inlet_avg = self
+            .average_boundary_pressure_on_faces_f64(
+                mesh,
+                &fem_solution,
+                boundary_faces_by_label
+                    .get("inlet")
+                    .map(Vec::as_slice)
+                    .unwrap_or(&empty_faces),
+            )
+            .map(T::from_f64_or_one)
+            .unwrap_or(self.config.inlet_pressure);
 
-        let extract_outlet_pressure = |label: &str| -> T {
-            let mut sum = T::zero();
-            let mut cnt: usize = 0;
-            for f_idx in 0..mesh.face_count() {
-                let fid = FaceId::from_usize(f_idx);
-                if mesh.boundary_label(fid) == Some(label) {
-                    let face = mesh.faces.get(fid);
-                    for &vi in &face.vertices {
-                        let vi_u = vi.as_usize();
-                        if vi_u < fem_solution.n_corner_nodes {
-                            sum += T::from_f64_or_one(fem_solution.get_pressure(vi_u));
-                            cnt += 1;
-                        }
-                    }
-                }
-            }
-            if cnt > 0 {
-                sum / T::from_usize(cnt)
-                    .expect("outlet pressure averaging count is always a representable usize")
-            } else {
-                T::zero()
-            }
-        };
-
-        let p_out0 = extract_outlet_pressure("outlet_0");
-        let p_out1 = extract_outlet_pressure("outlet_1");
-        let p_out2 = extract_outlet_pressure("outlet_2");
+        let p_out0 = self
+            .average_boundary_pressure_on_faces_f64(
+                mesh,
+                &fem_solution,
+                boundary_faces_by_label
+                    .get("outlet_0")
+                    .map(Vec::as_slice)
+                    .unwrap_or(&empty_faces),
+            )
+            .map(T::from_f64_or_one)
+            .unwrap_or_else(T::zero);
+        let p_out1 = self
+            .average_boundary_pressure_on_faces_f64(
+                mesh,
+                &fem_solution,
+                boundary_faces_by_label
+                    .get("outlet_1")
+                    .map(Vec::as_slice)
+                    .unwrap_or(&empty_faces),
+            )
+            .map(T::from_f64_or_one)
+            .unwrap_or_else(T::zero);
+        let p_out2 = self
+            .average_boundary_pressure_on_faces_f64(
+                mesh,
+                &fem_solution,
+                boundary_faces_by_label
+                    .get("outlet_2")
+                    .map(Vec::as_slice)
+                    .unwrap_or(&empty_faces),
+            )
+            .map(T::from_f64_or_one)
+            .unwrap_or_else(T::zero);
 
         let p_out_mean = (p_out0 + p_out1 + p_out2) / T::from_f64_or_one(3.0);
         let dp = [
@@ -508,43 +591,63 @@ impl<
     }
 
     /// Calculate flow rate through a boundary label using u·n integration
-    fn calculate_boundary_flow_f64(
+    fn calculate_boundary_flow_on_faces_f64(
         &self,
         mesh: &cfd_mesh::IndexedMesh<f64>,
         solution: &crate::fem::StokesFlowSolution<f64>,
+        face_ids: &[FaceId],
         label: &str,
     ) -> Result<f64> {
         let reference_normal = self.boundary_reference_normal(label);
         let mut total_q = 0.0_f64;
-        for f_idx in 0..mesh.face_count() {
-            let fid = FaceId::from_usize(f_idx);
-            if mesh.boundary_label(fid) == Some(label) {
-                let face = mesh.faces.get(fid);
-                if face.vertices.len() >= 3 {
-                    let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
-                    let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
-                    let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
-                    let n_vec = (v1 - v0).cross(&(v2 - v0));
-                    let area = n_vec.norm() * 0.5_f64;
-                    if area <= 0.0_f64 {
-                        continue;
-                    }
-                    let mut face_normal = n_vec.normalize();
-                    if let Some(ref_n) = reference_normal {
-                        if face_normal.dot(&ref_n) < 0.0_f64 {
-                            face_normal = -face_normal;
-                        }
-                    }
-                    let mut u_avg = nalgebra::Vector3::zeros();
-                    for &v_idx in &face.vertices {
-                        u_avg += solution.get_velocity(v_idx.as_usize());
-                    }
-                    u_avg /= face.vertices.len() as f64;
-                    total_q += u_avg.dot(&face_normal) * area;
+        for &fid in face_ids {
+            let face = mesh.faces.get(fid);
+            if face.vertices.len() >= 3 {
+                let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
+                let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
+                let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
+                let n_vec = (v1 - v0).cross(&(v2 - v0));
+                let area = n_vec.norm() * 0.5_f64;
+                if area <= 0.0_f64 {
+                    continue;
                 }
+                let mut face_normal = n_vec.normalize();
+                if let Some(ref_n) = reference_normal {
+                    if face_normal.dot(&ref_n) < 0.0_f64 {
+                        face_normal = -face_normal;
+                    }
+                }
+                let mut u_avg = nalgebra::Vector3::zeros();
+                for &v_idx in &face.vertices {
+                    u_avg += solution.get_velocity(v_idx.as_usize());
+                }
+                u_avg /= face.vertices.len() as f64;
+                total_q += u_avg.dot(&face_normal) * area;
             }
         }
         Ok(total_q.abs())
+    }
+
+    fn average_boundary_pressure_on_faces_f64(
+        &self,
+        mesh: &cfd_mesh::IndexedMesh<f64>,
+        solution: &crate::fem::StokesFlowSolution<f64>,
+        face_ids: &[FaceId],
+    ) -> Option<f64> {
+        let mut sum = 0.0_f64;
+        let mut cnt: usize = 0;
+        for &fid in face_ids {
+            let face = mesh.faces.get(fid);
+            for &vi in &face.vertices {
+                let vi_u = vi.as_usize();
+                if vi_u < solution.n_corner_nodes {
+                    sum += solution.get_pressure(vi_u);
+                    cnt += 1;
+                }
+            }
+        }
+
+        (cnt > 0).then(|| sum / cnt as f64)
     }
 
     fn boundary_reference_normal(&self, label: &str) -> Option<nalgebra::Vector3<f64>> {
@@ -572,18 +675,16 @@ impl<
         mesh: &cfd_mesh::IndexedMesh<f64>,
         solution: &crate::fem::StokesFlowSolution<f64>,
     ) -> Result<f64> {
-        let mut idxs = Vec::with_capacity(10);
-        for &face_idx in &cell.faces {
-            let face = mesh.faces.get(FaceId::from_usize(face_idx));
-            for &v_idx in &face.vertices {
-                let v_idx_u = v_idx.as_usize();
-                if !idxs.contains(&v_idx_u) {
-                    idxs.push(v_idx_u);
-                }
-            }
-        }
+        let idxs = match crate::fem::mesh_utils::extract_vertex_indices(
+            cell,
+            mesh,
+            mesh.vertex_count(),
+        ) {
+            Ok(indices) => indices,
+            Err(_) => return Ok(0.0_f64),
+        };
         if idxs.len() < 4 {
-            return Err(Error::Solver("Invalid cell topology".to_string()));
+            return Ok(0.0_f64);
         }
         let mut local_verts = Vec::with_capacity(idxs.len());
         for &idx in &idxs {

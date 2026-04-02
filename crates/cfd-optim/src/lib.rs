@@ -125,6 +125,7 @@ pub use delivery::{
     load_top5_report_json, save_blueprint_schematic_svg, save_json_pretty, save_top5_report_json,
 };
 pub use design::build_milestone12_blueprint_candidate_space;
+pub use design::build_milestone12_candidate_params;
 pub use domain::{BlueprintCandidate, OperatingPoint, OptimizationGoal, PatientContext};
 pub use error::OptimError;
 pub use metrics::{

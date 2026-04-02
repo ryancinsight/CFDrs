@@ -63,7 +63,7 @@ fn main() {
         tracing::info!(
             "\n✅ Verification SUCCESS: Found inlet, center (1.5mm), and mirrored peripheral tree branches."
         );
-        shared::save_example_output(&system, "symmetric_split_demo");
+        shared::output::save_example_output(&system, "symmetric_split_demo");
     } else {
         tracing::info!("\n❌ Verification FAILED: Missing expected channel widths.");
         passed = false;

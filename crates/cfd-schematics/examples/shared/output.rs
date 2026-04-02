@@ -3,23 +3,30 @@ use cfd_schematics::plot_geometry;
 use std::fs;
 use std::path::PathBuf;
 
-/// Standardized output generator for all schematic examples.
-/// This ensures a unified directory structure: `output/examples/<example_name>/`
-/// containing both the `blueprint.json` and `geometry.svg` for each run.
-pub fn save_example_output(blueprint: &NetworkBlueprint, example_name: &str) {
-    let current_dir = std::env::current_dir().expect("Failed to get current directory");
-    let workspace_root = current_dir
+fn workspace_root() -> PathBuf {
+    std::env::current_dir()
+        .expect("Failed to get current directory")
         .ancestors()
-        .find(|p| p.join("Cargo.toml").exists() && p.join("crates").exists())
-        .expect("Must be run from within the CFDrs workspace");
+        .find(|path| path.join("Cargo.toml").exists() && path.join("crates").exists())
+        .expect("Must be run from within the CFDrs workspace")
+        .to_path_buf()
+}
 
-    // Output directory: CFDrs/crates/cfd-schematics/output/examples/<name>/
-    let output_dir = workspace_root
+fn example_output_dir(example_name: &str) -> PathBuf {
+    workspace_root()
         .join("crates")
         .join("cfd-schematics")
         .join("output")
         .join("examples")
-        .join(example_name);
+        .join(example_name)
+}
+
+/// Standardized output generator for all schematic examples.
+/// This ensures a unified directory structure: `output/examples/<example_name>/`
+/// containing both the `blueprint.json` and `geometry.svg` for each run.
+#[allow(dead_code)]
+pub fn save_example_output(blueprint: &NetworkBlueprint, example_name: &str) {
+    let output_dir = example_output_dir(example_name);
 
     fs::create_dir_all(&output_dir)
         .unwrap_or_else(|e| panic!("Failed to create output directory {:?}: {}", output_dir, e));
@@ -49,24 +56,13 @@ pub fn save_example_output(blueprint: &NetworkBlueprint, example_name: &str) {
 
 /// Standardized output generator that allows specifying a custom filename
 /// within the example's directory. Useful for examples that generate multiple permutations.
+#[allow(dead_code)]
 pub fn save_example_output_with_name(
     blueprint: &NetworkBlueprint,
     example_name: &str,
     file_name: &str,
 ) {
-    let current_dir = std::env::current_dir().expect("Failed to get current directory");
-    let workspace_root = current_dir
-        .ancestors()
-        .find(|p| p.join("Cargo.toml").exists() && p.join("crates").exists())
-        .expect("Must be run from within the CFDrs workspace");
-
-    // Output directory: CFDrs/crates/cfd-schematics/output/examples/<name>/
-    let output_dir = workspace_root
-        .join("crates")
-        .join("cfd-schematics")
-        .join("output")
-        .join("examples")
-        .join(example_name);
+    let output_dir = example_output_dir(example_name);
 
     fs::create_dir_all(&output_dir)
         .unwrap_or_else(|e| panic!("Failed to create output directory {:?}: {}", output_dir, e));

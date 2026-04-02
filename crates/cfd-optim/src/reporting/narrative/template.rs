@@ -2,6 +2,22 @@
 //!
 //! Placeholders use `{{TOKEN}}` form. Rendering fails if any placeholder
 //! remains unresolved to prevent silent drift in milestone reports.
+//!
+//! # Algorithm
+//! The renderer performs a left-to-right linear scan over the template,
+//! copying literal spans verbatim and substituting placeholder bodies by key.
+//!
+//! # Theorem
+//! For any input template, `render_template_strict` preserves the order and
+//! byte content of all non-placeholder spans and replaces each resolved
+//! `{{TOKEN}}` exactly once at its original position.
+//!
+//! **Proof sketch**
+//! The scan advances monotonically. At each step it either copies the next
+//! literal span before `{{`, or consumes one balanced `{{...}}` token and emits
+//! either its mapped value or the original token verbatim. Because each byte is
+//! visited in order and emitted once, non-placeholder content cannot be
+//! reordered or duplicated.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -120,5 +136,40 @@ mod tests {
         map.insert("ONE".to_string(), "1".to_string());
         let err = render_template_strict(tpl, &map).expect_err("must fail");
         assert!(err.to_string().contains("TWO"));
+    }
+
+    #[test]
+    fn extract_placeholders_collects_unique_trimmed_tokens() {
+        let tpl = "{{ ONE }} + {{TWO}} + {{ONE}} + {{  THREE  }}";
+        let placeholders = extract_placeholders(tpl);
+
+        assert_eq!(
+            placeholders,
+            BTreeSet::from([
+                "ONE".to_string(),
+                "THREE".to_string(),
+                "TWO".to_string(),
+            ])
+        );
+    }
+
+    #[test]
+    fn strict_renderer_preserves_unclosed_suffix_verbatim() {
+        let tpl = "prefix {{OPEN";
+        let rendered = render_template_strict(tpl, &BTreeMap::new())
+            .expect("unterminated token should be preserved verbatim");
+
+        assert_eq!(rendered, tpl);
+    }
+
+    #[test]
+    fn strict_renderer_reports_unique_unresolved_tokens() {
+        let tpl = "{{MISS}} {{MISS}} {{OTHER}}";
+        let err = render_template_strict(tpl, &BTreeMap::new()).expect_err("must fail");
+        let message = err.to_string();
+
+        assert!(message.contains("MISS"));
+        assert!(message.contains("OTHER"));
+        assert_eq!(message.matches("MISS").count(), 1);
     }
 }

@@ -71,9 +71,8 @@ impl<
     /// Create a new FEM solver with the given configuration
     pub fn new(config: FemConfig<T>) -> Self {
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
-            max_iterations: 5_000,
-            tolerance: <T as FromPrimitive>::from_f64(1e-12)
-                .expect("1e-12 is an IEEE 754 representable f64 constant"),
+            max_iterations: config.base.convergence.max_iterations,
+            tolerance: config.base.convergence.tolerance,
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
         let linear_solver = GMRES::new(solver_config, 100);
@@ -124,18 +123,14 @@ impl<
         // The LinearSolverChain encapsulates the 5-tier fallback strategy that
         // was previously duplicated across fem/solver.rs and fem/projection_solver.rs.
         // Tier order: Direct LU → GMRES+BlockDiag → GMRES (unprec) → GMRES+ILU → BiCGSTAB.
-        let rel_tol = <T as FromPrimitive>::from_f64(1e-8)
-            .expect("1e-8 is an IEEE 754 representable f64 constant");
+        let rel_tol = self.config.base.convergence.tolerance;
         let abs_tol = Float::max(
             rel_tol * rhs.norm(),
             <T as FromPrimitive>::from_f64(1e-14)
                 .expect("1e-14 is an IEEE 754 representable f64 constant"),
         );
-        // Cap at 5,000 iterations — sufficient for well-conditioned systems
-        // and prevents 10+ minute hangs on ill-conditioned saddle-point problems.
-        // Systems that don't converge in 5K iterations won't converge in 50K.
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
-            max_iterations: 5_000,
+            max_iterations: self.config.base.convergence.max_iterations,
             tolerance: abs_tol,
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
@@ -208,7 +203,13 @@ impl<
 
         // Adaptive tolerance (inexact Picard / Eisenstat–Walker strategy):
         // Early iterations use 100× looser tolerance since viscosity is still changing.
-        let base_tol = 1e-8_f64;
+        let base_tol = self
+            .config
+            .base
+            .convergence
+            .tolerance
+            .to_f64()
+            .unwrap_or(1e-8_f64);
         let adaptive_factor = if picard_iteration < max_picard_iterations / 2 {
             100.0_f64
         } else {
@@ -222,9 +223,8 @@ impl<
                 .expect("1e-14 is an IEEE 754 representable f64 constant"),
         );
 
-        // Reduced iteration budget: 5K is sufficient with warm-starting.
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
-            max_iterations: 5_000,
+            max_iterations: self.config.base.convergence.max_iterations,
             tolerance: abs_tol,
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
@@ -250,6 +250,7 @@ impl<
             n_velocity_dof,
             picard_iteration,
             ?abs_tol,
+            max_iter = self.config.base.convergence.max_iterations,
             assembly_secs = assembly_elapsed.as_secs_f64(),
             "FemSolver: starting linear solve (Picard mode)"
         );
@@ -257,7 +258,7 @@ impl<
         tracing::info!(
             assembly_secs = format!("{:.2}", assembly_elapsed.as_secs_f64()).as_str(),
             ?abs_tol,
-            max_iter = 10000,
+            max_iter = self.config.base.convergence.max_iterations,
             restart = std::cmp::min(200, n_total_dof.max(1)),
             "Assembly and linear solve config"
         );
@@ -561,22 +562,28 @@ impl<
                     let local_verts: Vec<Vector3<T>> =
                         idxs.iter().map(|&idx| vertex_positions[idx]).collect();
 
-                    if local_verts.len() >= 4_usize {
-                        let v0 = local_verts[0];
-                        let v1 = local_verts[1];
-                        let v2 = local_verts[2];
-                        let v3 = local_verts[3];
+                    if local_verts.len() < 4_usize {
+                        // Only tetrahedral cells are supported by this assembler.
+                        // Mesh extraction can occasionally surface malformed cells
+                        // with insufficient recovered corner vertices; they carry no
+                        // valid tetra contribution and must be skipped.
+                        return (local_map, local_rhs);
+                    }
 
-                        let six = <T as FromPrimitive>::from_f64(6.0)
-                            .expect("6.0 is representable in all IEEE 754 types");
-                        let vol = ((v1 - v0).cross(&(v2 - v0))).dot(&(v3 - v0)) / six;
-                        let vol_tol = <T as FromPrimitive>::from_f64(1e-22)
-                            .expect("1e-22 is an IEEE 754 representable f64 constant");
-                        if Float::abs(vol) < vol_tol {
-                            // Skip degenerate element — zero volume means zero
-                            // contribution to the global stiffness matrix
-                            return (local_map, local_rhs);
-                        }
+                    let v0 = local_verts[0];
+                    let v1 = local_verts[1];
+                    let v2 = local_verts[2];
+                    let v3 = local_verts[3];
+
+                    let six = <T as FromPrimitive>::from_f64(6.0)
+                        .expect("6.0 is representable in all IEEE 754 types");
+                    let vol = ((v1 - v0).cross(&(v2 - v0))).dot(&(v3 - v0)) / six;
+                    let vol_tol = <T as FromPrimitive>::from_f64(1e-22)
+                        .expect("1e-22 is an IEEE 754 representable f64 constant");
+                    if Float::abs(vol) < vol_tol {
+                        // Skip degenerate element — zero volume means zero
+                        // contribution to the global stiffness matrix
+                        return (local_map, local_rhs);
                     }
 
                     let u_avg = self.calculate_u_avg(&idxs, previous_solution);
