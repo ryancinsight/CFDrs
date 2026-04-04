@@ -274,9 +274,92 @@ impl BandLimitedRandomPhaseForcing3D {
     }
 }
 
+/// Configuration for a time-resampled random-phase forcing schedule.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct TimeResampledBandLimitedForcingConfig {
+    /// Base band-limited forcing configuration.
+    pub forcing: BandLimitedRandomPhaseForcingConfig,
+    /// Number of DNS steps to reuse each forcing realization.
+    pub resample_stride: usize,
+}
+
+impl TimeResampledBandLimitedForcingConfig {
+    /// Create a validated time-resampled forcing configuration.
+    pub fn new(
+        forcing: BandLimitedRandomPhaseForcingConfig,
+        resample_stride: usize,
+    ) -> Result<Self> {
+        if resample_stride == 0 {
+            return Err(Error::InvalidConfiguration(
+                "TimeResampledBandLimitedForcingConfig: resample stride must be greater than zero".into(),
+            ));
+        }
+
+        Ok(Self {
+            forcing,
+            resample_stride,
+        })
+    }
+}
+
+/// Deterministic time-resampled forcing schedule for periodic DNS.
+#[derive(Debug, Clone)]
+pub struct TimeResampledBandLimitedForcing3D {
+    config: TimeResampledBandLimitedForcingConfig,
+}
+
+impl TimeResampledBandLimitedForcing3D {
+    /// Create a new time-resampled forcing schedule.
+    pub fn new(config: TimeResampledBandLimitedForcingConfig) -> Result<Self> {
+        Ok(Self { config })
+    }
+
+    /// Return the current schedule configuration.
+    #[must_use]
+    pub fn config(&self) -> TimeResampledBandLimitedForcingConfig {
+        self.config
+    }
+
+    /// Sample the forcing field for a DNS step.
+    pub fn sample_physical_forcing_for_step(&self, step: usize) -> Result<VelocityField<f64>> {
+        self.forcing_for_step(step)?.sample_physical_forcing()
+    }
+
+    /// Sample the spectral forcing field for a DNS step.
+    pub fn sample_spectral_forcing_for_step(
+        &self,
+        step: usize,
+    ) -> Result<[Array3<Complex64>; 3]> {
+        self.forcing_for_step(step)?.sample_spectral_forcing()
+    }
+
+    fn forcing_for_step(&self, step: usize) -> Result<BandLimitedRandomPhaseForcing3D> {
+        let epoch = step / self.config.resample_stride;
+        let seed = Self::mixed_seed(self.config.forcing.seed, epoch as u64);
+        let forcing_config = BandLimitedRandomPhaseForcingConfig {
+            seed,
+            ..self.config.forcing
+        };
+
+        BandLimitedRandomPhaseForcing3D::new(forcing_config)
+    }
+
+    fn mixed_seed(base_seed: u64, epoch: u64) -> u64 {
+        let mut state = base_seed ^ epoch.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        state ^= state >> 30;
+        state = state.wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        state ^= state >> 27;
+        state = state.wrapping_mul(0x94D0_49BB_1331_11EB);
+        state ^ (state >> 31)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig};
+    use super::{
+        BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig,
+        TimeResampledBandLimitedForcing3D, TimeResampledBandLimitedForcingConfig,
+    };
 
     #[test]
     fn forcing_is_band_limited_and_divergence_free() {
@@ -342,5 +425,36 @@ mod tests {
 
         assert!(energy > 0.0, "forcing field should be nontrivial");
         assert_eq!(velocity.dimensions, (6, 6, 6));
+    }
+
+    #[test]
+    fn time_resampled_schedule_reuses_epochs_and_changes_across_boundaries() {
+        let forcing = BandLimitedRandomPhaseForcingConfig::new(
+            (8, 8, 8),
+            (1.0, 1.0, 1.0),
+            2,
+            1,
+            0.5,
+            99,
+        )
+        .expect("forcing config should be valid");
+        let schedule = TimeResampledBandLimitedForcing3D::new(
+            TimeResampledBandLimitedForcingConfig::new(forcing, 4)
+                .expect("schedule config should be valid"),
+        )
+        .expect("schedule should be valid");
+
+        let step_one = schedule
+            .sample_physical_forcing_for_step(1)
+            .expect("step-one forcing should sample");
+        let step_three = schedule
+            .sample_physical_forcing_for_step(3)
+            .expect("step-three forcing should sample");
+        let step_four = schedule
+            .sample_physical_forcing_for_step(4)
+            .expect("step-four forcing should sample");
+
+        assert_eq!(step_one.components, step_three.components);
+        assert_ne!(step_one.components, step_four.components);
     }
 }

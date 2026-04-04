@@ -69,8 +69,15 @@ pub mod solver;
 
 pub use basis::{BasisFunction, SpectralBasis};
 pub use chebyshev::ChebyshevPolynomial;
-pub use diagnostics::{KineticEnergySpectrum, kinetic_energy_spectrum};
-pub use forcing::{BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig};
+pub use diagnostics::{
+	enstrophy_spectrum, kinetic_energy_spectrum, probe_signal_spectrum,
+	temporal_autocorrelation, EnstrophySpectrum, KineticEnergySpectrum, ProbeSignalSpectrum,
+	TemporalAutocorrelation,
+};
+pub use forcing::{
+	BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig,
+	TimeResampledBandLimitedForcing3D, TimeResampledBandLimitedForcingConfig,
+};
 pub use dns::{PeriodicPseudospectralDns3D, PeriodicPseudospectralDnsConfig};
 pub use fourier::{FourierTransform, SpectralDerivative};
 pub use poisson::{PoissonBoundaryCondition, PoissonSolver};

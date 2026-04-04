@@ -146,9 +146,12 @@ pub use blueprint_integration::{
 // Export spectral functionality
 pub use spectral::{
     BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig, BasisFunction,
-    ChebyshevPolynomial, FourierTransform, PeriodicPseudospectralDns3D,
-    PeriodicPseudospectralDnsConfig, SpectralBasis, SpectralConfig, SpectralSolution,
-    SpectralSolver,
+    ChebyshevPolynomial, EnstrophySpectrum, FourierTransform, KineticEnergySpectrum,
+    PeriodicPseudospectralDns3D, PeriodicPseudospectralDnsConfig, ProbeSignalSpectrum,
+    SpectralBasis, SpectralConfig, SpectralSolution, SpectralSolver,
+    TemporalAutocorrelation, TimeResampledBandLimitedForcing3D,
+    TimeResampledBandLimitedForcingConfig, enstrophy_spectrum, kinetic_energy_spectrum,
+    probe_signal_spectrum, temporal_autocorrelation,
 };
 
 // Export IBM functionality

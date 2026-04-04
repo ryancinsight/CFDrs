@@ -21,6 +21,7 @@
 //! converging at rate $O(h^{-1})$ with optimal relaxation $\omega^* \approx 2/(1 + \sin(\pi h))$.
 
 use crate::grid::{array2d::Array2D, StructuredGrid2D};
+use cfd_core::compute::solver::SolverConfiguration;
 use cfd_core::error::Result;
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
@@ -150,9 +151,10 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
         let dy2 = self.dy * self.dy;
         let denominator = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero())
             * (T::one() / dx2 + T::one() / dy2);
+        let max_iterations = self.config.base.max_iterations().max(1);
 
         // SOR iteration for Poisson equation
-        for _ in 0..100 {
+        for _ in 0..max_iterations {
             let mut max_change = T::zero();
 
             for i in 1..self.nx - 1 {

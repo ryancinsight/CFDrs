@@ -11,6 +11,7 @@ pub mod bifurcation;
 pub mod cavity;
 pub mod cylinder;
 pub mod runner;
+pub mod vorticity_stream;
 pub mod serpentine;
 pub mod step;
 pub mod threed;
@@ -24,6 +25,10 @@ pub use bifurcation::BifurcationFlow;
 pub use cavity::LidDrivenCavity;
 pub use cylinder::FlowOverCylinder;
 pub use runner::{BenchmarkRunner, ValidationReport};
+pub use vorticity_stream::{
+    VorticityStreamCavityBenchmark, VorticityStreamCavityConfig,
+    VorticityStreamCavityHistory, VorticityStreamCavityReport,
+};
 pub use serpentine::SerpentineFlow;
 pub use step::BackwardFacingStep;
 pub use threed::*;
