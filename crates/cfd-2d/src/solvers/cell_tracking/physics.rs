@@ -120,20 +120,28 @@ impl AsymmetricBifurcationFlow {
 
     /// The dividing streamline y-position at the split plane.
     /// In the parent, the flow above this line goes to the wide daughter
-    /// and below goes to the narrow daughter.  For Poiseuille flow, the
-    /// streamline that captures fraction f of the total flow is at:
-    ///   y_div / H = 0.5 * (1 + (1 - (1-f)^(1/2))^(1/2))
-    /// Simplified: use the flow fraction directly since the Poiseuille
-    /// profile is symmetric and we split top/bottom.
+    /// and below goes to the narrow daughter. For a Poiseuille profile,
+    /// the exact cumulative flow fraction above x = y/H is
+    /// `F_above(x) = 1 - 3x^2 + 2x^3`; this method inverts that relation
+    /// so the split line matches the requested wide-daughter flow fraction.
     pub fn dividing_streamline_y(&self) -> f64 {
-        let f = self.flow_fraction_wide();
-        // For a Poiseuille profile, the fraction of flow above y is
-        // approximately (y/H)^2 * (3 - 2*y/H) (the CDF of the parabolic
-        // profile).  We want y such that this fraction = 1 - f (i.e.,
-        // f flows above y).  For 96% wide, the divider is near y = 0.05*H.
-        // Use linear approximation for simplicity:
-        self.parent_height_m * (1.0 - f)
+        self.parent_height_m * inverse_poiseuille_flow_fraction_above(self.flow_fraction_wide())
     }
+}
+
+#[inline]
+fn inverse_poiseuille_flow_fraction_above(flow_fraction_above: f64) -> f64 {
+    let clamped_fraction = flow_fraction_above.clamp(0.0, 1.0);
+
+    if clamped_fraction <= 0.0 {
+        return 1.0;
+    }
+    if clamped_fraction >= 1.0 {
+        return 0.0;
+    }
+
+    let inverse_cdf = 0.5 - ((2.0 * clamped_fraction - 1.0).asin() / 3.0).sin();
+    inverse_cdf.clamp(0.0, 1.0)
 }
 
 impl VelocityFieldInterpolator for AsymmetricBifurcationFlow {
@@ -196,5 +204,40 @@ impl VelocityFieldInterpolator for AsymmetricBifurcationFlow {
 
     fn bounds(&self) -> (f64, f64, f64, f64) {
         (0.0, self.length_m, 0.0, self.parent_height_m)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{inverse_poiseuille_flow_fraction_above, AsymmetricBifurcationFlow};
+
+    #[test]
+    fn dividing_streamline_inverts_poiseuille_cdf() {
+        let flow = AsymmetricBifurcationFlow {
+            parent_width_m: 2.0e-3,
+            parent_height_m: 2.0e-3,
+            wide_daughter_width_m: 1.1e-3,
+            narrow_daughter_width_m: 0.9e-3,
+            length_m: 0.015,
+            u_inlet: 0.05,
+            x_split: 0.005,
+        };
+
+        let y_div = flow.dividing_streamline_y();
+        let x = y_div / flow.parent_height_m;
+        let flow_above = 1.0 - 3.0 * x * x + 2.0 * x * x * x;
+
+        assert!((flow_above - flow.flow_fraction_wide()).abs() < 1.0e-12);
+        assert!(x > 0.0 && x < 1.0);
+    }
+
+    #[test]
+    fn inverse_poiseuille_flow_fraction_above_is_monotone() {
+        let low = inverse_poiseuille_flow_fraction_above(0.25);
+        let mid = inverse_poiseuille_flow_fraction_above(0.50);
+        let high = inverse_poiseuille_flow_fraction_above(0.75);
+
+        assert!(low > mid && mid > high);
+        assert!((mid - 0.5).abs() < 1.0e-12);
     }
 }

@@ -122,13 +122,29 @@ impl<T: RealField + Copy + FromPrimitive> NFurcationGeometry<T> {
         let mut max_y = half_pw;
 
         for branch in &self.branches {
-            let end_x = self.parent_length + branch.length * branch.angle.cos();
-            let end_y = branch.length * branch.angle.sin();
+            let start_x = self.parent_length;
+            let start_y = T::zero();
+            let cos_a = branch.angle.cos();
+            let sin_a = branch.angle.sin();
+            let end_x = start_x + branch.length * cos_a;
+            let end_y = start_y + branch.length * sin_a;
             let half_w = branch.width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+            let normal_x = -sin_a;
+            let normal_y = cos_a;
+
+            let corners = [
+                (start_x + half_w * normal_x, start_y + half_w * normal_y),
+                (start_x - half_w * normal_x, start_y - half_w * normal_y),
+                (end_x + half_w * normal_x, end_y + half_w * normal_y),
+                (end_x - half_w * normal_x, end_y - half_w * normal_y),
+            ];
 
             max_x = max_x.max(end_x);
-            min_y = min_y.min(end_y - half_w).min(end_y); // Simple approximation
-            max_y = max_y.max(end_y + half_w).max(end_y);
+            for (corner_x, corner_y) in corners {
+                max_x = max_x.max(corner_x);
+                min_y = min_y.min(corner_y);
+                max_y = max_y.max(corner_y);
+            }
         }
         [min_x, max_x, min_y, max_y]
     }
@@ -235,4 +251,48 @@ pub struct NFurcationSolution<T: RealField + Copy> {
     pub q_total_out: T,
     /// Relative mass-balance defect `|Q_in - Q_out| / Q_in`.
     pub mass_balance_error: T,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{BranchGeometry, NFurcationGeometry};
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn bounding_box_includes_full_rotated_branch_footprint() {
+        let geometry = NFurcationGeometry {
+            parent_width: 1.0,
+            parent_length: 2.0,
+            branches: vec![BranchGeometry {
+                width: 0.4,
+                length: 1.5,
+                angle: std::f64::consts::FRAC_PI_6,
+            }],
+        };
+
+        let bbox = geometry.bounding_box();
+        let half_w = 0.2_f64;
+        let start_x = 2.0_f64;
+        let start_y = 0.0_f64;
+        let end_x = start_x + 1.5 * std::f64::consts::FRAC_PI_6.cos();
+        let end_y = start_y + 1.5 * std::f64::consts::FRAC_PI_6.sin();
+        let normal_x = -std::f64::consts::FRAC_PI_6.sin();
+        let normal_y = std::f64::consts::FRAC_PI_6.cos();
+        let corners = [
+            (start_x + half_w * normal_x, start_y + half_w * normal_y),
+            (start_x - half_w * normal_x, start_y - half_w * normal_y),
+            (end_x + half_w * normal_x, end_y + half_w * normal_y),
+            (end_x - half_w * normal_x, end_y - half_w * normal_y),
+        ];
+        let expected_min_x = corners.iter().map(|(x, _)| *x).fold(0.0_f64, f64::min).min(0.0);
+        let expected_max_x = corners.iter().map(|(x, _)| *x).fold(2.0_f64, f64::max);
+        let expected_min_y = corners.iter().map(|(_, y)| *y).fold(-0.5_f64, f64::min);
+        let expected_max_y = corners.iter().map(|(_, y)| *y).fold(0.5_f64, f64::max);
+
+        assert_relative_eq!(bbox[0], expected_min_x, epsilon = 1e-12);
+        assert_relative_eq!(bbox[1], expected_max_x, epsilon = 1e-12);
+        assert_relative_eq!(bbox[2], expected_min_y, epsilon = 1e-12);
+        assert_relative_eq!(bbox[3], expected_max_y, epsilon = 1e-12);
+        assert!(bbox[2] < -0.05, "bounding box must include the start corner of the rotated branch");
+    }
 }

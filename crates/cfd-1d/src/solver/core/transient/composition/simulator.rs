@@ -1,7 +1,7 @@
 use super::events::{EdgeFlowEvent, InletCompositionEvent, PressureBoundaryEvent};
 use super::state::{CompositionState, MixtureComposition};
 use crate::domain::network::Network;
-use crate::solver::core::{NetworkProblem, NetworkSolver};
+use crate::solver::core::NetworkSolver;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
@@ -302,8 +302,7 @@ impl TransientCompositionSimulator {
                 pressure_event_cursor += 1;
             }
 
-            let problem = NetworkProblem::new(working_network);
-            working_network = solver.solve_network(&problem)?;
+            working_network = solver.solve_owned_network(working_network)?;
 
             let mut effective_flow_rates: HashMap<usize, T> = HashMap::new();
             for (i, &q) in working_network.flow_rates.iter().enumerate() {

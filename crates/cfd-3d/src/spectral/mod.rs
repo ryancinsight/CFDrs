@@ -56,15 +56,22 @@
 //! - Mode count N must satisfy N ≥ 2 (minimum for meaningful transform).
 //! - For FFT efficiency, N should be a power-of-2 or have small prime factors.
 //! - After inverse transform, max round-trip error must be < N·2.2e-16.
+//! - Periodic pseudospectral DNS and seeded forcing use Apollo FFTs with a 2/3 de-aliasing filter.
 
 pub mod basis;
+pub mod forcing;
+pub mod diagnostics;
 pub mod chebyshev;
+pub mod dns;
 pub mod fourier;
 pub mod poisson;
 pub mod solver;
 
 pub use basis::{BasisFunction, SpectralBasis};
 pub use chebyshev::ChebyshevPolynomial;
+pub use diagnostics::{KineticEnergySpectrum, kinetic_energy_spectrum};
+pub use forcing::{BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig};
+pub use dns::{PeriodicPseudospectralDns3D, PeriodicPseudospectralDnsConfig};
 pub use fourier::{FourierTransform, SpectralDerivative};
 pub use poisson::{PoissonBoundaryCondition, PoissonSolver};
 pub use solver::{SpectralConfig, SpectralSolution, SpectralSolver};

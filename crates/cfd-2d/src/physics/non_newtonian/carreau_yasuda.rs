@@ -40,6 +40,8 @@ use num_traits::{Float, FromPrimitive};
 /// Carreau-Yasuda model parameters.
 #[derive(Debug, Clone, Copy)]
 pub struct CarreauYasudaModel<T: RealField + Copy> {
+    /// Fluid density [kg/m^3]
+    pub density: T,
     /// Zero-shear viscosity limit $\mu_0$ [Pa·s]
     pub mu_0: T,
     /// Infinite-shear viscosity limit $\mu_\infty$ [Pa·s]
@@ -59,6 +61,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> CarreauYasudaModel<T> {
     #[must_use]
     pub fn typical_blood() -> Self {
         Self {
+            density: T::from_f64(1060.0).unwrap_or_else(num_traits::Zero::zero),
             mu_0: T::from_f64(0.022).unwrap_or_else(num_traits::Zero::zero),
             mu_inf: T::from_f64(0.0022).unwrap_or_else(num_traits::Zero::zero),
             lambda: T::from_f64(0.11).unwrap_or_else(num_traits::Zero::zero),
@@ -92,8 +95,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> CarreauYasudaModel<T> {
     /// Compute the kinematic viscosity $\nu = \mu / \rho$.
     #[inline]
     #[must_use]
-    pub fn apparent_kinematic_viscosity(&self, shear_rate: T, density: T) -> T {
-        self.apparent_viscosity(shear_rate) / density
+    pub fn apparent_kinematic_viscosity(&self, shear_rate: T) -> T {
+        self.apparent_viscosity(shear_rate) / self.density
     }
 }
 
@@ -154,6 +157,7 @@ mod tests {
     fn newtonian_limit_n_equals_one() {
         use approx::assert_relative_eq;
         let model = CarreauYasudaModel::<f64> {
+            density: 1060.0,
             mu_0: 0.022,
             mu_inf: 0.0022,
             lambda: 0.11,
@@ -174,10 +178,9 @@ mod tests {
     fn kinematic_viscosity_consistency() {
         use approx::assert_relative_eq;
         let model = CarreauYasudaModel::<f64>::typical_blood();
-        let rho = 1060.0_f64; // blood density
         let sr = 100.0_f64;
         let mu = model.apparent_viscosity(sr);
-        let nu = model.apparent_kinematic_viscosity(sr, rho);
-        assert_relative_eq!(nu, mu / rho, epsilon = 1e-15);
+        let nu = model.apparent_kinematic_viscosity(sr);
+        assert_relative_eq!(nu, mu / model.density, epsilon = 1e-15);
     }
 }

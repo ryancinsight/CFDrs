@@ -1,8 +1,8 @@
 //! Factory for creating microfluidic components
 
 use super::{
-    constants, CircularChannel, Component, HashMap, Micropump, Microvalve, OrganCompartment,
-    PorousMembrane, RectangularChannel,
+    constants, try_real_from_f64, CircularChannel, Component, HashMap, Micropump, Microvalve,
+    OrganCompartment, PorousMembrane, RectangularChannel,
 };
 use cfd_core::error::{Error, Result};
 use nalgebra::RealField;
@@ -28,10 +28,11 @@ impl ComponentFactory {
                 let height = params.get("height").ok_or_else(|| {
                     Error::InvalidConfiguration("Missing height parameter".into())
                 })?;
-                let roughness = params.get("roughness").copied().unwrap_or_else(|| {
-                    T::from_f64(constants::DEFAULT_ROUGHNESS)
-                        .expect("Mathematical constant conversion compromised")
-                });
+                let roughness = if let Some(&roughness) = params.get("roughness") {
+                    roughness
+                } else {
+                    try_real_from_f64(constants::DEFAULT_ROUGHNESS, "default roughness")?
+                };
 
                 Ok(Box::new(RectangularChannel::new(
                     *length, *width, *height, roughness,
@@ -44,10 +45,11 @@ impl ComponentFactory {
                 let diameter = params.get("diameter").ok_or_else(|| {
                     Error::InvalidConfiguration("Missing diameter parameter".into())
                 })?;
-                let roughness = params.get("roughness").copied().unwrap_or_else(|| {
-                    T::from_f64(constants::DEFAULT_ROUGHNESS)
-                        .expect("Mathematical constant conversion compromised")
-                });
+                let roughness = if let Some(&roughness) = params.get("roughness") {
+                    roughness
+                } else {
+                    try_real_from_f64(constants::DEFAULT_ROUGHNESS, "default roughness")?
+                };
 
                 Ok(Box::new(CircularChannel::new(
                     *length, *diameter, roughness,
@@ -64,10 +66,11 @@ impl ComponentFactory {
                 Ok(Box::new(Micropump::new(*max_flow_rate, *max_pressure)))
             }
             "Microvalve" => {
-                let cv = params.get("cv").copied().unwrap_or_else(|| {
-                    T::from_f64(constants::DEFAULT_VALVE_CV)
-                        .expect("Mathematical constant conversion compromised")
-                });
+                let cv = if let Some(&cv) = params.get("cv") {
+                    cv
+                } else {
+                    try_real_from_f64(constants::DEFAULT_VALVE_CV, "default valve cv")?
+                };
 
                 Ok(Box::new(Microvalve::new(cv)))
             }

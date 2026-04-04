@@ -27,7 +27,7 @@ use cfd_core::physics::fluid::blood::FahraeuasLindqvist;
 /// f(D) = [1 + (eta_0.45 - 1) · (D/(D - 1.1))^2 · ((1-0.45)^C - 1) / ((1-0.45)^C - 1)]
 /// ```
 ///
-/// Simplified form (valid for D in micrometers):
+/// Pries 1992 empirical correlation expressed in closed form (D in micrometers):
 ///
 /// ```text
 /// µ_rel(D) = 1 + (6.0·exp(-0.085·D) + 3.2 - 2.44·exp(-0.06·D^0.645))
@@ -112,8 +112,6 @@ pub fn secomb_network_viscosity(
     let diameter_m = diameter_um * 1e-6;
     let fl = FahraeuasLindqvist::<f64>::new(diameter_m, hematocrit);
     fl.secomb_relative_viscosity() * mu_plasma_pa_s
-
-    // For large vessels (D > 300 µm), cap at D=300 (same convention as Pries)
 }
 
 /// Secomb (2017) phase-separation parameter for bifurcation hematocrit partitioning.
@@ -142,8 +140,22 @@ pub fn secomb_network_viscosity(
 /// Phase-separation parameter X₀ (dimensionless)
 #[inline]
 #[must_use]
-pub fn secomb_phase_separation_x0(diameter_um: f64, hematocrit: f64) -> f64 {
-    0.964 * (1.0 - hematocrit) / diameter_um.max(1.0)
+pub fn secomb_phase_separation_x0(
+    diameter_um: f64,
+    hematocrit: f64,
+) -> cfd_core::error::Result<f64> {
+    if !diameter_um.is_finite() || diameter_um <= 0.0 || !hematocrit.is_finite() {
+        return Err(cfd_core::error::Error::InvalidConfiguration(
+            "Secomb phase-separation inputs must be finite and diameter must be positive".to_string(),
+        ));
+    }
+    if !(0.0..=1.0).contains(&hematocrit) {
+        return Err(cfd_core::error::Error::InvalidConfiguration(
+            "Secomb phase-separation hematocrit must lie in [0, 1]".to_string(),
+        ));
+    }
+
+    Ok(0.964 * (1.0 - hematocrit) / diameter_um)
 }
 
 #[cfg(test)]
@@ -153,13 +165,11 @@ mod tests {
     const MU_PLASMA: f64 = 0.0012; // Pa·s
 
     /// Bulk blood viscosity at 45% hematocrit is approximately 3-4 mPa·s.
-    /// For D=1000 µm (large vessel), the Fahraeus-Lindqvist effect is negligible
-    /// and viscosity should approach bulk values.
+    /// For D=1000 µm (large vessel), the apparent viscosity should remain in the
+    /// bulk-blood range.
     #[test]
     fn test_fahraeus_lindqvist_large_vessel() {
         let mu = fahraeus_lindqvist_viscosity(1000.0, 0.45, MU_PLASMA);
-        // For large D, eta_rel should be evaluated at D=300 (our cap),
-        // which gives approximately the bulk viscosity for 45% Ht.
         // Bulk blood viscosity ~3.0-4.5 mPa·s
         let eta_rel = mu / MU_PLASMA;
         assert!(
@@ -254,9 +264,13 @@ mod tests {
 
     // ── Secomb (2017) tests ─────────────────────────────────────────────
 
+    #[test]
+    fn test_secomb_phase_separation_rejects_nonpositive_diameter() {
+        assert!(secomb_phase_separation_x0(0.0, 0.45).is_err());
+    }
+
     /// For large vessels (D=1000 µm), Secomb and Pries should agree closely
-    /// because both cap at D=300 µm and the Secomb correction terms vanish
-    /// at large diameters.
+    /// because both converge to the same bulk-blood regime.
     #[test]
     fn test_secomb_agrees_with_pries_for_large_vessels() {
         let mu_pries = fahraeus_lindqvist_viscosity(1000.0, 0.45, MU_PLASMA);
@@ -290,10 +304,10 @@ mod tests {
     /// The phase-separation parameter X₀ should decrease with increasing
     /// vessel diameter (larger vessels have proportionally thinner CFL).
     #[test]
-    fn test_secomb_phase_separation_decreases_with_diameter() {
-        let x0_small = secomb_phase_separation_x0(20.0, 0.45);
-        let x0_medium = secomb_phase_separation_x0(100.0, 0.45);
-        let x0_large = secomb_phase_separation_x0(500.0, 0.45);
+    fn test_secomb_phase_separation_decreases_with_diameter() -> cfd_core::error::Result<()> {
+        let x0_small = secomb_phase_separation_x0(20.0, 0.45)?;
+        let x0_medium = secomb_phase_separation_x0(100.0, 0.45)?;
+        let x0_large = secomb_phase_separation_x0(500.0, 0.45)?;
 
         assert!(
             x0_small > x0_medium && x0_medium > x0_large,
@@ -302,6 +316,7 @@ mod tests {
             x0_medium,
             x0_large
         );
+        Ok(())
     }
 
     /// Higher hematocrit should produce higher Secomb viscosity at any

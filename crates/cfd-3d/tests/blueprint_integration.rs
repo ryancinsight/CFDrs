@@ -30,6 +30,18 @@ fn continuity_residual<'a>(
         .continuity_residual_m3_s
 }
 
+fn reference_pressure_coefficient<'a>(
+    trace: &'a cfd_3d::blueprint_integration::Blueprint3dTrace,
+    channel_id: &str,
+) -> f64 {
+    trace
+        .channel_traces
+        .iter()
+        .find(|channel| channel.channel_id == channel_id)
+        .unwrap_or_else(|| panic!("missing channel trace for '{channel_id}'"))
+        .reference_pressure_drop_coefficient
+}
+
 fn no_chip_trace_config() -> Blueprint3dProcessingConfig {
     Blueprint3dProcessingConfig {
         mesh: cfd_mesh::application::pipeline::PipelineConfig {
@@ -215,4 +227,13 @@ fn blueprint_trace_can_attach_two_d_comparison() {
     assert!(trace.channel_traces.iter().all(|channel| {
         channel.two_d_outlet_flow_error_pct.is_some() && channel.two_d_converged == Some(true)
     }));
+    assert!(trace.channel_traces.iter().all(|channel| {
+        channel.reference_pressure_drop_coefficient.is_finite()
+            && channel.reference_pressure_drop_coefficient > 0.0
+    }));
+    assert!(
+        reference_pressure_coefficient(&trace, "throat_section")
+            > reference_pressure_coefficient(&trace, "inlet_section"),
+        "Venturi throat should carry a stronger normalized pressure-drop coefficient than the inlet section"
+    );
 }

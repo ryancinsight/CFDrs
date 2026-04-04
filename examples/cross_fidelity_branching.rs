@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         60e-3, 10e-3, 4.0e-3, 4.0e-3, 4.0e-3,
     );
 
-    let bp_penta = pentafurcation_rect(
+    let _bp_penta = pentafurcation_rect(
         "Symmetric Pentafurcation",
         60e-3, 10e-3, 4.0e-3, 4.0e-3, 4.0e-3,
     );

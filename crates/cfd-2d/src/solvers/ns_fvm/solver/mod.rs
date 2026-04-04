@@ -32,6 +32,7 @@
 
 mod momentum;
 mod pressure;
+mod velocity_interpolation;
 
 use super::boundary::BoundaryCondition;
 use super::config::{SIMPLEConfig, SolveResult};
@@ -161,7 +162,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let rho = self.density;
 
         let mut cont_sum = T::zero();
-        let mut pcorr_sum = T::zero();
+        let mut cont_l1_sum = T::zero();
         let mut max_imb = T::zero();
         let mut n_fluid = 0_usize;
 
@@ -185,17 +186,15 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                     max_imb = abs_imb;
                 }
 
-                // Momentum residual proxy: sum of absolute velocity divergence
-                // contributions (measures how far the velocity field is from
-                // satisfying the discretized momentum equation).
-                pcorr_sum += Float::abs(imb);
+                // Continuity L1 norm over fluid cells.
+                cont_l1_sum += Float::abs(imb);
             }
         }
 
         let n: T = T::from_usize(n_fluid.max(1)).unwrap_or(T::one());
         let res_cont = Float::sqrt(cont_sum / n);
-        let res_pcorr = pcorr_sum / n; // L1 norm of continuity imbalance
-        (res_cont, res_pcorr, max_imb)
+        let res_cont_l1 = cont_l1_sum / n;
+        (res_cont, res_cont_l1, max_imb)
     }
 
     /// Check for NaN/Inf in the velocity field (divergence guard).
@@ -395,118 +394,3 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
     }
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive> crate::solvers::cell_tracking::physics::VelocityFieldInterpolator for NavierStokesSolver2D<T> {
-    fn velocity_at(&self, x: f64, y: f64) -> (f64, f64) {
-        let x_t = T::from_f64(x).unwrap_or(T::zero());
-        let y_t = T::from_f64(y).unwrap_or(T::zero());
-
-        // Simple nearest-cell approximation for (u, v) using staggered grid edges
-        let i = (x_t / self.grid.dx).to_usize().unwrap_or(0).min(self.grid.nx.saturating_sub(1));
-        
-        let j = match &self.grid.y_faces {
-            Some(yf) => {
-                let mut found = 0;
-                for k in 0..self.grid.ny {
-                    if y_t >= yf[k] && y_t <= yf[k + 1] {
-                        found = k;
-                        break;
-                    }
-                }
-                found
-            }
-            None => (y_t / self.grid.dy).to_usize().unwrap_or(0),
-        }.min(self.grid.ny.saturating_sub(1));
-
-        let half = T::from_f64(0.5).unwrap_or(T::zero());
-        // Staggered u is at vertical faces (i, j) and (i+1, j)
-        let u_c = (self.field.u[(i, j)] + self.field.u[(i + 1, j)]) * half;
-        // Staggered v is at horizontal faces (i, j) and (i, j+1)
-        let v_c = (self.field.v[(i, j)] + self.field.v[(i, j + 1)]) * half;
-
-        (u_c.to_f64().unwrap_or(0.0), v_c.to_f64().unwrap_or(0.0))
-    }
-
-    fn is_fluid(&self, x: f64, y: f64) -> bool {
-        let lx_f64 = self.grid.lx.to_f64().unwrap_or(0.0);
-        let ly_f64 = self.grid.ly.to_f64().unwrap_or(0.0);
-        x >= 0.0 && x <= lx_f64 && y >= 0.0 && y <= ly_f64
-    }
-
-    fn bounds(&self) -> (f64, f64, f64, f64) {
-        let lx_f64 = self.grid.lx.to_f64().unwrap_or(0.0);
-        let ly_f64 = self.grid.ly.to_f64().unwrap_or(0.0);
-        (0.0, lx_f64, 0.0, ly_f64)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use cfd_core::physics::fluid::blood::CassonBlood;
-
-    #[test]
-    fn test_staggered_grid_creation() {
-        let grid = StaggeredGrid2D::<f64>::new(10, 5, 0.1, 0.005);
-        assert_eq!(grid.nx, 10);
-        assert_eq!(grid.ny, 5);
-        assert!((grid.dx - 0.01).abs() < 1e-10);
-        assert!((grid.dy - 0.001).abs() < 1e-10);
-    }
-
-    #[test]
-    fn test_flow_field_creation() {
-        let field = FlowField2D::<f64>::new(10, 5);
-        assert_eq!(field.u.rows(), 11);
-        assert_eq!(field.v.rows(), 10);
-        assert_eq!(field.p.rows(), 10);
-        assert_eq!(field.u.cols(), 5);
-        assert_eq!(field.v.cols(), 6);
-    }
-
-    #[test]
-    fn test_simple_solver_newtonian() {
-        let grid = StaggeredGrid2D::<f64>::new(20, 10, 0.2, 0.01);
-        let blood = BloodModel::Newtonian(1.0e-3);
-        let config = SIMPLEConfig::new(200, 1e-4, 0.5, 0.3, 0.5, 1, 1);
-        let mut solver = NavierStokesSolver2D::new(grid, blood, 998.0, config);
-        let result = solver.solve(0.01).unwrap();
-        assert!(result.iterations > 0);
-    }
-
-    #[test]
-    fn test_simple_solver_non_newtonian() {
-        let grid = StaggeredGrid2D::<f64>::new(10, 5, 0.05, 0.0025);
-        let blood = BloodModel::Casson(CassonBlood::normal_blood());
-        let config = SIMPLEConfig::new(100, 1e-3, 0.3, 0.2, 0.4, 1, 1);
-        let mut solver = NavierStokesSolver2D::new(grid, blood, 1060.0, config);
-        assert!(solver.solve(0.005).is_ok());
-    }
-
-    #[test]
-    fn test_residuals_zero_flow() {
-        let grid = StaggeredGrid2D::<f64>::new(5, 5, 0.05, 0.005);
-        let solver = NavierStokesSolver2D::new(
-            grid,
-            BloodModel::Newtonian(1.0e-3),
-            998.0,
-            SIMPLEConfig::default(),
-        );
-        let (ru, rv, rp) = solver.compute_residuals();
-        assert_eq!(ru, 0.0);
-        assert_eq!(rv, 0.0);
-        assert_eq!(rp, 0.0);
-    }
-
-    #[test]
-    fn test_solve_result_struct() {
-        use super::super::config::SolveResult;
-        let result = SolveResult {
-            iterations: 42_usize,
-            residual: 1e-7_f64,
-            converged: true,
-        };
-        assert_eq!(result.iterations, 42);
-        assert!(result.converged);
-        assert!(result.residual < 1e-6);
-    }
-}

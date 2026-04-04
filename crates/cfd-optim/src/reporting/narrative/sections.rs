@@ -85,13 +85,13 @@ pub(super) fn build_selected_table(
 ) -> String {
     let mut out = String::new();
     out.push_str(
-        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | Cumulative cavitation dose | WBC treatment exposure | RBC treatment exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |\n",
+        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | K_loss | Cumulative cavitation dose | WBC treatment exposure | RBC treatment exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |\n",
     );
-    out.push_str("|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n");
+    out.push_str("|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n");
     if let Some(option1) = option1 {
         let _ = writeln!(
             out,
-                    "| Option 1 (Selective acoustic center treatment) | `{}` | {} | {} | {} | {:.4} | n/a | n/a | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
+                    "| Option 1 (Selective acoustic center treatment) | `{}` | {} | {} | {} | {:.4} | n/a | n/a | n/a | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
             option1.candidate.id,
             option1.topology_display_name(),
             option1.metrics.treatment_zone_mode,
@@ -105,17 +105,18 @@ pub(super) fn build_selected_table(
                 pediatric_limit_pct(option1.metrics.total_ecv_ml)
         );
     } else {
-        out.push_str("| Option 1 (Selective acoustic center treatment) | _No eligible design under current physics regime_ | n/a | Unavailable | 0 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |\n");
+        out.push_str("| Option 1 (Selective acoustic center treatment) | _No eligible design under current physics regime_ | n/a | Unavailable | 0 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |\n");
     }
     let _ = writeln!(
         out,
-            "| Option 2 (Selective venturi cavitation selectivity) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
+            "| Option 2 (Selective venturi cavitation selectivity) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.3} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
         option2.candidate.id,
         option2.topology_display_name(),
         option2.metrics.treatment_zone_mode,
         option2.metrics.active_venturi_throat_count,
         option2.score,
         option2.metrics.cavitation_number,
+        option2.metrics.venturi_total_loss_coefficient,
         option2.metrics.serial_cavitation_dose_fraction,
         option2.metrics.wbc_recovery,
         option2.metrics.rbc_venturi_exposure_fraction,
@@ -129,12 +130,12 @@ pub(super) fn build_selected_table(
 
 pub(super) fn build_option2_top5_table(option2_ranked: &[Milestone12ReportDesign]) -> String {
     let mut out = String::new();
-    out.push_str("| Rank | Candidate | Mode | Active venturi throats | Score | Oncology priority | RBC venturi exposure | Clot risk | sigma | Cumulative cavitation dose |\n");
-    out.push_str("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|\n");
+    out.push_str("| Rank | Candidate | Mode | Active venturi throats | Score | Oncology priority | RBC venturi exposure | Clot risk | sigma | K_loss | Cumulative cavitation dose |\n");
+    out.push_str("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|\n");
     for d in option2_ranked.iter().take(5) {
         let _ = writeln!(
             out,
-            "| {} | `{}` | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} |",
+            "| {} | `{}` | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.3} | {:.4} |",
             d.rank,
             d.candidate.id,
             d.metrics.treatment_zone_mode,
@@ -144,6 +145,7 @@ pub(super) fn build_option2_top5_table(option2_ranked: &[Milestone12ReportDesign
             d.metrics.rbc_venturi_exposure_fraction,
             d.metrics.clotting_risk_index,
             d.metrics.cavitation_number,
+            d.metrics.venturi_total_loss_coefficient,
             d.metrics.serial_cavitation_dose_fraction
         );
     }
@@ -861,7 +863,7 @@ specific design mechanism tested by the authoritative strided fast sweep: using 
 serpentine curvature to raise treatment-path residence time for ultrasound exposure \
 while selectively placing venturi throats at Dean-favorable sites that preserve or \
 increase cavitation delivery to the cancer-focused stream. The panel-level residence, \
-cavitation, and bend-radius annotations make that local trade-off explicit.\n\n\
+cavitation, K_loss, and bend-radius annotations make that local trade-off explicit.\n\n\
 For the selected Option 2 design, the first throat operates at sigma = {sigma:.4}, \
 placing it {} the hydrodynamic cavitation threshold.{ga_section}",
         m.total_pressure_drop_pa * 1e-3,
@@ -877,7 +879,13 @@ placing it {} the hydrodynamic cavitation threshold.{ga_section}",
 
 #[cfg(test)]
 mod tests {
-    use super::{build_cri_expansion_sensitivity, cavitation_regime_clause};
+    use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
+    use crate::reporting::{compute_blueprint_report_metrics, Milestone12ReportDesign};
+
+    use super::{
+        build_cri_expansion_sensitivity, build_option2_top5_table, build_selected_table,
+        cavitation_regime_clause,
+    };
 
     #[test]
     fn cavitation_regime_clause_distinguishes_sigma_windows() {
@@ -892,5 +900,20 @@ mod tests {
         assert!(html.contains("<caption style=\"caption-side:top; margin-bottom:8px;\"><strong>Table 15."));
         assert!(html.contains("<table style="));
         assert!(html.contains("</table>"));
+    }
+
+    #[test]
+    fn option2_tables_include_dimensionless_loss_metric() {
+        let candidate = canonical_option2_candidate("option2-kloss", operating_point(2.0e-6, 30_000.0, 0.18));
+        let metrics = compute_blueprint_report_metrics(&candidate).expect("option2 metrics");
+        let design = Milestone12ReportDesign::new(1, candidate, metrics, 0.74);
+
+        let selected = build_selected_table(None, &design);
+        let top5 = build_option2_top5_table(std::slice::from_ref(&design));
+
+        assert!(selected.contains("K_loss"));
+        assert!(top5.contains("K_loss"));
+        assert!(selected.contains(&format!("{:.3}", design.metrics.venturi_total_loss_coefficient)));
+        assert!(top5.contains(&format!("{:.3}", design.metrics.venturi_total_loss_coefficient)));
     }
 }

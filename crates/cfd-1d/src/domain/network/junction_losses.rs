@@ -353,7 +353,10 @@ fn scale_k_by_angle(
     let Some(angle_deg) = angle_deg else {
         return base_k;
     };
-    let reference = reference_deg.max(15.0);
+    if !angle_deg.is_finite() || !reference_deg.is_finite() || reference_deg <= 0.0 {
+        return base_k;
+    }
+    let reference = reference_deg;
     let deviation = ((angle_deg.abs() - reference).abs() / reference).clamp(0.0, 2.0);
     let scale = if run_edge {
         1.0 + 0.10 * deviation
@@ -361,4 +364,21 @@ fn scale_k_by_angle(
         1.0 + 0.25 * deviation
     };
     (base_k * scale).max(0.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::scale_k_by_angle;
+
+    #[test]
+    fn scale_k_by_angle_leaves_zero_reference_unscaled() {
+        let scaled = scale_k_by_angle(1.0, Some(0.0), 0.0, true);
+        assert!((scaled - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn scale_k_by_angle_scales_off_reference_angles() {
+        let scaled = scale_k_by_angle(1.0, Some(45.0), 90.0, false);
+        assert!(scaled > 1.0);
+    }
 }

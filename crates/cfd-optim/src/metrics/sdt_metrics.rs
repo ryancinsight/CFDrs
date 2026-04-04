@@ -700,6 +700,15 @@ pub struct SdtMetrics {
     #[serde(default)]
     pub diffuser_recovery_pa: f64,
 
+    /// Maximum venturi total loss coefficient across active placements.
+    ///
+    /// `K_loss = ΔP_loss / (½ρu_in²)` with
+    /// `ΔP_loss = ΔP_bernoulli + ΔP_friction − ΔP_recovery`.
+    /// This inlet-normalized coefficient is dimensionless and comparable across
+    /// operating points with different absolute pressure and flow scales.
+    #[serde(default)]
+    pub venturi_total_loss_coefficient: f64,
+
     // ── Acoustic energy budget ───────────────────────────────────────────────
     /// Total hydraulic pumping power [W].
     ///

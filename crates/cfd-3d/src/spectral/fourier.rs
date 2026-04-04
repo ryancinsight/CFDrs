@@ -1,47 +1,90 @@
-//! Fourier transform operations for spectral methods
+//! Fourier transform operations for spectral methods.
 //!
-//! # Theorem — Cooley–Tukey FFT Complexity (Cooley & Tukey 1965)
+//! This module delegates plan management and transform execution to the
+//! tracked Apollo FFT workspace submodule. Apollo owns the reusable CPU FFT
+//! cache and backend logic; this wrapper preserves the legacy `DVector`
+//! interface and scaling convention used by the existing CFDrs spectral tests.
 //!
-//! The Discrete Fourier Transform of a sequence of length $N = 2^k$ can be
-//! computed in $O(N \log N)$ operations by recursive factorisation into
-//! even/odd sub-transforms (Danielson–Lanczos butterfly).
+//! # Theorem — Parseval Scaling Under Legacy CFDrs Normalization
 //!
-//! # Theorem — Fourier Spectral Convergence (Canuto et al. 2006)
-//!
-//! For a smooth periodic function $u \in C^\infty$, the Fourier truncation
-//! error decays faster than any polynomial:
-//!
-//! ```text
-//! ‖u − P_N u‖ = O(N^{−k})    ∀ k ∈ ℤ⁺
-//! ```
-//!
-//! If $u$ is analytic in a strip of width $\sigma > 0$ around the real axis,
-//! convergence is exponential: $O(e^{-\sigma N})$.
+//! Apollo's 1D CPU plans use an unnormalized forward transform and a normalized
+//! inverse. CFDrs keeps the historical convention where the stored spectrum is
+//! scaled by $1/n$ and the inverse rescales by $n$, so that round-tripping
+//! still satisfies `inverse(forward(u)) = u` and the Parseval check in the test
+//! suite remains `‖u‖² = n‖\hat{u}‖²`.
 //!
 //! # Theorem — 3/2 Dealiasing Rule (Orszag 1971)
 //!
 //! For a quadratic nonlinearity computed on $N$ modes, the aliased
 //! contribution can be eliminated by zero-padding to $M \geq 3N/2$ modes
 //! before transforming to physical space.
-//!
-//! Reference: Cooley & Tukey (1965). "An algorithm for the machine calculation of complex Fourier series"
 
+use apollofft::{fft_1d_array, ifft_1d_array, Complex64 as ApolloComplex64};
 use cfd_core::error::Result;
 use nalgebra::{Complex, DVector, RealField};
-use num_traits::FromPrimitive;
-use std::f64::consts::PI;
+use ndarray::Array1;
+use num_traits::{FromPrimitive, ToPrimitive};
+
+fn invalid_configuration(message: impl Into<String>) -> cfd_core::error::Error {
+    cfd_core::error::Error::InvalidConfiguration(message.into())
+}
+
+fn convert_to_f64<T>(value: T, context: &str) -> Result<f64>
+where
+    T: ToPrimitive,
+{
+    value.to_f64().ok_or_else(|| {
+        invalid_configuration(format!("{context}: value cannot be represented as f64"))
+    })
+}
+
+fn convert_from_f64<T>(value: f64, context: &str) -> Result<T>
+where
+    T: FromPrimitive,
+{
+    T::from_f64(value).ok_or_else(|| {
+        invalid_configuration(format!("{context}: value cannot be represented in the target scalar type"))
+    })
+}
+
+fn scalar_from_usize<T>(value: usize, context: &str) -> Result<T>
+where
+    T: FromPrimitive,
+{
+    T::from_usize(value).ok_or_else(|| {
+        invalid_configuration(format!("{context}: size {value} cannot be represented in the target scalar type"))
+    })
+}
+
+fn ensure_length(actual: usize, expected: usize, context: &str) -> Result<()> {
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(invalid_configuration(format!(
+            "{context}: expected length {expected}, got {actual}"
+        )))
+    }
+}
 
 /// Fourier transform operations
-pub struct FourierTransform<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct FourierTransform<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy> {
     /// Number of modes
     n: usize,
     /// Wavenumbers
     wavenumbers: Vec<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> FourierTransform<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy>
+    FourierTransform<T>
+{
     /// Create new Fourier transform operator
     pub fn new(n: usize) -> Result<Self> {
+        if n == 0 {
+            return Err(invalid_configuration(
+                "FourierTransform: number of modes must be greater than zero",
+            ));
+        }
+
         let mut wavenumbers = Vec::with_capacity(n);
 
         // Compute wavenumbers k = 0, 1, ..., n/2, -n/2+1, ..., -1
@@ -62,155 +105,63 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Fouri
     }
 
     /// Forward Fast Fourier Transform (FFT) using Cooley-Tukey algorithm
-    ///
-    /// Implements efficient O(n log n) FFT with fallback to DFT for non-power-of-2 sizes
-    /// Requires n to be a power of 2 for optimal performance using radix-2 algorithm
-    ///
-    /// # Algorithm
-    /// 1. Check if n is power of 2
-    /// 2. If yes: Use in-place Cooley-Tukey FFT (bit-reversal + butterfly operations)
-    /// 3. If no: Fall back to O(n²) DFT with proper scaling
-    ///
-    /// # References
-    /// - Cooley, J.W. and Tukey, J.W. (1965). "An algorithm for the machine calculation of complex Fourier series"
-    /// - Press, W.H. et al. (1992). "Numerical Recipes in C" §12.2
     pub fn forward(&self, u: &DVector<T>) -> Result<DVector<Complex<T>>> {
-        let n = self.n;
-        let scale = T::from_usize(n).unwrap_or(T::one());
+        ensure_length(u.len(), self.n, "FourierTransform::forward")?;
 
-        // Check if n is power of 2 (required for efficient radix-2 FFT)
-        if n.is_power_of_two() {
-            // Use efficient FFT for power-of-2 sizes
-            let mut data: Vec<Complex<T>> = u.iter().map(|&x| Complex::new(x, T::zero())).collect();
-            self.fft_inplace(&mut data, false);
+        let scale = scalar_from_usize::<T>(self.n, "FourierTransform::forward scale")?;
+        let real_signal = Array1::from_vec(
+            u.iter()
+                .copied()
+                .map(|value| convert_to_f64(value, "FourierTransform::forward input"))
+                .collect::<Result<Vec<_>>>()?,
+        );
 
-            // Normalize by 1/n to get physical amplitudes
-            for val in &mut data {
-                *val /= scale;
-            }
+        let spectrum = fft_1d_array(&real_signal);
+        let normalized = spectrum
+            .into_iter()
+            .map(|value| {
+                Ok(Complex::new(
+                    convert_from_f64::<T>(value.re, "FourierTransform::forward output real part")?
+                        / scale,
+                    convert_from_f64::<T>(value.im, "FourierTransform::forward output imaginary part")?
+                        / scale,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
 
-            Ok(DVector::from_vec(data))
-        } else {
-            // Fall back to DFT for non-power-of-2 sizes
-            let mut u_hat = self.dft_forward(u)?;
-            for val in u_hat.iter_mut() {
-                *val /= scale;
-            }
-            Ok(u_hat)
-        }
-    }
-
-    /// In-place Cooley-Tukey FFT implementation
-    fn fft_inplace(&self, data: &mut [Complex<T>], inverse: bool) {
-        let n = data.len();
-        let sign = if inverse { T::one() } else { -T::one() };
-
-        // Bit-reversal permutation
-        let mut j = 0usize;
-        for i in 1..n {
-            let mut bit = n >> 1;
-            while j & bit != 0 {
-                j ^= bit;
-                bit >>= 1;
-            }
-            j ^= bit;
-
-            if i < j {
-                data.swap(i, j);
-            }
-        }
-
-        // Iterative FFT using Danielson-Lanczos lemma
-        let mut length = 2;
-        while length <= n {
-            let angle = sign * <T as FromPrimitive>::from_f64(2.0 * PI).unwrap_or(T::one())
-                / T::from_usize(length).unwrap_or(T::one());
-            let wlen = Complex::new(num_traits::Float::cos(angle), num_traits::Float::sin(angle));
-
-            for i in (0..n).step_by(length) {
-                let mut w = Complex::new(T::one(), T::zero());
-                for j in 0..length / 2 {
-                    let u_val = data[i + j];
-                    let v_val = data[i + j + length / 2] * w;
-                    data[i + j] = u_val + v_val;
-                    data[i + j + length / 2] = u_val - v_val;
-                    w *= wlen;
-                }
-            }
-            length <<= 1;
-        }
-    }
-
-    /// Fallback DFT for non-power-of-2 sizes (O(n²) complexity)
-    fn dft_forward(&self, u: &DVector<T>) -> Result<DVector<Complex<T>>> {
-        let n = self.n;
-        let mut u_hat = DVector::zeros(n);
-        let two_pi = <T as FromPrimitive>::from_f64(2.0 * PI).ok_or_else(|| {
-            cfd_core::error::Error::InvalidConfiguration("Cannot convert constant".into())
-        })?;
-
-        for k in 0..n {
-            let mut sum = Complex::new(T::zero(), T::zero());
-            for j in 0..n {
-                let phase = -two_pi
-                    * self.wavenumbers[k]
-                    * T::from_usize(j).expect("DFT loop index j < n, always representable as T")
-                    / T::from_usize(n).expect("DFT size n is always representable as T");
-                let exp =
-                    Complex::new(num_traits::Float::cos(phase), num_traits::Float::sin(phase));
-                sum += exp * Complex::new(u[j], T::zero());
-            }
-            u_hat[k] = sum;
-        }
-
-        Ok(u_hat)
+        Ok(DVector::from_vec(normalized))
     }
 
     /// Inverse Fast Fourier Transform (IFFT)
-    ///
-    /// Implements efficient inverse FFT with proper scaling (1/n)
-    /// Uses FFT for power-of-2 sizes, DFT fallback for others
     pub fn inverse(&self, u_hat: &DVector<Complex<T>>) -> Result<DVector<T>> {
-        let n = self.n;
+        ensure_length(u_hat.len(), self.n, "FourierTransform::inverse")?;
 
-        if n.is_power_of_two() {
-            // Use efficient IFFT for power-of-2 sizes
-            let mut data = u_hat.iter().copied().collect::<Vec<_>>();
-            self.fft_inplace(&mut data, true);
+        let scale = scalar_from_usize::<T>(self.n, "FourierTransform::inverse scale")?;
+        let spectrum = Array1::from_vec(
+            u_hat
+                .iter()
+                .copied()
+                .map(|value| {
+                    Ok(ApolloComplex64::new(
+                        convert_to_f64(value.re, "FourierTransform::inverse input real part")?,
+                        convert_to_f64(value.im, "FourierTransform::inverse input imaginary part")?,
+                    ))
+                })
+                .collect::<Result<Vec<_>>>()?,
+        );
 
-            // Extract real part (normalization already done in forward)
-            let real_part: Vec<T> = data.into_iter().map(|x| x.re).collect();
+        let spatial = ifft_1d_array(&spectrum);
+        let recovered = spatial
+            .into_iter()
+            .map(|value| {
+                Ok(convert_from_f64::<T>(
+                    value,
+                    "FourierTransform::inverse output",
+                )? * scale)
+            })
+            .collect::<Result<Vec<_>>>()?;
 
-            Ok(DVector::from_vec(real_part))
-        } else {
-            // Fall back to IDFT for non-power-of-2 sizes
-            self.dft_inverse_real(u_hat)
-        }
-    }
-
-    /// Fallback inverse DFT returning real values
-    fn dft_inverse_real(&self, u_hat: &DVector<Complex<T>>) -> Result<DVector<T>> {
-        let n = self.n;
-        let mut u = DVector::zeros(n);
-        let two_pi = <T as FromPrimitive>::from_f64(2.0 * PI).ok_or_else(|| {
-            cfd_core::error::Error::InvalidConfiguration("Cannot convert constant".into())
-        })?;
-
-        for j in 0..n {
-            let mut sum = Complex::new(T::zero(), T::zero());
-            for k in 0..n {
-                let phase = two_pi
-                    * self.wavenumbers[k]
-                    * T::from_usize(j).expect("IDFT loop index j < n, always representable as T")
-                    / T::from_usize(n).expect("IDFT size n is always representable as T");
-                let exp =
-                    Complex::new(num_traits::Float::cos(phase), num_traits::Float::sin(phase));
-                sum += exp * u_hat[k];
-            }
-            u[j] = sum.re;
-        }
-
-        Ok(u)
+        Ok(DVector::from_vec(recovered))
     }
 
     /// Get wavenumbers
@@ -221,15 +172,19 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Fouri
 }
 
 /// Spectral derivative computation
-pub struct SpectralDerivative<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct SpectralDerivative<
+    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy,
+> {
     transform: FourierTransform<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> SpectralDerivative<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy>
+    SpectralDerivative<T>
+{
     /// Create a new spectral derivative operator for the given grid size
     ///
     /// # Arguments
-    /// * `n` - Number of grid points (must be power of 2 for optimal FFT performance)
+    /// * `n` - Number of grid points (any positive size is supported by Apollo)
     ///
     /// # Returns
     /// * `Result<Self>` - New spectral derivative operator or error if invalid size

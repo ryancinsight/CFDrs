@@ -31,6 +31,10 @@
 //! - Sherwin, S.J. et al. (2003) "One-dimensional modelling of a vascular network"
 
 use super::murrays_law::MurraysLaw;
+use crate::solver::analysis::resistance::{
+    parallel_resistance as combine_parallel_resistances,
+    series_resistance as combine_series_resistances,
+};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -406,11 +410,88 @@ impl<T: RealField + FromPrimitive + Copy> BifurcationNetwork<T> {
 
     /// Calculate total network resistance
     pub fn total_resistance(&self) -> T {
-        // Simple sum of all vessel resistances (series approximation)
-        self.vessels
+        if self.vessels.is_empty() {
+            return T::zero();
+        }
+
+        let mut parent_to_junction: std::collections::HashMap<usize, usize> =
+            std::collections::HashMap::with_capacity(self.junctions.len());
+        let mut daughter_vessels = std::collections::HashSet::with_capacity(self.junctions.len());
+
+        for (junction_index, junction) in self.junctions.iter().enumerate() {
+            if let Some(&parent_vessel) = junction.parent_vessels.first() {
+                parent_to_junction.insert(parent_vessel, junction_index);
+            }
+
+            for &daughter_vessel in &junction.daughter_vessels {
+                daughter_vessels.insert(daughter_vessel);
+            }
+        }
+
+        let mut root_vessels: Vec<usize> = self
+            .vessels
             .iter()
-            .map(|v| v.resistance(self.viscosity))
-            .fold(T::zero(), |acc, r| acc + r)
+            .filter(|vessel| !daughter_vessels.contains(&vessel.id))
+            .map(|vessel| vessel.id)
+            .collect();
+
+        if root_vessels.is_empty() {
+            return T::zero();
+        }
+
+        root_vessels.sort_unstable();
+
+        let mut memo = std::collections::HashMap::with_capacity(self.vessels.len());
+        let mut root_resistances = Vec::with_capacity(root_vessels.len());
+
+        for root_vessel in root_vessels {
+            root_resistances.push(self.branch_equivalent_resistance(
+                root_vessel,
+                &parent_to_junction,
+                &mut memo,
+            ));
+        }
+
+        combine_parallel_resistances(root_resistances)
+    }
+
+    fn branch_equivalent_resistance(
+        &self,
+        vessel_id: usize,
+        parent_to_junction: &std::collections::HashMap<usize, usize>,
+        memo: &mut std::collections::HashMap<usize, T>,
+    ) -> T {
+        if let Some(&cached) = memo.get(&vessel_id) {
+            return cached;
+        }
+
+        let Some(vessel) = self.vessels.get(vessel_id) else {
+            return T::zero();
+        };
+
+        let series_resistance = vessel.resistance(self.viscosity);
+        let equivalent = if let Some(&junction_index) = parent_to_junction.get(&vessel_id) {
+            let junction = &self.junctions[junction_index];
+            let mut downstream_resistances = Vec::with_capacity(junction.daughter_vessels.len());
+
+            for &daughter_vessel in &junction.daughter_vessels {
+                downstream_resistances.push(self.branch_equivalent_resistance(
+                    daughter_vessel,
+                    parent_to_junction,
+                    memo,
+                ));
+            }
+
+            combine_series_resistances([
+                series_resistance,
+                combine_parallel_resistances(downstream_resistances),
+            ])
+        } else {
+            series_resistance
+        };
+
+        memo.insert(vessel_id, equivalent);
+        equivalent
     }
 
     /// Get number of terminal vessels
@@ -537,10 +618,22 @@ mod tests {
     #[test]
     fn test_total_resistance() {
         let mut network = BifurcationNetwork::<f64>::new();
-        network.add_vessel(VesselSegment::new(0, 0.003, 0.1, 0, 1));
-        network.add_vessel(VesselSegment::new(1, 0.002, 0.05, 1, 2));
+        let root = VesselSegment::new(0, 0.003, 0.1, 0, 1);
+        let daughter_a = VesselSegment::new(1, 0.002, 0.05, 1, 2);
+        let daughter_b = VesselSegment::new(2, 0.002, 0.05, 1, 3);
+
+        let root_resistance = root.resistance(network.viscosity);
+        let daughter_a_resistance = daughter_a.resistance(network.viscosity);
+        let daughter_b_resistance = daughter_b.resistance(network.viscosity);
+        let expected = root_resistance
+            + 1.0 / (1.0 / daughter_a_resistance + 1.0 / daughter_b_resistance);
+
+        network.add_vessel(root);
+        network.add_vessel(daughter_a);
+        network.add_vessel(daughter_b);
+        network.add_junction(Bifurcation::new(1, 0, vec![1, 2]));
 
         let r = network.total_resistance();
-        assert!(r > 0.0 && r.is_finite());
+        assert!((r - expected).abs() < 1e-12, "got {r}, expected {expected}");
     }
 }

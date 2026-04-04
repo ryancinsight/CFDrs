@@ -71,13 +71,34 @@ fn test_from_spec_conversion() {
 }
 
 #[test]
+fn test_blueprint_pump_edges_rejected_until_source_term_plumbing_exists() {
+    use cfd_core::physics::fluid::database::water_20c;
+    use cfd_schematics::domain::model::{NetworkBlueprint, NodeKind, NodeSpec};
+
+    let fluid = water_20c::<f64>().expect("test invariant");
+    let mut blueprint = NetworkBlueprint::new_with_explicit_positions("pump_rejected");
+    blueprint.add_node(NodeSpec::new_at("in", NodeKind::Inlet, (0.0, 0.0)));
+    blueprint.add_node(NodeSpec::new_at("out", NodeKind::Outlet, (1.0, 0.0)));
+    blueprint.add_channel(cfd_schematics::domain::model::ChannelSpec::new_pump(
+        "pump",
+        "in",
+        "out",
+        1.0e-6,
+        1.0e5,
+    ));
+
+    let result = cfd_1d::domain::network::network_from_blueprint(&blueprint, fluid);
+    assert!(result.is_err(), "Pump blueprints must be rejected until edge-level source-term plumbing exists");
+}
+
+#[test]
 fn test_blueprint_negative_length_rejected() {
     use cfd_core::physics::fluid::database::water_20c;
     use cfd_schematics::domain::model::{
         ChannelShape, ChannelSpec, CrossSectionSpec, EdgeId, EdgeKind, NetworkBlueprint, NodeId,
         NodeKind, NodeSpec,
     };
-    let fluid = water_20c::<f64>().expect("test invariant");
+    let _fluid = water_20c::<f64>().expect("test invariant");
     let n1 = NodeSpec {
         id: NodeId::new("in"),
         kind: NodeKind::Inlet,
@@ -114,7 +135,7 @@ fn test_blueprint_negative_length_rejected() {
         metadata: None,
     };
 
-    let blueprint = NetworkBlueprint {
+    let _blueprint = NetworkBlueprint {
         name: "test_neg_len".to_string(),
         box_dims: (10.0, 10.0),
         box_outline: vec![],

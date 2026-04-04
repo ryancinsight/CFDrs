@@ -2,13 +2,15 @@
 //!
 //! This benchmark suite evaluates the performance of key 3D CFD algorithms:
 //! - FEM assembly and solve
-//! - Spectral transforms (FFT)
+//! - Spectral transforms (Apollo-backed FFT)
 //! - VOF interface reconstruction
 //! - Level set reinitialization
 //! - IBM interpolation
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use nalgebra::{DMatrix, Vector3};
+use apollofft::{fft_3d_array, ifft_3d_array};
+use ndarray::Array3;
 
 /// Benchmark FEM element matrix assembly
 pub fn bench_fem_element_assembly(c: &mut Criterion) {
@@ -41,23 +43,22 @@ pub fn bench_spectral_fft(c: &mut Criterion) {
     let mut group = c.benchmark_group("spectral_fft");
 
     for &size in [8, 16, 32, 64].iter() {
-        group.bench_with_input(format!("fft_{}", size), &size, |b, &size| {
-            let mut data = vec![nalgebra::Complex::new(1.0, 0.0); size];
+        let field = Array3::from_shape_fn((size, size, size), |(i, j, k)| {
+            ((i + j + k) as f64 * 0.3).sin() + 0.25 * ((i * j + k) as f64 * 0.1).cos()
+        });
+        let spectrum = fft_3d_array(&field);
+
+        group.bench_with_input(format!("fft_forward_{}^3", size), &field, |b, field| {
             b.iter(|| {
-                // Simulate in-place FFT (bit-reversal + butterfly)
-                let mut j = 0usize;
-                for i in 1..size {
-                    let mut bit = size >> 1;
-                    while j & bit != 0 {
-                        j ^= bit;
-                        bit >>= 1;
-                    }
-                    j ^= bit;
-                    if i < j {
-                        data.swap(i, j);
-                    }
-                }
-                black_box(&mut data);
+                let output = fft_3d_array(black_box(field));
+                black_box(output);
+            });
+        });
+
+        group.bench_with_input(format!("fft_inverse_{}^3", size), &spectrum, |b, spectrum| {
+            b.iter(|| {
+                let output = ifft_3d_array(black_box(spectrum));
+                black_box(output);
             });
         });
     }

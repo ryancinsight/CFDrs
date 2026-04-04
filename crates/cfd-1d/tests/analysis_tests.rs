@@ -7,6 +7,7 @@ use approx::assert_relative_eq;
 use cfd_1d::solver::analysis::{
     BloodShearLimits, FlowAnalysis, PressureAnalysis, ResistanceAnalysis,
 };
+use std::collections::HashMap;
 
 // ============================================================================
 // PressureAnalysis: max/min tracking invariants
@@ -148,6 +149,8 @@ fn test_blood_shear_violation_stress_limit() {
     let limits = BloodShearLimits {
         max_wall_shear_stress_pa: 150.0,
         max_wall_shear_rate_per_s: None,
+        max_giersiepen_hi: None,
+        max_taskin_hi: None,
     };
 
     let violations = analysis.flag_fda_shear_limit_violations(&limits);
@@ -166,6 +169,8 @@ fn test_blood_shear_violation_rate_limit() {
     let limits = BloodShearLimits {
         max_wall_shear_stress_pa: 150.0,
         max_wall_shear_rate_per_s: Some(40_000.0),
+        max_giersiepen_hi: None,
+        max_taskin_hi: None,
     };
 
     let violations = analysis.flag_fda_shear_limit_violations(&limits);
@@ -182,6 +187,8 @@ fn test_blood_shear_no_violation_within_limits() {
     let limits = BloodShearLimits {
         max_wall_shear_stress_pa: 150.0,
         max_wall_shear_rate_per_s: Some(40_000.0),
+        max_giersiepen_hi: None,
+        max_taskin_hi: None,
     };
 
     let violations = analysis.flag_fda_shear_limit_violations(&limits);
@@ -189,4 +196,25 @@ fn test_blood_shear_no_violation_within_limits() {
         violations.is_empty(),
         "Safe conditions must produce zero violations"
     );
+}
+
+/// `flag_hemolysis_limit_violations` must account for exposure duration.
+#[test]
+fn test_blood_damage_violation_respects_residence_time() {
+    let mut analysis = FlowAnalysis::<f64>::new();
+    analysis.add_wall_shear_stress("edge_damage".into(), 180.0_f64);
+
+    let limits = BloodShearLimits::<f64>::fda_conservative_whole_blood()
+        .with_hemolysis_limits(Some(1e-3), Some(5e-3));
+    let residence_times = HashMap::from([("edge_damage".to_string(), 0.5_f64)]);
+
+    let violations = analysis.flag_hemolysis_limit_violations(&limits, &residence_times);
+    assert_eq!(violations.len(), 1);
+    assert_eq!(violations[0].component_id, "edge_damage");
+    assert!(violations[0]
+        .giersiepen_exceedance_ratio
+        .is_some_and(|ratio| ratio > 1.0));
+    assert!(violations[0]
+        .taskin_exceedance_ratio
+        .is_some_and(|ratio| ratio > 1.0));
 }

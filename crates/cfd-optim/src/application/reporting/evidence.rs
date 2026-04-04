@@ -308,6 +308,7 @@ mod tests {
                         effective_throat_velocity_m_s: 12.0,
                         throat_static_pressure_pa: 20_000.0,
                         diffuser_recovery_pa: 0.0,
+                        total_loss_coefficient: 0.0,
                         dean_number: 45.0,
                         curvature_radius_m: 0.002,
                         arc_length_m: 0.01,

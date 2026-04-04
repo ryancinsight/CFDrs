@@ -4,9 +4,10 @@
 //! channels, pumps, valves, mixers, and sensors with their characteristic
 //! hydraulic properties and behaviors.
 
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
+use num_traits::FromPrimitive;
 use std::collections::HashMap;
 
 // Re-export submodules
@@ -63,4 +64,35 @@ pub trait Component<T: RealField + Copy> {
     fn volume(&self) -> Option<T> {
         None
     }
+}
+
+/// Convert a compile-time `f64` constant into a real scalar.
+///
+/// This is used for infallible component defaults where a panic would be a
+/// worse failure mode than a saturated fallback for exotic scalar types.
+#[inline]
+pub(crate) fn real_from_f64<T>(value: f64) -> T
+where
+    T: RealField + Copy + FromPrimitive,
+{
+    T::from_f64(value).unwrap_or_else(|| {
+        if value.is_sign_negative() {
+            -(T::one() / T::zero())
+        } else {
+            T::one() / T::zero()
+        }
+    })
+}
+
+/// Convert a compile-time `f64` constant into a real scalar or return an error.
+#[inline]
+pub(crate) fn try_real_from_f64<T>(value: f64, context: &str) -> Result<T>
+where
+    T: RealField + Copy + FromPrimitive,
+{
+    T::from_f64(value).ok_or_else(|| {
+        Error::InvalidConfiguration(format!(
+            "{context}: constant {value} cannot be represented in the target scalar type"
+        ))
+    })
 }

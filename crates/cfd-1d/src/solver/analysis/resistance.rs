@@ -31,6 +31,45 @@ pub struct ResistanceAnalysis<T: RealField + Copy> {
     pub critical_paths: Vec<Vec<String>>,
 }
 
+/// Combine a collection of resistances in series.
+///
+/// The reduction is exact for any 1D chain of components arranged end-to-end.
+pub(crate) fn series_resistance<T, I>(resistances: I) -> T
+where
+    T: RealField + Copy,
+    I: IntoIterator<Item = T>,
+{
+    resistances
+        .into_iter()
+        .fold(T::zero(), |total, resistance| total + resistance)
+}
+
+/// Combine a collection of positive resistances in parallel.
+///
+/// Non-positive inputs are ignored to avoid division by zero and to keep the
+/// reduction numerically stable on malformed inputs.
+pub(crate) fn parallel_resistance<T, I>(resistances: I) -> T
+where
+    T: RealField + Copy,
+    I: IntoIterator<Item = T>,
+{
+    let mut reciprocal_sum = T::zero();
+    let mut valid_branch_count = 0usize;
+
+    for resistance in resistances {
+        if resistance > T::zero() {
+            reciprocal_sum += T::one() / resistance;
+            valid_branch_count += 1;
+        }
+    }
+
+    if valid_branch_count > 0 && reciprocal_sum > T::zero() {
+        T::one() / reciprocal_sum
+    } else {
+        T::zero()
+    }
+}
+
 impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
     /// Create a new resistance analysis
     #[must_use]
@@ -90,27 +129,12 @@ impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
 
     /// Calculate parallel resistance
     pub fn parallel_resistance(&self) -> T {
-        if self.resistances.is_empty() {
-            T::zero()
-        } else {
-            let sum_inv: T = self
-                .resistances
-                .values()
-                .filter(|&&r| r > T::zero())
-                .map(|&r| T::one() / r)
-                .sum();
-
-            if sum_inv > T::zero() {
-                T::one() / sum_inv
-            } else {
-                T::zero()
-            }
-        }
+        parallel_resistance(self.resistances.values().copied())
     }
 
     /// Calculate series resistance
     pub fn series_resistance(&self) -> T {
-        self.resistances.values().copied().sum()
+        series_resistance(self.resistances.values().copied())
     }
 }
 

@@ -15,12 +15,12 @@
 //! yielding faster convergence than standard SIMPLE.
 //!
 //! **Proof sketch**:
-//! In SIMPLE, the velocity correction $\mathbf{u}' = -\mathbf{d}\,\nabla p'$ neglects
-//! the $\sum_{nb} A_{nb} \mathbf{u}'_{nb}$ neighbour terms. SIMPLEC approximates
-//! $\mathbf{u}'_{nb} \approx \mathbf{u}'_P$ (consistent approximation), yielding
-//! $\hat{d} = V/(A_P - \sum A_{nb})$. This larger correction coefficient compensates
-//! for the neighbour neglection, removing the need for pressure under-relaxation and
-//! reducing the spectral radius of the outer iteration operator.
+//! In SIMPLE, the velocity correction $\mathbf{u}' = -\mathbf{d}\,\nabla p'$ retains
+//! the $\sum_{nb} A_{nb} \mathbf{u}'_{nb}$ neighbour contribution implicitly. SIMPLEC
+//! closes that term with the consistent single-cell relation $\mathbf{u}'_{nb} = \mathbf{u}'_P$,
+//! yielding $\hat{d} = V/(A_P - \sum A_{nb})$. This larger correction coefficient
+//! compensates for the neighbour coupling, removing the need for pressure
+//! under-relaxation and reducing the spectral radius of the outer iteration operator.
 
 mod algorithms;
 pub mod config;

@@ -145,8 +145,10 @@ pub use blueprint_integration::{
 
 // Export spectral functionality
 pub use spectral::{
-    BasisFunction, ChebyshevPolynomial, FourierTransform, SpectralBasis, SpectralConfig,
-    SpectralSolution, SpectralSolver,
+    BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig, BasisFunction,
+    ChebyshevPolynomial, FourierTransform, PeriodicPseudospectralDns3D,
+    PeriodicPseudospectralDnsConfig, SpectralBasis, SpectralConfig, SpectralSolution,
+    SpectralSolver,
 };
 
 // Export IBM functionality

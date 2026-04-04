@@ -1,7 +1,6 @@
 use cfd_1d::{
     ChannelGeometry, ChannelType, ComponentType, CrossSection, EdgeProperties,
-    Network, NetworkBuilder, ResistanceUpdatePolicy,
-    SolverConfig as SolverConfig1d, SurfaceProperties, Wettability,
+    Network, NetworkBuilder, ResistanceUpdatePolicy, SurfaceProperties, Wettability,
 };
 use cfd_2d::{
     solvers::ns_fvm::{BloodModel, SIMPLEConfig},
@@ -56,7 +55,7 @@ fn cross_fidelity_stenosis_shear_thinning() {
         let area = pi * diameter_narrow * diameter_narrow / 4.0;
         let r_init = 128.0 * mu_0 * length_narrow / (pi * f64::powi(diameter_narrow, 4));
 
-        let mut graph = builder.build().expect("valid graph");
+        let graph = builder.build().expect("valid graph");
         
         let blood = if is_newtonian {
             // High Newtonian threshold (approximate mu_0 with Carreau but constant)

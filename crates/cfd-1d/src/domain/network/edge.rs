@@ -38,7 +38,7 @@ impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for Edge<T> {
         match spec.kind {
             EdgeKind::Valve => {
                 if let Some(cv) = spec.valve_cv {
-                    // Heuristic: k = 1/Cv^2 for initial validation
+                    // Use the Microvalve quadratic-law coefficient from the valve theorem.
                     if cv > 0.0 {
                         let cv_t =
                             T::from_f64(cv).expect("Mathematical constant conversion compromised");
@@ -53,22 +53,8 @@ impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for Edge<T> {
                         T::from_f64(1e-6).expect("Mathematical constant conversion compromised");
                 }
             }
-            EdgeKind::Pump => {
-                // Pumps need non-zero internal resistance for solver stability/builder validation
-                if resistance.abs() < T::default_epsilon()
-                    && quad_coeff.abs() < T::default_epsilon()
-                {
-                    resistance =
-                        T::from_f64(1e-6).expect("Mathematical constant conversion compromised");
-                }
-            }
+            EdgeKind::Pump => {}
             EdgeKind::Pipe => {}
-        }
-
-        // Ensure resistance is non-zero for numerical stability (Newton-Raphson at Q=0)
-        let min_r = T::from_f64(1e-8).expect("Mathematical constant conversion compromised");
-        if resistance.abs() < min_r {
-            resistance = min_r;
         }
 
         let area = match spec.cross_section {

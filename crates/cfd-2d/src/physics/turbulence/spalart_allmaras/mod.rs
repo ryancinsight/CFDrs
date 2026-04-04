@@ -448,10 +448,8 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
         self.ct2
     }
 
-    /// Calculate wall distance field
-    ///
-    /// Simplified 2D wall distance: minimum distance to domain boundaries
-    /// In production code, use Eikonal equation solver for complex geometries
+    /// Calculate the rectangular wall-distance field used by the turbulence
+    /// boundary manager and the SA wall-damping terms.
     #[instrument(skip(self, dx, dy))]
     pub fn wall_distance_field(&self, dx: T, dy: T) -> Vec<T> {
         helpers::wall_distance_field_2d(self.nx, self.ny, dx, dy)

@@ -35,7 +35,7 @@ use crate::solvers::lbm::{
     boundary::BoundaryHandler,
     collision::{BgkCollision, CollisionOperator},
     lattice::{equilibrium, D2Q9},
-    macroscopic::MacroscopicQuantities,
+    macroscopic::{compute_pressure, MacroscopicQuantities},
     streaming::{f_idx, StreamingOperator},
 };
 use cfd_core::error::Result;
@@ -158,6 +158,17 @@ where
         }
     }
 
+    #[inline]
+    fn lattice_cavitation_source(density: T) -> T {
+        let lattice_pressure = compute_pressure(density);
+        let lattice_vapor_threshold = compute_pressure(T::one());
+        if lattice_pressure < lattice_vapor_threshold {
+            lattice_vapor_threshold - lattice_pressure
+        } else {
+            T::zero()
+        }
+    }
+
     /// Enable passive scalar advection-diffusion for nuclei transport.
     #[must_use]
     pub fn with_nuclei_transport(
@@ -271,11 +282,13 @@ where
                     let cell = j * nx + i;
                     let u = [self.macroscopic.velocity[cell * 2], self.macroscopic.velocity[cell * 2 + 1]];
                     let phi = nuclei_fraction[cell];
-                    
-                    // Simple cavitation source proxy: pressure drop below vapor assumption
-                    // Here we just use a placeholder macroscopic source of 0 since the full
-                    // multi-phase solver is what drives actual S_gen.
-                    let macroscopic_source = T::zero(); 
+
+                    // Lattice-space cavitation source: once the local pressure drops below the
+                    // unit-density equilibrium threshold, seed nuclei generation proportionally
+                    // to the pressure deficit.
+                    let macroscopic_source = Self::lattice_cavitation_source(
+                        self.macroscopic.density[cell],
+                    );
                     
                     let s_net = transport.calculate_net_reaction_rate(phi, macroscopic_source);
 
@@ -302,17 +315,13 @@ where
             ny,
         );
 
-        // Zero-gradient proxy for scalar boundary conditions on boundaries
-        // Note: apply_scalar_boundaries_proxy does not exist yet; we won't implement a 
-        // complex BC system for the scalar in this sprint unless absolutely necessary.
-        // Bouncing back the scalar at solid walls happens naturally if we do bounce-back
-        // on `g`, but here we omit it for simplicity as `g` is initialized to exactly 0.
-        // We can just rely on the advection equation inside the domain.
+        if let Some(g) = &mut self.g {
+            super::scalar_boundary::apply_scalar_boundaries(g, boundaries, nx, ny);
+        }
 
         self.step_count += 1;
         Ok(())
     }
-
     /// Run the solver until convergence (‖Δu‖_∞ < tol) or max_steps.
     ///
     /// Non-convergence does not return an error — the caller inspects the
@@ -469,6 +478,22 @@ mod tests {
         let mass_after: f64 = solver.macroscopic.density.iter().sum();
 
         assert_relative_eq!(mass_before, mass_after, epsilon = 1e-8);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lattice_cavitation_source_tracks_pressure_deficit() -> Result<()> {
+        let grid = StructuredGrid2D::<f64>::new(4, 4, 0.0, 1.0, 0.0, 1.0)?;
+        let config = LbmConfig::<f64>::default();
+        let _solver = LbmSolver::new(config, &grid);
+
+        let below_threshold = LbmSolver::lattice_cavitation_source(0.92);
+        let at_threshold = LbmSolver::lattice_cavitation_source(1.0);
+        let above_threshold = LbmSolver::lattice_cavitation_source(1.08);
+
+        assert!(below_threshold > 0.0);
+        assert_relative_eq!(at_threshold, 0.0, epsilon = 1e-15);
+        assert_relative_eq!(above_threshold, 0.0, epsilon = 1e-15);
         Ok(())
     }
 }

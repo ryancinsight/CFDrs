@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let w_throat = 7.07; // mm — throat width (√2 ratio)
     let w_mid = (w_inlet + w_throat) / 2.0;
 
-    let mut system = NetworkBlueprint::new("venturi-iso5167");
+    let mut system = NetworkBlueprint::new_with_explicit_positions("venturi-iso5167");
     system.box_dims = (x4 + 2.0, y * 2.0);
 
     for (id, px, py, kind) in [

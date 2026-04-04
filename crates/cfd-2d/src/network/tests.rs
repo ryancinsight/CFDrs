@@ -12,7 +12,7 @@ use super::postprocess::extract_field_wall_shear;
 use super::Network2dBuilderSink;
 
 fn circular_blueprint() -> NetworkBlueprint {
-    let mut blueprint = NetworkBlueprint::new("circular_trace");
+    let mut blueprint = NetworkBlueprint::new_with_explicit_positions("circular_trace");
     blueprint.add_node(NodeSpec {
         id: NodeId::new("inlet"),
         kind: NodeKind::Inlet,
@@ -58,7 +58,7 @@ fn circular_blueprint() -> NetworkBlueprint {
 }
 
 fn rectangular_blueprint() -> NetworkBlueprint {
-    let mut blueprint = NetworkBlueprint::new("rectangular_trace");
+    let mut blueprint = NetworkBlueprint::new_with_explicit_positions("rectangular_trace");
     blueprint.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
     blueprint.add_node(NodeSpec::new_at("outlet", NodeKind::Outlet, (1.0, 0.0)));
     let mut duct =

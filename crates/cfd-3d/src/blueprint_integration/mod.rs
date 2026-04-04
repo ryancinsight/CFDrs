@@ -1,6 +1,6 @@
 //! Canonical blueprint-driven 3D preprocessing and cross-fidelity tracing.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
 use cfd_core::error::{Error, Result as CfdResult};
@@ -67,6 +67,8 @@ pub struct ChannelCrossFidelityTrace {
     pub reference_flow_rate_m3_s: f64,
     /// Authoritative cfd-1d pressure drop [Pa].
     pub reference_pressure_drop_pa: f64,
+    /// Authoritative cfd-1d pressure-drop coefficient normalized by the blueprint inlet dynamic pressure.
+    pub reference_pressure_drop_coefficient: f64,
     /// Authoritative cfd-1d mean velocity [m/s].
     pub reference_mean_velocity_m_s: f64,
     /// cfd-2d outlet-flow error against the cfd-1d reference [%], when computed.
@@ -147,6 +149,27 @@ pub fn process_blueprint_with_reference_trace(
         .iter()
         .map(|trace| (trace.channel_id.as_str(), trace))
         .collect();
+    let inlet_node_ids: HashSet<&str> = reference_trace
+        .node_traces
+        .iter()
+        .filter(|trace| matches!(trace.node_kind, NodeKind::Inlet))
+        .map(|trace| trace.node_id.as_str())
+        .collect();
+    let inlet_total_area_m2: f64 = reference_trace
+        .channel_traces
+        .iter()
+        .filter(|trace| inlet_node_ids.contains(trace.from_node_id.as_str()))
+        .map(|trace| trace.cross_section_area_m2)
+        .sum();
+    let inlet_mean_velocity_m_s = if inlet_total_area_m2 > 0.0 {
+        reference_trace.total_inlet_flow_m3_s / inlet_total_area_m2
+    } else {
+        0.0
+    };
+    let inlet_dynamic_pressure_pa = 0.5
+        * config.density_kg_m3
+        * inlet_mean_velocity_m_s.abs().max(1.0e-30)
+        * inlet_mean_velocity_m_s.abs().max(1.0e-30);
 
     let two_d_result = if config.run_2d_reference {
         let builder = Network2dBuilderSink::new(
@@ -199,6 +222,8 @@ pub fn process_blueprint_with_reference_trace(
                 mesh_volume_error_pct: mesh_trace.volume_error_pct,
                 reference_flow_rate_m3_s: reference.flow_rate_m3_s,
                 reference_pressure_drop_pa: reference.pressure_drop_pa,
+                reference_pressure_drop_coefficient: reference.pressure_drop_pa
+                    / inlet_dynamic_pressure_pa,
                 reference_mean_velocity_m_s: reference.mean_velocity_m_s,
                 two_d_outlet_flow_error_pct: two_d
                     .map(|channel| channel.field_outlet_flow_error_pct),

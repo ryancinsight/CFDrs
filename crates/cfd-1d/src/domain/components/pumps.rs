@@ -29,7 +29,7 @@
 //! The hydraulic power delivered is `P_hyd = ΔP · Q`.
 //! Pump efficiency: `η = P_hyd / P_input`, typical range 0.1–0.7.
 
-use super::{constants, Component};
+use super::{constants, real_from_f64, Component};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
@@ -75,8 +75,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Micropump<T> {
         Self {
             max_flow_rate,
             max_pressure,
-            efficiency: T::from_f64(constants::DEFAULT_PUMP_EFFICIENCY)
-                .expect("Mathematical constant conversion compromised"),
+            efficiency: real_from_f64(constants::DEFAULT_PUMP_EFFICIENCY),
             operating_point: T::one(),
             parameters: HashMap::new(),
         }

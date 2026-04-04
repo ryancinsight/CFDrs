@@ -59,7 +59,6 @@ fn cross_fidelity_dean_flow_resistance() {
         speed_of_sound: 1540.0,
     };
     let fluid_2d = BloodModel2D::Newtonian(viscosity);
-    let u_inlet_3d = u_inlet_2d; // Uniform initialization
     
     let conditions = FlowConditions {
         flow_rate: Some(flow_rate),

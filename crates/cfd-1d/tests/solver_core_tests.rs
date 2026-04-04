@@ -118,6 +118,51 @@ fn test_solver_y_junction_kcl() {
     assert_relative_eq!(q_into_mid, q_out_of_mid, max_relative = 1e-9);
 }
 
+#[test]
+fn test_owned_solver_matches_borrowed_problem_path() {
+    let fluid = water();
+    let d = 1e-3_f64;
+    let l = 0.05_f64;
+    let r = hp_resistance(d, l, fluid.viscosity);
+
+    let mut builder = NetworkBuilder::new();
+    let inlet = builder.add_inlet("in".into());
+    let mid = builder.add_junction("mid".into());
+    let out1 = builder.add_outlet("out1".into());
+    let out2 = builder.add_outlet("out2".into());
+    builder.connect_with_pipe(inlet, mid, "edge0".into());
+    builder.connect_with_pipe(mid, out1, "edge1".into());
+    builder.connect_with_pipe(mid, out2, "edge2".into());
+
+    let mut graph = builder.build().expect("test invariant");
+    for edge in graph.edge_indices() {
+        if let Some(e) = graph.edge_weight_mut(edge) {
+            e.resistance = r;
+        }
+    }
+
+    let mut network = Network::new(graph, fluid);
+    network.set_pressure(inlet, 1000.0);
+    network.set_pressure(out1, 0.0);
+    network.set_pressure(out2, 0.0);
+
+    let solver = NetworkSolver::new();
+    let borrowed = solver
+        .solve_network(&NetworkProblem::new(network.clone()))
+        .expect("borrowed solve");
+    let owned = solver.solve_owned_network(network).expect("owned solve");
+
+    assert_eq!(borrowed.pressures().len(), owned.pressures().len());
+    assert_eq!(borrowed.flow_rates().len(), owned.flow_rates().len());
+
+    for (lhs, rhs) in borrowed.pressures().iter().zip(owned.pressures().iter()) {
+        assert_relative_eq!(*lhs, *rhs, max_relative = 1e-12, epsilon = 1e-12);
+    }
+    for (lhs, rhs) in borrowed.flow_rates().iter().zip(owned.flow_rates().iter()) {
+        assert_relative_eq!(*lhs, *rhs, max_relative = 1e-12, epsilon = 1e-12);
+    }
+}
+
 // ============================================================
 // Error paths: singular system (no Dirichlet BCs)
 // ============================================================

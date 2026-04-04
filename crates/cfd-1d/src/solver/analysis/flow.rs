@@ -1,8 +1,10 @@
 //! Flow analysis module for network systems.
 
-use super::blood_safety::{BloodShearLimits, ShearLimitViolation};
+use super::blood_safety::{BloodShearLimits, HemolysisLimitViolation, ShearLimitViolation};
 use crate::domain::channel::FlowRegime;
+use crate::physics::hemolysis::{giersiepen_hi, taskin_hi};
 use nalgebra::RealField;
+use num_traits::{FromPrimitive, ToPrimitive};
 use std::collections::HashMap;
 use std::iter::Sum;
 
@@ -140,6 +142,76 @@ impl<T: RealField + Copy + Sum> FlowAnalysis<T> {
     }
 }
 
+impl<T: RealField + Copy + Sum + FromPrimitive + ToPrimitive> FlowAnalysis<T> {
+    /// Flag components whose time-integrated hemolysis exceeds configured limits.
+    ///
+    /// Residence times are provided externally because the reduced-order flow
+    /// analysis stores local stress and velocity, but not a unique transit-time
+    /// model for every downstream biological payload.
+    #[must_use]
+    pub fn flag_hemolysis_limit_violations(
+        &self,
+        limits: &BloodShearLimits<T>,
+        residence_times_s: &HashMap<String, T>,
+    ) -> Vec<HemolysisLimitViolation<T>> {
+        if limits.max_giersiepen_hi.is_none() && limits.max_taskin_hi.is_none() {
+            return Vec::new();
+        }
+
+        let mut violations = Vec::new();
+
+        for (component_id, wall_shear_stress) in &self.wall_shear_stresses {
+            let Some(exposure_time_s) = residence_times_s.get(component_id).copied() else {
+                continue;
+            };
+
+            let shear_pa = wall_shear_stress.to_f64().unwrap_or(0.0);
+            let duration_s = exposure_time_s.to_f64().unwrap_or(0.0);
+
+            let giersiepen_value = limits
+                .max_giersiepen_hi
+                .and_then(|_| T::from_f64(giersiepen_hi(shear_pa, duration_s)));
+            let taskin_value = limits
+                .max_taskin_hi
+                .and_then(|_| T::from_f64(taskin_hi(shear_pa, duration_s)));
+
+            let giersiepen_ratio = match (giersiepen_value, limits.max_giersiepen_hi) {
+                (Some(value), Some(limit)) if limit > T::zero() => Some(value / limit),
+                _ => None,
+            };
+            let taskin_ratio = match (taskin_value, limits.max_taskin_hi) {
+                (Some(value), Some(limit)) if limit > T::zero() => Some(value / limit),
+                _ => None,
+            };
+
+            let exceeds_giersiepen = matches!(
+                (giersiepen_value, limits.max_giersiepen_hi),
+                (Some(value), Some(limit)) if value > limit
+            );
+            let exceeds_taskin = matches!(
+                (taskin_value, limits.max_taskin_hi),
+                (Some(value), Some(limit)) if value > limit
+            );
+
+            if exceeds_giersiepen || exceeds_taskin {
+                violations.push(HemolysisLimitViolation {
+                    component_id: component_id.clone(),
+                    wall_shear_stress_pa: *wall_shear_stress,
+                    exposure_time_s,
+                    giersiepen_hi: giersiepen_value,
+                    giersiepen_limit: limits.max_giersiepen_hi,
+                    giersiepen_exceedance_ratio: giersiepen_ratio,
+                    taskin_hi: taskin_value,
+                    taskin_limit: limits.max_taskin_hi,
+                    taskin_exceedance_ratio: taskin_ratio,
+                });
+            }
+        }
+
+        violations
+    }
+}
+
 impl<T: RealField + Copy + Sum> Default for FlowAnalysis<T> {
     fn default() -> Self {
         Self::new()
@@ -160,6 +232,8 @@ mod tests {
         let limits = BloodShearLimits {
             max_wall_shear_stress_pa: 150.0,
             max_wall_shear_rate_per_s: None,
+            max_giersiepen_hi: None,
+            max_taskin_hi: None,
         };
 
         let violations = analysis.flag_fda_shear_limit_violations(&limits);
@@ -177,10 +251,33 @@ mod tests {
         let limits = BloodShearLimits {
             max_wall_shear_stress_pa: 150.0,
             max_wall_shear_rate_per_s: Some(40_000.0),
+            max_giersiepen_hi: None,
+            max_taskin_hi: None,
         };
 
         let violations = analysis.flag_fda_shear_limit_violations(&limits);
         assert_eq!(violations.len(), 1);
         assert_eq!(violations[0].component_id, "edge_2");
+    }
+
+    #[test]
+    fn flags_component_when_hemolysis_exceeds_limit() {
+        let mut analysis = FlowAnalysis::<f64>::new();
+        analysis.add_wall_shear_stress("edge_3".to_string(), 180.0);
+
+        let limits = BloodShearLimits::fda_conservative_whole_blood()
+            .with_hemolysis_limits(Some(1e-3), Some(5e-3));
+        let residence_times = HashMap::from([("edge_3".to_string(), 0.5)]);
+
+        let violations = analysis.flag_hemolysis_limit_violations(&limits, &residence_times);
+
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].component_id, "edge_3");
+        assert!(violations[0]
+            .giersiepen_exceedance_ratio
+            .is_some_and(|ratio| ratio > 1.0));
+        assert!(violations[0]
+            .taskin_exceedance_ratio
+            .is_some_and(|ratio| ratio > 1.0));
     }
 }

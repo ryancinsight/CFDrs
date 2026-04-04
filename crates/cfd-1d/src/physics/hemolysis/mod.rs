@@ -137,7 +137,7 @@ pub const TASKIN_C: f64 = 1.228e-5;
 /// re-calibration against Lagrangian particle tracking data.
 pub const TASKIN_BETA: f64 = 1.9918;
 
-/// Taskin (2012) strain-based haemolysis index (single-segment approximation).
+/// Taskin (2012) strain-based haemolysis index (single-segment evaluation).
 ///
 /// Computes the haemolysis index using the Taskin integral-form model for a
 /// single channel segment with constant shear stress:
@@ -146,7 +146,7 @@ pub const TASKIN_BETA: f64 = 1.9918;
 /// HI_Taskin = C_T · τ^β_T · t
 /// ```
 ///
-/// This is the single-segment (constant shear) approximation of the full
+/// This is the single-segment (constant shear) evaluation of the full
 /// integral form:
 ///
 /// ```text
@@ -300,7 +300,7 @@ pub const RAYLEIGH_ALPHA: f64 = 3.0;
 /// Standard atmospheric pressure \[Pa\] used as reference for amplification.
 pub const P_REF_ATMOSPHERIC: f64 = 101_325.0;
 
-/// Simplified Rayleigh collapse time for a cavitation bubble \[s\].
+/// Rayleigh inertial collapse time for a cavitation bubble \[s\].
 ///
 /// ## Theorem — Rayleigh Collapse (Rayleigh 1917)
 ///
@@ -331,7 +331,11 @@ pub const P_REF_ATMOSPHERIC: f64 = 101_325.0;
 #[inline]
 #[must_use]
 pub fn rayleigh_collapse_time(r_max: f64, rho: f64, p_inf: f64) -> f64 {
-    0.915 * r_max * (rho / p_inf.max(1.0)).sqrt()
+    if r_max <= 0.0 || rho <= 0.0 || p_inf <= 0.0 {
+        return 0.0;
+    }
+
+    0.915 * r_max * (rho / p_inf).sqrt()
 }
 
 /// Micro-jet velocity from Rayleigh bubble collapse \[m/s\].
@@ -357,6 +361,10 @@ pub fn rayleigh_collapse_time(r_max: f64, rho: f64, p_inf: f64) -> f64 {
 #[inline]
 #[must_use]
 pub fn collapse_jet_velocity(p_inf: f64, rho: f64) -> f64 {
+    if p_inf <= 0.0 || rho <= 0.0 {
+        return 0.0;
+    }
+
     (2.0 * p_inf / rho).sqrt()
 }
 
@@ -387,7 +395,11 @@ pub fn collapse_jet_velocity(p_inf: f64, rho: f64) -> f64 {
 #[inline]
 #[must_use]
 pub fn cavitation_hemolysis_amplification(r_max: f64, r_0: f64, p_inf: f64) -> f64 {
-    1.0 + RAYLEIGH_ALPHA * (r_max / r_0.max(1e-12)).powi(2) * (p_inf / P_REF_ATMOSPHERIC)
+    if r_max <= 0.0 || r_0 <= 0.0 || p_inf <= 0.0 {
+        return 1.0;
+    }
+
+    1.0 + RAYLEIGH_ALPHA * (r_max / r_0).powi(2) * (p_inf / P_REF_ATMOSPHERIC)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -621,6 +633,15 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_rayleigh_and_jet_invalid_inputs_return_zero() {
+        assert_eq!(rayleigh_collapse_time(0.0, 1060.0, 101_325.0), 0.0);
+        assert_eq!(rayleigh_collapse_time(50e-6, 0.0, 101_325.0), 0.0);
+        assert_eq!(rayleigh_collapse_time(50e-6, 1060.0, 0.0), 0.0);
+        assert_eq!(collapse_jet_velocity(0.0, 1060.0), 0.0);
+        assert_eq!(collapse_jet_velocity(101_325.0, 0.0), 0.0);
+    }
+
     // ── collapse_jet_velocity ───────────────────────────────────────────────
 
     #[test]
@@ -679,6 +700,13 @@ mod tests {
             a > 1.0,
             "Amplification factor must always exceed 1.0, got {a}"
         );
+    }
+
+    #[test]
+    fn test_amplification_invalid_inputs_return_unity() {
+        assert_eq!(cavitation_hemolysis_amplification(0.0, 1e-6, 101_325.0), 1.0);
+        assert_eq!(cavitation_hemolysis_amplification(1e-6, 0.0, 101_325.0), 1.0);
+        assert_eq!(cavitation_hemolysis_amplification(1e-6, 1e-6, 0.0), 1.0);
     }
 
     #[test]

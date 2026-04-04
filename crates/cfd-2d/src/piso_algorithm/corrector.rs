@@ -53,7 +53,7 @@ where
 
             // Update face fluxes for next corrector (if any)
             if corrector < self.num_correctors - 1 {
-                self.update_face_fluxes(fields);
+                self.update_face_fluxes(fields, dt);
             }
         }
 
@@ -264,21 +264,24 @@ where
     ///
     /// where:
     /// - `ū_f` = arithmetic mean of adjacent cell velocities
-    /// - `d_f` = Volume/A_p, the pressure-momentum coupling coefficient
+    /// - `d_f` = Δt / ρ_f, the transient pressure-momentum coupling coefficient
     /// - `(∇p)_cells` = average of the two adjacent cell-centred pressure gradients
     /// - `(∇p)_face` = direct face pressure gradient
     ///
     /// Omitting `(∇p)_cells` reduces this to plain pressure interpolation which does
     /// NOT suppress checkerboard oscillations. Both terms are mathematically mandatory.
-    fn update_face_fluxes(&self, fields: &mut SimulationFields<T>) {
+    fn update_face_fluxes(&self, fields: &mut SimulationFields<T>, dt: T) {
+        let tiny = T::from_f64(1e-30).unwrap_or_else(T::default_epsilon);
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 let two_t = T::one() + T::one();
-                let four_t = two_t + two_t;
 
-                // d_f = Volume / A_p (A_p approximated from viscous diffusion: ν/Δx)
-                let d_u = self.dx * self.dy / (fields.viscosity.at(i, j) * four_t);
-                let d_v = self.dx * self.dy / (fields.viscosity.at(i, j) * four_t);
+                // Transient Rhie-Chow coefficient: for the current uniform-cell
+                // transient discretization, d_f reduces to Δt/ρ_f.
+                let rho_face_x = (fields.density.at(i, j) + fields.density.at(i + 1, j)) / two_t;
+                let rho_face_y = (fields.density.at(i, j) + fields.density.at(i, j + 1)) / two_t;
+                let d_u = dt / rho_face_x.max(tiny);
+                let d_v = dt / rho_face_y.max(tiny);
 
                 // ─── U-velocity on east face ──────────────────────────────────────
                 let u_bar = (fields.u.at(i, j) + fields.u.at(i + 1, j)) / two_t;
@@ -373,6 +376,38 @@ mod tests {
         assert!(result.is_ok());
 
         // Verify all fields remain finite
+        for i in 0..8 {
+            for j in 0..8 {
+                assert!(fields.u.at(i, j).is_finite(), "u[{i}][{j}] is not finite");
+                assert!(fields.v.at(i, j).is_finite(), "v[{i}][{j}] is not finite");
+                assert!(fields.p.at(i, j).is_finite(), "p[{i}][{j}] is not finite");
+            }
+        }
+    }
+
+    #[test]
+    fn two_corrector_steps_remain_finite_after_face_update() {
+        let grid = make_grid(8);
+        let corrector = PressureCorrector::new(&grid, 2, 0.5);
+        let mut fields: SimulationFields<f64> = SimulationFields::new(8, 8);
+
+        for i in 0..8 {
+            for j in 0..8 {
+                if let Some(u) = fields.u.at_mut(i, j) {
+                    *u = 0.01 * (i as f64);
+                }
+                if let Some(v) = fields.v.at_mut(i, j) {
+                    *v = -0.01 * (j as f64);
+                }
+                if let Some(rho) = fields.density.at_mut(i, j) {
+                    *rho = 1.0 + 0.001 * ((i + j) as f64);
+                }
+            }
+        }
+
+        let result = corrector.correct(&mut fields, 0.001);
+        assert!(result.is_ok());
+
         for i in 0..8 {
             for j in 0..8 {
                 assert!(fields.u.at(i, j).is_finite(), "u[{i}][{j}] is not finite");

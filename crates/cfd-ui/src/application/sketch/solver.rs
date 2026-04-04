@@ -145,7 +145,7 @@ impl ConstraintSolver {
 mod tests {
     use super::*;
     use crate::domain::sketch::constraint::Constraint;
-    use crate::domain::sketch::entity::{EntityId, SketchEntity, SketchLine, SketchPoint};
+    use crate::domain::sketch::entity::{SketchEntity, SketchLine, SketchPoint};
     use crate::domain::sketch::sketch::{Sketch, SketchId};
     use crate::domain::sketch::work_plane::WorkPlane;
     use approx::assert_relative_eq;

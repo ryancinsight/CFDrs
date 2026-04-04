@@ -78,6 +78,29 @@ impl NetworkBlueprint {
         }
     }
 
+    /// Create an empty `NetworkBlueprint` for callers that will author every
+    /// node with an explicit geometric position via
+    /// [`NodeSpec::new_at`](crate::domain::model::NodeSpec::new_at).
+    ///
+    /// Unlike [`Self::new`], this constructor is intended for manually authored
+    /// schematics with explicit layout, so it does not carry the generic
+    /// auto-layout deprecation warning.
+    #[must_use]
+    pub fn new_with_explicit_positions(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            box_dims: (127.76, 85.47),
+            box_outline: Vec::new(),
+            nodes: Vec::new(),
+            channels: Vec::new(),
+            render_hints: None,
+            topology: None,
+            lineage: None,
+            metadata: None,
+            geometry_authored: false,
+        }
+    }
+
     /// Attach [`BlueprintRenderHints`] and return `self` (builder pattern).
     ///
     /// Hints are subsequently readable via [`Self::render_hints`].

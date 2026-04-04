@@ -15,18 +15,26 @@
 //! + \mathbf{e}_{\bar{q}} f_{\bar{q}} = \mathbf{e}_q f_q - \mathbf{e}_q f_q = 0$
 //!   for each pair (because $\mathbf{e}_{\bar{q}} = -\mathbf{e}_q$), so $\mathbf{u} = 0$. □
 //!
-//! # Theorem — Zou-He Velocity Boundary (Zou & He 1997)
+//! # Theorem — Zou-He Boundary Reconstruction (Zou & He 1997)
 //!
-//! **Statement**: For a west inlet with prescribed velocity $u_x = u_0$, $u_y = 0$:
-//! $\rho = (f_0 + f_2 + f_4 + 2(f_3 + f_6 + f_7)) / (1 - u_0)$ (density is determined
-//! from the known distributions only; no-slip in y gives $f_2 - f_4$ condition).
+//! **Statement**: On a rectangular D2Q9 boundary, the missing populations are
+//! recovered by solving the discrete mass and momentum equations for the face
+//! normal velocity and the two diagonal populations adjacent to that face.
+//! For a west inlet, for example,
 //!
-//! **Proof**: Substituting the D2Q9 velocity set into the continuity and
-//! x-momentum equations gives two equations in two unknowns $(\rho, f_1)$;
-//! the y-momentum gives $f_5 - f_8 = f_6 - f_7$. Solving yields the Zou-He
-//! boundary formulas. (Zou & He 1997, §3.) □
+//! $$
+//! \rho = \frac{f_0 + f_2 + f_4 + 2(f_3 + f_6 + f_7)}{1 - u_x}
+//! $$
+//!
+//! and the remaining unknown populations follow the standard Zou-He closure.
+//!
+//! **Proof**: The D2Q9 population set gives one mass equation and two momentum
+//! equations. On a boundary face, three populations are unknown, so the system
+//! is closed by the standard tangential non-equilibrium relation from Zou & He
+//! (1997, §3). Solving that local linear system yields the face-specific update.
+//! □
 
-use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
+use crate::solvers::lbm::lattice::D2Q9;
 use cfd_core::physics::boundary::BoundaryCondition;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -45,6 +53,14 @@ pub enum BoundaryType {
     Open,
     /// Periodic boundary
     Periodic,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BoundaryFace {
+    West,
+    East,
+    South,
+    North,
 }
 
 /// Boundary handler for applying boundary conditions
@@ -76,6 +92,184 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         self.boundary_types.insert(edge, boundary_type);
     }
 
+    #[inline]
+    fn boundary_face(
+        i: usize,
+        j: usize,
+        nx: usize,
+        ny: usize,
+        velocity_hint: [T; 2],
+    ) -> Option<BoundaryFace> {
+        let on_west = i == 0;
+        let on_east = i + 1 == nx;
+        let on_south = j == 0;
+        let on_north = j + 1 == ny;
+
+        match (on_west || on_east, on_south || on_north) {
+            (true, false) => Some(if on_west {
+                BoundaryFace::West
+            } else {
+                BoundaryFace::East
+            }),
+            (false, true) => Some(if on_south {
+                BoundaryFace::South
+            } else {
+                BoundaryFace::North
+            }),
+            (true, true) => {
+                let velocity_x = velocity_hint[0].abs();
+                let velocity_y = velocity_hint[1].abs();
+                if velocity_x >= velocity_y {
+                    Some(if on_west {
+                        BoundaryFace::West
+                    } else {
+                        BoundaryFace::East
+                    })
+                } else {
+                    Some(if on_south {
+                        BoundaryFace::South
+                    } else {
+                        BoundaryFace::North
+                    })
+                }
+            }
+            (false, false) => None,
+        }
+    }
+
+    #[inline]
+    fn load_cell_populations(f: &[T], i: usize, j: usize, nx: usize) -> [T; 9] {
+        use crate::solvers::lbm::streaming::f_idx;
+
+        let mut values = [T::zero(); 9];
+        for q in 0..9 {
+            values[q] = f[f_idx(j, i, q, nx)];
+        }
+        values
+    }
+
+    #[inline]
+    fn store_cell_populations(f: &mut [T], i: usize, j: usize, nx: usize, values: [T; 9]) {
+        use crate::solvers::lbm::streaming::f_idx;
+
+        for q in 0..9 {
+            f[f_idx(j, i, q, nx)] = values[q];
+        }
+    }
+
+    #[inline]
+    fn reconstruct_zou_he_face(
+        face: BoundaryFace,
+        values: &mut [T; 9],
+        density: T,
+        velocity: [T; 2],
+    ) {
+        let half = T::from_f64(0.5).expect("0.5 is an exact f64 constant");
+        let one_sixth = T::from_f64(1.0 / 6.0).expect("1/6 is an exact f64 constant");
+        let two_thirds = T::from_f64(2.0 / 3.0).expect("2/3 is an exact f64 constant");
+        let u_x = velocity[0];
+        let u_y = velocity[1];
+
+        match face {
+            BoundaryFace::West => {
+                values[1] = values[3] + two_thirds * density * u_x;
+                values[5] = values[7]
+                    + half * (values[4] - values[2])
+                    + one_sixth * density * u_x
+                    + half * density * u_y;
+                values[8] = values[6]
+                    + half * (values[2] - values[4])
+                    + one_sixth * density * u_x
+                    - half * density * u_y;
+            }
+            BoundaryFace::East => {
+                values[3] = values[1] - two_thirds * density * u_x;
+                values[6] = values[8]
+                    + half * (values[4] - values[2])
+                    - one_sixth * density * u_x
+                    + half * density * u_y;
+                values[7] = values[5]
+                    + half * (values[2] - values[4])
+                    - one_sixth * density * u_x
+                    - half * density * u_y;
+            }
+            BoundaryFace::South => {
+                values[2] = values[4] + two_thirds * density * u_y;
+                values[5] = values[7]
+                    + half * (values[3] - values[1])
+                    + one_sixth * density * u_y
+                    + half * density * u_x;
+                values[6] = values[8]
+                    + half * (values[1] - values[3])
+                    + one_sixth * density * u_y
+                    - half * density * u_x;
+            }
+            BoundaryFace::North => {
+                values[4] = values[2] - two_thirds * density * u_y;
+                values[7] = values[5]
+                    + half * (values[1] - values[3])
+                    - one_sixth * density * u_y
+                    - half * density * u_x;
+                values[8] = values[6]
+                    + half * (values[3] - values[1])
+                    - one_sixth * density * u_y
+                    + half * density * u_x;
+            }
+        }
+    }
+
+    #[inline]
+    fn boundary_density_from_velocity(
+        face: BoundaryFace,
+        values: &[T; 9],
+        velocity: [T; 2],
+    ) -> T {
+        match face {
+            BoundaryFace::West => {
+                let known = values[0] + values[2] + values[4] + T::from_f64(2.0).expect("2 is exact") * (values[3] + values[6] + values[7]);
+                known / (T::one() - velocity[0])
+            }
+            BoundaryFace::East => {
+                let known = values[0] + values[2] + values[4] + T::from_f64(2.0).expect("2 is exact") * (values[1] + values[5] + values[8]);
+                known / (T::one() + velocity[0])
+            }
+            BoundaryFace::South => {
+                let known = values[0] + values[1] + values[3] + T::from_f64(2.0).expect("2 is exact") * (values[4] + values[7] + values[8]);
+                known / (T::one() - velocity[1])
+            }
+            BoundaryFace::North => {
+                let known = values[0] + values[1] + values[3] + T::from_f64(2.0).expect("2 is exact") * (values[2] + values[5] + values[6]);
+                known / (T::one() + velocity[1])
+            }
+        }
+    }
+
+    #[inline]
+    fn boundary_velocity_from_density(
+        face: BoundaryFace,
+        values: &[T; 9],
+        density: T,
+    ) -> [T; 2] {
+        match face {
+            BoundaryFace::West => {
+                let known = values[0] + values[2] + values[4] + T::from_f64(2.0).expect("2 is exact") * (values[3] + values[6] + values[7]);
+                [T::one() - known / density, T::zero()]
+            }
+            BoundaryFace::East => {
+                let known = values[0] + values[2] + values[4] + T::from_f64(2.0).expect("2 is exact") * (values[1] + values[5] + values[8]);
+                [known / density - T::one(), T::zero()]
+            }
+            BoundaryFace::South => {
+                let known = values[0] + values[1] + values[3] + T::from_f64(2.0).expect("2 is exact") * (values[4] + values[7] + values[8]);
+                [T::zero(), T::one() - known / density]
+            }
+            BoundaryFace::North => {
+                let known = values[0] + values[1] + values[3] + T::from_f64(2.0).expect("2 is exact") * (values[2] + values[5] + values[6]);
+                [T::zero(), known / density - T::one()]
+            }
+        }
+    }
+
     /// Apply bounce-back (no-slip wall) at node (i, j).
     ///
     /// Inverts each distribution with its antipodal: f_q ← f_{q̄}.
@@ -95,9 +289,9 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
 
     /// Apply velocity (Zou-He) boundary condition at node (i, j).
     ///
-    /// Sets velocity to `u_boundary` and computes density from the known
-    /// distributions (Theorem — Zou-He). Initialises f to equilibrium at
-    /// the computed density.
+    /// Sets the prescribed boundary velocity, computes the matching density
+    /// from the known populations on that face, and reconstructs the missing
+    /// outgoing populations with the exact Zou-He closure.
     pub fn apply_velocity_boundary(
         f: &mut [T],
         density: &mut [T],
@@ -105,34 +299,31 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         i: usize,
         j: usize,
         nx: usize,
+        ny: usize,
         u_boundary: [T; 2],
     ) {
-        use crate::solvers::lbm::streaming::f_idx;
         let cell = j * nx + i;
+        let Some(face) = Self::boundary_face(i, j, nx, ny, u_boundary) else {
+            debug_assert!(false, "Velocity boundary must lie on the domain boundary");
+            return;
+        };
 
+        let mut cell_values = Self::load_cell_populations(f, i, j, nx);
+        let rho = Self::boundary_density_from_velocity(face, &cell_values, u_boundary);
+        Self::reconstruct_zou_he_face(face, &mut cell_values, rho, u_boundary);
+
+        density[cell] = rho;
         velocity[cell * 2] = u_boundary[0];
         velocity[cell * 2 + 1] = u_boundary[1];
-
-        // Density from all distributions (approximation; use Zou-He formula for production)
-        let mut rho = T::zero();
-        for q in 0..9 {
-            rho += f[f_idx(j, i, q, nx)];
-        }
-        density[cell] = rho;
-
-        // Reset to equilibrium at the boundary density/velocity
-        for q in 0..9 {
-            let weight =
-                T::from_f64(D2Q9::WEIGHTS[q]).expect("D2Q9 weights are exact f64 constants");
-            let lattice_vel = D2Q9::VELOCITIES[q];
-            f[f_idx(j, i, q, nx)] = equilibrium(rho, &u_boundary, q, weight, lattice_vel);
-        }
+        Self::store_cell_populations(f, i, j, nx, cell_values);
     }
 
     /// Apply pressure boundary condition at node (i, j).
     ///
-    /// Converts pressure to density via $\rho = p / c_s^2$, extrapolates
-    /// velocity from the interior, then sets f to equilibrium.
+    /// Converts pressure to density via $\rho = p / c_s^2$, derives the
+    /// face-normal velocity from the density constraint, preserves the
+    /// tangential component from the adjacent interior face, and reconstructs
+    /// the missing populations with the Zou-He closure.
     pub fn apply_pressure_boundary(
         f: &mut [T],
         density: &mut [T],
@@ -143,24 +334,35 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         ny: usize,
         p_boundary: T,
     ) {
-        use crate::solvers::lbm::streaming::f_idx;
         let cell = j * nx + i;
 
         let cs2 = T::from_f64(crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED)
             .expect("cs² is an exact f64 constant");
         let rho = p_boundary / cs2;
-        density[cell] = rho;
+        let mut cell_values = Self::load_cell_populations(f, i, j, nx);
+        let velocity_hint = Self::extrapolate_velocity_flat(velocity, nx, ny, i, j);
+        let Some(face) = Self::boundary_face(i, j, nx, ny, velocity_hint) else {
+            debug_assert!(false, "Pressure boundary must lie on the domain boundary");
+            return;
+        };
 
-        let u = Self::extrapolate_velocity_flat(velocity, nx, ny, i, j);
+        let mut u = Self::extrapolate_velocity_for_face(velocity, nx, ny, i, j, face);
+        let normal_velocity = Self::boundary_velocity_from_density(face, &cell_values, rho);
+        match face {
+            BoundaryFace::West | BoundaryFace::East => {
+                u[0] = normal_velocity[0];
+            }
+            BoundaryFace::South | BoundaryFace::North => {
+                u[1] = normal_velocity[1];
+            }
+        }
+
+        Self::reconstruct_zou_he_face(face, &mut cell_values, rho, u);
+
+        density[cell] = rho;
         velocity[cell * 2] = u[0];
         velocity[cell * 2 + 1] = u[1];
-
-        for q in 0..9 {
-            let weight =
-                T::from_f64(D2Q9::WEIGHTS[q]).expect("D2Q9 weights are exact f64 constants");
-            let lattice_vel = D2Q9::VELOCITIES[q];
-            f[f_idx(j, i, q, nx)] = equilibrium(rho, &u, q, weight, lattice_vel);
-        }
+        Self::store_cell_populations(f, i, j, nx, cell_values);
     }
 
     /// Apply all boundary conditions from the boundary map.
@@ -180,7 +382,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
                 }
                 BoundaryCondition::VelocityInlet { velocity: vel } => {
                     let u = [vel[0], vel[1]];
-                    Self::apply_velocity_boundary(f, density, velocity, *i, *j, nx, u);
+                    Self::apply_velocity_boundary(f, density, velocity, *i, *j, nx, ny, u);
                 }
                 BoundaryCondition::PressureInlet { pressure, .. }
                 | BoundaryCondition::PressureOutlet { pressure } => {
@@ -223,11 +425,41 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
             [T::zero(), T::zero()]
         }
     }
+
+    fn extrapolate_velocity_for_face(
+        velocity: &[T],
+        nx: usize,
+        ny: usize,
+        i: usize,
+        j: usize,
+        face: BoundaryFace,
+    ) -> [T; 2] {
+        let cell = |jj: usize, ii: usize| {
+            [velocity[(jj * nx + ii) * 2], velocity[(jj * nx + ii) * 2 + 1]]
+        };
+
+        match face {
+            BoundaryFace::West if i + 1 < nx => cell(j, i + 1),
+            BoundaryFace::East if i > 0 => cell(j, i - 1),
+            BoundaryFace::South if j + 1 < ny => cell(j + 1, i),
+            BoundaryFace::North if j > 0 => cell(j - 1, i),
+            _ => [T::zero(), T::zero()],
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
+
+    fn write_cell(f: &mut [f64], i: usize, j: usize, nx: usize, values: [f64; 9]) {
+        use crate::solvers::lbm::streaming::f_idx;
+
+        for q in 0..9 {
+            f[f_idx(j, i, q, nx)] = values[q];
+        }
+    }
 
     #[test]
     fn test_bounce_back() {
@@ -252,5 +484,105 @@ mod tests {
                 "Bounce-back: f[{q}] should equal original f[{q_opp}]"
             );
         }
+    }
+
+    #[test]
+    fn velocity_boundary_uses_zou_he_reconstruction() {
+        let nx = 4_usize;
+        let ny = 4_usize;
+        let mut f = vec![0.0_f64; nx * ny * 9];
+        let mut density = vec![0.0_f64; nx * ny];
+        let mut velocity = vec![0.0_f64; nx * ny * 2];
+        let cell = 1 * nx;
+        let values = [0.31, 0.12, 0.23, 0.47, 0.19, 0.15, 0.17, 0.21, 0.29];
+        write_cell(&mut f, 0, 1, nx, values);
+
+        let u = [0.08_f64, -0.02_f64];
+        BoundaryHandler::<f64>::apply_velocity_boundary(
+            &mut f,
+            &mut density,
+            &mut velocity,
+            0,
+            1,
+            nx,
+            ny,
+            u,
+        );
+
+        let rho_expected = (values[0] + values[2] + values[4] + 2.0 * (values[3] + values[6] + values[7]))
+            / (1.0 - u[0]);
+        let f1_expected = values[3] + (2.0 / 3.0) * rho_expected * u[0];
+        let f5_expected = values[7]
+            + 0.5 * (values[4] - values[2])
+            + (1.0 / 6.0) * rho_expected * u[0]
+            + 0.5 * rho_expected * u[1];
+        let f8_expected = values[6]
+            + 0.5 * (values[2] - values[4])
+            + (1.0 / 6.0) * rho_expected * u[0]
+            - 0.5 * rho_expected * u[1];
+
+        assert_relative_eq!(density[cell], rho_expected, epsilon = 1e-12);
+        assert_relative_eq!(velocity[cell * 2], u[0], epsilon = 1e-12);
+        assert_relative_eq!(velocity[cell * 2 + 1], u[1], epsilon = 1e-12);
+        let west_base = (1 * nx + 0) * 9;
+        assert_relative_eq!(f[west_base + 1], f1_expected, epsilon = 1e-12);
+        assert_relative_eq!(f[west_base + 5], f5_expected, epsilon = 1e-12);
+        assert_relative_eq!(f[west_base + 8], f8_expected, epsilon = 1e-12);
+        assert_relative_eq!(f[west_base + 0], values[0], epsilon = 1e-12);
+        assert_relative_eq!(f[west_base + 2], values[2], epsilon = 1e-12);
+        assert_relative_eq!(f[west_base + 3], values[3], epsilon = 1e-12);
+        assert_relative_eq!(f[west_base + 4], values[4], epsilon = 1e-12);
+        assert_relative_eq!(f[west_base + 6], values[6], epsilon = 1e-12);
+        assert_relative_eq!(f[west_base + 7], values[7], epsilon = 1e-12);
+    }
+
+    #[test]
+    fn pressure_boundary_reconstructs_missing_face_populations() {
+        let nx = 4_usize;
+        let ny = 4_usize;
+        let mut f = vec![0.0_f64; nx * ny * 9];
+        let mut density = vec![0.0_f64; nx * ny];
+        let mut velocity = vec![0.0_f64; nx * ny * 2];
+        let values = [0.22, 0.34, 0.18, 0.29, 0.27, 0.11, 0.16, 0.25, 0.19];
+        write_cell(&mut f, 3, 1, nx, values);
+        let left_neighbor = 1 * nx + 2;
+        velocity[left_neighbor * 2] = 0.07;
+        velocity[left_neighbor * 2 + 1] = -0.04;
+
+        let cs2 = crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED;
+        let rho = 1.24_f64;
+        let pressure = rho * cs2;
+        BoundaryHandler::<f64>::apply_pressure_boundary(
+            &mut f,
+            &mut density,
+            &mut velocity,
+            3,
+            1,
+            nx,
+            ny,
+            pressure,
+        );
+
+        let velocity_hint = [0.07_f64, -0.04_f64];
+        let known = values[0] + values[2] + values[4] + 2.0 * (values[1] + values[5] + values[8]);
+        let u_x = known / rho - 1.0;
+        let expected_velocity = [u_x, velocity_hint[1]];
+        let f3_expected = values[1] - (2.0 / 3.0) * rho * u_x;
+        let f6_expected = values[8]
+            + 0.5 * (values[4] - values[2])
+            - (1.0 / 6.0) * rho * u_x
+            + 0.5 * rho * velocity_hint[1];
+        let f7_expected = values[5]
+            + 0.5 * (values[2] - values[4])
+            - (1.0 / 6.0) * rho * u_x
+            - 0.5 * rho * velocity_hint[1];
+
+        assert_relative_eq!(density[1 * nx + 3], rho, epsilon = 1e-12);
+        assert_relative_eq!(velocity[(1 * nx + 3) * 2], expected_velocity[0], epsilon = 1e-12);
+        assert_relative_eq!(velocity[(1 * nx + 3) * 2 + 1], expected_velocity[1], epsilon = 1e-12);
+        let east_base = (1 * nx + 3) * 9;
+        assert_relative_eq!(f[east_base + 3], f3_expected, epsilon = 1e-12);
+        assert_relative_eq!(f[east_base + 6], f6_expected, epsilon = 1e-12);
+        assert_relative_eq!(f[east_base + 7], f7_expected, epsilon = 1e-12);
     }
 }

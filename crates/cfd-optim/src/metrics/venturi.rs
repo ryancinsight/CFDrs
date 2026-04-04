@@ -17,6 +17,10 @@ fn cavitation_strength_from_sigma(cavitation_number: f64) -> f64 {
     strength / (1.0 + strength)
 }
 
+fn dynamic_pressure_pa(density_kg_m3: f64, velocity_m_s: f64) -> f64 {
+    0.5 * density_kg_m3 * velocity_m_s * velocity_m_s
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VenturiPlacementMetrics {
     pub placement_id: String,
@@ -25,6 +29,8 @@ pub struct VenturiPlacementMetrics {
     pub effective_throat_velocity_m_s: f64,
     pub throat_static_pressure_pa: f64,
     pub diffuser_recovery_pa: f64,
+    #[serde(default)]
+    pub total_loss_coefficient: f64,
     pub dean_number: f64,
     pub curvature_radius_m: f64,
     pub arc_length_m: f64,
@@ -150,6 +156,8 @@ pub fn compute_blueprint_venturi_metrics(
                 .max(1.0e-18);
             let upstream_velocity_m_s = sample.flow_m3_s.abs() / area_inlet_m2;
             let throat_velocity_m_s = sample.flow_m3_s.abs() / area_throat_m2;
+            let upstream_dynamic_pressure_pa =
+                dynamic_pressure_pa(BLOOD_DENSITY_KG_M3, upstream_velocity_m_s).max(1.0e-18);
             let screening = evaluate_venturi_screening(VenturiScreeningInput {
                 upstream_pressure_pa: candidate.operating_point.absolute_inlet_pressure_pa()
                     + sample.from_pressure_pa.max(0.0),
@@ -168,8 +176,16 @@ pub fn compute_blueprint_venturi_metrics(
                 vena_contracta_coeff: VENTURI_CC,
                 diffuser_recovery_coeff: DIFFUSER_DISCHARGE_COEFF,
                 upstream_nuclei_fraction: phi_arrival,
-            });
+            })
+            .map_err(|error| OptimError::PhysicsError {
+                id: candidate.id.clone(),
+                reason: error.to_string(),
+            })?;
             phi_out = screening.outlet_nuclei_fraction;
+            let total_loss_pa = (screening.bernoulli_drop_pa
+                + screening.throat_friction_drop_pa
+                - screening.diffuser_recovery_pa)
+                .max(0.0);
 
             let dean_site = cfd_schematics::BlueprintTopologyFactory::estimate_dean_site(
                 &candidate.blueprint,
@@ -188,6 +204,7 @@ pub fn compute_blueprint_venturi_metrics(
                 effective_throat_velocity_m_s: screening.effective_throat_velocity_m_s,
                 throat_static_pressure_pa: screening.throat_static_pressure_pa,
                 diffuser_recovery_pa: screening.diffuser_recovery_pa,
+                total_loss_coefficient: total_loss_pa / upstream_dynamic_pressure_pa,
                 dean_number: dean_site.dean_number,
                 curvature_radius_m: dean_site.curvature_radius_m,
                 arc_length_m: dean_site.arc_length_m,
@@ -237,8 +254,13 @@ pub fn compute_blueprint_venturi_metrics(
 
 #[cfg(test)]
 mod tests {
+    use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput};
     use cfd_schematics::VenturiPlacementMode;
 
+    use crate::constraints::{
+        BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA, BLOOD_VISCOSITY_PA_S,
+        DIFFUSER_DISCHARGE_COEFF, VENTURI_CC,
+    };
     use crate::domain::fixtures::{operating_point, stage0_venturi_candidate};
     use crate::metrics::{compute_blueprint_separation_metrics, solve_blueprint_candidate};
 
@@ -352,5 +374,78 @@ mod tests {
         }
         // Asymptotic: σ = -1000 should be close to 1
         assert!(super::cavitation_strength_from_sigma(-1000.0) > 0.999);
+    }
+
+    #[test]
+    fn total_loss_coefficient_matches_screening_contract() {
+        let candidate = stage0_venturi_candidate(
+            "loss-coefficient",
+            operating_point(2.0e-6, 30_000.0, 0.18),
+            VenturiPlacementMode::StraightSegment,
+        );
+        let solve = solve_blueprint_candidate(&candidate).expect("solve");
+        let separation = compute_blueprint_separation_metrics(&candidate).expect("separation");
+        let venturi =
+            compute_blueprint_venturi_metrics(&candidate, &solve, &separation).expect("venturi");
+        let placement_metrics = venturi.placements.first().expect("venturi placement");
+        let topology = candidate.topology_spec().expect("topology");
+        let placement_spec = topology
+            .venturi_placements
+            .iter()
+            .find(|placement| placement.placement_id == placement_metrics.placement_id)
+            .expect("placement spec");
+        let sample = solve
+            .channel_samples
+            .iter()
+            .find(|sample| sample.id == placement_metrics.target_channel_id)
+            .expect("resolved venturi sample");
+
+        let inlet_area_m2 = (placement_spec.throat_geometry.inlet_width_m
+            * placement_spec.throat_geometry.throat_height_m)
+            .max(1.0e-18);
+        let throat_area_m2 = (placement_spec.throat_geometry.throat_width_m
+            * placement_spec.throat_geometry.throat_height_m)
+            .max(1.0e-18);
+        let upstream_velocity_m_s = sample.flow_m3_s.abs() / inlet_area_m2;
+        let throat_velocity_m_s = sample.flow_m3_s.abs() / throat_area_m2;
+        let screening = evaluate_venturi_screening(VenturiScreeningInput {
+            upstream_pressure_pa: candidate.operating_point.absolute_inlet_pressure_pa()
+                + sample.from_pressure_pa.max(0.0),
+            upstream_velocity_m_s,
+            throat_velocity_m_s,
+            throat_hydraulic_diameter_m: 2.0
+                * placement_spec.throat_geometry.throat_width_m
+                * placement_spec.throat_geometry.throat_height_m
+                / (placement_spec.throat_geometry.throat_width_m
+                    + placement_spec.throat_geometry.throat_height_m)
+                    .max(1.0e-18),
+            throat_length_m: placement_spec.throat_geometry.throat_length_m,
+            density_kg_m3: BLOOD_DENSITY_KG_M3,
+            viscosity_pa_s: BLOOD_VISCOSITY_PA_S,
+            vapor_pressure_pa: BLOOD_VAPOR_PRESSURE_PA,
+            vena_contracta_coeff: VENTURI_CC,
+            diffuser_recovery_coeff: DIFFUSER_DISCHARGE_COEFF,
+            upstream_nuclei_fraction: 0.0,
+        })
+        .expect("venturi screening should succeed for the reference contract");
+        let expected_total_loss_pa = (screening.bernoulli_drop_pa
+            + screening.throat_friction_drop_pa
+            - screening.diffuser_recovery_pa)
+            .max(0.0);
+        let expected_total_loss_coefficient = expected_total_loss_pa
+            / super::dynamic_pressure_pa(BLOOD_DENSITY_KG_M3, upstream_velocity_m_s).max(1.0e-18);
+
+        assert!(
+            placement_metrics.total_loss_coefficient.is_finite()
+                && placement_metrics.total_loss_coefficient >= 0.0,
+            "total loss coefficient must be finite and non-negative"
+        );
+        assert!(
+            (placement_metrics.total_loss_coefficient - expected_total_loss_coefficient).abs()
+                < 1.0e-12,
+            "expected total loss coefficient {}, got {}",
+            expected_total_loss_coefficient,
+            placement_metrics.total_loss_coefficient
+        );
     }
 }

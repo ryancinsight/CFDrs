@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let total_x = n_segments as f64 * seg_len + 1.0;
 
-    let mut system = NetworkBlueprint::new("serpentine-mixer");
+    let mut system = NetworkBlueprint::new_with_explicit_positions("serpentine-mixer");
     system.box_dims = (total_x, y_top + 1.0);
 
     for i in 0..=n_segments {

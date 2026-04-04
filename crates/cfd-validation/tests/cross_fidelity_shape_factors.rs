@@ -1,7 +1,6 @@
 use cfd_1d::{
     ChannelGeometry, ChannelType, ComponentType, CrossSection, EdgeProperties,
-    Network, NetworkBuilder, NetworkProblem, NetworkSolver, ResistanceUpdatePolicy,
-    SolverConfig as SolverConfig1d, SurfaceProperties, Wettability,
+    Network, NetworkBuilder, ResistanceUpdatePolicy, SurfaceProperties, Wettability,
 };
 use cfd_3d::{
     venturi::{VenturiConfig3D, VenturiSolver3D},

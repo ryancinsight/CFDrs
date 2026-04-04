@@ -38,8 +38,17 @@ pub struct ValidationRow {
     pub track: String,
     pub id: String,
     pub topology: String,
+    /// 1D total pressure-loss coefficient `K = ΔP / (1/2 ρ u_in^2)`.
+    #[serde(default)]
+    pub k_loss_1d: f64,
     pub dp_1d_bernoulli_pa: f64,
+    /// 2D total pressure-loss coefficient `K = ΔP / (1/2 ρ u_in^2)`.
+    #[serde(default)]
+    pub k_loss_2d: f64,
     pub dp_2d_fvm_pa: f64,
+    /// 3D total pressure-loss coefficient `K = ΔP / (1/2 ρ u_in^2)`.
+    #[serde(default)]
+    pub k_loss_3d: f64,
     pub dp_3d_fem_pa: f64,
     pub agreement_1d_2d_pct: f64,
     pub agreement_2d_3d_pct: f64,
@@ -130,18 +139,19 @@ pub fn write_milestone12_results(
     } else {
         writeln!(
             md,
-            "| Option 1 (Selective acoustic center treatment) | _No eligible design under current physics regime_ | n/a | Unavailable | 0 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |"
+            "| Option 1 (Selective acoustic center treatment) | _No eligible design under current physics regime_ | n/a | Unavailable | 0 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |"
         )?;
     }
     writeln!(
         md,
-        "| Option 2 (Selective venturi cavitation selectivity) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
+        "| Option 2 (Selective venturi cavitation selectivity) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.3} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
         option2.candidate.id,
         option2.topology_display_name(),
         option2.metrics.treatment_zone_mode,
         option2.metrics.active_venturi_throat_count,
         option2.score,
         option2.metrics.cavitation_number,
+        option2.metrics.venturi_total_loss_coefficient,
         option2.metrics.serial_cavitation_dose_fraction,
         option2.metrics.wbc_recovery,
         option2.metrics.rbc_venturi_exposure_fraction,
@@ -155,17 +165,17 @@ pub fn write_milestone12_results(
     writeln!(md, "## Option 2 Ranked Top-5 (Deterministic Tie-Break)")?;
     writeln!(
         md,
-        "Sorting policy: score desc, oncology-priority desc, RBC venturi exposure asc, clot risk asc, candidate id asc. `sigma` remains a per-throat severity metric; `Cumulative cavitation dose` reports serial exposure across the treatment path.\n"
+        "Sorting policy: score desc, oncology-priority desc, RBC venturi exposure asc, clot risk asc, candidate id asc. `sigma` remains a per-throat severity metric; `K_loss` is the inlet-normalized venturi pressure-loss coefficient; `Cumulative cavitation dose` reports serial exposure across the treatment path.\n"
     )?;
     writeln!(
         md,
-        "| Rank | Candidate | Mode | Active venturi throats | Score | Oncology priority | RBC venturi exposure | Clot risk | sigma | Cumulative cavitation dose |"
+        "| Rank | Candidate | Mode | Active venturi throats | Score | Oncology priority | RBC venturi exposure | Clot risk | sigma | K_loss | Cumulative cavitation dose |"
     )?;
-    writeln!(md, "|---:|---|---|---:|---:|---:|---:|---:|---:|---:|")?;
+    writeln!(md, "|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|")?;
     for d in option2_ranked.iter().take(5) {
         writeln!(
             md,
-            "| {} | `{}` | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} |",
+            "| {} | `{}` | {} | {} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.3} | {:.4} |",
             d.rank,
             d.candidate.id,
             d.metrics.treatment_zone_mode,
@@ -175,6 +185,7 @@ pub fn write_milestone12_results(
             d.metrics.rbc_venturi_exposure_fraction,
             d.metrics.clotting_risk_index,
             d.metrics.cavitation_number,
+            d.metrics.venturi_total_loss_coefficient,
             d.metrics.serial_cavitation_dose_fraction,
         )?;
     }
@@ -431,6 +442,7 @@ mod tests {
         let rendered = std::fs::read_to_string(path).expect("rendered markdown should exist");
         assert!(rendered.contains("WBC treatment exposure"));
         assert!(rendered.contains("Treatment-Time Analysis"));
+        assert!(rendered.contains("K_loss"));
         assert!(!rendered.contains("WBC recovery"));
         assert!(!rendered.to_ascii_lowercase().contains("leukapheresis"));
     }

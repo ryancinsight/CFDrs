@@ -26,35 +26,7 @@ where
     F: FluidTrait<T>,
 {
     let mut local_conditions = conditions.clone();
-
-    // Compute Reynolds number if not provided.
-    if local_conditions.reynolds_number.is_none() {
-        let state = fluid.properties_at(local_conditions.temperature, local_conditions.pressure)?;
-        let density = state.density;
-        let viscosity = state.dynamic_viscosity;
-
-        let velocity = if let Some(v) = local_conditions.velocity {
-            v
-        } else if let Some(q) = local_conditions.flow_rate {
-            let area = geometry.cross_sectional_area()?;
-            if area <= T::zero() {
-                return Err(Error::InvalidConfiguration(
-                    "Channel area must be positive to compute Reynolds number".to_string(),
-                ));
-            }
-            q / area
-        } else {
-            return Err(Error::InvalidConfiguration(
-                "Automatic resistance selection requires either velocity or flow_rate (or an explicit Reynolds number)".to_string(),
-            ));
-        };
-
-        let dh = geometry.hydraulic_diameter()?;
-        let re = density * velocity * dh / viscosity;
-
-        local_conditions.velocity = Some(velocity);
-        local_conditions.reynolds_number = Some(re);
-    }
+    super::populate_shear_aware_conditions(geometry, fluid, &mut local_conditions)?;
 
     match geometry {
         ChannelGeometry::Circular { diameter, length } => {

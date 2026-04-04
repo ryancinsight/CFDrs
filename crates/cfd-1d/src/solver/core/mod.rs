@@ -115,6 +115,43 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone> NetworkSolve
             _phantom: std::marker::PhantomData,
         }
     }
+
+    fn validate_network_contract(&self, network: &Network<T, F>) -> Result<()> {
+        if network.node_count() == 0 {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "Network has no nodes".to_string(),
+            ));
+        }
+        if self.config.tolerance <= T::zero() {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "Tolerance must be positive".to_string(),
+            ));
+        }
+        network.validate_coefficients()?;
+        for props in network.properties.values() {
+            if props.length <= T::zero() || !props.length.is_finite() {
+                return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                    "Edge '{}' has invalid physical length",
+                    props.id
+                )));
+            }
+            if props.area <= T::zero() || !props.area.is_finite() {
+                return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                    "Edge '{}' has invalid cross-sectional area",
+                    props.id
+                )));
+            }
+            if let Some(d_h) = props.hydraulic_diameter {
+                if d_h <= T::zero() || !d_h.is_finite() {
+                    return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                        "Edge '{}' has invalid hydraulic diameter",
+                        props.id
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: FluidTrait<T> + Clone>
@@ -151,13 +188,34 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
             .map_err(PrimarySolveError::into_source)
     }
 
+    /// Solve a network directly, consuming ownership to avoid cloning the graph.
+    ///
+    /// This path is intended for transient workflows that repeatedly mutate and
+    /// re-solve the same network state. It preserves the same validation and
+    /// diagnostics behavior as [`Self::solve_network`] while eliminating the
+    /// internal clone required by the borrowed `NetworkProblem` path.
+    pub fn solve_owned_network(&self, network: Network<T, F>) -> Result<Network<T, F>> {
+        self.solve_owned_network_with_diagnostics(network)
+            .map(|(network, _)| network)
+            .map_err(PrimarySolveError::into_source)
+    }
+
     /// Solve the network and return explicit diagnostics for the trusted primary path.
     #[allow(clippy::too_many_lines, clippy::result_large_err)]
     pub fn solve_network_with_diagnostics(
         &self,
         problem: &NetworkProblem<T, F>,
     ) -> std::result::Result<(Network<T, F>, PrimarySolveDiagnostics), PrimarySolveError> {
-        self.validate_problem(problem).map_err(|source| {
+        self.solve_owned_network_with_diagnostics(problem.network.clone())
+    }
+
+    /// Solve the network and return explicit diagnostics without cloning the input network.
+    #[allow(clippy::too_many_lines, clippy::result_large_err)]
+    pub fn solve_owned_network_with_diagnostics(
+        &self,
+        network: Network<T, F>,
+    ) -> std::result::Result<(Network<T, F>, PrimarySolveDiagnostics), PrimarySolveError> {
+        self.validate_network_contract(&network).map_err(|source| {
             PrimarySolveError::new(
                 SolveFailureReason::InvalidGeometryContract,
                 PrimarySolveDiagnostics::default(),
@@ -165,7 +223,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
             )
         })?;
 
-        let mut network = problem.network.clone();
+        let mut network = network;
         let n = network.node_count();
         let anderson_depth = 5;
         let mut workspace = workspace::SolverWorkspace::new(n, anderson_depth);
@@ -406,6 +464,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
     ) -> Result<()> {
         network.update_from_solution(solution)
     }
+
 }
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: FluidTrait<T> + Clone>
@@ -442,41 +501,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone
     type Problem = NetworkProblem<T, F>;
 
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()> {
-        // Validate network has nodes
-        if problem.network.node_count() == 0 {
-            return Err(cfd_core::error::Error::InvalidConfiguration(
-                "Network has no nodes".to_string(),
-            ));
-        }
-        // Validate tolerance
-        if self.config.tolerance <= T::zero() {
-            return Err(cfd_core::error::Error::InvalidConfiguration(
-                "Tolerance must be positive".to_string(),
-            ));
-        }
-        problem.network.validate_coefficients()?;
-        for props in problem.network.properties.values() {
-            if props.length <= T::zero() || !props.length.is_finite() {
-                return Err(cfd_core::error::Error::InvalidConfiguration(format!(
-                    "Edge '{}' has invalid physical length",
-                    props.id
-                )));
-            }
-            if props.area <= T::zero() || !props.area.is_finite() {
-                return Err(cfd_core::error::Error::InvalidConfiguration(format!(
-                    "Edge '{}' has invalid cross-sectional area",
-                    props.id
-                )));
-            }
-            if let Some(d_h) = props.hydraulic_diameter {
-                if d_h <= T::zero() || !d_h.is_finite() {
-                    return Err(cfd_core::error::Error::InvalidConfiguration(format!(
-                        "Edge '{}' has invalid hydraulic diameter",
-                        props.id
-                    )));
-                }
-            }
-        }
-        Ok(())
+        self.validate_network_contract(&problem.network)
     }
 }

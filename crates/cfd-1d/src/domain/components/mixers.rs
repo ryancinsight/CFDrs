@@ -49,7 +49,7 @@
 //! - `n_bends ≥ 1` for serpentine/herringbone
 //! - `efficiency ∈ [0, 1]` (clamped on set)
 
-use super::Component;
+use super::{real_from_f64, Component};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
@@ -135,7 +135,7 @@ impl<T: RealField + Copy + FromPrimitive> Micromixer<T> {
                 "Micromixer length must be > 0".into(),
             ));
         }
-        let efficiency = T::from_f64(0.95).expect("Mathematical constant conversion compromised");
+        let efficiency: T = real_from_f64(0.95);
         Ok(Self {
             mixer_type,
             hydraulic_diameter,
@@ -196,13 +196,13 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for Micromixer<T> {
         let l = self.length;
         let a = self.channel_area();
 
-        let c128 = T::from_f64(128.0).expect("Mathematical constant conversion compromised");
+        let c128: T = real_from_f64(128.0);
         let pi = T::pi();
 
         // Guard against degenerate geometry
         let d4 = d * d * d * d;
         if d4 <= T::zero() || a <= T::zero() || d <= T::zero() {
-            return T::from_f64(1e15).expect("Mathematical constant conversion compromised");
+            return real_from_f64(1e15);
         }
 
         // R_straight = 128 μ L / (π D⁴)

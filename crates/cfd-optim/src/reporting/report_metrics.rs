@@ -534,6 +534,11 @@ pub fn compute_blueprint_report_metrics(
         .iter()
         .map(|p| p.diffuser_recovery_pa)
         .fold(0.0_f64, f64::max);
+    metrics.venturi_total_loss_coefficient = venturi
+        .placements
+        .iter()
+        .map(|p| p.total_loss_coefficient)
+        .fold(0.0_f64, f64::max);
 
     // Outlet tail length and remerge proximity: applicable to all PST topologies.
     // Shorter outlet tails mean treatment-stream remerge happens closer to chip exit,
@@ -701,6 +706,12 @@ pub fn compute_sdt_acoustic_metrics(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::fixtures::{operating_point, stage0_venturi_candidate};
+    use crate::metrics::{
+        compute_blueprint_separation_metrics, compute_blueprint_venturi_metrics,
+        solve_blueprint_candidate,
+    };
+    use cfd_schematics::topology::VenturiPlacementMode;
 
     #[test]
     fn test_sdt_acoustic_metrics_computable() {
@@ -762,5 +773,36 @@ mod tests {
                 "energy density must be positive at pressure_drop={pressure_drop}"
             );
         }
+    }
+
+    #[test]
+    fn report_metrics_propagate_max_venturi_total_loss_coefficient() {
+        let candidate = stage0_venturi_candidate(
+            "report-loss",
+            operating_point(2.0e-6, 30_000.0, 0.18),
+            VenturiPlacementMode::StraightSegment,
+        );
+        let solve = solve_blueprint_candidate(&candidate).expect("solve");
+        let separation = compute_blueprint_separation_metrics(&candidate).expect("separation");
+        let venturi =
+            compute_blueprint_venturi_metrics(&candidate, &solve, &separation).expect("venturi");
+        let metrics = compute_blueprint_report_metrics(&candidate).expect("report metrics");
+        let expected = venturi
+            .placements
+            .iter()
+            .map(|placement| placement.total_loss_coefficient)
+            .fold(0.0_f64, f64::max);
+
+        assert!(
+            metrics.venturi_total_loss_coefficient.is_finite()
+                && metrics.venturi_total_loss_coefficient >= 0.0,
+            "report-level total loss coefficient must be finite and non-negative"
+        );
+        assert!(
+            (metrics.venturi_total_loss_coefficient - expected).abs() < 1.0e-12,
+            "expected report total loss coefficient {}, got {}",
+            expected,
+            metrics.venturi_total_loss_coefficient
+        );
     }
 }

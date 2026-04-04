@@ -193,7 +193,6 @@ impl<
         // ── Classify boundary faces ───────────────────────────────────────────
         // The TrifurcationGeometry3D branches in the XY plane, so AxialBoundaryClassifier (Z-axis)
         // is invalid. We manually classify based on Euclidean distance to geometric endpoints.
-        let mut face_sets = crate::fem::boundary_classifier::BoundaryFaceSets::default();
         let inlet_axis = nalgebra::Vector3::new(-1.0, 0.0, 0.0);
         let mut outlet_axes = [nalgebra::Vector3::zeros(); 3];
         for i in 0..3 {
@@ -225,86 +224,110 @@ impl<
             }
             n_vec.normalize().dot(&axis).abs()
         };
-        let endcap_alignment_min: f64 = 0.8_f64;
+        let classify_boundary_faces = |min_alignment: f64| {
+            let mut local_face_sets = crate::fem::boundary_classifier::BoundaryFaceSets::default();
+            let mut local_boundary_face_centroids = Vec::with_capacity(mesh.boundary_faces().len());
+            let mut local_boundary_faces_by_label: HashMap<String, Vec<FaceId>> = HashMap::new();
+            let mut local_inlet_projection_max = f64::NEG_INFINITY;
+            let mut local_outlet_projection_max = [f64::NEG_INFINITY; 3];
 
-        let mut boundary_face_centroids = Vec::with_capacity(mesh.boundary_faces().len());
-        let mut boundary_faces_by_label: HashMap<String, Vec<FaceId>> = HashMap::new();
-        let mut inlet_projection_max = f64::NEG_INFINITY;
-        let mut outlet_projection_max = [f64::NEG_INFINITY; 3];
-        
-        for f_id in mesh.boundary_faces() {
-            let face = mesh.faces.get(f_id);
-            let mut z_sum = nalgebra::Vector3::zeros();
-            let mut count = 0.0;
-            for &v_idx in &face.vertices {
-                z_sum += mesh.vertices.get(v_idx).position.coords;
-                count += 1.0;
-                face_sets.boundary_vertices.insert(v_idx.as_usize());
-            }
-            let centroid = nalgebra::Point3::from(z_sum / count);
-
-            if radial_distance(centroid, inlet_axis) <= geom_f64.d_parent / 2.0 + radial_tol
-                && face_axis_alignment(face, inlet_axis) >= endcap_alignment_min
-            {
-                inlet_projection_max = inlet_projection_max.max(centroid.coords.dot(&inlet_axis));
-            }
-            for i in 0..3 {
-                if radial_distance(centroid, outlet_axes[i])
-                    <= geom_f64.d_daughters[i] / 2.0 + radial_tol
-                    && face_axis_alignment(face, outlet_axes[i]) >= endcap_alignment_min
-                {
-                    outlet_projection_max[i] =
-                        outlet_projection_max[i].max(centroid.coords.dot(&outlet_axes[i]));
+            for f_id in mesh.boundary_faces() {
+                let face = mesh.faces.get(f_id);
+                let mut z_sum = nalgebra::Vector3::zeros();
+                let mut count = 0.0;
+                for &v_idx in &face.vertices {
+                    z_sum += mesh.vertices.get(v_idx).position.coords;
+                    count += 1.0;
+                    local_face_sets.boundary_vertices.insert(v_idx.as_usize());
                 }
-            }
-            boundary_face_centroids.push((f_id, centroid));
-        }
+                let centroid = nalgebra::Point3::from(z_sum / count);
 
-        for (f_id, centroid) in boundary_face_centroids {
-            let face = mesh.faces.get(f_id);
-
-            let inlet_projection = centroid.coords.dot(&inlet_axis);
-            let inlet_radial = radial_distance(centroid, inlet_axis);
-            if inlet_projection >= inlet_projection_max - axial_tol
-                && inlet_radial <= geom_f64.d_parent / 2.0 + radial_tol
-                && face_axis_alignment(face, inlet_axis) >= endcap_alignment_min
-            {
-                boundary_faces_by_label
-                    .entry("inlet".to_string())
-                    .or_default()
-                    .push(f_id);
-                for &v_idx in &face.vertices { face_sets.inlet_nodes.insert(v_idx.as_usize()); }
-                continue;
-            }
-            
-            let mut is_outlet = false;
-            for i in 0..3 {
-                let outlet_axis = outlet_axes[i];
-                let outlet_projection = centroid.coords.dot(&outlet_axis);
-                let outlet_radial = radial_distance(centroid, outlet_axis);
-                if outlet_projection >= outlet_projection_max[i] - axial_tol
-                    && outlet_radial <= geom_f64.d_daughters[i] / 2.0 + radial_tol
-                    && face_axis_alignment(face, outlet_axis) >= endcap_alignment_min
+                if radial_distance(centroid, inlet_axis) <= geom_f64.d_parent / 2.0 + radial_tol
+                    && face_axis_alignment(face, inlet_axis) >= min_alignment
                 {
-                    let label = format!("outlet_{}", i);
-                    boundary_faces_by_label
-                        .entry(label.clone())
+                    local_inlet_projection_max =
+                        local_inlet_projection_max.max(centroid.coords.dot(&inlet_axis));
+                }
+                for i in 0..3 {
+                    if radial_distance(centroid, outlet_axes[i])
+                        <= geom_f64.d_daughters[i] / 2.0 + radial_tol
+                        && face_axis_alignment(face, outlet_axes[i]) >= min_alignment
+                    {
+                        local_outlet_projection_max[i] = local_outlet_projection_max[i]
+                            .max(centroid.coords.dot(&outlet_axes[i]));
+                    }
+                }
+                local_boundary_face_centroids.push((f_id, centroid));
+            }
+
+            for (f_id, centroid) in local_boundary_face_centroids {
+                let face = mesh.faces.get(f_id);
+
+                let inlet_projection = centroid.coords.dot(&inlet_axis);
+                let inlet_radial = radial_distance(centroid, inlet_axis);
+                if inlet_projection >= local_inlet_projection_max - axial_tol
+                    && inlet_radial <= geom_f64.d_parent / 2.0 + radial_tol
+                    && face_axis_alignment(face, inlet_axis) >= min_alignment
+                {
+                    local_boundary_faces_by_label
+                        .entry("inlet".to_string())
                         .or_default()
                         .push(f_id);
-                    let per_label = face_sets.outlet_nodes_by_label.entry(label).or_default();
                     for &v_idx in &face.vertices {
-                        let id = v_idx.as_usize();
-                        face_sets.outlet_nodes.insert(id);
-                        per_label.insert(id);
+                        local_face_sets.inlet_nodes.insert(v_idx.as_usize());
                     }
-                    is_outlet = true;
-                    break;
+                    continue;
+                }
+
+                let mut is_outlet = false;
+                for i in 0..3 {
+                    let outlet_axis = outlet_axes[i];
+                    let outlet_projection = centroid.coords.dot(&outlet_axis);
+                    let outlet_radial = radial_distance(centroid, outlet_axis);
+                    if outlet_projection >= local_outlet_projection_max[i] - axial_tol
+                        && outlet_radial <= geom_f64.d_daughters[i] / 2.0 + radial_tol
+                        && face_axis_alignment(face, outlet_axis) >= min_alignment
+                    {
+                        let label = format!("outlet_{}", i);
+                        local_boundary_faces_by_label
+                            .entry(label.clone())
+                            .or_default()
+                            .push(f_id);
+                        let per_label = local_face_sets.outlet_nodes_by_label.entry(label).or_default();
+                        for &v_idx in &face.vertices {
+                            let id = v_idx.as_usize();
+                            local_face_sets.outlet_nodes.insert(id);
+                            per_label.insert(id);
+                        }
+                        is_outlet = true;
+                        break;
+                    }
+                }
+                if is_outlet {
+                    continue;
+                }
+
+                for &v_idx in &face.vertices {
+                    local_face_sets.wall_nodes.insert(v_idx.as_usize());
                 }
             }
-            if is_outlet { continue; }
-            
-            // Neither inlet nor outlet -> wall
-            for &v_idx in &face.vertices { face_sets.wall_nodes.insert(v_idx.as_usize()); }
+
+            (local_face_sets, local_boundary_faces_by_label)
+        };
+
+        let (mut face_sets, mut boundary_faces_by_label) = classify_boundary_faces(0.8_f64);
+        let missing_outlet = (0..3).any(|i| {
+            boundary_faces_by_label
+                .get(&format!("outlet_{}", i))
+                .is_none_or(Vec::is_empty)
+        });
+        if face_sets.inlet_nodes.is_empty() || missing_outlet {
+            tracing::warn!(
+                inlet_nodes = face_sets.inlet_nodes.len(),
+                outlet_labels = face_sets.outlet_nodes_by_label.len(),
+                "Trifurcation endcap classification fell back to relaxed alignment threshold"
+            );
+            (face_sets, boundary_faces_by_label) = classify_boundary_faces(0.0_f64);
         }
 
         tracing::debug!(

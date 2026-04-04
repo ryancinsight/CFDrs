@@ -172,7 +172,7 @@ mod tests {
         // Create an artificial heavy droplet in the center
         density[2 * nx + 2] = 2.0;
 
-        let (fx, fy) = sc.compute_cohesive_force(&density, nx, ny);
+        let (fx, _fy) = sc.compute_cohesive_force(&density, nx, ny);
 
         // The point directly to the left (1, 2) should experience a force pushing Right (+x)
         let left_idx = 2 * nx + 1;

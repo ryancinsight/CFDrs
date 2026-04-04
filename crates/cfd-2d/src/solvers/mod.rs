@@ -86,6 +86,7 @@
 pub mod accelerated;
 pub mod bifurcation_flow;
 pub mod cell_tracking;
+pub(crate) mod continuity;
 pub mod plasma_skimming;
 pub mod cavity_solver;
 pub mod cross_junction_flow;

@@ -625,6 +625,8 @@ pub(super) struct DeanVenturiPoint {
     pub dean_number: f64,
     pub cavitation_number: f64,
     pub throat_velocity_m_s: f64,
+    /// Inlet-normalized venturi total loss coefficient.
+    pub total_loss_coefficient: f64,
     /// Upstream static pressure at this venturi position [kPa].
     pub upstream_pressure_kpa: f64,
     /// Curvature radius at this bend [mm].
@@ -809,6 +811,12 @@ pub(super) fn write_dean_venturi_placement_figure(
             r##"<text x="{center_x:.1}" y="{:.1}" font-size="9" text-anchor="middle" fill="#7f8c8d">{:.1} m/s</text>"##,
             y0 + 44.0,
             pt.throat_velocity_m_s
+        );
+        let _ = write!(
+            svg,
+            r##"<text x="{center_x:.1}" y="{:.1}" font-size="9" text-anchor="middle" fill="#7f8c8d">K={:.2}</text>"##,
+            y0 + 56.0,
+            pt.total_loss_coefficient
         );
     }
 

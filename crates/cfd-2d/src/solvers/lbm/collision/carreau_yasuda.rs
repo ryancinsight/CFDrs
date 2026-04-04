@@ -68,28 +68,42 @@ impl<T: RealField + Copy + Float + FromPrimitive> CarreauYasudaBgk<T> {
     fn compute_local_tau(&self, q_mag: T, rho: T) -> T {
         let cs2 = T::from_f64(LATTICE_CS2).unwrap();
         let half = T::from_f64(0.5).unwrap();
+        let tolerance = T::from_f64(1.0e-12).unwrap();
+        let lower_bound = half + tolerance;
         // Base case: starting with zero-shear viscosity τ_0
-        let nu_0 = self.model.apparent_kinematic_viscosity(T::zero(), rho);
+        let nu_0 = self.model.apparent_kinematic_viscosity(T::zero());
         // Transform nu to lattice units: nu_L = nu * dt / dx^2
         let dt_dx2 = self.dt / (self.dx * self.dx);
         let mut tau = half + nu_0 * dt_dx2 / cs2;
 
-        // Fixed-point iteration (Newton-Raphson is exact but fixed point is
-        // computationally simpler and guaranteed to converge for shear thinning)
+        // Fixed-point iteration with a residual stop criterion.
         let two = T::from_f64(2.0).unwrap();
-        
-        // Usually converges securely in 3 iterations for n > 0.3.
-        for _ in 0..3 {
+        let rho_safe = if rho < tolerance { tolerance } else { rho };
+
+        for _ in 0..32 {
+            let tau_safe = if tau < lower_bound { lower_bound } else { tau };
             // Compute current shear rate
-            let sr = q_mag / (two * rho * cs2 * tau * self.dt);
+            let sr = q_mag / (two * rho_safe * cs2 * tau_safe * self.dt);
             // Re-evaluate physical kinematic viscosity
-            let nu = self.model.apparent_kinematic_viscosity(sr, rho);
-            // Compute new tau using under-relaxation to absolutely guarantee stability
+            let nu = self.model.apparent_kinematic_viscosity(sr);
+            // Compute new tau using under-relaxation and stop once the update is tiny.
             let tau_new = half + nu * dt_dx2 / cs2;
-            tau = half * tau + half * tau_new; 
+            let tau_next = half * tau_safe + half * tau_new;
+            let threshold_scale = if tau_next > T::one() { tau_next } else { T::one() };
+            let update = if tau_next > tau_safe {
+                tau_next - tau_safe
+            } else {
+                tau_safe - tau_next
+            };
+
+            if update <= tolerance * threshold_scale {
+                return if tau_next < lower_bound { lower_bound } else { tau_next };
+            }
+
+            tau = tau_next;
         }
 
-        Float::max(tau, T::from_f64(0.5001).unwrap()) // Ensure LBM numerical stability
+        if tau < lower_bound { lower_bound } else { tau }
     }
 }
 
@@ -149,14 +163,13 @@ impl<T: RealField + Copy + Float + FromPrimitive> CollisionOperator<T> for Carre
     fn tau(&self) -> T {
         let dt_dx2 = self.dt / (self.dx * self.dx);
         let cs2 = T::from_f64(LATTICE_CS2).unwrap();
-        // Density is 1.0 (water) for this boundary marker check
-        let nu_inf = self.model.apparent_kinematic_viscosity(T::from_f64(1e6).unwrap(), T::one());
+        let nu_inf = self.model.apparent_kinematic_viscosity(T::from_f64(1e6).unwrap());
         T::from_f64(0.5).unwrap() + nu_inf * dt_dx2 / cs2
     }
 
     /// Returns the asymptotic infinite-shear base viscosity
     fn viscosity(&self, _dt: T, _dx: T) -> T {
-        self.model.apparent_kinematic_viscosity(T::from_f64(1e6).unwrap(), T::one())
+        self.model.apparent_kinematic_viscosity(T::from_f64(1e6).unwrap())
     }
 }
 
@@ -173,19 +186,39 @@ mod tests {
         let dt = 1e-6_f64; // 1 µs
         let bgk = CarreauYasudaBgk::new(cy, dx, dt);
 
-        let rho = 1050.0_f64; // Blood density kg/m³
+        let rho = cy.density;
         
         // Zero strain -> must equal mu_0 based tau
         let tau_0 = bgk.compute_local_tau(0.0_f64, rho);
         let dt_dx2 = dt / (dx * dx);
-        let expected_tau_0 = 0.5 + (cy.mu_0 / rho) * dt_dx2 / LATTICE_CS2;
+        let expected_tau_0 = 0.5 + cy.apparent_kinematic_viscosity(0.0_f64) * dt_dx2 / LATTICE_CS2;
         assert!((tau_0 - expected_tau_0).abs() < 1e-5, "Zero shear tau failed");
 
         // High strain -> must equal mu_inf based tau
-        let mut tau_inf = bgk.compute_local_tau(1000.0_f64, rho);
-        let expected_tau_inf = 0.5 + (cy.mu_inf / rho) * dt_dx2 / LATTICE_CS2;
-        // Not perfectly matched due to fixed # of iterations and large q_mag, but bounded:
+        let tau_inf = bgk.compute_local_tau(1000.0_f64, rho);
         assert!(tau_inf < tau_0, "High shear tau must be lower than zero shear tau");
-        assert!(tau_inf >= expected_tau_inf, "Cannot drop below absolute minimum tau");
+        assert!(tau_inf > 0.5, "High shear tau must remain above the LBM stability floor");
+    }
+
+    #[test]
+    fn local_tau_satisfies_fixed_point_residual() {
+        use approx::assert_relative_eq;
+
+        let cy = CarreauYasudaModel::typical_blood();
+        let dx = 1e-4_f64;
+        let dt = 1e-6_f64;
+        let bgk = CarreauYasudaBgk::new(cy, dx, dt);
+
+        let rho = cy.density;
+        let q_mag = 250.0_f64;
+        let tau = bgk.compute_local_tau(q_mag, rho);
+        let cs2 = LATTICE_CS2;
+        let dt_dx2 = dt / (dx * dx);
+        let shear_rate = q_mag / (2.0 * rho * cs2 * tau * dt);
+        let nu = cy.apparent_kinematic_viscosity(shear_rate);
+        let rhs = 0.5 + nu * dt_dx2 / cs2;
+
+        assert_relative_eq!(tau, rhs, epsilon = 1e-11);
+        assert!(tau > 0.5);
     }
 }

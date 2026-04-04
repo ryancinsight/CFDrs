@@ -26,6 +26,7 @@ struct LanePanelData {
     treatment_residence_ms: f64,
     cavitation_intensity: f64,
     cavitation_number: f64,
+    total_loss_coefficient: f64,
     total_path_length_mm: f64,
     min_bend_radius_mm: Option<f64>,
     max_bend_radius_mm: Option<f64>,
@@ -129,11 +130,12 @@ fn panel_data(design: &Milestone12ReportDesign, panel_label: &str) -> LanePanelD
     LanePanelData {
         title: format!("{panel_label} - {}", design.stage_sequence_label()),
         subtitle: format!(
-            "score {:.4} • residence {:.1} ms • cavitation {:.3} • σ {:.3}",
+            "score {:.4} • residence {:.1} ms • cavitation {:.3} • σ {:.3} • K_loss {:.2}",
             design.score,
             design.metrics.mean_residence_time_s.max(0.0) * 1.0e3,
             design.metrics.cavitation_intensity.max(0.0),
             design.metrics.cavitation_number,
+            design.metrics.venturi_total_loss_coefficient,
         ),
         strokes,
         serpentine_channel_count,
@@ -141,6 +143,7 @@ fn panel_data(design: &Milestone12ReportDesign, panel_label: &str) -> LanePanelD
         treatment_residence_ms: design.metrics.mean_residence_time_s.max(0.0) * 1.0e3,
         cavitation_intensity: design.metrics.cavitation_intensity.max(0.0),
         cavitation_number: design.metrics.cavitation_number,
+        total_loss_coefficient: design.metrics.venturi_total_loss_coefficient,
         total_path_length_mm,
         min_bend_radius_mm: min_bend_radius_mm.is_finite().then_some(min_bend_radius_mm),
         max_bend_radius_mm: max_bend_radius_mm.is_finite().then_some(max_bend_radius_mm),
@@ -325,6 +328,7 @@ fn render_delta_overlay(
     let residence_delta_ms = ga.treatment_residence_ms - option2.treatment_residence_ms;
     let cavitation_delta = ga.cavitation_intensity - option2.cavitation_intensity;
     let sigma_delta = ga.cavitation_number - option2.cavitation_number;
+    let loss_delta = ga.total_loss_coefficient - option2.total_loss_coefficient;
     let bend_delta = match (option2.min_bend_radius_mm, ga.min_bend_radius_mm) {
         (Some(left), Some(right)) => format!("{:+.2} mm", right - left),
         _ => "n/a".to_string(),
@@ -344,12 +348,13 @@ fn render_delta_overlay(
     );
     let _ = write!(
         svg,
-        r##"<text x="{:.1}" y="{:.1}" font-size="12" fill="#5d6d7e">Residence {:+.1} ms • cavitation {:+.3} • σ {:+.3} • Throats {:+}</text>"##,
+        r##"<text x="{:.1}" y="{:.1}" font-size="12" fill="#5d6d7e">Residence {:+.1} ms • cavitation {:+.3} • σ {:+.3} • K_loss {:+.2} • Throats {:+}</text>"##,
         x + 18.0,
         y + 44.0,
         residence_delta_ms,
         cavitation_delta,
         sigma_delta,
+        loss_delta,
         throat_delta,
     );
     let _ = write!(
@@ -493,4 +498,54 @@ fn estimate_local_bend_radius_mm(path: &[(f64, f64)], idx: usize) -> Option<f64>
 
 fn format_radius_mm(radius_mm: Option<f64>) -> String {
     radius_mm.map_or_else(|| "n/a".to_string(), |radius| format!("{radius:.2} mm"))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use cfd_schematics::topology::VenturiPlacementMode;
+
+    use crate::domain::fixtures::{operating_point, stage0_venturi_candidate};
+    use crate::reporting::{compute_blueprint_report_metrics, Milestone12ReportDesign};
+
+    use super::write_treatment_lane_zoom_figure;
+
+    #[test]
+    fn treatment_lane_zoom_renders_total_loss_annotation() {
+        let option2_candidate = stage0_venturi_candidate(
+            "lane-option2",
+            operating_point(2.0e-6, 30_000.0, 0.18),
+            VenturiPlacementMode::StraightSegment,
+        );
+        let ga_candidate = stage0_venturi_candidate(
+            "lane-ga",
+            operating_point(2.0e-6, 30_000.0, 0.18),
+            VenturiPlacementMode::CurvaturePeakDeanNumber,
+        );
+        let option2 = Milestone12ReportDesign::new(
+            1,
+            option2_candidate.clone(),
+            compute_blueprint_report_metrics(&option2_candidate).expect("option2 metrics"),
+            0.70,
+        );
+        let ga = Milestone12ReportDesign::new(
+            1,
+            ga_candidate.clone(),
+            compute_blueprint_report_metrics(&ga_candidate).expect("ga metrics"),
+            0.75,
+        );
+
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("m12-treatment-lane-{unique}.svg"));
+        write_treatment_lane_zoom_figure(&path, &option2, &ga)
+            .expect("treatment lane figure should render");
+
+        let rendered = std::fs::read_to_string(path).expect("rendered svg should exist");
+        assert!(rendered.contains("K_loss"));
+        assert!(rendered.contains("Geometry Delta (GA - Option 2)"));
+    }
 }

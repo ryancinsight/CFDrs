@@ -24,7 +24,7 @@
 //! - `opening ∈ [0, 1]`: clamped on set
 //! - `Cv > 0`: physically required (positive conductance)
 
-use super::Component;
+use super::{real_from_f64, Component};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::RealField;
@@ -91,7 +91,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
     /// - **Open**: `0.0` — all losses are quadratic (captured by `coefficients`).
     fn resistance(&self, _fluid: &ConstantPropertyFluid<T>) -> T {
         if self.opening <= T::zero() {
-            T::from_f64(CLOSED_VALVE_RESISTANCE).expect("Mathematical constant conversion compromised")
+            real_from_f64(CLOSED_VALVE_RESISTANCE)
         } else {
             T::zero()
         }
@@ -100,7 +100,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
     fn coefficients(&self, fluid: &ConstantPropertyFluid<T>) -> (T, T) {
         if self.opening <= T::zero() {
             (
-                T::from_f64(CLOSED_VALVE_RESISTANCE).expect("Mathematical constant conversion compromised"),
+                real_from_f64(CLOSED_VALVE_RESISTANCE),
                 T::zero(),
             )
         } else {

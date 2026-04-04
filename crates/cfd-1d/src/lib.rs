@@ -131,12 +131,12 @@ pub use physics::cell_separation::{
     incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
     mixed_cascade_separation, mixed_cascade_separation_kappa_aware, tri_asymmetric_q_fracs,
     tri_center_q_frac, tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
-    IncrementalFiltrationResult, PeripheralRecovery,
+    IncrementalFiltrationResult, PeripheralRecovery, PhaseSeparationResult,
 };
 pub use physics::cell_separation::{
     amini_confinement_correction, fahraeus_lindqvist_viscosity, plasma_skimming_hematocrit,
-    quemada_viscosity, secomb_network_viscosity, secomb_phase_separation_x0,
-    three_population_equilibria, ThreePopEquilibria,
+    pries_phase_separation, quemada_viscosity, secomb_network_viscosity,
+    secomb_phase_separation_x0, three_population_equilibria, ThreePopEquilibria,
 };
 pub use physics::vascular::non_newtonian_flow_split_exponent;
 pub use physics::vascular::womersley_pulsatility_index;
@@ -168,8 +168,9 @@ pub use domain::components::{
 
 // Export analysis functionality
 pub use solver::analysis::{
-    BloodShearLimits, FlowAnalysis, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,
-    PerformanceMetrics, PressureAnalysis, ResistanceAnalysis, ShearLimitViolation,
+    BloodShearLimits, FlowAnalysis, HemolysisLimitViolation, NetworkAnalysisResult,
+    NetworkAnalyzerOrchestrator, PerformanceMetrics, PressureAnalysis, ResistanceAnalysis,
+    ShearLimitViolation,
 };
 
 // Export channel functionality
@@ -224,8 +225,8 @@ pub mod prelude {
             DarcyWeisbachModel, FlowConditions, ResistanceCalculator, ResistanceModelFactory,
         },
         solver::analysis::{
-            BloodShearLimits, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,
-            PerformanceMetrics, ShearLimitViolation,
+            BloodShearLimits, HemolysisLimitViolation, NetworkAnalysisResult,
+            NetworkAnalyzerOrchestrator, PerformanceMetrics, ShearLimitViolation,
         },
         solver::core::{
             ChannelOccupancy, CompositionState, DropletBoundary, DropletInjection, DropletPosition,

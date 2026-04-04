@@ -22,6 +22,9 @@ use crate::fields::{SimulationFields, Field2D};
 use crate::grid::StructuredGrid2D;
 use crate::physics::momentum::MomentumSolver;
 use crate::physics::turbulence::TurbulenceModel;
+use crate::solvers::continuity::{
+    max_forward_continuity_residual, pointwise_forward_continuity_residual,
+};
 use crate::solvers::fdm::PoissonSolver;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::error::{Error, Result};
@@ -99,25 +102,24 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
         let dx = grid.dx;
         let dy = grid.dy;
 
+        let mut u_at = |ii: usize, jj: usize| u_star.at(ii, jj);
+        let mut v_at = |ii: usize, jj: usize| v_star.at(ii, jj);
+
         for j in 0..ny {
             for i in 0..nx {
                 let idx = j * nx + i;
 
-                // Compute divergence of predicted velocity field
-                let du_dx = if i < (nx as usize) - 1 {
-                    (u_star.at(i + 1, j) - u_star.at(i, j)) / dx
-                } else {
-                    T::zero()
-                };
-
-                let dv_dy = if j < (ny as usize) - 1 {
-                    (v_star.at(i, j + 1) - v_star.at(i, j)) / dy
-                } else {
-                    T::zero()
-                };
-
                 // Continuity residual: ∇·u* = 0 (incompressibility)
-                let continuity_residual = du_dx + dv_dy;
+                let continuity_residual = pointwise_forward_continuity_residual(
+                    i,
+                    j,
+                    nx,
+                    ny,
+                    dx,
+                    dy,
+                    &mut u_at,
+                    &mut v_at,
+                );
 
                 // Pressure Poisson equation: ∇²p' = (ρ/dt) * ∇·u*
                 let rho = fields.density.at(i, j);
@@ -199,25 +201,19 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
         fields: &SimulationFields<T>,
         grid: &StructuredGrid2D<T>,
     ) -> T {
-        let dx = grid.dx;
-        let dy = grid.dy;
-        let nx = grid.nx;
-        let ny = grid.ny;
+        let mut u_at = |ii: usize, jj: usize| fields.u.at(ii, jj);
+        let mut v_at = |ii: usize, jj: usize| fields.v.at(ii, jj);
 
-        // Compute velocity divergence
-        let du_dx = if i < (nx as usize) - 1 {
-            (fields.u[(i + 1, j)] - fields.u[(i, j)]) / dx
-        } else {
-            T::zero()
-        };
-
-        let dv_dy = if j < (ny as usize) - 1 {
-            (fields.v[(i, j + 1)] - fields.v[(i, j)]) / dy
-        } else {
-            T::zero()
-        };
-
-        du_dx + dv_dy
+        pointwise_forward_continuity_residual(
+            i,
+            j,
+            grid.nx,
+            grid.ny,
+            grid.dx,
+            grid.dy,
+            &mut u_at,
+            &mut v_at,
+        )
     }
 
     /// Solve incompressible Navier-Stokes equations using SIMPLE algorithm
@@ -328,16 +324,14 @@ impl<T: RealField + Copy + FromPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
                 }
             }
 
-            let mut max_residual = T::zero();
-            for j in 0..ny {
-                for i in 0..nx {
-                    let residual = self.compute_continuity_residual(i, j, fields, grid);
-                    let abs_residual = if residual >= T::zero() { residual } else { -residual };
-                    if abs_residual > max_residual {
-                        max_residual = abs_residual;
-                    }
-                }
-            }
+            let max_residual = max_forward_continuity_residual(
+                nx,
+                ny,
+                grid.dx,
+                grid.dy,
+                |i, j| fields.u.at(i, j),
+                |i, j| fields.v.at(i, j),
+            );
 
             converged = max_residual < self.tolerance;
             iteration += 1;

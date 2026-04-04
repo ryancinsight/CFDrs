@@ -13,21 +13,11 @@ use serde::{Deserialize, Serialize};
 ///
 /// Computes the complete unsteady velocity field for pulsatile pipe flow.
 ///
-/// # Closed-Form Approximations
+/// # Exact Analytical Form
 ///
-/// For computational efficiency, we use asymptotic approximations:
-///
-/// ## Low α limit (α << 1):
-/// ```text
-/// u(r,t) = (P̂R²/4μ) · (1 - ξ²) · cos(ωt - φ)
-/// ```
-/// Parabolic profile with small phase lag φ ≈ α²/8.
-///
-/// ## High α limit (α >> 1):
-/// ```text
-/// u(r,t) ≈ (P̂/ρω) · [1 - exp(-(1-ξ)R/δ)] · sin(ωt)
-/// ```
-/// Plug flow with boundary layer of thickness δ.
+/// The implementation evaluates the closed-form Bessel solution directly.
+/// The low-$\alpha$ and high-$\alpha$ expressions are retained only as
+/// analytical limits for interpretation and tests, not as runtime branches.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WomersleyProfile<T: RealField + Copy> {
     /// Womersley number parameters

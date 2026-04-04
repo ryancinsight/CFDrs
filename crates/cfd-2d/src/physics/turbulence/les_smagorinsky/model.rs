@@ -327,6 +327,8 @@ impl SmagorinskyLES {
             &self.filter_width,
             self.dynamic_constant.as_ref(),
             &self.config,
+            self.dx,
+            self.dy,
             density,
         );
 

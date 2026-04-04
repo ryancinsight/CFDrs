@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let d1_end_y = jy + l_daughter * angle_rad.sin();
     let d2_end_x = jx + l_daughter * angle_rad.cos();
     let d2_end_y = jy - l_daughter * angle_rad.sin();
-    let mut system = NetworkBlueprint::new("bifurcation-murray");
+    let mut system = NetworkBlueprint::new_with_explicit_positions("bifurcation-murray");
     system.box_dims = (d1_end_x + 2.0, jy * 2.0);
 
     system.add_node(NodeSpec::new("n0", NodeKind::Inlet).with_point((0.0, jy)));

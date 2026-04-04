@@ -7,8 +7,6 @@
 //! - Pressure drops across channels are consistent with their computed resistances.
 //! - Symmetric topologies produce symmetric flow distributions.
 
-#![allow(deprecated)] // NetworkBlueprint::new() used intentionally
-
 use cfd_1d::{
     domain::network::network_from_blueprint, Network, NetworkProblem, NetworkSolver, SolverConfig,
 };
@@ -141,7 +139,7 @@ fn series_circuit_pressure_drop_matches_kirchhoff() {
     const P_IN: f64 = 1000.0; // Pa
     const P_OUT: f64 = 0.0;
 
-    let mut bp = NetworkBlueprint::new("series");
+    let mut bp = NetworkBlueprint::new_with_explicit_positions("series");
     bp.add_node(node("inlet", NodeKind::Inlet, 0.0, 0.0));
     bp.add_node(node("outlet", NodeKind::Outlet, 100.0, 0.0));
     bp.add_channel(
@@ -193,7 +191,7 @@ fn symmetric_bifurcation_flow_distribution_and_mass_conservation() {
     const P_IN: f64 = 1000.0;
     const P_OUT: f64 = 0.0;
 
-    let mut bp = NetworkBlueprint::new("bifurcation");
+    let mut bp = NetworkBlueprint::new_with_explicit_positions("bifurcation");
     bp.add_node(node("inlet", NodeKind::Inlet, 0.0, 0.0));
     bp.add_node(node("junction", NodeKind::Junction, 50.0, 0.0));
     bp.add_node(node("out_L", NodeKind::Outlet, 90.0, -30.0));
@@ -288,7 +286,7 @@ fn asymmetric_bifurcation_flow_ratio_matches_resistance_ratio() {
     const L_M: f64 = 0.05;
     const P_JN: f64 = 500.0; // Dirichlet at junction, both outlets at 0
 
-    let mut bp = NetworkBlueprint::new("asym_bifurcation");
+    let mut bp = NetworkBlueprint::new_with_explicit_positions("asym_bifurcation");
     bp.add_node(node("junction", NodeKind::Inlet, 0.0, 0.0));
     bp.add_node(node("out_wide", NodeKind::Outlet, 40.0, -30.0));
     bp.add_node(node("out_narr", NodeKind::Outlet, 40.0, 30.0));

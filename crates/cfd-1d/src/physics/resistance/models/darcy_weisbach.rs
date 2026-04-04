@@ -57,22 +57,14 @@
 //! - Smooth pipe: 1/√f ≈ 2 log₁₀(Re √f) − 0.8        (ε → 0)
 //! - Fully rough: 1/√f ≈ 2 log₁₀(3.7 D/ε)            (Re → ∞)
 //!
-//! ## Theorem: Haaland Explicit Approximation
+//! ## Exact Colebrook-White Solve
 //!
-//! **Theorem** (Haaland 1983): An accurate explicit (non-iterative) approximation
-//! for the Colebrook-White friction factor is:
+//! This module does not use the Haaland explicit approximation. It computes an
+//! initial Serghides-style guess and then solves the Colebrook-White equation
+//! with Newton-Raphson to machine precision.
 //!
-//! ```text
-//! 1/√f ≈ −1.8 · log₁₀[ (ε/(3.7 D))^1.1 + (6.9/Re)^1.1 ]^(1/1.1)
-//! ```
-//!
-//! or equivalently in the form used for numerical verification:
-//!
-//! ```text
-//! 1/√f ≈ −1.8 · log₁₀[ (ε/(3.6 D))^1.11 + (6.9/Re) ]   (Haaland variant)
-//! ```
-//!
-//! **Accuracy**: within 2% of Colebrook-White for 4000 < Re < 10⁸, 10⁻⁶ < ε/D < 10⁻².
+//! The iteration is robust in the published validity band because the initial
+//! guess is already close to the root and the derivative is strictly positive.
 //!
 //! ## Invariant: Reynolds Number
 //!

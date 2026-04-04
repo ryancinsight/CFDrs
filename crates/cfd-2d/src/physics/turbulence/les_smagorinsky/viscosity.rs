@@ -25,6 +25,8 @@ pub fn compute_sgs_viscosity(
     filter_width: &DMatrix<f64>,
     dynamic_constant: Option<&DMatrix<f64>>,
     config: &SmagorinskyConfig,
+    dx: f64,
+    dy: f64,
     density: f64,
 ) -> DMatrix<f64> {
     let nx = strain_magnitude.nrows();
@@ -45,8 +47,16 @@ pub fn compute_sgs_viscosity(
 
             // Apply wall damping if enabled
             if config.wall_damping {
-                nu_sgs *=
-                    compute_wall_damping_factor(i, j, nx, ny, delta, config.van_driest_constant);
+                nu_sgs *= compute_wall_damping_factor(
+                    i,
+                    j,
+                    nx,
+                    ny,
+                    delta,
+                    dx,
+                    dy,
+                    config.van_driest_constant,
+                );
             }
 
             // Ensure minimum viscosity for numerical stability
@@ -62,19 +72,19 @@ pub fn compute_sgs_viscosity(
 
 /// Compute van Driest wall damping factor
 ///
-/// D = 1 - exp(-y⁺/A⁺) where y⁺ is the wall distance in wall units
-/// and A⁺ = 25.5/κ ≈ 26 (van Driest constant ≈ 0.4 gives A⁺ ≈ 26)
+/// D = 1 - exp(-y / (A Δ)) where `y` is the exact distance to the nearest
+/// axis-aligned wall and `Δ` is the LES filter width.
 fn compute_wall_damping_factor(
     i: usize,
     j: usize,
     nx: usize,
     ny: usize,
     delta: f64,
+    dx: f64,
+    dy: f64,
     van_driest_constant: f64,
 ) -> f64 {
-    // Simplified wall distance calculation (approximate)
-    // In a real implementation, this should use proper wall distance computation
-    let wall_distance = compute_approximate_wall_distance(i, j, nx, ny);
+    let wall_distance = compute_wall_distance(i, j, nx, ny, dx, dy);
 
     // van Driest damping: D = 1 - exp(-wall_distance / (A * delta))
     // where A is related to van Driest constant
@@ -82,16 +92,13 @@ fn compute_wall_damping_factor(
     1.0 - damping_argument.exp()
 }
 
-/// Compute approximate wall distance for damping
+/// Compute exact wall distance to the nearest wall for an axis-aligned grid.
 ///
-/// This is a simplified approximation. In production code, proper wall
-/// distance computation using geometric information should be used.
-fn compute_approximate_wall_distance(i: usize, j: usize, nx: usize, ny: usize) -> f64 {
-    // Minimum distance to any boundary (simplified geometric approximation)
-    let dist_to_left = i as f64;
-    let dist_to_right = (nx - 1 - i) as f64;
-    let dist_to_bottom = j as f64;
-    let dist_to_top = (ny - 1 - j) as f64;
+fn compute_wall_distance(i: usize, j: usize, nx: usize, ny: usize, dx: f64, dy: f64) -> f64 {
+    let dist_to_left = i as f64 * dx;
+    let dist_to_right = (nx - 1 - i) as f64 * dx;
+    let dist_to_bottom = j as f64 * dy;
+    let dist_to_top = (ny - 1 - j) as f64 * dy;
 
     // Use the minimum distance (closest wall)
     dist_to_left
@@ -153,7 +160,7 @@ mod tests {
             wall_damping: false, // Disable wall damping for this test
             ..SmagorinskyConfig::default()
         };
-        let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0);
+        let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0, 1.0, 1.0);
 
         // Check dimensions
         assert_eq!(viscosity.nrows(), 10);
@@ -174,17 +181,24 @@ mod tests {
     fn test_wall_damping() {
         let (strain, filter) = create_test_strain_and_filter(10, 10);
         let config = SmagorinskyConfig::default();
-        let viscosity_damped = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0);
+        let viscosity_damped = compute_sgs_viscosity(&strain, &filter, None, &config, 0.1, 0.1, 1.0);
 
         let config_no_damping = SmagorinskyConfig {
             wall_damping: false,
             ..config
         };
-        let viscosity_no_damping =
-            compute_sgs_viscosity(&strain, &filter, None, &config_no_damping, 1.0);
+        let viscosity_no_damping = compute_sgs_viscosity(
+            &strain,
+            &filter,
+            None,
+            &config_no_damping,
+            0.1,
+            0.1,
+            1.0,
+        );
 
-        // Wall damping should reduce viscosity near walls
-        // (This is a weak test since our wall distance approximation is simple)
+        // Wall damping should reduce viscosity near walls using the exact
+        // axis-aligned wall distance.
         let damped_sum: f64 = viscosity_damped.iter().sum();
         let no_damping_sum: f64 = viscosity_no_damping.iter().sum();
         assert!(damped_sum <= no_damping_sum);
@@ -199,9 +213,16 @@ mod tests {
         };
         let dynamic_constant = DMatrix::from_element(10, 10, 0.2); // Higher constant
 
-        let viscosity_dynamic =
-            compute_sgs_viscosity(&strain, &filter, Some(&dynamic_constant), &config, 1.0);
-        let viscosity_fixed = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0);
+        let viscosity_dynamic = compute_sgs_viscosity(
+            &strain,
+            &filter,
+            Some(&dynamic_constant),
+            &config,
+            1.0,
+            1.0,
+            1.0,
+        );
+        let viscosity_fixed = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0, 1.0, 1.0);
 
         // Dynamic constant should give 4x higher viscosity (0.2/0.1 = 2, squared = 4)
         for i in 0..10 {
@@ -224,7 +245,7 @@ mod tests {
             min_sgs_viscosity: 1e-6,
             ..Default::default()
         };
-        let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0);
+        let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0, 1.0, 1.0);
 
         // All viscosities should be at least the minimum
         for &v in viscosity.iter() {
@@ -237,11 +258,17 @@ mod tests {
         let strain = DMatrix::zeros(10, 10);
         let filter = DMatrix::from_element(10, 10, 0.1);
         let config = SmagorinskyConfig::default();
-        let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0);
+        let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0, 1.0, 1.0);
 
         // Zero strain should give minimum viscosity
         for &v in viscosity.iter() {
             assert_relative_eq!(v, config.min_sgs_viscosity, epsilon = 1e-15);
         }
+    }
+
+    #[test]
+    fn test_wall_distance_uses_physical_spacing() {
+        let wall_distance = compute_wall_distance(2, 1, 5, 9, 0.2, 0.5);
+        assert_relative_eq!(wall_distance, 0.4, epsilon = 1e-12);
     }
 }

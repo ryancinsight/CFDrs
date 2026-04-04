@@ -65,11 +65,24 @@
 /// CFL width [µm]
 #[inline]
 #[must_use]
-pub fn cfl_width_fedosov(diameter_um: f64, hematocrit: f64) -> f64 {
-    let ht = hematocrit.clamp(0.0, 1.0);
-    let r = diameter_um.max(1.0) / 2.0;
-    let delta_over_r = 0.29 * (1.0 - ht).powf(0.84);
-    r * delta_over_r
+pub fn cfl_width_fedosov(
+    diameter_um: f64,
+    hematocrit: f64,
+) -> cfd_core::error::Result<f64> {
+    if !diameter_um.is_finite() || diameter_um <= 0.0 || !hematocrit.is_finite() {
+        return Err(cfd_core::error::Error::InvalidConfiguration(
+            "Fedosov CFL inputs must be finite and diameter must be positive".to_string(),
+        ));
+    }
+    if !(0.0..=1.0).contains(&hematocrit) {
+        return Err(cfd_core::error::Error::InvalidConfiguration(
+            "Fedosov CFL hematocrit must lie in [0, 1]".to_string(),
+        ));
+    }
+
+    let r = diameter_um / 2.0;
+    let delta_over_r = 0.29 * (1.0 - hematocrit).powf(0.84);
+    Ok(r * delta_over_r)
 }
 
 /// Sharan-Popel (2001) CFL width from the Fahraeus ratio.
@@ -88,17 +101,30 @@ pub fn cfl_width_fedosov(diameter_um: f64, hematocrit: f64) -> f64 {
 /// # Returns
 /// CFL width [µm]
 #[must_use]
-pub fn cfl_width_sharan_popel(diameter_um: f64, hematocrit: f64) -> f64 {
-    let ht = hematocrit.clamp(0.0, 1.0);
-    if ht < 1e-15 {
-        // Pure plasma: CFL = full radius
-        return diameter_um.max(1.0) / 2.0;
+pub fn cfl_width_sharan_popel(
+    diameter_um: f64,
+    hematocrit: f64,
+) -> cfd_core::error::Result<f64> {
+    if !diameter_um.is_finite() || diameter_um <= 0.0 || !hematocrit.is_finite() {
+        return Err(cfd_core::error::Error::InvalidConfiguration(
+            "Sharan-Popel CFL inputs must be finite and diameter must be positive".to_string(),
+        ));
     }
-    let r = diameter_um.max(1.0) / 2.0;
-    let ht_ratio = super::fahraeus_effect::tube_hematocrit_ratio(diameter_um);
+    if !(0.0..=1.0).contains(&hematocrit) {
+        return Err(cfd_core::error::Error::InvalidConfiguration(
+            "Sharan-Popel CFL hematocrit must lie in [0, 1]".to_string(),
+        ));
+    }
+
+    if hematocrit < 1e-15 {
+        // Pure plasma: CFL = full radius
+        return Ok(diameter_um / 2.0);
+    }
+    let r = diameter_um / 2.0;
+    let ht_ratio = super::fahraeus_effect::tube_hematocrit_ratio(diameter_um)?;
     // H_T / H_F = ht_ratio, so sqrt(ht_ratio) gives the core radius fraction
     let delta_over_r = (1.0 - ht_ratio.sqrt()).max(0.0);
-    r * delta_over_r
+    Ok(r * delta_over_r)
 }
 
 /// Two-layer (core + CFL) apparent viscosity model.
@@ -139,22 +165,43 @@ pub fn two_layer_viscosity(
     hematocrit: f64,
     mu_plasma_pa_s: f64,
     mu_core_pa_s: f64,
-) -> f64 {
-    if hematocrit < 1e-15 {
-        return mu_plasma_pa_s;
+) -> cfd_core::error::Result<f64> {
+    if !diameter_um.is_finite()
+        || diameter_um <= 0.0
+        || !hematocrit.is_finite()
+        || !mu_plasma_pa_s.is_finite()
+        || !mu_core_pa_s.is_finite()
+    {
+        return Err(cfd_core::error::Error::InvalidConfiguration(
+            "Two-layer viscosity inputs must be finite and diameter/viscosities must be positive".to_string(),
+        ));
+    }
+    if !(0.0..=1.0).contains(&hematocrit) {
+        return Err(cfd_core::error::Error::InvalidConfiguration(
+            "Two-layer viscosity hematocrit must lie in [0, 1]".to_string(),
+        ));
+    }
+    if mu_plasma_pa_s <= 0.0 || mu_core_pa_s <= 0.0 {
+        return Err(cfd_core::error::Error::InvalidConfiguration(
+            "Two-layer viscosity values must be positive".to_string(),
+        ));
     }
 
-    let r = diameter_um.max(1.0) / 2.0;
-    let delta = cfl_width_fedosov(diameter_um, hematocrit);
+    if hematocrit < 1e-15 {
+        return Ok(mu_plasma_pa_s);
+    }
+
+    let r = diameter_um / 2.0;
+    let delta = cfl_width_fedosov(diameter_um, hematocrit)?;
     let delta_over_r = (delta / r).clamp(0.0, 1.0);
     let core_ratio = 1.0 - delta_over_r; // (R-δ)/R
 
-    let denom = 1.0 - core_ratio.powi(4) * (1.0 - mu_plasma_pa_s / mu_core_pa_s.max(1e-15));
+    let denom = 1.0 - core_ratio.powi(4) * (1.0 - mu_plasma_pa_s / mu_core_pa_s);
     if denom.abs() < 1e-15 {
-        return mu_core_pa_s;
+        return Ok(mu_core_pa_s);
     }
 
-    mu_plasma_pa_s / denom
+    Ok(mu_plasma_pa_s / denom)
 }
 
 #[cfg(test)]
@@ -163,74 +210,85 @@ mod tests {
 
     const MU_PLASMA: f64 = 0.0012;
 
+    #[test]
+    fn cfl_width_fedosov_rejects_nonpositive_diameter() {
+        assert!(cfl_width_fedosov(0.0, 0.45).is_err());
+    }
+
     /// CFL width increases with diameter (larger tubes → larger absolute CFL).
     #[test]
-    fn cfl_width_increases_with_diameter() {
-        let d_small = cfl_width_fedosov(20.0, 0.45);
-        let d_medium = cfl_width_fedosov(50.0, 0.45);
-        let d_large = cfl_width_fedosov(100.0, 0.45);
+    fn cfl_width_increases_with_diameter() -> cfd_core::error::Result<()> {
+        let d_small = cfl_width_fedosov(20.0, 0.45)?;
+        let d_medium = cfl_width_fedosov(50.0, 0.45)?;
+        let d_large = cfl_width_fedosov(100.0, 0.45)?;
         assert!(
             d_small < d_medium && d_medium < d_large,
             "CFL: {d_small:.3} < {d_medium:.3} < {d_large:.3}"
         );
+        Ok(())
     }
 
     /// CFL width decreases with hematocrit (more RBCs → thinner CFL).
     #[test]
-    fn cfl_width_decreases_with_hematocrit() {
+    fn cfl_width_decreases_with_hematocrit() -> cfd_core::error::Result<()> {
         let d = 50.0;
-        let cfl_low = cfl_width_fedosov(d, 0.20);
-        let cfl_mid = cfl_width_fedosov(d, 0.35);
-        let cfl_high = cfl_width_fedosov(d, 0.50);
+        let cfl_low = cfl_width_fedosov(d, 0.20)?;
+        let cfl_mid = cfl_width_fedosov(d, 0.35)?;
+        let cfl_high = cfl_width_fedosov(d, 0.50)?;
         assert!(
             cfl_low > cfl_mid && cfl_mid > cfl_high,
             "CFL: {cfl_low:.3} > {cfl_mid:.3} > {cfl_high:.3}"
         );
+        Ok(())
     }
 
     /// CFL width is always positive and less than the radius.
     #[test]
-    fn cfl_width_bounded() {
+    fn cfl_width_bounded() -> cfd_core::error::Result<()> {
         for d in [10.0, 30.0, 50.0, 100.0, 200.0] {
             for ht in [0.1, 0.3, 0.45, 0.6] {
-                let cfl = cfl_width_fedosov(d, ht);
+                let cfl = cfl_width_fedosov(d, ht)?;
                 assert!(cfl > 0.0, "CFL must be positive: d={d}, ht={ht}");
                 assert!(cfl < d / 2.0, "CFL must be < radius: cfl={cfl:.3}, R={}", d / 2.0);
             }
         }
+        Ok(())
     }
 
     /// Two-layer viscosity: pure plasma (Ht=0) returns plasma viscosity.
     #[test]
-    fn two_layer_pure_plasma() {
-        let mu = two_layer_viscosity(50.0, 0.0, MU_PLASMA, 0.005);
+    fn two_layer_pure_plasma() -> cfd_core::error::Result<()> {
+        let mu = two_layer_viscosity(50.0, 0.0, MU_PLASMA, 0.005)?;
         assert!(
             (mu - MU_PLASMA).abs() < 1e-10,
             "Pure plasma viscosity: {mu:.6} should be {MU_PLASMA:.6}"
         );
+        Ok(())
     }
 
     /// Two-layer viscosity increases with hematocrit.
     #[test]
-    fn two_layer_viscosity_increases_with_hematocrit() {
+    fn two_layer_viscosity_increases_with_hematocrit() -> cfd_core::error::Result<()> {
         let mu_core = 0.005;
-        let mu_low = two_layer_viscosity(50.0, 0.20, MU_PLASMA, mu_core);
-        let mu_mid = two_layer_viscosity(50.0, 0.35, MU_PLASMA, mu_core);
-        let mu_high = two_layer_viscosity(50.0, 0.50, MU_PLASMA, mu_core);
+        let mu_low = two_layer_viscosity(50.0, 0.20, MU_PLASMA, mu_core)?;
+        let mu_mid = two_layer_viscosity(50.0, 0.35, MU_PLASMA, mu_core)?;
+        let mu_high = two_layer_viscosity(50.0, 0.50, MU_PLASMA, mu_core)?;
         assert!(
             mu_low < mu_mid && mu_mid < mu_high,
             "Viscosity: {mu_low:.6} < {mu_mid:.6} < {mu_high:.6}"
         );
+        Ok(())
     }
 
     /// Two-layer viscosity is between plasma and core viscosity.
     #[test]
-    fn two_layer_viscosity_between_bounds() {
+    fn two_layer_viscosity_between_bounds() -> cfd_core::error::Result<()> {
         let mu_core = 0.005;
-        let mu = two_layer_viscosity(50.0, 0.45, MU_PLASMA, mu_core);
+        let mu = two_layer_viscosity(50.0, 0.45, MU_PLASMA, mu_core)?;
         assert!(
             mu > MU_PLASMA && mu < mu_core,
             "Apparent viscosity {mu:.6} should be between {MU_PLASMA} and {mu_core}"
         );
+        Ok(())
     }
 }

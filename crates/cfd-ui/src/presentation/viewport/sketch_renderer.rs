@@ -117,7 +117,7 @@ fn status_color(status: DofStatus) -> [f32; 4] {
 mod tests {
     use super::*;
     use crate::domain::sketch::dof::DofStatus;
-    use crate::domain::sketch::entity::{EntityId, SketchPoint};
+    use crate::domain::sketch::entity::SketchPoint;
     use crate::domain::sketch::sketch::{Sketch, SketchId};
     use crate::domain::sketch::work_plane::WorkPlane;
 

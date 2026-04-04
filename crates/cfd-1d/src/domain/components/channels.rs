@@ -29,7 +29,7 @@
 //! ```
 //! The `RectangularChannelModel` in `resistance::models` computes Po(α) accurately.
 
-use super::Component;
+use super::{real_from_f64, Component};
 use crate::physics::resistance::models::ResistanceModel;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
@@ -103,7 +103,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for RectangularChannel<T>
             .calculate_resistance(fluid, &conditions)
             .unwrap_or_else(|_| {
                 // Fallback for safety, though model should be valid
-                T::from_f64(1e12).expect("Mathematical constant conversion compromised")
+                real_from_f64(1e12)
             })
     }
 
@@ -252,7 +252,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for CircularChannel<T> {
         model
             .calculate_resistance(fluid, &conditions)
             .unwrap_or_else(|_| {
-                T::from_f64(1e12).expect("Mathematical constant conversion compromised")
+                real_from_f64(1e12)
             })
     }
 

@@ -152,7 +152,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
             }
         }
 
-        ReynoldsStressTensor {
+        let mut tensor = ReynoldsStressTensor {
             xx,
             xy,
             yy,
@@ -161,7 +161,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
             epsilon_xx: None,
             epsilon_xy: None,
             epsilon_yy: None,
-        }
+        };
+        self.enable_dissipation_tensor(&mut tensor, initial_epsilon);
+        tensor
     }
 
     /// Activate anisotropic dissipation tensor components.

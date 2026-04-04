@@ -385,6 +385,25 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
     pub fn update_resistances(&mut self) -> Result<()> {
         let edge_indices: Vec<_> = self.graph.edge_indices().collect();
         let calculator = crate::physics::resistance::ResistanceCalculator::new();
+        let epsilon = T::default_epsilon();
+        let is_blood_like = self.fluid.name().to_ascii_lowercase().contains("blood");
+        let t_std =
+            T::from_f64(cfd_core::physics::constants::physics::thermo::T_STANDARD)
+                .unwrap_or_else(T::one);
+        let p_std = T::from_f64(cfd_core::physics::constants::physics::thermo::P_ATM)
+            .unwrap_or_else(T::zero);
+        let state = self.fluid.properties_at(t_std, p_std)?;
+        let density = state.density;
+        let viscosity = state.dynamic_viscosity;
+        let durst_re_floor = T::from_f64(10.0).unwrap_or_else(T::one);
+        let durst_limit = T::from_f64(50.0).unwrap_or_else(T::one);
+        let durst_offset = T::from_f64(2.28).unwrap_or_else(T::one);
+        let sixty_four = T::from_f64(64.0).unwrap_or_else(T::one);
+        let eight = T::from_f64(8.0).unwrap_or_else(T::one);
+        let microchannel_limit = T::from_f64(300.0e-6).unwrap_or_else(T::one);
+        let fl_reference_viscosity = T::from_f64(3.2).unwrap_or_else(T::one);
+        let fl_floor = T::from_f64(0.5).unwrap_or_else(T::zero);
+        let tiny = T::from_f64(1.0e-30).unwrap_or(epsilon);
 
         for edge_idx in edge_indices {
             let flow_rate = self.flow_rates.get(edge_idx.index()).copied().unwrap_or(T::zero());
@@ -444,22 +463,66 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                     // Prepare flow conditions
                     // Explicitly use from_flow_rate if available, or initialize and set flow rate.
                     // Using standard ambient temperature (293.15 K) as default instead of zero.
-                    let t_std =
-                        T::from_f64(cfd_core::physics::constants::physics::thermo::T_STANDARD)
-                            .unwrap_or_else(T::one);
-
                     let mut conditions = crate::physics::resistance::FlowConditions::new(T::zero());
                     // Force velocity to None to ensure calculator derives it from flow rate
                     conditions.velocity = None;
                     conditions.flow_rate = Some(flow_rate.abs());
                     conditions.temperature = t_std;
 
+                    if let Some(d_h) = props.hydraulic_diameter {
+                        if d_h > epsilon && props.area > epsilon {
+                            let velocity = flow_rate.abs() / props.area;
+                            let shear_rate = eight * velocity / d_h;
+                            let apparent_viscosity = self.fluid.viscosity_at_shear(
+                                shear_rate,
+                                conditions.temperature,
+                                conditions.pressure,
+                            )?;
+
+                            conditions.shear_rate = Some(shear_rate);
+                            if apparent_viscosity > epsilon {
+                                conditions.reynolds_number =
+                                    Some(density * velocity * d_h / apparent_viscosity);
+                            }
+                        }
+                    }
+
                     // Re-calculate coefficients
-                    let (r, k) = calculator.calculate_coefficients_auto(
+                    let (mut r, k) = calculator.calculate_coefficients_auto(
                         &res_geometry,
                         &self.fluid,
                         &conditions,
                     )?;
+
+                    if let Some(d_h) = props.hydraulic_diameter {
+                        if d_h > epsilon && props.area > epsilon {
+                            let l_over_dh = props.length / d_h;
+                            if l_over_dh < durst_limit && viscosity > epsilon {
+                                // Preserve the short-channel developing-flow correction during
+                                // Picard updates instead of dropping back to fully developed
+                                // resistance after the first flow recomputation.
+                                let velocity = flow_rate.abs() / props.area;
+                                let reynolds = (density * velocity * d_h / viscosity).max(durst_re_floor);
+                                let k_entrance =
+                                    durst_offset + sixty_four / (reynolds * l_over_dh).max(tiny);
+                                let multiplier =
+                                    T::one() + k_entrance / (sixty_four * l_over_dh).max(T::one());
+                                r *= multiplier;
+                            }
+
+                            if is_blood_like && d_h < microchannel_limit {
+                                let fl = cfd_core::physics::fluid::blood::FahraeuasLindqvist::new(
+                                    d_h, T::from_f64(0.45).unwrap_or_else(T::zero),
+                                );
+                                if fl.is_significant() {
+                                    let reduction =
+                                        (fl.relative_viscosity() / fl_reference_viscosity)
+                                            .clamp(fl_floor, T::one());
+                                    r *= reduction;
+                                }
+                            }
+                        }
+                    }
 
                     // Update the edge in the graph
                     if let Some(edge) = self.graph.edge_weight_mut(edge_idx) {

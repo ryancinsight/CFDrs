@@ -138,7 +138,7 @@ pub fn generate_m12_report_figures(
         .unwrap_or(&input.option2_ranked[0]);
     let ga_serpentine_focus = pick_serpentine_venturi_focus(&ga_ranked_for_figures)
         .unwrap_or(&ga_ranked_for_figures[0]);
-    let dean_venturi_points = extract_dean_venturi_points(Some(ga_serpentine_focus));
+    let dean_venturi_points = extract_dean_venturi_points(Some(ga_serpentine_focus))?;
     write_dean_venturi_placement_figure(
         &figures_dir.join("m12_dean_venturi_placement.svg"),
         "Dean Number vs Cavitation at Serpentine Bend Apices",
@@ -437,26 +437,28 @@ fn visible_split_layers(ranked: &Milestone12ReportDesign) -> usize {
 ///    bend k is modulated as R_k = R_base * (1 +/- 0.25 * cos(pi * k))
 ///    for mirrored U-turn geometry, producing alternating higher/lower
 ///    Dean numbers.
-fn extract_dean_venturi_points(design: Option<&Milestone12ReportDesign>) -> Vec<DeanVenturiPoint> {
+fn extract_dean_venturi_points(
+    design: Option<&Milestone12ReportDesign>,
+) -> Result<Vec<DeanVenturiPoint>, Box<dyn std::error::Error>> {
     use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput};
 
     let design = match design {
         Some(d) => d,
-        None => return Vec::new(),
+        None => return Ok(Vec::new()),
     };
     let candidate = &design.candidate;
     let topology = match candidate.topology_spec() {
         Ok(spec) => spec,
-        Err(_) => return Vec::new(),
+        Err(_) => return Ok(Vec::new()),
     };
     let n_placements = topology.venturi_placements.len();
     if n_placements == 0 {
-        return Vec::new();
+        return Ok(Vec::new());
     }
 
     let solve = match crate::metrics::solve_blueprint_candidate(candidate) {
         Ok(s) => s,
-        Err(_) => return Vec::new(),
+        Err(_) => return Ok(Vec::new()),
     };
 
     // Find any venturi-carrying channel sample for base flow/pressure data.
@@ -474,7 +476,7 @@ fn extract_dean_venturi_points(design: Option<&Milestone12ReportDesign>) -> Vec<
         .or_else(|| solve.channel_samples.iter().find(|s| s.flow_m3_s.abs() > 1e-18));
     let base_sample = match base_sample {
         Some(s) => s,
-        None => return Vec::new(),
+        None => return Ok(Vec::new()),
     };
 
     let flow_m3_s = base_sample.flow_m3_s.abs();
@@ -555,7 +557,7 @@ fn extract_dean_venturi_points(design: Option<&Milestone12ReportDesign>) -> Vec<
             vena_contracta_coeff: VENTURI_CC,
             diffuser_recovery_coeff: DIFFUSER_DISCHARGE_COEFF,
             upstream_nuclei_fraction: upstream_nuclei,
-        });
+        })?;
 
         // Accumulate pressure consumed by this throat.
         // Each venturi consumes: bernoulli_drop + friction_drop - diffuser_recovery.
@@ -564,6 +566,8 @@ fn extract_dean_venturi_points(design: Option<&Milestone12ReportDesign>) -> Vec<
             + screening.throat_friction_drop_pa
             - screening.diffuser_recovery_pa;
         cumulative_pressure_consumed += net_throat_dp.max(0.0);
+        let inlet_dynamic_pressure_pa =
+            (0.5 * BLOOD_DENSITY_KG_M3 * upstream_vel * upstream_vel).max(1.0e-18);
 
         // Propagate nuclei: the outlet nuclei fraction from this throat
         // becomes the upstream for the next, after partial dissolution
@@ -597,11 +601,12 @@ fn extract_dean_venturi_points(design: Option<&Milestone12ReportDesign>) -> Vec<
             dean_number,
             cavitation_number: screening.cavitation_number,
             throat_velocity_m_s: screening.effective_throat_velocity_m_s,
+            total_loss_coefficient: net_throat_dp.max(0.0) / inlet_dynamic_pressure_pa,
             upstream_pressure_kpa: local_upstream_pa * 1e-3,
             bend_radius_mm: local_bend_radius_m * 1e3,
         });
     }
-    points
+    Ok(points)
 }
 
 #[cfg(test)]
@@ -619,7 +624,7 @@ mod tests {
             stage0_venturi_candidate("dean-test", op, VenturiPlacementMode::CurvaturePeakDeanNumber);
         let metrics = compute_blueprint_report_metrics(&candidate).expect("metrics should compute");
         let design = Milestone12ReportDesign::new(1, candidate, metrics, 0.5);
-        let points = extract_dean_venturi_points(Some(&design));
+        let points = extract_dean_venturi_points(Some(&design)).expect("venturi points should compute");
 
         // The fixture has 2 venturi placements on a 6-segment serpentine.
         assert!(
@@ -644,12 +649,19 @@ mod tests {
                 i + 1,
                 pt.throat_velocity_m_s
             );
+            assert!(
+                pt.total_loss_coefficient.is_finite() && pt.total_loss_coefficient >= 0.0,
+                "Bend {} total loss coefficient should be finite and non-negative, got {}",
+                i + 1,
+                pt.total_loss_coefficient
+            );
             eprintln!(
-                "  Bend {}: De={:.1}, sigma={:.4}, v_throat={:.2} m/s",
+                "  Bend {}: De={:.1}, sigma={:.4}, v_throat={:.2} m/s, K={:.3}",
                 i + 1,
                 pt.dean_number,
                 pt.cavitation_number,
-                pt.throat_velocity_m_s
+                pt.throat_velocity_m_s,
+                pt.total_loss_coefficient
             );
         }
     }

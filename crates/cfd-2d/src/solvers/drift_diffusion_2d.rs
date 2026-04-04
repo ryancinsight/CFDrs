@@ -184,7 +184,6 @@ impl<T: RealField + Copy + Float + FromPrimitive> DriftDiffusionSolver2D<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::vec::Vec;
 
     /// Theorem: Drift equations with wall-blocking must guarantee no negative
     /// concentrations (boundedness / Scarborough criterion).
@@ -192,7 +191,7 @@ mod tests {
     fn drift_diffusion_boundedness() {
         let nx = 10;
         let ny = 10;
-        let mut grid = StaggeredGrid2D::<f64>::new(nx, ny, 0.1, 0.1);
+        let grid = StaggeredGrid2D::<f64>::new(nx, ny, 0.1, 0.1);
         let mut flow = FlowField2D::<f64>::new(nx, ny);
         let mut drift = FlowField2D::<f64>::new(nx, ny);
 

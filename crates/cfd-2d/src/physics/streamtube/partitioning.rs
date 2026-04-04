@@ -17,11 +17,10 @@
 //! the separating streamline coordinate $y_{sep}$ is unique and monotonically
 //! increasing with $f_q$ for any strictly positive unidirectional profile $u(y) > 0$.
 //!
-//! **Integration Method**: We use the exact trapezoidal rule on the discrete FVM/FDM grid,
-//! followed by linear interpolation within the bounding cell to find the exact $y_{sep}$
-//! satisfying the integral constraint. Since velocity is piecewise linear in standard FVM,
-//! the integral is locally quadratic, but linear interpolation on the CDF is a standard
-//! $O(\Delta y^2)$ verified approximation matching the spatial order of the grid itself.
+//! **Integration Method**: We evaluate the discrete trapezoidal cumulative flow exactly on
+//! each interval. When the sampled velocity is treated as piecewise linear, the cumulative
+//! flow is quadratic on that interval, and we solve the quadratic root analytically to obtain
+//! the exact $y_{sep}$ for the discrete representation.
 
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
@@ -99,13 +98,8 @@ impl ZweifachFung2D {
                     return Some(y0); // Exact hit or zero velocity zone
                 }
 
-                // Linear interpolation on the cumulative flow (consistent with quadratic u if exact)
-                // Actually, since Q(y) is locally quadratic if u(y) is linear, 
-                // solving the quadratic gives the exact answer, but standard linear 
-                // approximation on Q is sufficient and O(dy^2) accurate.
-                // Let's implement the EXACT root of the quadratic for maximum rigor.
-                // dQ = u0 * dy + 0.5 * (u1 - u0)/dy * dy^2
-                // We want delta_Q = q_target - q0 within this interval.
+                // Solve the exact quadratic induced by piecewise-linear velocity samples.
+                // dQ = u0 * s + 0.5 * (u1 - u0) * s^2 / dy_interval.
                 let delta_q = q_target - q0;
                 let dy_interval = y1 - y0;
                 let u0 = u_vel[i - 1];
@@ -148,6 +142,7 @@ fn half<T: RealField + Float + FromPrimitive>() -> T {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
 
     /// Theorem: Analytical integration of steady Poiseuille flow between parallel plates.
     /// Profile: u(y) = u_max * (1 - (2*y/H)^2) for y in [-H/2, H/2].
@@ -193,5 +188,16 @@ mod tests {
             "0% flow must split exactly at lower wall. Got {}",
             y_sep_0
         );
+    }
+
+    #[test]
+    fn separating_streamline_linear_profile_closed_form() {
+        let y_coords = vec![0.0_f64, 0.25, 0.5, 0.75, 1.0];
+        let u_vel: Vec<f64> = y_coords.iter().map(|&y| 1.0 + y).collect();
+
+        let y_sep = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.25).unwrap();
+        let expected = -1.0 + 1.75_f64.sqrt();
+
+        assert_relative_eq!(y_sep, expected, epsilon = 1e-12);
     }
 }

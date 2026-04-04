@@ -10,9 +10,9 @@ use super::super::{
 };
 use super::network_builder::NetworkBuilder;
 use super::venturi_coefficients::venturi_coefficients;
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use crate::physics::resistance::models::BendType;
-use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
+use cfd_schematics::domain::model::{ChannelShape, EdgeKind, NetworkBlueprint};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
@@ -104,6 +104,13 @@ where
     )> = Vec::with_capacity(blueprint.channels.len());
 
     for ch_spec in &blueprint.channels {
+        if matches!(ch_spec.kind, EdgeKind::Pump) {
+            return Err(Error::InvalidConfiguration(format!(
+                "Pump edge '{}' is not supported by the 1D passive-network solver yet",
+                ch_spec.id.as_str()
+            )));
+        }
+
         let serial_venturi_throats = ch_spec
             .metadata
             .as_ref()

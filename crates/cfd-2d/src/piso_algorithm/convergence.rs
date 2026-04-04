@@ -7,11 +7,10 @@
 //! the residual drops below the user-specified tolerance $\epsilon > 0$.
 
 use crate::fields::SimulationFields;
+use crate::grid::StructuredGrid2D;
+use crate::solvers::continuity::max_forward_continuity_residual;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
-
-// Named constants
-const TWO: f64 = 2.0;
 
 /// Convergence criteria for PISO iterations
 #[derive(Debug, Clone)]
@@ -97,12 +96,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
         &mut self,
         fields_old: &SimulationFields<T>,
         fields_new: &SimulationFields<T>,
-        nx: usize,
-        ny: usize,
+        grid: &StructuredGrid2D<T>,
     ) {
-        let vel_res = self.calculate_velocity_residual(fields_old, fields_new, nx, ny);
-        let pres_res = self.calculate_pressure_residual(fields_old, fields_new, nx, ny);
-        let cont_res = self.calculate_continuity_residual(fields_new, nx, ny);
+        let vel_res = self.calculate_velocity_residual(fields_old, fields_new, grid.nx, grid.ny);
+        let pres_res = self.calculate_pressure_residual(fields_old, fields_new, grid.nx, grid.ny);
+        let cont_res = self.calculate_continuity_residual(fields_new, grid);
 
         self.velocity_residuals.push(vel_res);
         self.pressure_residuals.push(pres_res);
@@ -161,25 +159,44 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
     fn calculate_continuity_residual(
         &self,
         fields: &SimulationFields<T>,
-        nx: usize,
-        ny: usize,
+        grid: &StructuredGrid2D<T>,
     ) -> T {
-        let mut max_imbalance = T::zero();
+        max_forward_continuity_residual(
+            grid.nx,
+            grid.ny,
+            grid.dx,
+            grid.dy,
+            |i, j| fields.u.at(i, j),
+            |i, j| fields.v.at(i, j),
+        )
+    }
+}
 
-        for i in 1..nx - 1 {
-            for j in 1..ny - 1 {
-                // Continuity equation check (du/dx + dv/dy = 0)
-                let two_t = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
-                let dudx = (fields.u.at(i + 1, j) - fields.u.at(i - 1, j)) / two_t;
-                let dvdy = (fields.v.at(i, j + 1) - fields.v.at(i, j - 1)) / two_t;
-                let imbalance = (dudx + dvdy).abs();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-                if imbalance > max_imbalance {
-                    max_imbalance = imbalance;
-                }
+    #[test]
+    fn continuity_residual_uses_grid_spacing() {
+        let mut monitor = ConvergenceMonitor::<f64>::new();
+        let fields_old = SimulationFields::new(4, 4);
+        let mut fields_new = SimulationFields::new(4, 4);
+
+        let dx = 0.5_f64;
+        let dy = 2.0_f64;
+
+        for j in 0..4 {
+            for i in 0..4 {
+                fields_new.u.set(i, j, 2.0 * (i as f64) * dx);
+                fields_new.v.set(i, j, 3.0 * (j as f64) * dy);
             }
         }
 
-        max_imbalance
+        let grid = StructuredGrid2D::new(4, 4, 0.0, 1.5, 0.0, 6.0).unwrap();
+
+        monitor.update(&fields_old, &fields_new, &grid);
+
+        assert!((monitor.continuity_residuals[0] - 5.0).abs() < 1e-12);
+        assert_eq!(monitor.iteration, 1);
     }
 }

@@ -24,6 +24,7 @@ mod boundary;
 mod collision;
 mod lattice;
 mod macroscopic;
+mod scalar_boundary;
 /// Multiphase LBM models (Shan-Chen pseudopotential).
 pub mod multiphase;
 mod solver;

@@ -27,10 +27,77 @@ pub mod dispatch;
 
 use super::geometry::ChannelGeometry;
 use super::models::{FlowConditions, SerpentineModel, VenturiModel};
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
+
+pub(crate) fn populate_shear_aware_conditions<T, F>(
+    geometry: &ChannelGeometry<T>,
+    fluid: &F,
+    local_conditions: &mut FlowConditions<T>,
+) -> Result<()>
+where
+    T: RealField + Copy + FromPrimitive,
+    F: FluidTrait<T>,
+{
+    if local_conditions.reynolds_number.is_some() {
+        return Ok(());
+    }
+
+    let density = fluid
+        .properties_at(local_conditions.temperature, local_conditions.pressure)?
+        .density;
+
+    let velocity = if let Some(v) = local_conditions.velocity {
+        v
+    } else if let Some(q) = local_conditions.flow_rate {
+        let area = geometry.cross_sectional_area()?;
+        if area <= T::zero() {
+            return Err(Error::InvalidConfiguration(
+                "Channel area must be positive to compute Reynolds number".to_string(),
+            ));
+        }
+        q / area
+    } else {
+        return Err(Error::InvalidConfiguration(
+            "Automatic resistance selection requires either velocity or flow_rate (or an explicit Reynolds number)".to_string(),
+        ));
+    };
+
+    let velocity_abs = if velocity >= T::zero() {
+        velocity
+    } else {
+        -velocity
+    };
+    let dh = geometry.hydraulic_diameter()?;
+    if dh <= T::zero() {
+        return Err(Error::InvalidConfiguration(
+            "Hydraulic diameter must be positive to compute Reynolds number".to_string(),
+        ));
+    }
+
+    let shear_rate = if let Some(sr) = local_conditions.shear_rate {
+        sr
+    } else {
+        T::from_f64(8.0).expect("Mathematical constant conversion compromised") * velocity_abs / dh
+    };
+    let apparent_viscosity = fluid.viscosity_at_shear(
+        shear_rate,
+        local_conditions.temperature,
+        local_conditions.pressure,
+    )?;
+    if apparent_viscosity <= T::zero() {
+        return Err(Error::InvalidConfiguration(
+            "Viscosity must be positive to compute Reynolds number".to_string(),
+        ));
+    }
+
+    local_conditions.velocity = Some(velocity);
+    local_conditions.shear_rate = Some(shear_rate);
+    local_conditions.reynolds_number = Some(density * velocity_abs * dh / apparent_viscosity);
+    Ok(())
+}
 
 /// Resistance calculator with model selection and validation
 pub struct ResistanceCalculator<T: RealField + Copy> {
@@ -294,6 +361,7 @@ mod tests {
         DarcyWeisbachModel, HagenPoiseuilleModel, RectangularChannelModel, ResistanceModel,
     };
     use approx::assert_relative_eq;
+    use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
     use cfd_core::physics::fluid::ConstantFluid;
 
     #[test]
@@ -447,6 +515,60 @@ mod tests {
         let resistance_rectangular =
             calculator.calculate_auto(&rectangular, &fluid, &conditions)?;
         assert!(resistance_rectangular > 0.0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculator_auto_uses_shear_aware_reynolds_for_non_newtonian_circular() -> Result<()> {
+        let calculator = ResistanceCalculator::<f64>::new();
+        let fluid = CarreauYasudaBlood::<f64>::normal_blood();
+        let circular = ChannelGeometry::Circular {
+            diameter: 0.04,
+            length: 2.5,
+        };
+        let fluid_state = fluid.properties_at(293.15, 101_325.0)?;
+        let target_reference_re = 2400.0;
+        let flow_rate = target_reference_re * std::f64::consts::PI * 0.04
+            * fluid_state.dynamic_viscosity
+            / (4.0 * fluid_state.density);
+        let area = circular.cross_sectional_area()?;
+        let velocity = flow_rate / area;
+        let shear_rate = 8.0 * velocity.abs() / 0.04;
+        let apparent_viscosity = fluid.viscosity_at_shear(shear_rate, 293.15, 101_325.0)?;
+        let shear_aware_re = fluid_state.density * velocity.abs() * 0.04 / apparent_viscosity;
+
+        assert!(target_reference_re > 2300.0);
+        assert!(
+            shear_aware_re < 2300.0,
+            "expected laminar shear-aware Reynolds, got {shear_aware_re}"
+        );
+
+        let mut conditions = FlowConditions::new(0.0);
+        conditions.velocity = None;
+        conditions.flow_rate = Some(flow_rate);
+
+        let resistance = calculator.calculate_auto(&circular, &fluid, &conditions)?;
+        let (coeff_resistance, coeff_k) =
+            calculator.calculate_coefficients_auto(&circular, &fluid, &conditions)?;
+
+        let mut expected_conditions = conditions.clone();
+        expected_conditions.shear_rate = Some(shear_rate);
+        expected_conditions.reynolds_number = Some(shear_aware_re);
+
+        let expected =
+            calculator.calculate_hagen_poiseuille(0.04, 2.5, &fluid, &expected_conditions)?;
+        let (expected_r, expected_k) = calculator.calculate_hagen_poiseuille_coefficients(
+            0.04,
+            2.5,
+            &fluid,
+            &expected_conditions,
+        )?;
+
+        assert_relative_eq!(resistance, expected, max_relative = 1e-12);
+        assert_relative_eq!(coeff_resistance, expected_r, max_relative = 1e-12);
+        assert_relative_eq!(coeff_k, expected_k, epsilon = 1e-15);
+        assert_relative_eq!(coeff_k, 0.0, epsilon = 1e-15);
 
         Ok(())
     }

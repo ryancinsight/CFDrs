@@ -1,6 +1,7 @@
-//! Helper functions for Spalart-Allmaras model
+//! Helper functions for Spalart-Allmaras model.
 //!
-//! Extracted utility functions to maintain <500 line limit per file
+//! Extracted utility functions to maintain <500 line limit per file and to
+//! share the rectangular wall-distance field with the turbulence boundary manager.
 //!
 //! # Theorem
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
@@ -13,6 +14,7 @@
 //! formulations, ensuring physical realizability and numerical stability.
 
 use cfd_core::physics::constants::mathematical::numeric::{THREE, TWO};
+use crate::physics::turbulence::boundary_conditions::TurbulenceBoundaryManager;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use tracing::instrument;
@@ -47,10 +49,8 @@ pub fn cbrt<T: RealField + Copy + FromPrimitive>(x: T) -> T {
     guess
 }
 
-/// Calculate wall distance field for 2D rectangular domain
-///
-/// Simplified 2D wall distance: minimum distance to domain boundaries
-/// In production code, use Eikonal equation solver for complex geometries
+/// Calculate the rectangular wall-distance field shared with the turbulence
+/// boundary manager.
 #[instrument(skip(dx, dy))]
 pub fn wall_distance_field_2d<T: RealField + Copy + FromPrimitive>(
     nx: usize,
@@ -58,34 +58,7 @@ pub fn wall_distance_field_2d<T: RealField + Copy + FromPrimitive>(
     dx: T,
     dy: T,
 ) -> Vec<T> {
-    const EPSILON_MIN: f64 = 1e-10;
-    let mut distances = Vec::with_capacity(nx * ny);
-
-    for j in 0..ny {
-        for i in 0..nx {
-            // Distance from boundaries (assuming rectangular domain)
-            let i_t = T::from_usize(i).unwrap_or_else(T::zero);
-            let j_t = T::from_usize(j).unwrap_or_else(T::zero);
-            let nx_t = T::from_usize(nx - 1).unwrap_or_else(T::one);
-            let ny_t = T::from_usize(ny - 1).unwrap_or_else(T::one);
-
-            let dist_west = i_t * dx;
-            let dist_east = (nx_t - i_t) * dx;
-            let dist_south = j_t * dy;
-            let dist_north = (ny_t - j_t) * dy;
-
-            // Minimum distance to any wall
-            let min_dist = dist_west
-                .min(dist_east)
-                .min(dist_south)
-                .min(dist_north)
-                .max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::one));
-
-            distances.push(min_dist);
-        }
-    }
-
-    distances
+    TurbulenceBoundaryManager::new(nx, ny, dx, dy).wall_distances
 }
 
 #[cfg(test)]
@@ -114,6 +87,14 @@ mod tests {
         let corner_idx = 0;
 
         assert!(distances[center_idx] > distances[corner_idx]);
-        assert_relative_eq!(distances[corner_idx], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(distances[corner_idx], 0.05, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_wall_distance_field_matches_boundary_manager() {
+        let distances = wall_distance_field_2d(4, 3, 0.2_f64, 0.1_f64);
+        let manager = TurbulenceBoundaryManager::new(4, 3, 0.2_f64, 0.1_f64);
+
+        assert_eq!(distances, manager.wall_distances);
     }
 }

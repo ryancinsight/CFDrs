@@ -73,6 +73,8 @@ impl DetachedEddySimulation {
                             rans_length,
                             dx,
                             dy,
+                            nx,
+                            ny,
                             nu_tilde_val,
                             strain_mag,
                             i,
@@ -146,6 +148,8 @@ impl DetachedEddySimulation {
         rans_length: f64,
         dx: f64,
         dy: f64,
+        nx: usize,
+        ny: usize,
         nu_tilde_val: f64,
         strain_mag: f64,
         i: usize,
@@ -161,7 +165,7 @@ impl DetachedEddySimulation {
 
         // Grid scales
         let h_max = dx.max(dy);
-        let h_wn = dx.min(dy); // Approximation for wall-normal spacing
+        let h_wn = self.wall_normal_spacing(nx, ny, i, j, dx, dy);
 
         // Wall distance
         let d_w = self.wall_distance[(i, j)];
@@ -206,6 +210,29 @@ impl DetachedEddySimulation {
         tilde_f_d * rans_length + (1.0 - tilde_f_d) * l_les
     }
 
+    fn wall_normal_spacing(
+        &self,
+        nx: usize,
+        ny: usize,
+        i: usize,
+        j: usize,
+        dx: f64,
+        dy: f64,
+    ) -> f64 {
+        let x_wall_distance = ((i as f64) + 0.5)
+            .min((nx as f64 - 1.0 - i as f64) + 0.5)
+            * dx;
+        let y_wall_distance = ((j as f64) + 0.5)
+            .min((ny as f64 - 1.0 - j as f64) + 0.5)
+            * dy;
+
+        if x_wall_distance <= y_wall_distance {
+            dx
+        } else {
+            dy
+        }
+    }
+
     /// Compute strain rate magnitude (shared with Smagorinsky)
     pub(super) fn compute_strain_rate_magnitude(
         &self,
@@ -237,5 +264,29 @@ impl DetachedEddySimulation {
         }
 
         strain_magnitude
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::super::DESConfig;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn iddes_wall_normal_spacing_tracks_nearest_wall_orientation() {
+        let config = DESConfig {
+            variant: DESVariant::IDDES,
+            ..Default::default()
+        };
+        let mut des = DetachedEddySimulation::new(10, 10, 0.1, 0.2, config, &[]);
+
+        let velocity_u = DMatrix::from_element(10, 10, 1.0);
+        let velocity_v = DMatrix::from_element(10, 10, 0.5);
+        des.nu_tilde[(5, 0)] = 0.0;
+
+        let length_scale = des.compute_des_length_scale(&velocity_u, &velocity_v, 0.1, 0.2);
+
+        assert_relative_eq!(length_scale[(5, 0)], 0.65 * 0.2, epsilon = 1e-12);
     }
 }

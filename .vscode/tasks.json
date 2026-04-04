@@ -1039,6 +1039,65 @@
 			],
 			"isBackground": false,
 			"group": "test"
+		},
+		{
+			"label": "cfd1d-lib-check-current",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-1d",
+				"--lib",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cfd3d-lib-check-current",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-3d",
+				"--lib",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "explicit-layout-blueprint-check",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-schematics",
+				"-p",
+				"cfd-2d",
+				"--tests",
+				"--examples",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "cfd1d-explicit-layout-check",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"-p",
+				"cfd-1d",
+				"--tests",
+				"--no-default-features"
+			],
+			"isBackground": false,
+			"group": "build"
 		}
 	]
 }

@@ -7,10 +7,51 @@
 use std::path::Path;
 
 use cfd_validation::numerical::venturi_cross_fidelity::{
-    validate_venturi, VenturiValidationInput,
+    validate_venturi, VenturiCrossFidelityResult, VenturiValidationInput,
 };
 
+use crate::constraints::BLOOD_DENSITY_KG_M3;
 use crate::reporting::{Milestone12ReportDesign, ValidationRow};
+
+fn total_loss_coefficient(dp_pa: f64, inlet_velocity_m_s: f64) -> f64 {
+    let dynamic_pressure_pa = 0.5 * BLOOD_DENSITY_KG_M3 * inlet_velocity_m_s * inlet_velocity_m_s;
+    if dynamic_pressure_pa > 1.0e-18 {
+        dp_pa / dynamic_pressure_pa
+    } else {
+        0.0
+    }
+}
+
+fn validation_row_from_result(
+    track: &str,
+    id: &str,
+    topology: &str,
+    score: f64,
+    sigma_1d: f64,
+    result: &VenturiCrossFidelityResult,
+) -> ValidationRow {
+    let inlet_velocity_m_s = result.input.inlet_velocity_1d();
+
+    ValidationRow {
+        track: track.to_string(),
+        id: id.to_string(),
+        topology: topology.to_string(),
+        k_loss_1d: total_loss_coefficient(result.dp_1d_pa, inlet_velocity_m_s),
+        dp_1d_bernoulli_pa: result.dp_1d_pa,
+        k_loss_2d: total_loss_coefficient(result.dp_2d_pa, inlet_velocity_m_s),
+        dp_2d_fvm_pa: result.dp_2d_pa,
+        k_loss_3d: total_loss_coefficient(result.dp_3d_pa, inlet_velocity_m_s),
+        dp_3d_fem_pa: result.dp_3d_pa,
+        agreement_1d_2d_pct: result.diff_1d_2d_pct,
+        agreement_2d_3d_pct: result.diff_2d_3d_pct,
+        mass_error_3d_pct: result.mass_error_3d_pct,
+        sigma_1d,
+        sigma_2d: result.sigma_2d,
+        score,
+        two_d_converged: result.two_d_converged,
+        high_re_laminar_mismatch: result.high_re_laminar_mismatch,
+    }
+}
 
 fn validate_venturi_candidate(
     track: &str,
@@ -50,22 +91,14 @@ fn validate_venturi_candidate(
         serde_json::to_string_pretty(&result)?,
     )?;
 
-    let row = ValidationRow {
-        track: track.to_string(),
-        id: candidate.id.clone(),
-        topology: topology.short_code(),
-        dp_1d_bernoulli_pa: result.dp_1d_pa,
-        dp_2d_fvm_pa: result.dp_2d_pa,
-        dp_3d_fem_pa: result.dp_3d_pa,
-        agreement_1d_2d_pct: result.diff_1d_2d_pct,
-        agreement_2d_3d_pct: result.diff_2d_3d_pct,
-        mass_error_3d_pct: result.mass_error_3d_pct,
-        sigma_1d: metrics.cavitation_number,
-        sigma_2d: result.sigma_2d,
-        score: design.score,
-        two_d_converged: result.two_d_converged,
-        high_re_laminar_mismatch: result.high_re_laminar_mismatch,
-    };
+    let row = validation_row_from_result(
+        track,
+        &candidate.id,
+        &topology.short_code(),
+        design.score,
+        metrics.cavitation_number,
+        &result,
+    );
     std::fs::write(
         out_dir.join(format!("{}_validation.json", candidate.id)),
         serde_json::to_string_pretty(&row)?,
@@ -94,4 +127,74 @@ pub fn run_milestone12_validation(
         serde_json::to_string_pretty(&rows)?,
     )?;
     Ok(rows)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validation_row_from_result;
+    use cfd_validation::numerical::venturi_cross_fidelity::{
+        Fidelity2DResult, Fidelity3DResult, FidelityBreakdown1D, VenturiCrossFidelityResult,
+        VenturiValidationInput,
+    };
+
+    #[test]
+    fn validation_row_carries_dimensionless_loss_coefficients() {
+        let input = VenturiValidationInput {
+            label: "demo".to_string(),
+            inlet_diameter_m: 2.0e-3,
+            throat_diameter_m: 1.0e-3,
+            throat_length_m: 1.0e-3,
+            flow_rate_m3_s: 1.2e-6,
+            inlet_gauge_pa: 30_000.0,
+        };
+        let result = VenturiCrossFidelityResult {
+            label: "demo".to_string(),
+            input: input.clone(),
+            dp_1d_pa: 1200.0,
+            breakdown_1d: FidelityBreakdown1D {
+                dp_contraction_pa: 600.0,
+                dp_friction_pa: 450.0,
+                dp_expansion_loss_pa: 300.0,
+                dp_recovery_pa: 150.0,
+                dp_total_pa: 1200.0,
+                discharge_coefficient: 0.96,
+                friction_factor: 0.032,
+                re_throat: 1800.0,
+            },
+            dp_2d_pa: 1000.0,
+            result_2d: Fidelity2DResult {
+                u_inlet: 0.5,
+                u_throat: 2.0,
+                dp_throat_pa: 900.0,
+                dp_recovery_pa: 100.0,
+                sigma: 0.6,
+                converged: true,
+            },
+            dp_3d_pa: 900.0,
+            result_3d: Fidelity3DResult {
+                u_inlet: 0.5,
+                u_throat: 2.0,
+                dp_throat_pa: 850.0,
+                dp_recovery_pa: 50.0,
+                mass_error: 0.01,
+                resolution: (48, 24),
+            },
+            diff_1d_2d_pct: 16.6666666667,
+            diff_2d_3d_pct: 10.0,
+            mass_error_3d_pct: 1.0,
+            two_d_converged: true,
+            high_re_laminar_mismatch: false,
+            re_throat: 1800.0,
+            sigma_2d: 0.6,
+        };
+
+        let row = validation_row_from_result("track", "id", "topo", 0.7, 0.5, &result);
+        let dynamic_pressure_pa = 0.5 * crate::constraints::BLOOD_DENSITY_KG_M3 * input.inlet_velocity_1d().powi(2);
+
+        assert!((row.k_loss_1d - 1200.0 / dynamic_pressure_pa).abs() < 1.0e-12);
+        assert!((row.k_loss_2d - 1000.0 / dynamic_pressure_pa).abs() < 1.0e-12);
+        assert!((row.k_loss_3d - 900.0 / dynamic_pressure_pa).abs() < 1.0e-12);
+        assert_eq!(row.sigma_1d, 0.5);
+        assert_eq!(row.sigma_2d, 0.6);
+    }
 }

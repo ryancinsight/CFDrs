@@ -57,7 +57,7 @@ pub fn analyze_dofs(sketch: &Sketch) -> DofAnalysis {
 mod tests {
     use super::*;
     use crate::domain::sketch::constraint::Constraint;
-    use crate::domain::sketch::entity::{EntityId, SketchEntity, SketchPoint};
+    use crate::domain::sketch::entity::{SketchEntity, SketchPoint};
     use crate::domain::sketch::sketch::{Sketch, SketchId};
     use crate::domain::sketch::work_plane::WorkPlane;
 

@@ -1,6 +1,6 @@
 //! Membrane and organ components for organ-on-chip style 1D simulations.
 
-use super::Component;
+use super::{real_from_f64, Component};
 use crate::physics::resistance::models::{FlowConditions, MembranePoreModel, ResistanceModel};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
@@ -58,7 +58,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for PorousMembrane<T> {
         model
             .calculate_resistance(fluid, &conditions)
             .unwrap_or_else(|_| {
-                T::from_f64(1e12).expect("Mathematical constant conversion compromised")
+                real_from_f64(1e12)
             })
     }
 

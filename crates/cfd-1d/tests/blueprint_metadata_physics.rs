@@ -117,7 +117,7 @@ fn venturi_blueprint(
     convergent_half_angle_deg: f64,
     divergent_half_angle_deg: f64,
 ) -> NetworkBlueprint {
-    let mut bp = NetworkBlueprint::new("venturi-angle-test");
+    let mut bp = NetworkBlueprint::new_with_explicit_positions("venturi-angle-test");
     bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
     bp.add_node(NodeSpec::new_at(
         "contraction",
@@ -189,7 +189,7 @@ fn venturi_blueprint(
 }
 
 fn split_blueprint(branch_angles_deg: Vec<f64>) -> NetworkBlueprint {
-    let mut bp = NetworkBlueprint::new("junction-angle-test");
+    let mut bp = NetworkBlueprint::new_with_explicit_positions("junction-angle-test");
     bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
     bp.add_node(
         NodeSpec::new_at("split", NodeKind::Junction, (6.0, 0.0))
@@ -256,7 +256,7 @@ fn split_blueprint(branch_angles_deg: Vec<f64>) -> NetworkBlueprint {
 }
 
 fn bifurcation_flow_blueprint(branch_width_m: f64) -> NetworkBlueprint {
-    let mut bp = NetworkBlueprint::new("branch-width-test");
+    let mut bp = NetworkBlueprint::new_with_explicit_positions("branch-width-test");
     bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
     bp.add_node(
         NodeSpec::new_at("split", NodeKind::Junction, (8.0, 0.0)).with_junction_geometry(

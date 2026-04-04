@@ -170,19 +170,32 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
         let half_d2w =
             self.daughter2_width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
 
-        let min_x = T::zero();
-        let max_x = d1_end_x.max(d2_end_x).max(self.parent_length);
+        let mut min_x = T::zero();
+        let mut max_x = self.parent_length;
+        let mut min_y = -half_pw;
+        let mut max_y = half_pw;
+        for (end_x, end_y, half_w, angle) in [
+            (d1_end_x, d1_end_y, half_d1w, self.daughter1_angle),
+            (d2_end_x, d2_end_y, half_d2w, self.daughter2_angle),
+        ] {
+            let start_x = self.parent_length;
+            let start_y = T::zero();
+            let normal_x = -angle.sin();
+            let normal_y = angle.cos();
+            let corners = [
+                (start_x + half_w * normal_x, start_y + half_w * normal_y),
+                (start_x - half_w * normal_x, start_y - half_w * normal_y),
+                (end_x + half_w * normal_x, end_y + half_w * normal_y),
+                (end_x - half_w * normal_x, end_y - half_w * normal_y),
+            ];
 
-        let min_y = d1_end_y
-            .min(d2_end_y)
-            .min(-half_pw)
-            .min(d1_end_y - half_d1w)
-            .min(d2_end_y - half_d2w);
-        let max_y = d1_end_y
-            .max(d2_end_y)
-            .max(half_pw)
-            .max(d1_end_y + half_d1w)
-            .max(d2_end_y + half_d2w);
+            for (corner_x, corner_y) in corners {
+                min_x = min_x.min(corner_x);
+                max_x = max_x.max(corner_x);
+                min_y = min_y.min(corner_y);
+                max_y = max_y.max(corner_y);
+            }
+        }
 
         [min_x, max_x, min_y, max_y]
     }
@@ -243,33 +256,39 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
         let nx = self.ns_solver.grid.nx;
         let ny = self.ns_solver.grid.ny;
         let dy = self.ns_solver.grid.dy;
+        let bbox = self.geometry.bounding_box();
 
         let mut q_d1 = T::zero();
         let mut q_d2 = T::zero();
-
-        // Find mid-y of outlet regions
-        let mut mid_y = T::zero();
-        let mut y_coords = Vec::new();
-        for j in 0..ny {
-            if self.ns_solver.field.mask[(nx - 1, j)] {
-                y_coords.push(self.ns_solver.grid.y_center(j));
-            }
-        }
-
-        if !y_coords.is_empty() {
-            let y_min = y_coords.iter().copied().fold(y_coords[0], Float::min);
-            let y_max = y_coords.iter().copied().fold(y_coords[0], Float::max);
-            mid_y = (y_min + y_max) / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-        }
 
         for j in 0..ny {
             if self.ns_solver.field.mask[(nx - 1, j)] {
                 let uj = self.ns_solver.field.u[(nx, j)];
                 let q_local = uj * dy;
-                if self.ns_solver.grid.y_center(j) > mid_y {
+                let x = self.ns_solver.grid.x_center(nx - 1) + bbox[0];
+                let y = self.ns_solver.grid.y_center(j) + bbox[2];
+                if self.geometry.in_segment(
+                    x,
+                    y,
+                    self.geometry.parent_length,
+                    T::zero(),
+                    self.geometry.daughter1_angle,
+                    self.geometry.daughter1_length,
+                    self.geometry.daughter1_width,
+                ) {
                     q_d1 += q_local;
-                } else {
+                } else if self.geometry.in_segment(
+                    x,
+                    y,
+                    self.geometry.parent_length,
+                    T::zero(),
+                    self.geometry.daughter2_angle,
+                    self.geometry.daughter2_length,
+                    self.geometry.daughter2_width,
+                ) {
                     q_d2 += q_local;
+                } else {
+                    debug_assert!(false, "outlet cell must belong to one daughter branch");
                 }
             }
         }
@@ -307,6 +326,7 @@ pub struct BifurcationSolution<T: RealField + Copy> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
     use cfd_core::physics::fluid::blood::CassonBlood;
 
     #[test]
@@ -394,11 +414,46 @@ mod tests {
             sol.mass_balance_error
         );
 
-        // The Cartesian-grid staircase approximation of an angled bifurcation
-        // introduces an inherent geometric measurement error of ~5 % (confirmed
-        // by the Newtonian test which achieves 4.9 % at full convergence).
-        // We therefore use the same 5 % threshold here — the key test property
-        // is that Casson viscosity does NOT break mass conservation.
+        // The Cartesian-grid representation of an angled bifurcation introduces
+        // an inherent geometric measurement error of about 5% (confirmed by the
+        // Newtonian test which achieves 4.9% at full convergence). We therefore
+        // use the same 5% threshold here - the key test property is that Casson
+        // viscosity does NOT break mass conservation.
         assert!(sol.mass_balance_error < 0.05);
+    }
+
+    #[test]
+    fn test_bifurcation_bounding_box_covers_rotated_branch_corners() {
+        let geom = BifurcationGeometry::new_symmetric(1.0, 2.0, 0.4, 1.5, 0.5);
+        let bbox = geom.bounding_box();
+
+        let half_pw = 0.5_f64;
+        let half_w = 0.2_f64;
+        let start_x = 2.0_f64;
+        let start_y = 0.0_f64;
+        let angles = [0.5_f64, -0.5_f64];
+        let mut corners = Vec::new();
+        for angle in angles {
+            let end_x = start_x + 1.5 * angle.cos();
+            let end_y = start_y + 1.5 * angle.sin();
+            let normal_x = -angle.sin();
+            let normal_y = angle.cos();
+            corners.extend([
+                (start_x + half_w * normal_x, start_y + half_w * normal_y),
+                (start_x - half_w * normal_x, start_y - half_w * normal_y),
+                (end_x + half_w * normal_x, end_y + half_w * normal_y),
+                (end_x - half_w * normal_x, end_y - half_w * normal_y),
+            ]);
+        }
+
+        let expected_min_x = 0.0_f64;
+        let expected_max_x = corners.iter().map(|(x, _)| *x).fold(2.0_f64, f64::max);
+        let expected_min_y = corners.iter().map(|(_, y)| *y).fold(-half_pw, f64::min);
+        let expected_max_y = corners.iter().map(|(_, y)| *y).fold(half_pw, f64::max);
+
+        assert_relative_eq!(bbox[0], expected_min_x, epsilon = 1e-12);
+        assert_relative_eq!(bbox[1], expected_max_x, epsilon = 1e-12);
+        assert_relative_eq!(bbox[2], expected_min_y, epsilon = 1e-12);
+        assert_relative_eq!(bbox[3], expected_max_y, epsilon = 1e-12);
     }
 }

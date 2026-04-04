@@ -16,7 +16,7 @@
 //!
 //! ```text
 //! R = Po · μ · L / (2 · A · D_h²)    (laminar / Stokes)
-//! R = f · ρ · L · V / (2 · D_h · A)  (turbulent, f from Haaland 1983)
+//! R = f · ρ · L · V / (2 · D_h · A)  (turbulent, f from exact Colebrook-White)
 //! R_slip = R_lam / (1 + 4·Kn)        (Beskok-Karniadakis 1999)
 //! ```
 

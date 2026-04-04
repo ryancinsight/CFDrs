@@ -19,6 +19,7 @@
 use super::solver::SimplecPimpleSolver;
 use crate::grid::array2d::Array2D;
 use crate::fields::SimulationFields;
+use crate::solvers::continuity::{max_central_continuity_residual, max_face_continuity_residual};
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
 
@@ -45,22 +46,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
     /// Calculate continuity residual `‖∇·u‖_∞` from cell-centred fields
     ///
-    /// Uses central-difference approximation of the divergence operator.
+    /// Uses the standard central-difference discretization of the divergence operator.
     pub(super) fn calculate_continuity_residual(&self, fields: &SimulationFields<T>) -> T {
-        let mut max_divergence = T::zero();
-        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-
-        for i in 1..self.grid.nx - 1 {
-            for j in 1..self.grid.ny - 1 {
-                let du_dx = (fields.u.at(i + 1, j) - fields.u.at(i - 1, j)) / (two * self.grid.dx);
-                let dv_dy = (fields.v.at(i, j + 1) - fields.v.at(i, j - 1)) / (two * self.grid.dy);
-                let abs_div = (du_dx + dv_dy).abs();
-                if abs_div > max_divergence {
-                    max_divergence = abs_div;
-                }
-            }
-        }
-        max_divergence
+        max_central_continuity_residual(
+            self.grid.nx,
+            self.grid.ny,
+            self.grid.dx,
+            self.grid.dy,
+            |i, j| fields.u.at(i, j),
+            |i, j| fields.v.at(i, j),
+        )
     }
 
     /// Calculate continuity residual from Rhie-Chow consistent face velocities
@@ -72,19 +67,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         &self,
         face_velocity: &Array2D<Vector2<T>>,
     ) -> T {
-        let mut max_divergence = T::zero();
-
-        for i in 1..self.grid.nx - 1 {
-            for j in 1..self.grid.ny - 1 {
-                let du_dx = (face_velocity[(i, j)].x - face_velocity[(i - 1, j)].x) / self.grid.dx;
-                let dv_dy = (face_velocity[(i, j)].y - face_velocity[(i, j - 1)].y) / self.grid.dy;
-                let abs_div = (du_dx + dv_dy).abs();
-                if abs_div > max_divergence {
-                    max_divergence = abs_div;
-                }
-            }
-        }
-        max_divergence
+        max_face_continuity_residual(
+            self.grid.nx,
+            self.grid.ny,
+            self.grid.dx,
+            self.grid.dy,
+            |i, j| face_velocity[(i, j)].x,
+            |i, j| face_velocity[(i, j)].y,
+        )
     }
 
     /// Compute continuity residual with Rhie-Chow awareness

@@ -77,7 +77,7 @@ pub use fahraeus_lindqvist::{
 };
 pub use cell_free_layer::{cfl_width_fedosov, cfl_width_sharan_popel, two_layer_viscosity};
 pub use fahraeus_effect::{discharge_hematocrit, tube_hematocrit, tube_hematocrit_ratio};
-pub use plasma_skimming::plasma_skimming_hematocrit;
+pub use plasma_skimming::{plasma_skimming_hematocrit, pries_phase_separation, PhaseSeparationResult};
 pub use properties::CellProperties;
 pub use rouleaux_aggregation::quemada_viscosity;
 pub use separation_model::{CellSeparationAnalysis, CellSeparationModel};

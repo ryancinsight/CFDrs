@@ -41,6 +41,7 @@
 use super::shape_factors::poiseuille_number;
 use crate::domain::channel::flow::{Channel, FlowRegime, NumericalParameters, FlowState};
 use crate::domain::channel::geometry::ChannelGeometry;
+use crate::physics::resistance::models::{DarcyWeisbachModel, FlowConditions, ResistanceModel};
 use cfd_core::error::Result;
 use cfd_core::physics::constants::physics::dimensionless::reynolds::{
     PIPE_LAMINAR_MAX, PIPE_TURBULENT_MIN,
@@ -193,11 +194,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
 
     /// Turbulent flow resistance (Re > 4000).
     ///
-    /// ## Theorem: Haaland (1983) Friction Factor
-    /// ```text
-    /// 1/√f = −1.8 log₁₀[(ε/D_h / 3.7)^1.11 + 6.9/Re]
-    /// R_eff = f · ρ · L · V / (2 · D_h · A)
-    /// ```
+    /// Delegates to the exact Darcy-Weisbach resistance model, which solves the
+    /// Colebrook-White equation with Newton-Raphson instead of using an explicit
+    /// friction-factor approximation.
     fn turbulent_resistance(&self, fluid: &ConstantPropertyFluid<T>) -> Result<T> {
         let re = self.flow_state.reynolds_number.ok_or_else(|| {
             cfd_core::error::Error::InvalidConfiguration(
@@ -208,13 +207,17 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         let area = self.geometry.area();
         let dh = self.geometry.hydraulic_diameter();
         let density = fluid.density;
-        let f = self.haaland_friction_factor(re);
-
         let viscosity = fluid.dynamic_viscosity();
         let velocity = (re * viscosity) / (density * dh);
-        let resistance = (f * density * self.geometry.length * velocity)
-            / ((T::one() + T::one()) * dh * area);
-        Ok(resistance)
+        let model = DarcyWeisbachModel::new(
+            dh,
+            area,
+            self.geometry.length,
+            self.geometry.surface.roughness,
+        );
+        let mut conditions = FlowConditions::new(velocity);
+        conditions.reynolds_number = Some(re);
+        model.calculate_resistance(fluid, &conditions)
     }
 
     /// Slip flow resistance (Beskok-Karniadakis 1999).
@@ -228,29 +231,13 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         Ok(r_laminar / (T::one() + four * kn))
     }
 
-    /// Haaland (1983) approximation for the Darcy friction factor.
-    ///
-    /// Accuracy: within 2% of Colebrook-White for Re ≥ 4000.
-    fn haaland_friction_factor(&self, reynolds: T) -> T {
-        let re_val = reynolds.to_f64().unwrap_or(0.0);
-        let roughness = self.geometry.surface.roughness;
-        let dh = self.geometry.hydraulic_diameter();
-        let roughness_ratio = (roughness / dh).to_f64().unwrap_or(0.0);
-
-        if re_val < 0.1 {
-            return T::from_f64(64.0 / 0.1).expect("Mathematical constant conversion compromised");
-        }
-
-        let factor = -1.8 * f64::log10(f64::powf(roughness_ratio / 3.7, 1.11) + 6.9 / re_val);
-        let f = 1.0 / (factor * factor);
-        T::from_f64(f).expect("Mathematical constant conversion compromised")
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::domain::channel::geometry::ChannelGeometry;
+    use crate::physics::resistance::models::ResistanceModel;
     use approx::assert_relative_eq;
 
     fn water() -> ConstantPropertyFluid<f64> {
@@ -285,19 +272,29 @@ mod tests {
         assert_relative_eq!(r, r_hp, max_relative = 1e-10);
     }
 
-    /// Haaland friction factor at Re=10000, smooth pipe (ε ≈ 0):
-    /// 1/√f = -1.8 log₁₀(6.9/10000) ≈ -1.8 × log₁₀(6.9e-4)
-    /// ≈ -1.8 × (-3.161) = 5.69 → f ≈ 0.0309.
-    /// Colebrook-White reference: f ≈ 0.0309 at Re=10000, ε/D=0.
+    /// Turbulent resistance should agree with the exact Darcy-Weisbach model.
     #[test]
-    fn haaland_friction_factor_smooth_pipe() {
-        let chan = circular_channel(1e-3, 0.01);
-        let f = chan.haaland_friction_factor(10000.0_f64);
-        // Colebrook-White at Re=10000, smooth pipe: f ≈ 0.0309
-        assert!(
-            f > 0.025 && f < 0.035,
-            "Haaland f = {f:.6} at Re=10000 should be ~0.031"
-        );
+    fn turbulent_resistance_matches_exact_darcy_weisbach_model() {
+        use crate::physics::resistance::models::DarcyWeisbachModel;
+
+        let mut chan = circular_channel(1e-3, 0.01);
+        chan.flow_state.reynolds_number = Some(10_000.0);
+        let fluid = water();
+
+        let d = chan.geometry.hydraulic_diameter();
+        let area = chan.geometry.area();
+        let viscosity = fluid.dynamic_viscosity();
+        let density = fluid.density;
+        let velocity = (10_000.0 * viscosity) / (density * d);
+        let mut conditions = FlowConditions::new(velocity);
+        conditions.reynolds_number = Some(10_000.0);
+
+        let expected = DarcyWeisbachModel::new(d, area, chan.geometry.length, 1e-6)
+            .calculate_resistance(&fluid, &conditions)
+            .unwrap();
+        let actual = chan.turbulent_resistance(&fluid).unwrap();
+
+        assert_relative_eq!(actual, expected, max_relative = 1e-12, epsilon = 1e-12);
     }
 
     /// Stokes resistance (Re < 1) routes to same formula as laminar.

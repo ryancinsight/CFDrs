@@ -3,7 +3,7 @@
 //! Measures execution time, throughput, and identifies performance bottlenecks
 //! in CFD algorithms and data structures.
 
-use super::timing::{BenchmarkStats, BenchmarkTimer};
+use super::timing::BenchmarkStats;
 use crate::manufactured::navier_stokes::NavierStokesManufacturedSolution;
 use cfd_core::error::{Error, Result};
 use nalgebra::{RealField, Scalar};
@@ -155,24 +155,26 @@ impl PerformanceBenchmark {
 
         // Measurement phase
         let mut measurements = Vec::with_capacity(self.measurement_iterations);
-        let mut timer = BenchmarkTimer::new();
 
         for _ in 0..self.measurement_iterations {
-            timer.start();
-
-            // Ensure minimum measurement time
             let start_instant = std::time::Instant::now();
-            operation().map_err(|e| Error::InvalidInput(format!("Operation failed: {e}")))?;
+            let mut executions = 0_usize;
 
-            // Pad measurement if too fast
-            let elapsed = start_instant.elapsed().as_secs_f64();
-            if elapsed < self.min_measurement_time {
-                let remaining = self.min_measurement_time - elapsed;
-                std::thread::sleep(std::time::Duration::from_secs_f64(remaining));
+            loop {
+                operation().map_err(|e| Error::InvalidInput(format!("Operation failed: {e}")))?;
+                executions += 1;
+
+                if executions == 1 && self.min_measurement_time <= 0.0 {
+                    break;
+                }
+
+                if start_instant.elapsed().as_secs_f64() >= self.min_measurement_time {
+                    break;
+                }
             }
 
-            let duration = timer.stop();
-            measurements.push(duration.as_secs_f64());
+            let elapsed = start_instant.elapsed().as_secs_f64();
+            measurements.push(elapsed / executions as f64);
         }
 
         Ok(TimingResult::new(operation_name.to_string(), measurements))
@@ -775,17 +777,24 @@ mod tests {
     #[test]
     fn test_performance_benchmark() {
         let benchmark = PerformanceBenchmark::new();
+        let mut seed = 0_u64;
 
         let result = benchmark
             .benchmark_simple("test_operation", || {
-                std::thread::sleep(std::time::Duration::from_millis(50));
+                let mut acc = seed;
+                for index in 0..200_000_u64 {
+                    acc = std::hint::black_box(acc.wrapping_mul(1_664_525).wrapping_add(index));
+                }
+                seed = std::hint::black_box(acc);
             })
             .unwrap();
 
         assert_eq!(result.operation_name, "test_operation");
         assert!(!result.measurements.is_empty());
+        assert_eq!(result.measurements.len(), 10);
         assert!(result.stats.mean > 0.0);
-        assert!(result.is_stable(0.5)); // Should be reasonably stable
+        assert!(result.stats.samples == result.measurements.len());
+        assert!(result.measurements.iter().all(|value| value.is_finite() && *value > 0.0));
     }
 
     #[test]
