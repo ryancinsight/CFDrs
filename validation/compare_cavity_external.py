@@ -104,33 +104,13 @@ def compare_solutions(cfd_python_result, external_result, Re: float):
     # Ensure same grid size
     if cfd_python_result["u"].shape != ext_sol["u"].shape:
         print(f"WARN: Grid size mismatch: cfd_python {cfd_python_result['u'].shape} vs external {ext_sol['u'].shape}")
-        print("Interpolating cfd_python results to external grid...")
-        from scipy.interpolate import RectBivariateSpline
-
-        # cfd_python arrays are likely (ny, nx), so x is cols, y is rows
-        # RectBivariateSpline expects x, y in strictly increasing order
-        interp_u = RectBivariateSpline(cfd_python_result["x"], cfd_python_result["y"], cfd_python_result["u"].T)
-        interp_v = RectBivariateSpline(cfd_python_result["x"], cfd_python_result["y"], cfd_python_result["v"].T)
-        interp_p = RectBivariateSpline(cfd_python_result["x"], cfd_python_result["y"], cfd_python_result["p"].T)
-
-        # Evaluate on external grid
-        u_interp = interp_u(ext_solver.x, ext_solver.y).T
-        v_interp = interp_v(ext_solver.x, ext_solver.y).T
-        p_interp = interp_p(ext_solver.x, ext_solver.y).T
-
-        # Replace for diff calculation
-        cfd_python_u = u_interp
-        cfd_python_v = v_interp
-        cfd_python_p = p_interp
-    else:
-        cfd_python_u = cfd_python_result["u"]
-        cfd_python_v = cfd_python_result["v"]
-        cfd_python_p = cfd_python_result["p"]
+        # TODO: Interpolate if needed
+        return None
     
     # Compute L2 errors
-    u_diff = cfd_python_u - ext_sol["u"]
-    v_diff = cfd_python_v - ext_sol["v"]
-    p_diff = cfd_python_p - ext_sol["p"]
+    u_diff = cfd_python_result["u"] - ext_sol["u"]
+    v_diff = cfd_python_result["v"] - ext_sol["v"]
+    p_diff = cfd_python_result["p"] - ext_sol["p"]
     
     u_l2_error = np.sqrt(np.mean(u_diff**2))
     v_l2_error = np.sqrt(np.mean(v_diff**2))
