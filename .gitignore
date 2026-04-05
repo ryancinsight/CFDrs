@@ -45,3 +45,6 @@ report/
 *.dll
 *.so
 *.dylib
+.venv
+__pycache__/
+*.pyc
