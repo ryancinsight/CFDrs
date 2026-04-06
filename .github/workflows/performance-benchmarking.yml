@@ -47,7 +47,6 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Fetch full history for regression detection
-        submodules: recursive
 
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
@@ -70,26 +69,26 @@ jobs:
       run: |
         if [ "$RUNNER_OS" == "Linux" ]; then
           sudo apt-get update
-          sudo apt-get install -y valgrind linux-tools-common
+          sudo apt-get install -y valgrind linux-tools-common pkg-config libfontconfig1-dev
         fi
 
     - name: Build benchmarks
-      run: cargo build --release --bench performance_benchmarks
+      run: cargo build --release --bench comprehensive_cfd_benchmarks
 
     - name: Run comprehensive benchmarks
       if: github.event.inputs.benchmark_type == 'comprehensive' || github.event_name != 'workflow_dispatch'
       run: |
-        cargo bench --bench performance_benchmarks | tee benchmark_results.txt
+        cargo bench --bench comprehensive_cfd_benchmarks | tee benchmark_results.txt
 
     - name: Run regression detection benchmarks
       if: github.event.inputs.benchmark_type == 'regression' || github.event_name == 'schedule'
       run: |
-        cargo bench --bench performance_benchmarks | tee regression_results.txt
+        cargo bench --bench regression_detection | tee regression_results.txt
 
     - name: Run production validation benchmarks
       if: github.event.inputs.benchmark_type == 'production'
       run: |
-        cargo bench --bench performance_benchmarks | tee production_results.txt
+        cargo bench --bench production_validation | tee production_results.txt
 
     # - name: Generate performance report
     #   run: |

@@ -153,7 +153,6 @@ name = "apollofft"
 version = "0.1.0"
 dependencies = [
  "approx 0.5.1",
- "half",
  "ndarray 0.16.1",
  "num-complex 0.4.6",
  "once_cell",
@@ -3270,7 +3269,6 @@ dependencies = [
  "cfg-if",
  "crunchy",
  "num-traits",
- "serde",
  "zerocopy",
 ]
 
