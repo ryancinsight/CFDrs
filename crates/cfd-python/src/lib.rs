@@ -77,6 +77,8 @@ mod result_types;
 mod solver_2d;
 mod solver_3d;
 mod womersley;
+mod cavitation;
+mod hemolysis;
 
 pub use bifurcation::{PyBifurcationSolver, PyTrifurcationResult, PyTrifurcationSolver};
 pub use blood::*;
@@ -85,6 +87,8 @@ pub use result_types::PyBifurcationResult;
 pub use solver_2d::*;
 pub use solver_3d::*;
 pub use womersley::*;
+pub use cavitation::*;
+pub use hemolysis::*;
 
 /// `PyO3` module for CFD-rs Python bindings
 #[pymodule]
@@ -153,6 +157,10 @@ fn cfd_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let validation = PyModule::new_bound(m.py(), "validation")?;
     validation.add("__doc__", "Validation utilities for CFD comparisons")?;
     m.add_submodule(&validation)?;
+
+    m.add_class::<PyHemolysisModel>()?;
+    m.add_class::<PyRayleighPlesset>()?;
+    m.add_class::<PyCavitationRegimeClassifier>()?;
 
     Ok(())
 }
