@@ -103,7 +103,7 @@ if has_cfd_python:
     print(f"  Located in: crates/cfd-core/src/physics/fluid/blood.rs")
     print(f"  Type: CarreauYasudaBlood")
     print(f"  Method: apparent_viscosity(shear_rate)")
-    
+
     # Try to test if we can create a blood model
     # Note: This depends on cfd_python API structure
     print(f"\n  TODO: Add cfd_python API test if blood model is exposed")
