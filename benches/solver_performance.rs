@@ -6,7 +6,7 @@ use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::solvers::fdm::{FdmConfig, PoissonSolver};
 use cfd_core::compute::solver::Solver;
 use cfd_core::error::Result;
-use cfd_core::physics::fluid::traits::Fluid;
+use cfd_core::physics::fluid::newtonian::ConstantPropertyFluid;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
@@ -16,7 +16,7 @@ struct NetworkBenchmarkContext {
 }
 
 fn build_network_benchmark_context() -> Result<NetworkBenchmarkContext> {
-    let fluid = Fluid::<f64>::water_20c()?;
+    let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
     let mut builder = NetworkBuilder::new();
     let n0 = builder.add_inlet("0".to_string());
     let n1 = builder.add_outlet("1".to_string());
