@@ -41,15 +41,20 @@ mod gpu_performance_tests {
         // GPU computation
         let mut gpu_compute = GpuTurbulenceCompute::new().unwrap();
 
+        // Grid spacing and turbulence constants
+        let dx = 0.1f32;
+        let dy = 0.1f32;
+        let c_s = 0.1f32;
+
         // Warmup to compile shaders and pipelines
         let _ = gpu_compute.compute_smagorinsky_sgs(
             &velocity_u_f32,
             &velocity_v_f32,
             nx,
             ny,
-            0.1,
-            0.1,
-            0.1,
+            dx,
+            dy,
+            c_s,
         );
 
         // Prepare GPU buffers once
@@ -72,9 +77,9 @@ mod gpu_performance_tests {
                     out_buffer.buffer(),
                     nx as u32,
                     ny as u32,
-                    0.1,
-                    0.1,
-                    0.1,
+                    dx,
+                    dy,
+                    c_s,
                 )
                 .unwrap();
         }
@@ -86,9 +91,9 @@ mod gpu_performance_tests {
             &velocity_v_f32,
             nx,
             ny,
-            0.1,
-            0.1,
-            0.1,
+            dx,
+            dy,
+            c_s,
         );
 
         assert!(gpu_result.is_ok(), "GPU computation should succeed");
@@ -101,10 +106,6 @@ mod gpu_performance_tests {
         // CPU computation for comparison
         let cpu_start = Instant::now();
         let mut cpu_sgs = vec![0.0f32; size];
-
-        // Grid spacing for derivative calculations
-        let dx = 0.1f32;
-        let dy = 0.1f32;
 
         for _ in 0..iterations {
             for j in 1..(ny - 1) {
@@ -121,20 +122,21 @@ mod gpu_performance_tests {
                         (velocity_v_f32[idx + nx] - velocity_v_f32[idx - nx]) / (2.0f32 * dy);
 
                     // Explicitly define all non-zero strain rate tensor components for 2D flow
-                    let s_xx = du_dx;
-                    let s_yy = dv_dy;
-                    let s_xy = 0.5f32 * (du_dy + dv_dx);
-                    let s_yx = s_xy;
+                    let strain_xx = du_dx;
+                    let strain_yy = dv_dy;
+                    let strain_xy = 0.5f32 * (du_dy + dv_dx);
 
                     // Note: For 2D planar flow, S_zz = S_xz = S_yz = 0
-                    // The magnitude is S = sqrt(2 * S_ij * S_ij)
-                    // S_ij * S_ij = s_xx^2 + s_yy^2 + s_xy^2 + s_yx^2 + (zero terms)
-                    let s_contraction = s_xx * s_xx + s_yy * s_yy + s_xy * s_xy + s_yx * s_yx;
-                    let s_magnitude = (2.0f32 * s_contraction).sqrt();
+                    // The magnitude is |S| = sqrt(2 * S_ij * S_ij)
+                    // S_ij * S_ij = S_xx^2 + S_yy^2 + 2 * S_xy^2 (since S_xy = S_yx)
+                    let strain_contraction = strain_xx * strain_xx + strain_yy * strain_yy + 2.0f32 * strain_xy * strain_xy;
+                    let strain_rate_magnitude = (2.0f32 * strain_contraction).sqrt();
 
                     let delta = (dx * dy).sqrt();
 
-                    cpu_sgs[idx] = (0.1f32 * delta * delta * s_magnitude).max(0.0f32);
+                    // Smagorinsky SGS viscosity: nu_sgs = (C_s * delta)^2 * |S|
+                    // Ensure non-negative viscosity
+                    cpu_sgs[idx] = ((c_s * delta).powi(2) * strain_rate_magnitude).max(0.0f32);
                 }
             }
         }
