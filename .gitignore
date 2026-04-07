@@ -45,3 +45,10 @@ report/
 *.dll
 *.so
 *.dylib
+.venv/
+
+# Python compilation artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

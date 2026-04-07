@@ -104,8 +104,31 @@ def compare_solutions(cfd_python_result, external_result, Re: float):
     # Ensure same grid size
     if cfd_python_result["u"].shape != ext_sol["u"].shape:
         print(f"WARN: Grid size mismatch: cfd_python {cfd_python_result['u'].shape} vs external {ext_sol['u'].shape}")
-        # TODO: Interpolate if needed
-        return None
+        print("Interpolating cfd_python results to match external reference grid...")
+        from scipy.interpolate import RectBivariateSpline
+
+        # cfd_python arrays are (ny, nx), RectBivariateSpline expects (x, y)
+        # So we transpose the CFD result fields (.T) for interpolation
+        interp_u = RectBivariateSpline(cfd_python_result["x"], cfd_python_result["y"], cfd_python_result["u"].T)
+        interp_v = RectBivariateSpline(cfd_python_result["x"], cfd_python_result["y"], cfd_python_result["v"].T)
+        interp_p = RectBivariateSpline(cfd_python_result["x"], cfd_python_result["y"], cfd_python_result["p"].T)
+
+        # Evaluate on the external grid. Note that ext_solver.x and ext_solver.y are 1D arrays
+        new_u = interp_u(ext_solver.x, ext_solver.y).T
+        new_v = interp_v(ext_solver.x, ext_solver.y).T
+        new_p = interp_p(ext_solver.x, ext_solver.y).T
+
+        cfd_python_result["u"] = new_u
+        cfd_python_result["v"] = new_v
+        cfd_python_result["p"] = new_p
+
+        # Also interpolate centerlines using 1D interpolation
+        cfd_python_result["u_centerline"] = np.interp(ext_solver.y, cfd_python_result["y"], cfd_python_result["u_centerline"])
+        cfd_python_result["v_centerline"] = np.interp(ext_solver.x, cfd_python_result["x"], cfd_python_result["v_centerline"])
+
+        # Update coordinates to match the external grid for proper plotting
+        cfd_python_result["x"] = ext_solver.x
+        cfd_python_result["y"] = ext_solver.y
     
     # Compute L2 errors
     u_diff = cfd_python_result["u"] - ext_sol["u"]
