@@ -45,3 +45,5 @@ report/
 *.dll
 *.so
 *.dylib
+.venv/
+venv/
