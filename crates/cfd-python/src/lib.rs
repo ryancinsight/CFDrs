@@ -137,6 +137,11 @@ fn cfd_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCavitySolver2D>()?;
     m.add_class::<PyCavityResult2D>()?;
 
+    // Physics Models
+    m.add_class::<PyHemolysisModel>()?;
+    m.add_class::<PyRayleighPlesset>()?;
+    m.add_class::<PyCavitationRegimeClassifier>()?;
+
     // 2D Bifurcation solver
     m.add_class::<PyBifurcationSolver2D>()?;
     m.add_class::<PyBifurcationResult2D>()?;
@@ -156,3 +161,11 @@ fn cfd_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     Ok(())
 }
+
+mod cavitation;
+mod cavitation_regime;
+mod hemolysis;
+
+pub use cavitation::*;
+pub use cavitation_regime::*;
+pub use hemolysis::*;
