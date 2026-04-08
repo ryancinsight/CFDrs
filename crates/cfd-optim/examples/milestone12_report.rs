@@ -42,6 +42,7 @@ impl RequestedStages {
                 "option2" => Milestone12RequestedStage::Option2,
                 "ga" => Milestone12RequestedStage::Ga,
                 "validation" => Milestone12RequestedStage::Validation,
+                "refresh" => Milestone12RequestedStage::Refresh,
                 _ => return Err(format!("Unsupported stage: {label}").into()),
             };
             if !self.stages.contains(&stage) {

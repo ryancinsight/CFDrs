@@ -12,6 +12,7 @@
 //! | [`two_way_solution`] | `TwoWayBranchSolution<T>` — solution type |
 //! | [`three_way_junction`] | `ThreeWayBranchJunction<T>` + `ThreeWayBranchSolution<T>` |
 
+mod pressure_balance;
 pub mod three_way_junction;
 pub mod two_way_junction;
 pub mod two_way_solution;
@@ -136,6 +137,48 @@ mod tests {
     }
 
     #[test]
+    fn test_two_way_pressure_balanced_solution_is_seed_independent() {
+        let parent = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6));
+        let d1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.7e-3, 1e-6));
+        let d2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.1e-3, 1e-6));
+
+        let branch_low_seed = TwoWayBranchJunction::new(parent.clone(), d1.clone(), d2.clone(), 0.2);
+        let branch_high_seed = TwoWayBranchJunction::new(parent, d1, d2, 0.8);
+        let blood = CassonBlood::<f64>::normal_blood();
+
+        let low_seed_solution = branch_low_seed
+            .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
+            .unwrap();
+        let high_seed_solution = branch_high_seed
+            .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
+            .unwrap();
+
+        assert!(low_seed_solution.junction_pressure_error < 1e-8);
+        assert!(high_seed_solution.junction_pressure_error < 1e-8);
+        assert_relative_eq!(low_seed_solution.q_1, high_seed_solution.q_1, epsilon = 1e-16);
+        assert_relative_eq!(low_seed_solution.p_1, high_seed_solution.p_1, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_two_way_prescribed_split_keeps_requested_ratio() {
+        let parent = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6));
+        let d1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.7e-3, 1e-6));
+        let d2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.1e-3, 1e-6));
+        let branch = TwoWayBranchJunction::new(parent, d1, d2, 0.2);
+        let blood = CassonBlood::<f64>::normal_blood();
+
+        let prescribed = branch
+            .solve_with_prescribed_split(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
+            .unwrap();
+        let balanced = branch
+            .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
+            .unwrap();
+
+        assert_relative_eq!(prescribed.q_1, 2.0e-7, epsilon = 1e-18);
+        assert!(balanced.junction_pressure_error < prescribed.junction_pressure_error);
+    }
+
+    #[test]
     fn test_three_way_flow_split_sums_to_one() {
         let parent = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6));
         let d1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.0e-3, 1e-6));
@@ -151,10 +194,65 @@ mod tests {
                 parent.clone(), d1.clone(), d2.clone(), d3.clone(),
                 (s1, s2, s3),
             );
-            let solution = branch.solve(blood, q_parent, 1000.0, 310.15, 101325.0).unwrap();
+            let solution = branch
+                .solve_with_prescribed_split(blood, q_parent, 1000.0, 310.15, 101325.0)
+                .unwrap();
             let q_sum = solution.q_1 + solution.q_2 + solution.q_3;
             assert_relative_eq!(q_sum, q_parent, epsilon = 1e-10);
             assert!(solution.mass_conservation_error < 1e-10);
         }
+    }
+
+    #[test]
+    fn test_three_way_pressure_balanced_solution_is_seed_independent() {
+        let parent = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6));
+        let d1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.5e-3, 1e-6));
+        let d2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.2e-3, 1e-6));
+        let d3 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 0.9e-3, 1e-6));
+
+        let low_seed = ThreeWayBranchJunction::new(
+            parent.clone(),
+            d1.clone(),
+            d2.clone(),
+            d3.clone(),
+            (0.6, 0.25, 0.15),
+        );
+        let high_seed = ThreeWayBranchJunction::new(parent, d1, d2, d3, (0.2, 0.3, 0.5));
+        let blood = CassonBlood::<f64>::normal_blood();
+
+        let low_seed_solution = low_seed
+            .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
+            .unwrap();
+        let high_seed_solution = high_seed
+            .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
+            .unwrap();
+
+        assert!(low_seed_solution.junction_pressure_error < 1e-8);
+        assert!(high_seed_solution.junction_pressure_error < 1e-8);
+        assert_relative_eq!(low_seed_solution.q_1, high_seed_solution.q_1, epsilon = 1e-16);
+        assert_relative_eq!(low_seed_solution.q_2, high_seed_solution.q_2, epsilon = 1e-16);
+        assert_relative_eq!(low_seed_solution.p_3, high_seed_solution.p_3, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_three_way_prescribed_split_keeps_requested_ratios() {
+        let parent = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6));
+        let d1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.5e-3, 1e-6));
+        let d2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.2e-3, 1e-6));
+        let d3 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 0.9e-3, 1e-6));
+        let branch = ThreeWayBranchJunction::new(parent, d1, d2, d3, (0.2, 0.3, 0.5));
+        let blood = CassonBlood::<f64>::normal_blood();
+
+        let prescribed = branch
+            .solve_with_prescribed_split(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
+            .unwrap();
+        let balanced = branch
+            .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
+            .unwrap();
+
+        assert_relative_eq!(prescribed.q_1, 2.0e-7, epsilon = 1e-18);
+        assert_relative_eq!(prescribed.q_2, 3.0e-7, epsilon = 1e-18);
+        assert_relative_eq!(prescribed.q_3, 5.0e-7, epsilon = 1e-18);
+        assert!(balanced.junction_pressure_error < prescribed.junction_pressure_error);
     }
 }

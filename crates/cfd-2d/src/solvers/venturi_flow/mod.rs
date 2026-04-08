@@ -145,6 +145,20 @@ impl<T: RealField + Copy + FromPrimitive> VenturiGeometry<T> {
         }
     }
 
+    /// Explicitly opt into the built-in center-clustering recommendation for
+    /// `VenturiSolver2D::new_stretched`.
+    ///
+    /// This is a geometry-derived heuristic, not an implicit solver behavior.
+    /// Callers that want deterministic control should compute and pass their own
+    /// `beta` value instead of using this helper.
+    #[must_use]
+    pub fn recommended_center_clustering_beta(&self) -> T {
+        let four = T::from_f64_or_one(4.0);
+        let max_beta = T::from_f64_or_one(0.9);
+        let candidate = T::one() - four * self.w_throat / self.w_inlet;
+        candidate.max(T::zero()).min(max_beta)
+    }
+
     /// Calculate area ratio (A_throat / A_inlet)
     pub fn area_ratio(&self) -> T {
         self.w_throat / self.w_inlet

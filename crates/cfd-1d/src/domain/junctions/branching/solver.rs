@@ -45,6 +45,20 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
     }
 }
 
+/// Explicit downstream continuation for cascaded branch-junction solves.
+///
+/// A `TwoWayBranchJunction` yields two physically distinct daughter states. Any
+/// downstream junction must choose one of those states as its inlet; averaging
+/// them destroys both mass conservation along the represented path and pressure
+/// continuity. This enum makes that continuation explicit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DownstreamBranchRoute {
+    /// Continue the cascade using daughter 1 outlet pressure and flow.
+    Daughter1,
+    /// Continue the cascade using daughter 2 outlet pressure and flow.
+    Daughter2,
+}
+
 // ============================================================================
 // Branching Network Solver
 // ============================================================================
@@ -110,11 +124,40 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingN
         branch_junctions: Vec<TwoWayBranchJunction<T>>,
         fluid: F,
     ) -> Result<Vec<TwoWayBranchSolution<T>>, Error> {
-        let mut solutions = Vec::new();
+        if branch_junctions.len() > 1 {
+            return Err(Error::InvalidConfiguration(
+                "multi-junction branch cascades require explicit downstream routing; use solve_network_along_path"
+                    .to_string(),
+            ));
+        }
+
+        self.solve_network_along_path(&branch_junctions, &[], fluid)
+    }
+
+    /// Solve a cascaded sequence of branch junctions along an explicit daughter path.
+    ///
+    /// `downstream_routes[k]` selects which daughter state from junction `k`
+    /// becomes the inlet state for junction `k + 1`.
+    pub fn solve_network_along_path<F: FluidTrait<T> + Copy>(
+        &self,
+        branch_junctions: &[TwoWayBranchJunction<T>],
+        downstream_routes: &[DownstreamBranchRoute],
+        fluid: F,
+    ) -> Result<Vec<TwoWayBranchSolution<T>>, Error> {
+        let expected_routes = branch_junctions.len().saturating_sub(1);
+        if downstream_routes.len() != expected_routes {
+            return Err(Error::InvalidConfiguration(format!(
+                "expected {expected_routes} downstream routes for {} branch junctions, got {}",
+                branch_junctions.len(),
+                downstream_routes.len()
+            )));
+        }
+
+        let mut solutions = Vec::with_capacity(branch_junctions.len());
         let mut current_pressure = self.config.inlet_pressure;
         let mut current_flow = self.config.inlet_flow_rate;
 
-        for branch_junction in branch_junctions {
+        for (junction_index, branch_junction) in branch_junctions.iter().enumerate() {
             let solution = branch_junction.solve(
                 fluid,
                 current_flow,
@@ -123,15 +166,28 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingN
                 T::from_f64_or_one(101325.0),
             )?;
 
-            // For next branch junction, use daughter pressures and flows
-            // (In a real tree, this would route to specific daughter branches)
-            current_pressure = (solution.p_1 + solution.p_2) / T::from_f64_or_one(2.0); // Average
-            current_flow = (solution.q_1 + solution.q_2) / T::from_f64_or_one(2.0); // Average
-
             solutions.push(solution);
+
+            if junction_index + 1 < branch_junctions.len() {
+                let (next_pressure, next_flow) =
+                    Self::downstream_state(&solution, downstream_routes[junction_index]);
+                current_pressure = next_pressure;
+                current_flow = next_flow;
+            }
         }
 
         Ok(solutions)
+    }
+
+    /// Select the daughter outlet state that seeds the next junction in a routed cascade.
+    fn downstream_state(
+        solution: &TwoWayBranchSolution<T>,
+        route: DownstreamBranchRoute,
+    ) -> (T, T) {
+        match route {
+            DownstreamBranchRoute::Daughter1 => (solution.p_1, solution.q_1),
+            DownstreamBranchRoute::Daughter2 => (solution.p_2, solution.q_2),
+        }
     }
 
     /// Calculate total flow resistance of a two-way branch junction
@@ -210,6 +266,7 @@ pub struct NetworkSolutionSummary<T: RealField + Copy> {
 mod tests {
     use super::*;
     use crate::domain::channel::Channel;
+    use cfd_core::error::Error;
 
     #[test]
     fn test_branching_network_solver_creation() {
@@ -251,5 +308,66 @@ mod tests {
 
         assert!(solution.q_parent > 0.0);
         assert!(solution.p_parent >= 0.0);
+    }
+
+    #[test]
+    fn test_solve_network_requires_explicit_routes_for_multiple_junctions() {
+        use crate::domain::channel::ChannelGeometry;
+
+        let solver = BranchingNetworkSolver::new(BranchingNetworkConfig::<f64>::default());
+
+        let parent = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6));
+        let daughter1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.5e-3, 1e-6));
+        let daughter2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.2e-3, 1e-6));
+        let junction = TwoWayBranchJunction::new(parent, daughter1, daughter2, 0.35);
+        let blood = cfd_core::physics::fluid::blood::CassonBlood::<f64>::normal_blood();
+
+        let error = solver
+            .solve_network(vec![junction.clone(), junction], blood)
+            .expect_err("multi-junction path without routes must fail closed");
+
+        match error {
+            Error::InvalidConfiguration(message) => {
+                assert!(message.contains("explicit downstream routing"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_solve_network_along_path_propagates_selected_daughter_state() {
+        use crate::domain::channel::ChannelGeometry;
+
+        let solver = BranchingNetworkSolver::new(BranchingNetworkConfig::<f64>::default());
+
+        let first_parent = Channel::new(ChannelGeometry::<f64>::circular(1.2e-2, 2.4e-3, 1e-6));
+        let first_daughter1 =
+            Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.6e-3, 1e-6));
+        let first_daughter2 =
+            Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.1e-3, 1e-6));
+        let second_parent =
+            Channel::new(ChannelGeometry::<f64>::circular(0.9e-2, 1.1e-3, 1e-6));
+        let second_daughter1 =
+            Channel::new(ChannelGeometry::<f64>::circular(0.8e-2, 0.8e-3, 1e-6));
+        let second_daughter2 =
+            Channel::new(ChannelGeometry::<f64>::circular(0.8e-2, 0.6e-3, 1e-6));
+
+        let first_junction =
+            TwoWayBranchJunction::new(first_parent, first_daughter1, first_daughter2, 0.3);
+        let second_junction =
+            TwoWayBranchJunction::new(second_parent, second_daughter1, second_daughter2, 0.4);
+        let blood = cfd_core::physics::fluid::blood::CassonBlood::<f64>::normal_blood();
+
+        let solutions = solver
+            .solve_network_along_path(
+                &[first_junction, second_junction],
+                &[DownstreamBranchRoute::Daughter2],
+                blood,
+            )
+            .expect("routed branch cascade");
+
+        assert_eq!(solutions.len(), 2);
+        assert_eq!(solutions[1].q_parent, solutions[0].q_2);
+        assert_eq!(solutions[1].p_parent, solutions[0].p_2);
     }
 }

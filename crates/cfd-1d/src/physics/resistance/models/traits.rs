@@ -119,4 +119,15 @@ impl<T: RealField + Copy + FromPrimitive> FlowConditions<T> {
             pressure: T::from_f64(P_ATM).expect("Mathematical constant conversion compromised"),
         }
     }
+
+    /// Create flow conditions from a prescribed volumetric flow rate.
+    ///
+    /// The velocity is intentionally left unset so model-specific kinematics can
+    /// derive it from geometry rather than being pinned to an explicit zero.
+    pub fn from_flow_rate(flow_rate: T) -> Self {
+        let mut conditions = Self::new(T::zero());
+        conditions.velocity = None;
+        conditions.flow_rate = Some(flow_rate);
+        conditions
+    }
 }

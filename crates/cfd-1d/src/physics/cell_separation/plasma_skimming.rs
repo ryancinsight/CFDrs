@@ -29,6 +29,7 @@
 //! in vivo and the endothelial surface layer", *Am. J. Physiol.* 289:H2657-H2664.
 
 use super::fahraeus_lindqvist::secomb_phase_separation_x0;
+use cfd_core::error::{Error, Result};
 
 /// Result of the Pries phase-separation model for one daughter branch.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -51,29 +52,54 @@ pub fn pries_phase_separation(
     diameter_daughter_alpha: f64,
     diameter_daughter_beta: f64,
     diameter_feed: f64,
-) -> cfd_core::error::Result<PhaseSeparationResult> {
+) -> Result<PhaseSeparationResult> {
+    let checked = checked_pries_phase_separation(
+        feed_hematocrit,
+        flow_fraction,
+        diameter_daughter_alpha,
+        diameter_daughter_beta,
+        diameter_feed,
+    )?;
+
+    Ok(PhaseSeparationResult {
+        daughter_hematocrit: checked
+            .daughter_hematocrit
+            .clamp(0.0, (2.0 * feed_hematocrit).min(1.0)),
+        cell_fraction: checked.cell_fraction.clamp(0.0, 1.0),
+        ..checked
+    })
+}
+
+/// Checked threshold-aware Pries phase-separation model for one daughter.
+pub fn checked_pries_phase_separation(
+    feed_hematocrit: f64,
+    flow_fraction: f64,
+    diameter_daughter_alpha: f64,
+    diameter_daughter_beta: f64,
+    diameter_feed: f64,
+) -> Result<PhaseSeparationResult> {
     if !feed_hematocrit.is_finite()
         || !flow_fraction.is_finite()
         || !diameter_daughter_alpha.is_finite()
         || !diameter_daughter_beta.is_finite()
         || !diameter_feed.is_finite()
     {
-        return Err(cfd_core::error::Error::InvalidConfiguration(
+        return Err(Error::InvalidConfiguration(
             "Pries phase-separation inputs must be finite".to_string(),
         ));
     }
     if !(0.0..=1.0).contains(&feed_hematocrit) {
-        return Err(cfd_core::error::Error::InvalidConfiguration(
+        return Err(Error::InvalidConfiguration(
             "Pries phase-separation feed hematocrit must lie in [0, 1]".to_string(),
         ));
     }
     if !(0.0..=1.0).contains(&flow_fraction) {
-        return Err(cfd_core::error::Error::InvalidConfiguration(
+        return Err(Error::InvalidConfiguration(
             "Pries phase-separation flow fraction must lie in [0, 1]".to_string(),
         ));
     }
     if diameter_daughter_alpha <= 0.0 || diameter_daughter_beta <= 0.0 || diameter_feed <= 0.0 {
-        return Err(cfd_core::error::Error::InvalidConfiguration(
+        return Err(Error::InvalidConfiguration(
             "Pries phase-separation diameters must be positive".to_string(),
         ));
     }
@@ -111,7 +137,7 @@ pub fn pries_phase_separation(
 
     let x0 = secomb_phase_separation_x0(d_feed, h_feed)?;
     if x0 >= 0.5 {
-        return Err(cfd_core::error::Error::InvalidConfiguration(
+        return Err(Error::InvalidConfiguration(
             "Pries phase-separation x0 must be less than 0.5".to_string(),
         ));
     }
@@ -130,11 +156,22 @@ pub fn pries_phase_separation(
         let normalized = (flow_fraction - x0) / (1.0 - 2.0 * x0);
         let logit_input = logit(normalized);
         let logit_fqe = a_param + b_param * logit_input;
-        inv_logit(logit_fqe).clamp(0.0, 1.0)
+        inv_logit(logit_fqe)
     };
 
-    let daughter_hematocrit =
-        (cell_fraction * h_feed / flow_fraction).clamp(0.0, (2.0 * h_feed).min(1.0));
+    if !(0.0..=1.0).contains(&cell_fraction) {
+        return Err(Error::InvalidConfiguration(
+            "Pries phase-separation produced cell fraction outside [0, 1]".to_string(),
+        ));
+    }
+
+    let daughter_hematocrit = cell_fraction * h_feed / flow_fraction;
+    let daughter_upper_bound = (2.0 * h_feed).min(1.0);
+    if !(0.0..=daughter_upper_bound).contains(&daughter_hematocrit) {
+        return Err(Error::InvalidConfiguration(
+            "Pries phase-separation produced daughter hematocrit outside the physical compact-model bounds".to_string(),
+        ));
+    }
 
     Ok(PhaseSeparationResult {
         flow_fraction,
@@ -168,28 +205,44 @@ pub fn plasma_skimming_hematocrit(
     flow_fraction: f64,
     diameter_daughter: f64,
     diameter_feed: f64,
-) -> cfd_core::error::Result<f64> {
+) -> Result<f64> {
+    Ok(checked_plasma_skimming_hematocrit(
+        feed_hematocrit,
+        flow_fraction,
+        diameter_daughter,
+        diameter_feed,
+    )?
+    .clamp(0.0, (2.0 * feed_hematocrit).min(1.0)))
+}
+
+/// Checked compact plasma-skimming wrapper with explicit output-bound enforcement.
+pub fn checked_plasma_skimming_hematocrit(
+    feed_hematocrit: f64,
+    flow_fraction: f64,
+    diameter_daughter: f64,
+    diameter_feed: f64,
+) -> Result<f64> {
     if !feed_hematocrit.is_finite()
         || !flow_fraction.is_finite()
         || !diameter_daughter.is_finite()
         || !diameter_feed.is_finite()
     {
-        return Err(cfd_core::error::Error::InvalidConfiguration(
+        return Err(Error::InvalidConfiguration(
             "Plasma-skimming inputs must be finite".to_string(),
         ));
     }
     if !(0.0..=1.0).contains(&feed_hematocrit) {
-        return Err(cfd_core::error::Error::InvalidConfiguration(
+        return Err(Error::InvalidConfiguration(
             "Plasma-skimming feed hematocrit must lie in [0, 1]".to_string(),
         ));
     }
     if !(0.0..=1.0).contains(&flow_fraction) {
-        return Err(cfd_core::error::Error::InvalidConfiguration(
+        return Err(Error::InvalidConfiguration(
             "Plasma-skimming flow fraction must lie in [0, 1]".to_string(),
         ));
     }
     if diameter_daughter <= 0.0 || diameter_feed <= 0.0 {
-        return Err(cfd_core::error::Error::InvalidConfiguration(
+        return Err(Error::InvalidConfiguration(
             "Plasma-skimming diameters must be positive".to_string(),
         ));
     }
@@ -221,8 +274,15 @@ pub fn plasma_skimming_hematocrit(
     let logit_fqe = a + b * logit_fqb;
     let fqe = inv_logit(logit_fqe);
     let ht_daughter = ht_feed * fqe / fq;
+    let upper_bound = (2.0 * ht_feed).min(1.0);
 
-    Ok(ht_daughter.clamp(0.0, (2.0 * ht_feed).min(1.0)))
+    if !(0.0..=upper_bound).contains(&ht_daughter) {
+        return Err(Error::InvalidConfiguration(
+            "Plasma-skimming compact model produced daughter hematocrit outside the physical screening bounds".to_string(),
+        ));
+    }
+
+    Ok(ht_daughter)
 }
 
 #[inline]
@@ -353,6 +413,32 @@ mod tests {
             wide.cell_fraction,
             narrow.cell_fraction
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_checked_pries_matches_legacy_nominal_case() -> cfd_core::error::Result<()> {
+        let legacy = pries_phase_separation(HT_NORMAL, 0.55, 90.0, 40.0, 100.0)?;
+        let checked = checked_pries_phase_separation(HT_NORMAL, 0.55, 90.0, 40.0, 100.0)?;
+
+        assert!((legacy.cell_fraction - checked.cell_fraction).abs() < 1e-12);
+        assert!((legacy.daughter_hematocrit - checked.daughter_hematocrit).abs() < 1e-12);
+        Ok(())
+    }
+
+    #[test]
+    fn test_checked_compact_wrapper_rejects_nonphysical_diameter() {
+        let err = checked_plasma_skimming_hematocrit(HT_NORMAL, 0.5, 0.0, D_FEED)
+            .expect_err("checked plasma-skimming wrapper must reject zero daughter diameter");
+        assert!(err.to_string().contains("diameters"));
+    }
+
+    #[test]
+    fn test_checked_compact_wrapper_matches_legacy_nominal_case() -> cfd_core::error::Result<()> {
+        let legacy = plasma_skimming_hematocrit(HT_NORMAL, 0.4, 60.0, D_FEED)?;
+        let checked = checked_plasma_skimming_hematocrit(HT_NORMAL, 0.4, 60.0, D_FEED)?;
+
+        assert!((legacy - checked).abs() < 1e-12);
         Ok(())
     }
 

@@ -4,14 +4,16 @@
 //! share the rectangular wall-distance field with the turbulence boundary manager.
 //!
 //! # Theorem
-//! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
+//! On an orthogonal rectangular grid with cell-centered storage, the shared wall-distance field is
+//! non-negative and equals the minimum center-to-wall distance for each cell.
 //!
 //! **Proof sketch**:
-//! For any turbulent flow, the Reynolds stress tensor $\tau_{ij} = -\rho \overline{u_i^\prime u_j^\prime}$
-//! must be positive semi-definite. This requires that the turbulent kinetic energy $k \ge 0$
-//! and the normal stresses $\overline{u_i^\prime u_i^\prime} \ge 0$. The implemented model
-//! enforces these constraints either through exact transport equations or bounded eddy-viscosity
-//! formulations, ensuring physical realizability and numerical stability.
+//! [`wall_distance_field_2d`] delegates to the turbulence boundary manager, which evaluates the
+//! minimum of the four center-to-boundary distances
+//! $x_c$, $L_x - x_c$, $y_c$, and $L_y - y_c$ for each cell center $(x_c, y_c)$. Each term is
+//! non-negative on the closed domain, so the minimum is also non-negative. Boundary-adjacent cells
+//! therefore evaluate to half a cell spacing in the wall-normal direction, and interior cells grow
+//! monotonically with distance from the nearest boundary on a uniform rectangle.
 
 use cfd_core::physics::constants::mathematical::numeric::{THREE, TWO};
 use crate::physics::turbulence::boundary_conditions::TurbulenceBoundaryManager;

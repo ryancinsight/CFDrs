@@ -2,6 +2,11 @@
 //!
 //! Extracts venturi tube coefficients from schematics geometry metadata for
 //! use in the network builder pipeline.
+//!
+//! The coefficient probe must be driven by an infinitesimal flow rate with the
+//! explicit velocity left unset. Passing `velocity = Some(0)` forces the venturi
+//! model into its zero-flow fallback and suppresses the angle-dependent inertial
+//! loss coefficient.
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
@@ -96,9 +101,9 @@ where
     model.throat_roughness =
         T::from_f64(1e-7).expect("Mathematical constant conversion compromised");
 
-    let mut conds = ModelFlowConditions::new(T::zero());
-    conds.flow_rate =
-        Some(T::from_f64(1e-12).expect("Mathematical constant conversion compromised"));
+    let conds = ModelFlowConditions::from_flow_rate(
+        T::from_f64(1e-12).expect("Mathematical constant conversion compromised"),
+    );
     model.calculate_coefficients(fluid, &conds)
 }
 
@@ -163,12 +168,74 @@ mod tests {
                 half_angle_deg: metadata.divergent_half_angle_deg,
             });
 
-        let mut conditions = ModelFlowConditions::new(0.0);
-        conditions.flow_rate = Some(1.0e-12);
+        let conditions = ModelFlowConditions::from_flow_rate(1.0e-12);
         let (manual_r, manual_k) = manual.calculate_coefficients(&fluid, &conditions)?;
 
         assert_relative_eq!(r, manual_r, epsilon = manual_r.abs().max(1.0) * 1e-12);
         assert_relative_eq!(k, manual_k, epsilon = manual_k.abs().max(1.0) * 1e-12);
+
+        Ok(())
+    }
+
+    #[test]
+    fn venturi_coefficients_avoid_zero_velocity_fallback() -> cfd_core::error::Result<()> {
+        use crate::physics::resistance::models::{
+            ExpansionType, FlowConditions as ModelFlowConditions, ResistanceModel,
+            VenturiGeometry, VenturiModel,
+        };
+        use crate::{discharge_coefficient_from_convergent_half_angle_deg, venturi_taper_length_m};
+
+        let metadata = VenturiGeometryMetadata {
+            throat_width_m: 4.0e-4,
+            throat_height_m: 2.0e-4,
+            throat_length_m: 8.0e-4,
+            inlet_width_m: 1.0e-3,
+            outlet_width_m: 1.2e-3,
+            convergent_half_angle_deg: 12.0,
+            divergent_half_angle_deg: 7.0,
+            throat_position: 0.5,
+        };
+        let fluid = water_20c::<f64>()?;
+
+        let (_, builder_k) = venturi_coefficients(&metadata, &fluid)?;
+
+        let hydraulic_diameter = |width_m: f64, height_m: f64| 2.0 * width_m * height_m / (width_m + height_m);
+        let inlet_d = hydraulic_diameter(metadata.inlet_width_m, metadata.throat_height_m);
+        let throat_d = hydraulic_diameter(metadata.throat_width_m, metadata.throat_height_m);
+        let outlet_d = hydraulic_diameter(metadata.outlet_width_m, metadata.throat_height_m);
+        let conv_len = venturi_taper_length_m(
+            metadata.inlet_width_m,
+            metadata.throat_width_m,
+            metadata.convergent_half_angle_deg,
+        )?;
+        let diff_len = venturi_taper_length_m(
+            metadata.outlet_width_m,
+            metadata.throat_width_m,
+            metadata.divergent_half_angle_deg,
+        )?;
+        let total_length = metadata.throat_length_m + conv_len + diff_len;
+
+        let manual = VenturiModel::new(inlet_d, throat_d, outlet_d, metadata.throat_length_m, total_length)
+            .with_geometry(VenturiGeometry::Custom {
+                discharge_coefficient: discharge_coefficient_from_convergent_half_angle_deg(
+                    metadata.convergent_half_angle_deg,
+                )?,
+            })
+            .with_expansion(ExpansionType::Gradual {
+                half_angle_deg: metadata.divergent_half_angle_deg,
+            });
+
+        let flow_probe = ModelFlowConditions::from_flow_rate(1.0e-12);
+        let (_, flow_probe_k) = manual.calculate_coefficients(&fluid, &flow_probe)?;
+
+        let mut zero_velocity = ModelFlowConditions::new(0.0);
+        zero_velocity.flow_rate = Some(1.0e-12);
+        let (_, zero_velocity_k) = manual.calculate_coefficients(&fluid, &zero_velocity)?;
+
+        assert_relative_eq!(builder_k, flow_probe_k, epsilon = flow_probe_k.abs().max(1.0) * 1e-12);
+        assert!(builder_k > 0.0);
+        assert_eq!(zero_velocity_k, 0.0);
+        assert!(builder_k > zero_velocity_k);
 
         Ok(())
     }

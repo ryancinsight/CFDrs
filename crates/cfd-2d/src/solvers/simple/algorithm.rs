@@ -1,6 +1,6 @@
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
-use crate::physics::momentum::MomentumSolver;
+use crate::physics::momentum::{validate_boundary_consistency, MomentumSolver};
 use crate::solvers::fdm::PoissonSolver;
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
@@ -100,12 +100,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         fields: &mut SimulationFields<T>,
         dt: T,
         grid: &StructuredGrid2D<T>,
-        _boundary_conditions: &HashMap<String, BoundaryCondition<T>>,
+        boundary_conditions: &HashMap<String, BoundaryCondition<T>>,
     ) -> Result<(T, bool)> {
+        validate_boundary_consistency(boundary_conditions, grid)
+            .map_err(|error| cfd_core::error::Error::InvalidConfiguration(error.to_string()))?;
         self.ensure_buffers(grid.nx, grid.ny);
         self.predict_momentum(momentum_solver, fields, dt)?;
         self.compute_d_coefficients(momentum_solver, grid);
-        let max_residual = self.assemble_pressure_correction(fields, grid)?;
+        let max_residual = self.assemble_pressure_correction(fields, grid, boundary_conditions)?;
         self.solve_pressure_correction()?;
         self.apply_corrections(fields, grid);
         let converged = max_residual < self.tolerance;
@@ -162,6 +164,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Defaul
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fields::SimulationFields;
+    use crate::grid::StructuredGrid2D;
+    use crate::physics::momentum::MomentumSolver;
+    use crate::solvers::fdm::PoissonSolver;
+    use cfd_core::physics::boundary::BoundaryCondition;
+    use std::collections::HashMap;
 
     #[test]
     fn test_simple_algorithm_creation() {
@@ -221,5 +229,30 @@ mod tests {
             rc_correction.abs() > 1e-10,
             "RC correction for checker-board pressure must be non-zero; got {rc_correction}"
         );
+    }
+
+    #[test]
+    fn test_simple_iteration_rejects_missing_required_boundary() {
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let mut simple = SimpleAlgorithm::<f64>::new();
+        let mut momentum_solver = MomentumSolver::<f64>::new(&grid);
+        let mut poisson_solver = PoissonSolver::<f64>::default();
+        let mut fields = SimulationFields::<f64>::new(3, 3);
+        let boundary_conditions = HashMap::from([
+            ("west".to_string(), BoundaryCondition::wall_no_slip()),
+            ("north".to_string(), BoundaryCondition::Outflow),
+            ("south".to_string(), BoundaryCondition::Outflow),
+        ]);
+
+        let result = simple.simple_iteration(
+            &mut momentum_solver,
+            &mut poisson_solver,
+            &mut fields,
+            0.01,
+            &grid,
+            &boundary_conditions,
+        );
+
+        assert!(result.is_err());
     }
 }

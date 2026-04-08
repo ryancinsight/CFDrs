@@ -99,6 +99,19 @@ where
     Ok(())
 }
 
+pub(crate) fn rectangular_auto_selection_error<T: RealField + Copy>(
+    conditions: &FlowConditions<T>,
+) -> Error {
+    match conditions.reynolds_number {
+        Some(reynolds) => Error::InvalidConfiguration(format!(
+            "Automatic rectangular resistance selection is only validated for the laminar rectangular-channel model (Re < 2300). Got Re = {reynolds}. Select RectangularChannelModel explicitly for validated laminar use, or select Darcy-Weisbach explicitly if you intend a hydraulic-diameter surrogate."
+        )),
+        None => Error::InvalidConfiguration(
+            "Automatic rectangular resistance selection requires an explicit Reynolds number or enough flow information to compute one".to_string(),
+        ),
+    }
+}
+
 /// Resistance calculator with model selection and validation
 pub struct ResistanceCalculator<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
@@ -569,6 +582,44 @@ mod tests {
         assert_relative_eq!(coeff_resistance, expected_r, max_relative = 1e-12);
         assert_relative_eq!(coeff_k, expected_k, epsilon = 1e-15);
         assert_relative_eq!(coeff_k, 0.0, epsilon = 1e-15);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calculator_auto_rejects_non_laminar_rectangular_auto_selection() -> Result<()> {
+        let calculator = ResistanceCalculator::<f64>::new();
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
+        let rectangular = ChannelGeometry::Rectangular {
+            width: 1.0e-3,
+            height: 5.0e-4,
+            length: 2.0e-2,
+        };
+        let conditions = FlowConditions::new(5.0);
+
+        let auto_error = calculator
+            .calculate_auto(&rectangular, &fluid, &conditions)
+            .expect_err("rectangular auto-selection must not silently fall back above Re=2300");
+        assert!(
+            auto_error
+                .to_string()
+                .contains("select Darcy-Weisbach explicitly"),
+            "unexpected rectangular auto-selection error: {auto_error}"
+        );
+
+        let coeff_error = calculator
+            .calculate_coefficients_auto(&rectangular, &fluid, &conditions)
+            .expect_err("rectangular coefficient auto-selection must not silently fall back above Re=2300");
+        assert!(
+            coeff_error
+                .to_string()
+                .contains("select Darcy-Weisbach explicitly"),
+            "unexpected rectangular coefficient auto-selection error: {coeff_error}"
+        );
+
+        let dh = 2.0 * 1.0e-3 * 5.0e-4 / (1.0e-3 + 5.0e-4);
+        let explicit = calculator.calculate_darcy_weisbach(dh, 2.0e-2, 0.0, &fluid, &conditions)?;
+        assert!(explicit > 0.0);
 
         Ok(())
     }

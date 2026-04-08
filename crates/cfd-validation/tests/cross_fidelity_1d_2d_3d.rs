@@ -242,7 +242,16 @@ fn cross_fidelity_venturi_constriction() {
 ///
 /// In an asymmetric bifurcation, CIF invariants hold true: the wider daughter branch
 /// strictly receives a larger mass flow fraction than the narrower branch regardless of
-/// the spatial fidelity simulated. Flow fractions approach $(w_1/w_2)^3$.
+/// the spatial fidelity simulated.  For Hele-Shaw (Stokes) flow in planar channels
+/// the resistance scales as R ∝ L / W³, so Q₁/Q₂ → (W₁/W₂)³ as Re → 0.
+///
+/// At Re ≈ 5 (Stokes regime), entrance length L_ent ≈ 0.06·Re·W ≈ 0.6 mm, which is
+/// negligible compared to the 20 mm daughter length, so H-P theory applies and the
+/// 2D SIMPLE ratio converges to within 55 % of the 1D ideal.
+///
+/// **Note**: High-Re flow (Re > 100) makes 2D junction inertial effects dominant;
+/// the L/D ≈ 10 daughter channels never develop fully and the H-P ratio is
+/// unphysical at those conditions.
 #[test]
 fn cross_fidelity_asymmetric_bifurcation_invariance() {
     use cfd_2d::solvers::{BifurcationGeometry, BifurcationSolver2D};
@@ -253,10 +262,14 @@ fn cross_fidelity_asymmetric_bifurcation_invariance() {
     let d1_w: f64 = 1.5e-3; // Wider
     let d2_w: f64 = 0.75e-3; // Narrower
     let daughter_l: f64 = 20.0e-3;
-    let q_inlet: f64 = 2e-6; // ~100 mL/min scale
+    // Target Re ≈ 5 in the parent channel (Stokes regime):
+    //   v = Re × μ / (ρ × W) = 5 × 3.5e-3 / (1060 × 2e-3) ≈ 8.25e-3 m/s
+    //   q = v × (W × depth) where depth = 1e-3 m assumed for 2D planar slice.
+    let q_inlet: f64 = 1.65e-8; // Re ≈ 5 → entrance length < 1 mm << 20 mm daughter
     let u_inlet: f64 = q_inlet / (parent_w * 1e-3);
 
-    // 1D Prediction (Hagen-Poiseuille ratio approximation)
+    // 1D Prediction (Hele-Shaw Hagen-Poiseuille resistance ratio):
+    //   R ∝ L/W³  →  Q₁/Q₂ = R₂/R₁ = (W₁/W₂)³  (equal daughter lengths)
     let ratio_1d = (d1_w / d2_w).powi(3_i32);
 
     // 2D N-Furcation Solver execution
@@ -270,12 +283,12 @@ fn cross_fidelity_asymmetric_bifurcation_invariance() {
         daughter2_length: daughter_l,
         daughter2_angle: -0.2,
     };
-    
+
     let config = SIMPLEConfig {
         max_iterations: 1000,
         ..SIMPLEConfig::default()
     };
-    
+
     let mut solver = BifurcationSolver2D::new(
         geom,
         BloodModel::Newtonian(MU),
@@ -285,7 +298,7 @@ fn cross_fidelity_asymmetric_bifurcation_invariance() {
         config,
     );
     let result = solver.solve(u_inlet).expect("bifurcation 2D solve");
-    
+
     let q1 = result.q_daughter1.abs();
     let q2 = result.q_daughter2.abs().max(1e-30);
     let ratio_2d = q1 / q2;
@@ -298,7 +311,8 @@ fn cross_fidelity_asymmetric_bifurcation_invariance() {
         ratio_1d > 1.0,
         "1D wider branch must accumulate more flow (ratio {ratio_1d})"
     );
-    // Verifying they remain within theoretical threshold logic reflecting Entrance and Momentum factors.
+    // 2D SIMPLE at Re≈5 should agree with H-P within 55%
+    // (residual deviation from junction entry losses and angle effects).
     let deviation = (1.0_f64 - ratio_2d / ratio_1d).abs() * 100.0;
     assert!(
         deviation < 55.0,

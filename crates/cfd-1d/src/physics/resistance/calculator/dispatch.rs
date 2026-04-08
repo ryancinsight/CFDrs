@@ -3,8 +3,8 @@
 //! Provides convenience free functions that construct and call the appropriate
 //! `ResistanceModel` implementation for each geometry, as well as an
 //! automatic model-selection function (`calculate_auto`) that chooses between
-//! laminar (Hagen-Poiseuille, Rectangular) and turbulent (Darcy-Weisbach)
-//! models based on the computed Reynolds number.
+//! validated geometry-owned models and requires explicit opt-in when a caller
+//! wants a different surrogate such as Darcy-Weisbach.
 use crate::physics::resistance::geometry::ChannelGeometry;
 use crate::physics::resistance::models::{
     DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, MembranePoreModel,
@@ -54,8 +54,6 @@ where
             height,
             length,
         } => {
-            let area = *width * *height;
-            let dh = (T::one() + T::one()) * *width * *height / (*width + *height);
             let rect = RectangularChannelModel {
                 width: *width,
                 height: *height,
@@ -65,8 +63,7 @@ where
                 return rect.calculate_resistance(fluid, &local_conditions);
             }
 
-            DarcyWeisbachModel::new(dh, area, *length, T::zero())
-                .calculate_resistance(fluid, &local_conditions)
+            Err(super::rectangular_auto_selection_error(&local_conditions))
         }
         _ => Err(Error::InvalidConfiguration(
             "No resistance model available for this geometry type; use Circular or Rectangular"

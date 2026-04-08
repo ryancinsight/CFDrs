@@ -124,11 +124,7 @@ fn spalding_matches_piecewise_in_log_layer() {
         let u_plus_spalding = cfd_2d::physics::turbulence::wall_functions::spalding_u_plus(y_plus);
         let u_plus_log_law = y_plus.ln() / kappa + b;
 
-        assert_relative_eq!(
-            u_plus_spalding,
-            u_plus_log_law,
-            max_relative = 0.02,
-        );
+        assert_relative_eq!(u_plus_spalding, u_plus_log_law, max_relative = 0.02,);
     }
 }
 
@@ -147,8 +143,7 @@ fn amini_correction_physically_bounded_across_kappa_range() {
     let kappa_values: Vec<f64> = (1..=30).map(|i| i as f64 * 0.01).collect();
 
     for &kappa in &kappa_values {
-        let correction =
-            cfd_1d::physics::cell_separation::amini_confinement_correction(kappa);
+        let correction = cfd_1d::physics::cell_separation::amini_confinement_correction(kappa);
 
         assert!(
             correction >= 1.0,
@@ -185,7 +180,9 @@ fn realizable_k_epsilon_bounded_c_mu_across_strain_rates() {
     for &s in &strain_magnitudes {
         // Simple shear: du/dy = s, all others zero
         let grad = [[0.0, s], [0.0, 0.0]];
-        let c_mu = cfd_2d::physics::turbulence::k_epsilon::realizable::realizable_c_mu(&model, &grad, k, epsilon);
+        let c_mu = cfd_2d::physics::turbulence::k_epsilon::realizable::realizable_c_mu(
+            &model, &grad, k, epsilon,
+        );
 
         assert!(
             c_mu > 0.0,
@@ -198,8 +195,18 @@ fn realizable_k_epsilon_bounded_c_mu_across_strain_rates() {
     }
 
     // Verify that C_mu decreases with increasing strain rate
-    let c_mu_low = cfd_2d::physics::turbulence::k_epsilon::realizable::realizable_c_mu(&model, &[[0.0, 1.0], [0.0, 0.0]], k, epsilon);
-    let c_mu_high = cfd_2d::physics::turbulence::k_epsilon::realizable::realizable_c_mu(&model, &[[0.0, 100.0], [0.0, 0.0]], k, epsilon);
+    let c_mu_low = cfd_2d::physics::turbulence::k_epsilon::realizable::realizable_c_mu(
+        &model,
+        &[[0.0, 1.0], [0.0, 0.0]],
+        k,
+        epsilon,
+    );
+    let c_mu_high = cfd_2d::physics::turbulence::k_epsilon::realizable::realizable_c_mu(
+        &model,
+        &[[0.0, 100.0], [0.0, 0.0]],
+        k,
+        epsilon,
+    );
     assert!(
         c_mu_high < c_mu_low,
         "C_mu should decrease with increasing strain: low={c_mu_low}, high={c_mu_high}"
@@ -231,11 +238,7 @@ fn viscous_dissipation_matches_couette_analytical() {
         cfd_2d::physics::energy::viscous_dissipation_2d(du_dx, du_dy, dv_dx, dv_dy, mu);
     let phi_analytical = mu * (u_wall / h) * (u_wall / h);
 
-    assert_relative_eq!(
-        phi_numerical,
-        phi_analytical,
-        max_relative = 1e-12,
-    );
+    assert_relative_eq!(phi_numerical, phi_analytical, max_relative = 1e-12,);
 
     // Verify dimensional correctness: Phi should have units of W/m^3
     // For mu=0.001 Pa*s, (U/H)^2 = (1/0.001)^2 = 1e6 s^-2
@@ -302,16 +305,12 @@ fn womersley_pulsatility_index_physically_bounded() {
 
     // Typical arterial pulsatility: PI ~ 1-2
     // Q_mean = 5 mL/min = 8.33e-8 m³/s, Q_amp = 5e-8 m³/s, A = 7.85e-6 m² (D=1mm)
-    let (pi, v_peak, v_trough) =
-        cfd_1d::womersley_pulsatility_index(8.33e-8, 5e-8, 7.85e-6);
+    let (pi, v_peak, v_trough) = cfd_1d::womersley_pulsatility_index(8.33e-8, 5e-8, 7.85e-6);
     assert!(
         pi > 0.0 && pi < 5.0,
         "Arterial PI should be 0-5, got {pi:.2}"
     );
-    assert!(
-        v_peak > v_trough,
-        "Peak velocity must exceed trough"
-    );
+    assert!(v_peak > v_trough, "Peak velocity must exceed trough");
 }
 
 // ── Test 11: Menter SST Limiter vs Unlimited Production ──────────────────────
@@ -471,8 +470,10 @@ fn plasma_skimming_reduces_hematocrit_in_minor_daughter() {
     let d_feed = 100.0; // µm
 
     // Minor daughter (20% of flow) should have lower Ht
-    let h_minor = cfd_1d::plasma_skimming_hematocrit(h_feed, 0.2, 50.0, d_feed);
-    let h_major = cfd_1d::plasma_skimming_hematocrit(h_feed, 0.8, 80.0, d_feed);
+    let h_minor = cfd_1d::plasma_skimming_hematocrit(h_feed, 0.2, 50.0, d_feed)
+        .expect("plasma skimming should succeed for minor daughter");
+    let h_major = cfd_1d::plasma_skimming_hematocrit(h_feed, 0.8, 80.0, d_feed)
+        .expect("plasma skimming should succeed for major daughter");
 
     assert!(
         h_minor < h_feed,
@@ -497,8 +498,10 @@ fn plasma_skimming_conserves_rbc_mass() {
     let d_feed = 100.0;
     let frac = 0.3; // 30/70 split
 
-    let h_d1 = cfd_1d::plasma_skimming_hematocrit(h_feed, frac, 60.0, d_feed);
-    let h_d2 = cfd_1d::plasma_skimming_hematocrit(h_feed, 1.0 - frac, 80.0, d_feed);
+    let h_d1 = cfd_1d::plasma_skimming_hematocrit(h_feed, frac, 60.0, d_feed)
+        .expect("plasma skimming should succeed for daughter 1");
+    let h_d2 = cfd_1d::plasma_skimming_hematocrit(h_feed, 1.0 - frac, 80.0, d_feed)
+        .expect("plasma skimming should succeed for daughter 2");
 
     let rbc_out = h_d1 * frac + h_d2 * (1.0 - frac);
     let rbc_in = h_feed;
@@ -526,10 +529,7 @@ fn non_newtonian_murray_flow_split_exponent_validates() {
 
     // Shear-thinning blood (n=0.8): exponent = (2.4+1)/0.8 = 4.25
     let m_blood = non_newtonian_flow_split_exponent(0.8);
-    assert!(
-        m_blood > m_newt,
-        "Shear-thinning amplifies geometry effect"
-    );
+    assert!(m_blood > m_newt, "Shear-thinning amplifies geometry effect");
     assert_relative_eq!(m_blood, 4.25, max_relative = 1e-10);
 
     // Strongly shear-thinning (n=0.5): exponent = (1.5+1)/0.5 = 5
@@ -612,15 +612,24 @@ fn acoustic_contrast_factor_matches_bruus_literature() {
 
     // RBC: ρ ≈ 1090, κ ≈ 3.4e-10
     let phi_rbc = cfd_1d::acoustic_contrast_factor(1090.0, rho_water, 3.4e-10, kappa_water);
-    assert!(phi_rbc > 0.0, "RBC contrast must be positive (migrates to node)");
-    assert!(phi_rbc > 0.1 && phi_rbc < 0.4, "RBC Φ should be ~0.2, got {phi_rbc:.3}");
+    assert!(
+        phi_rbc > 0.0,
+        "RBC contrast must be positive (migrates to node)"
+    );
+    assert!(
+        phi_rbc > 0.1 && phi_rbc < 0.4,
+        "RBC Φ should be ~0.2, got {phi_rbc:.3}"
+    );
 
     // CTC: ρ ≈ 1050, κ ≈ 4.2e-10 (closer to water)
     let phi_ctc = cfd_1d::acoustic_contrast_factor(1050.0, rho_water, 4.2e-10, kappa_water);
     assert!(phi_ctc > 0.0, "CTC contrast must be positive");
 
     // RBC has higher contrast than CTC (denser, less compressible)
-    assert!(phi_rbc > phi_ctc, "RBC should have higher contrast than CTC");
+    assert!(
+        phi_rbc > phi_ctc,
+        "RBC should have higher contrast than CTC"
+    );
 }
 
 // ── Test 23: Radiation Force Zero at Node and Antinode ────────────────────
@@ -636,12 +645,18 @@ fn radiation_force_zero_at_node_and_antinode() {
 
     // At node (x=0): F = 0 (sin(0) = 0)
     let f_node = cfd_1d::acoustic_radiation_force(r, phi, f, p0, rho, c, 0.0);
-    assert!(f_node.abs() < 1e-20, "Force at node must be zero, got {f_node:.3e}");
+    assert!(
+        f_node.abs() < 1e-20,
+        "Force at node must be zero, got {f_node:.3e}"
+    );
 
     // Force should be non-zero between nodes
     let lambda = c / f;
     let f_quarter = cfd_1d::acoustic_radiation_force(r, phi, f, p0, rho, c, lambda / 8.0);
-    assert!(f_quarter.abs() > 0.0, "Force between nodes must be non-zero");
+    assert!(
+        f_quarter.abs() > 0.0,
+        "Force between nodes must be non-zero"
+    );
 }
 
 // ── Test 24: Sonosensitizer Activation Monotonicity ───────────────────────
@@ -656,8 +671,14 @@ fn sonosensitizer_activation_monotone_with_transit_time() {
     let eta_long = cfd_1d::sonosensitizer_activation_efficiency(k, i_cav, 100.0);
 
     assert!(eta_medium > eta_short, "Longer transit → higher activation");
-    assert!(eta_long > 0.99, "Very long transit (100 s) should saturate near 1.0, got {eta_long:.6}");
-    assert!(eta_medium > 0.95, "10 s transit should be near saturation, got {eta_medium:.4}");
+    assert!(
+        eta_long > 0.99,
+        "Very long transit (100 s) should saturate near 1.0, got {eta_long:.6}"
+    );
+    assert!(
+        eta_medium > 0.95,
+        "10 s transit should be near saturation, got {eta_medium:.4}"
+    );
     assert!(eta_short < 0.01, "Very short transit should be near zero");
 }
 
@@ -669,11 +690,17 @@ fn rayleigh_collapse_time_matches_textbook() {
     // For R=10 µm bubble in blood at atmospheric pressure:
     // t = 0.915 × 10e-6 × √(1060/101325) ≈ 9.36e-7 s ≈ 0.94 µs
     let t = cfd_1d::rayleigh_collapse_time(10e-6, 1060.0, 101325.0);
-    assert!(t > 0.5e-6 && t < 2e-6, "Collapse time should be ~1 µs, got {t:.3e} s");
+    assert!(
+        t > 0.5e-6 && t < 2e-6,
+        "Collapse time should be ~1 µs, got {t:.3e} s"
+    );
 
     // Jet velocity: v = √(2p/ρ) ≈ √(2×101325/1060) ≈ 13.8 m/s
     let v = cfd_1d::collapse_jet_velocity(101325.0, 1060.0);
-    assert!(v > 10.0 && v < 20.0, "Jet velocity should be ~14 m/s, got {v:.1}");
+    assert!(
+        v > 10.0 && v < 20.0,
+        "Jet velocity should be ~14 m/s, got {v:.1}"
+    );
 }
 
 // ── Test 26: Multi-Layer Bifurcation with SDT Acoustic Physics ───────────
@@ -698,7 +725,7 @@ fn multi_layer_bifurcation_with_sdt_acoustic_physics() {
     // Step 3: Sonosensitizer activation with transit time
     let transit_time = 500e-6; // 500 µs through venturi
     let eta = cfd_1d::sonosensitizer_activation_efficiency(
-        0.5, // k_act
+        0.5,                                           // k_act
         result.cancer_center_fraction.clamp(0.0, 1.0), // I_cav proxy
         transit_time,
     );
@@ -706,5 +733,8 @@ fn multi_layer_bifurcation_with_sdt_acoustic_physics() {
 
     // Step 4: Hemolysis check
     let hi = cfd_1d::giersiepen_hi(100.0, transit_time);
-    assert!(hi < 0.01, "Hemolysis index should be very low for 500 µs transit");
+    assert!(
+        hi < 0.01,
+        "Hemolysis index should be very low for 500 µs transit"
+    );
 }

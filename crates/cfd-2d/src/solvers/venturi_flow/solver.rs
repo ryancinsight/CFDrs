@@ -3,7 +3,7 @@
 use super::{BernoulliVenturi, VenturiFlowSolution, VenturiGeometry};
 use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use cfd_core::conversion::SafeFromF64;
-use cfd_core::error::Result as CfdResult;
+use cfd_core::error::{Error, Result as CfdResult};
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
@@ -50,7 +50,9 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
     /// - `beta = 0.5` → 3× ratio (centre cells 3× finer than boundary)
     /// - `beta = 0.9` → 19× ratio (aggressive, for CR > 20)
     ///
-    /// A useful heuristic: `beta = min(1 − 4·w_throat/w_inlet, 0.9)`.
+    /// For callers that want the built-in geometry heuristic, compute it
+    /// explicitly with [`VenturiGeometry::recommended_center_clustering_beta`]
+    /// and pass the returned `beta` into this constructor.
     ///
     /// # Panics
     /// Panics if `beta >= 1.0` (cells would overlap) or `beta < 0.0`.
@@ -63,6 +65,20 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         beta: T,
     ) -> Self {
         Self::new_stretched_with_config(geometry, blood, density, nx, ny, beta, SIMPLEConfig::default())
+    }
+
+    /// Create a stretched Venturi solver using the explicit built-in
+    /// center-clustering recommendation derived from the geometry.
+    #[must_use]
+    pub fn new_stretched_recommended(
+        geometry: VenturiGeometry<T>,
+        blood: BloodModel<T>,
+        density: T,
+        nx: usize,
+        ny: usize,
+    ) -> Self {
+        let beta = geometry.recommended_center_clustering_beta();
+        Self::new_stretched(geometry, blood, density, nx, ny, beta)
     }
 
     /// Like [`new_stretched`] but accepts a custom [`SIMPLEConfig`], allowing
@@ -172,21 +188,8 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
             T::zero()
         };
 
-        // Find throat section: cell with maximum u-velocity — single flat_map fold.
-        let (u_max, p_throat) = (0..nx)
-            .flat_map(|i| (0..ny).map(move |j| (i, j)))
-            .filter(|&(i, j)| self.solver.field.mask[(i, j)])
-            .fold((T::zero(), T::zero()), |(u_best, p_best), (i, j)| {
-                let u = self.solver.field.u[(i, j)];
-                if u > u_best {
-                    (u, self.solver.field.p[(i, j)])
-                } else {
-                    (u_best, p_best)
-                }
-            });
-
         // Area-averaged throat velocity: find the column at the throat midpoint
-        // and average the x-velocity across all fluid cells in that column.
+        // and evaluate throat metrics only on that section.
         //
         // Theorem (cross-section averaging): For comparison with 1D models that
         // predict mean velocity (Hagen-Poiseuille, Bernoulli continuity), the
@@ -203,16 +206,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
                     .unwrap_or(u64::MAX)
             })
             .unwrap_or(nx / 2);
-        let (u_sum_throat, count_throat) = (0..ny)
-            .filter(|&j| self.solver.field.mask[(i_throat, j)])
-            .fold((T::zero(), 0usize), |(s, n), j| {
-                (s + self.solver.field.u[(i_throat, j)], n + 1)
-            });
-        let u_throat_mean = if count_throat > 0 {
-            u_sum_throat / T::from_usize(count_throat).unwrap_or_else(T::one)
-        } else {
-            u_max // fallback to max if no fluid cells found at throat
-        };
+        let (u_throat, p_throat, u_throat_mean) = self.sample_throat_section(i_throat, ny)?;
 
         // Average outlet pressure from the last fluid column — zero-alloc fold.
         let (p_sum_out, count_outlet) = (0..ny)
@@ -246,7 +240,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         Ok(VenturiFlowSolution {
             u_inlet: u_inlet_sim,
             p_inlet,
-            u_throat: u_max,
+            u_throat,
             u_throat_mean,
             p_throat,
             u_outlet: u_inlet_sim, // Assumes symmetric inlet/outlet
@@ -257,6 +251,36 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
             cp_recovery,
             converged: solve_result.converged,
         })
+    }
+
+    fn sample_throat_section(&self, i_throat: usize, ny: usize) -> CfdResult<(T, T, T)> {
+        let mut count_throat = 0usize;
+        let mut u_sum_throat = T::zero();
+        let mut u_peak_throat = T::zero();
+        let mut p_at_peak_throat = T::zero();
+
+        for j in 0..ny {
+            if !self.solver.field.mask[(i_throat, j)] {
+                continue;
+            }
+
+            let u = self.solver.field.u[(i_throat, j)];
+            if count_throat == 0 || u > u_peak_throat {
+                u_peak_throat = u;
+                p_at_peak_throat = self.solver.field.p[(i_throat, j)];
+            }
+            u_sum_throat += u;
+            count_throat += 1;
+        }
+
+        if count_throat == 0 {
+            return Err(Error::InvalidConfiguration(
+                "Venturi throat midpoint column contains no fluid cells; refine ny or explicitly opt into stretched clustering before sampling throat metrics".to_string(),
+            ));
+        }
+
+        let u_throat_mean = u_sum_throat / T::from_usize(count_throat).unwrap_or_else(T::one);
+        Ok((u_peak_throat, p_at_peak_throat, u_throat_mean))
     }
 }
 
@@ -432,6 +456,40 @@ mod tests {
             "Centre cells ({:.6}) should be finer than boundary cells ({:.6})",
             dy_center,
             dy_boundary
+        );
+    }
+
+    #[test]
+    fn test_recommended_stretch_helper_matches_geometry_helper() {
+        let geom = VenturiGeometry::<f64>::new(2.0e-3, 2.0e-4, 2.0e-3, 1.0e-3, 1.0e-3, 2.0e-3, 5.0e-4);
+        let expected_beta = geom.recommended_center_clustering_beta();
+        let solver = VenturiSolver2D::new_stretched_recommended(
+            geom.clone(),
+            BloodModel::Newtonian(1.0e-3),
+            1060.0,
+            24,
+            12,
+        );
+
+        let dy_center = solver.solver.grid.dy_at(12 / 2);
+        let dy_boundary = solver.solver.grid.dy_at(0);
+        assert!(expected_beta > 0.0);
+        assert!(dy_center < dy_boundary);
+    }
+
+    #[test]
+    fn test_solver_rejects_unresolved_throat_column() {
+        let geom = VenturiGeometry::<f64>::new(1.0e-3, 1.0e-4, 1.0e-3, 5.0e-4, 5.0e-4, 1.0e-3, 5.0e-4);
+        let blood = BloodModel::Newtonian(1.0e-3);
+        let density = 1060.0;
+
+        let mut solver = VenturiSolver2D::new(geom, blood, density, 20, 2);
+        let err = solver
+            .solve(0.1)
+            .expect_err("under-resolved throats must fail closed instead of falling back to u_max");
+        assert!(
+            err.to_string().contains("contains no fluid cells"),
+            "unexpected unresolved throat error: {err}"
         );
     }
 }

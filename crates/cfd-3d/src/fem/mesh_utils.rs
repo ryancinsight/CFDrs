@@ -8,6 +8,7 @@ use cfd_mesh::domain::topology::Cell;
 use cfd_mesh::IndexedMesh;
 use nalgebra::{RealField, Vector3};
 use num_traits::{Float, FromPrimitive};
+use std::collections::HashSet;
 
 /// Extract vertex indices from a cell for element assembly.
 ///
@@ -66,32 +67,16 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
             for &(i, j) in &edges {
                 let v_i = ordered[i];
                 let v_j = ordered[j];
-                let p_i = mesh
-                    .vertices
-                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i))
-                    .coords;
-                let p_j = mesh
-                    .vertices
-                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
-                    .coords;
-                let target = (p_i + p_j)
-                    * <T as num_traits::FromPrimitive>::from_f64(0.5)
-                        .expect("0.5 is exactly representable in IEEE 754");
 
-                let mut best_m = 0;
-                let mut min_dist_sq = <T as num_traits::Float>::infinity();
-                for m_idx in n_corner_nodes..mesh.vertex_count() {
-                    let pm = mesh
-                        .vertices
-                        .position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx))
-                        .coords;
-                    let dist_sq = (pm - target).norm_squared();
-                    if dist_sq < min_dist_sq {
-                        min_dist_sq = dist_sq;
-                        best_m = m_idx;
-                    }
-                }
-                final_nodes.push(best_m);
+                let selected = nearest_mid_node(
+                    mesh,
+                    n_corner_nodes,
+                    v_i,
+                    v_j,
+                    n_corner_nodes..mesh.vertex_count(),
+                    None,
+                );
+                final_nodes.push(selected);
             }
             return Ok(final_nodes);
         }
@@ -112,63 +97,15 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
         for &(i, j) in &edges {
             let v_i = ordered[i];
             let v_j = ordered[j];
-            let p_i = mesh
-                .vertices
-                .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i))
-                .coords;
-            let p_j = mesh
-                .vertices
-                .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
-                .coords;
-            let target = (p_i + p_j)
-                * <T as FromPrimitive>::from_f64(0.5)
-                    .expect("0.5 is exactly representable in IEEE 754");
 
-            let mut best_node = None;
-            let mut min_dist = T::infinity();
-
-            for &m_idx in &mid_edges {
-                if used_mid_edges.contains(&m_idx) {
-                    continue;
-                }
-                let dist = (mesh
-                    .vertices
-                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx))
-                    .coords
-                    - target)
-                    .norm();
-                if dist < min_dist {
-                    min_dist = dist;
-                    best_node = Some(m_idx);
-                }
-            }
-
-            let selected = if let Some(m_idx) = best_node {
-                m_idx
-            } else {
-                let mut fallback = mid_edges[0];
-                let mut fallback_dist = (mesh
-                    .vertices
-                    .position(cfd_mesh::domain::core::index::VertexId::from_usize(
-                        fallback,
-                    ))
-                    .coords
-                    - target)
-                    .norm();
-                for &m_idx in &mid_edges[1..] {
-                    let dist = (mesh
-                        .vertices
-                        .position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx))
-                        .coords
-                        - target)
-                        .norm();
-                    if dist < fallback_dist {
-                        fallback_dist = dist;
-                        fallback = m_idx;
-                    }
-                }
-                fallback
-            };
+            let selected = nearest_mid_node(
+                mesh,
+                n_corner_nodes,
+                v_i,
+                v_j,
+                mid_edges.iter().copied(),
+                Some(&used_mid_edges),
+            );
 
             used_mid_edges.insert(selected);
             final_nodes.push(selected);
@@ -240,40 +177,31 @@ pub fn extract_vertex_indices_cached<
         if mesh.vertex_count() > n_corner_nodes {
             // P2 mesh: use cache for O(1) mid-node lookup (GAP-PERF-001)
             let mut final_nodes = ordered.clone();
+            let mut used_mid_edges = HashSet::new();
             let edges = [(0, 1), (1, 2), (2, 0), (0, 3), (1, 3), (2, 3)];
             for &(i, j) in &edges {
                 let v_i = ordered[i];
                 let v_j = ordered[j];
 
                 if let Some(m_idx) = mid_cache.get(v_i, v_j) {
+                    used_mid_edges.insert(m_idx);
                     final_nodes.push(m_idx);
                 } else {
-                    // Cache miss: fall back to geometric search (edge not registered)
-                    let p_i = mesh
-                        .vertices
-                        .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_i))
-                        .coords;
-                    let p_j = mesh
-                        .vertices
-                        .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
-                        .coords;
-                    let target = (p_i + p_j)
-                        * <T as num_traits::FromPrimitive>::from_f64(0.5)
-                            .expect("0.5 is exactly representable in IEEE 754");
-                    let mut best_m = 0;
-                    let mut min_dist_sq = <T as num_traits::Float>::infinity();
-                    for m_idx in n_corner_nodes..mesh.vertex_count() {
-                        let pm = mesh
-                            .vertices
-                            .position(cfd_mesh::domain::core::index::VertexId::from_usize(m_idx))
-                            .coords;
-                        let dist_sq = (pm - target).norm_squared();
-                        if dist_sq < min_dist_sq {
-                            min_dist_sq = dist_sq;
-                            best_m = m_idx;
-                        }
-                    }
-                    final_nodes.push(best_m);
+                    // Cache miss: fall back to geometric search over the full
+                    // mid-node range [n_corner_nodes, vertex_count).  In this
+                    // branch mid_edges is EMPTY (the cell's P1-structured face
+                    // data hasn't been enriched yet), so we must scan the
+                    // global mid-node set rather than the empty local vec.
+                    let selected = nearest_mid_node(
+                        mesh,
+                        n_corner_nodes,
+                        v_i,
+                        v_j,
+                        n_corner_nodes..mesh.vertex_count(),
+                        Some(&used_mid_edges),
+                    );
+                    used_mid_edges.insert(selected);
+                    final_nodes.push(selected);
                 }
             }
             return Ok(final_nodes);
@@ -456,12 +384,60 @@ pub(crate) fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField +
     (max - min).norm()
 }
 
+fn nearest_mid_node<T, I>(
+    mesh: &IndexedMesh<T>,
+    n_corner_nodes: usize,
+    v_i: usize,
+    v_j: usize,
+    candidates: I,
+    excluded: Option<&HashSet<usize>>,
+) -> usize
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float,
+    I: IntoIterator<Item = usize> + Clone,
+{
+    use cfd_mesh::domain::core::index::VertexId;
+
+    let p_i = mesh.vertices.position(VertexId::from_usize(v_i)).coords;
+    let p_j = mesh.vertices.position(VertexId::from_usize(v_j)).coords;
+    let target = (p_i + p_j)
+        * <T as FromPrimitive>::from_f64(0.5)
+            .expect("0.5 is exactly representable in IEEE 754");
+
+    let search = |skip_used: bool| -> Option<usize> {
+        let mut best_node = None;
+        let mut min_dist_sq = T::infinity();
+
+        for m_idx in candidates.clone() {
+            if skip_used
+                && excluded.is_some_and(|used| used.contains(&m_idx))
+            {
+                continue;
+            }
+
+            let pm = mesh.vertices.position(VertexId::from_usize(m_idx)).coords;
+            let dist_sq = (pm - target).norm_squared();
+            if dist_sq < min_dist_sq {
+                min_dist_sq = dist_sq;
+                best_node = Some(m_idx);
+            }
+        }
+
+        best_node
+    };
+
+    search(true)
+        .or_else(|| search(false))
+        .unwrap_or(n_corner_nodes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use cfd_mesh::domain::topology::Cell;
     use cfd_mesh::IndexedMesh;
     use nalgebra::Point3;
+    use crate::fem::mid_node_cache::MidNodeCache;
 
     /// Build a minimal P1 tet mesh: 4 vertices, 4 triangular faces, 1 cell.
     fn build_single_tet_mesh() -> IndexedMesh<f64> {
@@ -483,6 +459,27 @@ mod tests {
             f3.as_usize(),
         );
         mesh.cells.push(cell);
+        mesh
+    }
+
+    /// Build a minimal conforming P2 tet mesh with the same cell as the P1 fixture.
+    fn build_single_p2_tet_mesh() -> IndexedMesh<f64> {
+        let mut mesh = build_single_tet_mesh();
+
+        let p01 = Point3::new(0.5, 0.0, 0.0);
+        let p12 = Point3::new(0.5, 0.5, 0.0);
+        let p20 = Point3::new(0.0, 0.5, 0.0);
+        let p03 = Point3::new(0.0, 0.0, 0.5);
+        let p13 = Point3::new(0.5, 0.0, 0.5);
+        let p23 = Point3::new(0.0, 0.5, 0.5);
+
+        mesh.add_vertex_pos(p01);
+        mesh.add_vertex_pos(p12);
+        mesh.add_vertex_pos(p20);
+        mesh.add_vertex_pos(p03);
+        mesh.add_vertex_pos(p13);
+        mesh.add_vertex_pos(p23);
+
         mesh
     }
 
@@ -552,5 +549,21 @@ mod tests {
             expected,
             scale
         );
+    }
+
+    #[test]
+    fn cached_and_uncached_p2_extraction_match() {
+        let mesh = build_single_p2_tet_mesh();
+        let cell = &mesh.cells[0];
+        let n_corner_nodes = 4;
+        let mid_cache = MidNodeCache::build(&mesh, n_corner_nodes);
+
+        let uncached = extract_vertex_indices(cell, &mesh, n_corner_nodes)
+            .expect("uncached extraction should succeed");
+        let cached = extract_vertex_indices_cached(cell, &mesh, n_corner_nodes, &mid_cache)
+            .expect("cached extraction should succeed");
+
+        assert_eq!(uncached.len(), 10);
+        assert_eq!(uncached, cached);
     }
 }

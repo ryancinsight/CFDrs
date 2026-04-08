@@ -155,7 +155,7 @@ pub use spectral::{
 };
 
 // Export IBM functionality
-pub use ibm::{IbmConfig, IbmSolver, LagrangianPoint};
+pub use ibm::{IbmConfig, IbmSolver, LagrangianPoint, NufftMarkerCoupler3D};
 
 // Export level set functionality
 pub use level_set::{LevelSetConfig, LevelSetSolver};

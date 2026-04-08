@@ -100,6 +100,7 @@
 //!   inertial microfluidics. *Lab Chip*, 11, 912–920.
 
 use crate::physics::cell_separation::properties::CellProperties;
+use cfd_core::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 // ── Amini (2014) confinement-dependent lift correction ──────────────────────
@@ -153,6 +154,44 @@ pub const AMINI_ALPHA_CONFINEMENT: f64 = 2.5;
 pub fn amini_confinement_correction(kappa: f64) -> f64 {
     let delta = kappa - AMINI_KAPPA_REF;
     1.0 + AMINI_ALPHA_CONFINEMENT * delta * delta
+}
+
+/// Checked Amini confinement correction for callers that want explicit model
+/// boundary enforcement instead of silent acceptance of nonphysical inputs.
+pub fn checked_amini_confinement_correction(kappa: f64) -> Result<f64> {
+    if !kappa.is_finite() || kappa < 0.0 {
+        return Err(Error::InvalidConfiguration(
+            "Margination confinement ratio must be finite and nonnegative".to_string(),
+        ));
+    }
+    Ok(amini_confinement_correction(kappa))
+}
+
+fn validate_lateral_position(x_tilde: f64) -> Result<f64> {
+    if !x_tilde.is_finite() || !(0.0..=0.95).contains(&x_tilde) {
+        return Err(Error::InvalidConfiguration(
+            "Margination lateral position x_tilde must lie in [0, 0.95] for the fitted lift model".to_string(),
+        ));
+    }
+    Ok(x_tilde)
+}
+
+fn validate_deformability_index(di: f64) -> Result<f64> {
+    if !di.is_finite() || !(0.0..=1.0).contains(&di) {
+        return Err(Error::InvalidConfiguration(
+            "Margination deformability index must lie in [0, 1]".to_string(),
+        ));
+    }
+    Ok(di)
+}
+
+fn validate_positive_finite(name: &str, value: f64) -> Result<f64> {
+    if !value.is_finite() || value <= 0.0 {
+        return Err(Error::InvalidConfiguration(format!(
+            "Margination {name} must be finite and positive"
+        )));
+    }
+    Ok(value)
 }
 
 // ── Lift coefficient model ────────────────────────────────────────────────────
@@ -259,6 +298,38 @@ pub fn inertial_lift_force_n(
     cl * fluid_density_kg_m3 * mean_velocity_m_s * mean_velocity_m_s * a.powi(4) / (h * h)
 }
 
+/// Checked inertial lift force evaluation using the fitted margination model.
+pub fn checked_inertial_lift_force_n(
+    x_tilde: f64,
+    cell: &CellProperties,
+    fluid_density_kg_m3: f64,
+    mean_velocity_m_s: f64,
+    channel_height_m: f64,
+) -> Result<f64> {
+    let x_tilde = validate_lateral_position(x_tilde)?;
+    let deformability_index = validate_deformability_index(cell.deformability_index)?;
+    let fluid_density_kg_m3 = validate_positive_finite("fluid density", fluid_density_kg_m3)?;
+    let channel_height_m = validate_positive_finite("channel height", channel_height_m)?;
+    if !mean_velocity_m_s.is_finite() {
+        return Err(Error::InvalidConfiguration(
+            "Margination mean velocity must be finite".to_string(),
+        ));
+    }
+    if !cell.diameter_m.is_finite() || cell.diameter_m <= 0.0 {
+        return Err(Error::InvalidConfiguration(
+            "Margination cell diameter must be finite and positive".to_string(),
+        ));
+    }
+
+    let cl = c_wall(x_tilde) * (1.0 - deformability_index) - c_center(x_tilde);
+    Ok(cl
+        * fluid_density_kg_m3
+        * mean_velocity_m_s
+        * mean_velocity_m_s
+        * cell.diameter_m.powi(4)
+        / (channel_height_m * channel_height_m))
+}
+
 // ── Lateral Drift Velocity ────────────────────────────────────────────────────
 
 /// Transient lateral drift velocity [m/s] at a given lateral position `x̃`.
@@ -314,6 +385,47 @@ pub fn lateral_velocity_m_s(
     let stokes_coeff = 3.0 * std::f64::consts::PI * dynamic_viscosity_pa_s * cell.diameter_m;
     
     net_force_n / stokes_coeff.max(1e-30)
+}
+
+/// Checked lateral drift velocity evaluation using explicit model bounds.
+pub fn checked_lateral_velocity_m_s(
+    x_tilde: f64,
+    cell: &CellProperties,
+    fluid_density_kg_m3: f64,
+    dynamic_viscosity_pa_s: f64,
+    mean_velocity_m_s: f64,
+    channel_width_m: f64,
+    channel_height_m: f64,
+    bend_radius_m: Option<f64>,
+) -> Result<f64> {
+    let channel_width_m = validate_positive_finite("channel width", channel_width_m)?;
+    let channel_height_m = validate_positive_finite("channel height", channel_height_m)?;
+    let dynamic_viscosity_pa_s =
+        validate_positive_finite("dynamic viscosity", dynamic_viscosity_pa_s)?;
+    if let Some(radius) = bend_radius_m {
+        validate_positive_finite("bend radius", radius)?;
+    }
+
+    let dh = 2.0 * channel_width_m * channel_height_m / (channel_width_m + channel_height_m);
+    let f_lift = checked_inertial_lift_force_n(
+        x_tilde,
+        cell,
+        fluid_density_kg_m3,
+        mean_velocity_m_s,
+        channel_height_m,
+    )?;
+
+    let f_dean = if let Some(r) = bend_radius_m {
+        let re = fluid_density_kg_m3 * mean_velocity_m_s * dh / dynamic_viscosity_pa_s;
+        let de = dean_number(re, dh, r);
+        dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m)
+    } else {
+        0.0
+    };
+
+    let net_force_n = f_lift - f_dean;
+    let stokes_coeff = 3.0 * std::f64::consts::PI * dynamic_viscosity_pa_s * cell.diameter_m;
+    Ok(net_force_n / stokes_coeff.max(1e-30))
 }
 
 // ── Equilibrium position solver ───────────────────────────────────────────────
@@ -472,6 +584,93 @@ pub fn lateral_equilibrium(
     })
 }
 
+/// Checked lateral equilibrium solver using explicit model-boundary validation.
+pub fn checked_lateral_equilibrium(
+    cell: &CellProperties,
+    fluid_density_kg_m3: f64,
+    dynamic_viscosity_pa_s: f64,
+    mean_velocity_m_s: f64,
+    channel_width_m: f64,
+    channel_height_m: f64,
+    bend_radius_m: Option<f64>,
+) -> Result<EquilibriumResult> {
+    let channel_width_m = validate_positive_finite("channel width", channel_width_m)?;
+    let channel_height_m = validate_positive_finite("channel height", channel_height_m)?;
+    let dynamic_viscosity_pa_s =
+        validate_positive_finite("dynamic viscosity", dynamic_viscosity_pa_s)?;
+    let fluid_density_kg_m3 = validate_positive_finite("fluid density", fluid_density_kg_m3)?;
+    if !mean_velocity_m_s.is_finite() || mean_velocity_m_s <= 0.0 {
+        return Err(Error::InvalidConfiguration(
+            "Margination mean velocity must be finite and positive".to_string(),
+        ));
+    }
+    if let Some(radius) = bend_radius_m {
+        validate_positive_finite("bend radius", radius)?;
+    }
+
+    let h = channel_height_m;
+    let w = channel_width_m;
+    let dh = 2.0 * w * h / (w + h);
+    let kappa = cell.confinement_ratio(dh);
+    let will_focus = kappa > 0.07;
+    let re = fluid_density_kg_m3 * mean_velocity_m_s * dh / dynamic_viscosity_pa_s;
+
+    let (de, f_dean) = if let Some(r) = bend_radius_m {
+        let de = dean_number(re, dh, r);
+        let fd = dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m);
+        (de, fd)
+    } else {
+        (0.0, 0.0)
+    };
+
+    let net_force = |x: f64| -> Result<f64> {
+        Ok(checked_inertial_lift_force_n(
+            x,
+            cell,
+            fluid_density_kg_m3,
+            mean_velocity_m_s,
+            h,
+        )? - f_dean)
+    };
+
+    let mut lo = 0.0_f64;
+    let mut hi = 0.95_f64;
+    let f_lo = net_force(lo)?;
+    let f_hi = net_force(hi)?;
+
+    let x_eq = if f_lo * f_hi > 0.0 {
+        if f_lo.abs() < f_hi.abs() { lo } else { hi }
+    } else {
+        let mut mid = 0.5 * (lo + hi);
+        let mut f_lo_mut = f_lo;
+        for _ in 0..60 {
+            mid = 0.5 * (lo + hi);
+            let f_mid = net_force(mid)?;
+            if f_mid.abs() < 1e-30 {
+                break;
+            }
+            if f_lo_mut * f_mid < 0.0 {
+                hi = mid;
+            } else {
+                lo = mid;
+                f_lo_mut = f_mid;
+            }
+        }
+        mid
+    };
+
+    let residual = net_force(x_eq)?;
+    Ok(EquilibriumResult {
+        x_tilde_eq: x_eq,
+        lateral_position_m: x_eq * (h / 2.0),
+        residual_force_n: residual,
+        dean_drag_n: f_dean,
+        reynolds_number: re,
+        dean_number: de,
+        will_focus,
+    })
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -534,5 +733,47 @@ mod tests {
             correction_neg > 0.0,
             "correction must be positive, got {correction_neg}"
         );
+    }
+
+    #[test]
+    fn test_checked_amini_rejects_negative_kappa() {
+        assert!(checked_amini_confinement_correction(-0.1).is_err());
+    }
+
+    #[test]
+    fn test_checked_inertial_lift_rejects_out_of_domain_position() {
+        let cell = CellProperties::mcf7_breast_cancer();
+        let err = checked_inertial_lift_force_n(0.99, &cell, 1_000.0, 0.05, 200e-6)
+            .expect_err("checked margination lift must reject x_tilde outside the fitted domain");
+        assert!(err.to_string().contains("x_tilde"));
+    }
+
+    #[test]
+    fn test_checked_lateral_equilibrium_rejects_nonphysical_geometry() {
+        let cell = CellProperties::mcf7_breast_cancer();
+        let err = checked_lateral_equilibrium(&cell, 1_000.0, 1.0e-3, 0.05, 100e-6, 0.0, None)
+            .expect_err("checked lateral equilibrium must reject zero channel height");
+        assert!(err.to_string().contains("channel height"));
+    }
+
+    #[test]
+    fn test_checked_lateral_equilibrium_matches_legacy_on_nominal_case() {
+        let cell = CellProperties::mcf7_breast_cancer();
+        let legacy = lateral_equilibrium(&cell, 1_000.0, 1.0e-3, 0.05, 200e-6, 100e-6, None)
+            .expect("legacy margination equilibrium should succeed");
+        let checked = checked_lateral_equilibrium(
+            &cell,
+            1_000.0,
+            1.0e-3,
+            0.05,
+            200e-6,
+            100e-6,
+            None,
+        )
+        .expect("checked margination equilibrium should succeed");
+
+        assert!((legacy.x_tilde_eq - checked.x_tilde_eq).abs() < 1e-12);
+        assert!((legacy.residual_force_n - checked.residual_force_n).abs() < 1e-18);
+        assert_eq!(legacy.will_focus, checked.will_focus);
     }
 }

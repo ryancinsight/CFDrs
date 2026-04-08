@@ -28,6 +28,8 @@ pub struct VenturiPlacementMetrics {
     pub cavitation_number: f64,
     pub effective_throat_velocity_m_s: f64,
     pub throat_static_pressure_pa: f64,
+    #[serde(default)]
+    pub upstream_pressure_pa: f64,
     pub diffuser_recovery_pa: f64,
     #[serde(default)]
     pub total_loss_coefficient: f64,
@@ -203,6 +205,8 @@ pub fn compute_blueprint_venturi_metrics(
                 cavitation_number: screening.cavitation_number,
                 effective_throat_velocity_m_s: screening.effective_throat_velocity_m_s,
                 throat_static_pressure_pa: screening.throat_static_pressure_pa,
+                upstream_pressure_pa: candidate.operating_point.absolute_inlet_pressure_pa()
+                    + sample.from_pressure_pa.max(0.0),
                 diffuser_recovery_pa: screening.diffuser_recovery_pa,
                 total_loss_coefficient: total_loss_pa / upstream_dynamic_pressure_pa,
                 dean_number: dean_site.dean_number,

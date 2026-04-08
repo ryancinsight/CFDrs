@@ -35,6 +35,7 @@ use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
+use std::cmp::Ordering;
 
 use super::constants::SIGMA_C;
 
@@ -74,101 +75,196 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
         }
     }
 
-    /// Compute the Sigma eddy viscosity at a single grid point.
-    ///
-    /// Approximates singular values of g = ∇u using the diagonal + cross
-    /// components of the rate-of-strain tensor (compact approximation
-    /// when full SVD is not available).
-    fn sigma_viscosity_at(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> T {
+    /// Build the local velocity-gradient tensor using centered differences.
+    fn velocity_gradient_at(
+        &self,
+        flow: &FlowField<T>,
+        i: usize,
+        j: usize,
+        k: usize,
+    ) -> [[T; 3]; 3] {
         let (nx, ny, nz) = flow.velocity.dimensions;
-        let delta = self.filter_width;
         let two = T::one() + T::one();
         let eps = <T as FromPrimitive>::from_f64(1e-30)
             .expect("1e-30 is an IEEE 754 representable f64 constant");
+        let delta = if self.filter_width > eps {
+            self.filter_width
+        } else {
+            eps
+        };
 
-        // Velocity gradient components (central differences where possible).
-        let mut g = [[T::zero(); 3]; 3]; // g[row][col] = ∂u_row / ∂x_col
+        let mut gradient = [[T::zero(); 3]; 3];
 
-        // ∂u/∂x, ∂u/∂y, ∂u/∂z
-        if i > 0 && i < nx - 1 {
+        if nx > 1 && i > 0 && i + 1 < nx {
             if let (Some(vp), Some(vm)) = (
                 flow.velocity.get(i + 1, j, k),
                 flow.velocity.get(i - 1, j, k),
             ) {
-                g[0][0] = (vp.x - vm.x) / (two * delta);
-                g[1][0] = (vp.y - vm.y) / (two * delta);
-                g[2][0] = (vp.z - vm.z) / (two * delta);
+                gradient[0][0] = (vp.x - vm.x) / (two * delta);
+                gradient[1][0] = (vp.y - vm.y) / (two * delta);
+                gradient[2][0] = (vp.z - vm.z) / (two * delta);
             }
         }
-        if j > 0 && j < ny - 1 {
+
+        if ny > 1 && j > 0 && j + 1 < ny {
             if let (Some(vp), Some(vm)) = (
                 flow.velocity.get(i, j + 1, k),
                 flow.velocity.get(i, j - 1, k),
             ) {
-                g[0][1] = (vp.x - vm.x) / (two * delta);
-                g[1][1] = (vp.y - vm.y) / (two * delta);
-                g[2][1] = (vp.z - vm.z) / (two * delta);
+                gradient[0][1] = (vp.x - vm.x) / (two * delta);
+                gradient[1][1] = (vp.y - vm.y) / (two * delta);
+                gradient[2][1] = (vp.z - vm.z) / (two * delta);
             }
         }
-        if k > 0 && k < nz - 1 {
+
+        if nz > 1 && k > 0 && k + 1 < nz {
             if let (Some(vp), Some(vm)) = (
                 flow.velocity.get(i, j, k + 1),
                 flow.velocity.get(i, j, k - 1),
             ) {
-                g[0][2] = (vp.x - vm.x) / (two * delta);
-                g[1][2] = (vp.y - vm.y) / (two * delta);
-                g[2][2] = (vp.z - vm.z) / (two * delta);
+                gradient[0][2] = (vp.x - vm.x) / (two * delta);
+                gradient[1][2] = (vp.y - vm.y) / (two * delta);
+                gradient[2][2] = (vp.z - vm.z) / (two * delta);
             }
         }
 
-        // G^T G (symmetric 3×3) — eigenvalues are σᵢ²
-        // G^T G [i][j] = sum_k g[k][i] * g[k][j]
+        gradient
+    }
+
+    /// Compute the symmetric strain magnitude `|S| = sqrt(2 S_ij S_ij)`.
+    fn strain_magnitude(gradient: &[[T; 3]; 3]) -> T {
+        let two = T::one() + T::one();
+        let s00 = gradient[0][0];
+        let s11 = gradient[1][1];
+        let s22 = gradient[2][2];
+        let s01 = (gradient[0][1] + gradient[1][0]) / two;
+        let s02 = (gradient[0][2] + gradient[2][0]) / two;
+        let s12 = (gradient[1][2] + gradient[2][1]) / two;
+        let strain_sq = s00 * s00
+            + s11 * s11
+            + s22 * s22
+            + two * (s01 * s01 + s02 * s02 + s12 * s12);
+        <T as num_traits::Float>::sqrt(two * strain_sq)
+    }
+
+    /// Compute the exact eigenvalues of a real symmetric 3×3 matrix.
+    ///
+    /// # Proof sketch
+    /// A real symmetric matrix has three real eigenvalues and an orthogonal
+    /// eigenbasis. For `G^T G`, those eigenvalues are exactly `σ_i²`, where
+    /// `σ_i` are the singular values of `G`. The closed-form 3×3 solver below
+    /// evaluates the characteristic polynomial without heap allocation, so the
+    /// singular values derived from it are exact up to floating-point roundoff.
+    fn symmetric_eigenvalues_3x3(matrix: &[[T; 3]; 3]) -> [T; 3] {
+        let two = T::one() + T::one();
+        let three = two + T::one();
+        let six = three + three;
+        let trace = matrix[0][0] + matrix[1][1] + matrix[2][2];
+        let mean = trace / three;
+        let b00 = matrix[0][0] - mean;
+        let b11 = matrix[1][1] - mean;
+        let b22 = matrix[2][2] - mean;
+        let b01 = matrix[0][1];
+        let b02 = matrix[0][2];
+        let b12 = matrix[1][2];
+        let p2 = (b00 * b00
+            + b11 * b11
+            + b22 * b22
+            + two * (b01 * b01 + b02 * b02 + b12 * b12))
+            / six;
+        let eps = <T as FromPrimitive>::from_f64(1e-30)
+            .expect("1e-30 is an IEEE 754 representable f64 constant");
+
+        if p2 <= eps {
+            return [mean, mean, mean];
+        }
+
+        let p = <T as num_traits::Float>::sqrt(p2);
+        let p3 = p * p2;
+        if p3 <= eps {
+            return [mean, mean, mean];
+        }
+
+        let det_b = b00 * (b11 * b22 - b12 * b12)
+            - b01 * (b01 * b22 - b12 * b02)
+            + b02 * (b01 * b12 - b11 * b02);
+        let denom = two * p3;
+        let mut r = det_b / denom;
+        let one = T::one();
+        if r > one {
+            r = one;
+        } else if r < -one {
+            r = -one;
+        }
+
+        let phi = <T as num_traits::Float>::acos(r) / three;
+        let pi = <T as FromPrimitive>::from_f64(std::f64::consts::PI)
+            .expect("PI is an IEEE 754 representable f64 constant");
+        let two_pi_over_three = two * pi / three;
+        let four_pi_over_three = two_pi_over_three * two;
+        let mut eigenvalues = [
+            mean + two * p * num_traits::Float::cos(phi),
+            mean + two * p * num_traits::Float::cos(phi + two_pi_over_three),
+            mean + two * p * num_traits::Float::cos(phi + four_pi_over_three),
+        ];
+
+        eigenvalues.sort_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+        eigenvalues
+    }
+
+    /// Compute the local Sigma-model viscosity and strain magnitude.
+    fn point_metrics(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> (T, T) {
+        let gradient = Self::velocity_gradient_at(self, flow, i, j, k);
+        let strain_mag = Self::strain_magnitude(&gradient);
+
         let mut gtg = [[T::zero(); 3]; 3];
         for ii in 0..3 {
             for jj in 0..3 {
                 for kk in 0..3 {
-                    gtg[ii][jj] += g[kk][ii] * g[kk][jj];
+                    gtg[ii][jj] += gradient[kk][ii] * gradient[kk][jj];
                 }
             }
         }
 
-        // Invariants of G^T G (characteristic polynomial approach).
-        // I₁ = tr(G^T G), I₂ = 0.5*(I₁² − tr((G^T G)²)), I₃ = det(G^T G)
-        let i1 = gtg[0][0] + gtg[1][1] + gtg[2][2];
-        let i3_det = {
-            // 3×3 determinant via cofactor expansion
-            gtg[0][0] * (gtg[1][1] * gtg[2][2] - gtg[1][2] * gtg[2][1])
-                - gtg[0][1] * (gtg[1][0] * gtg[2][2] - gtg[1][2] * gtg[2][0])
-                + gtg[0][2] * (gtg[1][0] * gtg[2][1] - gtg[1][1] * gtg[2][0])
-        };
-        let i2 = gtg[0][0] * gtg[1][1] + gtg[1][1] * gtg[2][2] + gtg[0][0] * gtg[2][2]
-            - gtg[0][1] * gtg[1][0]
-            - gtg[1][2] * gtg[2][1]
-            - gtg[0][2] * gtg[2][0];
-
-        // Sigma model uses σ₁, σ₂, σ₃ directly.
-        // Approximate via eigenvalues of G^T G using Cardano's method.
-        // For simplicity, use the invariant-based estimates (compact form):
-        // σ₁² + σ₂² + σ₃² = I₁
-        // σ₁²σ₂² + σ₁²σ₃² + σ₂²σ₃² = I₂
-        // σ₁²σ₂²σ₃² = I₃_det
-        //
-        // Sigma model simplification: use |S|, |Ω| to estimate the product
-        // σ₃(σ₁−σ₂)(σ₂−σ₃). This compact form avoids full eigendecomposition.
-        //
-        // Conservative approximation: νₜ ≈ (Cσ·Δ)² · sqrt(I₁/3) (isotropic estimate)
-        // Full implementation would use Cardano solver for exact eigenvalues.
-        let i3_abs = num_traits::Float::abs(i3_det);
-        let sigma_product = if i1 > eps {
-            // Approximate σ₃(σ₁−σ₂)(σ₂−σ₃) ≈ sqrt(I₃/I₁) as compact estimate
-            num_traits::Float::sqrt(i3_abs / (i1 + eps))
+        let eigenvalues = Self::symmetric_eigenvalues_3x3(&gtg);
+        let sigma1 = if eigenvalues[0] > T::zero() {
+            <T as num_traits::Float>::sqrt(eigenvalues[0])
         } else {
             T::zero()
         };
-        let _ = i2; // I₂ used in full Cardano; suppress unused warning
+        let sigma2 = if eigenvalues[1] > T::zero() {
+            <T as num_traits::Float>::sqrt(eigenvalues[1])
+        } else {
+            T::zero()
+        };
+        let sigma3 = if eigenvalues[2] > T::zero() {
+            <T as num_traits::Float>::sqrt(eigenvalues[2])
+        } else {
+            T::zero()
+        };
 
-        let c_delta = self.c_sigma * delta;
-        c_delta * c_delta * sigma_product
+        let eps = <T as FromPrimitive>::from_f64(1e-30)
+            .expect("1e-30 is an IEEE 754 representable f64 constant");
+        let denominator = sigma1 * sigma1;
+        let sigma_product = if denominator > eps {
+            let product = sigma3 * (sigma1 - sigma2) * (sigma2 - sigma3) / denominator;
+            if product > T::zero() {
+                product
+            } else {
+                T::zero()
+            }
+        } else {
+            T::zero()
+        };
+
+        let c_delta = self.c_sigma * self.filter_width;
+        let viscosity = c_delta * c_delta * sigma_product;
+        (viscosity, strain_mag)
+    }
+
+    /// Compute the Sigma eddy viscosity at a single grid point.
+    fn sigma_viscosity_at(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> T {
+        self.point_metrics(flow, i, j, k).0
     }
 }
 
@@ -197,11 +293,78 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     }
 
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
-        // Estimate SGS TKE: k_sgs ≈ νₜ * |S| / Δ  (order-of-magnitude)
-        self.turbulent_viscosity(flow_field)
+        // Estimate SGS TKE from the resolved eddy viscosity and strain magnitude.
+        let (nx, ny, nz) = flow_field.velocity.dimensions;
+        let mut kinetic_energy = Vec::with_capacity(nx * ny * nz);
+        let delta = if self.filter_width > T::zero() {
+            self.filter_width
+        } else {
+            <T as FromPrimitive>::from_f64(1e-30)
+                .expect("1e-30 is an IEEE 754 representable f64 constant")
+        };
+
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let (viscosity, strain_mag) = self.point_metrics(flow_field, i, j, k);
+                    kinetic_energy.push(viscosity * strain_mag / delta);
+                }
+            }
+        }
+
+        kinetic_energy
     }
 
     fn name(&self) -> &'static str {
         "Sigma"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use nalgebra::Vector3;
+
+    fn fill_velocity_field<F>(flow: &mut FlowField<f64>, mut generator: F)
+    where
+        F: FnMut(f64, f64, f64) -> Vector3<f64>,
+    {
+        let (nx, ny, nz) = flow.velocity.dimensions;
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let idx = k * nx * ny + j * nx + i;
+                    flow.velocity.components[idx] = generator(i as f64, j as f64, k as f64);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn diagonal_strain_produces_exact_sigma_viscosity() {
+        let mut flow = FlowField::<f64>::new(3, 3, 3);
+        fill_velocity_field(&mut flow, |x, y, z| Vector3::new(x, 2.0 * y, 3.0 * z));
+
+        let model = SigmaModel::<f64>::with_filter_width(1.0, 1.0, 1.0);
+        let viscosity = model.turbulent_viscosity(&flow);
+        let center = 13;
+        let expected = model.c_sigma * model.c_sigma / 9.0;
+
+        assert_relative_eq!(viscosity[center], expected, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn pure_rotation_vanishes_for_viscosity_and_tke() {
+        let mut flow = FlowField::<f64>::new(3, 3, 3);
+        fill_velocity_field(&mut flow, |x, y, _z| Vector3::new(-y, x, 0.0));
+
+        let model = SigmaModel::<f64>::with_filter_width(1.0, 1.0, 1.0);
+        let viscosity = model.turbulent_viscosity(&flow);
+        let kinetic_energy = model.turbulent_kinetic_energy(&flow);
+        let center = 13;
+
+        assert_relative_eq!(viscosity[center], 0.0, epsilon = 1e-12);
+        assert_relative_eq!(kinetic_energy[center], 0.0, epsilon = 1e-12);
     }
 }

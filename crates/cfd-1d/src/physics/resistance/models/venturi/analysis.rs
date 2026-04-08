@@ -2,6 +2,26 @@
 //!
 //! Provides the [`VenturiAnalysis`] result struct with comprehensive
 //! breakdown of contraction, friction, expansion, and recovery contributions.
+//!
+//! # Theorem - Venturi Pressure-Decomposition Identity
+//!
+//! For a fixed venturi geometry and admissible inlet kinematics, the detailed
+//! analysis satisfies
+//!
+//! ```text
+//! ΔP_total = ΔP_contraction + ΔP_friction + ΔP_expansion_loss - ΔP_recovery
+//! ```
+//!
+//! with $ΔP_contraction$ from the Bernoulli acceleration corrected by the
+//! discharge coefficient, $ΔP_friction$ from Darcy-Weisbach throat losses,
+//! $ΔP_expansion_loss$ from the diffuser loss coefficient, and $ΔP_recovery$
+//! from the Reynolds-corrected diffuser recovery efficiency.
+//!
+//! **Proof sketch**: the implementation evaluates each contribution from the
+//! same inlet, throat, and outlet velocities implied by continuity. The net
+//! pressure drop is then formed by direct superposition of irreversible losses
+//! and reversible recovery, so any equivalent specification of the inlet state
+//! through either velocity or flow rate must produce the same decomposition.
 
 use super::model::VenturiModel;
 use super::traits::FlowConditions;
@@ -92,13 +112,18 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
         let c_d = self.effective_discharge_coefficient(re_inlet);
         let f = self.throat_friction_factor(re_throat);
         let k_exp = T::from_f64(self.expansion_type.loss_coefficient()).unwrap_or_else(T::one);
-        let eta_r = T::from_f64(self.expansion_type.recovery_efficiency()).unwrap_or_else(T::one);
+        let eta_r = self.effective_recovery_efficiency(re_throat);
 
         // ΔP_contraction = ½ρV_t²(1 − β⁴) / C_d²  where β⁴ = (A_t/A_i)² = beta_sq·beta_sq
         let dp_contraction =
             half * density * v_throat * v_throat * (one - beta_sq * beta_sq) / (c_d * c_d);
-        let dp_friction =
-            f * (self.throat_length / self.throat_diameter) * half * density * v_throat * v_throat;
+        let dp_friction = Self::throat_friction_pressure_drop(
+            f,
+            density,
+            self.throat_length,
+            self.throat_diameter,
+            v_throat,
+        );
         let dv = v_throat - v_outlet;
         let dp_expansion_loss = k_exp * half * density * dv * dv;
         let dp_recovery = eta_r * half * density * (v_throat * v_throat - v_outlet * v_outlet);
@@ -118,5 +143,75 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
             expansion_loss_coefficient: k_exp,
             friction_factor: f,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use cfd_core::physics::fluid::database::water_20c;
+    use proptest::prelude::*;
+
+    #[test]
+    fn analyze_rejects_missing_velocity_and_flow_rate() -> cfd_core::error::Result<()> {
+        let model = VenturiModel::symmetric(0.01_f64, 0.005, 0.01, 0.05);
+        let fluid = water_20c::<f64>()?;
+        let mut conditions = FlowConditions::new(0.1);
+        conditions.velocity = None;
+        conditions.flow_rate = None;
+
+        assert!(model.analyze(&fluid, &conditions).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn analyze_pressure_drop_matches_reported_components() -> cfd_core::error::Result<()> {
+        let model = VenturiModel::symmetric(0.01_f64, 0.005, 0.01, 0.05);
+        let fluid = water_20c::<f64>()?;
+        let conditions = FlowConditions::new(0.2);
+
+        let analysis = model.analyze(&fluid, &conditions)?;
+        let expected_total = analysis.dp_contraction
+            + analysis.dp_friction
+            + analysis.dp_expansion_loss
+            - analysis.dp_recovery;
+
+        assert_relative_eq!(analysis.dp_total, expected_total, epsilon = expected_total.abs().max(1.0) * 1e-12);
+        Ok(())
+    }
+
+    proptest! {
+        #[test]
+        fn analyze_is_invariant_under_equivalent_velocity_and_flow_rate(
+            inlet_velocity_m_s in 1.0e-4_f64..2.0,
+        ) {
+            let model = VenturiModel::symmetric(0.01_f64, 0.005, 0.01, 0.05);
+            let fluid = water_20c::<f64>().expect("water properties should load");
+
+            let velocity_conditions = FlowConditions::new(inlet_velocity_m_s);
+            let flow_rate_conditions =
+                FlowConditions::from_flow_rate(inlet_velocity_m_s * model.inlet_area());
+
+            let velocity_analysis = model
+                .analyze(&fluid, &velocity_conditions)
+                .expect("velocity-driven venturi analysis should succeed");
+            let flow_rate_analysis = model
+                .analyze(&fluid, &flow_rate_conditions)
+                .expect("flow-rate-driven venturi analysis should succeed");
+
+            assert_relative_eq!(velocity_analysis.throat_velocity, flow_rate_analysis.throat_velocity, epsilon = velocity_analysis.throat_velocity.abs().max(1.0) * 1e-12);
+            assert_relative_eq!(velocity_analysis.throat_reynolds, flow_rate_analysis.throat_reynolds, epsilon = velocity_analysis.throat_reynolds.abs().max(1.0) * 1e-12);
+            assert_relative_eq!(velocity_analysis.throat_shear_rate, flow_rate_analysis.throat_shear_rate, epsilon = velocity_analysis.throat_shear_rate.abs().max(1.0) * 1e-12);
+            assert_relative_eq!(velocity_analysis.throat_viscosity, flow_rate_analysis.throat_viscosity, epsilon = velocity_analysis.throat_viscosity.abs().max(1.0) * 1e-12);
+            assert_relative_eq!(velocity_analysis.dp_contraction, flow_rate_analysis.dp_contraction, epsilon = velocity_analysis.dp_contraction.abs().max(1.0) * 1e-12);
+            assert_relative_eq!(velocity_analysis.dp_friction, flow_rate_analysis.dp_friction, epsilon = velocity_analysis.dp_friction.abs().max(1.0) * 1e-12);
+            assert_relative_eq!(velocity_analysis.dp_expansion_loss, flow_rate_analysis.dp_expansion_loss, epsilon = velocity_analysis.dp_expansion_loss.abs().max(1.0) * 1e-12);
+            assert_relative_eq!(velocity_analysis.dp_recovery, flow_rate_analysis.dp_recovery, epsilon = velocity_analysis.dp_recovery.abs().max(1.0) * 1e-12);
+            assert_relative_eq!(velocity_analysis.dp_total, flow_rate_analysis.dp_total, epsilon = velocity_analysis.dp_total.abs().max(1.0) * 1e-12);
+            assert_relative_eq!(velocity_analysis.discharge_coefficient, flow_rate_analysis.discharge_coefficient, epsilon = velocity_analysis.discharge_coefficient.abs().max(1.0) * 1e-12);
+            assert_relative_eq!(velocity_analysis.expansion_loss_coefficient, flow_rate_analysis.expansion_loss_coefficient, epsilon = velocity_analysis.expansion_loss_coefficient.abs().max(1.0) * 1e-12);
+            assert_relative_eq!(velocity_analysis.friction_factor, flow_rate_analysis.friction_factor, epsilon = velocity_analysis.friction_factor.abs().max(1.0) * 1e-12);
+        }
     }
 }

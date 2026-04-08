@@ -22,6 +22,10 @@ fn total_loss_coefficient(dp_pa: f64, inlet_velocity_m_s: f64) -> f64 {
     }
 }
 
+fn sanitize_report_scalar(value: f64) -> f64 {
+    if value.is_finite() { value } else { 0.0 }
+}
+
 fn validation_row_from_result(
     track: &str,
     id: &str,
@@ -36,18 +40,18 @@ fn validation_row_from_result(
         track: track.to_string(),
         id: id.to_string(),
         topology: topology.to_string(),
-        k_loss_1d: total_loss_coefficient(result.dp_1d_pa, inlet_velocity_m_s),
-        dp_1d_bernoulli_pa: result.dp_1d_pa,
-        k_loss_2d: total_loss_coefficient(result.dp_2d_pa, inlet_velocity_m_s),
-        dp_2d_fvm_pa: result.dp_2d_pa,
-        k_loss_3d: total_loss_coefficient(result.dp_3d_pa, inlet_velocity_m_s),
-        dp_3d_fem_pa: result.dp_3d_pa,
-        agreement_1d_2d_pct: result.diff_1d_2d_pct,
-        agreement_2d_3d_pct: result.diff_2d_3d_pct,
-        mass_error_3d_pct: result.mass_error_3d_pct,
-        sigma_1d,
-        sigma_2d: result.sigma_2d,
-        score,
+        k_loss_1d: sanitize_report_scalar(total_loss_coefficient(result.dp_1d_pa, inlet_velocity_m_s)),
+        dp_1d_bernoulli_pa: sanitize_report_scalar(result.dp_1d_pa),
+        k_loss_2d: sanitize_report_scalar(total_loss_coefficient(result.dp_2d_pa, inlet_velocity_m_s)),
+        dp_2d_fvm_pa: sanitize_report_scalar(result.dp_2d_pa),
+        k_loss_3d: sanitize_report_scalar(total_loss_coefficient(result.dp_3d_pa, inlet_velocity_m_s)),
+        dp_3d_fem_pa: sanitize_report_scalar(result.dp_3d_pa),
+        agreement_1d_2d_pct: sanitize_report_scalar(result.diff_1d_2d_pct),
+        agreement_2d_3d_pct: sanitize_report_scalar(result.diff_2d_3d_pct),
+        mass_error_3d_pct: sanitize_report_scalar(result.mass_error_3d_pct),
+        sigma_1d: sanitize_report_scalar(sigma_1d),
+        sigma_2d: sanitize_report_scalar(result.sigma_2d),
+        score: sanitize_report_scalar(score),
         two_d_converged: result.two_d_converged,
         high_re_laminar_mismatch: result.high_re_laminar_mismatch,
     }

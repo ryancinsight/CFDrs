@@ -9,6 +9,25 @@
 //!
 //! where β = D₂/D₁ is the diameter ratio.
 //!
+//! **Proof sketch**: continuity gives $V_2 = V_1 / \beta^2$ for incompressible
+//! flow, and Bernoulli between the upstream section and the throat gives the
+//! ideal acceleration pressure drop $\frac{1}{2}\rho V_2^2 (1 - \beta^4)$. The
+//! discharge coefficient $C_d$ accounts for contraction losses and viscous
+//! non-idealities, yielding the corrected denominator $C_d^2$ used by the
+//! reduced-order resistance model.
+//!
+//! ## Theorem - Diffuser Loss Monotonicity
+//!
+//! For the calibrated gradual-expansion map in this module, the diffuser loss
+//! coefficient $K_{exp}(\theta)$ is monotone nondecreasing with half-angle
+//! $\theta$, and the idealized recovery efficiency $\eta_r = 1 - K_{exp}$ is
+//! therefore monotone nonincreasing.
+//!
+//! **Proof sketch**: the implementation is a piecewise-constant calibration
+//! table ordered by increasing angle bands. Each successive band assigns an
+//! equal or larger loss coefficient than the previous band, so $K_{exp}$ cannot
+//! decrease as the diffuser becomes more abrupt.
+//!
 //! ## Module structure
 //!
 //! | Module | Contents |
@@ -130,7 +149,54 @@ pub use model::VenturiModel;
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use proptest::prelude::*;
     use traits::{FlowConditions, ResistanceModel};
+
+    proptest! {
+        #[test]
+        fn gradual_expansion_loss_is_monotone_nondecreasing(
+            small_half_angle_deg in 0.0_f64..89.0,
+            large_half_angle_deg in 0.0_f64..89.0,
+        ) {
+            prop_assume!(small_half_angle_deg <= large_half_angle_deg);
+
+            let small = ExpansionType::Gradual {
+                half_angle_deg: small_half_angle_deg,
+            }
+            .loss_coefficient();
+            let large = ExpansionType::Gradual {
+                half_angle_deg: large_half_angle_deg,
+            }
+            .loss_coefficient();
+
+            prop_assert!(small <= large);
+            prop_assert!((0.10..=1.0).contains(&small));
+            prop_assert!((0.10..=1.0).contains(&large));
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn gradual_expansion_recovery_is_monotone_nonincreasing(
+            small_half_angle_deg in 0.0_f64..89.0,
+            large_half_angle_deg in 0.0_f64..89.0,
+        ) {
+            prop_assume!(small_half_angle_deg <= large_half_angle_deg);
+
+            let small = ExpansionType::Gradual {
+                half_angle_deg: small_half_angle_deg,
+            }
+            .recovery_efficiency();
+            let large = ExpansionType::Gradual {
+                half_angle_deg: large_half_angle_deg,
+            }
+            .recovery_efficiency();
+
+            prop_assert!(small >= large);
+            prop_assert!((0.0..=0.90).contains(&small));
+            prop_assert!((0.0..=0.90).contains(&large));
+        }
+    }
 
     #[test]
     fn test_venturi_bernoulli_limit() -> cfd_core::error::Result<()> {
@@ -220,6 +286,24 @@ mod tests {
         let f_turb = model.throat_friction_factor(10000.0);
         let expected = 0.3164 / 10000.0_f64.powf(0.25);
         assert_relative_eq!(f_turb, expected, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_venturi_recovery_reynolds_correction() {
+        let model = VenturiModel::<f64>::symmetric(0.01, 0.005, 0.01, 0.05)
+            .with_expansion(ExpansionType::Gradual { half_angle_deg: 7.0 });
+
+        assert_relative_eq!(
+            VenturiModel::<f64>::diffuser_recovery_reynolds_correction(5000.0),
+            1.0,
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            VenturiModel::<f64>::diffuser_recovery_reynolds_correction(200.0),
+            0.6,
+            epsilon = 1e-12
+        );
+        assert!(model.effective_recovery_efficiency(150.0) < model.effective_recovery_efficiency(5000.0));
     }
 
     #[test]

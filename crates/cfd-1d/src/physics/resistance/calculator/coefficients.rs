@@ -47,8 +47,6 @@ where
             height,
             length,
         } => {
-            let area = *width * *height;
-            let dh = (T::one() + T::one()) * *width * *height / (*width + *height);
             let rect = RectangularChannelModel {
                 width: *width,
                 height: *height,
@@ -58,11 +56,7 @@ where
                 return rect.calculate_coefficients(fluid, &local_conditions);
             }
 
-            // Reduced-order 1D fallback for rectangular ducts outside the strict
-            // Shah-London laminar range: use hydraulic-diameter-based
-            // Darcy-Weisbach coefficients instead of rejecting the solve.
-            DarcyWeisbachModel::new(dh, area, *length, T::zero())
-                .calculate_coefficients(fluid, &local_conditions)
+            Err(super::rectangular_auto_selection_error(&local_conditions))
         }
         _ => Err(Error::InvalidConfiguration(
             "No resistance model available for this geometry type; use Circular or Rectangular"

@@ -58,8 +58,11 @@
 //! - Gossett, D. R. & Di Carlo, D. (2009). *Anal. Chem.*, 81, 8459–8465.
 //! - Hur, S. C. et al. (2011). *Lab Chip*, 11, 912–920.
 
-use crate::physics::cell_separation::margination::{lateral_equilibrium, lateral_velocity_m_s, EquilibriumResult};
+use crate::physics::cell_separation::margination::{
+    checked_lateral_equilibrium, checked_lateral_velocity_m_s, EquilibriumResult,
+};
 use crate::physics::cell_separation::properties::CellProperties;
+use cfd_core::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 // ── Analysis result ───────────────────────────────────────────────────────────
@@ -148,6 +151,81 @@ pub struct CellSeparationModel {
 }
 
 impl CellSeparationModel {
+    fn compatibility_split(&self) -> f64 {
+        self.x_tilde_split.clamp(0.05, 0.95)
+    }
+
+    fn dispersed_equilibrium() -> EquilibriumResult {
+        EquilibriumResult {
+            x_tilde_eq: 0.5,
+            lateral_position_m: 0.0,
+            residual_force_n: 0.0,
+            dean_drag_n: 0.0,
+            reynolds_number: 0.0,
+            dean_number: 0.0,
+            will_focus: false,
+        }
+    }
+
+    fn dispersed_analysis(&self) -> CellSeparationAnalysis {
+        let split = self.compatibility_split();
+        let target_eq = Self::dispersed_equilibrium();
+        let background_eq = Self::dispersed_equilibrium();
+        let target_center = if target_eq.x_tilde_eq < split {
+            (1.0 - target_eq.x_tilde_eq / split).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let background_peripheral = if background_eq.x_tilde_eq > split {
+            ((background_eq.x_tilde_eq - split) / (1.0 - split)).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+
+        CellSeparationAnalysis {
+            target_equilibrium: target_eq,
+            background_equilibrium: background_eq,
+            separation_efficiency: 0.0,
+            target_center_fraction: target_center,
+            background_peripheral_fraction: background_peripheral,
+            purity: 0.0,
+            x_tilde_split: split,
+        }
+    }
+
+    fn validate_configuration(&self) -> Result<()> {
+        for (name, value) in [
+            ("channel width", self.channel_width_m),
+            ("channel height", self.channel_height_m),
+            ("channel length", self.channel_length_m),
+            ("x_tilde_split", self.x_tilde_split),
+        ] {
+            if !value.is_finite() {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Cell separation {name} must be finite"
+                )));
+            }
+        }
+        if self.channel_width_m <= 0.0 || self.channel_height_m <= 0.0 || self.channel_length_m <= 0.0 {
+            return Err(Error::InvalidConfiguration(
+                "Cell separation channel dimensions must be positive".to_string(),
+            ));
+        }
+        if !(0.0..1.0).contains(&self.x_tilde_split) {
+            return Err(Error::InvalidConfiguration(
+                "Cell separation split position must lie in (0, 1)".to_string(),
+            ));
+        }
+        if let Some(radius) = self.bend_radius_m {
+            if !radius.is_finite() || radius <= 0.0 {
+                return Err(Error::InvalidConfiguration(
+                    "Cell separation bend radius must be finite and positive".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// Construct a new model for a rectangular channel.
     ///
     /// # Arguments
@@ -209,17 +287,30 @@ impl CellSeparationModel {
         dynamic_viscosity_pa_s: f64,
         mean_velocity_m_s: f64,
     ) -> Option<CellSeparationAnalysis> {
-        let make_dispersed = || EquilibriumResult {
-            x_tilde_eq: 0.5,
-            lateral_position_m: 0.0,
-            residual_force_n: 0.0,
-            dean_drag_n: 0.0,
-            reynolds_number: 0.0, // not computed if skipped, or could duplicate
-            dean_number: 0.0,
-            will_focus: false,
-        };
+        Some(
+            self.analyze_checked(
+                target,
+                background,
+                fluid_density_kg_m3,
+                dynamic_viscosity_pa_s,
+                mean_velocity_m_s,
+            )
+            .unwrap_or_else(|_| self.dispersed_analysis()),
+        )
+    }
 
-        let mut target_eq = lateral_equilibrium(
+    /// Checked analysis that rejects invalid geometry and operating conditions.
+    pub fn analyze_checked(
+        &self,
+        target: &CellProperties,
+        background: &CellProperties,
+        fluid_density_kg_m3: f64,
+        dynamic_viscosity_pa_s: f64,
+        mean_velocity_m_s: f64,
+    ) -> Result<CellSeparationAnalysis> {
+        self.validate_configuration()?;
+
+        let mut target_eq = checked_lateral_equilibrium(
             target,
             fluid_density_kg_m3,
             dynamic_viscosity_pa_s,
@@ -227,10 +318,9 @@ impl CellSeparationModel {
             self.channel_width_m,
             self.channel_height_m,
             self.bend_radius_m,
-        )
-        .unwrap_or_else(make_dispersed);
+        )?;
 
-        let mut background_eq = lateral_equilibrium(
+        let mut background_eq = checked_lateral_equilibrium(
             background,
             fluid_density_kg_m3,
             dynamic_viscosity_pa_s,
@@ -238,15 +328,14 @@ impl CellSeparationModel {
             self.channel_width_m,
             self.channel_height_m,
             self.bend_radius_m,
-        )
-        .unwrap_or_else(make_dispersed);
+        )?;
 
         // RK4 Transient Integration
         // Compute the actual geometric focusing over the physically bounded residence time.
         // dx/dt = - v_drift / (H/2)   (where positive v_drift points toward center reducing x_tilde).
-        let integrate_trajectory = |cell: &CellProperties, x_tilde_limit: f64| -> f64 {
+        let integrate_trajectory = |cell: &CellProperties, x_tilde_limit: f64| -> Result<f64> {
             if mean_velocity_m_s <= 1e-12 || self.channel_length_m <= 1e-12 {
-                return 0.5;
+                return Ok(0.5);
             }
             let t_transit = self.channel_length_m / mean_velocity_m_s;
             let n_steps = 100;
@@ -260,30 +349,38 @@ impl CellSeparationModel {
                     break;
                 }
                 
-                let dxdt = |pos: f64| -> f64 {
-                    let v = lateral_velocity_m_s(
-                        pos, cell, fluid_density_kg_m3, dynamic_viscosity_pa_s, mean_velocity_m_s,
-                        self.channel_width_m, self.channel_height_m, self.bend_radius_m
-                    );
-                    -v / length_scale
+                let dxdt = |pos: f64| -> Result<f64> {
+                    let v = checked_lateral_velocity_m_s(
+                        pos.clamp(0.0, 0.95),
+                        cell,
+                        fluid_density_kg_m3,
+                        dynamic_viscosity_pa_s,
+                        mean_velocity_m_s,
+                        self.channel_width_m,
+                        self.channel_height_m,
+                        self.bend_radius_m,
+                    )?;
+                    Ok(-v / length_scale)
                 };
 
-                let k1 = dxdt(x);
-                let k2 = dxdt(x + 0.5 * dt * k1);
-                let k3 = dxdt(x + 0.5 * dt * k2);
-                let k4 = dxdt(x + dt * k3);
+                let k1 = dxdt(x)?;
+                let k2 = dxdt(x + 0.5 * dt * k1)?;
+                let k3 = dxdt(x + 0.5 * dt * k2)?;
+                let k4 = dxdt(x + dt * k3)?;
                 
                 x += (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
                 x = x.clamp(0.0, 0.95);
             }
-            x
+            Ok(x)
         };
 
         if target_eq.will_focus {
-            target_eq.x_tilde_eq = integrate_trajectory(target, target_eq.x_tilde_eq);
+            target_eq.x_tilde_eq = integrate_trajectory(target, target_eq.x_tilde_eq)?;
+            target_eq.lateral_position_m = target_eq.x_tilde_eq * (self.channel_height_m * 0.5);
         }
         if background_eq.will_focus {
-            background_eq.x_tilde_eq = integrate_trajectory(background, background_eq.x_tilde_eq);
+            background_eq.x_tilde_eq = integrate_trajectory(background, background_eq.x_tilde_eq)?;
+            background_eq.lateral_position_m = background_eq.x_tilde_eq * (self.channel_height_m * 0.5);
         }
 
         // Separation efficiency: |x̃_target − x̃_background|.
@@ -316,7 +413,7 @@ impl CellSeparationModel {
         // Purity: geometric mean of target center and background peripheral fractions
         let purity = (target_center * background_peripheral).sqrt();
 
-        Some(CellSeparationAnalysis {
+        Ok(CellSeparationAnalysis {
             target_equilibrium: target_eq,
             background_equilibrium: background_eq,
             separation_efficiency: sep_eff,
@@ -325,5 +422,39 @@ impl CellSeparationModel {
             purity,
             x_tilde_split: split,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn analyze_checked_rejects_nonphysical_geometry() {
+        let model = CellSeparationModel::new(500e-6, 0.0, 0.01, None);
+        let cancer = CellProperties::mcf7_breast_cancer();
+        let rbc = CellProperties::red_blood_cell();
+
+        let err = model
+            .analyze_checked(&cancer, &rbc, 1060.0, 3.5e-3, 0.05)
+            .expect_err("checked analysis must reject zero channel height");
+        assert!(err.to_string().contains("dimensions"));
+    }
+
+    #[test]
+    fn analyze_checked_matches_legacy_nominal_case() {
+        let model = CellSeparationModel::new(500e-6, 100e-6, 0.01, None).with_split(0.35);
+        let cancer = CellProperties::mcf7_breast_cancer();
+        let rbc = CellProperties::red_blood_cell();
+
+        let legacy = model
+            .analyze(&cancer, &rbc, 1060.0, 3.5e-3, 1e-6 / 60.0 / (500e-6 * 100e-6))
+            .expect("legacy analysis should succeed");
+        let checked = model
+            .analyze_checked(&cancer, &rbc, 1060.0, 3.5e-3, 1e-6 / 60.0 / (500e-6 * 100e-6))
+            .expect("checked analysis should succeed");
+
+        assert!((legacy.separation_efficiency - checked.separation_efficiency).abs() < 1e-12);
+        assert!((legacy.purity - checked.purity).abs() < 1e-12);
     }
 }

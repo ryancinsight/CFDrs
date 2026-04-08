@@ -11,8 +11,11 @@
 
 use cfd_1d::{
     cascade_junction_separation, cascade_junction_separation_from_qfracs,
-    fahraeus_lindqvist_viscosity, incremental_filtration_separation_staged,
-    plasma_skimming_hematocrit, quemada_viscosity, three_population_equilibria,
+    cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs_cross_junction,
+    fahraeus_lindqvist_viscosity, incremental_filtration_separation_cross_junction,
+    incremental_filtration_separation_from_qfracs, plasma_skimming_hematocrit,
+    quemada_viscosity, three_population_equilibria,
+    treatment_bifurcation_separation, tri_center_q_frac_cross_junction,
 };
 
 // ── Physical constants ──────────────────────────────────────────────────
@@ -43,14 +46,9 @@ const BLOOD_VISCOSITY: f64 = 3.5e-3; // Pa·s
 /// effect.
 #[test]
 fn test_1_layer_bifurcation_cancer_enrichment() {
-    // Use incremental_filtration_separation_staged with n_pretri=0 and
-    // terminal_bi_treat_frac=0.6 to model a single biased bifurcation.
-    let r = incremental_filtration_separation_staged(
-        0,    // n_pretri (no trifurcation pre-stages)
-        0.33, // pretri_center_frac (unused with n_pretri=0)
-        0.33, // terminal_tri_frac
-        0.6,  // terminal_bi_treat_frac (biased toward treatment)
-    );
+    // Use the dedicated two-arm routing helper so this test exercises a pure
+    // treatment-biased bifurcation instead of staged CIF fallback.
+    let r = treatment_bifurcation_separation(0.6);
 
     // Cancer should be enriched at the treatment arm
     assert!(
@@ -329,11 +327,14 @@ fn test_plasma_skimming_reduces_hematocrit_in_smaller_daughters() {
     let d_parent = 100.0; // µm
 
     // Small daughter (30 µm, gets 20% of flow)
-    let ht_small = plasma_skimming_hematocrit(HT_NORMAL, 0.2, 30.0, d_parent);
+    let ht_small = plasma_skimming_hematocrit(HT_NORMAL, 0.2, 30.0, d_parent)
+        .expect("small daughter: valid plasma skimming parameters");
     // Medium daughter (60 µm, gets 40% of flow)
-    let ht_medium = plasma_skimming_hematocrit(HT_NORMAL, 0.4, 60.0, d_parent);
+    let ht_medium = plasma_skimming_hematocrit(HT_NORMAL, 0.4, 60.0, d_parent)
+        .expect("medium daughter: valid plasma skimming parameters");
     // Large daughter (90 µm, gets 60% of flow)
-    let ht_large = plasma_skimming_hematocrit(HT_NORMAL, 0.6, 90.0, d_parent);
+    let ht_large = plasma_skimming_hematocrit(HT_NORMAL, 0.6, 90.0, d_parent)
+        .expect("large daughter: valid plasma skimming parameters");
 
     // Smaller daughters should receive lower hematocrit
     assert!(
@@ -435,32 +436,51 @@ fn test_amini_correction_amplifies_focusing_in_narrow_channels() {
 /// Test 15: The staged incremental filtration API and the explicit q_fracs
 /// API should produce identical results when given equivalent parameters.
 ///
-/// We use `cif_pretri_stage_q_fracs` to extract the exact q_fracs that the
-/// staged API computes internally, then feed them to the explicit API.
+/// We use `cif_pretri_stage_q_fracs_cross_junction` to extract the exact
+/// geometry-aware q_fracs that the staged cross-junction API computes
+/// internally, then feed them to the explicit API.
 #[test]
 fn test_incremental_filtration_staged_vs_explicit_qfracs_consistency() {
-    use cfd_1d::{
-        cif_pretri_stage_q_fracs, incremental_filtration_separation_from_qfracs,
-        tri_center_q_frac,
-    };
-
     let n_pretri = 2_u8;
     let pretri_center_frac = 0.42;
     let terminal_tri_frac = 0.38;
     let terminal_bi_treat_frac = 0.65;
+    let parent_width_m = 2e-3;
+    let channel_height_m = 1e-3;
 
     // Path A: staged API (computes q_fracs internally)
-    let r_staged = incremental_filtration_separation_staged(
+    let r_staged = incremental_filtration_separation_cross_junction(
         n_pretri,
         pretri_center_frac,
         terminal_tri_frac,
         terminal_bi_treat_frac,
+        parent_width_m,
+        channel_height_m,
     );
 
     // Path B: extract the exact same q_fracs the staged API uses, then call
     // the explicit API with them.
-    let pretri_q = cif_pretri_stage_q_fracs(n_pretri, pretri_center_frac, terminal_tri_frac);
-    let terminal_q = tri_center_q_frac(terminal_tri_frac);
+    let pretri_q = cif_pretri_stage_q_fracs_cross_junction(
+        n_pretri,
+        pretri_center_frac,
+        terminal_tri_frac,
+        parent_width_m,
+        channel_height_m,
+    );
+    let terminal_parent_width_m = cif_pretri_stage_center_fracs(
+        n_pretri,
+        pretri_center_frac,
+        terminal_tri_frac,
+    )
+    .iter()
+    .fold(parent_width_m, |width_m, stage_center_frac| {
+        width_m * stage_center_frac
+    });
+    let terminal_q = tri_center_q_frac_cross_junction(
+        terminal_tri_frac,
+        terminal_parent_width_m,
+        channel_height_m,
+    );
 
     let r_qfracs = incremental_filtration_separation_from_qfracs(
         &pretri_q,

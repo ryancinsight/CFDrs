@@ -13,10 +13,12 @@ pub mod config;
 pub mod forcing;
 pub mod interpolation;
 pub mod lagrangian;
+pub mod nufft;
 pub mod solver;
 
 pub use config::IbmConfig;
 pub use forcing::{DirectForcing, FeedbackForcing, ForcingMethod};
 pub use interpolation::{DeltaFunction, InterpolationKernel};
 pub use lagrangian::LagrangianPoint;
+pub use nufft::NufftMarkerCoupler3D;
 pub use solver::IbmSolver;

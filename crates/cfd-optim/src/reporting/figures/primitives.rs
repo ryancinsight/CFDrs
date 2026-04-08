@@ -108,7 +108,7 @@ pub(super) fn write_bar_svg_owned(
 pub(super) fn svg_start(svg: &mut impl std::fmt::Write, width: f64, height: f64) {
     let _ = write!(
         svg,
-        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width:.0}" height="{height:.0}" viewBox="0 0 {width:.0} {height:.0}">"#
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width:.0}" height="{height:.0}" viewBox="0 0 {width:.0} {height:.0}" preserveAspectRatio="xMidYMin meet" style="max-width:100%;height:auto;">"#
     );
     let _ =
         svg.write_str(r#"<rect x="0" y="0" width="100%" height="100%" fill="white"/>"#);

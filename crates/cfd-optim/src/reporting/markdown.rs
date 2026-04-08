@@ -97,7 +97,7 @@ pub fn write_milestone12_results(
     )?;
 
     writeln!(md, "## Dataset And Strict Eligibility")?;
-    writeln!(md, "- Total generated candidates: **{total_candidates}**")?;
+    writeln!(md, "- Total candidates in the canonical parameter lattice: **{total_candidates}**")?;
     writeln!(
         md,
         "- Option 1 eligibility pool (selective acoustic + pressure/plate/FDA-main): **{option1_pool_len}**"
@@ -114,11 +114,11 @@ pub fn write_milestone12_results(
     )?;
     writeln!(
         md,
-        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | Cumulative cavitation dose | WBC treatment exposure | RBC treatment exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |"
+        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | K_loss | Cumulative cavitation dose | WBC treatment exposure | RBC treatment exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |"
     )?;
     writeln!(
         md,
-        "|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+        "|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
     )?;
     if let Some(option1) = option1 {
         writeln!(
@@ -255,6 +255,13 @@ pub fn write_milestone12_results(
                 r.worst_case_param
             )?;
         }
+        writeln!(md)?;
+    } else {
+        writeln!(md, "## Robustness Screening")?;
+        writeln!(
+            md,
+            "No standalone Option 2 perturbation sweep was emitted for this canonical run, so no robustness table is included in this artifact."
+        )?;
         writeln!(md)?;
     }
 

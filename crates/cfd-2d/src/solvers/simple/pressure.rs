@@ -1,25 +1,35 @@
 use super::algorithm::SimpleAlgorithm;
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
-use cfd_core::error::Result;
+use crate::physics::momentum::validate_boundary_consistency;
+use cfd_core::error::{Error, Result};
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
 use cfd_math::linear_solver::{BiCGSTAB, IterativeLinearSolver, IterativeSolverConfig};
 use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
+use std::collections::HashMap;
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
     pub(crate) fn assemble_pressure_correction(
         &mut self,
         fields: &SimulationFields<T>,
         grid: &StructuredGrid2D<T>,
+        boundary_conditions: &HashMap<String, BoundaryCondition<T>>,
     ) -> Result<T> {
+        validate_boundary_consistency(boundary_conditions, grid)
+            .map_err(|error| Error::InvalidConfiguration(error.to_string()))?;
+
         let nx = grid.nx;
         let ny = grid.ny;
         let dx = grid.dx;
         let dy = grid.dy;
         let half = T::from_f64(0.5).unwrap();
         let two = T::from_f64(2.0).unwrap();
+        let has_pressure_anchor = boundary_conditions
+            .values()
+            .any(Self::is_pressure_anchor_boundary);
 
         let matrix_builder = self.matrix_builder.as_mut().unwrap();
         matrix_builder.clear();
@@ -106,19 +116,151 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                 if i > 0 && i < nx - 1 && j > 0 && j < ny - 1 {
                     continue;
                 }
+
                 let idx = j * nx + i;
-                if i == 0 || i == nx - 1 {
-                    matrix_builder.add_entry(idx, idx, T::one())?;
-                    rhs[idx] = T::zero();
-                } else {
-                    let neighbor = if j == 0 { idx + nx } else { idx - nx };
-                    matrix_builder.add_entry(idx, idx, T::one())?;
-                    matrix_builder.add_entry(idx, neighbor, -T::one())?;
-                    rhs[idx] = T::zero();
+                let mut neighbor_indices = Vec::with_capacity(2);
+
+                if i == 0 {
+                    if let Some(bc) = boundary_conditions.get("west") {
+                        if Self::is_pressure_anchor_boundary(bc) {
+                            matrix_builder.add_entry(idx, idx, T::one())?;
+                            rhs[idx] = T::zero();
+                            continue;
+                        }
+                        neighbor_indices.push(Self::pressure_neighbor_for_side(
+                            "west",
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            boundary_conditions,
+                        ));
+                    }
                 }
+
+                if i == nx - 1 {
+                    if let Some(bc) = boundary_conditions.get("east") {
+                        if Self::is_pressure_anchor_boundary(bc) {
+                            matrix_builder.add_entry(idx, idx, T::one())?;
+                            rhs[idx] = T::zero();
+                            continue;
+                        }
+                        neighbor_indices.push(Self::pressure_neighbor_for_side(
+                            "east",
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            boundary_conditions,
+                        ));
+                    }
+                }
+
+                if j == 0 {
+                    if let Some(bc) = boundary_conditions.get("south") {
+                        if Self::is_pressure_anchor_boundary(bc) {
+                            matrix_builder.add_entry(idx, idx, T::one())?;
+                            rhs[idx] = T::zero();
+                            continue;
+                        }
+                        neighbor_indices.push(Self::pressure_neighbor_for_side(
+                            "south",
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            boundary_conditions,
+                        ));
+                    }
+                }
+
+                if j == ny - 1 {
+                    if let Some(bc) = boundary_conditions.get("north") {
+                        if Self::is_pressure_anchor_boundary(bc) {
+                            matrix_builder.add_entry(idx, idx, T::one())?;
+                            rhs[idx] = T::zero();
+                            continue;
+                        }
+                        neighbor_indices.push(Self::pressure_neighbor_for_side(
+                            "north",
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            boundary_conditions,
+                        ));
+                    }
+                }
+
+                if !has_pressure_anchor && idx == 0 {
+                    matrix_builder.add_entry(idx, idx, T::one())?;
+                } else if neighbor_indices.is_empty() {
+                    matrix_builder.add_entry(idx, idx, T::one())?;
+                } else {
+                    neighbor_indices.sort_unstable();
+                    neighbor_indices.dedup();
+                    let neighbor_count = T::from_usize(neighbor_indices.len()).unwrap_or_else(T::one);
+                    let weight = T::one() / neighbor_count;
+                    matrix_builder.add_entry(idx, idx, T::one())?;
+                    for neighbor_idx in neighbor_indices {
+                        matrix_builder.add_entry(idx, neighbor_idx, -weight)?;
+                    }
+                }
+                rhs[idx] = T::zero();
             }
         }
         Ok(max_residual)
+    }
+
+    fn is_pressure_anchor_boundary(boundary_condition: &BoundaryCondition<T>) -> bool {
+        matches!(
+            boundary_condition,
+            BoundaryCondition::Dirichlet { .. }
+                | BoundaryCondition::PressureInlet { .. }
+                | BoundaryCondition::PressureOutlet { .. }
+                | BoundaryCondition::CharacteristicOutlet { .. }
+                | BoundaryCondition::CharacteristicInlet { pressure: Some(_), .. }
+        )
+    }
+
+    fn pressure_neighbor_for_side(
+        side: &str,
+        i: usize,
+        j: usize,
+        nx: usize,
+        ny: usize,
+        boundary_conditions: &HashMap<String, BoundaryCondition<T>>,
+    ) -> usize {
+        if let Some(BoundaryCondition::Periodic { partner }) = boundary_conditions.get(side) {
+            if let Some(index) = Self::periodic_partner_index(side, partner, i, j, nx, ny) {
+                return index;
+            }
+        }
+
+        match side {
+            "west" => j * nx + 1,
+            "east" => j * nx + nx - 2,
+            "south" => nx + i,
+            "north" => (ny - 2) * nx + i,
+            _ => j * nx + i,
+        }
+    }
+
+    fn periodic_partner_index(
+        side: &str,
+        partner: &str,
+        i: usize,
+        j: usize,
+        nx: usize,
+        ny: usize,
+    ) -> Option<usize> {
+        match (side, partner) {
+            ("west", "east") => Some(j * nx + nx - 1),
+            ("east", "west") => Some(j * nx),
+            ("south", "north") => Some((ny - 1) * nx + i),
+            ("north", "south") => Some(i),
+            _ => None,
+        }
     }
 
     pub(crate) fn solve_pressure_correction(&mut self) -> Result<()> {
@@ -181,5 +323,124 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fields::SimulationFields;
+    use cfd_core::physics::boundary::BoundaryCondition;
+
+    #[test]
+    fn pressure_correction_equation_construction() {
+        let mut simple = SimpleAlgorithm::<f64>::new();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let mut fields = SimulationFields::<f64>::new(3, 3);
+
+        for j in 0..3 {
+            for i in 0..3 {
+                fields.u[(i, j)] = i as f64 * grid.dx;
+                fields.v[(i, j)] = j as f64 * grid.dy;
+            }
+        }
+
+        let boundary_conditions = HashMap::from([
+            ("west".to_string(), BoundaryCondition::pressure_outlet(0.0)),
+            ("east".to_string(), BoundaryCondition::wall_no_slip()),
+            ("north".to_string(), BoundaryCondition::Outflow),
+            ("south".to_string(), BoundaryCondition::Outflow),
+        ]);
+
+        simple.ensure_buffers(3, 3);
+        let max_residual = simple
+            .assemble_pressure_correction(&fields, &grid, &boundary_conditions)
+            .unwrap();
+
+        let rhs = simple.rhs.as_ref().unwrap();
+        let center_idx = 4;
+
+        assert!(max_residual > 0.0);
+        assert!(rhs[center_idx].abs() > 0.0);
+        assert!((rhs[0]).abs() < 1e-12);
+    }
+
+    #[test]
+    fn pressure_poisson_matrix_respects_boundary_conditions() {
+        let mut simple = SimpleAlgorithm::<f64>::new();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let fields = SimulationFields::<f64>::new(3, 3);
+        let boundary_conditions = HashMap::from([
+            ("west".to_string(), BoundaryCondition::pressure_outlet(0.0)),
+            ("east".to_string(), BoundaryCondition::wall_no_slip()),
+            ("north".to_string(), BoundaryCondition::Outflow),
+            ("south".to_string(), BoundaryCondition::Outflow),
+        ]);
+
+        simple.ensure_buffers(3, 3);
+        simple
+            .assemble_pressure_correction(&fields, &grid, &boundary_conditions)
+            .unwrap();
+
+        let builder = simple.matrix_builder.take().unwrap();
+        let matrix = builder.build().unwrap();
+
+        let west_anchor = matrix.get_entry(0, 0).unwrap().into_value();
+        let east_mid_diag = matrix.get_entry(5, 5).unwrap().into_value();
+        let east_mid_left = matrix.get_entry(5, 4).unwrap().into_value();
+
+        assert!((west_anchor - 1.0).abs() < 1e-12);
+        assert!((east_mid_diag - 1.0).abs() < 1e-12);
+        assert!((east_mid_left + 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn pressure_correction_rejects_missing_boundary_side() {
+        let mut simple = SimpleAlgorithm::<f64>::new();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let fields = SimulationFields::<f64>::new(3, 3);
+        let boundary_conditions = HashMap::from([
+            ("west".to_string(), BoundaryCondition::pressure_outlet(0.0)),
+            ("north".to_string(), BoundaryCondition::Outflow),
+            ("south".to_string(), BoundaryCondition::Outflow),
+        ]);
+
+        simple.ensure_buffers(3, 3);
+        let err = simple
+            .assemble_pressure_correction(&fields, &grid, &boundary_conditions)
+            .expect_err("pressure correction assembly must reject incomplete boundary maps");
+
+        assert!(err.to_string().contains("boundary"));
+    }
+
+    #[test]
+    fn pressure_poisson_matrix_falls_back_to_anchor_without_pressure_boundary() {
+        let mut simple = SimpleAlgorithm::<f64>::new();
+        let grid = StructuredGrid2D::<f64>::new(3, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let fields = SimulationFields::<f64>::new(3, 3);
+        let boundary_conditions = HashMap::from([
+            ("west".to_string(), BoundaryCondition::wall_no_slip()),
+            ("east".to_string(), BoundaryCondition::wall_no_slip()),
+            ("north".to_string(), BoundaryCondition::Outflow),
+            ("south".to_string(), BoundaryCondition::Outflow),
+        ]);
+
+        simple.ensure_buffers(3, 3);
+        simple
+            .assemble_pressure_correction(&fields, &grid, &boundary_conditions)
+            .unwrap();
+
+        let builder = simple.matrix_builder.take().unwrap();
+        let matrix = builder.build().unwrap();
+
+        let fallback_anchor = matrix.get_entry(0, 0).unwrap().into_value();
+        let corner_diag = matrix.get_entry(6, 6).unwrap().into_value();
+        let corner_east = matrix.get_entry(6, 7).unwrap().into_value();
+        let corner_south = matrix.get_entry(6, 3).unwrap().into_value();
+
+        assert!((fallback_anchor - 1.0).abs() < 1e-12);
+        assert!((corner_diag - 1.0).abs() < 1e-12);
+        assert!((corner_east + 0.5).abs() < 1e-12);
+        assert!((corner_south + 0.5).abs() < 1e-12);
     }
 }

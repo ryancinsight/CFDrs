@@ -156,17 +156,15 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
     /// Calculate the Darcy friction factor in the throat
     ///
     /// Uses Hagen-Poiseuille (laminar) or Blasius (turbulent) correlations
-    pub(crate) fn throat_friction_factor(&self, reynolds_throat: T) -> T {
+    pub(crate) fn friction_factor_for_reynolds(reynolds_throat: T) -> T {
         let re_lam =
             T::from_f64(LAMINAR_LIMIT_RE).expect("Mathematical constant conversion compromised");
 
         if reynolds_throat < re_lam {
-            // Laminar: f = 64/Re
             T::from_f64(LAMINAR_FRICTION_COEFF)
                 .expect("Mathematical constant conversion compromised")
                 / reynolds_throat
         } else {
-            // Blasius: f = 0.3164 / Re^0.25
             let coeff =
                 T::from_f64(BLASIUS_COEFF).expect("Mathematical constant conversion compromised");
             let exp =
@@ -175,25 +173,71 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
         }
     }
 
+    pub(crate) fn throat_friction_factor(&self, reynolds_throat: T) -> T {
+        Self::friction_factor_for_reynolds(reynolds_throat)
+    }
+
     /// Effective discharge coefficient adjusted for Reynolds number
     ///
     /// At low Re (millifluidic regime), C_d decreases due to boundary layer growth.
     /// Empirical correction: C_d_eff = C_d_nominal × min(1, 0.5 + 0.5×(Re/1000)^0.3)
-    pub(crate) fn effective_discharge_coefficient(&self, reynolds: T) -> T {
-        let c_d_nom =
-            T::from_f64(self.geometry_type.discharge_coefficient()).unwrap_or_else(T::one);
+    pub(crate) fn discharge_coefficient_reynolds_correction(reynolds: T) -> T {
         let re_ref = T::from_f64(1000.0).expect("Mathematical constant conversion compromised");
         let ratio = reynolds / re_ref;
 
-        // For Re >> 1000, correction → 1.0
-        // For Re << 1000, correction reduces C_d
         let half = T::one() / (T::one() + T::one());
         let exp = T::from_f64(0.3).expect("Mathematical constant conversion compromised");
         let correction = half + half * ratio.powf(exp);
         let one = T::one();
-        let correction_clamped = if correction > one { one } else { correction };
+        if correction > one { one } else { correction }
+    }
 
-        c_d_nom * correction_clamped
+    pub(crate) fn effective_discharge_coefficient(&self, reynolds: T) -> T {
+        let c_d_nom =
+            T::from_f64(self.geometry_type.discharge_coefficient()).unwrap_or_else(T::one);
+        c_d_nom * Self::discharge_coefficient_reynolds_correction(reynolds)
+    }
+
+    /// Reynolds correction applied to diffuser pressure recovery.
+    pub(crate) fn diffuser_recovery_reynolds_correction(reynolds: T) -> T {
+        let re_high = T::from_f64(2000.0).expect("Mathematical constant conversion compromised");
+        let re_low = T::from_f64(200.0).expect("Mathematical constant conversion compromised");
+
+        if reynolds > re_high {
+            T::one()
+        } else if reynolds > re_low {
+            T::from_f64(0.60).expect("Mathematical constant conversion compromised")
+                + T::from_f64(0.40).expect("Mathematical constant conversion compromised")
+                    * (reynolds - re_low)
+                    / (re_high - re_low)
+        } else {
+            T::from_f64(0.50).expect("Mathematical constant conversion compromised")
+                + T::from_f64(0.10).expect("Mathematical constant conversion compromised")
+                    * (reynolds / re_low)
+        }
+    }
+
+    /// Effective diffuser recovery efficiency including Reynolds degradation.
+    pub(crate) fn effective_recovery_efficiency(&self, reynolds_throat: T) -> T {
+        let eta_r = T::from_f64(self.expansion_type.recovery_efficiency()).unwrap_or_else(T::one);
+        eta_r * Self::diffuser_recovery_reynolds_correction(reynolds_throat)
+    }
+
+    /// Darcy-Weisbach throat friction drop.
+    pub(crate) fn throat_friction_pressure_drop(
+        darcy_friction_factor: T,
+        density: T,
+        throat_length: T,
+        throat_diameter: T,
+        throat_velocity: T,
+    ) -> T {
+        let half = T::one() / (T::one() + T::one());
+        darcy_friction_factor
+            * (throat_length / throat_diameter)
+            * half
+            * density
+            * throat_velocity
+            * throat_velocity
     }
 }
 
@@ -282,8 +326,13 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
 
         // --- 2. Throat friction loss ---
         let f = self.throat_friction_factor(re_throat);
-        let dp_friction =
-            f * (self.throat_length / self.throat_diameter) * half * density * v_throat * v_throat;
+        let dp_friction = Self::throat_friction_pressure_drop(
+            f,
+            density,
+            self.throat_length,
+            self.throat_diameter,
+            v_throat,
+        );
 
         // --- 3. Expansion loss (Borda-Carnot) ---
         let k_exp = T::from_f64(self.expansion_type.loss_coefficient()).unwrap_or_else(T::one);
@@ -291,7 +340,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         let dp_expansion_loss = k_exp * half * density * dv * dv;
 
         // --- 4. Expansion recovery (ideal Bernoulli) ---
-        let eta_r = T::from_f64(self.expansion_type.recovery_efficiency()).unwrap_or_else(T::one);
+        let eta_r = self.effective_recovery_efficiency(re_throat);
         let dp_recovery = eta_r * half * density * (v_throat * v_throat - v_outlet * v_outlet);
 
         // --- Net pressure drop ---

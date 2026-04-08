@@ -307,6 +307,7 @@ mod tests {
                         cavitation_number: 0.8,
                         effective_throat_velocity_m_s: 12.0,
                         throat_static_pressure_pa: 20_000.0,
+                        upstream_pressure_pa: 121_325.0,
                         diffuser_recovery_pa: 0.0,
                         total_loss_coefficient: 0.0,
                         dean_number: 45.0,

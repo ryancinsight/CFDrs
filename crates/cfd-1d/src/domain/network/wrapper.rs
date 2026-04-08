@@ -463,10 +463,8 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                     // Prepare flow conditions
                     // Explicitly use from_flow_rate if available, or initialize and set flow rate.
                     // Using standard ambient temperature (293.15 K) as default instead of zero.
-                    let mut conditions = crate::physics::resistance::FlowConditions::new(T::zero());
-                    // Force velocity to None to ensure calculator derives it from flow rate
-                    conditions.velocity = None;
-                    conditions.flow_rate = Some(flow_rate.abs());
+                    let mut conditions =
+                        crate::physics::resistance::FlowConditions::from_flow_rate(flow_rate.abs());
                     conditions.temperature = t_std;
 
                     if let Some(d_h) = props.hydraulic_diameter {
@@ -487,12 +485,48 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                         }
                     }
 
-                    // Re-calculate coefficients
-                    let (mut r, k) = calculator.calculate_coefficients_auto(
+                    // Re-calculate coefficients. Keep calculator auto-selection strict for
+                    // rectangular channels and opt into the hydraulic-diameter surrogate here
+                    // only when the live Picard update has already driven the branch into a
+                    // clearly non-laminar regime.
+                    let rectangular_laminar_max =
+                        T::from_f64(2300.0).unwrap_or_else(T::one);
+                    let is_rectangular = matches!(
                         &res_geometry,
-                        &self.fluid,
-                        &conditions,
-                    )?;
+                        crate::physics::resistance::ChannelGeometry::Rectangular { .. }
+                    );
+                    let use_rectangular_darcy_surrogate = is_rectangular
+                        && conditions
+                            .reynolds_number
+                            .is_some_and(|re| re >= rectangular_laminar_max);
+
+                    let (mut r, k) = if use_rectangular_darcy_surrogate {
+                        use crate::physics::resistance::models::ResistanceModel;
+
+                        let d_h = props.hydraulic_diameter.ok_or_else(|| {
+                            Error::InvalidConfiguration(
+                                "Rectangular branch requires hydraulic diameter for explicit Darcy-Weisbach surrogate".to_string(),
+                            )
+                        })?;
+                        if props.area <= epsilon {
+                            return Err(Error::InvalidConfiguration(
+                                "Rectangular branch requires positive area for explicit Darcy-Weisbach surrogate".to_string(),
+                            ));
+                        }
+                        crate::physics::resistance::models::DarcyWeisbachModel::new(
+                            d_h,
+                            props.area,
+                            props.length,
+                            T::zero(),
+                        )
+                        .calculate_coefficients(&self.fluid, &conditions)?
+                    } else {
+                        calculator.calculate_coefficients_auto(
+                            &res_geometry,
+                            &self.fluid,
+                            &conditions,
+                        )?
+                    };
 
                     if let Some(d_h) = props.hydraulic_diameter {
                         if d_h > epsilon && props.area > epsilon {

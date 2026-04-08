@@ -336,6 +336,7 @@ pub fn run_milestone12_report(
             Milestone12RequestedStage::Validation => {
                 run_milestone12_validation()?;
             }
+            Milestone12RequestedStage::Refresh => {}
         }
     }
 

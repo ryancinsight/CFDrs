@@ -53,6 +53,8 @@
 //! - Doyeux, V. et al. (2011). Spheres in the vicinity of a bifurcation:
 //!   elucidating the Zweifach-Fung effect. *J. Fluid Mech.* 674:359-388.
 
+use cfd_core::error::{Error, Result};
+
 /// Mean human RBC diameter [µm].
 const RBC_DIAMETER_UM: f64 = 8.0;
 
@@ -71,6 +73,17 @@ const RBC_DIAMETER_UM: f64 = 8.0;
 #[must_use]
 pub fn confinement_ratio(channel_diameter_um: f64) -> f64 {
     RBC_DIAMETER_UM / channel_diameter_um.max(RBC_DIAMETER_UM)
+}
+
+/// Checked confinement ratio evaluation for callers that want explicit domain validation.
+pub fn checked_confinement_ratio(channel_diameter_um: f64) -> Result<f64> {
+    if !channel_diameter_um.is_finite() || channel_diameter_um <= 0.0 {
+        return Err(Error::InvalidConfiguration(
+            "Zweifach-Fung channel diameter must be finite and positive".to_string(),
+        ));
+    }
+
+    Ok(RBC_DIAMETER_UM / channel_diameter_um.max(RBC_DIAMETER_UM))
 }
 
 /// Critical fractional flow for the Zweifach-Fung all-or-nothing transition.
@@ -107,6 +120,12 @@ pub fn critical_fractional_flow(channel_diameter_um: f64) -> f64 {
     (0.5 + 0.14 * kappa.powf(-0.5)).clamp(0.5, 0.99)
 }
 
+/// Checked critical fractional flow evaluation for the Zweifach-Fung transition.
+pub fn checked_critical_fractional_flow(channel_diameter_um: f64) -> Result<f64> {
+    let kappa = checked_confinement_ratio(channel_diameter_um)?;
+    Ok((0.5 + 0.14 * kappa.powf(-0.5)).clamp(0.5, 0.99))
+}
+
 /// Transition sharpness parameter for the sigmoid model.
 ///
 /// Higher confinement produces a sharper (more step-like) transition
@@ -123,6 +142,11 @@ pub fn critical_fractional_flow(channel_diameter_um: f64) -> f64 {
 fn transition_sharpness(channel_diameter_um: f64) -> f64 {
     let kappa = confinement_ratio(channel_diameter_um);
     10.0 + 40.0 * kappa * kappa
+}
+
+fn checked_transition_sharpness(channel_diameter_um: f64) -> Result<f64> {
+    let kappa = checked_confinement_ratio(channel_diameter_um)?;
+    Ok(10.0 + 40.0 * kappa * kappa)
 }
 
 /// Compute the fractional RBC flux entering the high-flow daughter branch
@@ -172,6 +196,27 @@ pub fn zweifach_fung_rbc_fraction(flow_fraction: f64, channel_diameter_um: f64) 
     zf_weight * f_sigmoid + (1.0 - zf_weight) * qr
 }
 
+/// Checked RBC flux partitioning using explicit Zweifach-Fung model boundaries.
+pub fn checked_zweifach_fung_rbc_fraction(
+    flow_fraction: f64,
+    channel_diameter_um: f64,
+) -> Result<f64> {
+    if !flow_fraction.is_finite() || !(0.0..=1.0).contains(&flow_fraction) {
+        return Err(Error::InvalidConfiguration(
+            "Zweifach-Fung flow fraction must lie in [0, 1]".to_string(),
+        ));
+    }
+
+    let kappa = checked_confinement_ratio(channel_diameter_um)?;
+    let qr_crit = checked_critical_fractional_flow(channel_diameter_um)?;
+    let k = checked_transition_sharpness(channel_diameter_um)?;
+
+    let f_sigmoid = 1.0 / (1.0 + (-k * (flow_fraction - qr_crit)).exp());
+    let zf_weight = (kappa * kappa).clamp(0.0, 1.0);
+
+    Ok(zf_weight * f_sigmoid + (1.0 - zf_weight) * flow_fraction)
+}
+
 /// Compute both daughter hematocrits from Zweifach-Fung partitioning.
 ///
 /// Given a parent vessel with feed hematocrit $H_F$ splitting into two
@@ -219,9 +264,72 @@ pub fn zweifach_fung_daughter_hematocrits(
     (h1, h2)
 }
 
+/// Checked daughter-hematocrit solve with explicit operating-point validation.
+pub fn checked_zweifach_fung_daughter_hematocrits(
+    feed_hematocrit: f64,
+    flow_fraction_1: f64,
+    channel_diameter_um: f64,
+) -> Result<(f64, f64)> {
+    if !feed_hematocrit.is_finite() || !(0.0..=1.0).contains(&feed_hematocrit) {
+        return Err(Error::InvalidConfiguration(
+            "Zweifach-Fung feed hematocrit must lie in [0, 1]".to_string(),
+        ));
+    }
+    if !flow_fraction_1.is_finite() || !(0.0..=1.0).contains(&flow_fraction_1) {
+        return Err(Error::InvalidConfiguration(
+            "Zweifach-Fung daughter flow fraction must lie in [0, 1]".to_string(),
+        ));
+    }
+    checked_confinement_ratio(channel_diameter_um)?;
+
+    let ht = feed_hematocrit;
+    let f1 = flow_fraction_1;
+    let f2 = 1.0 - f1;
+
+    if ht < 1e-15 {
+        return Ok((0.0, 0.0));
+    }
+    if f1 < 1e-15 {
+        return Ok((0.0, ht));
+    }
+    if f2 < 1e-15 {
+        return Ok((ht, 0.0));
+    }
+
+    let rbc_frac_1 = checked_zweifach_fung_rbc_fraction(f1, channel_diameter_um)?;
+    let h1 = (ht * rbc_frac_1 / f1).clamp(0.0, 1.0);
+    let h2 = ((ht - h1 * f1) / f2).clamp(0.0, 1.0);
+
+    Ok((h1, h2))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn checked_confinement_ratio_rejects_nonphysical_diameter() {
+        let err = checked_confinement_ratio(0.0)
+            .expect_err("checked confinement ratio must reject zero diameter");
+        assert!(err.to_string().contains("diameter"));
+    }
+
+    #[test]
+    fn checked_rbc_fraction_rejects_out_of_domain_flow_fraction() {
+        let err = checked_zweifach_fung_rbc_fraction(1.1, 50.0)
+            .expect_err("checked Zweifach-Fung RBC fraction must reject flow fractions above unity");
+        assert!(err.to_string().contains("flow fraction"));
+    }
+
+    #[test]
+    fn checked_daughter_hematocrits_match_legacy_nominal_case() {
+        let legacy = zweifach_fung_daughter_hematocrits(0.45, 0.9, 15.0);
+        let checked = checked_zweifach_fung_daughter_hematocrits(0.45, 0.9, 15.0)
+            .expect("checked Zweifach-Fung daughter hematocrits should succeed on a nominal case");
+
+        assert!((legacy.0 - checked.0).abs() < 1e-12);
+        assert!((legacy.1 - checked.1).abs() < 1e-12);
+    }
 
     /// Symmetric split (50/50) in large channel: both daughters should receive
     /// approximately equal hematocrit (no Zweifach-Fung bias).

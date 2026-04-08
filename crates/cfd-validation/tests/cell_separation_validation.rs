@@ -29,9 +29,13 @@
 use approx::assert_relative_eq;
 use cfd_1d::{
     cascade_junction_separation, cascade_junction_separation_from_qfracs,
+    cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs_cross_junction,
+    incremental_filtration_separation_cross_junction,
     incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
-    mixed_cascade_separation, mixed_cascade_separation_kappa_aware, three_population_equilibria,
-    tri_asymmetric_q_fracs, tri_center_q_frac, CascadeJunctionResult, CascadeStage,
+    mixed_cascade_separation,
+    mixed_cascade_separation_kappa_aware, parallel_channel_flow_fractions,
+    three_population_equilibria, tri_asymmetric_q_fracs, tri_center_q_frac,
+    tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
     IncrementalFiltrationResult,
 };
 
@@ -374,7 +378,7 @@ fn test_three_population_equilibria_serpentine() {
 fn test_tri_center_q_frac_equal_widths() {
     // With center_frac = 1/3 (equal arm widths), the center arm should
     // carry exactly 1/3 of the total flow.
-    let q = tri_center_q_frac(1.0 / 3.0);
+    let q = tri_center_q_frac_cross_junction(1.0 / 3.0, 3e-3, 1e-3);
 
     assert_relative_eq!(q, 1.0 / 3.0, epsilon = 1e-6);
 }
@@ -386,21 +390,26 @@ fn test_tri_center_q_frac_equal_widths() {
 #[test]
 fn test_tri_center_q_frac_wide_center() {
     // With center_frac = 0.5 (wider center arm), the center arm should carry
-    // more than half the total flow due to the cubic width dependence of
-    // Hagen-Poiseuille resistance (R ~ 1/w^3).
-    let q = tri_center_q_frac(0.5);
+    // more than half the total flow according to the rectangular-duct
+    // conductance weighting used by the geometry-aware cross-junction model.
+    let parent_width_m = 2e-3;
+    let channel_height_m = 1e-3;
+    let q = tri_center_q_frac_cross_junction(0.5, parent_width_m, channel_height_m);
+    let expected = parallel_channel_flow_fractions(&[
+        (parent_width_m * 0.5, channel_height_m),
+        (parent_width_m * 0.25, channel_height_m),
+        (parent_width_m * 0.25, channel_height_m),
+    ])[0];
 
     assert!(
         q > 0.5,
-        "wider center arm (frac=0.5) should carry > 50% of flow due to cubic width law: q={}",
+        "wider center arm (frac=0.5) should carry > 50% of flow under rectangular conductance: q={}",
         q
     );
-
-    // Verify the cubic law amplification: center is 0.5, each peripheral
-    // is 0.25. Flow ~ w^3, so q_center = 0.5^3 / (0.5^3 + 2*0.25^3)
-    //   = 0.125 / (0.125 + 0.03125) = 0.125 / 0.15625 = 0.8
-    let expected = 0.125 / (0.125 + 2.0 * 0.015625);
-    assert_relative_eq!(q, expected, epsilon = 1e-6);
+    assert!(
+        q < expected,
+        "cross-junction minor losses should reduce the center-arm share below the pure rectangular-conductance baseline: q={q}, baseline={expected}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -495,17 +504,45 @@ fn test_kappa_aware_cascade_selective_enrichment() {
 /// Verify that the incremental filtration from explicit q_fracs produces
 /// consistent results with the staged version.
 #[test]
-fn test_incremental_filtration_from_qfracs_consistency() {
-    let r_staged = incremental_filtration_separation_staged(1, 0.40, 0.35, 0.65);
+fn test_incremental_filtration_cross_junction_from_qfracs_consistency() {
+    let parent_width_m = 2e-3;
+    let channel_height_m = 1e-3;
+    let pretri_center_frac = 0.40;
+    let terminal_tri_frac = 0.35;
+    let terminal_bi_treat_frac = 0.65;
+    let r_staged = incremental_filtration_separation_cross_junction(
+        1,
+        pretri_center_frac,
+        terminal_tri_frac,
+        terminal_bi_treat_frac,
+        parent_width_m,
+        channel_height_m,
+    );
 
-    // Compute the equivalent q_fracs manually:
-    // pretri: tri_center_q_frac(0.40) for 1 stage
-    // terminal tri: tri_center_q_frac(0.35)
-    let pretri_q = tri_center_q_frac(0.40);
-    let terminal_tri_q = tri_center_q_frac(0.35);
+    let pretri_q = cif_pretri_stage_q_fracs_cross_junction(
+        1,
+        pretri_center_frac,
+        terminal_tri_frac,
+        parent_width_m,
+        channel_height_m,
+    );
+    let terminal_parent_width_m =
+        cif_pretri_stage_center_fracs(1, pretri_center_frac, terminal_tri_frac)
+            .iter()
+            .fold(parent_width_m, |width_m, stage_center_frac| {
+                width_m * stage_center_frac
+            });
+    let terminal_tri_q = tri_center_q_frac_cross_junction(
+        terminal_tri_frac,
+        terminal_parent_width_m,
+        channel_height_m,
+    );
 
-    let r_qfracs =
-        incremental_filtration_separation_from_qfracs(&[pretri_q], terminal_tri_q, 0.65);
+    let r_qfracs = incremental_filtration_separation_from_qfracs(
+        &pretri_q,
+        terminal_tri_q,
+        terminal_bi_treat_frac,
+    );
 
     assert_filtration_bounds(&r_qfracs);
 

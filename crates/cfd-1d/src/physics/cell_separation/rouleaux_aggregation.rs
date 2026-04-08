@@ -30,6 +30,8 @@
 //! systems III. General features of the proposed non-Newtonian model.
 //! Comparison with experimental data", *Rheol. Acta* 17:643-653.
 
+use cfd_core::error::{Error, Result};
+
 /// Quemada zero-shear intrinsic viscosity parameter.
 const K0: f64 = 4.33;
 /// Quemada high-shear intrinsic viscosity parameter.
@@ -68,6 +70,41 @@ pub fn quemada_viscosity(shear_rate: f64, hematocrit: f64, mu_plasma: f64) -> f6
     let denom = (1.0 - 0.5 * k * ht).max(0.01);
 
     mu_plasma / (denom * denom)
+}
+
+/// Checked Quemada viscosity evaluation for callers that require explicit
+/// model-boundary enforcement.
+pub fn checked_quemada_viscosity(
+    shear_rate: f64,
+    hematocrit: f64,
+    mu_plasma: f64,
+) -> Result<f64> {
+    if !shear_rate.is_finite() || shear_rate < 0.0 {
+        return Err(Error::InvalidConfiguration(
+            "Quemada shear rate must be finite and nonnegative".to_string(),
+        ));
+    }
+    if !hematocrit.is_finite() || !(0.0..0.99).contains(&hematocrit) {
+        return Err(Error::InvalidConfiguration(
+            "Quemada hematocrit must lie in [0, 0.99)".to_string(),
+        ));
+    }
+    if !mu_plasma.is_finite() || mu_plasma <= 0.0 {
+        return Err(Error::InvalidConfiguration(
+            "Quemada plasma viscosity must be finite and positive".to_string(),
+        ));
+    }
+
+    let sqrt_ratio = (shear_rate / GAMMA_C).sqrt();
+    let k = (K0 + K_INF * sqrt_ratio) / (1.0 + sqrt_ratio);
+    let denom = 1.0 - 0.5 * k * hematocrit;
+    if denom <= 0.0 {
+        return Err(Error::InvalidConfiguration(
+            "Quemada denominator became nonpositive; hematocrit is outside the valid concentrated-suspension regime".to_string(),
+        ));
+    }
+
+    Ok(mu_plasma / (denom * denom))
 }
 
 #[cfg(test)]
@@ -166,5 +203,28 @@ mod tests {
             mu_mid,
             mu_high
         );
+    }
+
+    #[test]
+    fn test_checked_quemada_rejects_negative_shear() {
+        let err = checked_quemada_viscosity(-0.1, HT_NORMAL, MU_PLASMA)
+            .expect_err("checked Quemada viscosity must reject negative shear rate");
+        assert!(err.to_string().contains("shear rate"));
+    }
+
+    #[test]
+    fn test_checked_quemada_rejects_out_of_domain_hematocrit() {
+        let err = checked_quemada_viscosity(10.0, 1.0, MU_PLASMA)
+            .expect_err("checked Quemada viscosity must reject hematocrit above the fitted domain");
+        assert!(err.to_string().contains("hematocrit"));
+    }
+
+    #[test]
+    fn test_checked_quemada_matches_legacy_nominal_case() {
+        let legacy = quemada_viscosity(50.0, 0.45, MU_PLASMA);
+        let checked = checked_quemada_viscosity(50.0, 0.45, MU_PLASMA)
+            .expect("checked Quemada viscosity should succeed on a nominal blood case");
+
+        assert!((legacy - checked).abs() < 1e-12);
     }
 }

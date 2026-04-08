@@ -119,19 +119,23 @@ pub use physics::hemolysis::acoustic_radiation::{
     SPEED_OF_SOUND_PLASMA,
 };
 pub use physics::venturi_screening::{
+    assess_venturi_screening, classify_venturi_screening,
     discharge_coefficient_from_convergent_half_angle_deg, evaluate_venturi_screening,
-    venturi_taper_length_m, VenturiScreeningInput, VenturiScreeningResult,
+    venturi_taper_length_m, VenturiScreeningAssessment, VenturiScreeningInput,
+    VenturiScreeningResult, VenturiScreeningRisk,
 };
 
 // Export three-population inertial focusing model
 pub use physics::cell_separation::{
     cascade_junction_separation, cascade_junction_separation_cross_junction,
     cascade_junction_separation_from_qfracs, cif_pretri_stage_center_fracs,
-    cif_pretri_stage_q_fracs, incremental_filtration_separation_cross_junction,
+    cif_pretri_stage_q_fracs, cif_pretri_stage_q_fracs_cross_junction,
+    incremental_filtration_separation_cross_junction,
     incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
     mixed_cascade_separation, mixed_cascade_separation_kappa_aware, tri_asymmetric_q_fracs,
-    tri_center_q_frac, tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
-    IncrementalFiltrationResult, PeripheralRecovery, PhaseSeparationResult,
+    treatment_bifurcation_separation, tri_center_q_frac, tri_center_q_frac_cross_junction,
+    CascadeJunctionResult, CascadeStage, IncrementalFiltrationResult, PeripheralRecovery,
+    PhaseSeparationResult,
 };
 pub use physics::cell_separation::{
     amini_confinement_correction, fahraeus_lindqvist_viscosity, plasma_skimming_hematocrit,
@@ -193,7 +197,8 @@ pub use physics::resistance::{
 // Export hierarchical junction functionality
 pub use domain::junctions::branching::{
     BranchingNetworkConfig, BranchingNetworkSolver, BranchingValidationResult, BranchingValidator,
-    ThreeWayBranchJunction, ThreeWayBranchSolution, TwoWayBranchJunction, TwoWayBranchSolution,
+    DownstreamBranchRoute, ThreeWayBranchJunction, ThreeWayBranchSolution, TwoWayBranchJunction,
+    TwoWayBranchSolution,
 };
 
 /// 1D CFD domain-specific prelude for microfluidic networks
@@ -217,8 +222,8 @@ pub mod prelude {
         },
         domain::junctions::branching::{
             BranchingNetworkConfig, BranchingNetworkSolver, BranchingValidationResult,
-            BranchingValidator, ThreeWayBranchJunction, ThreeWayBranchSolution,
-            TwoWayBranchJunction, TwoWayBranchSolution,
+            BranchingValidator, DownstreamBranchRoute, ThreeWayBranchJunction,
+            ThreeWayBranchSolution, TwoWayBranchJunction, TwoWayBranchSolution,
         },
         domain::network::{Edge, EdgeProperties, EdgeType, Node, NodeProperties, NodeType},
         physics::resistance::{

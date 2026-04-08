@@ -30,6 +30,7 @@
 //! See `cfd_core::physics::cell_interaction` for the physics and theorems.
 
 use cfd_core::physics::cell_interaction as ci;
+use cfd_core::error::{Error, Result};
 
 use super::{margination, margination::EquilibriumResult, properties::CellProperties};
 
@@ -65,8 +66,40 @@ pub fn enhanced_lateral_equilibrium(
     bend_radius: Option<f64>,
     hematocrit: f64,
 ) -> Option<EquilibriumResult> {
+    let result = checked_enhanced_lateral_equilibrium(
+        wbc,
+        fluid_density,
+        viscosity,
+        velocity,
+        width,
+        height,
+        bend_radius,
+        hematocrit,
+    )
+    .ok()?;
+
+    result.will_focus.then_some(result)
+}
+
+/// Checked WBC equilibrium including the hematocrit-dependent cell-interaction correction.
+pub fn checked_enhanced_lateral_equilibrium(
+    wbc: &CellProperties,
+    fluid_density: f64,
+    viscosity: f64,
+    velocity: f64,
+    width: f64,
+    height: f64,
+    bend_radius: Option<f64>,
+    hematocrit: f64,
+) -> Result<EquilibriumResult> {
+    if !hematocrit.is_finite() || !(0.0..=1.0).contains(&hematocrit) {
+        return Err(Error::InvalidConfiguration(
+            "Cell-interaction hematocrit must lie in [0, 1]".to_string(),
+        ));
+    }
+
     // 1. Pure inertial equilibrium (existing single-particle model)
-    let mut result = margination::lateral_equilibrium(
+    let mut result = margination::checked_lateral_equilibrium(
         wbc,
         fluid_density,
         viscosity,
@@ -76,10 +109,14 @@ pub fn enhanced_lateral_equilibrium(
         bend_radius,
     )?;
 
+    if !result.will_focus {
+        return Ok(result);
+    }
+
     // Skip correction at negligible HCT (< 0.5%) — Γ ≈ 1 and correction is
     // below floating-point noise in the inertial model.
     if hematocrit < 0.005 {
-        return Some(result);
+        return Ok(result);
     }
 
     // 2. Hydraulic diameter D_h = 2wh / (w + h)
@@ -93,7 +130,7 @@ pub fn enhanced_lateral_equilibrium(
     result.x_tilde_eq = x_tilde_corrected;
     result.lateral_position_m = x_tilde_corrected * (height * 0.5);
 
-    Some(result)
+    Ok(result)
 }
 
 // ── Unit tests ────────────────────────────────────────────────────────────────
@@ -102,6 +139,23 @@ pub fn enhanced_lateral_equilibrium(
 mod tests {
     use super::*;
     use crate::physics::cell_separation::properties::CellProperties;
+
+    #[test]
+    fn checked_enhanced_rejects_invalid_hematocrit() {
+        let wbc = CellProperties::white_blood_cell();
+        let err = checked_enhanced_lateral_equilibrium(
+            &wbc,
+            1060.0,
+            3.5e-3,
+            0.05,
+            400e-6,
+            80e-6,
+            None,
+            1.2,
+        )
+        .expect_err("checked enhanced equilibrium must reject hematocrit above unity");
+        assert!(err.to_string().contains("hematocrit"));
+    }
 
     /// At zero hematocrit, enhanced and plain equilibrium should agree
     #[test]
@@ -173,5 +227,26 @@ mod tests {
                 expected_pos
             );
         }
+    }
+
+    #[test]
+    fn checked_enhanced_matches_legacy_nominal_case() {
+        let wbc = CellProperties::white_blood_cell();
+        let legacy = enhanced_lateral_equilibrium(&wbc, 1060.0, 3.5e-3, 0.10, 200e-6, 80e-6, None, 0.20)
+            .expect("legacy enhanced equilibrium should succeed");
+        let checked = checked_enhanced_lateral_equilibrium(
+            &wbc,
+            1060.0,
+            3.5e-3,
+            0.10,
+            200e-6,
+            80e-6,
+            None,
+            0.20,
+        )
+        .expect("checked enhanced equilibrium should succeed");
+
+        assert!((legacy.x_tilde_eq - checked.x_tilde_eq).abs() < 1e-12);
+        assert_eq!(legacy.will_focus, checked.will_focus);
     }
 }

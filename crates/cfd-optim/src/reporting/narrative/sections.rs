@@ -214,10 +214,11 @@ pub(super) fn build_robustness_section(
     table_number: usize,
 ) -> String {
     if robustness.is_empty() {
-        let _ = fast_mode;
-    return String::new();
+        if fast_mode {
+            return "No standalone Option 2 perturbation sweep was emitted for this authoritative fast-mode run, so no robustness table is available here. The section is retained explicitly to document that the final ranking is justified by deterministic nominal-physics scoring, hard-gate evidence, and the generated operating-limit figures rather than by hidden perturbation data.".to_string();
+        }
+        return "No standalone Option 2 perturbation sweep artifacts were available for this report run, so no robustness table is available here. The section is retained explicitly so the absence of robustness data is documented rather than silently omitted.".to_string();
     }
-    let _ = fast_mode;
     let mut out = String::new();
     out.push_str("### Option 2 Robustness Screening (Perturbations +/-10%/+/-20%)\n\n");
     let robust_count = robustness.iter().filter(|r| r.is_robust).count();
@@ -294,16 +295,30 @@ pub(super) fn build_results_intro(
     option2_evaluated_count: usize,
     opt1_pool: usize,
     opt2_pool: usize,
+    fast_mode: bool,
+    has_robustness: bool,
 ) -> String {
+    let evaluation_sentence = if fast_mode {
+        format!(
+            "The canonical Milestone 12 parameter lattice spans {total_candidates} candidates, but the authoritative fast-mode workflow deterministically evaluated {option1_evaluated_count} Option 1 candidates and {option2_evaluated_count} Option 2 candidates before strict eligibility gating."
+        )
+    } else {
+        format!(
+            "Across the canonical Milestone 12 parameter lattice of {total_candidates} candidates, the workflow evaluated {option1_evaluated_count} Option 1 candidates and {option2_evaluated_count} Option 2 candidates before strict eligibility gating."
+        )
+    };
+    let robustness_label = if has_robustness {
+        "robustness validation (§5.3)"
+    } else {
+        "robustness disposition (§5.3)"
+    };
     format!(
-        "From {total_candidates} total candidates generated from canonical Milestone 12 split-sequence scaffolds, \
-the authoritative strided fast workflow evaluated {option1_evaluated_count} Option 1 candidates \
-and {option2_evaluated_count} Option 2 candidates before strict eligibility gating. That gating then produced \
+        "{evaluation_sentence} That gating then produced \
 {opt1_pool} Option 1 qualified designs (AsymmetricSplitResidenceSeparation track) and {opt2_pool} Option 2 qualified designs \
 (AsymmetricSplitVenturiCavitationSelectivity track). The ranked pool therefore reflects only physically admissible \
 designs that preserve selective split-width partitioning, treatment-lane residence time, and \
 healthy-cell protection. The following sub-sections present the selected designs (§5.1), gate \
-evidence (§5.2), robustness validation (§5.3), design visualizations (§5.4), \
+evidence (§5.2), {robustness_label}, design visualizations (§5.4), \
 derived metric formulas (§5.5), and operating limits (§5.6). Extracorporeal circuit volume is \
 reported explicitly as ECV = Σ(L_i A_i) = Q_in t_res, and each selected design is benchmarked \
 against the 3 kg neonatal reference limit of 25.5 mL (10% of 3 × 85 mL blood volume).",

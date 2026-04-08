@@ -552,7 +552,7 @@ pub fn compute_blueprint_report_metrics(
         0.0
     };
 
-    // Topology-specific split-stage flow fractions via Hagen–Poiseuille Q ∝ w³.
+    // Topology-specific split-stage flow fractions via rectangular laminar conductance.
     let (stage_center_fracs, model_frac) =
         split_stage_flow_fractions(&topology.split_stages);
     // Assign to both CCT and CIF fields since these generalise across topologies.

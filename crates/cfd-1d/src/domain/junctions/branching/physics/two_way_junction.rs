@@ -10,6 +10,7 @@ use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
 
+use super::pressure_balance::{bisect_root, ScalarSolveTolerances};
 use super::two_way_solution::TwoWayBranchSolution;
 
 /// Two-way branch junction connecting parent channel to two daughter channels
@@ -46,7 +47,11 @@ pub struct TwoWayBranchJunction<T: RealField + Copy> {
     pub daughter1: Channel<T>,
     /// Second daughter channel (outgoing)
     pub daughter2: Channel<T>,
-    /// Flow distribution ratio: Q_1 / (Q_1 + Q_2)
+    /// Flow-split seed or prescribed ratio: Q_1 / (Q_1 + Q_2)
+    ///
+    /// `solve()` uses this value as the initial bracket refinement seed for the
+    /// pressure-balanced bifurcation solve. Use `solve_with_prescribed_split()`
+    /// to force this exact ratio.
     pub flow_split_ratio: T,
 }
 
@@ -220,18 +225,102 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         (one_two_eight * mu * q * l) / (pi * d * d * d * d)
     }
 
-    /// Solve a two-way branch with given parent pressure, flow rate and thermodynamic state.
-    pub fn solve<F: FluidTrait<T> + Copy>(
+    fn validate_split_ratio(&self) -> Result<(), Error> {
+        if self.flow_split_ratio < T::zero() || self.flow_split_ratio > T::one() {
+            return Err(Error::InvalidConfiguration(format!(
+                "flow split ratio must be within [0, 1], got {}",
+                self.flow_split_ratio.to_f64().unwrap_or(f64::NAN)
+            )));
+        }
+        Ok(())
+    }
+
+    fn daughter_pressure_residual<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        q_1: T,
+        q_parent: T,
+        temperature: T,
+        pressure: T,
+    ) -> T {
+        let q_2 = q_parent - q_1;
+        let dp_1 = Self::pressure_drop(fluid, q_1, &self.daughter1, temperature, pressure);
+        let dp_2 = Self::pressure_drop(fluid, q_2, &self.daughter2, temperature, pressure);
+        dp_1 - dp_2
+    }
+
+    fn solve_pressure_balanced_flow<F: FluidTrait<T>>(
+        &self,
+        fluid: &F,
+        q_parent: T,
+        temperature: T,
+        pressure: T,
+    ) -> Result<T, Error> {
+        self.validate_split_ratio()?;
+
+        if q_parent < T::zero() {
+            return Err(Error::InvalidInput(
+                "two-way branch solve requires nonnegative parent flow".to_string(),
+            ));
+        }
+
+        let tiny_flow = T::from_f64_or_one(1e-18);
+        if q_parent.abs() <= tiny_flow {
+            return Ok(T::zero());
+        }
+
+        let tolerances = ScalarSolveTolerances::for_flow_interval(q_parent);
+
+        let lower_residual = self.daughter_pressure_residual(
+            fluid,
+            T::zero(),
+            q_parent,
+            temperature,
+            pressure,
+        );
+        let upper_residual = self.daughter_pressure_residual(
+            fluid,
+            q_parent,
+            q_parent,
+            temperature,
+            pressure,
+        );
+
+        if lower_residual > T::zero() || upper_residual < T::zero() {
+            return Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::StagnatedResidual {
+                residual: (lower_residual.abs() + upper_residual.abs())
+                    .to_f64()
+                    .unwrap_or(f64::NAN),
+            }));
+        }
+
+        Ok(bisect_root(
+            T::zero(),
+            q_parent,
+            Some(self.flow_split_ratio * q_parent),
+            tolerances,
+            |q_1| {
+                self.daughter_pressure_residual(
+                    fluid,
+                    q_1,
+                    q_parent,
+                    temperature,
+                    pressure,
+                )
+            },
+        ))
+    }
+
+    fn solve_from_split<F: FluidTrait<T>>(
         &self,
         fluid: F,
         q_parent: T,
         p_parent: T,
+        q_1: T,
         temperature: T,
         pressure: T,
     ) -> Result<TwoWayBranchSolution<T>, Error> {
-        let one = T::one();
-        let q_1 = self.flow_split_ratio * q_parent;
-        let q_2 = (one - self.flow_split_ratio) * q_parent;
+        let q_2 = q_parent - q_1;
 
         let q_sum = q_1 + q_2;
         let mass_error = (q_sum - q_parent).abs() / q_parent.max(T::from_f64_or_one(1e-15));
@@ -276,5 +365,44 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
             junction_pressure_error,
             mass_conservation_error: mass_error,
         })
+    }
+
+    /// Solve a two-way branch by enforcing daughter pressure compatibility.
+    ///
+    /// The solver finds the unique split `Q_1` in `[0, Q_parent]` such that the
+    /// daughter pressure drops match: `ΔP_1(Q_1) = ΔP_2(Q_parent - Q_1)`.
+    pub fn solve<F: FluidTrait<T> + Copy>(
+        &self,
+        fluid: F,
+        q_parent: T,
+        p_parent: T,
+        temperature: T,
+        pressure: T,
+    ) -> Result<TwoWayBranchSolution<T>, Error> {
+        let q_1 = self.solve_pressure_balanced_flow(&fluid, q_parent, temperature, pressure)?;
+        self.solve_from_split(fluid, q_parent, p_parent, q_1, temperature, pressure)
+    }
+
+    /// Solve a two-way branch using the stored split ratio exactly.
+    ///
+    /// This is intended for callers that already own an external phase-separation
+    /// or control-law split and want the resulting pressure diagnostics without
+    /// re-solving the bifurcation compatibility condition.
+    pub fn solve_with_prescribed_split<F: FluidTrait<T> + Copy>(
+        &self,
+        fluid: F,
+        q_parent: T,
+        p_parent: T,
+        temperature: T,
+        pressure: T,
+    ) -> Result<TwoWayBranchSolution<T>, Error> {
+        self.validate_split_ratio()?;
+        if q_parent < T::zero() {
+            return Err(Error::InvalidInput(
+                "two-way branch solve requires nonnegative parent flow".to_string(),
+            ));
+        }
+        let q_1 = self.flow_split_ratio * q_parent;
+        self.solve_from_split(fluid, q_parent, p_parent, q_1, temperature, pressure)
     }
 }

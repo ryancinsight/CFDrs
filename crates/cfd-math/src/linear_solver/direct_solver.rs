@@ -1,6 +1,13 @@
 //! Direct sparse solver for linear systems.
 //!
 //! Uses rsparse (CSparse-based LU) for robust direct solves of sparse matrices.
+//!
+//! # Theorem — LU Factorisation Uniqueness
+//!
+//! For a nonsingular matrix $A$, the LU factorisation $PA = LU$ exists and is
+//! unique up to diagonal scaling when $A$ is strongly regular (all leading
+//! principal minors are nonzero). The rsparse implementation uses
+//! Markowitz pivoting to maintain sparsity.
 
 use cfd_core::error::{Error, Result};
 use nalgebra::{DVector, RealField};

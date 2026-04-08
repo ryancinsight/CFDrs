@@ -16,3 +16,9 @@ slow-timeout = { period = "10s", terminate-after = 2 }
 [[profile.default.overrides]]
 filter = "test(ga_optimizer_evolves_population_and_ranks_results) | test(ga_seed_pair_contains_exactly_two_canonical_baselines)"
 slow-timeout = { period = "30s", terminate-after = 4 }
+
+# Bifurcation + Trifurcation FEM tests: SDF mesh generation + Stokes solve for microfluidic
+# geometries requires up to 120s on a single CPU core at coarse resolution.
+[[profile.default.overrides]]
+filter = "test(bifurcation_symmetric_mass_conservation) | test(bifurcation_symmetric_flow_split) | test(bifurcation_positive_wall_shear) | test(bifurcation_blood_casson) | test(test_3d_bifurcation_integration) | test(trifurcation_symmetric_mass_conservation) | test(trifurcation_symmetric_positive_outlet_flow) | test(test_trifurcation_mass_conservation) | test(test_trifurcation_blood_flow) | test(test_bifurcation_flow_3d_murray_and_mass)"
+slow-timeout = { period = "60s", terminate-after = 2 }

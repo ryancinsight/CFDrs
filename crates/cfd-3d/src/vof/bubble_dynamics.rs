@@ -131,8 +131,14 @@ impl BubbleDynamicsSolver {
             .configs
             .get_mut(&key)
             .ok_or_else(|| cfd_core::error::Error::Solver("Bubble config not found".to_string()))?;
-        let radius = *self.radii.get(&key).unwrap_or(&config.initial_radius);
-        let velocity = *self.velocities.get(&key).unwrap_or(&0.0);
+        let radius = *self
+            .radii
+            .get(&key)
+            .expect("bubble radius is initialized for every grid cell");
+        let velocity = *self
+            .velocities
+            .get(&key)
+            .expect("bubble velocity is initialized for every grid cell");
 
         // Calculate apparent viscosity at the bubble wall.
         // theorem: The shear rate at a spherical bubble wall expanding/collapsing radially
@@ -163,8 +169,15 @@ impl BubbleDynamicsSolver {
         sound_speed: f64,
     ) -> f64 {
         let key = (i, j, k);
-        let radius = *self.radii.get(&key).unwrap_or(&1e-6);
-        let initial_radius = self.configs.get(&key).map_or(1e-6, |c| c.initial_radius);
+        let config = self
+            .configs
+            .get(&key)
+            .expect("bubble config is initialized for every grid cell");
+        let radius = *self
+            .radii
+            .get(&key)
+            .expect("bubble radius is initialized for every grid cell");
+        let initial_radius = config.initial_radius;
 
         if radius > 0.0 {
             // Impact pressure scales with (R_max / R_collapse)
@@ -177,14 +190,46 @@ impl BubbleDynamicsSolver {
     /// Get bubble natural frequency (Hz) for impact frequency estimation
     pub fn get_bubble_frequency(&self, i: usize, j: usize, k: usize, ambient_pressure: f64) -> f64 {
         let key = (i, j, k);
-        let config = self.configs.get(&key);
-        let radius = self.radii.get(&key);
+        let config = self
+            .configs
+            .get(&key)
+            .expect("bubble config is initialized for every grid cell");
+        let radius = *self
+            .radii
+            .get(&key)
+            .expect("bubble radius is initialized for every grid cell");
 
-        if let (Some(config), Some(&r)) = (config, radius) {
-            let omega = config.natural_frequency(r, ambient_pressure);
-            omega / (2.0 * std::f64::consts::PI)
-        } else {
-            0.0
-        }
+        let omega = config.natural_frequency(radius, ambient_pressure);
+        omega / (2.0 * std::f64::consts::PI)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn collapse_pressure_and_frequency_use_initialized_bubble_state() {
+        let config = BubbleDynamicsConfig {
+            initial_radius: 2.0e-6,
+            number_density: 1.0e12,
+            polytropic_exponent: 1.4,
+            surface_tension: 0.072,
+        };
+        let solver = BubbleDynamicsSolver::new(
+            &config,
+            1,
+            1,
+            1,
+            1000.0,
+            BloodModel::Newtonian(1.0e-3),
+            2300.0,
+        );
+
+        let collapse_pressure = solver.collapse_pressure(0, 0, 0, 1000.0, 1500.0);
+        let frequency = solver.get_bubble_frequency(0, 0, 0, 2500.0);
+
+        assert!(collapse_pressure > 0.0);
+        assert!(frequency > 0.0);
     }
 }

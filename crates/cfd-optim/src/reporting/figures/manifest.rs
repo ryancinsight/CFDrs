@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use cfd_schematics::{write_well_plate_diagram_svg, CandidateZoneData};
 use cfd_schematics::domain::model::ChannelShape;
 use cfd_schematics::geometry::metadata::ChannelVisualRole;
 use serde::{Deserialize, Serialize};
@@ -15,8 +16,7 @@ use super::svg::{
 };
 use super::treatment_lane::write_treatment_lane_zoom_figure;
 use crate::constraints::{
-    BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA, BLOOD_VISCOSITY_PA_S, DIFFUSER_DISCHARGE_COEFF,
-    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG, VENTURI_CC,
+    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG,
 };
 use crate::reporting::{rank_ga_hydrosdt_report_designs, Milestone12ReportDesign, ParetoPoint};
 
@@ -66,9 +66,10 @@ pub fn generate_m12_report_figures(
     write_creation_optimization_process_figure(
         &figures_dir.join("milestone12_creation_optimization_process.svg"),
     )?;
-    ensure_existing_or_placeholder(
+    let treatment_zone_candidates: &[CandidateZoneData] = &[];
+    write_well_plate_diagram_svg(
+        treatment_zone_candidates,
         &figures_dir.join("treatment_zone_plate.svg"),
-        "Treatment Zone Layout - Bifurcation Concept",
     )?;
     ensure_existing_or_placeholder(
         &figures_dir.join("treatment_zone_plate_trifurcation.svg"),
@@ -138,12 +139,35 @@ pub fn generate_m12_report_figures(
         .unwrap_or(&input.option2_ranked[0]);
     let ga_serpentine_focus = pick_serpentine_venturi_focus(&ga_ranked_for_figures)
         .unwrap_or(&ga_ranked_for_figures[0]);
-    let dean_venturi_points = extract_dean_venturi_points(Some(ga_serpentine_focus))?;
-    write_dean_venturi_placement_figure(
-        &figures_dir.join("m12_dean_venturi_placement.svg"),
-        "Dean Number vs Cavitation at Serpentine Bend Apices",
-        &dean_venturi_points,
-    )?;
+    let dean_venturi_is_placeholder = match extract_dean_venturi_points(Some(ga_serpentine_focus))
+    {
+        Ok(dean_venturi_points) if !dean_venturi_points.is_empty() => {
+            write_dean_venturi_placement_figure(
+                &figures_dir.join("m12_dean_venturi_placement.svg"),
+                "Dean Number vs Cavitation at Serpentine Bend Apices",
+                &dean_venturi_points,
+            )?;
+            false
+        }
+        Ok(_) => {
+            write_placeholder(
+                &figures_dir.join("m12_dean_venturi_placement.svg"),
+                "Dean Number vs Cavitation at Serpentine Venturi Sites",
+                "Per-placement Dean and venturi recomputation was unavailable for the selected GA design.",
+            )?;
+            true
+        }
+        Err(error) => {
+            write_placeholder(
+                &figures_dir.join("m12_dean_venturi_placement.svg"),
+                "Dean Number vs Cavitation at Serpentine Venturi Sites",
+                &format!(
+                    "Per-placement Dean and venturi recomputation was unavailable: {error}"
+                ),
+            )?;
+            true
+        }
+    };
 
     let option1 = input.option1_ranked.first();
     let option2 = &input.option2_ranked[0];
@@ -280,13 +304,14 @@ pub fn generate_m12_report_figures(
             "GA convergence line",
         ));
     }
-    specs.push(spec(
+    specs.push(make_spec(
         13,
         "Dean Number vs Cavitation at Serpentine Venturi Sites",
         "m12_dean_venturi_placement.svg",
         figure_path_prefix,
         "Per-venturi-placement comparison of Dean number (secondary flow intensity at the bend apex) and cavitation strength (1 - sigma) for the top GA-optimized serpentine design. Higher Dean numbers at bend apices pre-focus CTCs toward the outer wall via centrifugal secondary flow before they enter the venturi constriction, co-localizing inertial focusing with hydrodynamic cavitation. Throat velocity is annotated below each placement.",
         "Dean venturi placement dual-axis bars",
+        dean_venturi_is_placeholder,
     ));
     specs.push(spec(
         14,
@@ -440,170 +465,35 @@ fn visible_split_layers(ranked: &Milestone12ReportDesign) -> usize {
 fn extract_dean_venturi_points(
     design: Option<&Milestone12ReportDesign>,
 ) -> Result<Vec<DeanVenturiPoint>, Box<dyn std::error::Error>> {
-    use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput};
-
     let design = match design {
         Some(d) => d,
         None => return Ok(Vec::new()),
     };
     let candidate = &design.candidate;
-    let topology = match candidate.topology_spec() {
-        Ok(spec) => spec,
-        Err(_) => return Ok(Vec::new()),
-    };
-    let n_placements = topology.venturi_placements.len();
-    if n_placements == 0 {
-        return Ok(Vec::new());
-    }
-
     let solve = match crate::metrics::solve_blueprint_candidate(candidate) {
         Ok(s) => s,
         Err(_) => return Ok(Vec::new()),
     };
-
-    // Find any venturi-carrying channel sample for base flow/pressure data.
-    let base_sample = solve
-        .channel_samples
-        .iter()
-        .find(|s| s.is_venturi_channel)
-        .or_else(|| {
-            let first_target = &topology.venturi_placements[0].target_channel_id;
-            solve
-                .channel_samples
-                .iter()
-                .find(|s| s.id.starts_with(first_target.as_str()))
-        })
-        .or_else(|| solve.channel_samples.iter().find(|s| s.flow_m3_s.abs() > 1e-18));
-    let base_sample = match base_sample {
-        Some(s) => s,
-        None => return Ok(Vec::new()),
+    let separation = match crate::metrics::compute_blueprint_separation_metrics(candidate) {
+        Ok(s) => s,
+        Err(_) => return Ok(Vec::new()),
+    };
+    let venturi = match crate::metrics::compute_blueprint_venturi_metrics(candidate, &solve, &separation) {
+        Ok(v) => v,
+        Err(_) => return Ok(Vec::new()),
     };
 
-    let flow_m3_s = base_sample.flow_m3_s.abs();
-    let base_upstream_pa = candidate.operating_point.absolute_inlet_pressure_pa()
-        + base_sample.from_pressure_pa.max(0.0);
-    // Estimate per-placement pressure consumption.  The total device pressure
-    // drop is split proportionally across the treatment channel venturi stages.
-    // Each serial throat + its approach/diffuser consumes roughly equal pressure.
-    let total_dp_pa = design.metrics.total_pressure_drop_pa.max(0.0);
-    // Treatment-path share of total drop (treatment channels carry the venturi
-    // constrictions, which dominate the resistance).  Use 70% as a conservative
-    // estimate for venturi-dominated designs.
-    let _ = total_dp_pa * 0.70;
-
-    // Base serpentine bend radius from the topology spec.
-    let base_bend_radius_m = topology
-        .venturi_placements
-        .first()
-        .and_then(|p| topology.channel_route(&p.target_channel_id))
-        .and_then(|route| route.serpentine.as_ref())
-        .map(|s| s.bend_radius_m)
-        .or_else(|| {
-            candidate
-                .topology_spec()
-                .ok()
-                .into_iter()
-                .flat_map(|spec| spec.treatment_channel_ids())
-                .filter_map(|channel_id| topology.channel_route(&channel_id))
-                .find_map(|route| route.serpentine.as_ref().map(|s| s.bend_radius_m))
-        })
-        .unwrap_or(1.5e-3);
-
-    let kinematic_viscosity = BLOOD_VISCOSITY_PA_S / BLOOD_DENSITY_KG_M3;
-
-    let mut points = Vec::with_capacity(n_placements);
-    // Track cumulative state across serial throats:
-    // - pressure consumed by each preceding throat
-    // - nuclei generated by cavitation and partially dissolved in transit
-    let mut cumulative_pressure_consumed = 0.0_f64;
-    let mut upstream_nuclei = 0.0_f64;
-
-    for (idx, placement) in topology.venturi_placements.iter().enumerate() {
-        // Each preceding throat consumed its own pressure drop (Bernoulli +
-        // friction + incomplete diffuser recovery).  This is much larger than
-        // the simple linear fraction because the throat velocity head is high.
-        let local_upstream_pa = base_upstream_pa - cumulative_pressure_consumed;
-
-        // Mirrored curvature: alternating tighter/wider bends in a
-        // serpentine U-turn pattern.  The +/-25% modulation is typical
-        // for mirrored millifluidic serpentines where inner bends have
-        // smaller radius than outer bends.
-        let curvature_modulation = 1.0 + 0.25 * (std::f64::consts::PI * idx as f64).cos();
-        let local_bend_radius_m = base_bend_radius_m * curvature_modulation;
-
-        // Venturi screening with position-corrected pressure.
-        let area_inlet = (placement.throat_geometry.inlet_width_m
-            * placement.throat_geometry.throat_height_m)
-            .max(1e-18);
-        let area_throat = (placement.throat_geometry.throat_width_m
-            * placement.throat_geometry.throat_height_m)
-            .max(1e-18);
-        let upstream_vel = flow_m3_s / area_inlet;
-        let throat_vel = flow_m3_s / area_throat;
-        let screening = evaluate_venturi_screening(VenturiScreeningInput {
-            upstream_pressure_pa: local_upstream_pa,
-            upstream_velocity_m_s: upstream_vel,
-            throat_velocity_m_s: throat_vel,
-            throat_hydraulic_diameter_m: 2.0
-                * placement.throat_geometry.throat_width_m
-                * placement.throat_geometry.throat_height_m
-                / (placement.throat_geometry.throat_width_m
-                    + placement.throat_geometry.throat_height_m)
-                    .max(1e-18),
-            throat_length_m: placement.throat_geometry.throat_length_m,
-            density_kg_m3: BLOOD_DENSITY_KG_M3,
-            viscosity_pa_s: BLOOD_VISCOSITY_PA_S,
-            vapor_pressure_pa: BLOOD_VAPOR_PRESSURE_PA,
-            vena_contracta_coeff: VENTURI_CC,
-            diffuser_recovery_coeff: DIFFUSER_DISCHARGE_COEFF,
-            upstream_nuclei_fraction: upstream_nuclei,
-        })?;
-
-        // Accumulate pressure consumed by this throat.
-        // Each venturi consumes: bernoulli_drop + friction_drop - diffuser_recovery.
-        // The net consumption is what reduces the available pressure for downstream throats.
-        let net_throat_dp = screening.bernoulli_drop_pa
-            + screening.throat_friction_drop_pa
-            - screening.diffuser_recovery_pa;
-        cumulative_pressure_consumed += net_throat_dp.max(0.0);
-        let inlet_dynamic_pressure_pa =
-            (0.5 * BLOOD_DENSITY_KG_M3 * upstream_vel * upstream_vel).max(1.0e-18);
-
-        // Propagate nuclei: the outlet nuclei fraction from this throat
-        // becomes the upstream for the next, after partial dissolution
-        // during the inter-throat transit.
-        let inter_throat_transit_s = if throat_vel > 1e-6 {
-            placement.throat_geometry.throat_length_m * 3.0 / throat_vel // ~3x throat length gap
-        } else {
-            0.01
-        };
-        let transport = cfd_core::physics::cavitation::nuclei_transport::NucleiTransport::new(
-            cfd_core::physics::cavitation::nuclei_transport::NucleiTransportConfig::default(),
-        );
-        upstream_nuclei = transport.advect_1d_dissolution(
-            screening.outlet_nuclei_fraction,
-            inter_throat_transit_s,
-        );
-
-        // Dean number with position-dependent curvature.
-        let d_h = base_sample.cross_section.hydraulic_diameter();
-        let velocity = flow_m3_s / base_sample.cross_section.area().max(1e-18);
-        let reynolds = velocity * d_h / kinematic_viscosity;
-        let dean_number = if local_bend_radius_m > 0.0 {
-            reynolds * (d_h / (2.0 * local_bend_radius_m)).sqrt()
-        } else {
-            0.0
-        };
-
+    let mut points = Vec::with_capacity(venturi.placements.len());
+    for (idx, placement) in venturi.placements.iter().enumerate() {
         let bend_type = if idx % 2 == 0 { "outer" } else { "inner" };
         points.push(DeanVenturiPoint {
             label: format!("Bend {} ({})", idx + 1, bend_type),
-            dean_number,
-            cavitation_number: screening.cavitation_number,
-            throat_velocity_m_s: screening.effective_throat_velocity_m_s,
-            total_loss_coefficient: net_throat_dp.max(0.0) / inlet_dynamic_pressure_pa,
-            upstream_pressure_kpa: local_upstream_pa * 1e-3,
-            bend_radius_mm: local_bend_radius_m * 1e3,
+            dean_number: placement.dean_number,
+            cavitation_number: placement.cavitation_number,
+            throat_velocity_m_s: placement.effective_throat_velocity_m_s,
+            total_loss_coefficient: placement.total_loss_coefficient,
+            upstream_pressure_kpa: placement.upstream_pressure_pa * 1e-3,
+            bend_radius_mm: placement.curvature_radius_m * 1e3,
         });
     }
     Ok(points)

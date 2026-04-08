@@ -50,10 +50,11 @@ pub enum Milestone12RequestedStage {
     Option2,
     Ga,
     Validation,
+    Refresh,
 }
 
 impl Milestone12RequestedStage {
-    /// Default report stages. Validation is excluded (run separately via `--stages validation`).
+    /// Default report stages. Validation and refresh-only are opt-in.
     pub const ALL: [Self; 3] = [Self::Option1, Self::Option2, Self::Ga];
 
     #[must_use]
@@ -63,6 +64,7 @@ impl Milestone12RequestedStage {
             Self::Option2 => "option2",
             Self::Ga => "ga",
             Self::Validation => "validation",
+            Self::Refresh => "refresh",
         }
     }
 }

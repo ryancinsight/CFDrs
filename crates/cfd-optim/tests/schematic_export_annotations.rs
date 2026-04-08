@@ -1,6 +1,7 @@
 use cfd_optim::save_blueprint_schematic_svg;
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
 use cfd_schematics::{
+    build_milestone12_blueprint, enumerate_milestone12_topologies,
     BlueprintTopologyFactory, BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec,
     NetworkBlueprint, SplitKind, SplitStageSpec, ThroatGeometrySpec, TreatmentActuationMode,
     VenturiPlacementMode, VenturiPlacementSpec,
@@ -252,4 +253,75 @@ fn save_schematic_svg_rejects_non_geometry_authored_blueprint() {
             .contains("geometry-authored blueprint provenance"),
         "unexpected error: {error}"
     );
+}
+
+#[test]
+fn save_schematic_svg_checks_all_new_milestone12_component_schematics() {
+    let catalog = enumerate_milestone12_topologies();
+    assert!(
+        !catalog.is_empty(),
+        "Milestone 12 catalog must enumerate produced component requests"
+    );
+
+    for (index, base) in catalog.into_iter().enumerate() {
+        for (mode_label, request) in [
+            (
+                "acoustic",
+                cfd_schematics::Milestone12TopologyRequest {
+                    treatment_mode: TreatmentActuationMode::UltrasoundOnly,
+                    venturi_throat_count: 0,
+                    venturi_target_channel_ids: Vec::new(),
+                    ..base.clone()
+                },
+            ),
+            (
+                "venturi",
+                cfd_schematics::Milestone12TopologyRequest {
+                    treatment_mode: TreatmentActuationMode::VenturiCavitation,
+                    venturi_throat_count: 2,
+                    venturi_throat_width_m: 0.4e-3,
+                    venturi_throat_length_m: 1.2e-3,
+                    venturi_placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
+                    venturi_target_channel_ids: Vec::new(),
+                    ..base
+                },
+            ),
+        ] {
+            let blueprint = build_milestone12_blueprint(&request).unwrap_or_else(|error| {
+                panic!(
+                    "Milestone 12 {mode_label} component '{}' should build before schematic export: {error}",
+                    request.topology_id
+                )
+            });
+            let out = unique_svg_path(&format!(
+                "milestone12_component_schematic_{index}_{mode_label}"
+            ));
+
+            save_blueprint_schematic_svg(&blueprint, &out).unwrap_or_else(|error| {
+                panic!(
+                    "Milestone 12 {mode_label} component '{}' schematic export must succeed: {error}",
+                    request.topology_id
+                )
+            });
+
+            let svg = std::fs::read_to_string(&out).unwrap_or_else(|error| {
+                panic!(
+                    "Milestone 12 {mode_label} component '{}' schematic SVG must be readable: {error}",
+                    request.topology_id
+                )
+            });
+            assert!(
+                svg.contains("IN") && svg.contains("OUT"),
+                "Milestone 12 {mode_label} component '{}' schematic must include inlet/outlet markers",
+                request.topology_id
+            );
+            if request.treatment_mode == TreatmentActuationMode::VenturiCavitation {
+                assert!(
+                    svg.contains("TH1"),
+                    "Milestone 12 venturi component '{}' schematic must include throat markers",
+                    request.topology_id
+                );
+            }
+        }
+    }
 }

@@ -189,7 +189,7 @@ mod tests {
         config.inlet_pressure = 200.0;
         config.max_linear_iterations = 600;
         config.linear_tolerance = 1e-5;
-        config.target_mesh_size = Some(100e-6 / 6.0);
+        config.target_mesh_size = Some(50e-6); // coarse: 1 cell/radius → ~200 seeds, fast solve
 
         let solver = TrifurcationSolver3D::new(geom, config);
         let fluid = cfd_core::physics::fluid::blood::CassonBlood::normal_blood();

@@ -266,8 +266,19 @@ fn insert_contract_values(
     );
     values.insert(
         "MILESTONE_DELIVERABLE".to_string(),
-        format!("{}, including limits of usage.", contract.deliverable),
+        format_milestone_deliverable(&contract.deliverable),
     );
+}
+
+fn format_milestone_deliverable(deliverable: &str) -> String {
+    let trimmed = deliverable.trim();
+    if trimmed.to_ascii_lowercase().contains("limits of usage") {
+        return trimmed.to_string();
+    }
+    match trimmed.chars().last() {
+        Some('.') | Some('!') | Some('?') => format!("{trimmed} Includes limits of usage."),
+        _ => format!("{trimmed}. Includes limits of usage."),
+    }
 }
 
 fn insert_data_values(
@@ -277,20 +288,21 @@ fn insert_data_values(
     option2: &Milestone12ReportDesign,
     ga_best: &Milestone12ReportDesign,
 ) {
-    let abstract_validation_sentence = if input.option2_robustness.is_empty() {
-        String::new()
-    } else {
+    let has_robustness = !input.option2_robustness.is_empty();
+    let abstract_validation_sentence = if has_robustness {
         "Selected designs were screened for robustness under +/-10%/+/-20% operating-parameter perturbations.".to_string()
-    };
-    let methods_pipeline_step7 = if input.option2_robustness.is_empty() {
-        String::new()
     } else {
+        "No standalone perturbation-sweep robustness dataset was emitted for this canonical run.".to_string()
+    };
+    let methods_pipeline_step7 = if has_robustness {
         "7. **Robustness screening**: selected designs are ranked and screened under operating-parameter perturbations.".to_string()
-    };
-    let milestone_scope_sentence = if input.option2_robustness.is_empty() {
-        "Milestone 12 requires selecting optimal design(s) that satisfy hydrodynamic and cavitation parameters. This report covers the CFDrs pipeline from candidate generation through strict gating, scoring, and ranking.".to_string()
     } else {
+        String::new()
+    };
+    let milestone_scope_sentence = if has_robustness {
         "Milestone 12 requires selecting optimal design(s) that satisfy hydrodynamic and cavitation parameters. This report covers the CFDrs pipeline from candidate generation through strict gating, scoring, ranking, and robustness screening.".to_string()
+    } else {
+        "Milestone 12 requires selecting optimal design(s) that satisfy hydrodynamic and cavitation parameters. This report covers the CFDrs pipeline from candidate generation through strict gating, scoring, and ranking.".to_string()
     };
     values.insert(
         "TOTAL_CANDIDATES".to_string(),
@@ -300,17 +312,17 @@ fn insert_data_values(
         "RUN_AUTHORITY_NOTE".to_string(),
         if input.fast_mode {
             format!(
-                "Selected figures and ranked conclusions reflect the authoritative strided fast-mode Milestone 12 sweep. The full design space contains {} candidates, but evaluation budget is intentionally concentrated on stride-selected topology families and then densely filled only inside the winning family.",
+                "Selected figures and ranked conclusions reflect the authoritative fast-mode subset of the Milestone 12 parameter lattice. The full canonical lattice spans {} candidates, but this report's ranked outputs are generated from deterministic stride-selected topology-family coverage plus dense fill inside the winning family rather than exhaustive evaluation of every lattice point.",
                 input.total_candidates,
             )
         } else if input.authoritative_run {
             format!(
-                "Selected figures and ranked conclusions reflect the complete Milestone 12 topology sweep across all {} candidates.",
+                "Selected figures and ranked conclusions reflect the complete Milestone 12 topology sweep across all {} candidates in the canonical parameter lattice.",
                 input.total_candidates,
             )
         } else {
             format!(
-                "This is a strided fast-mode run covering {} candidates. Option 1 topology coverage may be truncated relative to the full sweep.",
+                "This is a non-authoritative fast-mode run derived from a canonical parameter lattice of {} candidates. Option 1 topology coverage may be truncated relative to the full sweep.",
                 input.total_candidates,
             )
         },
@@ -545,6 +557,8 @@ fn insert_table_values(
             input.option2_evaluated_count,
             input.option1_pool_len,
             input.option2_pool_len,
+            input.fast_mode,
+            has_robustness,
         ),
     );
     values.insert(

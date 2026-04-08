@@ -145,14 +145,24 @@ pub struct IncrementalFiltrationResult {
 
 pub use cascade_routing::{
     cascade_junction_separation, cascade_junction_separation_cross_junction,
-    cascade_junction_separation_from_qfracs, mixed_cascade_separation,
-    mixed_cascade_separation_kappa_aware, tri_asymmetric_q_fracs, tri_center_q_frac,
-    tri_center_q_frac_cross_junction,
+    cascade_junction_separation_from_qfracs, checked_cascade_junction_separation,
+    checked_cascade_junction_separation_cross_junction,
+    checked_cascade_junction_separation_from_qfracs, checked_mixed_cascade_separation,
+    checked_treatment_bifurcation_separation,
+    checked_tri_asymmetric_q_fracs, checked_tri_center_q_frac,
+    checked_tri_center_q_frac_cross_junction, mixed_cascade_separation,
+    mixed_cascade_separation_kappa_aware, treatment_bifurcation_separation,
+    tri_asymmetric_q_fracs, tri_center_q_frac, tri_center_q_frac_cross_junction,
 };
 pub use incremental_filtration::{
-    cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs,
-    incremental_filtration_separation_cross_junction, incremental_filtration_separation_from_qfracs,
-    incremental_filtration_separation_staged,
+    checked_cif_pretri_stage_center_fracs, checked_cif_pretri_stage_q_fracs,
+    checked_cif_pretri_stage_q_fracs_cross_junction,
+    checked_incremental_filtration_separation_cross_junction,
+    checked_incremental_filtration_separation_from_qfracs,
+    checked_incremental_filtration_separation_staged, cif_pretri_stage_center_fracs,
+    cif_pretri_stage_q_fracs, cif_pretri_stage_q_fracs_cross_junction,
+    incremental_filtration_separation_cross_junction,
+    incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
 };
 
 #[cfg(test)]
@@ -209,6 +219,13 @@ mod tests {
         let q33 = tri_center_q_frac(0.333);
         let q55 = tri_center_q_frac(0.55);
         assert!(q55 > q33, "wider center arm should carry more flow");
+    }
+
+    #[test]
+    fn checked_tri_center_q_frac_rejects_closed_interval_endpoints() {
+        let err = checked_tri_center_q_frac(0.0)
+            .expect_err("checked center-arm flow fraction must reject zero width fraction");
+        assert!(err.to_string().contains("width fraction"));
     }
 
     #[test]
@@ -289,6 +306,24 @@ mod tests {
     }
 
     #[test]
+    fn checked_cascade_qfrac_api_rejects_empty_stage_sequence() {
+        let err = checked_cascade_junction_separation_from_qfracs(&[])
+            .expect_err("checked cascade qfrac API must reject empty stage sequences");
+        assert!(err.to_string().contains("at least one center-arm flow fraction"));
+    }
+
+    #[test]
+    fn checked_cascade_junction_matches_legacy_nominal_case() {
+        let legacy = cascade_junction_separation(3, 0.45, 2e-3, 1e-3, 5e-6);
+        let checked = checked_cascade_junction_separation(3, 0.45, 2e-3, 1e-3, 5e-6)
+            .expect("checked cascade junction API should succeed on a nominal case");
+
+        assert!((legacy.cancer_center_fraction - checked.cancer_center_fraction).abs() < 1e-12);
+        assert!((legacy.rbc_peripheral_fraction - checked.rbc_peripheral_fraction).abs() < 1e-12);
+        assert!((legacy.center_hematocrit_ratio - checked.center_hematocrit_ratio).abs() < 1e-12);
+    }
+
+    #[test]
     fn incremental_qfrac_api_matches_uniform_width_model() {
         let width_model = incremental_filtration_separation_staged(2, 0.45, 0.55, 0.68);
         let q_pretri = cif_pretri_stage_q_fracs(2, 0.45, 0.55);
@@ -308,6 +343,50 @@ mod tests {
         assert!(stage_fracs[1] >= stage_fracs[0] - 1e-12);
         assert!(stage_fracs[2] >= stage_fracs[1] - 1e-12);
         assert!(stage_fracs[2] <= 0.60 + 1e-12);
+    }
+
+    #[test]
+    fn checked_cif_pretri_stage_fracs_reject_invalid_stage_count() {
+        let err = checked_cif_pretri_stage_center_fracs(0, 0.45, 0.60)
+            .expect_err("checked CIF stage fractions must reject zero pre-trifurcation stages");
+        assert!(err.to_string().contains("stage count"));
+    }
+
+    #[test]
+    fn checked_incremental_filtration_rejects_invalid_terminal_bifurcation_fraction() {
+        let err = checked_incremental_filtration_separation_staged(2, 0.45, 0.50, 0.40)
+            .expect_err("checked incremental filtration must reject terminal bifurcation fractions below the validated range");
+        assert!(err.to_string().contains("terminal bifurcation"));
+    }
+
+    #[test]
+    fn checked_incremental_filtration_rejects_zero_pretri_stages() {
+        let err = checked_incremental_filtration_separation_staged(0, 0.45, 0.50, 0.68)
+            .expect_err("checked incremental filtration must reject zero pre-trifurcation stages");
+        assert!(err.to_string().contains("stage count"));
+    }
+
+    #[test]
+    fn checked_incremental_filtration_matches_legacy_nominal_case() {
+        let legacy = incremental_filtration_separation_staged(2, 0.45, 0.55, 0.68);
+        let checked = checked_incremental_filtration_separation_staged(2, 0.45, 0.55, 0.68)
+            .expect("checked incremental filtration should succeed on a nominal selective-routing case");
+
+        assert!((legacy.cancer_center_fraction - checked.cancer_center_fraction).abs() < 1e-12);
+        assert!((legacy.rbc_center_fraction - checked.rbc_center_fraction).abs() < 1e-12);
+        assert!((legacy.center_hematocrit_ratio - checked.center_hematocrit_ratio).abs() < 1e-12);
+    }
+
+    #[test]
+    fn checked_incremental_qfrac_api_matches_legacy_nominal_case() {
+        let q_pretri = cif_pretri_stage_q_fracs(2, 0.45, 0.55);
+        let q_tri = tri_center_q_frac(0.55);
+        let legacy = incremental_filtration_separation_from_qfracs(&q_pretri, q_tri, 0.68);
+        let checked = checked_incremental_filtration_separation_from_qfracs(&q_pretri, q_tri, 0.68)
+            .expect("checked incremental qfrac API should succeed on a nominal case");
+
+        assert!((legacy.cancer_center_fraction - checked.cancer_center_fraction).abs() < 1e-12);
+        assert!((legacy.rbc_center_fraction - checked.rbc_center_fraction).abs() < 1e-12);
     }
 
     #[test]
@@ -376,6 +455,37 @@ mod tests {
         assert!(r.cancer_center_fraction > 0.0);
         assert!(r.separation_efficiency > 0.0);
         assert!(r.cancer_center_fraction > r.rbc_peripheral_fraction.min(0.99));
+    }
+
+    #[test]
+    fn treatment_bifurcation_matches_single_stage_mixed_cascade() {
+        let q_bi = 0.68;
+        let direct = treatment_bifurcation_separation(q_bi);
+        let mixed = mixed_cascade_separation(&[(q_bi, false)]);
+
+        assert!((direct.cancer_center_fraction - mixed.cancer_center_fraction).abs() < 1e-12);
+        assert!((direct.wbc_center_fraction - mixed.wbc_center_fraction).abs() < 1e-12);
+        assert!((direct.rbc_peripheral_fraction - mixed.rbc_peripheral_fraction).abs() < 1e-12);
+        assert!((direct.separation_efficiency - mixed.separation_efficiency).abs() < 1e-12);
+    }
+
+    #[test]
+    fn checked_mixed_cascade_rejects_invalid_stage_flow_fraction() {
+        let err = checked_mixed_cascade_separation(&[(1.20, true)]).expect_err(
+            "checked mixed cascade routing must reject stage flow fractions outside the open unit interval",
+        );
+        assert!(err.to_string().contains("stage flow fraction"));
+    }
+
+    #[test]
+    fn checked_mixed_cascade_matches_legacy_nominal_case() {
+        let q_tri = tri_center_q_frac(0.45);
+        let legacy = mixed_cascade_separation(&[(q_tri, true), (0.68, false)]);
+        let checked = checked_mixed_cascade_separation(&[(q_tri, true), (0.68, false)])
+            .expect("checked mixed cascade routing should succeed on a nominal case");
+
+        assert!((legacy.cancer_center_fraction - checked.cancer_center_fraction).abs() < 1e-12);
+        assert!((legacy.rbc_peripheral_fraction - checked.rbc_peripheral_fraction).abs() < 1e-12);
     }
 
     #[test]
@@ -463,6 +573,14 @@ mod tests {
             ql > qr,
             "wider left peripheral should carry more flow: ql={ql}, qr={qr}"
         );
+    }
+
+    #[test]
+    fn checked_tri_asymmetric_q_fracs_reject_overfull_width_budget() {
+        let err = checked_tri_asymmetric_q_fracs(0.70, 0.35, 4e-3, 1e-3).expect_err(
+            "checked asymmetric trifurcation flow fractions must reject overfull width budgets",
+        );
+        assert!(err.to_string().contains("positive right-arm width"));
     }
 
     #[test]

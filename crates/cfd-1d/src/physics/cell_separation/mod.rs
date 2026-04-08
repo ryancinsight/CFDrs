@@ -61,30 +61,40 @@ pub mod zweifach_fung;
 pub use cascade_junction::{
     cascade_junction_separation, cascade_junction_separation_cross_junction,
     cascade_junction_separation_from_qfracs, cif_pretri_stage_center_fracs,
-    cif_pretri_stage_q_fracs, incremental_filtration_separation_cross_junction,
+    cif_pretri_stage_q_fracs, cif_pretri_stage_q_fracs_cross_junction,
+    incremental_filtration_separation_cross_junction,
     incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
     mixed_cascade_separation, mixed_cascade_separation_kappa_aware, tri_asymmetric_q_fracs,
-    tri_center_q_frac, tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
-    IncrementalFiltrationResult, PeripheralRecovery,
+    treatment_bifurcation_separation, tri_center_q_frac, tri_center_q_frac_cross_junction,
+    CascadeJunctionResult, CascadeStage, IncrementalFiltrationResult, PeripheralRecovery,
 };
 pub use cell_interaction::enhanced_lateral_equilibrium;
 pub use margination::{
-    amini_confinement_correction, dean_drag_force_n, dean_number, inertial_lift_force_n,
-    lateral_equilibrium, EquilibriumResult, AMINI_ALPHA_CONFINEMENT, AMINI_KAPPA_REF,
+    amini_confinement_correction, checked_amini_confinement_correction,
+    checked_inertial_lift_force_n, checked_lateral_equilibrium, checked_lateral_velocity_m_s,
+    dean_drag_force_n, dean_number, inertial_lift_force_n, lateral_equilibrium,
+    EquilibriumResult, AMINI_ALPHA_CONFINEMENT, AMINI_KAPPA_REF,
 };
 pub use fahraeus_lindqvist::{
     fahraeus_lindqvist_viscosity, secomb_network_viscosity, secomb_phase_separation_x0,
 };
 pub use cell_free_layer::{cfl_width_fedosov, cfl_width_sharan_popel, two_layer_viscosity};
 pub use fahraeus_effect::{discharge_hematocrit, tube_hematocrit, tube_hematocrit_ratio};
-pub use plasma_skimming::{plasma_skimming_hematocrit, pries_phase_separation, PhaseSeparationResult};
+pub use plasma_skimming::{
+    checked_plasma_skimming_hematocrit, checked_pries_phase_separation,
+    plasma_skimming_hematocrit, pries_phase_separation, PhaseSeparationResult,
+};
 pub use properties::CellProperties;
-pub use rouleaux_aggregation::quemada_viscosity;
+pub use rouleaux_aggregation::{checked_quemada_viscosity, quemada_viscosity};
 pub use separation_model::{CellSeparationAnalysis, CellSeparationModel};
+pub use cell_interaction::checked_enhanced_lateral_equilibrium;
 pub use zweifach_fung::{
+    checked_confinement_ratio, checked_critical_fractional_flow,
+    checked_zweifach_fung_daughter_hematocrits, checked_zweifach_fung_rbc_fraction,
     confinement_ratio, critical_fractional_flow, zweifach_fung_daughter_hematocrits,
     zweifach_fung_rbc_fraction,
 };
+use cfd_core::error::{Error, Result};
 
 // ── Three-population simultaneous model ─────────────────────────────────────
 
@@ -148,19 +158,84 @@ pub fn three_population_equilibria(
     hematocrit: f64,
     bend_radius_m: Option<f64>,
 ) -> ThreePopEquilibria {
-    use cell_interaction::enhanced_lateral_equilibrium;
+    checked_three_population_equilibria(
+        width_m,
+        height_m,
+        flow_rate_m3_s,
+        blood_density,
+        viscosity,
+        hematocrit,
+        bend_radius_m,
+    )
+    .unwrap_or(ThreePopEquilibria {
+        cancer_eq: 0.5,
+        wbc_eq: 0.5,
+        rbc_eq: 0.5,
+        cancer_wbc_sep: 0.0,
+        rbc_vs_center_sep: 0.0,
+        cancer_center_fraction: 0.0,
+        wbc_center_fraction: 0.0,
+        rbc_peripheral_fraction: 0.0,
+    })
+}
 
+/// Checked three-population focusing analysis that rejects invalid operating conditions.
+pub fn checked_three_population_equilibria(
+    width_m: f64,
+    height_m: f64,
+    flow_rate_m3_s: f64,
+    blood_density: f64,
+    viscosity: f64,
+    hematocrit: f64,
+    bend_radius_m: Option<f64>,
+) -> Result<ThreePopEquilibria> {
     let cancer = CellProperties::mcf7_breast_cancer();
     let wbc = CellProperties::white_blood_cell();
     let rbc = CellProperties::red_blood_cell();
 
-    let area = (width_m * height_m).max(1e-18);
+    for (name, value) in [
+        ("width", width_m),
+        ("height", height_m),
+        ("flow rate", flow_rate_m3_s),
+        ("density", blood_density),
+        ("viscosity", viscosity),
+        ("hematocrit", hematocrit),
+    ] {
+        if !value.is_finite() {
+            return Err(Error::InvalidConfiguration(format!(
+                "Three-population cell separation {name} must be finite"
+            )));
+        }
+    }
+    if width_m <= 0.0 || height_m <= 0.0 {
+        return Err(Error::InvalidConfiguration(
+            "Three-population cell separation geometry must be positive".to_string(),
+        ));
+    }
+    if flow_rate_m3_s <= 0.0 || blood_density <= 0.0 || viscosity <= 0.0 {
+        return Err(Error::InvalidConfiguration(
+            "Three-population cell separation flow and fluid properties must be positive".to_string(),
+        ));
+    }
+    if !(0.0..=1.0).contains(&hematocrit) {
+        return Err(Error::InvalidConfiguration(
+            "Three-population cell separation hematocrit must lie in [0, 1]".to_string(),
+        ));
+    }
+    if let Some(radius) = bend_radius_m {
+        if !radius.is_finite() || radius <= 0.0 {
+            return Err(Error::InvalidConfiguration(
+                "Three-population cell separation bend radius must be finite and positive".to_string(),
+            ));
+        }
+    }
+
+    let area = width_m * height_m;
     let mean_v = flow_rate_m3_s / area;
 
-    const DISPERSED: f64 = 0.5;
     const SPLIT: f64 = 0.3;
 
-    let cancer_x = margination::lateral_equilibrium(
+    let cancer_x = margination::checked_lateral_equilibrium(
         &cancer,
         blood_density,
         viscosity,
@@ -168,10 +243,10 @@ pub fn three_population_equilibria(
         width_m,
         height_m,
         bend_radius_m,
-    )
-    .map_or(DISPERSED, |r| r.x_tilde_eq);
+    )?
+    .x_tilde_eq;
 
-    let wbc_x = enhanced_lateral_equilibrium(
+    let wbc_x = cell_interaction::checked_enhanced_lateral_equilibrium(
         &wbc,
         blood_density,
         viscosity,
@@ -180,10 +255,10 @@ pub fn three_population_equilibria(
         height_m,
         bend_radius_m,
         hematocrit,
-    )
-    .map_or(DISPERSED, |r| r.x_tilde_eq);
+    )?
+    .x_tilde_eq;
 
-    let rbc_x = margination::lateral_equilibrium(
+    let rbc_x = margination::checked_lateral_equilibrium(
         &rbc,
         blood_density,
         viscosity,
@@ -191,8 +266,8 @@ pub fn three_population_equilibria(
         width_m,
         height_m,
         bend_radius_m,
-    )
-    .map_or(DISPERSED, |r| r.x_tilde_eq);
+    )?
+    .x_tilde_eq;
 
     let cancer_wbc_sep = (cancer_x - wbc_x).abs();
     let max_central_x = cancer_x.max(wbc_x);
@@ -214,7 +289,7 @@ pub fn three_population_equilibria(
         0.0
     };
 
-    ThreePopEquilibria {
+    Ok(ThreePopEquilibria {
         cancer_eq: cancer_x,
         wbc_eq: wbc_x,
         rbc_eq: rbc_x,
@@ -223,7 +298,7 @@ pub fn three_population_equilibria(
         cancer_center_fraction,
         wbc_center_fraction,
         rbc_peripheral_fraction,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -294,5 +369,23 @@ mod tests {
             "WBC x̃ = {} out of [0,1] at HCT=0",
             eq.wbc_eq
         );
+    }
+
+    #[test]
+    fn checked_three_population_rejects_nonphysical_geometry() {
+        let err = checked_three_population_equilibria(0.0, HEIGHT, Q, RHO, MU, HCT, None)
+            .expect_err("checked three-population analysis must reject zero width");
+        assert!(err.to_string().contains("geometry"));
+    }
+
+    #[test]
+    fn checked_three_population_matches_legacy_nominal_case() {
+        let legacy = three_population_equilibria(WIDTH, HEIGHT, Q, RHO, MU, HCT, None);
+        let checked = checked_three_population_equilibria(WIDTH, HEIGHT, Q, RHO, MU, HCT, None)
+            .expect("checked three-population analysis should succeed");
+
+        assert!((legacy.cancer_eq - checked.cancer_eq).abs() < 1e-12);
+        assert!((legacy.wbc_eq - checked.wbc_eq).abs() < 1e-12);
+        assert!((legacy.rbc_eq - checked.rbc_eq).abs() < 1e-12);
     }
 }

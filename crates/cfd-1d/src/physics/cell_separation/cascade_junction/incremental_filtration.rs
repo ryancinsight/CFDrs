@@ -8,6 +8,80 @@
 use super::cascade_routing::{tri_center_q_frac, tri_center_q_frac_cross_junction};
 use super::routing_probability::{p_center, p_treat_bifurcation, SE_CANCER, SE_RBC, SE_WBC};
 use super::IncrementalFiltrationResult;
+use cfd_core::error::{Error, Result};
+
+const PRETRI_CENTER_FRAC_MIN: f64 = 0.20;
+const PRETRI_CENTER_FRAC_MAX: f64 = 0.70;
+const TERMINAL_BI_TREAT_FRAC_MIN: f64 = 0.50;
+const TERMINAL_BI_TREAT_FRAC_MAX: f64 = 0.85;
+
+fn validate_pretri_count(n_pretri: u8) -> Result<usize> {
+    if !(1..=3).contains(&n_pretri) {
+        return Err(Error::InvalidConfiguration(
+            "Incremental filtration pre-trifurcation stage count must lie in [1, 3]"
+                .to_string(),
+        ));
+    }
+
+    Ok(n_pretri as usize)
+}
+
+fn validate_center_fraction(name: &str, value: f64) -> Result<f64> {
+    if !value.is_finite() || !(PRETRI_CENTER_FRAC_MIN..=PRETRI_CENTER_FRAC_MAX).contains(&value) {
+        return Err(Error::InvalidConfiguration(format!(
+            "Incremental filtration {name} must lie in [{PRETRI_CENTER_FRAC_MIN}, {PRETRI_CENTER_FRAC_MAX}]"
+        )));
+    }
+
+    Ok(value)
+}
+
+fn validate_terminal_bifurcation_fraction(value: f64) -> Result<f64> {
+    if !value.is_finite()
+        || !(TERMINAL_BI_TREAT_FRAC_MIN..=TERMINAL_BI_TREAT_FRAC_MAX).contains(&value)
+    {
+        return Err(Error::InvalidConfiguration(format!(
+            "Incremental filtration terminal bifurcation treatment fraction must lie in [{TERMINAL_BI_TREAT_FRAC_MIN}, {TERMINAL_BI_TREAT_FRAC_MAX}]"
+        )));
+    }
+
+    Ok(value)
+}
+
+fn validate_unit_open_fraction(name: &str, value: f64) -> Result<f64> {
+    if !value.is_finite() || value <= 0.0 || value >= 1.0 {
+        return Err(Error::InvalidConfiguration(format!(
+            "Incremental filtration {name} must lie in the open interval (0, 1)"
+        )));
+    }
+
+    Ok(value)
+}
+
+fn validate_positive_geometry(name: &str, value: f64) -> Result<f64> {
+    if !value.is_finite() || value <= 0.0 {
+        return Err(Error::InvalidConfiguration(format!(
+            "Incremental filtration {name} must be finite and positive"
+        )));
+    }
+
+    Ok(value)
+}
+
+fn cif_pretri_stage_center_fracs_impl(n: usize, start: f64, terminal: f64) -> Vec<f64> {
+    if n == 1 {
+        return vec![start];
+    }
+
+    let target = start.max(terminal);
+
+    (0..n)
+        .map(|i| {
+            let t = ((i + 1) as f64 / n as f64).powi(2);
+            start + (target - start) * t
+        })
+        .collect()
+}
 
 /// Internal incremental filtration computation from pre-solved flow fractions.
 pub(crate) fn incremental_from_q_fractions(
@@ -76,27 +150,37 @@ pub fn cif_pretri_stage_center_fracs(
     pretri_center_frac: f64,
     terminal_tri_frac: f64,
 ) -> Vec<f64> {
-    let n = n_pretri.clamp(1, 3) as usize;
-    let start = pretri_center_frac.clamp(0.20, 0.70);
-    if n == 1 {
-        return vec![start];
-    }
-
-    let terminal = terminal_tri_frac.clamp(0.20, 0.70);
-    let target = start.max(terminal);
-
-    (0..n)
-        .map(|i| {
-            let t = ((i + 1) as f64 / n as f64).powi(2);
-            (start + (target - start) * t).clamp(0.20, 0.70)
+    checked_cif_pretri_stage_center_fracs(n_pretri, pretri_center_frac, terminal_tri_frac)
+        .unwrap_or_else(|_| {
+            cif_pretri_stage_center_fracs_impl(
+                n_pretri.clamp(1, 3) as usize,
+                pretri_center_frac.clamp(PRETRI_CENTER_FRAC_MIN, PRETRI_CENTER_FRAC_MAX),
+                terminal_tri_frac.clamp(PRETRI_CENTER_FRAC_MIN, PRETRI_CENTER_FRAC_MAX),
+            )
         })
-        .collect()
+}
+
+/// Checked stage-wise pre-trifurcation center-arm width fractions.
+pub fn checked_cif_pretri_stage_center_fracs(
+    n_pretri: u8,
+    pretri_center_frac: f64,
+    terminal_tri_frac: f64,
+) -> Result<Vec<f64>> {
+    let n = validate_pretri_count(n_pretri)?;
+    let start = validate_center_fraction("pre-trifurcation center fraction", pretri_center_frac)?;
+    let terminal = validate_center_fraction("terminal trifurcation center fraction", terminal_tri_frac)?;
+
+    Ok(cif_pretri_stage_center_fracs_impl(n, start, terminal))
 }
 
 /// Stage-wise pre-trifurcation center-flow fractions for selective routing.
 ///
 /// Each value is `tri_center_q_frac(stage_center_frac)` for the corresponding
 /// stage returned by [`cif_pretri_stage_center_fracs`].
+///
+/// This is a legacy width-fraction-only surrogate. When the parent width and
+/// channel height are known, prefer [`cif_pretri_stage_q_fracs_cross_junction`]
+/// so the staged split follows the geometry-aware rectangular conductance model.
 pub fn cif_pretri_stage_q_fracs(
     n_pretri: u8,
     pretri_center_frac: f64,
@@ -106,6 +190,89 @@ pub fn cif_pretri_stage_q_fracs(
         .into_iter()
         .map(tri_center_q_frac)
         .collect()
+}
+
+/// Checked stage-wise pre-trifurcation center-flow fractions.
+pub fn checked_cif_pretri_stage_q_fracs(
+    n_pretri: u8,
+    pretri_center_frac: f64,
+    terminal_tri_frac: f64,
+) -> Result<Vec<f64>> {
+    Ok(checked_cif_pretri_stage_center_fracs(
+        n_pretri,
+        pretri_center_frac,
+        terminal_tri_frac,
+    )?
+    .into_iter()
+    .map(tri_center_q_frac)
+    .collect())
+}
+
+/// Geometry-aware stage-wise pre-trifurcation center-flow fractions.
+///
+/// Each pre-trifurcation stage uses [`tri_center_q_frac_cross_junction`] with
+/// the current parent width and shared channel height, then narrows the parent
+/// width by the authored center fraction before evaluating the next stage.
+pub fn cif_pretri_stage_q_fracs_cross_junction(
+    n_pretri: u8,
+    pretri_center_frac: f64,
+    terminal_tri_frac: f64,
+    parent_width_m: f64,
+    channel_height_m: f64,
+) -> Vec<f64> {
+    checked_cif_pretri_stage_q_fracs_cross_junction(
+        n_pretri,
+        pretri_center_frac,
+        terminal_tri_frac,
+        parent_width_m,
+        channel_height_m,
+    )
+    .unwrap_or_else(|_| {
+        let stage_fracs = cif_pretri_stage_center_fracs(n_pretri, pretri_center_frac, terminal_tri_frac);
+        let mut current_parent_w = parent_width_m.max(1.0e-9);
+        stage_fracs
+            .into_iter()
+            .map(|stage_center_frac| {
+                let q_frac = tri_center_q_frac_cross_junction(
+                    stage_center_frac,
+                    current_parent_w,
+                    channel_height_m.max(1.0e-9),
+                );
+                current_parent_w *= stage_center_frac;
+                q_frac
+            })
+            .collect()
+    })
+}
+
+/// Checked geometry-aware stage-wise pre-trifurcation center-flow fractions.
+pub fn checked_cif_pretri_stage_q_fracs_cross_junction(
+    n_pretri: u8,
+    pretri_center_frac: f64,
+    terminal_tri_frac: f64,
+    parent_width_m: f64,
+    channel_height_m: f64,
+) -> Result<Vec<f64>> {
+    let stage_fracs = checked_cif_pretri_stage_center_fracs(
+        n_pretri,
+        pretri_center_frac,
+        terminal_tri_frac,
+    )?;
+    let mut current_parent_w = validate_positive_geometry("parent width", parent_width_m)?;
+    let channel_height_m = validate_positive_geometry("channel height", channel_height_m)?;
+
+    Ok(stage_fracs
+        .into_iter()
+        .map(|stage_center_frac| {
+            let q_frac = tri_center_q_frac_cross_junction(
+                stage_center_frac,
+                current_parent_w,
+                channel_height_m,
+            );
+            current_parent_w *= stage_center_frac;
+            q_frac
+        })
+        .collect())
 }
 
 /// Compute staged selective-routing separation.
@@ -120,9 +287,39 @@ pub fn incremental_filtration_separation_staged(
     terminal_tri_frac: f64,
     terminal_bi_treat_frac: f64,
 ) -> IncrementalFiltrationResult {
-    let pretri_q_fracs = cif_pretri_stage_q_fracs(n_pretri, pretri_center_frac, terminal_tri_frac);
-    let q_tri = tri_center_q_frac(terminal_tri_frac);
-    incremental_from_q_fractions(&pretri_q_fracs, q_tri, terminal_bi_treat_frac)
+    checked_incremental_filtration_separation_staged(
+        n_pretri,
+        pretri_center_frac,
+        terminal_tri_frac,
+        terminal_bi_treat_frac,
+    )
+    .unwrap_or_else(|_| {
+        let pretri_q_fracs =
+            cif_pretri_stage_q_fracs(n_pretri, pretri_center_frac, terminal_tri_frac);
+        let q_tri = tri_center_q_frac(terminal_tri_frac);
+        incremental_from_q_fractions(&pretri_q_fracs, q_tri, terminal_bi_treat_frac)
+    })
+}
+
+/// Checked staged selective-routing separation.
+pub fn checked_incremental_filtration_separation_staged(
+    n_pretri: u8,
+    pretri_center_frac: f64,
+    terminal_tri_frac: f64,
+    terminal_bi_treat_frac: f64,
+) -> Result<IncrementalFiltrationResult> {
+    validate_terminal_bifurcation_fraction(terminal_bi_treat_frac)?;
+    let pretri_q_fracs =
+        checked_cif_pretri_stage_q_fracs(n_pretri, pretri_center_frac, terminal_tri_frac)?;
+    let q_tri = tri_center_q_frac(validate_center_fraction(
+        "terminal trifurcation center fraction",
+        terminal_tri_frac,
+    )?);
+    Ok(incremental_from_q_fractions(
+        &pretri_q_fracs,
+        q_tri,
+        terminal_bi_treat_frac,
+    ))
 }
 
 /// Compute staged selective-routing separation from solved per-stage flow fractions.
@@ -134,11 +331,40 @@ pub fn incremental_filtration_separation_from_qfracs(
     terminal_tri_q_center_frac: f64,
     terminal_bi_treat_frac: f64,
 ) -> IncrementalFiltrationResult {
-    incremental_from_q_fractions(
+    checked_incremental_filtration_separation_from_qfracs(
         pretri_q_center_fracs,
         terminal_tri_q_center_frac,
         terminal_bi_treat_frac,
     )
+    .unwrap_or_else(|_| {
+        incremental_from_q_fractions(
+            pretri_q_center_fracs,
+            terminal_tri_q_center_frac,
+            terminal_bi_treat_frac,
+        )
+    })
+}
+
+/// Checked staged selective-routing separation from solved per-stage flow fractions.
+pub fn checked_incremental_filtration_separation_from_qfracs(
+    pretri_q_center_fracs: &[f64],
+    terminal_tri_q_center_frac: f64,
+    terminal_bi_treat_frac: f64,
+) -> Result<IncrementalFiltrationResult> {
+    for &q_frac in pretri_q_center_fracs {
+        validate_unit_open_fraction("pre-trifurcation center flow fraction", q_frac)?;
+    }
+    validate_unit_open_fraction(
+        "terminal trifurcation center flow fraction",
+        terminal_tri_q_center_frac,
+    )?;
+    validate_terminal_bifurcation_fraction(terminal_bi_treat_frac)?;
+
+    Ok(incremental_from_q_fractions(
+        pretri_q_center_fracs,
+        terminal_tri_q_center_frac,
+        terminal_bi_treat_frac,
+    ))
 }
 
 /// Compute staged selective-routing separation with cross-junction diameter effects.
@@ -164,23 +390,65 @@ pub fn incremental_filtration_separation_cross_junction(
     parent_width_m: f64,
     channel_height_m: f64,
 ) -> IncrementalFiltrationResult {
+    checked_incremental_filtration_separation_cross_junction(
+        n_pretri,
+        pretri_center_frac,
+        terminal_tri_frac,
+        terminal_bi_treat_frac,
+        parent_width_m,
+        channel_height_m,
+    )
+    .unwrap_or_else(|_| {
+        let pretri_q_fracs = cif_pretri_stage_q_fracs_cross_junction(
+            n_pretri,
+            pretri_center_frac,
+            terminal_tri_frac,
+            parent_width_m,
+            channel_height_m,
+        );
+
+        let stage_fracs =
+            cif_pretri_stage_center_fracs(n_pretri, pretri_center_frac, terminal_tri_frac);
+        let current_parent_w = stage_fracs
+            .iter()
+            .fold(parent_width_m, |width_m, stage_center_frac| width_m * stage_center_frac);
+
+        let q_tri =
+            tri_center_q_frac_cross_junction(terminal_tri_frac, current_parent_w, channel_height_m);
+        incremental_from_q_fractions(&pretri_q_fracs, q_tri, terminal_bi_treat_frac)
+    })
+}
+
+/// Checked staged selective-routing separation with cross-junction diameter effects.
+pub fn checked_incremental_filtration_separation_cross_junction(
+    n_pretri: u8,
+    pretri_center_frac: f64,
+    terminal_tri_frac: f64,
+    terminal_bi_treat_frac: f64,
+    parent_width_m: f64,
+    channel_height_m: f64,
+) -> Result<IncrementalFiltrationResult> {
+    validate_positive_geometry("parent width", parent_width_m)?;
+    validate_positive_geometry("channel height", channel_height_m)?;
+    validate_terminal_bifurcation_fraction(terminal_bi_treat_frac)?;
     let stage_fracs =
-        cif_pretri_stage_center_fracs(n_pretri, pretri_center_frac, terminal_tri_frac);
+        checked_cif_pretri_stage_center_fracs(n_pretri, pretri_center_frac, terminal_tri_frac)?;
+    let pretri_q_fracs = checked_cif_pretri_stage_q_fracs_cross_junction(
+        n_pretri,
+        pretri_center_frac,
+        terminal_tri_frac,
+        parent_width_m,
+        channel_height_m,
+    )?;
 
-    // Convert width fractions to flow fractions using cross-junction model.
-    // Each stage re-splits from the current center width, which narrows by
-    // center_frac at each level.
-    let mut current_parent_w = parent_width_m;
-    let pretri_q_fracs: Vec<f64> = stage_fracs
+    let current_parent_w = stage_fracs
         .iter()
-        .map(|&frac| {
-            let q = tri_center_q_frac_cross_junction(frac, current_parent_w, channel_height_m);
-            current_parent_w *= frac; // center arm becomes parent for next level
-            q
-        })
-        .collect();
+        .fold(parent_width_m, |width_m, stage_center_frac| width_m * stage_center_frac);
 
-    let q_tri =
-        tri_center_q_frac_cross_junction(terminal_tri_frac, current_parent_w, channel_height_m);
-    incremental_from_q_fractions(&pretri_q_fracs, q_tri, terminal_bi_treat_frac)
+    let q_tri = tri_center_q_frac_cross_junction(terminal_tri_frac, current_parent_w, channel_height_m);
+    Ok(incremental_from_q_fractions(
+        &pretri_q_fracs,
+        q_tri,
+        terminal_bi_treat_frac,
+    ))
 }

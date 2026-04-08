@@ -1,6 +1,6 @@
 use cfd_1d::{
     acoustic_contrast_factor, mixed_cascade_separation_kappa_aware, CascadeStage, PeripheralRecovery,
-    KAPPA_CTC, KAPPA_PLASMA, RHO_CTC, RHO_PLASMA,
+    parallel_channel_flow_fractions, KAPPA_CTC, KAPPA_PLASMA, RHO_CTC, RHO_PLASMA,
 };
 use cfd_schematics::topology::TreatmentActuationMode;
 use serde::{Deserialize, Serialize};
@@ -37,13 +37,16 @@ pub fn compute_blueprint_separation_metrics(
     let mut stage_summaries = Vec::with_capacity(topology.split_stages.len());
 
     for stage in &topology.split_stages {
-        let branch_widths = stage
+        let branch_dimensions = stage
             .branches
             .iter()
-            .map(|branch| branch.route.width_m)
+            .map(|branch| (branch.route.width_m, branch.route.height_m))
             .collect::<Vec<_>>();
-        let q_fractions =
-            conductance_flow_fractions(&branch_widths, stage.branches[0].route.height_m);
+        let branch_widths = branch_dimensions
+            .iter()
+            .map(|(width_m, _)| *width_m)
+            .collect::<Vec<_>>();
+        let q_fractions = conductance_flow_fractions(&branch_dimensions);
 
         let mut treatment_flow_fraction = 0.0_f64;
         let mut wbc_exclusion_flow_fraction = 0.0_f64;
@@ -100,11 +103,15 @@ pub fn compute_blueprint_separation_metrics(
                 if n_recoveries < 4 && !sub_split.sub_branches.is_empty() {
                     let sub_widths: Vec<f64> =
                         sub_split.sub_branches.iter().map(|sb| sb.width_m).collect();
-                    let sub_height = sub_split
+                    let sub_dimensions: Vec<(f64, f64)> = sub_split
                         .sub_branches
+                        .iter()
+                        .map(|sub_branch| (sub_branch.width_m, sub_branch.height_m))
+                        .collect();
+                    let sub_height = sub_dimensions
                         .first()
-                        .map_or(branch.route.height_m, |sb| sb.height_m);
-                    let sub_q = conductance_flow_fractions(&sub_widths, sub_height);
+                        .map_or(branch.route.height_m, |(_, height_m)| *height_m);
+                    let sub_q = conductance_flow_fractions(&sub_dimensions);
                     let mut sub_arm_q_fracs = [0.0_f64; 5];
                     for (i, &q) in sub_q.iter().enumerate().take(5) {
                         sub_arm_q_fracs[i] = q;
@@ -233,55 +240,31 @@ pub fn compute_blueprint_separation_metrics(
     })
 }
 
-fn conductance_flow_fractions(branch_widths: &[f64], _height_m: f64) -> Vec<f64> {
-    // Theorem: Exact 2D Zweifach-Fung separation fraction via fully-developed parabolic profile.
-    // For a rectangular junction of total width W = Σ w_i, the depth-averaged
-    // velocity profile is U(y) = U_max * [1 - (2y/W)^2] for y ∈ [-W/2, W/2].
-    // The fraction of flow entering branch i is the analytical integral of U(y)
-    // over the branch's streamtube extent [y_left, y_right], normalised by total flow.
-    //
-    // Proof:
-    // I(y) = ∫ [1 - (y/W_half)^2] dy = y - y^3 / (3 * W_half^2)
-    // Fractional flow = ( I(y_right) - I(y_left) ) / ( I(W_half) - I(-W_half) )
-    // Total integrated flow = 4/3 W_half.
-    //
-    // This removes the empirical 'minor_loss_factor' assumption and guarantees
-    // exact mass conservation and strict matching with 2D streamtube models.
+fn conductance_flow_fractions(branch_dimensions: &[(f64, f64)]) -> Vec<f64> {
+    parallel_channel_flow_fractions(branch_dimensions)
+}
 
-    let total_width: f64 = branch_widths.iter().copied().sum();
-    if total_width <= 1.0e-18 {
-        return vec![0.0; branch_widths.len()];
+#[cfg(test)]
+mod tests {
+    use super::conductance_flow_fractions;
+
+    #[test]
+    fn conductance_flow_fractions_match_shared_rectangular_helper_behavior() {
+        let fractions = conductance_flow_fractions(&[(2.0e-3, 1.0e-3), (1.0e-3, 1.0e-3)]);
+        assert_eq!(fractions.len(), 2);
+        assert!(fractions[0] > fractions[1]);
+        assert!((fractions.iter().sum::<f64>() - 1.0).abs() < 1.0e-12);
     }
 
-    let w_half = total_width / 2.0;
+    #[test]
+    fn height_sensitive_conductance_flow_fractions_track_rectangular_conductance() {
+        let equal_height = conductance_flow_fractions(&[(1.0e-3, 1.0e-3), (1.0e-3, 1.0e-3)]);
+        let unequal_height = conductance_flow_fractions(&[(1.0e-3, 2.0e-3), (1.0e-3, 1.0e-3)]);
 
-    // Indefinite analytical integral of the parabolic profile
-    let evaluate_integral = |y: f64| -> f64 {
-        y - y.powi(3) / (3.0 * w_half.powi(2).max(1.0e-18))
-    };
-
-    let total_integral = evaluate_integral(w_half) - evaluate_integral(-w_half);
-    if total_integral <= 1.0e-18 {
-        return vec![1.0 / branch_widths.len() as f64; branch_widths.len()];
+        assert!((equal_height[0] - 0.5).abs() < 1.0e-12);
+        assert!(
+            unequal_height[0] > unequal_height[1],
+            "taller equal-width branch should draw more flow under rectangular conductance"
+        );
     }
-
-    let mut fractions = Vec::with_capacity(branch_widths.len());
-    let mut current_y = -w_half;
-
-    for &w in branch_widths {
-        let next_y = (current_y + w).clamp(-w_half, w_half);
-        let q_frac = (evaluate_integral(next_y) - evaluate_integral(current_y)) / total_integral;
-        fractions.push(q_frac.max(0.0));
-        current_y = next_y;
-    }
-
-    // Normalise to guarantee exact sum = 1.0
-    let sum: f64 = fractions.iter().sum();
-    if sum > 1.0e-18 {
-        for f in &mut fractions {
-            *f /= sum;
-        }
-    }
-
-    fractions
 }

@@ -16,5 +16,5 @@ pub mod validation;
 pub use physics::{
     ThreeWayBranchJunction, ThreeWayBranchSolution, TwoWayBranchJunction, TwoWayBranchSolution,
 };
-pub use solver::{BranchingNetworkConfig, BranchingNetworkSolver};
+pub use solver::{BranchingNetworkConfig, BranchingNetworkSolver, DownstreamBranchRoute};
 pub use validation::{BranchingValidationResult, BranchingValidator};

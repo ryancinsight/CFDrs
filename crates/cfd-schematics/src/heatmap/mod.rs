@@ -11,9 +11,10 @@
 //! - Grid: 12 columns × 8 rows = 96 wells
 //!
 //! # Treatment zone
-//! - 45 × 45 mm centred at (63.88, 42.74) mm
-//! - Spans wells D4–I9 (columns 4–9, rows B–G in 1-indexed notation)
-//! - Highlighted with a blue dashed border and light-blue well fill
+//! - 45 × 45 mm centre-to-centre span centred at (63.88, 42.74) mm
+//! - Spans wells B4–G9 (rows B–G, columns 4–9 in 1-indexed notation)
+//! - The dashed overlay expands half a pitch beyond the outer wells so the
+//!   full 6 × 6 well envelope is visible
 //!
 //! # Output
 //! Pure SVG XML written to a file — no external graphical dependencies.
@@ -44,7 +45,7 @@ const SCALE: f64 = 6.0;
 /// Left/right margin [px].
 const MARGIN_X: f64 = 62.0;
 /// Top margin [px].
-const MARGIN_Y: f64 = 52.0;
+const MARGIN_Y: f64 = 70.0;
 
 /// SBS plate width [mm].
 const PLATE_W_MM: f64 = 127.76;
@@ -60,14 +61,17 @@ const WELL_A1_Y: f64 = 11.24;
 /// Well drawing radius [mm].
 const WELL_R: f64 = 3.5;
 
-/// Treatment zone size [mm] (45 × 45 mm).
-const ZONE_SIZE_MM: f64 = 45.0;
+/// Treatment-zone centre-to-centre span [mm] across 6 wells (5 pitches).
+const ZONE_CENTER_SPAN_MM: f64 = 45.0;
 /// Treatment zone first column index (0-based) — column 4 in 1-indexed (3 in 0-indexed).
 const ZONE_COL_START: usize = 3;
 /// Treatment zone first row index (0-based) — row B in A–H labelling (1 in 0-indexed).
 const ZONE_ROW_START: usize = 1;
 /// Number of wells in each axis of the treatment zone.
 const ZONE_WELLS: usize = 6;
+/// Full highlighted treatment-zone envelope [mm] including a half-pitch border
+/// around the first and last well centres.
+const ZONE_ENVELOPE_MM: f64 = PITCH * ZONE_WELLS as f64;
 
 // ── Public function ───────────────────────────────────────────────────────────
 
@@ -127,7 +131,8 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
         s,
         r##"<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
-     width="{svg_w:.0}" height="{svg_h:.0}" viewBox="0 0 {svg_w:.0} {svg_h:.0}">
+         width="{svg_w:.0}" height="{svg_h:.0}" viewBox="0 0 {svg_w:.0} {svg_h:.0}"
+         preserveAspectRatio="xMidYMin meet" style="max-width:100%;height:auto;">
   <defs>
     <linearGradient id="cavGrad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%"   style="stop-color:#FFD700"/>
@@ -141,10 +146,12 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
     // ── Title ─────────────────────────────────────────────────────────────────
     let _ = write!(
         s,
-        r##"  <text x="{cx:.0}" y="36"
-        font-family="Arial,sans-serif" font-size="13" font-weight="bold"
-        fill="#222" text-anchor="middle">
-    SDT Millifluidic Device — 96-Well Plate Treatment Zone</text>
+        r##"  <text x="{cx:.0}" y="30"
+        font-family="Arial,sans-serif" font-size="16" font-weight="700"
+        fill="#222" text-anchor="middle">SDT Millifluidic Device</text>
+  <text x="{cx:.0}" y="49"
+        font-family="Arial,sans-serif" font-size="13" font-weight="600"
+        fill="#44505a" text-anchor="middle">96-Well Plate Treatment Zone</text>
 "##,
         cx = svg_w / 2.0
     );
@@ -169,8 +176,8 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
 "##,
         px_x(zone_mm_x),
         px_y(zone_mm_y),
-        mm_to_px(ZONE_SIZE_MM),
-        mm_to_px(ZONE_SIZE_MM)
+        mm_to_px(ZONE_ENVELOPE_MM),
+        mm_to_px(ZONE_ENVELOPE_MM)
     );
 
     // ── Wells ─────────────────────────────────────────────────────────────────
@@ -225,7 +232,7 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
           fill="#555" text-anchor="middle">{}</text>
 "##,
             px_x(cx_mm),
-            MARGIN_Y - 9.0,
+                        MARGIN_Y - 14.0,
             col + 1
         );
     }
@@ -247,8 +254,8 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
     // ── Candidate metric bars ─────────────────────────────────────────────────
     let n_cands = top_candidates.len().min(5);
     if n_cands > 0 {
-        let zone_px_w = mm_to_px(ZONE_SIZE_MM);
-        let zone_px_h = mm_to_px(ZONE_SIZE_MM);
+        let zone_px_w = mm_to_px(ZONE_ENVELOPE_MM);
+        let zone_px_h = mm_to_px(ZONE_ENVELOPE_MM);
         let bar_gap = 4.0;
         let bar_w = (zone_px_w - bar_gap * (n_cands as f64 + 1.0)) / n_cands as f64;
         let bar_h = zone_px_h - 28.0;
@@ -318,12 +325,14 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
         r##"  <rect x="{:.0}" y="{:.0}" width="13" height="13" fill="#A8CCF0"
         stroke="#3377BB" stroke-width="1.2" stroke-dasharray="4,2" rx="2"/>
   <text x="{:.0}" y="{:.0}" font-family="Arial,sans-serif" font-size="8.5" fill="#444">
-    Treatment zone (6×6 wells · 45×45 mm)</text>
+    Treatment zone (6×6 wells · {:.0}×{:.0} mm centre span)</text>
 "##,
         leg_x + 400.0,
         leg_y + 18.0,
         leg_x + 418.0,
         leg_y + 29.0,
+        ZONE_CENTER_SPAN_MM,
+        ZONE_CENTER_SPAN_MM,
     );
 
     // ── Close SVG ─────────────────────────────────────────────────────────────
@@ -368,6 +377,15 @@ mod tests {
         let svg = build_svg(&sample_candidates());
         assert!(svg.contains("<svg "), "expected <svg element");
         assert!(svg.contains("</svg>"), "expected closing </svg>");
+        assert!(svg.contains("preserveAspectRatio=\"xMidYMin meet\""));
+        assert!(svg.contains("max-width:100%;height:auto;"));
+    }
+
+    #[test]
+    fn svg_uses_split_title_for_plate_heading() {
+        let svg = build_svg(&sample_candidates());
+        assert!(svg.contains("SDT Millifluidic Device"));
+        assert!(svg.contains("96-Well Plate Treatment Zone"));
     }
 
     #[test]
@@ -377,6 +395,15 @@ mod tests {
         assert!(
             svg.contains("stroke-dasharray"),
             "expected dashed border for treatment zone"
+        );
+    }
+
+    #[test]
+    fn svg_treatment_zone_rect_covers_full_six_by_six_envelope() {
+        let svg = build_svg(&sample_candidates());
+        assert!(
+            svg.contains(r#"<rect x="283.3" y="164.4" width="324.0" height="324.0""#),
+            "expected treatment zone rect to span the full 6x6 well envelope"
         );
     }
 

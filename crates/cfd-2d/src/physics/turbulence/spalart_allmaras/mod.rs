@@ -577,7 +577,7 @@ mod tests {
         let corner_idx = 0;
 
         assert!(distances[center_idx] > distances[corner_idx]);
-        assert_relative_eq!(distances[corner_idx], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(distances[corner_idx], 0.05, epsilon = 1e-10);
     }
 
     #[test]

@@ -79,15 +79,24 @@
 //! - **stability**: CFL and stability analysis utilities
 //! - **constants**: Physical and numerical constants
 //!
-//! # Theorem
-//! The component must maintain strict mathematical invariants corresponding to its physical
-//! or numerical role.
+//! # Discrete Invariants
+//!
+//! For the supported incompressible formulations, the implementation is expected to preserve
+//! three crate-level invariants on every converged update:
+//!
+//! 1. Discrete mass conservation after the pressure-correction step.
+//! 2. Non-negative modeled transport coefficients such as eddy viscosity and scalar diffusivity.
+//! 3. Bounded face reconstruction when TVD or other limited high-resolution schemes are selected
+//!    within their stated stability envelope.
 //!
 //! **Proof sketch**:
-//! Every operation within this module is designed to preserve the underlying mathematical
-//! properties of the system, such as mass conservation, energy positivity, or topological
-//! consistency. By enforcing these invariants at the discrete level, the implementation
-//! guarantees stability and physical realism.
+//! The SIMPLE, SIMPLEC, PISO, and PIMPLE paths assemble a momentum predictor and then solve a
+//! pressure-correction problem whose flux correction enforces the discrete continuity constraint
+//! on each control volume. Rhie-Chow interpolation removes collocated pressure checkerboarding so
+//! the corrected flux field remains consistent with the pressure solve. Turbulence and transport
+//! closures compute viscosity-like quantities from non-negative state variables, and the bounded
+//! convection schemes limit reconstructed interface values so new extrema are not introduced when
+//! their CFL assumptions hold.
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]

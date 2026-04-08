@@ -217,6 +217,8 @@ mod tests {
         assert!(svg.contains("Primitive candidate"));
         assert!(svg.contains("Cached cfd-1d"));
         assert!(svg.contains("Option 2 combined ranking"));
+        assert!(svg.contains("preserveAspectRatio=\"xMidYMin meet\""));
+        assert!(svg.contains("max-width:100%;height:auto;"));
         assert!(!svg.contains("placeholder"));
     }
 }

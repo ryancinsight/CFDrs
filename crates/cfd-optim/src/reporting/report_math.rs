@@ -85,21 +85,22 @@ pub(super) fn resonance_match(hydraulic_diameter_m: f64) -> f64 {
     }
 }
 
-/// Per-stage treatment-path flow fractions via Hagen–Poiseuille conductance.
+/// Per-stage treatment-path flow fractions via rectangular laminar conductance.
 ///
-/// Thin wrapper: maps [`SplitStageSpec`] branches to `(width, is_treatment)`
-/// pairs and delegates to [`cfd_1d::cascade_treatment_flow_fractions`] for the
-/// actual Q ∝ w³ conductance computation.
+/// Thin wrapper: maps [`SplitStageSpec`] branches to
+/// `(width, height, is_treatment)` triples and delegates to
+/// [`cfd_1d::cascade_treatment_flow_fractions`] for the actual rectangular
+/// branch-conductance weighting.
 pub(super) fn split_stage_flow_fractions(stages: &[SplitStageSpec]) -> (Vec<f64>, f64) {
-    let stage_data: Vec<Vec<(f64, bool)>> = stages
+    let stage_data: Vec<Vec<(f64, f64, bool)>> = stages
         .iter()
         .map(|s| {
             s.branches
                 .iter()
-                .map(|b| (b.route.width_m, b.treatment_path))
+                .map(|b| (b.route.width_m, b.route.height_m, b.treatment_path))
                 .collect()
         })
         .collect();
-    let refs: Vec<&[(f64, bool)]> = stage_data.iter().map(|v| v.as_slice()).collect();
+    let refs: Vec<&[(f64, f64, bool)]> = stage_data.iter().map(|v| v.as_slice()).collect();
     cascade_treatment_flow_fractions(&refs)
 }

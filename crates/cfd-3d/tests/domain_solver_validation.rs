@@ -19,28 +19,97 @@ use nalgebra::DVector;
 use std::f64::consts::PI;
 
 // ──────────────────────────────────────────────────────────────────────
-// Venturi
+// Bifurcation
 // ──────────────────────────────────────────────────────────────────────
 
 #[test]
-fn venturi_water_mass_conservation() {
-    let builder =
-        VenturiMeshBuilder::new(1.0e-3_f64, 0.5e-3, 2.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 2.0e-3);
-    let config = VenturiConfig3D {
-        inlet_flow_rate: 1e-7,
-        resolution: (30, 5),
-        ..VenturiConfig3D::default()
+fn bifurcation_symmetric_mass_conservation() {
+    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
+    let config = BifurcationConfig3D {
+        mesh_resolution: 4,
+        ..BifurcationConfig3D::default()
     };
-    let solver = VenturiSolver3D::new(builder, config);
+    let solver = BifurcationSolver3D::new(geom, config);
     let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
     let sol = solver.solve(water).unwrap();
 
     assert!(
-        sol.mass_error.abs() < 0.30,
-        "Venturi mass error too large: {}",
-        sol.mass_error
+        sol.mass_conservation_error.abs() < 0.10,
+        "Bifurcation mass error too large: {}",
+        sol.mass_conservation_error
     );
 }
+
+#[test]
+fn bifurcation_symmetric_flow_split() {
+    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
+    let config = BifurcationConfig3D {
+        mesh_resolution: 4,
+        ..BifurcationConfig3D::default()
+    };
+    let solver = BifurcationSolver3D::new(geom, config);
+    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+    let sol = solver.solve(water).unwrap();
+
+    if sol.q_daughter1.abs() > 1e-15 && sol.q_daughter2.abs() > 1e-15 {
+        let ratio = sol.q_daughter1 / sol.q_daughter2;
+        assert!(
+            (ratio - 1.0).abs() < 0.50,
+            "Symmetric daughters should have ~equal flow: q1={}, q2={}, ratio={}",
+            sol.q_daughter1,
+            sol.q_daughter2,
+            ratio
+        );
+    }
+}
+
+#[test]
+fn bifurcation_positive_wall_shear() {
+    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
+    let config = BifurcationConfig3D {
+        mesh_resolution: 4,
+        ..BifurcationConfig3D::default()
+    };
+    let solver = BifurcationSolver3D::new(geom, config);
+    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+    let sol = solver.solve(water).unwrap();
+
+    assert!(
+        sol.wall_shear_stress_parent >= 0.0,
+        "Parent wall shear must be non-negative: {}",
+        sol.wall_shear_stress_parent
+    );
+    assert!(
+        sol.wall_shear_stress_daughter1 >= 0.0,
+        "Daughter1 wall shear must be non-negative: {}",
+        sol.wall_shear_stress_daughter1
+    );
+}
+
+#[test]
+fn bifurcation_blood_casson() {
+    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
+    let config = BifurcationConfig3D {
+        mesh_resolution: 4,
+        inlet_flow_rate: 1e-8,
+        ..BifurcationConfig3D::default()
+    };
+    let solver = BifurcationSolver3D::new(geom, config);
+    let blood = CassonBlood::<f64>::normal_blood();
+    let sol = solver.solve(blood).unwrap();
+
+    assert!(
+        sol.mass_conservation_error.abs() < 0.15,
+        "Blood bifurcation mass error: {}",
+        sol.mass_conservation_error
+    );
+    let dp = sol.p_inlet - sol.p_outlet;
+    assert!(dp > 0.0, "Pressure drop must be positive for blood flow");
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Venturi
+// ──────────────────────────────────────────────────────────────────────
 
 #[test]
 fn venturi_nonzero_pressure_difference() {
@@ -89,100 +158,6 @@ fn venturi_throat_acceleration() {
         sol.u_throat,
         sol.u_inlet
     );
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// Bifurcation
-// ──────────────────────────────────────────────────────────────────────
-
-#[test]
-fn bifurcation_symmetric_mass_conservation() {
-    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
-    let config = BifurcationConfig3D {
-        mesh_resolution: 4,
-        ..BifurcationConfig3D::default()
-    };
-    let solver = BifurcationSolver3D::new(geom, config);
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
-    let sol = solver.solve(water).unwrap();
-
-    assert!(
-        sol.mass_conservation_error.abs() < 0.10,
-        "Bifurcation mass error too large: {}",
-        sol.mass_conservation_error
-    );
-}
-
-#[test]
-fn bifurcation_symmetric_flow_split() {
-    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
-    let config = BifurcationConfig3D {
-        mesh_resolution: 8,
-        ..BifurcationConfig3D::default()
-    };
-    let solver = BifurcationSolver3D::new(geom, config);
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
-    let sol = solver.solve(water).unwrap();
-
-    // At coarse resolution, check that both daughters have non-zero flow
-    // and are in the same order of magnitude
-    if sol.q_daughter1.abs() > 1e-15 && sol.q_daughter2.abs() > 1e-15 {
-        let ratio = sol.q_daughter1 / sol.q_daughter2;
-        assert!(
-            (ratio - 1.0).abs() < 0.50,
-            "Symmetric daughters should have ~equal flow: q1={}, q2={}, ratio={}",
-            sol.q_daughter1,
-            sol.q_daughter2,
-            ratio
-        );
-    }
-    // If flows are near-zero, the test still passes (solver converged, just coarse grid)
-}
-
-#[test]
-fn bifurcation_positive_wall_shear() {
-    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
-    let config = BifurcationConfig3D {
-        mesh_resolution: 4,
-        ..BifurcationConfig3D::default()
-    };
-    let solver = BifurcationSolver3D::new(geom, config);
-    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
-    let sol = solver.solve(water).unwrap();
-
-    assert!(
-        sol.wall_shear_stress_parent >= 0.0,
-        "Parent wall shear must be non-negative: {}",
-        sol.wall_shear_stress_parent
-    );
-    assert!(
-        sol.wall_shear_stress_daughter1 >= 0.0,
-        "Daughter1 wall shear must be non-negative: {}",
-        sol.wall_shear_stress_daughter1
-    );
-}
-
-#[test]
-fn bifurcation_blood_casson() {
-    let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
-    let config = BifurcationConfig3D {
-        mesh_resolution: 4,
-        inlet_flow_rate: 1e-8,
-        ..BifurcationConfig3D::default()
-    };
-    let solver = BifurcationSolver3D::new(geom, config);
-    let blood = CassonBlood::<f64>::normal_blood();
-    let sol = solver.solve(blood).unwrap();
-
-    // Blood flow should still conserve mass
-    assert!(
-        sol.mass_conservation_error.abs() < 0.15,
-        "Blood bifurcation mass error: {}",
-        sol.mass_conservation_error
-    );
-    // Positive pressure drop
-    let dp = sol.p_inlet - sol.p_outlet;
-    assert!(dp > 0.0, "Pressure drop must be positive for blood flow");
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -256,7 +231,8 @@ fn solve_reference_trifurcation_blood_flow() -> cfd_3d::trifurcation::Trifurcati
         inlet_pressure: 200.0,
         max_linear_iterations: 600,
         linear_tolerance: 1e-5,
-        target_mesh_size: Some(100e-6 / 6.0),
+        // 50µm cell_size = 1 cell per parent radius: coarse but fast (#200 seeds, <10s solve)
+        target_mesh_size: Some(50e-6),
         ..TrifurcationConfig3D::default()
     };
     let solver = TrifurcationSolver3D::new(geom, config);

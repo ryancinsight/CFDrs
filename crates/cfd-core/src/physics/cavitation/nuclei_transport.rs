@@ -21,6 +21,32 @@
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 
+/// Default linear vapor-pressure boost per unit nuclei fraction.
+///
+/// This is the shared screening constant used by the venturi and VOF cavitation
+/// paths when pre-existing nuclei are folded into an effective vapor threshold.
+pub const NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION: f64 = 10_000.0;
+
+/// # Theorem — Affine nuclei-pressure coupling
+///
+/// The screening closure for nuclei-augmented vapor pressure is
+/// `p_v,eff = p_v + k_n · n`, where `p_v` is the base vapor pressure,
+/// `n` is the nuclei volume fraction, and `k_n` is a constant gain.
+///
+/// **Proof sketch.** The model is an affine map in `n`, so the derivative
+/// with respect to nuclei fraction is constant and equal to `k_n`. The base
+/// threshold is preserved at `n = 0`, and the effective threshold increases
+/// monotonically for nonnegative nuclei fractions.
+#[must_use]
+pub fn nuclei_adjusted_vapor_pressure<T: RealField + Copy>(
+    vapor_pressure_pa: T,
+    nuclei_fraction: T,
+) -> T {
+    let boost = T::from_f64(NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION)
+        .expect("10_000.0 is an IEEE 754 representable f64 constant");
+    vapor_pressure_pa + nuclei_fraction * boost
+}
+
 /// Configuration parameters for the Nuclei Transport model
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct NucleiTransportConfig<T: RealField + Copy> {
@@ -107,6 +133,21 @@ impl<T: RealField + Copy> NucleiTransport<T> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+
+    #[test]
+    fn test_nuclei_adjusted_vapor_pressure_scales_linearly() {
+        let base = 3170.0;
+
+        assert_relative_eq!(nuclei_adjusted_vapor_pressure(base, 0.0), base);
+        assert_relative_eq!(
+            nuclei_adjusted_vapor_pressure(base, 0.25),
+            base + 2_500.0
+        );
+        assert_relative_eq!(
+            nuclei_adjusted_vapor_pressure(base, 1.0),
+            base + NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION
+        );
+    }
 
     #[test]
     fn test_dissolution_rate() {

@@ -61,12 +61,6 @@ const MIN_VELOCITY_THRESHOLD: f64 = 1.0e-9;
 /// skip the erosion-rate calculation entirely.
 const MIN_VOID_FRACTION_FOR_DAMAGE: f64 = 0.01;
 
-/// Default bubble / collapse radius [m] used as a fallback when the
-/// bubble-dynamics solver is not enabled.  Corresponds to a typical
-/// micro-cavitation bubble (~1 micrometer).
-#[allow(dead_code)] // Used in bubble-dynamics paths gated by runtime config
-const DEFAULT_BUBBLE_RADIUS: f64 = 1e-6;
-
 /// Polytropic index (ratio of specific heats, gamma = c_p / c_v) for
 /// air at standard conditions.  Used in the Rayleigh-Plesset adiabatic
 /// compression model for bubble-collapse frequency estimation.
@@ -118,6 +112,12 @@ pub struct CavitationVofSolver {
 impl CavitationVofSolver {
     /// Create new cavitation-VOF solver
     pub fn new(nx: usize, ny: usize, nz: usize, config: CavitationVofConfig) -> Result<Self> {
+        if config.damage_model.is_some() && config.bubble_dynamics.is_none() {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "cavitation damage requires bubble dynamics to provide a physically grounded bubble radius".to_string(),
+            ));
+        }
+
         let vof_solver = VofSolver::create(config.vof_config.clone(), nx, ny, nz, DEFAULT_GRID_SPACING, DEFAULT_GRID_SPACING, DEFAULT_GRID_SPACING);
 
         let bubble_solver = config.bubble_dynamics.as_ref().map(|bubble_config| {
@@ -197,7 +197,7 @@ impl CavitationVofSolver {
         self.vof_solver.advance(dt)?;
 
         // 5. Calculate cavitation damage if damage model is enabled
-        self.update_damage(dt, pressure_field, density_field);
+        self.update_damage(dt, pressure_field, density_field)?;
 
         Ok(())
     }
@@ -340,7 +340,10 @@ impl CavitationVofSolver {
                     
                     // Cascade effect: modify vapor pressure assumption if pre-existing nuclei are advected
                     if let Some(nuclei) = &self.nuclei_field {
-                        vapor_pressure += nuclei[(i, col)] * 10_000.0;
+                        vapor_pressure = cfd_core::physics::cavitation::nuclei_transport::nuclei_adjusted_vapor_pressure(
+                            vapor_pressure,
+                            nuclei[(i, col)],
+                        );
                     }
 
                     // Calculate cavitation number (relative to vapor pressure)
@@ -397,90 +400,55 @@ impl CavitationVofSolver {
         dt: f64,
         pressure_field: &DMatrix<f64>,
         density_field: &DMatrix<f64>,
-    ) {
+    ) -> Result<()> {
         let nx = self.vof_solver.nx;
         let ny = self.vof_solver.ny;
         let nz = self.vof_solver.nz;
 
         if density_field.nrows() != nx || density_field.ncols() != ny * nz {
-            return;
+            return Ok(());
         }
 
-        if let (Some(damage_model), Some(damage_field)) =
-            (&self.damage_model, &mut self.damage_field)
-        {
-            for i in 0..nx {
-                for j in 0..ny {
-                    for k in 0..nz {
-                        let idx = self.vof_solver.index(i, j, k);
-                        let col = j + k * ny;
-                        let void_fraction = self.vof_solver.alpha[idx];
+        let (Some(damage_model), Some(damage_field), Some(bubble_solver)) = (
+            &self.damage_model,
+            &mut self.damage_field,
+            &self.bubble_solver,
+        ) else {
+            return Ok(());
+        };
 
-                        if void_fraction > MIN_VOID_FRACTION_FOR_DAMAGE {
-                            let pressure = pressure_field[(i, col)];
-                            let impact_pressure = if let Some(bubble_solver) = &self.bubble_solver {
-                                bubble_solver.collapse_pressure(
-                                    i,
-                                    j,
-                                    k,
-                                    density_field[(i, col)],
-                                    self.config.sound_speed,
-                                )
-                            } else {
-                                let bubble_radius = self
-                                    .bubble_radius_field
-                                    .as_ref()
-                                    .map_or(DEFAULT_BUBBLE_RADIUS, |f| f[(i, col)]);
-                                let initial_radius = self
-                                    .config
-                                    .bubble_dynamics
-                                    .as_ref()
-                                    .map_or(DEFAULT_BUBBLE_RADIUS, |c| c.initial_radius);
-                                if bubble_radius > 0.0 {
-                                    density_field[(i, col)]
-                                        * self.config.sound_speed.powi(2)
-                                        * (initial_radius / bubble_radius)
-                                } else {
-                                    0.0
-                                }
-                            };
+        for i in 0..nx {
+            for j in 0..ny {
+                for k in 0..nz {
+                    let idx = self.vof_solver.index(i, j, k);
+                    let col = j + k * ny;
+                    let void_fraction = self.vof_solver.alpha[idx];
 
-                            // Calculate impact frequency
-                            let impact_frequency = if let Some(bubble_solver) = &self.bubble_solver
-                            {
-                                bubble_solver.get_bubble_frequency(i, j, k, pressure)
-                            } else {
-                                // Fallback estimation using VOF config
-                                let radius = self
-                                    .bubble_radius_field
-                                    .as_ref()
-                                    .map_or(DEFAULT_BUBBLE_RADIUS, |f| f[(i, col)]);
-                                let rp = RayleighPlesset {
-                                    initial_radius: radius, // Use current as estimate
-                                    liquid_density: self.config.liquid_density,
-                                    liquid_viscosity: self.config.liquid_blood_model.viscosity(0.0),
-                                    surface_tension: self
-                                        .config
-                                        .vof_config
-                                        .surface_tension_coefficient,
-                                    vapor_pressure: self.config.vapor_pressure,
-                                    polytropic_index: POLYTROPIC_INDEX_AIR,
-                                };
-                                rp.natural_frequency(radius, pressure)
-                                    / (2.0 * std::f64::consts::PI)
-                            };
+                    if void_fraction > MIN_VOID_FRACTION_FOR_DAMAGE {
+                        let pressure = pressure_field[(i, col)];
+                        let impact_pressure = bubble_solver.collapse_pressure(
+                            i,
+                            j,
+                            k,
+                            density_field[(i, col)],
+                            self.config.sound_speed,
+                        );
+                        let impact_frequency = bubble_solver.get_bubble_frequency(
+                            i,
+                            j,
+                            k,
+                            pressure,
+                        );
 
-                            // Calculate erosion rate
-                            let erosion_rate =
-                                damage_model.mdpr(impact_pressure, impact_frequency, dt);
+                        let erosion_rate = damage_model.mdpr(impact_pressure, impact_frequency, dt);
 
-                            // Accumulate damage
-                            damage_field[(i, col)] += erosion_rate;
-                        }
+                        damage_field[(i, col)] += erosion_rate;
                     }
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Get current volume fraction field
@@ -617,6 +585,7 @@ impl CavitationVofSolver {
 mod tests {
     use super::*;
     use crate::vof::config::VofConfig;
+    use cfd_core::physics::cavitation::damage::CavitationDamage;
     use cfd_core::physics::cavitation::models::CavitationModel;
     use cfd_core::physics::fluid::BloodModel;
 
@@ -708,6 +677,23 @@ mod tests {
             "source should be non-positive (condensation) when p >> p_vapor, got min={}",
             min_source
         );
+    }
+
+    #[test]
+    fn cavitation_solver_rejects_damage_without_bubble_dynamics() {
+        let mut config = make_config();
+        config.damage_model = Some(CavitationDamage {
+            yield_strength: 1.0e6,
+            ultimate_strength: 2.0e6,
+            hardness: 3.0e6,
+            fatigue_strength: 4.0e5,
+            cycles: 1,
+        });
+
+        let err = CavitationVofSolver::new(2, 2, 2, config).err().expect(
+            "damage modeling must require explicit bubble dynamics",
+        );
+        assert!(err.to_string().contains("bubble dynamics"));
     }
 
     #[test]

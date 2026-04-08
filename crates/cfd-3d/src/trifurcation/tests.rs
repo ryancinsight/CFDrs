@@ -23,7 +23,7 @@ mod tests {
             nonlinear_tolerance: 1e-4,
             max_linear_iterations: 600,
             linear_tolerance: 1e-5,
-            target_mesh_size: Some(100e-6 / 6.0),
+            target_mesh_size: Some(50e-6), // coarse: 1 cell/radius → ~200 seeds, fast solve
         };
 
         let solver = TrifurcationSolver3D::new(geometry, config);

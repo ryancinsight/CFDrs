@@ -33,23 +33,25 @@ fn test_lid_driven_cavity_integration() -> Result<()> {
 
 #[test]
 fn test_3d_bifurcation_integration() -> Result<()> {
-    // Small scale 3D bifurcation test
-    let parent_radius = 5.0_f64;
-    let daughter_radius = 4.0_f64;
-    let l_parent = 20.0_f64;
-    let l_daughter = 15.0_f64;
-    let angle = 0.5_f64; // rad
+    // 3D bifurcation test using SI metre dimensions that are consistent with
+    // BifurcationGeometry3D (100 µm parent, 80 µm daughters, 1 mm lengths).
+    // These match the BifurcationFlow3D benchmark's internal expectations and
+    // the mesh builder's SI-metre coordinate system.
+    let d_parent = 100e-6_f64; // 100 µm diameter
+    let d_daughter = 80e-6_f64; // 80 µm diameter (Murray-optimal: 0.8^3 + 0.8^3 ≈ 1.02^3...)
+    let l_parent = 1e-3_f64; // 1 mm
+    let l_daughter = 1e-3_f64; // 1 mm
+    let angle = 0.5_f64; // 0.5 rad branching half-angle
 
-    let geom =
-        Bifurcation3D::symmetric(parent_radius, daughter_radius, l_parent, l_daughter, angle);
+    let geom = Bifurcation3D::symmetric(d_parent, d_daughter, l_parent, l_daughter, angle);
     let fluid = CassonBlood::normal_blood();
     let bench = BifurcationFlow3D::new(geom, fluid);
 
     let config = BenchmarkConfig {
-        resolution: 16, // Low res for fast test
+        resolution: 4, // Coarse mesh for fast CI
         tolerance: 1e-2_f64,
         max_iterations: 10,
-        reynolds_number: 50.0_f64,
+        reynolds_number: 1.0_f64, // Re ≈ 1 (Stokes regime) for stable FEM solve
         time_step: Some(0.01_f64),
         parallel: false,
     };

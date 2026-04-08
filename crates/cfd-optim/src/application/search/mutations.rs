@@ -629,7 +629,7 @@ pub fn generate_ga_mutations(
     // by changing the relative widths at each split junction.  This is
     // the ONLY way to change cell routing metrics (cancer_center_fraction,
     // rbc_venturi_exposure) since these depend on the flow-rate split
-    // which is determined by the cubic width ratio (Q ~ w^3).
+    // which is determined by the rectangular branch-conductance weighting.
     //
     // Wider treatment branches → more flow to center → more CTCs and RBCs
     // Narrower treatment branches → less flow → fewer CTCs but also fewer RBCs
