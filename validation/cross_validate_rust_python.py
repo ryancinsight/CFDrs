@@ -145,9 +145,25 @@ for tau, t in test_cases:
 
 if has_cfd_python:
     print(f"\nRust implementation:")
-    print(f"  Located in: crates/cfd-core/src/physics/hemolysis/giersiepen.rs")
-    print(f"  Method: calculate_damage(shear_stress, exposure_time)")
-    print(f"\n  TODO: Add cfd_python API test if hemolysis model is exposed")
+    print(f"  Located in: crates/cfd-core/src/physics/hemolysis/models.rs")
+    print(f"  Method: damage_index(shear_stress, exposure_time)")
+
+    try:
+        model_rust = cfd_python.GiersiepenModel()
+        print(f"\nCross-validation (Python vs Rust via cfd_python):")
+        print(f"{'Stress (Pa)':>12} {'Time (s)':>12} {'Py Damage':>15} {'Rs Damage':>15} {'Diff (%)':>10}")
+        print("-" * 68)
+
+        for tau, t in test_cases:
+            py_damage = giersiepen_python(tau, t)
+            rs_damage = model_rust.calculate_damage(tau, t)
+            diff_pct = abs(py_damage - rs_damage) / py_damage * 100 if py_damage > 0 else 0
+            print(f"{tau:12.1f} {t:12.2f} {py_damage:15.6f} {rs_damage:15.6f} {diff_pct:10.4f}%")
+            assert diff_pct < 1e-4, f"Mismatch: Py={py_damage}, Rs={rs_damage}"
+
+        print("\n  ✓ Rust Giersiepen model matches Python exactly")
+    except AttributeError:
+        print(f"\n  ERROR: GiersiepenModel not found in cfd_python. Was it built correctly?")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
