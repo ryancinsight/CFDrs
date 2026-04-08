@@ -54,12 +54,19 @@ print(f"  R_c = {R_c_python*1e6:.4f} μm")
 print(f"  P_Blake = {P_Blake_python:.2f} Pa = {P_Blake_python/1000:.2f} kPa")
 
 if has_cfd_python:
-    # TODO: Check if cfd_python exposes Blake threshold calculation
-    # For now, document that Rust implementation is in regimes.rs
     print(f"\nRust implementation:")
-    print(f"  Located in: crates/cfd-core/src/physics/cavitation/regimes.rs")
-    print(f"  Method: blake_threshold() and blake_critical_radius()")
-    print(f"  Formula matches Python implementation ✓")
+    rp = cfd_python.RayleighPlesset(R_0, WATER_DENSITY, WATER_VISCOSITY, sigma, P_v, 1.4)
+    classifier = cfd_python.CavitationRegimeClassifier(rp, P_inf, None, None)
+
+    r_c_rust = rp.blake_critical_radius(P_inf)
+    p_blake_rust = classifier.blake_threshold()
+
+    print(f"  R_c = {r_c_rust*1e6:.4f} μm")
+    print(f"  P_Blake = {p_blake_rust:.2f} Pa = {p_blake_rust/1000:.2f} kPa")
+
+    assert abs(r_c_rust - R_c_python) / R_c_python < 1e-4, "Blake critical radius mismatch!"
+    assert abs(p_blake_rust - P_Blake_python) / P_Blake_python < 1e-4, "Blake threshold mismatch!"
+    print(f"  Matches Python implementation ✓")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -100,13 +107,18 @@ for gamma_dot in test_shear_rates:
 
 if has_cfd_python:
     print(f"\nRust implementation:")
-    print(f"  Located in: crates/cfd-core/src/physics/fluid/blood.rs")
-    print(f"  Type: CarreauYasudaBlood")
-    print(f"  Method: apparent_viscosity(shear_rate)")
+    blood = cfd_python.CarreauYasudaBlood()
+    print(f"{'Shear Rate (s⁻¹)':>20} {'μ (mPa·s)':>15} {'Error from Py':>15}")
+    print("-" * 55)
     
-    # Try to test if we can create a blood model
-    # Note: This depends on cfd_python API structure
-    print(f"\n  TODO: Add cfd_python API test if blood model is exposed")
+    for gamma_dot in test_shear_rates:
+        mu_rust = blood.apparent_viscosity(gamma_dot)
+        mu_python = carreau_yasuda_python(gamma_dot)
+        error_pct = abs(mu_rust - mu_python) / mu_python * 100
+        print(f"{gamma_dot:20.0f} {mu_rust*1000:15.4f} {error_pct:14.2f}%")
+        assert error_pct < 1e-2, f"Viscosity mismatch at shear rate {gamma_dot}"
+
+    print(f"\n  Matches Python implementation ✓")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -145,9 +157,19 @@ for tau, t in test_cases:
 
 if has_cfd_python:
     print(f"\nRust implementation:")
-    print(f"  Located in: crates/cfd-core/src/physics/hemolysis/giersiepen.rs")
-    print(f"  Method: calculate_damage(shear_stress, exposure_time)")
-    print(f"\n  TODO: Add cfd_python API test if hemolysis model is exposed")
+    model = cfd_python.HemolysisModel.giersiepen_standard()
+
+    print(f"{'Stress (Pa)':>12} {'Time (s)':>12} {'Damage':>15} {'Error from Py':>15}")
+    print("-" * 58)
+
+    for tau, t in test_cases:
+        damage_rust = model.damage_index(tau, t)
+        damage_python = giersiepen_python(tau, t)
+        error_pct = abs(damage_rust - damage_python) / damage_python * 100 if damage_python > 0 else 0
+        print(f"{tau:12.1f} {t:12.2f} {damage_rust:15.6f} {error_pct:14.2f}%")
+        assert error_pct < 1e-2, f"Damage index mismatch at tau={tau}, t={t}"
+
+    print(f"\n  Matches Python implementation ✓")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -203,19 +225,19 @@ validation_status = {
         "Physics": "✓ VALIDATED (against Brennen 1995)",
         "Python": "✓ CORRECT (R_c formulation)",
         "Rust": "✓ IMPLEMENTED (regimes.rs)",
-        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ READY"
+        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ VERIFIED"
     },
     "Blood Viscosity": {
         "Physics": "✓ VALIDATED (against Cho & Kensey 1991)",
         "Python": "✓ CORRECT (λ=3.313s convergence)",
         "Rust": "✓ IMPLEMENTED (blood.rs)",
-        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ READY"
+        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ VERIFIED"
     },
     "Hemolysis Model": {
         "Physics": "✓ VALIDATED (against Giersiepen 1990)",
         "Python": "✓ CORRECT (iso-damage curves)",
         "Rust": "✓ IMPLEMENTED (giersiepen.rs)",
-        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ READY"
+        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ VERIFIED"
     }
 }
 
