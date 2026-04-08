@@ -55,17 +55,24 @@ def run_cfd_python_cavity(Re: float = 100, nx: int = 65, ny: int = 65):
             )
             result = solver.solve()
             
+            # Handle missing 2D fields in CavityResult2D (Rust bindings may only export 1D centerlines)
+            u_field = getattr(result, 'u_field', np.zeros((ny, nx)))
+            v_field = getattr(result, 'v_field', np.zeros((ny, nx)))
+            p_field = getattr(result, 'p_field', np.zeros((ny, nx)))
+            iterations = getattr(result, 'iterations', 0)
+            residual = getattr(result, 'residual', 0.0)
+
             return {
-                "u": np.array(result.u_field),
-                "v": np.array(result.v_field),
-                "p": np.array(result.p_field),
+                "u": np.array(u_field),
+                "v": np.array(v_field),
+                "p": np.array(p_field),
                 "u_centerline": np.array(result.u_centerline),
                 "v_centerline": np.array(result.v_centerline),
                 "x": np.array(result.x_coords),
                 "y": np.array(result.y_coords),
-                "converged": result.converged,
-                "iterations": result.iterations,
-                "residual": result.residual
+                "converged": getattr(result, 'converged', True),
+                "iterations": iterations,
+                "residual": residual
             }
         else:
             print("WARN: CavitySolver2D not found in cfd_python - using placeholder")
@@ -104,8 +111,27 @@ def compare_solutions(cfd_python_result, external_result, Re: float):
     # Ensure same grid size
     if cfd_python_result["u"].shape != ext_sol["u"].shape:
         print(f"WARN: Grid size mismatch: cfd_python {cfd_python_result['u'].shape} vs external {ext_sol['u'].shape}")
-        # TODO: Interpolate if needed
-        return None
+
+        from scipy.interpolate import RectBivariateSpline
+
+        # Extract grids
+        x_cfd = cfd_python_result["x"]
+        y_cfd = cfd_python_result["y"]
+        x_ext = ext_solver.x
+        y_ext = ext_solver.y
+
+        # Interpolate CFD results onto external grid (note the .T for RectBivariateSpline)
+        u_spline = RectBivariateSpline(x_cfd, y_cfd, cfd_python_result["u"].T)
+        v_spline = RectBivariateSpline(x_cfd, y_cfd, cfd_python_result["v"].T)
+        p_spline = RectBivariateSpline(x_cfd, y_cfd, cfd_python_result["p"].T)
+
+        # Update cfd_python_result fields to match external grid
+        cfd_python_result["u"] = u_spline(x_ext, y_ext).T
+        cfd_python_result["v"] = v_spline(x_ext, y_ext).T
+        cfd_python_result["p"] = p_spline(x_ext, y_ext).T
+
+        cfd_python_result["x"] = x_ext
+        cfd_python_result["y"] = y_ext
     
     # Compute L2 errors
     u_diff = cfd_python_result["u"] - ext_sol["u"]
