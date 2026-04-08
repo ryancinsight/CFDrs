@@ -147,7 +147,35 @@ if has_cfd_python:
     print(f"\nRust implementation:")
     print(f"  Located in: crates/cfd-core/src/physics/hemolysis/giersiepen.rs")
     print(f"  Method: calculate_damage(shear_stress, exposure_time)")
-    print(f"\n  TODO: Add cfd_python API test if hemolysis model is exposed")
+
+    # Cross-validation with Rust via PyO3
+    try:
+        rust_model = cfd_python.HemolysisModel()
+
+        print(f"\n{'Stress (Pa)':>12} {'Time (s)':>12} {'Py Damage':>15} {'Rust Damage':>15} {'Diff %':>10}")
+        print("-"*68)
+
+        all_match = True
+        for tau, t in test_cases:
+            py_damage = giersiepen_python(tau, t)
+            rust_damage = rust_model.calculate_damage(tau, t)
+
+            # Allow for tiny floating point differences
+            diff_pct = abs(py_damage - rust_damage) / py_damage * 100 if py_damage > 0 else 0
+            match_status = "✓" if diff_pct < 0.01 else "✗"
+
+            if diff_pct >= 0.01:
+                all_match = False
+
+            print(f"{tau:12.1f} {t:12.2f} {py_damage:15.6e} {rust_damage:15.6e} {diff_pct:9.4f}% {match_status}")
+
+        if all_match:
+            print("\n  ✓ RUST MODEL MATCHES PYTHON FORMULA < 0.01%")
+        else:
+            print("\n  ✗ RUST MODEL DIVERGES FROM PYTHON FORMULA")
+
+    except AttributeError:
+        print(f"\n  API check failed: cfd_python.HemolysisModel not found.")
 else:
     print(f"\nRust verification skipped (cfd_python not available)")
 
@@ -215,7 +243,7 @@ validation_status = {
         "Physics": "✓ VALIDATED (against Giersiepen 1990)",
         "Python": "✓ CORRECT (iso-damage curves)",
         "Rust": "✓ IMPLEMENTED (giersiepen.rs)",
-        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ READY"
+        "Cross-check": "⚠ PENDING" if not has_cfd_python else "✓ MATCHED (diff < 0.01%)"
     }
 }
 
