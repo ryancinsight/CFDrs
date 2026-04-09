@@ -69,6 +69,11 @@ pub mod api {
     pub use super::boundary::{
         BoundaryCondition, BoundaryConditionManager, BoundaryConditionSet, WallType,
     };
+    pub use super::cavitation::{
+        CavitationDamage, CavitationModel, CavitationNumber, CavitationRegime,
+        CavitationRegimeAnalysis, CavitationRegimeClassifier, NucleiTransport,
+        NucleiTransportConfig, RayleighPlesset, VenturiCavitation,
+    };
     pub use super::constants::{mathematical, physics};
     pub use super::fluid::{ConstantPropertyFluid, FluidProperties};
     pub use super::fluid_dynamics::{
