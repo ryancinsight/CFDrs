@@ -45,6 +45,3 @@ report/
 *.dll
 *.so
 *.dylib
-.venv/
-venv/
-cfd_venv/
