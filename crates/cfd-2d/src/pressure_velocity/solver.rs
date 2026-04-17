@@ -2,10 +2,11 @@
 //!
 //! # Theorem (SIMPLE Outer Loop Convergence)
 //!
-//! The coupled momentum–pressure iteration converges when the velocity and
-//! pressure relaxation factors satisfy $0 < \alpha_u, \alpha_p < 1$ with
-//! $\alpha_u + \alpha_p \le 1$. Each outer iteration reduces the global
-//! continuity residual. See [`super`] module docs for the full proof.
+//! For a fixed linearization with positive pressure-correction coefficients,
+//! the SIMPLE outer iteration is contractive only when the relaxation factors
+//! keep the fixed-point map stable. Under those assumptions the continuity
+//! residual decreases monotonically in practice; outside them convergence is
+//! empirical rather than guaranteed.
 
 use super::{PressureCorrectionSolver, PressureVelocityConfig, RhieChowInterpolation};
 use crate::fields::SimulationFields;
@@ -122,9 +123,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
         }
 
         // Step 2: Solve pressure correction equation
-        let p_correction =
-            self.pressure_solver
-                .solve_pressure_correction(&state_buffer, self.config.dt, rho)?;
+        let mut p_correction = Array2D::new(self.grid.nx, self.grid.ny, T::zero());
+        self.pressure_solver
+            .solve_pressure_correction(
+                &state_buffer,
+                self.config.dt,
+                rho,
+                true,
+                &mut p_correction,
+            )?;
 
         // Step 3: Correct velocity field
         let mut u_corrected = u_star;

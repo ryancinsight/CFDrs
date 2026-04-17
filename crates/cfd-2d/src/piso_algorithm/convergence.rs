@@ -30,11 +30,11 @@ impl<T: RealField + Copy + FromPrimitive> Default for ConvergenceCriteria<T> {
         Self {
             max_iterations: 1000,
             velocity_tolerance: T::from_f64(1e-5)
-                .unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(T::zero)),
+                .unwrap_or_else(|| T::from_f64(1e-6).expect("analytical constant conversion")),
             pressure_tolerance: T::from_f64(1e-4)
-                .unwrap_or_else(|| T::from_f64(1e-5).unwrap_or_else(T::zero)),
+                .unwrap_or_else(|| T::from_f64(1e-5).expect("analytical constant conversion")),
             continuity_tolerance: T::from_f64(1e-5)
-                .unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(T::zero)),
+                .unwrap_or_else(|| T::from_f64(1e-6).expect("analytical constant conversion")),
         }
     }
 }
@@ -128,7 +128,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
             }
         }
 
-        let count_t = T::from_usize(count).unwrap_or_else(T::one);
+        let count_t = T::from_usize(count).expect("analytical constant conversion");
         (sum / count_t).sqrt()
     }
 
@@ -151,7 +151,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
             }
         }
 
-        let count_t = T::from_usize(count).unwrap_or_else(T::one);
+        let count_t = T::from_usize(count).expect("analytical constant conversion");
         (sum / count_t).sqrt()
     }
 

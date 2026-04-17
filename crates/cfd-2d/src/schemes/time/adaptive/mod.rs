@@ -97,8 +97,8 @@ pub struct AdaptiveController<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
     /// Create new adaptive controller with default parameters
     pub fn new(dt_initial: T, strategy: AdaptationStrategy) -> Self {
-        let dt_min = T::from_f64(1e-12).unwrap_or_else(T::zero);
-        let dt_max = T::from_f64(1e6).unwrap_or_else(T::one);
+        let dt_min = T::from_f64(1e-12).expect("analytical constant conversion");
+        let dt_max = T::from_f64(1e6).expect("analytical constant conversion");
 
         Self {
             dt_current: dt_initial,
@@ -137,21 +137,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
 
         // CFL condition: dt ≤ CFL_target * min(dx/|u_max|, dy/|v_max|)
         let dt_cfl_x = if u_max.abs() > T::zero() {
-            dx * T::from_f64(cfl_target).unwrap_or_else(T::one) / u_max.abs()
+            dx * T::from_f64(cfl_target).expect("analytical constant conversion") / u_max.abs()
         } else {
-            T::from_f64(1e10).unwrap_or_else(T::one) // Large value for zero velocity
+            T::from_f64(1e10).expect("analytical constant conversion") // Large value for zero velocity
         };
 
         let dt_cfl_y = if v_max.abs() > T::zero() {
-            dy * T::from_f64(cfl_target).unwrap_or_else(T::one) / v_max.abs()
+            dy * T::from_f64(cfl_target).expect("analytical constant conversion") / v_max.abs()
         } else {
-            T::from_f64(1e10).unwrap_or_else(T::one)
+            T::from_f64(1e10).expect("analytical constant conversion")
         };
 
         let dt_cfl = dt_cfl_x.min(dt_cfl_y);
 
         // Apply safety factor and clamp to bounds
-        let dt_adapted = dt_cfl * T::from_f64(safety_factor).unwrap_or_else(T::one);
+        let dt_adapted = dt_cfl * T::from_f64(safety_factor).expect("analytical constant conversion");
         dt_adapted.max(self.dt_min).min(self.dt_max)
     }
 
@@ -171,7 +171,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
         for i in 0..n {
             let diff = (y1[i] - y2[i]).abs();
             let error =
-                diff / (T::from_f64(2.0_f64.powi(p as i32)).unwrap_or_else(T::one) - T::one());
+                diff / (T::from_f64(2.0_f64.powi(p as i32)).expect("analytical constant conversion") - T::one());
             error_max = error_max.max(error);
         }
 
@@ -200,15 +200,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
             AdaptationStrategy::CFLBased { .. } => return (self.dt_current, true), // No error-based adaptation
         };
 
-        let error_tolerance_t = T::from_f64(error_tolerance).unwrap_or_else(T::one);
+        let error_tolerance_t = T::from_f64(error_tolerance).expect("analytical constant conversion");
 
         if error_estimate <= error_tolerance_t {
             // Step accepted - try to increase time step
             self.steps_accepted += 1;
 
-            let factor = T::from_f64(safety_factor).unwrap_or_else(T::one)
+            let factor = T::from_f64(safety_factor).expect("analytical constant conversion")
                 * (error_tolerance_t / error_estimate)
-                    .powf(T::from_f64(1.0 / 4.0).unwrap_or_else(T::one));
+                    .powf(T::from_f64(1.0 / 4.0).expect("analytical constant conversion"));
 
             let new_dt = (self.dt_current * factor).min(self.dt_max);
             self.dt_current = new_dt;
@@ -222,9 +222,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
                 "Too many step rejections in adaptive time stepping"
             );
 
-            let factor = T::from_f64(safety_factor).unwrap_or_else(T::one)
+            let factor = T::from_f64(safety_factor).expect("analytical constant conversion")
                 * (error_tolerance_t / error_estimate)
-                    .powf(T::from_f64(1.0 / 3.0).unwrap_or_else(T::one));
+                    .powf(T::from_f64(1.0 / 3.0).expect("analytical constant conversion"));
 
             let new_dt = (self.dt_current * factor).max(self.dt_min);
             self.dt_current = new_dt;

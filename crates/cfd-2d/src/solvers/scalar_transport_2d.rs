@@ -49,8 +49,8 @@ impl<T: RealField + Copy + FromPrimitive> Default for ScalarTransportConfig<T> {
             // coarse grids (Δx ~ 0.003 m → Δx² ~ 1e-5).  Using 1e-8 demands
             // residuals an order of magnitude below the discretisation error,
             // which is unachievable with Gauss-Seidel on advection-dominated flows.
-            tolerance: T::from_f64(1e-5).unwrap_or_else(num_traits::Zero::zero),
-            diffusion_coeff: T::from_f64(1e-9).unwrap_or_else(num_traits::Zero::zero), // Typical diffusion
+            tolerance: T::from_f64(1e-5).expect("analytical constant conversion"),
+            diffusion_coeff: T::from_f64(1e-9).expect("analytical constant conversion"), // Typical diffusion
         }
     }
 }
@@ -88,9 +88,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
         let dy = grid.dy;
         let gamma = config.diffusion_coeff;
         let zero = T::zero();
-        let half = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+        let half = T::from_f64(0.5).expect("analytical constant conversion");
         let one = T::one();
-        let omega = T::from_f64(0.8).unwrap_or_else(num_traits::Zero::zero); // Relaxation
+        let omega = T::from_f64(0.8).expect("analytical constant conversion"); // Relaxation
 
         for iteration in 0..config.max_iterations {
             let mut max_diff = zero;
@@ -152,7 +152,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
                     }
 
                     if Float::abs(a_p_eff)
-                        > T::from_f64(1e-30).unwrap_or_else(num_traits::Zero::zero)
+                        > T::from_f64(1e-30).expect("analytical constant conversion")
                     {
                         let c_e = if i < nx - 1 && field.mask[(i + 1, j)] {
                             self.c[(i + 1, j)]

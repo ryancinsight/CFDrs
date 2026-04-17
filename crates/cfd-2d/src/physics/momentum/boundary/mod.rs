@@ -101,6 +101,35 @@ use num_traits::FromPrimitive;
 use std::collections::HashMap;
 use std::hash::BuildHasher;
 
+/// Abstract interface for sparse matrix topological assembly and zero-allocation value updates.
+///
+/// Permits generalized solvers to reuse matrix buffers regardless of whether they are initially
+/// constructing the CSR topology (via `SparseMatrixBuilder`) or performing in-place numerical
+/// updates on an existing structure (via `SparseMatrix`).
+pub trait MatrixUpdater<T> {
+    /// Inserts or aggregates `val` into the block matrix at location `(row, col)`.
+    ///
+    /// Implementations must uphold atomic accumulation commutativity for thread-parallel execution.
+    fn add_entry(&mut self, row: usize, col: usize, val: T) -> cfd_core::error::Result<()>;
+}
+
+impl<T: RealField + Copy> MatrixUpdater<T> for SparseMatrixBuilder<T> {
+    fn add_entry(&mut self, row: usize, col: usize, val: T) -> cfd_core::error::Result<()> {
+        self.add_entry(row, col, val)
+    }
+}
+
+impl<T: RealField + Copy> MatrixUpdater<T> for cfd_math::sparse::SparseMatrix<T> {
+    fn add_entry(&mut self, row: usize, col: usize, val: T) -> cfd_core::error::Result<()> {
+        let start = self.row_offsets()[row];
+        let end = self.row_offsets()[row + 1];
+        if let Ok(idx) = self.col_indices()[start..end].binary_search(&col) {
+            self.values_mut()[start + idx] += val;
+        }
+        Ok(())
+    }
+}
+
 /// Apply rotating wall boundary condition: u_wall = ω × r
 /// where r is the position vector from center of rotation
 fn apply_rotating_wall_bc<T: RealField + Copy + FromPrimitive>(
@@ -130,8 +159,8 @@ fn apply_rotating_wall_bc<T: RealField + Copy + FromPrimitive>(
 }
 
 /// Apply boundary conditions to momentum equation system
-pub fn apply_momentum_boundaries<T, S>(
-    matrix: &mut SparseMatrixBuilder<T>,
+pub fn apply_momentum_boundaries<T, S, M>(
+    matrix: &mut M,
     rhs: &mut nalgebra::DVector<T>,
     component: MomentumComponent,
     boundaries: &HashMap<String, BoundaryCondition<T>, S>,
@@ -140,6 +169,7 @@ pub fn apply_momentum_boundaries<T, S>(
 where
     T: RealField + Copy + FromPrimitive,
     S: BuildHasher,
+    M: MatrixUpdater<T>,
 {
     let nx = grid.nx;
     let ny = grid.ny;
@@ -261,11 +291,15 @@ where
             ) {
                 let diff = (v1 - v2).abs();
                 let epsilon = T::default_epsilon()
-                    * T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero);
+                    * T::from_f64(100.0).expect("analytical constant conversion");
                 if diff > epsilon {
-                    return Err(BoundaryError::InvalidRegion(format!(
-                        "Corner conflict at {b1_name}-{b2_name}: Component {component:?} values mismatch ({v1:?} vs {v2:?})"
-                    )));
+                    tracing::debug!(
+                        corner = %format!("{b1_name}-{b2_name}"),
+                        component = ?component,
+                        left = ?v1,
+                        right = ?v2,
+                        "Corner boundary values differ; retaining both side conditions"
+                    );
                 }
             }
         }
@@ -276,8 +310,8 @@ where
 
 /// Apply higher-order boundary conditions for improved near-wall accuracy.
 /// Implements quadratic extrapolation for better velocity gradients near walls.
-pub fn apply_higher_order_wall_boundaries<T, S>(
-    matrix: &mut SparseMatrixBuilder<T>,
+pub fn apply_higher_order_wall_boundaries<T, S, M>(
+    matrix: &mut M,
     rhs: &mut nalgebra::DVector<T>,
     component: MomentumComponent,
     boundaries: &HashMap<String, BoundaryCondition<T>, S>,
@@ -286,32 +320,42 @@ pub fn apply_higher_order_wall_boundaries<T, S>(
 where
     T: RealField + Copy + FromPrimitive,
     S: BuildHasher,
+    M: MatrixUpdater<T>,
 {
     let nx = grid.nx;
     let ny = grid.ny;
 
-    for (name, bc) in boundaries {
-        let name: &String = name;
-        if let BoundaryCondition::Wall {
-            wall_type: cfd_core::physics::boundary::WallType::NoSlip,
-        } = bc
-        {
-            match name.as_str() {
-                "west" => apply_higher_order_west_wall(matrix, rhs, component, grid, nx, ny)?,
-                "east" => apply_higher_order_east_wall(matrix, rhs, component, grid, nx, ny)?,
-                "north" => apply_higher_order_north_wall(matrix, rhs, component, grid, nx, ny)?,
-                "south" => apply_higher_order_south_wall(matrix, rhs, component, grid, nx, ny)?,
-                _ => {}
-            }
-        }
+    if let Some(BoundaryCondition::Wall {
+        wall_type: cfd_core::physics::boundary::WallType::NoSlip,
+    }) = boundaries.get("west")
+    {
+        apply_higher_order_west_wall(matrix, rhs, component, grid, nx, ny)?;
+    }
+    if let Some(BoundaryCondition::Wall {
+        wall_type: cfd_core::physics::boundary::WallType::NoSlip,
+    }) = boundaries.get("east")
+    {
+        apply_higher_order_east_wall(matrix, rhs, component, grid, nx, ny)?;
+    }
+    if let Some(BoundaryCondition::Wall {
+        wall_type: cfd_core::physics::boundary::WallType::NoSlip,
+    }) = boundaries.get("north")
+    {
+        apply_higher_order_north_wall(matrix, rhs, component, grid, nx, ny)?;
+    }
+    if let Some(BoundaryCondition::Wall {
+        wall_type: cfd_core::physics::boundary::WallType::NoSlip,
+    }) = boundaries.get("south")
+    {
+        apply_higher_order_south_wall(matrix, rhs, component, grid, nx, ny)?;
     }
 
     Ok(())
 }
 
 /// Quadratic extrapolation: u_0 = (4*u_1 - u_2)/3 for west wall
-fn apply_higher_order_west_wall<T: RealField + Copy + FromPrimitive>(
-    matrix: &mut SparseMatrixBuilder<T>,
+fn apply_higher_order_west_wall<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+    matrix: &mut M,
     rhs: &mut nalgebra::DVector<T>,
     _component: MomentumComponent,
     _grid: &crate::grid::StructuredGrid2D<T>,
@@ -321,7 +365,8 @@ fn apply_higher_order_west_wall<T: RealField + Copy + FromPrimitive>(
     let four = T::from_f64(4.0).unwrap_or_else(|| T::one() + T::one() + T::one() + T::one());
     let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
 
-    for j in 0..ny {
+    // Horizontal walls own the corner nodes, so skip them here.
+    for j in 1..ny.saturating_sub(1) {
         let idx_0 = j * nx;
         let idx_1 = j * nx + 1;
         let idx_2 = j * nx + 2;
@@ -336,8 +381,8 @@ fn apply_higher_order_west_wall<T: RealField + Copy + FromPrimitive>(
 }
 
 /// Quadratic extrapolation for east wall
-fn apply_higher_order_east_wall<T: RealField + Copy + FromPrimitive>(
-    matrix: &mut SparseMatrixBuilder<T>,
+fn apply_higher_order_east_wall<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+    matrix: &mut M,
     rhs: &mut nalgebra::DVector<T>,
     _component: MomentumComponent,
     _grid: &crate::grid::StructuredGrid2D<T>,
@@ -347,7 +392,8 @@ fn apply_higher_order_east_wall<T: RealField + Copy + FromPrimitive>(
     let four = T::from_f64(4.0).unwrap_or_else(|| T::one() + T::one() + T::one() + T::one());
     let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
 
-    for j in 0..ny {
+    // Horizontal walls own the corner nodes, so skip them here.
+    for j in 1..ny.saturating_sub(1) {
         let idx_0 = j * nx + nx - 1;
         let idx_1 = j * nx + nx - 2;
         let idx_2 = j * nx + nx - 3;
@@ -362,8 +408,8 @@ fn apply_higher_order_east_wall<T: RealField + Copy + FromPrimitive>(
 }
 
 /// Quadratic extrapolation for north wall
-fn apply_higher_order_north_wall<T: RealField + Copy + FromPrimitive>(
-    matrix: &mut SparseMatrixBuilder<T>,
+fn apply_higher_order_north_wall<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+    matrix: &mut M,
     rhs: &mut nalgebra::DVector<T>,
     _component: MomentumComponent,
     _grid: &crate::grid::StructuredGrid2D<T>,
@@ -388,8 +434,8 @@ fn apply_higher_order_north_wall<T: RealField + Copy + FromPrimitive>(
 }
 
 /// Quadratic extrapolation for south wall
-fn apply_higher_order_south_wall<T: RealField + Copy + FromPrimitive>(
-    matrix: &mut SparseMatrixBuilder<T>,
+fn apply_higher_order_south_wall<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+    matrix: &mut M,
     rhs: &mut nalgebra::DVector<T>,
     _component: MomentumComponent,
     _grid: &crate::grid::StructuredGrid2D<T>,
@@ -411,4 +457,134 @@ fn apply_higher_order_south_wall<T: RealField + Copy + FromPrimitive>(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::grid::StructuredGrid2D;
+    use cfd_core::physics::boundary::{BoundaryCondition, WallType};
+    use nalgebra::{DVector, Vector3};
+    use std::collections::HashMap;
+
+    struct RecordingMatrix<T> {
+        entries: Vec<(usize, usize, T)>,
+    }
+
+    impl<T> RecordingMatrix<T> {
+        fn new() -> Self {
+            Self {
+                entries: Vec::new(),
+            }
+        }
+    }
+
+    impl<T: RealField + Copy> MatrixUpdater<T> for RecordingMatrix<T> {
+        fn add_entry(&mut self, row: usize, col: usize, val: T) -> cfd_core::error::Result<()> {
+            self.entries.push((row, col, val));
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn higher_order_west_boundary_skips_shared_corners() {
+        let grid = StructuredGrid2D::new(4, 4, 0.0_f64, 1.0_f64, 0.0_f64, 1.0_f64)
+            .expect("grid creation failed");
+        let mut matrix = RecordingMatrix::new();
+        let mut rhs = DVector::zeros(grid.nx * grid.ny);
+        let boundaries = HashMap::from([(
+            "west".to_string(),
+            BoundaryCondition::Wall {
+                wall_type: WallType::NoSlip,
+            },
+        )]);
+
+        apply_higher_order_wall_boundaries(
+            &mut matrix,
+            &mut rhs,
+            MomentumComponent::U,
+            &boundaries,
+            &grid,
+        )
+        .expect("higher-order boundary application failed");
+
+        let top_left = (grid.ny - 1) * grid.nx;
+        let bottom_left = 0_usize;
+
+        assert!(
+            matrix.entries.iter().all(|(row, _, _)| *row != top_left),
+            "west higher-order boundary must not write the top-left corner"
+        );
+        assert!(
+            matrix.entries.iter().all(|(row, _, _)| *row != bottom_left),
+            "west higher-order boundary must not write the bottom-left corner"
+        );
+        assert!(
+            matrix.entries.iter().any(|(row, _, _)| *row == grid.nx),
+            "west higher-order boundary must still write interior west-wall rows"
+        );
+    }
+
+    #[test]
+    fn north_wall_owns_the_top_corners() {
+        let grid = StructuredGrid2D::new(4, 4, 0.0_f64, 1.0_f64, 0.0_f64, 1.0_f64)
+            .expect("grid creation failed");
+        let mut matrix = RecordingMatrix::new();
+        let mut rhs = DVector::zeros(grid.nx * grid.ny);
+        let boundaries = HashMap::from([
+            (
+                "north".to_string(),
+                BoundaryCondition::Wall {
+                    wall_type: WallType::Moving {
+                        velocity: Vector3::new(1.0, 0.0, 0.0),
+                    },
+                },
+            ),
+            (
+                "south".to_string(),
+                BoundaryCondition::Wall {
+                    wall_type: WallType::NoSlip,
+                },
+            ),
+            (
+                "west".to_string(),
+                BoundaryCondition::Wall {
+                    wall_type: WallType::NoSlip,
+                },
+            ),
+            (
+                "east".to_string(),
+                BoundaryCondition::Wall {
+                    wall_type: WallType::NoSlip,
+                },
+            ),
+        ]);
+
+        apply_higher_order_wall_boundaries(
+            &mut matrix,
+            &mut rhs,
+            MomentumComponent::U,
+            &boundaries,
+            &grid,
+        )
+        .expect("higher-order boundary application failed");
+        apply_momentum_boundaries(
+            &mut matrix,
+            &mut rhs,
+            MomentumComponent::U,
+            &boundaries,
+            &grid,
+        )
+        .expect("boundary application failed");
+
+        let top_left = (grid.ny - 1) * grid.nx;
+        let top_right = top_left + grid.nx - 1;
+        let bottom_left = 0_usize;
+        let bottom_right = grid.nx - 1;
+
+        assert_eq!(rhs[top_left], 1.0);
+        assert_eq!(rhs[top_right], 1.0);
+        assert_eq!(rhs[bottom_left], 0.0);
+        assert_eq!(rhs[bottom_right], 0.0);
+    }
 }

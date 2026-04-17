@@ -50,7 +50,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // Get velocities at cell faces (linear interpolation)
-                let half = T::from_f64(HALF).unwrap_or_else(T::one);
+                let half = T::from_f64(HALF).expect("analytical constant conversion");
                 let ue = (fields.u.at(i, j) + fields.u.at(i + 1, j)) * half;
                 let uw = (fields.u.at(i - 1, j) + fields.u.at(i, j)) * half;
                 let un = (fields.u.at(i, j) + fields.u.at(i, j + 1)) * half;

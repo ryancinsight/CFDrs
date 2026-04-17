@@ -80,7 +80,7 @@ pub struct VremanConfig<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive> Default for VremanConfig<T> {
     fn default() -> Self {
         Self {
-            c_v: T::from_f64(0.07).unwrap_or_else(num_traits::Zero::zero), // Standard value from literature
+            c_v: T::from_f64(0.07).expect("analytical constant conversion"), // Standard value from literature
             filter_width: T::one(),
         }
     }
@@ -138,13 +138,13 @@ impl<T: RealField + Copy + FromPrimitive> VremanModel<T> {
                 let duidxj = velocity_gradient[(i, j)];
                 let duidxi = velocity_gradient[(j, i)];
                 strain_rate[(i, j)] =
-                    (duidxj + duidxi) * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+                    (duidxj + duidxi) * T::from_f64(0.5).expect("analytical constant conversion");
             }
         }
 
         // SGS stress τ_ij = -2 ν_SGS S_ij
         let mut sgs_stress = DMatrix::zeros(2, 2);
-        let minus_two_nu = -T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * nu_sgs;
+        let minus_two_nu = -T::from_f64(2.0).expect("analytical constant conversion") * nu_sgs;
 
         for i in 0..2 {
             for j in 0..2 {
@@ -171,7 +171,7 @@ impl<T: RealField + Copy + FromPrimitive> VremanModel<T> {
         }
 
         // Avoid division by zero
-        if alpha_squared <= T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero) {
+        if alpha_squared <= T::from_f64(1e-12).expect("analytical constant conversion") {
             return T::zero();
         }
 
@@ -195,7 +195,7 @@ impl<T: RealField + Copy + FromPrimitive> VremanModel<T> {
         let b11 = beta[(0, 0)];
         let b12 = beta[(0, 1)];
         let b22 = beta[(1, 1)];
-        let b33 = (b11 + b22) * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero); // Isotropic assumption
+        let b33 = (b11 + b22) * T::from_f64(0.5).expect("analytical constant conversion"); // Isotropic assumption
 
         let b_beta = b11 * b22 - b12 * b12 + b11 * b33 + b22 * b33;
 

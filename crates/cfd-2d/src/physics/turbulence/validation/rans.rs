@@ -15,12 +15,12 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
     pub fn validate_k_epsilon_homogeneous_decay(&self) -> ValidationResult {
         let _model: KEpsilonModel<T> = KEpsilonModel::new(1, 1);
 
-        let k0 = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero);
-        let eps0 = T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero);
-        let _density = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero);
+        let k0 = T::from_f64(1.0).expect("analytical constant conversion");
+        let eps0 = T::from_f64(0.1).expect("analytical constant conversion");
+        let _density = T::from_f64(1.0).expect("analytical constant conversion");
 
-        let dt = T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero);
-        let t_final = T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero);
+        let dt = T::from_f64(0.01).expect("analytical constant conversion");
+        let t_final = T::from_f64(10.0).expect("analytical constant conversion");
 
         let mut k = k0;
         let mut eps = eps0;
@@ -33,12 +33,12 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
             let dk_dt = -eps;
             let deps_dt =
-                -T::from_f64(C2_EPSILON).unwrap_or_else(num_traits::Zero::zero) * eps * eps
-                    / k.max(T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero));
+                -T::from_f64(C2_EPSILON).expect("analytical constant conversion") * eps * eps
+                    / k.max(T::from_f64(1e-10).expect("analytical constant conversion"));
 
             k = (k + dk_dt * dt).max(T::zero());
             eps = (eps + deps_dt * dt)
-                .max(T::from_f64(EPSILON_MIN).unwrap_or_else(num_traits::Zero::zero));
+                .max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
 
             t += dt;
         }
@@ -48,8 +48,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
         ValidationResult {
             test_name: "k-ε Homogeneous Turbulence Decay".to_string(),
-            passed: decay_rate > T::from_f64(0.05).unwrap_or_else(num_traits::Zero::zero)
-                && decay_rate < T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
+            passed: decay_rate > T::from_f64(0.05).expect("analytical constant conversion")
+                && decay_rate < T::from_f64(0.5).expect("analytical constant conversion"),
             metric: format!(
                 "Decay rate: {rate:.4}",
                 rate = decay_rate.to_f64().unwrap_or(0.0)
@@ -65,18 +65,18 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
     pub fn validate_k_omega_sst_wall_behavior(&self) -> ValidationResult {
         let _model: KOmegaSSTModel<T> = KOmegaSSTModel::new(1, 1);
 
-        let molecular_viscosity = T::from_f64(1e-5).unwrap_or_else(num_traits::Zero::zero);
-        let y_wall = T::from_f64(1e-4).unwrap_or_else(num_traits::Zero::zero);
+        let molecular_viscosity = T::from_f64(1e-5).expect("analytical constant conversion");
+        let y_wall = T::from_f64(1e-4).expect("analytical constant conversion");
 
-        let beta1 = T::from_f64(SST_BETA_1).unwrap_or_else(num_traits::Zero::zero);
-        let expected_omega_wall = T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero)
+        let beta1 = T::from_f64(SST_BETA_1).expect("analytical constant conversion");
+        let expected_omega_wall = T::from_f64(6.0).expect("analytical constant conversion")
             * molecular_viscosity
             / (beta1 * y_wall * y_wall);
 
         let _k = [T::zero()];
         let mut omega = [T::one()];
 
-        let omega_wall = T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero)
+        let omega_wall = T::from_f64(6.0).expect("analytical constant conversion")
             * molecular_viscosity
             / (beta1 * y_wall * y_wall);
         omega[0] = omega_wall;
@@ -104,14 +104,14 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
         let test_cases = vec![
             (
-                T::from_f64(1e-4).unwrap_or_else(num_traits::Zero::zero),
-                T::from_f64(1e-5).unwrap_or_else(num_traits::Zero::zero),
-                T::from_f64(7.36e-5).unwrap_or_else(num_traits::Zero::zero),
+                T::from_f64(1e-4).expect("analytical constant conversion"),
+                T::from_f64(1e-5).expect("analytical constant conversion"),
+                T::from_f64(7.36e-5).expect("analytical constant conversion"),
             ),
             (
-                T::from_f64(1e-2).unwrap_or_else(num_traits::Zero::zero),
-                T::from_f64(1e-5).unwrap_or_else(num_traits::Zero::zero),
-                T::from_f64(9.41e-4).unwrap_or_else(num_traits::Zero::zero),
+                T::from_f64(1e-2).expect("analytical constant conversion"),
+                T::from_f64(1e-5).expect("analytical constant conversion"),
+                T::from_f64(9.41e-4).expect("analytical constant conversion"),
             ),
         ];
 
@@ -122,7 +122,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             let nu_t = model.eddy_viscosity(nu_tilde, nu);
             let ratio = nu_t / expected_nu_t;
             let passed =
-                (ratio - T::one()).abs() < T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero);
+                (ratio - T::one()).abs() < T::from_f64(0.01).expect("analytical constant conversion");
 
             passed_all &= passed;
             let _ = writeln!(
@@ -152,9 +152,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         let (k, epsilon, omega, nu_tilde) = match model_name {
             "k-epsilon" => {
                 let mut model = KEpsilonModel::new(nx, ny);
-                let mut k = vec![T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero); nx * ny];
+                let mut k = vec![T::from_f64(0.1).expect("analytical constant conversion"); nx * ny];
                 let mut epsilon =
-                    vec![T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero); nx * ny];
+                    vec![T::from_f64(0.01).expect("analytical constant conversion"); nx * ny];
 
                 for _ in 0..5 {
                     model
@@ -163,10 +163,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                             &mut epsilon,
                             &vec![nalgebra::Vector2::zeros(); nx * ny],
                             T::one(),
-                            T::from_f64(1e-5).unwrap_or_else(num_traits::Zero::zero),
-                            T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero),
-                            T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero),
-                            T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero),
+                            T::from_f64(1e-5).expect("analytical constant conversion"),
+                            T::from_f64(0.01).expect("analytical constant conversion"),
+                            T::from_f64(0.1).expect("analytical constant conversion"),
+                            T::from_f64(0.1).expect("analytical constant conversion"),
                         )
                         .unwrap();
                 }
@@ -175,9 +175,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             }
             "k-omega-sst" => {
                 let mut model = KOmegaSSTModel::new(nx, ny);
-                let mut k = vec![T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero); nx * ny];
+                let mut k = vec![T::from_f64(0.1).expect("analytical constant conversion"); nx * ny];
                 let mut omega =
-                    vec![T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero); nx * ny];
+                    vec![T::from_f64(10.0).expect("analytical constant conversion"); nx * ny];
 
                 for _ in 0..5 {
                     model
@@ -186,10 +186,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                             &mut omega,
                             &vec![nalgebra::Vector2::zeros(); nx * ny],
                             T::one(),
-                            T::from_f64(1e-5).unwrap_or_else(num_traits::Zero::zero),
-                            T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero),
-                            T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero),
-                            T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero),
+                            T::from_f64(1e-5).expect("analytical constant conversion"),
+                            T::from_f64(0.01).expect("analytical constant conversion"),
+                            T::from_f64(0.1).expect("analytical constant conversion"),
+                            T::from_f64(0.1).expect("analytical constant conversion"),
                         )
                         .unwrap();
                 }
@@ -199,17 +199,17 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             "spalart-allmaras" => {
                 let _model = SpalartAllmaras::new(nx, ny);
                 let mut nu_tilde =
-                    vec![T::from_f64(1e-4).unwrap_or_else(num_traits::Zero::zero); nx * ny];
+                    vec![T::from_f64(1e-4).expect("analytical constant conversion"); nx * ny];
 
                 for _ in 0..5 {
                     _model
                         .update(
                             &mut nu_tilde,
                             &vec![nalgebra::Vector2::zeros(); nx * ny],
-                            T::from_f64(1e-5).unwrap_or_else(num_traits::Zero::zero),
-                            T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero),
-                            T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero),
-                            T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero),
+                            T::from_f64(1e-5).expect("analytical constant conversion"),
+                            T::from_f64(0.01).expect("analytical constant conversion"),
+                            T::from_f64(0.1).expect("analytical constant conversion"),
+                            T::from_f64(0.1).expect("analytical constant conversion"),
                         )
                         .unwrap();
                 }

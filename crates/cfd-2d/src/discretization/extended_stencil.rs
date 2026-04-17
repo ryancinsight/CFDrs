@@ -41,9 +41,9 @@ impl<T: RealField + Copy + FromPrimitive> ExtendedStencilScheme<T> for QuickSche
         const THREE_EIGHTHS: f64 = 3.0 / 8.0;
         const ONE_EIGHTH: f64 = 1.0 / 8.0;
 
-        let six_eighths = T::from_f64(SIX_EIGHTHS).unwrap_or_else(T::one);
-        let three_eighths = T::from_f64(THREE_EIGHTHS).unwrap_or_else(T::zero);
-        let one_eighth = T::from_f64(ONE_EIGHTH).unwrap_or_else(T::zero);
+        let six_eighths = T::from_f64(SIX_EIGHTHS).expect("analytical constant conversion");
+        let three_eighths = T::from_f64(THREE_EIGHTHS).expect("analytical constant conversion");
+        let one_eighth = T::from_f64(ONE_EIGHTH).expect("analytical constant conversion");
 
         if velocity > T::zero() {
             // Flow from left to right: use φ_U, φ_C, φ_D
@@ -64,7 +64,7 @@ pub struct MusclScheme;
 
 impl<T: RealField + Copy + FromPrimitive> ExtendedStencilScheme<T> for MusclScheme {
     fn face_value(&self, values: &[T; 5], velocity: T, _positions: Option<&[T; 5]>) -> T {
-        let half = T::from_f64(0.5).unwrap_or_else(T::zero);
+        let half = T::from_f64(0.5).expect("analytical constant conversion");
 
         // Compute gradients
         let grad_left = values[2] - values[1];
@@ -75,7 +75,7 @@ impl<T: RealField + Copy + FromPrimitive> ExtendedStencilScheme<T> for MusclSche
             if r <= T::zero() {
                 T::zero()
             } else {
-                let two = T::from_f64(2.0).unwrap_or_else(T::one);
+                let two = T::from_f64(2.0).expect("analytical constant conversion");
                 (two * r) / (T::one() + r)
             }
         };

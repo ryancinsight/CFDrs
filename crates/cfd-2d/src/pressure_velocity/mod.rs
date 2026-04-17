@@ -5,16 +5,21 @@
 //!
 //! # Theorem (Pressure Correction M-Matrix)
 //!
-//! The pressure correction equation $\nabla \cdot (\mathbf{d}\,\nabla p') = \nabla \cdot \mathbf{u}^*$
-//! produces a symmetric negative-definite coefficient matrix (M-matrix) when
-//! $d_f = V_f / A_P > 0$, guaranteeing unique solvability by CG or GMRES.
+//! On an orthogonal collocated grid with one pressure anchor and positive
+//! momentum diagonals, the pressure correction equation
+//! $\nabla \cdot (\mathbf{d}\,\nabla p') = \nabla \cdot \mathbf{u}^*$
+//! assembles into a symmetric M-matrix, and the anchored reduced system is
+//! symmetric positive definite.
 //!
 //! **Proof sketch**:
-//! Each face coefficient $a_f = d_f A_f / \delta_f > 0$, and $a_P = \sum_f a_f$,
-//! yielding strict diagonal dominance with non-positive off-diagonals.
-//! guarantees stability and physical realism.
+//! Each face coefficient $a_f = d_f A_f / \delta_f$ is positive when
+//! $d_f = V_f / A_P > 0$. The discrete Laplacian therefore has non-positive
+//! off-diagonals and positive row sums, while anchoring one pressure degree of
+//! freedom removes the constant null-space. The reduced system is then suitable
+//! for CG; GMRES/BiCGSTAB remain safe fallback solvers for non-ideal variants.
 
 pub mod coefficients;
+pub(crate) mod boundary;
 pub mod config;
 mod correction;
 pub mod pressure;

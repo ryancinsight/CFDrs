@@ -40,8 +40,8 @@ pub fn realizable_c_mu<T: RealField + FromPrimitive + Copy + num_traits::ToPrimi
     epsilon: T,
 ) -> T {
     let _ = model; // model fields not needed beyond this point; API future-proofing.
-    let eps_safe = epsilon.max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero));
-    let half = T::from_f64(ONE_HALF).unwrap_or_else(T::one);
+    let eps_safe = epsilon.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
+    let half = T::from_f64(ONE_HALF).expect("analytical constant conversion");
 
     // Build symmetric strain rate tensor S_ij = 0.5 * (du_i/dx_j + du_j/dx_i)
     let s00 = velocity_gradient[0][0];
@@ -49,7 +49,7 @@ pub fn realizable_c_mu<T: RealField + FromPrimitive + Copy + num_traits::ToPrimi
     let s01 = (velocity_gradient[0][1] + velocity_gradient[1][0]) * half;
 
     // S̃ = sqrt(2 * S_ij * S_ij)
-    let two = T::from_f64(TWO).unwrap_or_else(T::one);
+    let two = T::from_f64(TWO).expect("analytical constant conversion");
     let s_sq = s00 * s00 + s11 * s11 + two * s01 * s01;
     let s_tilde = (two * s_sq).sqrt();
 
@@ -61,7 +61,7 @@ pub fn realizable_c_mu<T: RealField + FromPrimitive + Copy + num_traits::ToPrimi
     let trace_s3 = ss00 * s00 + two * ss01 * s01 + ss11 * s11;
 
     let s_tilde_cubed = s_tilde * s_tilde * s_tilde;
-    let s_tilde_min = T::from_f64(1e-30).unwrap_or_else(T::zero);
+    let s_tilde_min = T::from_f64(1e-30).expect("analytical constant conversion");
 
     let w = if s_tilde_cubed > s_tilde_min {
         trace_s3 / s_tilde_cubed
@@ -70,17 +70,17 @@ pub fn realizable_c_mu<T: RealField + FromPrimitive + Copy + num_traits::ToPrimi
     };
 
     // φ = (1/3) * arccos(√6 * W)
-    let sqrt6 = T::from_f64(6.0_f64.sqrt()).unwrap_or_else(T::one);
+    let sqrt6 = T::from_f64(6.0_f64.sqrt()).expect("analytical constant conversion");
     let one = T::one();
     let arg = (sqrt6 * w).max(-one).min(one);
     let phi = arg.acos();
-    let third = T::from_f64(1.0 / 3.0).unwrap_or_else(T::one);
+    let third = T::from_f64(1.0 / 3.0).expect("analytical constant conversion");
 
     // A_s = √6 * cos(φ / 3)
     let a_s = sqrt6 * (phi * third).cos();
 
     // C_μ = 1 / (A₀ + A_s * S̃ * k / ε)
-    let a0 = T::from_f64(REALIZABLE_A0).unwrap_or_else(T::one);
+    let a0 = T::from_f64(REALIZABLE_A0).expect("analytical constant conversion");
     let denom = a0 + a_s * s_tilde * k / eps_safe;
 
     // Ensure denominator is at least A₀ (C_μ ≤ 1/A₀) and positive

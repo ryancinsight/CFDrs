@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use cfd_core::error::Result as CfdResult;
 use cfd_core::physics::fluid::BloodModel;
 use cfd_schematics::application::ports::GraphSink;
-use cfd_schematics::domain::model::{CrossSectionSpec, NetworkBlueprint};
+use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
 use cfd_schematics::domain::rules::BlueprintValidator;
 use cfd_schematics::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
 use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
@@ -11,9 +11,10 @@ use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 
 use crate::solvers::ns_fvm::{NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
-use crate::solvers::venturi_flow::VenturiGeometry;
 
-use super::postprocess::{populate_circular_mask, populate_venturi_mask};
+use super::projection::{
+    channel_projection_domain, populate_channel_projection_mask, summarize_projection,
+};
 use super::reference::solve_reference_trace;
 use super::types::{Channel2dEntry, Network2DSolver};
 use super::validate_blueprint_for_2d_projection;
@@ -28,6 +29,7 @@ pub struct Network2dBuilderSink<T: RealField + Copy + Float + FromPrimitive + To
     total_flow_rate_m3_s: f64,
     grid_nx: usize,
     grid_ny: usize,
+    separation_tracking_enabled: bool,
 }
 
 impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> Network2dBuilderSink<T> {
@@ -46,7 +48,15 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> Network2dBuilder
             total_flow_rate_m3_s,
             grid_nx,
             grid_ny,
+            separation_tracking_enabled: false,
         }
+    }
+
+    /// Enable or disable the expensive cell-tracking separation postprocess.
+    #[must_use]
+    pub fn with_separation_tracking(mut self, enabled: bool) -> Self {
+        self.separation_tracking_enabled = enabled;
+        self
     }
 }
 
@@ -60,10 +70,11 @@ where
         BlueprintValidator::validate(blueprint)?;
         validate_blueprint_for_2d_projection(blueprint)?;
 
+        let mu = blood_viscosity_f64(&self.blood);
         let reference_trace = solve_reference_trace::<T>(
             blueprint,
             self.density,
-            blood_viscosity_f64(&self.blood),
+            mu,
             self.total_flow_rate_m3_s,
         )?;
         let channel_reference_by_id: HashMap<&str, &ChannelReferenceTrace<T>> = reference_trace
@@ -71,9 +82,9 @@ where
             .iter()
             .map(|trace| (trace.channel_id.as_str(), trace))
             .collect();
-        let mu = blood_viscosity_f64(&self.blood);
 
         let mut entries = Vec::with_capacity(blueprint.channels.len());
+        let mut projection_summaries = Vec::with_capacity(blueprint.channels.len());
 
         for channel in &blueprint.channels {
             let channel_reference = channel_reference_by_id
@@ -85,10 +96,9 @@ where
                         channel.id.as_str()
                     ))
                 })?;
-            let q_ch = channel_reference.flow_rate_m3_s.to_f64().unwrap_or(0.0);
-
-            let (w, _) = channel.cross_section.dims();
             let cross_section_area_m2 = channel.cross_section.area();
+            let q_ch = channel_reference.flow_rate_m3_s.to_f64().unwrap_or(0.0);
+            let mean_velocity_m_s = q_ch / cross_section_area_m2.max(1e-18);
 
             let therapy_zone = channel
                 .therapy_zone
@@ -110,56 +120,44 @@ where
             });
             let is_venturi_throat = venturi_meta.is_some();
 
-            let l = channel.length_m;
-            let l_t = T::from_f64(l).unwrap_or_else(T::one);
-            let grid_w = if let Some(vm) = venturi_meta.as_ref() {
-                T::from_f64(vm.inlet_width_m).unwrap_or_else(T::one)
-            } else {
-                T::from_f64(w).unwrap_or_else(T::one)
-            };
+            let projection_domain = channel_projection_domain(channel);
+            let l_t = T::from_f64(projection_domain.length_m).expect("analytical constant conversion");
+            let grid_w = T::from_f64(projection_domain.width_m)
+                .expect("analytical constant conversion");
             let grid = StaggeredGrid2D::new(self.grid_nx, self.grid_ny, l_t, grid_w);
-            let density_t = T::from_f64(self.density).unwrap_or_else(T::one);
-            let config = SIMPLEConfig {
-                max_iterations: 5_000,
-                // Use default Patankar under-relaxation (alpha_u=0.7, alpha_p=0.3, n_correctors=1)
-                // to maintain steady-state convergence through venturi throats
-                ..SIMPLEConfig::default()
-            };
+            let density_t = T::from_f64(self.density).expect("analytical constant conversion");
+            let config = solver_config_for_channel::<T>(&channel.channel_shape, mean_velocity_m_s);
             let mut solver = NavierStokesSolver2D::new(grid, self.blood.clone(), density_t, config);
 
-            if let Some(vm) = venturi_meta.as_ref() {
-                let converge_l = (l - vm.throat_length_m).max(0.0) / 2.0;
-                let geom = VenturiGeometry::new(
-                    T::from_f64(vm.inlet_width_m).unwrap_or_else(T::one),
-                    T::from_f64(vm.throat_width_m).unwrap_or_else(T::one),
-                    T::zero(),
-                    T::from_f64(converge_l).unwrap_or_else(T::one),
-                    T::from_f64(vm.throat_length_m).unwrap_or_else(T::one),
-                    T::from_f64(converge_l).unwrap_or_else(T::one),
-                    T::from_f64(vm.throat_height_m).unwrap_or_else(T::one),
-                );
-                populate_venturi_mask(&mut solver, &geom, self.grid_nx, self.grid_ny);
-            } else if let CrossSectionSpec::Circular { diameter_m } = channel.cross_section {
-                populate_circular_mask(&mut solver, diameter_m, self.grid_nx, self.grid_ny);
-            }
+            let projection =
+                populate_channel_projection_mask(&mut solver, channel, projection_domain)?;
+            projection_summaries.push(projection.clone());
 
             entries.push(Channel2dEntry {
                 id: channel.id.as_str().to_owned(),
                 therapy_zone,
                 is_venturi_throat,
+                projection,
                 flow_rate_m3_s: q_ch,
                 cross_section: channel.cross_section,
                 cross_section_area_m2,
-                length_m: l,
+                length_m: projection_domain.length_m,
                 viscosity_pa_s: mu,
                 reference_trace: channel_reference.clone(),
                 solver,
             });
         }
 
+        let projection = summarize_projection(projection_summaries);
+
         Ok(Network2DSolver {
+            blueprint: blueprint.clone(),
             channels: entries,
             reference_trace,
+            projection,
+            reference_density_kg_m3: self.density,
+            reference_viscosity_pa_s: mu,
+            separation_tracking_enabled: self.separation_tracking_enabled,
         })
     }
 }
@@ -169,6 +167,37 @@ fn blood_viscosity_f64<T: RealField + Copy + Float + FromPrimitive + ToPrimitive
     model: &BloodModel<T>,
 ) -> f64 {
     const REF_SHEAR: f64 = 100.0;
-    let shear_t = T::from_f64(REF_SHEAR).unwrap_or_else(T::one);
+    let shear_t = T::from_f64(REF_SHEAR).expect("analytical constant conversion");
     model.viscosity(shear_t).to_f64().unwrap_or(3.5e-3)
+}
+
+/// Select a SIMPLE/PISO relaxation profile for the channel shape.
+fn solver_config_for_channel<T: RealField + Copy + Float + FromPrimitive>(
+    shape: &ChannelShape,
+    mean_velocity_m_s: f64,
+) -> SIMPLEConfig<T> {
+    if mean_velocity_m_s > 0.55 {
+        SIMPLEConfig {
+            max_iterations: 12_000,
+            alpha_u: T::from_f64(0.25).expect("analytical constant conversion"),
+            alpha_p: T::from_f64(0.05).expect("analytical constant conversion"),
+            n_correctors: 4,
+            ..SIMPLEConfig::default()
+        }
+    } else if matches!(shape, ChannelShape::Serpentine { .. }) || mean_velocity_m_s > 0.5 {
+        SIMPLEConfig {
+            max_iterations: 8_000,
+            alpha_u: T::from_f64(0.45).expect("analytical constant conversion"),
+            alpha_p: T::from_f64(0.15).expect("analytical constant conversion"),
+            n_correctors: 2,
+            ..SIMPLEConfig::default()
+        }
+    } else {
+        SIMPLEConfig {
+            max_iterations: 5_000,
+            alpha_u: T::from_f64(0.5).expect("analytical constant conversion"),
+            alpha_p: T::from_f64(0.2).expect("analytical constant conversion"),
+            ..SIMPLEConfig::default()
+        }
+    }
 }

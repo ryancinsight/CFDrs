@@ -293,7 +293,7 @@ where
                     let s_net = transport.calculate_net_reaction_rate(phi, macroscopic_source);
 
                     for q in 0..9 {
-                        let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap();
+                        let weight = T::from_f64(D2Q9::WEIGHTS[q]).expect("D2Q9 weights are exact f64 constants");
                         let g_eq = equilibrium(phi, &u, q, weight, D2Q9::VELOCITIES[q]);
                         let idx = f_idx(j, i, q, nx);
                         // Advection-diffusion collision + source/sink

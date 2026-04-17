@@ -47,7 +47,7 @@ pub fn cross_diffusion<T: RealField + FromPrimitive + Copy>(
     dx: T,
     dy: T,
 ) -> T {
-    let omega_min = T::from_f64(OMEGA_MIN).unwrap_or_else(T::zero);
+    let omega_min = T::from_f64(OMEGA_MIN).expect("analytical constant conversion");
     let i = idx % nx;
     let j = idx / nx;
 
@@ -55,7 +55,7 @@ pub fn cross_diffusion<T: RealField + FromPrimitive + Copy>(
         return omega_min;
     }
 
-    let two = T::from_f64(2.0).unwrap_or_else(T::one);
+    let two = T::from_f64(2.0).expect("analytical constant conversion");
 
     // ∇k
     let dk_dx = (k[idx + 1] - k[idx - 1]) / (two * dx);
@@ -68,7 +68,7 @@ pub fn cross_diffusion<T: RealField + FromPrimitive + Copy>(
     // ∇k · ∇ω
     let grad_dot = dk_dx * domega_dx + dk_dy * domega_dy;
 
-    let sigma_omega2 = T::from_f64(SST_SIGMA_OMEGA2).unwrap_or_else(T::one);
+    let sigma_omega2 = T::from_f64(SST_SIGMA_OMEGA2).expect("analytical constant conversion");
     (two * sigma_omega2 * grad_dot / omega[idx].max(omega_min)).max(omega_min)
 }
 
@@ -88,9 +88,9 @@ pub fn compute_blending_functions<T: RealField + FromPrimitive + Copy>(
     dx: T,
     dy: T,
 ) {
-    let beta_star = T::from_f64(SST_BETA_STAR).unwrap_or_else(T::one);
-    let sigma_omega2 = T::from_f64(SST_SIGMA_OMEGA2).unwrap_or_else(T::one);
-    let omega_min = T::from_f64(OMEGA_MIN).unwrap_or_else(T::zero);
+    let beta_star = T::from_f64(SST_BETA_STAR).expect("analytical constant conversion");
+    let sigma_omega2 = T::from_f64(SST_SIGMA_OMEGA2).expect("analytical constant conversion");
+    let omega_min = T::from_f64(OMEGA_MIN).expect("analytical constant conversion");
 
     for idx in 0..k.len() {
         let y = wall_distance[idx];
@@ -103,16 +103,16 @@ pub fn compute_blending_functions<T: RealField + FromPrimitive + Copy>(
         // F1 arguments
         let sqrt_k = k_val.sqrt();
         let arg1_1 = sqrt_k / (beta_star * omega_val * y);
-        let arg1_2 = T::from_f64(500.0).unwrap_or_else(T::one) * nu / (y * y * omega_val);
-        let arg1_3 = T::from_f64(4.0).unwrap_or_else(T::one) * density * sigma_omega2 * k_val
+        let arg1_2 = T::from_f64(500.0).expect("analytical constant conversion") * nu / (y * y * omega_val);
+        let arg1_3 = T::from_f64(4.0).expect("analytical constant conversion") * density * sigma_omega2 * k_val
             / (cd_kw * y * y);
         let arg1 = arg1_1.min(arg1_2).max(arg1_3);
-        f1[idx] = (T::from_f64(4.0).unwrap_or_else(T::one) * arg1).tanh();
+        f1[idx] = (T::from_f64(4.0).expect("analytical constant conversion") * arg1).tanh();
 
         // F2 arguments
         let arg2_1 =
-            T::from_f64(2.0).unwrap_or_else(T::one) * sqrt_k / (beta_star * omega_val * y);
-        let arg2_2 = T::from_f64(500.0).unwrap_or_else(T::one) * nu / (y * y * omega_val);
+            T::from_f64(2.0).expect("analytical constant conversion") * sqrt_k / (beta_star * omega_val * y);
+        let arg2_2 = T::from_f64(500.0).expect("analytical constant conversion") * nu / (y * y * omega_val);
         let arg2 = arg2_1.max(arg2_2);
         f2[idx] = (arg2 * arg2).tanh();
     }
@@ -123,7 +123,7 @@ pub fn compute_blending_functions<T: RealField + FromPrimitive + Copy>(
 /// `φ = F₁ · φ₁ + (1 − F₁) · φ₂`
 #[inline]
 pub fn blend_coefficient<T: RealField + FromPrimitive + Copy>(coef1: f64, coef2: f64, f1: T) -> T {
-    let c1 = T::from_f64(coef1).unwrap_or_else(T::one);
-    let c2 = T::from_f64(coef2).unwrap_or_else(T::one);
+    let c1 = T::from_f64(coef1).expect("analytical constant conversion");
+    let c2 = T::from_f64(coef2).expect("analytical constant conversion");
     f1 * c1 + (T::one() - f1) * c2
 }

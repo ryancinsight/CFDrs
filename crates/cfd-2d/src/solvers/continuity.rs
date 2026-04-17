@@ -108,7 +108,7 @@ where
     }
 
     let mut max_divergence = T::zero();
-    let two = T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one());
+    let two = T::from_f64(2.0).expect("Exact mathematically representable f64");
 
     for i in 1..nx - 1 {
         for j in 1..ny - 1 {

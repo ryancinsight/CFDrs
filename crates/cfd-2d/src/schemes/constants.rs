@@ -111,5 +111,5 @@ pub const WENO5_WEIGHTS: [f64; 3] = [0.1, 0.6, 0.3];
 
 /// Convert f64 constant to generic `RealField` type
 pub fn to_realfield<T: RealField + FromPrimitive>(value: f64) -> T {
-    T::from_f64(value).unwrap_or_else(T::one)
+    T::from_f64(value).expect("analytical constant conversion")
 }

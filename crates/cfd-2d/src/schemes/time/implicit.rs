@@ -26,7 +26,7 @@ where
     F: Fn(T, &DVector<T>) -> DVector<T>,
 {
     let t_next = t + dt;
-    let tol = T::from_f64(1e-10).unwrap_or_else(T::zero);
+    let tol = T::from_f64(1e-10).expect("analytical constant conversion");
     let max_iter = 100;
 
     // Initial guess: Forward Euler predictor
@@ -52,7 +52,7 @@ where
 
         // For very stiff problems, apply relaxation
         if iter > 20 {
-            let relax = T::from_f64(0.5).unwrap_or_else(T::one);
+            let relax = T::from_f64(0.5).expect("analytical constant conversion");
             y_next = y_old * (T::one() - relax) + y_next * relax;
         }
     }
@@ -71,16 +71,16 @@ where
     T: RealField + Copy + FromPrimitive,
     F: Fn(T, &DVector<T>) -> DVector<T>,
 {
-    let half = T::from_f64(ONE_HALF).unwrap_or_else(T::zero);
+    let half = T::from_f64(ONE_HALF).expect("analytical constant conversion");
     let t_next = t + dt;
-    let tol = T::from_f64(1e-10).unwrap_or_else(T::zero);
+    let tol = T::from_f64(1e-10).expect("analytical constant conversion");
     let max_iter = 100;
 
     // Explicit part: dt/2 * f(t_n, y_n)
     let explicit_part = f(t, y) * (dt * half);
 
     // Initial guess: Forward Euler predictor
-    let mut y_next = y + &explicit_part * T::from_f64(TWO).unwrap_or_else(T::one);
+    let mut y_next = y + &explicit_part * T::from_f64(TWO).expect("analytical constant conversion");
 
     // Fixed-point iteration: y^{k+1} = y_n + (dt/2)*(f(t_n, y_n) + f(t_{n+1}, y^k))
     for iter in 0..max_iter {
@@ -102,7 +102,7 @@ where
 
         // For very stiff problems, apply relaxation
         if iter > 20 {
-            let relax = T::from_f64(0.5).unwrap_or_else(T::one);
+            let relax = T::from_f64(0.5).expect("analytical constant conversion");
             y_next = y_old * (T::one() - relax) + y_next * relax;
         }
     }

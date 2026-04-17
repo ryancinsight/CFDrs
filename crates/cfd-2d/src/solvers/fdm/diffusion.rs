@@ -74,7 +74,7 @@ impl<T: RealField + Copy + FromPrimitive> DiffusionSolver<T> {
         t_final: T,
         source_fn: &impl Fn(T, T, T) -> T,
     ) -> HashMap<(usize, usize), T> {
-        let dt = T::from_f64(0.25 * 0.9).unwrap_or_else(num_traits::Zero::zero) * self.dx * self.dx
+        let dt = T::from_f64(0.25 * 0.9).expect("analytical constant conversion") * self.dx * self.dx
             / self.alpha;
         let mut t = T::zero();
 
@@ -82,38 +82,38 @@ impl<T: RealField + Copy + FromPrimitive> DiffusionSolver<T> {
             let mut next_solution = self.solution.clone();
             for i in 1..self.nx - 1 {
                 for j in 1..self.ny - 1 {
-                    let un = self.solution.get(&(i, j)).copied().unwrap_or_else(T::zero);
+                    let un = self.solution.get(&(i, j)).copied().expect("analytical constant conversion");
                     let un_e = self
                         .solution
                         .get(&(i + 1, j))
                         .copied()
-                        .unwrap_or_else(T::zero);
+                        .expect("analytical constant conversion");
                     let un_w = self
                         .solution
                         .get(&(i - 1, j))
                         .copied()
-                        .unwrap_or_else(T::zero);
+                        .expect("analytical constant conversion");
                     let un_n = self
                         .solution
                         .get(&(i, j + 1))
                         .copied()
-                        .unwrap_or_else(T::zero);
+                        .expect("analytical constant conversion");
                     let un_s = self
                         .solution
                         .get(&(i, j - 1))
                         .copied()
-                        .unwrap_or_else(T::zero);
+                        .expect("analytical constant conversion");
 
                     let laplacian = (un_e
-                        - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * un
+                        - T::from_f64(2.0).expect("analytical constant conversion") * un
                         + un_w)
                         / (self.dx * self.dx)
-                        + (un_n - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * un
+                        + (un_n - T::from_f64(2.0).expect("analytical constant conversion") * un
                             + un_s)
                             / (self.dy * self.dy);
 
-                    let x = T::from_usize(i).unwrap_or_else(T::one) * self.dx;
-                    let y = T::from_usize(j).unwrap_or_else(T::one) * self.dy;
+                    let x = T::from_usize(i).expect("analytical constant conversion") * self.dx;
+                    let y = T::from_usize(j).expect("analytical constant conversion") * self.dy;
                     let source = source_fn(x, y, t);
                     let un_plus_1 = un + dt * (self.alpha * laplacian + source);
                     next_solution.insert((i, j), un_plus_1);

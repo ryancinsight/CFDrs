@@ -4,7 +4,7 @@ use crate::physics::momentum::{validate_boundary_consistency, MomentumSolver};
 use crate::solvers::fdm::PoissonSolver;
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::sparse::SparseMatrixBuilder;
+use cfd_math::sparse::SparseMatrix;
 use nalgebra::{DVector, RealField};
 use num_traits::{FromPrimitive, ToPrimitive};
 use std::collections::HashMap;
@@ -15,7 +15,8 @@ pub struct SimpleAlgorithm<T: RealField + Copy + FromPrimitive + std::fmt::Debug
     pub(crate) velocity_relaxation: T,
     pub(crate) max_iterations: usize,
     pub(crate) tolerance: T,
-    pub(crate) matrix_builder: Option<SparseMatrixBuilder<T>>,
+    pub(crate) pressure_matrix: Option<SparseMatrix<T>>,
+    pub(crate) matrix_builder: Option<cfd_math::sparse::SparseMatrixBuilder<T>>,
     pub(crate) rhs: Option<DVector<T>>,
     pub(crate) p_prime: Option<DVector<T>>,
     pub(crate) d_u: Option<Field2D<T>>,
@@ -26,10 +27,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
     /// Construct with Patankar-recommended defaults: α_u = 0.7, α_p = 0.3.
     pub fn new() -> Self {
         Self {
-            pressure_relaxation: T::from_f64(0.3).unwrap(),
-            velocity_relaxation: T::from_f64(0.7).unwrap(),
+            pressure_relaxation: T::from_f64(0.3).expect("Exact mathematically representable f64"),
+            velocity_relaxation: T::from_f64(0.7).expect("Exact mathematically representable f64"),
             max_iterations: 50,
-            tolerance: T::from_f64(1e-6).unwrap(),
+            tolerance: T::from_f64(1e-6).expect("Exact mathematically representable f64"),
+            pressure_matrix: None,
             matrix_builder: None,
             rhs: None,
             p_prime: None,
@@ -64,8 +66,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
 
     pub(crate) fn ensure_buffers(&mut self, nx: usize, ny: usize) {
         let n = nx * ny;
-        if self.matrix_builder.as_ref().is_none_or(|b| b.num_rows() != n) {
-            self.matrix_builder = Some(SparseMatrixBuilder::new(n, n));
+        if self.pressure_matrix.as_ref().is_none_or(|b| b.nrows() != n) {
+            self.pressure_matrix = None; // Reset if matrix geometry violates new bounds
         }
         if self.rhs.as_ref().is_none_or(|v| v.len() != n) {
             self.rhs = Some(DVector::zeros(n));

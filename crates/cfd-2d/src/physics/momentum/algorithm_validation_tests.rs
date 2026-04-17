@@ -26,6 +26,11 @@
 #[cfg(test)]
 mod momentum_algorithm_validation {
     use approx::assert_relative_eq;
+    use crate::fields::SimulationFields;
+    use crate::grid::StructuredGrid2D;
+    use crate::physics::momentum::{MomentumComponent, MomentumSolver};
+    use cfd_core::physics::boundary::{BoundaryCondition, WallType};
+    use nalgebra::Vector3;
 
     /// Test CFL number calculation
     /// Reference: Ferziger & Perić (2019) - Courant number constraints
@@ -231,5 +236,52 @@ mod momentum_algorithm_validation {
         let r: f64 = 0.5;
         let phi_vanleer = (r + r.abs()) / (1.0 + r.abs());
         assert_relative_eq!(phi_vanleer, 0.6666666666666666, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn moving_north_wall_drives_interior_u() {
+        let grid = StructuredGrid2D::new(4, 4, 0.0_f64, 1.0_f64, 0.0_f64, 1.0_f64)
+            .expect("grid creation failed");
+        let mut solver = MomentumSolver::new(&grid);
+        solver.set_boundary(
+            "north".to_string(),
+            BoundaryCondition::Wall {
+                wall_type: WallType::Moving {
+                    velocity: Vector3::new(1.0, 0.0, 0.0),
+                },
+            },
+        );
+        solver.set_boundary(
+            "south".to_string(),
+            BoundaryCondition::Wall {
+                wall_type: WallType::NoSlip,
+            },
+        );
+        solver.set_boundary(
+            "east".to_string(),
+            BoundaryCondition::Wall {
+                wall_type: WallType::NoSlip,
+            },
+        );
+        solver.set_boundary(
+            "west".to_string(),
+            BoundaryCondition::Wall {
+                wall_type: WallType::NoSlip,
+            },
+        );
+
+        let mut fields = SimulationFields::new(4, 4);
+        fields.density.map_inplace(|d| *d = 1.0);
+        fields.viscosity.map_inplace(|v| *v = 0.01);
+
+        solver
+            .solve_with_coefficients(MomentumComponent::U, &mut fields, 0.0125)
+            .expect("momentum solve failed");
+
+        let below_lid = fields.u.at(2, 2);
+        assert!(
+            below_lid > 0.0,
+            "moving north wall should drive a positive interior u-velocity"
+        );
     }
 }

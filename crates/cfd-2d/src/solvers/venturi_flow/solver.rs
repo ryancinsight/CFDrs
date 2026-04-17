@@ -98,11 +98,11 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         );
 
         let ly = geometry.w_inlet;
-        let two_pi = T::from_f64(2.0 * std::f64::consts::PI).unwrap_or_else(num_traits::Zero::zero);
+        let two_pi = T::from_f64(2.0 * std::f64::consts::PI).expect("Exact mathematically representable f64");
         let mut y_faces = Vec::with_capacity(ny + 1);
-        let ny_t = T::from_usize(ny).unwrap_or_else(T::one);
+        let ny_t = T::from_usize(ny).expect("Exact mathematically representable f64");
         for j in 0..=ny {
-            let eta = T::from_usize(j).unwrap_or_else(T::one) / ny_t;
+            let eta = T::from_usize(j).expect("Exact mathematically representable f64") / ny_t;
             let s = eta + beta * Float::sin(two_pi * eta) / two_pi;
             y_faces.push(ly * s);
         }
@@ -117,14 +117,14 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         let cr = geometry.w_inlet
             / Float::max(
                 geometry.w_throat,
-                T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero),
+                T::from_f64(1e-12).expect("Exact mathematically representable f64"),
             );
-        if dy_min > geometry.w_throat / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) {
+        if dy_min > geometry.w_throat / T::from_f64(2.0).expect("Exact mathematically representable f64") {
             tracing::debug!(
                 "[VenturiSolver2D] WARNING: dy_min ({:.2e}) > w_throat/2 ({:.2e}). \
                  CR={:.1}. Consider increasing ny or beta.",
                 dy_min.to_f64().unwrap_or(0.0),
-                (geometry.w_throat / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero))
+                (geometry.w_throat / T::from_f64(2.0).expect("Exact mathematically representable f64"))
                     .to_f64()
                     .unwrap_or(0.0),
                 cr.to_f64().unwrap_or(0.0),
@@ -147,7 +147,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         nx: usize,
         ny: usize,
     ) {
-        let half_h = geometry.w_inlet / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let half_h = geometry.w_inlet / T::from_f64(2.0).expect("Exact mathematically representable f64");
         for i in 0..nx {
             for j in 0..ny {
                 let x = solver.grid.x_center(i);
@@ -183,7 +183,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
                 (s + self.solver.field.u[(1, j)], n + 1)
             });
         let u_inlet_sim = if count_inlet > 0 {
-            u_sum_in / T::from_usize(count_inlet).unwrap_or_else(T::one)
+            u_sum_in / T::from_usize(count_inlet).expect("Exact mathematically representable f64")
         } else {
             T::zero()
         };
@@ -196,12 +196,12 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         // area-averaged velocity ū = (1/A) ∫ u dA is the correct metric.
         // For fully-developed 2D laminar flow, ū = (2/3) u_max.
         let throat_x_mid = self._geometry.l_inlet + self._geometry.l_converge
-            + self._geometry.l_throat / T::from_f64(2.0).unwrap_or_else(T::one);
+            + self._geometry.l_throat / T::from_f64(2.0).expect("Exact mathematically representable f64");
         let i_throat = (0..nx)
             .min_by_key(|&i| {
                 let dx = self.solver.grid.x_center(i) - throat_x_mid;
                 // Convert to integer for Ord comparison (f64 doesn't implement Ord)
-                (dx * dx * T::from_f64(1e12).unwrap_or_else(T::one))
+                (dx * dx * T::from_f64(1e12).expect("Exact mathematically representable f64"))
                     .to_u64()
                     .unwrap_or(u64::MAX)
             })
@@ -215,7 +215,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
                 (s + self.solver.field.p[(nx - 1, j)], n + 1)
             });
         let p_outlet = if count_outlet > 0 {
-            p_sum_out / T::from_usize(count_outlet).unwrap_or_else(T::one)
+            p_sum_out / T::from_usize(count_outlet).expect("Exact mathematically representable f64")
         } else {
             T::zero()
         };
@@ -227,12 +227,12 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
 
         let rho = self.solver.density;
         let q_dyn =
-            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) * rho * u_inlet * u_inlet;
+            T::from_f64(0.5).expect("Exact mathematically representable f64") * rho * u_inlet * u_inlet;
         // Guard: avoid division by near-zero dynamic pressure.  Use 1e-6 Pa (not 1.0)
         // so Cp remains physically meaningful even at very low inlet velocities.
         let q_dyn_safe = num_traits::Float::max(
             q_dyn,
-            T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(1e-6).expect("Exact mathematically representable f64"),
         );
         let cp_throat = dp_throat / q_dyn_safe;
         let cp_recovery = dp_recovery / q_dyn_safe;
@@ -279,7 +279,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
             ));
         }
 
-        let u_throat_mean = u_sum_throat / T::from_usize(count_throat).unwrap_or_else(T::one);
+        let u_throat_mean = u_sum_throat / T::from_usize(count_throat).expect("Exact mathematically representable f64");
         Ok((u_peak_throat, p_at_peak_throat, u_throat_mean))
     }
 }
@@ -389,7 +389,7 @@ mod tests {
         let result = solver.solve(0.1); // 100 mm/s
 
         assert!(result.is_ok(), "Solver failed: {:?}", result.err());
-        let sol = result.unwrap();
+        let sol = result.expect("Solver failed to converge");
         println!("Venturi Solution: {:?}", sol);
 
         // Qualification checks
@@ -426,7 +426,7 @@ mod tests {
             "Stretched solver failed: {:?}",
             result.err()
         );
-        let sol = result.unwrap();
+        let sol = result.expect("Solver failed to converge");
 
         assert!(
             sol.u_throat > sol.u_inlet,

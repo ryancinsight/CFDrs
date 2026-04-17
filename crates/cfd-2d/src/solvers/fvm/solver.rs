@@ -58,9 +58,9 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
         for j in 0..ny {
             for i in 0..=nx {
                 let center = Vector2::new(
-                    T::from_usize(i).unwrap_or_else(T::zero) * dx,
-                    (T::from_usize(j).unwrap_or_else(T::zero)
-                        + T::from_f64(0.5).unwrap_or_else(T::zero))
+                    T::from_usize(i).expect("analytical constant conversion") * dx,
+                    (T::from_usize(j).expect("analytical constant conversion")
+                        + T::from_f64(0.5).expect("analytical constant conversion"))
                         * dy,
                 );
                 let normal = Vector2::new(T::one(), T::zero());
@@ -78,10 +78,10 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
         for j in 0..=ny {
             for i in 0..nx {
                 let center = Vector2::new(
-                    (T::from_usize(i).unwrap_or_else(T::zero)
-                        + T::from_f64(0.5).unwrap_or_else(T::zero))
+                    (T::from_usize(i).expect("analytical constant conversion")
+                        + T::from_f64(0.5).expect("analytical constant conversion"))
                         * dx,
-                    T::from_usize(j).unwrap_or_else(T::zero) * dy,
+                    T::from_usize(j).expect("analytical constant conversion") * dy,
                 );
                 let normal = Vector2::new(T::zero(), T::one());
 
@@ -149,7 +149,7 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
                             .to_subset()
                             .unwrap_or(1e-3),
                     )
-                    .unwrap_or_else(T::zero);
+                    .expect("analytical constant conversion");
                     let diff_e = diff_coeff * (phi_e - phi_p) / (dx * dx);
                     let diff_w = diff_coeff * (phi_p - phi_w) / (dx * dx);
                     let diff_n = diff_coeff * (phi_n - phi_p) / (dy * dy);

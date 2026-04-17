@@ -5,12 +5,14 @@
 //!
 //! # Theorem (PISO Splitting Error — Issa 1986)
 //!
-//! After $m$ corrector steps the splitting error is $O(\Delta t^{m+1})$.
-//! Two correctors ($m = 2$) therefore preserve second-order temporal accuracy.
+//! For a linearized incompressible problem with an accurate pressure-correction
+//! solve, $m$ corrector steps reduce the operator-splitting error to
+//! $O(\Delta t^{m+1})$. Two correctors therefore preserve second-order temporal
+//! accuracy in the small-CFL regime.
 //!
 //! **Proof sketch**:
-//! See the detailed proof in [`solver`].
-//! guarantees stability and physical realism.
+//! See the detailed proof in [`solver`]. The estimate assumes the predictor and
+//! correctors are applied consistently to the same discretized momentum stencil.
 
 pub mod config;
 pub mod convergence;

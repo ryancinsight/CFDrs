@@ -87,8 +87,26 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         dt: Option<T>,
     ) -> T {
         if let Some(ref rhie_chow) = self.rhie_chow {
-            let u_consistent = self.interpolate_consistent_velocity(rhie_chow, fields, dt);
-            self.calculate_continuity_residual_from_faces(&u_consistent)
+            let mut vfc = self._vel_field_cache.borrow_mut();
+            if vfc.as_ref().is_none_or(|v| {
+                let (nx, ny) = v.dimensions();
+                nx != self.grid.nx || ny != self.grid.ny
+            }) {
+                *vfc = Some(crate::fields::Field2D::new(self.grid.nx, self.grid.ny, Vector2::zeros()));
+            }
+            let velocity_field = vfc.as_mut().unwrap();
+
+            let mut cvc = self._cons_vel_cache.borrow_mut();
+            if cvc
+                .as_ref()
+                .is_none_or(|v| v.rows() != self.grid.nx || v.cols() != self.grid.ny)
+            {
+                *cvc = Some(Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros()));
+            }
+            let consistent_velocity = cvc.as_mut().unwrap();
+
+            self.interpolate_consistent_velocity(rhie_chow, fields, dt, velocity_field, consistent_velocity);
+            self.calculate_continuity_residual_from_faces(consistent_velocity)
         } else {
             self.calculate_continuity_residual(fields)
         }
@@ -100,31 +118,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         fields: &SimulationFields<T>,
     ) -> Array2D<Vector2<T>> {
         let mut velocity = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
-        for i in 0..self.grid.nx {
-            for j in 0..self.grid.ny {
-                velocity[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
-            }
-        }
+        velocity.as_mut_slice()
+            .iter_mut()
+            .zip(fields.u.as_slice().iter())
+            .zip(fields.v.as_slice().iter())
+            .for_each(|((vel, &u), &v)| {
+                *vel = Vector2::new(u, v);
+            });
         velocity
-    }
-
-    /// Convert `Field2D<T>` to `Array2D<T>`
-    pub(super) fn field2d_to_array2d(&self, field: &crate::fields::Field2D<T>) -> Array2D<T> {
-        let mut result = Array2D::new(self.grid.nx, self.grid.ny, T::zero());
-        for i in 0..self.grid.nx {
-            for j in 0..self.grid.ny {
-                result[(i, j)] = field[(i, j)];
-            }
-        }
-        result
-    }
-
-    /// Convert `Array2D<T>` to `Field2D<T>`
-    pub(super) fn array2d_to_field2d(&self, field: &mut crate::fields::Field2D<T>, vec: &Array2D<T>) {
-        for i in 0..self.grid.nx {
-            for j in 0..self.grid.ny {
-                field[(i, j)] = vec[(i, j)];
-            }
-        }
     }
 }

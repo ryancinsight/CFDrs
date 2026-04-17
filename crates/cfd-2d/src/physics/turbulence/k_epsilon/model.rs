@@ -67,11 +67,11 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
         Self {
             nx,
             ny,
-            c_mu: T::from_f64(C_MU).unwrap_or_else(T::one),
-            c1_epsilon: T::from_f64(C1_EPSILON).unwrap_or_else(T::one),
-            c2_epsilon: T::from_f64(C2_EPSILON).unwrap_or_else(T::one),
-            sigma_k: T::from_f64(SIGMA_K).unwrap_or_else(T::one),
-            sigma_epsilon: T::from_f64(SIGMA_EPSILON).unwrap_or_else(T::one),
+            c_mu: T::from_f64(C_MU).expect("analytical constant conversion"),
+            c1_epsilon: T::from_f64(C1_EPSILON).expect("analytical constant conversion"),
+            c2_epsilon: T::from_f64(C2_EPSILON).expect("analytical constant conversion"),
+            sigma_k: T::from_f64(SIGMA_K).expect("analytical constant conversion"),
+            sigma_epsilon: T::from_f64(SIGMA_EPSILON).expect("analytical constant conversion"),
             use_realizable: false,
             use_kato_launder: false,
             k_scratch: vec![T::zero(); n],
@@ -124,7 +124,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
         for i in 0..2 {
             for j in 0..2 {
                 s_ij[i][j] = (velocity_gradient[i][j] + velocity_gradient[j][i])
-                    * T::from_f64(ONE_HALF).unwrap_or_else(T::one);
+                    * T::from_f64(ONE_HALF).expect("analytical constant conversion");
             }
         }
 
@@ -136,7 +136,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
             }
         }
 
-        (T::from_f64(TWO).unwrap_or_else(T::one) * s_squared).sqrt()
+        (T::from_f64(TWO).expect("analytical constant conversion") * s_squared).sqrt()
     }
 
     /// Apply boundary conditions using the boundary condition system.
@@ -183,7 +183,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
     for KEpsilonModel<T>
 {
     fn turbulent_viscosity(&self, k: T, epsilon: T, density: T) -> T {
-        let eps_min = T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero);
+        let eps_min = T::from_f64(EPSILON_MIN).expect("analytical constant conversion");
         density * self.c_mu * k * k / epsilon.max(eps_min)
     }
 
@@ -224,10 +224,10 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
         self.eps_scratch.copy_from_slice(epsilon);
 
         // Hoist T::from_f64 conversions out of the inner loop
-        let two = T::from_f64(TWO).unwrap_or_else(T::one);
-        let two_f = T::from_f64(2.0).unwrap_or_else(T::one);
-        let k_min = T::from_f64(K_MIN).unwrap_or_else(T::zero);
-        let eps_min = T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero);
+        let two = T::from_f64(TWO).expect("analytical constant conversion");
+        let two_f = T::from_f64(2.0).expect("analytical constant conversion");
+        let k_min = T::from_f64(K_MIN).expect("analytical constant conversion");
+        let eps_min = T::from_f64(EPSILON_MIN).expect("analytical constant conversion");
 
         let two_dx = two * dx;
         let two_dy = two * dy;
@@ -272,7 +272,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                     ];
                     let nu_t_f64 = nu_t.to_f64().unwrap_or(0.0);
                     T::from_f64(kato_launder::kato_launder_production(&grad_f64, nu_t_f64))
-                        .unwrap_or_else(T::zero)
+                        .expect("analytical constant conversion")
                 } else {
                     self.production_term(
                         &grad,
@@ -329,6 +329,6 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
     }
 
     fn is_valid_for_reynolds(&self, reynolds: T) -> bool {
-        reynolds > T::from_f64(1e4).unwrap_or_else(T::one)
+        reynolds > T::from_f64(1e4).expect("analytical constant conversion")
     }
 }

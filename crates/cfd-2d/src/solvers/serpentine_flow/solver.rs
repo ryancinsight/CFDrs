@@ -67,7 +67,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
             diffusion_coeff,
             c_left,
             c_right,
-            T::from_f64(1e-5).unwrap_or_else(num_traits::Zero::zero),
+            T::from_f64(1e-5).expect("analytical constant conversion"),
         )
     }
 
@@ -136,7 +136,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
 
         let mut mixing_frac = T::zero();
         if count > 0 {
-            let n = T::from_usize(count).unwrap_or_else(T::one);
+            let n = T::from_usize(count).expect("analytical constant conversion");
             let c_mean = sum_c / n;
             let variance = (sum_c_sq / n) - (c_mean * c_mean);
 
@@ -147,7 +147,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
                     variance
                         / num_traits::Float::max(
                             var_inlet,
-                            T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero),
+                            T::from_f64(1e-10).expect("analytical constant conversion"),
                         ),
                 );
         }
@@ -171,8 +171,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
 
         let mut pressure_drop = T::zero();
         if count_in > 0 && count_out > 0 {
-            pressure_drop = (p_in / T::from_usize(count_in).unwrap_or_else(T::one))
-                - (p_out / T::from_usize(count_out).unwrap_or_else(T::one));
+            pressure_drop = (p_in / T::from_usize(count_in).expect("analytical constant conversion"))
+                - (p_out / T::from_usize(count_out).expect("analytical constant conversion"));
         }
 
         Ok(SerpentineMixingSolution {
@@ -188,7 +188,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
 }
 
 fn half_sq<T: RealField + Copy + FromPrimitive>(val: T) -> T {
-    let half = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+    let half = T::from_f64(0.5).expect("analytical constant conversion");
     (val * half) * (val * half)
 }
 

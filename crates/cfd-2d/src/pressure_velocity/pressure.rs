@@ -2,9 +2,10 @@
 //!
 //! # Theorem (Pressure-Velocity Coupling — Patankar & Spalding 1972)
 //!
-//! The SIMPLE-family pressure correction ensures discrete mass conservation by
-//! solving a Poisson equation for the pressure correction `p'` and then updating
-//! both the velocity and pressure fields:
+//! For a fixed linearization of the momentum equations, solving the anchored
+//! pressure-correction Poisson problem and applying the corresponding velocity
+//! update enforces discrete mass conservation on each control volume to the
+//! linear-solver tolerance:
 //!
 //! ```text
 //! u = u* − (Vol / a_P) ∇p'   (velocity correction)
@@ -19,6 +20,7 @@ use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use cfd_math::linear_solver::preconditioners::AlgebraicMultigrid;
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, GMRES};
+use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use std::fmt::Debug;
@@ -31,6 +33,11 @@ pub struct PressureCorrectionSolver<T: RealField + Copy> {
     pub(super) bicgstab_solver: BiCGSTAB<T>,
     pub(super) gmres_solver: Option<GMRES<T>>,
     pub(super) _amg_preconditioner: std::cell::RefCell<Option<AlgebraicMultigrid<T>>>,
+    pub(super) _laplacian_cache: std::cell::RefCell<Option<cfd_math::sparse::SparseMatrix<T>>>,
+    pub(super) _rhs_cache: std::cell::RefCell<Option<nalgebra::DVector<T>>>,
+    pub(super) _solution_cache: std::cell::RefCell<Option<nalgebra::DVector<T>>>,
+    pub(super) _p_correction_cache: std::cell::RefCell<Option<Array2D<T>>>,
+    pub(super) _matrix_builder_cache: std::cell::RefCell<Option<SparseMatrixBuilder<T>>>,
 }
 
 impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
@@ -66,6 +73,11 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
             bicgstab_solver: BiCGSTAB::new(config),
             gmres_solver,
             _amg_preconditioner: std::cell::RefCell::new(None),
+            _laplacian_cache: std::cell::RefCell::new(None),
+            _rhs_cache: std::cell::RefCell::new(None),
+            _solution_cache: std::cell::RefCell::new(None),
+            _p_correction_cache: std::cell::RefCell::new(None),
+            _matrix_builder_cache: std::cell::RefCell::new(None),
         })
     }
 

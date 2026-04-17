@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
-use cfd_1d::domain::network::network_from_blueprint;
+use cfd_1d::domain::network::{
+    apply_blueprint_boundary_conditions, network_from_blueprint,
+};
 use cfd_1d::{
     NetworkProblem, NetworkSolver, PrimarySolveDiagnostics, SolvePathStatus, SolverConfig,
 };
+use cfd_1d::BoundaryCondition;
 use cfd_core::error::{Error, Result as CfdResult};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_schematics::domain::model::{NetworkBlueprint, NodeKind};
@@ -105,20 +108,13 @@ where
         .collect();
 
     let normalized_inlet_pressure_pa = T::one();
-    for node in &blueprint.nodes {
-        let Some(&node_idx) = node_indices.get(node.id.as_str()) else {
-            return Err(Error::InvalidInput(format!(
-                "Network2DSolver reference trace missing node '{}' in cfd-1d network",
-                node.id.as_str()
-            )));
-        };
-
-        match node.kind {
-            NodeKind::Inlet => network.set_pressure(node_idx, normalized_inlet_pressure_pa),
-            NodeKind::Outlet => network.set_pressure(node_idx, T::zero()),
-            NodeKind::Reservoir | NodeKind::Junction => {}
-        }
-    }
+    apply_blueprint_boundary_conditions(
+        &mut network,
+        blueprint,
+        &node_indices,
+        normalized_inlet_pressure_pa,
+        T::zero(),
+    )?;
 
     let solver = NetworkSolver::<T, ConstantPropertyFluid<T>>::with_config(SolverConfig::<T> {
         tolerance: T::from_f64(1e-12).unwrap_or_else(T::default_epsilon),
@@ -134,6 +130,25 @@ where
             ))
         })?;
 
+    build_reference_trace_from_solved_network(
+        blueprint,
+        &solved,
+        diagnostics,
+        normalized_inlet_pressure_pa,
+        target_total_flow_m3_s,
+    )
+}
+
+pub(crate) fn build_reference_trace_from_solved_network<T>(
+    blueprint: &NetworkBlueprint,
+    solved: &cfd_1d::domain::network::Network<T, ConstantPropertyFluid<T>>,
+    diagnostics: PrimarySolveDiagnostics,
+    normalized_inlet_pressure_pa: T,
+    target_total_flow_m3_s: f64,
+) -> CfdResult<NetworkReferenceTrace<T>>
+where
+    T: RealField + Copy + Float + FromPrimitive + ToPrimitive,
+{
     let edge_flow_by_id: HashMap<String, T> = solved
         .edges_with_properties()
         .into_iter()
@@ -152,68 +167,44 @@ where
             })
         })
         .collect();
+    let node_index_by_id: HashMap<&str, NodeIndex> = solved
+        .graph
+        .node_indices()
+        .filter_map(|idx| solved.graph.node_weight(idx).map(|node| (node.id.as_str(), idx)))
+        .collect();
+    let boundary_conditions = solved.boundary_conditions();
+    let scale_factor = T::one();
 
-    let mut normalized_inlet_flow = T::zero();
-    let mut normalized_outlet_flow = T::zero();
-    for channel in &blueprint.channels {
-        let flow = edge_flow_by_id
-            .get(channel.id.as_str())
-            .copied()
-            .unwrap_or_else(T::zero);
-
-        if blueprint
-            .nodes
-            .iter()
-            .find(|node| node.id.as_str() == channel.from.as_str())
-            .is_some_and(|node| matches!(node.kind, NodeKind::Inlet))
-        {
-            normalized_inlet_flow += flow;
-        }
-
-        if blueprint
-            .nodes
-            .iter()
-            .find(|node| node.id.as_str() == channel.to.as_str())
-            .is_some_and(|node| matches!(node.kind, NodeKind::Outlet))
-        {
-            normalized_outlet_flow += flow;
-        }
+    let mut min_edge_resistance = f64::INFINITY;
+    let mut max_edge_resistance = 0.0_f64;
+    for edge in solved.edges_with_properties() {
+        let resistance = edge.properties.resistance.to_f64().unwrap_or(0.0).abs();
+        min_edge_resistance = min_edge_resistance.min(resistance);
+        max_edge_resistance = max_edge_resistance.max(resistance);
     }
-
-    let normalized_inlet_flow_f64 = normalized_inlet_flow.to_f64().unwrap_or(0.0).abs();
-    if normalized_inlet_flow_f64 <= 1e-30 {
-        return Err(Error::InvalidInput(
-            "Network2DSolver reference trace produced zero inlet flow from the cfd-1d solve"
-                .to_string(),
-        ));
-    }
-
-    let scale_factor =
-        T::from_f64(target_total_flow_m3_s / normalized_inlet_flow_f64).ok_or_else(|| {
-            Error::InvalidInput(
-                "Network2DSolver reference trace scale conversion failed".to_string(),
-            )
-        })?;
 
     let mut channel_traces = Vec::with_capacity(blueprint.channels.len());
     let mut incoming_by_node: HashMap<String, T> = HashMap::with_capacity(blueprint.nodes.len());
     let mut outgoing_by_node: HashMap<String, T> = HashMap::with_capacity(blueprint.nodes.len());
+    for node in &blueprint.nodes {
+        incoming_by_node.insert(node.id.as_str().to_owned(), T::zero());
+        outgoing_by_node.insert(node.id.as_str().to_owned(), T::zero());
+    }
 
     for channel in &blueprint.channels {
         let flow = edge_flow_by_id
             .get(channel.id.as_str())
             .copied()
-            .unwrap_or_else(T::zero)
-            * scale_factor;
+            .expect("analytical constant conversion");
         let p_from = solved_pressure_by_id
             .get(channel.from.as_str())
             .copied()
-            .unwrap_or_else(T::zero)
+            .expect("analytical constant conversion")
             * scale_factor;
         let p_to = solved_pressure_by_id
             .get(channel.to.as_str())
             .copied()
-            .unwrap_or_else(T::zero)
+            .expect("analytical constant conversion")
             * scale_factor;
         let area = T::from_f64(channel.cross_section.area()).ok_or_else(|| {
             Error::InvalidInput(format!(
@@ -227,7 +218,7 @@ where
                 channel.id.as_str()
             ))
         })?;
-        let resistance = T::from_f64(channel.resistance).unwrap_or_else(T::zero);
+        let resistance = T::from_f64(channel.resistance).expect("analytical constant conversion");
         let mean_velocity = if area > T::zero() {
             flow / area
         } else {
@@ -254,30 +245,115 @@ where
         });
     }
 
-    let mut node_traces = Vec::with_capacity(blueprint.nodes.len());
+    let mut normalized_inlet_flow = T::zero();
+    let mut normalized_outlet_flow = T::zero();
     for node in &blueprint.nodes {
         let incoming = incoming_by_node
             .get(node.id.as_str())
             .copied()
-            .unwrap_or_else(T::zero);
+            .expect("analytical constant conversion")
+            * scale_factor;
         let outgoing = outgoing_by_node
             .get(node.id.as_str())
             .copied()
-            .unwrap_or_else(T::zero);
+            .expect("analytical constant conversion")
+            * scale_factor;
+
+        match node.kind {
+            NodeKind::Inlet => normalized_inlet_flow += outgoing - incoming,
+            NodeKind::Outlet => normalized_outlet_flow += incoming - outgoing,
+            NodeKind::Reservoir | NodeKind::Junction => {}
+        }
+    }
+
+    let normalized_inlet_flow_f64 = normalized_inlet_flow.to_f64().unwrap_or(0.0).abs();
+    if normalized_inlet_flow_f64 <= 1e-30 {
+        let boundary_summary = blueprint
+            .nodes
+            .iter()
+            .filter(|node| matches!(node.kind, NodeKind::Inlet | NodeKind::Outlet))
+            .map(|node| {
+                let incoming = incoming_by_node
+                    .get(node.id.as_str())
+                    .copied()
+                    .unwrap_or_else(T::zero)
+                    .to_f64()
+                    .unwrap_or(0.0);
+                let outgoing = outgoing_by_node
+                    .get(node.id.as_str())
+                    .copied()
+                    .unwrap_or_else(T::zero)
+                    .to_f64()
+                    .unwrap_or(0.0);
+                format!(
+                    "{}({:?}):in={incoming:.3e},out={outgoing:.3e}",
+                    node.id.as_str(),
+                    node.kind
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(Error::InvalidInput(
+            format!(
+                "Network2DSolver reference trace produced zero inlet flow from the cfd-1d solve (normalized_inlet_flow={normalized_inlet_flow_f64:.3e}, normalized_outlet_flow={:.3e}, edge_resistance_range=[{min_edge_resistance:.3e}, {max_edge_resistance:.3e}], boundary_nodes=[{}])",
+                normalized_outlet_flow.to_f64().unwrap_or(0.0).abs(),
+                boundary_summary
+            ),
+        ));
+    }
+
+    let scale_factor =
+        T::from_f64(target_total_flow_m3_s / normalized_inlet_flow_f64).ok_or_else(|| {
+            Error::InvalidInput(
+                "Network2DSolver reference trace scale conversion failed".to_string(),
+            )
+        })?;
+
+    for channel_trace in &mut channel_traces {
+        channel_trace.flow_rate_m3_s *= scale_factor;
+        channel_trace.pressure_drop_pa *= scale_factor;
+        channel_trace.mean_velocity_m_s *= scale_factor;
+    }
+
+    let mut node_traces = Vec::with_capacity(blueprint.nodes.len());
+    for node in &blueprint.nodes {
+        let node_idx = node_index_by_id
+            .get(node.id.as_str())
+            .copied()
+            .expect("analytical constant conversion");
+        let incoming = incoming_by_node
+            .get(node.id.as_str())
+            .copied()
+            .expect("analytical constant conversion")
+            * scale_factor;
+        let outgoing = outgoing_by_node
+            .get(node.id.as_str())
+            .copied()
+            .expect("analytical constant conversion")
+            * scale_factor;
         let pressure = solved_pressure_by_id
             .get(node.id.as_str())
             .copied()
-            .unwrap_or_else(T::zero)
+            .expect("analytical constant conversion")
             * scale_factor;
-        let prescribed_boundary_flow = match node.kind {
-            NodeKind::Inlet => outgoing - incoming,
-            NodeKind::Outlet => incoming - outgoing,
-            NodeKind::Reservoir | NodeKind::Junction => T::zero(),
+        let boundary_condition = boundary_conditions.get(&node_idx);
+        let prescribed_boundary_flow = match boundary_condition {
+            Some(BoundaryCondition::Neumann { gradient }) => *gradient * scale_factor,
+            _ => match node.kind {
+                NodeKind::Inlet => outgoing - incoming,
+                NodeKind::Outlet => incoming - outgoing,
+                NodeKind::Reservoir | NodeKind::Junction => T::zero(),
+            },
         };
-        let continuity_residual = match node.kind {
-            NodeKind::Inlet => incoming + prescribed_boundary_flow - outgoing,
-            NodeKind::Outlet => incoming - outgoing - prescribed_boundary_flow,
-            NodeKind::Reservoir | NodeKind::Junction => incoming - outgoing,
+        let continuity_residual = match boundary_condition {
+            Some(BoundaryCondition::Neumann { gradient }) => {
+                incoming + *gradient * scale_factor - outgoing
+            }
+            _ => match node.kind {
+                NodeKind::Inlet => incoming + prescribed_boundary_flow - outgoing,
+                NodeKind::Outlet => incoming - outgoing - prescribed_boundary_flow,
+                NodeKind::Reservoir | NodeKind::Junction => incoming - outgoing,
+            },
         };
 
         node_traces.push(NodeReferenceTrace {
@@ -304,7 +380,7 @@ where
     })
 }
 
-fn reference_fluid<T>(
+pub(crate) fn reference_fluid<T>(
     density_kg_m3: f64,
     viscosity_pa_s: f64,
 ) -> CfdResult<ConstantPropertyFluid<T>>
@@ -319,9 +395,9 @@ where
         T::from_f64(viscosity_pa_s).ok_or_else(|| {
             Error::InvalidInput("Network2DSolver reference viscosity conversion failed".to_string())
         })?,
-        T::from_f64(3617.0).unwrap_or_else(T::one),
-        T::from_f64(0.52).unwrap_or_else(T::one),
-        T::from_f64(1570.0).unwrap_or_else(T::one),
+        T::from_f64(3617.0).expect("analytical constant conversion"),
+        T::from_f64(0.52).expect("analytical constant conversion"),
+        T::from_f64(1570.0).expect("analytical constant conversion"),
     );
     fluid.validate()?;
     Ok(fluid)

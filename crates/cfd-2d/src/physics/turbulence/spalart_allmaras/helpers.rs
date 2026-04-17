@@ -28,13 +28,13 @@ use tracing::instrument;
 pub fn cbrt<T: RealField + Copy + FromPrimitive>(x: T) -> T {
     const EPSILON_MIN: f64 = 1e-10;
 
-    if x.abs() < T::from_f64(EPSILON_MIN).unwrap_or_else(T::one) {
+    if x.abs() < T::from_f64(EPSILON_MIN).expect("analytical constant conversion") {
         return T::zero();
     }
 
     // Initial guess: x^(1/3) ≈ x/3
-    let three = T::from_f64(THREE).unwrap_or_else(T::one);
-    let two = T::from_f64(TWO).unwrap_or_else(T::one);
+    let three = T::from_f64(THREE).expect("analytical constant conversion");
+    let two = T::from_f64(TWO).expect("analytical constant conversion");
 
     let mut guess = x / three;
 
@@ -42,7 +42,7 @@ pub fn cbrt<T: RealField + Copy + FromPrimitive>(x: T) -> T {
     for _ in 0..10 {
         let guess_sq = guess * guess;
         let new_guess = (two * guess + x / guess_sq) / three;
-        if (new_guess - guess).abs() < T::from_f64(1e-10).unwrap_or_else(T::one) {
+        if (new_guess - guess).abs() < T::from_f64(1e-10).expect("analytical constant conversion") {
             break;
         }
         guess = new_guess;

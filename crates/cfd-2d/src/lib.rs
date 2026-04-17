@@ -1,9 +1,11 @@
 //! # cfd-2d — Full 2D Navier-Stokes PDE Solver
 //!
-//! `cfd-2d` solves the **incompressible 2D Navier-Stokes equations** on
-//! structured and unstructured grids. Unlike `cfd-1d`, which reduces each
-//! channel to a single lumped resistance, `cfd-2d` resolves the full spatial
-//! velocity and pressure fields (u, v, p) at every grid cell.
+//! `cfd-2d` solves the **incompressible 2D Navier-Stokes equations** for
+//! laminar, low-Mach millifluidic flows on structured grids. Unlike `cfd-1d`,
+//! which reduces each channel to a single lumped resistance, `cfd-2d`
+//! resolves the spatial velocity and pressure fields `(u, v, p)` at every
+//! grid cell and uses schematics-driven projection to map blueprint channels
+//! into solver masks and boundary-aware metrics.
 //!
 //! ## Physical Model
 //!
@@ -19,18 +21,18 @@
 //!
 //! ## Solvers
 //!
-//! | Solver        | Module                    | Method                                   |
-//! |---------------|---------------------------|------------------------------------------|
-//! | FDM           | `solvers::fdm`            | Finite Difference (Poisson, diffusion)   |
-//! | FVM           | `solvers::fvm`            | Finite Volume (flux-based)               |
-//! | LBM           | `solvers::lbm`            | Lattice-Boltzmann D2Q9                   |
-//! | SIMPLE        | `solvers::simple`         | Semi-Implicit pressure-velocity coupling |
-//! | PISO          | `piso_algorithm`          | Pressure-Implicit Split Operator         |
-//! | SIMPLEC/PIMPLE| `simplec_pimple`          | Extended SIMPLE variants                 |
-//! | Poiseuille    | `solvers::poiseuille`     | Analytical Poiseuille + non-Newtonian    |
-//! | Bifurcation   | `solvers::bifurcation_flow` | 2D bifurcating channel flow            |
-//! | Serpentine    | `solvers::serpentine_flow`  | 2D serpentine channel flow             |
-//! | Venturi       | `solvers::venturi_flow`     | 2D Venturi constriction flow           |
+//! | Solver        | Module                      | Method                                     |
+//! |---------------|-----------------------------|--------------------------------------------|
+//! | FDM           | `solvers::fdm`              | Finite Difference (Poisson, diffusion)     |
+//! | FVM           | `solvers::fvm`              | Finite Volume (primary production family)  |
+//! | LBM           | `solvers::lbm`              | Lattice-Boltzmann D2Q9 cross-check path     |
+//! | SIMPLE        | `solvers::simple`           | Semi-Implicit pressure-velocity coupling    |
+//! | PISO          | `piso_algorithm`            | Pressure-Implicit Split Operator            |
+//! | SIMPLEC/PIMPLE| `simplec_pimple`            | Extended SIMPLE variants                    |
+//! | Poiseuille    | `solvers::poiseuille`       | Analytical Poiseuille + non-Newtonian       |
+//! | Bifurcation   | `solvers::bifurcation_flow`  | 2D bifurcating channel flow                 |
+//! | Serpentine    | `solvers::serpentine_flow`   | 2D serpentine channel flow                  |
+//! | Venturi       | `solvers::venturi_flow`      | 2D Venturi constriction flow                |
 //!
 //! ## Turbulence Models
 //!
@@ -55,15 +57,17 @@
 //! conditions for a `cfd-2d` simulation of a single critical channel segment.
 //! The `network` module now follows that pattern directly for
 //! `cfd-schematics::NetworkBlueprint` inputs by building a normalized 1D
-//! reference solve and attaching its per-node and per-channel trace to the 2D
-//! channel solves.
+//! reference solve, projecting each channel path into a 2D mask, and attaching
+//! per-node, per-channel, and projection summaries to the channel solves.
 //!
 //! ## Relationship with `cfd-schematics`
 //!
 //! `cfd-2d` consumes `cfd-schematics::NetworkBlueprint` in its `network`
 //! module. The blueprint remains the topology and geometry single source of
-//! truth, while `cfd-2d` builds one PDE solve per channel and retains the 1D
-//! trace used to configure those solves.
+//! truth, while `cfd-2d` builds one PDE solve per channel, rasterizes routed
+//! paths into solver masks, and retains the 1D trace used to configure those
+//! solves. `solve_projected` returns the compatibility result together with the
+//! projection metadata for audits and benchmarks.
 //!
 //! # Modules
 //! - **grid**: `StructuredGrid2D`, `UnstructuredGrid2D`, boundary types, refinement

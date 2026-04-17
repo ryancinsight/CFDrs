@@ -7,8 +7,9 @@
 //!
 //! ### Checkerboard Oscillation Prevention
 //!
-//! **Theorem (Rhie-Chow Consistency)**: For colocated grids, the pressure correction equation
-//! becomes ill-conditioned, leading to checkerboard oscillations in pressure and velocity fields.
+//! **Theorem (Rhie-Chow Consistency)**: On colocated grids with positive
+//! momentum diagonals, consistent face interpolation suppresses the even-odd
+//! pressure mode that otherwise appears in the pressure-correction solve.
 //!
 //! **Proof**: In colocated arrangements, pressure and velocity are stored at the same points.
 //! The discrete momentum equation is:
@@ -28,13 +29,15 @@
 //! - (∇p)_cells is the cell-centered pressure gradient
 //! - (∇p)_face is the face pressure gradient
 //!
-//! **Why This Works**: The term d_f * [(∇p)_cells - (∇p)_face] provides implicit pressure-velocity
-//! coupling that stabilizes the system without introducing excessive numerical diffusion.
+//! **Why This Works**: The term d_f * [(∇p)_cells - (∇p)_face] provides implicit
+//! pressure-velocity coupling that stabilizes the system without introducing
+//! excessive numerical diffusion when the interpolation matches the momentum stencil.
 //!
 //! ### Transient Correction Analysis
 //!
-//! **Temporal Accuracy**: The factor dt/2 provides first-order temporal accuracy for the
-//! transient term in the momentum interpolation.
+//! **Temporal Accuracy**: The factor dt/2 gives a first-order transient correction
+//! when a previous velocity field is available; it is not a standalone second-order
+//! time integrator.
 //!
 //! **Derivation**: Consider the time-discretized momentum equation:
 //!

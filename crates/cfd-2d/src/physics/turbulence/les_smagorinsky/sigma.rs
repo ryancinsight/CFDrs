@@ -82,7 +82,7 @@ pub struct SigmaConfig<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive> Default for SigmaConfig<T> {
     fn default() -> Self {
         Self {
-            c_sigma: T::from_f64(1.35).unwrap_or_else(num_traits::Zero::zero), // Standard value from literature
+            c_sigma: T::from_f64(1.35).expect("analytical constant conversion"), // Standard value from literature
             filter_width: T::one(),
         }
     }
@@ -155,13 +155,13 @@ impl<T: RealField + Copy + FromPrimitive> SigmaModel<T> {
                 let duidxj = velocity_gradient[(i, j)];
                 let duidxi = velocity_gradient[(j, i)];
                 strain_rate[(i, j)] =
-                    (duidxj + duidxi) * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+                    (duidxj + duidxi) * T::from_f64(0.5).expect("analytical constant conversion");
             }
         }
 
         // SGS stress τ_ij = -2 ν_SGS S_ij
         let mut sgs_stress = DMatrix::zeros(2, 2);
-        let minus_two_nu = -T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * nu_sgs;
+        let minus_two_nu = -T::from_f64(2.0).expect("analytical constant conversion") * nu_sgs;
 
         for i in 0..2 {
             for j in 0..2 {

@@ -52,16 +52,16 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> Default for FvmConfig<T> {
         Self {
             nx: 100,
             ny: 100,
-            dx: T::from_f64(0.01).unwrap_or_else(T::one),
-            dy: T::from_f64(0.01).unwrap_or_else(T::one),
-            dt: T::from_f64(0.001).unwrap_or_else(T::one),
+            dx: T::from_f64(0.01).expect("analytical constant conversion"),
+            dy: T::from_f64(0.01).expect("analytical constant conversion"),
+            dt: T::from_f64(0.001).expect("analytical constant conversion"),
             convergence_tolerance: T::from_f64(DEFAULT_CONVERGENCE_TOLERANCE)
-                .unwrap_or_else(T::one),
+                .expect("analytical constant conversion"),
             max_iterations: DEFAULT_MAX_ITERATIONS,
-            cfl_number: T::from_f64(DEFAULT_CFL_NUMBER).unwrap_or_else(T::one),
-            relaxation_factor: T::from_f64(DEFAULT_RELAXATION_FACTOR).unwrap_or_else(T::one),
+            cfl_number: T::from_f64(DEFAULT_CFL_NUMBER).expect("analytical constant conversion"),
+            relaxation_factor: T::from_f64(DEFAULT_RELAXATION_FACTOR).expect("analytical constant conversion"),
             diffusion_coefficient: T::from_f64(DEFAULT_DIFFUSION_COEFFICIENT)
-                .unwrap_or_else(T::one),
+                .expect("analytical constant conversion"),
         }
     }
 }

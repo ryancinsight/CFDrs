@@ -74,17 +74,17 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
             for i in 0..self.nx {
                 let idx = j * self.nx + i;
 
-                let dist_left = (T::from_usize(i).unwrap_or_else(T::one)
-                    + T::from_f64(0.5).unwrap_or_else(T::one))
+                let dist_left = (T::from_usize(i).expect("analytical constant conversion")
+                    + T::from_f64(0.5).expect("analytical constant conversion"))
                     * self.dx;
-                let dist_right = (T::from_usize(self.nx - 1 - i).unwrap_or_else(T::one)
-                    + T::from_f64(0.5).unwrap_or_else(T::one))
+                let dist_right = (T::from_usize(self.nx - 1 - i).expect("analytical constant conversion")
+                    + T::from_f64(0.5).expect("analytical constant conversion"))
                     * self.dx;
-                let dist_bottom = (T::from_usize(j).unwrap_or_else(T::one)
-                    + T::from_f64(0.5).unwrap_or_else(T::one))
+                let dist_bottom = (T::from_usize(j).expect("analytical constant conversion")
+                    + T::from_f64(0.5).expect("analytical constant conversion"))
                     * self.dy;
-                let dist_top = (T::from_usize(self.ny - 1 - j).unwrap_or_else(T::one)
-                    + T::from_f64(0.5).unwrap_or_else(T::one))
+                let dist_top = (T::from_usize(self.ny - 1 - j).expect("analytical constant conversion")
+                    + T::from_f64(0.5).expect("analytical constant conversion"))
                     * self.dy;
 
                 let min_dist = dist_left.min(dist_right).min(dist_bottom).min(dist_top);
@@ -104,7 +104,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
         self.apply_inlet_boundaries_k_epsilon(k, epsilon, boundaries);
         self.apply_outlet_boundaries(k, epsilon, boundaries);
 
-        let eps_min = T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero);
+        let eps_min = T::from_f64(EPSILON_MIN).expect("analytical constant conversion");
         for i in 0..k.len() {
             k[i] = k[i].max(T::zero());
             epsilon[i] = epsilon[i].max(eps_min);
@@ -122,7 +122,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
         self.apply_inlet_boundaries_k_omega(k, omega, boundaries);
         self.apply_outlet_boundaries(k, omega, boundaries);
 
-        let omega_min = T::from_f64(OMEGA_MIN).unwrap_or_else(T::zero);
+        let omega_min = T::from_f64(OMEGA_MIN).expect("analytical constant conversion");
         for i in 0..k.len() {
             k[i] = k[i].max(T::zero());
             omega[i] = omega[i].max(omega_min);
@@ -159,7 +159,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
             } = bc
             {
                 // k = (3/2) * (I * U_ref)²
-                let k_inlet = T::from_f64(1.5).unwrap_or_else(T::one)
+                let k_inlet = T::from_f64(1.5).expect("analytical constant conversion")
                     * *turbulence_intensity
                     * *turbulence_intensity
                     * *reference_velocity
@@ -167,9 +167,9 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
 
                 // ε = C_μ^{3/4} * k^{3/2} / l
                 let c_mu_34 = T::from_f64(C_MU)
-                    .unwrap_or_else(T::one)
-                    .powf(T::from_f64(0.75).unwrap_or_else(T::one));
-                let k_32 = k_inlet.powf(T::from_f64(1.5).unwrap_or_else(T::one));
+                    .expect("analytical constant conversion")
+                    .powf(T::from_f64(0.75).expect("analytical constant conversion"));
+                let k_32 = k_inlet.powf(T::from_f64(1.5).expect("analytical constant conversion"));
                 let eps_inlet = c_mu_34 * k_32 / *turbulence_length_scale;
 
                 match name.as_str() {
@@ -221,7 +221,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
             } = bc
             {
                 // k = (3/2) * (I * U_ref)²
-                let k_inlet = T::from_f64(1.5).unwrap_or_else(T::one)
+                let k_inlet = T::from_f64(1.5).expect("analytical constant conversion")
                     * *turbulence_intensity
                     * *turbulence_intensity
                     * *reference_velocity
@@ -229,8 +229,8 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
 
                 // ω = √k / (C_μ^{1/4} * l)
                 let c_mu_14 = T::from_f64(C_MU)
-                    .unwrap_or_else(T::one)
-                    .powf(T::from_f64(0.25).unwrap_or_else(T::one));
+                    .expect("analytical constant conversion")
+                    .powf(T::from_f64(0.25).expect("analytical constant conversion"));
                 let omega_inlet = k_inlet.sqrt() / (c_mu_14 * *turbulence_length_scale);
 
                 match name.as_str() {
@@ -281,14 +281,14 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
             } = bc
             {
                 // For SA model, ν̃_inlet ≈ (3/2) * I² * U_ref * l / C_μ^{3/4}
-                let factor = T::from_f64(1.5).unwrap_or_else(T::one)
+                let factor = T::from_f64(1.5).expect("analytical constant conversion")
                     * *turbulence_intensity
                     * *turbulence_intensity
                     * *reference_velocity
                     * *turbulence_length_scale;
-                let c_mu_inv = T::from_f64(1.0 / C_MU).unwrap_or_else(T::one);
+                let c_mu_inv = T::from_f64(1.0 / C_MU).expect("analytical constant conversion");
                 let nu_tilde_inlet =
-                    factor * c_mu_inv.powf(T::from_f64(0.75).unwrap_or_else(T::one));
+                    factor * c_mu_inv.powf(T::from_f64(0.75).expect("analytical constant conversion"));
 
                 match name.as_str() {
                     "west" => {

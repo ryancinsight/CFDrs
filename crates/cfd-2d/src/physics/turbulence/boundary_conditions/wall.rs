@@ -15,7 +15,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
         epsilon: &mut [T],
         boundaries: &[(String, TurbulenceBoundaryCondition<T>)],
     ) {
-        let eps_min = T::from_f64(EPSILON_MIN).unwrap_or_else(T::zero);
+        let eps_min = T::from_f64(EPSILON_MIN).expect("analytical constant conversion");
 
         for (name, bc) in boundaries {
             if let TurbulenceBoundaryCondition::Wall { .. } = bc {
@@ -69,9 +69,9 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                             k[idx] = T::zero();
                             // ω_wall = 6ν/(β₁ y_wall²) for SST model
                             let y_wall = self.wall_distances[idx]
-                                .max(T::from_f64(1e-6).unwrap_or_else(T::one));
-                            let omega_wall = T::from_f64(6.0).unwrap_or_else(T::one)
-                                / (T::from_f64(SST_BETA_1).unwrap_or_else(T::one)
+                                .max(T::from_f64(1e-6).expect("analytical constant conversion"));
+                            let omega_wall = T::from_f64(6.0).expect("analytical constant conversion")
+                                / (T::from_f64(SST_BETA_1).expect("analytical constant conversion")
                                     * y_wall
                                     * y_wall);
                             omega[idx] = omega_wall;
@@ -82,9 +82,9 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                             let idx = j * self.nx + (self.nx - 1);
                             k[idx] = T::zero();
                             let y_wall = self.wall_distances[idx]
-                                .max(T::from_f64(1e-6).unwrap_or_else(T::one));
-                            let omega_wall = T::from_f64(6.0).unwrap_or_else(T::one)
-                                / (T::from_f64(SST_BETA_1).unwrap_or_else(T::one)
+                                .max(T::from_f64(1e-6).expect("analytical constant conversion"));
+                            let omega_wall = T::from_f64(6.0).expect("analytical constant conversion")
+                                / (T::from_f64(SST_BETA_1).expect("analytical constant conversion")
                                     * y_wall
                                     * y_wall);
                             omega[idx] = omega_wall;
@@ -94,9 +94,9 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                         for i in 0..self.nx {
                             k[i] = T::zero();
                             let y_wall = self.wall_distances[i]
-                                .max(T::from_f64(1e-6).unwrap_or_else(T::one));
-                            let omega_wall = T::from_f64(6.0).unwrap_or_else(T::one)
-                                / (T::from_f64(SST_BETA_1).unwrap_or_else(T::one)
+                                .max(T::from_f64(1e-6).expect("analytical constant conversion"));
+                            let omega_wall = T::from_f64(6.0).expect("analytical constant conversion")
+                                / (T::from_f64(SST_BETA_1).expect("analytical constant conversion")
                                     * y_wall
                                     * y_wall);
                             omega[i] = omega_wall;
@@ -108,9 +108,9 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                             let idx = base_idx + i;
                             k[idx] = T::zero();
                             let y_wall = self.wall_distances[idx]
-                                .max(T::from_f64(1e-6).unwrap_or_else(T::one));
-                            let omega_wall = T::from_f64(6.0).unwrap_or_else(T::one)
-                                / (T::from_f64(SST_BETA_1).unwrap_or_else(T::one)
+                                .max(T::from_f64(1e-6).expect("analytical constant conversion"));
+                            let omega_wall = T::from_f64(6.0).expect("analytical constant conversion")
+                                / (T::from_f64(SST_BETA_1).expect("analytical constant conversion")
                                     * y_wall
                                     * y_wall);
                             omega[idx] = omega_wall;

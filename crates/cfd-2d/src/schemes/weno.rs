@@ -62,15 +62,16 @@
 //!   nonlinear hyperbolic equations* (pp. 325-432). Springer.
 //!
 //! # Theorem
-//! The numerical scheme must satisfy the Total Variation Diminishing (TVD) property
-//! to prevent spurious oscillations near discontinuities.
+//! WENO is not strictly TVD, but in smooth regions it recovers its design order
+//! and near discontinuities the nonlinear weights suppress spurious oscillations
+//! when paired with a stable SSP time integrator.
 //!
 //! **Proof sketch**:
-//! Harten's theorem states that a scheme is TVD if its total variation
-//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
-//! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
-//! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
-//! enforces these bounds, guaranteeing monotonicity preservation.
+//! The candidate stencil weights converge to the linear optimal weights when the
+//! smoothness indicators are small, giving fifth-order accuracy for WENO5 and
+//! ninth-order for WENO9 in smooth fields. Near discontinuities the nonlinear
+//! weights shift away from troubled stencils, which bounds oscillations without
+//! imposing a hard TVD guarantee.
 
 use super::{constants, weno_constants, Grid2D, SpatialDiscretization};
 use cfd_core::physics::constants::mathematical::numeric::{THREE, TWO};
@@ -93,7 +94,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
     /// Create new WENO5 scheme
     pub fn new() -> Self {
         Self {
-            epsilon: T::from_f64(constants::WENO_EPSILON).unwrap_or_else(T::zero),
+            epsilon: T::from_f64(constants::WENO_EPSILON).expect("analytical constant conversion"),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -101,12 +102,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
     /// Compute smoothness indicators
     fn smoothness_indicators(&self, v: &[T; 5]) -> [T; 3] {
         let coeff_13_12 =
-            T::from_f64(weno_constants::WENO5_BETA_COEFF_13_12).unwrap_or_else(T::zero);
+            T::from_f64(weno_constants::WENO5_BETA_COEFF_13_12).expect("analytical constant conversion");
         let coeff_quarter =
-            T::from_f64(weno_constants::WENO5_BETA_COEFF_QUARTER).unwrap_or_else(T::zero);
-        let two = T::from_f64(TWO).unwrap_or_else(T::zero);
-        let three = T::from_f64(THREE).unwrap_or_else(T::zero);
-        let four = T::from_f64(weno_constants::WENO5_BETA_COEFF_FOUR).unwrap_or_else(T::zero);
+            T::from_f64(weno_constants::WENO5_BETA_COEFF_QUARTER).expect("analytical constant conversion");
+        let two = T::from_f64(TWO).expect("analytical constant conversion");
+        let three = T::from_f64(THREE).expect("analytical constant conversion");
+        let four = T::from_f64(weno_constants::WENO5_BETA_COEFF_FOUR).expect("analytical constant conversion");
 
         // Beta_0
         let beta0 = coeff_13_12 * (v[0] - two * v[1] + v[2]).powi(2)
@@ -125,9 +126,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
 
     /// Compute WENO weights
     fn weno_weights(&self, beta: &[T; 3]) -> [T; 3] {
-        let d0 = T::from_f64(constants::WENO5_WEIGHTS[0]).unwrap_or_else(T::zero);
-        let d1 = T::from_f64(constants::WENO5_WEIGHTS[1]).unwrap_or_else(T::zero);
-        let d2 = T::from_f64(constants::WENO5_WEIGHTS[2]).unwrap_or_else(T::zero);
+        let d0 = T::from_f64(constants::WENO5_WEIGHTS[0]).expect("analytical constant conversion");
+        let d1 = T::from_f64(constants::WENO5_WEIGHTS[1]).expect("analytical constant conversion");
+        let d2 = T::from_f64(constants::WENO5_WEIGHTS[2]).expect("analytical constant conversion");
 
         let alpha0 = d0 / (self.epsilon + beta[0]).powi(2);
         let alpha1 = d1 / (self.epsilon + beta[1]).powi(2);
@@ -157,21 +158,21 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for WE
         let w = self.weno_weights(&beta);
 
         // Compute flux
-        let f0 = v[0] / T::from_f64(3.0).unwrap_or_else(T::zero)
-            - T::from_f64(7.0).unwrap_or_else(T::zero) * v[1]
-                / T::from_f64(6.0).unwrap_or_else(T::zero)
-            + T::from_f64(11.0).unwrap_or_else(T::zero) * v[2]
-                / T::from_f64(6.0).unwrap_or_else(T::zero);
+        let f0 = v[0] / T::from_f64(3.0).expect("analytical constant conversion")
+            - T::from_f64(7.0).expect("analytical constant conversion") * v[1]
+                / T::from_f64(6.0).expect("analytical constant conversion")
+            + T::from_f64(11.0).expect("analytical constant conversion") * v[2]
+                / T::from_f64(6.0).expect("analytical constant conversion");
 
-        let f1 = -v[1] / T::from_f64(6.0).unwrap_or_else(T::zero)
-            + T::from_f64(5.0).unwrap_or_else(T::zero) * v[2]
-                / T::from_f64(6.0).unwrap_or_else(T::zero)
-            + v[3] / T::from_f64(3.0).unwrap_or_else(T::zero);
+        let f1 = -v[1] / T::from_f64(6.0).expect("analytical constant conversion")
+            + T::from_f64(5.0).expect("analytical constant conversion") * v[2]
+                / T::from_f64(6.0).expect("analytical constant conversion")
+            + v[3] / T::from_f64(3.0).expect("analytical constant conversion");
 
-        let f2 = v[2] / T::from_f64(3.0).unwrap_or_else(T::zero)
-            + T::from_f64(5.0).unwrap_or_else(T::zero) * v[3]
-                / T::from_f64(6.0).unwrap_or_else(T::zero)
-            - v[4] / T::from_f64(6.0).unwrap_or_else(T::zero);
+        let f2 = v[2] / T::from_f64(3.0).expect("analytical constant conversion")
+            + T::from_f64(5.0).expect("analytical constant conversion") * v[3]
+                / T::from_f64(6.0).expect("analytical constant conversion")
+            - v[4] / T::from_f64(6.0).expect("analytical constant conversion");
 
         (w[0] * f0 + w[1] * f1 + w[2] * f2) / grid.dx
     }
@@ -231,7 +232,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
     /// Create new WENO9 scheme
     pub fn new() -> Self {
         Self {
-            epsilon: T::from_f64(constants::WENO_EPSILON).unwrap_or_else(T::zero),
+            epsilon: T::from_f64(constants::WENO_EPSILON).expect("analytical constant conversion"),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -244,98 +245,98 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
         let mut beta = [T::zero(); 5];
 
         // Beta_0 (stencil 0: u[j-5..j])
-        beta[0] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero)
-            * (v[0] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[1]
-                + T::from_f64(5.0).unwrap_or_else(T::zero) * v[2])
+        beta[0] = T::from_f64(0.0015308084989341916).expect("analytical constant conversion")
+            * (v[0] - T::from_f64(4.0).expect("analytical constant conversion") * v[1]
+                + T::from_f64(5.0).expect("analytical constant conversion") * v[2])
                 .powi(2)
-            + T::from_f64(0.002_740_988_421_902_865).unwrap_or_else(T::zero)
-                * (v[0] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[1]
-                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
+            + T::from_f64(0.002_740_988_421_902_865).expect("analytical constant conversion")
+                * (v[0] - T::from_f64(4.0).expect("analytical constant conversion") * v[1]
+                    + T::from_f64(4.0).expect("analytical constant conversion") * v[2]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[3]
                     + v[4])
                     .powi(2)
-            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero)
-                * (v[0] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[1]
-                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
-                    + T::from_f64(5.0).unwrap_or_else(T::zero) * v[5])
+            + T::from_f64(0.031254897785245544).expect("analytical constant conversion")
+                * (v[0] - T::from_f64(4.0).expect("analytical constant conversion") * v[1]
+                    + T::from_f64(4.0).expect("analytical constant conversion") * v[2]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[3]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[4]
+                    + T::from_f64(5.0).expect("analytical constant conversion") * v[5])
                     .powi(2);
 
         // Beta_1 (stencil 1: u[j-4..j+1])
-        beta[1] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero)
-            * (v[1] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
-                + T::from_f64(5.0).unwrap_or_else(T::zero) * v[3])
+        beta[1] = T::from_f64(0.0015308084989341916).expect("analytical constant conversion")
+            * (v[1] - T::from_f64(4.0).expect("analytical constant conversion") * v[2]
+                + T::from_f64(5.0).expect("analytical constant conversion") * v[3])
                 .powi(2)
-            + T::from_f64(0.002_740_988_421_902_865).unwrap_or_else(T::zero)
-                * (v[1] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
-                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
+            + T::from_f64(0.002_740_988_421_902_865).expect("analytical constant conversion")
+                * (v[1] - T::from_f64(4.0).expect("analytical constant conversion") * v[2]
+                    + T::from_f64(4.0).expect("analytical constant conversion") * v[3]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[4]
                     + v[5])
                     .powi(2)
-            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero)
-                * (v[1] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[2]
-                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
-                    + T::from_f64(5.0).unwrap_or_else(T::zero) * v[6])
+            + T::from_f64(0.031254897785245544).expect("analytical constant conversion")
+                * (v[1] - T::from_f64(4.0).expect("analytical constant conversion") * v[2]
+                    + T::from_f64(4.0).expect("analytical constant conversion") * v[3]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[4]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[5]
+                    + T::from_f64(5.0).expect("analytical constant conversion") * v[6])
                     .powi(2);
 
         // Beta_2 (stencil 2: u[j-3..j+2])
-        beta[2] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero)
-            * (v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
-                + T::from_f64(5.0).unwrap_or_else(T::zero) * v[4])
+        beta[2] = T::from_f64(0.0015308084989341916).expect("analytical constant conversion")
+            * (v[2] - T::from_f64(4.0).expect("analytical constant conversion") * v[3]
+                + T::from_f64(5.0).expect("analytical constant conversion") * v[4])
                 .powi(2)
-            + T::from_f64(0.002_740_988_421_902_865).unwrap_or_else(T::zero)
-                * (v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
-                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
+            + T::from_f64(0.002_740_988_421_902_865).expect("analytical constant conversion")
+                * (v[2] - T::from_f64(4.0).expect("analytical constant conversion") * v[3]
+                    + T::from_f64(4.0).expect("analytical constant conversion") * v[4]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[5]
                     + v[6])
                     .powi(2)
-            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero)
-                * (v[2] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[3]
-                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[6]
-                    + T::from_f64(5.0).unwrap_or_else(T::zero) * v[7])
+            + T::from_f64(0.031254897785245544).expect("analytical constant conversion")
+                * (v[2] - T::from_f64(4.0).expect("analytical constant conversion") * v[3]
+                    + T::from_f64(4.0).expect("analytical constant conversion") * v[4]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[5]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[6]
+                    + T::from_f64(5.0).expect("analytical constant conversion") * v[7])
                     .powi(2);
 
         // Beta_3 (stencil 3: u[j-2..j+3])
-        beta[3] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero)
-            * (v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
-                + T::from_f64(5.0).unwrap_or_else(T::zero) * v[5])
+        beta[3] = T::from_f64(0.0015308084989341916).expect("analytical constant conversion")
+            * (v[3] - T::from_f64(4.0).expect("analytical constant conversion") * v[4]
+                + T::from_f64(5.0).expect("analytical constant conversion") * v[5])
                 .powi(2)
-            + T::from_f64(0.002_740_988_421_902_865).unwrap_or_else(T::zero)
-                * (v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
-                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[6]
+            + T::from_f64(0.002_740_988_421_902_865).expect("analytical constant conversion")
+                * (v[3] - T::from_f64(4.0).expect("analytical constant conversion") * v[4]
+                    + T::from_f64(4.0).expect("analytical constant conversion") * v[5]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[6]
                     + v[7])
                     .powi(2)
-            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero)
-                * (v[3] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[4]
-                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[6]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[7]
-                    + T::from_f64(5.0).unwrap_or_else(T::zero) * v[8])
+            + T::from_f64(0.031254897785245544).expect("analytical constant conversion")
+                * (v[3] - T::from_f64(4.0).expect("analytical constant conversion") * v[4]
+                    + T::from_f64(4.0).expect("analytical constant conversion") * v[5]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[6]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[7]
+                    + T::from_f64(5.0).expect("analytical constant conversion") * v[8])
                     .powi(2);
 
         // Beta_4 (stencil 4: u[j-1..j+4])
-        beta[4] = T::from_f64(0.0015308084989341916).unwrap_or_else(T::zero)
-            * (v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
-                + T::from_f64(5.0).unwrap_or_else(T::zero) * v[6])
+        beta[4] = T::from_f64(0.0015308084989341916).expect("analytical constant conversion")
+            * (v[4] - T::from_f64(4.0).expect("analytical constant conversion") * v[5]
+                + T::from_f64(5.0).expect("analytical constant conversion") * v[6])
                 .powi(2)
-            + T::from_f64(0.002_740_988_421_902_865).unwrap_or_else(T::zero)
-                * (v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
-                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[6]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[7]
+            + T::from_f64(0.002_740_988_421_902_865).expect("analytical constant conversion")
+                * (v[4] - T::from_f64(4.0).expect("analytical constant conversion") * v[5]
+                    + T::from_f64(4.0).expect("analytical constant conversion") * v[6]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[7]
                     + v[8])
                     .powi(2)
-            + T::from_f64(0.031254897785245544).unwrap_or_else(T::zero)
-                * (v[4] - T::from_f64(4.0).unwrap_or_else(T::zero) * v[5]
-                    + T::from_f64(4.0).unwrap_or_else(T::zero) * v[6]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[7]
-                    - T::from_f64(4.0).unwrap_or_else(T::zero) * v[8]
-                    + T::from_f64(5.0).unwrap_or_else(T::zero) * v[9])
+            + T::from_f64(0.031254897785245544).expect("analytical constant conversion")
+                * (v[4] - T::from_f64(4.0).expect("analytical constant conversion") * v[5]
+                    + T::from_f64(4.0).expect("analytical constant conversion") * v[6]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[7]
+                    - T::from_f64(4.0).expect("analytical constant conversion") * v[8]
+                    + T::from_f64(5.0).expect("analytical constant conversion") * v[9])
                     .powi(2);
 
         beta
@@ -345,11 +346,11 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
     fn weno_weights(&self, beta: &[T; 5]) -> [T; 5] {
         // Optimized weights for WENO9 (Henrick et al. 2005)
         let d = [
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[0]).unwrap_or_else(T::zero),
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[1]).unwrap_or_else(T::zero),
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[2]).unwrap_or_else(T::zero),
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[3]).unwrap_or_else(T::zero),
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[4]).unwrap_or_else(T::zero),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[0]).expect("analytical constant conversion"),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[1]).expect("analytical constant conversion"),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[2]).expect("analytical constant conversion"),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[3]).expect("analytical constant conversion"),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[4]).expect("analytical constant conversion"),
         ];
 
         let mut alpha = [T::zero(); 5];
@@ -392,7 +393,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> SpatialDiscretization
 
         // Compute reconstructed flux using 5 candidate stencils
         let mut flux = T::zero();
-        let denom = T::from_f64(weno_constants::WENO9_STENCIL_DENOM).unwrap_or_else(T::zero);
+        let denom = T::from_f64(weno_constants::WENO9_STENCIL_DENOM).expect("analytical constant conversion");
 
         for k in 0..5 {
             let mut q_k = T::zero();
@@ -403,7 +404,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> SpatialDiscretization
             // k=4: v[5]..v[9] (u_i..u_{i+4})
             for j in 0..5 {
                 let coeff =
-                    T::from_f64(weno_constants::WENO9_STENCIL_COEFFS[k][j]).unwrap_or_else(T::zero);
+                    T::from_f64(weno_constants::WENO9_STENCIL_COEFFS[k][j]).expect("analytical constant conversion");
                 q_k += coeff * v[1 + k + j];
             }
             q_k /= denom;

@@ -41,15 +41,15 @@ impl<T: RealField + Copy> QUICKScheme<T> {
         velocity: T,
     ) -> T {
         if velocity > T::zero() {
-            let six_eighths = T::from_f64(0.75).unwrap_or_else(T::one);
-            let three_eighths = T::from_f64(0.375).unwrap_or_else(T::one);
-            let one_eighth = T::from_f64(0.125).unwrap_or_else(T::one);
+            let six_eighths = T::from_f64(0.75).expect("analytical constant conversion");
+            let three_eighths = T::from_f64(0.375).expect("analytical constant conversion");
+            let one_eighth = T::from_f64(0.125).expect("analytical constant conversion");
 
             six_eighths * phi_u + three_eighths * phi_c - one_eighth * phi_uu
         } else {
-            let six_eighths = T::from_f64(0.75).unwrap_or_else(T::one);
-            let three_eighths = T::from_f64(0.375).unwrap_or_else(T::one);
-            let one_eighth = T::from_f64(0.125).unwrap_or_else(T::one);
+            let six_eighths = T::from_f64(0.75).expect("analytical constant conversion");
+            let three_eighths = T::from_f64(0.375).expect("analytical constant conversion");
+            let one_eighth = T::from_f64(0.125).expect("analytical constant conversion");
 
             six_eighths * phi_c + three_eighths * phi_u - one_eighth * phi_d
         }

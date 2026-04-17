@@ -57,18 +57,18 @@ impl<T: RealField + Copy> WallRoughness<T> {
         match roughness_type {
             RoughnessType::Smooth => T::zero(),
             RoughnessType::TransitionallyRough => {
-                let kappa = T::from_f64(KAPPA).unwrap_or_else(T::one);
-                (T::one() / kappa) * k_s.ln() + T::from_f64(8.5).unwrap_or_else(T::one)
-                    - (T::one() / kappa) * T::from_f64(30.0).unwrap_or_else(T::one).ln()
-                    - T::from_f64(8.5).unwrap_or_else(T::one)
+                let kappa = T::from_f64(KAPPA).expect("analytical constant conversion");
+                (T::one() / kappa) * k_s.ln() + T::from_f64(8.5).expect("analytical constant conversion")
+                    - (T::one() / kappa) * T::from_f64(30.0).expect("analytical constant conversion").ln()
+                    - T::from_f64(8.5).expect("analytical constant conversion")
             }
             RoughnessType::FullyRough => {
-                let kappa = T::from_f64(KAPPA).unwrap_or_else(T::one);
-                (T::one() / kappa) * k_s.ln() + T::from_f64(8.5).unwrap_or_else(T::one)
+                let kappa = T::from_f64(KAPPA).expect("analytical constant conversion");
+                (T::one() / kappa) * k_s.ln() + T::from_f64(8.5).expect("analytical constant conversion")
             }
             RoughnessType::VeryRough => {
-                let kappa = T::from_f64(KAPPA).unwrap_or_else(T::one);
-                (T::one() / kappa) * k_s.ln() + T::from_f64(13.0).unwrap_or_else(T::one)
+                let kappa = T::from_f64(KAPPA).expect("analytical constant conversion");
+                (T::one() / kappa) * k_s.ln() + T::from_f64(13.0).expect("analytical constant conversion")
             }
         }
     }
@@ -90,10 +90,10 @@ pub enum RoughnessType {
 impl RoughnessType {
     /// Classify roughness based on k_s⁺ value.
     pub fn classify<T: RealField + Copy>(k_s_plus: T) -> Self {
-        let threshold_trans = T::from_f64(10.0).unwrap_or_else(T::one);
-        let threshold_very = T::from_f64(1000.0).unwrap_or_else(T::one);
+        let threshold_trans = T::from_f64(10.0).expect("analytical constant conversion");
+        let threshold_very = T::from_f64(1000.0).expect("analytical constant conversion");
 
-        if k_s_plus <= T::from_f64(0.1).unwrap_or_else(T::one) {
+        if k_s_plus <= T::from_f64(0.1).expect("analytical constant conversion") {
             RoughnessType::Smooth
         } else if k_s_plus <= threshold_trans {
             RoughnessType::TransitionallyRough

@@ -40,6 +40,7 @@ use super::field::FlowField2D;
 use super::grid::StaggeredGrid2D;
 use super::BloodModel;
 use crate::error::Error;
+use crate::grid::array2d::Array2D;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 
@@ -59,9 +60,17 @@ pub struct NavierStokesSolver2D<T: RealField + Copy + Float + FromPrimitive> {
     /// SIMPLE configuration
     pub config: SIMPLEConfig<T>,
     /// Central coefficient storage for u-momentum
-    a_p_u: crate::grid::array2d::Array2D<T>,
+    a_p_u: Array2D<T>,
     /// Central coefficient storage for v-momentum
-    a_p_v: crate::grid::array2d::Array2D<T>,
+    a_p_v: Array2D<T>,
+    /// Pressure Poisson coefficient workspace for east-west face diffusion.
+    pressure_poisson_d_u: Array2D<T>,
+    /// Pressure Poisson coefficient workspace for north-south face diffusion.
+    pressure_poisson_d_v: Array2D<T>,
+    /// Pressure correction workspace reused across SIMPLE iterations.
+    pressure_poisson_p_prime: Array2D<T>,
+    /// Pressure correction right-hand-side workspace reused across SIMPLE iterations.
+    pressure_poisson_rhs: Array2D<T>,
     /// Optional k-omega SST turbulence model.  When Some, the solver
     /// computes turbulent viscosity nu_t each iteration and adds it to
     /// the molecular viscosity in the momentum equation diffusion terms.
@@ -89,8 +98,12 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         config: SIMPLEConfig<T>,
     ) -> Self {
         let field = FlowField2D::<T>::new(grid.nx, grid.ny);
-        let a_p_u = crate::grid::array2d::Array2D::new(grid.nx + 1, grid.ny, T::one());
-        let a_p_v = crate::grid::array2d::Array2D::new(grid.nx, grid.ny + 1, T::one());
+        let a_p_u = Array2D::new(grid.nx + 1, grid.ny, T::one());
+        let a_p_v = Array2D::new(grid.nx, grid.ny + 1, T::one());
+        let pressure_poisson_d_u = Array2D::new(grid.nx + 1, grid.ny, T::zero());
+        let pressure_poisson_d_v = Array2D::new(grid.nx, grid.ny + 1, T::zero());
+        let pressure_poisson_p_prime = Array2D::new(grid.nx, grid.ny, T::zero());
+        let pressure_poisson_rhs = Array2D::new(grid.nx, grid.ny, T::zero());
         Self {
             grid,
             field,
@@ -99,6 +112,10 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             config,
             a_p_u,
             a_p_v,
+            pressure_poisson_d_u,
+            pressure_poisson_d_v,
+            pressure_poisson_p_prime,
+            pressure_poisson_rhs,
             turbulence: None,
         }
     }
@@ -243,7 +260,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             // Channel height = span from first to last fluid centre + half-cells at edges.
             let h = y_max - y_min
                 + (dy_cells[0] + dy_cells[dy_cells.len() - 1])
-                    * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+                    * T::from_f64(0.5).expect("analytical constant conversion");
             
             let mut discrete_sum = T::zero();
             
@@ -251,9 +268,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 if self.field.mask[(0, j)] {
                     let dy_j = self.grid.dy_at(j);
                     let y_local = (self.grid.y_center(j) - y_min)
-                        + T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) * dy_j;
+                        + T::from_f64(0.5).expect("analytical constant conversion") * dy_j;
                     let y_frac = y_local / h;
-                    let u_val = T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero)
+                    let u_val = T::from_f64(6.0).expect("analytical constant conversion")
                         * u_inlet
                         * y_frac
                         * (T::one() - y_frac);
@@ -266,7 +283,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
 
             // Normalise the discrete profile so numerical mass flux matches continuous theory precisely
             let target_sum = u_inlet * h;
-            let tiny = T::from_f64(1e-30).unwrap_or_else(num_traits::Zero::zero);
+            let tiny = T::from_f64(1e-30).expect("analytical constant conversion");
             if discrete_sum > tiny {
                 let normalize_factor = target_sum / discrete_sum;
                 for j in 0..ny {
@@ -367,14 +384,18 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                     "SIMPLE solver diverged: NaN or Inf detected in velocity field".to_string(),
                 ));
             }
-            // Residual growth guard: if max pointwise residual exceeds a
-            // large threshold, the solver is likely oscillating or diverging.
-            let growth_limit = T::from_f64(1e6).unwrap_or(T::one());
-            if res_max > growth_limit {
-                return Err(Error::NumericalInstability(format!(
-                    "SIMPLE solver diverged: max pointwise residual {} exceeds limit",
-                    nalgebra::try_convert::<T, f64>(res_max).unwrap_or(f64::INFINITY)
-                )));
+            // Residual growth guard: after the startup transient, a very large
+            // pointwise residual usually indicates oscillation or divergence.
+            // Skip this check during the initial flow establishment phase so
+            // high-Re or highly branched cases can settle before being judged.
+            if iteration > 50 {
+                let growth_limit = T::from_f64(1e6).unwrap_or(T::one());
+                if res_max > growth_limit {
+                    return Err(Error::NumericalInstability(format!(
+                        "SIMPLE solver diverged: max pointwise residual {} exceeds limit",
+                        nalgebra::try_convert::<T, f64>(res_max).unwrap_or(f64::INFINITY)
+                    )));
+                }
             }
 
             if last_residual < self.config.tolerance {

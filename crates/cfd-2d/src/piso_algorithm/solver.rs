@@ -2,24 +2,18 @@
 //!
 //! # Theorem (PISO Two-Corrector Convergence — Issa 1986)
 //!
-//! The PISO (Pressure-Implicit with Splitting of Operators) algorithm achieves
-//! second-order temporal accuracy with only two corrector steps per time step,
-//! without under-relaxation, for sufficiently small CFL numbers.
+//! For a linearized incompressible discretization with a sufficiently small CFL
+//! number and an accurate pressure-correction solve, two PISO correctors reduce
+//! the splitting error to $O(\Delta t^3)$, preserving second-order temporal
+//! accuracy.
 //!
 //! **Proof sketch**:
 //! Starting from the time-discretised momentum equation
 //! $\mathbf{A}\mathbf{u}^* = \mathbf{H}(\mathbf{u}^n) - \nabla p^n$,
-//! the first corrector step enforces the continuity constraint
-//! $\nabla \cdot \mathbf{u}^{**} = 0$ by solving a pressure Poisson equation
-//! $\nabla \cdot (\mathbf{d}\,\nabla p') = \nabla \cdot \mathbf{u}^*$.
-//!
-//! The second corrector accounts for the non-linearity of the convection operator:
-//! the velocity estimate $\mathbf{u}^{**}$ modifies the $\mathbf{H}$ term, requiring
-//! $p''$ to close the splitting error. Issa showed that the splitting error after two
-//! correctors is $O(\Delta t^3)$, preserving second-order accuracy of the time integrator.
-//!
-//! No under-relaxation is needed (unlike SIMPLE) because the algorithm is non-iterative —
-//! the correctors are applied once per time step.
+//! the first corrector enforces $\nabla \cdot \mathbf{u}^{**} = 0$ by solving a
+//! pressure Poisson equation $\nabla \cdot (\mathbf{d}\,\nabla p') = \nabla \cdot \mathbf{u}^*$.
+//! A second corrector re-linearises the convective operator around the updated
+//! velocity field, leaving only a third-order splitting remainder.
 
 use super::{
     config::PisoConfig,

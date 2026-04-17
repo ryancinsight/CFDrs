@@ -40,13 +40,13 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
 
                 // Compute velocity gradients
                 let du_dx = (velocity[idx + 1].x - velocity[idx - 1].x)
-                    / (T::from_f64(TWO).unwrap_or_else(T::one) * dx);
+                    / (T::from_f64(TWO).expect("analytical constant conversion") * dx);
                 let du_dy = (velocity[idx + self.nx].x - velocity[idx - self.nx].x)
-                    / (T::from_f64(TWO).unwrap_or_else(T::one) * dy);
+                    / (T::from_f64(TWO).expect("analytical constant conversion") * dy);
                 let dv_dx = (velocity[idx + 1].y - velocity[idx - 1].y)
-                    / (T::from_f64(TWO).unwrap_or_else(T::one) * dx);
+                    / (T::from_f64(TWO).expect("analytical constant conversion") * dx);
                 let dv_dy = (velocity[idx + self.nx].y - velocity[idx - self.nx].y)
-                    / (T::from_f64(TWO).unwrap_or_else(T::one) * dy);
+                    / (T::from_f64(TWO).expect("analytical constant conversion") * dy);
 
                 let velocity_gradient = [[du_dx, du_dy], [dv_dx, dv_dy]];
 
@@ -88,9 +88,9 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
 
                 // Cross-diffusion term: (Cb2/σ)|∇ν̃|²
                 let dnu_dx = (nu_tilde[idx + 1] - nu_tilde[idx - 1])
-                    / (T::from_f64(TWO).unwrap_or_else(T::one) * dx);
+                    / (T::from_f64(TWO).expect("analytical constant conversion") * dx);
                 let dnu_dy = (nu_tilde[idx + self.nx] - nu_tilde[idx - self.nx])
-                    / (T::from_f64(TWO).unwrap_or_else(T::one) * dy);
+                    / (T::from_f64(TWO).expect("analytical constant conversion") * dy);
                 let grad_nu_sq = dnu_dx * dnu_dx + dnu_dy * dnu_dy;
                 let cross_diffusion = (self.cb2 / self.sigma) * grad_nu_sq;
 
@@ -151,7 +151,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
     fn turbulent_viscosity(&self, _k: T, epsilon_or_omega: T, density: T) -> T {
         // For SA model, k is not used, epsilon_or_omega represents ν̃ (modified viscosity)
         let nu_tilde = epsilon_or_omega;
-        let molecular_viscosity = T::from_f64(1e-5).unwrap_or_else(T::one); // Typical air viscosity
+        let molecular_viscosity = T::from_f64(1e-5).expect("analytical constant conversion"); // Typical air viscosity
         density * self.eddy_viscosity(nu_tilde, molecular_viscosity)
     }
 
@@ -176,7 +176,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
 
     fn dissipation_term(&self, nu_tilde: T, wall_distance: T) -> T {
         use crate::physics::turbulence::constants::EPSILON_MIN;
-        let wall_distance = wall_distance.max(T::from_f64(EPSILON_MIN).unwrap_or_else(T::one));
+        let wall_distance = wall_distance.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
         let ratio = nu_tilde / wall_distance;
         self.cw1 * ratio * ratio
     }
@@ -219,6 +219,6 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
 
     fn is_valid_for_reynolds(&self, reynolds: T) -> bool {
         // SA model is valid for moderate to high Reynolds numbers
-        reynolds > T::from_f64(1e4).unwrap_or_else(T::one)
+        reynolds > T::from_f64(1e4).expect("analytical constant conversion")
     }
 }

@@ -33,7 +33,7 @@ where
     F: Fn(T, &DVector<T>) -> DVector<T>,
 {
     let k1 = f(t, y);
-    let half_dt = dt * T::from_f64(ONE_HALF).unwrap_or_else(T::zero);
+    let half_dt = dt * T::from_f64(ONE_HALF).expect("analytical constant conversion");
     let y_mid = y + &k1 * half_dt;
     let k2 = f(t + half_dt, &y_mid);
     y + k2 * dt
@@ -47,11 +47,11 @@ where
     T: RealField + Copy + FromPrimitive,
     F: Fn(T, &DVector<T>) -> DVector<T>,
 {
-    let two = T::from_f64(TWO).unwrap_or_else(T::zero);
-    let six = T::from_f64(SIX).unwrap_or_else(T::zero);
+    let two = T::from_f64(TWO).expect("analytical constant conversion");
+    let six = T::from_f64(SIX).expect("analytical constant conversion");
 
     let k1 = f(t, y);
-    let half_dt = dt * T::from_f64(ONE_HALF).unwrap_or_else(T::zero);
+    let half_dt = dt * T::from_f64(ONE_HALF).expect("analytical constant conversion");
     let y2 = y + &k1 * half_dt;
     let k2 = f(t + half_dt, &y2);
     let y3 = y + &k2 * half_dt;

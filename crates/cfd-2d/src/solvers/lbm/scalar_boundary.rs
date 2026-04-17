@@ -69,7 +69,7 @@ fn copy_scalar_populations<T: RealField + Copy>(
 #[inline]
 fn zero_gradient_scalar_source(i: usize, j: usize, nx: usize, ny: usize) -> (usize, usize) {
     let src_i = if i == 0 {
-        if nx > 1 { 1 } else { 0 }
+        usize::from(nx > 1)
     } else if i + 1 == nx {
         nx.saturating_sub(2)
     } else {
@@ -77,7 +77,7 @@ fn zero_gradient_scalar_source(i: usize, j: usize, nx: usize, ny: usize) -> (usi
     };
 
     let src_j = if j == 0 {
-        if ny > 1 { 1 } else { 0 }
+        usize::from(ny > 1)
     } else if j + 1 == ny {
         ny.saturating_sub(2)
     } else {
@@ -90,7 +90,7 @@ fn zero_gradient_scalar_source(i: usize, j: usize, nx: usize, ny: usize) -> (usi
 #[inline]
 fn periodic_scalar_source(i: usize, j: usize, nx: usize, ny: usize) -> (usize, usize) {
     let src_i = if i == 0 {
-        if nx > 1 { nx - 1 } else { 0 }
+        nx.saturating_sub(1)
     } else if i + 1 == nx {
         0
     } else {
@@ -98,7 +98,7 @@ fn periodic_scalar_source(i: usize, j: usize, nx: usize, ny: usize) -> (usize, u
     };
 
     let src_j = if j == 0 {
-        if ny > 1 { ny - 1 } else { 0 }
+        ny.saturating_sub(1)
     } else if j + 1 == ny {
         0
     } else {

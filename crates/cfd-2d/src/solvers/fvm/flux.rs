@@ -62,7 +62,7 @@ struct CentralDifferenceFlux;
 
 impl<T: RealField + Copy> FluxCalculator<T> for CentralDifferenceFlux {
     fn calculate_flux(&self, _phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T> {
-        Ok(u * (phi_e - phi_w) / (T::from_f64(2.0).unwrap_or_else(T::zero) * dx))
+        Ok(u * (phi_e - phi_w) / (T::from_f64(2.0).expect("analytical constant conversion") * dx))
     }
 }
 
@@ -85,9 +85,9 @@ struct QuadraticUpwindFlux;
 impl<T: RealField + Copy> FluxCalculator<T> for QuadraticUpwindFlux {
     fn calculate_flux(&self, phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T> {
         // Quadratic upstream interpolation
-        let three_eighths = T::from_f64(3.0 / 8.0).unwrap_or_else(T::zero);
-        let six_eighths = T::from_f64(6.0 / 8.0).unwrap_or_else(T::zero);
-        let one_eighth = T::from_f64(1.0 / 8.0).unwrap_or_else(T::zero);
+        let three_eighths = T::from_f64(3.0 / 8.0).expect("analytical constant conversion");
+        let six_eighths = T::from_f64(6.0 / 8.0).expect("analytical constant conversion");
+        let one_eighth = T::from_f64(1.0 / 8.0).expect("analytical constant conversion");
 
         if u > T::zero() {
             let phi_face = six_eighths * phi_p + three_eighths * phi_e - one_eighth * phi_w;
@@ -124,11 +124,11 @@ impl<T: RealField + Copy + FromPrimitive> FluxCalculator<T> for PowerLawFlux {
         let abs_pe = peclet.abs();
 
         // Power law function A(|P|) = max(0, (1 - 0.1|P|)^5)
-        let a_func = if abs_pe < T::from_f64(10.0).unwrap_or_else(T::zero) {
+        let a_func = if abs_pe < T::from_f64(10.0).expect("analytical constant conversion") {
             let one = T::one();
-            let point_one = T::from_f64(0.1).unwrap_or_else(T::zero);
+            let point_one = T::from_f64(0.1).expect("analytical constant conversion");
             let term = one - point_one * abs_pe;
-            let five = T::from_f64(5.0).unwrap_or_else(T::zero);
+            let five = T::from_f64(5.0).expect("analytical constant conversion");
             term.powf(five).max(T::zero())
         } else {
             T::zero()
@@ -181,7 +181,7 @@ impl<T: RealField + Copy + FromPrimitive> FluxCalculator<T> for HybridFlux {
         // Hybrid scheme coefficients
         // For |Pe| < 2: use central differencing
         // For |Pe| >= 2: use upwind differencing
-        let two = T::from_f64(2.0).unwrap_or_else(T::zero);
+        let two = T::from_f64(2.0).expect("analytical constant conversion");
 
         let (a_w, a_e) = if abs_pe < two {
             // Central differencing with deferred correction

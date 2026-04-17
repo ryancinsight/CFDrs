@@ -103,6 +103,12 @@ impl<T: Clone> Array2D<T> {
         &self.data
     }
 
+    /// View the underlying flat mutable slice.
+    #[inline]
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        &mut self.data
+    }
+
     /// Iterate over all elements (row-major order).
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &T> {

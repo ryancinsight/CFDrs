@@ -2,7 +2,6 @@
 
 use crate::error::Error;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
-use crate::grid::array2d::Array2D;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 
@@ -19,113 +18,124 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let zero = T::zero();
         let tiny = T::from_f64(1e-30).unwrap_or(zero);
 
-        let mut d_u = Array2D::new(nx + 1, ny, zero);
-        let mut d_v = Array2D::new(nx, ny + 1, zero);
+        let a_p_u = &self.a_p_u;
+        let a_p_v = &self.a_p_v;
+        let d_u = &mut self.pressure_poisson_d_u;
+        let d_v = &mut self.pressure_poisson_d_v;
+        let p_prime = &mut self.pressure_poisson_p_prime;
+        let b = &mut self.pressure_poisson_rhs;
 
-        for i in 1..nx {
+        d_u.fill(zero);
+        d_v.fill(zero);
+        p_prime.fill(zero);
+        b.fill(zero);
+
+        {
+            let field = &self.field;
+
+            for i in 1..nx {
+                for j in 0..ny {
+                    let a = a_p_u[(i, j)];
+                    if a > tiny {
+                        d_u[(i, j)] = self.grid.dy_at(j) / a;
+                    }
+                }
+            }
             for j in 0..ny {
-                let a = self.a_p_u[(i, j)];
-                if a > tiny {
-                    d_u[(i, j)] = self.grid.dy_at(j) / a;
-                }
+                d_u[(nx, j)] = d_u[(nx - 1, j)];
             }
-        }
-        for j in 0..ny {
-            d_u[(nx, j)] = d_u[(nx - 1, j)];
-        }
-        for i in 0..nx {
-            for j in 1..ny {
-                let a = self.a_p_v[(i, j)];
-                if a > tiny {
-                    d_v[(i, j)] = dx / a;
-                }
-            }
-        }
-        if ny > 0 {
             for i in 0..nx {
-                d_v[(i, ny)] = d_v[(i, ny - 1)];
-            }
-        }
-
-        let mut p_prime = Array2D::new(nx, ny, zero);
-        let mut b = Array2D::new(nx, ny, zero);
-
-        for i in 0..nx {
-            for j in 0..ny {
-                if !self.field.mask[(i, j)] {
-                    continue;
+                for j in 1..ny {
+                    let a = a_p_v[(i, j)];
+                    if a > tiny {
+                        d_v[(i, j)] = dx / a;
+                    }
                 }
-                let dy_j = self.grid.dy_at(j);
-                b[(i, j)] = rho
-                    * ((self.field.u[(i, j)] - self.field.u[(i + 1, j)]) * dy_j
-                        + (self.field.v[(i, j)] - self.field.v[(i, j + 1)]) * dx);
             }
-        }
+            if ny > 0 {
+                for i in 0..nx {
+                    d_v[(i, ny)] = d_v[(i, ny - 1)];
+                }
+            }
 
-        for _ in 0..200 {
             for i in 0..nx {
                 for j in 0..ny {
-                    if !self.field.mask[(i, j)] {
+                    if !field.mask[(i, j)] {
                         continue;
                     }
                     let dy_j = self.grid.dy_at(j);
-                    let a_e = if i + 1 < nx {
-                        if self.field.mask[(i + 1, j)] {
+                    b[(i, j)] = rho
+                        * ((field.u[(i, j)] - field.u[(i + 1, j)]) * dy_j
+                            + (field.v[(i, j)] - field.v[(i, j + 1)]) * dx);
+                }
+            }
+
+            for _ in 0..200 {
+                for i in 0..nx {
+                    for j in 0..ny {
+                        if !field.mask[(i, j)] {
+                            continue;
+                        }
+                        let dy_j = self.grid.dy_at(j);
+                        let a_e = if i + 1 < nx {
+                            if field.mask[(i + 1, j)] {
+                                rho * d_u[(i + 1, j)] * dy_j
+                            } else {
+                                zero
+                            }
+                        } else {
                             rho * d_u[(i + 1, j)] * dy_j
+                        };
+                        let a_w = if i > 0 {
+                            if field.mask[(i - 1, j)] {
+                                rho * d_u[(i, j)] * dy_j
+                            } else {
+                                zero
+                            }
                         } else {
                             zero
-                        }
-                    } else {
-                        rho * d_u[(i + 1, j)] * dy_j
-                    };
-                    let a_w = if i > 0 {
-                        if self.field.mask[(i - 1, j)] {
-                            rho * d_u[(i, j)] * dy_j
+                        };
+                        let a_n = if j + 1 < ny {
+                            if field.mask[(i, j + 1)] {
+                                rho * d_v[(i, j + 1)] * dx
+                            } else {
+                                zero
+                            }
                         } else {
                             zero
-                        }
-                    } else {
-                        zero
-                    };
-                    let a_n = if j + 1 < ny {
-                        if self.field.mask[(i, j + 1)] {
-                            rho * d_v[(i, j + 1)] * dx
+                        };
+                        let a_s = if j > 0 {
+                            if field.mask[(i, j - 1)] {
+                                rho * d_v[(i, j)] * dx
+                            } else {
+                                zero
+                            }
                         } else {
                             zero
+                        };
+                        let a_p = a_e + a_w + a_n + a_s;
+                        if a_p < tiny {
+                            continue;
                         }
-                    } else {
-                        zero
-                    };
-                    let a_s = if j > 0 {
-                        if self.field.mask[(i, j - 1)] {
-                            rho * d_v[(i, j)] * dx
+                        let pe = if i + 1 < nx { p_prime[(i + 1, j)] } else { zero };
+                        let pw = if i > 0 {
+                            p_prime[(i - 1, j)]
                         } else {
-                            zero
-                        }
-                    } else {
-                        zero
-                    };
-                    let a_p = a_e + a_w + a_n + a_s;
-                    if a_p < tiny {
-                        continue;
+                            p_prime[(i, j)]
+                        };
+                        let pn = if j + 1 < ny {
+                            p_prime[(i, j + 1)]
+                        } else {
+                            p_prime[(i, j)]
+                        };
+                        let ps = if j > 0 {
+                            p_prime[(i, j - 1)]
+                        } else {
+                            p_prime[(i, j)]
+                        };
+                        p_prime[(i, j)] =
+                            (a_e * pe + a_w * pw + a_n * pn + a_s * ps + b[(i, j)]) / a_p;
                     }
-                    let pe = if i + 1 < nx { p_prime[(i + 1, j)] } else { zero };
-                    let pw = if i > 0 {
-                        p_prime[(i - 1, j)]
-                    } else {
-                        p_prime[(i, j)]
-                    };
-                    let pn = if j + 1 < ny {
-                        p_prime[(i, j + 1)]
-                    } else {
-                        p_prime[(i, j)]
-                    };
-                    let ps = if j > 0 {
-                        p_prime[(i, j - 1)]
-                    } else {
-                        p_prime[(i, j)]
-                    };
-                    p_prime[(i, j)] = (a_e * pe + a_w * pw + a_n * pn + a_s * ps + b[(i, j)]) / a_p;
                 }
             }
         }

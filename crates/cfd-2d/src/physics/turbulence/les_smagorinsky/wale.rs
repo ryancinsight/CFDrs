@@ -63,7 +63,7 @@ pub struct WaleModel<T: RealField + Copy + FromPrimitive> {
 impl<T: RealField + Copy + FromPrimitive> Default for WaleModel<T> {
     fn default() -> Self {
         Self {
-            c_w: T::from_f64(C_WALE).unwrap_or_else(num_traits::Zero::zero),
+            c_w: T::from_f64(C_WALE).expect("analytical constant conversion"),
         }
     }
 }
@@ -103,18 +103,18 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
 
         // Compute strain rate tensor components
         let s_xx = du_dx;
-        let s_xy = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) * (du_dy + dv_dx);
+        let s_xy = T::from_f64(0.5).expect("analytical constant conversion") * (du_dy + dv_dx);
         let s_yy = dv_dy;
 
         // Strain rate magnitude squared: |S|² = 2*S_ij*S_ij
-        let strain_mag_sq = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero)
+        let strain_mag_sq = T::from_f64(2.0).expect("analytical constant conversion")
             * (s_xx * s_xx + s_xy * s_xy + s_yy * s_yy);
 
         // Compute WALE tensor S_ij^d
         let wale_tensor_mag_sq = self.wale_tensor_magnitude_squared(du_dx, du_dy, dv_dx, dv_dy);
 
         // Avoid division by zero
-        let epsilon = T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero);
+        let epsilon = T::from_f64(1e-12).expect("analytical constant conversion");
 
         // WALE SGS viscosity formula
         let delta_sq = delta * delta;
@@ -154,28 +154,28 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
         // Central differences with boundary handling
         let du_dx = if i > 0 && i < nx - 1 {
             (velocity.at(i + 1, j).x - velocity.at(i - 1, j).x)
-                / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dx)
+                / (T::from_f64(2.0).expect("analytical constant conversion") * dx)
         } else {
             T::zero() // Boundary - assume zero gradient for simplicity
         };
 
         let du_dy = if j > 0 && j < ny - 1 {
             (velocity.at(i, j + 1).x - velocity.at(i, j - 1).x)
-                / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dy)
+                / (T::from_f64(2.0).expect("analytical constant conversion") * dy)
         } else {
             T::zero()
         };
 
         let dv_dx = if i > 0 && i < nx - 1 {
             (velocity.at(i + 1, j).y - velocity.at(i - 1, j).y)
-                / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dx)
+                / (T::from_f64(2.0).expect("analytical constant conversion") * dx)
         } else {
             T::zero()
         };
 
         let dv_dy = if j > 0 && j < ny - 1 {
             (velocity.at(i, j + 1).y - velocity.at(i, j - 1).y)
-                / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dy)
+                / (T::from_f64(2.0).expect("analytical constant conversion") * dy)
         } else {
             T::zero()
         };
@@ -205,7 +205,7 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
 
         // Symmetric part of G²: (1/2)(G²_ij + G²_ji)
         let s2_xx = g2_xx;
-        let s2_xy = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) * (g2_xy + g2_yx);
+        let s2_xy = T::from_f64(0.5).expect("analytical constant conversion") * (g2_xy + g2_yx);
         let s2_yy = g2_yy;
 
         // Trace of symmetric G²: tr(S²) = S²_kk
@@ -213,14 +213,14 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
 
         // WALE tensor: S_ij^d = S²_ij - (1/3)δ_ij tr(S²)
         let sd_xx =
-            s2_xx - T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero) * trace_s2;
+            s2_xx - T::from_f64(1.0 / 3.0).expect("analytical constant conversion") * trace_s2;
         let sd_xy = s2_xy; // Off-diagonal terms unchanged
         let sd_yy =
-            s2_yy - T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero) * trace_s2;
+            s2_yy - T::from_f64(1.0 / 3.0).expect("analytical constant conversion") * trace_s2;
 
         // Magnitude squared: S^d_ij S^d_ij
         sd_xx * sd_xx
-            + T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * sd_xy * sd_xy
+            + T::from_f64(2.0).expect("analytical constant conversion") * sd_xy * sd_xy
             + sd_yy * sd_yy
     }
 }

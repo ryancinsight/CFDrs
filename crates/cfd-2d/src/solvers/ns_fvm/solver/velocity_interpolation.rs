@@ -83,7 +83,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let mut low = 0usize;
         let mut high = last_index;
         while high - low > 1 {
-            let mid = (low + high) / 2;
+            let mid = low + (high - low) / 2;
             if coordinate(mid) <= query {
                 low = mid;
             } else {

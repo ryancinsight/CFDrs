@@ -92,8 +92,8 @@ pub fn equilibrium<T: RealField + Copy>(
     weight: T,
     lattice_velocity: (i32, i32), // Pass small tuple by value (8 bytes)
 ) -> T {
-    let cx = T::from_i32(lattice_velocity.0).unwrap_or_else(T::zero);
-    let cy = T::from_i32(lattice_velocity.1).unwrap_or_else(T::zero);
+    let cx = T::from_i32(lattice_velocity.0).expect("analytical constant conversion");
+    let cy = T::from_i32(lattice_velocity.1).expect("analytical constant conversion");
 
     let u_sq = velocity[0] * velocity[0] + velocity[1] * velocity[1];
     let cu = cx * velocity[0] + cy * velocity[1];
@@ -103,9 +103,9 @@ pub fn equilibrium<T: RealField + Copy>(
     const VELOCITY_SQ_SCALE: f64 = 4.5; // 9/2 coefficient
     const KINETIC_SCALE: f64 = 1.5; // 3/2 coefficient
 
-    let velocity_scale = T::from_f64(VELOCITY_SCALE).unwrap_or_else(T::zero);
-    let velocity_sq_scale = T::from_f64(VELOCITY_SQ_SCALE).unwrap_or_else(T::zero);
-    let kinetic_scale = T::from_f64(KINETIC_SCALE).unwrap_or_else(T::zero);
+    let velocity_scale = T::from_f64(VELOCITY_SCALE).expect("analytical constant conversion");
+    let velocity_sq_scale = T::from_f64(VELOCITY_SQ_SCALE).expect("analytical constant conversion");
+    let kinetic_scale = T::from_f64(KINETIC_SCALE).expect("analytical constant conversion");
 
     weight
         * density

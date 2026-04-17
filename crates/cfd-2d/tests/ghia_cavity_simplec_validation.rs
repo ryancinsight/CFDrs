@@ -616,15 +616,18 @@ where
         ),
     );
     // Set u_star values into fields if needed, but the solver interface may vary
-    let p_correction = solver
-        .solve_pressure_correction(&fields, dt, rho)
+    let mut p_correction = cfd_2d::grid::Array2D::new(nx, ny, 0.0);
+    solver
+        .solve_pressure_correction(&fields, dt, rho, true, &mut p_correction)
         .expect("Pressure correction failed");
 
     // For a divergence-free field, pressure correction should be small
-    let max_correction = p_correction
-        .iter()
-        .map(|v| v.abs())
-        .fold(0.0_f64, f64::max);
+    let mut max_correction = 0.0_f64;
+    for i in 0..nx {
+        for j in 0..ny {
+            max_correction = max_correction.max(p_correction.get(i, j).abs());
+        }
+    }
 
     println!(
         "Max pressure correction for divergence-free field: {:.2e}",

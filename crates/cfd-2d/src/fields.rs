@@ -34,7 +34,7 @@ pub mod constants {
     #[must_use]
     pub fn default_reynolds<T: RealField + FromPrimitive>() -> T {
         T::from_f64(100.0)
-            .unwrap_or_else(|| T::from_i32(100).unwrap_or_else(num_traits::Zero::zero))
+            .unwrap_or_else(|| T::from_i32(100).expect("analytical constant conversion"))
     }
 
     /// Minimum allowed time step for stability
@@ -92,7 +92,7 @@ impl<T: Clone> Field2D<T> {
     where
         T: Copy,
     {
-        assert!(
+        debug_assert!(
             i < self.nx && j < self.ny,
             "Index out of bounds: ({}, {}) for grid {}x{}",
             i,
@@ -275,7 +275,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
             p: Field2D::new(nx, ny, T::zero()),
             p_prime: Field2D::new(nx, ny, T::zero()),
             density: Field2D::new(nx, ny, T::one()),
-            viscosity: Field2D::new(nx, ny, T::from_f64(0.001).unwrap_or_else(T::one)),
+            viscosity: Field2D::new(nx, ny, T::from_f64(0.001).expect("analytical constant conversion")),
             force_u: Field2D::new(nx, ny, T::zero()),
             force_v: Field2D::new(nx, ny, T::zero()),
             mask: Field2D::new(nx, ny, true),
@@ -401,14 +401,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
             .data()
             .iter()
             .fold(T::zero(), |acc, d| acc + *d)
-            / T::from_usize(self.density.data.len()).unwrap_or_else(T::one);
+            / T::from_usize(self.density.data.len()).expect("analytical constant conversion");
 
         let avg_viscosity = self
             .viscosity
             .data()
             .iter()
             .fold(T::zero(), |acc, v| acc + *v)
-            / T::from_usize(self.viscosity.data.len()).unwrap_or_else(T::one);
+            / T::from_usize(self.viscosity.data.len()).expect("analytical constant conversion");
 
         avg_density * characteristic_velocity * characteristic_length / avg_viscosity
     }

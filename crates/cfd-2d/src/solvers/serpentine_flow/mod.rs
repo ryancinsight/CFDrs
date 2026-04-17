@@ -192,8 +192,8 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
         let r = self.turn_radius;
         let ls = self.l_straight;
         let w = self.width;
-        let half_w = w / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-        let four_r = r * T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero);
+        let half_w = w / T::from_f64(2.0).expect("analytical constant conversion");
+        let four_r = r * T::from_f64(4.0).expect("analytical constant conversion");
 
         // Normalize y to cycle 0
         let y_in_cycle = y % four_r;
@@ -215,8 +215,8 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
             }
         }
 
-        if y_in_cycle < T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero) * r + half_w
-            && y_in_cycle > T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero) * r - half_w
+        if y_in_cycle < T::from_f64(3.0).expect("analytical constant conversion") * r + half_w
+            && y_in_cycle > T::from_f64(3.0).expect("analytical constant conversion") * r - half_w
         {
             // Segment 2: (Ls, 3R) -> (0, 3R)
             if x >= T::zero() && x <= ls {
@@ -226,7 +226,7 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
 
         // Right Turn (around x=ls, y=2R)
         let dx_r = x - ls;
-        let dy_r = y_in_cycle - r * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let dy_r = y_in_cycle - r * T::from_f64(2.0).expect("analytical constant conversion");
         let d_sq_r = dx_r * dx_r + dy_r * dy_r;
         if x >= ls && d_sq_r >= inner_r_sq && d_sq_r <= outer_r_sq {
             return true;
@@ -253,14 +253,14 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
         let r = self.turn_radius;
         let ls = self.l_straight;
         let w = self.width;
-        let half_w = w / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-        let four_r = r * T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero);
+        let half_w = w / T::from_f64(2.0).expect("analytical constant conversion");
+        let four_r = r * T::from_f64(4.0).expect("analytical constant conversion");
 
         [
             -r - half_w,
             ls + r + half_w,
             T::zero(),
-            four_r * T::from_f64(self.n_cycles as f64).unwrap_or_else(num_traits::Zero::zero),
+            four_r * T::from_f64(self.n_cycles as f64).expect("analytical constant conversion"),
         ]
     }
 }

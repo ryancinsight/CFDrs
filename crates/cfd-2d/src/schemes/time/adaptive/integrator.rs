@@ -112,14 +112,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
                 &f,
                 y,
                 t,
-                dt_current / T::from_f64(2.0).unwrap_or_else(T::one),
+                dt_current / T::from_f64(2.0).expect("analytical constant conversion"),
             );
-            let t_half = t + dt_current / T::from_f64(2.0).unwrap_or_else(T::one);
+            let t_half = t + dt_current / T::from_f64(2.0).expect("analytical constant conversion");
             let y_full_from_half = self.base_integrator.step(
                 &f,
                 &y_half,
                 t_half,
-                dt_current / T::from_f64(2.0).unwrap_or_else(T::one),
+                dt_current / T::from_f64(2.0).expect("analytical constant conversion"),
             );
 
             // Estimate error using Richardson extrapolation
@@ -191,14 +191,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
                 &f,
                 y,
                 t,
-                dt_current / T::from_f64(2.0).unwrap_or_else(T::one),
+                dt_current / T::from_f64(2.0).expect("analytical constant conversion"),
             );
-            let t_half = t + dt_current / T::from_f64(2.0).unwrap_or_else(T::one);
+            let t_half = t + dt_current / T::from_f64(2.0).expect("analytical constant conversion");
             let y_full_from_half = self.base_integrator.step(
                 &f,
                 &y_half,
                 t_half,
-                dt_current / T::from_f64(2.0).unwrap_or_else(T::one),
+                dt_current / T::from_f64(2.0).expect("analytical constant conversion"),
             );
 
             // Estimate error using Richardson extrapolation
@@ -212,8 +212,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveTimeIntegrator<T
             let error_tolerance = match self.controller.strategy {
                 AdaptationStrategy::Combined {
                     error_tolerance, ..
-                } => T::from_f64(error_tolerance).unwrap_or_else(T::one),
-                _ => T::from_f64(1e-6).unwrap_or_else(T::one), // Default tolerance
+                } => T::from_f64(error_tolerance).expect("analytical constant conversion"),
+                _ => T::from_f64(1e-6).expect("analytical constant conversion"), // Default tolerance
             };
 
             if error_estimate <= error_tolerance {

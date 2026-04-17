@@ -6,12 +6,13 @@
 use super::apply_rotating_wall_bc;
 use crate::physics::momentum::solver::MomentumComponent;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::sparse::SparseMatrixBuilder;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
-pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
-    matrix: &mut SparseMatrixBuilder<T>,
+use super::MatrixUpdater;
+
+pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+    matrix: &mut M,
     rhs: &mut nalgebra::DVector<T>,
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
@@ -19,7 +20,8 @@ pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
-    for j in 0..ny {
+    // Skip shared corner nodes so horizontal walls own the corners.
+    for j in 1..ny.saturating_sub(1) {
         let idx = j * nx;
 
         match bc {
@@ -65,12 +67,11 @@ pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
                     rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                 }
             },
-            BoundaryCondition::Neumann { gradient }
-                if *gradient == T::zero() => {
-                    matrix.add_entry(idx, idx, T::one())?;
-                    matrix.add_entry(idx, idx + 1, -T::one())?;
-                    rhs[idx] = T::zero();
-                }
+            BoundaryCondition::Neumann { gradient } if *gradient == T::zero() => {
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx + 1, -T::one())?;
+                rhs[idx] = T::zero();
+            }
             BoundaryCondition::Periodic { partner: _ } => {
                 matrix.add_entry(idx, idx, T::one())?;
                 matrix.add_entry(idx, idx + nx - 1, -T::one())?;
@@ -123,8 +124,8 @@ pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive>(
     Ok(())
 }
 
-pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
-    matrix: &mut SparseMatrixBuilder<T>,
+pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+    matrix: &mut M,
     rhs: &mut nalgebra::DVector<T>,
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
@@ -132,7 +133,8 @@ pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
-    for j in 0..ny {
+    // Skip shared corner nodes so horizontal walls own the corners.
+    for j in 1..ny.saturating_sub(1) {
         let idx = j * nx + nx - 1;
 
         match bc {
@@ -178,12 +180,11 @@ pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
                     rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                 }
             },
-            BoundaryCondition::Neumann { gradient }
-                if *gradient == T::zero() => {
-                    matrix.add_entry(idx, idx, T::one())?;
-                    matrix.add_entry(idx, idx - 1, -T::one())?;
-                    rhs[idx] = T::zero();
-                }
+            BoundaryCondition::Neumann { gradient } if *gradient == T::zero() => {
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx - 1, -T::one())?;
+                rhs[idx] = T::zero();
+            }
             BoundaryCondition::Periodic { partner: _ } => {
                 matrix.add_entry(idx, idx, T::one())?;
                 matrix.add_entry(idx, j * nx, -T::one())?;
@@ -211,8 +212,8 @@ pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive>(
     Ok(())
 }
 
-pub(super) fn apply_north_boundary<T: RealField + Copy + FromPrimitive>(
-    matrix: &mut SparseMatrixBuilder<T>,
+pub(super) fn apply_north_boundary<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+    matrix: &mut M,
     rhs: &mut nalgebra::DVector<T>,
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
@@ -266,12 +267,11 @@ pub(super) fn apply_north_boundary<T: RealField + Copy + FromPrimitive>(
                     rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                 }
             },
-            BoundaryCondition::Neumann { gradient }
-                if *gradient == T::zero() => {
-                    matrix.add_entry(idx, idx, T::one())?;
-                    matrix.add_entry(idx, idx - nx, -T::one())?;
-                    rhs[idx] = T::zero();
-                }
+            BoundaryCondition::Neumann { gradient } if *gradient == T::zero() => {
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx - nx, -T::one())?;
+                rhs[idx] = T::zero();
+            }
             BoundaryCondition::Periodic { partner: _ } => {
                 matrix.add_entry(idx, idx, T::one())?;
                 matrix.add_entry(idx, i, -T::one())?;
@@ -299,8 +299,8 @@ pub(super) fn apply_north_boundary<T: RealField + Copy + FromPrimitive>(
     Ok(())
 }
 
-pub(super) fn apply_south_boundary<T: RealField + Copy + FromPrimitive>(
-    matrix: &mut SparseMatrixBuilder<T>,
+pub(super) fn apply_south_boundary<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+    matrix: &mut M,
     rhs: &mut nalgebra::DVector<T>,
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
@@ -354,12 +354,11 @@ pub(super) fn apply_south_boundary<T: RealField + Copy + FromPrimitive>(
                     rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                 }
             },
-            BoundaryCondition::Neumann { gradient }
-                if *gradient == T::zero() => {
-                    matrix.add_entry(idx, idx, T::one())?;
-                    matrix.add_entry(idx, idx + nx, -T::one())?;
-                    rhs[idx] = T::zero();
-                }
+            BoundaryCondition::Neumann { gradient } if *gradient == T::zero() => {
+                matrix.add_entry(idx, idx, T::one())?;
+                matrix.add_entry(idx, idx + nx, -T::one())?;
+                rhs[idx] = T::zero();
+            }
             BoundaryCondition::Periodic { partner: _ } => {
                 matrix.add_entry(idx, idx, T::one())?;
                 matrix.add_entry(idx, (ny - 1) * nx + i, -T::one())?;

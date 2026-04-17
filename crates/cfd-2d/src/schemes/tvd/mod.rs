@@ -127,15 +127,16 @@
 //!   In *Advanced numerical approximation of nonlinear hyperbolic equations*, Springer.
 //!
 //! # Theorem
-//! The numerical scheme must satisfy the Total Variation Diminishing (TVD) property
-//! to prevent spurious oscillations near discontinuities.
+//! For scalar conservation laws, a TVD reconstruction with a flux limiter in the
+//! Sweby admissible region does not create new extrema under a CFL-stable explicit
+//! update.
 //!
 //! **Proof sketch**:
-//! Harten's theorem states that a scheme is TVD if its total variation
-//! $TV(u) = \sum_i |u_{i+1} - u_i|$ does not increase over time: $TV(u^{n+1}) \le TV(u^n)$.
-//! This is achieved by using non-linear flux limiters $\phi(r)$ that satisfy
-//! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
-//! enforces these bounds, guaranteeing monotonicity preservation.
+//! Harten's theorem states that a conservative monotone scheme is TVD, meaning
+//! $TV(u^{n+1}) \le TV(u^n)$. Flux limiters $\phi(r)$ satisfying
+//! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$ preserve that property for
+//! the MUSCL family. This guarantee applies to the limited TVD reconstructions;
+//! QUICK and WENO remain bounded only when their own nonlinear constraints hold.
 
 mod muscl;
 mod quick;

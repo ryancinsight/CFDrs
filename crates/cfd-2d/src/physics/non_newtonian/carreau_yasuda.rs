@@ -61,12 +61,12 @@ impl<T: RealField + Copy + Float + FromPrimitive> CarreauYasudaModel<T> {
     #[must_use]
     pub fn typical_blood() -> Self {
         Self {
-            density: T::from_f64(1060.0).unwrap_or_else(num_traits::Zero::zero),
-            mu_0: T::from_f64(0.022).unwrap_or_else(num_traits::Zero::zero),
-            mu_inf: T::from_f64(0.0022).unwrap_or_else(num_traits::Zero::zero),
-            lambda: T::from_f64(0.11).unwrap_or_else(num_traits::Zero::zero),
-            a: T::from_f64(0.644).unwrap_or_else(num_traits::Zero::zero),
-            n: T::from_f64(0.392).unwrap_or_else(num_traits::Zero::zero),
+            density: T::from_f64(1060.0).expect("analytical constant conversion"),
+            mu_0: T::from_f64(0.022).expect("analytical constant conversion"),
+            mu_inf: T::from_f64(0.0022).expect("analytical constant conversion"),
+            lambda: T::from_f64(0.11).expect("analytical constant conversion"),
+            a: T::from_f64(0.644).expect("analytical constant conversion"),
+            n: T::from_f64(0.392).expect("analytical constant conversion"),
         }
     }
 

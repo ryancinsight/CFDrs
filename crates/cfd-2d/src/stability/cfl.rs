@@ -81,7 +81,7 @@ impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
         let diff = self.diffusion_number(nu);
 
         // Explicit Euler requires CFL ≤ 1 and D ≤ 0.5 in 2D
-        cfl <= T::one() && diff <= T::from_f64(0.5).unwrap_or_else(T::one)
+        cfl <= T::one() && diff <= T::from_f64(0.5).expect("Exact mathematically representable f64")
     }
 
     /// Check stability for QUICK scheme with explicit time stepping
@@ -91,8 +91,8 @@ impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
 
         // QUICK requires stricter CFL for third-order accuracy
         // Leonard (1979) suggests CFL ≤ 0.75 for stability
-        let cfl_limit = T::from_f64(0.75).unwrap_or_else(T::one);
-        let diff_limit = T::from_f64(0.5).unwrap_or_else(T::one);
+        let cfl_limit = T::from_f64(0.75).expect("Exact mathematically representable f64");
+        let diff_limit = T::from_f64(0.5).expect("Exact mathematically representable f64");
 
         cfl <= cfl_limit && diff <= diff_limit
     }
@@ -109,16 +109,16 @@ impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
         } else if v_max > T::zero() {
             self.dy / v_max.abs()
         } else {
-            T::from_f64(1e10).unwrap_or_else(T::one) // Large value for zero velocity
+            T::from_f64(1e10).expect("Exact mathematically representable f64") // Large value for zero velocity
         };
 
         // Diffusion constraint: dt ≤ 0.5 * min(dx², dy²) / ν
         let dt_diffusion = if nu > T::zero() {
             let dx2 = self.dx * self.dx;
             let dy2 = self.dy * self.dy;
-            T::from_f64(0.5).unwrap_or_else(T::one) * dx2.min(dy2) / nu
+            T::from_f64(0.5).expect("Exact mathematically representable f64") * dx2.min(dy2) / nu
         } else {
-            T::from_f64(1e10).unwrap_or_else(T::one) // Large value for zero diffusion
+            T::from_f64(1e10).expect("Exact mathematically representable f64") // Large value for zero diffusion
         };
 
         // Return minimum of both constraints

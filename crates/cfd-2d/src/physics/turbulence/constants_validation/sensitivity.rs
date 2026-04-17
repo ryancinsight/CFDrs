@@ -18,11 +18,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
             self.dns_database.re_tau
         );
 
-        let c_mu_baseline = T::from_f64(C_MU).unwrap_or_else(num_traits::Zero::zero);
-        let c1_eps_baseline = T::from_f64(C1_EPSILON).unwrap_or_else(num_traits::Zero::zero);
-        let c2_eps_baseline = T::from_f64(C2_EPSILON).unwrap_or_else(num_traits::Zero::zero);
-        let sigma_k_baseline = T::from_f64(SIGMA_K).unwrap_or_else(num_traits::Zero::zero);
-        let sigma_eps_baseline = T::from_f64(SIGMA_EPSILON).unwrap_or_else(num_traits::Zero::zero);
+        let c_mu_baseline = T::from_f64(C_MU).expect("analytical constant conversion");
+        let c1_eps_baseline = T::from_f64(C1_EPSILON).expect("analytical constant conversion");
+        let c2_eps_baseline = T::from_f64(C2_EPSILON).expect("analytical constant conversion");
+        let sigma_k_baseline = T::from_f64(SIGMA_K).expect("analytical constant conversion");
+        let sigma_eps_baseline = T::from_f64(SIGMA_EPSILON).expect("analytical constant conversion");
 
         let baseline_error = self.simulate_channel_flow_k_epsilon(
             c_mu_baseline,
@@ -35,8 +35,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         let mut sensitivity_results = HashMap::new();
 
         // C_μ sensitivity
-        let c_mu_plus = c_mu_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
-        let c_mu_minus = c_mu_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+        let c_mu_plus = c_mu_baseline * T::from_f64(1.1).expect("analytical constant conversion");
+        let c_mu_minus = c_mu_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus = self.simulate_channel_flow_k_epsilon(
             c_mu_plus,
             c1_eps_baseline,
@@ -62,8 +62,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         );
 
         // C1_ε sensitivity
-        let c1_plus = c1_eps_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
-        let c1_minus = c1_eps_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+        let c1_plus = c1_eps_baseline * T::from_f64(1.1).expect("analytical constant conversion");
+        let c1_minus = c1_eps_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus = self.simulate_channel_flow_k_epsilon(
             c_mu_baseline,
             c1_plus,
@@ -89,8 +89,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         );
 
         // C2_ε sensitivity
-        let c2_plus = c2_eps_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
-        let c2_minus = c2_eps_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+        let c2_plus = c2_eps_baseline * T::from_f64(1.1).expect("analytical constant conversion");
+        let c2_minus = c2_eps_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus = self.simulate_channel_flow_k_epsilon(
             c_mu_baseline,
             c1_eps_baseline,
@@ -116,8 +116,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         );
 
         // σ_k sensitivity
-        let sigk_plus = sigma_k_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
-        let sigk_minus = sigma_k_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+        let sigk_plus = sigma_k_baseline * T::from_f64(1.1).expect("analytical constant conversion");
+        let sigk_minus = sigma_k_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus = self.simulate_channel_flow_k_epsilon(
             c_mu_baseline,
             c1_eps_baseline,
@@ -144,9 +144,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
 
         // σ_ε sensitivity
         let sigeps_plus =
-            sigma_eps_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
+            sigma_eps_baseline * T::from_f64(1.1).expect("analytical constant conversion");
         let sigeps_minus =
-            sigma_eps_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+            sigma_eps_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus = self.simulate_channel_flow_k_epsilon(
             c_mu_baseline,
             c1_eps_baseline,
@@ -177,8 +177,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(T::zero());
 
-        let passed = baseline_error < T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero)
-            && max_uncertainty < T::from_f64(0.05).unwrap_or_else(num_traits::Zero::zero);
+        let passed = baseline_error < T::from_f64(0.1).expect("analytical constant conversion")
+            && max_uncertainty < T::from_f64(0.05).expect("analytical constant conversion");
 
         ConstantsValidationResult {
             model_name: "k-ε".to_string(),
@@ -197,12 +197,12 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
             self.dns_database.re_tau
         );
 
-        let alpha1_baseline = T::from_f64(SST_ALPHA_1).unwrap_or_else(num_traits::Zero::zero);
-        let beta1_baseline = T::from_f64(SST_BETA_1).unwrap_or_else(num_traits::Zero::zero);
-        let beta_star_baseline = T::from_f64(SST_BETA_STAR).unwrap_or_else(num_traits::Zero::zero);
-        let sigma_k1_baseline = T::from_f64(SST_SIGMA_K1).unwrap_or_else(num_traits::Zero::zero);
+        let alpha1_baseline = T::from_f64(SST_ALPHA_1).expect("analytical constant conversion");
+        let beta1_baseline = T::from_f64(SST_BETA_1).expect("analytical constant conversion");
+        let beta_star_baseline = T::from_f64(SST_BETA_STAR).expect("analytical constant conversion");
+        let sigma_k1_baseline = T::from_f64(SST_SIGMA_K1).expect("analytical constant conversion");
         let sigma_omega1_baseline =
-            T::from_f64(SST_SIGMA_OMEGA1).unwrap_or_else(num_traits::Zero::zero);
+            T::from_f64(SST_SIGMA_OMEGA1).expect("analytical constant conversion");
 
         let baseline_error = self.simulate_channel_flow_k_omega_sst(
             alpha1_baseline,
@@ -215,9 +215,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         let mut sensitivity_results = HashMap::new();
 
         // α₁ sensitivity
-        let alpha1_plus = alpha1_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
+        let alpha1_plus = alpha1_baseline * T::from_f64(1.1).expect("analytical constant conversion");
         let alpha1_minus =
-            alpha1_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+            alpha1_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus = self.simulate_channel_flow_k_omega_sst(
             alpha1_plus,
             beta1_baseline,
@@ -243,8 +243,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         );
 
         // β₁ sensitivity
-        let beta1_plus = beta1_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
-        let beta1_minus = beta1_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+        let beta1_plus = beta1_baseline * T::from_f64(1.1).expect("analytical constant conversion");
+        let beta1_minus = beta1_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus = self.simulate_channel_flow_k_omega_sst(
             alpha1_baseline,
             beta1_plus,
@@ -271,9 +271,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
 
         // β* sensitivity
         let beta_star_plus =
-            beta_star_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
+            beta_star_baseline * T::from_f64(1.1).expect("analytical constant conversion");
         let beta_star_minus =
-            beta_star_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+            beta_star_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus = self.simulate_channel_flow_k_omega_sst(
             alpha1_baseline,
             beta1_baseline,
@@ -304,8 +304,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(T::zero());
 
-        let passed = baseline_error < T::from_f64(0.08).unwrap_or_else(num_traits::Zero::zero)
-            && max_uncertainty < T::from_f64(0.04).unwrap_or_else(num_traits::Zero::zero);
+        let passed = baseline_error < T::from_f64(0.08).expect("analytical constant conversion")
+            && max_uncertainty < T::from_f64(0.04).expect("analytical constant conversion");
 
         ConstantsValidationResult {
             model_name: "k-ω SST".to_string(),
@@ -324,9 +324,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
             self.dns_database.re_tau
         );
 
-        let cb1_baseline = T::from_f64(SA_CB1).unwrap_or_else(num_traits::Zero::zero);
-        let cb2_baseline = T::from_f64(SA_CB2).unwrap_or_else(num_traits::Zero::zero);
-        let sigma_baseline = T::from_f64(SA_SIGMA).unwrap_or_else(num_traits::Zero::zero);
+        let cb1_baseline = T::from_f64(SA_CB1).expect("analytical constant conversion");
+        let cb2_baseline = T::from_f64(SA_CB2).expect("analytical constant conversion");
+        let sigma_baseline = T::from_f64(SA_SIGMA).expect("analytical constant conversion");
 
         let baseline_error =
             self.simulate_channel_flow_spalart_allmaras(cb1_baseline, cb2_baseline, sigma_baseline);
@@ -334,8 +334,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         let mut sensitivity_results = HashMap::new();
 
         // cb1 sensitivity
-        let cb1_plus = cb1_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
-        let cb1_minus = cb1_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+        let cb1_plus = cb1_baseline * T::from_f64(1.1).expect("analytical constant conversion");
+        let cb1_minus = cb1_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus =
             self.simulate_channel_flow_spalart_allmaras(cb1_plus, cb2_baseline, sigma_baseline);
         let error_minus =
@@ -351,8 +351,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         );
 
         // cb2 sensitivity
-        let cb2_plus = cb2_baseline * T::from_f64(1.1).unwrap_or_else(num_traits::Zero::zero);
-        let cb2_minus = cb2_baseline * T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero);
+        let cb2_plus = cb2_baseline * T::from_f64(1.1).expect("analytical constant conversion");
+        let cb2_minus = cb2_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus =
             self.simulate_channel_flow_spalart_allmaras(cb1_baseline, cb2_plus, sigma_baseline);
         let error_minus =
@@ -373,8 +373,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(T::zero());
 
-        let passed = baseline_error < T::from_f64(0.12).unwrap_or_else(num_traits::Zero::zero)
-            && max_uncertainty < T::from_f64(0.06).unwrap_or_else(num_traits::Zero::zero);
+        let passed = baseline_error < T::from_f64(0.12).expect("analytical constant conversion")
+            && max_uncertainty < T::from_f64(0.06).expect("analytical constant conversion");
 
         ConstantsValidationResult {
             model_name: "Spalart-Allmaras".to_string(),
@@ -405,11 +405,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         for j in 1..ny - 1 {
             let y_plus = (j as f64 / (ny - 1) as f64) * self.dns_database.re_tau;
             let dns_velocity = self.dns_database.interpolate_velocity(y_plus);
-            let cfd_velocity = T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero)
-                * T::from_f64(0.95).unwrap_or_else(num_traits::Zero::zero);
+            let cfd_velocity = T::from_f64(dns_velocity).expect("analytical constant conversion")
+                * T::from_f64(0.95).expect("analytical constant conversion");
 
             let error =
-                cfd_velocity - T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero);
+                cfd_velocity - T::from_f64(dns_velocity).expect("analytical constant conversion");
             rms_error += error * error;
             num_points += 1;
         }
@@ -436,11 +436,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         for j in 1..ny - 1 {
             let y_plus = (j as f64 / (ny - 1) as f64) * self.dns_database.re_tau;
             let dns_velocity = self.dns_database.interpolate_velocity(y_plus);
-            let cfd_velocity = T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero)
-                * T::from_f64(0.98).unwrap_or_else(num_traits::Zero::zero);
+            let cfd_velocity = T::from_f64(dns_velocity).expect("analytical constant conversion")
+                * T::from_f64(0.98).expect("analytical constant conversion");
 
             let error =
-                cfd_velocity - T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero);
+                cfd_velocity - T::from_f64(dns_velocity).expect("analytical constant conversion");
             rms_error += error * error;
             num_points += 1;
         }
@@ -460,11 +460,11 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         for j in 1..ny - 1 {
             let y_plus = (j as f64 / (ny - 1) as f64) * self.dns_database.re_tau;
             let dns_velocity = self.dns_database.interpolate_velocity(y_plus);
-            let cfd_velocity = T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero)
-                * T::from_f64(0.92).unwrap_or_else(num_traits::Zero::zero);
+            let cfd_velocity = T::from_f64(dns_velocity).expect("analytical constant conversion")
+                * T::from_f64(0.92).expect("analytical constant conversion");
 
             let error =
-                cfd_velocity - T::from_f64(dns_velocity).unwrap_or_else(num_traits::Zero::zero);
+                cfd_velocity - T::from_f64(dns_velocity).expect("analytical constant conversion");
             rms_error += error * error;
             num_points += 1;
         }

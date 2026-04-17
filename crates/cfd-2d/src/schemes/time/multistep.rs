@@ -36,8 +36,8 @@ where
 {
     if let Some(y_prev) = y_prev {
         // Proper Adams-Bashforth 2nd order with history
-        let three_halves = T::from_f64(1.5).unwrap_or_else(T::one);
-        let one_half = T::from_f64(ONE_HALF).unwrap_or_else(T::zero);
+        let three_halves = T::from_f64(1.5).expect("analytical constant conversion");
+        let one_half = T::from_f64(ONE_HALF).expect("analytical constant conversion");
 
         // Evaluate f at current and previous time steps
         let f_curr = f(t, y_curr);
@@ -70,20 +70,20 @@ where
         // Proper BDF2 with history
 
         // Constants for BDF2
-        let four_thirds = T::from_f64(4.0 / 3.0).unwrap_or_else(T::zero);
-        let one_third = T::from_f64(1.0 / 3.0).unwrap_or_else(T::zero);
-        let two_thirds = T::from_f64(2.0 / 3.0).unwrap_or_else(T::zero);
+        let four_thirds = T::from_f64(4.0 / 3.0).expect("analytical constant conversion");
+        let one_third = T::from_f64(1.0 / 3.0).expect("analytical constant conversion");
+        let two_thirds = T::from_f64(2.0 / 3.0).expect("analytical constant conversion");
 
         // RHS: (4/3)y_n - (1/3)y_{n-1}
         let rhs = y_curr * four_thirds - y_prev * one_third;
 
         // Initial guess: extrapolate from previous steps (2nd-order predictor)
         // y_{n+1}^{(0)} = 2*y_n - y_{n-1}
-        let two = T::from_f64(2.0).unwrap_or_else(T::zero);
+        let two = T::from_f64(2.0).expect("analytical constant conversion");
         let mut y_next = y_curr * two - y_prev;
 
         // Fixed-point iteration parameters
-        let tol = T::from_f64(1e-10).unwrap_or_else(T::zero);
+        let tol = T::from_f64(1e-10).expect("analytical constant conversion");
         let max_iter = 100;
         let t_next = t + dt;
         let coeff = two_thirds * dt;
@@ -108,7 +108,7 @@ where
 
             // For very stiff problems, may need relaxation
             if iter > 20 {
-                let relax = T::from_f64(0.5).unwrap_or_else(T::one);
+                let relax = T::from_f64(0.5).expect("analytical constant conversion");
                 y_next = y_old * (T::one() - relax) + y_next * relax;
             }
         }
@@ -146,21 +146,21 @@ where
         // Proper BDF3 with full history
 
         // Constants for BDF3
-        let eighteen_elevenths = T::from_f64(18.0 / 11.0).unwrap_or_else(T::zero);
-        let nine_elevenths = T::from_f64(9.0 / 11.0).unwrap_or_else(T::zero);
-        let two_elevenths = T::from_f64(2.0 / 11.0).unwrap_or_else(T::zero);
-        let six_elevenths = T::from_f64(6.0 / 11.0).unwrap_or_else(T::zero);
+        let eighteen_elevenths = T::from_f64(18.0 / 11.0).expect("analytical constant conversion");
+        let nine_elevenths = T::from_f64(9.0 / 11.0).expect("analytical constant conversion");
+        let two_elevenths = T::from_f64(2.0 / 11.0).expect("analytical constant conversion");
+        let six_elevenths = T::from_f64(6.0 / 11.0).expect("analytical constant conversion");
 
         // RHS: (18/11)y_n - (9/11)y_{n-1} + (2/11)y_{n-2}
         let rhs = y_curr * eighteen_elevenths - y_prev * nine_elevenths + y_prev2 * two_elevenths;
 
         // Initial guess: extrapolate from previous steps (3rd-order predictor)
         // y_{n+1}^{(0)} = 3*y_n - 3*y_{n-1} + y_{n-2}
-        let three = T::from_f64(3.0).unwrap_or_else(T::zero);
+        let three = T::from_f64(3.0).expect("analytical constant conversion");
         let mut y_next = y_curr * three - y_prev * three + y_prev2;
 
         // Fixed-point iteration parameters
-        let tol = T::from_f64(1e-10).unwrap_or_else(T::zero);
+        let tol = T::from_f64(1e-10).expect("analytical constant conversion");
         let max_iter = 100;
         let t_next = t + dt;
         let coeff = six_elevenths * dt;
@@ -185,7 +185,7 @@ where
 
             // For very stiff problems, may need relaxation
             if iter > 20 {
-                let relax = T::from_f64(0.5).unwrap_or_else(T::one);
+                let relax = T::from_f64(0.5).expect("analytical constant conversion");
                 y_next = y_old * (T::one() - relax) + y_next * relax;
             }
         }

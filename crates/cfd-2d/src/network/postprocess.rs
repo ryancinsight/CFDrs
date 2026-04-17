@@ -2,45 +2,6 @@ use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 
 use crate::solvers::ns_fvm::NavierStokesSolver2D;
-use crate::solvers::venturi_flow::VenturiGeometry;
-
-/// Populate the solver's fluid mask from a venturi geometry.
-pub(crate) fn populate_venturi_mask<T>(
-    solver: &mut NavierStokesSolver2D<T>,
-    geom: &VenturiGeometry<T>,
-    nx: usize,
-    ny: usize,
-) where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug,
-{
-    let half_h = geom.w_inlet / T::from_f64(2.0).unwrap_or_else(T::one);
-    for i in 0..nx {
-        for j in 0..ny {
-            let x = solver.grid.x_center(i);
-            let y = solver.grid.y_center(j) - half_h;
-            solver.field.mask[(i, j)] = geom.contains(x, y);
-        }
-    }
-}
-
-/// Populate the solver's fluid mask for a circular hydraulic aperture.
-pub(crate) fn populate_circular_mask<T>(
-    solver: &mut NavierStokesSolver2D<T>,
-    diameter_m: f64,
-    nx: usize,
-    ny: usize,
-) where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug,
-{
-    let radius = T::from_f64(diameter_m / 2.0).unwrap_or_else(T::one);
-    let center_y = radius;
-    for i in 0..nx {
-        for j in 0..ny {
-            let y = solver.grid.y_center(j);
-            solver.field.mask[(i, j)] = Float::abs(y - center_y) <= radius;
-        }
-    }
-}
 
 /// Extract maximum and mean wall shear stress from the solved 2D velocity field.
 pub(crate) fn extract_field_wall_shear<T>(solver: &NavierStokesSolver2D<T>) -> (T, T)
@@ -83,7 +44,7 @@ where
     }
 
     let mean_tau = if count > 0 {
-        sum_tau / T::from_u64(count).unwrap_or_else(T::one)
+        sum_tau / T::from_u64(count).expect("analytical constant conversion")
     } else {
         T::zero()
     };
@@ -100,8 +61,13 @@ where
         return T::zero();
     }
 
-    let outlet_face = solver.grid.nx;
-    let outlet_cell = solver.grid.nx - 1;
+    let Some(outlet_cell) = (0..solver.grid.nx)
+        .rev()
+        .find(|&i| (0..solver.grid.ny).any(|j| solver.field.mask[(i, j)]))
+    else {
+        return T::zero();
+    };
+    let outlet_face = (outlet_cell + 1).min(solver.grid.nx);
     let mut integrated_velocity = T::zero();
     let mut open_width = T::zero();
 
@@ -120,4 +86,58 @@ where
 
     let mean_outlet_velocity = integrated_velocity / open_width;
     mean_outlet_velocity * area
+}
+
+/// Extract mean inlet and outlet pressures from the solved 2D field.
+///
+/// The pressures are averaged across the first and last fluid columns to reduce
+/// sensitivity to a single cell at a branched or venturi inlet/outlet.
+pub(crate) fn extract_field_inlet_outlet_pressure<T>(solver: &NavierStokesSolver2D<T>) -> (T, T)
+where
+    T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug,
+{
+    if solver.grid.nx == 0 || solver.grid.ny == 0 {
+        return (T::zero(), T::zero());
+    }
+
+    let Some(inlet_cell) = (0..solver.grid.nx)
+        .find(|&i| (0..solver.grid.ny).any(|j| solver.field.mask[(i, j)]))
+    else {
+        return (T::zero(), T::zero());
+    };
+    let Some(outlet_cell) = (0..solver.grid.nx)
+        .rev()
+        .find(|&i| (0..solver.grid.ny).any(|j| solver.field.mask[(i, j)]))
+    else {
+        return (T::zero(), T::zero());
+    };
+
+    let mut inlet_pressure = T::zero();
+    let mut inlet_count = 0u64;
+    let mut outlet_pressure = T::zero();
+    let mut outlet_count = 0u64;
+
+    for j in 0..solver.grid.ny {
+        if solver.field.mask[(inlet_cell, j)] {
+            inlet_pressure += solver.field.p[(inlet_cell, j)];
+            inlet_count += 1;
+        }
+        if solver.field.mask[(outlet_cell, j)] {
+            outlet_pressure += solver.field.p[(outlet_cell, j)];
+            outlet_count += 1;
+        }
+    }
+
+    let inlet_pressure = if inlet_count > 0 {
+        inlet_pressure / T::from_u64(inlet_count).expect("analytical constant conversion")
+    } else {
+        T::zero()
+    };
+    let outlet_pressure = if outlet_count > 0 {
+        outlet_pressure / T::from_u64(outlet_count).expect("analytical constant conversion")
+    } else {
+        T::zero()
+    };
+
+    (inlet_pressure, outlet_pressure)
 }

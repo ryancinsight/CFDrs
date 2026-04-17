@@ -50,12 +50,12 @@ impl<T: RealField + Copy + FromPrimitive> NFurcationGeometry<T> {
             });
         } else {
             let half_spread =
-                spread_angle / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+                spread_angle / T::from_f64(2.0).expect("analytical constant conversion");
             let step = spread_angle
-                / T::from_f64((num_branches - 1) as f64).unwrap_or_else(num_traits::Zero::zero);
+                / T::from_f64((num_branches - 1) as f64).expect("analytical constant conversion");
             for i in 0..num_branches {
                 let angle = half_spread
-                    - T::from_f64(i as f64).unwrap_or_else(num_traits::Zero::zero) * step;
+                    - T::from_f64(i as f64).expect("analytical constant conversion") * step;
                 branches.push(BranchGeometry {
                     width: daughter_width,
                     length: daughter_length,
@@ -72,7 +72,7 @@ impl<T: RealField + Copy + FromPrimitive> NFurcationGeometry<T> {
 
     /// Return whether the point `(x, y)` lies inside the parent channel or any daughter branch.
     pub fn contains(&self, x: T, y: T) -> bool {
-        let half_pw = self.parent_width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let half_pw = self.parent_width / T::from_f64(2.0).expect("analytical constant conversion");
         if x >= T::zero() && x <= self.parent_length && y >= -half_pw && y <= half_pw {
             return true;
         }
@@ -109,13 +109,13 @@ impl<T: RealField + Copy + FromPrimitive> NFurcationGeometry<T> {
         let sin_a = angle.sin();
         let lx = dx * cos_a + dy * sin_a;
         let ly = -dx * sin_a + dy * cos_a;
-        let half_w = width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let half_w = width / T::from_f64(2.0).expect("analytical constant conversion");
         lx >= T::zero() && lx <= length && ly >= -half_w && ly <= half_w
     }
 
     /// Compute an axis-aligned bounding box `[min_x, max_x, min_y, max_y]`.
     pub fn bounding_box(&self) -> [T; 4] {
-        let half_pw = self.parent_width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let half_pw = self.parent_width / T::from_f64(2.0).expect("analytical constant conversion");
         let min_x = T::zero();
         let mut max_x = self.parent_length;
         let mut min_y = -half_pw;
@@ -128,7 +128,7 @@ impl<T: RealField + Copy + FromPrimitive> NFurcationGeometry<T> {
             let sin_a = branch.angle.sin();
             let end_x = start_x + branch.length * cos_a;
             let end_y = start_y + branch.length * sin_a;
-            let half_w = branch.width / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+            let half_w = branch.width / T::from_f64(2.0).expect("analytical constant conversion");
             let normal_x = -sin_a;
             let normal_y = cos_a;
 
@@ -227,7 +227,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> NFurcationSolver
 
         // Guard: avoid NaN/Inf when q_parent ≈ 0 (degenerate or empty inlet).
         let mass_balance_error = if q_parent
-            > T::from_f64(1e-30).unwrap_or_else(num_traits::Zero::zero)
+            > T::from_f64(1e-30).expect("analytical constant conversion")
         {
             Float::abs(q_parent - total_out) / q_parent
         } else {

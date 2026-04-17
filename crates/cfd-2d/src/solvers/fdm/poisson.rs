@@ -27,12 +27,13 @@ use crate::grid::{Grid2D, StructuredGrid2D};
 /// Poisson equation solver
 pub struct PoissonSolver<T: RealField + Copy> {
     config: FdmConfig<T>,
+    matrix_builder: core::cell::RefCell<Option<SparseMatrixBuilder<T>>>,
 }
 
 impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
     /// Create new Poisson solver
     pub fn new(config: FdmConfig<T>) -> Self {
-        Self { config }
+        Self { config, matrix_builder: core::cell::RefCell::new(None) }
     }
 
     /// Create with default configuration
@@ -60,7 +61,7 @@ impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
         neumann_boundaries: &HashMap<(usize, usize), T>,
     ) -> Result<HashMap<(usize, usize), T>> {
         let n = grid.nx() * grid.ny();
-        let mut matrix_builder = SparseMatrixBuilder::new(n, n);
+        let mut matrix_builder = self.matrix_builder.borrow_mut().take().unwrap_or_else(|| SparseMatrixBuilder::new(n, n));
         let mut rhs = DVector::from_element(n, T::zero());
 
         // Build system matrix and RHS vector
@@ -96,6 +97,7 @@ impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
 
         // Solve the linear system
         let matrix = matrix_builder.build()?;
+        *self.matrix_builder.borrow_mut() = Some(SparseMatrixBuilder::new(n, n));
         let solution = solve_gauss_seidel(&matrix, &rhs, &self.config, "Poisson")?;
 
         // Convert solution back to grid coordinates

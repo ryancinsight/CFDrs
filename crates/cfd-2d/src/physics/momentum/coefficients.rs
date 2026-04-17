@@ -161,6 +161,30 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
             as_: Field2D::new(nx, ny, T::zero()),
             source: Field2D::new(nx, ny, T::zero()),
         };
+        coeffs.compute_into(nx, ny, dx, dy, dt, component, fields, scheme)?;
+        Ok(coeffs)
+    }
+
+    /// Compute momentum equation coefficients directly into existing structures to prevent inner-loop allocations
+    pub fn compute_into(
+        &mut self,
+        nx: usize,
+        ny: usize,
+        dx: T,
+        dy: T,
+        dt: T,
+        component: MomentumComponent,
+        fields: &SimulationFields<T>,
+        scheme: ConvectionScheme,
+    ) -> cfd_core::error::Result<()> {
+        self.ap.data.fill(T::zero());
+        self.ap_consistent.data.fill(T::zero());
+        self.ae.data.fill(T::zero());
+        self.aw.data.fill(T::zero());
+        self.an.data.fill(T::zero());
+        self.as_.data.fill(T::zero());
+        self.source.data.fill(T::zero());
+
 
         // Compute diffusion coefficients with proper finite volume scaling
         // Diffusion flux through a face = -μ * A * ∂φ/∂n / Δn
@@ -177,16 +201,16 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 // Diffusion coefficients with finite volume scaling
                 // East/West: μ * (dy / dx)
                 // North/South: μ * (dx / dy)
-                if let Some(ae) = coeffs.ae.at_mut(i, j) {
+                if let Some(ae) = self.ae.at_mut(i, j) {
                     *ae = mu * diff_coeff_ew;
                 }
-                if let Some(aw) = coeffs.aw.at_mut(i, j) {
+                if let Some(aw) = self.aw.at_mut(i, j) {
                     *aw = mu * diff_coeff_ew;
                 }
-                if let Some(an) = coeffs.an.at_mut(i, j) {
+                if let Some(an) = self.an.at_mut(i, j) {
                     *an = mu * diff_coeff_ns;
                 }
-                if let Some(as_) = coeffs.as_.at_mut(i, j) {
+                if let Some(as_) = self.as_.at_mut(i, j) {
                     *as_ = mu * diff_coeff_ns;
                 }
 
@@ -223,25 +247,25 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 let mass_flux_y = rho * v * dx;
 
                 if u > T::zero() {
-                    let aw_val = coeffs.aw.at(i, j);
-                    if let Some(aw) = coeffs.aw.at_mut(i, j) {
+                    let aw_val = self.aw.at(i, j);
+                    if let Some(aw) = self.aw.at_mut(i, j) {
                         *aw = aw_val + mass_flux_x;
                     }
                 } else {
-                    let ae_val = coeffs.ae.at(i, j);
-                    if let Some(ae) = coeffs.ae.at_mut(i, j) {
+                    let ae_val = self.ae.at(i, j);
+                    if let Some(ae) = self.ae.at_mut(i, j) {
                         *ae = ae_val - mass_flux_x;
                     }
                 }
 
                 if v > T::zero() {
-                    let as_val = coeffs.as_.at(i, j);
-                    if let Some(as_) = coeffs.as_.at_mut(i, j) {
+                    let as_val = self.as_.at(i, j);
+                    if let Some(as_) = self.as_.at_mut(i, j) {
                         *as_ = as_val + mass_flux_y;
                     }
                 } else {
-                    let an_val = coeffs.an.at(i, j);
-                    if let Some(an) = coeffs.an.at_mut(i, j) {
+                    let an_val = self.an.at(i, j);
+                    if let Some(an) = self.an.at_mut(i, j) {
                         *an = an_val - mass_flux_y;
                     }
                 }
@@ -254,7 +278,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     }
                     ConvectionScheme::DeferredCorrectionQuick { relaxation_factor } => {
                         let alpha = T::from_f64(relaxation_factor)
-                            .unwrap_or_else(|| T::from_f64(0.7).unwrap_or_else(T::one));
+                            .unwrap_or_else(|| T::from_f64(0.7).expect("analytical constant conversion"));
 
                         // Compute QUICK-upwind correction for X-direction
                         let quick_correction_x = if i >= 2 && i < nx - 2 {
@@ -272,14 +296,14 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
 
                         // Add deferred correction to source with under-relaxation
                         // Source correction = α * (QUICK_flux - upwind_flux)
-                        if let Some(source) = coeffs.source.at_mut(i, j) {
+                        if let Some(source) = self.source.at_mut(i, j) {
                             let correction = alpha * (quick_correction_x + quick_correction_y);
                             *source += correction;
                         }
                     }
                     ConvectionScheme::TvdSuperbee { relaxation_factor } => {
                         let alpha = T::from_f64(relaxation_factor)
-                            .unwrap_or_else(|| T::from_f64(0.8).unwrap_or_else(T::one));
+                            .unwrap_or_else(|| T::from_f64(0.8).expect("analytical constant conversion"));
                         let limiter = Superbee;
 
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
@@ -294,14 +318,14 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                             T::zero()
                         };
 
-                        if let Some(source) = coeffs.source.at_mut(i, j) {
+                        if let Some(source) = self.source.at_mut(i, j) {
                             let correction = alpha * (tvd_correction_x + tvd_correction_y);
                             *source += correction;
                         }
                     }
                     ConvectionScheme::TvdVanLeer { relaxation_factor } => {
                         let alpha = T::from_f64(relaxation_factor)
-                            .unwrap_or_else(|| T::from_f64(0.8).unwrap_or_else(T::one));
+                            .unwrap_or_else(|| T::from_f64(0.8).expect("analytical constant conversion"));
                         let limiter = VanLeer;
 
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
@@ -316,14 +340,14 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                             T::zero()
                         };
 
-                        if let Some(source) = coeffs.source.at_mut(i, j) {
+                        if let Some(source) = self.source.at_mut(i, j) {
                             let correction = alpha * (tvd_correction_x + tvd_correction_y);
                             *source += correction;
                         }
                     }
                     ConvectionScheme::TvdMinmod { relaxation_factor } => {
                         let alpha = T::from_f64(relaxation_factor)
-                            .unwrap_or_else(|| T::from_f64(0.8).unwrap_or_else(T::one));
+                            .unwrap_or_else(|| T::from_f64(0.8).expect("analytical constant conversion"));
                         let limiter = Minmod;
 
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
@@ -338,7 +362,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                             T::zero()
                         };
 
-                        if let Some(source) = coeffs.source.at_mut(i, j) {
+                        if let Some(source) = self.source.at_mut(i, j) {
                             let correction = alpha * (tvd_correction_x + tvd_correction_y);
                             *source += correction;
                         }
@@ -351,24 +375,24 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 let volume = dx * dy;
                 let rho = fields.density.at(i, j);
 
-                let ap_sum = coeffs.ae.at(i, j)
-                    + coeffs.aw.at(i, j)
-                    + coeffs.an.at(i, j)
-                    + coeffs.as_.at(i, j);
-                if let Some(ap) = coeffs.ap.at_mut(i, j) {
+                let ap_sum = self.ae.at(i, j)
+                    + self.aw.at(i, j)
+                    + self.an.at(i, j)
+                    + self.as_.at(i, j);
+                if let Some(ap) = self.ap.at_mut(i, j) {
                     *ap = ap_sum + rho * volume / dt;
                 }
 
                 // SIMPLEC consistent diagonal: aP - sum(aNb)
                 // This represents the part of aP that does not depend on neighbor velocities.
                 // For SIMPLEC consistency, we use this in the velocity correction equation.
-                if let Some(ap_c) = coeffs.ap_consistent.at_mut(i, j) {
+                if let Some(ap_c) = self.ap_consistent.at_mut(i, j) {
                     // Start with the time term
                     let time_term = rho * volume / dt;
 
                     // Add a small epsilon to ensure we never divide by zero in steady state
                     // This is standard practice in SIMPLEC implementations
-                    let eps = T::from_f64(1e-10).unwrap_or_else(T::zero);
+                    let eps = T::from_f64(1e-10).expect("analytical constant conversion");
 
                     *ap_c = time_term + eps;
                 }
@@ -412,7 +436,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     }
                 };
 
-                if let Some(source) = coeffs.source.at_mut(i, j) {
+                if let Some(source) = self.source.at_mut(i, j) {
                     // RHS = ρ * V * u_old / dt + pressure_force + body_force
                     // where pressure_force = -∂p/∂x * V (total force on control volume)
                     // and V = dx * dy (cell volume in 2D, per unit depth)
@@ -428,6 +452,6 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
             }
         }
 
-        Ok(coeffs)
+        Ok(())
     }
 }

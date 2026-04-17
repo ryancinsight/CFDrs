@@ -10,17 +10,20 @@
 //!
 //! # Theorem (SIMPLEC Improved Convergence — Van Doormaal & Raithby 1984)
 //!
-//! SIMPLEC (SIMPLE-Consistent) permits $\alpha_p = 1$ (no pressure under-relaxation)
-//! by replacing $1/A_P$ with $1/(A_P - \sum_{nb} A_{nb})$ in the pressure correction,
-//! yielding faster convergence than standard SIMPLE.
+//! For diagonally dominant momentum stencils, SIMPLEC reduces the splitting
+//! error relative to SIMPLE by using the consistent coefficient
+//! $1/(A_P - \sum_{nb} A_{nb})$ in the pressure correction. The method often
+//! tolerates less pressure under-relaxation, but $\alpha_p = 1$ is not a universal
+//! guarantee.
 //!
 //! **Proof sketch**:
 //! In SIMPLE, the velocity correction $\mathbf{u}' = -\mathbf{d}\,\nabla p'$ retains
 //! the $\sum_{nb} A_{nb} \mathbf{u}'_{nb}$ neighbour contribution implicitly. SIMPLEC
-//! closes that term with the consistent single-cell relation $\mathbf{u}'_{nb} = \mathbf{u}'_P$,
-//! yielding $\hat{d} = V/(A_P - \sum A_{nb})$. This larger correction coefficient
-//! compensates for the neighbour coupling, removing the need for pressure
-//! under-relaxation and reducing the spectral radius of the outer iteration operator.
+//! closes that term with the consistent single-cell relation
+//! $\mathbf{u}'_{nb} \approx \mathbf{u}'_P$, yielding
+//! $\hat{d} = V/(A_P - \sum A_{nb})$. This larger correction coefficient compensates
+//! for neighbour coupling and reduces the spectral radius of the outer iteration
+//! when the underlying linearization remains stable.
 
 mod algorithms;
 pub mod config;

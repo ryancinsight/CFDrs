@@ -64,7 +64,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowField2D<T> {
     /// For 2D incompressible flow:
     /// `γ̇ = √(2[D₁₁² + D₂₂² + 2D₁₂²])`, where `D = (∇u + ∇uᵀ)/2`.
     pub fn compute_shear_rate(&self, i: usize, j: usize, dx: T, dy: T) -> T {
-        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let two = T::from_f64(2.0).expect("analytical constant conversion");
 
         let dudx = if i < self.u.rows() - 1 {
             (self.u[(i + 1, j)] - self.u[(i, j)]) / dx

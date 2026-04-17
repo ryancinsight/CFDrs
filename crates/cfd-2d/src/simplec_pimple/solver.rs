@@ -15,14 +15,16 @@
 //!
 //! # Theorem (Rhie-Chow Consistency — Rhie & Chow 1983)
 //!
-//! For collocated grids, face velocities must be interpolated consistently with the
-//! momentum equation stencil to suppress checkerboard pressure modes.
+//! On colocated grids with positive momentum diagonals, face velocities must be
+//! interpolated consistently with the momentum equation stencil to suppress
+//! checkerboard pressure modes.
 //! See [`interpolation`] for the complete proof.
 //!
 //! # Theorem (SIMPLEC Convergence — Van Doormaal & Raithby 1984)
 //!
-//! Under diagonal dominance of the momentum matrix, SIMPLEC converges linearly at a
-//! rate controlled by `α_u` and `α_p`. See [`algorithms`] for the full derivation.
+//! Under diagonal dominance of the momentum matrix and a solved pressure
+//! correction, SIMPLEC converges linearly at a rate controlled by `α_u` and
+//! `α_p`. See [`algorithms`] for the full derivation.
 //!
 //! ## References
 //! - Patankar & Spalding (1972). *Int. J. Heat Mass Transfer*, 15(10), 1787–1806.
@@ -51,6 +53,12 @@ pub struct SimplecPimpleSolver<T: RealField + Copy> {
     pub(super) pressure_solver: PressureCorrectionSolver<T>,
     pub(super) rhie_chow: Option<RhieChowInterpolation<T>>,
     pub(super) iterations: usize,
+    pub(super) _u_face_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
+    pub(super) _v_face_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
+    pub(super) _d_x_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
+    pub(super) _d_y_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
+    pub(super) _vel_field_cache: std::cell::RefCell<Option<crate::fields::Field2D<nalgebra::Vector2<T>>>>,
+    pub(super) _cons_vel_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<nalgebra::Vector2<T>>>>,
 }
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
@@ -81,8 +89,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             _ => crate::physics::momentum::ConvectionScheme::Upwind, // Fallback for Central/SecondOrder/WENO
         };
 
-        let mut momentum_solver =
-            MomentumSolver::with_convection_scheme(&grid, momentum_convection);
+        let mut momentum_solver = MomentumSolver::new(&grid);
+        momentum_solver.set_convection_scheme(momentum_convection);
         momentum_solver.set_velocity_relaxation(config.alpha_u);
 
         // Create pressure solver using configuration
@@ -113,6 +121,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             pressure_solver,
             rhie_chow,
             iterations: 0,
+            _u_face_cache: std::cell::RefCell::new(None),
+            _v_face_cache: std::cell::RefCell::new(None),
+            _d_x_cache: std::cell::RefCell::new(None),
+            _d_y_cache: std::cell::RefCell::new(None),
+            _vel_field_cache: std::cell::RefCell::new(None),
+            _cons_vel_cache: std::cell::RefCell::new(None),
         })
     }
 

@@ -50,15 +50,15 @@ impl<T: RealField + Copy + FromPrimitive> Default for SimplecPimpleConfig<T> {
     fn default() -> Self {
         Self {
             algorithm: AlgorithmType::Simplec,
-            dt: T::from_f64(0.01).unwrap_or_else(T::one),
+            dt: T::from_f64(0.01).expect("analytical constant conversion"),
             alpha_u: T::from_f64(0.7)
-                .unwrap_or_else(|| T::from_f64(0.7).unwrap_or_else(num_traits::Zero::zero)),
+                .unwrap_or_else(|| T::from_f64(0.7).expect("analytical constant conversion")),
             alpha_p: T::from_f64(0.3)
-                .unwrap_or_else(|| T::from_f64(0.3).unwrap_or_else(num_traits::Zero::zero)),
+                .unwrap_or_else(|| T::from_f64(0.3).expect("analytical constant conversion")),
             n_outer_correctors: 2,
             n_inner_correctors: 1,
             tolerance: T::from_f64(1e-6)
-                .unwrap_or_else(|| T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero)),
+                .unwrap_or_else(|| T::from_f64(1e-6).expect("analytical constant conversion")),
             max_inner_iterations: 50,
             use_rhie_chow: true,
             convection_scheme: SpatialScheme::SecondOrderUpwind,

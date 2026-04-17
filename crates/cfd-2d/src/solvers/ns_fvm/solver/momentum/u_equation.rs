@@ -165,10 +165,42 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         }
 
         if bc_west.is_dirichlet() {
-            if let BoundaryCondition::Wall { .. } = bc_west {
-                for j in 0..ny {
-                    self.field.u[(0, j)] = zero;
+            match bc_west {
+                BoundaryCondition::Wall { .. } => {
+                    for j in 0..ny {
+                        self.field.u[(0, j)] = zero;
+                    }
                 }
+                BoundaryCondition::VelocityInlet { velocity } => {
+                    for j in 0..ny {
+                        self.field.u[(0, j)] = velocity[0];
+                    }
+                }
+                BoundaryCondition::PressureInlet {
+                    velocity_direction: Some(velocity_direction),
+                    ..
+                }
+                | BoundaryCondition::CharacteristicInlet {
+                    velocity: Some(velocity_direction),
+                    ..
+                } => {
+                    for j in 0..ny {
+                        self.field.u[(0, j)] = velocity_direction[0];
+                    }
+                }
+                BoundaryCondition::Dirichlet {
+                    value,
+                    component_values,
+                } => {
+                    let inlet_value = component_values
+                        .as_ref()
+                        .and_then(|components| components.first().copied().flatten())
+                        .unwrap_or(*value);
+                    for j in 0..ny {
+                        self.field.u[(0, j)] = inlet_value;
+                    }
+                }
+                _ => {}
             }
         }
 
