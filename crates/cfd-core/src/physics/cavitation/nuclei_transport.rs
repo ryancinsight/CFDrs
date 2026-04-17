@@ -139,10 +139,7 @@ mod tests {
         let base = 3170.0;
 
         assert_relative_eq!(nuclei_adjusted_vapor_pressure(base, 0.0), base);
-        assert_relative_eq!(
-            nuclei_adjusted_vapor_pressure(base, 0.25),
-            base + 2_500.0
-        );
+        assert_relative_eq!(nuclei_adjusted_vapor_pressure(base, 0.25), base + 2_500.0);
         assert_relative_eq!(
             nuclei_adjusted_vapor_pressure(base, 1.0),
             base + NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION

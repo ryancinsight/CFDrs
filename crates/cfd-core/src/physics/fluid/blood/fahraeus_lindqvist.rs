@@ -72,7 +72,9 @@ impl<T: RealField + FromPrimitive + Copy> FahraeuasLindqvist<T> {
                     + one
                         / (one
                             + T::from_f64(1e-11).unwrap_or_else(num_traits::Zero::zero)
-                                * d_um.powf(T::from_f64(12.0).unwrap_or_else(num_traits::Zero::zero))));
+                                * d_um.powf(
+                                    T::from_f64(12.0).unwrap_or_else(num_traits::Zero::zero),
+                                )));
 
         self.compute_final_relative_viscosity(mu_45, exponent_c)
     }
@@ -113,7 +115,7 @@ impl<T: RealField + FromPrimitive + Copy> FahraeuasLindqvist<T> {
     #[inline]
     fn compute_mu_45(&self) -> (T, T) {
         let mut d_um = self.diameter * T::from_f64(1e6).unwrap_or_else(num_traits::Zero::zero); // Convert to μm
-        // Fahraeus-Lindqvist scales back to bulk viscosity above 300μm
+                                                                                                // Fahraeus-Lindqvist scales back to bulk viscosity above 300μm
         let d_max = T::from_f64(300.0).unwrap_or_else(num_traits::Zero::zero);
         if d_um > d_max {
             d_um = d_max;
@@ -138,18 +140,20 @@ impl<T: RealField + FromPrimitive + Copy> FahraeuasLindqvist<T> {
         let one = T::one();
         let ht_clamp = self.hematocrit.max(T::zero());
 
-        let num_base = (one - ht_clamp).max(T::from_f64(0.001).unwrap_or_else(num_traits::Zero::zero));
+        let num_base =
+            (one - ht_clamp).max(T::from_f64(0.001).unwrap_or_else(num_traits::Zero::zero));
         let den_base = (one - T::from_f64(0.45).unwrap_or_else(num_traits::Zero::zero))
             .max(T::from_f64(0.001).unwrap_or_else(num_traits::Zero::zero));
 
         let numerator = num_base.powf(exponent_c) - one;
         let denominator = den_base.powf(exponent_c) - one;
 
-        let mu_rel = if denominator.abs() < T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero) {
-            one
-        } else {
-            one + (mu_45 - one) * (numerator / denominator)
-        };
+        let mu_rel =
+            if denominator.abs() < T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero) {
+                one
+            } else {
+                one + (mu_45 - one) * (numerator / denominator)
+            };
 
         if mu_rel < one {
             one

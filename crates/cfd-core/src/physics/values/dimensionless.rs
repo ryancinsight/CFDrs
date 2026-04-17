@@ -61,11 +61,12 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
             | DimensionlessType::Prandtl
             | DimensionlessType::Schmidt
             | DimensionlessType::Lewis
-                if value < T::zero() => {
-                    return Err(crate::error::Error::InvalidConfiguration(format!(
-                        "{number_type:?} must be non-negative"
-                    )));
-                }
+                if value < T::zero() =>
+            {
+                return Err(crate::error::Error::InvalidConfiguration(format!(
+                    "{number_type:?} must be non-negative"
+                )));
+            }
             _ => {}
         }
         Ok(Self { value, number_type })
