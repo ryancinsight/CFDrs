@@ -4,7 +4,6 @@ use crate::state_management::{
     constraints::ParameterConstraints,
     errors::{ParameterError, ParameterResult},
     parameters::{ConfigurableParameter, ParameterMetadata},
-    validation::ValidationRuleSet,
 };
 
 use super::ParameterManager;
@@ -20,9 +19,6 @@ pub struct GeometryParameterManager {
 
     /// Channel height parameter
     channel_height: ConfigurableParameter<f64>,
-
-    /// Validation rules
-    validation_rules: ValidationRuleSet,
 }
 
 impl GeometryParameterManager {
@@ -73,13 +69,10 @@ impl GeometryParameterManager {
             .with_units("mm"),
         );
 
-        let validation_rules = ValidationRuleSet::new();
-
         Self {
             wall_clearance,
             channel_width,
             channel_height,
-            validation_rules,
         }
     }
 }
@@ -171,7 +164,4 @@ impl ParameterManager for GeometryParameterManager {
         Ok(())
     }
 
-    fn validation_rules(&self) -> &ValidationRuleSet {
-        &self.validation_rules
-    }
 }

@@ -67,7 +67,6 @@ pub enum BlueprintTopologyMutation {
 /// to the canonical [`GeometryGeneratorBuilder`] pipeline.  No ad-hoc
 /// node/channel construction is performed here — that logic lives exclusively
 /// in [`GeometryGenerator`](crate::geometry::generator::GeometryGenerator).
-
 pub struct BlueprintTopologyFactory;
 
 

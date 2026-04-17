@@ -1,8 +1,9 @@
 use super::*;
-use crate::config::SerpentineConfig;
+use crate::config::{ChannelTypeConfig, GeometryConfig, SerpentineConfig};
 use crate::domain::model::ChannelShape;
 use crate::geometry::builders::{ChannelExt, NodeExt};
 use crate::geometry::metadata::{ChannelGeometryMetadata, PerformanceMetadata};
+use crate::geometry::types::polyline_length;
 use crate::geometry::SplitType;
 
 #[test]

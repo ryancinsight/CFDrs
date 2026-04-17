@@ -9,7 +9,6 @@ use crate::state_management::{
     constraints::ParameterConstraints,
     errors::{ParameterError, ParameterResult},
     parameters::{ConfigurableParameter, ParameterMetadata},
-    validation::ValidationRuleSet,
 };
 
 use super::ParameterManager;
@@ -49,9 +48,6 @@ pub struct CollisionParameterManager {
 
     /// Enable wall-based collision detection
     enable_wall_detection: ConfigurableParameter<bool>,
-
-    /// Validation rules
-    validation_rules: ValidationRuleSet,
 }
 
 impl CollisionParameterManager {
@@ -144,8 +140,6 @@ impl CollisionParameterManager {
             ),
         );
 
-        let validation_rules = ValidationRuleSet::new();
-
         Self {
             min_channel_distance,
             min_wall_distance,
@@ -154,7 +148,6 @@ impl CollisionParameterManager {
             detection_sensitivity,
             enable_neighbor_detection,
             enable_wall_detection,
-            validation_rules,
         }
     }
 
@@ -328,7 +321,4 @@ impl ParameterManager for CollisionParameterManager {
         Ok(())
     }
 
-    fn validation_rules(&self) -> &ValidationRuleSet {
-        &self.validation_rules
-    }
 }

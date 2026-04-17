@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct FlowMetadata {
     pub flow_rate: f64,
@@ -33,6 +35,51 @@ pub struct ChannelGeometryMetadata {
 }
 
 crate::impl_metadata!(ChannelGeometryMetadata, "ChannelGeometryMetadata");
+
+/// Branch-level boundary condition metadata authored in schematics.
+///
+/// This metadata lets a blueprint mark an endpoint branch with an explicit
+/// pressure or flow boundary condition instead of relying only on the legacy
+/// `NodeKind` inference in reduced-order solvers.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum BranchBoundarySpecification {
+    /// Fixed pressure boundary [Pa].
+    Pressure { pressure_pa: f64 },
+    /// Fixed volumetric flow boundary [m^3/s].
+    ///
+    /// The sign convention matches the 1D solver: positive values act as a
+    /// source term, negative values as a sink term.
+    FlowRate { flow_rate_m3_s: f64 },
+}
+
+/// Node-level branch boundary metadata.
+///
+/// Attach this to a `NodeSpec` in the schematics blueprint when a branch end
+/// must override the default inlet/outlet pressure inference.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct BranchBoundaryMetadata {
+    pub boundary: BranchBoundarySpecification,
+}
+
+impl BranchBoundaryMetadata {
+    /// Create a fixed-pressure branch boundary.
+    #[must_use]
+    pub fn pressure(pressure_pa: f64) -> Self {
+        Self {
+            boundary: BranchBoundarySpecification::Pressure { pressure_pa },
+        }
+    }
+
+    /// Create a fixed-flow branch boundary.
+    #[must_use]
+    pub fn flow_rate(flow_rate_m3_s: f64) -> Self {
+        Self {
+            boundary: BranchBoundarySpecification::FlowRate { flow_rate_m3_s },
+        }
+    }
+}
+
+crate::impl_metadata!(BranchBoundaryMetadata, "BranchBoundaryMetadata");
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OptimizationMetadata {

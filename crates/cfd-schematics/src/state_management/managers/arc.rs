@@ -4,7 +4,6 @@ use crate::state_management::{
     constraints::ParameterConstraints,
     errors::{ParameterError, ParameterResult},
     parameters::{ConfigurableParameter, ParameterMetadata},
-    validation::ValidationRuleSet,
 };
 
 use super::ParameterManager;
@@ -32,9 +31,6 @@ pub struct ArcParameterManager {
 
     /// Enable adaptive curvature
     enable_adaptive_curvature: ConfigurableParameter<bool>,
-
-    /// Validation rules
-    validation_rules: ValidationRuleSet,
 }
 
 impl ArcParameterManager {
@@ -122,8 +118,6 @@ impl ArcParameterManager {
             ),
         );
 
-        let validation_rules = ValidationRuleSet::new();
-
         Self {
             curvature_factor,
             smoothness,
@@ -132,7 +126,6 @@ impl ArcParameterManager {
             max_curvature_reduction,
             enable_collision_prevention,
             enable_adaptive_curvature,
-            validation_rules,
         }
     }
 
@@ -276,7 +269,4 @@ impl ParameterManager for ArcParameterManager {
         Ok(())
     }
 
-    fn validation_rules(&self) -> &ValidationRuleSet {
-        &self.validation_rules
-    }
 }

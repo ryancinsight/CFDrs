@@ -9,7 +9,6 @@ use crate::state_management::{
     constraints::ParameterConstraints,
     errors::{ParameterError, ParameterResult},
     parameters::{ConfigurableParameter, ParameterMetadata},
-    validation::ValidationRuleSet,
 };
 
 use super::ParameterManager;
@@ -41,9 +40,6 @@ pub struct SymmetryParameterManager {
 
     /// Symmetry enforcement strength (0.0 = weak, 1.0 = strict)
     enforcement_strength: ConfigurableParameter<f64>,
-
-    /// Validation rules
-    validation_rules: ValidationRuleSet,
 }
 
 impl SymmetryParameterManager {
@@ -107,15 +103,12 @@ impl SymmetryParameterManager {
             ),
         );
 
-        let validation_rules = ValidationRuleSet::new();
-
         Self {
             enable_vertical_symmetry,
             enable_horizontal_symmetry,
             symmetry_tolerance,
             enable_adaptive_symmetry,
             enforcement_strength,
-            validation_rules,
         }
     }
 
@@ -263,7 +256,4 @@ impl ParameterManager for SymmetryParameterManager {
         Ok(())
     }
 
-    fn validation_rules(&self) -> &ValidationRuleSet {
-        &self.validation_rules
-    }
 }

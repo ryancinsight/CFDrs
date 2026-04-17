@@ -9,7 +9,6 @@ use crate::state_management::{
     constraints::ParameterConstraints,
     errors::{ParameterError, ParameterResult},
     parameters::{ConfigurableParameter, ParameterMetadata},
-    validation::ValidationRuleSet,
 };
 use std::collections::HashMap;
 
@@ -47,9 +46,6 @@ pub struct SerpentineParameterManager {
 
     /// Target fill ratio for optimization
     target_fill_ratio: ConfigurableParameter<f64>,
-
-    /// Validation rules
-    validation_rules: ValidationRuleSet,
 }
 
 impl SerpentineParameterManager {
@@ -189,8 +185,6 @@ impl SerpentineParameterManager {
             ),
         );
 
-        let validation_rules = ValidationRuleSet::new();
-
         Self {
             amplitude,
             wavelength_factor,
@@ -202,7 +196,6 @@ impl SerpentineParameterManager {
             wave_shape,
             optimization_profile,
             target_fill_ratio,
-            validation_rules,
         }
     }
 
@@ -431,7 +424,4 @@ impl ParameterManager for SerpentineParameterManager {
         Ok(())
     }
 
-    fn validation_rules(&self) -> &ValidationRuleSet {
-        &self.validation_rules
-    }
 }

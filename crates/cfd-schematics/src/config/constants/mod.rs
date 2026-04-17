@@ -79,7 +79,9 @@ pub mod primitives {
     pub const MAX_PLATEAU_WIDTH_FACTOR: f64 = 0.8;
 
     /// Default horizontal ratio threshold for middle section detection
-    pub const DEFAULT_HORIZONTAL_RATIO_THRESHOLD: f64 = 1.01;
+    /// This is a cosine-based ratio (`|dx| / distance`), bounded to [0, 1].
+    /// A value of 0.75 corresponds to channels within ±41.4° of horizontal.
+    pub const DEFAULT_HORIZONTAL_RATIO_THRESHOLD: f64 = 0.75;
     /// Minimum horizontal ratio threshold
     pub const MIN_HORIZONTAL_RATIO_THRESHOLD: f64 = 0.5;
     /// Maximum horizontal ratio threshold

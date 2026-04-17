@@ -123,6 +123,7 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
     let plate_px_h = mm_to_px(PLATE_H_MM);
     let svg_w = MARGIN_X * 2.0 + plate_px_w;
     let svg_h = MARGIN_Y * 2.0 + plate_px_h + 110.0; // extra for legend row
+    let aspect_ratio = if svg_h > 0.0 { svg_w / svg_h } else { 1.0 };
 
     let mut s = String::with_capacity(20_000);
 
@@ -132,7 +133,7 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
         r##"<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
          width="{svg_w:.0}" height="{svg_h:.0}" viewBox="0 0 {svg_w:.0} {svg_h:.0}"
-         preserveAspectRatio="xMidYMin meet" style="max-width:100%;height:auto;">
+                 preserveAspectRatio="xMidYMin meet" style="width:min(100%, 100vw, calc(100vh * {aspect_ratio:.6}));height:auto;display:block;margin:0 auto;">
   <defs>
     <linearGradient id="cavGrad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%"   style="stop-color:#FFD700"/>
@@ -378,7 +379,8 @@ mod tests {
         assert!(svg.contains("<svg "), "expected <svg element");
         assert!(svg.contains("</svg>"), "expected closing </svg>");
         assert!(svg.contains("preserveAspectRatio=\"xMidYMin meet\""));
-        assert!(svg.contains("max-width:100%;height:auto;"));
+        assert!(svg.contains("width:min(100%, 100vw, calc(100vh * "));
+        assert!(svg.contains("height:auto;display:block;margin:0 auto;"));
     }
 
     #[test]

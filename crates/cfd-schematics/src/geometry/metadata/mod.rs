@@ -98,12 +98,12 @@ impl Default for MetadataContainer {
 #[macro_export]
 macro_rules! impl_metadata {
     ($type:ty, $name:expr) => {
-        impl crate::geometry::metadata::Metadata for $type {
+        impl $crate::geometry::metadata::Metadata for $type {
             fn metadata_type_name(&self) -> &'static str {
                 $name
             }
 
-            fn clone_metadata(&self) -> Box<dyn crate::geometry::metadata::Metadata> {
+            fn clone_metadata(&self) -> Box<dyn $crate::geometry::metadata::Metadata> {
                 Box::new(self.clone())
             }
 

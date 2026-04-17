@@ -17,7 +17,7 @@ pub use self::serpentine::SerpentineParameterManager;
 pub use self::symmetry::SymmetryParameterManager;
 
 use crate::state_management::{
-    errors::ParameterResult, parameters::ParameterMetadata, validation::ValidationRuleSet,
+    errors::ParameterResult, parameters::ParameterMetadata,
 };
 use std::fmt::Debug;
 
@@ -51,7 +51,4 @@ pub trait ParameterManager: Debug + Send + Sync {
 
     /// Reset all parameters to defaults
     fn reset_all(&mut self, reason: &str) -> ParameterResult<()>;
-
-    /// Get validation rules for this manager
-    fn validation_rules(&self) -> &ValidationRuleSet;
 }

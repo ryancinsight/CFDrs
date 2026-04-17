@@ -4,6 +4,12 @@ use crate::geometry::Point2D;
 use super::detection::detect_crossings;
 use super::IntersectionResult;
 
+struct SplitInfo {
+    junction_node_id: String,
+    t: f64,
+    seg: usize,
+}
+
 /// Insert junction nodes at all detected channel intersections.
 pub fn insert_intersection_nodes(system: &mut NetworkBlueprint) -> IntersectionResult {
     let crossings = detect_crossings(system);
@@ -31,12 +37,6 @@ pub fn insert_intersection_nodes(system: &mut NetworkBlueprint) -> IntersectionR
         ));
         junction_ids.push(initial_node_count + crossing_index);
         new_nodes.push(node_id);
-    }
-
-    struct SplitInfo {
-        junction_node_id: String,
-        t: f64,
-        seg: usize,
     }
 
     let mut splits_per_channel: std::collections::HashMap<usize, Vec<SplitInfo>> =
