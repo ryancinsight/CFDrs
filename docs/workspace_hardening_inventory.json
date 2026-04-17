@@ -1,0 +1,60 @@
+{
+  "audit_date": "2026-04-13",
+  "scope": [
+    ".config/nextest.toml",
+    "crates/apollo/crates/apollofft",
+    "report asset review contract"
+  ],
+  "implemented": [
+    {
+      "area": "nextest_policy",
+      "status": "completed",
+      "changes": [
+        "removed long-timeout overrides",
+        "retained single default 30 second ceiling"
+      ]
+    },
+    {
+      "area": "apollofft_constructor_validation",
+      "status": "completed",
+      "changes": [
+        "FftPlan1D now constructs from Shape1D",
+        "FftPlan2D now constructs from Shape2D",
+        "FftPlan3D now constructs from Shape3D",
+        "cache paths construct plans from validated shapes"
+      ]
+    },
+    {
+      "area": "apollofft_plan1d_theorem_coverage",
+      "status": "completed",
+      "changes": [
+        "added theorem and proof-sketch rustdoc",
+        "added deterministic and property-based 1D FFT tests"
+      ]
+    },
+    {
+      "area": "asset_review_contract",
+      "status": "completed",
+      "changes": [
+        "added review manifest schema at report/asset_review_manifest.schema.json"
+      ]
+    }
+  ],
+  "remaining_verified_gaps": [
+    {
+      "area": "long_running_tests_outside_apollofft",
+      "status": "pending",
+      "evidence": "former nextest overrides referenced GA, bifurcation, trifurcation, and venturi cross-fidelity tests"
+    },
+    {
+      "area": "theorem_docs_outside_apollofft",
+      "status": "pending",
+      "evidence": "no workspace-wide automated theorem inventory exists yet"
+    },
+    {
+      "area": "report_manifest_integration",
+      "status": "pending",
+      "evidence": "root report folder contains figures and PDFs, but no unified review ledger was found in the inspected pass"
+    }
+  ]
+}

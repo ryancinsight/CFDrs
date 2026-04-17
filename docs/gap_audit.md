@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD022 MD032 MD025 MD024 MD060 MD009 MD029 MD030 -->
+
 # Elite Mathematically-Verified Code Auditor: CFD Suite Comprehensive Gap Analysis
 
 **Auditor Persona**: Elite Mathematically-Verified Code Auditor
@@ -110,6 +112,8 @@
 | **MAJOR-008** |  Major | CFD-MESH | Missing Distributed Mesh Support | **CLOSED** |
 | **CRITICAL-009** | ✅ Closed | CFD-MATH | Ruge-Stüben Coarsening Fine-to-Coarse Mapping Bug | **CLOSED** |
 | **CRITICAL-010** | ✅ Closed | CFD-3D | Fake Unstructured FEM Domains (0-Element Mocks) | **CLOSED** |
+| **CRITICAL-012** | 🔴 Critical | CFD-CORE | Missing cell-specific cavitation injury physics (Lysis/Necrosis) | **OPEN** |
+| **CRITICAL-013** | 🔴 Critical | CFD-CORE | Missing CTC stiffness-coupled inception mechanisms for HCOC | **OPEN** |
 
 ---
 
@@ -256,3 +260,16 @@ This bug violates the audit framework's evidence hierarchy:
 6.  **Continuous Validation**: Ensure `IncompleteLU` remains the standard for ILU operations.
 7.  **Parallel Integration**: When implementing distributed solvers in `cfd-core`, leverage the serial block solvers from `cfd-math` where appropriate, but ensure explicit types for distributed contexts.
 8.  **Benchmarking**: Continue to expand benchmarks in `cfd-core` to validate actual parallel scaling of the MPI-specific implementations.
+
+---
+
+## CRITICAL-012 & 013: HCOC Cellular Injury & CTC Detection Framework Gaps
+
+**Severity**: 🔴 **CRITICAL** - Prevents modeling of oncological detection and Sonodynamic/Hydrodynamic therapies.
+**Expected Physics**:
+1. Cellular Injury: Membrane strain tracking leading to graded structural failure (permeabilization → necrosis → lysis) from Rayleigh collapse microjets and shockwaves.
+2. CTC Detection: Nucleation thresholds ($k_n$) must vary locally based on particle interfacial tension and membrane stiffness, creating distinct cavitation inception times for CTCs vs normal leukocytes.
+**Current State**: `cfd-core::physics::cavitation` models macro-scale nuclei transport with linear pressure boosts and implements erosion models strictly for rigid materials (metals/ASTM standards). 
+**Remediation**:
+- Implement `cfd-core::physics::cavitation::bio_damage.rs` for biological cell failure models.
+- Implement `heterogeneous_nucleation.rs` extending `nuclei_transport` to handle multi-population biomechanical nucleation sites.

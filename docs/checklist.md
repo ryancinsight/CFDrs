@@ -1,3 +1,25 @@
+# Sprint 1.96.0 Checklist: HCOC Cellular Injury & CTC Detection
+**Goal**: Integrate mathematical models for cellular cavitation-induced injury and stiffness-coupled anomalous nucleation into the core engine.
+
+**Success Criteria**:
+- ✅ Mathematical proofs provided for cell failure grading and heterogeneous inception.
+- ✅ `bio_damage` module verified via Proptest, demonstrating rigorous threshold invariants.
+- ✅ `heterogeneous_nucleation` matches literature inception divergence ratios between cell types.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Specify mathematical domain representing membrane shear stress and threshold porosity limits. 
+
+### Phase 2: Execution (10-50%)
+- [x] Implement `bio_damage.rs` evaluating Rayleigh collapse pressure spatial integrals.
+- [x] Implement `heterogeneous_nucleation.rs` extending nuclei scalar fields using physical Blake bounds.
+- [x] Property test implementation against derived constraints.
+- [x] Fixed E0282 broken `apollofft` test blocking test runner in CI.
+
+### Phase 3: Closure (50%+)
+- [x] Sync documentation rules and examples.
+
+---
+
 # Sprint 1.95.1 Checklist: CFD-MESH 3D Performance Optimization
 
 ## Sprint Overview

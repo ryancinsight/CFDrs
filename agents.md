@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD040 MD060 MD056 MD032 -->
+
 # CFDrs Workspace — Agent Reference
 
 > **Owner**: Ryan Clanton (`@ryancinsight`)  

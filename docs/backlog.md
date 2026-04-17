@@ -1,5 +1,24 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.0: Hydrodynamic Cavitation On-a-Chip (HCOC) Modeling
+**Status**: Planned
+**Start Date**: Next
+
+### Sprint Objectives
+- Enable mathematical modeling of distinct cellular injury zones (lysis, necrosis, permeabilization) from hydrodynamic cavitation in micro-orifices.
+- Implement stiffness-coupled heterogeneous nucleation to predict altered cavitation inception times for Circulating Tumor Cells (CTCs).
+- Provide unified mathematical specifications and zero-cost `GhostCell` topological integration for the new physics models.
+
+### Sprint Backlog Items
+
+#### Cellular Injury Modeling
+- [ ] **HCOC-001**: Implement `bio_damage.rs` with scalar fractional damage models representing cell membrane strain, mapping cavitation intensity to lysis/necrosis ratios.
+- [ ] **HCOC-002**: Derive and integrate property tests validating conservation of cellular mass across injury states.
+
+#### CTC Nucleation Transport
+- [ ] **HCOC-003**: Implement `heterogeneous_nucleation.rs` replacing the linear $k_n$ scalar with a tensorial or struct-based multi-population interfacial tension approach.
+- [ ] **HCOC-004**: Validate modified effective vapor pressure inception offsets against analytical expected bounds.
+
 ## Sprint 1.95.1: CFD-MESH 3D Performance & Memory Optimization
 **Status**: In Progress
 **Start Date**: March 29, 2026
