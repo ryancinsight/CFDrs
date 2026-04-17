@@ -356,7 +356,7 @@ fn run_2d(input: &VenturiValidationInput) -> Fidelity2DResult {
 
     let blood = BloodModel::Casson(CassonBlood::<f64>::normal_blood());
 
-    let ny = (6.0 * cr).round().clamp(60.0, 300.0) as usize;
+    let ny = (5.0 * cr).round().clamp(40.0, 160.0) as usize;
     let beta = (1.0 - 4.0 * input.throat_diameter_m / input.inlet_diameter_m.max(1e-12))
         .clamp(0.0, 0.9);
     let u_inlet = input.inlet_velocity_1d();
@@ -364,13 +364,13 @@ fn run_2d(input: &VenturiValidationInput) -> Fidelity2DResult {
     // Adaptive SIMPLE relaxation based on throat Re.
     let re_throat = input.throat_reynolds();
     let config = if re_throat > 100.0 {
-        SIMPLEConfig::new(20000, 1e-4_f64, 0.1_f64, 0.05_f64, 1.0_f64, 1, 1)
+        SIMPLEConfig::new(12000, 1e-4_f64, 0.1_f64, 0.05_f64, 1.0_f64, 1, 1)
     } else {
         SIMPLEConfig::default()
     };
 
     let mut solver = VenturiSolver2D::new_stretched_with_config(
-        geom, blood, RHO, 60, ny, beta, config,
+        geom, blood, RHO, 48, ny, beta, config,
     );
 
     let sol = match solver.solve(u_inlet) {
@@ -446,10 +446,10 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
     let l_total = l_inlet + l_converge + input.throat_length_m + l_diverge;
 
     // Resolution: need ≥ 5 cells across throat half-height on a uniform grid.
-    let ny = ((h_half / h_throat_half) * 12.0).ceil().clamp(320.0, 1800.0) as usize;
+    let ny = ((h_half / h_throat_half) * 8.0).ceil().clamp(96.0, 480.0) as usize;
     let nx = ((l_total / (h_half * 2.0)) * (ny as f64) * 0.75)
         .ceil()
-        .clamp(400.0, 1200.0) as usize;
+        .clamp(160.0, 640.0) as usize;
 
     // Build grid: x ∈ [0, l_total], y ∈ [0, h_half] (half-model).
     let grid = match StructuredGrid2D::<f64>::new(nx, ny, 0.0, l_total, 0.0, h_half) {
@@ -465,13 +465,13 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
     } else {
         SimplecPimpleConfig::simplec()
     };
-    config.dt = 5e-7;
+    config.dt = 1e-6;
     config.alpha_u = 0.5;
     config.alpha_p = 1.0;
-    config.n_outer_correctors = 4;
-    config.n_inner_correctors = 3;
+    config.n_outer_correctors = 3;
+    config.n_inner_correctors = 2;
     config.tolerance = 5e-6;
-    config.max_inner_iterations = 150;
+    config.max_inner_iterations = 90;
     config.use_rhie_chow = true;
     config.convection_scheme = SpatialScheme::FirstOrderUpwind;
     config.pressure_linear_solver = PressureLinearSolver::default();
@@ -538,15 +538,15 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
 
                 let is_fluid = y <= local_half_w;
                 fields.mask.set(i, j, is_fluid);
-                if !is_fluid {
-                    fields.u.set(i, j, 0.0);
-                    fields.v.set(i, j, 0.0);
-                    fields.p.set(i, j, 0.0);
-                } else {
+                if is_fluid {
                     let area_ratio = (h_half / local_half_w.max(h_throat_half)).clamp(1.0, cr);
                     fields.u.set(i, j, u_inlet * area_ratio);
                     fields.v.set(i, j, 0.0);
                     fields.p.set(i, j, (1.0 - x / l_total).clamp(0.0, 1.0) * dp_seed);
+                } else {
+                    fields.u.set(i, j, 0.0);
+                    fields.v.set(i, j, 0.0);
+                    fields.p.set(i, j, 0.0);
                 }
             }
         }
@@ -554,9 +554,9 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
 
     // Run SIMPLEC/PIMPLE with adaptive time stepping.
     let nu = MU / RHO;
-    let max_steps = 4000;
+    let max_steps = 1400;
     let target_residual = 5e-5;
-    let dt_initial = 5e-7;
+    let dt_initial = 1e-6;
 
     let _ = match solver.solve_adaptive(
         &mut fields,

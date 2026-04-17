@@ -234,7 +234,7 @@ impl NufftCouplingBenchmark3D {
         let force_balance_l1 = residual.x.abs() + residual.y.abs() + residual.z.abs();
 
         let mut result = BenchmarkResult::new(self.name());
-        result.values = errors.clone();
+        result.values.clone_from(&errors);
         result.errors = errors;
         result.convergence = convergence;
         result.execution_time = elapsed;
@@ -346,11 +346,11 @@ impl NufftCouplingBenchmark3D {
 }
 
 impl Benchmark<f64> for NufftCouplingBenchmark3D {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "nufft_coupling_3d"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "NUFFT-backed irregular probe sampling and Lagrangian marker spreading"
     }
 

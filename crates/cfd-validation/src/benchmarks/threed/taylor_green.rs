@@ -272,14 +272,13 @@ impl TaylorGreenBenchmark3D {
         let energy_scale = history
             .checkpoints
             .first()
-            .map(|checkpoint| {
+            .map_or(1.0, |checkpoint| {
                 if checkpoint.numerical_energy.abs() > f64::EPSILON {
                     checkpoint.analytic_energy / checkpoint.numerical_energy
                 } else {
                     1.0
                 }
-            })
-            .unwrap_or(1.0);
+            });
 
         for checkpoint in &mut history.checkpoints {
             checkpoint.relative_energy_error = if checkpoint.analytic_energy.abs() > f64::EPSILON {
@@ -389,7 +388,7 @@ impl TaylorGreenBenchmark3D {
         );
         result.metadata.insert(
             "step_count".to_string(),
-            format!("{}", step_count),
+            format!("{step_count}"),
         );
         result.metadata.insert(
             "spectrum_stride".to_string(),
@@ -401,7 +400,7 @@ impl TaylorGreenBenchmark3D {
         );
         result.metadata.insert(
             "energy_scale_factor".to_string(),
-            format!("{:.6}", energy_scale),
+            format!("{energy_scale:.6}"),
         );
 
         Ok(TaylorGreenBenchmarkReport { result, history })
@@ -459,8 +458,7 @@ impl TaylorGreenBenchmark3D {
             .iter()
             .enumerate()
             .max_by(|lhs, rhs| lhs.1.partial_cmp(rhs.1).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(index, _)| index)
-            .unwrap_or(0);
+            .map_or(0, |(index, _)| index);
 
         Ok(TaylorGreenCheckpoint {
             step,

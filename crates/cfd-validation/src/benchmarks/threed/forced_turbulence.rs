@@ -304,8 +304,7 @@ impl ForcedTurbulenceBenchmark3D {
         let mut previous_energy: Option<f64> = None;
         for checkpoint in &mut history.checkpoints {
             checkpoint.energy_delta = previous_energy
-                .map(|energy| (checkpoint.kinetic_energy - energy).abs())
-                .unwrap_or(0.0);
+                .map_or(0.0, |energy| (checkpoint.kinetic_energy - energy).abs());
             previous_energy = Some(checkpoint.kinetic_energy);
         }
 
@@ -360,8 +359,7 @@ impl ForcedTurbulenceBenchmark3D {
             .iter()
             .enumerate()
             .max_by(|lhs, rhs| lhs.1.partial_cmp(rhs.1).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(index, _)| index)
-            .unwrap_or(0);
+            .map_or(0, |(index, _)| index);
 
         result.metrics.insert(
             "Probe Samples".to_string(),
@@ -514,8 +512,7 @@ impl ForcedTurbulenceBenchmark3D {
             .iter()
             .enumerate()
             .max_by(|lhs, rhs| lhs.1.partial_cmp(rhs.1).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(index, _)| index)
-            .unwrap_or(0);
+            .map_or(0, |(index, _)| index);
         let enstrophy = enstrophy_spectrum.total_enstrophy;
         let forcing_epoch = (step / config.forcing_resample_stride) as u64;
 

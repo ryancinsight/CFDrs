@@ -16,6 +16,9 @@ use nalgebra::Vector2;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
+/// Centerline profile pair: `(y, u)` vertical and `(x, v)` horizontal samples.
+type CenterlineProfiles = (Vec<(f64, f64)>, Vec<(f64, f64)>);
+
 /// Configuration for the vorticity-stream cavity benchmark.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)
 ]
@@ -297,7 +300,7 @@ impl VorticityStreamCavityBenchmark {
 
         let mut result = BenchmarkResult::new(self.name());
         result.execution_time = elapsed;
-        result.convergence = residual_history.clone();
+        result.convergence.clone_from(&residual_history);
         result.metadata.insert(
             "grid_points".to_string(),
             format!("({}, {})", config.grid_points.0, config.grid_points.1),
@@ -391,7 +394,7 @@ impl VorticityStreamCavityBenchmark {
             reference_errors.extend(residual_history.iter().copied());
         }
 
-        result.values = final_vertical_u.clone();
+        result.values.clone_from(&final_vertical_u);
         result.values.extend(final_horizontal_v.iter().copied());
         result.errors = reference_errors;
 
@@ -434,7 +437,7 @@ impl VorticityStreamCavityBenchmark {
     fn reference_profiles(
         &self,
         config: &VorticityStreamCavityConfig,
-    ) -> Option<(Vec<(f64, f64)>, Vec<(f64, f64)>)> {
+    ) -> Option<CenterlineProfiles> {
         if !config.has_ghia_reference() {
             return None;
         }
@@ -700,13 +703,11 @@ impl Benchmark<f64> for VorticityStreamCavityBenchmark {
         let reference_metrics_ok = result
             .metrics
             .get("Centerline U RMSE")
-            .map(|value| value.is_finite() && *value >= 0.0)
-            .unwrap_or(true)
+            .is_none_or(|value| value.is_finite() && *value >= 0.0)
             && result
                 .metrics
                 .get("Centerline V RMSE")
-                .map(|value| value.is_finite() && *value >= 0.0)
-                .unwrap_or(true);
+                .is_none_or(|value| value.is_finite() && *value >= 0.0);
 
         Ok(finite_history
             && final_residual.is_finite()
@@ -718,7 +719,7 @@ impl Benchmark<f64> for VorticityStreamCavityBenchmark {
             && final_divergence.is_finite()
             && *final_divergence >= 0.0
             && result.values.len() >= 2
-            && result.convergence.len() >= 1
+            && !result.convergence.is_empty()
             && reference_metrics_ok)
     }
 }
