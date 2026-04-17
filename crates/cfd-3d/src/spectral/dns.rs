@@ -326,7 +326,7 @@ impl PeriodicPseudospectralDns3D {
     }
 
     fn mode_is_kept(&self, index: usize, size: usize, cutoff: usize) -> bool {
-        self.signed_mode(index, size).abs() as usize <= cutoff
+        self.signed_mode(index, size).unsigned_abs() <= cutoff
     }
 
     fn signed_mode(&self, index: usize, size: usize) -> isize {

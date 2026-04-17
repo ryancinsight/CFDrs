@@ -288,7 +288,7 @@ impl<
                         && outlet_radial <= geom_f64.d_daughters[i] / 2.0 + radial_tol
                         && face_axis_alignment(face, outlet_axis) >= min_alignment
                     {
-                        let label = format!("outlet_{}", i);
+                        let label = format!("outlet_{i}");
                         local_boundary_faces_by_label
                             .entry(label.clone())
                             .or_default()
@@ -318,7 +318,7 @@ impl<
         let (mut face_sets, mut boundary_faces_by_label) = classify_boundary_faces(0.8_f64);
         let missing_outlet = (0..3).any(|i| {
             boundary_faces_by_label
-                .get(&format!("outlet_{}", i))
+                .get(&format!("outlet_{i}"))
                 .is_none_or(Vec::is_empty)
         });
         if face_sets.inlet_nodes.is_empty() || missing_outlet {
@@ -489,8 +489,7 @@ impl<
             &fem_solution,
             boundary_faces_by_label
                 .get("inlet")
-                .map(Vec::as_slice)
-                .unwrap_or(&empty_faces),
+                .map_or(empty_faces.as_slice(), Vec::as_slice),
             "inlet",
         )?);
         let q_d1 = <T as From<f64>>::from(self.calculate_boundary_flow_on_faces_f64(
@@ -498,8 +497,7 @@ impl<
             &fem_solution,
             boundary_faces_by_label
                 .get("outlet_0")
-                .map(Vec::as_slice)
-                .unwrap_or(&empty_faces),
+                .map_or(empty_faces.as_slice(), Vec::as_slice),
             "outlet_0",
         )?);
         let q_d2 = <T as From<f64>>::from(self.calculate_boundary_flow_on_faces_f64(
@@ -507,8 +505,7 @@ impl<
             &fem_solution,
             boundary_faces_by_label
                 .get("outlet_1")
-                .map(Vec::as_slice)
-                .unwrap_or(&empty_faces),
+                .map_or(empty_faces.as_slice(), Vec::as_slice),
             "outlet_1",
         )?);
         let q_d3 = <T as From<f64>>::from(self.calculate_boundary_flow_on_faces_f64(
@@ -516,8 +513,7 @@ impl<
             &fem_solution,
             boundary_faces_by_label
                 .get("outlet_2")
-                .map(Vec::as_slice)
-                .unwrap_or(&empty_faces),
+                .map_or(empty_faces.as_slice(), Vec::as_slice),
             "outlet_2",
         )?);
 
@@ -554,11 +550,9 @@ impl<
                 &fem_solution,
                 boundary_faces_by_label
                     .get("inlet")
-                    .map(Vec::as_slice)
-                    .unwrap_or(&empty_faces),
+                    .map_or(empty_faces.as_slice(), Vec::as_slice),
             )
-            .map(T::from_f64_or_one)
-            .unwrap_or(self.config.inlet_pressure);
+            .map_or(self.config.inlet_pressure, T::from_f64_or_one);
 
         let p_out0 = self
             .average_boundary_pressure_on_faces_f64(
@@ -566,33 +560,27 @@ impl<
                 &fem_solution,
                 boundary_faces_by_label
                     .get("outlet_0")
-                    .map(Vec::as_slice)
-                    .unwrap_or(&empty_faces),
+                    .map_or(empty_faces.as_slice(), Vec::as_slice),
             )
-            .map(T::from_f64_or_one)
-            .unwrap_or_else(T::zero);
+            .map_or_else(T::zero, T::from_f64_or_one);
         let p_out1 = self
             .average_boundary_pressure_on_faces_f64(
                 mesh,
                 &fem_solution,
                 boundary_faces_by_label
                     .get("outlet_1")
-                    .map(Vec::as_slice)
-                    .unwrap_or(&empty_faces),
+                    .map_or(empty_faces.as_slice(), Vec::as_slice),
             )
-            .map(T::from_f64_or_one)
-            .unwrap_or_else(T::zero);
+            .map_or_else(T::zero, T::from_f64_or_one);
         let p_out2 = self
             .average_boundary_pressure_on_faces_f64(
                 mesh,
                 &fem_solution,
                 boundary_faces_by_label
                     .get("outlet_2")
-                    .map(Vec::as_slice)
-                    .unwrap_or(&empty_faces),
+                    .map_or(empty_faces.as_slice(), Vec::as_slice),
             )
-            .map(T::from_f64_or_one)
-            .unwrap_or_else(T::zero);
+            .map_or_else(T::zero, T::from_f64_or_one);
 
         let p_out_mean = (p_out0 + p_out1 + p_out2) / T::from_f64_or_one(3.0);
         let dp = [

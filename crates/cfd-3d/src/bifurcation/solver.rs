@@ -192,7 +192,7 @@ impl<
                         edge_mid.entry((vi, vj)).or_insert_with(|| {
                             let pi = tet_mesh.vertices.position(VertexId::from_usize(vi));
                             let pj = tet_mesh.vertices.position(VertexId::from_usize(vj));
-                            m.add_vertex_unique(
+                            m.add_vertex(
                                 P3::new(
                                     (pi.x + pj.x) * 0.5,
                                     (pi.y + pj.y) * 0.5,
