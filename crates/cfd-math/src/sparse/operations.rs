@@ -69,16 +69,18 @@ pub fn spmv<T: RealField + Copy>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVect
         let row_start = row_offsets[i];
         let row_end = row_offsets[i + 1];
 
-        if let Some(start_col) = contiguous_row_start(col_indices, row_start, row_end) {
-            let len = row_end - row_start;
-            if len >= simd_min_len && start_col + len <= x_slice.len() {
-                if let Some(sum) = simd_dot_if_available(
-                    &simd_ops,
-                    &values[row_start..row_end],
-                    &x_slice[start_col..start_col + len],
-                ) {
-                    y[i] = sum;
-                    continue;
+        let len = row_end - row_start;
+        if len >= simd_min_len {
+            if let Some(start_col) = contiguous_row_start(col_indices, row_start, row_end) {
+                if start_col + len <= x_slice.len() {
+                    if let Some(sum) = simd_dot_if_available(
+                        &simd_ops,
+                        &values[row_start..row_end],
+                        &x_slice[start_col..start_col + len],
+                    ) {
+                        y.as_mut_slice()[i] = sum;
+                        continue;
+                    }
                 }
             }
         }
@@ -87,9 +89,9 @@ pub fn spmv<T: RealField + Copy>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVect
         for j in row_start..row_end {
             let col_idx = col_indices[j];
             let val = values[j];
-            sum += val * x[col_idx];
+            sum += val * x_slice[col_idx];
         }
-        y[i] = sum;
+        y.as_mut_slice()[i] = sum;
     }
 }
 
@@ -130,9 +132,10 @@ fn contiguous_row_start(col_indices: &[usize], row_start: usize, row_end: usize)
     if row_end <= row_start {
         return None;
     }
-    let start = *col_indices.get(row_start)?;
+    let start = col_indices[row_start];
     let mut prev = start;
-    for &col in &col_indices[row_start + 1..row_end] {
+    for i in (row_start + 1)..row_end {
+        let col = col_indices[i];
         if col != prev + 1 {
             return None;
         }
@@ -216,20 +219,25 @@ where
     assert_eq!(x.len(), a.ncols(), "Input vector dimension mismatch");
     assert_eq!(y.len(), a.nrows(), "Output vector dimension mismatch");
 
+    let x_slice = x.as_slice();
+    let row_offsets = a.row_offsets();
+    let col_indices = a.col_indices();
+    let values = a.values();
+
     // Parallel row-wise computation using rayon
     // Each thread processes a subset of rows independently
     y.as_mut_slice()
         .par_iter_mut()
         .enumerate()
         .for_each(|(i, y_i)| {
-            let row_start = a.row_offsets()[i];
-            let row_end = a.row_offsets()[i + 1];
+            let row_start = row_offsets[i];
+            let row_end = row_offsets[i + 1];
 
             let mut sum = T::zero();
             for j in row_start..row_end {
-                let col_idx = a.col_indices()[j];
-                let val = a.values()[j];
-                sum += val * x[col_idx];
+                let col_idx = col_indices[j];
+                let val = values[j];
+                sum += val * x_slice[col_idx];
             }
             *y_i = sum;
         });

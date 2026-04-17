@@ -10,9 +10,9 @@
 //! Markowitz pivoting to maintain sparsity.
 
 use cfd_core::error::{Error, Result};
-use nalgebra::{DVector, RealField};
+use nalgebra::{DMatrix, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive, ToPrimitive};
 use rsparse::data::Sprs;
 
 /// Direct sparse solver configuration.
@@ -45,7 +45,7 @@ impl DirectSparseSolver {
     /// Solve Ax = b using sparse LU factorization.
     pub fn solve<T>(&self, matrix: &CsrMatrix<T>, rhs: &DVector<T>) -> Result<DVector<T>>
     where
-        T: RealField + Copy + Float + FromPrimitive + ToPrimitive,
+        T: RealField + Copy + FromPrimitive + ToPrimitive,
     {
         let nrows = matrix.nrows();
         let ncols = matrix.ncols();
@@ -63,20 +63,65 @@ impl DirectSparseSolver {
 
         let (sprs, mut b) = csr_to_csc_sprs_f64(matrix, rhs)?;
 
-        rsparse::lusol(&sprs, &mut b, self.ordering, self.pivot_tolerance)
-            .map_err(|e| Error::Solver(format!("Direct sparse LU failed: {e}")))?;
+        match rsparse::lusol(&sprs, &mut b, self.ordering, self.pivot_tolerance) {
+            Ok(()) => {
+                let mut x = DVector::zeros(nrows);
+                for (i, value) in b.iter().enumerate() {
+                    x[i] = T::from_f64(*value).unwrap_or_else(T::zero);
+                }
+                Ok(x)
+            }
+            Err(e) => {
+                let dense_threshold = 1024usize;
+                if nrows <= dense_threshold {
+                    tracing::warn!(
+                        size = nrows,
+                        ordering = self.ordering,
+                        pivot_tolerance = self.pivot_tolerance,
+                        "Direct sparse LU failed; retrying with dense LU"
+                    );
+                    let dense_solution = dense_lu_solve(matrix, rhs).map_err(|dense_error| {
+                        Error::Solver(format!(
+                            "Direct sparse LU failed: {e}; dense LU fallback failed: {dense_error}"
+                        ))
+                    })?;
+                    return Ok(dense_solution);
+                }
 
-        let mut x = DVector::zeros(nrows);
-        for (i, value) in b.iter().enumerate() {
-            x[i] = T::from_f64(*value).unwrap_or_else(T::zero);
+                Err(Error::Solver(format!("Direct sparse LU failed: {e}")))
+            }
         }
-        Ok(x)
     }
+}
+
+fn dense_lu_solve<T>(matrix: &CsrMatrix<T>, rhs: &DVector<T>) -> Result<DVector<T>>
+where
+    T: RealField + Copy + FromPrimitive + ToPrimitive,
+{
+    let nrows = matrix.nrows();
+    let ncols = matrix.ncols();
+    let mut dense = DMatrix::zeros(nrows, ncols);
+
+    let row_offsets = matrix.row_offsets();
+    let col_indices = matrix.col_indices();
+    let values = matrix.values();
+
+    for row in 0..nrows {
+        for idx in row_offsets[row]..row_offsets[row + 1] {
+            dense[(row, col_indices[idx])] = values[idx];
+        }
+    }
+
+    let solution = dense
+        .lu()
+        .solve(rhs)
+        .ok_or_else(|| Error::Solver("Dense LU failed: matrix is singular".to_string()))?;
+    Ok(solution)
 }
 
 fn csr_to_csc_sprs_f64<T>(matrix: &CsrMatrix<T>, rhs: &DVector<T>) -> Result<(Sprs<f64>, Vec<f64>)>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive,
+    T: RealField + Copy + FromPrimitive + ToPrimitive,
 {
     let nrows = matrix.nrows();
     let ncols = matrix.ncols();
@@ -141,18 +186,18 @@ mod tests {
     #[test]
     fn direct_solver_solves_small_system() {
         let mut builder = SparseMatrixBuilder::new(2, 2);
-        builder.add_entry(0, 0, 3.0).unwrap();
-        builder.add_entry(0, 1, 1.0).unwrap();
-        builder.add_entry(1, 0, 1.0).unwrap();
-        builder.add_entry(1, 1, 2.0).unwrap();
+        builder.add_entry(0, 0, 3.0_f64).unwrap();
+        builder.add_entry(0, 1, 1.0_f64).unwrap();
+        builder.add_entry(1, 0, 1.0_f64).unwrap();
+        builder.add_entry(1, 1, 2.0_f64).unwrap();
 
-        let mut rhs = DVector::from_vec(vec![9.0, 8.0]);
+        let mut rhs = DVector::from_vec(vec![9.0_f64, 8.0_f64]);
         let matrix = builder.build_with_rhs(&mut rhs).unwrap();
 
         let solver = DirectSparseSolver::default();
         let x = solver.solve(&matrix, &rhs).unwrap();
 
-        assert!((x[0] - 2.0).abs() < 1e-8);
-        assert!((x[1] - 3.0).abs() < 1e-8);
+        assert!((x[0] - 2.0_f64).abs() < 1e-8_f64);
+        assert!((x[1] - 3.0_f64).abs() < 1e-8_f64);
     }
 }
