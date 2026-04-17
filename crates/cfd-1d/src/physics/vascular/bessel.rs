@@ -152,4 +152,3 @@ mod tests {
         assert_relative_eq!(numerical_derivative.im, neg_j1.im, max_relative = 1e-5);
     }
 }
-

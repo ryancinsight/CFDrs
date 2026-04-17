@@ -236,21 +236,28 @@ mod tests {
         let (r_large, _) = large.calculate_coefficients(&water(), &conditions).unwrap();
         let (r_small, _) = small.calculate_coefficients(&water(), &conditions).unwrap();
         // D halved by 10x → R increases by 10^4 = 10000x (D^4 in denominator)
-        assert!(r_small > r_large * 9000.0, "small diameter should produce much larger resistance");
+        assert!(
+            r_small > r_large * 9000.0,
+            "small diameter should produce much larger resistance"
+        );
         assert_relative_eq!(r_small / r_large, 1e4, max_relative = 1e-10);
     }
-    
+
     #[test]
     fn negative_dimensions_rejected() {
         let conditions = FlowConditions::new(0.0);
-        
+
         let neg_diam = HagenPoiseuilleModel::new(-0.001_f64, 0.01_f64);
         assert!(neg_diam.validate_invariants(&water(), &conditions).is_err());
-        
+
         let zero_diam = HagenPoiseuilleModel::new(0.0_f64, 0.01_f64);
-        assert!(zero_diam.validate_invariants(&water(), &conditions).is_err());
-        
+        assert!(zero_diam
+            .validate_invariants(&water(), &conditions)
+            .is_err());
+
         let neg_length = HagenPoiseuilleModel::new(0.001_f64, -0.01_f64);
-        assert!(neg_length.validate_invariants(&water(), &conditions).is_err());
+        assert!(neg_length
+            .validate_invariants(&water(), &conditions)
+            .is_err());
     }
 }

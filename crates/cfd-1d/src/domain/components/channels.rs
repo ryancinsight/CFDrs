@@ -251,9 +251,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for CircularChannel<T> {
         let conditions = crate::physics::resistance::models::FlowConditions::new(T::zero());
         model
             .calculate_resistance(fluid, &conditions)
-            .unwrap_or_else(|_| {
-                real_from_f64(1e12)
-            })
+            .unwrap_or_else(|_| real_from_f64(1e12))
     }
 
     fn coefficients(&self, fluid: &ConstantPropertyFluid<T>) -> (T, T) {

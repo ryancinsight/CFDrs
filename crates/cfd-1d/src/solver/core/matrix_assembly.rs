@@ -308,9 +308,7 @@ mod tests {
             },
         );
 
-        let fluid = ConstantPropertyFluid::new(
-            "test".into(), 1000.0, 1e-3, 4180.0, 0.6, 2.1e9,
-        );
+        let fluid = ConstantPropertyFluid::new("test".into(), 1000.0, 1e-3, 4180.0, 0.6, 2.1e9);
         let mut net = Network::new(graph, fluid);
         net.set_pressure(a, p_a);
         net.set_pressure(c, p_c);
@@ -335,8 +333,14 @@ mod tests {
         assert!((rhs[2] - 0.0).abs() < 1e-12);
 
         // Off-diagonals in Dirichlet rows should be zero
-        assert!(mat.get_entry(0, 1).is_none() || mat.get_entry(0, 1).unwrap().into_value().abs() < 1e-12);
-        assert!(mat.get_entry(2, 1).is_none() || mat.get_entry(2, 1).unwrap().into_value().abs() < 1e-12);
+        assert!(
+            mat.get_entry(0, 1).is_none()
+                || mat.get_entry(0, 1).unwrap().into_value().abs() < 1e-12
+        );
+        assert!(
+            mat.get_entry(2, 1).is_none()
+                || mat.get_entry(2, 1).unwrap().into_value().abs() < 1e-12
+        );
     }
 
     #[test]
@@ -351,16 +355,29 @@ mod tests {
         // Row B (index 1): after Dirichlet column elimination, only diagonal remains
         // A(1,1) = g1 + g2 = 3.0
         let diag_b = mat.get_entry(1, 1).unwrap().into_value();
-        assert!((diag_b - 3.0).abs() < 1e-12, "B diagonal should be 3.0, got {diag_b}");
+        assert!(
+            (diag_b - 3.0).abs() < 1e-12,
+            "B diagonal should be 3.0, got {diag_b}"
+        );
 
         // Off-diagonal entries (1,0) and (1,2) should be absent (eliminated)
         let off_10 = mat.get_entry(1, 0).map(|e| e.into_value()).unwrap_or(0.0);
         let off_12 = mat.get_entry(1, 2).map(|e| e.into_value()).unwrap_or(0.0);
-        assert!(off_10.abs() < 1e-12, "A(1,0) should be 0 after elimination, got {off_10}");
-        assert!(off_12.abs() < 1e-12, "A(1,2) should be 0 after elimination, got {off_12}");
+        assert!(
+            off_10.abs() < 1e-12,
+            "A(1,0) should be 0 after elimination, got {off_10}"
+        );
+        assert!(
+            off_12.abs() < 1e-12,
+            "A(1,2) should be 0 after elimination, got {off_12}"
+        );
 
         // RHS[1] = g1*p_A + g2*p_C = 100
-        assert!((rhs[1] - 100.0).abs() < 1e-12, "RHS[B] should be 100.0, got {}", rhs[1]);
+        assert!(
+            (rhs[1] - 100.0).abs() < 1e-12,
+            "RHS[B] should be 100.0, got {}",
+            rhs[1]
+        );
     }
 
     #[test]
@@ -371,7 +388,11 @@ mod tests {
         let (_mat, rhs) = assembler.assemble(&net).unwrap();
 
         // RHS[B] = g1*p_A + g2*p_C + q_ext = 100 + 0 + 5 = 105
-        assert!((rhs[1] - 105.0).abs() < 1e-12, "Neumann source not in RHS: got {}", rhs[1]);
+        assert!(
+            (rhs[1] - 105.0).abs() < 1e-12,
+            "Neumann source not in RHS: got {}",
+            rhs[1]
+        );
     }
 
     #[test]
@@ -396,9 +417,7 @@ mod tests {
         graph.add_edge(b, c, mk_edge("BC", 3.0));
         graph.add_edge(c, d, mk_edge("CD", 4.0));
 
-        let fluid = ConstantPropertyFluid::new(
-            "test".into(), 1000.0, 1e-3, 4180.0, 0.6, 2.1e9,
-        );
+        let fluid = ConstantPropertyFluid::new("test".into(), 1000.0, 1e-3, 4180.0, 0.6, 2.1e9);
         let mut net = Network::new(graph, fluid);
         net.set_pressure(a, 100.0);
         net.set_pressure(d, 0.0);

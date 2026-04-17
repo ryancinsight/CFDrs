@@ -11,6 +11,7 @@ use nalgebra::{DVector, RealField};
 use num_traits::FromPrimitive;
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
+use petgraph::Direction;
 use std::collections::HashMap;
 
 /// Extended network with fluid properties and convenience methods
@@ -68,6 +69,15 @@ pub enum ResistanceUpdatePolicy {
 
 use crate::domain::channel::{ChannelType, CrossSection, SurfaceProperties, Wettability};
 use cfd_schematics::domain::model::{ChannelSpec, CrossSectionSpec};
+
+/// Edge-property key for discharge/feed hematocrit.
+pub const EDGE_PROPERTY_HEMATOCRIT: &str = "feed_hematocrit";
+/// Edge-property key for locally propagated daughter/tube hematocrit.
+pub const EDGE_PROPERTY_LOCAL_HEMATOCRIT: &str = "local_hematocrit";
+/// Edge-property key for plasma dynamic viscosity in Pa·s.
+pub const EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S: &str = "plasma_viscosity_pa_s";
+/// Edge-property key for a transiently assembled local apparent viscosity in Pa·s.
+pub const EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S: &str = "local_apparent_viscosity_pa_s";
 
 impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for EdgeProperties<T> {
     /// Convert a `ChannelSpec` from `cfd-schematics` into solver-layer `EdgeProperties`.
@@ -161,6 +171,24 @@ pub struct ParallelEdge<T: RealField + Copy> {
     pub conductance: T,
 }
 
+struct ResistanceUpdateContext<T: RealField + Copy> {
+    calculator: crate::physics::resistance::ResistanceCalculator<T>,
+    epsilon: T,
+    is_blood_like: bool,
+    t_std: T,
+    density: T,
+    viscosity: T,
+    durst_re_floor: T,
+    durst_limit: T,
+    durst_offset: T,
+    sixty_four: T,
+    eight: T,
+    microchannel_limit: T,
+    default_hematocrit: T,
+    default_plasma_viscosity: T,
+    tiny: T,
+}
+
 impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
     /// Create a new network
     pub fn new(graph: NetworkGraph<T>, fluid: F) -> Self {
@@ -195,7 +223,11 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                     .get(&edge_idx)
                     .map(|props| EdgeWithProperties {
                         id: edge_data.id.clone(),
-                        flow_rate: self.flow_rates.get(edge_idx.index()).copied().unwrap_or(T::zero()),
+                        flow_rate: self
+                            .flow_rates
+                            .get(edge_idx.index())
+                            .copied()
+                            .unwrap_or(T::zero()),
                         nodes: (from, to),
                         properties: props,
                     })
@@ -316,6 +348,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         let n_edges = self.graph.edge_count();
         self.flow_rates.resize(n_edges, T::zero());
         let edge_indices: Vec<_> = self.graph.edge_indices().collect();
+        let update_context = self.resistance_update_context()?;
 
         for edge_idx in edge_indices {
             let (from, to) = self
@@ -374,199 +407,459 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             }
         }
 
-        // After updating flow rates, re-calculate resistances and quadratic coefficients
-        // if they are flow-rate dependent.
-        self.update_resistances()?;
+        self.propagate_blood_hematocrit(&update_context)?;
+        for edge_idx in self.graph.edge_indices().collect::<Vec<_>>() {
+            let flow = self
+                .flow_rates
+                .get(edge_idx.index())
+                .copied()
+                .unwrap_or(T::zero());
+            self.update_single_edge_resistance(edge_idx, flow, &update_context)?;
+        }
 
+        Ok(())
+    }
+
+    /// Build `FlowConditions` for an edge given its geometric properties and current flow rate.
+    fn build_edge_flow_conditions(
+        &self,
+        props: &EdgeProperties<T>,
+        flow_rate: T,
+        t_std: T,
+        density: T,
+        eight: T,
+        epsilon: T,
+    ) -> Result<(crate::physics::resistance::FlowConditions<T>, Option<T>)> {
+        let mut conditions =
+            crate::physics::resistance::FlowConditions::from_flow_rate(flow_rate.abs());
+        conditions.temperature = t_std;
+        let mut apparent_viscosity = None;
+        if let Some(d_h) = props.hydraulic_diameter {
+            if d_h > epsilon && props.area > epsilon {
+                let velocity = flow_rate.abs() / props.area;
+                let shear_rate = eight * velocity / d_h;
+                let apparent_viscosity_local = self.fluid.viscosity_at_shear(
+                    shear_rate,
+                    conditions.temperature,
+                    conditions.pressure,
+                )?;
+                conditions.shear_rate = Some(shear_rate);
+                apparent_viscosity = Some(apparent_viscosity_local);
+                if apparent_viscosity_local > epsilon {
+                    conditions.reynolds_number =
+                        Some(density * velocity * d_h / apparent_viscosity_local);
+                }
+            }
+        }
+        Ok((conditions, apparent_viscosity))
+    }
+
+    fn resistance_update_context(&self) -> Result<ResistanceUpdateContext<T>> {
+        let epsilon = T::default_epsilon();
+        let t_std = T::from_f64(cfd_core::physics::constants::physics::thermo::T_STANDARD)
+            .unwrap_or_else(T::one);
+        let p_std = T::from_f64(cfd_core::physics::constants::physics::thermo::P_ATM)
+            .unwrap_or_else(T::zero);
+        let state = self.fluid.properties_at(t_std, p_std)?;
+        Ok(ResistanceUpdateContext {
+            calculator: crate::physics::resistance::ResistanceCalculator::new(),
+            epsilon,
+            is_blood_like: self.fluid.name().to_ascii_lowercase().contains("blood"),
+            t_std,
+            density: state.density,
+            viscosity: state.dynamic_viscosity,
+            durst_re_floor: T::from_f64(10.0).unwrap_or_else(T::one),
+            durst_limit: T::from_f64(50.0).unwrap_or_else(T::one),
+            durst_offset: T::from_f64(2.28).unwrap_or_else(T::one),
+            sixty_four: T::from_f64(64.0).unwrap_or_else(T::one),
+            eight: T::from_f64(8.0).unwrap_or_else(T::one),
+            microchannel_limit: T::from_f64(300.0e-6).unwrap_or_else(T::one),
+            default_hematocrit: T::from_f64(0.45).unwrap_or_else(T::zero),
+            default_plasma_viscosity: state.dynamic_viscosity
+                / T::from_f64(3.2).unwrap_or_else(T::one),
+            tiny: T::from_f64(1.0e-30).unwrap_or(epsilon),
+        })
+    }
+
+    fn update_single_edge_resistance(
+        &mut self,
+        edge_idx: EdgeIndex,
+        flow_rate: T,
+        context: &ResistanceUpdateContext<T>,
+    ) -> Result<()> {
+        let (resistance, quad_coeff) = {
+            let Some(props) = self.properties.get(&edge_idx) else {
+                return Ok(());
+            };
+            if matches!(
+                props.resistance_update_policy,
+                ResistanceUpdatePolicy::FlowInvariant
+            ) {
+                return Ok(());
+            }
+            let Some(geometry) = &props.geometry else {
+                return Ok(());
+            };
+
+            let res_geometry = channel_to_res_geometry(&geometry.cross_section, geometry.length);
+            let (conditions, apparent_viscosity) = self.build_edge_flow_conditions(
+                props,
+                flow_rate,
+                context.t_std,
+                context.density,
+                context.eight,
+                context.epsilon,
+            )?;
+
+            let rectangular_laminar_max = T::from_f64(2300.0).unwrap_or_else(T::one);
+            let is_rectangular = matches!(
+                &res_geometry,
+                crate::physics::resistance::ChannelGeometry::Rectangular { .. }
+            );
+            let use_rectangular_darcy_surrogate = is_rectangular
+                && conditions
+                    .reynolds_number
+                    .is_some_and(|re| re >= rectangular_laminar_max);
+
+            let (mut resistance, quad_coeff) = if use_rectangular_darcy_surrogate {
+                use crate::physics::resistance::models::ResistanceModel;
+
+                let d_h = props.hydraulic_diameter.ok_or_else(|| {
+                    Error::InvalidConfiguration(
+                        "Rectangular branch requires hydraulic diameter for explicit Darcy-Weisbach surrogate".to_string(),
+                    )
+                })?;
+                if props.area <= context.epsilon {
+                    return Err(Error::InvalidConfiguration(
+                        "Rectangular branch requires positive area for explicit Darcy-Weisbach surrogate".to_string(),
+                    ));
+                }
+                crate::physics::resistance::models::DarcyWeisbachModel::new(
+                    d_h,
+                    props.area,
+                    props.length,
+                    T::zero(),
+                )
+                .calculate_coefficients(&self.fluid, &conditions)?
+            } else {
+                context.calculator.calculate_coefficients_auto(
+                    &res_geometry,
+                    &self.fluid,
+                    &conditions,
+                )?
+            };
+
+            if let Some(d_h) = props.hydraulic_diameter {
+                apply_resistance_corrections(
+                    &mut resistance,
+                    d_h,
+                    props.area,
+                    props.length,
+                    flow_rate,
+                    context.density,
+                    context.viscosity,
+                    context.is_blood_like,
+                    context.epsilon,
+                    context.durst_re_floor,
+                    context.durst_limit,
+                    context.durst_offset,
+                    context.sixty_four,
+                    context.tiny,
+                    context.microchannel_limit,
+                    apparent_viscosity,
+                    props
+                        .properties
+                        .get(EDGE_PROPERTY_LOCAL_HEMATOCRIT)
+                        .or_else(|| props.properties.get(EDGE_PROPERTY_HEMATOCRIT))
+                        .copied(),
+                    props
+                        .properties
+                        .get(EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S)
+                        .copied(),
+                    props
+                        .properties
+                        .get(EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S)
+                        .copied(),
+                    context.default_hematocrit,
+                    context.default_plasma_viscosity,
+                );
+            }
+
+            (resistance, quad_coeff)
+        };
+
+        if let Some(edge) = self.graph.edge_weight_mut(edge_idx) {
+            edge.resistance = resistance;
+            edge.quad_coeff = quad_coeff;
+        }
         Ok(())
     }
 
     /// Re-calculate resistances and quadratic coefficients for all edges based on current flow rates.
     pub fn update_resistances(&mut self) -> Result<()> {
         let edge_indices: Vec<_> = self.graph.edge_indices().collect();
-        let calculator = crate::physics::resistance::ResistanceCalculator::new();
-        let epsilon = T::default_epsilon();
-        let is_blood_like = self.fluid.name().to_ascii_lowercase().contains("blood");
-        let t_std =
-            T::from_f64(cfd_core::physics::constants::physics::thermo::T_STANDARD)
-                .unwrap_or_else(T::one);
-        let p_std = T::from_f64(cfd_core::physics::constants::physics::thermo::P_ATM)
-            .unwrap_or_else(T::zero);
-        let state = self.fluid.properties_at(t_std, p_std)?;
-        let density = state.density;
-        let viscosity = state.dynamic_viscosity;
-        let durst_re_floor = T::from_f64(10.0).unwrap_or_else(T::one);
-        let durst_limit = T::from_f64(50.0).unwrap_or_else(T::one);
-        let durst_offset = T::from_f64(2.28).unwrap_or_else(T::one);
-        let sixty_four = T::from_f64(64.0).unwrap_or_else(T::one);
-        let eight = T::from_f64(8.0).unwrap_or_else(T::one);
-        let microchannel_limit = T::from_f64(300.0e-6).unwrap_or_else(T::one);
-        let fl_reference_viscosity = T::from_f64(3.2).unwrap_or_else(T::one);
-        let fl_floor = T::from_f64(0.5).unwrap_or_else(T::zero);
-        let tiny = T::from_f64(1.0e-30).unwrap_or(epsilon);
+        let context = self.resistance_update_context()?;
+        self.propagate_blood_hematocrit(&context)?;
 
         for edge_idx in edge_indices {
-            let flow_rate = self.flow_rates.get(edge_idx.index()).copied().unwrap_or(T::zero());
-
-            // Get geometry and other properties from self.properties
-            if let Some(props) = self.properties.get(&edge_idx) {
-                if matches!(
-                    props.resistance_update_policy,
-                    ResistanceUpdatePolicy::FlowInvariant
-                ) {
-                    continue;
-                }
-                if let Some(geometry) = &props.geometry {
-                    // Map channel::ChannelGeometry to resistance::ChannelGeometry
-                    let res_geometry = match &geometry.cross_section {
-                        crate::domain::channel::CrossSection::Circular { diameter } => {
-                            crate::physics::resistance::ChannelGeometry::Circular {
-                                diameter: *diameter,
-                                length: geometry.length,
-                            }
-                        }
-                        crate::domain::channel::CrossSection::Rectangular { width, height } => {
-                            crate::physics::resistance::ChannelGeometry::Rectangular {
-                                width: *width,
-                                height: *height,
-                                length: geometry.length,
-                            }
-                        }
-                        crate::domain::channel::CrossSection::Elliptical {
-                            major_axis,
-                            minor_axis,
-                        } => crate::physics::resistance::ChannelGeometry::Elliptical {
-                            major_axis: *major_axis,
-                            minor_axis: *minor_axis,
-                            length: geometry.length,
-                        },
-                        crate::domain::channel::CrossSection::Trapezoidal {
-                            top_width,
-                            bottom_width,
-                            height,
-                        } => crate::physics::resistance::ChannelGeometry::Trapezoidal {
-                            top_width: *top_width,
-                            bottom_width: *bottom_width,
-                            height: *height,
-                            length: geometry.length,
-                        },
-                        crate::domain::channel::CrossSection::Custom {
-                            area,
-                            hydraulic_diameter,
-                        } => crate::physics::resistance::ChannelGeometry::Custom {
-                            area: *area,
-                            hydraulic_diameter: *hydraulic_diameter,
-                            length: geometry.length,
-                        },
-                    };
-
-                    // Prepare flow conditions
-                    // Explicitly use from_flow_rate if available, or initialize and set flow rate.
-                    // Using standard ambient temperature (293.15 K) as default instead of zero.
-                    let mut conditions =
-                        crate::physics::resistance::FlowConditions::from_flow_rate(flow_rate.abs());
-                    conditions.temperature = t_std;
-
-                    if let Some(d_h) = props.hydraulic_diameter {
-                        if d_h > epsilon && props.area > epsilon {
-                            let velocity = flow_rate.abs() / props.area;
-                            let shear_rate = eight * velocity / d_h;
-                            let apparent_viscosity = self.fluid.viscosity_at_shear(
-                                shear_rate,
-                                conditions.temperature,
-                                conditions.pressure,
-                            )?;
-
-                            conditions.shear_rate = Some(shear_rate);
-                            if apparent_viscosity > epsilon {
-                                conditions.reynolds_number =
-                                    Some(density * velocity * d_h / apparent_viscosity);
-                            }
-                        }
-                    }
-
-                    // Re-calculate coefficients. Keep calculator auto-selection strict for
-                    // rectangular channels and opt into the hydraulic-diameter surrogate here
-                    // only when the live Picard update has already driven the branch into a
-                    // clearly non-laminar regime.
-                    let rectangular_laminar_max =
-                        T::from_f64(2300.0).unwrap_or_else(T::one);
-                    let is_rectangular = matches!(
-                        &res_geometry,
-                        crate::physics::resistance::ChannelGeometry::Rectangular { .. }
-                    );
-                    let use_rectangular_darcy_surrogate = is_rectangular
-                        && conditions
-                            .reynolds_number
-                            .is_some_and(|re| re >= rectangular_laminar_max);
-
-                    let (mut r, k) = if use_rectangular_darcy_surrogate {
-                        use crate::physics::resistance::models::ResistanceModel;
-
-                        let d_h = props.hydraulic_diameter.ok_or_else(|| {
-                            Error::InvalidConfiguration(
-                                "Rectangular branch requires hydraulic diameter for explicit Darcy-Weisbach surrogate".to_string(),
-                            )
-                        })?;
-                        if props.area <= epsilon {
-                            return Err(Error::InvalidConfiguration(
-                                "Rectangular branch requires positive area for explicit Darcy-Weisbach surrogate".to_string(),
-                            ));
-                        }
-                        crate::physics::resistance::models::DarcyWeisbachModel::new(
-                            d_h,
-                            props.area,
-                            props.length,
-                            T::zero(),
-                        )
-                        .calculate_coefficients(&self.fluid, &conditions)?
-                    } else {
-                        calculator.calculate_coefficients_auto(
-                            &res_geometry,
-                            &self.fluid,
-                            &conditions,
-                        )?
-                    };
-
-                    if let Some(d_h) = props.hydraulic_diameter {
-                        if d_h > epsilon && props.area > epsilon {
-                            let l_over_dh = props.length / d_h;
-                            if l_over_dh < durst_limit && viscosity > epsilon {
-                                // Preserve the short-channel developing-flow correction during
-                                // Picard updates instead of dropping back to fully developed
-                                // resistance after the first flow recomputation.
-                                let velocity = flow_rate.abs() / props.area;
-                                let reynolds = (density * velocity * d_h / viscosity).max(durst_re_floor);
-                                let k_entrance =
-                                    durst_offset + sixty_four / (reynolds * l_over_dh).max(tiny);
-                                let multiplier =
-                                    T::one() + k_entrance / (sixty_four * l_over_dh).max(T::one());
-                                r *= multiplier;
-                            }
-
-                            if is_blood_like && d_h < microchannel_limit {
-                                let fl = cfd_core::physics::fluid::blood::FahraeuasLindqvist::new(
-                                    d_h, T::from_f64(0.45).unwrap_or_else(T::zero),
-                                );
-                                if fl.is_significant() {
-                                    let reduction =
-                                        (fl.relative_viscosity() / fl_reference_viscosity)
-                                            .clamp(fl_floor, T::one());
-                                    r *= reduction;
-                                }
-                            }
-                        }
-                    }
-
-                    // Update the edge in the graph
-                    if let Some(edge) = self.graph.edge_weight_mut(edge_idx) {
-                        edge.resistance = r;
-                        edge.quad_coeff = k;
-                    }
-                }
-            }
+            let flow_rate = self
+                .flow_rates
+                .get(edge_idx.index())
+                .copied()
+                .unwrap_or(T::zero());
+            self.update_single_edge_resistance(edge_idx, flow_rate, &context)?;
         }
         Ok(())
+    }
+
+    fn propagate_blood_hematocrit(&mut self, context: &ResistanceUpdateContext<T>) -> Result<()> {
+        if !context.is_blood_like {
+            return Ok(());
+        }
+
+        let node_indices: Vec<_> = self.graph.node_indices().collect();
+        let tolerance = T::from_f64(1.0e-9).unwrap_or(context.epsilon);
+        let max_sweeps = self.graph.node_count().clamp(2, 12);
+        let mut node_hematocrit = vec![context.default_hematocrit; self.graph.node_count()];
+
+        for props in self.properties.values_mut() {
+            let seed = props
+                .properties
+                .get(EDGE_PROPERTY_HEMATOCRIT)
+                .copied()
+                .unwrap_or(context.default_hematocrit);
+            props
+                .properties
+                .entry(EDGE_PROPERTY_LOCAL_HEMATOCRIT.to_string())
+                .or_insert(seed);
+        }
+
+        for node_idx in &node_indices {
+            node_hematocrit[node_idx.index()] = self.node_hematocrit_estimate(
+                *node_idx,
+                &node_hematocrit,
+                context.default_hematocrit,
+            );
+        }
+
+        for _ in 0..max_sweeps {
+            let mut updates = Vec::new();
+            let mut max_change = T::zero();
+            let mut next_node_hematocrit = node_hematocrit.clone();
+
+            for node_idx in &node_indices {
+                let estimate = self.node_hematocrit_estimate(
+                    *node_idx,
+                    &node_hematocrit,
+                    context.default_hematocrit,
+                );
+                max_change = max_change.max((node_hematocrit[node_idx.index()] - estimate).abs());
+                next_node_hematocrit[node_idx.index()] = estimate;
+            }
+
+            for node_idx in &node_indices {
+                let inflows = self.node_edge_fluxes(*node_idx, true);
+                let outflows = self.node_edge_fluxes(*node_idx, false);
+                if outflows.is_empty() {
+                    continue;
+                }
+                let node_hct = next_node_hematocrit[node_idx.index()];
+
+                if inflows.len() == 1 && outflows.len() == 2 {
+                    if let Some((edge_a, hematocrit_a, edge_b, hematocrit_b)) = self
+                        .bifurcation_hematocrit_split(
+                            inflows[0].0,
+                            outflows[0],
+                            outflows[1],
+                            node_hct,
+                            context.epsilon,
+                        )
+                    {
+                        max_change = max_change.max(
+                            (self.edge_hematocrit(edge_a, context.default_hematocrit)
+                                - hematocrit_a)
+                                .abs(),
+                        );
+                        max_change = max_change.max(
+                            (self.edge_hematocrit(edge_b, context.default_hematocrit)
+                                - hematocrit_b)
+                                .abs(),
+                        );
+                        updates.push((edge_a, hematocrit_a));
+                        updates.push((edge_b, hematocrit_b));
+                        continue;
+                    }
+                }
+
+                for (edge_idx, _) in outflows {
+                    max_change = max_change.max(
+                        (self.edge_hematocrit(edge_idx, context.default_hematocrit) - node_hct)
+                            .abs(),
+                    );
+                    updates.push((edge_idx, node_hct));
+                }
+            }
+
+            for (edge_idx, hematocrit) in updates {
+                if let Some(props) = self.properties.get_mut(&edge_idx) {
+                    props.properties.insert(
+                        EDGE_PROPERTY_LOCAL_HEMATOCRIT.to_string(),
+                        hematocrit.clamp(T::zero(), T::one()),
+                    );
+                }
+            }
+            node_hematocrit = next_node_hematocrit;
+
+            if max_change <= tolerance {
+                break;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn node_hematocrit_estimate(
+        &self,
+        node_idx: NodeIndex,
+        node_hematocrit: &[T],
+        default_hematocrit: T,
+    ) -> T {
+        let inflows = self.node_edge_fluxes(node_idx, true);
+        let total_in = inflows.iter().fold(T::zero(), |acc, (_, q)| acc + *q);
+        if total_in > T::default_epsilon() {
+            return inflows.iter().fold(T::zero(), |acc, (edge_idx, q)| {
+                acc + *q * self.edge_hematocrit(*edge_idx, default_hematocrit)
+            }) / total_in;
+        }
+
+        let outflows = self.node_edge_fluxes(node_idx, false);
+        let total_out = outflows.iter().fold(T::zero(), |acc, (_, q)| acc + *q);
+        if total_out > T::default_epsilon() {
+            let seeded =
+                outflows
+                    .iter()
+                    .fold((T::zero(), T::zero()), |(acc_h, acc_q), (edge_idx, q)| {
+                        let seeded_h = self
+                            .properties
+                            .get(edge_idx)
+                            .and_then(|props| {
+                                props.properties.get(EDGE_PROPERTY_HEMATOCRIT).copied()
+                            })
+                            .unwrap_or_else(|| self.edge_hematocrit(*edge_idx, default_hematocrit));
+                        (acc_h + *q * seeded_h, acc_q + *q)
+                    });
+            if seeded.1 > T::default_epsilon() {
+                return seeded.0 / seeded.1;
+            }
+        }
+
+        node_hematocrit
+            .get(node_idx.index())
+            .copied()
+            .unwrap_or(default_hematocrit)
+    }
+
+    fn node_edge_fluxes(&self, node_idx: NodeIndex, inflow: bool) -> Vec<(EdgeIndex, T)> {
+        let mut fluxes = Vec::new();
+
+        for edge_ref in self.graph.edges_directed(node_idx, Direction::Incoming) {
+            let edge_idx = edge_ref.id();
+            let flow = self
+                .flow_rates
+                .get(edge_idx.index())
+                .copied()
+                .unwrap_or_else(T::zero);
+            if inflow && flow > T::zero() {
+                fluxes.push((edge_idx, flow));
+            } else if !inflow && flow < T::zero() {
+                fluxes.push((edge_idx, -flow));
+            }
+        }
+
+        for edge_ref in self.graph.edges_directed(node_idx, Direction::Outgoing) {
+            let edge_idx = edge_ref.id();
+            let flow = self
+                .flow_rates
+                .get(edge_idx.index())
+                .copied()
+                .unwrap_or_else(T::zero);
+            if inflow && flow < T::zero() {
+                fluxes.push((edge_idx, -flow));
+            } else if !inflow && flow > T::zero() {
+                fluxes.push((edge_idx, flow));
+            }
+        }
+
+        fluxes
+    }
+
+    fn edge_hematocrit(&self, edge_idx: EdgeIndex, default_hematocrit: T) -> T {
+        self.properties
+            .get(&edge_idx)
+            .and_then(|props| {
+                props
+                    .properties
+                    .get(EDGE_PROPERTY_LOCAL_HEMATOCRIT)
+                    .or_else(|| props.properties.get(EDGE_PROPERTY_HEMATOCRIT))
+                    .copied()
+            })
+            .unwrap_or(default_hematocrit)
+    }
+
+    fn bifurcation_hematocrit_split(
+        &self,
+        parent_edge: EdgeIndex,
+        daughter_a: (EdgeIndex, T),
+        daughter_b: (EdgeIndex, T),
+        feed_hematocrit: T,
+        epsilon: T,
+    ) -> Option<(EdgeIndex, T, EdgeIndex, T)> {
+        let parent_diameter = self
+            .properties
+            .get(&parent_edge)?
+            .hydraulic_diameter
+            .and_then(|d| nalgebra::try_convert::<T, f64>(d))?;
+        let daughter_a_diameter = self
+            .properties
+            .get(&daughter_a.0)?
+            .hydraulic_diameter
+            .and_then(|d| nalgebra::try_convert::<T, f64>(d))?;
+        let daughter_b_diameter = self
+            .properties
+            .get(&daughter_b.0)?
+            .hydraulic_diameter
+            .and_then(|d| nalgebra::try_convert::<T, f64>(d))?;
+        let q_a = nalgebra::try_convert::<T, f64>(daughter_a.1)?;
+        let q_b = nalgebra::try_convert::<T, f64>(daughter_b.1)?;
+        let h_feed = nalgebra::try_convert::<T, f64>(feed_hematocrit)?;
+
+        let total_q = q_a + q_b;
+        if total_q <= nalgebra::try_convert::<T, f64>(epsilon)? {
+            return None;
+        }
+
+        let result_a = crate::physics::cell_separation::plasma_skimming::pries_phase_separation(
+            h_feed.clamp(0.0, 1.0),
+            (q_a / total_q).clamp(0.0, 1.0),
+            daughter_a_diameter * 1.0e6,
+            daughter_b_diameter * 1.0e6,
+            parent_diameter * 1.0e6,
+        )
+        .ok()?;
+
+        let flow_fraction_b: f64 = (q_b / total_q).clamp(0.0, 1.0);
+        let hematocrit_b = if flow_fraction_b > 1.0e-15_f64 {
+            ((1.0 - result_a.cell_fraction) * h_feed / flow_fraction_b).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+
+        Some((
+            daughter_a.0,
+            T::from_f64(result_a.daughter_hematocrit)?,
+            daughter_b.0,
+            T::from_f64(hematocrit_b)?,
+        ))
     }
 
     /// Validate network edge coefficients (resistance and quadratic coefficients).
@@ -634,4 +927,147 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             }
         })
     }
+}
+
+/// Map a `CrossSection` + length to the resistance-crate `ChannelGeometry`.
+fn channel_to_res_geometry<T: nalgebra::RealField + Copy>(
+    cross_section: &crate::domain::channel::CrossSection<T>,
+    length: T,
+) -> crate::physics::resistance::ChannelGeometry<T> {
+    match cross_section {
+        crate::domain::channel::CrossSection::Circular { diameter } => {
+            crate::physics::resistance::ChannelGeometry::Circular {
+                diameter: *diameter,
+                length,
+            }
+        }
+        crate::domain::channel::CrossSection::Rectangular { width, height } => {
+            crate::physics::resistance::ChannelGeometry::Rectangular {
+                width: *width,
+                height: *height,
+                length,
+            }
+        }
+        crate::domain::channel::CrossSection::Elliptical {
+            major_axis,
+            minor_axis,
+        } => crate::physics::resistance::ChannelGeometry::Elliptical {
+            major_axis: *major_axis,
+            minor_axis: *minor_axis,
+            length,
+        },
+        crate::domain::channel::CrossSection::Trapezoidal {
+            top_width,
+            bottom_width,
+            height,
+        } => crate::physics::resistance::ChannelGeometry::Trapezoidal {
+            top_width: *top_width,
+            bottom_width: *bottom_width,
+            height: *height,
+            length,
+        },
+        crate::domain::channel::CrossSection::Custom {
+            area,
+            hydraulic_diameter,
+        } => crate::physics::resistance::ChannelGeometry::Custom {
+            area: *area,
+            hydraulic_diameter: *hydraulic_diameter,
+            length,
+        },
+    }
+}
+
+/// Apply short-channel (Durst) and Fåhræus–Lindqvist blood viscosity corrections to `r`.
+#[allow(clippy::too_many_arguments)]
+fn apply_resistance_corrections<T: nalgebra::RealField + Copy>(
+    r: &mut T,
+    d_h: T,
+    area: T,
+    length: T,
+    flow_rate: T,
+    density: T,
+    viscosity: T,
+    is_blood_like: bool,
+    epsilon: T,
+    durst_re_floor: T,
+    durst_limit: T,
+    durst_offset: T,
+    sixty_four: T,
+    tiny: T,
+    microchannel_limit: T,
+    apparent_viscosity: Option<T>,
+    hematocrit: Option<T>,
+    apparent_viscosity_override: Option<T>,
+    plasma_viscosity: Option<T>,
+    default_hematocrit: T,
+    default_plasma_viscosity: T,
+) {
+    if d_h > epsilon && area > epsilon {
+        let l_over_dh = length / d_h;
+        if l_over_dh < durst_limit && viscosity > epsilon {
+            let velocity = flow_rate.abs() / area;
+            let reynolds = (density * velocity * d_h / viscosity).max(durst_re_floor);
+            let k_entrance = durst_offset + sixty_four / (reynolds * l_over_dh).max(tiny);
+            let multiplier = T::one() + k_entrance / (sixty_four * l_over_dh).max(T::one());
+            *r *= multiplier;
+        }
+
+        if is_blood_like && d_h < microchannel_limit {
+            let local_mu = apparent_viscosity.unwrap_or(viscosity);
+            if local_mu > epsilon {
+                let target_mu = apparent_viscosity_override.or_else(|| {
+                    blood_microchannel_apparent_viscosity(
+                        d_h,
+                        flow_rate,
+                        area,
+                        hematocrit.unwrap_or(default_hematocrit),
+                        plasma_viscosity.unwrap_or(default_plasma_viscosity),
+                    )
+                });
+                if let Some(target_mu) = target_mu {
+                    let ratio = target_mu / local_mu;
+                    if ratio.is_finite() && ratio > epsilon {
+                        *r *= ratio;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Estimate microchannel blood apparent viscosity from local shear, diameter,
+/// hematocrit, and plasma viscosity using Secomb diameter correction together
+/// with Quemada low-shear aggregation.
+pub fn blood_microchannel_apparent_viscosity<T: nalgebra::RealField + Copy + FromPrimitive>(
+    d_h: T,
+    flow_rate: T,
+    area: T,
+    hematocrit: T,
+    plasma_viscosity: T,
+) -> Option<T> {
+    let d_h_m = nalgebra::try_convert::<T, f64>(d_h)?;
+    let flow_rate_m3_s = nalgebra::try_convert::<T, f64>(flow_rate.abs())?;
+    let area_m2 = nalgebra::try_convert::<T, f64>(area)?;
+    let hematocrit = nalgebra::try_convert::<T, f64>(hematocrit)?;
+    let plasma_viscosity = nalgebra::try_convert::<T, f64>(plasma_viscosity)?;
+    if d_h_m <= 0.0 || area_m2 <= 0.0 || plasma_viscosity <= 0.0 {
+        return None;
+    }
+
+    let velocity = flow_rate_m3_s / area_m2;
+    let shear_rate = (8.0 * velocity / d_h_m).abs();
+    let diameter_um = d_h_m * 1.0e6;
+    let secomb = crate::physics::cell_separation::fahraeus_lindqvist::secomb_network_viscosity(
+        diameter_um,
+        hematocrit.clamp(0.0, 0.95),
+        plasma_viscosity,
+    );
+    let quemada = crate::physics::cell_separation::rouleaux_aggregation::quemada_viscosity(
+        shear_rate,
+        hematocrit.clamp(0.0, 0.95),
+        plasma_viscosity,
+    );
+
+    let target = secomb.max(quemada);
+    T::from_f64(target)
 }

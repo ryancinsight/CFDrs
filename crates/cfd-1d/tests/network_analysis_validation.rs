@@ -25,8 +25,16 @@ fn compute_flow_rates(network: &Network<f64>) -> Vec<f64> {
         let edge_data = edge_ref.weight();
 
         // Get pressures (default to 0 if not set)
-        let p_from = network.pressures().get(from_node.index()).copied().unwrap_or(0.0);
-        let p_to = network.pressures().get(to_node.index()).copied().unwrap_or(0.0);
+        let p_from = network
+            .pressures()
+            .get(from_node.index())
+            .copied()
+            .unwrap_or(0.0);
+        let p_to = network
+            .pressures()
+            .get(to_node.index())
+            .copied()
+            .unwrap_or(0.0);
 
         // Q = (P_from - P_to) / R
         let flow = (p_from - p_to) / edge_data.resistance;
@@ -67,11 +75,7 @@ fn test_simple_network_topology() -> Result<()> {
 /// - White (2015), Eq. 6-49: Series pipes combine resistances additively
 /// - Jeppson (1976), Section 2.2: "Resistances in series are additive"
 ///
-/// NOTE: Test simplified to 2-node series (single channel) due to solver behavior
-/// where multi-junction series networks show flow distribution issues. The series
-/// additivity principle is validated through total resistance measurement.
 #[test]
-#[ignore = "Series networks with junctions show flow distribution issues in solver"]
 fn test_series_resistance_addition() -> Result<()> {
     let fluid = database::water_20c::<f64>()?;
 

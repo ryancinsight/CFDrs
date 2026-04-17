@@ -140,13 +140,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         let upper = q_parent;
         let tolerances = ScalarSolveTolerances::for_target(target_dp, q_parent);
         bisect_monotone_target(lower, upper, target_dp, tolerances, |flow_rate| {
-            self.daughter_pressure_drop(
-                fluid,
-                daughter_index,
-                flow_rate,
-                temperature,
-                pressure,
-            )
+            self.daughter_pressure_drop(fluid, daughter_index, flow_rate, temperature, pressure)
         })
     }
 
@@ -159,8 +153,22 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         pressure: T,
     ) -> T {
         self.flow_for_common_pressure_drop(fluid, 0, target_dp, q_parent, temperature, pressure)
-            + self.flow_for_common_pressure_drop(fluid, 1, target_dp, q_parent, temperature, pressure)
-            + self.flow_for_common_pressure_drop(fluid, 2, target_dp, q_parent, temperature, pressure)
+            + self.flow_for_common_pressure_drop(
+                fluid,
+                1,
+                target_dp,
+                q_parent,
+                temperature,
+                pressure,
+            )
+            + self.flow_for_common_pressure_drop(
+                fluid,
+                2,
+                target_dp,
+                q_parent,
+                temperature,
+                pressure,
+            )
     }
 
     fn solve_pressure_balanced_flows<F: FluidTrait<T>>(
@@ -210,38 +218,29 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         }
 
         if upper_sum < target_sum {
-            return Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::StagnatedResidual {
-                residual: (target_sum - upper_sum).to_f64().unwrap_or(f64::NAN),
-            }));
+            return Err(Error::Convergence(
+                cfd_core::error::ConvergenceErrorKind::StagnatedResidual {
+                    residual: (target_sum - upper_sum).to_f64().unwrap_or(f64::NAN),
+                },
+            ));
         }
 
         let tolerances = ScalarSolveTolerances::for_target(q_parent, upper_dp);
-        let final_dp = bisect_monotone_target(lower_dp, upper_dp, q_parent, tolerances, |target_dp| {
-            self.total_flow_for_common_pressure_drop(
-                fluid,
-                target_dp,
-                q_parent,
-                temperature,
-                pressure,
-            )
-        });
+        let final_dp =
+            bisect_monotone_target(lower_dp, upper_dp, q_parent, tolerances, |target_dp| {
+                self.total_flow_for_common_pressure_drop(
+                    fluid,
+                    target_dp,
+                    q_parent,
+                    temperature,
+                    pressure,
+                )
+            });
 
-        let q_1 = self.flow_for_common_pressure_drop(
-            fluid,
-            0,
-            final_dp,
-            q_parent,
-            temperature,
-            pressure,
-        );
-        let q_2 = self.flow_for_common_pressure_drop(
-            fluid,
-            1,
-            final_dp,
-            q_parent,
-            temperature,
-            pressure,
-        );
+        let q_1 =
+            self.flow_for_common_pressure_drop(fluid, 0, final_dp, q_parent, temperature, pressure);
+        let q_2 =
+            self.flow_for_common_pressure_drop(fluid, 1, final_dp, q_parent, temperature, pressure);
         let q_3 = (q_parent - q_1 - q_2).max(T::zero());
         Ok((q_1, q_2, q_3))
     }
@@ -275,13 +274,25 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
             pressure,
         );
         let dp_1 = TwoWayBranchJunction::pressure_drop(
-            &fluid, q_1, &self.daughter1, temperature, pressure,
+            &fluid,
+            q_1,
+            &self.daughter1,
+            temperature,
+            pressure,
         );
         let dp_2 = TwoWayBranchJunction::pressure_drop(
-            &fluid, q_2, &self.daughter2, temperature, pressure,
+            &fluid,
+            q_2,
+            &self.daughter2,
+            temperature,
+            pressure,
         );
         let dp_3 = TwoWayBranchJunction::pressure_drop(
-            &fluid, q_3, &self.daughter3, temperature, pressure,
+            &fluid,
+            q_3,
+            &self.daughter3,
+            temperature,
+            pressure,
         );
 
         let p_junction = p_parent - dp_parent;
@@ -299,13 +310,25 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         let gamma_3 = TwoWayBranchJunction::shear_rate(q_3, &self.daughter3);
 
         let mu_1 = TwoWayBranchJunction::apparent_viscosity(
-            &fluid, q_1, &self.daughter1, temperature, pressure,
+            &fluid,
+            q_1,
+            &self.daughter1,
+            temperature,
+            pressure,
         );
         let mu_2 = TwoWayBranchJunction::apparent_viscosity(
-            &fluid, q_2, &self.daughter2, temperature, pressure,
+            &fluid,
+            q_2,
+            &self.daughter2,
+            temperature,
+            pressure,
         );
         let mu_3 = TwoWayBranchJunction::apparent_viscosity(
-            &fluid, q_3, &self.daughter3, temperature, pressure,
+            &fluid,
+            q_3,
+            &self.daughter3,
+            temperature,
+            pressure,
         );
 
         Ok(ThreeWayBranchSolution {

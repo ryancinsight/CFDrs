@@ -2,6 +2,11 @@ use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
 
+/// Canonical mixture key for transported RBC volume fraction.
+pub const BLOOD_RBC_FLUID_ID: i32 = -10_001;
+/// Canonical mixture key for transported plasma volume fraction.
+pub const BLOOD_PLASMA_FLUID_ID: i32 = -10_002;
+
 /// Mixture composition keyed by `fluid_id` with mass/volume fractions.
 #[derive(Debug, Clone)]
 pub struct MixtureComposition<T: RealField + Copy> {
@@ -31,6 +36,21 @@ impl<T: RealField + Copy + FromPrimitive> MixtureComposition<T> {
         Self {
             fractions: HashMap::new(),
         }
+    }
+
+    /// Construct a two-species blood mixture from hematocrit.
+    pub fn from_blood_hematocrit(hematocrit: T) -> Self {
+        let hct = hematocrit.max(T::zero()).min(T::one());
+        let mut fractions = HashMap::new();
+        fractions.insert(BLOOD_RBC_FLUID_ID, hct);
+        fractions.insert(BLOOD_PLASMA_FLUID_ID, T::one() - hct);
+        Self::new(fractions)
+    }
+
+    /// Return the transported blood hematocrit if the canonical RBC key exists.
+    #[must_use]
+    pub fn hematocrit(&self) -> Option<T> {
+        self.fractions.get(&BLOOD_RBC_FLUID_ID).copied()
     }
 
     /// Weighted blend of incoming mixtures.
@@ -105,5 +125,21 @@ impl<T: RealField + Copy> CompositionState<T> {
         self.edge_mixtures
             .get(&edge_index)
             .map(|mixture| mixture.fractions.clone())
+    }
+
+    /// Return the transported hematocrit in a node mixture, if present.
+    #[must_use]
+    pub fn node_hematocrit(&self, node_index: usize) -> Option<T> {
+        self.node_mixtures
+            .get(&node_index)
+            .and_then(MixtureComposition::hematocrit)
+    }
+
+    /// Return the transported hematocrit in an edge mixture, if present.
+    #[must_use]
+    pub fn edge_hematocrit(&self, edge_index: usize) -> Option<T> {
+        self.edge_mixtures
+            .get(&edge_index)
+            .and_then(MixtureComposition::hematocrit)
     }
 }

@@ -64,11 +64,7 @@
 /// # Returns
 /// CFL width [µm]
 #[inline]
-#[must_use]
-pub fn cfl_width_fedosov(
-    diameter_um: f64,
-    hematocrit: f64,
-) -> cfd_core::error::Result<f64> {
+pub fn cfl_width_fedosov(diameter_um: f64, hematocrit: f64) -> cfd_core::error::Result<f64> {
     if !diameter_um.is_finite() || diameter_um <= 0.0 || !hematocrit.is_finite() {
         return Err(cfd_core::error::Error::InvalidConfiguration(
             "Fedosov CFL inputs must be finite and diameter must be positive".to_string(),
@@ -100,11 +96,7 @@ pub fn cfl_width_fedosov(
 ///
 /// # Returns
 /// CFL width [µm]
-#[must_use]
-pub fn cfl_width_sharan_popel(
-    diameter_um: f64,
-    hematocrit: f64,
-) -> cfd_core::error::Result<f64> {
+pub fn cfl_width_sharan_popel(diameter_um: f64, hematocrit: f64) -> cfd_core::error::Result<f64> {
     if !diameter_um.is_finite() || diameter_um <= 0.0 || !hematocrit.is_finite() {
         return Err(cfd_core::error::Error::InvalidConfiguration(
             "Sharan-Popel CFL inputs must be finite and diameter must be positive".to_string(),
@@ -159,7 +151,6 @@ pub fn cfl_width_sharan_popel(
 ///
 /// # Returns
 /// Apparent viscosity [Pa·s]
-#[must_use]
 pub fn two_layer_viscosity(
     diameter_um: f64,
     hematocrit: f64,
@@ -173,7 +164,8 @@ pub fn two_layer_viscosity(
         || !mu_core_pa_s.is_finite()
     {
         return Err(cfd_core::error::Error::InvalidConfiguration(
-            "Two-layer viscosity inputs must be finite and diameter/viscosities must be positive".to_string(),
+            "Two-layer viscosity inputs must be finite and diameter/viscosities must be positive"
+                .to_string(),
         ));
     }
     if !(0.0..=1.0).contains(&hematocrit) {
@@ -249,7 +241,11 @@ mod tests {
             for ht in [0.1, 0.3, 0.45, 0.6] {
                 let cfl = cfl_width_fedosov(d, ht)?;
                 assert!(cfl > 0.0, "CFL must be positive: d={d}, ht={ht}");
-                assert!(cfl < d / 2.0, "CFL must be < radius: cfl={cfl:.3}, R={}", d / 2.0);
+                assert!(
+                    cfl < d / 2.0,
+                    "CFL must be < radius: cfl={cfl:.3}, R={}",
+                    d / 2.0
+                );
             }
         }
         Ok(())

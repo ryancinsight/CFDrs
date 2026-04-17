@@ -341,16 +341,11 @@ mod tests {
         let solver = BranchingNetworkSolver::new(BranchingNetworkConfig::<f64>::default());
 
         let first_parent = Channel::new(ChannelGeometry::<f64>::circular(1.2e-2, 2.4e-3, 1e-6));
-        let first_daughter1 =
-            Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.6e-3, 1e-6));
-        let first_daughter2 =
-            Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.1e-3, 1e-6));
-        let second_parent =
-            Channel::new(ChannelGeometry::<f64>::circular(0.9e-2, 1.1e-3, 1e-6));
-        let second_daughter1 =
-            Channel::new(ChannelGeometry::<f64>::circular(0.8e-2, 0.8e-3, 1e-6));
-        let second_daughter2 =
-            Channel::new(ChannelGeometry::<f64>::circular(0.8e-2, 0.6e-3, 1e-6));
+        let first_daughter1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.6e-3, 1e-6));
+        let first_daughter2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.1e-3, 1e-6));
+        let second_parent = Channel::new(ChannelGeometry::<f64>::circular(0.9e-2, 1.1e-3, 1e-6));
+        let second_daughter1 = Channel::new(ChannelGeometry::<f64>::circular(0.8e-2, 0.8e-3, 1e-6));
+        let second_daughter2 = Channel::new(ChannelGeometry::<f64>::circular(0.8e-2, 0.6e-3, 1e-6));
 
         let first_junction =
             TwoWayBranchJunction::new(first_parent, first_daughter1, first_daughter2, 0.3);

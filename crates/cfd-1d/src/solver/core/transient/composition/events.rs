@@ -1,6 +1,17 @@
 use super::state::MixtureComposition;
 use nalgebra::RealField;
 
+/// Piecewise-constant inlet hematocrit event for blood-fraction transport.
+#[derive(Debug, Clone)]
+pub struct InletHematocritEvent<T: RealField + Copy> {
+    /// Event activation time.
+    pub time: T,
+    /// Node index where the inlet hematocrit applies.
+    pub node_index: usize,
+    /// Feed hematocrit after this event.
+    pub hematocrit: T,
+}
+
 /// Piecewise-constant inlet mixture event.
 #[derive(Debug, Clone)]
 pub struct InletCompositionEvent<T: RealField + Copy> {

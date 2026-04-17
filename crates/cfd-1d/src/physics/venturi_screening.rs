@@ -31,11 +31,15 @@
 
 use crate::physics::resistance::models::VenturiModel;
 use cfd_core::error::{Error, Result};
+use cfd_core::physics::cavitation::{
+    evaluate_selective_cavitation_thresholds, CellPopulationIdentity,
+    PopulationCavitationThreshold, SelectiveCavitationInput, SelectiveCavitationResult,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Input state for a throat-level venturi screening evaluation.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VenturiScreeningInput {
     /// Absolute upstream static pressure [Pa].
     pub upstream_pressure_pa: f64,
@@ -60,10 +64,13 @@ pub struct VenturiScreeningInput {
     /// Upstream bubble nuclei volume fraction.
     #[serde(default)]
     pub upstream_nuclei_fraction: f64,
+    /// Optional selective-cavitation populations evaluated against the throat state.
+    #[serde(default)]
+    pub selective_cavitation: Option<SelectiveCavitationInput>,
 }
 
 /// Output of a throat-level venturi screening evaluation.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VenturiScreeningResult {
     /// Velocity corrected for vena-contracta acceleration [m/s].
     pub effective_throat_velocity_m_s: f64,
@@ -100,6 +107,38 @@ pub struct VenturiScreeningResult {
     pub diffuser_recovery_pa: f64,
     /// Downstream bubble nuclei volume fraction after generation.
     pub outlet_nuclei_fraction: f64,
+    /// Per-population selective cavitation thresholds evaluated at this state.
+    #[serde(default)]
+    pub population_thresholds_pa: Vec<PopulationCavitationThreshold>,
+    /// Dominant selective population identity, if any.
+    #[serde(default)]
+    pub dominant_selective_population: Option<CellPopulationIdentity>,
+    /// Dominant selective population label, if any.
+    #[serde(default)]
+    pub dominant_selective_label: Option<String>,
+    /// Target-versus-healthy selective margin [Pa].
+    #[serde(default)]
+    pub selectivity_margin_pa: f64,
+    /// Volume-weighted mixture inception threshold [Pa].
+    #[serde(default)]
+    pub mixture_inception_threshold_pa: f64,
+    /// Combined screening regime.
+    #[serde(default)]
+    pub screening_regime: VenturiSelectiveScreeningRegime,
+}
+
+/// Combined hydrodynamic and selective-cavitation regime classification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub enum VenturiSelectiveScreeningRegime {
+    /// No meaningful cavitation signal is present.
+    #[default]
+    HydrodynamicallyStable,
+    /// Hydrodynamic cavitation is likely but not selectively targeted.
+    NonSelectiveCavitation,
+    /// Cavitation is likely and the best threshold belongs to a target population.
+    SelectiveTargetingLikely,
+    /// Cavitation is severe and the target population remains the earliest to cavitate.
+    SelectiveTargetingCritical,
 }
 
 /// Screening classification for venturi throat operation.
@@ -138,6 +177,49 @@ pub struct VenturiScreeningAssessment {
     pub cavitation_margin_pa: f64,
     /// Diffuser recovery divided by Bernoulli contraction drop.
     pub pressure_recovery_ratio: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct HydrodynamicScreeningState {
+    effective_throat_velocity_m_s: f64,
+    raw_throat_static_pressure_pa: f64,
+    bernoulli_drop_pa: f64,
+    throat_friction_drop_pa: f64,
+    throat_static_pressure_pa: f64,
+    cavitation_number: f64,
+    cavitation_margin_pa: f64,
+    raw_throat_reynolds_number: f64,
+    effective_throat_reynolds_number: f64,
+    discharge_coefficient_correction: f64,
+    effective_vena_contracta_coeff: f64,
+    diffuser_recovery_pa: f64,
+    outlet_nuclei_fraction: f64,
+}
+
+fn classify_selective_screening(
+    cavitation_risk: VenturiScreeningRisk,
+    dominant_population: Option<CellPopulationIdentity>,
+    selectivity_margin_pa: f64,
+) -> VenturiSelectiveScreeningRegime {
+    let target_dominant = dominant_population.is_some_and(CellPopulationIdentity::is_target);
+    match cavitation_risk {
+        VenturiScreeningRisk::Quiescent
+        | VenturiScreeningRisk::Stable
+        | VenturiScreeningRisk::Watch => VenturiSelectiveScreeningRegime::HydrodynamicallyStable,
+        VenturiScreeningRisk::CavitationLikely
+            if target_dominant && selectivity_margin_pa > 0.0 =>
+        {
+            VenturiSelectiveScreeningRegime::SelectiveTargetingLikely
+        }
+        VenturiScreeningRisk::CavitationCritical
+            if target_dominant && selectivity_margin_pa > 0.0 =>
+        {
+            VenturiSelectiveScreeningRegime::SelectiveTargetingCritical
+        }
+        VenturiScreeningRisk::CavitationLikely | VenturiScreeningRisk::CavitationCritical => {
+            VenturiSelectiveScreeningRegime::NonSelectiveCavitation
+        }
+    }
 }
 
 fn validate_venturi_screening_input(input: &VenturiScreeningInput) -> Result<()> {
@@ -223,16 +305,12 @@ fn validate_venturi_screening_input(input: &VenturiScreeningInput) -> Result<()>
 /// **Proof sketch**: the numerator is positive by construction, and
 /// $\tan(\theta)$ is positive and strictly increasing on $(0, \pi/2)$, so its
 /// reciprocal is strictly decreasing.
-#[must_use]
 pub fn venturi_taper_length_m(
     outer_width_m: f64,
     throat_width_m: f64,
     half_angle_deg: f64,
 ) -> Result<f64> {
-    if !outer_width_m.is_finite()
-        || !throat_width_m.is_finite()
-        || !half_angle_deg.is_finite()
-    {
+    if !outer_width_m.is_finite() || !throat_width_m.is_finite() || !half_angle_deg.is_finite() {
         return Err(Error::InvalidConfiguration(
             "Venturi taper geometry must be finite".to_string(),
         ));
@@ -271,7 +349,6 @@ pub fn venturi_taper_length_m(
 /// branch endpoints are ordered so the piecewise fit does not increase across
 /// interval boundaries; the final clamp preserves the same bound and monotonic
 /// direction.
-#[must_use]
 pub fn discharge_coefficient_from_convergent_half_angle_deg(half_angle_deg: f64) -> Result<f64> {
     if !half_angle_deg.is_finite() || !(1.0..=45.0).contains(&half_angle_deg) {
         return Err(Error::InvalidConfiguration(
@@ -325,43 +402,41 @@ pub fn assess_venturi_screening(result: &VenturiScreeningResult) -> VenturiScree
     }
 }
 
-/// Evaluate venturi throat screening quantities from local 1D state.
-#[must_use]
-pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> Result<VenturiScreeningResult> {
-    validate_venturi_screening_input(&input)?;
-
-    let effective_vapor_pressure_pa =
-        cfd_core::physics::cavitation::nuclei_transport::nuclei_adjusted_vapor_pressure(
-            input.vapor_pressure_pa,
-            input.upstream_nuclei_fraction,
-        );
-
-    if input.throat_velocity_m_s == 0.0 {
-        return Ok(VenturiScreeningResult {
-            effective_throat_velocity_m_s: 0.0,
-            raw_throat_static_pressure_pa: input.upstream_pressure_pa,
-            bernoulli_drop_pa: 0.0,
-            throat_friction_drop_pa: 0.0,
-            throat_static_pressure_pa: input.upstream_pressure_pa,
-            effective_vapor_pressure_pa,
-            cavitation_number: f64::INFINITY,
-            cavitation_margin_pa: input.upstream_pressure_pa - effective_vapor_pressure_pa,
-            raw_throat_reynolds_number: 0.0,
-            effective_throat_reynolds_number: 0.0,
-            discharge_coefficient_correction: 1.0,
-            effective_vena_contracta_coeff: input.vena_contracta_coeff,
-            diffuser_recovery_pa: 0.0,
-            outlet_nuclei_fraction: input.upstream_nuclei_fraction,
-        });
+fn zero_velocity_screening_result(
+    input: &VenturiScreeningInput,
+    effective_vapor_pressure_pa: f64,
+) -> VenturiScreeningResult {
+    VenturiScreeningResult {
+        effective_throat_velocity_m_s: 0.0,
+        raw_throat_static_pressure_pa: input.upstream_pressure_pa,
+        bernoulli_drop_pa: 0.0,
+        throat_friction_drop_pa: 0.0,
+        throat_static_pressure_pa: input.upstream_pressure_pa,
+        effective_vapor_pressure_pa,
+        cavitation_number: f64::INFINITY,
+        cavitation_margin_pa: input.upstream_pressure_pa - effective_vapor_pressure_pa,
+        raw_throat_reynolds_number: 0.0,
+        effective_throat_reynolds_number: 0.0,
+        discharge_coefficient_correction: 1.0,
+        effective_vena_contracta_coeff: input.vena_contracta_coeff,
+        diffuser_recovery_pa: 0.0,
+        outlet_nuclei_fraction: input.upstream_nuclei_fraction,
+        population_thresholds_pa: Vec::new(),
+        dominant_selective_population: None,
+        dominant_selective_label: None,
+        selectivity_margin_pa: 0.0,
+        mixture_inception_threshold_pa: effective_vapor_pressure_pa,
+        screening_regime: VenturiSelectiveScreeningRegime::HydrodynamicallyStable,
     }
+}
 
-    // Reynolds-dependent discharge coefficient correction.
-    // Reuse the venturi resistance-model correction so the reduced-order
-    // screening path and the pressure-loss model degrade discharge
-    // consistently in the millifluidic low-Re regime.
+fn compute_hydrodynamic_screening_state(
+    input: &VenturiScreeningInput,
+    effective_vapor_pressure_pa: f64,
+) -> HydrodynamicScreeningState {
     let v_raw = input.throat_velocity_m_s / input.vena_contracta_coeff;
-    let re_raw = input.density_kg_m3 * v_raw * input.throat_hydraulic_diameter_m
-        / input.viscosity_pa_s;
+    let re_raw =
+        input.density_kg_m3 * v_raw * input.throat_hydraulic_diameter_m / input.viscosity_pa_s;
     let cd_correction = VenturiModel::<f64>::discharge_coefficient_reynolds_correction(re_raw);
     let effective_cc = input.vena_contracta_coeff * cd_correction;
     let v_eff = input.throat_velocity_m_s / effective_cc;
@@ -370,8 +445,8 @@ pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> Result<Ventur
         * input.density_kg_m3
         * (v_eff * v_eff - input.upstream_velocity_m_s * input.upstream_velocity_m_s).max(0.0);
 
-    let re_throat = input.density_kg_m3 * v_eff * input.throat_hydraulic_diameter_m
-        / input.viscosity_pa_s;
+    let re_throat =
+        input.density_kg_m3 * v_eff * input.throat_hydraulic_diameter_m / input.viscosity_pa_s;
     let f_darcy = if re_throat > 0.0 {
         VenturiModel::<f64>::friction_factor_for_reynolds(re_throat)
     } else {
@@ -383,15 +458,15 @@ pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> Result<Ventur
         input.throat_length_m,
         input.throat_hydraulic_diameter_m,
         v_eff,
+    ) * VenturiModel::<f64>::developing_flow_multiplier(
+        re_throat,
+        input.throat_length_m,
+        input.throat_hydraulic_diameter_m,
     );
 
-    // Unclamped static pressure preserves full Bernoulli + friction
-    // differentiation in the sigma formula.  The physical (non-negative)
-    // value is stored separately in `throat_static_pressure_pa`.
     let throat_static_raw = input.upstream_pressure_pa - bernoulli_drop - friction_drop;
     let throat_static = throat_static_raw.max(0.0);
     let dyn_p = 0.5 * input.density_kg_m3 * v_eff * v_eff;
-
     let cavitation_number = if dyn_p > 1e-12 {
         (throat_static_raw - effective_vapor_pressure_pa) / dyn_p
     } else {
@@ -399,20 +474,13 @@ pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> Result<Ventur
     };
     let cavitation_margin_pa = throat_static_raw - effective_vapor_pressure_pa;
 
-    // Nuclei generation at the throat: use the physical model from
-    // NucleiTransport.  Cavitation (sigma < 1) generates nuclei from
-    // bubble collapse; the generation rate scales with the cavitation
-    // intensity (1 - sigma).  The dissolution during throat transit
-    // partially offsets generation.
     let throat_transit_s = input.throat_length_m / v_eff;
     let cavitation_source = (1.0 - cavitation_number).max(0.0);
     let transport = cfd_core::physics::cavitation::nuclei_transport::NucleiTransport::new(
         cfd_core::physics::cavitation::nuclei_transport::NucleiTransportConfig::default(),
     );
-    let net_rate = transport.calculate_net_reaction_rate(
-        input.upstream_nuclei_fraction,
-        cavitation_source,
-    );
+    let net_rate =
+        transport.calculate_net_reaction_rate(input.upstream_nuclei_fraction, cavitation_source);
     let outlet_nuclei_fraction =
         (input.upstream_nuclei_fraction + net_rate * throat_transit_s).clamp(0.0, 1.0);
 
@@ -423,13 +491,12 @@ pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> Result<Ventur
         * input.density_kg_m3
         * (v_eff * v_eff - input.upstream_velocity_m_s * input.upstream_velocity_m_s).max(0.0);
 
-    Ok(VenturiScreeningResult {
+    HydrodynamicScreeningState {
         effective_throat_velocity_m_s: v_eff,
         raw_throat_static_pressure_pa: throat_static_raw,
         bernoulli_drop_pa: bernoulli_drop,
         throat_friction_drop_pa: friction_drop,
         throat_static_pressure_pa: throat_static,
-        effective_vapor_pressure_pa,
         cavitation_number,
         cavitation_margin_pa,
         raw_throat_reynolds_number: re_raw,
@@ -438,7 +505,117 @@ pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> Result<Ventur
         effective_vena_contracta_coeff: effective_cc,
         diffuser_recovery_pa: diffuser_recovery,
         outlet_nuclei_fraction,
-    })
+    }
+}
+
+fn evaluate_throat_selective_cavitation(
+    input: &VenturiScreeningInput,
+    effective_vapor_pressure_pa: f64,
+    throat_static_raw: f64,
+) -> Result<Option<SelectiveCavitationResult>> {
+    input
+        .selective_cavitation
+        .as_ref()
+        .map(|selective_input| {
+            let mut throat_selective_input = selective_input.clone();
+            throat_selective_input.base_vapor_pressure_pa = effective_vapor_pressure_pa;
+            throat_selective_input.ambient_pressure_pa =
+                throat_static_raw.max(effective_vapor_pressure_pa + 1.0);
+            throat_selective_input.density_kg_m3 = input.density_kg_m3;
+            evaluate_selective_cavitation_thresholds(&throat_selective_input)
+        })
+        .transpose()
+}
+
+fn assemble_venturi_screening_result(
+    effective_vapor_pressure_pa: f64,
+    hydrodynamics: HydrodynamicScreeningState,
+    selective_result: Option<SelectiveCavitationResult>,
+) -> VenturiScreeningResult {
+    let hydrodynamic_risk = if hydrodynamics.effective_throat_velocity_m_s == 0.0 {
+        VenturiScreeningRisk::Quiescent
+    } else if hydrodynamics.cavitation_margin_pa < 0.0 {
+        VenturiScreeningRisk::CavitationCritical
+    } else if hydrodynamics.cavitation_number < 1.0 {
+        VenturiScreeningRisk::CavitationLikely
+    } else if hydrodynamics.cavitation_number < 2.0 || hydrodynamics.outlet_nuclei_fraction > 0.05 {
+        VenturiScreeningRisk::Watch
+    } else {
+        VenturiScreeningRisk::Stable
+    };
+    let dominant_selective_population = selective_result
+        .as_ref()
+        .and_then(|result| result.dominant_selective_population);
+    let selectivity_margin_pa = selective_result
+        .as_ref()
+        .map_or(0.0, |result| result.selectivity_margin_pa);
+    let screening_regime = classify_selective_screening(
+        hydrodynamic_risk,
+        dominant_selective_population,
+        selectivity_margin_pa,
+    );
+
+    VenturiScreeningResult {
+        effective_throat_velocity_m_s: hydrodynamics.effective_throat_velocity_m_s,
+        raw_throat_static_pressure_pa: hydrodynamics.raw_throat_static_pressure_pa,
+        bernoulli_drop_pa: hydrodynamics.bernoulli_drop_pa,
+        throat_friction_drop_pa: hydrodynamics.throat_friction_drop_pa,
+        throat_static_pressure_pa: hydrodynamics.throat_static_pressure_pa,
+        effective_vapor_pressure_pa,
+        cavitation_number: hydrodynamics.cavitation_number,
+        cavitation_margin_pa: hydrodynamics.cavitation_margin_pa,
+        raw_throat_reynolds_number: hydrodynamics.raw_throat_reynolds_number,
+        effective_throat_reynolds_number: hydrodynamics.effective_throat_reynolds_number,
+        discharge_coefficient_correction: hydrodynamics.discharge_coefficient_correction,
+        effective_vena_contracta_coeff: hydrodynamics.effective_vena_contracta_coeff,
+        diffuser_recovery_pa: hydrodynamics.diffuser_recovery_pa,
+        outlet_nuclei_fraction: hydrodynamics.outlet_nuclei_fraction,
+        population_thresholds_pa: selective_result
+            .as_ref()
+            .map_or_else(Vec::new, |result| result.population_thresholds.clone()),
+        dominant_selective_population,
+        dominant_selective_label: selective_result
+            .as_ref()
+            .and_then(|result| result.dominant_selective_label.clone()),
+        selectivity_margin_pa,
+        mixture_inception_threshold_pa: selective_result
+            .as_ref()
+            .map_or(effective_vapor_pressure_pa, |result| {
+                result.mixture_inception_threshold_pa
+            }),
+        screening_regime,
+    }
+}
+
+/// Evaluate venturi throat screening quantities from local 1D state.
+pub fn evaluate_venturi_screening(input: VenturiScreeningInput) -> Result<VenturiScreeningResult> {
+    validate_venturi_screening_input(&input)?;
+
+    let effective_vapor_pressure_pa =
+        cfd_core::physics::cavitation::nuclei_transport::nuclei_adjusted_vapor_pressure(
+            input.vapor_pressure_pa,
+            input.upstream_nuclei_fraction,
+        );
+
+    if input.throat_velocity_m_s == 0.0 {
+        return Ok(zero_velocity_screening_result(
+            &input,
+            effective_vapor_pressure_pa,
+        ));
+    }
+
+    let hydrodynamics = compute_hydrodynamic_screening_state(&input, effective_vapor_pressure_pa);
+    let selective_result = evaluate_throat_selective_cavitation(
+        &input,
+        effective_vapor_pressure_pa,
+        hydrodynamics.raw_throat_static_pressure_pa,
+    )?;
+
+    Ok(assemble_venturi_screening_result(
+        effective_vapor_pressure_pa,
+        hydrodynamics,
+        selective_result,
+    ))
 }
 
 #[cfg(test)]
@@ -447,8 +624,13 @@ mod tests {
         assess_venturi_screening, classify_venturi_screening,
         discharge_coefficient_from_convergent_half_angle_deg, evaluate_venturi_screening,
         venturi_taper_length_m, VenturiScreeningInput, VenturiScreeningRisk,
+        VenturiSelectiveScreeningRegime,
     };
     use crate::physics::resistance::models::VenturiModel;
+    use cfd_core::physics::cavitation::{
+        CellMechanicalState, CellPopulationIdentity, PopulationNucleationState,
+        SelectiveCavitationInput, SelectiveCavitationPopulation,
+    };
     use proptest::prelude::*;
 
     proptest! {
@@ -528,9 +710,10 @@ mod tests {
             vena_contracta_coeff: 0.9,
             diffuser_recovery_coeff: 0.7,
             upstream_nuclei_fraction: 0.0,
+            selective_cavitation: None,
         };
 
-        assert!(evaluate_venturi_screening(input).is_err());
+        assert!(evaluate_venturi_screening(input.clone()).is_err());
     }
 
     #[test]
@@ -547,9 +730,10 @@ mod tests {
             vena_contracta_coeff: 1.05,
             diffuser_recovery_coeff: 0.7,
             upstream_nuclei_fraction: 0.0,
+            selective_cavitation: None,
         };
 
-        assert!(evaluate_venturi_screening(input).is_err());
+        assert!(evaluate_venturi_screening(input.clone()).is_err());
 
         let input = VenturiScreeningInput {
             diffuser_recovery_coeff: 1.1,
@@ -573,6 +757,7 @@ mod tests {
             vena_contracta_coeff: 0.9,
             diffuser_recovery_coeff: 0.7,
             upstream_nuclei_fraction: 0.0,
+            selective_cavitation: None,
         };
 
         assert!(evaluate_venturi_screening(input).is_err());
@@ -592,6 +777,7 @@ mod tests {
             vena_contracta_coeff: 0.9,
             diffuser_recovery_coeff: 0.7,
             upstream_nuclei_fraction: 0.0,
+            selective_cavitation: None,
         };
 
         let result = evaluate_venturi_screening(input).expect("zero-flow limit should succeed");
@@ -600,7 +786,10 @@ mod tests {
         assert_eq!(result.throat_friction_drop_pa, 0.0);
         assert_eq!(result.diffuser_recovery_pa, 0.0);
         assert!(result.cavitation_number.is_infinite());
-        assert_eq!(classify_venturi_screening(&result), VenturiScreeningRisk::Quiescent);
+        assert_eq!(
+            classify_venturi_screening(&result),
+            VenturiScreeningRisk::Quiescent
+        );
 
         let assessment = assess_venturi_screening(&result);
         assert_eq!(assessment.risk, VenturiScreeningRisk::Quiescent);
@@ -621,6 +810,7 @@ mod tests {
             vena_contracta_coeff: 0.9,
             diffuser_recovery_coeff: 0.7,
             upstream_nuclei_fraction: 0.0,
+            selective_cavitation: None,
         };
 
         let result = evaluate_venturi_screening(input).expect("screening should succeed");
@@ -630,7 +820,10 @@ mod tests {
         assert!(result.effective_throat_reynolds_number > 0.0);
         assert!(result.discharge_coefficient_correction <= 1.0);
         assert!(result.effective_vena_contracta_coeff > 0.0);
-        assert_eq!(classify_venturi_screening(&result), VenturiScreeningRisk::Stable);
+        assert_eq!(
+            classify_venturi_screening(&result),
+            VenturiScreeningRisk::Stable
+        );
 
         let assessment = assess_venturi_screening(&result);
         assert_eq!(assessment.risk, VenturiScreeningRisk::Stable);
@@ -652,12 +845,16 @@ mod tests {
             vena_contracta_coeff: 0.9,
             diffuser_recovery_coeff: 0.7,
             upstream_nuclei_fraction: 0.0,
+            selective_cavitation: None,
         };
 
         let result = evaluate_venturi_screening(input).expect("screening should succeed");
 
         assert!(result.raw_throat_static_pressure_pa < 0.0);
-        assert_eq!(classify_venturi_screening(&result), VenturiScreeningRisk::CavitationCritical);
+        assert_eq!(
+            classify_venturi_screening(&result),
+            VenturiScreeningRisk::CavitationCritical
+        );
     }
 
     #[test]
@@ -674,25 +871,36 @@ mod tests {
             vena_contracta_coeff: 0.98,
             diffuser_recovery_coeff: 0.7,
             upstream_nuclei_fraction: 0.0,
+            selective_cavitation: None,
         };
 
-        let result = evaluate_venturi_screening(input).expect("high-Re screening should succeed");
+        let result =
+            evaluate_venturi_screening(input.clone()).expect("high-Re screening should succeed");
 
         assert!(result.effective_throat_reynolds_number > 2300.0);
 
-        let expected_f = 0.3164 / result.effective_throat_reynolds_number.powf(0.25);
+        let expected_f = VenturiModel::<f64>::friction_factor_for_reynolds(
+            result.effective_throat_reynolds_number,
+        );
         let expected_drop = expected_f
             * (input.throat_length_m / input.throat_hydraulic_diameter_m)
             * 0.5
             * input.density_kg_m3
-            * result.effective_throat_velocity_m_s.powi(2);
+            * result.effective_throat_velocity_m_s.powi(2)
+            * VenturiModel::<f64>::developing_flow_multiplier(
+                result.effective_throat_reynolds_number,
+                input.throat_length_m,
+                input.throat_hydraulic_diameter_m,
+            );
         let laminar_drop = (64.0 / result.effective_throat_reynolds_number)
             * (input.throat_length_m / input.throat_hydraulic_diameter_m)
             * 0.5
             * input.density_kg_m3
             * result.effective_throat_velocity_m_s.powi(2);
 
-        assert!((result.throat_friction_drop_pa - expected_drop).abs() < 1e-9 * expected_drop.max(1.0));
+        assert!(
+            (result.throat_friction_drop_pa - expected_drop).abs() < 1e-9 * expected_drop.max(1.0)
+        );
         assert!(result.throat_friction_drop_pa > laminar_drop);
     }
 
@@ -710,15 +918,20 @@ mod tests {
             vena_contracta_coeff: 0.95,
             diffuser_recovery_coeff: 0.7,
             upstream_nuclei_fraction: 0.0,
+            selective_cavitation: None,
         };
 
-        let result = evaluate_venturi_screening(input).expect("screening should succeed");
-        let expected_correction = (0.5
-            + 0.5 * (result.raw_throat_reynolds_number / 1000.0).powf(0.3))
-            .min(1.0);
+        let result = evaluate_venturi_screening(input.clone()).expect("screening should succeed");
+        let expected_correction =
+            (0.5 + 0.5 * (result.raw_throat_reynolds_number / 1000.0).powf(0.3)).min(1.0);
 
         assert!((result.discharge_coefficient_correction - expected_correction).abs() < 1e-12);
-        assert!((result.effective_vena_contracta_coeff - input.vena_contracta_coeff * expected_correction).abs() < 1e-12);
+        assert!(
+            (result.effective_vena_contracta_coeff
+                - input.vena_contracta_coeff * expected_correction)
+                .abs()
+                < 1e-12
+        );
     }
 
     #[test]
@@ -735,13 +948,13 @@ mod tests {
             vena_contracta_coeff: 0.95,
             diffuser_recovery_coeff: 0.7,
             upstream_nuclei_fraction: 0.0,
+            selective_cavitation: None,
         };
 
-        let result = evaluate_venturi_screening(input).expect("screening should succeed");
-        let expected_correction =
-            VenturiModel::<f64>::diffuser_recovery_reynolds_correction(
-                result.effective_throat_reynolds_number,
-            );
+        let result = evaluate_venturi_screening(input.clone()).expect("screening should succeed");
+        let expected_correction = VenturiModel::<f64>::diffuser_recovery_reynolds_correction(
+            result.effective_throat_reynolds_number,
+        );
         let dynamic_recovery = 0.5
             * input.density_kg_m3
             * (result.effective_throat_velocity_m_s.powi(2) - input.upstream_velocity_m_s.powi(2))
@@ -752,6 +965,74 @@ mod tests {
                 - input.diffuser_recovery_coeff * expected_correction * dynamic_recovery)
                 .abs()
                 < 1e-12
+        );
+    }
+
+    #[test]
+    fn evaluate_venturi_screening_reports_selective_targeting() {
+        let input = VenturiScreeningInput {
+            upstream_pressure_pa: 4_000.0,
+            upstream_velocity_m_s: 0.1,
+            throat_velocity_m_s: 5.0,
+            throat_hydraulic_diameter_m: 1.0e-3,
+            throat_length_m: 1.0e-3,
+            density_kg_m3: 1060.0,
+            viscosity_pa_s: 3.5e-3,
+            vapor_pressure_pa: 3170.0,
+            vena_contracta_coeff: 0.9,
+            diffuser_recovery_coeff: 0.7,
+            upstream_nuclei_fraction: 0.04,
+            selective_cavitation: Some(SelectiveCavitationInput {
+                base_vapor_pressure_pa: 3170.0,
+                ambient_pressure_pa: 101_325.0,
+                density_kg_m3: 1060.0,
+                populations: vec![
+                    SelectiveCavitationPopulation {
+                        identity: CellPopulationIdentity::HealthyRbc,
+                        label: "healthy_rbc".to_string(),
+                        mechanical_state: CellMechanicalState {
+                            membrane_stiffness_pa: 120_000.0,
+                            interfacial_tension_n_m: 0.07,
+                            particle_radius_m: 4.0e-6,
+                            deformability_factor: 1.0,
+                        },
+                        nucleation_state: PopulationNucleationState {
+                            volume_fraction: 0.8,
+                            upstream_nuclei_fraction: 0.01,
+                            seed_density_factor: 0.05,
+                            inception_weight: 1.0,
+                        },
+                    },
+                    SelectiveCavitationPopulation {
+                        identity: CellPopulationIdentity::CirculatingTumorCell,
+                        label: "ctc".to_string(),
+                        mechanical_state: CellMechanicalState {
+                            membrane_stiffness_pa: 20_000.0,
+                            interfacial_tension_n_m: 0.03,
+                            particle_radius_m: 9.0e-6,
+                            deformability_factor: 1.2,
+                        },
+                        nucleation_state: PopulationNucleationState {
+                            volume_fraction: 0.2,
+                            upstream_nuclei_fraction: 0.06,
+                            seed_density_factor: 0.3,
+                            inception_weight: 1.0,
+                        },
+                    },
+                ],
+            }),
+        };
+
+        let result = evaluate_venturi_screening(input).expect("screening should succeed");
+        assert_eq!(
+            result.dominant_selective_population,
+            Some(CellPopulationIdentity::CirculatingTumorCell)
+        );
+        assert!(result.selectivity_margin_pa > 0.0);
+        assert!(!result.population_thresholds_pa.is_empty());
+        assert_eq!(
+            result.screening_regime,
+            VenturiSelectiveScreeningRegime::SelectiveTargetingCritical
         );
     }
 }

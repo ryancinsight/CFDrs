@@ -60,7 +60,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         (edge3, resistance_2, "channel_3"),
     ] {
         let props = EdgeProperties {
-            resistance_update_policy: cfd_1d::domain::network::ResistanceUpdatePolicy::FlowInvariant,
+            resistance_update_policy:
+                cfd_1d::domain::network::ResistanceUpdatePolicy::FlowInvariant,
             id: id.to_string(),
             component_type: cfd_1d::domain::network::ComponentType::Pipe,
             resistance,

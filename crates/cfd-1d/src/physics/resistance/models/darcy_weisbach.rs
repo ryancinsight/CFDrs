@@ -473,14 +473,7 @@ mod tests {
     }
 
     fn water() -> ConstantPropertyFluid<f64> {
-        ConstantPropertyFluid::new(
-            "water".into(),
-            998.0,
-            1.002e-3,
-            4182.0,
-            0.598,
-            2.15e9,
-        )
+        ConstantPropertyFluid::new("water".into(), 998.0, 1.002e-3, 4182.0, 0.598, 2.15e9)
     }
 
     #[test]
@@ -524,24 +517,27 @@ mod tests {
         // Turbulent regime: should return (R = 0, K > 0)
         let cond_turb = conditions_with_re(50_000.0);
         let (r2, k2) = model.calculate_coefficients(&fluid, &cond_turb).unwrap();
-        assert!((r2 - 0.0).abs() < 1e-12, "Turbulent R should be zero, got {r2}");
+        assert!(
+            (r2 - 0.0).abs() < 1e-12,
+            "Turbulent R should be zero, got {r2}"
+        );
         assert!(k2 > 0.0, "Turbulent K should be positive, got {k2}");
     }
-    
+
     #[test]
     fn negative_dimensions_rejected() {
         let fluid = water();
         let cond = conditions_with_re(50_000.0);
-        
+
         let neg_dh = DarcyWeisbachModel::new(-0.01, 0.0001, 1.0, 0.0001);
         assert!(neg_dh.validate_invariants(&fluid, &cond).is_err());
-        
+
         let neg_a = DarcyWeisbachModel::new(0.01, -0.0001, 1.0, 0.0001);
         assert!(neg_a.validate_invariants(&fluid, &cond).is_err());
-        
+
         let neg_l = DarcyWeisbachModel::new(0.01, 0.0001, -1.0, 0.0001);
         assert!(neg_l.validate_invariants(&fluid, &cond).is_err());
-        
+
         let neg_r = DarcyWeisbachModel::new(0.01, 0.0001, 1.0, -0.0001);
         assert!(neg_r.validate_invariants(&fluid, &cond).is_err());
     }

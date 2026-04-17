@@ -25,6 +25,10 @@ pub mod simulator;
 /// Mixture state definitions.
 pub mod state;
 
-pub use events::{EdgeFlowEvent, InletCompositionEvent, PressureBoundaryEvent};
-pub use simulator::{SimulationTimeConfig, TransientCompositionSimulator};
-pub use state::{CompositionState, MixtureComposition};
+pub use events::{
+    EdgeFlowEvent, InletCompositionEvent, InletHematocritEvent, PressureBoundaryEvent,
+};
+pub use simulator::{
+    BloodEdgeTransportConfig, SimulationTimeConfig, TransientCompositionSimulator,
+};
+pub use state::{CompositionState, MixtureComposition, BLOOD_PLASMA_FLUID_ID, BLOOD_RBC_FLUID_ID};

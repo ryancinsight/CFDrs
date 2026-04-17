@@ -279,9 +279,7 @@ mod tests {
 
     #[test]
     fn test_womersley_flow_solver() {
-        let flow = WomersleyFlow::<f64>::new(
-            0.003, 0.1, 1060.0, 0.0035, 7.54, 133.0, -1000.0,
-        );
+        let flow = WomersleyFlow::<f64>::new(0.003, 0.1, 1060.0, 0.0035, 7.54, 133.0, -1000.0);
         let alpha = flow.womersley_number().value();
         assert!(alpha > 2.0 && alpha < 5.0);
         let u = flow.velocity(0.5, 0.3);
@@ -369,7 +367,11 @@ mod tests {
         let q_mean = 5e-6;
         let (pi, v_peak, v_trough) = womersley_pulsatility_index(q_mean, 0.0, area);
 
-        assert!(pi.abs() < 1e-12, "PI should be 0 for steady flow, got {}", pi);
+        assert!(
+            pi.abs() < 1e-12,
+            "PI should be 0 for steady flow, got {}",
+            pi
+        );
         let v_mean = q_mean / area;
         assert_relative_eq!(v_peak, v_mean, max_relative = 1e-12);
         assert_relative_eq!(v_trough, v_mean, max_relative = 1e-12);

@@ -2,7 +2,7 @@ use nalgebra::{DVector, RealField};
 use std::collections::VecDeque;
 
 /// Pre-allocated workspace buffers for the non-linear network solver.
-/// 
+///
 /// Eliminates heap allocations during the Picard iteration hot path by
 /// reusing vectors, deques, and preserving constant boundary conditions.
 #[derive(Debug, Clone)]
@@ -11,6 +11,8 @@ pub struct SolverWorkspace<T: RealField + Copy> {
     pub rhs: DVector<T>,
     /// Solution from the previous iteration
     pub last_solution: DVector<T>,
+    /// Reusable initial guess / output buffer for the linear solve.
+    pub linear_solution: DVector<T>,
     /// Anderson acceleration residual histories
     pub anderson_residuals: VecDeque<DVector<T>>,
     /// Anderson acceleration iterate histories
@@ -27,6 +29,7 @@ impl<T: RealField + Copy> SolverWorkspace<T> {
         Self {
             rhs: DVector::zeros(n),
             last_solution: DVector::zeros(n),
+            linear_solution: DVector::zeros(n),
             anderson_residuals: VecDeque::with_capacity(anderson_depth),
             anderson_iterates: VecDeque::with_capacity(anderson_depth),
             dirichlet_values: vec![None; n],
@@ -39,9 +42,11 @@ impl<T: RealField + Copy> SolverWorkspace<T> {
         if self.rhs.len() == n {
             self.rhs.fill(T::zero());
             self.last_solution.fill(T::zero());
+            self.linear_solution.fill(T::zero());
         } else {
             self.rhs = DVector::zeros(n);
             self.last_solution = DVector::zeros(n);
+            self.linear_solution = DVector::zeros(n);
             self.dirichlet_values.resize(n, None);
             self.neumann_sources.resize(n, None);
         }

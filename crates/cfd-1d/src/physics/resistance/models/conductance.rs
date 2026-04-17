@@ -131,9 +131,7 @@ pub fn parallel_channel_flow_fractions(branches: &[(f64, f64)]) -> Vec<f64> {
 ///
 /// Stages with zero total area are skipped (no contribution to the product).
 #[must_use]
-pub fn cascade_treatment_flow_fractions(
-    stages: &[&[(f64, f64, bool)]],
-) -> (Vec<f64>, f64) {
+pub fn cascade_treatment_flow_fractions(stages: &[&[(f64, f64, bool)]]) -> (Vec<f64>, f64) {
     let mut cumulative = 1.0_f64;
     let mut per_stage = Vec::with_capacity(stages.len());
     for branches in stages {

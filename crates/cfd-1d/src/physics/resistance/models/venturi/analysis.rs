@@ -172,12 +172,15 @@ mod tests {
         let conditions = FlowConditions::new(0.2);
 
         let analysis = model.analyze(&fluid, &conditions)?;
-        let expected_total = analysis.dp_contraction
-            + analysis.dp_friction
-            + analysis.dp_expansion_loss
-            - analysis.dp_recovery;
+        let expected_total =
+            analysis.dp_contraction + analysis.dp_friction + analysis.dp_expansion_loss
+                - analysis.dp_recovery;
 
-        assert_relative_eq!(analysis.dp_total, expected_total, epsilon = expected_total.abs().max(1.0) * 1e-12);
+        assert_relative_eq!(
+            analysis.dp_total,
+            expected_total,
+            epsilon = expected_total.abs().max(1.0) * 1e-12
+        );
         Ok(())
     }
 

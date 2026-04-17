@@ -625,8 +625,8 @@ mod tests {
         let root_resistance = root.resistance(network.viscosity);
         let daughter_a_resistance = daughter_a.resistance(network.viscosity);
         let daughter_b_resistance = daughter_b.resistance(network.viscosity);
-        let expected = root_resistance
-            + 1.0 / (1.0 / daughter_a_resistance + 1.0 / daughter_b_resistance);
+        let expected =
+            root_resistance + 1.0 / (1.0 / daughter_a_resistance + 1.0 / daughter_b_resistance);
 
         network.add_vessel(root);
         network.add_vessel(daughter_a);

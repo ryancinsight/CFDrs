@@ -595,7 +595,10 @@ mod tests {
         assert_relative_eq!(k, 2.2864, max_relative = 1e-3);
         // Should be much smaller than the short-channel case
         let k_short = durst_entrance_k(re, 1.0);
-        assert!(k < k_short, "Long channel K ({k}) should be < short channel K ({k_short})");
+        assert!(
+            k < k_short,
+            "Long channel K ({k}) should be < short channel K ({k_short})"
+        );
     }
 
     // ─── Durst resistance multiplier tests ──────────────────────────────

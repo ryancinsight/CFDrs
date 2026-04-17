@@ -114,22 +114,17 @@ pub fn resistance_elliptical(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::physics::resistance::models::{
+        FlowConditions, RectangularChannelModel, ResistanceModel,
+    };
     use approx::assert_relative_eq;
     use cfd_core::physics::fluid::ConstantPropertyFluid;
-    use crate::physics::resistance::models::{FlowConditions, RectangularChannelModel, ResistanceModel};
 
     const MU: f64 = 0.001; // Water viscosity [Pa·s]
-    const L: f64 = 0.01;   // 1 cm channel
+    const L: f64 = 0.01; // 1 cm channel
 
     fn water() -> ConstantPropertyFluid<f64> {
-        ConstantPropertyFluid::new(
-            "water".to_string(),
-            1000.0,
-            MU,
-            4186.0,
-            0.598,
-            1480.0,
-        )
+        ConstantPropertyFluid::new("water".to_string(), 1000.0, MU, 4186.0, 0.598, 1480.0)
     }
 
     /// Circular tube: exact Hagen-Poiseuille resistance.

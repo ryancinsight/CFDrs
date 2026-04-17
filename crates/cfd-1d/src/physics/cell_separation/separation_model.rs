@@ -206,7 +206,10 @@ impl CellSeparationModel {
                 )));
             }
         }
-        if self.channel_width_m <= 0.0 || self.channel_height_m <= 0.0 || self.channel_length_m <= 0.0 {
+        if self.channel_width_m <= 0.0
+            || self.channel_height_m <= 0.0
+            || self.channel_length_m <= 0.0
+        {
             return Err(Error::InvalidConfiguration(
                 "Cell separation channel dimensions must be positive".to_string(),
             ));
@@ -234,7 +237,12 @@ impl CellSeparationModel {
     /// - `channel_length_m` — channel length [m]
     /// - `bend_radius_m` — radius of curvature [m], or `None` for straight
     #[must_use]
-    pub fn new(channel_width_m: f64, channel_height_m: f64, channel_length_m: f64, bend_radius_m: Option<f64>) -> Self {
+    pub fn new(
+        channel_width_m: f64,
+        channel_height_m: f64,
+        channel_length_m: f64,
+        bend_radius_m: Option<f64>,
+    ) -> Self {
         Self {
             channel_width_m,
             channel_height_m,
@@ -348,7 +356,7 @@ impl CellSeparationModel {
                     x = x_tilde_limit;
                     break;
                 }
-                
+
                 let dxdt = |pos: f64| -> Result<f64> {
                     let v = checked_lateral_velocity_m_s(
                         pos.clamp(0.0, 0.95),
@@ -367,7 +375,7 @@ impl CellSeparationModel {
                 let k2 = dxdt(x + 0.5 * dt * k1)?;
                 let k3 = dxdt(x + 0.5 * dt * k2)?;
                 let k4 = dxdt(x + dt * k3)?;
-                
+
                 x += (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
                 x = x.clamp(0.0, 0.95);
             }
@@ -380,7 +388,8 @@ impl CellSeparationModel {
         }
         if background_eq.will_focus {
             background_eq.x_tilde_eq = integrate_trajectory(background, background_eq.x_tilde_eq)?;
-            background_eq.lateral_position_m = background_eq.x_tilde_eq * (self.channel_height_m * 0.5);
+            background_eq.lateral_position_m =
+                background_eq.x_tilde_eq * (self.channel_height_m * 0.5);
         }
 
         // Separation efficiency: |x̃_target − x̃_background|.
@@ -448,10 +457,22 @@ mod tests {
         let rbc = CellProperties::red_blood_cell();
 
         let legacy = model
-            .analyze(&cancer, &rbc, 1060.0, 3.5e-3, 1e-6 / 60.0 / (500e-6 * 100e-6))
+            .analyze(
+                &cancer,
+                &rbc,
+                1060.0,
+                3.5e-3,
+                1e-6 / 60.0 / (500e-6 * 100e-6),
+            )
             .expect("legacy analysis should succeed");
         let checked = model
-            .analyze_checked(&cancer, &rbc, 1060.0, 3.5e-3, 1e-6 / 60.0 / (500e-6 * 100e-6))
+            .analyze_checked(
+                &cancer,
+                &rbc,
+                1060.0,
+                3.5e-3,
+                1e-6 / 60.0 / (500e-6 * 100e-6),
+            )
             .expect("checked analysis should succeed");
 
         assert!((legacy.separation_efficiency - checked.separation_efficiency).abs() < 1e-12);

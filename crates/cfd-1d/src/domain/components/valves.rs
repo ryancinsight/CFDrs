@@ -99,10 +99,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
 
     fn coefficients(&self, fluid: &ConstantPropertyFluid<T>) -> (T, T) {
         if self.opening <= T::zero() {
-            (
-                real_from_f64(CLOSED_VALVE_RESISTANCE),
-                T::zero(),
-            )
+            (real_from_f64(CLOSED_VALVE_RESISTANCE), T::zero())
         } else {
             // k = 1 / (Cv * opening)^2
             let cv_eff = self.effective_cv();

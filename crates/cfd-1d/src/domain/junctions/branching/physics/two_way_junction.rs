@@ -271,27 +271,19 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
 
         let tolerances = ScalarSolveTolerances::for_flow_interval(q_parent);
 
-        let lower_residual = self.daughter_pressure_residual(
-            fluid,
-            T::zero(),
-            q_parent,
-            temperature,
-            pressure,
-        );
-        let upper_residual = self.daughter_pressure_residual(
-            fluid,
-            q_parent,
-            q_parent,
-            temperature,
-            pressure,
-        );
+        let lower_residual =
+            self.daughter_pressure_residual(fluid, T::zero(), q_parent, temperature, pressure);
+        let upper_residual =
+            self.daughter_pressure_residual(fluid, q_parent, q_parent, temperature, pressure);
 
         if lower_residual > T::zero() || upper_residual < T::zero() {
-            return Err(Error::Convergence(cfd_core::error::ConvergenceErrorKind::StagnatedResidual {
-                residual: (lower_residual.abs() + upper_residual.abs())
-                    .to_f64()
-                    .unwrap_or(f64::NAN),
-            }));
+            return Err(Error::Convergence(
+                cfd_core::error::ConvergenceErrorKind::StagnatedResidual {
+                    residual: (lower_residual.abs() + upper_residual.abs())
+                        .to_f64()
+                        .unwrap_or(f64::NAN),
+                },
+            ));
         }
 
         Ok(bisect_root(
@@ -299,15 +291,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
             q_parent,
             Some(self.flow_split_ratio * q_parent),
             tolerances,
-            |q_1| {
-                self.daughter_pressure_residual(
-                    fluid,
-                    q_1,
-                    q_parent,
-                    temperature,
-                    pressure,
-                )
-            },
+            |q_1| self.daughter_pressure_residual(fluid, q_1, q_parent, temperature, pressure),
         ))
     }
 

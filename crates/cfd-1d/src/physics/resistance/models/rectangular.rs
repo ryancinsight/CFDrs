@@ -43,7 +43,7 @@
 //!
 //! ### References
 //!
-//! - Bahrami, M., Yovanovich, M. M., & Culham, J. R. (2006). *Pressure Drop of 
+//! - Bahrami, M., Yovanovich, M. M., & Culham, J. R. (2006). *Pressure Drop of
 //!   Fully-Developed, Laminar Flow in Microchannels of Arbitrary Cross-Section*.
 //!   Journal of Fluids Engineering, 128(5), 1036-1044.
 
@@ -125,7 +125,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChan
             );
 
         // Calculate aspect ratio epsilon (always <= 1 for consistency in Bahrami)
-        let epsilon = RealField::min(self.width, self.height) / RealField::max(self.width, self.height);
+        let epsilon =
+            RealField::min(self.width, self.height) / RealField::max(self.width, self.height);
 
         // Calculate Poiseuille number using Bahrami (2006) exact rational fit
         // Po = f_darcy * Re
@@ -152,14 +153,15 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChan
         self.validate_mach_number(fluid, conditions)?;
 
         if self.width <= T::zero() || self.height <= T::zero() {
-             return Err(cfd_core::error::Error::PhysicsViolation(format!(
+            return Err(cfd_core::error::Error::PhysicsViolation(format!(
                 "Invalid geometry: width and height must be > 0. Got ({}, {}) for model '{}'",
-                self.width, self.height,
+                self.width,
+                self.height,
                 self.model_name()
             )));
         }
         if self.length < T::zero() {
-             return Err(cfd_core::error::Error::PhysicsViolation(format!(
+            return Err(cfd_core::error::Error::PhysicsViolation(format!(
                 "Invalid geometry: length = {} < 0 for model '{}'",
                 self.length,
                 self.model_name()
@@ -219,15 +221,19 @@ impl<T: RealField + Copy + FromPrimitive> RectangularChannelModel<T> {
             // Infinite parallel plates limit: fRe = 96
             T::from_f64(96.0).expect("Mathematical constant conversion compromised")
         } else {
-            let pi = T::from_f64(std::f64::consts::PI).expect("Mathematical constant conversion compromised");
+            let pi = T::from_f64(std::f64::consts::PI)
+                .expect("Mathematical constant conversion compromised");
             let c_192 = T::from_f64(192.0).expect("Mathematical constant conversion compromised");
             let pi_pow_5 = pi.powi(5);
-            
+
             let term1 = (T::one() + epsilon) * (T::one() + epsilon);
-            let tanh_arg = pi / (T::from_f64(2.0).expect("Mathematical constant conversion compromised") * epsilon);
+            let tanh_arg = pi
+                / (T::from_f64(2.0).expect("Mathematical constant conversion compromised")
+                    * epsilon);
             let term2 = T::one() - (c_192 * epsilon / pi_pow_5) * tanh_arg.tanh();
-            
-            T::from_f64(96.0).expect("Mathematical constant conversion compromised") / (term1 * term2)
+
+            T::from_f64(96.0).expect("Mathematical constant conversion compromised")
+                / (term1 * term2)
         }
     }
 }
@@ -282,17 +288,17 @@ mod tests {
         assert_relative_eq!(dh, expected, max_relative = 1e-10);
         assert_relative_eq!(dh, 6.667e-4, max_relative = 1e-3);
     }
-    
+
     #[test]
     fn negative_dimensions_rejected() {
         let conditions = FlowConditions::new(0.0);
-        
+
         let neg_w = RectangularChannelModel::new(-0.001_f64, 0.001_f64, 0.01_f64);
         assert!(neg_w.validate_invariants(&water(), &conditions).is_err());
-        
+
         let zero_h = RectangularChannelModel::new(0.001_f64, 0.0_f64, 0.01_f64);
         assert!(zero_h.validate_invariants(&water(), &conditions).is_err());
-        
+
         let neg_l = RectangularChannelModel::new(0.001_f64, 0.001_f64, -0.01_f64);
         assert!(neg_l.validate_invariants(&water(), &conditions).is_err());
     }
@@ -308,22 +314,22 @@ mod proptests {
         fn test_shah_london_bahrami_convergence(eps in 1e-6..1.0_f64) {
             let model = RectangularChannelModel::new(1.0, 1.0, 1.0);
             let po = model.calculate_poiseuille_number(eps);
-            
+
             // Theorem bounds: Square duct (~56.5) < Po <= Parallel Plates (96)
             prop_assert!(po >= 56.50 && po <= 96.0001, "Poiseuille number {} out of bounds [56.5, 96.0]", po);
-            
+
             // Asymptotic convergence for low aspect ratio
             if eps < 1e-4 {
                 prop_assert!(po > 95.0, "Did not converge near 96: {}", po);
             }
         }
-        
+
         #[test]
         fn test_shah_london_monotonic_convergence(eps1 in 0.01..0.4_f64, eps2 in 0.5..1.0_f64) {
             let model = RectangularChannelModel::new(1.0, 1.0, 1.0);
             let po1 = model.calculate_poiseuille_number(eps1);
             let po2 = model.calculate_poiseuille_number(eps2);
-            
+
             // Monotonic property holds reliably when points are sufficiently separated and away from the dip near 0.9
             prop_assert!(po1 > po2, "Failed monotonicity: {} <= {} for {} vs {}", po1, po2, eps1, eps2);
         }

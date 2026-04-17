@@ -52,8 +52,7 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) const LAMINAR_LIMIT_RE: f64 = 2300.0;
 pub(crate) const LAMINAR_FRICTION_COEFF: f64 = 64.0;
-pub(crate) const BLASIUS_COEFF: f64 = 0.3164;
-pub(crate) const BLASIUS_EXP: f64 = 0.25;
+pub(crate) const DURST_ENTRANCE_BLEND_L_OVER_DH: f64 = 50.0;
 
 // ── Enums ───────────────────────────────────────────────────────────────────
 
@@ -282,16 +281,21 @@ mod tests {
         let f_lam = model.throat_friction_factor(100.0);
         assert_relative_eq!(f_lam, 0.64, epsilon = 1e-6);
 
-        // Blasius: f = 0.3164 / Re^0.25
-        let f_turb = model.throat_friction_factor(10000.0);
-        let expected = 0.3164 / 10000.0_f64.powf(0.25);
-        assert_relative_eq!(f_turb, expected, epsilon = 1e-6);
+        // Churchill remains close to the smooth-pipe turbulent correlation.
+        let f_turb = model.throat_friction_factor(10_000.0);
+        assert!(
+            f_turb > 0.02 && f_turb < 0.04,
+            "unexpected Churchill friction factor: {f_turb}"
+        );
     }
 
     #[test]
     fn test_venturi_recovery_reynolds_correction() {
-        let model = VenturiModel::<f64>::symmetric(0.01, 0.005, 0.01, 0.05)
-            .with_expansion(ExpansionType::Gradual { half_angle_deg: 7.0 });
+        let model = VenturiModel::<f64>::symmetric(0.01, 0.005, 0.01, 0.05).with_expansion(
+            ExpansionType::Gradual {
+                half_angle_deg: 7.0,
+            },
+        );
 
         assert_relative_eq!(
             VenturiModel::<f64>::diffuser_recovery_reynolds_correction(5000.0),
@@ -303,7 +307,10 @@ mod tests {
             0.6,
             epsilon = 1e-12
         );
-        assert!(model.effective_recovery_efficiency(150.0) < model.effective_recovery_efficiency(5000.0));
+        assert!(
+            model.effective_recovery_efficiency(150.0)
+                < model.effective_recovery_efficiency(5000.0)
+        );
     }
 
     #[test]

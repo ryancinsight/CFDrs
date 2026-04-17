@@ -355,19 +355,25 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         match self.cross_section {
             SerpentineCrossSection::Circular { diameter } => {
                 if diameter <= 0.0 {
-                    return Err(Error::PhysicsViolation("Serpentine diameter must be positive".into()));
+                    return Err(Error::PhysicsViolation(
+                        "Serpentine diameter must be positive".into(),
+                    ));
                 }
             }
             SerpentineCrossSection::Rectangular { width, height } => {
                 if width <= 0.0 || height <= 0.0 {
-                    return Err(Error::PhysicsViolation("Serpentine width and height must be positive".into()));
+                    return Err(Error::PhysicsViolation(
+                        "Serpentine width and height must be positive".into(),
+                    ));
                 }
             }
         }
-        
+
         if let BendType::Smooth { radius_to_dh_ratio } = self.bend_type {
             if radius_to_dh_ratio <= 0.0 {
-                return Err(Error::PhysicsViolation("Serpentine bend radius ratio must be positive".into()));
+                return Err(Error::PhysicsViolation(
+                    "Serpentine bend radius ratio must be positive".into(),
+                ));
             }
         }
 

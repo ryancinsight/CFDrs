@@ -53,7 +53,6 @@ use cfd_core::error::{Error, Result};
 /// # Returns
 /// $H_T / H_F \in (0, 1]$
 #[inline]
-#[must_use]
 pub fn tube_hematocrit_ratio(diameter_um: f64) -> Result<f64> {
     if !diameter_um.is_finite() || diameter_um < 3.0 {
         return Err(Error::InvalidConfiguration(
@@ -62,7 +61,8 @@ pub fn tube_hematocrit_ratio(diameter_um: f64) -> Result<f64> {
     }
 
     let ratio = 0.45
-        + (1.0 - 0.45) * (1.0 + 1.7 * (-0.415 * diameter_um).exp() - 0.6 * (-0.011 * diameter_um).exp());
+        + (1.0 - 0.45)
+            * (1.0 + 1.7 * (-0.415 * diameter_um).exp() - 0.6 * (-0.011 * diameter_um).exp());
     Ok(ratio.clamp(0.0, 1.0))
 }
 
@@ -90,7 +90,6 @@ pub fn tube_hematocrit_ratio(diameter_um: f64) -> Result<f64> {
 /// # Returns
 /// Tube hematocrit $H_T \in [0, H_F]$
 #[inline]
-#[must_use]
 pub fn tube_hematocrit(feed_hematocrit: f64, diameter_um: f64) -> Result<f64> {
     if !feed_hematocrit.is_finite() || !(0.0..=1.0).contains(&feed_hematocrit) {
         return Err(Error::InvalidConfiguration(
@@ -119,7 +118,6 @@ pub fn tube_hematocrit(feed_hematocrit: f64, diameter_um: f64) -> Result<f64> {
 /// # Returns
 /// Feed (discharge) hematocrit $H_F \in [H_T, 1]$
 #[inline]
-#[must_use]
 pub fn discharge_hematocrit(tube_ht: f64, diameter_um: f64) -> Result<f64> {
     if !tube_ht.is_finite() || !(0.0..=1.0).contains(&tube_ht) {
         return Err(Error::InvalidConfiguration(
@@ -155,10 +153,7 @@ mod tests {
     #[test]
     fn small_tube_strong_fahraeus() -> Result<()> {
         let ratio = tube_hematocrit_ratio(10.0)?;
-        assert!(
-            ratio < 0.8,
-            "Small tube ratio {ratio:.4} should be < 0.8"
-        );
+        assert!(ratio < 0.8, "Small tube ratio {ratio:.4} should be < 0.8");
         Ok(())
     }
 

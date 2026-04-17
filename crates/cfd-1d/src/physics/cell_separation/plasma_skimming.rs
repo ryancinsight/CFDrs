@@ -45,7 +45,6 @@ pub struct PhaseSeparationResult {
 }
 
 /// Compute the threshold-aware Pries phase-separation model for one daughter.
-#[must_use]
 pub fn pries_phase_separation(
     feed_hematocrit: f64,
     flow_fraction: f64,
@@ -143,9 +142,8 @@ pub fn checked_pries_phase_separation(
     }
 
     let diameter_ratio_sq = d_alpha * d_alpha / (d_beta * d_beta);
-    let a_param = -13.29 * (diameter_ratio_sq - 1.0) / (diameter_ratio_sq + 1.0)
-        * (1.0 - h_feed)
-        / d_feed;
+    let a_param =
+        -13.29 * (diameter_ratio_sq - 1.0) / (diameter_ratio_sq + 1.0) * (1.0 - h_feed) / d_feed;
     let b_param = 1.0 + 6.98 * (1.0 - h_feed) / d_feed;
 
     let cell_fraction = if flow_fraction <= x0 {
@@ -199,7 +197,6 @@ pub fn checked_pries_phase_separation(
 /// # Returns
 /// Daughter branch hematocrit, clamped to [0, min(1, 2 × H_feed)].
 #[inline]
-#[must_use]
 pub fn plasma_skimming_hematocrit(
     feed_hematocrit: f64,
     flow_fraction: f64,
@@ -397,7 +394,11 @@ mod tests {
     #[test]
     fn test_pries_phase_separation_enforces_x0_threshold() -> cfd_core::error::Result<()> {
         let result = pries_phase_separation(HT_NORMAL, 0.01, 30.0, 90.0, 20.0)?;
-        assert!(result.x0 > 0.01, "Expected meaningful X0, got {:.4}", result.x0);
+        assert!(
+            result.x0 > 0.01,
+            "Expected meaningful X0, got {:.4}",
+            result.x0
+        );
         assert_eq!(result.cell_fraction, 0.0);
         assert_eq!(result.daughter_hematocrit, 0.0);
         Ok(())

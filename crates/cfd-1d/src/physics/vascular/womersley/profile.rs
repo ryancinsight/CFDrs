@@ -173,13 +173,13 @@ mod proptests {
             // Back-calculate omega from alpha: alpha = R * sqrt(rho * omega / mu)
             // omega = (alpha^2 * mu) / (R^2 * rho)
             let omega = (alpha * alpha * mu) / (r * r * rho);
-            
+
             let womersley = WomersleyNumber::new(r, rho, mu, omega);
             let profile = WomersleyProfile::new(womersley, 100.0);
-            
+
             // Wall location is mathematically defined at radial vector xi = r/R = 1.0
             let u_wall = profile.velocity(1.0, t);
-            
+
             // Physics Theorem: Velocity uniformly zero at solid boundary (No-Slip Condition)
             assert_relative_eq!(u_wall, 0.0, epsilon = 1e-10);
         }

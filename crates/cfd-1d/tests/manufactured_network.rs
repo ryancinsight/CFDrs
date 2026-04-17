@@ -62,8 +62,14 @@ fn test_series_additivity() -> Result<()> {
     let solved = solver.solve(&problem)?;
 
     let q_expected = 1.0 / 5.0;
-    let q1 = *solved.flow_rates().get(eidx1.index()).expect("test invariant");
-    let q2 = *solved.flow_rates().get(eidx2.index()).expect("test invariant");
+    let q1 = *solved
+        .flow_rates()
+        .get(eidx1.index())
+        .expect("test invariant");
+    let q2 = *solved
+        .flow_rates()
+        .get(eidx2.index())
+        .expect("test invariant");
     assert_relative_eq!(q1, q_expected, max_relative = 1e-12);
     assert_relative_eq!(q2, q_expected, max_relative = 1e-12);
 
@@ -152,8 +158,14 @@ fn test_parallel_quadratic_branches() -> Result<()> {
     let q2_mag =
         ((2.0_f64 * 2.0_f64 + 4.0_f64 * 1.0_f64 * dp).sqrt() - 2.0_f64) / (2.0_f64 * 1.0_f64);
 
-    let q1 = *solved.flow_rates().get(eidx1.index()).expect("test invariant");
-    let q2 = *solved.flow_rates().get(eidx2.index()).expect("test invariant");
+    let q1 = *solved
+        .flow_rates()
+        .get(eidx1.index())
+        .expect("test invariant");
+    let q2 = *solved
+        .flow_rates()
+        .get(eidx2.index())
+        .expect("test invariant");
     assert_relative_eq!(q1, q1_mag, max_relative = 1e-5);
     assert_relative_eq!(q2, q2_mag, max_relative = 1e-5);
 
@@ -353,7 +365,10 @@ fn test_quadratic_resistance() -> Result<()> {
     let solver = NetworkSolver::<T>::new();
     let solved = solver.solve(&problem)?;
 
-    let q = *solved.flow_rates().get(eidx1.index()).expect("test invariant");
+    let q = *solved
+        .flow_rates()
+        .get(eidx1.index())
+        .expect("test invariant");
 
     // Expect Q = 1.0
     assert_relative_eq!(q, 1.0, max_relative = 1e-6);

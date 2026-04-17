@@ -245,7 +245,9 @@ mod tests {
         let murray = MurraysLaw::<f64>::new();
         let d0: f64 = 1.0e-3;
         let d1: f64 = 0.8e-3;
-        let d2 = murray.asymmetric_daughter_diameter(d0, d1).expect("valid bifurcation");
+        let d2 = murray
+            .asymmetric_daughter_diameter(d0, d1)
+            .expect("valid bifurcation");
         let expected = (d0.powi(3) - d1.powi(3)).powf(1.0 / 3.0);
         assert_relative_eq!(d2, expected, max_relative = 1e-12);
     }
@@ -258,7 +260,10 @@ mod tests {
         let d0: f64 = 1.0e-3;
         let dd = murray.symmetric_daughter_diameter(d0);
         let eps = murray.deviation(d0, dd, dd);
-        assert!(eps < 1e-12, "deviation ε = {eps} should be ~0 for valid Murray bifurcation");
+        assert!(
+            eps < 1e-12,
+            "deviation ε = {eps} should be ~0 for valid Murray bifurcation"
+        );
     }
 
     /// Area ratio for symmetric Murray bifurcation: 2^(1 − 2/3) = 2^(1/3) ≈ 1.2599.

@@ -145,7 +145,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Node pressures
     for (nidx, &p) in solution.pressures.iter().enumerate() {
-        if let Some(node) = solution.graph.node_weight(petgraph::graph::NodeIndex::new(nidx)) {
+        if let Some(node) = solution
+            .graph
+            .node_weight(petgraph::graph::NodeIndex::new(nidx))
+        {
             if let Ok(id) = node.id.trim_start_matches("node_").parse::<usize>() {
                 node_pressure_data.insert(id, p);
             }
@@ -153,7 +156,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     for (eidx, &q) in solution.flow_rates.iter().enumerate() {
-        let Some(edge) = solution.graph.edge_weight(petgraph::graph::EdgeIndex::new(eidx)) else {
+        let Some(edge) = solution
+            .graph
+            .edge_weight(petgraph::graph::EdgeIndex::new(eidx))
+        else {
             continue;
         };
         let chan_id = match edge.id.trim_start_matches("chan_").parse::<usize>() {
@@ -161,13 +167,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Err(_) => continue,
         };
 
-        if let Some(p) = solution.properties.get(&petgraph::graph::EdgeIndex::new(eidx)) {
+        if let Some(p) = solution
+            .properties
+            .get(&petgraph::graph::EdgeIndex::new(eidx))
+        {
             let velocity = q.abs() / p.area;
 
             // Local pressure estimate: average of upstream/downstream node pressures
-            let (src, dst) = solution.graph.edge_endpoints(petgraph::graph::EdgeIndex::new(eidx)).unwrap();
-            let p_src = *solution.pressures.get(src.index()).unwrap_or(&inlet_pressure);
-            let p_dst = *solution.pressures.get(dst.index()).unwrap_or(&outlet_pressure);
+            let (src, dst) = solution
+                .graph
+                .edge_endpoints(petgraph::graph::EdgeIndex::new(eidx))
+                .unwrap();
+            let p_src = *solution
+                .pressures
+                .get(src.index())
+                .unwrap_or(&inlet_pressure);
+            let p_dst = *solution
+                .pressures
+                .get(dst.index())
+                .unwrap_or(&outlet_pressure);
             let local_pressure = (p_src + p_dst) / 2.0;
 
             let cav_num = CavitationNumber {

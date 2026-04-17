@@ -542,9 +542,9 @@ mod tests {
         };
         let fluid_state = fluid.properties_at(293.15, 101_325.0)?;
         let target_reference_re = 2400.0;
-        let flow_rate = target_reference_re * std::f64::consts::PI * 0.04
-            * fluid_state.dynamic_viscosity
-            / (4.0 * fluid_state.density);
+        let flow_rate =
+            target_reference_re * std::f64::consts::PI * 0.04 * fluid_state.dynamic_viscosity
+                / (4.0 * fluid_state.density);
         let area = circular.cross_sectional_area()?;
         let velocity = flow_rate / area;
         let shear_rate = 8.0 * velocity.abs() / 0.04;
@@ -609,7 +609,9 @@ mod tests {
 
         let coeff_error = calculator
             .calculate_coefficients_auto(&rectangular, &fluid, &conditions)
-            .expect_err("rectangular coefficient auto-selection must not silently fall back above Re=2300");
+            .expect_err(
+                "rectangular coefficient auto-selection must not silently fall back above Re=2300",
+            );
         assert!(
             coeff_error
                 .to_string()

@@ -192,12 +192,12 @@ mod proptests {
         ) {
             let p1 = p_center(q_center, beta1);
             let p2 = p_center(q_center, beta2);
-            
+
             // Theorem 1: Cascade Separation Monotonicity
             // For any asymmetric flow partition (q_center > 1/3), separating a stiffer cell
             // (higher beta) strictly increases the collection probability in the high-flow arm.
             prop_assert!(p2 > p1, "Failed monotonic stiffness amplification: {} <= {} for beta {} vs {}", p2, p1, beta2, beta1);
-            
+
             // Theorem 2: Zweifach-Fung Amplification Law
             // For any particle with beta > 1.0, the fraction of particles entering the high-flow
             // branch strictly exceeds the fraction of bulk fluid entering that branch.

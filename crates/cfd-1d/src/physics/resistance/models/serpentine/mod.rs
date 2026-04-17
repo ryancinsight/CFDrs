@@ -435,7 +435,10 @@ mod tests {
         let expected = 1.0 + 0.085 * de.powf(0.48);
         assert_relative_eq!(e, expected, max_relative = 1e-10);
         // Sanity: should be around 1.55
-        assert!(e > 1.4 && e < 1.7, "Enhancement at De=50 should be ~1.55, got {e}");
+        assert!(
+            e > 1.4 && e < 1.7,
+            "Enhancement at De=50 should be ~1.55, got {e}"
+        );
     }
 
     /// Compare Bayat & Rezai (2017) vs Ito (1959) at De = 20.
@@ -483,10 +486,7 @@ mod tests {
         for &de in &[0.0, 1.0, 10.0, 50.0, 100.0] {
             let from_method = model.curvature_enhancement_millifluidic(de);
             let from_standalone = bayat_rezai_enhancement(de);
-            assert_relative_eq!(
-                from_method, from_standalone,
-                epsilon = 1e-15,
-            );
+            assert_relative_eq!(from_method, from_standalone, epsilon = 1e-15,);
         }
     }
 }

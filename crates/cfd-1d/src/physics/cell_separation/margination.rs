@@ -170,7 +170,8 @@ pub fn checked_amini_confinement_correction(kappa: f64) -> Result<f64> {
 fn validate_lateral_position(x_tilde: f64) -> Result<f64> {
     if !x_tilde.is_finite() || !(0.0..=0.95).contains(&x_tilde) {
         return Err(Error::InvalidConfiguration(
-            "Margination lateral position x_tilde must lie in [0, 0.95] for the fitted lift model".to_string(),
+            "Margination lateral position x_tilde must lie in [0, 0.95] for the fitted lift model"
+                .to_string(),
         ));
     }
     Ok(x_tilde)
@@ -322,12 +323,10 @@ pub fn checked_inertial_lift_force_n(
     }
 
     let cl = c_wall(x_tilde) * (1.0 - deformability_index) - c_center(x_tilde);
-    Ok(cl
-        * fluid_density_kg_m3
-        * mean_velocity_m_s
-        * mean_velocity_m_s
-        * cell.diameter_m.powi(4)
-        / (channel_height_m * channel_height_m))
+    Ok(
+        cl * fluid_density_kg_m3 * mean_velocity_m_s * mean_velocity_m_s * cell.diameter_m.powi(4)
+            / (channel_height_m * channel_height_m),
+    )
 }
 
 // ── Lateral Drift Velocity ────────────────────────────────────────────────────
@@ -383,7 +382,7 @@ pub fn lateral_velocity_m_s(
 
     let net_force_n = f_lift - f_dean;
     let stokes_coeff = 3.0 * std::f64::consts::PI * dynamic_viscosity_pa_s * cell.diameter_m;
-    
+
     net_force_n / stokes_coeff.max(1e-30)
 }
 
@@ -624,13 +623,10 @@ pub fn checked_lateral_equilibrium(
     };
 
     let net_force = |x: f64| -> Result<f64> {
-        Ok(checked_inertial_lift_force_n(
-            x,
-            cell,
-            fluid_density_kg_m3,
-            mean_velocity_m_s,
-            h,
-        )? - f_dean)
+        Ok(
+            checked_inertial_lift_force_n(x, cell, fluid_density_kg_m3, mean_velocity_m_s, h)?
+                - f_dean,
+        )
     };
 
     let mut lo = 0.0_f64;
@@ -639,7 +635,11 @@ pub fn checked_lateral_equilibrium(
     let f_hi = net_force(hi)?;
 
     let x_eq = if f_lo * f_hi > 0.0 {
-        if f_lo.abs() < f_hi.abs() { lo } else { hi }
+        if f_lo.abs() < f_hi.abs() {
+            lo
+        } else {
+            hi
+        }
     } else {
         let mut mid = 0.5 * (lo + hi);
         let mut f_lo_mut = f_lo;
@@ -761,16 +761,9 @@ mod tests {
         let cell = CellProperties::mcf7_breast_cancer();
         let legacy = lateral_equilibrium(&cell, 1_000.0, 1.0e-3, 0.05, 200e-6, 100e-6, None)
             .expect("legacy margination equilibrium should succeed");
-        let checked = checked_lateral_equilibrium(
-            &cell,
-            1_000.0,
-            1.0e-3,
-            0.05,
-            200e-6,
-            100e-6,
-            None,
-        )
-        .expect("checked margination equilibrium should succeed");
+        let checked =
+            checked_lateral_equilibrium(&cell, 1_000.0, 1.0e-3, 0.05, 200e-6, 100e-6, None)
+                .expect("checked margination equilibrium should succeed");
 
         assert!((legacy.x_tilde_eq - checked.x_tilde_eq).abs() < 1e-12);
         assert!((legacy.residual_force_n - checked.residual_force_n).abs() < 1e-18);

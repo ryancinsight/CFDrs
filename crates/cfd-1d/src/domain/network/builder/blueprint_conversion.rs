@@ -5,18 +5,24 @@
 
 use super::super::{
     blueprint_validation::validate_blueprint_for_1d_solve,
-    junction_losses::apply_blueprint_junction_losses, Edge, EdgeProperties,
-    Node, ResistanceUpdatePolicy,
+    junction_losses::apply_blueprint_junction_losses, Edge, EdgeProperties, Node,
+    ResistanceUpdatePolicy,
 };
 use super::network_builder::NetworkBuilder;
 use super::venturi_coefficients::venturi_coefficients;
-use cfd_core::error::{Error, Result};
 use crate::physics::resistance::models::BendType;
+use cfd_core::error::{Error, Result};
 use cfd_schematics::domain::model::{ChannelShape, EdgeKind, NetworkBlueprint};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
+use petgraph::graph::NodeIndex;
 use std::collections::HashMap;
+use std::hash::BuildHasher;
 
+use crate::domain::network::wrapper::{
+    blood_microchannel_apparent_viscosity, EDGE_PROPERTY_HEMATOCRIT,
+    EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
+};
 use cfd_core::physics::fluid::FluidTrait;
 
 /// Build a solver-ready [`Network`](crate::domain::network::wrapper::Network) from a
@@ -204,6 +210,19 @@ where
 
     let graph = builder.build()?;
     let mut network = crate::domain::network::wrapper::Network::new(graph, fluid);
+    let is_blood_like = network
+        .fluid()
+        .name()
+        .to_ascii_lowercase()
+        .contains("blood");
+    let blood_state = network.fluid().properties_at(
+        T::from_f64(cfd_core::physics::constants::physics::thermo::T_STANDARD)
+            .unwrap_or_else(T::one),
+        T::from_f64(cfd_core::physics::constants::physics::thermo::P_ATM).unwrap_or_else(T::zero),
+    )?;
+    let default_hematocrit = T::from_f64(0.45).unwrap_or_else(T::zero);
+    let default_plasma_viscosity =
+        blood_state.dynamic_viscosity / T::from_f64(3.2).unwrap_or_else(T::one);
 
     let calculator: ResistanceCalculator<T> = ResistanceCalculator::new();
 
@@ -303,6 +322,16 @@ where
             variations: Vec::new(),
         };
 
+        let mut edge_property_overrides = HashMap::new();
+        if is_blood_like {
+            edge_property_overrides
+                .insert(EDGE_PROPERTY_HEMATOCRIT.to_string(), default_hematocrit);
+            edge_property_overrides.insert(
+                EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S.to_string(),
+                default_plasma_viscosity,
+            );
+        }
+
         let props = EdgeProperties {
             id: ch_spec.id.as_str().to_string(),
             component_type: super::super::ComponentType::Pipe,
@@ -313,7 +342,7 @@ where
                 .expect("Mathematical constant conversion compromised"),
             geometry: Some(channel_geometry),
             resistance_update_policy: ResistanceUpdatePolicy::FlowDependent,
-            properties: HashMap::new(),
+            properties: edge_property_overrides,
         };
         network.add_edge_properties(*edge_idx, props);
 
@@ -337,37 +366,56 @@ where
         }
 
         if let Some((r, k)) = refined {
-            if let Some(edge) = network.graph.edge_weight_mut(*edge_idx) {
-                edge.resistance = r;
-                edge.quad_coeff = k;
+            let mut resistance_scale = T::one();
+            if let Some(dh_val) = dh {
+                let dh_f64 = nalgebra::try_convert::<T, f64>(dh_val).unwrap_or(1e-3);
+                let l_f64 = nalgebra::try_convert::<T, f64>(length).unwrap_or(0.01);
+                let l_over_dh = l_f64 / dh_f64.max(1e-12);
 
-                if let Some(dh_val) = dh {
-                    let dh_f64 = nalgebra::try_convert::<T, f64>(dh_val).unwrap_or(1e-3);
-                    let l_f64 = nalgebra::try_convert::<T, f64>(length).unwrap_or(0.01);
-                    let l_over_dh = l_f64 / dh_f64.max(1e-12);
-
-                    if l_over_dh < 50.0 {
-                        let re_estimate = 10.0_f64;
-                        let multiplier = crate::physics::resistance::models::durst_resistance_multiplier(
-                            re_estimate, l_over_dh,
+                if l_over_dh < 50.0 {
+                    let re_estimate = 10.0_f64;
+                    let multiplier =
+                        crate::physics::resistance::models::durst_resistance_multiplier(
+                            re_estimate,
+                            l_over_dh,
                         );
-                        let mult_t = T::from_f64(multiplier).unwrap_or(T::one());
-                        edge.resistance *= mult_t;
-                    }
+                    resistance_scale *= T::from_f64(multiplier).unwrap_or(T::one());
+                }
 
-                    if dh_f64 < 300.0e-6 {
-                        let fl = cfd_core::physics::fluid::blood::FahraeuasLindqvist::new(
-                            dh_f64, 0.45,
-                        );
-                        if fl.is_significant() {
-                            let mu_rel = fl.relative_viscosity();
-                            let mu_45_large = 3.2_f64;
-                            let reduction = (mu_rel / mu_45_large).clamp(0.5, 1.0);
-                            let reduction_t = T::from_f64(reduction).unwrap_or(T::one());
-                            edge.resistance *= reduction_t;
+                if is_blood_like && dh_f64 < 300.0e-6 {
+                    let q_seed_t = conds.flow_rate.unwrap_or_else(T::zero);
+                    let q_seed = nalgebra::try_convert::<T, f64>(q_seed_t).unwrap_or(0.0);
+                    let area_f64 = nalgebra::try_convert::<T, f64>(area).unwrap_or(0.0);
+                    if let Some(target_mu) = blood_microchannel_apparent_viscosity(
+                        dh_val,
+                        q_seed_t,
+                        area,
+                        default_hematocrit,
+                        default_plasma_viscosity,
+                    ) {
+                        let local_shear_rate = if dh_f64 > 0.0 && area_f64 > 0.0 {
+                            8.0 * (q_seed / area_f64).abs() / dh_f64
+                        } else {
+                            0.0
+                        };
+                        let local_mu = network
+                            .fluid()
+                            .viscosity_at_shear(
+                                T::from_f64(local_shear_rate).unwrap_or_else(T::zero),
+                                conds.temperature,
+                                conds.pressure,
+                            )
+                            .unwrap_or(blood_state.dynamic_viscosity);
+                        if local_mu > T::default_epsilon() {
+                            resistance_scale *= target_mu / local_mu;
                         }
                     }
                 }
+            }
+
+            if let Some(edge) = network.graph.edge_weight_mut(*edge_idx) {
+                edge.resistance = r * resistance_scale;
+                edge.quad_coeff = k;
             }
         }
     }
@@ -384,16 +432,16 @@ where
         let update_policy = match ch_spec.channel_shape {
             ChannelShape::Serpentine { .. } => ResistanceUpdatePolicy::FlowDependent,
             ChannelShape::Straight if has_venturi => ResistanceUpdatePolicy::FlowDependent,
-            ChannelShape::Straight => network
-                .graph
-                .edge_weight(*edge_idx)
-                .map_or(ResistanceUpdatePolicy::FlowDependent, |edge| {
+            ChannelShape::Straight => network.graph.edge_weight(*edge_idx).map_or(
+                ResistanceUpdatePolicy::FlowDependent,
+                |edge| {
                     if edge.quad_coeff.abs() <= eps {
                         ResistanceUpdatePolicy::FlowInvariant
                     } else {
                         ResistanceUpdatePolicy::FlowDependent
                     }
-                }),
+                },
+            ),
         };
         if let Some(props) = network.properties.get_mut(edge_idx) {
             props.resistance_update_policy = update_policy;
@@ -452,7 +500,8 @@ where
 
             let serp_model = {
                 use cfd_schematics::SerpentineWaveType;
-                let base = SerpentineModel::new(total_length, total_segments, cross_section, bend_r);
+                let base =
+                    SerpentineModel::new(total_length, total_segments, cross_section, bend_r);
                 match wave_type {
                     SerpentineWaveType::Square => base.with_bend_type(BendType::Sharp),
                     SerpentineWaveType::Sine | SerpentineWaveType::Triangular => base,
@@ -495,4 +544,75 @@ where
     }
 
     Ok(network)
+}
+
+/// Apply schematics-authored branch boundary metadata to a solver network.
+///
+/// Explicit [`BranchBoundaryMetadata`] overrides the legacy inlet/outlet
+/// defaults derived from [`cfd_schematics::domain::model::NodeKind`].
+pub fn apply_blueprint_boundary_conditions<T, F, S>(
+    network: &mut crate::domain::network::wrapper::Network<T, F>,
+    blueprint: &NetworkBlueprint,
+    node_indices: &HashMap<String, NodeIndex, S>,
+    inlet_pressure: T,
+    outlet_pressure: T,
+) -> Result<()>
+where
+    T: RealField + Copy + FromPrimitive,
+    F: FluidTrait<T>,
+    S: BuildHasher,
+{
+    use cfd_schematics::geometry::metadata::{
+        BranchBoundaryMetadata, BranchBoundarySpecification,
+    };
+
+    for node in &blueprint.nodes {
+        let Some(node_idx) = node_indices.get(node.id.as_str()).copied() else {
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "Blueprint node '{}' is missing from the solver network",
+                node.id.as_str()
+            )));
+        };
+
+        if let Some(boundary) = node
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get::<BranchBoundaryMetadata>())
+        {
+            match boundary.boundary {
+                BranchBoundarySpecification::Pressure { pressure_pa } => {
+                    let pressure = T::from_f64(pressure_pa).ok_or_else(|| {
+                        cfd_core::error::Error::InvalidConfiguration(format!(
+                            "Blueprint node '{}' pressure boundary could not be converted",
+                            node.id.as_str()
+                        ))
+                    })?;
+                    network.set_pressure(node_idx, pressure);
+                }
+                BranchBoundarySpecification::FlowRate { flow_rate_m3_s } => {
+                    let flow_rate = T::from_f64(flow_rate_m3_s).ok_or_else(|| {
+                        cfd_core::error::Error::InvalidConfiguration(format!(
+                            "Blueprint node '{}' flow boundary could not be converted",
+                            node.id.as_str()
+                        ))
+                    })?;
+                    network.set_neumann_flow(node_idx, flow_rate);
+                }
+            }
+            continue;
+        }
+
+        match node.kind {
+            cfd_schematics::domain::model::NodeKind::Inlet => {
+                network.set_pressure(node_idx, inlet_pressure);
+            }
+            cfd_schematics::domain::model::NodeKind::Outlet => {
+                network.set_pressure(node_idx, outlet_pressure);
+            }
+            cfd_schematics::domain::model::NodeKind::Reservoir
+            | cfd_schematics::domain::model::NodeKind::Junction => {}
+        }
+    }
+
+    Ok(())
 }

@@ -92,6 +92,23 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
     where
         T: Copy,
     {
+        let mut x = DVector::zeros(b.len());
+        self.solve_with_initial_guess(a, b, &mut x)
+    }
+
+    /// Solve the linear system Ax = b using a caller-provided initial guess buffer.
+    ///
+    /// The input `x` is treated as an initial iterate for iterative methods and
+    /// overwritten with the final solution on success.
+    pub fn solve_with_initial_guess(
+        &self,
+        a: &CsrMatrix<T>,
+        b: &DVector<T>,
+        x: &mut DVector<T>,
+    ) -> Result<DVector<T>>
+    where
+        T: Copy,
+    {
         if a.nrows() <= Self::DIRECT_SOLVE_NODE_THRESHOLD {
             let direct_result = match self.method {
                 LinearSolverMethod::ConjugateGradient => Self::solve_sparse_direct_spd(a, b),
@@ -103,22 +120,18 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
             };
         }
 
-        // Initial guess
-        let x0 = DVector::zeros(b.len());
-
         match self.method {
             LinearSolverMethod::ConjugateGradient => {
                 let config = cfd_math::linear_solver::IterativeSolverConfig {
                     max_iterations: self.max_iterations,
                     tolerance: self.tolerance,
                     use_preconditioner: true,
-                    use_parallel_spmv: false,
+                    use_parallel_spmv: true,
                 };
                 let solver = ConjugateGradient::<T>::new(config);
-                let mut x = x0;
                 let precond = DiagJacobi::new(a)?;
-                match solver.solve(a, b, &mut x, Some(&precond)) {
-                    Ok(_) if self.solution_meets_residual_target(a, &x, b) => Ok(x),
+                match solver.solve(a, b, x, Some(&precond)) {
+                    Ok(_) if self.solution_meets_residual_target(a, x, b) => Ok(x.clone()),
                     Err(_) | Ok(_) => Self::solve_dense_fallback(a, b),
                 }
             }
@@ -127,13 +140,12 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
                     max_iterations: self.max_iterations,
                     tolerance: self.tolerance,
                     use_preconditioner: true,
-                    use_parallel_spmv: false,
+                    use_parallel_spmv: true,
                 };
                 let solver = BiCGSTAB::<T>::new(config);
-                let mut x = x0;
                 let precond = DiagJacobi::new(a)?;
-                match solver.solve(a, b, &mut x, Some(&precond)) {
-                    Ok(_) if self.solution_meets_residual_target(a, &x, b) => Ok(x),
+                match solver.solve(a, b, x, Some(&precond)) {
+                    Ok(_) if self.solution_meets_residual_target(a, x, b) => Ok(x.clone()),
                     Err(_) | Ok(_) => Self::solve_dense_fallback(a, b),
                 }
             }
@@ -208,11 +220,12 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
 
         // QR fallback (rare): rebuild dense from sparse.
         let dense2 = Self::sparse_to_dense(a);
-        dense2.qr().solve(b).ok_or(
-            cfd_core::error::Error::Numerical(
+        dense2
+            .qr()
+            .solve(b)
+            .ok_or(cfd_core::error::Error::Numerical(
                 cfd_core::error::NumericalErrorKind::DivisionByZero,
-            )
-        )
+            ))
     }
 
     fn sparse_to_dense(a: &CsrMatrix<T>) -> DMatrix<T> {

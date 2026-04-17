@@ -289,7 +289,10 @@ pub fn sonosensitizer_activation_efficiency(
     cavitation_intensity: f64,
     transit_time_s: f64,
 ) -> f64 {
-    (1.0 - (-k_act * cavitation_intensity * transit_time_s).max(-500.0).exp()).clamp(0.0, 1.0)
+    (1.0 - (-k_act * cavitation_intensity * transit_time_s)
+        .max(-500.0)
+        .exp())
+    .clamp(0.0, 1.0)
 }
 
 // ── Rayleigh-Plesset Cavitation Bubble Models (Rayleigh 1917) ────────────────
@@ -663,10 +666,7 @@ mod tests {
     fn test_jet_velocity_increases_with_pressure() {
         let v1 = collapse_jet_velocity(101_325.0, 1060.0);
         let v2 = collapse_jet_velocity(2.0 * 101_325.0, 1060.0);
-        assert!(
-            v2 > v1,
-            "Higher pressure should give higher jet velocity"
-        );
+        assert!(v2 > v1, "Higher pressure should give higher jet velocity");
     }
 
     // ── cavitation_hemolysis_amplification ──────────────────────────────────
@@ -704,8 +704,14 @@ mod tests {
 
     #[test]
     fn test_amplification_invalid_inputs_return_unity() {
-        assert_eq!(cavitation_hemolysis_amplification(0.0, 1e-6, 101_325.0), 1.0);
-        assert_eq!(cavitation_hemolysis_amplification(1e-6, 0.0, 101_325.0), 1.0);
+        assert_eq!(
+            cavitation_hemolysis_amplification(0.0, 1e-6, 101_325.0),
+            1.0
+        );
+        assert_eq!(
+            cavitation_hemolysis_amplification(1e-6, 0.0, 101_325.0),
+            1.0
+        );
         assert_eq!(cavitation_hemolysis_amplification(1e-6, 1e-6, 0.0), 1.0);
     }
 

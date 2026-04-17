@@ -99,7 +99,10 @@ mod tests {
         let d1 = murray.symmetric_daughter_diameter(d0);
         let d2 = d1;
         let deviation = murray.deviation(d0, d1, d2);
-        assert!(deviation < 1e-10, "Perfect bifurcation should have zero deviation");
+        assert!(
+            deviation < 1e-10,
+            "Perfect bifurcation should have zero deviation"
+        );
     }
 
     #[test]
@@ -161,7 +164,11 @@ mod tests {
         let bif = OptimalBifurcation::<f64>::symmetric(0.01, 1e-6);
         assert!(bif.is_murray_compliant(0.001));
         assert!(bif.mass_conservation_error() < 1e-10);
-        assert_relative_eq!(bif.daughter1_diameter, bif.daughter2_diameter, epsilon = 1e-10);
+        assert_relative_eq!(
+            bif.daughter1_diameter,
+            bif.daughter2_diameter,
+            epsilon = 1e-10
+        );
     }
 
     #[test]
@@ -222,7 +229,12 @@ mod tests {
     fn test_non_newtonian_exponent_positive() {
         for &n in &[0.1, 0.3, 0.5, 0.8, 1.0, 1.5, 2.0] {
             let m = non_newtonian_flow_split_exponent(n);
-            assert!(m > 0.0, "Exponent must be positive for n={}, got m={}", n, m);
+            assert!(
+                m > 0.0,
+                "Exponent must be positive for n={}, got m={}",
+                n,
+                m
+            );
         }
     }
 

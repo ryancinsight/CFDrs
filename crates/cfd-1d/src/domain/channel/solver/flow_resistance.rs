@@ -39,7 +39,7 @@
 //! - Schlichting, H. (1979). *Boundary-Layer Theory*, 7th ed.
 
 use super::shape_factors::poiseuille_number;
-use crate::domain::channel::flow::{Channel, FlowRegime, NumericalParameters, FlowState};
+use crate::domain::channel::flow::{Channel, FlowRegime, FlowState, NumericalParameters};
 use crate::domain::channel::geometry::ChannelGeometry;
 use crate::physics::resistance::models::{DarcyWeisbachModel, FlowConditions, ResistanceModel};
 use cfd_core::error::Result;
@@ -163,9 +163,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         let area = self.geometry.area();
         let dh = self.geometry.hydraulic_diameter();
         let po = poiseuille_number(&self.geometry.cross_section);
-        let resistance =
-            po * fluid.dynamic_viscosity() * self.geometry.length
-                / ((T::one() + T::one()) * area * dh * dh);
+        let resistance = po * fluid.dynamic_viscosity() * self.geometry.length
+            / ((T::one() + T::one()) * area * dh * dh);
         Ok(resistance)
     }
 
@@ -230,7 +229,6 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         let four = T::one() + T::one() + T::one() + T::one();
         Ok(r_laminar / (T::one() + four * kn))
     }
-
 }
 
 #[cfg(test)]
@@ -322,12 +320,10 @@ mod tests {
     #[test]
     fn resistance_scales_with_viscosity() {
         let chan = circular_channel(1e-3, 0.01);
-        let water1 = ConstantPropertyFluid::new(
-            "w1".to_string(), 1000.0, 0.001, 4186.0, 0.598, 1480.0,
-        );
-        let water2 = ConstantPropertyFluid::new(
-            "w2".to_string(), 1000.0, 0.003, 4186.0, 0.598, 1480.0,
-        );
+        let water1 =
+            ConstantPropertyFluid::new("w1".to_string(), 1000.0, 0.001, 4186.0, 0.598, 1480.0);
+        let water2 =
+            ConstantPropertyFluid::new("w2".to_string(), 1000.0, 0.003, 4186.0, 0.598, 1480.0);
         let r1 = chan.laminar_resistance(&water1).unwrap();
         let r2 = chan.laminar_resistance(&water2).unwrap();
         assert_relative_eq!(r2 / r1, 3.0, max_relative = 1e-12);

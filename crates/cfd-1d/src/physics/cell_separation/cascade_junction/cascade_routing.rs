@@ -14,6 +14,7 @@ use cfd_core::error::{Error, Result};
 
 const CASCADE_LEVEL_MIN: u8 = 1;
 const CASCADE_LEVEL_MAX: u8 = 3;
+const FRACTION_SUM_TOLERANCE: f64 = 1.0e-9;
 
 fn validate_unit_open_fraction(name: &str, value: f64) -> Result<f64> {
     if !value.is_finite() || value <= 0.0 || value >= 1.0 {
@@ -73,6 +74,113 @@ fn validate_mixed_stage_sequence(stages: &[(f64, bool)]) -> Result<()> {
     Ok(())
 }
 
+fn validate_fraction_partition(name: &str, fractions: &[f64]) -> Result<()> {
+    let mut sum = 0.0_f64;
+
+    for (index, &fraction) in fractions.iter().enumerate() {
+        if !fraction.is_finite() || fraction <= 0.0 || fraction >= 1.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "Cascade routing {name} entry {index} must lie in the open interval (0, 1)"
+            )));
+        }
+        sum += fraction;
+    }
+
+    if (sum - 1.0).abs() > FRACTION_SUM_TOLERANCE {
+        return Err(Error::InvalidConfiguration(format!(
+            "Cascade routing {name} must sum to 1.0, got {sum:.12}"
+        )));
+    }
+
+    Ok(())
+}
+
+fn validate_kappa_aware_stage_sequence(stages: &[CascadeStage]) -> Result<()> {
+    if stages.is_empty() {
+        return Err(Error::InvalidConfiguration(
+            "Kappa-aware mixed cascade routing requires at least one stage".to_string(),
+        ));
+    }
+
+    for (stage_index, stage) in stages.iter().enumerate() {
+        let n_arms = stage.n_arms as usize;
+        if !(2..=stage.arm_q_fracs.len()).contains(&n_arms) {
+            return Err(Error::InvalidConfiguration(format!(
+                "Kappa-aware cascade stage {stage_index} must use between 2 and {} active arms",
+                stage.arm_q_fracs.len()
+            )));
+        }
+
+        validate_fraction_partition(
+            &format!("kappa-aware stage {stage_index} arm flow fractions"),
+            &stage.arm_q_fracs[..n_arms],
+        )?;
+
+        if !stage.treatment_dh_m.is_finite() || stage.treatment_dh_m <= 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "Kappa-aware cascade stage {stage_index} treatment hydraulic diameter must be finite and positive"
+            )));
+        }
+
+        if !stage.parent_v_in_m_s.is_finite() || stage.parent_v_in_m_s < 0.0 {
+            return Err(Error::InvalidConfiguration(format!(
+                "Kappa-aware cascade stage {stage_index} parent inflow velocity must be finite and nonnegative"
+            )));
+        }
+
+        let n_recoveries = stage.n_recoveries as usize;
+        if n_recoveries > stage.peripheral_recoveries.len() {
+            return Err(Error::InvalidConfiguration(format!(
+                "Kappa-aware cascade stage {stage_index} recovery count must not exceed {}",
+                stage.peripheral_recoveries.len()
+            )));
+        }
+
+        for recovery_index in 0..n_recoveries {
+            let recovery = stage.peripheral_recoveries[recovery_index].as_ref().ok_or_else(|| {
+                Error::InvalidConfiguration(format!(
+                    "Kappa-aware cascade stage {stage_index} recovery slot {recovery_index} must be populated"
+                ))
+            })?;
+
+            if !(1..n_arms).contains(&recovery.source_arm_idx) {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Kappa-aware cascade stage {stage_index} recovery {recovery_index} source arm index must refer to an active peripheral arm"
+                )));
+            }
+
+            let n_sub_arms = recovery.n_sub_arms as usize;
+            if !(2..=recovery.sub_arm_q_fracs.len()).contains(&n_sub_arms) {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Kappa-aware cascade stage {stage_index} recovery {recovery_index} must use between 2 and {} active sub-arms",
+                    recovery.sub_arm_q_fracs.len()
+                )));
+            }
+
+            validate_fraction_partition(
+                &format!(
+                    "kappa-aware stage {stage_index} recovery {recovery_index} sub-arm flow fractions"
+                ),
+                &recovery.sub_arm_q_fracs[..n_sub_arms],
+            )?;
+
+            if recovery.recovery_arm_idx >= n_sub_arms {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Kappa-aware cascade stage {stage_index} recovery {recovery_index} recovery arm index must refer to an active sub-arm"
+                )));
+            }
+
+            if !recovery.recovery_dh_m.is_finite() || recovery.recovery_dh_m <= 0.0 {
+                return Err(Error::InvalidConfiguration(format!(
+                    "Kappa-aware cascade stage {stage_index} recovery {recovery_index} hydraulic diameter must be finite and positive"
+                )));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn tri_center_q_frac_impl(center_frac: f64) -> f64 {
     let w_c = center_frac;
     let w_p = (1.0 - w_c) * 0.5;
@@ -126,8 +234,7 @@ fn tri_asymmetric_q_fracs_impl(
     let w_c = parent_width_m * w_c_frac;
     let w_l = parent_width_m * w_l_frac;
     let w_r = parent_width_m * w_r_frac;
-    let base_conductance_weights =
-        parallel_channel_flow_fractions(&[(w_c, h), (w_l, h), (w_r, h)]);
+    let base_conductance_weights = parallel_channel_flow_fractions(&[(w_c, h), (w_l, h), (w_r, h)]);
 
     let a_parent = parent_width_m * h;
     let k_base = 1.3_f64;
@@ -276,17 +383,22 @@ pub fn tri_asymmetric_q_fracs(
     parent_width_m: f64,
     channel_height_m: f64,
 ) -> [f64; 3] {
-    checked_tri_asymmetric_q_fracs(center_frac, left_periph_frac, parent_width_m, channel_height_m)
-        .unwrap_or_else(|_| {
-            let clamped_center = center_frac.clamp(1e-6, 1.0 - 2e-6);
-            let clamped_left = left_periph_frac.clamp(1e-6, 1.0 - clamped_center - 1e-6);
-            tri_asymmetric_q_fracs_impl(
-                clamped_center,
-                clamped_left,
-                parent_width_m,
-                channel_height_m.max(1e-9),
-            )
-        })
+    checked_tri_asymmetric_q_fracs(
+        center_frac,
+        left_periph_frac,
+        parent_width_m,
+        channel_height_m,
+    )
+    .unwrap_or_else(|_| {
+        let clamped_center = center_frac.clamp(1e-6, 1.0 - 2e-6);
+        let clamped_left = left_periph_frac.clamp(1e-6, 1.0 - clamped_center - 1e-6);
+        tri_asymmetric_q_fracs_impl(
+            clamped_center,
+            clamped_left,
+            parent_width_m,
+            channel_height_m.max(1e-9),
+        )
+    })
 }
 
 /// Checked flow fractions for an asymmetric trifurcation.
@@ -325,23 +437,22 @@ pub fn checked_tri_asymmetric_q_fracs(
 /// # Arguments
 /// * `n_levels`       — number of cascade trifurcation levels (1–3).
 /// * `center_frac`    — center-arm width fraction at each level.
-/// * `_channel_width` — trunk channel width [m] (reserved for future inertial
-///   correction; currently unused in the routing calculation).
-/// * `_channel_height`— trunk channel height [m] (reserved for future use).
-/// * `_flow_rate`     — total inlet flow rate [m³/s] (reserved for future use).
+/// * `channel_width`  — trunk channel width [m].
+/// * `channel_height` — trunk channel height [m].
+/// * `flow_rate`      — total inlet flow rate [m³/s].
 pub fn cascade_junction_separation(
     n_levels: u8,
     center_frac: f64,
-    _channel_width: f64,
-    _channel_height: f64,
-    _flow_rate: f64,
+    channel_width: f64,
+    channel_height: f64,
+    flow_rate: f64,
 ) -> CascadeJunctionResult {
     checked_cascade_junction_separation(
         n_levels,
         center_frac,
-        _channel_width,
-        _channel_height,
-        _flow_rate,
+        channel_width,
+        channel_height,
+        flow_rate,
     )
     .unwrap_or_else(|_| {
         let q_frac = tri_center_q_frac(center_frac);
@@ -576,6 +687,158 @@ pub fn checked_treatment_bifurcation_separation(
     checked_mixed_cascade_separation(&[(treatment_q_frac, false)])
 }
 
+fn accumulate_peripheral_recoveries(
+    stage: &CascadeStage,
+    legacy_fallback: bool,
+    n: usize,
+    arms: &[f64],
+    v_in: f64,
+    beta_cancer: f64,
+    beta_wbc: f64,
+    beta_rbc: f64,
+) -> (f64, f64, f64) {
+    let mut recovery_cancer = 0.0_f64;
+    let mut recovery_wbc = 0.0_f64;
+    let mut recovery_rbc = 0.0_f64;
+    let recovery_count = if legacy_fallback {
+        stage
+            .n_recoveries
+            .min(stage.peripheral_recoveries.len() as u8) as usize
+    } else {
+        stage.n_recoveries as usize
+    };
+
+    for i in 0..recovery_count {
+        if let Some(ref pr) = stage.peripheral_recoveries[i] {
+            let source_arm_idx = if legacy_fallback {
+                pr.source_arm_idx.clamp(1, n - 1)
+            } else {
+                pr.source_arm_idx
+            };
+            let p_leak_cancer = p_arm_general(arms, source_arm_idx, beta_cancer);
+            let p_leak_wbc = p_arm_general(arms, source_arm_idx, beta_wbc);
+            let p_leak_rbc = p_arm_general(arms, source_arm_idx, beta_rbc);
+
+            let sub_dh = if legacy_fallback {
+                pr.recovery_dh_m.max(1.0e-9)
+            } else {
+                pr.recovery_dh_m
+            };
+            let source_arm_q = if legacy_fallback {
+                arms[source_arm_idx].max(1.0e-9)
+            } else {
+                arms[source_arm_idx]
+            };
+            let sub_v_in = v_in * source_arm_q;
+
+            let sub_beta_cancer =
+                (beta_kappa_adjusted(SE_CANCER, D_CANCER_M / sub_dh, sub_v_in, false)
+                    + fahrae_beta_correction(SE_CANCER, D_CANCER_M))
+                .min(3.0);
+            let sub_beta_wbc = (beta_kappa_adjusted(SE_WBC, D_WBC_M / sub_dh, sub_v_in, false)
+                + fahrae_beta_correction(SE_WBC, D_WBC_M))
+            .min(3.0);
+            let sub_beta_rbc = beta_kappa_adjusted(SE_RBC, D_RBC_M / sub_dh, sub_v_in, true);
+
+            let sub_n = if legacy_fallback {
+                pr.n_sub_arms.clamp(2, pr.sub_arm_q_fracs.len() as u8) as usize
+            } else {
+                pr.n_sub_arms as usize
+            };
+            let sub_arms = &pr.sub_arm_q_fracs[..sub_n];
+            let recovery_arm_idx = if legacy_fallback {
+                pr.recovery_arm_idx.min(sub_n - 1)
+            } else {
+                pr.recovery_arm_idx
+            };
+
+            recovery_cancer +=
+                p_leak_cancer * p_arm_general(sub_arms, recovery_arm_idx, sub_beta_cancer);
+            recovery_wbc += p_leak_wbc * p_arm_general(sub_arms, recovery_arm_idx, sub_beta_wbc);
+            recovery_rbc += p_leak_rbc * p_arm_general(sub_arms, recovery_arm_idx, sub_beta_rbc);
+        }
+    }
+
+    (recovery_cancer, recovery_wbc, recovery_rbc)
+}
+
+fn mixed_cascade_separation_kappa_aware_impl(
+    stages: &[CascadeStage],
+    legacy_fallback: bool,
+) -> CascadeJunctionResult {
+    let mut f_cancer = 1.0_f64;
+    let mut f_wbc = 1.0_f64;
+    let mut f_rbc = 1.0_f64;
+    let mut q_center_total = 1.0_f64;
+
+    for stage in stages {
+        let n = if legacy_fallback {
+            stage.n_arms.clamp(2, stage.arm_q_fracs.len() as u8) as usize
+        } else {
+            stage.n_arms as usize
+        };
+        let arms = &stage.arm_q_fracs[..n];
+        let dh = if legacy_fallback {
+            stage.treatment_dh_m.max(1.0e-9)
+        } else {
+            stage.treatment_dh_m
+        };
+        let v_in = if legacy_fallback {
+            stage.parent_v_in_m_s.max(0.0)
+        } else {
+            stage.parent_v_in_m_s
+        };
+
+        let beta_cancer = (beta_kappa_adjusted(SE_CANCER, D_CANCER_M / dh, v_in, false)
+            + fahrae_beta_correction(SE_CANCER, D_CANCER_M))
+        .min(3.0);
+        let beta_wbc = (beta_kappa_adjusted(SE_WBC, D_WBC_M / dh, v_in, false)
+            + fahrae_beta_correction(SE_WBC, D_WBC_M))
+        .min(3.0);
+        let beta_rbc = beta_kappa_adjusted(SE_RBC, D_RBC_M / dh, v_in, true);
+
+        let p_treat_cancer = p_arm_general(arms, 0, beta_cancer);
+        let p_treat_wbc = p_arm_general(arms, 0, beta_wbc);
+        let p_treat_rbc = p_arm_general(arms, 0, beta_rbc);
+
+        let (recovery_cancer, recovery_wbc, recovery_rbc) = accumulate_peripheral_recoveries(
+            stage,
+            legacy_fallback,
+            n,
+            arms,
+            v_in,
+            beta_cancer,
+            beta_wbc,
+            beta_rbc,
+        );
+
+        f_cancer *= (p_treat_cancer + recovery_cancer).min(1.0);
+        f_wbc *= (p_treat_wbc + recovery_wbc).min(1.0);
+        f_rbc *= (p_treat_rbc + recovery_rbc).min(1.0);
+        q_center_total *= if legacy_fallback {
+            stage.arm_q_fracs[0].max(1.0e-9)
+        } else {
+            stage.arm_q_fracs[0]
+        };
+    }
+
+    let rbc_periph = (1.0 - f_rbc).clamp(0.0, 1.0);
+    let sep_eff = (f_cancer - f_rbc).abs().clamp(0.0, 1.0);
+    let center_hematocrit_ratio = if q_center_total > 1.0e-12 {
+        (f_rbc / q_center_total).clamp(0.0, 2.0)
+    } else {
+        1.0
+    };
+
+    CascadeJunctionResult {
+        cancer_center_fraction: f_cancer.clamp(0.0, 1.0),
+        wbc_center_fraction: f_wbc.clamp(0.0, 1.0),
+        rbc_peripheral_fraction: rbc_periph,
+        separation_efficiency: sep_eff,
+        center_hematocrit_ratio,
+    }
+}
+
 /// Compute cell separation through a mixed cascade of asymmetric junctions
 /// with confinement-ratio (κ) dependent β amplification.
 ///
@@ -593,96 +856,26 @@ pub fn checked_treatment_bifurcation_separation(
 /// - For RBC (β_base = 1.0): β_eff = 1.0 always (deformable — no amplification).
 /// - Routing: P_arm_i = q_i^β / Σ_j q_j^β (generalised Zweifach-Fung).
 pub fn mixed_cascade_separation_kappa_aware(stages: &[CascadeStage]) -> CascadeJunctionResult {
-    let mut f_cancer = 1.0_f64;
-    let mut f_wbc = 1.0_f64;
-    let mut f_rbc = 1.0_f64;
-    let mut q_center_total = 1.0_f64;
+    checked_mixed_cascade_separation_kappa_aware(stages)
+        .unwrap_or_else(|_| mixed_cascade_separation_kappa_aware_impl(stages, true))
+}
 
-    for stage in stages {
-        let dh = stage.treatment_dh_m.max(1e-9);
-        let v_in = stage.parent_v_in_m_s.max(1e-9);
-
-        // κ-dependent amplification (Di Carlo 2009) + Fåhræus margination
-        // correction for cells larger than RBCs (Pries 1989) + PMC5114676 velocity
-        // damping/inversion (Yang 2017). The additive
-        // Fåhræus term is significant in millifluidic channels where κ is
-        // small (~0.01) and the κ-only amplification is weak, compensating
-        // for the size-dependent displacement of large CTCs from channel walls
-        // by the packed erythrocyte core at physiological hematocrit.
-        let beta_cancer = (beta_kappa_adjusted(SE_CANCER, D_CANCER_M / dh, v_in, false)
-            + fahrae_beta_correction(SE_CANCER, D_CANCER_M))
-        .min(3.0);
-        let beta_wbc = (beta_kappa_adjusted(SE_WBC, D_WBC_M / dh, v_in, false)
-            + fahrae_beta_correction(SE_WBC, D_WBC_M))
-        .min(3.0);
-        let beta_rbc = beta_kappa_adjusted(SE_RBC, D_RBC_M / dh, v_in, true);
-
-        let n = stage.n_arms.clamp(2, 5) as usize;
-        let arms = &stage.arm_q_fracs[..n];
-
-        let p_treat_cancer = p_arm_general(arms, 0, beta_cancer);
-        let p_treat_wbc = p_arm_general(arms, 0, beta_wbc);
-        let p_treat_rbc = p_arm_general(arms, 0, beta_rbc);
-
-        let mut recovery_cancer = 0.0_f64;
-        let mut recovery_wbc = 0.0_f64;
-        let mut recovery_rbc = 0.0_f64;
-
-        for i in 0..stage.n_recoveries as usize {
-            if let Some(ref pr) = stage.peripheral_recoveries[i] {
-                let p_leak_cancer = p_arm_general(arms, pr.source_arm_idx, beta_cancer);
-                let p_leak_wbc = p_arm_general(arms, pr.source_arm_idx, beta_wbc);
-                let p_leak_rbc = p_arm_general(arms, pr.source_arm_idx, beta_rbc);
-
-                let sub_dh = pr.recovery_dh_m.max(1e-9);
-                let sub_v_in = v_in * stage.arm_q_fracs[pr.source_arm_idx].max(1e-9); // Approx peripheral branch sub-velocity
-
-                let sub_beta_cancer = (beta_kappa_adjusted(SE_CANCER, D_CANCER_M / sub_dh, sub_v_in, false)
-                    + fahrae_beta_correction(SE_CANCER, D_CANCER_M))
-                .min(3.0);
-                let sub_beta_wbc = (beta_kappa_adjusted(SE_WBC, D_WBC_M / sub_dh, sub_v_in, false)
-                    + fahrae_beta_correction(SE_WBC, D_WBC_M))
-                .min(3.0);
-                let sub_beta_rbc = beta_kappa_adjusted(SE_RBC, D_RBC_M / sub_dh, sub_v_in, true);
-
-                let sub_n = pr.n_sub_arms.clamp(2, 5) as usize;
-                let sub_arms = &pr.sub_arm_q_fracs[..sub_n];
-
-                recovery_cancer +=
-                    p_leak_cancer * p_arm_general(sub_arms, pr.recovery_arm_idx, sub_beta_cancer);
-                recovery_wbc +=
-                    p_leak_wbc * p_arm_general(sub_arms, pr.recovery_arm_idx, sub_beta_wbc);
-                recovery_rbc +=
-                    p_leak_rbc * p_arm_general(sub_arms, pr.recovery_arm_idx, sub_beta_rbc);
-            }
-        }
-
-        f_cancer *= (p_treat_cancer + recovery_cancer).min(1.0);
-        f_wbc *= (p_treat_wbc + recovery_wbc).min(1.0);
-        f_rbc *= (p_treat_rbc + recovery_rbc).min(1.0);
-        q_center_total *= stage.arm_q_fracs[0].max(1e-9);
-    }
-
-    let rbc_periph = (1.0 - f_rbc).clamp(0.0, 1.0);
-    let sep_eff = (f_cancer - f_rbc).abs().clamp(0.0, 1.0);
-    let center_hematocrit_ratio = if q_center_total > 1e-12 {
-        (f_rbc / q_center_total).clamp(0.0, 2.0)
-    } else {
-        1.0
-    };
-
-    CascadeJunctionResult {
-        cancer_center_fraction: f_cancer.clamp(0.0, 1.0),
-        wbc_center_fraction: f_wbc.clamp(0.0, 1.0),
-        rbc_peripheral_fraction: rbc_periph,
-        separation_efficiency: sep_eff,
-        center_hematocrit_ratio,
-    }
+/// Checked cell separation through a mixed cascade of asymmetric junctions
+/// with confinement-ratio (κ) dependent β amplification.
+pub fn checked_mixed_cascade_separation_kappa_aware(
+    stages: &[CascadeStage],
+) -> Result<CascadeJunctionResult> {
+    validate_kappa_aware_stage_sequence(stages)?;
+    Ok(mixed_cascade_separation_kappa_aware_impl(stages, false))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{tri_asymmetric_q_fracs, tri_center_q_frac_cross_junction};
+    use super::super::{CascadeStage, PeripheralRecovery};
+    use super::{
+        checked_mixed_cascade_separation_kappa_aware, mixed_cascade_separation_kappa_aware,
+        tri_asymmetric_q_fracs, tri_center_q_frac_cross_junction,
+    };
     use crate::physics::resistance::parallel_channel_flow_fractions;
 
     #[test]
@@ -697,7 +890,8 @@ mod tests {
             (peripheral_width_m, channel_height_m),
             (peripheral_width_m, channel_height_m),
         ])[0];
-        let actual = tri_center_q_frac_cross_junction(center_frac, parent_width_m, channel_height_m);
+        let actual =
+            tri_center_q_frac_cross_junction(center_frac, parent_width_m, channel_height_m);
 
         assert!(
             (actual - expected).abs() < 2.0e-5,
@@ -732,5 +926,100 @@ mod tests {
                 "negligible minor-loss limit should recover the rectangular conductance split to within the residual junction term: actual={actual}, expected={expected}"
             );
         }
+    }
+
+    #[test]
+    fn checked_kappa_aware_rejects_excess_recovery_count() {
+        let stage = CascadeStage {
+            arm_q_fracs: [0.50, 0.25, 0.25, 0.0, 0.0],
+            n_arms: 3,
+            treatment_dh_m: 1.0e-3,
+            parent_v_in_m_s: 0.02,
+            peripheral_recoveries: [None; 4],
+            n_recoveries: 5,
+        };
+
+        let err = checked_mixed_cascade_separation_kappa_aware(&[stage]).expect_err(
+            "checked kappa-aware routing must reject recovery counts beyond the fixed stage budget",
+        );
+
+        assert!(err.to_string().contains("recovery count"));
+    }
+
+    #[test]
+    fn checked_kappa_aware_rejects_treatment_arm_recovery_source() {
+        let stage = CascadeStage {
+            arm_q_fracs: [0.55, 0.25, 0.20, 0.0, 0.0],
+            n_arms: 3,
+            treatment_dh_m: 1.0e-3,
+            parent_v_in_m_s: 0.02,
+            peripheral_recoveries: [
+                Some(PeripheralRecovery {
+                    source_arm_idx: 0,
+                    sub_arm_q_fracs: [0.70, 0.30, 0.0, 0.0, 0.0],
+                    n_sub_arms: 2,
+                    recovery_arm_idx: 0,
+                    recovery_dh_m: 0.4e-3,
+                }),
+                None,
+                None,
+                None,
+            ],
+            n_recoveries: 1,
+        };
+
+        let err = checked_mixed_cascade_separation_kappa_aware(&[stage]).expect_err(
+            "checked kappa-aware routing must reject recovery sources that point at the treatment arm",
+        );
+
+        assert!(err.to_string().contains("source arm index"));
+    }
+
+    #[test]
+    fn legacy_kappa_aware_clamps_excess_recovery_count_without_panicking() {
+        let invalid = CascadeStage {
+            arm_q_fracs: [0.50, 0.25, 0.25, 0.0, 0.0],
+            n_arms: 3,
+            treatment_dh_m: 1.0e-3,
+            parent_v_in_m_s: 0.02,
+            peripheral_recoveries: [None; 4],
+            n_recoveries: 5,
+        };
+        let clean = CascadeStage {
+            n_recoveries: 0,
+            ..invalid
+        };
+
+        let invalid_result = mixed_cascade_separation_kappa_aware(&[invalid]);
+        let clean_result = mixed_cascade_separation_kappa_aware(&[clean]);
+
+        assert!(
+            (invalid_result.cancer_center_fraction - clean_result.cancer_center_fraction).abs()
+                < 1.0e-12
+        );
+        assert!(
+            (invalid_result.rbc_peripheral_fraction - clean_result.rbc_peripheral_fraction).abs()
+                < 1.0e-12
+        );
+    }
+
+    #[test]
+    fn checked_kappa_aware_matches_legacy_nominal_case() {
+        let stage = CascadeStage {
+            arm_q_fracs: [0.55, 0.225, 0.225, 0.0, 0.0],
+            n_arms: 3,
+            treatment_dh_m: 1.0e-3,
+            parent_v_in_m_s: 0.02,
+            peripheral_recoveries: [None; 4],
+            n_recoveries: 0,
+        };
+
+        let legacy = mixed_cascade_separation_kappa_aware(&[stage]);
+        let checked = checked_mixed_cascade_separation_kappa_aware(&[stage])
+            .expect("checked kappa-aware routing should succeed on a nominal stage");
+
+        assert!((legacy.cancer_center_fraction - checked.cancer_center_fraction).abs() < 1.0e-12);
+        assert!((legacy.wbc_center_fraction - checked.wbc_center_fraction).abs() < 1.0e-12);
+        assert!((legacy.rbc_peripheral_fraction - checked.rbc_peripheral_fraction).abs() < 1.0e-12);
     }
 }

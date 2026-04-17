@@ -12,5 +12,7 @@ pub mod blueprint_conversion;
 pub mod network_builder;
 pub(crate) mod venturi_coefficients;
 
-pub use blueprint_conversion::network_from_blueprint;
+pub use blueprint_conversion::{
+    apply_blueprint_boundary_conditions, network_from_blueprint,
+};
 pub use network_builder::NetworkBuilder;

@@ -36,7 +36,9 @@ mod tests {
 
         let branch = TwoWayBranchJunction::new(parent, d1, d2, 0.5);
         let blood = CassonBlood::<f64>::normal_blood();
-        let solution = branch.solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0).unwrap();
+        let solution = branch
+            .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
+            .unwrap();
 
         assert_relative_eq!(solution.q_1 + solution.q_2, 1.0e-6, epsilon = 1e-10);
     }
@@ -49,7 +51,9 @@ mod tests {
 
         let branch = TwoWayBranchJunction::new(parent, d1, d2, 0.5);
         let blood = CassonBlood::<f64>::normal_blood();
-        let solution = branch.solve(blood, 1.0e-8, 100.0, 310.15, 101325.0).unwrap();
+        let solution = branch
+            .solve(blood, 1.0e-8, 100.0, 310.15, 101325.0)
+            .unwrap();
 
         assert!(solution.mu_1 > 0.0);
         assert!(solution.mu_2 > 0.0);
@@ -77,7 +81,9 @@ mod tests {
 
         let branch = ThreeWayBranchJunction::new(parent, d1, d2, d3, (0.4, 0.35, 0.25));
         let blood = CassonBlood::<f64>::normal_blood();
-        let solution = branch.solve(blood, 9.0e-9, 120.0, 310.15, 101325.0).unwrap();
+        let solution = branch
+            .solve(blood, 9.0e-9, 120.0, 310.15, 101325.0)
+            .unwrap();
 
         assert_relative_eq!(
             solution.q_1 + solution.q_2 + solution.q_3,
@@ -93,14 +99,24 @@ mod tests {
     fn test_three_way_murray_law_extension() {
         let parent = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 2.0e-3, 1e-6));
         let daughter_diameter = 2.0e-3 / 3.0_f64.cbrt();
-        let d1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, daughter_diameter, 1e-6));
-        let d2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, daughter_diameter, 1e-6));
-        let d3 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, daughter_diameter, 1e-6));
+        let d1 = Channel::new(ChannelGeometry::<f64>::circular(
+            1.0e-2,
+            daughter_diameter,
+            1e-6,
+        ));
+        let d2 = Channel::new(ChannelGeometry::<f64>::circular(
+            1.0e-2,
+            daughter_diameter,
+            1e-6,
+        ));
+        let d3 = Channel::new(ChannelGeometry::<f64>::circular(
+            1.0e-2,
+            daughter_diameter,
+            1e-6,
+        ));
 
-        let branch = ThreeWayBranchJunction::new(
-            parent, d1, d2, d3,
-            (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0),
-        );
+        let branch =
+            ThreeWayBranchJunction::new(parent, d1, d2, d3, (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0));
         assert!(branch.murray_law_deviation() < 1e-12);
     }
 
@@ -113,7 +129,9 @@ mod tests {
 
         let branch = TwoWayBranchJunction::new(parent, d1, d2, 0.5);
         let blood = CassonBlood::<f64>::normal_blood();
-        let solution = branch.solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0).unwrap();
+        let solution = branch
+            .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
+            .unwrap();
 
         assert_relative_eq!(solution.dp_1, solution.dp_2, epsilon = 1e-10);
         assert_relative_eq!(solution.p_1, solution.p_2, epsilon = 1e-10);
@@ -131,9 +149,15 @@ mod tests {
         let optimal_split = r1.powi(3) / (r1.powi(3) + r2.powi(3));
         let branch = TwoWayBranchJunction::new(parent, d1, d2, optimal_split);
         let blood = CassonBlood::<f64>::normal_blood();
-        let solution = branch.solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0).unwrap();
+        let solution = branch
+            .solve(blood, 1.0e-6, 1000.0, 310.15, 101325.0)
+            .unwrap();
 
-        assert!(solution.junction_pressure_error < 0.15, "Error: {}", solution.junction_pressure_error);
+        assert!(
+            solution.junction_pressure_error < 0.15,
+            "Error: {}",
+            solution.junction_pressure_error
+        );
     }
 
     #[test]
@@ -142,7 +166,8 @@ mod tests {
         let d1 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.7e-3, 1e-6));
         let d2 = Channel::new(ChannelGeometry::<f64>::circular(1.0e-2, 1.1e-3, 1e-6));
 
-        let branch_low_seed = TwoWayBranchJunction::new(parent.clone(), d1.clone(), d2.clone(), 0.2);
+        let branch_low_seed =
+            TwoWayBranchJunction::new(parent.clone(), d1.clone(), d2.clone(), 0.2);
         let branch_high_seed = TwoWayBranchJunction::new(parent, d1, d2, 0.8);
         let blood = CassonBlood::<f64>::normal_blood();
 
@@ -155,8 +180,16 @@ mod tests {
 
         assert!(low_seed_solution.junction_pressure_error < 1e-8);
         assert!(high_seed_solution.junction_pressure_error < 1e-8);
-        assert_relative_eq!(low_seed_solution.q_1, high_seed_solution.q_1, epsilon = 1e-16);
-        assert_relative_eq!(low_seed_solution.p_1, high_seed_solution.p_1, epsilon = 1e-10);
+        assert_relative_eq!(
+            low_seed_solution.q_1,
+            high_seed_solution.q_1,
+            epsilon = 1e-16
+        );
+        assert_relative_eq!(
+            low_seed_solution.p_1,
+            high_seed_solution.p_1,
+            epsilon = 1e-10
+        );
     }
 
     #[test]
@@ -191,7 +224,10 @@ mod tests {
 
         for (s1, s2, s3) in splits {
             let branch = ThreeWayBranchJunction::new(
-                parent.clone(), d1.clone(), d2.clone(), d3.clone(),
+                parent.clone(),
+                d1.clone(),
+                d2.clone(),
+                d3.clone(),
                 (s1, s2, s3),
             );
             let solution = branch
@@ -229,9 +265,21 @@ mod tests {
 
         assert!(low_seed_solution.junction_pressure_error < 1e-8);
         assert!(high_seed_solution.junction_pressure_error < 1e-8);
-        assert_relative_eq!(low_seed_solution.q_1, high_seed_solution.q_1, epsilon = 1e-16);
-        assert_relative_eq!(low_seed_solution.q_2, high_seed_solution.q_2, epsilon = 1e-16);
-        assert_relative_eq!(low_seed_solution.p_3, high_seed_solution.p_3, epsilon = 1e-10);
+        assert_relative_eq!(
+            low_seed_solution.q_1,
+            high_seed_solution.q_1,
+            epsilon = 1e-16
+        );
+        assert_relative_eq!(
+            low_seed_solution.q_2,
+            high_seed_solution.q_2,
+            epsilon = 1e-16
+        );
+        assert_relative_eq!(
+            low_seed_solution.p_3,
+            high_seed_solution.p_3,
+            epsilon = 1e-10
+        );
     }
 
     #[test]

@@ -74,11 +74,7 @@ pub fn quemada_viscosity(shear_rate: f64, hematocrit: f64, mu_plasma: f64) -> f6
 
 /// Checked Quemada viscosity evaluation for callers that require explicit
 /// model-boundary enforcement.
-pub fn checked_quemada_viscosity(
-    shear_rate: f64,
-    hematocrit: f64,
-    mu_plasma: f64,
-) -> Result<f64> {
+pub fn checked_quemada_viscosity(shear_rate: f64, hematocrit: f64, mu_plasma: f64) -> Result<f64> {
     if !shear_rate.is_finite() || shear_rate < 0.0 {
         return Err(Error::InvalidConfiguration(
             "Quemada shear rate must be finite and nonnegative".to_string(),

@@ -36,7 +36,7 @@ impl<T: RealField + Copy + FromPrimitive + Sum> NetworkAnalyzer<T> for PressureA
         let mut analysis = PressureAnalysis::new();
 
         // Collect node pressures
-        
+
         let pressures = network.pressures();
         for (idx, node) in network.nodes().enumerate() {
             if let Some(&pressure) = pressures.get(idx) {
@@ -47,8 +47,10 @@ impl<T: RealField + Copy + FromPrimitive + Sum> NetworkAnalyzer<T> for PressureA
         // Collect pressure drops and gradients
         for edge in network.edges_with_properties() {
             let (from_idx, to_idx) = edge.nodes;
-            if let (Some(&p_from), Some(&p_to)) = (pressures.get(from_idx.index()), pressures.get(to_idx.index()))
-            {
+            if let (Some(&p_from), Some(&p_to)) = (
+                pressures.get(from_idx.index()),
+                pressures.get(to_idx.index()),
+            ) {
                 let pressure_drop = p_from - p_to;
                 analysis.add_pressure_drop(edge.id.clone(), pressure_drop);
 

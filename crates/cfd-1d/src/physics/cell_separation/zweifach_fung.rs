@@ -316,8 +316,9 @@ mod tests {
 
     #[test]
     fn checked_rbc_fraction_rejects_out_of_domain_flow_fraction() {
-        let err = checked_zweifach_fung_rbc_fraction(1.1, 50.0)
-            .expect_err("checked Zweifach-Fung RBC fraction must reject flow fractions above unity");
+        let err = checked_zweifach_fung_rbc_fraction(1.1, 50.0).expect_err(
+            "checked Zweifach-Fung RBC fraction must reject flow fractions above unity",
+        );
         assert!(err.to_string().contains("flow fraction"));
     }
 
@@ -379,7 +380,10 @@ mod tests {
     #[test]
     fn zero_flow_zero_rbcs() {
         let (h1, _h2) = zweifach_fung_daughter_hematocrits(0.45, 0.0, 50.0);
-        assert!(h1.abs() < 1e-10, "Zero flow → zero hematocrit, got {h1:.10}");
+        assert!(
+            h1.abs() < 1e-10,
+            "Zero flow → zero hematocrit, got {h1:.10}"
+        );
     }
 
     /// Full flow fraction means all RBCs go to this branch.

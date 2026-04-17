@@ -12,10 +12,10 @@ mod problem;
 mod solver_detection;
 mod state;
 mod status;
-/// Workspace state and allocation for the 1D solver loop.
-pub mod workspace;
 /// Transient solvers for composition and droplet tracking over time.
 pub mod transient;
+/// Workspace state and allocation for the 1D solver loop.
+pub mod workspace;
 
 pub use convergence::ConvergenceChecker;
 pub use geometry::NetworkDomain;
@@ -27,8 +27,9 @@ pub use status::{PrimarySolveDiagnostics, PrimarySolveError, SolveFailureReason,
 pub use workspace::SolverWorkspace;
 
 pub use transient::composition::{
-    CompositionState, EdgeFlowEvent, InletCompositionEvent, MixtureComposition,
-    PressureBoundaryEvent, SimulationTimeConfig, TransientCompositionSimulator,
+    BloodEdgeTransportConfig, CompositionState, EdgeFlowEvent, InletCompositionEvent,
+    InletHematocritEvent, MixtureComposition, PressureBoundaryEvent, SimulationTimeConfig,
+    TransientCompositionSimulator, BLOOD_PLASMA_FLUID_ID, BLOOD_RBC_FLUID_ID,
 };
 pub use transient::droplets::{
     ChannelOccupancy, DropletBoundary, DropletInjection, DropletPosition, DropletSnapshot,
@@ -154,8 +155,10 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone> NetworkSolve
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: FluidTrait<T> + Clone>
-    NetworkSolver<T, F>
+impl<
+        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        F: FluidTrait<T> + Clone,
+    > NetworkSolver<T, F>
 {
     /// Solve the network flow problem iteratively for non-linear systems.
     ///
@@ -232,7 +235,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
             &network,
             &mut workspace.dirichlet_values,
             &mut workspace.neumann_sources,
-        ).map_err(|source| {
+        )
+        .map_err(|source| {
             PrimarySolveError::new(
                 SolveFailureReason::InvalidGeometryContract,
                 PrimarySolveDiagnostics::default(),
@@ -247,13 +251,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
 
         if Self::is_linear_static_network(&network) {
             diagnostics.matrix_treated_as_linear_static = true;
-            let matrix = self.assembler.assemble_into(&network, &mut workspace).map_err(|source| {
-                PrimarySolveError::new(
-                    SolveFailureReason::MatrixAssemblyInvalid,
-                    diagnostics.clone(),
-                    source,
-                )
-            })?;
+            let matrix = self
+                .assembler
+                .assemble_into(&network, &mut workspace)
+                .map_err(|source| {
+                    PrimarySolveError::new(
+                        SolveFailureReason::MatrixAssemblyInvalid,
+                        diagnostics.clone(),
+                        source,
+                    )
+                })?;
             Self::validate_linear_system(&matrix, &workspace.rhs).map_err(|source| {
                 PrimarySolveError::new(
                     SolveFailureReason::MatrixAssemblyInvalid,
@@ -265,11 +272,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
             diagnostics.linear_solver_method = Some(method);
             diagnostics.picard_iterations = 1;
             network.last_solver_method = Some(method);
+            workspace.linear_solution.fill(T::zero());
             let solution = LinearSystemSolver::new()
                 .with_method(method)
                 .with_tolerance(self.config.tolerance)
                 .with_max_iterations(self.config.max_iterations)
-                .solve(&matrix, &workspace.rhs)
+                .solve_with_initial_guess(&matrix, &workspace.rhs, &mut workspace.linear_solution)
                 .map_err(|source| {
                     PrimarySolveError::new(
                         SolveFailureReason::LinearSolverFailure,
@@ -314,13 +322,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
 
         for iter in 0..self.config.max_iterations {
             diagnostics.picard_iterations = iter + 1;
-            let matrix = self.assembler.assemble_into(&network, &mut workspace).map_err(|source| {
-                PrimarySolveError::new(
-                    SolveFailureReason::MatrixAssemblyInvalid,
-                    diagnostics.clone(),
-                    source,
-                )
-            })?;
+            let matrix = self
+                .assembler
+                .assemble_into(&network, &mut workspace)
+                .map_err(|source| {
+                    PrimarySolveError::new(
+                        SolveFailureReason::MatrixAssemblyInvalid,
+                        diagnostics.clone(),
+                        source,
+                    )
+                })?;
             Self::validate_linear_system(&matrix, &workspace.rhs).map_err(|source| {
                 PrimarySolveError::new(
                     SolveFailureReason::MatrixAssemblyInvalid,
@@ -342,17 +353,20 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
                 );
             }
 
+            workspace
+                .linear_solution
+                .copy_from(&workspace.last_solution);
             let picard_solution = adaptive_solver
                 .as_ref()
                 .expect("adaptive solver must be initialized after method detection")
-                .solve(&matrix, &workspace.rhs)
+                .solve_with_initial_guess(&matrix, &workspace.rhs, &mut workspace.linear_solution)
                 .map_err(|source| {
-                PrimarySolveError::new(
-                    SolveFailureReason::LinearSolverFailure,
-                    diagnostics.clone(),
-                    source,
-                )
-            })?;
+                    PrimarySolveError::new(
+                        SolveFailureReason::LinearSolverFailure,
+                        diagnostics.clone(),
+                        source,
+                    )
+                })?;
             if !Self::vector_is_finite(&picard_solution) {
                 return Err(PrimarySolveError::new(
                     SolveFailureReason::NonFiniteResidual,
@@ -362,7 +376,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
                     }),
                 ));
             }
-            let picard_residual = Self::compute_residual_norm(&matrix, &picard_solution, &workspace.rhs, n);
+            let picard_residual =
+                Self::compute_residual_norm(&matrix, &picard_solution, &workspace.rhs, n);
             if !picard_residual.is_finite() {
                 diagnostics.last_residual_norm = Self::scalar_to_f64(picard_residual);
                 return Err(PrimarySolveError::new(
@@ -464,12 +479,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: F
     ) -> Result<()> {
         network.update_from_solution(solution)
     }
-
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float, F: FluidTrait<T> + Clone>
-    Solver<T>
-    for NetworkSolver<T, F>
+impl<
+        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        F: FluidTrait<T> + Clone,
+    > Solver<T> for NetworkSolver<T, F>
 {
     type Problem = NetworkProblem<T, F>;
     type Solution = Network<T, F>;

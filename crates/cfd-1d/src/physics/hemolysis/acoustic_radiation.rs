@@ -211,13 +211,13 @@ mod tests {
     fn test_radiation_force_zero_at_node() {
         let phi = acoustic_contrast_factor(RHO_RBC, RHO_PLASMA, KAPPA_RBC, KAPPA_PLASMA);
         let f = acoustic_radiation_force(
-            3.5e-6,          // RBC radius ~3.5 µm
+            3.5e-6, // RBC radius ~3.5 µm
             phi,
-            2.0e6,           // 2 MHz
-            500_000.0,       // 500 kPa
+            2.0e6,     // 2 MHz
+            500_000.0, // 500 kPa
             RHO_PLASMA,
             SPEED_OF_SOUND_PLASMA,
-            0.0,             // at pressure node
+            0.0, // at pressure node
         );
         assert!(
             f.abs() < 1e-30,
@@ -233,13 +233,28 @@ mod tests {
         // At x = λ/8, sin(2kx) = sin(2 · 2π/λ · λ/8) = sin(π/2) = 1 → maximum force
         let x_max = lambda / 8.0;
         let f_max = acoustic_radiation_force(
-            3.5e-6, phi, freq, 500_000.0, RHO_PLASMA, SPEED_OF_SOUND_PLASMA, x_max,
+            3.5e-6,
+            phi,
+            freq,
+            500_000.0,
+            RHO_PLASMA,
+            SPEED_OF_SOUND_PLASMA,
+            x_max,
         );
-        assert!(f_max > 0.0, "Force at λ/8 should be positive (max), got {f_max}");
+        assert!(
+            f_max > 0.0,
+            "Force at λ/8 should be positive (max), got {f_max}"
+        );
 
         // Verify it is indeed the maximum by checking nearby positions
         let f_nearby = acoustic_radiation_force(
-            3.5e-6, phi, freq, 500_000.0, RHO_PLASMA, SPEED_OF_SOUND_PLASMA, x_max * 0.5,
+            3.5e-6,
+            phi,
+            freq,
+            500_000.0,
+            RHO_PLASMA,
+            SPEED_OF_SOUND_PLASMA,
+            x_max * 0.5,
         );
         assert!(
             f_max > f_nearby,
@@ -257,10 +272,22 @@ mod tests {
         let r2 = 2.0 * r1; // double the radius
 
         let f1 = acoustic_radiation_force(
-            r1, phi, freq, 500_000.0, RHO_PLASMA, SPEED_OF_SOUND_PLASMA, x,
+            r1,
+            phi,
+            freq,
+            500_000.0,
+            RHO_PLASMA,
+            SPEED_OF_SOUND_PLASMA,
+            x,
         );
         let f2 = acoustic_radiation_force(
-            r2, phi, freq, 500_000.0, RHO_PLASMA, SPEED_OF_SOUND_PLASMA, x,
+            r2,
+            phi,
+            freq,
+            500_000.0,
+            RHO_PLASMA,
+            SPEED_OF_SOUND_PLASMA,
+            x,
         );
 
         let ratio = f2 / f1;
@@ -275,7 +302,10 @@ mod tests {
     #[test]
     fn test_energy_density_positive() {
         let e = acoustic_energy_density(500_000.0, RHO_PLASMA, SPEED_OF_SOUND_PLASMA);
-        assert!(e > 0.0, "Energy density must be positive for p₀ > 0, got {e}");
+        assert!(
+            e > 0.0,
+            "Energy density must be positive for p₀ > 0, got {e}"
+        );
     }
 
     #[test]

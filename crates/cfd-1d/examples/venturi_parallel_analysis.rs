@@ -181,7 +181,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for spec in &channel_specs {
             let eidx = edge_id_map[spec.id.as_str()];
             let e = solution.graph.edge_weight(eidx).unwrap();
-            let q = solution.flow_rates.get(eidx.index()).copied().unwrap_or(0.0).abs();
+            let q = solution
+                .flow_rates
+                .get(eidx.index())
+                .copied()
+                .unwrap_or(0.0)
+                .abs();
 
             // Upstream/downstream pressures
             let (src, tgt) = solution.graph.edge_endpoints(eidx).unwrap();

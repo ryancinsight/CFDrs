@@ -39,8 +39,7 @@ pub enum SolvePathStatus {
 }
 
 /// Diagnostics captured from the primary `cfd-1d` solve attempt.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct PrimarySolveDiagnostics {
     /// Number of Picard iterations executed on the primary path.
     pub picard_iterations: usize,
@@ -57,7 +56,6 @@ pub struct PrimarySolveDiagnostics {
     /// Human-readable failure detail from the underlying solver/model error.
     pub failure_detail: Option<String>,
 }
-
 
 /// Error emitted when the trusted primary solve path failed.
 #[derive(Debug)]

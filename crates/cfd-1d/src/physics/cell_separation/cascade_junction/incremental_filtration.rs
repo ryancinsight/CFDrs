@@ -18,8 +18,7 @@ const TERMINAL_BI_TREAT_FRAC_MAX: f64 = 0.85;
 fn validate_pretri_count(n_pretri: u8) -> Result<usize> {
     if !(1..=3).contains(&n_pretri) {
         return Err(Error::InvalidConfiguration(
-            "Incremental filtration pre-trifurcation stage count must lie in [1, 3]"
-                .to_string(),
+            "Incremental filtration pre-trifurcation stage count must lie in [1, 3]".to_string(),
         ));
     }
 
@@ -168,7 +167,8 @@ pub fn checked_cif_pretri_stage_center_fracs(
 ) -> Result<Vec<f64>> {
     let n = validate_pretri_count(n_pretri)?;
     let start = validate_center_fraction("pre-trifurcation center fraction", pretri_center_frac)?;
-    let terminal = validate_center_fraction("terminal trifurcation center fraction", terminal_tri_frac)?;
+    let terminal =
+        validate_center_fraction("terminal trifurcation center fraction", terminal_tri_frac)?;
 
     Ok(cif_pretri_stage_center_fracs_impl(n, start, terminal))
 }
@@ -198,14 +198,12 @@ pub fn checked_cif_pretri_stage_q_fracs(
     pretri_center_frac: f64,
     terminal_tri_frac: f64,
 ) -> Result<Vec<f64>> {
-    Ok(checked_cif_pretri_stage_center_fracs(
-        n_pretri,
-        pretri_center_frac,
-        terminal_tri_frac,
-    )?
-    .into_iter()
-    .map(tri_center_q_frac)
-    .collect())
+    Ok(
+        checked_cif_pretri_stage_center_fracs(n_pretri, pretri_center_frac, terminal_tri_frac)?
+            .into_iter()
+            .map(tri_center_q_frac)
+            .collect(),
+    )
 }
 
 /// Geometry-aware stage-wise pre-trifurcation center-flow fractions.
@@ -228,7 +226,8 @@ pub fn cif_pretri_stage_q_fracs_cross_junction(
         channel_height_m,
     )
     .unwrap_or_else(|_| {
-        let stage_fracs = cif_pretri_stage_center_fracs(n_pretri, pretri_center_frac, terminal_tri_frac);
+        let stage_fracs =
+            cif_pretri_stage_center_fracs(n_pretri, pretri_center_frac, terminal_tri_frac);
         let mut current_parent_w = parent_width_m.max(1.0e-9);
         stage_fracs
             .into_iter()
@@ -253,11 +252,8 @@ pub fn checked_cif_pretri_stage_q_fracs_cross_junction(
     parent_width_m: f64,
     channel_height_m: f64,
 ) -> Result<Vec<f64>> {
-    let stage_fracs = checked_cif_pretri_stage_center_fracs(
-        n_pretri,
-        pretri_center_frac,
-        terminal_tri_frac,
-    )?;
+    let stage_fracs =
+        checked_cif_pretri_stage_center_fracs(n_pretri, pretri_center_frac, terminal_tri_frac)?;
     let mut current_parent_w = validate_positive_geometry("parent width", parent_width_m)?;
     let channel_height_m = validate_positive_geometry("channel height", channel_height_m)?;
 
@@ -411,7 +407,9 @@ pub fn incremental_filtration_separation_cross_junction(
             cif_pretri_stage_center_fracs(n_pretri, pretri_center_frac, terminal_tri_frac);
         let current_parent_w = stage_fracs
             .iter()
-            .fold(parent_width_m, |width_m, stage_center_frac| width_m * stage_center_frac);
+            .fold(parent_width_m, |width_m, stage_center_frac| {
+                width_m * stage_center_frac
+            });
 
         let q_tri =
             tri_center_q_frac_cross_junction(terminal_tri_frac, current_parent_w, channel_height_m);
@@ -443,9 +441,12 @@ pub fn checked_incremental_filtration_separation_cross_junction(
 
     let current_parent_w = stage_fracs
         .iter()
-        .fold(parent_width_m, |width_m, stage_center_frac| width_m * stage_center_frac);
+        .fold(parent_width_m, |width_m, stage_center_frac| {
+            width_m * stage_center_frac
+        });
 
-    let q_tri = tri_center_q_frac_cross_junction(terminal_tri_frac, current_parent_w, channel_height_m);
+    let q_tri =
+        tri_center_q_frac_cross_junction(terminal_tri_frac, current_parent_w, channel_height_m);
     Ok(incremental_from_q_fractions(
         &pretri_q_fracs,
         q_tri,

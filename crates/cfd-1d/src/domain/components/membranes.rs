@@ -57,9 +57,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for PorousMembrane<T> {
         let conditions = FlowConditions::new(T::zero());
         model
             .calculate_resistance(fluid, &conditions)
-            .unwrap_or_else(|_| {
-                real_from_f64(1e12)
-            })
+            .unwrap_or_else(|_| real_from_f64(1e12))
     }
 
     fn component_type(&self) -> &'static str {

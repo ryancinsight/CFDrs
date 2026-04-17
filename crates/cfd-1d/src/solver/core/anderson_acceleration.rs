@@ -97,21 +97,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Float, F: FluidTrait<T>
         picard_residual: T,
     ) -> nalgebra::DVector<T> {
         let picard_step_norm = (&picard_solution - &workspace.last_solution).norm();
-        let accelerated = Self::anderson_accelerate(
-            iter,
-            n,
-            picard_solution.clone(),
-            workspace,
-            depth,
-        );
+        let accelerated =
+            Self::anderson_accelerate(iter, n, picard_solution.clone(), workspace, depth);
 
         if Self::vector_is_finite(&accelerated) {
             let accelerated_step_norm = (&accelerated - &workspace.last_solution).norm();
-            let accelerated_residual = Self::compute_residual_norm(matrix, &accelerated, &workspace.rhs, n);
+            let accelerated_residual =
+                Self::compute_residual_norm(matrix, &accelerated, &workspace.rhs, n);
             if accelerated_residual.is_finite()
                 && accelerated_step_norm <= picard_step_norm
-                && accelerated_residual
-                    <= <T as Float>::max(picard_residual, T::default_epsilon())
+                && accelerated_residual <= <T as Float>::max(picard_residual, T::default_epsilon())
             {
                 return accelerated;
             }

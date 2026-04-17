@@ -124,7 +124,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Channel IDs in the schematic are integers; edge IDs are "chan_<id>"
     let mut edge_flow_data = HashMap::<usize, f64>::new();
     for (eidx, &q) in solution.flow_rates.iter().enumerate() {
-        if let Some(edge) = solution.graph.edge_weight(petgraph::graph::EdgeIndex::new(eidx)) {
+        if let Some(edge) = solution
+            .graph
+            .edge_weight(petgraph::graph::EdgeIndex::new(eidx))
+        {
             if let Ok(id) = edge.id.trim_start_matches("chan_").parse::<usize>() {
                 edge_flow_data.insert(id, q.abs());
             }
@@ -134,7 +137,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Node pressure data
     let mut node_pressure_data = HashMap::<usize, f64>::new();
     for (nidx, &p) in solution.pressures.iter().enumerate() {
-        if let Some(node) = solution.graph.node_weight(petgraph::graph::NodeIndex::new(nidx)) {
+        if let Some(node) = solution
+            .graph
+            .node_weight(petgraph::graph::NodeIndex::new(nidx))
+        {
             if let Ok(id) = node.id.trim_start_matches("node_").parse::<usize>() {
                 node_pressure_data.insert(id, p);
             }

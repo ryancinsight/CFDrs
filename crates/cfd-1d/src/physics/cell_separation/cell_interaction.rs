@@ -29,8 +29,8 @@
 //!
 //! See `cfd_core::physics::cell_interaction` for the physics and theorems.
 
-use cfd_core::physics::cell_interaction as ci;
 use cfd_core::error::{Error, Result};
+use cfd_core::physics::cell_interaction as ci;
 
 use super::{margination, margination::EquilibriumResult, properties::CellProperties};
 
@@ -144,14 +144,7 @@ mod tests {
     fn checked_enhanced_rejects_invalid_hematocrit() {
         let wbc = CellProperties::white_blood_cell();
         let err = checked_enhanced_lateral_equilibrium(
-            &wbc,
-            1060.0,
-            3.5e-3,
-            0.05,
-            400e-6,
-            80e-6,
-            None,
-            1.2,
+            &wbc, 1060.0, 3.5e-3, 0.05, 400e-6, 80e-6, None, 1.2,
         )
         .expect_err("checked enhanced equilibrium must reject hematocrit above unity");
         assert!(err.to_string().contains("hematocrit"));
@@ -232,17 +225,11 @@ mod tests {
     #[test]
     fn checked_enhanced_matches_legacy_nominal_case() {
         let wbc = CellProperties::white_blood_cell();
-        let legacy = enhanced_lateral_equilibrium(&wbc, 1060.0, 3.5e-3, 0.10, 200e-6, 80e-6, None, 0.20)
-            .expect("legacy enhanced equilibrium should succeed");
+        let legacy =
+            enhanced_lateral_equilibrium(&wbc, 1060.0, 3.5e-3, 0.10, 200e-6, 80e-6, None, 0.20)
+                .expect("legacy enhanced equilibrium should succeed");
         let checked = checked_enhanced_lateral_equilibrium(
-            &wbc,
-            1060.0,
-            3.5e-3,
-            0.10,
-            200e-6,
-            80e-6,
-            None,
-            0.20,
+            &wbc, 1060.0, 3.5e-3, 0.10, 200e-6, 80e-6, None, 0.20,
         )
         .expect("checked enhanced equilibrium should succeed");
 

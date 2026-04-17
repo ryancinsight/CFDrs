@@ -51,17 +51,11 @@ use cfd_core::physics::fluid::blood::FahraeuasLindqvist;
 /// # Returns
 /// Apparent dynamic viscosity in Pa·s
 #[must_use]
-pub fn fahraeus_lindqvist_viscosity(
-    diameter_um: f64,
-    hematocrit: f64,
-    mu_plasma_pa_s: f64,
-) -> f64 {
+pub fn fahraeus_lindqvist_viscosity(diameter_um: f64, hematocrit: f64, mu_plasma_pa_s: f64) -> f64 {
     let diameter_m = diameter_um * 1e-6;
     let fl = FahraeuasLindqvist::<f64>::new(diameter_m, hematocrit);
     fl.pries_relative_viscosity() * mu_plasma_pa_s
 }
-
-
 
 /// Secomb (2017) in-vivo apparent viscosity for microvascular networks.
 ///
@@ -104,11 +98,7 @@ pub fn fahraeus_lindqvist_viscosity(
 /// # Returns
 /// Apparent dynamic viscosity in Pa·s
 #[must_use]
-pub fn secomb_network_viscosity(
-    diameter_um: f64,
-    hematocrit: f64,
-    mu_plasma_pa_s: f64,
-) -> f64 {
+pub fn secomb_network_viscosity(diameter_um: f64, hematocrit: f64, mu_plasma_pa_s: f64) -> f64 {
     let diameter_m = diameter_um * 1e-6;
     let fl = FahraeuasLindqvist::<f64>::new(diameter_m, hematocrit);
     fl.secomb_relative_viscosity() * mu_plasma_pa_s
@@ -139,14 +129,14 @@ pub fn secomb_network_viscosity(
 /// # Returns
 /// Phase-separation parameter X₀ (dimensionless)
 #[inline]
-#[must_use]
 pub fn secomb_phase_separation_x0(
     diameter_um: f64,
     hematocrit: f64,
 ) -> cfd_core::error::Result<f64> {
     if !diameter_um.is_finite() || diameter_um <= 0.0 || !hematocrit.is_finite() {
         return Err(cfd_core::error::Error::InvalidConfiguration(
-            "Secomb phase-separation inputs must be finite and diameter must be positive".to_string(),
+            "Secomb phase-separation inputs must be finite and diameter must be positive"
+                .to_string(),
         ));
     }
     if !(0.0..=1.0).contains(&hematocrit) {

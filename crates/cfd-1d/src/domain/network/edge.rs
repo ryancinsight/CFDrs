@@ -53,8 +53,7 @@ impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for Edge<T> {
                         T::from_f64(1e-6).expect("Mathematical constant conversion compromised");
                 }
             }
-            EdgeKind::Pump => {}
-            EdgeKind::Pipe => {}
+            EdgeKind::Pump | EdgeKind::Pipe => {}
         }
 
         let area = match spec.cross_section {

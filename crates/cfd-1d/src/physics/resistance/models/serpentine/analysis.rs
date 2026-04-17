@@ -159,26 +159,26 @@ mod tests {
         // Validation against Norouzi et al. DNS bounds for secondary vortices.
         // For Re < 500, De < 100, the Dean vortices increase macroscopic wall shear
         // dissipating strictly more energy than parallel Poiseuille flow.
-        
+
         // De = 0 -> Straight channel parity
         let f_0 = bayat_rezai_enhancement(0.0);
         assert_relative_eq!(f_0, 1.0, epsilon = 1e-15);
-        
-        // De = 10 -> Secondary flow initiates 
+
+        // De = 10 -> Secondary flow initiates
         let f_10 = bayat_rezai_enhancement(10.0);
         let expected_10 = 1.0 + 0.085 * (10.0_f64).powf(0.48);
         assert_relative_eq!(f_10, expected_10, epsilon = 1e-15);
-        
+
         // De = 50 -> Well developed vortex pair
         let f_50 = bayat_rezai_enhancement(50.0);
         let expected_50 = 1.0 + 0.085 * (50.0_f64).powf(0.48);
         assert_relative_eq!(f_50, expected_50, epsilon = 1e-15);
-        
+
         // De = 100 -> Approaching upper bounds of correlation validity
         let f_100 = bayat_rezai_enhancement(100.0);
         let expected_100 = 1.0 + 0.085 * (100.0_f64).powf(0.48);
         assert_relative_eq!(f_100, expected_100, epsilon = 1e-15);
-        
+
         // Ensure monotonically increasing energy dissipation with curvature
         assert!(f_100 > f_50);
         assert!(f_50 > f_10);

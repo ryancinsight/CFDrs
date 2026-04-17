@@ -202,8 +202,8 @@ pub fn regime_analysis(
 mod tests {
     use super::*;
 
-    const MU_WATER: f64 = 0.001;        // Pa·s
-    const RHO_WATER: f64 = 1000.0;      // kg/m³
+    const MU_WATER: f64 = 0.001; // Pa·s
+    const RHO_WATER: f64 = 1000.0; // kg/m³
     const SIGMA_WATER_OIL: f64 = 0.035; // N/m (typical water-oil)
 
     /// Very slow flow → squeezing regime.
@@ -280,9 +280,8 @@ mod tests {
     /// Regime analysis returns consistent results.
     #[test]
     fn regime_analysis_consistent() {
-        let (ca, we, oh, regime) = regime_analysis(
-            MU_WATER, RHO_WATER, 1.0, 100e-6, SIGMA_WATER_OIL,
-        );
+        let (ca, we, oh, regime) =
+            regime_analysis(MU_WATER, RHO_WATER, 1.0, 100e-6, SIGMA_WATER_OIL);
         assert!(ca > 0.0 && we > 0.0 && oh > 0.0);
         assert_eq!(classify_regime(ca), regime);
     }

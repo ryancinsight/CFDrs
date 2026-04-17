@@ -108,59 +108,62 @@ pub use physics::hemolysis::{
     GIERSIEPEN_ALPHA, GIERSIEPEN_BETA, GIERSIEPEN_C, TASKIN_BETA, TASKIN_C,
 };
 // Export SDT physics models
-pub use physics::hemolysis::{
-    cavitation_hemolysis_amplification, collapse_jet_velocity, rayleigh_collapse_time,
-    sonosensitizer_activation_efficiency, P_REF_ATMOSPHERIC, RAYLEIGH_ALPHA,
-    SENSITIZER_K_ACT_CHLORIN_E6, SENSITIZER_K_ACT_HEMATOPORPHYRIN,
-};
 pub use physics::hemolysis::acoustic_radiation::{
     acoustic_contrast_factor, acoustic_energy_density, acoustic_radiation_force, KAPPA_CTC,
     KAPPA_PLASMA, KAPPA_RBC, KAPPA_WBC, RHO_CTC, RHO_PLASMA, RHO_RBC, RHO_WBC,
     SPEED_OF_SOUND_PLASMA,
 };
+pub use physics::hemolysis::{
+    cavitation_hemolysis_amplification, collapse_jet_velocity, rayleigh_collapse_time,
+    sonosensitizer_activation_efficiency, P_REF_ATMOSPHERIC, RAYLEIGH_ALPHA,
+    SENSITIZER_K_ACT_CHLORIN_E6, SENSITIZER_K_ACT_HEMATOPORPHYRIN,
+};
 pub use physics::venturi_screening::{
     assess_venturi_screening, classify_venturi_screening,
     discharge_coefficient_from_convergent_half_angle_deg, evaluate_venturi_screening,
     venturi_taper_length_m, VenturiScreeningAssessment, VenturiScreeningInput,
-    VenturiScreeningResult, VenturiScreeningRisk,
+    VenturiScreeningResult, VenturiScreeningRisk, VenturiSelectiveScreeningRegime,
 };
 
 // Export three-population inertial focusing model
 pub use physics::cell_separation::{
-    cascade_junction_separation, cascade_junction_separation_cross_junction,
-    cascade_junction_separation_from_qfracs, cif_pretri_stage_center_fracs,
-    cif_pretri_stage_q_fracs, cif_pretri_stage_q_fracs_cross_junction,
-    incremental_filtration_separation_cross_junction,
-    incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
-    mixed_cascade_separation, mixed_cascade_separation_kappa_aware, tri_asymmetric_q_fracs,
-    treatment_bifurcation_separation, tri_center_q_frac, tri_center_q_frac_cross_junction,
-    CascadeJunctionResult, CascadeStage, IncrementalFiltrationResult, PeripheralRecovery,
-    PhaseSeparationResult,
-};
-pub use physics::cell_separation::{
     amini_confinement_correction, fahraeus_lindqvist_viscosity, plasma_skimming_hematocrit,
     pries_phase_separation, quemada_viscosity, secomb_network_viscosity,
     secomb_phase_separation_x0, three_population_equilibria, ThreePopEquilibria,
+};
+pub use physics::cell_separation::{
+    cascade_junction_separation, cascade_junction_separation_cross_junction,
+    cascade_junction_separation_from_qfracs, checked_mixed_cascade_separation_kappa_aware,
+    cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs,
+    cif_pretri_stage_q_fracs_cross_junction, incremental_filtration_separation_cross_junction,
+    incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
+    mixed_cascade_separation, mixed_cascade_separation_kappa_aware,
+    treatment_bifurcation_separation, tri_asymmetric_q_fracs, tri_center_q_frac,
+    tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
+    IncrementalFiltrationResult, PeripheralRecovery, PhaseSeparationResult,
 };
 pub use physics::vascular::non_newtonian_flow_split_exponent;
 pub use physics::vascular::womersley_pulsatility_index;
 
 // Export network functionality
 pub use domain::network::{
-    validate_blueprint_for_1d_solve, BoundaryCondition, ChannelProperties, ComponentType, Edge,
-    EdgeProperties, EdgeType, Network, NetworkBuilder, NetworkBuilderSink, NetworkGraph,
-    NetworkMetadata, Node, NodeProperties, NodeType, ResistanceUpdatePolicy,
+    blood_microchannel_apparent_viscosity, validate_blueprint_for_1d_solve, BoundaryCondition,
+    ChannelProperties, ComponentType, Edge, EdgeProperties, EdgeType, Network, NetworkBuilder,
+    NetworkBuilderSink, NetworkGraph, NetworkMetadata, Node, NodeProperties, NodeType,
+    ResistanceUpdatePolicy, EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
+    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
 };
 
 // Export solver functionality
 pub use solver::core::{
-    ChannelOccupancy, CompositionState, ConvergenceChecker, DropletBoundary, DropletInjection,
-    DropletPosition, DropletSnapshot, DropletSplitPolicy, DropletState, DropletTrackingState,
-    EdgeFlowEvent, InletCompositionEvent, LinearSystemSolver, MatrixAssembler, MixtureComposition,
-    NetworkDomain, NetworkProblem, NetworkSolver, NetworkState, PressureBoundaryEvent,
-    PrimarySolveDiagnostics, PrimarySolveError, SimulationTimeConfig, SolveFailureReason,
-    SolvePathStatus, SolverConfig, SplitMode, TransientCompositionSimulator,
-    TransientDropletSimulator,
+    BloodEdgeTransportConfig, ChannelOccupancy, CompositionState, ConvergenceChecker,
+    DropletBoundary, DropletInjection, DropletPosition, DropletSnapshot, DropletSplitPolicy,
+    DropletState, DropletTrackingState, EdgeFlowEvent, InletCompositionEvent, InletHematocritEvent,
+    LinearSystemSolver, MatrixAssembler, MixtureComposition, NetworkDomain, NetworkProblem,
+    NetworkSolver, NetworkState, PressureBoundaryEvent, PrimarySolveDiagnostics, PrimarySolveError,
+    SimulationTimeConfig, SolveFailureReason, SolvePathStatus, SolverConfig, SplitMode,
+    TransientCompositionSimulator, TransientDropletSimulator, BLOOD_PLASMA_FLUID_ID,
+    BLOOD_RBC_FLUID_ID,
 };
 
 // Export component functionality

@@ -80,15 +80,14 @@ fn test_blueprint_pump_edges_rejected_until_source_term_plumbing_exists() {
     blueprint.add_node(NodeSpec::new_at("in", NodeKind::Inlet, (0.0, 0.0)));
     blueprint.add_node(NodeSpec::new_at("out", NodeKind::Outlet, (1.0, 0.0)));
     blueprint.add_channel(cfd_schematics::domain::model::ChannelSpec::new_pump(
-        "pump",
-        "in",
-        "out",
-        1.0e-6,
-        1.0e5,
+        "pump", "in", "out", 1.0e-6, 1.0e5,
     ));
 
     let result = cfd_1d::domain::network::network_from_blueprint(&blueprint, fluid);
-    assert!(result.is_err(), "Pump blueprints must be rejected until edge-level source-term plumbing exists");
+    assert!(
+        result.is_err(),
+        "Pump blueprints must be rejected until edge-level source-term plumbing exists"
+    );
 }
 
 #[test]

@@ -5,7 +5,10 @@
 //! Borda-Carnot expansion loss calculations.
 
 use super::traits::{FlowConditions, ResistanceModel};
-use super::{ExpansionType, VenturiGeometry, BLASIUS_COEFF, BLASIUS_EXP, LAMINAR_FRICTION_COEFF, LAMINAR_LIMIT_RE};
+use super::{
+    ExpansionType, VenturiGeometry, DURST_ENTRANCE_BLEND_L_OVER_DH, LAMINAR_FRICTION_COEFF,
+    LAMINAR_LIMIT_RE,
+};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
@@ -153,28 +156,86 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
             / (T::one() + T::one() + T::one() + T::one())
     }
 
-    /// Calculate the Darcy friction factor in the throat
+    /// Calculate the Darcy friction factor in the throat.
     ///
-    /// Uses Hagen-Poiseuille (laminar) or Blasius (turbulent) correlations
+    /// Uses the Churchill (1977) all-regime correlation, which remains
+    /// continuous across laminar, transitional, and turbulent regimes.
     pub(crate) fn friction_factor_for_reynolds(reynolds_throat: T) -> T {
+        Self::friction_factor_with_roughness(reynolds_throat, T::zero())
+    }
+
+    pub(crate) fn friction_factor_with_roughness(reynolds_throat: T, relative_roughness: T) -> T {
         let re_lam =
             T::from_f64(LAMINAR_LIMIT_RE).expect("Mathematical constant conversion compromised");
+        if reynolds_throat <= T::zero() {
+            return T::from_f64(LAMINAR_FRICTION_COEFF)
+                .expect("Mathematical constant conversion compromised");
+        }
 
         if reynolds_throat < re_lam {
             T::from_f64(LAMINAR_FRICTION_COEFF)
                 .expect("Mathematical constant conversion compromised")
                 / reynolds_throat
         } else {
-            let coeff =
-                T::from_f64(BLASIUS_COEFF).expect("Mathematical constant conversion compromised");
-            let exp =
-                T::from_f64(BLASIUS_EXP).expect("Mathematical constant conversion compromised");
-            coeff / reynolds_throat.powf(exp)
+            let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
+            let twelve = T::from_f64(12.0).expect("Mathematical constant conversion compromised");
+            let sixteen = T::from_f64(16.0).expect("Mathematical constant conversion compromised");
+            let one_point_five =
+                T::from_f64(1.5).expect("Mathematical constant conversion compromised");
+            let zero_point_nine =
+                T::from_f64(0.9).expect("Mathematical constant conversion compromised");
+            let coeff_2_457 =
+                T::from_f64(2.457).expect("Mathematical constant conversion compromised");
+            let coeff_0_27 =
+                T::from_f64(0.27).expect("Mathematical constant conversion compromised");
+            let coeff_37_530 =
+                T::from_f64(37_530.0).expect("Mathematical constant conversion compromised");
+            let coeff_7 = T::from_f64(7.0).expect("Mathematical constant conversion compromised");
+            let roughness = relative_roughness.max(T::zero());
+
+            let a_argument =
+                (coeff_7 / reynolds_throat).powf(zero_point_nine) + coeff_0_27 * roughness;
+            let a = (coeff_2_457 * a_argument.recip().ln()).powf(sixteen);
+            let b = (coeff_37_530 / reynolds_throat).powf(sixteen);
+            let inverse_sum = (a + b).powf(one_point_five).recip();
+            let blended = (eight / reynolds_throat).powf(twelve) + inverse_sum;
+
+            eight * blended.powf(T::one() / twelve)
         }
     }
 
     pub(crate) fn throat_friction_factor(&self, reynolds_throat: T) -> T {
-        Self::friction_factor_for_reynolds(reynolds_throat)
+        let relative_roughness = if self.throat_diameter > T::zero() {
+            self.throat_roughness / self.throat_diameter
+        } else {
+            T::zero()
+        };
+        Self::friction_factor_with_roughness(reynolds_throat, relative_roughness)
+    }
+
+    pub(crate) fn developing_flow_multiplier(
+        reynolds_throat: T,
+        throat_length: T,
+        throat_diameter: T,
+    ) -> T {
+        if throat_length <= T::zero() || throat_diameter <= T::zero() {
+            return T::one();
+        }
+        let l_over_dh = throat_length / throat_diameter;
+        let limit = T::from_f64(DURST_ENTRANCE_BLEND_L_OVER_DH)
+            .expect("Mathematical constant conversion compromised");
+        if l_over_dh >= limit {
+            return T::one();
+        }
+        let reynolds = reynolds_throat
+            .max(T::from_f64(10.0).expect("Mathematical constant conversion compromised"));
+        let sixty_four = T::from_f64(64.0).expect("Mathematical constant conversion compromised");
+        let k_entrance = T::from_f64(2.28).expect("Mathematical constant conversion compromised")
+            + sixty_four
+                / (reynolds * l_over_dh).max(
+                    T::from_f64(1.0e-30).expect("Mathematical constant conversion compromised"),
+                );
+        T::one() + k_entrance / (sixty_four * l_over_dh).max(T::one())
     }
 
     /// Effective discharge coefficient adjusted for Reynolds number
@@ -189,7 +250,11 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
         let exp = T::from_f64(0.3).expect("Mathematical constant conversion compromised");
         let correction = half + half * ratio.powf(exp);
         let one = T::one();
-        if correction > one { one } else { correction }
+        if correction > one {
+            one
+        } else {
+            correction
+        }
     }
 
     pub(crate) fn effective_discharge_coefficient(&self, reynolds: T) -> T {
@@ -332,6 +397,10 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
             self.throat_length,
             self.throat_diameter,
             v_throat,
+        ) * Self::developing_flow_multiplier(
+            re_throat,
+            self.throat_length,
+            self.throat_diameter,
         );
 
         // --- 3. Expansion loss (Borda-Carnot) ---

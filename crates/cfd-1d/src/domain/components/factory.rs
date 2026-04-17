@@ -12,6 +12,29 @@ use num_traits::{Float, FromPrimitive};
 pub struct ComponentFactory;
 
 impl ComponentFactory {
+    fn required_param<T: RealField + Copy + FromPrimitive + Float>(
+        params: &HashMap<String, T>,
+        name: &str,
+    ) -> Result<T> {
+        params
+            .get(name)
+            .copied()
+            .ok_or_else(|| Error::InvalidConfiguration(format!("Missing {name} parameter")))
+    }
+
+    fn optional_param<T: RealField + Copy + FromPrimitive + Float>(
+        params: &HashMap<String, T>,
+        name: &str,
+        default: f64,
+        label: &str,
+    ) -> Result<T> {
+        if let Some(&v) = params.get(name) {
+            Ok(v)
+        } else {
+            try_real_from_f64(default, label)
+        }
+    }
+
     /// Create a component from type string and parameters
     pub fn create<T: RealField + Copy + FromPrimitive + Float>(
         component_type: &str,
@@ -19,105 +42,68 @@ impl ComponentFactory {
     ) -> Result<Box<dyn Component<T>>> {
         match component_type {
             "RectangularChannel" => {
-                let length = params.get("length").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing length parameter".into())
-                })?;
-                let width = params
-                    .get("width")
-                    .ok_or_else(|| Error::InvalidConfiguration("Missing width parameter".into()))?;
-                let height = params.get("height").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing height parameter".into())
-                })?;
-                let roughness = if let Some(&roughness) = params.get("roughness") {
-                    roughness
-                } else {
-                    try_real_from_f64(constants::DEFAULT_ROUGHNESS, "default roughness")?
-                };
-
+                let length = Self::required_param(params, "length")?;
+                let width = Self::required_param(params, "width")?;
+                let height = Self::required_param(params, "height")?;
+                let roughness = Self::optional_param(
+                    params,
+                    "roughness",
+                    constants::DEFAULT_ROUGHNESS,
+                    "default roughness",
+                )?;
                 Ok(Box::new(RectangularChannel::new(
-                    *length, *width, *height, roughness,
+                    length, width, height, roughness,
                 )))
             }
             "CircularChannel" => {
-                let length = params.get("length").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing length parameter".into())
-                })?;
-                let diameter = params.get("diameter").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing diameter parameter".into())
-                })?;
-                let roughness = if let Some(&roughness) = params.get("roughness") {
-                    roughness
-                } else {
-                    try_real_from_f64(constants::DEFAULT_ROUGHNESS, "default roughness")?
-                };
-
-                Ok(Box::new(CircularChannel::new(
-                    *length, *diameter, roughness,
-                )))
+                let length = Self::required_param(params, "length")?;
+                let diameter = Self::required_param(params, "diameter")?;
+                let roughness = Self::optional_param(
+                    params,
+                    "roughness",
+                    constants::DEFAULT_ROUGHNESS,
+                    "default roughness",
+                )?;
+                Ok(Box::new(CircularChannel::new(length, diameter, roughness)))
             }
             "Micropump" => {
-                let max_flow_rate = params.get("max_flow_rate").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing max_flow_rate parameter".into())
-                })?;
-                let max_pressure = params.get("max_pressure").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing max_pressure parameter".into())
-                })?;
-
-                Ok(Box::new(Micropump::new(*max_flow_rate, *max_pressure)))
+                let max_flow_rate = Self::required_param(params, "max_flow_rate")?;
+                let max_pressure = Self::required_param(params, "max_pressure")?;
+                Ok(Box::new(Micropump::new(max_flow_rate, max_pressure)))
             }
             "Microvalve" => {
-                let cv = if let Some(&cv) = params.get("cv") {
-                    cv
-                } else {
-                    try_real_from_f64(constants::DEFAULT_VALVE_CV, "default valve cv")?
-                };
-
+                let cv = Self::optional_param(
+                    params,
+                    "cv",
+                    constants::DEFAULT_VALVE_CV,
+                    "default valve cv",
+                )?;
                 Ok(Box::new(Microvalve::new(cv)))
             }
             "PorousMembrane" => {
-                let thickness = params.get("thickness").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing thickness parameter".into())
-                })?;
-                let width = params
-                    .get("width")
-                    .ok_or_else(|| Error::InvalidConfiguration("Missing width parameter".into()))?;
-                let height = params.get("height").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing height parameter".into())
-                })?;
-                let pore_radius = params.get("pore_radius").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing pore_radius parameter".into())
-                })?;
-                let porosity = params.get("porosity").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing porosity parameter".into())
-                })?;
-
+                let thickness = Self::required_param(params, "thickness")?;
+                let width = Self::required_param(params, "width")?;
+                let height = Self::required_param(params, "height")?;
+                let pore_radius = Self::required_param(params, "pore_radius")?;
+                let porosity = Self::required_param(params, "porosity")?;
                 Ok(Box::new(PorousMembrane::new(
-                    *thickness,
-                    *width,
-                    *height,
-                    *pore_radius,
-                    *porosity,
+                    thickness,
+                    width,
+                    height,
+                    pore_radius,
+                    porosity,
                 )))
             }
             "OrganCompartment" => {
-                let length = params.get("length").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing length parameter".into())
-                })?;
-                let width = params
-                    .get("width")
-                    .ok_or_else(|| Error::InvalidConfiguration("Missing width parameter".into()))?;
-                let height = params.get("height").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing height parameter".into())
-                })?;
-                let hydraulic_resistance = params.get("hydraulic_resistance").ok_or_else(|| {
-                    Error::InvalidConfiguration("Missing hydraulic_resistance parameter".into())
-                })?;
-
+                let length = Self::required_param(params, "length")?;
+                let width = Self::required_param(params, "width")?;
+                let height = Self::required_param(params, "height")?;
+                let hydraulic_resistance = Self::required_param(params, "hydraulic_resistance")?;
                 Ok(Box::new(OrganCompartment::new(
-                    *length,
-                    *width,
-                    *height,
-                    *hydraulic_resistance,
+                    length,
+                    width,
+                    height,
+                    hydraulic_resistance,
                 )))
             }
             _ => Err(Error::InvalidConfiguration(format!(
