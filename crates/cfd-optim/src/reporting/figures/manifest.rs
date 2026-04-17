@@ -2,22 +2,19 @@
 
 use std::path::Path;
 
-use cfd_schematics::{write_well_plate_diagram_svg, CandidateZoneData};
 use cfd_schematics::domain::model::ChannelShape;
 use cfd_schematics::geometry::metadata::ChannelVisualRole;
 use serde::{Deserialize, Serialize};
 
-use super::process::{write_creation_optimization_process_figure, write_placeholder};
+use super::context::{write_context_concept_figures, write_selected_schematic_figure};
+use super::process::write_creation_optimization_process_figure;
 use super::svg::{
     write_cavitation_distribution_figure, write_cross_mode_figure,
-    write_dean_venturi_placement_figure, write_ga_convergence_figure,
-    write_head_to_head_figure, write_pareto_figure, write_pediatric_ecv_figure,
-    DeanVenturiPoint,
+    write_dean_venturi_placement_figure, write_ga_convergence_figure, write_head_to_head_figure,
+    write_pareto_figure, write_pediatric_ecv_figure, DeanVenturiPoint,
 };
 use super::treatment_lane::write_treatment_lane_zoom_figure;
-use crate::constraints::{
-    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG,
-};
+use crate::constraints::{PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG};
 use crate::reporting::{rank_ga_hydrosdt_report_designs, Milestone12ReportDesign, ParetoPoint};
 
 /// Figure metadata used for dynamic table-of-contents and section rendering.
@@ -28,10 +25,6 @@ pub struct NarrativeFigureSpec {
     pub path: String,
     pub caption: String,
     pub alt: String,
-    /// True when this figure was generated as a placeholder because the source
-    /// schematic or data was not available in the current run.
-    #[serde(default)]
-    pub is_placeholder: bool,
 }
 
 /// Inputs needed to generate dynamic report figures.
@@ -47,6 +40,20 @@ pub struct FigureGenerationInput<'a> {
 
 /// Generate report figure assets and return ordered figure specs.
 ///
+/// # Theorem
+/// Accepted Milestone 12 report figures are generated from canonical report
+/// inputs without fallback placeholders: if any required schematic or derived
+/// figure cannot be reproduced from the ranked designs and report datasets, the
+/// function returns an error rather than degrading the report.
+///
+/// **Proof sketch**
+/// The generator validates the presence of required Option 1, Option 2, and GA
+/// ranked designs up front, rewrites the canonical concept and selected-design
+/// SVGs directly from blueprint SSOT, and propagates any figure-builder failure
+/// immediately. Because there is no branch that emits a synthetic substitute or
+/// silently skips a required figure, successful completion implies all required
+/// figures were materialized from canonical sources.
+///
 /// # Errors
 /// Returns an error if any figure cannot be written.
 pub fn generate_m12_report_figures(
@@ -54,6 +61,18 @@ pub fn generate_m12_report_figures(
     figure_path_prefix: &str,
     input: &FigureGenerationInput<'_>,
 ) -> Result<Vec<NarrativeFigureSpec>, Box<dyn std::error::Error>> {
+    let option1 = input
+        .option1_ranked
+        .first()
+        .ok_or("Milestone 12 report requires a selected Option 1 design")?;
+    let option2 = input
+        .option2_ranked
+        .first()
+        .ok_or("Milestone 12 report requires a selected Option 2 design")?;
+    let ga_best = input
+        .ga_top
+        .first()
+        .ok_or("Milestone 12 report requires a selected GA design")?;
     let ga_ranked_for_figures: Vec<Milestone12ReportDesign> = input
         .option2_ranked
         .first()
@@ -66,36 +85,13 @@ pub fn generate_m12_report_figures(
     write_creation_optimization_process_figure(
         &figures_dir.join("milestone12_creation_optimization_process.svg"),
     )?;
-    let treatment_zone_candidates: &[CandidateZoneData] = &[];
-    write_well_plate_diagram_svg(
-        treatment_zone_candidates,
-        &figures_dir.join("treatment_zone_plate.svg"),
-    )?;
-    ensure_existing_or_placeholder(
-        &figures_dir.join("treatment_zone_plate_trifurcation.svg"),
-        "Treatment Zone Layout - Trifurcation Concept",
-    )?;
-    let option1_is_placeholder = if input.option1_ranked.is_empty() {
-        write_placeholder(
-            &figures_dir.join("selected_option1_schematic.svg"),
-            "Option 1 Unavailable Under Current Physics",
-            "No selective acoustic design satisfied strict eligibility under the current physics regime.",
-        )?;
-        true
-    } else {
-        ensure_existing_or_placeholder(
-            &figures_dir.join("selected_option1_schematic.svg"),
-            "Selected Option 1 Design - Selective Acoustic",
-        )?
-    };
-    let option2_is_placeholder = ensure_existing_or_placeholder(
+    write_context_concept_figures(figures_dir)?;
+    write_selected_schematic_figure(&figures_dir.join("selected_option1_schematic.svg"), option1)?;
+    write_selected_schematic_figure(
         &figures_dir.join("selected_option2_combined_schematic.svg"),
-        "Selected Option 2 Design - Combined Selective Venturi",
+        option2,
     )?;
-    let ga_is_placeholder = ensure_existing_or_placeholder(
-        &figures_dir.join("top_hydrosdt_schematic.svg"),
-        "Best HydroSDT GA-Optimized Design",
-    )?;
+    write_selected_schematic_figure(&figures_dir.join("top_hydrosdt_schematic.svg"), ga_best)?;
 
     write_cross_mode_figure(
         &figures_dir.join("m12_cross_mode_scoring.svg"),
@@ -125,53 +121,32 @@ pub fn generate_m12_report_figures(
         first_ranked(input.option2_ranked),
         first_ranked(&ga_ranked_for_figures),
     )?;
-    if !input.ga_best_per_gen.is_empty() {
-        write_ga_convergence_figure(
-            &figures_dir.join("m12_ga_convergence.svg"),
-            input.ga_best_per_gen,
-            input.fast_mode,
-        )?;
+    if input.ga_best_per_gen.is_empty() {
+        return Err("Milestone 12 report requires non-empty GA convergence history".into());
     }
+    write_ga_convergence_figure(
+        &figures_dir.join("m12_ga_convergence.svg"),
+        input.ga_best_per_gen,
+        input.fast_mode,
+    )?;
 
     // Dean-venturi placement figure: recompute per-placement metrics from the
     // GA top design to show how bend position influences cavitation.
-    let option2_serpentine_focus = pick_serpentine_venturi_focus(input.option2_ranked)
-        .unwrap_or(&input.option2_ranked[0]);
-    let ga_serpentine_focus = pick_serpentine_venturi_focus(&ga_ranked_for_figures)
-        .unwrap_or(&ga_ranked_for_figures[0]);
-    let dean_venturi_is_placeholder = match extract_dean_venturi_points(Some(ga_serpentine_focus))
-    {
-        Ok(dean_venturi_points) if !dean_venturi_points.is_empty() => {
-            write_dean_venturi_placement_figure(
-                &figures_dir.join("m12_dean_venturi_placement.svg"),
-                "Dean Number vs Cavitation at Serpentine Bend Apices",
-                &dean_venturi_points,
-            )?;
-            false
-        }
-        Ok(_) => {
-            write_placeholder(
-                &figures_dir.join("m12_dean_venturi_placement.svg"),
-                "Dean Number vs Cavitation at Serpentine Venturi Sites",
-                "Per-placement Dean and venturi recomputation was unavailable for the selected GA design.",
-            )?;
-            true
-        }
-        Err(error) => {
-            write_placeholder(
-                &figures_dir.join("m12_dean_venturi_placement.svg"),
-                "Dean Number vs Cavitation at Serpentine Venturi Sites",
-                &format!(
-                    "Per-placement Dean and venturi recomputation was unavailable: {error}"
-                ),
-            )?;
-            true
-        }
-    };
-
-    let option1 = input.option1_ranked.first();
-    let option2 = &input.option2_ranked[0];
-    let ga_best = &ga_ranked_for_figures[0];
+    let option2_serpentine_focus =
+        pick_serpentine_venturi_focus(input.option2_ranked).unwrap_or(option2);
+    let ga_serpentine_focus =
+        pick_serpentine_venturi_focus(&ga_ranked_for_figures).unwrap_or(&ga_ranked_for_figures[0]);
+    let dean_venturi_points = extract_dean_venturi_points(Some(ga_serpentine_focus))?;
+    if dean_venturi_points.is_empty() {
+        return Err(
+            "Milestone 12 report requires non-empty Dean-versus-cavitation placement data".into(),
+        );
+    }
+    write_dean_venturi_placement_figure(
+        &figures_dir.join("m12_dean_venturi_placement.svg"),
+        "Dean Number vs Cavitation at Serpentine Bend Apices",
+        &dean_venturi_points,
+    )?;
 
     write_treatment_lane_zoom_figure(
         &figures_dir.join("m12_treatment_lane_zoom.svg"),
@@ -179,46 +154,47 @@ pub fn generate_m12_report_figures(
         ga_serpentine_focus,
     )?;
 
-    let make_spec = |number, title: &str, file_name, prefix, caption: &str, alt, is_ph| {
-        if is_ph {
-            spec_placeholder(number, title, file_name, prefix, caption, alt)
-        } else {
-            spec(number, title, file_name, prefix, caption, alt)
-        }
-    };
-
     let mut specs = vec![
-        option1.map_or_else(
-            || {
-                spec_placeholder(
-                    4,
-                    "Option 1 Unavailable Under Current Physics",
-                    "selected_option1_schematic.svg",
-                    figure_path_prefix,
-                    "No selective acoustic design satisfied strict eligibility under the current physics regime, so Figure 4 is an explicit placeholder documenting the empty Option 1 shortlist.",
-                    "Option 1 unavailable placeholder",
-                )
-            },
-            |option1| {
-                make_spec(
-                    4,
-                    &format!(
-                        "Selected Option 1 Design - {} Selective Acoustic",
-                        stage_sequence_label(option1)
-                    ),
-                    "selected_option1_schematic.svg",
-                    figure_path_prefix,
-                    &selected_schematic_caption(
-                        option1,
-                        "Option 1",
-                        "selective acoustic center-treatment network",
-                    ),
-                    "Option 1 schematic",
-                    option1_is_placeholder,
-                )
-            },
+        spec(
+            1,
+            "Milestone 12 Design Creation & Optimization Process",
+            "milestone12_creation_optimization_process.svg",
+            figure_path_prefix,
+            "Canonical Milestone 12 pipeline from topology request generation in `cfd-schematics`, through geometry-authored blueprint creation, 1D physics evaluation, strict eligibility gating, deterministic ranking, and optional GA in-place refinement. The narrative, tables, and figures in this report are all emitted from this canonical artifact chain rather than edited manually.",
+            "Milestone 12 process figure",
         ),
-        make_spec(
+        spec(
+            2,
+            "Treatment Zone Layout - Bifurcation Concept",
+            "treatment_zone_plate.svg",
+            figure_path_prefix,
+            "Bifurcation-root treatment-zone concept within the ANSI/SLAS 96-well plate footprint. The figure illustrates the physical envelope that constrains all downstream split-tree layouts, ultrasound exposure windows, and outlet collection geometry.",
+            "Treatment zone layout constrained to 96-well plate footprint",
+        ),
+        spec(
+            3,
+            "Treatment Zone Layout - Trifurcation Concept",
+            "treatment_zone_plate_trifurcation.svg",
+            figure_path_prefix,
+            "Trifurcation-root treatment-zone concept showing how additional selective-routing degrees of freedom can concentrate the treatment lane while preserving bypass paths for healthier blood fractions. This geometry motivates the deeper asymmetric split trees evaluated in Milestone 12.",
+            "Treatment zone layout optimized for ultrasound delivery",
+        ),
+        spec(
+            4,
+            &format!(
+                "Selected Option 1 Design - {} Selective Acoustic",
+                stage_sequence_label(option1)
+            ),
+            "selected_option1_schematic.svg",
+            figure_path_prefix,
+            &selected_schematic_caption(
+                option1,
+                "Option 1",
+                "selective acoustic center-treatment network",
+            ),
+            "Option 1 schematic",
+        ),
+        spec(
             5,
             &format!(
                 "Selected Option 2 Design - {} Combined Selective Venturi",
@@ -232,9 +208,8 @@ pub fn generate_m12_report_figures(
                 "selective venturi treatment ranked by the combined score",
             ),
             "Option 2 schematic",
-            option2_is_placeholder,
         ),
-        make_spec(
+        spec(
             6,
             &format!(
                 "Best HydroSDT GA-Optimized Design - {}",
@@ -251,7 +226,6 @@ pub fn generate_m12_report_figures(
                 ga_best.metrics.serial_venturi_stages_per_path,
             ),
             "GA best schematic",
-            ga_is_placeholder,
         ),
         spec(
             7,
@@ -294,24 +268,21 @@ pub fn generate_m12_report_figures(
             "Pediatric ECV margin bars",
         ),
     ];
-    if !input.ga_best_per_gen.is_empty() {
-        specs.push(spec(
-            12,
-            "GA Fitness Convergence",
-            "m12_ga_convergence.svg",
-            figure_path_prefix,
-            "HydroSDT GA best-fitness trajectory across generations. The figure annotates the best-score change over the trailing generations so readers can distinguish a true plateau from a run that is still improving late through mutation and crossover.",
-            "GA convergence line",
-        ));
-    }
-    specs.push(make_spec(
+    specs.push(spec(
+        12,
+        "GA Fitness Convergence",
+        "m12_ga_convergence.svg",
+        figure_path_prefix,
+        "HydroSDT GA best-fitness trajectory across generations. The figure annotates the best-score change over the trailing generations so readers can distinguish a true plateau from a run that is still improving late through mutation and crossover.",
+        "GA convergence line",
+    ));
+    specs.push(spec(
         13,
         "Dean Number vs Cavitation at Serpentine Venturi Sites",
         "m12_dean_venturi_placement.svg",
         figure_path_prefix,
         "Per-venturi-placement comparison of Dean number (secondary flow intensity at the bend apex) and cavitation strength (1 - sigma) for the top GA-optimized serpentine design. Higher Dean numbers at bend apices pre-focus CTCs toward the outer wall via centrifugal secondary flow before they enter the venturi constriction, co-localizing inertial focusing with hydrodynamic cavitation. Throat velocity is annotated below each placement.",
         "Dean venturi placement dual-axis bars",
-        dean_venturi_is_placeholder,
     ));
     specs.push(spec(
         14,
@@ -338,42 +309,6 @@ fn spec(
         path: format!("{figure_path_prefix}/{file_name}"),
         caption: caption.to_string(),
         alt: alt.to_string(),
-        is_placeholder: false,
-    }
-}
-
-fn spec_placeholder(
-    number: usize,
-    title: &str,
-    file_name: &str,
-    figure_path_prefix: &str,
-    caption: &str,
-    alt: &str,
-) -> NarrativeFigureSpec {
-    NarrativeFigureSpec {
-        number,
-        title: title.to_string(),
-        path: format!("{figure_path_prefix}/{file_name}"),
-        caption: format!("{caption} *(Placeholder - source data not available in this run)*"),
-        alt: alt.to_string(),
-        is_placeholder: true,
-    }
-}
-
-/// Returns `true` if a placeholder was generated (file did not already exist).
-fn ensure_existing_or_placeholder(
-    path: &Path,
-    title: &str,
-) -> Result<bool, Box<dyn std::error::Error>> {
-    if path.exists() {
-        Ok(false)
-    } else {
-        write_placeholder(
-            path,
-            title,
-            "Source schematic not present in current run; placeholder generated.",
-        )?;
-        Ok(true)
     }
 }
 
@@ -414,17 +349,12 @@ fn pick_serpentine_venturi_focus(
 ) -> Option<&Milestone12ReportDesign> {
     designs.iter().find(|design| {
         design.metrics.active_venturi_throat_count > 0
-            && design
-                .candidate
-                .blueprint()
-                .channels
-                .iter()
-                .any(|channel| {
-                    matches!(
-                        channel.visual_role,
-                        Some(ChannelVisualRole::CenterTreatment | ChannelVisualRole::VenturiThroat)
-                    ) && matches!(channel.channel_shape, ChannelShape::Serpentine { .. })
-                })
+            && design.candidate.blueprint().channels.iter().any(|channel| {
+                matches!(
+                    channel.visual_role,
+                    Some(ChannelVisualRole::CenterTreatment | ChannelVisualRole::VenturiThroat)
+                ) && matches!(channel.channel_shape, ChannelShape::Serpentine { .. })
+            })
     })
 }
 
@@ -467,21 +397,13 @@ fn extract_dean_venturi_points(
 ) -> Result<Vec<DeanVenturiPoint>, Box<dyn std::error::Error>> {
     let design = match design {
         Some(d) => d,
-        None => return Ok(Vec::new()),
+        None => return Err("missing design for Dean-versus-cavitation extraction".into()),
     };
     let candidate = &design.candidate;
-    let solve = match crate::metrics::solve_blueprint_candidate(candidate) {
-        Ok(s) => s,
-        Err(_) => return Ok(Vec::new()),
-    };
-    let separation = match crate::metrics::compute_blueprint_separation_metrics(candidate) {
-        Ok(s) => s,
-        Err(_) => return Ok(Vec::new()),
-    };
-    let venturi = match crate::metrics::compute_blueprint_venturi_metrics(candidate, &solve, &separation) {
-        Ok(v) => v,
-        Err(_) => return Ok(Vec::new()),
-    };
+    let solve = crate::metrics::solve_blueprint_candidate(candidate)?;
+    let separation = crate::metrics::compute_blueprint_separation_metrics(candidate)?;
+    let venturi =
+        crate::metrics::compute_blueprint_venturi_metrics(candidate, &solve, &separation)?;
 
     let mut points = Vec::with_capacity(venturi.placements.len());
     for (idx, placement) in venturi.placements.iter().enumerate() {
@@ -510,11 +432,15 @@ mod tests {
     fn dean_venturi_points_from_serpentine_candidate() {
         // Higher flow + pressure for more realistic cavitation regime
         let op = operating_point(5.0e-6, 400_000.0, 0.45);
-        let candidate =
-            stage0_venturi_candidate("dean-test", op, VenturiPlacementMode::CurvaturePeakDeanNumber);
+        let candidate = stage0_venturi_candidate(
+            "dean-test",
+            op,
+            VenturiPlacementMode::CurvaturePeakDeanNumber,
+        );
         let metrics = compute_blueprint_report_metrics(&candidate).expect("metrics should compute");
         let design = Milestone12ReportDesign::new(1, candidate, metrics, 0.5);
-        let points = extract_dean_venturi_points(Some(&design)).expect("venturi points should compute");
+        let points =
+            extract_dean_venturi_points(Some(&design)).expect("venturi points should compute");
 
         // The fixture has 2 venturi placements on a 6-segment serpentine.
         assert!(

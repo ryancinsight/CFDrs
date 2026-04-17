@@ -65,9 +65,7 @@ pub fn save_pareto_points(
 /// Load lightweight Pareto points from disk.
 ///
 /// Returns `Ok(vec![])` if the file does not exist.
-pub fn load_pareto_points(
-    path: &Path,
-) -> Result<Vec<ParetoPoint>, Box<dyn std::error::Error>> {
+pub fn load_pareto_points(path: &Path) -> Result<Vec<ParetoPoint>, Box<dyn std::error::Error>> {
     if !path.exists() {
         return Ok(Vec::new());
     }

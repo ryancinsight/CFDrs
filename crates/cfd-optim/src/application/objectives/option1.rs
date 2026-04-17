@@ -112,7 +112,10 @@ pub fn score_selective_acoustic_residence_separation(
     let sep = evaluation.separation.separation_efficiency.clamp(0.0, 1.0);
     let cancer = evaluation.separation.cancer_center_fraction.clamp(0.0, 1.0);
     let wbc_exclusion = (1.0 - evaluation.separation.wbc_center_fraction).clamp(0.0, 1.0);
-    let rbc_exclusion = evaluation.separation.rbc_peripheral_fraction.clamp(0.0, 1.0);
+    let rbc_exclusion = evaluation
+        .separation
+        .rbc_peripheral_fraction
+        .clamp(0.0, 1.0);
     let safety = evaluation.safety.main_channel_margin.clamp(0.0, 1.0);
 
     let base = 0.22 * cancer

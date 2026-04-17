@@ -244,6 +244,11 @@ mod tests {
                 venturi_flow_fraction: 0.45,
                 rbc_exposure_fraction: 0.15,
                 wbc_exposure_fraction: 0.2,
+                dominant_selective_population: Some(
+                    cfd_core::physics::cavitation::CellPopulationIdentity::CirculatingTumorCell,
+                ),
+                mean_selectivity_margin_pa: 4_000.0,
+                selective_targeting_fraction: 1.0,
             },
             safety: BlueprintSafetyMetrics {
                 max_main_channel_shear_pa: 80.0,
@@ -313,6 +318,10 @@ mod tests {
                         dean_number: 45.0,
                         curvature_radius_m: 0.002,
                         arc_length_m: 0.01,
+                        dominant_selective_population: Some(cfd_core::physics::cavitation::CellPopulationIdentity::CirculatingTumorCell),
+                        selectivity_margin_pa: 4_000.0,
+                        mixture_inception_threshold_pa: 6_000.0,
+                        screening_regime: cfd_1d::VenturiSelectiveScreeningRegime::SelectiveTargetingLikely,
                     }];
                 }
                 let figures = required_figure_ids(goal)

@@ -17,8 +17,9 @@ use crate::design::{build_milestone12_candidate_params, CandidateParams};
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::metrics::evaluate_blueprint_candidate;
 use crate::reporting::{
-    audit_goal_candidates, validate_milestone12_candidate, write_goal_audit_report,
-    Milestone12LineageKey, Milestone12ReportDesign, Milestone12Stage, ParetoPoint, ParetoTag,
+    audit_goal_candidates, sort_pareto_points, validate_milestone12_candidate,
+    write_goal_audit_report, Milestone12LineageKey, Milestone12ReportDesign, Milestone12Stage,
+    ParetoPoint, ParetoTag,
 };
 
 use super::report::{write_stage_summary, Milestone12Option2Summary, OPTION2_SUMMARY_PATH};
@@ -154,9 +155,15 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
 
     // Phase 3: dense fill between best stride pair
     let (fill_lo, fill_hi) = if best_indices.len() >= 2 {
-        (best_indices[0].saturating_sub(stride2), best_indices[1] + stride2)
+        (
+            best_indices[0].saturating_sub(stride2),
+            best_indices[1] + stride2,
+        )
     } else if let Some(&idx) = best_indices.first() {
-        (idx.saturating_sub(stride2 * 2), (idx + stride2 * 2).min(family_params.len()))
+        (
+            idx.saturating_sub(stride2 * 2),
+            (idx + stride2 * 2).min(family_params.len()),
+        )
     } else {
         (0, family_params.len().min(phase3_budget))
     };
@@ -193,78 +200,83 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
     let pareto_acc = Mutex::new(Vec::with_capacity(selective_params.len() / 2));
     let deferred_acc = Mutex::new(Vec::<LightweightResult>::new());
 
-    selective_params
-        .into_par_iter()
-        .for_each(|params| {
-            let progress_ref = &progress;
-            let candidate = params.materialize();
-            let evaluation = if let Ok(evaluation) = evaluate_blueprint_candidate(&candidate) { evaluation } else {
-                progress_ref.record();
-                return;
-            };
+    selective_params.into_par_iter().for_each(|params| {
+        let progress_ref = &progress;
+        let candidate = params.materialize();
+        let evaluation = if let Ok(evaluation) = evaluate_blueprint_candidate(&candidate) {
+            evaluation
+        } else {
             progress_ref.record();
+            return;
+        };
+        progress_ref.record();
 
-            let is_venturi = candidate
+        let is_venturi = candidate
+            .topology_spec()
+            .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi);
+        let lineage_key = blueprint_lineage_key(&candidate);
+
+        // Score-only functions: borrow &evaluation, zero allocation, no clone.
+        let option1_score = if !is_venturi && !have_option1_for_par {
+            score_selective_acoustic_residence_separation(&evaluation)
+        } else {
+            None
+        };
+        let option2_score = if is_venturi {
+            let has_placements = candidate
                 .topology_spec()
-                .is_ok_and(cfd_schematics::BlueprintTopologySpec::has_venturi);
-            let lineage_key = blueprint_lineage_key(&candidate);
+                .is_ok_and(|t| !t.venturi_placements.is_empty());
+            score_selective_venturi_cavitation(&evaluation, has_placements)
+        } else {
+            None
+        };
 
-            // Score-only functions: borrow &evaluation, zero allocation, no clone.
-            let option1_score = if !is_venturi && !have_option1_for_par {
-                score_selective_acoustic_residence_separation(&evaluation)
-            } else {
-                None
-            };
-            let option2_score = if is_venturi {
-                let has_placements = candidate
-                    .topology_spec()
-                    .is_ok_and(|t| !t.venturi_placements.is_empty());
-                score_selective_venturi_cavitation(&evaluation, has_placements)
-            } else {
-                None
-            };
+        // Compute lightweight Pareto data inline from evaluation.
+        let cav_potential = evaluation
+            .venturi
+            .placements
+            .iter()
+            .map(|p| (1.0 - p.cavitation_number).clamp(0.0, 1.0))
+            .fold(0.0_f64, f64::max);
+        let constriction = evaluation
+            .venturi
+            .cavitation_selectivity_score
+            .clamp(0.0, 1.0);
+        let cavitation_intensity = cav_potential * (0.5 + 0.5 * constriction);
+        let cancer_targeted_cavitation =
+            evaluation.separation.cancer_center_fraction.clamp(0.0, 1.0) * cavitation_intensity;
+        let rbc_venturi_protection = evaluation
+            .separation
+            .rbc_peripheral_fraction
+            .clamp(0.0, 1.0)
+            * (1.0
+                - cavitation_intensity * evaluation.venturi.rbc_exposure_fraction.clamp(0.0, 1.0));
 
-            // Compute lightweight Pareto data inline from evaluation.
-            let cav_potential = evaluation
-                .venturi
-                .placements
-                .iter()
-                .map(|p| (1.0 - p.cavitation_number).clamp(0.0, 1.0))
-                .fold(0.0_f64, f64::max);
-            let constriction = evaluation.venturi.cavitation_selectivity_score.clamp(0.0, 1.0);
-            let cavitation_intensity = cav_potential * (0.5 + 0.5 * constriction);
-            let cancer_targeted_cavitation =
-                evaluation.separation.cancer_center_fraction.clamp(0.0, 1.0) * cavitation_intensity;
-            let rbc_venturi_protection =
-                evaluation.separation.rbc_peripheral_fraction.clamp(0.0, 1.0)
-                    * (1.0
-                        - cavitation_intensity
-                            * evaluation.venturi.rbc_exposure_fraction.clamp(0.0, 1.0));
+        // Drop the full candidate + evaluation here (end of closure).
+        // Only push lightweight data to accumulators.
+        if is_venturi {
+            pareto_acc.lock().unwrap().push(ParetoPoint {
+                cancer_targeted_cavitation,
+                rbc_venturi_protection,
+                score: option2_score.unwrap_or(0.001),
+                tag: ParetoTag::Option2,
+            });
+        }
 
-            // Drop the full candidate + evaluation here (end of closure).
-            // Only push lightweight data to accumulators.
-            if is_venturi {
-                pareto_acc.lock().unwrap().push(ParetoPoint {
-                    cancer_targeted_cavitation,
-                    rbc_venturi_protection,
-                    score: option2_score.unwrap_or(0.001),
-                    tag: ParetoTag::Option2,
-                });
-            }
-
-            if option1_score.is_some() || option2_score.is_some() {
-                deferred_acc.lock().unwrap().push(LightweightResult {
-                    params,
-                    lineage_key,
-                    is_venturi,
-                    option2_score,
-                });
-            }
-            // `candidate` and `evaluation` are dropped here — no accumulation.
-        });
+        if option1_score.is_some() || option2_score.is_some() {
+            deferred_acc.lock().unwrap().push(LightweightResult {
+                params,
+                lineage_key,
+                is_venturi,
+                option2_score,
+            });
+        }
+        // `candidate` and `evaluation` are dropped here — no accumulation.
+    });
     progress.finish();
 
-    let pareto_points = pareto_acc.into_inner().unwrap();
+    let mut pareto_points = pareto_acc.into_inner().unwrap();
+    sort_pareto_points(&mut pareto_points);
     let deferred = deferred_acc.into_inner().unwrap();
 
     // Persist lightweight Pareto points (~32 bytes each).
@@ -306,7 +318,10 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
     let mut option2_by_lineage: HashMap<Milestone12LineageKey, Vec<usize>> = HashMap::new();
     for &(deferred_idx, _) in &option2_deferred {
         if let Some(ref key) = deferred[deferred_idx].lineage_key {
-            option2_by_lineage.entry(key.clone()).or_default().push(deferred_idx);
+            option2_by_lineage
+                .entry(key.clone())
+                .or_default()
+                .push(deferred_idx);
         }
     }
 
@@ -367,9 +382,7 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         let result = &deferred[idx];
         let score = result.option2_score.unwrap_or(0.001);
         let candidate = result.params.materialize();
-        if let Ok(design) =
-            Milestone12ReportDesign::from_blueprint_candidate(0, candidate, score)
-        {
+        if let Ok(design) = Milestone12ReportDesign::from_blueprint_candidate(0, candidate, score) {
             option2_pool.push(design);
         }
     }
@@ -410,7 +423,7 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         option2_pool[0].candidate.blueprint(),
         &figure_path,
         "Figure 5 (Option 2 combined selective venturi)",
-    );
+    )?;
 
     write_stage_summary(
         &out_dir,

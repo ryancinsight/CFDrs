@@ -99,14 +99,14 @@ fn cavitation_strength_from_sigma(cavitation_number: f64) -> f64 {
     strength / (1.0 + strength)
 }
 
-fn hydrosdt_serial_cavitation_dose_fraction(
-    candidate: &BlueprintRankedCandidate,
-) -> Option<f64> {
+fn hydrosdt_serial_cavitation_dose_fraction(candidate: &BlueprintRankedCandidate) -> Option<f64> {
     let topology = candidate.candidate.topology_spec().ok()?;
     let serial_venturi_stages_per_path = topology
         .venturi_placements
         .first()
-        .map_or(0_i32, |placement| i32::from(placement.serial_throat_count.max(1)));
+        .map_or(0_i32, |placement| {
+            i32::from(placement.serial_throat_count.max(1))
+        });
     let strongest_venturi = candidate
         .evaluation
         .venturi
@@ -120,10 +120,20 @@ fn hydrosdt_serial_cavitation_dose_fraction(
 
     let cavitation_strength = cavitation_strength_from_sigma(cavitation_number);
     if serial_venturi_stages_per_path <= 0 {
-        Some(candidate.evaluation.residence.treatment_flow_fraction.clamp(0.0, 1.0))
+        Some(
+            candidate
+                .evaluation
+                .residence
+                .treatment_flow_fraction
+                .clamp(0.0, 1.0),
+        )
     } else {
         Some(
-            candidate.evaluation.venturi.venturi_flow_fraction.clamp(0.0, 1.0)
+            candidate
+                .evaluation
+                .venturi
+                .venturi_flow_fraction
+                .clamp(0.0, 1.0)
                 * (1.0 - (1.0 - cavitation_strength).powi(serial_venturi_stages_per_path)),
         )
     }
@@ -168,8 +178,7 @@ fn hydrosdt_selection_penalty(
     let Some(serial_dose_fraction) = hydrosdt_serial_cavitation_dose_fraction(candidate) else {
         return NON_HYDROSDT_PENALTY;
     };
-    let shortfall = policy.baseline_serial_cavitation_dose_fraction
-        + policy.required_gain_margin
+    let shortfall = policy.baseline_serial_cavitation_dose_fraction + policy.required_gain_margin
         - serial_dose_fraction;
     if shortfall <= 0.0 {
         0.0
@@ -207,7 +216,11 @@ fn geometry_concentration_penalty(candidate: &BlueprintRankedCandidate) -> f64 {
             topology.channel_route(&lane).map(|route| {
                 let repeat_depth = (count.saturating_sub(1)) as f64;
                 let ancestry_share = count as f64 / geometry_event_count.max(1) as f64;
-                let family_bias = if family == "serpentine_compact" { 1.2 } else { 1.0 };
+                let family_bias = if family == "serpentine_compact" {
+                    1.2
+                } else {
+                    1.0
+                };
                 repeat_depth
                     * lane_serpentine_diminishing_return(route)
                     * family_bias
@@ -319,12 +332,14 @@ impl BlueprintGeneticOptimizer {
         let mut archive: HashMap<CandidateFingerprint, BlueprintRankedCandidate> = HashMap::new();
         let mut best_per_generation = Vec::with_capacity(self.max_generations);
         let hydrosdt_policy = match self.goal {
-            OptimizationGoal::InPlaceDeanSerpentineRefinement => self
-                .hydrosdt_baseline_serial_cavitation_dose_fraction
-                .map(|baseline_serial_cavitation_dose_fraction| HydroShortlistPolicy {
-                    baseline_serial_cavitation_dose_fraction,
-                    required_gain_margin: hydrosdt_cavitation_gain_margin(),
-                }),
+            OptimizationGoal::InPlaceDeanSerpentineRefinement => {
+                self.hydrosdt_baseline_serial_cavitation_dose_fraction.map(
+                    |baseline_serial_cavitation_dose_fraction| HydroShortlistPolicy {
+                        baseline_serial_cavitation_dose_fraction,
+                        required_gain_margin: hydrosdt_cavitation_gain_margin(),
+                    },
+                )
+            }
             _ => None,
         };
         let baseline_scores = self
@@ -439,7 +454,8 @@ impl BlueprintGeneticOptimizer {
                 let parents = select_diverse_survivors(&ranked, parent_count);
                 population = build_refine_population(&parents, self.population)?;
                 for generation in 0..refine_gens {
-                    let ranked = rank_population(self.goal, hydrosdt_policy, &population, &mut eval_cache)?;
+                    let ranked =
+                        rank_population(self.goal, hydrosdt_policy, &population, &mut eval_cache)?;
                     if ranked.is_empty() {
                         break;
                     }
@@ -486,9 +502,7 @@ impl BlueprintGeneticOptimizer {
                 .exceeds_all_baselines
                 .unwrap_or(false)
                 .cmp(&left.evaluation.exceeds_all_baselines.unwrap_or(false))
-                .then_with(|| {
-                    right.selection_score.total_cmp(&left.selection_score)
-                })
+                .then_with(|| right.selection_score.total_cmp(&left.selection_score))
                 .then_with(|| {
                     evaluation_score_or_zero(&right.evaluation)
                         .total_cmp(&evaluation_score_or_zero(&left.evaluation))
@@ -583,14 +597,14 @@ fn rank_population(
         .filter_map(|candidate| {
             let key = candidate_key(candidate).ok();
             let evaluation = if let Some(cached) = key.and_then(|k| eval_cache.get(&k)) {
-                    cached.clone()
-                } else {
-                    let eval = evaluate_goal(candidate, goal).ok()?;
-                    if let Some(k) = key {
-                        eval_cache.insert(k, eval.clone());
-                    }
-                    eval
-                };
+                cached.clone()
+            } else {
+                let eval = evaluate_goal(candidate, goal).ok()?;
+                if let Some(k) = key {
+                    eval_cache.insert(k, eval.clone());
+                }
+                eval
+            };
             Some(BlueprintRankedCandidate {
                 rank: 0,
                 candidate: candidate.clone(),
@@ -605,7 +619,8 @@ fn rank_population(
             ancestry_adjusted_selection_score(ranked_candidate, goal, hydrosdt_policy);
     }
     ranked.sort_by(|left, right| {
-        right.selection_score
+        right
+            .selection_score
             .partial_cmp(&left.selection_score)
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| {
@@ -707,7 +722,10 @@ fn select_diverse_survivors(
 }
 
 fn diversity_signature(candidate: &BlueprintRankedCandidate) -> DiversitySignature {
-    let topology = candidate.candidate.topology_spec().expect("ranked GA candidate must retain topology metadata");
+    let topology = candidate
+        .candidate
+        .topology_spec()
+        .expect("ranked GA candidate must retain topology metadata");
     let throat_width_m = topology
         .venturi_placements
         .iter()
@@ -723,7 +741,11 @@ fn diversity_signature(candidate: &BlueprintRankedCandidate) -> DiversitySignatu
     DiversitySignature {
         flow_rate_m3_s: candidate.candidate.operating_point.flow_rate_m3_s,
         inlet_gauge_pa: candidate.candidate.operating_point.inlet_gauge_pa,
-        throat_width_m: if throat_width_m.is_finite() { throat_width_m } else { 0.0 },
+        throat_width_m: if throat_width_m.is_finite() {
+            throat_width_m
+        } else {
+            0.0
+        },
         serial_venturi_stages: topology.serial_venturi_stages() as f64,
         parallel_venturi_count: topology.parallel_venturi_count() as f64,
         split_stage_count: topology.split_stages.len() as f64,
@@ -743,17 +765,63 @@ fn normalized_delta(left: f64, right: f64, scale: f64) -> f64 {
 fn diversity_distance(left: &BlueprintRankedCandidate, right: &BlueprintRankedCandidate) -> f64 {
     let left_sig = diversity_signature(left);
     let right_sig = diversity_signature(right);
-    normalized_delta(left_sig.flow_rate_m3_s, right_sig.flow_rate_m3_s, left_sig.flow_rate_m3_s.abs().max(right_sig.flow_rate_m3_s.abs()).max(1.0e-9))
-        + normalized_delta(left_sig.inlet_gauge_pa, right_sig.inlet_gauge_pa, left_sig.inlet_gauge_pa.abs().max(right_sig.inlet_gauge_pa.abs()).max(1.0))
-        + normalized_delta(left_sig.throat_width_m, right_sig.throat_width_m, left_sig.throat_width_m.abs().max(right_sig.throat_width_m.abs()).max(1.0e-6))
-        + normalized_delta(left_sig.serial_venturi_stages, right_sig.serial_venturi_stages, 4.0)
-        + normalized_delta(left_sig.parallel_venturi_count, right_sig.parallel_venturi_count, 4.0)
-        + normalized_delta(left_sig.split_stage_count, right_sig.split_stage_count, 4.0)
-        + normalized_delta(left_sig.serpentine_arm_count, right_sig.serpentine_arm_count, 4.0)
-        + normalized_delta(left_sig.cavitation_selectivity, right_sig.cavitation_selectivity, 1.0)
-        + normalized_delta(left_sig.separation_efficiency, right_sig.separation_efficiency, 1.0)
+    normalized_delta(
+        left_sig.flow_rate_m3_s,
+        right_sig.flow_rate_m3_s,
+        left_sig
+            .flow_rate_m3_s
+            .abs()
+            .max(right_sig.flow_rate_m3_s.abs())
+            .max(1.0e-9),
+    ) + normalized_delta(
+        left_sig.inlet_gauge_pa,
+        right_sig.inlet_gauge_pa,
+        left_sig
+            .inlet_gauge_pa
+            .abs()
+            .max(right_sig.inlet_gauge_pa.abs())
+            .max(1.0),
+    ) + normalized_delta(
+        left_sig.throat_width_m,
+        right_sig.throat_width_m,
+        left_sig
+            .throat_width_m
+            .abs()
+            .max(right_sig.throat_width_m.abs())
+            .max(1.0e-6),
+    ) + normalized_delta(
+        left_sig.serial_venturi_stages,
+        right_sig.serial_venturi_stages,
+        4.0,
+    ) + normalized_delta(
+        left_sig.parallel_venturi_count,
+        right_sig.parallel_venturi_count,
+        4.0,
+    ) + normalized_delta(left_sig.split_stage_count, right_sig.split_stage_count, 4.0)
+        + normalized_delta(
+            left_sig.serpentine_arm_count,
+            right_sig.serpentine_arm_count,
+            4.0,
+        )
+        + normalized_delta(
+            left_sig.cavitation_selectivity,
+            right_sig.cavitation_selectivity,
+            1.0,
+        )
+        + normalized_delta(
+            left_sig.separation_efficiency,
+            right_sig.separation_efficiency,
+            1.0,
+        )
         + normalized_delta(left_sig.rbc_shield, right_sig.rbc_shield, 1.0)
-        + normalized_delta(left_sig.residence_time_s, right_sig.residence_time_s, left_sig.residence_time_s.max(right_sig.residence_time_s).max(1.0))
+        + normalized_delta(
+            left_sig.residence_time_s,
+            right_sig.residence_time_s,
+            left_sig
+                .residence_time_s
+                .max(right_sig.residence_time_s)
+                .max(1.0),
+        )
         + normalized_delta(left_sig.dean_norm, right_sig.dean_norm, 1.0)
 }
 
@@ -797,8 +865,8 @@ fn lane_serpentine_diminishing_return(route: &cfd_schematics::ChannelRouteSpec) 
     let dense_depth = positive_ratio((segments_factor - 1.75) / 0.75)
         + positive_ratio((0.85 - length_factor) / 0.15)
         + positive_ratio((0.85 - bend_factor) / 0.15);
-    let smooth_depth = positive_ratio((bend_factor - 1.30) / 0.30)
-        + positive_ratio((length_factor - 1.10) / 0.25);
+    let smooth_depth =
+        positive_ratio((bend_factor - 1.30) / 0.30) + positive_ratio((length_factor - 1.10) / 0.25);
     let long_depth = positive_ratio((length_factor - 1.30) / 0.30)
         + positive_ratio((segments_factor - 1.25) / 0.75);
 
@@ -822,11 +890,14 @@ fn blueprint_with_operating_point_lineage(
     let mut blueprint = candidate.blueprint.clone();
     let topology = blueprint.topology.clone();
     let lineage = blueprint.lineage.get_or_insert_with(|| {
-        topology.as_ref().map_or_else(TopologyLineageMetadata::default, |spec| {
-            cfd_schematics::BlueprintTopologyFactory::lineage_for_spec(spec)
-        })
+        topology
+            .as_ref()
+            .map_or_else(TopologyLineageMetadata::default, |spec| {
+                cfd_schematics::BlueprintTopologyFactory::lineage_for_spec(spec)
+            })
     });
-    lineage.current_stage = cfd_schematics::TopologyOptimizationStage::InPlaceDeanSerpentineRefinement;
+    lineage.current_stage =
+        cfd_schematics::TopologyOptimizationStage::InPlaceDeanSerpentineRefinement;
     lineage.mutations.push(TopologyLineageEvent {
         stage: cfd_schematics::TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
         mutation: format!("family={family};lane=global;operator={operator}"),
@@ -917,7 +988,11 @@ fn focused_operating_point_perturbations(
         for &pf in &p_factors {
             let blueprint = blueprint_with_operating_point_lineage(
                 seed,
-                format!("operating_point_refine_q{:.0}_p{:.0}", qf * 100.0, pf * 100.0),
+                format!(
+                    "operating_point_refine_q{:.0}_p{:.0}",
+                    qf * 100.0,
+                    pf * 100.0
+                ),
                 "operating_point_refine",
             );
             let candidate = BlueprintCandidate::new(
@@ -986,8 +1061,8 @@ fn candidate_key(candidate: &BlueprintCandidate) -> Result<CandidateFingerprint,
 mod tests {
     use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
 
-    use crate::application::search::mutations::seed_option2_candidates;
     use super::{generate_ga_mutations, BlueprintGeneticOptimizer};
+    use crate::application::search::mutations::seed_option2_candidates;
 
     #[test]
     fn ga_mutations_preserve_branch_width_conservation_and_roles() {

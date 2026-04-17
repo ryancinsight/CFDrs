@@ -3,20 +3,18 @@ use crate::application::orchestration::{
     is_selective_report_topology, milestone12_ranked_pool_size, resolve_output_directories,
     save_figure,
 };
+use crate::application::search::genetic::BlueprintGeneticOptimizer;
 use crate::application::search::mutations::{
     promote_option1_candidate_to_ga_seed, promote_option2_candidate_to_ga_seed,
 };
-use crate::application::search::genetic::BlueprintGeneticOptimizer;
 use crate::delivery::{load_top5_report_json, save_pareto_points, save_top5_report_json};
 use crate::domain::OptimizationGoal;
 use crate::reporting::{
-    is_hydrosdt_venturi_report_candidate, pareto_pool_from_report_designs,
-    rank_ga_hydrosdt_report_designs,
-    milestone12_lineage_key, validate_milestone12_candidate, write_goal_audit_report,
-    GoalAuditEntry, GoalAuditStatus, Milestone12LineageKey, Milestone12ReportDesign,
-    Milestone12Stage, ParetoPoint, ParetoTag,
+    is_hydrosdt_venturi_report_candidate, milestone12_lineage_key, pareto_pool_from_report_designs,
+    rank_ga_hydrosdt_report_designs, sort_pareto_points, validate_milestone12_candidate,
+    write_goal_audit_report, GoalAuditEntry, GoalAuditStatus, Milestone12LineageKey,
+    Milestone12ReportDesign, Milestone12Stage, ParetoPoint, ParetoTag,
 };
-
 
 use super::report::{write_stage_summary, Milestone12GaSummary, GA_SUMMARY_PATH};
 use super::types::{Milestone12GaRun, Milestone12StageArtifact};
@@ -81,9 +79,7 @@ fn positive_ratio(value: f64) -> f64 {
     value.max(0.0)
 }
 
-fn lane_serpentine_diminishing_return(
-    route: &cfd_schematics::ChannelRouteSpec,
-) -> f64 {
+fn lane_serpentine_diminishing_return(route: &cfd_schematics::ChannelRouteSpec) -> f64 {
     let Some(serpentine) = route.serpentine.as_ref() else {
         return 0.0;
     };
@@ -102,8 +98,8 @@ fn lane_serpentine_diminishing_return(
     let dense_depth = positive_ratio((segments_factor - 1.75) / 0.75)
         + positive_ratio((0.85 - length_factor) / 0.15)
         + positive_ratio((0.85 - bend_factor) / 0.15);
-    let smooth_depth = positive_ratio((bend_factor - 1.30) / 0.30)
-        + positive_ratio((length_factor - 1.10) / 0.25);
+    let smooth_depth =
+        positive_ratio((bend_factor - 1.30) / 0.30) + positive_ratio((length_factor - 1.10) / 0.25);
     let long_depth = positive_ratio((length_factor - 1.30) / 0.30)
         + positive_ratio((segments_factor - 1.25) / 0.75);
 
@@ -145,7 +141,11 @@ fn serpentine_repeat_penalty(design: &Milestone12ReportDesign) -> f64 {
             topology.channel_route(&lane).map(|route| {
                 let repeat_depth = count.saturating_sub(1) as f64;
                 let ancestry_share = count as f64 / geometry_event_count.max(1) as f64;
-                let family_bias = if family == "serpentine_compact" { 1.2 } else { 1.0 };
+                let family_bias = if family == "serpentine_compact" {
+                    1.2
+                } else {
+                    1.0
+                };
                 repeat_depth
                     * lane_serpentine_diminishing_return(route)
                     * family_bias
@@ -204,7 +204,11 @@ fn build_ga_lineage_audit_entries(
             }
             let mut family_counts: Vec<GaLineageFamilyCount> = counts
                 .into_iter()
-                .map(|((family, lane), count)| GaLineageFamilyCount { family, lane, count })
+                .map(|((family, lane), count)| GaLineageFamilyCount {
+                    family,
+                    lane,
+                    count,
+                })
                 .collect();
             family_counts.sort_by(|left, right| {
                 right
@@ -252,15 +256,19 @@ fn build_ga_lineage_ancestry_entries(
                 .blueprint()
                 .lineage()
                 .map_or((0, 0), |lineage| {
-                    lineage.mutations.iter().fold((0_usize, 0_usize), |mut counts, event| {
-                        let operator = parse_lineage_operator(&event.mutation).unwrap_or_default();
-                        if operator.starts_with("operating_point") {
-                            counts.1 += 1;
-                        } else {
-                            counts.0 += 1;
-                        }
-                        counts
-                    })
+                    lineage
+                        .mutations
+                        .iter()
+                        .fold((0_usize, 0_usize), |mut counts, event| {
+                            let operator =
+                                parse_lineage_operator(&event.mutation).unwrap_or_default();
+                            if operator.starts_with("operating_point") {
+                                counts.1 += 1;
+                            } else {
+                                counts.0 += 1;
+                            }
+                            counts
+                        })
                 });
             GaLineageAncestryEntry {
                 rank: design.rank,
@@ -352,7 +360,12 @@ pub fn run_milestone12_ga() -> Result<Milestone12GaRun, Box<dyn std::error::Erro
             .cmp(&left_exceeds)
             .then_with(|| right_lineage.cmp(&left_lineage))
             .then_with(|| right.selection_score.total_cmp(&left.selection_score))
-            .then_with(|| right.evaluation.score_or_zero().total_cmp(&left.evaluation.score_or_zero()))
+            .then_with(|| {
+                right
+                    .evaluation
+                    .score_or_zero()
+                    .total_cmp(&left.evaluation.score_or_zero())
+            })
             .then_with(|| left.candidate.id.cmp(&right.candidate.id))
     });
 
@@ -366,8 +379,7 @@ pub fn run_milestone12_ga() -> Result<Milestone12GaRun, Box<dyn std::error::Erro
                 score,
             )
             .ok()?;
-            validate_milestone12_candidate(&design.candidate, Milestone12Stage::GaRefined)
-                .ok()?;
+            validate_milestone12_candidate(&design.candidate, Milestone12Stage::GaRefined).ok()?;
             Some(design)
         })
         .take(retained_pool_size)
@@ -415,7 +427,10 @@ pub fn run_milestone12_ga() -> Result<Milestone12GaRun, Box<dyn std::error::Erro
                 ranked_candidate.evaluation.separation.separation_efficiency,
             ),
             cavitation_selectivity_score: Some(
-                ranked_candidate.evaluation.venturi.cavitation_selectivity_score,
+                ranked_candidate
+                    .evaluation
+                    .venturi
+                    .cavitation_selectivity_score,
             ),
             peak_dean_number: Some(
                 ranked_candidate
@@ -446,8 +461,9 @@ pub fn run_milestone12_ga() -> Result<Milestone12GaRun, Box<dyn std::error::Erro
     // Persist lightweight Pareto points for GA pool (~32 bytes each).
     // Extract TTCI/RBC-protection directly from evaluation data — avoids
     // cloning 200 full BlueprintCandidates and computing SdtMetrics for each.
-    let ga_pareto_points: Vec<ParetoPoint> =
+    let mut ga_pareto_points: Vec<ParetoPoint> =
         pareto_pool_from_report_designs(&full_hydrosdt_ranked, ParetoTag::Ga, 200);
+    sort_pareto_points(&mut ga_pareto_points);
     let ga_pool_all_path = out_dir.join("ga_pool_all.json");
     save_pareto_points(&ga_pareto_points, &ga_pool_all_path)?;
     drop(ga_pareto_points);
@@ -457,7 +473,10 @@ pub fn run_milestone12_ga() -> Result<Milestone12GaRun, Box<dyn std::error::Erro
     let lineage_audit_path = out_dir.join("ga_lineage_audit_top5.json");
     std::fs::write(
         &lineage_audit_path,
-        serde_json::to_string_pretty(&build_ga_lineage_audit_entries(&ranked, &candidate_selection_scores))?,
+        serde_json::to_string_pretty(&build_ga_lineage_audit_entries(
+            &ranked,
+            &candidate_selection_scores,
+        ))?,
     )?;
     let ancestry_audit_path = out_dir.join("ga_lineage_ancestry_top5.json");
     std::fs::write(
@@ -469,7 +488,7 @@ pub fn run_milestone12_ga() -> Result<Milestone12GaRun, Box<dyn std::error::Erro
         ranked[0].candidate.blueprint(),
         &figure_path,
         "Figure 6 (HydroSDT GA rank-1)",
-    );
+    )?;
     write_stage_summary(
         &out_dir,
         GA_SUMMARY_PATH,

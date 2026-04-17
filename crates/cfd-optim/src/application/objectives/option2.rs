@@ -115,7 +115,10 @@ pub fn score_selective_venturi_cavitation(
     {
         return None;
     }
-    let cav = evaluation.venturi.cavitation_selectivity_score.clamp(0.0, 1.0);
+    let cav = evaluation
+        .venturi
+        .cavitation_selectivity_score
+        .clamp(0.0, 1.0);
     let rbc_shield = (1.0 - evaluation.venturi.rbc_exposure_fraction).clamp(0.0, 1.0);
     let wbc_shield = (1.0 - evaluation.venturi.wbc_exposure_fraction).clamp(0.0, 1.0);
     let safety = evaluation.safety.cavitation_safety_margin.clamp(0.0, 1.0);

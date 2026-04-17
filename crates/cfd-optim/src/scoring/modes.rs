@@ -456,7 +456,8 @@ fn score_combined_sdt_leukapheresis(
         (metrics.cancer_targeted_cavitation / COMBINED_ONCOLOGY_MIN_CANCER_CAV).clamp(0.0, 1.0);
     let sel_gate_raw =
         (metrics.oncology_selectivity_index / COMBINED_ONCOLOGY_MIN_SELECTIVITY).clamp(0.0, 1.0);
-    let oncology_gate = apply_gate_floor(cav_gate_raw.min(sel_gate_raw), COMBINED_ONCOLOGY_GATE_FLOOR);
+    let oncology_gate =
+        apply_gate_floor(cav_gate_raw.min(sel_gate_raw), COMBINED_ONCOLOGY_GATE_FLOOR);
 
     let gated_venturi_sdt = venturi_sdt * oncology_gate;
     let s_s = (0.60 * selective_base + 0.40 * gated_venturi_sdt).clamp(0.0, 1.0);

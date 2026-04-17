@@ -5,9 +5,10 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use super::super::asset_review::write_asset_review_manifest;
 use super::addenda::{
-    build_conclusions, build_figure_sections, build_figure_toc_rows,
-    build_references_block, build_storage_artifact_index, build_storage_policy_section,
+    build_conclusions, build_figure_sections, build_figure_toc_rows, build_references_block,
+    build_storage_artifact_index, build_storage_policy_section,
     build_workspace_configuration_section,
 };
 use super::contract::load_m12_contract_text;
@@ -79,6 +80,8 @@ pub struct Milestone12NarrativeInput<'a> {
 pub struct Milestone12NarrativeArtifacts {
     pub narrative_path: PathBuf,
     pub figure_manifest_path: PathBuf,
+    pub asset_review_manifest_path: PathBuf,
+    pub asset_review_complete: bool,
     pub figure_count: usize,
 }
 
@@ -138,17 +141,21 @@ pub fn write_milestone12_narrative_report(
     insert_contract_values(&mut values, &contract);
     insert_data_values(&mut values, input, option1, option2, ga_best);
     insert_table_values(&mut values, input, option1, option2);
+    let narrative_only_specs = figure_specs
+        .iter()
+        .filter(|spec| spec.number >= 4)
+        .cloned()
+        .collect::<Vec<_>>();
     values.insert(
         "FIGURE_TOC_ROWS".to_string(),
-        build_figure_toc_rows(&figure_specs),
+        build_figure_toc_rows(&narrative_only_specs),
     );
     values.insert(
         "FIGURE_SECTIONS".to_string(),
-        build_figure_sections(&figure_specs),
+        build_figure_sections(&narrative_only_specs),
     );
-    // figure_specs fully consumed — drop to free SVG metadata.
     let figure_count = figure_specs.len();
-    drop(figure_specs);
+    drop(narrative_only_specs);
     values.insert(
         "STORAGE_POLICY_SECTION".to_string(),
         build_storage_policy_section(),
@@ -168,7 +175,11 @@ pub fn write_milestone12_narrative_report(
             ga_best,
             input.ga_best_per_gen,
             input.ga_ranking_audit,
-            if input.option2_robustness.is_empty() { 16 } else { 17 },
+            if input.option2_robustness.is_empty() {
+                16
+            } else {
+                17
+            },
         ),
     );
     values.insert(
@@ -193,9 +204,7 @@ pub fn write_milestone12_narrative_report(
     );
     values.insert("REFERENCES_BLOCK".to_string(), build_references_block());
 
-
-
-    let narrative = render_template_strict(&template, &values)?;
+    let narrative = normalize_generated_markdown(&render_template_strict(&template, &values)?);
     // Template string and BTreeMap values consumed — free ~300 KB.
     drop(template);
     drop(values);
@@ -203,12 +212,48 @@ pub fn write_milestone12_narrative_report(
     std::fs::create_dir_all(&artifact_root)?;
     let narrative_path = report_dir.join("ARPA-H_SonALAsense_Milestone 12 Report.md");
     std::fs::write(&narrative_path, narrative)?;
+    let asset_review = write_asset_review_manifest(&report_dir, &narrative_path, &figure_specs)?;
+    drop(figure_specs);
 
     Ok(Milestone12NarrativeArtifacts {
         narrative_path,
         figure_manifest_path: manifest_path,
+        asset_review_manifest_path: asset_review.manifest_path,
+        asset_review_complete: asset_review.complete,
         figure_count,
     })
+}
+
+fn normalize_generated_markdown(input: &str) -> String {
+    let mut normalized = String::with_capacity(input.len());
+    let mut blank_run = 0usize;
+
+    for line in input.lines() {
+        if line.trim().is_empty() {
+            blank_run += 1;
+            if blank_run > 1 {
+                continue;
+            }
+            normalized.push('\n');
+            continue;
+        }
+
+        blank_run = 0;
+        normalized.push_str(line);
+        normalized.push('\n');
+    }
+
+    while normalized.ends_with("\n\n") {
+        normalized.pop();
+    }
+
+    if !input.ends_with('\n') && !normalized.is_empty() {
+        normalized.pop();
+    } else if input.ends_with('\n') && !normalized.ends_with('\n') {
+        normalized.push('\n');
+    }
+
+    normalized
 }
 
 fn insert_title_page_values(values: &mut BTreeMap<String, String>, metadata: &M12Metadata) {
@@ -276,7 +321,7 @@ fn format_milestone_deliverable(deliverable: &str) -> String {
         return trimmed.to_string();
     }
     match trimmed.chars().last() {
-        Some('.') | Some('!') | Some('?') => format!("{trimmed} Includes limits of usage."),
+        Some('.' | '!' | '?') => format!("{trimmed} Includes limits of usage."),
         _ => format!("{trimmed}. Includes limits of usage."),
     }
 }
@@ -292,7 +337,8 @@ fn insert_data_values(
     let abstract_validation_sentence = if has_robustness {
         "Selected designs were screened for robustness under +/-10%/+/-20% operating-parameter perturbations.".to_string()
     } else {
-        "No standalone perturbation-sweep robustness dataset was emitted for this canonical run.".to_string()
+        "No standalone perturbation-sweep robustness dataset was emitted for this canonical run."
+            .to_string()
     };
     let methods_pipeline_step7 = if has_robustness {
         "7. **Robustness screening**: selected designs are ranked and screened under operating-parameter perturbations.".to_string()
@@ -349,10 +395,7 @@ fn insert_data_values(
         "ABSTRACT_VALIDATION_SENTENCE".to_string(),
         abstract_validation_sentence,
     );
-    values.insert(
-        "METHODS_PIPELINE_STEP7".to_string(),
-        methods_pipeline_step7,
-    );
+    values.insert("METHODS_PIPELINE_STEP7".to_string(), methods_pipeline_step7);
     values.insert(
         "MILESTONE_SCOPE_SENTENCE".to_string(),
         milestone_scope_sentence,

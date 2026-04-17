@@ -9,7 +9,10 @@ fn acoustic_residence_support_score(evaluation: &BlueprintEvaluation) -> f64 {
     let sep = evaluation.separation.separation_efficiency.clamp(0.0, 1.0);
     let cancer = evaluation.separation.cancer_center_fraction.clamp(0.0, 1.0);
     let wbc_exclusion = (1.0 - evaluation.separation.wbc_center_fraction).clamp(0.0, 1.0);
-    let rbc_exclusion = evaluation.separation.rbc_peripheral_fraction.clamp(0.0, 1.0);
+    let rbc_exclusion = evaluation
+        .separation
+        .rbc_peripheral_fraction
+        .clamp(0.0, 1.0);
     let safety = evaluation.safety.main_channel_margin.clamp(0.0, 1.0);
 
     let base = 0.22 * cancer
@@ -87,11 +90,9 @@ pub fn evaluate_blueprint_genetic_refinement(
         )));
     }
 
-    if !topology
-        .venturi_placements
-        .iter()
-        .any(|placement| placement.placement_mode == cfd_schematics::VenturiPlacementMode::CurvaturePeakDeanNumber)
-    {
+    if !topology.venturi_placements.iter().any(|placement| {
+        placement.placement_mode == cfd_schematics::VenturiPlacementMode::CurvaturePeakDeanNumber
+    }) {
         return Err(OptimError::InvalidParameter(format!(
             "GA refinement scoring requires curvature-based Dean venturi placement, but candidate '{}' only carries non-Dean throat placements",
             candidate.id

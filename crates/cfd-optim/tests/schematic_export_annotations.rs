@@ -1,10 +1,10 @@
 use cfd_optim::save_blueprint_schematic_svg;
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
 use cfd_schematics::{
-    build_milestone12_blueprint, enumerate_milestone12_topologies,
-    BlueprintTopologyFactory, BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec,
-    NetworkBlueprint, SplitKind, SplitStageSpec, ThroatGeometrySpec, TreatmentActuationMode,
-    VenturiPlacementMode, VenturiPlacementSpec,
+    build_milestone12_blueprint, enumerate_milestone12_topologies, BlueprintTopologyFactory,
+    BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec, NetworkBlueprint, SplitKind,
+    SplitStageSpec, ThroatGeometrySpec, TreatmentActuationMode, VenturiPlacementMode,
+    VenturiPlacementSpec,
 };
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};

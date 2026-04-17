@@ -56,12 +56,10 @@ pub fn ensure_release_reports() -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// Fast mode is the default; set `M12_FAST=0|false|no` to force a full run.
 pub fn fast_mode() -> bool {
-    std::env::var("M12_FAST")
-        .ok()
-        .is_none_or(|v| {
-            let s = v.trim().to_ascii_lowercase();
-            !(s == "0" || s == "false" || s == "no")
-        })
+    std::env::var("M12_FAST").ok().is_none_or(|v| {
+        let s = v.trim().to_ascii_lowercase();
+        !(s == "0" || s == "false" || s == "no")
+    })
 }
 
 /// Parse an environment variable as `usize`, falling back to `default` (min 1).

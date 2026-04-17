@@ -129,9 +129,7 @@ mod tests {
         canonical_option1_candidate, canonical_option2_candidate, operating_point,
     };
 
-    fn root_family_label(
-        candidate: &crate::design::CandidateParams,
-    ) -> &'static str {
+    fn root_family_label(candidate: &crate::design::CandidateParams) -> &'static str {
         match candidate.request.split_kinds.first() {
             Some(cfd_schematics::SplitKind::NFurcation(2)) => "Bi",
             Some(cfd_schematics::SplitKind::NFurcation(4)) => "Quad",

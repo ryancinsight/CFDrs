@@ -786,7 +786,7 @@ pub struct SdtMetrics {
 
     /// Channel resonance score (synonym for `acoustic_resonance_factor`).
     ///
-    /// Extracted by taking the maximum `resonance_match(D_h)` across all 
+    /// Extracted by taking the maximum `resonance_match(D_h)` across all
     /// active treatment channels in the network.
     #[serde(default)]
     pub channel_resonance_score: f64,

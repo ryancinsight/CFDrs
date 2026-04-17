@@ -4,13 +4,13 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::application::orchestration::{
-    ensure_release_reports, init_tracing, resolve_output_directories,
+    ensure_release_reports, fast_mode, init_tracing, resolve_output_directories,
 };
 use crate::delivery::{load_pareto_points, load_top5_report_json};
 use crate::reporting::{
-    pareto_pool_from_report_designs, rank_ga_hydrosdt_report_designs, ParetoTag,
-    write_milestone12_narrative_report, write_milestone12_results,
-    Milestone12GaRankingAuditEntry, Milestone12NarrativeInput, ValidationRow,
+    pareto_pool_from_report_designs, rank_ga_hydrosdt_report_designs,
+    write_milestone12_narrative_report, write_milestone12_results, Milestone12GaRankingAuditEntry,
+    Milestone12NarrativeInput, ParetoTag, ValidationRow,
 };
 
 use super::ga::run_milestone12_ga;
@@ -79,7 +79,11 @@ struct Milestone12ReportManifest {
     #[serde(default)]
     authoritative_run: bool,
     #[serde(default)]
+    run_class: String,
+    #[serde(default)]
     fast_mode: bool,
+    #[serde(default)]
+    review_complete: bool,
     #[serde(default)]
     canonical_source: String,
     #[serde(default)]
@@ -93,8 +97,45 @@ pub(crate) const OPTION2_SUMMARY_PATH: &str = "option2_stage_summary.json";
 pub(crate) const GA_SUMMARY_PATH: &str = "ga_stage_summary.json";
 const REPORT_MANIFEST_PATH: &str = "report_manifest.json";
 
-fn authoritative_run() -> bool {
-    true
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Milestone12RunClass {
+    FastRefresh,
+    AuthoritativeFastSubset,
+    AuthoritativeFull,
+}
+
+impl Milestone12RunClass {
+    const fn is_authoritative(self) -> bool {
+        !matches!(self, Self::FastRefresh)
+    }
+
+    const fn requires_review(self) -> bool {
+        self.is_authoritative()
+    }
+
+    const fn label(self) -> &'static str {
+        match self {
+            Self::FastRefresh => "fast_refresh",
+            Self::AuthoritativeFastSubset => "authoritative_fast_subset",
+            Self::AuthoritativeFull => "authoritative_full",
+        }
+    }
+}
+
+fn classify_run(
+    requested_stages: &[Milestone12RequestedStage],
+    is_fast_mode: bool,
+) -> Milestone12RunClass {
+    let refresh_only = requested_stages
+        .iter()
+        .all(|stage| matches!(stage, Milestone12RequestedStage::Refresh));
+    if refresh_only {
+        Milestone12RunClass::FastRefresh
+    } else if is_fast_mode {
+        Milestone12RunClass::AuthoritativeFastSubset
+    } else {
+        Milestone12RunClass::AuthoritativeFull
+    }
 }
 
 fn canonical_results_path(workspace_root: &Path) -> std::path::PathBuf {
@@ -108,18 +149,14 @@ fn canonical_source_label() -> String {
 fn render_option1_sequence_coverage(summary: &Milestone12Option1Summary) -> String {
     let mut markdown = String::new();
     if summary.sequence_coverage.is_empty() {
-        markdown.push_str(
-            "_No Option 1 sequence-coverage ledger was generated for this run._\n",
-        );
+        markdown.push_str("_No Option 1 sequence-coverage ledger was generated for this run._\n");
         return markdown;
     }
 
     markdown.push_str(
         "| Sequence | Candidates scanned | Eligible | Top candidate | Top score | Best residence (s) | Best separation | Dominant limiter |\n",
     );
-    markdown.push_str(
-        "|---|---:|---:|---|---:|---:|---:|---|\n",
-    );
+    markdown.push_str("|---|---:|---:|---|---:|---:|---:|---|\n");
     for entry in &summary.sequence_coverage {
         markdown.push_str(&format!(
             "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
@@ -200,22 +237,28 @@ pub fn refresh_milestone12_reports(
     requested_stages: &[Milestone12RequestedStage],
 ) -> Result<Vec<Milestone12StageArtifact>, Box<dyn std::error::Error>> {
     let (workspace_root, out_dir, _) = resolve_output_directories()?;
+    let is_fast_mode = fast_mode();
+    let run_class = classify_run(requested_stages, is_fast_mode);
 
     let option1_ranked =
         load_top5_report_json(&out_dir.join("two_concept_option1_ultrasound_top5.json"))?;
     let option2_ranked =
         load_top5_report_json(&out_dir.join("two_concept_option2_venturi_top5.json"))?;
     let ga_ranked = load_top5_report_json(&out_dir.join("ga_hydrosdt_top5.json"))?;
-    if option2_ranked.is_empty() || ga_ranked.is_empty() {
-        return Ok(Vec::new());
+    if option1_ranked.is_empty() {
+        return Err("Milestone 12 report requires a non-empty Option 1 ranked pool".into());
+    }
+    if option2_ranked.is_empty() {
+        return Err("Milestone 12 report requires a non-empty Option 2 ranked pool".into());
+    }
+    if ga_ranked.is_empty() {
+        return Err("Milestone 12 report requires a non-empty GA ranked pool".into());
     }
 
     // Load lightweight Pareto points (~32 bytes each) instead of full
     // Milestone12ReportDesign (~20 KB each). At 50K candidates this saves ~1 GB.
-    let option2_pool_all =
-        load_pareto_points(&out_dir.join("option2_pool_all.json"))?;
-    let ga_pool_all =
-        load_pareto_points(&out_dir.join("ga_pool_all.json"))?;
+    let option2_pool_all = load_pareto_points(&out_dir.join("option2_pool_all.json"))?;
+    let ga_pool_all = load_pareto_points(&out_dir.join("ga_pool_all.json"))?;
     let ga_ranked_for_report = rank_ga_hydrosdt_report_designs(&ga_ranked, &option2_ranked[0]);
     let selected_ga_ranked = if ga_ranked_for_report.is_empty() {
         ga_ranked.clone()
@@ -252,16 +295,16 @@ pub fn refresh_milestone12_reports(
         &selected_ga_ranked[0],
         &validation_rows,
         &option2_robustness,
-        authoritative_run(),
+        false,
         &canonical_source_label(),
         &canonical,
     )?;
 
-    let narrative = write_milestone12_narrative_report(
+    let mut narrative = write_milestone12_narrative_report(
         &workspace_root,
         &canonical,
         &Milestone12NarrativeInput {
-            authoritative_run: authoritative_run(),
+            authoritative_run: false,
             canonical_source: canonical_source_label(),
             total_candidates: option1_summary
                 .total_candidates
@@ -281,9 +324,58 @@ pub fn refresh_milestone12_reports(
             ga_best_per_gen: &ga_summary.best_per_generation,
             ga_ranking_audit: &ga_ranking_audit,
             topology_family_count: option1_summary.sequence_coverage.len().max(1),
-            fast_mode: crate::application::orchestration::fast_mode(),
+            fast_mode: is_fast_mode,
         },
     )?;
+    if run_class.is_authoritative() && narrative.asset_review_complete {
+        narrative = write_milestone12_narrative_report(
+            &workspace_root,
+            &canonical,
+            &Milestone12NarrativeInput {
+                authoritative_run: true,
+                canonical_source: canonical_source_label(),
+                total_candidates: option1_summary
+                    .total_candidates
+                    .max(option2_summary.total_candidates),
+                option1_evaluated_count: option1_summary.evaluated_count,
+                option2_evaluated_count: option2_summary.evaluated_count,
+                option1_pool_len: option1_summary.eligible_count.max(option1_ranked.len()),
+                option2_pool_len: option2_summary.eligible_count.max(option2_ranked.len()),
+                option1_sequence_summary_markdown: render_option1_sequence_coverage(
+                    &option1_summary,
+                ),
+                option1_ranked: &option1_ranked,
+                option2_ranked: &option2_ranked,
+                ga_top: &selected_ga_ranked,
+                option2_pool_all: &option2_pool_all,
+                ga_pool_all: &ga_pool_for_report,
+                validation_rows: &validation_rows,
+                option2_robustness: &option2_robustness,
+                ga_best_per_gen: &ga_summary.best_per_generation,
+                ga_ranking_audit: &ga_ranking_audit,
+                topology_family_count: option1_summary.sequence_coverage.len().max(1),
+                fast_mode: is_fast_mode,
+            },
+        )?;
+    }
+    let report_is_authoritative = run_class.is_authoritative() && narrative.asset_review_complete;
+    if report_is_authoritative {
+        write_milestone12_results(
+            option1_summary
+                .total_candidates
+                .max(option2_summary.total_candidates),
+            option1_summary.eligible_count.max(option1_ranked.len()),
+            option2_summary.eligible_count.max(option2_ranked.len()),
+            &option1_ranked,
+            &option2_ranked,
+            &selected_ga_ranked[0],
+            &validation_rows,
+            &option2_robustness,
+            true,
+            &canonical_source_label(),
+            &canonical,
+        )?;
+    }
 
     let artifacts = vec![
         Milestone12StageArtifact {
@@ -298,13 +390,19 @@ pub fn refresh_milestone12_reports(
             label: "figure_manifest".to_string(),
             path: narrative.figure_manifest_path,
         },
+        Milestone12StageArtifact {
+            label: "asset_review_manifest".to_string(),
+            path: narrative.asset_review_manifest_path.clone(),
+        },
     ];
 
     fs::write(
         out_dir.join(REPORT_MANIFEST_PATH),
         serde_json::to_string_pretty(&Milestone12ReportManifest {
-            authoritative_run: authoritative_run(),
-            fast_mode: crate::application::orchestration::fast_mode(),
+            authoritative_run: report_is_authoritative,
+            run_class: run_class.label().to_string(),
+            fast_mode: is_fast_mode,
+            review_complete: narrative.asset_review_complete,
             canonical_source: canonical_source_label(),
             requested_stages: requested_stages
                 .iter()
@@ -313,6 +411,14 @@ pub fn refresh_milestone12_reports(
             artifacts: artifacts.clone(),
         })?,
     )?;
+
+    if run_class.requires_review() && !narrative.asset_review_complete {
+        return Err(format!(
+            "Milestone 12 authoritative report review is incomplete; open and review each generated asset listed in {} before rerunning",
+            narrative.asset_review_manifest_path.display()
+        )
+        .into());
+    }
 
     Ok(artifacts)
 }
@@ -341,4 +447,24 @@ pub fn run_milestone12_report(
     }
 
     refresh_milestone12_reports(requested_stages)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{classify_run, Milestone12RequestedStage, Milestone12RunClass};
+
+    #[test]
+    fn refresh_only_runs_are_non_authoritative() {
+        let class = classify_run(&[Milestone12RequestedStage::Refresh], true);
+        assert_eq!(class, Milestone12RunClass::FastRefresh);
+        assert!(!class.is_authoritative());
+    }
+
+    #[test]
+    fn non_refresh_fast_runs_are_authoritative_fast_subset() {
+        let class = classify_run(&[Milestone12RequestedStage::Option1], true);
+        assert_eq!(class, Milestone12RunClass::AuthoritativeFastSubset);
+        assert!(class.is_authoritative());
+        assert!(class.requires_review());
+    }
 }

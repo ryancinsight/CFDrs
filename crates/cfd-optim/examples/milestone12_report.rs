@@ -31,7 +31,11 @@ impl RequestedStages {
     }
 
     fn extend_csv(&mut self, csv: &str) -> Result<(), Box<dyn std::error::Error>> {
-        for label in csv.split(',').map(str::trim).filter(|label| !label.is_empty()) {
+        for label in csv
+            .split(',')
+            .map(str::trim)
+            .filter(|label| !label.is_empty())
+        {
             let stage = match label.to_ascii_lowercase().as_str() {
                 "all" => {
                     self.stages.clear();

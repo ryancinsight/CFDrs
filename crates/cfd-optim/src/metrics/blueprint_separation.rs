@@ -1,6 +1,7 @@
 use cfd_1d::{
-    acoustic_contrast_factor, mixed_cascade_separation_kappa_aware, CascadeStage, PeripheralRecovery,
-    parallel_channel_flow_fractions, KAPPA_CTC, KAPPA_PLASMA, RHO_CTC, RHO_PLASMA,
+    acoustic_contrast_factor, mixed_cascade_separation_kappa_aware,
+    parallel_channel_flow_fractions, CascadeStage, PeripheralRecovery, KAPPA_CTC, KAPPA_PLASMA,
+    RHO_CTC, RHO_PLASMA,
 };
 use cfd_schematics::topology::TreatmentActuationMode;
 use serde::{Deserialize, Serialize};
@@ -123,7 +124,11 @@ pub fn compute_blueprint_separation_metrics(
                     let recovery_dh_m =
                         2.0 * recovery_w * sub_height / (recovery_w + sub_height).max(1e-18);
                     // source_arm_idx uses the same index as in arm_q_fracs
-                    let source_idx = if branch_idx == 0 { 0 } else { recovery_arm_idx.min(4) };
+                    let source_idx = if branch_idx == 0 {
+                        0
+                    } else {
+                        recovery_arm_idx.min(4)
+                    };
                     peripheral_recoveries[n_recoveries as usize] = Some(PeripheralRecovery {
                         source_arm_idx: source_idx,
                         sub_arm_q_fracs,
@@ -194,11 +199,8 @@ pub fn compute_blueprint_separation_metrics(
                 // Theorem: Gor'kov Acoustic Radiation Force Drift.
                 // Transverse migration velocity v_drift = F_RAD / (6 * pi * mu * R)
                 // where F_RAD_max = 4 * pi / 3 * R^3 * E_ac * k * Phi
-                let f_rad_max = (4.0 * std::f64::consts::PI / 3.0)
-                    * ctc_radius.powi(3)
-                    * k
-                    * e_ac
-                    * phi_ctc;
+                let f_rad_max =
+                    (4.0 * std::f64::consts::PI / 3.0) * ctc_radius.powi(3) * k * e_ac * phi_ctc;
                 let v_drift = f_rad_max / (6.0 * std::f64::consts::PI * mu * ctc_radius);
 
                 // Migration distance to centerline is w/4 on average

@@ -106,8 +106,7 @@ fn score_candidate_impl(
             // reference).  Max penalty 0.15 — strong enough to steer the optimizer
             // toward catheter-achievable flows but not so severe as to create a
             // cliff (preserves gradient for adult-context re-use).
-            let pediatric_flow_penalty =
-                0.15 * metrics.pediatric_flow_excess_risk;
+            let pediatric_flow_penalty = 0.15 * metrics.pediatric_flow_excess_risk;
             // Channel overlap penalty: the 1D independent-resistance model
             // loses accuracy when channels physically merge.  However, when
             // overlapping channels have different widths (ratio > 2), the
@@ -175,8 +174,7 @@ fn score_candidate_impl(
                 0.05 * (metrics.throat_temperature_rise_k / FDA_THROAT_TEMP_RISE_LIMIT_K)
                     .clamp(0.0, 1.0)
             };
-            let pediatric_flow_penalty =
-                0.15 * metrics.pediatric_flow_excess_risk;
+            let pediatric_flow_penalty = 0.15 * metrics.pediatric_flow_excess_risk;
             let overlap_raw = ((metrics.channel_overlap_fraction - 0.3) / 0.7).clamp(0.0, 1.0);
             let ratio_discount = if metrics.overlap_width_ratio > 1.0 {
                 (1.0 / metrics.overlap_width_ratio.min(3.0)).max(0.3)
@@ -184,7 +182,10 @@ fn score_candidate_impl(
                 1.0
             };
             let overlap_penalty = 0.05 * overlap_raw * ratio_discount;
-            (raw * feasibility - coag_penalty - thermal_penalty - pediatric_flow_penalty
+            (raw * feasibility
+                - coag_penalty
+                - thermal_penalty
+                - pediatric_flow_penalty
                 - overlap_penalty)
                 .max(INFEASIBILITY_FLOOR)
         }

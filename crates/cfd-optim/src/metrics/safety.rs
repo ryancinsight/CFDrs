@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use cfd_2d::physics::non_newtonian::CarreauYasudaModel;
 use crate::constraints::{FDA_MAX_WALL_SHEAR_PA, FDA_TRANSIENT_TIME_S};
 use crate::domain::BlueprintCandidate;
+use cfd_2d::physics::non_newtonian::CarreauYasudaModel;
 
 use super::blueprint_graph::BlueprintSolveSummary;
 

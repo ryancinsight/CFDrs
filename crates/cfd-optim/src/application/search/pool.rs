@@ -31,8 +31,8 @@ use std::sync::Arc;
 
 use rayon::prelude::*;
 
-use crate::application::orchestration::ScanProgress;
 use crate::application::objectives::BlueprintObjectiveEvaluation;
+use crate::application::orchestration::ScanProgress;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
 use crate::metrics::{evaluate_blueprint_candidate, BlueprintEvaluation};
@@ -228,13 +228,10 @@ impl ScoringSnapshot {
                 + 0.10 * safety;
             let healthy_cell_shielding = ((1.0 - self.wbc_center_fraction).clamp(0.0, 1.0)
                 * self.rbc_peripheral_fraction.clamp(0.0, 1.0))
-                .sqrt();
+            .sqrt();
             let synergy = 0.12
-                * (sep
-                    * cancer
-                    * residence_norm.max(0.01)
-                    * healthy_cell_shielding.max(0.01))
-                .powf(0.25);
+                * (sep * cancer * residence_norm.max(0.01) * healthy_cell_shielding.max(0.01))
+                    .powf(0.25);
             (base + synergy).clamp(0.0, 1.0)
         };
 
@@ -316,10 +313,7 @@ impl EvaluatedPool {
         Self::build_pool(candidates, Some(progress_label))
     }
 
-    fn build_pool(
-        candidates: &[BlueprintCandidate],
-        progress_label: Option<&'static str>,
-    ) -> Self {
+    fn build_pool(candidates: &[BlueprintCandidate], progress_label: Option<&'static str>) -> Self {
         let progress =
             progress_label.map(|label| Arc::new(ScanProgress::new(label, candidates.len())));
         let raw: Vec<(CandidateIdentity, BlueprintEvaluation, ScoringSnapshot)> = candidates

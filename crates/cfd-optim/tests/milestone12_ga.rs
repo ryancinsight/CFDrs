@@ -98,8 +98,8 @@ fn fast_acoustic_seed() -> BlueprintCandidate {
 /// Build a minimal GA seed pair without evaluating the full candidate space.
 fn fast_ga_seed_pair() -> Vec<BlueprintCandidate> {
     let acoustic = fast_acoustic_seed();
-    let promoted = promote_option1_candidate_to_ga_seed(&acoustic)
-        .expect("Option 1 promotion should succeed");
+    let promoted =
+        promote_option1_candidate_to_ga_seed(&acoustic).expect("Option 1 promotion should succeed");
     let venturi = fast_venturi_seed();
     vec![promoted, venturi]
 }

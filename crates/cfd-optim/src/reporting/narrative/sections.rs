@@ -4,9 +4,8 @@ use std::fmt::Write as _;
 
 use crate::analysis::RobustnessReport;
 use crate::constraints::{
-    EXPANSION_RATIO_LOW_RISK, MILESTONE_TREATMENT_DURATION_MIN,
-    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG,
-    VENTURI_EXPANSION_RATIO_HIGH_RISK,
+    EXPANSION_RATIO_LOW_RISK, MILESTONE_TREATMENT_DURATION_MIN, PEDIATRIC_BLOOD_VOLUME_ML_PER_KG,
+    PEDIATRIC_REFERENCE_WEIGHT_KG, VENTURI_EXPANSION_RATIO_HIGH_RISK,
 };
 use crate::reporting::ranking::oncology_priority_score;
 use crate::reporting::Milestone12ReportDesign;
@@ -50,9 +49,7 @@ fn reference_patient_context(design: &Milestone12ReportDesign) -> (String, f64) 
         .map_or_else(
             || {
                 (
-                    format!(
-                        "{PEDIATRIC_REFERENCE_WEIGHT_KG:.1} kg neonatal reference"
-                    ),
+                    format!("{PEDIATRIC_REFERENCE_WEIGHT_KG:.1} kg neonatal reference"),
                     PEDIATRIC_REFERENCE_WEIGHT_KG * PEDIATRIC_BLOOD_VOLUME_ML_PER_KG,
                 )
             },
@@ -823,9 +820,7 @@ term (`De_max / 100`) that rewards co-localization of inertial focusing and \
 cavitation. The Bayat-Rezai (2017) friction enhancement factor \
 f/f_s = 1 + 0.085 * De^0.48 accounts for increased mixing at millifluidic \
 bend geometries with D_h > 500 um.",
-                ga.candidate.id,
-                gm.serial_venturi_stages_per_path,
-                gm.cavitation_number,
+                ga.candidate.id, gm.serial_venturi_stages_per_path, gm.cavitation_number,
             )
         })
         .unwrap_or_default();
@@ -834,25 +829,25 @@ bend geometries with D_h > 500 um.",
         "### 5.9 Serpentine Venturi Placement Analysis\n\n\
 Figure 13 decomposes the per-throat physics for the GA-optimized serpentine design. \
 Three effects interact at each venturi position along the treatment path:\n\n\
-**1. Serial pressure decay.** Each venturi throat and its approach/diffuser \
+1. Serial pressure decay: each venturi throat and its approach/diffuser \
 segment consumes a portion of the available inlet pressure. With {n_throats} active \
 throats across {n_stages} serial stage(s), the upstream static pressure at the last \
 throat is lower than at the first. Because the cavitation number \
-sigma = (p_upstream - p_vapor) / (0.5 * rho * v_throat^2) depends on the local \
+`sigma = (p_upstream - p_vapor) / (0.5 * rho * v_throat^2)` depends on the local \
 upstream pressure, downstream positions have higher sigma (weaker cavitation). \
 For the selected Option 2 design (total pressure drop = {:.0} kPa), the treatment-path \
 share of this drop distributes roughly linearly across serial positions. This limits \
 the practical number of serial stages: adding a 7th or 8th throat may push the \
 final positions above sigma = 1, eliminating cavitation entirely.\n\n\
-**2. Mirrored curvature variation.** Real serpentine channels alternate between \
+2. Mirrored curvature variation: real serpentine channels alternate between \
 tighter inner bends and wider outer bends. The Dean number \
-De = Re * sqrt(D_h / 2R) is inversely proportional to the square root of the \
+`De = Re * sqrt(D_h / 2R)` is inversely proportional to the square root of the \
 bend radius R, so inner bends (smaller R) produce stronger secondary \
 flow. This alternating De pattern means that odd-numbered bends (inner turns) \
 provide stronger CTC pre-focusing than even-numbered bends. Venturi throats at \
 inner-bend apices see a more concentrated CTC stream entering the constriction, \
 increasing the fraction of cancer cells that experience cavitation.\n\n\
-**3. Dean-cavitation co-localization.** The `CurvaturePeakDeanNumber` placement \
+3. Dean-cavitation co-localization: the `CurvaturePeakDeanNumber` placement \
 mode positions venturi throats at bend apices where the Dean secondary flow is \
 strongest. At these sites, centrifugal forces in the curved channel drive larger, \
 less-deformable CTCs (diameter 10-15 um) toward the outer wall, while smaller RBCs \
@@ -860,11 +855,11 @@ less-deformable CTCs (diameter 10-15 um) toward the outer wall, while smaller RB
 apex then subjects the CTC-enriched outer-wall flow to the highest throat velocity \
 and lowest local pressure, maximizing the cavitation dose delivered to cancer cells \
 while partially shielding RBCs on the low-velocity inner streamlines.\n\n\
-**4. Curvature-friction coupling in the 1D solver.** The SerpentineModel in cfd-1d \
+4. Curvature-friction coupling in the 1D solver: the SerpentineModel in cfd-1d \
 applies the Ito (1959) curvature enhancement to the Hagen-Poiseuille friction factor \
-when computing channel resistance: f_curved = f_straight * enhancement(De). For \
+when computing channel resistance: `f_curved = f_straight * enhancement(De)`. For \
 millifluidic channels (D_h > 500 um, Re < 500), the Bayat-Rezai (2017) correlation \
-f/f_s = 1 + 0.085 * De^0.48 is also available. This coupling means that converting \
+`f/f_s = 1 + 0.085 * De^0.48` is also available. This coupling means that converting \
 a straight treatment channel to a serpentine increases its hydraulic resistance, \
 which shifts the Zweifach-Fung flow partition: less flow enters the higher-resistance \
 serpentine treatment path, and more flow diverts to the lower-resistance bypass arms. \
@@ -912,14 +907,16 @@ mod tests {
     fn cri_expansion_sensitivity_renders_centered_html_table() {
         let html = build_cri_expansion_sensitivity(15);
         assert!(html.contains("<div align=\"center\">"));
-        assert!(html.contains("<caption style=\"caption-side:top; margin-bottom:8px;\"><strong>Table 15."));
+        assert!(html
+            .contains("<caption style=\"caption-side:top; margin-bottom:8px;\"><strong>Table 15."));
         assert!(html.contains("<table style="));
         assert!(html.contains("</table>"));
     }
 
     #[test]
     fn option2_tables_include_dimensionless_loss_metric() {
-        let candidate = canonical_option2_candidate("option2-kloss", operating_point(2.0e-6, 30_000.0, 0.18));
+        let candidate =
+            canonical_option2_candidate("option2-kloss", operating_point(2.0e-6, 30_000.0, 0.18));
         let metrics = compute_blueprint_report_metrics(&candidate).expect("option2 metrics");
         let design = Milestone12ReportDesign::new(1, candidate, metrics, 0.74);
 
@@ -928,7 +925,13 @@ mod tests {
 
         assert!(selected.contains("K_loss"));
         assert!(top5.contains("K_loss"));
-        assert!(selected.contains(&format!("{:.3}", design.metrics.venturi_total_loss_coefficient)));
-        assert!(top5.contains(&format!("{:.3}", design.metrics.venturi_total_loss_coefficient)));
+        assert!(selected.contains(&format!(
+            "{:.3}",
+            design.metrics.venturi_total_loss_coefficient
+        )));
+        assert!(top5.contains(&format!(
+            "{:.3}",
+            design.metrics.venturi_total_loss_coefficient
+        )));
     }
 }

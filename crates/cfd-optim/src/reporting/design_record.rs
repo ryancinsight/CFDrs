@@ -155,7 +155,7 @@ pub fn pareto_pool_from_report_designs(
     tag: ParetoTag,
     limit: usize,
 ) -> Vec<ParetoPoint> {
-    designs
+    let mut points: Vec<ParetoPoint> = designs
         .iter()
         .filter(|design| {
             design.metrics.cancer_targeted_cavitation.is_finite()
@@ -163,7 +163,32 @@ pub fn pareto_pool_from_report_designs(
         })
         .take(limit)
         .map(|design| pareto_point_from_report_design(design, tag))
-        .collect()
+        .collect();
+    sort_pareto_points(&mut points);
+    points
+}
+
+pub fn sort_pareto_points(points: &mut [ParetoPoint]) {
+    points.sort_by(|left, right| {
+        left.cancer_targeted_cavitation
+            .total_cmp(&right.cancer_targeted_cavitation)
+            .then_with(|| {
+                left.rbc_venturi_protection
+                    .total_cmp(&right.rbc_venturi_protection)
+            })
+            .then_with(|| left.score.total_cmp(&right.score))
+            .then_with(|| {
+                let left_tag = match left.tag {
+                    ParetoTag::Option2 => 0_u8,
+                    ParetoTag::Ga => 1_u8,
+                };
+                let right_tag = match right.tag {
+                    ParetoTag::Option2 => 0_u8,
+                    ParetoTag::Ga => 1_u8,
+                };
+                left_tag.cmp(&right_tag)
+            })
+    });
 }
 
 #[must_use]
@@ -208,9 +233,7 @@ pub fn ga_report_selection_score(
     if cavitation_gain > required_margin {
         design.score
     } else {
-        design.score
-            - GA_NO_CAVITATION_GAIN_PENALTY
-            - (required_margin - cavitation_gain).max(0.0)
+        design.score - GA_NO_CAVITATION_GAIN_PENALTY - (required_margin - cavitation_gain).max(0.0)
     }
 }
 

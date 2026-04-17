@@ -83,8 +83,8 @@ fn geometry_displacement_threshold(
     selected: &Milestone12GaRankingAuditEntry,
     displaced: &Milestone12GaRankingAuditEntry,
 ) -> Option<f64> {
-    let geometry_gap = displaced.geometry_concentration_penalty
-        - selected.geometry_concentration_penalty;
+    let geometry_gap =
+        displaced.geometry_concentration_penalty - selected.geometry_concentration_penalty;
     if geometry_gap <= 0.0 {
         return None;
     }
@@ -337,7 +337,9 @@ rather than a purely local last-step tweak.\n"
                 .then_with(|| left.rank.cmp(&right.rank))
         });
         if let Some(displaced) = displaced_raw_winner {
-            if displaced.candidate_id != selected.candidate_id || (displaced.score - selected.score).abs() > 1.0e-12 {
+            if displaced.candidate_id != selected.candidate_id
+                || (displaced.score - selected.score).abs() > 1.0e-12
+            {
                 let _ = writeln!(
                     s,
                     "The ancestry-adjusted ranking selected `{}` at adjusted score {:.4} \

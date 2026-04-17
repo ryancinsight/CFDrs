@@ -74,9 +74,15 @@ mod tests {
                 .first()
                 .is_some_and(|split| matches!(split, cfd_schematics::SplitKind::NFurcation(2..=5)))
         }));
-        assert!(candidates.iter().any(|candidate| root_family_label(candidate) == "Bi"));
-        assert!(candidates.iter().any(|candidate| root_family_label(candidate) == "Quad"));
-        assert!(candidates.iter().any(|candidate| root_family_label(candidate) == "Penta"));
+        assert!(candidates
+            .iter()
+            .any(|candidate| root_family_label(candidate) == "Bi"));
+        assert!(candidates
+            .iter()
+            .any(|candidate| root_family_label(candidate) == "Quad"));
+        assert!(candidates
+            .iter()
+            .any(|candidate| root_family_label(candidate) == "Penta"));
     }
 
     #[test]

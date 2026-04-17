@@ -10,8 +10,8 @@ use crate::delivery::{save_json_pretty, save_top5_report_json};
 use crate::design::{build_milestone12_candidate_params, CandidateParams};
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::reporting::{
-    audit_goal_candidates, validate_milestone12_candidate, write_goal_audit_report,
-    GoalAuditEntry, GoalAuditStatus, Milestone12ReportDesign, Milestone12Stage,
+    audit_goal_candidates, validate_milestone12_candidate, write_goal_audit_report, GoalAuditEntry,
+    GoalAuditStatus, Milestone12ReportDesign, Milestone12Stage,
 };
 
 use super::report::{
@@ -96,9 +96,10 @@ struct SequenceCoverageAccumulator {
 }
 
 fn candidate_sequence_label(candidate: &BlueprintCandidate) -> String {
-    candidate
-        .topology_spec()
-        .map_or_else(|_| "Unknown".to_string(), |spec| spec.stage_sequence_label())
+    candidate.topology_spec().map_or_else(
+        |_| "Unknown".to_string(),
+        |spec| spec.stage_sequence_label(),
+    )
 }
 
 fn summarize_sequence_coverage(
@@ -130,7 +131,10 @@ fn summarize_sequence_coverage(
             }
             GoalAuditStatus::ScreenedOut | GoalAuditStatus::Errored => {
                 for reason in &entry.reasons {
-                    *accumulator.limiter_counts.entry(reason.clone()).or_insert(0) += 1;
+                    *accumulator
+                        .limiter_counts
+                        .entry(reason.clone())
+                        .or_insert(0) += 1;
                 }
             }
         }
@@ -142,7 +146,11 @@ fn summarize_sequence_coverage(
             let dominant_limiter = accumulator
                 .limiter_counts
                 .into_iter()
-                .max_by_key(|(_, count)| *count).map_or_else(|| "eligible under current physics".to_string(), |(reason, _)| reason);
+                .max_by_key(|(_, count)| *count)
+                .map_or_else(
+                    || "eligible under current physics".to_string(),
+                    |(reason, _)| reason,
+                );
             Milestone12SequenceCoverage {
                 sequence_label,
                 total_candidates: accumulator.total_candidates,
@@ -254,9 +262,15 @@ pub fn run_milestone12_option1() -> Result<Milestone12Option1Run, Box<dyn std::e
 
     // Phase 3: dense fill between the two best stride points
     let (fill_lo, fill_hi) = if best_indices.len() >= 2 {
-        (best_indices[0].saturating_sub(stride2), best_indices[1] + stride2)
+        (
+            best_indices[0].saturating_sub(stride2),
+            best_indices[1] + stride2,
+        )
     } else if let Some(&idx) = best_indices.first() {
-        (idx.saturating_sub(stride2 * 2), (idx + stride2 * 2).min(family_params.len()))
+        (
+            idx.saturating_sub(stride2 * 2),
+            (idx + stride2 * 2).min(family_params.len()),
+        )
     } else {
         (0, family_params.len().min(phase3_budget))
     };
@@ -312,7 +326,7 @@ pub fn run_milestone12_option1() -> Result<Milestone12Option1Run, Box<dyn std::e
                 candidate,
                 evaluation.score?,
             )
-                .ok()
+            .ok()
         })
         .collect();
     for (index, design) in ranked.iter_mut().enumerate() {
@@ -339,7 +353,7 @@ pub fn run_milestone12_option1() -> Result<Milestone12Option1Run, Box<dyn std::e
             best.candidate.blueprint(),
             &figure_path,
             "Figure 4 (Option 1 selective acoustic)",
-        );
+        )?;
     }
 
     write_stage_summary(

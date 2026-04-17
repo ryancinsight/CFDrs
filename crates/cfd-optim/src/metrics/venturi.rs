@@ -1,4 +1,8 @@
-use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput};
+use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput, VenturiSelectiveScreeningRegime};
+use cfd_core::physics::cavitation::{
+    CellMechanicalState, CellPopulationIdentity, PopulationNucleationState,
+    SelectiveCavitationInput, SelectiveCavitationPopulation,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -21,6 +25,73 @@ fn dynamic_pressure_pa(density_kg_m3: f64, velocity_m_s: f64) -> f64 {
     0.5 * density_kg_m3 * velocity_m_s * velocity_m_s
 }
 
+fn selective_cavitation_input(
+    separation: &BlueprintSeparationMetrics,
+    vapor_pressure_pa: f64,
+    ambient_pressure_pa: f64,
+) -> SelectiveCavitationInput {
+    let cancer_fraction = separation.cancer_center_fraction.clamp(0.0, 1.0);
+    let wbc_fraction = separation.wbc_center_fraction.clamp(0.0, 1.0);
+    let rbc_fraction = separation.rbc_peripheral_fraction.clamp(0.0, 1.0);
+    let total = (cancer_fraction + wbc_fraction + rbc_fraction).max(1.0e-12);
+
+    SelectiveCavitationInput {
+        base_vapor_pressure_pa: vapor_pressure_pa,
+        ambient_pressure_pa,
+        density_kg_m3: BLOOD_DENSITY_KG_M3,
+        populations: vec![
+            SelectiveCavitationPopulation {
+                identity: CellPopulationIdentity::CirculatingTumorCell,
+                label: "ctc".to_string(),
+                mechanical_state: CellMechanicalState {
+                    membrane_stiffness_pa: 20_000.0,
+                    interfacial_tension_n_m: 0.03,
+                    particle_radius_m: 9.0e-6,
+                    deformability_factor: 1.2,
+                },
+                nucleation_state: PopulationNucleationState {
+                    volume_fraction: cancer_fraction / total,
+                    upstream_nuclei_fraction: 0.05,
+                    seed_density_factor: 0.30,
+                    inception_weight: 1.0,
+                },
+            },
+            SelectiveCavitationPopulation {
+                identity: CellPopulationIdentity::HealthyWbc,
+                label: "wbc".to_string(),
+                mechanical_state: CellMechanicalState {
+                    membrane_stiffness_pa: 65_000.0,
+                    interfacial_tension_n_m: 0.05,
+                    particle_radius_m: 6.0e-6,
+                    deformability_factor: 1.0,
+                },
+                nucleation_state: PopulationNucleationState {
+                    volume_fraction: wbc_fraction / total,
+                    upstream_nuclei_fraction: 0.02,
+                    seed_density_factor: 0.12,
+                    inception_weight: 1.0,
+                },
+            },
+            SelectiveCavitationPopulation {
+                identity: CellPopulationIdentity::HealthyRbc,
+                label: "rbc".to_string(),
+                mechanical_state: CellMechanicalState {
+                    membrane_stiffness_pa: 120_000.0,
+                    interfacial_tension_n_m: 0.07,
+                    particle_radius_m: 4.0e-6,
+                    deformability_factor: 1.0,
+                },
+                nucleation_state: PopulationNucleationState {
+                    volume_fraction: rbc_fraction / total,
+                    upstream_nuclei_fraction: 0.01,
+                    seed_density_factor: 0.05,
+                    inception_weight: 1.0,
+                },
+            },
+        ],
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VenturiPlacementMetrics {
     pub placement_id: String,
@@ -36,6 +107,14 @@ pub struct VenturiPlacementMetrics {
     pub dean_number: f64,
     pub curvature_radius_m: f64,
     pub arc_length_m: f64,
+    #[serde(default)]
+    pub dominant_selective_population: Option<CellPopulationIdentity>,
+    #[serde(default)]
+    pub selectivity_margin_pa: f64,
+    #[serde(default)]
+    pub mixture_inception_threshold_pa: f64,
+    #[serde(default)]
+    pub screening_regime: VenturiSelectiveScreeningRegime,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,6 +124,12 @@ pub struct BlueprintVenturiMetrics {
     pub venturi_flow_fraction: f64,
     pub rbc_exposure_fraction: f64,
     pub wbc_exposure_fraction: f64,
+    #[serde(default)]
+    pub dominant_selective_population: Option<CellPopulationIdentity>,
+    #[serde(default)]
+    pub mean_selectivity_margin_pa: f64,
+    #[serde(default)]
+    pub selective_targeting_fraction: f64,
 }
 
 pub fn compute_blueprint_venturi_metrics(
@@ -64,6 +149,9 @@ pub fn compute_blueprint_venturi_metrics(
         .collect();
     let mut used_indices: HashSet<usize> = HashSet::with_capacity(n_placements);
     let mut cavitation_strength_sum = 0.0_f64;
+    let mut selectivity_margin_sum = 0.0_f64;
+    let mut selective_targeting_hits = 0.0_f64;
+    let mut dominant_target_hits = 0_u32;
 
     let mut sample_to_placement = HashMap::new();
     for (p_idx, placement) in topology.venturi_placements.iter().enumerate() {
@@ -106,7 +194,7 @@ pub fn compute_blueprint_venturi_metrics(
         in_degree.entry(sample.from_node).or_insert(0);
         adj.entry(sample.from_node).or_default().push(i);
     }
-    
+
     let mut queue: Vec<&str> = in_degree
         .iter()
         .filter_map(|(n, &d)| if d == 0 { Some(*n) } else { None })
@@ -131,7 +219,7 @@ pub fn compute_blueprint_venturi_metrics(
     }
 
     let transport = cfd_core::physics::cavitation::nuclei_transport::NucleiTransport::new(
-        cfd_core::physics::cavitation::nuclei_transport::NucleiTransportConfig::default()
+        cfd_core::physics::cavitation::nuclei_transport::NucleiTransportConfig::default(),
     );
 
     let mut node_nuclei: HashMap<&str, f64> = HashMap::new();
@@ -140,7 +228,7 @@ pub fn compute_blueprint_venturi_metrics(
     for idx in sorted_indices {
         let sample = &solve.channel_samples[idx];
         let phi_in = node_nuclei.get(sample.from_node).copied().unwrap_or(0.0);
-        
+
         let velocity = sample.flow_m3_s.abs() / sample.cross_section.area().max(1e-18);
         let transit_time_s = sample.length_m / velocity.max(1e-9);
         let phi_arrival = transport.advect_1d_dissolution(phi_in, transit_time_s);
@@ -178,14 +266,19 @@ pub fn compute_blueprint_venturi_metrics(
                 vena_contracta_coeff: VENTURI_CC,
                 diffuser_recovery_coeff: DIFFUSER_DISCHARGE_COEFF,
                 upstream_nuclei_fraction: phi_arrival,
+                selective_cavitation: Some(selective_cavitation_input(
+                    separation,
+                    BLOOD_VAPOR_PRESSURE_PA,
+                    candidate.operating_point.absolute_inlet_pressure_pa()
+                        + sample.from_pressure_pa.max(0.0),
+                )),
             })
             .map_err(|error| OptimError::PhysicsError {
                 id: candidate.id.clone(),
                 reason: error.to_string(),
             })?;
             phi_out = screening.outlet_nuclei_fraction;
-            let total_loss_pa = (screening.bernoulli_drop_pa
-                + screening.throat_friction_drop_pa
+            let total_loss_pa = (screening.bernoulli_drop_pa + screening.throat_friction_drop_pa
                 - screening.diffuser_recovery_pa)
                 .max(0.0);
 
@@ -196,8 +289,22 @@ pub fn compute_blueprint_venturi_metrics(
                 BLOOD_VISCOSITY_PA_S / BLOOD_DENSITY_KG_M3,
             )
             .unwrap_or_default();
-            
+
             cavitation_strength_sum += cavitation_strength_from_sigma(screening.cavitation_number);
+            selectivity_margin_sum += screening.selectivity_margin_pa.max(0.0);
+            if matches!(
+                screening.screening_regime,
+                VenturiSelectiveScreeningRegime::SelectiveTargetingLikely
+                    | VenturiSelectiveScreeningRegime::SelectiveTargetingCritical
+            ) {
+                selective_targeting_hits += 1.0;
+            }
+            if screening
+                .dominant_selective_population
+                .is_some_and(CellPopulationIdentity::is_target)
+            {
+                dominant_target_hits += 1;
+            }
 
             placements_out[p_idx] = Some(VenturiPlacementMetrics {
                 placement_id: placement.placement_id.clone(),
@@ -212,24 +319,29 @@ pub fn compute_blueprint_venturi_metrics(
                 dean_number: dean_site.dean_number,
                 curvature_radius_m: dean_site.curvature_radius_m,
                 arc_length_m: dean_site.arc_length_m,
+                dominant_selective_population: screening.dominant_selective_population,
+                selectivity_margin_pa: screening.selectivity_margin_pa,
+                mixture_inception_threshold_pa: screening.mixture_inception_threshold_pa,
+                screening_regime: screening.screening_regime,
             });
         }
-        
+
         // Update to_node
         let existing = node_nuclei.entry(sample.to_node).or_insert(0.0);
         *existing = existing.max(phi_out);
     }
-    
-    for p in placements_out {
-        if let Some(metrics) = p {
-            placements.push(metrics);
-        }
+
+    for metrics in placements_out.into_iter().flatten() {
+        placements.push(metrics);
     }
 
     // Normalize by placement count so multi-throat designs aren't
     // automatically favored over single-throat designs by accumulation.
     let n_placements = topology.venturi_placements.len().max(1) as f64;
     let cavitation_term = (cavitation_strength_sum / n_placements).clamp(0.0, 1.0);
+    let selective_margin_term =
+        (selectivity_margin_sum / (25_000.0 * n_placements)).clamp(0.0, 1.0);
+    let targeting_fraction = (selective_targeting_hits / n_placements).clamp(0.0, 1.0);
     let rbc_exposure_fraction = (1.0 - separation.rbc_peripheral_fraction).clamp(0.0, 1.0);
     let wbc_exposure_fraction = separation.wbc_center_fraction.clamp(0.0, 1.0);
 
@@ -240,12 +352,25 @@ pub fn compute_blueprint_venturi_metrics(
     let cancer_enrich = separation.cancer_center_fraction.clamp(0.0, 1.0);
     let rbc_shield = (1.0 - rbc_exposure_fraction).clamp(0.0, 1.0);
     let wbc_shield = (1.0 - wbc_exposure_fraction).clamp(0.0, 1.0);
-    let additive =
-        0.40 * cavitation_term + 0.25 * cancer_enrich + 0.10 * rbc_shield + 0.10 * wbc_shield;
+    let additive = 0.28 * cavitation_term
+        + 0.22 * cancer_enrich
+        + 0.15 * selective_margin_term
+        + 0.10 * targeting_fraction
+        + 0.10 * rbc_shield
+        + 0.10 * wbc_shield;
     let geometric = 0.15
-        * (cavitation_term * cancer_enrich.max(0.01) * rbc_shield.max(0.01) * wbc_shield.max(0.01))
-            .powf(0.25);
+        * (cavitation_term
+            * selective_margin_term.max(0.01)
+            * cancer_enrich.max(0.01)
+            * rbc_shield.max(0.01)
+            * wbc_shield.max(0.01))
+        .powf(0.25);
     let cavitation_selectivity_score = (additive + geometric).clamp(0.0, 1.0);
+    let dominant_selective_population = if dominant_target_hits > 0 {
+        Some(CellPopulationIdentity::CirculatingTumorCell)
+    } else {
+        None
+    };
 
     Ok(BlueprintVenturiMetrics {
         placements,
@@ -253,6 +378,9 @@ pub fn compute_blueprint_venturi_metrics(
         venturi_flow_fraction: solve.venturi_flow_fraction,
         rbc_exposure_fraction,
         wbc_exposure_fraction,
+        dominant_selective_population,
+        mean_selectivity_margin_pa: selectivity_margin_sum / n_placements,
+        selective_targeting_fraction: targeting_fraction,
     })
 }
 
@@ -430,6 +558,12 @@ mod tests {
             vena_contracta_coeff: VENTURI_CC,
             diffuser_recovery_coeff: DIFFUSER_DISCHARGE_COEFF,
             upstream_nuclei_fraction: 0.0,
+            selective_cavitation: Some(super::selective_cavitation_input(
+                &separation,
+                BLOOD_VAPOR_PRESSURE_PA,
+                candidate.operating_point.absolute_inlet_pressure_pa()
+                    + sample.from_pressure_pa.max(0.0),
+            )),
         })
         .expect("venturi screening should succeed for the reference contract");
         let expected_total_loss_pa = (screening.bernoulli_drop_pa

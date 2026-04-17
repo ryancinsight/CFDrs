@@ -145,11 +145,7 @@ mod tests {
 
         assert_eq!(
             placeholders,
-            BTreeSet::from([
-                "ONE".to_string(),
-                "THREE".to_string(),
-                "TWO".to_string(),
-            ])
+            BTreeSet::from(["ONE".to_string(), "THREE".to_string(), "TWO".to_string(),])
         );
     }
 

@@ -5,7 +5,8 @@ use cfd_schematics::topology::presets::{
     Milestone12TopologyRequest,
 };
 use cfd_schematics::{
-    BlueprintTopologySpec, BranchRole, SerpentineSpec, SplitKind, TreatmentActuationMode, VenturiPlacementMode,
+    BlueprintTopologySpec, BranchRole, SerpentineSpec, SplitKind, TreatmentActuationMode,
+    VenturiPlacementMode,
 };
 
 pub(crate) fn canonical_option1_request() -> Milestone12TopologyRequest {

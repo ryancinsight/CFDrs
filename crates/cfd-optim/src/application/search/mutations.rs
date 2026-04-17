@@ -2,10 +2,9 @@ use crate::application::objectives::evaluate_goal;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
 use cfd_schematics::{
-    domain::model::NetworkBlueprint,
-    promote_milestone12_option1_to_option2, BlueprintTopologyFactory, BlueprintTopologyMutation,
-    SerpentineSpec, SplitKind, ThroatGeometrySpec, TopologyLineageEvent,
-    TopologyLineageMetadata, TopologyOptimizationStage,
+    domain::model::NetworkBlueprint, promote_milestone12_option1_to_option2,
+    BlueprintTopologyFactory, BlueprintTopologyMutation, SerpentineSpec, SplitKind,
+    ThroatGeometrySpec, TopologyLineageEvent, TopologyLineageMetadata, TopologyOptimizationStage,
     VenturiPlacementMode,
 };
 
@@ -58,13 +57,11 @@ fn append_lineage_event(
         )
     });
     lineage.current_stage = stage;
-    lineage
-        .mutations
-        .push(TopologyLineageEvent {
-            stage,
-            mutation: metadata.into(),
-            source_blueprint: Some(source_blueprint.into()),
-        });
+    lineage.mutations.push(TopologyLineageEvent {
+        stage,
+        mutation: metadata.into(),
+        source_blueprint: Some(source_blueprint.into()),
+    });
     blueprint
 }
 
@@ -78,7 +75,11 @@ fn merge_parent_lineages(
     ) {
         (Some(child_lineage), Some(donor_lineage)) => {
             for donor_event in &donor_lineage.mutations {
-                if !child_lineage.mutations.iter().any(|event| event == donor_event) {
+                if !child_lineage
+                    .mutations
+                    .iter()
+                    .any(|event| event == donor_event)
+                {
                     child_lineage.mutations.push(donor_event.clone());
                 }
             }
@@ -308,7 +309,9 @@ fn crossover_child(
                 let family = donor_route
                     .serpentine
                     .as_ref()
-                    .map_or("serpentine_neutral", |serpentine| classify_serpentine_family(donor_route, serpentine));
+                    .map_or("serpentine_neutral", |serpentine| {
+                        classify_serpentine_family(donor_route, serpentine)
+                    });
                 child_blueprint = apply_labeled_mutation(
                     &child_blueprint,
                     BlueprintTopologyMutation::SetTreatmentChannelSerpentine {
@@ -457,8 +460,7 @@ pub fn generate_ga_mutations(
                 },
                 TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
                 format!("family={family};lane={target_channel_id};operator=serpentine_variant"),
-            )
-            ?;
+            )?;
             mutated.push(BlueprintCandidate::new(
                 format!("{}-ga-s{}-{}", seed.id, variant_label, target_channel_id),
                 serpentine_mutation.clone(),
@@ -474,9 +476,10 @@ pub fn generate_ga_mutations(
                     placement_mode: VenturiPlacementMode::CurvaturePeakDeanNumber,
                 },
                 TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
-                format!("family=venturi_dean;lane={target_channel_id};operator=serpentine_venturi_pair"),
-            )
-            ?;
+                format!(
+                    "family=venturi_dean;lane={target_channel_id};operator=serpentine_venturi_pair"
+                ),
+            )?;
             mutated.push(BlueprintCandidate::new(
                 format!("{}-ga-svd{}-{}", seed.id, variant_label, target_channel_id),
                 serpentine_dean_venturi,
@@ -488,8 +491,8 @@ pub fn generate_ga_mutations(
         for &(vt_count, width_factor, label) in &[
             (2_u8, 1.0, "v2"),
             (3, 1.0, "v3"),
-            (2, 0.7, "v2n"),  // narrower throat → lower σ
-            (2, 1.3, "v2w"),  // wider throat → higher σ, less hemolysis
+            (2, 0.7, "v2n"), // narrower throat → lower σ
+            (2, 1.3, "v2w"), // wider throat → higher σ, less hemolysis
         ] {
             let mut varied_geom = venturi_geometry.clone();
             varied_geom.throat_width_m *= width_factor;
@@ -503,8 +506,7 @@ pub fn generate_ga_mutations(
                 },
                 TopologyOptimizationStage::InPlaceDeanSerpentineRefinement,
                 format!("family=venturi_{label};lane={target_channel_id};operator=venturi_variant"),
-            )
-            ?;
+            )?;
             mutated.push(BlueprintCandidate::new(
                 format!("{}-ga-{}-{}", seed.id, label, target_channel_id),
                 venturi_mutation,
@@ -775,8 +777,8 @@ pub fn promote_option2_candidate_to_ga_seed(
     for placement in &mut promoted.venturi_placements {
         placement.placement_mode = VenturiPlacementMode::CurvaturePeakDeanNumber;
     }
-    let promoted_blueprint = BlueprintTopologyFactory::build(&promoted)
-        .map_err(OptimError::InvalidParameter)?;
+    let promoted_blueprint =
+        BlueprintTopologyFactory::build(&promoted).map_err(OptimError::InvalidParameter)?;
     let promoted_seed = BlueprintCandidate::new(
         format!("{}-ga-dean-seed", seed.id),
         promoted_blueprint,

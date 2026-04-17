@@ -19,9 +19,9 @@ static MILESTONE12_PARAM_CACHE: std::sync::OnceLock<Vec<CandidateParams>> =
 pub fn build_milestone12_candidate_params_only() -> Vec<CandidateParams> {
     #[cfg(any(test, debug_assertions))]
     {
-        return MILESTONE12_PARAM_CACHE
+        MILESTONE12_PARAM_CACHE
             .get_or_init(generate_milestone12_candidate_params)
-            .clone();
+            .clone()
     }
 
     #[cfg(not(any(test, debug_assertions)))]

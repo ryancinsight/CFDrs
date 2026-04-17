@@ -3,35 +3,13 @@
 use std::fmt::Write as _;
 use std::path::Path;
 
-use super::primitives::{arrow, escape_xml, process_box, svg_end, svg_start, svg_title};
-
-pub(in crate::reporting) fn write_placeholder(
-    path: &Path,
-    title: &str,
-    message: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut svg = String::new();
-    svg_start(&mut svg, 1100.0, 420.0);
-    svg_title(&mut svg, title);
-    let _ = write!(
-        svg,
-        r##"<rect x="70" y="120" width="960" height="220" fill="#f5f6fa" stroke="#bdc3c7" stroke-width="2"/>"##
-    );
-    let _ = write!(
-        svg,
-        r##"<text x="110" y="240" font-size="24" fill="#2c3e50">{}</text>"##,
-        escape_xml(message)
-    );
-    svg_end(&mut svg);
-    std::fs::write(path, svg)?;
-    Ok(())
-}
+use super::primitives::{arrow, process_box, svg_end, svg_start, svg_title};
 
 pub(super) fn write_creation_optimization_process_figure(
     path: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut svg = String::new();
-    let w = 1700.0;
+    let w = 1560.0;
     let h = 780.0;
     svg_start(&mut svg, w, h);
     svg_title(
@@ -51,6 +29,8 @@ pub(super) fn write_creation_optimization_process_figure(
         (1310.0, 205.0, 1360.0, 205.0),
         // Vertical: top row center → bottom row
         (840.0, 290.0, 840.0, 410.0),
+        // Bottom row: GA → Option 2
+        (1040.0, 495.0, 975.0, 495.0),
         // Bottom row: Option 2 → Option 1
         (710.0, 495.0, 635.0, 495.0),
         // Bottom row: Option 1 → Report
@@ -126,7 +106,7 @@ pub(super) fn write_creation_optimization_process_figure(
         &mut svg,
         1360.0,
         120.0,
-        140.0,
+        160.0,
         170.0,
         "#f4f1ff",
         "#7d3c98",
@@ -134,7 +114,22 @@ pub(super) fn write_creation_optimization_process_figure(
         &["Option 1", "Option 2", "GA compare"],
     );
 
-    // Bottom-row boxes
+    // Bottom-row boxes: GA → Option 2 → Option 1 → Report
+    process_box(
+        &mut svg,
+        975.0,
+        410.0,
+        260.0,
+        170.0,
+        "#f0f7ff",
+        "#2980b9",
+        "GA Dean refinement",
+        &[
+            "InPlaceDeanSerpentineRefinement",
+            "Serpentine Dean vortex insertion",
+            "Curvature-peak venturi placement",
+        ],
+    );
     process_box(
         &mut svg,
         710.0,
@@ -183,15 +178,6 @@ pub(super) fn write_creation_optimization_process_figure(
 
     let _ = write!(
         svg,
-        r##"<text x="1520" y="435" font-size="18" fill="#34495e" font-weight="600">Option 1</text>
-<text x="1520" y="460" font-size="14" fill="#34495e">Selective acoustic shortlist</text>
-<text x="1520" y="495" font-size="18" fill="#34495e" font-weight="600">Option 2</text>
-<text x="1520" y="520" font-size="14" fill="#34495e">Combined selective venturi shortlist</text>
-<text x="1520" y="555" font-size="18" fill="#34495e" font-weight="600">Figure 6</text>
-<text x="1520" y="580" font-size="14" fill="#34495e">HydroSDT GA comparison branch</text>"##
-    );
-    let _ = write!(
-        svg,
         r##"<text x="70" y="660" font-size="14" fill="#566573">Selective routing remains the modeled concept: branch-diameter biasing pushes RBCs peripheral, keeps WBC/CTC enrichment in treatment branches, and changes only the treatment mechanism between Option 1 and Option 2.</text>"##
     );
     svg_end(&mut svg);
@@ -218,7 +204,20 @@ mod tests {
         assert!(svg.contains("Cached cfd-1d"));
         assert!(svg.contains("Option 2 combined ranking"));
         assert!(svg.contains("preserveAspectRatio=\"xMidYMin meet\""));
-        assert!(svg.contains("max-width:100%;height:auto;"));
+        assert!(svg.contains("width:min(100%, 100vw, calc(100vh * "));
+        assert!(svg.contains("height:auto;display:block;margin:0 auto;"));
         assert!(!svg.contains("placeholder"));
+    }
+
+    #[test]
+    fn write_canonical_process_figure_to_report_dir() {
+        let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let out =
+            manifest.join("../../../report/figures/milestone12_creation_optimization_process.svg");
+        if let Some(parent) = out.parent() {
+            std::fs::create_dir_all(parent).unwrap_or_default();
+        }
+        write_creation_optimization_process_figure(&out)
+            .expect("canonical process figure must be written");
     }
 }

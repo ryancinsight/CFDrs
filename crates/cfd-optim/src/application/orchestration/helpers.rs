@@ -43,9 +43,12 @@ pub fn report_eligible_venturi_oncology(metrics: &SdtMetrics) -> bool {
 }
 
 /// Save a blueprint schematic SVG with logging.
-pub fn save_figure(blueprint: &cfd_schematics::NetworkBlueprint, path: &Path, label: &str) {
-    match crate::delivery::save_blueprint_schematic_svg(blueprint, path) {
-        Ok(()) => tracing::info!("      \u{2713} {label}  \u{2192}  {}", path.display()),
-        Err(e) => tracing::warn!("      \u{2717} {label}  FAILED: {e}"),
-    }
+pub fn save_figure(
+    blueprint: &cfd_schematics::NetworkBlueprint,
+    path: &Path,
+    label: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    crate::delivery::save_blueprint_schematic_svg(blueprint, path)?;
+    tracing::info!("      \u{2713} {label}  \u{2192}  {}", path.display());
+    Ok(())
 }

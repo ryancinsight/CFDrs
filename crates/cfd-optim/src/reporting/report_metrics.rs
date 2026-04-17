@@ -19,8 +19,8 @@ use crate::constraints::{
     EXPANSION_RATIO_LOW_RISK, FDA_MAX_WALL_SHEAR_PA, FDA_THROAT_TEMP_RISE_LIMIT_K,
     FDA_TRANSIENT_SHEAR_PA, FDA_TRANSIENT_TIME_S, MILESTONE_TREATMENT_DURATION_MIN,
     PATIENT_BLOOD_VOLUME_ML, PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_FLOW_CAUTION_ML_MIN,
-    PEDIATRIC_FLOW_EXCESSIVE_ML_MIN, PEDIATRIC_REFERENCE_WEIGHT_KG,
-    PLATE_HEIGHT_MM, PLATE_WIDTH_MM, P_ATM_PA, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
+    PEDIATRIC_FLOW_EXCESSIVE_ML_MIN, PEDIATRIC_REFERENCE_WEIGHT_KG, PLATE_HEIGHT_MM,
+    PLATE_WIDTH_MM, P_ATM_PA, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
     VENTURI_EXPANSION_RATIO_HIGH_RISK, VENTURI_VEL_RATIO_REF,
 };
 use crate::domain::BlueprintCandidate;
@@ -553,8 +553,7 @@ pub fn compute_blueprint_report_metrics(
     };
 
     // Topology-specific split-stage flow fractions via rectangular laminar conductance.
-    let (stage_center_fracs, model_frac) =
-        split_stage_flow_fractions(&topology.split_stages);
+    let (stage_center_fracs, model_frac) = split_stage_flow_fractions(&topology.split_stages);
     // Assign to both CCT and CIF fields since these generalise across topologies.
     metrics.cct_model_venturi_flow_fraction = model_frac.clamp(0.0, 1.0);
     metrics.cif_model_venturi_flow_fraction = model_frac.clamp(0.0, 1.0);
@@ -738,8 +737,7 @@ mod tests {
         );
         // Activation should be in (0, 1) for non-zero inputs
         assert!(
-            m.sensitizer_activation_efficiency > 0.0
-                && m.sensitizer_activation_efficiency < 1.0,
+            m.sensitizer_activation_efficiency > 0.0 && m.sensitizer_activation_efficiency < 1.0,
             "activation = {} should be in (0,1)",
             m.sensitizer_activation_efficiency
         );

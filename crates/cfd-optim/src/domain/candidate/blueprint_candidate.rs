@@ -50,11 +50,10 @@ impl BlueprintCandidate {
 
     #[must_use]
     pub fn inferred_goal(&self) -> OptimizationGoal {
-        match self
-            .blueprint
-            .lineage()
-            .map_or(TopologyOptimizationStage::AsymmetricSplitResidenceSeparation, |lineage| lineage.current_stage)
-        {
+        match self.blueprint.lineage().map_or(
+            TopologyOptimizationStage::AsymmetricSplitResidenceSeparation,
+            |lineage| lineage.current_stage,
+        ) {
             TopologyOptimizationStage::AsymmetricSplitResidenceSeparation => {
                 OptimizationGoal::AsymmetricSplitResidenceSeparation
             }

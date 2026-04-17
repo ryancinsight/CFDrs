@@ -5,7 +5,6 @@ use cfd_schematics::domain::model::{ChannelShape, ChannelSpec};
 use cfd_schematics::geometry::metadata::ChannelVisualRole;
 
 use super::primitives::{escape_xml, svg_end, svg_start, svg_title};
-use super::process::write_placeholder;
 use crate::reporting::Milestone12ReportDesign;
 
 #[derive(Clone)]
@@ -41,31 +40,41 @@ pub(super) fn write_treatment_lane_zoom_figure(
     let ga_panel = panel_data(ga_best, "GA");
 
     if option2_panel.strokes.is_empty() || ga_panel.strokes.is_empty() {
-        return write_placeholder(
-            path,
-            "Treatment-Lane Geometry Zoom - Option 2 vs GA",
-            "Treatment-lane path geometry was unavailable for one or both selected designs.",
+        return Err(
+            "cannot render treatment-lane zoom without geometry-authored treatment path strokes"
+                .into(),
         );
     }
 
     let mut svg = String::new();
     let width = 1280.0;
-    let height = 760.0;
+    let height = 816.0;
     svg_start(&mut svg, width, height);
     svg_title(&mut svg, "Treatment-Lane Geometry Zoom - Option 2 vs GA");
 
-    svg.push_str(r##"<rect x="0" y="0" width="1280" height="760" fill="#fbfcfd"/>"##);
+    svg.push_str(r##"<rect x="0" y="0" width="1280" height="816" fill="#fbfcfd"/>"##);
     svg.push_str(r##"<text x="640" y="54" text-anchor="middle" font-size="16" fill="#566573">Normalized side-by-side view of the local treatment path only; full-device split-tree context removed</text>"##);
 
     render_panel(&mut svg, &option2_panel, 60.0, 110.0, 540.0, 560.0);
     render_panel(&mut svg, &ga_panel, 680.0, 110.0, 540.0, 560.0);
-    render_delta_overlay(&mut svg, &option2_panel, &ga_panel, 470.0, 640.0, 340.0, 74.0);
 
     svg.push_str(r##"<line x1="640" y1="120" x2="640" y2="670" stroke="#d5dbdb" stroke-width="2" stroke-dasharray="8 6"/>"##);
-    svg.push_str(r##"<line x1="110" y1="706" x2="136" y2="706" stroke="#8C32A0" stroke-width="7" stroke-linecap="round"/>"##);
-    svg.push_str(r##"<text x="144" y="711" font-size="13" fill="#34495e">Treatment-channel path</text>"##);
-    svg.push_str(r##"<line x1="320" y1="706" x2="346" y2="706" stroke="#E67E22" stroke-width="9" stroke-linecap="round"/>"##);
-    svg.push_str(r##"<text x="354" y="711" font-size="13" fill="#34495e">Active venturi throat segment</text>"##);
+    svg.push_str(r##"<rect x="60" y="690" width="1160" height="86" rx="16" fill="#ffffff" stroke="#e5eaee" stroke-width="1.5"/>"##);
+    render_delta_overlay(
+        &mut svg,
+        &option2_panel,
+        &ga_panel,
+        690.0,
+        696.0,
+        500.0,
+        70.0,
+    );
+    svg.push_str(r##"<line x1="110" y1="734" x2="136" y2="734" stroke="#8C32A0" stroke-width="7" stroke-linecap="round"/>"##);
+    svg.push_str(
+        r##"<text x="144" y="739" font-size="13" fill="#34495e">Treatment-channel path</text>"##,
+    );
+    svg.push_str(r##"<line x1="320" y1="734" x2="346" y2="734" stroke="#E67E22" stroke-width="9" stroke-linecap="round"/>"##);
+    svg.push_str(r##"<text x="354" y="739" font-size="13" fill="#34495e">Active venturi throat segment</text>"##);
 
     svg_end(&mut svg);
     std::fs::write(path, svg)?;
@@ -91,7 +100,9 @@ fn panel_data(design: &Milestone12ReportDesign, panel_label: &str) -> LanePanelD
         if matches!(channel.channel_shape, ChannelShape::Serpentine { .. }) {
             serpentine_channel_count += 1;
         }
-        if let Some((local_min_radius_mm, local_max_radius_mm)) = path_bend_radius_range_mm(&display_path) {
+        if let Some((local_min_radius_mm, local_max_radius_mm)) =
+            path_bend_radius_range_mm(&display_path)
+        {
             if !matches!(channel.channel_shape, ChannelShape::Serpentine { .. }) {
                 serpentine_channel_count += 1;
             }
@@ -169,7 +180,10 @@ fn display_path(channel: &ChannelSpec) -> Vec<(f64, f64)> {
             } else {
                 generated_serpentine_path(
                     channel.path[0],
-                    *channel.path.last().expect("channel.path has at least one point"),
+                    *channel
+                        .path
+                        .last()
+                        .expect("channel.path has at least one point"),
                     segments,
                     bend_radius_m * 1.0e3,
                 )
@@ -179,14 +193,7 @@ fn display_path(channel: &ChannelSpec) -> Vec<(f64, f64)> {
     }
 }
 
-fn render_panel(
-    svg: &mut String,
-    panel: &LanePanelData,
-    x: f64,
-    y: f64,
-    width: f64,
-    height: f64,
-) {
+fn render_panel(svg: &mut String, panel: &LanePanelData, x: f64, y: f64, width: f64, height: f64) {
     let _ = write!(
         svg,
         r##"<rect x="{x:.1}" y="{y:.1}" width="{width:.1}" height="{height:.1}" rx="18" fill="#ffffff" stroke="#d5dbdb" stroke-width="2"/>"##
@@ -256,8 +263,7 @@ fn render_panel(
         let _ = write!(
             svg,
             r#"<polyline points="{points}" fill="none" stroke="{}" stroke-width="{:.1}" stroke-linecap="round" stroke-linejoin="round"/>"#,
-            stroke.color,
-            stroke.width_px
+            stroke.color, stroke.width_px
         );
 
         if let Some(label) = &stroke.venturi_label {
@@ -330,11 +336,19 @@ fn render_delta_overlay(
     let sigma_delta = ga.cavitation_number - option2.cavitation_number;
     let loss_delta = ga.total_loss_coefficient - option2.total_loss_coefficient;
     let bend_delta = match (option2.min_bend_radius_mm, ga.min_bend_radius_mm) {
-        (Some(left), Some(right)) => format!("{:+.2} mm", right - left),
+        (Some(left), Some(right)) => {
+            let delta = right - left;
+            if delta.abs() < 0.005 {
+                "0.00 mm".to_string()
+            } else {
+                format!("{delta:+.2} mm")
+            }
+        }
         _ => "n/a".to_string(),
     };
     let throat_delta = ga.venturi_count as isize - option2.venturi_count as isize;
-    let serp_delta = ga.serpentine_channel_count as isize - option2.serpentine_channel_count as isize;
+    let serp_delta =
+        ga.serpentine_channel_count as isize - option2.serpentine_channel_count as isize;
 
     let _ = write!(
         svg,
@@ -359,7 +373,7 @@ fn render_delta_overlay(
     );
     let _ = write!(
         svg,
-        r##"<text x="{:.1}" y="{:.1}" font-size="12" fill="#7b8a8b">Rmin {} • serpentine channels {:+}. TH labels are ordered inlet to outlet inside each normalized treatment-path frame.</text>"##,
+        r##"<text x="{:.1}" y="{:.1}" font-size="12" fill="#7b8a8b">Rmin {} • serpentine channels {:+} • TH labels follow inlet-to-outlet order.</text>"##,
         x + 18.0,
         y + 63.0,
         bend_delta,
@@ -547,5 +561,10 @@ mod tests {
         let rendered = std::fs::read_to_string(path).expect("rendered svg should exist");
         assert!(rendered.contains("K_loss"));
         assert!(rendered.contains("Geometry Delta (GA - Option 2)"));
+        assert!(rendered.contains("Rmin 0.00 mm"));
+        assert!(rendered.contains("TH labels follow inlet-to-outlet order."));
+        assert!(rendered.contains("width:min(100%, 100vw, calc(100vh * "));
+        assert!(rendered.contains(r#"<rect x="60" y="690" width="1160" height="86""#));
+        assert!(rendered.contains(r#"<rect x="690.0" y="696.0" width="500.0" height="70.0""#));
     }
 }

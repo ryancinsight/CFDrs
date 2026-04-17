@@ -23,7 +23,11 @@ fn total_loss_coefficient(dp_pa: f64, inlet_velocity_m_s: f64) -> f64 {
 }
 
 fn sanitize_report_scalar(value: f64) -> f64 {
-    if value.is_finite() { value } else { 0.0 }
+    if value.is_finite() {
+        value
+    } else {
+        0.0
+    }
 }
 
 fn validation_row_from_result(
@@ -40,11 +44,20 @@ fn validation_row_from_result(
         track: track.to_string(),
         id: id.to_string(),
         topology: topology.to_string(),
-        k_loss_1d: sanitize_report_scalar(total_loss_coefficient(result.dp_1d_pa, inlet_velocity_m_s)),
+        k_loss_1d: sanitize_report_scalar(total_loss_coefficient(
+            result.dp_1d_pa,
+            inlet_velocity_m_s,
+        )),
         dp_1d_bernoulli_pa: sanitize_report_scalar(result.dp_1d_pa),
-        k_loss_2d: sanitize_report_scalar(total_loss_coefficient(result.dp_2d_pa, inlet_velocity_m_s)),
+        k_loss_2d: sanitize_report_scalar(total_loss_coefficient(
+            result.dp_2d_pa,
+            inlet_velocity_m_s,
+        )),
         dp_2d_fvm_pa: sanitize_report_scalar(result.dp_2d_pa),
-        k_loss_3d: sanitize_report_scalar(total_loss_coefficient(result.dp_3d_pa, inlet_velocity_m_s)),
+        k_loss_3d: sanitize_report_scalar(total_loss_coefficient(
+            result.dp_3d_pa,
+            inlet_velocity_m_s,
+        )),
         dp_3d_fem_pa: sanitize_report_scalar(result.dp_3d_pa),
         agreement_1d_2d_pct: sanitize_report_scalar(result.diff_1d_2d_pct),
         agreement_2d_3d_pct: sanitize_report_scalar(result.diff_2d_3d_pct),
@@ -193,7 +206,8 @@ mod tests {
         };
 
         let row = validation_row_from_result("track", "id", "topo", 0.7, 0.5, &result);
-        let dynamic_pressure_pa = 0.5 * crate::constraints::BLOOD_DENSITY_KG_M3 * input.inlet_velocity_1d().powi(2);
+        let dynamic_pressure_pa =
+            0.5 * crate::constraints::BLOOD_DENSITY_KG_M3 * input.inlet_velocity_1d().powi(2);
 
         assert!((row.k_loss_1d - 1200.0 / dynamic_pressure_pa).abs() < 1.0e-12);
         assert!((row.k_loss_2d - 1000.0 / dynamic_pressure_pa).abs() < 1.0e-12);

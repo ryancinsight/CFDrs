@@ -12,7 +12,7 @@ pub(super) fn write_bar_svg(
     y_label: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if data.is_empty() {
-        return super::process::write_placeholder(path, title, "No data available.");
+        return Err(format!("cannot render '{title}' without at least one data point").into());
     }
     let mut svg = String::new();
     let w = 1100.0;
@@ -63,8 +63,8 @@ pub(super) fn write_bar_svg(
             svg,
             r##"<text x="{:.2}" y="{:.2}" font-size="13" text-anchor="middle" fill="#2c3e50">{}</text>"##,
             left + bw * 0.5,
-            y0 + 24.0
-            ,escape_xml(label)
+            y0 + 24.0,
+            escape_xml(label)
         );
         let _ = write!(
             svg,
@@ -106,12 +106,12 @@ pub(super) fn write_bar_svg_owned(
 }
 
 pub(super) fn svg_start(svg: &mut impl std::fmt::Write, width: f64, height: f64) {
+    let aspect_ratio = if height > 0.0 { width / height } else { 1.0 };
     let _ = write!(
         svg,
-        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width:.0}" height="{height:.0}" viewBox="0 0 {width:.0} {height:.0}" preserveAspectRatio="xMidYMin meet" style="max-width:100%;height:auto;">"#
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width:.0}" height="{height:.0}" viewBox="0 0 {width:.0} {height:.0}" preserveAspectRatio="xMidYMin meet" style="width:min(100%, 100vw, calc(100vh * {aspect_ratio:.6}));height:auto;display:block;margin:0 auto;">"#
     );
-    let _ =
-        svg.write_str(r#"<rect x="0" y="0" width="100%" height="100%" fill="white"/>"#);
+    let _ = svg.write_str(r#"<rect x="0" y="0" width="100%" height="100%" fill="white"/>"#);
     let _ = svg.write_str(
         r##"<defs><marker id="arrowhead-flow" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,8 L10,4 z" fill="#566573"/></marker></defs>"##,
     );
@@ -158,7 +158,11 @@ pub(super) fn axis(svg: &mut impl std::fmt::Write, x0: f64, y0: f64, xw: f64, yh
 /// that it has already emitted, it cannot reorder, duplicate, or double-escape
 /// characters introduced by earlier replacements.
 pub(super) fn escape_xml(text: &str) -> String {
-    if !text.as_bytes().iter().any(|byte| matches!(byte, b'&' | b'<' | b'>')) {
+    if !text
+        .as_bytes()
+        .iter()
+        .any(|byte| matches!(byte, b'&' | b'<' | b'>'))
+    {
         return text.to_string();
     }
 
@@ -270,10 +274,7 @@ mod tests {
 
     #[test]
     fn escape_xml_escapes_xml_metacharacters_once() {
-        assert_eq!(
-            escape_xml("A&B <tag>"),
-            "A&amp;B &lt;tag&gt;"
-        );
+        assert_eq!(escape_xml("A&B <tag>"), "A&amp;B &lt;tag&gt;");
     }
 
     #[test]

@@ -153,8 +153,7 @@ mod tests {
         for has_tri_int in [false, true] {
             for has_tri in [false, true] {
                 for has_bi in [false, true] {
-                    let (pre, tri, bi) =
-                        super::pst_frac_slices(has_tri_int, has_tri, has_bi);
+                    let (pre, tri, bi) = super::pst_frac_slices(has_tri_int, has_tri, has_bi);
                     for &v in pre.iter().chain(tri.iter()).chain(bi.iter()) {
                         assert!(
                             v > 0.0 && v < 1.0,
@@ -178,4 +177,3 @@ mod tests {
         );
     }
 }
-

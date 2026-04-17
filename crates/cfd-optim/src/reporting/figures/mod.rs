@@ -1,5 +1,6 @@
 //! Dynamic figure generation, SVG builders, and rendering primitives for M12 reports.
 
+mod context;
 mod manifest;
 mod primitives;
 pub(in crate::reporting) mod process;

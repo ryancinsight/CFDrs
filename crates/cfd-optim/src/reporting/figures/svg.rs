@@ -5,7 +5,6 @@ use std::io::Write as IoWrite;
 use std::path::Path;
 
 use super::primitives::{axis, svg_end, svg_start, svg_title, write_bar_svg, write_bar_svg_owned};
-use super::process::write_placeholder;
 use crate::reporting::{Milestone12ReportDesign, ParetoPoint};
 
 /// Adapter that bridges `std::io::Write` → `std::fmt::Write`, enabling
@@ -45,10 +44,8 @@ pub(super) fn write_head_to_head_figure(
     option2: &[Milestone12ReportDesign],
 ) -> Result<(), Box<dyn std::error::Error>> {
     if option2.is_empty() {
-        return write_placeholder(
-            path,
-            "Head-to-Head Design Comparison",
-            "No Option 2 ranked data available.",
+        return Err(
+            "cannot render head-to-head Option 2 figure without ranked Option 2 data".into(),
         );
     }
     // Single collect into owned (String, f64) — use write_bar_svg_owned to
@@ -84,26 +81,19 @@ pub(super) fn write_cavitation_distribution_figure(
                 "Option2",
             )
         })
-        .chain(
-            ga.iter()
-                .take(5)
-                .enumerate()
-                .map(|(idx, d)| {
-                    (
-                        format!("GA-R{}", idx + 1),
-                        d.metrics.cavitation_number,
-                        "GA",
-                    )
-                }),
-        )
+        .chain(ga.iter().take(5).enumerate().map(|(idx, d)| {
+            (
+                format!("GA-R{}", idx + 1),
+                d.metrics.cavitation_number,
+                "GA",
+            )
+        }))
         .filter(|(_, sigma, _)| sigma.is_finite())
         .collect();
 
     if data.is_empty() {
-        return write_placeholder(
-            path,
-            "Selected-Design Cavitation Number (σ)",
-            "No finite cavitation numbers available.",
+        return Err(
+            "cannot render cavitation distribution without finite cavitation numbers".into(),
         );
     }
 
@@ -117,7 +107,9 @@ pub(super) fn write_cavitation_distribution_figure(
         if sigma < 1.0 {
             sigma.clamp(-2.0, 1.0)
         } else {
-            1.0 + sigma.log10().clamp(0.0, sigma_positive_max.log10().max(0.1))
+            1.0 + sigma
+                .log10()
+                .clamp(0.0, sigma_positive_max.log10().max(0.1))
         }
     };
 
@@ -202,8 +194,8 @@ pub(super) fn write_cavitation_distribution_figure(
         let _ = write!(
             svg,
             r##"<text x="{cx:.2}" y="{:.2}" font-size="12" text-anchor="middle" fill="#2c3e50">{}</text>"##,
-            cy - 12.0
-            , if *sigma < 1.0 {
+            cy - 12.0,
+            if *sigma < 1.0 {
                 format!("{sigma:.3}")
             } else {
                 format!(">1 ({sigma:.1})")
@@ -232,7 +224,7 @@ pub(super) fn write_pareto_figure(
     option2_pool_all: &[ParetoPoint],
     ga_pool_all: &[ParetoPoint],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let selected: Vec<(String, f64, f64, f64, &str)> = option2
+    let mut selected: Vec<(String, f64, f64, f64, &str)> = option2
         .iter()
         .take(5)
         .enumerate()
@@ -256,31 +248,55 @@ pub(super) fn write_pareto_figure(
         }))
         .filter(|(_, x, y, _, _)| x.is_finite() && y.is_finite())
         .collect();
+    selected.sort_by(|left, right| {
+        left.0
+            .cmp(&right.0)
+            .then_with(|| left.1.total_cmp(&right.1))
+            .then_with(|| left.2.total_cmp(&right.2))
+            .then_with(|| left.3.total_cmp(&right.3))
+            .then_with(|| left.4.cmp(right.4))
+    });
 
-    let background: Vec<(f64, f64, f64, &str)> = option2_pool_all
+    let mut background: Vec<(f64, f64, f64, &str)> = option2_pool_all
         .iter()
-        .filter(|p| p.cancer_targeted_cavitation.is_finite() && p.rbc_venturi_protection.is_finite())
-        .map(|p| (
-            p.cancer_targeted_cavitation,
-            p.rbc_venturi_protection,
-            p.score,
-            "Option2",
-        ))
-        .chain(ga_pool_all.iter().filter(|p| {
+        .filter(|p| {
             p.cancer_targeted_cavitation.is_finite() && p.rbc_venturi_protection.is_finite()
-        }).map(|p| (
-            p.cancer_targeted_cavitation,
-            p.rbc_venturi_protection,
-            p.score,
-            "GA",
-        )))
+        })
+        .map(|p| {
+            (
+                p.cancer_targeted_cavitation,
+                p.rbc_venturi_protection,
+                p.score,
+                "Option2",
+            )
+        })
+        .chain(
+            ga_pool_all
+                .iter()
+                .filter(|p| {
+                    p.cancer_targeted_cavitation.is_finite() && p.rbc_venturi_protection.is_finite()
+                })
+                .map(|p| {
+                    (
+                        p.cancer_targeted_cavitation,
+                        p.rbc_venturi_protection,
+                        p.score,
+                        "GA",
+                    )
+                }),
+        )
         .collect();
+    background.sort_by(|left, right| {
+        left.0
+            .total_cmp(&right.0)
+            .then_with(|| left.1.total_cmp(&right.1))
+            .then_with(|| left.2.total_cmp(&right.2))
+            .then_with(|| left.3.cmp(right.3))
+    });
 
     if selected.is_empty() && background.is_empty() {
-        return write_placeholder(
-            path,
-            "Selected-Design Oncology Trade-Off Frontier",
-            "No ranked data available.",
+        return Err(
+            "cannot render Pareto frontier without selected or background ranked data".into(),
         );
     }
 
@@ -373,7 +389,11 @@ pub(super) fn write_pareto_figure(
             let x = x0 + xw * ((*cx - x_min) / (x_max - x_min)).clamp(0.0, 1.0);
             let y = y0 - yh * ((*cy - y_min) / (y_max - y_min)).clamp(0.0, 1.0);
             let r = 2.0 + 1.5 * score.clamp(0.0, 1.0);
-            let fill = if *tag == "Option2" { "#85c1e9" } else { "#f5b041" };
+            let fill = if *tag == "Option2" {
+                "#85c1e9"
+            } else {
+                "#f5b041"
+            };
             let _ = write!(
                 svg,
                 r#"<circle cx="{x:.2}" cy="{y:.2}" r="{r:.2}" fill="{fill}" fill-opacity="0.20" stroke="none"/>"#
@@ -486,12 +506,11 @@ pub(super) fn write_ga_convergence_figure(
     fast_mode: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if best_per_gen.is_empty() {
-        let note = if fast_mode {
-            "FAST mode omits GA convergence history."
-        } else {
-            "GA convergence history not available."
-        };
-        return write_placeholder(path, "GA Fitness Convergence", note);
+        let mode = if fast_mode { "fast" } else { "full" };
+        return Err(format!(
+            "cannot render GA convergence figure for {mode} run without generation history"
+        )
+        .into());
     }
     // Stream SVG directly to file to avoid ~1 MB in-memory string.
     let file = std::fs::File::create(path)?;
@@ -606,7 +625,11 @@ pub(super) fn write_ga_convergence_figure(
     } else if tail_delta < -1.0e-3 {
         format!("Best fitness regressed over last {tail_len} gen by {tail_delta:.4}")
     } else {
-        format!("Near-plateau: |Δbest(last {} gen)| = {:.4}", tail_len, tail_delta.abs())
+        format!(
+            "Near-plateau: |Δbest(last {} gen)| = {:.4}",
+            tail_len,
+            tail_delta.abs()
+        )
     };
     let _ = write!(
         svg,
@@ -651,11 +674,7 @@ pub(super) fn write_dean_venturi_placement_figure(
     points: &[DeanVenturiPoint],
 ) -> Result<(), Box<dyn std::error::Error>> {
     if points.is_empty() {
-        return super::process::write_placeholder(
-            path,
-            title,
-            "No venturi placement data available for serpentine designs.",
-        );
+        return Err(format!("cannot render '{title}' without venturi placement data").into());
     }
 
     let file = std::fs::File::create(path)?;
@@ -672,10 +691,7 @@ pub(super) fn write_dean_venturi_placement_figure(
     axis(&mut svg, x0, y0, xw, yh);
 
     // ---- Data ranges ----
-    let de_max = points
-        .iter()
-        .map(|p| p.dean_number)
-        .fold(1.0_f64, f64::max);
+    let de_max = points.iter().map(|p| p.dean_number).fold(1.0_f64, f64::max);
     let cav_strength: Vec<f64> = points
         .iter()
         .map(|p| (1.0 - p.cavitation_number).max(0.0))
@@ -698,6 +714,13 @@ pub(super) fn write_dean_venturi_placement_figure(
     let p_span = (p_max - p_min).max(1.0);
     let p_lo = p_min - 0.10 * p_span;
     let p_hi = p_max + 0.10 * p_span;
+    let format_pressure = |value: f64| {
+        if p_span < 5.0 {
+            format!("{value:.2}")
+        } else {
+            format!("{value:.0}")
+        }
+    };
 
     // ---- Left Y-axis ticks (De / cavitation strength) ----
     for i in 0..=5 {
@@ -726,10 +749,10 @@ pub(super) fn write_dean_venturi_placement_figure(
         let ty = y0 - yh * frac;
         let _ = write!(
             svg,
-            r##"<text x="{:.1}" y="{:.1}" font-size="11" text-anchor="start" fill="#27ae60">{:.0}</text>"##,
+            r##"<text x="{:.1}" y="{:.1}" font-size="11" text-anchor="start" fill="#27ae60">{}</text>"##,
             rx + 8.0,
             ty + 4.0,
-            val
+            format_pressure(val)
         );
     }
     // Right Y axis line (green for pressure)
@@ -844,9 +867,9 @@ pub(super) fn write_dean_venturi_placement_figure(
             );
             let _ = write!(
                 svg,
-                r##"<text x="{cx:.1}" y="{:.1}" font-size="9" text-anchor="middle" fill="#1e8449">{:.0} kPa</text>"##,
+                r##"<text x="{cx:.1}" y="{:.1}" font-size="9" text-anchor="middle" fill="#1e8449">{} kPa</text>"##,
                 cy - 8.0,
-                pt.upstream_pressure_kpa
+                format_pressure(pt.upstream_pressure_kpa)
             );
         }
     }
@@ -896,4 +919,56 @@ pub(super) fn write_dean_venturi_placement_figure(
     svg_end(&mut svg);
     svg.0.flush()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::{write_dean_venturi_placement_figure, DeanVenturiPoint};
+
+    #[test]
+    fn dean_venturi_figure_uses_decimal_pressure_labels_for_narrow_ranges() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("m12-dean-venturi-{unique}.svg"));
+        let points = vec![
+            DeanVenturiPoint {
+                label: "Bend 1 (outer)".to_string(),
+                dean_number: 82.0,
+                cavitation_number: 0.856,
+                throat_velocity_m_s: 16.2,
+                total_loss_coefficient: 5307.83,
+                upstream_pressure_kpa: 140.00,
+                bend_radius_mm: 1.30,
+            },
+            DeanVenturiPoint {
+                label: "Bend 2 (inner)".to_string(),
+                dean_number: 84.0,
+                cavitation_number: 0.843,
+                throat_velocity_m_s: 16.6,
+                total_loss_coefficient: 5451.49,
+                upstream_pressure_kpa: 140.00,
+                bend_radius_mm: 1.30,
+            },
+            DeanVenturiPoint {
+                label: "Bend 3 (outer)".to_string(),
+                dean_number: 82.0,
+                cavitation_number: 0.858,
+                throat_velocity_m_s: 16.2,
+                total_loss_coefficient: 5307.83,
+                upstream_pressure_kpa: 140.00,
+                bend_radius_mm: 1.30,
+            },
+        ];
+
+        write_dean_venturi_placement_figure(&path, "Dean test", &points)
+            .expect("dean venturi figure should render");
+        let svg = std::fs::read_to_string(path).expect("rendered svg should exist");
+
+        assert!(svg.contains("139.90"));
+        assert!(svg.contains("140.00 kPa"));
+    }
 }

@@ -14,8 +14,7 @@ use std::collections::HashSet;
 
 use cfd_optim::{
     evaluate_blueprint_candidate, evaluate_goal, evaluate_selective_venturi_cavitation,
-    orchestration_lineage_key, BlueprintCandidate, EvaluatedPool, OperatingPoint,
-    OptimizationGoal,
+    orchestration_lineage_key, BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
 };
 use cfd_schematics::{
     build_milestone12_blueprint, enumerate_milestone12_topologies, SplitKind,
@@ -96,8 +95,7 @@ fn fast_acoustic_candidate() -> BlueprintCandidate {
         ..base
     };
 
-    let blueprint =
-        build_milestone12_blueprint(&request).expect("acoustic blueprint should build");
+    let blueprint = build_milestone12_blueprint(&request).expect("acoustic blueprint should build");
     BlueprintCandidate::new("test-acoustic", blueprint, test_op(2.0e-6, 30_000.0))
 }
 
@@ -367,11 +365,7 @@ fn option2_venturi_selectivity_prefers_low_cavitation_number() {
 
     if ranked.len() >= 2 {
         let top_selectivity = ranked[0].venturi.cavitation_selectivity_score;
-        let bottom_selectivity = ranked
-            .last()
-            .unwrap()
-            .venturi
-            .cavitation_selectivity_score;
+        let bottom_selectivity = ranked.last().unwrap().venturi.cavitation_selectivity_score;
         assert!(
             top_selectivity >= bottom_selectivity - 0.01,
             "top selectivity ({top_selectivity:.4}) should be >= bottom ({bottom_selectivity:.4})"

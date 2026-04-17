@@ -13,7 +13,9 @@ use crate::metrics::{
 use serde::{Deserialize, Serialize};
 
 pub use ga::evaluate_blueprint_genetic_refinement;
-pub use option1::{evaluate_selective_acoustic_residence_separation, score_selective_acoustic_residence_separation};
+pub use option1::{
+    evaluate_selective_acoustic_residence_separation, score_selective_acoustic_residence_separation,
+};
 pub use option2::{evaluate_selective_venturi_cavitation, score_selective_venturi_cavitation};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

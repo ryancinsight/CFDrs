@@ -21,9 +21,7 @@
 //! cancer-center enrichment and RBC shielding in a hybrid additive + synergy
 //! formula clamped to \[0.001, 1.0\].
 
-use cfd_optim::{
-    refresh_milestone12_reports, run_milestone12_option2, Milestone12RequestedStage,
-};
+use cfd_optim::{refresh_milestone12_reports, run_milestone12_option2, Milestone12RequestedStage};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     run_milestone12_option2()?;
