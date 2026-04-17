@@ -11,7 +11,6 @@ pub fn standard_three_view(
 ) -> DrawingSheet {
     let mut sheet = DrawingSheet::new(sheet_size);
     let (w, h) = sheet_size.dimensions_mm();
-    let _margin = sheet.border_margin_mm;
 
     // Front view — lower-left quadrant.
     sheet.views.push(ProjectedView {

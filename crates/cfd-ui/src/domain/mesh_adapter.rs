@@ -41,6 +41,7 @@ pub struct GpuMeshData {
 ///
 /// Vertices are extracted in pool iteration order. Face indices are remapped
 /// from `VertexId` to contiguous `u32` positions in the resulting vertex array.
+#[must_use]
 pub fn convert_mesh(mesh: &IndexedMesh<f64>) -> GpuMeshData {
     let mut vertices = Vec::with_capacity(mesh.vertex_count());
     let mut id_to_index = Vec::new();

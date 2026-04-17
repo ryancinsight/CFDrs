@@ -81,7 +81,7 @@ impl UndoableCommand for CsgBooleanCommand {
         Ok(())
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "CSG Boolean"
     }
 }

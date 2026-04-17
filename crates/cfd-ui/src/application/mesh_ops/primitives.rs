@@ -26,7 +26,7 @@ pub enum PrimitiveSpec {
 impl PrimitiveSpec {
     /// Build the primitive mesh from this specification.
     pub fn build(&self) -> Result<IndexedMesh<f64>, PrimitiveError> {
-        use cfd_mesh::domain::geometry::primitives::*;
+        use cfd_mesh::domain::geometry::primitives::{PrimitiveMesh, Cube, Cylinder, UvSphere, Cone, Torus, Pipe, Ellipsoid, Capsule, Frustum, GeodesicSphere, RoundedCube, Elbow};
         use nalgebra::Point3;
         let origin = Point3::<f64>::origin();
         match self {
@@ -135,7 +135,7 @@ impl UndoableCommand for CreatePrimitiveCommand {
         Ok(())
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Create Primitive"
     }
 }

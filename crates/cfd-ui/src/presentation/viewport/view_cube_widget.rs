@@ -71,6 +71,7 @@ pub fn view_cube_triangles(state: &ViewCubeState) -> Vec<OverlayTriangle> {
 }
 
 /// Build GPU overlay buffer for the view cube.
+#[must_use]
 pub fn build_view_cube_buffer(
     state: &ViewCubeState,
     device: &wgpu::Device,

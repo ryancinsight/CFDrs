@@ -16,6 +16,7 @@ pub struct GpuMeshBuffer {
 
 impl GpuMeshBuffer {
     /// Upload an `IndexedMesh` to the GPU, converting to GPU-ready format.
+    #[must_use]
     pub fn from_indexed_mesh(mesh: &IndexedMesh<f64>, device: &wgpu::Device) -> Self {
         let gpu_data = mesh_adapter::convert_mesh(mesh);
 

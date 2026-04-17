@@ -48,6 +48,7 @@ pub fn axis_indicator_lines() -> Vec<OverlayLine> {
 }
 
 /// Build GPU overlay buffer for the axis indicator.
+#[must_use]
 pub fn build_axis_buffer(device: &wgpu::Device) -> OverlayBuffer {
     OverlayBuffer::from_lines(&axis_indicator_lines(), device)
 }

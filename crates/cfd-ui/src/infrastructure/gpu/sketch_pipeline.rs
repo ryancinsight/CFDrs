@@ -16,7 +16,7 @@ pub struct SketchUniforms {
     pub viewport_size: [f32; 2],
     /// Line width in pixels.
     pub line_width_px: f32,
-    pub _pad: f32,
+    pub pad: f32,
 }
 
 /// Sketch render pipeline with solid and dashed sub-pipelines.
@@ -30,6 +30,7 @@ pub struct SketchPipeline {
 
 impl SketchPipeline {
     /// Create the sketch pipeline.
+    #[must_use]
     pub fn new(device: &wgpu::Device) -> Self {
         let shader_source = include_str!("../shaders/sketch.wgsl");
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {

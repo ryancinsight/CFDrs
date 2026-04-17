@@ -84,8 +84,7 @@ impl CameraController {
         self.pending_pick = None;
         self.mode = match button {
             MouseButton::Left => InteractionMode::Orbiting,
-            MouseButton::Middle => InteractionMode::Panning,
-            MouseButton::Right => InteractionMode::Panning,
+            MouseButton::Middle | MouseButton::Right => InteractionMode::Panning,
         };
     }
 

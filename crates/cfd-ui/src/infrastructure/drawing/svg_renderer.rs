@@ -12,8 +12,10 @@ use crate::domain::drawing::sheet::DrawingSheet;
 use crate::domain::drawing::title_block::TitleBlock;
 use crate::infrastructure::drawing::projection::{OrthographicProjector, ProjectedEdges};
 use cfd_mesh::IndexedMesh;
+use std::fmt::Write as _;
 
 /// Render a `DrawingSheet` with associated meshes to an SVG string.
+#[must_use]
 pub fn render_svg(
     sheet: &DrawingSheet,
     meshes: &[&IndexedMesh<f64>],
@@ -38,12 +40,12 @@ pub fn render_svg(
     );
 
     // Draw border.
-    svg.push_str(&format!(
-        r#"<rect class="border" x="{margin}" y="{margin}" width="{}" height="{}"/>
-"#,
+    let _ = writeln!(
+        svg,
+        r#"<rect class="border" x="{margin}" y="{margin}" width="{}" height="{}"/>"#,
         sheet_w - 2.0 * margin,
         sheet_h - 2.0 * margin,
-    ));
+    );
 
     // Draw each projected view.
     for view in &sheet.views {
@@ -60,11 +62,11 @@ pub fn render_svg(
 
             // View label.
             if let Some(label) = &view.label {
-                svg.push_str(&format!(
-                    r#"<text class="dim-text" x="{cx}" y="{}">{label}</text>
-"#,
+                let _ = writeln!(
+                    svg,
+                    r#"<text class="dim-text" x="{cx}" y="{}">{label}</text>"#,
                     cy + 15.0,
-                ));
+                );
             }
         }
     }
@@ -89,28 +91,28 @@ fn render_edges(
     scale: f64,
 ) {
     for (a, b) in &edges.visible {
-        svg.push_str(&format!(
-            r#"<line class="visible" x1="{}" y1="{}" x2="{}" y2="{}"/>
-"#,
+        let _ = writeln!(
+            svg,
+            r#"<line class="visible" x1="{}" y1="{}" x2="{}" y2="{}"/>"#,
             cx + a.x * scale, cy - a.y * scale,
             cx + b.x * scale, cy - b.y * scale,
-        ));
+        );
     }
     for (a, b) in &edges.hidden {
-        svg.push_str(&format!(
-            r#"<line class="hidden" x1="{}" y1="{}" x2="{}" y2="{}"/>
-"#,
+        let _ = writeln!(
+            svg,
+            r#"<line class="hidden" x1="{}" y1="{}" x2="{}" y2="{}"/>"#,
             cx + a.x * scale, cy - a.y * scale,
             cx + b.x * scale, cy - b.y * scale,
-        ));
+        );
     }
     for (a, b) in &edges.silhouette {
-        svg.push_str(&format!(
-            r#"<line class="silhouette" x1="{}" y1="{}" x2="{}" y2="{}"/>
-"#,
+        let _ = writeln!(
+            svg,
+            r#"<line class="silhouette" x1="{}" y1="{}" x2="{}" y2="{}"/>"#,
             cx + a.x * scale, cy - a.y * scale,
             cx + b.x * scale, cy - b.y * scale,
-        ));
+        );
     }
 }
 
@@ -124,14 +126,14 @@ fn render_dimension(svg: &mut String, dim: &DimensionSpec, _sheet_h: f64) {
             value.to_owned()
         };
         // Simplified: place text at midpoint.
-        let mx = (lin.start[0] + lin.end[0]) / 2.0;
-        let my = (lin.start[1] + lin.end[1]) / 2.0;
-        svg.push_str(&format!(
-            r#"<text class="dim-text" x="{mx}" y="{my}">{label}</text>
-"#
-        ));
+        let mx = f64::midpoint(lin.start[0], lin.end[0]);
+        let my = f64::midpoint(lin.start[1], lin.end[1]);
+        let _ = writeln!(
+            svg,
+            r#"<text class="dim-text" x="{mx}" y="{my}">{label}</text>"#
+        );
     }
-    // Angular, Diameter, Radius rendering is similar; omitted for brevity.
+    // Angular, Diameter, Radius variants extend here when required.
 }
 
 fn render_title_block(
@@ -147,34 +149,36 @@ fn render_title_block(
     let y = sheet_h - margin - tb_height;
 
     // Title block border.
-    svg.push_str(&format!(
-        r#"<rect class="title-border" x="{x}" y="{y}" width="{tb_width}" height="{tb_height}"/>
-"#
-    ));
+    let _ = writeln!(
+        svg,
+        r#"<rect class="title-border" x="{x}" y="{y}" width="{tb_width}" height="{tb_height}"/>"#
+    );
 
     // Horizontal divider.
     let mid_y = y + tb_height / 2.0;
-    svg.push_str(&format!(
-        r#"<line class="title-border" x1="{x}" y1="{mid_y}" x2="{}" y2="{mid_y}"/>
-"#,
+    let _ = writeln!(
+        svg,
+        r#"<line class="title-border" x1="{x}" y1="{mid_y}" x2="{}" y2="{mid_y}"/>"#,
         x + tb_width,
-    ));
+    );
 
-    // Vertical dividers (3 columns).
+    // Vertical dividers.
     let col1 = x + tb_width / 3.0;
     let col2 = x + 2.0 * tb_width / 3.0;
-    svg.push_str(&format!(
+    let _ = write!(
+        svg,
         r#"<line class="title-border" x1="{col1}" y1="{y}" x2="{col1}" y2="{}"/>
 <line class="title-border" x1="{col2}" y1="{y}" x2="{col2}" y2="{}"/>
 "#,
         y + tb_height,
         y + tb_height,
-    ));
+    );
 
     // Text entries.
     let text_y1 = y + 8.0;
     let text_y2 = mid_y + 8.0;
-    svg.push_str(&format!(
+    let _ = write!(
+        svg,
         r#"<text class="title-text" x="{}" y="{text_y1}">{}</text>
 <text class="title-text" x="{}" y="{text_y1}">{}</text>
 <text class="title-text" x="{}" y="{text_y1}">Dwg: {}</text>
@@ -188,5 +192,5 @@ fn render_title_block(
         x + 4.0, tb.author,
         col1 + 4.0, tb.revision, tb.date,
         col2 + 4.0, tb.scale, tb.sheet_number, tb.sheet_total,
-    ));
+    );
 }

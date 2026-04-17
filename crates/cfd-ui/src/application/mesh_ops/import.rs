@@ -32,9 +32,7 @@ impl UndoableCommand for ImportStlCommand {
             .map_err(|e| anyhow::anyhow!("{e}"))?;
 
         let name = self.path
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "Imported STL".to_owned());
+            .file_stem().map_or_else(|| "Imported STL".to_owned(), |s| s.to_string_lossy().into_owned());
 
         let handle = doc.add_mesh(mesh);
         let node_idx = doc.scene.add_node(name, SceneEntity::Mesh(handle));
@@ -55,7 +53,7 @@ impl UndoableCommand for ImportStlCommand {
         Ok(())
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Import STL"
     }
 }
@@ -114,9 +112,7 @@ impl UndoableCommand for ImportMeshCommand {
 
         let name = self
             .path
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "Imported Mesh".to_owned());
+            .file_stem().map_or_else(|| "Imported Mesh".to_owned(), |s| s.to_string_lossy().into_owned());
 
         let handle = doc.add_mesh(mesh);
         let node_idx = doc.scene.add_node(name, SceneEntity::Mesh(handle));
@@ -137,7 +133,7 @@ impl UndoableCommand for ImportMeshCommand {
         Ok(())
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Import Mesh"
     }
 }

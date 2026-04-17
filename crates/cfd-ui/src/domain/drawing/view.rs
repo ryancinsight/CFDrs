@@ -43,7 +43,7 @@ impl ViewType {
     #[must_use]
     pub fn direction(&self) -> Vector3<f64> {
         match self {
-            Self::Front => Vector3::new(0.0, 0.0, -1.0),
+            Self::Front | Self::Detail { .. } => Vector3::new(0.0, 0.0, -1.0),
             Self::Back => Vector3::new(0.0, 0.0, 1.0),
             Self::Top => Vector3::new(0.0, -1.0, 0.0),
             Self::Bottom => Vector3::new(0.0, 1.0, 0.0),
@@ -55,7 +55,6 @@ impl ViewType {
             Self::Section { plane_normal, .. } => {
                 Vector3::new(plane_normal[0], plane_normal[1], plane_normal[2])
             }
-            Self::Detail { .. } => Vector3::new(0.0, 0.0, -1.0),
         }
     }
 

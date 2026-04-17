@@ -47,12 +47,12 @@ impl ViewCubeRegion {
     #[must_use]
     pub fn to_named_view(self) -> NamedView {
         match self {
-            Self::Front => NamedView::Front,
-            Self::Back => NamedView::Back,
+            Self::Front | Self::FrontTop | Self::FrontBottom | Self::FrontBottomLeft | Self::FrontBottomRight => NamedView::Front,
+            Self::Back | Self::BackTop | Self::BackBottom | Self::BackBottomLeft | Self::BackBottomRight => NamedView::Back,
             Self::Top => NamedView::Top,
             Self::Bottom => NamedView::Bottom,
-            Self::Left => NamedView::Left,
-            Self::Right => NamedView::Right,
+            Self::Left | Self::BottomLeft => NamedView::Left,
+            Self::Right | Self::BottomRight => NamedView::Right,
             // Edge and corner regions snap to the nearest isometric view.
             Self::FrontTopRight | Self::FrontRight | Self::TopRight => {
                 NamedView::IsoFrontTopRight
@@ -62,16 +62,6 @@ impl ViewCubeRegion {
             }
             Self::BackTopRight | Self::BackRight => NamedView::IsoBackTopRight,
             Self::BackTopLeft | Self::BackLeft => NamedView::IsoBackTopLeft,
-            // Bottom edges/corners: snap to the face with the most visible area.
-            Self::FrontTop => NamedView::Front,
-            Self::FrontBottom | Self::FrontBottomLeft | Self::FrontBottomRight => {
-                NamedView::Front
-            }
-            Self::BackTop | Self::BackBottom | Self::BackBottomLeft | Self::BackBottomRight => {
-                NamedView::Back
-            }
-            Self::BottomLeft => NamedView::Left,
-            Self::BottomRight => NamedView::Right,
         }
     }
 }

@@ -11,7 +11,7 @@ pub struct DofAnalysis {
     pub constraint_equations: usize,
     /// Overall constraint status.
     pub status: DofStatus,
-    /// Remaining free DOFs (total_dofs - constraint_equations).
+    /// Remaining free DOFs (`total_dofs` - `constraint_equations`).
     pub free_dof_count: i32,
 }
 
@@ -37,12 +37,10 @@ pub fn analyze_dofs(sketch: &Sketch) -> DofAnalysis {
         .sum();
 
     let free = total_dofs as i32 - constraint_equations as i32;
-    let status = if free > 0 {
-        DofStatus::UnderConstrained
-    } else if free == 0 {
-        DofStatus::FullyConstrained
-    } else {
-        DofStatus::OverConstrained
+    let status = match free.cmp(&0) {
+        std::cmp::Ordering::Greater => DofStatus::UnderConstrained,
+        std::cmp::Ordering::Equal => DofStatus::FullyConstrained,
+        std::cmp::Ordering::Less => DofStatus::OverConstrained,
     };
 
     DofAnalysis {

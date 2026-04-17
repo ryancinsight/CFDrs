@@ -10,11 +10,11 @@
 
 /// Offscreen render target for wgpu-based 3D rendering.
 pub struct OffscreenTarget {
-    /// Color attachment texture (Bgra8UnormSrgb).
+    /// Color attachment texture (`Bgra8UnormSrgb`).
     pub color_texture: wgpu::Texture,
     /// View into the color texture.
     pub color_view: wgpu::TextureView,
-    /// Depth/stencil attachment texture (Depth32Float).
+    /// Depth/stencil attachment texture (`Depth32Float`).
     pub depth_texture: wgpu::Texture,
     /// View into the depth texture.
     pub depth_view: wgpu::TextureView,
@@ -30,13 +30,14 @@ pub struct OffscreenTarget {
 
 impl OffscreenTarget {
     /// Create a new offscreen target with the given dimensions.
+    #[must_use]
     pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let (color_texture, color_view) = create_color_texture(device, width, height);
         let (depth_texture, depth_view) = create_depth_texture(device, width, height);
         let padded_row_bytes = padded_bytes_per_row(width);
         let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("offscreen staging"),
-            size: (padded_row_bytes * height) as u64,
+            size: u64::from(padded_row_bytes * height),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });

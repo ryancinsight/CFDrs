@@ -1,4 +1,4 @@
-//! Export module — STL, OBJ, PLY, GLB, DXF, OpenFOAM, engineering drawing export.
+//! Export module — STL, OBJ, PLY, GLB, DXF, `OpenFOAM`, engineering drawing export.
 
 pub mod dxf;
 pub mod drawing_export;

@@ -4,7 +4,7 @@
 //! not in the `ProjectDocument`. Since `UndoableCommand` takes
 //! `&mut ProjectDocument`, the clip plane set is stored separately
 //! and these commands are applied directly (not through the history).
-//! This is consistent with SolidWorks where section planes are view
+//! This is consistent with `SolidWorks` where section planes are view
 //! state, not model state.
 
 use crate::domain::clipping::{ClipPlane, ClipPlaneId, ClipPlaneSet};

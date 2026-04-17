@@ -18,6 +18,7 @@ pub struct PickRenderPipeline {
 
 impl PickRenderPipeline {
     /// Create the pick pipeline.
+    #[must_use]
     pub fn new(device: &wgpu::Device) -> Self {
         let shader_source = include_str!("../shaders/pick.wgsl");
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {

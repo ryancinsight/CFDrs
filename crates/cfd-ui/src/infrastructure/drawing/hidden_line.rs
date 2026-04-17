@@ -19,7 +19,7 @@ impl DepthClassifier {
     /// Create a depth buffer at the given resolution.
     ///
     /// The `bounds` define the 2D bounding box of the projected geometry
-    /// as (min_x, min_y, max_x, max_y).
+    /// as (`min_x`, `min_y`, `max_x`, `max_y`).
     #[must_use]
     pub fn new(width: usize, height: usize, bounds: (f64, f64, f64, f64)) -> Self {
         let (min_x, min_y, max_x, max_y) = bounds;
@@ -70,9 +70,9 @@ impl DepthClassifier {
                 if let Some((u, v, w)) = barycentric(
                     &TriPoint { px, py },
                     &Triangle {
-                        ax: s0.0 as f64, ay: s0.1 as f64,
-                        bx: s1.0 as f64, by: s1.1 as f64,
-                        cx: s2.0 as f64, cy: s2.1 as f64,
+                        ax: f64::from(s0.0), ay: f64::from(s0.1),
+                        bx: f64::from(s1.0), by: f64::from(s1.1),
+                        cx: f64::from(s2.0), cy: f64::from(s2.1),
                     },
                 ) {
                     let depth = u * d0 + v * d1 + w * d2;

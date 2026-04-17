@@ -18,13 +18,14 @@ pub struct PickTarget {
 
 impl PickTarget {
     /// Create a new pick target with the given dimensions.
+    #[must_use]
     pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let (color_texture, color_view) = create_pick_color_texture(device, width, height);
         let (depth_texture, depth_view) = create_pick_depth_texture(device, width, height);
         let padded_row_bytes = padded_bytes_per_row(width);
         let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("pick staging"),
-            size: (padded_row_bytes * height) as u64,
+            size: u64::from(padded_row_bytes * height),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
@@ -128,13 +129,13 @@ impl PickTarget {
 /// - R = node & 0xFF, G = (node >> 8) & 0xFF
 /// - B = face & 0xFF, A = (face >> 8) & 0xFF
 ///
-/// But the texture is Bgra8UnormSrgb, so BGRA byte order:
+/// But the texture is `Bgra8UnormSrgb`, so BGRA byte order:
 /// byte[0]=B, byte[1]=G, byte[2]=R, byte[3]=A
 fn decode_pick_pixel(bgra: [u8; 4]) -> Option<(u32, u32)> {
-    let r = bgra[2] as u32;
-    let g = bgra[1] as u32;
-    let b = bgra[0] as u32;
-    let a = bgra[3] as u32;
+    let r = u32::from(bgra[2]);
+    let g = u32::from(bgra[1]);
+    let b = u32::from(bgra[0]);
+    let a = u32::from(bgra[3]);
 
     let node_idx = r | (g << 8);
     let face_idx = b | (a << 8);

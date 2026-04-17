@@ -98,6 +98,29 @@ impl ProjectDocument {
     pub fn mark_dirty(&mut self) {
         self.dirty = true;
     }
+
+    /// Iterate over all live mesh slots.
+    pub(crate) fn mesh_slots(&self) -> impl Iterator<Item = (usize, &IndexedMesh<f64>)> {
+        self.meshes
+            .iter()
+            .enumerate()
+            .filter_map(|(slot, mesh)| mesh.as_ref().map(|mesh| (slot, mesh)))
+    }
+
+    /// Rebuild a document from persisted state.
+    pub(crate) fn from_parts(
+        metadata: ProjectMetadata,
+        scene: SceneGraph,
+        meshes: Vec<Option<IndexedMesh<f64>>>,
+        dirty: bool,
+    ) -> Self {
+        Self {
+            metadata,
+            scene,
+            meshes,
+            dirty,
+        }
+    }
 }
 
 impl Default for ProjectDocument {

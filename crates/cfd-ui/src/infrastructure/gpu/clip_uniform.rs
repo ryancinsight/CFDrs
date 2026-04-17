@@ -16,7 +16,7 @@ pub struct ClipUniforms {
     /// Bitmask: bit `i` set means plane `i` is active.
     pub enable_mask: u32,
     /// Padding to 16-byte alignment.
-    pub _pad: [u32; 3],
+    pub pad: [u32; 3],
 }
 
 impl ClipUniforms {

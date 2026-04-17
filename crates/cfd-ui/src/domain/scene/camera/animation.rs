@@ -108,7 +108,7 @@ impl CameraAnimator {
         };
 
         self.current_frame += 1;
-        let t = ease_in_out(self.current_frame as f64 / self.total_frames as f64);
+        let t = ease_in_out(f64::from(self.current_frame) / f64::from(self.total_frames));
 
         camera.target = lerp_point(&start.target, &end.target, t);
         camera.distance = start.distance + (end.distance - start.distance) * t;

@@ -150,8 +150,48 @@ impl SceneGraph {
     pub fn children(&self, idx: usize) -> &[usize] {
         self.nodes
             .get(idx)
-            .map(|n| n.children.as_slice())
-            .unwrap_or(&[])
+            .map_or(&[], |n| n.children.as_slice())
+    }
+
+    /// Immutable access to the full flat node store.
+    #[must_use]
+    pub(crate) fn nodes(&self) -> &[SceneNode] {
+        &self.nodes
+    }
+
+    /// Rebuild a scene graph from validated flat storage.
+    pub(crate) fn from_parts(
+        nodes: Vec<SceneNode>,
+        root: usize,
+        camera: OrbitalCamera,
+    ) -> anyhow::Result<Self> {
+        if nodes.is_empty() {
+            anyhow::bail!("scene graph must contain at least the root node");
+        }
+        if root >= nodes.len() {
+            anyhow::bail!("scene graph root index {root} is out of bounds");
+        }
+        if nodes[root].parent.is_some() {
+            anyhow::bail!("scene graph root node must not have a parent");
+        }
+
+        for (idx, node) in nodes.iter().enumerate() {
+            for &child in &node.children {
+                if child >= nodes.len() {
+                    anyhow::bail!("scene node {idx} references out-of-bounds child {child}");
+                }
+                if nodes[child].parent != Some(idx) {
+                    anyhow::bail!(
+                        "scene node {idx} child {child} does not point back to its parent"
+                    );
+                }
+            }
+            if idx != root && node.parent.is_none() {
+                anyhow::bail!("scene node {idx} is disconnected from the root");
+            }
+        }
+
+        Ok(Self { nodes, root, camera })
     }
 }
 

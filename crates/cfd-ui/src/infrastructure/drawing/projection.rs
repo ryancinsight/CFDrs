@@ -54,6 +54,7 @@ impl OrthographicProjector {
     ///
     /// Uses a simplified visibility heuristic: edges whose face normals both
     /// face away from the view direction are classified as hidden.
+    #[must_use]
     pub fn project_mesh(&self, mesh: &IndexedMesh<f64>) -> ProjectedEdges {
         let mut visible = Vec::new();
         let mut hidden = Vec::new();

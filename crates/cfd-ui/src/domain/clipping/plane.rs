@@ -78,7 +78,7 @@ impl ClipPreset {
     }
 }
 
-/// Container for up to 6 clip planes (SolidWorks standard).
+/// Container for up to 6 clip planes (`SolidWorks` standard).
 #[derive(Clone, Debug, Default)]
 pub struct ClipPlaneSet {
     planes: [Option<ClipPlane>; 6],

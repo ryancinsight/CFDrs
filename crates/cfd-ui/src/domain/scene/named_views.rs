@@ -77,10 +77,10 @@ impl NamedView {
             Self::Bottom => "BOTTOM",
             Self::Left => "LEFT",
             Self::Right => "RIGHT",
-            Self::IsoFrontTopRight => "ISO",
-            Self::IsoFrontTopLeft => "ISO",
-            Self::IsoBackTopRight => "ISO",
-            Self::IsoBackTopLeft => "ISO",
+            Self::IsoFrontTopRight
+            | Self::IsoFrontTopLeft
+            | Self::IsoBackTopRight
+            | Self::IsoBackTopLeft => "ISO",
         }
     }
 
@@ -92,7 +92,7 @@ impl NamedView {
 }
 
 /// Standard isometric elevation: arctan(1/√2) ≈ 35.264°.
-const ISO_ELEVATION: f64 = 0.6154797086703874;
+const ISO_ELEVATION: f64 = 0.615_479_708_670_387_4;
 
 #[cfg(test)]
 mod tests {

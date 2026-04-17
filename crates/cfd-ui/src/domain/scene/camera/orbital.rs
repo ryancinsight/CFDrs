@@ -1,4 +1,4 @@
-//! OrbitalCamera — interactive camera with orbit, pan, and zoom control.
+//! `OrbitalCamera` — interactive camera with orbit, pan, and zoom control.
 //!
 //! # Theorem — View Matrix Orthonormality
 //!

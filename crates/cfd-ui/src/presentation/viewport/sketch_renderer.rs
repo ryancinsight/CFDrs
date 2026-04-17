@@ -85,6 +85,7 @@ pub fn build_sketch_lines(sketch: &Sketch, dof: &DofAnalysis) -> (Vec<OverlayLin
 }
 
 /// Build GPU overlay buffers for sketch rendering.
+#[must_use]
 pub fn build_sketch_buffers(
     sketch: &Sketch,
     dof: &DofAnalysis,

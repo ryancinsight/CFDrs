@@ -1,4 +1,4 @@
-//! TrackballCamera — quaternion-based camera with no gimbal lock.
+//! `TrackballCamera` — quaternion-based camera with no gimbal lock.
 //!
 //! # Theorem — Quaternion Rotation Preserves Unit Norm
 //!

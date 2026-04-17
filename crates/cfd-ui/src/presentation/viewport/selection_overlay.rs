@@ -29,6 +29,7 @@ impl SelectionOverlay {
     /// Rebuild the overlay buffers from the current selection state.
     ///
     /// `face_positions` contains `[v0, v1, v2]` for each face of the selected node.
+    #[must_use]
     pub fn rebuild(
         selection: &SelectionSet,
         granularity: SelectionGranularity,

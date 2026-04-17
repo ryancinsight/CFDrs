@@ -106,7 +106,7 @@ impl ViewportRenderer {
         clip_planes: &ClipPlaneSet,
         overlays: &RenderOverlays,
     ) -> Vec<u8> {
-        let aspect = self.target.width as f64 / self.target.height.max(1) as f64;
+        let aspect = f64::from(self.target.width) / f64::from(self.target.height.max(1));
         let view = camera.view_matrix();
         let proj = camera.projection_matrix(aspect);
         let view_proj = proj * view;
@@ -118,9 +118,9 @@ impl ViewportRenderer {
         let uniforms = ViewUniforms {
             view_proj: vp,
             camera_pos: [eye.x as f32, eye.y as f32, eye.z as f32],
-            _pad0: 0.0,
+            pad0: 0.0,
             light_dir: [light_dir.x as f32, light_dir.y as f32, light_dir.z as f32],
-            _pad1: 0.0,
+            pad1: 0.0,
             shading_mode: self.shading_mode as u32,
             field_min: 0.0,
             field_max: 1.0,
@@ -263,7 +263,7 @@ impl ViewportRenderer {
     ///
     /// This is called separately from `render()` and only when a click is detected.
     pub fn render_pick_pass(&self, camera: &OrbitalCamera) {
-        let aspect = self.target.width as f64 / self.target.height.max(1) as f64;
+        let aspect = f64::from(self.target.width) / f64::from(self.target.height.max(1));
         let view = camera.view_matrix();
         let proj = camera.projection_matrix(aspect);
         let view_proj = proj * view;
@@ -274,9 +274,9 @@ impl ViewportRenderer {
         let uniforms = ViewUniforms {
             view_proj: vp,
             camera_pos: [eye.x as f32, eye.y as f32, eye.z as f32],
-            _pad0: 0.0,
+            pad0: 0.0,
             light_dir: [0.0, 1.0, 0.0],
-            _pad1: 0.0,
+            pad1: 0.0,
             shading_mode: 0,
             field_min: 0.0,
             field_max: 1.0,

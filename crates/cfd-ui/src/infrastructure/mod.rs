@@ -3,3 +3,4 @@
 pub mod drawing;
 pub mod file_dialog;
 pub mod gpu;
+pub mod project_io;

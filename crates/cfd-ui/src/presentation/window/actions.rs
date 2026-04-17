@@ -64,6 +64,7 @@ use super::workspace::Workspace;
 use crate::application::mesh_ops::csg::{CsgBooleanCommand, CsgOp};
 use crate::application::mesh_ops::import::{ImportMeshCommand, ImportStlCommand};
 use crate::application::mesh_ops::primitives::{CreatePrimitiveCommand, PrimitiveSpec};
+use crate::application::simulation::runner::run_reference_internal_flow_analysis;
 use crate::domain::scene::graph::SceneEntity;
 use crate::infrastructure::gpu::pipeline::ShadingMode;
 
@@ -595,7 +596,27 @@ impl Workspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.state.console.warn("Project serialization not yet implemented.".to_owned());
+        use crate::infrastructure::file_dialog::{self, FileFilter};
+
+        let Some(path) = file_dialog::open_file(FileFilter::Project) else {
+            return;
+        };
+        match crate::infrastructure::project_io::load_project_document(&path) {
+            Ok(document) => {
+                let mut next_state = crate::presentation::workspace::WorkspaceState::new();
+                next_state.document = document;
+                next_state
+                    .console
+                    .info(format!("Opened project {}", path.display()));
+                self.state = next_state;
+                self.refresh_viewport();
+            }
+            Err(error) => {
+                self.state
+                    .console
+                    .error(format!("Project open failed: {error}"));
+            }
+        }
         cx.notify();
     }
 
@@ -605,7 +626,24 @@ impl Workspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.state.console.warn("Project serialization not yet implemented.".to_owned());
+        use crate::infrastructure::file_dialog::{self, FileFilter};
+
+        let Some(path) = file_dialog::save_file(FileFilter::Project) else {
+            return;
+        };
+        match crate::infrastructure::project_io::save_project_document(
+            &path,
+            &mut self.state.document,
+        ) {
+            Ok(()) => self
+                .state
+                .console
+                .info(format!("Saved project to {}", path.display())),
+            Err(error) => self
+                .state
+                .console
+                .error(format!("Project save failed: {error}")),
+        }
         cx.notify();
     }
 
@@ -653,7 +691,7 @@ impl Workspace {
         cx.notify();
     }
 
-    // -- Simulation handlers (stubs — solver logic stays in cfd-1d/2d/3d) -----
+    // -- Simulation handlers -------------------------------------------------
 
     pub(crate) fn handle_run_simulation(
         &mut self,
@@ -661,9 +699,44 @@ impl Workspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.state.console.info(
-            "Simulation setup required. Solver integration with cfd-2d/3d pending.".to_owned(),
-        );
+        let handle = self
+            .selected_mesh_handle()
+            .or_else(|| self.first_visible_mesh_handle());
+        let Some(handle) = handle else {
+            self.state.console.error(
+                "Reference flow analysis requires a selected or visible mesh.".to_owned(),
+            );
+            cx.notify();
+            return;
+        };
+
+        let result = self
+            .state
+            .document
+            .mesh_mut(handle)
+            .ok_or_else(|| anyhow::anyhow!("mesh data not found for selected scene node"))
+            .and_then(run_reference_internal_flow_analysis);
+
+        match result {
+            Ok((setup, results, summary)) => {
+                self.state.console.info(format!(
+                    "Reference laminar solve completed: D={:.3e} m, L={:.3e} m, U={:.3e} m/s, Re={:.1}, Δp={:.3e} Pa, τw={:.3e} Pa, fields={}.",
+                    setup.hydraulic_diameter_m,
+                    setup.channel_length_m,
+                    summary.mean_velocity_m_s,
+                    summary.reynolds_number,
+                    summary.pressure_drop_pa,
+                    summary.wall_shear_pa,
+                    results.fields.len()
+                ));
+                self.state.document.mark_dirty();
+                self.refresh_viewport();
+            }
+            Err(error) => self
+                .state
+                .console
+                .error(format!("Reference flow analysis failed: {error}")),
+        }
         cx.notify();
     }
 
@@ -673,7 +746,10 @@ impl Workspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.state.console.info("No simulation running.".to_owned());
+        self.state.console.info(
+            "No background simulation is active; UI reference analyses run synchronously."
+                .to_owned(),
+        );
         cx.notify();
     }
 

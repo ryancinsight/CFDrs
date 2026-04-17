@@ -34,6 +34,7 @@ pub struct OverlayPipeline {
 
 impl OverlayPipeline {
     /// Create the overlay pipeline with line and triangle sub-pipelines.
+    #[must_use]
     pub fn new(device: &wgpu::Device) -> Self {
         let shader_source = include_str!("../shaders/overlay.wgsl");
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {

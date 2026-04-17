@@ -35,6 +35,7 @@ pub struct OverlayBuffer {
 
 impl OverlayBuffer {
     /// Build a line-list overlay buffer from line segments.
+    #[must_use]
     pub fn from_lines(lines: &[OverlayLine], device: &wgpu::Device) -> Self {
         let mut vertices = Vec::with_capacity(lines.len() * 2);
         for line in lines {
@@ -51,6 +52,7 @@ impl OverlayBuffer {
     }
 
     /// Build a triangle-list overlay buffer from triangles.
+    #[must_use]
     pub fn from_triangles(tris: &[OverlayTriangle], device: &wgpu::Device) -> Self {
         let mut vertices = Vec::with_capacity(tris.len() * 3);
         for tri in tris {
@@ -62,6 +64,7 @@ impl OverlayBuffer {
     }
 
     /// Build from raw vertices.
+    #[must_use]
     pub fn from_vertices(vertices: &[OverlayVertex], device: &wgpu::Device) -> Self {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("overlay vertex buffer"),

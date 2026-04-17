@@ -49,6 +49,7 @@ impl FileFilter {
 }
 
 /// Show an open-file dialog with the given filter. Returns the selected path.
+#[must_use]
 pub fn open_file(filter: FileFilter) -> Option<PathBuf> {
     #[cfg(target_arch = "wasm32")]
     {
@@ -64,6 +65,7 @@ pub fn open_file(filter: FileFilter) -> Option<PathBuf> {
 }
 
 /// Show a save-file dialog with the given filter. Returns the selected path.
+#[must_use]
 pub fn save_file(filter: FileFilter) -> Option<PathBuf> {
     #[cfg(target_arch = "wasm32")]
     {
@@ -79,6 +81,7 @@ pub fn save_file(filter: FileFilter) -> Option<PathBuf> {
 }
 
 /// Show a folder picker dialog. Returns the selected directory path.
+#[must_use]
 pub fn pick_folder() -> Option<PathBuf> {
     #[cfg(target_arch = "wasm32")]
     {

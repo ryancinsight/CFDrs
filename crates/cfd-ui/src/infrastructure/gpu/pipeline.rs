@@ -26,10 +26,10 @@ pub struct ViewUniforms {
     pub view_proj: [[f32; 4]; 4],
     /// Camera eye position in world space.
     pub camera_pos: [f32; 3],
-    pub _pad0: f32,
+    pub pad0: f32,
     /// Directional light direction (normalized, world space).
     pub light_dir: [f32; 3],
-    pub _pad1: f32,
+    pub pad1: f32,
     /// Shading mode (0=flat, 1=smooth, 2=wireframe).
     pub shading_mode: u32,
     /// Field visualization min value.
@@ -60,6 +60,7 @@ pub struct MeshRenderPipeline {
 
 impl MeshRenderPipeline {
     /// Create the mesh render pipeline with clip plane support.
+    #[must_use]
     pub fn new(device: &wgpu::Device) -> Self {
         let shader_source = include_str!("../shaders/mesh.wgsl");
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {

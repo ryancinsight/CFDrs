@@ -115,6 +115,7 @@ fn cross_hair_lines(center: &[f64; 3]) -> Vec<OverlayLine> {
 }
 
 /// Build GPU overlay buffer for measurement lines.
+#[must_use]
 pub fn build_measure_overlay(store: &MeasurementStore, device: &wgpu::Device) -> OverlayBuffer {
     let lines = measurement_overlay_lines(store);
     OverlayBuffer::from_lines(&lines, device)

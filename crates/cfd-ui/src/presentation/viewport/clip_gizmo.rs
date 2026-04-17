@@ -54,6 +54,7 @@ pub fn clip_plane_normal_arrow(plane: &ClipPlane) -> Vec<OverlayLine> {
 }
 
 /// Build GPU overlay buffers for a clip plane gizmo.
+#[must_use]
 pub fn build_clip_gizmo_buffers(
     plane: &ClipPlane,
     device: &wgpu::Device,

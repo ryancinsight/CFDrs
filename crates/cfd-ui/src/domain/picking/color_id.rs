@@ -4,7 +4,7 @@
 //! back. The encoding uses 16 bits per index (supports up to 65535 nodes
 //! and 65535 faces per node).
 
-/// Encode a (node_index, sub_element_index) pair into RGBA bytes.
+/// Encode a (`node_index`, `sub_element_index`) pair into RGBA bytes.
 ///
 /// Layout: R = node[7:0], G = node[15:8], B = sub[7:0], A = sub[15:8].
 #[must_use]
@@ -17,13 +17,13 @@ pub fn encode(node_idx: u32, sub_idx: u32) -> [u8; 4] {
     ]
 }
 
-/// Decode RGBA bytes back to (node_index, sub_element_index).
+/// Decode RGBA bytes back to (`node_index`, `sub_element_index`).
 ///
 /// Returns `None` for the background (all zeros).
 #[must_use]
 pub fn decode(rgba: [u8; 4]) -> Option<(u32, u32)> {
-    let node = rgba[0] as u32 | ((rgba[1] as u32) << 8);
-    let sub = rgba[2] as u32 | ((rgba[3] as u32) << 8);
+    let node = u32::from(rgba[0]) | (u32::from(rgba[1]) << 8);
+    let sub = u32::from(rgba[2]) | (u32::from(rgba[3]) << 8);
     if node == 0 && sub == 0 {
         return None;
     }

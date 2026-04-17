@@ -97,7 +97,7 @@ impl WorkPlane {
 
     /// The 4x4 model matrix that transforms sketch 2D coordinates to world 3D.
     ///
-    /// Columns: [u_axis, v_axis, normal, origin] (homogeneous).
+    /// Columns: [`u_axis`, `v_axis`, normal, origin] (homogeneous).
     #[must_use]
     pub fn model_matrix(&self) -> Matrix4<f64> {
         Matrix4::new(
