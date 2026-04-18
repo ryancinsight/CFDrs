@@ -2,6 +2,7 @@ use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeId, NodeK
 use cfd_schematics::visualizations::{
     AnnotationMarker, MarkerRole, RenderConfig, SchematicAnnotations,
 };
+use cfd_schematics::BlueprintRenderHints;
 use cfd_schematics::{plot_geometry, plot_geometry_with_annotations, plot_geometry_with_config};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -86,6 +87,19 @@ fn synthetic_system() -> NetworkBlueprint {
     }
 }
 
+fn synthetic_hinted_system() -> NetworkBlueprint {
+    let mut system = synthetic_system();
+    system.render_hints = Some(BlueprintRenderHints {
+        stage_sequence: "PentaTri".to_string(),
+        split_layers: 2,
+        throat_count_hint: 3,
+        treatment_label: "venturi".to_string(),
+        mirror_x: false,
+        mirror_y: false,
+    });
+    system
+}
+
 fn unique_svg_path(prefix: &str) -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -147,4 +161,17 @@ fn auto_annotations_include_computed_volume_label() {
     let svg = std::fs::read_to_string(&path).expect("must read rendered svg");
     assert!(svg.contains("Volume:"));
     assert!(!svg.contains("Volume: --"));
+}
+
+#[test]
+fn auto_annotations_with_render_hints_render_volume_once() {
+    let system = synthetic_hinted_system();
+    let path = unique_svg_path("cfd_schematic_auto_hinted_volume");
+    let path_str = path.to_string_lossy();
+
+    plot_geometry(&system, path_str.as_ref()).expect("hinted schematic render must succeed");
+
+    let svg = std::fs::read_to_string(&path).expect("must read rendered svg");
+    assert_eq!(svg.matches("Volume:").count(), 1);
+    assert!(svg.contains("PentaTri"));
 }

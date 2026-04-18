@@ -148,18 +148,24 @@ pub(super) fn build_auto_annotations(blueprint: &NetworkBlueprint) -> SchematicA
     }
 
     let volume_note = blueprint.fluid_volume_summary().display_label;
+    let show_volume_marker = hints.is_none();
     let y_fraction = 0.88;
     annotations.legend_note = Some(match annotations.legend_note.take() {
         Some(note) => format!("{note} | {volume_note}"),
         None => volume_note.clone(),
     });
-    annotations.markers.push(
-        AnnotationMarker::new(
-            (blueprint.box_dims.0 * 0.50, blueprint.box_dims.1 * y_fraction),
-            MarkerRole::Internal,
-        )
-        .with_label(volume_note, true),
-    );
+    if show_volume_marker {
+        annotations.markers.push(
+            AnnotationMarker::new(
+                (
+                    blueprint.box_dims.0 * 0.50,
+                    blueprint.box_dims.1 * y_fraction,
+                ),
+                MarkerRole::Internal,
+            )
+            .with_label(volume_note, true),
+        );
+    }
 
     annotations
 }

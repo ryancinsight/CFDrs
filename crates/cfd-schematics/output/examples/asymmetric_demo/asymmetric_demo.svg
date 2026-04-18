@@ -237,22 +237,22 @@ X (mm)
 <polyline fill="none" opacity="1" stroke="#000000" stroke-width="2" points="87,80 87,687 "/>
 <polyline fill="none" opacity="1" stroke="#000000" stroke-width="2" points="87,383 87,383 "/>
 <polyline fill="none" opacity="1" stroke="#000000" stroke-width="2" points="835,325 835,325 "/>
-<polyline fill="none" opacity="1" stroke="#000000" stroke-width="2" points="87,383 212,383 "/>
-<polyline fill="none" opacity="1" stroke="#000000" stroke-width="3" points="212,383 336,471 "/>
-<polyline fill="none" opacity="1" stroke="#000000" stroke-width="1" points="212,383 336,179 "/>
-<polyline fill="none" opacity="1" stroke="#000000" stroke-width="3" points="336,471 461,471 "/>
+<polyline fill="none" opacity="1" stroke="#000000" stroke-width="4" points="87,383 212,383 "/>
+<polyline fill="none" opacity="1" stroke="#000000" stroke-width="6" points="212,383 336,471 "/>
+<polyline fill="none" opacity="1" stroke="#000000" stroke-width="2" points="212,383 336,179 "/>
+<polyline fill="none" opacity="1" stroke="#000000" stroke-width="5" points="336,471 461,471 "/>
 <polyline fill="none" opacity="1" stroke="#000000" stroke-width="1" points="336,179 461,179 "/>
-<polyline fill="none" opacity="1" stroke="#000000" stroke-width="3" points="461,471 586,471 "/>
+<polyline fill="none" opacity="1" stroke="#000000" stroke-width="5" points="461,471 586,471 "/>
 <polyline fill="none" opacity="1" stroke="#000000" stroke-width="1" points="461,179 586,179 "/>
-<polyline fill="none" opacity="1" stroke="#000000" stroke-width="3" points="586,471 710,325 "/>
-<polyline fill="none" opacity="1" stroke="#000000" stroke-width="1" points="586,179 710,325 "/>
-<polyline fill="none" opacity="1" stroke="#000000" stroke-width="2" points="710,325 835,325 "/>
+<polyline fill="none" opacity="1" stroke="#000000" stroke-width="6" points="586,471 710,325 "/>
+<polyline fill="none" opacity="1" stroke="#000000" stroke-width="2" points="586,179 710,325 "/>
+<polyline fill="none" opacity="1" stroke="#000000" stroke-width="4" points="710,325 835,325 "/>
 <circle cx="87" cy="383" r="6" opacity="1" fill="#0B7285" stroke="none" stroke-width="1"/>
-<text x="93" y="379" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#0B7285">
+<text x="102" y="390" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#0B7285">
 IN1
 </text>
 <circle cx="212" cy="383" r="6" opacity="1" fill="#1D4ED8" stroke="none" stroke-width="1"/>
-<text x="218" y="379" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#1D4ED8">
+<text x="227" y="396" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#1D4ED8">
 S1
 </text>
 <circle cx="336" cy="471" r="6" opacity="1" fill="#374151" stroke="none" stroke-width="1"/>
@@ -262,15 +262,15 @@ S1
 <circle cx="586" cy="471" r="6" opacity="1" fill="#374151" stroke="none" stroke-width="1"/>
 <circle cx="586" cy="179" r="6" opacity="1" fill="#374151" stroke="none" stroke-width="1"/>
 <circle cx="710" cy="325" r="6" opacity="1" fill="#D97706" stroke="none" stroke-width="1"/>
-<text x="716" y="320" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#D97706">
+<text x="695" y="313" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#D97706">
 M1
 </text>
 <circle cx="835" cy="325" r="6" opacity="1" fill="#A61E4D" stroke="none" stroke-width="1"/>
-<text x="841" y="320" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#A61E4D">
+<text x="820" y="319" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#A61E4D">
 OUT1
 </text>
 <circle cx="461" cy="153" r="6" opacity="1" fill="#374151" stroke="none" stroke-width="1"/>
-<text x="467" y="148" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#374151">
+<text x="446" y="142" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#374151">
 Volume: 77.611 uL over 182.89 mm
 </text>
 <text x="102" y="110" dy="0.76em" text-anchor="start" font-family="sans-serif" font-size="9.67741935483871" opacity="1" fill="#141414">
