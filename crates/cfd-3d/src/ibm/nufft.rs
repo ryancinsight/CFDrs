@@ -1,5 +1,6 @@
 //! NUFFT-backed coupling helpers for immersed-boundary marker and probe transfer.
 
+use apollofft::Complex64;
 use apollofft::{fft_3d_array, ifft_3d_array, nufft_type1_3d, nufft_type2_3d, UniformGrid3D};
 use cfd_core::{
     error::{Error, Result},
@@ -7,7 +8,6 @@ use cfd_core::{
 };
 use nalgebra::Vector3;
 use ndarray::Array3;
-use apollofft::Complex64;
 
 use super::lagrangian::LagrangianPoint;
 
@@ -36,7 +36,13 @@ impl NufftMarkerCoupler3D {
                 "grid dimensions must be strictly positive".to_string(),
             ));
         }
-        if !lx.is_finite() || !ly.is_finite() || !lz.is_finite() || lx <= 0.0 || ly <= 0.0 || lz <= 0.0 {
+        if !lx.is_finite()
+            || !ly.is_finite()
+            || !lz.is_finite()
+            || lx <= 0.0
+            || ly <= 0.0
+            || lz <= 0.0
+        {
             return Err(Error::InvalidConfiguration(
                 "domain lengths must be finite and strictly positive".to_string(),
             ));
@@ -165,9 +171,15 @@ impl NufftMarkerCoupler3D {
         Ok(())
     }
 
-    fn component_to_array(&self, field: &VelocityField<f64>, component: usize) -> Result<Array3<f64>> {
+    fn component_to_array(
+        &self,
+        field: &VelocityField<f64>,
+        component: usize,
+    ) -> Result<Array3<f64>> {
         if component > 2 {
-            return Err(Error::InvalidInput(format!("invalid velocity component index {component}")));
+            return Err(Error::InvalidInput(format!(
+                "invalid velocity component index {component}"
+            )));
         }
 
         Ok(Array3::from_shape_fn(
@@ -216,7 +228,12 @@ impl NufftMarkerCoupler3D {
     }
 
     fn marker_positions(&self, markers: &[LagrangianPoint<f64>]) -> Vec<(f64, f64, f64)> {
-        self.positions_to_tuples(&markers.iter().map(|marker| marker.position).collect::<Vec<_>>())
+        self.positions_to_tuples(
+            &markers
+                .iter()
+                .map(|marker| marker.position)
+                .collect::<Vec<_>>(),
+        )
     }
 
     fn normalize_spectrum(&self, spectrum: &Array3<Complex64>) -> Array3<Complex64> {
@@ -258,7 +275,10 @@ mod tests {
         let grid = UniformGrid3D::new(8, 8, 8, 0.25, 0.25, 0.25).unwrap();
         let coupler = NufftMarkerCoupler3D::new(grid);
         let field = build_field(grid);
-        let probes = vec![Vector3::new(0.13, 0.27, 0.41), Vector3::new(0.61, 0.19, 0.03)];
+        let probes = vec![
+            Vector3::new(0.13, 0.27, 0.41),
+            Vector3::new(0.61, 0.19, 0.03),
+        ];
 
         let samples = coupler
             .sample_velocity_at_positions(&field, &probes)

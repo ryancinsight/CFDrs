@@ -173,7 +173,9 @@ pub fn process_blueprint_with_reference_trace(
 
     let two_d_result = if config.run_2d_reference {
         let builder = Network2dBuilderSink::new(
-            BloodModel::CarreauYasuda(cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood()),
+            BloodModel::CarreauYasuda(
+                cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood(),
+            ),
             config.density_kg_m3,
             config.total_flow_rate_m3_s,
             config.two_d_grid_nx,

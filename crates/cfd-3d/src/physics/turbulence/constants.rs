@@ -39,6 +39,17 @@ pub const DES_C_DES: f64 = 0.65;
 /// 0.065 (channel) to 0.18 (isotropic turbulence).
 pub const SMAGORINSKY_CS_DEFAULT: f64 = 0.1;
 
+// ── Anisotropic minimum dissipation (AMD) ───────────────────────────────────
+
+/// AMD coefficient C_A = 1/3 for second-order central differencing.
+///
+/// Rozema et al. (2015) show that the continuous derivation yields 1/12, and
+/// the second-order discrete correction for centered finite differences is 1/3.
+pub const AMD_C_A_SECOND_ORDER: f64 = 1.0 / 3.0;
+
+/// AMD coefficient C_A = 1/12 for the continuous gradient-model derivation.
+pub const AMD_C_A_CONTINUOUS: f64 = 1.0 / 12.0;
+
 // ── Deardorff sub-grid scale ─────────────────────────────────────────────────
 
 /// Exponent 1/3 used in the Deardorff (1980) sub-grid eddy viscosity:

@@ -165,10 +165,7 @@ mod tests {
             let n = shape.values(l);
             for i in 0..10 {
                 let expected = if i == node_idx { 1.0 } else { 0.0 };
-                assert_relative_eq!(
-                    n[i], expected,
-                    epsilon = 1e-14,
-                );
+                assert_relative_eq!(n[i], expected, epsilon = 1e-14,);
             }
         }
 
@@ -183,10 +180,7 @@ mod tests {
             let mid_node = 4 + edge_idx;
             for i in 0..10 {
                 let expected = if i == mid_node { 1.0 } else { 0.0 };
-                assert_relative_eq!(
-                    n[i], expected,
-                    epsilon = 1e-14,
-                );
+                assert_relative_eq!(n[i], expected, epsilon = 1e-14,);
             }
         }
     }

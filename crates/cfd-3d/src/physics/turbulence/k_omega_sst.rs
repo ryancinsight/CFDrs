@@ -68,6 +68,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
         wall_distances: Vec<T>,
     ) {
         let n = flow_field.velocity.components.len();
+        assert_eq!(
+            wall_distances.len(),
+            n,
+            "SST wall_distances must match the flow-field size"
+        );
         let three_half = <T as FromPrimitive>::from_f64(1.5)
             .expect("1.5 is an IEEE 754 representable f64 constant");
         let c_mu_quarter = <T as FromPrimitive>::from_f64(0.09_f64.sqrt())
@@ -88,21 +93,21 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
             .map(|&k| num_traits::Float::sqrt(k) / (c_mu_quarter * length_scale))
             .collect();
 
-        let wall_dist = if wall_distances.len() == n {
-            wall_distances
-        } else {
-            vec![T::one(); n]
-        };
-
         self.state = Some(KOmegaSSTState {
             k: k_field,
             omega: omega_field,
-            wall_distance: wall_dist,
+            wall_distance: wall_distances,
         });
     }
 
     /// Initialise with exact k and omega fields.
     pub fn initialize_exact(&mut self, k: Vec<T>, omega: Vec<T>, wall_distances: Vec<T>) {
+        assert_eq!(k.len(), omega.len(), "SST k and omega lengths must match");
+        assert_eq!(
+            k.len(),
+            wall_distances.len(),
+            "SST wall_distance length must match k and omega"
+        );
         self.state = Some(KOmegaSSTState {
             k,
             omega,
@@ -159,23 +164,22 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         match &self.state {
             None => vec![T::zero(); n],
             Some(state) => {
+                assert_eq!(state.k.len(), n, "SST k must match the flow-field size");
+                assert_eq!(
+                    state.omega.len(),
+                    n,
+                    "SST omega must match the flow-field size"
+                );
+                assert_eq!(
+                    state.wall_distance.len(),
+                    n,
+                    "SST wall_distance must match the flow-field size"
+                );
                 let mut viscosity = Vec::with_capacity(n);
                 for idx in 0..n {
-                    let k = if idx < state.k.len() {
-                        state.k[idx]
-                    } else {
-                        T::zero()
-                    };
-                    let om = if idx < state.omega.len() {
-                        state.omega[idx]
-                    } else {
-                        T::one()
-                    };
-                    let d = if idx < state.wall_distance.len() {
-                        state.wall_distance[idx]
-                    } else {
-                        T::one()
-                    };
+                    let k = state.k[idx];
+                    let om = state.omega[idx];
+                    let d = state.wall_distance[idx];
                     let arg2 = num_traits::Float::max(
                         <T as FromPrimitive>::from_f64(2.0)
                             .expect("2.0 is representable in all IEEE 754 types")
@@ -203,7 +207,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         let n = flow_field.velocity.components.len();
         match &self.state {
             None => vec![T::zero(); n],
-            Some(state) => state.k.clone(),
+            Some(state) => {
+                assert_eq!(state.k.len(), n, "SST k must match the flow-field size");
+                state.k.clone()
+            }
         }
     }
 

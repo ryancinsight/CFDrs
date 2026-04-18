@@ -37,7 +37,6 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
-
 use crate::trifurcation::geometry::TrifurcationGeometry3D;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
@@ -144,11 +143,25 @@ impl<
         let geom_f64 = crate::trifurcation::TrifurcationGeometry3D {
             d_parent: self.geometry.d_parent.to_f64().unwrap(),
             l_parent: self.geometry.l_parent.to_f64().unwrap(),
-            d_daughters: [self.geometry.d_daughters[0].to_f64().unwrap(), self.geometry.d_daughters[1].to_f64().unwrap(), self.geometry.d_daughters[2].to_f64().unwrap()],
-            l_daughters: [self.geometry.l_daughters[0].to_f64().unwrap(), self.geometry.l_daughters[1].to_f64().unwrap(), self.geometry.l_daughters[2].to_f64().unwrap()],
+            d_daughters: [
+                self.geometry.d_daughters[0].to_f64().unwrap(),
+                self.geometry.d_daughters[1].to_f64().unwrap(),
+                self.geometry.d_daughters[2].to_f64().unwrap(),
+            ],
+            l_daughters: [
+                self.geometry.l_daughters[0].to_f64().unwrap(),
+                self.geometry.l_daughters[1].to_f64().unwrap(),
+                self.geometry.l_daughters[2].to_f64().unwrap(),
+            ],
             l_transition: self.geometry.l_transition.to_f64().unwrap(),
-            transition: crate::bifurcation::ConicalTransition::SmoothCone { length: self.geometry.l_transition.to_f64().unwrap() },
-            branching_angles: [self.geometry.branching_angles[0].to_f64().unwrap(), self.geometry.branching_angles[1].to_f64().unwrap(), self.geometry.branching_angles[2].to_f64().unwrap()],
+            transition: crate::bifurcation::ConicalTransition::SmoothCone {
+                length: self.geometry.l_transition.to_f64().unwrap(),
+            },
+            branching_angles: [
+                self.geometry.branching_angles[0].to_f64().unwrap(),
+                self.geometry.branching_angles[1].to_f64().unwrap(),
+                self.geometry.branching_angles[2].to_f64().unwrap(),
+            ],
         };
         let target_h = if let Some(h) = self.config.target_mesh_size {
             h.to_f64().unwrap()
@@ -160,8 +173,12 @@ impl<
         mesher.snap_iterations = 0;
         let mesh = mesher.build_volume(&geom_f64);
 
-        println!("DEBUG: Volumetric meshing complete. Vertices: {}, Cells: {}, Boundary Faces: {}", 
-                 mesh.vertex_count(), mesh.cell_count(), mesh.boundary_faces().len());
+        println!(
+            "DEBUG: Volumetric meshing complete. Vertices: {}, Cells: {}, Boundary Faces: {}",
+            mesh.vertex_count(),
+            mesh.cell_count(),
+            mesh.boundary_faces().len()
+        );
 
         let stats_vertex_count = mesh.vertex_count();
         let stats_cell_count = mesh.cell_count();
@@ -207,23 +224,23 @@ impl<
             let axial = point.coords.dot(&axis);
             (point.coords - axis * axial).norm()
         };
-        let face_axis_alignment = |
-            face: &cfd_mesh::infrastructure::storage::face_store::FaceData,
-            axis: nalgebra::Vector3<f64>,
-        | -> f64 {
-            if face.vertices.len() < 3 {
-                return 0.0_f64;
-            }
-            let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
-            let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
-            let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
-            let n_vec = (v1 - v0).cross(&(v2 - v0));
-            let norm = n_vec.norm();
-            if norm <= 1e-12_f64 {
-                return 0.0_f64;
-            }
-            n_vec.normalize().dot(&axis).abs()
-        };
+        let face_axis_alignment =
+            |face: &cfd_mesh::infrastructure::storage::face_store::FaceData,
+             axis: nalgebra::Vector3<f64>|
+             -> f64 {
+                if face.vertices.len() < 3 {
+                    return 0.0_f64;
+                }
+                let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
+                let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
+                let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
+                let n_vec = (v1 - v0).cross(&(v2 - v0));
+                let norm = n_vec.norm();
+                if norm <= 1e-12_f64 {
+                    return 0.0_f64;
+                }
+                n_vec.normalize().dot(&axis).abs()
+            };
         let classify_boundary_faces = |min_alignment: f64| {
             let mut local_face_sets = crate::fem::boundary_classifier::BoundaryFaceSets::default();
             let mut local_boundary_face_centroids = Vec::with_capacity(mesh.boundary_faces().len());
@@ -293,7 +310,10 @@ impl<
                             .entry(label.clone())
                             .or_default()
                             .push(f_id);
-                        let per_label = local_face_sets.outlet_nodes_by_label.entry(label).or_default();
+                        let per_label = local_face_sets
+                            .outlet_nodes_by_label
+                            .entry(label)
+                            .or_default();
                         for &v_idx in &face.vertices {
                             let id = v_idx.as_usize();
                             local_face_sets.outlet_nodes.insert(id);
@@ -340,7 +360,11 @@ impl<
             boundary_conditions.insert(
                 v_idx,
                 cfd_core::physics::boundary::BoundaryCondition::VelocityInlet {
-                    velocity: nalgebra::Vector3::new(u_inlet.to_f64().unwrap_or(0.0), 0.0_f64, 0.0_f64),
+                    velocity: nalgebra::Vector3::new(
+                        u_inlet.to_f64().unwrap_or(0.0),
+                        0.0_f64,
+                        0.0_f64,
+                    ),
                 },
             );
         }
@@ -354,26 +378,27 @@ impl<
                 .min(self.config.outlet_pressures.len().saturating_sub(1));
             let pressure = self.config.outlet_pressures[idx].to_f64().unwrap_or(0.0);
             for &v_idx in nodes {
-                boundary_conditions
-                    .entry(v_idx)
-                    .or_insert(cfd_core::physics::boundary::BoundaryCondition::PressureOutlet { pressure });
+                boundary_conditions.entry(v_idx).or_insert(
+                    cfd_core::physics::boundary::BoundaryCondition::PressureOutlet { pressure },
+                );
             }
         }
 
         // Apply wall (no-slip) BCs to remaining boundary nodes
         for &v_idx in &face_sets.wall_nodes {
-            boundary_conditions
-                .entry(v_idx)
-                .or_insert(cfd_core::physics::boundary::BoundaryCondition::Dirichlet {
+            boundary_conditions.entry(v_idx).or_insert(
+                cfd_core::physics::boundary::BoundaryCondition::Dirichlet {
                     value: 0.0_f64,
                     component_values: Some(vec![Some(0.0_f64), Some(0.0_f64), Some(0.0_f64), None]),
-                });
+                },
+            );
         }
 
-        println!("DEBUG: Extracted BC sets! Inlet: {}, Outlet: {}, Wall: {}. Total BCs: {}", 
-            face_sets.inlet_nodes.len(), 
-            face_sets.outlet_nodes.len(), 
-            face_sets.wall_nodes.len(), 
+        println!(
+            "DEBUG: Extracted BC sets! Inlet: {}, Outlet: {}, Wall: {}. Total BCs: {}",
+            face_sets.inlet_nodes.len(),
+            face_sets.outlet_nodes.len(),
+            face_sets.wall_nodes.len(),
             boundary_conditions.len()
         );
 
@@ -484,38 +509,46 @@ impl<
         // 5. Build Result
         let empty_faces: [FaceId; 0] = [];
 
-        let q_parent_fem = <T as From<f64>>::from(self.calculate_boundary_flow_on_faces_f64(
-            mesh,
-            &fem_solution,
-            boundary_faces_by_label
-                .get("inlet")
-                .map_or(empty_faces.as_slice(), Vec::as_slice),
-            "inlet",
-        )?);
-        let q_d1 = <T as From<f64>>::from(self.calculate_boundary_flow_on_faces_f64(
-            mesh,
-            &fem_solution,
-            boundary_faces_by_label
-                .get("outlet_0")
-                .map_or(empty_faces.as_slice(), Vec::as_slice),
-            "outlet_0",
-        )?);
-        let q_d2 = <T as From<f64>>::from(self.calculate_boundary_flow_on_faces_f64(
-            mesh,
-            &fem_solution,
-            boundary_faces_by_label
-                .get("outlet_1")
-                .map_or(empty_faces.as_slice(), Vec::as_slice),
-            "outlet_1",
-        )?);
-        let q_d3 = <T as From<f64>>::from(self.calculate_boundary_flow_on_faces_f64(
-            mesh,
-            &fem_solution,
-            boundary_faces_by_label
-                .get("outlet_2")
-                .map_or(empty_faces.as_slice(), Vec::as_slice),
-            "outlet_2",
-        )?);
+        let q_parent_fem = <T as From<f64>>::from(
+            self.calculate_boundary_flow_on_faces_f64(
+                mesh,
+                &fem_solution,
+                boundary_faces_by_label
+                    .get("inlet")
+                    .map_or(empty_faces.as_slice(), Vec::as_slice),
+                "inlet",
+            )?,
+        );
+        let q_d1 = <T as From<f64>>::from(
+            self.calculate_boundary_flow_on_faces_f64(
+                mesh,
+                &fem_solution,
+                boundary_faces_by_label
+                    .get("outlet_0")
+                    .map_or(empty_faces.as_slice(), Vec::as_slice),
+                "outlet_0",
+            )?,
+        );
+        let q_d2 = <T as From<f64>>::from(
+            self.calculate_boundary_flow_on_faces_f64(
+                mesh,
+                &fem_solution,
+                boundary_faces_by_label
+                    .get("outlet_1")
+                    .map_or(empty_faces.as_slice(), Vec::as_slice),
+                "outlet_1",
+            )?,
+        );
+        let q_d3 = <T as From<f64>>::from(
+            self.calculate_boundary_flow_on_faces_f64(
+                mesh,
+                &fem_solution,
+                boundary_faces_by_label
+                    .get("outlet_2")
+                    .map_or(empty_faces.as_slice(), Vec::as_slice),
+                "outlet_2",
+            )?,
+        );
 
         let a_d1 = T::from_f64_or_one(std::f64::consts::PI / 4.0)
             * self.geometry.d_daughters[0]
@@ -686,14 +719,11 @@ impl<
         mesh: &cfd_mesh::IndexedMesh<f64>,
         solution: &crate::fem::StokesFlowSolution<f64>,
     ) -> Result<f64> {
-        let idxs = match crate::fem::mesh_utils::extract_vertex_indices(
-            cell,
-            mesh,
-            mesh.vertex_count(),
-        ) {
-            Ok(indices) => indices,
-            Err(_) => return Ok(0.0_f64),
-        };
+        let idxs =
+            match crate::fem::mesh_utils::extract_vertex_indices(cell, mesh, mesh.vertex_count()) {
+                Ok(indices) => indices,
+                Err(_) => return Ok(0.0_f64),
+            };
         if idxs.len() < 4 {
             return Ok(0.0_f64);
         }

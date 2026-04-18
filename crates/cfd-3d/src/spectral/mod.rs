@@ -59,10 +59,10 @@
 //! - Periodic pseudospectral DNS and seeded forcing use Apollo FFTs with a 2/3 de-aliasing filter.
 
 pub mod basis;
-pub mod forcing;
-pub mod diagnostics;
 pub mod chebyshev;
+pub mod diagnostics;
 pub mod dns;
+pub mod forcing;
 pub mod fourier;
 pub mod poisson;
 pub mod solver;
@@ -70,15 +70,14 @@ pub mod solver;
 pub use basis::{BasisFunction, SpectralBasis};
 pub use chebyshev::ChebyshevPolynomial;
 pub use diagnostics::{
-	enstrophy_spectrum, kinetic_energy_spectrum, probe_signal_spectrum,
-	temporal_autocorrelation, EnstrophySpectrum, KineticEnergySpectrum, ProbeSignalSpectrum,
-	TemporalAutocorrelation,
-};
-pub use forcing::{
-	BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig,
-	TimeResampledBandLimitedForcing3D, TimeResampledBandLimitedForcingConfig,
+    enstrophy_spectrum, kinetic_energy_spectrum, probe_signal_spectrum, temporal_autocorrelation,
+    EnstrophySpectrum, KineticEnergySpectrum, ProbeSignalSpectrum, TemporalAutocorrelation,
 };
 pub use dns::{PeriodicPseudospectralDns3D, PeriodicPseudospectralDnsConfig};
+pub use forcing::{
+    BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig,
+    TimeResampledBandLimitedForcing3D, TimeResampledBandLimitedForcingConfig,
+};
 pub use fourier::{FourierTransform, SpectralDerivative};
 pub use poisson::{PoissonBoundaryCondition, PoissonSolver};
 pub use solver::{SpectralConfig, SpectralSolution, SpectralSolver};

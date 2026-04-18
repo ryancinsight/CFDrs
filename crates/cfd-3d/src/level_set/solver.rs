@@ -33,9 +33,9 @@
 //! **Reference**: Sethian, J.A. (1999). *Level Set Methods and Fast Marching Methods*.
 //! Cambridge University Press.
 //!
-//! ### WENO5-JS Stability Theorem (Jiang & Shu 1996)
+//! ### WENO5-Z Stability Theorem (Borges et al. 2008)
 //!
-//! **Statement**: The 5th-order WENO scheme of Jiang & Shu (1996) applied to
+//! **Statement**: The 5th-order WENO-Z scheme applied to
 //!
 //! ```math
 //! φ_t + H(∇φ) = 0
@@ -51,8 +51,9 @@
 //! when paired with at least a third-order Total Variation Diminishing (TVD)
 //! Runge-Kutta time integrator.
 //!
-//! **Reference**: Jiang, G.-S. & Shu, C.-W. (1996). "Efficient implementation of
-//! Weighted ENO schemes." J. Comput. Phys. 126:202-228.
+//! **Reference**: Borges, R., Carmona, M., Costa, B. & Don, W. (2008).
+//! "An improved weighted essentially non-oscillatory scheme for hyperbolic
+//! conservation laws." J. Comput. Phys. 227:3191-3211.
 //!
 //! ### Reinitialization Theorem (Sussman et al. 1994)
 //!
@@ -76,7 +77,7 @@
 //! ### Algorithm
 //!
 //! 1. **Initialization**: Construct signed distance function from geometry.
-//! 2. **Evolution**: Solve ∂φ/∂t + u·∇φ = 0 using WENO5-JS (one Euler step per advance).
+//! 2. **Evolution**: Solve ∂φ/∂t + u·∇φ = 0 using WENO5-Z (one Euler step per advance).
 //! 3. **Reinitialization**: Restore |∇φ| = 1 every `config.reinitialization_interval` steps
 //!    using convergence-based iteration.
 //! 4. **Narrow Band**: Update index set of cells within `band_width` grid spacings
@@ -196,7 +197,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
         }
     }
 
-    /// Advance level set by one time step using WENO5-JS advection.
+    /// Advance level set by one time step using WENO5-Z advection.
     pub fn advance(&mut self, dt: T) -> Result<()> {
         self.phi_previous.copy_from_slice(&self.phi);
         self.advect_weno5(dt)?;
@@ -217,10 +218,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
     }
 
     // ────────────────────────────────────────────────────────────────────────────
-    // WENO5-JS Advection
+    // WENO5-Z Advection
     // ────────────────────────────────────────────────────────────────────────────
 
-    /// Advect the level set using the 5th-order WENO-JS scheme (Jiang & Shu 1996).
+    /// Advect the level set using the 5th-order WENO-Z scheme.
     ///
     /// For each direction we compute the one-sided WENO5 reconstruction of the
     /// spatial derivative:
@@ -449,11 +450,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// WENO5-JS Free Functions
+// WENO5-Z Free Functions
 // ────────────────────────────────────────────────────────────────────────────
 
-/// Compute the upwind WENO5-JS spatial derivative `dφ/dx` at point `i`
-/// via flux differencing (Jiang & Shu 1996, §2).
+/// Compute the upwind WENO5-Z spatial derivative `dφ/dx` at point `i`
+/// via flux differencing.
 ///
 /// Takes a 7-point stencil `v = [φ_{i-3}, …, φ_{i+3}]`, cell spacing `h`,
 /// and the local velocity component `u`.
@@ -468,7 +469,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
 /// D⁺φ_i = (φ̂⁺_{i+½} − φ̂⁺_{i−½}) / h   (u < 0: upwind from right)
 /// ```
 ///
-/// where each `φ̂` is a WENO5-JS reconstruction at a cell face from 5 point values.
+/// where each `φ̂` is a WENO5 reconstruction at a cell face from 5 point values.
 fn weno5_derivative<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
     v: [T; 7],
     h: T,
@@ -500,8 +501,7 @@ fn weno5_derivative<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitiv
     }
 }
 
-/// Left-biased WENO5-JS reconstruction of `φ` at the right face of the
-/// middle cell (Jiang & Shu 1996, Eq. 2.10).
+/// Left-biased WENO5 reconstruction of `φ` at the right face of the middle cell.
 ///
 /// Given `[φ_{i-2}, φ_{i-1}, φ_i, φ_{i+1}, φ_{i+2}]`, reconstructs
 /// `φ̂⁻_{i+½}` using three overlapping 3rd-order sub-stencils:
@@ -550,8 +550,8 @@ fn weno5_reconstruct_left<T: cfd_mesh::domain::core::Scalar + RealField + FromPr
     w0 * q0 + w1 * q1 + w2 * q2
 }
 
-/// Right-biased WENO5-JS reconstruction of `φ` at the left face of the
-/// middle cell, obtained by mirroring the left-biased stencil.
+/// Right-biased WENO5 reconstruction of `φ` at the left face of the middle cell,
+/// obtained by mirroring the left-biased stencil.
 ///
 /// Given `[φ_{i-2}, φ_{i-1}, φ_i, φ_{i+1}, φ_{i+2}]`, reconstructs
 /// `φ̂⁺_{i−½}` using:
@@ -570,7 +570,7 @@ fn weno5_reconstruct_right<T: cfd_mesh::domain::core::Scalar + RealField + FromP
     weno5_reconstruct_left([v[4], v[3], v[2], v[1], v[0]])
 }
 
-/// WENO5-JS smoothness indicator for a 3-point sub-stencil (Jiang & Shu 1996,
+/// WENO5 smoothness indicator for a 3-point sub-stencil (Jiang & Shu 1996,
 /// Eq. 3.1).
 ///
 /// ```text
@@ -597,9 +597,9 @@ fn smoothness_indicator<T: cfd_mesh::domain::core::Scalar + RealField + FromPrim
     thirteen_over_twelve * diff1 * diff1 + quarter * diff2 * diff2
 }
 
-/// Compute normalized WENO5 nonlinear weights from smoothness indicators.
+/// Compute normalized WENO5-Z nonlinear weights from smoothness indicators.
 ///
-/// `ω_k = α_k / Σ α_l` where `α_k = d_k / (ε + β_k)²`.
+/// `ω_k = α_k / Σ α_l` where `α_k = d_k (1 + τ_5 / (β_k + ε))`.
 #[inline]
 fn nonlinear_weights<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
     b0: T,
@@ -610,9 +610,11 @@ fn nonlinear_weights<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimiti
     d2: T,
     eps: T,
 ) -> (T, T, T) {
-    let a0 = d0 / ((eps + b0) * (eps + b0));
-    let a1 = d1 / ((eps + b1) * (eps + b1));
-    let a2 = d2 / ((eps + b2) * (eps + b2));
+    let tau5 = global_smoothness_indicator(b0, b1, b2);
+    let one = T::one();
+    let a0 = d0 * (one + tau5 / (eps + b0));
+    let a1 = d1 * (one + tau5 / (eps + b1));
+    let a2 = d2 * (one + tau5 / (eps + b2));
     let sum = a0 + a1 + a2;
     if sum < eps {
         return (
@@ -622,6 +624,17 @@ fn nonlinear_weights<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimiti
         );
     }
     (a0 / sum, a1 / sum, a2 / sum)
+}
+
+#[inline]
+fn global_smoothness_indicator<
+    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+>(
+    b0: T,
+    _b1: T,
+    b2: T,
+) -> T {
+    num_traits::Float::abs(b0 - b2)
 }
 
 #[cfg(test)]
@@ -700,9 +713,7 @@ mod tests {
 
         // Build 7-point stencil for φ(x) = phi_center + slope * (k * h)
         // centered at k = 0 (index 3)
-        let v: [f64; 7] = std::array::from_fn(|k| {
-            phi_center + slope * ((k as f64 - 3.0) * h)
-        });
+        let v: [f64; 7] = std::array::from_fn(|k| phi_center + slope * ((k as f64 - 3.0) * h));
 
         let d_pos = weno5_derivative(v, h, 1.0);
         assert!(
@@ -717,4 +728,3 @@ mod tests {
         );
     }
 }
-

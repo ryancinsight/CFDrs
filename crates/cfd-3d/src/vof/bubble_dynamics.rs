@@ -45,7 +45,6 @@ use cfd_core::error::Result;
 use cfd_core::physics::cavitation::rayleigh_plesset::RayleighPlesset;
 use cfd_core::physics::fluid::BloodModel;
 use nalgebra::Vector3;
-use std::collections::HashMap;
 
 /// Bubble dynamics configuration
 #[derive(Debug, Clone)]
@@ -53,6 +52,10 @@ pub struct BubbleDynamicsConfig {
     /// Initial bubble radius (m)
     pub initial_radius: f64,
     /// Bubble number density (1/m³)
+    ///
+    /// This is converted to an expected bubble population per cell using the
+    /// control-volume size so the per-cell damage and sonoluminescence outputs
+    /// remain consistent with the modeled nuclei density.
     pub number_density: f64,
     /// Polytropic exponent for gas compression
     pub polytropic_exponent: f64,
@@ -62,12 +65,17 @@ pub struct BubbleDynamicsConfig {
 
 /// Bubble dynamics solver for Rayleigh-Plesset equation
 pub struct BubbleDynamicsSolver {
-    /// Bubble configurations per grid cell
-    configs: HashMap<(usize, usize, usize), RayleighPlesset<f64>>,
-    /// Current bubble radii per grid cell
-    radii: HashMap<(usize, usize, usize), f64>,
-    /// Current bubble wall velocities per grid cell
-    velocities: HashMap<(usize, usize, usize), f64>,
+    /// Grid dimensions.
+    nx: usize,
+    ny: usize,
+    /// Bubble configurations per grid cell.
+    configs: Vec<RayleighPlesset<f64>>,
+    /// Current bubble radii per grid cell.
+    radii: Vec<f64>,
+    /// Current bubble wall velocities per grid cell.
+    velocities: Vec<f64>,
+    /// Expected bubble population represented by one coarse cell.
+    bubble_population_weight: f64,
     /// Non-Newtonian blood model for apparent viscosity
     blood_model: BloodModel<f64>,
 }
@@ -79,40 +87,45 @@ impl BubbleDynamicsSolver {
         nx: usize,
         ny: usize,
         nz: usize,
+        dx: f64,
+        dy: f64,
+        dz: f64,
         liquid_density: f64,
         blood_model: BloodModel<f64>,
         vapor_pressure: f64,
     ) -> Self {
-        let mut configs = HashMap::new();
-        let mut radii = HashMap::new();
-        let mut velocities = HashMap::new();
-
-        // Initialize bubbles at each grid cell
         let initial_viscosity = blood_model.viscosity(0.0);
-        for i in 0..nx {
-            for j in 0..ny {
-                for k in 0..nz {
-                    let rp = RayleighPlesset {
-                        initial_radius: config.initial_radius,
-                        liquid_density,
-                        liquid_viscosity: initial_viscosity,
-                        surface_tension: config.surface_tension,
-                        vapor_pressure,
-                        polytropic_index: config.polytropic_exponent,
-                    };
-                    configs.insert((i, j, k), rp);
-                    radii.insert((i, j, k), config.initial_radius);
-                    velocities.insert((i, j, k), 0.0);
-                }
-            }
-        }
+        let rp = RayleighPlesset {
+            initial_radius: config.initial_radius,
+            liquid_density,
+            liquid_viscosity: initial_viscosity,
+            surface_tension: config.surface_tension,
+            vapor_pressure,
+            polytropic_index: config.polytropic_exponent,
+        };
+        let len = nx * ny * nz;
+        let bubble_population_weight = config.number_density * dx * dy * dz;
 
         Self {
-            configs,
-            radii,
-            velocities,
+            nx,
+            ny,
+            configs: vec![rp; len],
+            radii: vec![config.initial_radius; len],
+            velocities: vec![0.0; len],
+            bubble_population_weight,
             blood_model,
         }
+    }
+
+    #[inline]
+    fn index(&self, i: usize, j: usize, k: usize) -> usize {
+        k * self.ny * self.nx + j * self.nx + i
+    }
+
+    /// Expected bubble population represented by one coarse cell.
+    #[must_use]
+    pub(crate) fn population_weight(&self) -> f64 {
+        self.bubble_population_weight
     }
 
     /// Update bubble dynamics for a specific cell
@@ -126,19 +139,10 @@ impl BubbleDynamicsSolver {
         _density: f64,
         dt: f64,
     ) -> Result<f64> {
-        let key = (i, j, k);
-        let config = self
-            .configs
-            .get_mut(&key)
-            .ok_or_else(|| cfd_core::error::Error::Solver("Bubble config not found".to_string()))?;
-        let radius = *self
-            .radii
-            .get(&key)
-            .expect("bubble radius is initialized for every grid cell");
-        let velocity = *self
-            .velocities
-            .get(&key)
-            .expect("bubble velocity is initialized for every grid cell");
+        let idx = self.index(i, j, k);
+        let config = &mut self.configs[idx];
+        let radius = self.radii[idx];
+        let velocity = self.velocities[idx];
 
         // Calculate apparent viscosity at the bubble wall.
         // theorem: The shear rate at a spherical bubble wall expanding/collapsing radially
@@ -153,8 +157,8 @@ impl BubbleDynamicsSolver {
         let new_velocity = velocity + acceleration * dt;
         let new_radius = (radius + new_velocity * dt).max(1e-9);
 
-        self.radii.insert(key, new_radius);
-        self.velocities.insert(key, new_velocity);
+        self.radii[idx] = new_radius;
+        self.velocities[idx] = new_velocity;
 
         Ok(new_radius)
     }
@@ -168,15 +172,9 @@ impl BubbleDynamicsSolver {
         liquid_density: f64,
         sound_speed: f64,
     ) -> f64 {
-        let key = (i, j, k);
-        let config = self
-            .configs
-            .get(&key)
-            .expect("bubble config is initialized for every grid cell");
-        let radius = *self
-            .radii
-            .get(&key)
-            .expect("bubble radius is initialized for every grid cell");
+        let idx = self.index(i, j, k);
+        let config = &self.configs[idx];
+        let radius = self.radii[idx];
         let initial_radius = config.initial_radius;
 
         if radius > 0.0 {
@@ -189,15 +187,9 @@ impl BubbleDynamicsSolver {
 
     /// Get bubble natural frequency (Hz) for impact frequency estimation
     pub fn get_bubble_frequency(&self, i: usize, j: usize, k: usize, ambient_pressure: f64) -> f64 {
-        let key = (i, j, k);
-        let config = self
-            .configs
-            .get(&key)
-            .expect("bubble config is initialized for every grid cell");
-        let radius = *self
-            .radii
-            .get(&key)
-            .expect("bubble radius is initialized for every grid cell");
+        let idx = self.index(i, j, k);
+        let config = &self.configs[idx];
+        let radius = self.radii[idx];
 
         let omega = config.natural_frequency(radius, ambient_pressure);
         omega / (2.0 * std::f64::consts::PI)
@@ -221,6 +213,9 @@ mod tests {
             1,
             1,
             1,
+            1.0,
+            1.0,
+            1.0,
             1000.0,
             BloodModel::Newtonian(1.0e-3),
             2300.0,
@@ -231,5 +226,30 @@ mod tests {
 
         assert!(collapse_pressure > 0.0);
         assert!(frequency > 0.0);
+    }
+
+    #[test]
+    fn population_weight_reflects_cell_volume() {
+        let config = BubbleDynamicsConfig {
+            initial_radius: 2.0e-6,
+            number_density: 2.5e12,
+            polytropic_exponent: 1.4,
+            surface_tension: 0.072,
+        };
+        let solver = BubbleDynamicsSolver::new(
+            &config,
+            2,
+            2,
+            2,
+            0.01,
+            0.02,
+            0.03,
+            1000.0,
+            BloodModel::Newtonian(1.0e-3),
+            2300.0,
+        );
+
+        let expected = config.number_density * 0.01 * 0.02 * 0.03;
+        assert!((solver.population_weight() - expected).abs() < 1e-12 * expected.max(1.0));
     }
 }

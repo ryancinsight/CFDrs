@@ -108,20 +108,24 @@ impl<
     fn eval(&self, p: &nalgebra::Point3<T>) -> T {
         use cfd_mesh::application::delaunay::dim3::sdf::FiniteCylinderSdf;
         use nalgebra::{Point3, Vector3};
-        
+
         // Start with parent cylinder distance
         let half = <T as cfd_mesh::domain::core::Scalar>::from_f64(2.0);
-        
+
         let parent = FiniteCylinderSdf::new(
             Point3::new(-self.l_parent, T::zero(), T::zero()),
             Point3::new(T::zero(), T::zero(), T::zero()),
             self.d_parent / half,
         );
         let mut min_val = parent.eval(p);
-        
+
         for i in 0..3 {
             let angle = self.branching_angles[i];
-            let dir = Vector3::new(num_traits::Float::cos(angle), num_traits::Float::sin(angle), T::zero());
+            let dir = Vector3::new(
+                num_traits::Float::cos(angle),
+                num_traits::Float::sin(angle),
+                T::zero(),
+            );
             let daughter = FiniteCylinderSdf::new(
                 Point3::new(T::zero(), T::zero(), T::zero()),
                 Point3::new(T::zero(), T::zero(), T::zero()) + dir * self.l_daughters[i],
@@ -136,19 +140,23 @@ impl<
     fn bounds(&self) -> (nalgebra::Point3<T>, nalgebra::Point3<T>) {
         use cfd_mesh::application::delaunay::dim3::sdf::FiniteCylinderSdf;
         use nalgebra::{Point3, Vector3};
-        
+
         let half = <T as cfd_mesh::domain::core::Scalar>::from_f64(2.0);
-        
+
         let parent = FiniteCylinderSdf::new(
             Point3::new(-self.l_parent, T::zero(), T::zero()),
             Point3::new(T::zero(), T::zero(), T::zero()),
             self.d_parent / half,
         );
         let (mut min_pt, mut max_pt) = parent.bounds();
-        
+
         for i in 0..3 {
             let angle = self.branching_angles[i];
-            let dir = Vector3::new(num_traits::Float::cos(angle), num_traits::Float::sin(angle), T::zero());
+            let dir = Vector3::new(
+                num_traits::Float::cos(angle),
+                num_traits::Float::sin(angle),
+                T::zero(),
+            );
             let daughter = FiniteCylinderSdf::new(
                 Point3::new(T::zero(), T::zero(), T::zero()),
                 Point3::new(T::zero(), T::zero(), T::zero()) + dir * self.l_daughters[i],
@@ -166,7 +174,7 @@ impl<
                 num_traits::Float::max(max_pt.z, d_max.z),
             );
         }
-        
+
         (min_pt, max_pt)
     }
 }

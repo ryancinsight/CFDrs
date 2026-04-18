@@ -401,17 +401,14 @@ where
     let p_i = mesh.vertices.position(VertexId::from_usize(v_i)).coords;
     let p_j = mesh.vertices.position(VertexId::from_usize(v_j)).coords;
     let target = (p_i + p_j)
-        * <T as FromPrimitive>::from_f64(0.5)
-            .expect("0.5 is exactly representable in IEEE 754");
+        * <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
 
     let search = |skip_used: bool| -> Option<usize> {
         let mut best_node = None;
         let mut min_dist_sq = T::infinity();
 
         for m_idx in candidates.clone() {
-            if skip_used
-                && excluded.is_some_and(|used| used.contains(&m_idx))
-            {
+            if skip_used && excluded.is_some_and(|used| used.contains(&m_idx)) {
                 continue;
             }
 
@@ -434,10 +431,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fem::mid_node_cache::MidNodeCache;
     use cfd_mesh::domain::topology::Cell;
     use cfd_mesh::IndexedMesh;
     use nalgebra::Point3;
-    use crate::fem::mid_node_cache::MidNodeCache;
 
     /// Build a minimal P1 tet mesh: 4 vertices, 4 triangular faces, 1 cell.
     fn build_single_tet_mesh() -> IndexedMesh<f64> {
@@ -452,12 +449,7 @@ mod tests {
         let f2 = mesh.add_face(v0, v2, v3);
         let f3 = mesh.add_face(v1, v2, v3);
 
-        let cell = Cell::tetrahedron(
-            f0.as_usize(),
-            f1.as_usize(),
-            f2.as_usize(),
-            f3.as_usize(),
-        );
+        let cell = Cell::tetrahedron(f0.as_usize(), f1.as_usize(), f2.as_usize(), f3.as_usize());
         mesh.cells.push(cell);
         mesh
     }

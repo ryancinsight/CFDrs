@@ -137,10 +137,7 @@ impl PeriodicPseudospectralDns3D {
         self.advance_from_spectra(&spectra, &nonlinear_hat, Some(&forcing_hat))
     }
 
-    fn velocity_spectrum(
-        &self,
-        velocity: &VelocityField<f64>,
-    ) -> Result<[Array3<Complex64>; 3]> {
+    fn velocity_spectrum(&self, velocity: &VelocityField<f64>) -> Result<[Array3<Complex64>; 3]> {
         let (nx, ny, nz) = self.config.dimensions;
         if velocity.dimensions != self.config.dimensions {
             return Err(Error::InvalidConfiguration(format!(
@@ -431,7 +428,9 @@ mod tests {
         let nonlinear = stepper
             .nonlinear_advection(&velocity)
             .expect("nonlinear term should compute");
-        let advanced = stepper.advance_euler(&velocity).expect("advance should succeed");
+        let advanced = stepper
+            .advance_euler(&velocity)
+            .expect("advance should succeed");
 
         for sample in nonlinear.components {
             assert!(sample.x.abs() < 1e-12);
@@ -469,7 +468,10 @@ mod tests {
                     if kept {
                         assert!((value.re - 1.0).abs() < 1e-12);
                     } else {
-                        assert!(value.norm() < 1e-12, "mode ({i}, {j}, {k}) should be filtered");
+                        assert!(
+                            value.norm() < 1e-12,
+                            "mode ({i}, {j}, {k}) should be filtered"
+                        );
                     }
                 }
             }
@@ -480,16 +482,11 @@ mod tests {
     fn forcing_drives_nontrivial_update() {
         let dns_config = PeriodicPseudospectralDnsConfig::new((4, 4, 4), (1.0, 1.0, 1.0), 0.0, 0.1)
             .expect("config should be valid");
-        let stepper = PeriodicPseudospectralDns3D::new(dns_config).expect("stepper should be valid");
-        let forcing_config = BandLimitedRandomPhaseForcingConfig::new(
-            (4, 4, 4),
-            (1.0, 1.0, 1.0),
-            1,
-            0,
-            0.5,
-            123,
-        )
-        .expect("forcing config should be valid");
+        let stepper =
+            PeriodicPseudospectralDns3D::new(dns_config).expect("stepper should be valid");
+        let forcing_config =
+            BandLimitedRandomPhaseForcingConfig::new((4, 4, 4), (1.0, 1.0, 1.0), 1, 0, 0.5, 123)
+                .expect("forcing config should be valid");
         let forcing = BandLimitedRandomPhaseForcing3D::new(forcing_config)
             .expect("forcing generator should be valid");
         let forcing_field = forcing
@@ -501,9 +498,12 @@ mod tests {
             .advance_euler_with_forcing(&velocity, &forcing_field)
             .expect("forced advance should succeed");
 
-        assert!(advanced
-            .components
-            .iter()
-            .any(|sample| sample.norm() > 1e-10), "forcing must drive a nontrivial update");
+        assert!(
+            advanced
+                .components
+                .iter()
+                .any(|sample| sample.norm() > 1e-10),
+            "forcing must drive a nontrivial update"
+        );
     }
 }

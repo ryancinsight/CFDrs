@@ -42,7 +42,6 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
-
 use super::geometry::BifurcationGeometry3D;
 use super::types::{BifurcationConfig3D, BifurcationSolution3D};
 use cfd_core::conversion::SafeFromF64;
@@ -144,14 +143,16 @@ impl<
             let l_p = self.geometry.l_parent.to_f64().unwrap_or(1e-3);
             let l_d = self.geometry.l_daughter1.to_f64().unwrap_or(1e-3);
             // branching_angle is the full included angle between the two daughters
-            let half_ang =
-                self.geometry.branching_angle.to_f64().unwrap_or(std::f64::consts::PI / 3.0)
-                    * 0.5;
+            let half_ang = self
+                .geometry
+                .branching_angle
+                .to_f64()
+                .unwrap_or(std::f64::consts::PI / 3.0)
+                * 0.5;
             let (sin_a, cos_a) = half_ang.sin_cos();
 
             // Parent capsule: axis (0,0,0) → (0,0,l_p)
-            let parent_sdf =
-                CapsuleSdf::new(P3::new(0.0, 0.0, 0.0), P3::new(0.0, 0.0, l_p), r_p);
+            let parent_sdf = CapsuleSdf::new(P3::new(0.0, 0.0, 0.0), P3::new(0.0, 0.0, l_p), r_p);
             // Daughter 1 (positive-x side): junction → (sin_a·l_d, 0, l_p + cos_a·l_d)
             let d1_sdf = CapsuleSdf::new(
                 P3::new(0.0, 0.0, l_p),

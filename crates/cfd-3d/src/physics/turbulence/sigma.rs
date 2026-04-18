@@ -35,9 +35,9 @@ use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
-use std::cmp::Ordering;
 
 use super::constants::SIGMA_C;
+use super::field_ops::{strain_magnitude, velocity_gradient_tensor};
 
 /// Sigma subgrid-scale model for LES (Nicoud et al. 2011).
 ///
@@ -47,16 +47,27 @@ use super::constants::SIGMA_C;
 pub struct SigmaModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Sigma model constant C_σ = 1.35 (Nicoud et al. 2011).
     pub c_sigma: T,
+    /// Physical grid spacing in the x direction [m].
+    pub dx: T,
+    /// Physical grid spacing in the y direction [m].
+    pub dy: T,
+    /// Physical grid spacing in the z direction [m].
+    pub dz: T,
     /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) [m].
     pub filter_width: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> SigmaModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
+    SigmaModel<T>
+{
     /// Create a Sigma model with default constant and unit filter width.
     pub fn new() -> Self {
         Self {
             c_sigma: <T as FromPrimitive>::from_f64(SIGMA_C)
                 .expect("SIGMA_C is an IEEE 754 representable f64 constant"),
+            dx: T::one(),
+            dy: T::one(),
+            dz: T::one(),
             filter_width: T::one(),
         }
     }
@@ -71,80 +82,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
         Self {
             c_sigma: <T as FromPrimitive>::from_f64(SIGMA_C)
                 .expect("SIGMA_C is an IEEE 754 representable f64 constant"),
+            dx,
+            dy,
+            dz,
             filter_width,
         }
-    }
-
-    /// Build the local velocity-gradient tensor using centered differences.
-    fn velocity_gradient_at(
-        &self,
-        flow: &FlowField<T>,
-        i: usize,
-        j: usize,
-        k: usize,
-    ) -> [[T; 3]; 3] {
-        let (nx, ny, nz) = flow.velocity.dimensions;
-        let two = T::one() + T::one();
-        let eps = <T as FromPrimitive>::from_f64(1e-30)
-            .expect("1e-30 is an IEEE 754 representable f64 constant");
-        let delta = if self.filter_width > eps {
-            self.filter_width
-        } else {
-            eps
-        };
-
-        let mut gradient = [[T::zero(); 3]; 3];
-
-        if nx > 1 && i > 0 && i + 1 < nx {
-            if let (Some(vp), Some(vm)) = (
-                flow.velocity.get(i + 1, j, k),
-                flow.velocity.get(i - 1, j, k),
-            ) {
-                gradient[0][0] = (vp.x - vm.x) / (two * delta);
-                gradient[1][0] = (vp.y - vm.y) / (two * delta);
-                gradient[2][0] = (vp.z - vm.z) / (two * delta);
-            }
-        }
-
-        if ny > 1 && j > 0 && j + 1 < ny {
-            if let (Some(vp), Some(vm)) = (
-                flow.velocity.get(i, j + 1, k),
-                flow.velocity.get(i, j - 1, k),
-            ) {
-                gradient[0][1] = (vp.x - vm.x) / (two * delta);
-                gradient[1][1] = (vp.y - vm.y) / (two * delta);
-                gradient[2][1] = (vp.z - vm.z) / (two * delta);
-            }
-        }
-
-        if nz > 1 && k > 0 && k + 1 < nz {
-            if let (Some(vp), Some(vm)) = (
-                flow.velocity.get(i, j, k + 1),
-                flow.velocity.get(i, j, k - 1),
-            ) {
-                gradient[0][2] = (vp.x - vm.x) / (two * delta);
-                gradient[1][2] = (vp.y - vm.y) / (two * delta);
-                gradient[2][2] = (vp.z - vm.z) / (two * delta);
-            }
-        }
-
-        gradient
-    }
-
-    /// Compute the symmetric strain magnitude `|S| = sqrt(2 S_ij S_ij)`.
-    fn strain_magnitude(gradient: &[[T; 3]; 3]) -> T {
-        let two = T::one() + T::one();
-        let s00 = gradient[0][0];
-        let s11 = gradient[1][1];
-        let s22 = gradient[2][2];
-        let s01 = (gradient[0][1] + gradient[1][0]) / two;
-        let s02 = (gradient[0][2] + gradient[2][0]) / two;
-        let s12 = (gradient[1][2] + gradient[2][1]) / two;
-        let strain_sq = s00 * s00
-            + s11 * s11
-            + s22 * s22
-            + two * (s01 * s01 + s02 * s02 + s12 * s12);
-        <T as num_traits::Float>::sqrt(two * strain_sq)
     }
 
     /// Compute the exact eigenvalues of a real symmetric 3×3 matrix.
@@ -167,11 +109,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
         let b01 = matrix[0][1];
         let b02 = matrix[0][2];
         let b12 = matrix[1][2];
-        let p2 = (b00 * b00
-            + b11 * b11
-            + b22 * b22
-            + two * (b01 * b01 + b02 * b02 + b12 * b12))
-            / six;
+        let p2 =
+            (b00 * b00 + b11 * b11 + b22 * b22 + two * (b01 * b01 + b02 * b02 + b12 * b12)) / six;
         let eps = <T as FromPrimitive>::from_f64(1e-30)
             .expect("1e-30 is an IEEE 754 representable f64 constant");
 
@@ -185,8 +124,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
             return [mean, mean, mean];
         }
 
-        let det_b = b00 * (b11 * b22 - b12 * b12)
-            - b01 * (b01 * b22 - b12 * b02)
+        let det_b = b00 * (b11 * b22 - b12 * b12) - b01 * (b01 * b22 - b12 * b02)
             + b02 * (b01 * b12 - b11 * b02);
         let denom = two * p3;
         let mut r = det_b / denom;
@@ -208,14 +146,26 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
             mean + two * p * num_traits::Float::cos(phi + four_pi_over_three),
         ];
 
-        eigenvalues.sort_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+        eigenvalues.sort_by(|a, b| b.partial_cmp(a).expect("Sigma eigenvalues must be finite"));
         eigenvalues
     }
 
     /// Compute the local Sigma-model viscosity and strain magnitude.
     fn point_metrics(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> (T, T) {
-        let gradient = Self::velocity_gradient_at(self, flow, i, j, k);
-        let strain_mag = Self::strain_magnitude(&gradient);
+        let (nx, ny, nz) = flow.velocity.dimensions;
+        let gradient = velocity_gradient_tensor(
+            &flow.velocity.components,
+            nx,
+            ny,
+            nz,
+            i,
+            j,
+            k,
+            self.dx,
+            self.dy,
+            self.dz,
+        );
+        let strain_mag = strain_magnitude(&gradient);
 
         let mut gtg = [[T::zero(); 3]; 3];
         for ii in 0..3 {
@@ -268,16 +218,16 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Sigma
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default
-    for SigmaModel<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
+    Default for SigmaModel<T>
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
-    for SigmaModel<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
+    TurbulenceModel<T> for SigmaModel<T>
 {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
@@ -366,5 +316,27 @@ mod tests {
 
         assert_relative_eq!(viscosity[center], 0.0, epsilon = 1e-12);
         assert_relative_eq!(kinetic_energy[center], 0.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn anisotropic_spacing_matches_linear_strain_reference() {
+        let dx = 1.0;
+        let dy = 2.0;
+        let dz = 4.0;
+        let mut flow = FlowField::<f64>::new(3, 3, 3);
+        fill_velocity_field(&mut flow, |i, j, k| {
+            let x = i * dx;
+            let y = j * dy;
+            let z = k * dz;
+            Vector3::new(x, 2.0 * y, 3.0 * z)
+        });
+
+        let model = SigmaModel::<f64>::with_filter_width(dx, dy, dz);
+        let viscosity = model.turbulent_viscosity(&flow);
+        let center = 13;
+        let expected =
+            model.c_sigma * model.c_sigma * model.filter_width * model.filter_width / 9.0;
+
+        assert_relative_eq!(viscosity[center], expected, epsilon = 1e-12);
     }
 }

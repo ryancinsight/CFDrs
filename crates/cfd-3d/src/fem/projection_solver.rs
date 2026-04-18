@@ -62,7 +62,6 @@
 //! (Guermond et al., 2006, §5.3). The Poisson pressure step and velocity
 //! correction are viscosity-independent and require no modification.
 
-
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::{

@@ -29,6 +29,8 @@ use cfd_core::physics::fluid_dynamics::TurbulenceModel;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
+use super::field_ops::derivative_y;
+
 /// Prandtl mixing length turbulence model.
 ///
 /// See [module-level documentation](self) for the theorem and proof sketch.
@@ -38,20 +40,24 @@ pub struct MixingLengthModel<T: cfd_mesh::domain::core::Scalar + RealField + Cop
     pub length_scale: T,
     /// von Kármán constant κ = 0.41 (dimensionless)
     pub kappa: T,
-    /// Physical finite-difference step for velocity gradient computation [m].
+    /// Wall-normal finite-difference step for velocity gradient computation [m].
     ///
-    /// For grid-resolved computations, set to the physical cell spacing
-    /// Δ = (dx·dy·dz)^(1/3) via [`MixingLengthModel::with_filter_width`].
-    /// The default (`new()`) sets this equal to `length_scale`.
+    /// For grid-resolved computations, set this to the physical wall-normal
+    /// cell spacing `dy`. The default (`new()`) sets this equal to
+    /// `length_scale` so pre-existing callers retain the same dimensional
+    /// scale when no grid information is available.
+    pub wall_normal_spacing: T,
+    /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) [m].
     pub filter_width: T,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> MixingLengthModel<T> {
     /// Create a new mixing length model.
     ///
-    /// Sets `filter_width = length_scale` (appropriate when grid spacing and
-    /// mixing length are comparable).  For physically correct gradient
-    /// computation use [`MixingLengthModel::with_filter_width`].
+    /// Sets `wall_normal_spacing = length_scale` and `filter_width =
+    /// length_scale` (appropriate when grid spacing and mixing length are
+    /// comparable). For physically correct gradient computation use
+    /// [`MixingLengthModel::with_filter_width`].
     pub fn new(length_scale: T) -> Self {
         let kappa = <T as FromPrimitive>::from_f64(
             cfd_core::physics::constants::physics::fluid::VON_KARMAN,
@@ -60,14 +66,16 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Mixin
         Self {
             length_scale,
             kappa,
+            wall_normal_spacing: length_scale,
             filter_width: length_scale,
         }
     }
 
-    /// Create a mixing length model with the physically correct FD step.
+    /// Create a mixing length model with the physically correct grid spacing.
     ///
-    /// Computes Δ = (dx·dy·dz)^(1/3) per Deardorff (1970) as the finite-
-    /// difference spacing used to evaluate velocity gradients.
+    /// Computes Δ = (dx·dy·dz)^(1/3) per Deardorff (1970) as the resolved
+    /// LES filter width, while the wall-normal derivative uses the physical
+    /// `dy` spacing directly.
     ///
     /// # Arguments
     /// * `length_scale` — Prandtl mixing length lₘ [m]
@@ -82,63 +90,34 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Mixin
         Self {
             length_scale,
             kappa,
+            wall_normal_spacing: dy,
             filter_width,
         }
     }
 
-    /// Calculate velocity gradient magnitude using the stored physical filter width.
+    /// Calculate the wall-normal shear rate using the stored physical spacing.
     ///
-    /// Central differences with spacing `self.filter_width` (= physical cell size Δ).
+    /// The Prandtl mixing-length closure is wall-bounded, so the primary
+    /// gradient is the streamwise velocity variation in the wall-normal
+    /// direction.  Boundary values are evaluated with one-sided differences by
+    /// the shared field helper.
     #[allow(clippy::similar_names)] // CFD derivatives use standard notation
-    fn calculate_velocity_gradient(&self, velocity: &VelocityField<T>, idx: usize) -> T {
-        let (nx, ny, nz) = velocity.dimensions;
+    fn wall_normal_shear_rate_at(&self, velocity: &VelocityField<T>, idx: usize) -> T {
+        let (nx, ny, _nz) = velocity.dimensions;
         let i = idx % nx;
         let j = (idx / nx) % ny;
         let k = idx / (nx * ny);
 
-        // Physically correct FD spacing — see filter_width field documentation.
-        let delta = self.filter_width;
-        let two = T::one() + T::one();
-
-        let mut grad_u_sq = T::zero();
-
-        // Calculate ∂u/∂y for wall-bounded flows (primary gradient)
-        if j > 0 && j < ny - 1 {
-            if let (Some(u_jp), Some(u_jm)) = (velocity.get(i, j + 1, k), velocity.get(i, j - 1, k))
-            {
-                let dudy = (u_jp.x - u_jm.x) / (two * delta);
-                grad_u_sq = dudy * dudy;
-            }
-        }
-
-        // Add other gradient components for 3D flows
-        if i > 0 && i < nx - 1 {
-            if let (Some(u_ip), Some(u_im)) = (velocity.get(i + 1, j, k), velocity.get(i - 1, j, k))
-            {
-                #[allow(clippy::similar_names)] // CFD derivatives use standard notation
-                {
-                    let dudx = (u_ip.x - u_im.x) / (two * delta);
-                    let dvdx = (u_ip.y - u_im.y) / (two * delta);
-                    let dwdx = (u_ip.z - u_im.z) / (two * delta);
-                    grad_u_sq = grad_u_sq + dudx * dudx + dvdx * dvdx + dwdx * dwdx;
-                }
-            }
-        }
-
-        if k > 0 && k < nz - 1 {
-            if let (Some(u_kp), Some(u_km)) = (velocity.get(i, j, k + 1), velocity.get(i, j, k - 1))
-            {
-                #[allow(clippy::similar_names)] // CFD derivatives use standard notation
-                {
-                    let dudz = (u_kp.x - u_km.x) / (two * delta);
-                    let dvdz = (u_kp.y - u_km.y) / (two * delta);
-                    let dwdz = (u_kp.z - u_km.z) / (two * delta);
-                    grad_u_sq = grad_u_sq + dudz * dudz + dvdz * dvdz + dwdz * dwdz;
-                }
-            }
-        }
-
-        num_traits::Float::sqrt(grad_u_sq)
+        let gradient = derivative_y(
+            &velocity.components,
+            nx,
+            ny,
+            i,
+            j,
+            k,
+            self.wall_normal_spacing,
+        );
+        num_traits::Float::abs(gradient.x)
     }
 }
 
@@ -153,7 +132,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
             .iter()
             .enumerate()
             .map(|(idx, _)| {
-                let grad_u = self.calculate_velocity_gradient(&flow_field.velocity, idx);
+                let grad_u = self.wall_normal_shear_rate_at(&flow_field.velocity, idx);
                 self.length_scale * self.length_scale * grad_u
             })
             .collect()
@@ -168,7 +147,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
             .iter()
             .enumerate()
             .map(|(idx, _)| {
-                let grad_u = self.calculate_velocity_gradient(&flow_field.velocity, idx);
+                let grad_u = self.wall_normal_shear_rate_at(&flow_field.velocity, idx);
                 let l_grad_u = self.length_scale * grad_u;
                 l_grad_u * l_grad_u
             })

@@ -45,7 +45,7 @@ impl<DB: DrawingBackend> GeometricDrawer for PlottersDrawer<'_, DB> {
         if let Some(chart) = &mut self.chart {
             chart
                 .draw_series(std::iter::once(PathElement::new(
-                    vec![from, to],
+                    [from, to],
                     convert_color(&style.color).stroke_width(style.width as u32),
                 )))
                 .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
@@ -79,7 +79,7 @@ impl<DB: DrawingBackend> GeometricDrawer for PlottersDrawer<'_, DB> {
         bottom_right: Point2D,
         style: &LineStyle,
     ) -> VisualizationResult<()> {
-        let points = vec![
+        let points = [
             top_left,
             (bottom_right.0, top_left.1),
             bottom_right,

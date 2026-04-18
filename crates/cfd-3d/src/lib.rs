@@ -39,7 +39,7 @@
 //! ```
 //!
 //! ### Turbulence Modeling (Optional)
-//! - **LES**: Large Eddy Simulation with dynamic Smagorinsky
+//! - **LES**: Large Eddy Simulation with dynamic Smagorinsky, Sigma, Vreman, and AMD
 //! - **DES**: Detached Eddy Simulation
 //! - **RANS**: Reynolds-Averaged Navier-Stokes
 //!
@@ -145,13 +145,12 @@ pub use blueprint_integration::{
 
 // Export spectral functionality
 pub use spectral::{
+    enstrophy_spectrum, kinetic_energy_spectrum, probe_signal_spectrum, temporal_autocorrelation,
     BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig, BasisFunction,
     ChebyshevPolynomial, EnstrophySpectrum, FourierTransform, KineticEnergySpectrum,
     PeriodicPseudospectralDns3D, PeriodicPseudospectralDnsConfig, ProbeSignalSpectrum,
-    SpectralBasis, SpectralConfig, SpectralSolution, SpectralSolver,
-    TemporalAutocorrelation, TimeResampledBandLimitedForcing3D,
-    TimeResampledBandLimitedForcingConfig, enstrophy_spectrum, kinetic_energy_spectrum,
-    probe_signal_spectrum, temporal_autocorrelation,
+    SpectralBasis, SpectralConfig, SpectralSolution, SpectralSolver, TemporalAutocorrelation,
+    TimeResampledBandLimitedForcing3D, TimeResampledBandLimitedForcingConfig,
 };
 
 // Export IBM functionality

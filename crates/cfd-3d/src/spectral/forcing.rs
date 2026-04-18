@@ -65,12 +65,14 @@ impl BandLimitedRandomPhaseForcingConfig {
         }
         if target_shell == 0 {
             return Err(Error::InvalidConfiguration(
-                "BandLimitedRandomPhaseForcingConfig: target shell must be greater than zero".into(),
+                "BandLimitedRandomPhaseForcingConfig: target shell must be greater than zero"
+                    .into(),
             ));
         }
         if amplitude < 0.0 || !amplitude.is_finite() {
             return Err(Error::InvalidConfiguration(
-                "BandLimitedRandomPhaseForcingConfig: amplitude must be finite and non-negative".into(),
+                "BandLimitedRandomPhaseForcingConfig: amplitude must be finite and non-negative"
+                    .into(),
             ));
         }
 
@@ -110,7 +112,10 @@ impl BandLimitedRandomPhaseForcing3D {
         let mut force_y = Array3::<Complex64>::zeros((nx, ny, nz));
         let mut force_z = Array3::<Complex64>::zeros((nx, ny, nz));
 
-        let lower_shell = self.config.target_shell.saturating_sub(self.config.shell_bandwidth);
+        let lower_shell = self
+            .config
+            .target_shell
+            .saturating_sub(self.config.shell_bandwidth);
         let upper_shell = self.config.target_shell + self.config.shell_bandwidth;
 
         for k in 0..nz {
@@ -242,11 +247,14 @@ impl BandLimitedRandomPhaseForcing3D {
     }
 
     fn is_canonical_mode(signed_kx: isize, signed_ky: isize, signed_kz: isize) -> bool {
-        signed_kx > 0 || (signed_kx == 0 && signed_ky > 0) || (signed_kx == 0 && signed_ky == 0 && signed_kz >= 0)
+        signed_kx > 0
+            || (signed_kx == 0 && signed_ky > 0)
+            || (signed_kx == 0 && signed_ky == 0 && signed_kz >= 0)
     }
 
     fn mode_shell(signed_kx: isize, signed_ky: isize, signed_kz: isize) -> usize {
-        let radius = ((signed_kx * signed_kx + signed_ky * signed_ky + signed_kz * signed_kz) as f64).sqrt();
+        let radius =
+            ((signed_kx * signed_kx + signed_ky * signed_ky + signed_kz * signed_kz) as f64).sqrt();
         radius.floor() as usize
     }
 
@@ -291,7 +299,8 @@ impl TimeResampledBandLimitedForcingConfig {
     ) -> Result<Self> {
         if resample_stride == 0 {
             return Err(Error::InvalidConfiguration(
-                "TimeResampledBandLimitedForcingConfig: resample stride must be greater than zero".into(),
+                "TimeResampledBandLimitedForcingConfig: resample stride must be greater than zero"
+                    .into(),
             ));
         }
 
@@ -326,10 +335,7 @@ impl TimeResampledBandLimitedForcing3D {
     }
 
     /// Sample the spectral forcing field for a DNS step.
-    pub fn sample_spectral_forcing_for_step(
-        &self,
-        step: usize,
-    ) -> Result<[Array3<Complex64>; 3]> {
+    pub fn sample_spectral_forcing_for_step(&self, step: usize) -> Result<[Array3<Complex64>; 3]> {
         self.forcing_for_step(step)?.sample_spectral_forcing()
     }
 
@@ -363,27 +369,40 @@ mod tests {
 
     #[test]
     fn forcing_is_band_limited_and_divergence_free() {
-        let config = BandLimitedRandomPhaseForcingConfig::new(
-            (8, 8, 8),
-            (1.0, 1.0, 1.0),
-            2,
-            1,
-            0.5,
-            42,
-        )
-        .expect("forcing config should be valid");
-        let forcing = BandLimitedRandomPhaseForcing3D::new(config).expect("forcing generator should be valid");
-        let spectra = forcing.sample_spectral_forcing().expect("spectral forcing should sample");
+        let config =
+            BandLimitedRandomPhaseForcingConfig::new((8, 8, 8), (1.0, 1.0, 1.0), 2, 1, 0.5, 42)
+                .expect("forcing config should be valid");
+        let forcing = BandLimitedRandomPhaseForcing3D::new(config)
+            .expect("forcing generator should be valid");
+        let spectra = forcing
+            .sample_spectral_forcing()
+            .expect("spectral forcing should sample");
 
         let lower = config.target_shell.saturating_sub(config.shell_bandwidth);
         let upper = config.target_shell + config.shell_bandwidth;
         for k in 0..config.dimensions.2 {
-            let signed_kz = if k <= config.dimensions.2 / 2 { k as isize } else { k as isize - config.dimensions.2 as isize };
+            let signed_kz = if k <= config.dimensions.2 / 2 {
+                k as isize
+            } else {
+                k as isize - config.dimensions.2 as isize
+            };
             for j in 0..config.dimensions.1 {
-                let signed_ky = if j <= config.dimensions.1 / 2 { j as isize } else { j as isize - config.dimensions.1 as isize };
+                let signed_ky = if j <= config.dimensions.1 / 2 {
+                    j as isize
+                } else {
+                    j as isize - config.dimensions.1 as isize
+                };
                 for i in 0..config.dimensions.0 {
-                    let signed_kx = if i <= config.dimensions.0 / 2 { i as isize } else { i as isize - config.dimensions.0 as isize };
-                    let shell = ((signed_kx * signed_kx + signed_ky * signed_ky + signed_kz * signed_kz) as f64).sqrt().floor() as usize;
+                    let signed_kx = if i <= config.dimensions.0 / 2 {
+                        i as isize
+                    } else {
+                        i as isize - config.dimensions.0 as isize
+                    };
+                    let shell = ((signed_kx * signed_kx
+                        + signed_ky * signed_ky
+                        + signed_kz * signed_kz) as f64)
+                        .sqrt()
+                        .floor() as usize;
                     let coeff_x = spectra[0][[i, j, k]];
                     let coeff_y = spectra[1][[i, j, k]];
                     let coeff_z = spectra[2][[i, j, k]];
@@ -396,7 +415,10 @@ mod tests {
                         let divergence = coeff_x * signed_kx as f64
                             + coeff_y * signed_ky as f64
                             + coeff_z * signed_kz as f64;
-                        assert!(divergence.norm() < 1e-10, "mode ({i}, {j}, {k}) should be solenoidal");
+                        assert!(
+                            divergence.norm() < 1e-10,
+                            "mode ({i}, {j}, {k}) should be solenoidal"
+                        );
                     }
                 }
             }
@@ -405,17 +427,14 @@ mod tests {
 
     #[test]
     fn forcing_initialization_produces_real_nontrivial_velocity_field() {
-        let config = BandLimitedRandomPhaseForcingConfig::new(
-            (6, 6, 6),
-            (1.0, 1.0, 1.0),
-            1,
-            0,
-            0.25,
-            7,
-        )
-        .expect("forcing config should be valid");
-        let forcing = BandLimitedRandomPhaseForcing3D::new(config).expect("forcing generator should be valid");
-        let velocity = forcing.sample_physical_forcing().expect("physical field should sample");
+        let config =
+            BandLimitedRandomPhaseForcingConfig::new((6, 6, 6), (1.0, 1.0, 1.0), 1, 0, 0.25, 7)
+                .expect("forcing config should be valid");
+        let forcing = BandLimitedRandomPhaseForcing3D::new(config)
+            .expect("forcing generator should be valid");
+        let velocity = forcing
+            .sample_physical_forcing()
+            .expect("physical field should sample");
 
         let mut energy = 0.0;
         for sample in &velocity.components {
@@ -429,15 +448,9 @@ mod tests {
 
     #[test]
     fn time_resampled_schedule_reuses_epochs_and_changes_across_boundaries() {
-        let forcing = BandLimitedRandomPhaseForcingConfig::new(
-            (8, 8, 8),
-            (1.0, 1.0, 1.0),
-            2,
-            1,
-            0.5,
-            99,
-        )
-        .expect("forcing config should be valid");
+        let forcing =
+            BandLimitedRandomPhaseForcingConfig::new((8, 8, 8), (1.0, 1.0, 1.0), 2, 1, 0.5, 99)
+                .expect("forcing config should be valid");
         let schedule = TimeResampledBandLimitedForcing3D::new(
             TimeResampledBandLimitedForcingConfig::new(forcing, 4)
                 .expect("schedule config should be valid"),

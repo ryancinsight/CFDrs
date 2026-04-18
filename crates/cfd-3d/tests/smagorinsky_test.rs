@@ -1,6 +1,8 @@
+use approx::assert_relative_eq;
 use cfd_3d::physics::turbulence::SmagorinskyModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
+use nalgebra::Vector3;
 
 #[test]
 fn test_smagorinsky_turbulent_viscosity() {
@@ -53,4 +55,38 @@ fn test_smagorinsky_turbulent_viscosity() {
 
     println!("Computed: {}, Expected: {}", computed, expected_viscosity);
     assert!((computed - expected_viscosity).abs() < 1e-10);
+}
+
+#[test]
+fn test_smagorinsky_anisotropic_filter_width() {
+    let nx = 3;
+    let ny = 3;
+    let nz = 3;
+    let dx = 1.0;
+    let dy = 2.0;
+    let dz = 4.0;
+    let mut flow_field = FlowField::<f64>::new(nx, ny, nz);
+
+    for k in 0..nz {
+        for j in 0..ny {
+            for i in 0..nx {
+                let x = i as f64 * dx;
+                let y = j as f64 * dy;
+                let z = k as f64 * dz;
+                if let Some(vel) = flow_field.velocity.get_mut(i, j, k) {
+                    *vel = Vector3::new(x, y, z);
+                }
+            }
+        }
+    }
+
+    let cs = 0.1;
+    let model = SmagorinskyModel::with_filter_width(cs, dx, dy, dz);
+    let viscosity = model.turbulent_viscosity(&flow_field);
+    let delta = (dx * dy * dz).cbrt();
+    let expected_strain_mag = (6.0f64).sqrt();
+    let expected_viscosity = (cs * delta).powi(2) * expected_strain_mag;
+    let center = 1 * nx * ny + 1 * nx + 1;
+
+    assert_relative_eq!(viscosity[center], expected_viscosity, epsilon = 1e-12);
 }

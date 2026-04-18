@@ -47,7 +47,6 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
-
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
@@ -715,9 +714,9 @@ mod tests {
     fn simple_channel(id: &str) -> CascadeChannelSpec {
         CascadeChannelSpec {
             id: id.to_string(),
-            length: 0.01,      // 10 mm
-            width: 0.001,      // 1 mm
-            height: 0.0005,    // 0.5 mm
+            length: 0.01,   // 10 mm
+            width: 0.001,   // 1 mm
+            height: 0.0005, // 0.5 mm
             flow_rate_m3_s: 1e-8,
             is_venturi_throat: false,
             throat_width: None,
@@ -756,7 +755,9 @@ mod tests {
         let solver = CascadeSolver3D::new(config, fluid);
 
         let channels = vec![simple_channel("ch1"), simple_channel("ch2")];
-        let result = solver.solve(&channels).expect("solve should succeed on 2 simple channels");
+        let result = solver
+            .solve(&channels)
+            .expect("solve should succeed on 2 simple channels");
 
         assert_eq!(
             result.channel_results.len(),

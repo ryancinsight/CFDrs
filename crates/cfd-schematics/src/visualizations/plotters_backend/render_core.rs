@@ -170,7 +170,7 @@ impl PlottersRenderer {
         chart
             .draw_series(renderable.box_outline.iter().map(|(p1, p2)| {
                 PathElement::new(
-                    vec![*p1, *p2],
+                    [*p1, *p2],
                     convert_color(&config.boundary_style.color)
                         .stroke_width(config.boundary_style.width as u32),
                 )

@@ -82,9 +82,14 @@ fn draw_annotation_legend<DB: DrawingBackend>(
     system: &NetworkBlueprint,
     annotations: &SchematicAnnotations,
 ) -> VisualizationResult<()> {
-    use std::collections::BTreeSet;
+    let mut present_roles: Vec<MarkerRole> = Vec::with_capacity(8);
+    for m in &annotations.markers {
+        if !present_roles.contains(&m.role) {
+            present_roles.push(m.role);
+        }
+    }
+    present_roles.sort_unstable();
 
-    let present_roles: BTreeSet<MarkerRole> = annotations.markers.iter().map(|m| m.role).collect();
     if present_roles.is_empty() && annotations.legend_note.is_none() {
         return Ok(());
     }
@@ -126,21 +131,44 @@ fn draw_annotation_legend<DB: DrawingBackend>(
     }
 
     if let Some(note) = annotations.legend_note.as_deref() {
-        chart
-            .draw_series(std::iter::once(Text::new(
-                note.to_string(),
-                (legend_x, legend_y),
-                ("sans-serif", 10).into_font().color(&RGBColor(30, 30, 30)),
-            )))
-            .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
+        let note_lines = split_legend_note(note);
+        if !note_lines.is_empty() {
+            let note_font_size = annotations
+                .style
+                .label_font_size_pt
+                .saturating_sub(2)
+                .max(8);
+            let note_step = row_step * 0.9;
+            for (idx, line) in note_lines.iter().enumerate() {
+                chart
+                    .draw_series(std::iter::once(Text::new(
+                        (*line).to_string(),
+                        (legend_x, legend_y),
+                        ("sans-serif", note_font_size)
+                            .into_font()
+                            .color(&RGBColor(30, 30, 30)),
+                    )))
+                    .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
+                if idx + 1 < note_lines.len() {
+                    legend_y -= note_step;
+                }
+            }
+        }
     }
 
     Ok(())
 }
 
+fn split_legend_note(note: &str) -> Vec<&str> {
+    note.split('|')
+        .map(str::trim)
+        .filter(|segment| !segment.is_empty())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::label_offset_for_marker;
+    use super::{label_offset_for_marker, split_legend_note};
     use crate::domain::model::{NetworkBlueprint, NodeId, NodeKind, NodeSpec};
     use crate::visualizations::annotations::{AnnotationMarker, MarkerRole};
 
@@ -230,5 +258,11 @@ mod tests {
             venturi_dx > 0.0,
             "centerline venturi labels should avoid starting on the marker"
         );
+    }
+
+    #[test]
+    fn split_legend_note_trims_separators_and_discards_empty_fragments() {
+        let lines = split_legend_note(" alpha | beta || gamma | ");
+        assert_eq!(lines, vec!["alpha", "beta", "gamma"]);
     }
 }

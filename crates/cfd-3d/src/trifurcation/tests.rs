@@ -17,7 +17,7 @@ mod tests {
 
         let config = TrifurcationConfig3D {
             inlet_flow_rate: 1.0e-9,
-            inlet_pressure: 200.0,   // Pa
+            inlet_pressure: 200.0, // Pa
             outlet_pressures: [0.0, 0.0, 0.0],
             max_nonlinear_iterations: 20,
             nonlinear_tolerance: 1e-4,
@@ -40,7 +40,8 @@ mod tests {
                     "Mass conservation error: {}",
                     solution.mass_conservation_error
                 );
-                let total_out = solution.flow_rates[1] + solution.flow_rates[2] + solution.flow_rates[3];
+                let total_out =
+                    solution.flow_rates[1] + solution.flow_rates[2] + solution.flow_rates[3];
                 assert!(solution.flow_rates[0].is_finite() && solution.flow_rates[0] > 0.0);
                 assert!(total_out.is_finite() && total_out > 0.0);
 

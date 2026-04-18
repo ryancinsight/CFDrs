@@ -109,14 +109,14 @@ impl PlottersRenderer {
             if idx >= 8 {
                 chart
                     .draw_series(std::iter::once(PathElement::new(
-                        vec![*p1, *p2],
+                        [*p1, *p2],
                         port_color.stroke_width(config.boundary_style.width.max(3.0) as u32),
                     )))
                     .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
             } else {
                 chart
                     .draw_series(std::iter::once(PathElement::new(
-                        vec![*p1, *p2],
+                        [*p1, *p2],
                         wall_style,
                     )))
                     .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
@@ -156,7 +156,7 @@ impl PlottersRenderer {
                 if x_start < t + iw && x_end > t && y_start < t + ih && y_end > t {
                     chart
                         .draw_series(std::iter::once(PathElement::new(
-                            vec![(x_start, y_start), (x_end, y_end)],
+                            [(x_start, y_start), (x_end, y_end)],
                             hatch_stroke,
                         )))
                         .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;

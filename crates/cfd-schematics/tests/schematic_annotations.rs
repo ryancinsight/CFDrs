@@ -175,3 +175,27 @@ fn auto_annotations_with_render_hints_render_volume_once() {
     assert_eq!(svg.matches("Volume:").count(), 1);
     assert!(svg.contains("PentaTri"));
 }
+
+#[test]
+fn legend_notes_render_as_compact_segments() {
+    let system = synthetic_system();
+    let mut annotations = SchematicAnnotations::report_default();
+    annotations.markers = vec![
+        AnnotationMarker::new((0.0, 42.735), MarkerRole::Inlet).with_label("IN", true),
+        AnnotationMarker::new((127.76, 42.735), MarkerRole::Outlet).with_label("OUT", true),
+    ];
+    annotations.legend_note = Some("alpha | beta | gamma".to_string());
+
+    let config = RenderConfig::well_plate_96_report_annotated();
+    let path = unique_svg_path("cfd_schematic_legend_note");
+    let path_str = path.to_string_lossy();
+
+    plot_geometry_with_annotations(&system, path_str.as_ref(), &config, &annotations)
+        .expect("legend note render must succeed");
+
+    let svg = std::fs::read_to_string(&path).expect("must read rendered svg");
+    assert!(svg.contains("alpha"));
+    assert!(svg.contains("beta"));
+    assert!(svg.contains("gamma"));
+    assert!(!svg.contains("alpha | beta | gamma"));
+}

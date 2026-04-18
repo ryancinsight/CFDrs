@@ -894,6 +894,36 @@ fn test_mixing_length_zero_tke_uniform_flow() {
     }
 }
 
+/// MixingLength: anisotropic wall spacing must use the physical wall-normal step.
+#[test]
+fn test_mixing_length_anisotropic_wall_spacing() {
+    use cfd_3d::physics::turbulence::MixingLengthModel;
+    use cfd_core::physics::fluid_dynamics::fields::FlowField;
+    use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
+
+    let length_scale = 0.1;
+    let dx = 1.0;
+    let dy = 4.0;
+    let dz = 9.0;
+    let model = MixingLengthModel::<f64>::with_filter_width(length_scale, dx, dy, dz);
+    let mut flow = FlowField::<f64>::new(3, 3, 3);
+
+    for k in 0..3 {
+        for j in 0..3 {
+            for i in 0..3 {
+                let y = j as f64 * dy;
+                if let Some(vel) = flow.velocity.get_mut(i, j, k) {
+                    *vel = Vector3::new(y, 0.0, 0.0);
+                }
+            }
+        }
+    }
+
+    let visc = model.turbulent_viscosity(&flow);
+    let center = 13;
+    assert_relative_eq!(visc[center], length_scale * length_scale, epsilon = 1e-12);
+}
+
 /// k-ε: standard constants match Launder & Spalding (1974).
 #[test]
 fn test_k_epsilon_standard_constants() {

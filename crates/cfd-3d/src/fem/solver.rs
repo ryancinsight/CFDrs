@@ -490,7 +490,6 @@ impl<
         problem: &StokesFlowProblem<T>,
         previous_solution: Option<&StokesFlowSolution<T>>,
     ) -> Result<(SparseMatrix<T>, DVector<T>)> {
-
         let n_nodes = problem.mesh.vertex_count();
         let n_corner_nodes = problem.n_corner_nodes;
         let n_velocity_dof = n_nodes * 3;
@@ -555,10 +554,11 @@ impl<
                         .as_ref()
                         .map_or(problem.fluid.viscosity, |v| v[i]);
                     // Use cache-accelerated index extraction (O(1) per edge vs O(N_mid))
-                    let idxs = match extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes) {
-                        Ok(v) => v,
-                        Err(_) => return (local_map, local_rhs),  // skip degenerate cell
-                    };
+                    let idxs =
+                        match extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes) {
+                            Ok(v) => v,
+                            Err(_) => return (local_map, local_rhs), // skip degenerate cell
+                        };
                     let local_verts: Vec<Vector3<T>> =
                         idxs.iter().map(|&idx| vertex_positions[idx]).collect();
 

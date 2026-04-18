@@ -412,7 +412,9 @@ mod tests {
         pt.force = Vector3::new(1.0, 0.0, 0.0);
         solver.add_lagrangian_point(pt);
 
-        let forces = solver.spread_forces().expect("spread_forces should succeed");
+        let forces = solver
+            .spread_forces()
+            .expect("spread_forces should succeed");
 
         assert_eq!(forces.len(), 10 * 10 * 10);
 

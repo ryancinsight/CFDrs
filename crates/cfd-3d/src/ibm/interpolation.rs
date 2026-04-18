@@ -210,10 +210,7 @@ mod tests {
         for i in 0..100 {
             let r = i as f64 * 0.03; // r ∈ [0, 3)
             let val = k.delta(r);
-            assert!(
-                val >= 0.0,
-                "Roma 3-pt delta({r}) = {val} < 0"
-            );
+            assert!(val >= 0.0, "Roma 3-pt delta({r}) = {val} < 0");
         }
     }
 

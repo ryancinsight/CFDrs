@@ -43,7 +43,9 @@ where
     T: FromPrimitive,
 {
     T::from_f64(value).ok_or_else(|| {
-        invalid_configuration(format!("{context}: value cannot be represented in the target scalar type"))
+        invalid_configuration(format!(
+            "{context}: value cannot be represented in the target scalar type"
+        ))
     })
 }
 
@@ -52,7 +54,9 @@ where
     T: FromPrimitive,
 {
     T::from_usize(value).ok_or_else(|| {
-        invalid_configuration(format!("{context}: size {value} cannot be represented in the target scalar type"))
+        invalid_configuration(format!(
+            "{context}: size {value} cannot be represented in the target scalar type"
+        ))
     })
 }
 
@@ -67,7 +71,9 @@ fn ensure_length(actual: usize, expected: usize, context: &str) -> Result<()> {
 }
 
 /// Fourier transform operations
-pub struct FourierTransform<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy> {
+pub struct FourierTransform<
+    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy,
+> {
     /// Number of modes
     n: usize,
     /// Wavenumbers
@@ -123,8 +129,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
                 Ok(Complex::new(
                     convert_from_f64::<T>(value.re, "FourierTransform::forward output real part")?
                         / scale,
-                    convert_from_f64::<T>(value.im, "FourierTransform::forward output imaginary part")?
-                        / scale,
+                    convert_from_f64::<T>(
+                        value.im,
+                        "FourierTransform::forward output imaginary part",
+                    )? / scale,
                 ))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -154,10 +162,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
         let recovered = spatial
             .into_iter()
             .map(|value| {
-                Ok(convert_from_f64::<T>(
-                    value,
-                    "FourierTransform::inverse output",
-                )? * scale)
+                Ok(convert_from_f64::<T>(value, "FourierTransform::inverse output")? * scale)
             })
             .collect::<Result<Vec<_>>>()?;
 

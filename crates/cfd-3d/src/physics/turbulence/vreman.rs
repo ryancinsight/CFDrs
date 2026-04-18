@@ -26,7 +26,7 @@
 //! For each grid point:
 //!   1. Compute α_ij = ∂u_i/∂x_j via central differences (spacing Δ)
 //!   2. Compute α_ij α_ij = sum over all i,j of α_ij²
-//!   3. Compute β_mn = Δ² · sum_i(α_im · α_in)  (isotropic Δ simplification)
+//!   3. Compute β = A diag(Δx², Δy², Δz²) Aᵀ  (anisotropic Cartesian grid)
 //!   4. Compute B_β from upper-triangular 3×3 metric B_β = I₂(β)
 //!   5. νₜ = C_V · sqrt(max(B_β, 0) / max(α_ij α_ij, ε))
 //! ```
@@ -42,6 +42,7 @@ use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
 use super::constants::VREMAN_CV;
+use super::field_ops::velocity_gradient_tensor;
 
 /// Vreman SGS model for LES (Vreman 2004).
 ///
@@ -51,6 +52,12 @@ use super::constants::VREMAN_CV;
 pub struct VremanModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Vreman constant C_V ≈ 0.025 (Vreman 2004 Table 1).
     pub c_v: T,
+    /// Grid spacing in the x direction [m].
+    pub dx: T,
+    /// Grid spacing in the y direction [m].
+    pub dy: T,
+    /// Grid spacing in the z direction [m].
+    pub dz: T,
     /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) [m].
     pub filter_width: T,
 }
@@ -61,6 +68,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
         Self {
             c_v: <T as FromPrimitive>::from_f64(VREMAN_CV)
                 .expect("VREMAN_CV is an IEEE 754 representable f64 constant"),
+            dx: T::one(),
+            dy: T::one(),
+            dz: T::one(),
             filter_width: T::one(),
         }
     }
@@ -72,6 +82,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
         Self {
             c_v: <T as FromPrimitive>::from_f64(VREMAN_CV)
                 .expect("VREMAN_CV is an IEEE 754 representable f64 constant"),
+            dx,
+            dy,
+            dz,
             filter_width,
         }
     }
@@ -79,47 +92,22 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
     /// Compute Vreman eddy viscosity at grid point (i,j,k).
     fn vreman_viscosity_at(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> T {
         let (nx, ny, nz) = flow.velocity.dimensions;
-        let delta = self.filter_width;
-        let two = T::one() + T::one();
+        let gradient = velocity_gradient_tensor(
+            &flow.velocity.components,
+            nx,
+            ny,
+            nz,
+            i,
+            j,
+            k,
+            self.dx,
+            self.dy,
+            self.dz,
+        );
         let eps = <T as FromPrimitive>::from_f64(1e-30)
             .expect("1e-30 is an IEEE 754 representable f64 constant");
 
-        // α_ij = ∂u_i / ∂x_j  (central differences where interior, one-sided at boundaries)
-        let mut alpha = [[T::zero(); 3]; 3]; // alpha[i][j] = ∂u_i/∂x_j
-
-        // x-derivatives (j=0 column): ∂u/∂x, ∂v/∂x, ∂w/∂x
-        if i > 0 && i < nx - 1 {
-            if let (Some(vp), Some(vm)) = (
-                flow.velocity.get(i + 1, j, k),
-                flow.velocity.get(i - 1, j, k),
-            ) {
-                alpha[0][0] = (vp.x - vm.x) / (two * delta);
-                alpha[1][0] = (vp.y - vm.y) / (two * delta);
-                alpha[2][0] = (vp.z - vm.z) / (two * delta);
-            }
-        }
-        // y-derivatives (j=1 column)
-        if j > 0 && j < ny - 1 {
-            if let (Some(vp), Some(vm)) = (
-                flow.velocity.get(i, j + 1, k),
-                flow.velocity.get(i, j - 1, k),
-            ) {
-                alpha[0][1] = (vp.x - vm.x) / (two * delta);
-                alpha[1][1] = (vp.y - vm.y) / (two * delta);
-                alpha[2][1] = (vp.z - vm.z) / (two * delta);
-            }
-        }
-        // z-derivatives (j=2 column)
-        if k > 0 && k < nz - 1 {
-            if let (Some(vp), Some(vm)) = (
-                flow.velocity.get(i, j, k + 1),
-                flow.velocity.get(i, j, k - 1),
-            ) {
-                alpha[0][2] = (vp.x - vm.x) / (two * delta);
-                alpha[1][2] = (vp.y - vm.y) / (two * delta);
-                alpha[2][2] = (vp.z - vm.z) / (two * delta);
-            }
-        }
+        let alpha = gradient;
 
         // Compute |α|² = Σ α_ij²
         let mut alpha_sq = T::zero();
@@ -133,16 +121,16 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
             return T::zero();
         }
 
-        // β_mn = Δ² Σ_i α_im α_in  (isotropic Δ, i.e. Δ_m = Δ_n = Δ)
-        let delta_sq = delta * delta;
+        // β = A diag(Δx², Δy², Δz²) Aᵀ for the row-major velocity gradient A.
+        let spacing_sq = [self.dx * self.dx, self.dy * self.dy, self.dz * self.dz];
         let mut beta = [[T::zero(); 3]; 3];
         for m in 0..3 {
             for n in 0..3 {
                 let mut s = T::zero();
-                for ii in 0..3 {
-                    s += alpha[ii][m] * alpha[ii][n];
+                for p in 0..3 {
+                    s += spacing_sq[p] * alpha[m][p] * alpha[n][p];
                 }
-                beta[m][n] = delta_sq * s;
+                beta[m][n] = s;
             }
         }
 
@@ -190,5 +178,38 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 
     fn name(&self) -> &'static str {
         "Vreman"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use nalgebra::Vector3;
+
+    fn fill_velocity_field<F>(flow: &mut FlowField<f64>, mut generator: F)
+    where
+        F: FnMut(f64, f64, f64) -> Vector3<f64>,
+    {
+        let (nx, ny, nz) = flow.velocity.dimensions;
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let idx = k * nx * ny + j * nx + i;
+                    flow.velocity.components[idx] = generator(i as f64, j as f64, k as f64);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn pure_shear_has_zero_viscosity() {
+        let mut flow = FlowField::<f64>::new(4, 4, 4);
+        fill_velocity_field(&mut flow, |_, y, _z| Vector3::new(y, 0.0, 0.0));
+
+        let model = VremanModel::<f64>::with_filter_width(1.0, 1.0, 1.0);
+        let viscosity = model.turbulent_viscosity(&flow);
+        let center = 2 * 4 * 4 + 2 * 4 + 2;
+        assert_relative_eq!(viscosity[center], 0.0, epsilon = 1e-12);
     }
 }

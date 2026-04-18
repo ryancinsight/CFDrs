@@ -114,9 +114,7 @@ pub fn height_function_normal_2d(
     let ny = if nx > 0 { alpha[0].len() } else { 0 };
 
     // Height function: sum volume fractions in column i
-    let column_height = |col: usize| -> f64 {
-        (0..ny).map(|j| alpha[col][j] * dy).sum()
-    };
+    let column_height = |col: usize| -> f64 { (0..ny).map(|j| alpha[col][j] * dy).sum() };
 
     // Central difference for normal using clamped boundary indices
     let i_left = if i > 0 { i - 1 } else { 0 };
@@ -158,7 +156,9 @@ pub fn height_function_normal_3d(
 ) -> [f64; 3] {
     // Height function: sum volume fractions along y-axis for column (ci, ck)
     let column_height = |ci: usize, ck: usize| -> f64 {
-        (0..ny).map(|cj| alpha[ci * ny * nz + cj * nz + ck] * dy).sum()
+        (0..ny)
+            .map(|cj| alpha[ci * ny * nz + cj * nz + ck] * dy)
+            .sum()
     };
 
     let i_left = if i > 0 { i - 1 } else { 0 };
@@ -180,13 +180,7 @@ pub fn height_function_normal_3d(
 ///
 /// Uses central differences: n = −∇α / |∇α|.
 #[must_use]
-pub fn youngs_normal_2d(
-    alpha: &[Vec<f64>],
-    i: usize,
-    j: usize,
-    dx: f64,
-    dy: f64,
-) -> [f64; 2] {
+pub fn youngs_normal_2d(alpha: &[Vec<f64>], i: usize, j: usize, dx: f64, dy: f64) -> [f64; 2] {
     let nx = alpha.len();
     let ny = if nx > 0 { alpha[0].len() } else { 0 };
 
@@ -521,11 +515,7 @@ mod tests {
         // Fill: α = 1 where j < i (below a 45° line from bottom-left)
         // This creates a tilted interface where column height H_i = i * dy
         let alpha: Vec<Vec<f64>> = (0..nx)
-            .map(|i| {
-                (0..ny)
-                    .map(|j| if j < i { 1.0 } else { 0.0 })
-                    .collect()
-            })
+            .map(|i| (0..ny).map(|j| if j < i { 1.0 } else { 0.0 }).collect())
             .collect();
 
         // At a central cell the height-function should detect the tilt.
@@ -615,7 +605,10 @@ mod tests {
             }
         }
 
-        assert!(count > 10, "Should have enough interface cells, got {count}");
+        assert!(
+            count > 10,
+            "Should have enough interface cells, got {count}"
+        );
 
         let hf_mean_error = hf_total_error / count as f64;
         let youngs_mean_error = youngs_total_error / count as f64;

@@ -69,12 +69,7 @@ impl<
             }
         }
 
-        tracing::debug!(
-            label,
-            face_count,
-            ?total_q,
-            "Flow integration complete"
-        );
+        tracing::debug!(label, face_count, ?total_q, "Flow integration complete");
         Ok(total_q.abs())
     }
 

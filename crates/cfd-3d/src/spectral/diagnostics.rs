@@ -177,7 +177,8 @@ where
     }
 
     let (lx, ly, lz) = domain_lengths;
-    if !lx.is_finite() || !ly.is_finite() || !lz.is_finite() || lx <= 0.0 || ly <= 0.0 || lz <= 0.0 {
+    if !lx.is_finite() || !ly.is_finite() || !lz.is_finite() || lx <= 0.0 || ly <= 0.0 || lz <= 0.0
+    {
         return Err(Error::InvalidConfiguration(
             "enstrophy_spectrum: domain lengths must be finite and positive".into(),
         ));
@@ -225,9 +226,7 @@ where
                 let omega_y_hat = omega_imag * (kz * ux_hat[[i, j, k]] - kx * uz_hat[[i, j, k]]);
                 let omega_z_hat = omega_imag * (kx * uy_hat[[i, j, k]] - ky * ux_hat[[i, j, k]]);
                 let mode_enstrophy = 0.5
-                    * (omega_x_hat.norm_sqr()
-                        + omega_y_hat.norm_sqr()
-                        + omega_z_hat.norm_sqr())
+                    * (omega_x_hat.norm_sqr() + omega_y_hat.norm_sqr() + omega_z_hat.norm_sqr())
                     / normalization;
 
                 shell_enstrophy[shell] += mode_enstrophy;
@@ -304,10 +303,7 @@ pub fn temporal_autocorrelation(
 }
 
 /// Compute the FFT-backed power spectrum of a probe signal.
-pub fn probe_signal_spectrum(
-    samples: &[f64],
-    sample_period: f64,
-) -> Result<ProbeSignalSpectrum> {
+pub fn probe_signal_spectrum(samples: &[f64], sample_period: f64) -> Result<ProbeSignalSpectrum> {
     if samples.is_empty() {
         return Err(Error::InvalidConfiguration(
             "probe_signal_spectrum: signal must contain at least one sample".into(),
@@ -454,7 +450,9 @@ mod tests {
             for _j in 0..ny {
                 for i in 0..nx {
                     let phase = 2.0 * std::f64::consts::PI * i as f64 / nx as f64;
-                    velocity.components.push(Vector3::new(phase.sin(), 0.0, 0.0));
+                    velocity
+                        .components
+                        .push(Vector3::new(phase.sin(), 0.0, 0.0));
                 }
             }
         }
@@ -465,7 +463,11 @@ mod tests {
             .shell_energy
             .iter()
             .enumerate()
-            .max_by(|lhs, rhs| lhs.1.partial_cmp(rhs.1).expect("energy should be comparable"))
+            .max_by(|lhs, rhs| {
+                lhs.1
+                    .partial_cmp(rhs.1)
+                    .expect("energy should be comparable")
+            })
             .map(|(index, _)| index)
             .expect("spectrum should contain at least one shell");
 
@@ -504,7 +506,9 @@ mod tests {
             for j in 0..ny {
                 let phase = 2.0 * std::f64::consts::PI * j as f64 / ny as f64;
                 for _i in 0..nx {
-                    velocity.components.push(Vector3::new(phase.sin(), 0.0, 0.0));
+                    velocity
+                        .components
+                        .push(Vector3::new(phase.sin(), 0.0, 0.0));
                 }
             }
         }
@@ -516,7 +520,11 @@ mod tests {
             .shell_enstrophy
             .iter()
             .enumerate()
-            .max_by(|lhs, rhs| lhs.1.partial_cmp(rhs.1).expect("enstrophy should be comparable"))
+            .max_by(|lhs, rhs| {
+                lhs.1
+                    .partial_cmp(rhs.1)
+                    .expect("enstrophy should be comparable")
+            })
             .map(|(index, _)| index)
             .expect("spectrum should contain at least one shell");
 
@@ -531,20 +539,24 @@ mod tests {
             .map(|index| if index % 2 == 0 { 1.0 } else { -1.0 })
             .collect();
 
-        let autocorrelation = temporal_autocorrelation(&samples, 0.25, 4)
-            .expect("autocorrelation should compute");
+        let autocorrelation =
+            temporal_autocorrelation(&samples, 0.25, 4).expect("autocorrelation should compute");
         assert_eq!(autocorrelation.lags, vec![0, 1, 2, 3, 4]);
         assert!((autocorrelation.values[0] - 1.0).abs() < 1e-10);
         assert!((autocorrelation.values[1] + 1.0).abs() < 1e-10);
         assert!((autocorrelation.values[2] - 1.0).abs() < 1e-10);
 
-        let spectrum = probe_signal_spectrum(&samples, 0.25)
-            .expect("probe signal spectrum should compute");
+        let spectrum =
+            probe_signal_spectrum(&samples, 0.25).expect("probe signal spectrum should compute");
         let dominant_bin = spectrum
             .spectral_energy
             .iter()
             .enumerate()
-            .max_by(|lhs, rhs| lhs.1.partial_cmp(rhs.1).expect("power should be comparable"))
+            .max_by(|lhs, rhs| {
+                lhs.1
+                    .partial_cmp(rhs.1)
+                    .expect("power should be comparable")
+            })
             .map(|(index, _)| index)
             .expect("spectrum should contain at least one bin");
 

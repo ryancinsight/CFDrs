@@ -28,8 +28,9 @@
 //!   1. Evaluate wall distance d_i (provided at construction via wall_distances).
 //!   2. Compute Δ_max_i = max(dx, dy, dz) (provided at construction).
 //!   3. l_DES_i = min(d_i, C_DES · Δ_max_i)
-//!   4. Compute RANS νₜ using SA model with modified destruction length l_DES.
-//!      (Approximated here by Smagorinsky with Δ = l_DES for tractability.)
+//!   4. If DDES is enabled, use the supplied background turbulent viscosity
+//!      field ν_t,bg to compute the shielding function f_d.
+//!   5. Compute ν_t = C_s² l_DES² |S| using the resolved strain magnitude.
 //! ```
 //!
 //! ## References
@@ -40,13 +41,16 @@
 //! - Shur, M., Spalart, P.R., Strelets, M. & Travin, A. (1999). "Detached-
 //!   eddy simulation of an airfoil at high angle of attack." *IUTAM Symp.*
 
+use cfd_core::physics::fluid::BloodModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use cfd_core::physics::fluid::BloodModel;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
 use super::constants::{DES_C_DES, SMAGORINSKY_CS_DEFAULT};
+use super::field_ops::{
+    linear_index, strain_magnitude, velocity_gradient_tensor, vorticity_magnitude,
+};
 
 /// DES hybrid RANS-LES model (Spalart et al. 1997).
 ///
@@ -87,6 +91,11 @@ pub struct DESModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromP
     pub blood_model: Option<BloodModel<T>>,
     /// Fluid density [kg/m³], required if `blood_model` is used.
     pub fluid_density: T,
+    /// Background turbulent viscosity field used by DDES shielding.
+    ///
+    /// When `use_ddes` is true, this field must contain the turbulent
+    /// kinematic viscosity from the baseline RANS model for every grid point.
+    pub background_turbulent_viscosity: Option<Vec<T>>,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESModel<T> {
@@ -112,6 +121,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
                 .expect("1.5e-5 is an IEEE 754 representable f64 constant"),
             blood_model: None,
             fluid_density: T::one(),
+            background_turbulent_viscosity: None,
         }
     }
 
@@ -129,7 +139,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
                 .expect("1.5e-5 is an IEEE 754 representable f64 constant"),
             blood_model: None,
             fluid_density: T::one(),
+            background_turbulent_viscosity: None,
         }
+    }
+
+    /// Attach a background turbulent viscosity field for DDES shielding.
+    pub fn with_background_turbulent_viscosity(
+        mut self,
+        background_turbulent_viscosity: Vec<T>,
+    ) -> Self {
+        self.background_turbulent_viscosity = Some(background_turbulent_viscosity);
+        self
     }
 }
 
@@ -143,137 +163,102 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let n = nx * ny * nz;
+        assert_eq!(
+            self.wall_distances.len(),
+            n,
+            "DES wall_distances must match the flow-field size"
+        );
+        assert_eq!(
+            self.delta_max.len(),
+            n,
+            "DES delta_max must match the flow-field size"
+        );
+        if self.use_ddes {
+            assert!(
+                self.background_turbulent_viscosity.is_some(),
+                "DDES requires background_turbulent_viscosity from the baseline RANS model"
+            );
+        }
+        if let Some(background) = &self.background_turbulent_viscosity {
+            assert_eq!(
+                background.len(),
+                n,
+                "DDES background_turbulent_viscosity must match the flow-field size"
+            );
+        }
+
         let mut viscosity = Vec::with_capacity(n);
-        let two = <T as FromPrimitive>::from_f64(2.0)
-            .expect("2.0 is representable in all IEEE 754 types");
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let idx = linear_index(nx, ny, i, j, k);
+                    let d = self.wall_distances[idx];
+                    let delta = self.delta_max[idx];
+                    let gradient = velocity_gradient_tensor(
+                        &flow_field.velocity.components,
+                        nx,
+                        ny,
+                        nz,
+                        i,
+                        j,
+                        k,
+                        delta,
+                        delta,
+                        delta,
+                    );
+                    let s_mag = strain_magnitude(&gradient);
 
-        for idx in 0..n {
-            let d = if idx < self.wall_distances.len() {
-                self.wall_distances[idx]
-            } else {
-                T::one()
-            };
-            let delta = if idx < self.delta_max.len() {
-                self.delta_max[idx]
-            } else {
-                T::one()
-            };
+                    let l_des = if self.use_ddes {
+                        let background = self
+                            .background_turbulent_viscosity
+                            .as_ref()
+                            .expect("DDES requires background_turbulent_viscosity");
+                        let nu_t = background[idx];
+                        let nu = if let Some(model) = &self.blood_model {
+                            let strain_rate_t = s_mag;
+                            let mu = model.viscosity(strain_rate_t);
+                            assert!(
+                                self.fluid_density > T::zero(),
+                                "fluid_density must be positive when using a blood_model"
+                            );
+                            mu / self.fluid_density
+                        } else {
+                            self.kinematic_viscosity
+                        };
 
-            let i = idx % nx;
-            let j = (idx / nx) % ny;
-            let k = idx / (nx * ny);
+                        let fd = ddes_shielding(
+                            nu_t.to_f64()
+                                .expect("background_turbulent_viscosity must be finite"),
+                            nu.to_f64().expect("kinematic viscosity must be finite"),
+                            d.to_f64().expect("wall distance must be finite"),
+                            s_mag.to_f64().expect("strain magnitude must be finite"),
+                            vorticity_magnitude(&gradient)
+                                .to_f64()
+                                .expect("vorticity magnitude must be finite"),
+                        );
+                        ddes_length_scale(
+                            d.to_f64().expect("wall distance must be finite"),
+                            self.c_des
+                                .to_f64()
+                                .expect("C_DES must be representable as f64"),
+                            delta.to_f64().expect("delta_max must be finite"),
+                            fd,
+                        )
+                    } else {
+                        num_traits::Float::min(
+                            d.to_f64().expect("wall distance must be finite"),
+                            self.c_des
+                                .to_f64()
+                                .expect("C_DES must be representable as f64")
+                                * delta.to_f64().expect("delta_max must be finite"),
+                        )
+                    };
 
-            // Compute strain rate and vorticity magnitudes for both
-            // the eddy viscosity formula and DDES shielding (if enabled).
-            // We use the grid spacing (delta) for finite differences here,
-            // rather than l_des, to get physical velocity gradients.
-            let mut s_sq = T::zero();
-            let mut w_sq = T::zero();
-            if i > 0 && i < nx - 1 {
-                if let (Some(vp), Some(vm)) = (
-                    flow_field.velocity.get(i + 1, j, k),
-                    flow_field.velocity.get(i - 1, j, k),
-                ) {
-                    let s11 = (vp.x - vm.x) / (two * delta);
-                    let s12 = (vp.y - vm.y) / (two * delta);
-                    let s13 = (vp.z - vm.z) / (two * delta);
-                    s_sq += s11 * s11;
-                    // Cross terms for vorticity
-                    w_sq += s12 * s12 + s13 * s13;
+                    let l_des_t = <T as FromPrimitive>::from_f64(l_des)
+                        .expect("DDES length scale must be finite");
+                    viscosity.push(self.cs * self.cs * l_des_t * l_des_t * s_mag);
                 }
             }
-            if j > 0 && j < ny - 1 {
-                if let (Some(vp), Some(vm)) = (
-                    flow_field.velocity.get(i, j + 1, k),
-                    flow_field.velocity.get(i, j - 1, k),
-                ) {
-                    let s22 = (vp.y - vm.y) / (two * delta);
-                    let s21 = (vp.x - vm.x) / (two * delta);
-                    let s23 = (vp.z - vm.z) / (two * delta);
-                    s_sq += s22 * s22;
-                    w_sq += s21 * s21 + s23 * s23;
-                }
-            }
-            if k > 0 && k < nz - 1 {
-                if let (Some(vp), Some(vm)) = (
-                    flow_field.velocity.get(i, j, k + 1),
-                    flow_field.velocity.get(i, j, k - 1),
-                ) {
-                    let s33 = (vp.z - vm.z) / (two * delta);
-                    let s31 = (vp.x - vm.x) / (two * delta);
-                    let s32 = (vp.y - vm.y) / (two * delta);
-                    s_sq += s33 * s33;
-                    w_sq += s31 * s31 + s32 * s32;
-                }
-            }
-
-            // Compute the effective length scale
-            let l_des = if self.use_ddes {
-                // DDES shielding: use f_d to delay LES activation in boundary layers.
-                // Previous iteration's nu_t is approximated using standard DES l for this point.
-                let l_standard = num_traits::Float::min(d, self.c_des * delta);
-                let s_mag_approx = num_traits::Float::sqrt(two * s_sq);
-                let nu_t_approx = self.cs * self.cs * l_standard * l_standard * s_mag_approx;
-
-                // Convert to f64 for the shielding function
-                let nu_t_f64 = nu_t_approx.to_f64().unwrap_or(0.0);
-                
-                let nu_f64 = if let Some(model) = &self.blood_model {
-                    let strain_rate_t = num_traits::Float::sqrt(two * s_sq);
-                    let mu = model.viscosity(strain_rate_t);
-                    let density_f64 = self.fluid_density.to_f64().unwrap_or(1.0);
-                    let mu_f64 = mu.to_f64().unwrap_or(1.5e-5);
-                    mu_f64 / density_f64
-                } else {
-                    self.kinematic_viscosity.to_f64().unwrap_or(1.5e-5)
-                };
-
-                let d_f64 = d.to_f64().unwrap_or(1.0);
-                let strain_f64 = num_traits::Float::sqrt(s_sq).to_f64().unwrap_or(0.0);
-                let vort_f64 = num_traits::Float::sqrt(w_sq).to_f64().unwrap_or(0.0);
-
-                let fd = ddes_shielding(nu_t_f64, nu_f64, d_f64, strain_f64, vort_f64);
-                let c_des_f64 = self.c_des.to_f64().unwrap_or(DES_C_DES);
-                let delta_f64 = delta.to_f64().unwrap_or(1.0);
-                let l_ddes_f64 = ddes_length_scale(d_f64, c_des_f64, delta_f64, fd);
-                <T as FromPrimitive>::from_f64(l_ddes_f64)
-                    .expect("DDES length scale is a finite f64 value")
-            } else {
-                // Standard DES: l = min(d, C_DES · Δ_max)
-                num_traits::Float::min(d, self.c_des * delta)
-            };
-
-            // Compute strain rate magnitude using l_des as spacing (original formulation)
-            let mut s_sq_local = T::zero();
-            if i > 0 && i < nx - 1 {
-                if let (Some(vp), Some(vm)) = (
-                    flow_field.velocity.get(i + 1, j, k),
-                    flow_field.velocity.get(i - 1, j, k),
-                ) {
-                    let s11 = (vp.x - vm.x) / (two * l_des);
-                    s_sq_local += s11 * s11;
-                }
-            }
-            if j > 0 && j < ny - 1 {
-                if let (Some(vp), Some(vm)) = (
-                    flow_field.velocity.get(i, j + 1, k),
-                    flow_field.velocity.get(i, j - 1, k),
-                ) {
-                    let s22 = (vp.y - vm.y) / (two * l_des);
-                    s_sq_local += s22 * s22;
-                }
-            }
-            if k > 0 && k < nz - 1 {
-                if let (Some(vp), Some(vm)) = (
-                    flow_field.velocity.get(i, j, k + 1),
-                    flow_field.velocity.get(i, j, k - 1),
-                ) {
-                    let s33 = (vp.z - vm.z) / (two * l_des);
-                    s_sq_local += s33 * s33;
-                }
-            }
-            let s_mag = num_traits::Float::sqrt(two * s_sq_local);
-            viscosity.push(self.cs * self.cs * l_des * l_des * s_mag);
         }
         viscosity
     }
@@ -348,7 +333,10 @@ pub fn ddes_shielding(
     vorticity: f64,     // vorticity magnitude |Ω| [s⁻¹]
 ) -> f64 {
     let kappa = 0.41;
-    let denominator = kappa * kappa * wall_distance * wall_distance
+    let denominator = kappa
+        * kappa
+        * wall_distance
+        * wall_distance
         * (0.5 * (strain_rate * strain_rate + vorticity * vorticity))
             .sqrt()
             .max(1e-30);
@@ -456,11 +444,7 @@ mod tests {
 
     #[test]
     fn test_des_with_wall_distances_default_not_ddes() {
-        let model = DESModel::<f64>::with_wall_distances(
-            vec![0.5; 8],
-            vec![0.01; 8],
-            0.1,
-        );
+        let model = DESModel::<f64>::with_wall_distances(vec![0.5; 8], vec![0.01; 8], 0.1);
         assert!(
             !model.use_ddes,
             "with_wall_distances must default to standard DES (use_ddes = false)"
@@ -494,9 +478,13 @@ mod tests {
         model.use_ddes = false;
         let visc_des: Vec<f64> = TurbulenceModel::turbulent_viscosity(&model, &flow);
 
-        // Compute with DDES
-        model.use_ddes = true;
-        let visc_ddes: Vec<f64> = TurbulenceModel::turbulent_viscosity(&model, &flow);
+        // Compute with DDES using the baseline turbulent viscosity field.
+        let background = vec![1e-1_f64; n];
+        let mut ddes_model = model
+            .clone()
+            .with_background_turbulent_viscosity(background);
+        ddes_model.use_ddes = true;
+        let visc_ddes: Vec<f64> = TurbulenceModel::turbulent_viscosity(&ddes_model, &flow);
 
         // The results should differ because DDES uses a different length scale
         // (At least at some interior points where gradients are non-zero)
@@ -513,5 +501,17 @@ mod tests {
             any_differ,
             "DDES should produce different eddy viscosity than standard DES for non-trivial flow"
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "DDES requires background_turbulent_viscosity")]
+    fn test_des_ddes_requires_background_field() {
+        use cfd_core::physics::fluid_dynamics::fields::FlowField;
+
+        let n = 8;
+        let mut model = DESModel::<f64>::new(n, 0.5, 0.1, 0.1, 0.1);
+        model.use_ddes = true;
+        let flow = FlowField::<f64>::new(2, 2, 2);
+        let _ = TurbulenceModel::turbulent_viscosity(&model, &flow);
     }
 }

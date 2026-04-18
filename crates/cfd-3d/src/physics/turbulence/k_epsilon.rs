@@ -168,6 +168,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsi
 
     /// Initialize state rigidly with completely proven turbulent kinetic energy and dissipation fields
     pub fn initialize_state_exact(&mut self, k: Vec<T>, epsilon: Vec<T>) {
+        assert_eq!(k.len(), epsilon.len(), "k and epsilon lengths must match");
         self.state = Some(KEpsilonState { k, epsilon });
     }
 }
@@ -178,21 +179,32 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         // νₜ = C_μ * k² / ε
         match &self.state {
-            Some(state) => state
-                .k
-                .iter()
-                .zip(state.epsilon.iter())
-                .map(|(&k, &eps)| {
+            Some(state) => {
+                assert_eq!(
+                    state.k.len(),
+                    state.epsilon.len(),
+                    "k and epsilon lengths must match"
+                );
+                assert_eq!(
+                    state.k.len(),
+                    flow_field.velocity.components.len(),
+                    "k/epsilon state must match the flow-field size"
+                );
+                let mut viscosity = Vec::with_capacity(state.k.len());
+                for idx in 0..state.k.len() {
+                    let k = state.k[idx];
+                    let eps = state.epsilon[idx];
                     if eps
                         > <T as FromPrimitive>::from_f64(1e-10)
                             .expect("1e-10 is an IEEE 754 representable f64 constant")
                     {
-                        self.constants.c_mu * k * k / eps
+                        viscosity.push(self.constants.c_mu * k * k / eps);
                     } else {
-                        T::zero()
+                        viscosity.push(T::zero());
                     }
-                })
-                .collect(),
+                }
+                viscosity
+            }
             None => {
                 // If not initialized, return zero viscosity
                 vec![T::zero(); flow_field.velocity.components.len()]
@@ -202,7 +214,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 
     fn turbulent_kinetic_energy(&self, _flow_field: &FlowField<T>) -> Vec<T> {
         match &self.state {
-            Some(state) => state.k.clone(),
+            Some(state) => {
+                assert_eq!(
+                    state.k.len(),
+                    state.epsilon.len(),
+                    "k and epsilon lengths must match"
+                );
+                state.k.clone()
+            }
             None => Vec::new(),
         }
     }
@@ -217,7 +236,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> RANSM
 {
     fn dissipation_rate(&self, _flow_field: &FlowField<T>) -> Vec<T> {
         match &self.state {
-            Some(state) => state.epsilon.clone(),
+            Some(state) => {
+                assert_eq!(
+                    state.k.len(),
+                    state.epsilon.len(),
+                    "k and epsilon lengths must match"
+                );
+                state.epsilon.clone()
+            }
             None => Vec::new(),
         }
     }

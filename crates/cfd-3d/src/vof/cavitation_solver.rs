@@ -105,6 +105,8 @@ pub struct CavitationVofSolver {
     bubble_radius_field: Option<DMatrix<f64>>,
     /// Passive scalar tracking for cavitation nuclei cascade
     nuclei_field: Option<DMatrix<f64>>,
+    /// Reusable workspace for nuclei advection.
+    nuclei_workspace: Option<DMatrix<f64>>,
     /// Nuclei transport evaluator
     nuclei_transport: Option<cfd_core::physics::cavitation::nuclei_transport::NucleiTransport<f64>>,
 }
@@ -118,7 +120,15 @@ impl CavitationVofSolver {
             ));
         }
 
-        let vof_solver = VofSolver::create(config.vof_config.clone(), nx, ny, nz, DEFAULT_GRID_SPACING, DEFAULT_GRID_SPACING, DEFAULT_GRID_SPACING);
+        let vof_solver = VofSolver::create(
+            config.vof_config.clone(),
+            nx,
+            ny,
+            nz,
+            DEFAULT_GRID_SPACING,
+            DEFAULT_GRID_SPACING,
+            DEFAULT_GRID_SPACING,
+        );
 
         let bubble_solver = config.bubble_dynamics.as_ref().map(|bubble_config| {
             BubbleDynamicsSolver::new(
@@ -126,6 +136,9 @@ impl CavitationVofSolver {
                 nx,
                 ny,
                 nz,
+                vof_solver.dx,
+                vof_solver.dy,
+                vof_solver.dz,
                 config.liquid_density,
                 config.liquid_blood_model.clone(),
                 config.vapor_pressure,
@@ -144,14 +157,21 @@ impl CavitationVofSolver {
         } else {
             None
         };
-        
+
         let nuclei_field = if config.nuclei_transport.is_some() {
             Some(DMatrix::zeros(nx, ny * nz))
         } else {
             None
         };
-        
-        let nuclei_transport = config.nuclei_transport.map(cfd_core::physics::cavitation::nuclei_transport::NucleiTransport::new);
+        let nuclei_workspace = if config.nuclei_transport.is_some() {
+            Some(DMatrix::zeros(nx, ny * nz))
+        } else {
+            None
+        };
+
+        let nuclei_transport = config
+            .nuclei_transport
+            .map(cfd_core::physics::cavitation::nuclei_transport::NucleiTransport::new);
 
         Ok(Self {
             vof_solver,
@@ -163,6 +183,7 @@ impl CavitationVofSolver {
             damage_field,
             bubble_radius_field,
             nuclei_field,
+            nuclei_workspace,
             nuclei_transport,
         })
     }
@@ -192,8 +213,7 @@ impl CavitationVofSolver {
         }
 
         // 4. Update VOF velocity and advance
-        self.vof_solver
-            .set_velocity_field(velocity_field.to_vec())?;
+        self.vof_solver.velocity.clone_from_slice(velocity_field);
         self.vof_solver.advance(dt)?;
 
         // 5. Calculate cavitation damage if damage model is enabled
@@ -215,8 +235,14 @@ impl CavitationVofSolver {
         let dy = self.vof_solver.dy;
         let dz = self.vof_solver.dz;
 
-        if let (Some(nuclei), Some(transport)) = (&mut self.nuclei_field, &self.nuclei_transport) {
-            let mut next_nuclei = nuclei.clone();
+        if let (Some(nuclei), Some(next_nuclei), Some(transport)) = (
+            &mut self.nuclei_field,
+            &mut self.nuclei_workspace,
+            &self.nuclei_transport,
+        ) {
+            next_nuclei
+                .as_mut_slice()
+                .copy_from_slice(nuclei.as_slice());
 
             for i in 0..nx {
                 for j in 0..ny {
@@ -258,7 +284,7 @@ impl CavitationVofSolver {
                     }
                 }
             }
-            std::mem::swap(nuclei, &mut next_nuclei);
+            std::mem::swap(nuclei, next_nuclei);
         }
     }
 
@@ -337,7 +363,7 @@ impl CavitationVofSolver {
                     let density_liquid = density_field[(i, col)];
                     let density_vapor = self.config.vapor_density;
                     let mut vapor_pressure = self.config.vapor_pressure;
-                    
+
                     // Cascade effect: modify vapor pressure assumption if pre-existing nuclei are advected
                     if let Some(nuclei) = &self.nuclei_field {
                         vapor_pressure = cfd_core::physics::cavitation::nuclei_transport::nuclei_adjusted_vapor_pressure(
@@ -395,6 +421,19 @@ impl CavitationVofSolver {
         cavitation_source
     }
 
+    #[inline]
+    fn bubble_population_weight(&self) -> f64 {
+        self.config
+            .bubble_dynamics
+            .as_ref()
+            .map_or(1.0, |bubble_cfg| {
+                bubble_cfg.number_density
+                    * self.vof_solver.dx
+                    * self.vof_solver.dy
+                    * self.vof_solver.dz
+            })
+    }
+
     fn update_damage(
         &mut self,
         dt: f64,
@@ -416,6 +455,7 @@ impl CavitationVofSolver {
         ) else {
             return Ok(());
         };
+        let bubble_population = bubble_solver.population_weight();
 
         for i in 0..nx {
             for j in 0..ny {
@@ -433,12 +473,9 @@ impl CavitationVofSolver {
                             density_field[(i, col)],
                             self.config.sound_speed,
                         );
-                        let impact_frequency = bubble_solver.get_bubble_frequency(
-                            i,
-                            j,
-                            k,
-                            pressure,
-                        );
+                        let impact_frequency = bubble_solver
+                            .get_bubble_frequency(i, j, k, pressure)
+                            * bubble_population;
 
                         let erosion_rate = damage_model.mdpr(impact_pressure, impact_frequency, dt);
 
@@ -537,6 +574,7 @@ impl CavitationVofSolver {
             vapor_pressure: self.config.vapor_pressure,
             polytropic_index: bubble_cfg.polytropic_exponent,
         };
+        let bubble_population = self.bubble_population_weight();
 
         for i in 0..nx {
             for j in 0..ny {
@@ -550,7 +588,7 @@ impl CavitationVofSolver {
                         emissivity,
                         flash_duration,
                     )?;
-                    energy[(i, col)] = estimate.radiated_energy;
+                    energy[(i, col)] = estimate.radiated_energy * bubble_population;
                 }
             }
         }
@@ -561,7 +599,11 @@ impl CavitationVofSolver {
     /// Calculate cavitation statistics
     pub fn cavitation_statistics(&self) -> CavitationStatistics {
         let total_cells = self.inception_field.len();
-        let cavitating_cells = self.inception_field.iter().filter(|&&x| x > INCEPTION_COUNT_THRESHOLD).count();
+        let cavitating_cells = self
+            .inception_field
+            .iter()
+            .filter(|&&x| x > INCEPTION_COUNT_THRESHOLD)
+            .count();
         let total_void_fraction: f64 = self.vof_solver.alpha.iter().sum();
         let max_void_fraction = self.vof_solver.alpha.iter().copied().fold(0.0, f64::max);
 
@@ -585,6 +627,7 @@ impl CavitationVofSolver {
 mod tests {
     use super::*;
     use crate::vof::config::VofConfig;
+    use crate::vof::BubbleDynamicsConfig;
     use cfd_core::physics::cavitation::damage::CavitationDamage;
     use cfd_core::physics::cavitation::models::CavitationModel;
     use cfd_core::physics::fluid::BloodModel;
@@ -602,7 +645,7 @@ mod tests {
             inception_threshold: 1.0,
             max_void_fraction: 0.9,
             relaxation_time: 1e-4,
-            vapor_pressure: 2300.0,   // ~water at 20 C
+            vapor_pressure: 2300.0, // ~water at 20 C
             liquid_density: 1000.0,
             liquid_blood_model: BloodModel::Newtonian(1e-3),
             vapor_density: 0.017,
@@ -690,10 +733,49 @@ mod tests {
             cycles: 1,
         });
 
-        let err = CavitationVofSolver::new(2, 2, 2, config).err().expect(
-            "damage modeling must require explicit bubble dynamics",
-        );
+        let err = CavitationVofSolver::new(2, 2, 2, config)
+            .err()
+            .expect("damage modeling must require explicit bubble dynamics");
         assert!(err.to_string().contains("bubble dynamics"));
+    }
+
+    #[test]
+    fn sonoluminescence_scales_with_number_density() {
+        let mut low_density = make_config();
+        low_density.bubble_dynamics = Some(BubbleDynamicsConfig {
+            initial_radius: 2.0e-6,
+            number_density: 1.0e6,
+            polytropic_exponent: 1.4,
+            surface_tension: 0.072,
+        });
+
+        let mut high_density = low_density.clone();
+        high_density
+            .bubble_dynamics
+            .as_mut()
+            .expect("bubble dynamics should be configured")
+            .number_density = 2.0e6;
+
+        let mut solver_low = CavitationVofSolver::new(1, 1, 1, low_density).unwrap();
+        let mut solver_high = CavitationVofSolver::new(1, 1, 1, high_density).unwrap();
+
+        if let Some(radius_field) = solver_low.bubble_radius_field.as_mut() {
+            radius_field[(0, 0)] = 5.0e-7;
+        }
+        if let Some(radius_field) = solver_high.bubble_radius_field.as_mut() {
+            radius_field[(0, 0)] = 5.0e-7;
+        }
+
+        let pressure_field = DMatrix::from_element(1, 1, 1.0e5);
+        let energy_low = solver_low
+            .sonoluminescence_energy_field(&pressure_field, 293.15, 5.0e-11, 1.0)
+            .unwrap();
+        let energy_high = solver_high
+            .sonoluminescence_energy_field(&pressure_field, 293.15, 5.0e-11, 1.0)
+            .unwrap();
+
+        let ratio = energy_high[(0, 0)] / energy_low[(0, 0)];
+        assert!((ratio - 2.0).abs() < 1e-12 * 2.0);
     }
 
     #[test]

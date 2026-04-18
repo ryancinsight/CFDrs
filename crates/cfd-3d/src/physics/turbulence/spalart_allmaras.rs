@@ -73,30 +73,30 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Spala
     pub fn new(n_points: usize, nu: T, wall_distances: Vec<T>) -> Self {
         let three = T::one() + T::one() + T::one();
         let nu_tilde = vec![three * nu; n_points];
-        let wd = if wall_distances.len() == n_points {
-            wall_distances
-        } else {
-            vec![T::one(); n_points]
-        };
+        assert_eq!(
+            wall_distances.len(),
+            n_points,
+            "SA wall_distances must match n_points"
+        );
         Self {
             nu,
             nu_tilde,
-            wall_distance: wd,
+            wall_distance: wall_distances,
         }
     }
 
     /// Initialise with a prescribed nu_tilde field.
     pub fn with_nu_tilde(nu: T, nu_tilde: Vec<T>, wall_distances: Vec<T>) -> Self {
         let n = nu_tilde.len();
-        let wd = if wall_distances.len() == n {
-            wall_distances
-        } else {
-            vec![T::one(); n]
-        };
+        assert_eq!(
+            wall_distances.len(),
+            n,
+            "SA wall_distances must match nu_tilde length"
+        );
         Self {
             nu,
             nu_tilde,
-            wall_distance: wd,
+            wall_distance: wall_distances,
         }
     }
 
@@ -139,13 +139,19 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     /// Compute SA eddy viscosity nu_t = nu_tilde * f_v1.
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let n = flow_field.velocity.components.len();
+        assert_eq!(
+            self.nu_tilde.len(),
+            n,
+            "SA nu_tilde must match the flow-field size"
+        );
+        assert_eq!(
+            self.wall_distance.len(),
+            n,
+            "SA wall_distance must match the flow-field size"
+        );
         let mut viscosity = Vec::with_capacity(n);
         for idx in 0..n {
-            let nu_t = if idx < self.nu_tilde.len() {
-                self.nu_tilde[idx]
-            } else {
-                T::zero()
-            };
+            let nu_t = self.nu_tilde[idx];
             let chi = Self::chi(nu_t, self.nu);
             let fv1 = Self::f_v1(chi);
             viscosity.push(num_traits::Float::max(T::zero(), nu_t * fv1));

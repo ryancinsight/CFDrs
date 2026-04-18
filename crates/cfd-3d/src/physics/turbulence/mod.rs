@@ -1,7 +1,8 @@
 //! Turbulence modeling abstractions and implementations
 //!
 //! Provides trait-based turbulence model implementations including
-//! LES (Smagorinsky) and RANS (k-epsilon, Mixing Length) models.
+//! LES (Smagorinsky, dynamic Smagorinsky, Sigma, Vreman, AMD) and
+//! RANS (k-epsilon, Mixing Length) models.
 //!
 //! Moved from cfd-core to cfd-3d as these models are specific to 3D flow fields.
 //!
@@ -37,8 +38,11 @@
 //! **Reference:** Smagorinsky, J., "General circulation experiments with the
 //! primitive equations", Mon. Wea. Rev. 91, 1963, pp. 99–164.
 
+pub mod amd;
 pub mod constants;
 pub mod des;
+pub mod dynamic_smagorinsky;
+pub(crate) mod field_ops;
 pub mod k_epsilon;
 pub mod k_omega_sst;
 pub mod mixing_length;
@@ -47,6 +51,8 @@ pub mod spalart_allmaras;
 pub mod vreman;
 pub mod wall_functions;
 
+pub use amd::AnisotropicMinimumDissipationModel;
+pub use dynamic_smagorinsky::DynamicSmagorinskyModel;
 pub use k_epsilon::{KEpsilonConstants, KEpsilonModel, KEpsilonState};
 pub use mixing_length::MixingLengthModel;
 
@@ -55,6 +61,8 @@ use cfd_core::physics::fluid_dynamics::TurbulenceModel;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
+use self::field_ops::{strain_magnitude, velocity_gradient_tensor};
+
 /// Smagorinsky subgrid-scale model for LES
 #[derive(Debug, Clone)]
 pub struct SmagorinskyModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
@@ -62,6 +70,12 @@ pub struct SmagorinskyModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy
     pub cs: T,
     /// Base Smagorinsky constant for dynamic model
     pub cs_base: T,
+    /// Physical grid spacing in the x direction [m].
+    pub dx: T,
+    /// Physical grid spacing in the y direction [m].
+    pub dy: T,
+    /// Physical grid spacing in the z direction [m].
+    pub dz: T,
     /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) [m].
     ///
     /// # Theorem — Geometric Mean Filter Width (Deardorff 1970)
@@ -83,7 +97,9 @@ pub struct SmagorinskyModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy
     pub filter_width: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> SmagorinskyModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
+    SmagorinskyModel<T>
+{
     /// Create a new Smagorinsky model with standard constant.
     ///
     /// Uses `filter_width = T::one()` (unit-cube default).  For physically
@@ -93,6 +109,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Smago
         Self {
             cs,
             cs_base: cs,
+            dx: T::one(),
+            dy: T::one(),
+            dz: T::one(),
             filter_width: T::one(),
         }
     }
@@ -116,6 +135,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Smago
         Self {
             cs,
             cs_base: cs,
+            dx,
+            dy,
+            dz,
             filter_width,
         }
     }
@@ -127,106 +149,26 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Smago
         i: usize,
         j: usize,
         k: usize,
-        delta: T,
     ) -> T {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
-
-        // Calculate strain rate tensor components
-        let mut s11 = T::zero();
-        let mut s22 = T::zero();
-        let mut s33 = T::zero();
-
-        // Central differences for velocity gradients
-        if i > 0 && i < nx - 1 {
-            if let (Some(u_plus), Some(u_minus)) = (
-                flow_field.velocity.get(i + 1, j, k),
-                flow_field.velocity.get(i - 1, j, k),
-            ) {
-                let two = T::one() + T::one();
-                s11 = (u_plus.x - u_minus.x) / (two * delta);
-            }
-        }
-
-        if j > 0 && j < ny - 1 {
-            if let (Some(v_plus), Some(v_minus)) = (
-                flow_field.velocity.get(i, j + 1, k),
-                flow_field.velocity.get(i, j - 1, k),
-            ) {
-                let two = T::one() + T::one();
-                s22 = (v_plus.y - v_minus.y) / (two * delta);
-            }
-        }
-
-        if k > 0 && k < nz - 1 {
-            if let (Some(w_plus), Some(w_minus)) = (
-                flow_field.velocity.get(i, j, k + 1),
-                flow_field.velocity.get(i, j, k - 1),
-            ) {
-                let two = T::one() + T::one();
-                s33 = (w_plus.z - w_minus.z) / (two * delta);
-            }
-        }
-
-        // Off-diagonal components: Sij = 0.5 * (∂ui/∂xj + ∂uj/∂xi)
-        let mut s12 = T::zero();
-        let mut s13 = T::zero();
-        let mut s23 = T::zero();
-
-        // S12 = 0.5 * (∂u/∂y + ∂v/∂x)
-        if i > 0 && i < nx - 1 && j > 0 && j < ny - 1 {
-            if let (Some(u_jp), Some(u_jm), Some(v_ip), Some(v_im)) = (
-                flow_field.velocity.get(i, j + 1, k),
-                flow_field.velocity.get(i, j - 1, k),
-                flow_field.velocity.get(i + 1, j, k),
-                flow_field.velocity.get(i - 1, j, k),
-            ) {
-                let two = T::one() + T::one();
-                let du_dy = (u_jp.x - u_jm.x) / (two * delta);
-                let dv_dx = (v_ip.y - v_im.y) / (two * delta);
-                s12 = (du_dy + dv_dx) / two;
-            }
-        }
-
-        // S13 = 0.5 * (∂u/∂z + ∂w/∂x)
-        if i > 0 && i < nx - 1 && k > 0 && k < nz - 1 {
-            if let (Some(u_kp), Some(u_km), Some(w_ip), Some(w_im)) = (
-                flow_field.velocity.get(i, j, k + 1),
-                flow_field.velocity.get(i, j, k - 1),
-                flow_field.velocity.get(i + 1, j, k),
-                flow_field.velocity.get(i - 1, j, k),
-            ) {
-                let two = T::one() + T::one();
-                let du_dz = (u_kp.x - u_km.x) / (two * delta);
-                let dw_dx = (w_ip.z - w_im.z) / (two * delta);
-                s13 = (du_dz + dw_dx) / two;
-            }
-        }
-
-        // S23 = 0.5 * (∂v/∂z + ∂w/∂y)
-        if j > 0 && j < ny - 1 && k > 0 && k < nz - 1 {
-            if let (Some(v_kp), Some(v_km), Some(w_jp), Some(w_jm)) = (
-                flow_field.velocity.get(i, j, k + 1),
-                flow_field.velocity.get(i, j, k - 1),
-                flow_field.velocity.get(i, j + 1, k),
-                flow_field.velocity.get(i, j - 1, k),
-            ) {
-                let two = T::one() + T::one();
-                let dv_dz = (v_kp.y - v_km.y) / (two * delta);
-                let dw_dy = (w_jp.z - w_jm.z) / (two * delta);
-                s23 = (dv_dz + dw_dy) / two;
-            }
-        }
-
-        // Strain rate magnitude: |S| = sqrt(2 * Sij * Sij)
-        let two = T::one() + T::one();
-        let s_mag_sq =
-            two * (s11 * s11 + s22 * s22 + s33 * s33 + two * (s12 * s12 + s13 * s13 + s23 * s23));
-        num_traits::Float::sqrt(s_mag_sq)
+        let gradient = velocity_gradient_tensor(
+            &flow_field.velocity.components,
+            nx,
+            ny,
+            nz,
+            i,
+            j,
+            k,
+            self.dx,
+            self.dy,
+            self.dz,
+        );
+        strain_magnitude(&gradient)
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
-    for SmagorinskyModel<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
+    TurbulenceModel<T> for SmagorinskyModel<T>
 {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
@@ -242,8 +184,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         for k in 0..nz {
             for j in 0..ny {
                 for i in 0..nx {
-                    let strain_rate =
-                        self.calculate_strain_rate_at_point(flow_field, i, j, k, delta);
+                    let strain_rate = self.calculate_strain_rate_at_point(flow_field, i, j, k);
                     viscosity.push(prefactor * strain_rate);
                 }
             }
@@ -256,15 +197,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         // Uses the physically correct filter width (see turbulent_viscosity bug note).
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let delta = self.filter_width;
-        let cs_delta = self.cs * self.filter_width;
+        let cs_delta = self.cs * delta;
 
         let mut tke = Vec::with_capacity(nx * ny * nz);
 
         for k in 0..nz {
             for j in 0..ny {
                 for i in 0..nx {
-                    let strain_rate =
-                        self.calculate_strain_rate_at_point(flow_field, i, j, k, delta);
+                    let strain_rate = self.calculate_strain_rate_at_point(flow_field, i, j, k);
                     let cs_delta_s = cs_delta * strain_rate;
                     tke.push(cs_delta_s * cs_delta_s);
                 }
