@@ -1,5 +1,5 @@
-use super::population::{CellPopulation, CellRoutingSummary, CellTrajectory, TrackedCell};
 use super::physics::{CellTrackerConfig, VelocityFieldInterpolator};
+use super::population::{CellPopulation, CellRoutingSummary, CellTrajectory, TrackedCell};
 
 /// Lagrangian cell tracker for 2D velocity fields.
 pub struct CellTracker<'a, V: VelocityFieldInterpolator> {
@@ -48,7 +48,11 @@ impl<'a, V: VelocityFieldInterpolator> CellTracker<'a, V> {
             self.config.u_max
         } else {
             let y_mid = (y_min + y_max) * 0.5;
-            self.velocity.velocity_at(x_min + (x_max - x_min) * 0.05, y_mid).0.abs().max(1e-6)
+            self.velocity
+                .velocity_at(x_min + (x_max - x_min) * 0.05, y_mid)
+                .0
+                .abs()
+                .max(1e-6)
         };
 
         // Precompute cell constants.
@@ -165,9 +169,7 @@ impl<'a, V: VelocityFieldInterpolator> CellTracker<'a, V> {
             // the cell enters the wide (center) or narrow (peripheral)
             // daughter.  The PSM captures the cell-free layer and plasma
             // skimming physics that dominate at low Re.
-            if self.config.split_x > 0.0
-                && x_prev < self.config.split_x
-                && x >= self.config.split_x
+            if self.config.split_x > 0.0 && x_prev < self.config.split_x && x >= self.config.split_x
             {
                 let y_div = self.config.dividing_streamline_y;
                 if let Some(psm) = self.config.psm_params.as_ref().filter(|_| y_div > 0.0) {
@@ -182,17 +184,18 @@ impl<'a, V: VelocityFieldInterpolator> CellTracker<'a, V> {
                     );
                     // For cell-type-specific routing, compute modified PSM
                     // with larger effective cell size for CTCs.
-                    let cell_fqe = crate::solvers::plasma_skimming::pries_phase_separation_cell_type(
-                        psm.flow_fraction_wide,
-                        &crate::solvers::plasma_skimming::PriesPhaseParams {
-                            parent_diameter_m: d_h,
-                            daughter_alpha_diameter_m: psm.wide_daughter_dh,
-                            daughter_beta_diameter_m: psm.narrow_daughter_dh,
-                            feed_hematocrit: psm.feed_hematocrit,
-                        },
-                        a,
-                        c_l / 0.5, // normalize lift coeff to stiffness factor
-                    );
+                    let cell_fqe =
+                        crate::solvers::plasma_skimming::pries_phase_separation_cell_type(
+                            psm.flow_fraction_wide,
+                            &crate::solvers::plasma_skimming::PriesPhaseParams {
+                                parent_diameter_m: d_h,
+                                daughter_alpha_diameter_m: psm.wide_daughter_dh,
+                                daughter_beta_diameter_m: psm.narrow_daughter_dh,
+                                feed_hematocrit: psm.feed_hematocrit,
+                            },
+                            a,
+                            c_l / 0.5, // normalize lift coeff to stiffness factor
+                        );
 
                     // Deterministic routing based on cell position relative to
                     // the effective dividing streamline, shifted by the PSM.
@@ -291,24 +294,34 @@ impl<'a, V: VelocityFieldInterpolator> CellTracker<'a, V> {
             match traj.population {
                 CellPopulation::CTC => {
                     s.ctc_total += 1;
-                    if is_center { s.ctc_center += 1; }
+                    if is_center {
+                        s.ctc_center += 1;
+                    }
                 }
                 CellPopulation::WBC => {
                     s.wbc_total += 1;
-                    if is_center { s.wbc_center += 1; }
+                    if is_center {
+                        s.wbc_center += 1;
+                    }
                 }
                 CellPopulation::RBC => {
                     s.rbc_total += 1;
-                    if is_center { s.rbc_center += 1; }
+                    if is_center {
+                        s.rbc_center += 1;
+                    }
                 }
             }
         }
         let ctc_frac = if s.ctc_total > 0 {
             s.ctc_center as f64 / s.ctc_total as f64
-        } else { 0.0 };
+        } else {
+            0.0
+        };
         let rbc_periph = if s.rbc_total > 0 {
             1.0 - s.rbc_center as f64 / s.rbc_total as f64
-        } else { 0.0 };
+        } else {
+            0.0
+        };
         s.cancer_center_fraction = ctc_frac;
         s.separation_efficiency = (ctc_frac * rbc_periph).sqrt();
         s
@@ -337,14 +350,43 @@ mod tests {
         };
         let tracker = CellTracker::new(&flow, config);
         let cells = vec![
-            TrackedCell { population: CellPopulation::CTC, x: 0.0, y: 0.001, vx: 0.05, vy: 0.0, id: 0 },
-            TrackedCell { population: CellPopulation::RBC, x: 0.0, y: 0.001, vx: 0.05, vy: 0.0, id: 1 },
-            TrackedCell { population: CellPopulation::WBC, x: 0.0, y: 0.001, vx: 0.05, vy: 0.0, id: 2 },
+            TrackedCell {
+                population: CellPopulation::CTC,
+                x: 0.0,
+                y: 0.001,
+                vx: 0.05,
+                vy: 0.0,
+                id: 0,
+            },
+            TrackedCell {
+                population: CellPopulation::RBC,
+                x: 0.0,
+                y: 0.001,
+                vx: 0.05,
+                vy: 0.0,
+                id: 1,
+            },
+            TrackedCell {
+                population: CellPopulation::WBC,
+                x: 0.0,
+                y: 0.001,
+                vx: 0.05,
+                vy: 0.0,
+                id: 2,
+            },
         ];
         let trajectories = tracker.trace_cells(&cells, 1e-5, 200_000);
         for traj in &trajectories {
-            assert!(traj.exit_outlet.is_some(), "cell {} should exit", traj.cell_id);
-            assert!(traj.positions.len() >= 2, "cell {} should have trajectory points", traj.cell_id);
+            assert!(
+                traj.exit_outlet.is_some(),
+                "cell {} should exit",
+                traj.cell_id
+            );
+            assert!(
+                traj.positions.len() >= 2,
+                "cell {} should have trajectory points",
+                traj.cell_id
+            );
         }
     }
 
@@ -364,9 +406,14 @@ mod tests {
         };
         let tracker = CellTracker::new(&flow, config);
         // Release at centerline: should stay near center.
-        let cells = vec![
-            TrackedCell { population: CellPopulation::CTC, x: 0.0, y: 0.001, vx: 0.1, vy: 0.0, id: 0 },
-        ];
+        let cells = vec![TrackedCell {
+            population: CellPopulation::CTC,
+            x: 0.0,
+            y: 0.001,
+            vx: 0.1,
+            vy: 0.0,
+            id: 0,
+        }];
         let trajectories = tracker.trace_cells(&cells, 1e-5, 500_000);
         let traj = &trajectories[0];
         assert!(traj.exit_outlet.is_some());
@@ -429,10 +476,20 @@ mod tests {
         for i in 0..n_per_pop {
             let y = parent_h * 0.05 + parent_h * 0.9 * (i as f64 / (n_per_pop - 1) as f64);
             cells.push(TrackedCell {
-                population: CellPopulation::CTC, x: 1e-4, y, vx: 0.03, vy: 0.0, id: i,
+                population: CellPopulation::CTC,
+                x: 1e-4,
+                y,
+                vx: 0.03,
+                vy: 0.0,
+                id: i,
             });
             cells.push(TrackedCell {
-                population: CellPopulation::RBC, x: 1e-4, y, vx: 0.03, vy: 0.0, id: n_per_pop + i,
+                population: CellPopulation::RBC,
+                x: 1e-4,
+                y,
+                vx: 0.03,
+                vy: 0.0,
+                id: n_per_pop + i,
             });
         }
 
@@ -445,11 +502,11 @@ mod tests {
         eprintln!("  y_div = {y_div:.6} m");
         eprintln!(
             "  CTC center {}/{}, RBC center {}/{}",
-            routing.ctc_center, routing.ctc_total,
-            routing.rbc_center, routing.rbc_total,
+            routing.ctc_center, routing.ctc_total, routing.rbc_center, routing.rbc_total,
         );
 
-        let exited = trajectories.iter()
+        let exited = trajectories
+            .iter()
             .filter(|t| t.exit_outlet.is_some())
             .count();
         assert!(exited >= cells.len() / 2, "at least half should exit");

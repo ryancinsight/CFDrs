@@ -109,9 +109,7 @@ mod tests {
     #[test]
     fn monotonicity_and_bounds() {
         let model = CarreauYasudaModel::typical_blood();
-        let rates = [
-            0.0_f64, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0,
-        ];
+        let rates = [0.0_f64, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0];
 
         let mut prev_visc = model.apparent_viscosity(rates[0]);
 
@@ -165,11 +163,7 @@ mod tests {
             n: 1.0, // Newtonian limit
         };
         for &sr in &[0.0, 0.1, 1.0, 10.0, 100.0, 1e6] {
-            assert_relative_eq!(
-                model.apparent_viscosity(sr),
-                model.mu_0,
-                epsilon = 1e-10,
-            );
+            assert_relative_eq!(model.apparent_viscosity(sr), model.mu_0, epsilon = 1e-10,);
         }
     }
 

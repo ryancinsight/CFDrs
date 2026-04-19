@@ -19,6 +19,7 @@
 //! - **Signed Distance Function**: Accurate interface representation
 //! - **Reinitialization**: Sussman redistancing algorithm
 //! - **Narrow Band**: Efficient computation near interfaces
+//! - **WENO-Z Advection**: Low-dissipation critical-point-aware interface transport
 //!
 //! ### Volume of Fluid (VOF)
 //! - **PLIC Reconstruction**: Piecewise Linear Interface Construction
@@ -39,9 +40,9 @@
 //! ```
 //!
 //! ### Turbulence Modeling (Optional)
-//! - **LES**: Large Eddy Simulation with dynamic Smagorinsky, Sigma, Vreman, and AMD
-//! - **DES**: Detached Eddy Simulation
-//! - **RANS**: Reynolds-Averaged Navier-Stokes
+//! - **LES**: Large Eddy Simulation with dynamic Smagorinsky, dynamic
+//!   gradient Smagorinsky, WALE, Sigma, Vreman, AMD, and DES
+//! - **RANS**: Reynolds-Averaged Navier-Stokes with k-epsilon, k-omega SST, Spalart-Allmaras, and Mixing Length
 //!
 //! ## Numerical Foundations
 //!

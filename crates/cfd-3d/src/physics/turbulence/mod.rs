@@ -1,8 +1,9 @@
 //! Turbulence modeling abstractions and implementations
 //!
 //! Provides trait-based turbulence model implementations including
-//! LES (Smagorinsky, dynamic Smagorinsky, Sigma, Vreman, AMD) and
-//! RANS (k-epsilon, Mixing Length) models.
+//! LES (Smagorinsky, dynamic Smagorinsky, dynamic gradient Smagorinsky,
+//! WALE, Sigma, Vreman, AMD) and RANS (k-epsilon, k-omega SST,
+//! Spalart-Allmaras, Mixing Length) models.
 //!
 //! Moved from cfd-core to cfd-3d as these models are specific to 3D flow fields.
 //!
@@ -41,20 +42,25 @@
 pub mod amd;
 pub mod constants;
 pub mod des;
+pub mod dynamic_gradient_smagorinsky;
 pub mod dynamic_smagorinsky;
 pub(crate) mod field_ops;
+pub(crate) mod filter_ops;
 pub mod k_epsilon;
 pub mod k_omega_sst;
 pub mod mixing_length;
 pub mod sigma;
 pub mod spalart_allmaras;
 pub mod vreman;
+pub mod wale;
 pub mod wall_functions;
 
 pub use amd::AnisotropicMinimumDissipationModel;
+pub use dynamic_gradient_smagorinsky::DynamicGradientSmagorinskyModel;
 pub use dynamic_smagorinsky::DynamicSmagorinskyModel;
 pub use k_epsilon::{KEpsilonConstants, KEpsilonModel, KEpsilonState};
 pub use mixing_length::MixingLengthModel;
+pub use wale::WaleModel;
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::TurbulenceModel;

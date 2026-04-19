@@ -379,4 +379,3 @@ fn test_periodic_energy_transport() {
         );
     }
 }
-

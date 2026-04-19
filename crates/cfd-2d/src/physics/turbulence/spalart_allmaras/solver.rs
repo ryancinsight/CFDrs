@@ -176,7 +176,8 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
 
     fn dissipation_term(&self, nu_tilde: T, wall_distance: T) -> T {
         use crate::physics::turbulence::constants::EPSILON_MIN;
-        let wall_distance = wall_distance.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
+        let wall_distance =
+            wall_distance.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
         let ratio = nu_tilde / wall_distance;
         self.cw1 * ratio * ratio
     }

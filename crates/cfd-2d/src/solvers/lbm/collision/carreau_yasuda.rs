@@ -89,7 +89,11 @@ impl<T: RealField + Copy + Float + FromPrimitive> CarreauYasudaBgk<T> {
             // Compute new tau using under-relaxation and stop once the update is tiny.
             let tau_new = half + nu * dt_dx2 / cs2;
             let tau_next = half * tau_safe + half * tau_new;
-            let threshold_scale = if tau_next > T::one() { tau_next } else { T::one() };
+            let threshold_scale = if tau_next > T::one() {
+                tau_next
+            } else {
+                T::one()
+            };
             let update = if tau_next > tau_safe {
                 tau_next - tau_safe
             } else {
@@ -97,13 +101,21 @@ impl<T: RealField + Copy + Float + FromPrimitive> CarreauYasudaBgk<T> {
             };
 
             if update <= tolerance * threshold_scale {
-                return if tau_next < lower_bound { lower_bound } else { tau_next };
+                return if tau_next < lower_bound {
+                    lower_bound
+                } else {
+                    tau_next
+                };
             }
 
             tau = tau_next;
         }
 
-        if tau < lower_bound { lower_bound } else { tau }
+        if tau < lower_bound {
+            lower_bound
+        } else {
+            tau
+        }
     }
 }
 
@@ -144,7 +156,10 @@ impl<T: RealField + Copy + Float + FromPrimitive> CollisionOperator<T> for Carre
 
                 // |Q| = sqrt(2 * (Q_xx^2 + Q_yy^2 + 2*Q_xy^2))
                 let two = T::from_f64(2.0).unwrap();
-                let q_mag = Float::sqrt(Float::max(two * (q_xx * q_xx + q_yy * q_yy + two * q_xy * q_xy), zero));
+                let q_mag = Float::sqrt(Float::max(
+                    two * (q_xx * q_xx + q_yy * q_yy + two * q_xy * q_xy),
+                    zero,
+                ));
 
                 // Iterator for local tau
                 let local_tau = self.compute_local_tau(q_mag, rho);
@@ -163,13 +178,16 @@ impl<T: RealField + Copy + Float + FromPrimitive> CollisionOperator<T> for Carre
     fn tau(&self) -> T {
         let dt_dx2 = self.dt / (self.dx * self.dx);
         let cs2 = T::from_f64(LATTICE_CS2).unwrap();
-        let nu_inf = self.model.apparent_kinematic_viscosity(T::from_f64(1e6).unwrap());
+        let nu_inf = self
+            .model
+            .apparent_kinematic_viscosity(T::from_f64(1e6).unwrap());
         T::from_f64(0.5).unwrap() + nu_inf * dt_dx2 / cs2
     }
 
     /// Returns the asymptotic infinite-shear base viscosity
     fn viscosity(&self, _dt: T, _dx: T) -> T {
-        self.model.apparent_kinematic_viscosity(T::from_f64(1e6).unwrap())
+        self.model
+            .apparent_kinematic_viscosity(T::from_f64(1e6).unwrap())
     }
 }
 
@@ -187,17 +205,26 @@ mod tests {
         let bgk = CarreauYasudaBgk::new(cy, dx, dt);
 
         let rho = cy.density;
-        
+
         // Zero strain -> must equal mu_0 based tau
         let tau_0 = bgk.compute_local_tau(0.0_f64, rho);
         let dt_dx2 = dt / (dx * dx);
         let expected_tau_0 = 0.5 + cy.apparent_kinematic_viscosity(0.0_f64) * dt_dx2 / LATTICE_CS2;
-        assert!((tau_0 - expected_tau_0).abs() < 1e-5, "Zero shear tau failed");
+        assert!(
+            (tau_0 - expected_tau_0).abs() < 1e-5,
+            "Zero shear tau failed"
+        );
 
         // High strain -> must equal mu_inf based tau
         let tau_inf = bgk.compute_local_tau(1000.0_f64, rho);
-        assert!(tau_inf < tau_0, "High shear tau must be lower than zero shear tau");
-        assert!(tau_inf > 0.5, "High shear tau must remain above the LBM stability floor");
+        assert!(
+            tau_inf < tau_0,
+            "High shear tau must be lower than zero shear tau"
+        );
+        assert!(
+            tau_inf > 0.5,
+            "High shear tau must remain above the LBM stability floor"
+        );
     }
 
     #[test]

@@ -621,6 +621,9 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         let tolerance = T::from_f64(1.0e-9).unwrap_or(context.epsilon);
         let max_sweeps = self.graph.node_count().clamp(2, 12);
         let mut node_hematocrit = vec![context.default_hematocrit; self.graph.node_count()];
+        let mut next_node_hematocrit = vec![context.default_hematocrit; self.graph.node_count()];
+        let mut inflows = Vec::with_capacity(8);
+        let mut outflows = Vec::with_capacity(8);
 
         for props in self.properties.values_mut() {
             let seed = props
@@ -639,27 +642,32 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                 *node_idx,
                 &node_hematocrit,
                 context.default_hematocrit,
+                &mut inflows,
+                &mut outflows,
             );
         }
 
         for _ in 0..max_sweeps {
-            let mut updates = Vec::new();
+            let mut updates = Vec::with_capacity(self.graph.edge_count());
             let mut max_change = T::zero();
-            let mut next_node_hematocrit = node_hematocrit.clone();
+
+            next_node_hematocrit.copy_from_slice(&node_hematocrit);
 
             for node_idx in &node_indices {
                 let estimate = self.node_hematocrit_estimate(
                     *node_idx,
                     &node_hematocrit,
                     context.default_hematocrit,
+                    &mut inflows,
+                    &mut outflows,
                 );
                 max_change = max_change.max((node_hematocrit[node_idx.index()] - estimate).abs());
                 next_node_hematocrit[node_idx.index()] = estimate;
             }
 
             for node_idx in &node_indices {
-                let inflows = self.node_edge_fluxes(*node_idx, true);
-                let outflows = self.node_edge_fluxes(*node_idx, false);
+                self.node_edge_fluxes_into(*node_idx, true, &mut inflows);
+                self.node_edge_fluxes_into(*node_idx, false, &mut outflows);
                 if outflows.is_empty() {
                     continue;
                 }
@@ -691,7 +699,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                     }
                 }
 
-                for (edge_idx, _) in outflows {
+                for &(edge_idx, _) in &outflows {
                     max_change = max_change.max(
                         (self.edge_hematocrit(edge_idx, context.default_hematocrit) - node_hct)
                             .abs(),
@@ -708,7 +716,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                     );
                 }
             }
-            node_hematocrit = next_node_hematocrit;
+            std::mem::swap(&mut node_hematocrit, &mut next_node_hematocrit);
 
             if max_change <= tolerance {
                 break;
@@ -723,8 +731,10 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         node_idx: NodeIndex,
         node_hematocrit: &[T],
         default_hematocrit: T,
+        inflows: &mut Vec<(EdgeIndex, T)>,
+        outflows: &mut Vec<(EdgeIndex, T)>,
     ) -> T {
-        let inflows = self.node_edge_fluxes(node_idx, true);
+        self.node_edge_fluxes_into(node_idx, true, inflows);
         let total_in = inflows.iter().fold(T::zero(), |acc, (_, q)| acc + *q);
         if total_in > T::default_epsilon() {
             return inflows.iter().fold(T::zero(), |acc, (edge_idx, q)| {
@@ -732,7 +742,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             }) / total_in;
         }
 
-        let outflows = self.node_edge_fluxes(node_idx, false);
+        self.node_edge_fluxes_into(node_idx, false, outflows);
         let total_out = outflows.iter().fold(T::zero(), |acc, (_, q)| acc + *q);
         if total_out > T::default_epsilon() {
             let seeded =
@@ -759,8 +769,13 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             .unwrap_or(default_hematocrit)
     }
 
-    fn node_edge_fluxes(&self, node_idx: NodeIndex, inflow: bool) -> Vec<(EdgeIndex, T)> {
-        let mut fluxes = Vec::new();
+    fn node_edge_fluxes_into(
+        &self,
+        node_idx: NodeIndex,
+        inflow: bool,
+        fluxes: &mut Vec<(EdgeIndex, T)>,
+    ) {
+        fluxes.clear();
 
         for edge_ref in self.graph.edges_directed(node_idx, Direction::Incoming) {
             let edge_idx = edge_ref.id();
@@ -789,8 +804,6 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                 fluxes.push((edge_idx, flow));
             }
         }
-
-        fluxes
     }
 
     fn edge_hematocrit(&self, edge_idx: EdgeIndex, default_hematocrit: T) -> T {

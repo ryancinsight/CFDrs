@@ -77,13 +77,15 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                 let dist_left = (T::from_usize(i).expect("analytical constant conversion")
                     + T::from_f64(0.5).expect("analytical constant conversion"))
                     * self.dx;
-                let dist_right = (T::from_usize(self.nx - 1 - i).expect("analytical constant conversion")
+                let dist_right = (T::from_usize(self.nx - 1 - i)
+                    .expect("analytical constant conversion")
                     + T::from_f64(0.5).expect("analytical constant conversion"))
                     * self.dx;
                 let dist_bottom = (T::from_usize(j).expect("analytical constant conversion")
                     + T::from_f64(0.5).expect("analytical constant conversion"))
                     * self.dy;
-                let dist_top = (T::from_usize(self.ny - 1 - j).expect("analytical constant conversion")
+                let dist_top = (T::from_usize(self.ny - 1 - j)
+                    .expect("analytical constant conversion")
                     + T::from_f64(0.5).expect("analytical constant conversion"))
                     * self.dy;
 
@@ -287,8 +289,8 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                     * *reference_velocity
                     * *turbulence_length_scale;
                 let c_mu_inv = T::from_f64(1.0 / C_MU).expect("analytical constant conversion");
-                let nu_tilde_inlet =
-                    factor * c_mu_inv.powf(T::from_f64(0.75).expect("analytical constant conversion"));
+                let nu_tilde_inlet = factor
+                    * c_mu_inv.powf(T::from_f64(0.75).expect("analytical constant conversion"));
 
                 match name.as_str() {
                     "west" => {

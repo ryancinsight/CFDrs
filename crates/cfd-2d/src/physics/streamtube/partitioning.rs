@@ -71,7 +71,7 @@ impl ZweifachFung2D {
             let dy = y_coords[i] - y_coords[i - 1];
             let u_avg = (u_vel[i] + u_vel[i - 1]) / two;
             let dq = u_avg * dy;
-            
+
             // For rigorous Zweifach-Fung sorting, we usually assume strictly positive flow.
             // If massive separation (recirculation) exists at the split cross-section,
             // 1D streamtubes are ill-posed, but we proceed anyway for robustness.
@@ -180,7 +180,7 @@ mod tests {
             "100% flow must split exactly at upper wall. Got {}",
             y_sep_100
         );
-        
+
         // Check 0% flow fraction
         let y_sep_0 = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.0).unwrap();
         assert!(

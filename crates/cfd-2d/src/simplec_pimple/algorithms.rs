@@ -28,8 +28,8 @@
 
 use super::config::AlgorithmType;
 use super::solver::SimplecPimpleSolver;
-use crate::grid::array2d::Array2D;
 use crate::fields::SimulationFields;
+use crate::grid::array2d::Array2D;
 use crate::physics::MomentumComponent;
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -82,8 +82,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         let mut residuals = Vec::new();
         let mut last_residual = T::max_value().unwrap_or(T::from_f64(1e10).unwrap_or(T::one()));
 
-        let dt_increase_factor = T::from_f64(1.2)
-            .unwrap_or_else(|| T::one() + T::from_f64(0.2).expect("analytical constant conversion"));
+        let dt_increase_factor = T::from_f64(1.2).unwrap_or_else(|| {
+            T::one() + T::from_f64(0.2).expect("analytical constant conversion")
+        });
         let dt_decrease_factor = T::from_f64(0.7)
             .unwrap_or_else(|| T::from_f64(0.7).expect("analytical constant conversion"));
         let min_dt = dt_initial
@@ -127,8 +128,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             // Adaptive time step adjustment
             if residual
                 < last_residual
-                    * T::from_f64(0.95)
-                        .unwrap_or_else(|| T::from_f64(0.95).expect("analytical constant conversion"))
+                    * T::from_f64(0.95).unwrap_or_else(|| {
+                        T::from_f64(0.95).expect("analytical constant conversion")
+                    })
             {
                 dt = (dt * dt_increase_factor).min(max_dt);
                 tracing::debug!(
@@ -138,8 +140,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 );
             } else if residual
                 > last_residual
-                    * T::from_f64(1.05)
-                        .unwrap_or_else(|| T::from_f64(1.05).expect("analytical constant conversion"))
+                    * T::from_f64(1.05).unwrap_or_else(|| {
+                        T::from_f64(1.05).expect("analytical constant conversion")
+                    })
             {
                 dt = (dt * dt_decrease_factor).max(min_dt);
                 tracing::debug!(
@@ -179,8 +182,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         let mut u_corrected = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
         let mut p_vec = Array2D::new(self.grid.nx, self.grid.ny, T::zero());
         let mut p_correction = Array2D::new(self.grid.nx, self.grid.ny, T::zero());
-        let mut continuity_residual =
-            T::max_value().unwrap_or_else(|| T::from_f64(1e30).expect("analytical constant conversion"));
+        let mut continuity_residual = T::max_value()
+            .unwrap_or_else(|| T::from_f64(1e30).expect("analytical constant conversion"));
 
         for iter in 0..max_iterations {
             // Step 1: Solve momentum equations for predicted velocities u*

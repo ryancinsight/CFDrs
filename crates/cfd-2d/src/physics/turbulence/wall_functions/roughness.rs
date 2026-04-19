@@ -58,17 +58,23 @@ impl<T: RealField + Copy> WallRoughness<T> {
             RoughnessType::Smooth => T::zero(),
             RoughnessType::TransitionallyRough => {
                 let kappa = T::from_f64(KAPPA).expect("analytical constant conversion");
-                (T::one() / kappa) * k_s.ln() + T::from_f64(8.5).expect("analytical constant conversion")
-                    - (T::one() / kappa) * T::from_f64(30.0).expect("analytical constant conversion").ln()
+                (T::one() / kappa) * k_s.ln()
+                    + T::from_f64(8.5).expect("analytical constant conversion")
+                    - (T::one() / kappa)
+                        * T::from_f64(30.0)
+                            .expect("analytical constant conversion")
+                            .ln()
                     - T::from_f64(8.5).expect("analytical constant conversion")
             }
             RoughnessType::FullyRough => {
                 let kappa = T::from_f64(KAPPA).expect("analytical constant conversion");
-                (T::one() / kappa) * k_s.ln() + T::from_f64(8.5).expect("analytical constant conversion")
+                (T::one() / kappa) * k_s.ln()
+                    + T::from_f64(8.5).expect("analytical constant conversion")
             }
             RoughnessType::VeryRough => {
                 let kappa = T::from_f64(KAPPA).expect("analytical constant conversion");
-                (T::one() / kappa) * k_s.ln() + T::from_f64(13.0).expect("analytical constant conversion")
+                (T::one() / kappa) * k_s.ln()
+                    + T::from_f64(13.0).expect("analytical constant conversion")
             }
         }
     }

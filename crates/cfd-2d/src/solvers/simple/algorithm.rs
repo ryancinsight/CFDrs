@@ -75,10 +75,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         if self.p_prime.as_ref().is_none_or(|v| v.len() != n) {
             self.p_prime = Some(DVector::zeros(n));
         }
-        if self.d_u.as_ref().is_none_or(|f| f.nx() != nx || f.ny() != ny) {
+        if self
+            .d_u
+            .as_ref()
+            .is_none_or(|f| f.nx() != nx || f.ny() != ny)
+        {
             self.d_u = Some(Field2D::new(nx, ny, T::zero()));
         }
-        if self.d_v.as_ref().is_none_or(|f| f.nx() != nx || f.ny() != ny) {
+        if self
+            .d_v
+            .as_ref()
+            .is_none_or(|f| f.nx() != nx || f.ny() != ny)
+        {
             self.d_v = Some(Field2D::new(nx, ny, T::zero()));
         }
     }

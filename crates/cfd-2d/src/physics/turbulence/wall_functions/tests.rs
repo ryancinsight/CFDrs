@@ -1,6 +1,8 @@
-use super::*;
 use super::spalding::spalding_u_plus;
-use crate::physics::turbulence::constants::{KAPPA, E_WALL_FUNCTION, C_MU, Y_PLUS_VISCOUS_SUBLAYER};
+use super::*;
+use crate::physics::turbulence::constants::{
+    C_MU, E_WALL_FUNCTION, KAPPA, Y_PLUS_VISCOUS_SUBLAYER,
+};
 use approx::assert_relative_eq;
 
 #[test]

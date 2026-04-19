@@ -36,10 +36,7 @@
 /// # Returns
 ///
 /// Non-negative production term [m²/s³].
-pub fn kato_launder_production(
-    velocity_gradient: &[[f64; 2]; 2],
-    turbulent_viscosity: f64,
-) -> f64 {
+pub fn kato_launder_production(velocity_gradient: &[[f64; 2]; 2], turbulent_viscosity: f64) -> f64 {
     // Strain rate tensor: S_ij = 0.5 * (du_i/dx_j + du_j/dx_i)
     let s_xx = velocity_gradient[0][0];
     let s_yy = velocity_gradient[1][1];

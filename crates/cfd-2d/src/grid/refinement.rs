@@ -207,10 +207,9 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
         for i in 0..nx {
             for j in 0..ny {
                 let idx = i * self.ny + j;
-                if self.refinement_levels[idx] > 0
-                    && self.can_coarsen_at(i, j) {
-                        self.refinement_levels[idx] -= 1;
-                    }
+                if self.refinement_levels[idx] > 0 && self.can_coarsen_at(i, j) {
+                    self.refinement_levels[idx] -= 1;
+                }
             }
         }
         Ok(())
@@ -281,19 +280,13 @@ mod tests {
         // Cells with i > 4 should be refined
         for i in 5..8 {
             for j in 0..8 {
-                assert_eq!(
-                    grid.level(i, j), 1,
-                    "Cell ({i},{j}) should be refined"
-                );
+                assert_eq!(grid.level(i, j), 1, "Cell ({i},{j}) should be refined");
             }
         }
         // Cells with i <= 4 should not
         for i in 0..=4 {
             for j in 0..8 {
-                assert_eq!(
-                    grid.level(i, j), 0,
-                    "Cell ({i},{j}) should NOT be refined"
-                );
+                assert_eq!(grid.level(i, j), 0, "Cell ({i},{j}) should NOT be refined");
             }
         }
     }

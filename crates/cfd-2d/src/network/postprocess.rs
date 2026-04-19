@@ -100,8 +100,8 @@ where
         return (T::zero(), T::zero());
     }
 
-    let Some(inlet_cell) = (0..solver.grid.nx)
-        .find(|&i| (0..solver.grid.ny).any(|j| solver.field.mask[(i, j)]))
+    let Some(inlet_cell) =
+        (0..solver.grid.nx).find(|&i| (0..solver.grid.ny).any(|j| solver.field.mask[(i, j)]))
     else {
         return (T::zero(), T::zero());
     };

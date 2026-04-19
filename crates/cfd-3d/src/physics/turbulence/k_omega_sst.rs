@@ -18,6 +18,7 @@ use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
 use super::constants::{SST_A1, SST_BETA_STAR};
+use super::field_ops::{strain_magnitude, velocity_gradient_tensor};
 
 /// State fields for the k-omega SST model.
 #[derive(Debug, Clone)]
@@ -42,6 +43,12 @@ pub struct KOmegaSSTModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> 
     pub beta_star: T,
     /// Kinematic viscosity nu [m^2/s] (used for F1, F2 blending).
     pub nu: T,
+    /// Physical grid spacing in the x direction [m].
+    pub dx: T,
+    /// Physical grid spacing in the y direction [m].
+    pub dy: T,
+    /// Physical grid spacing in the z direction [m].
+    pub dz: T,
     /// Current model state (k, omega, wall distance).
     pub state: Option<KOmegaSSTState<T>>,
 }
@@ -55,6 +62,24 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
             beta_star: <T as FromPrimitive>::from_f64(SST_BETA_STAR)
                 .expect("SST_BETA_STAR is an IEEE 754 representable f64 constant"),
             nu,
+            dx: T::one(),
+            dy: T::one(),
+            dz: T::one(),
+            state: None,
+        }
+    }
+
+    /// Create a k-omega SST model with the physical grid spacing.
+    pub fn with_grid_spacing(nu: T, dx: T, dy: T, dz: T) -> Self {
+        Self {
+            a1: <T as FromPrimitive>::from_f64(SST_A1)
+                .expect("SST_A1 is an IEEE 754 representable f64 constant"),
+            beta_star: <T as FromPrimitive>::from_f64(SST_BETA_STAR)
+                .expect("SST_BETA_STAR is an IEEE 754 representable f64 constant"),
+            nu,
+            dx,
+            dy,
+            dz,
             state: None,
         }
     }
@@ -75,8 +100,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
         );
         let three_half = <T as FromPrimitive>::from_f64(1.5)
             .expect("1.5 is an IEEE 754 representable f64 constant");
-        let c_mu_quarter = <T as FromPrimitive>::from_f64(0.09_f64.sqrt())
-            .expect("sqrt(0.09) is an IEEE 754 representable f64 constant");
+        let four = T::one() + T::one() + T::one() + T::one();
+        let c_mu = <T as FromPrimitive>::from_f64(
+            cfd_core::physics::constants::physics::turbulence::K_EPSILON_C_MU,
+        )
+        .expect("K_EPSILON_C_MU is an IEEE 754 representable f64 constant");
+        let c_mu_fourth_root = num_traits::Float::powf(c_mu, T::one() / four);
 
         let k_field: Vec<T> = flow_field
             .velocity
@@ -90,7 +119,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
 
         let omega_field: Vec<T> = k_field
             .iter()
-            .map(|&k| num_traits::Float::sqrt(k) / (c_mu_quarter * length_scale))
+            .map(|&k| num_traits::Float::sqrt(k) / (c_mu_fourth_root * length_scale))
             .collect();
 
         self.state = Some(KOmegaSSTState {
@@ -118,38 +147,19 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
     /// Compute strain rate magnitude |S| at grid point (i, j, k).
     fn strain_rate(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> T {
         let (nx, ny, nz) = flow.velocity.dimensions;
-        let two = <T as FromPrimitive>::from_f64(2.0)
-            .expect("2.0 is representable in all IEEE 754 types");
-        let h = T::one();
-        let mut s_sq = T::zero();
-        if i > 0 && i < nx - 1 {
-            if let (Some(vp), Some(vm)) = (
-                flow.velocity.get(i + 1, j, k),
-                flow.velocity.get(i - 1, j, k),
-            ) {
-                let s = (vp.x - vm.x) / (two * h);
-                s_sq += s * s;
-            }
-        }
-        if j > 0 && j < ny - 1 {
-            if let (Some(vp), Some(vm)) = (
-                flow.velocity.get(i, j + 1, k),
-                flow.velocity.get(i, j - 1, k),
-            ) {
-                let s = (vp.y - vm.y) / (two * h);
-                s_sq += s * s;
-            }
-        }
-        if k > 0 && k < nz - 1 {
-            if let (Some(vp), Some(vm)) = (
-                flow.velocity.get(i, j, k + 1),
-                flow.velocity.get(i, j, k - 1),
-            ) {
-                let s = (vp.z - vm.z) / (two * h);
-                s_sq += s * s;
-            }
-        }
-        num_traits::Float::sqrt(two * s_sq)
+        let gradient = velocity_gradient_tensor(
+            &flow.velocity.components,
+            nx,
+            ny,
+            nz,
+            i,
+            j,
+            k,
+            self.dx,
+            self.dy,
+            self.dz,
+        );
+        strain_magnitude(&gradient)
     }
 }
 
@@ -216,5 +226,74 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 
     fn name(&self) -> &'static str {
         "k-omega-SST"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use cfd_core::physics::fluid_dynamics::TurbulenceModel;
+    use nalgebra::Vector3;
+
+    fn fill_velocity_field<F>(flow: &mut FlowField<f64>, mut generator: F)
+    where
+        F: FnMut(f64, f64, f64) -> Vector3<f64>,
+    {
+        let (nx, ny, nz) = flow.velocity.dimensions;
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let idx = k * nx * ny + j * nx + i;
+                    flow.velocity.components[idx] = generator(i as f64, j as f64, k as f64);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn simple_shear_uses_full_strain_tensor() {
+        let dx = 1.0;
+        let dy = 2.0;
+        let dz = 3.0;
+        let nu = 1.0e-6;
+        let mut flow = FlowField::<f64>::new(3, 3, 3);
+        fill_velocity_field(&mut flow, |_, j, _| Vector3::new(j * dy, 0.0, 0.0));
+
+        let n = flow.velocity.components.len();
+        let mut model = KOmegaSSTModel::<f64>::with_grid_spacing(nu, dx, dy, dz);
+        model.initialize_exact(vec![1.0; n], vec![1.0; n], vec![1.0; n]);
+
+        let viscosity = model.turbulent_viscosity(&flow);
+        let eps = 1.0e-15;
+        let arg2 = (2.0 * 1.0_f64.sqrt() / (0.09 * 1.0 * 1.0 + eps)).max(500.0 * nu / (1.0 + eps));
+        let f2 = (arg2 * arg2).tanh();
+        let expected = 0.31 * 1.0 / (0.31 * 1.0).max(f2 + eps);
+
+        assert_relative_eq!(viscosity[13], expected, epsilon = 1e-12);
+        assert!(viscosity[13] < 1.0);
+    }
+
+    #[test]
+    fn initialize_state_uses_cmu_fourth_root_in_omega() {
+        let mut flow = FlowField::<f64>::new(1, 1, 1);
+        fill_velocity_field(&mut flow, |_, _, _| Vector3::new(4.0, 0.0, 0.0));
+
+        let nu = 1.0e-6;
+        let turbulence_intensity = 0.1;
+        let length_scale = 0.2;
+        let mut model = KOmegaSSTModel::<f64>::with_grid_spacing(nu, 1.0, 1.0, 1.0);
+        model.initialize_state(&flow, turbulence_intensity, length_scale, vec![0.5]);
+
+        let state = model
+            .state
+            .as_ref()
+            .expect("initialize_state must populate SST state");
+        let expected_k = 1.5 * (4.0 * turbulence_intensity).powi(2);
+        let c_mu = cfd_core::physics::constants::physics::turbulence::K_EPSILON_C_MU;
+        let expected_omega = expected_k.sqrt() / (c_mu.powf(0.25) * length_scale);
+
+        assert_relative_eq!(state.k[0], expected_k, epsilon = 1e-12);
+        assert_relative_eq!(state.omega[0], expected_omega, epsilon = 1e-12);
     }
 }

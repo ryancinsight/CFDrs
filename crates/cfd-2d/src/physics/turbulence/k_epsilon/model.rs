@@ -3,8 +3,8 @@
 //! This module contains the `KEpsilonModel` struct — the primary data holder
 //! and time-stepper for both the standard and realizable k-ε variants.
 
-use super::realizable;
 use super::kato_launder;
+use super::realizable;
 use crate::physics::turbulence::constants::{
     C1_EPSILON, C2_EPSILON, C_MU, EPSILON_MIN, K_MIN, SIGMA_EPSILON, SIGMA_K,
 };
@@ -274,13 +274,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                     T::from_f64(kato_launder::kato_launder_production(&grad_f64, nu_t_f64))
                         .expect("analytical constant conversion")
                 } else {
-                    self.production_term(
-                        &grad,
-                        nu_t,
-                        k_prev,
-                        T::zero(),
-                        molecular_viscosity,
-                    )
+                    self.production_term(&grad, nu_t, k_prev, T::zero(), molecular_viscosity)
                 };
 
                 // Diffusion terms
@@ -288,12 +282,10 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 let nu_eff_eps = molecular_viscosity + nu_t / self.sigma_epsilon;
 
                 // k equation diffusion
-                let diff_k_x = (self.k_scratch[idx + 1] - two_f * k_prev
-                    + self.k_scratch[idx - 1])
-                    / dx_sq;
-                let diff_k_y = (self.k_scratch[idx + nx] - two_f * k_prev
-                    + self.k_scratch[idx - nx])
-                    / dy_sq;
+                let diff_k_x =
+                    (self.k_scratch[idx + 1] - two_f * k_prev + self.k_scratch[idx - 1]) / dx_sq;
+                let diff_k_y =
+                    (self.k_scratch[idx + nx] - two_f * k_prev + self.k_scratch[idx - nx]) / dy_sq;
                 let diff_k = nu_eff_k * (diff_k_x + diff_k_y);
 
                 // epsilon equation diffusion

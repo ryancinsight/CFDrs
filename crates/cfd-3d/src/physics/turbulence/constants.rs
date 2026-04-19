@@ -73,6 +73,13 @@ pub const SIGMA_C: f64 = 1.35;
 /// in practice a calibrated value of 0.07 is common.
 pub const VREMAN_CV: f64 = 0.07;
 
+// ── WALE model (Nicoud & Ducros 1999) ───────────────────────────────────────
+
+/// WALE model constant C_w = 0.325 for wall-bounded LES.
+///
+/// This is the standard calibration used in many wall-resolved LES codes.
+pub const WALE_CW: f64 = 0.325;
+
 // ── Wall functions (Spalding 1961; Launder & Spalding 1974) ──────────────────
 
 /// Von Kármán constant κ = 0.41 for the log-law of the wall.

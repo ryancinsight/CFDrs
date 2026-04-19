@@ -136,7 +136,8 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
             (y_plus.ln() / self.kappa) + T::from_f64(5.5).expect("analytical constant conversion")
         } else {
             let u_visc = y_visc;
-            let u_log = (y_log.ln() / self.kappa) + T::from_f64(5.5).expect("analytical constant conversion");
+            let u_log = (y_log.ln() / self.kappa)
+                + T::from_f64(5.5).expect("analytical constant conversion");
             let blend = (y_plus - y_visc) / (y_log - y_visc);
             u_visc * (T::one() - blend) + u_log * blend
         }
@@ -165,7 +166,8 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
         if k_s_plus <= T::from_f64(0.1).expect("analytical constant conversion") {
             self.standard_wall_function(y_plus)
         } else {
-            let y_visc = T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).expect("analytical constant conversion");
+            let y_visc =
+                T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).expect("analytical constant conversion");
 
             if y_plus <= y_visc {
                 y_plus
@@ -204,19 +206,22 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
         if y_plus <= y_visc {
             y_plus
         } else if y_plus >= y_log {
-            if self.roughness.equivalent_sand_grain > T::from_f64(0.1).expect("analytical constant conversion") {
+            if self.roughness.equivalent_sand_grain
+                > T::from_f64(0.1).expect("analytical constant conversion")
+            {
                 self.rough_wall_function(y_plus)
             } else {
                 self.standard_wall_function(y_plus)
             }
         } else {
             let viscous_part = self.blended_wall_function(y_plus.min(y_visc));
-            let log_part =
-                if self.roughness.equivalent_sand_grain > T::from_f64(0.1).expect("analytical constant conversion") {
-                    self.rough_wall_function(y_plus.max(y_log))
-                } else {
-                    self.standard_wall_function(y_plus.max(y_log))
-                };
+            let log_part = if self.roughness.equivalent_sand_grain
+                > T::from_f64(0.1).expect("analytical constant conversion")
+            {
+                self.rough_wall_function(y_plus.max(y_log))
+            } else {
+                self.standard_wall_function(y_plus.max(y_log))
+            };
 
             let blend_factor = (y_plus - y_visc) / (y_log - y_visc);
             viscous_part * (T::one() - blend_factor) + log_part * blend_factor
@@ -228,8 +233,8 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
         let y_log = T::from_f64(Y_PLUS_LOG_LAW).expect("analytical constant conversion");
 
         if y_plus >= y_log {
-            let log_law_value =
-                (y_plus.ln() / self.kappa) + T::from_f64(5.5).expect("analytical constant conversion");
+            let log_law_value = (y_plus.ln() / self.kappa)
+                + T::from_f64(5.5).expect("analytical constant conversion");
             let relative_error = (u_plus - log_law_value).abs() / log_law_value;
 
             if relative_error > T::from_f64(0.1).expect("analytical constant conversion") {
@@ -289,15 +294,19 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
     /// Calculate omega at wall.
     pub fn wall_omega(&self, wall_distance: T, viscosity: T, density: T) -> T {
         if let WallFunction::LowReynolds = self.wall_function {
-            let coeff = T::from_f64(OMEGA_WALL_COEFFICIENT).expect("analytical constant conversion");
+            let coeff =
+                T::from_f64(OMEGA_WALL_COEFFICIENT).expect("analytical constant conversion");
             let nu = viscosity / density;
             coeff * nu / (wall_distance * wall_distance)
         } else {
             let u_tau = (viscosity / (density * wall_distance)).sqrt();
             let y_plus = density * u_tau * wall_distance / viscosity;
 
-            if y_plus < T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).expect("analytical constant conversion") {
-                let coeff = T::from_f64(OMEGA_WALL_COEFFICIENT).expect("analytical constant conversion");
+            if y_plus
+                < T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).expect("analytical constant conversion")
+            {
+                let coeff =
+                    T::from_f64(OMEGA_WALL_COEFFICIENT).expect("analytical constant conversion");
                 let nu = viscosity / density;
                 coeff * nu / (wall_distance * wall_distance)
             } else {

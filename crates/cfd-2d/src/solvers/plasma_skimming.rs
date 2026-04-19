@@ -76,7 +76,7 @@ pub fn pries_phase_separation(fqb: f64, params: &PriesPhaseParams) -> PhaseSepar
     let h_d = params.feed_hematocrit.clamp(0.01, 0.70);
 
     // Convert to microns for the empirical correlation.
-    let d_f = params.parent_diameter_m * 1e6;      // parent diameter [um]
+    let d_f = params.parent_diameter_m * 1e6; // parent diameter [um]
     let d_alpha = params.daughter_alpha_diameter_m * 1e6;
     let d_beta = params.daughter_beta_diameter_m * 1e6;
 
@@ -87,9 +87,8 @@ pub fn pries_phase_separation(fqb: f64, params: &PriesPhaseParams) -> PhaseSepar
     // A: diameter asymmetry parameter.
     // Positive A biases cells toward daughter alpha when it's wider.
     let diameter_ratio_sq = d_alpha * d_alpha / (d_beta * d_beta).max(1e-6);
-    let a_param = -13.29 * (diameter_ratio_sq - 1.0) / (diameter_ratio_sq + 1.0)
-        * (1.0 - h_d)
-        / d_f.max(1.0);
+    let a_param =
+        -13.29 * (diameter_ratio_sq - 1.0) / (diameter_ratio_sq + 1.0) * (1.0 - h_d) / d_f.max(1.0);
 
     // B: nonlinearity parameter. Higher B = steeper S-curve.
     let b_param = 1.0 + 6.98 * (1.0 - h_d) / d_f.max(1.0);
@@ -229,7 +228,7 @@ mod tests {
     #[test]
     fn asymmetric_bifurcation_wide_daughter_gets_more_cells() {
         let params = PriesPhaseParams {
-            parent_diameter_m: 2000e-6, // 2 mm (millifluidic)
+            parent_diameter_m: 2000e-6,         // 2 mm (millifluidic)
             daughter_alpha_diameter_m: 1100e-6, // wide
             daughter_beta_diameter_m: 900e-6,   // narrow
             feed_hematocrit: 0.45,
@@ -266,7 +265,11 @@ mod tests {
             rbc.cell_fraction, rbc.x0
         );
         // At 100 um, X0 is significant (~5% of flow).
-        assert!(rbc.x0 > 0.005, "X0 should be meaningful at microfluidic scale, got {:.4}", rbc.x0);
+        assert!(
+            rbc.x0 > 0.005,
+            "X0 should be meaningful at microfluidic scale, got {:.4}",
+            rbc.x0
+        );
         // The daughter should get more cells than flow (plasma skimming
         // of the peripheral arm means center arm gets enriched).
         assert!(
@@ -305,7 +308,7 @@ mod tests {
     #[test]
     fn low_flow_branch_gets_no_cells_below_x0() {
         let params = PriesPhaseParams {
-            parent_diameter_m: 100e-6,  // small vessel where CFL matters
+            parent_diameter_m: 100e-6, // small vessel where CFL matters
             daughter_alpha_diameter_m: 50e-6,
             daughter_beta_diameter_m: 80e-6,
             feed_hematocrit: 0.30,

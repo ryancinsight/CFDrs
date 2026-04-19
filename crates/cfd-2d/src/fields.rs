@@ -275,7 +275,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
             p: Field2D::new(nx, ny, T::zero()),
             p_prime: Field2D::new(nx, ny, T::zero()),
             density: Field2D::new(nx, ny, T::one()),
-            viscosity: Field2D::new(nx, ny, T::from_f64(0.001).expect("analytical constant conversion")),
+            viscosity: Field2D::new(
+                nx,
+                ny,
+                T::from_f64(0.001).expect("analytical constant conversion"),
+            ),
             force_u: Field2D::new(nx, ny, T::zero()),
             force_v: Field2D::new(nx, ny, T::zero()),
             mask: Field2D::new(nx, ny, true),

@@ -171,7 +171,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
 
         let mut pressure_drop = T::zero();
         if count_in > 0 && count_out > 0 {
-            pressure_drop = (p_in / T::from_usize(count_in).expect("analytical constant conversion"))
+            pressure_drop = (p_in
+                / T::from_usize(count_in).expect("analytical constant conversion"))
                 - (p_out / T::from_usize(count_out).expect("analytical constant conversion"));
         }
 

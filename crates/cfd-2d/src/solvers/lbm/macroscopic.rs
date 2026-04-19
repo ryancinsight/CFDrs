@@ -106,7 +106,7 @@ impl<T: RealField + Copy + FromPrimitive> MacroscopicQuantities<T> {
                 if let Some(ref mut pressure) = self.pressure {
                     pressure[cell] = compute_pressure(rho);
                 }
-                
+
                 if let (Some(g_slice), Some(ref mut nuclei)) = (g, &mut self.nuclei_fraction) {
                     nuclei[cell] = compute_density_flat(g_slice, j, i, nx);
                 }

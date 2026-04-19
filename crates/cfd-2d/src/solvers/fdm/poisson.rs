@@ -33,7 +33,10 @@ pub struct PoissonSolver<T: RealField + Copy> {
 impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
     /// Create new Poisson solver
     pub fn new(config: FdmConfig<T>) -> Self {
-        Self { config, matrix_builder: core::cell::RefCell::new(None) }
+        Self {
+            config,
+            matrix_builder: core::cell::RefCell::new(None),
+        }
     }
 
     /// Create with default configuration
@@ -61,7 +64,11 @@ impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
         neumann_boundaries: &HashMap<(usize, usize), T>,
     ) -> Result<HashMap<(usize, usize), T>> {
         let n = grid.nx() * grid.ny();
-        let mut matrix_builder = self.matrix_builder.borrow_mut().take().unwrap_or_else(|| SparseMatrixBuilder::new(n, n));
+        let mut matrix_builder = self
+            .matrix_builder
+            .borrow_mut()
+            .take()
+            .unwrap_or_else(|| SparseMatrixBuilder::new(n, n));
         let mut rhs = DVector::from_element(n, T::zero());
 
         // Build system matrix and RHS vector

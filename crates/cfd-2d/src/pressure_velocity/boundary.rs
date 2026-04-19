@@ -5,7 +5,9 @@ use std::collections::HashMap;
 pub(crate) fn has_pressure_anchor<T: RealField + Copy>(
     boundary_conditions: &HashMap<String, BoundaryCondition<T>>,
 ) -> bool {
-    boundary_conditions.values().any(is_pressure_anchor_boundary)
+    boundary_conditions
+        .values()
+        .any(is_pressure_anchor_boundary)
 }
 
 pub(crate) fn is_pressure_anchor_boundary<T: RealField + Copy>(
@@ -17,7 +19,10 @@ pub(crate) fn is_pressure_anchor_boundary<T: RealField + Copy>(
             | BoundaryCondition::PressureInlet { .. }
             | BoundaryCondition::PressureOutlet { .. }
             | BoundaryCondition::CharacteristicOutlet { .. }
-            | BoundaryCondition::CharacteristicInlet { pressure: Some(_), .. }
+            | BoundaryCondition::CharacteristicInlet {
+                pressure: Some(_),
+                ..
+            }
     )
 }
 

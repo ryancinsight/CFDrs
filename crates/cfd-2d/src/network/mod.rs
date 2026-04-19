@@ -14,8 +14,8 @@
 //! schematics-to-grid mapping is observable in tests and benchmarks.
 
 mod build;
-mod coupled;
 mod channel;
+mod coupled;
 mod postprocess;
 mod projection;
 mod reference;
@@ -26,10 +26,10 @@ mod types;
 mod validation;
 
 pub use build::Network2dBuilderSink;
+pub use projection::NetworkProjectionSummary;
 pub use reference::{
     solve_reference_trace, ChannelReferenceTrace, NetworkReferenceTrace, NodeReferenceTrace,
 };
-pub use projection::NetworkProjectionSummary;
 pub use types::{
     Channel2dResult, ChannelProjectionSummary, CoupledNetwork2dResult, Network2DSolver,
     Network2dResult, ProjectedNetwork2dResult,

@@ -25,10 +25,10 @@
 
 #[cfg(test)]
 mod momentum_algorithm_validation {
-    use approx::assert_relative_eq;
     use crate::fields::SimulationFields;
     use crate::grid::StructuredGrid2D;
     use crate::physics::momentum::{MomentumComponent, MomentumSolver};
+    use approx::assert_relative_eq;
     use cfd_core::physics::boundary::{BoundaryCondition, WallType};
     use nalgebra::Vector3;
 

@@ -22,7 +22,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         let c1_eps_baseline = T::from_f64(C1_EPSILON).expect("analytical constant conversion");
         let c2_eps_baseline = T::from_f64(C2_EPSILON).expect("analytical constant conversion");
         let sigma_k_baseline = T::from_f64(SIGMA_K).expect("analytical constant conversion");
-        let sigma_eps_baseline = T::from_f64(SIGMA_EPSILON).expect("analytical constant conversion");
+        let sigma_eps_baseline =
+            T::from_f64(SIGMA_EPSILON).expect("analytical constant conversion");
 
         let baseline_error = self.simulate_channel_flow_k_epsilon(
             c_mu_baseline,
@@ -116,8 +117,10 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         );
 
         // σ_k sensitivity
-        let sigk_plus = sigma_k_baseline * T::from_f64(1.1).expect("analytical constant conversion");
-        let sigk_minus = sigma_k_baseline * T::from_f64(0.9).expect("analytical constant conversion");
+        let sigk_plus =
+            sigma_k_baseline * T::from_f64(1.1).expect("analytical constant conversion");
+        let sigk_minus =
+            sigma_k_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus = self.simulate_channel_flow_k_epsilon(
             c_mu_baseline,
             c1_eps_baseline,
@@ -199,7 +202,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
 
         let alpha1_baseline = T::from_f64(SST_ALPHA_1).expect("analytical constant conversion");
         let beta1_baseline = T::from_f64(SST_BETA_1).expect("analytical constant conversion");
-        let beta_star_baseline = T::from_f64(SST_BETA_STAR).expect("analytical constant conversion");
+        let beta_star_baseline =
+            T::from_f64(SST_BETA_STAR).expect("analytical constant conversion");
         let sigma_k1_baseline = T::from_f64(SST_SIGMA_K1).expect("analytical constant conversion");
         let sigma_omega1_baseline =
             T::from_f64(SST_SIGMA_OMEGA1).expect("analytical constant conversion");
@@ -215,7 +219,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
         let mut sensitivity_results = HashMap::new();
 
         // α₁ sensitivity
-        let alpha1_plus = alpha1_baseline * T::from_f64(1.1).expect("analytical constant conversion");
+        let alpha1_plus =
+            alpha1_baseline * T::from_f64(1.1).expect("analytical constant conversion");
         let alpha1_minus =
             alpha1_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus = self.simulate_channel_flow_k_omega_sst(
@@ -244,7 +249,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValid
 
         // β₁ sensitivity
         let beta1_plus = beta1_baseline * T::from_f64(1.1).expect("analytical constant conversion");
-        let beta1_minus = beta1_baseline * T::from_f64(0.9).expect("analytical constant conversion");
+        let beta1_minus =
+            beta1_baseline * T::from_f64(0.9).expect("analytical constant conversion");
         let error_plus = self.simulate_channel_flow_k_omega_sst(
             alpha1_baseline,
             beta1_plus,

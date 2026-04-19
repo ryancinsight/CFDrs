@@ -7,9 +7,7 @@ use cfd_core::physics::fluid::BloodModel;
 use cfd_schematics::application::ports::GraphSink;
 use cfd_schematics::geometry::generator::PrimitiveSelectiveSplitKind;
 use cfd_schematics::interface::presets::{primitive_selective_split_tree_rect, venturi_rect};
-use criterion::{
-    black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion,
-};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use nalgebra::Vector2;
 use std::collections::HashMap;
 
@@ -60,9 +58,12 @@ fn benchmark_grid_creation(c: &mut Criterion) {
 fn with_provenance(
     mut blueprint: cfd_schematics::domain::model::NetworkBlueprint,
 ) -> cfd_schematics::domain::model::NetworkBlueprint {
-    blueprint.metadata.get_or_insert_with(Default::default).insert(
-        cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper(),
-    );
+    blueprint
+        .metadata
+        .get_or_insert_with(Default::default)
+        .insert(
+            cfd_schematics::geometry::metadata::GeometryAuthoringProvenance::selective_wrapper(),
+        );
     blueprint
 }
 
@@ -72,7 +73,13 @@ fn benchmark_network_pipeline(c: &mut Criterion) {
     let cases = [
         (
             "venturi",
-            with_provenance(venturi_rect("bench_venturi", 2.0e-3, 0.7e-3, 1.0e-3, 1.8e-3)),
+            with_provenance(venturi_rect(
+                "bench_venturi",
+                2.0e-3,
+                0.7e-3,
+                1.0e-3,
+                1.8e-3,
+            )),
             24usize,
             10usize,
             1.0e-6_f64,
@@ -154,7 +161,9 @@ fn benchmark_network_pipeline(c: &mut Criterion) {
                             Network2dBuilderSink::new(blood, 1060.0, q_total, grid_nx, grid_ny);
                         sink.build(blueprint).expect("network build")
                     },
-                    |mut network| black_box(network.solve_projected(1e-6).expect("projected solve")),
+                    |mut network| {
+                        black_box(network.solve_projected(1e-6).expect("projected solve"))
+                    },
                     BatchSize::SmallInput,
                 )
             },

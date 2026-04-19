@@ -15,8 +15,8 @@
 //! - C_V ≈ 2.5 C_s² for C_s ≈ 0.1 → C_V ≈ 0.025  (Vreman 2004 Table 1)
 //!
 //! **Properties** (Vreman 2004, §2):
-//! - Exactly zero for pure shear flow (no SGS dissipation in laminar-like shear)
-//! - Exactly zero for solid-body rotation
+//! - Exactly zero for the laminar shear-flow classes identified by Vreman
+//!   (including simple shear and no-slip wall limits)
 //! - Avoids the need for wall damping functions
 //! - Computationally cheaper than the Dynamic Smagorinsky (no test filtering)
 //!
@@ -46,8 +46,8 @@ use super::field_ops::velocity_gradient_tensor;
 
 /// Vreman SGS model for LES (Vreman 2004).
 ///
-/// Automatically vanishes for pure shear and solid-body rotation without
-/// ad hoc damping functions.
+/// Automatically vanishes for the laminar shear-flow classes identified by
+/// Vreman without ad hoc damping functions.
 #[derive(Debug, Clone)]
 pub struct VremanModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Vreman constant C_V ≈ 0.025 (Vreman 2004 Table 1).
@@ -211,5 +211,20 @@ mod tests {
         let viscosity = model.turbulent_viscosity(&flow);
         let center = 2 * 4 * 4 + 2 * 4 + 2;
         assert_relative_eq!(viscosity[center], 0.0, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn solid_body_rotation_remains_finite_and_dissipative() {
+        let mut flow = FlowField::<f64>::new(4, 4, 4);
+        fill_velocity_field(&mut flow, |x, y, _z| Vector3::new(-y, x, 0.0));
+
+        let model = VremanModel::<f64>::with_filter_width(1.0, 1.0, 1.0);
+        let viscosity = model.turbulent_viscosity(&flow);
+        let center = 2 * 4 * 4 + 2 * 4 + 2;
+
+        assert!(viscosity
+            .iter()
+            .all(|value| value.is_finite() && *value >= 0.0));
+        assert!(viscosity[center] > 0.0);
     }
 }

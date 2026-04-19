@@ -226,13 +226,12 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> NFurcationSolver
         }
 
         // Guard: avoid NaN/Inf when q_parent ≈ 0 (degenerate or empty inlet).
-        let mass_balance_error = if q_parent
-            > T::from_f64(1e-30).expect("analytical constant conversion")
-        {
-            Float::abs(q_parent - total_out) / q_parent
-        } else {
-            T::zero()
-        };
+        let mass_balance_error =
+            if q_parent > T::from_f64(1e-30).expect("analytical constant conversion") {
+                Float::abs(q_parent - total_out) / q_parent
+            } else {
+                T::zero()
+            };
 
         Ok(NFurcationSolution {
             q_parent,
@@ -284,7 +283,11 @@ mod tests {
             (end_x + half_w * normal_x, end_y + half_w * normal_y),
             (end_x - half_w * normal_x, end_y - half_w * normal_y),
         ];
-        let expected_min_x = corners.iter().map(|(x, _)| *x).fold(0.0_f64, f64::min).min(0.0);
+        let expected_min_x = corners
+            .iter()
+            .map(|(x, _)| *x)
+            .fold(0.0_f64, f64::min)
+            .min(0.0);
         let expected_max_x = corners.iter().map(|(x, _)| *x).fold(2.0_f64, f64::max);
         let expected_min_y = corners.iter().map(|(_, y)| *y).fold(-0.5_f64, f64::min);
         let expected_max_y = corners.iter().map(|(_, y)| *y).fold(0.5_f64, f64::max);
@@ -293,6 +296,9 @@ mod tests {
         assert_relative_eq!(bbox[1], expected_max_x, epsilon = 1e-12);
         assert_relative_eq!(bbox[2], expected_min_y, epsilon = 1e-12);
         assert_relative_eq!(bbox[3], expected_max_y, epsilon = 1e-12);
-        assert!(bbox[2] < -0.05, "bounding box must include the start corner of the rotated branch");
+        assert!(
+            bbox[2] < -0.05,
+            "bounding box must include the start corner of the rotated branch"
+        );
     }
 }

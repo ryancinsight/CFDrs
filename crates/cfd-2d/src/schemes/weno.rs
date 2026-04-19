@@ -73,8 +73,8 @@
 //! weights shift away from troubled stencils, which bounds oscillations without
 //! imposing a hard TVD guarantee.
 
+use super::weno_helpers::{weno5_candidate_fluxes, weno5_js_weights, weno5_smoothness_indicators};
 use super::{constants, weno_constants, Grid2D, SpatialDiscretization};
-use cfd_core::physics::constants::mathematical::numeric::{THREE, TWO};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
@@ -101,42 +101,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
 
     /// Compute smoothness indicators
     fn smoothness_indicators(&self, v: &[T; 5]) -> [T; 3] {
-        let coeff_13_12 =
-            T::from_f64(weno_constants::WENO5_BETA_COEFF_13_12).expect("analytical constant conversion");
-        let coeff_quarter =
-            T::from_f64(weno_constants::WENO5_BETA_COEFF_QUARTER).expect("analytical constant conversion");
-        let two = T::from_f64(TWO).expect("analytical constant conversion");
-        let three = T::from_f64(THREE).expect("analytical constant conversion");
-        let four = T::from_f64(weno_constants::WENO5_BETA_COEFF_FOUR).expect("analytical constant conversion");
-
-        // Beta_0
-        let beta0 = coeff_13_12 * (v[0] - two * v[1] + v[2]).powi(2)
-            + coeff_quarter * (v[0] - four * v[1] + three * v[2]).powi(2);
-
-        // Beta_1
-        let beta1 = coeff_13_12 * (v[1] - two * v[2] + v[3]).powi(2)
-            + coeff_quarter * (v[1] - v[3]).powi(2);
-
-        // Beta_2
-        let beta2 = coeff_13_12 * (v[2] - two * v[3] + v[4]).powi(2)
-            + coeff_quarter * (three * v[2] - four * v[3] + v[4]).powi(2);
-
-        [beta0, beta1, beta2]
+        weno5_smoothness_indicators(v)
     }
 
     /// Compute WENO weights
     fn weno_weights(&self, beta: &[T; 3]) -> [T; 3] {
-        let d0 = T::from_f64(constants::WENO5_WEIGHTS[0]).expect("analytical constant conversion");
-        let d1 = T::from_f64(constants::WENO5_WEIGHTS[1]).expect("analytical constant conversion");
-        let d2 = T::from_f64(constants::WENO5_WEIGHTS[2]).expect("analytical constant conversion");
-
-        let alpha0 = d0 / (self.epsilon + beta[0]).powi(2);
-        let alpha1 = d1 / (self.epsilon + beta[1]).powi(2);
-        let alpha2 = d2 / (self.epsilon + beta[2]).powi(2);
-
-        let sum = alpha0 + alpha1 + alpha2;
-
-        [alpha0 / sum, alpha1 / sum, alpha2 / sum]
+        weno5_js_weights(self.epsilon, beta)
     }
 }
 
@@ -158,23 +128,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for WE
         let w = self.weno_weights(&beta);
 
         // Compute flux
-        let f0 = v[0] / T::from_f64(3.0).expect("analytical constant conversion")
-            - T::from_f64(7.0).expect("analytical constant conversion") * v[1]
-                / T::from_f64(6.0).expect("analytical constant conversion")
-            + T::from_f64(11.0).expect("analytical constant conversion") * v[2]
-                / T::from_f64(6.0).expect("analytical constant conversion");
+        let flux = weno5_candidate_fluxes(&v);
 
-        let f1 = -v[1] / T::from_f64(6.0).expect("analytical constant conversion")
-            + T::from_f64(5.0).expect("analytical constant conversion") * v[2]
-                / T::from_f64(6.0).expect("analytical constant conversion")
-            + v[3] / T::from_f64(3.0).expect("analytical constant conversion");
-
-        let f2 = v[2] / T::from_f64(3.0).expect("analytical constant conversion")
-            + T::from_f64(5.0).expect("analytical constant conversion") * v[3]
-                / T::from_f64(6.0).expect("analytical constant conversion")
-            - v[4] / T::from_f64(6.0).expect("analytical constant conversion");
-
-        (w[0] * f0 + w[1] * f1 + w[2] * f2) / grid.dx
+        (w[0] * flux[0] + w[1] * flux[1] + w[2] * flux[2]) / grid.dx
     }
 
     fn order(&self) -> usize {
@@ -346,11 +302,16 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
     fn weno_weights(&self, beta: &[T; 5]) -> [T; 5] {
         // Optimized weights for WENO9 (Henrick et al. 2005)
         let d = [
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[0]).expect("analytical constant conversion"),
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[1]).expect("analytical constant conversion"),
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[2]).expect("analytical constant conversion"),
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[3]).expect("analytical constant conversion"),
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[4]).expect("analytical constant conversion"),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[0])
+                .expect("analytical constant conversion"),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[1])
+                .expect("analytical constant conversion"),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[2])
+                .expect("analytical constant conversion"),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[3])
+                .expect("analytical constant conversion"),
+            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[4])
+                .expect("analytical constant conversion"),
         ];
 
         let mut alpha = [T::zero(); 5];
@@ -393,7 +354,8 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> SpatialDiscretization
 
         // Compute reconstructed flux using 5 candidate stencils
         let mut flux = T::zero();
-        let denom = T::from_f64(weno_constants::WENO9_STENCIL_DENOM).expect("analytical constant conversion");
+        let denom = T::from_f64(weno_constants::WENO9_STENCIL_DENOM)
+            .expect("analytical constant conversion");
 
         for k in 0..5 {
             let mut q_k = T::zero();
@@ -403,8 +365,8 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> SpatialDiscretization
             // ...
             // k=4: v[5]..v[9] (u_i..u_{i+4})
             for j in 0..5 {
-                let coeff =
-                    T::from_f64(weno_constants::WENO9_STENCIL_COEFFS[k][j]).expect("analytical constant conversion");
+                let coeff = T::from_f64(weno_constants::WENO9_STENCIL_COEFFS[k][j])
+                    .expect("analytical constant conversion");
                 q_k += coeff * v[1 + k + j];
             }
             q_k /= denom;

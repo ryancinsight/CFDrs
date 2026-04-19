@@ -26,17 +26,18 @@
 //!
 //! - `bessel_j0(z)` computes $J_0(z)$
 //! - `bessel_j1(z)` computes $J_1(z)$
+//! - `bessel_j0_j1(z)` computes both series in one recurrence pass
 
 use nalgebra::{Complex, ComplexField, RealField};
 use num_traits::FromPrimitive;
 
-/// Bessel function of the first kind, order zero: $J_0(z)$
-///
-/// Evaluates the exact infinite series:
-/// $J_0(z) = \sum_{m=0}^\infty \frac{(-1)^m}{(m!)^2} \left(\frac{z}{2}\right)^{2m}$
-pub fn bessel_j0<T: RealField + FromPrimitive + Copy>(z: Complex<T>) -> Complex<T> {
-    let mut sum = Complex::new(T::one(), T::zero());
-    let mut term = Complex::new(T::one(), T::zero());
+fn bessel_j0_j1_series<T: RealField + FromPrimitive + Copy>(
+    z: Complex<T>,
+) -> (Complex<T>, Complex<T>) {
+    let mut sum_j0 = Complex::new(T::one(), T::zero());
+    let mut sum_j1 = z / (T::one() + T::one());
+    let mut term_j0 = Complex::new(T::one(), T::zero());
+    let mut term_j1 = sum_j1;
     let z_half = z / (T::one() + T::one());
     let z_half_sq = z_half * z_half;
 
@@ -45,17 +46,33 @@ pub fn bessel_j0<T: RealField + FromPrimitive + Copy>(z: Complex<T>) -> Complex<
     let tolerance = T::from_f64(1e-15).expect("Mathematical constant conversion compromised");
 
     while m < max_iter {
-        let m_t = T::from_u32(m).unwrap_or_else(num_traits::Zero::zero);
-        // term(m) = term(m-1) * (-z^2 / 4) / m^2
-        term = term * (-z_half_sq) / (m_t * m_t);
-        sum += term;
+        let m_t = T::from_u32(m).expect("u32 to generic Bessel series index conversion failed");
+        let m_plus_1 =
+            T::from_u32(m + 1).expect("u32 to generic Bessel series index conversion failed");
 
-        if term.modulus() < tolerance {
+        // term(m) = term(m-1) * (-z^2 / 4) / m^2
+        term_j0 = term_j0 * (-z_half_sq) / (m_t * m_t);
+        // term(m) = term(m-1) * (-z^2 / 4) / [m(m+1)]
+        term_j1 = term_j1 * (-z_half_sq) / (m_t * m_plus_1);
+
+        sum_j0 += term_j0;
+        sum_j1 += term_j1;
+
+        if term_j0.modulus() < tolerance && term_j1.modulus() < tolerance {
             break;
         }
         m += 1;
     }
-    sum
+
+    (sum_j0, sum_j1)
+}
+
+/// Bessel function of the first kind, order zero: $J_0(z)$
+///
+/// Evaluates the exact infinite series:
+/// $J_0(z) = \sum_{m=0}^\infty \frac{(-1)^m}{(m!)^2} \left(\frac{z}{2}\right)^{2m}$
+pub fn bessel_j0<T: RealField + FromPrimitive + Copy>(z: Complex<T>) -> Complex<T> {
+    bessel_j0_j1_series(z).0
 }
 
 /// Bessel function of the first kind, order one: $J_1(z)$
@@ -63,28 +80,17 @@ pub fn bessel_j0<T: RealField + FromPrimitive + Copy>(z: Complex<T>) -> Complex<
 /// Evaluates the exact infinite series:
 /// $J_1(z) = \sum_{m=0}^\infty \frac{(-1)^m}{m!(m+1)!} \left(\frac{z}{2}\right)^{2m+1}$
 pub fn bessel_j1<T: RealField + FromPrimitive + Copy>(z: Complex<T>) -> Complex<T> {
-    let z_half = z / (T::one() + T::one());
-    let mut sum = z_half;
-    let mut term = z_half;
-    let z_half_sq = z_half * z_half;
+    bessel_j0_j1_series(z).1
+}
 
-    let mut m = 1_u32;
-    let max_iter = 150_u32;
-    let tolerance = T::from_f64(1e-15).expect("Mathematical constant conversion compromised");
-
-    while m < max_iter {
-        let m_t = T::from_u32(m).unwrap_or_else(num_traits::Zero::zero);
-        let m_plus_1 = T::from_u32(m + 1).unwrap_or_else(num_traits::Zero::zero);
-        // term(m) = term(m-1) * (-z^2 / 4) / (m * (m+1))
-        term = term * (-z_half_sq) / (m_t * m_plus_1);
-        sum += term;
-
-        if term.modulus() < tolerance {
-            break;
-        }
-        m += 1;
-    }
-    sum
+/// Evaluate `J_0(z)` and `J_1(z)` in one recurrence pass.
+///
+/// Sharing the recurrence reduces work in Womersley wall-stress and flow-rate
+/// evaluations, where both functions are required at the same complex argument.
+pub fn bessel_j0_j1<T: RealField + FromPrimitive + Copy>(
+    z: Complex<T>,
+) -> (Complex<T>, Complex<T>) {
+    bessel_j0_j1_series(z)
 }
 
 #[cfg(test)]
@@ -136,6 +142,18 @@ mod tests {
         let j1_z = bessel_j1(z);
         assert_relative_eq!(j1_z.re, 0.614_160_33, max_relative = 1e-5);
         assert_relative_eq!(j1_z.im, 0.365_028_02, max_relative = 1e-5);
+    }
+
+    /// Shared recurrence must match the individual J₀ and J₁ evaluations.
+    #[test]
+    fn test_bessel_j0_j1_shared_recurrence_matches_separate_calls() {
+        let z = Complex::new(1.75, -0.5);
+        let (j0_shared, j1_shared) = bessel_j0_j1(z);
+
+        assert_relative_eq!(j0_shared.re, bessel_j0(z).re, epsilon = 1e-13);
+        assert_relative_eq!(j0_shared.im, bessel_j0(z).im, epsilon = 1e-13);
+        assert_relative_eq!(j1_shared.re, bessel_j1(z).re, epsilon = 1e-13);
+        assert_relative_eq!(j1_shared.im, bessel_j1(z).im, epsilon = 1e-13);
     }
 
     /// Derivative identity: J₀′(z) = −J₁(z).

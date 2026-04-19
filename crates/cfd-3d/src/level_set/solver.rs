@@ -83,7 +83,7 @@
 //! 4. **Narrow Band**: Update index set of cells within `band_width` grid spacings
 //!    of the interface.
 
-use super::config::LevelSetConfig;
+use super::{config::LevelSetConfig, weno::weno5_derivative};
 use cfd_core::error::Result;
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
@@ -199,7 +199,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
 
     /// Advance level set by one time step using WENO5-Z advection.
     pub fn advance(&mut self, dt: T) -> Result<()> {
-        self.phi_previous.copy_from_slice(&self.phi);
+        std::mem::swap(&mut self.phi, &mut self.phi_previous);
         self.advect_weno5(dt)?;
 
         self.time_step += 1;
@@ -220,6 +220,38 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
     // ────────────────────────────────────────────────────────────────────────────
     // WENO5-Z Advection
     // ────────────────────────────────────────────────────────────────────────────
+
+    /// Copy a halo from the previous field into the current field.
+    ///
+    /// The WENO advection step requires a 3-cell halo, while the
+    /// reinitialization step only requires a 1-cell boundary layer. Copying
+    /// just the requested shell preserves the current state without paying a
+    /// full-domain memory copy on every time step.
+    fn copy_halo_from_previous(&mut self, halo: usize) {
+        if halo == 0 || self.nx == 0 || self.ny == 0 || self.nz == 0 {
+            return;
+        }
+
+        let halo_x = halo.min(self.nx);
+        let halo_y = halo.min(self.ny);
+        let halo_z = halo.min(self.nz);
+        let x_max = self.nx.saturating_sub(halo_x);
+        let y_max = self.ny.saturating_sub(halo_y);
+        let z_max = self.nz.saturating_sub(halo_z);
+
+        for k in 0..self.nz {
+            let k_shell = k < halo_z || k >= z_max;
+            for j in 0..self.ny {
+                let j_shell = j < halo_y || j >= y_max;
+                for i in 0..self.nx {
+                    if k_shell || j_shell || i < halo_x || i >= x_max {
+                        let idx = self.index(i, j, k);
+                        self.phi[idx] = self.phi_previous[idx];
+                    }
+                }
+            }
+        }
+    }
 
     /// Advect the level set using the 5th-order WENO-Z scheme.
     ///
@@ -243,8 +275,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
         let nx = self.nx;
         let ny = self.ny;
         let nz = self.nz;
-
-        std::mem::swap(&mut self.phi, &mut self.phi_previous);
 
         // WENO5 flux-differencing requires 3 ghost cells per side.
         for k in 3..nz.saturating_sub(3) {
@@ -294,6 +324,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
                 }
             }
         }
+
+        self.copy_halo_from_previous(3);
 
         Ok(())
     }
@@ -366,6 +398,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
                     }
                 }
             }
+
+            self.copy_halo_from_previous(1);
 
             if max_err < tol {
                 break;
@@ -446,285 +480,5 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
         }
 
         Float::sqrt(grad_sq)
-    }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// WENO5-Z Free Functions
-// ────────────────────────────────────────────────────────────────────────────
-
-/// Compute the upwind WENO5-Z spatial derivative `dφ/dx` at point `i`
-/// via flux differencing.
-///
-/// Takes a 7-point stencil `v = [φ_{i-3}, …, φ_{i+3}]`, cell spacing `h`,
-/// and the local velocity component `u`.
-///
-/// # Algorithm
-///
-/// The derivative is assembled from left-biased (`D⁻`) and right-biased (`D⁺`)
-/// flux-difference reconstructions:
-///
-/// ```text
-/// D⁻φ_i = (φ̂⁻_{i+½} − φ̂⁻_{i−½}) / h   (u > 0: upwind from left)
-/// D⁺φ_i = (φ̂⁺_{i+½} − φ̂⁺_{i−½}) / h   (u < 0: upwind from right)
-/// ```
-///
-/// where each `φ̂` is a WENO5 reconstruction at a cell face from 5 point values.
-fn weno5_derivative<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
-    v: [T; 7],
-    h: T,
-    u: T,
-) -> T {
-    let half =
-        <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
-
-    // Left-biased derivative D⁻φ_i = (φ̂⁻_{i+½} - φ̂⁻_{i-½}) / h
-    // φ̂⁻_{i+½} from {v[1]..v[5]} = {φ_{i-2},..,φ_{i+2}}
-    // φ̂⁻_{i-½} from {v[0]..v[4]} = {φ_{i-3},..,φ_{i+1}}
-    let fl_right = weno5_reconstruct_left([v[1], v[2], v[3], v[4], v[5]]);
-    let fl_left = weno5_reconstruct_left([v[0], v[1], v[2], v[3], v[4]]);
-    let dm = (fl_right - fl_left) / h;
-
-    // Right-biased derivative D⁺φ_i = (φ̂⁺_{i+½} - φ̂⁺_{i-½}) / h
-    // φ̂⁺_{i+½} from {v[2]..v[6]} = {φ_{i-1},..,φ_{i+3}} (mirrored)
-    // φ̂⁺_{i-½} from {v[1]..v[5]} = {φ_{i-2},..,φ_{i+2}} (mirrored)
-    let fr_right = weno5_reconstruct_right([v[2], v[3], v[4], v[5], v[6]]);
-    let fr_left = weno5_reconstruct_right([v[1], v[2], v[3], v[4], v[5]]);
-    let dp = (fr_right - fr_left) / h;
-
-    if u > T::zero() {
-        dm
-    } else if u < T::zero() {
-        dp
-    } else {
-        (dm + dp) * half
-    }
-}
-
-/// Left-biased WENO5 reconstruction of `φ` at the right face of the middle cell.
-///
-/// Given `[φ_{i-2}, φ_{i-1}, φ_i, φ_{i+1}, φ_{i+2}]`, reconstructs
-/// `φ̂⁻_{i+½}` using three overlapping 3rd-order sub-stencils:
-///
-/// ```text
-/// q₀ = (2 φ_{i-2} − 7 φ_{i-1} + 11 φ_i) / 6         stencil S₀ = {i-2, i-1, i}
-/// q₁ = (−  φ_{i-1} + 5 φ_i     +  2 φ_{i+1}) / 6     stencil S₁ = {i-1, i, i+1}
-/// q₂ = (2 φ_i     + 5 φ_{i+1} −    φ_{i+2}) / 6      stencil S₂ = {i, i+1, i+2}
-/// ```
-///
-/// Ideal weights for 5th-order: `d = (1/10, 6/10, 3/10)`.
-fn weno5_reconstruct_left<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
-    v: [T; 5],
-) -> T {
-    let eps = <T as FromPrimitive>::from_f64(1e-36)
-        .expect("1e-36 is an IEEE 754 representable f64 constant");
-    let one = T::one();
-    let two = one + one;
-    let three = two + one;
-    let five = three + two;
-    let six = three + three;
-    let seven = three + three + one;
-    let eleven = five + six;
-
-    // Candidate reconstructions
-    let q0 = (two * v[0] - seven * v[1] + eleven * v[2]) / six;
-    let q1 = (-v[1] + five * v[2] + two * v[3]) / six;
-    let q2 = (two * v[2] + five * v[3] - v[4]) / six;
-
-    // Smoothness indicators (Jiang & Shu 1996, Eq. 3.1)
-    let b0 = smoothness_indicator(v[0], v[1], v[2]);
-    let b1 = smoothness_indicator(v[1], v[2], v[3]);
-    let b2 = smoothness_indicator(v[2], v[3], v[4]);
-
-    // Nonlinear weights
-    let (w0, w1, w2) = nonlinear_weights(
-        b0,
-        b1,
-        b2,
-        <T as FromPrimitive>::from_f64(0.1).expect("0.1 is an IEEE 754 representable f64 constant"),
-        <T as FromPrimitive>::from_f64(0.6).expect("0.6 is an IEEE 754 representable f64 constant"),
-        <T as FromPrimitive>::from_f64(0.3).expect("0.3 is an IEEE 754 representable f64 constant"),
-        eps,
-    );
-
-    w0 * q0 + w1 * q1 + w2 * q2
-}
-
-/// Right-biased WENO5 reconstruction of `φ` at the left face of the middle cell,
-/// obtained by mirroring the left-biased stencil.
-///
-/// Given `[φ_{i-2}, φ_{i-1}, φ_i, φ_{i+1}, φ_{i+2}]`, reconstructs
-/// `φ̂⁺_{i−½}` using:
-///
-/// ```text
-/// q₀ = (2 φ_{i+2} − 7 φ_{i+1} + 11 φ_i) / 6         stencil S₀ = {i+2, i+1, i}
-/// q₁ = (−  φ_{i+1} + 5 φ_i     +  2 φ_{i-1}) / 6     stencil S₁ = {i+1, i, i-1}
-/// q₂ = (2 φ_i     + 5 φ_{i-1} −    φ_{i-2}) / 6      stencil S₂ = {i, i-1, i-2}
-/// ```
-///
-/// Ideal weights: `d = (1/10, 6/10, 3/10)`.
-fn weno5_reconstruct_right<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
-    v: [T; 5],
-) -> T {
-    // Mirror: weno5_left([v[4], v[3], v[2], v[1], v[0]])
-    weno5_reconstruct_left([v[4], v[3], v[2], v[1], v[0]])
-}
-
-/// WENO5 smoothness indicator for a 3-point sub-stencil (Jiang & Shu 1996,
-/// Eq. 3.1).
-///
-/// ```text
-/// β = (13/12)(v₀ − 2v₁ + v₂)² + (1/4)(v₀ − v₂)²
-/// ```
-///
-/// The first term measures the curvature (second derivative), the second
-/// measures the slope difference.  Near discontinuities β is O(1), in smooth
-/// regions β is O(h⁴), which drives the nonlinear weights toward the ideal values.
-#[inline]
-fn smoothness_indicator<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
-    v0: T,
-    v1: T,
-    v2: T,
-) -> T {
-    let thirteen_over_twelve = <T as FromPrimitive>::from_f64(13.0 / 12.0)
-        .expect("13/12 is an IEEE 754 representable f64 constant");
-    let quarter =
-        <T as FromPrimitive>::from_f64(0.25).expect("0.25 is exactly representable in IEEE 754");
-    let two = T::one() + T::one();
-
-    let diff1 = v0 - two * v1 + v2; // ≈ h² φ''
-    let diff2 = v0 - v2; // ≈ 2h φ'
-    thirteen_over_twelve * diff1 * diff1 + quarter * diff2 * diff2
-}
-
-/// Compute normalized WENO5-Z nonlinear weights from smoothness indicators.
-///
-/// `ω_k = α_k / Σ α_l` where `α_k = d_k (1 + τ_5 / (β_k + ε))`.
-#[inline]
-fn nonlinear_weights<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
-    b0: T,
-    b1: T,
-    b2: T,
-    d0: T,
-    d1: T,
-    d2: T,
-    eps: T,
-) -> (T, T, T) {
-    let tau5 = global_smoothness_indicator(b0, b1, b2);
-    let one = T::one();
-    let a0 = d0 * (one + tau5 / (eps + b0));
-    let a1 = d1 * (one + tau5 / (eps + b1));
-    let a2 = d2 * (one + tau5 / (eps + b2));
-    let sum = a0 + a1 + a2;
-    if sum < eps {
-        return (
-            d0 / (d0 + d1 + d2),
-            d1 / (d0 + d1 + d2),
-            d2 / (d0 + d1 + d2),
-        );
-    }
-    (a0 / sum, a1 / sum, a2 / sum)
-}
-
-#[inline]
-fn global_smoothness_indicator<
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
->(
-    b0: T,
-    _b1: T,
-    b2: T,
-) -> T {
-    num_traits::Float::abs(b0 - b2)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use proptest::prelude::*;
-
-    proptest! {
-        #[test]
-        fn test_smoothness_indicator_non_negative(
-            v0 in -10.0..10.0f64,
-            v1 in -10.0..10.0f64,
-            v2 in -10.0..10.0f64,
-        ) {
-            let beta = smoothness_indicator(v0, v1, v2);
-            assert!(beta >= 0.0);
-        }
-
-        #[test]
-        fn test_nonlinear_weights_sum_to_one(
-            b0 in 0.0..10.0f64,
-            b1 in 0.0..10.0f64,
-            b2 in 0.0..10.0f64,
-        ) {
-            let d0 = 0.1;
-            let d1 = 0.6;
-            let d2 = 0.3;
-            let eps = 1e-36;
-
-            let (w0, w1, w2) = nonlinear_weights(b0, b1, b2, d0, d1, d2, eps);
-            let sum = w0 + w1 + w2;
-
-            // Sum of weights must be 1.0 within machine precision
-            assert!((sum - 1.0).abs() < 1e-14);
-
-            // Weights must be non-negative
-            assert!(w0 >= 0.0);
-            assert!(w1 >= 0.0);
-            assert!(w2 >= 0.0);
-        }
-    }
-
-    /// Constant preservation: WENO5 derivative of a constant function = 0.
-    ///
-    /// For φ(x) = C = const, the 7-point stencil is [C, C, C, C, C, C, C]
-    /// and dφ/dx = 0 regardless of velocity direction.
-    #[test]
-    fn weno5_constant_derivative_is_zero() {
-        let c = 3.7_f64;
-        let h = 0.1_f64;
-        let v = [c; 7];
-
-        // Positive velocity
-        let d_pos = weno5_derivative(v, h, 1.0);
-        assert!((d_pos).abs() < 1e-14, "d_pos = {d_pos}");
-
-        // Negative velocity
-        let d_neg = weno5_derivative(v, h, -1.0);
-        assert!((d_neg).abs() < 1e-14, "d_neg = {d_neg}");
-
-        // Zero velocity
-        let d_zero = weno5_derivative(v, h, 0.0);
-        assert!((d_zero).abs() < 1e-14, "d_zero = {d_zero}");
-    }
-
-    /// Linear exactness: WENO5 derivative of φ(x) = slope·x equals slope.
-    ///
-    /// For a linear function on a uniform grid with spacing h,
-    /// φ_{i+k} = φ_i + k·slope·h. All 3rd-order sub-stencil reconstructions
-    /// produce the same value, so WENO5 recovers the exact derivative.
-    #[test]
-    fn weno5_linear_exactness() {
-        let h = 0.1_f64;
-        let slope = 2.5_f64;
-        let phi_center = 1.0_f64;
-
-        // Build 7-point stencil for φ(x) = phi_center + slope * (k * h)
-        // centered at k = 0 (index 3)
-        let v: [f64; 7] = std::array::from_fn(|k| phi_center + slope * ((k as f64 - 3.0) * h));
-
-        let d_pos = weno5_derivative(v, h, 1.0);
-        assert!(
-            (d_pos - slope).abs() < 1e-12,
-            "linear d_pos = {d_pos}, expected {slope}"
-        );
-
-        let d_neg = weno5_derivative(v, h, -1.0);
-        assert!(
-            (d_neg - slope).abs() < 1e-12,
-            "linear d_neg = {d_neg}, expected {slope}"
-        );
     }
 }

@@ -15,7 +15,11 @@
 //! is exactly conserved to machine precision.
 
 mod quick;
+mod second_order;
 mod tvd;
+mod weno_z;
 
 pub use quick::{compute_quick_correction_x, compute_quick_correction_y};
+pub use second_order::apply_second_order_deferred_correction;
 pub use tvd::{compute_tvd_correction_x, compute_tvd_correction_y};
+pub use weno_z::apply_weno_z_deferred_correction;

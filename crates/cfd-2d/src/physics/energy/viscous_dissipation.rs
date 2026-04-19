@@ -17,15 +17,8 @@
 /// **Reference**: Bejan, A. (2013). *Convection Heat Transfer* (4th ed.),
 /// Wiley, Section 2.5.
 #[inline]
-pub fn viscous_dissipation_2d(
-    du_dx: f64,
-    du_dy: f64,
-    dv_dx: f64,
-    dv_dy: f64,
-    mu: f64,
-) -> f64 {
-    2.0 * mu * (du_dx * du_dx + dv_dy * dv_dy)
-        + mu * (du_dy + dv_dx) * (du_dy + dv_dx)
+pub fn viscous_dissipation_2d(du_dx: f64, du_dy: f64, dv_dx: f64, dv_dy: f64, mu: f64) -> f64 {
+    2.0 * mu * (du_dx * du_dx + dv_dy * dv_dy) + mu * (du_dy + dv_dx) * (du_dy + dv_dx)
 }
 
 /// Brinkman number: ratio of viscous heating to conductive heat transfer.
@@ -37,4 +30,3 @@ pub fn viscous_dissipation_2d(
 pub fn brinkman_number(mu: f64, u_ref: f64, k_thermal: f64, delta_t: f64) -> f64 {
     mu * u_ref * u_ref / (k_thermal * delta_t.max(1e-30))
 }
-

@@ -78,9 +78,8 @@ fn compare_case(case: ComparisonCase) {
     let result = network.solve_all(1e-6).expect("solve should succeed");
 
     let reference = result.reference_trace.clone();
-    let inlet_outlet_error = (reference.total_inlet_flow_m3_s - reference.total_outlet_flow_m3_s)
-        .abs()
-        / q_total;
+    let inlet_outlet_error =
+        (reference.total_inlet_flow_m3_s - reference.total_outlet_flow_m3_s).abs() / q_total;
 
     assert!(
         inlet_outlet_error < 1e-8,

@@ -71,12 +71,8 @@ where
         validate_blueprint_for_2d_projection(blueprint)?;
 
         let mu = blood_viscosity_f64(&self.blood);
-        let reference_trace = solve_reference_trace::<T>(
-            blueprint,
-            self.density,
-            mu,
-            self.total_flow_rate_m3_s,
-        )?;
+        let reference_trace =
+            solve_reference_trace::<T>(blueprint, self.density, mu, self.total_flow_rate_m3_s)?;
         let channel_reference_by_id: HashMap<&str, &ChannelReferenceTrace<T>> = reference_trace
             .channel_traces
             .iter()
@@ -121,9 +117,10 @@ where
             let is_venturi_throat = venturi_meta.is_some();
 
             let projection_domain = channel_projection_domain(channel);
-            let l_t = T::from_f64(projection_domain.length_m).expect("analytical constant conversion");
-            let grid_w = T::from_f64(projection_domain.width_m)
-                .expect("analytical constant conversion");
+            let l_t =
+                T::from_f64(projection_domain.length_m).expect("analytical constant conversion");
+            let grid_w =
+                T::from_f64(projection_domain.width_m).expect("analytical constant conversion");
             let grid = StaggeredGrid2D::new(self.grid_nx, self.grid_ny, l_t, grid_w);
             let density_t = T::from_f64(self.density).expect("analytical constant conversion");
             let config = solver_config_for_channel::<T>(&channel.channel_shape, mean_velocity_m_s);

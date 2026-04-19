@@ -305,7 +305,8 @@ mod tests {
             phi[(nx - 1) * ny + j] = 40.0;
         }
 
-        jacobi_iteration_simd(&mut phi, &mut phi_new, &source, nx, ny, 0.1, 0.1).expect("SIMD execution failed dimension check or mathematical constraint");
+        jacobi_iteration_simd(&mut phi, &mut phi_new, &source, nx, ny, 0.1, 0.1)
+            .expect("SIMD execution failed dimension check or mathematical constraint");
 
         // Boundaries must be preserved
         for i in 0..nx {
@@ -344,7 +345,8 @@ mod tests {
         phi[1 * ny + 0] = 2.0; // bottom
         phi[1 * ny + 2] = 4.0; // top
 
-        jacobi_iteration_simd(&mut phi, &mut phi_new, &source, nx, ny, dx, dy).expect("SIMD execution failed dimension check or mathematical constraint");
+        jacobi_iteration_simd(&mut phi, &mut phi_new, &source, nx, ny, dx, dy)
+            .expect("SIMD execution failed dimension check or mathematical constraint");
 
         // factor = 0.5 / (1/dx² + 1/dy²) = 0.5 / 2 = 0.25
         // phi_new[1,1] = 0.25 * ((1+3)/1 + (2+4)/1 - 0) = 0.25 * 10 = 2.5
@@ -369,7 +371,8 @@ mod tests {
         let source = vec![-1.0f32; n];
 
         for _ in 0..100 {
-            gauss_seidel_simd(&mut phi, &source, nx, ny, dx, dy, 1.5).expect("SIMD execution failed dimension check or mathematical constraint");
+            gauss_seidel_simd(&mut phi, &source, nx, ny, dx, dy, 1.5)
+                .expect("SIMD execution failed dimension check or mathematical constraint");
         }
 
         // Center point should be positive (concave down solution)
@@ -390,7 +393,8 @@ mod tests {
         let v = vec![7.0f32; nx * ny]; // constant v
         let mut divergence = vec![999.0f32; nx * ny];
 
-        calculate_divergence_simd(&u, &v, &mut divergence, nx, ny, 1.0, 1.0).expect("SIMD execution failed dimension check or mathematical constraint");
+        calculate_divergence_simd(&u, &v, &mut divergence, nx, ny, 1.0, 1.0)
+            .expect("SIMD execution failed dimension check or mathematical constraint");
 
         // Interior divergence should be zero for uniform field
         for i in 1..nx - 1 {
@@ -421,7 +425,8 @@ mod tests {
             }
         }
 
-        calculate_divergence_simd(&u, &v, &mut divergence, nx, ny, dx, 1.0).expect("SIMD execution failed dimension check or mathematical constraint");
+        calculate_divergence_simd(&u, &v, &mut divergence, nx, ny, dx, 1.0)
+            .expect("SIMD execution failed dimension check or mathematical constraint");
 
         // Interior div = du/dx = 1 (central difference: (x+1 - (x-1)) / (2*dx) = 1)
         for i in 1..nx - 1 {
@@ -445,7 +450,8 @@ mod tests {
         let mut grad_x = vec![999.0f32; nx * ny];
         let mut grad_y = vec![999.0f32; nx * ny];
 
-        calculate_gradient_simd(&phi, &mut grad_x, &mut grad_y, nx, ny, 1.0, 1.0).expect("SIMD execution failed dimension check or mathematical constraint");
+        calculate_gradient_simd(&phi, &mut grad_x, &mut grad_y, nx, ny, 1.0, 1.0)
+            .expect("SIMD execution failed dimension check or mathematical constraint");
 
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
@@ -480,7 +486,8 @@ mod tests {
         let mut grad_x = vec![0.0f32; nx * ny];
         let mut grad_y = vec![0.0f32; nx * ny];
 
-        calculate_gradient_simd(&phi, &mut grad_x, &mut grad_y, nx, ny, dx, dy).expect("SIMD execution failed dimension check or mathematical constraint");
+        calculate_gradient_simd(&phi, &mut grad_x, &mut grad_y, nx, ny, dx, dy)
+            .expect("SIMD execution failed dimension check or mathematical constraint");
 
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
@@ -509,8 +516,8 @@ mod tests {
         let source = vec![0.0f32; nx * ny];
         let mut residual = vec![999.0f32; nx * ny];
 
-        let max_r =
-            calculate_residual_simd(&phi, &source, &mut residual, nx, ny, 1.0, 1.0).expect("SIMD execution failed dimension check or mathematical constraint");
+        let max_r = calculate_residual_simd(&phi, &source, &mut residual, nx, ny, 1.0, 1.0)
+            .expect("SIMD execution failed dimension check or mathematical constraint");
 
         assert!(
             max_r < 1e-10,
@@ -529,7 +536,8 @@ mod tests {
         let mut u_face = vec![0.0f32; n];
         let mut v_face = vec![0.0f32; nx * (ny - 1)];
 
-        interpolate_velocity_simd(&u_cell, &v_cell, &mut u_face, &mut v_face, nx, ny).expect("SIMD execution failed dimension check or mathematical constraint");
+        interpolate_velocity_simd(&u_cell, &v_cell, &mut u_face, &mut v_face, nx, ny)
+            .expect("SIMD execution failed dimension check or mathematical constraint");
 
         // For uniform field, face values = cell values
         for i in 0..nx - 1 {

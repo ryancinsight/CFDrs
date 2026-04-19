@@ -124,14 +124,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
 
         // Step 2: Solve pressure correction equation
         let mut p_correction = Array2D::new(self.grid.nx, self.grid.ny, T::zero());
-        self.pressure_solver
-            .solve_pressure_correction(
-                &state_buffer,
-                self.config.dt,
-                rho,
-                true,
-                &mut p_correction,
-            )?;
+        self.pressure_solver.solve_pressure_correction(
+            &state_buffer,
+            self.config.dt,
+            rho,
+            true,
+            &mut p_correction,
+        )?;
 
         // Step 3: Correct velocity field
         let mut u_corrected = u_star;
@@ -189,7 +188,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
     }
 
     /// Calculate residual between two velocity fields
-    fn calculate_residual(&self, previous: &Array2D<Vector2<T>>, current: &Array2D<Vector2<T>>) -> T {
+    fn calculate_residual(
+        &self,
+        previous: &Array2D<Vector2<T>>,
+        current: &Array2D<Vector2<T>>,
+    ) -> T {
         let nx = self.grid.nx;
         let ny = self.grid.ny;
 

@@ -181,7 +181,8 @@ impl<T: RealField + Copy + FromPrimitive> VenturiGeometry<T> {
 
     /// Check if a point (x, y) is within the fluid domain
     pub fn contains(&self, x: T, y: T) -> bool {
-        let _half_w_inlet = self.w_inlet / T::from_f64(2.0).expect("Exact mathematically representable f64");
+        let _half_w_inlet =
+            self.w_inlet / T::from_f64(2.0).expect("Exact mathematically representable f64");
         let _half_w_throat =
             self.w_throat / T::from_f64(2.0).expect("Exact mathematically representable f64");
 

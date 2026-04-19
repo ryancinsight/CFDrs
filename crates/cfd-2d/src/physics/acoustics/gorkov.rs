@@ -228,4 +228,3 @@ mod tests {
         assert!(f > 0.0, "Force at λ/8 must be positive for Φ>0 particle");
     }
 }
-

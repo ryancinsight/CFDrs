@@ -85,10 +85,9 @@
 
 pub mod accelerated;
 pub mod bifurcation_flow;
+pub mod cavity_solver;
 pub mod cell_tracking;
 pub(crate) mod continuity;
-pub mod plasma_skimming;
-pub mod cavity_solver;
 pub mod cross_junction_flow;
 pub mod drift_diffusion_2d;
 pub mod fdm;
@@ -96,6 +95,7 @@ pub mod fvm;
 pub mod lbm;
 pub mod n_furcation_flow;
 pub mod ns_fvm;
+pub mod plasma_skimming;
 pub mod poiseuille;
 pub mod scalar_transport_2d;
 pub mod serpentine_flow;

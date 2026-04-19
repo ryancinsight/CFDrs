@@ -8,7 +8,7 @@ use num_traits::{Float, FromPrimitive};
 impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
     /// Solves the pressure-correction Poisson equation.
     ///
-    /// Formulates the continuity residual from the intermediate velocity fields 
+    /// Formulates the continuity residual from the intermediate velocity fields
     /// and solves for the pressure correction `p'` iteratively via SOR.
     pub fn solve_pressure_correction(&mut self) -> Result<(), Error> {
         let nx = self.grid.nx;
@@ -117,7 +117,11 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                         if a_p < tiny {
                             continue;
                         }
-                        let pe = if i + 1 < nx { p_prime[(i + 1, j)] } else { zero };
+                        let pe = if i + 1 < nx {
+                            p_prime[(i + 1, j)]
+                        } else {
+                            zero
+                        };
                         let pw = if i > 0 {
                             p_prime[(i - 1, j)]
                         } else {

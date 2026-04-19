@@ -74,15 +74,20 @@ impl<T: RealField + Copy + FromPrimitive> DiffusionSolver<T> {
         t_final: T,
         source_fn: &impl Fn(T, T, T) -> T,
     ) -> HashMap<(usize, usize), T> {
-        let dt = T::from_f64(0.25 * 0.9).expect("analytical constant conversion") * self.dx * self.dx
-            / self.alpha;
+        let dt =
+            T::from_f64(0.25 * 0.9).expect("analytical constant conversion") * self.dx * self.dx
+                / self.alpha;
         let mut t = T::zero();
 
         while t < t_final {
             let mut next_solution = self.solution.clone();
             for i in 1..self.nx - 1 {
                 for j in 1..self.ny - 1 {
-                    let un = self.solution.get(&(i, j)).copied().expect("analytical constant conversion");
+                    let un = self
+                        .solution
+                        .get(&(i, j))
+                        .copied()
+                        .expect("analytical constant conversion");
                     let un_e = self
                         .solution
                         .get(&(i + 1, j))

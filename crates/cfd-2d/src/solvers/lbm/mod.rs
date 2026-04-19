@@ -24,14 +24,16 @@ mod boundary;
 mod collision;
 mod lattice;
 mod macroscopic;
-mod scalar_boundary;
 /// Multiphase LBM models (Shan-Chen pseudopotential).
 pub mod multiphase;
+mod scalar_boundary;
 mod solver;
 mod streaming;
 
 pub use boundary::{BoundaryHandler, BoundaryType};
-pub use collision::{BgkCollision, CarreauYasudaBgk, CollisionOperator, MrtCollision, RelaxationMatrix};
+pub use collision::{
+    BgkCollision, CarreauYasudaBgk, CollisionOperator, MrtCollision, RelaxationMatrix,
+};
 pub use lattice::{LatticeModel, D2Q9};
 pub use macroscopic::{
     compute_density, compute_kinetic_energy, compute_stress_tensor, compute_velocity,

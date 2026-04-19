@@ -64,7 +64,15 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         ny: usize,
         beta: T,
     ) -> Self {
-        Self::new_stretched_with_config(geometry, blood, density, nx, ny, beta, SIMPLEConfig::default())
+        Self::new_stretched_with_config(
+            geometry,
+            blood,
+            density,
+            nx,
+            ny,
+            beta,
+            SIMPLEConfig::default(),
+        )
     }
 
     /// Create a stretched Venturi solver using the explicit built-in
@@ -98,7 +106,8 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         );
 
         let ly = geometry.w_inlet;
-        let two_pi = T::from_f64(2.0 * std::f64::consts::PI).expect("Exact mathematically representable f64");
+        let two_pi = T::from_f64(2.0 * std::f64::consts::PI)
+            .expect("Exact mathematically representable f64");
         let mut y_faces = Vec::with_capacity(ny + 1);
         let ny_t = T::from_usize(ny).expect("Exact mathematically representable f64");
         for j in 0..=ny {
@@ -119,14 +128,17 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
                 geometry.w_throat,
                 T::from_f64(1e-12).expect("Exact mathematically representable f64"),
             );
-        if dy_min > geometry.w_throat / T::from_f64(2.0).expect("Exact mathematically representable f64") {
+        if dy_min
+            > geometry.w_throat / T::from_f64(2.0).expect("Exact mathematically representable f64")
+        {
             tracing::debug!(
                 "[VenturiSolver2D] WARNING: dy_min ({:.2e}) > w_throat/2 ({:.2e}). \
                  CR={:.1}. Consider increasing ny or beta.",
                 dy_min.to_f64().unwrap_or(0.0),
-                (geometry.w_throat / T::from_f64(2.0).expect("Exact mathematically representable f64"))
-                    .to_f64()
-                    .unwrap_or(0.0),
+                (geometry.w_throat
+                    / T::from_f64(2.0).expect("Exact mathematically representable f64"))
+                .to_f64()
+                .unwrap_or(0.0),
                 cr.to_f64().unwrap_or(0.0),
             );
         }
@@ -147,7 +159,8 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         nx: usize,
         ny: usize,
     ) {
-        let half_h = geometry.w_inlet / T::from_f64(2.0).expect("Exact mathematically representable f64");
+        let half_h =
+            geometry.w_inlet / T::from_f64(2.0).expect("Exact mathematically representable f64");
         for i in 0..nx {
             for j in 0..ny {
                 let x = solver.grid.x_center(i);
@@ -195,8 +208,10 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         // predict mean velocity (Hagen-Poiseuille, Bernoulli continuity), the
         // area-averaged velocity ū = (1/A) ∫ u dA is the correct metric.
         // For fully-developed 2D laminar flow, ū = (2/3) u_max.
-        let throat_x_mid = self._geometry.l_inlet + self._geometry.l_converge
-            + self._geometry.l_throat / T::from_f64(2.0).expect("Exact mathematically representable f64");
+        let throat_x_mid = self._geometry.l_inlet
+            + self._geometry.l_converge
+            + self._geometry.l_throat
+                / T::from_f64(2.0).expect("Exact mathematically representable f64");
         let i_throat = (0..nx)
             .min_by_key(|&i| {
                 let dx = self.solver.grid.x_center(i) - throat_x_mid;
@@ -226,8 +241,10 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         let dp_recovery = p_outlet - p_inlet;
 
         let rho = self.solver.density;
-        let q_dyn =
-            T::from_f64(0.5).expect("Exact mathematically representable f64") * rho * u_inlet * u_inlet;
+        let q_dyn = T::from_f64(0.5).expect("Exact mathematically representable f64")
+            * rho
+            * u_inlet
+            * u_inlet;
         // Guard: avoid division by near-zero dynamic pressure.  Use 1e-6 Pa (not 1.0)
         // so Cp remains physically meaningful even at very low inlet velocities.
         let q_dyn_safe = num_traits::Float::max(
@@ -279,7 +296,8 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
             ));
         }
 
-        let u_throat_mean = u_sum_throat / T::from_usize(count_throat).expect("Exact mathematically representable f64");
+        let u_throat_mean = u_sum_throat
+            / T::from_usize(count_throat).expect("Exact mathematically representable f64");
         Ok((u_peak_throat, p_at_peak_throat, u_throat_mean))
     }
 }
@@ -461,7 +479,8 @@ mod tests {
 
     #[test]
     fn test_recommended_stretch_helper_matches_geometry_helper() {
-        let geom = VenturiGeometry::<f64>::new(2.0e-3, 2.0e-4, 2.0e-3, 1.0e-3, 1.0e-3, 2.0e-3, 5.0e-4);
+        let geom =
+            VenturiGeometry::<f64>::new(2.0e-3, 2.0e-4, 2.0e-3, 1.0e-3, 1.0e-3, 2.0e-3, 5.0e-4);
         let expected_beta = geom.recommended_center_clustering_beta();
         let solver = VenturiSolver2D::new_stretched_recommended(
             geom.clone(),
@@ -479,7 +498,8 @@ mod tests {
 
     #[test]
     fn test_solver_rejects_unresolved_throat_column() {
-        let geom = VenturiGeometry::<f64>::new(1.0e-3, 1.0e-4, 1.0e-3, 5.0e-4, 5.0e-4, 1.0e-3, 5.0e-4);
+        let geom =
+            VenturiGeometry::<f64>::new(1.0e-3, 1.0e-4, 1.0e-3, 5.0e-4, 5.0e-4, 1.0e-3, 5.0e-4);
         let blood = BloodModel::Newtonian(1.0e-3);
         let density = 1060.0;
 

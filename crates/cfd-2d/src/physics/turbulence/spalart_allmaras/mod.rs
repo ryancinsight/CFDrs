@@ -297,8 +297,9 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
     /// where fv1 = χ³/(χ³ + Cv1³) and χ = ν̃/ν
     #[instrument(skip(self))]
     pub fn eddy_viscosity(&self, nu_tilde: T, molecular_viscosity: T) -> T {
-        let chi =
-            nu_tilde / molecular_viscosity.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
+        let chi = nu_tilde
+            / molecular_viscosity
+                .max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
         let chi_cubed = chi * chi * chi;
         let cv1_cubed = self.cv1 * self.cv1 * self.cv1;
         let fv1 = chi_cubed / (chi_cubed + cv1_cubed);
@@ -334,8 +335,9 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
         molecular_viscosity: T,
         wall_distance: T,
     ) -> T {
-        let chi =
-            nu_tilde / molecular_viscosity.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
+        let chi = nu_tilde
+            / molecular_viscosity
+                .max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
         let chi_cubed = chi * chi * chi;
         let cv1_cubed = self.cv1 * self.cv1 * self.cv1;
         let fv1 = chi_cubed / (chi_cubed + cv1_cubed);
@@ -347,7 +349,8 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
         // S̃ = Ω + ν̃/(κ²d²) * fv2
         let d_sq = wall_distance * wall_distance;
         let modification = (nu_tilde
-            / (self.kappa_sq * d_sq.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"))))
+            / (self.kappa_sq
+                * d_sq.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"))))
             * fv2;
 
         vorticity + modification
@@ -371,7 +374,9 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
         let denominator = s_tilde * self.kappa_sq * d_sq;
 
         // Limit r to prevent division by zero
-        let r = if denominator.abs() > T::from_f64(EPSILON_MIN).expect("analytical constant conversion") {
+        let r = if denominator.abs()
+            > T::from_f64(EPSILON_MIN).expect("analytical constant conversion")
+        {
             nu_tilde / denominator
         } else {
             T::from_f64(EPSILON_MIN).expect("analytical constant conversion")
@@ -406,7 +411,8 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
     /// D = Cw1 * fw * (ν̃/d)²
     #[instrument(skip(self))]
     pub fn destruction(&self, nu_tilde: T, wall_distance: T, fw: T) -> T {
-        let ratio = nu_tilde / wall_distance.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
+        let ratio = nu_tilde
+            / wall_distance.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
         self.cw1 * fw * ratio * ratio
     }
 
@@ -427,8 +433,9 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
     /// Uses `cv2` as the negative-SA cutoff: ignored when $\chi < cv2$.
     #[instrument(skip(self))]
     pub fn ft2(&self, nu_tilde: T, molecular_viscosity: T) -> T {
-        let chi =
-            nu_tilde / molecular_viscosity.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
+        let chi = nu_tilde
+            / molecular_viscosity
+                .max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
         // Skip for large chi (fully turbulent) or when chi < cv2 (negative SA guard)
         if chi < self.cv2 {
             return T::zero();

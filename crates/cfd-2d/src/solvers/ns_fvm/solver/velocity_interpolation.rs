@@ -215,7 +215,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
     }
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive> VelocityFieldInterpolator for NavierStokesSolver2D<T> {
+impl<T: RealField + Copy + Float + FromPrimitive> VelocityFieldInterpolator
+    for NavierStokesSolver2D<T>
+{
     fn velocity_at(&self, x: f64, y: f64) -> (f64, f64) {
         let x_t = T::from_f64(x).unwrap_or(T::zero());
         let y_t = T::from_f64(y).unwrap_or(T::zero());
@@ -242,10 +244,10 @@ impl<T: RealField + Copy + Float + FromPrimitive> VelocityFieldInterpolator for 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::solvers::ns_fvm::StaggeredGrid2D;
     use approx::assert_relative_eq;
     use cfd_core::physics::fluid::BloodModel;
     use cfd_math::pressure_velocity::SIMPLEConfig;
-    use crate::solvers::ns_fvm::StaggeredGrid2D;
 
     #[test]
     fn velocity_at_reproduces_affine_staggered_field() {

@@ -660,10 +660,28 @@ fn test_realizable_update_reduces_viscosity() {
     }
 
     model_std
-        .update(&mut k_std, &mut eps_std, &velocity, 1.0, 1e-5, 0.0001, 0.1, 0.1)
+        .update(
+            &mut k_std,
+            &mut eps_std,
+            &velocity,
+            1.0,
+            1e-5,
+            0.0001,
+            0.1,
+            0.1,
+        )
         .unwrap();
     model_real
-        .update(&mut k_real, &mut eps_real, &velocity, 1.0, 1e-5, 0.0001, 0.1, 0.1)
+        .update(
+            &mut k_real,
+            &mut eps_real,
+            &velocity,
+            1.0,
+            1e-5,
+            0.0001,
+            0.1,
+            0.1,
+        )
         .unwrap();
 
     let any_differ = (0..n).any(|idx| (k_std[idx] - k_real[idx]).abs() > 1e-15);

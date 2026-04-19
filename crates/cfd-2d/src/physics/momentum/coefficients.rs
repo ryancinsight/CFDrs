@@ -50,6 +50,7 @@
 //! is exactly conserved to machine precision.
 
 use super::coefficient_corrections::{
+    apply_second_order_deferred_correction, apply_weno_z_deferred_correction,
     compute_quick_correction_x, compute_quick_correction_y, compute_tvd_correction_x,
     compute_tvd_correction_y,
 };
@@ -83,6 +84,14 @@ pub struct MomentumCoefficients<T: RealField + Copy> {
 pub enum ConvectionScheme {
     /// First-order upwind (stable, dissipative)
     Upwind,
+    /// Second-order upwind with deferred correction in the explicit source term.
+    ///
+    /// This keeps the implicit backbone stable while restoring the classical
+    /// second-order transport correction.
+    SecondOrderUpwind {
+        /// Under-relaxation factor (0.5-0.8 recommended)
+        relaxation_factor: f64,
+    },
     /// Deferred correction with QUICK explicit part (Patankar 1980 §5.4.3)
     /// Combines stability of upwind with accuracy of QUICK
     DeferredCorrectionQuick {
@@ -90,7 +99,6 @@ pub enum ConvectionScheme {
         relaxation_factor: f64,
     },
     /// TVD scheme with Superbee limiter (Roe 1986)
-    ///
     /// Excellent for high-Peclet flows with shock-like features.
     /// Most compressive limiter, best shock resolution.
     ///
@@ -121,6 +129,14 @@ pub enum ConvectionScheme {
     /// Roe, P.L. (1986). "Characteristic-Based Schemes for the Euler Equations"
     TvdMinmod {
         /// Under-relaxation factor (0.7-0.9 recommended for high-Pe flows)
+        relaxation_factor: f64,
+    },
+    /// WENO-Z deferred correction with fifth-order face reconstruction.
+    ///
+    /// This uses the Borges et al. WENO-Z weights to reduce dissipation near
+    /// smooth extrema while retaining non-oscillatory behavior.
+    WenoZ {
+        /// Under-relaxation factor (0.5-0.8 recommended)
         relaxation_factor: f64,
     },
 }
@@ -184,7 +200,6 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
         self.an.data.fill(T::zero());
         self.as_.data.fill(T::zero());
         self.source.data.fill(T::zero());
-
 
         // Compute diffusion coefficients with proper finite volume scaling
         // Diffusion flux through a face = -μ * A * ∂φ/∂n / Δn
@@ -276,9 +291,27 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                     ConvectionScheme::Upwind => {
                         // Pure upwind - no correction needed
                     }
+                    ConvectionScheme::SecondOrderUpwind { relaxation_factor } => {
+                        apply_second_order_deferred_correction(
+                            &mut self.source,
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            u,
+                            v,
+                            rho,
+                            dx,
+                            dy,
+                            fields,
+                            component,
+                            relaxation_factor,
+                        );
+                    }
                     ConvectionScheme::DeferredCorrectionQuick { relaxation_factor } => {
-                        let alpha = T::from_f64(relaxation_factor)
-                            .unwrap_or_else(|| T::from_f64(0.7).expect("analytical constant conversion"));
+                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
+                            T::from_f64(0.7).expect("analytical constant conversion")
+                        });
 
                         // Compute QUICK-upwind correction for X-direction
                         let quick_correction_x = if i >= 2 && i < nx - 2 {
@@ -302,8 +335,9 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         }
                     }
                     ConvectionScheme::TvdSuperbee { relaxation_factor } => {
-                        let alpha = T::from_f64(relaxation_factor)
-                            .unwrap_or_else(|| T::from_f64(0.8).expect("analytical constant conversion"));
+                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
+                            T::from_f64(0.8).expect("analytical constant conversion")
+                        });
                         let limiter = Superbee;
 
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
@@ -324,8 +358,9 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         }
                     }
                     ConvectionScheme::TvdVanLeer { relaxation_factor } => {
-                        let alpha = T::from_f64(relaxation_factor)
-                            .unwrap_or_else(|| T::from_f64(0.8).expect("analytical constant conversion"));
+                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
+                            T::from_f64(0.8).expect("analytical constant conversion")
+                        });
                         let limiter = VanLeer;
 
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
@@ -346,8 +381,9 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         }
                     }
                     ConvectionScheme::TvdMinmod { relaxation_factor } => {
-                        let alpha = T::from_f64(relaxation_factor)
-                            .unwrap_or_else(|| T::from_f64(0.8).expect("analytical constant conversion"));
+                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
+                            T::from_f64(0.8).expect("analytical constant conversion")
+                        });
                         let limiter = Minmod;
 
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
@@ -367,6 +403,23 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                             *source += correction;
                         }
                     }
+                    ConvectionScheme::WenoZ { relaxation_factor } => {
+                        apply_weno_z_deferred_correction(
+                            &mut self.source,
+                            i,
+                            j,
+                            nx,
+                            ny,
+                            u,
+                            v,
+                            rho,
+                            dx,
+                            dy,
+                            fields,
+                            component,
+                            relaxation_factor,
+                        );
+                    }
                 }
 
                 // Central coefficient (including time term)
@@ -375,10 +428,8 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 let volume = dx * dy;
                 let rho = fields.density.at(i, j);
 
-                let ap_sum = self.ae.at(i, j)
-                    + self.aw.at(i, j)
-                    + self.an.at(i, j)
-                    + self.as_.at(i, j);
+                let ap_sum =
+                    self.ae.at(i, j) + self.aw.at(i, j) + self.an.at(i, j) + self.as_.at(i, j);
                 if let Some(ap) = self.ap.at_mut(i, j) {
                     *ap = ap_sum + rho * volume / dt;
                 }

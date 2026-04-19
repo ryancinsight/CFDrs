@@ -339,10 +339,7 @@ mod tests {
                     dot += mrt.m[i][k] * mrt.m_inv[k][j];
                 }
                 let expected = if i == j { 1.0 } else { 0.0 };
-                assert_relative_eq!(
-                    dot, expected,
-                    epsilon = 1e-12,
-                );
+                assert_relative_eq!(dot, expected, epsilon = 1e-12,);
             }
         }
     }
@@ -365,16 +362,19 @@ mod tests {
         let mut f = vec![0.0_f64; 9];
         for q in 0..9 {
             let w = D2Q9::WEIGHTS[q];
-            f[q] = equilibrium(rho, &u, q, w, D2Q9::VELOCITIES[q])
-                + 0.001 * (q as f64 - 4.0);
+            f[q] = equilibrium(rho, &u, q, w, D2Q9::VELOCITIES[q]) + 0.001 * (q as f64 - 4.0);
         }
 
         // Recompute exact density and momentum from perturbed f
         let rho_before: f64 = f.iter().sum();
-        let jx_before: f64 = f.iter().enumerate()
+        let jx_before: f64 = f
+            .iter()
+            .enumerate()
             .map(|(q, &fq)| f64::from(D2Q9::VELOCITIES[q].0) * fq)
             .sum();
-        let jy_before: f64 = f.iter().enumerate()
+        let jy_before: f64 = f
+            .iter()
+            .enumerate()
             .map(|(q, &fq)| f64::from(D2Q9::VELOCITIES[q].1) * fq)
             .sum();
 
@@ -384,10 +384,14 @@ mod tests {
         mrt.collide(&mut f, &density, &velocity, nx, ny);
 
         let rho_after: f64 = f.iter().sum();
-        let jx_after: f64 = f.iter().enumerate()
+        let jx_after: f64 = f
+            .iter()
+            .enumerate()
             .map(|(q, &fq)| f64::from(D2Q9::VELOCITIES[q].0) * fq)
             .sum();
-        let jy_after: f64 = f.iter().enumerate()
+        let jy_after: f64 = f
+            .iter()
+            .enumerate()
             .map(|(q, &fq)| f64::from(D2Q9::VELOCITIES[q].1) * fq)
             .sum();
 
@@ -425,6 +429,3 @@ mod tests {
         }
     }
 }
-
-
-

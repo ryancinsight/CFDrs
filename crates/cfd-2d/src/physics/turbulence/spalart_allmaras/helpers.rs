@@ -15,8 +15,8 @@
 //! therefore evaluate to half a cell spacing in the wall-normal direction, and interior cells grow
 //! monotonically with distance from the nearest boundary on a uniform rectangle.
 
-use cfd_core::physics::constants::mathematical::numeric::{THREE, TWO};
 use crate::physics::turbulence::boundary_conditions::TurbulenceBoundaryManager;
+use cfd_core::physics::constants::mathematical::numeric::{THREE, TWO};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 use tracing::instrument;

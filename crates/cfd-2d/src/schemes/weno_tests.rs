@@ -13,7 +13,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::{Grid2D, SpatialDiscretization, WENO9};
+    use super::super::{Grid2D, SpatialDiscretization, WENO5, WENO9, WENOZ5};
     use approx::assert_relative_eq;
 
     #[test]
@@ -100,5 +100,73 @@ mod tests {
         // With dx=0.01, error ~ dx^9 = 1e-18.
         // Machine epsilon is 1e-16.
         assert_relative_eq!(flux, expected, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn test_wenoz5_refines_on_smooth_quartic() {
+        fn reconstruction_error(dx: f64) -> f64 {
+            let nx = 48;
+            let ny = 1;
+            let ghost = 3;
+            let mut grid = Grid2D::<f64>::new(nx, ny, dx, 1.0, ghost);
+
+            let (rows, cols) = grid.data.shape();
+            for i in 0..rows {
+                for j in 0..cols {
+                    let x = (i as f64 - ghost as f64) * dx;
+                    grid.data[(i, j)] = x.powi(4);
+                }
+            }
+
+            let wenoz5 = WENOZ5::<f64>::new();
+            let i = ghost + 8;
+            let j = 0;
+            let flux = wenoz5.compute_derivative(&grid, i, j) * dx;
+            let x_interface = (i as f64 - ghost as f64 + 0.5) * dx;
+            let expected = x_interface.powi(4);
+            (flux - expected).abs()
+        }
+
+        let coarse = reconstruction_error(0.09);
+        let fine = reconstruction_error(0.03);
+
+        assert!(
+            fine < coarse / 40.0,
+            "coarse error={coarse}, fine error={fine}"
+        );
+    }
+
+    #[test]
+    fn test_wenoz5_not_worse_than_weno5_at_a_critical_point() {
+        let nx = 24;
+        let ny = 1;
+        let dx = 0.25;
+        let dy = 1.0;
+        let ghost = 3;
+
+        let mut grid = Grid2D::<f64>::new(nx, ny, dx, dy, ghost);
+        let (rows, cols) = grid.data.shape();
+        let i = ghost + 10;
+        let j = 0;
+        let x_interface = (i as f64 - ghost as f64 + 0.5) * dx;
+
+        for x_i in 0..rows {
+            for y_j in 0..cols {
+                let x = (x_i as f64 - ghost as f64) * dx;
+                let shifted = x - x_interface;
+                grid.data[(x_i, y_j)] = 1.0 + 8.0 * shifted.powi(3) + 0.5 * shifted.powi(4);
+            }
+        }
+
+        let weno5 = WENO5::<f64>::new();
+        let wenoz5 = WENOZ5::<f64>::new();
+        let exact = 1.0;
+
+        let js_flux = weno5.compute_derivative(&grid, i, j) * dx;
+        let z_flux = wenoz5.compute_derivative(&grid, i, j) * dx;
+        let js_error = (js_flux - exact).abs();
+        let z_error = (z_flux - exact).abs();
+
+        assert!(z_error <= js_error + 1e-14);
     }
 }

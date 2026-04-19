@@ -70,8 +70,10 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                             // ω_wall = 6ν/(β₁ y_wall²) for SST model
                             let y_wall = self.wall_distances[idx]
                                 .max(T::from_f64(1e-6).expect("analytical constant conversion"));
-                            let omega_wall = T::from_f64(6.0).expect("analytical constant conversion")
-                                / (T::from_f64(SST_BETA_1).expect("analytical constant conversion")
+                            let omega_wall = T::from_f64(6.0)
+                                .expect("analytical constant conversion")
+                                / (T::from_f64(SST_BETA_1)
+                                    .expect("analytical constant conversion")
                                     * y_wall
                                     * y_wall);
                             omega[idx] = omega_wall;
@@ -83,8 +85,10 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                             k[idx] = T::zero();
                             let y_wall = self.wall_distances[idx]
                                 .max(T::from_f64(1e-6).expect("analytical constant conversion"));
-                            let omega_wall = T::from_f64(6.0).expect("analytical constant conversion")
-                                / (T::from_f64(SST_BETA_1).expect("analytical constant conversion")
+                            let omega_wall = T::from_f64(6.0)
+                                .expect("analytical constant conversion")
+                                / (T::from_f64(SST_BETA_1)
+                                    .expect("analytical constant conversion")
                                     * y_wall
                                     * y_wall);
                             omega[idx] = omega_wall;
@@ -95,8 +99,10 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                             k[i] = T::zero();
                             let y_wall = self.wall_distances[i]
                                 .max(T::from_f64(1e-6).expect("analytical constant conversion"));
-                            let omega_wall = T::from_f64(6.0).expect("analytical constant conversion")
-                                / (T::from_f64(SST_BETA_1).expect("analytical constant conversion")
+                            let omega_wall = T::from_f64(6.0)
+                                .expect("analytical constant conversion")
+                                / (T::from_f64(SST_BETA_1)
+                                    .expect("analytical constant conversion")
                                     * y_wall
                                     * y_wall);
                             omega[i] = omega_wall;
@@ -109,8 +115,10 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                             k[idx] = T::zero();
                             let y_wall = self.wall_distances[idx]
                                 .max(T::from_f64(1e-6).expect("analytical constant conversion"));
-                            let omega_wall = T::from_f64(6.0).expect("analytical constant conversion")
-                                / (T::from_f64(SST_BETA_1).expect("analytical constant conversion")
+                            let omega_wall = T::from_f64(6.0)
+                                .expect("analytical constant conversion")
+                                / (T::from_f64(SST_BETA_1)
+                                    .expect("analytical constant conversion")
                                     * y_wall
                                     * y_wall);
                             omega[idx] = omega_wall;

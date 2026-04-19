@@ -1,9 +1,9 @@
-use crate::grid::array2d::Array2D;
+use super::constants;
 use super::solver::*;
 use super::viscous_dissipation::*;
-use std::collections::HashMap;
+use crate::grid::array2d::Array2D;
 use cfd_core::physics::boundary::BoundaryCondition;
-use super::constants;
+use std::collections::HashMap;
 
 #[cfg(test)]
 mod tests {
@@ -1223,5 +1223,3 @@ mod tests {
         }
     }
 }
-
-

@@ -125,9 +125,21 @@ mod tests {
         tensor.epsilon_xy = Some(DMatrix::from_element(2, 2, 0.45));
         tensor.epsilon_yy = Some(DMatrix::from_element(2, 2, 2.34));
 
-        assert_relative_eq!(dissipation_tensor(&tensor, 0, 0, 1, 1), 1.23, epsilon = 1e-15);
-        assert_relative_eq!(dissipation_tensor(&tensor, 0, 1, 1, 1), 0.45, epsilon = 1e-15);
-        assert_relative_eq!(dissipation_tensor(&tensor, 1, 1, 1, 1), 2.34, epsilon = 1e-15);
+        assert_relative_eq!(
+            dissipation_tensor(&tensor, 0, 0, 1, 1),
+            1.23,
+            epsilon = 1e-15
+        );
+        assert_relative_eq!(
+            dissipation_tensor(&tensor, 0, 1, 1, 1),
+            0.45,
+            epsilon = 1e-15
+        );
+        assert_relative_eq!(
+            dissipation_tensor(&tensor, 1, 1, 1, 1),
+            2.34,
+            epsilon = 1e-15
+        );
     }
 
     #[test]

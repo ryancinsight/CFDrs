@@ -29,8 +29,10 @@ pub mod tvd_tests;
 pub mod upwind;
 pub mod weno;
 pub mod weno_constants;
+pub(crate) mod weno_helpers;
 #[cfg(test)]
 pub mod weno_tests;
+pub mod weno_z;
 
 // Re-export main types
 pub use central::{CentralDifference, FourthOrderCentral};
@@ -39,6 +41,7 @@ pub use time::{TimeIntegrator, TimeScheme};
 pub use tvd::{FluxLimiter, MUSCLScheme, QUICKScheme};
 pub use upwind::{FirstOrderUpwind, SecondOrderUpwind};
 pub use weno::{WENO5, WENO9};
+pub use weno_z::WENOZ5;
 
 /// Spatial discretization scheme
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -55,6 +58,8 @@ pub enum SpatialScheme {
     Muscl,
     /// Fifth-order WENO
     Weno5,
+    /// Fifth-order WENO-Z
+    WenoZ5,
     /// Ninth-order WENO
     Weno9,
     /// Fourth-order explicit central difference

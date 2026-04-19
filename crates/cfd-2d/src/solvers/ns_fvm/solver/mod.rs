@@ -261,9 +261,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             let h = y_max - y_min
                 + (dy_cells[0] + dy_cells[dy_cells.len() - 1])
                     * T::from_f64(0.5).expect("analytical constant conversion");
-            
+
             let mut discrete_sum = T::zero();
-            
+
             for j in 0..ny {
                 if self.field.mask[(0, j)] {
                     let dy_j = self.grid.dy_at(j);
@@ -362,7 +362,11 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                                 self.density,
                             );
                             let nu_t_val = nu_t / self.density;
-                            self.field.nu_t[(i, j)] = if nu_t_val > T::zero() { nu_t_val } else { T::zero() };
+                            self.field.nu_t[(i, j)] = if nu_t_val > T::zero() {
+                                nu_t_val
+                            } else {
+                                T::zero()
+                            };
                         }
                     }
                 }
@@ -414,4 +418,3 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         })
     }
 }
-

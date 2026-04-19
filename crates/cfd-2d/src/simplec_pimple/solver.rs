@@ -38,6 +38,7 @@ use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
 use crate::physics::MomentumSolver;
 use crate::pressure_velocity::{PressureCorrectionSolver, RhieChowInterpolation};
+use cfd_core::error::Error;
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
 
@@ -57,8 +58,10 @@ pub struct SimplecPimpleSolver<T: RealField + Copy> {
     pub(super) _v_face_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
     pub(super) _d_x_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
     pub(super) _d_y_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
-    pub(super) _vel_field_cache: std::cell::RefCell<Option<crate::fields::Field2D<nalgebra::Vector2<T>>>>,
-    pub(super) _cons_vel_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<nalgebra::Vector2<T>>>>,
+    pub(super) _vel_field_cache:
+        std::cell::RefCell<Option<crate::fields::Field2D<nalgebra::Vector2<T>>>>,
+    pub(super) _cons_vel_cache:
+        std::cell::RefCell<Option<crate::grid::array2d::Array2D<nalgebra::Vector2<T>>>>,
 }
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
@@ -76,6 +79,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             crate::schemes::SpatialScheme::FirstOrderUpwind => {
                 crate::physics::momentum::ConvectionScheme::Upwind
             }
+            crate::schemes::SpatialScheme::SecondOrderUpwind => {
+                crate::physics::momentum::ConvectionScheme::SecondOrderUpwind {
+                    relaxation_factor: 0.7,
+                }
+            }
             crate::schemes::SpatialScheme::QuadraticUpstreamInterpolation => {
                 crate::physics::momentum::ConvectionScheme::DeferredCorrectionQuick {
                     relaxation_factor: 0.7,
@@ -86,7 +94,19 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                     relaxation_factor: 0.7,
                 }
             }
-            _ => crate::physics::momentum::ConvectionScheme::Upwind, // Fallback for Central/SecondOrder/WENO
+            crate::schemes::SpatialScheme::WenoZ5 => {
+                crate::physics::momentum::ConvectionScheme::WenoZ {
+                    relaxation_factor: 0.7,
+                }
+            }
+            crate::schemes::SpatialScheme::CentralDifference
+            | crate::schemes::SpatialScheme::Weno5
+            | crate::schemes::SpatialScheme::Weno9
+            | crate::schemes::SpatialScheme::FourthOrderCentral => {
+                return Err(Error::InvalidConfiguration(
+                    "Selected convection scheme is not supported by SIMPLEC/PIMPLE".into(),
+                ));
+            }
         };
 
         let mut momentum_solver = MomentumSolver::new(&grid);

@@ -19,9 +19,8 @@
 
 use super::blending::{blend_coefficient, compute_blending_functions, cross_diffusion};
 use crate::physics::turbulence::constants::{
-    K_MIN, OMEGA_MIN, OMEGA_WALL_COEFFICIENT, SST_ALPHA_1, SST_BETA_1, SST_BETA_2,
-    SST_BETA_STAR, SST_GAMMA_1, SST_GAMMA_2, SST_SIGMA_K1, SST_SIGMA_K2, SST_SIGMA_OMEGA1,
-    SST_SIGMA_OMEGA2,
+    K_MIN, OMEGA_MIN, OMEGA_WALL_COEFFICIENT, SST_ALPHA_1, SST_BETA_1, SST_BETA_2, SST_BETA_STAR,
+    SST_GAMMA_1, SST_GAMMA_2, SST_SIGMA_K1, SST_SIGMA_K2, SST_SIGMA_OMEGA1, SST_SIGMA_OMEGA2,
 };
 use crate::physics::turbulence::traits::TurbulenceModel;
 use cfd_core::error::Result;
@@ -73,9 +72,11 @@ impl<T: RealField + FromPrimitive + Copy> KOmegaSSTModel<T> {
                     < T::from_f64(WALL_PROXIMITY_THRESHOLD).expect("analytical constant conversion")
                 {
                     k[idx] = T::zero();
-                    let y = wall_distance[idx].max(T::from_f64(1e-10).expect("analytical constant conversion"));
-                    omega[idx] =
-                        T::from_f64(OMEGA_WALL_COEFFICIENT).expect("analytical constant conversion") / (y * y);
+                    let y = wall_distance[idx]
+                        .max(T::from_f64(1e-10).expect("analytical constant conversion"));
+                    omega[idx] = T::from_f64(OMEGA_WALL_COEFFICIENT)
+                        .expect("analytical constant conversion")
+                        / (y * y);
                 }
             }
         }
@@ -194,8 +195,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 let dv_dy = (velocity[idx + nx].y - velocity[idx - nx].y) / (two * dy);
                 let grad = [[du_dx, du_dy], [dv_dx, dv_dy]];
 
-                let nu_t =
-                    self.turbulent_viscosity(k_previous[idx], omega_previous[idx], density);
+                let nu_t = self.turbulent_viscosity(k_previous[idx], omega_previous[idx], density);
 
                 // Production with Menter (2003) limiter
                 let p_k_unlimited = self.production_term(
@@ -207,17 +207,16 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 );
                 let c_lim = T::from_f64(10.0).expect("analytical constant conversion");
                 let beta_star = T::from_f64(SST_BETA_STAR).expect("analytical constant conversion");
-                let p_k = p_k_unlimited
-                    .min(c_lim * beta_star * k_previous[idx] * omega_previous[idx]);
+                let p_k =
+                    p_k_unlimited.min(c_lim * beta_star * k_previous[idx] * omega_previous[idx]);
 
                 // Effective viscosities
                 let nu_eff_k = molecular_viscosity + nu_t * sigma_k;
                 let nu_eff_omega = molecular_viscosity + nu_t * sigma_omega;
 
                 // k diffusion (2nd-order central)
-                let diff_k_x = (k_previous[idx + 1] - two * k_previous[idx]
-                    + k_previous[idx - 1])
-                    / (dx * dx);
+                let diff_k_x =
+                    (k_previous[idx + 1] - two * k_previous[idx] + k_previous[idx - 1]) / (dx * dx);
                 let diff_k_y = (k_previous[idx + nx] - two * k_previous[idx]
                     + k_previous[idx - nx])
                     / (dy * dy);
@@ -233,8 +232,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 let diff_omega = nu_eff_omega * (diff_omega_x + diff_omega_y);
 
                 // Cross-diffusion
-                let cd_kw =
-                    cross_diffusion(&k_previous, &omega_previous, idx, nx, ny, dx, dy);
+                let cd_kw = cross_diffusion(&k_previous, &omega_previous, idx, nx, ny, dx, dy);
                 let cd_term = (T::one() - self.f1[idx]) * cd_kw;
 
                 // Advance k

@@ -18,8 +18,8 @@
 //! freedom removes the constant null-space. The reduced system is then suitable
 //! for CG; GMRES/BiCGSTAB remain safe fallback solvers for non-ideal variants.
 
-pub mod coefficients;
 pub(crate) mod boundary;
+pub mod coefficients;
 pub mod config;
 mod correction;
 pub mod pressure;

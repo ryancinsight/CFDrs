@@ -7,8 +7,8 @@ use cfd_2d::pressure_velocity::PressureLinearSolver;
 use cfd_2d::schemes::SpatialScheme;
 use cfd_2d::simplec_pimple::{AlgorithmType, SimplecPimpleConfig, SimplecPimpleSolver};
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
-use nalgebra::{RealField, Vector2};
 use nalgebra::Vector3;
+use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
 
 /// Fast SIMPLEC smoke test on a coarse grid (sanity check for automated runs)
@@ -66,7 +66,10 @@ fn test_simplec_smoke_re50() -> cfd_core::error::Result<()> {
         fields.u.at(NX / 2, NY - 2) > 0.0,
         "SIMPLEC smoke test should drive positive flow below the moving lid"
     );
-    assert!(solver.iterations() > 0, "SIMPLEC smoke test must advance at least one iteration");
+    assert!(
+        solver.iterations() > 0,
+        "SIMPLEC smoke test must advance at least one iteration"
+    );
 
     Ok(())
 }
@@ -126,7 +129,10 @@ fn test_pimple_smoke_re50() -> cfd_core::error::Result<()> {
         fields.u.at(NX / 2, NY - 2) > 0.0,
         "PIMPLE smoke test should drive positive flow below the moving lid"
     );
-    assert!(solver.iterations() > 0, "PIMPLE smoke test must advance at least one iteration");
+    assert!(
+        solver.iterations() > 0,
+        "PIMPLE smoke test must advance at least one iteration"
+    );
 
     Ok(())
 }
@@ -154,6 +160,40 @@ fn test_pimple_solver_creation() -> cfd_core::error::Result<()> {
     let solver = SimplecPimpleSolver::new(grid, config)?;
 
     assert_eq!(solver.algorithm(), AlgorithmType::Pimple);
+
+    Ok(())
+}
+
+#[test]
+fn test_simplec_supports_second_order_upwind_and_weno_z() -> cfd_core::error::Result<()> {
+    let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0)?;
+
+    let mut second_order = SimplecPimpleConfig::simplec();
+    second_order.convection_scheme = SpatialScheme::SecondOrderUpwind;
+    assert!(SimplecPimpleSolver::new(grid.clone(), second_order).is_ok());
+
+    let mut weno_z = SimplecPimpleConfig::simplec();
+    weno_z.convection_scheme = SpatialScheme::WenoZ5;
+    assert!(SimplecPimpleSolver::new(grid, weno_z).is_ok());
+
+    Ok(())
+}
+
+#[test]
+fn test_simplec_rejects_unsupported_high_order_schemes() -> cfd_core::error::Result<()> {
+    let grid = StructuredGrid2D::<f64>::new(10, 10, 0.0, 1.0, 0.0, 1.0)?;
+
+    let mut weno5 = SimplecPimpleConfig::simplec();
+    weno5.convection_scheme = SpatialScheme::Weno5;
+    assert!(SimplecPimpleSolver::new(grid.clone(), weno5).is_err());
+
+    let mut weno9 = SimplecPimpleConfig::simplec();
+    weno9.convection_scheme = SpatialScheme::Weno9;
+    assert!(SimplecPimpleSolver::new(grid.clone(), weno9).is_err());
+
+    let mut central = SimplecPimpleConfig::simplec();
+    central.convection_scheme = SpatialScheme::CentralDifference;
+    assert!(SimplecPimpleSolver::new(grid, central).is_err());
 
     Ok(())
 }

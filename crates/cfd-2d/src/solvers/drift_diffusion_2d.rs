@@ -201,7 +201,7 @@ mod tests {
                 flow.u[(i, j)] = 1.0;
             }
         }
-        
+
         // Drift constantly pushes DOWN (-y) toward the south wall
         for i in 0..nx {
             for j in 0..=ny {
@@ -217,7 +217,9 @@ mod tests {
         };
         let inlet_c = vec![1.0; ny]; // feed uniformly 1.0
 
-        let iters = drift_solver.solve(&grid, &flow, &drift, &config, &inlet_c).unwrap();
+        let iters = drift_solver
+            .solve(&grid, &flow, &drift, &config, &inlet_c)
+            .unwrap();
         assert!(iters > 0);
 
         // Verify concentration is strictly bound between 0 and a maximum pile-up.
@@ -230,7 +232,7 @@ mod tests {
                 );
             }
         }
-        
+
         // South wall row (j=0) should have the highest concentration due to drift pile-up
         for i in 2..nx {
             assert!(

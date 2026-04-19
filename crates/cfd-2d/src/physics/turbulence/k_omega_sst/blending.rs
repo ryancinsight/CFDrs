@@ -103,16 +103,21 @@ pub fn compute_blending_functions<T: RealField + FromPrimitive + Copy>(
         // F1 arguments
         let sqrt_k = k_val.sqrt();
         let arg1_1 = sqrt_k / (beta_star * omega_val * y);
-        let arg1_2 = T::from_f64(500.0).expect("analytical constant conversion") * nu / (y * y * omega_val);
-        let arg1_3 = T::from_f64(4.0).expect("analytical constant conversion") * density * sigma_omega2 * k_val
+        let arg1_2 =
+            T::from_f64(500.0).expect("analytical constant conversion") * nu / (y * y * omega_val);
+        let arg1_3 = T::from_f64(4.0).expect("analytical constant conversion")
+            * density
+            * sigma_omega2
+            * k_val
             / (cd_kw * y * y);
         let arg1 = arg1_1.min(arg1_2).max(arg1_3);
         f1[idx] = (T::from_f64(4.0).expect("analytical constant conversion") * arg1).tanh();
 
         // F2 arguments
-        let arg2_1 =
-            T::from_f64(2.0).expect("analytical constant conversion") * sqrt_k / (beta_star * omega_val * y);
-        let arg2_2 = T::from_f64(500.0).expect("analytical constant conversion") * nu / (y * y * omega_val);
+        let arg2_1 = T::from_f64(2.0).expect("analytical constant conversion") * sqrt_k
+            / (beta_star * omega_val * y);
+        let arg2_2 =
+            T::from_f64(500.0).expect("analytical constant conversion") * nu / (y * y * omega_val);
         let arg2 = arg2_1.max(arg2_2);
         f2[idx] = (arg2 * arg2).tanh();
     }

@@ -219,12 +219,8 @@ impl DetachedEddySimulation {
         dx: f64,
         dy: f64,
     ) -> f64 {
-        let x_wall_distance = ((i as f64) + 0.5)
-            .min((nx as f64 - 1.0 - i as f64) + 0.5)
-            * dx;
-        let y_wall_distance = ((j as f64) + 0.5)
-            .min((ny as f64 - 1.0 - j as f64) + 0.5)
-            * dy;
+        let x_wall_distance = ((i as f64) + 0.5).min((nx as f64 - 1.0 - i as f64) + 0.5) * dx;
+        let y_wall_distance = ((j as f64) + 0.5).min((ny as f64 - 1.0 - j as f64) + 0.5) * dy;
 
         if x_wall_distance <= y_wall_distance {
             dx
@@ -269,8 +265,8 @@ impl DetachedEddySimulation {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::DESConfig;
+    use super::*;
     use approx::assert_relative_eq;
 
     #[test]

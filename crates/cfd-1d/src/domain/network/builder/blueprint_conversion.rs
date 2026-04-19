@@ -562,9 +562,7 @@ where
     F: FluidTrait<T>,
     S: BuildHasher,
 {
-    use cfd_schematics::geometry::metadata::{
-        BranchBoundaryMetadata, BranchBoundarySpecification,
-    };
+    use cfd_schematics::geometry::metadata::{BranchBoundaryMetadata, BranchBoundarySpecification};
 
     for node in &blueprint.nodes {
         let Some(node_idx) = node_indices.get(node.id.as_str()).copied() else {

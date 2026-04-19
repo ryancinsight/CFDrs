@@ -69,16 +69,8 @@ where
 
     for i in 0..nx {
         for j in 0..ny {
-            let residual = pointwise_forward_continuity_residual(
-                i,
-                j,
-                nx,
-                ny,
-                dx,
-                dy,
-                &mut u_at,
-                &mut v_at,
-            );
+            let residual =
+                pointwise_forward_continuity_residual(i, j, nx, ny, dx, dy, &mut u_at, &mut v_at);
             let abs_residual = residual.abs();
             if abs_residual > max_divergence {
                 max_divergence = abs_residual;

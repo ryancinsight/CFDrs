@@ -17,9 +17,9 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
-use crate::grid::array2d::{Array2D, Mask2D};
 use super::boundary::BloodModel;
 use super::grid::StaggeredGrid2D;
+use crate::grid::array2d::{Array2D, Mask2D};
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 

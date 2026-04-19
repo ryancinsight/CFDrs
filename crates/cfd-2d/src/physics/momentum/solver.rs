@@ -56,7 +56,7 @@ pub struct MomentumSolver<T: RealField + Copy> {
     coeffs_u: MomentumCoefficients<T>,
     /// V-momentum coefficients
     coeffs_v: MomentumCoefficients<T>,
-    
+
     matrix_u: Option<SparseMatrix<T>>,
     matrix_v: Option<SparseMatrix<T>>,
     matrix_builder_u: Option<SparseMatrixBuilder<T>>,
@@ -77,8 +77,28 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
             convection_scheme: ConvectionScheme::default(),
             velocity_relaxation: T::from_f64(0.7).expect("analytical constant conversion"),
             turbulence_model: None,
-            coeffs_u: MomentumCoefficients::compute(grid.nx, grid.ny, T::one(), T::one(), T::one(), MomentumComponent::U, &SimulationFields::new(grid.nx, grid.ny), ConvectionScheme::default()).unwrap(),
-            coeffs_v: MomentumCoefficients::compute(grid.nx, grid.ny, T::one(), T::one(), T::one(), MomentumComponent::V, &SimulationFields::new(grid.nx, grid.ny), ConvectionScheme::default()).unwrap(),
+            coeffs_u: MomentumCoefficients::compute(
+                grid.nx,
+                grid.ny,
+                T::one(),
+                T::one(),
+                T::one(),
+                MomentumComponent::U,
+                &SimulationFields::new(grid.nx, grid.ny),
+                ConvectionScheme::default(),
+            )
+            .unwrap(),
+            coeffs_v: MomentumCoefficients::compute(
+                grid.nx,
+                grid.ny,
+                T::one(),
+                T::one(),
+                T::one(),
+                MomentumComponent::V,
+                &SimulationFields::new(grid.nx, grid.ny),
+                ConvectionScheme::default(),
+            )
+            .unwrap(),
             matrix_u: None,
             matrix_v: None,
             matrix_builder_u: None,
@@ -99,8 +119,28 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
             convection_scheme: scheme,
             velocity_relaxation: T::from_f64(0.7).expect("analytical constant conversion"),
             turbulence_model: None,
-            coeffs_u: MomentumCoefficients::compute(grid.nx, grid.ny, T::one(), T::one(), T::one(), MomentumComponent::U, &SimulationFields::new(grid.nx, grid.ny), scheme).unwrap(),
-            coeffs_v: MomentumCoefficients::compute(grid.nx, grid.ny, T::one(), T::one(), T::one(), MomentumComponent::V, &SimulationFields::new(grid.nx, grid.ny), scheme).unwrap(),
+            coeffs_u: MomentumCoefficients::compute(
+                grid.nx,
+                grid.ny,
+                T::one(),
+                T::one(),
+                T::one(),
+                MomentumComponent::U,
+                &SimulationFields::new(grid.nx, grid.ny),
+                scheme,
+            )
+            .unwrap(),
+            coeffs_v: MomentumCoefficients::compute(
+                grid.nx,
+                grid.ny,
+                T::one(),
+                T::one(),
+                T::one(),
+                MomentumComponent::V,
+                &SimulationFields::new(grid.nx, grid.ny),
+                scheme,
+            )
+            .unwrap(),
             matrix_u: None,
             matrix_v: None,
             matrix_builder_u: None,
@@ -124,8 +164,28 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
             convection_scheme: ConvectionScheme::default(),
             velocity_relaxation: T::from_f64(0.7).expect("analytical constant conversion"),
             turbulence_model: None,
-            coeffs_u: MomentumCoefficients::compute(grid.nx, grid.ny, T::one(), T::one(), T::one(), MomentumComponent::U, &SimulationFields::new(grid.nx, grid.ny), ConvectionScheme::default()).unwrap(),
-            coeffs_v: MomentumCoefficients::compute(grid.nx, grid.ny, T::one(), T::one(), T::one(), MomentumComponent::V, &SimulationFields::new(grid.nx, grid.ny), ConvectionScheme::default()).unwrap(),
+            coeffs_u: MomentumCoefficients::compute(
+                grid.nx,
+                grid.ny,
+                T::one(),
+                T::one(),
+                T::one(),
+                MomentumComponent::U,
+                &SimulationFields::new(grid.nx, grid.ny),
+                ConvectionScheme::default(),
+            )
+            .unwrap(),
+            coeffs_v: MomentumCoefficients::compute(
+                grid.nx,
+                grid.ny,
+                T::one(),
+                T::one(),
+                T::one(),
+                MomentumComponent::V,
+                &SimulationFields::new(grid.nx, grid.ny),
+                ConvectionScheme::default(),
+            )
+            .unwrap(),
             matrix_u: None,
             matrix_v: None,
             matrix_builder_u: None,
@@ -210,7 +270,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
     ) -> cfd_core::error::Result<()> {
         // Compute coefficients
         self.compute_coefficients_into(component, fields, dt)?;
-        
+
         // Diagnostic: Check if coefficients are non-zero (helps debug false convergence)
         #[cfg(debug_assertions)]
         {
@@ -235,10 +295,16 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
 
         // Assemble linear system topology once and update values
         self.assemble_system_into(component, fields)?;
-        
+
         let (matrix, rhs) = match component {
-            MomentumComponent::U => (self.matrix_u.as_ref().unwrap(), self.rhs_u.as_ref().unwrap()),
-            MomentumComponent::V => (self.matrix_v.as_ref().unwrap(), self.rhs_v.as_ref().unwrap()),
+            MomentumComponent::U => (
+                self.matrix_u.as_ref().unwrap(),
+                self.rhs_u.as_ref().unwrap(),
+            ),
+            MomentumComponent::V => (
+                self.matrix_v.as_ref().unwrap(),
+                self.rhs_v.as_ref().unwrap(),
+            ),
         };
 
         // Diagnostic: Check matrix and RHS statistics (helps debug false convergence)
@@ -261,12 +327,9 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         // Solve linear system
         let mut solution = DVector::zeros(matrix.nrows());
         let _rhs_norm = rhs.norm();
-        let solve_result = self.linear_solver.solve(
-            matrix,
-            rhs,
-            &mut solution,
-            None::<&IdentityPreconditioner>,
-        );
+        let solve_result =
+            self.linear_solver
+                .solve(matrix, rhs, &mut solution, None::<&IdentityPreconditioner>);
 
         match solve_result {
             Ok(_) => {}
@@ -305,7 +368,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         // Update velocity field
         self.update_velocity(component, fields, &solution);
 
-
         Ok(())
     }
 
@@ -336,30 +398,26 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         dt: T,
     ) -> cfd_core::error::Result<()> {
         match component {
-            MomentumComponent::U => {
-                self.coeffs_u.compute_into(
-                    self.grid.nx,
-                    self.grid.ny,
-                    self.grid.dx,
-                    self.grid.dy,
-                    dt,
-                    component,
-                    fields,
-                    self.convection_scheme,
-                )
-            }
-            MomentumComponent::V => {
-                self.coeffs_v.compute_into(
-                    self.grid.nx,
-                    self.grid.ny,
-                    self.grid.dx,
-                    self.grid.dy,
-                    dt,
-                    component,
-                    fields,
-                    self.convection_scheme,
-                )
-            }
+            MomentumComponent::U => self.coeffs_u.compute_into(
+                self.grid.nx,
+                self.grid.ny,
+                self.grid.dx,
+                self.grid.dy,
+                dt,
+                component,
+                fields,
+                self.convection_scheme,
+            ),
+            MomentumComponent::V => self.coeffs_v.compute_into(
+                self.grid.nx,
+                self.grid.ny,
+                self.grid.dx,
+                self.grid.dy,
+                dt,
+                component,
+                fields,
+                self.convection_scheme,
+            ),
         }
     }
 
@@ -444,8 +502,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
 
         if should_rebuild {
             let mut builder = match component {
-                MomentumComponent::U => self.matrix_builder_u.take().unwrap_or_else(|| SparseMatrixBuilder::new(n, n)),
-                MomentumComponent::V => self.matrix_builder_v.take().unwrap_or_else(|| SparseMatrixBuilder::new(n, n)),
+                MomentumComponent::U => self
+                    .matrix_builder_u
+                    .take()
+                    .unwrap_or_else(|| SparseMatrixBuilder::new(n, n)),
+                MomentumComponent::V => self
+                    .matrix_builder_v
+                    .take()
+                    .unwrap_or_else(|| SparseMatrixBuilder::new(n, n)),
             };
             let mut rhs = DVector::zeros(n);
             let mask_data = fields.mask.data.as_slice();
@@ -455,68 +519,68 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
             let as_data = coeffs.as_.data.as_slice();
             let an_data = coeffs.an.data.as_slice();
             let source_data = coeffs.source.data.as_slice();
-            
+
             for j in 0..ny {
                 for i in 0..nx {
-                let idx = j * self.grid.nx + i;
+                    let idx = j * self.grid.nx + i;
 
-                // Check if this is a masked (solid) cell
-                if !mask_data[idx] {
-                    // For solid cells: assemble identity equation φ = 0
-                    builder.add_entry(idx, idx, T::one())?;
-                    // RHS is already zero
-                    continue;
-                }
+                    // Check if this is a masked (solid) cell
+                    if !mask_data[idx] {
+                        // For solid cells: assemble identity equation φ = 0
+                        builder.add_entry(idx, idx, T::one())?;
+                        // RHS is already zero
+                        continue;
+                    }
 
-                // Check if this is a Dirichlet boundary node
-                if self.is_dirichlet_boundary(i, j) {
-                    // For Dirichlet BC: assemble identity equation φ = bc_value
-                    // This is handled in apply_momentum_boundaries, so skip coefficient assembly
-                    builder.add_entry(idx, idx, T::one())?;
-                    // RHS will be set by boundary condition handler
-                    continue;
-                }
+                    // Check if this is a Dirichlet boundary node
+                    if self.is_dirichlet_boundary(i, j) {
+                        // For Dirichlet BC: assemble identity equation φ = bc_value
+                        // This is handled in apply_momentum_boundaries, so skip coefficient assembly
+                        builder.add_entry(idx, idx, T::one())?;
+                        // RHS will be set by boundary condition handler
+                        continue;
+                    }
 
-                // Central coefficient
-                builder.add_entry(idx, idx, ap_data[idx])?;
+                    // Central coefficient
+                    builder.add_entry(idx, idx, ap_data[idx])?;
 
-                // Neighbor coefficients
-                if i > 0 {
-                    builder.add_entry(idx, idx - 1, -aw_data[idx])?;
-                }
-                if i < self.grid.nx - 1 {
-                    builder.add_entry(idx, idx + 1, -ae_data[idx])?;
-                }
-                if j > 0 {
-                    builder.add_entry(idx, idx - self.grid.nx, -as_data[idx])?;
-                }
-                if j < self.grid.ny - 1 {
-                    builder.add_entry(idx, idx + self.grid.nx, -an_data[idx])?;
-                }
+                    // Neighbor coefficients
+                    if i > 0 {
+                        builder.add_entry(idx, idx - 1, -aw_data[idx])?;
+                    }
+                    if i < self.grid.nx - 1 {
+                        builder.add_entry(idx, idx + 1, -ae_data[idx])?;
+                    }
+                    if j > 0 {
+                        builder.add_entry(idx, idx - self.grid.nx, -as_data[idx])?;
+                    }
+                    if j < self.grid.ny - 1 {
+                        builder.add_entry(idx, idx + self.grid.nx, -an_data[idx])?;
+                    }
 
-                // Source term including pressure gradient
-                rhs[idx] = source_data[idx];
+                    // Source term including pressure gradient
+                    rhs[idx] = source_data[idx];
+                }
             }
-        }
 
-        // Apply higher-order boundary conditions for improved near-wall accuracy
-        // This provides better velocity gradients near walls for production accuracy
-        super::boundary::apply_higher_order_wall_boundaries(
-            &mut builder,
-            &mut rhs,
-            component,
-            &self.boundary_conditions,
-            &self.grid,
-        )?;
+            // Apply higher-order boundary conditions for improved near-wall accuracy
+            // This provides better velocity gradients near walls for production accuracy
+            super::boundary::apply_higher_order_wall_boundaries(
+                &mut builder,
+                &mut rhs,
+                component,
+                &self.boundary_conditions,
+                &self.grid,
+            )?;
 
-        // Apply standard boundary conditions (sets RHS values for Dirichlet, modifies equations for Neumann)
-        super::boundary::apply_momentum_boundaries(
-            &mut builder,
-            &mut rhs,
-            component,
-            &self.boundary_conditions,
-            &self.grid,
-        )?;
+            // Apply standard boundary conditions (sets RHS values for Dirichlet, modifies equations for Neumann)
+            super::boundary::apply_momentum_boundaries(
+                &mut builder,
+                &mut rhs,
+                component,
+                &self.boundary_conditions,
+                &self.grid,
+            )?;
 
             match component {
                 MomentumComponent::U => {
@@ -536,7 +600,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                 MomentumComponent::V => self.matrix_v.take().unwrap(),
             };
             matrix.values_mut().fill(T::zero());
-            
+
             let mut rhs = DVector::zeros(n);
 
             let (row_offsets, col_indices, values) = matrix.csr_data_mut();
@@ -606,7 +670,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                 &self.boundary_conditions,
                 &self.grid,
             )?;
-            
+
             match component {
                 MomentumComponent::U => {
                     self.matrix_u = Some(matrix);
@@ -721,7 +785,10 @@ mod tests {
             .matrix_u
             .as_ref()
             .expect("momentum matrix should be assembled");
-        let rhs = solver.rhs_u.as_ref().expect("momentum rhs should be assembled");
+        let rhs = solver
+            .rhs_u
+            .as_ref()
+            .expect("momentum rhs should be assembled");
         let row = 2 * grid.nx + 2;
         let start = matrix.row_offsets()[row];
         let end = matrix.row_offsets()[row + 1];

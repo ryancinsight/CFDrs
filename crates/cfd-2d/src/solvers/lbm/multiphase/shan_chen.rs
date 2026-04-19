@@ -59,12 +59,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> ShanChenMultiphase<T> {
     ///
     /// Requires calculating the gradient-like sum of the pseudopotential over
     /// all neighboring lattice nodes, assuming periodic or bounce-back walls.
-    pub fn compute_cohesive_force(
-        &self,
-        density: &[T],
-        nx: usize,
-        ny: usize,
-    ) -> (Vec<T>, Vec<T>) {
+    pub fn compute_cohesive_force(&self, density: &[T], nx: usize, ny: usize) -> (Vec<T>, Vec<T>) {
         let mut f_x = vec![T::zero(); nx * ny];
         let mut f_y = vec![T::zero(); nx * ny];
 
@@ -84,7 +79,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> ShanChenMultiphase<T> {
                 let mut sum_x = zero;
                 let mut sum_y = zero;
 
-                for q in 1..9 { // Skip q=0 (rest particle has e_i = 0)
+                for q in 1..9 {
+                    // Skip q=0 (rest particle has e_i = 0)
                     let ex = D2Q9::VELOCITIES[q].0;
                     let ey = D2Q9::VELOCITIES[q].1;
                     let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap();
@@ -116,17 +112,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> ShanChenMultiphase<T> {
     /// $\vec{u}_{eq} = \vec{u} + \frac{\tau \vec{F}}{\rho}$
     #[inline]
     #[must_use]
-    pub fn shift_equilibrium_velocity(
-        u: [T; 2],
-        force: [T; 2],
-        tau: T,
-        rho: T,
-    ) -> [T; 2] {
+    pub fn shift_equilibrium_velocity(u: [T; 2], force: [T; 2], tau: T, rho: T) -> [T; 2] {
         if rho > T::from_f64(1e-12).unwrap() {
-            [
-                u[0] + (tau * force[0]) / rho,
-                u[1] + (tau * force[1]) / rho,
-            ]
+            [u[0] + (tau * force[0]) / rho, u[1] + (tau * force[1]) / rho]
         } else {
             u
         }
@@ -168,7 +156,7 @@ mod tests {
         let nx = 5;
         let ny = 5;
         let mut density = vec![1.0_f64; nx * ny];
-        
+
         // Create an artificial heavy droplet in the center
         density[2 * nx + 2] = 2.0;
 

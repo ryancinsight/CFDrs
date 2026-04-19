@@ -215,12 +215,13 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSol
 
         let q_total_in = q_west;
         let q_total_out = q_east + q_north + q_south;
-        let mass_balance_error =
-            if Float::abs(q_total_in) > T::from_f64(1e-30).expect("Exact mathematically representable f64") {
-                Float::abs(q_total_in - q_total_out) / Float::abs(q_total_in)
-            } else {
-                T::zero()
-            };
+        let mass_balance_error = if Float::abs(q_total_in)
+            > T::from_f64(1e-30).expect("Exact mathematically representable f64")
+        {
+            Float::abs(q_total_in - q_total_out) / Float::abs(q_total_in)
+        } else {
+            T::zero()
+        };
 
         // Compute junction pressure loss ΔP between west and east centroids.
         let j_mid = ny / 2;

@@ -212,7 +212,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         }
     }
 
-    fn turbulent_kinetic_energy(&self, _flow_field: &FlowField<T>) -> Vec<T> {
+    fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
+        let n = flow_field.velocity.components.len();
         match &self.state {
             Some(state) => {
                 assert_eq!(
@@ -222,7 +223,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                 );
                 state.k.clone()
             }
-            None => Vec::new(),
+            None => vec![T::zero(); n],
         }
     }
 
@@ -234,7 +235,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> RANSModel<T>
     for KEpsilonModel<T>
 {
-    fn dissipation_rate(&self, _flow_field: &FlowField<T>) -> Vec<T> {
+    fn dissipation_rate(&self, flow_field: &FlowField<T>) -> Vec<T> {
+        let n = flow_field.velocity.components.len();
         match &self.state {
             Some(state) => {
                 assert_eq!(
@@ -244,11 +246,32 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> RANSM
                 );
                 state.epsilon.clone()
             }
-            None => Vec::new(),
+            None => vec![T::zero(); n],
         }
     }
 
     fn constants(&self) -> &dyn std::any::Any {
         &self.constants
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cfd_core::physics::fluid_dynamics::RANSModel;
+    use cfd_core::physics::fluid_dynamics::TurbulenceModel;
+
+    #[test]
+    fn uninitialized_state_returns_zero_fields_of_matching_length() {
+        let flow = FlowField::<f64>::new(2, 2, 2);
+        let model = KEpsilonModel::<f64>::new();
+
+        let tke = model.turbulent_kinetic_energy(&flow);
+        let dissipation = RANSModel::dissipation_rate(&model, &flow);
+
+        assert_eq!(tke.len(), 8);
+        assert_eq!(dissipation.len(), 8);
+        assert!(tke.iter().all(|&value| value == 0.0));
+        assert!(dissipation.iter().all(|&value| value == 0.0));
     }
 }

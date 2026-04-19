@@ -155,6 +155,19 @@ where
 }
 
 #[inline]
+pub(crate) fn symmetric_matrix_contract<T>(left: SymmetricTensor6<T>, right: &[[T; 3]; 3]) -> T
+where
+    T: RealField + Copy + FromPrimitive,
+{
+    left.xx * right[0][0]
+        + left.yy * right[1][1]
+        + left.zz * right[2][2]
+        + left.xy * (right[0][1] + right[1][0])
+        + left.xz * (right[0][2] + right[2][0])
+        + left.yz * (right[1][2] + right[2][1])
+}
+
+#[inline]
 pub(crate) fn strain_magnitude<T>(gradient: &[[T; 3]; 3]) -> T
 where
     T: RealField + Copy + FromPrimitive + num_traits::Float,
@@ -162,6 +175,37 @@ where
     let strain = strain_components(gradient);
     let two = T::one() + T::one();
     num_traits::Float::sqrt(two * symmetric_contract(strain, strain))
+}
+
+#[inline]
+pub(crate) fn matrix_contract<T>(left: &[[T; 3]; 3], right: &[[T; 3]; 3]) -> T
+where
+    T: RealField + Copy + FromPrimitive,
+{
+    let mut total = T::zero();
+    for i in 0..3 {
+        for j in 0..3 {
+            total += left[i][j] * right[i][j];
+        }
+    }
+    total
+}
+
+#[inline]
+pub(crate) fn matrix_frobenius_norm_sq<T>(matrix: &[[T; 3]; 3]) -> T
+where
+    T: RealField + Copy + FromPrimitive,
+{
+    matrix_contract(matrix, matrix)
+}
+
+#[inline]
+pub(crate) fn gradient_magnitude<T>(gradient: &[[T; 3]; 3]) -> T
+where
+    T: RealField + Copy + FromPrimitive + num_traits::Float,
+{
+    let two = T::one() + T::one();
+    num_traits::Float::sqrt(two * matrix_frobenius_norm_sq(gradient))
 }
 
 #[inline]
@@ -173,4 +217,103 @@ where
     let omega_y = gradient[0][2] - gradient[2][0];
     let omega_z = gradient[1][0] - gradient[0][1];
     num_traits::Float::sqrt(omega_x * omega_x + omega_y * omega_y + omega_z * omega_z)
+}
+
+#[inline]
+pub(crate) fn matrix_square<T>(matrix: &[[T; 3]; 3]) -> [[T; 3]; 3]
+where
+    T: RealField + Copy + FromPrimitive,
+{
+    let mut square = [[T::zero(); 3]; 3];
+    for i in 0..3 {
+        for j in 0..3 {
+            let mut value = T::zero();
+            for k in 0..3 {
+                value += matrix[i][k] * matrix[k][j];
+            }
+            square[i][j] = value;
+        }
+    }
+    square
+}
+
+#[inline]
+pub(crate) fn symmetric_trace_free_part<T>(matrix: &[[T; 3]; 3]) -> SymmetricTensor6<T>
+where
+    T: RealField + Copy + FromPrimitive,
+{
+    let half = T::one() / (T::one() + T::one());
+    let third = T::one() / (T::one() + T::one() + T::one());
+    let trace = matrix[0][0] + matrix[1][1] + matrix[2][2];
+
+    SymmetricTensor6 {
+        xx: matrix[0][0] - third * trace,
+        yy: matrix[1][1] - third * trace,
+        zz: matrix[2][2] - third * trace,
+        xy: (matrix[0][1] + matrix[1][0]) * half,
+        xz: (matrix[0][2] + matrix[2][0]) * half,
+        yz: (matrix[1][2] + matrix[2][1]) * half,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn symmetric_contract_counts_off_diagonals_twice() {
+        let left = SymmetricTensor6 {
+            xx: 0.0_f64,
+            yy: 0.0,
+            zz: 0.0,
+            xy: 1.0,
+            xz: 0.0,
+            yz: 0.0,
+        };
+        let right = left;
+
+        assert_eq!(symmetric_contract(left, right), 2.0);
+    }
+
+    #[test]
+    fn symmetric_contract_matches_diagonal_norm() {
+        let left = SymmetricTensor6 {
+            xx: 3.0_f64,
+            yy: 0.0,
+            zz: 0.0,
+            xy: 0.0,
+            xz: 0.0,
+            yz: 0.0,
+        };
+        let right = left;
+
+        assert_eq!(symmetric_contract(left, right), 9.0);
+    }
+
+    #[test]
+    fn symmetric_matrix_contract_matches_symmetric_contract() {
+        let tensor = SymmetricTensor6 {
+            xx: 1.0_f64,
+            yy: 2.0,
+            zz: 3.0,
+            xy: 4.0,
+            xz: 5.0,
+            yz: 6.0,
+        };
+        let matrix = [[1.0_f64, 4.0, 5.0], [4.0, 2.0, 6.0], [5.0, 6.0, 3.0]];
+
+        assert_eq!(
+            symmetric_matrix_contract(tensor, &matrix),
+            symmetric_contract(tensor, tensor)
+        );
+    }
+
+    #[test]
+    fn gradient_magnitude_matches_manual_frobenius_norm() {
+        let gradient = [[1.0_f64, -2.0, 3.0], [4.0, 5.0, -6.0], [-7.0, 8.0, 9.0]];
+        let expected = (2.0_f64 * 285.0).sqrt();
+
+        assert_eq!(matrix_frobenius_norm_sq(&gradient), 285.0);
+        assert_eq!(gradient_magnitude(&gradient), expected);
+    }
 }

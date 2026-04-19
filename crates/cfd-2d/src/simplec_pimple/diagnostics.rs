@@ -17,8 +17,8 @@
 //! Laplacian scaling of the Poisson operator.
 
 use super::solver::SimplecPimpleSolver;
-use crate::grid::array2d::Array2D;
 use crate::fields::SimulationFields;
+use crate::grid::array2d::Array2D;
 use crate::solvers::continuity::{max_central_continuity_residual, max_face_continuity_residual};
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -92,7 +92,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 let (nx, ny) = v.dimensions();
                 nx != self.grid.nx || ny != self.grid.ny
             }) {
-                *vfc = Some(crate::fields::Field2D::new(self.grid.nx, self.grid.ny, Vector2::zeros()));
+                *vfc = Some(crate::fields::Field2D::new(
+                    self.grid.nx,
+                    self.grid.ny,
+                    Vector2::zeros(),
+                ));
             }
             let velocity_field = vfc.as_mut().unwrap();
 
@@ -105,7 +109,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             }
             let consistent_velocity = cvc.as_mut().unwrap();
 
-            self.interpolate_consistent_velocity(rhie_chow, fields, dt, velocity_field, consistent_velocity);
+            self.interpolate_consistent_velocity(
+                rhie_chow,
+                fields,
+                dt,
+                velocity_field,
+                consistent_velocity,
+            );
             self.calculate_continuity_residual_from_faces(consistent_velocity)
         } else {
             self.calculate_continuity_residual(fields)
@@ -118,7 +128,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         fields: &SimulationFields<T>,
     ) -> Array2D<Vector2<T>> {
         let mut velocity = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
-        velocity.as_mut_slice()
+        velocity
+            .as_mut_slice()
             .iter_mut()
             .zip(fields.u.as_slice().iter())
             .zip(fields.v.as_slice().iter())

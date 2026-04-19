@@ -11,6 +11,7 @@
 
 pub mod config;
 pub mod solver;
+mod weno;
 
 // Re-export main types
 pub use config::LevelSetConfig;

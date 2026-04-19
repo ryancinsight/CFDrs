@@ -193,7 +193,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .get(eid.index())
             .copied()
             .unwrap_or(edge.flow_rate);
-        let p_from = solved.pressures.get(from_idx.index()).copied().unwrap_or(0.0);
+        let p_from = solved
+            .pressures
+            .get(from_idx.index())
+            .copied()
+            .unwrap_or(0.0);
         let p_to = solved.pressures.get(to_idx.index()).copied().unwrap_or(0.0);
         let dp = (p_from - p_to).abs();
 

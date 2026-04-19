@@ -40,11 +40,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
 
         let d_u = self.d_u.as_ref().unwrap();
         let d_v = self.d_v.as_ref().unwrap();
-        
+
         let n = nx * ny;
         let should_rebuild = self.pressure_matrix.is_none();
         let mut max_residual = T::zero();
-        
+
         if should_rebuild {
             let u_data = fields.u.data.as_slice();
             let v_data = fields.v.data.as_slice();
@@ -52,7 +52,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
             let du_data = d_u.data.as_slice();
             let dv_data = d_v.data.as_slice();
             let rho_data = fields.density.data.as_slice();
-            let mut matrix_builder = self.matrix_builder.take().unwrap_or_else(|| SparseMatrixBuilder::new(n, n));
+            let mut matrix_builder = self
+                .matrix_builder
+                .take()
+                .unwrap_or_else(|| SparseMatrixBuilder::new(n, n));
             for j in 1..ny - 1 {
                 for i in 1..nx - 1 {
                     let idx = j * nx + i;
@@ -70,10 +73,26 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     let p_n = p_data[idx + nx];
                     let p_s = p_data[idx - nx];
 
-                    let p_ee = if i + 2 < nx { p_data[idx + 2] } else { two * p_e - p_p };
-                    let p_ww = if i >= 2 { p_data[idx - 2] } else { two * p_w - p_p };
-                    let p_nn = if j + 2 < ny { p_data[idx + nx * 2] } else { two * p_n - p_p };
-                    let p_ss = if j >= 2 { p_data[idx - nx * 2] } else { two * p_s - p_p };
+                    let p_ee = if i + 2 < nx {
+                        p_data[idx + 2]
+                    } else {
+                        two * p_e - p_p
+                    };
+                    let p_ww = if i >= 2 {
+                        p_data[idx - 2]
+                    } else {
+                        two * p_w - p_p
+                    };
+                    let p_nn = if j + 2 < ny {
+                        p_data[idx + nx * 2]
+                    } else {
+                        two * p_n - p_p
+                    };
+                    let p_ss = if j >= 2 {
+                        p_data[idx - nx * 2]
+                    } else {
+                        two * p_s - p_p
+                    };
 
                     let d_face_e = (du_data[idx] + du_data[idx + 1]) * half;
                     let d_face_w = (du_data[idx - 1] + du_data[idx]) * half;
@@ -209,7 +228,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     } else {
                         neighbor_indices.sort_unstable();
                         neighbor_indices.dedup();
-                        let neighbor_count = T::from_usize(neighbor_indices.len()).expect("analytical constant conversion");
+                        let neighbor_count = T::from_usize(neighbor_indices.len())
+                            .expect("analytical constant conversion");
                         let weight = T::one() / neighbor_count;
                         matrix_builder.add_entry(idx, idx, T::one())?;
                         for neighbor_idx in neighbor_indices {
@@ -259,10 +279,26 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     let p_n = p_data[idx + nx];
                     let p_s = p_data[idx - nx];
 
-                    let p_ee = if i + 2 < nx { p_data[idx + 2] } else { two * p_e - p_p };
-                    let p_ww = if i >= 2 { p_data[idx - 2] } else { two * p_w - p_p };
-                    let p_nn = if j + 2 < ny { p_data[idx + nx * 2] } else { two * p_n - p_p };
-                    let p_ss = if j >= 2 { p_data[idx - nx * 2] } else { two * p_s - p_p };
+                    let p_ee = if i + 2 < nx {
+                        p_data[idx + 2]
+                    } else {
+                        two * p_e - p_p
+                    };
+                    let p_ww = if i >= 2 {
+                        p_data[idx - 2]
+                    } else {
+                        two * p_w - p_p
+                    };
+                    let p_nn = if j + 2 < ny {
+                        p_data[idx + nx * 2]
+                    } else {
+                        two * p_n - p_p
+                    };
+                    let p_ss = if j >= 2 {
+                        p_data[idx - nx * 2]
+                    } else {
+                        two * p_s - p_p
+                    };
 
                     let d_face_e = (du_data[idx] + du_data[idx + 1]) * half;
                     let d_face_w = (du_data[idx - 1] + du_data[idx]) * half;
@@ -398,7 +434,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     } else {
                         neighbor_indices.sort_unstable();
                         neighbor_indices.dedup();
-                        let neighbor_count = T::from_usize(neighbor_indices.len()).expect("analytical constant conversion");
+                        let neighbor_count = T::from_usize(neighbor_indices.len())
+                            .expect("analytical constant conversion");
                         let weight = T::one() / neighbor_count;
                         update_entry(idx, idx, T::one());
                         for neighbor_idx in neighbor_indices {
@@ -409,7 +446,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                 }
             }
         }
-        
+
         Ok(max_residual)
     }
 
@@ -454,7 +491,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
             for i in 1..nx - 1 {
                 let idx = j * nx + i;
                 let pp = p_prime[idx];
-                
+
                 if let Some(p) = fields.p.at_mut(i, j) {
                     *p += self.pressure_relaxation * pp;
                 }

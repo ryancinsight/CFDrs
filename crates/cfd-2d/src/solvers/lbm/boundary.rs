@@ -177,19 +177,14 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
                     + half * (values[4] - values[2])
                     + one_sixth * density * u_x
                     + half * density * u_y;
-                values[8] = values[6]
-                    + half * (values[2] - values[4])
-                    + one_sixth * density * u_x
+                values[8] = values[6] + half * (values[2] - values[4]) + one_sixth * density * u_x
                     - half * density * u_y;
             }
             BoundaryFace::East => {
                 values[3] = values[1] - two_thirds * density * u_x;
-                values[6] = values[8]
-                    + half * (values[4] - values[2])
-                    - one_sixth * density * u_x
+                values[6] = values[8] + half * (values[4] - values[2]) - one_sixth * density * u_x
                     + half * density * u_y;
-                values[7] = values[5]
-                    + half * (values[2] - values[4])
+                values[7] = values[5] + half * (values[2] - values[4])
                     - one_sixth * density * u_x
                     - half * density * u_y;
             }
@@ -199,72 +194,83 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
                     + half * (values[3] - values[1])
                     + one_sixth * density * u_y
                     + half * density * u_x;
-                values[6] = values[8]
-                    + half * (values[1] - values[3])
-                    + one_sixth * density * u_y
+                values[6] = values[8] + half * (values[1] - values[3]) + one_sixth * density * u_y
                     - half * density * u_x;
             }
             BoundaryFace::North => {
                 values[4] = values[2] - two_thirds * density * u_y;
-                values[7] = values[5]
-                    + half * (values[1] - values[3])
+                values[7] = values[5] + half * (values[1] - values[3])
                     - one_sixth * density * u_y
                     - half * density * u_x;
-                values[8] = values[6]
-                    + half * (values[3] - values[1])
-                    - one_sixth * density * u_y
+                values[8] = values[6] + half * (values[3] - values[1]) - one_sixth * density * u_y
                     + half * density * u_x;
             }
         }
     }
 
     #[inline]
-    fn boundary_density_from_velocity(
-        face: BoundaryFace,
-        values: &[T; 9],
-        velocity: [T; 2],
-    ) -> T {
+    fn boundary_density_from_velocity(face: BoundaryFace, values: &[T; 9], velocity: [T; 2]) -> T {
         match face {
             BoundaryFace::West => {
-                let known = values[0] + values[2] + values[4] + T::from_f64(2.0).expect("2 is exact") * (values[3] + values[6] + values[7]);
+                let known = values[0]
+                    + values[2]
+                    + values[4]
+                    + T::from_f64(2.0).expect("2 is exact") * (values[3] + values[6] + values[7]);
                 known / (T::one() - velocity[0])
             }
             BoundaryFace::East => {
-                let known = values[0] + values[2] + values[4] + T::from_f64(2.0).expect("2 is exact") * (values[1] + values[5] + values[8]);
+                let known = values[0]
+                    + values[2]
+                    + values[4]
+                    + T::from_f64(2.0).expect("2 is exact") * (values[1] + values[5] + values[8]);
                 known / (T::one() + velocity[0])
             }
             BoundaryFace::South => {
-                let known = values[0] + values[1] + values[3] + T::from_f64(2.0).expect("2 is exact") * (values[4] + values[7] + values[8]);
+                let known = values[0]
+                    + values[1]
+                    + values[3]
+                    + T::from_f64(2.0).expect("2 is exact") * (values[4] + values[7] + values[8]);
                 known / (T::one() - velocity[1])
             }
             BoundaryFace::North => {
-                let known = values[0] + values[1] + values[3] + T::from_f64(2.0).expect("2 is exact") * (values[2] + values[5] + values[6]);
+                let known = values[0]
+                    + values[1]
+                    + values[3]
+                    + T::from_f64(2.0).expect("2 is exact") * (values[2] + values[5] + values[6]);
                 known / (T::one() + velocity[1])
             }
         }
     }
 
     #[inline]
-    fn boundary_velocity_from_density(
-        face: BoundaryFace,
-        values: &[T; 9],
-        density: T,
-    ) -> [T; 2] {
+    fn boundary_velocity_from_density(face: BoundaryFace, values: &[T; 9], density: T) -> [T; 2] {
         match face {
             BoundaryFace::West => {
-                let known = values[0] + values[2] + values[4] + T::from_f64(2.0).expect("2 is exact") * (values[3] + values[6] + values[7]);
+                let known = values[0]
+                    + values[2]
+                    + values[4]
+                    + T::from_f64(2.0).expect("2 is exact") * (values[3] + values[6] + values[7]);
                 [T::one() - known / density, T::zero()]
             }
             BoundaryFace::East => {
-                let known = values[0] + values[2] + values[4] + T::from_f64(2.0).expect("2 is exact") * (values[1] + values[5] + values[8]);
+                let known = values[0]
+                    + values[2]
+                    + values[4]
+                    + T::from_f64(2.0).expect("2 is exact") * (values[1] + values[5] + values[8]);
                 [known / density - T::one(), T::zero()]
             }
             BoundaryFace::South => {
-                let known = values[0] + values[1] + values[3] + T::from_f64(2.0).expect("2 is exact") * (values[4] + values[7] + values[8]);
+                let known = values[0]
+                    + values[1]
+                    + values[3]
+                    + T::from_f64(2.0).expect("2 is exact") * (values[4] + values[7] + values[8]);
                 [T::zero(), T::one() - known / density]
             }
             BoundaryFace::North => {
-                let known = values[0] + values[1] + values[3] + T::from_f64(2.0).expect("2 is exact") * (values[2] + values[5] + values[6]);
+                let known = values[0]
+                    + values[1]
+                    + values[3]
+                    + T::from_f64(2.0).expect("2 is exact") * (values[2] + values[5] + values[6]);
                 [T::zero(), known / density - T::one()]
             }
         }
@@ -435,7 +441,10 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         face: BoundaryFace,
     ) -> [T; 2] {
         let cell = |jj: usize, ii: usize| {
-            [velocity[(jj * nx + ii) * 2], velocity[(jj * nx + ii) * 2 + 1]]
+            [
+                velocity[(jj * nx + ii) * 2],
+                velocity[(jj * nx + ii) * 2 + 1],
+            ]
         };
 
         match face {
@@ -509,17 +518,17 @@ mod tests {
             u,
         );
 
-        let rho_expected = (values[0] + values[2] + values[4] + 2.0 * (values[3] + values[6] + values[7]))
-            / (1.0 - u[0]);
+        let rho_expected =
+            (values[0] + values[2] + values[4] + 2.0 * (values[3] + values[6] + values[7]))
+                / (1.0 - u[0]);
         let f1_expected = values[3] + (2.0 / 3.0) * rho_expected * u[0];
         let f5_expected = values[7]
             + 0.5 * (values[4] - values[2])
             + (1.0 / 6.0) * rho_expected * u[0]
             + 0.5 * rho_expected * u[1];
-        let f8_expected = values[6]
-            + 0.5 * (values[2] - values[4])
-            + (1.0 / 6.0) * rho_expected * u[0]
-            - 0.5 * rho_expected * u[1];
+        let f8_expected =
+            values[6] + 0.5 * (values[2] - values[4]) + (1.0 / 6.0) * rho_expected * u[0]
+                - 0.5 * rho_expected * u[1];
 
         assert_relative_eq!(density[cell], rho_expected, epsilon = 1e-12);
         assert_relative_eq!(velocity[cell * 2], u[0], epsilon = 1e-12);
@@ -568,18 +577,23 @@ mod tests {
         let u_x = known / rho - 1.0;
         let expected_velocity = [u_x, velocity_hint[1]];
         let f3_expected = values[1] - (2.0 / 3.0) * rho * u_x;
-        let f6_expected = values[8]
-            + 0.5 * (values[4] - values[2])
-            - (1.0 / 6.0) * rho * u_x
+        let f6_expected = values[8] + 0.5 * (values[4] - values[2]) - (1.0 / 6.0) * rho * u_x
             + 0.5 * rho * velocity_hint[1];
-        let f7_expected = values[5]
-            + 0.5 * (values[2] - values[4])
+        let f7_expected = values[5] + 0.5 * (values[2] - values[4])
             - (1.0 / 6.0) * rho * u_x
             - 0.5 * rho * velocity_hint[1];
 
         assert_relative_eq!(density[1 * nx + 3], rho, epsilon = 1e-12);
-        assert_relative_eq!(velocity[(1 * nx + 3) * 2], expected_velocity[0], epsilon = 1e-12);
-        assert_relative_eq!(velocity[(1 * nx + 3) * 2 + 1], expected_velocity[1], epsilon = 1e-12);
+        assert_relative_eq!(
+            velocity[(1 * nx + 3) * 2],
+            expected_velocity[0],
+            epsilon = 1e-12
+        );
+        assert_relative_eq!(
+            velocity[(1 * nx + 3) * 2 + 1],
+            expected_velocity[1],
+            epsilon = 1e-12
+        );
         let east_base = (1 * nx + 3) * 9;
         assert_relative_eq!(f[east_base + 3], f3_expected, epsilon = 1e-12);
         assert_relative_eq!(f[east_base + 6], f6_expected, epsilon = 1e-12);

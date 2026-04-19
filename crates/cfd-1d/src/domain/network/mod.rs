@@ -14,9 +14,7 @@ pub mod sink;
 mod wrapper;
 
 pub use blueprint_validation::validate_blueprint_for_1d_solve;
-pub use builder::{
-    apply_blueprint_boundary_conditions, network_from_blueprint, NetworkBuilder,
-};
+pub use builder::{apply_blueprint_boundary_conditions, network_from_blueprint, NetworkBuilder};
 pub use cfd_schematics::domain::model::EdgeKind as EdgeType;
 pub use cfd_schematics::domain::model::NodeKind as NodeType;
 pub use component_type::ComponentType;

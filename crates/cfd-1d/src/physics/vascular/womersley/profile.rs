@@ -4,7 +4,7 @@
 //! using the exact analytical Bessel function solution.
 
 use super::WomersleyNumber;
-use crate::physics::vascular::bessel::{bessel_j0, bessel_j1};
+use crate::physics::vascular::bessel::{bessel_j0, bessel_j0_j1};
 use nalgebra::{Complex, RealField};
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -105,8 +105,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
 
         let z = i_3_2 * alpha;
-        let j0_z = bessel_j0(z);
-        let j1_z = bessel_j1(z);
+        let (j0_z, j1_z) = bessel_j0_j1(z);
 
         // z * J_1(z) / J_0(z)
         let term = z * j1_z / j0_z;
@@ -139,8 +138,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
 
         let z = i_3_2 * alpha;
-        let j0_z = bessel_j0(z);
-        let j1_z = bessel_j1(z);
+        let (j0_z, j1_z) = bessel_j0_j1(z);
 
         // 2 * J_1(z) / (z * J_0(z))
         let complex_two = Complex::new(two, T::zero());

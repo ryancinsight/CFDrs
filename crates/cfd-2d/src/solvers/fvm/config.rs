@@ -59,7 +59,8 @@ impl<T: RealField + Copy + num_traits::FromPrimitive> Default for FvmConfig<T> {
                 .expect("analytical constant conversion"),
             max_iterations: DEFAULT_MAX_ITERATIONS,
             cfl_number: T::from_f64(DEFAULT_CFL_NUMBER).expect("analytical constant conversion"),
-            relaxation_factor: T::from_f64(DEFAULT_RELAXATION_FACTOR).expect("analytical constant conversion"),
+            relaxation_factor: T::from_f64(DEFAULT_RELAXATION_FACTOR)
+                .expect("analytical constant conversion"),
             diffusion_coefficient: T::from_f64(DEFAULT_DIFFUSION_COEFFICIENT)
                 .expect("analytical constant conversion"),
         }

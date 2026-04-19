@@ -276,8 +276,14 @@ mod tests {
         let dw = 2.0_f64;
         let (ae, aw) = scheme.coefficients(0.0, 0.0, de, dw);
         // pe_e = 0/2 = 0, power_law(0) = 1.0, ae = 2·1 + max(0,0) = 2
-        assert!((ae - de).abs() < 1e-12, "Power-law ae at Pe=0 mismatch: {ae}");
-        assert!((aw - dw).abs() < 1e-12, "Power-law aw at Pe=0 mismatch: {aw}");
+        assert!(
+            (ae - de).abs() < 1e-12,
+            "Power-law ae at Pe=0 mismatch: {ae}"
+        );
+        assert!(
+            (aw - dw).abs() < 1e-12,
+            "Power-law aw at Pe=0 mismatch: {aw}"
+        );
     }
 
     /// Hybrid scheme: switches at Pe = 2.

@@ -1,8 +1,8 @@
 use crate::grid::array2d::Array2D;
-use nalgebra::RealField;
-use std::collections::HashMap;
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
+use nalgebra::RealField;
+use std::collections::HashMap;
 
 /// Energy equation solver for transporting thermal scalar fields.
 pub struct EnergyEquationSolver<T: RealField + Copy> {
@@ -177,8 +177,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
                         let scale = self.viscous_dissipation_mu[(i, j)] / rho_cp;
                         // Convert scale factor from f64 to T via successive halvings.
                         // For f64 T this is exact; for f32 it rounds.
-                        self.heat_source[(i, j)] +=
-                            contribs[(i, j)] * T::from_subset(&scale);
+                        self.heat_source[(i, j)] += contribs[(i, j)] * T::from_subset(&scale);
                     }
                 }
             }
@@ -228,7 +227,8 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
                     (f_diff_east - f_diff_west) / dx + (f_diff_north - f_diff_south) / dy;
 
                 // Explicit update
-                self.work_buffer[(i, j)] = t + dt * (-conv_term + diff_term + self.heat_source[(i, j)]);
+                self.work_buffer[(i, j)] =
+                    t + dt * (-conv_term + diff_term + self.heat_source[(i, j)]);
             }
         }
 
@@ -240,8 +240,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
                 for i in 1..self.nx - 1 {
                     for j in 1..self.ny - 1 {
                         let scale = self.viscous_dissipation_mu[(i, j)] / rho_cp;
-                        self.heat_source[(i, j)] -=
-                            contribs[(i, j)] * T::from_subset(&scale);
+                        self.heat_source[(i, j)] -= contribs[(i, j)] * T::from_subset(&scale);
                     }
                 }
             }
@@ -296,5 +295,3 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
         h * characteristic_length / self.thermal_diffusivity[(0, 0)]
     }
 }
-
-

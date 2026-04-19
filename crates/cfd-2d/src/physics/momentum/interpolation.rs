@@ -160,14 +160,16 @@ mod tests {
 
         for j in 0..grid.ny {
             for i in 1..grid.nx {
-                let reference = exact.face_velocity_x(&u_vec, &fields.p, grid.dx, grid.dy, None, i - 1, j);
+                let reference =
+                    exact.face_velocity_x(&u_vec, &fields.p, grid.dx, grid.dy, None, i - 1, j);
                 assert_relative_eq!(u_face[(i, j)], reference, epsilon = 1e-12);
             }
         }
 
         for i in 0..grid.nx {
             for j in 1..grid.ny {
-                let reference = exact.face_velocity_y(&u_vec, &fields.p, grid.dx, grid.dy, None, i, j - 1);
+                let reference =
+                    exact.face_velocity_y(&u_vec, &fields.p, grid.dx, grid.dy, None, i, j - 1);
                 assert_relative_eq!(v_face[(i, j)], reference, epsilon = 1e-12);
             }
         }

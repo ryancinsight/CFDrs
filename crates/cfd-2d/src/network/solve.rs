@@ -69,10 +69,7 @@ where
 
     /// Solve the projected schematics-driven network and return the compatibility
     /// result plus projection metadata.
-    pub fn solve_projected(
-        &mut self,
-        tolerance: f64,
-    ) -> CfdResult<ProjectedNetwork2dResult<T>> {
+    pub fn solve_projected(&mut self, tolerance: f64) -> CfdResult<ProjectedNetwork2dResult<T>> {
         let result = self.solve_all(tolerance)?;
         let projection = self.projection_summary_ref().clone();
         Ok(ProjectedNetwork2dResult { result, projection })

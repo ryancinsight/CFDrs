@@ -150,10 +150,7 @@ fn transformed_centerline(
 
     let mut transformed = Vec::with_capacity(path.len());
     let mut arclength = 0.0_f64;
-    transformed.push((
-        0.0,
-        y_offset + (path[0].1 - metrics.y_min) * width_scale,
-    ));
+    transformed.push((0.0, y_offset + (path[0].1 - metrics.y_min) * width_scale));
 
     for window in path.windows(2) {
         let (x0, y0) = window[0];
@@ -177,15 +174,18 @@ fn default_half_width(channel: &ChannelSpec) -> f64 {
 
 #[must_use]
 pub(crate) fn channel_projection_domain(channel: &ChannelSpec) -> ProjectionDomain {
-    let base_width = channel.venturi_geometry.as_ref().map_or_else(
-        || default_half_width(channel) * 2.0,
-        |geom| {
-            geom.inlet_width_m
-                .max(geom.throat_width_m)
-                .max(geom.outlet_width_m)
-        },
-    )
-    .max(default_half_width(channel) * 2.0);
+    let base_width = channel
+        .venturi_geometry
+        .as_ref()
+        .map_or_else(
+            || default_half_width(channel) * 2.0,
+            |geom| {
+                geom.inlet_width_m
+                    .max(geom.throat_width_m)
+                    .max(geom.outlet_width_m)
+            },
+        )
+        .max(default_half_width(channel) * 2.0);
 
     let metrics = path_metrics(&channel.path).unwrap_or(PathMetrics {
         x_min: 0.0,
@@ -302,7 +302,10 @@ pub(crate) fn summarize_projection<T>(
 where
     T: RealField + Copy + Float + FromPrimitive + ToPrimitive,
 {
-    let total_fluid_cell_count = summaries.iter().map(|summary| summary.fluid_cell_count).sum();
+    let total_fluid_cell_count = summaries
+        .iter()
+        .map(|summary| summary.fluid_cell_count)
+        .sum();
     let mean_fluid_fraction = if summaries.is_empty() {
         T::zero()
     } else {

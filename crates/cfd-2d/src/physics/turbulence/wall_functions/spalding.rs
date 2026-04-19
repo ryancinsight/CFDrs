@@ -43,8 +43,8 @@ pub fn spalding_u_plus(y_plus: f64) -> f64 {
         let exp_ku = ku.exp();
 
         // F(u⁺) = u⁺ + exp(-κB)·[exp(κu⁺) - 1 - κu⁺ - (κu⁺)²/2 - (κu⁺)³/6] - y⁺
-        let f = u_plus + EXP_NEG_KB * (exp_ku - 1.0 - ku - ku * ku / 2.0 - ku * ku * ku / 6.0)
-            - y_plus;
+        let f =
+            u_plus + EXP_NEG_KB * (exp_ku - 1.0 - ku - ku * ku / 2.0 - ku * ku * ku / 6.0) - y_plus;
 
         // F'(u⁺) = 1 + exp(-κB)·κ·[exp(κu⁺) - 1 - κu⁺ - (κu⁺)²/2]
         let df = 1.0 + EXP_NEG_KB * KAPPA_S * (exp_ku - 1.0 - ku - ku * ku / 2.0);

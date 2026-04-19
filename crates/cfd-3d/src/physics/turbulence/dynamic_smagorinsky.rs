@@ -10,9 +10,9 @@
 //! C_s² = <L_ij M_ij> / <M_ij M_ij>
 //! ```
 //!
-//! where `<·>` denotes a local averaging operator over the test-filter stencil.
-//! The implementation below uses a discrete top-hat filter and exact spatial
-//! derivatives on the cell-centred velocity field.
+//! where `<·>` denotes the domain-wide average used in the traditional global
+//! dynamic model. The implementation below uses a discrete top-hat filter and
+//! exact spatial derivatives on the cell-centred velocity field.
 //!
 //! ## References
 //!
@@ -23,7 +23,7 @@
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use nalgebra::{RealField, Vector3};
+use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
 use super::constants::DEARDORFF_ONE_THIRD;
@@ -31,31 +31,7 @@ use super::field_ops::{
     linear_index, strain_components, strain_magnitude, symmetric_contract,
     velocity_gradient_tensor, SymmetricTensor6,
 };
-
-#[derive(Clone, Copy, Debug)]
-struct FilterMoments<T: RealField + Copy> {
-    velocity: Vector3<T>,
-    uu: T,
-    vv: T,
-    ww: T,
-    uv: T,
-    uw: T,
-    vw: T,
-}
-
-impl<T: RealField + Copy> FilterMoments<T> {
-    fn zero() -> Self {
-        Self {
-            velocity: Vector3::zeros(),
-            uu: T::zero(),
-            vv: T::zero(),
-            ww: T::zero(),
-            uv: T::zero(),
-            uw: T::zero(),
-            vw: T::zero(),
-        }
-    }
-}
+use super::filter_ops::{box_filter_moments_at, box_filter_velocity_at, resolved_stress_tensor};
 
 /// Dynamic Smagorinsky LES model (Germano et al. 1991).
 #[derive(Debug, Clone)]
@@ -107,117 +83,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
             cs_sq_max: one,
         }
     }
-
-    fn box_filter_velocity_at(
-        &self,
-        velocity: &[Vector3<T>],
-        nx: usize,
-        ny: usize,
-        nz: usize,
-        i: usize,
-        j: usize,
-        k: usize,
-    ) -> Vector3<T> {
-        let mut sum = Vector3::zeros();
-        let mut count = 0usize;
-        let plane = nx * ny;
-
-        for dk in [0isize, -1, 1] {
-            let nk = k as isize + dk;
-            if nk < 0 || nk >= nz as isize {
-                continue;
-            }
-            for dj in [0isize, -1, 1] {
-                let nj = j as isize + dj;
-                if nj < 0 || nj >= ny as isize {
-                    continue;
-                }
-                let base = nk as usize * plane + nj as usize * nx;
-                for di in [0isize, -1, 1] {
-                    let ni = i as isize + di;
-                    if ni < 0 || ni >= nx as isize {
-                        continue;
-                    }
-                    sum += velocity[base + ni as usize];
-                    count += 1;
-                }
-            }
-        }
-
-        let count_t = <T as FromPrimitive>::from_usize(count)
-            .expect("box filter stencil size is always representable");
-        sum / count_t
-    }
-
-    fn box_filter_moments_at(
-        &self,
-        velocity: &[Vector3<T>],
-        nx: usize,
-        ny: usize,
-        nz: usize,
-        i: usize,
-        j: usize,
-        k: usize,
-    ) -> FilterMoments<T> {
-        let mut moments = FilterMoments::zero();
-        let mut count = 0usize;
-        let plane = nx * ny;
-
-        for dk in [0isize, -1, 1] {
-            let nk = k as isize + dk;
-            if nk < 0 || nk >= nz as isize {
-                continue;
-            }
-            for dj in [0isize, -1, 1] {
-                let nj = j as isize + dj;
-                if nj < 0 || nj >= ny as isize {
-                    continue;
-                }
-                let base = nk as usize * plane + nj as usize * nx;
-                for di in [0isize, -1, 1] {
-                    let ni = i as isize + di;
-                    if ni < 0 || ni >= nx as isize {
-                        continue;
-                    }
-                    let v = velocity[base + ni as usize];
-                    moments.velocity += v;
-                    moments.uu += v.x * v.x;
-                    moments.vv += v.y * v.y;
-                    moments.ww += v.z * v.z;
-                    moments.uv += v.x * v.y;
-                    moments.uw += v.x * v.z;
-                    moments.vw += v.y * v.z;
-                    count += 1;
-                }
-            }
-        }
-
-        let count_t = <T as FromPrimitive>::from_usize(count)
-            .expect("box filter stencil size is always representable");
-        let inv = T::one() / count_t;
-        moments.velocity *= inv;
-        moments.uu *= inv;
-        moments.vv *= inv;
-        moments.ww *= inv;
-        moments.uv *= inv;
-        moments.uw *= inv;
-        moments.vw *= inv;
-        moments
-    }
-
-    fn resolved_stress_tensor(
-        moments: FilterMoments<T>,
-        filtered_velocity: Vector3<T>,
-    ) -> SymmetricTensor6<T> {
-        SymmetricTensor6 {
-            xx: moments.uu - filtered_velocity.x * filtered_velocity.x,
-            yy: moments.vv - filtered_velocity.y * filtered_velocity.y,
-            zz: moments.ww - filtered_velocity.z * filtered_velocity.z,
-            xy: moments.uv - filtered_velocity.x * filtered_velocity.y,
-            xz: moments.uw - filtered_velocity.x * filtered_velocity.z,
-            yz: moments.vw - filtered_velocity.y * filtered_velocity.z,
-        }
-    }
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default
@@ -246,7 +111,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         for k in 0..nz {
             for j in 0..ny {
                 for i in 0..nx {
-                    filtered_velocity.push(self.box_filter_velocity_at(
+                    filtered_velocity.push(box_filter_velocity_at(
                         &flow_field.velocity.components,
                         nx,
                         ny,
@@ -292,16 +157,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 
                     let s = strain_components(&gradient);
                     let s_hat = strain_components(&filtered_gradient);
-                    let l = Self::resolved_stress_tensor(
-                        self.box_filter_moments_at(
-                            &flow_field.velocity.components,
-                            nx,
-                            ny,
-                            nz,
-                            i,
-                            j,
-                            k,
-                        ),
+                    let l = resolved_stress_tensor(
+                        box_filter_moments_at(&flow_field.velocity.components, nx, ny, nz, i, j, k),
                         filtered_velocity[idx],
                     );
                     let m = SymmetricTensor6 {
@@ -369,6 +226,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use nalgebra::Vector3;
 
     fn fill_velocity_field<F>(flow: &mut FlowField<f64>, mut generator: F)
     where

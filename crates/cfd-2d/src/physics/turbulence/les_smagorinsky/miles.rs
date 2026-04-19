@@ -20,23 +20,23 @@
 //! ## Implementation Strategy
 //!
 //! MILES is implemented by:
-//! 1. Using high-order shock-capturing schemes (WENO, TVD)
+//! 1. Using high-order shock-capturing schemes (WENO-Z, TVD)
 //! 2. Ensuring sufficient grid resolution for resolved scales
 //! 3. Applying boundary conditions that minimize numerical artifacts
 //! 4. Using appropriate numerical dissipation for stability
 //!
 //! ## Shock-Capturing Integration
 //!
-//! The MILES approach integrates seamlessly with WENO schemes:
+//! The MILES approach integrates seamlessly with WENO-Z schemes:
 //!
 //! ```math
 //! ∂u/∂t + ∂f(u)/∂x = 0  (no explicit SGS terms)
 //! ```
 //!
-//! The WENO reconstruction provides the necessary dissipation:
+//! The WENO-Z reconstruction provides the necessary dissipation:
 //!
 //! ```math
-//! q_{i+1/2} = WENO5(q_{i-2}, q_{i-1}, q_i, q_{i+1}, q_{i+2})
+//! q_{i+1/2} = WENO-Z5(q_{i-2}, q_{i-1}, q_i, q_{i+1}, q_{i+2})
 //! ```
 //!
 //! ## Grid Resolution Requirements
@@ -247,7 +247,8 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
                 reynolds_number / T::from_f64(1000.0).expect("analytical constant conversion")
             };
 
-        let mach_score = if mach_number > T::from_f64(0.3).expect("analytical constant conversion") {
+        let mach_score = if mach_number > T::from_f64(0.3).expect("analytical constant conversion")
+        {
             T::one()
         } else {
             mach_number / T::from_f64(0.3).expect("analytical constant conversion")

@@ -404,10 +404,8 @@ mod tests {
         // using central differences
         for i in 2..n - 2 {
             for j in 2..n - 2 {
-                let du_dx = (solver.u[(i + 1, j)].x - solver.u[(i - 1, j)].x)
-                    / (2.0 * solver.dx);
-                let dv_dy = (solver.u[(i, j + 1)].y - solver.u[(i, j - 1)].y)
-                    / (2.0 * solver.dy);
+                let du_dx = (solver.u[(i + 1, j)].x - solver.u[(i - 1, j)].x) / (2.0 * solver.dx);
+                let dv_dy = (solver.u[(i, j + 1)].y - solver.u[(i, j - 1)].y) / (2.0 * solver.dy);
                 let div = du_dx + dv_dy;
                 assert!(
                     div.abs() < 1e-6,

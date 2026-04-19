@@ -181,7 +181,9 @@ impl VelocityFieldInterpolator for AsymmetricBifurcationFlow {
             // Narrow daughter: y in [0, y_div].
             if y >= y_div {
                 let dh = h - y_div;
-                if dh < 1e-12 { return (0.0, 0.0); }
+                if dh < 1e-12 {
+                    return (0.0, 0.0);
+                }
                 let s = (2.0 * (y - y_div) / dh - 1.0).clamp(-1.0, 1.0);
                 // U_max = (3/2) * Q / A.  Q = f_wide * Q_parent.
                 // Q_parent = (2/3) * u_inlet * H (Poiseuille integral).
@@ -190,7 +192,9 @@ impl VelocityFieldInterpolator for AsymmetricBifurcationFlow {
                 let u_d = f_wide * self.u_inlet * h / dh;
                 (u_d * (1.0 - s * s), 0.0)
             } else {
-                if y_div < 1e-12 { return (0.0, 0.0); }
+                if y_div < 1e-12 {
+                    return (0.0, 0.0);
+                }
                 let s = (2.0 * y / y_div - 1.0).clamp(-1.0, 1.0);
                 let u_d = (1.0 - f_wide) * self.u_inlet * h / y_div;
                 (u_d * (1.0 - s * s), 0.0)

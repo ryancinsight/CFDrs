@@ -105,7 +105,8 @@ impl<T: RealField + Copy> CentralDifference<T> {
 
 impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for CentralDifference<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        let divisor = T::from_f64(super::constants::CENTRAL_DIFF_DIVISOR).expect("analytical constant conversion");
+        let divisor = T::from_f64(super::constants::CENTRAL_DIFF_DIVISOR)
+            .expect("analytical constant conversion");
         (grid.data[(i + 1, j)] - grid.data[(i - 1, j)]) / (divisor * grid.dx)
     }
 

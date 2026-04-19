@@ -393,4 +393,3 @@ fn test_steady_heat_source_balance() {
         }
     }
 }
-

@@ -121,8 +121,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         for (nu_tilde, nu, expected_nu_t) in test_cases {
             let nu_t = model.eddy_viscosity(nu_tilde, nu);
             let ratio = nu_t / expected_nu_t;
-            let passed =
-                (ratio - T::one()).abs() < T::from_f64(0.01).expect("analytical constant conversion");
+            let passed = (ratio - T::one()).abs()
+                < T::from_f64(0.01).expect("analytical constant conversion");
 
             passed_all &= passed;
             let _ = writeln!(
@@ -152,7 +152,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         let (k, epsilon, omega, nu_tilde) = match model_name {
             "k-epsilon" => {
                 let mut model = KEpsilonModel::new(nx, ny);
-                let mut k = vec![T::from_f64(0.1).expect("analytical constant conversion"); nx * ny];
+                let mut k =
+                    vec![T::from_f64(0.1).expect("analytical constant conversion"); nx * ny];
                 let mut epsilon =
                     vec![T::from_f64(0.01).expect("analytical constant conversion"); nx * ny];
 
@@ -175,7 +176,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             }
             "k-omega-sst" => {
                 let mut model = KOmegaSSTModel::new(nx, ny);
-                let mut k = vec![T::from_f64(0.1).expect("analytical constant conversion"); nx * ny];
+                let mut k =
+                    vec![T::from_f64(0.1).expect("analytical constant conversion"); nx * ny];
                 let mut omega =
                     vec![T::from_f64(10.0).expect("analytical constant conversion"); nx * ny];
 

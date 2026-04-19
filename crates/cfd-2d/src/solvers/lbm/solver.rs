@@ -181,7 +181,7 @@ where
         self.macroscopic = self.macroscopic.with_nuclei();
         self.nuclei_transport =
             Some(cfd_core::physics::cavitation::nuclei_transport::NucleiTransport::new(config));
-            
+
         // Assuming dt = 1 in lattice units for this solver's inner loop if not specified
         self.tau_g = Some(self.config.tau);
         self
@@ -253,7 +253,8 @@ where
         let ny = self.ny;
 
         // 1. Update macroscopic fields from current f (and g)
-        self.macroscopic.update_from_distributions(&self.f, self.g.as_deref());
+        self.macroscopic
+            .update_from_distributions(&self.f, self.g.as_deref());
 
         // 2. Collision step (operates in-place on self.f)
         self.collision.collide(
@@ -280,20 +281,23 @@ where
             for j in 0..ny {
                 for i in 0..nx {
                     let cell = j * nx + i;
-                    let u = [self.macroscopic.velocity[cell * 2], self.macroscopic.velocity[cell * 2 + 1]];
+                    let u = [
+                        self.macroscopic.velocity[cell * 2],
+                        self.macroscopic.velocity[cell * 2 + 1],
+                    ];
                     let phi = nuclei_fraction[cell];
 
                     // Lattice-space cavitation source: once the local pressure drops below the
                     // unit-density equilibrium threshold, seed nuclei generation proportionally
                     // to the pressure deficit.
-                    let macroscopic_source = Self::lattice_cavitation_source(
-                        self.macroscopic.density[cell],
-                    );
-                    
+                    let macroscopic_source =
+                        Self::lattice_cavitation_source(self.macroscopic.density[cell]);
+
                     let s_net = transport.calculate_net_reaction_rate(phi, macroscopic_source);
 
                     for q in 0..9 {
-                        let weight = T::from_f64(D2Q9::WEIGHTS[q]).expect("D2Q9 weights are exact f64 constants");
+                        let weight = T::from_f64(D2Q9::WEIGHTS[q])
+                            .expect("D2Q9 weights are exact f64 constants");
                         let g_eq = equilibrium(phi, &u, q, weight, D2Q9::VELOCITIES[q]);
                         let idx = f_idx(j, i, q, nx);
                         // Advection-diffusion collision + source/sink
@@ -470,11 +474,15 @@ mod tests {
         solver.initialize(|_, _| 1.0, |_, _| Vector2::new(0.05, 0.0))?;
 
         // Update macroscopic once to populate density field
-        solver.macroscopic.update_from_distributions(&solver.f, None);
+        solver
+            .macroscopic
+            .update_from_distributions(&solver.f, None);
         let mass_before: f64 = solver.macroscopic.density.iter().sum();
 
         solver.step(&HashMap::new())?;
-        solver.macroscopic.update_from_distributions(&solver.f, None);
+        solver
+            .macroscopic
+            .update_from_distributions(&solver.f, None);
         let mass_after: f64 = solver.macroscopic.density.iter().sum();
 
         assert_relative_eq!(mass_before, mass_after, epsilon = 1e-8);

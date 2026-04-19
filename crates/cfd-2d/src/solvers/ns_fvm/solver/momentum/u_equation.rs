@@ -1,9 +1,9 @@
 //! u-momentum Gauss-Seidel solver.
 
 use crate::error::Error;
+use crate::grid::array2d::Array2D;
 use crate::solvers::ns_fvm::boundary::{BCType, BoundaryCondition};
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
-use crate::grid::array2d::Array2D;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 

@@ -181,21 +181,15 @@ mod tests {
     fn test_wall_damping() {
         let (strain, filter) = create_test_strain_and_filter(10, 10);
         let config = SmagorinskyConfig::default();
-        let viscosity_damped = compute_sgs_viscosity(&strain, &filter, None, &config, 0.1, 0.1, 1.0);
+        let viscosity_damped =
+            compute_sgs_viscosity(&strain, &filter, None, &config, 0.1, 0.1, 1.0);
 
         let config_no_damping = SmagorinskyConfig {
             wall_damping: false,
             ..config
         };
-        let viscosity_no_damping = compute_sgs_viscosity(
-            &strain,
-            &filter,
-            None,
-            &config_no_damping,
-            0.1,
-            0.1,
-            1.0,
-        );
+        let viscosity_no_damping =
+            compute_sgs_viscosity(&strain, &filter, None, &config_no_damping, 0.1, 0.1, 1.0);
 
         // Wall damping should reduce viscosity near walls using the exact
         // axis-aligned wall distance.

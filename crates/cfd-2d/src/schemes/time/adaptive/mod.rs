@@ -151,7 +151,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
         let dt_cfl = dt_cfl_x.min(dt_cfl_y);
 
         // Apply safety factor and clamp to bounds
-        let dt_adapted = dt_cfl * T::from_f64(safety_factor).expect("analytical constant conversion");
+        let dt_adapted =
+            dt_cfl * T::from_f64(safety_factor).expect("analytical constant conversion");
         dt_adapted.max(self.dt_min).min(self.dt_max)
     }
 
@@ -170,8 +171,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
 
         for i in 0..n {
             let diff = (y1[i] - y2[i]).abs();
-            let error =
-                diff / (T::from_f64(2.0_f64.powi(p as i32)).expect("analytical constant conversion") - T::one());
+            let error = diff
+                / (T::from_f64(2.0_f64.powi(p as i32)).expect("analytical constant conversion")
+                    - T::one());
             error_max = error_max.max(error);
         }
 
@@ -200,7 +202,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
             AdaptationStrategy::CFLBased { .. } => return (self.dt_current, true), // No error-based adaptation
         };
 
-        let error_tolerance_t = T::from_f64(error_tolerance).expect("analytical constant conversion");
+        let error_tolerance_t =
+            T::from_f64(error_tolerance).expect("analytical constant conversion");
 
         if error_estimate <= error_tolerance_t {
             // Step accepted - try to increase time step
