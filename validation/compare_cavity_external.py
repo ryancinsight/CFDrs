@@ -15,6 +15,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+from scipy.interpolate import RectBivariateSpline
 
 # Add validation directory to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -49,24 +50,26 @@ def run_cfd_python_cavity(Re: float = 100, nx: int = 65, ny: int = 65):
         if hasattr(cfd_python, 'CavitySolver2D'):
             solver = cfd_python.CavitySolver2D(
                 nx=nx, ny=ny,
-                Re=Re,
-                tolerance=1e-6,
-                max_iterations=20000
+                reynolds=Re
             )
             result = solver.solve()
             
-            return {
-                "u": np.array(result.u_field),
-                "v": np.array(result.v_field),
-                "p": np.array(result.p_field),
-                "u_centerline": np.array(result.u_centerline),
-                "v_centerline": np.array(result.v_centerline),
-                "x": np.array(result.x_coords),
-                "y": np.array(result.y_coords),
-                "converged": result.converged,
-                "iterations": result.iterations,
-                "residual": result.residual
-            }
+            if hasattr(result, "u_field"):
+                return {
+                    "u": np.array(result.u_field),
+                    "v": np.array(result.v_field),
+                    "p": np.array(result.p_field),
+                    "u_centerline": np.array(result.u_centerline),
+                    "v_centerline": np.array(result.v_centerline),
+                    "x": np.array(result.x_coords),
+                    "y": np.array(result.y_coords),
+                    "converged": result.converged,
+                    "iterations": getattr(result, "iterations", 0),
+                    "residual": getattr(result, "residual", 0.0)
+                }
+            else:
+                print("WARN: cfd_python cavity solver does not export full fields, skipping 2D comparison.")
+                return None
         else:
             print("WARN: CavitySolver2D not found in cfd_python - using placeholder")
             # Return dummy data matching external reference dimensions
@@ -103,9 +106,32 @@ def compare_solutions(cfd_python_result, external_result, Re: float):
     
     # Ensure same grid size
     if cfd_python_result["u"].shape != ext_sol["u"].shape:
-        print(f"WARN: Grid size mismatch: cfd_python {cfd_python_result['u'].shape} vs external {ext_sol['u'].shape}")
-        # TODO: Interpolate if needed
-        return None
+        print(f"INFO: Interpolating cfd_python results from {cfd_python_result['u'].shape} to external {ext_sol['u'].shape} grid")
+
+        # Original grid (assuming regular grid)
+        # Note: RectBivariateSpline expects strictly increasing x and y
+        x_orig = cfd_python_result["x"]
+        y_orig = cfd_python_result["y"]
+
+        # Target grid
+        x_new = ext_sol["x"]
+        y_new = ext_sol["y"]
+
+        # Interpolate fields (transpose as RectBivariateSpline expects [x, y] ordering)
+        spline_u = RectBivariateSpline(x_orig, y_orig, cfd_python_result["u"].T)
+        spline_v = RectBivariateSpline(x_orig, y_orig, cfd_python_result["v"].T)
+        spline_p = RectBivariateSpline(x_orig, y_orig, cfd_python_result["p"].T)
+
+        # Evaluate on new grid (and transpose back to [y, x] ordering)
+        cfd_python_result["u"] = spline_u(x_new, y_new).T
+        cfd_python_result["v"] = spline_v(x_new, y_new).T
+        cfd_python_result["p"] = spline_p(x_new, y_new).T
+
+        # Update centerlines and coordinates
+        cfd_python_result["u_centerline"] = cfd_python_result["u"][:, len(x_new) // 2]
+        cfd_python_result["v_centerline"] = cfd_python_result["v"][len(y_new) // 2, :]
+        cfd_python_result["x"] = x_new
+        cfd_python_result["y"] = y_new
     
     # Compute L2 errors
     u_diff = cfd_python_result["u"] - ext_sol["u"]
