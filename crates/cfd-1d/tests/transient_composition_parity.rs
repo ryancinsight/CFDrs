@@ -169,6 +169,40 @@ fn simulate_with_time_config_samples_result_grid_and_switches_events() {
 }
 
 #[test]
+fn duplicate_requested_timepoints_are_sampled_consistently() {
+    let mut builder = NetworkBuilder::<f64>::new();
+    let inlet = builder.add_inlet("inlet".to_string());
+    let outlet = builder.add_outlet("outlet".to_string());
+    let edge = builder.connect_with_pipe(inlet, outlet, "e0".to_string());
+    let graph = builder.build().expect("graph");
+
+    let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
+    let mut network = Network::new(graph, fluid);
+    network.set_flow_rate(edge, 1.0);
+
+    let events = vec![InletHematocritEvent {
+        time: 0.0,
+        node_index: inlet.index(),
+        hematocrit: 0.45,
+    }];
+
+    let states = TransientCompositionSimulator::simulate_blood_hematocrit_with_edge_transport(
+        &network,
+        events,
+        vec![0.0, 0.5, 0.5, 1.0],
+    )
+    .expect("simulate duplicate timepoints");
+
+    assert_eq!(states.len(), 4);
+    assert!((states[1].time - 0.5).abs() < 1.0e-12);
+    assert!((states[2].time - 0.5).abs() < 1.0e-12);
+
+    let hct_1 = states[1].edge_hematocrit(edge.index()).expect("edge hct");
+    let hct_2 = states[2].edge_hematocrit(edge.index()).expect("edge hct");
+    assert!((hct_1 - hct_2).abs() < 1.0e-12);
+}
+
+#[test]
 fn edge_average_concentrations_query_matches_snapshot_mixture() {
     let mut builder = NetworkBuilder::<f64>::new();
     let in1 = builder.add_inlet("in1".to_string());

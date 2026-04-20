@@ -35,11 +35,12 @@
 
 use super::config::{AlgorithmType, SimplecPimpleConfig};
 use crate::fields::Field2D;
+use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use crate::physics::MomentumSolver;
 use crate::pressure_velocity::{PressureCorrectionSolver, RhieChowInterpolation};
 use cfd_core::error::Error;
-use nalgebra::RealField;
+use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
 
 /// SIMPLEC/PIMPLE pressure-velocity coupling solver
@@ -54,6 +55,10 @@ pub struct SimplecPimpleSolver<T: RealField + Copy> {
     pub(super) pressure_solver: PressureCorrectionSolver<T>,
     pub(super) rhie_chow: Option<RhieChowInterpolation<T>>,
     pub(super) iterations: usize,
+    pub(super) u_star_workspace: Array2D<Vector2<T>>,
+    pub(super) u_corrected_workspace: Array2D<Vector2<T>>,
+    pub(super) p_workspace: Array2D<T>,
+    pub(super) p_correction_workspace: Array2D<T>,
     pub(super) _u_face_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
     pub(super) _v_face_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
     pub(super) _d_x_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
@@ -116,6 +121,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         // Create pressure solver using configuration
         let pressure_solver =
             PressureCorrectionSolver::new(grid.clone(), config.pressure_linear_solver)?;
+        let grid_nx = grid.nx;
+        let grid_ny = grid.ny;
 
         let rhie_chow = if config.use_rhie_chow {
             let mut rhie_chow = RhieChowInterpolation::new(&grid);
@@ -141,6 +148,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             pressure_solver,
             rhie_chow,
             iterations: 0,
+            u_star_workspace: Array2D::new(grid_nx, grid_ny, Vector2::zeros()),
+            u_corrected_workspace: Array2D::new(grid_nx, grid_ny, Vector2::zeros()),
+            p_workspace: Array2D::new(grid_nx, grid_ny, T::zero()),
+            p_correction_workspace: Array2D::new(grid_nx, grid_ny, T::zero()),
             _u_face_cache: std::cell::RefCell::new(None),
             _v_face_cache: std::cell::RefCell::new(None),
             _d_x_cache: std::cell::RefCell::new(None),

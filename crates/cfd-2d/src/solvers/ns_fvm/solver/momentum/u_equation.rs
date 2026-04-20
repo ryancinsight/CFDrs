@@ -1,7 +1,6 @@
 //! u-momentum Gauss-Seidel solver.
 
 use crate::error::Error;
-use crate::grid::array2d::Array2D;
 use crate::solvers::ns_fvm::boundary::{BCType, BoundaryCondition};
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 use nalgebra::RealField;
@@ -27,9 +26,11 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let half = one / (one + one);
         let zero = T::zero();
 
-        let u_old = self.field.u.clone();
-        let v_old = self.field.v.clone();
-        let mut a_p_u = Array2D::new(nx + 1, ny, T::one());
+        self.u_old_workspace.copy_from(&self.field.u);
+        self.v_old_workspace.copy_from(&self.field.v);
+        self.a_p_u.fill(one);
+        let u_old = &self.u_old_workspace;
+        let v_old = &self.v_old_workspace;
 
         for i in 1..nx {
             for j in 0..ny {
@@ -156,10 +157,10 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                     let u_star =
                         (a_e * u_e + a_w * u_w + a_n * u_n + a_s * u_s + pressure_source) / a_p;
                     self.field.u[(i, j)] = self.field.u[(i, j)] * (one - alpha) + u_star * alpha;
-                    a_p_u[(i, j)] = a_p;
+                    self.a_p_u[(i, j)] = a_p;
                 } else {
                     self.field.u[(i, j)] = zero;
-                    a_p_u[(i, j)] = one;
+                    self.a_p_u[(i, j)] = one;
                 }
             }
         }
@@ -227,7 +228,6 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             },
         }
 
-        self.a_p_u = a_p_u;
         Ok(())
     }
 }

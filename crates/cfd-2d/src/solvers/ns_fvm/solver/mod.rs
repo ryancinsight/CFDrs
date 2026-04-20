@@ -63,6 +63,10 @@ pub struct NavierStokesSolver2D<T: RealField + Copy + Float + FromPrimitive> {
     a_p_u: Array2D<T>,
     /// Central coefficient storage for v-momentum
     a_p_v: Array2D<T>,
+    /// Snapshot of the staggered u field reused across momentum sweeps.
+    u_old_workspace: Array2D<T>,
+    /// Snapshot of the staggered v field reused across momentum sweeps.
+    v_old_workspace: Array2D<T>,
     /// Pressure Poisson coefficient workspace for east-west face diffusion.
     pressure_poisson_d_u: Array2D<T>,
     /// Pressure Poisson coefficient workspace for north-south face diffusion.
@@ -100,6 +104,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let field = FlowField2D::<T>::new(grid.nx, grid.ny);
         let a_p_u = Array2D::new(grid.nx + 1, grid.ny, T::one());
         let a_p_v = Array2D::new(grid.nx, grid.ny + 1, T::one());
+        let u_old_workspace = Array2D::new(grid.nx + 1, grid.ny, T::zero());
+        let v_old_workspace = Array2D::new(grid.nx, grid.ny + 1, T::zero());
         let pressure_poisson_d_u = Array2D::new(grid.nx + 1, grid.ny, T::zero());
         let pressure_poisson_d_v = Array2D::new(grid.nx, grid.ny + 1, T::zero());
         let pressure_poisson_p_prime = Array2D::new(grid.nx, grid.ny, T::zero());
@@ -112,6 +118,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             config,
             a_p_u,
             a_p_v,
+            u_old_workspace,
+            v_old_workspace,
             pressure_poisson_d_u,
             pressure_poisson_d_v,
             pressure_poisson_p_prime,
@@ -240,14 +248,12 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
     /// Drive the SIMPLE loop to steady state.
     pub fn solve(&mut self, u_inlet: T) -> Result<SolveResult<T>, Error> {
         self.initialize_viscosity();
-        self.a_p_u = crate::grid::array2d::Array2D::new(self.grid.nx + 1, self.grid.ny, T::one());
-        self.a_p_v = crate::grid::array2d::Array2D::new(self.grid.nx, self.grid.ny + 1, T::one());
 
         let ny = self.grid.ny;
 
         // Parabolic inlet profile (supports non-uniform y-spacing)
-        let mut y_coords = Vec::new();
-        let mut dy_cells = Vec::new();
+        let mut y_coords = Vec::with_capacity(ny);
+        let mut dy_cells = Vec::with_capacity(ny);
         for j in 0..ny {
             if self.field.mask[(0, j)] {
                 y_coords.push(self.grid.y_center(j));

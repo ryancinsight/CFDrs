@@ -12,19 +12,19 @@ const DEFAULT_MAX_ITERATIONS: usize = 100;
 /// Level Set configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelSetConfig {
-    /// Reinitialization interval (timesteps)
+    /// Reinitialization interval (timesteps). `0` disables reinitialization.
     pub reinitialization_interval: usize,
     /// Narrow band width
     pub band_width: f64,
-    /// CFL number for time stepping
+    /// CFL number used to set the reinitialization pseudo-time step.
     pub cfl_number: f64,
-    /// Convergence tolerance
+    /// Convergence tolerance for reinitialization.
     pub tolerance: f64,
-    /// Maximum iterations for reinitialization
+    /// Maximum iterations for reinitialization. `0` disables reinitialization.
     pub max_iterations: usize,
     /// Use narrow band method
     pub use_narrow_band: bool,
-    /// Use WENO scheme for advection
+    /// Use WENO5-Z advection; when `false`, fall back to first-order upwind.
     pub use_weno: bool,
 }
 

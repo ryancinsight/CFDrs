@@ -50,6 +50,26 @@ fn init_sphere(solver: &mut LevelSetSolver<f64>, r: f64) {
     }
 }
 
+fn init_perturbed_sphere(solver: &mut LevelSetSolver<f64>, r: f64) {
+    let nx = solver.nx();
+    let ny = solver.ny();
+    let nz = solver.nz();
+    let h = 1.0 / nx as f64;
+    let phi = solver.phi_mut();
+    for k in 0..nz {
+        for j in 0..ny {
+            for i in 0..nx {
+                let x = i as f64 * h - 0.5;
+                let y = j as f64 * h - 0.5;
+                let z = k as f64 * h - 0.5;
+                let radius = (x * x + y * y + z * z).sqrt();
+                let idx = k * nx * ny + j * nx + i;
+                phi[idx] = (radius - r) * (1.0 + 0.3 * (x + y).sin());
+            }
+        }
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Positive Tests
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,23 +133,7 @@ fn test_reinitialization_restores_unit_gradient() {
         h,
         h,
     );
-    // Use a perturbed distance function (not exact signed distance)
-    {
-        let phi = solver.phi_mut();
-        for k in 0..nx {
-            for j in 0..nx {
-                for i in 0..nx {
-                    let x = i as f64 * h - 0.5;
-                    let y = j as f64 * h - 0.5;
-                    let z = k as f64 * h - 0.5;
-                    let r = (x * x + y * y + z * z).sqrt();
-                    let idx = k * nx * nx + j * nx + i;
-                    // Perturb: multiply by a smooth factor
-                    phi[idx] = (r - 0.25) * (1.0 + 0.3 * (x + y).sin());
-                }
-            }
-        }
-    }
+    init_perturbed_sphere(&mut solver, 0.25);
 
     // Advance once (triggers reinitialization)
     solver.advance(1e-4).expect("advance failed");
@@ -166,6 +170,69 @@ fn test_reinitialization_restores_unit_gradient() {
         max_err < 0.20, // 20% tolerance for first-order Godunov reinit on 20-cell grid
         "Reinitialization must restore |∇φ|≈1, max error = {max_err:.4}"
     );
+}
+
+/// **Positive**: reinitialization interval `0` disables the reinitialization pass.
+#[test]
+fn test_zero_reinitialization_interval_skips_reinitialization() {
+    let nx = 20usize;
+    let h = 1.0 / nx as f64;
+    let mut solver = LevelSetSolver::new(
+        LevelSetConfig {
+            reinitialization_interval: 0,
+            use_narrow_band: false,
+            ..default_config()
+        },
+        nx,
+        nx,
+        nx,
+        h,
+        h,
+        h,
+    );
+    init_perturbed_sphere(&mut solver, 0.25);
+    let phi0: Vec<f64> = solver.phi().to_vec();
+
+    solver.advance(1e-4).expect("advance failed");
+
+    for (idx, (&p0, &p1)) in phi0.iter().zip(solver.phi()).enumerate() {
+        assert!(
+            (p0 - p1).abs() < 1e-12,
+            "phi must remain unchanged when reinitialization is disabled at idx {idx}"
+        );
+    }
+}
+
+/// **Positive**: a zero reinitialization iteration budget disables the solve.
+#[test]
+fn test_reinitialization_max_iterations_zero_skips_reinitialization() {
+    let nx = 20usize;
+    let h = 1.0 / nx as f64;
+    let mut solver = LevelSetSolver::new(
+        LevelSetConfig {
+            reinitialization_interval: 1,
+            max_iterations: 0,
+            use_narrow_band: false,
+            ..default_config()
+        },
+        nx,
+        nx,
+        nx,
+        h,
+        h,
+        h,
+    );
+    init_perturbed_sphere(&mut solver, 0.25);
+    let phi0: Vec<f64> = solver.phi().to_vec();
+
+    solver.advance(1e-4).expect("advance failed");
+
+    for (idx, (&p0, &p1)) in phi0.iter().zip(solver.phi()).enumerate() {
+        assert!(
+            (p0 - p1).abs() < 1e-12,
+            "phi must remain unchanged when max_iterations is zero at idx {idx}"
+        );
+    }
 }
 
 /// **Positive**: Sphere advection preserves zero-level-set radius to leading order.
@@ -226,6 +293,51 @@ fn test_single_cell_no_panic() {
         solver.phi_mut().fill(-0.1);
     }
     let _ = solver.advance(1e-3);
+}
+
+/// **Boundary**: Small domains fall back from WENO5-Z to first-order upwind.
+#[test]
+fn test_small_grid_uses_first_order_fallback() {
+    let nx = 4usize;
+    let h = 1.0 / nx as f64;
+    let mut solver = LevelSetSolver::new(
+        LevelSetConfig {
+            reinitialization_interval: 0,
+            use_narrow_band: false,
+            use_weno: true,
+            ..default_config()
+        },
+        nx,
+        nx,
+        nx,
+        h,
+        h,
+        h,
+    );
+
+    {
+        let phi = solver.phi_mut();
+        for k in 0..nx {
+            for j in 0..nx {
+                for i in 0..nx {
+                    let x = i as f64 * h - 0.5;
+                    let idx = k * nx * nx + j * nx + i;
+                    phi[idx] = x;
+                }
+            }
+        }
+    }
+
+    solver.set_velocity(vec![Vector3::new(1.0, 0.0, 0.0); nx * nx * nx]);
+
+    let before = solver.phi().to_vec();
+    solver.advance(0.01).expect("small-grid advance failed");
+
+    let center = solver.index(1, 1, 1);
+    assert!(
+        (solver.phi()[center] - before[center]).abs() > 1e-12,
+        "small-grid advance must update the interior state"
+    );
 }
 
 /// **Boundary**: Interface exactly at domain boundary (φ=0 on ghost cells).

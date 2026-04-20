@@ -81,6 +81,33 @@ impl<T: RealField + Copy + FromPrimitive> MixtureComposition<T> {
         Self::new(blended)
     }
 
+    /// Weighted blend of owned incoming mixtures.
+    pub(crate) fn blend_weighted_owned(inputs: &[(Self, T)]) -> Self {
+        if inputs.is_empty() {
+            return Self::empty();
+        }
+
+        let total_weight = inputs
+            .iter()
+            .map(|(_, w)| *w)
+            .fold(T::zero(), |acc, v| acc + v);
+
+        if total_weight <= T::zero() {
+            return Self::empty();
+        }
+
+        let mut blended: HashMap<i32, T> = HashMap::new();
+        for (mixture, weight) in inputs {
+            for (fluid_id, frac) in &mixture.fractions {
+                let contribution = (*frac) * (*weight) / total_weight;
+                let entry = blended.entry(*fluid_id).or_insert(T::zero());
+                *entry += contribution;
+            }
+        }
+
+        Self::new(blended)
+    }
+
     /// Compare with tolerance.
     #[must_use]
     pub fn approximately_equals(&self, other: &Self, tolerance: T) -> bool {

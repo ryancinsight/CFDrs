@@ -323,7 +323,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "rsparse LU panics on degenerate FEM matrices from small bifurcation meshes; requires iterative solver migration"]
     fn test_blood_flow_validation() {
         let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
         let mesh_config = MeshRefinementConfig::default();
@@ -353,7 +352,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "rsparse LU panics on degenerate FEM matrices from small bifurcation meshes; requires iterative solver migration"]
     fn test_mesh_convergence_outputs_observed_order_and_gci() {
         let geom = BifurcationGeometry3D::<f64>::symmetric(100e-6, 80e-6, 1e-3, 1e-3, 100e-6);
         let mesh_config = MeshRefinementConfig::default();

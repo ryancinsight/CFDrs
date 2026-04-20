@@ -47,14 +47,24 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     ) -> cfd_core::error::Result<T> {
         // Update Rhie-Chow old velocity buffer for transient correction
         if let Some(ref mut rhie_chow) = self.rhie_chow {
-            let mut u_old =
-                crate::fields::Field2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
+            let mut u_old_cache = self._vel_field_cache.borrow_mut();
+            if u_old_cache.as_ref().is_none_or(|v| {
+                let (nx, ny) = v.dimensions();
+                nx != self.grid.nx || ny != self.grid.ny
+            }) {
+                *u_old_cache = Some(crate::fields::Field2D::new(
+                    self.grid.nx,
+                    self.grid.ny,
+                    Vector2::zeros(),
+                ));
+            }
+            let u_old = u_old_cache.as_mut().expect("old velocity cache must exist");
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny {
                     u_old.set(i, j, Vector2::new(fields.u.at(i, j), fields.v.at(i, j)));
                 }
             }
-            rhie_chow.update_old_velocity(&u_old);
+            rhie_chow.update_old_velocity(u_old);
         }
 
         match self.config.algorithm {
@@ -178,10 +188,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         let mut converged = false;
 
         let mut u_prev = self.extract_velocity_field(fields);
-        let mut u_star = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
-        let mut u_corrected = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
-        let mut p_vec = Array2D::new(self.grid.nx, self.grid.ny, T::zero());
-        let mut p_correction = Array2D::new(self.grid.nx, self.grid.ny, T::zero());
         let mut continuity_residual = T::max_value()
             .unwrap_or_else(|| T::from_f64(1e30).expect("analytical constant conversion"));
 
@@ -204,20 +210,50 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             // Step 3: Extract predicted velocity field u*
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny {
-                    u_star[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
+                    self.u_star_workspace[(i, j)] =
+                        Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
                 }
             }
 
             // Step 4: Solve pressure correction equation
-            self.solve_pressure_correction(fields, dt, rho, true, &mut p_correction)?;
+            {
+                let grid = &self.grid;
+                let pressure_solver = &self.pressure_solver;
+                let momentum_solver = &self.momentum_solver;
+                let rhie_chow = self.rhie_chow.as_ref();
+                let vel_field_cache = &self._vel_field_cache;
+                let cons_vel_cache = &self._cons_vel_cache;
+                let u_face_cache = &self._u_face_cache;
+                let v_face_cache = &self._v_face_cache;
+                let d_x_cache = &self._d_x_cache;
+                let d_y_cache = &self._d_y_cache;
+
+                super::interpolation::solve_pressure_correction_with_caches(
+                    grid,
+                    pressure_solver,
+                    momentum_solver,
+                    rhie_chow,
+                    vel_field_cache,
+                    cons_vel_cache,
+                    u_face_cache,
+                    v_face_cache,
+                    d_x_cache,
+                    d_y_cache,
+                    fields,
+                    dt,
+                    rho,
+                    true,
+                    &mut self.p_correction_workspace,
+                )?;
+            }
 
             // Step 5: Correct velocities using pressure gradients
-            u_corrected.copy_from(&u_star);
+            self.u_corrected_workspace.copy_from(&self.u_star_workspace);
             {
                 let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
                 self.pressure_solver.correct_velocity(
-                    &mut u_corrected,
-                    &p_correction,
+                    &mut self.u_corrected_workspace,
+                    &self.p_correction_workspace,
                     ap_c_u,
                     ap_c_v,
                     rho,
@@ -227,32 +263,32 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             }
 
             // Step 6: Correct pressure with under-relaxation
-            for i in 0..self.grid.nx {
-                for j in 0..self.grid.ny {
-                    p_vec[(i, j)] = fields.p.at(i, j);
-                }
-            }
-            self.pressure_solver
-                .correct_pressure(&mut p_vec, &p_correction, self.config.alpha_p);
-            for i in 0..self.grid.nx {
-                for j in 0..self.grid.ny {
-                    fields.p.set(i, j, p_vec[(i, j)]);
-                }
-            }
+            self.p_workspace
+                .as_mut_slice()
+                .clone_from_slice(fields.p.as_slice());
+            self.pressure_solver.correct_pressure(
+                &mut self.p_workspace,
+                &self.p_correction_workspace,
+                self.config.alpha_p,
+            );
+            fields
+                .p
+                .data_mut()
+                .clone_from_slice(self.p_workspace.as_slice());
 
             // Step 7: Update velocity fields (u* already relaxed in momentum solve)
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny {
-                    fields.set_velocity_at(i, j, &u_corrected[(i, j)]);
+                    fields.set_velocity_at(i, j, &self.u_corrected_workspace[(i, j)]);
                 }
             }
 
             // Step 8: Check convergence
             let velocity_residual =
-                self.calculate_velocity_residual_from_vectors(&u_prev, &u_corrected);
+                self.calculate_velocity_residual_from_vectors(&u_prev, &self.u_corrected_workspace);
 
             continuity_residual = self.compute_continuity_residual(fields, Some(dt));
-            u_prev.copy_from(&u_corrected);
+            u_prev.copy_from(&self.u_corrected_workspace);
 
             let velocity_converged = velocity_residual < self.config.tolerance;
             let continuity_converged =
@@ -306,12 +342,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     ) -> cfd_core::error::Result<T> {
         let u_initial = self.extract_velocity_field(fields);
         let mut u_before_outer = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
-        let mut u_star = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
-        let mut u_corrected = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
-        let mut u_current = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
-        let mut p_vec = Array2D::new(self.grid.nx, self.grid.ny, T::zero());
-        let mut p_correction = Array2D::new(self.grid.nx, self.grid.ny, T::zero());
-        let max_outer_iterations = self.config.n_outer_correctors.max(3);
+        let max_outer_iterations = self.config.n_outer_correctors;
 
         for _outer_iter in 0..max_outer_iterations {
             for i in 0..self.grid.nx {
@@ -334,7 +365,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
             for i in 0..self.grid.nx {
                 for j in 0..self.grid.ny {
-                    u_star[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
+                    self.u_star_workspace[(i, j)] =
+                        Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
                 }
             }
 
@@ -347,14 +379,43 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 }
 
                 let rebuild_matrix = _inner_iter == 0;
-                self.solve_pressure_correction(fields, dt, rho, rebuild_matrix, &mut p_correction)?;
+                {
+                    let grid = &self.grid;
+                    let pressure_solver = &self.pressure_solver;
+                    let momentum_solver = &self.momentum_solver;
+                    let rhie_chow = self.rhie_chow.as_ref();
+                    let vel_field_cache = &self._vel_field_cache;
+                    let cons_vel_cache = &self._cons_vel_cache;
+                    let u_face_cache = &self._u_face_cache;
+                    let v_face_cache = &self._v_face_cache;
+                    let d_x_cache = &self._d_x_cache;
+                    let d_y_cache = &self._d_y_cache;
+
+                    super::interpolation::solve_pressure_correction_with_caches(
+                        grid,
+                        pressure_solver,
+                        momentum_solver,
+                        rhie_chow,
+                        vel_field_cache,
+                        cons_vel_cache,
+                        u_face_cache,
+                        v_face_cache,
+                        d_x_cache,
+                        d_y_cache,
+                        fields,
+                        dt,
+                        rho,
+                        rebuild_matrix,
+                        &mut self.p_correction_workspace,
+                    )?;
+                }
 
                 {
                     let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
-                    u_corrected.copy_from(&u_star);
+                    self.u_corrected_workspace.copy_from(&self.u_star_workspace);
                     self.pressure_solver.correct_velocity(
-                        &mut u_corrected,
-                        &p_correction,
+                        &mut self.u_corrected_workspace,
+                        &self.p_correction_workspace,
                         ap_c_u,
                         ap_c_v,
                         rho,
@@ -362,38 +423,32 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         fields,
                     );
 
-                    for i in 0..self.grid.nx {
-                        for j in 0..self.grid.ny {
-                            p_vec[(i, j)] = fields.p.at(i, j);
-                        }
-                    }
+                    self.p_workspace
+                        .as_mut_slice()
+                        .clone_from_slice(fields.p.as_slice());
                     self.pressure_solver.correct_pressure(
-                        &mut p_vec,
-                        &p_correction,
+                        &mut self.p_workspace,
+                        &self.p_correction_workspace,
                         self.config.alpha_p,
                     );
-                    for i in 0..self.grid.nx {
-                        for j in 0..self.grid.ny {
-                            fields.p.set(i, j, p_vec[(i, j)]);
-                        }
-                    }
+                    fields
+                        .p
+                        .data_mut()
+                        .clone_from_slice(self.p_workspace.as_slice());
 
                     for i in 0..self.grid.nx {
                         for j in 0..self.grid.ny {
-                            fields.set_velocity_at(i, j, &u_corrected[(i, j)]);
+                            fields.set_velocity_at(i, j, &self.u_corrected_workspace[(i, j)]);
                         }
                     }
                 }
             }
 
             // Check outer loop convergence
-            for i in 0..self.grid.nx {
-                for j in 0..self.grid.ny {
-                    u_current[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
-                }
-            }
-            let outer_residual =
-                self.calculate_velocity_residual_from_vectors(&u_before_outer, &u_current);
+            let outer_residual = self.calculate_velocity_residual_from_vectors(
+                &u_before_outer,
+                &self.u_corrected_workspace,
+            );
 
             if outer_residual
                 < self.config.tolerance * T::from_f64(5.0).expect("analytical constant conversion")

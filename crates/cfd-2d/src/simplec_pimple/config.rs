@@ -80,6 +80,8 @@ impl<T: RealField + Copy + FromPrimitive> SimplecPimpleConfig<T> {
     pub fn pimple() -> Self {
         Self {
             algorithm: AlgorithmType::Pimple,
+            n_outer_correctors: 3,
+            n_inner_correctors: 2,
             ..Default::default()
         }
     }

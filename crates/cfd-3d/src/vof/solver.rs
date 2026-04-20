@@ -39,7 +39,9 @@
 //! ## Interface Reconstruction
 //!
 //! ### PLIC Algorithm (Youngs, 1982)
-//! 1. **Normal Calculation**: ∇α / |∇α| using mixed Youngs-centered scheme
+//! 1. **Normal Calculation**: dominant-axis height function when the interface
+//!    is graph-like, with Youngs mixed-difference fallback for steep or
+//!    ambiguous cells
 //! 2. **Plane Equation**: Find linear interface that matches volume fraction
 //! 3. **Root Finding**: Solve nonlinear equation for interface position
 //!
@@ -53,12 +55,13 @@
 //!
 //! ### Continuum Surface Force (CSF) Model (Brackbill et al., 1992)
 //! ```math
-//! F_σ = σ κ ∇α
+//! F_σ = σ κ δ_s n̂
 //! ```
 //!
-//! where κ is the interface curvature computed from the divergence of the normal:
+//! where `n̂ = -∇α / |∇α|` and κ is the interface curvature computed from the
+//! divergence of the normal:
 //! ```math
-//! κ = ∇·(∇α / |∇α|)
+//! κ = -∇·n̂
 //! ```
 //!
 //! ## Accuracy and Conservation
@@ -257,13 +260,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSo
             for k in 1..self.nz - 1 {
                 // j=0 row
                 let idx_j0 = self.index(0, 0, k);
-                let range_j0 = idx_j0..idx_j0 + self.nx;
-                self.alpha_previous[range_j0.clone()].copy_from_slice(&self.alpha[range_j0]);
+                let end_j0 = idx_j0 + self.nx;
+                self.alpha_previous[idx_j0..end_j0].copy_from_slice(&self.alpha[idx_j0..end_j0]);
 
                 // j=ny-1 row
                 let idx_jend = self.index(0, self.ny - 1, k);
-                let range_jend = idx_jend..idx_jend + self.nx;
-                self.alpha_previous[range_jend.clone()].copy_from_slice(&self.alpha[range_jend]);
+                let end_jend = idx_jend + self.nx;
+                self.alpha_previous[idx_jend..end_jend]
+                    .copy_from_slice(&self.alpha[idx_jend..end_jend]);
             }
         }
 

@@ -34,6 +34,12 @@ pub struct PressureVelocitySolver<T: RealField + Copy> {
     u: Array2D<Vector2<T>>,
     /// Current pressure field
     p: Array2D<T>,
+    /// Predicted velocity workspace reused across SIMPLE iterations.
+    u_star_workspace: Array2D<Vector2<T>>,
+    /// Pressure correction workspace reused across SIMPLE iterations.
+    p_correction_workspace: Array2D<T>,
+    /// Simulation field workspace reused across momentum and pressure solves.
+    state_workspace: SimulationFields<T>,
     /// Iteration counter
     iterations: usize,
 }
@@ -69,6 +75,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
             rhie_chow,
             u: Array2D::new(nx, ny, Vector2::zeros()),
             p: Array2D::new(nx, ny, T::zero()),
+            u_star_workspace: Array2D::new(nx, ny, Vector2::zeros()),
+            p_correction_workspace: Array2D::new(nx, ny, T::zero()),
+            state_workspace: SimulationFields::new(nx, ny),
             iterations: 0,
         })
     }
@@ -93,67 +102,76 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
         _nu: T,
         rho: T,
     ) -> cfd_core::error::Result<T> {
-        // Step 1: Solve momentum equations for predicted velocity
-        // Note: This needs proper integration with SimulationFields
-        // Benchmark framework: Computational solver integration pending.
-        // Current implementation creates fields structure for future solver hookup.
-        let mut state_buffer = SimulationFields::new(self.grid.nx, self.grid.ny);
-        // Copy current state to fields
-        for i in 0..self.grid.nx {
-            for j in 0..self.grid.ny {
-                state_buffer.set_velocity_at(i, j, &self.u[(i, j)]);
-                if let Some(p) = state_buffer.p.at_mut(i, j) {
-                    *p = self.p[(i, j)];
-                }
+        let dt = self.config.dt;
+        let alpha_u = self.config.alpha_u;
+        let alpha_p = self.config.alpha_p;
+
+        let u_source = self.u.as_slice();
+        let p_source = self.p.as_slice();
+
+        // Step 1: Solve momentum equations for predicted velocity.
+        // Reuse one field workspace to avoid per-iteration heap allocation.
+        {
+            let momentum_solver = &mut self.momentum_solver;
+            let pressure_solver = &mut self.pressure_solver;
+            let state_buffer = &mut self.state_workspace;
+            let u_star_workspace = &mut self.u_star_workspace;
+            let p_correction_workspace = &mut self.p_correction_workspace;
+
+            for ((dst_u, dst_v), vel) in state_buffer
+                .u
+                .as_mut_slice()
+                .iter_mut()
+                .zip(state_buffer.v.as_mut_slice().iter_mut())
+                .zip(u_source.iter())
+            {
+                *dst_u = vel.x;
+                *dst_v = vel.y;
             }
-        }
+            state_buffer.p.as_mut_slice().clone_from_slice(p_source);
 
-        // Solve momentum equations (modifies state_buffer in place)
-        self.momentum_solver
-            .solve(MomentumComponent::U, &mut state_buffer, self.config.dt)?;
-        self.momentum_solver
-            .solve(MomentumComponent::V, &mut state_buffer, self.config.dt)?;
+            momentum_solver.solve(MomentumComponent::U, state_buffer, dt)?;
+            momentum_solver.solve(MomentumComponent::V, state_buffer, dt)?;
 
-        // Extract predicted velocity field
-        let mut u_star = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
-        for i in 0..self.grid.nx {
-            for j in 0..self.grid.ny {
-                u_star[(i, j)] = Vector2::new(state_buffer.u.at(i, j), state_buffer.v.at(i, j));
+            for ((dst, u), v) in u_star_workspace
+                .as_mut_slice()
+                .iter_mut()
+                .zip(state_buffer.u.as_slice().iter())
+                .zip(state_buffer.v.as_slice().iter())
+            {
+                *dst = Vector2::new(*u, *v);
             }
-        }
 
-        // Step 2: Solve pressure correction equation
-        let mut p_correction = Array2D::new(self.grid.nx, self.grid.ny, T::zero());
-        self.pressure_solver.solve_pressure_correction(
-            &state_buffer,
-            self.config.dt,
-            rho,
-            true,
-            &mut p_correction,
-        )?;
+            // Step 2: Solve pressure correction equation.
+            p_correction_workspace.fill(T::zero());
+            pressure_solver.solve_pressure_correction(
+                state_buffer,
+                dt,
+                rho,
+                true,
+                p_correction_workspace,
+            )?;
+        }
 
         // Step 3: Correct velocity field
-        let mut u_corrected = u_star;
+        std::mem::swap(&mut self.u, &mut self.u_star_workspace);
         let (ap_u, _, ap_v, _) = self.momentum_solver.get_ap_coefficients();
         self.pressure_solver.correct_velocity(
-            &mut u_corrected,
-            &p_correction,
+            &mut self.u,
+            &self.p_correction_workspace,
             ap_u,
             ap_v,
             rho,
-            self.config.alpha_u,
-            &state_buffer, // Pass buffer for mask access
+            alpha_u,
+            &self.state_workspace, // Pass buffer for mask access
         );
 
         // Step 4: Correct pressure field
         self.pressure_solver
-            .correct_pressure(&mut self.p, &p_correction, self.config.alpha_p);
+            .correct_pressure(&mut self.p, &self.p_correction_workspace, alpha_p);
 
         // Step 5: Calculate residual for convergence check
-        let residual = self.calculate_residual(&self.u, &u_corrected);
-
-        // Update fields
-        self.u = u_corrected;
+        let residual = self.calculate_residual(&self.u_star_workspace, &self.u);
         self.iterations += 1;
 
         Ok(residual)
@@ -229,6 +247,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
 mod tests {
     use super::*;
     use crate::grid::StructuredGrid2D;
+    use cfd_core::physics::boundary::{BoundaryCondition, WallType};
 
     fn make_solver(nx: usize, ny: usize) -> PressureVelocitySolver<f64> {
         let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
@@ -276,5 +295,35 @@ mod tests {
         let p_init = Array2D::new(4, 4, 0.0);
         solver.set_initial_conditions(u_init, p_init);
         assert_eq!(solver.iterations(), 0);
+    }
+
+    #[test]
+    fn step_reuses_internal_workspaces_across_iterations() {
+        let mut solver = make_solver(4, 4);
+        let u_init = Array2D::new(4, 4, Vector2::new(1.0, 0.0));
+        let p_init = Array2D::new(4, 4, 0.0);
+        solver.set_initial_conditions(u_init, p_init);
+
+        let bc = BoundaryCondition::Wall {
+            wall_type: WallType::NoSlip,
+        };
+
+        let first = solver
+            .step(&bc, 0.01, 1.0)
+            .expect("first pressure-velocity iteration");
+        let second = solver
+            .step(&bc, 0.01, 1.0)
+            .expect("second pressure-velocity iteration");
+
+        assert!(first.is_finite(), "first residual must be finite");
+        assert!(second.is_finite(), "second residual must be finite");
+        assert_eq!(solver.iterations(), 2);
+
+        for velocity in solver.velocity().as_slice() {
+            assert!(
+                velocity.x.is_finite() && velocity.y.is_finite(),
+                "velocity field must remain finite after repeated steps"
+            );
+        }
     }
 }

@@ -14,6 +14,7 @@ use nalgebra::{DMatrix, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 use num_traits::{FromPrimitive, ToPrimitive};
 use rsparse::data::Sprs;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 
 /// Direct sparse solver configuration.
 #[derive(Debug, Clone)]
@@ -63,34 +64,97 @@ impl DirectSparseSolver {
 
         let (sprs, mut b) = csr_to_csc_sprs_f64(matrix, rhs)?;
 
-        match rsparse::lusol(&sprs, &mut b, self.ordering, self.pivot_tolerance) {
-            Ok(()) => {
+        let sparse_result = catch_unwind(AssertUnwindSafe(|| {
+            rsparse::lusol(&sprs, &mut b, self.ordering, self.pivot_tolerance)
+        }));
+
+        match sparse_result {
+            Ok(Ok(())) => {
                 let mut x = DVector::zeros(nrows);
                 for (i, value) in b.iter().enumerate() {
-                    x[i] = T::from_f64(*value).unwrap_or_else(T::zero);
+                    x[i] = Self::convert_solution_value(*value)?;
                 }
                 Ok(x)
             }
-            Err(e) => {
-                let dense_threshold = 1024usize;
-                if nrows <= dense_threshold {
-                    tracing::warn!(
-                        size = nrows,
-                        ordering = self.ordering,
-                        pivot_tolerance = self.pivot_tolerance,
-                        "Direct sparse LU failed; retrying with dense LU"
-                    );
-                    let dense_solution = dense_lu_solve(matrix, rhs).map_err(|dense_error| {
-                        Error::Solver(format!(
-                            "Direct sparse LU failed: {e}; dense LU fallback failed: {dense_error}"
-                        ))
-                    })?;
-                    return Ok(dense_solution);
-                }
-
-                Err(Error::Solver(format!("Direct sparse LU failed: {e}")))
+            Ok(Err(e)) => self.retry_dense_or_error(matrix, rhs, nrows, e.to_string()),
+            Err(_) => {
+                tracing::warn!(
+                    size = nrows,
+                    ordering = self.ordering,
+                    pivot_tolerance = self.pivot_tolerance,
+                    "Direct sparse LU panicked; retrying with dense LU"
+                );
+                self.retry_dense_or_error(
+                    matrix,
+                    rhs,
+                    nrows,
+                    "direct sparse LU panicked".to_string(),
+                )
             }
         }
+    }
+
+    fn retry_dense_or_error<T>(
+        &self,
+        matrix: &CsrMatrix<T>,
+        rhs: &DVector<T>,
+        nrows: usize,
+        sparse_error: String,
+    ) -> Result<DVector<T>>
+    where
+        T: RealField + Copy + FromPrimitive + ToPrimitive,
+    {
+        let dense_threshold = 1024usize;
+        if nrows <= dense_threshold {
+            tracing::warn!(
+                size = nrows,
+                ordering = self.ordering,
+                pivot_tolerance = self.pivot_tolerance,
+                "Direct sparse LU failed; retrying with dense LU"
+            );
+            let dense_solution = dense_lu_solve(matrix, rhs).map_err(|dense_error| {
+                Error::Solver(format!(
+                    "Direct sparse LU failed: {sparse_error}; dense LU fallback failed: {dense_error}"
+                ))
+            })?;
+            Self::ensure_finite_solution(&dense_solution)?;
+            return Ok(dense_solution);
+        }
+
+        Err(Error::Solver(format!(
+            "Direct sparse LU failed: {sparse_error}"
+        )))
+    }
+
+    fn convert_solution_value<T>(value: f64) -> Result<T>
+    where
+        T: RealField + Copy + FromPrimitive + ToPrimitive,
+    {
+        let converted = T::from_f64(value).ok_or_else(|| {
+            Error::ConversionError(format!(
+                "Direct sparse LU solution value {value} cannot be represented in target precision"
+            ))
+        })?;
+        if !converted.to_f64().map_or(false, f64::is_finite) {
+            return Err(Error::ConversionError(format!(
+                "Direct sparse LU solution value {value} cannot be represented in target precision"
+            )));
+        }
+        Ok(converted)
+    }
+
+    fn ensure_finite_solution<T>(solution: &DVector<T>) -> Result<()>
+    where
+        T: RealField + Copy + FromPrimitive + ToPrimitive,
+    {
+        for (index, value) in solution.iter().enumerate() {
+            if !value.to_f64().map_or(false, f64::is_finite) {
+                return Err(Error::ConversionError(format!(
+                    "Direct dense LU solution entry {index} cannot be represented in target precision"
+                )));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -182,6 +246,7 @@ where
 mod tests {
     use super::*;
     use crate::sparse::SparseMatrixBuilder;
+    use std::panic::{catch_unwind, AssertUnwindSafe};
 
     #[test]
     fn direct_solver_solves_small_system() {
@@ -199,5 +264,43 @@ mod tests {
 
         assert!((x[0] - 2.0_f64).abs() < 1e-8_f64);
         assert!((x[1] - 3.0_f64).abs() < 1e-8_f64);
+    }
+
+    #[test]
+    fn direct_solver_singular_system_does_not_panic() {
+        let builder = SparseMatrixBuilder::new(2, 2);
+        let mut rhs = DVector::from_vec(vec![0.0_f64, 0.0_f64]);
+        let matrix = builder.build_with_rhs(&mut rhs).unwrap();
+
+        let solver = DirectSparseSolver::default();
+        let result = catch_unwind(AssertUnwindSafe(|| solver.solve(&matrix, &rhs)));
+
+        assert!(
+            result.is_ok(),
+            "direct solver must not panic on singular input"
+        );
+        assert!(result.unwrap().is_err());
+    }
+
+    #[test]
+    fn direct_solver_errors_when_solution_exceeds_target_precision() {
+        let mut builder = SparseMatrixBuilder::new(1, 1);
+        builder.add_entry(0, 0, 1.0e-39_f32).unwrap();
+
+        let mut rhs = DVector::from_vec(vec![1.0_f32]);
+        let matrix = builder.build_with_rhs(&mut rhs).unwrap();
+
+        let solver = DirectSparseSolver::default();
+        let err = solver.solve(&matrix, &rhs).unwrap_err();
+
+        match err {
+            Error::ConversionError(message) => {
+                assert!(
+                    message.contains("cannot be represented in target precision"),
+                    "unexpected conversion error message: {message}"
+                );
+            }
+            other => panic!("Expected ConversionError, got {other:?}"),
+        }
     }
 }

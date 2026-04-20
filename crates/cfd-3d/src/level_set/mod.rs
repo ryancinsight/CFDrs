@@ -10,6 +10,7 @@
 //! geometry is maintained while restoring numerical conditioning.
 
 pub mod config;
+mod advection;
 pub mod solver;
 mod weno;
 

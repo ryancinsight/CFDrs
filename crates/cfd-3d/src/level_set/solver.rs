@@ -77,13 +77,14 @@
 //! ### Algorithm
 //!
 //! 1. **Initialization**: Construct signed distance function from geometry.
-//! 2. **Evolution**: Solve ∂φ/∂t + u·∇φ = 0 using WENO5-Z (one Euler step per advance).
+//! 2. **Evolution**: Solve ∂φ/∂t + u·∇φ = 0 using WENO5-Z with SSPRK3
+//!    time integration.
 //! 3. **Reinitialization**: Restore |∇φ| = 1 every `config.reinitialization_interval` steps
 //!    using convergence-based iteration.
 //! 4. **Narrow Band**: Update index set of cells within `band_width` grid spacings
 //!    of the interface.
 
-use super::{config::LevelSetConfig, weno::weno5_derivative};
+use super::{advection, config::LevelSetConfig};
 use cfd_core::error::Result;
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
@@ -186,26 +187,39 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
         self.narrow_band.clear();
         let band_width = <T as FromPrimitive>::from_f64(self.config.band_width)
             .expect("band_width config is an IEEE 754 representable f64");
+        let cell_limit = band_width
+            * num_traits::Float::min(num_traits::Float::min(self.dx, self.dy), self.dz);
 
         for idx in 0..self.phi.len() {
-            if num_traits::Float::abs(self.phi[idx])
-                <= band_width
-                    * num_traits::Float::min(num_traits::Float::min(self.dx, self.dy), self.dz)
-            {
+            if num_traits::Float::abs(self.phi[idx]) <= cell_limit {
                 self.narrow_band.push(idx);
             }
         }
     }
 
-    /// Advance level set by one time step using WENO5-Z advection.
+    /// Advance level set by one time step using WENO5-Z + SSPRK3 advection.
     pub fn advance(&mut self, dt: T) -> Result<()> {
         std::mem::swap(&mut self.phi, &mut self.phi_previous);
-        self.advect_weno5(dt)?;
+        advection::advance(
+            self.nx,
+            self.ny,
+            self.nz,
+            self.dx,
+            self.dy,
+            self.dz,
+            &self.config,
+            dt,
+            &self.velocity,
+            &self.phi_previous,
+            &mut self.phi,
+            &mut self.phi_reinit,
+        )?;
 
         self.time_step += 1;
-        if self
-            .time_step
-            .is_multiple_of(self.config.reinitialization_interval)
+        if self.config.reinitialization_interval != 0
+            && self
+                .time_step
+                .is_multiple_of(self.config.reinitialization_interval)
         {
             self.reinitialize()?;
         }
@@ -213,119 +227,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
         if self.config.use_narrow_band {
             self.update_narrow_band();
         }
-
-        Ok(())
-    }
-
-    // ────────────────────────────────────────────────────────────────────────────
-    // WENO5-Z Advection
-    // ────────────────────────────────────────────────────────────────────────────
-
-    /// Copy a halo from the previous field into the current field.
-    ///
-    /// The WENO advection step requires a 3-cell halo, while the
-    /// reinitialization step only requires a 1-cell boundary layer. Copying
-    /// just the requested shell preserves the current state without paying a
-    /// full-domain memory copy on every time step.
-    fn copy_halo_from_previous(&mut self, halo: usize) {
-        if halo == 0 || self.nx == 0 || self.ny == 0 || self.nz == 0 {
-            return;
-        }
-
-        let halo_x = halo.min(self.nx);
-        let halo_y = halo.min(self.ny);
-        let halo_z = halo.min(self.nz);
-        let x_max = self.nx.saturating_sub(halo_x);
-        let y_max = self.ny.saturating_sub(halo_y);
-        let z_max = self.nz.saturating_sub(halo_z);
-
-        for k in 0..self.nz {
-            let k_shell = k < halo_z || k >= z_max;
-            for j in 0..self.ny {
-                let j_shell = j < halo_y || j >= y_max;
-                for i in 0..self.nx {
-                    if k_shell || j_shell || i < halo_x || i >= x_max {
-                        let idx = self.index(i, j, k);
-                        self.phi[idx] = self.phi_previous[idx];
-                    }
-                }
-            }
-        }
-    }
-
-    /// Advect the level set using the 5th-order WENO-Z scheme.
-    ///
-    /// For each direction we compute the one-sided WENO5 reconstruction of the
-    /// spatial derivative:
-    ///
-    /// ```text
-    /// φ_x⁻  (left-biased, used when u > 0)
-    /// φ_x⁺  (right-biased, used when u < 0)
-    /// ```
-    ///
-    /// Then the Godunov upwind Hamiltonian is:
-    ///
-    /// ```math
-    /// H(φ_x⁻, φ_x⁺, u) = u φ_x   where φ_x = φ_x⁻ if u > 0, φ_x⁺ if u < 0
-    /// ```
-    ///
-    /// A single Forward-Euler time step is used here.  For production use couple
-    /// with TVD-RK3 (Shu & Osher 1988).
-    fn advect_weno5(&mut self, dt: T) -> Result<()> {
-        let nx = self.nx;
-        let ny = self.ny;
-        let nz = self.nz;
-
-        // WENO5 flux-differencing requires 3 ghost cells per side.
-        for k in 3..nz.saturating_sub(3) {
-            for j in 3..ny.saturating_sub(3) {
-                for i in 3..nx.saturating_sub(3) {
-                    let idx = self.index(i, j, k);
-                    let vel = self.velocity[idx];
-
-                    // ── x-direction: 7-point stencil {φ_{i-3},...,φ_{i+3}} ──
-                    let vx = [
-                        self.phi_previous[self.index(i - 3, j, k)],
-                        self.phi_previous[self.index(i - 2, j, k)],
-                        self.phi_previous[self.index(i - 1, j, k)],
-                        self.phi_previous[idx],
-                        self.phi_previous[self.index(i + 1, j, k)],
-                        self.phi_previous[self.index(i + 2, j, k)],
-                        self.phi_previous[self.index(i + 3, j, k)],
-                    ];
-                    let dphi_dx = weno5_derivative(vx, self.dx, vel.x);
-
-                    // ── y-direction ──
-                    let vy = [
-                        self.phi_previous[self.index(i, j - 3, k)],
-                        self.phi_previous[self.index(i, j - 2, k)],
-                        self.phi_previous[self.index(i, j - 1, k)],
-                        self.phi_previous[idx],
-                        self.phi_previous[self.index(i, j + 1, k)],
-                        self.phi_previous[self.index(i, j + 2, k)],
-                        self.phi_previous[self.index(i, j + 3, k)],
-                    ];
-                    let dphi_dy = weno5_derivative(vy, self.dy, vel.y);
-
-                    // ── z-direction ──
-                    let vz = [
-                        self.phi_previous[self.index(i, j, k - 3)],
-                        self.phi_previous[self.index(i, j, k - 2)],
-                        self.phi_previous[self.index(i, j, k - 1)],
-                        self.phi_previous[idx],
-                        self.phi_previous[self.index(i, j, k + 1)],
-                        self.phi_previous[self.index(i, j, k + 2)],
-                        self.phi_previous[self.index(i, j, k + 3)],
-                    ];
-                    let dphi_dz = weno5_derivative(vz, self.dz, vel.z);
-
-                    self.phi[idx] = self.phi_previous[idx]
-                        - dt * (vel.x * dphi_dx + vel.y * dphi_dy + vel.z * dphi_dz);
-                }
-            }
-        }
-
-        self.copy_halo_from_previous(3);
 
         Ok(())
     }
@@ -359,17 +260,23 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
         use num_traits::Float;
 
         let dx_min = Float::min(Float::min(self.dx, self.dy), self.dz);
-        // CFL-stable pseudo-time step for 3D: dtau ≤ dx/(2*dim) to stay below CFL=1.
-        let dtau = dx_min
-            / <T as FromPrimitive>::from_f64(6.0)
-                .expect("6.0 is representable in all IEEE 754 types");
-        let tol = <T as FromPrimitive>::from_f64(1e-6)
-            .expect("1e-6 is an IEEE 754 representable f64 constant");
+        if self.config.max_iterations == 0 {
+            return Ok(());
+        }
+
+        let cfl = <T as FromPrimitive>::from_f64(self.config.cfl_number)
+            .expect("cfl_number is an IEEE 754 representable f64 constant");
+        // Keep the previous default dtau = dx_min / 6.0 when cfl_number = 0.5.
+        let dtau = dx_min * cfl
+            / <T as FromPrimitive>::from_f64(3.0)
+                .expect("3.0 is representable in all IEEE 754 types");
+        let tol = <T as FromPrimitive>::from_f64(self.config.tolerance)
+            .expect("tolerance is an IEEE 754 representable f64 constant");
 
         // Store φ₀ for the sign function (must not be overwritten during iteration).
         self.phi_reinit.copy_from_slice(&self.phi);
 
-        let max_iters = 100usize;
+        let max_iters = self.config.max_iterations;
 
         for _ in 0..max_iters {
             std::mem::swap(&mut self.phi, &mut self.phi_previous);
@@ -399,7 +306,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
                 }
             }
 
-            self.copy_halo_from_previous(1);
+            advection::copy_halo_between_buffers(
+                self.nx,
+                self.ny,
+                self.nz,
+                &self.phi_previous,
+                &mut self.phi,
+                1,
+            );
 
             if max_err < tol {
                 break;

@@ -12,16 +12,18 @@ use super::convert_color;
 use super::render_core::PlottersRenderer;
 
 /// Plotters-based implementation of geometric drawing.
-pub struct PlottersDrawer<'a, DB: DrawingBackend> {
-    drawing_area: &'a DrawingArea<DB, Shift>,
-    chart: Option<&'a mut ChartContext<'a, DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>>,
+pub struct PlottersDrawer<'area, 'chart, DB: DrawingBackend> {
+    drawing_area: &'area DrawingArea<DB, Shift>,
+    chart: Option<&'chart mut ChartContext<'area, DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>>,
 }
 
-impl<'a, DB: DrawingBackend> PlottersDrawer<'a, DB> {
+impl<'area, 'chart, DB: DrawingBackend> PlottersDrawer<'area, 'chart, DB> {
     #[must_use]
     pub const fn new(
-        drawing_area: &'a DrawingArea<DB, Shift>,
-        chart: Option<&'a mut ChartContext<'a, DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>>,
+        drawing_area: &'area DrawingArea<DB, Shift>,
+        chart: Option<
+            &'chart mut ChartContext<'area, DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
+        >,
     ) -> Self {
         Self {
             drawing_area,
@@ -33,23 +35,35 @@ impl<'a, DB: DrawingBackend> PlottersDrawer<'a, DB> {
     pub const fn drawing_area(&self) -> &DrawingArea<DB, Shift> {
         self.drawing_area
     }
+
+    fn chart_mut(
+        &mut self,
+    ) -> VisualizationResult<
+        &mut ChartContext<'area, DB, Cartesian2d<RangedCoordf64, RangedCoordf64>>,
+    > {
+        self.chart
+            .as_deref_mut()
+            .ok_or_else(|| VisualizationError::CoordinateTransformError {
+                message: "plotters drawer requires a chart context for schematic coordinates"
+                    .to_string(),
+            })
+    }
 }
 
-impl<DB: DrawingBackend> GeometricDrawer for PlottersDrawer<'_, DB> {
+impl<'area, 'chart, DB: DrawingBackend> GeometricDrawer for PlottersDrawer<'area, 'chart, DB> {
     fn draw_line(
         &mut self,
         from: Point2D,
         to: Point2D,
         style: &LineStyle,
     ) -> VisualizationResult<()> {
-        if let Some(chart) = &mut self.chart {
-            chart
-                .draw_series(std::iter::once(PathElement::new(
-                    [from, to],
-                    convert_color(&style.color).stroke_width(style.width as u32),
-                )))
-                .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
-        }
+        let stroke_width = style.width.max(1.0).round() as u32;
+        self.chart_mut()?
+            .draw_series(std::iter::once(PathElement::new(
+                [from, to],
+                convert_color(&style.color).stroke_width(stroke_width),
+            )))
+            .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
         Ok(())
     }
 
@@ -62,14 +76,13 @@ impl<DB: DrawingBackend> GeometricDrawer for PlottersDrawer<'_, DB> {
             });
         }
 
-        if let Some(chart) = &mut self.chart {
-            chart
-                .draw_series(std::iter::once(PathElement::new(
-                    points,
-                    convert_color(&style.color).stroke_width(style.width as u32),
-                )))
-                .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
-        }
+        let stroke_width = style.width.max(1.0).round() as u32;
+        self.chart_mut()?
+            .draw_series(std::iter::once(PathElement::new(
+                points,
+                convert_color(&style.color).stroke_width(stroke_width),
+            )))
+            .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
         Ok(())
     }
 
@@ -79,48 +92,61 @@ impl<DB: DrawingBackend> GeometricDrawer for PlottersDrawer<'_, DB> {
         bottom_right: Point2D,
         style: &LineStyle,
     ) -> VisualizationResult<()> {
-        let points = [
-            top_left,
-            (bottom_right.0, top_left.1),
-            bottom_right,
-            (top_left.0, bottom_right.1),
-            top_left,
-        ];
+        let points = normalized_rectangle_outline(top_left, bottom_right);
         self.draw_path(&points, style)
     }
 
     fn fill_rectangle(
         &mut self,
-        _top_left: Point2D,
-        _bottom_right: Point2D,
-        _color: &CfdColor,
+        top_left: Point2D,
+        bottom_right: Point2D,
+        color: &CfdColor,
     ) -> VisualizationResult<()> {
+        let (x0, y0, x1, y1) = normalized_rectangle_bounds(top_left, bottom_right);
+        self.chart_mut()?
+            .draw_series(std::iter::once(Rectangle::new(
+                [(x0, y0), (x1, y1)],
+                convert_color(color).filled(),
+            )))
+            .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
         Ok(())
     }
 
     fn draw_text(
         &mut self,
-        _position: Point2D,
-        _text: &str,
-        _style: &TextStyle,
+        position: Point2D,
+        text: &str,
+        style: &TextStyle,
     ) -> VisualizationResult<()> {
+        let font_size = style.font_size.max(1.0).round() as i32;
+        self.chart_mut()?
+            .draw_series(std::iter::once(Text::new(
+                text.to_string(),
+                position,
+                (style.font_family.as_str(), font_size)
+                    .into_font()
+                    .color(&convert_color(&style.color)),
+            )))
+            .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
         Ok(())
     }
 }
 
 /// Plotters-based visualization engine.
-pub struct PlottersVisualizationEngine<'a, DB: DrawingBackend> {
-    drawer: PlottersDrawer<'a, DB>,
+pub struct PlottersVisualizationEngine<'area, 'chart, DB: DrawingBackend> {
+    drawer: PlottersDrawer<'area, 'chart, DB>,
 }
 
-impl<'a, DB: DrawingBackend> PlottersVisualizationEngine<'a, DB> {
+impl<'area, 'chart, DB: DrawingBackend> PlottersVisualizationEngine<'area, 'chart, DB> {
     #[must_use]
-    pub const fn new(drawer: PlottersDrawer<'a, DB>) -> Self {
+    pub const fn new(drawer: PlottersDrawer<'area, 'chart, DB>) -> Self {
         Self { drawer }
     }
 }
 
-impl<DB: DrawingBackend> VisualizationEngine for PlottersVisualizationEngine<'_, DB> {
+impl<'area, 'chart, DB: DrawingBackend> VisualizationEngine
+    for PlottersVisualizationEngine<'area, 'chart, DB>
+{
     fn visualize_system(
         &mut self,
         system: &NetworkBlueprint,
@@ -158,12 +184,26 @@ impl<DB: DrawingBackend> VisualizationEngine for PlottersVisualizationEngine<'_,
     fn add_axes(
         &mut self,
         _system: &NetworkBlueprint,
-        _config: &RenderConfig,
+        config: &RenderConfig,
     ) -> VisualizationResult<()> {
-        Ok(())
+        let mut mesh = self.drawer.chart_mut()?.configure_mesh();
+        mesh.x_desc("X (mm)").y_desc("Y (mm)");
+        if !config.show_grid {
+            mesh.disable_mesh();
+        }
+        mesh.draw()
+            .map_err(|e| VisualizationError::rendering_error(&e.to_string()))
     }
 
-    fn add_title(&mut self, _title: &str, _style: &TextStyle) -> VisualizationResult<()> {
+    fn add_title(&mut self, title: &str, style: &TextStyle) -> VisualizationResult<()> {
+        let font_size = style.font_size.max(1.0).round() as i32;
+        let title_style = (style.font_family.as_str(), font_size)
+            .into_font()
+            .color(&convert_color(&style.color));
+        self.drawer
+            .drawing_area()
+            .titled(title, title_style)
+            .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
         Ok(())
     }
 }
@@ -172,4 +212,17 @@ impl<DB: DrawingBackend> VisualizationEngine for PlottersVisualizationEngine<'_,
 #[must_use]
 pub const fn create_plotters_renderer() -> PlottersRenderer {
     PlottersRenderer
+}
+
+fn normalized_rectangle_bounds(top_left: Point2D, bottom_right: Point2D) -> (f64, f64, f64, f64) {
+    let x0 = top_left.0.min(bottom_right.0);
+    let y0 = top_left.1.min(bottom_right.1);
+    let x1 = top_left.0.max(bottom_right.0);
+    let y1 = top_left.1.max(bottom_right.1);
+    (x0, y0, x1, y1)
+}
+
+fn normalized_rectangle_outline(top_left: Point2D, bottom_right: Point2D) -> [Point2D; 5] {
+    let (x0, y0, x1, y1) = normalized_rectangle_bounds(top_left, bottom_right);
+    [(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)]
 }

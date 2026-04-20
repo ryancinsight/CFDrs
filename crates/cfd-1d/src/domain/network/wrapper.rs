@@ -350,7 +350,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         let edge_indices: Vec<_> = self.graph.edge_indices().collect();
         let update_context = self.resistance_update_context()?;
 
-        for edge_idx in edge_indices {
+        for &edge_idx in &edge_indices {
             let (from, to) = self
                 .graph
                 .edge_endpoints(edge_idx)
@@ -408,7 +408,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         }
 
         self.propagate_blood_hematocrit(&update_context)?;
-        for edge_idx in self.graph.edge_indices().collect::<Vec<_>>() {
+        for &edge_idx in &edge_indices {
             let flow = self
                 .flow_rates
                 .get(edge_idx.index())
@@ -624,6 +624,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         let mut next_node_hematocrit = vec![context.default_hematocrit; self.graph.node_count()];
         let mut inflows = Vec::with_capacity(8);
         let mut outflows = Vec::with_capacity(8);
+        let mut updates = Vec::with_capacity(self.graph.edge_count());
 
         for props in self.properties.values_mut() {
             let seed = props
@@ -648,7 +649,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         }
 
         for _ in 0..max_sweeps {
-            let mut updates = Vec::with_capacity(self.graph.edge_count());
+            updates.clear();
             let mut max_change = T::zero();
 
             next_node_hematocrit.copy_from_slice(&node_hematocrit);
@@ -708,7 +709,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                 }
             }
 
-            for (edge_idx, hematocrit) in updates {
+            for (edge_idx, hematocrit) in updates.drain(..) {
                 if let Some(props) = self.properties.get_mut(&edge_idx) {
                     props.properties.insert(
                         EDGE_PROPERTY_LOCAL_HEMATOCRIT.to_string(),

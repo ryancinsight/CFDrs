@@ -33,9 +33,136 @@
 use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;
+use crate::grid::StructuredGrid2D;
+use crate::physics::MomentumSolver;
+use crate::pressure_velocity::PressureCorrectionSolver;
 use crate::pressure_velocity::RhieChowInterpolation;
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
+
+pub(super) fn solve_pressure_correction_with_caches<
+    T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
+>(
+    grid: &StructuredGrid2D<T>,
+    pressure_solver: &PressureCorrectionSolver<T>,
+    momentum_solver: &MomentumSolver<T>,
+    rhie_chow: Option<&RhieChowInterpolation<T>>,
+    vel_field_cache: &std::cell::RefCell<Option<crate::fields::Field2D<nalgebra::Vector2<T>>>>,
+    cons_vel_cache: &std::cell::RefCell<Option<Array2D<Vector2<T>>>>,
+    u_face_cache: &std::cell::RefCell<Option<Array2D<T>>>,
+    v_face_cache: &std::cell::RefCell<Option<Array2D<T>>>,
+    d_x_cache: &std::cell::RefCell<Option<Array2D<T>>>,
+    d_y_cache: &std::cell::RefCell<Option<Array2D<T>>>,
+    fields: &mut SimulationFields<T>,
+    dt: T,
+    rho: T,
+    rebuild_matrix: bool,
+    output_correction: &mut Array2D<T>,
+) -> cfd_core::error::Result<()> {
+    if let Some(rhie_chow) = rhie_chow {
+        let mut vfc = vel_field_cache.borrow_mut();
+        if vfc.as_ref().is_none_or(|v| {
+            let (nx, ny) = v.dimensions();
+            nx != grid.nx || ny != grid.ny
+        }) {
+            *vfc = Some(crate::fields::Field2D::new(
+                grid.nx,
+                grid.ny,
+                Vector2::zeros(),
+            ));
+        }
+        let velocity_field = vfc.as_mut().unwrap();
+
+        let mut cvc = cons_vel_cache.borrow_mut();
+        if cvc
+            .as_ref()
+            .is_none_or(|v| v.rows() != grid.nx || v.cols() != grid.ny)
+        {
+            *cvc = Some(Array2D::new(grid.nx, grid.ny, Vector2::zeros()));
+        }
+        let consistent_velocity = cvc.as_mut().unwrap();
+
+        let mut ufc = u_face_cache.borrow_mut();
+        if ufc
+            .as_ref()
+            .is_none_or(|v| v.rows() != grid.nx - 1 || v.cols() != grid.ny)
+        {
+            *ufc = Some(Array2D::new(grid.nx - 1, grid.ny, T::zero()));
+        }
+        let u_face = ufc.as_mut().unwrap();
+
+        let mut vfc_out = v_face_cache.borrow_mut();
+        if vfc_out
+            .as_ref()
+            .is_none_or(|v| v.rows() != grid.nx || v.cols() != grid.ny - 1)
+        {
+            *vfc_out = Some(Array2D::new(grid.nx, grid.ny - 1, T::zero()));
+        }
+        let v_face = vfc_out.as_mut().unwrap();
+
+        let mut dxc = d_x_cache.borrow_mut();
+        if dxc
+            .as_ref()
+            .is_none_or(|v| v.rows() != grid.nx - 1 || v.cols() != grid.ny)
+        {
+            *dxc = Some(Array2D::new(grid.nx - 1, grid.ny, T::zero()));
+        }
+        let d_x = dxc.as_mut().unwrap();
+
+        let mut dyc = d_y_cache.borrow_mut();
+        if dyc
+            .as_ref()
+            .is_none_or(|v| v.rows() != grid.nx || v.cols() != grid.ny - 1)
+        {
+            *dyc = Some(Array2D::new(grid.nx, grid.ny - 1, T::zero()));
+        }
+        let d_y = dyc.as_mut().unwrap();
+
+        SimplecPimpleSolver::<T>::interpolate_consistent_velocity_impl(
+            grid,
+            momentum_solver,
+            rhie_chow,
+            fields,
+            Some(dt),
+            velocity_field,
+            consistent_velocity,
+        );
+
+        for i in 0..grid.nx - 1 {
+            for j in 0..grid.ny {
+                u_face[(i, j)] = consistent_velocity[(i, j)].x;
+                d_x[(i, j)] = rhie_chow.d_face_x(i, j, grid.dx, grid.dy);
+            }
+        }
+        for i in 0..grid.nx {
+            for j in 0..grid.ny - 1 {
+                v_face[(i, j)] = consistent_velocity[(i, j)].y;
+                d_y[(i, j)] = rhie_chow.d_face_y(i, j, grid.dx, grid.dy);
+            }
+        }
+
+        let boundary_conditions = momentum_solver.boundary_conditions();
+        pressure_solver.solve_pressure_correction_from_faces(
+            u_face,
+            v_face,
+            d_x,
+            d_y,
+            rho,
+            fields,
+            boundary_conditions,
+            rebuild_matrix,
+            output_correction,
+        )
+    } else {
+        pressure_solver.solve_pressure_correction(
+            fields,
+            dt,
+            rho,
+            rebuild_matrix,
+            output_correction,
+        )
+    }
+}
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     SimplecPimpleSolver<T>
@@ -49,14 +176,35 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         velocity_field: &mut crate::fields::Field2D<nalgebra::Vector2<T>>,
         consistent_velocity: &mut Array2D<Vector2<T>>,
     ) {
-        for i in 0..self.grid.nx {
-            for j in 0..self.grid.ny {
-                if i < self.grid.nx - 1 {
+        Self::interpolate_consistent_velocity_impl(
+            &self.grid,
+            &self.momentum_solver,
+            rhie_chow,
+            fields,
+            dt,
+            velocity_field,
+            consistent_velocity,
+        );
+        self.apply_velocity_boundary_conditions(consistent_velocity, fields);
+    }
+
+    fn interpolate_consistent_velocity_impl(
+        grid: &StructuredGrid2D<T>,
+        _momentum_solver: &MomentumSolver<T>,
+        rhie_chow: &RhieChowInterpolation<T>,
+        fields: &SimulationFields<T>,
+        dt: Option<T>,
+        velocity_field: &mut crate::fields::Field2D<nalgebra::Vector2<T>>,
+        consistent_velocity: &mut Array2D<Vector2<T>>,
+    ) {
+        for i in 0..grid.nx {
+            for j in 0..grid.ny {
+                if i < grid.nx - 1 {
                     let u_face = rhie_chow.face_velocity_x(
                         velocity_field,
                         &fields.p,
-                        self.grid.dx,
-                        self.grid.dy,
+                        grid.dx,
+                        grid.dy,
                         dt,
                         i,
                         j,
@@ -64,12 +212,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                     consistent_velocity[(i, j)].x = u_face;
                 }
 
-                if j < self.grid.ny - 1 {
+                if j < grid.ny - 1 {
                     let v_face = rhie_chow.face_velocity_y(
                         velocity_field,
                         &fields.p,
-                        self.grid.dx,
-                        self.grid.dy,
+                        grid.dx,
+                        grid.dy,
                         dt,
                         i,
                         j,
@@ -78,8 +226,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 }
             }
         }
-
-        self.apply_velocity_boundary_conditions(consistent_velocity, fields);
     }
 
     /// Apply boundary conditions to face velocities
@@ -162,118 +308,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                     _ => {}
                 }
             }
-        }
-    }
-
-    /// Solve pressure correction equation with Rhie-Chow awareness
-    pub(super) fn solve_pressure_correction(
-        &self,
-        fields: &mut SimulationFields<T>,
-        dt: T,
-        rho: T,
-        rebuild_matrix: bool,
-        output_correction: &mut Array2D<T>,
-    ) -> cfd_core::error::Result<()> {
-        if let Some(ref rhie_chow) = self.rhie_chow {
-            let mut vfc = self._vel_field_cache.borrow_mut();
-            if vfc.as_ref().is_none_or(|v| {
-                let (nx, ny) = v.dimensions();
-                nx != self.grid.nx || ny != self.grid.ny
-            }) {
-                *vfc = Some(crate::fields::Field2D::new(
-                    self.grid.nx,
-                    self.grid.ny,
-                    Vector2::zeros(),
-                ));
-            }
-            let velocity_field = vfc.as_mut().unwrap();
-
-            let mut cvc = self._cons_vel_cache.borrow_mut();
-            if cvc
-                .as_ref()
-                .is_none_or(|v| v.rows() != self.grid.nx || v.cols() != self.grid.ny)
-            {
-                *cvc = Some(Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros()));
-            }
-            let consistent_velocity = cvc.as_mut().unwrap();
-
-            self.interpolate_consistent_velocity(
-                rhie_chow,
-                fields,
-                Some(dt),
-                velocity_field,
-                consistent_velocity,
-            );
-
-            let mut ufc = self._u_face_cache.borrow_mut();
-            if ufc
-                .as_ref()
-                .is_none_or(|v| v.rows() != self.grid.nx - 1 || v.cols() != self.grid.ny)
-            {
-                *ufc = Some(Array2D::new(self.grid.nx - 1, self.grid.ny, T::zero()));
-            }
-            let u_face = ufc.as_mut().unwrap();
-
-            let mut vfc_out = self._v_face_cache.borrow_mut();
-            if vfc_out
-                .as_ref()
-                .is_none_or(|v| v.rows() != self.grid.nx || v.cols() != self.grid.ny - 1)
-            {
-                *vfc_out = Some(Array2D::new(self.grid.nx, self.grid.ny - 1, T::zero()));
-            }
-            let v_face = vfc_out.as_mut().unwrap();
-
-            let mut dxc = self._d_x_cache.borrow_mut();
-            if dxc
-                .as_ref()
-                .is_none_or(|v| v.rows() != self.grid.nx - 1 || v.cols() != self.grid.ny)
-            {
-                *dxc = Some(Array2D::new(self.grid.nx - 1, self.grid.ny, T::zero()));
-            }
-            let d_x = dxc.as_mut().unwrap();
-
-            let mut dyc = self._d_y_cache.borrow_mut();
-            if dyc
-                .as_ref()
-                .is_none_or(|v| v.rows() != self.grid.nx || v.cols() != self.grid.ny - 1)
-            {
-                *dyc = Some(Array2D::new(self.grid.nx, self.grid.ny - 1, T::zero()));
-            }
-            let d_y = dyc.as_mut().unwrap();
-
-            for i in 0..self.grid.nx - 1 {
-                for j in 0..self.grid.ny {
-                    u_face[(i, j)] = consistent_velocity[(i, j)].x;
-                    d_x[(i, j)] = rhie_chow.d_face_x(i, j, self.grid.dx, self.grid.dy);
-                }
-            }
-            for i in 0..self.grid.nx {
-                for j in 0..self.grid.ny - 1 {
-                    v_face[(i, j)] = consistent_velocity[(i, j)].y;
-                    d_y[(i, j)] = rhie_chow.d_face_y(i, j, self.grid.dx, self.grid.dy);
-                }
-            }
-
-            let boundary_conditions = self.momentum_solver.boundary_conditions();
-            self.pressure_solver.solve_pressure_correction_from_faces(
-                u_face,
-                v_face,
-                d_x,
-                d_y,
-                rho,
-                fields,
-                boundary_conditions,
-                rebuild_matrix,
-                output_correction,
-            )
-        } else {
-            self.pressure_solver.solve_pressure_correction(
-                fields,
-                dt,
-                rho,
-                rebuild_matrix,
-                output_correction,
-            )
         }
     }
 }

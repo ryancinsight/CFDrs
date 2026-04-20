@@ -10,9 +10,11 @@
 //! n · x = C
 //! ```
 //!
-//! where $\mathbf{n}$ is the interface normal (from gradient of $\alpha$)
-//! and $C$ is chosen so that the clipped volume matches $\alpha_i |\Omega_i|$
-//! exactly (to machine precision). This ensures global volume conservation.
+//! where $\mathbf{n}$ is the outward interface normal estimated from a
+//! dominant-axis height function when the interface is graph-like, or from
+//! `-∇α / |∇α|` as a Youngs fallback, and $C$ is chosen so that the clipped
+//! volume matches $\alpha_i |\Omega_i|$ exactly (to machine precision). This
+//! ensures global volume conservation.
 //!
 //! **Proof sketch.** For a convex cell with normal $\mathbf{n}$ fixed, the
 //! clipped volume $V(C)$ is a monotonically increasing, piecewise-polynomial
@@ -30,11 +32,12 @@
 //! ∫_{Ω_i ∩ {n̂·x ≤ C}} dV = αᵢ |Ω_i|
 //! ```
 //!
-//! **Normal Estimation** (Youngs 1984): The normal is estimated from the
-//! discrete gradient of α:
+//! **Normal Estimation** (Youngs 1984; Cummins et al. 2005): The normal is
+//! estimated from a dominant-axis height function when a local graph exists,
+//! otherwise from the discrete gradient of α:
 //!
 //! ```math
-//! n̂ᵢ ≈ ∇α / |∇α|   (mixed finite-difference gradient)
+//! n̂ᵢ ≈ -∇α / |∇α|  (mixed finite-difference gradient)
 //! ```
 //!
 //! **Plane Constant** `Cᵢ`: Obtained by binary bisection of the monotone function
@@ -47,7 +50,7 @@
 //!
 //! ### Curvature Computation Theorem (continuum surface force)
 //!
-//! **Statement**: The interface curvature κ = −∇·(∇φ/|∇φ|) computed from the
+//! **Statement**: The interface curvature κ = −∇·n̂ computed from the
 //! interface normal field **n̂** satisfies:
 //!
 //! ```math
@@ -63,8 +66,28 @@ use super::plic_geometry::volume_under_plane_3d;
 use super::solver::VofSolver;
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
+use std::cmp::Ordering;
 
 // ── Height-Function Normal Estimation ────────────────────────────────────────
+
+#[derive(Debug)]
+struct DirectionalHeightCache<T> {
+    x: Vec<T>,
+    y: Vec<T>,
+    z: Vec<T>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct HybridSelection<T> {
+    reference: Vector3<T>,
+    axis: Option<usize>,
+}
+
+/// Dominant-axis threshold for the hybrid VOF interface reconstruction.
+///
+/// The value is kept above 1/sqrt(3) so a genuinely non-graph-like 3D cell
+/// can still fall back to the Youngs gradient path.
+const HYBRID_AXIS_DOMINANCE: f64 = 0.70;
 
 /// Height-function normal estimation for PLIC interface reconstruction
 /// (Cummins, Francois & Kothe 2005).
@@ -197,8 +220,54 @@ pub fn youngs_normal_2d(alpha: &[Vec<f64>], i: usize, j: usize, dx: f64, dy: f64
         return [0.0, 1.0];
     }
 
-    // Normal points from fluid 1 to fluid 0: n = ∇α / |∇α|
-    [da_dx / mag, da_dy / mag]
+    // Normal points from fluid 1 to fluid 0: n = -∇α / |∇α|
+    [-da_dx / mag, -da_dy / mag]
+}
+
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
+    DirectionalHeightCache<T>
+{
+    fn build(solver: &VofSolver<T>) -> Self {
+        let mut x_heights = vec![T::zero(); solver.ny * solver.nz];
+        let mut y_heights = vec![T::zero(); solver.nx * solver.nz];
+        let mut z_heights = vec![T::zero(); solver.nx * solver.ny];
+
+        for k in 0..solver.nz {
+            for j in 0..solver.ny {
+                let mut height = T::zero();
+                for i in 0..solver.nx {
+                    height += solver.alpha[solver.index(i, j, k)] * solver.dx;
+                }
+                x_heights[k * solver.ny + j] = height;
+            }
+        }
+
+        for k in 0..solver.nz {
+            for i in 0..solver.nx {
+                let mut height = T::zero();
+                for j in 0..solver.ny {
+                    height += solver.alpha[solver.index(i, j, k)] * solver.dy;
+                }
+                y_heights[k * solver.nx + i] = height;
+            }
+        }
+
+        for j in 0..solver.ny {
+            for i in 0..solver.nx {
+                let mut height = T::zero();
+                for k in 0..solver.nz {
+                    height += solver.alpha[solver.index(i, j, k)] * solver.dz;
+                }
+                z_heights[j * solver.nx + i] = height;
+            }
+        }
+
+        Self {
+            x: x_heights,
+            y: y_heights,
+            z: z_heights,
+        }
+    }
 }
 
 /// Cache blocking parameters for optimized 3D traversal
@@ -232,8 +301,14 @@ impl InterfaceReconstruction {
         self,
         solver: &mut VofSolver<T>,
     ) {
-        self.calculate_normals(solver);
-        self.calculate_curvature(solver);
+        let height_cache = if matches!(self, Self::PLIC) {
+            Some(DirectionalHeightCache::build(solver))
+        } else {
+            None
+        };
+
+        self.calculate_normals(solver, height_cache.as_ref());
+        self.calculate_curvature(solver, height_cache.as_ref());
     }
 
     /// Calculate interface normal vectors using gradient of volume fraction.
@@ -242,7 +317,13 @@ impl InterfaceReconstruction {
     fn calculate_normals<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
         self,
         solver: &mut VofSolver<T>,
+        height_cache: Option<&DirectionalHeightCache<T>>,
     ) {
+        let interface_lower = <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
+            .expect("VOF_INTERFACE_LOWER is an IEEE 754 representable f64 constant");
+        let interface_upper = <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
+            .expect("VOF_INTERFACE_UPPER is an IEEE 754 representable f64 constant");
+
         for k_block in (1..solver.nz - 1).step_by(CACHE_BLOCK_SIZE_K) {
             for j_block in (1..solver.ny - 1).step_by(CACHE_BLOCK_SIZE_J) {
                 for i_block in (1..solver.nx - 1).step_by(CACHE_BLOCK_SIZE_I) {
@@ -256,24 +337,14 @@ impl InterfaceReconstruction {
                                 let idx = solver.index(i, j, k);
                                 let alpha = solver.alpha[idx];
 
-                                let interface_lower = <T as FromPrimitive>::from_f64(
-                                    VOF_INTERFACE_LOWER,
-                                )
-                                .expect(
-                                    "VOF_INTERFACE_LOWER is an IEEE 754 representable f64 constant",
-                                );
-                                let interface_upper = <T as FromPrimitive>::from_f64(
-                                    VOF_INTERFACE_UPPER,
-                                )
-                                .expect(
-                                    "VOF_INTERFACE_UPPER is an IEEE 754 representable f64 constant",
-                                );
-
                                 if alpha > interface_lower && alpha < interface_upper {
                                     match self {
                                         Self::PLIC => {
+                                            let cache = height_cache.expect(
+                                                "directional height cache must exist for PLIC",
+                                            );
                                             let (normal, _) =
-                                                self.plic_reconstruction(solver, i, j, k);
+                                                self.plic_reconstruction(solver, cache, i, j, k);
                                             solver.normals[idx] = normal;
                                         }
                                         Self::Gradient => {
@@ -301,6 +372,50 @@ impl InterfaceReconstruction {
         }
     }
 
+    /// Determine whether the local interface is graph-like enough to justify
+    /// a directional height function.
+    fn hybrid_selection<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+        self,
+        solver: &VofSolver<T>,
+        i: usize,
+        j: usize,
+        k: usize,
+    ) -> HybridSelection<T> {
+        let reference = self.calculate_gradient(solver, i, j, k);
+        let epsilon = <T as FromPrimitive>::from_f64(VOF_EPSILON)
+            .expect("VOF_EPSILON is an IEEE 754 representable f64 constant");
+        let reference_norm = reference.norm();
+
+        if reference_norm <= epsilon {
+            return HybridSelection {
+                reference,
+                axis: None,
+            };
+        }
+
+        let abs_components = [
+            num_traits::Float::abs(reference.x),
+            num_traits::Float::abs(reference.y),
+            num_traits::Float::abs(reference.z),
+        ];
+        let mut axes = [1usize, 0, 2];
+        axes.sort_by(|lhs, rhs| {
+            abs_components[*rhs]
+                .partial_cmp(&abs_components[*lhs])
+                .unwrap_or(Ordering::Equal)
+        });
+
+        let axis_dominance = <T as FromPrimitive>::from_f64(HYBRID_AXIS_DOMINANCE)
+            .expect("hybrid axis dominance threshold is representable in IEEE 754");
+        let axis = if abs_components[axes[0]] / reference_norm >= axis_dominance {
+            Some(axes[0])
+        } else {
+            None
+        };
+
+        HybridSelection { reference, axis }
+    }
+
     /// Calculate interface normal from the volume-fraction gradient using
     /// Youngs' mixed finite-difference stencil.
     fn calculate_gradient<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
@@ -323,7 +438,95 @@ impl InterfaceReconstruction {
             - solver.alpha[solver.index(i, j, k - 1)])
             / (two * solver.dz);
 
-        Vector3::new(dx, dy, dz)
+        // The interface normal points from fluid 1 to fluid 0, which is the
+        // negative volume-fraction gradient for the convention used here.
+        Vector3::new(-dx, -dy, -dz)
+    }
+
+    /// Hybrid normal reconstruction: prefer a directional height function when
+    /// the local gradient is graph-like, otherwise fall back to Youngs.
+    fn hybrid_normal<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+        self,
+        solver: &VofSolver<T>,
+        cache: &DirectionalHeightCache<T>,
+        i: usize,
+        j: usize,
+        k: usize,
+    ) -> Vector3<T> {
+        let selection = self.hybrid_selection(solver, i, j, k);
+        let Some(axis) = selection.axis else {
+            return selection.reference;
+        };
+
+        let epsilon = <T as FromPrimitive>::from_f64(VOF_EPSILON)
+            .expect("VOF_EPSILON is an IEEE 754 representable f64 constant");
+        let candidate = Self::directional_height_normal(solver, cache, axis, i, j, k);
+        if candidate.norm() <= epsilon {
+            return selection.reference;
+        }
+
+        if candidate.dot(&selection.reference) < T::zero() {
+            -candidate
+        } else {
+            candidate
+        }
+    }
+
+    /// Directional height-function normal using a cached column integral.
+    fn directional_height_normal<
+        T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    >(
+        solver: &VofSolver<T>,
+        cache: &DirectionalHeightCache<T>,
+        axis: usize,
+        i: usize,
+        j: usize,
+        k: usize,
+    ) -> Vector3<T> {
+        let two = <T as FromPrimitive>::from_f64(2.0)
+            .expect("2.0 is representable in all IEEE 754 types");
+
+        match axis {
+            0 => {
+                let jm = j - 1;
+                let jp = j + 1;
+                let km = k - 1;
+                let kp = k + 1;
+                let h_jm = cache.x[k * solver.ny + jm];
+                let h_jp = cache.x[k * solver.ny + jp];
+                let h_km = cache.x[km * solver.ny + j];
+                let h_kp = cache.x[kp * solver.ny + j];
+                let dh_dy = -(h_jp - h_jm) / (two * solver.dy);
+                let dh_dz = -(h_kp - h_km) / (two * solver.dz);
+                Vector3::new(T::one(), dh_dy, dh_dz)
+            }
+            1 => {
+                let im = i - 1;
+                let ip = i + 1;
+                let km = k - 1;
+                let kp = k + 1;
+                let h_im = cache.y[k * solver.nx + im];
+                let h_ip = cache.y[k * solver.nx + ip];
+                let h_km = cache.y[km * solver.nx + i];
+                let h_kp = cache.y[kp * solver.nx + i];
+                let dh_dx = -(h_ip - h_im) / (two * solver.dx);
+                let dh_dz = -(h_kp - h_km) / (two * solver.dz);
+                Vector3::new(dh_dx, T::one(), dh_dz)
+            }
+            _ => {
+                let im = i - 1;
+                let ip = i + 1;
+                let jm = j - 1;
+                let jp = j + 1;
+                let h_im = cache.z[j * solver.nx + im];
+                let h_ip = cache.z[j * solver.nx + ip];
+                let h_jm = cache.z[jm * solver.nx + i];
+                let h_jp = cache.z[jp * solver.nx + i];
+                let dh_dx = -(h_ip - h_im) / (two * solver.dx);
+                let dh_dy = -(h_jp - h_jm) / (two * solver.dy);
+                Vector3::new(dh_dx, dh_dy, T::one())
+            }
+        }
     }
 
     /// PLIC reconstruction using Youngs' gradient normal and the Scardovelli-Zaleski
@@ -340,12 +543,14 @@ impl InterfaceReconstruction {
     fn plic_reconstruction<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
         self,
         solver: &VofSolver<T>,
+        cache: &DirectionalHeightCache<T>,
         i: usize,
         j: usize,
         k: usize,
     ) -> (Vector3<T>, T) {
-        // 1. Interface normal from gradient
-        let mut normal = self.calculate_gradient(solver, i, j, k);
+        // 1. Interface normal from a dominant-axis height function when it is
+        // graph-like, otherwise use the Youngs gradient fallback.
+        let mut normal = self.hybrid_normal(solver, cache, i, j, k);
         let epsilon = <T as FromPrimitive>::from_f64(VOF_EPSILON)
             .expect("VOF_EPSILON is an IEEE 754 representable f64 constant");
 
@@ -363,11 +568,107 @@ impl InterfaceReconstruction {
         (normal, plane_constant)
     }
 
+    /// Directional height-function curvature reconstruction.
+    ///
+    /// Returns the curvature together with the unnormalised directional
+    /// height normal so the caller can preserve the outward orientation.
+    fn directional_height_curvature<
+        T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    >(
+        solver: &VofSolver<T>,
+        cache: &DirectionalHeightCache<T>,
+        axis: usize,
+        i: usize,
+        j: usize,
+        k: usize,
+    ) -> (Vector3<T>, T) {
+        let two = <T as FromPrimitive>::from_f64(2.0)
+            .expect("2.0 is representable in all IEEE 754 types");
+        let four = <T as FromPrimitive>::from_f64(4.0)
+            .expect("4.0 is representable in all IEEE 754 types");
+
+        match axis {
+            0 => {
+                let h = cache.x[k * solver.ny + j];
+                let h_jm = cache.x[k * solver.ny + (j - 1)];
+                let h_jp = cache.x[k * solver.ny + (j + 1)];
+                let h_km = cache.x[(k - 1) * solver.ny + j];
+                let h_kp = cache.x[(k + 1) * solver.ny + j];
+                let h_jm_km = cache.x[(k - 1) * solver.ny + (j - 1)];
+                let h_jm_kp = cache.x[(k + 1) * solver.ny + (j - 1)];
+                let h_jp_km = cache.x[(k - 1) * solver.ny + (j + 1)];
+                let h_jp_kp = cache.x[(k + 1) * solver.ny + (j + 1)];
+
+                let p = (h_jp - h_jm) / (two * solver.dy);
+                let q = (h_kp - h_km) / (two * solver.dz);
+                let p_yy = (h_jp - two * h + h_jm) / (solver.dy * solver.dy);
+                let q_zz = (h_kp - two * h + h_km) / (solver.dz * solver.dz);
+                let p_yz = (h_jp_kp - h_jp_km - h_jm_kp + h_jm_km) / (four * solver.dy * solver.dz);
+                let base = T::one() + p * p + q * q;
+                let denom = base * num_traits::Float::sqrt(base);
+                let curvature = ((T::one() + q * q) * p_yy - two * p * q * p_yz
+                    + (T::one() + p * p) * q_zz)
+                    / denom;
+
+                (Vector3::new(T::one(), -p, -q), curvature)
+            }
+            1 => {
+                let h = cache.y[k * solver.nx + i];
+                let h_im = cache.y[k * solver.nx + (i - 1)];
+                let h_ip = cache.y[k * solver.nx + (i + 1)];
+                let h_km = cache.y[(k - 1) * solver.nx + i];
+                let h_kp = cache.y[(k + 1) * solver.nx + i];
+                let h_im_km = cache.y[(k - 1) * solver.nx + (i - 1)];
+                let h_im_kp = cache.y[(k + 1) * solver.nx + (i - 1)];
+                let h_ip_km = cache.y[(k - 1) * solver.nx + (i + 1)];
+                let h_ip_kp = cache.y[(k + 1) * solver.nx + (i + 1)];
+
+                let p = (h_ip - h_im) / (two * solver.dx);
+                let q = (h_kp - h_km) / (two * solver.dz);
+                let p_xx = (h_ip - two * h + h_im) / (solver.dx * solver.dx);
+                let q_zz = (h_kp - two * h + h_km) / (solver.dz * solver.dz);
+                let p_xz = (h_ip_kp - h_ip_km - h_im_kp + h_im_km) / (four * solver.dx * solver.dz);
+                let base = T::one() + p * p + q * q;
+                let denom = base * num_traits::Float::sqrt(base);
+                let curvature = ((T::one() + q * q) * p_xx - two * p * q * p_xz
+                    + (T::one() + p * p) * q_zz)
+                    / denom;
+
+                (Vector3::new(-p, T::one(), -q), curvature)
+            }
+            _ => {
+                let h = cache.z[j * solver.nx + i];
+                let h_im = cache.z[j * solver.nx + (i - 1)];
+                let h_ip = cache.z[j * solver.nx + (i + 1)];
+                let h_jm = cache.z[(j - 1) * solver.nx + i];
+                let h_jp = cache.z[(j + 1) * solver.nx + i];
+                let h_im_jm = cache.z[(j - 1) * solver.nx + (i - 1)];
+                let h_im_jp = cache.z[(j + 1) * solver.nx + (i - 1)];
+                let h_ip_jm = cache.z[(j - 1) * solver.nx + (i + 1)];
+                let h_ip_jp = cache.z[(j + 1) * solver.nx + (i + 1)];
+
+                let p = (h_ip - h_im) / (two * solver.dx);
+                let q = (h_jp - h_jm) / (two * solver.dy);
+                let p_xx = (h_ip - two * h + h_im) / (solver.dx * solver.dx);
+                let q_yy = (h_jp - two * h + h_jm) / (solver.dy * solver.dy);
+                let p_xy = (h_ip_jp - h_ip_jm - h_im_jp + h_im_jm) / (four * solver.dx * solver.dy);
+                let base = T::one() + p * p + q * q;
+                let denom = base * num_traits::Float::sqrt(base);
+                let curvature = ((T::one() + q * q) * p_xx - two * p * q * p_xy
+                    + (T::one() + p * p) * q_yy)
+                    / denom;
+
+                (Vector3::new(-p, -q, T::one()), curvature)
+            }
+        }
+    }
+
     /// Find the PLIC plane constant C by bisection such that
     /// `V_fluid(n, C, dx, dy, dz) = alpha * dx * dy * dz`.
     ///
-    /// The bisection terminates when the interval width is smaller than
-    /// `PLIC_TOLERANCE * max(dx, dy, dz)`.
+    /// The bisection terminates when the volume residual is smaller than
+    /// `PLIC_TOLERANCE * dx * dy * dz`, with a finite-precision guard that
+    /// returns the last midpoint if the interval stops shrinking.
     fn find_plane_constant<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
         self,
         normal: Vector3<T>,
@@ -385,15 +686,19 @@ impl InterfaceReconstruction {
 
         let tolerance = <T as FromPrimitive>::from_f64(constants::PLIC_TOLERANCE)
             .expect("PLIC_TOLERANCE is an IEEE 754 representable f64 constant");
+        let volume_tolerance = tolerance * cell_volume;
         let half =
             <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
 
-        // Bisect until interval < tolerance × cell_size
-        while (c_max - c_min) > tolerance {
+        loop {
             let c_mid = c_min + (c_max - c_min) * half;
             let volume = volume_under_plane_3d(normal, c_mid, dx, dy, dz);
 
-            if Float::abs(volume - target_volume * cell_volume) < tolerance * cell_volume {
+            if Float::abs(volume - target_volume * cell_volume) < volume_tolerance {
+                return c_mid;
+            }
+
+            if c_mid == c_min || c_mid == c_max {
                 return c_mid;
             }
 
@@ -403,18 +708,19 @@ impl InterfaceReconstruction {
                 c_max = c_mid;
             }
         }
-
-        c_min + (c_max - c_min) * half
     }
 
-    /// Calculate interface curvature from the divergence of the normal field.
+    /// Calculate interface curvature from the hybrid normal field.
+    ///
+    /// Graph-like interface cells reuse the precomputed outward normal field
+    /// to select the dominant height-function axis; steep or ambiguous cells
+    /// fall back to the divergence of the pre-computed normal field:
     ///
     /// `κ = −∇·n̂ = −(∂n̂_x/∂x + ∂n̂_y/∂y + ∂n̂_z/∂z)`
-    ///
-    /// Uses second-order central differences on the pre-computed normal field.
     fn calculate_curvature<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
         self,
         solver: &mut VofSolver<T>,
+        height_cache: Option<&DirectionalHeightCache<T>>,
     ) {
         let two = <T as FromPrimitive>::from_f64(2.0)
             .expect("2.0 is representable in all IEEE 754 types");
@@ -437,6 +743,24 @@ impl InterfaceReconstruction {
                                 let alpha = solver.alpha[idx];
 
                                 if alpha > interface_lower && alpha < interface_upper {
+                                    if let Some(cache) = height_cache {
+                                        let normal = solver.normals[idx];
+                                        if let Some(axis) = Self::dominant_axis_from_normal(&normal)
+                                        {
+                                            let (candidate, curvature) =
+                                                Self::directional_height_curvature(
+                                                    solver, cache, axis, i, j, k,
+                                                );
+                                            solver.curvature[idx] =
+                                                if candidate.dot(&normal) < T::zero() {
+                                                    -curvature
+                                                } else {
+                                                    curvature
+                                                };
+                                            continue;
+                                        }
+                                    }
+
                                     let idx_xm = solver.index(i - 1, j, k);
                                     let idx_xp = solver.index(i + 1, j, k);
                                     let idx_ym = solver.index(i, j - 1, k);
@@ -463,6 +787,34 @@ impl InterfaceReconstruction {
                     }
                 }
             }
+        }
+    }
+
+    /// Determine whether a precomputed normal is graph-like enough to justify
+    /// a directional height-function curvature estimate.
+    fn dominant_axis_from_normal<
+        T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    >(
+        normal: &Vector3<T>,
+    ) -> Option<usize> {
+        let abs_components = [
+            num_traits::Float::abs(normal.x),
+            num_traits::Float::abs(normal.y),
+            num_traits::Float::abs(normal.z),
+        ];
+        let mut axes = [1usize, 0, 2];
+        axes.sort_by(|lhs, rhs| {
+            abs_components[*rhs]
+                .partial_cmp(&abs_components[*lhs])
+                .unwrap_or(Ordering::Equal)
+        });
+
+        let axis_dominance = <T as FromPrimitive>::from_f64(HYBRID_AXIS_DOMINANCE)
+            .expect("hybrid axis dominance threshold is representable in IEEE 754");
+        if abs_components[axes[0]] >= axis_dominance {
+            Some(axes[0])
+        } else {
+            None
         }
     }
 }
@@ -503,6 +855,205 @@ mod tests {
         );
     }
 
+    /// Youngs-gradient reconstruction should use the same outward normal
+    /// convention as the height-function path.
+    #[test]
+    fn test_youngs_gradient_flat_interface_points_upward() {
+        let nx = 10;
+        let ny = 10;
+        let dx = 1.0;
+        let dy = 1.0;
+
+        let alpha: Vec<Vec<f64>> = (0..nx)
+            .map(|_| {
+                (0..ny)
+                    .map(|j| if j < ny / 2 { 1.0 } else { 0.0 })
+                    .collect()
+            })
+            .collect();
+
+        let n = youngs_normal_2d(&alpha, 5, ny / 2, dx, dy);
+        assert!(n[0].abs() < 1e-10, "n_x should be ~0 for flat interface");
+        assert!(
+            n[1] > 0.99,
+            "n_y should be ~1 for flat interface, got {}",
+            n[1]
+        );
+    }
+
+    /// The solver-facing gradient reconstruction should match the helper
+    /// orientation and point from fluid 1 toward fluid 0.
+    #[test]
+    fn test_gradient_reconstruction_flat_interface_points_upward() {
+        let nx = 10;
+        let ny = 10;
+        let nz = 3;
+        let dx = 1.0;
+        let dy = 1.0;
+        let dz = 1.0;
+
+        let config = VofConfig {
+            reconstruction_method: InterfaceReconstruction::Gradient,
+            ..VofConfig::default()
+        };
+        let mut solver = VofSolver::create(config, nx, ny, nz, dx, dy, dz);
+
+        let mut alpha = vec![0.0; nx * ny * nz];
+        for k in 0..nz {
+            for j in 0..ny {
+                let value = if j < ny / 2 {
+                    1.0
+                } else if j == ny / 2 {
+                    0.5
+                } else {
+                    0.0
+                };
+                for i in 0..nx {
+                    alpha[k * ny * nx + j * nx + i] = value;
+                }
+            }
+        }
+        solver
+            .set_volume_fraction(alpha)
+            .expect("volume fraction field should match solver dimensions");
+        solver.reconstruct_interface();
+
+        let idx = solver.linear_index(5, ny / 2, 1);
+        let normal: nalgebra::Vector3<f64> = solver.normals()[idx];
+        assert!(
+            normal.x.abs() < 1e-10_f64,
+            "n_x should be ~0 for flat interface"
+        );
+        assert!(
+            normal.y > 0.99,
+            "n_y should be ~1 for flat interface, got {}",
+            normal.y
+        );
+    }
+
+    /// PLIC reconstruction should select the dominant-axis height function
+    /// for a vertical interface and keep the outward normal orientation.
+    #[test]
+    fn test_plic_reconstruction_vertical_interface_points_right() {
+        let nx = 10;
+        let ny = 8;
+        let nz = 6;
+        let dx = 1.0;
+        let dy = 1.0;
+        let dz = 1.0;
+
+        let config = VofConfig {
+            reconstruction_method: InterfaceReconstruction::PLIC,
+            ..VofConfig::default()
+        };
+        let mut solver = VofSolver::create(config, nx, ny, nz, dx, dy, dz);
+
+        let mut alpha = vec![0.0; nx * ny * nz];
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let value = if i < nx / 2 {
+                        1.0
+                    } else if i == nx / 2 {
+                        0.5
+                    } else {
+                        0.0
+                    };
+                    alpha[k * ny * nx + j * nx + i] = value;
+                }
+            }
+        }
+
+        solver
+            .set_volume_fraction(alpha)
+            .expect("volume fraction field should match solver dimensions");
+        solver.reconstruct_interface();
+
+        let idx = solver.linear_index(nx / 2, ny / 2, nz / 2);
+        let normal: nalgebra::Vector3<f64> = solver.normals()[idx];
+        assert!(
+            normal.x > 0.99,
+            "n_x should be ~1 for the vertical interface, got {}",
+            normal.x
+        );
+        assert!(
+            normal.y.abs() < 0.05,
+            "n_y should be ~0 for the vertical interface, got {}",
+            normal.y
+        );
+        assert!(
+            normal.z.abs() < 0.05,
+            "n_z should be ~0 for the vertical interface, got {}",
+            normal.z
+        );
+        assert!(
+            solver.curvature()[idx].abs() < 1e-10_f64,
+            "curvature should be ~0 for a planar vertical interface, got {}",
+            solver.curvature()[idx]
+        );
+    }
+
+    /// A diagonal 3D interface should fail the dominant-axis test and fall
+    /// back to the Youngs gradient path.
+    #[test]
+    fn test_plic_reconstruction_diagonal_interface_uses_gradient_fallback() {
+        let nx = 6;
+        let ny = 6;
+        let nz = 6;
+        let dx = 1.0;
+        let dy = 1.0;
+        let dz = 1.0;
+
+        let config = VofConfig {
+            reconstruction_method: InterfaceReconstruction::PLIC,
+            ..VofConfig::default()
+        };
+        let mut solver = VofSolver::create(config, nx, ny, nz, dx, dy, dz);
+
+        let mut alpha = vec![0.0; nx * ny * nz];
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let sum = i + j + k;
+                    let value = if sum < 9 {
+                        1.0
+                    } else if sum == 9 {
+                        0.5
+                    } else {
+                        0.0
+                    };
+                    alpha[k * ny * nx + j * nx + i] = value;
+                }
+            }
+        }
+
+        solver
+            .set_volume_fraction(alpha)
+            .expect("volume fraction field should match solver dimensions");
+        solver.reconstruct_interface();
+
+        let idx = solver.linear_index(3, 3, 3);
+        let selection = InterfaceReconstruction::PLIC.hybrid_selection(&solver, 3, 3, 3);
+        assert!(
+            selection.axis.is_none(),
+            "diagonal interface should not be treated as graph-like"
+        );
+
+        let normal: nalgebra::Vector3<f64> = solver.normals()[idx];
+        let expected = nalgebra::Vector3::new(1.0, 1.0, 1.0).normalize();
+        assert!(
+            (normal - expected).norm() < 0.05,
+            "fallback normal should track the Youngs gradient, got {} vs {}",
+            normal,
+            expected
+        );
+        assert!(
+            solver.curvature()[idx].abs() < 1e-10_f64,
+            "planar diagonal interface should have ~zero curvature, got {}",
+            solver.curvature()[idx]
+        );
+    }
+
     /// 45-degree tilted interface should give a normal close to
     /// [-0.707, 0.707] (pointing from the filled region toward the empty region).
     #[test]
@@ -539,34 +1090,33 @@ mod tests {
         );
     }
 
-    /// For a smooth circular interface, the height-function normal should
+    /// For a smooth graph-like interface, the height-function normal should
     /// have lower angular error than the Youngs gradient normal.
     #[test]
     fn test_height_function_vs_youngs_accuracy() {
-        let nx = 40;
+        let nx = 48;
         let ny = 40;
         let dx = 1.0;
         let dy = 1.0;
 
-        // Circle centred at (20, 20) with radius 12
-        let cx = 20.0;
-        let cy = 20.0;
-        let r = 12.0;
+        // Smooth single-valued interface: y = f(x)
+        let interface = |x: f64| 19.0 + 3.5 * (x / 7.5).sin();
+        let interface_derivative = |x: f64| (3.5 / 7.5) * (x / 7.5).cos();
 
         let alpha: Vec<Vec<f64>> = (0..nx)
             .map(|i| {
+                let x = i as f64 + 0.5;
+                let y0 = interface(x);
                 (0..ny)
                     .map(|j| {
-                        let x = i as f64 + 0.5;
                         let y = j as f64 + 0.5;
-                        let dist = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
-                        if dist < r - 0.5 {
+                        if y < y0 - 0.5 {
                             1.0
-                        } else if dist > r + 0.5 {
+                        } else if y > y0 + 0.5 {
                             0.0
                         } else {
-                            // Linear sub-cell interpolation for interface cells
-                            (r + 0.5 - dist).clamp(0.0, 1.0)
+                            // Linear sub-cell interpolation for interface cells.
+                            (y0 + 0.5 - y).clamp(0.0, 1.0)
                         }
                     })
                     .collect()
@@ -577,19 +1127,15 @@ mod tests {
         let mut youngs_total_error = 0.0;
         let mut count = 0u32;
 
-        // Sample interface cells (those near the circle boundary)
+        // Sample interface cells (those near the graph interface).
         for i in 2..nx - 2 {
             for j in 2..ny - 2 {
                 let a = alpha[i][j];
                 if a > 0.05 && a < 0.95 {
-                    // Analytical normal: radially outward from centre
                     let x = i as f64 + 0.5;
-                    let y = j as f64 + 0.5;
-                    let dist = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
-                    if dist < 1e-10 {
-                        continue;
-                    }
-                    let exact = [(x - cx) / dist, (y - cy) / dist];
+                    let slope = interface_derivative(x);
+                    let norm = (1.0 + slope * slope).sqrt();
+                    let exact = [-slope / norm, 1.0 / norm];
 
                     let hf_n = height_function_normal_2d(&alpha, i, j, dx, dy);
                     let y_n = youngs_normal_2d(&alpha, i, j, dx, dy);
@@ -620,5 +1166,34 @@ mod tests {
             hf_mean_error,
             youngs_mean_error
         );
+    }
+
+    /// PLIC plane bisection must scale its stopping tolerance with the cell
+    /// size used in the geometric inversion.
+    #[test]
+    fn test_find_plane_constant_scales_with_cell_size() {
+        let normal = Vector3::new(0.83_f64, 0.31, 0.46).normalize();
+        let dx = 1.0e-4_f64;
+        let dy = 2.0e-4_f64;
+        let dz = 4.0e-4_f64;
+        let target_volume_fraction = 0.25_f64;
+
+        let plane_constant = InterfaceReconstruction::PLIC.find_plane_constant(
+            normal,
+            target_volume_fraction,
+            dx,
+            dy,
+            dz,
+        );
+        let volume = volume_under_plane_3d(normal, plane_constant, dx, dy, dz);
+        let target_volume = target_volume_fraction * dx * dy * dz;
+        let tolerance = constants::PLIC_TOLERANCE * dx * dy * dz;
+
+        assert!(
+            (volume - target_volume).abs() <= tolerance,
+            "bisection volume error must scale with the cell size"
+        );
+        assert!(plane_constant >= 0.0);
+        assert!(plane_constant <= normal.x.abs() * dx + normal.y.abs() * dy + normal.z.abs() * dz);
     }
 }

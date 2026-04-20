@@ -59,7 +59,7 @@ impl<T: RealField + Copy + FromPrimitive> PressureVelocityConfig<T> {
     pub fn new() -> cfd_core::error::Result<Self> {
         Ok(Self {
             base: cfd_core::compute::solver::SolverConfig::builder()
-                .max_iterations(crate::constants::solver::LOG_INTERVAL)
+                .max_iterations(crate::constants::solver::DEFAULT_MAX_ITERATIONS)
                 .tolerance(
                     T::from_f64(
                         cfd_core::physics::constants::numerical::solver::CONVERGENCE_TOLERANCE,
@@ -119,5 +119,20 @@ impl<T: RealField + Copy + FromPrimitive> PressureVelocityConfig<T> {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_uses_default_pressure_iteration_budget() {
+        let config = PressureVelocityConfig::<f64>::new()
+            .expect("default pressure-velocity config should construct");
+        assert_eq!(
+            config.base.convergence.max_iterations,
+            crate::constants::solver::DEFAULT_MAX_ITERATIONS
+        );
     }
 }
