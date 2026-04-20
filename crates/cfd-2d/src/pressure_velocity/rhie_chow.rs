@@ -120,9 +120,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
     pub fn update_u_coefficients(&mut self, ap_u: &Field2D<T>) {
         let min_ap = T::from_f64(1e-12).unwrap_or_else(T::default_epsilon);
         for (dst, src) in self.ap_u_coefficients.data.iter_mut().zip(ap_u.data.iter()) {
-            if src.is_finite() && *src > min_ap {
-                *dst = *src;
-            }
+            *dst = if src.is_finite() && *src > min_ap {
+                *src
+            } else {
+                T::one()
+            };
         }
     }
 
@@ -131,9 +133,11 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
     pub fn update_v_coefficients(&mut self, ap_v: &Field2D<T>) {
         let min_ap = T::from_f64(1e-12).unwrap_or_else(T::default_epsilon);
         for (dst, src) in self.ap_v_coefficients.data.iter_mut().zip(ap_v.data.iter()) {
-            if src.is_finite() && *src > min_ap {
-                *dst = *src;
-            }
+            *dst = if src.is_finite() && *src > min_ap {
+                *src
+            } else {
+                T::one()
+            };
         }
     }
 
@@ -374,11 +378,12 @@ mod tests {
         if let Some(v) = ap.at_mut(2, 2) {
             *v = 1e-15;
         }
+        rc.ap_u_coefficients[(2, 2)] = 9.0;
         rc.update_u_coefficients(&ap);
-        // Cell (2,2) should keep the default 1.0 (tiny value rejected)
+        // Cell (2,2) should reset to the default 1.0 instead of retaining stale data.
         assert!(
             (rc.ap_u_coefficients.at(2, 2) - 1.0).abs() < 1e-14,
-            "Tiny ap should be rejected"
+            "Tiny ap should reset to the default coefficient"
         );
         // Cell (3,3) should be updated to 5.0
         assert!(

@@ -10,6 +10,7 @@
 //! | Property     | Narrow band non-empty, |∇φ| in [0.5, 2.0] after reinit               |
 
 use cfd_3d::level_set::{LevelSetConfig, LevelSetSolver};
+use cfd_core::error::Error;
 use nalgebra::Vector3;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -338,6 +339,22 @@ fn test_small_grid_uses_first_order_fallback() {
         (solver.phi()[center] - before[center]).abs() > 1e-12,
         "small-grid advance must update the interior state"
     );
+}
+
+/// **Boundary**: velocity field length mismatch is rejected before advection.
+#[test]
+fn test_velocity_length_mismatch_rejected_before_advance() {
+    let mut solver = LevelSetSolver::new(default_config(), 4, 4, 4, 0.25, 0.25, 0.25);
+    solver.set_velocity(vec![Vector3::new(1.0, 0.0, 0.0); 8]);
+
+    let err = solver.advance(1e-3).expect_err("advance must reject mismatched velocity length");
+    match err {
+        Error::DimensionMismatch { expected, actual } => {
+            assert_eq!(expected, 64);
+            assert_eq!(actual, 8);
+        }
+        other => panic!("expected dimension mismatch, got {other:?}"),
+    }
 }
 
 /// **Boundary**: Interface exactly at domain boundary (φ=0 on ghost cells).

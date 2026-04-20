@@ -13,6 +13,7 @@ use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use crate::physics::{MomentumComponent, MomentumSolver};
+use cfd_core::physics::boundary::BoundaryCondition;
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
 use std::fmt::LowerExp;
@@ -98,13 +99,16 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
     /// Perform one pressure-velocity coupling iteration
     pub fn step(
         &mut self,
-        _bc: &cfd_core::physics::boundary::BoundaryCondition<T>,
-        _nu: T,
+        bc: &BoundaryCondition<T>,
+        nu: T,
         rho: T,
     ) -> cfd_core::error::Result<T> {
         let dt = self.config.dt;
         let alpha_u = self.config.alpha_u;
         let alpha_p = self.config.alpha_p;
+        let dynamic_viscosity = rho * nu;
+
+        self.apply_uniform_boundary_condition(bc)?;
 
         let u_source = self.u.as_slice();
         let p_source = self.p.as_slice();
@@ -117,6 +121,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
             let state_buffer = &mut self.state_workspace;
             let u_star_workspace = &mut self.u_star_workspace;
             let p_correction_workspace = &mut self.p_correction_workspace;
+
+            state_buffer.density.as_mut_slice().fill(rho);
+            state_buffer.viscosity.as_mut_slice().fill(dynamic_viscosity);
+            state_buffer.force_u.as_mut_slice().fill(T::zero());
+            state_buffer.force_v.as_mut_slice().fill(T::zero());
+            state_buffer.mask.as_mut_slice().fill(true);
 
             for ((dst_u, dst_v), vel) in state_buffer
                 .u
@@ -133,14 +143,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
             momentum_solver.solve(MomentumComponent::U, state_buffer, dt)?;
             momentum_solver.solve(MomentumComponent::V, state_buffer, dt)?;
 
-            for ((dst, u), v) in u_star_workspace
-                .as_mut_slice()
-                .iter_mut()
-                .zip(state_buffer.u.as_slice().iter())
-                .zip(state_buffer.v.as_slice().iter())
-            {
-                *dst = Vector2::new(*u, *v);
-            }
+            state_buffer.copy_velocity_star_to(u_star_workspace);
+            state_buffer.promote_velocity_star_to_current();
 
             // Step 2: Solve pressure correction equation.
             p_correction_workspace.fill(T::zero());
@@ -175,6 +179,38 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
         self.iterations += 1;
 
         Ok(residual)
+    }
+
+    fn apply_uniform_boundary_condition(
+        &mut self,
+        bc: &BoundaryCondition<T>,
+    ) -> cfd_core::error::Result<()> {
+        if matches!(bc, BoundaryCondition::Periodic { .. }) {
+            return Err(cfd_core::error::Error::InvalidConfiguration(
+                "PressureVelocitySolver requires a uniform non-periodic boundary condition"
+                    .to_string(),
+            ));
+        }
+
+        let needs_update = {
+            let boundaries = self.momentum_solver.boundary_conditions();
+            ["north", "south", "east", "west"]
+                .iter()
+                .any(|name| boundaries.get(*name) != Some(bc))
+        };
+
+        if needs_update {
+            self.momentum_solver
+                .set_boundary("north".to_string(), bc.clone());
+            self.momentum_solver
+                .set_boundary("south".to_string(), bc.clone());
+            self.momentum_solver
+                .set_boundary("east".to_string(), bc.clone());
+            self.momentum_solver
+                .set_boundary("west".to_string(), bc.clone());
+        }
+
+        Ok(())
     }
 
     /// Run solver until convergence or max iterations
@@ -248,6 +284,7 @@ mod tests {
     use super::*;
     use crate::grid::StructuredGrid2D;
     use cfd_core::physics::boundary::{BoundaryCondition, WallType};
+    use nalgebra::Vector3;
 
     fn make_solver(nx: usize, ny: usize) -> PressureVelocitySolver<f64> {
         let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
@@ -325,5 +362,65 @@ mod tests {
                 "velocity field must remain finite after repeated steps"
             );
         }
+    }
+
+    #[test]
+    fn step_responds_to_boundary_and_viscosity_inputs() {
+        let mut no_slip_solver = make_solver(6, 6);
+        let mut moving_wall_solver = make_solver(6, 6);
+        let mut low_viscosity_solver = make_solver(6, 6);
+        let mut high_viscosity_solver = make_solver(6, 6);
+
+        let u_init = Array2D::new(6, 6, Vector2::new(1.0, 0.0));
+        let p_init = Array2D::new(6, 6, 0.0);
+
+        no_slip_solver.set_initial_conditions(u_init.clone(), p_init.clone());
+        moving_wall_solver.set_initial_conditions(u_init.clone(), p_init.clone());
+        low_viscosity_solver.set_initial_conditions(u_init.clone(), p_init.clone());
+        high_viscosity_solver.set_initial_conditions(u_init, p_init);
+
+        let no_slip = BoundaryCondition::Wall {
+            wall_type: WallType::NoSlip,
+        };
+        let moving = BoundaryCondition::Wall {
+            wall_type: WallType::Moving {
+                velocity: Vector3::new(1.0, 0.0, 0.0),
+            },
+        };
+
+        let no_slip_residual = no_slip_solver
+            .step(&no_slip, 0.01, 1.0)
+            .expect("no-slip pressure-velocity iteration");
+        let moving_residual = moving_wall_solver
+            .step(&moving, 0.01, 1.0)
+            .expect("moving-wall pressure-velocity iteration");
+        let low_viscosity_residual = low_viscosity_solver
+            .step(&no_slip, 0.002, 1.0)
+            .expect("low-viscosity pressure-velocity iteration");
+        let high_viscosity_residual = high_viscosity_solver
+            .step(&no_slip, 0.05, 1.0)
+            .expect("high-viscosity pressure-velocity iteration");
+
+        assert!(no_slip_residual.is_finite());
+        assert!(moving_residual.is_finite());
+        assert!(low_viscosity_residual.is_finite());
+        assert!(high_viscosity_residual.is_finite());
+
+        let center = (2, 2);
+        let no_slip_center = no_slip_solver.velocity()[(center.0, center.1)];
+        let moving_center = moving_wall_solver.velocity()[(center.0, center.1)];
+        let low_viscosity_center = low_viscosity_solver.velocity()[(center.0, center.1)];
+        let high_viscosity_center = high_viscosity_solver.velocity()[(center.0, center.1)];
+
+        assert!(
+            (moving_center.x - no_slip_center.x).abs() > 1e-12
+                || (moving_center.y - no_slip_center.y).abs() > 1e-12,
+            "boundary condition must affect the corrected velocity field"
+        );
+        assert!(
+            (high_viscosity_center.x - low_viscosity_center.x).abs() > 1e-12
+                || (high_viscosity_center.y - low_viscosity_center.y).abs() > 1e-12,
+            "viscosity input must affect the corrected velocity field"
+        );
     }
 }

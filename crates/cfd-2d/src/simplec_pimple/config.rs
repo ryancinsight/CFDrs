@@ -60,7 +60,7 @@ impl<T: RealField + Copy + FromPrimitive> Default for SimplecPimpleConfig<T> {
             tolerance: T::from_f64(1e-6)
                 .unwrap_or_else(|| T::from_f64(1e-6).expect("analytical constant conversion")),
             max_inner_iterations: 50,
-            use_rhie_chow: true,
+            use_rhie_chow: false,
             convection_scheme: SpatialScheme::SecondOrderUpwind,
             pressure_linear_solver: PressureLinearSolver::default(),
         }
@@ -82,6 +82,7 @@ impl<T: RealField + Copy + FromPrimitive> SimplecPimpleConfig<T> {
             algorithm: AlgorithmType::Pimple,
             n_outer_correctors: 3,
             n_inner_correctors: 2,
+            use_rhie_chow: true,
             ..Default::default()
         }
     }

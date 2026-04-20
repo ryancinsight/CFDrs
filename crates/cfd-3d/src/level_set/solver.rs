@@ -85,7 +85,7 @@
 //!    of the interface.
 
 use super::{advection, config::LevelSetConfig};
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
@@ -199,6 +199,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
 
     /// Advance level set by one time step using WENO5-Z + SSPRK3 advection.
     pub fn advance(&mut self, dt: T) -> Result<()> {
+        if self.velocity.len() != self.phi.len() {
+            return Err(Error::DimensionMismatch {
+                expected: self.phi.len(),
+                actual: self.velocity.len(),
+            });
+        }
+
         std::mem::swap(&mut self.phi, &mut self.phi_previous);
         advection::advance(
             self.nx,

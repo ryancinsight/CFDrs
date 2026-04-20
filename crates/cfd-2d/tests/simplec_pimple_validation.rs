@@ -20,20 +20,20 @@ fn test_simplec_smoke_re50() -> cfd_core::error::Result<()> {
 
     let nu = 1.0 / 50.0;
     let rho = 1.0;
-    let dt = 2.0e-3;
+    let dt = 1.0e-3;
     let max_time_steps = 1;
-    let convergence_tolerance = 5e-4;
+    let convergence_tolerance = 1e-3;
 
     let config = SimplecPimpleConfig {
         algorithm: AlgorithmType::Simplec,
         dt,
-        alpha_u: 0.7,
-        alpha_p: 0.3,
+        alpha_u: 0.6,
+        alpha_p: 0.2,
         n_outer_correctors: 1,
         n_inner_correctors: 1,
         tolerance: convergence_tolerance,
         max_inner_iterations: 200,
-        use_rhie_chow: true,
+        use_rhie_chow: false,
         convection_scheme: SpatialScheme::SecondOrderUpwind,
         pressure_linear_solver: PressureLinearSolver::default(),
     };

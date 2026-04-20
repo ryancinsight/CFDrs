@@ -1546,8 +1546,12 @@ impl TransientCompositionSimulator {
         timing: SimulationTimeConfig<T>,
     ) -> Result<Vec<CompositionState<T>>> {
         let result_timepoints = timing.result_timepoints()?;
-        let mut all_timepoints = result_timepoints.clone();
-        all_timepoints.extend(timing.calculation_timepoints()?);
+        let calculation_timepoints = timing.calculation_timepoints()?;
+        let mut all_timepoints = Vec::with_capacity(
+            result_timepoints.len() + calculation_timepoints.len() + events.len(),
+        );
+        all_timepoints.extend(result_timepoints.iter().copied());
+        all_timepoints.extend(calculation_timepoints);
 
         for event in &events {
             if event.time >= T::zero() && event.time <= timing.duration {

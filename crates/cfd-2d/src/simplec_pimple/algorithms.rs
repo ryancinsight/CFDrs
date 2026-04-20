@@ -34,6 +34,14 @@ use crate::physics::MomentumComponent;
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
 
+fn promote_predicted_velocity_state<T: RealField + Copy>(
+    fields: &mut SimulationFields<T>,
+    workspace: &mut Array2D<Vector2<T>>,
+) {
+    fields.copy_velocity_star_to(workspace);
+    fields.promote_velocity_star_to_current();
+}
+
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     SimplecPimpleSolver<T>
 {
@@ -180,7 +188,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         &mut self,
         fields: &mut SimulationFields<T>,
         dt: T,
-        _nu: T,
+        nu: T,
         rho: T,
     ) -> cfd_core::error::Result<T> {
         let mut residual = T::zero();
@@ -190,6 +198,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         let mut u_prev = self.extract_velocity_field(fields);
         let mut continuity_residual = T::max_value()
             .unwrap_or_else(|| T::from_f64(1e30).expect("analytical constant conversion"));
+        let mut previous_velocity_residual = T::max_value()
+            .unwrap_or_else(|| T::from_f64(1e30).expect("analytical constant conversion"));
+        let mut previous_continuity_residual = continuity_residual;
+        let mut divergence_streak = 0usize;
 
         for iter in 0..max_iterations {
             // Step 1: Solve momentum equations for predicted velocities u*
@@ -198,25 +210,22 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             self.momentum_solver
                 .solve_with_coefficients(MomentumComponent::V, fields, dt)?;
 
-            // Step 2: Update Rhie-Chow with FULL a_P coefficients
-            // Rhie-Chow face velocity interpolation requires the full diagonal coefficient
-            // a_P = Σ(a_nb) + ρV/Δt, NOT the consistent coefficient a_P^c = ρV/Δt.
+            // Step 2: Refresh the Rhie-Chow face coefficients from the raw
+            // momentum stencil.
             if let Some(ref mut rhie_chow) = self.rhie_chow {
-                let (ap_full_u, _, ap_full_v, _) = self.momentum_solver.get_ap_coefficients();
-                rhie_chow.update_u_coefficients(ap_full_u);
-                rhie_chow.update_v_coefficients(ap_full_v);
+                let (ap_u, _, ap_v, _) = self.momentum_solver.get_ap_coefficients();
+                rhie_chow.update_u_coefficients(ap_u);
+                rhie_chow.update_v_coefficients(ap_v);
             }
 
-            // Step 3: Extract predicted velocity field u*
-            for i in 0..self.grid.nx {
-                for j in 0..self.grid.ny {
-                    self.u_star_workspace[(i, j)] =
-                        Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
-                }
-            }
+            // Step 3: Promote the predicted momentum state into the current
+            // fields so the pressure solve sees the raw predictor.
+            promote_predicted_velocity_state(fields, &mut self.u_star_workspace);
 
-            // Step 4: Solve pressure correction equation
-            {
+            // Step 4: Solve pressure correction using the Rhie-Chow face
+            // interpolation path when enabled; otherwise fall back to the
+            // cell-centred pressure correction equation.
+            if self.rhie_chow.is_some() {
                 let grid = &self.grid;
                 let pressure_solver = &self.pressure_solver;
                 let momentum_solver = &self.momentum_solver;
@@ -241,28 +250,36 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                     d_y_cache,
                     fields,
                     dt,
+                    Some(dt),
+                    rho,
+                    true,
+                    &mut self.p_correction_workspace,
+                )?;
+            } else {
+                self.pressure_solver.solve_pressure_correction(
+                    fields,
+                    dt,
                     rho,
                     true,
                     &mut self.p_correction_workspace,
                 )?;
             }
 
-            // Step 5: Correct velocities using pressure gradients
+            // Step 5: Correct velocities using pressure gradients with the
+            // momentum under-relaxation factor.
+            let (ap_u, _, ap_v, _) = self.momentum_solver.get_ap_coefficients();
             self.u_corrected_workspace.copy_from(&self.u_star_workspace);
-            {
-                let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
-                self.pressure_solver.correct_velocity(
-                    &mut self.u_corrected_workspace,
-                    &self.p_correction_workspace,
-                    ap_c_u,
-                    ap_c_v,
-                    rho,
-                    T::one(),
-                    fields,
-                );
-            }
+            self.pressure_solver.correct_velocity(
+                &mut self.u_corrected_workspace,
+                &self.p_correction_workspace,
+                ap_u,
+                ap_v,
+                rho,
+                self.config.alpha_u,
+                fields,
+            );
 
-            // Step 6: Correct pressure with under-relaxation
+            // Step 6: Correct pressure with the configured SIMPLEC relaxation.
             self.p_workspace
                 .as_mut_slice()
                 .clone_from_slice(fields.p.as_slice());
@@ -290,9 +307,19 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             continuity_residual = self.compute_continuity_residual(fields, Some(dt));
             u_prev.copy_from(&self.u_corrected_workspace);
 
+            #[cfg(debug_assertions)]
+            println!(
+                "SIMPLEC iteration {} residuals: velocity={:.6e}, continuity={:.6e}",
+                iter + 1,
+                velocity_residual,
+                continuity_residual
+            );
+
             let velocity_converged = velocity_residual < self.config.tolerance;
-            let continuity_converged =
-                continuity_residual < T::from_f64(1e-6).unwrap_or(self.config.tolerance);
+            // Use the configured convergence tolerance rather than a stricter
+            // hard-coded threshold so SIMPLEC stops on the same contract as the
+            // rest of the pressure-velocity stack.
+            let continuity_converged = continuity_residual < self.config.tolerance;
 
             residual = velocity_residual.max(continuity_residual);
 
@@ -307,11 +334,22 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 break;
             }
 
-            if iter > 5 && !velocity_converged {
-                tracing::debug!(
-                    "Reducing under-relaxation at iteration {} for better convergence",
-                    iter + 1
+            if iter > 0
+                && velocity_residual > previous_velocity_residual
+                && continuity_residual > previous_continuity_residual
+            {
+                divergence_streak += 1;
+            } else {
+                divergence_streak = 0;
+            }
+            previous_velocity_residual = velocity_residual;
+            previous_continuity_residual = continuity_residual;
+
+            if divergence_streak >= 3 {
+                tracing::warn!(
+                    "SIMPLEC residuals are diverging; switching to the stable PIMPLE correction"
                 );
+                return self.solve_pimple(fields, dt, nu, rho);
             }
         }
 
@@ -363,21 +401,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 rhie_chow.update_v_coefficients(ap_full_v);
             }
 
-            for i in 0..self.grid.nx {
-                for j in 0..self.grid.ny {
-                    self.u_star_workspace[(i, j)] =
-                        Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
-                }
-            }
+            promote_predicted_velocity_state(fields, &mut self.u_star_workspace);
 
             // Inner PISO-like corrections
             for _inner_iter in 0..self.config.n_inner_correctors {
-                if let Some(ref mut rhie_chow) = self.rhie_chow {
-                    let (ap_full_u, _, ap_full_v, _) = self.momentum_solver.get_ap_coefficients();
-                    rhie_chow.update_u_coefficients(ap_full_u);
-                    rhie_chow.update_v_coefficients(ap_full_v);
-                }
-
                 let rebuild_matrix = _inner_iter == 0;
                 {
                     let grid = &self.grid;
@@ -404,6 +431,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         d_y_cache,
                         fields,
                         dt,
+                        Some(dt),
                         rho,
                         rebuild_matrix,
                         &mut self.p_correction_workspace,
@@ -411,13 +439,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 }
 
                 {
-                    let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
+                    let (ap_u, _, ap_v, _) = self.momentum_solver.get_ap_coefficients();
                     self.u_corrected_workspace.copy_from(&self.u_star_workspace);
                     self.pressure_solver.correct_velocity(
                         &mut self.u_corrected_workspace,
                         &self.p_correction_workspace,
-                        ap_c_u,
-                        ap_c_v,
+                        ap_u,
+                        ap_v,
                         rho,
                         T::one(),
                         fields,
@@ -518,4 +546,5 @@ mod tests {
         let default_cfg = SimplecPimpleConfig::<f64>::default();
         assert_eq!(default_cfg.algorithm, AlgorithmType::Simplec);
     }
+
 }

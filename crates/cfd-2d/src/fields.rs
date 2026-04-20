@@ -20,6 +20,7 @@
 //! | `at_mut(i, j)` | returns `None` if out of bounds | `Option<&mut T>` |
 //! | `set(i, j, v)` | **debug-assert** only | `()` |
 
+use crate::grid::array2d::Array2D;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use nalgebra::{RealField, Vector2};
 use num_traits::{Float, FromPrimitive};
@@ -340,6 +341,32 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
         self.mask.data.copy_from_slice(&other.mask.data);
 
         Ok(())
+    }
+
+    /// Promote the predicted velocity fields into the current velocity fields.
+    ///
+    /// The momentum solver stores the raw linear-solution state in `u_star` and
+    /// `v_star`. Pressure correction must consume that predicted state, not the
+    /// relaxed post-solve field, so this copies the star fields back into `u` and
+    /// `v` without allocation.
+    pub fn promote_velocity_star_to_current(&mut self) {
+        self.u.data.copy_from_slice(&self.u_star.data);
+        self.v.data.copy_from_slice(&self.v_star.data);
+    }
+
+    /// Copy the predicted velocity fields into a vector-valued workspace.
+    pub fn copy_velocity_star_to(&self, target: &mut Array2D<Vector2<T>>)
+    where
+        T: Copy,
+    {
+        assert_eq!(self.nx, target.rows(), "velocity star row mismatch");
+        assert_eq!(self.ny, target.cols(), "velocity star column mismatch");
+
+        for i in 0..self.nx {
+            for j in 0..self.ny {
+                target[(i, j)] = self.velocity_star_at(i, j);
+            }
+        }
     }
 
     /// Get velocity as Vector2 at point (i, j)

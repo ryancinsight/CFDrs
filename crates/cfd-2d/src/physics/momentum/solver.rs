@@ -706,9 +706,15 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                             let old_value = *u;
                             // Enforce zero velocity in masked (solid) cells
                             if fields.mask.at(i, j) {
+                                if let Some(u_star) = fields.u_star.at_mut(i, j) {
+                                    *u_star = computed_value;
+                                }
                                 // Under-relaxation: u_new = α * u_computed + (1-α) * u_old
                                 *u = alpha * computed_value + one_minus_alpha * old_value;
                             } else {
+                                if let Some(u_star) = fields.u_star.at_mut(i, j) {
+                                    *u_star = T::zero();
+                                }
                                 *u = T::zero();
                             }
                         }
@@ -718,9 +724,15 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                             let old_value = *v;
                             // Enforce zero velocity in masked (solid) cells
                             if fields.mask.at(i, j) {
+                                if let Some(v_star) = fields.v_star.at_mut(i, j) {
+                                    *v_star = computed_value;
+                                }
                                 // Under-relaxation: v_new = α * v_computed + (1-α) * v_old
                                 *v = alpha * computed_value + one_minus_alpha * old_value;
                             } else {
+                                if let Some(v_star) = fields.v_star.at_mut(i, j) {
+                                    *v_star = T::zero();
+                                }
                                 *v = T::zero();
                             }
                         }
