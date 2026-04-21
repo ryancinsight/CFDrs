@@ -12,6 +12,35 @@
 //! transition sequentially based on critical mechanical strain thresholds of the cellular membrane. Unaffected
 //! cells are defined dynamically based on remainder.
 //!
+//! ## Theorem — Rate-Sensitive Membrane Failure
+//!
+//! Cell membrane injury thresholds increase as the loading duration decreases.
+//! A Rayleigh collapse-time proxy
+//!
+//! ```text
+//! t_c = 0.915 R_max sqrt(ρ / Δp)
+//! ```
+//!
+//! is used as the characteristic loading duration. The critical areal strain
+//! thresholds are scaled by `sqrt(t_ref / t_c)` with `t_ref = 0.1 s`, which
+//! matches the experimentally observed trend that impulsive loading raises the
+//! poration threshold while slower loading lowers it.
+//!
+//! **Proof sketch**: The collapse-time proxy is the standard inertial bubble
+//! timescale from Rayleigh collapse. The square-root rate factor is consistent
+//! with the impulsive-stretch literature, which reports an approximate
+//! inverse-square-root dependence of peak area-strain threshold on loading
+//! duration across microsecond to millisecond regimes.
+//!
+//! **References**:
+//! - Andreu et al., "The force loading rate drives cell mechanosensing through
+//!   both reinforcement and cytoskeletal softening" (*Nature Communications*,
+//!   2021).
+//! - Chowdhury et al., "Biophysical insight into mechanisms of sonoporation"
+//!   (*Biochimica et Biophysica Acta - Biomembranes*, 2016).
+//! - Wang et al., "Sudden Cell Death Induced by Ca2+ Delivery via Microbubble
+//!   Cavitation" (*ACS Applied Materials & Interfaces*, 2021).
+//!
 //! **Proof sketch**: This represents a deterministic mapping from derived spatial acoustic pressure to cumulative probability
 //! thresholds (bounded within `[0.0, 1.0]`). Each state represents mutually exclusive populations, ensuring
 //! exact mass conservation. The applied membrane load is the local
@@ -21,6 +50,16 @@
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 
+use super::rayleigh_plesset::RayleighPlesset;
+
+/// Reference loading duration for membrane injury thresholds [s].
+///
+/// The threshold set in [`CellularMembraneMechanics`] is interpreted at this
+/// timescale and scaled for faster/slower impulses by the Rayleigh collapse
+/// duration proxy.
+const REFERENCE_LOADING_DURATION_S: f64 = 0.1;
+/// Blood density proxy used for the Rayleigh collapse-time estimate [kg/m^3].
+const BLOOD_DENSITY_KG_M3: f64 = 1060.0;
 /// Defined structural mechanics for cellular membranes.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct CellularMembraneMechanics<T: RealField + Copy> {
@@ -76,6 +115,8 @@ impl<T: RealField + Copy> CellularMembraneMechanics<T> {
     ) -> CellularInjuryProfile<T> {
         let zero = T::zero();
         let one = T::one();
+        let reference_duration = T::from_f64(REFERENCE_LOADING_DURATION_S).unwrap_or(one);
+        let blood_density = T::from_f64(BLOOD_DENSITY_KG_M3).unwrap_or(one);
 
         let r_impact = standoff_distance_m.max(bubble_radius_m);
         // Acoustic radiation decay P(r) = P_inf + R/r * (P_c - P_inf)
@@ -83,6 +124,12 @@ impl<T: RealField + Copy> CellularMembraneMechanics<T> {
         let ratio = bubble_radius_m / r_impact;
         let pressure_difference = collapse_pressure_pa - ambient_pressure_pa;
         let p_r = ambient_pressure_pa + ratio * pressure_difference;
+
+        let loading_duration = self.loading_duration_proxy(
+            bubble_radius_m,
+            pressure_difference.max(zero),
+            blood_density,
+        );
 
         // The membrane responds to cavitation-induced overpressure, not to the
         // ambient baseline itself. Ambient-only loading must therefore map to
@@ -94,6 +141,22 @@ impl<T: RealField + Copy> CellularMembraneMechanics<T> {
 
         // Areal strain approx for Hookean membrane
         let strain = membrane_stress / self.membrane_elastic_modulus_pa;
+        let rate_factor = if loading_duration > zero {
+            (reference_duration / loading_duration).sqrt()
+        } else {
+            one
+        };
+
+        let adjusted_permeabilization = self.rate_adjusted_threshold(
+            self.critical_areal_strain_permeabilization,
+            rate_factor,
+        );
+        let adjusted_necrosis = self.rate_adjusted_threshold(
+            self.critical_areal_strain_necrosis,
+            rate_factor,
+        );
+        let adjusted_lysis =
+            self.rate_adjusted_threshold(self.critical_areal_strain_lysis, rate_factor);
 
         let evaluate_cumulative = |threshold: T| -> T {
             if strain <= zero {
@@ -107,12 +170,10 @@ impl<T: RealField + Copy> CellularMembraneMechanics<T> {
             }
         };
 
-        let cumulative_lysed =
-            evaluate_cumulative(self.critical_areal_strain_lysis).clamp(zero, one);
-        let cumulative_necrotic =
-            evaluate_cumulative(self.critical_areal_strain_necrosis).clamp(zero, one);
+        let cumulative_lysed = evaluate_cumulative(adjusted_lysis).clamp(zero, one);
+        let cumulative_necrotic = evaluate_cumulative(adjusted_necrosis).clamp(zero, one);
         let cumulative_permeabilized =
-            evaluate_cumulative(self.critical_areal_strain_permeabilization).clamp(zero, one);
+            evaluate_cumulative(adjusted_permeabilization).clamp(zero, one);
 
         let fraction_lysed = cumulative_lysed;
         let fraction_necrotic = (cumulative_necrotic - cumulative_lysed).max(zero);
@@ -130,6 +191,35 @@ impl<T: RealField + Copy> CellularMembraneMechanics<T> {
             fraction_necrotic: fraction_necrotic / total,
             fraction_lysed: fraction_lysed / total,
         }
+    }
+
+    fn loading_duration_proxy(
+        &self,
+        bubble_radius_m: T,
+        pressure_difference_pa: T,
+        blood_density: T,
+    ) -> T {
+        if bubble_radius_m <= T::zero() || pressure_difference_pa <= T::zero() {
+            return T::from_f64(REFERENCE_LOADING_DURATION_S).unwrap_or(T::one());
+        }
+
+        let bubble = RayleighPlesset {
+            initial_radius: bubble_radius_m,
+            liquid_density: blood_density,
+            liquid_viscosity: T::zero(),
+            surface_tension: T::zero(),
+            vapor_pressure: T::zero(),
+            polytropic_index: T::from_f64(1.4).unwrap_or(T::one()),
+        };
+
+        bubble.collapse_time(bubble_radius_m, pressure_difference_pa)
+    }
+
+    fn rate_adjusted_threshold(&self, threshold: T, rate_factor: T) -> T {
+        if threshold <= T::zero() {
+            return T::zero();
+        }
+        threshold * rate_factor.max(T::zero())
     }
 }
 
@@ -216,5 +306,37 @@ mod tests {
 
         assert!(severe.fraction_lysed >= mild.fraction_lysed);
         assert!(severe.fraction_healthy <= mild.fraction_healthy);
+    }
+
+    #[test]
+    fn longer_loading_duration_decreases_healthy_fraction_at_fixed_peak_strain() {
+        let mechanics = CellularMembraneMechanics::<f64> {
+            cell_radius_m: 10e-6,
+            membrane_thickness_m: 50e-9,
+            membrane_elastic_modulus_pa: 10_000_000.0,
+            critical_areal_strain_permeabilization: 0.5,
+            critical_areal_strain_necrosis: 2.0,
+            critical_areal_strain_lysis: 4.5,
+        };
+        let ambient = 101_325.0;
+        let collapse_pressure = ambient + 30_000_000.0;
+
+        let short_bubble = mechanics.evaluate_spatial_injury(
+            collapse_pressure,
+            5e-6,
+            5e-6,
+            ambient,
+        );
+        let long_bubble = mechanics.evaluate_spatial_injury(
+            collapse_pressure,
+            50e-6,
+            50e-6,
+            ambient,
+        );
+
+        assert!(
+            long_bubble.fraction_healthy <= short_bubble.fraction_healthy,
+            "slower collapse should reduce the healthy fraction"
+        );
     }
 }

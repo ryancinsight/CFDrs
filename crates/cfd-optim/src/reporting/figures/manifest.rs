@@ -256,7 +256,7 @@ pub fn generate_m12_report_figures(
             "Selected-Design Oncology Trade-Off Frontier",
             "m12_pareto_oncology.svg",
             figure_path_prefix,
-            "Trade-off frontier across the full Option 2 eligible pool and the full HydroSDT-filtered GA pool, showing tumor-targeted cavitation intensity versus healthy-cell protection. Faint background points show the explored background population used for analysis, while the highlighted selected designs and frontier line identify where the shortlist sits inside that broader design landscape.",
+            "Trade-off frontier across the full Option 2 eligible pool and the full HydroSDT-filtered GA pool, showing tumor-targeted cavitation intensity versus healthy-cell protection index. Faint background points show the explored background population used for analysis, while the highlighted selected designs and frontier line identify where the shortlist sits inside that broader design landscape.",
             "Selected design oncology frontier",
         ),
         spec(
@@ -322,7 +322,7 @@ fn selected_schematic_caption(
     let pediatric_limit_ml = pediatric_reference_ecv_limit_ml();
     let ecv_pct = 100.0 * ecv_ml / pediatric_limit_ml.max(1e-12);
     format!(
-        "{} selected design: {}. Topology: {}. Visible split layers: {} ({}). ECV = {:.3} mL ({:.1}% of 3 kg neonatal 10% circuit-volume limit = {:.1} mL){}. Line thickness is proportional to channel width, and geometry-authored serpentines depict mirrored Dean-generating curvature rather than a single apex. Candidate: `{}`.",
+        "{} selected design: {}. Topology: {}. Visible split layers: {} ({}). ECV = {:.3} mL ({:.1}% of 3 kg neonatal 10% circuit-volume limit = {:.1} mL). Healthy-cell protection index = {:.4}. Treatment mode: {}. Active venturi throats: {}. Line thickness is proportional to channel width, and geometry-authored serpentines depict mirrored Dean-generating curvature rather than a single apex. Candidate: `{}`.",
         option_label,
         treatment_summary,
         ranked.topology_display_name(),
@@ -331,7 +331,9 @@ fn selected_schematic_caption(
         ecv_ml,
         ecv_pct,
         pediatric_limit_ml,
-        venturi_caption_suffix(ranked),
+        ranked.metrics.healthy_cell_protection_index,
+        ranked.metrics.treatment_zone_mode,
+        ranked.metrics.active_venturi_throat_count,
         candidate.id,
     )
 }
@@ -356,13 +358,6 @@ fn pick_serpentine_venturi_focus(
                 ) && matches!(channel.channel_shape, ChannelShape::Serpentine { .. })
             })
     })
-}
-
-fn venturi_caption_suffix(ranked: &Milestone12ReportDesign) -> String {
-    format!(
-        ". Treatment mode: {}. Active venturi throats: {}",
-        ranked.metrics.treatment_zone_mode, ranked.metrics.active_venturi_throat_count
-    )
 }
 
 fn stage_sequence_label(ranked: &Milestone12ReportDesign) -> String {

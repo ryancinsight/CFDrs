@@ -11,6 +11,7 @@ use cfd_3d::spectral::solver::PoissonProblem;
 use cfd_3d::spectral::{SpectralConfig, SpectralSolver};
 use cfd_3d::trifurcation::{TrifurcationConfig3D, TrifurcationGeometry3D, TrifurcationSolver3D};
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
+use cfd_core::error::Error;
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::application::channel::serpentine::SerpentineMeshBuilder;
@@ -158,6 +159,32 @@ fn venturi_throat_acceleration() {
         sol.u_throat,
         sol.u_inlet
     );
+}
+
+#[test]
+fn venturi_pressure_coefficients_require_positive_dynamic_pressure() {
+    let builder =
+        VenturiMeshBuilder::new(2.0e-3_f64, 1.0e-3, 3.0e-3, 2.0e-3, 1.0e-3, 4.0e-3, 3.0e-3);
+    let config = VenturiConfig3D {
+        inlet_flow_rate: 0.0,
+        inlet_pressure: 200.0,
+        outlet_pressure: 0.0,
+        resolution: (30, 5),
+        ..VenturiConfig3D::default()
+    };
+    let solver = VenturiSolver3D::new(builder, config);
+    let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+    let err = solver.solve(water).unwrap_err();
+
+    match err {
+        Error::Solver(message) => {
+            assert!(
+                message.contains("dynamic pressure"),
+                "unexpected solver error: {message}"
+            );
+        }
+        other => panic!("Expected Solver error, got {other:?}"),
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────

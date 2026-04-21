@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ParetoPoint {
     pub cancer_targeted_cavitation: f64,
+    #[serde(default)]
+    pub healthy_cell_protection_index: f64,
     pub rbc_venturi_protection: f64,
     pub score: f64,
     pub tag: ParetoTag,
@@ -143,6 +145,7 @@ pub fn pareto_point_from_report_design(
 ) -> ParetoPoint {
     ParetoPoint {
         cancer_targeted_cavitation: design.metrics.cancer_targeted_cavitation,
+        healthy_cell_protection_index: design.metrics.healthy_cell_protection_index,
         rbc_venturi_protection: design.metrics.rbc_venturi_protection,
         score: design.score,
         tag,
@@ -159,6 +162,7 @@ pub fn pareto_pool_from_report_designs(
         .iter()
         .filter(|design| {
             design.metrics.cancer_targeted_cavitation.is_finite()
+                && design.metrics.healthy_cell_protection_index.is_finite()
                 && design.metrics.rbc_venturi_protection.is_finite()
         })
         .take(limit)
@@ -172,6 +176,10 @@ pub fn sort_pareto_points(points: &mut [ParetoPoint]) {
     points.sort_by(|left, right| {
         left.cancer_targeted_cavitation
             .total_cmp(&right.cancer_targeted_cavitation)
+            .then_with(|| {
+                left.healthy_cell_protection_index
+                    .total_cmp(&right.healthy_cell_protection_index)
+            })
             .then_with(|| {
                 left.rbc_venturi_protection
                     .total_cmp(&right.rbc_venturi_protection)
@@ -189,6 +197,30 @@ pub fn sort_pareto_points(points: &mut [ParetoPoint]) {
                 left_tag.cmp(&right_tag)
             })
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{pareto_point_from_report_design, Milestone12ReportDesign, ParetoTag};
+    use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
+    use crate::reporting::compute_blueprint_report_metrics;
+
+    #[test]
+    fn pareto_point_carries_healthy_cell_protection_index() {
+        let candidate = canonical_option2_candidate(
+            "pareto-health-composite",
+            operating_point(2.0e-6, 30_000.0, 0.18),
+        );
+        let metrics =
+            compute_blueprint_report_metrics(&candidate).expect("report metrics should compute");
+        let design = Milestone12ReportDesign::new(1, candidate, metrics, 0.74);
+        let point = pareto_point_from_report_design(&design, ParetoTag::Option2);
+
+        assert_eq!(
+            point.healthy_cell_protection_index,
+            design.metrics.healthy_cell_protection_index
+        );
+    }
 }
 
 #[must_use]

@@ -474,6 +474,17 @@ pub struct SdtMetrics {
     #[serde(default)]
     pub rbc_venturi_protection: f64,
 
+    /// Healthy-cell protection index, a conservative composite of WBC sparing
+    /// and RBC venturi protection.
+    ///
+    /// `healthy_cell_protection_index =
+    ///     sqrt((1 − wbc_targeted_cavitation) × rbc_venturi_protection)`
+    ///
+    /// Higher values require both WBCs and RBCs to remain outside the
+    /// cavitating core.
+    #[serde(default)]
+    pub healthy_cell_protection_index: f64,
+
     /// Sonoluminescence proxy based on adiabatic Rayleigh-Plesset collapse temperature.
     ///
     /// `T_collapse / T_blood ≈ (P_abs / P_vapor)^((γ−1)/γ)`

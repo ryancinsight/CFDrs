@@ -21,6 +21,10 @@
 //! surface provides the pressure and surface-tension terms. Viscous dissipation
 //! contributes the $4\mu\dot{R}/R$ term (Plesset & Prosperetti 1977).
 //!
+//! A collapsed bubble is treated as an absorbing state: when `R = 0`, the
+//! canonical integrator returns `(R, \dot{R}) = (0, 0)` and the bubble remains
+//! collapsed until a separate nucleation process re-seeds it.
+//!
 //! ## References
 //!
 //! - Rayleigh, Lord (1917). "On the pressure developed in a liquid during the
@@ -88,8 +92,7 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
     ///
     /// **References**: Plesset & Prosperetti (1977), Brennen (1995) §2.2.
     pub fn bubble_acceleration(&self, radius: T, velocity: T, ambient_pressure: T) -> T {
-        // Avoid division by zero
-        if radius < T::from_f64(super::constants::MIN_BUBBLE_RADIUS).unwrap_or_else(|| T::zero()) {
+        if radius <= T::zero() {
             return T::zero();
         }
 
@@ -135,9 +138,9 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
         ambient_pressure: T,
         dt: T,
     ) -> Result<(T, T)> {
-        if radius <= T::zero() {
+        if radius < T::zero() {
             return Err(Error::InvalidConfiguration(
-                "Bubble radius must be positive".to_string(),
+                "Bubble radius must be non-negative".to_string(),
             ));
         }
         if dt <= T::zero() {
@@ -151,6 +154,10 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
             ));
         }
 
+        if radius == T::zero() {
+            return Ok((T::zero(), T::zero()));
+        }
+
         let accel = self.bubble_acceleration(radius, velocity, ambient_pressure);
         if !accel.is_finite() {
             return Err(Error::Numerical(NumericalErrorKind::InvalidValue {
@@ -159,8 +166,10 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
         }
 
         let new_velocity = velocity + accel * dt;
-        let min_radius = T::from_f64(super::constants::MIN_BUBBLE_RADIUS).unwrap_or_else(T::zero);
-        let new_radius = (radius + new_velocity * dt).max(min_radius);
+        let new_radius = radius + new_velocity * dt;
+        if new_radius <= T::zero() {
+            return Ok((T::zero(), T::zero()));
+        }
 
         Ok((new_radius, new_velocity))
     }
@@ -351,6 +360,22 @@ mod tests {
         let (r1, v1) = rp.step_semi_implicit(1e-6, 0.0, 1.0e5, 1e-7).unwrap();
         assert!(r1 > 0.0);
         assert!(v1.is_finite());
+    }
+
+    #[test]
+    fn step_semi_implicit_treats_collapsed_bubble_as_absorbing_state() {
+        let rp = RayleighPlesset::<f64> {
+            initial_radius: 1e-6,
+            liquid_density: 998.0,
+            liquid_viscosity: 1.002e-3,
+            surface_tension: 0.0728,
+            vapor_pressure: 2339.0,
+            polytropic_index: 1.4,
+        };
+
+        let (r1, v1) = rp.step_semi_implicit(0.0, 0.0, 1.0e5, 1e-7).unwrap();
+        assert_eq!(r1, 0.0);
+        assert_eq!(v1, 0.0);
     }
 
     #[test]

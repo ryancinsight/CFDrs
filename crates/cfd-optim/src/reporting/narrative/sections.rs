@@ -82,7 +82,7 @@ pub(super) fn build_selected_table(
 ) -> String {
     let mut out = String::new();
     out.push_str(
-        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | K_loss | Cumulative cavitation dose | WBC treatment exposure | RBC treatment exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |\n",
+        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | K_loss | Cumulative cavitation dose | WBC recovery | RBC treatment exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |\n",
     );
     out.push_str("|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n");
     if let Some(option1) = option1 {
@@ -314,7 +314,7 @@ pub(super) fn build_results_intro(
 {opt1_pool} Option 1 qualified designs (AsymmetricSplitResidenceSeparation track) and {opt2_pool} Option 2 qualified designs \
 (AsymmetricSplitVenturiCavitationSelectivity track). The ranked pool therefore reflects only physically admissible \
 designs that preserve selective split-width partitioning, treatment-lane residence time, and \
-healthy-cell protection. The following sub-sections present the selected designs (§5.1), gate \
+cancer-cell preferential lysis with healthy-cell protection. The following sub-sections present the selected designs (§5.1), gate \
 evidence (§5.2), {robustness_label}, design visualizations (§5.4), \
 derived metric formulas (§5.5), and operating limits (§5.6). Extracorporeal circuit volume is \
 reported explicitly as ECV = Σ(L_i A_i) = Q_in t_res, and each selected design is benchmarked \
@@ -334,7 +334,7 @@ pub(super) fn build_selected_table_intro(
         format!(
             "**Option 1 - Selective Acoustic Center Treatment** \
 (`{}`, score {:.4}): branch-diameter biasing keeps {:.0}% of WBCs out of the treatment lane \
-per pass while concentrating CTC-rich flow for ultrasound exposure; HI/pass = {:.4}% \
+per pass while concentrating cancer-cell-rich flow for ultrasound exposure; HI/pass = {:.4}% \
 (FDA 0.1% non-therapeutic limit); ECV = {:.3} mL \
 ({:.1}% of the 3 kg neonatal circuit-volume limit). \
 This design carries zero active venturi throats; treatment relies entirely on externally \
@@ -353,9 +353,9 @@ applied 412 kHz ultrasound acting on cells concentrated in the center lane.",
     format!(
         "{}\n\n\
 **Option 2 - Selective Venturi Hydrodynamic Cavitation** \
-(`{}`, score {:.4}): {} at {} serial venturi throat(s) per path; {:.0}% of CTCs route through the venturi \
-treatment lane (cancer_center_fraction); WBC treatment exposure = {:.0}%; therapeutic window \
-score = {:.3}; HI/pass = {:.4}%; ECV = {:.3} mL ({:.1}% of the same neonatal limit). \
+(`{}`, score {:.4}): {} at {} serial venturi throat(s) per path; {:.0}% of cancer-cell-rich flow route through the venturi \
+treatment lane (cancer_center_fraction); WBC recovery = {:.0}%, so {:.0}% of WBCs are kept out of the active lane before remerge; this is the primary healthy-cell protection lever; therapeutic window \
+score = {:.3}; healthy-cell protection index = {:.4}; HI/pass = {:.4}%; ECV = {:.3} mL ({:.1}% of the same neonatal limit). \
 **Note:** Option 1 and Option 2 scores use different objective functions \
 (AsymmetricSplitResidenceSeparation vs AsymmetricSplitVenturiCavitationSelectivity) and are not comparable across tracks. \
 This report is emitted from structured canonical data and should be regenerated rather than edited manually.",
@@ -366,7 +366,9 @@ This report is emitted from structured canonical data and should be regenerated 
         m2.serial_venturi_stages_per_path,
         ccf_pct,
         wbc2_exposure_pct,
+        100.0 - wbc2_exposure_pct,
         m2.therapeutic_window_score,
+        m2.healthy_cell_protection_index,
         m2.hemolysis_index_per_pass,
         m2.total_ecv_ml,
         pediatric_limit_pct(m2.total_ecv_ml),
@@ -428,11 +430,11 @@ apparent viscosity reduction in channels below ~300 µm, plasma skimming (Pries 
 hematocrit partitioning at asymmetric bifurcations, and the Quemada (1978) rouleaux \
 aggregation viscosity model for low-shear zones where RBC aggregation elevates the \
 effective viscosity above the Casson baseline. \
-For the selected design: {ccf_pct:.0}% of CTCs enter the venturi treatment lane \
+For the selected design: {ccf_pct:.0}% of cancer cells enter the venturi treatment lane \
 (cancer_center_fraction); {wbc_pct:.0}% of WBCs enter the treatment lane, so {:.0}% are kept out \
 of the treatment region before all flowpaths remerge upstream of the outlet; {rbc_pct:.0}% of RBCs \
 pass through venturi throats (rbc_venturi_exposure). Reducing this fraction is the primary \
-hemocompatibility lever. \
+healthy-cell protection lever. \
 Composite three-population separation efficiency = {:.4}.",
         (1.0 - m.wbc_recovery) * 100.0,
         m.three_pop_sep_efficiency
@@ -456,8 +458,8 @@ configuration than the parametric Option 2 selection.",
 pub(super) fn build_strict_core_intro() -> String {
     "These five binary gates represent hard physical constraints derived from FDA guidance, \
 ANSI/SLAS plate standards, and Hagen–Poiseuille network feasibility. A design failing any \
-gate receives the infeasibility floor score (0.001) and is excluded from the eligible pool \
-regardless of objective metrics.\n\n\
+gate receives exact zero score and is excluded from the eligible pool regardless of \
+objective metrics.\n\n\
 1. **Pressure feasible**: total pressure drop Δp must not exceed the inlet gauge budget. \
 For the 1D lumped-element Hagen–Poiseuille model, Δp = Σ (128 μ L Q / π D_h⁴) across all \
 channel segments (Casson-corrected blood viscosity μ ≈ 3.5 mPa·s at γ̇ > 100 s⁻¹). \
@@ -494,7 +496,8 @@ pub(super) fn build_cavitation_formulas_intro(option2: &Milestone12ReportDesign)
     let m = &option2.metrics;
     let mut out = format!(
         "These derived metrics translate raw 1D Hagen–Poiseuille network physics (pressure drop, \
-wall shear rate, flow partition fractions) into clinically interpretable quantities.\n\n\
+wall shear rate, flow partition fractions) into clinically interpretable quantities for cancer-cell \
+preferential lysis with healthy-cell protection.\n\n\
 **Cavitation number** σ = (p_throat − pᵥ,eff) / (½ρv²_eff), where p_throat is the \
 local static pressure at the vena contracta (inlet pressure minus Bernoulli contraction \
 drop and Darcy-Weisbach friction loss through the converging section), \
@@ -519,6 +522,11 @@ flow partitioning at asymmetric bifurcations.\n\n\
 where L_risk = HI × (1 + 5 × f_rbc,venturi × H_local) is the lysis risk index \
 (HI = Giersiepen hemolysis index per pass, H_local = local hematocrit at the throat). \
 TWS → 1 when cancer-targeted cavitation is high relative to blood damage.\n\n\
+**Cancer-selective lysis balance** = maximize cancer-targeted cavitation and oncology \
+selectivity while minimizing `wbc_targeted_cavitation` and maximizing \
+`rbc_venturi_protection`. Healthy-cell protection is therefore reported by WBC sparing \
+(1 − `wbc_targeted_cavitation`) and RBC venturi protection, and summarized by the \
+geometric-mean `healthy_cell_protection_index`.\n\n\
 **Sonoluminescence proxy** S = clamp(C_p × (p_abs/p_vap)^((κ_poly−1)/κ_poly) / S_ref, 0, 1), \
 modelling the adiabatic collapse temperature ratio for sonosensitiser (5-ALA, Ce6) \
 photoactivation under polytropic bubble dynamics (κ_poly = 1.25, Storey & Szeri 2000; \
@@ -526,13 +534,18 @@ accounts for partial heat transfer during collapse, more conservative than the f
 adiabatic value γ = 1.4).\n\n\
 For the selected Option 2 design: TTCI = {:.4}, TWS = {:.4}, \
 lysis_risk_index = {:.4e}, sonoluminescence_proxy = {:.4}, \
-oncology_selectivity_index = {:.4}, cancer_rbc_cavitation_bias = {:.4}.",
+oncology_selectivity_index = {:.4}, cancer_rbc_cavitation_bias = {:.4}, \
+wbc_targeted_cavitation = {:.4}, rbc_venturi_protection = {:.4}, \
+healthy_cell_protection_index = {:.4}.",
         m.cancer_targeted_cavitation,
         m.therapeutic_window_score,
         m.lysis_risk_index,
         m.sonoluminescence_proxy,
         m.oncology_selectivity_index,
         m.cancer_rbc_cavitation_bias_index,
+        m.wbc_targeted_cavitation,
+        m.rbc_venturi_protection,
+        m.healthy_cell_protection_index,
     );
     if m.cavitation_number < 0.0 {
         let _ = write!(
@@ -854,7 +867,7 @@ less-deformable CTCs (diameter 10-15 um) toward the outer wall, while smaller RB
 (diameter ~8 um) remain on inner streamlines. The venturi constriction at the bend \
 apex then subjects the CTC-enriched outer-wall flow to the highest throat velocity \
 and lowest local pressure, maximizing the cavitation dose delivered to cancer cells \
-while partially shielding RBCs on the low-velocity inner streamlines.\n\n\
+while reducing RBC exposure on the low-velocity inner streamlines.\n\n\
 4. Curvature-friction coupling in the 1D solver: the SerpentineModel in cfd-1d \
 applies the Ito (1959) curvature enhancement to the Hagen-Poiseuille friction factor \
 when computing channel resistance: `f_curved = f_straight * enhancement(De)`. For \
@@ -893,8 +906,9 @@ mod tests {
     use crate::reporting::{compute_blueprint_report_metrics, Milestone12ReportDesign};
 
     use super::{
-        build_cri_expansion_sensitivity, build_option2_top5_table, build_selected_table,
-        cavitation_regime_clause,
+        build_cavitation_formulas_intro, build_cri_expansion_sensitivity, build_option2_top5_table,
+        build_results_intro, build_selected_table, build_selected_table_intro,
+        build_strict_core_intro, cavitation_regime_clause,
     };
 
     #[test]
@@ -933,5 +947,35 @@ mod tests {
             "{:.3}",
             design.metrics.venturi_total_loss_coefficient
         )));
+    }
+
+    #[test]
+    fn cancer_selective_report_language_mentions_healthy_cell_protection() {
+        let candidate = canonical_option2_candidate(
+            "option2-cancer-selective-report",
+            operating_point(2.0e-6, 30_000.0, 0.18),
+        );
+        let metrics = compute_blueprint_report_metrics(&candidate).expect("option2 metrics");
+        let design = Milestone12ReportDesign::new(1, candidate, metrics, 0.74);
+
+        let selected_intro = build_selected_table_intro(None, &design);
+        let cavitation_intro = build_cavitation_formulas_intro(&design);
+        let results_intro = build_results_intro(8, 3, 5, 1, 2, false, false);
+
+        assert!(results_intro.contains("cancer-cell preferential lysis"));
+        assert!(selected_intro.contains("cancer-cell-rich flow"));
+        assert!(selected_intro.contains("healthy-cell protection lever"));
+        assert!(selected_intro.contains("healthy-cell protection index"));
+        assert!(cavitation_intro.contains("cancer-cell preferential lysis"));
+        assert!(cavitation_intro.contains("healthy_cell_protection_index"));
+        assert!(cavitation_intro.contains("wbc_targeted_cavitation"));
+        assert!(cavitation_intro.contains("rbc_venturi_protection"));
+    }
+
+    #[test]
+    fn strict_core_intro_uses_exact_zero_for_infeasible_candidates() {
+        let strict_intro = build_strict_core_intro();
+        assert!(strict_intro.contains("exact zero score"));
+        assert!(!strict_intro.contains("0.001"));
     }
 }

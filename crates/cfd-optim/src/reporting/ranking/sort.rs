@@ -15,13 +15,16 @@ pub fn pct_diff(a: f64, b: f64) -> f64 {
 }
 
 /// Composite oncology priority score used in deterministic report tie-breaks.
+///
+/// The blood-safety term is the healthy-cell protection index, which combines
+/// WBC sparing and RBC venturi protection into one bounded composite.
 #[must_use]
 pub fn oncology_priority_score(metrics: &SdtMetrics) -> f64 {
     let cancer = metrics.cancer_targeted_cavitation.clamp(0.0, 1.0);
     let selectivity = metrics.oncology_selectivity_index.clamp(0.0, 1.0);
-    let rbc_shield = (1.0 - metrics.rbc_venturi_exposure_fraction).clamp(0.0, 1.0);
+    let healthy = metrics.healthy_cell_protection_index.clamp(0.0, 1.0);
     let hi_gate = (1.0 - metrics.projected_hemolysis_15min_pediatric_3kg / 0.01).clamp(0.0, 1.0);
-    0.45 * cancer + 0.30 * selectivity + 0.15 * rbc_shield + 0.10 * hi_gate
+    0.45 * cancer + 0.30 * selectivity + 0.15 * healthy + 0.10 * hi_gate
 }
 
 /// Sort blueprint-native report records by score and deterministic tie-breaks.
@@ -41,6 +44,12 @@ pub fn sort_report_designs(ranked: &mut [Milestone12ReportDesign]) {
             .score
             .total_cmp(&ranked[i].score)
             .then_with(|| oncology_scores[j].total_cmp(&oncology_scores[i]))
+            .then_with(|| {
+                ranked[j]
+                    .metrics
+                    .healthy_cell_protection_index
+                    .total_cmp(&ranked[i].metrics.healthy_cell_protection_index)
+            })
             .then_with(|| {
                 ranked[i]
                     .metrics
@@ -91,4 +100,41 @@ pub fn shortlist_report_designs(
         design.rank = index + 1;
     }
     Ok(ranked)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::oncology_priority_score;
+    use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
+    use crate::metrics::healthy_cell_protection_index;
+    use crate::reporting::compute_blueprint_report_metrics;
+
+    #[test]
+    fn oncology_priority_score_rewards_healthier_cell_protection() {
+        let candidate = canonical_option2_candidate(
+            "rank-health-composite",
+            operating_point(2.0e-6, 30_000.0, 0.18),
+        );
+        let mut healthy =
+            compute_blueprint_report_metrics(&candidate).expect("report metrics should compute");
+        healthy.wbc_targeted_cavitation = 0.05;
+        healthy.rbc_venturi_protection = 0.90;
+        healthy.healthy_cell_protection_index = healthy_cell_protection_index(
+            healthy.wbc_targeted_cavitation,
+            healthy.rbc_venturi_protection,
+        );
+
+        let mut exposed = healthy.clone();
+        exposed.wbc_targeted_cavitation = 0.65;
+        exposed.rbc_venturi_protection = 0.20;
+        exposed.healthy_cell_protection_index = healthy_cell_protection_index(
+            exposed.wbc_targeted_cavitation,
+            exposed.rbc_venturi_protection,
+        );
+
+        assert!(
+            oncology_priority_score(&healthy) > oncology_priority_score(&exposed),
+            "higher healthy-cell protection should raise oncology-priority score"
+        );
+    }
 }

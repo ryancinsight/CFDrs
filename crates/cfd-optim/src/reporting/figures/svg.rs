@@ -232,7 +232,7 @@ pub(super) fn write_pareto_figure(
             (
                 format!("O2-R{}", idx + 1),
                 d.metrics.cancer_targeted_cavitation,
-                d.metrics.rbc_venturi_protection,
+                d.metrics.healthy_cell_protection_index,
                 d.score,
                 "Option2",
             )
@@ -241,7 +241,7 @@ pub(super) fn write_pareto_figure(
             (
                 format!("GA-R{}", idx + 1),
                 d.metrics.cancer_targeted_cavitation,
-                d.metrics.rbc_venturi_protection,
+                d.metrics.healthy_cell_protection_index,
                 d.score,
                 "GA",
             )
@@ -260,12 +260,12 @@ pub(super) fn write_pareto_figure(
     let mut background: Vec<(f64, f64, f64, &str)> = option2_pool_all
         .iter()
         .filter(|p| {
-            p.cancer_targeted_cavitation.is_finite() && p.rbc_venturi_protection.is_finite()
+            p.cancer_targeted_cavitation.is_finite() && p.healthy_cell_protection_index.is_finite()
         })
         .map(|p| {
             (
                 p.cancer_targeted_cavitation,
-                p.rbc_venturi_protection,
+                p.healthy_cell_protection_index,
                 p.score,
                 "Option2",
             )
@@ -274,12 +274,13 @@ pub(super) fn write_pareto_figure(
             ga_pool_all
                 .iter()
                 .filter(|p| {
-                    p.cancer_targeted_cavitation.is_finite() && p.rbc_venturi_protection.is_finite()
+                    p.cancer_targeted_cavitation.is_finite()
+                        && p.healthy_cell_protection_index.is_finite()
                 })
                 .map(|p| {
                     (
                         p.cancer_targeted_cavitation,
-                        p.rbc_venturi_protection,
+                        p.healthy_cell_protection_index,
                         p.score,
                         "GA",
                     )
@@ -319,8 +320,8 @@ pub(super) fn write_pareto_figure(
             ymn = ymn.min(*y);
             ymx = ymx.max(*y);
         }
-        let x_span = (xmx - xmn).max(0.01);
-        let y_span = (ymx - ymn).max(0.01);
+        let x_span = if xmx > xmn { xmx - xmn } else { 1.0 };
+        let y_span = if ymx > ymn { ymx - ymn } else { 1.0 };
         (
             xmn - 0.12 * x_span,
             xmx + 0.12 * x_span,
@@ -382,7 +383,7 @@ pub(super) fn write_pareto_figure(
     }
 
     svg.write_str(r##"<text x="420" y="668" font-size="16" fill="#34495e">Tumor-Targeted Cavitation Index</text>"##)?;
-    svg.write_str(r##"<text x="18" y="340" transform="rotate(-90 18,340)" font-size="16" fill="#34495e">Healthy-Cell Protection (RBC Venturi)</text>"##)?;
+    svg.write_str(r##"<text x="18" y="340" transform="rotate(-90 18,340)" font-size="16" fill="#34495e">Healthy-Cell Protection Index</text>"##)?;
 
     if !background.is_empty() {
         for (cx, cy, score, tag) in &background {
@@ -536,14 +537,13 @@ pub(super) fn write_ga_convergence_figure(
         .copied()
         .filter(|v| v.is_finite())
         .fold(f64::NEG_INFINITY, f64::max);
-    let (y_lo, y_hi) =
-        if !raw_min.is_finite() || !raw_max.is_finite() || (raw_max - raw_min).abs() < 1e-12 {
-            let center = if raw_min.is_finite() { raw_min } else { 0.0 };
-            (center - 0.05, center + 0.05)
-        } else {
-            let span = raw_max - raw_min;
-            (raw_min - 0.1 * span, raw_max + 0.1 * span)
-        };
+    let (y_lo, y_hi) = if !raw_min.is_finite() || !raw_max.is_finite() || raw_max == raw_min {
+        let center = if raw_min.is_finite() { raw_min } else { 0.0 };
+        (center - 0.05, center + 0.05)
+    } else {
+        let span = raw_max - raw_min;
+        (raw_min - 0.1 * span, raw_max + 0.1 * span)
+    };
 
     // Y-axis tick labels
     for i in 0..=5 {
@@ -696,7 +696,7 @@ pub(super) fn write_dean_venturi_placement_figure(
         .iter()
         .map(|p| (1.0 - p.cavitation_number).max(0.0))
         .collect();
-    let cs_max = cav_strength.iter().copied().fold(0.01_f64, f64::max);
+    let cs_max = cav_strength.iter().copied().fold(0.0_f64, f64::max);
     // Shared left-axis max: accommodate both De and cavitation strength.
     // Normalise cavitation strength bars relative to De scale so they
     // are visually comparable.
@@ -770,7 +770,7 @@ pub(super) fn write_dean_venturi_placement_figure(
 
     // Scale factor to render cavitation strength bars on the same left axis.
     // We scale cs values into De units so they share the axis.
-    let cs_to_de = if cs_max > 1e-12 { de_max / cs_max } else { 1.0 };
+    let cs_to_de = if cs_max > 0.0 { de_max / cs_max } else { 1.0 };
 
     for (i, pt) in points.iter().enumerate() {
         let group_x = x0 + group_w * i as f64;

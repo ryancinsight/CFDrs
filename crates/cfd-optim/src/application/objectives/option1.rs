@@ -1,6 +1,6 @@
 use crate::application::objectives::BlueprintObjectiveEvaluation;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
-use crate::metrics::BlueprintEvaluation;
+use crate::metrics::{healthy_cell_protection_index, BlueprintEvaluation};
 
 /// Score for the asymmetric-split residence-separation objective.
 ///
@@ -37,11 +37,11 @@ use crate::metrics::BlueprintEvaluation;
 ///   score = base + synergy
 /// where:
 ///   base    = weighted sum of cancer focusing, separation efficiency,
-///             residence support, healthy-cell shielding, and safety
-///   synergy = 0.12 × (sep × cancer × residence × shielding)^(1/4)
+///             residence support, healthy-cell protection, and safety
+///   synergy = 0.12 × (sep × cancer × residence × protection)^(1/4)
 ///
-/// This preserves a strictly positive score for every successful evaluation
-/// while still rewarding coupled physics rather than only independent marginals.
+/// This preserves a non-negative score for every successful evaluation while
+/// still rewarding coupled physics rather than only independent marginals.
 pub fn evaluate_selective_acoustic_residence_separation(
     candidate: &BlueprintCandidate,
     evaluation: BlueprintEvaluation,
@@ -50,22 +50,19 @@ pub fn evaluate_selective_acoustic_residence_separation(
     let flow_frac = evaluation.residence.treatment_flow_fraction.clamp(0.0, 1.0);
     let sep = evaluation.separation.separation_efficiency.clamp(0.0, 1.0);
     let cancer = evaluation.separation.cancer_center_fraction.clamp(0.0, 1.0);
-    let wbc_exclusion = (1.0 - evaluation.separation.wbc_center_fraction).clamp(0.0, 1.0);
-    let rbc_exclusion = evaluation
-        .separation
-        .rbc_peripheral_fraction
-        .clamp(0.0, 1.0);
+    let healthy_cell_protection = healthy_cell_protection_index(
+        evaluation.separation.wbc_center_fraction,
+        evaluation.separation.rbc_peripheral_fraction,
+    );
     let safety = evaluation.safety.main_channel_margin.clamp(0.0, 1.0);
 
     let base = 0.22 * cancer
         + 0.18 * sep
         + 0.16 * residence_norm
         + 0.12 * flow_frac
-        + 0.12 * wbc_exclusion
-        + 0.10 * rbc_exclusion
+        + 0.22 * healthy_cell_protection
         + 0.10 * safety;
-    let healthy_cell_shielding = (wbc_exclusion * rbc_exclusion).sqrt();
-    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_shielding).powf(0.25);
+    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_protection).powf(0.25);
     let screening_reasons = [
         (
             evaluation.residence.treatment_flow_fraction <= 0.0,
@@ -89,7 +86,7 @@ pub fn evaluate_selective_acoustic_residence_separation(
         OptimizationGoal::AsymmetricSplitResidenceSeparation,
         candidate,
         evaluation,
-        (base + synergy).clamp(0.001, 1.0),
+        (base + synergy).clamp(0.0, 1.0),
     )
     .with_screening_reasons(screening_reasons)
 }
@@ -110,21 +107,18 @@ pub fn score_selective_acoustic_residence_separation(
     let flow_frac = evaluation.residence.treatment_flow_fraction.clamp(0.0, 1.0);
     let sep = evaluation.separation.separation_efficiency.clamp(0.0, 1.0);
     let cancer = evaluation.separation.cancer_center_fraction.clamp(0.0, 1.0);
-    let wbc_exclusion = (1.0 - evaluation.separation.wbc_center_fraction).clamp(0.0, 1.0);
-    let rbc_exclusion = evaluation
-        .separation
-        .rbc_peripheral_fraction
-        .clamp(0.0, 1.0);
+    let healthy_cell_protection = healthy_cell_protection_index(
+        evaluation.separation.wbc_center_fraction,
+        evaluation.separation.rbc_peripheral_fraction,
+    );
     let safety = evaluation.safety.main_channel_margin.clamp(0.0, 1.0);
 
     let base = 0.22 * cancer
         + 0.18 * sep
         + 0.16 * residence_norm
         + 0.12 * flow_frac
-        + 0.12 * wbc_exclusion
-        + 0.10 * rbc_exclusion
+        + 0.22 * healthy_cell_protection
         + 0.10 * safety;
-    let healthy_cell_shielding = (wbc_exclusion * rbc_exclusion).sqrt();
-    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_shielding).powf(0.25);
-    Some((base + synergy).clamp(0.001, 1.0))
+    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_protection).powf(0.25);
+    Some((base + synergy).clamp(0.0, 1.0))
 }

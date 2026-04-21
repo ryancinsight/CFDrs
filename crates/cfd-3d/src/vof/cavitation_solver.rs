@@ -51,11 +51,6 @@
 /// Default grid spacing [m] used when constructing the VOF solver grid.
 const DEFAULT_GRID_SPACING: f64 = 0.01;
 
-/// Minimum reference velocity [m/s] to avoid division by zero in the
-/// cavitation number calculation.  Set well below any physically
-/// meaningful flow speed.
-const MIN_VELOCITY_THRESHOLD: f64 = 1.0e-9;
-
 /// Polytropic index (ratio of specific heats, gamma = c_p / c_v) for
 /// air at standard conditions.  Used in the Rayleigh-Plesset adiabatic
 /// compression model for bubble-collapse frequency estimation.
@@ -367,15 +362,11 @@ impl CavitationVofSolver {
                         );
                     }
 
-                    // Calculate cavitation number (relative to vapor pressure)
+                    // Calculate cavitation number (relative to vapor pressure).
+                    // Zero dynamic pressure maps to infinite cavitation number.
                     let ref_vel = velocity_field[idx].norm();
-                    let ref_vel_eff = ref_vel.max(MIN_VELOCITY_THRESHOLD);
-                    let denom = 0.5 * density_liquid * ref_vel_eff * ref_vel_eff;
-                    let cavitation_number = if denom > 0.0 {
-                        (pressure - vapor_pressure) / denom
-                    } else {
-                        f64::INFINITY
-                    };
+                    let cavitation_number =
+                        Self::cavitation_number(pressure, vapor_pressure, density_liquid, ref_vel);
 
                     if pressure < vapor_pressure
                         || (cavitation_number.is_finite()
@@ -427,6 +418,21 @@ impl CavitationVofSolver {
                     * self.vof_solver.dy
                     * self.vof_solver.dz
             })
+    }
+
+    #[inline]
+    fn cavitation_number(
+        pressure: f64,
+        vapor_pressure: f64,
+        density_liquid: f64,
+        velocity_magnitude: f64,
+    ) -> f64 {
+        let denom = 0.5 * density_liquid * velocity_magnitude * velocity_magnitude;
+        if denom > 0.0 {
+            (pressure - vapor_pressure) / denom
+        } else {
+            f64::INFINITY
+        }
     }
 
     fn update_damage(
@@ -681,6 +687,12 @@ mod tests {
     }
 
     #[test]
+    fn cavitation_number_is_infinite_without_dynamic_pressure() {
+        let number = CavitationVofSolver::cavitation_number(1.0e5, 2.3e3, 1.0e3, 0.0);
+        assert!(number.is_infinite() && number.is_sign_positive());
+    }
+
+    #[test]
     fn condensation_when_pressure_above_vapor() {
         let config = make_config();
         let nx = 2;
@@ -846,7 +858,8 @@ mod tests {
             "damage must accumulate for sub-1% void fraction cells"
         );
         assert_eq!(
-            damage[(1, 0)], 0.0,
+            damage[(1, 0)],
+            0.0,
             "pure liquid cells must not accumulate cavitation damage"
         );
     }

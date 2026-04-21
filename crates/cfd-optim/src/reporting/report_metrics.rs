@@ -27,8 +27,9 @@ use crate::domain::BlueprintCandidate;
 use crate::error::OptimError;
 use crate::metrics::{
     compute_blueprint_safety_metrics, compute_blueprint_separation_metrics,
-    compute_blueprint_venturi_metrics, compute_residence_metrics, solve_blueprint_candidate,
-    ChannelHemolysis, SdtMetrics,
+    compute_blueprint_venturi_metrics, compute_residence_metrics,
+    healthy_cell_protection_index as compute_healthy_cell_protection_index,
+    solve_blueprint_candidate, ChannelHemolysis, SdtMetrics,
 };
 
 fn cavitation_strength_from_sigma(cavitation_number: f64) -> f64 {
@@ -292,6 +293,8 @@ pub fn compute_blueprint_report_metrics(
         separation.wbc_center_fraction.clamp(0.0, 1.0) * cavitation_intensity;
     let rbc_venturi_protection = separation.rbc_peripheral_fraction.clamp(0.0, 1.0)
         * (1.0 - cavitation_intensity * venturi.rbc_exposure_fraction.clamp(0.0, 1.0));
+    let healthy_cell_protection_index =
+        compute_healthy_cell_protection_index(wbc_targeted_cavitation, rbc_venturi_protection);
 
     let absolute_inlet_pressure = candidate.operating_point.absolute_inlet_pressure_pa();
     let collapse_ratio = (absolute_inlet_pressure / BLOOD_VAPOR_PRESSURE_PA.max(1.0))
@@ -472,6 +475,7 @@ pub fn compute_blueprint_report_metrics(
     metrics.cancer_targeted_cavitation = cancer_targeted_cavitation;
     metrics.wbc_targeted_cavitation = wbc_targeted_cavitation;
     metrics.rbc_venturi_protection = rbc_venturi_protection;
+    metrics.healthy_cell_protection_index = healthy_cell_protection_index;
     metrics.sonoluminescence_proxy = sonoluminescence_proxy;
     metrics.throat_transit_time_s = max_venturi_transit_time_s;
     metrics.fda_overall_compliant = metrics.fda_main_compliant
@@ -595,8 +599,7 @@ pub fn compute_blueprint_report_metrics(
     // Sonosensitizer activation modulates cancer dose (Rosenthal 2004):
     // short throat transits (< 1 ms) yield incomplete activation.
     // Zero cavitation intensity produces zero activation and therefore zero dose.
-    let cancer_dose_fraction =
-        cancer_dose_fraction * sdt_acoustic.sensitizer_activation_efficiency;
+    let cancer_dose_fraction = cancer_dose_fraction * sdt_acoustic.sensitizer_activation_efficiency;
     metrics.cancer_dose_fraction = cancer_dose_fraction;
 
     // Rayleigh-Plesset collapse amplification (Rayleigh 1917):

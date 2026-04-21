@@ -983,8 +983,6 @@ impl<
         let mut p_out_slice_weight_sum = T::zero();
         let mut p_in_slice_weighted_sum = T::zero();
         let mut p_out_slice_weighted_sum = T::zero();
-        let weight_floor = <T as FromPrimitive>::from_f64(1e-12)
-            .expect("1e-12 is an IEEE 754 representable f64 constant");
 
         for i in 0..n_corner_nodes {
             let v = problem.mesh.vertices.get(VertexId::from_usize(i));
@@ -1006,11 +1004,7 @@ impl<
                 let p_i = <T as From<f64>>::from(fem_solution.get_pressure(i));
                 let uzi =
                     <T as From<f64>>::from(Float::max(fem_solution.get_velocity(i).z, 0.0_f64));
-                let wi = if uzi > weight_floor {
-                    uzi
-                } else {
-                    weight_floor
-                };
+                let wi = uzi;
                 p_in_slice_sum += p_i;
                 p_in_slice_count += 1;
                 p_in_slice_weighted_sum += wi * p_i;
@@ -1020,11 +1014,7 @@ impl<
                 let p_i = <T as From<f64>>::from(fem_solution.get_pressure(i));
                 let uzi =
                     <T as From<f64>>::from(Float::max(fem_solution.get_velocity(i).z, 0.0_f64));
-                let wi = if uzi > weight_floor {
-                    uzi
-                } else {
-                    weight_floor
-                };
+                let wi = uzi;
                 p_out_slice_sum += p_i;
                 p_out_slice_count += 1;
                 p_out_slice_weighted_sum += wi * p_i;
@@ -1093,13 +1083,16 @@ impl<
         solution.dp_throat = solution.p_inlet - solution.p_throat;
         solution.dp_recovery = solution.p_outlet - solution.p_inlet; // Usually negative (loss)
 
-        let q_dyn = Float::max(
-            <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754")
-                * fluid_props.density
-                * u_inlet
-                * u_inlet,
-            T::one(),
-        );
+        let q_dyn = <T as FromPrimitive>::from_f64(0.5)
+            .expect("0.5 is exactly representable in IEEE 754")
+            * fluid_props.density
+            * u_inlet
+            * u_inlet;
+        if q_dyn <= T::zero() {
+            return Err(Error::Solver(
+                "Venturi pressure coefficients require positive inlet dynamic pressure".to_string(),
+            ));
+        }
         solution.cp_throat = (solution.p_inlet - solution.p_throat) / q_dyn;
         solution.cp_recovery = (solution.p_outlet - solution.p_inlet) / q_dyn;
 

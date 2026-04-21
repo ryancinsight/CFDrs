@@ -1,7 +1,7 @@
 use crate::application::objectives::BlueprintObjectiveEvaluation;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
-use crate::metrics::BlueprintEvaluation;
+use crate::metrics::{healthy_cell_protection_index, BlueprintEvaluation};
 
 /// Score for the asymmetric-split venturi-cavitation selectivity objective.
 ///
@@ -38,9 +38,9 @@ use crate::metrics::BlueprintEvaluation;
 /// Uses a **hybrid additive + multiplicative synergy** form:
 ///   score = base + synergy
 /// where:
-///   base    = weighted cavitation selectivity, healthy-cell shielding,
+///   base    = weighted cavitation selectivity, healthy-cell protection,
 ///             routing support, and safety support
-///   synergy = 0.10 × (cav × rbc_shield × routing_support)^(1/3)
+///   synergy = 0.10 × (cav × protection × routing_support)^(1/3)
 pub fn evaluate_selective_venturi_cavitation(
     candidate: &BlueprintCandidate,
     evaluation: BlueprintEvaluation,
@@ -59,19 +59,20 @@ pub fn evaluate_selective_venturi_cavitation(
         .venturi
         .cavitation_selectivity_score
         .clamp(0.0, 1.0);
-    let rbc_shield = (1.0 - evaluation.venturi.rbc_exposure_fraction).clamp(0.0, 1.0);
-    let wbc_shield = (1.0 - evaluation.venturi.wbc_exposure_fraction).clamp(0.0, 1.0);
+    let healthy_cell_protection = healthy_cell_protection_index(
+        evaluation.venturi.wbc_exposure_fraction,
+        1.0 - evaluation.venturi.rbc_exposure_fraction,
+    );
     let safety = evaluation.safety.cavitation_safety_margin.clamp(0.0, 1.0);
     let sep = evaluation.separation.separation_efficiency.clamp(0.0, 1.0);
     let routing_support = evaluation.residence.treatment_flow_fraction.clamp(0.0, 1.0);
 
     let base = 0.32 * cav
-        + 0.18 * rbc_shield
-        + 0.14 * wbc_shield
+        + 0.32 * healthy_cell_protection
         + 0.12 * safety
         + 0.08 * sep
         + 0.06 * routing_support;
-    let synergy = 0.10 * (cav * rbc_shield * routing_support).cbrt();
+    let synergy = 0.10 * (cav * healthy_cell_protection * routing_support).cbrt();
     let screening_reasons = [
         (
             evaluation.safety.cavitation_safety_margin <= 0.0,
@@ -94,7 +95,7 @@ pub fn evaluate_selective_venturi_cavitation(
         OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity,
         candidate,
         evaluation,
-        (base + synergy).clamp(0.001, 1.0),
+        (base + synergy).clamp(0.0, 1.0),
     )
     .with_screening_reasons(screening_reasons))
 }
@@ -119,18 +120,19 @@ pub fn score_selective_venturi_cavitation(
         .venturi
         .cavitation_selectivity_score
         .clamp(0.0, 1.0);
-    let rbc_shield = (1.0 - evaluation.venturi.rbc_exposure_fraction).clamp(0.0, 1.0);
-    let wbc_shield = (1.0 - evaluation.venturi.wbc_exposure_fraction).clamp(0.0, 1.0);
+    let healthy_cell_protection = healthy_cell_protection_index(
+        evaluation.venturi.wbc_exposure_fraction,
+        1.0 - evaluation.venturi.rbc_exposure_fraction,
+    );
     let safety = evaluation.safety.cavitation_safety_margin.clamp(0.0, 1.0);
     let sep = evaluation.separation.separation_efficiency.clamp(0.0, 1.0);
     let routing_support = evaluation.residence.treatment_flow_fraction.clamp(0.0, 1.0);
 
     let base = 0.32 * cav
-        + 0.18 * rbc_shield
-        + 0.14 * wbc_shield
+        + 0.32 * healthy_cell_protection
         + 0.12 * safety
         + 0.08 * sep
         + 0.06 * routing_support;
-    let synergy = 0.10 * (cav * rbc_shield * routing_support).cbrt();
-    Some((base + synergy).clamp(0.001, 1.0))
+    let synergy = 0.10 * (cav * healthy_cell_protection * routing_support).cbrt();
+    Some((base + synergy).clamp(0.0, 1.0))
 }

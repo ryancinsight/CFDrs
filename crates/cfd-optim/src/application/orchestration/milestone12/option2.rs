@@ -16,6 +16,7 @@ use crate::delivery::{load_top5_report_json, save_pareto_points, save_top5_repor
 use crate::design::{build_milestone12_candidate_params, CandidateParams};
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::metrics::evaluate_blueprint_candidate;
+use crate::metrics::healthy_cell_protection_index as compute_healthy_cell_protection_index;
 use crate::reporting::{
     audit_goal_candidates, sort_pareto_points, validate_milestone12_candidate,
     write_goal_audit_report, Milestone12LineageKey, Milestone12ReportDesign, Milestone12Stage,
@@ -245,18 +246,23 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
         let cavitation_intensity = cav_potential * (0.5 + 0.5 * constriction);
         let cancer_targeted_cavitation =
             evaluation.separation.cancer_center_fraction.clamp(0.0, 1.0) * cavitation_intensity;
+        let wbc_targeted_cavitation =
+            evaluation.separation.wbc_center_fraction.clamp(0.0, 1.0) * cavitation_intensity;
         let rbc_venturi_protection = evaluation
             .separation
             .rbc_peripheral_fraction
             .clamp(0.0, 1.0)
             * (1.0
                 - cavitation_intensity * evaluation.venturi.rbc_exposure_fraction.clamp(0.0, 1.0));
+        let healthy_cell_protection_index =
+            compute_healthy_cell_protection_index(wbc_targeted_cavitation, rbc_venturi_protection);
 
         // Drop the full candidate + evaluation here (end of closure).
         // Only push lightweight data to accumulators.
         if is_venturi {
             pareto_acc.lock().unwrap().push(ParetoPoint {
                 cancer_targeted_cavitation,
+                healthy_cell_protection_index,
                 rbc_venturi_protection,
                 score: option2_score.unwrap_or(0.001),
                 tag: ParetoTag::Option2,

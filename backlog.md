@@ -19,10 +19,22 @@
 - [x] `cfd-optim`: Remove synthetic 1% floors from venturi selectivity metric aggregation.
 - [x] `cfd-optim`: Make hard-constraint candidate scoring return exact zero for infeasible designs.
 - [x] `cfd-optim`: Remove the synthetic non-cavitating floor from the cavitation score.
+- [x] `cfd-optim`: Remove the remaining combined-mode, leukapheresis, hydrodynamic-cavitation, and smooth-penalty score floors.
+- [x] `cfd-optim`: Rephrase the Milestone 12 report to foreground cancer-cell preferential lysis and healthy-cell protection in the hydrodynamic cavitation narrative.
+- [x] `cfd-optim`: Normalize the Milestone 12 report template to use `healthy_cell_protection_index` in the GA scoring tables and summary formulas.
+- [x] `cfd-optim`: Refactor objective, search, and venturi scoring paths to consume `healthy_cell_protection_index` directly.
+- [x] `cfd-optim`: Normalize Milestone 12 report writers to label the WBC column as recovery and emit the healthy-cell composite consistently.
+- [x] `cfd-optim`: Remove heuristic floor values from Milestone 12 SVG report scaling guards.
+- [x] `cfd-optim`: Replace residual shielding language in the Milestone 12 narrative with cancer-selective lysis and healthy-cell protection terminology.
+- [x] `cfd-3d`: Replace the cavitation-number velocity floor with an exact zero-dynamic-pressure branch that returns infinite cavitation number.
 - [x] `cfd-3d`: Fall back to first-order upwind when the WENO5-Z stencil is unavailable on small grids.
 - [x] `cfd-3d`: Scale PLIC plane-bisection tolerance with the cell dimensions and reuse precomputed normals for curvature axis selection.
 - [x] `cfd-3d`: Remove the 1% void-fraction damage cutoff and accumulate cavitation damage from any nonzero void fraction.
 - [x] `cfd-3d`: Classify VOF mixed cells by the exact 0 < α < 1 criterion and drive compression strength from the configured coefficient.
+- [x] `cfd-core`: Add Rayleigh-collapse-time-sensitive cavitation bio-damage thresholds for membrane injury and cell death.
+- [x] `cfd-core`: Remove the minimum bubble-radius floor and treat collapsed Rayleigh-Plesset bubbles as an absorbing state.
+- [x] `cfd-3d`: Route bubble-dynamics updates through the canonical Rayleigh-Plesset absorbing-collapse state instead of a radius floor.
+- [x] `cfd-3d`: Reject zero dynamic pressure in the 3D Venturi pressure-coefficient calculation and remove the slice-weight floor.
 - [ ] `cfd-schematics`: Optimize memory layout (e.g. flat vectors, zero-copy mapping).
 
 ## Rigor & Correctness

@@ -16,22 +16,14 @@ use super::types::{OptimMode, SdtWeights};
 pub(super) const COMBINED_LEUKA_MIN_SCORE: f64 = 0.10;
 /// Combined-mode gate target: minimum WBC recovery for full credit.
 pub(super) const COMBINED_LEUKA_MIN_WBC_RECOVERY: f64 = 0.20;
-/// Combined-mode floor so GA/search retains a weak gradient signal.
-pub(super) const COMBINED_LEUKA_GATE_FLOOR: f64 = 0.02;
 /// Combined-mode pediatric cumulative hemolysis target over 15 min.
 pub(super) const COMBINED_PEDIATRIC_HI15_LIMIT: f64 = 0.01;
-/// Floor for the pediatric cumulative-HI gate to preserve search gradient.
-pub(super) const COMBINED_PEDIATRIC_HI15_GATE_FLOOR: f64 = 0.05;
 /// Combined-mode minimum cancer-targeted cavitation for full oncology credit.
 pub(super) const COMBINED_ONCOLOGY_MIN_CANCER_CAV: f64 = 0.20;
 /// Combined-mode minimum oncology selectivity index for full oncology credit.
 pub(super) const COMBINED_ONCOLOGY_MIN_SELECTIVITY: f64 = 0.10;
-/// Floor for oncology gate to preserve optimization gradient.
-pub(super) const COMBINED_ONCOLOGY_GATE_FLOOR: f64 = 0.05;
 /// Combined-mode selective-remerge proximity target score for full credit.
 pub(super) const COMBINED_SELECTIVE_REMERGE_MIN_SCORE: f64 = 0.70;
-/// Floor for the selective-remerge gate to preserve optimization gradient.
-pub(super) const COMBINED_SELECTIVE_REMERGE_GATE_FLOOR: f64 = 0.20;
 
 // ── Shared hemolysis helpers ──────────────────────────────────────────────────
 
@@ -61,14 +53,6 @@ fn hemolysis_compliance_score(metrics: &SdtMetrics) -> f64 {
 /// Clotting safety score: 1.0 = no risk, 0.0 = maximum stasis clotting.
 fn clotting_safety_score(metrics: &SdtMetrics) -> f64 {
     (1.0 - metrics.clotting_risk_index.clamp(0.0, 1.0)).clamp(0.0, 1.0)
-}
-
-/// Apply a soft-floor gate: `floor + (1 − floor) × raw_value`.
-///
-/// Guarantees the gate never drops below `floor`, preserving gradient signal
-/// for the optimizer while still penalizing designs that miss the target.
-fn apply_gate_floor(raw_value: f64, floor: f64) -> f64 {
-    floor + (1.0 - floor) * raw_value.clamp(0.0, 1.0)
 }
 
 // ── Dispatch ──────────────────────────────────────────────────────────────────
@@ -298,7 +282,7 @@ fn score_sdt_therapy(metrics: &SdtMetrics) -> f64 {
 /// Weights: 40% WBC recovery + 30% RBC removal + 20% WBC purity + 10% throughput.
 fn score_pediatric_leukapheresis(metrics: &SdtMetrics, patient_weight_kg: f64) -> f64 {
     if metrics.total_ecv_ml <= 0.0 {
-        return 0.001;
+        return 0.0;
     }
 
     let wbc_rec = metrics.wbc_recovery.clamp(0.0, 1.0);
@@ -325,7 +309,7 @@ fn score_pediatric_leukapheresis(metrics: &SdtMetrics, patient_weight_kg: f64) -
     };
 
     let raw = 0.40 * wbc_rec + 0.30 * rbc_rem + 0.20 * purity + 0.10 * throughput_score;
-    (raw * ecv_ok_factor).max(0.001)
+    (raw * ecv_ok_factor).clamp(0.0, 1.0)
 }
 
 /// Score for the hydrodynamic cavitation SDT objective.
@@ -375,7 +359,7 @@ fn score_hydrodynamic_cavitation_sdt(metrics: &SdtMetrics, w: &SdtWeights) -> f6
         * remerge_gate
         * optical_gate
         * stasis_gate)
-        .clamp(0.001, 1.0)
+        .clamp(0.0, 1.0)
 }
 
 /// Score for the RBC-protected SDT objective.
@@ -446,8 +430,7 @@ fn score_combined_sdt_leukapheresis(
         (metrics.cancer_targeted_cavitation / COMBINED_ONCOLOGY_MIN_CANCER_CAV).clamp(0.0, 1.0);
     let sel_gate_raw =
         (metrics.oncology_selectivity_index / COMBINED_ONCOLOGY_MIN_SELECTIVITY).clamp(0.0, 1.0);
-    let oncology_gate =
-        apply_gate_floor(cav_gate_raw.min(sel_gate_raw), COMBINED_ONCOLOGY_GATE_FLOOR);
+    let oncology_gate = cav_gate_raw.min(sel_gate_raw);
 
     let gated_venturi_sdt = venturi_sdt * oncology_gate;
     let s_s = (0.60 * selective_base + 0.40 * gated_venturi_sdt).clamp(0.0, 1.0);
@@ -456,7 +439,7 @@ fn score_combined_sdt_leukapheresis(
     // Safety gates: apply to the entire blended score.
     let wbc_gate = (metrics.wbc_recovery / COMBINED_LEUKA_MIN_WBC_RECOVERY).clamp(0.0, 1.0);
     let leuka_gate = (s_l / COMBINED_LEUKA_MIN_SCORE).clamp(0.0, 1.0);
-    let leuka_gate_total = apply_gate_floor(wbc_gate.min(leuka_gate), COMBINED_LEUKA_GATE_FLOOR);
+    let leuka_gate_total = wbc_gate.min(leuka_gate);
     // Cumulative hemolysis gate: use patient-weight-appropriate metric.
     // For adult patients (≥ 40 kg), the pediatric 3 kg projection is
     // irrelevant — an adult at 70 kg has 5950 mL blood volume vs 255 mL for
@@ -467,18 +450,12 @@ fn score_combined_sdt_leukapheresis(
         metrics.projected_hemolysis_15min_pediatric_3kg
     };
     let hi15_gate_raw = (1.0 - projected_hi15 / COMBINED_PEDIATRIC_HI15_LIMIT).clamp(0.0, 1.0);
-    let hi15_gate = apply_gate_floor(hi15_gate_raw, COMBINED_PEDIATRIC_HI15_GATE_FLOOR);
+    let hi15_gate = hi15_gate_raw;
     let cif_remerge_gate = if metrics.cif_outlet_tail_length_mm > 0.0 {
-        let raw = (metrics.cif_remerge_proximity_score / COMBINED_SELECTIVE_REMERGE_MIN_SCORE)
-            .clamp(0.0, 1.0);
-        apply_gate_floor(raw, COMBINED_SELECTIVE_REMERGE_GATE_FLOOR)
+        (metrics.cif_remerge_proximity_score / COMBINED_SELECTIVE_REMERGE_MIN_SCORE).clamp(0.0, 1.0)
     } else {
         1.0
     };
 
-    // Floor the gated product: the individual gate floors (0.02, 0.05, 0.20)
-    // multiply to ~0.0002, which destroys relative ranking when all candidates
-    // land at the caller's INFEASIBILITY_FLOOR.  Flooring here preserves
-    // meaningful ordering among gated candidates.
-    (blended * leuka_gate_total * hi15_gate * cif_remerge_gate).max(0.001)
+    (blended * leuka_gate_total * hi15_gate * cif_remerge_gate).clamp(0.0, 1.0)
 }

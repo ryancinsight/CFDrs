@@ -5,6 +5,7 @@ use std::sync::OnceLock;
 use crate::application::objectives::{evaluate_goal, BlueprintObjectiveEvaluation};
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
+use crate::metrics::healthy_cell_protection_index;
 use cfd_schematics::{TopologyLineageEvent, TopologyLineageMetadata};
 use serde::{Deserialize, Serialize};
 
@@ -59,7 +60,7 @@ struct DiversitySignature {
     serpentine_arm_count: f64,
     cavitation_selectivity: f64,
     separation_efficiency: f64,
-    rbc_shield: f64,
+    healthy_cell_protection: f64,
     residence_time_s: f64,
     dean_norm: f64,
 }
@@ -752,7 +753,10 @@ fn diversity_signature(candidate: &BlueprintRankedCandidate) -> DiversitySignatu
         serpentine_arm_count: topology.serpentine_arm_count() as f64,
         cavitation_selectivity: candidate.evaluation.venturi.cavitation_selectivity_score,
         separation_efficiency: candidate.evaluation.separation.separation_efficiency,
-        rbc_shield: 1.0 - candidate.evaluation.venturi.rbc_exposure_fraction,
+        healthy_cell_protection: healthy_cell_protection_index(
+            candidate.evaluation.venturi.wbc_exposure_fraction,
+            1.0 - candidate.evaluation.venturi.rbc_exposure_fraction,
+        ),
         residence_time_s: candidate.evaluation.residence.treatment_residence_time_s,
         dean_norm: (max_dean / 100.0).clamp(0.0, 1.0),
     }
@@ -813,7 +817,11 @@ fn diversity_distance(left: &BlueprintRankedCandidate, right: &BlueprintRankedCa
             right_sig.separation_efficiency,
             1.0,
         )
-        + normalized_delta(left_sig.rbc_shield, right_sig.rbc_shield, 1.0)
+        + normalized_delta(
+            left_sig.healthy_cell_protection,
+            right_sig.healthy_cell_protection,
+            1.0,
+        )
         + normalized_delta(
             left_sig.residence_time_s,
             right_sig.residence_time_s,

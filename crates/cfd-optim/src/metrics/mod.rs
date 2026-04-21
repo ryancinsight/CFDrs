@@ -3,6 +3,7 @@
 mod blueprint_eval;
 mod blueprint_graph;
 mod blueprint_separation;
+mod healthy_cell_protection;
 mod residence;
 mod safety;
 mod sdt_metrics;
@@ -15,6 +16,7 @@ pub use blueprint_separation::{
     StageBlueprintSeparationSummary,
 };
 pub use cfd_1d::physics::hemolysis::giersiepen_hi;
+pub use healthy_cell_protection::healthy_cell_protection_index;
 pub use residence::{compute_residence_metrics, ResidenceMetrics};
 pub use safety::{compute_blueprint_safety_metrics, BlueprintSafetyMetrics};
 pub use sdt_metrics::{ChannelHemolysis, SdtMetrics};

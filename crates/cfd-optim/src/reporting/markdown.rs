@@ -117,7 +117,7 @@ pub fn write_milestone12_results(
     )?;
     writeln!(
         md,
-        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | K_loss | Cumulative cavitation dose | WBC treatment exposure | RBC treatment exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |"
+        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | K_loss | Cumulative cavitation dose | WBC recovery | RBC treatment exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |"
     )?;
     writeln!(
         md,
@@ -412,7 +412,7 @@ mod tests {
     use super::write_milestone12_results;
 
     #[test]
-    fn canonical_markdown_uses_treatment_exposure_language() {
+    fn canonical_markdown_uses_wbc_recovery_language() {
         let operating_point = operating_point(2.0e-6, 30_000.0, 0.18);
         let option1_candidate = canonical_option1_candidate("option1", operating_point.clone());
         let option2_candidate = canonical_option2_candidate("option2", operating_point);
@@ -450,10 +450,10 @@ mod tests {
         .expect("canonical markdown should render");
 
         let rendered = std::fs::read_to_string(path).expect("rendered markdown should exist");
-        assert!(rendered.contains("WBC treatment exposure"));
+        assert!(rendered.contains("WBC recovery"));
         assert!(rendered.contains("Treatment-Time Analysis"));
         assert!(rendered.contains("K_loss"));
-        assert!(!rendered.contains("WBC recovery"));
+        assert!(!rendered.contains("Healthy-cell exposure (WBC)"));
         assert!(!rendered.to_ascii_lowercase().contains("leukapheresis"));
     }
 }

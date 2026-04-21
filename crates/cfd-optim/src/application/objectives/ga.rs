@@ -1,29 +1,26 @@
 use crate::application::objectives::BlueprintObjectiveEvaluation;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
-use crate::metrics::BlueprintEvaluation;
+use crate::metrics::{healthy_cell_protection_index, BlueprintEvaluation};
 
 fn acoustic_residence_support_score(evaluation: &BlueprintEvaluation) -> f64 {
     let residence_norm = (evaluation.residence.treatment_residence_time_s / 1.0).clamp(0.0, 1.0);
     let flow_frac = evaluation.residence.treatment_flow_fraction.clamp(0.0, 1.0);
     let sep = evaluation.separation.separation_efficiency.clamp(0.0, 1.0);
     let cancer = evaluation.separation.cancer_center_fraction.clamp(0.0, 1.0);
-    let wbc_exclusion = (1.0 - evaluation.separation.wbc_center_fraction).clamp(0.0, 1.0);
-    let rbc_exclusion = evaluation
-        .separation
-        .rbc_peripheral_fraction
-        .clamp(0.0, 1.0);
+    let healthy_cell_protection = healthy_cell_protection_index(
+        evaluation.separation.wbc_center_fraction,
+        evaluation.separation.rbc_peripheral_fraction,
+    );
     let safety = evaluation.safety.main_channel_margin.clamp(0.0, 1.0);
 
     let base = 0.22 * cancer
         + 0.18 * sep
         + 0.16 * residence_norm
         + 0.12 * flow_frac
-        + 0.12 * wbc_exclusion
-        + 0.10 * rbc_exclusion
+        + 0.22 * healthy_cell_protection
         + 0.10 * safety;
-    let healthy_cell_shielding = (wbc_exclusion * rbc_exclusion).sqrt();
-    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_shielding).powf(0.25);
+    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_protection).powf(0.25);
     (base + synergy).clamp(0.0, 1.0)
 }
 
@@ -62,8 +59,8 @@ fn acoustic_residence_support_score(evaluation: &BlueprintEvaluation) -> f64 {
 /// ## Scoring
 ///
 /// Uses an **additive weighted base** plus a multiplicative synergy term to
-/// reward coupled Dean-vortex + cavitation performance while keeping every
-/// successful evaluation strictly above zero.
+/// reward coupled Dean-vortex + cavitation performance while keeping the score
+/// non-negative for successful evaluations.
 pub fn evaluate_blueprint_genetic_refinement(
     candidate: &BlueprintCandidate,
     evaluation: BlueprintEvaluation,
@@ -108,8 +105,10 @@ pub fn evaluate_blueprint_genetic_refinement(
     let residence_norm = (evaluation.residence.treatment_residence_time_s / 1.0).clamp(0.0, 1.0);
     let flow_frac = evaluation.residence.treatment_flow_fraction.clamp(0.0, 1.0);
     let cancer = evaluation.separation.cancer_center_fraction.clamp(0.0, 1.0);
-    let rbc_shield = (1.0 - evaluation.venturi.rbc_exposure_fraction).clamp(0.0, 1.0);
-    let wbc_shield = (1.0 - evaluation.venturi.wbc_exposure_fraction).clamp(0.0, 1.0);
+    let healthy_cell_protection = healthy_cell_protection_index(
+        evaluation.venturi.wbc_exposure_fraction,
+        1.0 - evaluation.venturi.rbc_exposure_fraction,
+    );
 
     let max_dean = evaluation
         .venturi
@@ -136,16 +135,20 @@ pub fn evaluate_blueprint_genetic_refinement(
         + 0.16 * cav
         + 0.10 * cancer
         + 0.08 * sep
-        + 0.08 * rbc_shield
-        + 0.06 * wbc_shield
+        + 0.14 * healthy_cell_protection
         + 0.06 * safety
         + 0.07 * dean_norm
         + 0.05 * lineage_norm;
 
     // Curvature-driven secondary flow is rewarded only when it coexists with
     // strong treatment-lane enrichment and venturi cavitation support.
-    let synergy_base =
-        acoustic_support * cav * cancer * flow_frac * residence_norm * rbc_shield * dean_norm;
+    let synergy_base = acoustic_support
+        * cav
+        * cancer
+        * flow_frac
+        * residence_norm
+        * healthy_cell_protection
+        * dean_norm;
     let synergy = 0.18 * synergy_base.powf(0.2);
     let screening_reasons = [(
         evaluation.safety.main_channel_margin <= 0.0,
@@ -159,7 +162,7 @@ pub fn evaluate_blueprint_genetic_refinement(
         OptimizationGoal::InPlaceDeanSerpentineRefinement,
         candidate,
         evaluation,
-        (base + synergy).clamp(0.001, 1.0),
+        (base + synergy).clamp(0.0, 1.0),
     )
     .with_screening_reasons(screening_reasons))
 }

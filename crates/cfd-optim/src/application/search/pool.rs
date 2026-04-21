@@ -35,14 +35,16 @@ use crate::application::objectives::BlueprintObjectiveEvaluation;
 use crate::application::orchestration::ScanProgress;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
-use crate::metrics::{evaluate_blueprint_candidate, BlueprintEvaluation};
+use crate::metrics::{
+    evaluate_blueprint_candidate, healthy_cell_protection_index, BlueprintEvaluation,
+};
 
 // ---------------------------------------------------------------------------
 // ScoringSnapshot — compact, cache-friendly scoring data
 // ---------------------------------------------------------------------------
 
 /// All scalar fields needed by any [`OptimizationGoal`] scoring function,
-/// packed into a single cache-line-friendly struct (~96 bytes).
+/// packed into a single cache-line-friendly struct.
 ///
 /// Built once during pool construction and scanned sequentially during the
 /// scoring pass.  This eliminates pointer-chasing through four separate
@@ -108,9 +110,9 @@ impl ScoringSnapshot {
     ///
     /// Returns `None` only for *structural* incompatibility (e.g. a non-venturi
     /// candidate under a venturi-required goal).  Physics-based metrics that
-    /// are zero or negative reduce the score but never eliminate the candidate
-    /// — this preserves gradient signal for optimizers and matches the behavior
-    /// of the objective evaluators in `application/objectives/`.
+    /// are zero reduce the score and can drive the score to zero when the
+    /// physical signal vanishes; this matches the behavior of the objective
+    /// evaluators in `application/objectives/`.
     #[inline]
     fn score(self, goal: OptimizationGoal) -> Option<f64> {
         match goal {
@@ -123,9 +125,8 @@ impl ScoringSnapshot {
     /// Additive scoring for the asymmetric-split residence-separation goal.
     ///
     /// Mirrors [`evaluate_selective_acoustic_residence_separation`] using only
-    /// the compact snapshot fields.  Always produces a score in [0.001, 1.0]
-    /// — zero-valued metrics reduce the score through the additive weights
-    /// but never eliminate the candidate entirely.
+    /// the compact snapshot fields.  Produces a score in [0.0, 1.0] and
+    /// reaches zero when the physical terms vanish.
     #[inline]
     fn score_option1(self) -> Option<f64> {
         if self.treatment_flow_fraction <= 0.0
@@ -138,29 +139,27 @@ impl ScoringSnapshot {
         let flow_frac = self.treatment_flow_fraction.clamp(0.0, 1.0);
         let sep = self.separation_efficiency.clamp(0.0, 1.0);
         let cancer = self.cancer_center_fraction.clamp(0.0, 1.0);
-        let wbc_exclusion = (1.0 - self.wbc_center_fraction).clamp(0.0, 1.0);
-        let rbc_exclusion = self.rbc_peripheral_fraction.clamp(0.0, 1.0);
+        let healthy_cell_protection =
+            healthy_cell_protection_index(self.wbc_center_fraction, self.rbc_peripheral_fraction);
         let safety = self.main_channel_margin.clamp(0.0, 1.0);
 
         let base = 0.22 * cancer
             + 0.18 * sep
             + 0.16 * residence_norm
             + 0.12 * flow_frac
-            + 0.12 * wbc_exclusion
-            + 0.10 * rbc_exclusion
+            + 0.22 * healthy_cell_protection
             + 0.10 * safety;
-        let healthy_cell_shielding = (wbc_exclusion * rbc_exclusion).sqrt();
-        let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_shielding).powf(0.25);
+        let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_protection).powf(0.25);
 
-        Some((base + synergy).clamp(0.001, 1.0))
+        Some((base + synergy).clamp(0.0, 1.0))
     }
 
     /// Additive scoring for the selective venturi-cavitation goal.
     ///
     /// Mirrors [`evaluate_selective_venturi_cavitation`].  Only filters
     /// structurally invalid non-venturi entries; physics-based metrics that
-    /// are zero reduce the score through the weighted sum without eliminating
-    /// the candidate — matching the objective evaluator's behavior.
+    /// are zero reduce the score and can drive the score to zero when the
+    /// physical signal vanishes.
     #[inline]
     fn score_option2(self) -> Option<f64> {
         if !self.has_venturi {
@@ -174,29 +173,29 @@ impl ScoringSnapshot {
         }
 
         let cav = self.cavitation_selectivity_score.clamp(0.0, 1.0);
-        let rbc_shield = (1.0 - self.rbc_exposure_fraction).clamp(0.0, 1.0);
-        let wbc_shield = (1.0 - self.wbc_exposure_fraction).clamp(0.0, 1.0);
+        let healthy_cell_protection = healthy_cell_protection_index(
+            self.wbc_exposure_fraction,
+            1.0 - self.rbc_exposure_fraction,
+        );
         let safety = self.cavitation_safety_margin.clamp(0.0, 1.0);
         let sep = self.separation_efficiency.clamp(0.0, 1.0);
         let routing_support = self.treatment_flow_fraction.clamp(0.0, 1.0);
 
         let base = 0.32 * cav
-            + 0.18 * rbc_shield
-            + 0.14 * wbc_shield
+            + 0.32 * healthy_cell_protection
             + 0.12 * safety
             + 0.08 * sep
             + 0.06 * routing_support;
-        let synergy = 0.10 * (cav * rbc_shield * routing_support).cbrt();
+        let synergy = 0.10 * (cav * healthy_cell_protection * routing_support).cbrt();
 
-        Some((base + synergy).clamp(0.001, 1.0))
+        Some((base + synergy).clamp(0.0, 1.0))
     }
 
     /// Additive scoring for the in-place Dean serpentine refinement goal (GA).
     ///
     /// Mirrors [`evaluate_blueprint_genetic_refinement`].  Only filters
     /// structurally invalid non-venturi entries; the `main_channel_margin`
-    /// contributes through its weight rather than gating to zero — matching
-    /// the objective evaluator which always returns a score.
+    /// contributes through its weight rather than gating to zero.
     #[inline]
     fn score_ga(self) -> Option<f64> {
         if !self.has_venturi {
@@ -211,23 +210,26 @@ impl ScoringSnapshot {
         let cancer = self.cancer_center_fraction.clamp(0.0, 1.0);
         let sep = self.separation_efficiency.clamp(0.0, 1.0);
         let residence_norm = (self.treatment_residence_time_s / 1.0).clamp(0.0, 1.0);
-        let rbc_shield = (1.0 - self.rbc_exposure_fraction).clamp(0.0, 1.0);
-        let wbc_shield = (1.0 - self.wbc_exposure_fraction).clamp(0.0, 1.0);
+        let healthy_cell_protection = healthy_cell_protection_index(
+            self.wbc_exposure_fraction,
+            1.0 - self.rbc_exposure_fraction,
+        );
         let safety = self.main_channel_margin.clamp(0.0, 1.0);
         let dean_norm = (self.max_dean_number / 100.0).clamp(0.0, 1.0);
         let lineage_norm = (f64::from(self.lineage_mutation_count) / 5.0).clamp(0.0, 1.0);
         let acoustic_support = {
+            let acoustic_healthy_cell_protection = healthy_cell_protection_index(
+                self.wbc_center_fraction,
+                self.rbc_peripheral_fraction,
+            );
             let base = 0.22 * cancer
                 + 0.18 * sep
                 + 0.16 * residence_norm
                 + 0.12 * flow_frac
-                + 0.12 * (1.0 - self.wbc_center_fraction).clamp(0.0, 1.0)
-                + 0.10 * self.rbc_peripheral_fraction.clamp(0.0, 1.0)
+                + 0.22 * acoustic_healthy_cell_protection
                 + 0.10 * safety;
-            let healthy_cell_shielding = ((1.0 - self.wbc_center_fraction).clamp(0.0, 1.0)
-                * self.rbc_peripheral_fraction.clamp(0.0, 1.0))
-            .sqrt();
-            let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_shielding).powf(0.25);
+            let synergy = 0.12
+                * (sep * cancer * residence_norm * acoustic_healthy_cell_protection).powf(0.25);
             (base + synergy).clamp(0.0, 1.0)
         };
 
@@ -235,16 +237,21 @@ impl ScoringSnapshot {
             + 0.16 * cav
             + 0.10 * cancer
             + 0.08 * sep
-            + 0.08 * rbc_shield
-            + 0.06 * wbc_shield
+            + 0.14 * healthy_cell_protection
             + 0.06 * safety
             + 0.07 * dean_norm
             + 0.05 * lineage_norm;
         let synergy = 0.18
-            * (acoustic_support * cav * cancer * flow_frac * residence_norm * rbc_shield * dean_norm)
+            * (acoustic_support
+                * cav
+                * cancer
+                * flow_frac
+                * residence_norm
+                * healthy_cell_protection
+                * dean_norm)
                 .powf(0.2);
 
-        Some((base + synergy).clamp(0.001, 1.0))
+        Some((base + synergy).clamp(0.0, 1.0))
     }
 }
 
@@ -439,5 +446,95 @@ impl EvaluatedPool {
             .collect();
 
         Ok(results)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::domain::fixtures::{
+        canonical_option1_candidate, canonical_option2_candidate, operating_point,
+    };
+
+    fn snapshot(candidate: &BlueprintCandidate) -> ScoringSnapshot {
+        let eval = evaluate_blueprint_candidate(candidate).expect("candidate evaluation");
+        ScoringSnapshot::from_candidate_eval(candidate, &eval)
+    }
+
+    #[test]
+    fn score_option1_rewards_healthier_cell_protection() {
+        let candidate =
+            canonical_option1_candidate("pool-option1", operating_point(2.0e-6, 30_000.0, 0.18));
+        let mut low = snapshot(&candidate);
+        low.wbc_center_fraction = 0.80;
+        low.rbc_peripheral_fraction = 0.10;
+        let mut high = low;
+        high.wbc_center_fraction = 0.05;
+        high.rbc_peripheral_fraction = 0.90;
+
+        let low_score = low
+            .score(OptimizationGoal::AsymmetricSplitResidenceSeparation)
+            .expect("option1 score");
+        let high_score = high
+            .score(OptimizationGoal::AsymmetricSplitResidenceSeparation)
+            .expect("option1 score");
+
+        assert!(
+            high_score > low_score,
+            "higher healthy-cell protection must increase the option1 score"
+        );
+    }
+
+    #[test]
+    fn score_option2_rewards_healthier_cell_protection() {
+        let candidate =
+            canonical_option2_candidate("pool-option2", operating_point(2.0e-6, 30_000.0, 0.18));
+        let mut low = snapshot(&candidate);
+        low.wbc_exposure_fraction = 0.80;
+        low.rbc_exposure_fraction = 0.80;
+        let mut high = low;
+        high.wbc_exposure_fraction = 0.05;
+        high.rbc_exposure_fraction = 0.10;
+
+        let low_score = low
+            .score(OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity)
+            .expect("option2 score");
+        let high_score = high
+            .score(OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity)
+            .expect("option2 score");
+
+        assert!(
+            high_score > low_score,
+            "higher healthy-cell protection must increase the option2 score"
+        );
+    }
+
+    #[test]
+    fn score_ga_rewards_healthier_cell_protection() {
+        let candidate =
+            canonical_option2_candidate("pool-ga", operating_point(2.0e-6, 30_000.0, 0.18));
+        let mut low = snapshot(&candidate);
+        low.wbc_center_fraction = 0.80;
+        low.rbc_peripheral_fraction = 0.10;
+        low.wbc_exposure_fraction = 0.80;
+        low.rbc_exposure_fraction = 0.80;
+        let mut high = low;
+        high.wbc_center_fraction = 0.05;
+        high.rbc_peripheral_fraction = 0.90;
+        high.wbc_exposure_fraction = 0.05;
+        high.rbc_exposure_fraction = 0.10;
+
+        let low_score = low
+            .score(OptimizationGoal::InPlaceDeanSerpentineRefinement)
+            .expect("ga score");
+        let high_score = high
+            .score(OptimizationGoal::InPlaceDeanSerpentineRefinement)
+            .expect("ga score");
+
+        assert!(
+            high_score > low_score,
+            "higher healthy-cell protection must increase the GA score"
+        );
     }
 }

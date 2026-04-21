@@ -12,9 +12,6 @@ pub const CAVITATION_INCEPTION_THRESHOLD: f64 = 0.9;
 /// Blake critical radius coefficient
 pub const BLAKE_CRITICAL_COEFFICIENT: f64 = 0.85;
 
-/// Minimum bubble radius for numerical stability (m)
-pub const MIN_BUBBLE_RADIUS: f64 = 1e-9;
-
 /// Maximum void fraction before numerical issues
 pub const MAX_VOID_FRACTION: f64 = 0.999;
 

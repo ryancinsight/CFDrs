@@ -12,6 +12,7 @@ use crate::constraints::{
 };
 use crate::domain::BlueprintCandidate;
 use crate::error::OptimError;
+use crate::metrics::healthy_cell_protection_index;
 
 use super::blueprint_graph::BlueprintSolveSummary;
 use super::blueprint_separation::BlueprintSeparationMetrics;
@@ -29,12 +30,10 @@ fn venturi_selectivity_geometric_synergy(
     cavitation_term: f64,
     selective_margin_term: f64,
     cancer_enrich: f64,
-    rbc_shield: f64,
-    wbc_shield: f64,
+    healthy_cell_protection: f64,
 ) -> f64 {
-    0.15
-        * (cavitation_term * selective_margin_term * cancer_enrich * rbc_shield * wbc_shield)
-            .powf(0.25)
+    0.15 * (cavitation_term * selective_margin_term * cancer_enrich * healthy_cell_protection)
+        .powf(0.25)
 }
 
 fn selective_cavitation_input(
@@ -362,20 +361,18 @@ pub fn compute_blueprint_venturi_metrics(
     // splits) reduces but never eliminates the gradient signal from the
     // remaining terms.
     let cancer_enrich = separation.cancer_center_fraction.clamp(0.0, 1.0);
-    let rbc_shield = (1.0 - rbc_exposure_fraction).clamp(0.0, 1.0);
-    let wbc_shield = (1.0 - wbc_exposure_fraction).clamp(0.0, 1.0);
+    let healthy_cell_protection =
+        healthy_cell_protection_index(wbc_exposure_fraction, 1.0 - rbc_exposure_fraction);
     let additive = 0.28 * cavitation_term
         + 0.22 * cancer_enrich
         + 0.15 * selective_margin_term
         + 0.10 * targeting_fraction
-        + 0.10 * rbc_shield
-        + 0.10 * wbc_shield;
+        + 0.20 * healthy_cell_protection;
     let geometric = venturi_selectivity_geometric_synergy(
         cavitation_term,
         selective_margin_term,
         cancer_enrich,
-        rbc_shield,
-        wbc_shield,
+        healthy_cell_protection,
     );
     let cavitation_selectivity_score = (additive + geometric).clamp(0.0, 1.0);
     let dominant_selective_population = if dominant_target_hits > 0 {
@@ -406,6 +403,7 @@ mod tests {
         DIFFUSER_DISCHARGE_COEFF, VENTURI_CC,
     };
     use crate::domain::fixtures::{operating_point, stage0_venturi_candidate};
+    use crate::metrics::BlueprintSeparationMetrics;
     use crate::metrics::{compute_blueprint_separation_metrics, solve_blueprint_candidate};
 
     use super::compute_blueprint_venturi_metrics;
@@ -602,24 +600,57 @@ mod tests {
     #[test]
     fn geometric_selectivity_synergy_vanishes_when_any_factor_is_zero() {
         assert_eq!(
-            super::venturi_selectivity_geometric_synergy(0.0, 0.8, 0.7, 0.9, 0.6),
+            super::venturi_selectivity_geometric_synergy(0.0, 0.8, 0.7, 0.9),
             0.0
         );
         assert_eq!(
-            super::venturi_selectivity_geometric_synergy(0.4, 0.0, 0.7, 0.9, 0.6),
+            super::venturi_selectivity_geometric_synergy(0.4, 0.0, 0.7, 0.9),
             0.0
         );
         assert_eq!(
-            super::venturi_selectivity_geometric_synergy(0.4, 0.8, 0.0, 0.9, 0.6),
+            super::venturi_selectivity_geometric_synergy(0.4, 0.8, 0.0, 0.9),
             0.0
         );
         assert_eq!(
-            super::venturi_selectivity_geometric_synergy(0.4, 0.8, 0.7, 0.0, 0.6),
+            super::venturi_selectivity_geometric_synergy(0.4, 0.8, 0.7, 0.0),
             0.0
         );
-        assert_eq!(
-            super::venturi_selectivity_geometric_synergy(0.4, 0.8, 0.7, 0.9, 0.0),
-            0.0
+    }
+
+    #[test]
+    fn cavitation_selectivity_score_reacts_to_healthy_cell_protection() {
+        let candidate = stage0_venturi_candidate(
+            "healthy-protection",
+            operating_point(2.0e-6, 30_000.0, 0.18),
+            VenturiPlacementMode::CurvaturePeakDeanNumber,
+        );
+        let solve = solve_blueprint_candidate(&candidate).expect("solve");
+
+        let low_sep = BlueprintSeparationMetrics {
+            stage_summaries: Vec::new(),
+            cancer_center_fraction: 0.35,
+            wbc_center_fraction: 0.80,
+            rbc_peripheral_fraction: 0.10,
+            separation_efficiency: 0.40,
+            center_hematocrit_ratio: 0.25,
+        };
+        let high_sep = BlueprintSeparationMetrics {
+            stage_summaries: Vec::new(),
+            cancer_center_fraction: 0.35,
+            wbc_center_fraction: 0.05,
+            rbc_peripheral_fraction: 0.90,
+            separation_efficiency: 0.40,
+            center_hematocrit_ratio: 0.25,
+        };
+
+        let low = compute_blueprint_venturi_metrics(&candidate, &solve, &low_sep)
+            .expect("venturi metrics");
+        let high = compute_blueprint_venturi_metrics(&candidate, &solve, &high_sep)
+            .expect("venturi metrics");
+
+        assert!(
+            high.cavitation_selectivity_score > low.cavitation_selectivity_score,
+            "healthy-cell protection must increase the venturi selectivity score"
         );
     }
 }

@@ -179,7 +179,7 @@ externally applied 412 kHz ultrasound. Acoustic resonance factor (ARF) = {:.4} \
         s,
         "**Option 2 - Hydrodynamic Cavitation SDT** (`{}`): {} under {:.0} kPa gauge through {:.0} µm throat; {} serial stage(s) per path; \
 {} total active throats. Cancer routing {:.1}% (cancer_center_fraction); therapeutic window \
-score = {:.3}; WBC treatment exposure {:.1}%; HI/pass = {:.4}%; throat viscous heating ΔT = {} K \
+score = {:.3}; WBC recovery {:.1}%; HI/pass = {:.4}%; throat viscous heating ΔT = {} K \
 (FDA 5 K limit: {}). Score {:.4} under AsymmetricSplitVenturiCavitationSelectivity. \
 **Not comparable to Option 1 score.**\n",
         option2.candidate.id,
@@ -264,7 +264,7 @@ cancer-center enrichment multiplicatively in the underlying flow partition: a th
 Tri→Tri→Tri tree achieves cancer_center_fraction ~0.75+ compared to ~0.556 for Tri→Tri. \
 Both the additive cancer-focusing term (22% weight) and the 4th-root synergy term amplify \
 this separation advantage while the additive base ensures no feasible design collapses \
-to zero (floor = 0.001). \
+to zero under hard-constraint violation. \
 For **Option 2** (selective venturi cavitation), the selected design uses an \
 {w_mm:.0} mm × {h_mm:.0} mm cross-section. Here, deeper trifurcation beyond 2 levels becomes \
 counterproductive: a third level narrows terminal treatment channels to approximately \

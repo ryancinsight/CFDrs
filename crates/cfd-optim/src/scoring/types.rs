@@ -111,8 +111,8 @@ pub enum OptimMode {
     /// Maximise **cancer-targeted hydrodynamic cavitation SDT**.
     ///
     /// This mode is the primary objective for millifluidic SDT designs that route
-    /// cancer cells into a cavitating venturi center stream while shielding RBCs
-    /// in peripheral bypass arms.  It combines:
+    /// cancer cells into a cavitating venturi center stream while reducing RBC
+    /// exposure in peripheral bypass arms.  It combines:
     ///
     /// 1. Strong cavitation at the venturi throat (σ ≪ 1, narrow constriction).
     /// 2. High enrichment of cancer cells in the selected treatment arm of a primitive split tree.

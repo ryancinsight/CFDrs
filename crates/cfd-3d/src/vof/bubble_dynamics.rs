@@ -140,22 +140,26 @@ impl BubbleDynamicsSolver {
         dt: f64,
     ) -> Result<f64> {
         let idx = self.index(i, j, k);
+        let base_viscosity = self.blood_model.viscosity(0.0);
         let config = &mut self.configs[idx];
         let radius = self.radii[idx];
         let velocity = self.velocities[idx];
 
+        if radius <= 0.0 {
+            config.liquid_viscosity = base_viscosity;
+            self.radii[idx] = 0.0;
+            self.velocities[idx] = 0.0;
+            return Ok(0.0);
+        }
+
         // Calculate apparent viscosity at the bubble wall.
         // theorem: The shear rate at a spherical bubble wall expanding/collapsing radially
         // is given by γ̇_wall = √12 |Ṙ / R|.
-        let shear_rate = 12.0_f64.sqrt() * (velocity.abs() / radius.max(1e-12));
+        let shear_rate = 12.0_f64.sqrt() * (velocity.abs() / radius);
         config.liquid_viscosity = self.blood_model.viscosity(shear_rate);
 
-        // Calculate acceleration using Rayleigh-Plesset equation
-        let acceleration = config.bubble_acceleration(radius, velocity, pressure);
-
-        // Simple semi-implicit Euler integration
-        let new_velocity = velocity + acceleration * dt;
-        let new_radius = (radius + new_velocity * dt).max(1e-9);
+        let (new_radius, new_velocity) =
+            config.step_semi_implicit(radius, velocity, pressure, dt)?;
 
         self.radii[idx] = new_radius;
         self.velocities[idx] = new_velocity;
@@ -251,5 +255,38 @@ mod tests {
 
         let expected = config.number_density * 0.01 * 0.02 * 0.03;
         assert!((solver.population_weight() - expected).abs() < 1e-12 * expected.max(1.0));
+    }
+
+    #[test]
+    fn collapsed_bubble_state_remains_absorbing_during_update() {
+        let config = BubbleDynamicsConfig {
+            initial_radius: 2.0e-6,
+            number_density: 1.0e12,
+            polytropic_exponent: 1.4,
+            surface_tension: 0.072,
+        };
+        let mut solver = BubbleDynamicsSolver::new(
+            &config,
+            1,
+            1,
+            1,
+            1.0,
+            1.0,
+            1.0,
+            1000.0,
+            BloodModel::Newtonian(1.0e-3),
+            2300.0,
+        );
+
+        solver.radii[0] = 0.0;
+        solver.velocities[0] = 0.0;
+
+        let radius = solver
+            .update_bubble(0, 0, 0, 1.0e5, Vector3::zeros(), 1000.0, 1.0e-7)
+            .unwrap();
+
+        assert_eq!(radius, 0.0);
+        assert_eq!(solver.radii[0], 0.0);
+        assert_eq!(solver.velocities[0], 0.0);
     }
 }

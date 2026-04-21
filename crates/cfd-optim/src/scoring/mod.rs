@@ -135,11 +135,9 @@ fn score_candidate_impl(
             } else {
                 0.2
             };
-            // Soft penalty for plate overflow: 0.01 preserves gradient signal
-            // so the GA can navigate toward plate-fitting designs rather than
-            // hitting a hard zero cliff.  The 100× suppression is severe enough
-            // to rank plate-overflow designs strictly below fitting designs.
-            let plate_ok = if metrics.plate_fits { 1.0_f64 } else { 0.01 };
+            // Plate overflow remains an exact zero-score condition because the
+            // physical design cannot be fabricated within the plate boundary.
+            let plate_ok = if metrics.plate_fits { 1.0_f64 } else { 0.0 };
 
             let feasibility = sigmoid_penalty(pressure_margin)
                 * sigmoid_penalty(fda_margin)
@@ -236,7 +234,7 @@ mod tests {
     use proptest::prelude::*;
 
     fn base_metrics() -> SdtMetrics {
-        SdtMetrics {
+        let mut metrics = SdtMetrics {
             pressure_feasible: true,
             fda_main_compliant: true,
             plate_fits: true,
@@ -255,15 +253,20 @@ mod tests {
             rbc_venturi_protection: 0.40,
             sonoluminescence_proxy: 0.50,
             wbc_targeted_cavitation: 0.25,
+            healthy_cell_protection_index: 0.0,
             ..SdtMetrics::default()
-        }
+        };
+        metrics.healthy_cell_protection_index = (1.0 - metrics.wbc_targeted_cavitation)
+            .mul_add(metrics.rbc_venturi_protection, 0.0)
+            .sqrt();
+        metrics
     }
 
     #[test]
     fn combined_mode_prefers_high_oncology_selectivity() {
         let mut low = base_metrics();
         low.cancer_targeted_cavitation = 0.04;
-        low.oncology_selectivity_index = 0.01;
+        low.oncology_selectivity_index = 0.0;
 
         let mut high = base_metrics();
         high.cancer_targeted_cavitation = 0.55;
@@ -419,6 +422,108 @@ mod tests {
         assert!(
             (score - expected).abs() <= 1e-15 * scale,
             "expected {expected}, got {score}"
+        );
+    }
+
+    #[test]
+    fn pediatric_leukapheresis_returns_zero_without_extracorporeal_volume() {
+        let mut metrics = base_metrics();
+        metrics.total_ecv_ml = 0.0;
+
+        let score = score_candidate(
+            &metrics,
+            OptimMode::PediatricLeukapheresis {
+                patient_weight_kg: 3.0,
+            },
+            &SdtWeights::default(),
+        );
+
+        assert_eq!(score, 0.0, "zero extracorporeal volume must score zero");
+    }
+
+    #[test]
+    fn hydrodynamic_cavitation_scores_zero_when_physical_terms_vanish() {
+        let mut metrics = base_metrics();
+        metrics.wbc_recovery = 1.0;
+        metrics.three_pop_sep_efficiency = 0.0;
+        metrics.cancer_targeted_cavitation = 0.0;
+        metrics.oncology_selectivity_index = 0.0;
+        metrics.cancer_rbc_cavitation_bias_index = 0.0;
+        metrics.selective_cavitation_delivery_index = 0.0;
+        metrics.rbc_venturi_protection = 0.0;
+        metrics.sonoluminescence_proxy = 0.0;
+        metrics.cif_outlet_tail_length_mm = 0.0;
+        metrics.cif_remerge_proximity_score = 0.0;
+        metrics.blue_light_delivery_index_405nm = 0.0;
+        metrics.clotting_risk_index = 0.0;
+
+        let score = score_candidate(
+            &metrics,
+            OptimMode::HydrodynamicCavitationSDT,
+            &SdtWeights::default(),
+        );
+
+        assert_eq!(
+            score, 0.0,
+            "zero physical cavitation signal must score zero"
+        );
+    }
+
+    #[test]
+    fn combined_leukapheresis_scores_zero_when_all_physical_signals_vanish() {
+        let mut metrics = base_metrics();
+        metrics.total_ecv_ml = 0.0;
+        metrics.wbc_recovery = 0.0;
+        metrics.rbc_pass_fraction = 1.0;
+        metrics.wbc_purity = 0.0;
+        metrics.three_pop_sep_efficiency = 0.0;
+        metrics.cancer_targeted_cavitation = 0.0;
+        metrics.oncology_selectivity_index = 0.0;
+        metrics.cancer_rbc_cavitation_bias_index = 0.0;
+        metrics.selective_cavitation_delivery_index = 0.0;
+        metrics.rbc_venturi_protection = 0.0;
+        metrics.sonoluminescence_proxy = 0.0;
+        metrics.wbc_targeted_cavitation = 0.0;
+        metrics.projected_hemolysis_15min_pediatric_3kg = 0.0;
+        metrics.projected_hemolysis_15min_adult = 0.0;
+        metrics.cif_outlet_tail_length_mm = 0.0;
+        metrics.cif_remerge_proximity_score = 0.0;
+        metrics.blue_light_delivery_index_405nm = 0.0;
+        metrics.clotting_risk_index = 0.0;
+        metrics.therapy_channel_fraction = 0.0;
+        metrics.well_coverage_fraction = 0.0;
+        metrics.mean_residence_time_s = 0.0;
+        metrics.treatment_zone_dwell_time_s = 0.0;
+
+        let score = score_candidate(
+            &metrics,
+            OptimMode::CombinedSdtLeukapheresis {
+                leuka_weight: 0.5,
+                sdt_weight: 0.5,
+                patient_weight_kg: 3.0,
+            },
+            &SdtWeights::default(),
+        );
+
+        assert_eq!(score, 0.0, "zero physical signal must score zero");
+    }
+
+    #[test]
+    fn smooth_penalty_plate_overflow_scores_zero() {
+        let mut metrics = base_metrics();
+        metrics.plate_fits = false;
+
+        let score = score_candidate_impl(
+            &metrics,
+            OptimMode::SdtCavitation,
+            &SdtWeights::default(),
+            ScoreMode::SmoothPenalty,
+            100.0,
+        );
+
+        assert_eq!(
+            score, 0.0,
+            "plate overflow must score zero under smooth penalty"
         );
     }
 
