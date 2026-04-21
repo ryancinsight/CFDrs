@@ -461,6 +461,15 @@ impl AdvectionMethod {
         solver: &mut VofSolver<T>,
         dt: T,
     ) -> Result<()> {
+        let interface_compression = solver.config.interface_compression;
+        if !interface_compression.is_finite() || !(0.0..=1.0).contains(&interface_compression) {
+            return Err(Error::InvalidConfiguration(
+                "VOF interface_compression must be finite and in [0, 1]".to_string(),
+            ));
+        }
+        let compression_factor = <T as FromPrimitive>::from_f64(interface_compression)
+            .expect("interface_compression is an IEEE 754 representable f64 constant");
+
         for k in 0..solver.nz {
             for j in 0..solver.ny {
                 for i in 0..solver.nx {
@@ -487,7 +496,6 @@ impl AdvectionMethod {
                         let normal = solver.normals[idx];
 
                         if normal.norm() > T::zero() {
-                            let compression_factor = T::one() / (T::one() + T::one());
                             let u_compression = normal * compression_factor;
 
                             let two = T::one() + T::one();

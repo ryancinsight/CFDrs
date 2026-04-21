@@ -584,8 +584,8 @@ pub fn compute_blueprint_report_metrics(
     // ── SDT Acoustic Physics (narrative-only augmentation) ───────────────────
     //
     // Wire the validated cfd-1d acoustic models into the report pipeline.
-    // These do NOT alter any existing metric fields used for scoring — they
-    // are computed here for narrative reporting and future integration.
+    // The cancer-dose metric is consumed by scoring; the other acoustic
+    // outputs remain available for reporting and future integration.
     let sdt_acoustic = compute_sdt_acoustic_metrics(
         cavitation_intensity,
         max_venturi_transit_time_s,
@@ -594,8 +594,9 @@ pub fn compute_blueprint_report_metrics(
 
     // Sonosensitizer activation modulates cancer dose (Rosenthal 2004):
     // short throat transits (< 1 ms) yield incomplete activation.
+    // Zero cavitation intensity produces zero activation and therefore zero dose.
     let cancer_dose_fraction =
-        cancer_dose_fraction * sdt_acoustic.sensitizer_activation_efficiency.max(0.01);
+        cancer_dose_fraction * sdt_acoustic.sensitizer_activation_efficiency;
     metrics.cancer_dose_fraction = cancer_dose_fraction;
 
     // Rayleigh-Plesset collapse amplification (Rayleigh 1917):
@@ -705,7 +706,9 @@ pub fn compute_sdt_acoustic_metrics(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::fixtures::{operating_point, stage0_venturi_candidate};
+    use crate::domain::fixtures::{
+        canonical_option1_candidate, operating_point, stage0_venturi_candidate,
+    };
     use crate::metrics::{
         compute_blueprint_separation_metrics, compute_blueprint_venturi_metrics,
         solve_blueprint_candidate,
@@ -801,6 +804,20 @@ mod tests {
             "expected report total loss coefficient {}, got {}",
             expected,
             metrics.venturi_total_loss_coefficient
+        );
+    }
+
+    #[test]
+    fn report_metrics_zero_cavitation_produces_zero_cancer_dose() {
+        let candidate = canonical_option1_candidate(
+            "zero-cavitation-report",
+            operating_point(2.0e-6, 30_000.0, 0.18),
+        );
+        let metrics = compute_blueprint_report_metrics(&candidate).expect("report metrics");
+
+        assert_eq!(
+            metrics.cancer_dose_fraction, 0.0,
+            "zero cavitation intensity must not inject cancer dose"
         );
     }
 }

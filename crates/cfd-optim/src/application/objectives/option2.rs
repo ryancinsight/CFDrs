@@ -71,7 +71,7 @@ pub fn evaluate_selective_venturi_cavitation(
         + 0.12 * safety
         + 0.08 * sep
         + 0.06 * routing_support;
-    let synergy = 0.10 * (cav * rbc_shield * routing_support.max(0.01)).cbrt();
+    let synergy = 0.10 * (cav * rbc_shield * routing_support).cbrt();
     let screening_reasons = [
         (
             evaluation.safety.cavitation_safety_margin <= 0.0,
@@ -131,6 +131,6 @@ pub fn score_selective_venturi_cavitation(
         + 0.12 * safety
         + 0.08 * sep
         + 0.06 * routing_support;
-    let synergy = 0.10 * (cav * rbc_shield * routing_support.max(0.01)).cbrt();
+    let synergy = 0.10 * (cav * rbc_shield * routing_support).cbrt();
     Some((base + synergy).clamp(0.001, 1.0))
 }

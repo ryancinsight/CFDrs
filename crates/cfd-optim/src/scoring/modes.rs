@@ -122,25 +122,15 @@ pub(super) fn coagulation_penalty(metrics: &SdtMetrics, weights: &SdtWeights) ->
 
 /// Score for the SDT cavitation objective.
 ///
-/// Non-cavitating designs (σ ≥ 1) receive a small gradient signal
-/// proportional to 1/σ, providing the GA with a smooth path toward
-/// cavitation rather than a hard zero cliff.  The signal approaches
-/// the full additive score as σ → 1⁺.
+/// Uses the physical cavitation potential directly instead of injecting a
+/// synthetic non-cavitating floor. The score remains bounded by the weighted
+/// hemolysis safety and coverage terms.
 fn score_cavitation(metrics: &SdtMetrics, w: &SdtWeights) -> f64 {
     let hi_factor = hemolysis_safety_factor(metrics);
     let coverage = metrics.well_coverage_fraction.clamp(0.0, 1.0);
-
-    if metrics.cavitation_number >= 1.0 {
-        // Non-cavitating: small gradient signal based on proximity to σ = 1
-        // and the HI / coverage sub-scores.  A design at σ = 1.01 scores
-        // ~0.10 × full, providing smooth gradient toward cavitation.
-        let proximity = (1.0 / metrics.cavitation_number.max(1.0)).clamp(0.0, 1.0);
-        let non_cav_base = w.cav_hemolysis * hi_factor + w.cav_coverage * coverage;
-        return (0.10 * proximity * (non_cav_base + 0.01)).clamp(0.001, 0.10);
-    }
-
-    let cav = metrics.cavitation_potential;
-    w.cav_potential * cav + w.cav_hemolysis * hi_factor + w.cav_coverage * coverage
+    w.cav_potential * metrics.cavitation_potential
+        + w.cav_hemolysis * hi_factor
+        + w.cav_coverage * coverage
 }
 
 /// Score for the uniform exposure objective.

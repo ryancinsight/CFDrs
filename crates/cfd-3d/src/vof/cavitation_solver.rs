@@ -56,11 +56,6 @@ const DEFAULT_GRID_SPACING: f64 = 0.01;
 /// meaningful flow speed.
 const MIN_VELOCITY_THRESHOLD: f64 = 1.0e-9;
 
-/// Void-fraction threshold below which a cell is considered purely liquid
-/// for damage-accumulation purposes.  Cells with alpha <= this value
-/// skip the erosion-rate calculation entirely.
-const MIN_VOID_FRACTION_FOR_DAMAGE: f64 = 0.01;
-
 /// Polytropic index (ratio of specific heats, gamma = c_p / c_v) for
 /// air at standard conditions.  Used in the Rayleigh-Plesset adiabatic
 /// compression model for bubble-collapse frequency estimation.
@@ -464,7 +459,7 @@ impl CavitationVofSolver {
                     let col = j + k * ny;
                     let void_fraction = self.vof_solver.alpha[idx];
 
-                    if void_fraction > MIN_VOID_FRACTION_FOR_DAMAGE {
+                    if void_fraction > 0.0 {
                         let pressure = pressure_field[(i, col)];
                         let impact_pressure = bubble_solver.collapse_pressure(
                             i,
@@ -478,8 +473,7 @@ impl CavitationVofSolver {
                             * bubble_population;
 
                         let erosion_rate = damage_model.mdpr(impact_pressure, impact_frequency, dt);
-
-                        damage_field[(i, col)] += erosion_rate;
+                        damage_field[(i, col)] += erosion_rate * void_fraction;
                     }
                 }
             }
@@ -809,5 +803,51 @@ mod tests {
                 val
             );
         }
+    }
+
+    #[test]
+    fn damage_accumulates_below_previous_void_fraction_floor() {
+        let mut config = make_config();
+        config.damage_model = Some(CavitationDamage {
+            yield_strength: 1.0e6,
+            ultimate_strength: 2.0e6,
+            hardness: 3.0e6,
+            fatigue_strength: 4.0e5,
+            cycles: 1,
+        });
+        config.bubble_dynamics = Some(BubbleDynamicsConfig {
+            initial_radius: 2.0e-6,
+            number_density: 1.0e12,
+            polytropic_exponent: 1.4,
+            surface_tension: 0.072,
+        });
+
+        let nx = 2;
+        let ny = 1;
+        let nz = 1;
+        let mut solver = CavitationVofSolver::new(nx, ny, nz, config).expect("solver");
+
+        solver.vof_solver.alpha[0] = 5.0e-3;
+        solver.vof_solver.alpha[1] = 0.0;
+
+        // Keep the pressure just above vapor pressure so the bubble frequency
+        // remains positive while the low-void cell still survives the source update.
+        let pressure_field = DMatrix::from_element(nx, ny * nz, 2_300.1);
+        let density_field = DMatrix::from_element(nx, ny * nz, 1000.0);
+        let velocity_field = vec![Vector3::new(0.1, 0.0, 0.0); nx * ny * nz];
+
+        solver
+            .step(1.0e-5, &velocity_field, &pressure_field, &density_field)
+            .expect("step");
+
+        let damage = solver.damage_field().expect("damage field");
+        assert!(
+            damage[(0, 0)] > 0.0,
+            "damage must accumulate for sub-1% void fraction cells"
+        );
+        assert_eq!(
+            damage[(1, 0)], 0.0,
+            "pure liquid cells must not accumulate cavitation damage"
+        );
     }
 }

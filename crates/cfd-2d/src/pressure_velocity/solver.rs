@@ -103,6 +103,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
         nu: T,
         rho: T,
     ) -> cfd_core::error::Result<T> {
+        self.validate_initial_state_layout()?;
+        self.validate_physical_inputs(nu, rho)?;
+
         let dt = self.config.dt;
         let alpha_u = self.config.alpha_u;
         let alpha_p = self.config.alpha_p;
@@ -179,6 +182,46 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
         self.iterations += 1;
 
         Ok(residual)
+    }
+
+    fn validate_initial_state_layout(&self) -> cfd_core::error::Result<()> {
+        let expected_rows = self.grid.nx;
+        let expected_cols = self.grid.ny;
+
+        if self.u.rows() != expected_rows || self.u.cols() != expected_cols {
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "pressure-velocity velocity field dimensions must match the grid: expected {expected_rows}x{expected_cols}, got {}x{}",
+                self.u.rows(),
+                self.u.cols()
+            )));
+        }
+
+        if self.p.rows() != expected_rows || self.p.cols() != expected_cols {
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "pressure-velocity pressure field dimensions must match the grid: expected {expected_rows}x{expected_cols}, got {}x{}",
+                self.p.rows(),
+                self.p.cols()
+            )));
+        }
+
+        Ok(())
+    }
+
+    fn validate_physical_inputs(&self, nu: T, rho: T) -> cfd_core::error::Result<()> {
+        if !rho.is_finite() || rho <= T::zero() {
+            return Err(cfd_core::error::Error::InvalidInput(
+                "pressure-velocity solver requires positive finite density".to_string(),
+            ));
+        }
+
+        if !nu.is_finite() || nu < T::zero() {
+            return Err(cfd_core::error::Error::InvalidInput(
+                "pressure-velocity solver requires non-negative finite kinematic viscosity"
+                    .to_string(),
+            ));
+        }
+
+        Ok(())
     }
 
     fn apply_uniform_boundary_condition(
@@ -283,6 +326,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
 mod tests {
     use super::*;
     use crate::grid::StructuredGrid2D;
+    use cfd_core::error::Error;
     use cfd_core::physics::boundary::{BoundaryCondition, WallType};
     use nalgebra::Vector3;
 
@@ -422,5 +466,75 @@ mod tests {
                 || (high_viscosity_center.y - low_viscosity_center.y).abs() > 1e-12,
             "viscosity input must affect the corrected velocity field"
         );
+    }
+
+    #[test]
+    fn step_rejects_invalid_initial_state_layout_and_physical_inputs() {
+        let mut mismatched_solver = make_solver(6, 6);
+        let bad_u = Array2D::new(5, 6, Vector2::zeros());
+        let bad_p = Array2D::new(5, 6, 0.0);
+        mismatched_solver.set_initial_conditions(bad_u, bad_p);
+
+        let err = mismatched_solver
+            .step(
+                &BoundaryCondition::Wall {
+                    wall_type: WallType::NoSlip,
+                },
+                0.01,
+                1.0,
+            )
+            .expect_err("mismatched state must be rejected");
+        match err {
+            Error::InvalidConfiguration(message) => {
+                assert!(
+                    message.contains("velocity field dimensions"),
+                    "unexpected layout error message: {message}"
+                );
+            }
+            other => panic!("expected InvalidConfiguration, got {other:?}"),
+        }
+
+        let mut invalid_physics_solver = make_solver(6, 6);
+        let u_init = Array2D::new(6, 6, Vector2::new(1.0, 0.0));
+        let p_init = Array2D::new(6, 6, 0.0);
+        invalid_physics_solver.set_initial_conditions(u_init, p_init);
+
+        let invalid_density = invalid_physics_solver
+            .step(
+                &BoundaryCondition::Wall {
+                    wall_type: WallType::NoSlip,
+                },
+                0.01,
+                -1.0,
+            )
+            .expect_err("negative density must be rejected");
+        match invalid_density {
+            Error::InvalidInput(message) => {
+                assert!(
+                    message.contains("positive finite density"),
+                    "unexpected density error message: {message}"
+                );
+            }
+            other => panic!("expected InvalidInput, got {other:?}"),
+        }
+
+        let invalid_viscosity = invalid_physics_solver
+            .step(
+                &BoundaryCondition::Wall {
+                    wall_type: WallType::NoSlip,
+                },
+                -0.01,
+                1.0,
+            )
+            .expect_err("negative viscosity must be rejected");
+        match invalid_viscosity {
+            Error::InvalidInput(message) => {
+                assert!(
+                    message.contains("non-negative finite kinematic viscosity"),
+                    "unexpected viscosity error message: {message}"
+                );
+            }
+            other => panic!("expected InvalidInput, got {other:?}"),
+        }
     }
 }

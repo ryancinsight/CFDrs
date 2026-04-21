@@ -54,7 +54,10 @@ const GAMMA_C: f64 = 1.88;
 /// * `mu_plasma` - Plasma dynamic viscosity [Pa·s] (typically 0.0012)
 ///
 /// # Returns
-/// Effective dynamic viscosity [Pa·s], always ≥ `mu_plasma`.
+/// Effective dynamic viscosity [Pa·s] for the direct Quemada formula.
+///
+/// Call [`checked_quemada_viscosity`] when the caller needs explicit
+/// domain enforcement for concentrated-suspension validity.
 #[inline]
 #[must_use]
 pub fn quemada_viscosity(shear_rate: f64, hematocrit: f64, mu_plasma: f64) -> f64 {
@@ -66,8 +69,8 @@ pub fn quemada_viscosity(shear_rate: f64, hematocrit: f64, mu_plasma: f64) -> f6
     let k = (K0 + K_INF * sqrt_ratio) / (1.0 + sqrt_ratio);
 
     // Denominator: (1 − ½ k H_t)
-    // Guard against divergence at high hematocrit where ½ k H_t → 1
-    let denom = (1.0 - 0.5 * k * ht).max(0.01);
+    // The checked variant enforces the physical validity domain.
+    let denom = 1.0 - 0.5 * k * ht;
 
     mu_plasma / (denom * denom)
 }

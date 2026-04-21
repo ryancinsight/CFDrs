@@ -65,8 +65,7 @@ pub fn evaluate_selective_acoustic_residence_separation(
         + 0.10 * rbc_exclusion
         + 0.10 * safety;
     let healthy_cell_shielding = (wbc_exclusion * rbc_exclusion).sqrt();
-    let synergy = 0.12
-        * (sep * cancer * residence_norm.max(0.01) * healthy_cell_shielding.max(0.01)).powf(0.25);
+    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_shielding).powf(0.25);
     let screening_reasons = [
         (
             evaluation.residence.treatment_flow_fraction <= 0.0,
@@ -126,7 +125,6 @@ pub fn score_selective_acoustic_residence_separation(
         + 0.10 * rbc_exclusion
         + 0.10 * safety;
     let healthy_cell_shielding = (wbc_exclusion * rbc_exclusion).sqrt();
-    let synergy = 0.12
-        * (sep * cancer * residence_norm.max(0.01) * healthy_cell_shielding.max(0.01)).powf(0.25);
+    let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_shielding).powf(0.25);
     Some((base + synergy).clamp(0.001, 1.0))
 }

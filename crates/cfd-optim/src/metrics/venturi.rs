@@ -25,6 +25,18 @@ fn dynamic_pressure_pa(density_kg_m3: f64, velocity_m_s: f64) -> f64 {
     0.5 * density_kg_m3 * velocity_m_s * velocity_m_s
 }
 
+fn venturi_selectivity_geometric_synergy(
+    cavitation_term: f64,
+    selective_margin_term: f64,
+    cancer_enrich: f64,
+    rbc_shield: f64,
+    wbc_shield: f64,
+) -> f64 {
+    0.15
+        * (cavitation_term * selective_margin_term * cancer_enrich * rbc_shield * wbc_shield)
+            .powf(0.25)
+}
+
 fn selective_cavitation_input(
     separation: &BlueprintSeparationMetrics,
     vapor_pressure_pa: f64,
@@ -358,13 +370,13 @@ pub fn compute_blueprint_venturi_metrics(
         + 0.10 * targeting_fraction
         + 0.10 * rbc_shield
         + 0.10 * wbc_shield;
-    let geometric = 0.15
-        * (cavitation_term
-            * selective_margin_term.max(0.01)
-            * cancer_enrich.max(0.01)
-            * rbc_shield.max(0.01)
-            * wbc_shield.max(0.01))
-        .powf(0.25);
+    let geometric = venturi_selectivity_geometric_synergy(
+        cavitation_term,
+        selective_margin_term,
+        cancer_enrich,
+        rbc_shield,
+        wbc_shield,
+    );
     let cavitation_selectivity_score = (additive + geometric).clamp(0.0, 1.0);
     let dominant_selective_population = if dominant_target_hits > 0 {
         Some(CellPopulationIdentity::CirculatingTumorCell)
@@ -584,6 +596,30 @@ mod tests {
             "expected total loss coefficient {}, got {}",
             expected_total_loss_coefficient,
             placement_metrics.total_loss_coefficient
+        );
+    }
+
+    #[test]
+    fn geometric_selectivity_synergy_vanishes_when_any_factor_is_zero() {
+        assert_eq!(
+            super::venturi_selectivity_geometric_synergy(0.0, 0.8, 0.7, 0.9, 0.6),
+            0.0
+        );
+        assert_eq!(
+            super::venturi_selectivity_geometric_synergy(0.4, 0.0, 0.7, 0.9, 0.6),
+            0.0
+        );
+        assert_eq!(
+            super::venturi_selectivity_geometric_synergy(0.4, 0.8, 0.0, 0.9, 0.6),
+            0.0
+        );
+        assert_eq!(
+            super::venturi_selectivity_geometric_synergy(0.4, 0.8, 0.7, 0.0, 0.6),
+            0.0
+        );
+        assert_eq!(
+            super::venturi_selectivity_geometric_synergy(0.4, 0.8, 0.7, 0.9, 0.0),
+            0.0
         );
     }
 }

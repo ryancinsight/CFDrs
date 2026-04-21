@@ -150,9 +150,7 @@ impl ScoringSnapshot {
             + 0.10 * rbc_exclusion
             + 0.10 * safety;
         let healthy_cell_shielding = (wbc_exclusion * rbc_exclusion).sqrt();
-        let synergy = 0.12
-            * (sep * cancer * residence_norm.max(0.01) * healthy_cell_shielding.max(0.01))
-                .powf(0.25);
+        let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_shielding).powf(0.25);
 
         Some((base + synergy).clamp(0.001, 1.0))
     }
@@ -188,7 +186,7 @@ impl ScoringSnapshot {
             + 0.12 * safety
             + 0.08 * sep
             + 0.06 * routing_support;
-        let synergy = 0.10 * (cav * rbc_shield * routing_support.max(0.01)).cbrt();
+        let synergy = 0.10 * (cav * rbc_shield * routing_support).cbrt();
 
         Some((base + synergy).clamp(0.001, 1.0))
     }
@@ -229,9 +227,7 @@ impl ScoringSnapshot {
             let healthy_cell_shielding = ((1.0 - self.wbc_center_fraction).clamp(0.0, 1.0)
                 * self.rbc_peripheral_fraction.clamp(0.0, 1.0))
             .sqrt();
-            let synergy = 0.12
-                * (sep * cancer * residence_norm.max(0.01) * healthy_cell_shielding.max(0.01))
-                    .powf(0.25);
+            let synergy = 0.12 * (sep * cancer * residence_norm * healthy_cell_shielding).powf(0.25);
             (base + synergy).clamp(0.0, 1.0)
         };
 
@@ -245,14 +241,8 @@ impl ScoringSnapshot {
             + 0.07 * dean_norm
             + 0.05 * lineage_norm;
         let synergy = 0.18
-            * (acoustic_support.max(0.01)
-                * cav.max(0.01)
-                * cancer.max(0.01)
-                * flow_frac.max(0.01)
-                * residence_norm.max(0.01)
-                * rbc_shield.max(0.01)
-                * dean_norm.max(0.01))
-            .powf(0.2);
+            * (acoustic_support * cav * cancer * flow_frac * residence_norm * rbc_shield * dean_norm)
+                .powf(0.2);
 
         Some((base + synergy).clamp(0.001, 1.0))
     }

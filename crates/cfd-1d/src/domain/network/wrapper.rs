@@ -178,7 +178,6 @@ struct ResistanceUpdateContext<T: RealField + Copy> {
     t_std: T,
     density: T,
     viscosity: T,
-    durst_re_floor: T,
     durst_limit: T,
     durst_offset: T,
     sixty_four: T,
@@ -468,7 +467,6 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             t_std,
             density: state.density,
             viscosity: state.dynamic_viscosity,
-            durst_re_floor: T::from_f64(10.0).unwrap_or_else(T::one),
             durst_limit: T::from_f64(50.0).unwrap_or_else(T::one),
             durst_offset: T::from_f64(2.28).unwrap_or_else(T::one),
             sixty_four: T::from_f64(64.0).unwrap_or_else(T::one),
@@ -560,7 +558,6 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                     context.viscosity,
                     context.is_blood_like,
                     context.epsilon,
-                    context.durst_re_floor,
                     context.durst_limit,
                     context.durst_offset,
                     context.sixty_four,
@@ -992,6 +989,10 @@ fn channel_to_res_geometry<T: nalgebra::RealField + Copy>(
 }
 
 /// Apply short-channel (Durst) and Fåhræus–Lindqvist blood viscosity corrections to `r`.
+///
+/// The Durst branch uses the published entrance-loss relation directly; no
+/// Reynolds-number floor is introduced in the physical model. A tiny
+/// denominator guard remains only to avoid division by zero at exact zero flow.
 #[allow(clippy::too_many_arguments)]
 fn apply_resistance_corrections<T: nalgebra::RealField + Copy>(
     r: &mut T,
@@ -1003,7 +1004,6 @@ fn apply_resistance_corrections<T: nalgebra::RealField + Copy>(
     viscosity: T,
     is_blood_like: bool,
     epsilon: T,
-    durst_re_floor: T,
     durst_limit: T,
     durst_offset: T,
     sixty_four: T,
@@ -1020,7 +1020,7 @@ fn apply_resistance_corrections<T: nalgebra::RealField + Copy>(
         let l_over_dh = length / d_h;
         if l_over_dh < durst_limit && viscosity > epsilon {
             let velocity = flow_rate.abs() / area;
-            let reynolds = (density * velocity * d_h / viscosity).max(durst_re_floor);
+            let reynolds = density * velocity * d_h / viscosity;
             let k_entrance = durst_offset + sixty_four / (reynolds * l_over_dh).max(tiny);
             let multiplier = T::one() + k_entrance / (sixty_four * l_over_dh).max(T::one());
             *r *= multiplier;
@@ -1076,12 +1076,82 @@ pub fn blood_microchannel_apparent_viscosity<T: nalgebra::RealField + Copy + Fro
         hematocrit.clamp(0.0, 0.95),
         plasma_viscosity,
     );
-    let quemada = crate::physics::cell_separation::rouleaux_aggregation::quemada_viscosity(
+    let quemada = crate::physics::cell_separation::rouleaux_aggregation::checked_quemada_viscosity(
         shear_rate,
         hematocrit.clamp(0.0, 0.95),
         plasma_viscosity,
-    );
+    )
+    .unwrap_or(secomb);
 
     let target = secomb.max(quemada);
     T::from_f64(target)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+    use crate::physics::cell_separation::fahraeus_lindqvist::secomb_network_viscosity;
+
+    #[test]
+    fn blood_microchannel_apparent_viscosity_falls_back_to_secomb_when_quemada_invalid() {
+        let d_h = 50.0e-6;
+        let area = std::f64::consts::PI * (d_h * 0.5) * (d_h * 0.5);
+        let hematocrit = 0.95;
+        let plasma_viscosity = 1.2e-3;
+
+        let result = blood_microchannel_apparent_viscosity(
+            d_h,
+            0.0,
+            area,
+            hematocrit,
+            plasma_viscosity,
+        )
+        .expect("microchannel apparent viscosity");
+
+        let expected = secomb_network_viscosity(d_h * 1.0e6, hematocrit, plasma_viscosity);
+        assert!((result - expected).abs() < 1e-15 * expected.max(1.0));
+    }
+
+    #[test]
+    fn short_channel_correction_uses_exact_low_reynolds_durst_multiplier() {
+        let mut resistance = 1.0_f64;
+        let d_h: f64 = 100.0e-6;
+        let area = std::f64::consts::PI * (d_h * 0.5_f64).powi(2);
+        let length = 5.0_f64 * d_h;
+        let flow_rate: f64 = 1.0e-13;
+        let density: f64 = 1_000.0;
+        let viscosity: f64 = 1.0e-3;
+        let epsilon = f64::EPSILON;
+        let tiny = 1.0e-30_f64;
+        let l_over_dh = length / d_h;
+        let reynolds = density * (flow_rate.abs() / area) * d_h / viscosity;
+        let expected_multiplier =
+            1.0 + (2.28 + 64.0 / (reynolds * l_over_dh).max(tiny)) / (64.0 * l_over_dh).max(1.0);
+
+        apply_resistance_corrections(
+            &mut resistance,
+            d_h,
+            area,
+            length,
+            flow_rate,
+            density,
+            viscosity,
+            false,
+            epsilon,
+            50.0,
+            2.28,
+            64.0,
+            tiny,
+            300.0e-6,
+            None,
+            None,
+            None,
+            None,
+            0.45,
+            viscosity / 3.2,
+        );
+
+        assert_relative_eq!(resistance, expected_multiplier, max_relative = 1e-12);
+    }
 }

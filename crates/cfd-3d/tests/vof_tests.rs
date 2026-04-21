@@ -138,6 +138,73 @@ fn test_volume_fraction_bounds_algebraic() {
     }
 }
 
+/// **Positive**: Weakly mixed cells remain part of the interface and respond
+/// to the configured compression coefficient.
+#[test]
+fn test_weakly_mixed_interface_cells_participate_in_compression() {
+    let nx = 201usize;
+    let ny = 5usize;
+    let nz = 5usize;
+
+    let mut compression_off = make_solver(
+        nx,
+        ny,
+        nz,
+        VofConfig {
+            interface_compression: 0.0,
+            enable_compression: true,
+            ..default_config()
+        },
+    );
+    let mut compression_on = make_solver(
+        nx,
+        ny,
+        nz,
+        VofConfig {
+            interface_compression: 1.0,
+            enable_compression: true,
+            ..default_config()
+        },
+    );
+
+    for solver in [&mut compression_off, &mut compression_on] {
+        let alpha = solver.alpha_mut();
+        for idx in 0..alpha.len() {
+            let i = idx % nx;
+            alpha[idx] = i as f64 / (nx - 1) as f64;
+        }
+        solver.reconstruct_interface();
+    }
+
+    let weak_idx = compression_on.linear_index(1, 2, 2);
+    let before = compression_on.alpha()[weak_idx];
+
+    assert!(
+        compression_on.normals()[weak_idx].norm() > 0.0,
+        "weakly mixed cell must be classified as interface"
+    );
+
+    AdvectionMethod::Geometric
+        .apply_compression(&mut compression_off, 0.5)
+        .expect("compression with zero coefficient failed");
+    AdvectionMethod::Geometric
+        .apply_compression(&mut compression_on, 0.5)
+        .expect("compression with unit coefficient failed");
+
+    let off_after = compression_off.alpha()[weak_idx];
+    let on_after = compression_on.alpha()[weak_idx];
+
+    assert_relative_eq!(off_after, before, epsilon = 1e-15);
+    assert!(
+        (on_after - before).abs() > 1e-12,
+        "configured compression coefficient must change the weakly mixed cell"
+    );
+    assert!(
+        (on_after - off_after).abs() > 1e-12,
+        "compression coefficient must affect the update"
+    );
+}
+
 /// **Positive**: Planar interface — PLIC normal should align with x-axis.
 ///
 /// A sharp planar interface at x = L/2 has ∇α ∝ x̂.  The reconstructed

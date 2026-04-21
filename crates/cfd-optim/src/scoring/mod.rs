@@ -14,8 +14,8 @@
 //!
 //! Any candidate that violates a hard constraint — non-feasible pressure drop,
 //! FDA main-channel shear exceedance, or plate-boundary overflow — receives a
-//! small positive floor score (`0.001`) to preserve gradient signal for the
-//! optimizer while remaining strictly below any feasible design.
+//! hard score of `0.0`.  The smooth penalty mode provides the alternative
+//! search signal when gradient-preserving feasibility shaping is required.
 
 mod modes;
 mod types;
@@ -25,24 +25,16 @@ pub use types::{OptimMode, ScoreMode, SdtWeights};
 use crate::constraints::{FDA_THROAT_TEMP_RISE_LIMIT_K, HI_PASS_LIMIT, THERAPEUTIC_HI_PASS_LIMIT};
 use crate::metrics::SdtMetrics;
 
-/// Minimum score for any candidate, including those violating hard constraints.
-///
-/// Returning exactly zero destroys gradient information for downstream
-/// optimizers (deterministic search, GA).  This floor preserves a small
-/// positive signal so that infeasible candidates can still be ranked by
-/// "how close to feasibility" they are, enabling smoother convergence.
-const INFEASIBILITY_FLOOR: f64 = 0.001;
+/// Score assigned to hard-constraint violations.
+const INFEASIBILITY_SCORE: f64 = 0.0;
 
 // ── Score functions ──────────────────────────────────────────────────────────
 
 /// Compute the score for a single candidate given a mode and weights.
 ///
-/// Returns a value in **[0.001, 1.0]**.  Higher scores indicate better designs.
-/// Infeasible candidates (hard-constraint violations) receive a small but
-/// non-zero floor (`INFEASIBILITY_FLOOR = 0.001`) to preserve gradient signal
-/// for the optimizer.  Any feasible candidate will score strictly above this
-/// floor, maintaining correct ranking while enabling smooth navigation out of
-/// infeasible regions.
+/// Returns a value in **[0.0, 1.0]**.  Higher scores indicate better designs.
+/// Infeasible candidates (hard-constraint violations) receive an exact score
+/// of `0.0`; the smooth penalty mode provides the non-zero gradient variant.
 #[must_use]
 pub fn score_candidate(metrics: &SdtMetrics, mode: OptimMode, weights: &SdtWeights) -> f64 {
     score_candidate_impl(metrics, mode, weights, ScoreMode::HardConstraint, 0.0)
@@ -58,14 +50,8 @@ fn score_candidate_impl(
     // ── Feasibility check ─────────────────────────────────────────────────
     match constraint_mode {
         ScoreMode::HardConstraint => {
-            // Infeasible candidates receive INFEASIBILITY_FLOOR (0.001) — a tiny
-            // positive score that preserves gradient signal without competing
-            // with any feasible design.  The floor is small enough that any
-            // feasible candidate (whose mode-specific raw score ≥ 0.01) always
-            // dominates, yet non-zero so optimizers can rank infeasible designs
-            // by proximity to the feasibility boundary.
             if !metrics.pressure_feasible || !metrics.fda_main_compliant || !metrics.plate_fits {
-                return INFEASIBILITY_FLOOR;
+                return INFEASIBILITY_SCORE;
             }
             // HI constraints use a smooth sigmoid gate rather than a binary
             // cutoff.  Each mode-specific scoring function already penalises
@@ -125,7 +111,7 @@ fn score_candidate_impl(
             let overlap_penalty = 0.05 * overlap_raw * ratio_discount;
             ((raw - coag_penalty - thermal_penalty - pediatric_flow_penalty - overlap_penalty)
                 * hi_gate)
-                .max(INFEASIBILITY_FLOOR)
+                .max(INFEASIBILITY_SCORE)
         }
         ScoreMode::SmoothPenalty => {
             // Smooth sigmoid multiplier: provides a non-zero gradient for the GA
@@ -161,9 +147,9 @@ fn score_candidate_impl(
                 * plate_ok;
 
             if feasibility < 0.05 {
-                // Deeply infeasible: return a tiny gradient signal so the GA can
-                // escape.  Floor to INFEASIBILITY_FLOOR to guarantee no zeros.
-                return (feasibility * 0.1).max(INFEASIBILITY_FLOOR);
+                // Deeply infeasible: return a small feasibility-proportional signal
+                // so the GA can escape while keeping the penalty monotone.
+                return feasibility * 0.1;
             }
             // Moderately feasible: continue with normal scoring, then multiply.
             let raw = modes::score_mode_raw(metrics, mode, weights);
@@ -187,7 +173,7 @@ fn score_candidate_impl(
                 - thermal_penalty
                 - pediatric_flow_penalty
                 - overlap_penalty)
-                .max(INFEASIBILITY_FLOOR)
+                .max(INFEASIBILITY_SCORE)
         }
     }
 }
@@ -415,11 +401,32 @@ mod tests {
         );
     }
 
+    #[test]
+    fn sdt_cavitation_score_uses_physical_components_without_synthetic_floor() {
+        let mut metrics = base_metrics();
+        metrics.cavitation_number = 1.2;
+        metrics.cavitation_potential = 0.0;
+        metrics.well_coverage_fraction = 0.42;
+
+        let weights = SdtWeights::default();
+        let score = score_candidate(&metrics, OptimMode::SdtCavitation, &weights);
+
+        let hi_ratio = metrics.hemolysis_index_per_pass / HI_PASS_LIMIT.max(1e-12);
+        let hi_factor = 1.0_f64 / (1.0 + (hi_ratio / 0.5).powi(2));
+        let expected = weights.cav_hemolysis * hi_factor + weights.cav_coverage * 0.42;
+
+        let scale = expected.abs().max(1.0);
+        assert!(
+            (score - expected).abs() <= 1e-15 * scale,
+            "expected {expected}, got {score}"
+        );
+    }
+
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(64))]
 
         #[test]
-        fn prop_hard_constraints_produce_floor_score(
+    fn prop_hard_constraints_produce_zero_score(
             cav in 0.0_f64..1.0,
             sep3 in 0.0_f64..1.0,
             wbc_recovery in 0.0_f64..1.0,
@@ -447,8 +454,8 @@ mod tests {
 
                 m.pressure_feasible = false;
                 let s = score_candidate(&m, mode, &weights);
-                prop_assert_eq!(s, INFEASIBILITY_FLOOR,
-                    "pressure-infeasible candidate must receive floor score, got {}", s);
+                prop_assert_eq!(s, INFEASIBILITY_SCORE,
+                    "pressure-infeasible candidate must receive zero score, got {}", s);
 
                 let mut m = base_metrics();
                 m.cavitation_potential = cav;
@@ -457,8 +464,8 @@ mod tests {
                 m.blue_light_delivery_index_405nm = optical_405;
                 m.fda_main_compliant = false;
                 let s = score_candidate(&m, mode, &weights);
-                prop_assert_eq!(s, INFEASIBILITY_FLOOR,
-                    "FDA-noncompliant candidate must receive floor score, got {}", s);
+                prop_assert_eq!(s, INFEASIBILITY_SCORE,
+                    "FDA-noncompliant candidate must receive zero score, got {}", s);
 
                 let mut m = base_metrics();
                 m.cavitation_potential = cav;
@@ -467,8 +474,8 @@ mod tests {
                 m.blue_light_delivery_index_405nm = optical_405;
                 m.plate_fits = false;
                 let s = score_candidate(&m, mode, &weights);
-                prop_assert_eq!(s, INFEASIBILITY_FLOOR,
-                    "plate-overflow candidate must receive floor score, got {}", s);
+                prop_assert_eq!(s, INFEASIBILITY_SCORE,
+                    "plate-overflow candidate must receive zero score, got {}", s);
             }
         }
 
