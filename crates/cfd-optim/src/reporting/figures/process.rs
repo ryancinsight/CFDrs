@@ -142,7 +142,7 @@ pub(super) fn write_creation_optimization_process_figure(
         &[
             "AsymmetricSplitVenturi",
             "Selective routing + venturi",
-            "cavitation + healthy-cell shielding",
+            "cavitation + healthy-cell protection",
         ],
     );
     process_box(
@@ -203,6 +203,9 @@ mod tests {
         assert!(svg.contains("Primitive candidate"));
         assert!(svg.contains("Cached cfd-1d"));
         assert!(svg.contains("Option 2 combined ranking"));
+        assert!(svg.contains("cavitation + healthy-cell"));
+        assert!(svg.contains("protection</text>"));
+        assert!(!svg.contains("healthy-cell shielding"));
         assert!(svg.contains("preserveAspectRatio=\"xMidYMin meet\""));
         assert!(svg.contains("width:min(100%, 100vw, calc(100vh * "));
         assert!(svg.contains("height:auto;display:block;margin:0 auto;"));

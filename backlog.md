@@ -26,6 +26,8 @@
 - [x] `cfd-optim`: Normalize Milestone 12 report writers to label the WBC column as recovery and emit the healthy-cell composite consistently.
 - [x] `cfd-optim`: Remove heuristic floor values from Milestone 12 SVG report scaling guards.
 - [x] `cfd-optim`: Replace residual shielding language in the Milestone 12 narrative with cancer-selective lysis and healthy-cell protection terminology.
+- [x] `cfd-optim`: Replace the remaining Milestone 12 process-figure shielding wording and narrative-template exposure wording with healthy-cell protection terminology.
+- [x] `cfd-optim`: Clear the Milestone 12 asset-review gate after manual PNG review and rerun the authoritative Option 2 report pipeline.
 - [x] `cfd-3d`: Replace the cavitation-number velocity floor with an exact zero-dynamic-pressure branch that returns infinite cavitation number.
 - [x] `cfd-3d`: Fall back to first-order upwind when the WENO5-Z stencil is unavailable on small grids.
 - [x] `cfd-3d`: Scale PLIC plane-bisection tolerance with the cell dimensions and reuse precomputed normals for curvature axis selection.
@@ -35,6 +37,7 @@
 - [x] `cfd-core`: Remove the minimum bubble-radius floor and treat collapsed Rayleigh-Plesset bubbles as an absorbing state.
 - [x] `cfd-3d`: Route bubble-dynamics updates through the canonical Rayleigh-Plesset absorbing-collapse state instead of a radius floor.
 - [x] `cfd-3d`: Reject zero dynamic pressure in the 3D Venturi pressure-coefficient calculation and remove the slice-weight floor.
+- [x] `cfd-3d`: Remove the lower hematocrit floor from the cascade viscosity ratio and reuse Picard viscosity buffers.
 - [ ] `cfd-schematics`: Optimize memory layout (e.g. flat vectors, zero-copy mapping).
 
 ## Rigor & Correctness

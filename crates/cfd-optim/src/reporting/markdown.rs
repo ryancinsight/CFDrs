@@ -168,11 +168,11 @@ pub fn write_milestone12_results(
     writeln!(md, "## Option 2 Ranked Top-5 (Deterministic Tie-Break)")?;
     writeln!(
         md,
-        "Sorting policy: score desc, oncology-priority desc, RBC venturi exposure asc, clot risk asc, candidate id asc. `sigma` remains a per-throat severity metric; `K_loss` is the inlet-normalized venturi pressure-loss coefficient; `Cumulative cavitation dose` reports serial exposure across the treatment path.\n"
+        "Sorting policy: score desc, oncology-priority desc, RBC venturi protection asc, clot risk asc, candidate id asc. `sigma` remains a per-throat severity metric; `K_loss` is the inlet-normalized venturi pressure-loss coefficient; `Cumulative cavitation dose` reports serial exposure across the treatment path.\n"
     )?;
     writeln!(
         md,
-        "| Rank | Candidate | Mode | Active venturi throats | Score | Oncology priority | RBC venturi exposure | Clot risk | sigma | K_loss | Cumulative cavitation dose |"
+        "| Rank | Candidate | Mode | Active venturi throats | Score | Oncology priority | RBC venturi protection | Clot risk | sigma | K_loss | Cumulative cavitation dose |"
     )?;
     writeln!(md, "|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|")?;
     for d in option2_ranked.iter().take(5) {

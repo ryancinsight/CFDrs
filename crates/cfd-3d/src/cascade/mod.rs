@@ -72,8 +72,9 @@ use serde::{Deserialize, Serialize};
 /// difference between the two channels.
 fn hematocrit_viscosity_ratio(hct_local: f64, hct_reference: f64) -> f64 {
     let k = 2.5_f64; // Intrinsic viscosity coefficient (Quemada 1978)
-    let h_local = hct_local.clamp(0.01, 0.70);
-    let h_ref = hct_reference.clamp(0.01, 0.70);
+                     // Lower-bound at zero so plasma-dominant lanes are not artificially floored.
+    let h_local = hct_local.clamp(0.0, 0.70);
+    let h_ref = hct_reference.clamp(0.0, 0.70);
     let exponent = k * (h_local / (1.0 - h_local) - h_ref / (1.0 - h_ref));
     exponent.exp()
 }
@@ -373,6 +374,7 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         let n_corner_nodes = mesh.vertex_count();
         let n_elements = mesh.cell_count();
         let mut element_viscosities: Vec<f64> = vec![base_viscosity; n_elements];
+        let mut next_element_viscosities: Vec<f64> = Vec::with_capacity(n_elements);
 
         let mut problem =
             StokesFlowProblem::new(mesh, constant_fluid, boundary_conditions, n_corner_nodes);
@@ -385,14 +387,22 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         let mut picard_iter = 0;
 
         for iter in 0..self.config.max_picard_iterations {
-            problem.element_viscosities = Some(element_viscosities.clone());
+            problem.element_viscosities = Some(std::mem::replace(
+                &mut element_viscosities,
+                Vec::with_capacity(n_elements),
+            ));
             let solution = solver
                 .solve(&problem, last_solution.as_ref())
                 .map_err(|e| Error::Solver(e.to_string()))?;
 
+            let old_viscosities = problem
+                .element_viscosities
+                .take()
+                .expect("element viscosities are assigned before Picard solve");
+
             // Update viscosities from shear rate.
             let mut max_change: f64 = 0.0;
-            let mut new_visc = Vec::with_capacity(n_elements);
+            next_element_viscosities.clear();
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
                 let gamma_dot = self.element_shear_rate(cell, &problem.mesh, &solution);
                 let mu_base = self
@@ -400,14 +410,13 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
                     .viscosity_at_shear(gamma_dot, 310.0, 0.0)
                     .unwrap_or(fluid_props.dynamic_viscosity);
                 let mu = mu_base * hct_viscosity_factor;
-                let change =
-                    (mu - element_viscosities[i]).abs() / element_viscosities[i].max(1e-15);
+                let change = (mu - old_viscosities[i]).abs() / old_viscosities[i].max(1e-15);
                 if change > max_change {
                     max_change = change;
                 }
-                new_visc.push(mu);
+                next_element_viscosities.push(mu);
             }
-            element_viscosities = new_visc;
+            std::mem::swap(&mut element_viscosities, &mut next_element_viscosities);
             last_solution = Some(solution);
             picard_iter = iter + 1;
 
@@ -448,33 +457,36 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         mesh: &cfd_mesh::IndexedMesh,
         solution: &crate::fem::StokesFlowSolution<f64>,
     ) -> f64 {
-        // Average velocity gradient magnitude across the element's vertices.
-        let verts: Vec<usize> = cell
-            .faces
-            .iter()
-            .flat_map(|&fi| mesh.faces.get(FaceId::from_usize(fi)).vertices.iter())
-            .map(|v| v.as_usize())
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
-        if verts.len() < 2 {
+        use std::collections::HashSet;
+
+        // Average velocity gradient magnitude across the element's unique vertices.
+        let mut unique_verts = HashSet::with_capacity(cell.faces.len() * 4);
+        for &fi in &cell.faces {
+            if fi >= mesh.face_count() {
+                continue;
+            }
+            unique_verts.extend(
+                mesh.faces
+                    .get(FaceId::from_usize(fi))
+                    .vertices
+                    .iter()
+                    .map(|v| v.as_usize()),
+            );
+        }
+        if unique_verts.len() < 2 {
             return 0.0;
         }
 
         let mut sum_grad = 0.0;
-        let mut count = 0usize;
-        for &vi in &verts {
+        let mut positions = Vec::with_capacity(unique_verts.len());
+        for &vi in &unique_verts {
             let vel = solution.get_velocity(vi);
             sum_grad += vel.norm();
-            count += 1;
+            positions.push(*mesh.vertices.position(VertexId::from_usize(vi)));
         }
-        let avg_u = sum_grad / count as f64;
+        let avg_u = sum_grad / unique_verts.len() as f64;
 
         // Characteristic length: cube root of element volume estimate.
-        let positions: Vec<_> = verts
-            .iter()
-            .map(|&vi| mesh.vertices.position(VertexId::from_usize(vi)))
-            .collect();
         let n = positions.len() as f64;
         let centroid = positions.iter().fold(
             nalgebra::Point3::<f64>::origin(),
@@ -791,6 +803,19 @@ mod tests {
             ratio_high > 1.0,
             "higher hct should give ratio > 1, got {}",
             ratio_high
+        );
+    }
+
+    #[test]
+    fn hematocrit_viscosity_ratio_zero_local_hematocrit_matches_analytic_ratio() {
+        let hct_reference = 0.45_f64;
+        let k = 2.5_f64;
+        let expected = (-k * hct_reference / (1.0 - hct_reference)).exp();
+        let ratio = hematocrit_viscosity_ratio(0.0, hct_reference);
+
+        assert!(
+            (ratio - expected).abs() < 1e-15 * expected.max(1.0),
+            "expected {expected}, got {ratio}"
         );
     }
 }

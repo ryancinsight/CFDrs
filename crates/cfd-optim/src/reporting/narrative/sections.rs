@@ -127,7 +127,7 @@ pub(super) fn build_selected_table(
 
 pub(super) fn build_option2_top5_table(option2_ranked: &[Milestone12ReportDesign]) -> String {
     let mut out = String::new();
-    out.push_str("| Rank | Candidate | Mode | Active venturi throats | Score | Oncology priority | RBC venturi exposure | Clot risk | sigma | K_loss | Cumulative cavitation dose |\n");
+    out.push_str("| Rank | Candidate | Mode | Active venturi throats | Score | Oncology priority | RBC venturi protection | Clot risk | sigma | K_loss | Cumulative cavitation dose |\n");
     out.push_str("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|\n");
     for d in option2_ranked.iter().take(5) {
         let _ = writeln!(
@@ -379,7 +379,7 @@ pub(super) fn build_top5_intro(option2_ranked: &[Milestone12ReportDesign]) -> St
     let n = option2_ranked.len().min(5);
     if n < 2 {
         return "The top-ranked Option 2 design was selected by deterministic tie-break \
-(score desc, oncology-priority desc, RBC venturi exposure asc, clot risk asc, candidate id asc)."
+(score desc, oncology-priority desc, RBC venturi protection asc, clot risk asc, candidate id asc)."
             .to_string();
     }
     let score_spread =
@@ -394,7 +394,7 @@ pub(super) fn build_top5_intro(option2_ranked: &[Milestone12ReportDesign]) -> St
     if score_spread < 1.0e-12 {
         let score_display = option2_ranked.first().map_or(0.0, |d| d.score);
         return format!(
-            "Sorting policy: score desc, oncology-priority desc, RBC venturi exposure asc, \
+            "Sorting policy: score desc, oncology-priority desc, RBC venturi protection asc, \
 clot risk asc, candidate id asc. All {n} top-ranked designs share the same composite score \
 ({score_display:.2e}); ranking among them is determined entirely by the deterministic \
 tie-break sequence. Differentiation arises from non-scored parameters (gauge pressure, \
@@ -403,7 +403,7 @@ serial throat count) rather than from the objective function."
     }
 
     format!(
-        "Sorting policy: score desc, oncology-priority desc, RBC venturi exposure asc, \
+        "Sorting policy: score desc, oncology-priority desc, RBC venturi protection asc, \
 clot risk asc, candidate id asc. Ranks 1–{n} span a score range of {score_spread:.2e}, \
 demonstrating that the shortlist is resolved by measurable physics rather than by a zero-score \
 collapse. Adjacent high-ranked designs differ in asymmetric daughter-width partitioning, \
