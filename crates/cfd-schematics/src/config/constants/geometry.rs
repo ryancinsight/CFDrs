@@ -1,5 +1,6 @@
 //! Geometry generation constants for point and channel generation
 
+use super::primitives as constants;
 use crate::state_management::{ConfigurableParameter, ParameterConstraints, ParameterMetadata};
 
 /// Geometry generation constants previously hardcoded
@@ -95,7 +96,10 @@ impl GeometryGenerationConstants {
                 0.5,
                 ParameterConstraints::all(vec![
                     ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.1, 100.0),
+                    ParameterConstraints::range(
+                        constants::MIN_WALL_CLEARANCE,
+                        constants::MAX_WALL_CLEARANCE,
+                    ),
                 ]),
                 ParameterMetadata::new(
                     "default_wall_clearance",
@@ -109,7 +113,10 @@ impl GeometryGenerationConstants {
                 1.0,
                 ParameterConstraints::all(vec![
                     ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.1, 50.0),
+                    ParameterConstraints::range(
+                        constants::MIN_CHANNEL_WIDTH,
+                        constants::MAX_CHANNEL_WIDTH,
+                    ),
                 ]),
                 ParameterMetadata::new(
                     "default_channel_width",
@@ -123,7 +130,10 @@ impl GeometryGenerationConstants {
                 1.0,
                 ParameterConstraints::all(vec![
                     ParameterConstraints::<f64>::positive(),
-                    ParameterConstraints::range(0.1, 50.0),
+                    ParameterConstraints::range(
+                        constants::MIN_CHANNEL_HEIGHT,
+                        constants::MAX_CHANNEL_HEIGHT,
+                    ),
                 ]),
                 ParameterMetadata::new(
                     "default_channel_height",

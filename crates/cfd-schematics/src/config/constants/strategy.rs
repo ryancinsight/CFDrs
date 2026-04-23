@@ -43,7 +43,7 @@ impl StrategyThresholds {
                     "strategy_selection"
                 ).with_units("factor").affects_others()
             ),
-            
+
             serpentine_fill_threshold: ConfigurableParameter::new(
                 0.95,
                 ParameterConstraints::all(vec![
@@ -54,9 +54,9 @@ impl StrategyThresholds {
                     "serpentine_fill_threshold",
                     "Maximum fill factor for serpentine strategy selection",
                     "strategy_selection"
-                ).affects_others()
+            ).affects_others()
             ),
-            
+
             min_complex_strategy_length: ConfigurableParameter::new(
                 10.0,
                 ParameterConstraints::all(vec![
@@ -67,9 +67,9 @@ impl StrategyThresholds {
                     "min_complex_strategy_length",
                     "Minimum channel length to use complex strategies",
                     "strategy_selection"
-                ).with_units("mm")
+            ).with_units("mm")
             ),
-            
+
             adaptive_branch_threshold: ConfigurableParameter::new(
                 4usize,
                 ParameterConstraints::all(vec![

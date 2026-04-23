@@ -41,7 +41,7 @@
 //! This local shear rate dictates the apparent dynamic viscosity $\mu(\dot{\gamma})$
 //! for non-Newtonian fluids like blood during the Rayleigh-Plesset integration.
 
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use cfd_core::physics::cavitation::rayleigh_plesset::RayleighPlesset;
 use cfd_core::physics::fluid::BloodModel;
 use nalgebra::Vector3;
@@ -136,14 +136,21 @@ impl BubbleDynamicsSolver {
         k: usize,
         pressure: f64,
         _velocity: Vector3<f64>,
-        _density: f64,
+        density: f64,
         dt: f64,
     ) -> Result<f64> {
+        if !density.is_finite() || density <= 0.0 {
+            return Err(Error::InvalidConfiguration(
+                "local liquid density must be finite and positive".to_string(),
+            ));
+        }
+
         let idx = self.index(i, j, k);
         let base_viscosity = self.blood_model.viscosity(0.0);
         let config = &mut self.configs[idx];
         let radius = self.radii[idx];
         let velocity = self.velocities[idx];
+        config.liquid_density = density;
 
         if radius <= 0.0 {
             config.liquid_viscosity = base_viscosity;
@@ -203,6 +210,7 @@ impl BubbleDynamicsSolver {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
 
     #[test]
     fn collapse_pressure_and_frequency_use_initialized_bubble_state() {
@@ -230,6 +238,62 @@ mod tests {
 
         assert!(collapse_pressure > 0.0);
         assert!(frequency > 0.0);
+    }
+
+    #[test]
+    fn update_bubble_uses_local_liquid_density_and_rejects_nonphysical_inputs() {
+        let config = BubbleDynamicsConfig {
+            initial_radius: 2.0e-6,
+            number_density: 1.0e12,
+            polytropic_exponent: 1.4,
+            surface_tension: 0.072,
+        };
+
+        let make_solver = || {
+            BubbleDynamicsSolver::new(
+                &config,
+                1,
+                1,
+                1,
+                1.0,
+                1.0,
+                1.0,
+                1000.0,
+                BloodModel::Newtonian(1.0e-3),
+                2300.0,
+            )
+        };
+
+        let mut low_density = make_solver();
+        let mut high_density = make_solver();
+
+        low_density.radii[0] = 4.0e-6;
+        high_density.radii[0] = 4.0e-6;
+
+        let low = low_density
+            .update_bubble(0, 0, 0, 1.0e5, Vector3::zeros(), 800.0, 1.0e-7)
+            .expect("low-density update");
+        let high = high_density
+            .update_bubble(0, 0, 0, 1.0e5, Vector3::zeros(), 1600.0, 1.0e-7)
+            .expect("high-density update");
+
+        assert!(
+            low < high,
+            "lower liquid density must yield a stronger collapse response"
+        );
+        assert_relative_eq!(low_density.configs[0].liquid_density, 800.0);
+        assert_relative_eq!(high_density.configs[0].liquid_density, 1600.0);
+
+        let mut invalid_density = make_solver();
+        let err = invalid_density
+            .update_bubble(0, 0, 0, 1.0e5, Vector3::zeros(), 0.0, 1.0e-7)
+            .unwrap_err();
+        match err {
+            Error::InvalidConfiguration(message) => {
+                assert!(message.contains("density"));
+            }
+            other => panic!("expected invalid-configuration error, got {other:?}"),
+        }
     }
 
     #[test]

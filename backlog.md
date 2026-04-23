@@ -38,7 +38,17 @@
 - [x] `cfd-3d`: Route bubble-dynamics updates through the canonical Rayleigh-Plesset absorbing-collapse state instead of a radius floor.
 - [x] `cfd-3d`: Reject zero dynamic pressure in the 3D Venturi pressure-coefficient calculation and remove the slice-weight floor.
 - [x] `cfd-3d`: Remove the lower hematocrit floor from the cascade viscosity ratio and reuse Picard viscosity buffers.
-- [ ] `cfd-schematics`: Optimize memory layout (e.g. flat vectors, zero-copy mapping).
+- [x] `cfd-3d`: Consume the local liquid-density input in the bubble-dynamics Rayleigh-Plesset update and reject nonphysical densities.
+- [x] `cfd-core`: Replace the re-equilibrating ambient-pressure seed in Rayleigh-Plesset bubble acceleration with a fixed far-field reference pressure.
+- [x] `cfd-3d`: Correct the bubble-dynamics integration test to measure change from the configured initial radius and accept collapsed bubbles as valid absorbing states.
+- [x] `cfd-core`: Expose the nuclei diffusion coefficient for solver coupling.
+- [x] `cfd-3d`: Couple nuclei diffusion into the cavitation transport update with conservative finite-volume spreading.
+- [x] `cfd-3d`: Reuse the cavitation-source workspace across solver steps instead of allocating a fresh source matrix per step.
+- [x] `cfd-3d`: Validate flow-field dimensions before cavitation-VOF stepping even when bubble dynamics are disabled.
+- [x] `cfd-3d`: Validate pressure and density dimensions in cavitation damage accumulation and walk the damage field via raw column slices.
+- [x] `cfd-3d`: Validate cavitation-source dimensions, switch to raw-slice accumulation, and clamp source updates to feasible bounds.
+- [x] `cfd-3d`: Validate nuclei transport dimensions and switch cavitation nuclei advection-diffusion to slice-based accumulation.
+- [x] `cfd-schematics`: Optimize memory layout with indexed node-layout caches and zero-copy parallel-group lookup.
 
 ## Rigor & Correctness
-- [ ] Review all numerical bounds and geometry assumptions in `cfd-schematics`.
+- [x] Review all numerical bounds and geometry assumptions in `cfd-schematics`.

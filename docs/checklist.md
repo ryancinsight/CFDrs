@@ -17,6 +17,14 @@
 
 ### Phase 3: Closure (50%+)
 - [x] Sync documentation rules and examples.
+- [x] Couple nuclei diffusion into the 3D cavitation transport solver and verify advective-diffusive spreading.
+- [x] Reuse the 3D cavitation-source workspace to remove the per-step source allocation hot path.
+- [x] Validate 3D cavitation flow-field dimensions before stepping to prevent panic-only failure paths.
+- [x] Validate pressure and density dimensions in 3D cavitation damage accumulation and remove repeated matrix indexing from the hot path.
+- [x] Validate cavitation-source dimensions in the 3D cavitation transport helper and clamp source updates to feasible bounds.
+- [x] Validate nuclei transport dimensions in the 3D cavitation solver and use slice-based advection-diffusion accumulation.
+- [x] Replace schematic auto-layout map churn with an indexed borrowed layout cache and index-keyed parallel channel grouping.
+- [x] Close the `cfd-schematics` geometry-bounds review with canonical constant ranges and clearance-width relation validation.
 
 ---
 

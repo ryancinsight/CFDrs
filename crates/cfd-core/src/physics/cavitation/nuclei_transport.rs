@@ -80,6 +80,17 @@ impl<T: RealField + Copy> NucleiTransport<T> {
         Self { config }
     }
 
+    /// Return the scalar diffusion coefficient used by the transport model.
+    ///
+    /// # Theorem - Nonnegative scalar diffusivity
+    ///
+    /// The diffusion coefficient is a model parameter and must be interpreted as
+    /// a scalar diffusivity in the advection-diffusion equation.
+    #[must_use]
+    pub fn diffusion_coefficient(&self) -> T {
+        self.config.diffusion_coefficient
+    }
+
     /// Calculate the dissolution sink term $S_{diss} = n / \tau_{diss}$
     /// Returns the rate of change ($dn/dt$).
     #[must_use]
@@ -172,5 +183,17 @@ mod tests {
         let dt = 0.05; // 1 time constant
         let n_out = transport.advect_1d_dissolution(1.0, dt);
         assert_relative_eq!(n_out, std::f64::consts::E.recip()); // exp(-1)
+    }
+
+    #[test]
+    fn test_diffusion_coefficient_accessor_returns_configured_value() {
+        let config = NucleiTransportConfig {
+            dissolution_time_s: 0.05,
+            generation_rate_factor: 1.0,
+            diffusion_coefficient: 2.5e-6,
+        };
+        let transport = NucleiTransport::new(config);
+
+        assert_relative_eq!(transport.diffusion_coefficient(), 2.5e-6);
     }
 }

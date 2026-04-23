@@ -13,9 +13,9 @@ mod path_generation;
 mod path_simplification;
 
 use auto_annotations::build_auto_annotations;
+pub(crate) use channel_system::channel_system_from_blueprint;
 use channel_system::resolved_channel_paths;
 use layout::blueprint_node_positions;
-pub(crate) use channel_system::channel_system_from_blueprint;
 
 pub fn plot_geometry(blueprint: &NetworkBlueprint, output_path: &str) -> VisualizationResult<()> {
     plot_blueprint_auto_annotated(blueprint, output_path, &RenderConfig::default())
@@ -70,20 +70,25 @@ pub fn plot_blueprint_auto_annotated(
 
 pub(crate) fn materialize_blueprint_layout(blueprint: &mut NetworkBlueprint) {
     let box_dims = blueprint.box_dims;
-    let (node_points, auto_layout_used) = blueprint_node_positions(blueprint, box_dims);
-    let channel_paths = resolved_channel_paths(blueprint, &node_points, box_dims);
+    let node_layout = blueprint_node_positions(blueprint, box_dims);
+    let channel_paths = resolved_channel_paths(blueprint, &node_layout, box_dims);
+    let positions = node_layout.positions().to_vec();
+    let auto_layout_indices = node_layout.auto_layout_indices().to_vec();
+    drop(node_layout);
 
-    for node in &mut blueprint.nodes {
-        let Some(&(x_mm, y_mm)) = node_points.get(node.id.as_str()) else {
+    let mut auto_layout_indices = auto_layout_indices.iter().copied().peekable();
+    for (idx, node) in blueprint.nodes.iter_mut().enumerate() {
+        let Some((x_mm, y_mm)) = positions.get(idx).copied() else {
             continue;
         };
-        if auto_layout_used.contains_key(node.id.as_str()) {
+        if auto_layout_indices.peek().copied() == Some(idx) {
             let layout = NodeLayoutMetadata { x_mm, y_mm };
             node.point = (x_mm, y_mm);
             node.layout = Some(layout);
             node.metadata
                 .get_or_insert_with(crate::geometry::metadata::MetadataContainer::new)
                 .insert(layout);
+            auto_layout_indices.next();
         }
     }
 
@@ -126,9 +131,11 @@ pub fn centerline_vertices(blueprint: &NetworkBlueprint) -> Vec<Point2D> {
 #[cfg(test)]
 mod tests {
     use super::channel_system::channel_category_from_blueprint;
+    use super::materialize_blueprint_layout;
     use super::path_generation::generated_serpentine_path;
     use super::path_simplification::render_path_for_display;
-    use crate::domain::model::{ChannelShape, ChannelSpec};
+    use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
+    use crate::geometry::metadata::NodeLayoutMetadata;
     use crate::geometry::ChannelTypeCategory;
 
     #[test]
@@ -181,6 +188,68 @@ mod tests {
         assert_eq!(
             channel_category_from_blueprint(&channel),
             ChannelTypeCategory::Curved
+        );
+    }
+
+    fn materialization_blueprint() -> NetworkBlueprint {
+        NetworkBlueprint {
+            name: "layout-materialize".to_string(),
+            box_dims: (100.0, 50.0),
+            box_outline: Vec::new(),
+            nodes: vec![
+                NodeSpec::new_at("inlet", NodeKind::Inlet, (10.0, 20.0)).with_layout(
+                    NodeLayoutMetadata {
+                        x_mm: 10.0,
+                        y_mm: 20.0,
+                    },
+                ),
+                NodeSpec::new_at("mid", NodeKind::Junction, (0.0, 0.0)),
+                NodeSpec::new_at("outlet", NodeKind::Outlet, (90.0, 30.0)),
+            ],
+            channels: vec![
+                ChannelSpec::new_pipe("c0", "inlet", "mid", 1.0, 1.0, 1.0, 0.0),
+                ChannelSpec::new_pipe("c1", "mid", "outlet", 1.0, 1.0, 1.0, 0.0),
+            ],
+            render_hints: None,
+            topology: None,
+            lineage: None,
+            metadata: None,
+            geometry_authored: false,
+        }
+    }
+
+    #[test]
+    fn materialize_blueprint_layout_applies_indexed_auto_positions() {
+        let mut blueprint = materialization_blueprint();
+        materialize_blueprint_layout(&mut blueprint);
+
+        assert_eq!(blueprint.nodes[0].point, (10.0, 20.0));
+        assert_eq!(blueprint.nodes[1].point, (50.0, 25.0));
+        assert_eq!(
+            blueprint.nodes[1]
+                .layout
+                .expect("auto-laid-out node must receive layout metadata"),
+            NodeLayoutMetadata {
+                x_mm: 50.0,
+                y_mm: 25.0,
+            }
+        );
+        assert_eq!(blueprint.nodes[2].point, (90.0, 30.0));
+        assert_eq!(
+            blueprint.channels[0].path.first().copied(),
+            Some((10.0, 20.0))
+        );
+        assert_eq!(
+            blueprint.channels[0].path.last().copied(),
+            Some((50.0, 25.0))
+        );
+        assert_eq!(
+            blueprint.channels[1].path.first().copied(),
+            Some((50.0, 25.0))
+        );
+        assert_eq!(
+            blueprint.channels[1].path.last().copied(),
+            Some((90.0, 30.0))
         );
     }
 }

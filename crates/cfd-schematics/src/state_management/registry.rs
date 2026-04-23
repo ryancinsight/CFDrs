@@ -250,16 +250,25 @@ impl ParameterRegistry {
         // This can be expanded as needed for specific parameter relationships
 
         // Validate that geometry parameters are within reasonable bounds
-        if let Ok(channel_width_any) = self.geometry_manager.get_parameter("channel_width") {
-            if let Some(width) = channel_width_any.downcast_ref::<f64>() {
-                if *width <= 0.0 {
-                    return Err(StateManagementError::Validation(
-                        crate::state_management::errors::ValidationError::rule_failed(
-                            "channel_width",
-                            "Channel width must be positive",
-                        ),
-                    ));
-                }
+        let wall_clearance = self
+            .geometry_manager
+            .get_parameter("wall_clearance")
+            .ok()
+            .and_then(|value| value.downcast_ref::<f64>().copied());
+        let channel_width = self
+            .geometry_manager
+            .get_parameter("channel_width")
+            .ok()
+            .and_then(|value| value.downcast_ref::<f64>().copied());
+
+        if let (Some(wall_clearance), Some(channel_width)) = (wall_clearance, channel_width) {
+            if wall_clearance >= channel_width {
+                return Err(StateManagementError::Validation(
+                    crate::state_management::errors::ValidationError::rule_failed(
+                        "wall_clearance+channel_width",
+                        "wall_clearance must be less than channel_width",
+                    ),
+                ));
             }
         }
 

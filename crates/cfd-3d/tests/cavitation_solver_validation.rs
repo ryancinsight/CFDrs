@@ -306,6 +306,7 @@ fn test_bubble_dynamics_integration() {
         polytropic_exponent: 1.4,
         surface_tension: 0.072,
     };
+    let bubble_initial_radius = bubble_config.initial_radius;
 
     let config = CavitationVofConfig {
         vof_config: VofConfig {
@@ -344,7 +345,7 @@ fn test_bubble_dynamics_integration() {
     let mut pressure_field = DMatrix::from_element(5, 25, 50000.0);
 
     // Run simulation with pressure variations
-    let mut last_radius = 1e-6;
+    let mut last_radius = bubble_initial_radius;
     let mut radius_changed = false;
 
     for step in 0..20 {
@@ -368,7 +369,10 @@ fn test_bubble_dynamics_integration() {
                 radius_changed = true;
             }
             last_radius = current_radius;
-            assert!(current_radius > 0.0, "Bubble radii should be positive");
+            assert!(
+                current_radius.is_finite() && current_radius >= 0.0,
+                "Bubble radii should remain finite and non-negative"
+            );
         }
     }
 

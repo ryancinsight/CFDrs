@@ -1,5 +1,6 @@
 //! Geometry parameter manager.
 
+use crate::config::constants::primitives as constants;
 use crate::state_management::{
     constraints::ParameterConstraints,
     errors::{ParameterError, ParameterResult},
@@ -29,7 +30,10 @@ impl GeometryParameterManager {
             0.5,
             ParameterConstraints::all(vec![
                 ParameterConstraints::<f64>::positive(),
-                ParameterConstraints::range(0.01, 10.0),
+                ParameterConstraints::range(
+                    constants::MIN_WALL_CLEARANCE,
+                    constants::MAX_WALL_CLEARANCE,
+                ),
             ]),
             ParameterMetadata::new(
                 "wall_clearance",
@@ -44,7 +48,10 @@ impl GeometryParameterManager {
             1.0,
             ParameterConstraints::all(vec![
                 ParameterConstraints::<f64>::positive(),
-                ParameterConstraints::range(0.01, 50.0),
+                ParameterConstraints::range(
+                    constants::MIN_CHANNEL_WIDTH,
+                    constants::MAX_CHANNEL_WIDTH,
+                ),
             ]),
             ParameterMetadata::new(
                 "channel_width",
@@ -59,7 +66,10 @@ impl GeometryParameterManager {
             0.5,
             ParameterConstraints::all(vec![
                 ParameterConstraints::<f64>::positive(),
-                ParameterConstraints::range(0.01, 25.0),
+                ParameterConstraints::range(
+                    constants::MIN_CHANNEL_HEIGHT,
+                    constants::MAX_CHANNEL_HEIGHT,
+                ),
             ]),
             ParameterMetadata::new(
                 "channel_height",
@@ -141,6 +151,17 @@ impl ParameterManager for GeometryParameterManager {
         self.wall_clearance.validate()?;
         self.channel_width.validate()?;
         self.channel_height.validate()?;
+
+        let wall_clearance = *self.wall_clearance.get_raw_value();
+        let channel_width = *self.channel_width.get_raw_value();
+        if wall_clearance >= channel_width {
+            return Err(ParameterError::invalid_value(
+                "wall_clearance",
+                &wall_clearance,
+                "must be less than channel_width",
+            ));
+        }
+
         Ok(())
     }
 
@@ -163,5 +184,4 @@ impl ParameterManager for GeometryParameterManager {
         self.channel_height.reset(reason)?;
         Ok(())
     }
-
 }

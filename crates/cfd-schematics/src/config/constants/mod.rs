@@ -28,9 +28,9 @@ pub use wave::WaveGenerationConstants;
 /// Configuration constants for geometry validation and defaults (Primitives)
 pub mod primitives {
     /// Minimum allowed wall clearance (mm)
-    pub const MIN_WALL_CLEARANCE: f64 = 0.1;
+    pub const MIN_WALL_CLEARANCE: f64 = 0.01;
     /// Maximum allowed wall clearance (mm)
-    pub const MAX_WALL_CLEARANCE: f64 = 100.0;
+    pub const MAX_WALL_CLEARANCE: f64 = 10.0;
     /// Default wall clearance (mm)
     pub const DEFAULT_WALL_CLEARANCE: f64 = 0.5;
 
@@ -104,14 +104,14 @@ pub mod primitives {
     /// Minimum allowed channel width (mm)
     pub const MIN_CHANNEL_WIDTH: f64 = 0.01;
     /// Maximum allowed channel width (mm)
-    pub const MAX_CHANNEL_WIDTH: f64 = 1000.0;
+    pub const MAX_CHANNEL_WIDTH: f64 = 50.0;
     /// Default channel width (mm)
     pub const DEFAULT_CHANNEL_WIDTH: f64 = 1.0;
 
     /// Minimum allowed channel height (mm)
     pub const MIN_CHANNEL_HEIGHT: f64 = 0.01;
     /// Maximum allowed channel height (mm)
-    pub const MAX_CHANNEL_HEIGHT: f64 = 1000.0;
+    pub const MAX_CHANNEL_HEIGHT: f64 = 25.0;
     /// Default channel height (mm)
     pub const DEFAULT_CHANNEL_HEIGHT: f64 = 0.5;
 

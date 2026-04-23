@@ -3,6 +3,7 @@
 //! This module provides a comprehensive validation framework for parameter
 //! relationships, dependencies, and cross-parameter constraints.
 
+use crate::config::constants::primitives as constants;
 use crate::state_management::errors::{ParameterResult, ValidationError};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -404,14 +405,20 @@ impl CommonValidationRules {
             .add_rule(RangeValidationRule::new(
                 "wall_clearance_range",
                 "wall_clearance",
-                0.01,
-                10.0,
+                constants::MIN_WALL_CLEARANCE,
+                constants::MAX_WALL_CLEARANCE,
             ))
             .add_rule(RangeValidationRule::new(
                 "channel_width_range",
                 "channel_width",
-                0.01,
-                50.0,
+                constants::MIN_CHANNEL_WIDTH,
+                constants::MAX_CHANNEL_WIDTH,
+            ))
+            .add_rule(RangeValidationRule::new(
+                "channel_height_range",
+                "channel_height",
+                constants::MIN_CHANNEL_HEIGHT,
+                constants::MAX_CHANNEL_HEIGHT,
             ))
             .add_rule(RelationshipValidationRule::less_than(
                 "clearance_width_ratio",
@@ -424,6 +431,7 @@ impl CommonValidationRules {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state_management::errors::ParameterError;
     use std::any::Any;
 
     fn create_test_parameters() -> HashMap<String, Box<dyn Any>> {
@@ -435,6 +443,7 @@ mod tests {
         );
         params.insert("channel_width".to_string(), Box::new(1.0) as Box<dyn Any>);
         params.insert("wall_clearance".to_string(), Box::new(0.5) as Box<dyn Any>);
+        params.insert("channel_height".to_string(), Box::new(0.5) as Box<dyn Any>);
         params
     }
 
@@ -453,6 +462,7 @@ mod tests {
         );
         bad_params.insert("channel_width".to_string(), Box::new(1.0) as Box<dyn Any>);
         bad_params.insert("wall_clearance".to_string(), Box::new(0.5) as Box<dyn Any>);
+        bad_params.insert("channel_height".to_string(), Box::new(0.5) as Box<dyn Any>);
         assert!(rule.validate(&bad_params).is_err());
     }
 
@@ -476,6 +486,7 @@ mod tests {
         );
         bad_params.insert("channel_width".to_string(), Box::new(1.0) as Box<dyn Any>);
         bad_params.insert("wall_clearance".to_string(), Box::new(0.5) as Box<dyn Any>);
+        bad_params.insert("channel_height".to_string(), Box::new(0.5) as Box<dyn Any>);
         // amplitude (3.0) > wavelength_factor (2.0), so this should fail
         assert!(rule.validate(&bad_params).is_err());
     }
@@ -488,5 +499,40 @@ mod tests {
         assert!(rule_set.validate_all(&params).is_ok());
         assert!(rule_set.is_enabled());
         assert!(!rule_set.rule_names().is_empty());
+    }
+
+    #[test]
+    fn test_geometry_validation_rule_set_enforces_bounds_and_clearance_width_relation() {
+        let rule_set = CommonValidationRules::geometry_rules();
+        let params = create_test_parameters();
+
+        assert!(rule_set.validate_all(&params).is_ok());
+
+        let mut height_violation = create_test_parameters();
+        height_violation.insert("channel_height".to_string(), Box::new(26.0) as Box<dyn Any>);
+        let height_err = rule_set
+            .validate_all(&height_violation)
+            .expect_err("channel_height upper bound should be enforced");
+        match height_err {
+            ParameterError::InvalidValue { constraint, .. } => {
+                assert!(constraint.contains("channel_height"));
+                assert!(constraint.contains("25"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+
+        let mut clearance_violation = create_test_parameters();
+        clearance_violation.insert("wall_clearance".to_string(), Box::new(1.0) as Box<dyn Any>);
+        clearance_violation.insert("channel_width".to_string(), Box::new(1.0) as Box<dyn Any>);
+        let clearance_err = rule_set
+            .validate_all(&clearance_violation)
+            .expect_err("wall_clearance must stay below channel_width");
+        match clearance_err {
+            ParameterError::InvalidValue { constraint, .. } => {
+                assert!(constraint.contains("channel_width+wall_clearance"));
+                assert!(constraint.contains("wall_clearance must be less than channel_width"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 }

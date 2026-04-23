@@ -7,6 +7,7 @@
 mod tests {
     use super::super::{adaptive::ChannelGenerationContext, ParameterManager, ParameterRegistry};
     use crate::config::GeometryConfig;
+    use std::any::Any;
 
     #[test]
     fn test_parameter_registry_creation() {
@@ -83,6 +84,46 @@ mod tests {
 
         // Test validation
         assert!(geometry_manager.validate_all().is_ok());
+    }
+
+    #[test]
+    fn test_geometry_relationship_validation_rejects_degenerate_clearance_width_pair() {
+        let mut registry = ParameterRegistry::with_defaults().expect("structural invariant");
+
+        {
+            let geometry_manager = registry.geometry_mut().expect("geometry manager");
+            geometry_manager
+                .set_parameter(
+                    "wall_clearance",
+                    Box::new(1.0) as Box<dyn Any>,
+                    "test relation",
+                )
+                .expect("wall clearance update");
+            geometry_manager
+                .set_parameter(
+                    "channel_width",
+                    Box::new(1.0) as Box<dyn Any>,
+                    "test relation",
+                )
+                .expect("channel width update");
+        }
+
+        let err = registry
+            .validate_all()
+            .expect_err("wall_clearance must stay below channel_width");
+        match err {
+            crate::state_management::errors::StateManagementError::Parameter(
+                crate::state_management::errors::ParameterError::InvalidValue {
+                    name,
+                    constraint,
+                    ..
+                },
+            ) => {
+                assert_eq!(name, "wall_clearance");
+                assert_eq!(constraint, "must be less than channel_width");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 
     #[test]

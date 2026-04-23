@@ -40,6 +40,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, NumericalErrorKind, Result};
 
+/// Fixed far-field reference pressure used to seed the gas pressure state.
+///
+/// The Rayleigh-Plesset integrator needs a non-reconfiguring reference so the
+/// bubble does not remain pinned to the instantaneous ambient pressure at the
+/// initial radius. Standard atmospheric pressure is a physically meaningful
+/// default for the cavitation models in this workspace.
+const REFERENCE_FAR_FIELD_PRESSURE_PA: f64 = 101_325.0;
+
 /// Rayleigh-Plesset bubble dynamics model
 ///
 /// Describes the growth and collapse of a spherical bubble in an infinite liquid
@@ -86,9 +94,10 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
     /// p_B(R) = p_v + p_g0 · (R_0/R)^{3κ}
     /// ```
     ///
-    /// and the equilibrium gas pressure `p_g0` is determined from the
-    /// initial condition: at `R = R_0` the bubble is stationary (Ṙ = R̈ = 0),
-    /// and the normal-stress balance gives `p_g0 = p_∞ − p_v + 2σ/R_0`.
+    /// and the equilibrium gas pressure `p_g0` is determined from a fixed
+    /// far-field reference pressure: at `R = R_0` the bubble is stationary
+    /// (Ṙ = R̈ = 0), and the normal-stress balance gives
+    /// `p_g0 = p_ref − p_v + 2σ/R_0`.
     ///
     /// **References**: Plesset & Prosperetti (1977), Brennen (1995) §2.2.
     pub fn bubble_acceleration(&self, radius: T, velocity: T, ambient_pressure: T) -> T {
@@ -102,9 +111,12 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
         let three_halves = T::from_f64(1.5).unwrap_or_else(|| T::one());
 
         // Equilibrium gas pressure from normal-stress balance at R = R_0:
-        //   p_v + p_g0 = p_∞ + 2σ/R_0  →  p_g0 = p_∞ − p_v + 2σ/R_0
-        // Using ambient_pressure as the reference far-field pressure p_∞.
-        let p_g0 = (ambient_pressure - self.vapor_pressure
+        //   p_v + p_g0 = p_ref + 2σ/R_0  →  p_g0 = p_ref − p_v + 2σ/R_0
+        // A fixed far-field reference keeps the initial bubble state from
+        // re-equilibrating itself to the instantaneous ambient pressure.
+        let reference_pressure =
+            T::from_f64(REFERENCE_FAR_FIELD_PRESSURE_PA).unwrap_or(ambient_pressure);
+        let p_g0 = (reference_pressure - self.vapor_pressure
             + two * self.surface_tension / self.initial_radius)
             .max(T::zero());
 
@@ -360,6 +372,26 @@ mod tests {
         let (r1, v1) = rp.step_semi_implicit(1e-6, 0.0, 1.0e5, 1e-7).unwrap();
         assert!(r1 > 0.0);
         assert!(v1.is_finite());
+    }
+
+    #[test]
+    fn step_semi_implicit_responds_to_ambient_pressure() {
+        let rp = RayleighPlesset::<f64> {
+            initial_radius: 1e-6,
+            liquid_density: 998.0,
+            liquid_viscosity: 1.002e-3,
+            surface_tension: 0.0728,
+            vapor_pressure: 2339.0,
+            polytropic_index: 1.4,
+        };
+
+        let (low_r, _) = rp.step_semi_implicit(1e-6, 0.0, 5.0e4, 1e-7).unwrap();
+        let (high_r, _) = rp.step_semi_implicit(1e-6, 0.0, 1.5e5, 1e-7).unwrap();
+
+        assert!(
+            low_r > high_r,
+            "lower ambient pressure must produce a larger radius response"
+        );
     }
 
     #[test]

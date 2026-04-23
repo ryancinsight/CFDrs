@@ -117,6 +117,92 @@
 
 ---
 
+## RESOLVED-014: Nuclei Transport Diffusion Coupling in CFD-3D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-core/src/physics/cavitation/nuclei_transport.rs`, `crates/cfd-3d/src/vof/cavitation_solver.rs`
+**Status**: **CLOSED** - The documented advection-diffusion model is now implemented in the 3D solver.
+
+### Verification
+
+- `NucleiTransport::diffusion_coefficient()` exposes the configured scalar diffusivity to the solver layer.
+- `CavitationVofSolver::update_nuclei_advection_diffusion()` now applies explicit finite-volume diffusion with zero-flux outer faces in addition to the existing upwind advection and reaction terms.
+- Regression coverage confirms a localized nuclei peak spreads into neighboring cells without flow or generation.
+
+---
+
+## RESOLVED-015: Cavitation Damage Validation and Slice-Based Accumulation in CFD-3D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-3d/src/vof/cavitation_solver.rs`
+**Status**: **CLOSED** - Cavitation damage accumulation now validates incoming pressure and density fields and walks contiguous column slices instead of repeated matrix element indexing.
+
+### Verification
+
+- `CavitationVofSolver::update_damage()` now rejects pressure and density dimension mismatches with `DimensionMismatch` instead of silently skipping the damage update.
+- The damage accumulation path now uses raw column slices for pressure, density, and damage storage, preserving the column-major layout while removing repeated matrix indexing overhead.
+- Regression coverage confirms mismatched pressure fields are rejected and sub-1% void-fraction damage still accumulates.
+
+---
+
+## RESOLVED-016: Cavitation Source Validation and Slice-Based Accumulation in CFD-3D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-3d/src/vof/cavitation_solver.rs`
+**Status**: **CLOSED** - Cavitation source accumulation now validates its matrix inputs, uses contiguous slices, and clamps the source to the feasible interval per cell.
+
+### Verification
+
+- `calculate_cavitation_source_into()` now rejects pressure, density, and source-workspace shape mismatches with `DimensionMismatch`.
+- The source update path now iterates over raw column slices, preserving the column-major storage contract while removing repeated matrix indexing overhead.
+- Regression coverage confirms the source clamps to zero at the vaporization and condensation feasibility extremes.
+
+---
+
+## RESOLVED-017: Nuclei Transport Validation and Slice-Based Accumulation in CFD-3D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-3d/src/vof/cavitation_solver.rs`
+**Status**: **CLOSED** - Cavitation nuclei advection-diffusion now validates its solver inputs and accumulates through contiguous column slices.
+
+### Verification
+
+- `update_nuclei_advection_diffusion()` now rejects cavitation-source and nuclei-workspace shape mismatches with `DimensionMismatch` or `InvalidConfiguration` instead of assuming valid inputs.
+- The nuclei transport update now iterates over raw column slices for state, next-state, and source storage, matching the column-major layout and removing repeated matrix indexing overhead.
+- Regression coverage confirms a localized cavitation source increases nuclei fraction while zero-flow diffusion spreads a localized peak into neighboring cells.
+
+---
+
+## RESOLVED-018: Indexed Blueprint Layout Cache in CFD-SCHEMATICS
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-schematics/src/visualizations/schematic`
+**Status**: **CLOSED** - Schematic layout generation now uses a borrowed indexed cache with flat position storage and index-keyed parallel grouping.
+
+### Verification
+
+- `blueprint_node_positions()` now stores node positions in authored order with a borrowed ID index and a flat auto-layout index list instead of cloning string-keyed maps.
+- `resolved_channel_paths()` now resolves parallel channel groups by borrowed node indices instead of cloned `(String, String)` keys.
+- `materialize_blueprint_layout()` reuses the indexed cache to write node layout metadata without changing explicit positions.
+- Regression coverage confirms the indexed layout cache produces the expected auto-layout coordinates and the materialization path writes the computed fallback positions into the blueprint.
+
+---
+
+## RESOLVED-019: Geometry Bounds and Clearance-Width Relations in CFD-SCHEMATICS
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-schematics/src/config/geometry`, `crates/cfd-schematics/src/state_management`
+**Status**: **CLOSED** - Geometry parameter bounds now share canonical constants and clearance-width degeneracy is rejected at the config, manager, and registry validation layers.
+
+### Verification
+
+- `GeometryConfig::validate()` now uses the canonical geometry constants for channel width, channel height, and wall clearance, and rejects `wall_clearance >= channel_width`.
+- `GeometryParameterManager::validate_all()` now enforces the same clearance-width relation at the manager layer.
+- `ParameterRegistry::validate_all()` rejects the degenerate pair through the geometry manager path, and the integration regression confirms the returned `InvalidValue` payload.
+- Regression coverage confirms canonical bound acceptance and degenerate clearance-width rejection at the config and manager layers.
+
+---
+
 ## CRITICAL-009: Ruge-Stüben Fine-to-Coarse Mapping Bug (VERIFIED FIXED)
 
 **Severity**: ✅ **RESOLVED** - Code Review Confirms Correct Implementation  
