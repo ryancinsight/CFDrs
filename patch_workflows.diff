@@ -1,0 +1,11 @@
+--- .github/workflows/performance-benchmarking.yml
++++ .github/workflows/performance-benchmarking.yml
+@@ -66,7 +66,7 @@
+       run: |
+         if [ "$RUNNER_OS" == "Linux" ]; then
+           sudo apt-get update
+-          sudo apt-get install -y valgrind linux-tools-common
++          sudo apt-get install -y valgrind linux-tools-common libfontconfig1-dev pkg-config
+         fi
+
+     - name: Build benchmarks
