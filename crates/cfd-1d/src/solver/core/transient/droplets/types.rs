@@ -104,16 +104,17 @@ pub struct DropletPosition<T: RealField + Copy> {
 ///
 /// # Theorem - Finite-Length Occupancy Projection
 ///
-/// For a droplet snapshot in [`DropletState::Network`], `occupied_channels` is
-/// the ordered unique projection of `occupancy_spans.channel_index`.
+/// For a droplet snapshot in [`DropletState::Network`], the occupied channel
+/// set is the ordered unique projection of `occupancy_spans.channel_index`.
 ///
-/// **Proof sketch**: The finite-length representation is the authoritative
-/// geometric state because each [`ChannelOccupancy`] stores an occupied
-/// interval `[start, end]` in one channel. Projecting those intervals onto their
-/// channel indices and removing duplicates preserves every channel with
-/// nonzero finite-length occupancy while discarding only interval extent. The
-/// simulator constructs `occupied_channels` from the spans after span assembly,
-/// so channel occupancy cannot diverge from finite-length occupancy.
+/// **Proof sketch**: The finite-length representation is the single
+/// authoritative geometric state because each [`ChannelOccupancy`] stores an
+/// occupied interval `[start, end]` in one channel. Projecting those intervals
+/// onto channel indices and removing duplicates preserves every channel with
+/// finite-length occupancy while discarding only interval extent. Since the
+/// projection is computed on demand by [`DropletSnapshot::occupied_channels`],
+/// there is no stored point-droplet channel set that can diverge from span
+/// geometry.
 #[derive(Debug, Clone)]
 pub struct DropletSnapshot<T: RealField + Copy> {
     /// Droplet id.
@@ -122,8 +123,6 @@ pub struct DropletSnapshot<T: RealField + Copy> {
     pub state: DropletState,
     /// Current position when in network.
     pub position: Option<DropletPosition<T>>,
-    /// Ordered unique channel ids derived from finite-length occupancy spans.
-    pub occupied_channels: Vec<usize>,
     /// Occupancy spans for finite-length tracking.
     pub occupancy_spans: Vec<ChannelOccupancy<T>>,
     /// Boundary points for finite-length tracking.
@@ -139,7 +138,7 @@ pub struct DropletSnapshot<T: RealField + Copy> {
 impl<T: RealField + Copy> DropletSnapshot<T> {
     /// Compute the ordered unique channel projection of finite-length spans.
     #[must_use]
-    pub fn occupied_channels_from_spans(&self) -> Vec<usize> {
+    pub fn occupied_channels(&self) -> Vec<usize> {
         let mut channels = Vec::with_capacity(self.occupancy_spans.len());
         for span in &self.occupancy_spans {
             if !channels.contains(&span.channel_index) {
@@ -149,10 +148,18 @@ impl<T: RealField + Copy> DropletSnapshot<T> {
         channels
     }
 
-    /// Validate that channel occupancy remains a projection of finite spans.
+    /// Backwards-compatible name for the finite-span projection.
+    #[must_use]
+    pub fn occupied_channels_from_spans(&self) -> Vec<usize> {
+        self.occupied_channels()
+    }
+
+    /// Validate that finite-length occupancy spans define the snapshot.
     #[must_use]
     pub fn has_consistent_finite_length_occupancy(&self) -> bool {
-        self.occupied_channels == self.occupied_channels_from_spans()
+        self.occupancy_spans
+            .iter()
+            .all(|span| span.start <= span.end && span.start >= T::zero() && span.end <= T::one())
     }
 }
 
@@ -176,4 +183,61 @@ pub(crate) struct DropletBranch<T: RealField + Copy> {
     pub(crate) channel_index: usize,
     pub(crate) center: T,
     pub(crate) volume: T,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn snapshot_with_spans(spans: Vec<ChannelOccupancy<f64>>) -> DropletSnapshot<f64> {
+        DropletSnapshot {
+            droplet_id: 7,
+            state: DropletState::Network,
+            position: None,
+            occupancy_spans: spans,
+            boundaries: Vec::new(),
+            total_volume: 0.0,
+            fluid_id: 1,
+            local_mixture: None,
+        }
+    }
+
+    #[test]
+    fn occupied_channels_are_derived_from_finite_length_spans() {
+        let snapshot = snapshot_with_spans(vec![
+            ChannelOccupancy {
+                channel_index: 3,
+                start: 0.10,
+                end: 0.30,
+            },
+            ChannelOccupancy {
+                channel_index: 5,
+                start: 0.00,
+                end: 0.20,
+            },
+            ChannelOccupancy {
+                channel_index: 3,
+                start: 0.35,
+                end: 0.60,
+            },
+        ]);
+
+        assert_eq!(snapshot.occupied_channels(), vec![3, 5]);
+        assert_eq!(
+            snapshot.occupied_channels(),
+            snapshot.occupied_channels_from_spans()
+        );
+        assert!(snapshot.has_consistent_finite_length_occupancy());
+    }
+
+    #[test]
+    fn inconsistent_span_interval_is_rejected_by_snapshot_contract() {
+        let snapshot = snapshot_with_spans(vec![ChannelOccupancy {
+            channel_index: 2,
+            start: 0.70,
+            end: 0.20,
+        }]);
+
+        assert!(!snapshot.has_consistent_finite_length_occupancy());
+    }
 }

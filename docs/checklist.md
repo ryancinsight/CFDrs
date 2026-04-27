@@ -46,6 +46,8 @@
 - [x] Close review finding 1 by replacing the `cfd-1d` margination singular wall-lift cutoff and public clamp with an explicit validated `[0, 1]` envelope and derived force regression tests.
 - [x] Confirm review finding 2 remains closed by typed `cfd-2d` turbulence benchmark dispatch with unsupported-model rejection before benchmark execution.
 - [x] Confirm review finding 3 remains closed by finite-span-derived droplet occupied-channel projection and consistency tests.
+- [x] Close review finding 3 at the representation level by removing stored point-droplet occupied-channel state and deriving occupied channels from finite-length spans.
+- [x] Remove residual nonzero Smagorinsky SGS floors from `cfd-2d` turbulence validation configurations.
 
 ---
 

@@ -11,6 +11,7 @@
 - [x] `cfd-1d`: Replace simplified margination lift aggregation with separate wall-induced and shear-gradient inertial scaling plus reference-equilibrium tests.
 - [x] `cfd-1d`: Remove the margination singular wall cutoff and silent lateral-position clamp by using a bounded inertial-lift envelope with value-semantic regression data.
 - [x] `cfd-1d`: Make droplet occupied-channel snapshots a documented projection of finite-length occupancy spans.
+- [x] `cfd-1d`: Remove stored point-droplet occupied-channel state so finite-length occupancy spans are the single authoritative droplet representation.
 - [x] `cfd-1d`: Restore coupled pressure-event hematocrit flow by finite zero-flow blood viscosity initialization, row-equilibrated pressure solves, and accumulated duplicate sparse entries.
 - [x] `cfd-1d`: Route compact plasma-skimming hematocrit through the threshold-aware Pries phase-separation model with Murray-inferred sibling geometry.
 - [x] `cfd-1d`: Remove the short-channel Reynolds floor from the Durst entrance correction and use the published low-Re formula directly.
@@ -25,6 +26,7 @@
 - [x] `cfd-2d`: Remove silent Pries plasma-skimming clamps and expose checked value-semantic phase-separation evaluation.
 - [x] `cfd-2d`: Replace WALE boundary zero-gradient assumptions with second-order one-sided finite-difference gradients.
 - [x] `cfd-2d`: Replace Smagorinsky LES zero TKE/dissipation placeholders, zero boundary strain, and default SGS viscosity floor with Yoshizawa SGS diagnostics and second-order strain recovery.
+- [x] `cfd-2d`: Remove residual validation-only Smagorinsky SGS viscosity floors and keep LES validation on the physical zero-floor default.
 - [x] `cfd-math`: Preserve direct sparse solver conversion failures and reject non-finite fallback output.
 - [x] `cfd-optim`: Remove the sonosensitizer activation floor from SDT report metrics and enforce zero-dose propagation at zero cavitation.
 - [x] `cfd-optim`: Remove synthetic 1% synergy floors from objective and pool scoring paths.

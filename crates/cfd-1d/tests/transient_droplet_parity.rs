@@ -54,16 +54,16 @@ fn droplet_transitions_to_sink_with_channel_occupancy_tracking() {
 
     assert_eq!(states[0].droplets[&7].state, DropletState::Injection);
     assert_eq!(states[1].droplets[&7].state, DropletState::Network);
-    assert!(!states[1].droplets[&7].occupied_channels.is_empty());
+    assert!(!states[1].droplets[&7].occupied_channels().is_empty());
     assert!(!states[1].droplets[&7].boundaries.is_empty());
     assert!(!states[1].droplets[&7].occupancy_spans.is_empty());
     assert!(states[1].droplets[&7].has_consistent_finite_length_occupancy());
     assert_eq!(
-        states[1].droplets[&7].occupied_channels,
+        states[1].droplets[&7].occupied_channels(),
         states[1].droplets[&7].occupied_channels_from_spans()
     );
     assert_eq!(states[2].droplets[&7].state, DropletState::Sink);
-    assert!(states[2].droplets[&7].occupied_channels.is_empty());
+    assert!(states[2].droplets[&7].occupied_channels().is_empty());
     assert!(states[2].droplets[&7].has_consistent_finite_length_occupancy());
 }
 
@@ -136,8 +136,8 @@ fn droplet_splits_flow_weighted_with_volume_conservation() {
 
     let s2 = &states[2].droplets[&11];
     assert_eq!(s2.state, DropletState::Network);
-    assert!(s2.occupied_channels.contains(&e1.index()));
-    assert!(s2.occupied_channels.contains(&e2.index()));
+    assert!(s2.occupied_channels().contains(&e1.index()));
+    assert!(s2.occupied_channels().contains(&e2.index()));
     assert!((s2.total_volume - 0.3).abs() < 1e-9);
 }
 
@@ -184,12 +184,12 @@ fn split_branches_merge_back_at_reconvergence() {
 
     let split_state = &states[1].droplets[&12];
     assert_eq!(split_state.state, DropletState::Network);
-    assert!(split_state.occupied_channels.len() >= 2);
+    assert!(split_state.occupied_channels().len() >= 2);
 
     let merged_state = &states[3].droplets[&12];
     assert_eq!(merged_state.state, DropletState::Network);
-    assert_eq!(merged_state.occupied_channels.len(), 1);
-    assert_eq!(merged_state.occupied_channels[0], e5.index());
+    assert_eq!(merged_state.occupied_channels().len(), 1);
+    assert_eq!(merged_state.occupied_channels()[0], e5.index());
     assert!((merged_state.total_volume - 0.2).abs() < 1e-9);
 }
 
@@ -238,8 +238,8 @@ fn auto_policy_uses_no_split_for_dominant_branch_scenarios() {
 
     let s2 = &states[2].droplets[&21];
     assert_eq!(s2.state, DropletState::Network);
-    assert_eq!(s2.occupied_channels.len(), 1);
-    assert_eq!(s2.occupied_channels[0], e1.index());
+    assert_eq!(s2.occupied_channels().len(), 1);
+    assert_eq!(s2.occupied_channels()[0], e1.index());
     assert!((s2.total_volume - 0.3).abs() < 1e-9);
 }
 
@@ -313,7 +313,7 @@ fn pressure_event_droplet_api_matches_manual_composition_pipeline() {
         let d_api = &api.droplets[&40];
         let d_manual = &manual.droplets[&40];
         assert_eq!(d_api.state, d_manual.state);
-        assert_eq!(d_api.occupied_channels, d_manual.occupied_channels);
+        assert_eq!(d_api.occupied_channels(), d_manual.occupied_channels());
         assert!((d_api.total_volume - d_manual.total_volume).abs() < 1e-12);
     }
 }
@@ -455,7 +455,7 @@ fn flow_event_droplet_api_matches_manual_composition_pipeline() {
         let d_api = &api.droplets[&50];
         let d_manual = &manual.droplets[&50];
         assert_eq!(d_api.state, d_manual.state);
-        assert_eq!(d_api.occupied_channels, d_manual.occupied_channels);
+        assert_eq!(d_api.occupied_channels(), d_manual.occupied_channels());
         assert!((d_api.total_volume - d_manual.total_volume).abs() < 1e-12);
     }
 }
@@ -529,12 +529,12 @@ fn end_to_end_flow_event_policy_controls_branching_behavior() {
 
     let pre_switch = &states[1].droplets[&51];
     assert_eq!(pre_switch.state, DropletState::Network);
-    assert_eq!(pre_switch.occupied_channels.len(), 1);
-    assert_eq!(pre_switch.occupied_channels[0], e0.index());
+    assert_eq!(pre_switch.occupied_channels().len(), 1);
+    assert_eq!(pre_switch.occupied_channels()[0], e0.index());
 
     let post_switch = &states[2].droplets[&51];
     assert_eq!(post_switch.state, DropletState::Network);
-    assert!(post_switch.occupied_channels.contains(&e1.index()));
-    assert!(post_switch.occupied_channels.contains(&e2.index()));
+    assert!(post_switch.occupied_channels().contains(&e1.index()));
+    assert!(post_switch.occupied_channels().contains(&e2.index()));
     assert!((post_switch.total_volume - 0.3).abs() < 1e-9);
 }

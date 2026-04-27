@@ -273,20 +273,12 @@ impl TransientDropletSimulator {
                         });
                     }
                 }
-                let mut occupied_channels = Vec::with_capacity(occupancy_spans.len());
-                for span in &occupancy_spans {
-                    if !occupied_channels.contains(&span.channel_index) {
-                        occupied_channels.push(span.channel_index);
-                    }
-                }
-
                 snapshots.insert(
                     injection.droplet_id,
                     DropletSnapshot {
                         droplet_id: injection.droplet_id,
                         state: droplet.state,
                         position: representative_position,
-                        occupied_channels,
                         occupancy_spans,
                         boundaries,
                         total_volume,

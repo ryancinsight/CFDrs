@@ -73,7 +73,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                     dynamic_procedure: false,
                     wall_damping: false,
                     van_driest_constant: 0.0,
-                    min_sgs_viscosity: 1e-10,
+                    min_sgs_viscosity: 0.0,
                     use_gpu: false,
                 };
                 let mut model = SmagorinskyLES::new(nx, ny, 0.1, 0.1, config);

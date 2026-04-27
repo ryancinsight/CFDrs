@@ -245,6 +245,35 @@
 
 ---
 
+## RESOLVED-023: Point-Droplet Occupancy State in CFD-1D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-1d/src/solver/core/transient/droplets/types.rs`
+**Status**: **CLOSED** - `DropletSnapshot` no longer stores a separate point-style `occupied_channels` vector beside finite-length occupancy spans.
+
+### Verification
+
+- `occupancy_spans` is now the single authoritative droplet occupancy representation.
+- `occupied_channels()` computes the ordered unique channel projection on demand from finite spans.
+- Snapshot consistency validation checks finite interval bounds instead of comparing duplicate stored representations.
+- Unit and integration tests validate projection, duplicate-channel collapsing, invalid-span rejection, split/merge behavior, and API/manual parity.
+
+---
+
+## RESOLVED-024: Smagorinsky Validation SGS Floor in CFD-2D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-2d/src/physics/turbulence/validation/`
+**Status**: **CLOSED** - The turbulence validation paths no longer override the Smagorinsky LES physical zero-floor default with residual nonzero SGS viscosity floors.
+
+### Verification
+
+- Benchmark dispatch remains a closed enum with typed unsupported-model rejection.
+- Smagorinsky benchmark and LES/DES validation configurations now use `min_sgs_viscosity = 0.0`.
+- Targeted nextest verifies the benchmark module and LES tests under the requested 30-second timeout profile.
+
+---
+
 ## RESOLVED-017: Nuclei Transport Validation and Slice-Based Accumulation in CFD-3D
 
 **Severity**: ✅ **RESOLVED**

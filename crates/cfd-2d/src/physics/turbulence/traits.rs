@@ -118,7 +118,7 @@ pub trait LESTurbulenceModel {
     /// Get turbulent viscosity field
     fn get_turbulent_viscosity_field(&self) -> &DMatrix<f64>;
 
-    /// Get turbulent kinetic energy at a grid point (may return 0 for LES)
+    /// Get turbulent kinetic energy at a grid point.
     fn get_turbulent_kinetic_energy(&self, i: usize, j: usize) -> f64;
 
     /// Get dissipation rate at a grid point
