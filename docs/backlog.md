@@ -23,6 +23,9 @@
 - [x] **HCOC-007**: Separate `cfd-1d` margination wall-induced and shear-gradient inertial lift scaling and document the reference-equilibrium proof.
 - [x] **HCOC-008**: Replace `cfd-2d` turbulence benchmark placeholder dispatch with a closed supported-model registry.
 - [x] **HCOC-009**: Restore coupled cfd-1d blood pressure-event solves with finite startup viscosity and row-equilibrated hydraulic linear systems.
+- [x] **HCOC-010**: Replace compact `cfd-1d` plasma-skimming screening with the threshold-aware Pries phase-separation model and Murray-inferred sibling geometry.
+- [x] **HCOC-011**: Replace `cfd-2d` serpentine mixing's exponential estimate with the Neumann transverse-diffusion eigenfunction solution.
+- [x] **HCOC-012**: Replace `cfd-3d` LES turbulent-kinetic-energy viscosity aliases with a shared Yoshizawa SGS energy relation.
 
 ## Sprint 1.95.1: CFD-MESH 3D Performance & Memory Optimization
 **Status**: In Progress

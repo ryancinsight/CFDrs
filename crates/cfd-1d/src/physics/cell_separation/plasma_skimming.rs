@@ -182,10 +182,31 @@ pub fn checked_pries_phase_separation(
 /// Compute the daughter-branch hematocrit after plasma skimming at a
 /// microvascular bifurcation.
 ///
-/// This convenience wrapper keeps the historical compact 1D API and its
-/// simplified monotonic screening behavior for downstream callers. Prefer
-/// [`pries_phase_separation`] when explicit sibling geometry is available and a
-/// threshold-aware phase-separation model is desired.
+/// This convenience wrapper keeps the historical compact 1D API and infers the
+/// missing sibling branch from Murray cubic diameter conservation before
+/// dispatching to [`checked_pries_phase_separation`].
+///
+/// # Theorem — Compact Pries Projection
+///
+/// If a parent diameter `D0` and one daughter diameter `D1` are known, Murray's
+/// law gives the sibling diameter
+///
+/// ```text
+/// D2 = (max(D0^3 - D1^3, D1^3))^(1/3).
+/// ```
+///
+/// Passing `(D1, D2, D0)` into the Pries phase-separation law preserves the
+/// explicit `X0` cell-entry threshold and the bounded erythrocyte-flux logit
+/// map, so the compact wrapper remains a projection of the full bifurcation
+/// model instead of an independent screening law.
+///
+/// **Proof.** Murray conservation closes the missing geometric degree of
+/// freedom with a positive sibling diameter.  [`checked_pries_phase_separation`]
+/// then maps valid flow fractions through the thresholded normalized interval
+/// `(FQ_B - X0)/(1 - 2X0)`, assigns zero RBC flux below `X0`, and computes
+/// daughter hematocrit from conserved RBC flux `H_i Q_i = FQ_E H_0 Q_0`.
+/// Therefore the wrapper inherits boundedness and threshold behavior from the
+/// full model. ∎
 ///
 /// # Arguments
 /// * `feed_hematocrit` - Feed (parent) hematocrit [0, 1]
@@ -256,30 +277,22 @@ pub fn checked_plasma_skimming_hematocrit(
         return Ok(ht_feed);
     }
 
-    let a = if d_daughter >= d_feed {
-        0.0
+    let sibling = inferred_murray_sibling_diameter(d_daughter, d_feed);
+    Ok(
+        checked_pries_phase_separation(ht_feed, fq, d_daughter, sibling, d_feed)?
+            .daughter_hematocrit,
+    )
+}
+
+#[inline]
+fn inferred_murray_sibling_diameter(d_daughter: f64, d_feed: f64) -> f64 {
+    if d_daughter >= d_feed {
+        d_daughter
     } else {
-        let d_other_cubed = d_feed.powi(3) - d_daughter.powi(3);
-        let d_other = d_other_cubed.cbrt();
-        let d_ratio = d_other / d_daughter;
-        let d_ratio_sq = d_ratio * d_ratio;
-        -13.29 * (d_ratio_sq - 1.0) / (d_ratio_sq + 1.0)
-    };
-
-    let b = 1.0 + 6.98 * (1.0 - ht_feed) / d_feed;
-    let logit_fqb = logit(fq);
-    let logit_fqe = a + b * logit_fqb;
-    let fqe = inv_logit(logit_fqe);
-    let ht_daughter = ht_feed * fqe / fq;
-    let upper_bound = (2.0 * ht_feed).min(1.0);
-
-    if !(0.0..=upper_bound).contains(&ht_daughter) {
-        return Err(Error::InvalidConfiguration(
-            "Plasma-skimming compact model produced daughter hematocrit outside the physical screening bounds".to_string(),
-        ));
+        (d_feed.powi(3) - d_daughter.powi(3))
+            .max(d_daughter.powi(3))
+            .cbrt()
     }
-
-    Ok(ht_daughter)
 }
 
 #[inline]
@@ -440,6 +453,16 @@ mod tests {
         let checked = checked_plasma_skimming_hematocrit(HT_NORMAL, 0.4, 60.0, D_FEED)?;
 
         assert!((legacy - checked).abs() < 1e-12);
+        Ok(())
+    }
+
+    #[test]
+    fn test_compact_wrapper_preserves_pries_x0_threshold() -> cfd_core::error::Result<()> {
+        let ht = plasma_skimming_hematocrit(HT_NORMAL, 0.01, 30.0, 20.0)?;
+        assert_eq!(
+            ht, 0.0,
+            "Compact wrapper must inherit the Pries cell-entry threshold"
+        );
         Ok(())
     }
 

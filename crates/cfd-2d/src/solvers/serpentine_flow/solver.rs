@@ -1,6 +1,6 @@
 //! Discretized 2D serpentine flow solver using FVM.
 
-use super::{SerpentineGeometry, SerpentineMixingSolution};
+use super::{AdvectionDiffusionMixing, SerpentineGeometry, SerpentineMixingSolution};
 use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use crate::solvers::scalar_transport_2d::{ScalarTransportConfig, ScalarTransportSolver2D};
 use cfd_core::error::Result as CfdResult;
@@ -115,7 +115,11 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
             .map_err(cfd_core::error::Error::Solver)?;
 
         // 4. Extract metrics
-        let pe = (u_inlet * self.geometry.width) / diffusion_coeff;
+        let mixing_model =
+            AdvectionDiffusionMixing::new(self.geometry.width, u_inlet, diffusion_coeff);
+        let pe = mixing_model.peclet_number();
+        let l_mix_90 = mixing_model.mixing_length_90_percent();
+        let t_mix_90 = mixing_model.mixing_time_90_percent();
 
         // Compute mixing efficiency at outlet
         // ISO = 1 - variance / variance_inlet
@@ -180,8 +184,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
             c_inlet_a: c_left,
             c_inlet_b: c_right,
             peclet: pe,
-            l_mix_90: T::zero(), // Computed by analytical model
-            t_mix_90: T::zero(),
+            l_mix_90,
+            t_mix_90,
             mixing_fraction_outlet: mixing_frac,
             pressure_drop,
         })
@@ -234,6 +238,8 @@ mod tests_discretized {
 
         // Qualitative checks
         assert!(sol.peclet > 0.0, "Peclet should be positive");
+        assert!(sol.l_mix_90 > 0.0, "Analytical L90 should be positive");
+        assert!(sol.t_mix_90 > 0.0, "Analytical t90 should be positive");
         assert!(
             sol.mixing_fraction_outlet >= 0.0,
             "Mixing fraction should be non-negative"

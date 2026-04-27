@@ -35,6 +35,9 @@
 - [x] Make `cfd-1d` droplet occupied-channel snapshots a finite-length occupancy projection with regression coverage.
 - [x] Replace the `cfd-2d` turbulence benchmark placeholder branch with typed supported-model dispatch.
 - [x] Resolve the coupled pressure-event blood hematocrit regression with finite startup viscosity, row-equilibrated pressure solves, and duplicate-entry-preserving dense fallback conversion.
+- [x] Replace compact `cfd-1d` plasma-skimming screening with threshold-aware Pries phase separation using Murray-inferred sibling geometry.
+- [x] Replace `cfd-2d` serpentine mixing's exponential estimate with the closed-form transverse diffusion eigenfunction series and report analytical L90/t90 in the discretized solver.
+- [x] Replace `cfd-3d` LES turbulent-kinetic-energy viscosity aliases with a shared Yoshizawa SGS energy relation and regression tests.
 
 ---
 

@@ -11,6 +11,7 @@
 - [x] `cfd-1d`: Replace simplified margination lift aggregation with separate wall-induced and shear-gradient inertial scaling plus reference-equilibrium tests.
 - [x] `cfd-1d`: Make droplet occupied-channel snapshots a documented projection of finite-length occupancy spans.
 - [x] `cfd-1d`: Restore coupled pressure-event hematocrit flow by finite zero-flow blood viscosity initialization, row-equilibrated pressure solves, and accumulated duplicate sparse entries.
+- [x] `cfd-1d`: Route compact plasma-skimming hematocrit through the threshold-aware Pries phase-separation model with Murray-inferred sibling geometry.
 - [x] `cfd-1d`: Remove the short-channel Reynolds floor from the Durst entrance correction and use the published low-Re formula directly.
 - [x] `cfd-2d`: Reuse a persistent pressure-velocity state workspace and validate repeated SIMPLE iterations.
 - [x] `cfd-2d`: Remove the transient PIMPLE outer residual snapshot allocation by reusing the corrected velocity workspace.
@@ -19,6 +20,7 @@
 - [x] `cfd-2d`: Reject mismatched initial state layouts and non-physical fluid inputs before pressure-velocity stepping.
 - [x] `cfd-2d`: Replace the approximate MUSCL3/QUICK right-state reconstruction with exact quadratic face interpolation and value-semantic tests.
 - [x] `cfd-2d`: Replace the unimplemented turbulence validation benchmark branch with typed supported-model dispatch and rejection tests.
+- [x] `cfd-2d`: Replace serpentine mixing's exponential estimate with the Neumann eigenfunction solution for transverse diffusion and expose nonzero analytical L90/t90 in the discretized solver result.
 - [x] `cfd-math`: Preserve direct sparse solver conversion failures and reject non-finite fallback output.
 - [x] `cfd-optim`: Remove the sonosensitizer activation floor from SDT report metrics and enforce zero-dose propagation at zero cavitation.
 - [x] `cfd-optim`: Remove synthetic 1% synergy floors from objective and pool scoring paths.
@@ -58,6 +60,7 @@
 - [x] `cfd-3d`: Validate cavitation-source dimensions, switch to raw-slice accumulation, and clamp source updates to feasible bounds.
 - [x] `cfd-3d`: Validate nuclei transport dimensions and switch cavitation nuclei advection-diffusion to slice-based accumulation.
 - [x] `cfd-3d`: Bind the Apollo-backed periodic DNS stepper to a validated reusable `FftPlan3D` instead of per-transform shape dispatch.
+- [x] `cfd-3d`: Replace LES turbulent-kinetic-energy aliases with a documented Yoshizawa SGS energy relation shared across eddy-viscosity models.
 - [x] `cfd-schematics`: Optimize memory layout with indexed node-layout caches and zero-copy parallel-group lookup.
 
 ## Rigor & Correctness

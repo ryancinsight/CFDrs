@@ -218,6 +218,20 @@
 ### Verification
 
 - `ClipPlaneSet::insert_at()` and `replace_at()` now update only the requested slot and return structured slot errors for occupied, empty, and out-of-range cases.
+
+---
+
+## RESOLVED-030: Plasma Skimming, Serpentine Mixing, and LES SGS Energy Physics
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-1d/src/physics/cell_separation/plasma_skimming.rs`, `crates/cfd-2d/src/solvers/serpentine_flow`, `crates/cfd-3d/src/physics/turbulence`
+**Status**: **CLOSED** - Three reduced physics paths now dispatch through documented analytical or literature-backed models.
+
+### Verification
+
+- The compact `plasma_skimming_hematocrit` API now infers the sibling branch from Murray cubic diameter conservation and calls the checked Pries phase-separation model, preserving the `X0` cell-entry threshold.
+- The serpentine mixing model now computes mixing fraction and L90 from the Neumann eigenfunction solution of transverse diffusion for a two-stream step inlet; the discretized solver result now reports positive analytical L90 and t90 instead of zero placeholders.
+- LES eddy-viscosity models no longer return turbulent viscosity as turbulent kinetic energy; they use a shared Yoshizawa SGS relation with value-semantic regression coverage.
 - Add, remove, and update clip-plane commands now return `Result` and validate the live slot before restoring or replacing a plane.
 - Regression coverage confirms valid add/remove/update round-trips succeed, while undoing a remove into an occupied slot fails explicitly instead of relocating the plane.
 

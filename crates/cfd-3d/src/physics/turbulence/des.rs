@@ -51,6 +51,7 @@ use super::constants::{DES_C_DES, SMAGORINSKY_CS_DEFAULT};
 use super::field_ops::{
     linear_index, strain_magnitude, velocity_gradient_tensor, vorticity_magnitude,
 };
+use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 
 /// DES hybrid RANS-LES model (Spalart et al. 1997).
 ///
@@ -151,6 +152,59 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
         self.background_turbulent_viscosity = Some(background_turbulent_viscosity);
         self
     }
+
+    fn effective_length_scale(&self, gradient: &[[T; 3]; 3], idx: usize) -> T {
+        let d = self.wall_distances[idx];
+        let delta = self.delta_max[idx];
+        let s_mag = strain_magnitude(gradient);
+
+        let length = if self.use_ddes {
+            let background = self
+                .background_turbulent_viscosity
+                .as_ref()
+                .expect("DDES requires background_turbulent_viscosity");
+            let nu_t = background[idx];
+            let nu = if let Some(model) = &self.blood_model {
+                let mu = model.viscosity(s_mag);
+                assert!(
+                    self.fluid_density > T::zero(),
+                    "fluid_density must be positive when using a blood_model"
+                );
+                mu / self.fluid_density
+            } else {
+                self.kinematic_viscosity
+            };
+
+            let fd = ddes_shielding(
+                nu_t.to_f64()
+                    .expect("background_turbulent_viscosity must be finite"),
+                nu.to_f64().expect("kinematic viscosity must be finite"),
+                d.to_f64().expect("wall distance must be finite"),
+                s_mag.to_f64().expect("strain magnitude must be finite"),
+                vorticity_magnitude(gradient)
+                    .to_f64()
+                    .expect("vorticity magnitude must be finite"),
+            );
+            ddes_length_scale(
+                d.to_f64().expect("wall distance must be finite"),
+                self.c_des
+                    .to_f64()
+                    .expect("C_DES must be representable as f64"),
+                delta.to_f64().expect("delta_max must be finite"),
+                fd,
+            )
+        } else {
+            num_traits::Float::min(
+                d.to_f64().expect("wall distance must be finite"),
+                self.c_des
+                    .to_f64()
+                    .expect("C_DES must be representable as f64")
+                    * delta.to_f64().expect("delta_max must be finite"),
+            )
+        };
+
+        <T as FromPrimitive>::from_f64(length).expect("DES length scale must be finite")
+    }
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
@@ -192,7 +246,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
             for j in 0..ny {
                 for i in 0..nx {
                     let idx = linear_index(nx, ny, i, j, k);
-                    let d = self.wall_distances[idx];
                     let delta = self.delta_max[idx];
                     let gradient = velocity_gradient_tensor(
                         &flow_field.velocity.components,
@@ -207,55 +260,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                         delta,
                     );
                     let s_mag = strain_magnitude(&gradient);
-
-                    let l_des = if self.use_ddes {
-                        let background = self
-                            .background_turbulent_viscosity
-                            .as_ref()
-                            .expect("DDES requires background_turbulent_viscosity");
-                        let nu_t = background[idx];
-                        let nu = if let Some(model) = &self.blood_model {
-                            let strain_rate_t = s_mag;
-                            let mu = model.viscosity(strain_rate_t);
-                            assert!(
-                                self.fluid_density > T::zero(),
-                                "fluid_density must be positive when using a blood_model"
-                            );
-                            mu / self.fluid_density
-                        } else {
-                            self.kinematic_viscosity
-                        };
-
-                        let fd = ddes_shielding(
-                            nu_t.to_f64()
-                                .expect("background_turbulent_viscosity must be finite"),
-                            nu.to_f64().expect("kinematic viscosity must be finite"),
-                            d.to_f64().expect("wall distance must be finite"),
-                            s_mag.to_f64().expect("strain magnitude must be finite"),
-                            vorticity_magnitude(&gradient)
-                                .to_f64()
-                                .expect("vorticity magnitude must be finite"),
-                        );
-                        ddes_length_scale(
-                            d.to_f64().expect("wall distance must be finite"),
-                            self.c_des
-                                .to_f64()
-                                .expect("C_DES must be representable as f64"),
-                            delta.to_f64().expect("delta_max must be finite"),
-                            fd,
-                        )
-                    } else {
-                        num_traits::Float::min(
-                            d.to_f64().expect("wall distance must be finite"),
-                            self.c_des
-                                .to_f64()
-                                .expect("C_DES must be representable as f64")
-                                * delta.to_f64().expect("delta_max must be finite"),
-                        )
-                    };
-
-                    let l_des_t = <T as FromPrimitive>::from_f64(l_des)
-                        .expect("DDES length scale must be finite");
+                    let l_des_t = self.effective_length_scale(&gradient, idx);
                     viscosity.push(self.cs * self.cs * l_des_t * l_des_t * s_mag);
                 }
             }
@@ -264,7 +269,34 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     }
 
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
-        self.turbulent_viscosity(flow_field)
+        let (nx, ny, nz) = flow_field.velocity.dimensions;
+        let viscosity = self.turbulent_viscosity(flow_field);
+        let mut kinetic_energy = Vec::with_capacity(viscosity.len());
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let idx = linear_index(nx, ny, i, j, k);
+                    let delta = self.delta_max[idx];
+                    let gradient = velocity_gradient_tensor(
+                        &flow_field.velocity.components,
+                        nx,
+                        ny,
+                        nz,
+                        i,
+                        j,
+                        k,
+                        delta,
+                        delta,
+                        delta,
+                    );
+                    kinetic_energy.push(kinetic_energy_from_eddy_viscosity(
+                        viscosity[idx],
+                        self.effective_length_scale(&gradient, idx),
+                    ));
+                }
+            }
+        }
+        kinetic_energy
     }
 
     fn name(&self) -> &'static str {

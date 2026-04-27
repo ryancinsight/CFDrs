@@ -278,12 +278,26 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
 /// ∂c/∂t + u·∂c/∂x = D·∂²c/∂y²
 /// ```
 ///
-/// The mixing length (distance to achieve 90% mixing) is:
+/// The segregation variance for an inlet step concentration is:
 /// ```text
-/// L_mix = 3.6 × w / Pe
+/// σ²(t)/σ²(0) = (8/π²) Σ_{m=0}∞ exp[-2(2m+1)²π²Dt/w²] / (2m+1)²
 /// ```
 ///
-/// where Pe = u·w/D is the Peclet number.
+/// where `w` is channel width and `D` is molecular diffusivity.  A mixing
+/// fraction `M = 1 - σ(t)/σ(0)` reaches 90% when the variance ratio is `0.01`.
+///
+/// # Theorem — Transverse Diffusion Mixing Fraction
+///
+/// For a two-stream step concentration in a straight channel with no-flux
+/// sidewalls, the Neumann eigenfunctions `cos(nπy/w)` diagonalize the
+/// transverse diffusion operator. Only odd modes are present, and each mode
+/// decays as `exp(-n²π²Dt/w²)`.  The normalized variance therefore equals the
+/// odd-mode series above, and `M(x) = 1 - sqrt(σ²(x/u)/σ²(0))`.
+///
+/// **Proof.** Expanding the centered inlet step `c(y,0)-c_mean` in the Neumann
+/// basis gives coefficients `a_n = -2 sin(nπ/2)/(nπ)`. Orthogonality gives
+/// `σ²(t)=Σ a_n² exp(-2n²π²Dt/w²)/2`, while `σ²(0)=1/4`. Substitution leaves
+/// the odd-mode series and the stated mixing fraction. ∎
 pub struct AdvectionDiffusionMixing<T: RealField + Copy> {
     /// Channel width [m]
     pub width: T,
@@ -310,22 +324,54 @@ impl<T: RealField + Copy + FromPrimitive> AdvectionDiffusionMixing<T> {
         (self.velocity * self.width) / (self.diffusion_coeff + T::from_f64_or_one(1e-15))
     }
 
-    /// Calculate mixing length for 90% mixing
-    ///
-    /// # Formula
-    ///
-    /// For diffusion in transverse (y) direction:
-    /// ```text
-    /// L_mix = 3.6 × w / Pe = 3.6 × D / u
-    /// ```
-    ///
-    /// This is empirical from diffusion literature and matches numerical simulations
-    /// of T-junction mixers.
-    pub fn mixing_length_90_percent(&self) -> T {
-        let three_point_six = T::from_f64_or_one(3.6);
-        let pe = self.peclet_number();
+    #[inline]
+    fn variance_ratio_from_fourier_number(fourier: T) -> T {
+        if fourier <= T::zero() {
+            return T::one();
+        }
 
-        three_point_six * self.width / (pe + T::from_f64_or_one(1e-15))
+        let pi = T::from_f64_or_one(PI);
+        let pi_sq = pi * pi;
+        let eight_over_pi_sq = T::from_f64_or_one(8.0) / pi_sq;
+        let two = T::from_f64_or_one(2.0);
+        let mut sum = T::zero();
+
+        for mode in 0..256 {
+            let n = T::from_f64_or_one(f64::from(2 * mode + 1));
+            let n_sq = n * n;
+            sum += (-two * n_sq * pi_sq * fourier).exp() / n_sq;
+        }
+
+        eight_over_pi_sq * sum
+    }
+
+    /// Calculate advective length required for 90% variance-based mixing.
+    ///
+    /// The method solves `σ²(t)/σ²(0)=0.01` for `Fo = Dt/w²` by bisection of
+    /// the closed-form eigenfunction series and returns `L90 = u w² Fo90 / D`.
+    pub fn mixing_length_90_percent(&self) -> T {
+        if self.width <= T::zero()
+            || self.velocity <= T::zero()
+            || self.diffusion_coeff <= T::zero()
+        {
+            return T::zero();
+        }
+
+        let target_variance_ratio = T::from_f64_or_one(0.01);
+        let mut lo = T::zero();
+        let mut hi = T::from_f64_or_one(0.5);
+
+        for _ in 0..80 {
+            let mid = (lo + hi) / T::from_f64_or_one(2.0);
+            if Self::variance_ratio_from_fourier_number(mid) > target_variance_ratio {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+
+        let fo_90 = hi;
+        self.velocity * self.width * self.width * fo_90 / self.diffusion_coeff
     }
 
     /// Calculate mixing time to achieve 90% homogeneity
@@ -333,7 +379,11 @@ impl<T: RealField + Copy + FromPrimitive> AdvectionDiffusionMixing<T> {
     /// t_mix = L_mix / u
     pub fn mixing_time_90_percent(&self) -> T {
         let l_mix = self.mixing_length_90_percent();
-        l_mix / (self.velocity + T::from_f64_or_one(1e-15))
+        if self.velocity <= T::zero() {
+            T::zero()
+        } else {
+            l_mix / self.velocity
+        }
     }
 
     /// Estimate concentration profile at position x
@@ -348,15 +398,17 @@ impl<T: RealField + Copy + FromPrimitive> AdvectionDiffusionMixing<T> {
     /// At the centerline (y=0), maximum mixing occurs there.
     /// Returns fraction mixed at position x relative to channel width.
     pub fn mixing_fraction(&self, x: T) -> T {
-        let one = T::one();
-        let _pe = self.peclet_number();
+        if x <= T::zero()
+            || self.width <= T::zero()
+            || self.velocity <= T::zero()
+            || self.diffusion_coeff <= T::zero()
+        {
+            return T::zero();
+        }
 
-        // Normalized distance x/L_channel
-        // Mixing fraction approximately: 1 - exp(-2 × x/L_mix)
-        let l_mix = self.mixing_length_90_percent();
-        let normalized_x = x / (l_mix + T::from_f64_or_one(1e-15));
-
-        one - (-T::from_f64_or_one(2.0) * normalized_x).exp()
+        let fourier = self.diffusion_coeff * x / (self.velocity * self.width * self.width);
+        let variance_ratio = Self::variance_ratio_from_fourier_number(fourier);
+        T::one() - variance_ratio.sqrt()
     }
 }
 
@@ -512,4 +564,44 @@ pub struct SerpentineValidationResult<T: RealField + Copy> {
     pub mixing_fraction_outlet: T,
     /// Error message if validation failed
     pub error_message: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AdvectionDiffusionMixing;
+
+    #[test]
+    fn transverse_diffusion_series_starts_unmixed() {
+        let model = AdvectionDiffusionMixing::new(200e-6_f64, 0.01, 1.0e-10);
+        assert_eq!(model.mixing_fraction(0.0), 0.0);
+    }
+
+    #[test]
+    fn mixing_length_reaches_ninety_percent_by_definition() {
+        let model = AdvectionDiffusionMixing::new(200e-6_f64, 0.01, 1.0e-10);
+        let l90 = model.mixing_length_90_percent();
+        let fraction = model.mixing_fraction(l90);
+
+        assert!(
+            (fraction - 0.9).abs() < 5.0e-12,
+            "Expected eigenfunction L90 to produce 90% mixing, got {fraction:.15}"
+        );
+    }
+
+    #[test]
+    fn mixing_length_scales_with_velocity_and_inverse_diffusivity() {
+        let baseline = AdvectionDiffusionMixing::new(200e-6_f64, 0.01, 1.0e-10);
+        let faster = AdvectionDiffusionMixing::new(200e-6_f64, 0.02, 1.0e-10);
+        let more_diffusive = AdvectionDiffusionMixing::new(200e-6_f64, 0.01, 2.0e-10);
+
+        assert!(
+            (faster.mixing_length_90_percent() / baseline.mixing_length_90_percent() - 2.0).abs()
+                < 1.0e-12
+        );
+        assert!(
+            (more_diffusive.mixing_length_90_percent() / baseline.mixing_length_90_percent() - 0.5)
+                .abs()
+                < 1.0e-12
+        );
+    }
 }

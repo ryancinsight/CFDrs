@@ -43,6 +43,7 @@ use num_traits::FromPrimitive;
 
 use super::constants::VREMAN_CV;
 use super::field_ops::velocity_gradient_tensor;
+use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 
 /// Vreman SGS model for LES (Vreman 2004).
 ///
@@ -174,6 +175,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
         self.turbulent_viscosity(flow_field)
+            .into_iter()
+            .map(|nu_t| kinetic_energy_from_eddy_viscosity(nu_t, self.filter_width))
+            .collect()
     }
 
     fn name(&self) -> &'static str {

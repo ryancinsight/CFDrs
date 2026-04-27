@@ -32,6 +32,7 @@ use super::field_ops::{
     velocity_gradient_tensor, SymmetricTensor6,
 };
 use super::filter_ops::{box_filter_moments_at, box_filter_velocity_at, resolved_stress_tensor};
+use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 
 /// Dynamic Smagorinsky LES model (Germano et al. 1991).
 #[derive(Debug, Clone)]
@@ -215,6 +216,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
         self.turbulent_viscosity(flow_field)
+            .into_iter()
+            .map(|nu_t| kinetic_energy_from_eddy_viscosity(nu_t, self.filter_width))
+            .collect()
     }
 
     fn name(&self) -> &'static str {

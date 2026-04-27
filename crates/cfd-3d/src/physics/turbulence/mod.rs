@@ -49,6 +49,7 @@ pub(crate) mod filter_ops;
 pub mod k_epsilon;
 pub mod k_omega_sst;
 pub mod mixing_length;
+pub(crate) mod sgs_energy;
 pub mod sigma;
 pub mod spalart_allmaras;
 pub mod vreman;

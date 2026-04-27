@@ -36,6 +36,7 @@ use super::field_ops::{
     matrix_square, strain_components, symmetric_contract, symmetric_trace_free_part,
     velocity_gradient_tensor,
 };
+use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 
 /// Wall-Adapting Local Eddy-viscosity model.
 #[derive(Debug, Clone)]
@@ -172,6 +173,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
 
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
         self.turbulent_viscosity(flow_field)
+            .into_iter()
+            .map(|nu_t| kinetic_energy_from_eddy_viscosity(nu_t, self.filter_width))
+            .collect()
     }
 
     fn name(&self) -> &'static str {

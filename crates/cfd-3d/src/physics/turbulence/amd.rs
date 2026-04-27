@@ -38,6 +38,7 @@ use super::constants::AMD_C_A_SECOND_ORDER;
 use super::field_ops::{
     strain_components, symmetric_contract, velocity_gradient_tensor, SymmetricTensor6,
 };
+use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 
 /// Anisotropic Minimum Dissipation closure for large-eddy simulation.
 #[derive(Debug, Clone)]
@@ -181,7 +182,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     }
 
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
+        let length_scale = if self.dx >= self.dy && self.dx >= self.dz {
+            self.dx
+        } else if self.dy >= self.dz {
+            self.dy
+        } else {
+            self.dz
+        };
         self.turbulent_viscosity(flow_field)
+            .into_iter()
+            .map(|nu_t| kinetic_energy_from_eddy_viscosity(nu_t, length_scale))
+            .collect()
     }
 
     fn name(&self) -> &'static str {
@@ -302,5 +313,43 @@ mod tests {
 
         assert_relative_eq!(viscosity[13], expected, epsilon = 1e-12);
         assert!(viscosity[13] > 0.0);
+    }
+
+    #[test]
+    fn turbulent_kinetic_energy_uses_yoshizawa_relation_not_viscosity_alias() {
+        let dx = 0.5;
+        let dy = 1.5;
+        let dz = 2.0;
+        let mut flow = FlowField::<f64>::new(3, 3, 3);
+
+        let a = [
+            [1.613734946325263, 0.7232431980345768, -1.4146463799644549],
+            [0.9674030241104554, -1.826607564819564, 0.9954169690130685],
+            [0.9131006443117435, 1.7808987218488506, 0.21287261849430106],
+        ];
+
+        fill_velocity_field(&mut flow, |x, y, z| {
+            let x = x * dx;
+            let y = y * dy;
+            let z = z * dz;
+            Vector3::new(
+                a[0][0] * x + a[0][1] * y + a[0][2] * z,
+                a[1][0] * x + a[1][1] * y + a[1][2] * z,
+                a[2][0] * x + a[2][1] * y + a[2][2] * z,
+            )
+        });
+
+        let model = AnisotropicMinimumDissipationModel::<f64>::with_grid_spacing(dx, dy, dz);
+        let viscosity = model.turbulent_viscosity(&flow);
+        let kinetic_energy = model.turbulent_kinetic_energy(&flow);
+        let center = 13;
+        let expected = (viscosity[center] / (0.094 * dz)).powi(2);
+
+        assert!(viscosity[center] > 0.0);
+        assert_relative_eq!(kinetic_energy[center], expected, epsilon = 1e-12);
+        assert!(
+            (kinetic_energy[center] - viscosity[center]).abs() > 1e-9,
+            "SGS kinetic energy must not alias eddy viscosity"
+        );
     }
 }
