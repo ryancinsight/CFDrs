@@ -1,7 +1,7 @@
 //! Sketch render pipeline — 2D anti-aliased lines on a work plane.
 
-use bytemuck::Zeroable;
 use crate::infrastructure::gpu::overlay_buffer::OverlayBuffer;
+use bytemuck::Zeroable;
 use wgpu::util::DeviceExt;
 
 /// Uniform data for sketch rendering.
@@ -93,11 +93,7 @@ impl SketchPipeline {
     }
 
     /// Draw solid sketch geometry.
-    pub fn draw_solid<'a>(
-        &'a self,
-        pass: &mut wgpu::RenderPass<'a>,
-        buffer: &'a OverlayBuffer,
-    ) {
+    pub fn draw_solid<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, buffer: &'a OverlayBuffer) {
         pass.set_pipeline(&self.solid_pipeline);
         pass.set_bind_group(0, &self.bind_group, &[]);
         pass.set_vertex_buffer(0, buffer.vertex_buffer.slice(..));
@@ -105,11 +101,7 @@ impl SketchPipeline {
     }
 
     /// Draw dashed construction geometry.
-    pub fn draw_dashed<'a>(
-        &'a self,
-        pass: &mut wgpu::RenderPass<'a>,
-        buffer: &'a OverlayBuffer,
-    ) {
+    pub fn draw_dashed<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, buffer: &'a OverlayBuffer) {
         pass.set_pipeline(&self.dashed_pipeline);
         pass.set_bind_group(0, &self.bind_group, &[]);
         pass.set_vertex_buffer(0, buffer.vertex_buffer.slice(..));

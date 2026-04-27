@@ -57,10 +57,14 @@ impl AngularDimension {
     #[must_use]
     pub fn measured_angle_deg(&self) -> f64 {
         let a = nalgebra::Vector3::new(
-            self.direction_a[0], self.direction_a[1], self.direction_a[2],
+            self.direction_a[0],
+            self.direction_a[1],
+            self.direction_a[2],
         );
         let b = nalgebra::Vector3::new(
-            self.direction_b[0], self.direction_b[1], self.direction_b[2],
+            self.direction_b[0],
+            self.direction_b[1],
+            self.direction_b[2],
         );
         let na = a.norm();
         let nb = b.norm();

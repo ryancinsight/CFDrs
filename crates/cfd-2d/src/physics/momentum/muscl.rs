@@ -10,7 +10,8 @@
 //! - Hirsch, C. (2007). "Numerical Computation of Internal and External Flows: Fundamentals of Computational Fluid Dynamics"
 //! - Barth, T.J. & Jespersen, D.C. (1989). "The design and application of upwind schemes on unstructured meshes"
 //!
-//! # Theorem
+//! # Theorem - Conservative Face Reconstruction
+//!
 //! The momentum discretization must conserve linear momentum globally and locally.
 //!
 //! **Proof sketch**:
@@ -20,6 +21,29 @@
 //! cell exactly equals the flux entering the adjacent cell. Thus, in the absence of
 //! external forces and boundary fluxes, the total momentum $\int_\Omega \rho \mathbf{u} dV$
 //! is exactly conserved to machine precision.
+//!
+//! # Theorem - Uniform-Grid QUICK Face Values
+//!
+//! On a uniform grid with cell centers `x_i = i`, the unique quadratic
+//! interpolant through `(x_{i-1}, phi_{i-1})`, `(x_i, phi_i)`, and
+//! `(x_{i+1}, phi_{i+1})` evaluated at `x_{i+1/2}` is
+//!
+//! ```text
+//! phi^L_{i+1/2} = -phi_{i-1}/8 + 3 phi_i/4 + 3 phi_{i+1}/8.
+//! ```
+//!
+//! The right-biased state from cells `i`, `i+1`, and `i+2` is
+//!
+//! ```text
+//! phi^R_{i+1/2} = 3 phi_i/8 + 3 phi_{i+1}/4 - phi_{i+2}/8.
+//! ```
+//!
+//! **Proof sketch**: Write the Lagrange basis polynomials for the three
+//! equispaced cell centers and evaluate them at the face coordinate
+//! `x = i + 1/2`. The resulting weights are exactly `(-1/8, 3/4, 3/8)` for
+//! the left stencil and `(3/8, 3/4, -1/8)` for the right stencil. Substitution
+//! of any polynomial with degree <= 2 reproduces the exact face value, giving
+//! third-order finite-volume face accuracy for smooth cell-centered fields.
 
 use super::tvd_limiters::TvdLimiter;
 use nalgebra::RealField;
@@ -116,13 +140,7 @@ where
                     let slope1 = self.limited_slope(phi_im1, phi_i, phi_ip1);
                     let slope2 = self.limited_slope(phi_i, phi_ip1, phi_ip2);
 
-                    // QUICK scheme: 6φ_i - 2φ_{i-1} + 8φ_{i+1} - φ_{i+2}) / 12
-                    // But with limiter applied to maintain monotonicity
-                    let quick = (T::from_f64(6.0).expect("analytical constant conversion") * phi_i
-                        - T::from_f64(2.0).expect("analytical constant conversion") * phi_im1
-                        + T::from_f64(8.0).expect("analytical constant conversion") * phi_ip1
-                        - phi_ip2)
-                        / T::from_f64(12.0).expect("analytical constant conversion");
+                    let quick = quadratic_left_face(phi_im1, phi_i, phi_ip1);
 
                     // Blend QUICK with MUSCL2 based on limiter
                     let muscl2 = phi_i + slope1 / (T::one() + T::one());
@@ -157,12 +175,7 @@ where
                     let slope1 = self.limited_slope(phi_im1, phi_i, phi_ip1);
                     let slope2 = self.limited_slope(phi_i, phi_ip1, phi_ip2);
 
-                    // Symmetric QUICK for right interface
-                    let quick = (T::from_f64(6.0).expect("analytical constant conversion") * phi_ip1
-                               - T::from_f64(2.0).expect("analytical constant conversion") * phi_i
-                               + T::from_f64(8.0).expect("analytical constant conversion") * phi_ip2
-                               - phi_ip2) // This is approximate, full QUICK would need more points
-                              / T::from_f64(12.0).expect("analytical constant conversion");
+                    let quick = quadratic_right_face(phi_i, phi_ip1, phi_ip2);
 
                     // Blend with MUSCL2
                     let muscl2 = phi_i - slope1 / (T::one() + T::one());
@@ -193,6 +206,22 @@ where
     fn order(&self) -> MusclOrder {
         self.order
     }
+}
+
+#[inline]
+fn quadratic_left_face<T: RealField + Copy>(phi_im1: T, phi_i: T, phi_ip1: T) -> T {
+    let one_eighth = T::from_f64(0.125).expect("analytical constant conversion");
+    let three_eighths = T::from_f64(0.375).expect("analytical constant conversion");
+    let three_quarters = T::from_f64(0.75).expect("analytical constant conversion");
+    -one_eighth * phi_im1 + three_quarters * phi_i + three_eighths * phi_ip1
+}
+
+#[inline]
+fn quadratic_right_face<T: RealField + Copy>(phi_i: T, phi_ip1: T, phi_ip2: T) -> T {
+    let one_eighth = T::from_f64(0.125).expect("analytical constant conversion");
+    let three_eighths = T::from_f64(0.375).expect("analytical constant conversion");
+    let three_quarters = T::from_f64(0.75).expect("analytical constant conversion");
+    three_eighths * phi_i + three_quarters * phi_ip1 - one_eighth * phi_ip2
 }
 
 /// Convenience constructors for common MUSCL schemes
@@ -276,5 +305,26 @@ mod tests {
         };
 
         assert_relative_eq!(phi_l_boundary, phi_l_muscl2, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn muscl3_quick_reproduces_linear_face_value_from_both_sides() {
+        let limiter = Superbee;
+        let scheme = MusclScheme::new(limiter, MusclOrder::ThirdOrder);
+
+        let left = scheme.reconstruct_left(0.0, 1.0, 2.0, Some(3.0));
+        let right = scheme.reconstruct_right(0.0, 1.0, 2.0, Some(3.0));
+
+        assert_relative_eq!(left, 1.5, epsilon = 1e-12);
+        assert_relative_eq!(right, 1.5, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn quadratic_quick_face_values_reproduce_parabola() {
+        let left = quadratic_left_face(1.0_f64, 0.0, 1.0);
+        let right = quadratic_right_face(0.0_f64, 1.0, 4.0);
+
+        assert_relative_eq!(left, 0.25, epsilon = 1e-12);
+        assert_relative_eq!(right, 0.25, epsilon = 1e-12);
     }
 }

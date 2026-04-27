@@ -1,7 +1,7 @@
 # CFD Suite Backlog
 
 ## Sprint 1.96.0: Hydrodynamic Cavitation On-a-Chip (HCOC) Modeling
-**Status**: Planned
+**Status**: Completed
 **Start Date**: Next
 
 ### Sprint Objectives
@@ -12,12 +12,17 @@
 ### Sprint Backlog Items
 
 #### Cellular Injury Modeling
-- [ ] **HCOC-001**: Implement `bio_damage.rs` with scalar fractional damage models representing cell membrane strain, mapping cavitation intensity to lysis/necrosis ratios.
-- [ ] **HCOC-002**: Derive and integrate property tests validating conservation of cellular mass across injury states.
+- [x] **HCOC-001**: Implement `bio_damage.rs` with scalar fractional damage models representing cell membrane strain, mapping cavitation intensity to lysis/necrosis ratios.
+- [x] **HCOC-002**: Derive and integrate property tests validating conservation of cellular mass across injury states.
 
 #### CTC Nucleation Transport
-- [ ] **HCOC-003**: Implement `heterogeneous_nucleation.rs` replacing the linear $k_n$ scalar with a tensorial or struct-based multi-population interfacial tension approach.
-- [ ] **HCOC-004**: Validate modified effective vapor pressure inception offsets against analytical expected bounds.
+- [x] **HCOC-003**: Implement `heterogeneous_nucleation.rs` replacing the linear $k_n$ scalar with a tensorial or struct-based multi-population interfacial tension approach.
+- [x] **HCOC-004**: Validate modified effective vapor pressure inception offsets against analytical expected bounds.
+- [x] **HCOC-005**: Bind Apollo-backed periodic DNS transforms to a validated reusable `FftPlan3D`.
+- [x] **HCOC-006**: Correct `cfd-2d` MUSCL3/QUICK face reconstruction and document the polynomial reproduction theorem.
+- [x] **HCOC-007**: Separate `cfd-1d` margination wall-induced and shear-gradient inertial lift scaling and document the reference-equilibrium proof.
+- [x] **HCOC-008**: Replace `cfd-2d` turbulence benchmark placeholder dispatch with a closed supported-model registry.
+- [x] **HCOC-009**: Restore coupled cfd-1d blood pressure-event solves with finite startup viscosity and row-equilibrated hydraulic linear systems.
 
 ## Sprint 1.95.1: CFD-MESH 3D Performance & Memory Optimization
 **Status**: In Progress

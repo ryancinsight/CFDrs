@@ -48,7 +48,6 @@ impl<'a> BlueprintNodeLayout<'a> {
         &self.auto_layout_indices
     }
 
-    #[must_use]
     pub(super) fn auto_layout_entries(&self) -> impl Iterator<Item = (&'a str, Point2D)> + '_ {
         self.auto_layout_indices
             .iter()
@@ -172,8 +171,8 @@ fn auto_layout_depths(
 
     let mut queue = VecDeque::new();
     let mut depth = vec![0usize; node_count];
-    for idx in 0..node_count {
-        if indegree[idx] == 0 {
+    for (idx, degree) in indegree.iter().copied().enumerate().take(node_count) {
+        if degree == 0 {
             queue.push_back(idx);
         }
     }

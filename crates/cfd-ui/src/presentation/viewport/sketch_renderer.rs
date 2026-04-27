@@ -20,7 +20,10 @@ const POINT_HANDLE_SIZE: f32 = 0.05;
 /// Lines are placed in the sketch's local 2D coordinate system (Z = 0).
 /// The caller must apply the work plane model matrix to transform to world space.
 #[must_use]
-pub fn build_sketch_lines(sketch: &Sketch, dof: &DofAnalysis) -> (Vec<OverlayLine>, Vec<OverlayLine>) {
+pub fn build_sketch_lines(
+    sketch: &Sketch,
+    dof: &DofAnalysis,
+) -> (Vec<OverlayLine>, Vec<OverlayLine>) {
     let color = status_color(dof.status);
     let mut solid_lines = Vec::new();
     let mut dashed_lines = Vec::new();
@@ -31,7 +34,11 @@ pub fn build_sketch_lines(sketch: &Sketch, dof: &DofAnalysis) -> (Vec<OverlayLin
         } else {
             &mut solid_lines
         };
-        let c = if entity.is_construction() { CONSTRUCTION_COLOR } else { color };
+        let c = if entity.is_construction() {
+            CONSTRUCTION_COLOR
+        } else {
+            color
+        };
 
         match entity {
             SketchEntity::Point(p) => {
@@ -127,11 +134,16 @@ mod tests {
         let mut sk = Sketch::new(SketchId(0), "test".into(), WorkPlane::xy());
         let id = sk.next_entity_id();
         sk.add_entity(SketchEntity::Point(SketchPoint {
-            id, x: 1.0, y: 2.0, construction: false,
+            id,
+            x: 1.0,
+            y: 2.0,
+            construction: false,
         }));
         let dof = DofAnalysis {
-            total_dofs: 2, constraint_equations: 0,
-            status: DofStatus::UnderConstrained, free_dof_count: 2,
+            total_dofs: 2,
+            constraint_equations: 0,
+            status: DofStatus::UnderConstrained,
+            free_dof_count: 2,
         };
         let (solid, dashed) = build_sketch_lines(&sk, &dof);
         assert_eq!(solid.len(), 2); // horizontal + vertical cross-hair

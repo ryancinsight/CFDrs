@@ -300,11 +300,11 @@ pub fn refresh_milestone12_reports(
         &canonical,
     )?;
 
-    let mut narrative = write_milestone12_narrative_report(
+    let narrative = write_milestone12_narrative_report(
         &workspace_root,
         &canonical,
         &Milestone12NarrativeInput {
-            authoritative_run: false,
+            authoritative_run: run_class.is_authoritative(),
             canonical_source: canonical_source_label(),
             total_candidates: option1_summary
                 .total_candidates
@@ -327,37 +327,6 @@ pub fn refresh_milestone12_reports(
             fast_mode: is_fast_mode,
         },
     )?;
-    if run_class.is_authoritative() && narrative.asset_review_complete {
-        narrative = write_milestone12_narrative_report(
-            &workspace_root,
-            &canonical,
-            &Milestone12NarrativeInput {
-                authoritative_run: true,
-                canonical_source: canonical_source_label(),
-                total_candidates: option1_summary
-                    .total_candidates
-                    .max(option2_summary.total_candidates),
-                option1_evaluated_count: option1_summary.evaluated_count,
-                option2_evaluated_count: option2_summary.evaluated_count,
-                option1_pool_len: option1_summary.eligible_count.max(option1_ranked.len()),
-                option2_pool_len: option2_summary.eligible_count.max(option2_ranked.len()),
-                option1_sequence_summary_markdown: render_option1_sequence_coverage(
-                    &option1_summary,
-                ),
-                option1_ranked: &option1_ranked,
-                option2_ranked: &option2_ranked,
-                ga_top: &selected_ga_ranked,
-                option2_pool_all: &option2_pool_all,
-                ga_pool_all: &ga_pool_for_report,
-                validation_rows: &validation_rows,
-                option2_robustness: &option2_robustness,
-                ga_best_per_gen: &ga_summary.best_per_generation,
-                ga_ranking_audit: &ga_ranking_audit,
-                topology_family_count: option1_summary.sequence_coverage.len().max(1),
-                fast_mode: is_fast_mode,
-            },
-        )?;
-    }
     let report_is_authoritative = run_class.is_authoritative() && narrative.asset_review_complete;
     if report_is_authoritative {
         write_milestone12_results(

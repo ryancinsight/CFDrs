@@ -315,8 +315,8 @@ pub(super) fn build_results_intro(
 (AsymmetricSplitVenturiCavitationSelectivity track). The ranked pool therefore reflects only physically admissible \
 designs that preserve selective split-width partitioning, treatment-lane residence time, and \
 cancer-cell preferential lysis with healthy-cell protection. The following sub-sections present the selected designs (§5.1), gate \
-evidence (§5.2), {robustness_label}, design visualizations (§5.4), \
-derived metric formulas (§5.5), and operating limits (§5.6). Extracorporeal circuit volume is \
+evidence (§5.2), {robustness_label}, validation evidence and artifact traceability (§5.4), \
+design visualizations (§5.5), derived metric formulas (§5.6), and operating limits (§5.7). Extracorporeal circuit volume is \
 reported explicitly as ECV = Σ(L_i A_i) = Q_in t_res, and each selected design is benchmarked \
 against the 3 kg neonatal reference limit of 25.5 mL (10% of 3 × 85 mL blood volume).",
     )
@@ -963,6 +963,8 @@ mod tests {
         let results_intro = build_results_intro(8, 3, 5, 1, 2, false, false);
 
         assert!(results_intro.contains("cancer-cell preferential lysis"));
+        assert!(results_intro.contains("validation evidence and artifact traceability"));
+        assert!(results_intro.contains("§5.4"));
         assert!(selected_intro.contains("cancer-cell-rich flow"));
         assert!(selected_intro.contains("healthy-cell protection lever"));
         assert!(selected_intro.contains("healthy-cell protection index"));

@@ -160,7 +160,11 @@ mod tests {
         let result = insert_intersection_nodes(&mut system);
         assert_eq!(result.intersection_count, 1);
         assert_eq!(result.junction_node_ids.len(), 1);
-        assert_eq!(system.channels.len(), 4, "2 channels × 1 crossing = 4 sub-channels");
+        assert_eq!(
+            system.channels.len(),
+            4,
+            "2 channels × 1 crossing = 4 sub-channels"
+        );
 
         let junction = &system.nodes[result.junction_node_ids[0]];
         assert!((junction.point.0 - 0.5).abs() < 1e-6);

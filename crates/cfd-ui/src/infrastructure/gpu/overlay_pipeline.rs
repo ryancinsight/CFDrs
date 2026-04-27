@@ -77,10 +77,18 @@ impl OverlayPipeline {
             push_constant_ranges: &[],
         });
 
-        let line_pipeline =
-            Self::create_sub_pipeline(device, &shader_module, &pipeline_layout, OverlayTopology::Lines);
-        let triangle_pipeline =
-            Self::create_sub_pipeline(device, &shader_module, &pipeline_layout, OverlayTopology::Triangles);
+        let line_pipeline = Self::create_sub_pipeline(
+            device,
+            &shader_module,
+            &pipeline_layout,
+            OverlayTopology::Lines,
+        );
+        let triangle_pipeline = Self::create_sub_pipeline(
+            device,
+            &shader_module,
+            &pipeline_layout,
+            OverlayTopology::Triangles,
+        );
 
         Self {
             line_pipeline,

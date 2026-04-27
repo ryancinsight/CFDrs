@@ -136,12 +136,13 @@ pub fn symmetric_n_furcation_spec(
         let branch_width = parent_width * frac;
 
         for i in 0..splits {
-            let (role, treatment) =
-                if (!splits.is_multiple_of(2) && i == splits / 2) || (splits.is_multiple_of(2) && i == 0) {
-                    (BranchRole::Treatment, true)
-                } else {
-                    (BranchRole::Neutral, false)
-                };
+            let (role, treatment) = if (!splits.is_multiple_of(2) && i == splits / 2)
+                || (splits.is_multiple_of(2) && i == 0)
+            {
+                (BranchRole::Treatment, true)
+            } else {
+                (BranchRole::Neutral, false)
+            };
             level_branches.push((branch_width, role, treatment));
         }
 

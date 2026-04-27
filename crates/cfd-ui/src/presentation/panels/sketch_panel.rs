@@ -50,8 +50,17 @@ mod tests {
 
     #[test]
     fn dof_labels_are_descriptive() {
-        assert_eq!(dof_status_label(DofStatus::FullyConstrained), "Fully Constrained");
-        assert_eq!(dof_status_label(DofStatus::UnderConstrained), "Under-Constrained");
-        assert_eq!(dof_status_label(DofStatus::OverConstrained), "Over-Constrained");
+        assert_eq!(
+            dof_status_label(DofStatus::FullyConstrained),
+            "Fully Constrained"
+        );
+        assert_eq!(
+            dof_status_label(DofStatus::UnderConstrained),
+            "Under-Constrained"
+        );
+        assert_eq!(
+            dof_status_label(DofStatus::OverConstrained),
+            "Over-Constrained"
+        );
     }
 }

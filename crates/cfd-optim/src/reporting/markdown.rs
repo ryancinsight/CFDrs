@@ -16,6 +16,7 @@ use crate::constraints::{
 use crate::reporting::Milestone12ReportDesign;
 
 use super::ranking::oncology_priority_score;
+use super::validation_traceability::build_validation_summary_table;
 
 fn workspace_geometry_penalty_weight() -> f64 {
     std::env::var("M12_GA_GEOMETRY_PENALTY_WEIGHT")
@@ -72,7 +73,7 @@ pub fn write_milestone12_results(
     option1_ranked: &[Milestone12ReportDesign],
     option2_ranked: &[Milestone12ReportDesign],
     ga_top: &Milestone12ReportDesign,
-    _validation_rows: &[ValidationRow],
+    validation_rows: &[ValidationRow],
     option2_robustness: &[RobustnessReport],
     authoritative_run: bool,
     canonical_source: &str,
@@ -268,6 +269,14 @@ pub fn write_milestone12_results(
         writeln!(md)?;
     }
 
+    writeln!(md, "## Cross-Fidelity Validation Evidence")?;
+    writeln!(
+        md,
+        "The canonical validation rows are recorded verbatim from `report/milestone12/milestone12_validation_rows.json`. The figure and asset-review manifests under `report/milestone12/` remain the authoritative artifact registers for the generated report package, and `mass_error_3d_pct` is preserved as a raw solver diagnostic rather than being renormalized in the report.\n"
+    )?;
+    writeln!(md, "{}", build_validation_summary_table(validation_rows))?;
+    writeln!(md)?;
+
     writeln!(md, "## GA Reproducibility")?;
     writeln!(md, "- HydroSDT GA RNG seed: `{M12_GA_HYDRO_SEED}`")?;
     writeln!(
@@ -451,6 +460,8 @@ mod tests {
 
         let rendered = std::fs::read_to_string(path).expect("rendered markdown should exist");
         assert!(rendered.contains("WBC recovery"));
+        assert!(rendered.contains("Cross-Fidelity Validation Evidence"));
+        assert!(rendered.contains("No validation rows emitted"));
         assert!(rendered.contains("Treatment-Time Analysis"));
         assert!(rendered.contains("K_loss"));
         assert!(!rendered.contains("Healthy-cell exposure (WBC)"));

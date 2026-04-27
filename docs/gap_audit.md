@@ -107,13 +107,13 @@
 | **CRITICAL-004** |  Critical | CFD-CORE | Fake Distributed GMRES (Placeholder Solver) | **CLOSED** |
 | **CRITICAL-005** |  Critical | CFD-CORE | Fake Additive Schwarz (Identity Solver) | **CLOSED** |
 | **MAJOR-006** |  Major | CFD-CORE | Fake Block Jacobi (Unit Diagonal Assumption) | **CLOSED** |
-| **CRITICAL-011** | 🔴 Critical | CFD-MESH | WASM OOM due to O(N²) allocation overhead in Bowyer-Watson | **OPEN** |
+| **CRITICAL-011** | ✅ Closed | CFD-MESH | WASM OOM due to O(N²) allocation overhead in Bowyer-Watson | **CLOSED** |
 | **CRITICAL-007** |  Critical | CFD-MESH | Fake Mesh Refinement (Empty Methods) | **CLOSED** |
 | **MAJOR-008** |  Major | CFD-MESH | Missing Distributed Mesh Support | **CLOSED** |
 | **CRITICAL-009** | ✅ Closed | CFD-MATH | Ruge-Stüben Coarsening Fine-to-Coarse Mapping Bug | **CLOSED** |
 | **CRITICAL-010** | ✅ Closed | CFD-3D | Fake Unstructured FEM Domains (0-Element Mocks) | **CLOSED** |
-| **CRITICAL-012** | 🔴 Critical | CFD-CORE | Missing cell-specific cavitation injury physics (Lysis/Necrosis) | **OPEN** |
-| **CRITICAL-013** | 🔴 Critical | CFD-CORE | Missing CTC stiffness-coupled inception mechanisms for HCOC | **OPEN** |
+| **CRITICAL-012** | 🔴 Critical | CFD-CORE | Missing cell-specific cavitation injury physics (Lysis/Necrosis) | **CLOSED** |
+| **CRITICAL-013** | 🔴 Critical | CFD-CORE | Missing CTC stiffness-coupled inception mechanisms for HCOC | **CLOSED** |
 
 ---
 
@@ -194,12 +194,60 @@
 **Component**: `crates/cfd-schematics/src/config/geometry`, `crates/cfd-schematics/src/state_management`
 **Status**: **CLOSED** - Geometry parameter bounds now share canonical constants and clearance-width degeneracy is rejected at the config, manager, and registry validation layers.
 
+## RESOLVED-020: Milestone 12 GA Convergence Trend SSOT in CFD-OPTIM
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-optim/src/reporting`
+**Status**: **CLOSED** - The GA convergence figure and narrative now derive their improvement / regression / near-plateau labels from the same trailing-fitness-window helper.
+
 ### Verification
 
 - `GeometryConfig::validate()` now uses the canonical geometry constants for channel width, channel height, and wall clearance, and rejects `wall_clearance >= channel_width`.
 - `GeometryParameterManager::validate_all()` now enforces the same clearance-width relation at the manager layer.
 - `ParameterRegistry::validate_all()` rejects the degenerate pair through the geometry manager path, and the integration regression confirms the returned `InvalidValue` payload.
 - Regression coverage confirms canonical bound acceptance and degenerate clearance-width rejection at the config and manager layers.
+
+---
+
+## RESOLVED-021: Slot-Stable Clip-Plane Undo in CFD-UI
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-ui/src/domain/clipping/plane.rs`, `crates/cfd-ui/src/domain/clipping/mod.rs`, `crates/cfd-ui/src/application/clipping/commands.rs`
+**Status**: **CLOSED** - Clip-plane commands now preserve their recorded slots, surface explicit stale-state failures, and reject silent relocation during undo.
+
+### Verification
+
+- `ClipPlaneSet::insert_at()` and `replace_at()` now update only the requested slot and return structured slot errors for occupied, empty, and out-of-range cases.
+- Add, remove, and update clip-plane commands now return `Result` and validate the live slot before restoring or replacing a plane.
+- Regression coverage confirms valid add/remove/update round-trips succeed, while undoing a remove into an occupied slot fails explicitly instead of relocating the plane.
+
+---
+
+## RESOLVED-022: Milestone 12 Validation Traceability in CFD-OPTIM
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-optim/src/reporting`, `report/templates/m12_narrative_template.md`, `report/ARPA-H_SonALAsense_Milestone 12 Report.md`, `report/milestone12_results.md`
+**Status**: **CLOSED** - The Milestone 12 report now exposes validation evidence and traceability in both the narrative and canonical results artifacts.
+
+### Verification
+
+- `build_results_intro()` now advertises validation evidence and artifact traceability in the Milestone 12 narrative contract, and `m12_narrative_template.md` renders the corresponding subsection.
+- `report/ARPA-H_SonALAsense_Milestone 12 Report.md` now contains `### 5.4 Validation Evidence and Artifact Traceability` and the cross-fidelity validation evidence table.
+- `report/milestone12_results.md` now contains `## Cross-Fidelity Validation Evidence`, and `report/milestone12/asset_review_manifest.json` was updated to the regenerated report hash.
+
+---
+
+## RESOLVED-023: Single-Pass Authoritative Milestone 12 Report in CFD-OPTIM
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-optim/src/application/orchestration/milestone12/report.rs`, `report/milestone12/report_manifest.json`, `report/ARPA-H_SonALAsense_Milestone 12 Report.md`, `report/milestone12/asset_review_manifest.json`
+**Status**: **CLOSED** - The release report now emits the authoritative narrative once, preserves the reviewed hash, and completes after the asset-review manifest is marked pass.
+
+### Verification
+
+- `refresh_milestone12_reports()` now renders the narrative with `authoritative_run = run_class.is_authoritative()` on the first pass instead of rewriting the report with a second content hash.
+- `cargo run -p cfd-optim --example milestone12_report --no-default-features --release` completes successfully once the manifest review entry is marked pass under a PATH that resolves the MSYS2 compiler DLLs correctly.
+- `report/milestone12/report_manifest.json` records `authoritative_run: true` and `review_complete: true`, and the narrative asset-review entry remains `opened: true`, `status: pass` after regeneration.
 
 ---
 
@@ -349,13 +397,87 @@ This bug violates the audit framework's evidence hierarchy:
 
 ---
 
-## CRITICAL-012 & 013: HCOC Cellular Injury & CTC Detection Framework Gaps
+## RESOLVED-024: HCOC Cellular Injury & CTC Detection Framework
 
-**Severity**: 🔴 **CRITICAL** - Prevents modeling of oncological detection and Sonodynamic/Hydrodynamic therapies.
-**Expected Physics**:
-1. Cellular Injury: Membrane strain tracking leading to graded structural failure (permeabilization → necrosis → lysis) from Rayleigh collapse microjets and shockwaves.
-2. CTC Detection: Nucleation thresholds ($k_n$) must vary locally based on particle interfacial tension and membrane stiffness, creating distinct cavitation inception times for CTCs vs normal leukocytes.
-**Current State**: `cfd-core::physics::cavitation` models macro-scale nuclei transport with linear pressure boosts and implements erosion models strictly for rigid materials (metals/ASTM standards). 
-**Remediation**:
-- Implement `cfd-core::physics::cavitation::bio_damage.rs` for biological cell failure models.
-- Implement `heterogeneous_nucleation.rs` extending `nuclei_transport` to handle multi-population biomechanical nucleation sites.
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-core/src/physics/cavitation/bio_damage.rs`, `crates/cfd-core/src/physics/cavitation/heterogeneous_nucleation.rs`
+**Status**: **CLOSED** - Cellular injury grading and stiffness-coupled inception are implemented and tested with literature-consistent threshold physics.
+
+### Verification
+
+- `CellularMembraneMechanics::evaluate_spatial_injury()` uses rate-adjusted critical strains and a first-order hazard transition over the ordered permeabilization / necrosis / lysis thresholds while conserving mass fractions.
+- `blake_threshold_pressure_pa()` now applies the classical Blake threshold factor `P_B = P_v - 4σ/(3R_B)` instead of the previous under-corrected `2σ` term.
+- Regression tests cover exact mass conservation, ambient no-injury behavior, monotone injury growth, loading-duration sensitivity, the classical Blake-factor identity, and target-versus-healthy selectivity ordering.
+
+---
+
+## RESOLVED-025: Apollo FFT Plan Binding in CFD-3D Periodic DNS
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-3d/src/spectral/dns.rs`
+**Status**: **CLOSED** - The periodic pseudospectral DNS stepper now validates its Apollo 3D shape once at construction and owns a reusable `FftPlan3D` for all forward and inverse transforms.
+
+### Verification
+
+- `PeriodicPseudospectralDns3D::new()` maps the validated CFD grid dimensions into Apollo `Shape3D` and returns structured configuration errors if Apollo rejects the shape.
+- Velocity spectra, nonlinear spectra, spectral derivatives, and inverse step reconstruction all use the stepper-owned plan rather than per-transform shape dispatch.
+- `cargo check -p cfd-3d --no-default-features` completes successfully.
+
+---
+
+## RESOLVED-026: Exact MUSCL3/QUICK Face Reconstruction in CFD-2D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-2d/src/physics/momentum/muscl.rs`
+**Status**: **CLOSED** - The third-order MUSCL/QUICK path no longer uses an approximate right-interface formula; both face states now use exact uniform-grid quadratic interpolation.
+
+### Verification
+
+- `quadratic_left_face()` implements `-phi_{i-1}/8 + 3 phi_i/4 + 3 phi_{i+1}/8`.
+- `quadratic_right_face()` implements `3 phi_i/8 + 3 phi_{i+1}/4 - phi_{i+2}/8`.
+- Regression coverage verifies exact reproduction of a linear field from both sides and exact reproduction of a quadratic parabola at the face.
+- `CC=clang cargo nextest run -p cfd-2d --no-default-features muscl ...` passed 14/14 filtered tests under the 30-second slow-test bound.
+
+---
+
+## RESOLVED-027: cfd-1d Margination Lift and Droplet Occupancy Contracts
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-1d/src/physics/cell_separation/margination.rs`, `crates/cfd-1d/src/solver/core/transient/droplets`
+**Status**: **CLOSED** - The margination model now separates wall-induced and shear-gradient inertial lift scaling, and droplet snapshots document `occupied_channels` as a projection of finite-length occupancy spans.
+
+### Verification
+
+- `dimensional_lift_force_n()` evaluates distinct wall-induced and shear-gradient finite-size scaling terms and derives the wall gain from the documented rigid-cell reference equilibrium.
+- Rustdoc theorem/proof sketches document wall-shape monotonicity, shear-shape monotonicity, and reference-equilibrium calibration.
+- `DropletSnapshot::occupied_channels_from_spans()` and `has_consistent_finite_length_occupancy()` encode the finite-length occupancy projection contract.
+- Targeted `CC=clang cargo nextest run -p cfd-1d --no-default-features ...` passed the margination and droplet regression tests.
+
+---
+
+## RESOLVED-028: cfd-2d Turbulence Benchmark Dispatch
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-2d/src/physics/turbulence/validation/benchmarks.rs`
+**Status**: **CLOSED** - The performance benchmark no longer contains an unimplemented fallback path; supported benchmark models are parsed into a closed enum before dispatch.
+
+### Verification
+
+- `BenchmarkModel` admits only `smagorinsky-les` and `des`, and exhaustive matching runs concrete production update loops.
+- Unsupported model names return a typed rejection listing supported models and do not emit placeholder text.
+- `CC=clang cargo nextest run -p cfd-2d --no-default-features ...` passed 554/554 tests under the 30-second slow-test bound.
+
+---
+
+## RESOLVED-029: cfd-1d Coupled Blood Pressure-Event Verification
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-1d/src/domain/network/wrapper.rs`, `crates/cfd-1d/src/solver/core/linear_system.rs`, `crates/cfd-1d/src/solver/core/transient/composition/simulator.rs`
+**Status**: **CLOSED** - Coupled pressure-event hematocrit simulation now produces finite positive branch-flow magnitudes while preserving signed internal transport.
+
+### Verification
+
+- Zero-flow blood apparent viscosity uses finite Secomb diameter/hematocrit initialization before nonzero shear-dependent Quemada updates.
+- Small hydraulic systems use row-equilibrated solves so conductance rows near machine scale are not dominated by unit Dirichlet rows.
+- Dense fallback conversion accumulates duplicate CSR entries, preserving the sum of incident-edge diagonal conductances required by Kirchhoff balance.
+- `CC=clang cargo nextest run -p cfd-1d --no-default-features ...` passed 696/696 tests under the 30-second slow-test bound.

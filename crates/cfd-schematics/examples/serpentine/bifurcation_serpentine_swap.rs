@@ -56,7 +56,6 @@ fn main() {
     let leaf_pairs = find_leaf_channel_pairs(&base);
     println!("Found {} leaf channel pairs to swap", leaf_pairs.len());
 
-
     // Render the base (all straight).
     shared::save_example_output_with_name(
         &base,

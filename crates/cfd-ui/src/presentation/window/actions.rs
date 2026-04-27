@@ -141,16 +141,19 @@ impl Workspace {
 
     // -- Primitive creation handlers ------------------------------------------
 
-    fn create_primitive(
-        &mut self,
-        spec: PrimitiveSpec,
-        cx: &mut Context<Self>,
-    ) {
+    fn create_primitive(&mut self, spec: PrimitiveSpec, cx: &mut Context<Self>) {
         let name = spec.type_name().to_owned();
         let cmd = CreatePrimitiveCommand::new(spec, name.clone());
-        match self.state.history.execute(Box::new(cmd), &mut self.state.document) {
+        match self
+            .state
+            .history
+            .execute(Box::new(cmd), &mut self.state.document)
+        {
             Ok(()) => self.state.console.info(format!("Created {name}")),
-            Err(e) => self.state.console.error(format!("Create {name} failed: {e}")),
+            Err(e) => self
+                .state
+                .console
+                .error(format!("Create {name} failed: {e}")),
         }
         self.refresh_viewport();
         cx.notify();
@@ -163,7 +166,11 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) {
         self.create_primitive(
-            PrimitiveSpec::Cube { width: 1.0, height: 1.0, depth: 1.0 },
+            PrimitiveSpec::Cube {
+                width: 1.0,
+                height: 1.0,
+                depth: 1.0,
+            },
             cx,
         );
     }
@@ -175,7 +182,11 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) {
         self.create_primitive(
-            PrimitiveSpec::Cylinder { radius: 0.5, height: 1.0, segments: 32 },
+            PrimitiveSpec::Cylinder {
+                radius: 0.5,
+                height: 1.0,
+                segments: 32,
+            },
             cx,
         );
     }
@@ -187,7 +198,11 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) {
         self.create_primitive(
-            PrimitiveSpec::Sphere { radius: 0.5, segments: 32, stacks: 16 },
+            PrimitiveSpec::Sphere {
+                radius: 0.5,
+                segments: 32,
+                stacks: 16,
+            },
             cx,
         );
     }
@@ -199,7 +214,11 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) {
         self.create_primitive(
-            PrimitiveSpec::Cone { radius: 0.5, height: 1.0, segments: 32 },
+            PrimitiveSpec::Cone {
+                radius: 0.5,
+                height: 1.0,
+                segments: 32,
+            },
             cx,
         );
     }
@@ -343,12 +362,7 @@ impl Workspace {
 
     // -- CSG boolean handlers -------------------------------------------------
 
-    fn csg_op(
-        &mut self,
-        op: CsgOp,
-        label: &str,
-        cx: &mut Context<Self>,
-    ) {
+    fn csg_op(&mut self, op: CsgOp, label: &str, cx: &mut Context<Self>) {
         let selected: Vec<usize> = self.state.selection.iter().collect();
         if selected.len() != 2 {
             self.state
@@ -360,7 +374,9 @@ impl Workspace {
             Some(n) => match &n.entity {
                 SceneEntity::Mesh(h) => *h,
                 _ => {
-                    self.state.console.error("First selection is not a mesh.".to_owned());
+                    self.state
+                        .console
+                        .error("First selection is not a mesh.".to_owned());
                     return;
                 }
             },
@@ -370,14 +386,20 @@ impl Workspace {
             Some(n) => match &n.entity {
                 SceneEntity::Mesh(h) => *h,
                 _ => {
-                    self.state.console.error("Second selection is not a mesh.".to_owned());
+                    self.state
+                        .console
+                        .error("Second selection is not a mesh.".to_owned());
                     return;
                 }
             },
             None => return,
         };
         let cmd = CsgBooleanCommand::new(op, handle_a, handle_b, label.to_owned());
-        match self.state.history.execute(Box::new(cmd), &mut self.state.document) {
+        match self
+            .state
+            .history
+            .execute(Box::new(cmd), &mut self.state.document)
+        {
             Ok(()) => self.state.console.info(format!("{label} completed.")),
             Err(e) => self.state.console.error(format!("{label} failed: {e}")),
         }
@@ -426,7 +448,11 @@ impl Workspace {
             return;
         };
         let cmd = ImportStlCommand::new(path);
-        match self.state.history.execute(Box::new(cmd), &mut self.state.document) {
+        match self
+            .state
+            .history
+            .execute(Box::new(cmd), &mut self.state.document)
+        {
             Ok(()) => self.state.console.info("STL imported.".to_owned()),
             Err(e) => self.state.console.error(format!("STL import failed: {e}")),
         }
@@ -443,7 +469,9 @@ impl Workspace {
         use crate::infrastructure::file_dialog::{self, FileFilter};
 
         // Export the selected mesh, or the first visible mesh.
-        let handle = self.selected_mesh_handle().or_else(|| self.first_visible_mesh_handle());
+        let handle = self
+            .selected_mesh_handle()
+            .or_else(|| self.first_visible_mesh_handle());
         let Some(handle) = handle else {
             self.state.console.error("No mesh to export.".to_owned());
             return;
@@ -456,7 +484,10 @@ impl Workspace {
             return;
         };
         match crate::application::export::stl::export_stl(mesh, &path, true) {
-            Ok(()) => self.state.console.info(format!("Exported STL to {}", path.display())),
+            Ok(()) => self
+                .state
+                .console
+                .info(format!("Exported STL to {}", path.display())),
             Err(e) => self.state.console.error(format!("STL export failed: {e}")),
         }
         cx.notify();
@@ -470,7 +501,9 @@ impl Workspace {
     ) {
         use crate::infrastructure::file_dialog;
 
-        let handle = self.selected_mesh_handle().or_else(|| self.first_visible_mesh_handle());
+        let handle = self
+            .selected_mesh_handle()
+            .or_else(|| self.first_visible_mesh_handle());
         let Some(handle) = handle else {
             self.state.console.error("No mesh to export.".to_owned());
             return;
@@ -483,8 +516,14 @@ impl Workspace {
             return;
         };
         match crate::application::export::openfoam::export_openfoam(mesh, &dir, &[]) {
-            Ok(()) => self.state.console.info(format!("Exported OpenFOAM to {}", dir.display())),
-            Err(e) => self.state.console.error(format!("OpenFOAM export failed: {e}")),
+            Ok(()) => self
+                .state
+                .console
+                .info(format!("Exported OpenFOAM to {}", dir.display())),
+            Err(e) => self
+                .state
+                .console
+                .error(format!("OpenFOAM export failed: {e}")),
         }
         cx.notify();
     }
@@ -501,7 +540,11 @@ impl Workspace {
             return;
         };
         let cmd = ImportMeshCommand::new(path);
-        match self.state.history.execute(Box::new(cmd), &mut self.state.document) {
+        match self
+            .state
+            .history
+            .execute(Box::new(cmd), &mut self.state.document)
+        {
             Ok(()) => self.state.console.info("Mesh imported.".to_owned()),
             Err(e) => self.state.console.error(format!("Mesh import failed: {e}")),
         }
@@ -515,9 +558,11 @@ impl Workspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.export_mesh_format("OBJ", crate::infrastructure::file_dialog::FileFilter::Obj, |mesh, path| {
-            crate::application::export::obj::export_obj(mesh, path)
-        });
+        self.export_mesh_format(
+            "OBJ",
+            crate::infrastructure::file_dialog::FileFilter::Obj,
+            |mesh, path| crate::application::export::obj::export_obj(mesh, path),
+        );
         cx.notify();
     }
 
@@ -527,9 +572,11 @@ impl Workspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.export_mesh_format("PLY", crate::infrastructure::file_dialog::FileFilter::Ply, |mesh, path| {
-            crate::application::export::ply::export_ply(mesh, path)
-        });
+        self.export_mesh_format(
+            "PLY",
+            crate::infrastructure::file_dialog::FileFilter::Ply,
+            |mesh, path| crate::application::export::ply::export_ply(mesh, path),
+        );
         cx.notify();
     }
 
@@ -539,9 +586,11 @@ impl Workspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.export_mesh_format("GLB", crate::infrastructure::file_dialog::FileFilter::Glb, |mesh, path| {
-            crate::application::export::glb::export_glb(mesh, path)
-        });
+        self.export_mesh_format(
+            "GLB",
+            crate::infrastructure::file_dialog::FileFilter::Glb,
+            |mesh, path| crate::application::export::glb::export_glb(mesh, path),
+        );
         cx.notify();
     }
 
@@ -551,9 +600,11 @@ impl Workspace {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.export_mesh_format("DXF", crate::infrastructure::file_dialog::FileFilter::Dxf, |mesh, path| {
-            crate::application::export::dxf::export_dxf(mesh, path)
-        });
+        self.export_mesh_format(
+            "DXF",
+            crate::infrastructure::file_dialog::FileFilter::Dxf,
+            |mesh, path| crate::application::export::dxf::export_dxf(mesh, path),
+        );
         cx.notify();
     }
 
@@ -565,7 +616,9 @@ impl Workspace {
     ) {
         use crate::infrastructure::file_dialog::{self, FileFilter};
 
-        let handle = self.selected_mesh_handle().or_else(|| self.first_visible_mesh_handle());
+        let handle = self
+            .selected_mesh_handle()
+            .or_else(|| self.first_visible_mesh_handle());
         let Some(handle) = handle else {
             self.state.console.error("No mesh to export.".to_owned());
             return;
@@ -581,8 +634,12 @@ impl Workspace {
             0,
             crate::domain::drawing::sheet::SheetSize::A3,
         );
-        match crate::application::export::drawing_export::export_drawing_svg(&sheet, &[mesh], &path) {
-            Ok(()) => self.state.console.info(format!("Exported SVG drawing to {}", path.display())),
+        match crate::application::export::drawing_export::export_drawing_svg(&sheet, &[mesh], &path)
+        {
+            Ok(()) => self
+                .state
+                .console
+                .info(format!("Exported SVG drawing to {}", path.display())),
             Err(e) => self.state.console.error(format!("SVG export failed: {e}")),
         }
         cx.notify();
@@ -703,9 +760,9 @@ impl Workspace {
             .selected_mesh_handle()
             .or_else(|| self.first_visible_mesh_handle());
         let Some(handle) = handle else {
-            self.state.console.error(
-                "Reference flow analysis requires a selected or visible mesh.".to_owned(),
-            );
+            self.state
+                .console
+                .error("Reference flow analysis requires a selected or visible mesh.".to_owned());
             cx.notify();
             return;
         };
@@ -784,7 +841,9 @@ impl Workspace {
     ) {
         use crate::infrastructure::file_dialog;
 
-        let handle = self.selected_mesh_handle().or_else(|| self.first_visible_mesh_handle());
+        let handle = self
+            .selected_mesh_handle()
+            .or_else(|| self.first_visible_mesh_handle());
         let Some(handle) = handle else {
             self.state.console.error("No mesh to export.".to_owned());
             return;
@@ -797,8 +856,14 @@ impl Workspace {
             return;
         };
         match exporter(mesh, &path) {
-            Ok(()) => self.state.console.info(format!("Exported {label} to {}", path.display())),
-            Err(e) => self.state.console.error(format!("{label} export failed: {e}")),
+            Ok(()) => self
+                .state
+                .console
+                .info(format!("Exported {label} to {}", path.display())),
+            Err(e) => self
+                .state
+                .console
+                .error(format!("{label} export failed: {e}")),
         }
     }
 }

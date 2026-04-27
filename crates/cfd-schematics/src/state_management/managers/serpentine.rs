@@ -423,5 +423,4 @@ impl ParameterManager for SerpentineParameterManager {
         self.target_fill_ratio.reset(reason)?;
         Ok(())
     }
-
 }

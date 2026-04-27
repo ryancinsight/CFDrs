@@ -119,9 +119,12 @@ pub(super) fn detect_crossings(system: &NetworkBlueprint) -> Vec<SegmentCrossing
 
             for seg_a in 0..cl_a.len().saturating_sub(1) {
                 for seg_b in 0..cl_b.len().saturating_sub(1) {
-                    if let Some((t, u, point)) =
-                        segment_intersection(cl_a[seg_a], cl_a[seg_a + 1], cl_b[seg_b], cl_b[seg_b + 1])
-                    {
+                    if let Some((t, u, point)) = segment_intersection(
+                        cl_a[seg_a],
+                        cl_a[seg_a + 1],
+                        cl_b[seg_b],
+                        cl_b[seg_b + 1],
+                    ) {
                         crossings.push(SegmentCrossing {
                             channel_a: i,
                             seg_a,

@@ -6,11 +6,11 @@
 use std::collections::{HashMap, HashSet};
 
 use super::super::super::types::Point2D;
-use crate::domain::model::{ChannelSpec, NodeId};
 use super::path_geometry::{
     monotone_dogleg_path, path_intersects_any, polyline_length_mm, simplify_polyline_points,
 };
 use super::PendingVenturiPath;
+use crate::domain::model::{ChannelSpec, NodeId};
 
 /// Compute the midpoint Y of a channel's key waypoints, falling back to
 /// `y_fallback` when no points are available.
@@ -91,8 +91,7 @@ pub(super) fn route_monotone_treatment_path(
             let offset_step = ((a.1 - b.1).abs() * 0.5).max(2.0);
             for attempt in 0..8 {
                 let lane_y = preferred_y + direction * f64::from(attempt) * offset_step;
-                let dogleg =
-                    simplify_polyline_points(monotone_dogleg_path(a, b, lane_y));
+                let dogleg = simplify_polyline_points(monotone_dogleg_path(a, b, lane_y));
                 if !path_intersects_any(&dogleg, existing_paths) {
                     return dogleg;
                 }

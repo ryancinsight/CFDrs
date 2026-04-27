@@ -1,4 +1,4 @@
-﻿//! Core orchestrator for `BlueprintTopologyFactory`.
+//! Core orchestrator for `BlueprintTopologyFactory`.
 //!
 //! This module provides the canonical entry point for converting declarative
 //! [`BlueprintTopologySpec`]s into [`NetworkBlueprint`] graphs.  Instead of
@@ -8,10 +8,9 @@
 
 use crate::domain::model::NetworkBlueprint;
 use crate::topology::model::{
-    BlueprintTopologySpec, SerpentineSpec, SplitKind, TreatmentActuationMode,
-    ThroatGeometrySpec, VenturiPlacementMode, VenturiPlacementSpec,
+    BlueprintTopologySpec, SerpentineSpec, SplitKind, ThroatGeometrySpec, TreatmentActuationMode,
+    VenturiPlacementMode, VenturiPlacementSpec,
 };
-
 
 /// High-level mutations available to the GA optimization engine.
 #[derive(Debug, Clone, PartialEq)]
@@ -69,7 +68,6 @@ pub enum BlueprintTopologyMutation {
 /// in [`GeometryGenerator`](crate::geometry::generator::GeometryGenerator).
 pub struct BlueprintTopologyFactory;
 
-
 mod build_impl;
 mod mutation_impl;
 mod spec_analysis_impl;
@@ -115,7 +113,6 @@ impl BlueprintTopologyFactory {
         Ok(blueprint)
     }
 
-
     // build_impl.rs: build_series_path, build_parallel_path, build_split_tree,
     // reconcile_channel_ids, venturi helpers, leading_merge_side_treatment_channels
 
@@ -127,12 +124,12 @@ impl BlueprintTopologyFactory {
 #[cfg(test)]
 mod tests {
     use super::{BlueprintTopologyFactory, BlueprintTopologyMutation};
+    use crate::domain::therapy_metadata::TherapyZone;
     use crate::topology::presets::enumerate_milestone12_topologies;
     use crate::{
         BlueprintTopologySpec, SerpentineSpec, SplitKind, TopologyOptimizationStage,
         TreatmentActuationMode, VenturiPlacementMode,
     };
-    use crate::domain::therapy_metadata::TherapyZone;
 
     fn base_blueprint() -> crate::NetworkBlueprint {
         let request = enumerate_milestone12_topologies()
@@ -197,9 +194,7 @@ mod tests {
             .next()
             .expect("treatment channel");
         let topology = blueprint.topology_spec().expect("topology");
-        let route = topology
-            .channel_route(&target_channel_id)
-            .expect("route");
+        let route = topology.channel_route(&target_channel_id).expect("route");
 
         let mutated = BlueprintTopologyFactory::mutate(
             &blueprint,
@@ -224,10 +219,8 @@ mod tests {
         assert!(mutated
             .topology_spec()
             .is_some_and(BlueprintTopologySpec::has_venturi));
-        assert!(mutated
-            .channels
-            .iter()
-            .any(|channel| channel.therapy_zone == Some(crate::domain::therapy_metadata::TherapyZone::CancerTarget)));
+        assert!(mutated.channels.iter().any(|channel| channel.therapy_zone
+            == Some(crate::domain::therapy_metadata::TherapyZone::CancerTarget)));
     }
 
     #[test]

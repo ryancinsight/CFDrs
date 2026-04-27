@@ -1,13 +1,19 @@
-﻿//! Basic composite preset factory functions.
+//! Basic composite preset factory functions.
+use super::super::super::finalize_preset_blueprint;
 use super::parallel_lane::{
     canonical_parallel_blueprint, canonical_parallel_venturi_blueprint,
     generator_center_serpentine, parallel_lane, CenterSerpentineSpec,
 };
-use super::super::super::finalize_preset_blueprint;
 use crate::domain::model::NetworkBlueprint;
 use crate::domain::therapy_metadata::TherapyZone;
-use crate::geometry::generator::{create_primitive_selective_tree_geometry, PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest};
-use crate::topology::presets::{constriction_expansion_series_spec, parallel_microchannel_array_spec, spiral_serpentine_series_spec};
+use crate::geometry::generator::{
+    create_primitive_selective_tree_geometry, PrimitiveSelectiveSplitKind,
+    PrimitiveSelectiveTreeRequest,
+};
+use crate::topology::presets::{
+    constriction_expansion_series_spec, parallel_microchannel_array_spec,
+    spiral_serpentine_series_spec,
+};
 use crate::topology::{SerpentineSpec, TreatmentActuationMode};
 use crate::BlueprintTopologyFactory;
 

@@ -39,9 +39,8 @@ pub(super) const MILESTONE12_MIRROR_VARIANTS: [MirrorVariant; 4] = [
 /// terminal serpentine settings.
 #[must_use]
 pub fn enumerate_milestone12_topologies() -> Vec<Milestone12TopologyRequest> {
-    let mut requests = Vec::with_capacity(
-        MILESTONE12_SWEEP_SEQUENCES.len() * MILESTONE12_MIRROR_VARIANTS.len(),
-    );
+    let mut requests =
+        Vec::with_capacity(MILESTONE12_SWEEP_SEQUENCES.len() * MILESTONE12_MIRROR_VARIANTS.len());
     for seq in &MILESTONE12_SWEEP_SEQUENCES {
         let split_kinds = seq.to_split_kinds();
         let family = seq.label().replace('\u{2192}', "");

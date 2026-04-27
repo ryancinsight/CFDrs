@@ -82,7 +82,9 @@ impl Clone for MetadataContainer {
     fn clone(&self) -> Self {
         let mut new_container = Self::new();
         for (type_id, metadata) in &self.data {
-            new_container.data.insert(*type_id, metadata.clone_metadata());
+            new_container
+                .data
+                .insert(*type_id, metadata.clone_metadata());
         }
         new_container
     }

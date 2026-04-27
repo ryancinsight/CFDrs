@@ -6,6 +6,9 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use super::super::asset_review::write_asset_review_manifest;
+use super::super::validation_traceability::{
+    build_validation_summary_table, build_validation_traceability_intro,
+};
 use super::addenda::{
     build_conclusions, build_figure_sections, build_figure_toc_rows, build_references_block,
     build_storage_artifact_index, build_storage_policy_section,
@@ -139,7 +142,23 @@ pub fn write_milestone12_narrative_report(
     let mut values = BTreeMap::new();
     insert_title_page_values(&mut values, &metadata);
     insert_contract_values(&mut values, &contract);
-    insert_data_values(&mut values, input, option1, option2, ga_best);
+    let asset_review_manifest_path = report_dir
+        .join("milestone12")
+        .join("asset_review_manifest.json");
+    let validation_rows_path = report_dir
+        .join("milestone12")
+        .join("milestone12_validation_rows.json");
+    insert_data_values(
+        &mut values,
+        input,
+        option1,
+        option2,
+        ga_best,
+        figure_specs.len(),
+        &manifest_path,
+        &asset_review_manifest_path,
+        &validation_rows_path,
+    );
     insert_table_values(&mut values, input, option1, option2);
     let narrative_only_specs = figure_specs
         .iter()
@@ -189,9 +208,9 @@ pub fn write_milestone12_narrative_report(
     values.insert(
         "TABLE_DERIVED_CAPTION_NUMBER".to_string(),
         if input.option2_robustness.is_empty() {
-            "13".to_string()
-        } else {
             "14".to_string()
+        } else {
+            "15".to_string()
         },
     );
     values.insert(
@@ -332,6 +351,10 @@ fn insert_data_values(
     option1: Option<&Milestone12ReportDesign>,
     option2: &Milestone12ReportDesign,
     ga_best: &Milestone12ReportDesign,
+    figure_count: usize,
+    figure_manifest_path: &Path,
+    asset_review_manifest_path: &Path,
+    validation_rows_path: &Path,
 ) {
     let has_robustness = !input.option2_robustness.is_empty();
     let abstract_validation_sentence = if has_robustness {
@@ -411,6 +434,17 @@ fn insert_data_values(
     values.insert(
         "FIG_TREATMENT_TRI".to_string(),
         "../report/figures/treatment_zone_plate_trifurcation.svg".to_string(),
+    );
+    values.insert(
+        "VALIDATION_TRACEABILITY_INTRO".to_string(),
+        build_validation_traceability_intro(
+            &input.canonical_source,
+            Some(figure_count),
+            &figure_manifest_path.display().to_string(),
+            &asset_review_manifest_path.display().to_string(),
+            &validation_rows_path.display().to_string(),
+            input.validation_rows,
+        ),
     );
 }
 
@@ -592,6 +626,7 @@ fn insert_table_values(
     option2: &Milestone12ReportDesign,
 ) {
     let has_robustness = !input.option2_robustness.is_empty();
+    let validation_table_number = if has_robustness { 14 } else { 13 };
     values.insert(
         "RESULTS_INTRO".to_string(),
         build_results_intro(
@@ -602,6 +637,13 @@ fn insert_table_values(
             input.option2_pool_len,
             input.fast_mode,
             has_robustness,
+        ),
+    );
+    values.insert(
+        "VALIDATION_SUMMARY_TABLE".to_string(),
+        centered_table(
+            &format!("Table {validation_table_number}. Cross-fidelity validation evidence"),
+            &build_validation_summary_table(input.validation_rows),
         ),
     );
     values.insert(
@@ -670,11 +712,11 @@ fn insert_table_values(
     );
     values.insert(
         "TREATMENT_TIME_ANALYSIS".to_string(),
-        build_treatment_time_analysis(option2, if has_robustness { 15 } else { 14 }),
+        build_treatment_time_analysis(option2, if has_robustness { 16 } else { 15 }),
     );
     values.insert(
         "CRI_EXPANSION_SENSITIVITY".to_string(),
-        build_cri_expansion_sensitivity(if has_robustness { 16 } else { 15 }),
+        build_cri_expansion_sensitivity(if has_robustness { 17 } else { 16 }),
     );
     values.insert(
         "PHYSICS_MODEL_INVENTORY".to_string(),

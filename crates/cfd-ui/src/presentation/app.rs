@@ -3,8 +3,8 @@
 //! This module is where gpui integration will connect. Currently it provides
 //! the `CfdApp` struct that manages the `WorkspaceState` and viewport renderer.
 
-use crate::presentation::workspace::WorkspaceState;
 use crate::presentation::viewport::viewport_view::{RenderOverlays, ViewportRenderer};
+use crate::presentation::workspace::WorkspaceState;
 
 /// The main application container.
 pub struct CfdApp {

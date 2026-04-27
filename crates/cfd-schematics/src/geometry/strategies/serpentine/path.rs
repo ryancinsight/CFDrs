@@ -152,12 +152,11 @@ impl SerpentineChannelStrategy {
 
         let base_points = context.geometry_config.generation.serpentine_points;
         let n_points = self.calculate_required_wave_points(requested_half_periods, base_points);
-        let min_points_per_half_period =
-            match self.config.wave_shape {
-                crate::config::WaveShape::Square => 6.0,
-                crate::config::WaveShape::Triangular => 8.0,
-                crate::config::WaveShape::Sine => 12.0,
-            };
+        let min_points_per_half_period = match self.config.wave_shape {
+            crate::config::WaveShape::Square => 6.0,
+            crate::config::WaveShape::Triangular => 8.0,
+            crate::config::WaveShape::Sine => 12.0,
+        };
         let max_resolvable_half_periods =
             ((n_points - 1) as f64 / min_points_per_half_period).max(1.0);
         let bounded_half_periods = requested_half_periods.min(max_resolvable_half_periods);
@@ -168,7 +167,10 @@ impl SerpentineChannelStrategy {
         {
             half_periods = 2.0;
         }
-        if matches!(self.config.wave_shape, crate::config::WaveShape::Sine | crate::config::WaveShape::Triangular) {
+        if matches!(
+            self.config.wave_shape,
+            crate::config::WaveShape::Sine | crate::config::WaveShape::Triangular
+        ) {
             let central_window = (1.0 - start_guard - end_guard).max(0.0);
             if central_window < 0.35 && max_resolvable_half_periods >= 4.0 {
                 half_periods = half_periods.max(4.0).min(max_resolvable_half_periods);

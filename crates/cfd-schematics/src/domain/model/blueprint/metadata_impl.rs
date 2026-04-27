@@ -1,5 +1,5 @@
-use super::NetworkBlueprint;
 use super::super::{ChannelSpec, NodeSpec};
+use super::NetworkBlueprint;
 use crate::geometry::metadata::{
     BlueprintRenderHints, GeometryAuthoringProvenance, MetadataContainer,
 };

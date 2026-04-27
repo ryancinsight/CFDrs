@@ -96,8 +96,7 @@ pub fn spmv<T: RealField + Copy>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVect
 }
 
 fn parallel_threshold<T: RealField + Copy>(a: &CsrMatrix<T>) -> usize {
-    let cores = std::thread::available_parallelism()
-        .map_or(1, |n| n.get());
+    let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
     let rows = a.nrows();
     let cols = a.ncols();
     let nnz = a.nnz();

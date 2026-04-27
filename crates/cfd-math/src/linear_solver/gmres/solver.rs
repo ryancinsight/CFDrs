@@ -200,7 +200,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
                 return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
             }
 
-            ws.v.column_mut(0).copy_from(&(ws.work.clone() / beta_restart));
+            ws.v.column_mut(0)
+                .copy_from(&(ws.work.clone() / beta_restart));
 
             ws.h.fill(T::zero());
             ws.g.fill(T::zero());

@@ -29,9 +29,8 @@ pub use analysis_field::{colorize, AnalysisField, AnalysisOverlay, ColormapKind}
 pub use annotations::{
     center_biased_main_path, classify_node_roles, infer_terminal_nodes_by_x,
     project_markers_along_path, should_render_label, therapy_zone_presence,
-    throat_count_from_blueprint_metadata, venturi_marker_points_from_blueprint,
-    AnnotationMarker, AnnotationStyle, LabelDensity,
-    MarkerRole, SchematicAnnotations,
+    throat_count_from_blueprint_metadata, venturi_marker_points_from_blueprint, AnnotationMarker,
+    AnnotationStyle, LabelDensity, MarkerRole, SchematicAnnotations,
 };
 pub use plotters_backend::{create_plotters_renderer, plot_shell_cuboid, PlottersRenderer};
 pub use schematic::{

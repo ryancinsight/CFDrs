@@ -97,7 +97,10 @@ impl OffscreenTarget {
             let _ = sender.send(result);
         });
         device.poll(wgpu::Maintain::Wait);
-        receiver.recv().expect("map_async channel closed").expect("map_async failed");
+        receiver
+            .recv()
+            .expect("map_async channel closed")
+            .expect("map_async failed");
 
         let data = buffer_slice.get_mapped_range();
         let unpadded_row = self.width * 4;
@@ -120,7 +123,11 @@ fn create_color_texture(
 ) -> (wgpu::Texture, wgpu::TextureView) {
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("offscreen color"),
-        size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+        size: wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -139,7 +146,11 @@ fn create_depth_texture(
 ) -> (wgpu::Texture, wgpu::TextureView) {
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("offscreen depth"),
-        size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+        size: wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,

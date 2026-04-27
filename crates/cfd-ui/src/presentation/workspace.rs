@@ -1,18 +1,18 @@
 //! Application workspace — the root layout containing all panels.
 
 use crate::domain::clipping::ClipPlaneSet;
-use crate::domain::document::project::ProjectDocument;
 use crate::domain::document::history::CommandHistory;
+use crate::domain::document::project::ProjectDocument;
 use crate::domain::measurement::{MeasureToolState, MeasurementStore};
 use crate::domain::scene::camera::animation::CameraAnimator;
 use crate::domain::scene::selection::{SelectionGranularity, SelectionSet};
 use crate::domain::scene::view_cube::ViewCubeState;
-use crate::presentation::panels::console_panel::ConsoleState;
-use crate::presentation::viewport::axis_indicator::AxisIndicatorConfig;
 use crate::domain::sketch::SketchHandle;
+use crate::presentation::panels::console_panel::ConsoleState;
+use crate::presentation::toolbar::mode_toolbar::EditMode;
+use crate::presentation::viewport::axis_indicator::AxisIndicatorConfig;
 use crate::presentation::viewport::camera_controller::CameraController;
 use crate::presentation::viewport::sketch_interaction::SketchInteractionHandler;
-use crate::presentation::toolbar::mode_toolbar::EditMode;
 
 /// Central application state holding all UI state and data.
 pub struct WorkspaceState {

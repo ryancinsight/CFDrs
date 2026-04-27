@@ -179,8 +179,7 @@ pub enum EdgeKind {
 /// **Proof sketch**: The centripetal acceleration in a curved duct creates a
 /// pressure gradient ∂p/∂r ≈ ρu²/R that drives counter-rotating Dean vortices,
 /// increasing wall shear stress beyond the Hagen-Poiseuille value.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
 pub enum ChannelShape {
     /// Regular straight duct — Hagen-Poiseuille / Shah-London resistance only.
     #[default]
@@ -199,7 +198,6 @@ pub enum ChannelShape {
         wave_type: crate::topology::SerpentineWaveType,
     },
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelSpec {

@@ -78,9 +78,9 @@ fn test_channel_diameter_metadata_adjusts_split_spacing() {
     );
 
     for channel in &diameter_system.channels {
-        let metadata = channel.get_metadata::<ChannelGeometryMetadata>().expect(
-            "channel should include ChannelGeometryMetadata when diameter is configured",
-        );
+        let metadata = channel
+            .get_metadata::<ChannelGeometryMetadata>()
+            .expect("channel should include ChannelGeometryMetadata when diameter is configured");
         assert!((metadata.channel_diameter_mm - 40.0).abs() < 1e-10);
     }
 }

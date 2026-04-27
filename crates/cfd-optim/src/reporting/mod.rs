@@ -18,6 +18,7 @@ mod ranking;
 mod report_math;
 mod report_metrics;
 mod validation_runner;
+mod validation_traceability;
 
 pub use design_record::{
     compute_blueprint_report_metrics, is_hydrosdt_venturi_report_candidate,

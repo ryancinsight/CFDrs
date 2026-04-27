@@ -31,8 +31,10 @@ impl UndoableCommand for ImportStlCommand {
         let mesh = cfd_mesh::infrastructure::io::stl::read_stl(reader)
             .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-        let name = self.path
-            .file_stem().map_or_else(|| "Imported STL".to_owned(), |s| s.to_string_lossy().into_owned());
+        let name = self.path.file_stem().map_or_else(
+            || "Imported STL".to_owned(),
+            |s| s.to_string_lossy().into_owned(),
+        );
 
         let handle = doc.add_mesh(mesh);
         let node_idx = doc.scene.add_node(name, SceneEntity::Mesh(handle));
@@ -110,9 +112,10 @@ impl UndoableCommand for ImportMeshCommand {
             _ => return Err(anyhow::anyhow!("unsupported file format: .{ext}")),
         };
 
-        let name = self
-            .path
-            .file_stem().map_or_else(|| "Imported Mesh".to_owned(), |s| s.to_string_lossy().into_owned());
+        let name = self.path.file_stem().map_or_else(
+            || "Imported Mesh".to_owned(),
+            |s| s.to_string_lossy().into_owned(),
+        );
 
         let handle = doc.add_mesh(mesh);
         let node_idx = doc.scene.add_node(name, SceneEntity::Mesh(handle));

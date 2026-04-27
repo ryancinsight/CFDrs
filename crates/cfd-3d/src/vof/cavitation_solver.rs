@@ -705,7 +705,7 @@ impl CavitationVofSolver {
                 expected: grid_size,
                 actual: damage_field.len(),
             });
-        };
+        }
         let bubble_population = bubble_solver.population_weight();
         let pressure_data = pressure_field.as_slice();
         let density_data = density_field.as_slice();
@@ -841,6 +841,9 @@ impl CavitationVofSolver {
                 for k in 0..nz {
                     let col = j + k * ny;
                     let r_collapse = radius_field[(i, col)];
+                    if r_collapse <= 0.0 || r_collapse >= bubble_cfg.initial_radius {
+                        continue;
+                    }
                     let estimate = rp.estimate_sonoluminescence(
                         pressure_field[(i, col)],
                         ambient_temperature,

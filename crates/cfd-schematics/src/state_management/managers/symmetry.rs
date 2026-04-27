@@ -255,5 +255,4 @@ impl ParameterManager for SymmetryParameterManager {
         self.enforcement_strength.reset(reason)?;
         Ok(())
     }
-
 }

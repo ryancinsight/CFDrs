@@ -28,15 +28,33 @@ pub enum Constraint {
     /// A point lies at the midpoint of a line.
     Midpoint { point: EntityId, line: EntityId },
     /// Two points are symmetric about a line.
-    Symmetric { point_a: EntityId, point_b: EntityId, axis: EntityId },
+    Symmetric {
+        point_a: EntityId,
+        point_b: EntityId,
+        axis: EntityId,
+    },
     /// A point is fixed in sketch space.
     Fixed(EntityId),
     /// Distance between two points (driving dimension).
-    Distance { a: EntityId, b: EntityId, value: f64, driving: bool },
+    Distance {
+        a: EntityId,
+        b: EntityId,
+        value: f64,
+        driving: bool,
+    },
     /// Angle between two lines.
-    Angle { line_a: EntityId, line_b: EntityId, value_rad: f64, driving: bool },
+    Angle {
+        line_a: EntityId,
+        line_b: EntityId,
+        value_rad: f64,
+        driving: bool,
+    },
     /// Radius of a circle or arc.
-    Radius { entity: EntityId, value: f64, driving: bool },
+    Radius {
+        entity: EntityId,
+        value: f64,
+        driving: bool,
+    },
 }
 
 impl Constraint {
@@ -66,7 +84,10 @@ impl Constraint {
     #[must_use]
     pub fn referenced_entities(&self) -> Vec<EntityId> {
         match self {
-            Self::Horizontal(e) | Self::Vertical(e) | Self::Fixed(e) | Self::Radius { entity: e, .. } => {
+            Self::Horizontal(e)
+            | Self::Vertical(e)
+            | Self::Fixed(e)
+            | Self::Radius { entity: e, .. } => {
                 vec![*e]
             }
             Self::Coincident(a, b)
@@ -76,11 +97,19 @@ impl Constraint {
             | Self::EqualLength(a, b)
             | Self::Concentric(a, b)
             | Self::Distance { a, b, .. }
-            | Self::Angle { line_a: a, line_b: b, .. } => {
+            | Self::Angle {
+                line_a: a,
+                line_b: b,
+                ..
+            } => {
                 vec![*a, *b]
             }
             Self::Midpoint { point, line } => vec![*point, *line],
-            Self::Symmetric { point_a, point_b, axis } => vec![*point_a, *point_b, *axis],
+            Self::Symmetric {
+                point_a,
+                point_b,
+                axis,
+            } => vec![*point_a, *point_b, *axis],
         }
     }
 

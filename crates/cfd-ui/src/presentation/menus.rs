@@ -28,6 +28,13 @@ impl MenuCategory {
     /// All menu categories in order.
     #[must_use]
     pub fn all() -> &'static [Self] {
-        &[Self::File, Self::Edit, Self::Mesh, Self::Simulation, Self::View, Self::Help]
+        &[
+            Self::File,
+            Self::Edit,
+            Self::Mesh,
+            Self::Simulation,
+            Self::View,
+            Self::Help,
+        ]
     }
 }

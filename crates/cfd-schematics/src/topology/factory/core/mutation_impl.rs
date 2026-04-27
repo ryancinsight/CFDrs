@@ -1,12 +1,11 @@
-﻿//! Mutation and validation methods for BlueprintTopologyFactory.
-use crate::domain::therapy_metadata::TherapyZone;
-use crate::domain::model::NetworkBlueprint;
-use crate::topology::model::{
-    BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec,
-    SerpentineSpec, SplitKind, SplitStageSpec, TopologyOptimizationStage,
-    TreatmentActuationMode, VenturiPlacementSpec,
-};
+//! Mutation and validation methods for BlueprintTopologyFactory.
 use super::{BlueprintTopologyFactory, BlueprintTopologyMutation};
+use crate::domain::model::NetworkBlueprint;
+use crate::domain::therapy_metadata::TherapyZone;
+use crate::topology::model::{
+    BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec, SerpentineSpec, SplitKind,
+    SplitStageSpec, TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementSpec,
+};
 
 impl BlueprintTopologyFactory {
     /// Validate a spec without building (called by `NetworkBlueprint::validate`).
@@ -190,7 +189,9 @@ impl BlueprintTopologyFactory {
                     .find(|branch| branch.label == branch_label)
                     .ok_or_else(|| format!("branch '{branch_label}' not found in '{stage_id}'"))?
                     .clone();
-                if !parent_branch.treatment_path || parent_branch.route.therapy_zone != TherapyZone::CancerTarget {
+                if !parent_branch.treatment_path
+                    || parent_branch.route.therapy_zone != TherapyZone::CancerTarget
+                {
                     return Err(format!(
                         "split-merge insertion requires CancerTarget treatment channel '{target_channel_id}'"
                     ));
@@ -271,8 +272,10 @@ fn resolve_stage_branch_for_channel(
 ) -> Option<(String, String)> {
     spec.split_stages.iter().find_map(|stage| {
         stage.branches.iter().find_map(|branch| {
-            let channel_id = BlueprintTopologySpec::branch_channel_id(&stage.stage_id, &branch.label);
-            (channel_id == target_channel_id).then(|| (stage.stage_id.clone(), branch.label.clone()))
+            let channel_id =
+                BlueprintTopologySpec::branch_channel_id(&stage.stage_id, &branch.label);
+            (channel_id == target_channel_id)
+                .then(|| (stage.stage_id.clone(), branch.label.clone()))
         })
     })
 }
@@ -322,30 +325,96 @@ fn build_inserted_treatment_stage(
             let center_width = parent_width_m * 0.45;
             let side_width = (parent_width_m - center_width) * 0.5;
             vec![
-                bypass_branch("left", side_width, height_m, length_m, BranchRole::WbcCollection),
-                treatment_branch("center", center_width, height_m, length_m, treatment_serpentine.clone()),
-                bypass_branch("right", side_width, height_m, length_m, BranchRole::RbcBypass),
+                bypass_branch(
+                    "left",
+                    side_width,
+                    height_m,
+                    length_m,
+                    BranchRole::WbcCollection,
+                ),
+                treatment_branch(
+                    "center",
+                    center_width,
+                    height_m,
+                    length_m,
+                    treatment_serpentine.clone(),
+                ),
+                bypass_branch(
+                    "right",
+                    side_width,
+                    height_m,
+                    length_m,
+                    BranchRole::RbcBypass,
+                ),
             ]
         }
         SplitKind::NFurcation(4) => {
             let treatment_width = parent_width_m * 0.40;
             let side_width = (parent_width_m - treatment_width) / 3.0;
             vec![
-                bypass_branch("arm_0", side_width, height_m, length_m, BranchRole::WbcCollection),
-                treatment_branch("arm_1", treatment_width, height_m, length_m, treatment_serpentine.clone()),
-                bypass_branch("arm_2", side_width, height_m, length_m, BranchRole::RbcBypass),
-                bypass_branch("arm_3", side_width, height_m, length_m, BranchRole::RbcBypass),
+                bypass_branch(
+                    "arm_0",
+                    side_width,
+                    height_m,
+                    length_m,
+                    BranchRole::WbcCollection,
+                ),
+                treatment_branch(
+                    "arm_1",
+                    treatment_width,
+                    height_m,
+                    length_m,
+                    treatment_serpentine.clone(),
+                ),
+                bypass_branch(
+                    "arm_2",
+                    side_width,
+                    height_m,
+                    length_m,
+                    BranchRole::RbcBypass,
+                ),
+                bypass_branch(
+                    "arm_3",
+                    side_width,
+                    height_m,
+                    length_m,
+                    BranchRole::RbcBypass,
+                ),
             ]
         }
         SplitKind::NFurcation(5) => {
             let treatment_width = parent_width_m * 0.36;
             let side_width = (parent_width_m - treatment_width) / 4.0;
             vec![
-                bypass_branch("arm_0", side_width, height_m, length_m, BranchRole::WbcCollection),
+                bypass_branch(
+                    "arm_0",
+                    side_width,
+                    height_m,
+                    length_m,
+                    BranchRole::WbcCollection,
+                ),
                 bypass_branch("arm_1", side_width, height_m, length_m, BranchRole::Neutral),
-                treatment_branch("center", treatment_width, height_m, length_m, treatment_serpentine),
-                bypass_branch("arm_3", side_width, height_m, length_m, BranchRole::RbcBypass),
-                bypass_branch("arm_4", side_width, height_m, length_m, BranchRole::RbcBypass),
+                treatment_branch(
+                    "center",
+                    treatment_width,
+                    height_m,
+                    length_m,
+                    treatment_serpentine,
+                ),
+                bypass_branch(
+                    "arm_3",
+                    side_width,
+                    height_m,
+                    length_m,
+                    BranchRole::RbcBypass,
+                ),
+                bypass_branch(
+                    "arm_4",
+                    side_width,
+                    height_m,
+                    length_m,
+                    BranchRole::RbcBypass,
+                ),
             ]
         }
         SplitKind::NFurcation(other) => {
@@ -403,4 +472,3 @@ fn bypass_branch(
         recovery_sub_split: None,
     }
 }
-

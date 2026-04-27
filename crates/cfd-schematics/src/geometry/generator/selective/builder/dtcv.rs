@@ -1,4 +1,7 @@
-use super::{SelectiveTreeBuilder, SelectiveTreeRequest, NodeKind, JunctionFamily, ChannelVisualRole, VenturiGeometryMetadata};
+use super::{
+    ChannelVisualRole, JunctionFamily, NodeKind, SelectiveTreeBuilder, SelectiveTreeRequest,
+    VenturiGeometryMetadata,
+};
 use crate::domain::therapy_metadata::TherapyZone;
 
 impl SelectiveTreeBuilder {
@@ -125,8 +128,18 @@ impl SelectiveTreeBuilder {
             let m1_y = ys[1] + 2.0 * dir;
             let m2_y = ys[1];
 
-            self.add_node(&m1_name, (96.0, m1_y), NodeKind::Junction, Some(JunctionFamily::Merge));
-            self.add_node(&m2_name, (104.0, m2_y), NodeKind::Junction, Some(JunctionFamily::Merge));
+            self.add_node(
+                &m1_name,
+                (96.0, m1_y),
+                NodeKind::Junction,
+                Some(JunctionFamily::Merge),
+            );
+            self.add_node(
+                &m2_name,
+                (104.0, m2_y),
+                NodeKind::Junction,
+                Some(JunctionFamily::Merge),
+            );
 
             let start_pt = self
                 .nodes

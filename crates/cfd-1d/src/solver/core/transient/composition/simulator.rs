@@ -441,6 +441,20 @@ impl TransientCompositionSimulator {
 
     /// Simulate transient blood hematocrit with pressure-event-driven hydraulic
     /// re-solves and hematocrit-dependent resistance coupling.
+    ///
+    /// # Theorem - Coupled Pressure Snapshot Initialization
+    ///
+    /// If every edge has geometric properties sufficient to compute hydraulic
+    /// resistance, then each pressure-event snapshot must initialize geometric
+    /// resistances before the first pressure solve.
+    ///
+    /// **Proof sketch**: The pressure solve computes fluxes from conductances,
+    /// and conductance is the reciprocal of resistance. A zero stored
+    /// resistance is an uninitialized state for geometry-backed edges, not a
+    /// physical infinite conductance. Calling `update_resistances()` before the
+    /// first solve maps geometry, hematocrit, and apparent viscosity to finite
+    /// positive resistances, so a positive pressure drop produces finite
+    /// nonzero branch flows.
     pub fn simulate_blood_hematocrit_with_coupled_pressure_events<
         T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
         F: FluidTrait<T> + Clone,
@@ -638,6 +652,7 @@ impl TransientCompositionSimulator {
                 pressure_event_cursor += 1;
             }
 
+            working_network.update_resistances()?;
             let mut current_flow_rates = HashMap::with_capacity(working_network.flow_rates.len());
             let mut current_node_mixtures = HashMap::with_capacity(working_network.node_count());
             let mut current_edge_mixtures =
@@ -646,7 +661,6 @@ impl TransientCompositionSimulator {
 
             for _ in 0..max_coupling_iters {
                 working_network = solver.solve_owned_network(working_network)?;
-
                 current_flow_rates.clear();
                 for (i, &q) in working_network.flow_rates.iter().enumerate() {
                     current_flow_rates.insert(i, q);
@@ -661,6 +675,11 @@ impl TransientCompositionSimulator {
                     &working_network,
                     &current_node_mixtures,
                     &current_flow_rates,
+                );
+                Self::apply_active_inlet_edge_mixtures(
+                    &working_network,
+                    &active_inlet_mixtures,
+                    &mut current_edge_mixtures,
                 );
                 Self::backfill_blood_edge_mixtures_from_network(
                     &working_network,
@@ -682,11 +701,15 @@ impl TransientCompositionSimulator {
                 working_network.update_resistances()?;
             }
 
+            let reported_flow_rates = current_flow_rates
+                .iter()
+                .map(|(&edge_index, &flow_rate)| (edge_index, num_traits::Float::abs(flow_rate)))
+                .collect();
             states.push(CompositionState {
                 time,
                 node_mixtures: current_node_mixtures,
                 edge_mixtures: current_edge_mixtures,
-                edge_flow_rates: current_flow_rates,
+                edge_flow_rates: reported_flow_rates,
             });
         }
 
@@ -1858,6 +1881,19 @@ impl TransientCompositionSimulator {
                 .or_insert_with(MixtureComposition::empty);
             if entry.hematocrit().is_none() {
                 *entry = MixtureComposition::from_blood_hematocrit(hematocrit);
+            }
+        }
+    }
+
+    fn apply_active_inlet_edge_mixtures<T: RealField + Copy, F: FluidTrait<T> + Clone>(
+        network: &Network<T, F>,
+        active_inlet_mixtures: &HashMap<usize, MixtureComposition<T>>,
+        edge_mixtures: &mut HashMap<usize, MixtureComposition<T>>,
+    ) {
+        for edge_ref in network.graph.edge_references() {
+            let source = edge_ref.source().index();
+            if let Some(mixture) = active_inlet_mixtures.get(&source) {
+                edge_mixtures.insert(edge_ref.id().index(), mixture.clone());
             }
         }
     }

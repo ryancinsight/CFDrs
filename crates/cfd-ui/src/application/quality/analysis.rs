@@ -1,8 +1,8 @@
 //! Mesh quality analysis — wraps cfd-mesh quality and normal analysis.
 
-use cfd_mesh::IndexedMesh;
-use cfd_mesh::application::quality::validation::QualityReport;
 use cfd_mesh::application::quality::normals::NormalAnalysis;
+use cfd_mesh::application::quality::validation::QualityReport;
+use cfd_mesh::IndexedMesh;
 
 /// Consolidated mesh analysis report.
 pub struct MeshAnalysisReport {

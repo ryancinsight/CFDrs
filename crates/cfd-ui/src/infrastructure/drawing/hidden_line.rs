@@ -70,9 +70,12 @@ impl DepthClassifier {
                 if let Some((u, v, w)) = barycentric(
                     &TriPoint { px, py },
                     &Triangle {
-                        ax: f64::from(s0.0), ay: f64::from(s0.1),
-                        bx: f64::from(s1.0), by: f64::from(s1.1),
-                        cx: f64::from(s2.0), cy: f64::from(s2.1),
+                        ax: f64::from(s0.0),
+                        ay: f64::from(s0.1),
+                        bx: f64::from(s1.0),
+                        by: f64::from(s1.1),
+                        cx: f64::from(s2.0),
+                        cy: f64::from(s2.1),
                     },
                 ) {
                     let depth = u * d0 + v * d1 + w * d2;

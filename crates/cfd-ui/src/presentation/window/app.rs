@@ -21,10 +21,8 @@ pub fn run() -> anyhow::Result<()> {
             ..Default::default()
         };
 
-        app.open_window(options, |_window, cx| {
-            cx.new(Workspace::new)
-        })
-        .expect("failed to open window");
+        app.open_window(options, |_window, cx| cx.new(Workspace::new))
+            .expect("failed to open window");
     });
 
     Ok(())

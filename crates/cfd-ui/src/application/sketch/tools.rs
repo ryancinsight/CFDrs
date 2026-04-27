@@ -1,6 +1,8 @@
 //! Sketch tool service — creates sketch geometry from user interactions.
 
-use crate::domain::sketch::entity::{EntityId, SketchCircle, SketchEntity, SketchLine, SketchPoint};
+use crate::domain::sketch::entity::{
+    EntityId, SketchCircle, SketchEntity, SketchLine, SketchPoint,
+};
 use crate::domain::sketch::sketch::Sketch;
 
 /// Service for creating sketch geometry from tool interactions.
@@ -16,13 +18,22 @@ impl SketchToolService {
         let lid = sketch.next_entity_id();
 
         sketch.add_entity(SketchEntity::Point(SketchPoint {
-            id: id0, x: p0.0, y: p0.1, construction: false,
+            id: id0,
+            x: p0.0,
+            y: p0.1,
+            construction: false,
         }));
         sketch.add_entity(SketchEntity::Point(SketchPoint {
-            id: id1, x: p1.0, y: p1.1, construction: false,
+            id: id1,
+            x: p1.0,
+            y: p1.1,
+            construction: false,
         }));
         sketch.add_entity(SketchEntity::Line(SketchLine {
-            id: lid, start: id0, end: id1, construction: false,
+            id: lid,
+            start: id0,
+            end: id1,
+            construction: false,
         }));
 
         vec![id0, id1, lid]
@@ -44,10 +55,16 @@ impl SketchToolService {
         let radius = (dx * dx + dy * dy).sqrt();
 
         sketch.add_entity(SketchEntity::Point(SketchPoint {
-            id: cid, x: center.0, y: center.1, construction: false,
+            id: cid,
+            x: center.0,
+            y: center.1,
+            construction: false,
         }));
         sketch.add_entity(SketchEntity::Circle(SketchCircle {
-            id: circle_id, center: cid, radius, construction: false,
+            id: circle_id,
+            center: cid,
+            radius,
+            construction: false,
         }));
 
         vec![cid, circle_id]
@@ -61,7 +78,9 @@ impl SketchToolService {
         point_id: EntityId,
         snap_radius: f64,
     ) -> Vec<crate::domain::sketch::constraint::ConstraintId> {
-        let Some(pt) = sketch.point(point_id) else { return vec![] };
+        let Some(pt) = sketch.point(point_id) else {
+            return vec![];
+        };
         let px = pt.x;
         let py = pt.y;
 

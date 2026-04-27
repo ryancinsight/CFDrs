@@ -149,9 +149,9 @@ pub use topology::{
     BlueprintTopologyFactory, BlueprintTopologyMutation, BlueprintTopologySpec, BranchRole,
     BranchSpec, ChannelRouteSpec, DeanSiteEstimate, ParallelChannelSpec, RecoverySubSplit,
     SeriesChannelSpec, SerpentineSpec, SerpentineWaveType, SplitKind, SplitStageSpec,
-    SubBranchSpec,
-    ThroatGeometrySpec, TopologyChannelSpec, TopologyLineageEvent, TopologyLineageMetadata,
-    TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementMode, VenturiPlacementSpec,
+    SubBranchSpec, ThroatGeometrySpec, TopologyChannelSpec, TopologyLineageEvent,
+    TopologyLineageMetadata, TopologyOptimizationStage, TreatmentActuationMode,
+    VenturiPlacementMode, VenturiPlacementSpec,
 };
 pub use visualizations::schematic::{
     centerline_vertices, plot_blueprint, plot_blueprint_auto_annotated,

@@ -1,8 +1,8 @@
 //! `OpenFOAM` polyMesh export command.
 
-use cfd_mesh::IndexedMesh;
 use cfd_mesh::domain::core::index::RegionId;
 use cfd_mesh::domain::topology::halfedge::PatchType;
+use cfd_mesh::IndexedMesh;
 use std::path::Path;
 
 /// Export an `IndexedMesh` to `OpenFOAM` polyMesh format in the given directory.

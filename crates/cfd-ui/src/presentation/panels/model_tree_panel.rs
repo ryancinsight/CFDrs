@@ -7,7 +7,8 @@ use crate::domain::scene::graph::SceneGraph;
 #[must_use]
 pub fn build_model_tree(scene: &SceneGraph) -> Vec<ModelTreeNode> {
     let root = scene.root();
-    scene.children(root)
+    scene
+        .children(root)
         .iter()
         .filter_map(|&idx| {
             let node = scene.node(idx)?;
@@ -17,7 +18,8 @@ pub fn build_model_tree(scene: &SceneGraph) -> Vec<ModelTreeNode> {
 }
 
 fn build_subtree(scene: &SceneGraph, idx: usize, label: String) -> ModelTreeNode {
-    let children = scene.children(idx)
+    let children = scene
+        .children(idx)
         .iter()
         .filter_map(|&child_idx| {
             let child = scene.node(child_idx)?;

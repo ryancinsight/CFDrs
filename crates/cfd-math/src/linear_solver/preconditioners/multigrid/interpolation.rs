@@ -604,13 +604,7 @@ mod tests {
 
         println!("Weights for point 1: w(0)={w1_0}, w(3)={w1_3}");
 
-        assert!(
-            (w1_0 - 2.0 / 3.0).abs() < 1e-10,
-            "Expected 2/3, got {w1_0}"
-        );
-        assert!(
-            (w1_3 - 1.0 / 3.0).abs() < 1e-10,
-            "Expected 1/3, got {w1_3}"
-        );
+        assert!((w1_0 - 2.0 / 3.0).abs() < 1e-10, "Expected 2/3, got {w1_0}");
+        assert!((w1_3 - 1.0 / 3.0).abs() < 1e-10, "Expected 1/3, got {w1_3}");
     }
 }

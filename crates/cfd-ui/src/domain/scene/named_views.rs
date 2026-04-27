@@ -33,12 +33,30 @@ impl NamedView {
     #[must_use]
     pub fn angles(self) -> ViewAngles {
         match self {
-            Self::Front => ViewAngles { azimuth: 0.0, elevation: 0.0 },
-            Self::Back => ViewAngles { azimuth: PI, elevation: 0.0 },
-            Self::Top => ViewAngles { azimuth: 0.0, elevation: FRAC_PI_2 - 0.001 },
-            Self::Bottom => ViewAngles { azimuth: 0.0, elevation: -(FRAC_PI_2 - 0.001) },
-            Self::Left => ViewAngles { azimuth: -FRAC_PI_2, elevation: 0.0 },
-            Self::Right => ViewAngles { azimuth: FRAC_PI_2, elevation: 0.0 },
+            Self::Front => ViewAngles {
+                azimuth: 0.0,
+                elevation: 0.0,
+            },
+            Self::Back => ViewAngles {
+                azimuth: PI,
+                elevation: 0.0,
+            },
+            Self::Top => ViewAngles {
+                azimuth: 0.0,
+                elevation: FRAC_PI_2 - 0.001,
+            },
+            Self::Bottom => ViewAngles {
+                azimuth: 0.0,
+                elevation: -(FRAC_PI_2 - 0.001),
+            },
+            Self::Left => ViewAngles {
+                azimuth: -FRAC_PI_2,
+                elevation: 0.0,
+            },
+            Self::Right => ViewAngles {
+                azimuth: FRAC_PI_2,
+                elevation: 0.0,
+            },
             Self::IsoFrontTopRight => ViewAngles {
                 azimuth: FRAC_PI_4,
                 elevation: ISO_ELEVATION,
@@ -87,7 +105,14 @@ impl NamedView {
     /// All six orthographic views.
     #[must_use]
     pub fn orthographic_views() -> [Self; 6] {
-        [Self::Front, Self::Back, Self::Top, Self::Bottom, Self::Left, Self::Right]
+        [
+            Self::Front,
+            Self::Back,
+            Self::Top,
+            Self::Bottom,
+            Self::Left,
+            Self::Right,
+        ]
     }
 }
 

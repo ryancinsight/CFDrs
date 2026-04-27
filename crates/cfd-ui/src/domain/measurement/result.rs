@@ -8,15 +8,9 @@ pub struct MeasurementId(pub u32);
 #[derive(Clone, Debug)]
 pub enum MeasurementKind {
     /// Distance between two points.
-    PointToPoint {
-        start: [f64; 3],
-        end: [f64; 3],
-    },
+    PointToPoint { start: [f64; 3], end: [f64; 3] },
     /// Length of an edge.
-    EdgeLength {
-        v0: [f64; 3],
-        v1: [f64; 3],
-    },
+    EdgeLength { v0: [f64; 3], v1: [f64; 3] },
     /// Dihedral angle between two faces.
     FaceAngle {
         face_a_normal: [f64; 3],
@@ -24,13 +18,9 @@ pub enum MeasurementKind {
         edge_midpoint: [f64; 3],
     },
     /// Area of a single face.
-    FaceArea {
-        face_center: [f64; 3],
-    },
+    FaceArea { face_center: [f64; 3] },
     /// Volume of a closed mesh.
-    MeshVolume {
-        mesh_center: [f64; 3],
-    },
+    MeshVolume { mesh_center: [f64; 3] },
 }
 
 /// A completed measurement with its display data.
@@ -156,7 +146,9 @@ mod tests {
     fn remove_measurement() {
         let mut store = MeasurementStore::new();
         let id = store.add(
-            MeasurementKind::FaceArea { face_center: [0.0; 3] },
+            MeasurementKind::FaceArea {
+                face_center: [0.0; 3],
+            },
             5.0,
             "mm^2",
             "Area".to_owned(),

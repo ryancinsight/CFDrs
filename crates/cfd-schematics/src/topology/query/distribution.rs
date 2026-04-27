@@ -110,7 +110,11 @@ impl BlueprintTopologySpec {
         }
 
         let first = &self.split_stages[0];
-        let n_treatment = first.branches.iter().filter(|branch| branch.treatment_path).count();
+        let n_treatment = first
+            .branches
+            .iter()
+            .filter(|branch| branch.treatment_path)
+            .count();
         let n_bypass = first.branches.len() - n_treatment;
         if n_bypass >= 1 && n_treatment == 1 {
             0.5

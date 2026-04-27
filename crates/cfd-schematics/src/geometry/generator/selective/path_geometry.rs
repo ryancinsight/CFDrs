@@ -4,8 +4,8 @@
 //! 2-D point sequences. No blueprint or topology types are referenced here.
 
 use super::super::super::types::Point2D;
-use crate::domain::model::ChannelShape;
 use super::CenterSerpentinePathSpec;
+use crate::domain::model::ChannelShape;
 
 /// Compute the total path length (mm) of a sequence of 2-D waypoints.
 pub(super) fn polyline_length_mm(points: &[Point2D]) -> f64 {
@@ -82,10 +82,7 @@ pub(super) fn segment_intersection_strict(
 
 /// Return `true` when `candidate` intersects any segment in any of
 /// `existing_paths`.
-pub(super) fn path_intersects_any(
-    candidate: &[Point2D],
-    existing_paths: &[Vec<Point2D>],
-) -> bool {
+pub(super) fn path_intersects_any(candidate: &[Point2D], existing_paths: &[Vec<Point2D>]) -> bool {
     candidate.windows(2).any(|segment_a| {
         existing_paths.iter().any(|path| {
             path.windows(2).any(|segment_b| {

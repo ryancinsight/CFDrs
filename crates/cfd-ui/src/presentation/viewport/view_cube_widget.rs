@@ -30,7 +30,7 @@ pub fn view_cube_triangles(state: &ViewCubeState) -> Vec<OverlayTriangle> {
     let h = 0.5_f32;
     let faces: [([[f32; 3]; 4], usize); 6] = [
         // Front face (+Z)
-        ([[- h, -h, h], [h, -h, h], [h, h, h], [-h, h, h]], 0),
+        ([[-h, -h, h], [h, -h, h], [h, h, h], [-h, h, h]], 0),
         // Back face (-Z)
         ([[h, -h, -h], [-h, -h, -h], [-h, h, -h], [h, h, -h]], 1),
         // Top face (+Y)
@@ -61,10 +61,16 @@ pub fn view_cube_triangles(state: &ViewCubeState) -> Vec<OverlayTriangle> {
         };
         // Two triangles per quad face.
         tris.push(OverlayTriangle {
-            v0: verts[0], v1: verts[1], v2: verts[2], color,
+            v0: verts[0],
+            v1: verts[1],
+            v2: verts[2],
+            color,
         });
         tris.push(OverlayTriangle {
-            v0: verts[0], v1: verts[2], v2: verts[3], color,
+            v0: verts[0],
+            v1: verts[2],
+            v2: verts[3],
+            color,
         });
     }
     tris
@@ -72,21 +78,14 @@ pub fn view_cube_triangles(state: &ViewCubeState) -> Vec<OverlayTriangle> {
 
 /// Build GPU overlay buffer for the view cube.
 #[must_use]
-pub fn build_view_cube_buffer(
-    state: &ViewCubeState,
-    device: &wgpu::Device,
-) -> OverlayBuffer {
+pub fn build_view_cube_buffer(state: &ViewCubeState, device: &wgpu::Device) -> OverlayBuffer {
     OverlayBuffer::from_triangles(&view_cube_triangles(state), device)
 }
 
 /// Handle a click on the view cube. Returns the target `NamedView` if the
 /// click landed on the cube, or `None` if it missed.
 #[must_use]
-pub fn handle_click(
-    px: f32,
-    py: f32,
-    rect: &ViewCubeRect,
-) -> Option<NamedView> {
+pub fn handle_click(px: f32, py: f32, rect: &ViewCubeRect) -> Option<NamedView> {
     if !rect.contains(px, py) {
         return None;
     }

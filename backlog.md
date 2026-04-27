@@ -4,15 +4,21 @@
 - [x] `cfd-schematics`: Consolidate shared components and implement unified access.
 - [x] `cfd-schematics`: Enforce Clean Architecture, Dependency Inversion Principle, Single Responsibility Principle, and Single Source of Truth.
 - [x] `cfd-schematics`: Replace silent no-op plotters drawer methods with real rendering and output-verified tests.
+- [x] `cfd-ui`: Preserve clip-plane slot identity and explicit stale-state errors in clipping commands.
 - [x] `cfd-1d`: Preserve transient composition sampling error context in the time-config projection path.
 - [x] `cfd-1d`: Preallocate merged timepoint schedules in the transient composition time-config path.
 - [x] `cfd-1d`: Remove the silent 1% Quemada viscosity floor and fall back to Secomb when the Quemada domain is invalid.
+- [x] `cfd-1d`: Replace simplified margination lift aggregation with separate wall-induced and shear-gradient inertial scaling plus reference-equilibrium tests.
+- [x] `cfd-1d`: Make droplet occupied-channel snapshots a documented projection of finite-length occupancy spans.
+- [x] `cfd-1d`: Restore coupled pressure-event hematocrit flow by finite zero-flow blood viscosity initialization, row-equilibrated pressure solves, and accumulated duplicate sparse entries.
 - [x] `cfd-1d`: Remove the short-channel Reynolds floor from the Durst entrance correction and use the published low-Re formula directly.
 - [x] `cfd-2d`: Reuse a persistent pressure-velocity state workspace and validate repeated SIMPLE iterations.
 - [x] `cfd-2d`: Remove the transient PIMPLE outer residual snapshot allocation by reusing the corrected velocity workspace.
 - [x] `cfd-2d`: Reset Rhie-Chow coefficient caches on every update and remove the dead SIMPLEC diagonal workspace.
 - [x] `cfd-2d`: Wire the pressure-velocity solver boundary-condition and viscosity inputs into the reused state workspace.
 - [x] `cfd-2d`: Reject mismatched initial state layouts and non-physical fluid inputs before pressure-velocity stepping.
+- [x] `cfd-2d`: Replace the approximate MUSCL3/QUICK right-state reconstruction with exact quadratic face interpolation and value-semantic tests.
+- [x] `cfd-2d`: Replace the unimplemented turbulence validation benchmark branch with typed supported-model dispatch and rejection tests.
 - [x] `cfd-math`: Preserve direct sparse solver conversion failures and reject non-finite fallback output.
 - [x] `cfd-optim`: Remove the sonosensitizer activation floor from SDT report metrics and enforce zero-dose propagation at zero cavitation.
 - [x] `cfd-optim`: Remove synthetic 1% synergy floors from objective and pool scoring paths.
@@ -28,6 +34,9 @@
 - [x] `cfd-optim`: Replace residual shielding language in the Milestone 12 narrative with cancer-selective lysis and healthy-cell protection terminology.
 - [x] `cfd-optim`: Replace the remaining Milestone 12 process-figure shielding wording and narrative-template exposure wording with healthy-cell protection terminology.
 - [x] `cfd-optim`: Clear the Milestone 12 asset-review gate after manual PNG review and rerun the authoritative Option 2 report pipeline.
+- [x] `cfd-optim`: Unify GA convergence reporting on the trailing fitness window so the figure and narrative share one trend contract.
+- [x] `cfd-optim`: Add validation evidence and artifact traceability to the Milestone 12 report and synchronize the generated narrative/results artifacts.
+- [x] `cfd-optim`: Emit the authoritative Milestone 12 narrative in one pass so the release report run completes after manual asset review.
 - [x] `cfd-3d`: Replace the cavitation-number velocity floor with an exact zero-dynamic-pressure branch that returns infinite cavitation number.
 - [x] `cfd-3d`: Fall back to first-order upwind when the WENO5-Z stencil is unavailable on small grids.
 - [x] `cfd-3d`: Scale PLIC plane-bisection tolerance with the cell dimensions and reuse precomputed normals for curvature axis selection.
@@ -48,6 +57,7 @@
 - [x] `cfd-3d`: Validate pressure and density dimensions in cavitation damage accumulation and walk the damage field via raw column slices.
 - [x] `cfd-3d`: Validate cavitation-source dimensions, switch to raw-slice accumulation, and clamp source updates to feasible bounds.
 - [x] `cfd-3d`: Validate nuclei transport dimensions and switch cavitation nuclei advection-diffusion to slice-based accumulation.
+- [x] `cfd-3d`: Bind the Apollo-backed periodic DNS stepper to a validated reusable `FftPlan3D` instead of per-transform shape dispatch.
 - [x] `cfd-schematics`: Optimize memory layout with indexed node-layout caches and zero-copy parallel-group lookup.
 
 ## Rigor & Correctness

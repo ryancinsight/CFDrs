@@ -148,9 +148,7 @@ impl SceneGraph {
     /// Children of a node.
     #[must_use]
     pub fn children(&self, idx: usize) -> &[usize] {
-        self.nodes
-            .get(idx)
-            .map_or(&[], |n| n.children.as_slice())
+        self.nodes.get(idx).map_or(&[], |n| n.children.as_slice())
     }
 
     /// Immutable access to the full flat node store.
@@ -191,7 +189,11 @@ impl SceneGraph {
             }
         }
 
-        Ok(Self { nodes, root, camera })
+        Ok(Self {
+            nodes,
+            root,
+            camera,
+        })
     }
 }
 

@@ -1,7 +1,7 @@
 //! Project document — top-level container for a design session.
 
-use cfd_mesh::IndexedMesh;
 use crate::domain::scene::graph::{MeshHandle, SceneGraph};
+use cfd_mesh::IndexedMesh;
 use serde::{Deserialize, Serialize};
 
 /// Metadata associated with a saved project.

@@ -41,9 +41,21 @@ impl Default for AxisIndicatorConfig {
 pub fn axis_indicator_lines() -> Vec<OverlayLine> {
     let origin = [0.0, 0.0, 0.0];
     vec![
-        OverlayLine { start: origin, end: [1.0, 0.0, 0.0], color: X_COLOR },
-        OverlayLine { start: origin, end: [0.0, 1.0, 0.0], color: Y_COLOR },
-        OverlayLine { start: origin, end: [0.0, 0.0, 1.0], color: Z_COLOR },
+        OverlayLine {
+            start: origin,
+            end: [1.0, 0.0, 0.0],
+            color: X_COLOR,
+        },
+        OverlayLine {
+            start: origin,
+            end: [0.0, 1.0, 0.0],
+            color: Y_COLOR,
+        },
+        OverlayLine {
+            start: origin,
+            end: [0.0, 0.0, 1.0],
+            color: Z_COLOR,
+        },
     ]
 }
 

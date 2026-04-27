@@ -6,13 +6,13 @@ use gpui::{
 };
 
 use super::workspace::gpui_rgba;
+use crate::domain::document::model_tree::ModelTreeNode;
+use crate::domain::scene::graph::SceneEntity;
 use crate::presentation::panels::console_panel::{ConsoleState, LogLevel};
 use crate::presentation::panels::model_tree_panel;
 use crate::presentation::panels::property_editor::{PropertySheet, PropertyValue};
 use crate::presentation::theme::ThemeColors;
 use crate::presentation::workspace::WorkspaceState;
-use crate::domain::document::model_tree::ModelTreeNode;
-use crate::domain::scene::graph::SceneEntity;
 
 // ---------------------------------------------------------------------------
 // Model tree
@@ -41,11 +41,7 @@ pub fn render_model_tree(state: &WorkspaceState, theme: &ThemeColors) -> impl In
 }
 
 /// Render a single tree node, recursing into children.
-fn render_tree_node(
-    node: &ModelTreeNode,
-    theme: &ThemeColors,
-    depth: usize,
-) -> impl IntoElement {
+fn render_tree_node(node: &ModelTreeNode, theme: &ThemeColors, depth: usize) -> impl IntoElement {
     let indent = (depth as f32) * 16.0;
     let label = node.label.clone();
     let id_str = format!("tree-{}-{}", node.scene_index, label);
@@ -81,11 +77,7 @@ pub fn render_properties(state: &WorkspaceState, theme: &ThemeColors) -> impl In
             match &node.entity {
                 SceneEntity::Mesh(handle) => {
                     if let Some(mesh) = state.document.mesh(*handle) {
-                        PropertySheet::for_mesh(
-                            &node.name,
-                            mesh.vertices.len(),
-                            mesh.faces.len(),
-                        )
+                        PropertySheet::for_mesh(&node.name, mesh.vertices.len(), mesh.faces.len())
                     } else {
                         PropertySheet::empty()
                     }

@@ -68,9 +68,9 @@ pub fn create_primitive_selective_tree_geometry(
     };
 
     let split_depth = splits.len().max(1);
-    let total_branches = splits
-        .iter()
-        .fold(1usize, |product, split| product.saturating_mul(split.branch_count()));
+    let total_branches = splits.iter().fold(1usize, |product, split| {
+        product.saturating_mul(split.branch_count())
+    });
     let retry_scales = [1.0, 1.2, 1.45, 1.75, 2.1, 2.5];
     let mut last_blueprint = None;
 
@@ -169,8 +169,8 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
         }
 
         let treatment_fraction = (treatment_branch.route.width_m / parent_width_m).clamp(0.0, 1.0);
-        center_serpentine = center_serpentine.or(
-            treatment_branch
+        center_serpentine =
+            center_serpentine.or(treatment_branch
                 .route
                 .serpentine
                 .as_ref()
@@ -178,8 +178,7 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
                     segments: serpentine.segments,
                     bend_radius_m: serpentine.bend_radius_m,
                     wave_type: serpentine.wave_type,
-                }),
-        );
+                }));
 
         match stage.split_kind {
             SplitKind::NFurcation(2) => {
@@ -226,8 +225,9 @@ pub fn create_primitive_selective_tree_geometry_from_spec(
         box_dims_mm: spec.box_dims_mm,
         split_sequence,
         main_width_m: spec.inlet_width_m,
-        throat_width_m: strongest_venturi
-            .map_or(parent_width_m, |placement| placement.throat_geometry.throat_width_m),
+        throat_width_m: strongest_venturi.map_or(parent_width_m, |placement| {
+            placement.throat_geometry.throat_width_m
+        }),
         throat_length_m: strongest_venturi.map_or(spec.trunk_length_m / 8.0, |placement| {
             placement.throat_geometry.throat_length_m
         }),

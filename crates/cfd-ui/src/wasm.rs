@@ -4,9 +4,9 @@
 //! where Three.js handles all WebGL rendering. This decouples the rendering
 //! backend from `wgpu` version constraints.
 
-use wasm_bindgen::prelude::*;
 use nalgebra::Point3;
 use serde::Serialize;
+use wasm_bindgen::prelude::*;
 
 use cfd_mesh::application::delaunay::dim3::sdf::FiniteCylinderSdf;
 use cfd_mesh::application::delaunay::dim3::SdfMesher;
@@ -52,20 +52,21 @@ pub fn ping() -> String {
 #[wasm_bindgen]
 pub fn generate_delaunay_cylinder(resolution: f64) -> String {
     log("generate_delaunay_cylinder: entry");
-    let sdf = FiniteCylinderSdf::new(
-        Point3::new(-1.0, 0.0, 0.0),
-        Point3::new(1.0, 0.0, 0.0),
-        0.5,
-    );
+    let sdf = FiniteCylinderSdf::new(Point3::new(-1.0, 0.0, 0.0), Point3::new(1.0, 0.0, 0.0), 0.5);
     // Clamp to WASM-safe range: minimum 0.25 to keep seed count tractable.
     let res = resolution.clamp(0.25, 2.0);
-    log(&format!("generate_delaunay_cylinder: creating mesher with res={res}"));
+    log(&format!(
+        "generate_delaunay_cylinder: creating mesher with res={res}"
+    ));
     let mut mesher = SdfMesher::<f64>::new(res);
     mesher.snap_iterations = 0;
     log("generate_delaunay_cylinder: calling build_volume");
     let mesh = mesher.build_volume(&sdf);
-    log(&format!("generate_delaunay_cylinder: mesh has {} verts, {} faces",
-        mesh.vertex_count(), mesh.face_count()));
+    log(&format!(
+        "generate_delaunay_cylinder: mesh has {} verts, {} faces",
+        mesh.vertex_count(),
+        mesh.face_count()
+    ));
 
     indexed_mesh_to_json(&mesh)
 }
@@ -88,13 +89,18 @@ pub fn generate_delaunay_sphere(resolution: f64) -> String {
     // points which fits within WASM linear memory constraints.
     // Maximum 2.0: coarser than this produces degenerate geometry.
     let res = resolution.clamp(0.25, 2.0);
-    log(&format!("generate_delaunay_sphere: creating mesher with res={res}"));
+    log(&format!(
+        "generate_delaunay_sphere: creating mesher with res={res}"
+    ));
     let mut mesher = SdfMesher::<f64>::new(res);
     mesher.snap_iterations = 0;
     log("generate_delaunay_sphere: calling build_volume");
     let mesh = mesher.build_volume(&sdf);
-    log(&format!("generate_delaunay_sphere: mesh has {} verts, {} faces",
-        mesh.vertex_count(), mesh.face_count()));
+    log(&format!(
+        "generate_delaunay_sphere: mesh has {} verts, {} faces",
+        mesh.vertex_count(),
+        mesh.face_count()
+    ));
 
     indexed_mesh_to_json(&mesh)
 }

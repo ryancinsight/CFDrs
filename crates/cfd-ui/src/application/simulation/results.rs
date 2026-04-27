@@ -21,7 +21,13 @@ impl FieldData {
     pub fn new(name: String, units: String, values: Vec<f64>) -> Self {
         let min = values.iter().copied().fold(f64::INFINITY, f64::min);
         let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        Self { name, units, values, min, max }
+        Self {
+            name,
+            units,
+            values,
+            min,
+            max,
+        }
     }
 }
 

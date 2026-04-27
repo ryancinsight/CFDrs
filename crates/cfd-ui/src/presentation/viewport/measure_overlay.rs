@@ -28,22 +28,14 @@ pub fn measurement_overlay_lines(store: &MeasurementStore) -> Vec<OverlayLine> {
 /// Generate overlay lines for a single measurement.
 fn lines_for_measurement(result: &MeasurementResult) -> Vec<OverlayLine> {
     match &result.kind {
-        MeasurementKind::PointToPoint { start, end } => {
-            point_to_point_lines(start, end)
-        }
-        MeasurementKind::EdgeLength { v0, v1 } => {
-            point_to_point_lines(v0, v1)
-        }
+        MeasurementKind::PointToPoint { start, end } => point_to_point_lines(start, end),
+        MeasurementKind::EdgeLength { v0, v1 } => point_to_point_lines(v0, v1),
         MeasurementKind::FaceAngle { edge_midpoint, .. } => {
             // Small cross-hair at the edge midpoint.
             cross_hair_lines(edge_midpoint)
         }
-        MeasurementKind::FaceArea { face_center } => {
-            cross_hair_lines(face_center)
-        }
-        MeasurementKind::MeshVolume { mesh_center } => {
-            cross_hair_lines(mesh_center)
-        }
+        MeasurementKind::FaceArea { face_center } => cross_hair_lines(face_center),
+        MeasurementKind::MeshVolume { mesh_center } => cross_hair_lines(mesh_center),
     }
 }
 
@@ -91,8 +83,16 @@ fn point_to_point_lines(start: &[f64; 3], end: &[f64; 3]) -> Vec<OverlayLine> {
 
     vec![
         main_line,
-        OverlayLine { start: tick_s, end: tick_e_start, color: EXTENSION_COLOR },
-        OverlayLine { start: tick_s2, end: tick_e2, color: EXTENSION_COLOR },
+        OverlayLine {
+            start: tick_s,
+            end: tick_e_start,
+            color: EXTENSION_COLOR,
+        },
+        OverlayLine {
+            start: tick_s2,
+            end: tick_e2,
+            color: EXTENSION_COLOR,
+        },
     ]
 }
 

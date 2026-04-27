@@ -198,7 +198,7 @@ fn test_sonoluminescence_energy_field_requires_collapse_and_is_finite() {
     let density_field = DMatrix::from_element(6, 4 * 3, 998.0);
 
     solver
-        .step(1e-7, &velocity_field, &pressure_field, &density_field)
+        .step(1e-12, &velocity_field, &pressure_field, &density_field)
         .unwrap();
 
     let energy = solver

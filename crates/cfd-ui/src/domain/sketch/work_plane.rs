@@ -31,7 +31,12 @@ impl WorkPlane {
         let n = normal.normalize();
         let u = (u_axis - n * u_axis.dot(&n)).normalize();
         let v = n.cross(&u);
-        Self { origin, normal: n, u_axis: u, v_axis: v }
+        Self {
+            origin,
+            normal: n,
+            u_axis: u,
+            v_axis: v,
+        }
     }
 
     /// XY origin plane (normal = +Z, u = +X).
@@ -101,10 +106,22 @@ impl WorkPlane {
     #[must_use]
     pub fn model_matrix(&self) -> Matrix4<f64> {
         Matrix4::new(
-            self.u_axis.x, self.v_axis.x, self.normal.x, self.origin.x,
-            self.u_axis.y, self.v_axis.y, self.normal.y, self.origin.y,
-            self.u_axis.z, self.v_axis.z, self.normal.z, self.origin.z,
-            0.0,           0.0,           0.0,           1.0,
+            self.u_axis.x,
+            self.v_axis.x,
+            self.normal.x,
+            self.origin.x,
+            self.u_axis.y,
+            self.v_axis.y,
+            self.normal.y,
+            self.origin.y,
+            self.u_axis.z,
+            self.v_axis.z,
+            self.normal.z,
+            self.origin.z,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
         )
     }
 }
@@ -139,11 +156,7 @@ mod tests {
 
     #[test]
     fn model_matrix_fourth_column_is_origin() {
-        let wp = WorkPlane::new(
-            Point3::new(1.0, 2.0, 3.0),
-            Vector3::z(),
-            Vector3::x(),
-        );
+        let wp = WorkPlane::new(Point3::new(1.0, 2.0, 3.0), Vector3::z(), Vector3::x());
         let m = wp.model_matrix();
         assert_relative_eq!(m[(0, 3)], 1.0, epsilon = 1e-12);
         assert_relative_eq!(m[(1, 3)], 2.0, epsilon = 1e-12);

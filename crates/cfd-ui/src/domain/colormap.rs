@@ -102,14 +102,14 @@ fn lerp(a: f64, b: f64, t: f64) -> f64 {
 
 /// Qualitative palette for up to 10 distinct regions.
 const REGION_PALETTE: [Color; 10] = [
-    Color::rgb(31, 119, 180),   // blue
-    Color::rgb(255, 127, 14),   // orange
-    Color::rgb(44, 160, 44),    // green
-    Color::rgb(214, 39, 40),    // red
-    Color::rgb(148, 103, 189),  // purple
-    Color::rgb(140, 86, 75),    // brown
-    Color::rgb(227, 119, 194),  // pink
-    Color::rgb(127, 127, 127),  // gray
-    Color::rgb(188, 189, 34),   // olive
-    Color::rgb(23, 190, 207),   // cyan
+    Color::rgb(31, 119, 180),  // blue
+    Color::rgb(255, 127, 14),  // orange
+    Color::rgb(44, 160, 44),   // green
+    Color::rgb(214, 39, 40),   // red
+    Color::rgb(148, 103, 189), // purple
+    Color::rgb(140, 86, 75),   // brown
+    Color::rgb(227, 119, 194), // pink
+    Color::rgb(127, 127, 127), // gray
+    Color::rgb(188, 189, 34),  // olive
+    Color::rgb(23, 190, 207),  // cyan
 ];

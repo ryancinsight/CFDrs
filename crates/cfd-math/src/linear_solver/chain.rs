@@ -33,7 +33,7 @@
 //!   saddle point problems." *Acta Numerica* 14:1–137.
 
 use crate::linear_solver::{
-    AlgebraicMultigrid, AMGConfig, BiCGSTAB, BlockDiagonalPreconditioner, DirectSparseSolver,
+    AMGConfig, AlgebraicMultigrid, BiCGSTAB, BlockDiagonalPreconditioner, DirectSparseSolver,
     IncompleteLU, IterativeSolverConfig, GMRES,
 };
 use cfd_core::error::{Error, Result};
@@ -290,7 +290,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
 
         let restart = std::cmp::min(self.krylov_restart, n_total_dof.max(1));
         let solver = GMRES::new(self.config, restart);
-        
+
         // ── Tier 2: GMRES + Algebraic Multigrid (AMG) ─────────────────────────
         match AlgebraicMultigrid::new(matrix, AMGConfig::default()) {
             Ok(amg) => match solver.solve_preconditioned(matrix, rhs, &amg, &mut x) {

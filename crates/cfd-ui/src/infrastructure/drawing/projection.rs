@@ -39,8 +39,13 @@ impl OrthographicProjector {
         let right = forward.cross(&up_dir).normalize();
         let up = right.cross(&forward).normalize();
         // Rotation maps world coords to (right, up, -forward) view coords.
-        let rotation = Matrix3::from_rows(&[right.transpose(), up.transpose(), (-forward).transpose()]);
-        Self { view_dir: forward, _up_dir: up, rotation }
+        let rotation =
+            Matrix3::from_rows(&[right.transpose(), up.transpose(), (-forward).transpose()]);
+        Self {
+            view_dir: forward,
+            _up_dir: up,
+            rotation,
+        }
     }
 
     /// Project a 3D point to 2D view coordinates.
@@ -80,7 +85,11 @@ impl OrthographicProjector {
             std::collections::HashMap::new();
         for (fi, face) in mesh.faces.iter().enumerate() {
             let verts = face.vertices.map(|v| v.0 as usize);
-            for &(a, b) in &[(verts[0], verts[1]), (verts[1], verts[2]), (verts[2], verts[0])] {
+            for &(a, b) in &[
+                (verts[0], verts[1]),
+                (verts[1], verts[2]),
+                (verts[2], verts[0]),
+            ] {
                 let key = if a < b { (a, b) } else { (b, a) };
                 edge_faces.entry(key).or_default().push(fi);
             }
@@ -88,8 +97,12 @@ impl OrthographicProjector {
 
         // Classify each unique edge.
         for (&(a, b), faces) in &edge_faces {
-            let pa = *mesh.vertices.position(cfd_mesh::domain::core::index::VertexId(a as u32));
-            let pb = *mesh.vertices.position(cfd_mesh::domain::core::index::VertexId(b as u32));
+            let pa = *mesh
+                .vertices
+                .position(cfd_mesh::domain::core::index::VertexId(a as u32));
+            let pb = *mesh
+                .vertices
+                .position(cfd_mesh::domain::core::index::VertexId(b as u32));
             let p2d_a = self.project_point(&pa);
             let p2d_b = self.project_point(&pb);
 
@@ -113,6 +126,10 @@ impl OrthographicProjector {
             }
         }
 
-        ProjectedEdges { visible, hidden, silhouette }
+        ProjectedEdges {
+            visible,
+            hidden,
+            silhouette,
+        }
     }
 }

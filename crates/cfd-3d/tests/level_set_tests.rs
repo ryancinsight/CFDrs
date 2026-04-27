@@ -347,7 +347,9 @@ fn test_velocity_length_mismatch_rejected_before_advance() {
     let mut solver = LevelSetSolver::new(default_config(), 4, 4, 4, 0.25, 0.25, 0.25);
     solver.set_velocity(vec![Vector3::new(1.0, 0.0, 0.0); 8]);
 
-    let err = solver.advance(1e-3).expect_err("advance must reject mismatched velocity length");
+    let err = solver
+        .advance(1e-3)
+        .expect_err("advance must reject mismatched velocity length");
     match err {
         Error::DimensionMismatch { expected, actual } => {
             assert_eq!(expected, 64);

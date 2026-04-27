@@ -5,10 +5,7 @@ use nalgebra::{Isometry3, Translation3, UnitQuaternion, Vector3};
 /// Create a translation-only isometry.
 #[must_use]
 pub fn translation(x: f64, y: f64, z: f64) -> Isometry3<f64> {
-    Isometry3::from_parts(
-        Translation3::new(x, y, z),
-        UnitQuaternion::identity(),
-    )
+    Isometry3::from_parts(Translation3::new(x, y, z), UnitQuaternion::identity())
 }
 
 /// Create a rotation-only isometry around the Y axis.

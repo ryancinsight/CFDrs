@@ -71,10 +71,22 @@ impl PrimitiveSplitSequence {
     pub const fn levels(self) -> u8 {
         match self {
             Self::Bi | Self::Tri | Self::Quad | Self::Penta => 1,
-            Self::TriBi | Self::TriTri | Self::TriQuad | Self::TriPenta
-            | Self::QuadBi | Self::QuadTri | Self::PentaBi | Self::PentaTri => 2,
-            Self::TriBiBi | Self::TriBiTri | Self::TriTriBi | Self::TriTriTri
-            | Self::QuadTriBi | Self::PentaQuadBi | Self::PentaQuadTri | Self::PentaTriBi => 3,
+            Self::TriBi
+            | Self::TriTri
+            | Self::TriQuad
+            | Self::TriPenta
+            | Self::QuadBi
+            | Self::QuadTri
+            | Self::PentaBi
+            | Self::PentaTri => 2,
+            Self::TriBiBi
+            | Self::TriBiTri
+            | Self::TriTriBi
+            | Self::TriTriTri
+            | Self::QuadTriBi
+            | Self::PentaQuadBi
+            | Self::PentaQuadTri
+            | Self::PentaTriBi => 3,
         }
     }
 

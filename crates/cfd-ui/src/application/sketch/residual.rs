@@ -60,11 +60,15 @@ pub fn constraint_residual_and_jacobian(
         Constraint::Parallel(a, b) => parallel_residual(sketch, param_map, *a, *b),
         Constraint::EqualLength(a, b) => equal_length_residual(sketch, param_map, *a, *b),
         Constraint::Concentric(a, b) => concentric_residual(sketch, param_map, *a, *b),
-        Constraint::Radius { entity, value, .. } => radius_residual(sketch, param_map, *entity, *value),
-        Constraint::Midpoint { point, line } => midpoint_residual(sketch, param_map, *point, *line),
-        Constraint::Symmetric { point_a, point_b, axis } => {
-            symmetric_residual(sketch, param_map, *point_a, *point_b, *axis)
+        Constraint::Radius { entity, value, .. } => {
+            radius_residual(sketch, param_map, *entity, *value)
         }
+        Constraint::Midpoint { point, line } => midpoint_residual(sketch, param_map, *point, *line),
+        Constraint::Symmetric {
+            point_a,
+            point_b,
+            axis,
+        } => symmetric_residual(sketch, param_map, *point_a, *point_b, *axis),
         Constraint::Angle {
             line_a,
             line_b,
@@ -82,11 +86,11 @@ fn zero_system(count: usize) -> (Vec<f64>, Vec<JacobianRow>) {
 }
 
 /// Find the parameter range for an entity ID.
-fn param_range(
-    param_map: &[(EntityId, Range<usize>)],
-    id: EntityId,
-) -> Option<Range<usize>> {
-    param_map.iter().find(|(eid, _)| *eid == id).map(|(_, r)| r.clone())
+fn param_range(param_map: &[(EntityId, Range<usize>)], id: EntityId) -> Option<Range<usize>> {
+    param_map
+        .iter()
+        .find(|(eid, _)| *eid == id)
+        .map(|(_, r)| r.clone())
 }
 
 /// Get point coordinates from the sketch.
@@ -153,8 +157,18 @@ fn entity_measure_and_jacobian(
             }
             let inv = 1.0 / length;
             let mut entries = Vec::new();
-            push_point_entries(&mut entries, param_range(param_map, line.start), dx * inv, dy * inv);
-            push_point_entries(&mut entries, param_range(param_map, line.end), -dx * inv, -dy * inv);
+            push_point_entries(
+                &mut entries,
+                param_range(param_map, line.start),
+                dx * inv,
+                dy * inv,
+            );
+            push_point_entries(
+                &mut entries,
+                param_range(param_map, line.end),
+                -dx * inv,
+                -dy * inv,
+            );
             Some((length, entries))
         }
         SketchEntity::Circle(circle) => {
@@ -175,8 +189,18 @@ fn entity_measure_and_jacobian(
             }
             let inv = 1.0 / radius;
             let mut entries = Vec::new();
-            push_point_entries(&mut entries, param_range(param_map, arc.center), dx * inv, dy * inv);
-            push_point_entries(&mut entries, param_range(param_map, arc.start), -dx * inv, -dy * inv);
+            push_point_entries(
+                &mut entries,
+                param_range(param_map, arc.center),
+                dx * inv,
+                dy * inv,
+            );
+            push_point_entries(
+                &mut entries,
+                param_range(param_map, arc.start),
+                -dx * inv,
+                -dy * inv,
+            );
             Some((radius, entries))
         }
         _ => None,
@@ -218,8 +242,12 @@ fn horizontal_residual(
     let Some((s, e)) = line_endpoints(sketch, line_id) else {
         return (vec![0.0], vec![JacobianRow { entries: vec![] }]);
     };
-    let Some((_, sy)) = point_xy(sketch, s) else { return (vec![0.0], vec![JacobianRow { entries: vec![] }]); };
-    let Some((_, ey)) = point_xy(sketch, e) else { return (vec![0.0], vec![JacobianRow { entries: vec![] }]); };
+    let Some((_, sy)) = point_xy(sketch, s) else {
+        return (vec![0.0], vec![JacobianRow { entries: vec![] }]);
+    };
+    let Some((_, ey)) = point_xy(sketch, e) else {
+        return (vec![0.0], vec![JacobianRow { entries: vec![] }]);
+    };
 
     let r = sy - ey;
     let mut entries = Vec::new();
@@ -241,8 +269,12 @@ fn vertical_residual(
     let Some((s, e)) = line_endpoints(sketch, line_id) else {
         return (vec![0.0], vec![JacobianRow { entries: vec![] }]);
     };
-    let Some((sx, _)) = point_xy(sketch, s) else { return (vec![0.0], vec![JacobianRow { entries: vec![] }]); };
-    let Some((ex, _)) = point_xy(sketch, e) else { return (vec![0.0], vec![JacobianRow { entries: vec![] }]); };
+    let Some((sx, _)) = point_xy(sketch, s) else {
+        return (vec![0.0], vec![JacobianRow { entries: vec![] }]);
+    };
+    let Some((ex, _)) = point_xy(sketch, e) else {
+        return (vec![0.0], vec![JacobianRow { entries: vec![] }]);
+    };
 
     let r = sx - ex;
     let mut entries = Vec::new();
@@ -262,18 +294,31 @@ fn coincident_residual(
     a: EntityId,
     b: EntityId,
 ) -> (Vec<f64>, Vec<JacobianRow>) {
-    let Some((ax, ay)) = point_xy(sketch, a) else { return (vec![0.0; 2], vec![JacobianRow { entries: vec![] }; 2]); };
-    let Some((bx, by)) = point_xy(sketch, b) else { return (vec![0.0; 2], vec![JacobianRow { entries: vec![] }; 2]); };
+    let Some((ax, ay)) = point_xy(sketch, a) else {
+        return (vec![0.0; 2], vec![JacobianRow { entries: vec![] }; 2]);
+    };
+    let Some((bx, by)) = point_xy(sketch, b) else {
+        return (vec![0.0; 2], vec![JacobianRow { entries: vec![] }; 2]);
+    };
 
     let ra = param_range(param_map, a);
     let rb = param_range(param_map, b);
 
     let mut jx = Vec::new();
     let mut jy = Vec::new();
-    if let Some(r) = &ra { jx.push((r.start, 1.0)); jy.push((r.start + 1, 1.0)); }
-    if let Some(r) = &rb { jx.push((r.start, -1.0)); jy.push((r.start + 1, -1.0)); }
+    if let Some(r) = &ra {
+        jx.push((r.start, 1.0));
+        jy.push((r.start + 1, 1.0));
+    }
+    if let Some(r) = &rb {
+        jx.push((r.start, -1.0));
+        jy.push((r.start + 1, -1.0));
+    }
 
-    (vec![ax - bx, ay - by], vec![JacobianRow { entries: jx }, JacobianRow { entries: jy }])
+    (
+        vec![ax - bx, ay - by],
+        vec![JacobianRow { entries: jx }, JacobianRow { entries: jy }],
+    )
 }
 
 /// Fixed: residual is zero (the Jacobian rows lock the DOFs in place).
@@ -293,7 +338,10 @@ fn fixed_residual(
         jx.push((r.start, 1.0));
         jy.push((r.start + 1, 1.0));
     }
-    (vec![0.0, 0.0], vec![JacobianRow { entries: jx }, JacobianRow { entries: jy }])
+    (
+        vec![0.0, 0.0],
+        vec![JacobianRow { entries: jx }, JacobianRow { entries: jy }],
+    )
 }
 
 /// Distance: r = sqrt(dx^2 + dy^2) - d
@@ -304,8 +352,12 @@ fn distance_residual(
     b: EntityId,
     target: f64,
 ) -> (Vec<f64>, Vec<JacobianRow>) {
-    let Some((ax, ay)) = point_xy(sketch, a) else { return (vec![0.0], vec![JacobianRow { entries: vec![] }]); };
-    let Some((bx, by)) = point_xy(sketch, b) else { return (vec![0.0], vec![JacobianRow { entries: vec![] }]); };
+    let Some((ax, ay)) = point_xy(sketch, a) else {
+        return (vec![0.0], vec![JacobianRow { entries: vec![] }]);
+    };
+    let Some((bx, by)) = point_xy(sketch, b) else {
+        return (vec![0.0], vec![JacobianRow { entries: vec![] }]);
+    };
 
     let dx = ax - bx;
     let dy = ay - by;
@@ -315,7 +367,7 @@ fn distance_residual(
     let inv_dist = if dist > 1e-12 { 1.0 / dist } else { 0.0 };
     let mut entries = Vec::new();
     if let Some(range) = param_range(param_map, a) {
-        entries.push((range.start, dx * inv_dist));     // d/d(ax)
+        entries.push((range.start, dx * inv_dist)); // d/d(ax)
         entries.push((range.start + 1, dy * inv_dist)); // d/d(ay)
     }
     if let Some(range) = param_range(param_map, b) {
@@ -409,19 +461,35 @@ fn midpoint_residual(
     let Some((s, e)) = line_endpoints(sketch, line_id) else {
         return (vec![0.0; 2], vec![JacobianRow { entries: vec![] }; 2]);
     };
-    let Some((sx, sy)) = point_xy(sketch, s) else { return (vec![0.0; 2], vec![JacobianRow { entries: vec![] }; 2]); };
-    let Some((ex, ey)) = point_xy(sketch, e) else { return (vec![0.0; 2], vec![JacobianRow { entries: vec![] }; 2]); };
+    let Some((sx, sy)) = point_xy(sketch, s) else {
+        return (vec![0.0; 2], vec![JacobianRow { entries: vec![] }; 2]);
+    };
+    let Some((ex, ey)) = point_xy(sketch, e) else {
+        return (vec![0.0; 2], vec![JacobianRow { entries: vec![] }; 2]);
+    };
 
     let rx = 2.0 * mx - sx - ex;
     let ry = 2.0 * my - sy - ey;
 
     let mut jx = Vec::new();
     let mut jy = Vec::new();
-    if let Some(r) = param_range(param_map, point_id) { jx.push((r.start, 2.0)); jy.push((r.start + 1, 2.0)); }
-    if let Some(r) = param_range(param_map, s) { jx.push((r.start, -1.0)); jy.push((r.start + 1, -1.0)); }
-    if let Some(r) = param_range(param_map, e) { jx.push((r.start, -1.0)); jy.push((r.start + 1, -1.0)); }
+    if let Some(r) = param_range(param_map, point_id) {
+        jx.push((r.start, 2.0));
+        jy.push((r.start + 1, 2.0));
+    }
+    if let Some(r) = param_range(param_map, s) {
+        jx.push((r.start, -1.0));
+        jy.push((r.start + 1, -1.0));
+    }
+    if let Some(r) = param_range(param_map, e) {
+        jx.push((r.start, -1.0));
+        jy.push((r.start + 1, -1.0));
+    }
 
-    (vec![rx, ry], vec![JacobianRow { entries: jx }, JacobianRow { entries: jy }])
+    (
+        vec![rx, ry],
+        vec![JacobianRow { entries: jx }, JacobianRow { entries: jy }],
+    )
 }
 
 #[cfg(test)]
@@ -439,7 +507,8 @@ fn tangent_residual(
     line_id: EntityId,
     curve_id: EntityId,
 ) -> (Vec<f64>, Vec<JacobianRow>) {
-    let Some(((line_start, line_end), (sx, sy, ex, ey))) = line_endpoint_data(sketch, line_id) else {
+    let Some(((line_start, line_end), (sx, sy, ex, ey))) = line_endpoint_data(sketch, line_id)
+    else {
         return zero_system(1);
     };
     let Some(((center_id, radius), radius_gradient)) =
@@ -500,7 +569,8 @@ fn equal_length_residual(
     entity_a: EntityId,
     entity_b: EntityId,
 ) -> (Vec<f64>, Vec<JacobianRow>) {
-    let Some((len_a, mut entries)) = entity_measure_and_jacobian(sketch, param_map, entity_a) else {
+    let Some((len_a, mut entries)) = entity_measure_and_jacobian(sketch, param_map, entity_a)
+    else {
         return zero_system(1);
     };
     let Some((len_b, entries_b)) = entity_measure_and_jacobian(sketch, param_map, entity_b) else {
@@ -552,10 +622,30 @@ fn symmetric_residual(
     let r_normal = dx * (bx - ax) + dy * (by - ay);
 
     let mut axis_entries = Vec::new();
-    push_point_entries(&mut axis_entries, param_range(param_map, axis_start), ey - my, mx - ex);
-    push_point_entries(&mut axis_entries, param_range(param_map, axis_end), my - sy, sx - mx);
-    push_point_entries(&mut axis_entries, param_range(param_map, point_a), -0.5 * dy, 0.5 * dx);
-    push_point_entries(&mut axis_entries, param_range(param_map, point_b), -0.5 * dy, 0.5 * dx);
+    push_point_entries(
+        &mut axis_entries,
+        param_range(param_map, axis_start),
+        ey - my,
+        mx - ex,
+    );
+    push_point_entries(
+        &mut axis_entries,
+        param_range(param_map, axis_end),
+        my - sy,
+        sx - mx,
+    );
+    push_point_entries(
+        &mut axis_entries,
+        param_range(param_map, point_a),
+        -0.5 * dy,
+        0.5 * dx,
+    );
+    push_point_entries(
+        &mut axis_entries,
+        param_range(param_map, point_b),
+        -0.5 * dy,
+        0.5 * dx,
+    );
 
     let mut normal_entries = Vec::new();
     push_point_entries(
@@ -570,14 +660,23 @@ fn symmetric_residual(
         bx - ax,
         by - ay,
     );
-    push_point_entries(&mut normal_entries, param_range(param_map, point_a), -dx, -dy);
+    push_point_entries(
+        &mut normal_entries,
+        param_range(param_map, point_a),
+        -dx,
+        -dy,
+    );
     push_point_entries(&mut normal_entries, param_range(param_map, point_b), dx, dy);
 
     (
         vec![r_axis, r_normal],
         vec![
-            JacobianRow { entries: axis_entries },
-            JacobianRow { entries: normal_entries },
+            JacobianRow {
+                entries: axis_entries,
+            },
+            JacobianRow {
+                entries: normal_entries,
+            },
         ],
     )
 }
@@ -639,9 +738,24 @@ mod tests {
         let p0 = sk.next_entity_id();
         let p1 = sk.next_entity_id();
         let ln = sk.next_entity_id();
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p0, x: 0.0, y: 0.0, construction: false }));
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p1, x: 3.0, y: 0.0, construction: false }));
-        sk.add_entity(SketchEntity::Line(SketchLine { id: ln, start: p0, end: p1, construction: false }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p0,
+            x: 0.0,
+            y: 0.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p1,
+            x: 3.0,
+            y: 0.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Line(SketchLine {
+            id: ln,
+            start: p0,
+            end: p1,
+            construction: false,
+        }));
         sk
     }
 
@@ -669,10 +783,30 @@ mod tests {
         let c1 = sk.next_entity_id();
         let cir0 = sk.next_entity_id();
         let cir1 = sk.next_entity_id();
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: c0, x: 1.0, y: 2.0, construction: false }));
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: c1, x: 1.0, y: 2.0, construction: false }));
-        sk.add_entity(SketchEntity::Circle(SketchCircle { id: cir0, center: c0, radius: 1.0, construction: false }));
-        sk.add_entity(SketchEntity::Circle(SketchCircle { id: cir1, center: c1, radius: 2.0, construction: false }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: c0,
+            x: 1.0,
+            y: 2.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: c1,
+            x: 1.0,
+            y: 2.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Circle(SketchCircle {
+            id: cir0,
+            center: c0,
+            radius: 1.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Circle(SketchCircle {
+            id: cir1,
+            center: c1,
+            radius: 2.0,
+            construction: false,
+        }));
 
         let map = sk.parameter_map();
         let (r, j) = concentric_residual(&sk, &map, cir0, cir1);
@@ -689,12 +823,42 @@ mod tests {
         let p3 = sk.next_entity_id();
         let l0 = sk.next_entity_id();
         let l1 = sk.next_entity_id();
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p0, x: 0.0, y: 0.0, construction: false }));
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p1, x: 3.0, y: 0.0, construction: false }));
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p2, x: 0.0, y: 1.0, construction: false }));
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p3, x: 3.0, y: 1.0, construction: false }));
-        sk.add_entity(SketchEntity::Line(SketchLine { id: l0, start: p0, end: p1, construction: false }));
-        sk.add_entity(SketchEntity::Line(SketchLine { id: l1, start: p2, end: p3, construction: false }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p0,
+            x: 0.0,
+            y: 0.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p1,
+            x: 3.0,
+            y: 0.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p2,
+            x: 0.0,
+            y: 1.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p3,
+            x: 3.0,
+            y: 1.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Line(SketchLine {
+            id: l0,
+            start: p0,
+            end: p1,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Line(SketchLine {
+            id: l1,
+            start: p2,
+            end: p3,
+            construction: false,
+        }));
 
         let map = sk.parameter_map();
         let (r, j) = equal_length_residual(&sk, &map, l0, l1);
@@ -711,12 +875,42 @@ mod tests {
         let p3 = sk.next_entity_id();
         let l0 = sk.next_entity_id();
         let l1 = sk.next_entity_id();
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p0, x: 0.0, y: 0.0, construction: false }));
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p1, x: 2.0, y: 0.0, construction: false }));
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p2, x: 0.0, y: 1.0, construction: false }));
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p3, x: 1.0, y: 2.0, construction: false }));
-        sk.add_entity(SketchEntity::Line(SketchLine { id: l0, start: p0, end: p1, construction: false }));
-        sk.add_entity(SketchEntity::Line(SketchLine { id: l1, start: p2, end: p3, construction: false }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p0,
+            x: 0.0,
+            y: 0.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p1,
+            x: 2.0,
+            y: 0.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p2,
+            x: 0.0,
+            y: 1.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p3,
+            x: 1.0,
+            y: 2.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Line(SketchLine {
+            id: l0,
+            start: p0,
+            end: p1,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Line(SketchLine {
+            id: l1,
+            start: p2,
+            end: p3,
+            construction: false,
+        }));
         sk.add_constraint(Constraint::Parallel(l0, l1));
 
         let result = crate::application::sketch::solver::ConstraintSolver::new().solve(&mut sk);

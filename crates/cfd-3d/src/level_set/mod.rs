@@ -9,8 +9,8 @@
 //! $|\nabla \phi| = 1$ while preserving the zero-level set location, so interface
 //! geometry is maintained while restoring numerical conditioning.
 
-pub mod config;
 mod advection;
+pub mod config;
 pub mod solver;
 mod weno;
 

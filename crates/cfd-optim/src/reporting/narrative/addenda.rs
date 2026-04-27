@@ -4,6 +4,7 @@ use std::fmt::Write as _;
 
 use crate::constraints::M12_GA_HYDRO_SEED;
 use crate::reporting::figures::NarrativeFigureSpec;
+use crate::reporting::report_math::{ga_convergence_trend, GaConvergenceTrend};
 use crate::reporting::{Milestone12GaRankingAuditEntry, Milestone12ReportDesign};
 
 fn parse_lineage_operator(metadata: &str) -> Option<&str> {
@@ -381,28 +382,43 @@ concentration penalty of {:.3}{}.\n",
         }
     }
 
-    // §6b — GA convergence note (flat fitness indicates local optimality of seed)
+    // §6b — GA convergence note (trailing fitness window matches the figure)
     if ga_best_per_gen.len() >= 2 {
-        let first = ga_best_per_gen.first().copied().unwrap_or(0.0);
-        let last = ga_best_per_gen.last().copied().unwrap_or(0.0);
-        if (first - last).abs() < 1.0e-8 {
-            let _ = writeln!(
-                s,
-                "The GA did not improve upon the seed design across {} generations, indicating \
-the parametric selection was already locally optimal under the available mutation and crossover \
-operators in this run.\n",
-                ga_best_per_gen.len(),
-            );
-        } else {
-            let improvement = last - first;
-            let _ = writeln!(
-                s,
-                "Over {} generations the GA improved the best score by {improvement:.4} \
-(from {first:.4} to {last:.4}), confirming that diversity-aware survivor selection together with \
-architecture-preserving mutation and crossover discovered beneficial refinements beyond the \
-parametric sweep.\n",
-                ga_best_per_gen.len(),
-            );
+        let trend = ga_convergence_trend(ga_best_per_gen);
+        match trend {
+            GaConvergenceTrend::Improving {
+                tail_len,
+                tail_delta,
+            } => {
+                let _ = writeln!(
+                    s,
+                    "Over the trailing {} generations the GA improved the best score by {tail_delta:.4}, \
+so the run remains in an improving regime rather than a true plateau.\n",
+                    tail_len,
+                );
+            }
+            GaConvergenceTrend::Regressing {
+                tail_len,
+                tail_delta,
+            } => {
+                let _ = writeln!(
+                    s,
+                    "Over the trailing {} generations the GA regressed by {tail_delta:.4}, which \
+indicates the selected survivor window is no longer tracking the best lineage.\n",
+                    tail_len,
+                );
+            }
+            GaConvergenceTrend::NearPlateau {
+                tail_len,
+                tail_delta_abs,
+            } => {
+                let _ = writeln!(
+                    s,
+                    "Over the trailing {} generations the GA stayed near plateau with |Δbest| = {tail_delta_abs:.4}, \
+so the current survivor policy is stable in the sampled window.\n",
+                    tail_len,
+                );
+            }
         }
     }
 

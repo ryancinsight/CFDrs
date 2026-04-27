@@ -1,14 +1,14 @@
 //! Workspace root view — owns application state and composes the CAD layout.
 
-use std::sync::Arc;
 use gpui::{
-    div, rgba, Context, FocusHandle, Focusable, InteractiveElement, IntoElement,
-    ParentElement, Render, Styled, Window,
+    div, rgba, Context, FocusHandle, Focusable, InteractiveElement, IntoElement, ParentElement,
+    Render, Styled, Window,
 };
+use std::sync::Arc;
 
 use crate::presentation::theme::{ThemeColors, DARK_THEME};
-use crate::presentation::workspace::WorkspaceState;
 use crate::presentation::viewport::viewport_view::ViewportRenderer;
+use crate::presentation::workspace::WorkspaceState;
 
 /// The root gpui view. Owns the workspace state, renderer, and cached viewport
 /// image for display.

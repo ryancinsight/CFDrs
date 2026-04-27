@@ -1,10 +1,10 @@
 //! Viewport element — displays the 3D scene and handles mouse interaction.
 
-use std::sync::Arc;
 use gpui::{
-    div, img, Context, ImageSource, InteractiveElement, IntoElement, MouseButton,
-    MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement, ScrollWheelEvent, Styled,
+    div, img, Context, ImageSource, InteractiveElement, IntoElement, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, ParentElement, ScrollWheelEvent, Styled,
 };
+use std::sync::Arc;
 
 use super::image_bridge::bgra_to_render_image;
 use super::workspace::{gpui_rgba, Workspace};
@@ -13,10 +13,7 @@ use crate::presentation::viewport::camera_controller;
 
 impl Workspace {
     /// Render the viewport area with the cached image and mouse handlers.
-    pub(crate) fn build_viewport_element(
-        &self,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    pub(crate) fn build_viewport_element(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
         let mut vp = div()
             .id("viewport")
@@ -24,10 +21,7 @@ impl Workspace {
             .min_w_0()
             .bg(gpui_rgba(theme.viewport_bg))
             .overflow_hidden()
-            .on_mouse_down(
-                MouseButton::Left,
-                cx.listener(Self::on_viewport_left_down),
-            )
+            .on_mouse_down(MouseButton::Left, cx.listener(Self::on_viewport_left_down))
             .on_mouse_down(
                 MouseButton::Middle,
                 cx.listener(Self::on_viewport_middle_down),
@@ -36,26 +30,14 @@ impl Workspace {
                 MouseButton::Right,
                 cx.listener(Self::on_viewport_right_down),
             )
-            .on_mouse_up(
-                MouseButton::Left,
-                cx.listener(Self::on_viewport_mouse_up),
-            )
-            .on_mouse_up(
-                MouseButton::Middle,
-                cx.listener(Self::on_viewport_mouse_up),
-            )
-            .on_mouse_up(
-                MouseButton::Right,
-                cx.listener(Self::on_viewport_mouse_up),
-            )
+            .on_mouse_up(MouseButton::Left, cx.listener(Self::on_viewport_mouse_up))
+            .on_mouse_up(MouseButton::Middle, cx.listener(Self::on_viewport_mouse_up))
+            .on_mouse_up(MouseButton::Right, cx.listener(Self::on_viewport_mouse_up))
             .on_mouse_move(cx.listener(Self::on_viewport_mouse_move))
             .on_scroll_wheel(cx.listener(Self::on_viewport_scroll));
 
         if let Some(image) = &self.viewport_image {
-            vp = vp.child(
-                img(ImageSource::Render(Arc::clone(image)))
-                    .size_full(),
-            );
+            vp = vp.child(img(ImageSource::Render(Arc::clone(image))).size_full());
         }
 
         vp
@@ -152,11 +134,10 @@ impl Workspace {
     ) {
         let pos = event.position;
         let camera = self.state.document.scene.camera_mut();
-        let changed = self.state.camera_controller.mouse_move(
-            pos.x.to_f64(),
-            pos.y.to_f64(),
-            camera,
-        );
+        let changed =
+            self.state
+                .camera_controller
+                .mouse_move(pos.x.to_f64(), pos.y.to_f64(), camera);
         if changed {
             self.refresh_viewport();
             cx.notify();

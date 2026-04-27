@@ -156,9 +156,24 @@ mod tests {
         let p0 = sk.next_entity_id();
         let p1 = sk.next_entity_id();
         let ln = sk.next_entity_id();
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p0, x: 0.0, y: 0.0, construction: false }));
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p1, x: 3.0, y: 1.0, construction: false }));
-        sk.add_entity(SketchEntity::Line(SketchLine { id: ln, start: p0, end: p1, construction: false }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p0,
+            x: 0.0,
+            y: 0.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p1,
+            x: 3.0,
+            y: 1.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Line(SketchLine {
+            id: ln,
+            start: p0,
+            end: p1,
+            construction: false,
+        }));
         sk.add_constraint(Constraint::Horizontal(ln));
 
         let solver = ConstraintSolver::new();
@@ -175,10 +190,25 @@ mod tests {
         let mut sk = Sketch::new(SketchId(0), "test".into(), WorkPlane::xy());
         let p0 = sk.next_entity_id();
         let p1 = sk.next_entity_id();
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p0, x: 0.0, y: 0.0, construction: false }));
-        sk.add_entity(SketchEntity::Point(SketchPoint { id: p1, x: 3.0, y: 0.0, construction: false }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p0,
+            x: 0.0,
+            y: 0.0,
+            construction: false,
+        }));
+        sk.add_entity(SketchEntity::Point(SketchPoint {
+            id: p1,
+            x: 3.0,
+            y: 0.0,
+            construction: false,
+        }));
         sk.add_constraint(Constraint::Fixed(p0));
-        sk.add_constraint(Constraint::Distance { a: p0, b: p1, value: 5.0, driving: true });
+        sk.add_constraint(Constraint::Distance {
+            a: p0,
+            b: p1,
+            value: 5.0,
+            driving: true,
+        });
 
         let solver = ConstraintSolver::new();
         let result = solver.solve(&mut sk);

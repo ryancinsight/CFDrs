@@ -29,8 +29,7 @@ impl CameraSnapshot {
     pub fn from_orbital(cam: &OrbitalCamera) -> Self {
         let eye = cam.eye_position();
         let forward = (cam.target - eye).normalize();
-        let orientation =
-            UnitQuaternion::face_towards(&forward, &Vector3::y());
+        let orientation = UnitQuaternion::face_towards(&forward, &Vector3::y());
         Self {
             target: cam.target,
             distance: cam.distance,
@@ -118,10 +117,9 @@ impl CameraAnimator {
         let q = start.orientation.slerp(&end.orientation, t);
         let forward = q * (-Vector3::z());
         camera.azimuth = forward.x.atan2(forward.z);
-        camera.elevation = (-forward.y).asin().clamp(
-            -89.0_f64.to_radians(),
-            89.0_f64.to_radians(),
-        );
+        camera.elevation = (-forward.y)
+            .asin()
+            .clamp(-89.0_f64.to_radians(), 89.0_f64.to_radians());
 
         let still_running = self.current_frame < self.total_frames;
         if !still_running {

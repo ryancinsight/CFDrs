@@ -1,7 +1,9 @@
-﻿//! Cascade and incremental filtration composite preset functions.
+//! Cascade and incremental filtration composite preset functions.
 use super::parallel_lane::{generator_center_serpentine, CenterSerpentineSpec};
 use crate::domain::model::NetworkBlueprint;
-use crate::geometry::generator::{create_selective_tree_geometry, SelectiveTreeRequest, SelectiveTreeTopology};
+use crate::geometry::generator::{
+    create_selective_tree_geometry, SelectiveTreeRequest, SelectiveTreeTopology,
+};
 
 pub fn cascade_center_trifurcation_rect(
     name: impl Into<String>,

@@ -55,7 +55,8 @@ pub(super) fn apply_request_mirror(
     } else {
         let topology = blueprint.topology_spec();
         blueprint.render_hints = Some(BlueprintRenderHints {
-            stage_sequence: topology.map_or_else(String::new, BlueprintTopologySpec::stage_sequence_label),
+            stage_sequence: topology
+                .map_or_else(String::new, BlueprintTopologySpec::stage_sequence_label),
             split_layers: topology.map_or(0, BlueprintTopologySpec::visible_split_layers),
             throat_count_hint: topology.map_or(0, BlueprintTopologySpec::venturi_count),
             treatment_label: if topology.is_some_and(BlueprintTopologySpec::has_venturi) {

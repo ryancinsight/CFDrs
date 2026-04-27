@@ -50,7 +50,7 @@ impl<'area, 'chart, DB: DrawingBackend> PlottersDrawer<'area, 'chart, DB> {
     }
 }
 
-impl<'area, 'chart, DB: DrawingBackend> GeometricDrawer for PlottersDrawer<'area, 'chart, DB> {
+impl<DB: DrawingBackend> GeometricDrawer for PlottersDrawer<'_, '_, DB> {
     fn draw_line(
         &mut self,
         from: Point2D,
@@ -144,9 +144,7 @@ impl<'area, 'chart, DB: DrawingBackend> PlottersVisualizationEngine<'area, 'char
     }
 }
 
-impl<'area, 'chart, DB: DrawingBackend> VisualizationEngine
-    for PlottersVisualizationEngine<'area, 'chart, DB>
-{
+impl<DB: DrawingBackend> VisualizationEngine for PlottersVisualizationEngine<'_, '_, DB> {
     fn visualize_system(
         &mut self,
         system: &NetworkBlueprint,

@@ -187,8 +187,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
         self.narrow_band.clear();
         let band_width = <T as FromPrimitive>::from_f64(self.config.band_width)
             .expect("band_width config is an IEEE 754 representable f64");
-        let cell_limit = band_width
-            * num_traits::Float::min(num_traits::Float::min(self.dx, self.dy), self.dz);
+        let cell_limit =
+            band_width * num_traits::Float::min(num_traits::Float::min(self.dx, self.dy), self.dz);
 
         for idx in 0..self.phi.len() {
             if num_traits::Float::abs(self.phi[idx]) <= cell_limit {

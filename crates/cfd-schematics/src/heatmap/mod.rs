@@ -233,7 +233,7 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
           fill="#555" text-anchor="middle">{}</text>
 "##,
             px_x(cx_mm),
-                        MARGIN_Y - 14.0,
+            MARGIN_Y - 14.0,
             col + 1
         );
     }

@@ -8,7 +8,9 @@ mod tbt;
 use std::collections::HashMap;
 
 use super::super::super::types::Point2D;
-use super::path_geometry::{build_serpentine_lobe_path, infer_serpentine_shape, polyline_length_mm};
+use super::path_geometry::{
+    build_serpentine_lobe_path, infer_serpentine_shape, polyline_length_mm,
+};
 use super::{CenterSerpentinePathSpec, SelectiveTreeRequest};
 use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use crate::geometry::metadata::{

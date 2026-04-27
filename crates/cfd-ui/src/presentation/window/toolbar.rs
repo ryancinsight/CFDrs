@@ -1,17 +1,16 @@
 //! Toolbar element — horizontal bar with action buttons.
 
 use gpui::{
-    div, px, Action, ClickEvent, IntoElement, ParentElement, SharedString,
-    StatefulInteractiveElement, Styled, InteractiveElement, Window, App,
+    div, px, Action, App, ClickEvent, InteractiveElement, IntoElement, ParentElement, SharedString,
+    StatefulInteractiveElement, Styled, Window,
 };
 
 use super::actions::{
-    CreateCapsule, CreateCone, CreateCube, CreateCylinder, CreateElbow,
-    CreateEllipsoid, CreateFrustum, CreateGeodesicSphere, CreatePipe,
-    CreateRoundedCube, CreateSphere, CreateTorus,
-    CsgDifference, CsgIntersection, CsgUnion, ExportDxf, ExportDrawing, ExportGlb,
-    ExportObj, ExportOpenFoam, ExportPly, ExportStl, FitView, ImportMesh,
-    NewProject, OpenProject, Redo, SaveProject, ToggleWireframe, Undo,
+    CreateCapsule, CreateCone, CreateCube, CreateCylinder, CreateElbow, CreateEllipsoid,
+    CreateFrustum, CreateGeodesicSphere, CreatePipe, CreateRoundedCube, CreateSphere, CreateTorus,
+    CsgDifference, CsgIntersection, CsgUnion, ExportDrawing, ExportDxf, ExportGlb, ExportObj,
+    ExportOpenFoam, ExportPly, ExportStl, FitView, ImportMesh, NewProject, OpenProject, Redo,
+    SaveProject, ToggleWireframe, Undo,
 };
 use super::workspace::gpui_rgba;
 use crate::presentation::theme::ThemeColors;

@@ -43,9 +43,7 @@ impl HighlightService {
 
     /// Generate wireframe overlay vertices for edge highlighting.
     #[must_use]
-    pub fn highlight_edges(
-        edge_positions: &[([f32; 3], [f32; 3])],
-    ) -> Vec<OverlayVertex> {
+    pub fn highlight_edges(edge_positions: &[([f32; 3], [f32; 3])]) -> Vec<OverlayVertex> {
         let mut verts = Vec::with_capacity(edge_positions.len() * 2);
         for (start, end) in edge_positions {
             verts.push(OverlayVertex {

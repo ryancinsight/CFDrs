@@ -10,6 +10,5 @@ mod styles;
 
 pub use interfaces::{GeometricDrawer, SchematicRenderer, VisualizationEngine};
 pub use styles::{
-    ChannelTypeStyles, Color, LineStyle, OutputFormat, RenderConfig, TextStyle,
-    VisualRoleStyles,
+    ChannelTypeStyles, Color, LineStyle, OutputFormat, RenderConfig, TextStyle, VisualRoleStyles,
 };

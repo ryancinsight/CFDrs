@@ -13,11 +13,25 @@ use nalgebra::Vector3;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ClipPlaneId(pub u8);
 
+/// Error returned when a clip plane slot cannot be updated directly.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ClipPlaneSlotError {
+    /// The slot identifier is outside the fixed six-slot range.
+    #[error("clip plane slot {0:?} is outside the 0..6 range")]
+    OutOfRange(ClipPlaneId),
+    /// The requested slot already contains a plane.
+    #[error("clip plane slot {0:?} is already occupied")]
+    Occupied(ClipPlaneId),
+    /// The requested slot does not contain a plane.
+    #[error("clip plane slot {0:?} is empty")]
+    Empty(ClipPlaneId),
+}
+
 /// A single clip plane in Hessian normal form: `n · x + d = 0`.
 ///
 /// Fragments on the negative side (`n · x + d < 0`) are discarded by the
 /// GPU fragment shader.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ClipPlane {
     /// Unique identifier within the clip plane set.
     pub id: ClipPlaneId,
@@ -95,6 +109,15 @@ impl ClipPlaneSet {
         Self::default()
     }
 
+    fn slot_index(id: ClipPlaneId) -> Result<usize, ClipPlaneSlotError> {
+        let idx = id.0 as usize;
+        if idx < 6 {
+            Ok(idx)
+        } else {
+            Err(ClipPlaneSlotError::OutOfRange(id))
+        }
+    }
+
     /// Add a clip plane, assigning the first available slot.
     pub fn add(&mut self, mut plane: ClipPlane) -> Result<ClipPlaneId, ClipPlaneSetFull> {
         for (i, slot) in self.planes.iter_mut().enumerate() {
@@ -106,6 +129,36 @@ impl ClipPlaneSet {
             }
         }
         Err(ClipPlaneSetFull)
+    }
+
+    /// Insert a clip plane at a specific slot.
+    pub fn insert_at(
+        &mut self,
+        id: ClipPlaneId,
+        mut plane: ClipPlane,
+    ) -> Result<(), ClipPlaneSlotError> {
+        let idx = Self::slot_index(id)?;
+        let slot = &mut self.planes[idx];
+        if slot.is_some() {
+            return Err(ClipPlaneSlotError::Occupied(id));
+        }
+        plane.id = id;
+        *slot = Some(plane);
+        Ok(())
+    }
+
+    /// Replace the clip plane at a specific slot and return the previous plane.
+    #[must_use]
+    pub fn replace_at(
+        &mut self,
+        id: ClipPlaneId,
+        mut plane: ClipPlane,
+    ) -> Result<ClipPlane, ClipPlaneSlotError> {
+        let idx = Self::slot_index(id)?;
+        let slot = &mut self.planes[idx];
+        let existing = slot.as_mut().ok_or(ClipPlaneSlotError::Empty(id))?;
+        plane.id = id;
+        Ok(std::mem::replace(existing, plane))
     }
 
     /// Remove a clip plane by ID.
@@ -131,9 +184,9 @@ impl ClipPlaneSet {
 
     /// Iterate over all active (enabled) clip planes.
     pub fn active_planes(&self) -> impl Iterator<Item = &ClipPlane> {
-        self.planes.iter().filter_map(|s| {
-            s.as_ref().filter(|p| p.enabled)
-        })
+        self.planes
+            .iter()
+            .filter_map(|s| s.as_ref().filter(|p| p.enabled))
     }
 
     /// Iterate over all present clip planes (enabled or not).
@@ -219,5 +272,45 @@ mod tests {
         for preset in [ClipPreset::Xy, ClipPreset::Xz, ClipPreset::Yz] {
             assert_relative_eq!(preset.normal().norm(), 1.0, epsilon = 1e-12);
         }
+    }
+
+    #[test]
+    fn insert_at_preserves_requested_slot() {
+        let mut set = ClipPlaneSet::new();
+        let plane = ClipPlaneSet::from_preset(ClipPreset::Yz, 0.25);
+        let id = ClipPlaneId(4);
+        set.insert_at(id, plane).expect("should insert");
+        let stored = set.get(id).expect("plane stored");
+        assert_eq!(stored.id, id);
+        assert_eq!(stored.offset, 0.25);
+        assert_eq!(set.count(), 1);
+    }
+
+    #[test]
+    fn replace_at_returns_previous_plane() {
+        let mut set = ClipPlaneSet::new();
+        let first = ClipPlaneSet::from_preset(ClipPreset::Xy, 0.0);
+        let second = ClipPlaneSet::from_preset(ClipPreset::Xz, 1.25);
+        let id = set.add(first.clone()).expect("should add");
+        let previous = set.replace_at(id, second.clone()).expect("should replace");
+        assert_eq!(previous, first);
+        let stored = set.get(id).expect("plane stored");
+        let mut expected = second;
+        expected.id = id;
+        assert_eq!(stored, &expected);
+        assert_eq!(stored.id, id);
+        assert_eq!(stored.offset, 1.25);
+    }
+
+    #[test]
+    fn insert_at_rejects_occupied_slot() {
+        let mut set = ClipPlaneSet::new();
+        let id = set
+            .add(ClipPlaneSet::from_preset(ClipPreset::Xy, 0.0))
+            .expect("should add");
+        let err = set
+            .insert_at(id, ClipPlaneSet::from_preset(ClipPreset::Xz, 1.0))
+            .expect_err("slot is occupied");
+        assert_eq!(err, ClipPlaneSlotError::Occupied(id));
     }
 }

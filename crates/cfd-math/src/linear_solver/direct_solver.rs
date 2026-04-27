@@ -135,7 +135,7 @@ impl DirectSparseSolver {
                 "Direct sparse LU solution value {value} cannot be represented in target precision"
             ))
         })?;
-        if !converted.to_f64().map_or(false, f64::is_finite) {
+        if !converted.to_f64().is_some_and(f64::is_finite) {
             return Err(Error::ConversionError(format!(
                 "Direct sparse LU solution value {value} cannot be represented in target precision"
             )));
@@ -148,7 +148,7 @@ impl DirectSparseSolver {
         T: RealField + Copy + FromPrimitive + ToPrimitive,
     {
         for (index, value) in solution.iter().enumerate() {
-            if !value.to_f64().map_or(false, f64::is_finite) {
+            if !value.to_f64().is_some_and(f64::is_finite) {
                 return Err(Error::ConversionError(format!(
                     "Direct dense LU solution entry {index} cannot be represented in target precision"
                 )));

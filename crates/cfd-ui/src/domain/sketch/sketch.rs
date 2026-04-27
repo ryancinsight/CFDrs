@@ -191,13 +191,22 @@ mod tests {
         let p1 = sk.next_entity_id();
         let ln = sk.next_entity_id();
         sk.add_entity(SketchEntity::Point(SketchPoint {
-            id: p0, x: 0.0, y: 0.0, construction: false,
+            id: p0,
+            x: 0.0,
+            y: 0.0,
+            construction: false,
         }));
         sk.add_entity(SketchEntity::Point(SketchPoint {
-            id: p1, x: 3.0, y: 4.0, construction: false,
+            id: p1,
+            x: 3.0,
+            y: 4.0,
+            construction: false,
         }));
         sk.add_entity(SketchEntity::Line(SketchLine {
-            id: ln, start: p0, end: p1, construction: false,
+            id: ln,
+            start: p0,
+            end: p1,
+            construction: false,
         }));
         sk
     }

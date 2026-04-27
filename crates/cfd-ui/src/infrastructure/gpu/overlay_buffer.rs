@@ -56,9 +56,18 @@ impl OverlayBuffer {
     pub fn from_triangles(tris: &[OverlayTriangle], device: &wgpu::Device) -> Self {
         let mut vertices = Vec::with_capacity(tris.len() * 3);
         for tri in tris {
-            vertices.push(OverlayVertex { position: tri.v0, color: tri.color });
-            vertices.push(OverlayVertex { position: tri.v1, color: tri.color });
-            vertices.push(OverlayVertex { position: tri.v2, color: tri.color });
+            vertices.push(OverlayVertex {
+                position: tri.v0,
+                color: tri.color,
+            });
+            vertices.push(OverlayVertex {
+                position: tri.v1,
+                color: tri.color,
+            });
+            vertices.push(OverlayVertex {
+                position: tri.v2,
+                color: tri.color,
+            });
         }
         Self::from_vertices(&vertices, device)
     }

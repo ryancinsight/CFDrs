@@ -1,7 +1,7 @@
-use super::helpers::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
 use super::super::model::{
     BranchRole, SerpentineSpec, SplitKind, TreatmentActuationMode, VenturiPlacementMode,
 };
+use super::helpers::{PLATE_HEIGHT_MM, PLATE_WIDTH_MM};
 
 mod build;
 mod catalog;
@@ -99,13 +99,13 @@ pub type Milestone12TopologyRequest = Milestone12PrimitiveSelectiveSpec;
 
 #[cfg(test)]
 mod tests {
-    use super::catalog::MILESTONE12_MIRROR_VARIANTS;
     use super::super::sequence::MILESTONE12_SWEEP_SEQUENCES;
+    use super::catalog::MILESTONE12_MIRROR_VARIANTS;
     use super::*;
+    use crate::topology::BlueprintTopologySpec;
     use crate::topology::{
         BlueprintTopologyFactory, BlueprintTopologyMutation, TopologyOptimizationStage,
     };
-    use crate::topology::BlueprintTopologySpec;
 
     #[test]
     fn default_stage_layouts_cover_bi_tri_quad_penta_roots() {
@@ -234,15 +234,33 @@ mod tests {
             catalog.len(),
             MILESTONE12_SWEEP_SEQUENCES.len() * MILESTONE12_MIRROR_VARIANTS.len(),
         );
-        assert!(catalog.iter().any(|request| request.design_name == "Bi-BASE"));
-        assert!(catalog.iter().any(|request| request.design_name == "Quad-Y"));
-        assert!(catalog.iter().any(|request| request.design_name == "Penta-XY"));
-        assert!(catalog.iter().any(|request| request.design_name == "QuadTriBi-BASE"));
-        assert!(catalog.iter().any(|request| request.design_name == "PentaQuadBi-BASE"));
-        assert!(catalog.iter().any(|request| request.design_name == "PentaQuadTri-XY"));
-        assert!(catalog.iter().any(|request| request.design_name == "PentaTriBi-XY"));
-        assert!(catalog.iter().any(|request| request.design_name == "QuadBi-X"));
-        assert!(catalog.iter().any(|request| request.design_name == "PentaTri-Y"));
+        assert!(catalog
+            .iter()
+            .any(|request| request.design_name == "Bi-BASE"));
+        assert!(catalog
+            .iter()
+            .any(|request| request.design_name == "Quad-Y"));
+        assert!(catalog
+            .iter()
+            .any(|request| request.design_name == "Penta-XY"));
+        assert!(catalog
+            .iter()
+            .any(|request| request.design_name == "QuadTriBi-BASE"));
+        assert!(catalog
+            .iter()
+            .any(|request| request.design_name == "PentaQuadBi-BASE"));
+        assert!(catalog
+            .iter()
+            .any(|request| request.design_name == "PentaQuadTri-XY"));
+        assert!(catalog
+            .iter()
+            .any(|request| request.design_name == "PentaTriBi-XY"));
+        assert!(catalog
+            .iter()
+            .any(|request| request.design_name == "QuadBi-X"));
+        assert!(catalog
+            .iter()
+            .any(|request| request.design_name == "PentaTri-Y"));
     }
 
     #[test]
@@ -256,7 +274,9 @@ mod tests {
             build_milestone12_blueprint(&request).expect("Milestone 12 blueprint should build");
 
         assert!(blueprint.is_geometry_authored());
-        assert!(blueprint.render_hints().is_some_and(|hints| hints.mirror_x && hints.mirror_y));
+        assert!(blueprint
+            .render_hints()
+            .is_some_and(|hints| hints.mirror_x && hints.mirror_y));
         blueprint
             .validate()
             .expect("Milestone 12 blueprint should validate");
@@ -284,7 +304,9 @@ mod tests {
         assert!(promoted
             .topology_spec()
             .is_some_and(BlueprintTopologySpec::has_venturi));
-        assert!(promoted.render_hints().is_some_and(|hints| !hints.mirror_x && hints.mirror_y));
+        assert!(promoted
+            .render_hints()
+            .is_some_and(|hints| !hints.mirror_x && hints.mirror_y));
         assert_eq!(
             promoted
                 .lineage()

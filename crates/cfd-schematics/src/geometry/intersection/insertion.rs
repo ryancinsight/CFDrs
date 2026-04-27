@@ -91,12 +91,14 @@ pub fn insert_intersection_nodes(system: &mut NetworkBlueprint) -> IntersectionR
                     if split.seg == path_index {
                         let current_split = split_iter.next().expect("structural invariant");
                         let point = (
-                            centerline[path_index]
-                                .0
-                                .mul_add(1.0 - current_split.t, centerline[path_index + 1].0 * current_split.t),
-                            centerline[path_index]
-                                .1
-                                .mul_add(1.0 - current_split.t, centerline[path_index + 1].1 * current_split.t),
+                            centerline[path_index].0.mul_add(
+                                1.0 - current_split.t,
+                                centerline[path_index + 1].0 * current_split.t,
+                            ),
+                            centerline[path_index].1.mul_add(
+                                1.0 - current_split.t,
+                                centerline[path_index + 1].1 * current_split.t,
+                            ),
                         );
                         waypoints.push((current_split.junction_node_id.clone(), point));
                     } else {

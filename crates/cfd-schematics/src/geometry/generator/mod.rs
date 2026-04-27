@@ -33,4 +33,3 @@ pub use self::shell::create_shell_cuboid;
 
 // Private re-export: makes `GeometryGenerator` visible to submodules via `super::GeometryGenerator`.
 use self::generator_impl::GeometryGenerator;
-

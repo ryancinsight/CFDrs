@@ -23,11 +23,7 @@ pub fn compute_edge_length(v0: &Point3<f64>, v1: &Point3<f64>) -> f64 {
 /// Computes the angle between the face normals. Returns `None` if either
 /// face index is out of range or either face is degenerate.
 #[must_use]
-pub fn compute_dihedral_angle(
-    mesh: &IndexedMesh<f64>,
-    face_a: u32,
-    face_b: u32,
-) -> Option<f64> {
+pub fn compute_dihedral_angle(mesh: &IndexedMesh<f64>, face_a: u32, face_b: u32) -> Option<f64> {
     let na = face_normal(mesh, face_a)?;
     let nb = face_normal(mesh, face_b)?;
     let cos_angle = na.dot(&nb).clamp(-1.0, 1.0);

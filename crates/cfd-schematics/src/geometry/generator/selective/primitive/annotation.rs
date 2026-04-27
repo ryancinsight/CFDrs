@@ -6,7 +6,7 @@ use super::super::routing::{
     channel_length_from_points_or_endpoints, channel_path_between, preferred_treatment_lane_y,
     primitive_treatment_leaf_indices, route_pending_venturi_paths,
 };
-use super::super::{PendingVenturiPath};
+use super::super::PendingVenturiPath;
 use super::{PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest};
 use crate::domain::model::{NetworkBlueprint, NodeId, NodeKind};
 use crate::domain::therapy_metadata::TherapyZone;
@@ -268,7 +268,12 @@ pub(super) fn annotate_primitive_tree(
                 height_m: request.channel_height_m,
                 inter_throat_spacing_m: request.throat_length_m * 2.0,
             });
-            metadata.insert(channel.venturi_geometry.clone().expect("venturi geometry inserted"));
+            metadata.insert(
+                channel
+                    .venturi_geometry
+                    .clone()
+                    .expect("venturi geometry inserted"),
+            );
         } else if !is_treatment {
             let metadata = channel.metadata.get_or_insert_with(MetadataContainer::new);
             metadata.insert(ChannelVenturiSpec {

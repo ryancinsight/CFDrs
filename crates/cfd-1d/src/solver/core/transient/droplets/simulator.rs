@@ -250,16 +250,12 @@ impl TransientDropletSimulator {
                     .and_then(|pos| state.edge_mixtures.get(&pos.channel_index).cloned());
 
                 let branch_count = droplet.branches.len();
-                let mut occupied_channels = Vec::with_capacity(branch_count);
                 let mut occupancy_spans = Vec::with_capacity(branch_count);
                 let mut boundaries = Vec::with_capacity(branch_count * 2);
                 let mut total_volume = T::zero();
 
                 if droplet.state == DropletState::Network {
                     for branch in &droplet.branches {
-                        if !occupied_channels.contains(&branch.channel_index) {
-                            occupied_channels.push(branch.channel_index);
-                        }
                         total_volume += branch.volume;
                         let (start, end) = Self::branch_interval(&state_network, branch)?;
                         occupancy_spans.push(ChannelOccupancy {
@@ -275,6 +271,12 @@ impl TransientDropletSimulator {
                             channel_index: branch.channel_index,
                             relative_position: end,
                         });
+                    }
+                }
+                let mut occupied_channels = Vec::with_capacity(occupancy_spans.len());
+                for span in &occupancy_spans {
+                    if !occupied_channels.contains(&span.channel_index) {
+                        occupied_channels.push(span.channel_index);
                     }
                 }
 

@@ -57,8 +57,14 @@ fn droplet_transitions_to_sink_with_channel_occupancy_tracking() {
     assert!(!states[1].droplets[&7].occupied_channels.is_empty());
     assert!(!states[1].droplets[&7].boundaries.is_empty());
     assert!(!states[1].droplets[&7].occupancy_spans.is_empty());
+    assert!(states[1].droplets[&7].has_consistent_finite_length_occupancy());
+    assert_eq!(
+        states[1].droplets[&7].occupied_channels,
+        states[1].droplets[&7].occupied_channels_from_spans()
+    );
     assert_eq!(states[2].droplets[&7].state, DropletState::Sink);
     assert!(states[2].droplets[&7].occupied_channels.is_empty());
+    assert!(states[2].droplets[&7].has_consistent_finite_length_occupancy());
 }
 
 #[test]

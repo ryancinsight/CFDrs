@@ -3,5 +3,5 @@
 	url = https://github.com/ryancinsight/gaia.git
 [submodule "crates/apollo"]
 	path = crates/apollo
-	url = https://github.com/ryancinsight/apollofft.git
+	url = https://github.com/ryancinsight/apollo.git
 	branch = main

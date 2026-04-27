@@ -1,11 +1,14 @@
-﻿//! Internal parallel-lane geometry helpers.
+//! Internal parallel-lane geometry helpers.
+use super::super::super::finalize_preset_blueprint;
 use crate::domain::model::NetworkBlueprint;
 use crate::domain::therapy_metadata::TherapyZone;
 use crate::geometry::generator::CenterSerpentinePathSpec;
 use crate::topology::presets::{parallel_path_spec, with_venturi};
-use crate::topology::{ChannelRouteSpec, ParallelChannelSpec, SerpentineSpec, ThroatGeometrySpec, TreatmentActuationMode, VenturiConfig, VenturiPlacementMode};
+use crate::topology::{
+    ChannelRouteSpec, ParallelChannelSpec, SerpentineSpec, ThroatGeometrySpec,
+    TreatmentActuationMode, VenturiConfig, VenturiPlacementMode,
+};
 use crate::BlueprintTopologyFactory;
-use super::super::super::finalize_preset_blueprint;
 
 /// Optional serpentine geometry applied only to center treatment lanes.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -119,4 +122,3 @@ pub(super) fn canonical_parallel_venturi_blueprint(
         BlueprintTopologyFactory::build(&topology).expect("valid canonical venturi topology"),
     )
 }
-

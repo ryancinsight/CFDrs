@@ -32,6 +32,10 @@
 //! inverse-square-root dependence of peak area-strain threshold on loading
 //! duration across microsecond to millisecond regimes.
 //!
+//! The state fractions use a first-order hazard curve `1 - exp(-ε/ε_c)` for
+//! each ordered threshold. This removes the ungrounded steepness constant while
+//! preserving monotone transition ordering and exact mass conservation.
+//!
 //! **References**:
 //! - Andreu et al., "The force loading rate drives cell mechanosensing through
 //!   both reinforcement and cytoskeletal softening" (*Nature Communications*,
@@ -147,14 +151,10 @@ impl<T: RealField + Copy> CellularMembraneMechanics<T> {
             one
         };
 
-        let adjusted_permeabilization = self.rate_adjusted_threshold(
-            self.critical_areal_strain_permeabilization,
-            rate_factor,
-        );
-        let adjusted_necrosis = self.rate_adjusted_threshold(
-            self.critical_areal_strain_necrosis,
-            rate_factor,
-        );
+        let adjusted_permeabilization =
+            self.rate_adjusted_threshold(self.critical_areal_strain_permeabilization, rate_factor);
+        let adjusted_necrosis =
+            self.rate_adjusted_threshold(self.critical_areal_strain_necrosis, rate_factor);
         let adjusted_lysis =
             self.rate_adjusted_threshold(self.critical_areal_strain_lysis, rate_factor);
 
@@ -162,10 +162,8 @@ impl<T: RealField + Copy> CellularMembraneMechanics<T> {
             if strain <= zero {
                 zero
             } else {
-                let k = T::from_f64(5.0).unwrap_or(one); // shape factor
                 let r = strain / threshold;
-                // Exponent formulation representing survival reliability function 1 - exp(- (e/e_c)^k)
-                let exponent = -r.powf(k);
+                let exponent = -r;
                 one - exponent.exp()
             }
         };
@@ -321,18 +319,10 @@ mod tests {
         let ambient = 101_325.0;
         let collapse_pressure = ambient + 30_000_000.0;
 
-        let short_bubble = mechanics.evaluate_spatial_injury(
-            collapse_pressure,
-            5e-6,
-            5e-6,
-            ambient,
-        );
-        let long_bubble = mechanics.evaluate_spatial_injury(
-            collapse_pressure,
-            50e-6,
-            50e-6,
-            ambient,
-        );
+        let short_bubble =
+            mechanics.evaluate_spatial_injury(collapse_pressure, 5e-6, 5e-6, ambient);
+        let long_bubble =
+            mechanics.evaluate_spatial_injury(collapse_pressure, 50e-6, 50e-6, ambient);
 
         assert!(
             long_bubble.fraction_healthy <= short_bubble.fraction_healthy,

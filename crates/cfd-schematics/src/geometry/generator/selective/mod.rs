@@ -1,4 +1,4 @@
-﻿mod builder;
+mod builder;
 mod path_geometry;
 mod primitive;
 mod routing;
@@ -133,15 +133,14 @@ pub fn create_selective_tree_geometry(request: &SelectiveTreeRequest) -> Network
     builder.finish()
 }
 
-
 #[cfg(test)]
 mod tests {
+    use super::path_geometry::path_intersects_any;
+    use super::routing::route_monotone_treatment_path;
     use super::{
         create_primitive_selective_tree_geometry, CenterSerpentinePathSpec,
         PrimitiveSelectiveSplitKind, PrimitiveSelectiveTreeRequest,
     };
-    use super::path_geometry::path_intersects_any;
-    use super::routing::route_monotone_treatment_path;
 
     #[test]
     fn primitive_selective_tree_annotation_preserves_positive_channel_lengths() {
@@ -461,8 +460,7 @@ mod tests {
             .channels
             .iter()
             .filter(|ch| {
-                ch.therapy_zone
-                    == Some(crate::domain::therapy_metadata::TherapyZone::CancerTarget)
+                ch.therapy_zone == Some(crate::domain::therapy_metadata::TherapyZone::CancerTarget)
             })
             .filter(|ch| {
                 let max_x = [
@@ -490,4 +488,3 @@ mod tests {
         }
     }
 }
-

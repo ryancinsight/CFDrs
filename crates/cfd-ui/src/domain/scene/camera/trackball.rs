@@ -35,8 +35,7 @@ impl Default for TrackballCamera {
         // Default orientation: looking from +Z toward origin, Y up.
         let eye = Point3::new(0.0, 0.0, 5.0);
         let target = Point3::origin();
-        let orientation =
-            UnitQuaternion::face_towards(&(target - eye), &Vector3::y());
+        let orientation = UnitQuaternion::face_towards(&(target - eye), &Vector3::y());
         Self {
             target,
             distance: 5.0,
@@ -71,8 +70,8 @@ impl TrackballCamera {
 
     /// Zoom by adjusting the distance.
     pub fn zoom(&mut self, delta: f64) {
-        self.distance = (self.distance * (1.0 - delta * ZOOM_SENSITIVITY))
-            .clamp(MIN_DISTANCE, MAX_DISTANCE);
+        self.distance =
+            (self.distance * (1.0 - delta * ZOOM_SENSITIVITY)).clamp(MIN_DISTANCE, MAX_DISTANCE);
     }
 }
 

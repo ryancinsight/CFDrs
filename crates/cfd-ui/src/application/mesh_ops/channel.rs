@@ -93,13 +93,21 @@ fn build_channel_blueprint(spec: &ChannelSpec, name: &str) -> anyhow::Result<Net
             ..
         } => {
             ensure!(*inlet_radius > 0.0, "venturi inlet radius must be positive");
-            ensure!(*throat_radius > 0.0, "venturi throat radius must be positive");
+            ensure!(
+                *throat_radius > 0.0,
+                "venturi throat radius must be positive"
+            );
             ensure!(
                 throat_radius < inlet_radius,
                 "venturi throat radius must be smaller than inlet radius"
             );
             ensure!(*length > 0.0, "venturi length must be positive");
-            Ok(venturi_chain(name, *length, 2.0 * inlet_radius, 2.0 * throat_radius))
+            Ok(venturi_chain(
+                name,
+                *length,
+                2.0 * inlet_radius,
+                2.0 * throat_radius,
+            ))
         }
         ChannelSpec::Serpentine {
             radius,
@@ -197,7 +205,9 @@ impl UndoableCommand for CreateChannelCommand {
         let mesh = build_channel_mesh(&self.spec, &self.name)?;
 
         let handle = doc.add_mesh(mesh);
-        let node_idx = doc.scene.add_node(self.name.clone(), SceneEntity::Mesh(handle));
+        let node_idx = doc
+            .scene
+            .add_node(self.name.clone(), SceneEntity::Mesh(handle));
         self.created_handle = Some(handle);
         self.created_node = Some(node_idx);
         Ok(())
@@ -238,7 +248,9 @@ mod tests {
         );
         let mut document = ProjectDocument::new();
 
-        command.execute(&mut document).expect("venturi build must succeed");
+        command
+            .execute(&mut document)
+            .expect("venturi build must succeed");
 
         assert_eq!(document.mesh_count(), 1);
         let mut mesh = document

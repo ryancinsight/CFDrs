@@ -22,9 +22,9 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use cfd_mesh::IndexedMesh;
 use cfd_mesh::domain::core::{FaceId, RegionId, VertexId};
 use cfd_mesh::domain::topology::{Cell, ElementType};
+use cfd_mesh::IndexedMesh;
 use nalgebra::{Isometry3, Point3, Quaternion, Translation3, UnitQuaternion, Vector3};
 use serde::{Deserialize, Serialize};
 
@@ -139,9 +139,8 @@ struct FaceAttributeEntrySnapshot {
 pub fn save_project_document(path: &Path, document: &mut ProjectDocument) -> Result<()> {
     let snapshot = ProjectSnapshot::from_document(document)?;
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).with_context(|| {
-            format!("failed to create project directory {}", parent.display())
-        })?;
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create project directory {}", parent.display()))?;
     }
     let json = serde_json::to_string_pretty(&snapshot)
         .context("failed to serialize project snapshot to JSON")?;
@@ -189,7 +188,12 @@ impl ProjectSnapshot {
             .map(|mesh| mesh.map(MeshSnapshot::into_mesh))
             .collect::<Vec<_>>();
         let scene = self.scene.into_scene(&meshes)?;
-        Ok(ProjectDocument::from_parts(self.metadata, scene, meshes, self.dirty))
+        Ok(ProjectDocument::from_parts(
+            self.metadata,
+            scene,
+            meshes,
+            self.dirty,
+        ))
     }
 }
 
@@ -287,9 +291,9 @@ impl SceneEntitySnapshot {
         match entity {
             SceneEntity::Mesh(handle) => Ok(Self::Mesh { slot: handle.0 }),
             SceneEntity::Group => Ok(Self::Group),
-            SceneEntity::Schematic(_) => anyhow::bail!(
-                "project persistence does not support schematic scene nodes yet"
-            ),
+            SceneEntity::Schematic(_) => {
+                anyhow::bail!("project persistence does not support schematic scene nodes yet")
+            }
             SceneEntity::SimulationResult(_) => anyhow::bail!(
                 "project persistence does not support simulation-result scene nodes yet"
             ),
@@ -494,8 +498,11 @@ mod tests {
             .add_node("triangle".to_owned(), SceneEntity::Mesh(handle));
         document.scene.camera_mut().target = Point3::new(1.0, 2.0, 3.0);
         document.scene.camera_mut().distance = 9.0;
-        document.scene.node_mut(node).expect("node exists").transform =
-            Isometry3::translation(1.5, -2.0, 0.25);
+        document
+            .scene
+            .node_mut(node)
+            .expect("node exists")
+            .transform = Isometry3::translation(1.5, -2.0, 0.25);
 
         save_project_document(&path, &mut document).expect("save succeeds");
         let loaded = load_project_document(&path).expect("load succeeds");
@@ -511,7 +518,10 @@ mod tests {
         assert_eq!(loaded_mesh.vertex_count(), 3);
         assert_eq!(loaded_mesh.face_count(), 1);
         assert_eq!(loaded_mesh.boundary_label(FaceId(0)), Some("inlet"));
-        assert_eq!(loaded_mesh.attributes.get("quality", FaceId(0)), Some(0.875));
+        assert_eq!(
+            loaded_mesh.attributes.get("quality", FaceId(0)),
+            Some(0.875)
+        );
 
         let _ = fs::remove_file(path);
     }
@@ -519,9 +529,10 @@ mod tests {
     #[test]
     fn save_rejects_unpersisted_scene_entities() {
         let mut document = ProjectDocument::new();
-        document
-            .scene
-            .add_node("schematic".to_owned(), SceneEntity::Schematic(crate::domain::scene::graph::SchematicHandle(0)));
+        document.scene.add_node(
+            "schematic".to_owned(),
+            SceneEntity::Schematic(crate::domain::scene::graph::SchematicHandle(0)),
+        );
 
         let path = temp_project_path("unsupported");
         let error = save_project_document(&path, &mut document)

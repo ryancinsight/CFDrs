@@ -268,5 +268,4 @@ impl ParameterManager for ArcParameterManager {
         self.enable_adaptive_curvature.reset(reason)?;
         Ok(())
     }
-
 }

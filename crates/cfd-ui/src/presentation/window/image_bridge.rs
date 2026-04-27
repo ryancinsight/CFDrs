@@ -7,9 +7,9 @@
 //! 4-byte group is a transposition, and any transposition composed with itself
 //! is the identity.  QED
 
-use std::sync::Arc;
 use gpui::RenderImage;
 use smallvec::smallvec;
+use std::sync::Arc;
 
 /// Convert a BGRA pixel buffer (from wgpu offscreen render) to an
 /// `Arc<RenderImage>` suitable for display in a gpui `img()` element.

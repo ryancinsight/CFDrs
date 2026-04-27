@@ -14,11 +14,12 @@
 //! This is the standard Orszag 2/3 rule used here to keep the nonlinear term
 //! free of wraparound contamination.
 
-use apollofft::{fft_3d_array, ifft_3d_array, Complex64};
+use apollofft::{Complex64, FftPlan3D, Shape3D};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
 use nalgebra::Vector3;
 use ndarray::Array3;
+use std::sync::Arc;
 
 /// Configuration for a periodic pseudospectral DNS stepper.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -78,6 +79,7 @@ impl PeriodicPseudospectralDnsConfig {
 #[derive(Debug, Clone)]
 pub struct PeriodicPseudospectralDns3D {
     config: PeriodicPseudospectralDnsConfig,
+    fft_plan: Arc<FftPlan3D>,
     wavenumbers_x: Vec<f64>,
     wavenumbers_y: Vec<f64>,
     wavenumbers_z: Vec<f64>,
@@ -91,8 +93,14 @@ impl PeriodicPseudospectralDns3D {
     pub fn new(config: PeriodicPseudospectralDnsConfig) -> Result<Self> {
         let (nx, ny, nz) = config.dimensions;
         let (lx, ly, lz) = config.lengths;
+        let shape = Shape3D::new(nx, ny, nz).map_err(|error| {
+            Error::InvalidConfiguration(format!(
+                "PeriodicPseudospectralDns3D: invalid Apollo FFT shape: {error}"
+            ))
+        })?;
 
         Ok(Self {
+            fft_plan: Arc::new(FftPlan3D::new(shape)),
             wavenumbers_x: Self::wavenumber_axis(nx, lx),
             wavenumbers_y: Self::wavenumber_axis(ny, ly),
             wavenumbers_z: Self::wavenumber_axis(nz, lz),
@@ -154,9 +162,9 @@ impl PeriodicPseudospectralDns3D {
         }
 
         let (u, v, w) = self.velocity_components_to_arrays(velocity);
-        let mut u_hat = fft_3d_array(&u);
-        let mut v_hat = fft_3d_array(&v);
-        let mut w_hat = fft_3d_array(&w);
+        let mut u_hat = self.fft_plan.forward_real_to_complex(&u);
+        let mut v_hat = self.fft_plan.forward_real_to_complex(&v);
+        let mut w_hat = self.fft_plan.forward_real_to_complex(&w);
         self.apply_dealiasing_filter(&mut u_hat);
         self.apply_dealiasing_filter(&mut v_hat);
         self.apply_dealiasing_filter(&mut w_hat);
@@ -169,9 +177,9 @@ impl PeriodicPseudospectralDns3D {
     ) -> Result<VelocityField<f64>> {
         let [u_hat, v_hat, w_hat] = spectra;
         let (u, v, w) = (
-            ifft_3d_array(u_hat),
-            ifft_3d_array(v_hat),
-            ifft_3d_array(w_hat),
+            self.fft_plan.inverse_complex_to_real(u_hat),
+            self.fft_plan.inverse_complex_to_real(v_hat),
+            self.fft_plan.inverse_complex_to_real(w_hat),
         );
 
         let du_dx = self.spectral_derivative(u_hat, 0);
@@ -216,9 +224,9 @@ impl PeriodicPseudospectralDns3D {
     ) -> Result<[Array3<Complex64>; 3]> {
         let adv = self.nonlinear_advection_from_spectrum(spectra)?;
         let (adv_x, adv_y, adv_z) = self.velocity_components_to_arrays(&adv);
-        let mut adv_hat_x = fft_3d_array(&adv_x);
-        let mut adv_hat_y = fft_3d_array(&adv_y);
-        let mut adv_hat_z = fft_3d_array(&adv_z);
+        let mut adv_hat_x = self.fft_plan.forward_real_to_complex(&adv_x);
+        let mut adv_hat_y = self.fft_plan.forward_real_to_complex(&adv_y);
+        let mut adv_hat_z = self.fft_plan.forward_real_to_complex(&adv_z);
         self.apply_dealiasing_filter(&mut adv_hat_x);
         self.apply_dealiasing_filter(&mut adv_hat_y);
         self.apply_dealiasing_filter(&mut adv_hat_z);
@@ -283,9 +291,9 @@ impl PeriodicPseudospectralDns3D {
         self.apply_dealiasing_filter(&mut next_v_hat);
         self.apply_dealiasing_filter(&mut next_w_hat);
 
-        let next_u = ifft_3d_array(&next_u_hat);
-        let next_v = ifft_3d_array(&next_v_hat);
-        let next_w = ifft_3d_array(&next_w_hat);
+        let next_u = self.fft_plan.inverse_complex_to_real(&next_u_hat);
+        let next_v = self.fft_plan.inverse_complex_to_real(&next_v_hat);
+        let next_w = self.fft_plan.inverse_complex_to_real(&next_w_hat);
         Ok(self.arrays_to_velocity(next_u, next_v, next_w))
     }
 
@@ -304,7 +312,7 @@ impl PeriodicPseudospectralDns3D {
                 }
             }
         }
-        ifft_3d_array(&derivative_hat)
+        self.fft_plan.inverse_complex_to_real(&derivative_hat)
     }
 
     fn apply_dealiasing_filter(&self, spectrum: &mut Array3<Complex64>) {

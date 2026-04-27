@@ -188,7 +188,9 @@ fn blake_threshold_pressure_pa(
     let critical_radius = ((3.0 * seed_radius_m.powi(3) * gas_overpressure) / (2.0 * sigma_n_m))
         .sqrt()
         .max(seed_radius_m);
-    vapor_pressure_pa - (2.0 * sigma_n_m) / (3.0 * critical_radius)
+    // Classical Blake threshold:
+    // P_B = P_v - 4σ / (3 R_B)
+    vapor_pressure_pa - (4.0 * sigma_n_m) / (3.0 * critical_radius)
 }
 
 /// Validate a selective cavitation input contract.
@@ -475,6 +477,33 @@ mod tests {
             result.dominant_selective_population,
             Some(CellPopulationIdentity::CirculatingTumorCell)
         );
+    }
+
+    #[test]
+    fn blake_threshold_matches_classic_four_thirds_factor() {
+        let vapor_pressure_pa = 3_170.0_f64;
+        let ambient_pressure_pa = 101_325.0_f64;
+        let sigma_n_m = 0.072_f64;
+        let seed_radius_m = 5.0e-6_f64;
+
+        let gas_overpressure = (ambient_pressure_pa - vapor_pressure_pa
+            + 2.0_f64 * sigma_n_m / seed_radius_m)
+            .max(0.0_f64);
+        let critical_radius = ((3.0_f64 * seed_radius_m.powi(3) * gas_overpressure)
+            / (2.0_f64 * sigma_n_m))
+            .sqrt()
+            .max(seed_radius_m);
+        let expected = vapor_pressure_pa - (4.0_f64 * sigma_n_m) / (3.0_f64 * critical_radius);
+
+        let actual = blake_threshold_pressure_pa(
+            vapor_pressure_pa,
+            ambient_pressure_pa,
+            sigma_n_m,
+            seed_radius_m,
+        );
+
+        assert!((actual - expected).abs() < 1e-12);
+        assert!(actual < vapor_pressure_pa);
     }
 
     #[test]

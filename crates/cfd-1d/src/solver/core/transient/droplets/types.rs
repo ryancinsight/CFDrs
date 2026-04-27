@@ -101,6 +101,19 @@ pub struct DropletPosition<T: RealField + Copy> {
 }
 
 /// Per-timepoint droplet snapshot.
+///
+/// # Theorem - Finite-Length Occupancy Projection
+///
+/// For a droplet snapshot in [`DropletState::Network`], `occupied_channels` is
+/// the ordered unique projection of `occupancy_spans.channel_index`.
+///
+/// **Proof sketch**: The finite-length representation is the authoritative
+/// geometric state because each [`ChannelOccupancy`] stores an occupied
+/// interval `[start, end]` in one channel. Projecting those intervals onto their
+/// channel indices and removing duplicates preserves every channel with
+/// nonzero finite-length occupancy while discarding only interval extent. The
+/// simulator constructs `occupied_channels` from the spans after span assembly,
+/// so channel occupancy cannot diverge from finite-length occupancy.
 #[derive(Debug, Clone)]
 pub struct DropletSnapshot<T: RealField + Copy> {
     /// Droplet id.
@@ -109,7 +122,7 @@ pub struct DropletSnapshot<T: RealField + Copy> {
     pub state: DropletState,
     /// Current position when in network.
     pub position: Option<DropletPosition<T>>,
-    /// Occupied channel ids (point-droplet approximation uses 0 or 1 edge).
+    /// Ordered unique channel ids derived from finite-length occupancy spans.
     pub occupied_channels: Vec<usize>,
     /// Occupancy spans for finite-length tracking.
     pub occupancy_spans: Vec<ChannelOccupancy<T>>,
@@ -121,6 +134,26 @@ pub struct DropletSnapshot<T: RealField + Copy> {
     pub fluid_id: i32,
     /// Optional local mixture sampled from composition pipeline.
     pub local_mixture: Option<MixtureComposition<T>>,
+}
+
+impl<T: RealField + Copy> DropletSnapshot<T> {
+    /// Compute the ordered unique channel projection of finite-length spans.
+    #[must_use]
+    pub fn occupied_channels_from_spans(&self) -> Vec<usize> {
+        let mut channels = Vec::with_capacity(self.occupancy_spans.len());
+        for span in &self.occupancy_spans {
+            if !channels.contains(&span.channel_index) {
+                channels.push(span.channel_index);
+            }
+        }
+        channels
+    }
+
+    /// Validate that channel occupancy remains a projection of finite spans.
+    #[must_use]
+    pub fn has_consistent_finite_length_occupancy(&self) -> bool {
+        self.occupied_channels == self.occupied_channels_from_spans()
+    }
 }
 
 /// Droplet tracking state at one timepoint.

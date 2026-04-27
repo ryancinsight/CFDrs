@@ -38,8 +38,8 @@
     clippy::many_single_char_names,  // ray intersection / geometry uses t,a,b,c,d — math convention
 )]
 
-pub mod domain;
 pub mod application;
+pub mod domain;
 pub mod infrastructure;
 pub mod presentation;
 

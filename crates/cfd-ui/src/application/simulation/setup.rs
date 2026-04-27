@@ -110,7 +110,10 @@ impl SimulationSetup {
         let inlet = measure_patch(mesh, "inlet")?;
         let outlet = measure_patch(mesh, "outlet")?;
         let wall_faces = collect_labeled_faces(mesh, "wall");
-        ensure!(!wall_faces.is_empty(), "reference flow solve requires labeled wall faces");
+        ensure!(
+            !wall_faces.is_empty(),
+            "reference flow solve requires labeled wall faces"
+        );
 
         ensure!(
             inlet.circularity >= MIN_CIRCULARITY,
@@ -146,7 +149,13 @@ impl SimulationSetup {
         );
         let axis_hat = axis / channel_length_m;
 
-        validate_wall_radius_consistency(mesh, &wall_faces, inlet.centroid_m, axis_hat, hydraulic_diameter_m)?;
+        validate_wall_radius_consistency(
+            mesh,
+            &wall_faces,
+            inlet.centroid_m,
+            axis_hat,
+            hydraulic_diameter_m,
+        )?;
 
         let density_kg_m3 = 1000.0;
         let viscosity_pa_s = 1.0e-3;
@@ -250,15 +259,22 @@ fn measure_patch(mesh: &IndexedMesh<f64>, label: &str) -> anyhow::Result<PatchMe
         }
     }
 
-    ensure!(area_m2.is_finite() && area_m2 > 0.0, "{label} patch must have positive area");
+    ensure!(
+        area_m2.is_finite() && area_m2 > 0.0,
+        "{label} patch must have positive area"
+    );
     let centroid_m = Point3::from(weighted_centroid / area_m2);
 
     let perimeter_m = edge_counts
         .into_iter()
         .filter(|(_, count)| *count == 1)
         .map(|((u, v), _)| {
-            let p0 = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId(u));
-            let p1 = mesh.vertices.position(cfd_mesh::domain::core::index::VertexId(v));
+            let p0 = mesh
+                .vertices
+                .position(cfd_mesh::domain::core::index::VertexId(u));
+            let p1 = mesh
+                .vertices
+                .position(cfd_mesh::domain::core::index::VertexId(v));
             (p1 - p0).norm()
         })
         .sum::<f64>();
@@ -379,8 +395,6 @@ mod tests {
         let error = SimulationSetup::from_reference_mesh(&mesh)
             .expect_err("venturi mesh must be rejected by constant-radius filter");
 
-        assert!(error
-            .to_string()
-            .contains("constant-radius wall"));
+        assert!(error.to_string().contains("constant-radius wall"));
     }
 }

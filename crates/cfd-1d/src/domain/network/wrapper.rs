@@ -990,9 +990,11 @@ fn channel_to_res_geometry<T: nalgebra::RealField + Copy>(
 
 /// Apply short-channel (Durst) and Fåhræus–Lindqvist blood viscosity corrections to `r`.
 ///
-/// The Durst branch uses the published entrance-loss relation directly; no
-/// Reynolds-number floor is introduced in the physical model. A tiny
-/// denominator guard remains only to avoid division by zero at exact zero flow.
+/// The Durst branch uses the published entrance-loss relation directly for
+/// nonzero flow states; no Reynolds-number floor is introduced in the physical
+/// model. Exact zero flow is the Picard startup state, where the advective
+/// entrance correction is undefined and the base laminar conductance must
+/// generate the first pressure-driven iterate.
 #[allow(clippy::too_many_arguments)]
 fn apply_resistance_corrections<T: nalgebra::RealField + Copy>(
     r: &mut T,
@@ -1018,7 +1020,7 @@ fn apply_resistance_corrections<T: nalgebra::RealField + Copy>(
 ) {
     if d_h > epsilon && area > epsilon {
         let l_over_dh = length / d_h;
-        if l_over_dh < durst_limit && viscosity > epsilon {
+        if l_over_dh < durst_limit && viscosity > epsilon && flow_rate != T::zero() {
             let velocity = flow_rate.abs() / area;
             let reynolds = density * velocity * d_h / viscosity;
             let k_entrance = durst_offset + sixty_four / (reynolds * l_over_dh).max(tiny);
@@ -1052,6 +1054,22 @@ fn apply_resistance_corrections<T: nalgebra::RealField + Copy>(
 /// Estimate microchannel blood apparent viscosity from local shear, diameter,
 /// hematocrit, and plasma viscosity using Secomb diameter correction together
 /// with Quemada low-shear aggregation.
+///
+/// # Theorem - Zero-Flow Picard Initialization
+///
+/// At exactly zero flow, the shear-rate-dependent Quemada term has no defined
+/// advective shear state for a pressure-driven network solve. The finite
+/// small-signal initialization is therefore the Secomb diameter/hematocrit
+/// viscosity, after which nonzero Picard iterates use the shear-dependent
+/// Quemada correction.
+///
+/// **Proof sketch**: The hydraulic solve linearizes `ΔP = R(Q)Q` about the
+/// previous flow. At `Q = 0`, using an unbounded low-shear aggregation term
+/// makes conductance vanish and prevents the pressure perturbation from
+/// generating the first nonzero iterate. Secomb's law is finite for positive
+/// diameter, hematocrit in `[0, 0.95]`, and positive plasma viscosity, so it
+/// provides a finite resistance for the first linear solve. Once `Q != 0`, the
+/// shear rate `8|Q|/(A D_h)` is defined and the shear-dependent model enters.
 pub fn blood_microchannel_apparent_viscosity<T: nalgebra::RealField + Copy + FromPrimitive>(
     d_h: T,
     flow_rate: T,
@@ -1076,6 +1094,9 @@ pub fn blood_microchannel_apparent_viscosity<T: nalgebra::RealField + Copy + Fro
         hematocrit.clamp(0.0, 0.95),
         plasma_viscosity,
     );
+    if flow_rate_m3_s == 0.0 {
+        return T::from_f64(secomb);
+    }
     let quemada = crate::physics::cell_separation::rouleaux_aggregation::checked_quemada_viscosity(
         shear_rate,
         hematocrit.clamp(0.0, 0.95),
@@ -1090,8 +1111,8 @@ pub fn blood_microchannel_apparent_viscosity<T: nalgebra::RealField + Copy + Fro
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
     use crate::physics::cell_separation::fahraeus_lindqvist::secomb_network_viscosity;
+    use approx::assert_relative_eq;
 
     #[test]
     fn blood_microchannel_apparent_viscosity_falls_back_to_secomb_when_quemada_invalid() {
@@ -1100,14 +1121,9 @@ mod tests {
         let hematocrit = 0.95;
         let plasma_viscosity = 1.2e-3;
 
-        let result = blood_microchannel_apparent_viscosity(
-            d_h,
-            0.0,
-            area,
-            hematocrit,
-            plasma_viscosity,
-        )
-        .expect("microchannel apparent viscosity");
+        let result =
+            blood_microchannel_apparent_viscosity(d_h, 0.0, area, hematocrit, plasma_viscosity)
+                .expect("microchannel apparent viscosity");
 
         let expected = secomb_network_viscosity(d_h * 1.0e6, hematocrit, plasma_viscosity);
         assert!((result - expected).abs() < 1e-15 * expected.max(1.0));

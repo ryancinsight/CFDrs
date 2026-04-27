@@ -1,9 +1,9 @@
 //! Mesh render pipeline — wgpu render pipeline for Phong-shaded mesh rendering
 //! with up to 6 clip planes for section views.
 
-use bytemuck::Zeroable;
 use crate::infrastructure::gpu::clip_uniform::ClipUniforms;
 use crate::infrastructure::gpu::mesh_buffer::GpuMeshBuffer;
+use bytemuck::Zeroable;
 use wgpu::util::DeviceExt;
 
 /// Shading mode for the viewport renderer.

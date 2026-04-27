@@ -49,9 +49,7 @@ impl ViewType {
             Self::Bottom => Vector3::new(0.0, 1.0, 0.0),
             Self::Left => Vector3::new(1.0, 0.0, 0.0),
             Self::Right => Vector3::new(-1.0, 0.0, 0.0),
-            Self::Isometric => {
-                Vector3::new(-1.0, -1.0, -1.0).normalize()
-            }
+            Self::Isometric => Vector3::new(-1.0, -1.0, -1.0).normalize(),
             Self::Section { plane_normal, .. } => {
                 Vector3::new(plane_normal[0], plane_normal[1], plane_normal[2])
             }

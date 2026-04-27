@@ -33,8 +33,18 @@ pub fn clip_plane_triangles(plane: &ClipPlane) -> Vec<OverlayTriangle> {
     ];
 
     vec![
-        OverlayTriangle { v0: corners[0], v1: corners[1], v2: corners[2], color: plane.color },
-        OverlayTriangle { v0: corners[0], v1: corners[2], v2: corners[3], color: plane.color },
+        OverlayTriangle {
+            v0: corners[0],
+            v1: corners[1],
+            v2: corners[2],
+            color: plane.color,
+        },
+        OverlayTriangle {
+            v0: corners[0],
+            v1: corners[2],
+            v2: corners[3],
+            color: plane.color,
+        },
     ]
 }
 

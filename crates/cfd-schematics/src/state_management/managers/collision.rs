@@ -320,5 +320,4 @@ impl ParameterManager for CollisionParameterManager {
         self.enable_wall_detection.reset(reason)?;
         Ok(())
     }
-
 }

@@ -4,6 +4,7 @@ use std::fmt::Write as _;
 use std::io::Write as IoWrite;
 use std::path::Path;
 
+use super::super::report_math::{ga_convergence_trend, GaConvergenceTrend};
 use super::primitives::{axis, svg_end, svg_start, svg_title, write_bar_svg, write_bar_svg_owned};
 use crate::reporting::{Milestone12ReportDesign, ParetoPoint};
 
@@ -613,23 +614,19 @@ pub(super) fn write_ga_convergence_figure(
         );
     }
 
-    let tail_len = best_per_gen.len().min(5);
-    let tail_start = best_per_gen.len().saturating_sub(tail_len);
-    let tail_delta = if tail_len >= 2 {
-        best_per_gen[best_per_gen.len() - 1] - best_per_gen[tail_start]
-    } else {
-        0.0
-    };
-    let trajectory_note = if tail_delta > 1.0e-3 {
-        format!("Still improving: Δbest(last {tail_len} gen) = +{tail_delta:.4}")
-    } else if tail_delta < -1.0e-3 {
-        format!("Best fitness regressed over last {tail_len} gen by {tail_delta:.4}")
-    } else {
-        format!(
-            "Near-plateau: |Δbest(last {} gen)| = {:.4}",
+    let trajectory_note = match ga_convergence_trend(best_per_gen) {
+        GaConvergenceTrend::Improving {
             tail_len,
-            tail_delta.abs()
-        )
+            tail_delta,
+        } => format!("Still improving: Δbest(last {tail_len} gen) = +{tail_delta:.4}"),
+        GaConvergenceTrend::Regressing {
+            tail_len,
+            tail_delta,
+        } => format!("Best fitness regressed over last {tail_len} gen by {tail_delta:.4}"),
+        GaConvergenceTrend::NearPlateau {
+            tail_len,
+            tail_delta_abs,
+        } => format!("Near-plateau: |Δbest(last {tail_len} gen)| = {tail_delta_abs:.4}"),
     };
     let _ = write!(
         svg,

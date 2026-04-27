@@ -97,12 +97,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
     }
 
     /// Perform one pressure-velocity coupling iteration
-    pub fn step(
-        &mut self,
-        bc: &BoundaryCondition<T>,
-        nu: T,
-        rho: T,
-    ) -> cfd_core::error::Result<T> {
+    pub fn step(&mut self, bc: &BoundaryCondition<T>, nu: T, rho: T) -> cfd_core::error::Result<T> {
         self.validate_initial_state_layout()?;
         self.validate_physical_inputs(nu, rho)?;
 
@@ -126,7 +121,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
             let p_correction_workspace = &mut self.p_correction_workspace;
 
             state_buffer.density.as_mut_slice().fill(rho);
-            state_buffer.viscosity.as_mut_slice().fill(dynamic_viscosity);
+            state_buffer
+                .viscosity
+                .as_mut_slice()
+                .fill(dynamic_viscosity);
             state_buffer.force_u.as_mut_slice().fill(T::zero());
             state_buffer.force_v.as_mut_slice().fill(T::zero());
             state_buffer.mask.as_mut_slice().fill(true);

@@ -1,4 +1,7 @@
-use super::{SelectiveTreeBuilder, SelectiveTreeRequest, NodeKind, JunctionFamily, ChannelVisualRole, VenturiGeometryMetadata};
+use super::{
+    ChannelVisualRole, JunctionFamily, NodeKind, SelectiveTreeBuilder, SelectiveTreeRequest,
+    VenturiGeometryMetadata,
+};
 use crate::domain::therapy_metadata::TherapyZone;
 
 impl SelectiveTreeBuilder {

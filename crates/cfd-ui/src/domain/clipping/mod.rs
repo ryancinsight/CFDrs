@@ -2,4 +2,4 @@
 
 pub mod plane;
 
-pub use plane::{ClipPlane, ClipPlaneId, ClipPlaneSet, ClipPreset};
+pub use plane::{ClipPlane, ClipPlaneId, ClipPlaneSet, ClipPlaneSlotError, ClipPreset};

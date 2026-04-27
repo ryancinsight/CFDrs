@@ -46,7 +46,9 @@ pub fn milestone12_primitive_selective_tree_spec(
             stage_layout.split_kind, split_kind,
             "Milestone 12 stage {stage_index} split_kind must match the sequence SSOT"
         );
-        let serpentine = is_last.then_some(request.center_serpentine.clone()).flatten();
+        let serpentine = is_last
+            .then_some(request.center_serpentine.clone())
+            .flatten();
         let branches = stage_layout
             .branches
             .iter()

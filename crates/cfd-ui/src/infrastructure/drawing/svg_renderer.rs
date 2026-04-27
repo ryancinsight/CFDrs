@@ -16,10 +16,7 @@ use std::fmt::Write as _;
 
 /// Render a `DrawingSheet` with associated meshes to an SVG string.
 #[must_use]
-pub fn render_svg(
-    sheet: &DrawingSheet,
-    meshes: &[&IndexedMesh<f64>],
-) -> String {
+pub fn render_svg(sheet: &DrawingSheet, meshes: &[&IndexedMesh<f64>]) -> String {
     let (sheet_w, sheet_h) = sheet.size.dimensions_mm();
     let margin = sheet.border_margin_mm;
 
@@ -50,10 +47,8 @@ pub fn render_svg(
     // Draw each projected view.
     for view in &sheet.views {
         if let Some(mesh) = meshes.get(view.mesh_index) {
-            let projector = OrthographicProjector::new(
-                view.view_type.direction(),
-                view.view_type.up(),
-            );
+            let projector =
+                OrthographicProjector::new(view.view_type.direction(), view.view_type.up());
             let edges = projector.project_mesh(mesh);
             let cx = view.position_on_sheet_mm[0];
             let cy = sheet_h - view.position_on_sheet_mm[1]; // SVG Y is top-down
@@ -83,35 +78,35 @@ pub fn render_svg(
     svg
 }
 
-fn render_edges(
-    svg: &mut String,
-    edges: &ProjectedEdges,
-    cx: f64,
-    cy: f64,
-    scale: f64,
-) {
+fn render_edges(svg: &mut String, edges: &ProjectedEdges, cx: f64, cy: f64, scale: f64) {
     for (a, b) in &edges.visible {
         let _ = writeln!(
             svg,
             r#"<line class="visible" x1="{}" y1="{}" x2="{}" y2="{}"/>"#,
-            cx + a.x * scale, cy - a.y * scale,
-            cx + b.x * scale, cy - b.y * scale,
+            cx + a.x * scale,
+            cy - a.y * scale,
+            cx + b.x * scale,
+            cy - b.y * scale,
         );
     }
     for (a, b) in &edges.hidden {
         let _ = writeln!(
             svg,
             r#"<line class="hidden" x1="{}" y1="{}" x2="{}" y2="{}"/>"#,
-            cx + a.x * scale, cy - a.y * scale,
-            cx + b.x * scale, cy - b.y * scale,
+            cx + a.x * scale,
+            cy - a.y * scale,
+            cx + b.x * scale,
+            cy - b.y * scale,
         );
     }
     for (a, b) in &edges.silhouette {
         let _ = writeln!(
             svg,
             r#"<line class="silhouette" x1="{}" y1="{}" x2="{}" y2="{}"/>"#,
-            cx + a.x * scale, cy - a.y * scale,
-            cx + b.x * scale, cy - b.y * scale,
+            cx + a.x * scale,
+            cy - a.y * scale,
+            cx + b.x * scale,
+            cy - b.y * scale,
         );
     }
 }
@@ -136,13 +131,7 @@ fn render_dimension(svg: &mut String, dim: &DimensionSpec, _sheet_h: f64) {
     // Angular, Diameter, Radius variants extend here when required.
 }
 
-fn render_title_block(
-    svg: &mut String,
-    tb: &TitleBlock,
-    sheet_w: f64,
-    sheet_h: f64,
-    margin: f64,
-) {
+fn render_title_block(svg: &mut String, tb: &TitleBlock, sheet_w: f64, sheet_h: f64, margin: f64) {
     let tb_width = 180.0_f64.min(sheet_w - 2.0 * margin);
     let tb_height = 40.0;
     let x = sheet_w - margin - tb_width;
@@ -186,11 +175,20 @@ fn render_title_block(
 <text class="title-text" x="{}" y="{text_y2}">Rev: {} Date: {}</text>
 <text class="title-text" x="{}" y="{text_y2}">Scale: {} Sheet {}/{}</text>
 "#,
-        x + 4.0, tb.company_name,
-        col1 + 4.0, tb.drawing_title,
-        col2 + 4.0, tb.drawing_number,
-        x + 4.0, tb.author,
-        col1 + 4.0, tb.revision, tb.date,
-        col2 + 4.0, tb.scale, tb.sheet_number, tb.sheet_total,
+        x + 4.0,
+        tb.company_name,
+        col1 + 4.0,
+        tb.drawing_title,
+        col2 + 4.0,
+        tb.drawing_number,
+        x + 4.0,
+        tb.author,
+        col1 + 4.0,
+        tb.revision,
+        tb.date,
+        col2 + 4.0,
+        tb.scale,
+        tb.sheet_number,
+        tb.sheet_total,
     );
 }

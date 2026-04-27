@@ -1,9 +1,9 @@
 //! Drawing sheet — container for an engineering drawing with title block and views.
 
+use crate::domain::drawing::annotation::Annotation;
+use crate::domain::drawing::dimension::DimensionSpec;
 use crate::domain::drawing::title_block::TitleBlock;
 use crate::domain::drawing::view::ProjectedView;
-use crate::domain::drawing::dimension::DimensionSpec;
-use crate::domain::drawing::annotation::Annotation;
 use serde::{Deserialize, Serialize};
 
 /// Standard sheet sizes for engineering drawings.
@@ -45,7 +45,10 @@ impl SheetSize {
             Self::AnsiC => (558.8, 431.8),
             Self::AnsiD => (863.6, 558.8),
             Self::AnsiE => (1117.6, 863.6),
-            Self::Custom { width_mm, height_mm } => (width_mm, height_mm),
+            Self::Custom {
+                width_mm,
+                height_mm,
+            } => (width_mm, height_mm),
         }
     }
 }

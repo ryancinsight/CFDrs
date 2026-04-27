@@ -76,8 +76,7 @@ impl OrbitalCamera {
     /// Rotate the camera around the target.
     pub fn orbit(&mut self, delta_azimuth: f64, delta_elevation: f64) {
         self.azimuth += delta_azimuth;
-        self.elevation = (self.elevation + delta_elevation)
-            .clamp(-MAX_ELEVATION, MAX_ELEVATION);
+        self.elevation = (self.elevation + delta_elevation).clamp(-MAX_ELEVATION, MAX_ELEVATION);
     }
 
     /// Pan the camera (translate target) in the screen plane.
@@ -91,8 +90,8 @@ impl OrbitalCamera {
 
     /// Zoom by adjusting the camera distance.
     pub fn zoom(&mut self, delta: f64) {
-        self.distance = (self.distance * (1.0 - delta * ZOOM_SENSITIVITY))
-            .clamp(MIN_DISTANCE, MAX_DISTANCE);
+        self.distance =
+            (self.distance * (1.0 - delta * ZOOM_SENSITIVITY)).clamp(MIN_DISTANCE, MAX_DISTANCE);
     }
 
     /// Fit the camera so that an axis-aligned bounding box fills the view.

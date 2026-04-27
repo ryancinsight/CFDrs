@@ -1,4 +1,5 @@
 //! Private build-pipeline helpers for BlueprintTopologyFactory.
+use super::BlueprintTopologyFactory;
 use crate::config::{ChannelTypeConfig, GeometryConfig};
 use crate::domain::model::{EdgeId, NetworkBlueprint};
 use crate::domain::therapy_metadata::TherapyZone;
@@ -10,7 +11,6 @@ use crate::geometry::metadata::ChannelVisualRole;
 use crate::topology::model::{
     BlueprintTopologySpec, TopologyLineageMetadata, VenturiPlacementSpec,
 };
-use super::BlueprintTopologyFactory;
 
 impl BlueprintTopologyFactory {
     pub(super) fn build_series_path(
@@ -79,7 +79,10 @@ impl BlueprintTopologyFactory {
     /// For series-path specs, channels are renamed 1:1 in positional order.
     /// For split-tree specs, only the trunk and outlet channels can be
     /// reconciled positionally; branch channels keep their auto-generated IDs.
-    pub(super) fn reconcile_channel_ids(blueprint: &mut NetworkBlueprint, spec: &BlueprintTopologySpec) {
+    pub(super) fn reconcile_channel_ids(
+        blueprint: &mut NetworkBlueprint,
+        spec: &BlueprintTopologySpec,
+    ) {
         if !spec.series_channels.is_empty() {
             // Series path: channels map 1:1 in order
             let named_ids: Vec<String> = spec
@@ -114,7 +117,10 @@ impl BlueprintTopologyFactory {
             && spec.venturi_placements.iter().all(|placement| {
                 blueprint.channels.iter().any(|channel| {
                     (channel.id.as_str() == placement.target_channel_id
-                        || channel.id.as_str().starts_with(&placement.target_channel_id))
+                        || channel
+                            .id
+                            .as_str()
+                            .starts_with(&placement.target_channel_id))
                         && channel.venturi_geometry.is_some()
                 })
             })
@@ -193,10 +199,10 @@ impl BlueprintTopologyFactory {
                     .map(|(x, _)| *x)
                     .fold(f64::NEG_INFINITY, f64::max);
                 (max_x > blueprint.box_dims.0 * 0.5 + 1.0e-6).then(|| {
-                    let centroid_x =
-                        channel.path.iter().map(|(x, _)| *x).sum::<f64>() / channel.path.len() as f64;
-                    let centroid_y =
-                        channel.path.iter().map(|(_, y)| *y).sum::<f64>() / channel.path.len() as f64;
+                    let centroid_x = channel.path.iter().map(|(x, _)| *x).sum::<f64>()
+                        / channel.path.len() as f64;
+                    let centroid_y = channel.path.iter().map(|(_, y)| *y).sum::<f64>()
+                        / channel.path.len() as f64;
                     (channel.id.0.clone(), centroid_x, centroid_y)
                 })
             })
@@ -218,5 +224,4 @@ impl BlueprintTopologyFactory {
             .map(|(channel_id, _, _)| channel_id)
             .collect()
     }
-
 }

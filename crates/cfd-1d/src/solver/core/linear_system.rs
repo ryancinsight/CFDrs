@@ -26,13 +26,12 @@
 //! falls through to the dense LU/QR tier regardless of system size.
 
 use cfd_core::error::Result;
-use cfd_math::linear_solver::DirectSparseSolver;
 use cfd_math::linear_solver::Preconditioner;
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixExt;
 use nalgebra::{DMatrix, DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use num_traits::{Float, FromPrimitive};
 use serde::{Deserialize, Serialize};
 
 /// Linear solver method selection
@@ -100,6 +99,18 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
     ///
     /// The input `x` is treated as an initial iterate for iterative methods and
     /// overwritten with the final solution on success.
+    ///
+    /// # Theorem - Row Equilibration Preserves Hydraulic Pressures
+    ///
+    /// Let `D` be a diagonal matrix with strictly positive entries. The
+    /// equilibrated system `(DA)x = Db` has exactly the same solution set as
+    /// `Ax = b`.
+    ///
+    /// **Proof sketch**: Since every diagonal entry of `D` is positive, `D` is
+    /// nonsingular. Multiplying `Ax = b` by `D` gives `(DA)x = Db`. Conversely,
+    /// multiplying `(DA)x = Db` by `D^{-1}` gives `Ax = b`. Row equilibration
+    /// therefore changes numerical scale but not the physical pressure
+    /// solution.
     pub fn solve_with_initial_guess(
         &self,
         a: &CsrMatrix<T>,
@@ -109,11 +120,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
     where
         T: Copy,
     {
+        let (scaled_a, scaled_b) = Self::row_equilibrated_system(a, b)?;
         if a.nrows() <= Self::DIRECT_SOLVE_NODE_THRESHOLD {
-            let direct_result = match self.method {
-                LinearSolverMethod::ConjugateGradient => Self::solve_sparse_direct_spd(a, b),
-                LinearSolverMethod::BiCGSTAB => Self::solve_sparse_direct_general(a, b),
-            };
+            let direct_result = Self::solve_dense_fallback(&scaled_a, &scaled_b);
             return match direct_result {
                 Ok(x) if self.solution_meets_residual_target(a, &x, b) => Ok(x),
                 Ok(_) | Err(_) => Self::solve_dense_fallback(a, b),
@@ -129,8 +138,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
                     use_parallel_spmv: true,
                 };
                 let solver = ConjugateGradient::<T>::new(config);
-                let precond = DiagJacobi::new(a)?;
-                match solver.solve(a, b, x, Some(&precond)) {
+                let precond = DiagJacobi::new(&scaled_a)?;
+                match solver.solve(&scaled_a, &scaled_b, x, Some(&precond)) {
                     Ok(_) if self.solution_meets_residual_target(a, x, b) => Ok(x.clone()),
                     Err(_) | Ok(_) => Self::solve_dense_fallback(a, b),
                 }
@@ -143,13 +152,38 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
                     use_parallel_spmv: true,
                 };
                 let solver = BiCGSTAB::<T>::new(config);
-                let precond = DiagJacobi::new(a)?;
-                match solver.solve(a, b, x, Some(&precond)) {
+                let precond = DiagJacobi::new(&scaled_a)?;
+                match solver.solve(&scaled_a, &scaled_b, x, Some(&precond)) {
                     Ok(_) if self.solution_meets_residual_target(a, x, b) => Ok(x.clone()),
                     Err(_) | Ok(_) => Self::solve_dense_fallback(a, b),
                 }
             }
         }
+    }
+
+    fn row_equilibrated_system(
+        a: &CsrMatrix<T>,
+        b: &DVector<T>,
+    ) -> Result<(CsrMatrix<T>, DVector<T>)> {
+        let mut scaling = DVector::from_element(a.nrows(), T::one());
+        for row_idx in 0..a.nrows() {
+            let row = a.row(row_idx);
+            let mut row_max = T::zero();
+            for value in row.values() {
+                row_max = nalgebra::RealField::max(row_max, value.abs());
+            }
+            if row_max > T::default_epsilon() && row_max.is_finite() {
+                scaling[row_idx] = nalgebra::ComplexField::recip(row_max);
+            }
+        }
+
+        let mut scaled_a = a.clone();
+        scaled_a.scale_rows(&scaling)?;
+        let mut scaled_b = b.clone();
+        for idx in 0..scaled_b.len() {
+            scaled_b[idx] *= scaling[idx];
+        }
+        Ok((scaled_a, scaled_b))
     }
 
     fn solution_meets_residual_target(
@@ -158,11 +192,11 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
         x: &DVector<T>,
         b: &DVector<T>,
     ) -> bool {
-        let residual = Self::compute_residual_norm(a, x, b);
+        let residual = Self::compute_equilibrated_residual_norm(a, x, b);
         if !residual.is_finite() {
             return false;
         }
-        let rhs_norm = b.norm();
+        let rhs_norm = Self::compute_equilibrated_rhs_norm(a, b);
         if rhs_norm > T::default_epsilon() {
             residual / rhs_norm <= self.tolerance
         } else {
@@ -170,42 +204,44 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
         }
     }
 
-    fn compute_residual_norm(a: &CsrMatrix<T>, x: &DVector<T>, b: &DVector<T>) -> T {
+    fn compute_equilibrated_residual_norm(a: &CsrMatrix<T>, x: &DVector<T>, b: &DVector<T>) -> T {
         let mut norm = T::zero();
         for row_idx in 0..a.nrows() {
             let row = a.row(row_idx);
             let mut ax_i = T::zero();
+            let mut row_max = T::zero();
             for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
                 ax_i += *value * x[*col_idx];
+                row_max = nalgebra::RealField::max(row_max, value.abs());
             }
-            let residual = ax_i - b[row_idx];
+            let scale = if row_max > T::default_epsilon() && row_max.is_finite() {
+                nalgebra::ComplexField::recip(row_max)
+            } else {
+                T::one()
+            };
+            let residual = (ax_i - b[row_idx]) * scale;
             norm += residual * residual;
         }
         <T as Float>::sqrt(norm)
     }
 
-    fn solve_sparse_direct_spd(a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>>
-    where
-        T: ToPrimitive,
-    {
-        DirectSparseSolver {
-            max_size: Self::DIRECT_SOLVE_NODE_THRESHOLD,
-            ordering: 0,
-            pivot_tolerance: 1e-12,
+    fn compute_equilibrated_rhs_norm(a: &CsrMatrix<T>, b: &DVector<T>) -> T {
+        let mut norm = T::zero();
+        for row_idx in 0..a.nrows() {
+            let row = a.row(row_idx);
+            let mut row_max = T::zero();
+            for value in row.values() {
+                row_max = nalgebra::RealField::max(row_max, value.abs());
+            }
+            let scale = if row_max > T::default_epsilon() && row_max.is_finite() {
+                nalgebra::ComplexField::recip(row_max)
+            } else {
+                T::one()
+            };
+            let rhs = b[row_idx] * scale;
+            norm += rhs * rhs;
         }
-        .solve(a, b)
-    }
-
-    fn solve_sparse_direct_general(a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>>
-    where
-        T: ToPrimitive,
-    {
-        DirectSparseSolver {
-            max_size: Self::DIRECT_SOLVE_NODE_THRESHOLD,
-            ordering: 1,
-            pivot_tolerance: 1e-12,
-        }
-        .solve(a, b)
+        <T as Float>::sqrt(norm)
     }
 
     fn solve_dense_fallback(a: &CsrMatrix<T>, b: &DVector<T>) -> Result<DVector<T>> {
@@ -233,7 +269,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> LinearSystemSolver<T> {
         for row_idx in 0..a.nrows() {
             let row = a.row(row_idx);
             for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
-                dense[(row_idx, *col_idx)] = *value;
+                dense[(row_idx, *col_idx)] += *value;
             }
         }
         dense

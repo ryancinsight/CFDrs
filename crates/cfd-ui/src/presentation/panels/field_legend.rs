@@ -1,6 +1,6 @@
 //! Field legend panel — colorbar for simulation result visualization.
 
-use crate::domain::colormap::{Colormap, colorize};
+use crate::domain::colormap::{colorize, Colormap};
 
 /// A colorbar legend entry (value -> color).
 pub struct LegendEntry {

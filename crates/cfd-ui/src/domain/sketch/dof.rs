@@ -73,7 +73,10 @@ mod tests {
         let mut sk = Sketch::new(SketchId(0), "test".into(), WorkPlane::xy());
         let id = sk.next_entity_id();
         sk.add_entity(SketchEntity::Point(SketchPoint {
-            id, x: 0.0, y: 0.0, construction: false,
+            id,
+            x: 0.0,
+            y: 0.0,
+            construction: false,
         }));
         let analysis = analyze_dofs(&sk);
         assert_eq!(analysis.total_dofs, 2);
@@ -86,7 +89,10 @@ mod tests {
         let mut sk = Sketch::new(SketchId(0), "test".into(), WorkPlane::xy());
         let id = sk.next_entity_id();
         sk.add_entity(SketchEntity::Point(SketchPoint {
-            id, x: 0.0, y: 0.0, construction: false,
+            id,
+            x: 0.0,
+            y: 0.0,
+            construction: false,
         }));
         sk.add_constraint(Constraint::Fixed(id));
         let analysis = analyze_dofs(&sk);

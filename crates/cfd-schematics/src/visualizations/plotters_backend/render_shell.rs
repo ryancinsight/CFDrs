@@ -115,10 +115,7 @@ impl PlottersRenderer {
                     .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
             } else {
                 chart
-                    .draw_series(std::iter::once(PathElement::new(
-                        [*p1, *p2],
-                        wall_style,
-                    )))
+                    .draw_series(std::iter::once(PathElement::new([*p1, *p2], wall_style)))
                     .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
             }
         }

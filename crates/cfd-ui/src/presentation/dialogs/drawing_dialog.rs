@@ -5,10 +5,7 @@ use crate::domain::drawing::view::{ProjectedView, ViewType};
 
 /// Create a standard three-view engineering drawing (front, top, right + isometric).
 #[must_use]
-pub fn standard_three_view(
-    mesh_index: usize,
-    sheet_size: SheetSize,
-) -> DrawingSheet {
+pub fn standard_three_view(mesh_index: usize, sheet_size: SheetSize) -> DrawingSheet {
     let mut sheet = DrawingSheet::new(sheet_size);
     let (w, h) = sheet_size.dimensions_mm();
 

@@ -1,8 +1,10 @@
-﻿//! Asymmetric trifurcation and selective tree composite preset functions.
+//! Asymmetric trifurcation and selective tree composite preset functions.
 use super::parallel_lane::{canonical_parallel_venturi_blueprint, parallel_lane};
 use crate::domain::model::NetworkBlueprint;
 use crate::domain::therapy_metadata::TherapyZone;
-use crate::geometry::generator::{create_selective_tree_geometry, SelectiveTreeRequest, SelectiveTreeTopology};
+use crate::geometry::generator::{
+    create_selective_tree_geometry, SelectiveTreeRequest, SelectiveTreeTopology,
+};
 
 pub fn asymmetric_trifurcation_venturi_rect(
     name: impl Into<String>,
@@ -177,4 +179,3 @@ pub fn double_trifurcation_cif_venturi_rect(
     };
     create_selective_tree_geometry(&request)
 }
-

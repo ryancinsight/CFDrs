@@ -126,11 +126,11 @@ fn build_series_channel(
 pub fn create_series_geometry_from_spec(spec: &BlueprintTopologySpec) -> NetworkBlueprint {
     let channel_count = spec.series_channels.len();
     let y_mm = spec.box_dims_mm.1 * 0.5;
-    
+
     let mut nodes = Vec::with_capacity(channel_count + 1);
     let mut current_x = 10.0;
     nodes.push(layout_node("inlet", NodeKind::Inlet, (current_x, y_mm)));
-    
+
     for (idx, channel) in spec.series_channels.iter().enumerate() {
         if idx < channel_count - 1 {
             current_x += channel.route.length_m * 1000.0;
@@ -141,14 +141,9 @@ pub fn create_series_geometry_from_spec(spec: &BlueprintTopologySpec) -> Network
             ));
         } else {
             current_x += channel.route.length_m * 1000.0;
-            nodes.push(layout_node(
-                "outlet",
-                NodeKind::Outlet,
-                (current_x, y_mm),
-            ));
+            nodes.push(layout_node("outlet", NodeKind::Outlet, (current_x, y_mm)));
         }
     }
-
 
     let mut channels = Vec::with_capacity(channel_count);
     for (idx, channel) in spec.series_channels.iter().enumerate() {

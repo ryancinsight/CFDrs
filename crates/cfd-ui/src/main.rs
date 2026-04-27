@@ -20,7 +20,11 @@ fn main() -> anyhow::Result<()> {
         println!("cfd-ui v{}", env!("CARGO_PKG_VERSION"));
         println!(
             "Viewport renderer: {}",
-            if app.renderer.is_some() { "GPU" } else { "none" }
+            if app.renderer.is_some() {
+                "GPU"
+            } else {
+                "none"
+            }
         );
         println!("Run with --features gpui-window for the graphical interface.");
         Ok(())

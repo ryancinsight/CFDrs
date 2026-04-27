@@ -7,17 +7,19 @@
 //! 4. Axis indicator overlay (bottom-left scissor rect)
 //! 5. View cube overlay (top-right scissor rect)
 
+use crate::domain::clipping::ClipPlaneSet;
 use crate::domain::scene::camera::orbital::OrbitalCamera;
+use crate::infrastructure::gpu::clip_uniform::ClipUniforms;
 use crate::infrastructure::gpu::context::GpuViewportContext;
 use crate::infrastructure::gpu::mesh_buffer::GpuMeshBuffer;
 use crate::infrastructure::gpu::offscreen::OffscreenTarget;
 use crate::infrastructure::gpu::overlay_buffer::OverlayBuffer;
-use crate::infrastructure::gpu::overlay_pipeline::{OverlayPipeline, OverlayTopology, OverlayUniforms};
+use crate::infrastructure::gpu::overlay_pipeline::{
+    OverlayPipeline, OverlayTopology, OverlayUniforms,
+};
 use crate::infrastructure::gpu::pick_pipeline::PickRenderPipeline;
 use crate::infrastructure::gpu::pick_target::PickTarget;
-use crate::infrastructure::gpu::clip_uniform::ClipUniforms;
 use crate::infrastructure::gpu::pipeline::{MeshRenderPipeline, ShadingMode, ViewUniforms};
-use crate::domain::clipping::ClipPlaneSet;
 use cfd_mesh::IndexedMesh;
 
 /// The 3D viewport renderer. Manages GPU resources and renders meshes offscreen.
@@ -57,7 +59,8 @@ impl ViewportRenderer {
     pub fn upload_meshes(&mut self, meshes: &[&IndexedMesh<f64>]) {
         self.mesh_buffers.clear();
         for mesh in meshes {
-            self.mesh_buffers.push(GpuMeshBuffer::from_indexed_mesh(mesh, &self.gpu.device));
+            self.mesh_buffers
+                .push(GpuMeshBuffer::from_indexed_mesh(mesh, &self.gpu.device));
         }
     }
 
@@ -130,14 +133,19 @@ impl ViewportRenderer {
         self.pipeline.update_uniforms(&self.gpu.queue, &uniforms);
 
         let clip_uniforms = ClipUniforms::from_clip_plane_set(clip_planes);
-        self.pipeline.update_clip_uniforms(&self.gpu.queue, &clip_uniforms);
+        self.pipeline
+            .update_clip_uniforms(&self.gpu.queue, &clip_uniforms);
 
         let overlay_uniforms = OverlayUniforms { view_proj: vp };
-        self.overlay_pipeline.update_uniforms(&self.gpu.queue, &overlay_uniforms);
+        self.overlay_pipeline
+            .update_uniforms(&self.gpu.queue, &overlay_uniforms);
 
-        let mut encoder = self.gpu.device.create_command_encoder(
-            &wgpu::CommandEncoderDescriptor { label: Some("viewport render") },
-        );
+        let mut encoder = self
+            .gpu
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("viewport render"),
+            });
 
         // Pass 1: Main mesh pass.
         {
@@ -148,7 +156,10 @@ impl ViewportRenderer {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.18, g: 0.20, b: 0.25, a: 1.0,
+                            r: 0.18,
+                            g: 0.20,
+                            b: 0.25,
+                            a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
                     },
@@ -199,7 +210,8 @@ impl ViewportRenderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            self.overlay_pipeline.draw(&mut pass, sel_buf, OverlayTopology::Triangles);
+            self.overlay_pipeline
+                .draw(&mut pass, sel_buf, OverlayTopology::Triangles);
         }
 
         // Pass 3: Axis indicator overlay.
@@ -225,7 +237,8 @@ impl ViewportRenderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            self.overlay_pipeline.draw(&mut pass, axis_buf, OverlayTopology::Lines);
+            self.overlay_pipeline
+                .draw(&mut pass, axis_buf, OverlayTopology::Lines);
         }
 
         // Pass 4: View cube overlay.
@@ -251,7 +264,8 @@ impl ViewportRenderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            self.overlay_pipeline.draw(&mut pass, cube_buf, OverlayTopology::Triangles);
+            self.overlay_pipeline
+                .draw(&mut pass, cube_buf, OverlayTopology::Triangles);
         }
 
         self.gpu.queue.submit(std::iter::once(encoder.finish()));
@@ -283,11 +297,15 @@ impl ViewportRenderer {
             field_active: 0,
         };
 
-        self.pick_pipeline.update_uniforms(&self.gpu.queue, &uniforms);
+        self.pick_pipeline
+            .update_uniforms(&self.gpu.queue, &uniforms);
 
-        let mut encoder = self.gpu.device.create_command_encoder(
-            &wgpu::CommandEncoderDescriptor { label: Some("pick render") },
-        );
+        let mut encoder = self
+            .gpu
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("pick render"),
+            });
 
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -297,7 +315,10 @@ impl ViewportRenderer {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0, g: 0.0, b: 0.0, a: 0.0,
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
+                            a: 0.0,
                         }),
                         store: wgpu::StoreOp::Store,
                     },

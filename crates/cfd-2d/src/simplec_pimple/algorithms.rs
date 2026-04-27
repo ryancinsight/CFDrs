@@ -546,5 +546,4 @@ mod tests {
         let default_cfg = SimplecPimpleConfig::<f64>::default();
         assert_eq!(default_cfg.algorithm, AlgorithmType::Simplec);
     }
-
 }

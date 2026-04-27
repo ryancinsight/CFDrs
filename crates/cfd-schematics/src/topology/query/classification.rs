@@ -36,7 +36,11 @@ impl BlueprintTopologySpec {
             return false;
         }
         let stage = &self.split_stages[0];
-        let n_treat = stage.branches.iter().filter(|branch| branch.treatment_path).count();
+        let n_treat = stage
+            .branches
+            .iter()
+            .filter(|branch| branch.treatment_path)
+            .count();
         let n_bypass = stage
             .branches
             .iter()
@@ -62,8 +66,11 @@ impl BlueprintTopologySpec {
     #[must_use]
     pub fn is_selective_routing(&self) -> bool {
         for stage in &self.split_stages {
-            let treatment_branches: Vec<&BranchSpec> =
-                stage.branches.iter().filter(|branch| branch.treatment_path).collect();
+            let treatment_branches: Vec<&BranchSpec> = stage
+                .branches
+                .iter()
+                .filter(|branch| branch.treatment_path)
+                .collect();
             let bypass_branches: Vec<&BranchSpec> = stage
                 .branches
                 .iter()
@@ -96,7 +103,11 @@ impl BlueprintTopologySpec {
 
         let mut frac = 1.0_f64;
         for stage in &self.split_stages {
-            let total_width: f64 = stage.branches.iter().map(|branch| branch.route.width_m).sum();
+            let total_width: f64 = stage
+                .branches
+                .iter()
+                .map(|branch| branch.route.width_m)
+                .sum();
             if total_width <= 0.0 {
                 continue;
             }

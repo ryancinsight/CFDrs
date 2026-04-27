@@ -14,7 +14,7 @@
 //!
 //! ### Blake Threshold
 //! ```math
-//! P_Blake = P_v + 2σ/R_c · (1 + 2σ/(3R_c(P_∞ − P_v)))
+//! P_Blake = P_v + 4σ/(3R_c)
 //! ```
 //!
 //! ### Inertial Cavitation Threshold (Apfel & Holland 1991)
@@ -84,6 +84,20 @@ mod tests {
         let mi = classifier.mechanical_index().unwrap();
         assert!(mi > 0.0);
         assert!((mi - 1e6).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_blake_threshold_matches_critical_radius_contract() {
+        let bubble = create_test_bubble();
+        let classifier = CavitationRegimeClassifier::new(bubble, 1e5, Some(1e6), Some(1e6));
+
+        let critical_radius = bubble.blake_critical_radius(1e5);
+        let expected =
+            bubble.vapor_pressure + (4.0 / 3.0) * bubble.surface_tension / critical_radius;
+        let actual = classifier.blake_threshold();
+
+        assert!(critical_radius > 0.0);
+        assert!((actual - expected).abs() < 1e-12);
     }
 
     #[test]

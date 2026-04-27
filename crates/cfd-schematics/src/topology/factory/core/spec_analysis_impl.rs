@@ -1,4 +1,5 @@
 //! Spec analysis, Dean number estimation, and query methods for BlueprintTopologyFactory.
+use super::BlueprintTopologyFactory;
 use crate::domain::model::NetworkBlueprint;
 use crate::geometry::metadata::BlueprintRenderHints;
 use crate::geometry::types::SplitType;
@@ -6,7 +7,6 @@ use crate::topology::model::{
     BlueprintTopologySpec, DeanSiteEstimate, SplitKind, TopologyLineageMetadata,
     TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementSpec,
 };
-use super::BlueprintTopologyFactory;
 
 impl BlueprintTopologyFactory {
     pub fn estimate_dean_site(
@@ -43,29 +43,28 @@ impl BlueprintTopologyFactory {
         });
 
         // Estimate curvature radius from polyline path (3-point circumradius)
-        let path_curve_radius_m = channel
-            .path
-            .windows(3)
-            .find_map(|pts| {
-                let (ax, ay) = pts[0];
-                let (bx, by) = pts[1];
-                let (cx, cy) = pts[2];
-                let d = 2.0 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
-                if d.abs() < 1e-15 {
-                    return None;
-                }
-                let ux = ((ax * ax + ay * ay) * (by - cy)
-                    + (bx * bx + by * by) * (cy - ay)
-                    + (cx * cx + cy * cy) * (ay - by))
-                    / d;
-                let uy = ((ax * ax + ay * ay) * (cx - bx)
-                    + (bx * bx + by * by) * (ax - cx)
-                    + (cx * cx + cy * cy) * (bx - ax))
-                    / d;
-                let r = ((ax - ux).powi(2) + (ay - uy).powi(2)).sqrt();
-                Some(r * 1e-3) // mm → m
-            });
-        let spec_curve_radius_m = spec_serpentine.as_ref().map(|serpentine| serpentine.bend_radius_m);
+        let path_curve_radius_m = channel.path.windows(3).find_map(|pts| {
+            let (ax, ay) = pts[0];
+            let (bx, by) = pts[1];
+            let (cx, cy) = pts[2];
+            let d = 2.0 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+            if d.abs() < 1e-15 {
+                return None;
+            }
+            let ux = ((ax * ax + ay * ay) * (by - cy)
+                + (bx * bx + by * by) * (cy - ay)
+                + (cx * cx + cy * cy) * (ay - by))
+                / d;
+            let uy = ((ax * ax + ay * ay) * (cx - bx)
+                + (bx * bx + by * by) * (ax - cx)
+                + (cx * cx + cy * cy) * (bx - ax))
+                / d;
+            let r = ((ax - ux).powi(2) + (ay - uy).powi(2)).sqrt();
+            Some(r * 1e-3) // mm → m
+        });
+        let spec_curve_radius_m = spec_serpentine
+            .as_ref()
+            .map(|serpentine| serpentine.bend_radius_m);
         let curve_radius_m = spec_curve_radius_m
             .or(path_curve_radius_m)
             .unwrap_or(5.0e-3);
@@ -122,7 +121,9 @@ impl BlueprintTopologyFactory {
     ///
     /// For specs with no split stages (series/parallel), returns an empty
     /// split array so that `create_geometry` generates a linear channel.
-    pub(super) fn spec_to_split_types(spec: &BlueprintTopologySpec) -> Result<Vec<SplitType>, String> {
+    pub(super) fn spec_to_split_types(
+        spec: &BlueprintTopologySpec,
+    ) -> Result<Vec<SplitType>, String> {
         spec.split_stages
             .iter()
             .map(|stage| match stage.split_kind {

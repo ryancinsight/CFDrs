@@ -98,10 +98,11 @@ pub fn throat_count_from_blueprint_metadata(blueprint: &NetworkBlueprint) -> usi
             .iter()
             .filter(|channel| {
                 channel.venturi_geometry.is_some()
-                    || channel
-                        .metadata
-                        .as_ref()
-                        .is_some_and(crate::geometry::metadata::MetadataContainer::contains::<VenturiGeometryMetadata>)
+                    || channel.metadata.as_ref().is_some_and(
+                        crate::geometry::metadata::MetadataContainer::contains::<
+                            VenturiGeometryMetadata,
+                        >,
+                    )
             })
             .count()
     }
@@ -142,7 +143,11 @@ pub fn venturi_marker_points_from_blueprint(blueprint: &NetworkBlueprint) -> Vec
         };
 
         markers.extend(distributed.unwrap_or_else(|| {
-            project_markers_along_path(&channel.path, throat_count, (f64::NEG_INFINITY, f64::INFINITY))
+            project_markers_along_path(
+                &channel.path,
+                throat_count,
+                (f64::NEG_INFINITY, f64::INFINITY),
+            )
         }));
     }
     markers

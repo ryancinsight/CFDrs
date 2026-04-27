@@ -67,7 +67,12 @@ impl PickTarget {
             return None;
         }
 
-        decode_pick_pixel([pixels[offset], pixels[offset + 1], pixels[offset + 2], pixels[offset + 3]])
+        decode_pick_pixel([
+            pixels[offset],
+            pixels[offset + 1],
+            pixels[offset + 2],
+            pixels[offset + 3],
+        ])
     }
 
     /// Read the entire pick buffer back to CPU.
@@ -155,7 +160,11 @@ fn create_pick_color_texture(
 ) -> (wgpu::Texture, wgpu::TextureView) {
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("pick color"),
-        size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+        size: wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -174,7 +183,11 @@ fn create_pick_depth_texture(
 ) -> (wgpu::Texture, wgpu::TextureView) {
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("pick depth"),
-        size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+        size: wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -208,7 +221,7 @@ mod tests {
         let g = 0u8; // (node >> 8) & 0xFF
         let b = 10u8; // face & 0xFF
         let a = 0u8; // (face >> 8) & 0xFF
-        // BGRA: [B, G, R, A]
+                     // BGRA: [B, G, R, A]
         let bgra = [b, g, r, a];
         assert_eq!(decode_pick_pixel(bgra), Some((5, 10)));
     }

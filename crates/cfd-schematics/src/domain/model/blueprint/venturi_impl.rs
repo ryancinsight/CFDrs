@@ -1,8 +1,6 @@
 use super::NetworkBlueprint;
 use crate::domain::therapy_metadata::TherapyZone;
-use crate::geometry::metadata::{
-    ChannelVenturiSpec, MetadataContainer, VenturiGeometryMetadata,
-};
+use crate::geometry::metadata::{ChannelVenturiSpec, MetadataContainer, VenturiGeometryMetadata};
 use crate::topology::{
     TopologyOptimizationStage, TreatmentActuationMode, VenturiConfig, VenturiPlacementSpec,
 };

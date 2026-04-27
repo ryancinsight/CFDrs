@@ -10,7 +10,7 @@
 - [x] Specify mathematical domain representing membrane shear stress and threshold porosity limits. 
 
 ### Phase 2: Execution (10-50%)
-- [x] Implement `bio_damage.rs` evaluating Rayleigh collapse pressure spatial integrals.
+- [x] Implement `bio_damage.rs` evaluating cavitation-induced cell injury fractions from Rayleigh collapse loading and ordered membrane strain thresholds.
 - [x] Implement `heterogeneous_nucleation.rs` extending nuclei scalar fields using physical Blake bounds.
 - [x] Property test implementation against derived constraints.
 - [x] Fixed E0282 broken `apollofft` test blocking test runner in CI.
@@ -25,6 +25,16 @@
 - [x] Validate nuclei transport dimensions in the 3D cavitation solver and use slice-based advection-diffusion accumulation.
 - [x] Replace schematic auto-layout map churn with an indexed borrowed layout cache and index-keyed parallel channel grouping.
 - [x] Close the `cfd-schematics` geometry-bounds review with canonical constant ranges and clearance-width relation validation.
+- [x] Unify Milestone 12 GA convergence narrative and figure annotations on the trailing fitness window trend.
+- [x] Harden `cfd-ui` clipping commands to preserve slot identity and reject stale undo restores.
+- [x] Add Milestone 12 validation evidence and artifact traceability to the report, results artifact, and asset-review manifest.
+- [x] Make the Milestone 12 release report emit the final authoritative narrative in one pass so the example completes after review.
+- [x] Bind the Apollo-backed periodic DNS stepper to a validated reusable `FftPlan3D`.
+- [x] Replace the approximate `cfd-2d` MUSCL3/QUICK face reconstruction with exact quadratic interpolation and regression tests.
+- [x] Replace simplified `cfd-1d` margination lift aggregation with separated wall-induced and shear-gradient inertial scaling.
+- [x] Make `cfd-1d` droplet occupied-channel snapshots a finite-length occupancy projection with regression coverage.
+- [x] Replace the `cfd-2d` turbulence benchmark placeholder branch with typed supported-model dispatch.
+- [x] Resolve the coupled pressure-event blood hematocrit regression with finite startup viscosity, row-equilibrated pressure solves, and duplicate-entry-preserving dense fallback conversion.
 
 ---
 

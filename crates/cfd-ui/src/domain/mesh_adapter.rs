@@ -101,8 +101,5 @@ pub fn convert_mesh(mesh: &IndexedMesh<f64>) -> GpuMeshData {
 
 /// Look up contiguous index for a `VertexId`.
 fn lookup_index(id_to_index: &[u32], vid: VertexId) -> u32 {
-    id_to_index
-        .get(vid.0 as usize)
-        .copied()
-        .unwrap_or(0)
+    id_to_index.get(vid.0 as usize).copied().unwrap_or(0)
 }

@@ -8,17 +8,20 @@
 //! ## 1. Inertial lift force (Segré-Silberberg)
 //!
 //! The net inertial lift on a sphere of diameter `a` in a channel of height `H`
-//! at mean velocity `U` is (Di Carlo 2009, Eq. 1):
+//! at mean velocity `U` is the difference between two finite-size inertial
+//! migration mechanisms:
 //!
 //! ```text
-//! F_L = C_L(x̃) · ρ · U² · a⁴ / H²
+//! F_L = F_wall - F_shear
+//! F_wall  = C_wall(x̃)  · (1 - DI) · ρ · U² · a⁶ / H⁴
+//! F_shear = C_shear(x̃)          · ρ · U² · a³ / H
 //! ```
 //!
-//! where `x̃ = x / (H/2)` is the dimensionless lateral position (−1 = wall,
-//! 0 = center, +1 = opposite wall) and `C_L(x̃)` is the position-dependent
-//! lift coefficient.  `C_L` is positive (toward center) near the wall and
-//! negative (toward wall) near the center, creating a stable equilibrium at
-//! `x̃_eq ≈ ±0.6` for rigid spheres in a square channel.
+//! where `x̃ = x / (H/2)` is the dimensionless lateral position on the
+//! half-channel (`0 = center`, `1 = wall`). The scaling separates
+//! wall-induced lift (`a⁶/H⁴`) from shear-gradient lift (`a³/H`), matching
+//! the finite-size inertial microfluidics literature instead of folding both
+//! mechanisms into one coefficient.
 //!
 //! For deformable cells, the equilibrium shifts toward the wall because
 //! deformability reduces the wall-repulsion component of lift.  We model this
@@ -26,7 +29,7 @@
 //! repulsion term (Hur et al. 2011, *Lab Chip* 11, 912–920):
 //!
 //! ```text
-//! C_L(x̃) = C_wall(x̃) · (1 − DI) − C_center(x̃)
+//! F_L(x̃) = F_wall(x̃, DI) − F_shear(x̃)
 //! ```
 //!
 //! where `C_wall` is the wall-repulsion coefficient and `C_center` is the
@@ -63,19 +66,26 @@
 //!
 //! ## Theorem: Inertial Lift Force Scaling (Segré-Silberberg)
 //!
-//! **Theorem**: A neutrally-buoyant sphere of diameter `a` in a rectangular channel of
-//! height `H` at mean velocity `U` experiences a net inertial lift force:
+//! **Theorem**: A neutrally-buoyant sphere of diameter `a` in a rectangular
+//! channel of height `H` at mean velocity `U` experiences a signed lateral
+//! inertial force:
 //!
 //! ```text
-//! F_L(x̃) = C_L(x̃, DI) · ρ · U² · a⁴ / H²
+//! F_L(x̃, DI) =
+//!     C_wall(x̃)(1 - DI)ρU²a⁶/H⁴ - C_shear(x̃)ρU²a³/H
 //! ```
 //!
 //! **Stability**: The equilibrium position `x̃_eq` where `F_L(x̃_eq) = 0` is **stable**:
 //! - For `x̃ < x̃_eq`: `F_L > 0` (force pushes toward center → away from wall)
 //! - For `x̃ > x̃_eq`: `F_L < 0` (force pushes toward wall → away from center)
 //!
-//! This follows directly from the sign structure of `C_L(x̃, DI) = C_wall(1-DI) - C_center`,
-//! where `C_wall(x̃)` diverges near the wall and `C_center(x̃)` vanishes there.
+//! **Proof sketch**: The wall term is positive and grows faster with
+//! confinement than the shear-gradient term, while the shear term dominates
+//! near the center. The two continuous terms have opposite signs in the
+//! toward-center convention, so their difference changes sign once in the
+//! validated half-channel interval. Bisection locates the root. Deformability
+//! multiplies only the wall-repulsion term, shifting softer cells toward the
+//! wall by reducing the restoring force.
 //!
 //! **Rigid sphere equilibrium**: At DI = 0, the equilibrium `x̃_eq ≈ 0.6` (Segré-Silberberg
 //! position), corresponding to `≈ 0.6 × H/2` from the center (Di Carlo 2009, Fig. 2).
@@ -114,6 +124,16 @@ pub const AMINI_KAPPA_REF: f64 = 0.1;
 ///
 /// Fitted from experimental data in Amini et al. (2014), *Lab Chip* 14:2739–2761.
 pub const AMINI_ALPHA_CONFINEMENT: f64 = 2.5;
+
+/// Reference confinement ratio for MCF-7-like rigid cell focusing in a 200 µm
+/// channel height.
+pub const LIFT_REFERENCE_KAPPA: f64 = 17.5e-6 / 200.0e-6;
+
+/// Reference equilibrium half-channel coordinate for rigid inertial focusing.
+pub const LIFT_REFERENCE_X_TILDE: f64 = 0.55;
+
+/// Reference deformability index for MCF-7 breast-cancer cells.
+pub const LIFT_REFERENCE_DEFORMABILITY_INDEX: f64 = 0.15;
 
 /// Amini (2014) confinement-dependent inertial lift correction factor.
 ///
@@ -197,46 +217,87 @@ fn validate_positive_finite(name: &str, value: f64) -> Result<f64> {
 
 // ── Lift coefficient model ────────────────────────────────────────────────────
 
-/// Dimensionless wall-repulsion lift coefficient as a function of normalised
-/// lateral position `x̃ ∈ [0, 1]` (0 = center, 1 = wall).
+/// Dimensionless wall-induced lift shape on the validated half-channel domain.
 ///
-/// Fitted to the numerical data of Di Carlo et al. (2009), Fig. 2:
-/// `C_wall(x̃) = 0.5 · x̃² · (1 − x̃)⁻¹`
+/// # Theorem - Wall-Induced Lift Shape
 ///
-/// This is a simplified but physically motivated fit: the wall repulsion
-/// diverges as the particle approaches the wall (`x̃ → 1`) and vanishes at
-/// the center (`x̃ = 0`).
+/// `x̃²/(1-x̃)` is nonnegative for `x̃ ∈ [0, 0.95]`, vanishes at the channel
+/// center, and is strictly increasing for `x̃ > 0`.
+///
+/// **Proof sketch**: The numerator and denominator are positive on the open
+/// interval. The derivative is `x̃(2-x̃)/(1-x̃)²`, which is positive for
+/// `0 < x̃ < 1`. Therefore the wall-repulsion magnitude increases
+/// monotonically as the particle approaches the wall.
 #[inline]
-fn c_wall(x_tilde: f64) -> f64 {
-    let x = x_tilde.clamp(0.0, 0.95); // avoid singularity at wall
-    0.5 * x * x / (1.0 - x).max(0.05)
+fn wall_lift_shape(x_tilde: f64) -> f64 {
+    x_tilde * x_tilde / (1.0 - x_tilde)
 }
 
-/// Dimensionless shear-gradient (Saffman) lift coefficient as a function of
-/// normalised lateral position `x̃ ∈ [0, 1]`.
+/// Dimensionless shear-gradient lift shape on the validated half-channel domain.
 ///
-/// Fitted to Di Carlo et al. (2009), Fig. 2:
-/// `C_center(x̃) = 0.3 · (1 − x̃²)`
+/// # Theorem - Shear-Gradient Lift Shape
 ///
-/// This term drives particles toward the wall (negative lift relative to center)
-/// and is maximum at the center, vanishing at the wall.
+/// `1 - x̃²` is nonnegative and monotonically decreasing on `x̃ ∈ [0, 1]`.
+///
+/// **Proof sketch**: `1 - x̃² >= 0` on the closed unit interval and its
+/// derivative is `-2x̃ <= 0`. The shape is maximal at the center and vanishes
+/// at the wall, matching the shear-gradient contribution that drives finite
+/// particles away from the center in Poiseuille flow.
 #[inline]
-fn c_center(x_tilde: f64) -> f64 {
-    let x = x_tilde.clamp(0.0, 1.0);
-    0.3 * (1.0 - x * x)
+fn shear_gradient_lift_shape(x_tilde: f64) -> f64 {
+    1.0 - x_tilde * x_tilde
 }
 
-/// Net dimensionless lift coefficient `C_L(x̃, DI)`.
+/// Dimensionless wall-lift gain derived from the reference focusing condition.
+///
+/// # Theorem - Reference Equilibrium Calibration
+///
+/// Let `x_ref`, `k_ref`, and `DI_ref` denote the documented rigid-cell
+/// reference equilibrium, confinement ratio, and deformability index. Defining
+///
+/// ```text
+/// G = C_shear(x_ref) k_ref /
+///     (C_wall(x_ref) (1 - DI_ref) k_ref^4)
+/// ```
+///
+/// makes the dimensional lift force vanish exactly at the reference state.
+///
+/// **Proof sketch**: Substitute `G` into
+/// `G C_wall(x)(1-DI)k^4 - C_shear(x)k`. At the reference state the first term
+/// becomes `C_shear(x_ref)k_ref`, which cancels the second term exactly.
+#[inline]
+fn wall_lift_reference_gain() -> f64 {
+    shear_gradient_lift_shape(LIFT_REFERENCE_X_TILDE) * LIFT_REFERENCE_KAPPA
+        / (wall_lift_shape(LIFT_REFERENCE_X_TILDE)
+            * (1.0 - LIFT_REFERENCE_DEFORMABILITY_INDEX)
+            * LIFT_REFERENCE_KAPPA.powi(4))
+}
+
+/// Net dimensional inertial lift force [N].
 ///
 /// Positive → force toward center (away from wall).
 /// Negative → force toward wall.
 ///
-/// Deformability index `DI ∈ [0, 1]` reduces the wall-repulsion component,
-/// shifting the equilibrium toward the wall for deformable cells (Hur 2011).
 #[inline]
-fn c_lift(x_tilde: f64, deformability_index: f64) -> f64 {
+fn dimensional_lift_force_n(
+    x_tilde: f64,
+    cell_diameter_m: f64,
+    deformability_index: f64,
+    fluid_density_kg_m3: f64,
+    mean_velocity_m_s: f64,
+    channel_height_m: f64,
+) -> f64 {
     let di = deformability_index.clamp(0.0, 1.0);
-    c_wall(x_tilde) * (1.0 - di) - c_center(x_tilde)
+    let dynamic_pressure = fluid_density_kg_m3 * mean_velocity_m_s * mean_velocity_m_s;
+    let confinement = cell_diameter_m / channel_height_m;
+    let area_scale = cell_diameter_m * cell_diameter_m;
+    let wall = wall_lift_reference_gain()
+        * wall_lift_shape(x_tilde)
+        * (1.0 - di)
+        * area_scale
+        * confinement.powi(4);
+    let shear = shear_gradient_lift_shape(x_tilde) * area_scale * confinement;
+    dynamic_pressure * (wall - shear)
 }
 
 // ── Dean drag model ───────────────────────────────────────────────────────────
@@ -274,7 +335,7 @@ pub fn dean_drag_force_n(dynamic_viscosity_pa_s: f64, de: f64, cell_diameter_m: 
 
 /// Inertial lift force [N] on a cell at normalised lateral position `x̃`.
 ///
-/// `F_L = C_L(x̃, DI) · ρ · U² · a⁴ / H²`
+/// `F_L = C_wall(1-DI)ρU²a⁶/H⁴ - C_shearρU²a³/H`
 ///
 /// Positive → toward center; negative → toward wall.
 ///
@@ -293,10 +354,15 @@ pub fn inertial_lift_force_n(
     mean_velocity_m_s: f64,
     channel_height_m: f64,
 ) -> f64 {
-    let cl = c_lift(x_tilde, cell.deformability_index);
-    let a = cell.diameter_m;
-    let h = channel_height_m;
-    cl * fluid_density_kg_m3 * mean_velocity_m_s * mean_velocity_m_s * a.powi(4) / (h * h)
+    let x = x_tilde.clamp(0.0, 0.95);
+    dimensional_lift_force_n(
+        x,
+        cell.diameter_m,
+        cell.deformability_index,
+        fluid_density_kg_m3,
+        mean_velocity_m_s,
+        channel_height_m,
+    )
 }
 
 /// Checked inertial lift force evaluation using the fitted margination model.
@@ -322,11 +388,14 @@ pub fn checked_inertial_lift_force_n(
         ));
     }
 
-    let cl = c_wall(x_tilde) * (1.0 - deformability_index) - c_center(x_tilde);
-    Ok(
-        cl * fluid_density_kg_m3 * mean_velocity_m_s * mean_velocity_m_s * cell.diameter_m.powi(4)
-            / (channel_height_m * channel_height_m),
-    )
+    Ok(dimensional_lift_force_n(
+        x_tilde,
+        cell.diameter_m,
+        deformability_index,
+        fluid_density_kg_m3,
+        mean_velocity_m_s,
+        channel_height_m,
+    ))
 }
 
 // ── Lateral Drift Velocity ────────────────────────────────────────────────────
@@ -768,5 +837,63 @@ mod tests {
         assert!((legacy.x_tilde_eq - checked.x_tilde_eq).abs() < 1e-12);
         assert!((legacy.residual_force_n - checked.residual_force_n).abs() < 1e-18);
         assert_eq!(legacy.will_focus, checked.will_focus);
+    }
+
+    #[test]
+    fn wall_lift_shape_is_monotone_on_validated_domain() {
+        let low = wall_lift_shape(0.25);
+        let mid = wall_lift_shape(0.50);
+        let high = wall_lift_shape(0.75);
+
+        assert_eq!(wall_lift_shape(0.0), 0.0);
+        assert!(low > 0.0);
+        assert!(mid > low);
+        assert!(high > mid);
+    }
+
+    #[test]
+    fn shear_gradient_lift_shape_decreases_to_zero_at_wall() {
+        let center = shear_gradient_lift_shape(0.0);
+        let mid = shear_gradient_lift_shape(0.50);
+        let wall = shear_gradient_lift_shape(1.0);
+
+        assert_eq!(center, 1.0);
+        assert!(mid < center);
+        assert!(wall < mid);
+        assert_eq!(wall, 0.0);
+    }
+
+    #[test]
+    fn dimensional_lift_uses_distinct_confinement_scalings() {
+        let rho = 1_000.0;
+        let u = 0.05;
+        let h = 100.0e-6;
+        let a = 10.0e-6;
+        let x = 0.25;
+
+        let force = dimensional_lift_force_n(x, a, 0.0, rho, u, h);
+        let q = rho * u * u;
+        let area = a * a;
+        let kappa = a / h;
+        let expected = q
+            * (wall_lift_reference_gain() * wall_lift_shape(x) * area * kappa.powi(4)
+                - shear_gradient_lift_shape(x) * area * kappa);
+
+        assert!((force - expected).abs() < 1.0e-24);
+        assert!(force < 0.0);
+    }
+
+    #[test]
+    fn wall_lift_gain_places_reference_cell_at_documented_equilibrium() {
+        let force = dimensional_lift_force_n(
+            LIFT_REFERENCE_X_TILDE,
+            17.5e-6,
+            LIFT_REFERENCE_DEFORMABILITY_INDEX,
+            1_000.0,
+            0.05,
+            200.0e-6,
+        );
+
+        assert!(force.abs() < 1.0e-24);
     }
 }

@@ -39,31 +39,35 @@ impl CsgBooleanCommand {
 
 impl UndoableCommand for CsgBooleanCommand {
     fn execute(&mut self, doc: &mut ProjectDocument) -> anyhow::Result<()> {
-        let a = doc.mesh(self.mesh_a)
+        let a = doc
+            .mesh(self.mesh_a)
             .ok_or_else(|| anyhow::anyhow!("mesh A not found"))?
             .clone();
-        let b = doc.mesh(self.mesh_b)
+        let b = doc
+            .mesh(self.mesh_b)
             .ok_or_else(|| anyhow::anyhow!("mesh B not found"))?
             .clone();
 
         let csg_op = match self.op {
             CsgOp::Union => cfd_mesh::application::csg::boolean::operations::BooleanOp::Union,
-            CsgOp::Intersection => cfd_mesh::application::csg::boolean::operations::BooleanOp::Intersection,
-            CsgOp::Difference => cfd_mesh::application::csg::boolean::operations::BooleanOp::Difference,
+            CsgOp::Intersection => {
+                cfd_mesh::application::csg::boolean::operations::BooleanOp::Intersection
+            }
+            CsgOp::Difference => {
+                cfd_mesh::application::csg::boolean::operations::BooleanOp::Difference
+            }
         };
 
-        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean(
-            csg_op, &a, &b,
-        ).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let mut result = cfd_mesh::application::csg::boolean::indexed::csg_boolean(csg_op, &a, &b)
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
 
         result.orient_outward();
         result.retain_largest_component();
 
         let handle = doc.add_mesh(result);
-        let node_idx = doc.scene.add_node(
-            self.name.clone(),
-            SceneEntity::Mesh(handle),
-        );
+        let node_idx = doc
+            .scene
+            .add_node(self.name.clone(), SceneEntity::Mesh(handle));
         self.result_handle = Some(handle);
         self.result_node = Some(node_idx);
         Ok(())

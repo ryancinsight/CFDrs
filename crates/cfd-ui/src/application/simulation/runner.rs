@@ -115,17 +115,11 @@ pub fn run_reference_internal_flow_analysis(
     let axis_hat = axis / setup.channel_length_m;
 
     let mean_velocity_m_s = setup.inlet_velocity_m_s;
-    let pressure_drop_pa = 32.0
-        * setup.viscosity_pa_s
-        * mean_velocity_m_s
-        * setup.channel_length_m
+    let pressure_drop_pa = 32.0 * setup.viscosity_pa_s * mean_velocity_m_s * setup.channel_length_m
         / setup.hydraulic_diameter_m.powi(2);
-    let wall_shear_pa =
-        8.0 * setup.viscosity_pa_s * mean_velocity_m_s / setup.hydraulic_diameter_m;
-    let reynolds_number = setup.density_kg_m3
-        * mean_velocity_m_s
-        * setup.hydraulic_diameter_m
-        / setup.viscosity_pa_s;
+    let wall_shear_pa = 8.0 * setup.viscosity_pa_s * mean_velocity_m_s / setup.hydraulic_diameter_m;
+    let reynolds_number =
+        setup.density_kg_m3 * mean_velocity_m_s * setup.hydraulic_diameter_m / setup.viscosity_pa_s;
 
     let wall_faces: std::collections::HashSet<_> = setup
         .boundaries
@@ -164,11 +158,7 @@ pub fn run_reference_internal_flow_analysis(
     let wall_shear_values = average_face_channel_onto_vertices(mesh, &face_wall_shear);
     let results = SimulationResults {
         fields: vec![
-            FieldData::new(
-                "Pressure".to_owned(),
-                "Pa".to_owned(),
-                pressure_values,
-            ),
+            FieldData::new("Pressure".to_owned(), "Pa".to_owned(), pressure_values),
             FieldData::new(
                 "Wall Shear Stress".to_owned(),
                 "Pa".to_owned(),

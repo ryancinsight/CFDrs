@@ -216,15 +216,13 @@ impl PlottersRenderer {
                 // channels also render with a thicker stroke.
                 role_styles.get_style(role).clone()
             } else {
-                let category = renderable
-                    .channel_categories
-                    .get(i)
-                    .copied()
-                    .unwrap_or(match channel.channel_shape {
+                let category = renderable.channel_categories.get(i).copied().unwrap_or(
+                    match channel.channel_shape {
                         ChannelShape::Straight | ChannelShape::Serpentine { .. } => {
                             ChannelTypeCategory::Straight
                         }
-                    });
+                    },
+                );
                 config.channel_type_styles.get_style(category).clone()
             };
 
