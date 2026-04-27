@@ -9,6 +9,7 @@
 - [x] `cfd-1d`: Preallocate merged timepoint schedules in the transient composition time-config path.
 - [x] `cfd-1d`: Remove the silent 1% Quemada viscosity floor and fall back to Secomb when the Quemada domain is invalid.
 - [x] `cfd-1d`: Replace simplified margination lift aggregation with separate wall-induced and shear-gradient inertial scaling plus reference-equilibrium tests.
+- [x] `cfd-1d`: Remove the margination singular wall cutoff and silent lateral-position clamp by using a bounded inertial-lift envelope with value-semantic regression data.
 - [x] `cfd-1d`: Make droplet occupied-channel snapshots a documented projection of finite-length occupancy spans.
 - [x] `cfd-1d`: Restore coupled pressure-event hematocrit flow by finite zero-flow blood viscosity initialization, row-equilibrated pressure solves, and accumulated duplicate sparse entries.
 - [x] `cfd-1d`: Route compact plasma-skimming hematocrit through the threshold-aware Pries phase-separation model with Murray-inferred sibling geometry.

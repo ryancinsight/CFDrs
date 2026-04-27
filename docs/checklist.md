@@ -43,6 +43,9 @@
 - [x] Replace `cfd-3d` Spalart-Allmaras all-zero TKE with a Yoshizawa wall-distance diagnostic and regression tests.
 - [x] Reject uninitialized `cfd-3d` k-epsilon state rather than returning synthetic zero viscosity, TKE, or dissipation fields.
 - [x] Replace `cfd-2d` Smagorinsky LES zero SGS energy/dissipation placeholders, boundary zero-strain enforcement, and default SGS viscosity floor with documented diagnostics and value-semantic tests.
+- [x] Close review finding 1 by replacing the `cfd-1d` margination singular wall-lift cutoff and public clamp with an explicit validated `[0, 1]` envelope and derived force regression tests.
+- [x] Confirm review finding 2 remains closed by typed `cfd-2d` turbulence benchmark dispatch with unsupported-model rejection before benchmark execution.
+- [x] Confirm review finding 3 remains closed by finite-span-derived droplet occupied-channel projection and consistency tests.
 
 ---
 

@@ -229,6 +229,22 @@
 
 ---
 
+## RESOLVED-022: Margination Singular Wall Cutoff in CFD-1D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-1d/src/physics/cell_separation/margination.rs`
+**Status**: **CLOSED** - The margination inertial-lift path no longer clamps lateral position to a hard-coded near-wall cutoff or evaluates a singular wall-lift shape.
+
+### Verification
+
+- The validated domain is now the closed half-channel interval `0 <= x_tilde <= 1`.
+- The wall-induced lift shape is bounded and monotone on the full interval while preserving the published `rho U^2 a^6/H^4` wall-lift scaling.
+- The shear-gradient term preserves the published `rho U^2 a^3/H` scaling and vanishes at the wall.
+- Public legacy lift evaluation now dispatches to the checked evaluator and rejects invalid positions instead of silently clipping.
+- Regression coverage validates monotonic wall lift, reference equilibrium calibration, and a derived force value for MCF-7-like cells.
+
+---
+
 ## RESOLVED-017: Nuclei Transport Validation and Slice-Based Accumulation in CFD-3D
 
 **Severity**: ✅ **RESOLVED**

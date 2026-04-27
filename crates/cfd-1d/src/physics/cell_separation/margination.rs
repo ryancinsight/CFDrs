@@ -7,9 +7,9 @@
 //!
 //! ## 1. Inertial lift force (Segré-Silberberg)
 //!
-//! The net inertial lift on a sphere of diameter `a` in a channel of height `H`
-//! at mean velocity `U` is the difference between two finite-size inertial
-//! migration mechanisms:
+//! The net inertial lift on a sphere of diameter `a` in a channel of hydraulic
+//! scale `H` at mean velocity `U` is the difference between two finite-size
+//! inertial migration mechanisms:
 //!
 //! ```text
 //! F_L = F_wall - F_shear
@@ -32,8 +32,10 @@
 //! F_L(x̃) = F_wall(x̃, DI) − F_shear(x̃)
 //! ```
 //!
-//! where `C_wall` is the wall-repulsion coefficient and `C_center` is the
-//! Saffman-type shear-gradient lift toward the wall.
+//! where the wall-induced and shear-gradient shape functions are bounded
+//! position functions on the closed half-channel domain. The implementation
+//! does not evaluate outside `0 <= x̃ <= 1` and does not clip singular wall
+//! neighborhoods into the model.
 //!
 //! ## 2. Dean drag force (curved channels)
 //!
@@ -61,14 +63,14 @@
 //! acts toward the wall, so the bisection solves `F_L(x̃) − F_D = 0`.
 //! Increasing F_D shifts the equilibrium toward the wall (larger x̃), consistent
 //! with experimental observations of Dean-flow-enhanced cell migration.
-//! We solve this numerically using bisection on `[0, 0.95]` (by symmetry,
+//! We solve this numerically using bisection on `[0, 1]` (by symmetry,
 //! only the half-channel need be considered).
 //!
 //! ## Theorem: Inertial Lift Force Scaling (Segré-Silberberg)
 //!
 //! **Theorem**: A neutrally-buoyant sphere of diameter `a` in a rectangular
-//! channel of height `H` at mean velocity `U` experiences a signed lateral
-//! inertial force:
+//! channel of hydraulic scale `H` at mean velocity `U` experiences a signed
+//! lateral inertial force:
 //!
 //! ```text
 //! F_L(x̃, DI) =
@@ -79,11 +81,13 @@
 //! - For `x̃ < x̃_eq`: `F_L > 0` (force pushes toward center → away from wall)
 //! - For `x̃ > x̃_eq`: `F_L < 0` (force pushes toward wall → away from center)
 //!
-//! **Proof sketch**: The wall term is positive and grows faster with
-//! confinement than the shear-gradient term, while the shear term dominates
-//! near the center. The two continuous terms have opposite signs in the
-//! toward-center convention, so their difference changes sign once in the
-//! validated half-channel interval. Bisection locates the root. Deformability
+//! **Proof sketch**: Reviews through 2025 continue to identify wall-induced
+//! lift scaling as `ρU²a⁶/H⁴` and shear-gradient lift as `ρU²a³/H`. The
+//! bounded shapes used here satisfy the required signs: wall lift is zero at
+//! the channel center and increases monotonically toward the wall, while
+//! shear-gradient lift is maximal at the center and vanishes at the wall. The
+//! two continuous terms therefore form a force-balance root on the validated
+//! half-channel when their endpoint signs bracket zero. Deformability
 //! multiplies only the wall-repulsion term, shifting softer cells toward the
 //! wall by reducing the restoring force.
 //!
@@ -92,14 +96,14 @@
 //!
 //! ## Theorem: Dean Drag Bisection Convergence
 //!
-//! **Theorem**: The bisection algorithm on `[0, 0.95]` for `F_L(x̃) - F_Dean = 0`
+//! **Theorem**: The bisection algorithm on `[0, 1]` for `F_L(x̃) - F_Dean = 0`
 //! converges to machine precision in at most 60 iterations.
 //!
-//! **Proof**: At each step the interval halves: `|x̃_{n+1} - x̃*| ≤ (0.95/2) · 2^{-n}`.
-//! After 60 steps: `|error| ≤ 0.95 · 2^{-60} ≈ 8.24 × 10^{-19}`, which is below
-//! `f64` machine epsilon (~2.22 × 10^{-16}). Since F_L is Lipschitz continuous on
-//! `[0, 0.95]` (the 5% wall cutoff avoids the singularity at `x̃ = 1`), the
-//! intermediate value theorem guarantees exactly one root when `sign(F_lo) ≠ sign(F_hi)`. ∎
+//! **Proof**: At each step the interval halves: `|x̃_{n+1} - x̃*| ≤ (1/2) · 2^{-n}`.
+//! After 60 steps: `|error| ≤ 2^{-60} ≈ 8.67 × 10^{-19}`, which is below
+//! `f64` machine epsilon (~2.22 × 10^{-16}). Since `F_L` is continuous on
+//! `[0, 1]`, the intermediate value theorem guarantees a root when
+//! `sign(F_lo) != sign(F_hi)`. ∎
 //!
 //! # References
 //! - Di Carlo, D. (2009). Inertial microfluidics. *Lab Chip*, 9, 3038–3046.
@@ -188,10 +192,9 @@ pub fn checked_amini_confinement_correction(kappa: f64) -> Result<f64> {
 }
 
 fn validate_lateral_position(x_tilde: f64) -> Result<f64> {
-    if !x_tilde.is_finite() || !(0.0..=0.95).contains(&x_tilde) {
+    if !x_tilde.is_finite() || !(0.0..=1.0).contains(&x_tilde) {
         return Err(Error::InvalidConfiguration(
-            "Margination lateral position x_tilde must lie in [0, 0.95] for the fitted lift model"
-                .to_string(),
+            "Margination lateral position x_tilde must lie in [0, 1]".to_string(),
         ));
     }
     Ok(x_tilde)
@@ -221,16 +224,16 @@ fn validate_positive_finite(name: &str, value: f64) -> Result<f64> {
 ///
 /// # Theorem - Wall-Induced Lift Shape
 ///
-/// `x̃²/(1-x̃)` is nonnegative for `x̃ ∈ [0, 0.95]`, vanishes at the channel
-/// center, and is strictly increasing for `x̃ > 0`.
+/// `x̃²` is nonnegative for `x̃ ∈ [0, 1]`, vanishes at the channel center,
+/// and is strictly increasing for `x̃ > 0`.
 ///
-/// **Proof sketch**: The numerator and denominator are positive on the open
-/// interval. The derivative is `x̃(2-x̃)/(1-x̃)²`, which is positive for
-/// `0 < x̃ < 1`. Therefore the wall-repulsion magnitude increases
-/// monotonically as the particle approaches the wall.
+/// **Proof sketch**: The derivative is `2x̃`, which is nonnegative on the
+/// closed validated interval and strictly positive for `x̃ > 0`. Therefore
+/// the wall-repulsion magnitude increases monotonically as the particle
+/// approaches the wall while remaining finite at `x̃ = 1`.
 #[inline]
 fn wall_lift_shape(x_tilde: f64) -> f64 {
-    x_tilde * x_tilde / (1.0 - x_tilde)
+    x_tilde * x_tilde
 }
 
 /// Dimensionless shear-gradient lift shape on the validated half-channel domain.
@@ -287,7 +290,8 @@ fn dimensional_lift_force_n(
     mean_velocity_m_s: f64,
     channel_height_m: f64,
 ) -> f64 {
-    let di = deformability_index.clamp(0.0, 1.0);
+    debug_assert!((0.0..=1.0).contains(&deformability_index));
+    let di = deformability_index;
     let dynamic_pressure = fluid_density_kg_m3 * mean_velocity_m_s * mean_velocity_m_s;
     let confinement = cell_diameter_m / channel_height_m;
     let area_scale = cell_diameter_m * cell_diameter_m;
@@ -354,18 +358,17 @@ pub fn inertial_lift_force_n(
     mean_velocity_m_s: f64,
     channel_height_m: f64,
 ) -> f64 {
-    let x = x_tilde.clamp(0.0, 0.95);
-    dimensional_lift_force_n(
-        x,
-        cell.diameter_m,
-        cell.deformability_index,
+    checked_inertial_lift_force_n(
+        x_tilde,
+        cell,
         fluid_density_kg_m3,
         mean_velocity_m_s,
         channel_height_m,
     )
+    .expect("inertial lift inputs must satisfy the validated margination envelope")
 }
 
-/// Checked inertial lift force evaluation using the fitted margination model.
+/// Checked inertial lift force evaluation using the validated margination model.
 pub fn checked_inertial_lift_force_n(
     x_tilde: f64,
     cell: &CellProperties,
@@ -429,13 +432,14 @@ pub fn lateral_velocity_m_s(
     bend_radius_m: Option<f64>,
 ) -> f64 {
     let dh = 2.0 * channel_width_m * channel_height_m / (channel_width_m + channel_height_m);
-    let f_lift = inertial_lift_force_n(
+    let f_lift = checked_inertial_lift_force_n(
         x_tilde,
         cell,
         fluid_density_kg_m3,
         mean_velocity_m_s,
         channel_height_m,
-    );
+    )
+    .expect("lateral velocity inputs must satisfy the validated margination envelope");
 
     let f_dean = if let Some(r) = bend_radius_m {
         if r > 0.0 {
@@ -528,7 +532,7 @@ pub struct EquilibriumResult {
 
 /// Compute the lateral equilibrium position of a cell in a rectangular channel.
 ///
-/// Solves `F_L(x̃) − F_D = 0` using bisection on `x̃ ∈ [0, 0.95]`.
+/// Solves `F_L(x̃) − F_D = 0` using bisection on `x̃ ∈ [0, 1]`.
 ///
 /// Sign convention: F_L positive = toward center; Dean drag `F_D ≥ 0` acts
 /// toward the wall, so it enters with a negative sign.  This ensures that
@@ -604,9 +608,9 @@ pub fn lateral_equilibrium(
         inertial_lift_force_n(x, cell, fluid_density_kg_m3, mean_velocity_m_s, h) - f_dean
     };
 
-    // Bisection on [0, 0.95] (avoid wall singularity)
+    // Bisection on [0, 1] over the validated nonsingular half-channel domain.
     let mut lo = 0.0_f64;
-    let mut hi = 0.95_f64;
+    let mut hi = 1.0_f64;
 
     // Check if there is a sign change (equilibrium exists in interval)
     let f_lo = net_force(lo);
@@ -621,7 +625,7 @@ pub fn lateral_equilibrium(
             hi
         }
     } else {
-        // Bisection: 60 iterations → precision < 0.95 / 2^60 ≈ 8×10⁻¹⁹
+        // Bisection: 60 iterations -> precision < 2^-60.
         let mut mid = 0.5 * (lo + hi);
         for _ in 0..60 {
             mid = 0.5 * (lo + hi);
@@ -699,7 +703,7 @@ pub fn checked_lateral_equilibrium(
     };
 
     let mut lo = 0.0_f64;
-    let mut hi = 0.95_f64;
+    let mut hi = 1.0_f64;
     let f_lo = net_force(lo)?;
     let f_hi = net_force(hi)?;
 
@@ -812,9 +816,17 @@ mod tests {
     #[test]
     fn test_checked_inertial_lift_rejects_out_of_domain_position() {
         let cell = CellProperties::mcf7_breast_cancer();
-        let err = checked_inertial_lift_force_n(0.99, &cell, 1_000.0, 0.05, 200e-6)
-            .expect_err("checked margination lift must reject x_tilde outside the fitted domain");
+        let err = checked_inertial_lift_force_n(1.01, &cell, 1_000.0, 0.05, 200e-6).expect_err(
+            "checked margination lift must reject x_tilde outside the validated domain",
+        );
         assert!(err.to_string().contains("x_tilde"));
+    }
+
+    #[test]
+    #[should_panic(expected = "validated margination envelope")]
+    fn legacy_inertial_lift_rejects_instead_of_clamping_position() {
+        let cell = CellProperties::mcf7_breast_cancer();
+        let _ = inertial_lift_force_n(1.01, &cell, 1_000.0, 0.05, 200e-6);
     }
 
     #[test]
@@ -846,6 +858,7 @@ mod tests {
         let high = wall_lift_shape(0.75);
 
         assert_eq!(wall_lift_shape(0.0), 0.0);
+        assert_eq!(wall_lift_shape(1.0), 1.0);
         assert!(low > 0.0);
         assert!(mid > low);
         assert!(high > mid);
@@ -895,5 +908,31 @@ mod tests {
         );
 
         assert!(force.abs() < 1.0e-24);
+    }
+
+    #[test]
+    fn inertial_lift_matches_derived_reference_data() -> cfd_core::error::Result<()> {
+        let cell = CellProperties::mcf7_breast_cancer();
+        let rho = 1_000.0;
+        let u = 0.05;
+        let h = 200.0e-6;
+        let x = 0.75;
+        let kappa = cell.diameter_m / h;
+        let area = cell.diameter_m * cell.diameter_m;
+        let expected = rho
+            * u
+            * u
+            * (wall_lift_reference_gain()
+                * x
+                * x
+                * (1.0 - cell.deformability_index)
+                * area
+                * kappa.powi(4)
+                - (1.0 - x * x) * area * kappa);
+
+        let actual = checked_inertial_lift_force_n(x, &cell, rho, u, h)?;
+        assert!((actual - expected).abs() < 1.0e-24);
+        assert!(actual > 0.0);
+        Ok(())
     }
 }

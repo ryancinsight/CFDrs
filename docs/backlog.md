@@ -31,6 +31,7 @@
 - [x] **HCOC-015**: Replace `cfd-3d` Spalart-Allmaras all-zero TKE output with a wall-distance Yoshizawa diagnostic.
 - [x] **HCOC-016**: Reject uninitialized `cfd-3d` k-epsilon state instead of synthesizing zero turbulence fields.
 - [x] **HCOC-017**: Replace `cfd-2d` Smagorinsky LES zero SGS energy/dissipation placeholders with Yoshizawa diagnostics and second-order boundary strain.
+- [x] **HCOC-018**: Remove the `cfd-1d` margination singular wall cutoff and silent lateral-position clamp while preserving inertial-lift scaling tests.
 
 ## Sprint 1.95.1: CFD-MESH 3D Performance & Memory Optimization
 **Status**: In Progress
