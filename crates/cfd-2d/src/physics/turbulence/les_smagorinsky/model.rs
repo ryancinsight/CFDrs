@@ -237,6 +237,9 @@ use nalgebra::DMatrix;
 #[cfg(feature = "gpu")]
 use cfd_core::compute::gpu::turbulence_compute::GpuTurbulenceCompute;
 
+const YOSHIZAWA_C_K: f64 = 0.094;
+const SGS_DISSIPATION_C_EPSILON: f64 = 1.048;
+
 /// Smagorinsky Large Eddy Simulation model
 pub struct SmagorinskyLES {
     /// Model configuration
@@ -251,6 +254,10 @@ pub struct SmagorinskyLES {
     filter_width: DMatrix<f64>,
     /// SGS viscosity field
     sgs_viscosity: DMatrix<f64>,
+    /// Diagnostic SGS turbulent kinetic energy field.
+    sgs_kinetic_energy: DMatrix<f64>,
+    /// Diagnostic SGS dissipation-rate field.
+    sgs_dissipation_rate: DMatrix<f64>,
     /// Dynamic Smagorinsky constant field (if using dynamic procedure)
     dynamic_constant: Option<DMatrix<f64>>,
     /// GPU compute manager (if GPU acceleration is enabled)
@@ -297,6 +304,8 @@ impl SmagorinskyLES {
             dy,
             filter_width,
             sgs_viscosity: DMatrix::zeros(nx, ny),
+            sgs_kinetic_energy: DMatrix::zeros(nx, ny),
+            sgs_dissipation_rate: DMatrix::zeros(nx, ny),
             dynamic_constant,
             #[cfg(feature = "gpu")]
             gpu_compute,
@@ -331,8 +340,60 @@ impl SmagorinskyLES {
             self.dy,
             density,
         );
+        self.update_sgs_energy_diagnostics(density);
 
         Ok(())
+    }
+
+    /// Update SGS energy diagnostics from the eddy-viscosity field.
+    ///
+    /// # Theorem -- Yoshizawa SGS Energy and Dissipation Diagnostics
+    ///
+    /// For Smagorinsky-type LES, the Yoshizawa algebraic relation
+    /// `nu_t = C_k Delta sqrt(k_sgs)` gives
+    ///
+    /// ```text
+    /// k_sgs = (nu_t / (C_k Delta))^2.
+    /// ```
+    ///
+    /// The inertial-range dissipation closure is
+    ///
+    /// ```text
+    /// epsilon_sgs = C_epsilon k_sgs^(3/2) / Delta.
+    /// ```
+    ///
+    /// **Proof.** `nu_t` has units `L^2/T`, and `Delta sqrt(k_sgs)` has the
+    /// same units because `sqrt(k_sgs)` is a velocity scale. Algebraic
+    /// inversion therefore gives the unique non-negative energy compatible
+    /// with the resolved eddy viscosity and local filter width. The
+    /// dissipation expression follows Kolmogorov dimensional scaling:
+    /// energy per unit mass, `k`, divided by the eddy turnover time
+    /// `Delta / sqrt(k)`, so `epsilon ~ k^(3/2)/Delta`; the closure
+    /// coefficient is dimensionless. Zero eddy viscosity or zero filter width
+    /// maps to zero diagnostics, preserving the laminar invariant.
+    fn update_sgs_energy_diagnostics(&mut self, density: f64) {
+        for i in 0..self.nx {
+            for j in 0..self.ny {
+                let delta = self.filter_width[(i, j)];
+                let dynamic_viscosity = self.sgs_viscosity[(i, j)];
+                let kinematic_viscosity = if density > 0.0 {
+                    dynamic_viscosity / density
+                } else {
+                    0.0
+                };
+                let k_sgs = if kinematic_viscosity > 0.0 && delta > 0.0 {
+                    (kinematic_viscosity / (YOSHIZAWA_C_K * delta)).powi(2)
+                } else {
+                    0.0
+                };
+                self.sgs_kinetic_energy[(i, j)] = k_sgs;
+                self.sgs_dissipation_rate[(i, j)] = if k_sgs > 0.0 && delta > 0.0 {
+                    SGS_DISSIPATION_C_EPSILON * k_sgs.powf(1.5) / delta
+                } else {
+                    0.0
+                };
+            }
+        }
     }
 
     /// GPU-accelerated update implementation
@@ -413,15 +474,12 @@ impl LESTurbulenceModel for SmagorinskyLES {
         &self.sgs_viscosity
     }
 
-    fn get_turbulent_kinetic_energy(&self, _i: usize, _j: usize) -> f64 {
-        // LES doesn't track TKE directly, but we can estimate it
-        // For simplicity, return 0 (would need proper implementation)
-        0.0
+    fn get_turbulent_kinetic_energy(&self, i: usize, j: usize) -> f64 {
+        self.sgs_kinetic_energy[(i, j)]
     }
 
-    fn get_dissipation_rate(&self, _i: usize, _j: usize) -> f64 {
-        // LES dissipation is implicit in the SGS model
-        0.0
+    fn get_dissipation_rate(&self, i: usize, j: usize) -> f64 {
+        self.sgs_dissipation_rate[(i, j)]
     }
 
     fn boundary_condition_update(
@@ -516,6 +574,47 @@ mod tests {
     }
 
     #[test]
+    fn sgs_energy_diagnostics_follow_yoshizawa_relation() {
+        let config = SmagorinskyConfig {
+            wall_damping: false,
+            ..Default::default()
+        };
+        let mut les = SmagorinskyLES::new(10, 10, 0.1, 0.1, config);
+        let (velocity_u, velocity_v) = create_test_velocity_fields(10, 10);
+        let pressure = DMatrix::zeros(10, 10);
+        les.update(
+            &velocity_u,
+            &velocity_v,
+            &pressure,
+            2.0,
+            0.01,
+            0.001,
+            0.1,
+            0.1,
+        )
+        .expect("LES update must evaluate SGS fields");
+
+        let mu_sgs = les.get_viscosity(5, 5);
+        let nu_sgs = mu_sgs / 2.0;
+        let delta = les.filter_width[(5, 5)];
+        let expected_k = (nu_sgs / (YOSHIZAWA_C_K * delta)).powi(2);
+        let expected_eps = SGS_DISSIPATION_C_EPSILON * expected_k.powf(1.5) / delta;
+
+        assert_relative_eq!(
+            les.get_turbulent_kinetic_energy(5, 5),
+            expected_k,
+            epsilon = 1e-14
+        );
+        assert_relative_eq!(
+            les.get_dissipation_rate(5, 5),
+            expected_eps,
+            epsilon = 1e-14
+        );
+        assert!(les.get_turbulent_kinetic_energy(5, 5) > 0.0);
+        assert!(les.get_dissipation_rate(5, 5) > 0.0);
+    }
+
+    #[test]
     fn test_dynamic_procedure_setup() {
         let config = SmagorinskyConfig {
             dynamic_procedure: true,
@@ -566,5 +665,33 @@ mod tests {
         for &delta in les.filter_width.iter() {
             assert_relative_eq!(delta, expected_delta, epsilon = 1e-10);
         }
+    }
+
+    #[test]
+    fn zero_strain_default_remains_zero_sgs_state() {
+        let config = SmagorinskyConfig {
+            wall_damping: false,
+            ..Default::default()
+        };
+        let mut les = SmagorinskyLES::new(4, 4, 0.1, 0.1, config);
+        let velocity_u = DMatrix::zeros(4, 4);
+        let velocity_v = DMatrix::zeros(4, 4);
+        let pressure = DMatrix::zeros(4, 4);
+
+        les.update(
+            &velocity_u,
+            &velocity_v,
+            &pressure,
+            1.0,
+            0.01,
+            0.001,
+            0.1,
+            0.1,
+        )
+        .expect("zero-strain LES update must remain valid");
+
+        assert!(les.sgs_viscosity.iter().all(|&value| value == 0.0));
+        assert!(les.sgs_kinetic_energy.iter().all(|&value| value == 0.0));
+        assert!(les.sgs_dissipation_rate.iter().all(|&value| value == 0.0));
     }
 }

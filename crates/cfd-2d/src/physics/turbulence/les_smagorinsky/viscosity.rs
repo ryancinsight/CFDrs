@@ -16,10 +16,20 @@
 use super::config::SmagorinskyConfig;
 use nalgebra::DMatrix;
 
-/// Compute SGS viscosity using Smagorinsky model
+/// Compute SGS viscosity using Smagorinsky model.
 ///
 /// ν_SGS = (C_S Δ)² |S| where C_S is the Smagorinsky constant,
 /// Δ is the filter width, and |S| is the strain rate magnitude.
+///
+/// # Theorem -- Laminar Zero-Strain Invariant
+///
+/// With `min_sgs_viscosity = 0`, a resolved zero-strain field produces exactly
+/// zero SGS viscosity.
+///
+/// **Proof.** The Smagorinsky closure is `nu_sgs = (C_s Delta)^2 |S|`.
+/// If `|S| = 0`, multiplication by the non-negative model coefficients gives
+/// `nu_sgs = 0`. The optional lower bound is applied only after this physical
+/// evaluation, so the default configuration preserves the laminar invariant.
 pub fn compute_sgs_viscosity(
     strain_magnitude: &DMatrix<f64>,
     filter_width: &DMatrix<f64>,
@@ -59,7 +69,7 @@ pub fn compute_sgs_viscosity(
                 );
             }
 
-            // Ensure minimum viscosity for numerical stability
+            // Apply an explicit user-selected regularization floor when configured.
             nu_sgs = nu_sgs.max(config.min_sgs_viscosity);
 
             // Convert kinematic to dynamic viscosity
@@ -254,9 +264,9 @@ mod tests {
         let config = SmagorinskyConfig::default();
         let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0, 1.0, 1.0);
 
-        // Zero strain should give minimum viscosity
+        // Zero strain should give exactly zero SGS viscosity by default.
         for &v in viscosity.iter() {
-            assert_relative_eq!(v, config.min_sgs_viscosity, epsilon = 1e-15);
+            assert_relative_eq!(v, 0.0, epsilon = 1e-15);
         }
     }
 

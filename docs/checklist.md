@@ -42,6 +42,7 @@
 - [x] Replace `cfd-2d` WALE boundary zero-gradient assumptions with second-order one-sided derivative stencils and polynomial reproduction tests.
 - [x] Replace `cfd-3d` Spalart-Allmaras all-zero TKE with a Yoshizawa wall-distance diagnostic and regression tests.
 - [x] Reject uninitialized `cfd-3d` k-epsilon state rather than returning synthetic zero viscosity, TKE, or dissipation fields.
+- [x] Replace `cfd-2d` Smagorinsky LES zero SGS energy/dissipation placeholders, boundary zero-strain enforcement, and default SGS viscosity floor with documented diagnostics and value-semantic tests.
 
 ---
 

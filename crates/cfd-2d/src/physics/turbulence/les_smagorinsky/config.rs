@@ -24,7 +24,11 @@ pub struct SmagorinskyConfig {
     pub wall_damping: bool,
     /// Van Driest damping constant
     pub van_driest_constant: f64,
-    /// Minimum SGS viscosity (numerical stability)
+    /// Optional lower bound on SGS viscosity.
+    ///
+    /// The default is zero so laminar or strain-free resolved states remain
+    /// exactly laminar. Nonzero values are explicit user-selected numerical
+    /// regularization and are not part of the Smagorinsky closure.
     pub min_sgs_viscosity: f64,
     /// Use GPU acceleration if available
     pub use_gpu: bool,
@@ -33,11 +37,11 @@ pub struct SmagorinskyConfig {
 impl Default for SmagorinskyConfig {
     fn default() -> Self {
         Self {
-            smagorinsky_constant: 0.1,      // Standard value for homogeneous turbulence
-            dynamic_procedure: false,       // Use fixed constant by default
-            wall_damping: true,             // Enable wall damping
-            van_driest_constant: 0.4,       // Standard van Driest constant
-            min_sgs_viscosity: 1e-8,        // Prevent division by zero
+            smagorinsky_constant: 0.1, // Standard value for homogeneous turbulence
+            dynamic_procedure: false,  // Use fixed constant by default
+            wall_damping: true,        // Enable wall damping
+            van_driest_constant: 0.4,  // Standard van Driest constant
+            min_sgs_viscosity: 0.0,
             use_gpu: cfg!(feature = "gpu"), // Use GPU if feature is enabled
         }
     }
@@ -51,7 +55,7 @@ impl SmagorinskyConfig {
             dynamic_procedure: false,
             wall_damping: true,
             van_driest_constant: 0.4,
-            min_sgs_viscosity: 1e-8,
+            min_sgs_viscosity: 0.0,
             use_gpu: cfg!(feature = "gpu"),
         }
     }

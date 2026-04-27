@@ -213,6 +213,22 @@
 
 ---
 
+## RESOLVED-021: Smagorinsky LES Zero SGS Diagnostics in CFD-2D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-2d/src/physics/turbulence/les_smagorinsky/`
+**Status**: **CLOSED** - The 2D Smagorinsky LES model no longer returns placeholder zero turbulent kinetic energy or dissipation rate after computing nonzero SGS viscosity.
+
+### Verification
+
+- SGS turbulent kinetic energy now follows the Yoshizawa relation `k_sgs = (nu_t / (C_k Delta))^2`.
+- SGS dissipation now follows inertial-range dimensional scaling `epsilon_sgs = C_epsilon k_sgs^(3/2) / Delta`.
+- Strain-rate evaluation now uses second-order one-sided boundary stencils instead of imposing zero boundary strain.
+- Default `min_sgs_viscosity` is zero so zero-strain fields remain exactly laminar unless a caller explicitly configures a numerical lower bound.
+- Regression coverage validates the Yoshizawa energy and dissipation diagnostics, boundary strain recovery, and zero-strain invariant.
+
+---
+
 ## RESOLVED-017: Nuclei Transport Validation and Slice-Based Accumulation in CFD-3D
 
 **Severity**: ✅ **RESOLVED**

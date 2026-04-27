@@ -23,6 +23,7 @@
 - [x] `cfd-2d`: Replace serpentine mixing's exponential estimate with the Neumann eigenfunction solution for transverse diffusion and expose nonzero analytical L90/t90 in the discretized solver result.
 - [x] `cfd-2d`: Remove silent Pries plasma-skimming clamps and expose checked value-semantic phase-separation evaluation.
 - [x] `cfd-2d`: Replace WALE boundary zero-gradient assumptions with second-order one-sided finite-difference gradients.
+- [x] `cfd-2d`: Replace Smagorinsky LES zero TKE/dissipation placeholders, zero boundary strain, and default SGS viscosity floor with Yoshizawa SGS diagnostics and second-order strain recovery.
 - [x] `cfd-math`: Preserve direct sparse solver conversion failures and reject non-finite fallback output.
 - [x] `cfd-optim`: Remove the sonosensitizer activation floor from SDT report metrics and enforce zero-dose propagation at zero cavitation.
 - [x] `cfd-optim`: Remove synthetic 1% synergy floors from objective and pool scoring paths.

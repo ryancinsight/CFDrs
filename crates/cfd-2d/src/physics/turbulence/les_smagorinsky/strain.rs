@@ -1,7 +1,7 @@
 //! Strain rate tensor computation for LES models
 //!
-//! Implements efficient computation of the strain rate magnitude
-//! using central differences and proper boundary conditions.
+//! Implements efficient computation of the strain-rate magnitude using
+//! second-order interior and boundary finite-difference stencils.
 //!
 //! # Theorem
 //! The turbulence model must satisfy the realizability conditions for the Reynolds stress tensor.
@@ -15,10 +15,21 @@
 
 use nalgebra::DMatrix;
 
-/// Compute the magnitude of the strain rate tensor
+/// Compute the magnitude of the strain rate tensor.
 ///
-/// Uses central differences for velocity gradients and applies
-/// zero strain rate boundary conditions at domain boundaries.
+/// # Theorem -- Second-Order Boundary Strain Recovery
+///
+/// On a uniform grid, the interior central stencil and one-sided boundary
+/// stencils used here recover the exact derivative of every quadratic
+/// polynomial at the evaluation point up to the truncation term `O(h^2)`.
+///
+/// **Proof.** Taylor expansion of `f(x+h)`, `f(x-h)`, and `f(x+2h)` about the
+/// target point shows that `(f_{i+1}-f_{i-1})/(2h)`,
+/// `(-3f_0+4f_1-f_2)/(2h)`, and `(3f_n-4f_{n-1}+f_{n-2})/(2h)` all cancel
+/// the constant term, preserve one copy of `f'`, and cancel the second
+/// derivative term. The first nonzero neglected term is proportional to
+/// `h^2 f'''`; hence boundary strain is computed from the resolved velocity
+/// field instead of imposed as an artificial zero state.
 pub fn compute_strain_rate_magnitude(
     velocity_u: &DMatrix<f64>,
     velocity_v: &DMatrix<f64>,
@@ -29,14 +40,12 @@ pub fn compute_strain_rate_magnitude(
     let ny = velocity_u.ncols();
     let mut strain_magnitude = DMatrix::zeros(nx, ny);
 
-    // Interior points - central differences
-    for i in 1..nx - 1 {
-        for j in 1..ny - 1 {
-            // Velocity gradients (central differences)
-            let du_dx = (velocity_u[(i + 1, j)] - velocity_u[(i - 1, j)]) / (2.0 * dx);
-            let du_dy = (velocity_u[(i, j + 1)] - velocity_u[(i, j - 1)]) / (2.0 * dy);
-            let dv_dx = (velocity_v[(i + 1, j)] - velocity_v[(i - 1, j)]) / (2.0 * dx);
-            let dv_dy = (velocity_v[(i, j + 1)] - velocity_v[(i, j - 1)]) / (2.0 * dy);
+    for i in 0..nx {
+        for j in 0..ny {
+            let du_dx = differentiate_uniform(nx, i, dx, |ii| velocity_u[(ii, j)]);
+            let du_dy = differentiate_uniform(ny, j, dy, |jj| velocity_u[(i, jj)]);
+            let dv_dx = differentiate_uniform(nx, i, dx, |ii| velocity_v[(ii, j)]);
+            let dv_dy = differentiate_uniform(ny, j, dy, |jj| velocity_v[(i, jj)]);
 
             // Strain rate tensor components
             let s11 = du_dx;
@@ -50,16 +59,6 @@ pub fn compute_strain_rate_magnitude(
 
             strain_magnitude[(i, j)] = (2.0 * (s11_sq + s22_sq) + s12_sq).sqrt();
         }
-    }
-
-    // Boundary conditions (zero strain at boundaries)
-    for i in 0..nx {
-        strain_magnitude[(i, 0)] = 0.0;
-        strain_magnitude[(i, ny - 1)] = 0.0;
-    }
-    for j in 0..ny {
-        strain_magnitude[(0, j)] = 0.0;
-        strain_magnitude[(nx - 1, j)] = 0.0;
     }
 
     strain_magnitude
@@ -81,14 +80,12 @@ pub fn compute_strain_rate_components(
     let mut s22 = DMatrix::zeros(nx, ny);
     let mut s12 = DMatrix::zeros(nx, ny);
 
-    // Interior points - central differences
-    for i in 1..nx - 1 {
-        for j in 1..ny - 1 {
-            // Velocity gradients (central differences)
-            let du_dx = (velocity_u[(i + 1, j)] - velocity_u[(i - 1, j)]) / (2.0 * dx);
-            let du_dy = (velocity_u[(i, j + 1)] - velocity_u[(i, j - 1)]) / (2.0 * dy);
-            let dv_dx = (velocity_v[(i + 1, j)] - velocity_v[(i - 1, j)]) / (2.0 * dx);
-            let dv_dy = (velocity_v[(i, j + 1)] - velocity_v[(i, j - 1)]) / (2.0 * dy);
+    for i in 0..nx {
+        for j in 0..ny {
+            let du_dx = differentiate_uniform(nx, i, dx, |ii| velocity_u[(ii, j)]);
+            let du_dy = differentiate_uniform(ny, j, dy, |jj| velocity_u[(i, jj)]);
+            let dv_dx = differentiate_uniform(nx, i, dx, |ii| velocity_v[(ii, j)]);
+            let dv_dy = differentiate_uniform(ny, j, dy, |jj| velocity_v[(i, jj)]);
 
             s11[(i, j)] = du_dx;
             s22[(i, j)] = dv_dy;
@@ -97,6 +94,26 @@ pub fn compute_strain_rate_components(
     }
 
     (s11, s22, s12)
+}
+
+#[inline]
+fn differentiate_uniform<F>(n: usize, idx: usize, spacing: f64, sample: F) -> f64
+where
+    F: Fn(usize) -> f64,
+{
+    if n < 2 {
+        return 0.0;
+    }
+    if n == 2 {
+        return (sample(1) - sample(0)) / spacing;
+    }
+    if idx == 0 {
+        return (-3.0 * sample(0) + 4.0 * sample(1) - sample(2)) / (2.0 * spacing);
+    }
+    if idx + 1 == n {
+        return (3.0 * sample(n - 1) - 4.0 * sample(n - 2) + sample(n - 3)) / (2.0 * spacing);
+    }
+    (sample(idx + 1) - sample(idx - 1)) / (2.0 * spacing)
 }
 
 #[cfg(test)]
@@ -127,11 +144,9 @@ mod tests {
         // Check that strain rate is computed (non-zero for shear flow)
         assert!(strain.iter().any(|&s| s > 0.0));
 
-        // Check boundary conditions (should be zero)
-        assert_eq!(strain[(0, 0)], 0.0);
-        assert_eq!(strain[(9, 0)], 0.0);
-        assert_eq!(strain[(0, 9)], 0.0);
-        assert_eq!(strain[(9, 9)], 0.0);
+        for &value in strain.iter() {
+            assert_relative_eq!(value, 1.0, epsilon = 1e-10);
+        }
 
         // Check dimensions
         assert_eq!(strain.nrows(), 10);
@@ -148,9 +163,8 @@ mod tests {
         // du/dy = 1.0 (from finite difference), dv/dx = 0, dv/dy = 0
         // s11 = du/dx = 0, s22 = dv/dy = 0, s12 = 0.5*(du/dy + dv/dx) = 0.5
 
-        // Check interior points
-        for i in 1..9 {
-            for j in 1..9 {
+        for i in 0..10 {
+            for j in 0..10 {
                 assert_relative_eq!(s11[(i, j)], 0.0, epsilon = 1e-10);
                 assert_relative_eq!(s22[(i, j)], 0.0, epsilon = 1e-10);
                 assert_relative_eq!(s12[(i, j)], 0.5, epsilon = 1e-6);
