@@ -38,6 +38,10 @@
 - [x] Replace compact `cfd-1d` plasma-skimming screening with threshold-aware Pries phase separation using Murray-inferred sibling geometry.
 - [x] Replace `cfd-2d` serpentine mixing's exponential estimate with the closed-form transverse diffusion eigenfunction series and report analytical L90/t90 in the discretized solver.
 - [x] Replace `cfd-3d` LES turbulent-kinetic-energy viscosity aliases with a shared Yoshizawa SGS energy relation and regression tests.
+- [x] Remove silent clamps and caps from `cfd-2d` Pries plasma-skimming by adding a checked physical-envelope evaluator and value-semantic threshold tests.
+- [x] Replace `cfd-2d` WALE boundary zero-gradient assumptions with second-order one-sided derivative stencils and polynomial reproduction tests.
+- [x] Replace `cfd-3d` Spalart-Allmaras all-zero TKE with a Yoshizawa wall-distance diagnostic and regression tests.
+- [x] Reject uninitialized `cfd-3d` k-epsilon state rather than returning synthetic zero viscosity, TKE, or dissipation fields.
 
 ---
 

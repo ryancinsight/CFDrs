@@ -26,6 +26,10 @@
 - [x] **HCOC-010**: Replace compact `cfd-1d` plasma-skimming screening with the threshold-aware Pries phase-separation model and Murray-inferred sibling geometry.
 - [x] **HCOC-011**: Replace `cfd-2d` serpentine mixing's exponential estimate with the Neumann transverse-diffusion eigenfunction solution.
 - [x] **HCOC-012**: Replace `cfd-3d` LES turbulent-kinetic-energy viscosity aliases with a shared Yoshizawa SGS energy relation.
+- [x] **HCOC-013**: Remove silent clamps from `cfd-2d` Pries plasma-skimming and add checked physical-envelope regression tests.
+- [x] **HCOC-014**: Replace `cfd-2d` WALE boundary zero-gradient reductions with second-order one-sided gradient stencils.
+- [x] **HCOC-015**: Replace `cfd-3d` Spalart-Allmaras all-zero TKE output with a wall-distance Yoshizawa diagnostic.
+- [x] **HCOC-016**: Reject uninitialized `cfd-3d` k-epsilon state instead of synthesizing zero turbulence fields.
 
 ## Sprint 1.95.1: CFD-MESH 3D Performance & Memory Optimization
 **Status**: In Progress

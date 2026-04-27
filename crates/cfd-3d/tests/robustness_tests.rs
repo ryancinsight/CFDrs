@@ -937,9 +937,10 @@ fn test_k_epsilon_standard_constants() {
     assert_relative_eq!(c.sigma_epsilon, 1.3, epsilon = 1e-10);
 }
 
-/// k-ε: uninitialised state returns zero viscosity.
+/// k-ε: uninitialised state is rejected instead of returning synthetic zero viscosity.
 #[test]
-fn test_k_epsilon_uninit_zero_viscosity() {
+#[should_panic(expected = "requires initialized k and epsilon transport fields")]
+fn test_k_epsilon_uninit_rejected() {
     use cfd_3d::physics::turbulence::KEpsilonModel;
     use cfd_core::physics::fluid_dynamics::fields::FlowField;
     use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
@@ -947,10 +948,7 @@ fn test_k_epsilon_uninit_zero_viscosity() {
     let model = KEpsilonModel::<f64>::new();
     let flow = FlowField::<f64>::new(4, 4, 4);
 
-    let visc = model.turbulent_viscosity(&flow);
-    for &v in &visc {
-        assert_relative_eq!(v, 0.0, epsilon = 1e-15);
-    }
+    let _ = model.turbulent_viscosity(&flow);
 }
 
 /// k-ε: νₜ = C_μ k² / ε for initialised state with uniform fields.

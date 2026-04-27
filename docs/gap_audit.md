@@ -159,6 +159,60 @@
 
 ---
 
+## RESOLVED-017: Pries Plasma-Skimming Silent Clamps in CFD-2D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-2d/src/solvers/plasma_skimming.rs`
+**Status**: **CLOSED** - The standalone 2D Pries phase-separation path now evaluates the thresholded logit law through a checked physical-envelope API instead of clipping flow, hematocrit, diameter ratios, logit arguments, or daughter hematocrit outputs.
+
+### Verification
+
+- `checked_pries_phase_separation()` rejects non-finite, out-of-range, and non-positive geometry inputs with structured errors.
+- Boundary cases `FQB = 0`, `FQB = 1`, and zero feed hematocrit are explicit conservation states.
+- Regression coverage validates below-threshold zero cell flux without modifying the supplied flow fraction.
+
+---
+
+## RESOLVED-018: WALE Boundary Zero-Gradient Reduction in CFD-2D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-2d/src/physics/turbulence/les_smagorinsky/wale.rs`
+**Status**: **CLOSED** - WALE velocity-gradient evaluation now uses second-order one-sided boundary stencils on uniform grids instead of forcing boundary gradients to zero.
+
+### Verification
+
+- Rustdoc documents the Taylor-series stencil proof.
+- Regression coverage confirms exact derivative recovery for quadratic and linear velocity components at lower and upper boundaries.
+
+---
+
+## RESOLVED-019: Spalart-Allmaras All-Zero TKE Diagnostic in CFD-3D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-3d/src/physics/turbulence/spalart_allmaras.rs`
+**Status**: **CLOSED** - The SA turbulence model no longer returns a constant zero turbulent-kinetic-energy vector when the transported eddy viscosity is nonzero.
+
+### Verification
+
+- SA TKE is now a documented diagnostic `k = (nu_t / (C_k d))^2` using the shared Yoshizawa relation and local wall distance.
+- Regression coverage validates the computed diagnostic against the analytical relation and preserves the zero wall-length-scale state.
+
+---
+
+## RESOLVED-020: K-Epsilon Uninitialized Zero Fields in CFD-3D
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-3d/src/physics/turbulence/k_epsilon.rs`
+**Status**: **CLOSED** - The k-epsilon model no longer fabricates zero viscosity, turbulent kinetic energy, or dissipation fields when the transported state is absent.
+
+### Verification
+
+- `turbulent_viscosity()`, `turbulent_kinetic_energy()`, and `dissipation_rate()` now require initialized `k` and `epsilon` fields with dimensions matching the flow field.
+- Initialized zero-TKE states still produce zero eddy viscosity by the analytical `nu_t = C_mu k^2 / epsilon` limit.
+- Unit and integration tests assert uninitialized state rejection and initialized zero-state behavior.
+
+---
+
 ## RESOLVED-017: Nuclei Transport Validation and Slice-Based Accumulation in CFD-3D
 
 **Severity**: ✅ **RESOLVED**

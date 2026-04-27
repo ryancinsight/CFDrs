@@ -139,7 +139,24 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
         }
     }
 
-    /// Compute velocity gradients using central differences
+    /// Compute velocity gradients using central and one-sided differences.
+    ///
+    /// # Theorem -- Boundary-Consistent Differentiation
+    ///
+    /// For a uniform mesh and a component value `f_i`, the interior stencil
+    /// `(f_{i+1}-f_{i-1})/(2h)` and the boundary stencils
+    /// `(-3f_0+4f_1-f_2)/(2h)`, `(3f_n-4f_{n-1}+f_{n-2})/(2h)` are exact for
+    /// all quadratic polynomials up to the derivative truncation term
+    /// `O(h^2)`.
+    ///
+    /// **Proof.** Taylor expansion about the evaluation point gives
+    /// `f(x+h)=f+h f'+h^2 f''/2+h^3 f'''/6+O(h^4)` and analogous terms for
+    /// `x-h` and `x+2h`. Substituting the coefficients cancels the constant
+    /// and second-derivative terms while leaving one unit of `f'`; the first
+    /// uncancelled term is proportional to `h^2 f'''`. Therefore boundary
+    /// gradients preserve the same second-order accuracy as the interior
+    /// stencil for smooth velocity fields instead of imposing an artificial
+    /// zero-gradient state.
     fn velocity_gradients(
         &self,
         velocity: &Field2D<Vector2<T>>,
@@ -151,36 +168,39 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
         let nx = velocity.nx();
         let ny = velocity.ny();
 
-        // Central differences with boundary handling
-        let du_dx = if i > 0 && i < nx - 1 {
-            (velocity.at(i + 1, j).x - velocity.at(i - 1, j).x)
-                / (T::from_f64(2.0).expect("analytical constant conversion") * dx)
-        } else {
-            T::zero() // Boundary - assume zero gradient for simplicity
-        };
-
-        let du_dy = if j > 0 && j < ny - 1 {
-            (velocity.at(i, j + 1).x - velocity.at(i, j - 1).x)
-                / (T::from_f64(2.0).expect("analytical constant conversion") * dy)
-        } else {
-            T::zero()
-        };
-
-        let dv_dx = if i > 0 && i < nx - 1 {
-            (velocity.at(i + 1, j).y - velocity.at(i - 1, j).y)
-                / (T::from_f64(2.0).expect("analytical constant conversion") * dx)
-        } else {
-            T::zero()
-        };
-
-        let dv_dy = if j > 0 && j < ny - 1 {
-            (velocity.at(i, j + 1).y - velocity.at(i, j - 1).y)
-                / (T::from_f64(2.0).expect("analytical constant conversion") * dy)
-        } else {
-            T::zero()
-        };
+        let du_dx = Self::differentiate_uniform(nx, i, dx, |ii| velocity.at(ii, j).x);
+        let du_dy = Self::differentiate_uniform(ny, j, dy, |jj| velocity.at(i, jj).x);
+        let dv_dx = Self::differentiate_uniform(nx, i, dx, |ii| velocity.at(ii, j).y);
+        let dv_dy = Self::differentiate_uniform(ny, j, dy, |jj| velocity.at(i, jj).y);
 
         (du_dx, du_dy, dv_dx, dv_dy)
+    }
+
+    #[inline]
+    fn differentiate_uniform<F>(n: usize, idx: usize, spacing: T, sample: F) -> T
+    where
+        F: Fn(usize) -> T,
+    {
+        let two = T::from_f64(2.0).expect("analytical constant conversion");
+        if n < 2 {
+            return T::zero();
+        }
+        if n == 2 {
+            return (sample(1) - sample(0)) / spacing;
+        }
+        if idx == 0 {
+            return (-T::from_f64(3.0).expect("analytical constant conversion") * sample(0)
+                + T::from_f64(4.0).expect("analytical constant conversion") * sample(1)
+                - sample(2))
+                / (two * spacing);
+        }
+        if idx + 1 == n {
+            return (T::from_f64(3.0).expect("analytical constant conversion") * sample(n - 1)
+                - T::from_f64(4.0).expect("analytical constant conversion") * sample(n - 2)
+                + sample(n - 3))
+                / (two * spacing);
+        }
+        (sample(idx + 1) - sample(idx - 1)) / (two * spacing)
     }
 
     /// Compute WALE tensor magnitude squared
@@ -265,5 +285,30 @@ mod tests {
 
         // At walls, WALE tensor should vanish, giving zero viscosity
         assert_relative_eq!(nu_sgs_wall, 0.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn boundary_gradients_use_second_order_one_sided_stencils() {
+        let model = WaleModel::<f64>::new();
+        let mut velocity = Field2D::new(5, 5, Vector2::new(0.0, 0.0));
+
+        for i in 0..5 {
+            for j in 0..5 {
+                let x = i as f64 * 0.25;
+                let y = j as f64 * 0.25;
+                velocity[(i, j)] = Vector2::new(x * x + 2.0 * y, 3.0 * x + y * y);
+            }
+        }
+
+        let (du_dx_left, du_dy_bottom, dv_dx_left, dv_dy_bottom) =
+            model.velocity_gradients(&velocity, 0, 0, 0.25, 0.25);
+        assert_relative_eq!(du_dx_left, 0.0, epsilon = 1.0e-12);
+        assert_relative_eq!(du_dy_bottom, 2.0, epsilon = 1.0e-12);
+        assert_relative_eq!(dv_dx_left, 3.0, epsilon = 1.0e-12);
+        assert_relative_eq!(dv_dy_bottom, 0.0, epsilon = 1.0e-12);
+
+        let (du_dx_right, _, _, dv_dy_top) = model.velocity_gradients(&velocity, 4, 4, 0.25, 0.25);
+        assert_relative_eq!(du_dx_right, 2.0, epsilon = 1.0e-12);
+        assert_relative_eq!(dv_dy_top, 2.0, epsilon = 1.0e-12);
     }
 }

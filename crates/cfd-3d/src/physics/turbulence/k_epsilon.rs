@@ -171,6 +171,24 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsi
         assert_eq!(k.len(), epsilon.len(), "k and epsilon lengths must match");
         self.state = Some(KEpsilonState { k, epsilon });
     }
+
+    fn state_for_flow<'a>(&'a self, flow_field: &FlowField<T>) -> &'a KEpsilonState<T> {
+        let state = self
+            .state
+            .as_ref()
+            .expect("k-epsilon model requires initialized k and epsilon transport fields");
+        assert_eq!(
+            state.k.len(),
+            state.epsilon.len(),
+            "k and epsilon lengths must match"
+        );
+        assert_eq!(
+            state.k.len(),
+            flow_field.velocity.components.len(),
+            "k/epsilon state must match the flow-field size"
+        );
+        state
+    }
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
@@ -178,53 +196,34 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         // νₜ = C_μ * k² / ε
-        match &self.state {
-            Some(state) => {
-                assert_eq!(
-                    state.k.len(),
-                    state.epsilon.len(),
-                    "k and epsilon lengths must match"
+        let state = self.state_for_flow(flow_field);
+        let mut viscosity = Vec::with_capacity(state.k.len());
+        for idx in 0..state.k.len() {
+            let k = state.k[idx];
+            let eps = state.epsilon[idx];
+            assert!(
+                k >= T::zero(),
+                "k-epsilon turbulent kinetic energy must be non-negative"
+            );
+            assert!(
+                eps >= T::zero(),
+                "k-epsilon dissipation rate must be non-negative"
+            );
+            if k == T::zero() {
+                viscosity.push(T::zero());
+            } else {
+                assert!(
+                    eps > T::zero(),
+                    "positive k-epsilon turbulent kinetic energy requires positive dissipation"
                 );
-                assert_eq!(
-                    state.k.len(),
-                    flow_field.velocity.components.len(),
-                    "k/epsilon state must match the flow-field size"
-                );
-                let mut viscosity = Vec::with_capacity(state.k.len());
-                for idx in 0..state.k.len() {
-                    let k = state.k[idx];
-                    let eps = state.epsilon[idx];
-                    if eps
-                        > <T as FromPrimitive>::from_f64(1e-10)
-                            .expect("1e-10 is an IEEE 754 representable f64 constant")
-                    {
-                        viscosity.push(self.constants.c_mu * k * k / eps);
-                    } else {
-                        viscosity.push(T::zero());
-                    }
-                }
-                viscosity
-            }
-            None => {
-                // If not initialized, return zero viscosity
-                vec![T::zero(); flow_field.velocity.components.len()]
+                viscosity.push(self.constants.c_mu * k * k / eps);
             }
         }
+        viscosity
     }
 
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
-        let n = flow_field.velocity.components.len();
-        match &self.state {
-            Some(state) => {
-                assert_eq!(
-                    state.k.len(),
-                    state.epsilon.len(),
-                    "k and epsilon lengths must match"
-                );
-                state.k.clone()
-            }
-            None => vec![T::zero(); n],
-        }
+        self.state_for_flow(flow_field).k.clone()
     }
 
     fn name(&self) -> &'static str {
@@ -236,18 +235,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> RANSM
     for KEpsilonModel<T>
 {
     fn dissipation_rate(&self, flow_field: &FlowField<T>) -> Vec<T> {
-        let n = flow_field.velocity.components.len();
-        match &self.state {
-            Some(state) => {
-                assert_eq!(
-                    state.k.len(),
-                    state.epsilon.len(),
-                    "k and epsilon lengths must match"
-                );
-                state.epsilon.clone()
-            }
-            None => vec![T::zero(); n],
-        }
+        self.state_for_flow(flow_field).epsilon.clone()
     }
 
     fn constants(&self) -> &dyn std::any::Any {
@@ -258,20 +246,25 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> RANSM
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cfd_core::physics::fluid_dynamics::RANSModel;
     use cfd_core::physics::fluid_dynamics::TurbulenceModel;
 
     #[test]
-    fn uninitialized_state_returns_zero_fields_of_matching_length() {
+    #[should_panic(expected = "requires initialized k and epsilon transport fields")]
+    fn uninitialized_state_is_rejected_instead_of_returning_zero_fields() {
         let flow = FlowField::<f64>::new(2, 2, 2);
         let model = KEpsilonModel::<f64>::new();
 
-        let tke = model.turbulent_kinetic_energy(&flow);
-        let dissipation = RANSModel::dissipation_rate(&model, &flow);
+        let _ = model.turbulent_kinetic_energy(&flow);
+    }
 
-        assert_eq!(tke.len(), 8);
-        assert_eq!(dissipation.len(), 8);
-        assert!(tke.iter().all(|&value| value == 0.0));
-        assert!(dissipation.iter().all(|&value| value == 0.0));
+    #[test]
+    fn initialized_zero_tke_state_produces_zero_viscosity() {
+        let flow = FlowField::<f64>::new(2, 2, 2);
+        let mut model = KEpsilonModel::<f64>::new();
+        model.initialize_state_exact(vec![0.0; 8], vec![0.0; 8]);
+
+        let viscosity = model.turbulent_viscosity(&flow);
+        assert_eq!(viscosity.len(), 8);
+        assert!(viscosity.iter().all(|&value| value == 0.0));
     }
 }

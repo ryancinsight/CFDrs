@@ -46,6 +46,7 @@ use num_traits::FromPrimitive;
 use super::constants::SA_CV1;
 #[cfg(test)]
 use super::constants::{SA_CW2, SA_CW3};
+use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 
 /// Spalart-Allmaras one-equation RANS model (Spalart & Allmaras 1992).
 ///
@@ -116,6 +117,30 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Spala
         nu_tilde / (nu + eps)
     }
 
+    /// Convert SA eddy viscosity to a diagnostic turbulence kinetic energy.
+    ///
+    /// # Theorem -- SA Eddy-Viscosity Energy Diagnostic
+    ///
+    /// The original Spalart-Allmaras model transports modified eddy viscosity
+    /// rather than `k`. When a caller requires a kinetic-energy diagnostic, the
+    /// wall distance supplies the local length scale and the Yoshizawa
+    /// eddy-viscosity relation gives
+    ///
+    /// ```text
+    /// k_d = (nu_t / (C_k d))^2.
+    /// ```
+    ///
+    /// **Proof.** The SA closure produces `nu_t >= 0` after wall damping.
+    /// Yoshizawa's algebraic relation `nu_t = C_k d sqrt(k_d)` is dimensionally
+    /// consistent because `d sqrt(k_d)` has units `m^2/s`. Solving the relation
+    /// for `k_d` gives the displayed expression. Squaring preserves
+    /// non-negativity, and `d <= 0` maps to zero because no positive turbulent
+    /// length scale exists at the wall point.
+    #[inline]
+    fn diagnostic_kinetic_energy(nu_t: T, wall_distance: T) -> T {
+        kinetic_energy_from_eddy_viscosity(nu_t, wall_distance)
+    }
+
     /// Compute the destruction function f_w (Spalart & Allmaras 1992 eq. 25).
     #[cfg(test)]
     fn f_w(r: T) -> T {
@@ -160,7 +185,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     }
 
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
-        vec![T::zero(); flow_field.velocity.components.len()]
+        let eddy_viscosity = self.turbulent_viscosity(flow_field);
+        eddy_viscosity
+            .into_iter()
+            .zip(self.wall_distance.iter().copied())
+            .map(|(nu_t, wall_distance)| Self::diagnostic_kinetic_energy(nu_t, wall_distance))
+            .collect()
     }
 
     fn name(&self) -> &'static str {
@@ -202,5 +232,29 @@ mod tests {
         // f_w must be positive for any r > 0
         let fw = SpalartAllmarasModel::<f64>::f_w(1.0_f64);
         assert!(fw > 0.0, "f_w(1.0) must be positive: {fw}");
+    }
+
+    #[test]
+    fn test_tke_diagnostic_matches_yoshizawa_relation() {
+        let nu = 1.0e-6_f64;
+        let wall_distance = 2.0e-3_f64;
+        let nu_tilde = 6.0e-6_f64;
+        let model =
+            SpalartAllmarasModel::<f64>::with_nu_tilde(nu, vec![nu_tilde], vec![wall_distance]);
+        let flow = FlowField::<f64>::new(1, 1, 1);
+        let nu_t = model.turbulent_viscosity(&flow)[0];
+        let k = model.turbulent_kinetic_energy(&flow)[0];
+        let expected = (nu_t / (0.094 * wall_distance)).powi(2);
+
+        assert!((k - expected).abs() < 1.0e-18);
+        assert!(k > 0.0);
+    }
+
+    #[test]
+    fn test_tke_diagnostic_preserves_zero_wall_length_scale() {
+        let model = SpalartAllmarasModel::<f64>::with_nu_tilde(1.0e-6, vec![3.0e-6], vec![0.0]);
+        let flow = FlowField::<f64>::new(1, 1, 1);
+
+        assert_eq!(model.turbulent_kinetic_energy(&flow)[0], 0.0);
     }
 }

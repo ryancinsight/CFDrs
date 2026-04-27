@@ -32,6 +32,7 @@
 //!   in vivo and the endothelial surface layer." *Am. J. Physiol.*
 //!   289:H2657-H2664.
 
+use cfd_core::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 /// Parameters for the Pries Phase Separation Model at one bifurcation.
@@ -64,6 +65,31 @@ pub struct PhaseSeparationResult {
 ///
 /// Given the fractional blood flow `fqb` into daughter alpha, compute the
 /// fractional erythrocyte flux `fqe` and the resulting daughter hematocrit.
+/// Invalid inputs are rejected by [`checked_pries_phase_separation`]; this
+/// compatibility wrapper panics on invalid configuration instead of silently
+/// clipping the model state.
+///
+/// # Theorem -- Thresholded Pries Map
+///
+/// For finite diameters, feed hematocrit `H in [0,1]`, flow fraction
+/// `FQB in [0,1]`, and `X0 < 1/2`, the Pries map sends daughter blood-flow
+/// fraction to erythrocyte-flux fraction by the thresholded logit relation
+/// documented at module level. The daughter hematocrit follows from RBC flux
+/// conservation:
+///
+/// ```text
+/// H_alpha = FQE * H_parent / FQB.
+/// ```
+///
+/// **Proof.** Below the cell-entry threshold no capture tube intersects the
+/// RBC core, so `FQE = 0`. Above the complementary threshold the alpha branch
+/// captures the full RBC flux, so `FQE = 1`. Between thresholds,
+/// `(FQB-X0)/(1-2X0)` lies in `(0,1)`, so `logit` is defined and `inv_logit`
+/// returns a value in `(0,1)`. Multiplying by parent RBC flux and dividing by
+/// daughter volumetric flow gives the daughter hematocrit; checked evaluation
+/// rejects values outside the compact-model physical envelope instead of
+/// altering them. Therefore every returned state is a direct evaluation of the
+/// Pries phase-separation law.
 ///
 /// # Arguments
 /// * `fqb` - fractional blood flow into daughter alpha (0..1)
@@ -72,9 +98,39 @@ pub struct PhaseSeparationResult {
 /// # Returns
 /// Phase separation result with cell fraction and daughter hematocrit.
 pub fn pries_phase_separation(fqb: f64, params: &PriesPhaseParams) -> PhaseSeparationResult {
-    let fqb = fqb.clamp(1e-9, 1.0 - 1e-9);
-    let h_d = params.feed_hematocrit.clamp(0.01, 0.70);
+    checked_pries_phase_separation(fqb, params)
+        .expect("Pries phase-separation inputs must satisfy the checked physical envelope")
+}
 
+/// Checked Pries Phase Separation Model for a single daughter branch.
+///
+/// # Errors
+/// Returns [`Error::InvalidConfiguration`] when inputs are non-finite, outside
+/// probability bounds, geometrically non-positive, or when the compact Pries
+/// output leaves its physical hematocrit envelope.
+pub fn checked_pries_phase_separation(
+    fqb: f64,
+    params: &PriesPhaseParams,
+) -> Result<PhaseSeparationResult> {
+    validate_pries_inputs(fqb, params)?;
+    if fqb == 0.0 || params.feed_hematocrit == 0.0 {
+        return Ok(PhaseSeparationResult {
+            flow_fraction: fqb,
+            cell_fraction: 0.0,
+            daughter_hematocrit: 0.0,
+            x0: 0.0,
+        });
+    }
+    if fqb == 1.0 {
+        return Ok(PhaseSeparationResult {
+            flow_fraction: fqb,
+            cell_fraction: 1.0,
+            daughter_hematocrit: params.feed_hematocrit,
+            x0: 0.0,
+        });
+    }
+
+    let h_d = params.feed_hematocrit;
     // Convert to microns for the empirical correlation.
     let d_f = params.parent_diameter_m * 1e6; // parent diameter [um]
     let d_alpha = params.daughter_alpha_diameter_m * 1e6;
@@ -82,16 +138,21 @@ pub fn pries_phase_separation(fqb: f64, params: &PriesPhaseParams) -> PhaseSepar
 
     // X0: minimum flow fraction for any cells to enter.
     // Represents the CFL thickness relative to the vessel.
-    let x0 = (0.964 * (1.0 - h_d) / d_f).clamp(0.0, 0.49);
+    let x0 = 0.964 * (1.0 - h_d) / d_f;
+    if !(0.0..0.5).contains(&x0) {
+        return Err(Error::InvalidConfiguration(
+            "Pries phase-separation X0 must lie in [0, 0.5)".to_string(),
+        ));
+    }
 
     // A: diameter asymmetry parameter.
     // Positive A biases cells toward daughter alpha when it's wider.
-    let diameter_ratio_sq = d_alpha * d_alpha / (d_beta * d_beta).max(1e-6);
+    let diameter_ratio_sq = d_alpha * d_alpha / (d_beta * d_beta);
     let a_param =
-        -13.29 * (diameter_ratio_sq - 1.0) / (diameter_ratio_sq + 1.0) * (1.0 - h_d) / d_f.max(1.0);
+        -13.29 * (diameter_ratio_sq - 1.0) / (diameter_ratio_sq + 1.0) * (1.0 - h_d) / d_f;
 
     // B: nonlinearity parameter. Higher B = steeper S-curve.
-    let b_param = 1.0 + 6.98 * (1.0 - h_d) / d_f.max(1.0);
+    let b_param = 1.0 + 6.98 * (1.0 - h_d) / d_f;
 
     // Compute FQE using the logit model.
     let fqe = if fqb <= x0 {
@@ -103,24 +164,59 @@ pub fn pries_phase_separation(fqb: f64, params: &PriesPhaseParams) -> PhaseSepar
     } else {
         // Core logit model.
         let normalized = (fqb - x0) / (1.0 - 2.0 * x0);
-        let logit_input = logit(normalized.clamp(1e-6, 1.0 - 1e-6));
+        let logit_input = logit(normalized);
         let logit_fqe = a_param + b_param * logit_input;
-        inv_logit(logit_fqe).clamp(0.0, 1.0)
+        inv_logit(logit_fqe)
     };
 
     // Daughter hematocrit: H_daughter = FQE * H_parent / FQB
-    let daughter_hematocrit = if fqb > 1e-12 {
-        (fqe * h_d / fqb).clamp(0.0, h_d * 2.0) // cap at 2x feed to prevent unphysical values
-    } else {
-        0.0
-    };
+    let daughter_hematocrit = fqe * h_d / fqb;
+    let upper_bound = (2.0 * h_d).min(1.0);
+    if !(0.0..=1.0).contains(&fqe) || !(0.0..=upper_bound).contains(&daughter_hematocrit) {
+        return Err(Error::InvalidConfiguration(
+            "Pries phase-separation output violates the compact-model physical envelope"
+                .to_string(),
+        ));
+    }
 
-    PhaseSeparationResult {
+    Ok(PhaseSeparationResult {
         flow_fraction: fqb,
         cell_fraction: fqe,
         daughter_hematocrit,
         x0,
+    })
+}
+
+fn validate_pries_inputs(fqb: f64, params: &PriesPhaseParams) -> Result<()> {
+    if !fqb.is_finite()
+        || !params.parent_diameter_m.is_finite()
+        || !params.daughter_alpha_diameter_m.is_finite()
+        || !params.daughter_beta_diameter_m.is_finite()
+        || !params.feed_hematocrit.is_finite()
+    {
+        return Err(Error::InvalidConfiguration(
+            "Pries phase-separation inputs must be finite".to_string(),
+        ));
     }
+    if !(0.0..=1.0).contains(&fqb) {
+        return Err(Error::InvalidConfiguration(
+            "Pries phase-separation flow fraction must lie in [0, 1]".to_string(),
+        ));
+    }
+    if !(0.0..=1.0).contains(&params.feed_hematocrit) {
+        return Err(Error::InvalidConfiguration(
+            "Pries phase-separation feed hematocrit must lie in [0, 1]".to_string(),
+        ));
+    }
+    if params.parent_diameter_m <= 0.0
+        || params.daughter_alpha_diameter_m <= 0.0
+        || params.daughter_beta_diameter_m <= 0.0
+    {
+        return Err(Error::InvalidConfiguration(
+            "Pries phase-separation diameters must be positive".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 /// Extension: compute phase separation for CTCs and WBCs using modified
@@ -136,13 +232,39 @@ pub fn pries_phase_separation_cell_type(
     cell_diameter_m: f64,
     stiffness_factor: f64,
 ) -> PhaseSeparationResult {
+    checked_pries_phase_separation_cell_type(fqb, params, cell_diameter_m, stiffness_factor)
+        .expect("cell-type phase-separation inputs must satisfy the checked physical envelope")
+}
+
+/// Checked cell-type projection of the Pries RBC phase-separation model.
+///
+/// # Errors
+/// Returns [`Error::InvalidConfiguration`] for non-finite or non-positive cell
+/// diameter, non-positive stiffness factor, invalid bifurcation state, or an
+/// output that leaves the compact-model physical envelope.
+pub fn checked_pries_phase_separation_cell_type(
+    fqb: f64,
+    params: &PriesPhaseParams,
+    cell_diameter_m: f64,
+    stiffness_factor: f64,
+) -> Result<PhaseSeparationResult> {
+    if !cell_diameter_m.is_finite() || !stiffness_factor.is_finite() {
+        return Err(Error::InvalidConfiguration(
+            "Cell-type phase-separation inputs must be finite".to_string(),
+        ));
+    }
+    if cell_diameter_m <= 0.0 || stiffness_factor <= 0.0 {
+        return Err(Error::InvalidConfiguration(
+            "Cell diameter and stiffness factor must be positive".to_string(),
+        ));
+    }
     let rbc_diameter = 8.0e-6;
     // Larger cells have reduced X0: they extend further into the core
     // flow and are less affected by the CFL.
-    let size_ratio = (cell_diameter_m / rbc_diameter).max(0.5);
+    let size_ratio = cell_diameter_m / rbc_diameter;
     // Stiffer cells also have reduced X0: they don't deform to fit
     // in the near-wall layer.
-    let stiffness_correction = stiffness_factor.max(0.5);
+    let stiffness_correction = stiffness_factor;
 
     let mut modified_params = *params;
     // Scale the parent diameter to effectively reduce X0 for larger cells.
@@ -150,7 +272,7 @@ pub fn pries_phase_separation_cell_type(
     let effective_parent_d = params.parent_diameter_m * size_ratio * stiffness_correction;
     modified_params.parent_diameter_m = effective_parent_d;
 
-    pries_phase_separation(fqb, &modified_params)
+    checked_pries_phase_separation(fqb, &modified_params)
 }
 
 fn logit(x: f64) -> f64 {
@@ -260,10 +382,6 @@ mod tests {
         };
         let fqb = 0.65;
         let rbc = pries_phase_separation(fqb, &params);
-        eprintln!(
-            "Pries PSM (100um) at fqb={fqb}: RBC fraction={:.4}, X0={:.4}",
-            rbc.cell_fraction, rbc.x0
-        );
         // At 100 um, X0 is significant (~5% of flow).
         assert!(
             rbc.x0 > 0.005,
@@ -294,10 +412,6 @@ mod tests {
         let fqb = 0.65;
         let three_pop = three_population_phase_separation(fqb, &params);
         let delta = (three_pop.ctc_fraction - three_pop.rbc_fraction).abs();
-        eprintln!(
-            "Pries PSM (2mm) at fqb={fqb}: CTC={:.4}, RBC={:.4}, delta={:.6}",
-            three_pop.ctc_fraction, three_pop.rbc_fraction, delta
-        );
         // At 2 mm, the difference should be < 1%.
         assert!(
             delta < 0.01,
@@ -319,5 +433,43 @@ mod tests {
             "below X0, cell fraction should be ~0, got {:.4}",
             result.cell_fraction
         );
+    }
+
+    #[test]
+    fn checked_pries_rejects_nonphysical_inputs() {
+        let params = PriesPhaseParams {
+            parent_diameter_m: 100e-6,
+            daughter_alpha_diameter_m: 50e-6,
+            daughter_beta_diameter_m: 80e-6,
+            feed_hematocrit: 0.30,
+        };
+        let err = checked_pries_phase_separation(-0.01, &params)
+            .expect_err("negative flow fraction must be rejected");
+        assert!(err.to_string().contains("flow fraction"));
+
+        let invalid_geometry = PriesPhaseParams {
+            parent_diameter_m: 0.0,
+            ..params
+        };
+        let err = checked_pries_phase_separation(0.5, &invalid_geometry)
+            .expect_err("zero parent diameter must be rejected");
+        assert!(err.to_string().contains("diameters"));
+    }
+
+    #[test]
+    fn checked_pries_evaluates_threshold_without_clipping() -> cfd_core::error::Result<()> {
+        let params = PriesPhaseParams {
+            parent_diameter_m: 100e-6,
+            daughter_alpha_diameter_m: 50e-6,
+            daughter_beta_diameter_m: 80e-6,
+            feed_hematocrit: 0.30,
+        };
+        let result = checked_pries_phase_separation(0.001, &params)?;
+
+        assert!(result.x0 > 0.001);
+        assert_eq!(result.flow_fraction, 0.001);
+        assert_eq!(result.cell_fraction, 0.0);
+        assert_eq!(result.daughter_hematocrit, 0.0);
+        Ok(())
     }
 }

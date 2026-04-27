@@ -21,6 +21,8 @@
 - [x] `cfd-2d`: Replace the approximate MUSCL3/QUICK right-state reconstruction with exact quadratic face interpolation and value-semantic tests.
 - [x] `cfd-2d`: Replace the unimplemented turbulence validation benchmark branch with typed supported-model dispatch and rejection tests.
 - [x] `cfd-2d`: Replace serpentine mixing's exponential estimate with the Neumann eigenfunction solution for transverse diffusion and expose nonzero analytical L90/t90 in the discretized solver result.
+- [x] `cfd-2d`: Remove silent Pries plasma-skimming clamps and expose checked value-semantic phase-separation evaluation.
+- [x] `cfd-2d`: Replace WALE boundary zero-gradient assumptions with second-order one-sided finite-difference gradients.
 - [x] `cfd-math`: Preserve direct sparse solver conversion failures and reject non-finite fallback output.
 - [x] `cfd-optim`: Remove the sonosensitizer activation floor from SDT report metrics and enforce zero-dose propagation at zero cavitation.
 - [x] `cfd-optim`: Remove synthetic 1% synergy floors from objective and pool scoring paths.
@@ -61,6 +63,8 @@
 - [x] `cfd-3d`: Validate nuclei transport dimensions and switch cavitation nuclei advection-diffusion to slice-based accumulation.
 - [x] `cfd-3d`: Bind the Apollo-backed periodic DNS stepper to a validated reusable `FftPlan3D` instead of per-transform shape dispatch.
 - [x] `cfd-3d`: Replace LES turbulent-kinetic-energy aliases with a documented Yoshizawa SGS energy relation shared across eddy-viscosity models.
+- [x] `cfd-3d`: Replace the Spalart-Allmaras all-zero turbulent-kinetic-energy path with a Yoshizawa wall-distance diagnostic.
+- [x] `cfd-3d`: Reject uninitialized k-epsilon turbulence state instead of synthesizing zero viscosity, TKE, or dissipation fields.
 - [x] `cfd-schematics`: Optimize memory layout with indexed node-layout caches and zero-copy parallel-group lookup.
 
 ## Rigor & Correctness
