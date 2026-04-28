@@ -114,6 +114,7 @@
 | **CRITICAL-010** | ✅ Closed | CFD-3D | Fake Unstructured FEM Domains (0-Element Mocks) | **CLOSED** |
 | **CRITICAL-012** | 🔴 Critical | CFD-CORE | Missing cell-specific cavitation injury physics (Lysis/Necrosis) | **CLOSED** |
 | **CRITICAL-013** | 🔴 Critical | CFD-CORE | Missing CTC stiffness-coupled inception mechanisms for HCOC | **CLOSED** |
+| **MAJOR-014** | ✅ Closed | CFD-OPTIM | Milestone 12 cross-mode therapy utility misclassified ultrasound-only SDT as non-cavitating because it gated all cavitation credit on active venturi throats | **CLOSED** |
 
 ---
 

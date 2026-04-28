@@ -15,16 +15,17 @@
 //!
 //! **Proof sketch**
 //! Each component is a dimensionless value in `[0, 1]` derived from the same
-//! [`crate::SdtMetrics`] fields regardless of optimization track. Hydrodynamic
-//! SDT requires finite cavitating venturi geometry, so designs without active
-//! cavitating throats cannot receive the venturi-therapy score; they are mapped
-//! through the explicitly capped separation-support branch. Venturi designs use
-//! one weighted sum plus one geometric-mean coupling term over the same
-//! component vector, then clamp to `[0, 1]`. Therefore two designs with the same
-//! component values receive the same utility independent of their generating
-//! objective, and a non-cavitating separation-only design cannot be ranked as a
-//! stronger combined SDT therapy than a valid cavitating design by reusing its
-//! track-local score.
+//! [`crate::SdtMetrics`] fields regardless of optimization track. Ultrasound
+//! SDT receives acoustic-cavitation delivery credit only when the treatment mode
+//! contains ultrasound actuation and the channel has non-zero half-wavelength
+//! resonance. Hydrodynamic SDT receives delivery credit only when finite
+//! cavitating venturi geometry is active. Designs with neither mechanism are
+//! mapped through the explicitly capped separation-support branch. Cavitating
+//! designs use one weighted sum plus one geometric-mean coupling term over the
+//! same component vector, then clamp to `[0, 1]`. Therefore two designs with the
+//! same component values receive the same utility independent of their
+//! generating objective, while ultrasound-only designs are not misclassified as
+//! non-cavitating merely because they have no venturi throat.
 
 use crate::constraints::{PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_REFERENCE_WEIGHT_KG};
 use crate::SdtMetrics;
@@ -74,19 +75,10 @@ pub fn milestone12_therapy_utility(metrics: &SdtMetrics) -> f64 {
 /// [`milestone12_therapy_utility`].
 #[must_use]
 pub fn therapy_utility_components(metrics: &SdtMetrics) -> TherapyUtilityComponents {
-    let has_cavitating_venturi = metrics.active_venturi_throat_count > 0
-        && metrics.cavitation_number.is_finite()
-        && metrics.cavitation_number < 1.0
-        && metrics.cancer_targeted_cavitation > 0.0;
-
-    let cavitation_delivery = if has_cavitating_venturi {
-        (0.45 * metrics.cancer_targeted_cavitation.clamp(0.0, 1.0)
-            + 0.35 * metrics.serial_cavitation_dose_fraction.clamp(0.0, 1.0)
-            + 0.20 * metrics.cavitation_intensity.clamp(0.0, 1.0))
-        .clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
+    let hydrodynamic_delivery = hydrodynamic_cavitation_delivery(metrics);
+    let acoustic_delivery = acoustic_cavitation_delivery(metrics);
+    let cavitation_delivery = hydrodynamic_delivery.max(acoustic_delivery);
+    let has_cavitation_delivery = cavitation_delivery > 0.0;
 
     let routing = metrics.three_pop_sep_efficiency.clamp(0.0, 1.0);
     let healthy_cell_protection = metrics.healthy_cell_protection_index.clamp(0.0, 1.0);
@@ -101,7 +93,7 @@ pub fn therapy_utility_components(metrics: &SdtMetrics) -> TherapyUtilityCompone
     } else {
         0.0
     };
-    let synergy = if has_cavitating_venturi {
+    let synergy = if has_cavitation_delivery {
         0.10 * (cavitation_delivery * healthy_cell_protection * routing * residence).powf(0.25)
     } else {
         0.0
@@ -115,8 +107,33 @@ pub fn therapy_utility_components(metrics: &SdtMetrics) -> TherapyUtilityCompone
         pediatric_ecv_margin,
         safety,
         synergy,
-        separation_support_only: !has_cavitating_venturi,
+        separation_support_only: !has_cavitation_delivery,
     }
+}
+
+fn hydrodynamic_cavitation_delivery(metrics: &SdtMetrics) -> f64 {
+    let has_cavitating_venturi = metrics.active_venturi_throat_count > 0
+        && metrics.cavitation_number.is_finite()
+        && metrics.cavitation_number < 1.0
+        && metrics.cancer_targeted_cavitation > 0.0;
+    if has_cavitating_venturi {
+        (0.45 * metrics.cancer_targeted_cavitation.clamp(0.0, 1.0)
+            + 0.35 * metrics.serial_cavitation_dose_fraction.clamp(0.0, 1.0)
+            + 0.20 * metrics.cavitation_intensity.clamp(0.0, 1.0))
+        .clamp(0.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
+fn acoustic_cavitation_delivery(metrics: &SdtMetrics) -> f64 {
+    if !metrics.treatment_zone_mode.contains("Ultrasound") {
+        return 0.0;
+    }
+    (metrics.acoustic_resonance_factor.clamp(0.0, 1.0)
+        * metrics.cancer_center_fraction.clamp(0.0, 1.0)
+        * metrics.serial_cavitation_dose_fraction.clamp(0.0, 1.0))
+    .clamp(0.0, 1.0)
 }
 
 fn separation_support(
@@ -149,6 +166,8 @@ mod tests {
         let mut metrics = compute_blueprint_report_metrics(&candidate).expect("metrics");
         metrics.active_venturi_throat_count = 0;
         metrics.cavitation_number = f64::NAN;
+        metrics.treatment_zone_mode = "SeparationOnly".to_string();
+        metrics.acoustic_resonance_factor = 0.0;
         metrics.cancer_targeted_cavitation = 0.0;
         metrics.serial_cavitation_dose_fraction = 0.0;
         metrics.cavitation_intensity = 0.0;
@@ -161,6 +180,41 @@ mod tests {
         assert!(
             utility <= SEPARATION_SUPPORT_CAP,
             "non-cavitating separation-only utility {utility} must not exceed cap {SEPARATION_SUPPORT_CAP}"
+        );
+    }
+
+    #[test]
+    fn ultrasound_only_design_receives_acoustic_cavitation_delivery() {
+        let candidate = crate::domain::fixtures::canonical_option1_candidate(
+            "therapy-utility-acoustic",
+            operating_point(2.0e-6, 30_000.0, 0.18),
+        );
+        let mut metrics = compute_blueprint_report_metrics(&candidate).expect("metrics");
+        metrics.active_venturi_throat_count = 0;
+        metrics.cavitation_number = f64::INFINITY;
+        metrics.cavitation_intensity = 0.0;
+        metrics.cancer_targeted_cavitation = 0.0;
+        metrics.treatment_zone_mode = "UltrasoundOnly".to_string();
+        metrics.acoustic_resonance_factor = 0.856_103_896_103_896;
+        metrics.cancer_center_fraction = 0.886_010_994_883_551_5;
+        metrics.serial_cavitation_dose_fraction = 0.136_125;
+
+        let components = therapy_utility_components(&metrics);
+        let utility = milestone12_therapy_utility(&metrics);
+        let expected_delivery = metrics.acoustic_resonance_factor
+            * metrics.cancer_center_fraction
+            * metrics.serial_cavitation_dose_fraction;
+
+        assert!(!components.separation_support_only);
+        assert!(
+            (components.cavitation_delivery - expected_delivery).abs() <= 1.0e-12,
+            "acoustic delivery mismatch: got {}, expected {}",
+            components.cavitation_delivery,
+            expected_delivery
+        );
+        assert!(
+            utility > SEPARATION_SUPPORT_CAP,
+            "ultrasound-cavitating utility {utility} must not be capped as separation-only"
         );
     }
 

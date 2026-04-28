@@ -34,6 +34,7 @@
 - [x] **HCOC-018**: Remove the `cfd-1d` margination singular wall cutoff and silent lateral-position clamp while preserving inertial-lift scaling tests.
 - [x] **HCOC-019**: Remove stored `cfd-1d` droplet occupied-channel state so finite-length occupancy spans are the only authoritative representation.
 - [x] **HCOC-020**: Remove residual `cfd-2d` Smagorinsky validation SGS floors and keep LES validation on physical zero-floor defaults.
+- [x] **HCOC-021**: Correct Milestone 12 cross-track therapy utility so ultrasound-only SDT receives acoustic-cavitation delivery credit from channel resonance, cancer-center enrichment, and active therapy-zone fraction.
 
 ## Sprint 1.95.1: CFD-MESH 3D Performance & Memory Optimization
 **Status**: In Progress

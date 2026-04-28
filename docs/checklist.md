@@ -48,6 +48,7 @@
 - [x] Confirm review finding 3 remains closed by finite-span-derived droplet occupied-channel projection and consistency tests.
 - [x] Close review finding 3 at the representation level by removing stored point-droplet occupied-channel state and deriving occupied channels from finite-length spans.
 - [x] Remove residual nonzero Smagorinsky SGS floors from `cfd-2d` turbulence validation configurations.
+- [x] Correct Milestone 12 cross-mode therapy utility so Option 1 receives acoustic-cavitation credit from ultrasound resonance instead of being capped as separation-only.
 
 ---
 

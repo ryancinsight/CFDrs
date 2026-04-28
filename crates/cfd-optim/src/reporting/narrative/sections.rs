@@ -342,7 +342,7 @@ per pass while concentrating cancer-cell-rich flow for ultrasound exposure; HI/p
 (FDA 0.1% non-therapeutic limit); ECV = {:.3} mL \
 ({:.1}% of the 3 kg neonatal circuit-volume limit). \
 This design carries zero active venturi throats; treatment relies entirely on externally \
-applied 412 kHz ultrasound acting on cells concentrated in the center lane. Its shared therapy utility is capped because it has no hydrodynamic cavitation stage.",
+applied 412 kHz ultrasound acting on cells concentrated in the center lane, so its shared therapy utility uses acoustic-resonance cavitation delivery rather than hydrodynamic throat delivery.",
             option1.candidate.id,
             option1.score,
             option1_therapy_utility,
@@ -361,7 +361,7 @@ applied 412 kHz ultrasound acting on cells concentrated in the center lane. Its 
 (`{}`, track score {:.4}, shared therapy utility {:.4}): {} at {} serial venturi throat(s) per path; {:.0}% of cancer-cell-rich flow route through the venturi \
 treatment lane (cancer_center_fraction); WBC recovery = {:.0}%, so {:.0}% of WBCs are kept out of the active lane before remerge; this is the primary healthy-cell protection lever; therapeutic window \
 score = {:.3}; healthy-cell protection index = {:.4}; HI/pass = {:.4}%; ECV = {:.3} mL ({:.1}% of the same neonatal limit). \
-**Note:** Track scores use different objective functions and are not comparable across tracks. The shared therapy utility is the cross-track comparator used in Figure 7; it requires hydrodynamic cavitation for full SDT credit and uses common cancer-cavitation, healthy-cell-protection, routing, residence, pediatric-ECV, and safety coordinates. \
+**Note:** Track scores use different objective functions and are not comparable across tracks. The shared therapy utility is the cross-track comparator used in Figure 7; it credits acoustic cavitation for ultrasound-only treatment and hydrodynamic cavitation for active venturi throats, then uses common cancer-cavitation, healthy-cell-protection, routing, residence, pediatric-ECV, and safety coordinates. \
 This report is emitted from structured canonical data and should be regenerated rather than edited manually.",
         option1_summary,
         option2.candidate.id,

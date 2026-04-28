@@ -45,6 +45,7 @@
 - [x] `cfd-optim`: Unify GA convergence reporting on the trailing fitness window so the figure and narrative share one trend contract.
 - [x] `cfd-optim`: Add validation evidence and artifact traceability to the Milestone 12 report and synchronize the generated narrative/results artifacts.
 - [x] `cfd-optim`: Emit the authoritative Milestone 12 narrative in one pass so the release report run completes after manual asset review.
+- [x] `cfd-optim`: Correct Milestone 12 cross-mode therapy utility so ultrasound-only Option 1 receives acoustic-cavitation delivery credit instead of the separation-only cap.
 - [x] `cfd-3d`: Replace the cavitation-number velocity floor with an exact zero-dynamic-pressure branch that returns infinite cavitation number.
 - [x] `cfd-3d`: Fall back to first-order upwind when the WENO5-Z stencil is unavailable on small grids.
 - [x] `cfd-3d`: Scale PLIC plane-bisection tolerance with the cell dimensions and reuse precomputed normals for curvature axis selection.

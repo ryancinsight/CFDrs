@@ -232,7 +232,7 @@ pub fn generate_m12_report_figures(
             "Cross-Mode Therapy Utility",
             "m12_cross_mode_scoring.svg",
             figure_path_prefix,
-            "Cross-mode therapy utility for the selected Option 1, Option 2, and GA tracks. Unlike the track-local objective scores used for candidate search, this shared report-level utility requires hydrodynamic cavitation for full SDT credit and projects every design onto the same cancer-cavitation, healthy-cell-protection, routing, residence, pediatric-ECV, and safety coordinates.",
+            "Cross-mode therapy utility for the selected Option 1, Option 2, and GA tracks. Unlike the track-local objective scores used for candidate search, this shared report-level utility credits ultrasound-only acoustic cavitation through channel resonance and hydrodynamic cavitation through active venturi throats, then projects every design onto the same cancer-cavitation, healthy-cell-protection, routing, residence, pediatric-ECV, and safety coordinates.",
             "Cross mode therapy utility bars",
         ),
         spec(
