@@ -17,6 +17,7 @@ mod narrative;
 mod ranking;
 mod report_math;
 mod report_metrics;
+mod therapy_utility;
 mod validation_runner;
 mod validation_traceability;
 
@@ -38,4 +39,5 @@ pub use narrative::{
     write_milestone12_narrative_report, Milestone12GaRankingAuditEntry, Milestone12NarrativeInput,
 };
 pub use ranking::{pct_diff, shortlist_report_designs, sort_report_designs};
+pub use therapy_utility::milestone12_therapy_utility;
 pub use validation_runner::run_milestone12_validation;

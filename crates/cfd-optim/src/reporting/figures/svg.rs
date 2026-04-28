@@ -6,7 +6,7 @@ use std::path::Path;
 
 use super::super::report_math::{ga_convergence_trend, GaConvergenceTrend};
 use super::primitives::{axis, svg_end, svg_start, svg_title, write_bar_svg, write_bar_svg_owned};
-use crate::reporting::{Milestone12ReportDesign, ParetoPoint};
+use crate::reporting::{milestone12_therapy_utility, Milestone12ReportDesign, ParetoPoint};
 
 /// Adapter that bridges `std::io::Write` → `std::fmt::Write`, enabling
 /// `write!()` macros (which use `fmt::Write`) to stream directly to a
@@ -26,17 +26,31 @@ pub(super) fn write_cross_mode_figure(
     ga: &[Milestone12ReportDesign],
 ) -> Result<(), Box<dyn std::error::Error>> {
     let data = vec![
-        ("Opt1 Acoustic", option1.first().map_or(0.0, |d| d.score)),
-        ("Opt2 Combined", option2.first().map_or(0.0, |d| d.score)),
-        ("GA HydroSDT", ga.first().map_or(0.0, |d| d.score)),
+        (
+            "Opt1 Acoustic",
+            option1
+                .first()
+                .map_or(0.0, |d| milestone12_therapy_utility(&d.metrics)),
+        ),
+        (
+            "Opt2 Combined",
+            option2
+                .first()
+                .map_or(0.0, |d| milestone12_therapy_utility(&d.metrics)),
+        ),
+        (
+            "GA HydroSDT",
+            ga.first()
+                .map_or(0.0, |d| milestone12_therapy_utility(&d.metrics)),
+        ),
     ];
     write_bar_svg(
         path,
-        "Cross-Mode Scoring Comparison",
+        "Cross-Mode Therapy Utility",
         &data,
         1.0,
         "Optimization Strategy",
-        "Composite Score",
+        "Shared Therapy Utility",
     )
 }
 

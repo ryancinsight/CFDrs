@@ -8,7 +8,7 @@ use crate::constraints::{
     PEDIATRIC_REFERENCE_WEIGHT_KG, VENTURI_EXPANSION_RATIO_HIGH_RISK,
 };
 use crate::reporting::ranking::oncology_priority_score;
-use crate::reporting::Milestone12ReportDesign;
+use crate::reporting::{milestone12_therapy_utility, Milestone12ReportDesign};
 
 /// Format a boolean gate as a PASS/FAIL string for markdown tables.
 fn pass_fail(value: bool) -> &'static str {
@@ -82,18 +82,19 @@ pub(super) fn build_selected_table(
 ) -> String {
     let mut out = String::new();
     out.push_str(
-        "| Track | Candidate | Topology | Mode | Active venturi throats | Score | sigma | K_loss | Cumulative cavitation dose | WBC recovery | RBC treatment exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |\n",
+        "| Track | Candidate | Topology | Mode | Active venturi throats | Track score | Therapy utility | sigma | K_loss | Cumulative cavitation dose | WBC recovery | RBC treatment exposure | HI/pass | P95 shear (Pa) | ECV (mL) | ECV / 3kg limit (%) |\n",
     );
-    out.push_str("|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n");
+    out.push_str("|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n");
     if let Some(option1) = option1 {
         let _ = writeln!(
             out,
-                    "| Option 1 (Selective acoustic center treatment) | `{}` | {} | {} | {} | {:.4} | n/a | n/a | n/a | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
+                    "| Option 1 (Selective acoustic center treatment) | `{}` | {} | {} | {} | {:.4} | {:.4} | n/a | n/a | n/a | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
             option1.candidate.id,
             option1.topology_display_name(),
             option1.metrics.treatment_zone_mode,
             option1.metrics.active_venturi_throat_count,
             option1.score,
+            milestone12_therapy_utility(&option1.metrics),
             option1.metrics.wbc_recovery,
             option1.metrics.rbc_pass_fraction,
             option1.metrics.hemolysis_index_per_pass,
@@ -102,16 +103,17 @@ pub(super) fn build_selected_table(
                 pediatric_limit_pct(option1.metrics.total_ecv_ml)
         );
     } else {
-        out.push_str("| Option 1 (Selective acoustic center treatment) | _No eligible design under current physics regime_ | n/a | Unavailable | 0 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |\n");
+        out.push_str("| Option 1 (Selective acoustic center treatment) | _No eligible design under current physics regime_ | n/a | Unavailable | 0 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |\n");
     }
     let _ = writeln!(
         out,
-            "| Option 2 (Selective venturi cavitation selectivity) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.3} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
+            "| Option 2 (Selective venturi cavitation selectivity) | `{}` | {} | {} | {} | {:.4} | {:.4} | {:.4} | {:.3} | {:.4} | {:.4} | {:.4} | {:.4} | {:.2} | {:.3} | {:.1} |",
         option2.candidate.id,
         option2.topology_display_name(),
         option2.metrics.treatment_zone_mode,
         option2.metrics.active_venturi_throat_count,
         option2.score,
+        milestone12_therapy_utility(&option2.metrics),
         option2.metrics.cavitation_number,
         option2.metrics.venturi_total_loss_coefficient,
         option2.metrics.serial_cavitation_dose_fraction,
@@ -327,20 +329,23 @@ pub(super) fn build_selected_table_intro(
     option2: &Milestone12ReportDesign,
 ) -> String {
     let m2 = &option2.metrics;
+    let option2_therapy_utility = milestone12_therapy_utility(m2);
     let ccf_pct = m2.cancer_center_fraction * 100.0;
     let wbc2_exposure_pct = m2.wbc_recovery * 100.0;
     let option1_summary = if let Some(option1) = option1 {
         let m1 = &option1.metrics;
+        let option1_therapy_utility = milestone12_therapy_utility(m1);
         format!(
             "**Option 1 - Selective Acoustic Center Treatment** \
-(`{}`, score {:.4}): branch-diameter biasing keeps {:.0}% of WBCs out of the treatment lane \
+(`{}`, track score {:.4}, shared therapy utility {:.4}): branch-diameter biasing keeps {:.0}% of WBCs out of the treatment lane \
 per pass while concentrating cancer-cell-rich flow for ultrasound exposure; HI/pass = {:.4}% \
 (FDA 0.1% non-therapeutic limit); ECV = {:.3} mL \
 ({:.1}% of the 3 kg neonatal circuit-volume limit). \
 This design carries zero active venturi throats; treatment relies entirely on externally \
-applied 412 kHz ultrasound acting on cells concentrated in the center lane.",
+applied 412 kHz ultrasound acting on cells concentrated in the center lane. Its shared therapy utility is capped because it has no hydrodynamic cavitation stage.",
             option1.candidate.id,
             option1.score,
+            option1_therapy_utility,
             (1.0 - m1.wbc_recovery) * 100.0,
             m1.hemolysis_index_per_pass,
             m1.total_ecv_ml,
@@ -353,15 +358,15 @@ applied 412 kHz ultrasound acting on cells concentrated in the center lane.",
     format!(
         "{}\n\n\
 **Option 2 - Selective Venturi Hydrodynamic Cavitation** \
-(`{}`, score {:.4}): {} at {} serial venturi throat(s) per path; {:.0}% of cancer-cell-rich flow route through the venturi \
+(`{}`, track score {:.4}, shared therapy utility {:.4}): {} at {} serial venturi throat(s) per path; {:.0}% of cancer-cell-rich flow route through the venturi \
 treatment lane (cancer_center_fraction); WBC recovery = {:.0}%, so {:.0}% of WBCs are kept out of the active lane before remerge; this is the primary healthy-cell protection lever; therapeutic window \
 score = {:.3}; healthy-cell protection index = {:.4}; HI/pass = {:.4}%; ECV = {:.3} mL ({:.1}% of the same neonatal limit). \
-**Note:** Option 1 and Option 2 scores use different objective functions \
-(AsymmetricSplitResidenceSeparation vs AsymmetricSplitVenturiCavitationSelectivity) and are not comparable across tracks. \
+**Note:** Track scores use different objective functions and are not comparable across tracks. The shared therapy utility is the cross-track comparator used in Figure 7; it requires hydrodynamic cavitation for full SDT credit and uses common cancer-cavitation, healthy-cell-protection, routing, residence, pediatric-ECV, and safety coordinates. \
 This report is emitted from structured canonical data and should be regenerated rather than edited manually.",
         option1_summary,
         option2.candidate.id,
         option2.score,
+        option2_therapy_utility,
         cavitation_clause,
         m2.serial_venturi_stages_per_path,
         ccf_pct,

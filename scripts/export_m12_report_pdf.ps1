@@ -9,11 +9,11 @@ function Convert-LatexFragmentToText {
     param([string]$Text)
 
     $converted = $Text
-    $converted = $converted -replace '\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}', '($1)/($2)'
-    $converted = $converted -replace '\\text\s*\{([^{}]+)\}', '$1'
-    $converted = $converted -replace '\\mathrm\s*\{([^{}]+)\}', '$1'
-    $converted = $converted -replace '\\mathbf\s*\{([^{}]+)\}', '$1'
-    $converted = $converted -replace '\\operatorname\s*\{([^{}]+)\}', '$1'
+    $converted = $converted -creplace '\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}', '($1)/($2)'
+    $converted = $converted -creplace '\\text\s*\{([^{}]+)\}', '$1'
+    $converted = $converted -creplace '\\mathrm\s*\{([^{}]+)\}', '$1'
+    $converted = $converted -creplace '\\mathbf\s*\{([^{}]+)\}', '$1'
+    $converted = $converted -creplace '\\operatorname\s*\{([^{}]+)\}', '$1'
 
     $replacements = @(
         @('\\propto', ' proportional to '),
@@ -44,13 +44,13 @@ function Convert-LatexFragmentToText {
     )
 
     foreach ($replacement in $replacements) {
-        $converted = $converted -replace $replacement[0], $replacement[1]
+        $converted = $converted -creplace $replacement[0], $replacement[1]
     }
 
-    $converted = $converted -replace '\\_', '_'
-    $converted = $converted -replace '\\\^', '^'
-    $converted = $converted -replace '\\([{}])', '$1'
-    $converted = $converted -replace '\s+', ' '
+    $converted = $converted -creplace '\\_', '_'
+    $converted = $converted -creplace '\\\^', '^'
+    $converted = $converted -creplace '\\([{}])', '$1'
+    $converted = $converted -creplace '\s+', ' '
     return $converted.Trim()
 }
 
@@ -103,7 +103,7 @@ table code {
         @([string][char]0x00B1, '+/-')
     )
     foreach ($replacement in $unicodeReplacements) {
-        $converted = $converted -replace $replacement[0], $replacement[1]
+        $converted = $converted.Replace($replacement[0], $replacement[1])
     }
 
     $blockPattern = '(?s)\$\$(.+?)\$\$'

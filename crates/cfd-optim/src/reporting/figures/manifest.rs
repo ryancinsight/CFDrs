@@ -229,11 +229,11 @@ pub fn generate_m12_report_figures(
         ),
         spec(
             7,
-            "Cross-Mode Scoring Comparison",
+            "Cross-Mode Therapy Utility",
             "m12_cross_mode_scoring.svg",
             figure_path_prefix,
-            "Cross-mode scoring comparison for the selected Option 1, Option 2, and GA tracks. Bars should be interpreted within-track because each optimization goal uses a distinct composite objective; the figure is intended to show relative ranking structure, not absolute score equivalence across tracks.",
-            "Cross mode score bars",
+            "Cross-mode therapy utility for the selected Option 1, Option 2, and GA tracks. Unlike the track-local objective scores used for candidate search, this shared report-level utility requires hydrodynamic cavitation for full SDT credit and projects every design onto the same cancer-cavitation, healthy-cell-protection, routing, residence, pediatric-ECV, and safety coordinates.",
+            "Cross mode therapy utility bars",
         ),
         spec(
             8,
