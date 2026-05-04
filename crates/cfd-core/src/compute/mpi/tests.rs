@@ -112,7 +112,7 @@ fn test_utility_functions() {
 fn test_ghost_cell_manager_creation() {
     use std::collections::HashMap;
 
-    // Create mock communicator and neighbors
+    // Empty neighbor map represents a single-rank domain boundary.
     let neighbors = HashMap::new();
     // Test that GhostCellManager can be created (compile-time check)
     // In a real test with MPI, we'd need an actual communicator

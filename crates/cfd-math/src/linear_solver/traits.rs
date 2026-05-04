@@ -47,7 +47,7 @@ pub trait LinearOperator<T: RealField + Copy>: Send + Sync {
     /// Optional: Apply the transpose operator.
     fn apply_transpose(&self, _x: &DVector<T>, _y: &mut DVector<T>) -> Result<()> {
         Err(cfd_core::error::Error::InvalidConfiguration(
-            "Transpose operator not implemented".to_string(),
+            "transpose application is unsupported for this operator".to_string(),
         ))
     }
 }

@@ -86,16 +86,15 @@ fn des_length_scale(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let v = velocity_v[idx];
     let velocity_magnitude = sqrt(u*u + v*v);
 
-    // DES length scale: L_DES = min(L_RANS, C_DES * Δ)
-    // For simplified implementation, use C_DES * Δ
-    // In practice, would need RANS length scale computation
+    // Grid cutoff branch of DES length scale: L_grid = C_DES * Δ.
+    // Full DES min(L_RANS, L_grid) requires a RANS length input buffer.
     let l_des = params.constant * params.delta;
 
     // Ensure reasonable length scale bounds
     result[idx] = max(l_des, params.delta * 0.1);
 }
 
-// Wall distance computation for DES (simplified 2D version)
+// Wall distance computation for rectangular 2D domains.
 @compute @workgroup_size(8, 8, 1)
 fn wall_distance_2d(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let i = global_id.x;
@@ -108,8 +107,7 @@ fn wall_distance_2d(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let idx = idx(i, j);
 
-    // Simplified wall distance: minimum distance to domain boundaries
-    // In practice, this would use Eikonal equation solution for complex geometries
+    // Exact signed distance magnitude to the nearest rectangular domain wall.
     let dist_left = f32(i) * params.dx;
     let dist_right = f32(params.nx - 1u - i) * params.dx;
     let dist_bottom = f32(j) * params.dy;

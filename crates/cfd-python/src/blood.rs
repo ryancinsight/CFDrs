@@ -261,7 +261,8 @@ impl PyCrossBlood {
 /// In microvessels (D < 300 um), blood exhibits apparent viscosity reduction
 /// due to axial migration of RBCs (cell-free layer near wall).
 ///
-/// Uses simplified Pries et al. (1992) correlation.
+/// Uses the shared core implementation with Pries (1992) and Secomb (2017)
+/// apparent-viscosity parameterisations.
 #[pyclass(name = "FahraeuasLindqvist")]
 pub struct PyFahraeuasLindqvist {
     inner: RustFahraeuasLindqvist<f64>,

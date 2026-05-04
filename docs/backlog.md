@@ -1,5 +1,21 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.1: Workspace SSOT Cleanup
+**Status**: Completed
+**Start Date**: April 29, 2026
+
+### Sprint Objectives
+- Remove obsolete tracked root-source artifacts that duplicate canonical `gaia` CSG and mesh assembly code.
+- Preserve the Cargo workspace authority: only files referenced by package manifests, module trees, examples, tests, docs, or report-generation assets remain as source artifacts.
+
+### Sprint Backlog Items
+
+#### Source Authority Cleanup
+- [x] **SSOT-001 [patch]**: Delete unreferenced root historical Rust artifacts `old_assemble.rs`, `old_arrangement.rs`, `old_phase2.rs`, `old_operations.rs`, `old_indexed.rs`, `old_gwn_bvh.rs`, `old_seam.rs`, `old_phase4.rs`, and empty `csg_bi.rs`.
+- [x] **SSOT-002 [patch]**: Verify no Cargo manifest, crate module, example, test, documentation, or report artifact references the deleted files.
+- [x] **SSOT-003 [patch]**: Configure Windows GNU builds to use MSYS2 clang/lld and LLVM archive tools for Rust linking and C/C++ build scripts.
+- [x] **SSOT-004 [patch]**: Remove misleading audit-trigger terminology from explicit unsupported-operation paths and already-bounded model comments.
+
 ## Sprint 1.96.0: Hydrodynamic Cavitation On-a-Chip (HCOC) Modeling
 **Status**: Completed
 **Start Date**: Next

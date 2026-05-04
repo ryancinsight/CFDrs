@@ -5,6 +5,18 @@
 [profile.test]
 debug = 0
 
+[target.x86_64-pc-windows-gnu]
+linker = "D:/msys64/ucrt64/bin/clang.exe"
+rustflags = [
+    "-C", "link-arg=-fuse-ld=lld",
+]
+
+[env]
+CC_x86_64_pc_windows_gnu = { value = "D:/msys64/ucrt64/bin/clang.exe", force = true }
+CXX_x86_64_pc_windows_gnu = { value = "D:/msys64/ucrt64/bin/clang++.exe", force = true }
+AR_x86_64_pc_windows_gnu = { value = "D:/msys64/ucrt64/bin/llvm-ar.exe", force = true }
+RANLIB_x86_64_pc_windows_gnu = { value = "D:/msys64/ucrt64/bin/llvm-ranlib.exe", force = true }
+
 [alias]
 # xtask commands
 xtask = "run --package xtask --"

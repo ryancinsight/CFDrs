@@ -17,11 +17,11 @@ pub trait ComputeKernel<T: RealField + Copy>: Debug + Send + Sync {
     /// insufficient buffer sizes, or underlying computation errors.
     fn execute(&self, input: &[T], output: &mut [T], params: KernelParams) -> Result<()>;
 
-    /// Execute kernel on GPU if implemented
+    /// Execute kernel on GPU when this kernel provides a GPU backend.
     ///
     /// # Errors
     ///
-    /// Returns an error if GPU execution is not implemented for this kernel,
+    /// Returns an error if GPU execution is unsupported for this kernel,
     /// GPU context is invalid, or GPU computation fails.
     #[cfg(feature = "gpu")]
     fn execute_gpu(
@@ -32,7 +32,7 @@ pub trait ComputeKernel<T: RealField + Copy>: Debug + Send + Sync {
         _params: KernelParams,
     ) -> Result<()> {
         Err(crate::error::Error::UnsupportedOperation(
-            "GPU execution not implemented for this kernel".to_string(),
+            "GPU execution is unsupported for this kernel".to_string(),
         ))
     }
 

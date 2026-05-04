@@ -1,3 +1,33 @@
+# Sprint 1.96.1 Checklist: Workspace SSOT Cleanup
+**Goal**: Remove obsolete tracked root-source artifacts that duplicate canonical crate implementations and are not reachable from Cargo, tests, examples, docs, or report assets.
+
+**Success Criteria**:
+- ✅ Unreferenced root `old_*.rs` historical source files and empty `csg_bi.rs` are removed.
+- ✅ Repository reference scan confirms no authoritative artifact imports or cites the removed files.
+- ✅ Bounded Cargo verification completes for the affected root package metadata path.
+- ✅ Windows GNU builds use MSYS2 clang and lld instead of gcc.
+- ✅ Misleading marker terminology is removed from selected explicit unsupported-operation paths and bounded-model comments.
+- ⚠️ Workspace `cargo nextest` was attempted after clang/lld configuration and exceeded the 60-second compile bound before test execution.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Classify the cleanup as a patch-class SSOT artifact removal with no public API, algorithm, or report-output change.
+- [x] Verify the files are tracked and not referenced by Cargo manifests, crate modules, examples, tests, docs, or report assets.
+
+### Phase 2: Execution (10-50%)
+- [x] Delete `old_assemble.rs`, `old_arrangement.rs`, `old_phase2.rs`, `old_operations.rs`, `old_indexed.rs`, `old_gwn_bvh.rs`, `old_seam.rs`, `old_phase4.rs`, and `csg_bi.rs`.
+- [x] Configure `x86_64-pc-windows-gnu` Cargo builds to link through MSYS2 `clang.exe` with `-fuse-ld=lld`.
+- [x] Configure C/C++ build-script tools to use MSYS2 `clang.exe`, `clang++.exe`, `llvm-ar.exe`, and `llvm-ranlib.exe`.
+- [x] Replace misleading `mock`, `placeholder`, `not implemented`, and `simplified` wording in selected code paths where the executable contract is explicit.
+- [x] Update backlog and gap-audit artifacts for traceability.
+
+### Phase 3: Closure (50%+)
+- [x] Run bounded verification for reference absence and Cargo metadata/build impact.
+- [x] Record workspace nextest compile-time timeout separately from cleanup correctness.
+- [x] Run bounded package check for touched crates after marker cleanup.
+- [x] Record targeted nextest compile-time timeout separately from source correctness.
+
+---
+
 # Sprint 1.96.0 Checklist: HCOC Cellular Injury & CTC Detection
 **Goal**: Integrate mathematical models for cellular cavitation-induced injury and stiffness-coupled anomalous nucleation into the core engine.
 

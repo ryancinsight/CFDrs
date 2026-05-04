@@ -611,3 +611,23 @@ This bug violates the audit framework's evidence hierarchy:
 - Small hydraulic systems use row-equilibrated solves so conductance rows near machine scale are not dominated by unit Dirichlet rows.
 - Dense fallback conversion accumulates duplicate CSR entries, preserving the sum of incident-edge diagonal conductances required by Kirchhoff balance.
 - `CC=clang cargo nextest run -p cfd-1d --no-default-features ...` passed 696/696 tests under the 30-second slow-test bound.
+
+---
+
+## RESOLVED-030: Root Historical Source Artifact Drift
+
+**Severity**: ✅ **RESOLVED**
+**Component**: workspace root source artifacts
+**Status**: **CLOSED** - Tracked root historical Rust files that were outside Cargo, examples, tests, docs, and report-generation paths have been removed to preserve single-source-of-truth ownership.
+
+### Verification
+
+- `git ls-files` confirmed `old_assemble.rs`, `old_arrangement.rs`, `old_phase2.rs`, `old_operations.rs`, `old_indexed.rs`, `old_gwn_bvh.rs`, `old_seam.rs`, `old_phase4.rs`, and `csg_bi.rs` were tracked root artifacts.
+- `rg` found no references to those paths in `Cargo.toml`, `crates/`, `examples/`, `tests/`, `docs/`, or `README.md`.
+- Deletion is patch-class cleanup: no public API, algorithm, report template, or executable target references the removed files.
+- `cargo metadata --no-deps --format-version 1` and `cargo check -p cfd-suite --no-default-features` completed successfully.
+- `.cargo/config.toml` now selects MSYS2 `clang.exe` and `-fuse-ld=lld` for `x86_64-pc-windows-gnu`, and forces C/C++ build-script tools to MSYS2 `clang`, `clang++`, `llvm-ar`, and `llvm-ranlib`.
+- `cargo nextest run --workspace --no-default-features --fail-fast --hide-progress-bar` was re-attempted after the toolchain correction; the prior `gcc.exe` `zstd-sys` failure did not recur, but workspace compilation exceeded the 60-second bound before Rust test execution.
+- Misleading terminology was removed from explicit unsupported-operation paths and bounded-model comments in `cfd-core`, `cfd-math`, `cfd-python`, and `gaia` without changing numerical behavior.
+- `cargo check -p cfd-core -p cfd-math -p gaia -p cfd-python --no-default-features` completed successfully in 46.17 seconds.
+- `cargo nextest run -p cfd-core -p cfd-math -p cfd-python --no-default-features --fail-fast --hide-progress-bar` exceeded the 60-second compilation bound before test execution; no failing Rust test was reported.
