@@ -369,6 +369,30 @@ mod tests {
     }
 
     #[test]
+    fn venturi_coefficients_are_orientation_invariant_for_symmetric_geometry(
+    ) -> cfd_core::error::Result<()> {
+        let model = VenturiModel::symmetric(0.01_f64, 0.005, 0.01, 0.05);
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>()?;
+
+        let forward = FlowConditions::new(0.35);
+        let reverse = FlowConditions::new(-0.35);
+
+        let (r_forward, k_forward) = model.calculate_coefficients(&fluid, &forward)?;
+        let (r_reverse, k_reverse) = model.calculate_coefficients(&fluid, &reverse)?;
+
+        assert!(r_forward > 0.0);
+        assert!(k_forward.abs() > 0.0);
+        assert_relative_eq!(r_forward, r_reverse, max_relative = 1e-12);
+        assert_relative_eq!(k_forward, k_reverse, max_relative = 1e-12);
+
+        let resistance_forward = model.calculate_resistance(&fluid, &forward)?;
+        let resistance_reverse = model.calculate_resistance(&fluid, &reverse)?;
+        assert_relative_eq!(resistance_forward, resistance_reverse, max_relative = 1e-12);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_iso5167_discharge_coefficients() {
         assert_relative_eq!(
             VenturiGeometry::MachinedConvergent.discharge_coefficient(),

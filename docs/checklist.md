@@ -1,3 +1,31 @@
+# Sprint 1.96.5 Checklist: cfd-1d Venturi Reverse-Flow Physics
+**Goal**: Correct `cfd-1d` Venturi resistance and analysis for reverse-flow inputs.
+
+**Success Criteria**:
+- ✅ Negative inlet velocity no longer routes coefficient calculation through the zero-flow branch.
+- ✅ Reynolds number, shear rate, viscosity query, friction factor, and scalar pressure-loss terms use velocity magnitude.
+- ✅ Reported throat velocity preserves the input flow orientation.
+- ✅ Symmetric Venturi scalar resistance coefficients are invariant under velocity sign reversal.
+- ✅ Bounded Cargo check, unit test, and nextest verification pass for the touched library target.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Identify sign-sensitive Venturi branches in `calculate_coefficients` and `analyze`.
+- [x] Specify the symmetric-geometry invariant: reversing flow orientation changes signed velocities but not scalar loss magnitudes.
+
+### Phase 2: Execution (10-50%)
+- [x] Add a local magnitude helper for generic scalar values.
+- [x] Use `|V_inlet|`, `|V_throat|`, and `|Q|` for coefficient decomposition.
+- [x] Use shear-rate and Reynolds magnitudes in detailed Venturi analysis.
+- [x] Add reverse-flow regression tests for coefficients, resistance, and pressure decomposition.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for approximation/stub wording in the touched venturi directory.
+- [x] Run `cargo check -p cfd-1d --no-default-features`.
+- [x] Run `cargo test -p cfd-1d --no-default-features physics::resistance::models::venturi --lib`.
+- [x] Run `cargo nextest run -p cfd-1d --lib --no-default-features physics::resistance::models::venturi` under a 30-second shell timeout.
+
+---
+
 # Sprint 1.96.4 Checklist: Geometric Conservation Residual Verification
 **Goal**: Replace copy-through geometric conservation checks with residual-based Euler and Runge-Kutta updates.
 

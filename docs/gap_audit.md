@@ -14,6 +14,20 @@
 
 ---
 
+# Sprint 1.96.5 Resolution: cfd-1d Venturi Reverse-Flow Physics
+
+### RESOLVED-034: Venturi Reverse Flow Lost Inertial Coefficients
+- **Location**: `crates/cfd-1d/src/physics/resistance/models/venturi/`
+- **Issue**: `VenturiModel::calculate_coefficients` selected its finite-flow branch with `v_inlet > threshold`, so negative inlet velocity was treated as zero flow and lost contraction, diffuser, and recovery coefficients. Detailed analysis also used signed velocity for shear-rate and Reynolds inputs.
+- **Remediation**: Coefficient decomposition now uses `|V_inlet|`, `|V_throat|`, and `|Q|` for scalar loss magnitudes while detailed analysis preserves signed velocities in reported kinematics. Shear-rate, viscosity, Reynolds correction, friction factor, and pressure-loss terms use magnitudes.
+- **Mathematical basis**: In a symmetric Venturi, reversing flow orientation changes the sign of axial velocities but leaves kinetic-energy losses proportional to `V²`, wall-shear magnitude, Reynolds magnitude, and scalar resistance coefficients unchanged.
+- **Verification**:
+  - `cargo check -p cfd-1d --no-default-features` passed.
+  - `cargo test -p cfd-1d --no-default-features physics::resistance::models::venturi --lib -- --nocapture` passed 16/16 tests.
+  - `cargo nextest run -p cfd-1d --lib --no-default-features physics::resistance::models::venturi --fail-fast --hide-progress-bar --status-level fail` passed 16/16 tests in 0.230 s.
+
+---
+
 # Sprint 1.96.4 Resolution: Geometric Conservation Residual Verification
 
 ### RESOLVED-033: Copy-Through Geometric Conservation Evolution

@@ -22,6 +22,10 @@
 //! pressure drop is then formed by direct superposition of irreversible losses
 //! and reversible recovery, so any equivalent specification of the inlet state
 //! through either velocity or flow rate must produce the same decomposition.
+//! Because this reduced-order model reports pressure-loss magnitudes, viscosity,
+//! Reynolds number, friction factor, and loss coefficients depend on velocity
+//! magnitude; reversing the inlet velocity changes the flow orientation but not
+//! the scalar resistance coefficients for a symmetric venturi.
 
 use super::model::VenturiModel;
 use super::traits::FlowConditions;
@@ -87,26 +91,28 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
 
         let v_throat = v_inlet * a_inlet / a_throat;
         let v_outlet = v_inlet * a_inlet / a_outlet;
+        let v_inlet_abs = Self::magnitude(v_inlet);
+        let v_throat_abs = Self::magnitude(v_throat);
 
         let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
         let half = T::one() / (T::one() + T::one());
         let one = T::one();
 
-        let shear_rate_throat = eight * v_throat / self.throat_diameter;
+        let shear_rate_throat = eight * v_throat_abs / self.throat_diameter;
         let viscosity = fluid.viscosity_at_shear(
             shear_rate_throat,
             conditions.temperature,
             conditions.pressure,
         )?;
 
-        let re_throat = density * v_throat * self.throat_diameter / viscosity;
+        let re_throat = density * v_throat_abs * self.throat_diameter / viscosity;
 
         let viscosity_inlet = fluid.viscosity_at_shear(
-            eight * v_inlet / self.inlet_diameter,
+            eight * v_inlet_abs / self.inlet_diameter,
             conditions.temperature,
             conditions.pressure,
         )?;
-        let re_inlet = density * v_inlet * self.inlet_diameter / viscosity_inlet;
+        let re_inlet = density * v_inlet_abs * self.inlet_diameter / viscosity_inlet;
 
         let beta_sq = self.beta_squared();
         let c_d = self.effective_discharge_coefficient(re_inlet);
@@ -116,13 +122,13 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
 
         // ΔP_contraction = ½ρV_t²(1 − β⁴) / C_d²  where β⁴ = (A_t/A_i)² = beta_sq·beta_sq
         let dp_contraction =
-            half * density * v_throat * v_throat * (one - beta_sq * beta_sq) / (c_d * c_d);
+            half * density * v_throat_abs * v_throat_abs * (one - beta_sq * beta_sq) / (c_d * c_d);
         let dp_friction = Self::throat_friction_pressure_drop(
             f,
             density,
             self.throat_length,
             self.throat_diameter,
-            v_throat,
+            v_throat_abs,
         );
         let dv = v_throat - v_outlet;
         let dp_expansion_loss = k_exp * half * density * dv * dv;
@@ -181,6 +187,54 @@ mod tests {
             expected_total,
             epsilon = expected_total.abs().max(1.0) * 1e-12
         );
+        Ok(())
+    }
+
+    #[test]
+    fn analyze_reverse_flow_preserves_loss_magnitudes() -> cfd_core::error::Result<()> {
+        let model = VenturiModel::symmetric(0.01_f64, 0.005, 0.01, 0.05);
+        let fluid = water_20c::<f64>()?;
+
+        let forward = model.analyze(&fluid, &FlowConditions::new(0.35))?;
+        let reverse = model.analyze(&fluid, &FlowConditions::new(-0.35))?;
+
+        assert_relative_eq!(
+            forward.throat_velocity,
+            -reverse.throat_velocity,
+            max_relative = 1e-12
+        );
+        assert_relative_eq!(
+            forward.throat_reynolds,
+            reverse.throat_reynolds,
+            max_relative = 1e-12
+        );
+        assert_relative_eq!(
+            forward.throat_shear_rate,
+            reverse.throat_shear_rate,
+            max_relative = 1e-12
+        );
+        assert_relative_eq!(
+            forward.dp_contraction,
+            reverse.dp_contraction,
+            max_relative = 1e-12
+        );
+        assert_relative_eq!(
+            forward.dp_friction,
+            reverse.dp_friction,
+            max_relative = 1e-12
+        );
+        assert_relative_eq!(
+            forward.dp_expansion_loss,
+            reverse.dp_expansion_loss,
+            max_relative = 1e-12
+        );
+        assert_relative_eq!(
+            forward.dp_recovery,
+            reverse.dp_recovery,
+            max_relative = 1e-12
+        );
+        assert_relative_eq!(forward.dp_total, reverse.dp_total, max_relative = 1e-12);
+
         Ok(())
     }
 

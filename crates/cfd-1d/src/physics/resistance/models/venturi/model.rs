@@ -304,6 +304,15 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
             * throat_velocity
             * throat_velocity
     }
+
+    #[inline]
+    pub(crate) fn magnitude(value: T) -> T {
+        if value >= T::zero() {
+            value
+        } else {
+            -value
+        }
+    }
 }
 
 impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T> {
@@ -354,10 +363,13 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
 
         let v_throat = v_inlet * a_inlet / a_throat;
         let v_outlet = v_inlet * a_inlet / a_outlet;
+        let v_inlet_abs = Self::magnitude(v_inlet);
+        let v_throat_abs = Self::magnitude(v_throat);
+        let q_abs = v_inlet_abs * a_inlet;
 
-        // Compute shear rate at throat wall: γ̇ = 8V/D for circular pipe
+        // Compute shear-rate magnitude at throat wall: γ̇ = 8|V|/D for circular pipe.
         let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
-        let shear_rate_throat = eight * v_throat / self.throat_diameter;
+        let shear_rate_throat = eight * v_throat_abs / self.throat_diameter;
 
         // Get viscosity at throat shear rate (supports non-Newtonian fluids)
         let viscosity = fluid.viscosity_at_shear(
@@ -367,15 +379,15 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         )?;
 
         // Reynolds number at throat
-        let re_throat = density * v_throat * self.throat_diameter / viscosity;
+        let re_throat = density * v_throat_abs * self.throat_diameter / viscosity;
 
         // Reynolds number at inlet (for C_d correction)
         let viscosity_inlet = fluid.viscosity_at_shear(
-            eight * v_inlet / self.inlet_diameter,
+            eight * v_inlet_abs / self.inlet_diameter,
             conditions.temperature,
             conditions.pressure,
         )?;
-        let re_inlet = density * v_inlet * self.inlet_diameter / viscosity_inlet;
+        let re_inlet = density * v_inlet_abs * self.inlet_diameter / viscosity_inlet;
 
         // --- 1. Contraction loss (Bernoulli + discharge coefficient) ---
         let beta_sq = self.beta_squared(); // = (D_t/D_i)² = A_t/A_i
@@ -387,7 +399,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         let half = T::one() / (T::one() + T::one());
         let one = T::one();
         let dp_contraction =
-            half * density * v_throat * v_throat * (one - beta_sq * beta_sq) / (c_d * c_d);
+            half * density * v_throat_abs * v_throat_abs * (one - beta_sq * beta_sq) / (c_d * c_d);
 
         // --- 2. Throat friction loss ---
         let f = self.throat_friction_factor(re_throat);
@@ -396,7 +408,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
             density,
             self.throat_length,
             self.throat_diameter,
-            v_throat,
+            v_throat_abs,
         ) * Self::developing_flow_multiplier(
             re_throat,
             self.throat_length,
@@ -413,14 +425,13 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         let dp_recovery = eta_r * half * density * (v_throat * v_throat - v_outlet * v_outlet);
 
         // --- Net pressure drop ---
-        let q = v_inlet * a_inlet;
-        let q_sq = q * q;
+        let q_sq = q_abs * q_abs;
 
         let vel_threshold =
             T::from_f64(1e-15).expect("Mathematical constant conversion compromised");
-        if v_inlet > vel_threshold {
+        if v_inlet_abs > vel_threshold {
             // Decompose: laminar part (friction ∝ V → R·Q) and inertial part (∝ V² → k·Q²)
-            let r = dp_friction / q; // Friction is approximately linear at low Re
+            let r = dp_friction / q_abs;
             let k_coeff = if q_sq > T::zero() {
                 (dp_contraction + dp_expansion_loss - dp_recovery) / q_sq
             } else {

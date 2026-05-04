@@ -1,5 +1,21 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.5: cfd-1d Venturi Reverse-Flow Physics
+**Status**: Completed
+**Start Date**: May 4, 2026
+
+### Sprint Objectives
+- Correct `cfd-1d` Venturi resistance physics so reverse-flow inputs use the same scalar loss magnitudes as forward flow.
+- Preserve signed reported velocities while making Reynolds number, viscosity, friction factor, and pressure-loss coefficients depend on velocity magnitude.
+
+### Sprint Backlog Items
+
+#### 1D Venturi Resistance Physics
+- [x] **VNT-001 [patch]**: Make `VenturiModel::calculate_coefficients` decompose losses with `|V|` and `|Q|` instead of treating negative inlet velocity as zero flow.
+- [x] **VNT-002 [patch]**: Make detailed Venturi analysis use shear-rate and Reynolds magnitudes for reverse-flow cases.
+- [x] **VNT-003 [patch]**: Add regression tests for symmetric-geometry coefficient and pressure-loss orientation invariance.
+- [x] **VNT-004 [patch]**: Verify the touched `cfd-1d` venturi module with bounded Cargo check, unit test, and nextest runs.
+
 ## Sprint 1.96.4: Geometric Conservation Residual Verification
 **Status**: Completed
 **Start Date**: May 4, 2026
