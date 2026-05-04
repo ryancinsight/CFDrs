@@ -97,31 +97,42 @@ impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
         cfl <= cfl_limit && diff <= diff_limit
     }
 
-    /// Calculate maximum stable time step for given flow conditions
+    /// Calculate maximum stable time step for given flow conditions.
+    ///
+    /// # Theorem
+    /// For an unsplit explicit 2D advection-diffusion update, stability requires
+    /// the summed advective and diffusive rates to remain bounded:
+    ///
+    /// ```text
+    /// Δt_adv ≤ 1 / (|u|/Δx + |v|/Δy)
+    /// Δt_diff ≤ 0.5 / (ν(1/Δx² + 1/Δy²))
+    /// ```
+    ///
+    /// **Proof sketch**: the documented CFL condition is
+    /// `|u|Δt/Δx + |v|Δt/Δy ≤ 1`; solving for `Δt` gives the reciprocal
+    /// summed advective rate. The explicit 2D diffusion von Neumann condition is
+    /// `νΔt(1/Δx² + 1/Δy²) ≤ 1/2`; solving for `Δt` gives the reciprocal
+    /// summed diffusive rate. Taking the minimum satisfies both constraints.
     pub fn max_stable_dt(&self, u_max: T, v_max: T, nu: T) -> T {
-        // CFL constraint: dt ≤ min(dx/|u|, dy/|v|)
-        let dt_advection = if u_max > T::zero() && v_max > T::zero() {
-            let dt_x = self.dx / u_max.abs();
-            let dt_y = self.dy / v_max.abs();
-            dt_x.min(dt_y)
-        } else if u_max > T::zero() {
-            self.dx / u_max.abs()
-        } else if v_max > T::zero() {
-            self.dy / v_max.abs()
+        let advective_rate = u_max.abs() / self.dx + v_max.abs() / self.dy;
+        let large_dt = T::from_f64(1e10).expect("Exact mathematically representable f64");
+
+        let dt_advection = if advective_rate > T::zero() {
+            T::one() / advective_rate
         } else {
-            T::from_f64(1e10).expect("Exact mathematically representable f64") // Large value for zero velocity
+            large_dt
         };
 
-        // Diffusion constraint: dt ≤ 0.5 * min(dx², dy²) / ν
+        // Diffusion constraint: dt ≤ 0.5 / (ν(1/dx² + 1/dy²)).
         let dt_diffusion = if nu > T::zero() {
-            let dx2 = self.dx * self.dx;
-            let dy2 = self.dy * self.dy;
-            T::from_f64(0.5).expect("Exact mathematically representable f64") * dx2.min(dy2) / nu
+            let inv_dx2 = T::one() / (self.dx * self.dx);
+            let inv_dy2 = T::one() / (self.dy * self.dy);
+            T::from_f64(0.5).expect("Exact mathematically representable f64")
+                / (nu * (inv_dx2 + inv_dy2))
         } else {
-            T::from_f64(1e10).expect("Exact mathematically representable f64") // Large value for zero diffusion
+            large_dt
         };
 
-        // Return minimum of both constraints
         dt_advection.min(dt_diffusion)
     }
 }
@@ -152,5 +163,36 @@ mod tests {
 
         // Should be unstable for large velocities
         assert!(!calculator.is_stable_explicit_euler(20.0, 20.0, 0.01));
+    }
+
+    #[test]
+    fn max_stable_dt_respects_summed_2d_advection_cfl() {
+        let calculator = CFLCalculator::new(0.01, 0.02, 0.001);
+        let dt = calculator.max_stable_dt(2.0, 4.0, 0.0);
+        let expected: f64 = 1.0 / (2.0 / 0.01 + 4.0 / 0.02);
+
+        assert!((dt - expected).abs() < 1e-15);
+
+        let stable_calculator = CFLCalculator::new(0.01, 0.02, dt);
+        assert!(
+            stable_calculator.advection_cfl(2.0, 4.0) <= 1.0 + 1e-14,
+            "max_stable_dt must satisfy the summed 2D advection CFL"
+        );
+    }
+
+    #[test]
+    fn max_stable_dt_respects_summed_2d_diffusion_bound() {
+        let calculator = CFLCalculator::new(0.01, 0.02, 0.001);
+        let nu = 1.5e-5;
+        let dt = calculator.max_stable_dt(0.0, 0.0, nu);
+        let expected: f64 = 0.5 / (nu * (1.0 / 0.01_f64.powi(2) + 1.0 / 0.02_f64.powi(2)));
+
+        assert!((dt - expected).abs() < 1e-15);
+
+        let stable_calculator = CFLCalculator::new(0.01, 0.02, dt);
+        assert!(
+            stable_calculator.diffusion_number(nu) <= 0.5 + 1e-14,
+            "max_stable_dt must satisfy the 2D diffusion von Neumann bound"
+        );
     }
 }

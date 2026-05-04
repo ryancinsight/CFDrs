@@ -1,5 +1,21 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.6: cfd-2d Explicit Stability Physics
+**Status**: Completed
+**Start Date**: May 4, 2026
+
+### Sprint Objectives
+- Correct `cfd-2d` explicit time-step physics so 2D advection and diffusion bounds follow summed-rate CFL and von Neumann stability conditions.
+- Add value-semantic regression tests that verify `max_stable_dt` satisfies the same stability invariants reported by `advection_cfl` and `diffusion_number`.
+
+### Sprint Backlog Items
+
+#### 2D Stability Physics
+- [x] **CFL-001 [patch]**: Replace componentwise minimum advection time-step bound with `1 / (|u|/dx + |v|/dy)`.
+- [x] **CFL-002 [patch]**: Replace `0.5*min(dx²,dy²)/ν` diffusion bound with `0.5 / (ν(1/dx² + 1/dy²))`.
+- [x] **CFL-003 [patch]**: Add regression tests for summed 2D advection and diffusion stability limits.
+- [x] **CFL-004 [patch]**: Verify the touched `cfd-2d` stability module with bounded Cargo check, unit test, and nextest runs.
+
 ## Sprint 1.96.5: cfd-1d Venturi Reverse-Flow Physics
 **Status**: Completed
 **Start Date**: May 4, 2026

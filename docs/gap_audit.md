@@ -14,6 +14,20 @@
 
 ---
 
+# Sprint 1.96.6 Resolution: cfd-2d Explicit Stability Physics
+
+### RESOLVED-035: 2D CFL Time-Step Bound Used Componentwise Limits
+- **Location**: `crates/cfd-2d/src/stability/cfl.rs`
+- **Issue**: `max_stable_dt` used `min(dx/|u|, dy/|v|)` for 2D advection and `0.5*min(dx²,dy²)/ν` for diffusion. These bounds can violate the module's documented summed 2D CFL and diffusion conditions.
+- **Remediation**: Replaced the advection bound with `1 / (|u|/dx + |v|/dy)` and the diffusion bound with `0.5 / (ν(1/dx² + 1/dy²))`. Added tests that feed the returned `dt` back into `advection_cfl` and `diffusion_number`.
+- **Mathematical basis**: Solving `|u|Δt/dx + |v|Δt/dy ≤ 1` and `νΔt(1/dx² + 1/dy²) ≤ 1/2` for `Δt` yields the reciprocal summed-rate limits. Taking the minimum satisfies both explicit stability constraints.
+- **Verification**:
+  - `cargo check -p cfd-2d --no-default-features` passed.
+  - `cargo test -p cfd-2d --no-default-features stability::cfl --lib -- --nocapture` passed 4/4 tests.
+  - `cargo nextest run -p cfd-2d --lib --no-default-features stability::cfl --fail-fast --hide-progress-bar --status-level fail` passed 4/4 tests in 0.119 s.
+
+---
+
 # Sprint 1.96.5 Resolution: cfd-1d Venturi Reverse-Flow Physics
 
 ### RESOLVED-034: Venturi Reverse Flow Lost Inertial Coefficients

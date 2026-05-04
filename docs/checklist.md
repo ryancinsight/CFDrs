@@ -1,3 +1,29 @@
+# Sprint 1.96.6 Checklist: cfd-2d Explicit Stability Physics
+**Goal**: Correct `cfd-2d` explicit time-step bounds for 2D advection-diffusion.
+
+**Success Criteria**:
+- ✅ `max_stable_dt` uses the summed 2D advection CFL rate `|u|/dx + |v|/dy`.
+- ✅ `max_stable_dt` uses the summed 2D diffusion rate `ν(1/dx² + 1/dy²)`.
+- ✅ New tests validate the returned `dt` against `advection_cfl` and `diffusion_number`.
+- ✅ Bounded Cargo check, unit test, and nextest verification pass for the touched library target.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Identify that componentwise `min(dx/|u|, dy/|v|)` can allow summed 2D CFL greater than 1.
+- [x] Identify that `0.5*min(dx²,dy²)/ν` overestimates the 2D explicit diffusion bound on square grids by a factor of 2.
+
+### Phase 2: Execution (10-50%)
+- [x] Implement reciprocal summed-rate advection and diffusion time-step bounds.
+- [x] Document the stability theorem and proof sketch in the implementation.
+- [x] Add value-semantic tests for anisotropic-grid advection and diffusion cases.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for approximation/stub wording in the touched CFL module.
+- [x] Run `cargo check -p cfd-2d --no-default-features`.
+- [x] Run `cargo test -p cfd-2d --no-default-features stability::cfl --lib`.
+- [x] Run `cargo nextest run -p cfd-2d --lib --no-default-features stability::cfl` under a 30-second shell timeout.
+
+---
+
 # Sprint 1.96.5 Checklist: cfd-1d Venturi Reverse-Flow Physics
 **Goal**: Correct `cfd-1d` Venturi resistance and analysis for reverse-flow inputs.
 
