@@ -1,3 +1,30 @@
+# Sprint 1.96.7 Checklist: cfd-3d Venturi Pressure-Coefficient Physics
+**Goal**: Correct `cfd-3d` Venturi pressure coefficients to use throat dynamic-pressure scaling.
+
+**Success Criteria**:
+- ✅ `cp_throat` and `cp_recovery` use `0.5 ρ (Q/A_throat)^2` as the denominator.
+- ✅ Coefficient scaling rejects non-positive throat flow or area instead of producing dimensionless values from an undefined scale.
+- ✅ New tests validate computed coefficient values and the zero-flux rejection path.
+- ✅ Bounded Cargo check, unit test, and nextest verification pass for the touched library target.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Identify mismatch between the Venturi pressure-recovery theorem and the solver's inlet dynamic-pressure denominator.
+- [x] Specify the coefficient invariant: pressure coefficients must be nondimensionalized by throat dynamic pressure, not inlet dynamic pressure.
+
+### Phase 2: Execution (10-50%)
+- [x] Add a single coefficient helper derived from face-integrated throat flux and throat area.
+- [x] Route `cp_throat` and `cp_recovery` through the throat dynamic-pressure helper.
+- [x] Document solution coefficient fields as throat-scaled quantities.
+- [x] Add value-semantic tests for coefficient values and rejection of undefined dynamic pressure.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for coefficient implementation paths.
+- [x] Run `cargo check -p cfd-3d --no-default-features`.
+- [x] Run `cargo test -p cfd-3d --no-default-features venturi_pressure_coefficients --lib`.
+- [x] Run `cargo nextest run -p cfd-3d --lib --no-default-features venturi_pressure_coefficients` under a bounded shell timeout.
+
+---
+
 # Sprint 1.96.6 Checklist: cfd-2d Explicit Stability Physics
 **Goal**: Correct `cfd-2d` explicit time-step bounds for 2D advection-diffusion.
 

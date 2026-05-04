@@ -81,9 +81,9 @@ pub struct VenturiSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + Cop
     pub dp_throat: T,
     /// Net pressure recovery/loss from inlet to outlet [Pa]
     pub dp_recovery: T,
-    /// Pressure coefficient at the throat
+    /// Pressure coefficient at the throat, scaled by throat dynamic pressure
     pub cp_throat: T,
-    /// Pressure recovery coefficient at the outlet
+    /// Pressure recovery coefficient at the outlet, scaled by throat dynamic pressure
     pub cp_recovery: T,
     /// Mass balance error (relative)
     pub mass_error: T,

@@ -1,5 +1,21 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.7: cfd-3d Venturi Pressure-Coefficient Physics
+**Status**: Completed
+**Start Date**: May 4, 2026
+
+### Sprint Objectives
+- Correct `cfd-3d` Venturi pressure coefficients so the solver follows its documented throat dynamic-pressure definition.
+- Add value-semantic tests for coefficient scaling and undefined zero-flux rejection.
+
+### Sprint Backlog Items
+
+#### 3D Venturi Coefficient Physics
+- [x] **V3D-001 [patch]**: Replace inlet dynamic-pressure scaling with throat dynamic pressure derived from face-integrated flow and throat area.
+- [x] **V3D-002 [patch]**: Preserve typed rejection when coefficient scaling has no positive throat flow or area.
+- [x] **V3D-003 [patch]**: Add direct regression tests for throat coefficient values and zero-flux rejection.
+- [x] **V3D-004 [patch]**: Verify the touched `cfd-3d` Venturi module with bounded Cargo check, unit test, and nextest runs.
+
 ## Sprint 1.96.6: cfd-2d Explicit Stability Physics
 **Status**: Completed
 **Start Date**: May 4, 2026

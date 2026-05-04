@@ -14,6 +14,20 @@
 
 ---
 
+# Sprint 1.96.7 Resolution: cfd-3d Venturi Pressure-Coefficient Physics
+
+### RESOLVED-036: 3D Venturi Coefficients Used Inlet Dynamic Pressure
+- **Location**: `crates/cfd-3d/src/venturi/solver.rs`
+- **Issue**: `cp_throat` and `cp_recovery` were divided by inlet dynamic pressure, while the solver theorem defines Venturi recovery coefficients with throat dynamic pressure. The computed coefficients therefore depended on inlet area rather than the throat kinetic-energy scale.
+- **Remediation**: Added a single coefficient helper that computes `q_throat = 0.5 ρ (Q/A_throat)^2` from the face-integrated flow rate and throat area, rejects undefined non-positive scales, and routes both Venturi pressure coefficients through that helper.
+- **Mathematical basis**: For steady incompressible Venturi flow, continuity gives `u_throat = Q/A_throat`; pressure coefficients nondimensionalize `Δp` by `0.5 ρ u_throat²`. Using inlet velocity under-scales the denominator by the squared area ratio and overstates dimensionless recovery.
+- **Verification**:
+  - `cargo check -p cfd-3d --no-default-features` passed.
+  - `cargo test -p cfd-3d --no-default-features venturi_pressure_coefficients --lib` passed 2/2 tests.
+  - `cargo nextest run -p cfd-3d --lib --no-default-features venturi_pressure_coefficients --fail-fast --hide-progress-bar --status-level fail` passed 2/2 tests.
+
+---
+
 # Sprint 1.96.6 Resolution: cfd-2d Explicit Stability Physics
 
 ### RESOLVED-035: 2D CFL Time-Step Bound Used Componentwise Limits

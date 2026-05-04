@@ -78,6 +78,53 @@ pub struct VenturiSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy 
     config: VenturiConfig3D<T>,
 }
 
+/// Compute Venturi pressure coefficients from throat dynamic pressure.
+///
+/// # Theorem — Venturi Coefficient Scaling
+///
+/// For steady incompressible flow through a throat of area `A_t`,
+/// continuity gives `u_t = Q / A_t`. The pressure coefficient associated
+/// with a pressure difference `Δp` is therefore
+///
+/// ```text
+/// C_p = Δp / (0.5 ρ (Q/A_t)^2)
+/// ```
+///
+/// **Proof sketch.** The denominator is the kinetic-energy density per unit
+/// volume at the throat. Substituting the continuity relation for the mean
+/// throat velocity into `0.5 ρ u_t²` gives the expression above. Non-positive
+/// `Q` or `A_t` makes the dynamic-pressure scale undefined and is rejected.
+fn pressure_coefficients_from_throat_flux<
+    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + Float,
+>(
+    density: T,
+    throat_flow_rate: T,
+    throat_area: T,
+    dp_throat: T,
+    dp_recovery: T,
+) -> Result<(T, T)> {
+    let half =
+        <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
+    if throat_area <= T::zero() || throat_flow_rate <= T::zero() {
+        return Err(Error::Solver(
+            "Venturi pressure coefficients require positive throat area and flow rate".to_string(),
+        ));
+    }
+
+    let u_throat_mean = throat_flow_rate / throat_area;
+    let throat_dynamic_pressure = half * density * u_throat_mean * u_throat_mean;
+    if throat_dynamic_pressure <= T::zero() {
+        return Err(Error::Solver(
+            "Venturi pressure coefficients require positive throat dynamic pressure".to_string(),
+        ));
+    }
+
+    Ok((
+        dp_throat / throat_dynamic_pressure,
+        dp_recovery / throat_dynamic_pressure,
+    ))
+}
+
 impl<
         T: cfd_mesh::domain::core::Scalar
             + RealField
@@ -1083,19 +1130,6 @@ impl<
         solution.dp_throat = solution.p_inlet - solution.p_throat;
         solution.dp_recovery = solution.p_outlet - solution.p_inlet; // Usually negative (loss)
 
-        let q_dyn = <T as FromPrimitive>::from_f64(0.5)
-            .expect("0.5 is exactly representable in IEEE 754")
-            * fluid_props.density
-            * u_inlet
-            * u_inlet;
-        if q_dyn <= T::zero() {
-            return Err(Error::Solver(
-                "Venturi pressure coefficients require positive inlet dynamic pressure".to_string(),
-            ));
-        }
-        solution.cp_throat = (solution.p_inlet - solution.p_throat) / q_dyn;
-        solution.cp_recovery = (solution.p_outlet - solution.p_inlet) / q_dyn;
-
         // Calculate Mass Balance Error
         // Qin = u_in_avg * A_in (reference)
         // Qth = u_th_avg * A_th (slice-based)
@@ -1108,6 +1142,21 @@ impl<
             let h = self.config.rect_height.unwrap_or(self.builder.d_throat);
             self.builder.d_throat * h
         };
+        let coefficient_flow_rate = if q_in_face > 0.0_f64 {
+            <T as From<f64>>::from(q_in_face)
+        } else {
+            self.config.inlet_flow_rate
+        };
+        let (cp_throat, cp_recovery) = pressure_coefficients_from_throat_flux(
+            fluid_props.density,
+            coefficient_flow_rate,
+            area_throat,
+            solution.dp_throat,
+            solution.dp_recovery,
+        )?;
+        solution.cp_throat = cp_throat;
+        solution.cp_recovery = cp_recovery;
+
         let q_in = u_in_sol_avg * area_inlet;
         let q_th = u_throat_avg * area_throat;
         solution.q_in_face = <T as From<f64>>::from(q_in_face);
@@ -1127,5 +1176,54 @@ impl<
         );
 
         Ok(solution)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pressure_coefficients_from_throat_flux;
+
+    fn assert_relative_eq(actual: f64, expected: f64) {
+        let scale = expected.abs().max(1.0_f64);
+        let rounding_bound = 16.0_f64 * f64::EPSILON * scale;
+        assert!(
+            (actual - expected).abs() <= rounding_bound,
+            "actual={actual}, expected={expected}, bound={rounding_bound}"
+        );
+    }
+
+    #[test]
+    fn venturi_pressure_coefficients_use_throat_dynamic_pressure() {
+        let rho = 1_000.0_f64;
+        let flow_rate = 1.0e-6_f64;
+        let throat_area = std::f64::consts::PI * 0.002_f64 * 0.002_f64 / 4.0_f64;
+        let dp_throat = 80.0_f64;
+        let dp_recovery = -12.0_f64;
+
+        let (cp_throat, cp_recovery) = pressure_coefficients_from_throat_flux(
+            rho,
+            flow_rate,
+            throat_area,
+            dp_throat,
+            dp_recovery,
+        )
+        .expect("positive throat flux has a defined dynamic pressure");
+
+        let u_throat_mean = flow_rate / throat_area;
+        let q_throat = 0.5_f64 * rho * u_throat_mean * u_throat_mean;
+
+        assert_relative_eq(cp_throat, dp_throat / q_throat);
+        assert_relative_eq(cp_recovery, dp_recovery / q_throat);
+    }
+
+    #[test]
+    fn venturi_pressure_coefficients_reject_zero_throat_flux() {
+        let err =
+            pressure_coefficients_from_throat_flux(1_000.0_f64, 0.0_f64, 1.0e-6_f64, 1.0, -0.2)
+                .expect_err("zero flow rate has no dynamic pressure scale");
+
+        assert!(err
+            .to_string()
+            .contains("positive throat area and flow rate"));
     }
 }
