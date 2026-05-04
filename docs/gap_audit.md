@@ -631,3 +631,19 @@ This bug violates the audit framework's evidence hierarchy:
 - Misleading terminology was removed from explicit unsupported-operation paths and bounded-model comments in `cfd-core`, `cfd-math`, `cfd-python`, and `gaia` without changing numerical behavior.
 - `cargo check -p cfd-core -p cfd-math -p gaia -p cfd-python --no-default-features` completed successfully in 46.17 seconds.
 - `cargo nextest run -p cfd-core -p cfd-math -p cfd-python --no-default-features --fail-fast --hide-progress-bar` exceeded the 60-second compilation bound before test execution; no failing Rust test was reported.
+
+---
+
+## RESOLVED-031: Optimization Generator and Boundary Unsupported-Order Terminology
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-schematics/src/geometry/optimization`, `crates/cfd-core/src/physics/boundary/error.rs`
+**Status**: **CLOSED** - Internal serpentine optimization path generation and boundary stencil diagnostics now describe executable contracts without implying simplified or incomplete implementations.
+
+### Verification
+
+- `generate_simplified_serpentine_path` was renamed to `generate_optimization_serpentine_path`; all internal optimization call sites were updated.
+- Boundary unsupported-order diagnostics now report `"Stencil order {order} is unsupported (supported: 1-4)"`.
+- `rg` found no stale `generate_simplified_serpentine_path`, `simplified serpentine`, `simplified generation`, or `"not implemented"` wording in the touched paths.
+- `cargo check -p cfd-core -p cfd-schematics --no-default-features` completed successfully in 28.06 seconds.
+- `cargo nextest run -p cfd-core -p cfd-schematics --no-default-features --fail-fast --hide-progress-bar` exceeded the 60-second compilation bound before test execution; no failing Rust test was reported.

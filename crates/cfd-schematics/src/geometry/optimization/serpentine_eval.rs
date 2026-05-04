@@ -1,4 +1,4 @@
-//! Simplified serpentine path generation for optimization evaluation
+//! Optimization serpentine path generation for candidate evaluation
 //!
 //! Provides a fast serpentine path generator used by the optimization algorithms
 //! to evaluate candidate parameter sets. This is a streamlined version focused on
@@ -36,9 +36,9 @@ fn calculate_safe_full_periods(
     }
 }
 
-/// Optimized serpentine path generation with aggressive amplitude calculation
+/// Generate the deterministic serpentine path used by optimization objectives.
 #[must_use]
-pub(super) fn generate_simplified_serpentine_path(
+pub(super) fn generate_optimization_serpentine_path(
     p1: Point2D,
     p2: Point2D,
     geometry_config: &GeometryConfig,
@@ -147,7 +147,7 @@ pub(super) fn generate_simplified_serpentine_path(
     // Use optimized wavelength calculation
     let base_wavelength = calculate_optimized_wavelength(geometry_config, serpentine_config);
 
-    // Generate simplified serpentine path with smooth endpoints
+    // Generate optimization path with smooth endpoints.
     let full_periods = calculate_safe_full_periods(
         channel_length,
         amplitude,

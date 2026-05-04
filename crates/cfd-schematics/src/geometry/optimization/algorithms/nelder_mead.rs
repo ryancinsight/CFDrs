@@ -10,7 +10,7 @@ use crate::config::SerpentineConfig;
 use crate::geometry::types::Point2D;
 
 use super::super::constants;
-use super::super::serpentine_eval::generate_simplified_serpentine_path;
+use super::super::serpentine_eval::generate_optimization_serpentine_path;
 use super::super::{
     calculate_min_neighbor_distance, calculate_min_wall_distance, calculate_path_length,
     OptimizationParams, OptimizationResult,
@@ -214,7 +214,7 @@ pub(super) fn optimize_nelder_mead(
     };
 
     // Generate final path and calculate metrics
-    let final_path = generate_simplified_serpentine_path(
+    let final_path = generate_optimization_serpentine_path(
         p1,
         p2,
         geometry_config,

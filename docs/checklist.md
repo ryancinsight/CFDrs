@@ -1,3 +1,29 @@
+# Sprint 1.96.2 Checklist: Optimization Terminology Contract Cleanup
+**Goal**: Remove misleading unsupported/stub-like wording from boundary and serpentine optimization contracts without changing numerical behavior.
+
+**Success Criteria**:
+- ✅ `cfd-schematics` serpentine optimization generator is named for its role in objective evaluation.
+- ✅ Boundary stencil rejection message states unsupported order instead of incomplete implementation.
+- ✅ Stale symbol and marker scan for touched paths is clean.
+- ✅ Bounded Cargo check passes for touched crates.
+- ⚠️ Targeted nextest exceeded the 60-second compile bound before test execution.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Confirm `generate_simplified_serpentine_path` is `pub(super)` internal to `cfd-schematics` geometry optimization.
+- [x] Confirm boundary unsupported-order change affects diagnostic wording only.
+
+### Phase 2: Execution (10-50%)
+- [x] Rename `generate_simplified_serpentine_path` to `generate_optimization_serpentine_path`.
+- [x] Update Nelder-Mead and grid-search call sites.
+- [x] Replace `"Stencil order ... not implemented"` with `"Stencil order ... is unsupported"`.
+
+### Phase 3: Closure (50%+)
+- [x] Run stale-symbol scan for renamed function and touched marker terms.
+- [x] Run `cargo check -p cfd-core -p cfd-schematics --no-default-features`.
+- [x] Record targeted nextest compile-bound timeout.
+
+---
+
 # Sprint 1.96.1 Checklist: Workspace SSOT Cleanup
 **Goal**: Remove obsolete tracked root-source artifacts that duplicate canonical crate implementations and are not reachable from Cargo, tests, examples, docs, or report assets.
 

@@ -9,7 +9,7 @@ use crate::config::{ConstantsRegistry, GeometryConfig, OptimizationProfile, Serp
 use crate::geometry::types::Point2D;
 
 use super::constants;
-use super::serpentine_eval::generate_simplified_serpentine_path;
+use super::serpentine_eval::generate_optimization_serpentine_path;
 use super::{
     calculate_constraint_penalty, calculate_min_neighbor_distance, calculate_min_wall_distance,
     calculate_path_length, OptimizationParams, OptimizationResult,
@@ -125,8 +125,8 @@ fn optimize_fast(
                     adaptive_config: serpentine_config.adaptive_config,
                 };
 
-                // Generate test path using simplified serpentine generation logic
-                let test_path = generate_simplified_serpentine_path(
+                // Generate test path using the optimization serpentine path model.
+                let test_path = generate_optimization_serpentine_path(
                     p1,
                     p2,
                     geometry_config,
@@ -174,7 +174,7 @@ fn optimize_fast(
 
     // If no improvement found, return original parameters
     if best_result.path_length <= constants::MIN_PATH_LENGTH_THRESHOLD {
-        let original_path = generate_simplified_serpentine_path(
+        let original_path = generate_optimization_serpentine_path(
             p1,
             p2,
             geometry_config,
@@ -233,7 +233,7 @@ fn evaluate_objective_function(
     };
 
     // Generate test path
-    let test_path = generate_simplified_serpentine_path(
+    let test_path = generate_optimization_serpentine_path(
         p1,
         p2,
         geometry_config,

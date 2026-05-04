@@ -21,7 +21,7 @@ pub enum BoundaryError {
     },
 
     /// Unsupported stencil order
-    #[error("Stencil order {0} not implemented (supported: 1-4)")]
+    #[error("Stencil order {0} is unsupported (supported: 1-4)")]
     UnsupportedOrder(usize),
 
     /// Robin condition singularity

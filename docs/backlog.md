@@ -1,5 +1,20 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.2: Optimization Terminology Contract Cleanup
+**Status**: Completed
+**Start Date**: May 3, 2026
+
+### Sprint Objectives
+- Remove misleading unsupported/stub-like wording from executable boundary and optimization contracts without changing numerical behavior.
+- Keep the `cfd-schematics` serpentine optimization path generator named by role rather than by reduced implementation detail.
+
+### Sprint Backlog Items
+
+#### Contract Terminology Cleanup
+- [x] **TERM-001 [patch]**: Rename internal `generate_simplified_serpentine_path` to `generate_optimization_serpentine_path` and update all optimization call sites.
+- [x] **TERM-002 [patch]**: Replace boundary stencil `"not implemented"` error text with explicit unsupported-order wording.
+- [x] **TERM-003 [patch]**: Verify touched crates with bounded Cargo check and record nextest compile-bound status.
+
 ## Sprint 1.96.1: Workspace SSOT Cleanup
 **Status**: Completed
 **Start Date**: April 29, 2026

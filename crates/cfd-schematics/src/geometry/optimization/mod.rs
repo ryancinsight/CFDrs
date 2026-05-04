@@ -7,7 +7,7 @@
 //! # Submodules
 //!
 //! - [`algorithms`]: Grid-search, Nelder-Mead, and multi-start optimizers
-//! - [`serpentine_eval`]: Simplified serpentine path generation for evaluation
+//! - [`serpentine_eval`]: Optimization serpentine path generation for evaluation
 
 mod algorithms;
 mod serpentine_eval;
