@@ -1,5 +1,22 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.8: cfd-1d Branch Reverse-Flow Physics
+**Status**: Completed
+**Start Date**: May 4, 2026
+
+### Sprint Objectives
+- Correct `cfd-1d` branch-junction solvers so reversed parent flow preserves daughter orientation instead of being rejected.
+- Keep wall-shear and non-Newtonian viscosity inputs magnitude-based while pressure drops remain signed.
+
+### Sprint Backlog Items
+
+#### 1D Branch-Junction Orientation Physics
+- [x] **BRC-001 [patch]**: Remove nonnegative parent-flow rejection from two-way and three-way branch solvers.
+- [x] **BRC-002 [patch]**: Solve branch splits on `|Q_parent|` and reapply flow orientation to daughter flows.
+- [x] **BRC-003 [patch]**: Compute wall-shear and apparent viscosity from flow magnitude while preserving signed pressure drops.
+- [x] **BRC-004 [patch]**: Add value-semantic reverse-flow tests for pressure-balanced and prescribed two-way/three-way branches.
+- [x] **BRC-005 [patch]**: Verify the touched `cfd-1d` branch module with bounded Cargo check, unit test, and nextest runs.
+
 ## Sprint 1.96.7: cfd-3d Venturi Pressure-Coefficient Physics
 **Status**: Completed
 **Start Date**: May 4, 2026

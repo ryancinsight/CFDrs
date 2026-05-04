@@ -178,28 +178,28 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         temperature: T,
         pressure: T,
     ) -> Result<(T, T, T), Error> {
-        if q_parent < T::zero() {
-            return Err(Error::InvalidInput(
-                "three-way branch solve requires nonnegative parent flow".to_string(),
-            ));
-        }
-
         let tiny_flow = T::from_f64_or_one(1e-18);
-        if q_parent.abs() <= tiny_flow {
+        let q_parent_magnitude = q_parent.abs();
+        if q_parent_magnitude <= tiny_flow {
             return Ok((T::zero(), T::zero(), T::zero()));
         }
+        let orientation = if q_parent >= T::zero() {
+            T::one()
+        } else {
+            -T::one()
+        };
 
         let lower_dp = T::zero();
         let mut upper_dp = self
-            .daughter_pressure_drop(fluid, 0, q_parent, temperature, pressure)
-            .max(self.daughter_pressure_drop(fluid, 1, q_parent, temperature, pressure))
-            .max(self.daughter_pressure_drop(fluid, 2, q_parent, temperature, pressure));
+            .daughter_pressure_drop(fluid, 0, q_parent_magnitude, temperature, pressure)
+            .max(self.daughter_pressure_drop(fluid, 1, q_parent_magnitude, temperature, pressure))
+            .max(self.daughter_pressure_drop(fluid, 2, q_parent_magnitude, temperature, pressure));
 
-        let target_sum = q_parent;
+        let target_sum = q_parent_magnitude;
         let mut upper_sum = self.total_flow_for_common_pressure_drop(
             fluid,
             upper_dp,
-            q_parent,
+            q_parent_magnitude,
             temperature,
             pressure,
         );
@@ -211,7 +211,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
             upper_sum = self.total_flow_for_common_pressure_drop(
                 fluid,
                 upper_dp,
-                q_parent,
+                q_parent_magnitude,
                 temperature,
                 pressure,
             );
@@ -225,24 +225,41 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
             ));
         }
 
-        let tolerances = ScalarSolveTolerances::for_target(q_parent, upper_dp);
-        let final_dp =
-            bisect_monotone_target(lower_dp, upper_dp, q_parent, tolerances, |target_dp| {
+        let tolerances = ScalarSolveTolerances::for_target(q_parent_magnitude, upper_dp);
+        let final_dp = bisect_monotone_target(
+            lower_dp,
+            upper_dp,
+            q_parent_magnitude,
+            tolerances,
+            |target_dp| {
                 self.total_flow_for_common_pressure_drop(
                     fluid,
                     target_dp,
-                    q_parent,
+                    q_parent_magnitude,
                     temperature,
                     pressure,
                 )
-            });
+            },
+        );
 
-        let q_1 =
-            self.flow_for_common_pressure_drop(fluid, 0, final_dp, q_parent, temperature, pressure);
-        let q_2 =
-            self.flow_for_common_pressure_drop(fluid, 1, final_dp, q_parent, temperature, pressure);
-        let q_3 = (q_parent - q_1 - q_2).max(T::zero());
-        Ok((q_1, q_2, q_3))
+        let q_1 = self.flow_for_common_pressure_drop(
+            fluid,
+            0,
+            final_dp,
+            q_parent_magnitude,
+            temperature,
+            pressure,
+        );
+        let q_2 = self.flow_for_common_pressure_drop(
+            fluid,
+            1,
+            final_dp,
+            q_parent_magnitude,
+            temperature,
+            pressure,
+        );
+        let q_3 = (q_parent_magnitude - q_1 - q_2).max(T::zero());
+        Ok((orientation * q_1, orientation * q_2, orientation * q_3))
     }
 
     fn solve_from_flows<F: FluidTrait<T> + NonNewtonianFluid<T> + Copy>(
@@ -257,7 +274,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         pressure: T,
     ) -> Result<ThreeWayBranchSolution<T>, Error> {
         let q_sum = q_1 + q_2 + q_3;
-        let mass_error = (q_sum - q_parent).abs() / q_parent.max(T::from_f64_or_one(1e-15));
+        let mass_error = (q_sum - q_parent).abs() / q_parent.abs().max(T::from_f64_or_one(1e-15));
 
         if mass_error > T::from_f64_or_one(1e-10) {
             use cfd_core::error::ConvergenceErrorKind;
@@ -388,11 +405,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         pressure: T,
     ) -> Result<ThreeWayBranchSolution<T>, Error> {
         self.validate_split_ratios()?;
-        if q_parent < T::zero() {
-            return Err(Error::InvalidInput(
-                "three-way branch solve requires nonnegative parent flow".to_string(),
-            ));
-        }
 
         let q_1 = self.flow_split_ratios.0 * q_parent;
         let q_2 = self.flow_split_ratios.1 * q_parent;

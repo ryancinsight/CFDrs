@@ -1,3 +1,32 @@
+# Sprint 1.96.8 Checklist: cfd-1d Branch Reverse-Flow Physics
+**Goal**: Correct `cfd-1d` branch-junction solvers for reversed parent flow orientation.
+
+**Success Criteria**:
+- ✅ Two-way and three-way pressure-balanced branch solvers accept negative parent flow.
+- ✅ Prescribed split solvers preserve negative daughter-flow orientation.
+- ✅ Wall-shear and apparent viscosity remain nonnegative magnitude diagnostics.
+- ✅ Pressure drops reverse sign with flow orientation.
+- ✅ Bounded Cargo check, unit test, and nextest verification pass for the touched library target.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Identify sign-sensitive branch-junction checks that rejected `Q_parent < 0`.
+- [x] Specify the orientation invariant: reversing all branch flows changes signed flows and pressure drops but leaves shear-rate and viscosity magnitudes unchanged.
+
+### Phase 2: Execution (10-50%)
+- [x] Solve pressure-balanced splits on `|Q_parent|` and reapply parent-flow orientation to daughter flows.
+- [x] Remove nonnegative-flow rejection from prescribed split paths.
+- [x] Use `|Q|` for wall-shear and apparent-viscosity inputs.
+- [x] Preserve signed pressure-drop calculation through signed `Q`.
+- [x] Add value-semantic regression tests for two-way and three-way reversed flow.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for touched branch-junction paths.
+- [x] Run `cargo check -p cfd-1d --no-default-features`.
+- [x] Run `cargo test -p cfd-1d --no-default-features --test branch_reverse_flow_orientation`.
+- [x] Run `cargo nextest run -p cfd-1d --test branch_reverse_flow_orientation --no-default-features` under a 30-second shell timeout.
+
+---
+
 # Sprint 1.96.7 Checklist: cfd-3d Venturi Pressure-Coefficient Physics
 **Goal**: Correct `cfd-3d` Venturi pressure coefficients to use throat dynamic-pressure scaling.
 

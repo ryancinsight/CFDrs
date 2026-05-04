@@ -180,7 +180,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         let d = Self::hydraulic_diameter(channel);
         let pi = T::from_f64_or_one(std::f64::consts::PI);
         let thirty_two = T::from_f64_or_one(32.0);
-        (thirty_two * q) / (pi * d * d * d)
+        (thirty_two * q.abs()) / (pi * d * d * d)
     }
 
     /// Calculate apparent viscosity in a channel for given flow rate.
@@ -219,7 +219,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
     ) -> T {
         let one_two_eight = T::from_f64_or_one(128.0);
         let pi = T::from_f64_or_one(std::f64::consts::PI);
-        let mu = Self::apparent_viscosity(fluid, q, channel, temperature, pressure);
+        let mu = Self::apparent_viscosity(fluid, q.abs(), channel, temperature, pressure);
         let d = Self::hydraulic_diameter(channel);
         let l = channel.geometry.length;
         (one_two_eight * mu * q * l) / (pi * d * d * d * d)
@@ -258,23 +258,33 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
     ) -> Result<T, Error> {
         self.validate_split_ratio()?;
 
-        if q_parent < T::zero() {
-            return Err(Error::InvalidInput(
-                "two-way branch solve requires nonnegative parent flow".to_string(),
-            ));
-        }
-
         let tiny_flow = T::from_f64_or_one(1e-18);
-        if q_parent.abs() <= tiny_flow {
+        let q_parent_magnitude = q_parent.abs();
+        if q_parent_magnitude <= tiny_flow {
             return Ok(T::zero());
         }
 
-        let tolerances = ScalarSolveTolerances::for_flow_interval(q_parent);
+        let orientation = if q_parent >= T::zero() {
+            T::one()
+        } else {
+            -T::one()
+        };
+        let tolerances = ScalarSolveTolerances::for_flow_interval(q_parent_magnitude);
 
-        let lower_residual =
-            self.daughter_pressure_residual(fluid, T::zero(), q_parent, temperature, pressure);
-        let upper_residual =
-            self.daughter_pressure_residual(fluid, q_parent, q_parent, temperature, pressure);
+        let lower_residual = self.daughter_pressure_residual(
+            fluid,
+            T::zero(),
+            q_parent_magnitude,
+            temperature,
+            pressure,
+        );
+        let upper_residual = self.daughter_pressure_residual(
+            fluid,
+            q_parent_magnitude,
+            q_parent_magnitude,
+            temperature,
+            pressure,
+        );
 
         if lower_residual > T::zero() || upper_residual < T::zero() {
             return Err(Error::Convergence(
@@ -286,13 +296,23 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
             ));
         }
 
-        Ok(bisect_root(
+        let q_1_magnitude = bisect_root(
             T::zero(),
-            q_parent,
-            Some(self.flow_split_ratio * q_parent),
+            q_parent_magnitude,
+            Some(self.flow_split_ratio * q_parent_magnitude),
             tolerances,
-            |q_1| self.daughter_pressure_residual(fluid, q_1, q_parent, temperature, pressure),
-        ))
+            |q_1| {
+                self.daughter_pressure_residual(
+                    fluid,
+                    q_1,
+                    q_parent_magnitude,
+                    temperature,
+                    pressure,
+                )
+            },
+        );
+
+        Ok(orientation * q_1_magnitude)
     }
 
     fn solve_from_split<F: FluidTrait<T>>(
@@ -307,7 +327,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         let q_2 = q_parent - q_1;
 
         let q_sum = q_1 + q_2;
-        let mass_error = (q_sum - q_parent).abs() / q_parent.max(T::from_f64_or_one(1e-15));
+        let mass_error = (q_sum - q_parent).abs() / q_parent.abs().max(T::from_f64_or_one(1e-15));
         if mass_error > T::from_f64_or_one(1e-10) {
             use cfd_core::error::ConvergenceErrorKind;
             return Err(Error::Convergence(ConvergenceErrorKind::Diverged {
@@ -381,11 +401,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         pressure: T,
     ) -> Result<TwoWayBranchSolution<T>, Error> {
         self.validate_split_ratio()?;
-        if q_parent < T::zero() {
-            return Err(Error::InvalidInput(
-                "two-way branch solve requires nonnegative parent flow".to_string(),
-            ));
-        }
         let q_1 = self.flow_split_ratio * q_parent;
         self.solve_from_split(fluid, q_parent, p_parent, q_1, temperature, pressure)
     }

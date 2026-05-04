@@ -14,6 +14,20 @@
 
 ---
 
+# Sprint 1.96.8 Resolution: cfd-1d Branch Reverse-Flow Physics
+
+### RESOLVED-037: Branch Solvers Rejected Reverse Parent Flow
+- **Location**: `crates/cfd-1d/src/domain/junctions/branching/physics/`
+- **Issue**: Two-way and three-way branch solvers rejected `Q_parent < 0`, and non-Newtonian wall-shear evaluation used signed flow. Reversed-flow network states could not be evaluated even though the Poiseuille pressure-drop law is odd in `Q` and the shear-rate/viscosity diagnostics are magnitude quantities.
+- **Remediation**: Pressure-balanced branch solves now compute split fractions on `|Q_parent|` and reapply the parent-flow orientation to all daughter flows. Prescribed split paths accept signed parent flow. Wall shear and apparent viscosity use `|Q|`; pressure drops still use signed `Q`.
+- **Mathematical basis**: For laminar branch channels, `ΔP_i = R_i(|Q_i|) Q_i`. Reversing flow orientation maps `Q_i → -Q_i` and `ΔP_i → -ΔP_i`, while `γ̇_i = 32|Q_i|/(πD_i³)` and constitutive viscosity remain unchanged. Mass conservation is invariant under the same sign transformation.
+- **Verification**:
+  - `cargo check -p cfd-1d --no-default-features` passed.
+  - `cargo test -p cfd-1d --no-default-features --test branch_reverse_flow_orientation` passed 4/4 tests.
+  - `cargo nextest run -p cfd-1d --test branch_reverse_flow_orientation --no-default-features --fail-fast --hide-progress-bar --status-level fail` passed 4/4 tests.
+
+---
+
 # Sprint 1.96.7 Resolution: cfd-3d Venturi Pressure-Coefficient Physics
 
 ### RESOLVED-036: 3D Venturi Coefficients Used Inlet Dynamic Pressure
