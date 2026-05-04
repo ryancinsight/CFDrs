@@ -1,3 +1,29 @@
+# Sprint 1.96.10 Checklist: cfd-3d VOF Directional CFL Physics
+**Goal**: Correct `cfd-3d` VOF timestep selection for diagonal and anisotropic flow.
+
+**Success Criteria**:
+- ✅ `VofSolver::calculate_timestep` uses the summed directional advective rate enforced by VOF advection.
+- ✅ Diagonal flow with target CFL 1 returns `dt = 1/3` on a unit grid.
+- ✅ The former norm/min-spacing estimate is rejected by the geometric VOF CFL check.
+- ✅ Bounded Cargo check, integration test, and nextest verification pass for the touched VOF target.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Identify mismatch between solver timestep selection and `AdvectionMethod` CFL enforcement.
+- [x] Specify the invariant: `max_cells(|u_x|dt/dx + |u_y|dt/dy + |u_z|dt/dz) <= C`.
+
+### Phase 2: Execution (10-50%)
+- [x] Replace Euclidean speed/min-spacing timestep with reciprocal summed directional advective rate.
+- [x] Add Rustdoc theorem and proof sketch to the timestep API.
+- [x] Add value-semantic diagonal-flow regression coverage.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for touched VOF paths.
+- [x] Run `cargo check -p cfd-3d --no-default-features`.
+- [x] Run `cargo test -p cfd-3d --no-default-features --test vof_tests test_calculate_timestep_uses_directional_vof_cfl`.
+- [x] Run `cargo nextest run -p cfd-3d --test vof_tests --no-default-features test_calculate_timestep_uses_directional_vof_cfl` under a 30-second shell timeout.
+
+---
+
 # Sprint 1.96.9 Checklist: cfd-2d Upwind Coefficient Orientation
 **Goal**: Correct `cfd-2d` first-order upwind finite-volume coefficients for west-face flow orientation.
 

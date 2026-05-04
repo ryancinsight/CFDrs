@@ -14,6 +14,20 @@
 
 ---
 
+# Sprint 1.96.10 Resolution: cfd-3d VOF Directional CFL Physics
+
+### RESOLVED-039: VOF Timestep Used Speed/Minimum-Spacing Bound
+- **Location**: `crates/cfd-3d/src/vof/solver.rs`
+- **Issue**: `VofSolver::calculate_timestep` computed `dt = C min(dx,dy,dz)/||u||_2`, while `AdvectionMethod` enforces the summed donor-cell swept-volume condition `|u_x|dt/dx + |u_y|dt/dy + |u_z|dt/dz <= 1`. The returned timestep therefore did not target the VOF advection invariant and overestimated the admissible step for diagonal flow when `C=1`.
+- **Remediation**: Replaced the timestep denominator with `max_cells(|u_x|/dx + |u_y|/dy + |u_z|/dz)`, documented the CFL theorem on the solver API, and added a regression that accepts the corrected unit-grid diagonal timestep while rejecting the former norm/min-spacing estimate.
+- **Mathematical basis**: Solving the geometric VOF swept-volume inequality for `dt` gives `dt <= C / (|u_x|/dx + |u_y|/dy + |u_z|/dz)` per cell. Taking the maximum directional rate over all cells gives the global explicit timestep bound.
+- **Verification**:
+  - `cargo check -p cfd-3d --no-default-features` passed.
+  - `cargo test -p cfd-3d --no-default-features --test vof_tests test_calculate_timestep_uses_directional_vof_cfl` passed 1/1 test.
+  - `cargo nextest run -p cfd-3d --test vof_tests --no-default-features test_calculate_timestep_uses_directional_vof_cfl --fail-fast --hide-progress-bar --status-level fail` passed 1/1 test.
+
+---
+
 # Sprint 1.96.9 Resolution: cfd-2d Upwind Coefficient Orientation
 
 ### RESOLVED-038: West-Face Upwind Coefficient Used Reversed Flux Sign

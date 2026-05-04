@@ -319,25 +319,40 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSo
         self.reconstruct_interface();
     }
 
-    /// Calculate time step based on CFL condition
+    /// Calculate time step from the directional VOF CFL condition.
+    ///
+    /// # Theorem
+    /// For geometric VOF advection on an orthogonal grid, the stable explicit
+    /// step that targets configured Courant number `C` is
+    ///
+    /// ```text
+    /// dt = C / max_cells(|u_x|/dx + |u_y|/dy + |u_z|/dz).
+    /// ```
+    ///
+    /// **Proof sketch**: `AdvectionMethod::advect` rejects states where the
+    /// summed swept-volume fraction
+    /// `|u_x|dt/dx + |u_y|dt/dy + |u_z|dt/dz` exceeds unity in any donor cell.
+    /// Solving this inequality for `dt` with target `C <= 1` gives the
+    /// reciprocal summed-rate expression. A speed norm divided by the minimum
+    /// spacing is not equivalent for diagonal flow on anisotropic meshes and
+    /// does not target the accepted VOF CFL invariant.
     pub fn calculate_timestep(&self) -> T {
-        let mut max_velocity = T::zero();
+        use num_traits::Float;
+
+        let mut max_advective_rate = T::zero();
         for vel in &self.velocity {
-            let speed = vel.norm();
-            if speed > max_velocity {
-                max_velocity = speed;
+            let rate = Float::abs(vel.x) / self.dx
+                + Float::abs(vel.y) / self.dy
+                + Float::abs(vel.z) / self.dz;
+            if rate > max_advective_rate {
+                max_advective_rate = rate;
             }
         }
 
-        if max_velocity > T::zero() {
-            let dx_min = <T as num_traits::Float>::min(
-                <T as num_traits::Float>::min(self.dx, self.dy),
-                self.dz,
-            );
+        if max_advective_rate > T::zero() {
             <T as FromPrimitive>::from_f64(self.config.cfl_number)
-                .unwrap_or(<T as FromPrimitive>::from_f64(0.3).unwrap_or(T::one()))
-                * dx_min
-                / max_velocity
+                .expect("VOF cfl_number must be representable by the scalar type")
+                / max_advective_rate
         } else {
             <T as FromPrimitive>::from_f64(1e-3).unwrap_or(T::one())
         }

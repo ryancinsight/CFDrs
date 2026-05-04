@@ -1,5 +1,21 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.10: cfd-3d VOF Directional CFL Physics
+**Status**: Completed
+**Start Date**: May 4, 2026
+
+### Sprint Objectives
+- Correct `cfd-3d` VOF timestep selection so it targets the same summed directional CFL invariant enforced by geometric advection.
+- Add value-semantic regression coverage for diagonal flow that distinguishes the corrected reciprocal summed-rate bound from the former norm/min-spacing estimate.
+
+### Sprint Backlog Items
+
+#### 3D VOF Stability Physics
+- [x] **VOF-CFL-001 [patch]**: Replace speed/min-spacing timestep selection with `C / max(|u_x|/dx + |u_y|/dy + |u_z|/dz)`.
+- [x] **VOF-CFL-002 [patch]**: Document the explicit VOF CFL theorem at the solver timestep API.
+- [x] **VOF-CFL-003 [patch]**: Add regression coverage that accepts the corrected diagonal-flow timestep and rejects the former estimate.
+- [x] **VOF-CFL-004 [patch]**: Verify the touched `cfd-3d` VOF module with bounded Cargo check, integration test, and nextest runs.
+
 ## Sprint 1.96.9: cfd-2d Upwind Coefficient Orientation
 **Status**: Completed
 **Start Date**: May 4, 2026

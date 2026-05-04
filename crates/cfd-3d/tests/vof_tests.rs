@@ -268,6 +268,44 @@ fn test_full_domain_no_volume_change() {
     assert_relative_eq!(vol0, vol1, epsilon = 1e-10);
 }
 
+/// **Boundary**: Diagonal flow timestep must satisfy the same summed CFL
+/// inequality enforced by the geometric advection operator.
+///
+/// Invariant: for dx=dy=dz=1 and u=(1,1,1), CFL = 3dt, so a target CFL of 1
+/// requires dt=1/3. The former norm/min-spacing estimate returned 1/sqrt(3),
+/// which violates the accepted donor-cell swept-volume bound.
+#[test]
+fn test_calculate_timestep_uses_directional_vof_cfl() {
+    let config = VofConfig {
+        cfl_number: 1.0,
+        ..default_config()
+    };
+    let mut solver = VofSolver::create(config.clone(), 4, 4, 4, 1.0, 1.0, 1.0);
+    solver.alpha_mut().fill(0.5);
+    solver
+        .set_velocity_field(vec![Vector3::new(1.0, 1.0, 1.0); 4 * 4 * 4])
+        .expect("velocity field dimensions must match solver grid");
+
+    let dt = solver.calculate_timestep();
+    assert_relative_eq!(dt, 1.0 / 3.0, epsilon = 1e-15);
+    solver
+        .step(dt, &[], &[], &[])
+        .expect("directional CFL timestep must satisfy geometric VOF advection");
+
+    let mut unstable_solver = VofSolver::create(config, 4, 4, 4, 1.0, 1.0, 1.0);
+    unstable_solver.alpha_mut().fill(0.5);
+    unstable_solver
+        .set_velocity_field(vec![Vector3::new(1.0, 1.0, 1.0); 4 * 4 * 4])
+        .expect("velocity field dimensions must match solver grid");
+    let norm_min_spacing_dt = 1.0 / 3.0f64.sqrt();
+    assert!(
+        unstable_solver
+            .step(norm_min_spacing_dt, &[], &[], &[])
+            .is_err(),
+        "norm/min-spacing timestep must be rejected because summed CFL exceeds unity"
+    );
+}
+
 /// **Boundary**: Completely empty domain (α=0 everywhere) → volume unchanged.
 #[test]
 fn test_empty_domain_no_volume_change() {
