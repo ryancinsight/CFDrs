@@ -1,5 +1,20 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.3: Womersley Analytical SSOT
+**Status**: Completed
+**Start Date**: May 3, 2026
+
+### Sprint Objectives
+- Replace the validation-local approximate Womersley profile with the canonical exact Bessel implementation from `cfd-1d`.
+- Add value-semantic no-slip verification for the wall velocity invariant.
+
+### Sprint Backlog Items
+
+#### Analytical Validation SSOT
+- [x] **WOM-001 [patch]**: Delegate `cfd-validation` Womersley velocity, wall shear stress, and flow rate to the `cfd-1d` exact `WomersleyProfile`.
+- [x] **WOM-002 [patch]**: Add wall no-slip regression coverage for multiple phases.
+- [x] **WOM-003 [patch]**: Verify the touched analytical module with bounded Cargo checks and tests.
+
 ## Sprint 1.96.2: Optimization Terminology Contract Cleanup
 **Status**: Completed
 **Start Date**: May 3, 2026

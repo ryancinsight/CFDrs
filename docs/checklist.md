@@ -1,3 +1,30 @@
+# Sprint 1.96.3 Checklist: Womersley Analytical SSOT
+**Goal**: Replace validation-local Womersley approximations with the canonical exact complex-Bessel implementation and verify no-slip behavior.
+
+**Success Criteria**:
+- ✅ `cfd-validation` Womersley velocity, wall shear stress, and flow rate use `cfd-1d` `WomersleyProfile`.
+- ✅ Rustdoc documents the exact Womersley Bessel solution and no-slip proof sketch.
+- ✅ Wall no-slip regression checks computed velocity values at multiple phases.
+- ✅ Bounded check and unit-test verification pass.
+- ⚠️ Targeted nextest exceeded the 60-second compile bound before test execution.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Confirm `cfd-validation` depends on `cfd-1d`, so reusing the canonical Womersley profile introduces no dependency cycle.
+- [x] Identify validation-local approximate velocity, wall-stress, and flow-rate formulas.
+
+### Phase 2: Execution (10-50%)
+- [x] Add a private exact-profile adapter for the validation `WomersleyFlow`.
+- [x] Delegate velocity, wall shear stress, and flow rate to `cfd-1d` exact Womersley profile.
+- [x] Add a no-slip wall velocity regression over multiple phases.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for approximate/simplified wording in the touched Womersley module.
+- [x] Run `cargo check -p cfd-validation --no-default-features`.
+- [x] Run `cargo test -p cfd-validation --no-default-features analytical::womersley --lib`.
+- [x] Record targeted nextest compile-bound timeout.
+
+---
+
 # Sprint 1.96.2 Checklist: Optimization Terminology Contract Cleanup
 **Goal**: Remove misleading unsupported/stub-like wording from boundary and serpentine optimization contracts without changing numerical behavior.
 

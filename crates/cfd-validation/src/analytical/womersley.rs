@@ -10,6 +10,9 @@
 //! - Zamir, M. (2000). "The Physics of Pulsatile Flow", Springer.
 
 use super::AnalyticalSolution;
+use cfd_1d::physics::vascular::womersley::{
+    WomersleyNumber as ExactWomersleyNumber, WomersleyProfile as ExactWomersleyProfile,
+};
 use cfd_core::conversion::SafeFromF64;
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
@@ -89,74 +92,43 @@ impl<T: RealField + Copy + FromPrimitive> WomersleyFlow<T> {
         self.womersley_number() > T::from_f64_or_one(10.0)
     }
 
-    /// Calculate analytical velocity profile at given radius and time
-    /// Uses complex Bessel functions - simplified using series approximation
+    /// Create the canonical exact Womersley profile evaluator.
+    fn exact_profile(&self) -> ExactWomersleyProfile<T> {
+        ExactWomersleyProfile::new(
+            ExactWomersleyNumber::new(self.radius, self.omega, self.density, self.viscosity),
+            self.pressure_gradient_amplitude,
+        )
+    }
+
+    /// Calculate analytical velocity profile at given radius and time.
     ///
-    /// The exact solution involves J0(α * i^(3/2) * r/R), but for validation
-    /// we use the approximate form that captures the physics correctly
+    /// # Theorem — Womersley No-Slip Profile
+    ///
+    /// The axial velocity is evaluated by the canonical complex-Bessel
+    /// Womersley solution
+    /// `u(r,t) = Re{ P/(i rho omega) [1 - J0(i^(3/2) alpha r/R) /
+    /// J0(i^(3/2) alpha)] exp(i omega t) }`.
+    ///
+    /// **Proof sketch**: Substitution of the harmonic ansatz into the
+    /// axisymmetric unsteady Stokes equation yields Bessel's equation in the
+    /// radial coordinate. The ratio term enforces `u(R,t)=0`; finite `J0(0)`
+    /// gives a bounded centerline value. This wrapper delegates to the
+    /// single-source `cfd-1d` implementation that evaluates the same closed
+    /// form with shared `J0/J1` recurrence. ∎
     pub fn velocity(&self, r: T, t: T) -> T {
-        let alpha = self.womersley_number();
-        let u_max = self.characteristic_velocity().abs();
-        let omega_t = self.omega * t;
-
-        // Normalized radial coordinate
-        let eta = r / self.radius;
-
-        if alpha < T::from_f64_or_one(1.0) {
-            // Quasi-steady: Parabolic profile oscillating with pressure
-            // u(r,t) ≈ u_max * (1 - η²) * cos(ωt)
-            u_max * (T::one() - eta * eta) * omega_t.cos()
-        } else if alpha > T::from_f64_or_one(10.0) {
-            // Inertia-dominated: Flat core with boundary layer
-            // Approximate solution: plug flow with thin Stokes layer
-            let delta = self.stokes_layer_thickness() / self.radius;
-            let boundary_layer_factor = (-(T::one() - eta) / delta).exp();
-            u_max * (T::one() - boundary_layer_factor) * omega_t.cos()
-        } else {
-            // Intermediate: Use polynomial approximation
-            // Matches exact Bessel solution within 5%
-            let phase_lag = -alpha * eta * T::from_f64_or_one(0.5); // Approximate phase
-            let amplitude = (T::one() - eta.powi(2))
-                * (T::one() + alpha * alpha * eta.powi(2) * T::from_f64_or_one(0.01)).sqrt();
-            u_max * amplitude * (omega_t + phase_lag).cos()
-        }
+        let xi = (r.abs() / self.radius).min(T::one());
+        self.exact_profile().velocity(xi, t)
     }
 
     /// Calculate wall shear stress at given time
     /// τ_w = μ * (∂u/∂r)|_{r=R}
     pub fn wall_shear_stress(&self, t: T) -> T {
-        let alpha = self.womersley_number();
-        let u_max = self.characteristic_velocity().abs();
-        let omega_t = self.omega * t;
-
-        if alpha < T::one() {
-            // Quasi-steady: τ_w = 2μu_max/R * cos(ωt)
-            let tau_steady = T::from_f64_or_one(2.0) * self.viscosity * u_max / self.radius;
-            tau_steady * omega_t.cos()
-        } else {
-            // High frequency: Phase shift and amplitude modification
-            let tau_steady = T::from_f64_or_one(2.0) * self.viscosity * u_max / self.radius;
-            let alpha_factor = alpha.sqrt() * T::from_f64_or_one(0.9); // Approximate
-            tau_steady * alpha_factor * (omega_t - T::from_f64_or_one(PI / 4.0)).cos()
-        }
+        self.exact_profile().wall_shear_stress(t)
     }
 
     /// Calculate instantaneous flow rate
     pub fn flow_rate(&self, t: T) -> T {
-        let pi = T::from_f64_or_one(PI);
-        let alpha = self.womersley_number();
-        let u_max = self.characteristic_velocity();
-        let omega_t = self.omega * t;
-
-        // Q(t) = πR²u_max * F(α) * cos(ωt - φ)
-        // where F(α) is the amplitude reduction factor
-        let f_alpha = if alpha < T::one() {
-            T::from_f64_or_one(0.5) // Quasi-steady
-        } else {
-            T::from_f64_or_one(0.5) * (T::one() + alpha.powi(-2)).sqrt() // High frequency
-        };
-
-        pi * self.radius * self.radius * u_max * f_alpha * omega_t.cos()
+        self.exact_profile().flow_rate(t)
     }
 }
 
@@ -262,6 +234,20 @@ mod tests {
     }
 
     #[test]
+    fn test_exact_womersley_no_slip_wall_condition() {
+        let flow = WomersleyFlow::<f64>::physiological_blood_flow();
+
+        for time_fraction in [0.0, 0.125, 0.25, 0.5, 0.875] {
+            let t = time_fraction * 2.0 * std::f64::consts::PI / flow.omega;
+            let wall_velocity = flow.velocity(flow.radius, t);
+            assert!(
+                wall_velocity.abs() < 1e-10,
+                "Womersley wall velocity must satisfy no-slip; got {wall_velocity} at t={t}"
+            );
+        }
+    }
+
+    #[test]
     fn test_flow_rate_oscillation() {
         let flow = WomersleyFlow::<f64>::physiological_blood_flow();
 
@@ -269,7 +255,7 @@ mod tests {
         let q1 = flow.flow_rate(0.0);
         let q2 = flow.flow_rate(std::f64::consts::PI / flow.omega);
 
-        // Should be approximately opposite phases
+        // Half-period separation reverses the harmonic flow-rate phase.
         assert!(
             q1 * q2 < 0.0 || q2.abs() < 1e-10,
             "Flow rate should reverse during cycle"

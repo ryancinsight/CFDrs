@@ -647,3 +647,20 @@ This bug violates the audit framework's evidence hierarchy:
 - `rg` found no stale `generate_simplified_serpentine_path`, `simplified serpentine`, `simplified generation`, or `"not implemented"` wording in the touched paths.
 - `cargo check -p cfd-core -p cfd-schematics --no-default-features` completed successfully in 28.06 seconds.
 - `cargo nextest run -p cfd-core -p cfd-schematics --no-default-features --fail-fast --hide-progress-bar` exceeded the 60-second compilation bound before test execution; no failing Rust test was reported.
+
+---
+
+## RESOLVED-032: Womersley Validation Approximation Drift
+
+**Severity**: ✅ **RESOLVED**
+**Component**: `crates/cfd-validation/src/analytical/womersley.rs`
+**Status**: **CLOSED** - The validation Womersley analytical solution now reuses the canonical exact complex-Bessel `cfd-1d` implementation instead of maintaining local regime approximations.
+
+### Verification
+
+- `velocity()`, `wall_shear_stress()`, and `flow_rate()` delegate through `cfd_1d::physics::vascular::womersley::WomersleyProfile`.
+- Rustdoc now states the exact Bessel-form velocity theorem and no-slip proof sketch.
+- Added `test_exact_womersley_no_slip_wall_condition`, which checks computed wall velocity at five phases.
+- `cargo check -p cfd-validation --no-default-features` completed successfully in 3.44 seconds after warm build.
+- `cargo test -p cfd-validation --no-default-features analytical::womersley --lib -- --nocapture` passed 5/5 tests in 10.50 seconds after compilation.
+- `cargo nextest run -p cfd-validation --no-default-features womersley --fail-fast --hide-progress-bar` exceeded the 60-second compilation bound before test execution; no failing Rust test was reported.
