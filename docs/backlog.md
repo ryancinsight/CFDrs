@@ -1,5 +1,21 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.4: Geometric Conservation Residual Verification
+**Status**: Completed
+**Start Date**: May 4, 2026
+
+### Sprint Objectives
+- Replace copy-through GCL evolution in `cfd-validation` with an executable conservative finite-volume residual.
+- Verify Euler and Runge-Kutta constant-state preservation while proving non-constant fields are evaluated by the residual.
+
+### Sprint Backlog Items
+
+#### Conservation Validation Physics
+- [x] **GCL-001 [patch]**: Implement a conservative second-order face-flux residual for the geometric conservation checker.
+- [x] **GCL-002 [patch]**: Run Euler, midpoint, SSPRK3, and RK4 checks through real residual-based stage updates.
+- [x] **GCL-003 [patch]**: Add value-semantic tests for unsupported RK stages and quadratic-field residual sensitivity.
+- [x] **GCL-004 [patch]**: Verify the touched library target with bounded Cargo check, unit test, and nextest runs.
+
 ## Sprint 1.96.3: Womersley Analytical SSOT
 **Status**: Completed
 **Start Date**: May 3, 2026

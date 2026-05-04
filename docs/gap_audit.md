@@ -14,6 +14,20 @@
 
 ---
 
+# Sprint 1.96.4 Resolution: Geometric Conservation Residual Verification
+
+### RESOLVED-033: Copy-Through Geometric Conservation Evolution
+- **Location**: `crates/cfd-validation/src/conservation/geometric.rs`
+- **Issue**: Euler and Runge-Kutta GCL checks copied the scalar field between time levels, so tests could pass without evaluating any numerical residual.
+- **Remediation**: Added a conservative second-order face-flux residual and routed Euler, midpoint, SSPRK3, and RK4 checks through residual-based stage updates. Unsupported RK stage counts now return a typed `UnsupportedOperation` error.
+- **Mathematical basis**: For constant `u_ij = c`, every face gradient is zero, so the finite-volume residual divergence is zero at every interior cell. Explicit Runge-Kutta stage combinations of `u` and `dt R(u)` therefore preserve the constant state exactly.
+- **Verification**:
+  - `cargo check -p cfd-validation --no-default-features` passed in 0.91 s.
+  - `cargo test -p cfd-validation --no-default-features conservation::geometric --lib -- --nocapture` passed 7/7 tests.
+  - `cargo nextest run -p cfd-validation --lib --no-default-features conservation::geometric --fail-fast --hide-progress-bar` passed 7/7 tests in 0.229 s under a 30-second shell timeout.
+
+---
+
 # Module: CFD-IO
 
 **Status**:  COMPLETE (Verified)

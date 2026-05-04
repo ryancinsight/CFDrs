@@ -1,3 +1,31 @@
+# Sprint 1.96.4 Checklist: Geometric Conservation Residual Verification
+**Goal**: Replace copy-through geometric conservation checks with residual-based Euler and Runge-Kutta updates.
+
+**Success Criteria**:
+- ✅ `cfd-validation` GCL checks evaluate a conservative second-order finite-volume residual.
+- ✅ Constant fields are preserved by Euler, midpoint, SSPRK3, and RK4 stage formulas.
+- ✅ Non-constant quadratic fields produce the analytically expected residual and state update.
+- ✅ Unsupported RK stage counts return a typed rejection.
+- ✅ Bounded Cargo check, unit test, and nextest verification pass within 30 seconds after target scoping.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Identify copy-through Euler/RK evolution in `crates/cfd-validation/src/conservation/geometric.rs`.
+- [x] Specify the constant-state invariant: conservative face-flux gradients vanish exactly for `u_ij = c`.
+
+### Phase 2: Execution (10-50%)
+- [x] Add `conservative_residual` using east/west/north/south face-flux divergence.
+- [x] Replace Euler copy-through with `u^{n+1} = u^n + dt R(u^n)`.
+- [x] Replace RK copy-through with residual-based midpoint, SSPRK3, and RK4 stage formulas.
+- [x] Add value-semantic regression tests for quadratic residual response and unsupported RK stages.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for copy-through and simplification wording in the touched GCL module.
+- [x] Run `cargo check -p cfd-validation --no-default-features`.
+- [x] Run `cargo test -p cfd-validation --no-default-features conservation::geometric --lib`.
+- [x] Run `cargo nextest run -p cfd-validation --lib --no-default-features conservation::geometric` under a 30-second shell timeout.
+
+---
+
 # Sprint 1.96.3 Checklist: Womersley Analytical SSOT
 **Goal**: Replace validation-local Womersley approximations with the canonical exact complex-Bessel implementation and verify no-slip behavior.
 
