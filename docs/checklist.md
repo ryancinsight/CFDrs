@@ -1,3 +1,29 @@
+# Sprint 1.96.9 Checklist: cfd-2d Upwind Coefficient Orientation
+**Goal**: Correct `cfd-2d` first-order upwind finite-volume coefficients for west-face flow orientation.
+
+**Success Criteria**:
+- ✅ East-face coefficient remains `a_E = D_E + max(-F_E, 0)`.
+- ✅ West-face coefficient uses `a_W = D_W + max(F_W, 0)`.
+- ✅ Tests inspect positive and negative west-face flux values.
+- ✅ Bounded Cargo check, unit test, and nextest verification pass for the touched library target.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Identify sign mismatch in `FirstOrderUpwind::coefficients` for west-face convection.
+- [x] Specify the coefficient invariant from finite-volume upwinding: neighbor coefficients must remain nonnegative and select the upstream cell by face-flow orientation.
+
+### Phase 2: Execution (10-50%)
+- [x] Correct `a_W` to use `max(F_W, 0)`.
+- [x] Update the upwind theorem docs with east/west coefficient form.
+- [x] Add value-semantic tests for west-face positive and negative flow.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for touched convection paths.
+- [x] Run `cargo check -p cfd-2d --no-default-features`.
+- [x] Run `cargo test -p cfd-2d --no-default-features discretization::convection --lib`.
+- [x] Run `cargo nextest run -p cfd-2d --lib --no-default-features discretization::convection` under a 30-second shell timeout.
+
+---
+
 # Sprint 1.96.8 Checklist: cfd-1d Branch Reverse-Flow Physics
 **Goal**: Correct `cfd-1d` branch-junction solvers for reversed parent flow orientation.
 

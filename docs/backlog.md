@@ -1,5 +1,21 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.9: cfd-2d Upwind Coefficient Orientation
+**Status**: Completed
+**Start Date**: May 4, 2026
+
+### Sprint Objectives
+- Correct `cfd-2d` finite-volume first-order upwind coefficients so west-face convection uses the Patankar face-orientation sign convention.
+- Add value-semantic tests that distinguish positive and negative west-face flux orientation.
+
+### Sprint Backlog Items
+
+#### 2D Convection Discretization Physics
+- [x] **CONV-001 [patch]**: Replace `a_W = D_W + max(-F_W, 0)` with `a_W = D_W + max(F_W, 0)` in `FirstOrderUpwind`.
+- [x] **CONV-002 [patch]**: Document the finite-volume upwind coefficient invariant for east and west faces.
+- [x] **CONV-003 [patch]**: Add regression coverage for west-face positive and negative flux orientation.
+- [x] **CONV-004 [patch]**: Verify the touched `cfd-2d` convection module with bounded Cargo check, unit test, and nextest runs.
+
 ## Sprint 1.96.8: cfd-1d Branch Reverse-Flow Physics
 **Status**: Completed
 **Start Date**: May 4, 2026

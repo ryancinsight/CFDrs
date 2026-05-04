@@ -11,10 +11,19 @@
 //! condition $|u| \Delta t / \Delta x \le 1$ holds.
 //!
 //! **Proof sketch**:
-//! The upwind stencil $\phi_i^{n+1} = \phi_i^n - C(\phi_i^n - \phi_{i-1}^n)$ (for $u > 0$,
-//! Courant number $C \ge 0$) is a convex combination of $\phi_i^n$ and $\phi_{i-1}^n$
-//! when $0 \le C \le 1$, hence satisfies the discrete maximum principle. Extension to
-//! 2D follows by dimensional splitting (Strang 1968).
+//! The upwind stencil $\phi_i^{n+1} = \phi_i^n - C(\phi_i^n - \phi_{i-1}^n)$
+//! for $u > 0$ and Courant number $C \ge 0$ is a convex combination of
+//! $\phi_i^n$ and $\phi_{i-1}^n$ when $0 \le C \le 1$, hence satisfies the
+//! discrete maximum principle. In finite-volume coefficient form the bounded
+//! neighbor coefficients are
+//!
+//! ```text
+//! a_E = D_E + max(-F_E, 0),   a_W = D_W + max(F_W, 0)
+//! ```
+//!
+//! so every neighbor coefficient remains nonnegative and the upstream cell is
+//! selected according to face-flow orientation. Extension to 2D follows by
+//! dimensional splitting (Strang 1968).
 //!
 //! Higher-order schemes (QUICK, Power-Law) trade monotonicity for accuracy;
 //! the Godunov theorem states that no linear scheme of order $\ge 2$ is monotone.
@@ -44,7 +53,7 @@ impl<T: RealField + Copy> ConvectionScheme<T> for FirstOrderUpwind {
         // ae coefficient includes diffusion + convection from east face
         // aw coefficient includes diffusion + convection from west face
         let ae = de + T::max(T::zero(), -fe);
-        let aw = dw + T::max(T::zero(), -fw);
+        let aw = dw + T::max(T::zero(), fw);
         (ae, aw)
     }
 
@@ -130,7 +139,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for PowerLa
             let one_tenth = T::from_f64(0.1).unwrap_or_else(|| T::zero());
             let factor = T::one() - one_tenth * abs_pe;
             if factor > T::zero() {
-                // Approximate (1-x)^5 for small x
+                // Exact finite product for (1 - 0.1|Pe|)^5.
                 let factor2 = factor * factor;
                 let factor4 = factor2 * factor2;
                 factor4 * factor
@@ -229,15 +238,26 @@ mod tests {
     #[test]
     fn test_first_order_upwind() {
         let scheme = FirstOrderUpwind;
-        let (ae, aw) = scheme.coefficients(1.0, -1.0, 0.5, 0.5);
+        let (ae, aw) = scheme.coefficients(1.0, 1.0, 0.5, 0.5);
 
         // For positive fe, should use upwind (no convection contribution to ae)
-        // For negative fw, should use upwind (no convection contribution to aw)
+        // For positive fw, west neighbor is upwind and contributes to aw.
         assert_eq!(ae, 0.5); // de only
-        assert_eq!(aw, 1.5); // dw + |fw|
+        assert_eq!(aw, 1.5); // dw + fw
         assert!(<FirstOrderUpwind as ConvectionScheme<f64>>::is_bounded(
             &scheme
         ));
+    }
+
+    #[test]
+    fn first_order_upwind_uses_west_face_orientation() {
+        let scheme = FirstOrderUpwind;
+
+        let (_, aw_positive) = scheme.coefficients(0.0, 3.0, 0.5, 0.5);
+        let (_, aw_negative) = scheme.coefficients(0.0, -3.0, 0.5, 0.5);
+
+        assert_eq!(aw_positive, 3.5);
+        assert_eq!(aw_negative, 0.5);
     }
 
     #[test]

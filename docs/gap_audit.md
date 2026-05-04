@@ -14,6 +14,20 @@
 
 ---
 
+# Sprint 1.96.9 Resolution: cfd-2d Upwind Coefficient Orientation
+
+### RESOLVED-038: West-Face Upwind Coefficient Used Reversed Flux Sign
+- **Location**: `crates/cfd-2d/src/discretization/convection.rs`
+- **Issue**: `FirstOrderUpwind::coefficients` computed the west neighbor coefficient as `D_W + max(-F_W, 0)`. Under the standard finite-volume sign convention, the west coefficient must use `D_W + max(F_W, 0)`, so positive west-face flow was missing its upwind contribution while negative west-face flow received an unphysical one.
+- **Remediation**: Replaced the west coefficient with `D_W + max(F_W, 0)`, documented the east/west coefficient invariant, and added tests that inspect both positive and negative west-face flux cases.
+- **Mathematical basis**: For Patankar first-order upwinding with outward east-face flux `F_E` and inward west-face contribution `F_W`, bounded neighbor coefficients are `a_E = D_E + max(-F_E, 0)` and `a_W = D_W + max(F_W, 0)`. This preserves nonnegative neighbor coefficients and selects the upstream cell by face-flow orientation.
+- **Verification**:
+  - `cargo check -p cfd-2d --no-default-features` passed.
+  - `cargo test -p cfd-2d --no-default-features discretization::convection --lib` passed 6/6 tests.
+  - `cargo nextest run -p cfd-2d --lib --no-default-features discretization::convection --fail-fast --hide-progress-bar --status-level fail` passed 6/6 tests in 0.165 s.
+
+---
+
 # Sprint 1.96.8 Resolution: cfd-1d Branch Reverse-Flow Physics
 
 ### RESOLVED-037: Branch Solvers Rejected Reverse Parent Flow
