@@ -35,6 +35,7 @@
 //! □
 
 use crate::solvers::lbm::lattice::D2Q9;
+use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
@@ -90,6 +91,23 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     /// Set boundary type for an edge
     pub fn set_boundary(&mut self, edge: String, boundary_type: BoundaryType) {
         self.boundary_types.insert(edge, boundary_type);
+    }
+
+    #[inline]
+    fn validate_low_mach_velocity(velocity: [T; 2]) -> Result<()> {
+        let cs = T::from_f64(crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED)
+            .expect("cs² is an exact f64 constant")
+            .sqrt();
+        let mach_limit = T::from_f64(0.1).expect("0.1 is an exact f64 constant");
+        let speed = (velocity[0] * velocity[0] + velocity[1] * velocity[1]).sqrt();
+
+        if speed / cs > mach_limit {
+            return Err(Error::InvalidConfiguration(
+                "LBM velocity boundary violates Ma <= 0.1 low-Mach incompressible limit"
+                    .to_string(),
+            ));
+        }
+        Ok(())
     }
 
     #[inline]
@@ -307,11 +325,13 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         nx: usize,
         ny: usize,
         u_boundary: [T; 2],
-    ) {
+    ) -> Result<()> {
+        Self::validate_low_mach_velocity(u_boundary)?;
+
         let cell = j * nx + i;
         let Some(face) = Self::boundary_face(i, j, nx, ny, u_boundary) else {
             debug_assert!(false, "Velocity boundary must lie on the domain boundary");
-            return;
+            return Ok(());
         };
 
         let mut cell_values = Self::load_cell_populations(f, i, j, nx);
@@ -322,6 +342,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         velocity[cell * 2] = u_boundary[0];
         velocity[cell * 2 + 1] = u_boundary[1];
         Self::store_cell_populations(f, i, j, nx, cell_values);
+        Ok(())
     }
 
     /// Apply pressure boundary condition at node (i, j).
@@ -339,7 +360,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         nx: usize,
         ny: usize,
         p_boundary: T,
-    ) {
+    ) -> Result<()> {
         let cell = j * nx + i;
 
         let cs2 = T::from_f64(crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED)
@@ -349,7 +370,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         let velocity_hint = Self::extrapolate_velocity_flat(velocity, nx, ny, i, j);
         let Some(face) = Self::boundary_face(i, j, nx, ny, velocity_hint) else {
             debug_assert!(false, "Pressure boundary must lie on the domain boundary");
-            return;
+            return Ok(());
         };
 
         let mut u = Self::extrapolate_velocity_for_face(velocity, nx, ny, i, j, face);
@@ -362,6 +383,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
                 u[1] = normal_velocity[1];
             }
         }
+        Self::validate_low_mach_velocity(u)?;
 
         Self::reconstruct_zou_he_face(face, &mut cell_values, rho, u);
 
@@ -369,6 +391,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         velocity[cell * 2] = u[0];
         velocity[cell * 2 + 1] = u[1];
         Self::store_cell_populations(f, i, j, nx, cell_values);
+        Ok(())
     }
 
     /// Apply all boundary conditions from the boundary map.
@@ -380,7 +403,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         boundaries: &HashMap<(usize, usize), BoundaryCondition<T>>,
         nx: usize,
         ny: usize,
-    ) {
+    ) -> Result<()> {
         for ((i, j), bc) in boundaries {
             match bc {
                 BoundaryCondition::Wall { .. } => {
@@ -388,15 +411,16 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
                 }
                 BoundaryCondition::VelocityInlet { velocity: vel } => {
                     let u = [vel[0], vel[1]];
-                    Self::apply_velocity_boundary(f, density, velocity, *i, *j, nx, ny, u);
+                    Self::apply_velocity_boundary(f, density, velocity, *i, *j, nx, ny, u)?;
                 }
                 BoundaryCondition::PressureInlet { pressure, .. }
                 | BoundaryCondition::PressureOutlet { pressure } => {
-                    Self::apply_pressure_boundary(f, density, velocity, *i, *j, nx, ny, *pressure);
+                    Self::apply_pressure_boundary(f, density, velocity, *i, *j, nx, ny, *pressure)?;
                 }
                 _ => {}
             }
         }
+        Ok(())
     }
 
     /// Compute density sum at node from flat buffer (used internally).
@@ -506,7 +530,7 @@ mod tests {
         let values = [0.31, 0.12, 0.23, 0.47, 0.19, 0.15, 0.17, 0.21, 0.29];
         write_cell(&mut f, 0, 1, nx, values);
 
-        let u = [0.08_f64, -0.02_f64];
+        let u = [0.04_f64, -0.01_f64];
         BoundaryHandler::<f64>::apply_velocity_boundary(
             &mut f,
             &mut density,
@@ -516,7 +540,8 @@ mod tests {
             nx,
             ny,
             u,
-        );
+        )
+        .expect("low-Mach velocity boundary should reconstruct");
 
         let rho_expected =
             (values[0] + values[2] + values[4] + 2.0 * (values[3] + values[6] + values[7]))
@@ -559,7 +584,7 @@ mod tests {
         velocity[left_neighbor * 2 + 1] = -0.04;
 
         let cs2 = crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED;
-        let rho = 1.24_f64;
+        let rho = 2.0_f64;
         let pressure = rho * cs2;
         BoundaryHandler::<f64>::apply_pressure_boundary(
             &mut f,
@@ -570,7 +595,8 @@ mod tests {
             nx,
             ny,
             pressure,
-        );
+        )
+        .expect("low-Mach pressure boundary should reconstruct");
 
         let velocity_hint = [0.07_f64, -0.04_f64];
         let known = values[0] + values[2] + values[4] + 2.0 * (values[1] + values[5] + values[8]);
@@ -598,5 +624,27 @@ mod tests {
         assert_relative_eq!(f[east_base + 3], f3_expected, epsilon = 1e-12);
         assert_relative_eq!(f[east_base + 6], f6_expected, epsilon = 1e-12);
         assert_relative_eq!(f[east_base + 7], f7_expected, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn velocity_boundary_rejects_high_mach_inlet() {
+        let nx = 4_usize;
+        let ny = 4_usize;
+        let mut f = vec![0.1_f64; nx * ny * 9];
+        let mut density = vec![1.0_f64; nx * ny];
+        let mut velocity = vec![0.0_f64; nx * ny * 2];
+
+        let result = BoundaryHandler::<f64>::apply_velocity_boundary(
+            &mut f,
+            &mut density,
+            &mut velocity,
+            0,
+            1,
+            nx,
+            ny,
+            [0.2, 0.0],
+        );
+
+        assert!(result.is_err(), "D2Q9 velocity inlet must reject Ma > 0.1");
     }
 }

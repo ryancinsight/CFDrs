@@ -1,5 +1,30 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.13: cfd-2d Dependency-Aware Physics Audit
+**Status**: Completed
+**Start Date**: May 4, 2026
+
+### Sprint Objectives
+- Audit `cfd-2d` and its direct internal dependencies (`cfd-core`, `cfd-math`, `cfd-mesh`, `cfd-io`, `cfd-1d`, `cfd-schematics`) for role alignment in 2D Navier-Stokes, LBM, and schematics-projected channel solves.
+- Correct the highest-risk local physics defect found during the audit without changing the public solver API.
+
+### Dependency Audit Findings
+- `cfd-core`: appropriate for shared fluid physics, boundary condition types, errors, constants, and GPU feature plumbing; `cfd-2d` should not duplicate those foundation contracts.
+- `cfd-math`: appropriate for sparse/iterative numerical kernels and high-order schemes; local discretization remains in `cfd-2d` where it depends on 2D stencil geometry.
+- `cfd-mesh`: appropriate for mesh-backed geometry inputs and unstructured contexts; structured solver kernels correctly keep 2D grid storage local.
+- `cfd-io`: appropriate for field output and visualization export; it is not part of the time-integration physics path.
+- `cfd-1d`: appropriate as a reduced-order pressure/flow reference for channel projection and cross-fidelity seeding, not as a replacement for 2D PDE solves.
+- `cfd-schematics`: appropriate as topology and layout authority; `cfd-2d` consumes blueprints through projection metadata instead of owning schematic generation.
+
+### Sprint Backlog Items
+
+#### 2D LBM Low-Mach Physics
+- [x] **LBM-MACH-001 [patch]**: Enforce `Ma <= 0.1` during LBM initialization.
+- [x] **LBM-MACH-002 [patch]**: Enforce `Ma <= 0.1` for Zou-He velocity and pressure boundary reconstruction.
+- [x] **LBM-MACH-003 [patch]**: Propagate boundary-condition Mach violations through `LbmSolver::step`.
+- [x] **LBM-MACH-004 [patch]**: Add value-semantic tests for high-Mach initialization and inlet rejection.
+- [x] **LBM-MACH-005 [patch]**: Verify the touched `cfd-2d` LBM module with bounded Cargo check, unit test, clippy, and nextest runs.
+
 ## Sprint 1.96.12: cfd-1d Dependency-Aware Physics Audit
 **Status**: Completed
 **Start Date**: May 4, 2026

@@ -38,7 +38,7 @@ use crate::solvers::lbm::{
     macroscopic::{compute_pressure, MacroscopicQuantities},
     streaming::{f_idx, StreamingOperator},
 };
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use nalgebra::{RealField, Vector2};
 use num_traits::FromPrimitive;
@@ -199,6 +199,22 @@ where
             .collect()
     }
 
+    #[inline]
+    fn validate_low_mach_velocity(velocity: Vector2<T>) -> Result<()> {
+        let cs = T::from_f64(crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED)
+            .expect("cs² is an exact f64 constant")
+            .sqrt();
+        let mach_limit = T::from_f64(0.1).expect("0.1 is an exact f64 constant");
+        let speed = (velocity.x * velocity.x + velocity.y * velocity.y).sqrt();
+
+        if speed / cs > mach_limit {
+            return Err(Error::InvalidConfiguration(
+                "LBM initialization violates Ma <= 0.1 low-Mach incompressible limit".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Get macroscopic density and velocity at node (i, j).
     pub fn compute_macroscopic(&self, i: usize, j: usize) -> (T, Vector2<T>) {
         let rho = self.macroscopic.density_at(i, j);
@@ -224,6 +240,7 @@ where
 
                 let rho = density_fn(x, y);
                 let vel = velocity_fn(x, y);
+                Self::validate_low_mach_velocity(vel)?;
                 let u = [vel.x, vel.y];
 
                 let cell = j * nx + i;
@@ -317,7 +334,7 @@ where
             boundaries,
             nx,
             ny,
-        );
+        )?;
 
         if let Some(g) = &mut self.g {
             super::scalar_boundary::apply_scalar_boundaries(g, boundaries, nx, ny);
@@ -459,6 +476,18 @@ mod tests {
         assert_relative_eq!(rho, 1.0, epsilon = 1e-10);
         assert_relative_eq!(u.x, 0.0, epsilon = 1e-10);
         assert_relative_eq!(u.y, 0.0, epsilon = 1e-10);
+        Ok(())
+    }
+
+    #[test]
+    fn initialization_rejects_high_mach_velocity() -> Result<()> {
+        let grid = StructuredGrid2D::<f64>::new(4, 4, 0.0, 1.0, 0.0, 1.0)?;
+        let config = LbmConfig::<f64>::default();
+        let mut solver = LbmSolver::new(config, &grid);
+
+        let result = solver.initialize(|_, _| 1.0, |_, _| Vector2::new(0.2, 0.0));
+
+        assert!(result.is_err(), "D2Q9 initialization must reject Ma > 0.1");
         Ok(())
     }
 

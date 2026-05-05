@@ -1,3 +1,32 @@
+# Sprint 1.96.13 Checklist: cfd-2d Dependency-Aware Physics Audit
+**Goal**: Audit `cfd-2d` and direct dependencies, then correct the highest-risk cfd-2d physics gap found.
+
+**Success Criteria**:
+- ✅ Audit covers `cfd-2d`, `cfd-core`, `cfd-math`, `cfd-mesh`, `cfd-io`, `cfd-1d`, and `cfd-schematics`.
+- ✅ LBM initialization rejects velocities outside the low-Mach incompressible regime.
+- ✅ LBM Zou-He velocity and pressure boundary reconstruction reject derived or prescribed `Ma > 0.1`.
+- ✅ Bounded Cargo check, unit test, clippy, and nextest verification pass for the touched `cfd-2d` LBM paths.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Map `cfd-2d` manifest, public module graph, and direct internal dependencies.
+- [x] Classify dependency roles: core physics/errors, numerical kernels, mesh and IO adapters, 1D reference seeding, schematic topology.
+- [x] Identify missing low-Mach enforcement in D2Q9 LBM velocity entry points.
+
+### Phase 2: Execution (10-50%)
+- [x] Add low-Mach validation for LBM initialization velocities.
+- [x] Add low-Mach validation for Zou-He velocity boundaries and pressure-derived velocities.
+- [x] Return boundary validation errors through `LbmSolver::step`.
+- [x] Add value-semantic high-Mach rejection tests.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for touched cfd-2d LBM paths.
+- [x] Run `cargo check -p cfd-2d --no-default-features`.
+- [x] Run `cargo test -p cfd-2d --no-default-features solvers::lbm --lib`.
+- [x] Run `cargo nextest run -p cfd-2d --lib --no-default-features solvers::lbm` under a 30-second shell timeout.
+- [x] Run `cargo clippy -p cfd-2d --no-default-features --lib -- -W clippy::all -W clippy::pedantic`.
+
+---
+
 # Sprint 1.96.12 Checklist: cfd-1d Dependency-Aware Physics Audit
 **Goal**: Audit `cfd-1d` and direct dependencies, then correct the highest-risk cfd-1d physics gap found.
 

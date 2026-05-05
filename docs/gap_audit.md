@@ -14,6 +14,22 @@
 
 ---
 
+# Sprint 1.96.13 Resolution: cfd-2d Dependency-Aware Physics Audit
+
+### RESOLVED-042: LBM Accepted High-Mach Velocity States
+- **Location**: `crates/cfd-2d/src/solvers/lbm/`
+- **Issue**: The D2Q9 LBM solver documents the Chapman-Enskog low-Mach limit and crate instructions prohibit `Ma > 0.1`, but initialization and Zou-He boundary reconstruction accepted arbitrary imposed velocities. This allowed weakly compressible states outside the incompressible Navier-Stokes validity range.
+- **Dependency audit**: `cfd-core` usage is appropriate for shared boundary-condition and error contracts; `cfd-math` usage is appropriate for numerical kernels outside the local LBM update; `cfd-mesh` and `cfd-io` serve mesh/output adapters; `cfd-1d` supplies reduced-order reference seeding; `cfd-schematics` remains topology/layout authority. The defect was local to `cfd-2d` LBM physics enforcement.
+- **Remediation**: Added `Ma <= 0.1` validation for LBM initialization, Zou-He velocity inlet reconstruction, and pressure-boundary derived velocities. Boundary validation now returns errors through `LbmSolver::step`. Added tests that reject high-Mach initialization and velocity inlet states.
+- **Mathematical basis**: D2Q9 BGK recovers incompressible Navier-Stokes through Chapman-Enskog expansion only for `Ma = |u|/c_s << 1`, with `c_s = sqrt(1/3)` in lattice units. Enforcing `Ma <= 0.1` bounds compressibility error at the documented low-Mach regime.
+- **Verification**:
+  - `cargo check -p cfd-2d --no-default-features` passed.
+  - `cargo test -p cfd-2d --no-default-features solvers::lbm --lib` passed 31/31 tests.
+  - `cargo nextest run -p cfd-2d --lib --no-default-features solvers::lbm --fail-fast --hide-progress-bar --status-level fail` passed 31/31 tests.
+  - `cargo clippy -p cfd-2d --no-default-features --lib -- -W clippy::all -W clippy::pedantic` passed.
+
+---
+
 # Sprint 1.96.12 Resolution: cfd-1d Dependency-Aware Physics Audit
 
 ### RESOLVED-041: Serpentine Resistance Used Signed Velocity for Scalar Losses
