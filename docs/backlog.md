@@ -1,5 +1,21 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.11: cfd-3d Sigma SGS Energy Physics
+**Status**: Completed
+**Start Date**: May 4, 2026
+
+### Sprint Objectives
+- Correct `cfd-3d` Sigma LES SGS kinetic-energy diagnostics so they use the same Yoshizawa eddy-viscosity inversion as the other algebraic LES closures.
+- Consolidate SGS energy computation through the shared turbulence helper instead of retaining a Sigma-specific strain-rate expression with incorrect dimensions.
+
+### Sprint Backlog Items
+
+#### 3D LES Closure Physics
+- [x] **SIGMA-SGS-001 [patch]**: Replace `nu_t |S| / Delta` Sigma SGS energy with `(nu_t / (C_k Delta))^2`.
+- [x] **SIGMA-SGS-002 [patch]**: Route Sigma SGS energy through the shared `kinetic_energy_from_eddy_viscosity` SSOT.
+- [x] **SIGMA-SGS-003 [patch]**: Add value-semantic regression coverage for the Yoshizawa relation and the former dimensional mismatch.
+- [x] **SIGMA-SGS-004 [patch]**: Verify the touched `cfd-3d` Sigma module with bounded Cargo check, unit test, clippy, and nextest runs.
+
 ## Sprint 1.96.10: cfd-3d VOF Directional CFL Physics
 **Status**: Completed
 **Start Date**: May 4, 2026

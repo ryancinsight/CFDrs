@@ -14,6 +14,21 @@
 
 ---
 
+# Sprint 1.96.11 Resolution: cfd-3d Sigma SGS Energy Physics
+
+### RESOLVED-040: Sigma SGS Energy Used Dimensional Strain-Rate Formula
+- **Location**: `crates/cfd-3d/src/physics/turbulence/sigma.rs`
+- **Issue**: `SigmaModel::turbulent_kinetic_energy` computed `nu_t |S| / Delta`, which has units `L/T^2` and is not turbulent kinetic energy. WALE and Vreman already used the shared Yoshizawa inversion `k_sgs = (nu_t / (C_k Delta))^2`, so Sigma carried an inconsistent LES diagnostic path.
+- **Remediation**: Routed Sigma SGS kinetic energy through `kinetic_energy_from_eddy_viscosity`, removed the separate strain-rate dependency from the energy path, and added a regression that verifies the exact Yoshizawa value while rejecting the former formula.
+- **Mathematical basis**: Yoshizawa's algebraic LES relation is `nu_t = C_k Delta sqrt(k_sgs)`. Solving for `k_sgs` gives `(nu_t / (C_k Delta))^2`, which has units `L^2/T^2` and preserves non-negativity for nonnegative eddy viscosity and positive filter width.
+- **Verification**:
+  - `cargo check -p cfd-3d --no-default-features` passed.
+  - `cargo test -p cfd-3d --no-default-features physics::turbulence::sigma --lib` passed 4/4 tests.
+  - `cargo nextest run -p cfd-3d --lib --no-default-features physics::turbulence::sigma --fail-fast --hide-progress-bar --status-level fail` passed 4/4 tests.
+  - `cargo clippy -p cfd-3d --no-default-features --lib -- -W clippy::all -W clippy::pedantic` passed.
+
+---
+
 # Sprint 1.96.10 Resolution: cfd-3d VOF Directional CFL Physics
 
 ### RESOLVED-039: VOF Timestep Used Speed/Minimum-Spacing Bound

@@ -37,7 +37,8 @@ use nalgebra::RealField;
 use num_traits::FromPrimitive;
 
 use super::constants::SIGMA_C;
-use super::field_ops::{strain_magnitude, velocity_gradient_tensor};
+use super::field_ops::velocity_gradient_tensor;
+use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 
 /// Sigma subgrid-scale model for LES (Nicoud et al. 2011).
 ///
@@ -150,8 +151,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
         eigenvalues
     }
 
-    /// Compute the local Sigma-model viscosity and strain magnitude.
-    fn point_metrics(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> (T, T) {
+    /// Compute the local Sigma-model eddy viscosity.
+    fn point_viscosity(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> T {
         let (nx, ny, nz) = flow.velocity.dimensions;
         let gradient = velocity_gradient_tensor(
             &flow.velocity.components,
@@ -165,7 +166,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
             self.dy,
             self.dz,
         );
-        let strain_mag = strain_magnitude(&gradient);
 
         let mut gtg = [[T::zero(); 3]; 3];
         for ii in 0..3 {
@@ -208,13 +208,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
         };
 
         let c_delta = self.c_sigma * self.filter_width;
-        let viscosity = c_delta * c_delta * sigma_product;
-        (viscosity, strain_mag)
+        c_delta * c_delta * sigma_product
     }
 
     /// Compute the Sigma eddy viscosity at a single grid point.
     fn sigma_viscosity_at(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> T {
-        self.point_metrics(flow, i, j, k).0
+        self.point_viscosity(flow, i, j, k)
     }
 }
 
@@ -243,26 +242,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
     }
 
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
-        // Estimate SGS TKE from the resolved eddy viscosity and strain magnitude.
-        let (nx, ny, nz) = flow_field.velocity.dimensions;
-        let mut kinetic_energy = Vec::with_capacity(nx * ny * nz);
-        let delta = if self.filter_width > T::zero() {
-            self.filter_width
-        } else {
-            <T as FromPrimitive>::from_f64(1e-30)
-                .expect("1e-30 is an IEEE 754 representable f64 constant")
-        };
-
-        for k in 0..nz {
-            for j in 0..ny {
-                for i in 0..nx {
-                    let (viscosity, strain_mag) = self.point_metrics(flow_field, i, j, k);
-                    kinetic_energy.push(viscosity * strain_mag / delta);
-                }
-            }
-        }
-
-        kinetic_energy
+        // Yoshizawa inversion: nu_t = C_k Delta sqrt(k_sgs).
+        self.turbulent_viscosity(flow_field)
+            .into_iter()
+            .map(|nu_t| kinetic_energy_from_eddy_viscosity(nu_t, self.filter_width))
+            .collect()
     }
 
     fn name(&self) -> &'static str {
@@ -338,5 +322,33 @@ mod tests {
             model.c_sigma * model.c_sigma * model.filter_width * model.filter_width / 9.0;
 
         assert_relative_eq!(viscosity[center], expected, epsilon = 1e-12);
+    }
+
+    #[test]
+    fn turbulent_kinetic_energy_uses_yoshizawa_inversion() {
+        let dx = 2.0;
+        let dy = 3.0;
+        let dz = 4.0;
+        let mut flow = FlowField::<f64>::new(3, 3, 3);
+        fill_velocity_field(&mut flow, |i, j, k| {
+            let x = i * dx;
+            let y = j * dy;
+            let z = k * dz;
+            Vector3::new(x, 2.0 * y, 3.0 * z)
+        });
+
+        let model = SigmaModel::<f64>::with_filter_width(dx, dy, dz);
+        let viscosity = model.turbulent_viscosity(&flow);
+        let kinetic_energy = model.turbulent_kinetic_energy(&flow);
+        let center = 13;
+        let yoshizawa_c_k = 0.094_f64;
+        let expected = (viscosity[center] / (yoshizawa_c_k * model.filter_width)).powi(2);
+        let former_strain_rate_formula = viscosity[center] * 14.0_f64.sqrt() / model.filter_width;
+
+        assert_relative_eq!(kinetic_energy[center], expected, epsilon = 1e-12);
+        assert!(
+            (kinetic_energy[center] - former_strain_rate_formula).abs() > 1e-3,
+            "SGS kinetic energy must use the dimensionally correct Yoshizawa relation"
+        );
     }
 }

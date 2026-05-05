@@ -1,3 +1,30 @@
+# Sprint 1.96.11 Checklist: cfd-3d Sigma SGS Energy Physics
+**Goal**: Correct `cfd-3d` Sigma LES turbulent kinetic-energy diagnostics.
+
+**Success Criteria**:
+- ✅ Sigma SGS kinetic energy uses `k_sgs = (nu_t / (C_k Delta))^2`.
+- ✅ Sigma shares the same SGS energy conversion used by WALE and Vreman.
+- ✅ Tests inspect the computed center-cell energy and distinguish the former strain-rate formula.
+- ✅ Bounded Cargo check, unit test, clippy, and nextest verification pass for the touched Sigma module.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Identify dimensional mismatch in `SigmaModel::turbulent_kinetic_energy`.
+- [x] Specify the Yoshizawa invariant: eddy viscosity `nu_t = C_k Delta sqrt(k_sgs)`.
+
+### Phase 2: Execution (10-50%)
+- [x] Replace Sigma-specific `nu_t |S| / Delta` energy computation.
+- [x] Route Sigma through shared `kinetic_energy_from_eddy_viscosity`.
+- [x] Add value-semantic regression coverage for the corrected relation.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for touched Sigma paths.
+- [x] Run `cargo check -p cfd-3d --no-default-features`.
+- [x] Run `cargo test -p cfd-3d --no-default-features physics::turbulence::sigma --lib`.
+- [x] Run `cargo nextest run -p cfd-3d --lib --no-default-features physics::turbulence::sigma` under a 30-second shell timeout.
+- [x] Run `cargo clippy -p cfd-3d --no-default-features --lib -- -W clippy::all -W clippy::pedantic`.
+
+---
+
 # Sprint 1.96.10 Checklist: cfd-3d VOF Directional CFL Physics
 **Goal**: Correct `cfd-3d` VOF timestep selection for diagonal and anisotropic flow.
 
