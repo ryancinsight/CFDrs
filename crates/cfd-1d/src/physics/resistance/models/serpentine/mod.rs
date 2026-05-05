@@ -391,6 +391,71 @@ mod tests {
     }
 
     #[test]
+    fn serpentine_coefficients_are_invariant_under_reverse_flow() -> cfd_core::error::Result<()> {
+        let fluid = water();
+        let model = SerpentineModel {
+            straight_length: 0.02_f64,
+            num_segments: 6,
+            cross_section: SerpentineCrossSection::Rectangular {
+                width: 1.2e-3,
+                height: 0.45e-3,
+            },
+            bend_radius: 1.5e-3,
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 3.0,
+            },
+        };
+
+        let forward = FlowConditions::new(0.08);
+        let reverse = FlowConditions::new(-0.08);
+        let (r_forward, k_forward) = model.calculate_coefficients(&fluid, &forward)?;
+        let (r_reverse, k_reverse) = model.calculate_coefficients(&fluid, &reverse)?;
+        let resistance_forward = model.calculate_resistance(&fluid, &forward)?;
+        let resistance_reverse = model.calculate_resistance(&fluid, &reverse)?;
+
+        assert_relative_eq!(r_forward, r_reverse, max_relative = 1e-12);
+        assert_relative_eq!(k_forward, k_reverse, max_relative = 1e-12);
+        assert_relative_eq!(resistance_forward, resistance_reverse, max_relative = 1e-12);
+
+        Ok(())
+    }
+
+    #[test]
+    fn serpentine_analysis_uses_flow_magnitude_for_scalar_losses() -> cfd_core::error::Result<()> {
+        let fluid = water();
+        let model = SerpentineModel {
+            straight_length: 0.02_f64,
+            num_segments: 6,
+            cross_section: SerpentineCrossSection::Circular { diameter: 0.8e-3 },
+            bend_radius: 2.0e-3,
+            bend_type: BendType::Smooth {
+                radius_to_dh_ratio: 2.5,
+            },
+        };
+
+        let forward = model.analyze(&fluid, &FlowConditions::new(0.12))?;
+        let reverse = model.analyze(&fluid, &FlowConditions::new(-0.12))?;
+
+        assert_relative_eq!(forward.reynolds, reverse.reynolds, max_relative = 1e-12);
+        assert_relative_eq!(
+            forward.wall_shear_rate,
+            reverse.wall_shear_rate,
+            max_relative = 1e-12
+        );
+        assert_relative_eq!(
+            forward.dean_number,
+            reverse.dean_number,
+            max_relative = 1e-12
+        );
+        assert_relative_eq!(forward.dp_total, reverse.dp_total, max_relative = 1e-12);
+        assert!(reverse.reynolds > 0.0);
+        assert!(reverse.wall_shear_rate > 0.0);
+        assert!(reverse.dp_total > 0.0);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_serpentine_validate_invariants() {
         let fluid = water();
         let conditions = FlowConditions::new(0.1);

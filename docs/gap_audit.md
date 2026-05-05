@@ -14,6 +14,22 @@
 
 ---
 
+# Sprint 1.96.12 Resolution: cfd-1d Dependency-Aware Physics Audit
+
+### RESOLVED-041: Serpentine Resistance Used Signed Velocity for Scalar Losses
+- **Location**: `crates/cfd-1d/src/physics/resistance/models/serpentine/`
+- **Issue**: `SerpentineModel::calculate_coefficients` and `analyze` propagated signed velocity into wall shear rate, Reynolds number, Dean number, and pressure-loss magnitudes. Reversed flow therefore used the low-Re fallback path and returned different scalar resistance coefficients from the same physical channel operated in the opposite direction.
+- **Dependency audit**: `cfd-core` usage is appropriate for fluid properties, constants, shared errors, and solver traits; `cfd-math` usage is appropriate for sparse/iterative network solving; `cfd-schematics` usage is appropriate as topology and cross-section authority. The defect was local to `cfd-1d` serpentine physics rather than a dependency-boundary mismatch.
+- **Remediation**: Converted serpentine coefficient and analysis calculations to use velocity magnitude for scalar-loss quantities while leaving flow orientation to the network pressure-flow relation. Added reverse-flow tests for coefficients, resistance, Reynolds number, wall shear rate, Dean number, and pressure-drop magnitudes.
+- **Mathematical basis**: For an orientation-symmetric serpentine channel, reversing flow maps `u -> -u` and `Q -> -Q`; scalar dissipation terms depend on `|u|`, `Re = rho |u| D_h / mu`, `De = Re sqrt(D_h/(2R_c))`, and dynamic pressure `0.5 rho |u|^2`. Therefore resistance magnitudes are even under reversal, while signed pressure drop is handled by the surrounding network equation.
+- **Verification**:
+  - `cargo check -p cfd-1d --no-default-features` passed.
+  - `cargo test -p cfd-1d --no-default-features physics::resistance::models::serpentine --lib` passed 17/17 tests.
+  - `cargo nextest run -p cfd-1d --lib --no-default-features physics::resistance::models::serpentine --fail-fast --hide-progress-bar --status-level fail` passed 17/17 tests.
+  - `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic` passed.
+
+---
+
 # Sprint 1.96.11 Resolution: cfd-3d Sigma SGS Energy Physics
 
 ### RESOLVED-040: Sigma SGS Energy Used Dimensional Strain-Rate Formula

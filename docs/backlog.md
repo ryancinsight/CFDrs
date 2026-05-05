@@ -1,5 +1,27 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.12: cfd-1d Dependency-Aware Physics Audit
+**Status**: Completed
+**Start Date**: May 4, 2026
+
+### Sprint Objectives
+- Audit `cfd-1d` and its direct internal dependencies (`cfd-core`, `cfd-math`, `cfd-schematics`) for role alignment in the 1D millifluidic solver.
+- Correct the highest-risk local physics defect found during the audit without changing public APIs.
+
+### Dependency Audit Findings
+- `cfd-core`: appropriate as the source for fluid properties, constants, boundary conditions, shared errors, and solver traits; `cfd-1d` uses it at physics and solver boundaries rather than duplicating fluid databases.
+- `cfd-math`: appropriate for sparse and iterative linear algebra in network solves; `cfd-1d` also uses `nalgebra-sparse` directly for assembly, which is acceptable because it owns the graph-to-matrix mapping.
+- `cfd-schematics`: appropriate as topology and cross-section authority; `cfd-1d` consumes `NodeSpec`, `ChannelSpec`, and render metadata but keeps hydraulic resistance and flow-state logic local.
+- External crates: `petgraph` is appropriate for directed network topology, `nalgebra` for scalar/vector algebra, `serde` for persisted design state, `rayon` only where independent network paths can be parallelized.
+
+### Sprint Backlog Items
+
+#### 1D Serpentine Reverse-Flow Physics
+- [x] **SERP-REV-001 [patch]**: Use flow-speed magnitude for serpentine shear rate, Reynolds number, Dean number, friction losses, and bend minor losses.
+- [x] **SERP-REV-002 [patch]**: Preserve orientation outside scalar resistance coefficients by keeping resistance magnitudes invariant under `Q -> -Q`.
+- [x] **SERP-REV-003 [patch]**: Add value-semantic tests for reverse-flow coefficient and analysis invariance.
+- [x] **SERP-REV-004 [patch]**: Verify the touched `cfd-1d` serpentine module with bounded Cargo check, unit test, clippy, and nextest runs.
+
 ## Sprint 1.96.11: cfd-3d Sigma SGS Energy Physics
 **Status**: Completed
 **Start Date**: May 4, 2026

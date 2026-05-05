@@ -76,17 +76,18 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
                 "Serpentine analysis requires velocity or flow_rate".to_string(),
             ));
         };
+        let velocity_magnitude = velocity.abs();
 
         let f_re = self.cross_section.shah_london_fre_factor() * 64.0;
         let shape_correction =
             T::from_f64(f_re / 64.0).expect("Mathematical constant conversion compromised");
         let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
-        let shear_rate = shape_correction * eight * velocity / dh;
+        let shear_rate = shape_correction * eight * velocity_magnitude / dh;
 
         let viscosity =
             fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
 
-        let reynolds = density * velocity * dh / viscosity;
+        let reynolds = density * velocity_magnitude * dh / viscosity;
         let re_safe = if reynolds > T::default_epsilon() {
             reynolds
         } else {
@@ -101,12 +102,16 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
         // Friction in straight sections: Use f_straight (NOT f_curved)
         // Curvature effects are captured in bend losses, not friction along straight sections
         let half = T::one() / (T::one() + T::one());
-        let dp_friction =
-            f_straight * (self.straight_length / dh) * half * density * velocity * velocity;
+        let dp_friction = f_straight
+            * (self.straight_length / dh)
+            * half
+            * density
+            * velocity_magnitude
+            * velocity_magnitude;
 
         let n_bends = T::from_usize(self.num_bends()).unwrap_or_else(T::zero);
         let k_bend = self.bend_type.loss_coefficient(re_safe);
-        let dp_bends = n_bends * k_bend * half * density * velocity * velocity;
+        let dp_bends = n_bends * k_bend * half * density * velocity_magnitude * velocity_magnitude;
 
         Ok(SerpentineAnalysis {
             reynolds,

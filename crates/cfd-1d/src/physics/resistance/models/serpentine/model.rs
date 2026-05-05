@@ -229,7 +229,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         let dh = T::from_f64(self.cross_section.hydraulic_diameter()).unwrap_or_else(T::one);
         let area = T::from_f64(self.cross_section.area()).unwrap_or_else(T::one);
 
-        // Get velocity
+        // Get velocity orientation, then use its magnitude for scalar losses.
         let velocity = if let Some(v) = conditions.velocity {
             v
         } else if let Some(q) = conditions.flow_rate {
@@ -237,6 +237,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         } else {
             T::zero()
         };
+        let velocity_magnitude = velocity.abs();
 
         // Exact area-averaged wall shear rate derived from force balance:
         // $\tau_w = \Delta P \cdot D_h / (4 L)$ and $\tau_w = \mu \gamma$
@@ -246,14 +247,14 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         let shape_correction =
             T::from_f64(f_re / 64.0).expect("Mathematical constant conversion compromised");
         let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
-        let shear_rate = shape_correction * eight * velocity / dh;
+        let shear_rate = shape_correction * eight * velocity_magnitude / dh;
 
         // Get viscosity (supports non-Newtonian)
         let viscosity =
             fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
 
         // Reynolds number
-        let reynolds = density * velocity * dh / viscosity;
+        let reynolds = density * velocity_magnitude * dh / viscosity;
 
         // Ensure positive Reynolds for calculations
         let re_safe = if reynolds > T::default_epsilon() {
@@ -276,18 +277,22 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SerpentineModel
         // making the GA's serpentine insertion mutations invisible to the
         // 1D flow solver.
         let half = T::one() / (T::one() + T::one());
-        let dp_friction =
-            f_effective * (self.straight_length / dh) * half * density * velocity * velocity;
+        let dp_friction = f_effective
+            * (self.straight_length / dh)
+            * half
+            * density
+            * velocity_magnitude
+            * velocity_magnitude;
 
         // --- 3. Bend minor losses ---
         let n_bends = T::from_usize(self.num_bends()).unwrap_or_else(T::zero);
         let k_bend = self.bend_type.loss_coefficient(re_safe);
-        let dp_bends = n_bends * k_bend * half * density * velocity * velocity;
+        let dp_bends = n_bends * k_bend * half * density * velocity_magnitude * velocity_magnitude;
 
         // Ensure geometric variations are ALWAYS mathematically represented,
         // even deeply embedded in the micro-flow limit. Zero-flow limits still
         // experience differentiated boundary conditions.
-        let q = velocity * area;
+        let q = velocity_magnitude * area;
         let q_sq = q * q;
 
         // Even at low velocity, K-factor (minor losses) must be captured to differentiate geometries.

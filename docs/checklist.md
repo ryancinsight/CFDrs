@@ -1,3 +1,31 @@
+# Sprint 1.96.12 Checklist: cfd-1d Dependency-Aware Physics Audit
+**Goal**: Audit `cfd-1d` and direct dependencies, then correct the highest-risk cfd-1d physics gap found.
+
+**Success Criteria**:
+- ✅ Audit covers `cfd-1d`, `cfd-core`, `cfd-math`, `cfd-schematics`, and how each dependency is used.
+- ✅ Serpentine scalar resistance losses are invariant under flow reversal.
+- ✅ Tests inspect coefficients, resistance, Reynolds number, wall shear rate, Dean number, and pressure-drop magnitudes.
+- ✅ Bounded Cargo check, unit test, clippy, and nextest verification pass for the touched `cfd-1d` module.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Map `cfd-1d` manifest, public module graph, and direct internal dependencies.
+- [x] Classify dependency roles: core physics/errors, numerical linear algebra, schematic topology authority.
+- [x] Identify reverse-flow sign leakage in serpentine scalar-loss physics.
+
+### Phase 2: Execution (10-50%)
+- [x] Use `|u|` for serpentine shear-rate, Reynolds, Dean, friction, and bend-loss calculations.
+- [x] Preserve resistance-coefficient invariance under reversed velocity.
+- [x] Add value-semantic reverse-flow tests.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for touched cfd-1d paths.
+- [x] Run `cargo check -p cfd-1d --no-default-features`.
+- [x] Run `cargo test -p cfd-1d --no-default-features physics::resistance::models::serpentine --lib`.
+- [x] Run `cargo nextest run -p cfd-1d --lib --no-default-features physics::resistance::models::serpentine` under a 30-second shell timeout.
+- [x] Run `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic`.
+
+---
+
 # Sprint 1.96.11 Checklist: cfd-3d Sigma SGS Energy Physics
 **Goal**: Correct `cfd-3d` Sigma LES turbulent kinetic-energy diagnostics.
 
