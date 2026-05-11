@@ -1,3 +1,31 @@
+# Sprint 1.96.14 Checklist: cfd-1d Dependency-Aware Physics Audit
+**Goal**: Audit `cfd-1d` and direct dependencies, then correct the highest-risk cfd-1d physics gap found.
+
+**Success Criteria**:
+- ✅ Audit covers `cfd-1d`, `cfd-core`, `cfd-math`, `cfd-schematics`, and how each dependency is used.
+- ✅ Hagen-Poiseuille shear-rate derivation is invariant under flow reversal for non-Newtonian fluids.
+- ✅ Explicitly negative shear-rate inputs are rejected instead of being passed to rheology models.
+- ✅ Bounded Cargo check, unit test, clippy, and nextest verification pass for the touched `cfd-1d` module.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Map `cfd-1d` manifest, public module graph, and direct internal dependencies.
+- [x] Classify dependency roles: core rheology/errors, numerical kernels, schematic topology and cross-section input.
+- [x] Identify signed derived shear rate in Hagen-Poiseuille as the highest-risk local physics gap.
+
+### Phase 2: Execution (10-50%)
+- [x] Use velocity magnitude when deriving wall shear rate from velocity or flow rate.
+- [x] Reject explicit negative wall shear-rate inputs.
+- [x] Add Casson blood reverse-flow reciprocity and negative-shear tests.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for the touched Hagen-Poiseuille path.
+- [x] Run `cargo check -p cfd-1d --no-default-features`.
+- [x] Run `cargo test -p cfd-1d --no-default-features physics::resistance::models::hagen_poiseuille --lib`.
+- [x] Run `cargo nextest run -p cfd-1d --lib --no-default-features physics::resistance::models::hagen_poiseuille` under a 30-second shell timeout.
+- [x] Run `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic`.
+
+---
+
 # Sprint 1.96.13 Checklist: cfd-2d Dependency-Aware Physics Audit
 **Goal**: Audit `cfd-2d` and direct dependencies, then correct the highest-risk cfd-2d physics gap found.
 

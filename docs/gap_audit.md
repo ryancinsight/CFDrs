@@ -14,6 +14,22 @@
 
 ---
 
+# Sprint 1.96.14 Resolution: cfd-1d Dependency-Aware Physics Audit
+
+### RESOLVED-043: Hagen-Poiseuille Derived Signed Shear for Non-Newtonian Fluids
+- **Location**: `crates/cfd-1d/src/physics/resistance/models/hagen_poiseuille.rs`
+- **Issue**: Hagen-Poiseuille coefficient evaluation derived wall shear rate as `8V/D` using signed velocity or signed flow-rate-derived velocity. Newtonian fluids masked the defect, but `cfd-core` non-Newtonian blood models use shear rate to compute apparent viscosity, so reverse flow through the same straight circular channel could produce different scalar resistance.
+- **Dependency audit**: `cfd-core` usage is appropriate for Casson and other rheology models plus shared errors; `cfd-math` usage is appropriate for sparse/iterative network solving; `cfd-schematics` usage is appropriate as topology and cross-section input authority. The defect was local to `cfd-1d` resistance physics, not a crate-boundary mismatch.
+- **Remediation**: Derived wall shear from velocity magnitude, rejected explicitly negative shear-rate inputs, and added Casson blood tests for reverse-flow resistance reciprocity and negative-shear rejection.
+- **Mathematical basis**: For fully developed circular Poiseuille flow, wall shear-rate magnitude is `gamma_dot_w = 8|V|/D = 8|Q|/(A D)`. Straight-channel hydraulic resistance is an even scalar under flow reversal; orientation is represented by the signed network pressure-flow relation.
+- **Verification**:
+  - `cargo check -p cfd-1d --no-default-features` passed.
+  - `cargo test -p cfd-1d --no-default-features physics::resistance::models::hagen_poiseuille --lib` passed 6/6 tests.
+  - `cargo nextest run -p cfd-1d --lib --no-default-features physics::resistance::models::hagen_poiseuille --fail-fast --hide-progress-bar --status-level fail` passed 6/6 tests.
+  - `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic` passed.
+
+---
+
 # Sprint 1.96.13 Resolution: cfd-2d Dependency-Aware Physics Audit
 
 ### RESOLVED-042: LBM Accepted High-Mach Velocity States

@@ -1,5 +1,27 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.14: cfd-1d Dependency-Aware Physics Audit
+**Status**: Completed
+**Start Date**: May 11, 2026
+
+### Sprint Objectives
+- Audit `cfd-1d` and its direct internal dependencies (`cfd-core`, `cfd-math`, `cfd-schematics`) for role alignment in 1D millifluidic network solves.
+- Correct the highest-risk local physics defect found during the audit without changing public APIs.
+
+### Dependency Audit Findings
+- `cfd-core`: appropriate for fluid properties, non-Newtonian blood rheology, boundary-condition concepts, shared errors, and physical constants; `cfd-1d` should consume these contracts instead of duplicating rheology.
+- `cfd-math`: appropriate for sparse and iterative numerical kernels in network solves; local graph-to-matrix assembly remains in `cfd-1d` because it owns Kirchhoff topology and boundary elimination.
+- `cfd-schematics`: appropriate as topology and geometry input authority; `cfd-1d` converts schematics into hydraulic networks and does not own schematic rendering or layout semantics.
+- External crates: `petgraph` is appropriate for directed network topology, `nalgebra` and `nalgebra-sparse` for scalar/vector and sparse matrix operations, `sprs` for sparse storage compatibility, `serde` for persisted design state, and `rayon` only for independent network analyses.
+
+### Sprint Backlog Items
+
+#### Hagen-Poiseuille Non-Newtonian Shear Magnitude
+- [x] **HP-SHEAR-001 [patch]**: Derive wall shear rate from velocity or flow-rate magnitude for straight circular channels.
+- [x] **HP-SHEAR-002 [patch]**: Reject explicitly negative wall shear-rate inputs because shear rate is a scalar magnitude.
+- [x] **HP-SHEAR-003 [patch]**: Add value-semantic Casson blood regression tests proving reverse-flow resistance reciprocity.
+- [x] **HP-SHEAR-004 [patch]**: Verify the touched `cfd-1d` Hagen-Poiseuille module with bounded Cargo check, unit test, clippy, and nextest runs.
+
 ## Sprint 1.96.13: cfd-2d Dependency-Aware Physics Audit
 **Status**: Completed
 **Start Date**: May 4, 2026

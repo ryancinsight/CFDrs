@@ -63,7 +63,7 @@
 //! - White, F. M. (2006). *Viscous Fluid Flow* (3rd ed.). McGraw-Hill. Eq. 3-52.
 
 use super::traits::{FlowConditions, ResistanceModel};
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
@@ -107,6 +107,11 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for HagenPoiseuille
     ) -> Result<(T, T)> {
         // Calculate shear rate if not provided
         let shear_rate = if let Some(sr) = conditions.shear_rate {
+            if sr < T::zero() {
+                return Err(Error::PhysicsViolation(
+                    "Hagen-Poiseuille wall shear rate must be nonnegative".to_string(),
+                ));
+            }
             sr
         } else {
             let v = if let Some(vel) = conditions.velocity {
@@ -119,7 +124,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for HagenPoiseuille
             } else {
                 T::zero()
             };
-            T::from_f64(8.0).expect("Mathematical constant conversion compromised") * v
+            let v_abs = if v >= T::zero() { v } else { -v };
+            T::from_f64(8.0).expect("Mathematical constant conversion compromised") * v_abs
                 / self.diameter
         };
 
@@ -193,6 +199,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for HagenPoiseuille
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use cfd_core::physics::fluid::CassonBlood;
     use cfd_core::physics::fluid::ConstantPropertyFluid;
 
     fn water() -> ConstantPropertyFluid<f64> {
@@ -241,6 +248,34 @@ mod tests {
             "small diameter should produce much larger resistance"
         );
         assert_relative_eq!(r_small / r_large, 1e4, max_relative = 1e-10);
+    }
+
+    #[test]
+    fn non_newtonian_resistance_is_reverse_flow_invariant() {
+        let model = HagenPoiseuilleModel::new(0.0005_f64, 0.02_f64);
+        let blood = CassonBlood::<f64>::normal_blood();
+        let forward = FlowConditions::new(0.04);
+        let reverse = FlowConditions::new(-0.04);
+
+        let (r_forward, k_forward) = model.calculate_coefficients(&blood, &forward).unwrap();
+        let (r_reverse, k_reverse) = model.calculate_coefficients(&blood, &reverse).unwrap();
+
+        assert_relative_eq!(r_forward, r_reverse, max_relative = 1e-12);
+        assert_relative_eq!(k_forward, 0.0, epsilon = 1e-15);
+        assert_relative_eq!(k_reverse, 0.0, epsilon = 1e-15);
+    }
+
+    #[test]
+    fn negative_explicit_shear_rate_is_rejected() {
+        let model = HagenPoiseuilleModel::new(0.001_f64, 0.02_f64);
+        let mut conditions = FlowConditions::new(0.04);
+        conditions.shear_rate = Some(-1.0);
+
+        let err = model
+            .calculate_coefficients(&water(), &conditions)
+            .expect_err("wall shear rate is a scalar magnitude and must be nonnegative");
+
+        assert!(err.to_string().contains("shear rate"));
     }
 
     #[test]
