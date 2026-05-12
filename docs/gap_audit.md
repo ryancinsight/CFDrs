@@ -14,6 +14,22 @@
 
 ---
 
+# Sprint 1.96.16 Resolution: cfd-3d Dependency-Aware Physics Audit
+
+### RESOLVED-045: Level-Set Transport Accepted Nonphysical Time, Mesh, and Velocity States
+- **Location**: `crates/cfd-3d/src/level_set/advection.rs`
+- **Issue**: The level-set Hamilton-Jacobi transport helper accepted nonpositive/nonfinite time steps, nonpositive/nonfinite grid spacing, and nonfinite velocity components before WENO5-Z/SSPRK3 or first-order upwind derivative reconstruction. These states make the explicit transport PDE undefined and can propagate invalid signed-distance fields.
+- **Dependency audit**: `cfd-core` usage is appropriate for shared error contracts; `cfd-math` is appropriate for reusable numerical kernels; `cfd-mesh` is appropriate for mesh authority and scalar bounds; `cfd-io` is output infrastructure; `cfd-1d` and `cfd-2d` are cross-fidelity references; `cfd-schematics` is topology input authority. The defect was local to `cfd-3d` level-set transport validation.
+- **Remediation**: Added transport input validation for finite positive `dt`, finite positive `dx/dy/dz`, and finite velocity components. Updated level-set tests so NaN velocity, zero time step, and negative time step are explicit errors.
+- **Mathematical basis**: The Hamilton-Jacobi update `phi_t + u·grad(phi) = 0` requires finite velocity and positive finite time/space increments so upwind derivatives and SSPRK stage increments are defined real quantities.
+- **Verification**:
+  - `cargo check -p cfd-3d --no-default-features` passed.
+  - `cargo test -p cfd-3d --no-default-features --test level_set_tests` passed 15/15 tests.
+  - `cargo nextest run -p cfd-3d --test level_set_tests --no-default-features --fail-fast --hide-progress-bar --status-level fail` passed 15/15 tests.
+  - `cargo clippy -p cfd-3d --no-default-features --lib -- -W clippy::all -W clippy::pedantic` passed.
+
+---
+
 # Sprint 1.96.15 Resolution: cfd-3d Dependency-Aware Physics Audit
 
 ### RESOLVED-044: VOF Transport Accepted Nonphysical Time and Velocity States

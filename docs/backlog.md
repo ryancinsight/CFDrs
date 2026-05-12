@@ -1,5 +1,31 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.16: cfd-3d Dependency-Aware Physics Audit
+**Status**: Completed
+**Start Date**: May 11, 2026
+
+### Sprint Objectives
+- Audit `cfd-3d` and its direct dependencies (`cfd-core`, `cfd-math`, `cfd-mesh`, `cfd-io`, `cfd-1d`, `cfd-2d`, `cfd-schematics`, and numerical support crates) for role alignment in 3D FEM, IBM, level-set, VOF, spectral, and domain solvers.
+- Correct the next highest-risk local physics defect found during the audit without changing public APIs.
+
+### Dependency Audit Findings
+- `cfd-core`: appropriate for shared error contracts, fluid/cavitation physics, and boundary concepts; `cfd-3d` should reuse these contracts for transport validation.
+- `cfd-math`: appropriate for reusable sparse, spectral, and high-order numerical kernels; level-set Hamilton-Jacobi transport remains local because it depends on 3D grid layout and WENO stencil ownership.
+- `cfd-mesh`: appropriate for mesh/CSG authority and scalar trait bounds; it is not a substitute for 3D level-set field validation.
+- `cfd-io`: appropriate for visualization and checkpoint output outside the transport update path.
+- `cfd-1d` and `cfd-2d`: appropriate as cross-fidelity references and validation baselines, not replacements for 3D level-set interface transport.
+- `cfd-schematics`: appropriate as topology input authority for blueprint-driven preprocessing.
+- External crates: `apollofft`, `ndarray`, `nalgebra`, `nalgebra-sparse`, `rayon`, `crossbeam`, and `serde` are appropriate for spectral transforms, dense fields, algebra, sparse systems, parallel execution, and persisted configuration.
+
+### Sprint Backlog Items
+
+#### Level-Set Hamilton-Jacobi Transport Preconditions
+- [x] **LS-PRE-001 [patch]**: Reject nonpositive and nonfinite level-set time steps before WENO/SSPRK3 or upwind transport.
+- [x] **LS-PRE-002 [patch]**: Reject nonpositive/nonfinite grid spacing before Hamilton-Jacobi transport.
+- [x] **LS-PRE-003 [patch]**: Reject nonfinite level-set velocity components before derivative reconstruction.
+- [x] **LS-PRE-004 [patch]**: Add value-semantic tests for NaN velocity, zero time step, and negative time step rejection.
+- [x] **LS-PRE-005 [patch]**: Verify the touched `cfd-3d` level-set module with bounded Cargo check, integration test, clippy, and nextest runs.
+
 ## Sprint 1.96.15: cfd-3d Dependency-Aware Physics Audit
 **Status**: Completed
 **Start Date**: May 11, 2026

@@ -414,8 +414,25 @@ fn test_nan_velocity_no_panic() {
     let mut vel = vec![Vector3::new(0.0, 0.0, 0.0); nx * nx * nx];
     vel[0] = Vector3::new(f64::NAN, 0.0, 0.0);
     solver.set_velocity(vel);
-    let _ = solver.advance(1e-4);
-    // Enough that solver did not panic — values may be NaN in polluted cells
+    let err = solver
+        .advance(1e-4)
+        .expect_err("NaN velocity must be rejected before level-set transport");
+    assert!(err.to_string().contains("velocity"));
+}
+
+/// **Adversarial**: nonpositive time steps are outside Hamilton-Jacobi transport physics.
+#[test]
+fn test_nonpositive_timestep_rejected() {
+    let mut solver = make_solver(8, 8, 8);
+    init_sphere(&mut solver, 0.2);
+
+    let zero_dt = solver.advance(0.0).expect_err("zero dt must be rejected");
+    assert!(zero_dt.to_string().contains("time step"));
+
+    let negative_dt = solver
+        .advance(-1.0e-4)
+        .expect_err("negative dt must be rejected");
+    assert!(negative_dt.to_string().contains("time step"));
 }
 
 /// **Adversarial**: All-positive φ (interface outside domain) → stable.

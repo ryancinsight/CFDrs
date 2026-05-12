@@ -1,3 +1,32 @@
+# Sprint 1.96.16 Checklist: cfd-3d Dependency-Aware Physics Audit
+**Goal**: Audit `cfd-3d` and direct dependencies, then correct the next highest-risk cfd-3d physics gap found.
+
+**Success Criteria**:
+- ✅ Audit covers `cfd-3d`, `cfd-core`, `cfd-math`, `cfd-mesh`, `cfd-io`, `cfd-1d`, `cfd-2d`, `cfd-schematics`, and numerical support crates.
+- ✅ Level-set Hamilton-Jacobi transport rejects nonpositive and nonfinite time steps.
+- ✅ Level-set transport rejects nonpositive/nonfinite grid spacing and nonfinite velocity components before derivative reconstruction.
+- ✅ Bounded Cargo check, integration test, clippy, and nextest verification pass for the touched `cfd-3d` level-set paths.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Re-audit `cfd-3d` manifest, public module graph, and direct dependency roles.
+- [x] Classify dependency roles for core physics/errors, math kernels, mesh authority, I/O, lower-fidelity references, schematic topology, and numerical support crates.
+- [x] Identify missing level-set Hamilton-Jacobi transport precondition checks as the next highest-risk local physics gap.
+
+### Phase 2: Execution (10-50%)
+- [x] Reject nonpositive and nonfinite level-set time steps before transport.
+- [x] Reject nonpositive/nonfinite grid spacing before transport.
+- [x] Reject nonfinite velocity components before WENO or first-order derivative reconstruction.
+- [x] Add value-semantic invalid-input tests for level-set transport.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for touched level-set paths.
+- [x] Run `cargo check -p cfd-3d --no-default-features`.
+- [x] Run `cargo test -p cfd-3d --no-default-features --test level_set_tests`.
+- [x] Run `cargo nextest run -p cfd-3d --test level_set_tests --no-default-features` under a 30-second shell timeout.
+- [x] Run `cargo clippy -p cfd-3d --no-default-features --lib -- -W clippy::all -W clippy::pedantic`.
+
+---
+
 # Sprint 1.96.15 Checklist: cfd-3d Dependency-Aware Physics Audit
 **Goal**: Audit `cfd-3d` and direct dependencies, then correct the highest-risk cfd-3d physics gap found.
 

@@ -6,7 +6,7 @@
 //! well-defined on the boundary-test meshes used throughout the crate.
 
 use super::{config::LevelSetConfig, weno::weno5_derivative};
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
@@ -34,6 +34,8 @@ pub(super) fn advance<T>(
 where
     T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
 {
+    validate_transport_inputs(dx, dy, dz, dt, velocity)?;
+
     let supports_weno = nx >= 7 && ny >= 7 && nz >= 7;
     if config.use_weno && supports_weno {
         advance_weno5_rk3(
@@ -53,6 +55,43 @@ where
         // First-order upwind is the mathematically admissible fallback when the
         // 7-point WENO stencil cannot be formed on at least one axis.
         advance_first_order_euler(nx, ny, nz, dx, dy, dz, dt, velocity, phi_previous, phi);
+    }
+
+    Ok(())
+}
+
+fn validate_transport_inputs<T>(dx: T, dy: T, dz: T, dt: T, velocity: &[Vector3<T>]) -> Result<()>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+{
+    use num_traits::Float;
+
+    if !Float::is_finite(dt) || dt <= T::zero() {
+        return Err(Error::InvalidConfiguration(
+            "level-set time step must be finite and positive for Hamilton-Jacobi transport"
+                .to_string(),
+        ));
+    }
+
+    if !Float::is_finite(dx)
+        || !Float::is_finite(dy)
+        || !Float::is_finite(dz)
+        || dx <= T::zero()
+        || dy <= T::zero()
+        || dz <= T::zero()
+    {
+        return Err(Error::InvalidConfiguration(
+            "level-set grid spacing must be finite and positive for Hamilton-Jacobi transport"
+                .to_string(),
+        ));
+    }
+
+    for vel in velocity {
+        if !Float::is_finite(vel.x) || !Float::is_finite(vel.y) || !Float::is_finite(vel.z) {
+            return Err(Error::InvalidConfiguration(
+                "level-set velocity field must be finite for Hamilton-Jacobi transport".to_string(),
+            ));
+        }
     }
 
     Ok(())
