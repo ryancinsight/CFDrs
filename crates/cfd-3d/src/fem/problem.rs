@@ -83,7 +83,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowProblem<T> 
             )));
         }
 
-        Ok(())
+        crate::fem::problem_validation::validate_physical_invariants(self)
     }
 
     /// Get all boundary node indices
@@ -354,6 +354,95 @@ mod tests {
         // Should pass validation
         let result = problem.validate();
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_rejects_nonphysical_fluid_properties() {
+        let mesh = create_test_tet_mesh();
+        let mut boundary_conditions = HashMap::new();
+        for i in 0..4 {
+            boundary_conditions.insert(i, BoundaryCondition::wall_no_slip());
+        }
+
+        let invalid_fluid =
+            ConstantPropertyFluid::new("invalid".to_string(), 1000.0, 0.0, 4186.0, 0.6, 1500.0);
+        let problem = StokesFlowProblem::new(mesh, invalid_fluid, boundary_conditions, 4);
+        let err = problem
+            .validate()
+            .expect_err("zero viscosity must be rejected before FEM assembly");
+
+        assert!(err.to_string().contains("viscosity"));
+    }
+
+    #[test]
+    fn test_validate_rejects_invalid_pressure_space() {
+        let mesh = create_test_tet_mesh();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let mut boundary_conditions = HashMap::new();
+        for i in 0..4 {
+            boundary_conditions.insert(i, BoundaryCondition::wall_no_slip());
+        }
+
+        let zero_pressure_nodes =
+            StokesFlowProblem::new(mesh.clone(), fluid.clone(), boundary_conditions.clone(), 0);
+        let err = zero_pressure_nodes
+            .validate()
+            .expect_err("zero pressure nodes must be rejected");
+        assert!(err.to_string().contains("corner-node"));
+
+        let too_many_pressure_nodes = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 5);
+        let err = too_many_pressure_nodes
+            .validate()
+            .expect_err("pressure nodes beyond mesh vertex count must be rejected");
+        assert!(err.to_string().contains("corner-node"));
+    }
+
+    #[test]
+    fn test_validate_rejects_nonfinite_boundary_data() {
+        let mesh = create_test_tet_mesh();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let mut boundary_conditions = HashMap::new();
+        for i in 0..4 {
+            boundary_conditions.insert(i, BoundaryCondition::wall_no_slip());
+        }
+        boundary_conditions.insert(
+            0,
+            BoundaryCondition::VelocityInlet {
+                velocity: Vector3::new(f64::NAN, 0.0, 0.0),
+            },
+        );
+
+        let problem = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
+        let err = problem
+            .validate()
+            .expect_err("nonfinite velocity boundary data must be rejected");
+
+        assert!(err.to_string().contains("velocity"));
+    }
+
+    #[test]
+    fn test_validate_rejects_invalid_element_viscosity_field() {
+        let mesh = create_test_tet_mesh();
+        let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
+        let mut boundary_conditions = HashMap::new();
+        for i in 0..4 {
+            boundary_conditions.insert(i, BoundaryCondition::wall_no_slip());
+        }
+
+        let mut wrong_len =
+            StokesFlowProblem::new(mesh.clone(), fluid.clone(), boundary_conditions.clone(), 4);
+        wrong_len.element_viscosities = Some(vec![1.0e-3, 1.0e-3]);
+        let err = wrong_len
+            .validate()
+            .expect_err("element viscosity length mismatch must be rejected");
+        assert!(err.to_string().contains("cell count"));
+
+        let mut nonphysical = StokesFlowProblem::new(mesh, fluid, boundary_conditions, 4);
+        nonphysical.element_viscosities = Some(vec![0.0]);
+        let err = nonphysical
+            .validate()
+            .expect_err("zero element viscosity must be rejected");
+        assert!(err.to_string().contains("viscosity"));
     }
 
     #[test]

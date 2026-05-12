@@ -1,5 +1,31 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.17: cfd-3d Dependency-Aware Physics Audit
+**Status**: Completed
+**Start Date**: May 11, 2026
+
+### Sprint Objectives
+- Audit `cfd-3d` and its direct dependencies (`cfd-core`, `cfd-math`, `cfd-mesh`, `cfd-io`, `cfd-1d`, `cfd-2d`, `cfd-schematics`, and numerical support crates) for role alignment in 3D FEM, IBM, level-set, VOF, spectral, and domain solvers.
+- Correct the next highest-risk local physics defect found during the audit without changing public APIs.
+
+### Dependency Audit Findings
+- `cfd-core`: appropriate for shared fluid property types, boundary-condition contracts, and errors; `cfd-3d` must validate these inputs before FEM assembly consumes them.
+- `cfd-math`: appropriate for reusable sparse and iterative solvers; Stokes problem validation remains local because it owns FEM pressure-space metadata and element viscosity fields.
+- `cfd-mesh`: appropriate as mesh topology and geometry authority; `cfd-3d` correctly consumes `IndexedMesh` while validating solver-specific pressure DOFs and per-cell fields.
+- `cfd-io`: appropriate for output and checkpoints, outside FEM assembly physics.
+- `cfd-1d` and `cfd-2d`: appropriate as lower-fidelity references and validation baselines, not replacements for 3D FEM well-posedness checks.
+- `cfd-schematics`: appropriate as topology input authority for blueprint-driven preprocessing.
+- External crates: `apollofft`, `ndarray`, `nalgebra`, `nalgebra-sparse`, `rayon`, `crossbeam`, and `serde` remain appropriate for spectral transforms, dense fields, algebra, sparse systems, parallel execution, and persisted configuration.
+
+### Sprint Backlog Items
+
+#### FEM Stokes Problem Physical Invariants
+- [x] **FEM-INV-001 [patch]**: Reject nonpositive or nonfinite fluid density and dynamic viscosity before Stokes assembly.
+- [x] **FEM-INV-002 [patch]**: Reject invalid pressure corner-node counts.
+- [x] **FEM-INV-003 [patch]**: Reject nonfinite body-force and boundary-condition scalar/vector values.
+- [x] **FEM-INV-004 [patch]**: Reject per-element viscosity fields with incorrect length or nonpositive/nonfinite values.
+- [x] **FEM-INV-005 [patch]**: Verify the touched `cfd-3d` FEM problem module with bounded Cargo check, unit test, clippy, and nextest runs.
+
 ## Sprint 1.96.16: cfd-3d Dependency-Aware Physics Audit
 **Status**: Completed
 **Start Date**: May 11, 2026

@@ -28,6 +28,7 @@ pub mod fluid;
 pub mod mesh_utils;
 pub mod mid_node_cache;
 pub mod problem;
+mod problem_validation;
 pub mod projection_solver;
 pub mod quadrature;
 pub mod shape_functions;

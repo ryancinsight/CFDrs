@@ -14,6 +14,22 @@
 
 ---
 
+# Sprint 1.96.17 Resolution: cfd-3d Dependency-Aware Physics Audit
+
+### RESOLVED-046: FEM Stokes Assembly Accepted Incomplete Physical Problem Invariants
+- **Location**: `crates/cfd-3d/src/fem/problem.rs`
+- **Issue**: `StokesFlowProblem::validate` checked missing boundary nodes but did not reject nonpositive/nonfinite fluid density or viscosity, invalid pressure corner-node counts, nonfinite boundary/body-force data, or malformed per-element viscosity fields. These states violate Stokes well-posedness and could reach FEM matrix assembly.
+- **Dependency audit**: `cfd-core` usage is appropriate for fluid and boundary contracts; `cfd-math` is appropriate for sparse/iterative solving; `cfd-mesh` is mesh topology authority; `cfd-io` is output infrastructure; `cfd-1d` and `cfd-2d` are cross-fidelity references; `cfd-schematics` is topology input authority. The defect was local to `cfd-3d` FEM problem validation.
+- **Remediation**: Added validation for finite positive fluid properties, pressure-space corner-node count, finite body-force and boundary-condition values, and element-viscosity field length and positivity. Added unit tests covering each rejected physical state.
+- **Mathematical basis**: The incompressible Stokes weak form is coercive on the velocity kernel only when dynamic viscosity is positive, density-dependent transient/advection terms require positive density, pressure DOFs must map to valid corner nodes, and per-element viscosity coefficients must be finite positive material parameters.
+- **Verification**:
+  - `cargo check -p cfd-3d --no-default-features` passed.
+  - `cargo test -p cfd-3d --no-default-features fem::problem --lib` passed 10/10 tests.
+  - `cargo nextest run -p cfd-3d --lib --no-default-features fem::problem --fail-fast --hide-progress-bar --status-level fail` passed 10/10 tests.
+  - `cargo clippy -p cfd-3d --no-default-features --lib -- -W clippy::all -W clippy::pedantic` passed.
+
+---
+
 # Sprint 1.96.16 Resolution: cfd-3d Dependency-Aware Physics Audit
 
 ### RESOLVED-045: Level-Set Transport Accepted Nonphysical Time, Mesh, and Velocity States
