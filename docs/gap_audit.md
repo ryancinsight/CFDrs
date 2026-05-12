@@ -14,6 +14,22 @@
 
 ---
 
+# Sprint 1.96.20 Resolution: cfd-1d Dependency-Aware Physics Audit
+
+### RESOLVED-049: Junction-Loss Rheology Used Signed Shear and Ignored Explicit Shear
+- **Location**: `crates/cfd-1d/src/physics/resistance/models/junction_loss.rs`
+- **Issue**: `JunctionLossModel::calculate_coefficients` estimated wall shear as `8V/D` with signed velocity and ignored `FlowConditions::shear_rate`. Non-Newtonian `cfd-core` rheology depends on shear-rate magnitude, so reverse flow could change or invalidate the viscous junction component while the K-factor minor loss remained scalar.
+- **Dependency audit**: `cfd-core` usage is appropriate for fluid properties, Casson blood rheology, constants, and errors; `cfd-math` is appropriate for reusable solver infrastructure; `cfd-schematics` is topology and geometry-input authority; `petgraph`, `nalgebra`, `nalgebra-sparse`, `sprs`, `rayon`, `serde`, and `serde_json` remain appropriate supporting crates. The defect was local to `cfd-1d` junction-loss rheology coupling.
+- **Remediation**: Derived default junction shear rate from velocity magnitude, routed explicit nonnegative shear rate into viscosity evaluation, and rejected negative explicit shear as a physics violation. Added Casson blood tests for explicit shear-thinning dependence, negative shear rejection, and reverse-flow resistance reciprocity.
+- **Mathematical basis**: Junction minor loss is scalar in dynamic head, `Delta P = K rho V^2 / 2`, and the short-junction viscous component is linear in apparent viscosity. For generalized Newtonian fluids, `mu = mu(gamma_dot)` must use supplied wall shear when available; otherwise `gamma_dot = 8|V|/D`. Wall shear rate is a magnitude and cannot be negative.
+- **Verification**:
+  - `cargo check -p cfd-1d --no-default-features` passed.
+  - `cargo test -p cfd-1d --no-default-features physics::resistance::models::junction_loss --lib` passed.
+  - `cargo nextest run -p cfd-1d --lib --no-default-features physics::resistance::models::junction_loss --fail-fast --hide-progress-bar --status-level fail` passed.
+  - `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic` passed.
+
+---
+
 # Sprint 1.96.19 Resolution: cfd-1d Dependency-Aware Physics Audit
 
 ### RESOLVED-048: Darcy-Weisbach Resistance Ignored Explicit Non-Newtonian Shear Rate

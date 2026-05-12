@@ -1,3 +1,33 @@
+# Sprint 1.96.20 Checklist: cfd-1d Dependency-Aware Physics Audit
+**Goal**: Audit `cfd-1d` and crates used by `cfd-1d`, then correct the next highest-risk cfd-1d physics gap found.
+
+**Success Criteria**:
+- ✅ Audit covers `cfd-1d`, `cfd-core`, `cfd-math`, `cfd-schematics`, and external graph/algebra/concurrency/serialization crates used by `cfd-1d`.
+- ✅ Junction-loss resistance derives rheology shear from velocity magnitude rather than signed velocity.
+- ✅ Junction-loss resistance uses explicit nonnegative wall shear rate when supplied.
+- ✅ Junction-loss resistance rejects negative explicit wall shear rate before non-Newtonian rheology evaluation.
+- ✅ Bounded Cargo check, unit test, clippy, and nextest verification pass for the touched `cfd-1d` junction-loss path.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Re-audit `cfd-1d` manifest, resistance module graph, and direct dependency roles.
+- [x] Classify dependency roles for core rheology/errors, math kernels, schematic topology, graph topology, sparse algebra, serialization, and parallel support.
+- [x] Identify signed junction-loss shear rate and ignored explicit shear as the next highest-risk resistance-physics gap.
+
+### Phase 2: Execution (10-50%)
+- [x] Derive default junction wall shear rate from velocity magnitude.
+- [x] Route explicit nonnegative shear rate into junction apparent-viscosity evaluation.
+- [x] Reject negative explicit wall shear rate as a physical invariant violation.
+- [x] Add value-semantic Casson blood tests for shear-thinning dependence and reverse-flow reciprocity.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for touched junction-loss resistance path.
+- [x] Run `cargo check -p cfd-1d --no-default-features`.
+- [x] Run `cargo test -p cfd-1d --no-default-features physics::resistance::models::junction_loss --lib`.
+- [x] Run `cargo nextest run -p cfd-1d --lib --no-default-features physics::resistance::models::junction_loss` under a 30-second shell timeout.
+- [x] Run `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic`.
+
+---
+
 # Sprint 1.96.19 Checklist: cfd-1d Dependency-Aware Physics Audit
 **Goal**: Audit `cfd-1d` and crates used by `cfd-1d`, then correct the next highest-risk cfd-1d physics gap found.
 

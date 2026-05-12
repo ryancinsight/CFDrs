@@ -199,11 +199,22 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossMod
             T::zero()
         };
 
-        // Shear rate ≈ 8V/D for circular duct.
+        // Shear rate is a scalar wall-rate magnitude. If a coupled model supplies
+        // it explicitly, that value is authoritative for non-Newtonian rheology.
         let d = T::from_f64(self.branch_diameter_m)
             .ok_or_else(|| Error::InvalidInput("branch_diameter_m conversion failed".into()))?;
         let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
-        let shear_rate = eight * v / d;
+        let v_abs = if v >= T::zero() { v } else { -v };
+        let shear_rate = if let Some(shear_rate) = conditions.shear_rate {
+            if shear_rate < T::zero() {
+                return Err(Error::PhysicsViolation(
+                    "Junction wall shear rate must be nonnegative".to_string(),
+                ));
+            }
+            shear_rate
+        } else {
+            eight * v_abs / d
+        };
 
         let mu =
             fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
@@ -277,6 +288,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossMod
 mod tests {
     use super::*;
     use crate::physics::resistance::models::FlowConditions;
+    use approx::assert_relative_eq;
+    use cfd_core::physics::fluid::CassonBlood;
 
     fn make_model(jtype: JunctionType, direction: JunctionFlowDirection) -> JunctionLossModel {
         JunctionLossModel {
@@ -326,6 +339,65 @@ mod tests {
         let (r, k) = m.calculate_coefficients(&fluid, &cond).unwrap();
         assert!(r > 0.0, "linear resistance must be positive");
         assert!(k > 0.0, "quadratic loss coefficient must be positive");
+    }
+
+    #[test]
+    fn non_newtonian_resistance_uses_explicit_shear_rate() {
+        let m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
+        let blood = CassonBlood::<f64>::normal_blood();
+        let mut low_shear = FlowConditions::new(0.01);
+        low_shear.shear_rate = Some(10.0);
+        let mut high_shear = FlowConditions::new(0.01);
+        high_shear.shear_rate = Some(1000.0);
+
+        let (low_r, low_k) = m
+            .calculate_coefficients(&blood, &low_shear)
+            .expect("positive explicit shear rate must compute junction loss");
+        let (high_r, high_k) = m
+            .calculate_coefficients(&blood, &high_shear)
+            .expect("positive explicit shear rate must compute junction loss");
+
+        assert!(
+            low_r > high_r,
+            "Casson shear-thinning requires higher junction viscous resistance at 10 1/s than at 1000 1/s: {low_r} <= {high_r}"
+        );
+        assert_relative_eq!(low_k, high_k, max_relative = 1e-12);
+        assert!(low_k > 0.0);
+    }
+
+    #[test]
+    fn negative_explicit_shear_rate_rejected() {
+        let m = make_model(JunctionType::Cross, JunctionFlowDirection::Dividing);
+        let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().unwrap();
+        let mut cond = FlowConditions::new(0.01);
+        cond.shear_rate = Some(-1.0);
+
+        let err = m
+            .calculate_coefficients(&fluid, &cond)
+            .expect_err("negative explicit wall shear rate violates junction rheology");
+        assert!(
+            err.to_string().contains("shear rate"),
+            "error must identify the rejected physical invariant: {err}"
+        );
+    }
+
+    #[test]
+    fn non_newtonian_reverse_flow_uses_velocity_magnitude() {
+        let m = make_model(JunctionType::Tee, JunctionFlowDirection::Combining);
+        let blood = CassonBlood::<f64>::normal_blood();
+        let forward = FlowConditions::new(0.01);
+        let reverse = FlowConditions::new(-0.01);
+
+        let (forward_r, forward_k) = m
+            .calculate_coefficients(&blood, &forward)
+            .expect("forward non-Newtonian junction loss must compute");
+        let (reverse_r, reverse_k) = m
+            .calculate_coefficients(&blood, &reverse)
+            .expect("reverse non-Newtonian junction loss must compute");
+
+        assert_relative_eq!(forward_r, reverse_r, max_relative = 1e-12);
+        assert_relative_eq!(forward_k, reverse_k, max_relative = 1e-12);
+        assert!(forward_k > 0.0);
     }
 
     #[test]

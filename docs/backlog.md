@@ -1,5 +1,28 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.20: cfd-1d Dependency-Aware Physics Audit
+**Status**: Completed
+**Start Date**: May 12, 2026
+
+### Sprint Objectives
+- Audit `cfd-1d` and the crates it uses for hydraulic-network physics, non-Newtonian rheology, schematic topology conversion, and numerical solving.
+- Correct the next highest-risk local physics defect found during the audit without changing public APIs.
+
+### Dependency Audit Findings
+- `cfd-core`: appropriate for shared fluid properties, Casson blood rheology, physical constants, and typed physics errors; junction-loss viscosity must use these rheology contracts with a nonnegative shear-rate magnitude.
+- `cfd-math`: appropriate for reusable solver and algebra kernels; K-factor junction constitutive physics remains local to `cfd-1d` because it depends on 1D branch area, hydraulic diameter, and minor-loss coefficients.
+- `cfd-schematics`: appropriate as the source of channel topology and geometry inputs; `cfd-1d` owns conversion into branch hydraulic properties and junction-loss state.
+- External crates: `petgraph` remains appropriate for graph topology, `nalgebra`/`nalgebra-sparse`/`sprs` for algebra and sparse storage, `rayon` for independent branch analysis, and `serde`/`serde_json` for scenario persistence.
+
+### Sprint Backlog Items
+
+#### Junction-Loss Shear-Rate Physics
+- [x] **JUNC-SHEAR-001 [patch]**: Derive junction rheology shear rate from velocity magnitude instead of signed velocity.
+- [x] **JUNC-SHEAR-002 [patch]**: Use explicit nonnegative `FlowConditions::shear_rate` for junction non-Newtonian viscosity when supplied.
+- [x] **JUNC-SHEAR-003 [patch]**: Reject negative explicit junction wall shear rates before rheology lookup.
+- [x] **JUNC-SHEAR-004 [patch]**: Add Casson blood tests for explicit shear-rate dependence and reverse-flow resistance reciprocity.
+- [x] **JUNC-SHEAR-005 [patch]**: Verify the touched `cfd-1d` junction-loss path with bounded Cargo check, unit test, clippy, and nextest runs.
+
 ## Sprint 1.96.19: cfd-1d Dependency-Aware Physics Audit
 **Status**: Completed
 **Start Date**: May 11, 2026
