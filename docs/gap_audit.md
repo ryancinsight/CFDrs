@@ -14,6 +14,22 @@
 
 ---
 
+# Sprint 1.96.18 Resolution: cfd-1d Dependency-Aware Physics Audit
+
+### RESOLVED-047: Rectangular-Channel Resistance Ignored Explicit Non-Newtonian Shear Rate
+- **Location**: `crates/cfd-1d/src/physics/resistance/models/rectangular.rs`
+- **Issue**: `RectangularChannelModel::calculate_coefficients` always derived wall shear rate from velocity magnitude and ignored `FlowConditions::shear_rate`. Coupled millifluidic solves can supply wall shear directly, and non-Newtonian `cfd-core` blood rheology depends on that shear. Negative explicit shear was also accepted because the model never inspected the field.
+- **Dependency audit**: `cfd-core` usage is appropriate for Casson blood rheology, physical constants, and error contracts; `cfd-math` is appropriate for reusable linear algebra; `cfd-schematics` is topology and cross-section authority; `petgraph`, `nalgebra`, `nalgebra-sparse`, `sprs`, `rayon`, and `serde` remain appropriate infrastructure. The defect was local to `cfd-1d` rectangular resistance physics.
+- **Remediation**: Routed explicit nonnegative shear rate into rectangular-channel viscosity evaluation, rejected negative explicit shear as a physics violation, and propagated rheology errors instead of falling back to baseline viscosity. Added Casson blood tests for explicit shear-thinning dependence and reverse-flow reciprocity.
+- **Mathematical basis**: Rectangular laminar resistance is linear in apparent viscosity, `R = Po μ L / (2 A D_h^2)`. For generalized Newtonian fluids, `μ = μ(gamma_dot)` must use the supplied wall shear when a coupled solver provides it; otherwise the local estimate is `gamma_dot = 8|V|/D_h`. Wall shear rate is a magnitude and cannot be negative.
+- **Verification**:
+  - `cargo check -p cfd-1d --no-default-features` passed.
+  - `cargo test -p cfd-1d --no-default-features physics::resistance::models::rectangular --lib` passed.
+  - `cargo nextest run -p cfd-1d --lib --no-default-features physics::resistance::models::rectangular --fail-fast --hide-progress-bar --status-level fail` passed.
+  - `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic` passed.
+
+---
+
 # Sprint 1.96.17 Resolution: cfd-3d Dependency-Aware Physics Audit
 
 ### RESOLVED-046: FEM Stokes Assembly Accepted Incomplete Physical Problem Invariants

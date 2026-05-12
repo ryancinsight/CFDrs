@@ -1,5 +1,27 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.18: cfd-1d Dependency-Aware Physics Audit
+**Status**: Completed
+**Start Date**: May 11, 2026
+
+### Sprint Objectives
+- Audit `cfd-1d` and the crates it uses for hydraulic-network physics, rheology, schematic topology conversion, and numerical solving.
+- Correct the next highest-risk local physics defect found during the audit without changing public APIs.
+
+### Dependency Audit Findings
+- `cfd-core`: appropriate for shared fluid properties, Casson/non-Newtonian blood rheology, physical constants, and error contracts; `cfd-1d` should call these rheology contracts rather than duplicating viscosity laws.
+- `cfd-math`: appropriate for reusable linear algebra and solver support; network assembly and hydraulic resistance model selection remain local because they encode one-dimensional circuit physics.
+- `cfd-schematics`: appropriate as the topology and cross-section source of truth for millifluidic channels; `cfd-1d` converts schematics into network elements rather than owning schematic geometry.
+- External crates: `petgraph` is appropriate for graph topology, `nalgebra`/`nalgebra-sparse`/`sprs` for matrix assembly and sparse storage, `rayon` for independent branch calculations, and `serde` for persisted network state.
+
+### Sprint Backlog Items
+
+#### Rectangular-Channel Shear-Rate Physics
+- [x] **RECT-SHEAR-001 [patch]**: Use explicit nonnegative `FlowConditions::shear_rate` for rectangular-channel non-Newtonian viscosity when supplied.
+- [x] **RECT-SHEAR-002 [patch]**: Reject negative explicit rectangular-channel wall shear rates before rheology lookup.
+- [x] **RECT-SHEAR-003 [patch]**: Add Casson blood tests for explicit shear-rate dependence and reverse-flow resistance reciprocity.
+- [x] **RECT-SHEAR-004 [patch]**: Verify the touched `cfd-1d` rectangular resistance path with bounded Cargo check, unit test, clippy, and nextest runs.
+
 ## Sprint 1.96.17: cfd-3d Dependency-Aware Physics Audit
 **Status**: Completed
 **Start Date**: May 11, 2026

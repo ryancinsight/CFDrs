@@ -48,7 +48,7 @@
 //!   Journal of Fluids Engineering, 128(5), 1036-1044.
 
 use super::traits::{FlowConditions, ResistanceModel};
-use cfd_core::error::Result;
+use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use nalgebra::RealField;
 use num_traits::cast::FromPrimitive;
@@ -115,14 +115,18 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChan
 
         // Always query the shear-dependent viscosity. Newtonian fluids gracefully
         // ignore the shear_rate argument via the default trait implementation.
-        let shear_rate = T::from_f64(8.0).unwrap_or(T::one()) * v_abs / dh;
-        let viscosity = fluid
-            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)
-            .unwrap_or(
-                fluid
-                    .properties_at(conditions.temperature, conditions.pressure)?
-                    .dynamic_viscosity,
-            );
+        let shear_rate = if let Some(shear_rate) = conditions.shear_rate {
+            if shear_rate < T::zero() {
+                return Err(Error::PhysicsViolation(
+                    "Rectangular channel wall shear rate must be nonnegative".to_string(),
+                ));
+            }
+            shear_rate
+        } else {
+            T::from_f64(8.0).expect("8.0 must convert to scalar") * v_abs / dh
+        };
+        let viscosity =
+            fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
 
         // Calculate aspect ratio epsilon (always <= 1 for consistency in Bahrami)
         let epsilon =
@@ -242,7 +246,7 @@ impl<T: RealField + Copy + FromPrimitive> RectangularChannelModel<T> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use cfd_core::physics::fluid::ConstantPropertyFluid;
+    use cfd_core::physics::fluid::{CassonBlood, ConstantPropertyFluid};
 
     fn water() -> ConstantPropertyFluid<f64> {
         ConstantPropertyFluid::new(
@@ -301,6 +305,66 @@ mod tests {
 
         let neg_l = RectangularChannelModel::new(0.001_f64, 0.001_f64, -0.01_f64);
         assert!(neg_l.validate_invariants(&water(), &conditions).is_err());
+    }
+
+    #[test]
+    fn non_newtonian_resistance_uses_explicit_shear_rate() {
+        let model = RectangularChannelModel::new(0.001_f64, 0.0005_f64, 0.02_f64);
+        let blood = CassonBlood::<f64>::normal_blood();
+
+        let mut low_shear = FlowConditions::from_flow_rate(2.0e-8);
+        low_shear.shear_rate = Some(10.0);
+        let mut high_shear = FlowConditions::from_flow_rate(2.0e-8);
+        high_shear.shear_rate = Some(1000.0);
+
+        let (low_r, low_k) = model
+            .calculate_coefficients(&blood, &low_shear)
+            .expect("positive explicit shear rate must compute rectangular resistance");
+        let (high_r, high_k) = model
+            .calculate_coefficients(&blood, &high_shear)
+            .expect("positive explicit shear rate must compute rectangular resistance");
+
+        assert_eq!(low_k, 0.0);
+        assert_eq!(high_k, 0.0);
+        assert!(
+            low_r > high_r,
+            "Casson shear-thinning requires higher apparent resistance at 10 1/s than at 1000 1/s: {low_r} <= {high_r}"
+        );
+    }
+
+    #[test]
+    fn negative_explicit_shear_rate_rejected() {
+        let model = RectangularChannelModel::new(0.001_f64, 0.0005_f64, 0.02_f64);
+        let blood = CassonBlood::<f64>::normal_blood();
+        let mut conditions = FlowConditions::from_flow_rate(2.0e-8);
+        conditions.shear_rate = Some(-1.0);
+
+        let err = model
+            .calculate_coefficients(&blood, &conditions)
+            .expect_err("negative explicit wall shear rate violates rectangular-channel rheology");
+        assert!(
+            err.to_string().contains("shear rate"),
+            "error must identify the rejected physical invariant: {err}"
+        );
+    }
+
+    #[test]
+    fn non_newtonian_reverse_flow_uses_velocity_magnitude() {
+        let model = RectangularChannelModel::new(0.001_f64, 0.0005_f64, 0.02_f64);
+        let blood = CassonBlood::<f64>::normal_blood();
+        let forward = FlowConditions::new(0.04);
+        let reverse = FlowConditions::new(-0.04);
+
+        let (forward_r, forward_k) = model
+            .calculate_coefficients(&blood, &forward)
+            .expect("forward non-Newtonian rectangular resistance must compute");
+        let (reverse_r, reverse_k) = model
+            .calculate_coefficients(&blood, &reverse)
+            .expect("reverse non-Newtonian rectangular resistance must compute");
+
+        assert_relative_eq!(forward_r, reverse_r, max_relative = 1e-12);
+        assert_eq!(forward_k, 0.0);
+        assert_eq!(reverse_k, 0.0);
     }
 }
 
