@@ -1,5 +1,30 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.15: cfd-3d Dependency-Aware Physics Audit
+**Status**: Completed
+**Start Date**: May 11, 2026
+
+### Sprint Objectives
+- Audit `cfd-3d` and its direct dependencies (`cfd-core`, `cfd-math`, `cfd-mesh`, `cfd-io`, `cfd-1d`, `cfd-2d`, `cfd-schematics`, and numerical support crates) for role alignment in 3D FEM, IBM, level-set, VOF, spectral, and domain solvers.
+- Correct the highest-risk local physics defect found during the audit without changing public APIs.
+
+### Dependency Audit Findings
+- `cfd-core`: appropriate for shared fluid properties, cavitation physics, boundary conditions, errors, and physical constants; `cfd-3d` should consume these contracts instead of duplicating material models.
+- `cfd-math`: appropriate for sparse solvers, spectral operators, and reusable numerical kernels; 3D solver assembly remains local where element topology or grid storage is 3D-specific.
+- `cfd-mesh`: appropriate for unstructured geometry, CSG, and manufacturing mesh inputs; FEM and domain solvers correctly treat it as mesh authority rather than duplicating mesh topology.
+- `cfd-io`: appropriate for visualization and checkpoint output; it is not part of the time-integration physics path.
+- `cfd-1d` and `cfd-2d`: appropriate for cross-fidelity references, reduced-order seeding, and shared turbulence validation, not substitutes for 3D field solves.
+- `cfd-schematics`: appropriate as millifluidic topology/layout authority for blueprint-driven preprocessing.
+- External crates: `apollofft` is appropriate for spectral transforms, `ndarray` for dense field data, `nalgebra` and `nalgebra-sparse` for vector/matrix algebra, `rayon` and `crossbeam` for independent field/element work, and `serde` for persisted configurations.
+
+### Sprint Backlog Items
+
+#### VOF Explicit Transport Preconditions
+- [x] **VOF-PRE-001 [patch]**: Reject nonpositive and nonfinite VOF time steps before explicit interface transport.
+- [x] **VOF-PRE-002 [patch]**: Reject nonfinite VOF velocity components before CFL evaluation and geometric flux calculation.
+- [x] **VOF-PRE-003 [patch]**: Add value-semantic tests for NaN velocity, infinite velocity, zero time step, and negative time step rejection.
+- [x] **VOF-PRE-004 [patch]**: Verify the touched `cfd-3d` VOF module with bounded Cargo check, integration test, clippy, and nextest runs.
+
 ## Sprint 1.96.14: cfd-1d Dependency-Aware Physics Audit
 **Status**: Completed
 **Start Date**: May 11, 2026

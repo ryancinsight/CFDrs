@@ -78,13 +78,37 @@ fn check_cfl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Cop
     dt: T,
 ) -> Result<()> {
     use num_traits::Float;
+    if !Float::is_finite(dt) || dt <= T::zero() {
+        return Err(Error::InvalidConfiguration(
+            "VOF time step must be finite and positive for explicit interface transport"
+                .to_string(),
+        ));
+    }
+
     let mut cfl_max = T::zero();
 
     let dx = solver.dx;
     let dy = solver.dy;
     let dz = solver.dz;
 
+    if !Float::is_finite(dx)
+        || !Float::is_finite(dy)
+        || !Float::is_finite(dz)
+        || dx <= T::zero()
+        || dy <= T::zero()
+        || dz <= T::zero()
+    {
+        return Err(Error::InvalidConfiguration(
+            "VOF grid spacing must be finite and positive for CFL evaluation".to_string(),
+        ));
+    }
+
     for vel in &solver.velocity {
+        if !Float::is_finite(vel.x) || !Float::is_finite(vel.y) || !Float::is_finite(vel.z) {
+            return Err(Error::InvalidConfiguration(
+                "VOF velocity field must be finite for explicit interface transport".to_string(),
+            ));
+        }
         let cfl_cell =
             Float::abs(vel.x) * dt / dx + Float::abs(vel.y) * dt / dy + Float::abs(vel.z) * dt / dz;
         if cfl_cell > cfl_max {

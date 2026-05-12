@@ -1,3 +1,31 @@
+# Sprint 1.96.15 Checklist: cfd-3d Dependency-Aware Physics Audit
+**Goal**: Audit `cfd-3d` and direct dependencies, then correct the highest-risk cfd-3d physics gap found.
+
+**Success Criteria**:
+- ✅ Audit covers `cfd-3d`, `cfd-core`, `cfd-math`, `cfd-mesh`, `cfd-io`, `cfd-1d`, `cfd-2d`, `cfd-schematics`, and numerical support crates.
+- ✅ VOF explicit interface transport rejects nonpositive and nonfinite time steps.
+- ✅ VOF CFL evaluation rejects nonfinite velocity components before flux calculation.
+- ✅ Bounded Cargo check, integration test, clippy, and nextest verification pass for the touched `cfd-3d` VOF paths.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Map `cfd-3d` manifest, public module graph, and direct dependencies.
+- [x] Classify dependency roles: core physics/errors, math kernels, mesh authority, I/O adapters, lower-fidelity references, schematic topology, FFT/array/concurrency support.
+- [x] Identify missing VOF explicit-transport precondition checks as the highest-risk local physics gap.
+
+### Phase 2: Execution (10-50%)
+- [x] Reject nonpositive and nonfinite VOF time steps before CFL evaluation.
+- [x] Reject nonfinite VOF velocity components before geometric or algebraic advection.
+- [x] Add value-semantic invalid-input tests for VOF transport.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for touched VOF paths.
+- [x] Run `cargo check -p cfd-3d --no-default-features`.
+- [x] Run `cargo test -p cfd-3d --no-default-features --test vof_tests`.
+- [x] Run `cargo nextest run -p cfd-3d --test vof_tests --no-default-features` under a 30-second shell timeout.
+- [x] Run `cargo clippy -p cfd-3d --no-default-features --lib -- -W clippy::all -W clippy::pedantic`.
+
+---
+
 # Sprint 1.96.14 Checklist: cfd-1d Dependency-Aware Physics Audit
 **Goal**: Audit `cfd-1d` and direct dependencies, then correct the highest-risk cfd-1d physics gap found.
 

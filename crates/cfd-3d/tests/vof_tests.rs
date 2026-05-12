@@ -341,8 +341,10 @@ fn test_nan_velocity_no_panic() {
         solver.alpha_mut().fill(0.5);
     }
     solver.set_velocity_at(0, Vector3::new(f64::NAN, 0.0, 0.0));
-    // Must not panic
-    let _ = solver.step(1e-4, &[], &[], &[]);
+    let err = solver
+        .step(1e-4, &[], &[], &[])
+        .expect_err("NaN velocity must be rejected before VOF transport");
+    assert!(err.to_string().contains("velocity"));
 }
 
 /// **Adversarial**: Infinite velocity → solver must not panic.
@@ -353,7 +355,27 @@ fn test_infinite_velocity_no_panic() {
         solver.alpha_mut().fill(0.5);
     }
     solver.set_velocity_at(5, Vector3::new(f64::INFINITY, 0.0, 0.0));
-    let _ = solver.step(1e-4, &[], &[], &[]);
+    let err = solver
+        .step(1e-4, &[], &[], &[])
+        .expect_err("infinite velocity must be rejected before VOF transport");
+    assert!(err.to_string().contains("velocity"));
+}
+
+/// **Adversarial**: nonpositive time steps are outside explicit VOF transport physics.
+#[test]
+fn test_nonpositive_timestep_rejected() {
+    let mut solver = make_solver(6, 6, 6, default_config());
+    solver.alpha_mut().fill(0.5);
+
+    let zero_dt = solver
+        .step(0.0, &[], &[], &[])
+        .expect_err("zero dt must be rejected");
+    assert!(zero_dt.to_string().contains("time step"));
+
+    let negative_dt = solver
+        .step(-1.0e-4, &[], &[], &[])
+        .expect_err("negative dt must be rejected");
+    assert!(negative_dt.to_string().contains("time step"));
 }
 
 /// **Adversarial**: Initial α values clamped if outside [0,1] (robustness).

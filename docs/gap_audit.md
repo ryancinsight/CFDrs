@@ -14,6 +14,22 @@
 
 ---
 
+# Sprint 1.96.15 Resolution: cfd-3d Dependency-Aware Physics Audit
+
+### RESOLVED-044: VOF Transport Accepted Nonphysical Time and Velocity States
+- **Location**: `crates/cfd-3d/src/vof/advection.rs`
+- **Issue**: The VOF CFL check rejected finite `CFL > 1` states but allowed nonpositive/nonfinite time steps and nonfinite velocity components to enter interface reconstruction and flux evaluation. This violated the explicit geometric-advection preconditions and could propagate invalid volume fractions instead of rejecting the physical state.
+- **Dependency audit**: `cfd-core` usage is appropriate for shared error contracts and physical models; `cfd-math` is appropriate for reusable numerical kernels; `cfd-mesh` is appropriate as geometry/mesh authority; `cfd-io` is output infrastructure; `cfd-1d` and `cfd-2d` are cross-fidelity references; `cfd-schematics` is topology input authority. The defect was local to `cfd-3d` VOF transport validation.
+- **Remediation**: Added finite-positive time-step validation, finite-positive grid-spacing validation, and finite velocity-component validation before CFL accumulation. Updated VOF tests so NaN/infinite velocities, zero time step, and negative time step are value-semantic errors.
+- **Mathematical basis**: Explicit geometric VOF transport requires a positive finite `dt` and finite face velocities so the swept volume `|u| dt A_face` is a finite nonnegative volume and the directional CFL bound has physical meaning.
+- **Verification**:
+  - `cargo check -p cfd-3d --no-default-features` passed.
+  - `cargo test -p cfd-3d --no-default-features --test vof_tests` passed 17/17 tests.
+  - `cargo nextest run -p cfd-3d --test vof_tests --no-default-features --fail-fast --hide-progress-bar --status-level fail` passed 17/17 tests.
+  - `cargo clippy -p cfd-3d --no-default-features --lib -- -W clippy::all -W clippy::pedantic` passed.
+
+---
+
 # Sprint 1.96.14 Resolution: cfd-1d Dependency-Aware Physics Audit
 
 ### RESOLVED-043: Hagen-Poiseuille Derived Signed Shear for Non-Newtonian Fluids
