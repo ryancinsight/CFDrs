@@ -1,3 +1,33 @@
+# Sprint 1.96.19 Checklist: cfd-1d Dependency-Aware Physics Audit
+**Goal**: Audit `cfd-1d` and crates used by `cfd-1d`, then correct the next highest-risk cfd-1d physics gap found.
+
+**Success Criteria**:
+- ✅ Audit covers `cfd-1d`, `cfd-core`, `cfd-math`, `cfd-schematics`, and external graph/algebra/concurrency/serialization crates used by `cfd-1d`.
+- ✅ Darcy-Weisbach resistance uses explicit nonnegative wall shear rate when supplied.
+- ✅ Darcy-Weisbach resistance rejects negative explicit wall shear rate before non-Newtonian rheology evaluation.
+- ✅ Darcy-Weisbach resistance propagates rheology errors rather than falling back to baseline viscosity.
+- ✅ Bounded Cargo check, unit test, clippy, and nextest verification pass for the touched `cfd-1d` Darcy-Weisbach path.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Re-audit `cfd-1d` manifest, resistance module graph, and direct dependency roles.
+- [x] Classify dependency roles for core rheology/errors, math kernels, schematic topology, graph topology, sparse algebra, serialization, and parallel support.
+- [x] Identify ignored explicit Darcy-Weisbach shear rate and masked rheology errors as the next highest-risk resistance-physics gap.
+
+### Phase 2: Execution (10-50%)
+- [x] Route explicit nonnegative shear rate into Darcy-Weisbach apparent-viscosity evaluation.
+- [x] Reject negative explicit wall shear rate as a physical invariant violation.
+- [x] Replace baseline-viscosity fallback with direct propagation of `cfd-core` rheology errors.
+- [x] Add value-semantic Casson blood tests for shear-thinning dependence and reverse-flow reciprocity.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for touched Darcy-Weisbach resistance path.
+- [x] Run `cargo check -p cfd-1d --no-default-features`.
+- [x] Run `cargo test -p cfd-1d --no-default-features physics::resistance::models::darcy_weisbach --lib`.
+- [x] Run `cargo nextest run -p cfd-1d --lib --no-default-features physics::resistance::models::darcy_weisbach` under a 30-second shell timeout.
+- [x] Run `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic`.
+
+---
+
 # Sprint 1.96.18 Checklist: cfd-1d Dependency-Aware Physics Audit
 **Goal**: Audit `cfd-1d` and crates used by `cfd-1d`, then correct the next highest-risk cfd-1d physics gap found.
 

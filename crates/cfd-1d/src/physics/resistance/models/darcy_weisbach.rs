@@ -183,10 +183,18 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for DarcyWeisbachMo
 
         // Always query the shear-dependent viscosity. Newtonian fluids gracefully
         // ignore the shear_rate argument via the default trait implementation.
-        let shear_rate = T::from_f64(8.0).unwrap_or(T::one()) * v_abs / self.hydraulic_diameter;
-        let viscosity = fluid
-            .viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)
-            .unwrap_or(state.dynamic_viscosity);
+        let shear_rate = if let Some(shear_rate) = conditions.shear_rate {
+            if shear_rate < T::zero() {
+                return Err(Error::PhysicsViolation(
+                    "Darcy-Weisbach wall shear rate must be nonnegative".to_string(),
+                ));
+            }
+            shear_rate
+        } else {
+            T::from_f64(8.0).expect("8.0 must convert to scalar") * v_abs / self.hydraulic_diameter
+        };
+        let viscosity =
+            fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
 
         // Auto-compute Reynolds number when not explicitly provided.
         // Re = ρ·V·D_h / μ   (derived from velocity or flow_rate)
@@ -458,7 +466,7 @@ impl<T: RealField + Copy + FromPrimitive> DarcyWeisbachModel<T> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use cfd_core::physics::fluid::ConstantPropertyFluid;
+    use cfd_core::physics::fluid::{CassonBlood, ConstantPropertyFluid};
 
     /// Helper: water at 20C, circular pipe, with given Re passed directly.
     fn conditions_with_re(re: f64) -> FlowConditions<f64> {
@@ -522,6 +530,70 @@ mod tests {
             "Turbulent R should be zero, got {r2}"
         );
         assert!(k2 > 0.0, "Turbulent K should be positive, got {k2}");
+    }
+
+    #[test]
+    fn non_newtonian_laminar_resistance_uses_explicit_shear_rate() {
+        let model = DarcyWeisbachModel::circular(0.001, 0.1, 0.0);
+        let blood = CassonBlood::<f64>::normal_blood();
+        let mut low_shear = conditions_with_re(500.0);
+        low_shear.shear_rate = Some(10.0);
+        let mut high_shear = conditions_with_re(500.0);
+        high_shear.shear_rate = Some(1000.0);
+
+        let (low_r, low_k) = model
+            .calculate_coefficients(&blood, &low_shear)
+            .expect("positive explicit shear rate must compute Darcy-Weisbach resistance");
+        let (high_r, high_k) = model
+            .calculate_coefficients(&blood, &high_shear)
+            .expect("positive explicit shear rate must compute Darcy-Weisbach resistance");
+
+        assert_eq!(low_k, 0.0);
+        assert_eq!(high_k, 0.0);
+        assert!(
+            low_r > high_r,
+            "Casson shear-thinning requires higher laminar resistance at 10 1/s than at 1000 1/s: {low_r} <= {high_r}"
+        );
+    }
+
+    #[test]
+    fn negative_explicit_shear_rate_rejected() {
+        let model = DarcyWeisbachModel::circular(0.001, 0.1, 0.0);
+        let fluid = water();
+        let mut conditions = conditions_with_re(500.0);
+        conditions.shear_rate = Some(-1.0);
+
+        let err = model
+            .calculate_coefficients(&fluid, &conditions)
+            .expect_err("negative explicit wall shear rate violates Darcy-Weisbach rheology");
+
+        assert!(
+            err.to_string().contains("shear rate"),
+            "error must identify the rejected physical invariant: {err}"
+        );
+    }
+
+    #[test]
+    fn non_newtonian_auto_reynolds_is_reverse_flow_invariant() {
+        let model = DarcyWeisbachModel::circular(0.001, 0.1, 0.0);
+        let blood = CassonBlood::<f64>::normal_blood();
+        let mut forward = conditions_with_re(500.0);
+        forward.reynolds_number = None;
+        forward.velocity = Some(0.04);
+        let mut reverse = conditions_with_re(500.0);
+        reverse.reynolds_number = None;
+        reverse.velocity = Some(-0.04);
+
+        let (forward_r, forward_k) = model
+            .calculate_coefficients(&blood, &forward)
+            .expect("forward non-Newtonian Darcy-Weisbach resistance must compute");
+        let (reverse_r, reverse_k) = model
+            .calculate_coefficients(&blood, &reverse)
+            .expect("reverse non-Newtonian Darcy-Weisbach resistance must compute");
+
+        assert_relative_eq!(forward_r, reverse_r, max_relative = 1e-12);
+        assert_eq!(forward_k, 0.0);
+        assert_eq!(reverse_k, 0.0);
     }
 
     #[test]

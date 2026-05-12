@@ -14,6 +14,22 @@
 
 ---
 
+# Sprint 1.96.19 Resolution: cfd-1d Dependency-Aware Physics Audit
+
+### RESOLVED-048: Darcy-Weisbach Resistance Ignored Explicit Non-Newtonian Shear Rate
+- **Location**: `crates/cfd-1d/src/physics/resistance/models/darcy_weisbach.rs`
+- **Issue**: `DarcyWeisbachModel::calculate_coefficients` always derived wall shear rate from velocity magnitude and ignored `FlowConditions::shear_rate`. It also replaced any `cfd-core` rheology error with baseline dynamic viscosity, which hid invalid non-Newtonian states and made the effective Reynolds number or laminar resistance inconsistent with the caller-supplied shear state.
+- **Dependency audit**: `cfd-core` usage is appropriate for fluid properties, Casson blood rheology, constants, and errors; `cfd-math` is appropriate for reusable solver infrastructure; `cfd-schematics` is topology and geometry-input authority; `petgraph`, `nalgebra`, `nalgebra-sparse`, `sprs`, `rayon`, `serde`, and `serde_json` remain appropriate supporting crates. The defect was local to `cfd-1d` Darcy-Weisbach rheology coupling.
+- **Remediation**: Routed explicit nonnegative shear rate into Darcy-Weisbach viscosity evaluation, rejected negative explicit shear as a physics violation, and propagated rheology errors instead of falling back to baseline viscosity. Added Casson blood tests for explicit shear-thinning dependence, negative shear rejection, and reverse-flow auto-Reynolds reciprocity.
+- **Mathematical basis**: Darcy-Weisbach laminar resistance uses `R = 32 μ L / (A D_h^2)` and auto-Reynolds evaluation uses `Re = ρ |V| D_h / μ`. For generalized Newtonian fluids, `μ = μ(gamma_dot)` must use supplied wall shear when available; otherwise `gamma_dot = 8|V|/D_h`. Wall shear rate is a magnitude and cannot be negative.
+- **Verification**:
+  - `cargo check -p cfd-1d --no-default-features` passed.
+  - `cargo test -p cfd-1d --no-default-features physics::resistance::models::darcy_weisbach --lib` passed.
+  - `cargo nextest run -p cfd-1d --lib --no-default-features physics::resistance::models::darcy_weisbach --fail-fast --hide-progress-bar --status-level fail` passed.
+  - `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic` passed.
+
+---
+
 # Sprint 1.96.18 Resolution: cfd-1d Dependency-Aware Physics Audit
 
 ### RESOLVED-047: Rectangular-Channel Resistance Ignored Explicit Non-Newtonian Shear Rate

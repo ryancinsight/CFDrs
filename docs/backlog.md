@@ -1,5 +1,28 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.19: cfd-1d Dependency-Aware Physics Audit
+**Status**: Completed
+**Start Date**: May 11, 2026
+
+### Sprint Objectives
+- Audit `cfd-1d` and the crates it uses for one-dimensional hydraulic-network physics, rheology, topology conversion, and numerical solving.
+- Correct the next highest-risk local physics defect found during the audit without changing public APIs.
+
+### Dependency Audit Findings
+- `cfd-core`: appropriate for shared Newtonian and non-Newtonian fluid contracts, Casson blood rheology, physical constants, and typed errors; Darcy-Weisbach resistance must propagate these rheology results instead of substituting baseline viscosity.
+- `cfd-math`: appropriate for reusable numerical kernels and solver infrastructure; friction-factor and resistance-model equations remain local because they are one-dimensional hydraulic constitutive laws.
+- `cfd-schematics`: appropriate as the source of topology and channel geometry inputs; `cfd-1d` owns conversion into hydraulic diameter, area, and resistance state.
+- External crates: `petgraph` remains appropriate for network topology, `nalgebra`/`nalgebra-sparse`/`sprs` for algebra and sparse storage, `rayon` for independent branch analysis, and `serde`/`serde_json` for persisted scenarios.
+
+### Sprint Backlog Items
+
+#### Darcy-Weisbach Shear-Rate Physics
+- [x] **DW-SHEAR-001 [patch]**: Use explicit nonnegative `FlowConditions::shear_rate` for Darcy-Weisbach non-Newtonian viscosity when supplied.
+- [x] **DW-SHEAR-002 [patch]**: Reject negative explicit Darcy-Weisbach wall shear rates before rheology lookup.
+- [x] **DW-SHEAR-003 [patch]**: Propagate `cfd-core` rheology errors instead of replacing them with baseline fluid viscosity.
+- [x] **DW-SHEAR-004 [patch]**: Add Casson blood tests for explicit shear-rate dependence and reverse-flow auto-Reynolds reciprocity.
+- [x] **DW-SHEAR-005 [patch]**: Verify the touched `cfd-1d` Darcy-Weisbach path with bounded Cargo check, unit test, clippy, and nextest runs.
+
 ## Sprint 1.96.18: cfd-1d Dependency-Aware Physics Audit
 **Status**: Completed
 **Start Date**: May 11, 2026
