@@ -1,5 +1,27 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.22: cfd-1d Dependency-Aware Physics Audit
+**Status**: Completed
+**Start Date**: May 12, 2026
+
+### Sprint Objectives
+- Audit `cfd-1d` and the crates it uses for network flow analysis, hydraulic diagnostics, topology conversion, and numerical solving.
+- Correct the next highest-risk local physics defect found during the audit without changing solver state semantics.
+
+### Dependency Audit Findings
+- `cfd-core`: appropriate for fluid properties used in Reynolds and shear diagnostics; the analysis layer must preserve their physical definitions.
+- `cfd-math`: appropriate for reusable solver infrastructure; post-solve flow-regime classification remains local to `cfd-1d` because it depends on network edge state and reduced-order hydraulic properties.
+- `cfd-schematics`: appropriate as topology and channel-geometry input authority; `cfd-1d` consumes converted edge area and hydraulic diameter for diagnostics.
+- External crates: `petgraph` remains appropriate for graph topology traversal, `nalgebra` for scalar algebra bounds, `rayon` for independent analysis paths, and `serde`/`serde_json` for persisted scenarios.
+
+### Sprint Backlog Items
+
+#### Flow-Analysis Reynolds Orientation
+- [x] **FLOW-RE-001 [patch]**: Classify flow regimes with Reynolds number computed from velocity magnitude, not signed velocity.
+- [x] **FLOW-RE-002 [patch]**: Add real-network tests for reverse-flow transitional classification.
+- [x] **FLOW-RE-003 [patch]**: Add forward/reverse reciprocity tests for scalar diagnostics: Reynolds number, shear rate, and flow regime.
+- [x] **FLOW-RE-004 [patch]**: Verify the touched `cfd-1d` flow-analysis path with bounded Cargo check, unit test, clippy, and nextest runs.
+
 ## Sprint 1.96.21: cfd-1d Dependency-Aware Physics Audit
 **Status**: Completed
 **Start Date**: May 12, 2026

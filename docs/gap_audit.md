@@ -14,6 +14,22 @@
 
 ---
 
+# Sprint 1.96.22 Resolution: cfd-1d Dependency-Aware Physics Audit
+
+### RESOLVED-051: Flow Analyzer Classified Reverse Flow with Signed Reynolds Number
+- **Location**: `crates/cfd-1d/src/solver/analysis/analyzers/flow.rs`
+- **Issue**: `FlowAnalyzer::determine_flow_regime` computed Reynolds number using signed velocity while the stored Reynolds number, velocity magnitude, and wall shear diagnostics used `|V|`. Reverse-flow edges could be classified as Stokes because `Re < 1` for negative signed Reynolds even when the physical Reynolds magnitude was transitional or turbulent.
+- **Dependency audit**: `cfd-core` usage is appropriate for fluid density and viscosity; `cfd-math` remains solver infrastructure; `cfd-schematics` is topology and geometry-input authority; `petgraph`, `nalgebra`, `rayon`, `serde`, and `serde_json` remain appropriate supporting crates. The defect was local to `cfd-1d` post-solve flow diagnostics.
+- **Remediation**: Changed regime classification to compute Reynolds number from velocity magnitude. Added real-network tests proving reverse-flow transitional classification and forward/reverse reciprocity for Reynolds number, wall shear rate, and flow regime.
+- **Mathematical basis**: Reynolds number is `Re = rho |V| D_h / mu`, a nonnegative scalar comparing inertial to viscous forces. Flow orientation affects signed pressure-flow relations, not scalar regime classification.
+- **Verification**:
+  - `cargo check -p cfd-1d --no-default-features` passed.
+  - `cargo test -p cfd-1d --no-default-features solver::analysis::analyzers::flow --lib` passed.
+  - `cargo nextest run -p cfd-1d --lib --no-default-features solver::analysis::analyzers::flow --fail-fast --hide-progress-bar --status-level fail` passed.
+  - `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic` passed.
+
+---
+
 # Sprint 1.96.21 Resolution: cfd-1d Dependency-Aware Physics Audit
 
 ### RESOLVED-050: Droplet-Regime Dimensionless Groups Clamped Invalid Physical Domains

@@ -1,3 +1,31 @@
+# Sprint 1.96.22 Checklist: cfd-1d Dependency-Aware Physics Audit
+**Goal**: Audit `cfd-1d` and crates used by `cfd-1d`, then correct the next highest-risk cfd-1d physics gap found.
+
+**Success Criteria**:
+- ✅ Audit covers `cfd-1d`, `cfd-core`, `cfd-math`, `cfd-schematics`, and external graph/algebra/concurrency/serialization crates used by `cfd-1d`.
+- ✅ Flow analysis classifies regimes from Reynolds number magnitude under reverse flow.
+- ✅ Forward and reverse flow have identical scalar diagnostics where orientation should not affect the scalar quantity.
+- ✅ Bounded Cargo check, unit test, clippy, and nextest verification pass for the touched `cfd-1d` flow-analysis path.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Re-audit `cfd-1d` flow-analysis code, network graph usage, and direct dependency roles.
+- [x] Classify dependency roles for core fluid properties, math/scalar bounds, schematic-derived geometry, graph topology, serialization, and parallel support.
+- [x] Identify signed Reynolds classification in reverse-flow analysis as the next highest-risk diagnostics physics gap.
+
+### Phase 2: Execution (10-50%)
+- [x] Compute regime-classification Reynolds number from velocity magnitude.
+- [x] Add real-network reverse-flow transitional classification test.
+- [x] Add forward/reverse scalar diagnostic reciprocity test.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for touched flow-analysis path.
+- [x] Run `cargo check -p cfd-1d --no-default-features`.
+- [x] Run `cargo test -p cfd-1d --no-default-features solver::analysis::analyzers::flow --lib`.
+- [x] Run `cargo nextest run -p cfd-1d --lib --no-default-features solver::analysis::analyzers::flow` under a 30-second shell timeout.
+- [x] Run `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic`.
+
+---
+
 # Sprint 1.96.21 Checklist: cfd-1d Dependency-Aware Physics Audit
 **Goal**: Audit `cfd-1d` and crates used by `cfd-1d`, then correct the next highest-risk cfd-1d physics gap found.
 
