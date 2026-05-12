@@ -1,3 +1,32 @@
+# Sprint 1.96.21 Checklist: cfd-1d Dependency-Aware Physics Audit
+**Goal**: Audit `cfd-1d` and crates used by `cfd-1d`, then correct the next highest-risk cfd-1d physics gap found.
+
+**Success Criteria**:
+- ✅ Audit covers `cfd-1d`, `cfd-core`, `cfd-math`, `cfd-schematics`, and external graph/algebra/concurrency/serialization crates used by `cfd-1d`.
+- ✅ Droplet-regime dimensionless groups reject invalid dimensional inputs instead of clamping denominators.
+- ✅ Flow-regime classification rejects nonfinite or negative capillary numbers.
+- ✅ Bounded Cargo check, unit test, clippy, and nextest verification pass for the touched `cfd-1d` droplet-regime path.
+
+### Phase 1: Foundation & Specs (0-10%)
+- [x] Re-audit `cfd-1d` manifest, two-phase physics module, and direct dependency roles.
+- [x] Classify dependency roles for core physics errors, math kernels, schematic geometry inputs, graph topology, sparse algebra, serialization, and parallel support.
+- [x] Identify denominator clamps in capillary, Weber, and Ohnesorge groups as the next highest-risk two-phase physics gap.
+
+### Phase 2: Execution (10-50%)
+- [x] Replace surface-tension denominator clamps with positive finite validation.
+- [x] Replace length and density denominator clamps with physical-domain validation.
+- [x] Return typed physics errors from droplet-regime dimensionless-group helpers and regime analysis.
+- [x] Add value-semantic invalid-input tests.
+
+### Phase 3: Closure (50%+)
+- [x] Run marker scan for touched droplet-regime path.
+- [x] Run `cargo check -p cfd-1d --no-default-features`.
+- [x] Run `cargo test -p cfd-1d --no-default-features physics::droplet_regime --lib`.
+- [x] Run `cargo nextest run -p cfd-1d --lib --no-default-features physics::droplet_regime` under a 30-second shell timeout.
+- [x] Run `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic`.
+
+---
+
 # Sprint 1.96.20 Checklist: cfd-1d Dependency-Aware Physics Audit
 **Goal**: Audit `cfd-1d` and crates used by `cfd-1d`, then correct the next highest-risk cfd-1d physics gap found.
 

@@ -1,5 +1,28 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.21: cfd-1d Dependency-Aware Physics Audit
+**Status**: Completed
+**Start Date**: May 12, 2026
+
+### Sprint Objectives
+- Audit `cfd-1d` and the crates it uses for one-dimensional hydraulics, two-phase regime classification, rheology, topology conversion, and numerical solving.
+- Correct the next highest-risk local physics defect found during the audit without leaving compatibility wrappers or fake finite states.
+
+### Dependency Audit Findings
+- `cfd-core`: appropriate for typed physics errors and shared fluid contracts; droplet-regime dimensionless groups should use these errors when dimensional inputs violate physical domains.
+- `cfd-math`: appropriate for reusable numerical kernels; capillary, Weber, and Ohnesorge group definitions remain local to `cfd-1d` two-phase millifluidic physics.
+- `cfd-schematics`: appropriate as topology and geometry-input authority; `cfd-1d` consumes characteristic length and velocity values for regime classification.
+- External crates: `petgraph` remains appropriate for network topology, `nalgebra`/`nalgebra-sparse`/`sprs` for algebra and sparse storage, `rayon` for independent branch analysis, and `serde`/`serde_json` for scenario persistence.
+
+### Sprint Backlog Items
+
+#### Droplet-Regime Physical Domains
+- [x] **DROP-DOMAIN-001 [patch]**: Reject nonpositive or nonfinite surface tension instead of clamping denominators in capillary and Weber numbers.
+- [x] **DROP-DOMAIN-002 [patch]**: Reject nonpositive/nonfinite characteristic length and density where required by Weber and Ohnesorge numbers.
+- [x] **DROP-DOMAIN-003 [patch]**: Reject nonfinite or negative capillary numbers before flow-regime classification.
+- [x] **DROP-DOMAIN-004 [patch]**: Add value-semantic tests for invalid surface tension, invalid length, and invalid capillary-number classification.
+- [x] **DROP-DOMAIN-005 [patch]**: Verify the touched `cfd-1d` droplet-regime path with bounded Cargo check, unit test, clippy, and nextest runs.
+
 ## Sprint 1.96.20: cfd-1d Dependency-Aware Physics Audit
 **Status**: Completed
 **Start Date**: May 12, 2026

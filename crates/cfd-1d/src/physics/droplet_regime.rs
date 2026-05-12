@@ -46,6 +46,8 @@
 
 use std::fmt;
 
+use cfd_core::error::{Error, Result};
+
 /// Two-phase flow regime classification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FlowRegime {
@@ -91,11 +93,21 @@ impl fmt::Display for FlowRegime {
 /// * `surface_tension_n_m` — Interfacial tension [N/m]
 ///
 /// # Returns
-/// Capillary number (dimensionless)
+/// Capillary number (dimensionless).
+///
+/// # Errors
+/// Returns [`Error::PhysicsViolation`] when viscosity is negative, surface
+/// tension is nonpositive, or any input is nonfinite.
 #[inline]
-#[must_use]
-pub fn capillary_number(viscosity_pa_s: f64, velocity_m_s: f64, surface_tension_n_m: f64) -> f64 {
-    viscosity_pa_s * velocity_m_s.abs() / surface_tension_n_m.max(1e-15)
+pub fn capillary_number(
+    viscosity_pa_s: f64,
+    velocity_m_s: f64,
+    surface_tension_n_m: f64,
+) -> Result<f64> {
+    validate_nonnegative_finite("viscosity_pa_s", viscosity_pa_s)?;
+    validate_finite("velocity_m_s", velocity_m_s)?;
+    validate_positive_finite("surface_tension_n_m", surface_tension_n_m)?;
+    Ok(viscosity_pa_s * velocity_m_s.abs() / surface_tension_n_m)
 }
 
 /// Compute the Weber number.
@@ -111,16 +123,23 @@ pub fn capillary_number(viscosity_pa_s: f64, velocity_m_s: f64, surface_tension_
 /// * `surface_tension_n_m` — Interfacial tension [N/m]
 ///
 /// # Returns
-/// Weber number (dimensionless)
+/// Weber number (dimensionless).
+///
+/// # Errors
+/// Returns [`Error::PhysicsViolation`] when density, length, or surface tension
+/// is outside its physical domain, or when any input is nonfinite.
 #[inline]
-#[must_use]
 pub fn weber_number(
     density_kg_m3: f64,
     velocity_m_s: f64,
     length_m: f64,
     surface_tension_n_m: f64,
-) -> f64 {
-    density_kg_m3 * velocity_m_s * velocity_m_s * length_m / surface_tension_n_m.max(1e-15)
+) -> Result<f64> {
+    validate_nonnegative_finite("density_kg_m3", density_kg_m3)?;
+    validate_finite("velocity_m_s", velocity_m_s)?;
+    validate_positive_finite("length_m", length_m)?;
+    validate_positive_finite("surface_tension_n_m", surface_tension_n_m)?;
+    Ok(density_kg_m3 * velocity_m_s * velocity_m_s * length_m / surface_tension_n_m)
 }
 
 /// Ohnesorge number: ratio of viscous to inertia-surface-tension forces.
@@ -132,15 +151,17 @@ pub fn weber_number(
 /// Oh > 1: viscosity dominates over inertia (small channels, high viscosity).
 /// Oh < 1: inertia dominates (large channels, low viscosity).
 #[inline]
-#[must_use]
 pub fn ohnesorge_number(
     viscosity_pa_s: f64,
     density_kg_m3: f64,
     surface_tension_n_m: f64,
     length_m: f64,
-) -> f64 {
-    let denom = (density_kg_m3 * surface_tension_n_m.max(1e-15) * length_m.max(1e-15)).sqrt();
-    viscosity_pa_s / denom.max(1e-30)
+) -> Result<f64> {
+    validate_nonnegative_finite("viscosity_pa_s", viscosity_pa_s)?;
+    validate_positive_finite("density_kg_m3", density_kg_m3)?;
+    validate_positive_finite("surface_tension_n_m", surface_tension_n_m)?;
+    validate_positive_finite("length_m", length_m)?;
+    Ok(viscosity_pa_s / (density_kg_m3 * surface_tension_n_m * length_m).sqrt())
 }
 
 /// Classify the two-phase flow regime from the capillary number.
@@ -159,16 +180,16 @@ pub fn ohnesorge_number(
 /// **Proof of completeness**: The four regimes partition $[0, \infty)$ via
 /// three threshold values, covering all non-negative Ca. ∎
 #[inline]
-#[must_use]
-pub fn classify_regime(ca: f64) -> FlowRegime {
+pub fn classify_regime(ca: f64) -> Result<FlowRegime> {
+    validate_nonnegative_finite("capillary_number", ca)?;
     if ca < 0.01 {
-        FlowRegime::Squeezing
+        Ok(FlowRegime::Squeezing)
     } else if ca < 0.1 {
-        FlowRegime::Dripping
+        Ok(FlowRegime::Dripping)
     } else if ca < 1.0 {
-        FlowRegime::Jetting
+        Ok(FlowRegime::Jetting)
     } else {
-        FlowRegime::Parallel
+        Ok(FlowRegime::Parallel)
     }
 }
 
@@ -182,20 +203,51 @@ pub fn classify_regime(ca: f64) -> FlowRegime {
 /// * `surface_tension_n_m` — Interfacial tension [N/m]
 ///
 /// # Returns
-/// `(Ca, We, Oh, FlowRegime)`
-#[must_use]
+/// `(Ca, We, Oh, FlowRegime)`.
+///
+/// # Errors
+/// Returns [`Error::PhysicsViolation`] when any dimensional input violates the
+/// physical domain of the dimensionless group being evaluated.
 pub fn regime_analysis(
     viscosity_pa_s: f64,
     density_kg_m3: f64,
     velocity_m_s: f64,
     length_m: f64,
     surface_tension_n_m: f64,
-) -> (f64, f64, f64, FlowRegime) {
-    let ca = capillary_number(viscosity_pa_s, velocity_m_s, surface_tension_n_m);
-    let we = weber_number(density_kg_m3, velocity_m_s, length_m, surface_tension_n_m);
-    let oh = ohnesorge_number(viscosity_pa_s, density_kg_m3, surface_tension_n_m, length_m);
-    let regime = classify_regime(ca);
-    (ca, we, oh, regime)
+) -> Result<(f64, f64, f64, FlowRegime)> {
+    let ca = capillary_number(viscosity_pa_s, velocity_m_s, surface_tension_n_m)?;
+    let we = weber_number(density_kg_m3, velocity_m_s, length_m, surface_tension_n_m)?;
+    let oh = ohnesorge_number(viscosity_pa_s, density_kg_m3, surface_tension_n_m, length_m)?;
+    let regime = classify_regime(ca)?;
+    Ok((ca, we, oh, regime))
+}
+
+fn validate_finite(name: &str, value: f64) -> Result<()> {
+    if value.is_finite() {
+        Ok(())
+    } else {
+        Err(Error::PhysicsViolation(format!("{name} must be finite")))
+    }
+}
+
+fn validate_nonnegative_finite(name: &str, value: f64) -> Result<()> {
+    validate_finite(name, value)?;
+    if value >= 0.0 {
+        Ok(())
+    } else {
+        Err(Error::PhysicsViolation(format!(
+            "{name} must be nonnegative"
+        )))
+    }
+}
+
+fn validate_positive_finite(name: &str, value: f64) -> Result<()> {
+    validate_finite(name, value)?;
+    if value > 0.0 {
+        Ok(())
+    } else {
+        Err(Error::PhysicsViolation(format!("{name} must be positive")))
+    }
 }
 
 #[cfg(test)]
@@ -208,81 +260,133 @@ mod tests {
 
     /// Very slow flow → squeezing regime.
     #[test]
-    fn slow_flow_squeezing() {
-        let ca = capillary_number(MU_WATER, 1e-4, SIGMA_WATER_OIL);
+    fn slow_flow_squeezing() -> Result<()> {
+        let ca = capillary_number(MU_WATER, 1e-4, SIGMA_WATER_OIL)?;
         assert!(ca < 0.01, "Ca={ca:.6} should be < 0.01 for squeezing");
-        assert_eq!(classify_regime(ca), FlowRegime::Squeezing);
+        assert_eq!(classify_regime(ca)?, FlowRegime::Squeezing);
+        Ok(())
     }
 
     /// Moderate flow → dripping regime.
     #[test]
-    fn moderate_flow_dripping() {
+    fn moderate_flow_dripping() -> Result<()> {
         // Ca ≈ 0.001 * 1.0 / 0.035 ≈ 0.029
-        let ca = capillary_number(MU_WATER, 1.0, SIGMA_WATER_OIL);
+        let ca = capillary_number(MU_WATER, 1.0, SIGMA_WATER_OIL)?;
         assert!(
             ca >= 0.01 && ca < 0.1,
             "Ca={ca:.6} should be in dripping range [0.01, 0.1)"
         );
-        assert_eq!(classify_regime(ca), FlowRegime::Dripping);
+        assert_eq!(classify_regime(ca)?, FlowRegime::Dripping);
+        Ok(())
     }
 
     /// Fast flow → jetting regime.
     #[test]
-    fn fast_flow_jetting() {
-        let ca = capillary_number(MU_WATER, 5.0, SIGMA_WATER_OIL);
+    fn fast_flow_jetting() -> Result<()> {
+        let ca = capillary_number(MU_WATER, 5.0, SIGMA_WATER_OIL)?;
         assert!(
             ca >= 0.1 && ca < 1.0,
             "Ca={ca:.6} should be in jetting range [0.1, 1.0)"
         );
-        assert_eq!(classify_regime(ca), FlowRegime::Jetting);
+        assert_eq!(classify_regime(ca)?, FlowRegime::Jetting);
+        Ok(())
     }
 
     /// Very fast flow → parallel regime.
     #[test]
-    fn very_fast_flow_parallel() {
-        let ca = capillary_number(MU_WATER, 50.0, SIGMA_WATER_OIL);
+    fn very_fast_flow_parallel() -> Result<()> {
+        let ca = capillary_number(MU_WATER, 50.0, SIGMA_WATER_OIL)?;
         assert!(ca >= 1.0, "Ca={ca:.6} should be >= 1.0 for parallel");
-        assert_eq!(classify_regime(ca), FlowRegime::Parallel);
+        assert_eq!(classify_regime(ca)?, FlowRegime::Parallel);
+        Ok(())
     }
 
     /// Ca scales linearly with velocity.
     #[test]
-    fn ca_scales_with_velocity() {
-        let ca1 = capillary_number(MU_WATER, 1.0, SIGMA_WATER_OIL);
-        let ca2 = capillary_number(MU_WATER, 2.0, SIGMA_WATER_OIL);
+    fn ca_scales_with_velocity() -> Result<()> {
+        let ca1 = capillary_number(MU_WATER, 1.0, SIGMA_WATER_OIL)?;
+        let ca2 = capillary_number(MU_WATER, 2.0, SIGMA_WATER_OIL)?;
         let ratio = ca2 / ca1;
         assert!(
             (ratio - 2.0).abs() < 1e-10,
             "Ca ratio {ratio:.6} should be 2.0"
         );
+        Ok(())
     }
 
     /// We scales with velocity squared.
     #[test]
-    fn we_scales_with_velocity_squared() {
+    fn we_scales_with_velocity_squared() -> Result<()> {
         let l = 100e-6;
-        let we1 = weber_number(RHO_WATER, 1.0, l, SIGMA_WATER_OIL);
-        let we2 = weber_number(RHO_WATER, 2.0, l, SIGMA_WATER_OIL);
+        let we1 = weber_number(RHO_WATER, 1.0, l, SIGMA_WATER_OIL)?;
+        let we2 = weber_number(RHO_WATER, 2.0, l, SIGMA_WATER_OIL)?;
         let ratio = we2 / we1;
         assert!(
             (ratio - 4.0).abs() < 1e-10,
             "We ratio {ratio:.6} should be 4.0"
         );
+        Ok(())
     }
 
     /// Ohnesorge is always positive.
     #[test]
-    fn ohnesorge_positive() {
-        let oh = ohnesorge_number(MU_WATER, RHO_WATER, SIGMA_WATER_OIL, 100e-6);
+    fn ohnesorge_positive() -> Result<()> {
+        let oh = ohnesorge_number(MU_WATER, RHO_WATER, SIGMA_WATER_OIL, 100e-6)?;
         assert!(oh > 0.0, "Oh should be positive, got {oh:.6}");
+        Ok(())
     }
 
     /// Regime analysis returns consistent results.
     #[test]
-    fn regime_analysis_consistent() {
+    fn regime_analysis_consistent() -> Result<()> {
         let (ca, we, oh, regime) =
-            regime_analysis(MU_WATER, RHO_WATER, 1.0, 100e-6, SIGMA_WATER_OIL);
+            regime_analysis(MU_WATER, RHO_WATER, 1.0, 100e-6, SIGMA_WATER_OIL)?;
         assert!(ca > 0.0 && we > 0.0 && oh > 0.0);
-        assert_eq!(classify_regime(ca), regime);
+        assert_eq!(classify_regime(ca)?, regime);
+        Ok(())
+    }
+
+    #[test]
+    fn nonpositive_surface_tension_rejected() {
+        let err = capillary_number(MU_WATER, 1.0, 0.0)
+            .expect_err("zero surface tension makes capillary number undefined");
+        assert!(
+            err.to_string().contains("surface_tension_n_m"),
+            "error must identify invalid surface tension: {err}"
+        );
+
+        let err = weber_number(RHO_WATER, 1.0, 100e-6, -SIGMA_WATER_OIL)
+            .expect_err("negative surface tension makes Weber number undefined");
+        assert!(
+            err.to_string().contains("surface_tension_n_m"),
+            "error must identify invalid surface tension: {err}"
+        );
+    }
+
+    #[test]
+    fn nonpositive_length_rejected_for_length_dependent_groups() {
+        let err = ohnesorge_number(MU_WATER, RHO_WATER, SIGMA_WATER_OIL, 0.0)
+            .expect_err("zero characteristic length makes Ohnesorge number undefined");
+        assert!(
+            err.to_string().contains("length_m"),
+            "error must identify invalid characteristic length: {err}"
+        );
+
+        let err = weber_number(RHO_WATER, 1.0, -100e-6, SIGMA_WATER_OIL)
+            .expect_err("negative characteristic length makes Weber number undefined");
+        assert!(
+            err.to_string().contains("length_m"),
+            "error must identify invalid characteristic length: {err}"
+        );
+    }
+
+    #[test]
+    fn invalid_capillary_number_rejected_for_classification() {
+        let err =
+            classify_regime(f64::NAN).expect_err("NaN capillary number cannot define a regime");
+        assert!(
+            err.to_string().contains("capillary_number"),
+            "error must identify invalid capillary number: {err}"
+        );
     }
 }

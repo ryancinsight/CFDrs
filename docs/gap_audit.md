@@ -14,6 +14,22 @@
 
 ---
 
+# Sprint 1.96.21 Resolution: cfd-1d Dependency-Aware Physics Audit
+
+### RESOLVED-050: Droplet-Regime Dimensionless Groups Clamped Invalid Physical Domains
+- **Location**: `crates/cfd-1d/src/physics/droplet_regime.rs`
+- **Issue**: Capillary, Weber, and Ohnesorge number helpers clamped nonpositive surface tension and characteristic length denominators to tiny constants. This produced finite dimensionless groups and regime classifications for nonphysical two-phase states instead of rejecting undefined inputs.
+- **Dependency audit**: `cfd-core` usage is appropriate for typed physics errors; `cfd-math` is appropriate for reusable numerical kernels outside these closed-form definitions; `cfd-schematics` is geometry-input authority; `petgraph`, `nalgebra`, `nalgebra-sparse`, `sprs`, `rayon`, `serde`, and `serde_json` remain appropriate supporting crates. The defect was local to `cfd-1d` two-phase droplet-regime validation.
+- **Remediation**: Replaced denominator clamps with finite and physical-domain validation, changed dimensionless-group helpers and regime analysis to return typed errors, and rejected invalid capillary numbers before classification. Added tests for invalid surface tension, invalid characteristic length, and invalid capillary-number classification.
+- **Mathematical basis**: `Ca = mu |U| / sigma`, `We = rho U^2 L / sigma`, and `Oh = mu / sqrt(rho sigma L)` are defined only for positive interfacial tension and positive characteristic length where present. Regime boundaries partition nonnegative finite `Ca`; negative or nonfinite `Ca` has no physical regime.
+- **Verification**:
+  - `cargo check -p cfd-1d --no-default-features` passed.
+  - `cargo test -p cfd-1d --no-default-features physics::droplet_regime --lib` passed.
+  - `cargo nextest run -p cfd-1d --lib --no-default-features physics::droplet_regime --fail-fast --hide-progress-bar --status-level fail` passed.
+  - `cargo clippy -p cfd-1d --no-default-features --lib -- -W clippy::all -W clippy::pedantic` passed.
+
+---
+
 # Sprint 1.96.20 Resolution: cfd-1d Dependency-Aware Physics Audit
 
 ### RESOLVED-049: Junction-Loss Rheology Used Signed Shear and Ignored Explicit Shear
