@@ -10,7 +10,7 @@ index c5d985e3..29a94cd0 100644
 +        .filter_map(|idx| solved.pressures.get(idx.index()).copied())
          .sum::<f64>()
          / inlet_nodes.len() as f64;
- 
+
 @@ -190,11 +190,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
              .expect("edge must have endpoints");
          let q = solved
@@ -24,7 +24,7 @@ index c5d985e3..29a94cd0 100644
 +        let p_from = solved.pressures.get(from_idx.index()).copied().unwrap_or(0.0);
 +        let p_to = solved.pressures.get(to_idx.index()).copied().unwrap_or(0.0);
          let dp = (p_from - p_to).abs();
- 
+
          // Estimate wall shear from 1D Poiseuille: τ_w = 6μQ / (w·h²) (rectangular)
 diff --git a/crates/cfd-2d/src/grid/mod.rs b/crates/cfd-2d/src/grid/mod.rs
 index c34ec15b..9621596f 100644
@@ -33,14 +33,14 @@ index c34ec15b..9621596f 100644
 @@ -13,12 +13,14 @@
  //! and ensuring that the sum of face area vectors for any closed cell is exactly zero:
  //! $\sum_f \mathbf{A}_f = \mathbf{0}$.
- 
+
 +pub mod array2d;
  pub mod boundary;
  pub mod refinement;
  pub mod structured;
  pub mod traits;
  pub mod unstructured;
- 
+
 +pub use array2d::{Array2D, Mask2D};
  pub use boundary::BoundaryType;
  pub use refinement::{AdaptiveGrid2D, RefinementCriterion};
@@ -52,7 +52,7 @@ index 2e46bf07..9567e20b 100644
 @@ -27,31 +27,55 @@ pub enum RefinementCriterion<T: RealField + Copy> {
      Feature,
  }
- 
+
 -/// Adaptive grid with refinement capability
 +/// Adaptive grid with refinement capability.
 +///
@@ -75,7 +75,7 @@ index 2e46bf07..9567e20b 100644
 +    /// Maximum refinement level.
      pub max_level: usize,
  }
- 
+
  impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
 -    /// Create a new adaptive grid
 +    /// Create a new adaptive grid.
@@ -83,7 +83,7 @@ index 2e46bf07..9567e20b 100644
          let nx = base_grid.nx();
          let ny = base_grid.ny();
 -        let refinement_levels = vec![vec![0; ny]; nx];
- 
+
          Self {
              base_grid,
 -            refinement_levels,
@@ -92,7 +92,7 @@ index 2e46bf07..9567e20b 100644
              max_level,
          }
      }
- 
+
 +    /// Get refinement level at cell (i, j).
 +    #[inline]
 +    pub fn level(&self, i: usize, j: usize) -> usize {
@@ -140,20 +140,20 @@ index 2e46bf07..9567e20b 100644
          }
          Ok(())
      }
- 
+
 -    /// Detect feature at a specific cell
 +    /// Detect feature at a specific cell.
      fn detect_feature_at(&self, i: usize, j: usize) -> bool {
 -        // Check refinement level differences with neighbors
 -        let current_level = self.refinement_levels[i][j];
 +        let current_level = self.refinement_levels[i * self.ny + j];
- 
+
 -        // Feature is detected if neighbors have different refinement levels
          let neighbors = [
              (i.wrapping_sub(1), j),
              (i + 1, j),
 @@ -142,7 +165,7 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
- 
+
          for (ni, nj) in neighbors {
              if ni < self.base_grid.nx() && nj < self.base_grid.ny() {
 -                let neighbor_level = self.refinement_levels[ni][nj];
@@ -162,7 +162,7 @@ index 2e46bf07..9567e20b 100644
                      return true;
                  }
 @@ -162,13 +185,13 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
- 
+
          for i in 0..nx {
              for j in 0..ny {
 -                let level = self.refinement_levels[i][j];
@@ -179,7 +179,7 @@ index 2e46bf07..9567e20b 100644
              }
          }
 @@ -183,10 +206,10 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
- 
+
          for i in 0..nx {
              for j in 0..ny {
 -                if self.refinement_levels[i][j] > 0 {
@@ -195,7 +195,7 @@ index 2e46bf07..9567e20b 100644
 @@ -194,15 +217,13 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
          Ok(())
      }
- 
+
 -    /// Check if a cell can be coarsened
 +    /// Check if a cell can be coarsened (2:1 constraint).
      fn can_coarsen_at(&self, i: usize, j: usize) -> bool {
@@ -205,13 +205,13 @@ index 2e46bf07..9567e20b 100644
          if current_level == 0 {
              return false;
          }
- 
+
 -        // Check 2:1 refinement constraint
          let neighbors = [
              (i.wrapping_sub(1), j),
              (i + 1, j),
 @@ -212,8 +233,7 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
- 
+
          for (ni, nj) in neighbors {
              if ni < self.base_grid.nx() && nj < self.base_grid.ny() {
 -                let neighbor_level = self.refinement_levels[ni][nj];
@@ -223,14 +223,14 @@ index 2e46bf07..9567e20b 100644
 @@ -222,9 +242,9 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
          true
      }
- 
+
 -    /// Get effective resolution at a point
 +    /// Get effective resolution at a point.
      pub fn effective_resolution(&self, i: usize, j: usize) -> (T, T) {
 -        let level = self.refinement_levels[i][j];
 +        let level = self.refinement_levels[i * self.ny + j];
          let factor = T::from_usize(1 << level).unwrap_or_else(|| T::one());
- 
+
          (self.base_grid.dx / factor, self.base_grid.dy / factor)
 @@ -242,10 +262,8 @@ mod tests {
      #[test]
@@ -244,7 +244,7 @@ index 2e46bf07..9567e20b 100644
 +            assert_eq!(level, 0);
          }
      }
- 
+
 @@ -265,7 +283,7 @@ mod tests {
          for i in 5..8 {
              for j in 0..8 {
@@ -275,7 +275,7 @@ index 2e46bf07..9567e20b 100644
 +            assert!(level <= 2, "Refinement level should not exceed max_level=2");
          }
      }
- 
+
 @@ -300,18 +316,13 @@ mod tests {
      fn test_coarsen_reduces_level() {
          let mut grid = AdaptiveGrid2D::new(make_grid(), 3);
@@ -311,10 +311,10 @@ index 2e46bf07..9567e20b 100644
 +            assert_eq!(level, 0);
          }
      }
- 
+
 @@ -340,14 +349,14 @@ mod tests {
          assert!((dy0 - base_dx).abs() < 1e-10);
- 
+
          let mut grid2 = AdaptiveGrid2D::new(make_grid(), 3);
 -        grid2.refinement_levels[2][2] = 1;
 +        grid2.set_level(2, 2, 1);
@@ -323,7 +323,7 @@ index 2e46bf07..9567e20b 100644
              (dx1 - base_dx / 2.0).abs() < 1e-10,
              "Level 1 spacing should be half, got {dx1}"
          );
- 
+
 -        grid2.refinement_levels[2][2] = 2;
 +        grid2.set_level(2, 2, 2);
          let (dx2, _) = grid2.effective_resolution(2, 2);
@@ -362,19 +362,19 @@ index 8722ac72..9d6d1935 100644
 --- a/crates/cfd-2d/src/network/solve.rs
 +++ b/crates/cfd-2d/src/network/solve.rs
 @@ -5,6 +5,9 @@ use num_traits::{Float, FromPrimitive, ToPrimitive};
- 
+
  use super::postprocess::{extract_field_outlet_flow_rate, extract_field_wall_shear};
  use super::types::{Channel2dResult, Network2DSolver, Network2dResult};
 +use crate::solvers::cell_tracking::physics::{CellTrackerConfig, VelocityFieldInterpolator};
 +use crate::solvers::cell_tracking::population::{CellPopulation, TrackedCell};
 +use crate::solvers::cell_tracking::tracker::CellTracker;
- 
+
  /// Minimum cross-section area (m²) used to guard against division by zero
  /// when computing velocity from flow rate.
 @@ -70,6 +73,68 @@ where
                      .unwrap_or(0.0);
                  let hi_t = T::from_f64(hi).unwrap_or_else(T::zero);
- 
+
 +                // Run Eulerian-Lagrangian Tracking to determine Separation Efficiency
 +                let mut sep_eff_pct = None;
 +                if let cfd_schematics::domain::model::CrossSectionSpec::Rectangular { .. } = entry.cross_section {
@@ -406,14 +406,14 @@ index 8722ac72..9d6d1935 100644
 +
 +                    // 10us time step, 5,000,000 steps = 50 seconds transit time budget
 +                    let trajectories = tracker.trace_cells(&cells, 1e-5, 5_000_000);
-+                    
++
 +                    // Compute continuous separation metric matching the 1D analytical model:
 +                    // η = |ỹ_CTC - ỹ_RBC| where ỹ is the normalized lateral coordinate ∈ [0, 1]
 +                    let mut sum_y_ctc = 0.0;
 +                    let mut count_ctc = 0;
 +                    let mut sum_y_rbc = 0.0;
 +                    let mut count_rbc = 0;
-+                    
++
 +                    for traj in &trajectories {
 +                        if let Some(pos) = traj.positions.last() {
 +                            let y_tilde = (pos[1] - y_min) / h_bounds.max(1e-12);
@@ -429,7 +429,7 @@ index 8722ac72..9d6d1935 100644
 +                            }
 +                        }
 +                    }
-+                    
++
 +                    let y_tilde_ctc = if count_ctc > 0 { sum_y_ctc / count_ctc as f64 } else { 0.5 };
 +                    let y_tilde_rbc = if count_rbc > 0 { sum_y_rbc / count_rbc as f64 } else { 0.5 };
 +                    let diff_pct = (y_tilde_ctc - y_tilde_rbc).abs() * 100.0;
@@ -2135,11 +2135,11 @@ index 06d69018..410f80fc 100644
 +++ b/crates/cfd-2d/src/physics/momentum/interpolation.rs
 @@ -12,6 +12,7 @@
  //! is exactly conserved to machine precision.
- 
+
  use crate::fields::SimulationFields;
 +use crate::grid::array2d::Array2D;
  use nalgebra::RealField;
- 
+
  /// Rhie-Chow interpolation for face velocities
 @@ -21,22 +22,22 @@ pub fn rhie_chow_interpolation<T: RealField + Copy>(
      dx: T,
@@ -2148,13 +2148,13 @@ index 06d69018..410f80fc 100644
 -) -> (Vec<Vec<T>>, Vec<Vec<T>>) {
 +) -> (Array2D<T>, Array2D<T>) {
      let (nx, ny) = fields.u.dimensions();
- 
+
      // Face velocities
 -    let mut u_face = vec![vec![T::zero(); nx + 1]; ny];
 -    let mut v_face = vec![vec![T::zero(); nx]; ny + 1];
 +    let mut u_face = Array2D::new(nx + 1, ny, T::zero());
 +    let mut v_face = Array2D::new(nx, ny + 1, T::zero());
- 
+
      // U-velocity at vertical faces
      for j in 0..ny {
          for i in 0..=nx {
@@ -2172,7 +2172,7 @@ index 06d69018..410f80fc 100644
 @@ -45,7 +46,7 @@ pub fn rhie_chow_interpolation<T: RealField + Copy>(
                  let dp_dx = (fields.p.at(i, j) - fields.p.at(i - 1, j)) / dx;
                  let correction = dt * dp_dx / fields.density.at(i, j);
- 
+
 -                u_face[j][i] = u_avg - correction;
 +                u_face[(i, j)] = u_avg - correction;
              }
@@ -2194,7 +2194,7 @@ index 06d69018..410f80fc 100644
 @@ -67,7 +68,7 @@ pub fn rhie_chow_interpolation<T: RealField + Copy>(
                  let dp_dy = (fields.p.at(i, j) - fields.p.at(i, j - 1)) / dy;
                  let correction = dt * dp_dy / fields.density.at(i, j);
- 
+
 -                v_face[j][i] = v_avg - correction;
 +                v_face[(i, j)] = v_avg - correction;
              }
@@ -5333,7 +5333,7 @@ index b60b8ea3..88b6cfb1 100644
 @@ -20,7 +20,7 @@
  //! is solved with SOR (spectral radius $< 1$ for $1 < \omega_{SOR} < 2$),
  //! converging at rate $O(h^{-1})$ with optimal relaxation $\omega^* \approx 2/(1 + \sin(\pi h))$.
- 
+
 -use crate::grid::StructuredGrid2D;
 +use crate::grid::{array2d::Array2D, StructuredGrid2D};
  use cfd_core::error::Result;
@@ -5361,7 +5361,7 @@ index b60b8ea3..88b6cfb1 100644
      nx: usize,
      ny: usize,
 @@ -112,10 +112,10 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
- 
+
          Self {
              config,
 -            psi: vec![vec![T::zero(); ny]; nx],
@@ -5385,7 +5385,7 @@ index b60b8ea3..88b6cfb1 100644
 +                self.omega[(i, j)] = T::zero();
              }
          }
- 
+
          // Set top lid velocity boundary condition
          for i in 0..self.nx {
 -            self.u[i][self.ny - 1].x = lid_velocity;
@@ -5393,15 +5393,15 @@ index b60b8ea3..88b6cfb1 100644
 +            self.u[(i, self.ny - 1)].x = lid_velocity;
 +            self.u[(i, self.ny - 1)].y = T::zero();
          }
- 
+
          Ok(())
 @@ -157,18 +157,18 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
- 
+
              for i in 1..self.nx - 1 {
                  for j in 1..self.ny - 1 {
 -                    let psi_old = self.psi[i][j];
 +                    let psi_old = self.psi[(i, j)];
- 
+
                      // Five-point stencil for Laplacian
 -                    let psi_new = ((self.psi[i + 1][j] + self.psi[i - 1][j]) / dx2
 -                        + (self.psi[i][j + 1] + self.psi[i][j - 1]) / dy2
@@ -5410,11 +5410,11 @@ index b60b8ea3..88b6cfb1 100644
 +                        + (self.psi[(i, j + 1)] + self.psi[(i, j - 1)]) / dy2
 +                        + self.omega[(i, j)])
                          / denominator;
- 
+
                      // SOR update
 -                    self.psi[i][j] = (T::one() - omega_sor) * psi_old + omega_sor * psi_new;
 +                    self.psi[(i, j)] = (T::one() - omega_sor) * psi_old + omega_sor * psi_new;
- 
+
 -                    let change = (self.psi[i][j] - psi_old).abs();
 +                    let change = (self.psi[(i, j)] - psi_old).abs();
                      if change > max_change {
@@ -5428,7 +5428,7 @@ index b60b8ea3..88b6cfb1 100644
 -                let v = self.u[i][j].y;
 +                let u = self.u[(i, j)].x;
 +                let v = self.u[(i, j)].y;
- 
+
                  let dwdx = if u >= T::zero() {
 -                    (self.omega[i][j] - self.omega[i - 1][j]) / self.dx
 +                    (self.omega[(i, j)] - self.omega[(i - 1, j)]) / self.dx
@@ -5436,7 +5436,7 @@ index b60b8ea3..88b6cfb1 100644
 -                    (self.omega[i + 1][j] - self.omega[i][j]) / self.dx
 +                    (self.omega[(i + 1, j)] - self.omega[(i, j)]) / self.dx
                  };
- 
+
                  let dwdy = if v >= T::zero() {
 -                    (self.omega[i][j] - self.omega[i][j - 1]) / self.dy
 +                    (self.omega[(i, j)] - self.omega[(i, j - 1)]) / self.dy
@@ -5444,9 +5444,9 @@ index b60b8ea3..88b6cfb1 100644
 -                    (self.omega[i][j + 1] - self.omega[i][j]) / self.dy
 +                    (self.omega[(i, j + 1)] - self.omega[(i, j)]) / self.dy
                  };
- 
+
                  let convection = u * dwdx + v * dwdy;
- 
+
                  // Diffusion term (central differencing)
 -                let d2wdx2 = (self.omega_old[i + 1][j]
 +                let d2wdx2 = (self.omega_old[(i + 1, j)]
@@ -5464,9 +5464,9 @@ index b60b8ea3..88b6cfb1 100644
 +                        * self.omega_old[(i, j)]
 +                    + self.omega_old[(i, j - 1)])
                      / dy2;
- 
+
                  let diffusion = (d2wdx2 + d2wdy2) / self.reynolds;
- 
+
                  // Time integration (explicit Euler)
 -                self.omega[i][j] = self.omega_old[i][j] + dt * (diffusion - convection);
 +                self.omega[(i, j)] = self.omega_old[(i, j)] + dt * (diffusion - convection);
@@ -5486,13 +5486,13 @@ index b60b8ea3..88b6cfb1 100644
          }
      }
 @@ -253,24 +253,24 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
- 
+
          // Bottom wall (y = 0)
          for i in 1..self.nx - 1 {
 -            self.omega[i][0] = -two * self.psi[i][1] / dy2;
 +            self.omega[(i, 0)] = -two * self.psi[(i, 1)] / dy2;
          }
- 
+
          // Top wall (y = L) - moving lid
          for i in 1..self.nx - 1 {
 -            let lid_velocity = self.u[i][self.ny - 1].x;
@@ -5502,28 +5502,28 @@ index b60b8ea3..88b6cfb1 100644
 +            self.omega[(i, self.ny - 1)] =
 +                -two * self.psi[(i, self.ny - 2)] / dy2 - two * lid_velocity * self.dy / dy2;
          }
- 
+
          // Left wall (x = 0)
          for j in 1..self.ny - 1 {
 -            self.omega[0][j] = -two * self.psi[1][j] / dx2;
 +            self.omega[(0, j)] = -two * self.psi[(1, j)] / dx2;
          }
- 
+
          // Right wall (x = L)
          for j in 1..self.ny - 1 {
 -            self.omega[self.nx - 1][j] = -two * self.psi[self.nx - 2][j] / dx2;
 +            self.omega[(self.nx - 1, j)] = -two * self.psi[(self.nx - 2, j)] / dx2;
          }
      }
- 
+
 @@ -292,12 +292,12 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
      }
- 
+
      /// Check convergence based on change in stream function
 -    pub fn check_convergence(&self, psi_old: &[Vec<T>]) -> bool {
 +    pub fn check_convergence(&self, psi_old: &Array2D<T>) -> bool {
          let mut max_change = T::zero();
- 
+
          for i in 0..self.nx {
              for j in 0..self.ny {
 -                let change = (self.psi[i][j] - psi_old[i][j]).abs();
@@ -5533,47 +5533,47 @@ index b60b8ea3..88b6cfb1 100644
                  }
 @@ -308,28 +308,28 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
      }
- 
+
      /// Get stream function field
 -    pub fn stream_function(&self) -> &[Vec<T>] {
 +    pub fn stream_function(&self) -> &Array2D<T> {
          &self.psi
      }
- 
+
      /// Get vorticity field
 -    pub fn vorticity(&self) -> &[Vec<T>] {
 +    pub fn vorticity(&self) -> &Array2D<T> {
          &self.omega
      }
- 
+
      /// Get velocity field
 -    pub fn velocity_field(&self) -> &[Vec<Vector2<T>>] {
 +    pub fn velocity_field(&self) -> &Array2D<Vector2<T>> {
          &self.u
      }
- 
+
      /// Calculate stream function at center for validation
      pub fn stream_at_center(&self) -> T {
 -        self.psi[self.nx / 2][self.ny / 2]
 +        self.psi[(self.nx / 2, self.ny / 2)]
      }
- 
+
      /// Calculate vorticity at center for validation
      pub fn vorticity_at_center(&self) -> T {
 -        self.omega[self.nx / 2][self.ny / 2]
 +        self.omega[(self.nx / 2, self.ny / 2)]
      }
  }
- 
+
 @@ -362,11 +362,11 @@ mod tests {
              .expect("Failed to initialize lid driven cavity");
- 
+
          // Check lid velocity
 -        assert_relative_eq!(solver.u[2][4].x, 1.0, epsilon = 1e-10);
 -        assert_relative_eq!(solver.u[2][4].y, 0.0, epsilon = 1e-10);
 +        assert_relative_eq!(solver.u[(2, 4)].x, 1.0, epsilon = 1e-10);
 +        assert_relative_eq!(solver.u[(2, 4)].y, 0.0, epsilon = 1e-10);
- 
+
          // Check initial stream function and vorticity
 -        assert_relative_eq!(solver.psi[2][2], 0.0, epsilon = 1e-10);
 -        assert_relative_eq!(solver.omega[2][2], 0.0, epsilon = 1e-10);
@@ -5604,12 +5604,12 @@ index 1bc20c2c..a3988b71 100644
          let dx = self.grid.dx;
 @@ -148,7 +149,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
          let n = (nx - 2) * (ny - 2);
- 
+
          if n <= 1 {
 -            return Ok(vec![vec![T::zero(); ny]; nx]);
 +            return Ok(Array2D::new(nx, ny, T::zero()));
          }
- 
+
          let reference_idx = 0usize;
 @@ -253,13 +254,13 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
      /// Solve pressure correction equation using face velocities (Rhie-Chow)
@@ -5631,18 +5631,18 @@ index 1bc20c2c..a3988b71 100644
          let ny = self.grid.ny;
          let dx = self.grid.dx;
 @@ -267,7 +268,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
- 
+
          let n = (nx - 2) * (ny - 2);
          if n <= 1 {
 -            return Ok(vec![vec![T::zero(); ny]; nx]);
 +            return Ok(Array2D::new(nx, ny, T::zero()));
          }
- 
+
          let reference_idx = 0usize;
 @@ -301,10 +302,10 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                      continue;
                  }
- 
+
 -                let de = d_x[i][j];
 -                let dw = d_x[i - 1][j];
 -                let dn = d_y[i][j];
@@ -5651,12 +5651,12 @@ index 1bc20c2c..a3988b71 100644
 +                let dw = d_x[(i - 1, j)];
 +                let dn = d_y[(i, j)];
 +                let ds = d_y[(i, j - 1)];
- 
+
                  let ae = de * dx2_inv;
                  let aw = dw * dx2_inv;
 @@ -348,7 +349,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                  }
- 
+
                  let div_u =
 -                    (u_face[i][j] - u_face[i - 1][j]) / dx + (v_face[i][j] - v_face[i][j - 1]) / dy;
 +                    (u_face[(i, j)] - u_face[(i - 1, j)]) / dx + (v_face[(i, j)] - v_face[(i, j - 1)]) / dy;
@@ -5671,7 +5671,7 @@ index 1bc20c2c..a3988b71 100644
 +    ) -> cfd_core::error::Result<Array2D<T>> {
          let nx = self.grid.nx;
          let ny = self.grid.ny;
- 
+
 -        let mut p_correction = vec![vec![T::zero(); ny]; nx];
 +        let mut p_correction = Array2D::new(nx, ny, T::zero());
          for i in 1..nx - 1 {
@@ -5685,7 +5685,7 @@ index 1bc20c2c..a3988b71 100644
 +                p_correction[(i, j)] = value;
              }
          }
- 
+
          // Neumann BCs (zero gradient)
          for i in 0..nx {
 -            p_correction[i][0] = p_correction[i][1];
@@ -5699,12 +5699,12 @@ index 1bc20c2c..a3988b71 100644
 +            p_correction[(0, j)] = p_correction[(1, j)];
 +            p_correction[(nx - 1, j)] = p_correction[(nx - 2, j)];
          }
- 
+
          Ok(p_correction)
 @@ -424,13 +425,11 @@ mod tests {
          let rho = 1.0;
          let p_corr = solver.solve_pressure_correction(&fields, dt, rho).unwrap();
- 
+
 -        for row in &p_corr {
 -            for &val in row {
 -                assert!(
@@ -5719,11 +5719,11 @@ index 1bc20c2c..a3988b71 100644
 +            );
          }
      }
- 
+
 @@ -455,10 +454,8 @@ mod tests {
          let rho = 1000.0;
          let p_corr = solver.solve_pressure_correction(&fields, dt, rho).unwrap();
- 
+
 -        for row in &p_corr {
 -            for &val in row {
 -                assert!(val.is_finite(), "Pressure correction contains NaN or Inf");
@@ -5732,13 +5732,13 @@ index 1bc20c2c..a3988b71 100644
 +            assert!(val.is_finite(), "Pressure correction contains NaN or Inf");
          }
      }
- 
+
 diff --git a/crates/cfd-2d/src/pressure_velocity/pressure.rs b/crates/cfd-2d/src/pressure_velocity/pressure.rs
 index 8b1cd04b..5ab1ed6b 100644
 --- a/crates/cfd-2d/src/pressure_velocity/pressure.rs
 +++ b/crates/cfd-2d/src/pressure_velocity/pressure.rs
 @@ -15,6 +15,7 @@
- 
+
  use super::config::PressureLinearSolver;
  use crate::fields::Field2D;
 +use crate::grid::array2d::Array2D;
@@ -5766,15 +5766,15 @@ index 8b1cd04b..5ab1ed6b 100644
 +                    u_star[(i, j)].y = T::zero();
                      continue;
                  }
- 
+
 -                let dp_dx = (p_correction[i + 1][j] - p_correction[i - 1][j]) / (two * dx);
 -                let dp_dy = (p_correction[i][j + 1] - p_correction[i][j - 1]) / (two * dy);
 +                let dp_dx = (p_correction[(i + 1, j)] - p_correction[(i - 1, j)]) / (two * dx);
 +                let dp_dy = (p_correction[(i, j + 1)] - p_correction[(i, j - 1)]) / (two * dy);
- 
+
                  let factor_u = volume / ap_u.at(i, j);
                  let factor_v = volume / ap_v.at(i, j);
- 
+
 -                u_star[i][j].x -= alpha * factor_u * dp_dx;
 -                u_star[i][j].y -= alpha * factor_v * dp_dy;
 +                u_star[(i, j)].x -= alpha * factor_u * dp_dx;
@@ -5782,7 +5782,7 @@ index 8b1cd04b..5ab1ed6b 100644
              }
          }
      }
- 
+
      /// Correct pressure field with under-relaxation
 -    pub fn correct_pressure(&self, p: &mut [Vec<T>], p_correction: &[Vec<T>], alpha: T) {
 -        for i in 0..p.len() {
@@ -5802,7 +5802,7 @@ index 96fc0ca3..ebaaf629 100644
 --- a/crates/cfd-2d/src/pressure_velocity/solver.rs
 +++ b/crates/cfd-2d/src/pressure_velocity/solver.rs
 @@ -9,6 +9,7 @@
- 
+
  use super::{PressureCorrectionSolver, PressureVelocityConfig, RhieChowInterpolation};
  use crate::fields::SimulationFields;
 +use crate::grid::array2d::Array2D;
@@ -5834,7 +5834,7 @@ index 96fc0ca3..ebaaf629 100644
      }
 @@ -78,7 +79,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
      }
- 
+
      /// Set initial conditions
 -    pub fn set_initial_conditions(&mut self, u_init: Vec<Vec<Vector2<T>>>, p_init: Vec<Vec<T>>) {
 +    pub fn set_initial_conditions(&mut self, u_init: Array2D<Vector2<T>>, p_init: Array2D<T>) {
@@ -5855,7 +5855,7 @@ index 96fc0ca3..ebaaf629 100644
          }
 @@ -113,10 +114,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
              .solve(MomentumComponent::V, &mut state_buffer, self.config.dt)?;
- 
+
          // Extract predicted velocity field
 -        let mut u_star = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
 +        let mut u_star = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
@@ -5865,16 +5865,16 @@ index 96fc0ca3..ebaaf629 100644
 +                u_star[(i, j)] = Vector2::new(state_buffer.u.at(i, j), state_buffer.v.at(i, j));
              }
          }
- 
+
 @@ -181,14 +182,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
      }
- 
+
      /// Calculate residual between two velocity fields
 -    fn calculate_residual(&self, previous: &[Vec<Vector2<T>>], current: &[Vec<Vector2<T>>]) -> T {
 +    fn calculate_residual(&self, previous: &Array2D<Vector2<T>>, current: &Array2D<Vector2<T>>) -> T {
          let nx = self.grid.nx;
          let ny = self.grid.ny;
- 
+
          let mut max_diff = T::zero();
          for i in 1..nx - 1 {
              for j in 1..ny - 1 {
@@ -5885,19 +5885,19 @@ index 96fc0ca3..ebaaf629 100644
                  }
 @@ -199,12 +200,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
      }
- 
+
      /// Get current velocity field
 -    pub fn velocity(&self) -> &[Vec<Vector2<T>>] {
 +    pub fn velocity(&self) -> &Array2D<Vector2<T>> {
          &self.u
      }
- 
+
      /// Get current pressure field
 -    pub fn pressure(&self) -> &[Vec<T>] {
 +    pub fn pressure(&self) -> &Array2D<T> {
          &self.p
      }
- 
+
 @@ -229,8 +230,8 @@ mod tests {
      fn solver_creation_with_valid_configuration() {
          let solver = make_solver(8, 8);
@@ -5907,11 +5907,11 @@ index 96fc0ca3..ebaaf629 100644
 +        assert!(!solver.velocity().as_slice().is_empty());
 +        assert!(!solver.pressure().as_slice().is_empty());
      }
- 
+
      #[test]
 @@ -240,10 +241,10 @@ mod tests {
          let solver = PressureVelocitySolver::new(grid, config).unwrap();
- 
+
          // Velocity field dimensions should match grid
 -        assert_eq!(solver.velocity().len(), 10);
 -        assert_eq!(solver.velocity()[0].len(), 6);
@@ -5922,7 +5922,7 @@ index 96fc0ca3..ebaaf629 100644
 +        assert_eq!(solver.pressure().rows(), 10);
 +        assert_eq!(solver.pressure().cols(), 6);
      }
- 
+
      #[test]
 @@ -261,8 +262,8 @@ mod tests {
      #[test]
@@ -5942,7 +5942,7 @@ index 242243da..1b455ca9 100644
 @@ -13,6 +13,7 @@
  //! consistency. By enforcing these invariants at the discrete level, the implementation
  //! guarantees stability and physical realism.
- 
+
 +use crate::grid::array2d::Array2D;
  use crate::grid::{Grid2D, StructuredGrid2D};
  use cfd_core::physics::boundary::BoundaryCondition;
@@ -5971,14 +5971,14 @@ index 242243da..1b455ca9 100644
              end_time: None,
          }
      }
- 
+
      /// Set initial velocity field
 -    pub fn with_initial_velocity(mut self, velocity: Vec<Vec<Vector2<T>>>) -> Self {
 +    pub fn with_initial_velocity(mut self, velocity: Array2D<Vector2<T>>) -> Self {
          self.initial_velocity = velocity;
          self
      }
- 
+
      /// Set initial pressure field
 -    pub fn with_initial_pressure(mut self, pressure: Vec<Vec<T>>) -> Self {
 +    pub fn with_initial_pressure(mut self, pressure: Array2D<T>) -> Self {
@@ -5995,7 +5995,7 @@ index 242243da..1b455ca9 100644
                  "Initial velocity field dimensions don't match grid".into(),
              ));
          }
- 
+
 -        if !self.initial_velocity.is_empty() && self.initial_velocity[0].len() != self.grid.ny() {
 +        if self.initial_velocity.cols() != self.grid.ny() {
              return Err(cfd_core::error::Error::InvalidConfiguration(
@@ -6033,7 +6033,7 @@ index 242243da..1b455ca9 100644
 +            .map(|v| v.norm())
              .fold(T::zero(), |acc, mag| if mag > acc { mag } else { acc })
      }
- 
+
 @@ -178,7 +178,6 @@ impl<T: RealField + Copy> IncompressibleFlowSolution<T> {
      pub fn max_pressure(&self) -> T {
          self.pressure
@@ -6047,7 +6047,7 @@ index ff51958d..65e85b40 100644
 --- a/crates/cfd-2d/src/simplec_pimple/algorithms.rs
 +++ b/crates/cfd-2d/src/simplec_pimple/algorithms.rs
 @@ -32,6 +32,7 @@
- 
+
  use super::config::AlgorithmType;
  use super::solver::SimplecPimpleSolver;
 +use crate::grid::array2d::Array2D;
@@ -6056,7 +6056,7 @@ index ff51958d..65e85b40 100644
  use nalgebra::{RealField, Vector2};
 @@ -178,8 +179,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
          let mut converged = false;
- 
+
          let mut u_prev = self.extract_velocity_field(fields);
 -        let mut u_star = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
 -        let mut u_corrected = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
@@ -6064,7 +6064,7 @@ index ff51958d..65e85b40 100644
 +        let mut u_corrected = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
          let mut continuity_residual =
              T::max_value().unwrap_or_else(|| T::from_f64(1e30).unwrap_or_else(T::one));
- 
+
 @@ -204,7 +205,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
              // Step 3: Extract predicted velocity field u*
              for i in 0..self.grid.nx {
@@ -6073,7 +6073,7 @@ index ff51958d..65e85b40 100644
 +                    u_star[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
                  }
              }
- 
+
 @@ -214,7 +215,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
              // Step 5: Correct velocities using pressure gradients
              for i in 0..self.grid.nx {
@@ -6085,7 +6085,7 @@ index ff51958d..65e85b40 100644
              {
 @@ -231,15 +232,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
              }
- 
+
              // Step 6: Correct pressure with under-relaxation
 -            let mut p_vec = self.field2d_to_vec2d(&fields.p);
 +            let mut p_vec = self.field2d_to_array2d(&fields.p);
@@ -6093,7 +6093,7 @@ index ff51958d..65e85b40 100644
                  .correct_pressure(&mut p_vec, &p_correction, self.config.alpha_p);
 -            self.vec2d_to_field2d(&mut fields.p, &p_vec);
 +            self.array2d_to_field2d(&mut fields.p, &p_vec);
- 
+
              // Step 7: Update velocity fields (u* already relaxed in momentum solve)
              for i in 0..self.grid.nx {
                  for j in 0..self.grid.ny {
@@ -6101,7 +6101,7 @@ index ff51958d..65e85b40 100644
 +                    fields.set_velocity_at(i, j, &u_corrected[(i, j)]);
                  }
              }
- 
+
 @@ -250,7 +251,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
              continuity_residual = self.compute_continuity_residual(fields, Some(dt));
              for i in 0..self.grid.nx {
@@ -6110,7 +6110,7 @@ index ff51958d..65e85b40 100644
 +                    u_prev[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
                  }
              }
- 
+
 @@ -305,16 +306,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
          rho: T,
      ) -> cfd_core::error::Result<T> {
@@ -6124,7 +6124,7 @@ index ff51958d..65e85b40 100644
 +        let mut u_corrected = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
 +        let mut u_current = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
          let max_outer_iterations = self.config.n_outer_correctors.max(3);
- 
+
          for _outer_iter in 0..max_outer_iterations {
              for i in 0..self.grid.nx {
                  for j in 0..self.grid.ny {
@@ -6132,16 +6132,16 @@ index ff51958d..65e85b40 100644
 +                    u_before_outer[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
                  }
              }
- 
+
 @@ -334,7 +335,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
- 
+
              for i in 0..self.grid.nx {
                  for j in 0..self.grid.ny {
 -                    u_star[i][j] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
 +                    u_star[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
                  }
              }
- 
+
 @@ -352,7 +353,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                      let (_, ap_c_u, _, ap_c_v) = self.momentum_solver.get_ap_coefficients();
                      for i in 0..self.grid.nx {
@@ -6154,7 +6154,7 @@ index ff51958d..65e85b40 100644
 @@ -365,17 +366,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                          fields,
                      );
- 
+
 -                    let mut p_vec = self.field2d_to_vec2d(&fields.p);
 +                    let mut p_vec = self.field2d_to_array2d(&fields.p);
                      self.pressure_solver.correct_pressure(
@@ -6164,7 +6164,7 @@ index ff51958d..65e85b40 100644
                      );
 -                    self.vec2d_to_field2d(&mut fields.p, &p_vec);
 +                    self.array2d_to_field2d(&mut fields.p, &p_vec);
- 
+
                      for i in 0..self.grid.nx {
                          for j in 0..self.grid.ny {
 -                            fields.set_velocity_at(i, j, &u_corrected[i][j]);
@@ -6187,7 +6187,7 @@ index 6c674d20..fa6ee59f 100644
 +++ b/crates/cfd-2d/src/simplec_pimple/diagnostics.rs
 @@ -17,6 +17,7 @@
  //! Laplacian scaling of the Poisson operator.
- 
+
  use super::solver::SimplecPimpleSolver;
 +use crate::grid::array2d::Array2D;
  use crate::fields::SimulationFields;
@@ -6218,7 +6218,7 @@ index 6c674d20..fa6ee59f 100644
 +        face_velocity: &Array2D<Vector2<T>>,
      ) -> T {
          let mut max_divergence = T::zero();
- 
+
          for i in 1..self.grid.nx - 1 {
              for j in 1..self.grid.ny - 1 {
 -                let du_dx = (face_velocity[i][j].x - face_velocity[i - 1][j].x) / self.grid.dx;
@@ -6244,7 +6244,7 @@ index 6c674d20..fa6ee59f 100644
          }
          velocity
      }
- 
+
 -    /// Convert `Field2D<T>` to `Vec<Vec<T>>`
 -    pub(super) fn field2d_to_vec2d(&self, field: &crate::fields::Field2D<T>) -> Vec<Vec<T>> {
 -        let mut result = vec![vec![T::zero(); self.grid.ny]; self.grid.nx];
@@ -6259,7 +6259,7 @@ index 6c674d20..fa6ee59f 100644
          }
          result
      }
- 
+
 -    /// Convert `Vec<Vec<T>>` to `Field2D<T>`
 -    pub(super) fn vec2d_to_field2d(&self, field: &mut crate::fields::Field2D<T>, vec: &[Vec<T>]) {
 +    /// Convert `Array2D<T>` to `Field2D<T>`
@@ -6276,7 +6276,7 @@ index 9201d1ae..f79bbfd1 100644
 --- a/crates/cfd-2d/src/simplec_pimple/interpolation.rs
 +++ b/crates/cfd-2d/src/simplec_pimple/interpolation.rs
 @@ -32,6 +32,7 @@
- 
+
  use super::solver::SimplecPimpleSolver;
  use crate::fields::SimulationFields;
 +use crate::grid::array2d::Array2D;
@@ -6295,10 +6295,10 @@ index 9201d1ae..f79bbfd1 100644
 @@ -54,7 +55,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
              }
          }
- 
+
 -        let mut consistent_velocity = vec![vec![Vector2::zeros(); self.grid.ny]; self.grid.nx];
 +        let mut consistent_velocity = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
- 
+
          for i in 0..self.grid.nx {
              for j in 0..self.grid.ny {
 @@ -68,7 +69,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
@@ -6308,7 +6308,7 @@ index 9201d1ae..f79bbfd1 100644
 -                    consistent_velocity[i][j].x = u_face;
 +                    consistent_velocity[(i, j)].x = u_face;
                  }
- 
+
                  if j < self.grid.ny - 1 {
 @@ -81,7 +82,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                          i,
@@ -6389,7 +6389,7 @@ index 9201d1ae..f79bbfd1 100644
          if let Some(ref rhie_chow) = self.rhie_chow {
              let consistent_velocity =
                  self.interpolate_consistent_velocity(rhie_chow, fields, Some(dt));
- 
+
 -            let mut u_face = vec![vec![T::zero(); self.grid.ny]; self.grid.nx - 1];
 -            let mut v_face = vec![vec![T::zero(); self.grid.ny - 1]; self.grid.nx];
 -            let mut d_x = vec![vec![T::zero(); self.grid.ny]; self.grid.nx - 1];
@@ -6398,7 +6398,7 @@ index 9201d1ae..f79bbfd1 100644
 +            let mut v_face = Array2D::new(self.grid.nx, self.grid.ny - 1, T::zero());
 +            let mut d_x = Array2D::new(self.grid.nx - 1, self.grid.ny, T::zero());
 +            let mut d_y = Array2D::new(self.grid.nx, self.grid.ny - 1, T::zero());
- 
+
              for i in 0..self.grid.nx - 1 {
                  for j in 0..self.grid.ny {
 -                    u_face[i][j] = consistent_velocity[i][j].x;
@@ -6415,7 +6415,7 @@ index 9201d1ae..f79bbfd1 100644
 +                    d_y[(i, j)] = rhie_chow.d_face_y(i, j, self.grid.dx, self.grid.dy);
                  }
              }
- 
+
 diff --git a/crates/cfd-2d/src/solvers/cell_tracking.rs b/crates/cfd-2d/src/solvers/cell_tracking.rs
 deleted file mode 100644
 index d1f78048..00000000
@@ -7415,7 +7415,7 @@ index 35af5eb4..c7a0618c 100644
 @@ -17,7 +17,7 @@
  //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
  //! being strictly less than 1.
- 
+
 -use crate::solvers::ns_fvm::array2d::{Array2D, Mask2D};
 +use crate::grid::array2d::{Array2D, Mask2D};
  use super::boundary::BloodModel;
@@ -7469,16 +7469,16 @@ index 64ff5b5b..b51d42fb 100644
 -        self.a_p_v = crate::solvers::ns_fvm::array2d::Array2D::new(self.grid.nx, self.grid.ny + 1, T::one());
 +        self.a_p_u = crate::grid::array2d::Array2D::new(self.grid.nx + 1, self.grid.ny, T::one());
 +        self.a_p_v = crate::grid::array2d::Array2D::new(self.grid.nx, self.grid.ny + 1, T::one());
- 
+
          let ny = self.grid.ny;
- 
+
 @@ -245,20 +245,37 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
              let h = y_max - y_min
                  + (dy_cells[0] + dy_cells[dy_cells.len() - 1])
                      * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
-+            
++
 +            let mut discrete_sum = T::zero();
-+            
++
              for j in 0..ny {
                  if self.field.mask[(0, j)] {
                      let dy_j = self.grid.dy_at(j);
@@ -7509,12 +7509,12 @@ index 64ff5b5b..b51d42fb 100644
 +                }
 +            }
          }
- 
+
          let mut last_residual = T::from_f64(1e10).unwrap_or(T::one());
 @@ -378,6 +395,50 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
      }
  }
- 
+
 +impl<T: RealField + Copy + Float + FromPrimitive> crate::solvers::cell_tracking::physics::VelocityFieldInterpolator for NavierStokesSolver2D<T> {
 +    fn velocity_at(&self, x: f64, y: f64) -> (f64, f64) {
 +        let x_t = T::from_f64(x).unwrap_or(T::zero());
@@ -7522,7 +7522,7 @@ index 64ff5b5b..b51d42fb 100644
 +
 +        // Simple nearest-cell approximation for (u, v) using staggered grid edges
 +        let i = (x_t / self.grid.dx).to_usize().unwrap_or(0).min(self.grid.nx.saturating_sub(1));
-+        
++
 +        let j = match &self.grid.y_faces {
 +            Some(yf) => {
 +                let mut found = 0;
@@ -7574,7 +7574,7 @@ index 0c6495b8..46700662 100644
 +use crate::grid::array2d::Array2D;
  use nalgebra::RealField;
  use num_traits::{Float, FromPrimitive};
- 
+
 diff --git a/crates/cfd-2d/src/solvers/ns_fvm/solver/momentum/v_equation.rs b/crates/cfd-2d/src/solvers/ns_fvm/solver/momentum/v_equation.rs
 index 308c9465..1b79f0ef 100644
 --- a/crates/cfd-2d/src/solvers/ns_fvm/solver/momentum/v_equation.rs
@@ -7587,20 +7587,20 @@ index 308c9465..1b79f0ef 100644
 +use crate::grid::array2d::Array2D;
  use nalgebra::RealField;
  use num_traits::{Float, FromPrimitive};
- 
+
 diff --git a/crates/cfd-2d/src/solvers/ns_fvm/solver/pressure/poisson.rs b/crates/cfd-2d/src/solvers/ns_fvm/solver/pressure/poisson.rs
 index 0c9b3964..764261b1 100644
 --- a/crates/cfd-2d/src/solvers/ns_fvm/solver/pressure/poisson.rs
 +++ b/crates/cfd-2d/src/solvers/ns_fvm/solver/pressure/poisson.rs
 @@ -2,7 +2,7 @@
- 
+
  use crate::error::Error;
  use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 -use crate::solvers::ns_fvm::array2d::Array2D;
 +use crate::grid::array2d::Array2D;
  use nalgebra::RealField;
  use num_traits::{Float, FromPrimitive};
- 
+
 diff --git a/crates/cfd-2d/src/solvers/scalar_transport_2d.rs b/crates/cfd-2d/src/solvers/scalar_transport_2d.rs
 index a2429cdc..4ba6def0 100644
 --- a/crates/cfd-2d/src/solvers/scalar_transport_2d.rs
@@ -7608,7 +7608,7 @@ index a2429cdc..4ba6def0 100644
 @@ -24,7 +24,8 @@
  //! Boundedness follows directly from the non-negative coefficients and the
  //! Scarborough criterion.
- 
+
 -use crate::solvers::ns_fvm::{array2d::Array2D, FlowField2D, StaggeredGrid2D};
 +use crate::grid::array2d::Array2D;
 +use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
@@ -8264,18 +8264,18 @@ index e0782b40..363d726f 100644
 +// References:
 +// - Patankar, S.V. (1980). Numerical Heat Transfer and Fluid Flow
 +// - Versteeg, H.K. & Malalasekera, W. (2007). An Introduction to CFD
- 
+
  use cfd_2d::physics::EnergyEquationSolver;
  use cfd_core::physics::boundary::BoundaryCondition;
 @@ -68,8 +69,8 @@ fn test_1d_steady_conduction_analytical() {
      }
- 
+
      // Zero velocity field (pure conduction)
 -    let u_velocity = vec![vec![0.0; ny]; nx];
 -    let v_velocity = vec![vec![0.0; ny]; nx];
 +    let u_velocity = Array2D::new(nx, ny, 0.0);
 +    let v_velocity = Array2D::new(nx, ny, 0.0);
- 
+
      // Time step for steady state (large enough to converge)
      let dt = 0.001;
 @@ -89,7 +90,7 @@ fn test_1d_steady_conduction_analytical() {
@@ -8295,13 +8295,13 @@ index e0782b40..363d726f 100644
 +            solver.temperature[(i, j)] = (PI * x).sin() * (PI * y).sin();
          }
      }
- 
+
      // Constant velocity field
 -    let u_velocity = vec![vec![u0; ny]; nx];
 -    let v_velocity = vec![vec![v0; ny]; nx];
 +    let u_velocity = Array2D::new(nx, ny, u0);
 +    let v_velocity = Array2D::new(nx, ny, v0);
- 
+
      // Set boundary conditions (Dirichlet with manufactured solution)
      let mut boundary_conditions = HashMap::new();
 @@ -157,7 +158,7 @@ fn test_2d_transient_convection_diffusion_mms() {
@@ -8324,13 +8324,13 @@ index e0782b40..363d726f 100644
              rms_error += error * error;
 @@ -258,8 +259,8 @@ fn test_uniform_temperature_conservation() {
      let mut solver = EnergyEquationSolver::<f64>::new(nx, ny, t_uniform, alpha);
- 
+
      // Zero velocity (pure diffusion)
 -    let u_velocity = vec![vec![0.0; ny]; nx];
 -    let v_velocity = vec![vec![0.0; ny]; nx];
 +    let u_velocity = Array2D::new(nx, ny, 0.0);
 +    let v_velocity = Array2D::new(nx, ny, 0.0);
- 
+
      // Adiabatic boundaries (no heat flux)
      let mut boundary_conditions = HashMap::new();
 @@ -285,7 +286,7 @@ fn test_uniform_temperature_conservation() {
@@ -8350,18 +8350,18 @@ index e0782b40..363d726f 100644
 +            solver.heat_source[(i, j)] = q_source;
          }
      }
- 
+
      // Zero velocity
 -    let u_velocity = vec![vec![0.0; ny]; nx];
 -    let v_velocity = vec![vec![0.0; ny]; nx];
 +    let u_velocity = Array2D::new(nx, ny, 0.0);
 +    let v_velocity = Array2D::new(nx, ny, 0.0);
- 
+
      // Fixed temperature boundaries
      let t_boundary = 300.0;
 @@ -367,7 +368,7 @@ fn test_steady_heat_source_balance() {
      }
- 
+
      // Verify temperature is above boundary temperature (heat is added)
 -    let t_center = solver.temperature[nx / 2][ny / 2];
 +    let t_center = solver.temperature[(nx / 2, ny / 2)];
@@ -8380,7 +8380,7 @@ index e0782b40..363d726f 100644
 +            let t2 = solver.temperature[(nx - 1 - i, j)];
 +            let t3 = solver.temperature[(i, ny - 1 - j)];
 +            let t4 = solver.temperature[(nx - 1 - i, ny - 1 - j)];
- 
+
              let max_diff = (t1 - t2).abs().max((t1 - t3).abs()).max((t1 - t4).abs());
              assert!(
 @@ -392,3 +393,4 @@ fn test_steady_heat_source_balance() {
@@ -8418,7 +8418,7 @@ index ae44cb10..2ce43b4f 100644
 +// - Patankar, S.V. (1980). Numerical Heat Transfer and Fluid Flow, Chapter 4
 +// - OpenFOAM Programmer's Guide: Boundary Conditions
 +// - Versteeg, H.K. & Malalasekera, W. (2007). An Introduction to CFD, Chapter 11
- 
+
  use cfd_2d::physics::EnergyEquationSolver;
  use cfd_core::physics::boundary::BoundaryCondition;
 @@ -292,7 +293,7 @@ fn test_periodic_energy_transport() {
@@ -8429,7 +8429,7 @@ index ae44cb10..2ce43b4f 100644
 +            solver.temperature[(i, j)] = t_init + perturbation;
          }
      }
- 
+
 @@ -300,7 +301,7 @@ fn test_periodic_energy_transport() {
      let mut initial_energy = 0.0;
      for i in 0..nx {
@@ -8441,13 +8441,13 @@ index ae44cb10..2ce43b4f 100644
      initial_energy *= dx * dy; // Integrate over domain
 @@ -331,8 +332,8 @@ fn test_periodic_energy_transport() {
      }
- 
+
      // Evolve for several time steps
 -    let u_velocity = vec![vec![0.0; ny]; nx];
 -    let v_velocity = vec![vec![0.0; ny]; nx];
 +    let u_velocity = Array2D::new(nx, ny, 0.0);
 +    let v_velocity = Array2D::new(nx, ny, 0.0);
- 
+
      for _ in 0..10 {
          solver
 @@ -344,7 +345,7 @@ fn test_periodic_energy_transport() {
@@ -8460,7 +8460,7 @@ index ae44cb10..2ce43b4f 100644
      }
      final_energy *= dx * dy;
 @@ -362,8 +363,8 @@ fn test_periodic_energy_transport() {
- 
+
      // Validate periodicity: T(0,j) ≈ T(nx-1,j)
      for j in 0..ny {
 -        let t_west = solver.temperature[0][j];
@@ -8468,7 +8468,7 @@ index ae44cb10..2ce43b4f 100644
 +        let t_west = solver.temperature[(0, j)];
 +        let t_east = solver.temperature[(nx - 1, j)];
          let periodic_error = (t_west - t_east).abs() / t_init;
- 
+
          assert!(
 @@ -378,3 +379,4 @@ fn test_periodic_energy_transport() {
          );
@@ -8486,4 +8486,3 @@ index 32d18565..0dcc147f 100644
 -        .flat_map(|row| row.iter())
          .map(|v| v.abs())
          .fold(0.0_f64, f64::max);
- 
