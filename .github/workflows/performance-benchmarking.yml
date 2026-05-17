@@ -69,16 +69,16 @@ jobs:
       run: |
         if [ "$RUNNER_OS" == "Linux" ]; then
           sudo apt-get update
-          sudo apt-get install -y valgrind linux-tools-common
+          sudo apt-get install -y valgrind linux-tools-common libfontconfig1-dev
         fi
 
     - name: Build benchmarks
-      run: cargo build --release --bench comprehensive_cfd_benchmarks
+      run: cargo build --release --bench performance_benchmarks
 
     - name: Run comprehensive benchmarks
       if: github.event.inputs.benchmark_type == 'comprehensive' || github.event_name != 'workflow_dispatch'
       run: |
-        cargo bench --bench comprehensive_cfd_benchmarks | tee benchmark_results.txt
+        cargo bench --bench performance_benchmarks | tee benchmark_results.txt
 
     - name: Run regression detection benchmarks
       if: github.event.inputs.benchmark_type == 'regression' || github.event_name == 'schedule'
