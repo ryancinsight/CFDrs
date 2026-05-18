@@ -104,8 +104,19 @@ def compare_solutions(cfd_python_result, external_result, Re: float):
     # Ensure same grid size
     if cfd_python_result["u"].shape != ext_sol["u"].shape:
         print(f"WARN: Grid size mismatch: cfd_python {cfd_python_result['u'].shape} vs external {ext_sol['u'].shape}")
-        # TODO: Interpolate if needed
-        return None
+        from scipy.interpolate import RectBivariateSpline
+        x_cfd = np.linspace(0, 1, cfd_python_result["u"].shape[1])
+        y_cfd = np.linspace(0, 1, cfd_python_result["u"].shape[0])
+        x_ext = np.linspace(0, 1, ext_sol["u"].shape[1])
+        y_ext = np.linspace(0, 1, ext_sol["u"].shape[0])
+
+        spline_u = RectBivariateSpline(y_cfd, x_cfd, cfd_python_result["u"])
+        spline_v = RectBivariateSpline(y_cfd, x_cfd, cfd_python_result["v"])
+        spline_p = RectBivariateSpline(y_cfd, x_cfd, cfd_python_result["p"])
+
+        cfd_python_result["u"] = spline_u(y_ext, x_ext)
+        cfd_python_result["v"] = spline_v(y_ext, x_ext)
+        cfd_python_result["p"] = spline_p(y_ext, x_ext)
     
     # Compute L2 errors
     u_diff = cfd_python_result["u"] - ext_sol["u"]
