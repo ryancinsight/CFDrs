@@ -6598,7 +6598,7 @@ dependencies = [
 [[package]]
 name = "ritk-core"
 version = "0.1.0"
-source = "git+https://github.com/ryancinsight/ritk.git#3d79141d91b77a298159e3e3f331c924124ba8f8"
+source = "git+https://github.com/ryancinsight/ritk.git#1489d71672e7a21467fabe8f873ecdd3e4917254"
 dependencies = [
  "anyhow",
  "burn",
@@ -6617,7 +6617,7 @@ dependencies = [
 [[package]]
 name = "ritk-vtk"
 version = "0.1.0"
-source = "git+https://github.com/ryancinsight/ritk.git#3d79141d91b77a298159e3e3f331c924124ba8f8"
+source = "git+https://github.com/ryancinsight/ritk.git#1489d71672e7a21467fabe8f873ecdd3e4917254"
 dependencies = [
  "anyhow",
  "burn",
