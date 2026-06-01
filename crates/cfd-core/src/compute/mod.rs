@@ -14,10 +14,6 @@ pub mod solver;
 pub mod time;
 pub mod traits;
 
-/// MPI-based distributed computing for large-scale CFD
-#[cfg(feature = "mpi")]
-pub mod mpi;
-
 #[cfg(test)]
 mod tests;
 

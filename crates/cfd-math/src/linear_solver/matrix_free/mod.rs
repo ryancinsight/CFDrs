@@ -9,9 +9,6 @@
 #[cfg(feature = "gpu")]
 pub use cfd_core::compute::gpu::GpuContext;
 
-#[cfg(feature = "mpi")]
-pub mod parallel_solvers;
-
 // Re-export core types from the unified locations
 pub use crate::linear_solver::operators::{
     EnergyOperator2D, IdentityOperator, LaplacianOperator2D, MomentumOperator1D,
@@ -24,14 +21,6 @@ pub use crate::linear_solver::traits::LinearOperator;
 #[cfg(feature = "gpu")]
 pub use crate::linear_solver::operators::gpu::{
     BoundaryType, DispatchMetrics, GpuLaplacianOperator2D,
-};
-
-// Conditionally re-export MPI-related types when the 'mpi' feature is enabled
-#[cfg(feature = "mpi")]
-pub use parallel_solvers::{
-    CommunicationOptimization, CommunicationOptimizer, CommunicationOverlap,
-    LoadBalancingRecommendations, LoadBalancingStrategy, ParallelLoadBalancer,
-    ParallelMatrixFreeBiCGSTAB,
 };
 
 #[cfg(test)]

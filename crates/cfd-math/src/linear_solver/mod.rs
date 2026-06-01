@@ -37,12 +37,6 @@ pub use config::IterativeSolverConfig;
 pub use conjugate_gradient::ConjugateGradient;
 pub use direct_solver::DirectSparseSolver;
 pub use gmres::GMRES;
-#[cfg(feature = "mpi")]
-pub use matrix_free::{
-    CommunicationOptimization, CommunicationOptimizer, CommunicationOverlap,
-    LoadBalancingRecommendations, LoadBalancingStrategy, ParallelLoadBalancer,
-    ParallelMatrixFreeBiCGSTAB,
-};
 pub use matrix_free::{
     EnergyOperator2D, LaplacianOperator2D, LinearOperator, MomentumOperator1D, MomentumOperator2D,
     PoissonOperator3D,

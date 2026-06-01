@@ -29,7 +29,6 @@ consus-hdf5 = { workspace = true, optional = true }
 
 [features]
 default = []
-mpi = ["cfd-core/mpi"]
 # Real HDF5 output backed by the pure-Rust consus-hdf5 implementation.
 # Independent of MPI; usable and testable on any platform.
 hdf5 = ["dep:consus-core", "dep:consus-hdf5"]

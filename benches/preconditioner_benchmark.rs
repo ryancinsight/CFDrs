@@ -1,10 +1,5 @@
 //! Benchmarks for preconditioner performance comparison
 
-#[cfg(feature = "mpi")]
-use cfd_math::linear_solver::preconditioners::{
-    AdditiveSchwarzPreconditioner, CoarseningStrategy, ParallelAMGPreconditioner,
-    ParallelBlockJacobiPreconditioner,
-};
 use cfd_math::linear_solver::{
     IdentityPreconditioner, IncompleteLU, JacobiPreconditioner, Preconditioner, SORPreconditioner,
 };
@@ -113,36 +108,10 @@ fn bench_incomplete_lu_preconditioner(c: &mut Criterion) {
     });
 }
 
-#[cfg(feature = "mpi")]
-fn bench_parallel_preconditioners(c: &mut Criterion) {
-    // Note: These benchmarks would require MPI initialization
-    // For now, just test the creation overhead
-    let matrix = create_benchmark_matrix(100);
-
-    c.bench_function("parallel_preconditioner_creation", |b| {
-        b.iter(|| {
-            // Test creation overhead (would need MPI communicator in real usage)
-            let _matrix_ref = &matrix;
-            // In real usage: ParallelBlockJacobiPreconditioner::new(matrix, &communicator, 10)
-        });
-    });
-}
-
 criterion_group! {
     name = preconditioner_benches;
     config = Criterion::default().sample_size(10);
     targets = bench_identity_preconditioner, bench_jacobi_preconditioner, bench_sor_preconditioner, bench_incomplete_lu_preconditioner
 }
 
-#[cfg(feature = "mpi")]
-criterion_group! {
-    name = parallel_preconditioner_benches;
-    config = Criterion::default().sample_size(10);
-    targets = bench_parallel_preconditioners
-}
-
-#[cfg(not(feature = "mpi"))]
 criterion_main!(preconditioner_benches);
-
-#[cfg(feature = "mpi")]
-criterion_main!(preconditioner_benches, parallel_preconditioner_benches);

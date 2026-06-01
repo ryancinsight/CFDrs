@@ -35,7 +35,6 @@ tokio = { version = "1.0", features = ["rt", "macros"] }
 [features]
 default = []
 gpu = ["dep:wgpu", "dep:futures", "dep:pollster", "cfd-core/gpu"]
-mpi = []
 
 [[bench]]
 name = "math_benchmarks"

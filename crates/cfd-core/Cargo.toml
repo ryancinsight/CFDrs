@@ -25,12 +25,10 @@ nalgebra-sparse.workspace = true
 num-traits.workspace = true
 indexmap.workspace = true
 rayon.workspace = true
-mpi = { version = "0.8", optional = true, default-features = false }
 
 [features]
 default = ["gpu"]
 gpu = ["dep:wgpu"]
-mpi = ["dep:mpi"]
 simd = []
 experimental = []
 

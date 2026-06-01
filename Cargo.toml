@@ -132,7 +132,6 @@ readme.workspace = true
 default = ["gpu"]
 gpu = ["cfd-core/gpu", "dep:wgpu"]
 
-mpi = ["cfd-core/mpi", "dep:mpi"]
 simd = ["cfd-core/simd"]
 millifluidic = ["cfd-mesh/millifluidic"]
 scheme-io = ["cfd-mesh/scheme-io"]
@@ -157,7 +156,6 @@ num-traits.workspace = true
 simba.workspace = true
 petgraph.workspace = true
 wgpu = { version = "0.19", optional = true, features = ["fragile-send-sync-non-atomic-wasm", "webgl"] }
-mpi = { version = "0.8", optional = true, default-features = false }
 rand.workspace = true
 tracing = { workspace = true }
 rayon.workspace = true
