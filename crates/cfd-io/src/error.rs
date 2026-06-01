@@ -18,7 +18,7 @@ pub enum IoError {
     /// Data validation error
     #[error("Data validation failed: {0}")]
     ValidationError(String),
-    
+
     /// Missing required field
     #[error("Missing required field: {0}")]
     MissingField(String),

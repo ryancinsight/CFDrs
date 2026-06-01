@@ -1136,6 +1136,9 @@ dependencies = [
  "bytemuck",
  "cfd-core",
  "cfd-math",
+ "consus-core",
+ "consus-hdf5",
+ "consus-io",
  "csv",
  "nalgebra",
  "num-traits",
@@ -1658,6 +1661,44 @@ dependencies = [
  "getrandom 0.2.17",
  "once_cell",
  "tiny-keccak",
+]
+
+[[package]]
+name = "consus-compression"
+version = "0.1.0"
+source = "git+https://github.com/ryancinsight/consus.git#a9ac02ac205a91bc2c29b364ea014303f38c7cb7"
+dependencies = [
+ "byteorder",
+ "consus-core",
+]
+
+[[package]]
+name = "consus-core"
+version = "0.1.0"
+source = "git+https://github.com/ryancinsight/consus.git#a9ac02ac205a91bc2c29b364ea014303f38c7cb7"
+dependencies = [
+ "byteorder",
+ "smallvec",
+ "zerocopy",
+]
+
+[[package]]
+name = "consus-hdf5"
+version = "0.1.0"
+source = "git+https://github.com/ryancinsight/consus.git#a9ac02ac205a91bc2c29b364ea014303f38c7cb7"
+dependencies = [
+ "byteorder",
+ "consus-compression",
+ "consus-core",
+ "consus-io",
+]
+
+[[package]]
+name = "consus-io"
+version = "0.1.0"
+source = "git+https://github.com/ryancinsight/consus.git#a9ac02ac205a91bc2c29b364ea014303f38c7cb7"
+dependencies = [
+ "consus-core",
 ]
 
 [[package]]
