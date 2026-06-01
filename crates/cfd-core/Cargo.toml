@@ -25,12 +25,17 @@ nalgebra-sparse.workspace = true
 num-traits.workspace = true
 indexmap.workspace = true
 rayon.workspace = true
+mnemosyne = { workspace = true, optional = true }
 
 [features]
 default = ["gpu"]
 gpu = ["dep:wgpu"]
 simd = []
 experimental = []
+# Install Mnemosyne as the process global allocator for every binary that links
+# cfd-core. Off by default; mutually exclusive with cfd-validation's tracking
+# allocator (only one #[global_allocator] may exist per binary).
+mnemosyne = ["dep:mnemosyne"]
 
 [dev-dependencies]
 proptest.workspace = true
