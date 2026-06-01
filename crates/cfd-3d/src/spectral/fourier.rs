@@ -19,7 +19,7 @@
 //! contribution can be eliminated by zero-padding to $M \geq 3N/2$ modes
 //! before transforming to physical space.
 
-use apollofft::{fft_1d_array, ifft_1d_array, Complex64 as ApolloComplex64};
+use apollo_fft::{fft_1d_array, ifft_1d_array, Complex64 as ApolloComplex64};
 use cfd_core::error::Result;
 use nalgebra::{Complex, DVector, RealField};
 use ndarray::Array1;

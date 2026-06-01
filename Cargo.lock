@@ -149,19 +149,45 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
-name = "apollofft"
-version = "0.1.0"
+name = "apollo-fft"
+version = "0.12.24"
+source = "git+https://github.com/ryancinsight/apollo.git#78044d3bf6e400afb3b9b1d6ab0f7ed370079017"
 dependencies = [
- "approx 0.5.1",
+ "apollo-fft-macros",
  "half",
+ "nalgebra",
  "ndarray 0.16.1",
  "num-complex 0.4.6",
+ "num-traits",
  "once_cell",
  "parking_lot",
- "proptest",
+ "rand 0.8.5",
  "rayon",
- "realfft",
- "rustfft",
+ "rustc-hash 2.1.1",
+ "serde",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
+name = "apollo-fft-macros"
+version = "0.1.0"
+source = "git+https://github.com/ryancinsight/apollo.git#78044d3bf6e400afb3b9b1d6ab0f7ed370079017"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "apollo-nufft"
+version = "0.1.0"
+source = "git+https://github.com/ryancinsight/apollo.git#78044d3bf6e400afb3b9b1d6ab0f7ed370079017"
+dependencies = [
+ "apollo-fft",
+ "ndarray 0.16.1",
+ "num-complex 0.4.6",
+ "rayon",
  "serde",
  "thiserror 1.0.69",
 ]
@@ -212,9 +238,6 @@ name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
-dependencies = [
- "derive_arbitrary",
-]
 
 [[package]]
 name = "arg_enum_proc_macro"
@@ -1051,7 +1074,8 @@ name = "cfd-3d"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "apollofft",
+ "apollo-fft",
+ "apollo-nufft",
  "approx 0.5.1",
  "cfd-1d",
  "cfd-2d",
@@ -1215,6 +1239,7 @@ dependencies = [
 name = "cfd-suite"
 version = "0.1.0"
 dependencies = [
+ "apollo-fft",
  "approx 0.5.1",
  "cfd-1d",
  "cfd-2d",
@@ -2023,17 +2048,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "807800ff3288b621186fe0a8f3392c4652068257302709c24efd918c3dffcdc2"
 
 [[package]]
-name = "derive_arbitrary"
-version = "1.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e567bd82dcff979e4b03460c307b3cdc9e96fde3d73bed1496d2bc75d9dd62a"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.117",
-]
-
-[[package]]
 name = "derive_more"
 version = "0.99.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2743,26 +2757,23 @@ dependencies = [
 [[package]]
 name = "gaia"
 version = "0.1.0"
+source = "git+https://github.com/ryancinsight/gaia.git#54931f6212eea61d4adc82da991ebb1eaba0fb0a"
 dependencies = [
  "anyhow",
  "approx 0.5.1",
  "aquamarine",
  "cfd-schematics",
- "criterion",
  "geometry-predicates",
  "hashbrown 0.15.5",
  "indexmap",
  "nalgebra",
  "num-traits",
- "proptest",
  "rand 0.8.5",
- "rayon",
  "serde",
  "serde_json",
  "slotmap",
  "thiserror 1.0.69",
  "tracing",
- "zip",
 ]
 
 [[package]]
@@ -5183,15 +5194,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "primal-check"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc0d895b311e3af9902528fbb8f928688abbd95872819320517cc24ca6b2bd08"
-dependencies = [
- "num-integer",
-]
-
-[[package]]
 name = "proc-macro-crate"
 version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5666,15 +5668,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "realfft"
-version = "3.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f821338fddb99d089116342c46e9f1fbf3828dba077674613e734e01d6ea8677"
-dependencies = [
- "rustfft",
-]
-
-[[package]]
 name = "redox_syscall"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5905,20 +5898,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
 dependencies = [
  "semver",
-]
-
-[[package]]
-name = "rustfft"
-version = "6.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21db5f9893e91f41798c88680037dba611ca6674703c1a18601b01a72c8adb89"
-dependencies = [
- "num-complex 0.4.6",
- "num-integer",
- "num-traits",
- "primal-check",
- "strength_reduce",
- "transpose",
 ]
 
 [[package]]
@@ -6542,12 +6521,6 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
-
-[[package]]
-name = "strength_reduce"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe895eb47f22e2ddd4dabc02bce419d2e643c8e3b585c78158b349195bc24d82"
 
 [[package]]
 name = "strict-num"
@@ -7262,16 +7235,6 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
-]
-
-[[package]]
-name = "transpose"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ad61aed86bc3faea4300c7aee358b4c6d0c8d6ccc36524c96e4c92ccf26e77e"
-dependencies = [
- "num-integer",
- "strength_reduce",
 ]
 
 [[package]]
@@ -9154,39 +9117,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "zip"
-version = "2.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fabe6324e908f85a1c52063ce7aa26b68dcb7eb6dbc83a2d148403c9bc3eba50"
-dependencies = [
- "arbitrary",
- "crc32fast",
- "crossbeam-utils",
- "displaydoc",
- "flate2",
- "indexmap",
- "memchr",
- "thiserror 2.0.18",
- "zopfli",
-]
-
-[[package]]
 name = "zmij"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
-
-[[package]]
-name = "zopfli"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f05cd8797d63865425ff89b5c4a48804f35ba0ce8d125800027ad6017d2b5249"
-dependencies = [
- "bumpalo",
- "crc32fast",
- "log",
- "simd-adler32",
-]
 
 [[package]]
 name = "zstd"

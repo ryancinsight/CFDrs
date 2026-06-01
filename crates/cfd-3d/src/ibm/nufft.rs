@@ -1,7 +1,8 @@
 //! NUFFT-backed coupling helpers for immersed-boundary marker and probe transfer.
 
-use apollofft::Complex64;
-use apollofft::{fft_3d_array, ifft_3d_array, nufft_type1_3d, nufft_type2_3d, UniformGrid3D};
+use apollo_fft::Complex64;
+use apollo_fft::{fft_3d_array, ifft_3d_array};
+use apollo_nufft::{nufft_type1_3d, nufft_type2_3d, UniformGrid3D};
 use cfd_core::{
     error::{Error, Result},
     physics::fluid_dynamics::VelocityField,
@@ -70,7 +71,7 @@ impl NufftMarkerCoupler3D {
         let field_hat = fft_3d_array(field);
         let normalized_hat = self.normalize_spectrum(&field_hat);
         let probe_positions = self.positions_to_tuples(positions);
-        let samples = nufft_type2_3d(&normalized_hat, &probe_positions, self.grid);
+        let samples = nufft_type2_3d(&probe_positions, &normalized_hat, self.grid);
 
         Ok(samples.into_iter().map(|sample| sample.re).collect())
     }
@@ -92,9 +93,9 @@ impl NufftMarkerCoupler3D {
         let uz_hat = self.normalize_spectrum(&fft_3d_array(&uz));
 
         let probe_positions = self.positions_to_tuples(positions);
-        let sampled_x = nufft_type2_3d(&ux_hat, &probe_positions, self.grid);
-        let sampled_y = nufft_type2_3d(&uy_hat, &probe_positions, self.grid);
-        let sampled_z = nufft_type2_3d(&uz_hat, &probe_positions, self.grid);
+        let sampled_x = nufft_type2_3d(&probe_positions, &ux_hat, self.grid);
+        let sampled_y = nufft_type2_3d(&probe_positions, &uy_hat, self.grid);
+        let sampled_z = nufft_type2_3d(&probe_positions, &uz_hat, self.grid);
 
         Ok(sampled_x
             .into_iter()

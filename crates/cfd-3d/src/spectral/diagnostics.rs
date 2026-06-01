@@ -5,7 +5,7 @@
 //! spectra, enstrophy spectra, probe-signal power spectra, and normalized
 //! temporal autocorrelation series.
 
-use apollofft::{fft_1d_array, fft_3d_array, Complex64};
+use apollo_fft::{fft_1d_array, fft_3d_array, Complex64};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
 use nalgebra::{RealField, Vector3};

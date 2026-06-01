@@ -16,7 +16,7 @@
 //! removes the component parallel to `k`, so the resulting Fourier-space
 //! forcing satisfies `k · f_⊥ = 0` and is divergence-free.
 
-use apollofft::{ifft_3d_array, Complex64};
+use apollo_fft::{ifft_3d_array, Complex64};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
 use nalgebra::Vector3;

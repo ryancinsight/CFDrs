@@ -9,7 +9,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use nalgebra::{DMatrix, Vector3};
-use apollofft::{fft_3d_array, ifft_3d_array};
+use apollo_fft::{fft_3d_array, ifft_3d_array};
 use ndarray::Array3;
 
 /// Benchmark FEM element matrix assembly
