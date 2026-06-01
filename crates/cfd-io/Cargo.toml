@@ -26,12 +26,16 @@ rayon.workspace = true
 bytemuck.workspace = true
 consus-core = { workspace = true, optional = true }
 consus-hdf5 = { workspace = true, optional = true }
+ritk-vtk = { workspace = true, optional = true }
 
 [features]
 default = []
 # Real HDF5 output backed by the pure-Rust consus-hdf5 implementation.
 # Independent of MPI; usable and testable on any platform.
 hdf5 = ["dep:consus-core", "dep:consus-hdf5"]
+# VTK creation and I/O, provided by the ritk-vtk crate (RITK toolkit owns VTK).
+# Re-exported as `cfd_io::vtk`. Pulls ritk-vtk (and its burn dependency).
+vtk = ["dep:ritk-vtk"]
 
 [dev-dependencies]
 tempfile = "3.8"
