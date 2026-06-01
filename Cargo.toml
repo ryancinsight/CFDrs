@@ -10,7 +10,6 @@ members = [
     "crates/cfd-optim",
     "crates/cfd-validation",
     "crates/cfd-python",
-    "crates/cfd-ui",
     "xtask",
 ]
 exclude = []
