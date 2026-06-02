@@ -15,7 +15,7 @@ nalgebra-sparse.workspace = true
 rsparse.workspace = true
 num-traits.workspace = true
 num-complex.workspace = true
-rayon.workspace = true
+moirai.workspace = true
 approx.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
@@ -30,7 +30,6 @@ rand.workspace = true
 proptest.workspace = true
 criterion.workspace = true
 approx.workspace = true
-tokio = { version = "1.0", features = ["rt", "macros"] }
 
 [features]
 default = []

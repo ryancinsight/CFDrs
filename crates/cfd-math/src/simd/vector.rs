@@ -3,8 +3,8 @@
 //! This module provides vectorized operations using platform-specific SIMD instructions
 //! when available, with automatic fallback to scalar operations.
 
+use moirai::{map_collect_index_with, reduce_index_with, Adaptive, ParallelSlice};
 use nalgebra::{DVector, RealField};
-use rayon::prelude::*;
 
 /// Trait for SIMD-optimized vector operations
 pub trait SimdVectorOps<T: RealField + Copy + Send + Sync> {
@@ -28,53 +28,33 @@ impl<T: RealField + Copy + Send + Sync> SimdVectorOps<T> for DVector<T> {
     fn simd_mul(&self, other: &Self) -> Self {
         assert_eq!(self.len(), other.len(), "Vector dimensions must match");
 
-        // For large vectors, use parallel execution
-        if self.len() > 1000 {
-            let data: Vec<T> = self
-                .data
-                .as_slice()
-                .par_iter()
-                .zip(other.data.as_slice().par_iter())
-                .map(|(&a, &b)| a * b)
-                .collect();
-            DVector::from_vec(data)
-        } else {
-            // For small vectors, use sequential with potential auto-vectorization
-            self.component_mul(other)
-        }
+        // Parallel element-wise product; Adaptive routes small inputs to the
+        // sequential path automatically.
+        let a = self.data.as_slice();
+        let b = other.data.as_slice();
+        let data = map_collect_index_with::<Adaptive, _, _>(a.len(), |i| a[i] * b[i]);
+        DVector::from_vec(data)
     }
 
     #[inline]
     fn simd_dot(&self, other: &Self) -> T {
         assert_eq!(self.len(), other.len(), "Vector dimensions must match");
 
-        // For large vectors, use parallel reduction
-        if self.len() > 1000 {
-            self.data
-                .as_slice()
-                .par_iter()
-                .zip(other.data.as_slice().par_iter())
-                .map(|(&a, &b)| a * b)
-                .reduce(|| T::zero(), |acc, x| acc + x)
-        } else {
-            self.dot(other)
-        }
+        // Parallel dot product (index-aligned reduction over both slices).
+        let a = self.data.as_slice();
+        let b = other.data.as_slice();
+        reduce_index_with::<Adaptive, _, _, _>(a.len(), T::zero(), |i| a[i] * b[i], |acc, x| acc + x)
     }
 
     #[inline]
     fn simd_norm(&self) -> T {
-        // For large vectors, use parallel reduction
-        if self.len() > 1000 {
-            let sum_sq = self
-                .data
-                .as_slice()
-                .par_iter()
-                .map(|&x| x * x)
-                .reduce(|| T::zero(), |acc, x| acc + x);
-            sum_sq.sqrt()
-        } else {
-            self.norm()
-        }
+        // Parallel sum of squares, then sqrt.
+        let sum_sq = self
+            .data
+            .as_slice()
+            .par()
+            .map_reduce(T::zero(), |&x| x * x, |acc, x| acc + x);
+        sum_sq.sqrt()
     }
 
     #[inline]
@@ -82,12 +62,8 @@ impl<T: RealField + Copy + Send + Sync> SimdVectorOps<T> for DVector<T> {
     where
         F: Fn(T) -> T + Send + Sync,
     {
-        if self.len() > 1000 {
-            let data: Vec<T> = self.data.as_slice().par_iter().map(|&x| f(x)).collect();
-            DVector::from_vec(data)
-        } else {
-            self.map(f)
-        }
+        let data: Vec<T> = self.data.as_slice().par().map_collect(|&x| f(x));
+        DVector::from_vec(data)
     }
 }
 

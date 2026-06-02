@@ -2,9 +2,9 @@
 
 use super::builder::{MatrixEntry, SparseMatrixBuilder};
 use cfd_core::error::Result;
+use moirai::{fold_reduce_with, Adaptive};
 use nalgebra::RealField;
 use nalgebra_sparse::CsrMatrix;
-use rayon::prelude::*;
 
 /// Parallel assembly utilities
 pub struct ParallelAssembly;
@@ -20,25 +20,29 @@ impl ParallelAssembly {
         T: RealField + Copy + Send + Sync,
         F: Fn(&[Vec<T>]) -> Vec<T> + Sync,
     {
-        // Parallel computation of element contributions
-        let entries: Vec<MatrixEntry<T>> = elements
-            .par_iter()
-            .flat_map(|(indices, values)| {
+        // Parallel computation of element contributions: each worker chunk
+        // accumulates entries into its own Vec, then the chunk Vecs are appended.
+        let entries: Vec<MatrixEntry<T>> = fold_reduce_with::<Adaptive, _, _, _, _>(
+            elements.len(),
+            Vec::new,
+            |mut acc, k| {
+                let (indices, values) = &elements[k];
                 let combined = combine(values);
-                let mut local_entries = Vec::new();
-
                 for (i_local, &i_global) in indices.iter().enumerate() {
                     for (j_local, &j_global) in indices.iter().enumerate() {
                         let idx = i_local * indices.len() + j_local;
                         if idx < combined.len() {
-                            local_entries.push(MatrixEntry::new(i_global, j_global, combined[idx]));
+                            acc.push(MatrixEntry::new(i_global, j_global, combined[idx]));
                         }
                     }
                 }
-
-                local_entries
-            })
-            .collect();
+                acc
+            },
+            |mut a, mut b| {
+                a.append(&mut b);
+                a
+            },
+        );
 
         let mut builder = SparseMatrixBuilder::new(n, n).allow_duplicates(true);
         builder.add_entries(entries)?;

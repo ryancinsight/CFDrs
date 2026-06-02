@@ -6,8 +6,8 @@ use nalgebra_sparse::CsrMatrix;
 // use nalgebra_sparse::ops::serial::spmm_csr_csr;
 use crate::linear_solver::LinearOperator;
 use crate::simd::{SimdOps, VectorOps};
+use moirai::ParallelSliceMut;
 use num_traits::{Float, FromPrimitive, Signed};
-use rayon::prelude::*;
 use std::any::TypeId;
 
 impl<T: RealField + Copy + Send + Sync> LinearOperator<T> for CsrMatrix<T> {
@@ -225,21 +225,18 @@ where
 
     // Parallel row-wise computation using rayon
     // Each thread processes a subset of rows independently
-    y.as_mut_slice()
-        .par_iter_mut()
-        .enumerate()
-        .for_each(|(i, y_i)| {
-            let row_start = row_offsets[i];
-            let row_end = row_offsets[i + 1];
+    y.as_mut_slice().par_mut().enumerate(|i, y_i| {
+        let row_start = row_offsets[i];
+        let row_end = row_offsets[i + 1];
 
-            let mut sum = T::zero();
-            for j in row_start..row_end {
-                let col_idx = col_indices[j];
-                let val = values[j];
-                sum += val * x_slice[col_idx];
-            }
-            *y_i = sum;
-        });
+        let mut sum = T::zero();
+        for j in row_start..row_end {
+            let col_idx = col_indices[j];
+            let val = values[j];
+            sum += val * x_slice[col_idx];
+        }
+        *y_i = sum;
+    });
 }
 
 /// Sparse matrix-matrix multiplication (SpMM): C = A * B

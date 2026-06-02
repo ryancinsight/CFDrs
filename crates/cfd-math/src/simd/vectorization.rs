@@ -5,9 +5,9 @@
 
 use crate::error::Result;
 use crate::simd::{SimdOps, VectorOps as SimdVectorOps};
+use moirai::{reduce_index_with, Adaptive, ParallelSliceMut};
 use nalgebra::RealField;
 use num_traits::cast::ToPrimitive;
-use rayon::prelude::*;
 
 /// Vectorized operations for CFD computations with SIMD support
 pub struct VectorizedOps {
@@ -53,13 +53,8 @@ impl VectorizedOps {
             return self.simd_ops.add_f64(a_f64, b_f64, result_f64);
         }
 
-        // Fallback to parallel iterator for other types
-        result
-            .par_iter_mut()
-            .zip(a.par_iter().zip(b.par_iter()))
-            .for_each(|(r, (a_val, b_val))| {
-                *r = *a_val + *b_val;
-            });
+        // Fallback to data-parallel iteration for other types
+        result.par_mut().enumerate(|i, r| *r = a[i] + b[i]);
 
         Ok(())
     }
@@ -95,12 +90,7 @@ impl VectorizedOps {
         }
 
         // Fallback
-        result
-            .par_iter_mut()
-            .zip(a.par_iter().zip(b.par_iter()))
-            .for_each(|(r, (a_val, b_val))| {
-                *r = *a_val * *b_val;
-            });
+        result.par_mut().enumerate(|i, r| *r = a[i] * b[i]);
 
         Ok(())
     }
@@ -142,12 +132,7 @@ impl VectorizedOps {
         }
 
         // Fallback
-        result
-            .par_iter_mut()
-            .zip(input.par_iter())
-            .for_each(|(r, val)| {
-                *r = scalar * *val;
-            });
+        result.par_mut().enumerate(|i, r| *r = scalar * input[i]);
 
         Ok(())
     }
@@ -179,12 +164,9 @@ impl VectorizedOps {
             return Ok(unsafe { std::mem::transmute_copy(&result) });
         }
 
-        // Fallback for other types
-        let sum = a
-            .par_iter()
-            .zip(b.par_iter())
-            .map(|(a_val, b_val)| *a_val * *b_val)
-            .reduce(|| T::zero(), |acc, val| acc + val);
+        // Fallback for other types: index-aligned parallel reduction.
+        let sum =
+            reduce_index_with::<Adaptive, _, _, _>(a.len(), T::zero(), |i| a[i] * b[i], |acc, v| acc + v);
 
         Ok(sum)
     }
@@ -209,12 +191,7 @@ impl VectorizedOps {
             return Err(crate::error::MathError::DimensionMismatch.into());
         }
 
-        result
-            .par_iter_mut()
-            .zip(input.par_iter())
-            .for_each(|(r, val)| {
-                *r = *val + scalar;
-            });
+        result.par_mut().enumerate(|i, r| *r = input[i] + scalar);
 
         Ok(())
     }
@@ -237,20 +214,10 @@ impl VectorizedOps {
             return Err(crate::error::MathError::DimensionMismatch.into());
         }
 
+        // Row-wise broadcast expressed elementwise: column = idx % matrix_cols.
         result
-            .par_chunks_mut(matrix_cols)
-            .zip(matrix.par_chunks(matrix_cols))
-            .for_each(|(result_row, matrix_row)| {
-                // Interior row multiplication can use SIMD if we had a specific op for it,
-                // for now we use zip/iter which LLVM can often vectorize.
-                result_row
-                    .iter_mut()
-                    .zip(matrix_row.iter())
-                    .zip(vector.iter())
-                    .for_each(|((r, m), v)| {
-                        *r = *m * *v;
-                    });
-            });
+            .par_mut()
+            .enumerate(|idx, r| *r = matrix[idx] * vector[idx % matrix_cols]);
 
         Ok(())
     }
@@ -268,7 +235,7 @@ impl VectorizedOps {
             return Err(crate::error::MathError::DimensionMismatch.into());
         }
 
-        y.par_iter_mut().enumerate().for_each(|(i, y_i)| {
+        y.par_mut().enumerate(|i, y_i| {
             let start = row_ptr[i];
             let end = row_ptr[i + 1];
 
@@ -298,7 +265,7 @@ impl VectorizedOps {
             return Err(crate::error::MathError::DimensionMismatch.into());
         }
 
-        result.par_iter_mut().enumerate().for_each(|(n, output)| {
+        result.par_mut().enumerate(|n, output| {
             let k_min = n.saturating_sub(signal_len - 1);
             let k_max = n.min(kernel_len - 1);
 
@@ -349,7 +316,7 @@ impl StencilOps {
         }
 
         // Process interior points with SIMD where possible
-        result.par_iter_mut().enumerate().for_each(|(i, r)| {
+        result.par_mut().enumerate(|i, r| {
             let idx = i + 1;
             *r = coeffs[0] * input[idx - 1] + coeffs[1] * input[idx] + coeffs[2] * input[idx + 1];
         });
@@ -371,7 +338,7 @@ impl StencilOps {
             .into());
         }
 
-        result.par_iter_mut().enumerate().for_each(|(i, r)| {
+        result.par_mut().enumerate(|i, r| {
             let idx = i + 2;
             *r = coeffs[0] * input[idx - 2]
                 + coeffs[1] * input[idx - 1]

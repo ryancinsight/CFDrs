@@ -40,9 +40,9 @@
 //! This is the standard symmetric Dirichlet enforcement (Hughes 2000, §1.12).
 
 use cfd_core::error::{Error, Result};
+use moirai::{fold_reduce_with, Adaptive};
 use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
-use rayon::prelude::*;
 use std::collections::{BTreeMap, HashMap};
 
 /// Entry for sparse matrix assembly
@@ -333,22 +333,28 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         let cols = self.cols;
         let dirichlet = &self.dirichlet_dofs;
 
-        // Parallel hash accumulation — O(1) amortised per entry (GAP-PERF-003)
-        let entry_map: HashMap<(usize, usize), T> = self
-            .entries
-            .par_iter()
-            .filter(|entry| !dirichlet.contains_key(&entry.row))
-            .map(|entry| ((entry.row, entry.col), entry.value))
-            .fold(HashMap::new, |mut acc, (key, value)| {
-                acc.entry(key).and_modify(|v| *v += value).or_insert(value);
+        // Parallel hash accumulation — O(1) amortised per entry (GAP-PERF-003).
+        // One HashMap per worker chunk (fold), merged across chunks (reduce).
+        let entries = &self.entries;
+        let entry_map: HashMap<(usize, usize), T> = fold_reduce_with::<Adaptive, _, _, _, _>(
+            entries.len(),
+            HashMap::new,
+            |mut acc, i| {
+                let entry = &entries[i];
+                if !dirichlet.contains_key(&entry.row) {
+                    acc.entry((entry.row, entry.col))
+                        .and_modify(|v| *v += entry.value)
+                        .or_insert(entry.value);
+                }
                 acc
-            })
-            .reduce(HashMap::new, |mut acc, map| {
+            },
+            |mut acc, map| {
                 for (key, value) in map {
                     acc.entry(key).and_modify(|v| *v += value).or_insert(value);
                 }
                 acc
-            });
+            },
+        );
 
         let sorted = Self::hashmap_to_sorted_triplets(entry_map, dirichlet);
         Self::build_csr_from_sorted(rows, cols, sorted)

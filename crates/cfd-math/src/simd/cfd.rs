@@ -9,9 +9,9 @@
 //! - Integration with existing CFD solver pipeline
 
 use crate::error::Result;
+use moirai::{ParallelSlice, ParallelSliceMut};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
-use rayon::prelude::*;
 
 /// CFD-specific SIMD operations dispatcher
 pub struct CfdSimdOps<T: RealField + Copy> {
@@ -62,7 +62,7 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
         let dx_inv_val = dx_inv;
         let dy_inv_val = dy_inv;
 
-        dudy.par_iter_mut().enumerate().for_each(|(idx, dudy_val)| {
+        dudy.par_mut().enumerate(|idx, dudy_val| {
             let j = idx / nx;
             let i = idx % nx;
 
@@ -74,7 +74,7 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
             }
         });
 
-        dudx.par_iter_mut().enumerate().for_each(|(idx, dudx_val)| {
+        dudx.par_mut().enumerate(|idx, dudx_val| {
             let j = idx / nx;
             let i = idx % nx;
 
@@ -177,30 +177,9 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
         let mut f_flux = vec![T::zero(); phi.len()];
         let mut g_flux = vec![T::zero(); phi.len()];
 
-        // Use parallel execution for better performance on large arrays
-        if phi.len() > 1000 {
-            f_flux
-                .par_iter_mut()
-                .zip(phi.par_iter())
-                .zip(u.par_iter())
-                .for_each(|((f, &p), &vel)| {
-                    *f = p * vel;
-                });
-
-            g_flux
-                .par_iter_mut()
-                .zip(phi.par_iter())
-                .zip(v.par_iter())
-                .for_each(|((g, &p), &vel)| {
-                    *g = p * vel;
-                });
-        } else {
-            // For smaller arrays, use sequential processing
-            for i in 0..phi.len() {
-                f_flux[i] = phi[i] * u[i];
-                g_flux[i] = phi[i] * v[i];
-            }
-        }
+        // Adaptive parallelism routes small arrays to the sequential path.
+        f_flux.par_mut().enumerate(|i, f| *f = phi[i] * u[i]);
+        g_flux.par_mut().enumerate(|i, g| *g = phi[i] * v[i]);
 
         Ok((f_flux, g_flux))
     }
@@ -227,28 +206,12 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
         // G_viscous = -μ * ∂φ/∂y
         let neg_viscosity = -viscosity;
 
-        if dphi_dx.len() > 1000 {
-            // Parallel execution for large arrays
-            f_viscous
-                .par_iter_mut()
-                .zip(dphi_dx.par_iter())
-                .for_each(|(f, &grad)| {
-                    *f = neg_viscosity * grad;
-                });
-
-            g_viscous
-                .par_iter_mut()
-                .zip(dphi_dy.par_iter())
-                .for_each(|(g, &grad)| {
-                    *g = neg_viscosity * grad;
-                });
-        } else {
-            // Sequential processing for smaller arrays
-            for i in 0..dphi_dx.len() {
-                f_viscous[i] = neg_viscosity * dphi_dx[i];
-                g_viscous[i] = neg_viscosity * dphi_dy[i];
-            }
-        }
+        f_viscous
+            .par_mut()
+            .enumerate(|i, f| *f = neg_viscosity * dphi_dx[i]);
+        g_viscous
+            .par_mut()
+            .enumerate(|i, g| *g = neg_viscosity * dphi_dy[i]);
 
         Ok((f_viscous, g_viscous))
     }
@@ -275,21 +238,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> CfdFieldOps<T> {
             ));
         }
 
-        if a.len() > 1000 {
-            // Parallel addition for large fields
-            result
-                .par_iter_mut()
-                .zip(a.par_iter())
-                .zip(b.par_iter())
-                .for_each(|((r, &x), &y)| {
-                    *r = x + y;
-                });
-        } else {
-            // Sequential addition for smaller fields
-            for i in 0..a.len() {
-                result[i] = a[i] + b[i];
-            }
-        }
+        result.par_mut().enumerate(|i, r| *r = a[i] + b[i]);
         Ok(())
     }
 
@@ -301,20 +250,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> CfdFieldOps<T> {
             ));
         }
 
-        if field.len() > 1000 {
-            // Parallel scaling for large fields
-            result
-                .par_iter_mut()
-                .zip(field.par_iter())
-                .for_each(|(r, &x)| {
-                    *r = x * scalar;
-                });
-        } else {
-            // Sequential scaling for smaller fields
-            for i in 0..field.len() {
-                result[i] = field[i] * scalar;
-            }
-        }
+        result.par_mut().enumerate(|i, r| *r = field[i] * scalar);
         Ok(())
     }
 
@@ -324,18 +260,10 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> CfdFieldOps<T> {
             return Ok(T::zero());
         }
 
-        if field.len() > 1000 {
-            // Parallel norm computation
-            let sum_sq: T = field.par_iter().map(|&x| x * x).sum();
-            Ok(sum_sq.sqrt())
-        } else {
-            // Sequential norm computation
-            let mut sum_sq = T::zero();
-            for &x in field {
-                sum_sq += x * x;
-            }
-            Ok(sum_sq.sqrt())
-        }
+        let sum_sq = field
+            .par()
+            .map_reduce(T::zero(), |&x| x * x, |acc, x| acc + x);
+        Ok(sum_sq.sqrt())
     }
 }
 
