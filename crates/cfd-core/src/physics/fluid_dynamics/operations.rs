@@ -3,7 +3,7 @@
 //! Provides operations on flow fields including vorticity, divergence,
 //! and other fluid mechanical quantities.
 
-use moirai::{par_enumerate_mut, par_map_collect};
+use moirai::{ParallelSlice, ParallelSliceMut};
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 
@@ -22,7 +22,7 @@ impl FlowOperations {
         let mut vorticity = vec![Vector3::zeros(); nx * ny * nz];
 
         // Use parallel iteration for better performance
-        par_enumerate_mut(&mut vorticity, |idx, vort| {
+        vorticity.par_mut().enumerate(|idx, vort| {
             let k = idx / (nx * ny);
             let j = (idx % (nx * ny)) / nx;
             let i = idx % nx;
@@ -42,7 +42,7 @@ impl FlowOperations {
         let mut divergence = vec![T::zero(); nx * ny * nz];
 
         // Use parallel iteration for better performance
-        par_enumerate_mut(&mut divergence, |idx, div| {
+        divergence.par_mut().enumerate(|idx, div| {
             let k = idx / (nx * ny);
             let j = (idx % (nx * ny)) / nx;
             let i = idx % nx;
@@ -91,7 +91,7 @@ impl FlowOperations {
         velocity: &VelocityField<T>,
     ) -> Vec<T> {
         // Use parallel iteration for better performance
-        par_map_collect(&velocity.components, |v| {
+        velocity.components.par().map_collect(|v| {
             T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())) * v.norm_squared()
         })
     }
@@ -104,7 +104,7 @@ impl FlowOperations {
         let vorticity = Self::vorticity(velocity);
 
         // Use parallel iteration for better performance
-        par_map_collect(&vorticity, |w| {
+        vorticity.par().map_collect(|w| {
             T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())) * w.norm_squared()
         })
     }
