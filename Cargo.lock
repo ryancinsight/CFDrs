@@ -572,7 +572,6 @@ dependencies = [
  "petgraph",
  "proptest",
  "rand 0.8.6",
- "rayon",
  "serde",
  "serde_json",
  "sprs",
@@ -595,6 +594,7 @@ dependencies = [
  "cfd-validation",
  "criterion",
  "gaia",
+ "moirai",
  "nalgebra",
  "nalgebra-sparse",
  "num-complex 0.4.6",
@@ -603,7 +603,6 @@ dependencies = [
  "plotters",
  "proptest",
  "rand 0.8.6",
- "rayon",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -628,12 +627,12 @@ dependencies = [
  "criterion",
  "crossbeam",
  "gaia",
+ "moirai",
  "nalgebra",
  "nalgebra-sparse",
  "ndarray 0.16.1",
  "num-traits",
  "proptest",
- "rayon",
  "serde",
  "thiserror 1.0.69",
  "tracing",
@@ -683,7 +682,6 @@ dependencies = [
  "nalgebra",
  "num-traits",
  "proptest",
- "rayon",
  "ritk-vtk",
  "serde",
  "serde_json",
@@ -732,12 +730,12 @@ dependencies = [
  "cfd-validation",
  "chrono",
  "gaia",
+ "moirai",
  "nalgebra",
  "petgraph",
  "plotters",
  "proptest",
  "rand 0.8.6",
- "rayon",
  "serde",
  "serde_json",
  "sha2",
@@ -829,6 +827,7 @@ dependencies = [
  "chrono",
  "criterion",
  "gaia",
+ "moirai",
  "nalgebra",
  "nalgebra-sparse",
  "num-complex 0.4.6",
@@ -836,7 +835,6 @@ dependencies = [
  "num_cpus",
  "petgraph",
  "proptest",
- "rayon",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -2814,7 +2812,7 @@ dependencies = [
 [[package]]
 name = "moirai"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#795d5b44ad700700084b0330da73b554baa42002"
+source = "git+https://github.com/ryancinsight/Moirai.git#1f91126c0c6862be2a4bee07098ca6829a7c7a9f"
 dependencies = [
  "moirai-core",
  "moirai-executor",
@@ -2828,7 +2826,7 @@ dependencies = [
 [[package]]
 name = "moirai-core"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#795d5b44ad700700084b0330da73b554baa42002"
+source = "git+https://github.com/ryancinsight/Moirai.git#1f91126c0c6862be2a4bee07098ca6829a7c7a9f"
 dependencies = [
  "libc",
  "moirai-utils",
@@ -2837,7 +2835,7 @@ dependencies = [
 [[package]]
 name = "moirai-executor"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#795d5b44ad700700084b0330da73b554baa42002"
+source = "git+https://github.com/ryancinsight/Moirai.git#1f91126c0c6862be2a4bee07098ca6829a7c7a9f"
 dependencies = [
  "moirai-core",
  "moirai-pal",
@@ -2848,7 +2846,7 @@ dependencies = [
 [[package]]
 name = "moirai-pal"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#795d5b44ad700700084b0330da73b554baa42002"
+source = "git+https://github.com/ryancinsight/Moirai.git#1f91126c0c6862be2a4bee07098ca6829a7c7a9f"
 dependencies = [
  "js-sys",
  "libc",
@@ -2862,7 +2860,7 @@ dependencies = [
 [[package]]
 name = "moirai-parallel"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#795d5b44ad700700084b0330da73b554baa42002"
+source = "git+https://github.com/ryancinsight/Moirai.git#1f91126c0c6862be2a4bee07098ca6829a7c7a9f"
 dependencies = [
  "moirai-executor",
 ]
@@ -2870,7 +2868,7 @@ dependencies = [
 [[package]]
 name = "moirai-scheduler"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#795d5b44ad700700084b0330da73b554baa42002"
+source = "git+https://github.com/ryancinsight/Moirai.git#1f91126c0c6862be2a4bee07098ca6829a7c7a9f"
 dependencies = [
  "moirai-core",
  "moirai-utils",
@@ -2880,7 +2878,7 @@ dependencies = [
 [[package]]
 name = "moirai-sync"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#795d5b44ad700700084b0330da73b554baa42002"
+source = "git+https://github.com/ryancinsight/Moirai.git#1f91126c0c6862be2a4bee07098ca6829a7c7a9f"
 dependencies = [
  "libc",
  "moirai-core",
@@ -2890,7 +2888,7 @@ dependencies = [
 [[package]]
 name = "moirai-transport"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#795d5b44ad700700084b0330da73b554baa42002"
+source = "git+https://github.com/ryancinsight/Moirai.git#1f91126c0c6862be2a4bee07098ca6829a7c7a9f"
 dependencies = [
  "moirai-core",
  "moirai-scheduler",
@@ -2900,7 +2898,7 @@ dependencies = [
 [[package]]
 name = "moirai-utils"
 version = "0.2.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#795d5b44ad700700084b0330da73b554baa42002"
+source = "git+https://github.com/ryancinsight/Moirai.git#1f91126c0c6862be2a4bee07098ca6829a7c7a9f"
 
 [[package]]
 name = "naga"

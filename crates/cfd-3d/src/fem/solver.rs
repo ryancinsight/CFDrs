@@ -34,7 +34,7 @@ use crate::fem::mid_node_cache::MidNodeCache;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
-use rayon::prelude::*;
+use moirai::{fold_reduce_with, Adaptive};
 use std::collections::HashMap;
 
 // Re-export mesh utility functions that were previously defined here.
@@ -307,21 +307,19 @@ impl<
         // Per-cell contribution is purely read-only on mesh and solution;
         // accumulate per-thread local residual vectors, then merge.
 
-        let (residual, max_abs, sum_abs, l2, net) = problem
-            .mesh
-            .cells
-            .par_iter()
-            .fold(
-                || {
-                    (
-                        vec![T::zero(); n_corner],
-                        T::zero(),
-                        T::zero(),
-                        T::zero(),
-                        T::zero(),
-                    )
-                },
-                |(mut res, mut mx, mut sm, mut l2acc, mut nt), cell| {
+        let (residual, max_abs, sum_abs, l2, net) = fold_reduce_with::<Adaptive, _, _, _, _>(
+            problem.mesh.cells.len(),
+            || {
+                (
+                    vec![T::zero(); n_corner],
+                    T::zero(),
+                    T::zero(),
+                    T::zero(),
+                    T::zero(),
+                )
+            },
+            |(mut res, mut mx, mut sm, mut l2acc, mut nt), cell_idx| {
+                    let cell = &problem.mesh.cells[cell_idx];
                     let idxs = match extract_vertex_indices(cell, &problem.mesh, n_corner) {
                         Ok(v) => v,
                         Err(_) => return (res, mx, sm, l2acc, nt),
@@ -417,31 +415,20 @@ impl<
                     }
 
                     (res, mx, sm, l2acc, nt)
-                },
-            )
-            .reduce(
-                || {
-                    (
-                        vec![T::zero(); n_corner],
-                        T::zero(),
-                        T::zero(),
-                        T::zero(),
-                        T::zero(),
-                    )
-                },
-                |(mut r1, mx1, sm1, l2a1, nt1), (r2, mx2, sm2, l2a2, nt2)| {
-                    for i in 0..n_corner {
-                        r1[i] += r2[i];
-                    }
-                    (
-                        r1,
-                        if mx2 > mx1 { mx2 } else { mx1 },
-                        sm1 + sm2,
-                        l2a1 + l2a2,
-                        nt1 + nt2,
-                    )
-                },
-            );
+            },
+            |(mut r1, mx1, sm1, l2a1, nt1), (r2, mx2, sm2, l2a2, nt2)| {
+                for i in 0..n_corner {
+                    r1[i] += r2[i];
+                }
+                (
+                    r1,
+                    if mx2 > mx1 { mx2 } else { mx1 },
+                    sm1 + sm2,
+                    l2a1 + l2a2,
+                    nt1 + nt2,
+                )
+            },
+        );
 
         let n = residual.len();
         if n > 0 {
@@ -541,14 +528,11 @@ impl<
             "Assembling elements in parallel"
         );
 
-        let (entry_map, mut rhs) = problem
-            .mesh
-            .cells
-            .par_iter()
-            .enumerate()
-            .fold(
-                || (HashMap::with_capacity(512), DVector::zeros(n_total_dof)),
-                |(mut local_map, local_rhs), (i, cell)| {
+        let (entry_map, mut rhs) = fold_reduce_with::<Adaptive, _, _, _, _>(
+            problem.mesh.cells.len(),
+            || (HashMap::with_capacity(512), DVector::zeros(n_total_dof)),
+            |(mut local_map, local_rhs), i| {
+                    let cell = &problem.mesh.cells[i];
                     let viscosity = problem
                         .element_viscosities
                         .as_ref()
@@ -599,18 +583,15 @@ impl<
                     );
 
                     (local_map, local_rhs)
-                },
-            )
-            .reduce(
-                || (HashMap::new(), DVector::zeros(n_total_dof)),
-                |(mut map1, mut rhs1), (map2, rhs2)| {
-                    for (k, v) in map2 {
-                        *map1.entry(k).or_insert(T::zero()) += v;
-                    }
-                    rhs1 += rhs2;
-                    (map1, rhs1)
-                },
-            );
+            },
+            |(mut map1, mut rhs1), (map2, rhs2)| {
+                for (k, v) in map2 {
+                    *map1.entry(k).or_insert(T::zero()) += v;
+                }
+                rhs1 += rhs2;
+                (map1, rhs1)
+            },
+        );
 
         tracing::debug!("Assembly map-reduce complete. Applying boundary conditions");
         // Populate builder with accumulated map entries

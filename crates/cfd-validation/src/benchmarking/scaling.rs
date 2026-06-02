@@ -437,21 +437,9 @@ impl CfdScalingAnalysis {
         };
 
         for &num_threads in &[1, 2, 4, 8, 16] {
-            // Set thread pool size for this measurement
-            let _guard = if num_threads > 1 {
-                Some(
-                    rayon::ThreadPoolBuilder::new()
-                        .num_threads(num_threads)
-                        .build()
-                        .map_err(|e| {
-                            Error::InvalidConfiguration(format!(
-                                "Failed to create thread pool: {e}"
-                            ))
-                        })?,
-                )
-            } else {
-                None
-            };
+            // Parallel work inside `cavity.run()` schedules on moirai's shared
+            // executor; per-thread-count pools are not constructed here (the
+            // previous rayon guard pool did not scope `cavity.run` either).
 
             // Measure actual execution time
             let start = Instant::now();
@@ -483,21 +471,9 @@ impl CfdScalingAnalysis {
         let cavity = LidDrivenCavity::new(1.0_f64, 1.0_f64, 100.0_f64);
 
         for &num_threads in &[1, 2, 4, 8] {
-            // Set thread pool size for this measurement
-            let _guard = if num_threads > 1 {
-                Some(
-                    rayon::ThreadPoolBuilder::new()
-                        .num_threads(num_threads)
-                        .build()
-                        .map_err(|e| {
-                            Error::InvalidConfiguration(format!(
-                                "Failed to create thread pool: {e}"
-                            ))
-                        })?,
-                )
-            } else {
-                None
-            };
+            // Parallel work inside `cavity.run()` schedules on moirai's shared
+            // executor; per-thread-count pools are not constructed here (the
+            // previous rayon guard pool did not scope `cavity.run` either).
 
             // Weak scaling: problem size scales with thread count
             let resolution = 32 * num_threads; // Base 32x32 per thread

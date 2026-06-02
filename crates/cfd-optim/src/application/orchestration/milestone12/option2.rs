@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::sync::{Arc, Mutex};
 
-use rayon::prelude::*;
+use moirai::ParallelSlice;
 
 use crate::analysis::{robustness_sweep_blueprint, RobustnessReport, STANDARD_PERTURBATIONS};
 use crate::application::objectives::{
@@ -201,7 +201,7 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
     let pareto_acc = Mutex::new(Vec::with_capacity(selective_params.len() / 2));
     let deferred_acc = Mutex::new(Vec::<LightweightResult>::new());
 
-    selective_params.into_par_iter().for_each(|params| {
+    selective_params.par().for_each(|params| {
         let progress_ref = &progress;
         let candidate = params.materialize();
         let evaluation = if let Ok(evaluation) = evaluate_blueprint_candidate(&candidate) {
@@ -271,7 +271,7 @@ pub fn run_milestone12_option2() -> Result<Milestone12Option2Run, Box<dyn std::e
 
         if option1_score.is_some() || option2_score.is_some() {
             deferred_acc.lock().unwrap().push(LightweightResult {
-                params,
+                params: params.clone(),
                 lineage_key,
                 is_venturi,
                 option2_score,

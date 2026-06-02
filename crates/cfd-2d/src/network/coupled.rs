@@ -13,7 +13,7 @@ use nalgebra::{DVector, RealField};
 use num_traits::{Float, FromPrimitive, ToPrimitive};
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
-use rayon::prelude::*;
+use moirai::{map_collect_mut_with, Adaptive};
 
 use super::channel::solve_channel_entry;
 use super::reference::{
@@ -397,10 +397,10 @@ where
         seed_reference_trace.clone()
     };
 
-    let per_channel: Vec<CfdResult<Channel2dResult<T>>> = channels
-        .par_iter_mut()
-        .zip(current_reference_trace.channel_traces.par_iter())
-        .map(|(entry, channel_trace)| {
+    let traces = &current_reference_trace.channel_traces;
+    let per_channel: Vec<CfdResult<Channel2dResult<T>>> =
+        map_collect_mut_with::<Adaptive, _, _, _>(channels, |i, entry| {
+            let channel_trace = &traces[i];
             solve_channel_entry(
                 entry,
                 tolerance,
@@ -408,8 +408,7 @@ where
                 channel_trace,
                 separation_tracking_enabled,
             )
-        })
-        .collect();
+        });
 
     let mut channel_results = Vec::with_capacity(per_channel.len());
     let mut all_channels_converged = true;

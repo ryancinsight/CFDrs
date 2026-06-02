@@ -11,16 +11,15 @@ where
 {
     /// Solve every channel domain in parallel and return per-channel results.
     pub fn solve_all(&mut self, tolerance: f64) -> CfdResult<Network2dResult<T>> {
-        use rayon::prelude::*;
+        use moirai::{map_collect_mut_with, Adaptive};
 
         let reference_trace = self.reference_trace.clone();
         let separation_tracking_enabled = self.separation_tracking_enabled;
 
-        let per_channel: Vec<CfdResult<Channel2dResult<T>>> = self
-            .channels
-            .par_iter_mut()
-            .zip(reference_trace.channel_traces.par_iter())
-            .map(|(entry, channel_trace)| {
+        let traces = &reference_trace.channel_traces;
+        let per_channel: Vec<CfdResult<Channel2dResult<T>>> =
+            map_collect_mut_with::<Adaptive, _, _, _>(&mut self.channels, |i, entry| {
+                let channel_trace = &traces[i];
                 solve_channel_entry(
                     entry,
                     tolerance,
@@ -28,8 +27,7 @@ where
                     channel_trace,
                     separation_tracking_enabled,
                 )
-            })
-            .collect();
+            });
 
         let mut results = Vec::with_capacity(per_channel.len());
         let mut total_hi = T::zero();

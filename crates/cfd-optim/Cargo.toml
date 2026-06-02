@@ -20,7 +20,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
 rand.workspace = true
-rayon.workspace = true
+moirai.workspace = true
 petgraph.workspace = true
 plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series"] }
 cfd-core = { workspace = true, default-features = false }

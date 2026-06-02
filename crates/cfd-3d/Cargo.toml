@@ -24,7 +24,7 @@ nalgebra-sparse.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 serde = { workspace = true, features = ["derive"] }
-rayon.workspace = true
+moirai.workspace = true
 crossbeam.workspace = true
 num-traits.workspace = true
 tracing.workspace = true

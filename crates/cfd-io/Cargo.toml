@@ -22,7 +22,6 @@ num-traits.workspace = true
 tracing.workspace = true
 zstd = "0.13"
 tempfile = "3.8"
-rayon.workspace = true
 bytemuck.workspace = true
 consus-core = { workspace = true, optional = true }
 consus-hdf5 = { workspace = true, optional = true }

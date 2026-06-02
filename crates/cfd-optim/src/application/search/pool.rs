@@ -29,7 +29,7 @@
 
 use std::sync::Arc;
 
-use rayon::prelude::*;
+use moirai::{fold_reduce_with, Adaptive};
 
 use crate::application::objectives::BlueprintObjectiveEvaluation;
 use crate::application::orchestration::ScanProgress;
@@ -313,21 +313,30 @@ impl EvaluatedPool {
     fn build_pool(candidates: &[BlueprintCandidate], progress_label: Option<&'static str>) -> Self {
         let progress =
             progress_label.map(|label| Arc::new(ScanProgress::new(label, candidates.len())));
-        let raw: Vec<(CandidateIdentity, BlueprintEvaluation, ScoringSnapshot)> = candidates
-            .par_iter()
-            .filter_map(|c| {
-                let eval = evaluate_blueprint_candidate(c).ok()?;
-                if let Some(progress) = &progress {
-                    progress.record();
-                }
-                let identity = CandidateIdentity {
-                    id: c.id.clone(),
-                    blueprint_name: c.blueprint.name.clone(),
-                };
-                let snapshot = ScoringSnapshot::from_candidate_eval(c, &eval);
-                Some((identity, eval, snapshot))
-            })
-            .collect();
+        let raw: Vec<(CandidateIdentity, BlueprintEvaluation, ScoringSnapshot)> =
+            fold_reduce_with::<Adaptive, _, _, _, _>(
+                candidates.len(),
+                Vec::new,
+                |mut acc, i| {
+                    let c = &candidates[i];
+                    if let Ok(eval) = evaluate_blueprint_candidate(c) {
+                        if let Some(progress) = &progress {
+                            progress.record();
+                        }
+                        let identity = CandidateIdentity {
+                            id: c.id.clone(),
+                            blueprint_name: c.blueprint.name.clone(),
+                        };
+                        let snapshot = ScoringSnapshot::from_candidate_eval(c, &eval);
+                        acc.push((identity, eval, snapshot));
+                    }
+                    acc
+                },
+                |mut a, mut b| {
+                    a.append(&mut b);
+                    a
+                },
+            );
 
         if let Some(progress) = &progress {
             progress.finish();

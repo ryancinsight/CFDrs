@@ -2,8 +2,6 @@
 
 use nalgebra::RealField;
 use num_traits::{FromPrimitive, ToPrimitive};
-use rayon::prelude::*;
-use rayon::ThreadPoolBuilder;
 use std::hint::black_box;
 use std::thread::available_parallelism;
 use std::time::Instant;
@@ -585,14 +583,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float>
 
         let max_threads = available_parallelism().map_or(1, |p| p.get()).max(1);
         let parallel_measure = |threads: usize| -> f64 {
-            let pool = ThreadPoolBuilder::new()
-                .num_threads(threads)
+            // Custom-sized moirai runtime to measure scaling at this thread count.
+            let rt = moirai::Moirai::builder()
+                .worker_threads(threads)
                 .build()
-                .unwrap_or_else(|_| ThreadPoolBuilder::new().num_threads(1).build().unwrap());
+                .unwrap_or_else(|_| moirai::Moirai::builder().worker_threads(1).build().unwrap());
             let start = Instant::now();
             let mut sum = 0.0f64;
             for _ in 0..3 {
-                let partial = pool.install(|| data.par_iter().map(|v| v * 1.0000001).sum::<f64>());
+                let partial = rt
+                    .map_reduce_indexed(data.len(), 0.0f64, |i| data[i] * 1.0000001, |a, b| a + b)
+                    .unwrap_or(0.0);
                 sum += partial;
             }
             black_box(sum);

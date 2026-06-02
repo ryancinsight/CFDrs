@@ -29,7 +29,7 @@ tracing.workspace = true
 chrono = "0.4"
 num_cpus = "1.16"
 num-complex.workspace = true
-rayon.workspace = true
+moirai.workspace = true
 petgraph.workspace = true
 
 [dev-dependencies]
