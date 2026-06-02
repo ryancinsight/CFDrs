@@ -3,9 +3,9 @@
 //! Provides operations on flow fields including vorticity, divergence,
 //! and other fluid mechanical quantities.
 
+use moirai::{par_enumerate_mut, par_map_collect};
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
-use rayon::prelude::*;
 
 use super::fields::VelocityField;
 
@@ -22,16 +22,13 @@ impl FlowOperations {
         let mut vorticity = vec![Vector3::zeros(); nx * ny * nz];
 
         // Use parallel iteration for better performance
-        vorticity
-            .par_iter_mut()
-            .enumerate()
-            .for_each(|(idx, vort)| {
-                let k = idx / (nx * ny);
-                let j = (idx % (nx * ny)) / nx;
-                let i = idx % nx;
+        par_enumerate_mut(&mut vorticity, |idx, vort| {
+            let k = idx / (nx * ny);
+            let j = (idx % (nx * ny)) / nx;
+            let i = idx % nx;
 
-                *vort = vorticity_at_point(velocity, i, j, k, nx, ny, nz);
-            });
+            *vort = vorticity_at_point(velocity, i, j, k, nx, ny, nz);
+        });
 
         vorticity
     }
@@ -45,15 +42,12 @@ impl FlowOperations {
         let mut divergence = vec![T::zero(); nx * ny * nz];
 
         // Use parallel iteration for better performance
-        divergence
-            .par_iter_mut()
-            .enumerate()
-            .for_each(|(idx, div)| {
-                let k = idx / (nx * ny);
-                let j = (idx % (nx * ny)) / nx;
-                let i = idx % nx;
+        par_enumerate_mut(&mut divergence, |idx, div| {
+            let k = idx / (nx * ny);
+            let j = (idx % (nx * ny)) / nx;
+            let i = idx % nx;
 
-                let dx = T::one();
+            let dx = T::one();
                 let dy = T::one();
                 let dz = T::one();
 
@@ -97,14 +91,9 @@ impl FlowOperations {
         velocity: &VelocityField<T>,
     ) -> Vec<T> {
         // Use parallel iteration for better performance
-        velocity
-            .components
-            .par_iter()
-            .map(|v| {
-                T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()))
-                    * v.norm_squared()
-            })
-            .collect()
+        par_map_collect(&velocity.components, |v| {
+            T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())) * v.norm_squared()
+        })
     }
 
     /// Calculate enstrophy field
@@ -115,13 +104,9 @@ impl FlowOperations {
         let vorticity = Self::vorticity(velocity);
 
         // Use parallel iteration for better performance
-        vorticity
-            .par_iter()
-            .map(|w| {
-                T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()))
-                    * w.norm_squared()
-            })
-            .collect()
+        par_map_collect(&vorticity, |w| {
+            T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one())) * w.norm_squared()
+        })
     }
 }
 

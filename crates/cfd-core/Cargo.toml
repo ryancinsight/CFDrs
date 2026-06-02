@@ -24,7 +24,7 @@ nalgebra.workspace = true
 nalgebra-sparse.workspace = true
 num-traits.workspace = true
 indexmap.workspace = true
-rayon.workspace = true
+moirai.workspace = true
 mnemosyne = { workspace = true, optional = true }
 
 [features]
@@ -42,7 +42,6 @@ proptest.workspace = true
 criterion.workspace = true
 tracing-subscriber.workspace = true
 approx.workspace = true
-tokio = { version = "1.0", features = ["full"] }
 
 [[bench]]
 name = "turbulence_benchmark"

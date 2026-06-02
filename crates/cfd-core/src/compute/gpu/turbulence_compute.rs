@@ -279,8 +279,8 @@ mod tests {
     }
 
     #[cfg(feature = "gpu")]
-    #[tokio::test]
-    async fn test_smagorinsky_sgs_computation() {
+    #[test]
+    fn test_smagorinsky_sgs_computation() {
         let mut compute = GpuTurbulenceCompute::new().unwrap();
 
         // Simple test data
@@ -303,8 +303,8 @@ mod tests {
     }
 
     #[cfg(feature = "gpu")]
-    #[tokio::test]
-    async fn test_des_length_scale_computation() {
+    #[test]
+    fn test_des_length_scale_computation() {
         let mut compute = GpuTurbulenceCompute::new().unwrap();
 
         // Simple test data

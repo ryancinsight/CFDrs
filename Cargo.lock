@@ -539,12 +539,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
-name = "bytes"
-version = "1.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
-
-[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -657,17 +651,16 @@ dependencies = [
  "futures",
  "indexmap",
  "mnemosyne",
+ "moirai",
  "nalgebra",
  "nalgebra-sparse",
  "num-traits",
  "num_cpus",
  "pollster",
  "proptest",
- "rayon",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
- "tokio",
  "tracing",
  "tracing-subscriber",
  "wgpu 0.19.4",
@@ -2732,17 +2725,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mio"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02bd0af71c67b473010cbbc60715ee815645a4dc942899111f494b4b737d6fda"
-dependencies = [
- "libc",
- "wasi",
- "windows-sys",
-]
-
-[[package]]
 name = "mnemosyne"
 version = "0.1.0"
 source = "git+https://github.com/ryancinsight/Mnemosyne.git#afd690eaab38bc33c44f7c6e07dc53f60c43d0ad"
@@ -2829,6 +2811,88 @@ dependencies = [
  "backtrace",
  "mnemosyne-core",
 ]
+
+[[package]]
+name = "moirai"
+version = "0.2.0"
+source = "git+https://github.com/ryancinsight/Moirai.git#837089c420386dc8eba793cb32b4bd80ad02cea8"
+dependencies = [
+ "moirai-core",
+ "moirai-executor",
+ "moirai-scheduler",
+ "moirai-sync",
+ "moirai-transport",
+ "moirai-utils",
+]
+
+[[package]]
+name = "moirai-core"
+version = "0.2.0"
+source = "git+https://github.com/ryancinsight/Moirai.git#837089c420386dc8eba793cb32b4bd80ad02cea8"
+dependencies = [
+ "libc",
+ "moirai-utils",
+]
+
+[[package]]
+name = "moirai-executor"
+version = "0.2.0"
+source = "git+https://github.com/ryancinsight/Moirai.git#837089c420386dc8eba793cb32b4bd80ad02cea8"
+dependencies = [
+ "moirai-core",
+ "moirai-pal",
+ "moirai-scheduler",
+ "moirai-utils",
+]
+
+[[package]]
+name = "moirai-pal"
+version = "0.2.0"
+source = "git+https://github.com/ryancinsight/Moirai.git#837089c420386dc8eba793cb32b4bd80ad02cea8"
+dependencies = [
+ "js-sys",
+ "libc",
+ "moirai-core",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "windows 0.58.0",
+]
+
+[[package]]
+name = "moirai-scheduler"
+version = "0.2.0"
+source = "git+https://github.com/ryancinsight/Moirai.git#837089c420386dc8eba793cb32b4bd80ad02cea8"
+dependencies = [
+ "moirai-core",
+ "moirai-utils",
+ "num_cpus",
+]
+
+[[package]]
+name = "moirai-sync"
+version = "0.2.0"
+source = "git+https://github.com/ryancinsight/Moirai.git#837089c420386dc8eba793cb32b4bd80ad02cea8"
+dependencies = [
+ "libc",
+ "moirai-core",
+ "moirai-utils",
+]
+
+[[package]]
+name = "moirai-transport"
+version = "0.2.0"
+source = "git+https://github.com/ryancinsight/Moirai.git#837089c420386dc8eba793cb32b4bd80ad02cea8"
+dependencies = [
+ "moirai-core",
+ "moirai-scheduler",
+ "moirai-utils",
+]
+
+[[package]]
+name = "moirai-utils"
+version = "0.2.0"
+source = "git+https://github.com/ryancinsight/Moirai.git#837089c420386dc8eba793cb32b4bd80ad02cea8"
 
 [[package]]
 name = "naga"
@@ -3896,16 +3960,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
-name = "signal-hook-registry"
-version = "1.4.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4db69cba1110affc0e9f7bcd48bbf87b3f4fc7c61fc9155afd4c469eb3d6c1b"
-dependencies = [
- "errno",
- "libc",
-]
-
-[[package]]
 name = "simba"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3944,16 +3998,6 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
-
-[[package]]
-name = "socket2"
-version = "0.6.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
-dependencies = [
- "libc",
- "windows-sys",
-]
 
 [[package]]
 name = "spin"
@@ -4133,15 +4177,8 @@ version = "1.52.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fc7f01b389ac15039e4dc9531aa973a135d7a4135281b12d7c1bc79fd57fffe"
 dependencies = [
- "bytes",
- "libc",
- "mio",
- "parking_lot",
  "pin-project-lite",
- "signal-hook-registry",
- "socket2",
  "tokio-macros",
- "windows-sys",
 ]
 
 [[package]]
