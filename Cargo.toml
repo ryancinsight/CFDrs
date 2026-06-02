@@ -98,9 +98,10 @@ ritk-vtk = { git = "https://github.com/ryancinsight/ritk.git" }
 # `mnemosyne` feature as the process #[global_allocator].
 mnemosyne = { git = "https://github.com/ryancinsight/Mnemosyne.git" }
 # moirai: unified concurrency runtime replacing tokio + rayon. default-features
-# off so it does not install its own #[global_allocator] or pull async/iter/gpu;
-# the synchronous par_* data-parallel API lives in the always-available core.
-moirai = { git = "https://github.com/ryancinsight/Moirai.git", default-features = false }
+# off so it does not install its own #[global_allocator]; `parallel` pulls the
+# moirai-parallel data-parallel API (rayon replacement), `async` the task/async
+# API (tokio replacement) as crates need them.
+moirai = { git = "https://github.com/ryancinsight/Moirai.git", default-features = false, features = ["parallel"] }
 cfd-schematics = { path = "crates/cfd-schematics" }
 cfd-1d = { path = "crates/cfd-1d" }
 cfd-2d = { path = "crates/cfd-2d" }
