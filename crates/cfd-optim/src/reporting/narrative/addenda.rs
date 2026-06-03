@@ -392,9 +392,8 @@ concentration penalty of {:.3}{}.\n",
             } => {
                 let _ = writeln!(
                     s,
-                    "Over the trailing {} generations the GA improved the best score by {tail_delta:.4}, \
+                    "Over the trailing {tail_len} generations the GA improved the best score by {tail_delta:.4}, \
 so the run remains in an improving regime rather than a true plateau.\n",
-                    tail_len,
                 );
             }
             GaConvergenceTrend::Regressing {
@@ -403,9 +402,8 @@ so the run remains in an improving regime rather than a true plateau.\n",
             } => {
                 let _ = writeln!(
                     s,
-                    "Over the trailing {} generations the GA regressed by {tail_delta:.4}, which \
+                    "Over the trailing {tail_len} generations the GA regressed by {tail_delta:.4}, which \
 indicates the selected survivor window is no longer tracking the best lineage.\n",
-                    tail_len,
                 );
             }
             GaConvergenceTrend::NearPlateau {
@@ -414,9 +412,8 @@ indicates the selected survivor window is no longer tracking the best lineage.\n
             } => {
                 let _ = writeln!(
                     s,
-                    "Over the trailing {} generations the GA stayed near plateau with |Δbest| = {tail_delta_abs:.4}, \
+                    "Over the trailing {tail_len} generations the GA stayed near plateau with |Δbest| = {tail_delta_abs:.4}, \
 so the current survivor policy is stable in the sampled window.\n",
-                    tail_len,
                 );
             }
         }
