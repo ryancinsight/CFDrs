@@ -472,6 +472,26 @@ pub enum GeometryErrorKind {
     },
 }
 
+impl GeometryErrorKind {
+    /// Create an invalid box dimensions error
+    #[must_use]
+    pub const fn invalid_box_dimensions(width: f64, height: f64) -> Self {
+        Self::InvalidBoxDimensions { width, height }
+    }
+
+    /// Create an invalid point error
+    #[must_use]
+    pub const fn invalid_point(x: f64, y: f64) -> Self {
+        Self::InvalidPoint { x, y }
+    }
+
+    /// Create an insufficient space error
+    #[must_use]
+    pub const fn insufficient_space(required: f64, available: f64) -> Self {
+        Self::InsufficientSpace { required, available }
+    }
+}
+
 impl fmt::Display for GeometryErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -547,6 +567,38 @@ pub enum ConfigurationErrorKind {
     },
 }
 
+impl ConfigurationErrorKind {
+    /// Create an invalid geometry config error
+    #[must_use]
+    pub fn invalid_geometry_config(field: &str, value: f64, constraint: &str) -> Self {
+        Self::InvalidGeometryConfig { field: field.to_string(), value, constraint: constraint.to_string() }
+    }
+
+    /// Create an invalid serpentine config error
+    #[must_use]
+    pub fn invalid_serpentine_config(field: &str, value: f64, constraint: &str) -> Self {
+        Self::InvalidSerpentineConfig { field: field.to_string(), value, constraint: constraint.to_string() }
+    }
+
+    /// Create an invalid arc config error
+    #[must_use]
+    pub fn invalid_arc_config(field: &str, value: f64, constraint: &str) -> Self {
+        Self::InvalidArcConfig { field: field.to_string(), value, constraint: constraint.to_string() }
+    }
+
+    /// Create an invalid frustum config error
+    #[must_use]
+    pub fn invalid_frustum_config(field: &str, value: f64, constraint: &str) -> Self {
+        Self::InvalidFrustumConfig { field: field.to_string(), value, constraint: constraint.to_string() }
+    }
+
+    /// Create an invalid generation config error
+    #[must_use]
+    pub fn invalid_generation_config(field: &str, constraint: &str) -> Self {
+        Self::InvalidGenerationConfig { field: field.to_string(), constraint: constraint.to_string() }
+    }
+}
+
 impl fmt::Display for ConfigurationErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -608,6 +660,32 @@ pub enum VisualizationErrorKind {
     },
 }
 
+impl VisualizationErrorKind {
+    /// Create a file error
+    #[must_use]
+    pub fn file_error(message: &str) -> Self {
+        Self::FileError { message: message.to_string() }
+    }
+
+    /// Create an invalid output path error
+    #[must_use]
+    pub fn invalid_output_path(path: &str, reason: &str) -> Self {
+        Self::InvalidOutputPath { path: path.to_string(), reason: reason.to_string() }
+    }
+
+    /// Create a rendering error
+    #[must_use]
+    pub fn rendering_error(message: &str) -> Self {
+        Self::RenderingError { message: message.to_string() }
+    }
+
+    /// Create an unsupported format error
+    #[must_use]
+    pub fn unsupported_format(format: &str, message: &str) -> Self {
+        Self::UnsupportedFormat { format: format.to_string(), message: message.to_string() }
+    }
+}
+
 impl fmt::Display for VisualizationErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -661,6 +739,20 @@ pub enum StrategyErrorKind {
         /// Channel type name
         channel_type: String,
     },
+}
+
+impl StrategyErrorKind {
+    /// Create a strategy creation failed error
+    #[must_use]
+    pub fn strategy_creation_failed(channel_type: &str, reason: &str) -> Self {
+        Self::StrategyCreationFailed { channel_type: channel_type.to_string(), reason: reason.to_string() }
+    }
+
+    /// Create an execution failed error
+    #[must_use]
+    pub fn execution_failed(from_x: f64, from_y: f64, to_x: f64, to_y: f64, reason: &str) -> Self {
+        Self::ExecutionFailed { from_x, from_y, to_x, to_y, reason: reason.to_string() }
+    }
 }
 
 impl fmt::Display for StrategyErrorKind {
@@ -730,6 +822,49 @@ pub enum ParameterErrorKind {
     },
 }
 
+impl ParameterErrorKind {
+    /// Create a not-found error
+    #[must_use]
+    pub fn not_found(name: &str, domain: &str) -> Self {
+        Self::NotFound { name: name.to_string(), domain: domain.to_string() }
+    }
+
+    /// Create an invalid-value error
+    pub fn invalid_value(name: &str, value: &dyn fmt::Debug, constraint: &str) -> Self {
+        Self::InvalidValue { name: name.to_string(), value: format!("{value:?}"), constraint: constraint.to_string() }
+    }
+
+    /// Create a type-mismatch error
+    #[must_use]
+    pub fn type_mismatch(name: &str, expected: &str, actual: &str) -> Self {
+        Self::TypeMismatch { name: name.to_string(), expected: expected.to_string(), actual: actual.to_string() }
+    }
+
+    /// Create a read-only error
+    #[must_use]
+    pub fn read_only(name: &str) -> Self {
+        Self::ReadOnly { name: name.to_string() }
+    }
+
+    /// Create a dependency-not-satisfied error
+    #[must_use]
+    pub fn dependency_not_satisfied(name: &str, dependency: &str) -> Self {
+        Self::DependencyNotSatisfied { name: name.to_string(), dependency: dependency.to_string() }
+    }
+
+    /// Create a circular-dependency error
+    #[must_use]
+    pub fn circular_dependency(name: &str) -> Self {
+        Self::CircularDependency { name: name.to_string() }
+    }
+
+    /// Create an adaptation-failed error
+    #[must_use]
+    pub fn adaptation_failed(name: &str, reason: &str) -> Self {
+        Self::AdaptationFailed { name: name.to_string(), reason: reason.to_string() }
+    }
+}
+
 impl fmt::Display for ParameterErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -771,6 +906,32 @@ pub enum ValidationErrorKind {
         /// Constraint description
         constraint: String,
     },
+}
+
+impl ValidationErrorKind {
+    /// Create a rule-failed error
+    #[must_use]
+    pub fn rule_failed(field: &str, message: &str) -> Self {
+        Self::RuleFailed { field: field.to_string(), message: message.to_string() }
+    }
+
+    /// Create a multiple-failures error
+    #[must_use]
+    pub const fn multiple(failures: Vec<Self>) -> Self {
+        Self::Multiple { failures }
+    }
+
+    /// Create a custom error
+    #[must_use]
+    pub fn custom(message: &str) -> Self {
+        Self::Custom { message: message.to_string() }
+    }
+
+    /// Create a constraint-violation error
+    #[must_use]
+    pub fn constraint_violation(constraint: &str) -> Self {
+        Self::ConstraintViolation { constraint: constraint.to_string() }
+    }
 }
 
 impl fmt::Display for ValidationErrorKind {
@@ -858,6 +1019,24 @@ pub enum ConstraintErrorKind {
         /// Reason for failure
         reason: String,
     },
+}
+
+impl ConstraintErrorKind {
+    /// Create a range-violation error
+    pub fn range_violation(value: &dyn fmt::Debug, min: &dyn fmt::Debug, max: &dyn fmt::Debug) -> Self {
+        Self::RangeViolation { value: format!("{value:?}"), min: format!("{min:?}"), max: format!("{max:?}") }
+    }
+
+    /// Create a set-violation error
+    pub fn set_violation(value: &dyn fmt::Debug, allowed: &[&dyn fmt::Debug]) -> Self {
+        Self::SetViolation { value: format!("{value:?}"), allowed: allowed.iter().map(|v| format!("{v:?}")).collect() }
+    }
+
+    /// Create a custom-violation error
+    #[must_use]
+    pub fn custom_violation(message: &str) -> Self {
+        Self::CustomViolation { message: message.to_string() }
+    }
 }
 
 impl fmt::Display for ConstraintErrorKind {
