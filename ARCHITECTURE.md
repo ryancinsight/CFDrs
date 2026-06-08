@@ -114,6 +114,23 @@ impl From<OptimError> for cfd_core::error::Error {
 }
 ```
 
+### Workspace-wide audit (confirmed)
+
+All 10 crates use `cfd_core::error` as the single source of truth for errors. Zero local `Error` enums exist outside cfd-core and cfd-optim:
+
+| Crate | Local error types | Status |
+|---|---|---|
+| `cfd-core` | Canonical `Error` + 15 Kind enums | **SSOT** |
+| `cfd-math` | 0 | Uses `cfd_core::error` directly |
+| `cfd-io` | 0 | Uses `cfd_core::error` directly |
+| `cfd-1d` | 0 | `ResistanceCalculationError` consolidated into cfd-core |
+| `cfd-2d` | 0 | Uses `cfd_core::error` directly |
+| `cfd-3d` | 0 | Uses `cfd_core::error` directly |
+| `cfd-schematics` | 0 | All former local types replaced with type aliases to Kind types |
+| `cfd-optim` | `OptimError` (local) | `From<OptimError> for Error` bridge for cross-crate `?` propagation |
+| `cfd-validation` | 0 | Uses `cfd_core::error` directly |
+| `cfd-python` | 0 | Uses `cfd_core::error` directly |
+
 ### Guidelines for new error types
 
 1. **Add the Kind enum to `cfd-core/src/error.rs`** with structured variants, `Display`, `std::error::Error`, inherent constructors, and `From<Kind> for Error`.
