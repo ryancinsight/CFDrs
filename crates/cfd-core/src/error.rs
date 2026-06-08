@@ -77,6 +77,10 @@ pub enum Error {
         size: usize,
     },
 
+    /// Boundary condition error
+    #[error("Boundary error: {0}")]
+    Boundary(BoundaryErrorKind),
+
     /// Not implemented
     #[error("Not implemented: {0}")]
     NotImplemented(String),
@@ -344,6 +348,65 @@ impl From<&str> for Error {
 impl From<String> for Error {
     fn from(msg: String) -> Self {
         Error::InvalidInput(msg)
+    }
+}
+
+/// Boundary condition error variants
+#[derive(Debug, Clone)]
+pub enum BoundaryErrorKind {
+    /// Insufficient interior values for requested stencil order
+    InsufficientStencil {
+        /// Required number of interior values
+        required: usize,
+        /// Stencil order
+        order: usize,
+        /// Actual number provided
+        actual: usize,
+    },
+
+    /// Unsupported stencil order
+    UnsupportedOrder(usize),
+
+    /// Robin condition singularity
+    RobinSingularity {
+        /// Denominator value
+        value: f64,
+    },
+
+    /// Invalid boundary region
+    InvalidRegion(String),
+
+    /// Dimension mismatch (string-based, for boundary metadata)
+    DimensionMismatch {
+        /// Expected dimensions
+        expected: String,
+        /// Actual dimensions
+        actual: String,
+    },
+}
+
+impl fmt::Display for BoundaryErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InsufficientStencil {
+                required,
+                order,
+                actual,
+            } => write!(
+                f,
+                "Insufficient interior values: need {required} for order {order} scheme, got {actual}"
+            ),
+            Self::UnsupportedOrder(order) => {
+                write!(f, "Stencil order {order} is unsupported (supported: 1-4)")
+            }
+            Self::RobinSingularity { value } => {
+                write!(f, "Robin condition denominator near zero: β + α*dx = {value}")
+            }
+            Self::InvalidRegion(msg) => write!(f, "Invalid boundary region: {msg}"),
+            Self::DimensionMismatch { expected, actual } => {
+                write!(f, "Dimension mismatch: expected {expected}, got {actual}")
+            }
+        }
     }
 }
 

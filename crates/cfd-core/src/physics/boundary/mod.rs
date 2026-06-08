@@ -9,7 +9,6 @@
 
 mod applicator;
 mod applicators;
-mod error;
 mod fundamental;
 mod geometry;
 mod ghost_cells;
@@ -25,7 +24,6 @@ mod edge_case_tests;
 
 pub use applicator::BoundaryConditionApplicator;
 pub use applicators::{DirichletApplicator, NeumannApplicator, RobinApplicator};
-pub use error::BoundaryError;
 pub use fundamental::{BoundaryCondition, FundamentalBCType};
 pub use geometry::{BoundaryGeometry, BoundaryRegion};
 pub use ghost_cells::GhostCellCalculator;

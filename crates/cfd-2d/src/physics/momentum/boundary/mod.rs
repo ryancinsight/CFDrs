@@ -91,7 +91,8 @@ mod directional;
 
 use super::solver::MomentumComponent;
 use crate::grid::traits::Grid2D;
-use cfd_core::physics::boundary::{BoundaryCondition, BoundaryError};
+use cfd_core::error::{BoundaryErrorKind, Error, Result};
+use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::sparse::SparseMatrixBuilder;
 use directional::{
     apply_east_boundary, apply_north_boundary, apply_south_boundary, apply_west_boundary,
@@ -237,37 +238,37 @@ fn get_dirichlet_value<T: RealField + Copy>(
 pub fn validate_boundary_consistency<T, S>(
     boundaries: &HashMap<String, BoundaryCondition<T>, S>,
     _grid: &crate::grid::StructuredGrid2D<T>,
-) -> Result<(), BoundaryError>
+) -> Result<()>
 where
     T: RealField + Copy + FromPrimitive,
     S: BuildHasher,
 {
     for direction in &["north", "south", "east", "west"] {
         if !boundaries.contains_key(*direction) {
-            return Err(BoundaryError::InvalidRegion(format!(
+            return Err(Error::Boundary(BoundaryErrorKind::InvalidRegion(format!(
                 "Missing required boundary: {direction}"
-            )));
+            ))));
         }
     }
 
     for (name, bc) in boundaries {
         if let BoundaryCondition::Periodic { partner } = bc {
             if !boundaries.contains_key(partner) {
-                return Err(BoundaryError::InvalidRegion(format!(
+                return Err(Error::Boundary(BoundaryErrorKind::InvalidRegion(format!(
                     "Periodic partner '{partner}' not found for boundary '{name}'"
-                )));
+                ))));
             }
             if let Some(partner_bc) = boundaries.get(partner) {
                 if let BoundaryCondition::Periodic { partner: p2 } = partner_bc {
                     if p2 != name {
-                        return Err(BoundaryError::InvalidRegion(format!(
+                        return Err(Error::Boundary(BoundaryErrorKind::InvalidRegion(format!(
                             "Periodic mismatch: '{name}' points to '{partner}', but '{partner}' points to '{p2}'"
-                        )));
+                        ))));
                     }
                 } else {
-                    return Err(BoundaryError::InvalidRegion(format!(
+                    return Err(Error::Boundary(BoundaryErrorKind::InvalidRegion(format!(
                         "Periodic partner '{partner}' is not periodic"
-                    )));
+                    ))));
                 }
             }
         }
