@@ -123,10 +123,10 @@ All 10 crates use `cfd_core::error` as the single source of truth for errors. Ze
 | `cfd-core` | Canonical `Error` + 15 Kind enums | **SSOT** |
 | `cfd-math` | 0 | Uses `cfd_core::error` directly |
 | `cfd-io` | 0 | Uses `cfd_core::error` directly |
-| `cfd-1d` | 0 | `ResistanceCalculationError` consolidated into cfd-core |
+| `cfd-1d` | 0 | Local `ResistanceCalculationError` consolidated into cfd-core (type alias) |
 | `cfd-2d` | 0 | Uses `cfd_core::error` directly |
 | `cfd-3d` | 0 | Uses `cfd_core::error` directly |
-| `cfd-schematics` | 0 | All former local types replaced with type aliases to Kind types |
+| `cfd-schematics` | 0 | All local error types consolidated into cfd-core (type aliases) |
 | `cfd-optim` | `OptimError` (local) | `From<OptimError> for Error` bridge for cross-crate `?` propagation |
 | `cfd-validation` | 0 | Uses `cfd_core::error` directly |
 | `cfd-python` | 0 | Uses `cfd_core::error` directly |
