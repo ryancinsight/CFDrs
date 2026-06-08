@@ -4,16 +4,18 @@ A modular Computational Fluid Dynamics (CFD) simulation framework in Rust with M
 
 ## Architecture
 
-The suite is organized into 8 specialized crates:
+The suite is organized into 10 specialized crates:
 
-- **cfd-core**: Core abstractions, MPI parallelization, fluid properties, boundary conditions
-- **cfd-math**: Numerical methods, linear solvers, SIMD operations (restructured)
-- **cfd-mesh**: Mesh generation, topology, quality metrics
+- **cfd-core**: Core abstractions, MPI parallelization, fluid properties, boundary conditions, canonical error types
+- **cfd-math**: Numerical methods, linear solvers, SIMD operations
 - **cfd-io**: File I/O (VTK, HDF5, CSV), parallel I/O, checkpointing
-- **cfd-1d**: 1D pipe networks, microfluidics simulation
+- **cfd-1d**: 1D pipe networks, microfluidics simulation, resistance models
 - **cfd-2d**: 2D solvers, SIMPLE/PISO algorithms, LBM foundations
 - **cfd-3d**: 3D FEM, spectral methods, multiphase foundations
+- **cfd-schematics**: Microfluidic schematic design, geometry generation, configuration, visualization
+- **cfd-optim**: Design optimization, genetic algorithms, blueprint candidates
 - **cfd-validation**: Convergence studies, error metrics, benchmarks
+- **cfd-python**: Python bindings for the CFD suite
 
 ## Current State: BETA - Sprint 1.86.0 (Validation & Benchmarking Complete) ✅ PRODUCTION READY
 
