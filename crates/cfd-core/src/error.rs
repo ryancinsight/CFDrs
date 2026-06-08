@@ -121,6 +121,10 @@ pub enum Error {
     #[error("Adaptation error: {0}")]
     Adaptation(AdaptationErrorKind),
 
+    /// Resistance calculation error
+    #[error("Resistance calculation error: {0}")]
+    ResistanceCalculation(ResistanceCalculationErrorKind),
+
     /// Not implemented
     #[error("Not implemented: {0}")]
     NotImplemented(String),
@@ -1282,7 +1286,7 @@ impl From<AdaptationErrorKind> for Error {
     fn from(kind: AdaptationErrorKind) -> Self { Error::Adaptation(kind) }
 }
 impl From<ResistanceCalculationErrorKind> for Error {
-    fn from(kind: ResistanceCalculationErrorKind) -> Self { Error::Solver(kind.to_string()) }
+    fn from(kind: ResistanceCalculationErrorKind) -> Self { Error::ResistanceCalculation(kind) }
 }
 impl From<BoundaryErrorKind> for Error {
     fn from(kind: BoundaryErrorKind) -> Self { Error::Boundary(kind) }
