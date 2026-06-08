@@ -4,15 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - Error Consolidation
 
+### Summary
+
+Consolidated all workspace error types into a single canonical location (`cfd_core::error`) with 15 Kind enums and 28 Error variants. Verified all 10 crates use cfd-core as the single source of truth for errors. Only `cfd-optim` retains a local `OptimError` (bridged via `From` impl). Removed 8 dead extension traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
+
 ### Changed
 - **cfd-core**: Added 12 new `*ErrorKind` enums (`GeometryErrorKind`, `ConfigurationErrorKind`, `VisualizationErrorKind`, `StrategyErrorKind`, `ParameterErrorKind`, `ValidationErrorKind`, `RegistryErrorKind`, `ConstraintErrorKind`, `DependencyErrorKind`, `AdaptationErrorKind`, `ResistanceCalculationErrorKind`) with structured variants, `Display`, `std::error::Error`, inherent constructors, and `From<Kind> for Error` impls
 - **cfd-schematics**: Replaced all local error enums (`SchemeError`, `GeometryError`, `ConfigurationError`, `VisualizationError`, `StrategyError`, `AdaptationError`) with type aliases and re-exports from `cfd_core::error` — zero local error enums remain
 - **cfd-schematics**: Removed 8 dead extension traits (`GeometryErrorExt`, `ConfigurationErrorExt`, `VisualizationErrorExt`, `StrategyErrorExt`, `ParameterErrorExt` from error.rs; `ParameterErrorExt`, `ValidationErrorExt`, `ConstraintErrorExt` from state_management/errors.rs) — callers use inherent Kind methods via type aliases
 - **cfd-1d**: Consolidated `ResistanceCalculationError` into `cfd_core::error`; deleted local `solver/analysis/error.rs`
 - **cfd-optim**: Added `From<OptimError> for cfd_core::error::Error` for cross-crate `?` propagation; `OptimError` stays local (2 of 4 variants are optimizer-specific)
+- **docs**: Escaped ~850 unit-bracket patterns in doc comments across 150+ files (163 → 63 rustdoc warnings)
+- **docs**: Fixed unclosed HTML tag in cfd-core plugin registry, broken doc links in staggered.rs
+- **README.md**: Updated crate count from 8 to 10, added cfd-schematics, cfd-optim, cfd-python descriptions
 
 ### Added
-- `ARCHITECTURE.md` documenting workspace structure, error handling strategy, Kind enum catalog, cross-kind conversions, and guidelines for new error types
+- `ARCHITECTURE.md` documenting workspace structure, error handling strategy, Kind enum catalog (15 Kind enums, 28 Error variants), workspace-wide audit table, cross-kind conversions, and guidelines for new error types
 
 ## [1.9.0] - Schematic Rendering Fixes + Report Update
 
