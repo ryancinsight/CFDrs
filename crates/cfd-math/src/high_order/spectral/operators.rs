@@ -5,7 +5,7 @@
 
 use super::{compute_lgl_nodes, compute_lgl_weights, SpectralElement};
 use crate::error::Result;
-use cfd_core::error::Error;
+use cfd_core::error::{Error, ErrorContext};
 use nalgebra::{DMatrix, DVector};
 
 /// Spectral differentiation operator
@@ -166,7 +166,8 @@ impl SpectralQuadrature {
             )));
         }
 
-        let nodes_vec = compute_lgl_nodes(n - 1)?; // n points for order 2n-3
+        let nodes_vec = compute_lgl_nodes(n - 1)
+            .context("computing LGL nodes for Gauss-Lobatto quadrature")?; // n points for order 2n-3
         let weights = DVector::from_vec(compute_lgl_weights(&nodes_vec, n - 1));
         let nodes = DVector::from_vec(nodes_vec);
 

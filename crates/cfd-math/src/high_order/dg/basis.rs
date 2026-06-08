@@ -4,7 +4,7 @@
 //! for use in DG methods, including both modal and nodal representations.
 
 use crate::error::Result;
-use cfd_core::error::Error;
+use cfd_core::error::{Error, ErrorContext};
 use nalgebra::{DMatrix, DVector};
 use std::f64::consts::PI;
 
@@ -63,7 +63,8 @@ impl DGBasis {
         };
 
         // Compute quadrature points and weights
-        let (quad_points, quad_weights) = gauss_lobatto_quadrature(num_quad)?;
+        let (quad_points, quad_weights) = gauss_lobatto_quadrature(num_quad)
+            .context("computing Gauss-Lobatto quadrature for DG basis")?;
 
         // Initialize basis function values and derivatives
         let mut phi = DMatrix::zeros(num_basis, num_quad);

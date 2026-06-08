@@ -82,7 +82,7 @@ mod operators;
 mod solver;
 
 use crate::error::Result;
-use cfd_core::error::Error;
+use cfd_core::error::{Error, ErrorContext};
 
 // Re-export all public types and traits
 pub use basis::*;
@@ -131,7 +131,8 @@ impl DGSolution {
             )));
         }
 
-        let basis = DGBasis::new(order, basis_type)?;
+        let basis = DGBasis::new(order, basis_type)
+            .context("constructing DG basis functions")?;
         let num_basis = order + 1;
 
         Ok(Self {
@@ -194,7 +195,8 @@ impl DGSolution {
         params: &LimiterParams,
     ) -> Result<()> {
         if !params.adaptive || limiter.is_troubled_cell(self, neighbors, params) {
-            limiter.limit(self, neighbors, params)?;
+            limiter.limit(self, neighbors, params)
+                .context("applying slope limiter to DG solution")?;
         }
 
         Ok(())

@@ -6,7 +6,7 @@
 
 use super::{compute_derivative_matrix, compute_lgl_nodes, compute_lgl_weights};
 use crate::error::Result;
-use cfd_core::error::Error;
+use cfd_core::error::{Error, ErrorContext};
 use nalgebra::{DMatrix, DVector};
 
 /// Represents a spectral element with nodes, weights, and differentiation matrices
@@ -38,7 +38,9 @@ impl SpectralElement {
         }
 
         let num_nodes = order + 1;
-        let nodes = DVector::from_vec(compute_lgl_nodes(order)?);
+        let nodes = DVector::from_vec(
+            compute_lgl_nodes(order).context("computing LGL nodes for spectral element")?,
+        );
         let weights = DVector::from_vec(compute_lgl_weights(nodes.as_slice(), order));
 
         // Compute derivative matrix
@@ -154,7 +156,8 @@ impl SpectralMesh1D {
             )));
         }
 
-        let element = SpectralElement::new(element_order)?;
+        let element = SpectralElement::new(element_order)
+            .context("constructing spectral element for mesh")?;
         let num_nodes_per_element = element.num_nodes;
 
         // Create elements

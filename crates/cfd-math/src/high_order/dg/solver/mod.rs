@@ -9,7 +9,7 @@ pub use time_integration::*;
 
 use super::{legendre_poly, DGOperator};
 use crate::error::Result;
-use cfd_core::error::Error;
+use cfd_core::error::{Error, ErrorContext};
 use nalgebra::{DMatrix, DVector};
 use std::time::Instant;
 
@@ -73,7 +73,8 @@ impl DGSolver {
         self.u = self.dg_op.project(u0);
 
         // Set initial time step
-        self.dt = self.compute_initial_dt()?;
+        self.dt = self.compute_initial_dt()
+            .context("computing initial time step for DG solver")?;
 
         self.t = 0.0;
         self.step_count = 0;
@@ -178,7 +179,8 @@ impl DGSolver {
 
         // Take a time step
         let jac_dyn = jac.map(|j| j as &dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>);
-        let (u_new, error) = self.integrator.step(self.t, dt, &self.u, f, jac_dyn)?;
+        let (u_new, error) = self.integrator.step(self.t, dt, &self.u, f, jac_dyn)
+            .context("performing DG time integration step")?;
 
         // Update statistics
         let step_fev = self.integrator.stages();
@@ -251,7 +253,8 @@ impl DGSolver {
 
         // Main time-stepping loop
         while self.t < self.params.t_final && self.step_count < self.params.max_steps {
-            let result = self.step(&f, jac.as_ref())?;
+            let result = self.step(&f, jac.as_ref())
+                .context("advancing DG solution in time")?;
 
             if !result.converged {
                 if self.params.verbose {

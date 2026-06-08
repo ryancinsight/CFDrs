@@ -10,7 +10,7 @@ pub use params::{BoundaryCondition, BoundaryFlux, DGOperatorParams};
 use super::basis::{BasisType, DGBasis};
 use super::FluxType;
 use crate::error::Result;
-use cfd_core::error::Error;
+use cfd_core::error::{Error, ErrorContext};
 use nalgebra::{DMatrix, DVector};
 
 /// Represents a DG operator for spatial discretization
@@ -52,7 +52,8 @@ impl DGOperator {
         }
 
         let params = params.unwrap_or_default();
-        let basis = DGBasis::new(order, basis_type)?;
+        let basis = DGBasis::new(order, basis_type)
+            .context("constructing DG operator basis")?;
         let num_basis = order + 1;
 
         // Compute lifting operators for boundary conditions
