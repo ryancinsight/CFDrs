@@ -1189,6 +1189,23 @@ impl From<&str> for Error {
     }
 }
 
+// ── std::error::Error impls for all Kind types ─────────────────────────────
+
+impl std::error::Error for GeometryErrorKind {}
+impl std::error::Error for ConfigurationErrorKind {}
+impl std::error::Error for VisualizationErrorKind {}
+impl std::error::Error for StrategyErrorKind {}
+impl std::error::Error for ParameterErrorKind {}
+impl std::error::Error for ValidationErrorKind {}
+impl std::error::Error for RegistryErrorKind {}
+impl std::error::Error for ConstraintErrorKind {}
+impl std::error::Error for DependencyErrorKind {}
+impl std::error::Error for AdaptationErrorKind {}
+impl std::error::Error for BoundaryErrorKind {}
+impl std::error::Error for NumericalErrorKind {}
+impl std::error::Error for ConvergenceErrorKind {}
+impl std::error::Error for PluginErrorKind {}
+
 impl From<String> for Error {
     fn from(msg: String) -> Self {
         Error::InvalidInput(msg)
