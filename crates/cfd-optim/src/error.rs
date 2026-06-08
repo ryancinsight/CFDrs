@@ -22,3 +22,15 @@ pub enum OptimError {
     #[error("invalid parameter: {0}")]
     InvalidParameter(String),
 }
+
+impl From<OptimError> for cfd_core::error::Error {
+    fn from(err: OptimError) -> Self {
+        let msg = err.to_string();
+        match err {
+            OptimError::EmptyCandidates
+            | OptimError::InsufficientCandidates { .. }
+            | OptimError::InvalidParameter(_) => Self::InvalidInput(msg),
+            OptimError::PhysicsError { .. } => Self::Solver(msg),
+        }
+    }
+}
