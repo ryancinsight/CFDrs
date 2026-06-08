@@ -39,7 +39,7 @@ use super::config::{SIMPLEConfig, SolveResult};
 use super::field::FlowField2D;
 use super::grid::StaggeredGrid2D;
 use super::BloodModel;
-use crate::error::Error;
+use cfd_core::error::Error;
 use crate::grid::array2d::Array2D;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
@@ -390,7 +390,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
 
             // Divergence guard: detect NaN/Inf or residual growth.
             if self.check_divergence() || !last_residual.is_finite() {
-                return Err(Error::NumericalInstability(
+                return Err(Error::Solver(
                     "SIMPLE solver diverged: NaN or Inf detected in velocity field".to_string(),
                 ));
             }
@@ -401,7 +401,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             if iteration > 50 {
                 let growth_limit = T::from_f64(1e6).unwrap_or(T::one());
                 if res_max > growth_limit {
-                    return Err(Error::NumericalInstability(format!(
+                    return Err(Error::Solver(format!(
                         "SIMPLE solver diverged: max pointwise residual {} exceeds limit",
                         nalgebra::try_convert::<T, f64>(res_max).unwrap_or(f64::INFINITY)
                     )));

@@ -1,6 +1,6 @@
 //! v-momentum Gauss-Seidel solver.
 
-use crate::error::Error;
+use cfd_core::error::Error;
 use crate::solvers::ns_fvm::boundary::BoundaryCondition;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 use nalgebra::RealField;

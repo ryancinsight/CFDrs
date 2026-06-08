@@ -9,7 +9,7 @@
 //! operation scheduling. The Jacobi/Red-Black Gauss-Seidel stencil coefficients
 //! are identical across backends.
 
-use crate::error::{Error, Result};
+use cfd_core::error::{Error, Result};
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
 #[cfg(feature = "gpu")]
@@ -131,7 +131,7 @@ impl AcceleratedPoissonSolver {
             dx,
             dy,
         )
-        .map_err(|e| Error::from(format!("Failed to calculate residual: {e:?}")))
+        .map_err(|e| Error::Solver(format!("Failed to calculate residual: {e:?}")))
     }
 
     /// Standard CPU solver (fallback)
@@ -310,7 +310,7 @@ impl AcceleratedNavierStokesSolver {
                 dx,
                 dy,
             )
-            .map_err(|e| Error::from(format!("Failed to calculate divergence: {e:?}")))
+            .map_err(|e| Error::Solver(format!("Failed to calculate divergence: {e:?}")))
         } else {
             // CPU fallback
             for i in 1..nx - 1 {

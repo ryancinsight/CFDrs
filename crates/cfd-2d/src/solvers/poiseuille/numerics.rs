@@ -5,7 +5,7 @@
 //! convergence check.
 
 use super::{BloodModel, PoiseuilleFlow2D};
-use crate::error::Error;
+use cfd_core::error::Error;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
 
@@ -128,8 +128,7 @@ pub(super) fn thomas_algorithm<T: RealField + Copy + Float>(
     a: &[T],
     b: &[T],
     c: &[T],
-    d: &[T],
-) -> Result<Vec<T>, Error> {
+    d: &[T],    ) -> Result<Vec<T>, Error> {
     let n = b.len();
 
     if a.len() != n || c.len() != n || d.len() != n {
@@ -148,7 +147,7 @@ pub(super) fn thomas_algorithm<T: RealField + Copy + Float>(
         let denom = b[i] - a[i] * c_prime[i - 1];
 
         if Float::abs(denom) < T::from_f64(1e-14).expect("analytical constant conversion") {
-            return Err(Error::NumericalInstability(
+            return Err(Error::Solver(
                 "Near-zero pivot in Thomas algorithm".to_string(),
             ));
         }

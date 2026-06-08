@@ -152,7 +152,6 @@
 
 // Core modules
 pub mod constants;
-pub mod error;
 pub mod fields;
 pub mod grid;
 pub mod problem;

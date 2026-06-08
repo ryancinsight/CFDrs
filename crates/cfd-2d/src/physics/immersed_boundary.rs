@@ -90,7 +90,7 @@
 //! establishing the adjoint property. This ensures the IBM adds zero net energy to
 //! the fluid–structure system, guaranteeing stability of the coupled solver.
 
-use crate::error::{Error, Result};
+use cfd_core::error::{Error, Result};
 use nalgebra::{DMatrix, Vector2};
 
 /// Immersed boundary configuration

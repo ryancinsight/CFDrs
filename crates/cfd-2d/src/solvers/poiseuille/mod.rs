@@ -101,7 +101,7 @@
 
 mod numerics;
 
-use crate::error::Error;
+use cfd_core::error::Error;
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
@@ -292,16 +292,15 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
             }
         }
 
-        Err(Error::ConvergenceFailed {
-            iterations: max_iter,
-            residual: self
-                .residuals
+        Err(Error::Solver(format!(
+            "Convergence failed after {max_iter} iterations (residual: {:.2e})",
+            self.residuals
                 .last()
                 .copied()
                 .unwrap_or(T::zero())
                 .to_f64()
-                .unwrap_or(f64::NAN),
-        })
+                .unwrap_or(f64::NAN)
+        )))
     }
 
     /// Calculate analytical solution for Newtonian fluid (for validation)

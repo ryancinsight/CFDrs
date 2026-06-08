@@ -1,6 +1,6 @@
 //! Pressure correction Poisson solver.
 
-use crate::error::Error;
+use cfd_core::error::Error;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
 use nalgebra::RealField;
 use num_traits::{Float, FromPrimitive};
