@@ -5,7 +5,7 @@
 
 use std::fmt;
 use cfd_core::error::{
-    ConstraintErrorKind, DependencyErrorKind, Error, ParameterErrorKind, RegistryErrorKind,
+    ConstraintErrorKind, Error, ParameterErrorKind,
     Result, ValidationErrorKind,
 };
 
