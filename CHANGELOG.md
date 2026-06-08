@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - Error Consolidation
+
+### Changed
+- **cfd-core**: Added 12 new `*ErrorKind` enums (`GeometryErrorKind`, `ConfigurationErrorKind`, `VisualizationErrorKind`, `StrategyErrorKind`, `ParameterErrorKind`, `ValidationErrorKind`, `RegistryErrorKind`, `ConstraintErrorKind`, `DependencyErrorKind`, `AdaptationErrorKind`, `ResistanceCalculationErrorKind`) with structured variants, `Display`, `std::error::Error`, inherent constructors, and `From<Kind> for Error` impls
+- **cfd-schematics**: Replaced all local error enums (`SchemeError`, `GeometryError`, `ConfigurationError`, `VisualizationError`, `StrategyError`, `AdaptationError`) with type aliases and re-exports from `cfd_core::error` — zero local error enums remain
+- **cfd-schematics**: Removed 8 dead extension traits (`GeometryErrorExt`, `ConfigurationErrorExt`, `VisualizationErrorExt`, `StrategyErrorExt`, `ParameterErrorExt` from error.rs; `ParameterErrorExt`, `ValidationErrorExt`, `ConstraintErrorExt` from state_management/errors.rs) — callers use inherent Kind methods via type aliases
+- **cfd-1d**: Consolidated `ResistanceCalculationError` into `cfd_core::error`; deleted local `solver/analysis/error.rs`
+- **cfd-optim**: Added `From<OptimError> for cfd_core::error::Error` for cross-crate `?` propagation; `OptimError` stays local (2 of 4 variants are optimizer-specific)
+
+### Added
+- `ARCHITECTURE.md` documenting workspace structure, error handling strategy, Kind enum catalog, cross-kind conversions, and guidelines for new error types
+
 ## [1.9.0] - Schematic Rendering Fixes + Report Update
 
 ### Fixed
