@@ -1,25 +1,8 @@
-//! Tests for SIMD and SWAR implementations
+//! Tests for SIMD operations backed by hermes-simd
 
 #[cfg(test)]
 use super::*;
-use crate::simd::arch_detect::ArchDetect;
 use approx::assert_relative_eq;
-
-#[test]
-fn test_arch_detection() {
-    let arch = ArchDetect::new();
-    let capability = arch.capability();
-
-    // Should detect something
-    assert!(matches!(
-        capability,
-        SimdCapability::Avx2 | SimdCapability::Sse42 | SimdCapability::Neon | SimdCapability::Swar
-    ));
-
-    // Vector widths should be sensible
-    assert!(arch.vector_width_f32() >= 1);
-    assert!(arch.vector_width_f64() >= 1);
-}
 
 #[test]
 fn test_simd_add_f32() {
@@ -94,78 +77,44 @@ fn test_simd_unaligned_lengths() {
 }
 
 #[test]
-fn test_swar_add_f32() {
-    let swar = SwarOps::new();
-    let a = vec![1.0f32, 2.0, 3.0, 4.0, 5.0];
-    let b = vec![5.0f32, 4.0, 3.0, 2.0, 1.0];
-    let mut result = vec![0.0f32; 5];
+fn test_simd_dot_f64() {
+    let simd = SimdOps::new();
+    let a = vec![1.0f64, 2.0, 3.0, 4.0];
+    let b = vec![4.0f64, 3.0, 2.0, 1.0];
 
-    swar.process_binary_f32(&a, &b, &mut result, |a, b, r| {
-        for i in 0..a.len() {
-            r[i] = a[i] + b[i];
-        }
-    })
-    .unwrap();
+    let dot = simd.dot_f64(&a, &b).unwrap();
 
-    for i in 0..5 {
-        assert_relative_eq!(result[i], 6.0, epsilon = 1e-6);
-    }
+    assert_relative_eq!(dot, 20.0, epsilon = 1e-12);
 }
 
 #[test]
-fn test_swar_mul_f32() {
-    let swar = SwarOps::new();
-    let a = vec![1.0f32, 2.0, 3.0, 4.0];
-    let b = vec![2.0f32, 2.0, 2.0, 2.0];
-    let mut result = vec![0.0f32; 4];
-
-    swar.mul(&a, &b, &mut result).unwrap();
-
-    assert_relative_eq!(result[0], 2.0, epsilon = 1e-6);
-    assert_relative_eq!(result[1], 4.0, epsilon = 1e-6);
-    assert_relative_eq!(result[2], 6.0, epsilon = 1e-6);
-    assert_relative_eq!(result[3], 8.0, epsilon = 1e-6);
-}
-
-#[test]
-fn test_swar_dot_f32() {
-    let swar = SwarOps::new();
-    let a = vec![1.0f32, 2.0, 3.0, 4.0];
-    let b = vec![4.0f32, 3.0, 2.0, 1.0];
-
-    let dot = swar.dot(&a, &b).unwrap();
-
-    assert_relative_eq!(dot, 20.0, epsilon = 1e-6);
-}
-
-#[test]
-fn test_swar_sum_f32() {
-    let swar = SwarOps::new();
+fn test_simd_sum_f32() {
+    let simd = SimdOps::new();
     let input = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
 
-    let sum = swar.sum_f32(&input).unwrap();
+    let sum = simd.sum_f32(&input).unwrap();
 
     assert_relative_eq!(sum, 45.0, epsilon = 1e-6);
 }
 
 #[test]
-fn test_swar_max_f32() {
-    let swar = SwarOps::new();
+fn test_simd_max_f32() {
+    let simd = SimdOps::new();
     let input = vec![3.0f32, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0];
 
-    let max = swar.max_f32(&input).unwrap();
+    let max = simd.max_f32(&input).unwrap();
 
     assert_relative_eq!(max, 9.0, epsilon = 1e-6);
 }
 
 #[test]
-fn test_swar_add_u32() {
-    let swar = SwarOps::new();
+fn test_simd_add_u32() {
+    let simd = SimdOps::new();
     let a = vec![1u32, 2, 3, 4, 5];
     let b = vec![5u32, 4, 3, 2, 1];
     let mut result = vec![0u32; 5];
 
-    swar.add_u32(&a, &b, &mut result).unwrap();
+    simd.add_u32(&a, &b, &mut result).unwrap();
 
     for i in 0..5 {
         assert_eq!(result[i], 6);
@@ -192,11 +141,9 @@ fn test_empty_vectors() {
     assert!(simd.add(&a, &b, &mut result).is_ok());
 }
 
-// Benchmark-style test for performance validation
 #[test]
 fn test_simd_performance_characteristics() {
     let simd = SimdOps::new();
-    let arch = ArchDetect::new();
 
     // Create large vectors
     let size = 1024;
@@ -211,10 +158,6 @@ fn test_simd_performance_characteristics() {
     for i in 0..size {
         assert_relative_eq!(result[i], 3.0, epsilon = 1e-6);
     }
-
-    println!("SIMD capability detected: {:?}", arch.capability());
-    println!("Vector width (f32): {}", arch.vector_width_f32());
-    println!("Vector width (f64): {}", arch.vector_width_f64());
 }
 
 #[test]

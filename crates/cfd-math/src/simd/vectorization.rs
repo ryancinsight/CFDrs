@@ -1,13 +1,21 @@
 //! Vectorization utilities with SIMD optimizations for CFD computations.
 //!
-//! This module provides vectorized operations that leverage architecture-specific
-//! SIMD instructions with SWAR fallbacks for improved performance.
+//! This module provides vectorized operations using moirai's data-parallel
+//! primitives. Architecture-specific SIMD dispatch is handled internally by
+//! hermes-simd (via `SimdOps`), but the generic `T: RealField` operations
+//! here use moirai's `par_mut()` which already routes small arrays to the
+//! sequential path automatically.
+//!
+//! # Soundness
+//!
+//! All operations use safe Rust. The prior `TypeId` + `transmute_copy` patterns
+//! have been eliminated — generic operations delegate to moirai's parallel
+//! iteration, and concrete f32/f64 operations delegate to `SimdOps` (hermes).
 
 use crate::error::Result;
-use crate::simd::{SimdOps, VectorOps as SimdVectorOps};
+use crate::simd::SimdOps;
 use moirai::{reduce_index_with, Adaptive, ParallelSliceMut};
 use nalgebra::RealField;
-use num_traits::cast::ToPrimitive;
 
 /// Vectorized operations for CFD computations with SIMD support
 pub struct VectorizedOps {
@@ -22,8 +30,21 @@ impl VectorizedOps {
         }
     }
 
-    /// Vectorized element-wise addition with SIMD optimization
-    pub fn add_vectorized<T: RealField + Copy + Send + Sync + ToPrimitive>(
+    /// Vectorized element-wise addition.
+    ///
+    /// For f32/f64, delegates to hermes SIMD dispatch. For other types,
+    /// uses moirai's data-parallel iteration.
+    pub fn add_vectorized_f32(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+        self.simd_ops.add(a, b, result)
+    }
+
+    /// Vectorized element-wise addition (f64).
+    pub fn add_vectorized_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
+        self.simd_ops.add_f64(a, b, result)
+    }
+
+    /// Generic element-wise addition using moirai parallel iteration.
+    pub fn add_generic<T: RealField + Copy + Send + Sync>(
         &self,
         a: &[T],
         b: &[T],
@@ -32,35 +53,22 @@ impl VectorizedOps {
         if a.len() != b.len() || a.len() != result.len() {
             return Err(crate::error::MathError::DimensionMismatch.into());
         }
-
-        // Try to use SIMD for f32/f64
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-            // Safe transmute for f32
-            let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr().cast::<f32>(), a.len()) };
-            let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr().cast::<f32>(), b.len()) };
-            let result_f32 = unsafe {
-                std::slice::from_raw_parts_mut(result.as_mut_ptr().cast::<f32>(), result.len())
-            };
-            return self.simd_ops.add(a_f32, b_f32, result_f32);
-        }
-
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
-            let a_f64 = unsafe { std::slice::from_raw_parts(a.as_ptr().cast::<f64>(), a.len()) };
-            let b_f64 = unsafe { std::slice::from_raw_parts(b.as_ptr().cast::<f64>(), b.len()) };
-            let result_f64 = unsafe {
-                std::slice::from_raw_parts_mut(result.as_mut_ptr().cast::<f64>(), result.len())
-            };
-            return self.simd_ops.add_f64(a_f64, b_f64, result_f64);
-        }
-
-        // Fallback to data-parallel iteration for other types
         result.par_mut().enumerate(|i, r| *r = a[i] + b[i]);
-
         Ok(())
     }
 
-    /// Vectorized element-wise multiplication with SIMD
-    pub fn mul_vectorized<T: RealField + Copy + Send + Sync + ToPrimitive>(
+    /// Vectorized element-wise multiplication (f32).
+    pub fn mul_vectorized_f32(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+        self.simd_ops.mul(a, b, result)
+    }
+
+    /// Vectorized element-wise multiplication (f64).
+    pub fn mul_vectorized_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
+        self.simd_ops.mul_f64(a, b, result)
+    }
+
+    /// Generic element-wise multiplication using moirai parallel iteration.
+    pub fn mul_generic<T: RealField + Copy + Send + Sync>(
         &self,
         a: &[T],
         b: &[T],
@@ -69,34 +77,22 @@ impl VectorizedOps {
         if a.len() != b.len() || a.len() != result.len() {
             return Err(crate::error::MathError::DimensionMismatch.into());
         }
-
-        // Try to use SIMD for f32/f64
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-            let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr().cast::<f32>(), a.len()) };
-            let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr().cast::<f32>(), b.len()) };
-            let result_f32 = unsafe {
-                std::slice::from_raw_parts_mut(result.as_mut_ptr().cast::<f32>(), result.len())
-            };
-            return self.simd_ops.mul(a_f32, b_f32, result_f32);
-        }
-
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
-            let a_f64 = unsafe { std::slice::from_raw_parts(a.as_ptr().cast::<f64>(), a.len()) };
-            let b_f64 = unsafe { std::slice::from_raw_parts(b.as_ptr().cast::<f64>(), b.len()) };
-            let result_f64 = unsafe {
-                std::slice::from_raw_parts_mut(result.as_mut_ptr().cast::<f64>(), result.len())
-            };
-            return self.simd_ops.mul_f64(a_f64, b_f64, result_f64);
-        }
-
-        // Fallback
         result.par_mut().enumerate(|i, r| *r = a[i] * b[i]);
-
         Ok(())
     }
 
-    /// Vectorized scalar multiplication with broadcasting and SIMD
-    pub fn scale_vectorized<T: RealField + Copy + Send + Sync + ToPrimitive>(
+    /// Vectorized scalar multiplication (f32).
+    pub fn scale_vectorized_f32(&self, input: &[f32], scalar: f32, result: &mut [f32]) -> Result<()> {
+        self.simd_ops.scale(input, scalar, result)
+    }
+
+    /// Vectorized scalar multiplication (f64).
+    pub fn scale_vectorized_f64(&self, input: &[f64], scalar: f64, result: &mut [f64]) -> Result<()> {
+        self.simd_ops.scale_f64(input, scalar, result)
+    }
+
+    /// Generic scalar multiplication using moirai parallel iteration.
+    pub fn scale_generic<T: RealField + Copy + Send + Sync>(
         &self,
         input: &[T],
         scalar: T,
@@ -105,40 +101,22 @@ impl VectorizedOps {
         if input.len() != result.len() {
             return Err(crate::error::MathError::DimensionMismatch.into());
         }
-
-        // Try to use SIMD for f32/f64
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-            if let Some(scalar_f32) = scalar.to_f32() {
-                let input_f32 = unsafe {
-                    std::slice::from_raw_parts(input.as_ptr().cast::<f32>(), input.len())
-                };
-                let result_f32 = unsafe {
-                    std::slice::from_raw_parts_mut(result.as_mut_ptr().cast::<f32>(), result.len())
-                };
-                return self.simd_ops.scale(input_f32, scalar_f32, result_f32);
-            }
-        }
-
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
-            if let Some(scalar_f64) = scalar.to_f64() {
-                let input_f64 = unsafe {
-                    std::slice::from_raw_parts(input.as_ptr().cast::<f64>(), input.len())
-                };
-                let result_f64 = unsafe {
-                    std::slice::from_raw_parts_mut(result.as_mut_ptr().cast::<f64>(), result.len())
-                };
-                return self.simd_ops.scale_f64(input_f64, scalar_f64, result_f64);
-            }
-        }
-
-        // Fallback
         result.par_mut().enumerate(|i, r| *r = scalar * input[i]);
-
         Ok(())
     }
 
-    /// Compute dot product with SIMD optimization
-    pub fn dot_product<T: RealField + Copy + Send + Sync + ToPrimitive>(
+    /// Compute dot product (f32) via hermes SIMD.
+    pub fn dot_product_f32(&self, a: &[f32], b: &[f32]) -> Result<f32> {
+        self.simd_ops.dot(a, b)
+    }
+
+    /// Compute dot product (f64) via hermes SIMD.
+    pub fn dot_product_f64(&self, a: &[f64], b: &[f64]) -> Result<f64> {
+        self.simd_ops.dot_f64(a, b)
+    }
+
+    /// Generic dot product using moirai parallel reduction.
+    pub fn dot_product_generic<T: RealField + Copy + Send + Sync>(
         &self,
         a: &[T],
         b: &[T],
@@ -146,42 +124,22 @@ impl VectorizedOps {
         if a.len() != b.len() {
             return Err(crate::error::MathError::DimensionMismatch.into());
         }
-
-        // Try to use SIMD for f32
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-            let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr().cast::<f32>(), a.len()) };
-            let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr().cast::<f32>(), b.len()) };
-            let result = self.simd_ops.dot(a_f32, b_f32)?;
-            // Safe because we checked the type
-            return Ok(unsafe { std::mem::transmute_copy(&result) });
-        }
-
-        // Try to use SIMD for f64
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
-            let a_f64 = unsafe { std::slice::from_raw_parts(a.as_ptr().cast::<f64>(), a.len()) };
-            let b_f64 = unsafe { std::slice::from_raw_parts(b.as_ptr().cast::<f64>(), b.len()) };
-            let result = self.simd_ops.dot_f64(a_f64, b_f64)?;
-            return Ok(unsafe { std::mem::transmute_copy(&result) });
-        }
-
-        // Fallback for other types: index-aligned parallel reduction.
         let sum =
             reduce_index_with::<Adaptive, _, _, _>(a.len(), T::zero(), |i| a[i] * b[i], |acc, v| acc + v);
-
         Ok(sum)
     }
 
-    /// Compute L2 norm with SIMD optimization
-    pub fn l2_norm<T: RealField + Copy + Send + Sync + ToPrimitive>(
+    /// Compute L2 norm using moirai parallel reduction.
+    pub fn l2_norm<T: RealField + Copy + Send + Sync>(
         &self,
         input: &[T],
     ) -> Result<T> {
-        let dot = self.dot_product(input, input)?;
+        let dot = self.dot_product_generic(input, input)?;
         Ok(dot.sqrt())
     }
 
-    /// Broadcasting addition: adds scalar to each element of vector
-    pub fn broadcast_add<T: RealField + Copy + Send + Sync + ToPrimitive>(
+    /// Broadcasting addition: adds scalar to each element of vector.
+    pub fn broadcast_add<T: RealField + Copy + Send + Sync>(
         &self,
         input: &[T],
         scalar: T,
@@ -190,14 +148,12 @@ impl VectorizedOps {
         if input.len() != result.len() {
             return Err(crate::error::MathError::DimensionMismatch.into());
         }
-
         result.par_mut().enumerate(|i, r| *r = input[i] + scalar);
-
         Ok(())
     }
 
-    /// Broadcasting multiplication: multiplies each element by broadcasted vector (row-wise)
-    pub fn broadcast_mul_vector<T: RealField + Copy + Send + Sync + ToPrimitive>(
+    /// Broadcasting multiplication: multiplies each element by broadcasted vector (row-wise).
+    pub fn broadcast_mul_vector<T: RealField + Copy + Send + Sync>(
         &self,
         matrix: &[T],
         matrix_cols: usize,
@@ -213,17 +169,14 @@ impl VectorizedOps {
         if result.len() != matrix.len() {
             return Err(crate::error::MathError::DimensionMismatch.into());
         }
-
-        // Row-wise broadcast expressed elementwise: column = idx % matrix_cols.
         result
             .par_mut()
             .enumerate(|idx, r| *r = matrix[idx] * vector[idx % matrix_cols]);
-
         Ok(())
     }
 
-    /// Vectorized matrix-vector multiplication for CSR sparse matrices
-    pub fn matvec_csr<T: RealField + Copy + Send + Sync + ToPrimitive>(
+    /// Vectorized matrix-vector multiplication for CSR sparse matrices.
+    pub fn matvec_csr<T: RealField + Copy + Send + Sync>(
         &self,
         values: &[T],
         col_indices: &[usize],
@@ -234,24 +187,18 @@ impl VectorizedOps {
         if row_ptr.len() != y.len() + 1 {
             return Err(crate::error::MathError::DimensionMismatch.into());
         }
-
         y.par_mut().enumerate(|i, y_i| {
             let start = row_ptr[i];
             let end = row_ptr[i + 1];
-
             *y_i = (start..end)
-                .map(|j| {
-                    let col = col_indices[j];
-                    values[j] * x[col]
-                })
+                .map(|j| values[j] * x[col_indices[j]])
                 .fold(T::zero(), |acc, val| acc + val);
         });
-
         Ok(())
     }
 
-    /// Vectorized convolution for filtering operations
-    pub fn convolution<T: RealField + Copy + Send + Sync + ToPrimitive>(
+    /// Vectorized convolution for filtering operations.
+    pub fn convolution<T: RealField + Copy + Send + Sync>(
         &self,
         signal: &[T],
         kernel: &[T],
@@ -268,7 +215,6 @@ impl VectorizedOps {
         result.par_mut().enumerate(|n, output| {
             let k_min = n.saturating_sub(signal_len - 1);
             let k_max = n.min(kernel_len - 1);
-
             let mut sum = T::zero();
             if k_min <= k_max {
                 for k in k_min..=k_max {
@@ -277,7 +223,6 @@ impl VectorizedOps {
             }
             *output = sum;
         });
-
         Ok(())
     }
 }
@@ -314,13 +259,10 @@ impl StencilOps {
             )
             .into());
         }
-
-        // Process interior points with SIMD where possible
         result.par_mut().enumerate(|i, r| {
             let idx = i + 1;
             *r = coeffs[0] * input[idx - 1] + coeffs[1] * input[idx] + coeffs[2] * input[idx + 1];
         });
-
         Ok(())
     }
 
@@ -337,7 +279,6 @@ impl StencilOps {
             )
             .into());
         }
-
         result.par_mut().enumerate(|i, r| {
             let idx = i + 2;
             *r = coeffs[0] * input[idx - 2]
@@ -346,7 +287,6 @@ impl StencilOps {
                 + coeffs[3] * input[idx + 1]
                 + coeffs[4] * input[idx + 2];
         });
-
         Ok(())
     }
 }

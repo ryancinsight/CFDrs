@@ -56,16 +56,9 @@ impl AcceleratedPoissonSolver {
             }
         }
 
-        // Check for SIMD capability
-        let simd_cap = cfd_math::simd::SimdCapability::detect();
-        #[allow(clippy::match_wildcard_for_single_variants)]
-        // Wildcard handles future SIMD variants
-        let backend = match simd_cap {
-            cfd_math::simd::SimdCapability::Avx2
-            | cfd_math::simd::SimdCapability::Sse42
-            | cfd_math::simd::SimdCapability::Neon => Backend::Simd,
-            _ => Backend::Cpu,
-        };
+        // hermes-simd handles architecture detection internally;
+        // all paths use SIMD when available (hermes dispatches at runtime).
+        let backend = Backend::Simd;
 
         Ok(Self {
             backend,

@@ -96,6 +96,9 @@ ritk-vtk = { git = "https://github.com/ryancinsight/ritk.git" }
 # mnemosyne: high-performance global allocator. Wired into cfd-core behind the
 # `mnemosyne` feature as the process #[global_allocator].
 mnemosyne = { git = "https://github.com/ryancinsight/Mnemosyne.git" }
+# hermes: SIMD abstraction workspace. Provides generic runtime-dispatched
+# SIMD operations (dot, elementwise, reductions) over f32/f64/i32.
+hermes-simd = { git = "https://github.com/ryancinsight/hermes.git" }
 # moirai: unified concurrency runtime replacing tokio + rayon. default-features
 # off so it does not install its own #[global_allocator]; `parallel` pulls the
 # moirai-parallel data-parallel API (rayon replacement), `async` the task/async

@@ -5,10 +5,8 @@ use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 // use nalgebra_sparse::ops::serial::spmm_csr_csr;
 use crate::linear_solver::LinearOperator;
-use crate::simd::{SimdOps, VectorOps};
 use moirai::ParallelSliceMut;
 use num_traits::{Float, FromPrimitive, Signed};
-use std::any::TypeId;
 
 impl<T: RealField + Copy + Send + Sync> LinearOperator<T> for CsrMatrix<T> {
     fn apply(&self, x: &DVector<T>, y: &mut DVector<T>) -> Result<()> {
@@ -55,35 +53,13 @@ pub fn spmv<T: RealField + Copy>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVect
     }
 
     // Standard CSR SpMV: y[i] = sum(A[i,j] * x[j]) for j in row i
-    let simd_ops = SimdOps::new();
     let x_slice = x.as_slice();
     let values = a.values();
     let col_indices = a.col_indices();
     let row_offsets = a.row_offsets();
-    let simd_min_len = if TypeId::of::<T>() == TypeId::of::<f64>() {
-        4
-    } else {
-        8
-    };
     for i in 0..a.nrows() {
         let row_start = row_offsets[i];
         let row_end = row_offsets[i + 1];
-
-        let len = row_end - row_start;
-        if len >= simd_min_len {
-            if let Some(start_col) = contiguous_row_start(col_indices, row_start, row_end) {
-                if start_col + len <= x_slice.len() {
-                    if let Some(sum) = simd_dot_if_available(
-                        &simd_ops,
-                        &values[row_start..row_end],
-                        &x_slice[start_col..start_col + len],
-                    ) {
-                        y.as_mut_slice()[i] = sum;
-                        continue;
-                    }
-                }
-            }
-        }
 
         let mut sum = T::zero();
         for j in row_start..row_end {
@@ -127,52 +103,9 @@ fn parallel_threshold<T: RealField + Copy>(a: &CsrMatrix<T>) -> usize {
     threshold.clamp(min_threshold, max_threshold)
 }
 
-fn contiguous_row_start(col_indices: &[usize], row_start: usize, row_end: usize) -> Option<usize> {
-    if row_end <= row_start {
-        return None;
-    }
-    let start = col_indices[row_start];
-    let mut prev = start;
-    for i in (row_start + 1)..row_end {
-        let col = col_indices[i];
-        if col != prev + 1 {
-            return None;
-        }
-        prev = col;
-    }
-    Some(start)
-}
 
-fn simd_dot_if_available<T: RealField + Copy>(
-    simd_ops: &SimdOps,
-    values: &[T],
-    x_slice: &[T],
-) -> Option<T> {
-    if values.len() != x_slice.len() {
-        return None;
-    }
-    let type_id = TypeId::of::<T>();
-    if type_id == TypeId::of::<f32>() {
-        let values_f32 =
-            unsafe { std::slice::from_raw_parts(values.as_ptr().cast::<f32>(), values.len()) };
-        let x_f32 =
-            unsafe { std::slice::from_raw_parts(x_slice.as_ptr().cast::<f32>(), x_slice.len()) };
-        if let Ok(sum) = simd_ops.dot(values_f32, x_f32) {
-            let sum_t = unsafe { std::mem::transmute_copy::<f32, T>(&sum) };
-            return Some(sum_t);
-        }
-    } else if type_id == TypeId::of::<f64>() {
-        let values_f64 =
-            unsafe { std::slice::from_raw_parts(values.as_ptr().cast::<f64>(), values.len()) };
-        let x_f64 =
-            unsafe { std::slice::from_raw_parts(x_slice.as_ptr().cast::<f64>(), x_slice.len()) };
-        if let Ok(sum) = simd_ops.dot_f64(values_f64, x_f64) {
-            let sum_t = unsafe { std::mem::transmute_copy::<f64, T>(&sum) };
-            return Some(sum_t);
-        }
-    }
-    None
-}
+
+
 
 /// Parallel sparse matrix-vector multiplication (SpMV): y = A * x
 ///

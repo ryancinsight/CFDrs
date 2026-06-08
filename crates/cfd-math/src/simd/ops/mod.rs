@@ -1,269 +1,194 @@
-//! SIMD operations module with architecture-specific implementations
+//! SIMD operations backed by hermes-simd.
 //!
-//! Organized following SSOT and modular architecture principles.
+//! Delegates all architecture detection and dispatch to hermes, which handles
+//! AVX2/SSE4.2/NEON/Scalar fallback internally via its `SimdOps` sealed trait.
+//! This eliminates the prior x86/arm/SWAR duplication.
 
-mod arm;
-mod traits;
-mod x86;
-
-pub use traits::{SimdOperation, VectorOps};
-
-use super::{SimdCapability, SwarOps};
 use crate::error::Result;
+use hermes_simd::dispatch::SimdOps as HermesOps;
 
-/// Main SIMD operations dispatcher
-pub struct SimdOps {
-    capability: SimdCapability,
-    swar: SwarOps,
-}
+/// SIMD operations dispatcher backed by hermes-simd.
+///
+/// Zero-sized type — all methods delegate to hermes' generic runtime-dispatched
+/// SIMD kernels. No manual architecture detection or SWAR fallback needed.
+pub struct SimdOps;
 
 impl SimdOps {
-    /// Create new SIMD operations handler with detected capabilities
+    /// Create a new SIMD operations handler.
+    #[inline]
     pub fn new() -> Self {
-        Self {
-            capability: SimdCapability::detect(),
-            swar: SwarOps::new(),
-        }
+        Self
     }
 
-    /// Create with specific capability (for testing)
-    pub fn with_capability(capability: SimdCapability) -> Self {
-        Self {
-            capability,
-            swar: SwarOps::new(),
-        }
+    // ── f32 operations ──────────────────────────────────────────────────
+
+    /// Element-wise addition: `result[i] = a[i] + b[i]`.
+    #[inline]
+    pub fn add(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+        validate_same_len(a.len(), b.len(), result.len())?;
+        f32::elementwise_add(a, b, result).map_err(simd_err)
     }
 
-    /// Get current SIMD capability
-    pub fn capability(&self) -> SimdCapability {
-        self.capability
+    /// Element-wise subtraction: `result[i] = a[i] - b[i]`.
+    #[inline]
+    pub fn sub(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+        validate_same_len(a.len(), b.len(), result.len())?;
+        f32::elementwise_sub(a, b, result).map_err(simd_err)
+    }
+
+    /// Element-wise multiplication: `result[i] = a[i] * b[i]`.
+    #[inline]
+    pub fn mul(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+        validate_same_len(a.len(), b.len(), result.len())?;
+        f32::elementwise_mul(a, b, result).map_err(simd_err)
+    }
+
+    /// Element-wise division: `result[i] = a[i] / b[i]`.
+    #[inline]
+    pub fn div(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
+        validate_same_len(a.len(), b.len(), result.len())?;
+        f32::elementwise_div(a, b, result).map_err(simd_err)
+    }
+
+    /// Fused multiply-add: `result[i] = a[i] * b[i] + c[i]`.
+    ///
+    /// Uses hardware FMA via `mul_add` when available.
+    #[inline]
+    pub fn fma(&self, a: &[f32], b: &[f32], c: &[f32], result: &mut [f32]) -> Result<()> {
+        validate_same_len(a.len(), b.len(), c.len())?;
+        validate_same_len(a.len(), result.len(), result.len())?;
+        for ((r, &ai), (&bi, &ci)) in result.iter_mut().zip(a.iter()).zip(b.iter().zip(c.iter())) {
+            *r = ai.mul_add(bi, ci);
+        }
+        Ok(())
+    }
+
+    /// Scalar multiplication: `result[i] = input[i] * scalar`.
+    #[inline]
+    pub fn scale(&self, input: &[f32], scalar: f32, result: &mut [f32]) -> Result<()> {
+        validate_same_len(input.len(), result.len(), result.len())?;
+        for (r, &v) in result.iter_mut().zip(input.iter()) {
+            *r = v * scalar;
+        }
+        Ok(())
+    }
+
+    /// Dot product: `sum(a[i] * b[i])`.
+    #[inline]
+    pub fn dot(&self, a: &[f32], b: &[f32]) -> Result<f32> {
+        validate_len_match(a.len(), b.len())?;
+        f32::dot(a, b).map_err(simd_err)
+    }
+
+    // ── f64 operations ──────────────────────────────────────────────────
+
+    /// Element-wise addition (f64): `result[i] = a[i] + b[i]`.
+    #[inline]
+    pub fn add_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
+        validate_same_len(a.len(), b.len(), result.len())?;
+        f64::elementwise_add(a, b, result).map_err(simd_err)
+    }
+
+    /// Element-wise subtraction (f64): `result[i] = a[i] - b[i]`.
+    #[inline]
+    pub fn sub_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
+        validate_same_len(a.len(), b.len(), result.len())?;
+        f64::elementwise_sub(a, b, result).map_err(simd_err)
+    }
+
+    /// Element-wise multiplication (f64): `result[i] = a[i] * b[i]`.
+    #[inline]
+    pub fn mul_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
+        validate_same_len(a.len(), b.len(), result.len())?;
+        f64::elementwise_mul(a, b, result).map_err(simd_err)
+    }
+
+    /// Element-wise division (f64): `result[i] = a[i] / b[i]`.
+    #[inline]
+    pub fn div_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
+        validate_same_len(a.len(), b.len(), result.len())?;
+        f64::elementwise_div(a, b, result).map_err(simd_err)
+    }
+
+    /// Fused multiply-add (f64): `result[i] = a[i] * b[i] + c[i]`.
+    #[inline]
+    pub fn fma_f64(&self, a: &[f64], b: &[f64], c: &[f64], result: &mut [f64]) -> Result<()> {
+        validate_same_len(a.len(), b.len(), c.len())?;
+        validate_same_len(a.len(), result.len(), result.len())?;
+        for ((r, &ai), (&bi, &ci)) in result.iter_mut().zip(a.iter()).zip(b.iter().zip(c.iter())) {
+            *r = ai.mul_add(bi, ci);
+        }
+        Ok(())
+    }
+
+    /// Scalar multiplication (f64): `result[i] = input[i] * scalar`.
+    #[inline]
+    pub fn scale_f64(&self, input: &[f64], scalar: f64, result: &mut [f64]) -> Result<()> {
+        validate_same_len(input.len(), result.len(), result.len())?;
+        for (r, &v) in result.iter_mut().zip(input.iter()) {
+            *r = v * scalar;
+        }
+        Ok(())
+    }
+
+    /// Dot product (f64): `sum(a[i] * b[i])`.
+    #[inline]
+    pub fn dot_f64(&self, a: &[f64], b: &[f64]) -> Result<f64> {
+        validate_len_match(a.len(), b.len())?;
+        f64::dot(a, b).map_err(simd_err)
+    }
+
+    // ── Reductions ──────────────────────────────────────────────────────
+
+    /// Sum of all elements (f32).
+    #[inline]
+    pub fn sum_f32(&self, input: &[f32]) -> Result<f32> {
+        Ok(<f32 as HermesOps>::sum(input))
+    }
+
+    /// Maximum element (f32).
+    #[inline]
+    pub fn max_f32(&self, input: &[f32]) -> Result<f32> {
+        Ok(<f32 as HermesOps>::max(input))
+    }
+
+    // ── Integer operations (scalar fallback) ────────────────────────────
+
+    /// Element-wise u32 addition (scalar — hermes does not seal u32).
+    #[inline]
+    pub fn add_u32(&self, a: &[u32], b: &[u32], result: &mut [u32]) -> Result<()> {
+        validate_same_len(a.len(), b.len(), result.len())?;
+        for ((r, &ai), &bi) in result.iter_mut().zip(a.iter()).zip(b.iter()) {
+            *r = ai.wrapping_add(bi);
+        }
+        Ok(())
     }
 }
 
 impl Default for SimdOps {
     fn default() -> Self {
-        Self::new()
+        Self
     }
 }
 
-impl VectorOps for SimdOps {
-    #[inline]
-    fn add(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
-        if a.len() != b.len() || a.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
+// ── Internal helpers ──────────────────────────────────────────────────────
 
-        match self.capability {
-            #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
-            SimdCapability::Avx2 => unsafe { x86::add_avx2_f32(a, b, result) },
-
-            #[cfg(all(target_arch = "x86_64", target_feature = "sse4.2"))]
-            SimdCapability::Sse42 => unsafe { x86::add_sse42_f32(a, b, result) },
-
-            #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-            SimdCapability::Neon => unsafe { arm::add_neon_f32(a, b, result) },
-
-            _ => self.swar.add(a, b, result),
-        }
+fn validate_same_len(a: usize, b: usize, c: usize) -> Result<()> {
+    if a == b && a == c {
+        Ok(())
+    } else {
+        Err(crate::error::MathError::DimensionMismatch.into())
     }
+}
 
-    #[inline]
-    fn sub(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
-        if a.len() != b.len() || a.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        match self.capability {
-            #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
-            SimdCapability::Avx2 => unsafe { x86::sub_avx2_f32(a, b, result) },
-
-            #[cfg(all(target_arch = "x86_64", target_feature = "sse4.2"))]
-            SimdCapability::Sse42 => unsafe { x86::sub_sse42_f32(a, b, result) },
-
-            #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-            SimdCapability::Neon => unsafe { arm::sub_neon_f32(a, b, result) },
-
-            _ => self.swar.sub(a, b, result),
-        }
+fn validate_len_match(a: usize, b: usize) -> Result<()> {
+    if a == b {
+        Ok(())
+    } else {
+        Err(crate::error::MathError::DimensionMismatch.into())
     }
+}
 
-    #[inline]
-    fn mul(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
-        if a.len() != b.len() || a.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        match self.capability {
-            #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
-            SimdCapability::Avx2 => unsafe { x86::mul_avx2_f32(a, b, result) },
-
-            #[cfg(all(target_arch = "x86_64", target_feature = "sse4.2"))]
-            SimdCapability::Sse42 => unsafe { x86::mul_sse42_f32(a, b, result) },
-
-            #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-            SimdCapability::Neon => unsafe { arm::mul_neon_f32(a, b, result) },
-
-            _ => self.swar.mul(a, b, result),
-        }
-    }
-
-    #[inline]
-    fn div(&self, a: &[f32], b: &[f32], result: &mut [f32]) -> Result<()> {
-        if a.len() != b.len() || a.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        // Division is typically not SIMD-optimized, use SWAR
-        self.swar.div(a, b, result)
-    }
-
-    #[inline]
-    fn fma(&self, a: &[f32], b: &[f32], c: &[f32], result: &mut [f32]) -> Result<()> {
-        if a.len() != b.len() || a.len() != c.len() || a.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        match self.capability {
-            #[cfg(all(target_arch = "x86_64", target_feature = "fma"))]
-            SimdCapability::Avx2 => unsafe { x86::fma_avx2_f32(a, b, c, result) },
-
-            _ => self.swar.fma(a, b, c, result),
-        }
-    }
-
-    #[inline]
-    fn scale(&self, input: &[f32], scalar: f32, result: &mut [f32]) -> Result<()> {
-        if input.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        match self.capability {
-            #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
-            SimdCapability::Avx2 => unsafe { x86::scale_avx2_f32(input, scalar, result) },
-
-            _ => self.swar.scale(input, scalar, result),
-        }
-    }
-
-    #[inline]
-    fn dot(&self, a: &[f32], b: &[f32]) -> Result<f32> {
-        if a.len() != b.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        match self.capability {
-            #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
-            SimdCapability::Avx2 => Ok(unsafe { x86::dot_avx2_f32(a, b) }),
-
-            _ => self.swar.dot(a, b),
-        }
-    }
-
-    // f64 implementations delegate to appropriate modules
-    #[inline]
-    fn add_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
-        if a.len() != b.len() || a.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        match self.capability {
-            #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
-            SimdCapability::Avx2 => unsafe { x86::add_avx2_f64(a, b, result) },
-
-            _ => self.swar.add_f64(a, b, result),
-        }
-    }
-
-    #[inline]
-    fn sub_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
-        if a.len() != b.len() || a.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        match self.capability {
-            #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
-            SimdCapability::Avx2 => unsafe { x86::sub_avx2_f64(a, b, result) },
-
-            _ => self.swar.sub_f64(a, b, result),
-        }
-    }
-
-    #[inline]
-    fn mul_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
-        if a.len() != b.len() || a.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        match self.capability {
-            #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
-            SimdCapability::Avx2 => unsafe { x86::mul_avx2_f64(a, b, result) },
-
-            _ => self.swar.mul_f64(a, b, result),
-        }
-    }
-
-    #[inline]
-    fn div_f64(&self, a: &[f64], b: &[f64], result: &mut [f64]) -> Result<()> {
-        if a.len() != b.len() || a.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        self.swar.div_f64(a, b, result)
-    }
-
-    #[inline]
-    fn fma_f64(&self, a: &[f64], b: &[f64], c: &[f64], result: &mut [f64]) -> Result<()> {
-        if a.len() != b.len() || a.len() != c.len() || a.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        self.swar.fma_f64(a, b, c, result)
-    }
-
-    #[inline]
-    fn scale_f64(&self, input: &[f64], scalar: f64, result: &mut [f64]) -> Result<()> {
-        if input.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        match self.capability {
-            #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
-            SimdCapability::Avx2 => unsafe { x86::scale_avx2_f64(input, scalar, result) },
-
-            _ => self.swar.scale_f64(input, scalar, result),
-        }
-    }
-
-    #[inline]
-    fn dot_f64(&self, a: &[f64], b: &[f64]) -> Result<f64> {
-        if a.len() != b.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
-        }
-
-        match self.capability {
-            #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
-            SimdCapability::Avx2 => Ok(unsafe { x86::dot_avx2_f64(a, b) }),
-
-            _ => self.swar.dot_f64(a, b),
-        }
-    }
-
-    #[inline]
-    fn sum_f32(&self, input: &[f32]) -> Result<f32> {
-        // Sum is inherently sequential, use SWAR implementation
-        self.swar.sum_f32(input)
-    }
-
-    #[inline]
-    fn max_f32(&self, input: &[f32]) -> Result<f32> {
-        // Max operation: Use SWAR (SIMD Within A Register) as portable fallback.
-        // Future enhancement: SIMD intrinsics for supported architectures.
-        self.swar.max_f32(input)
-    }
-
-    #[inline]
-    fn add_u32(&self, a: &[u32], b: &[u32], result: &mut [u32]) -> Result<()> {
-        // Integer operations use SWAR implementation
-        self.swar.add_u32(a, b, result)
-    }
+fn simd_err(e: hermes_simd::SimdError) -> cfd_core::error::Error {
+    crate::error::MathError::InvalidInput(format!("SIMD error: {e:?}")).into()
 }

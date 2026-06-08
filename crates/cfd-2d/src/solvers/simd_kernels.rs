@@ -10,15 +10,15 @@
 //! preserving convergence guarantees of the underlying solver.
 
 use cfd_core::error::Result;
-use cfd_math::simd::{SimdProcessor, VectorOps};
+use cfd_math::simd::SimdOps;
 use std::sync::OnceLock;
 
-// Global SIMD processor instance (initialized once)
-static SIMD_PROCESSOR: OnceLock<SimdProcessor> = OnceLock::new();
+// Global SIMD ops instance (initialized once)
+static SIMD_OPS: OnceLock<SimdOps> = OnceLock::new();
 
-/// Get or initialize the global SIMD processor
-fn simd_processor() -> &'static SimdProcessor {
-    SIMD_PROCESSOR.get_or_init(SimdProcessor::new)
+/// Get or initialize the global SIMD ops
+fn simd_ops() -> &'static SimdOps {
+    SIMD_OPS.get_or_init(SimdOps::new)
 }
 
 /// SIMD-accelerated Jacobi iteration for Poisson equation
@@ -37,9 +37,7 @@ pub fn jacobi_iteration_simd(
     let dy2 = dy * dy;
     let factor = 0.5 / (1.0 / dx2 + 1.0 / dy2);
 
-    let _processor = simd_processor(); // Reserved for future SIMD optimization
-
-    // Process interior points with SIMD-optimized stencil operations
+    // Process interior points with optimized stencil operations
     for i in 1..nx - 1 {
         for j in 1..ny - 1 {
             let idx = i * ny + j;
@@ -123,7 +121,7 @@ pub fn interpolate_velocity_simd(
     nx: usize,
     ny: usize,
 ) -> Result<()> {
-    let processor = simd_processor();
+    let ops = simd_ops();
 
     // Interpolate u-velocity to x-faces
     for i in 0..nx - 1 {
@@ -136,7 +134,7 @@ pub fn interpolate_velocity_simd(
         let face = &mut u_face[start_idx..end_idx];
 
         // Average: face = 0.5 * (left + right)
-        processor.ops.add(left, right, face)?;
+        ops.add(left, right, face)?;
         for value in face {
             *value *= 0.5;
         }
@@ -153,7 +151,7 @@ pub fn interpolate_velocity_simd(
         }
 
         // Average using SIMD
-        processor.ops.add(&temp_bottom, &temp_top, &mut temp_face)?;
+        ops.add(&temp_bottom, &temp_top, &mut temp_face)?;
         for value in &mut temp_face {
             *value *= 0.5;
         }
@@ -206,7 +204,6 @@ pub fn calculate_gradient_simd(
     dx: f32,
     dy: f32,
 ) -> Result<()> {
-    let _processor = simd_processor(); // Reserved for future SIMD optimization
     let inv_dx = 0.5 / dx;
     let inv_dy = 0.5 / dy;
 
@@ -240,7 +237,6 @@ pub fn calculate_residual_simd(
     dx: f32,
     dy: f32,
 ) -> Result<f32> {
-    let _processor = simd_processor(); // Reserved for future SIMD optimization
     let dx2 = dx * dx;
     let dy2 = dy * dy;
     let inv_dx2 = 1.0 / dx2;
