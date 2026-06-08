@@ -57,7 +57,7 @@ impl<T: RealField + Copy + FromPrimitive> Default for ScalarTransportConfig<T> {
 
 /// 2D Scalar Transport Solver
 pub struct ScalarTransportSolver2D<T: RealField + Copy + Float + FromPrimitive> {
-    /// Concentration field [nx][ny] (stored at cell centers)
+    /// Concentration field \[nx]\[ny] (stored at cell centers)
     pub c: Array2D<T>,
     /// Previous iteration for convergence check.
     _c_old: Array2D<T>,

@@ -15,20 +15,20 @@ use serde::{Deserialize, Serialize};
 pub enum CrossSectionSpec {
     /// Circular cross-section (e.g. tubing, blood vessels)
     Circular {
-        /// Inner diameter [m]
+        /// Inner diameter \[m]
         diameter_m: f64,
     },
     /// Rectangular cross-section (e.g. PDMS microfluidic channels)
     Rectangular {
-        /// Width [m]
+        /// Width \[m]
         width_m: f64,
-        /// Height [m]
+        /// Height \[m]
         height_m: f64,
     },
 }
 
 impl CrossSectionSpec {
-    /// Hydraulic diameter [m]: `D_h = 4A / P`
+    /// Hydraulic diameter \[m]: `D_h = 4A / P`
     ///
     /// - Circular: `D_h = d`
     /// - Rectangular: `D_h = 2wh / (w + h)`
@@ -42,7 +42,7 @@ impl CrossSectionSpec {
         }
     }
 
-    /// Cross-sectional area [m²]
+    /// Cross-sectional area \[m²]
     #[must_use]
     pub fn area(&self) -> f64 {
         match self {
@@ -51,7 +51,7 @@ impl CrossSectionSpec {
         }
     }
 
-    /// Bounding-box dimensions `(width, height)` [m].
+    /// Bounding-box dimensions `(width, height)` \[m].
     ///
     /// - Circular: `(d, d)`
     /// - Rectangular: `(w, h)`
@@ -64,7 +64,7 @@ impl CrossSectionSpec {
     }
 
     /// Fully-developed Poiseuille wall shear rate [1/s] for a given
-    /// mean velocity `u_mean` [m/s].
+    /// mean velocity `u_mean` \[m/s].
     ///
     /// ## Theorem — Analytical Wall Shear Rate
     ///

@@ -137,13 +137,13 @@ pub struct ThreePopEquilibria {
 /// with potentially different flow conditions.
 ///
 /// # Arguments
-/// - `width_m` — channel width (wider dimension) [m]
-/// - `height_m` — channel height (shorter dimension) [m]
+/// - `width_m` — channel width (wider dimension) \[m]
+/// - `height_m` — channel height (shorter dimension) \[m]
 /// - `flow_rate_m3_s` — volumetric flow rate [m³/s]
 /// - `blood_density` — fluid density [kg/m³]
 /// - `viscosity` — dynamic viscosity [Pa·s]
 /// - `hematocrit` — volumetric RBC fraction (0.0–0.45); used for WBC CFL correction
-/// - `bend_radius_m` — radius of curvature [m], or `None` for straight channel
+/// - `bend_radius_m` — radius of curvature \[m], or `None` for straight channel
 ///
 /// # Equilibrium convention
 /// `x̃ = 0` → channel centre; `x̃ = 1` → channel wall.

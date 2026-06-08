@@ -25,13 +25,13 @@ use serde::{Deserialize, Serialize};
 /// The model supports non-Newtonian fluids through the `FluidTrait<T>` generic.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerpentineModel<T: RealField + Copy> {
-    /// Total channel length (straight sections only) [m]
+    /// Total channel length (straight sections only) \[m]
     pub straight_length: T,
     /// Number of straight segments
     pub num_segments: usize,
     /// Cross-section geometry
     pub cross_section: SerpentineCrossSection,
-    /// Radius of curvature at bends [m]
+    /// Radius of curvature at bends \[m]
     pub bend_radius: T,
     /// Bend type (sharp or smooth)
     pub bend_type: BendType,
@@ -41,10 +41,10 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
     /// Create a new serpentine model
     ///
     /// # Arguments
-    /// - `straight_length`: Total length of all straight segments [m]
+    /// - `straight_length`: Total length of all straight segments \[m]
     /// - `num_segments`: Number of straight segments (bends = segments - 1)
     /// - `cross_section`: Channel cross-section geometry
-    /// - `bend_radius`: Radius of curvature of bends [m]
+    /// - `bend_radius`: Radius of curvature of bends \[m]
     pub fn new(
         straight_length: T,
         num_segments: usize,

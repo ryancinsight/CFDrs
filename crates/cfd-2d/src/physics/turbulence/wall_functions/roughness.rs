@@ -8,7 +8,7 @@
 //! ```
 //!
 //! where:
-//! - k_s = equivalent sand-grain roughness height [m]
+//! - k_s = equivalent sand-grain roughness height \[m]
 //! - k_s⁺ = k_s u_τ / ν (roughness Reynolds number)
 //! - ΔB = roughness function (downward shift of the log-law)
 //!
@@ -22,7 +22,7 @@ use nalgebra::RealField;
 /// Wall roughness parameters.
 #[derive(Debug, Clone)]
 pub struct WallRoughness<T: RealField + Copy> {
-    /// Equivalent sand-grain roughness height (k_s) [m].
+    /// Equivalent sand-grain roughness height (k_s) \[m].
     pub equivalent_sand_grain: T,
     /// Roughness type classification.
     pub roughness_type: RoughnessType,

@@ -19,18 +19,18 @@ pub struct CellTrackerConfig {
     pub viscosity: f64,
     /// Fluid density [kg/m3].  Default: 1025.0 (plasma).
     pub fluid_density: f64,
-    /// Hydraulic diameter of the parent channel [m], used for lift scaling.
+    /// Hydraulic diameter of the parent channel \[m], used for lift scaling.
     pub hydraulic_diameter_m: f64,
-    /// Max streamwise velocity [m/s] for lift scaling.  If zero, estimated
+    /// Max streamwise velocity \[m/s] for lift scaling.  If zero, estimated
     /// from the velocity field at the inlet centerline.
     pub u_max: f64,
     /// Outlet zones for classifying exits.  If empty, a default center/peripheral
     /// split at y_mid +/- 25% is used.
     pub outlet_zones: Vec<OutletZone>,
-    /// X-coordinate of the bifurcation split plane [m].  Set to 0 to disable
+    /// X-coordinate of the bifurcation split plane \[m].  Set to 0 to disable
     /// the junction routing correction.
     pub split_x: f64,
-    /// Y-coordinate of the dividing streamline at the split plane [m].
+    /// Y-coordinate of the dividing streamline at the split plane \[m].
     pub dividing_streamline_y: f64,
     /// Pries Phase Separation Model parameters for the bifurcation.
     /// If None, the junction routing correction is disabled.
@@ -57,9 +57,9 @@ impl Default for CellTrackerConfig {
 pub struct PsmBifurcationParams {
     /// Fractional blood flow into the wide (center) daughter.
     pub flow_fraction_wide: f64,
-    /// Hydraulic diameter of the wide daughter [m].
+    /// Hydraulic diameter of the wide daughter \[m].
     pub wide_daughter_dh: f64,
-    /// Hydraulic diameter of the narrow daughter [m].
+    /// Hydraulic diameter of the narrow daughter \[m].
     pub narrow_daughter_dh: f64,
     /// Feed hematocrit.
     pub feed_hematocrit: f64,
@@ -68,11 +68,11 @@ pub struct PsmBifurcationParams {
 /// Poiseuille flow in a 2D channel: u(y) = U_max * (1 - (2y/H - 1)^2).
 /// Used for unit testing the cell tracker against known analytical solutions.
 pub struct PoiseuilleFlow2D {
-    /// Maximum center-line velocity [m/s].
+    /// Maximum center-line velocity \[m/s].
     pub u_max: f64,
-    /// Channel extent along X axis [m].
+    /// Channel extent along X axis \[m].
     pub width: f64,
-    /// Channel extent along Y axis (height) [m].
+    /// Channel extent along Y axis (height) \[m].
     pub height: f64,
 }
 
@@ -93,19 +93,19 @@ impl VelocityFieldInterpolator for PoiseuilleFlow2D {
 /// daughter at x = x_split.  The wide daughter gets more flow (proportional
 /// to width^3 per Hagen-Poiseuille).
 pub struct AsymmetricBifurcationFlow {
-    /// The width of the parent channel [m].
+    /// The width of the parent channel \[m].
     pub parent_width_m: f64,
-    /// The height of the parent channel [m].
+    /// The height of the parent channel \[m].
     pub parent_height_m: f64,
-    /// The width of the wide daughter channel [m].
+    /// The width of the wide daughter channel \[m].
     pub wide_daughter_width_m: f64,
-    /// The width of the narrow daughter channel [m].
+    /// The width of the narrow daughter channel \[m].
     pub narrow_daughter_width_m: f64,
-    /// Length of the domain [m].
+    /// Length of the domain \[m].
     pub length_m: f64,
-    /// Input velocity profile scale [m/s].
+    /// Input velocity profile scale \[m/s].
     pub u_inlet: f64,
-    /// The x-coordinate of the split point [m].
+    /// The x-coordinate of the split point \[m].
     pub x_split: f64,
 }
 

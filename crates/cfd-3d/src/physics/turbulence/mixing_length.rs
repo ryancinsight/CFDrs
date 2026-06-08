@@ -36,18 +36,18 @@ use super::field_ops::derivative_y;
 /// See [module-level documentation](self) for the theorem and proof sketch.
 #[derive(Debug, Clone)]
 pub struct MixingLengthModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    /// Mixing length scale lₘ [m]
+    /// Mixing length scale lₘ \[m]
     pub length_scale: T,
     /// von Kármán constant κ = 0.41 (dimensionless)
     pub kappa: T,
-    /// Wall-normal finite-difference step for velocity gradient computation [m].
+    /// Wall-normal finite-difference step for velocity gradient computation \[m].
     ///
     /// For grid-resolved computations, set this to the physical wall-normal
     /// cell spacing `dy`. The default (`new()`) sets this equal to
     /// `length_scale` so pre-existing callers retain the same dimensional
     /// scale when no grid information is available.
     pub wall_normal_spacing: T,
-    /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) [m].
+    /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) \[m].
     pub filter_width: T,
 }
 
@@ -78,8 +78,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Mixin
     /// `dy` spacing directly.
     ///
     /// # Arguments
-    /// * `length_scale` — Prandtl mixing length lₘ [m]
-    /// * `dx`, `dy`, `dz` — physical cell dimensions [m]
+    /// * `length_scale` — Prandtl mixing length lₘ \[m]
+    /// * `dx`, `dy`, `dz` — physical cell dimensions \[m]
     pub fn with_filter_width(length_scale: T, dx: T, dy: T, dz: T) -> Self {
         let kappa = <T as FromPrimitive>::from_f64(
             cfd_core::physics::constants::physics::fluid::VON_KARMAN,

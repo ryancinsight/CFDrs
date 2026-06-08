@@ -41,13 +41,13 @@ use std::collections::HashMap;
 /// Rectangular microchannel component
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RectangularChannel<T: RealField + Copy> {
-    /// Channel length [m]
+    /// Channel length \[m]
     pub length: T,
-    /// Channel width [m]
+    /// Channel width \[m]
     pub width: T,
-    /// Channel height [m]
+    /// Channel height \[m]
     pub height: T,
-    /// Surface roughness [m]
+    /// Surface roughness \[m]
     pub roughness: T,
     /// Additional parameters
     pub parameters: HashMap<String, T>,
@@ -141,11 +141,11 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for RectangularChannel<T>
 /// Circular microchannel component
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CircularChannel<T: RealField + Copy> {
-    /// Channel length [m]
+    /// Channel length \[m]
     pub length: T,
-    /// Channel diameter [m]
+    /// Channel diameter \[m]
     pub diameter: T,
-    /// Surface roughness [m]
+    /// Surface roughness \[m]
     pub roughness: T,
     /// Additional parameters
     pub parameters: HashMap<String, T>,

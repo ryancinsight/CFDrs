@@ -12,7 +12,7 @@
 //! Σᵢ αᵢⁿ⁺¹ Vᵢ = Σᵢ αᵢⁿ Vᵢ      (∀n ≥ 0)
 //! ```
 //!
-//! where αᵢ ∈ [0,1] is the volume fraction in cell i and Vᵢ its volume.
+//! where αᵢ ∈ \[0,1] is the volume fraction in cell i and Vᵢ its volume.
 //!
 //! **Proof sketch**: The PLIC reconstruction computes a locally planar interface
 //! whose orientation satisfies the Youngs or Swartz normal estimate. The advection
@@ -53,11 +53,11 @@
 //! α ∈ [0, 1]  is preserved for all time steps
 //! ```
 //!
-//! in the absence of source terms. Values outside [0,1] indicate numerical errors
+//! in the absence of source terms. Values outside \[0,1] indicate numerical errors
 //! and are clamped with warning.
 //!
 //! ## Invariants (Runtime)
-//! - `VofSolver::step()` must produce αᵢ ∈ [0,1] for all cells i after each step.
+//! - `VofSolver::step()` must produce αᵢ ∈ \[0,1] for all cells i after each step.
 //! - Total volume conservation error must be < 1e-12 per step (machine epsilon).
 //! - Interface normals must satisfy |n̂| = 1 (unit normal, enforced after reconstruction).
 

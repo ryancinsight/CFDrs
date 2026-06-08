@@ -48,13 +48,13 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 pub struct SigmaModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Sigma model constant C_σ = 1.35 (Nicoud et al. 2011).
     pub c_sigma: T,
-    /// Physical grid spacing in the x direction [m].
+    /// Physical grid spacing in the x direction \[m].
     pub dx: T,
-    /// Physical grid spacing in the y direction [m].
+    /// Physical grid spacing in the y direction \[m].
     pub dy: T,
-    /// Physical grid spacing in the z direction [m].
+    /// Physical grid spacing in the z direction \[m].
     pub dz: T,
-    /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) [m].
+    /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) \[m].
     pub filter_width: T,
 }
 
@@ -76,7 +76,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
     /// Create a Sigma model with physically correct filter width Δ = (dx·dy·dz)^(1/3).
     ///
     /// # Arguments
-    /// * `dx`, `dy`, `dz` — physical cell dimensions [m]
+    /// * `dx`, `dy`, `dz` — physical cell dimensions \[m]
     pub fn with_filter_width(dx: T, dy: T, dz: T) -> Self {
         let one_third = T::one() / (T::one() + T::one() + T::one());
         let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);

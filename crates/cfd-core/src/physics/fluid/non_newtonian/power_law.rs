@@ -30,11 +30,11 @@ pub struct PowerLawFluid<T: RealField + Copy> {
     pub specific_heat: T,
     /// Thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Speed of sound [m/s]
+    /// Speed of sound \[m/s]
     pub speed_of_sound: T,
     /// Reference shear rate for viscosity calculation [1/s]
     pub reference_shear_rate: T,
-    /// Reference temperature for properties [K]
+    /// Reference temperature for properties \[K]
     #[serde(default)]
     pub reference_temperature: Option<T>,
     /// Activation energy for consistency index [J/mol]

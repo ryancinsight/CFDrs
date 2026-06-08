@@ -118,11 +118,11 @@ impl<T: RealField + FromPrimitive + Copy> RheologicalModel<T> for PowerLawModel<
 pub struct PowerLawPoiseuille<T: RealField + Copy> {
     /// Power-law model
     pub model: PowerLawModel<T>,
-    /// Channel half-width H [m]
+    /// Channel half-width H \[m]
     pub half_width: T,
     /// Pressure gradient magnitude |dp/dx| [Pa/m] (positive value)
     pub pressure_gradient: T,
-    /// Channel length for domain [m]
+    /// Channel length for domain \[m]
     pub length: T,
 }
 
@@ -132,9 +132,9 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawPoiseuille<T> {
     /// # Arguments
     /// * `consistency` - K [Pa·sⁿ]
     /// * `index` - n (power-law index)
-    /// * `half_width` - H [m]
+    /// * `half_width` - H \[m]
     /// * `pressure_gradient` - |dp/dx| [Pa/m]
-    /// * `length` - L [m] (domain length)
+    /// * `length` - L \[m] (domain length)
     pub fn new(consistency: T, index: T, half_width: T, pressure_gradient: T, length: T) -> Self {
         Self {
             model: PowerLawModel::new(consistency, index),
@@ -203,7 +203,7 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawPoiseuille<T> {
         two * u_c * h * factor
     }
 
-    /// Wall shear stress τ_w [Pa]
+    /// Wall shear stress τ_w \[Pa]
     ///
     /// ```text
     /// τ_w = H · dp/dx
@@ -315,13 +315,13 @@ impl<T: RealField + FromPrimitive + Copy> RheologicalModel<T> for CassonBlood<T>
 pub struct CassonPoiseuille<T: RealField + Copy> {
     /// Casson blood model
     pub model: CassonBlood<T>,
-    /// Channel half-width H [m]
+    /// Channel half-width H \[m]
     pub half_width: T,
     /// Pressure gradient magnitude |dp/dx| [Pa/m]
     pub pressure_gradient: T,
-    /// Channel length [m]
+    /// Channel length \[m]
     pub length: T,
-    /// Plug flow radius (where τ < τ_y) [m]
+    /// Plug flow radius (where τ < τ_y) \[m]
     pub plug_radius: T,
 }
 
@@ -330,9 +330,9 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
     ///
     /// # Arguments
     /// * `model` - Casson blood rheology
-    /// * `half_width` - H [m]
+    /// * `half_width` - H \[m]
     /// * `pressure_gradient` - |dp/dx| [Pa/m]
-    /// * `length` - L [m]
+    /// * `length` - L \[m]
     pub fn new(model: CassonBlood<T>, half_width: T, pressure_gradient: T, length: T) -> Self {
         // Calculate plug radius: y_p where τ(y_p) = τ_y
         // τ(y) = (dp/dx)·y, so y_p = τ_y / (dp/dx)
@@ -421,7 +421,7 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
         integral * dy / three
     }
 
-    /// Wall shear stress [Pa]
+    /// Wall shear stress \[Pa]
     pub fn wall_shear_stress(&self) -> T {
         self.half_width * self.pressure_gradient
     }

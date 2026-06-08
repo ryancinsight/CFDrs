@@ -34,7 +34,7 @@ const GCI_SAFETY_FACTOR_FS: f64 = 1.25;
 pub struct BranchingValidationConfig<T: RealField + Copy> {
     /// Parent volumetric flow rate [m³/s]
     pub q_parent: T,
-    /// Parent pressure [Pa]
+    /// Parent pressure \[Pa]
     pub p_parent: T,
     /// Number of grid refinement levels (for convergence study)
     pub n_refinement_levels: usize,

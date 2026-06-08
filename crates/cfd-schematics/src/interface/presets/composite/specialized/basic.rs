@@ -203,11 +203,11 @@ pub fn asymmetric_bifurcation_serpentine_rect(
 ///
 /// # Arguments
 /// - `n_cycles` — number of wide→narrow cycles (2–20 recommended)
-/// - `wide_length_m` — length of each wide section [m]
-/// - `narrow_length_m` — length of each narrow constriction [m]
-/// - `wide_width_m` — width of wide sections [m]
-/// - `narrow_width_m` — width of constrictions [m] (typically 0.3–0.7 × wide_width_m)
-/// - `height_m` — channel height [m] (same for all sections)
+/// - `wide_length_m` — length of each wide section \[m]
+/// - `narrow_length_m` — length of each narrow constriction \[m]
+/// - `wide_width_m` — width of wide sections \[m]
+/// - `narrow_width_m` — width of constrictions \[m] (typically 0.3–0.7 × wide_width_m)
+/// - `height_m` — channel height \[m] (same for all sections)
 ///
 /// # Channel names
 /// - `"wide_0"` … `"wide_{n-1}"` — wide inlet sections ([`TherapyZone::MixedFlow`])
@@ -258,9 +258,9 @@ pub fn constriction_expansion_array_rect(
 ///
 /// # Arguments
 /// - `n_turns` — number of complete 360° turns (2–20 recommended)
-/// - `turn_length_m` — arc length per turn [m] (≈ 2π × R_mean)
-/// - `width_m` — channel width [m]
-/// - `height_m` — channel height [m]
+/// - `turn_length_m` — arc length per turn \[m] (≈ 2π × R_mean)
+/// - `width_m` — channel width \[m]
+/// - `height_m` — channel height \[m]
 ///
 /// # Channel names
 /// - `"spiral_0"` … `"spiral_{n-1}"` — one turn per channel ([`TherapyZone::CancerTarget`])
@@ -304,9 +304,9 @@ pub fn spiral_channel_rect(
 ///
 /// # Arguments
 /// - `n_channels` — number of parallel microchannels (10–500 recommended)
-/// - `channel_length_m` — length of each channel [m]
-/// - `channel_width_m` — width of each channel [m] (micro-scale, < 200 µm for focusing)
-/// - `channel_height_m` — height of each channel [m]
+/// - `channel_length_m` — length of each channel \[m]
+/// - `channel_width_m` — width of each channel \[m] (micro-scale, < 200 µm for focusing)
+/// - `channel_height_m` — height of each channel \[m]
 ///
 /// # Channel names
 /// - `"ch_0"` … `"ch_{n-1}"` — N identical parallel channels ([`TherapyZone::CancerTarget`])

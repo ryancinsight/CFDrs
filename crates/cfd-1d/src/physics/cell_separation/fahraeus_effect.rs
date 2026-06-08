@@ -48,7 +48,7 @@ use cfd_core::error::{Error, Result};
 /// hematocrit $H_F = 0.45$, consistent with the Pries parameterisation.
 ///
 /// # Arguments
-/// * `diameter_um` — Tube diameter [µm]
+/// * `diameter_um` — Tube diameter \[µm]
 ///
 /// # Returns
 /// $H_T / H_F \in (0, 1]$
@@ -85,7 +85,7 @@ pub fn tube_hematocrit_ratio(diameter_um: f64) -> Result<f64> {
 ///
 /// # Arguments
 /// * `feed_hematocrit` — Discharge (feed) hematocrit $H_F \in [0, 1]$
-/// * `diameter_um` — Tube diameter [µm]
+/// * `diameter_um` — Tube diameter \[µm]
 ///
 /// # Returns
 /// Tube hematocrit $H_T \in [0, H_F]$
@@ -113,7 +113,7 @@ pub fn tube_hematocrit(feed_hematocrit: f64, diameter_um: f64) -> Result<f64> {
 ///
 /// # Arguments
 /// * `tube_ht` — Tube hematocrit $H_T \in [0, 1]$
-/// * `diameter_um` — Tube diameter [µm]
+/// * `diameter_um` — Tube diameter \[µm]
 ///
 /// # Returns
 /// Feed (discharge) hematocrit $H_F \in [H_T, 1]$

@@ -27,21 +27,21 @@ use serde::{Deserialize, Serialize};
 /// the `FluidTrait<T>` generic parameter.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VenturiModel<T: RealField + Copy> {
-    /// Upstream (inlet) diameter [m]
+    /// Upstream (inlet) diameter \[m]
     pub inlet_diameter: T,
-    /// Throat diameter [m]
+    /// Throat diameter \[m]
     pub throat_diameter: T,
-    /// Downstream (outlet) diameter [m]
+    /// Downstream (outlet) diameter \[m]
     pub outlet_diameter: T,
-    /// Throat length [m]
+    /// Throat length \[m]
     pub throat_length: T,
-    /// Total device length [m] (for entrance length validation)
+    /// Total device length \[m] (for entrance length validation)
     pub total_length: T,
     /// Venturi geometry type (determines discharge coefficient)
     pub geometry_type: VenturiGeometry,
     /// Expansion type (determines recovery efficiency)
     pub expansion_type: ExpansionType,
-    /// Surface roughness in throat [m]
+    /// Surface roughness in throat \[m]
     pub throat_roughness: T,
 }
 
@@ -136,20 +136,20 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
         ratio * ratio
     }
 
-    /// Inlet cross-sectional area [m²]
+    /// Inlet cross-sectional area \[m²]
     pub(crate) fn inlet_area(&self) -> T {
         let pi = T::pi();
         pi * self.inlet_diameter * self.inlet_diameter / (T::one() + T::one() + T::one() + T::one())
     }
 
-    /// Throat cross-sectional area [m²]
+    /// Throat cross-sectional area \[m²]
     pub(crate) fn throat_area(&self) -> T {
         let pi = T::pi();
         pi * self.throat_diameter * self.throat_diameter
             / (T::one() + T::one() + T::one() + T::one())
     }
 
-    /// Outlet cross-sectional area [m²]
+    /// Outlet cross-sectional area \[m²]
     pub(crate) fn outlet_area(&self) -> T {
         let pi = T::pi();
         pi * self.outlet_diameter * self.outlet_diameter

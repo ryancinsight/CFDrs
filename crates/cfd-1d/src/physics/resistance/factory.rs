@@ -57,10 +57,10 @@ impl ResistanceModelFactory {
     /// Idelchik (2007) bend loss coefficients.
     ///
     /// # Arguments
-    /// - `diameter`: Channel diameter [m]
-    /// - `straight_length`: Total length of all straight segments [m]
+    /// - `diameter`: Channel diameter \[m]
+    /// - `straight_length`: Total length of all straight segments \[m]
     /// - `num_segments`: Number of straight segments (bends = segments - 1)
-    /// - `bend_radius`: Radius of curvature of bends [m]
+    /// - `bend_radius`: Radius of curvature of bends \[m]
     pub fn serpentine_circular<T: RealField + Copy + FromPrimitive>(
         diameter: T,
         straight_length: T,
@@ -88,11 +88,11 @@ impl ResistanceModelFactory {
     /// Dean flow curvature enhancement.
     ///
     /// # Arguments
-    /// - `width`: Channel width [m]
-    /// - `height`: Channel height (depth) [m]
-    /// - `straight_length`: Total length of all straight segments [m]
+    /// - `width`: Channel width \[m]
+    /// - `height`: Channel height (depth) \[m]
+    /// - `straight_length`: Total length of all straight segments \[m]
     /// - `num_segments`: Number of straight segments (bends = segments - 1)
-    /// - `bend_radius`: Radius of curvature of bends [m]
+    /// - `bend_radius`: Radius of curvature of bends \[m]
     pub fn serpentine_rectangular<T: RealField + Copy + FromPrimitive>(
         width: T,
         height: T,
@@ -126,10 +126,10 @@ impl ResistanceModelFactory {
     /// expansion loss model.
     ///
     /// # Arguments
-    /// - `inlet_diameter`: Upstream (inlet) pipe diameter [m]
-    /// - `throat_diameter`: Throat (constriction) diameter [m]
-    /// - `throat_length`: Length of the throat section [m]
-    /// - `total_length`: Total device length [m]
+    /// - `inlet_diameter`: Upstream (inlet) pipe diameter \[m]
+    /// - `throat_diameter`: Throat (constriction) diameter \[m]
+    /// - `throat_length`: Length of the throat section \[m]
+    /// - `total_length`: Total device length \[m]
     pub fn venturi_symmetric<T: RealField + Copy + FromPrimitive>(
         inlet_diameter: T,
         throat_diameter: T,
@@ -147,9 +147,9 @@ impl ResistanceModelFactory {
     /// - Smooth throat (zero roughness)
     ///
     /// # Arguments
-    /// - `inlet_diameter`: Upstream pipe diameter [m]
-    /// - `throat_diameter`: Throat diameter [m]
-    /// - `throat_length`: Length of the throat section [m]
+    /// - `inlet_diameter`: Upstream pipe diameter \[m]
+    /// - `throat_diameter`: Throat diameter \[m]
+    /// - `throat_length`: Length of the throat section \[m]
     pub fn venturi_millifluidic<T: RealField + Copy + FromPrimitive>(
         inlet_diameter: T,
         throat_diameter: T,
@@ -161,11 +161,11 @@ impl ResistanceModelFactory {
     /// Create Venturi model with full configuration.
     ///
     /// # Arguments
-    /// - `inlet_diameter`: Upstream pipe diameter [m]
-    /// - `throat_diameter`: Throat diameter [m]
-    /// - `outlet_diameter`: Downstream pipe diameter [m]
-    /// - `throat_length`: Length of the throat section [m]
-    /// - `total_length`: Total device length [m]
+    /// - `inlet_diameter`: Upstream pipe diameter \[m]
+    /// - `throat_diameter`: Throat diameter \[m]
+    /// - `outlet_diameter`: Downstream pipe diameter \[m]
+    /// - `throat_length`: Length of the throat section \[m]
+    /// - `total_length`: Total device length \[m]
     /// - `geometry`: Venturi geometry type (determines discharge coefficient)
     /// - `expansion`: Expansion type (determines recovery efficiency)
     pub fn venturi_custom<T: RealField + Copy + FromPrimitive>(

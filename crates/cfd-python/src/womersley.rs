@@ -28,8 +28,8 @@ impl PyWomersleyNumber {
     /// Create Womersley number calculator
     ///
     /// # Arguments
-    /// - `radius`: Vessel radius [m]
-    /// - `omega`: Angular frequency [rad/s]
+    /// - `radius`: Vessel radius \[m]
+    /// - `omega`: Angular frequency \[rad/s]
     /// - `density`: Fluid density [kg/m^3]
     /// - `viscosity`: Dynamic viscosity [Pa.s]
     #[new]
@@ -73,7 +73,7 @@ impl PyWomersleyNumber {
         self.inner.value()
     }
 
-    /// Stokes layer thickness delta [m]
+    /// Stokes layer thickness delta \[m]
     fn stokes_layer_thickness(&self) -> f64 {
         self.inner.stokes_layer_thickness()
     }
@@ -116,8 +116,8 @@ impl PyWomersleyProfile {
     /// Create velocity profile calculator
     ///
     /// # Arguments
-    /// - `radius`: Vessel radius [m]
-    /// - `omega`: Angular frequency [rad/s]
+    /// - `radius`: Vessel radius \[m]
+    /// - `omega`: Angular frequency \[rad/s]
     /// - `density`: Fluid density [kg/m^3]
     /// - `viscosity`: Dynamic viscosity [Pa.s]
     /// - `pressure_amplitude`: Oscillatory pressure gradient amplitude [Pa/m]
@@ -133,20 +133,20 @@ impl PyWomersleyProfile {
     ///
     /// # Arguments
     /// - `xi`: Dimensionless radial position r/R [0, 1]
-    /// - `t`: Time [s]
+    /// - `t`: Time \[s]
     ///
     /// # Returns
-    /// Axial velocity u [m/s]
+    /// Axial velocity u \[m/s]
     fn velocity(&self, xi: f64, t: f64) -> f64 {
         self.inner.velocity(xi, t)
     }
 
-    /// Centerline velocity at time t [m/s]
+    /// Centerline velocity at time t \[m/s]
     fn centerline_velocity(&self, t: f64) -> f64 {
         self.inner.centerline_velocity(t)
     }
 
-    /// Wall shear stress at time t [Pa]
+    /// Wall shear stress at time t \[Pa]
     fn wall_shear_stress(&self, t: f64) -> f64 {
         self.inner.wall_shear_stress(t)
     }
@@ -182,12 +182,12 @@ impl PyWomersleyFlow {
     /// Create Womersley flow solver
     ///
     /// # Arguments
-    /// - `radius`: Vessel radius [m]
-    /// - `length`: Vessel length [m]
+    /// - `radius`: Vessel radius \[m]
+    /// - `length`: Vessel length \[m]
     /// - `density`: Fluid density [kg/m^3]
     /// - `viscosity`: Dynamic viscosity [Pa.s]
-    /// - `omega`: Angular frequency [rad/s]
-    /// - `inlet_pressure_amplitude`: Pulsatile inlet pressure amplitude [Pa]
+    /// - `omega`: Angular frequency \[rad/s]
+    /// - `inlet_pressure_amplitude`: Pulsatile inlet pressure amplitude \[Pa]
     /// - `mean_pressure_gradient`: Steady mean pressure gradient [Pa/m]
     #[new]
     fn new(
@@ -217,7 +217,7 @@ impl PyWomersleyFlow {
         self.inner.womersley_number().value()
     }
 
-    /// Total velocity (mean + pulsatile) at xi = r/R and time t [m/s]
+    /// Total velocity (mean + pulsatile) at xi = r/R and time t \[m/s]
     fn velocity(&self, xi: f64, t: f64) -> f64 {
         self.inner.velocity(xi, t)
     }

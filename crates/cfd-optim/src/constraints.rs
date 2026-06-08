@@ -14,15 +14,15 @@
 
 // ── 96-well plate geometry (ANSI/SLAS 1-2004) ────────────────────────────────
 
-/// Plate outer width [mm]
+/// Plate outer width \[mm]
 pub const PLATE_WIDTH_MM: f64 = 127.76;
-/// Plate outer height [mm]
+/// Plate outer height \[mm]
 pub const PLATE_HEIGHT_MM: f64 = 85.47;
-/// Well centre-to-centre pitch in both H and V directions [mm]
+/// Well centre-to-centre pitch in both H and V directions \[mm]
 pub const WELL_PITCH_MM: f64 = 9.00;
-/// A1 well centre, distance from left edge [mm]
+/// A1 well centre, distance from left edge \[mm]
 pub const A1_X_MM: f64 = 14.38;
-/// A1 well centre, distance from top edge [mm]
+/// A1 well centre, distance from top edge \[mm]
 pub const A1_Y_MM: f64 = 11.24;
 
 // ── 6 × 6 centre treatment zone ────────────────────────────────────────────
@@ -34,19 +34,19 @@ pub const TREATMENT_COLS: usize = 6;
 /// Total well count in the treatment zone
 pub const TREATMENT_WELL_COUNT: usize = TREATMENT_ROWS * TREATMENT_COLS; // 36
 
-/// X coordinate of first treatment-zone well centre [mm]  (col D = index 3)
+/// X coordinate of first treatment-zone well centre \[mm]  (col D = index 3)
 pub const TREATMENT_X_MIN_MM: f64 = 41.38; // A1_X_MM + 3 * WELL_PITCH_MM
-/// X coordinate of last treatment-zone well centre [mm]   (col I = index 8)
+/// X coordinate of last treatment-zone well centre \[mm]   (col I = index 8)
 pub const TREATMENT_X_MAX_MM: f64 = 86.38; // TREATMENT_X_MIN_MM + 5 * WELL_PITCH_MM
-/// Y coordinate of first treatment-zone well centre [mm]  (row B = index 1)
+/// Y coordinate of first treatment-zone well centre \[mm]  (row B = index 1)
 pub const TREATMENT_Y_MIN_MM: f64 = 20.24; // A1_Y_MM + 1 * WELL_PITCH_MM
-/// Y coordinate of last treatment-zone well centre [mm]   (row G = index 6)
+/// Y coordinate of last treatment-zone well centre \[mm]   (row G = index 6)
 pub const TREATMENT_Y_MAX_MM: f64 = 65.24; // TREATMENT_Y_MIN_MM + 5 * WELL_PITCH_MM
-/// Treatment zone span in X [mm]
+/// Treatment zone span in X \[mm]
 pub const TREATMENT_WIDTH_MM: f64 = 45.00;
-/// Treatment zone span in Y [mm]
+/// Treatment zone span in Y \[mm]
 pub const TREATMENT_HEIGHT_MM: f64 = 45.00;
-/// Treatment zone total area [mm²]
+/// Treatment zone total area \[mm²]
 pub const TREATMENT_AREA_MM2: f64 = TREATMENT_WIDTH_MM * TREATMENT_HEIGHT_MM; // 2025
 
 // ── Blood physical properties (37 °C) ─────────────────────────────────────
@@ -57,18 +57,18 @@ pub const BLOOD_DENSITY_KG_M3: f64 = 1060.0;
 /// Used for wall-shear quick-estimates; the non-Newtonian Casson model is used
 /// for full physics analysis via `CassonBlood::normal_blood()`.
 pub const BLOOD_VISCOSITY_PA_S: f64 = 3.45e-3;
-/// Vapour pressure of blood at 37 °C [Pa]
+/// Vapour pressure of blood at 37 °C \[Pa]
 pub const BLOOD_VAPOR_PRESSURE_PA: f64 = 6_280.0;
 
 // ── FDA hemolysis limits ───────────────────────────────────────────────────
 
-/// Maximum sustained wall shear stress: FDA guidance for blood-contacting devices [Pa]
+/// Maximum sustained wall shear stress: FDA guidance for blood-contacting devices \[Pa]
 pub const FDA_MAX_WALL_SHEAR_PA: f64 = 150.0;
 /// Acceptable hemolysis index per device pass (Giersiepen 1990 model)
 /// < 0.1 % fractional plasma haemoglobin increase
 pub const HI_PASS_LIMIT: f64 = 0.001;
 
-/// Per-pass HI limit for hydrodynamic cavitation therapy modes [fractional].
+/// Per-pass HI limit for hydrodynamic cavitation therapy modes \[fractional].
 ///
 /// FDA Class II guidance for extracorporeal blood-processing devices permits
 /// up to 0.8 % per-pass haemolysis when the device serves a therapeutic
@@ -77,7 +77,7 @@ pub const HI_PASS_LIMIT: f64 = 0.001;
 /// exposure is lower than the device-average HI implies.
 pub const THERAPEUTIC_HI_PASS_LIMIT: f64 = 0.008;
 
-/// Extended shear stress limit for venturi throats with brief transit time [Pa].
+/// Extended shear stress limit for venturi throats with brief transit time \[Pa].
 ///
 /// FDA guidance allows higher peak shear when the exposure duration is below
 /// [`FDA_TRANSIENT_TIME_S`].  A threshold of 300 Pa is used based on published
@@ -85,14 +85,14 @@ pub const THERAPEUTIC_HI_PASS_LIMIT: f64 = 0.008;
 /// transit is < 1–5 ms.
 pub const FDA_TRANSIENT_SHEAR_PA: f64 = 300.0;
 
-/// Maximum throat transit time to qualify for the FDA transient shear exception [s].
+/// Maximum throat transit time to qualify for the FDA transient shear exception \[s].
 ///
 /// If the blood transit through the venturi throat is shorter than this value,
 /// [`FDA_TRANSIENT_SHEAR_PA`] applies instead of [`FDA_MAX_WALL_SHEAR_PA`].
 /// Based on FDA Guidance for VADs and published ASTM F1841 commentary.
 pub const FDA_TRANSIENT_TIME_S: f64 = 5e-3; // 5 ms
 
-/// Reference adult patient blood volume for clinical lysis-rate projection [mL].
+/// Reference adult patient blood volume for clinical lysis-rate projection \[mL].
 ///
 /// Used to convert per-pass haemolysis index to a projected steady-state lysis
 /// rate in % Hb release per hour at the device operating flow rate.
@@ -103,7 +103,7 @@ pub const PATIENT_BLOOD_VOLUME_ML: f64 = 5_000.0;
 /// Used for 3 kg neonatal safety projections in milestone reporting.
 pub const PEDIATRIC_BLOOD_VOLUME_ML_PER_KG: f64 = 85.0;
 
-/// Reference pediatric weight [kg] used in milestone-12 cumulative-safety projections.
+/// Reference pediatric weight \[kg] used in milestone-12 cumulative-safety projections.
 pub const PEDIATRIC_REFERENCE_WEIGHT_KG: f64 = 3.0;
 
 /// Maximum extracorporeal blood flow per kilogram of body weight [mL/min/kg].
@@ -129,7 +129,7 @@ pub const PEDIATRIC_FLOW_CAUTION_ML_MIN: f64 =
 /// is fully applied; the optimizer receives no further incentive to increase flow.
 pub const PEDIATRIC_FLOW_EXCESSIVE_ML_MIN: f64 = PEDIATRIC_FLOW_CAUTION_ML_MIN * 3.0;
 
-/// Milestone-12 therapy window for cumulative hemolysis projection [min].
+/// Milestone-12 therapy window for cumulative hemolysis projection \[min].
 pub const MILESTONE_TREATMENT_DURATION_MIN: f64 = 15.0;
 
 /// Normalisation reference for [`SdtMetrics::therapeutic_window_score`].
@@ -141,7 +141,7 @@ pub const THERAPEUTIC_WINDOW_REF: f64 = 500.0;
 
 // ── Cavitation criterion ───────────────────────────────────────────────────
 
-/// Standard atmospheric pressure [Pa]
+/// Standard atmospheric pressure \[Pa]
 pub const P_ATM_PA: f64 = 101_325.0;
 /// Cavitation inception threshold (σ < `σ_crit` → cavitation)
 pub const SIGMA_CRIT: f64 = 1.0;
@@ -170,10 +170,10 @@ pub const FLOW_RATES_M3_S: [f64; 7] = [
     10.000e-6, // 600 mL/min — high-throughput SDT regime (NEW)
 ];
 
-/// Gauge pressures at inlet [Pa]  (1, 2, 3, 4, 5 bar above atmospheric)
+/// Gauge pressures at inlet \[Pa]  (1, 2, 3, 4, 5 bar above atmospheric)
 pub const INLET_GAUGES_PA: [f64; 5] = [100_000.0, 200_000.0, 300_000.0, 400_000.0, 500_000.0];
 
-/// Venturi throat diameters [m]  (30 – 200 μm — extreme cavitation to moderate constriction)
+/// Venturi throat diameters \[m]  (30 – 200 μm — extreme cavitation to moderate constriction)
 pub const THROAT_DIAMETERS_M: [f64; 7] = [
     30e-6,  // 30 μm — extreme cavitation; σ < 1 at moderate flow
     40e-6,  // 40 μm — onset-of-cavitation regime; acoustically relevant gap
@@ -184,19 +184,19 @@ pub const THROAT_DIAMETERS_M: [f64; 7] = [
     200e-6, // 200 μm — gentle cavitation
 ];
 
-/// Main channel widths for rectangular serpentine channels [m]  (0.5 – 8 mm).
+/// Main channel widths for rectangular serpentine channels \[m]  (0.5 – 8 mm).
 ///
 /// Includes a thin 0.5 mm branch to capture 405 nm light-delivery scenarios
 /// where optical penetration in whole blood is limited.
 pub const CHANNEL_WIDTHS_M: [f64; 6] = [0.5e-3, 1.0e-3, 2.0e-3, 4.0e-3, 6.0e-3, 8.0e-3];
 
-/// Fixed channel height used for all rectangular channels [m]
+/// Fixed channel height used for all rectangular channels \[m]
 pub const CHANNEL_HEIGHT_M: f64 = 1.0e-3; // 1 mm — dialysis-compatible millifluidic
 
-/// Fixed inlet/outlet port diameter for all venturi stages [m]  (4 mm port as specified)
+/// Fixed inlet/outlet port diameter for all venturi stages \[m]  (4 mm port as specified)
 pub const VENTURI_INLET_DIAM_M: f64 = 4.0e-3; // 4 mm
 
-/// Serpentine segment lengths to sweep [m]
+/// Serpentine segment lengths to sweep \[m]
 ///
 /// Two distinct values allow the sweep to explore both compact (one-row) and
 /// extended (one-and-a-half-row) segment lengths, increasing residence-time range.
@@ -208,23 +208,23 @@ pub const SERPENTINE_SEG_LENGTHS_M: [f64; 2] = [
 /// Serpentine segment counts to sweep (6 = single pass; 12 = double; 18 = triple — maximises dwell)
 pub const SERPENTINE_SEGMENT_COUNTS: [usize; 3] = [6, 12, 18];
 
-/// Fixed bend radius for serpentine turns [m]  (half well pitch)
+/// Fixed bend radius for serpentine turns \[m]  (half well pitch)
 pub const SERPENTINE_BEND_RADIUS_M: f64 = WELL_PITCH_MM * 0.5e-3; // 4.5 mm
 
-/// Minimum straight-line serpentine segment length to cover ALL 36 treatment wells [m]
+/// Minimum straight-line serpentine segment length to cover ALL 36 treatment wells \[m]
 /// = `TREATMENT_ROWS` × `segment_length` = 6 × 45 mm = 270 mm
 pub const FULL_GRID_SERPENTINE_LENGTH_M: f64 = 6.0 * TREATMENT_WIDTH_MM * 1e-3; // 0.27 m
 
 // ── Leukapheresis micro-scale parameters ─────────────────────────────────────
 
-/// Micro-scale channel widths for leukapheresis topologies [m]  (100–400 µm).
+/// Micro-scale channel widths for leukapheresis topologies \[m]  (100–400 µm).
 ///
 /// At 400 µm wide × 60 µm tall: `D_h` = 96 µm → `κ_WBC` = 12/96 = 0.125 > 0.07 ✓
 /// At 200 µm wide × 60 µm tall: `D_h` = 92 µm → `κ_WBC` = 0.130 > 0.07 ✓
 /// At 100 µm wide × 60 µm tall: `D_h` = 75 µm → `κ_WBC` = 0.160 > 0.07 ✓  (strong focusing)
 pub const LEUKA_CHANNEL_WIDTHS_M: [f64; 3] = [100e-6, 200e-6, 400e-6];
 
-/// Micro-scale channel height for leukapheresis [m]  (60 µm — matches Nivedita 2017, Wu 2019).
+/// Micro-scale channel height for leukapheresis \[m]  (60 µm — matches Nivedita 2017, Wu 2019).
 pub const LEUKA_CHANNEL_HEIGHT_M: f64 = 60e-6;
 
 /// Leukapheresis flow rates per single chip [m³/s]  (150 µL/min – 1 mL/min).
@@ -276,7 +276,7 @@ pub const THROAT_LENGTH_FACTORS: [f64; 3] = [2.0, 5.0, 10.0];
 
 // ── Channel height (aspect ratio) sweep ───────────────────────────────────
 
-/// Channel height [m] for millifluidic topologies.
+/// Channel height \[m] for millifluidic topologies.
 ///
 /// Aspect ratio `w/h` governs Dean-flow vortex strength and inertial focusing:
 /// - `0.5 mm`: high aspect ratio (w/h up to 16) — strong shear gradients
@@ -293,7 +293,7 @@ pub const CHANNEL_HEIGHTS_M: [f64; 3] = [0.5e-3, 1.0e-3, 2.0e-3];
 /// threshold are penalised in the scoring functions.
 ///
 /// `PAI = 1.8 × 10⁻⁸ × τ^1.325 × t^0.462`
-/// where τ = peak shear stress [Pa] and t = exposure duration [s].
+/// where τ = peak shear stress \[Pa] and t = exposure duration \[s].
 pub const PAI_PASS_LIMIT: f64 = 5e-4;
 
 /// Blood-flow target [mL/min] above which low-flow stasis clotting risk is treated as minimal.
@@ -327,10 +327,10 @@ pub const CLOTTING_SHEAR_LOW_RISK_INV_S: f64 = 1_000.0;
 /// Main-channel shear-rate threshold [1/s] below which low-shear stasis risk is high.
 pub const CLOTTING_SHEAR_HIGH_RISK_INV_S: f64 = 100.0;
 
-/// Residence-time threshold [s] below which residence-driven stasis risk is minimal.
+/// Residence-time threshold \[s] below which residence-driven stasis risk is minimal.
 pub const CLOTTING_RESIDENCE_LOW_RISK_S: f64 = 0.5;
 
-/// Residence-time threshold [s] above which residence-driven stasis risk is high.
+/// Residence-time threshold \[s] above which residence-driven stasis risk is high.
 pub const CLOTTING_RESIDENCE_HIGH_RISK_S: f64 = 3.0;
 
 /// Log-scale area-expansion ratio below which post-venturi recirculation stasis
@@ -372,12 +372,12 @@ pub const DEAD_VOLUME_SHEAR_THRESHOLD_INV_S: f64 = 200.0;
 
 // ── Bubble dynamics / Rayleigh–Plesset sonoluminescence parameters ────────────
 
-/// Equilibrium cavitation bubble radius [m] — typical haematogenous nucleus in blood.
+/// Equilibrium cavitation bubble radius \[m] — typical haematogenous nucleus in blood.
 ///
 /// Used for Rayleigh-Plesset bubble-collapse energy estimates.
 pub const R_BUBBLE_EQ_M: f64 = 20.0e-6; // 20 µm
 
-/// Blood temperature [K] at 37 °C — reference for adiabatic collapse temperature.
+/// Blood temperature \[K] at 37 °C — reference for adiabatic collapse temperature.
 pub const T_BLOOD_K: f64 = 310.15;
 
 /// Adiabatic heat-capacity ratio γ for cavitation bubble contents (air–vapour mixture).
@@ -392,14 +392,14 @@ pub const BUBBLE_GAMMA: f64 = 1.40;
 /// from the hot bubble core to the surrounding liquid during collapse.
 pub const BUBBLE_POLYTROPIC_K: f64 = 1.25;
 
-/// Reference inlet pressure for sonoluminescence normalisation [Pa] (3 bar gauge + atm).
+/// Reference inlet pressure for sonoluminescence normalisation \[Pa] (3 bar gauge + atm).
 ///
 /// At this pressure and full cavitation the sonoluminescence proxy equals 1.0.
 pub const SONO_REF_P_ABS_PA: f64 = 401_325.0; // 3 bar gauge + 101 325 Pa
 
 // ── 405 nm optical-delivery proxy (Lumidox II) ──────────────────────────────
 
-/// Lumidox II illumination wavelength [nm] used in the optical-delivery proxy.
+/// Lumidox II illumination wavelength \[nm] used in the optical-delivery proxy.
 pub const LUMIDOX_BLUE_WAVELENGTH_NM: f64 = 405.0;
 
 /// Effective attenuation coefficient for 405 nm propagation through blood [1/m].
@@ -463,7 +463,7 @@ pub const RAYLEIGH_COLLAPSE_FACTOR: f64 = 0.915;
 /// Reference: Charm & Kurland (1974), *Blood Rheology*.
 pub const C_P_BLOOD_J_KG_K: f64 = 3_617.0;
 
-/// Maximum allowable venturi-throat temperature rise [K].
+/// Maximum allowable venturi-throat temperature rise \[K].
 ///
 /// Blood must remain below 42 °C (physiologic 37 °C + 5 K margin) to prevent
 /// protein denaturation (haemoglobin Td ≈ 68 °C) and red-cell lysis.
@@ -472,7 +472,7 @@ pub const FDA_THROAT_TEMP_RISE_LIMIT_K: f64 = 5.0;
 
 // ── Acoustic / ultrasound parameters (Acoustiic 412 kHz platform) ────────────
 
-/// Operating ultrasound frequency of the Acoustiic transducer platform [Hz].
+/// Operating ultrasound frequency of the Acoustiic transducer platform \[Hz].
 ///
 /// Used to compute the acoustic half-wavelength in blood and the resonant
 /// bubble radius at which bubble oscillation is in phase with the driving field.
@@ -484,14 +484,14 @@ pub const ULTRASOUND_FREQ_HZ: f64 = 412_000.0;
 /// depending on haematocrit; 1540 m/s is used as the conservative lower bound.
 pub const SOUND_SPEED_BLOOD_M_S: f64 = 1_540.0;
 
-/// Acoustic half-wavelength in blood at the operating frequency [m].
+/// Acoustic half-wavelength in blood at the operating frequency \[m].
 ///
 /// `λ/2 = c_blood / (2 × f)`.  Channels with hydraulic diameter near this
 /// value (≈ 1.87 mm) form standing-wave pressure antinodes that preferentially
 /// trap and grow resonant bubbles, amplifying sonosensitiser activation.
 pub const ACOUSTIC_HALF_WAVELENGTH_M: f64 = SOUND_SPEED_BLOOD_M_S / (2.0 * ULTRASOUND_FREQ_HZ);
 
-/// Resonant bubble radius at the operating ultrasound frequency [m].
+/// Resonant bubble radius at the operating ultrasound frequency \[m].
 ///
 /// From linear bubble dynamics (Minnaert 1933):
 /// `R_res ≈ (1 / (2π f)) × √(3γ P_0 / ρ)`.

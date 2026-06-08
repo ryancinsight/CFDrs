@@ -43,13 +43,13 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 pub struct WaleModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// WALE constant `C_w`.
     pub c_w: T,
-    /// Physical grid spacing in the x direction [m].
+    /// Physical grid spacing in the x direction \[m].
     pub dx: T,
-    /// Physical grid spacing in the y direction [m].
+    /// Physical grid spacing in the y direction \[m].
     pub dy: T,
-    /// Physical grid spacing in the z direction [m].
+    /// Physical grid spacing in the z direction \[m].
     pub dz: T,
-    /// Physical LES filter width `Delta = (dx dy dz)^(1/3)` [m].
+    /// Physical LES filter width `Delta = (dx dy dz)^(1/3)` \[m].
     pub filter_width: T,
 }
 

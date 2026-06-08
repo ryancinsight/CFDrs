@@ -23,7 +23,7 @@ pub struct CrossBlood<T: RealField + Copy> {
     pub zero_shear_viscosity: T,
     /// Infinite-shear viscosity μ_∞ [Pa·s]
     pub infinite_shear_viscosity: T,
-    /// Time constant K [s]
+    /// Time constant K \[s]
     pub time_constant: T,
     /// Rate index n [-]
     pub rate_index: T,
@@ -33,7 +33,7 @@ pub struct CrossBlood<T: RealField + Copy> {
     pub specific_heat: T,
     /// Thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Speed of sound [m/s]
+    /// Speed of sound \[m/s]
     pub speed_of_sound: T,
     /// Reference shear rate [1/s]
     pub reference_shear_rate: T,

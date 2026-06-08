@@ -276,7 +276,7 @@ fn wall_lift_reference_gain() -> f64 {
             * LIFT_REFERENCE_KAPPA.powi(4))
 }
 
-/// Net dimensional inertial lift force [N].
+/// Net dimensional inertial lift force \[N].
 ///
 /// Positive → force toward center (away from wall).
 /// Negative → force toward wall.
@@ -310,8 +310,8 @@ fn dimensional_lift_force_n(
 ///
 /// # Arguments
 /// - `re` — channel Reynolds number `ρ U D_h / μ`
-/// - `hydraulic_diameter_m` — `D_h = 2wh/(w+h)` [m]
-/// - `bend_radius_m` — radius of curvature of the channel centreline [m]
+/// - `hydraulic_diameter_m` — `D_h = 2wh/(w+h)` \[m]
+/// - `bend_radius_m` — radius of curvature of the channel centreline \[m]
 ///
 /// # Panics
 /// Panics in debug mode if `bend_radius_m ≤ 0`.
@@ -322,7 +322,7 @@ pub fn dean_number(re: f64, hydraulic_diameter_m: f64, bend_radius_m: f64) -> f6
     re * (hydraulic_diameter_m / (2.0 * bend_radius_m)).sqrt()
 }
 
-/// Dean drag force magnitude [N] on a cell of diameter `a` [m].
+/// Dean drag force magnitude \[N] on a cell of diameter `a` \[m].
 ///
 /// From Gossett & Di Carlo (2009), Eq. 4:
 /// `F_D = 5.4 × 10⁻⁴ · π · μ · De^{1.63} · a`
@@ -337,7 +337,7 @@ pub fn dean_drag_force_n(dynamic_viscosity_pa_s: f64, de: f64, cell_diameter_m: 
 
 // ── Inertial lift force ───────────────────────────────────────────────────────
 
-/// Inertial lift force [N] on a cell at normalised lateral position `x̃`.
+/// Inertial lift force \[N] on a cell at normalised lateral position `x̃`.
 ///
 /// `F_L = C_wall(1-DI)ρU²a⁶/H⁴ - C_shearρU²a³/H`
 ///
@@ -347,8 +347,8 @@ pub fn dean_drag_force_n(dynamic_viscosity_pa_s: f64, de: f64, cell_diameter_m: 
 /// - `x_tilde` — normalised lateral position ∈ [0, 1] (0 = center, 1 = wall)
 /// - `cell` — cell physical properties
 /// - `fluid_density_kg_m3` — fluid density [kg/m³]
-/// - `mean_velocity_m_s` — mean channel velocity [m/s]
-/// - `channel_height_m` — channel height (shorter dimension) [m]
+/// - `mean_velocity_m_s` — mean channel velocity \[m/s]
+/// - `channel_height_m` — channel height (shorter dimension) \[m]
 #[inline]
 #[must_use]
 pub fn inertial_lift_force_n(
@@ -403,7 +403,7 @@ pub fn checked_inertial_lift_force_n(
 
 // ── Lateral Drift Velocity ────────────────────────────────────────────────────
 
-/// Transient lateral drift velocity [m/s] at a given lateral position `x̃`.
+/// Transient lateral drift velocity \[m/s] at a given lateral position `x̃`.
 ///
 /// Determined by balancing the net lateral forces (`F_L - F_D`) against
 /// Stokes drag (`F_{drag} = 3 \pi \mu a v_{drift}`).
@@ -415,10 +415,10 @@ pub fn checked_inertial_lift_force_n(
 /// - `cell` — cell physical properties
 /// - `fluid_density_kg_m3` — fluid density [kg/m³]
 /// - `dynamic_viscosity_pa_s` — fluid dynamic viscosity [Pa·s]
-/// - `mean_velocity_m_s` — mean channel velocity [m/s]
-/// - `channel_width_m` — channel width [m]
-/// - `channel_height_m` — channel height (shorter dimension) [m]
-/// - `bend_radius_m` — radius of curvature [m], or `None` for a straight channel
+/// - `mean_velocity_m_s` — mean channel velocity \[m/s]
+/// - `channel_width_m` — channel width \[m]
+/// - `channel_height_m` — channel height (shorter dimension) \[m]
+/// - `bend_radius_m` — radius of curvature \[m], or `None` for a straight channel
 #[inline]
 #[must_use]
 pub fn lateral_velocity_m_s(
@@ -511,13 +511,13 @@ pub struct EquilibriumResult {
     /// Values < 0.3 indicate center-focused; values > 0.5 indicate wall-focused.
     pub x_tilde_eq: f64,
 
-    /// Dimensional lateral position from channel center [m].
+    /// Dimensional lateral position from channel center \[m].
     pub lateral_position_m: f64,
 
-    /// Inertial lift force at equilibrium [N] (should be ≈ 0).
+    /// Inertial lift force at equilibrium \[N] (should be ≈ 0).
     pub residual_force_n: f64,
 
-    /// Dean drag force at equilibrium [N] (0 if no curvature).
+    /// Dean drag force at equilibrium \[N] (0 if no curvature).
     pub dean_drag_n: f64,
 
     /// Channel Reynolds number.
@@ -549,10 +549,10 @@ pub struct EquilibriumResult {
 /// - `cell` — cell physical properties
 /// - `fluid_density_kg_m3` — fluid density [kg/m³]
 /// - `dynamic_viscosity_pa_s` — fluid dynamic viscosity [Pa·s]
-/// - `mean_velocity_m_s` — mean channel velocity [m/s]
-/// - `channel_width_m` — channel width [m]
-/// - `channel_height_m` — channel height [m] (shorter dimension)
-/// - `bend_radius_m` — radius of curvature [m], or `None` for straight channel
+/// - `mean_velocity_m_s` — mean channel velocity \[m/s]
+/// - `channel_width_m` — channel width \[m]
+/// - `channel_height_m` — channel height \[m] (shorter dimension)
+/// - `bend_radius_m` — radius of curvature \[m], or `None` for straight channel
 ///
 /// # Returns
 /// [`EquilibriumResult`] with the equilibrium position and force balance.

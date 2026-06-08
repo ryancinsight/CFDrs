@@ -15,13 +15,13 @@ pub struct FlowAnalysis<T: RealField + Copy> {
     pub total_flow_rate: T,
     /// Flow rates through individual components [m³/s]
     pub component_flows: HashMap<String, T>,
-    /// Average velocities in channels [m/s]
+    /// Average velocities in channels \[m/s]
     pub velocities: HashMap<String, T>,
     /// Reynolds numbers for each channel
     pub reynolds_numbers: HashMap<String, T>,
     /// Estimated wall shear rates for each channel [1/s]
     pub wall_shear_rates: HashMap<String, T>,
-    /// Estimated wall shear stresses for each channel [Pa]
+    /// Estimated wall shear stresses for each channel \[Pa]
     pub wall_shear_stresses: HashMap<String, T>,
     /// Flow regime classification
     pub flow_regimes: HashMap<String, FlowRegime>,

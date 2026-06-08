@@ -50,7 +50,7 @@ pub fn nuclei_adjusted_vapor_pressure<T: RealField + Copy>(
 /// Configuration parameters for the Nuclei Transport model
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct NucleiTransportConfig<T: RealField + Copy> {
-    /// Characteristic dissolution time [s] ($\tau_{diss}$)
+    /// Characteristic dissolution time \[s] ($\tau_{diss}$)
     pub dissolution_time_s: T,
     /// Proportional generation factor from active cavitation events
     pub generation_rate_factor: T,

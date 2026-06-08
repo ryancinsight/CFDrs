@@ -38,11 +38,11 @@ use serde::{Deserialize, Serialize};
 /// Parameters for the Pries Phase Separation Model at one bifurcation.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PriesPhaseParams {
-    /// Parent channel hydraulic diameter [m].
+    /// Parent channel hydraulic diameter \[m].
     pub parent_diameter_m: f64,
-    /// Daughter alpha hydraulic diameter [m] (the branch being computed).
+    /// Daughter alpha hydraulic diameter \[m] (the branch being computed).
     pub daughter_alpha_diameter_m: f64,
-    /// Daughter beta hydraulic diameter [m] (the other branch).
+    /// Daughter beta hydraulic diameter \[m] (the other branch).
     pub daughter_beta_diameter_m: f64,
     /// Feed hematocrit (volume fraction of RBCs in the parent).
     pub feed_hematocrit: f64,
@@ -71,8 +71,8 @@ pub struct PhaseSeparationResult {
 ///
 /// # Theorem -- Thresholded Pries Map
 ///
-/// For finite diameters, feed hematocrit `H in [0,1]`, flow fraction
-/// `FQB in [0,1]`, and `X0 < 1/2`, the Pries map sends daughter blood-flow
+/// For finite diameters, feed hematocrit `H in \[0,1]`, flow fraction
+/// `FQB in \[0,1]`, and `X0 < 1/2`, the Pries map sends daughter blood-flow
 /// fraction to erythrocyte-flux fraction by the thresholded logit relation
 /// documented at module level. The daughter hematocrit follows from RBC flux
 /// conservation:

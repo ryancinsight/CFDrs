@@ -36,22 +36,22 @@ use serde::{Deserialize, Serialize};
 /// 3D Trifurcation geometry
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrifurcationGeometry3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    /// Parent branch diameter [m]
+    /// Parent branch diameter \[m]
     pub d_parent: T,
-    /// Parent branch length [m]
+    /// Parent branch length \[m]
     pub l_parent: T,
 
-    /// Daughter diameters [m]
+    /// Daughter diameters \[m]
     pub d_daughters: [T; 3],
-    /// Daughter lengths [m]
+    /// Daughter lengths \[m]
     pub l_daughters: [T; 3],
 
-    /// Transition zone length [m]
+    /// Transition zone length \[m]
     pub l_transition: T,
     /// Transition model
     pub transition: ConicalTransition<T>,
 
-    /// Angles between daughters and parent axis [radians]
+    /// Angles between daughters and parent axis \[radians]
     /// Typically symmetric, e.g., [30°, 0°, -30°]
     pub branching_angles: [T; 3],
 }

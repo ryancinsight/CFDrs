@@ -7,11 +7,11 @@ use crate::domain::model::NetworkBlueprint;
 /// Summary of the fluid volume within a channel system.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FluidVolumeSummary {
-    /// Total centerline length in the schematic [mm].
+    /// Total centerline length in the schematic \[mm].
     pub total_channel_length_mm: f64,
     /// Total fluid volume in the system [mm^3].
     pub total_fluid_volume_mm3: f64,
-    /// Total fluid volume in the system [uL].
+    /// Total fluid volume in the system \[uL].
     pub total_fluid_volume_ul: f64,
     /// Number of channels contributing to the volume.
     pub channel_count: usize,
@@ -28,13 +28,13 @@ pub struct ChannelFluidVolumeSummary {
     pub from_node_id: String,
     /// Downstream blueprint node identifier.
     pub to_node_id: String,
-    /// Total channel centerline length in the schematic [mm].
+    /// Total channel centerline length in the schematic \[mm].
     pub centerline_length_mm: f64,
     /// True blueprint cross-sectional area [mm^2].
     pub cross_section_area_mm2: f64,
     /// Total fluid volume for this channel [mm^3].
     pub fluid_volume_mm3: f64,
-    /// Total fluid volume for this channel [uL].
+    /// Total fluid volume for this channel \[uL].
     pub fluid_volume_ul: f64,
 }
 

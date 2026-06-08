@@ -6,11 +6,11 @@ use super::super::model::{
     ChannelRouteSpec, ParallelChannelSpec, SeriesChannelSpec, SerpentineSpec, ThroatGeometrySpec,
 };
 
-/// Well plate dimensions [mm] per ANSI/SLAS 1-2004.
+/// Well plate dimensions \[mm] per ANSI/SLAS 1-2004.
 pub(super) const PLATE_WIDTH_MM: f64 = 127.76;
 pub(super) const PLATE_HEIGHT_MM: f64 = 85.47;
 
-/// Default convergent/divergent half-angle for venturi nozzle [degrees].
+/// Default convergent/divergent half-angle for venturi nozzle \[degrees].
 pub(super) const VENTURI_HALF_ANGLE_DEG: f64 = 7.0;
 
 pub(super) fn series_channel(

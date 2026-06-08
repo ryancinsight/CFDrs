@@ -49,9 +49,9 @@ const LATTICE_CS2: f64 = 1.0 / 3.0;
 pub struct CarreauYasudaBgk<T: RealField + Copy + Float + FromPrimitive> {
     /// Internal Carreau-Yasuda rheology model
     pub model: CarreauYasudaModel<T>,
-    /// Base spatial discretization size $\Delta x$ [m]
+    /// Base spatial discretization size $\Delta x$ \[m]
     pub dx: T,
-    /// Base time step $\Delta t$ [s]
+    /// Base time step $\Delta t$ \[s]
     pub dt: T,
 }
 

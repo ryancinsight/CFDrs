@@ -92,15 +92,15 @@ pub trait ResistanceModel<T: RealField + Copy> {
 pub struct FlowConditions<T: RealField + Copy> {
     /// Reynolds number
     pub reynolds_number: Option<T>,
-    /// Flow velocity [m/s]
+    /// Flow velocity \[m/s]
     pub velocity: Option<T>,
     /// Flow rate [m³/s]
     pub flow_rate: Option<T>,
     /// Shear rate [1/s] (at wall or characteristic)
     pub shear_rate: Option<T>,
-    /// Temperature [K]
+    /// Temperature \[K]
     pub temperature: T,
-    /// Pressure [Pa]
+    /// Pressure \[Pa]
     pub pressure: T,
 }
 

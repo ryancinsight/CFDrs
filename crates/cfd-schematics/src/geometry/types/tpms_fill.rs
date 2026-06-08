@@ -95,12 +95,12 @@ impl TpmsSurfaceKind {
 /// remerging zone.  Both fractions must be in `(0, 1)`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AdaptiveGradient {
-    /// Period at the peripheral walls [mm] (fine pores → block RBCs).
+    /// Period at the peripheral walls \[mm] (fine pores → block RBCs).
     ///
     /// Must be positive and finite.  Typical: 0.5–2.0 mm for millifluidic
     /// devices targeting 7 µm RBC exclusion.
     pub period_periphery_mm: f64,
-    /// Period at the center [mm] (coarse pores → pass WBCs/CTCs).
+    /// Period at the center \[mm] (coarse pores → pass WBCs/CTCs).
     ///
     /// Must be positive, finite, and ≥ `period_periphery_mm`.
     /// Typical: 5.0–15.0 mm.
@@ -132,7 +132,7 @@ impl AdaptiveGradient {
     /// - `y_frac ∈ [0, 1]` — fractional position across the cavity width
     ///   (0 = bottom wall, 1 = top wall, 0.5 = center).
     ///
-    /// Returns the period [mm] at this spatial position.
+    /// Returns the period \[mm] at this spatial position.
     #[must_use]
     pub fn period_at(&self, x_frac: f64, y_frac: f64) -> f64 {
         let p_periph = self.period_periphery_mm;
@@ -230,7 +230,7 @@ impl Default for AdaptiveGradient {
 pub struct TpmsFillSpec {
     /// Which TPMS surface to extract.
     pub surface: TpmsSurfaceKind,
-    /// Baseline unit-cell period [mm] (used when `gradient` is `None`).
+    /// Baseline unit-cell period \[mm] (used when `gradient` is `None`).
     ///
     /// Typical range for millifluidic devices: 2–10 mm.
     pub period_mm: f64,

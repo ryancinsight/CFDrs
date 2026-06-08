@@ -104,9 +104,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
     ///
     /// # Arguments
     /// * `n_points` — number of grid points (nx·ny·nz)
-    /// * `uniform_wall_distance` — wall distance [m] applied uniformly (use a
+    /// * `uniform_wall_distance` — wall distance \[m] applied uniformly (use a
     ///   large value for pure LES, 0 for pure RANS)
-    /// * `dx`, `dy`, `dz` — uniform cell dimensions [m]
+    /// * `dx`, `dy`, `dz` — uniform cell dimensions \[m]
     pub fn new(n_points: usize, uniform_wall_distance: T, dx: T, dy: T, dz: T) -> Self {
         let c_des = <T as FromPrimitive>::from_f64(DES_C_DES)
             .expect("DES_C_DES is an IEEE 754 representable f64 constant");

@@ -67,7 +67,7 @@ pub mod physics {
     pub mod universal {
         /// Universal gas constant [J/(mol·K)]
         pub const GAS_CONSTANT: f64 = 8.314_462_618;
-        /// Standard acceleration due to gravity [m/s²]
+        /// Standard acceleration due to gravity \[m/s²]
         pub const GRAVITY: f64 = 9.806_65;
         /// Stefan-Boltzmann constant [W/(m²·K⁴)]
         pub const STEFAN_BOLTZMANN: f64 = 5.670_374_419e-8;
@@ -79,9 +79,9 @@ pub mod physics {
         pub const R_AIR: f64 = 287.052_874;
         /// Ratio of specific heats for air (γ)
         pub const GAMMA_AIR: f64 = 1.4;
-        /// Standard atmospheric pressure [Pa]
+        /// Standard atmospheric pressure \[Pa]
         pub const P_ATM: f64 = 101_325.0;
-        /// Standard temperature [K]
+        /// Standard temperature \[K]
         pub const T_STANDARD: f64 = 288.15;
         /// Celsius to Kelvin conversion offset
         pub const CELSIUS_TO_KELVIN: f64 = 273.15;
@@ -99,7 +99,7 @@ pub mod physics {
         pub const WATER_SPECIFIC_HEAT: f64 = 4182.0;
         /// Water thermal conductivity [W/(m·K)]
         pub const WATER_THERMAL_CONDUCTIVITY: f64 = 0.606;
-        /// Water speed of sound [m/s]
+        /// Water speed of sound \[m/s]
         pub const WATER_SPEED_OF_SOUND: f64 = 1482.0;
 
         /// Air density [kg/m³]
@@ -112,7 +112,7 @@ pub mod physics {
         pub const AIR_SPECIFIC_HEAT: f64 = 1005.0;
         /// Air thermal conductivity [W/(m·K)]
         pub const AIR_THERMAL_CONDUCTIVITY: f64 = 0.0257;
-        /// Air speed of sound [m/s]
+        /// Air speed of sound \[m/s]
         pub const AIR_SPEED_OF_SOUND: f64 = 343.2;
 
         /// Von Kármán constant
@@ -203,9 +203,9 @@ pub mod numerical {
         pub const DEFAULT_CFL: f64 = 0.5;
         /// Maximum stable CFL number
         pub const MAX_CFL: f64 = 1.0;
-        /// Default time step [s]
+        /// Default time step \[s]
         pub const DEFAULT_TIME_STEP: f64 = 0.001;
-        /// Minimum allowable time step [s]
+        /// Minimum allowable time step \[s]
         pub const MIN_TIME_STEP: f64 = 1e-12;
     }
 

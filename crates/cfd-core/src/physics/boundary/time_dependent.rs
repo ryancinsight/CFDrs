@@ -28,7 +28,7 @@ pub enum TimeFunctionType {
     Sinusoidal,
     /// Exponential decay/growth: value = initial * exp(rate * time)
     Exponential,
-    /// Polynomial: value = sum(coefficients[i] * time^i)
+    /// Polynomial: value = sum(coefficients\[i\] * time^i)
     Polynomial,
     /// Custom function (user-defined)
     Custom(String),

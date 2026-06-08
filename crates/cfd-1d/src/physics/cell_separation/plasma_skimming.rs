@@ -212,8 +212,8 @@ pub fn checked_pries_phase_separation(
 /// * `feed_hematocrit` - Feed (parent) hematocrit [0, 1]
 /// * `flow_fraction` - Fractional volumetric flow to this daughter branch,
 ///   Q_daughter / Q_total [0, 1]
-/// * `diameter_daughter` - Daughter branch diameter [µm]
-/// * `diameter_feed` - Feed (parent) branch diameter [µm]
+/// * `diameter_daughter` - Daughter branch diameter \[µm]
+/// * `diameter_feed` - Feed (parent) branch diameter \[µm]
 ///
 /// # Returns
 /// Daughter branch hematocrit, clamped to [0, min(1, 2 × H_feed)].

@@ -71,19 +71,19 @@ impl Default for BenchmarkTimer {
 /// Statistical analysis for benchmark results using robust statistical measures
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BenchmarkStats {
-    /// Arithmetic mean of all benchmark measurements [seconds]
+    /// Arithmetic mean of all benchmark measurements \[seconds]
     pub mean: f64,
 
-    /// Standard deviation of benchmark measurements [seconds]
+    /// Standard deviation of benchmark measurements \[seconds]
     pub std_dev: f64,
 
-    /// Minimum observed measurement value [seconds]
+    /// Minimum observed measurement value \[seconds]
     pub min: f64,
 
-    /// Maximum observed measurement value [seconds]
+    /// Maximum observed measurement value \[seconds]
     pub max: f64,
 
-    /// Median of benchmark measurements [seconds]
+    /// Median of benchmark measurements \[seconds]
     pub median: f64,
 
     /// Number of independent measurements used for statistical analysis

@@ -39,10 +39,10 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
     ///
     /// # Arguments
     /// * `xi` - Dimensionless radial position r/R (0 ≤ xi ≤ 1)
-    /// * `t` - Time [s]
+    /// * `t` - Time \[s]
     ///
     /// # Returns
-    /// Axial velocity u(r,t) [m/s]
+    /// Axial velocity u(r,t) \[m/s]
     pub fn velocity(&self, xi: T, t: T) -> T {
         let alpha = self.womersley.value();
         let rho = self.womersley.density;

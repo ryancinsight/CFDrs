@@ -48,7 +48,7 @@
 //! - **Multi-Scale Modeling**: From microscopic bubbles to macroscopic damage
 //! - **GPU Acceleration**: Optimized for large-scale cavitation simulations
 
-/// Default grid spacing [m] used when constructing the VOF solver grid.
+/// Default grid spacing \[m] used when constructing the VOF solver grid.
 const DEFAULT_GRID_SPACING: f64 = 0.01;
 
 /// Polytropic index (ratio of specific heats, gamma = c_p / c_v) for

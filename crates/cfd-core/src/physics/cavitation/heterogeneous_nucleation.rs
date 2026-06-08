@@ -55,11 +55,11 @@ impl CellPopulationIdentity {
 /// Mechanical state entering the selective cavitation model.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct CellMechanicalState {
-    /// Effective membrane stiffness [Pa].
+    /// Effective membrane stiffness \[Pa].
     pub membrane_stiffness_pa: f64,
     /// Effective interfacial tension [N/m].
     pub interfacial_tension_n_m: f64,
-    /// Characteristic nuclei seed radius [m].
+    /// Characteristic nuclei seed radius \[m].
     pub particle_radius_m: f64,
     /// Optional bounded deformability multiplier; 1.0 means neutral.
     #[serde(default = "unit_f64")]
@@ -98,9 +98,9 @@ pub struct SelectiveCavitationPopulation {
 /// Input state for selective cavitation evaluation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SelectiveCavitationInput {
-    /// Base vapor pressure [Pa].
+    /// Base vapor pressure \[Pa].
     pub base_vapor_pressure_pa: f64,
-    /// Ambient static pressure [Pa].
+    /// Ambient static pressure \[Pa].
     pub ambient_pressure_pa: f64,
     /// Fluid density [kg/m^3].
     pub density_kg_m3: f64,
@@ -117,13 +117,13 @@ pub struct PopulationCavitationThreshold {
     pub label: String,
     /// Compliance gain used internally.
     pub compliance_gain: f64,
-    /// Effective seed radius [m].
+    /// Effective seed radius \[m].
     pub effective_particle_radius_m: f64,
     /// Effective interfacial tension [N/m].
     pub effective_interfacial_tension_n_m: f64,
-    /// Classical Blake threshold before nuclei lifting [Pa].
+    /// Classical Blake threshold before nuclei lifting \[Pa].
     pub blake_threshold_pressure_pa: f64,
-    /// Effective threshold after nuclei lifting [Pa].
+    /// Effective threshold after nuclei lifting \[Pa].
     pub effective_threshold_pressure_pa: f64,
     /// Weight used in mixture aggregation.
     pub mixture_weight: f64,
@@ -134,11 +134,11 @@ pub struct PopulationCavitationThreshold {
 pub struct SelectiveCavitationResult {
     /// Per-population thresholds sorted from highest to lowest effective threshold.
     pub population_thresholds: Vec<PopulationCavitationThreshold>,
-    /// Volume-weighted mixture inception threshold [Pa].
+    /// Volume-weighted mixture inception threshold \[Pa].
     pub mixture_inception_threshold_pa: f64,
-    /// Highest effective threshold among target populations [Pa].
+    /// Highest effective threshold among target populations \[Pa].
     pub target_inception_threshold_pa: f64,
-    /// Highest effective threshold among healthy populations [Pa].
+    /// Highest effective threshold among healthy populations \[Pa].
     pub healthy_inception_threshold_pa: f64,
     /// Positive means the best target cavitates earlier than the best healthy population.
     pub selectivity_margin_pa: f64,
@@ -153,11 +153,11 @@ pub struct SelectiveCavitationResult {
 pub struct CellularPopulation<T: RealField + Copy> {
     /// Volume fraction of instances.
     pub volume_fraction: T,
-    /// Absolute membrane stiffness scaling [Pa].
+    /// Absolute membrane stiffness scaling \[Pa].
     pub membrane_stiffness_pa: T,
     /// Interfacial tension of the cellular envelope [N/m].
     pub interfacial_tension_n_m: T,
-    /// Nominal particle / cell radius acting as initial nuclei seed [m].
+    /// Nominal particle / cell radius acting as initial nuclei seed \[m].
     pub particle_radius_m: T,
 }
 

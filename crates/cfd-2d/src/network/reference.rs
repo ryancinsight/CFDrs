@@ -19,7 +19,7 @@ pub struct NodeReferenceTrace<T> {
     pub node_id: String,
     /// Blueprint node classification.
     pub node_kind: NodeKind,
-    /// Scaled nodal pressure from the reference solve [Pa].
+    /// Scaled nodal pressure from the reference solve \[Pa].
     pub pressure_pa: T,
     /// Sum of incoming channel flow rates [m^3/s].
     pub incoming_flow_m3_s: T,
@@ -42,15 +42,15 @@ pub struct ChannelReferenceTrace<T> {
     pub to_node_id: String,
     /// Scaled volumetric flow rate [m^3/s].
     pub flow_rate_m3_s: T,
-    /// Scaled channel pressure drop [Pa].
+    /// Scaled channel pressure drop \[Pa].
     pub pressure_drop_pa: T,
-    /// Mean velocity based on the true blueprint area [m/s].
+    /// Mean velocity based on the true blueprint area \[m/s].
     pub mean_velocity_m_s: T,
     /// Hydraulic resistance carried by the blueprint channel contract [Pa·s/m^3].
     pub resistance_pa_s_per_m3: T,
     /// True blueprint cross-sectional area [m^2].
     pub cross_section_area_m2: T,
-    /// Blueprint channel length [m].
+    /// Blueprint channel length \[m].
     pub length_m: T,
 }
 
@@ -61,9 +61,9 @@ pub struct NetworkReferenceTrace<T> {
     pub solve_path_status: SolvePathStatus,
     /// Primary-path diagnostics from the cfd-1d solve.
     pub diagnostics: PrimarySolveDiagnostics,
-    /// Normalized inlet pressure used before scaling [Pa].
+    /// Normalized inlet pressure used before scaling \[Pa].
     pub normalized_inlet_pressure_pa: T,
-    /// Inlet pressure after scaling to the requested total flow [Pa].
+    /// Inlet pressure after scaling to the requested total flow \[Pa].
     pub scaled_inlet_pressure_pa: T,
     /// Pressure multiplier applied to the normalized solve.
     pub pressure_scale_factor: T,

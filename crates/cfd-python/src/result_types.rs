@@ -21,20 +21,20 @@ pub struct PyBifurcationResult {
     #[pyo3(get)]
     pub q_2: f64,
 
-    /// Parent inlet pressure [Pa]
+    /// Parent inlet pressure \[Pa]
     #[pyo3(get)]
     pub p_parent: f64,
-    /// Daughter 1 outlet pressure [Pa]
+    /// Daughter 1 outlet pressure \[Pa]
     #[pyo3(get)]
     pub p_1: f64,
-    /// Daughter 2 outlet pressure [Pa]
+    /// Daughter 2 outlet pressure \[Pa]
     #[pyo3(get)]
     pub p_2: f64,
 
-    /// Pressure drop in daughter 1 [Pa]
+    /// Pressure drop in daughter 1 \[Pa]
     #[pyo3(get)]
     pub dp_1: f64,
-    /// Pressure drop in daughter 2 [Pa]
+    /// Pressure drop in daughter 2 \[Pa]
     #[pyo3(get)]
     pub dp_2: f64,
 
@@ -52,10 +52,10 @@ pub struct PyBifurcationResult {
     #[pyo3(get)]
     pub mu_2: f64,
 
-    /// Wall shear stress in daughter 1 [Pa]
+    /// Wall shear stress in daughter 1 \[Pa]
     #[pyo3(get)]
     pub wss_1: f64,
-    /// Wall shear stress in daughter 2 [Pa]
+    /// Wall shear stress in daughter 2 \[Pa]
     #[pyo3(get)]
     pub wss_2: f64,
 

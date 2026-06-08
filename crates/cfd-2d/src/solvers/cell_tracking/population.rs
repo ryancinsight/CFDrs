@@ -12,7 +12,7 @@ pub enum CellPopulation {
 }
 
 impl CellPopulation {
-    /// Characteristic diameter [m].
+    /// Characteristic diameter \[m].
     #[must_use]
     pub fn diameter_m(self) -> f64 {
         match self {
@@ -50,13 +50,13 @@ impl CellPopulation {
 pub struct TrackedCell {
     /// The specific cell type (CTC, WBC, RBC).
     pub population: CellPopulation,
-    /// X coordinate position [m].
+    /// X coordinate position \[m].
     pub x: f64,
-    /// Y coordinate position [m].
+    /// Y coordinate position \[m].
     pub y: f64,
-    /// Velocity in X direction [m/s].
+    /// Velocity in X direction \[m/s].
     pub vx: f64,
-    /// Velocity in Y direction [m/s].
+    /// Velocity in Y direction \[m/s].
     pub vy: f64,
     /// Unique identifier for the cell.
     pub id: usize,

@@ -23,13 +23,13 @@ use std::iter::Sum;
 /// Pressure analysis for network systems
 #[derive(Debug, Clone)]
 pub struct PressureAnalysis<T: RealField + Copy> {
-    /// Pressure distribution [Pa]
+    /// Pressure distribution \[Pa]
     pub pressures: HashMap<String, T>,
-    /// Pressure drops across components [Pa]
+    /// Pressure drops across components \[Pa]
     pub pressure_drops: HashMap<String, T>,
-    /// Maximum pressure in system [Pa]
+    /// Maximum pressure in system \[Pa]
     pub max_pressure: T,
-    /// Minimum pressure in system [Pa]
+    /// Minimum pressure in system \[Pa]
     pub min_pressure: T,
     /// Pressure gradient statistics
     pub pressure_gradients: HashMap<String, T>,

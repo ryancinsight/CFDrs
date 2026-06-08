@@ -229,10 +229,10 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
     /// loss coefficients.
     ///
     /// # Arguments
-    /// - `diameter`: Channel diameter [m]
-    /// - `straight_length`: Total length of all straight segments [m]
+    /// - `diameter`: Channel diameter \[m]
+    /// - `straight_length`: Total length of all straight segments \[m]
     /// - `num_segments`: Number of straight segments (bends = segments - 1)
-    /// - `bend_radius`: Radius of curvature of bends [m]
+    /// - `bend_radius`: Radius of curvature of bends \[m]
     /// - `fluid`: Fluid properties (supports non-Newtonian via `FluidTrait`)
     /// - `conditions`: Flow conditions (velocity, Re, temperature, pressure)
     pub fn calculate_serpentine_circular<F: FluidTrait<T>>(
@@ -298,10 +298,10 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
     /// friction (Darcy), and expansion recovery loss (Borda-Carnot).
     ///
     /// # Arguments
-    /// - `inlet_diameter`: Upstream pipe diameter [m]
-    /// - `throat_diameter`: Throat diameter [m]
-    /// - `throat_length`: Length of the throat section [m]
-    /// - `total_length`: Total device length [m]
+    /// - `inlet_diameter`: Upstream pipe diameter \[m]
+    /// - `throat_diameter`: Throat diameter \[m]
+    /// - `throat_length`: Length of the throat section \[m]
+    /// - `total_length`: Total device length \[m]
     /// - `fluid`: Fluid properties
     /// - `conditions`: Flow conditions
     pub fn calculate_venturi<F: FluidTrait<T>>(

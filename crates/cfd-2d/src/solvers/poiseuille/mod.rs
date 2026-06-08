@@ -110,13 +110,13 @@ use serde::{Deserialize, Serialize};
 /// Configuration for Poiseuille flow solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoiseuilleConfig<T: RealField + Copy> {
-    /// Channel height [m]
+    /// Channel height \[m]
     pub height: T,
 
-    /// Channel width [m] (for 3D flow rate calculation)
+    /// Channel width \[m] (for 3D flow rate calculation)
     pub width: T,
 
-    /// Channel length [m] (for reference only, flow is fully developed)
+    /// Channel length \[m] (for reference only, flow is fully developed)
     pub length: T,
 
     /// Number of grid points in y-direction

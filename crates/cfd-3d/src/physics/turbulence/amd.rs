@@ -46,11 +46,11 @@ pub struct AnisotropicMinimumDissipationModel<T: cfd_mesh::domain::core::Scalar 
 {
     /// AMD coefficient `C_A`.
     pub c_a: T,
-    /// Physical grid spacing in the x direction [m].
+    /// Physical grid spacing in the x direction \[m].
     pub dx: T,
-    /// Physical grid spacing in the y direction [m].
+    /// Physical grid spacing in the y direction \[m].
     pub dy: T,
-    /// Physical grid spacing in the z direction [m].
+    /// Physical grid spacing in the z direction \[m].
     pub dz: T,
 }
 

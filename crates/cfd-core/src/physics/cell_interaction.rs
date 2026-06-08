@@ -51,10 +51,10 @@
 ///
 /// # Arguments
 /// - `hematocrit` — volumetric RBC fraction at device inlet (dimensionless, 0–0.45)
-/// - `hydraulic_diameter_m` — `D_h = 2wh/(w+h)` [m]
+/// - `hydraulic_diameter_m` — `D_h = 2wh/(w+h)` \[m]
 ///
 /// # Returns
-/// CFL thickness `δ_CFL` [m].  Always positive; clamped above 0.5 µm
+/// CFL thickness `δ_CFL` \[m].  Always positive; clamped above 0.5 µm
 /// to avoid degenerate geometry.
 #[inline]
 #[must_use]
@@ -94,8 +94,8 @@ pub fn cell_free_layer_m(hematocrit: f64, hydraulic_diameter_m: f64) -> f64 {
 /// path ∝ 1/HCT) and the excess size term captures geometric exclusion. ∎
 ///
 /// # Arguments
-/// - `a_wbc_m` — WBC diameter [m]
-/// - `cfl_m` — CFL thickness [m] (from [`cell_free_layer_m`])
+/// - `a_wbc_m` — WBC diameter \[m]
+/// - `cfl_m` — CFL thickness \[m] (from [`cell_free_layer_m`])
 /// - `hematocrit` — volumetric RBC fraction at device inlet (dimensionless, 0–0.45)
 ///
 /// # Returns
@@ -129,9 +129,9 @@ pub fn wbc_margination_factor(a_wbc_m: f64, cfl_m: f64, hematocrit: f64) -> f64 
 ///
 /// # Arguments
 /// - `x_tilde_inertial` — single-particle equilibrium position ∈ [0, 1]
-/// - `a_wbc_m` — WBC diameter [m]
+/// - `a_wbc_m` — WBC diameter \[m]
 /// - `hematocrit` — feed hematocrit at device inlet (0–0.45)
-/// - `hydraulic_diameter_m` — channel hydraulic diameter `D_h` [m]
+/// - `hydraulic_diameter_m` — channel hydraulic diameter `D_h` \[m]
 ///
 /// # Returns
 /// Corrected equilibrium position `x̃_eff ∈ [0, 1]`.  Always in [0, 0.95]

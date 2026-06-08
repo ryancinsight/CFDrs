@@ -28,10 +28,10 @@
 //!
 //! where:
 //! - μ is dynamic viscosity [Pa·s]
-//! - L is channel length [m]
+//! - L is channel length \[m]
 //! - ρ is fluid density [kg/m³]
-//! - A is cross-sectional area [m²]
-//! - Dh is hydraulic diameter [m]
+//! - A is cross-sectional area \[m²]
+//! - Dh is hydraulic diameter \[m]
 //!
 //! ### Validity Conditions
 //!
@@ -61,11 +61,11 @@ const PERIMETER_FACTOR: f64 = 2.0;
 /// Rectangular channel resistance model with exact solution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RectangularChannelModel<T: RealField + Copy> {
-    /// Channel width [m]
+    /// Channel width \[m]
     pub width: T,
-    /// Channel height [m]
+    /// Channel height \[m]
     pub height: T,
-    /// Channel length [m]
+    /// Channel length \[m]
     pub length: T,
 }
 

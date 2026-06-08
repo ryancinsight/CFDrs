@@ -5,11 +5,11 @@
 //!
 //! ## Theorem — Taylor Remainder Bound (Finite Difference Truncation)
 //!
-//! **Theorem**: For a function f ∈ C^{p+1}([a,b]) and a p-th order finite difference
+//! **Theorem**: For a function f ∈ C^{p+1}(\[a,b]) and a p-th order finite difference
 //! stencil Dₕf(x), the truncation error satisfies:
 //!
 //! ```text
-//! |Dₕf(x) - f'(x)| ≤ C · hᵖ · max_{ξ∈[a,b]} |f^{(p+1)}(ξ)|
+//! |Dₕf(x) - f'(x)| ≤ C · hᵖ · max_{ξ∈\[a,b]} |f^{(p+1)}(ξ)|
 //! ```
 //!
 //! where h is the grid spacing and C depends only on the stencil coefficients.

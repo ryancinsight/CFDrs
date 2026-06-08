@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 /// Main plugin registry - single owner of all plugin data
 ///
-/// To share between threads, wrap the entire registry in Arc<`RwLock`<PluginRegistry>>
+/// To share between threads, wrap the entire registry in `Arc<RwLock<PluginRegistry>>`
 pub struct PluginRegistry {
     storage: PluginStorage,
     resolver: DependencyResolver,

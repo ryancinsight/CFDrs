@@ -41,21 +41,21 @@ use std::fmt;
 /// Input state for a throat-level venturi screening evaluation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VenturiScreeningInput {
-    /// Absolute upstream static pressure [Pa].
+    /// Absolute upstream static pressure \[Pa].
     pub upstream_pressure_pa: f64,
-    /// Mean velocity in the upstream section [m/s].
+    /// Mean velocity in the upstream section \[m/s].
     pub upstream_velocity_m_s: f64,
-    /// Mean velocity in the geometric throat [m/s].
+    /// Mean velocity in the geometric throat \[m/s].
     pub throat_velocity_m_s: f64,
-    /// Hydraulic diameter of the throat [m].
+    /// Hydraulic diameter of the throat \[m].
     pub throat_hydraulic_diameter_m: f64,
-    /// Throat length [m].
+    /// Throat length \[m].
     pub throat_length_m: f64,
     /// Fluid density [kg/m^3].
     pub density_kg_m3: f64,
     /// Dynamic viscosity [Pa·s].
     pub viscosity_pa_s: f64,
-    /// Vapor pressure [Pa].
+    /// Vapor pressure \[Pa].
     pub vapor_pressure_pa: f64,
     /// Vena-contracta coefficient.
     pub vena_contracta_coeff: f64,
@@ -72,23 +72,23 @@ pub struct VenturiScreeningInput {
 /// Output of a throat-level venturi screening evaluation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VenturiScreeningResult {
-    /// Velocity corrected for vena-contracta acceleration [m/s].
+    /// Velocity corrected for vena-contracta acceleration \[m/s].
     pub effective_throat_velocity_m_s: f64,
-    /// Raw static pressure at the throat before clamping [Pa].
+    /// Raw static pressure at the throat before clamping \[Pa].
     #[serde(default)]
     pub raw_throat_static_pressure_pa: f64,
-    /// Bernoulli contraction drop from upstream section to vena contracta [Pa].
+    /// Bernoulli contraction drop from upstream section to vena contracta \[Pa].
     pub bernoulli_drop_pa: f64,
-    /// Darcy-Weisbach friction drop through the throat [Pa].
+    /// Darcy-Weisbach friction drop through the throat \[Pa].
     pub throat_friction_drop_pa: f64,
-    /// Estimated static pressure at the throat [Pa].
+    /// Estimated static pressure at the throat \[Pa].
     pub throat_static_pressure_pa: f64,
-    /// Effective vapor-pressure threshold after nuclei amplification [Pa].
+    /// Effective vapor-pressure threshold after nuclei amplification \[Pa].
     #[serde(default)]
     pub effective_vapor_pressure_pa: f64,
     /// Cavitation number based on throat static pressure and dynamic head.
     pub cavitation_number: f64,
-    /// Cavitation margin in pressure units: throat static pressure minus effective vapor pressure [Pa].
+    /// Cavitation margin in pressure units: throat static pressure minus effective vapor pressure \[Pa].
     #[serde(default)]
     pub cavitation_margin_pa: f64,
     /// Reynolds number computed from the raw throat velocity estimate.
@@ -103,7 +103,7 @@ pub struct VenturiScreeningResult {
     /// Effective vena-contracta coefficient after Reynolds correction.
     #[serde(default)]
     pub effective_vena_contracta_coeff: f64,
-    /// Diffuser static-pressure recovery estimate [Pa].
+    /// Diffuser static-pressure recovery estimate \[Pa].
     pub diffuser_recovery_pa: f64,
     /// Downstream bubble nuclei volume fraction after generation.
     pub outlet_nuclei_fraction: f64,
@@ -116,10 +116,10 @@ pub struct VenturiScreeningResult {
     /// Dominant selective population label, if any.
     #[serde(default)]
     pub dominant_selective_label: Option<String>,
-    /// Target-versus-healthy selective margin [Pa].
+    /// Target-versus-healthy selective margin \[Pa].
     #[serde(default)]
     pub selectivity_margin_pa: f64,
-    /// Volume-weighted mixture inception threshold [Pa].
+    /// Volume-weighted mixture inception threshold \[Pa].
     #[serde(default)]
     pub mixture_inception_threshold_pa: f64,
     /// Combined screening regime.
@@ -173,7 +173,7 @@ impl fmt::Display for VenturiScreeningRisk {
 pub struct VenturiScreeningAssessment {
     /// Screening classification.
     pub risk: VenturiScreeningRisk,
-    /// Pressure head above the effective vapor threshold [Pa].
+    /// Pressure head above the effective vapor threshold \[Pa].
     pub cavitation_margin_pa: f64,
     /// Diffuser recovery divided by Bernoulli contraction drop.
     pub pressure_recovery_ratio: f64,
@@ -289,7 +289,7 @@ fn validate_venturi_screening_input(input: &VenturiScreeningInput) -> Result<()>
     Ok(())
 }
 
-/// Convert a half-angle taper into an equivalent taper length [m].
+/// Convert a half-angle taper into an equivalent taper length \[m].
 ///
 /// # Theorem
 ///

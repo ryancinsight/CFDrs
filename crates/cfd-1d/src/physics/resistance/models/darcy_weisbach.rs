@@ -11,10 +11,10 @@
 //!
 //! where:
 //! - f  = Darcy friction factor (dimensionless)
-//! - L  = pipe length [m]
-//! - D  = pipe hydraulic diameter [m]
+//! - L  = pipe length \[m]
+//! - D  = pipe hydraulic diameter \[m]
 //! - ρ  = fluid density [kg/m³]
-//! - V  = average cross-section velocity [m/s]
+//! - V  = average cross-section velocity \[m/s]
 //!
 //! **Hydraulic Resistance Form**: expressing ΔP = R·Q gives:
 //!
@@ -48,7 +48,7 @@
 //! 1/√f = −2.0 · log₁₀( ε/(3.7 D) + 2.51/(Re √f) )
 //! ```
 //!
-//! where ε is the absolute surface roughness [m].
+//! where ε is the absolute surface roughness \[m].
 //!
 //! **Validity**: Re > 2300, 0 < ε/D < 0.05.
 //!
@@ -99,13 +99,13 @@ const MAX_REYNOLDS: f64 = 1e8;
 /// Darcy-Weisbach resistance model for turbulent flow
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DarcyWeisbachModel<T: RealField + Copy> {
-    /// Hydraulic diameter [m]
+    /// Hydraulic diameter \[m]
     pub hydraulic_diameter: T,
-    /// Channel cross-sectional area [m²]
+    /// Channel cross-sectional area \[m²]
     pub area: T,
-    /// Channel length [m]
+    /// Channel length \[m]
     pub length: T,
-    /// Surface roughness [m]
+    /// Surface roughness \[m]
     pub roughness: T,
 }
 

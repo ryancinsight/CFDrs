@@ -76,13 +76,13 @@ pub enum JunctionLossModel {
 pub struct VesselSegment<T: RealField + Copy> {
     /// Segment identifier
     pub id: usize,
-    /// Vessel radius [m]
+    /// Vessel radius \[m]
     pub radius: T,
-    /// Vessel length [m]
+    /// Vessel length \[m]
     pub length: T,
-    /// Wall thickness [m]
+    /// Wall thickness \[m]
     pub wall_thickness: T,
-    /// Young's modulus of wall [Pa]
+    /// Young's modulus of wall \[Pa]
     pub youngs_modulus: T,
     /// Inlet node ID
     pub inlet_node: usize,
@@ -167,7 +167,7 @@ pub struct Bifurcation<T: RealField + Copy> {
     pub parent_vessels: Vec<usize>,
     /// Outgoing vessel IDs
     pub daughter_vessels: Vec<usize>,
-    /// Current pressure at junction [Pa]
+    /// Current pressure at junction \[Pa]
     pub pressure: T,
     /// Current flow rates [m³/s] - indexed by vessel ID
     pub flow_rates: Vec<T>,
@@ -262,7 +262,7 @@ pub struct BifurcationNetwork<T: RealField + Copy> {
     pub vessels: Vec<VesselSegment<T>>,
     /// All junction nodes
     pub junctions: Vec<Bifurcation<T>>,
-    /// Inlet boundary pressure [Pa]
+    /// Inlet boundary pressure \[Pa]
     pub inlet_pressure: T,
     /// Outlet boundary resistance [Pa·s/m³]
     pub outlet_resistance: T,
@@ -304,8 +304,8 @@ impl<T: RealField + FromPrimitive + Copy> BifurcationNetwork<T> {
     /// Create a Murray's Law compliant symmetric bifurcation tree
     ///
     /// # Arguments
-    /// * `root_radius` - Root vessel radius [m]
-    /// * `root_length` - Root vessel length [m]
+    /// * `root_radius` - Root vessel radius \[m]
+    /// * `root_length` - Root vessel length \[m]
     /// * `generations` - Number of bifurcation generations (1 = just root)
     /// * `length_ratio` - Length of daughter / length of parent
     pub fn create_symmetric_tree(

@@ -10,11 +10,11 @@ use crate::blood::{PyCarreauYasudaBlood, PyCassonBlood};
 #[pyclass(name = "PoiseuilleConfig2D")]
 #[derive(Clone)]
 pub struct PyPoiseuilleConfig {
-    /// Channel height [m]
+    /// Channel height \[m]
     pub height: f64,
-    /// Channel width [m]
+    /// Channel width \[m]
     pub width: f64,
-    /// Channel length [m]
+    /// Channel length \[m]
     pub length: f64,
     /// Number of grid points in y-direction
     pub ny: usize,
@@ -34,9 +34,9 @@ impl PyPoiseuilleConfig {
     ///
     /// # Arguments
     ///
-    /// * `height` - Channel height [m]
-    /// * `width` - Channel width [m] (for flow rate calculation)
-    /// * `length` - Channel length [m] (for reference)
+    /// * `height` - Channel height \[m]
+    /// * `width` - Channel width \[m] (for flow rate calculation)
+    /// * `length` - Channel length \[m] (for reference)
     /// * `ny` - Number of grid points in y-direction
     /// * `pressure_gradient` - Pressure gradient dP/dx [Pa/m]
     /// * `tolerance` - Convergence tolerance (default: 1e-6)
@@ -97,9 +97,9 @@ impl PyPoiseuilleConfig {
 #[pyclass(name = "PoiseuilleResult2D")]
 #[derive(Clone)]
 pub struct PyPoiseuilleResult {
-    /// Y coordinates [m]
+    /// Y coordinates \[m]
     pub y_coords: Vec<f64>,
-    /// Velocity profile u(y) [m/s]
+    /// Velocity profile u(y) \[m/s]
     pub velocity: Vec<f64>,
     /// Shear rate profile γ(y) [1/s]
     pub shear_rate: Vec<f64>,
@@ -107,7 +107,7 @@ pub struct PyPoiseuilleResult {
     pub viscosity: Vec<f64>,
     /// Flow rate Q [m³/s]
     pub flow_rate: f64,
-    /// Wall shear stress `τ_w` [Pa]
+    /// Wall shear stress `τ_w` \[Pa]
     pub wall_shear_stress: f64,
     /// Number of iterations to converge
     pub iterations: usize,
@@ -152,7 +152,7 @@ impl PyPoiseuilleResult {
         self.flow_rate
     }
 
-    /// Get wall shear stress [Pa]
+    /// Get wall shear stress \[Pa]
     #[getter]
     fn get_wall_shear_stress(&self) -> f64 {
         self.wall_shear_stress
@@ -213,8 +213,8 @@ impl PyPoiseuilleSolver {
     /// # Access profiles
     /// import matplotlib.pyplot as plt
     /// plt.plot(result.y_coords, result.velocity)
-    /// plt.xlabel('y [m]')
-    /// plt.ylabel('u [m/s]')
+    /// plt.xlabel('y \[m]')
+    /// plt.ylabel('u \[m/s]')
     /// plt.show()
     /// ```
     fn solve(&self, blood: &Bound<'_, PyAny>) -> PyResult<PyPoiseuilleResult> {

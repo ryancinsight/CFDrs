@@ -34,7 +34,7 @@ pub struct CarreauYasudaBlood<T: RealField + Copy> {
     pub zero_shear_viscosity: T,
     /// Infinite-shear viscosity μ_∞ [Pa·s]
     pub infinite_shear_viscosity: T,
-    /// Relaxation time λ [s]
+    /// Relaxation time λ \[s]
     pub relaxation_time: T,
     /// Power-law index n [-]
     pub power_law_index: T,
@@ -46,7 +46,7 @@ pub struct CarreauYasudaBlood<T: RealField + Copy> {
     pub specific_heat: T,
     /// Thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Speed of sound [m/s]
+    /// Speed of sound \[m/s]
     pub speed_of_sound: T,
     /// Reference shear rate for default viscosity calculation [1/s]
     pub reference_shear_rate: T,

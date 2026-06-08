@@ -53,11 +53,11 @@ pub struct ProblemConfig<T: RealField + Copy, D: Domain<T>, F: FluidTrait<T>> {
 /// Common problem parameters
 #[derive(Debug, Clone)]
 pub struct ProblemParameters<T: RealField + Copy> {
-    /// Reference pressure [Pa]
+    /// Reference pressure \[Pa]
     pub reference_pressure: T,
-    /// Reference temperature [K]
+    /// Reference temperature \[K]
     pub reference_temperature: Option<T>,
-    /// Gravity vector [m/s²]
+    /// Gravity vector \[m/s²]
     pub gravity: Option<nalgebra::Vector3<T>>,
     /// Time-dependent problem
     pub transient: bool,

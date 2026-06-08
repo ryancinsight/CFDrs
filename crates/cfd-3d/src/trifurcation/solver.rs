@@ -51,9 +51,9 @@ use serde::{Deserialize, Serialize};
 pub struct TrifurcationConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Inlet volume flow rate [m³/s]
     pub inlet_flow_rate: T,
-    /// Inlet pressure [Pa]
+    /// Inlet pressure \[Pa]
     pub inlet_pressure: T,
-    /// Outlet pressures for each of the three daughter branches [Pa]
+    /// Outlet pressures for each of the three daughter branches \[Pa]
     pub outlet_pressures: [T; 3],
     /// Maximum Picard/Newton nonlinear iterations
     pub max_nonlinear_iterations: usize,
@@ -95,11 +95,11 @@ impl<
 pub struct TrifurcationSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Volume flow rates [parent, daughter1, daughter2, daughter3] [m³/s]
     pub flow_rates: [T; 4],
-    /// Cross-section-averaged velocities [parent, d1, d2, d3] [m/s]
+    /// Cross-section-averaged velocities [parent, d1, d2, d3] \[m/s]
     pub mean_velocities: [T; 4],
-    /// Wall shear stresses [parent, d1, d2, d3] [Pa]
+    /// Wall shear stresses [parent, d1, d2, d3] \[Pa]
     pub wall_shear_stresses: [T; 4],
-    /// Pressure drops [parent, d1, d2, d3] [Pa]
+    /// Pressure drops [parent, d1, d2, d3] \[Pa]
     pub pressure_drops: [T; 4],
     /// Relative mass conservation error: |Q_in - ΣQ_out| / Q_in
     pub mass_conservation_error: T,

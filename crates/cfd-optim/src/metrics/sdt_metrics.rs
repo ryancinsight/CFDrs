@@ -19,10 +19,10 @@ pub struct ChannelHemolysis {
     /// Flow-weighted Giersiepen HI contribution from this segment.
     pub hi_contribution: f64,
 
-    /// Wall shear stress in this segment [Pa].
+    /// Wall shear stress in this segment \[Pa].
     pub wall_shear_pa: f64,
 
-    /// Transit time through this segment [s].
+    /// Transit time through this segment \[s].
     pub transit_time_s: f64,
 
     /// Fraction of total inlet flow carried by this channel.
@@ -46,7 +46,7 @@ pub struct SdtMetrics {
     /// Wall shear rate at the venturi throat [1/s].
     pub throat_shear_rate_inv_s: f64,
 
-    /// Estimated wall shear stress at the venturi throat [Pa].
+    /// Estimated wall shear stress at the venturi throat \[Pa].
     /// May greatly exceed the FDA 150 Pa limit; transit time is < 1 μs–1 ms.
     pub throat_shear_pa: f64,
 
@@ -56,7 +56,7 @@ pub struct SdtMetrics {
     pub throat_exceeds_fda: bool,
 
     // ── Main-channel safety ──
-    /// Maximum wall shear stress in sustained-contact (non-throat) channels [Pa].
+    /// Maximum wall shear stress in sustained-contact (non-throat) channels \[Pa].
     /// Must be < 150 Pa for FDA compliance.
     pub max_main_channel_shear_pa: f64,
 
@@ -85,14 +85,14 @@ pub struct SdtMetrics {
     /// `1.0` = all 36 wells are in the channel path.
     pub well_coverage_fraction: f64,
 
-    /// Mean fluid residence time in the treatment zone [s].
+    /// Mean fluid residence time in the treatment zone \[s].
     pub mean_residence_time_s: f64,
 
     // ── System-level ──
-    /// Total pressure drop across the device [Pa].
+    /// Total pressure drop across the device \[Pa].
     pub total_pressure_drop_pa: f64,
 
-    /// Total channel path length [mm].
+    /// Total channel path length \[mm].
     pub total_path_length_mm: f64,
 
     /// `true` if the total ΔP < available gauge pressure (syringe pump can
@@ -173,7 +173,7 @@ pub struct SdtMetrics {
     /// `0.0` for non-leukapheresis topologies.
     pub wbc_purity: f64,
 
-    /// Total extracorporeal volume [mL] (sum of all channel volumes).
+    /// Total extracorporeal volume \[mL] (sum of all channel volumes).
     ///
     /// Used to verify that ECV ≤ 10% of patient blood volume.
     /// `0.0` for non-leukapheresis topologies.
@@ -206,7 +206,7 @@ pub struct SdtMetrics {
     /// Platelet activation index per device pass (Hellums 1994 power-law model).
     ///
     /// `PAI = 1.8×10⁻⁸ × τ^1.325 × t^0.462`
-    /// where τ = peak shear stress [Pa], t = exposure duration [s].
+    /// where τ = peak shear stress \[Pa], t = exposure duration \[s].
     /// Threshold: [`PAI_PASS_LIMIT`](crate::constraints::PAI_PASS_LIMIT) = 5×10⁻⁴.
     pub platelet_activation_index: f64,
 
@@ -404,7 +404,7 @@ pub struct SdtMetrics {
     #[serde(default)]
     pub cif_terminal_bi_qfrac: f64,
 
-    /// CIF post-remerge outlet-tail length [mm].
+    /// CIF post-remerge outlet-tail length \[mm].
     ///
     /// Shorter values indicate "remerge near outlet" layouts.
     #[serde(default)]
@@ -496,7 +496,7 @@ pub struct SdtMetrics {
     pub sonoluminescence_proxy: f64,
 
     // ── RBC safety / FDA transit-time analysis ───────────────────────────────
-    /// Transit time of blood through the venturi throat [s].
+    /// Transit time of blood through the venturi throat \[s].
     ///
     /// Computed as `throat_length_m / v_throat`.
     /// Near-zero when the topology has no venturi.  Used to assess whether the
@@ -634,7 +634,7 @@ pub struct SdtMetrics {
     #[serde(default)]
     pub cancer_therapy_zone_fraction: f64,
 
-    /// Effective optical path length for 405 nm light transport through blood [m].
+    /// Effective optical path length for 405 nm light transport through blood \[m].
     ///
     /// Approximated from treatment-channel depth in the current 1D model.
     #[serde(default)]
@@ -649,7 +649,7 @@ pub struct SdtMetrics {
     #[serde(default)]
     pub blue_light_delivery_index_405nm: f64,
 
-    /// FDA main-channel safety margin [Pa].
+    /// FDA main-channel safety margin \[Pa].
     ///
     /// `safety_margin_pa = 150 Pa − max_main_channel_shear_pa`
     ///
@@ -677,18 +677,18 @@ pub struct SdtMetrics {
     pub therapy_channel_fraction: f64,
 
     // ── Wall shear percentile statistics (FDA spatial assessment) ────────────
-    /// 95th-percentile wall shear stress across all non-throat channels [Pa].
+    /// 95th-percentile wall shear stress across all non-throat channels \[Pa].
     ///
     /// Per ASTM F1841-20: spatial distribution of shear must be reported.
     /// P95 captures the predominant shear environment excluding brief peaks.
     #[serde(default)]
     pub wall_shear_p95_pa: f64,
 
-    /// 99th-percentile wall shear stress across all non-throat channels [Pa].
+    /// 99th-percentile wall shear stress across all non-throat channels \[Pa].
     #[serde(default)]
     pub wall_shear_p99_pa: f64,
 
-    /// Mean wall shear stress across all non-throat channels [Pa].
+    /// Mean wall shear stress across all non-throat channels \[Pa].
     #[serde(default)]
     pub wall_shear_mean_pa: f64,
 
@@ -703,7 +703,7 @@ pub struct SdtMetrics {
     pub fda_shear_percentile_compliant: bool,
 
     // ── Diffuser pressure recovery ───────────────────────────────────────────
-    /// Diffuser pressure recovery downstream of venturi throat [Pa].
+    /// Diffuser pressure recovery downstream of venturi throat \[Pa].
     ///
     /// `ΔP_recovery = C_D × ½ρ(v_throat² − v_outlet²)` (Idelchik Diagram 6-21).
     /// A non-zero value indicates the abrupt-expansion assumption has been
@@ -721,7 +721,7 @@ pub struct SdtMetrics {
     pub venturi_total_loss_coefficient: f64,
 
     // ── Acoustic energy budget ───────────────────────────────────────────────
-    /// Total hydraulic pumping power [W].
+    /// Total hydraulic pumping power \[W].
     ///
     /// `mechanical_power_w = total_pressure_drop_pa × Q_inlet`
     ///

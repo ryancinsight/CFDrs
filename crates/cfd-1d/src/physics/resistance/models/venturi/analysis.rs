@@ -37,7 +37,7 @@ use num_traits::cast::FromPrimitive;
 /// Detailed Venturi flow analysis result
 #[derive(Debug, Clone)]
 pub struct VenturiAnalysis<T: RealField + Copy> {
-    /// Throat velocity [m/s]
+    /// Throat velocity \[m/s]
     pub throat_velocity: T,
     /// Throat Reynolds number
     pub throat_reynolds: T,
@@ -45,15 +45,15 @@ pub struct VenturiAnalysis<T: RealField + Copy> {
     pub throat_shear_rate: T,
     /// Apparent viscosity at throat [Pa·s]
     pub throat_viscosity: T,
-    /// Contraction pressure drop [Pa]
+    /// Contraction pressure drop \[Pa]
     pub dp_contraction: T,
-    /// Throat friction pressure drop [Pa]
+    /// Throat friction pressure drop \[Pa]
     pub dp_friction: T,
-    /// Expansion loss [Pa]
+    /// Expansion loss \[Pa]
     pub dp_expansion_loss: T,
-    /// Expansion recovery [Pa]
+    /// Expansion recovery \[Pa]
     pub dp_recovery: T,
-    /// Net pressure drop [Pa]
+    /// Net pressure drop \[Pa]
     pub dp_total: T,
     /// Discharge coefficient used
     pub discharge_coefficient: T,

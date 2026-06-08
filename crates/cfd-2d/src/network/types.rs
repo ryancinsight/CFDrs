@@ -14,15 +14,15 @@ use super::{ChannelReferenceTrace, NetworkReferenceTrace};
 pub struct ChannelProjectionSummary<T> {
     /// Blueprint channel identifier.
     pub channel_id: String,
-    /// Solver-domain length after projection [m].
+    /// Solver-domain length after projection \[m].
     pub grid_length_m: T,
-    /// Solver-domain width after projection [m].
+    /// Solver-domain width after projection \[m].
     pub grid_width_m: T,
-    /// Flattened path length used for projection [m].
+    /// Flattened path length used for projection \[m].
     pub path_length_m: T,
-    /// Schematic x-span of the routed path [m].
+    /// Schematic x-span of the routed path \[m].
     pub path_span_x_m: T,
-    /// Schematic y-span of the routed path [m].
+    /// Schematic y-span of the routed path \[m].
     pub path_span_y_m: T,
     /// Number of fluid cells flagged by the projection.
     pub fluid_cell_count: usize,
@@ -44,17 +44,17 @@ pub struct Channel2dResult<T> {
     pub solve_result: SolveResult<T>,
     /// Schematics-driven projection metadata for this channel.
     pub projection: ChannelProjectionSummary<T>,
-    /// Estimated wall shear stress from the blueprint cross-section model [Pa].
+    /// Estimated wall shear stress from the blueprint cross-section model \[Pa].
     pub wall_shear_pa: T,
-    /// Maximum wall shear stress extracted from the solved 2D field [Pa].
+    /// Maximum wall shear stress extracted from the solved 2D field \[Pa].
     pub field_wall_shear_max_pa: T,
-    /// Mean wall shear stress extracted from the solved 2D field [Pa].
+    /// Mean wall shear stress extracted from the solved 2D field \[Pa].
     pub field_wall_shear_mean_pa: T,
-    /// Mean inlet pressure extracted from the solved 2D field [Pa].
+    /// Mean inlet pressure extracted from the solved 2D field \[Pa].
     pub field_inlet_pressure_pa: T,
-    /// Mean outlet pressure extracted from the solved 2D field [Pa].
+    /// Mean outlet pressure extracted from the solved 2D field \[Pa].
     pub field_outlet_pressure_pa: T,
-    /// Inlet-to-outlet pressure drop extracted from the solved 2D field [Pa].
+    /// Inlet-to-outlet pressure drop extracted from the solved 2D field \[Pa].
     pub field_pressure_drop_pa: T,
     /// Effective hydraulic resistance extracted from the solved 2D field [Pa·s/m³].
     pub field_effective_resistance_pa_s_per_m3: T,
@@ -64,7 +64,7 @@ pub struct Channel2dResult<T> {
     pub field_outlet_flow_error_m3_s: T,
     /// Relative outlet-flow error against the 1D reference flow [%].
     pub field_outlet_flow_error_pct: T,
-    /// Transit time through the channel [s].
+    /// Transit time through the channel \[s].
     pub transit_time_s: T,
     /// Eulerian-Lagrangian separation efficiency over the solved 2D field [%].
     pub field_separation_efficiency_pct: Option<T>,

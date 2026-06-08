@@ -68,10 +68,10 @@ impl PyBifurcationSolver {
     /// Create new bifurcation solver
     ///
     /// # Arguments
-    /// - `d_parent`: Parent vessel diameter [m]
-    /// - `d_daughter1`: Daughter 1 vessel diameter [m]
-    /// - `d_daughter2`: Daughter 2 vessel diameter [m]
-    /// - `length`: Vessel length [m] (default: 1e-3)
+    /// - `d_parent`: Parent vessel diameter \[m]
+    /// - `d_daughter1`: Daughter 1 vessel diameter \[m]
+    /// - `d_daughter2`: Daughter 2 vessel diameter \[m]
+    /// - `length`: Vessel length \[m] (default: 1e-3)
     /// - `flow_split_ratio`: Flow distribution ratio `Q_1/(Q_1+Q_2)` (default: 0.5)
     #[new]
     #[pyo3(signature = (d_parent, d_daughter1, d_daughter2, length=1e-3, flow_split_ratio=0.5))]
@@ -95,7 +95,7 @@ impl PyBifurcationSolver {
     ///
     /// # Arguments
     /// - `flow_rate`: Parent inlet flow rate [m³/s]
-    /// - `pressure`: Parent inlet pressure [Pa]
+    /// - `pressure`: Parent inlet pressure \[Pa]
     /// - `blood`: Blood model (`CassonBlood` or `CarreauYasudaBlood`)
     ///
     /// # Returns

@@ -85,9 +85,9 @@ pub struct NavierStokesSolver2D<T: RealField + Copy + Float + FromPrimitive> {
 struct TurbulenceCoupling<T: RealField + Copy> {
     /// k-omega SST model.
     model: crate::physics::turbulence::k_omega_sst::KOmegaSSTModel<T>,
-    /// Turbulent kinetic energy at cell centers [nx][ny].
+    /// Turbulent kinetic energy at cell centers \[nx]\[ny].
     k: Vec<T>,
-    /// Specific dissipation rate at cell centers [nx][ny].
+    /// Specific dissipation rate at cell centers \[nx]\[ny].
     omega: Vec<T>,
     /// Update interval (every N SIMPLE iterations).
     update_interval: usize,

@@ -61,9 +61,9 @@ pub use pulsatility::womersley_pulsatility_index;
 /// ```
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WomersleyNumber<T: RealField + Copy> {
-    /// Vessel radius [m]
+    /// Vessel radius \[m]
     pub radius: T,
-    /// Angular frequency of pulsation [rad/s]
+    /// Angular frequency of pulsation \[rad/s]
     pub omega: T,
     /// Fluid density [kg/m³]
     pub density: T,

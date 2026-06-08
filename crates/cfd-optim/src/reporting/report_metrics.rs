@@ -659,8 +659,8 @@ pub struct SdtAcousticMetrics {
 /// # Arguments
 ///
 /// * `cavitation_intensity` — dimensionless cavitation intensity [0, 1]
-/// * `throat_transit_time_s` — residence time in the cavitation zone [s]
-/// * `pressure_drop_pa` — total pressure drop across the chip [Pa]
+/// * `throat_transit_time_s` — residence time in the cavitation zone \[s]
+/// * `pressure_drop_pa` — total pressure drop across the chip \[Pa]
 pub fn compute_sdt_acoustic_metrics(
     cavitation_intensity: f64,
     throat_transit_time_s: f64,

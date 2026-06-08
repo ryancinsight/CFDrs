@@ -40,13 +40,13 @@ use num_traits::{Float, FromPrimitive};
 pub struct GorkovPotential<T: RealField + Copy> {
     /// Fluid density $\rho_0$ [kg/m³]
     pub fluid_density: T,
-    /// Fluid speed of sound $c_0$ [m/s]
+    /// Fluid speed of sound $c_0$ \[m/s]
     pub fluid_sound_speed: T,
     /// Particle density $\rho_p$ [kg/m³]
     pub particle_density: T,
-    /// Particle speed of sound $c_p$ [m/s]
+    /// Particle speed of sound $c_p$ \[m/s]
     pub particle_sound_speed: T,
-    /// Particle radius $a$ [m]
+    /// Particle radius $a$ \[m]
     pub particle_radius: T,
 }
 
@@ -129,9 +129,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> GorkovPotential<T> {
     /// $F_x(x) = 4\pi \Phi a^3 k E_{ac} \sin(2kx)$
     ///
     /// # Arguments
-    /// * `pressure_amplitude` - $p_a$ Peak acoustic pressure [Pa]
-    /// * `frequency` - $f$ driving frequency [Hz]
-    /// * `x` - Spatial coordinate along wave axis [m]
+    /// * `pressure_amplitude` - $p_a$ Peak acoustic pressure \[Pa]
+    /// * `frequency` - $f$ driving frequency \[Hz]
+    /// * `x` - Spatial coordinate along wave axis \[m]
     #[inline]
     #[must_use]
     pub fn standing_wave_force_1d(&self, pressure_amplitude: T, frequency: T, x: T) -> T {

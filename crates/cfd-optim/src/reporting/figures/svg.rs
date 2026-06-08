@@ -663,7 +663,7 @@ pub(super) struct DeanVenturiPoint {
     pub total_loss_coefficient: f64,
     /// Upstream static pressure at this venturi position [kPa].
     pub upstream_pressure_kpa: f64,
-    /// Curvature radius at this bend [mm].
+    /// Curvature radius at this bend \[mm].
     pub bend_radius_mm: f64,
 }
 

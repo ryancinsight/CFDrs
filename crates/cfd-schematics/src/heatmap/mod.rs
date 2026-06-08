@@ -47,21 +47,21 @@ const MARGIN_X: f64 = 62.0;
 /// Top margin [px].
 const MARGIN_Y: f64 = 70.0;
 
-/// SBS plate width [mm].
+/// SBS plate width \[mm].
 const PLATE_W_MM: f64 = 127.76;
-/// SBS plate height [mm].
+/// SBS plate height \[mm].
 const PLATE_H_MM: f64 = 85.47;
 
-/// Well pitch [mm].
+/// Well pitch \[mm].
 const PITCH: f64 = 9.0;
-/// First well (A1) centre X [mm].
+/// First well (A1) centre X \[mm].
 const WELL_A1_X: f64 = 14.38;
-/// First well (A1) centre Y [mm].
+/// First well (A1) centre Y \[mm].
 const WELL_A1_Y: f64 = 11.24;
-/// Well drawing radius [mm].
+/// Well drawing radius \[mm].
 const WELL_R: f64 = 3.5;
 
-/// Treatment-zone centre-to-centre span [mm] across 6 wells (5 pitches).
+/// Treatment-zone centre-to-centre span \[mm] across 6 wells (5 pitches).
 const ZONE_CENTER_SPAN_MM: f64 = 45.0;
 /// Treatment zone first column index (0-based) — column 4 in 1-indexed (3 in 0-indexed).
 const ZONE_COL_START: usize = 3;
@@ -69,7 +69,7 @@ const ZONE_COL_START: usize = 3;
 const ZONE_ROW_START: usize = 1;
 /// Number of wells in each axis of the treatment zone.
 const ZONE_WELLS: usize = 6;
-/// Full highlighted treatment-zone envelope [mm] including a half-pitch border
+/// Full highlighted treatment-zone envelope \[mm] including a half-pitch border
 /// around the first and last well centres.
 const ZONE_ENVELOPE_MM: f64 = PITCH * ZONE_WELLS as f64;
 

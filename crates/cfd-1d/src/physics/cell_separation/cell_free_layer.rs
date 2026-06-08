@@ -58,11 +58,11 @@
 /// Valid for tube diameters $D \in [20, 100]\,\mu m$ and hematocrit $H_t \in [0.1, 0.5]$.
 ///
 /// # Arguments
-/// * `diameter_um` — Channel diameter [µm]
+/// * `diameter_um` — Channel diameter \[µm]
 /// * `hematocrit` — Feed hematocrit [0, 1]
 ///
 /// # Returns
-/// CFL width [µm]
+/// CFL width \[µm]
 #[inline]
 pub fn cfl_width_fedosov(diameter_um: f64, hematocrit: f64) -> cfd_core::error::Result<f64> {
     if !diameter_um.is_finite() || diameter_um <= 0.0 || !hematocrit.is_finite() {
@@ -91,11 +91,11 @@ pub fn cfl_width_fedosov(diameter_um: f64, hematocrit: f64) -> cfd_core::error::
 /// ratio model (see [`super::fahraeus_effect::tube_hematocrit_ratio`]).
 ///
 /// # Arguments
-/// * `diameter_um` — Channel diameter [µm]
+/// * `diameter_um` — Channel diameter \[µm]
 /// * `hematocrit` — Feed hematocrit [0, 1]
 ///
 /// # Returns
-/// CFL width [µm]
+/// CFL width \[µm]
 pub fn cfl_width_sharan_popel(diameter_um: f64, hematocrit: f64) -> cfd_core::error::Result<f64> {
     if !diameter_um.is_finite() || diameter_um <= 0.0 || !hematocrit.is_finite() {
         return Err(cfd_core::error::Error::InvalidConfiguration(
@@ -144,7 +144,7 @@ pub fn cfl_width_sharan_popel(diameter_um: f64, hematocrit: f64) -> cfd_core::er
 /// when $\delta = R$ (pure plasma) and to $\mu_c$ when $\delta = 0$ (no CFL).
 ///
 /// # Arguments
-/// * `diameter_um` — Channel diameter [µm]
+/// * `diameter_um` — Channel diameter \[µm]
 /// * `hematocrit` — Feed hematocrit [0, 1]
 /// * `mu_plasma_pa_s` — Plasma viscosity [Pa·s] (typically 0.0012)
 /// * `mu_core_pa_s` — Core (RBC-rich) viscosity [Pa·s] (typically 3.5-5× plasma)

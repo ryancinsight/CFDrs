@@ -14,15 +14,15 @@ use serde::{Deserialize, Serialize};
 /// bifurcation following Murray's Law principles.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct OptimalBifurcation<T: RealField + Copy> {
-    /// Parent vessel diameter [m]
+    /// Parent vessel diameter \[m]
     pub parent_diameter: T,
-    /// Major daughter diameter [m]
+    /// Major daughter diameter \[m]
     pub daughter1_diameter: T,
-    /// Minor daughter diameter [m]
+    /// Minor daughter diameter \[m]
     pub daughter2_diameter: T,
-    /// Half-angle of major daughter branch from parent axis [rad]
+    /// Half-angle of major daughter branch from parent axis \[rad]
     pub angle1: T,
-    /// Half-angle of minor daughter branch from parent axis [rad]
+    /// Half-angle of minor daughter branch from parent axis \[rad]
     pub angle2: T,
     /// Flow rate in parent [m³/s]
     pub parent_flow: T,

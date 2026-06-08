@@ -5,7 +5,7 @@
 //! **Theorem**: The total viscous power dissipated in a resistive network is:
 //!
 //! ```text
-//! W_total = Σ_{e ∈ E} Q_e · ΔP_e = Σ_{e ∈ E} R_e · Q_e²   [W]
+//! W_total = Σ_{e ∈ E} Q_e · ΔP_e = Σ_{e ∈ E} R_e · Q_e²   \[W]
 //! ```
 //!
 //! This follows directly from Ohm's analogy for hydraulic networks (ΔP_e = R_e · Q_e)
@@ -33,7 +33,7 @@ pub struct PerformanceMetrics<T: RealField + Copy> {
     pub throughput: T,
     /// Pressure efficiency (useful pressure / total pressure)
     pub pressure_efficiency: T,
-    /// Power consumption [W]
+    /// Power consumption \[W]
     pub power_consumption: T,
     /// Mixing efficiency (for mixing applications)
     pub mixing_efficiency: Option<T>,

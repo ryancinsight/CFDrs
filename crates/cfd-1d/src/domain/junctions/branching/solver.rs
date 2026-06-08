@@ -19,11 +19,11 @@ use serde::{Deserialize, Serialize};
 /// Configuration for branching network solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BranchingNetworkConfig<T: RealField + Copy> {
-    /// Inlet pressure [Pa]
+    /// Inlet pressure \[Pa]
     pub inlet_pressure: T,
     /// Inlet volumetric flow rate [m³/s]
     pub inlet_flow_rate: T,
-    /// Outlet pressure [Pa] (typically 0 for gauge pressure)
+    /// Outlet pressure \[Pa] (typically 0 for gauge pressure)
     pub outlet_pressure: T,
     /// Maximum solver iterations (for implicit methods)
     pub max_iterations: usize,
@@ -250,9 +250,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingN
 pub struct NetworkSolutionSummary<T: RealField + Copy> {
     /// Total number of branch junctions solved
     pub num_branch_junctions: usize,
-    /// Total pressure drop across network [Pa]
+    /// Total pressure drop across network \[Pa]
     pub total_pressure_drop: T,
-    /// Average pressure at branch junctions [Pa]
+    /// Average pressure at branch junctions \[Pa]
     pub average_junction_pressure: T,
     /// Flow conservation error (should be < 1e-10)
     pub mass_conservation_error: T,

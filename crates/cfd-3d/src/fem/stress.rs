@@ -58,7 +58,7 @@ use num_traits::FromPrimitive;
 ///
 /// # Arguments
 /// * `mu` — Dynamic viscosity [Pa·s] (scalar, possibly element-local).
-/// * `pressure` — Mechanical pressure [Pa].
+/// * `pressure` — Mechanical pressure \[Pa].
 /// * `strain_rate` — Symmetric strain-rate tensor ε̇ = ½(∇u + (∇u)ᵀ).
 pub fn stress_tensor<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
     mu: T,

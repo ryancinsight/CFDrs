@@ -56,7 +56,7 @@ use serde::{Deserialize, Serialize};
 
 use super::rayleigh_plesset::RayleighPlesset;
 
-/// Reference loading duration for membrane injury thresholds [s].
+/// Reference loading duration for membrane injury thresholds \[s].
 ///
 /// The threshold set in [`CellularMembraneMechanics`] is interpreted at this
 /// timescale and scaled for faster/slower impulses by the Rayleigh collapse
@@ -67,11 +67,11 @@ const BLOOD_DENSITY_KG_M3: f64 = 1060.0;
 /// Defined structural mechanics for cellular membranes.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct CellularMembraneMechanics<T: RealField + Copy> {
-    /// Nominal radius of the cell [m].
+    /// Nominal radius of the cell \[m].
     pub cell_radius_m: T,
-    /// Thickness of the cellular membrane [m].
+    /// Thickness of the cellular membrane \[m].
     pub membrane_thickness_m: T,
-    /// Elastic modulus of the cellular membrane [Pa].
+    /// Elastic modulus of the cellular membrane \[Pa].
     pub membrane_elastic_modulus_pa: T,
     /// Areal strain threshold inducing reversible or irreversible cell membrane pores.
     pub critical_areal_strain_permeabilization: T,

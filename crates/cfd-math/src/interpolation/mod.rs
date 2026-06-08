@@ -37,12 +37,12 @@
 //! ∫_a^b [S''(x)]² dx   subject to S(xᵢ) = yᵢ  ∀i
 //! ```
 //!
-//! among all functions in C²([a,b]). This is the variational characterisation of
+//! among all functions in C²(\[a,b]). This is the variational characterisation of
 //! the cubic spline as the "minimum curvature" interpolant.
 //!
 //! ## Theorem — Error Bound for Cubic Spline
 //!
-//! **Theorem**: For f ∈ C⁴([a,b]) with mesh spacing h = maxᵢ(xᵢ₊₁ - xᵢ):
+//! **Theorem**: For f ∈ C⁴(\[a,b]) with mesh spacing h = maxᵢ(xᵢ₊₁ - xᵢ):
 //!
 //! ```text
 //! ‖f - S‖_∞ ≤ (5/384) h⁴ ‖f⁽⁴⁾‖_∞

@@ -77,13 +77,13 @@ pub struct SmagorinskyModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy
     pub cs: T,
     /// Base Smagorinsky constant for dynamic model
     pub cs_base: T,
-    /// Physical grid spacing in the x direction [m].
+    /// Physical grid spacing in the x direction \[m].
     pub dx: T,
-    /// Physical grid spacing in the y direction [m].
+    /// Physical grid spacing in the y direction \[m].
     pub dy: T,
-    /// Physical grid spacing in the z direction [m].
+    /// Physical grid spacing in the z direction \[m].
     pub dz: T,
-    /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) [m].
+    /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) \[m].
     ///
     /// # Theorem — Geometric Mean Filter Width (Deardorff 1970)
     ///
@@ -129,7 +129,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
     ///
     /// # Arguments
     /// * `cs` — Smagorinsky constant (typically 0.10–0.17 for channel flow)
-    /// * `dx`, `dy`, `dz` — physical cell dimensions [m]
+    /// * `dx`, `dy`, `dz` — physical cell dimensions \[m]
     ///
     /// # Example
     /// ```rust,ignore

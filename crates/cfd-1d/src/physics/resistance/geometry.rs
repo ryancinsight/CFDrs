@@ -55,7 +55,7 @@ pub enum ChannelGeometry<T: RealField + Copy> {
 }
 
 impl<T: RealField + Copy + FromPrimitive> ChannelGeometry<T> {
-    /// Cross-sectional area [m²]
+    /// Cross-sectional area \[m²]
     pub fn cross_sectional_area(&self) -> Result<T> {
         let pi = T::pi();
         let four = T::one() + T::one() + T::one() + T::one();
@@ -78,7 +78,7 @@ impl<T: RealField + Copy + FromPrimitive> ChannelGeometry<T> {
         }
     }
 
-    /// Hydraulic diameter Dh = 4A/P [m]
+    /// Hydraulic diameter Dh = 4A/P \[m]
     pub fn hydraulic_diameter(&self) -> Result<T> {
         let two = T::one() + T::one();
         let four = T::one() + T::one() + T::one() + T::one();
@@ -163,7 +163,7 @@ impl<T: RealField + Copy + FromPrimitive> ChannelGeometry<T> {
         }
     }
 
-    /// Channel length [m]
+    /// Channel length \[m]
     pub fn length(&self) -> T {
         match self {
             Self::Circular { length, .. }

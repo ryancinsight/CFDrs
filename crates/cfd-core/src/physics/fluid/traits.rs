@@ -17,7 +17,7 @@ pub struct FluidState<T: RealField + Copy> {
     pub specific_heat: T,
     /// Thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Speed of sound [m/s]
+    /// Speed of sound \[m/s]
     pub speed_of_sound: T,
 }
 
@@ -72,7 +72,7 @@ pub trait Fluid<T: RealField + Copy>: Send + Sync {
     /// Get fluid properties at given conditions
     fn properties_at(&self, temperature: T, pressure: T) -> Result<FluidState<T>, Error>;
 
-    /// Get speed of sound at given conditions [m/s]
+    /// Get speed of sound at given conditions \[m/s]
     fn speed_of_sound_at(&self, temperature: T, pressure: T) -> Result<T, Error> {
         self.properties_at(temperature, pressure)
             .map(|s| s.speed_of_sound)
@@ -91,12 +91,12 @@ pub trait Fluid<T: RealField + Copy>: Send + Sync {
         false
     }
 
-    /// Get reference temperature for property evaluation [K]
+    /// Get reference temperature for property evaluation \[K]
     fn reference_temperature(&self) -> Option<T> {
         None
     }
 
-    /// Get reference pressure for property evaluation [Pa]
+    /// Get reference pressure for property evaluation \[Pa]
     fn reference_pressure(&self) -> Option<T> {
         None
     }

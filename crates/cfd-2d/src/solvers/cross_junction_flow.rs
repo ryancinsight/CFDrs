@@ -47,13 +47,13 @@ use serde::{Deserialize, Serialize};
 /// along the y-axis.  Both are centred on the same junction point.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrossJunctionGeometry<T: RealField + Copy> {
-    /// Width of the horizontal channel [m].
+    /// Width of the horizontal channel \[m].
     pub horizontal_width: T,
-    /// Total length of the horizontal channel [m].
+    /// Total length of the horizontal channel \[m].
     pub horizontal_length: T,
-    /// Width of the vertical channel [m].
+    /// Width of the vertical channel \[m].
     pub vertical_width: T,
-    /// Total length of the vertical channel [m].
+    /// Total length of the vertical channel \[m].
     pub vertical_length: T,
 }
 
@@ -251,7 +251,7 @@ pub struct CrossJunctionSolution<T: RealField + Copy> {
     pub q_north: T,
     /// Flow rate through the south port.
     pub q_south: T,
-    /// Pressure drop across the junction, west → east [Pa].
+    /// Pressure drop across the junction, west → east \[Pa].
     pub dp_junction: T,
     /// Relative mass-balance error.
     pub mass_balance_error: T,

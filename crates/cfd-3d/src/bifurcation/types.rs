@@ -12,12 +12,12 @@ use super::geometry::BifurcationGeometry3D;
 pub struct BifurcationConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Inlet volumetric flow rate [m³/s]
     pub inlet_flow_rate: T,
-    /// Inlet pressure [Pa]
+    /// Inlet pressure \[Pa]
     pub inlet_pressure: T,
-    /// Outlet pressure [Pa]
+    /// Outlet pressure \[Pa]
     pub outlet_pressure: T,
 
-    /// Time step size [s] (for transient)
+    /// Time step size \[s] (for transient)
     pub time_step: T,
     /// Number of time steps
     pub num_time_steps: usize,
@@ -72,33 +72,33 @@ pub struct BifurcationSolution3D<T: cfd_mesh::domain::core::Scalar + RealField +
     pub q_daughter1: T,
     /// Volume flow rate in the second daughter branch [m³/s]
     pub q_daughter2: T,
-    /// Mean velocity in the parent branch [m/s]
+    /// Mean velocity in the parent branch \[m/s]
     pub u_parent_mean: T,
-    /// Mean velocity in the first daughter branch [m/s]
+    /// Mean velocity in the first daughter branch \[m/s]
     pub u_daughter1_mean: T,
-    /// Mean velocity in the second daughter branch [m/s]
+    /// Mean velocity in the second daughter branch \[m/s]
     pub u_daughter2_mean: T,
-    /// Pressure at the inlet cross-section [Pa]
+    /// Pressure at the inlet cross-section \[Pa]
     pub p_inlet: T,
-    /// Pressure at the junction midpoint [Pa]
+    /// Pressure at the junction midpoint \[Pa]
     pub p_junction_mid: T,
-    /// Pressure at the first daughter outlet [Pa]
+    /// Pressure at the first daughter outlet \[Pa]
     pub p_daughter1_outlet: T,
-    /// Pressure at the second daughter outlet [Pa]
+    /// Pressure at the second daughter outlet \[Pa]
     pub p_daughter2_outlet: T,
-    /// Mean pressure at the outlet [Pa]
+    /// Mean pressure at the outlet \[Pa]
     pub p_outlet: T,
-    /// Pressure drop across the parent branch [Pa]
+    /// Pressure drop across the parent branch \[Pa]
     pub dp_parent: T,
-    /// Pressure drop across the first daughter branch [Pa]
+    /// Pressure drop across the first daughter branch \[Pa]
     pub dp_daughter1: T,
-    /// Pressure drop across the second daughter branch [Pa]
+    /// Pressure drop across the second daughter branch \[Pa]
     pub dp_daughter2: T,
-    /// Volume-averaged wall shear stress in the parent branch [Pa]
+    /// Volume-averaged wall shear stress in the parent branch \[Pa]
     pub wall_shear_stress_parent: T,
-    /// Volume-averaged wall shear stress in the first daughter [Pa]
+    /// Volume-averaged wall shear stress in the first daughter \[Pa]
     pub wall_shear_stress_daughter1: T,
-    /// Volume-averaged wall shear stress in the second daughter [Pa]
+    /// Volume-averaged wall shear stress in the second daughter \[Pa]
     pub wall_shear_stress_daughter2: T,
     /// Relative mass conservation error: |Q_in - Q_d1 - Q_d2| / Q_in
     pub mass_conservation_error: T,

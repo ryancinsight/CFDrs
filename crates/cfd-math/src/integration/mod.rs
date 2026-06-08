@@ -22,7 +22,7 @@
 //!
 //! ## Theorem — Composite Rule Error Bound
 //!
-//! **Theorem (Composite p-point Rule)**: For f ∈ C^{2p}([a,b]), the composite
+//! **Theorem (Composite p-point Rule)**: For f ∈ C^{2p}(\[a,b]), the composite
 //! p-point Gauss rule on a uniform partition of step h satisfies:
 //!
 //! ```text

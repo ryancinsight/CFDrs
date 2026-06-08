@@ -22,7 +22,7 @@ pub struct CarreauYasuda<T: RealField + Copy> {
     pub viscosity_zero: T,
     /// Infinite-shear viscosity μ_inf [Pa·s]
     pub viscosity_inf: T,
-    /// Relaxation time λ [s]
+    /// Relaxation time λ \[s]
     pub lambda: T,
     /// Power law index n [-]
     pub power_index: T,
@@ -32,7 +32,7 @@ pub struct CarreauYasuda<T: RealField + Copy> {
     pub specific_heat: T,
     /// Thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Speed of sound [m/s]
+    /// Speed of sound \[m/s]
     pub speed_of_sound: T,
 }
 

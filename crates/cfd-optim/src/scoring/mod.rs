@@ -193,7 +193,7 @@ fn score_candidate_impl(
 ///
 /// **Proof sketch**
 /// The function is affine (`0.5 + 5m`) followed by `clamp(0, 1)`.
-/// Clamping maps all inputs into `[0,1]` and preserves monotonicity because
+/// Clamping maps all inputs into `\[0,1]` and preserves monotonicity because
 /// both the affine map and clamp are monotone non-decreasing.
 #[inline]
 #[must_use]

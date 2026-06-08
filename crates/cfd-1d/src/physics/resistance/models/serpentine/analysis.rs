@@ -24,11 +24,11 @@ pub struct SerpentineAnalysis<T: RealField + Copy> {
     pub friction_factor_straight: T,
     /// Curvature-corrected friction factor
     pub friction_factor_curved: T,
-    /// Friction pressure drop (straight segments with curvature correction) [Pa]
+    /// Friction pressure drop (straight segments with curvature correction) \[Pa]
     pub dp_friction: T,
-    /// Bend minor loss pressure drop [Pa]
+    /// Bend minor loss pressure drop \[Pa]
     pub dp_bends: T,
-    /// Total pressure drop [Pa]
+    /// Total pressure drop \[Pa]
     pub dp_total: T,
     /// Apparent viscosity at wall [Pa·s]
     pub wall_viscosity: T,

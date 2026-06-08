@@ -66,7 +66,7 @@ pub struct PeripheralRecovery {
     pub n_sub_arms: u8,
     /// Index of the sub-arm that feeds back to the treatment path.
     pub recovery_arm_idx: usize,
-    /// Hydraulic diameter of the recovery sub-arm [m].
+    /// Hydraulic diameter of the recovery sub-arm \[m].
     pub recovery_dh_m: f64,
 }
 
@@ -86,10 +86,10 @@ pub struct CascadeStage {
     pub arm_q_fracs: [f64; 5],
     /// Number of active arms (2 = bifurcation, 3 = trifurcation, 4 = quad, 5 = penta).
     pub n_arms: u8,
-    /// Hydraulic diameter of the treatment arm [m] at this stage.
+    /// Hydraulic diameter of the treatment arm \[m] at this stage.
     /// Used to compute κ = cell_diameter / Dh for β amplification.
     pub treatment_dh_m: f64,
-    /// Inflow velocity into the junction [m/s].
+    /// Inflow velocity into the junction \[m/s].
     /// Used for PMC5114676 Zweifach-Fung high-velocity inversion mechanics.
     pub parent_v_in_m_s: f64,
     /// Optional peripheral recovery sub-splits (up to 4 per stage).

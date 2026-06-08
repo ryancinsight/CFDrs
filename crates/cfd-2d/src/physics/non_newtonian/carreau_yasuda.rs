@@ -14,7 +14,7 @@
 //! - $\mu(γ̇)$ is the apparent dynamic viscosity [Pa·s]
 //! - $\mu_0$ is the zero-shear viscosity limit [Pa·s]
 //! - $\mu_\infty$ is the infinite-shear viscosity limit [Pa·s]
-//! - $\lambda$ is the characteristic relaxation time [s]
+//! - $\lambda$ is the characteristic relaxation time \[s]
 //! - $n$ is the flow behavior index (power law index for shear-thinning < 1)
 //! - $a$ is the Yasuda index controlling the transition curve
 //! - $γ̇ = \sqrt{2 \mathbf{S}:\mathbf{S}}$ is the shear rate magnitude (2nd invariant)
@@ -46,7 +46,7 @@ pub struct CarreauYasudaModel<T: RealField + Copy> {
     pub mu_0: T,
     /// Infinite-shear viscosity limit $\mu_\infty$ [Pa·s]
     pub mu_inf: T,
-    /// Relaxation time $\lambda$ [s]
+    /// Relaxation time $\lambda$ \[s]
     pub lambda: T,
     /// Yasuda transition parameter $a$ (dimensionless)
     pub a: T,

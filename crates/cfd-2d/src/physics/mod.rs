@@ -20,11 +20,11 @@
 //! ```
 //!
 //! where:
-//! - u is the velocity vector field [m/s]
-//! - p is the pressure field [Pa]
+//! - u is the velocity vector field \[m/s]
+//! - p is the pressure field \[Pa]
 //! - ρ is the fluid density [kg/m³]
 //! - ν = μ/ρ is the kinematic viscosity [m²/s]
-//! - f represents body forces [m/s²]
+//! - f represents body forces \[m/s²]
 //!
 //! **Derivation**: The Navier-Stokes equations are derived from:
 //! 1. **Conservation of Momentum**: Newton's second law applied to fluid elements

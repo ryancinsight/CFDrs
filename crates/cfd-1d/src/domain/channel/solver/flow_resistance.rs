@@ -94,7 +94,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
     ///
     /// Computes Knudsen number via Chapman-Enskog mean free path (White 2006, §1.7):
     /// ```text
-    /// λ = μ · √(π/2) / (ρ · c)   [m]
+    /// λ = μ · √(π/2) / (ρ · c)   \[m]
     /// Kn = λ / D_h
     /// ```
     fn update_flow_state(&mut self, fluid: &ConstantPropertyFluid<T>) -> Result<()> {

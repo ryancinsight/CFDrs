@@ -58,7 +58,7 @@ pub struct SpalartAllmarasModel<T: cfd_mesh::domain::core::Scalar + RealField + 
     pub nu: T,
     /// Modified turbulent working variable nu_tilde at each grid point.
     pub nu_tilde: Vec<T>,
-    /// Per-point wall distance d [m].
+    /// Per-point wall distance d \[m].
     pub wall_distance: Vec<T>,
 }
 
@@ -70,7 +70,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Spala
     /// # Arguments
     /// * `n_points`       -- number of grid points (nx*ny*nz)
     /// * `nu`             -- kinematic viscosity [m^2/s]
-    /// * `wall_distances` -- per-point wall distances [m]
+    /// * `wall_distances` -- per-point wall distances \[m]
     pub fn new(n_points: usize, nu: T, wall_distances: Vec<T>) -> Self {
         let three = T::one() + T::one() + T::one();
         let nu_tilde = vec![three * nu; n_points];

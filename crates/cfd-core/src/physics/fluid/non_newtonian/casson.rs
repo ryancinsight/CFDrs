@@ -19,7 +19,7 @@ pub struct Casson<T: RealField + Copy> {
     pub name: String,
     /// Density [kg/m³]
     pub density: T,
-    /// Yield stress τ_y [Pa]
+    /// Yield stress τ_y \[Pa]
     pub yield_stress: T,
     /// Plastic viscosity μ_p (or μ_inf) [Pa·s]
     pub plastic_viscosity: T,
@@ -27,7 +27,7 @@ pub struct Casson<T: RealField + Copy> {
     pub specific_heat: T,
     /// Thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Speed of sound [m/s]
+    /// Speed of sound \[m/s]
     pub speed_of_sound: T,
 }
 

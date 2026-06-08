@@ -35,7 +35,7 @@
 //! Strong Dirichlet enforcement maintains symmetry of the stiffness matrix.
 //! For constrained DOF i with prescribed value gᵢ:
 //!   - Row i → [0 … diag_value … 0], rhs[i] = diag_value · gᵢ
-//!   - For each non-Dirichlet row j: rhs[j] -= K[j,i] · gᵢ, K[j,i] = 0
+//!   - For each non-Dirichlet row j: rhs[j] -= K\[j,i] · gᵢ, K\[j,i] = 0
 //!
 //! This is the standard symmetric Dirichlet enforcement (Hughes 2000, §1.12).
 
@@ -126,7 +126,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     ///
     /// During `build()`, all entries in this row are discarded and the diagonal
     /// is set to `diag_value`. Column entries from Dirichlet DOFs in non-Dirichlet
-    /// rows are eliminated into the RHS: `rhs[j] -= K[j,i] * prescribed_value`.
+    /// rows are eliminated into the RHS: `rhs[j] -= K\[j,i] * prescribed_value`.
     ///
     /// The caller must also set `rhs[dof] = diag_value * prescribed_value`.
     pub fn set_dirichlet_row(&mut self, row: usize, diag_value: T, prescribed_value: T) {
@@ -273,7 +273,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     ///
     /// For each Dirichlet DOF i with prescribed value gᵢ:
     ///   - Row i → diag_value on diagonal, zero elsewhere
-    ///   - For each non-Dirichlet row j with K[j,i]: rhs[j] -= K[j,i] * gᵢ; K[j,i] = 0
+    ///   - For each non-Dirichlet row j with K\[j,i]: rhs[j] -= K\[j,i] * gᵢ; K\[j,i] = 0
     ///
     /// # Complexity
     /// O(nnz) average via HashMap accumulation + O(nnz log nnz) single sort +

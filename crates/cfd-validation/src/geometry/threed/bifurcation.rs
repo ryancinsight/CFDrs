@@ -9,15 +9,15 @@ use nalgebra::{RealField, Vector3};
 /// 3D Bifurcation geometry
 #[derive(Debug, Clone)]
 pub struct Bifurcation3D<T: RealField + Copy> {
-    /// Parent branch diameter [m]
+    /// Parent branch diameter \[m]
     pub d_parent: T,
-    /// Parent branch length [m]
+    /// Parent branch length \[m]
     pub l_parent: T,
-    /// Daughter branch diameters [m]
+    /// Daughter branch diameters \[m]
     pub d_daughters: [T; 2],
-    /// Daughter branch lengths [m]
+    /// Daughter branch lengths \[m]
     pub l_daughters: [T; 2],
-    /// Branching angles (from parent axis) [radians]
+    /// Branching angles (from parent axis) \[radians]
     pub angles: [T; 2],
 }
 

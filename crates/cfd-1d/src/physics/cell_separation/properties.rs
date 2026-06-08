@@ -51,7 +51,7 @@ pub struct CellProperties {
     /// Human-readable cell type name (e.g. "MCF-7 breast cancer").
     pub name: &'static str,
 
-    /// Mean cell diameter [m].
+    /// Mean cell diameter \[m].
     ///
     /// For non-spherical cells (e.g. RBCs), use the effective hydrodynamic
     /// diameter measured in flow (typically the biconcave disc diameter).

@@ -16,20 +16,20 @@ pub struct TwoWayBranchSolution<T: RealField + Copy> {
     /// Daughter 2 volumetric flow rate [m³/s]
     pub q_2: T,
 
-    /// Parent inlet pressure [Pa]
+    /// Parent inlet pressure \[Pa]
     pub p_parent: T,
-    /// Junction pressure [Pa]
+    /// Junction pressure \[Pa]
     pub p_junction: T,
-    /// Daughter 1 outlet pressure [Pa]
+    /// Daughter 1 outlet pressure \[Pa]
     pub p_1: T,
-    /// Daughter 2 outlet pressure [Pa]
+    /// Daughter 2 outlet pressure \[Pa]
     pub p_2: T,
 
-    /// Pressure drop in parent [Pa]
+    /// Pressure drop in parent \[Pa]
     pub dp_parent: T,
-    /// Pressure drop in daughter 1 [Pa]
+    /// Pressure drop in daughter 1 \[Pa]
     pub dp_1: T,
-    /// Pressure drop in daughter 2 [Pa]
+    /// Pressure drop in daughter 2 \[Pa]
     pub dp_2: T,
 
     /// Wall shear rate in daughter 1 [1/s]

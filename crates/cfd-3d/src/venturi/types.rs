@@ -14,9 +14,9 @@ use serde::{Deserialize, Serialize};
 pub struct VenturiConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Inlet volumetric flow rate [m³/s]
     pub inlet_flow_rate: T,
-    /// Inlet pressure [Pa]
+    /// Inlet pressure \[Pa]
     pub inlet_pressure: T,
-    /// Outlet pressure [Pa]
+    /// Outlet pressure \[Pa]
     pub outlet_pressure: T,
 
     /// Maximum iterations for nonlinear (Picard) solver
@@ -28,7 +28,7 @@ pub struct VenturiConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy>
     pub resolution: (usize, usize),
     /// Whether the Venturi is circular or rectangular
     pub circular: bool,
-    /// Channel height [m] for rectangular cross-sections.
+    /// Channel height \[m] for rectangular cross-sections.
     ///
     /// When `circular = false`, the cross-section is `width × height` where
     /// `width` varies axially (inlet → throat → outlet) and `height` is
@@ -67,19 +67,19 @@ impl<
 /// Complete solution to 3D Venturi problem
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct VenturiSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    /// Inlet mean velocity [m/s]
+    /// Inlet mean velocity \[m/s]
     pub u_inlet: T,
-    /// Maximum velocity in the throat [m/s]
+    /// Maximum velocity in the throat \[m/s]
     pub u_throat: T,
-    /// Inlet pressure [Pa]
+    /// Inlet pressure \[Pa]
     pub p_inlet: T,
-    /// Average pressure in the throat [Pa]
+    /// Average pressure in the throat \[Pa]
     pub p_throat: T,
-    /// Outlet pressure [Pa]
+    /// Outlet pressure \[Pa]
     pub p_outlet: T,
-    /// Pressure drop from inlet to throat [Pa]
+    /// Pressure drop from inlet to throat \[Pa]
     pub dp_throat: T,
-    /// Net pressure recovery/loss from inlet to outlet [Pa]
+    /// Net pressure recovery/loss from inlet to outlet \[Pa]
     pub dp_recovery: T,
     /// Pressure coefficient at the throat, scaled by throat dynamic pressure
     pub cp_throat: T,

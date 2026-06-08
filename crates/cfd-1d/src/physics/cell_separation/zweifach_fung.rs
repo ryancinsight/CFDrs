@@ -55,7 +55,7 @@
 
 use cfd_core::error::{Error, Result};
 
-/// Mean human RBC diameter [µm].
+/// Mean human RBC diameter \[µm].
 const RBC_DIAMETER_UM: f64 = 8.0;
 
 /// Confinement ratio: $\kappa = d_{RBC} / D_{channel}$.
@@ -64,7 +64,7 @@ const RBC_DIAMETER_UM: f64 = 8.0;
 /// the strength of the Zweifach-Fung effect.
 ///
 /// # Arguments
-/// * `channel_diameter_um` — Channel hydraulic diameter [µm]
+/// * `channel_diameter_um` — Channel hydraulic diameter \[µm]
 ///
 /// # Returns
 /// Confinement ratio $\kappa \in (0, 1]$, clamped to a minimum channel
@@ -107,7 +107,7 @@ pub fn checked_confinement_ratio(channel_diameter_um: f64) -> Result<f64> {
 /// ~1.8:1 at $\kappa = 0.7$, consistent with this parameterisation.
 ///
 /// # Arguments
-/// * `channel_diameter_um` — Channel hydraulic diameter [µm]
+/// * `channel_diameter_um` — Channel hydraulic diameter \[µm]
 ///
 /// # Returns
 /// Critical fractional flow $Q_{r,crit} \in [0.5, 0.99]$.
@@ -171,7 +171,7 @@ fn checked_transition_sharpness(channel_diameter_um: f64) -> Result<f64> {
 /// # Arguments
 /// * `flow_fraction` — Fractional volumetric flow to this daughter branch,
 ///   $Q_{daughter}/Q_{total} \in [0, 1]$
-/// * `channel_diameter_um` — Channel hydraulic diameter [µm]
+/// * `channel_diameter_um` — Channel hydraulic diameter \[µm]
 ///
 /// # Returns
 /// Fractional RBC flux to this daughter branch $\in (0, 1)$.
@@ -230,7 +230,7 @@ pub fn checked_zweifach_fung_rbc_fraction(
 /// # Arguments
 /// * `feed_hematocrit` — Parent vessel hematocrit $\in [0, 1]$
 /// * `flow_fraction_1` — Fractional flow to daughter 1, $Q_1/Q_{total} \in [0, 1]$
-/// * `channel_diameter_um` — Channel hydraulic diameter [µm]
+/// * `channel_diameter_um` — Channel hydraulic diameter \[µm]
 ///
 /// # Returns
 /// `(h1, h2)` — Hematocrits of daughter branches 1 and 2, both $\in [0, 1]$.

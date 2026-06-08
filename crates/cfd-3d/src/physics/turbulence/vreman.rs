@@ -53,13 +53,13 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 pub struct VremanModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Vreman constant C_V ≈ 0.025 (Vreman 2004 Table 1).
     pub c_v: T,
-    /// Grid spacing in the x direction [m].
+    /// Grid spacing in the x direction \[m].
     pub dx: T,
-    /// Grid spacing in the y direction [m].
+    /// Grid spacing in the y direction \[m].
     pub dy: T,
-    /// Grid spacing in the z direction [m].
+    /// Grid spacing in the z direction \[m].
     pub dz: T,
-    /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) [m].
+    /// Physical LES filter width Δ = (dx·dy·dz)^(1/3) \[m].
     pub filter_width: T,
 }
 

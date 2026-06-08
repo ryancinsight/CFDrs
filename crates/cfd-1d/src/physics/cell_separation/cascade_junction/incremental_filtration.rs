@@ -376,8 +376,8 @@ pub fn checked_incremental_filtration_separation_from_qfracs(
 /// * `pretri_center_frac`    — center-arm width fraction for the pre-cascade trifurcations.
 /// * `terminal_tri_frac`     — center-arm width fraction for the terminal trifurcation.
 /// * `terminal_bi_treat_frac`— flow fraction into the treatment arm of the terminal bifurcation.
-/// * `parent_width_m`        — parent trunk channel width [m].
-/// * `channel_height_m`      — channel height [m].
+/// * `parent_width_m`        — parent trunk channel width \[m].
+/// * `channel_height_m`      — channel height \[m].
 pub fn incremental_filtration_separation_cross_junction(
     n_pretri: u8,
     pretri_center_frac: f64,

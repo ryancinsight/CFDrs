@@ -10,13 +10,13 @@ use serde::{Deserialize, Serialize};
 pub enum InletCondition<T: RealField + Copy> {
     /// Velocity inlet with prescribed velocity
     Velocity {
-        /// Velocity vector [m/s]
+        /// Velocity vector \[m/s]
         velocity: Vector3<T>,
     },
 
     /// Pressure inlet with total pressure
     Pressure {
-        /// Total pressure [Pa]
+        /// Total pressure \[Pa]
         pressure: T,
         /// Optional velocity direction (normalized)
         direction: Option<Vector3<T>>,
@@ -26,7 +26,7 @@ pub enum InletCondition<T: RealField + Copy> {
     MassFlow {
         /// Mass flow rate [kg/s]
         rate: T,
-        /// Optional temperature [K]
+        /// Optional temperature \[K]
         temperature: Option<T>,
     },
 
@@ -42,7 +42,7 @@ pub enum InletCondition<T: RealField + Copy> {
 pub enum OutletCondition<T: RealField + Copy> {
     /// Pressure outlet with static pressure
     Pressure {
-        /// Static pressure [Pa]
+        /// Static pressure \[Pa]
         pressure: T,
     },
 

@@ -22,7 +22,7 @@ pub enum WallType<T: RealField + Copy> {
 
     /// Rotating wall
     Rotating {
-        /// Angular velocity vector [rad/s]
+        /// Angular velocity vector \[rad/s]
         omega: Vector3<T>,
         /// Center of rotation
         center: Vector3<T>,

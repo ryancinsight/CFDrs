@@ -64,9 +64,9 @@ use serde::{Deserialize, Serialize};
 pub struct SerpentineConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Inlet volumetric flow rate [m³/s]
     pub inlet_flow_rate: T,
-    /// Inlet pressure [Pa]
+    /// Inlet pressure \[Pa]
     pub inlet_pressure: T,
-    /// Outlet pressure [Pa]
+    /// Outlet pressure \[Pa]
     pub outlet_pressure: T,
 
     /// Maximum iterations for nonlinear (Picard) solver
@@ -454,13 +454,13 @@ impl<
 /// Complete solution to 3D Serpentine problem
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct SerpentineSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    /// Inlet mean velocity [m/s]
+    /// Inlet mean velocity \[m/s]
     pub u_inlet: T,
-    /// Inlet pressure [Pa]
+    /// Inlet pressure \[Pa]
     pub p_inlet: T,
-    /// Outlet pressure [Pa]
+    /// Outlet pressure \[Pa]
     pub p_outlet: T,
-    /// Total pressure drop [Pa]
+    /// Total pressure drop \[Pa]
     pub dp_total: T,
     /// Dean number at curve peaks
     pub dean_number: T,

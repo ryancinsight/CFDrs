@@ -48,9 +48,9 @@ use nalgebra::Vector3;
 const RHO: f64 = 1060.0;
 /// Blood dynamic viscosity (Newtonian approximation) [Pa·s].
 const MU: f64 = 3.45e-3;
-/// Atmospheric pressure [Pa].
+/// Atmospheric pressure \[Pa].
 const P_ATM: f64 = 101_325.0;
-/// Blood vapour pressure at 37 °C [Pa].
+/// Blood vapour pressure at 37 °C \[Pa].
 const P_VAPOR: f64 = 6_280.0;
 
 // ── Input ────────────────────────────────────────────────────────────────────
@@ -63,15 +63,15 @@ const P_VAPOR: f64 = 6_280.0;
 pub struct VenturiValidationInput {
     /// Human-readable label for this case.
     pub label: String,
-    /// Inlet pipe diameter [m].
+    /// Inlet pipe diameter \[m].
     pub inlet_diameter_m: f64,
-    /// Throat pipe diameter [m].
+    /// Throat pipe diameter \[m].
     pub throat_diameter_m: f64,
-    /// Throat length [m].
+    /// Throat length \[m].
     pub throat_length_m: f64,
     /// Volumetric flow rate through this venturi [m³/s].
     pub flow_rate_m3_s: f64,
-    /// Inlet gauge pressure [Pa] (above atmospheric).
+    /// Inlet gauge pressure \[Pa] (above atmospheric).
     pub inlet_gauge_pa: f64,
 }
 
@@ -82,13 +82,13 @@ impl VenturiValidationInput {
         self.inlet_diameter_m / self.throat_diameter_m.max(1e-30)
     }
 
-    /// Circular cross-sectional area at the throat [m²].
+    /// Circular cross-sectional area at the throat \[m²].
     #[must_use]
     pub fn throat_area(&self) -> f64 {
         std::f64::consts::PI / 4.0 * self.throat_diameter_m * self.throat_diameter_m
     }
 
-    /// Circular cross-sectional area at the inlet [m²].
+    /// Circular cross-sectional area at the inlet \[m²].
     #[must_use]
     pub fn inlet_area(&self) -> f64 {
         std::f64::consts::PI / 4.0 * self.inlet_diameter_m * self.inlet_diameter_m
@@ -118,15 +118,15 @@ impl VenturiValidationInput {
 /// Detailed 1D pressure-drop breakdown from the `cfd-1d` Venturi model.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FidelityBreakdown1D {
-    /// Pressure drop from Bernoulli contraction + C_d correction [Pa].
+    /// Pressure drop from Bernoulli contraction + C_d correction \[Pa].
     pub dp_contraction_pa: f64,
-    /// Darcy–Weisbach friction in the throat [Pa].
+    /// Darcy–Weisbach friction in the throat \[Pa].
     pub dp_friction_pa: f64,
-    /// Borda–Carnot expansion loss [Pa].
+    /// Borda–Carnot expansion loss \[Pa].
     pub dp_expansion_loss_pa: f64,
-    /// Diffuser pressure recovery [Pa].
+    /// Diffuser pressure recovery \[Pa].
     pub dp_recovery_pa: f64,
-    /// Net 1D pressure drop [Pa] (contraction + friction + expansion − recovery).
+    /// Net 1D pressure drop \[Pa] (contraction + friction + expansion − recovery).
     pub dp_total_pa: f64,
     /// Discharge coefficient used.
     pub discharge_coefficient: f64,
@@ -139,13 +139,13 @@ pub struct FidelityBreakdown1D {
 /// Result from the 2D SIMPLE FVM solver.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Fidelity2DResult {
-    /// Inlet velocity [m/s].
+    /// Inlet velocity \[m/s].
     pub u_inlet: f64,
-    /// Throat velocity [m/s].
+    /// Throat velocity \[m/s].
     pub u_throat: f64,
-    /// Pressure drop from inlet to throat [Pa].
+    /// Pressure drop from inlet to throat \[Pa].
     pub dp_throat_pa: f64,
-    /// Pressure recovery in diverging section [Pa].
+    /// Pressure recovery in diverging section \[Pa].
     pub dp_recovery_pa: f64,
     /// Cavitation number σ.
     pub sigma: f64,
@@ -156,13 +156,13 @@ pub struct Fidelity2DResult {
 /// Result from the 3D FEM solver.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Fidelity3DResult {
-    /// Inlet velocity [m/s].
+    /// Inlet velocity \[m/s].
     pub u_inlet: f64,
-    /// Throat velocity [m/s].
+    /// Throat velocity \[m/s].
     pub u_throat: f64,
-    /// Pressure drop from inlet to throat [Pa].
+    /// Pressure drop from inlet to throat \[Pa].
     pub dp_throat_pa: f64,
-    /// Pressure recovery [Pa].
+    /// Pressure recovery \[Pa].
     pub dp_recovery_pa: f64,
     /// Relative mass-balance error.
     pub mass_error: f64,
@@ -185,13 +185,13 @@ pub struct VenturiCrossFidelityResult {
     pub breakdown_1d: FidelityBreakdown1D,
 
     // ── 2D ──
-    /// 2D FVM ΔP [Pa].
+    /// 2D FVM ΔP \[Pa].
     pub dp_2d_pa: f64,
     /// 2D solver details.
     pub result_2d: Fidelity2DResult,
 
     // ── 3D ──
-    /// 3D FEM ΔP [Pa].
+    /// 3D FEM ΔP \[Pa].
     pub dp_3d_pa: f64,
     /// 3D solver details.
     pub result_3d: Fidelity3DResult,

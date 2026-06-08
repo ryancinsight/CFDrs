@@ -10,13 +10,13 @@ pub trait SolidProperties<T: RealField + Copy>: Send + Sync {
     /// Get density [kg/m³]
     fn density(&self) -> T;
 
-    /// Get Young's modulus [Pa]
+    /// Get Young's modulus \[Pa]
     fn youngs_modulus(&self) -> T;
 
     /// Get Poisson's ratio [-]
     fn poissons_ratio(&self) -> T;
 
-    /// Get shear modulus [Pa]
+    /// Get shear modulus \[Pa]
     fn shear_modulus(&self) -> T {
         let two = T::one() + T::one();
         self.youngs_modulus() / (two * (T::one() + self.poissons_ratio()))
@@ -37,7 +37,7 @@ pub trait InterfaceProperties<T: RealField + Copy>: Send + Sync {
     /// Get surface tension [N/m]
     fn surface_tension(&self) -> T;
 
-    /// Get contact angle [rad]
+    /// Get contact angle \[rad]
     fn contact_angle(&self) -> T;
 
     /// Get adhesion energy [J/m²]

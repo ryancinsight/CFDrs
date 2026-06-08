@@ -26,19 +26,19 @@ use num_traits::{Float, FromPrimitive};
 /// 2D velocity and pressure fields on a staggered grid.
 #[derive(Debug, Clone)]
 pub struct FlowField2D<T: RealField + Copy> {
-    /// u-velocity at vertical faces [nx+1][ny]
+    /// u-velocity at vertical faces \[nx+1]\[ny]
     pub u: Array2D<T>,
-    /// v-velocity at horizontal faces [nx][ny+1]
+    /// v-velocity at horizontal faces \[nx]\[ny+1]
     pub v: Array2D<T>,
-    /// Pressure at cell centers [nx][ny]
+    /// Pressure at cell centers \[nx]\[ny]
     pub p: Array2D<T>,
-    /// Viscosity at cell centers [nx][ny]
+    /// Viscosity at cell centers \[nx]\[ny]
     pub mu: Array2D<T>,
-    /// Shear rate at cell centers [nx][ny]
+    /// Shear rate at cell centers \[nx]\[ny]
     pub gamma_dot: Array2D<T>,
     /// Fluid mask (true = fluid, false = solid)
     pub mask: Mask2D,
-    /// Turbulent eddy viscosity at cell centers [nx][ny].
+    /// Turbulent eddy viscosity at cell centers \[nx]\[ny].
     /// Zero for laminar simulations.  When a turbulence model is active,
     /// this is added to the molecular viscosity in the momentum equation
     /// diffusion terms: mu_effective = mu + rho * nu_t.

@@ -50,10 +50,10 @@ use super::{margination, margination::EquilibriumResult, properties::CellPropert
 /// - `wbc` — WBC physical properties (diameter, deformability index, density)
 /// - `fluid_density` — fluid density [kg/m³]
 /// - `viscosity` — dynamic viscosity [Pa·s]
-/// - `velocity` — mean channel velocity [m/s]
-/// - `width` — channel width (wider dimension) [m]
-/// - `height` — channel height (shorter dimension) [m]
-/// - `bend_radius` — bend radius [m], or `None` for straight channel
+/// - `velocity` — mean channel velocity \[m/s]
+/// - `width` — channel width (wider dimension) \[m]
+/// - `height` — channel height (shorter dimension) \[m]
+/// - `bend_radius` — bend radius \[m], or `None` for straight channel
 /// - `hematocrit` — volumetric RBC fraction at device inlet (0.0–0.45)
 #[must_use]
 pub fn enhanced_lateral_equilibrium(

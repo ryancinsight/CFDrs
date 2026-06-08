@@ -27,7 +27,7 @@ pub struct KOmegaSSTState<T: cfd_mesh::domain::core::Scalar + RealField + Copy> 
     pub k: Vec<T>,
     /// Specific dissipation rate omega [1/s].
     pub omega: Vec<T>,
-    /// Per-point wall distance d [m].
+    /// Per-point wall distance d \[m].
     pub wall_distance: Vec<T>,
 }
 
@@ -43,11 +43,11 @@ pub struct KOmegaSSTModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> 
     pub beta_star: T,
     /// Kinematic viscosity nu [m^2/s] (used for F1, F2 blending).
     pub nu: T,
-    /// Physical grid spacing in the x direction [m].
+    /// Physical grid spacing in the x direction \[m].
     pub dx: T,
-    /// Physical grid spacing in the y direction [m].
+    /// Physical grid spacing in the y direction \[m].
     pub dy: T,
-    /// Physical grid spacing in the z direction [m].
+    /// Physical grid spacing in the z direction \[m].
     pub dz: T,
     /// Current model state (k, omega, wall distance).
     pub state: Option<KOmegaSSTState<T>>,

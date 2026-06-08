@@ -10,9 +10,9 @@
 //!
 //! where:
 //! - μ is the dynamic viscosity [Pa·s]
-//! - L is the pipe length [m]
-//! - V is the average velocity [m/s]
-//! - D is the pipe diameter [m]
+//! - L is the pipe length \[m]
+//! - V is the average velocity \[m/s]
+//! - D is the pipe diameter \[m]
 //!
 //! **Hydraulic Resistance Form**: R = ΔP / Q = (128 μ L) / (π D⁴)
 //!
@@ -75,9 +75,9 @@ const HAGEN_POISEUILLE_COEFFICIENT: f64 = 128.0;
 /// Hagen-Poiseuille resistance model for circular channels
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HagenPoiseuilleModel<T: RealField + Copy> {
-    /// Channel diameter [m]
+    /// Channel diameter \[m]
     pub diameter: T,
-    /// Channel length [m]
+    /// Channel length \[m]
     pub length: T,
 }
 

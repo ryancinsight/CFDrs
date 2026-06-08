@@ -92,7 +92,7 @@ impl VenturiGeometry {
 pub enum ExpansionType {
     /// Sudden expansion (Borda-Carnot, K_exp = 1.0)
     Sudden,
-    /// Gradual expansion with specified half-angle [degrees]
+    /// Gradual expansion with specified half-angle \[degrees]
     Gradual {
         /// Diffuser half-angle in degrees
         half_angle_deg: f64,

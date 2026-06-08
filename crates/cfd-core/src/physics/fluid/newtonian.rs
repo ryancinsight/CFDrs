@@ -22,7 +22,7 @@ pub struct ConstantPropertyFluid<T: RealField + Copy> {
     pub specific_heat: T,
     /// Constant thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Constant speed of sound [m/s]
+    /// Constant speed of sound \[m/s]
     pub speed_of_sound: T,
 }
 
@@ -171,9 +171,9 @@ pub struct IdealGas<T: RealField + Copy> {
     pub cp: T,
     /// Reference viscosity [Pa·s] at reference temperature
     pub mu_ref: T,
-    /// Reference temperature [K] for viscosity
+    /// Reference temperature \[K] for viscosity
     pub t_ref: T,
-    /// Sutherland constant [K] for viscosity model
+    /// Sutherland constant \[K] for viscosity model
     pub sutherland_constant: T,
     /// Thermal conductivity coefficient
     pub k_coeff: T,

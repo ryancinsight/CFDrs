@@ -21,13 +21,13 @@ pub struct PolynomialViscosity<T: RealField + Copy> {
     pub thermal_expansion: T,
     /// Polynomial coefficients for viscosity [Pa·s/K^i]
     pub viscosity_coeffs: Vec<T>,
-    /// Reference temperature [K]
+    /// Reference temperature \[K]
     pub t_ref: T,
     /// Specific heat capacity [J/(kg·K)]
     pub specific_heat: T,
     /// Thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Speed of sound [m/s]
+    /// Speed of sound \[m/s]
     pub speed_of_sound: T,
 }
 
@@ -98,13 +98,13 @@ pub struct ArrheniusViscosity<T: RealField + Copy> {
     pub density: T,
     /// Pre-exponential factor A [Pa·s]
     pub a_factor: T,
-    /// Temperature coefficient B [K]
+    /// Temperature coefficient B \[K]
     pub b_factor: T,
     /// Specific heat capacity [J/(kg·K)]
     pub specific_heat: T,
     /// Thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Speed of sound [m/s]
+    /// Speed of sound \[m/s]
     pub speed_of_sound: T,
 }
 
@@ -155,15 +155,15 @@ pub struct AndradeViscosity<T: RealField + Copy> {
     pub density: T,
     /// Pre-exponential factor A [Pa·s]
     pub a_factor: T,
-    /// Temperature coefficient B [K]
+    /// Temperature coefficient B \[K]
     pub b_factor: T,
-    /// Temperature offset C [K]
+    /// Temperature offset C \[K]
     pub c_factor: T,
     /// Specific heat capacity [J/(kg·K)]
     pub specific_heat: T,
     /// Thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Speed of sound [m/s]
+    /// Speed of sound \[m/s]
     pub speed_of_sound: T,
 }
 
@@ -216,15 +216,15 @@ pub struct SutherlandViscosity<T: RealField + Copy> {
     pub density: T,
     /// Reference viscosity [Pa·s]
     pub mu_ref: T,
-    /// Reference temperature [K]
+    /// Reference temperature \[K]
     pub t_ref: T,
-    /// Sutherland constant [K]
+    /// Sutherland constant \[K]
     pub s_constant: T,
     /// Specific heat capacity [J/(kg·K)]
     pub specific_heat: T,
     /// Thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Speed of sound [m/s]
+    /// Speed of sound \[m/s]
     pub speed_of_sound: T,
 }
 

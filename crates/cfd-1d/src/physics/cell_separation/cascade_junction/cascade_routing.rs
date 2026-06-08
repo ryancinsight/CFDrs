@@ -324,8 +324,8 @@ pub fn checked_tri_center_q_frac(center_frac: f64) -> Result<f64> {
 ///
 /// # Arguments
 /// * `center_frac` — fraction of parent width allocated to the center arm.
-/// * `parent_width_m` — parent channel width [m].
-/// * `channel_height_m` — channel height [m] (shared across all arms).
+/// * `parent_width_m` — parent channel width \[m].
+/// * `channel_height_m` — channel height \[m] (shared across all arms).
 ///
 /// # Returns
 /// Center-arm flow fraction ∈ (0, 1).
@@ -375,8 +375,8 @@ pub fn checked_tri_center_q_frac_cross_junction(
 /// * `center_frac`       — center-arm width as fraction of parent width.
 /// * `left_periph_frac`  — left peripheral width as fraction of parent width.
 ///   Right peripheral = `1 − center_frac − left_periph_frac`.
-/// * `parent_width_m`    — parent channel width [m].
-/// * `channel_height_m`  — shared channel height [m].
+/// * `parent_width_m`    — parent channel width \[m].
+/// * `channel_height_m`  — shared channel height \[m].
 pub fn tri_asymmetric_q_fracs(
     center_frac: f64,
     left_periph_frac: f64,
@@ -437,8 +437,8 @@ pub fn checked_tri_asymmetric_q_fracs(
 /// # Arguments
 /// * `n_levels`       — number of cascade trifurcation levels (1–3).
 /// * `center_frac`    — center-arm width fraction at each level.
-/// * `channel_width`  — trunk channel width [m].
-/// * `channel_height` — trunk channel height [m].
+/// * `channel_width`  — trunk channel width \[m].
+/// * `channel_height` — trunk channel height \[m].
 /// * `flow_rate`      — total inlet flow rate [m³/s].
 pub fn cascade_junction_separation(
     n_levels: u8,

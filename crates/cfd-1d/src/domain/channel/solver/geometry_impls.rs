@@ -77,7 +77,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
         }
     }
 
-    /// Cross-sectional area `A` [m²].
+    /// Cross-sectional area `A` \[m²].
     pub fn area(&self) -> T {
         match &self.cross_section {
             CrossSection::Rectangular { width, height } => *width * *height,
@@ -104,7 +104,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
         }
     }
 
-    /// Hydraulic diameter `D_h = 4A / P` [m].
+    /// Hydraulic diameter `D_h = 4A / P` \[m].
     pub fn hydraulic_diameter(&self) -> T {
         match &self.cross_section {
             CrossSection::Rectangular { width, height } => {
@@ -133,7 +133,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
         }
     }
 
-    /// Wetted perimeter `P` [m].
+    /// Wetted perimeter `P` \[m].
     ///
     /// For elliptical cross-sections, this uses the exact AGM method for the
     /// complete elliptic integral of the second kind (see module-level docs).

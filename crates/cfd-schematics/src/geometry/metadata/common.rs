@@ -43,7 +43,7 @@ crate::impl_metadata!(ChannelGeometryMetadata, "ChannelGeometryMetadata");
 /// `NodeKind` inference in reduced-order solvers.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum BranchBoundarySpecification {
-    /// Fixed pressure boundary [Pa].
+    /// Fixed pressure boundary \[Pa].
     Pressure { pressure_pa: f64 },
     /// Fixed volumetric flow boundary [m^3/s].
     ///

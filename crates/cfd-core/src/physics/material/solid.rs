@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub struct ElasticSolid<T: RealField + Copy> {
     /// Solid density [kg/m³]
     pub density: T,
-    /// Young's modulus [Pa]
+    /// Young's modulus \[Pa]
     pub youngs_modulus: T,
     /// Poisson's ratio [-]
     pub poissons_ratio: T,

@@ -86,17 +86,17 @@ fn hematocrit_viscosity_ratio(hct_local: f64, hct_reference: f64) -> f64 {
 pub struct CascadeChannelSpec {
     /// Identifier matching the `NetworkBlueprint` channel ID.
     pub id: String,
-    /// Axial length [m].
+    /// Axial length \[m].
     pub length: f64,
-    /// Channel width [m] (cross-stream, varies for venturi).
+    /// Channel width \[m] (cross-stream, varies for venturi).
     pub width: f64,
-    /// Channel height [m] (constant for rectangular ducts).
+    /// Channel height \[m] (constant for rectangular ducts).
     pub height: f64,
     /// Assigned volumetric flow rate [m³/s] from 1D presolver.
     pub flow_rate_m3_s: f64,
     /// Whether this channel contains a Venturi throat.
     pub is_venturi_throat: bool,
-    /// Throat width [m] (only when `is_venturi_throat`).
+    /// Throat width \[m] (only when `is_venturi_throat`).
     pub throat_width: Option<f64>,
     /// Local hematocrit [-] from Zweifach-Fung junction routing.
     ///
@@ -112,7 +112,7 @@ pub struct CascadeChannelSpec {
 /// Configuration for the 3D cascade solver.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CascadeConfig3D {
-    /// Reference pressure at outlets [Pa].
+    /// Reference pressure at outlets \[Pa].
     pub outlet_pressure: f64,
     /// Mesh resolution: (axial, cross-width, cross-height).
     pub resolution: (usize, usize, usize),
@@ -140,13 +140,13 @@ impl Default for CascadeConfig3D {
 pub struct ChannelResult3D {
     /// Channel identifier.
     pub channel_id: String,
-    /// Mean wall shear stress [Pa].
+    /// Mean wall shear stress \[Pa].
     pub wall_shear_mean_pa: f64,
-    /// Maximum wall shear stress [Pa].
+    /// Maximum wall shear stress \[Pa].
     pub wall_shear_max_pa: f64,
-    /// Pressure drop inlet → outlet [Pa].
+    /// Pressure drop inlet → outlet \[Pa].
     pub pressure_drop_pa: f64,
-    /// Maximum velocity magnitude [m/s].
+    /// Maximum velocity magnitude \[m/s].
     pub max_velocity: f64,
     /// Whether the solver converged.
     pub converged: bool,
@@ -163,11 +163,11 @@ pub struct ChannelResult3D {
 pub struct CascadeResult3D {
     /// Per-channel results in the order supplied.
     pub channel_results: Vec<ChannelResult3D>,
-    /// Sum of per-channel pressure drops [Pa].
+    /// Sum of per-channel pressure drops \[Pa].
     pub total_pressure_drop_pa: f64,
     /// Channel with the highest wall shear stress.
     pub max_shear_channel_id: String,
-    /// Highest wall shear stress across all channels [Pa].
+    /// Highest wall shear stress across all channels \[Pa].
     pub max_shear_pa: f64,
 }
 

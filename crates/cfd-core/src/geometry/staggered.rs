@@ -25,22 +25,22 @@ use serde::{Deserialize, Serialize};
 /// Stores only the topology and spacing; field data lives in the solver.
 /// This is a pure geometry primitive and carries no solver state.
 ///
-/// When `y_faces` is `Some`, the grid is non-uniform in y — use [`dy_at`],
-/// [`y_center`], and [`y_v_face`] which dispatch correctly for both cases.
+/// When `y_faces` is `Some`, the grid is non-uniform in y — use [`StaggeredGrid2D::dy_at`],
+/// [`StaggeredGrid2D::y_center`], and [`StaggeredGrid2D::y_v_face`] which dispatch correctly for both cases.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StaggeredGrid2D<T: RealField + Copy> {
     /// Number of pressure cells in x
     pub nx: usize,
     /// Number of pressure cells in y
     pub ny: usize,
-    /// Uniform cell width [m]
+    /// Uniform cell width \[m]
     pub dx: T,
-    /// Uniform (or reference) cell height [m].
-    /// For non-uniform grids, use [`dy_at`] for the per-cell height.
+    /// Uniform (or reference) cell height \[m].
+    /// For non-uniform grids, use [`StaggeredGrid2D::dy_at`] for the per-cell height.
     pub dy: T,
-    /// Physical domain width (nx * dx) [m]
+    /// Physical domain width (nx * dx) \[m]
     pub lx: T,
-    /// Physical domain height [m]
+    /// Physical domain height \[m]
     pub ly: T,
     /// Non-uniform y-face coordinates (ny+1 entries, from 0 to ly).
     /// When `None`, the grid is uniform in y and `dy` is used everywhere.

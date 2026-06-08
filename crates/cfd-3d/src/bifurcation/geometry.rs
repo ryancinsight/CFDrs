@@ -54,14 +54,14 @@ use serde::{Deserialize, Serialize};
 pub enum ConicalTransition<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Smooth linear taper
     SmoothCone {
-        /// Transition length [m]
+        /// Transition length \[m]
         length: T,
     },
     /// Abrupt step change
     AbruptJunction,
     /// Rounded transition (smooth spline)
     RoundedJunction {
-        /// Radius of curvature [m]
+        /// Radius of curvature \[m]
         radius: T,
     },
 }
@@ -123,27 +123,27 @@ impl<
 /// Represents a bifurcating vessel with parent, transition zone, and two daughters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BifurcationGeometry3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    /// Parent branch diameter [m]
+    /// Parent branch diameter \[m]
     pub d_parent: T,
-    /// Parent branch length [m]
+    /// Parent branch length \[m]
     pub l_parent: T,
 
-    /// Daughter 1 diameter [m]
+    /// Daughter 1 diameter \[m]
     pub d_daughter1: T,
-    /// Daughter 1 length [m]
+    /// Daughter 1 length \[m]
     pub l_daughter1: T,
 
-    /// Daughter 2 diameter [m]
+    /// Daughter 2 diameter \[m]
     pub d_daughter2: T,
-    /// Daughter 2 length [m]
+    /// Daughter 2 length \[m]
     pub l_daughter2: T,
 
     /// Transition zone model
     pub transition: ConicalTransition<T>,
-    /// Transition zone length [m]
+    /// Transition zone length \[m]
     pub l_transition: T,
 
-    /// Branching angle (angle between daughter branches) [radians]
+    /// Branching angle (angle between daughter branches) \[radians]
     pub branching_angle: T,
     /// Parent orientation (should be along z-axis typically)
     pub parent_axis: Vector3<T>,
@@ -328,7 +328,7 @@ impl<
 pub struct BifurcationMesh<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Node coordinates (node_id -> Point3)
     pub nodes: Vec<Point3<T>>,
-    /// Element connectivity (element_id -> [node_ids])
+    /// Element connectivity (element_id -> \[node_ids])
     pub elements: Vec<Vec<usize>>,
     /// Element type (0 = tetrahedral, 1 = hexahedral)
     pub element_type: usize,

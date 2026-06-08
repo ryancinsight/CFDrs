@@ -23,7 +23,7 @@ use num_traits::FromPrimitive;
 /// - Secomb, T.W. (2017) "Blood Flow in the Microcirculation"
 #[derive(Debug, Clone, Copy)]
 pub struct FahraeuasLindqvist<T: RealField + Copy> {
-    /// Vessel diameter [m]
+    /// Vessel diameter \[m]
     pub diameter: T,
     /// Hematocrit (volume fraction of RBCs) [-]
     pub hematocrit: T,

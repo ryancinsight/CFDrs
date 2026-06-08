@@ -38,13 +38,13 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 /// Local dynamic gradient Smagorinsky model.
 #[derive(Debug, Clone)]
 pub struct DynamicGradientSmagorinskyModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
-    /// Grid spacing in the x direction [m].
+    /// Grid spacing in the x direction \[m].
     pub dx: T,
-    /// Grid spacing in the y direction [m].
+    /// Grid spacing in the y direction \[m].
     pub dy: T,
-    /// Grid spacing in the z direction [m].
+    /// Grid spacing in the z direction \[m].
     pub dz: T,
-    /// Physical LES filter width `Δ = (dx·dy·dz)^(1/3)` [m].
+    /// Physical LES filter width `Δ = (dx·dy·dz)^(1/3)` \[m].
     pub filter_width: T,
     /// Ratio between the test filter and LES filter widths.
     pub test_filter_ratio: T,

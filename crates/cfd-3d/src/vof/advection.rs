@@ -17,7 +17,7 @@
 //! ```
 //! where `V_swept` is the volume of the truncated prism cut by the PLIC plane n·x = C.
 //! Since `V_swept ≤ |u| Δt A_face`, the outgoing flux satisfies F ≤ CFL ≤ 1,
-//! guaranteeing α ∈ [0,1] after one operator-split step.
+//! guaranteeing α ∈ \[0,1] after one operator-split step.
 //!
 //! **Reference**: Scardovelli & Zaleski (2003), "Interface reconstruction with
 //! least-square fit and split Eulerian-Lagrangian advection". Int. J. Numer.

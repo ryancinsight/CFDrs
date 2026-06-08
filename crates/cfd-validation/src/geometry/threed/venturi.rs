@@ -7,21 +7,21 @@ use nalgebra::RealField;
 /// 3D Venturi tube geometry
 #[derive(Debug, Clone)]
 pub struct Venturi3D<T: RealField + Copy> {
-    /// Inlet diameter [m]
+    /// Inlet diameter \[m]
     pub d_inlet: T,
-    /// Throat diameter [m]
+    /// Throat diameter \[m]
     pub d_throat: T,
-    /// Outlet diameter [m]
+    /// Outlet diameter \[m]
     pub d_outlet: T,
-    /// Inlet length [m]
+    /// Inlet length \[m]
     pub l_inlet: T,
-    /// Convergent length [m]
+    /// Convergent length \[m]
     pub l_convergent: T,
-    /// Throat length [m]
+    /// Throat length \[m]
     pub l_throat: T,
-    /// Divergent length [m]
+    /// Divergent length \[m]
     pub l_divergent: T,
-    /// Outlet length [m]
+    /// Outlet length \[m]
     pub l_outlet: T,
 }
 

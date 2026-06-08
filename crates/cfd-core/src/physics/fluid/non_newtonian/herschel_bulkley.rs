@@ -19,7 +19,7 @@ pub struct HerschelBulkley<T: RealField + Copy> {
     pub name: String,
     /// Density [kg/m³]
     pub density: T,
-    /// Yield stress τ₀ [Pa]
+    /// Yield stress τ₀ \[Pa]
     pub yield_stress: T,
     /// Consistency index K [Pa·s^n]
     pub consistency_index: T,
@@ -29,11 +29,11 @@ pub struct HerschelBulkley<T: RealField + Copy> {
     pub specific_heat: T,
     /// Thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Speed of sound [m/s]
+    /// Speed of sound \[m/s]
     pub speed_of_sound: T,
     /// Reference shear rate [1/s]
     pub reference_shear_rate: T,
-    /// Reference temperature for properties [K]
+    /// Reference temperature for properties \[K]
     #[serde(default)]
     pub reference_temperature: Option<T>,
     /// Activation energy for consistency index [J/mol]

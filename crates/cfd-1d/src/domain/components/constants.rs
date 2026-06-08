@@ -1,6 +1,6 @@
 //! Physical constants for microfluidic components
 
-/// Default surface roughness for smooth channels [m]
+/// Default surface roughness for smooth channels \[m]
 pub const DEFAULT_ROUGHNESS: f64 = 1e-6;
 
 /// Minimum Reynolds number for laminar flow

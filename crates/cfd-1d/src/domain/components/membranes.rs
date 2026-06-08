@@ -12,13 +12,13 @@ use std::collections::HashMap;
 /// Porous membrane represented as many cylindrical pores in parallel.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PorousMembrane<T: RealField + Copy> {
-    /// Membrane thickness [m]
+    /// Membrane thickness \[m]
     pub thickness: T,
-    /// Membrane width [m]
+    /// Membrane width \[m]
     pub width: T,
-    /// Membrane height [m]
+    /// Membrane height \[m]
     pub height: T,
-    /// Pore radius [m]
+    /// Pore radius \[m]
     pub pore_radius: T,
     /// Fraction of open pore area (0..1)
     pub porosity: T,
@@ -39,7 +39,7 @@ impl<T: RealField + Copy + FromPrimitive> PorousMembrane<T> {
         }
     }
 
-    /// Membrane frontal area [m²]
+    /// Membrane frontal area \[m²]
     pub fn area(&self) -> T {
         self.width * self.height
     }
@@ -90,11 +90,11 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for PorousMembrane<T> {
 /// Organ chamber represented as a compartment with user-defined hydraulic resistance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrganCompartment<T: RealField + Copy> {
-    /// Chamber length [m]
+    /// Chamber length \[m]
     pub length: T,
-    /// Chamber width [m]
+    /// Chamber width \[m]
     pub width: T,
-    /// Chamber height [m]
+    /// Chamber height \[m]
     pub height: T,
     /// Lumped hydraulic resistance [Pa·s/m³]
     pub hydraulic_resistance: T,
@@ -114,7 +114,7 @@ impl<T: RealField + Copy + FromPrimitive> OrganCompartment<T> {
         }
     }
 
-    /// Chamber area [m²]
+    /// Chamber area \[m²]
     pub fn area(&self) -> T {
         self.width * self.height
     }

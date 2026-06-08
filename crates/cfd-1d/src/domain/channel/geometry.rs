@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub struct ChannelGeometry<T: RealField + Copy> {
     /// Channel type
     pub channel_type: ChannelType,
-    /// Length [m]
+    /// Length \[m]
     pub length: T,
     /// Cross-sectional parameters
     pub cross_section: CrossSection<T>,

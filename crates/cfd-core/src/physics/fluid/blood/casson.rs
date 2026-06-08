@@ -70,7 +70,7 @@ use serde::{Deserialize, Serialize};
 pub struct CassonBlood<T: RealField + Copy> {
     /// Blood density [kg/m³]
     pub density: T,
-    /// Yield stress τ_y [Pa]
+    /// Yield stress τ_y \[Pa]
     /// Literature value: 0.0056 Pa for normal blood (Merrill 1969)
     pub yield_stress: T,
     /// Infinite-shear (Casson) viscosity μ_∞ [Pa·s]
@@ -82,7 +82,7 @@ pub struct CassonBlood<T: RealField + Copy> {
     pub specific_heat: T,
     /// Thermal conductivity [W/(m·K)]
     pub thermal_conductivity: T,
-    /// Speed of sound [m/s]
+    /// Speed of sound \[m/s]
     pub speed_of_sound: T,
     /// Reference shear rate for default viscosity calculation [1/s]
     pub reference_shear_rate: T,
@@ -239,7 +239,7 @@ impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
     ///
     /// # Arguments
     /// * `shear_rate` — Wall shear rate [s⁻¹]
-    /// * `temp_k`     — Blood temperature [K]; if ≤ 0, defaults to 310 K (37 °C)
+    /// * `temp_k`     — Blood temperature \[K]; if ≤ 0, defaults to 310 K (37 °C)
     pub fn apparent_viscosity_at_temp(&self, shear_rate: T, temp_k: T) -> T {
         let t_ref = T::from_f64(310.15).unwrap_or_else(num_traits::Zero::zero);
         let b = T::from_f64(1500.0).unwrap_or_else(num_traits::Zero::zero);

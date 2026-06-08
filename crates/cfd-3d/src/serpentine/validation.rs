@@ -156,7 +156,7 @@ impl<
 pub struct SerpentineValidationResult3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Name of the validation test
     pub test_name: String,
-    /// Analytical straight-pipe pressure drop lower bound [Pa]
+    /// Analytical straight-pipe pressure drop lower bound \[Pa]
     pub dp_straight: Option<T>,
     /// Whether all validation checks passed
     pub validation_passed: bool,

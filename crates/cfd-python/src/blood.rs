@@ -229,7 +229,7 @@ impl PyCrossBlood {
             .unwrap_or(0.00345)
     }
 
-    /// Get time constant K [s]
+    /// Get time constant K \[s]
     fn time_constant(&self) -> f64 {
         use num_traits::ToPrimitive;
         self.inner.time_constant.to_f64().unwrap_or(1.007)
@@ -273,7 +273,7 @@ impl PyFahraeuasLindqvist {
     /// Create Fahraeus-Lindqvist calculator
     ///
     /// # Arguments
-    /// - `diameter`: Vessel diameter [m]
+    /// - `diameter`: Vessel diameter \[m]
     /// - `hematocrit`: Volume fraction of RBCs [-] (default 0.45)
     #[new]
     #[pyo3(signature = (diameter, hematocrit=0.45))]

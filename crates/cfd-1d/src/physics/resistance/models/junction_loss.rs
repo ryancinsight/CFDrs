@@ -102,15 +102,15 @@ pub struct JunctionLossModel {
     pub junction_type: JunctionType,
     /// Flow direction (dividing or combining).
     pub flow_direction: JunctionFlowDirection,
-    /// Hydraulic diameter of the branch channel [m].
+    /// Hydraulic diameter of the branch channel \[m].
     pub branch_diameter_m: f64,
-    /// Cross-sectional area of the branch channel [m²].
+    /// Cross-sectional area of the branch channel \[m²].
     pub branch_area_m2: f64,
-    /// Length attributed to the junction (typically ≈ D_h) [m].
+    /// Length attributed to the junction (typically ≈ D_h) \[m].
     pub junction_length_m: f64,
     /// Fluid density [kg/m³].
     pub density_kg_m3: f64,
-    /// Optional cross-sectional area of the run (main) channel [m²].
+    /// Optional cross-sectional area of the run (main) channel \[m²].
     ///
     /// When provided, the K-factor is corrected for diameter mismatch
     /// using the Idelchik area-ratio correlation.  When `None`, the

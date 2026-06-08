@@ -16,8 +16,8 @@
 //! ```
 //!
 //! where:
-//! - A₁ = upstream cross-sectional area [m²]
-//! - A₂ = downstream cross-sectional area [m²]  (A₂ < A₁)
+//! - A₁ = upstream cross-sectional area \[m²]
+//! - A₂ = downstream cross-sectional area \[m²]  (A₂ < A₁)
 //! - C  = empirical low-Re correction constant ≈ 0.1 (Idelchik Table 5-1)
 //! - Re = Reynolds number based on downstream hydraulic diameter
 //!
@@ -31,8 +31,8 @@
 //! The entrance pressure drop is:
 //!
 //! ```text
-//! ΔP_entry = K_entry · (½ ρ V₂²)          [Pa]
-//!          = K_entry · ρ · Q² / (2 A₂²)    [Pa]  (using V₂ = Q/A₂)
+//! ΔP_entry = K_entry · (½ ρ V₂²)          \[Pa]
+//!          = K_entry · ρ · Q² / (2 A₂²)    \[Pa]  (using V₂ = Q/A₂)
 //! ```
 //!
 //! Converting to the lumped resistance form  ΔP = R · Q  requires knowing Q. The model
@@ -109,9 +109,9 @@ const LAMINAR_SMOOTH_ENTRANCE_COEFFICIENT: f64 = 1.25;
 /// `R_eff = k · |Q|` in units of [Pa·s/m³].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntranceEffectsModel<T: RealField + Copy> {
-    /// Upstream cross-sectional area [m²]
+    /// Upstream cross-sectional area \[m²]
     pub upstream_area: T,
-    /// Downstream cross-sectional area [m²]
+    /// Downstream cross-sectional area \[m²]
     pub downstream_area: T,
     /// Inlet type: 0.0 = sharp sudden, 1.0 = smooth rounded
     pub inlet_smoothness: T,

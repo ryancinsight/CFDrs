@@ -93,7 +93,7 @@ impl<T: RealField + Copy> FluidProperties<T> {
         Ok(self.thermal_conductivity / (self.density * self.specific_heat))
     }
 
-    /// Calculate speed of sound for ideal gas [m/s]
+    /// Calculate speed of sound for ideal gas \[m/s]
     /// Requires ratio of specific heats (gamma) as parameter
     ///
     /// # Errors

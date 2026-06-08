@@ -17,8 +17,8 @@
 //! - `C  = 3.62 × 10⁻⁵`  (fit constant)
 //! - `α  = 0.765`         (time exponent)
 //! - `β  = 1.991`         (shear exponent)
-//! - `t` = exposure duration [s]
-//! - `τ` = wall shear stress [Pa]
+//! - `t` = exposure duration \[s]
+//! - `τ` = wall shear stress \[Pa]
 //!
 //! Reference: Giersiepen M. et al. (1990) *Estimation of shear stress-related
 //! blood damage in heart valve prostheses*. Int. J. Artif. Organs 13(5):300–306.
@@ -73,8 +73,8 @@ pub use cfd_core::physics::hemolysis::CAVITATION_HI_SLOPE;
 ///
 /// # Arguments
 ///
-/// * `shear_pa`   — wall shear stress [Pa]
-/// * `duration_s` — exposure duration [s]
+/// * `shear_pa`   — wall shear stress \[Pa]
+/// * `duration_s` — exposure duration \[s]
 ///
 /// # Example
 ///
@@ -173,8 +173,8 @@ pub const TASKIN_BETA: f64 = 1.9918;
 ///
 /// # Arguments
 ///
-/// * `shear_stress` — wall shear stress [Pa]
-/// * `exposure_time` — exposure duration [s]
+/// * `shear_stress` — wall shear stress \[Pa]
+/// * `exposure_time` — exposure duration \[s]
 ///
 /// # Returns
 ///
@@ -197,9 +197,9 @@ pub fn taskin_hi(shear_stress: f64, exposure_time: f64) -> f64 {
 /// a single exposure event.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HemolysisExposure {
-    /// Wall shear stress at the exposure site [Pa].
+    /// Wall shear stress at the exposure site \[Pa].
     pub shear_pa: f64,
-    /// Duration of the exposure event [s].
+    /// Duration of the exposure event \[s].
     pub duration_s: f64,
     /// Local cavitation potential ∈ [0, 1]; 0 for non-venturi regions.
     pub cavitation_potential: f64,

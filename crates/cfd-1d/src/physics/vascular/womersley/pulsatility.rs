@@ -48,13 +48,13 @@
 /// # Arguments
 /// * `q_mean` - Mean volumetric flow rate [m³/s] (must be positive)
 /// * `q_amplitude` - Oscillatory flow rate amplitude [m³/s] (non-negative)
-/// * `cross_section_area` - Cross-sectional area of the vessel [m²] (must be positive)
+/// * `cross_section_area` - Cross-sectional area of the vessel \[m²] (must be positive)
 ///
 /// # Returns
 /// Tuple of `(pulsatility_index, v_peak, v_trough)`:
 /// - `pulsatility_index` — PI = (v_peak - v_trough) / v_mean
-/// - `v_peak` — peak systolic velocity [m/s]
-/// - `v_trough` — end-diastolic (minimum) velocity [m/s]
+/// - `v_peak` — peak systolic velocity \[m/s]
+/// - `v_trough` — end-diastolic (minimum) velocity \[m/s]
 ///
 /// Returns `(0.0, v_mean, v_mean)` when `q_mean` is zero or negative.
 #[must_use]

@@ -56,19 +56,19 @@ use serde::{Deserialize, Serialize};
 /// Bifurcation geometry configuration for 2D branching channels
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BifurcationGeometry<T: RealField + Copy> {
-    /// Parent channel width [m]
+    /// Parent channel width \[m]
     pub parent_width: T,
-    /// Parent channel length [m]
+    /// Parent channel length \[m]
     pub parent_length: T,
-    /// Daughter 1 width [m]
+    /// Daughter 1 width \[m]
     pub daughter1_width: T,
-    /// Daughter 1 length [m]
+    /// Daughter 1 length \[m]
     pub daughter1_length: T,
     /// Daughter 1 angle [radians from x-axis]
     pub daughter1_angle: T,
-    /// Daughter 2 width [m]
+    /// Daughter 2 width \[m]
     pub daughter2_width: T,
-    /// Daughter 2 length [m]
+    /// Daughter 2 length \[m]
     pub daughter2_length: T,
     /// Daughter 2 angle [radians from x-axis]
     pub daughter2_angle: T,

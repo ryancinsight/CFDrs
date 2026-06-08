@@ -22,7 +22,7 @@
 //! ```
 //!
 //! where:
-//! - w = channel width [m]
+//! - w = channel width \[m]
 //! - D = diffusion coefficient [m²/s]
 //!
 //! **Advection time scale:**
@@ -106,13 +106,13 @@ use std::f64::consts::PI;
 /// The path creates a snake-like pattern that enhances mixing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerpentineGeometry<T: RealField + Copy> {
-    /// Channel width [m]
+    /// Channel width \[m]
     pub width: T,
-    /// Channel height [m] (constant)
+    /// Channel height \[m] (constant)
     pub height: T,
-    /// Straight section length [m]
+    /// Straight section length \[m]
     pub l_straight: T,
-    /// Turn radius [m] (for curved turns)
+    /// Turn radius \[m] (for curved turns)
     pub turn_radius: T,
     /// Number of complete back-and-forth cycles
     pub n_cycles: usize,
@@ -299,9 +299,9 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
 /// `σ²(t)=Σ a_n² exp(-2n²π²Dt/w²)/2`, while `σ²(0)=1/4`. Substitution leaves
 /// the odd-mode series and the stated mixing fraction. ∎
 pub struct AdvectionDiffusionMixing<T: RealField + Copy> {
-    /// Channel width [m]
+    /// Channel width \[m]
     pub width: T,
-    /// Mean flow velocity [m/s]
+    /// Mean flow velocity \[m/s]
     pub velocity: T,
     /// Diffusion coefficient [m²/s]
     pub diffusion_coeff: T,
@@ -425,13 +425,13 @@ pub struct SerpentineMixingSolution<T: RealField + Copy> {
     pub c_inlet_b: T,
     /// Peclet number (dimensionless)
     pub peclet: T,
-    /// Mixing length for 90% homogeneity [m]
+    /// Mixing length for 90% homogeneity \[m]
     pub l_mix_90: T,
-    /// Mixing time to 90% [s]
+    /// Mixing time to 90% \[s]
     pub t_mix_90: T,
     /// Mixing fraction at outlet [0-1]
     pub mixing_fraction_outlet: T,
-    /// Estimated viscous pressure drop [Pa]
+    /// Estimated viscous pressure drop \[Pa]
     pub pressure_drop: T,
 }
 

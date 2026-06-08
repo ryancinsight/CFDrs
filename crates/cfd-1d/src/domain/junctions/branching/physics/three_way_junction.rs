@@ -434,20 +434,20 @@ pub struct ThreeWayBranchSolution<T: RealField + Copy> {
     /// Daughter-3 flow rate [m³/s]
     pub q_3: T,
 
-    /// Parent pressure [Pa]
+    /// Parent pressure \[Pa]
     pub p_parent: T,
-    /// Daughter-1 pressure [Pa]
+    /// Daughter-1 pressure \[Pa]
     pub p_1: T,
-    /// Daughter-2 pressure [Pa]
+    /// Daughter-2 pressure \[Pa]
     pub p_2: T,
-    /// Daughter-3 pressure [Pa]
+    /// Daughter-3 pressure \[Pa]
     pub p_3: T,
 
-    /// Parent-to-daughter-1 pressure drop [Pa]
+    /// Parent-to-daughter-1 pressure drop \[Pa]
     pub dp_1: T,
-    /// Parent-to-daughter-2 pressure drop [Pa]
+    /// Parent-to-daughter-2 pressure drop \[Pa]
     pub dp_2: T,
-    /// Parent-to-daughter-3 pressure drop [Pa]
+    /// Parent-to-daughter-3 pressure drop \[Pa]
     pub dp_3: T,
 
     /// Daughter-1 wall shear rate [1/s]

@@ -7,11 +7,11 @@ use serde::{Deserialize, Serialize};
 /// Wetting properties for fluid-solid interfaces
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WettingProperties<T: RealField + Copy> {
-    /// Static contact angle [rad]
+    /// Static contact angle \[rad]
     pub contact_angle: T,
-    /// Advancing contact angle [rad]
+    /// Advancing contact angle \[rad]
     pub advancing_angle: T,
-    /// Receding contact angle [rad]
+    /// Receding contact angle \[rad]
     pub receding_angle: T,
 }
 
@@ -20,7 +20,7 @@ pub struct WettingProperties<T: RealField + Copy> {
 pub struct FluidSolidInterface<T: RealField + Copy> {
     /// Surface tension [N/m]
     pub surface_tension: T,
-    /// Static contact angle [rad]
+    /// Static contact angle \[rad]
     pub contact_angle: T,
     /// Wetting properties
     pub wetting: WettingProperties<T>,

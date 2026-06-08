@@ -13,8 +13,8 @@
 //!
 //! where:
 //! - $a \approx 0.17$ is an empirical geometric constant.
-//! - $D$ is the capillary diameter [m].
-//! - $L_s$ is the length of the liquid slug [m].
+//! - $D$ is the capillary diameter \[m].
+//! - $L_s$ is the length of the liquid slug \[m].
 //! - $Re = \rho v D / \mu$ is the Reynolds number.
 //! - $Ca = \mu v / \sigma$ is the Capillary number (governing interfacial tension).
 //!
@@ -56,11 +56,11 @@ const HAGEN_POISEUILLE_COEFFICIENT: f64 = 128.0;
 /// Kreutzer (2005) gas-liquid slug flow resistance model
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlugFlowModel<T: RealField + Copy> {
-    /// Capillary tube diameter [m]
+    /// Capillary tube diameter \[m]
     pub diameter: T,
-    /// Total channel length [m]
+    /// Total channel length \[m]
     pub length: T,
-    /// Liquid slug length (distance between gas bubbles) [m]
+    /// Liquid slug length (distance between gas bubbles) \[m]
     pub slug_length: T,
     /// Surface tension coefficient of the gas-liquid interface [N/m]
     pub surface_tension: T,

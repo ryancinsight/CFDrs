@@ -95,16 +95,16 @@ impl BendType {
 /// Cross-section type for the serpentine channel
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum SerpentineCrossSection {
-    /// Circular cross-section with given diameter [m]
+    /// Circular cross-section with given diameter \[m]
     Circular {
-        /// Channel diameter [m]
+        /// Channel diameter \[m]
         diameter: f64,
     },
     /// Rectangular cross-section with width × height
     Rectangular {
-        /// Channel width [m]
+        /// Channel width \[m]
         width: f64,
-        /// Channel height (depth) [m]
+        /// Channel height (depth) \[m]
         height: f64,
     },
 }
@@ -119,7 +119,7 @@ impl SerpentineCrossSection {
         }
     }
 
-    /// Cross-sectional area [m²]
+    /// Cross-sectional area \[m²]
     #[must_use]
     pub fn area(&self) -> f64 {
         match self {

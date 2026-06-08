@@ -59,7 +59,7 @@ pub enum PumpType {
 pub struct Micropump<T: RealField + Copy> {
     /// Maximum flow rate [m³/s] (free-delivery, ΔP = 0)
     pub max_flow_rate: T,
-    /// Maximum pressure [Pa] (stall point, Q = 0)
+    /// Maximum pressure \[Pa] (stall point, Q = 0)
     pub max_pressure: T,
     /// Pump efficiency η [-] (P_hyd / P_input)
     pub efficiency: T,

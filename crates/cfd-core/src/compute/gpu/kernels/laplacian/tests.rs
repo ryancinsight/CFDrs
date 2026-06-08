@@ -43,7 +43,7 @@ fn execute_cpu_fallback(
     execute_cpu_reference(field, nx, ny, dx, dy, bc, result);
 }
 
-/// Test function: u(x,y) = sin(πx)sin(πy) on [0,1]×[0,1]
+/// Test function: u(x,y) = sin(πx)sin(πy) on \[0,1]×\[0,1]
 /// Exact Laplacian: ∇²u = -2π²sin(πx)sin(πy)
 fn test_function_1(x: f32, y: f32) -> f32 {
     (std::f32::consts::PI * x).sin() * (std::f32::consts::PI * y).sin()

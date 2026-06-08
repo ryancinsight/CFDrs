@@ -117,9 +117,9 @@ pub struct CellSeparationAnalysis {
 /// let healthy = CellProperties::red_blood_cell();
 ///
 /// let model = CellSeparationModel::new(
-///     500e-6,  // channel width [m]
-///     200e-6,  // channel height [m]
-///     0.01,    // channel length [m]
+///     500e-6,  // channel width \[m]
+///     200e-6,  // channel height \[m]
+///     0.01,    // channel length \[m]
 ///     None,    // straight channel (no curvature)
 /// );
 ///
@@ -128,20 +128,20 @@ pub struct CellSeparationAnalysis {
 ///     &healthy,
 ///     1060.0,  // blood density [kg/m³]
 ///     3.5e-3,  // blood viscosity [Pa·s]
-///     0.05,    // mean velocity [m/s]
+///     0.05,    // mean velocity \[m/s]
 /// ).expect("cell focusing requires κ > 0.07");
 ///
 /// println!("Separation efficiency: {:.2}", analysis.separation_efficiency);
 /// ```
 #[derive(Debug, Clone)]
 pub struct CellSeparationModel {
-    /// Channel width [m].
+    /// Channel width \[m].
     pub channel_width_m: f64,
-    /// Channel height [m] (shorter dimension for rectangular channels).
+    /// Channel height \[m] (shorter dimension for rectangular channels).
     pub channel_height_m: f64,
-    /// Channel length [m].
+    /// Channel length \[m].
     pub channel_length_m: f64,
-    /// Radius of curvature [m] for curved channels, or `None` for straight.
+    /// Radius of curvature \[m] for curved channels, or `None` for straight.
     pub bend_radius_m: Option<f64>,
     /// Center-channel split position `x̃_split` ∈ (0, 1).
     ///
@@ -232,10 +232,10 @@ impl CellSeparationModel {
     /// Construct a new model for a rectangular channel.
     ///
     /// # Arguments
-    /// - `channel_width_m` — channel width [m]
-    /// - `channel_height_m` — channel height [m] (shorter dimension)
-    /// - `channel_length_m` — channel length [m]
-    /// - `bend_radius_m` — radius of curvature [m], or `None` for straight
+    /// - `channel_width_m` — channel width \[m]
+    /// - `channel_height_m` — channel height \[m] (shorter dimension)
+    /// - `channel_length_m` — channel length \[m]
+    /// - `bend_radius_m` — radius of curvature \[m], or `None` for straight
     #[must_use]
     pub fn new(
         channel_width_m: f64,
@@ -262,7 +262,7 @@ impl CellSeparationModel {
         self
     }
 
-    /// Hydraulic diameter `D_h = 2wh / (w + h)` [m].
+    /// Hydraulic diameter `D_h = 2wh / (w + h)` \[m].
     #[inline]
     #[must_use]
     pub fn hydraulic_diameter_m(&self) -> f64 {
@@ -278,7 +278,7 @@ impl CellSeparationModel {
     /// - `background` — background (healthy) cell properties
     /// - `fluid_density_kg_m3` — fluid density [kg/m³]
     /// - `dynamic_viscosity_pa_s` — fluid dynamic viscosity [Pa·s]
-    /// - `mean_velocity_m_s` — mean channel velocity [m/s]
+    /// - `mean_velocity_m_s` — mean channel velocity \[m/s]
     ///
     /// # Returns
     /// Always `Some(CellSeparationAnalysis)`.  Equilibrium positions are used

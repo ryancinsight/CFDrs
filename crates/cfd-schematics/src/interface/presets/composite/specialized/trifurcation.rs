@@ -141,8 +141,8 @@ pub fn cascade_tri_bi_tri_selective_rect(
 /// - `split1_center_frac`   — center-arm width fraction at the first trifurcation ∈ [0.25, 0.65].
 /// - `split2_center_frac`   — center-arm width fraction at the second trifurcation ∈ [0.25, 0.65].
 /// - `center_throat_count`  — serial venturi throats per center channel (0–4).
-/// - `throat_width_m`       — throat constriction width [m].
-/// - `throat_length_m`      — length of each throat segment [m].
+/// - `throat_width_m`       — throat constriction width \[m].
+/// - `throat_length_m`      — length of each throat segment \[m].
 /// - `inter_throat_spacing_m` — re-development length between throats; must be
 ///   `> 10 * D_h` (Shah & London 1978, §2-3).
 #[must_use]

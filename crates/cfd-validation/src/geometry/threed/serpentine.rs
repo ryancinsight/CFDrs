@@ -6,11 +6,11 @@ use nalgebra::RealField;
 /// 3D Serpentine channel geometry (Sine-wave)
 #[derive(Debug, Clone)]
 pub struct Serpentine3D<T: RealField + Copy> {
-    /// Channel diameter/width [m]
+    /// Channel diameter/width \[m]
     pub diameter: T,
-    /// Amplitude of the serpentine curve [m]
+    /// Amplitude of the serpentine curve \[m]
     pub amplitude: T,
-    /// Period of the serpentine curve (wavelength) [m]
+    /// Period of the serpentine curve (wavelength) \[m]
     pub wavelength: T,
     /// Number of periods
     pub num_periods: usize,

@@ -14,7 +14,7 @@ pub const ZERO_SHEAR_VISCOSITY: f64 = 0.056;
 /// Reference: Cho & Kensey (1991)
 pub const INFINITE_SHEAR_VISCOSITY: f64 = 0.00345;
 
-/// Yield stress for normal blood (H_t = 45%) [Pa]
+/// Yield stress for normal blood (H_t = 45%) \[Pa]
 /// Reference: Merrill et al. (1969)
 pub const YIELD_STRESS: f64 = 0.0056;
 
@@ -22,7 +22,7 @@ pub const YIELD_STRESS: f64 = 0.0056;
 /// Reference: Merrill et al. (1969)
 pub const CASSON_VISCOSITY_SQRT: f64 = 0.0588; // √0.00345 ≈ 0.0587
 
-/// Carreau-Yasuda relaxation time λ [s]
+/// Carreau-Yasuda relaxation time λ \[s]
 /// Reference: Cho & Kensey (1991)
 pub const CARREAU_LAMBDA: f64 = 3.313;
 
@@ -42,12 +42,12 @@ pub const BLOOD_SPECIFIC_HEAT: f64 = 3770.0;
 /// Reference: Fung (1993)
 pub const BLOOD_THERMAL_CONDUCTIVITY: f64 = 0.52;
 
-/// Speed of sound in blood [m/s]
+/// Speed of sound in blood \[m/s]
 /// Reference: Fung (1993)
 pub const BLOOD_SPEED_OF_SOUND: f64 = 1570.0;
 
 /// Normal hematocrit (volume fraction of RBCs)
 pub const NORMAL_HEMATOCRIT: f64 = 0.45;
 
-/// Critical vessel diameter for Fåhræus-Lindqvist effect [m]
+/// Critical vessel diameter for Fåhræus-Lindqvist effect \[m]
 pub const FAHRAEUS_LINDQVIST_CRITICAL_DIAMETER: f64 = 300e-6;

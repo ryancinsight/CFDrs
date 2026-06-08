@@ -19,11 +19,11 @@ use std::collections::HashMap;
 /// mapped onto channels or nodes in a schematic visualization.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AnalysisField {
-    /// Static pressure [Pa] — node quantity, interpolated to edges for display
+    /// Static pressure \[Pa] — node quantity, interpolated to edges for display
     Pressure,
-    /// Wall shear stress [Pa] — edge quantity derived from velocity gradient at wall
+    /// Wall shear stress \[Pa] — edge quantity derived from velocity gradient at wall
     WallShearStress,
-    /// Mean cross-sectional velocity [m/s] — edge quantity (Q / A)
+    /// Mean cross-sectional velocity \[m/s] — edge quantity (Q / A)
     Velocity,
     /// Volumetric flow rate [m³/s] — edge quantity
     FlowRate,

@@ -89,7 +89,7 @@ impl fmt::Display for FlowRegime {
 ///
 /// # Arguments
 /// * `viscosity_pa_s` — Dynamic viscosity of the continuous phase [Pa·s]
-/// * `velocity_m_s` — Mean flow velocity [m/s]
+/// * `velocity_m_s` — Mean flow velocity \[m/s]
 /// * `surface_tension_n_m` — Interfacial tension [N/m]
 ///
 /// # Returns
@@ -118,8 +118,8 @@ pub fn capillary_number(
 ///
 /// # Arguments
 /// * `density_kg_m3` — Fluid density [kg/m³]
-/// * `velocity_m_s` — Mean flow velocity [m/s]
-/// * `length_m` — Characteristic length (channel hydraulic diameter) [m]
+/// * `velocity_m_s` — Mean flow velocity \[m/s]
+/// * `length_m` — Characteristic length (channel hydraulic diameter) \[m]
 /// * `surface_tension_n_m` — Interfacial tension [N/m]
 ///
 /// # Returns
@@ -198,8 +198,8 @@ pub fn classify_regime(ca: f64) -> Result<FlowRegime> {
 /// # Arguments
 /// * `viscosity_pa_s` — Dynamic viscosity [Pa·s]
 /// * `density_kg_m3` — Fluid density [kg/m³]
-/// * `velocity_m_s` — Mean velocity [m/s]
-/// * `length_m` — Characteristic length [m]
+/// * `velocity_m_s` — Mean velocity \[m/s]
+/// * `length_m` — Characteristic length \[m]
 /// * `surface_tension_n_m` — Interfacial tension [N/m]
 ///
 /// # Returns

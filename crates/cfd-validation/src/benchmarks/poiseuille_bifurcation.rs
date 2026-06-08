@@ -113,24 +113,24 @@ pub struct BifurcationSolution2D<T: RealField + Copy + Float + FromPrimitive> {
 /// Configuration for 2D bifurcation validation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BifurcationConfig2D<T: RealField + Copy> {
-    /// Parent vessel diameter [m]
+    /// Parent vessel diameter \[m]
     pub d_parent: T,
-    /// Daughter 1 diameter [m]
+    /// Daughter 1 diameter \[m]
     pub d_daughter1: T,
-    /// Daughter 2 diameter [m]
+    /// Daughter 2 diameter \[m]
     pub d_daughter2: T,
 
-    /// Parent vessel length [m]
+    /// Parent vessel length \[m]
     pub length_parent: T,
-    /// Daughter 1 length [m]
+    /// Daughter 1 length \[m]
     pub length_daughter1: T,
-    /// Daughter 2 length [m]
+    /// Daughter 2 length \[m]
     pub length_daughter2: T,
 
     /// Inlet flow rate [m³/s]
     pub flow_rate: T,
 
-    /// Inlet pressure [Pa]
+    /// Inlet pressure \[Pa]
     pub inlet_pressure: T,
 
     /// Number of grid points across each vessel diameter

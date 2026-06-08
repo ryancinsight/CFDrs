@@ -86,19 +86,19 @@ use serde::{Deserialize, Serialize};
 /// - Diverging section (linear expansion)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VenturiGeometry<T: RealField + Copy> {
-    /// Inlet width [m]
+    /// Inlet width \[m]
     pub w_inlet: T,
-    /// Throat width [m]
+    /// Throat width \[m]
     pub w_throat: T,
-    /// Inlet section length [m]
+    /// Inlet section length \[m]
     pub l_inlet: T,
-    /// Converging section length [m]
+    /// Converging section length \[m]
     pub l_converge: T,
-    /// Throat section length [m]
+    /// Throat section length \[m]
     pub l_throat: T,
-    /// Diverging (recovery) section length [m]
+    /// Diverging (recovery) section length \[m]
     pub l_diverge: T,
-    /// Channel height (constant) [m]
+    /// Channel height (constant) \[m]
     pub height: T,
 }
 
@@ -169,12 +169,12 @@ impl<T: RealField + Copy + FromPrimitive> VenturiGeometry<T> {
         self.l_inlet + self.l_converge + self.l_throat + self.l_diverge
     }
 
-    /// Get inlet cross-sectional area [m²]
+    /// Get inlet cross-sectional area \[m²]
     pub fn area_inlet(&self) -> T {
         self.w_inlet * self.height
     }
 
-    /// Get throat cross-sectional area [m²]
+    /// Get throat cross-sectional area \[m²]
     pub fn area_throat(&self) -> T {
         self.w_throat * self.height
     }
@@ -228,9 +228,9 @@ impl<T: RealField + Copy + FromPrimitive> VenturiGeometry<T> {
 /// for validation against numerical solutions.
 pub struct BernoulliVenturi<T: RealField + Copy> {
     geometry: VenturiGeometry<T>,
-    /// Inlet velocity [m/s]
+    /// Inlet velocity \[m/s]
     pub u_inlet: T,
-    /// Inlet pressure [Pa]
+    /// Inlet pressure \[Pa]
     pub p_inlet: T,
     /// Fluid density [kg/m³]
     pub rho: T,
@@ -398,13 +398,13 @@ impl<T: RealField + Copy + FromPrimitive> ViscousVenturi<T> {
 /// Solution to the Venturi flow problem
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct VenturiFlowSolution<T: RealField + Copy> {
-    /// Inlet velocity [m/s]
+    /// Inlet velocity \[m/s]
     pub u_inlet: T,
-    /// Inlet pressure [Pa]
+    /// Inlet pressure \[Pa]
     pub p_inlet: T,
-    /// Maximum throat velocity [m/s] (centerline of parabolic profile)
+    /// Maximum throat velocity \[m/s] (centerline of parabolic profile)
     pub u_throat: T,
-    /// Area-averaged throat velocity [m/s].
+    /// Area-averaged throat velocity \[m/s].
     ///
     /// ## Theorem — Cross-Section Averaging
     ///
@@ -420,15 +420,15 @@ pub struct VenturiFlowSolution<T: RealField + Copy> {
     ///
     /// **Reference**: White, F.M. (2011), *Fluid Mechanics* §6.3.
     pub u_throat_mean: T,
-    /// Throat pressure [Pa]
+    /// Throat pressure \[Pa]
     pub p_throat: T,
-    /// Outlet velocity [m/s]
+    /// Outlet velocity \[m/s]
     pub u_outlet: T,
-    /// Outlet pressure [Pa]
+    /// Outlet pressure \[Pa]
     pub p_outlet: T,
-    /// Pressure drop in throat [Pa]
+    /// Pressure drop in throat \[Pa]
     pub dp_throat: T,
-    /// Pressure recovery (outlet - inlet) [Pa]
+    /// Pressure recovery (outlet - inlet) \[Pa]
     pub dp_recovery: T,
     /// Pressure coefficient at throat
     pub cp_throat: T,
@@ -475,7 +475,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiFlowSolution<T> {
     /// P_inlet + (1/2)ρu_inlet² = P_outlet + (1/2)ρu_outlet² + ε_dissipated
     /// ```
     ///
-    /// Returns dissipated energy [Pa]
+    /// Returns dissipated energy \[Pa]
     pub fn energy_dissipation(&self, rho: T) -> T {
         let one_half = T::from_f64_or_one(0.5);
 

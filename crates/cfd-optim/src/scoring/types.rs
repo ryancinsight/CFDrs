@@ -104,7 +104,7 @@ pub enum OptimMode {
     /// constraint checking (`ECV ≤ 10% × patient_blood_volume`).
     /// `patient_blood_volume_ml ≈ patient_weight_kg × 85`.
     PediatricLeukapheresis {
-        /// Patient weight [kg]; used to check ECV ≤ 10% of total blood volume.
+        /// Patient weight \[kg]; used to check ECV ≤ 10% of total blood volume.
         patient_weight_kg: f64,
     },
 
@@ -150,7 +150,7 @@ pub enum OptimMode {
         leuka_weight: f64,
         /// Weight on the hydrodynamic SDT sub-score (default 0.5).
         sdt_weight: f64,
-        /// Patient weight [kg]; used to check ECV ≤ 10% of total blood volume (neonate: 3.0).
+        /// Patient weight \[kg]; used to check ECV ≤ 10% of total blood volume (neonate: 3.0).
         patient_weight_kg: f64,
     },
 

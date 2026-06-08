@@ -72,13 +72,13 @@ use serde::{Deserialize, Serialize};
 /// Porous membrane represented by equivalent parallel cylindrical pores.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MembranePoreModel<T: RealField + Copy> {
-    /// Membrane thickness [m]
+    /// Membrane thickness \[m]
     pub thickness: T,
-    /// Membrane width [m]
+    /// Membrane width \[m]
     pub width: T,
-    /// Membrane height [m]
+    /// Membrane height \[m]
     pub height: T,
-    /// Pore radius [m]
+    /// Pore radius \[m]
     pub pore_radius: T,
     /// Open-area fraction, in [0, 1]
     pub porosity: T,

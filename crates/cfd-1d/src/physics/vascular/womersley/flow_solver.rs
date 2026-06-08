@@ -15,17 +15,17 @@ use serde::{Deserialize, Serialize};
 /// given inlet conditions and geometry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WomersleyFlow<T: RealField + Copy> {
-    /// Vessel radius [m]
+    /// Vessel radius \[m]
     pub radius: T,
-    /// Vessel length [m]
+    /// Vessel length \[m]
     pub length: T,
     /// Fluid density [kg/m³]
     pub density: T,
     /// Dynamic viscosity [Pa·s]
     pub viscosity: T,
-    /// Angular frequency [rad/s]
+    /// Angular frequency \[rad/s]
     pub omega: T,
-    /// Inlet pressure amplitude [Pa]
+    /// Inlet pressure amplitude \[Pa]
     pub inlet_pressure_amplitude: T,
     /// Mean pressure gradient [Pa/m]
     pub mean_pressure_gradient: T,

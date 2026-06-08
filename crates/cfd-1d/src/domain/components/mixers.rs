@@ -15,9 +15,9 @@
 //!
 //! where:
 //! - `μ`       = dynamic viscosity [Pa·s]
-//! - `L`       = total channel length [m]
-//! - `D` / `Dh`= (hydraulic) diameter [m]
-//! - `A`       = cross-sectional area `= π/4 · D²` [m²]
+//! - `L`       = total channel length \[m]
+//! - `D` / `Dh`= (hydraulic) diameter \[m]
+//! - `A`       = cross-sectional area `= π/4 · D²` \[m²]
 //! - `K_loss`  = dimensionless minor-loss coefficient per bend/geometry
 //!
 //! **Minor-loss coefficients by mixer type** (laminar regime):
@@ -101,9 +101,9 @@ impl MixerType {
 pub struct Micromixer<T: RealField + Copy> {
     /// Mixer geometry type
     pub mixer_type: MixerType,
-    /// Hydraulic diameter of the mixer channel [m] (must be > 0)
+    /// Hydraulic diameter of the mixer channel \[m] (must be > 0)
     pub hydraulic_diameter: T,
-    /// Total channel path length [m] (must be > 0)
+    /// Total channel path length \[m] (must be > 0)
     pub length: T,
     /// Number of bends (used for Serpentine and Herringbone mixers; ≥ 1)
     pub n_bends: usize,

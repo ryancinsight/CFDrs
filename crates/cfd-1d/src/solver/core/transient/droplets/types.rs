@@ -61,7 +61,7 @@ pub struct DropletInjection<T: RealField + Copy> {
     pub droplet_id: i32,
     /// Carrier fluid id (for provenance).
     pub fluid_id: i32,
-    /// Droplet volume [m³].
+    /// Droplet volume \[m³].
     pub volume: T,
     /// Injection time.
     pub injection_time: T,
@@ -127,7 +127,7 @@ pub struct DropletSnapshot<T: RealField + Copy> {
     pub occupancy_spans: Vec<ChannelOccupancy<T>>,
     /// Boundary points for finite-length tracking.
     pub boundaries: Vec<DropletBoundary<T>>,
-    /// Total volume currently represented by this droplet [m³].
+    /// Total volume currently represented by this droplet \[m³].
     pub total_volume: T,
     /// Fluid id associated with droplet.
     pub fluid_id: i32,

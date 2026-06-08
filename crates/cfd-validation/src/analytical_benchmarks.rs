@@ -15,9 +15,9 @@ use num_traits::FromPrimitive;
 ///
 /// Reference: White, F.M. (2016). Viscous Fluid Flow, 3rd ed., Section 3.2
 pub struct CouetteFlow<T: RealField + Copy> {
-    /// Upper plate velocity [m/s]
+    /// Upper plate velocity \[m/s]
     pub u_wall: T,
-    /// Gap height [m]
+    /// Gap height \[m]
     pub h: T,
     /// Pressure gradient dp/dx [Pa/m]
     pub dp_dx: T,
@@ -49,7 +49,7 @@ impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
 ///
 /// Reference: Batchelor, G.K. (2000). An Introduction to Fluid Dynamics, Section 4.2
 pub struct PoiseuilleFlow<T: RealField + Copy> {
-    /// Channel half-height [m]
+    /// Channel half-height \[m]
     pub h: T,
     /// Pressure gradient dp/dx [Pa/m] (negative for flow in +x direction)
     pub dp_dx: T,
@@ -92,9 +92,9 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
 ///
 /// Reference: Taylor & Green (1937). Proc. R. Soc. Lond. A, 158(895), 499-521
 pub struct TaylorGreenVortex<T: RealField + Copy> {
-    /// Characteristic velocity [m/s]
+    /// Characteristic velocity \[m/s]
     pub u0: T,
-    /// Characteristic length [m]
+    /// Characteristic length \[m]
     pub l: T,
     /// Kinematic viscosity [m²/s]
     pub nu: T,

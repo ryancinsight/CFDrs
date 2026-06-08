@@ -35,7 +35,7 @@ use num_traits::{Float, FromPrimitive};
 
 /// 2D Drift-Diffusion Transport Solver
 pub struct DriftDiffusionSolver2D<T: RealField + Copy + Float + FromPrimitive> {
-    /// Concentration field [nx][ny] (stored at cell centers)
+    /// Concentration field \[nx]\[ny] (stored at cell centers)
     pub c: Array2D<T>,
 }
 

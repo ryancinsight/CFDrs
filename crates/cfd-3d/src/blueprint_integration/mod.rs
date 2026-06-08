@@ -65,15 +65,15 @@ pub struct ChannelCrossFidelityTrace {
     pub mesh_volume_error_pct: f64,
     /// Authoritative cfd-1d reference flow rate [m^3/s].
     pub reference_flow_rate_m3_s: f64,
-    /// Authoritative cfd-1d pressure drop [Pa].
+    /// Authoritative cfd-1d pressure drop \[Pa].
     pub reference_pressure_drop_pa: f64,
     /// Authoritative cfd-1d pressure-drop coefficient normalized by the blueprint inlet dynamic pressure.
     pub reference_pressure_drop_coefficient: f64,
-    /// Authoritative cfd-1d mean velocity [m/s].
+    /// Authoritative cfd-1d mean velocity \[m/s].
     pub reference_mean_velocity_m_s: f64,
     /// cfd-2d outlet-flow error against the cfd-1d reference [%], when computed.
     pub two_d_outlet_flow_error_pct: Option<f64>,
-    /// Mean wall shear extracted from the cfd-2d field [Pa], when computed.
+    /// Mean wall shear extracted from the cfd-2d field \[Pa], when computed.
     pub two_d_field_wall_shear_mean_pa: Option<f64>,
     /// Eulerian-Lagrangian separation efficiency over the solved 2D field [%], when computed.
     pub two_d_field_separation_efficiency_pct: Option<f64>,
@@ -88,7 +88,7 @@ pub struct NodeCrossFidelityTrace {
     pub node_id: String,
     /// Blueprint node classification.
     pub node_kind: NodeKind,
-    /// Reference nodal pressure [Pa].
+    /// Reference nodal pressure \[Pa].
     pub pressure_pa: f64,
     /// Sum of incoming flow rates [m^3/s].
     pub incoming_flow_m3_s: f64,
