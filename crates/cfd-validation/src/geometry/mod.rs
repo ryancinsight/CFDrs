@@ -27,25 +27,13 @@ pub use self::serpentine_2d::Serpentine2D;
 pub use self::trifurcation_2d::Trifurcation2D;
 pub use self::venturi::Venturi2D;
 
-/// Point in 2D space
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Point2D<T: RealField> {
-    /// X-coordinate
-    pub x: T,
-    /// Y-coordinate
-    pub y: T,
-}
+/// Re-export nalgebra point types (SSOT — no custom duplicates).
+pub use nalgebra::{Point2, Point3};
 
-/// Point in 3D space
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Point3D<T: RealField> {
-    /// X-coordinate
-    pub x: T,
-    /// Y-coordinate
-    pub y: T,
-    /// Z-coordinate
-    pub z: T,
-}
+/// Legacy alias for backwards compatibility within the crate.
+pub type Point2D<T> = Point2<T>;
+/// Legacy alias for backwards compatibility within the crate.
+pub type Point3D<T> = Point3<T>;
 
 /// Boundary condition specification for MMS
 #[derive(Debug, Clone, PartialEq)]
@@ -155,14 +143,14 @@ mod tests {
     fn test_rectangular_domain_contains() {
         let domain: RectangularDomain<f64> = RectangularDomain::unit_square();
 
-        assert!(domain.contains(&Point2D { x: 0.5, y: 0.5 }));
-        assert!(domain.contains(&Point2D { x: 0.0, y: 0.0 }));
-        assert!(domain.contains(&Point2D { x: 1.0, y: 1.0 }));
+        assert!(domain.contains(&Point2D::new(0.5, 0.5)));
+        assert!(domain.contains(&Point2D::new(0.0, 0.0)));
+        assert!(domain.contains(&Point2D::new(1.0, 1.0)));
 
-        assert!(!domain.contains(&Point2D { x: -0.1, y: 0.5 }));
-        assert!(!domain.contains(&Point2D { x: 1.1, y: 0.5 }));
-        assert!(!domain.contains(&Point2D { x: 0.5, y: -0.1 }));
-        assert!(!domain.contains(&Point2D { x: 0.5, y: 1.1 }));
+        assert!(!domain.contains(&Point2D::new(-0.1, 0.5)));
+        assert!(!domain.contains(&Point2D::new(1.1, 0.5)));
+        assert!(!domain.contains(&Point2D::new(0.5, -0.1)));
+        assert!(!domain.contains(&Point2D::new(0.5, 1.1)));
     }
 
     #[test]
@@ -170,14 +158,14 @@ mod tests {
         let domain: CircularDomain<f64> = CircularDomain::unit_disk();
 
         // Points inside the unit disk
-        assert!(domain.contains(&Point2D { x: 0.0, y: 0.0 })); // center
-        assert!(domain.contains(&Point2D { x: 0.5, y: 0.0 })); // on x-axis
-        assert!(domain.contains(&Point2D { x: 0.0, y: 0.5 })); // on y-axis
+        assert!(domain.contains(&Point2D::new(0.0, 0.0))); // center
+        assert!(domain.contains(&Point2D::new(0.5, 0.0))); // on x-axis
+        assert!(domain.contains(&Point2D::new(0.0, 0.5))); // on y-axis
 
         // Points outside the unit disk
-        assert!(!domain.contains(&Point2D { x: 1.1, y: 0.0 })); // outside
-        assert!(!domain.contains(&Point2D { x: 0.0, y: 1.1 })); // outside
-        assert!(!domain.contains(&Point2D { x: 1.0, y: 1.0 })); // corner, distance = √2 ≈ 1.414
+        assert!(!domain.contains(&Point2D::new(1.1, 0.0))); // outside
+        assert!(!domain.contains(&Point2D::new(0.0, 1.1))); // outside
+        assert!(!domain.contains(&Point2D::new(1.0, 1.0))); // corner, distance = √2 ≈ 1.414
     }
 
     #[test]
@@ -192,23 +180,23 @@ mod tests {
         let domain: AnnularDomain<f64> = AnnularDomain::unit_annulus();
 
         // Points inside the annulus (between r=0.5 and r=1.0)
-        assert!(domain.contains(&Point2D { x: 0.6, y: 0.0 })); // on x-axis
-        assert!(domain.contains(&Point2D { x: 0.0, y: 0.8 })); // on y-axis
-        assert!(domain.contains(&Point2D { x: 0.6, y: 0.8 })); // diagonal
+        assert!(domain.contains(&Point2D::new(0.6, 0.0))); // on x-axis
+        assert!(domain.contains(&Point2D::new(0.0, 0.8))); // on y-axis
+        assert!(domain.contains(&Point2D::new(0.6, 0.8))); // diagonal
 
         // Points inside inner circle (should not be contained)
-        assert!(!domain.contains(&Point2D { x: 0.3, y: 0.0 })); // inside inner
-        assert!(!domain.contains(&Point2D { x: 0.0, y: 0.4 })); // inside inner
+        assert!(!domain.contains(&Point2D::new(0.3, 0.0))); // inside inner
+        assert!(!domain.contains(&Point2D::new(0.0, 0.4))); // inside inner
 
         // Points outside outer circle (should not be contained)
-        assert!(!domain.contains(&Point2D { x: 1.1, y: 0.0 })); // outside outer
-        assert!(!domain.contains(&Point2D { x: 0.0, y: 1.2 })); // outside outer
+        assert!(!domain.contains(&Point2D::new(1.1, 0.0))); // outside outer
+        assert!(!domain.contains(&Point2D::new(0.0, 1.2))); // outside outer
 
         // Points on inner boundary (should be contained)
-        assert!(domain.contains(&Point2D { x: 0.5, y: 0.0 })); // on inner boundary
+        assert!(domain.contains(&Point2D::new(0.5, 0.0))); // on inner boundary
 
         // Points on outer boundary (should be contained)
-        assert!(domain.contains(&Point2D { x: 1.0, y: 0.0 })); // on outer boundary
+        assert!(domain.contains(&Point2D::new(1.0, 0.0))); // on outer boundary
     }
 
     #[test]
@@ -216,7 +204,7 @@ mod tests {
         let domain: AnnularDomain<f64> = AnnularDomain::unit_annulus();
 
         // Point inside annulus
-        let point_inside = Point2D { x: 0.7, y: 0.0 };
+        let point_inside = Point2D::new(0.7, 0.0);
         let dist_inside = domain.distance_to_boundary(&point_inside);
         // Distance to inner boundary: 0.7 - 0.5 = 0.2
         // Distance to outer boundary: 1.0 - 0.7 = 0.3
@@ -224,19 +212,19 @@ mod tests {
         assert_relative_eq!(dist_inside, 0.2, epsilon = 1e-10);
 
         // Point close to inner boundary
-        let point_near_inner = Point2D { x: 0.45, y: 0.0 };
+        let point_near_inner = Point2D::new(0.45, 0.0);
         let dist_near_inner = domain.distance_to_boundary(&point_near_inner);
         // Inside inner circle, distance to inner boundary: 0.5 - 0.45 = 0.05
         assert_relative_eq!(dist_near_inner, 0.05, epsilon = 1e-10);
 
         // Point close to outer boundary
-        let point_near_outer = Point2D { x: 0.95, y: 0.0 };
+        let point_near_outer = Point2D::new(0.95, 0.0);
         let dist_near_outer = domain.distance_to_boundary(&point_near_outer);
         // Distance to outer boundary: 1.0 - 0.95 = 0.05
         assert_relative_eq!(dist_near_outer, 0.05, epsilon = 1e-10);
 
         // Point outside outer boundary
-        let point_outside = Point2D { x: 1.2, y: 0.0 };
+        let point_outside = Point2D::new(1.2, 0.0);
         let dist_outside = domain.distance_to_boundary(&point_outside);
         // Outside outer circle, distance to outer boundary: 1.2 - 1.0 = 0.2
         assert_relative_eq!(dist_outside, 0.2, epsilon = 1e-10);
@@ -247,21 +235,21 @@ mod tests {
         let domain: AnnularDomain<f64> = AnnularDomain::unit_annulus();
 
         // Point on inner boundary at (0.5, 0) should have inward normal (towards center)
-        let point_inner = Point2D { x: 0.5, y: 0.0 };
+        let point_inner = Point2D::new(0.5, 0.0);
         let normal_inner = domain.boundary_normal(&point_inner).unwrap();
         // Inward normal points towards center (0,0), so at (0.5,0) it should be (-1,0)
         assert_relative_eq!(normal_inner.x, -1.0, epsilon = 1e-10);
         assert_relative_eq!(normal_inner.y, 0.0, epsilon = 1e-10);
 
         // Point on outer boundary at (1,0) should have outward normal (away from center)
-        let point_outer = Point2D { x: 1.0, y: 0.0 };
+        let point_outer = Point2D::new(1.0, 0.0);
         let normal_outer = domain.boundary_normal(&point_outer).unwrap();
         // Outward normal points away from center, so at (1,0) it should be (1,0)
         assert_relative_eq!(normal_outer.x, 1.0, epsilon = 1e-10);
         assert_relative_eq!(normal_outer.y, 0.0, epsilon = 1e-10);
 
         // Point inside annulus should return None
-        let point_inside = Point2D { x: 0.7, y: 0.0 };
+        let point_inside = Point2D::new(0.7, 0.0);
         assert!(domain.boundary_normal(&point_inside).is_none());
     }
 
@@ -284,17 +272,17 @@ mod tests {
         let domain: AnnularDomain<f64> = AnnularDomain::unit_annulus();
 
         // Points on inner boundary
-        assert!(domain.on_boundary(&Point2D { x: 0.5, y: 0.0 }, BoundaryFace::Inner, 1e-10));
-        assert!(domain.on_boundary(&Point2D { x: 0.0, y: 0.5 }, BoundaryFace::Inner, 1e-10));
+        assert!(domain.on_boundary(&Point2D::new(0.5, 0.0), BoundaryFace::Inner, 1e-10));
+        assert!(domain.on_boundary(&Point2D::new(0.0, 0.5), BoundaryFace::Inner, 1e-10));
 
         // Points on outer boundary
-        assert!(domain.on_boundary(&Point2D { x: 1.0, y: 0.0 }, BoundaryFace::Outer, 1e-10));
-        assert!(domain.on_boundary(&Point2D { x: 0.0, y: 1.0 }, BoundaryFace::Outer, 1e-10));
+        assert!(domain.on_boundary(&Point2D::new(1.0, 0.0), BoundaryFace::Outer, 1e-10));
+        assert!(domain.on_boundary(&Point2D::new(0.0, 1.0), BoundaryFace::Outer, 1e-10));
 
         // Points not on boundaries
-        assert!(!domain.on_boundary(&Point2D { x: 0.7, y: 0.0 }, BoundaryFace::Inner, 1e-10));
-        assert!(!domain.on_boundary(&Point2D { x: 0.7, y: 0.0 }, BoundaryFace::Outer, 1e-10));
-        assert!(!domain.on_boundary(&Point2D { x: 1.0, y: 0.0 }, BoundaryFace::Bottom, 1e-10));
+        assert!(!domain.on_boundary(&Point2D::new(0.7, 0.0), BoundaryFace::Inner, 1e-10));
+        assert!(!domain.on_boundary(&Point2D::new(0.7, 0.0), BoundaryFace::Outer, 1e-10));
+        assert!(!domain.on_boundary(&Point2D::new(1.0, 0.0), BoundaryFace::Bottom, 1e-10));
     }
 
     #[test]

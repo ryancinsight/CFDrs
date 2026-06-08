@@ -96,16 +96,8 @@ impl<T: RealField + Copy> Geometry3D<T> for Venturi3D<T> {
             self.l_inlet + self.l_convergent + self.l_throat + self.l_divergent + self.l_outlet;
         let max_d = self.d_inlet.max(self.d_outlet);
         (
-            Point3D {
-                x: -max_d,
-                y: -max_d,
-                z: T::zero(),
-            },
-            Point3D {
-                x: max_d,
-                y: max_d,
-                z: total_l,
-            },
+            Point3D::new(-max_d, -max_d, T::zero(),),
+            Point3D::new(max_d, max_d, total_l,),
         )
     }
 

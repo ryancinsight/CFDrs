@@ -47,10 +47,7 @@ impl<T: RealField + Copy> Bifurcation2D<T> {
             daughter2_width: daughter_width,
             daughter2_length: daughter_length,
             daughter2_angle: -angle,
-            junction_center: Point2D {
-                x: length,
-                y: T::zero(),
-            },
+            junction_center: Point2D::new(length, T::zero(),),
         }
     }
 
@@ -79,10 +76,7 @@ impl<T: RealField + Copy> Geometry2D<T> for Bifurcation2D<T> {
 
     fn contains(&self, point: &Point2D<T>) -> bool {
         // Check parent branch (horizontal from 0 to parent_length)
-        let parent_start = Point2D {
-            x: T::zero(),
-            y: T::zero(),
-        };
+        let parent_start = Point2D::new(T::zero(), T::zero(),);
         if Self::in_segment(
             point,
             &parent_start,
@@ -144,11 +138,8 @@ impl<T: RealField + Copy> Geometry2D<T> for Bifurcation2D<T> {
             + self.parent_width;
 
         (
-            Point2D {
-                x: T::zero(),
-                y: -y_max,
-            },
-            Point2D { x: x_max, y: y_max },
+            Point2D::new(T::zero(), -y_max,),
+            Point2D::new(x_max, y_max),
         )
     }
 

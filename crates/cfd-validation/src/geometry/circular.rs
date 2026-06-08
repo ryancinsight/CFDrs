@@ -79,16 +79,10 @@ impl<T: RealField + Copy> Geometry2D<T> for CircularDomain<T> {
             let norm = ComplexField::sqrt(dx * dx + dy * dy);
 
             if norm > T::zero() {
-                Some(Point2D {
-                    x: dx / norm,
-                    y: dy / norm,
-                })
+                Some(Point2D::new(dx / norm, dy / norm,))
             } else {
                 // Point is at the center, return arbitrary normal (e.g., along x-axis)
-                Some(Point2D {
-                    x: T::one(),
-                    y: T::zero(),
-                })
+                Some(Point2D::new(T::one(), T::zero(),))
             }
         } else {
             None
@@ -112,14 +106,8 @@ impl<T: RealField + Copy> Geometry2D<T> for CircularDomain<T> {
 
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
         (
-            Point2D {
-                x: self.center_x - self.radius,
-                y: self.center_y - self.radius,
-            },
-            Point2D {
-                x: self.center_x + self.radius,
-                y: self.center_y + self.radius,
-            },
+            Point2D::new(self.center_x - self.radius, self.center_y - self.radius,),
+            Point2D::new(self.center_x + self.radius, self.center_y + self.radius,),
         )
     }
 

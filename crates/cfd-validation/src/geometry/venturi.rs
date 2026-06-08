@@ -127,14 +127,8 @@ impl<T: RealField + Copy> Geometry2D<T> for Venturi2D<T> {
         let y_max = self.inlet_width.max(self.outlet_width)
             * T::from_f64(0.6).unwrap_or_else(num_traits::Zero::zero);
         (
-            Point2D {
-                x: T::zero(),
-                y: -y_max,
-            },
-            Point2D {
-                x: self.total_length(),
-                y: y_max,
-            },
+            Point2D::new(T::zero(), -y_max,),
+            Point2D::new(self.total_length(), y_max,),
         )
     }
 

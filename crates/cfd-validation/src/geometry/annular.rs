@@ -97,16 +97,10 @@ impl<T: RealField + Copy + SafeFromF64> Geometry2D<T> for AnnularDomain<T> {
             let norm = ComplexField::sqrt(dx * dx + dy * dy);
 
             if norm > T::zero() {
-                Some(Point2D {
-                    x: dx / norm,
-                    y: dy / norm,
-                })
+                Some(Point2D::new(dx / norm, dy / norm,))
             } else {
                 // Point is at center, return arbitrary normal
-                Some(Point2D {
-                    x: -T::one(),
-                    y: T::zero(),
-                })
+                Some(Point2D::new(-T::one(), T::zero(),))
             }
         } else if (distance - self.outer_radius).abs() < tol {
             // Point is on outer boundary, outward normal (away from center)
@@ -115,16 +109,10 @@ impl<T: RealField + Copy + SafeFromF64> Geometry2D<T> for AnnularDomain<T> {
             let norm = ComplexField::sqrt(dx * dx + dy * dy);
 
             if norm > T::zero() {
-                Some(Point2D {
-                    x: dx / norm,
-                    y: dy / norm,
-                })
+                Some(Point2D::new(dx / norm, dy / norm,))
             } else {
                 // Point is at center, return arbitrary normal
-                Some(Point2D {
-                    x: T::one(),
-                    y: T::zero(),
-                })
+                Some(Point2D::new(T::one(), T::zero(),))
             }
         } else {
             None
@@ -151,14 +139,8 @@ impl<T: RealField + Copy + SafeFromF64> Geometry2D<T> for AnnularDomain<T> {
 
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
         (
-            Point2D {
-                x: self.center_x - self.outer_radius,
-                y: self.center_y - self.outer_radius,
-            },
-            Point2D {
-                x: self.center_x + self.outer_radius,
-                y: self.center_y + self.outer_radius,
-            },
+            Point2D::new(self.center_x - self.outer_radius, self.center_y - self.outer_radius,),
+            Point2D::new(self.center_x + self.outer_radius, self.center_y + self.outer_radius,),
         )
     }
 

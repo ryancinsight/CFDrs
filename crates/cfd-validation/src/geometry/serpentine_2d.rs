@@ -114,14 +114,8 @@ impl<T: RealField + Copy> Geometry2D<T> for Serpentine2D<T> {
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
         let y_max = self.amplitude + self.width;
         (
-            Point2D {
-                x: T::zero(),
-                y: -y_max,
-            },
-            Point2D {
-                x: self.total_length(),
-                y: y_max,
-            },
+            Point2D::new(T::zero(), -y_max,),
+            Point2D::new(self.total_length(), y_max,),
         )
     }
 

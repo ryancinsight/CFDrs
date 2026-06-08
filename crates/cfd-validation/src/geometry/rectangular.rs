@@ -76,25 +76,13 @@ impl<T: RealField + Copy> Geometry2D<T> for RectangularDomain<T> {
         let tol = T::from_f64_or_zero(1e-10);
 
         if (point.x - self.x_min).abs() < tol {
-            Some(Point2D {
-                x: -T::one(),
-                y: T::zero(),
-            }) // Left boundary
+            Some(Point2D::new(-T::one(), T::zero(),)) // Left boundary
         } else if (point.x - self.x_max).abs() < tol {
-            Some(Point2D {
-                x: T::one(),
-                y: T::zero(),
-            }) // Right boundary
+            Some(Point2D::new(T::one(), T::zero(),)) // Right boundary
         } else if (point.y - self.y_min).abs() < tol {
-            Some(Point2D {
-                x: T::zero(),
-                y: -T::one(),
-            }) // Bottom boundary
+            Some(Point2D::new(T::zero(), -T::one(),)) // Bottom boundary
         } else if (point.y - self.y_max).abs() < tol {
-            Some(Point2D {
-                x: T::zero(),
-                y: T::one(),
-            }) // Top boundary
+            Some(Point2D::new(T::zero(), T::one(),)) // Top boundary
         } else {
             None
         }
@@ -116,14 +104,8 @@ impl<T: RealField + Copy> Geometry2D<T> for RectangularDomain<T> {
 
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
         (
-            Point2D {
-                x: self.x_min,
-                y: self.y_min,
-            },
-            Point2D {
-                x: self.x_max,
-                y: self.y_max,
-            },
+            Point2D::new(self.x_min, self.y_min,),
+            Point2D::new(self.x_max, self.y_max,),
         )
     }
 

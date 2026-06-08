@@ -68,10 +68,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp + st
         for i in 0..nx {
             for j in 0..ny {
                 let center = grid.cell_center(i, j)?;
-                let point = Point2D {
-                    x: center.x,
-                    y: center.y,
-                };
+                let point = Point2D::new(center.x, center.y,);
                 let is_fluid = self.geometry.contains(&point);
                 fields.mask.set(i, j, is_fluid);
 

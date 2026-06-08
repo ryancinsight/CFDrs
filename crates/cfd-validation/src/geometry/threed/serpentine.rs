@@ -59,16 +59,8 @@ impl<T: RealField + Copy> Geometry3D<T> for Serpentine3D<T> {
         let total_l = self.wavelength * T::from_usize(self.num_periods).unwrap();
         let half_d = self.diameter / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
         (
-            Point3D {
-                x: -self.amplitude - half_d,
-                y: -half_d,
-                z: T::zero(),
-            },
-            Point3D {
-                x: self.amplitude + half_d,
-                y: half_d,
-                z: total_l,
-            },
+            Point3D::new(-self.amplitude - half_d, -half_d, T::zero(),),
+            Point3D::new(self.amplitude + half_d, half_d, total_l,),
         )
     }
 
