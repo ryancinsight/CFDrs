@@ -81,6 +81,46 @@ pub enum Error {
     #[error("Boundary error: {0}")]
     Boundary(BoundaryErrorKind),
 
+    /// Geometry generation and validation error
+    #[error("Geometry error: {0}")]
+    Geometry(GeometryErrorKind),
+
+    /// Configuration validation error
+    #[error("Configuration error: {0}")]
+    Configuration(ConfigurationErrorKind),
+
+    /// Visualization and rendering error
+    #[error("Visualization error: {0}")]
+    Visualization(VisualizationErrorKind),
+
+    /// Strategy execution error
+    #[error("Strategy error: {0}")]
+    Strategy(StrategyErrorKind),
+
+    /// Parameter error
+    #[error("Parameter error: {0}")]
+    Parameter(ParameterErrorKind),
+
+    /// Validation error
+    #[error("Validation error: {0}")]
+    Validation(ValidationErrorKind),
+
+    /// Registry error
+    #[error("Registry error: {0}")]
+    Registry(RegistryErrorKind),
+
+    /// Constraint error
+    #[error("Constraint error: {0}")]
+    Constraint(ConstraintErrorKind),
+
+    /// Dependency error
+    #[error("Dependency error: {0}")]
+    Dependency(DependencyErrorKind),
+
+    /// Adaptation error
+    #[error("Adaptation error: {0}")]
+    Adaptation(AdaptationErrorKind),
+
     /// Not implemented
     #[error("Not implemented: {0}")]
     NotImplemented(String),
@@ -95,6 +135,8 @@ pub enum Error {
         source: Box<Error>,
     },
 }
+
+// ── Plugin error variants ────────────────────────────────────────────────────
 
 /// Plugin error variants
 #[derive(Debug, Clone)]
@@ -194,6 +236,8 @@ impl fmt::Display for PluginErrorKind {
     }
 }
 
+// ── Numerical error variants ─────────────────────────────────────────────────
+
 /// Numerical error variants
 #[derive(Debug, Clone)]
 pub enum NumericalErrorKind {
@@ -252,6 +296,8 @@ impl fmt::Display for NumericalErrorKind {
     }
 }
 
+// ── Convergence error variants ───────────────────────────────────────────────
+
 /// Convergence error variants
 #[derive(Debug, Clone)]
 pub enum ConvergenceErrorKind {
@@ -291,6 +337,625 @@ impl fmt::Display for ConvergenceErrorKind {
         }
     }
 }
+
+// ── Boundary error variants ─────────────────────────────────────────────────
+
+/// Boundary condition error variants
+#[derive(Debug, Clone)]
+pub enum BoundaryErrorKind {
+    /// Insufficient interior values for requested stencil order
+    InsufficientStencil {
+        /// Required number of interior values
+        required: usize,
+        /// Stencil order
+        order: usize,
+        /// Actual number provided
+        actual: usize,
+    },
+
+    /// Unsupported stencil order
+    UnsupportedOrder(
+        /// Stencil order number
+        usize,
+    ),
+
+    /// Robin condition singularity
+    RobinSingularity {
+        /// Denominator value
+        value: f64,
+    },
+
+    /// Invalid boundary region
+    InvalidRegion(
+        /// Description of the invalid region
+        String,
+    ),
+
+    /// Dimension mismatch (string-based, for boundary metadata)
+    DimensionMismatch {
+        /// Expected dimensions
+        expected: String,
+        /// Actual dimensions
+        actual: String,
+    },
+}
+
+impl fmt::Display for BoundaryErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InsufficientStencil {
+                required,
+                order,
+                actual,
+            } => write!(
+                f,
+                "Insufficient interior values: need {required} for order {order} scheme, got {actual}"
+            ),
+            Self::UnsupportedOrder(order) => {
+                write!(f, "Stencil order {order} is unsupported (supported: 1-4)")
+            }
+            Self::RobinSingularity { value } => {
+                write!(f, "Robin condition denominator near zero: β + α*dx = {value}")
+            }
+            Self::InvalidRegion(msg) => write!(f, "Invalid boundary region: {msg}"),
+            Self::DimensionMismatch { expected, actual } => {
+                write!(f, "Dimension mismatch: expected {expected}, got {actual}")
+            }
+        }
+    }
+}
+
+// ── Geometry error variants ─────────────────────────────────────────────────
+
+/// Geometry generation and validation error variants
+#[derive(Debug, Clone)]
+pub enum GeometryErrorKind {
+    /// Invalid box dimensions
+    InvalidBoxDimensions {
+        /// Width of the box
+        width: f64,
+        /// Height of the box
+        height: f64,
+    },
+    /// Invalid point coordinates
+    InvalidPoint {
+        /// X coordinate
+        x: f64,
+        /// Y coordinate
+        y: f64,
+    },
+    /// Insufficient space for generation
+    InsufficientSpace {
+        /// Required space
+        required: f64,
+        /// Available space
+        available: f64,
+    },
+    /// Invalid split pattern
+    InvalidSplitPattern {
+        /// Reason for failure
+        reason: String,
+    },
+    /// Node creation failed
+    NodeCreationFailed {
+        /// X position
+        x: f64,
+        /// Y position
+        y: f64,
+        /// Reason for failure
+        reason: String,
+    },
+    /// Channel creation failed
+    ChannelCreationFailed {
+        /// Source node ID
+        from_id: usize,
+        /// Destination node ID
+        to_id: usize,
+        /// Reason for failure
+        reason: String,
+    },
+    /// Invalid channel path
+    InvalidChannelPath {
+        /// Reason for failure
+        reason: String,
+    },
+    /// Overlapping channels detected
+    OverlappingChannels {
+        /// First point X
+        x1: f64,
+        /// First point Y
+        y1: f64,
+        /// Second point X
+        x2: f64,
+        /// Second point Y
+        y2: f64,
+    },
+}
+
+impl fmt::Display for GeometryErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidBoxDimensions { width, height } => write!(f, "Invalid box dimensions: width={width}, height={height}. Both must be positive."),
+            Self::InvalidPoint { x, y } => write!(f, "Invalid point coordinates: ({x}, {y}). Must be finite."),
+            Self::InsufficientSpace { required, available } => write!(f, "Insufficient space: required {required}, available {available}"),
+            Self::InvalidSplitPattern { reason } => write!(f, "Invalid split pattern: {reason}"),
+            Self::NodeCreationFailed { x, y, reason } => write!(f, "Failed to create node at ({x}, {y}): {reason}"),
+            Self::ChannelCreationFailed { from_id, to_id, reason } => write!(f, "Failed to create channel from {from_id} to {to_id}: {reason}"),
+            Self::InvalidChannelPath { reason } => write!(f, "Invalid channel path: {reason}"),
+            Self::OverlappingChannels { x1, y1, x2, y2 } => write!(f, "Overlapping channels between ({x1},{y1}) and ({x2},{y2})"),
+        }
+    }
+}
+
+// ── Configuration error variants ────────────────────────────────────────────
+
+/// Configuration validation error variants
+#[derive(Debug, Clone)]
+pub enum ConfigurationErrorKind {
+    /// Invalid geometry configuration
+    InvalidGeometryConfig {
+        /// Configuration field name
+        field: String,
+        /// Invalid value
+        value: f64,
+        /// Constraint description
+        constraint: String,
+    },
+    /// Invalid serpentine configuration
+    InvalidSerpentineConfig {
+        /// Configuration field name
+        field: String,
+        /// Invalid value
+        value: f64,
+        /// Constraint description
+        constraint: String,
+    },
+    /// Invalid arc configuration
+    InvalidArcConfig {
+        /// Configuration field name
+        field: String,
+        /// Invalid value
+        value: f64,
+        /// Constraint description
+        constraint: String,
+    },
+    /// Invalid frustum configuration
+    InvalidFrustumConfig {
+        /// Configuration field name
+        field: String,
+        /// Invalid value
+        value: f64,
+        /// Constraint description
+        constraint: String,
+    },
+    /// Invalid geometry generation configuration
+    InvalidGenerationConfig {
+        /// Configuration field name
+        field: String,
+        /// Constraint description
+        constraint: String,
+    },
+    /// Conflicting configuration values
+    ConflictingValues {
+        /// Description of the conflict
+        conflict: String,
+    },
+    /// Missing required configuration
+    MissingConfiguration {
+        /// Name of the missing field
+        field: String,
+    },
+}
+
+impl fmt::Display for ConfigurationErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidGeometryConfig { field, value, constraint } => write!(f, "Invalid geometry config: {field} = {value}. {constraint}"),
+            Self::InvalidSerpentineConfig { field, value, constraint } => write!(f, "Invalid serpentine config: {field} = {value}. {constraint}"),
+            Self::InvalidArcConfig { field, value, constraint } => write!(f, "Invalid arc config: {field} = {value}. {constraint}"),
+            Self::InvalidFrustumConfig { field, value, constraint } => write!(f, "Invalid frustum config: {field} = {value}. {constraint}"),
+            Self::InvalidGenerationConfig { field, constraint } => write!(f, "Invalid generation config: {field}. {constraint}"),
+            Self::ConflictingValues { conflict } => write!(f, "Conflicting configuration values: {conflict}"),
+            Self::MissingConfiguration { field } => write!(f, "Missing required configuration: {field}"),
+        }
+    }
+}
+
+// ── Visualization error variants ────────────────────────────────────────────
+
+/// Visualization and rendering error variants
+#[derive(Debug, Clone)]
+pub enum VisualizationErrorKind {
+    /// File I/O error during visualization
+    FileError {
+        /// Error message
+        message: String,
+    },
+    /// Invalid output path
+    InvalidOutputPath {
+        /// Path that was invalid
+        path: String,
+        /// Reason for failure
+        reason: String,
+    },
+    /// Rendering backend error
+    RenderingError {
+        /// Error message
+        message: String,
+    },
+    /// Invalid visualization parameters
+    InvalidParameters {
+        /// Parameter name
+        parameter: String,
+        /// Parameter value
+        value: String,
+        /// Constraint description
+        constraint: String,
+    },
+    /// Empty channel system
+    EmptyChannelSystem,
+    /// Unsupported output format
+    UnsupportedFormat {
+        /// Format name
+        format: String,
+        /// Additional message
+        message: String,
+    },
+    /// Coordinate transformation error
+    CoordinateTransformError {
+        /// Error message
+        message: String,
+    },
+}
+
+impl fmt::Display for VisualizationErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::FileError { message } => write!(f, "File I/O error: {message}"),
+            Self::InvalidOutputPath { path, reason } => write!(f, "Invalid output path: '{path}'. {reason}"),
+            Self::RenderingError { message } => write!(f, "Rendering error: {message}"),
+            Self::InvalidParameters { parameter, value, constraint } => write!(f, "Invalid parameters: {parameter} = {value}. {constraint}"),
+            Self::EmptyChannelSystem => write!(f, "Cannot visualize empty channel system"),
+            Self::UnsupportedFormat { format, message } => write!(f, "Unsupported format: {format}. {message}"),
+            Self::CoordinateTransformError { message } => write!(f, "Coordinate transform error: {message}"),
+        }
+    }
+}
+
+// ── Strategy error variants ─────────────────────────────────────────────────
+
+/// Strategy execution error variants
+#[derive(Debug, Clone)]
+pub enum StrategyErrorKind {
+    /// Strategy creation failed
+    StrategyCreationFailed {
+        /// Channel type
+        channel_type: String,
+        /// Reason for failure
+        reason: String,
+    },
+    /// Invalid strategy parameters
+    InvalidParameters {
+        /// Parameter name
+        parameter: String,
+        /// Parameter value
+        value: String,
+        /// Constraint description
+        constraint: String,
+    },
+    /// Strategy execution failed
+    ExecutionFailed {
+        /// Source X coordinate
+        from_x: f64,
+        /// Source Y coordinate
+        from_y: f64,
+        /// Destination X coordinate
+        to_x: f64,
+        /// Destination Y coordinate
+        to_y: f64,
+        /// Reason for failure
+        reason: String,
+    },
+    /// Unsupported channel type
+    UnsupportedChannelType {
+        /// Channel type name
+        channel_type: String,
+    },
+}
+
+impl fmt::Display for StrategyErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::StrategyCreationFailed { channel_type, reason } => write!(f, "Failed to create strategy for {channel_type}: {reason}"),
+            Self::InvalidParameters { parameter, value, constraint } => write!(f, "Invalid strategy parameters: {parameter} = {value}. {constraint}"),
+            Self::ExecutionFailed { from_x, from_y, to_x, to_y, reason } => write!(f, "Strategy execution failed from ({from_x},{from_y}) to ({to_x},{to_y}): {reason}"),
+            Self::UnsupportedChannelType { channel_type } => write!(f, "Unsupported channel type: {channel_type}"),
+        }
+    }
+}
+
+// ── Parameter error variants ────────────────────────────────────────────────
+
+/// Parameter error variants
+#[derive(Debug, Clone)]
+pub enum ParameterErrorKind {
+    /// Parameter not found
+    NotFound {
+        /// Parameter name
+        name: String,
+        /// Domain name
+        domain: String,
+    },
+    /// Invalid parameter value
+    InvalidValue {
+        /// Parameter name
+        name: String,
+        /// Invalid value
+        value: String,
+        /// Constraint description
+        constraint: String,
+    },
+    /// Parameter type mismatch
+    TypeMismatch {
+        /// Parameter name
+        name: String,
+        /// Expected type
+        expected: String,
+        /// Actual type
+        actual: String,
+    },
+    /// Parameter is read-only
+    ReadOnly {
+        /// Parameter name
+        name: String,
+    },
+    /// Parameter dependency not satisfied
+    DependencyNotSatisfied {
+        /// Parameter name
+        name: String,
+        /// Missing dependency
+        dependency: String,
+    },
+    /// Circular dependency detected
+    CircularDependency {
+        /// Parameter name
+        name: String,
+    },
+    /// Adaptation failed
+    AdaptationFailed {
+        /// Parameter name
+        name: String,
+        /// Reason for failure
+        reason: String,
+    },
+}
+
+impl fmt::Display for ParameterErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotFound { name, domain } => write!(f, "Parameter '{name}' not found in domain '{domain}'"),
+            Self::InvalidValue { name, value, constraint } => write!(f, "Invalid value for '{name}': {value}. {constraint}"),
+            Self::TypeMismatch { name, expected, actual } => write!(f, "Type mismatch for '{name}': expected {expected}, got {actual}"),
+            Self::ReadOnly { name } => write!(f, "Parameter '{name}' is read-only"),
+            Self::DependencyNotSatisfied { name, dependency } => write!(f, "Parameter '{name}' dependency '{dependency}' not satisfied"),
+            Self::CircularDependency { name } => write!(f, "Circular dependency involving parameter '{name}'"),
+            Self::AdaptationFailed { name, reason } => write!(f, "Failed to adapt parameter '{name}': {reason}"),
+        }
+    }
+}
+
+// ── Validation error variants ───────────────────────────────────────────────
+
+/// Validation error variants
+#[derive(Debug, Clone)]
+pub enum ValidationErrorKind {
+    /// Validation rule failed
+    RuleFailed {
+        /// Field that failed validation
+        field: String,
+        /// Error message
+        message: String,
+    },
+    /// Multiple validation failures
+    Multiple {
+        /// List of failures
+        failures: Vec<ValidationErrorKind>,
+    },
+    /// Custom validation error
+    Custom {
+        /// Error message
+        message: String,
+    },
+    /// Constraint violation
+    ConstraintViolation {
+        /// Constraint description
+        constraint: String,
+    },
+}
+
+impl fmt::Display for ValidationErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RuleFailed { field, message } => write!(f, "Validation failed for '{field}': {message}"),
+            Self::Multiple { failures } => write!(f, "Multiple validation failures ({} errors)", failures.len()),
+            Self::Custom { message } => write!(f, "Validation error: {message}"),
+            Self::ConstraintViolation { constraint } => write!(f, "Constraint violation: {constraint}"),
+        }
+    }
+}
+
+// ── Registry error variants ─────────────────────────────────────────────────
+
+/// Registry error variants
+#[derive(Debug, Clone)]
+pub enum RegistryErrorKind {
+    /// Manager not found
+    ManagerNotFound {
+        /// Domain name
+        domain: String,
+    },
+    /// Manager already registered
+    ManagerAlreadyRegistered {
+        /// Domain name
+        domain: String,
+    },
+    /// Registry is locked
+    RegistryLocked,
+    /// Initialization failed
+    InitializationFailed {
+        /// Reason for failure
+        reason: String,
+    },
+    /// Update conflict
+    UpdateConflict {
+        /// Parameter name
+        parameter: String,
+        /// Reason for conflict
+        reason: String,
+    },
+}
+
+impl fmt::Display for RegistryErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ManagerNotFound { domain } => write!(f, "Parameter manager for domain '{domain}' not found"),
+            Self::ManagerAlreadyRegistered { domain } => write!(f, "Parameter manager for domain '{domain}' already registered"),
+            Self::RegistryLocked => write!(f, "Registry is locked"),
+            Self::InitializationFailed { reason } => write!(f, "Registry initialization failed: {reason}"),
+            Self::UpdateConflict { parameter, reason } => write!(f, "Update conflict for '{parameter}': {reason}"),
+        }
+    }
+}
+
+// ── Constraint error variants ───────────────────────────────────────────────
+
+/// Constraint error variants
+#[derive(Debug, Clone)]
+pub enum ConstraintErrorKind {
+    /// Range constraint violation
+    RangeViolation {
+        /// Violating value
+        value: String,
+        /// Minimum allowed
+        min: String,
+        /// Maximum allowed
+        max: String,
+    },
+    /// Set constraint violation
+    SetViolation {
+        /// Violating value
+        value: String,
+        /// Allowed values
+        allowed: Vec<String>,
+    },
+    /// Custom constraint violation
+    CustomViolation {
+        /// Error message
+        message: String,
+    },
+    /// Constraint composition error
+    CompositionError {
+        /// Reason for failure
+        reason: String,
+    },
+}
+
+impl fmt::Display for ConstraintErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RangeViolation { value, min, max } => write!(f, "Value {value} is outside range [{min}, {max}]"),
+            Self::SetViolation { value, allowed } => write!(f, "Value {value} is not in allowed set: {allowed:?}"),
+            Self::CustomViolation { message } => write!(f, "Constraint violation: {message}"),
+            Self::CompositionError { reason } => write!(f, "Constraint composition error: {reason}"),
+        }
+    }
+}
+
+// ── Dependency error variants ───────────────────────────────────────────────
+
+/// Dependency error variants
+#[derive(Debug, Clone)]
+pub enum DependencyErrorKind {
+    /// Dependency cycle detected
+    CycleDetected {
+        /// Cycle path
+        cycle: Vec<String>,
+    },
+    /// Missing dependency
+    MissingDependency {
+        /// Parameter that has the dependency
+        parameter: String,
+        /// Missing dependency name
+        dependency: String,
+    },
+    /// Dependency resolution failed
+    ResolutionFailed {
+        /// Parameter name
+        parameter: String,
+        /// Reason for failure
+        reason: String,
+    },
+    /// Invalid dependency graph
+    InvalidGraph {
+        /// Reason for failure
+        reason: String,
+    },
+}
+
+impl fmt::Display for DependencyErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CycleDetected { cycle } => write!(f, "Dependency cycle: {}", cycle.join(" -> ")),
+            Self::MissingDependency { parameter, dependency } => write!(f, "Missing dependency '{dependency}' for '{parameter}'"),
+            Self::ResolutionFailed { parameter, reason } => write!(f, "Dependency resolution failed for '{parameter}': {reason}"),
+            Self::InvalidGraph { reason } => write!(f, "Invalid dependency graph: {reason}"),
+        }
+    }
+}
+
+// ── Adaptation error variants ───────────────────────────────────────────────
+
+/// Adaptation error variants
+#[derive(Debug, Clone)]
+pub enum AdaptationErrorKind {
+    /// Invalid context provided
+    InvalidContext {
+        /// Reason for failure
+        reason: String,
+    },
+    /// Adaptation calculation failed
+    CalculationFailed {
+        /// Parameter name
+        parameter: String,
+        /// Reason for failure
+        reason: String,
+    },
+    /// Result value is invalid
+    InvalidResult {
+        /// Invalid value
+        value: String,
+        /// Constraint description
+        constraint: String,
+    },
+    /// Dependency not available
+    DependencyMissing {
+        /// Missing dependency name
+        dependency: String,
+    },
+}
+
+impl fmt::Display for AdaptationErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidContext { reason } => write!(f, "Invalid adaptation context: {reason}"),
+            Self::CalculationFailed { parameter, reason } => write!(f, "Adaptation failed for '{parameter}': {reason}"),
+            Self::InvalidResult { value, constraint } => write!(f, "Adaptation result '{value}' violates: {constraint}"),
+            Self::DependencyMissing { dependency } => write!(f, "Required dependency '{dependency}' not available"),
+        }
+    }
+}
+
+// ── Result type and helpers ─────────────────────────────────────────────────
 
 /// Result type alias for CFD operations
 pub type Result<T> = std::result::Result<T, Error>;
@@ -351,63 +1016,40 @@ impl From<String> for Error {
     }
 }
 
-/// Boundary condition error variants
-#[derive(Debug, Clone)]
-pub enum BoundaryErrorKind {
-    /// Insufficient interior values for requested stencil order
-    InsufficientStencil {
-        /// Required number of interior values
-        required: usize,
-        /// Stencil order
-        order: usize,
-        /// Actual number provided
-        actual: usize,
-    },
+// ── From impls for all Kind types → Error ───────────────────────────────────
 
-    /// Unsupported stencil order
-    UnsupportedOrder(usize),
-
-    /// Robin condition singularity
-    RobinSingularity {
-        /// Denominator value
-        value: f64,
-    },
-
-    /// Invalid boundary region
-    InvalidRegion(String),
-
-    /// Dimension mismatch (string-based, for boundary metadata)
-    DimensionMismatch {
-        /// Expected dimensions
-        expected: String,
-        /// Actual dimensions
-        actual: String,
-    },
+impl From<GeometryErrorKind> for Error {
+    fn from(kind: GeometryErrorKind) -> Self { Error::Geometry(kind) }
 }
-
-impl fmt::Display for BoundaryErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InsufficientStencil {
-                required,
-                order,
-                actual,
-            } => write!(
-                f,
-                "Insufficient interior values: need {required} for order {order} scheme, got {actual}"
-            ),
-            Self::UnsupportedOrder(order) => {
-                write!(f, "Stencil order {order} is unsupported (supported: 1-4)")
-            }
-            Self::RobinSingularity { value } => {
-                write!(f, "Robin condition denominator near zero: β + α*dx = {value}")
-            }
-            Self::InvalidRegion(msg) => write!(f, "Invalid boundary region: {msg}"),
-            Self::DimensionMismatch { expected, actual } => {
-                write!(f, "Dimension mismatch: expected {expected}, got {actual}")
-            }
-        }
-    }
+impl From<ConfigurationErrorKind> for Error {
+    fn from(kind: ConfigurationErrorKind) -> Self { Error::Configuration(kind) }
+}
+impl From<VisualizationErrorKind> for Error {
+    fn from(kind: VisualizationErrorKind) -> Self { Error::Visualization(kind) }
+}
+impl From<StrategyErrorKind> for Error {
+    fn from(kind: StrategyErrorKind) -> Self { Error::Strategy(kind) }
+}
+impl From<ParameterErrorKind> for Error {
+    fn from(kind: ParameterErrorKind) -> Self { Error::Parameter(kind) }
+}
+impl From<ValidationErrorKind> for Error {
+    fn from(kind: ValidationErrorKind) -> Self { Error::Validation(kind) }
+}
+impl From<RegistryErrorKind> for Error {
+    fn from(kind: RegistryErrorKind) -> Self { Error::Registry(kind) }
+}
+impl From<ConstraintErrorKind> for Error {
+    fn from(kind: ConstraintErrorKind) -> Self { Error::Constraint(kind) }
+}
+impl From<DependencyErrorKind> for Error {
+    fn from(kind: DependencyErrorKind) -> Self { Error::Dependency(kind) }
+}
+impl From<AdaptationErrorKind> for Error {
+    fn from(kind: AdaptationErrorKind) -> Self { Error::Adaptation(kind) }
+}
+impl From<BoundaryErrorKind> for Error {
+    fn from(kind: BoundaryErrorKind) -> Self { Error::Boundary(kind) }
 }
 
 #[cfg(test)]

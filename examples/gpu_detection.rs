@@ -84,10 +84,9 @@ fn main() {
                 println!("GPU support: Disabled");
             }
 
-            // Check SIMD capabilities
-            use cfd_math::simd::SimdCapability;
-            let simd_cap = SimdCapability::detect();
-            println!("SIMD capability: {:?}", simd_cap);
+            // Check SIMD availability through the unified compute capability surface.
+            let simd_available = capabilities.backends.contains(&ComputeBackend::Simd);
+            println!("SIMD available: {}", simd_available);
 
             // Report backend selection for various problem sizes
             println!("\n=== Backend Selection by Problem Size ===");

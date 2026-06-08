@@ -1,351 +1,212 @@
-//! error.rs - Domain-Specific Error Types
+//! Domain-specific error types for the microfluidic schematic design library.
 //!
-//! This module provides comprehensive error types for the microfluidic schematic
-//! design library. Each error type is designed to provide clear, actionable
-//! information to help users diagnose and fix issues.
+//! All error types are centralized in `cfd_core::error`. This module provides
+//! re-exports and convenience constructors for schematic-domain errors.
 
-use crate::geometry::Point2D;
-use crate::state_management::errors::StateManagementError;
-use thiserror::Error;
+// Re-export all error types from cfd-core
+pub use cfd_core::error::{
+    AdaptationErrorKind, ConfigurationErrorKind, ConstraintErrorKind, DependencyErrorKind,
+    Error, GeometryErrorKind, ParameterErrorKind, RegistryErrorKind, Result, StrategyErrorKind,
+    ValidationErrorKind, VisualizationErrorKind,
+};
 
-/// Main error type for the scheme library
-///
-/// This enum encompasses all possible errors that can occur during
-/// microfluidic schematic design operations.
-#[derive(Error, Debug)]
-pub enum SchemeError {
-    /// Errors related to geometry generation and validation
-    #[error("Geometry error: {0}")]
-    Geometry(#[from] GeometryError),
+// Backward-compatible result type aliases
+/// Result type for scheme operations
+pub type SchemeResult<T> = Result<T>;
+/// Result type for geometry operations
+pub type GeometryResult<T> = Result<T>;
+/// Result type for configuration operations
+pub type ConfigurationResult<T> = Result<T>;
+/// Result type for visualization operations
+pub type VisualizationResult<T> = Result<T>;
+/// Result type for strategy operations
+pub type StrategyResult<T> = Result<T>;
 
-    /// Errors related to configuration validation
-    #[error("Configuration error: {0}")]
-    Configuration(#[from] ConfigurationError),
-
-    /// Errors related to visualization and rendering
-    #[error("Visualization error: {0}")]
-    Visualization(#[from] VisualizationError),
-
-    /// Errors related to channel type strategy operations
-    #[error("Strategy error: {0}")]
-    Strategy(#[from] StrategyError),
-
-    /// Errors from the state management subsystem
-    #[error("State management error: {0}")]
-    StateManagement(#[from] StateManagementError),
-}
-
-/// Errors related to geometry generation and validation
-#[derive(Error, Debug)]
-pub enum GeometryError {
-    /// Invalid box dimensions provided
-    #[error(
-        "Invalid box dimensions: width={width}, height={height}. Both dimensions must be positive."
-    )]
-    InvalidBoxDimensions {
-        /// Width of the box
-        width: f64,
-        /// Height of the box
-        height: f64,
-    },
-
-    /// Invalid point coordinates
-    #[error("Invalid point coordinates: ({x}, {y}). Coordinates must be finite numbers.")]
-    InvalidPoint { x: f64, y: f64 },
-
-    /// Insufficient space for channel generation
-    #[error("Insufficient space for channel generation. Required space: {required}, available: {available}")]
-    InsufficientSpace { required: f64, available: f64 },
-
-    /// Invalid split pattern
-    #[error("Invalid split pattern: {reason}")]
-    InvalidSplitPattern { reason: String },
-
-    /// Node creation failed
-    #[error("Failed to create node at position ({x}, {y}): {reason}")]
-    NodeCreationFailed { x: f64, y: f64, reason: String },
-
-    /// Channel creation failed
-    #[error("Failed to create channel from node {from_id} to node {to_id}: {reason}")]
-    ChannelCreationFailed {
-        from_id: usize,
-        to_id: usize,
-        reason: String,
-    },
-
-    /// Invalid channel path
-    #[error("Invalid channel path: {reason}. Path must contain at least 2 points.")]
-    InvalidChannelPath { reason: String },
-
-    /// Overlapping channels detected
-    #[error("Overlapping channels detected between points ({x1}, {y1}) and ({x2}, {y2})")]
-    OverlappingChannels { x1: f64, y1: f64, x2: f64, y2: f64 },
-}
-
-/// Errors related to configuration validation
-#[derive(Error, Debug)]
-pub enum ConfigurationError {
-    /// Invalid geometry configuration
-    #[error("Invalid geometry configuration: {field} = {value}. {constraint}")]
-    InvalidGeometryConfig {
-        field: String,
-        value: f64,
-        constraint: String,
-    },
-
-    /// Invalid serpentine configuration
-    #[error("Invalid serpentine configuration: {field} = {value}. {constraint}")]
-    InvalidSerpentineConfig {
-        field: String,
-        value: f64,
-        constraint: String,
-    },
-
-    /// Invalid arc configuration
-    #[error("Invalid arc configuration: {field} = {value}. {constraint}")]
-    InvalidArcConfig {
-        field: String,
-        value: f64,
-        constraint: String,
-    },
-
-    /// Invalid frustum configuration
-    #[error("Invalid frustum configuration: {field} = {value}. {constraint}")]
-    InvalidFrustumConfig {
-        field: String,
-        value: f64,
-        constraint: String,
-    },
-
-    /// Invalid geometry generation configuration
-    #[error("Invalid geometry generation configuration: {field}. {constraint}")]
-    InvalidGenerationConfig { field: String, constraint: String },
-
-    /// Conflicting configuration values
-    #[error("Conflicting configuration values: {conflict}")]
-    ConflictingValues { conflict: String },
-
-    /// Missing required configuration
-    #[error("Missing required configuration: {field}")]
-    MissingConfiguration { field: String },
-}
-
-/// Errors related to visualization and rendering
-#[derive(Error, Debug)]
-pub enum VisualizationError {
-    /// File I/O error during visualization
-    #[error("File I/O error: {message}")]
-    FileError { message: String },
-
-    /// Invalid output path
-    #[error("Invalid output path: '{path}'. {reason}")]
-    InvalidOutputPath { path: String, reason: String },
-
-    /// Rendering backend error
-    #[error("Rendering backend error: {message}")]
-    RenderingError { message: String },
-
-    /// Invalid visualization parameters
-    #[error("Invalid visualization parameters: {parameter} = {value}. {constraint}")]
-    InvalidParameters {
-        parameter: String,
-        value: String,
-        constraint: String,
-    },
-
-    /// Empty channel system
-    #[error("Cannot visualize empty channel system")]
-    EmptyChannelSystem,
-
-    /// Unsupported output format
-    #[error("Unsupported output format: {format}. {message}")]
-    UnsupportedFormat { format: String, message: String },
-
-    /// Coordinate transformation error
-    #[error("Coordinate transformation error: {message}")]
-    CoordinateTransformError { message: String },
-}
-
-/// Errors related to channel type strategy operations
-#[derive(Error, Debug)]
-pub enum StrategyError {
-    /// Strategy creation failed
-    #[error("Failed to create strategy for channel type: {channel_type}. Reason: {reason}")]
-    StrategyCreationFailed {
-        channel_type: String,
-        reason: String,
-    },
-
-    /// Invalid strategy parameters
-    #[error("Invalid strategy parameters: {parameter} = {value}. {constraint}")]
-    InvalidParameters {
-        parameter: String,
-        value: String,
-        constraint: String,
-    },
-
-    /// Strategy execution failed
-    #[error("Strategy execution failed for channel from ({from_x}, {from_y}) to ({to_x}, {to_y}): {reason}")]
-    ExecutionFailed {
-        from_x: f64,
-        from_y: f64,
-        to_x: f64,
-        to_y: f64,
-        reason: String,
-    },
-
-    /// Unsupported channel type
-    #[error("Unsupported channel type: {channel_type}")]
-    UnsupportedChannelType { channel_type: String },
-}
-
-/// Convenient result type for scheme operations
-pub type SchemeResult<T> = Result<T, SchemeError>;
-
-/// Convenient result type for geometry operations
-pub type GeometryResult<T> = Result<T, GeometryError>;
-
-/// Convenient result type for configuration operations
-pub type ConfigurationResult<T> = Result<T, ConfigurationError>;
-
-/// Convenient result type for visualization operations
-pub type VisualizationResult<T> = Result<T, VisualizationError>;
-
-/// Convenient result type for strategy operations
-pub type StrategyResult<T> = Result<T, StrategyError>;
-
-impl GeometryError {
+/// Convenience constructors for `GeometryErrorKind`
+pub trait GeometryErrorExt {
     /// Create an invalid point error
-    #[must_use]
-    pub const fn invalid_point(point: Point2D) -> Self {
-        Self::InvalidPoint {
-            x: point.0,
-            y: point.1,
-        }
-    }
-
+    fn invalid_point(x: f64, y: f64) -> Self;
     /// Create an invalid box dimensions error
-    #[must_use]
-    pub const fn invalid_box_dimensions(width: f64, height: f64) -> Self {
-        Self::InvalidBoxDimensions { width, height }
-    }
-
+    fn invalid_box_dimensions(width: f64, height: f64) -> Self;
     /// Create an insufficient space error
-    #[must_use]
-    pub const fn insufficient_space(required: f64, available: f64) -> Self {
-        Self::InsufficientSpace {
-            required,
-            available,
-        }
+    fn insufficient_space(required: f64, available: f64) -> Self;
+}
+
+impl GeometryErrorExt for Error {
+    fn invalid_point(x: f64, y: f64) -> Self {
+        Error::Geometry(GeometryErrorKind::InvalidPoint { x, y })
+    }
+
+    fn invalid_box_dimensions(width: f64, height: f64) -> Self {
+        Error::Geometry(GeometryErrorKind::InvalidBoxDimensions { width, height })
+    }
+
+    fn insufficient_space(required: f64, available: f64) -> Self {
+        Error::Geometry(GeometryErrorKind::InsufficientSpace { required, available })
     }
 }
 
-impl ConfigurationError {
+/// Convenience constructors for `ConfigurationErrorKind`
+pub trait ConfigurationErrorExt {
     /// Create an invalid geometry config error
-    #[must_use]
-    pub fn invalid_geometry_config(field: &str, value: f64, constraint: &str) -> Self {
-        Self::InvalidGeometryConfig {
-            field: field.to_string(),
-            value,
-            constraint: constraint.to_string(),
-        }
-    }
-
+    fn invalid_geometry_config(field: &str, value: f64, constraint: &str) -> Self;
     /// Create an invalid serpentine config error
-    #[must_use]
-    pub fn invalid_serpentine_config(field: &str, value: f64, constraint: &str) -> Self {
-        Self::InvalidSerpentineConfig {
-            field: field.to_string(),
-            value,
-            constraint: constraint.to_string(),
-        }
-    }
-
+    fn invalid_serpentine_config(field: &str, value: f64, constraint: &str) -> Self;
     /// Create an invalid arc config error
-    #[must_use]
-    pub fn invalid_arc_config(field: &str, value: f64, constraint: &str) -> Self {
-        Self::InvalidArcConfig {
-            field: field.to_string(),
-            value,
-            constraint: constraint.to_string(),
-        }
-    }
-
+    fn invalid_arc_config(field: &str, value: f64, constraint: &str) -> Self;
     /// Create an invalid frustum config error
-    #[must_use]
-    pub fn invalid_frustum_config(field: &str, value: f64, constraint: &str) -> Self {
-        Self::InvalidFrustumConfig {
+    fn invalid_frustum_config(field: &str, value: f64, constraint: &str) -> Self;
+    /// Create an invalid generation config error
+    fn invalid_generation_config(field: &str, constraint: &str) -> Self;
+}
+
+impl ConfigurationErrorExt for Error {
+    fn invalid_geometry_config(field: &str, value: f64, constraint: &str) -> Self {
+        Error::Configuration(ConfigurationErrorKind::InvalidGeometryConfig {
             field: field.to_string(),
             value,
             constraint: constraint.to_string(),
-        }
+        })
     }
 
-    /// Create an invalid geometry generation config error
-    #[must_use]
-    pub fn invalid_generation_config(field: &str, constraint: &str) -> Self {
-        Self::InvalidGenerationConfig {
+    fn invalid_serpentine_config(field: &str, value: f64, constraint: &str) -> Self {
+        Error::Configuration(ConfigurationErrorKind::InvalidSerpentineConfig {
+            field: field.to_string(),
+            value,
+            constraint: constraint.to_string(),
+        })
+    }
+
+    fn invalid_arc_config(field: &str, value: f64, constraint: &str) -> Self {
+        Error::Configuration(ConfigurationErrorKind::InvalidArcConfig {
+            field: field.to_string(),
+            value,
+            constraint: constraint.to_string(),
+        })
+    }
+
+    fn invalid_frustum_config(field: &str, value: f64, constraint: &str) -> Self {
+        Error::Configuration(ConfigurationErrorKind::InvalidFrustumConfig {
+            field: field.to_string(),
+            value,
+            constraint: constraint.to_string(),
+        })
+    }
+
+    fn invalid_generation_config(field: &str, constraint: &str) -> Self {
+        Error::Configuration(ConfigurationErrorKind::InvalidGenerationConfig {
             field: field.to_string(),
             constraint: constraint.to_string(),
-        }
+        })
     }
 }
 
-impl VisualizationError {
+/// Convenience constructors for `VisualizationErrorKind`
+pub trait VisualizationErrorExt {
+    /// Create a rendering error
+    fn rendering_error(message: &str) -> Self;
+    /// Create an invalid output path error
+    fn invalid_output_path(path: &str, reason: &str) -> Self;
     /// Create a file error
-    #[must_use]
-    pub fn file_error(message: &str) -> Self {
-        Self::FileError {
+    fn file_error(message: &str) -> Self;
+    /// Create an unsupported format error
+    fn unsupported_format(format: &str, message: &str) -> Self;
+}
+
+impl VisualizationErrorExt for Error {
+    fn rendering_error(message: &str) -> Self {
+        Error::Visualization(VisualizationErrorKind::RenderingError {
             message: message.to_string(),
-        }
+        })
     }
 
-    /// Create an invalid output path error
-    #[must_use]
-    pub fn invalid_output_path(path: &str, reason: &str) -> Self {
-        Self::InvalidOutputPath {
+    fn invalid_output_path(path: &str, reason: &str) -> Self {
+        Error::Visualization(VisualizationErrorKind::InvalidOutputPath {
             path: path.to_string(),
             reason: reason.to_string(),
-        }
+        })
     }
 
-    /// Create a rendering error
-    #[must_use]
-    pub fn rendering_error(message: &str) -> Self {
-        Self::RenderingError {
+    fn file_error(message: &str) -> Self {
+        Error::Visualization(VisualizationErrorKind::FileError {
             message: message.to_string(),
-        }
+        })
     }
 
-    /// Create an unsupported format error
-    #[must_use]
-    pub fn unsupported_format(format: &str, message: &str) -> Self {
-        Self::UnsupportedFormat {
+    fn unsupported_format(format: &str, message: &str) -> Self {
+        Error::Visualization(VisualizationErrorKind::UnsupportedFormat {
             format: format.to_string(),
             message: message.to_string(),
-        }
+        })
     }
 }
 
-impl StrategyError {
+/// Convenience constructors for `StrategyErrorKind`
+pub trait StrategyErrorExt {
     /// Create a strategy creation failed error
-    #[must_use]
-    pub fn strategy_creation_failed(channel_type: &str, reason: &str) -> Self {
-        Self::StrategyCreationFailed {
+    fn strategy_creation_failed(channel_type: &str, reason: &str) -> Self;
+    /// Create an execution failed error
+    fn execution_failed(from: (f64, f64), to: (f64, f64), reason: &str) -> Self;
+}
+
+impl StrategyErrorExt for Error {
+    fn strategy_creation_failed(channel_type: &str, reason: &str) -> Self {
+        Error::Strategy(StrategyErrorKind::StrategyCreationFailed {
             channel_type: channel_type.to_string(),
             reason: reason.to_string(),
-        }
+        })
     }
 
-    /// Create an execution failed error
-    #[must_use]
-    pub fn execution_failed(from: Point2D, to: Point2D, reason: &str) -> Self {
-        Self::ExecutionFailed {
+    fn execution_failed(from: (f64, f64), to: (f64, f64), reason: &str) -> Self {
+        Error::Strategy(StrategyErrorKind::ExecutionFailed {
             from_x: from.0,
             from_y: from.1,
             to_x: to.0,
             to_y: to.1,
             reason: reason.to_string(),
-        }
+        })
+    }
+}
+
+/// Convenience constructors for `ParameterErrorKind`
+pub trait ParameterErrorExt {
+    /// Create a not-found error
+    fn param_not_found(name: &str, domain: &str) -> Self;
+    /// Create an invalid-value error
+    fn param_invalid_value(name: &str, value: &dyn std::fmt::Debug, constraint: &str) -> Self;
+    /// Create a type-mismatch error
+    fn param_type_mismatch(name: &str, expected: &str, actual: &str) -> Self;
+    /// Create a read-only error
+    fn param_read_only(name: &str) -> Self;
+}
+
+impl ParameterErrorExt for Error {
+    fn param_not_found(name: &str, domain: &str) -> Self {
+        Error::Parameter(ParameterErrorKind::NotFound {
+            name: name.to_string(),
+            domain: domain.to_string(),
+        })
+    }
+
+    fn param_invalid_value(name: &str, value: &dyn std::fmt::Debug, constraint: &str) -> Self {
+        Error::Parameter(ParameterErrorKind::InvalidValue {
+            name: name.to_string(),
+            value: format!("{value:?}"),
+            constraint: constraint.to_string(),
+        })
+    }
+
+    fn param_type_mismatch(name: &str, expected: &str, actual: &str) -> Self {
+        Error::Parameter(ParameterErrorKind::TypeMismatch {
+            name: name.to_string(),
+            expected: expected.to_string(),
+            actual: actual.to_string(),
+        })
+    }
+
+    fn param_read_only(name: &str) -> Self {
+        Error::Parameter(ParameterErrorKind::ReadOnly {
+            name: name.to_string(),
+        })
     }
 }
