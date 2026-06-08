@@ -10,17 +10,29 @@ pub use cfd_core::error::{
     ValidationErrorKind, VisualizationErrorKind,
 };
 
-// Backward-compatible result type aliases
+// Backward-compatible type aliases (old names → Kind types)
+/// Geometry error type (alias for `GeometryErrorKind`)
+pub type GeometryError = GeometryErrorKind;
+/// Configuration error type (alias for `ConfigurationErrorKind`)
+pub type ConfigurationError = ConfigurationErrorKind;
+/// Visualization error type (alias for `VisualizationErrorKind`)
+pub type VisualizationError = VisualizationErrorKind;
+/// Strategy error type (alias for `StrategyErrorKind`)
+pub type StrategyError = StrategyErrorKind;
+/// Scheme error type (alias for `Error`)
+pub type SchemeError = Error;
+
+// Backward-compatible result type aliases using domain-specific error kinds
 /// Result type for scheme operations
-pub type SchemeResult<T> = Result<T>;
+pub type SchemeResult<T> = std::result::Result<T, Error>;
 /// Result type for geometry operations
-pub type GeometryResult<T> = Result<T>;
+pub type GeometryResult<T> = std::result::Result<T, GeometryErrorKind>;
 /// Result type for configuration operations
-pub type ConfigurationResult<T> = Result<T>;
+pub type ConfigurationResult<T> = std::result::Result<T, ConfigurationErrorKind>;
 /// Result type for visualization operations
-pub type VisualizationResult<T> = Result<T>;
+pub type VisualizationResult<T> = std::result::Result<T, VisualizationErrorKind>;
 /// Result type for strategy operations
-pub type StrategyResult<T> = Result<T>;
+pub type StrategyResult<T> = std::result::Result<T, StrategyErrorKind>;
 
 /// Convenience constructors for `GeometryErrorKind`
 pub trait GeometryErrorExt {
