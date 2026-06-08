@@ -4,9 +4,9 @@
 //! spectral elements, including node definitions, basis functions, and element-local
 //! operations.
 
-use super::{
-    compute_derivative_matrix, compute_lgl_nodes, compute_lgl_weights, Result, SpectralError,
-};
+use super::{compute_derivative_matrix, compute_lgl_nodes, compute_lgl_weights};
+use crate::error::Result;
+use cfd_core::error::Error;
 use nalgebra::{DMatrix, DVector};
 
 /// Represents a spectral element with nodes, weights, and differentiation matrices
@@ -32,7 +32,9 @@ impl SpectralElement {
     /// Create a new spectral element of given order
     pub fn new(order: usize) -> Result<Self> {
         if order < 1 {
-            return Err(SpectralError::InvalidOrder(order));
+            return Err(Error::InvalidInput(format!(
+                "Polynomial order must be at least 1, got {order}"
+            )));
         }
 
         let num_nodes = order + 1;
@@ -147,7 +149,9 @@ impl SpectralMesh1D {
     /// Create a new 1D spectral element mesh
     pub fn new(x_min: f64, x_max: f64, num_elements: usize, element_order: usize) -> Result<Self> {
         if num_elements < 1 {
-            return Err(SpectralError::InvalidOrder(num_elements));
+            return Err(Error::InvalidInput(format!(
+                "Number of elements must be at least 1, got {num_elements}"
+            )));
         }
 
         let element = SpectralElement::new(element_order)?;

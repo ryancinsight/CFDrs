@@ -3,7 +3,8 @@
 //! This module provides orthogonal polynomial basis functions and their derivatives
 //! for use in DG methods, including both modal and nodal representations.
 
-use super::{DGError, Result};
+use crate::error::Result;
+use cfd_core::error::Error;
 use nalgebra::{DMatrix, DVector};
 use std::f64::consts::PI;
 
@@ -45,7 +46,9 @@ impl DGBasis {
     /// Create a new DG basis of given order and type
     pub fn new(order: usize, basis_type: BasisType) -> Result<Self> {
         if order == 0 {
-            return Err(DGError::InvalidOrder(order));
+            return Err(Error::InvalidInput(format!(
+                "Polynomial order must be at least 1, got {order}"
+            )));
         }
 
         let num_basis = order + 1;
@@ -265,7 +268,9 @@ pub fn lagrange_basis_deriv(i: usize, x: f64, nodes: &[f64]) -> f64 {
 /// Compute Gauss-Lobatto quadrature points and weights
 pub fn gauss_lobatto_quadrature(n: usize) -> Result<(DVector<f64>, DVector<f64>)> {
     if n < 2 {
-        return Err(DGError::InvalidQuadrature(n));
+        return Err(Error::InvalidInput(format!(
+            "Gauss-Lobatto quadrature requires at least 2 points, got {n}"
+        )));
     }
 
     let mut nodes = DVector::zeros(n);
@@ -295,16 +300,15 @@ pub fn gauss_lobatto_quadrature(n: usize) -> Result<(DVector<f64>, DVector<f64>)
             // P''_{n-1} = (2x P'_{n-1} - (n-1)n P_{n-1}) / (1-x^2)
             let denominator = 1.0 - x * x;
             if denominator.abs() < 1e-15 {
-                return Err(DGError::NumericalError(format!(
+                return Err(Error::Solver(format!(
                     "Newton iteration hit endpoint at x={x}"
                 )));
             }
             let d2p = (2.0 * x * dp - ((n - 1) * n) as f64 * p) / denominator;
 
             if d2p.abs() < f64::EPSILON {
-                return Err(DGError::NumericalError(format!(
-                    "Zero second derivative at x = {x} for n = {}",
-                    n - 1
+                return Err(Error::Solver(format!(
+                    "Zero second derivative at x = {x} for n = {}", n - 1
                 )));
             }
 
@@ -315,7 +319,7 @@ pub fn gauss_lobatto_quadrature(n: usize) -> Result<(DVector<f64>, DVector<f64>)
         }
 
         if iter >= max_iter {
-            return Err(DGError::NumericalError(format!(
+            return Err(Error::Solver(format!(
                 "Failed to converge for node {i} of {n}"
             )));
         }
@@ -328,11 +332,13 @@ pub fn gauss_lobatto_quadrature(n: usize) -> Result<(DVector<f64>, DVector<f64>)
         let x = nodes[i];
         let p = legendre_poly(n - 1, x);
         if p.abs() < 1e-15 {
-            return Err(DGError::NumericalError(format!("P_{}({x}) is zero", n - 1)));
+            return Err(Error::Solver(format!(
+                "P_{}({x}) is zero", n - 1
+            )));
         }
         weights[i] = 2.0 / (n as f64 * (n - 1) as f64) / (p * p);
         if weights[i].is_nan() {
-            return Err(DGError::NumericalError(format!(
+            return Err(Error::Solver(format!(
                 "Weight {i} is NaN (n={n}, x={x}, p={p})"
             )));
         }

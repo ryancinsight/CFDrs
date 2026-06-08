@@ -86,7 +86,6 @@ pub mod weno;
 /// Re-export commonly used items
 pub use dg::*;
 pub use spectral::{
-    SpectralDiffOp, SpectralElement, SpectralError, SpectralFilter, SpectralInterp,
-    SpectralQuadrature,
+    SpectralDiffOp, SpectralElement, SpectralFilter, SpectralInterp, SpectralQuadrature,
 };
 pub use weno::*;

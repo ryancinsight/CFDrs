@@ -17,27 +17,10 @@ pub use assembly::*;
 pub use element::*;
 pub use operators::*;
 
+use crate::error::Result;
+use cfd_core::error::Error;
 use nalgebra::DMatrix;
 use std::f64::consts::PI;
-
-/// Error types for spectral element methods
-#[derive(Debug, thiserror::Error)]
-pub enum SpectralError {
-    /// Invalid polynomial order
-    #[error("Polynomial order must be at least 1, got {0}")]
-    InvalidOrder(usize),
-
-    /// Node computation failed to converge
-    #[error("Failed to compute nodes: {0}")]
-    NodeComputation(String),
-
-    /// Matrix operation error
-    #[error("Matrix operation failed: {0}")]
-    MatrixError(String),
-}
-
-/// Result type for spectral element operations
-pub type Result<T> = std::result::Result<T, SpectralError>;
 
 /// Legendre polynomial evaluation
 fn legendre_poly(n: usize, x: f64) -> f64 {
@@ -62,7 +45,9 @@ fn legendre_poly(n: usize, x: f64) -> f64 {
 /// Compute Legendre-Gauss-Lobatto nodes using Newton's method
 fn compute_lgl_nodes(n: usize) -> Result<Vec<f64>> {
     if n < 1 {
-        return Err(SpectralError::InvalidOrder(n));
+        return Err(Error::InvalidInput(format!(
+            "Polynomial order must be at least 1, got {n}"
+        )));
     }
 
     let mut nodes = vec![0.0; n + 1];
@@ -89,14 +74,14 @@ fn compute_lgl_nodes(n: usize) -> Result<Vec<f64>> {
             // P''_n = (2x P'_n - n(n+1) P_n) / (1-x^2)
             let denominator = 1.0 - x * x;
             if denominator.abs() < 1e-15 {
-                return Err(SpectralError::NodeComputation(format!(
+                return Err(Error::Solver(format!(
                     "Newton iteration hit endpoint at x={x}"
                 )));
             }
             let d2p = (2.0 * x * dp - (n * (n + 1)) as f64 * p) / denominator;
 
             if d2p.abs() < f64::EPSILON {
-                return Err(SpectralError::NodeComputation(format!(
+                return Err(Error::Solver(format!(
                     "Zero second derivative at x = {x} for n = {n}"
                 )));
             }
@@ -108,7 +93,7 @@ fn compute_lgl_nodes(n: usize) -> Result<Vec<f64>> {
         }
 
         if iter >= max_iter {
-            return Err(SpectralError::NodeComputation(format!(
+            return Err(Error::Solver(format!(
                 "Failed to converge for node {i} of {n}"
             )));
         }

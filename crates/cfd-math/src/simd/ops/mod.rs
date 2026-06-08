@@ -177,7 +177,9 @@ fn validate_same_len(a: usize, b: usize, c: usize) -> Result<()> {
     if a == b && a == c {
         Ok(())
     } else {
-        Err(crate::error::MathError::DimensionMismatch.into())
+        Err(cfd_core::error::Error::InvalidInput(
+            "Dimension mismatch".to_string(),
+        ))
     }
 }
 
@@ -185,10 +187,12 @@ fn validate_len_match(a: usize, b: usize) -> Result<()> {
     if a == b {
         Ok(())
     } else {
-        Err(crate::error::MathError::DimensionMismatch.into())
+        Err(cfd_core::error::Error::InvalidInput(
+            "Dimension mismatch".to_string(),
+        ))
     }
 }
 
 fn simd_err(e: hermes_simd::SimdError) -> cfd_core::error::Error {
-    crate::error::MathError::InvalidInput(format!("SIMD error: {e:?}")).into()
+    cfd_core::error::Error::InvalidInput(format!("SIMD error: {e:?}"))
 }

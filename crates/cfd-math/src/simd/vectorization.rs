@@ -51,7 +51,7 @@ impl VectorizedOps {
         result: &mut [T],
     ) -> Result<()> {
         if a.len() != b.len() || a.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
+            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
         }
         result.par_mut().enumerate(|i, r| *r = a[i] + b[i]);
         Ok(())
@@ -75,7 +75,7 @@ impl VectorizedOps {
         result: &mut [T],
     ) -> Result<()> {
         if a.len() != b.len() || a.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
+            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
         }
         result.par_mut().enumerate(|i, r| *r = a[i] * b[i]);
         Ok(())
@@ -99,7 +99,7 @@ impl VectorizedOps {
         result: &mut [T],
     ) -> Result<()> {
         if input.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
+            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
         }
         result.par_mut().enumerate(|i, r| *r = scalar * input[i]);
         Ok(())
@@ -122,7 +122,7 @@ impl VectorizedOps {
         b: &[T],
     ) -> Result<T> {
         if a.len() != b.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
+            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
         }
         let sum =
             reduce_index_with::<Adaptive, _, _, _>(a.len(), T::zero(), |i| a[i] * b[i], |acc, v| acc + v);
@@ -146,7 +146,7 @@ impl VectorizedOps {
         result: &mut [T],
     ) -> Result<()> {
         if input.len() != result.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
+            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
         }
         result.par_mut().enumerate(|i, r| *r = input[i] + scalar);
         Ok(())
@@ -161,13 +161,13 @@ impl VectorizedOps {
         result: &mut [T],
     ) -> Result<()> {
         if !matrix.len().is_multiple_of(matrix_cols) {
-            return Err(crate::error::MathError::DimensionMismatch.into());
+            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
         }
         if vector.len() != matrix_cols {
-            return Err(crate::error::MathError::DimensionMismatch.into());
+            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
         }
         if result.len() != matrix.len() {
-            return Err(crate::error::MathError::DimensionMismatch.into());
+            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
         }
         result
             .par_mut()
@@ -185,7 +185,7 @@ impl VectorizedOps {
         y: &mut [T],
     ) -> Result<()> {
         if row_ptr.len() != y.len() + 1 {
-            return Err(crate::error::MathError::DimensionMismatch.into());
+            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
         }
         y.par_mut().enumerate(|i, y_i| {
             let start = row_ptr[i];
@@ -209,7 +209,7 @@ impl VectorizedOps {
         let result_len = signal_len + kernel_len - 1;
 
         if result.len() != result_len {
-            return Err(crate::error::MathError::DimensionMismatch.into());
+            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
         }
 
         result.par_mut().enumerate(|n, output| {
@@ -254,10 +254,9 @@ impl StencilOps {
         result: &mut [T],
     ) -> Result<()> {
         if input.len() < 3 || result.len() != input.len() - 2 {
-            return Err(crate::error::MathError::InvalidInput(
+            return Err(cfd_core::error::Error::InvalidInput(
                 "Invalid dimensions for 3-point stencil".to_string(),
-            )
-            .into());
+            ));
         }
         result.par_mut().enumerate(|i, r| {
             let idx = i + 1;
@@ -274,10 +273,9 @@ impl StencilOps {
         result: &mut [T],
     ) -> Result<()> {
         if input.len() < 5 || result.len() != input.len() - 4 {
-            return Err(crate::error::MathError::InvalidInput(
+            return Err(cfd_core::error::Error::InvalidInput(
                 "Invalid dimensions for 5-point stencil".to_string(),
-            )
-            .into());
+            ));
         }
         result.par_mut().enumerate(|i, r| {
             let idx = i + 2;

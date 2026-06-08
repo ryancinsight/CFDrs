@@ -1,6 +1,7 @@
 //! WENO (Weighted Essentially Non-Oscillatory) limiter for DG methods.
 
-use super::{DGSolution, Limiter, LimiterParams, Result};
+use super::{DGSolution, Limiter, LimiterParams};
+use crate::error::Result;
 
 /// WENO (Weighted Essentially Non-Oscillatory) limiter
 pub struct WENOLimiter {

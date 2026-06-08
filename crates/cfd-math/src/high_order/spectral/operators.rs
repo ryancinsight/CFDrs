@@ -3,7 +3,9 @@
 //! This module provides implementations of differential operators and numerical
 //! integration for spectral element methods.
 
-use super::{compute_lgl_nodes, compute_lgl_weights, Result, SpectralElement, SpectralError};
+use super::{compute_lgl_nodes, compute_lgl_weights, SpectralElement};
+use crate::error::Result;
+use cfd_core::error::Error;
 use nalgebra::{DMatrix, DVector};
 
 /// Spectral differentiation operator
@@ -159,7 +161,9 @@ impl SpectralQuadrature {
     /// Create a Gauss-Lobatto quadrature rule with n points
     pub fn gauss_lobatto(n: usize) -> Result<Self> {
         if n < 2 {
-            return Err(SpectralError::InvalidOrder(n));
+            return Err(Error::InvalidInput(format!(
+                "Gauss-Lobatto quadrature requires at least 2 points, got {n}"
+            )));
         }
 
         let nodes_vec = compute_lgl_nodes(n - 1)?; // n points for order 2n-3

@@ -81,8 +81,8 @@ mod limiter;
 mod operators;
 mod solver;
 
-// Import from parent modules
-use super::spectral::SpectralError;
+use crate::error::Result;
+use cfd_core::error::Error;
 
 // Re-export all public types and traits
 pub use basis::*;
@@ -94,48 +94,7 @@ pub use solver::*;
 use nalgebra::{DMatrix, DVector};
 use std::fmt;
 
-/// Error types for DG methods
-#[derive(Debug, thiserror::Error)]
-pub enum DGError {
-    /// Invalid polynomial order
-    #[error("Polynomial order must be at least 1, got {0}")]
-    InvalidOrder(usize),
 
-    /// Invalid number of quadrature points
-    #[error("Number of quadrature points must be at least ceil((order + 1)/2), got {0}")]
-    InvalidQuadrature(usize),
-
-    /// Invalid input dimensions
-    #[error("Invalid dimensions: {0}")]
-    InvalidDimensions(String),
-
-    /// Numerical error (e.g., matrix inversion failed)
-    #[error("Numerical error: {0}")]
-    NumericalError(String),
-
-    /// Solver did not converge
-    #[error("Solver did not converge: {0}")]
-    ConvergenceError(String),
-
-    /// Invalid parameter
-    #[error("Invalid parameter: {0}")]
-    InvalidParameter(String),
-}
-
-impl From<SpectralError> for DGError {
-    fn from(err: SpectralError) -> Self {
-        match err {
-            SpectralError::InvalidOrder(o) => DGError::InvalidOrder(o),
-            SpectralError::NodeComputation(s) => {
-                DGError::NumericalError(format!("Node computation failed: {s}"))
-            }
-            SpectralError::MatrixError(s) => DGError::NumericalError(format!("Matrix error: {s}")),
-        }
-    }
-}
-
-/// Result type for DG operations
-pub type Result<T> = std::result::Result<T, DGError>;
 
 /// Represents a DG solution on a single element
 #[derive(Clone)]
@@ -167,7 +126,9 @@ impl DGSolution {
     /// Create a new DG solution with given order, components and basis type
     pub fn with_basis(order: usize, num_components: usize, basis_type: BasisType) -> Result<Self> {
         if order == 0 {
-            return Err(DGError::InvalidOrder(order));
+            return Err(Error::InvalidInput(format!(
+                "Polynomial order must be at least 1, got {order}"
+            )));
         }
 
         let basis = DGBasis::new(order, basis_type)?;

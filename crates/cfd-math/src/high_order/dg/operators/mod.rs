@@ -8,7 +8,9 @@ mod params;
 pub use params::{BoundaryCondition, BoundaryFlux, DGOperatorParams};
 
 use super::basis::{BasisType, DGBasis};
-use super::{DGError, FluxType, Result};
+use super::FluxType;
+use crate::error::Result;
+use cfd_core::error::Error;
 use nalgebra::{DMatrix, DVector};
 
 /// Represents a DG operator for spatial discretization
@@ -44,7 +46,9 @@ impl DGOperator {
         params: Option<DGOperatorParams>,
     ) -> Result<Self> {
         if order == 0 {
-            return Err(DGError::InvalidOrder(order));
+            return Err(Error::InvalidInput(format!(
+                "Polynomial order must be at least 1, got {order}"
+            )));
         }
 
         let params = params.unwrap_or_default();
@@ -96,7 +100,7 @@ impl DGOperator {
             if let Some(sol) = mass_lu.solve(&rhs) {
                 du_dx.row_mut(i).copy_from(&sol.transpose());
             } else {
-                return Err(DGError::NumericalError(
+                return Err(Error::Solver(
                     "Failed to solve mass matrix system for derivative".to_string(),
                 ));
             }

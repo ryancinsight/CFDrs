@@ -15,7 +15,7 @@ impl DGValidation {
     /// Test case 1: Linear advection with smooth initial condition
     /// Solves u_t + u_x = 0 with u(x,0) = sin(πx) on [-1,1]
     /// Exact solution: u(x,t) = sin(π(x-t))
-    pub fn linear_advection_smooth() -> Result<(), DGError> {
+    pub fn linear_advection_smooth() -> crate::error::Result<()> {
         let order = 4;
         let num_elements = 8;
         let t_final = 1.0;
@@ -64,7 +64,7 @@ impl DGValidation {
     
     /// Test case 2: Burgers' equation with smooth initial condition
     /// Solves u_t + (u²/2)_x = 0 with u(x,0) = 0.5 + sin(πx) on [-1,1]
-    pub fn burgers_equation() -> Result<(), DGError> {
+    pub fn burgers_equation() -> crate::error::Result<()> {
         let order = 3;
         let num_elements = 16;
         let t_final = 0.5;  // Before shock formation
@@ -119,7 +119,7 @@ impl DGValidation {
     
     /// Test case 3: Convergence test for linear advection
     /// Verifies that the method achieves the expected order of accuracy
-    pub fn convergence_test() -> Result<Vec<(usize, f64)>, DGError> {
+    pub fn convergence_test() -> crate::error::Result<Vec<(usize, f64)>> {
         let orders = [1, 2, 4];
         let num_elements_list = [4, 8, 16, 32];
         let t_final = 1.0;

@@ -7,7 +7,9 @@ mod time_integration;
 
 pub use time_integration::*;
 
-use super::{legendre_poly, DGError, DGOperator, Result};
+use super::{legendre_poly, DGOperator};
+use crate::error::Result;
+use cfd_core::error::Error;
 use nalgebra::{DMatrix, DVector};
 use std::time::Instant;
 
@@ -146,7 +148,7 @@ impl DGSolver {
         J: Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>,
     {
         if !self.initialized {
-            return Err(DGError::NumericalError(
+            return Err(Error::Solver(
                 "Solver not initialized. Call initialize() first.".to_string(),
             ));
         }
@@ -232,7 +234,7 @@ impl DGSolver {
         J: Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>,
     {
         if !self.initialized {
-            return Err(DGError::NumericalError(
+            return Err(Error::Solver(
                 "Solver not initialized. Call initialize() first.".to_string(),
             ));
         }
@@ -257,9 +259,8 @@ impl DGSolver {
                 }
 
                 if self.dt <= self.params.dt_min {
-                    return Err(DGError::NumericalError(format!(
-                        "Time step too small at t = {}",
-                        self.t
+                    return Err(Error::Solver(format!(
+                        "Time step too small at t = {}", self.t
                     )));
                 }
 
@@ -293,9 +294,8 @@ impl DGSolver {
         }
 
         if self.t < self.params.t_final && self.step_count >= self.params.max_steps {
-            return Err(DGError::NumericalError(format!(
-                "Maximum number of time steps ({}) reached",
-                self.params.max_steps
+            return Err(Error::Solver(format!(
+                "Maximum number of time steps ({}) reached", self.params.max_steps
             )));
         }
 

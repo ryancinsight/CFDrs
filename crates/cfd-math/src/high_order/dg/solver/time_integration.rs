@@ -3,7 +3,8 @@
 //! Provides explicit, implicit, and IMEX time-stepping schemes including
 //! Forward Euler, RK4, SSP-RK3, and Implicit Euler with Newton iteration.
 
-use super::super::{DGError, Result};
+use crate::error::Result;
+use cfd_core::error::Error;
 use nalgebra::DMatrix;
 
 /// Type for the right-hand side function
@@ -445,7 +446,7 @@ impl TimeIntegrator for ImplicitEuler {
         }
 
         if !converged {
-            return Err(DGError::NumericalError(format!(
+            return Err(Error::Solver(format!(
                 "Newton iteration did not converge after {} iterations",
                 self.max_iter
             )));

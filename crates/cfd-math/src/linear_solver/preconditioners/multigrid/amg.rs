@@ -45,7 +45,8 @@ use super::{
     InterpolationStrategy, JacobiSmoother, MultigridLevel, MultigridSmoother, SmootherType,
     SymmetricGaussSeidelSmoother,
 };
-use crate::error::{MathError, Result};
+use crate::error::Result;
+use cfd_core::error::Error;
 use crate::linear_solver::traits::Preconditioner;
 use crate::sparse::{sparse_sparse_mul, SparseMatrix};
 use nalgebra::DVector;
@@ -114,9 +115,9 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
     /// Recompute the hierarchy operators for a new matrix with same sparsity pattern
     pub fn recompute(&mut self, fine_matrix: &SparseMatrix<T>) -> Result<()> {
         if self.levels.is_empty() {
-            return Err(
-                MathError::InvalidInput("AMG hierarchy not initialized".to_string()).into(),
-            );
+            return Err(Error::InvalidInput(
+                "AMG hierarchy not initialized".to_string(),
+            ));
         }
 
         // Update the finest level matrix
@@ -130,10 +131,9 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
                 match (&current.restriction, &current.interpolation) {
                     (Some(r), Some(p)) => (r, p),
                     _ => {
-                        return Err(MathError::InvalidInput(
+                        return Err(Error::InvalidInput(
                             "Missing transfer operators".to_string(),
-                        )
-                        .into())
+                        ))
                     }
                 }
             };
@@ -242,7 +242,7 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
                     T::from_f64(0.5).unwrap_or_else(T::zero),
                 ),
             }
-            .map_err(|e| MathError::InvalidInput(format!("Coarsening failed: {e}")))?;
+            .map_err(|e| Error::InvalidInput(format!("Coarsening failed: {e}")))?;
 
             // Create interpolation operator based on the coarsening result
             let interpolation = match self.config.interpolation_strategy {
@@ -263,7 +263,7 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
                     &coarsening_result.strength_matrix,
                 ),
             }
-            .map_err(|e| MathError::InvalidInput(format!("Interpolation failed: {e}")))?;
+            .map_err(|e| Error::InvalidInput(format!("Interpolation failed: {e}")))?;
 
             // Create restriction operator (transpose of interpolation)
             // In nalgebra-sparse, transpose of CSR is CSC, then convert back to CSR

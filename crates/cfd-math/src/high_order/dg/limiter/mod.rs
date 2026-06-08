@@ -7,7 +7,8 @@ mod weno;
 
 pub use weno::WENOLimiter;
 
-use super::{DGSolution, Result};
+use super::DGSolution;
+use crate::error::Result;
 
 /// Type of slope limiter
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
