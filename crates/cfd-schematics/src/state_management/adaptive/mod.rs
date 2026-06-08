@@ -157,51 +157,8 @@ impl ChannelGenerationContext {
     }
 }
 
-/// Error type for adaptation failures
-#[derive(Debug, Clone)]
-pub enum AdaptationError {
-    /// Invalid context provided
-    InvalidContext { reason: String },
-
-    /// Adaptation calculation failed
-    CalculationFailed { parameter: String, reason: String },
-
-    /// Result value is invalid
-    InvalidResult { value: String, constraint: String },
-
-    /// Dependency not available
-    DependencyMissing { dependency: String },
-}
-
-impl std::fmt::Display for AdaptationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidContext { reason } => {
-                write!(f, "Invalid adaptation context: {reason}")
-            }
-            Self::CalculationFailed { parameter, reason } => {
-                write!(
-                    f,
-                    "Adaptation calculation failed for parameter '{parameter}': {reason}"
-                )
-            }
-            Self::InvalidResult { value, constraint } => {
-                write!(
-                    f,
-                    "Adaptation result '{value}' violates constraint: {constraint}"
-                )
-            }
-            Self::DependencyMissing { dependency } => {
-                write!(
-                    f,
-                    "Required dependency '{dependency}' not available for adaptation"
-                )
-            }
-        }
-    }
-}
-
-impl std::error::Error for AdaptationError {}
+/// Error type for adaptation failures (alias for `cfd_core::error::AdaptationErrorKind`)
+pub type AdaptationError = cfd_core::error::AdaptationErrorKind;
 
 /// Convenience extension trait for fallible adaptive parameters.
 pub trait AdaptiveParameterCompat<T, Context>: AdaptiveParameter<T, Context> {
