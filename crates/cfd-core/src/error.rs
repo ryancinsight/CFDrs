@@ -1206,6 +1206,43 @@ impl std::error::Error for NumericalErrorKind {}
 impl std::error::Error for ConvergenceErrorKind {}
 impl std::error::Error for PluginErrorKind {}
 
+// ── Resistance calculation error variants ───────────────────────────────────
+
+/// Resistance calculation error variants
+#[derive(Debug, Clone)]
+pub enum ResistanceCalculationErrorKind {
+    /// Hydraulic diameter is missing for a component
+    MissingHydraulicDiameter,
+    /// Resistance model calculation failed
+    ModelError(
+        /// Error message
+        String,
+    ),
+    /// Invalid flow conditions
+    InvalidFlowConditions(
+        /// Error message
+        String,
+    ),
+    /// Numerical computation error
+    NumericalError(
+        /// Error message
+        String,
+    ),
+}
+
+impl fmt::Display for ResistanceCalculationErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingHydraulicDiameter => write!(f, "Hydraulic diameter is missing for component"),
+            Self::ModelError(msg) => write!(f, "Resistance model calculation failed: {msg}"),
+            Self::InvalidFlowConditions(msg) => write!(f, "Invalid flow conditions: {msg}"),
+            Self::NumericalError(msg) => write!(f, "Numerical computation error: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for ResistanceCalculationErrorKind {}
+
 impl From<String> for Error {
     fn from(msg: String) -> Self {
         Error::InvalidInput(msg)
@@ -1243,6 +1280,9 @@ impl From<DependencyErrorKind> for Error {
 }
 impl From<AdaptationErrorKind> for Error {
     fn from(kind: AdaptationErrorKind) -> Self { Error::Adaptation(kind) }
+}
+impl From<ResistanceCalculationErrorKind> for Error {
+    fn from(kind: ResistanceCalculationErrorKind) -> Self { Error::Solver(kind.to_string()) }
 }
 impl From<BoundaryErrorKind> for Error {
     fn from(kind: BoundaryErrorKind) -> Self { Error::Boundary(kind) }

@@ -2,7 +2,7 @@
 
 use super::traits::NetworkAnalyzer;
 use crate::domain::network::{Network, NetworkGraphExt};
-use crate::solver::analysis::error::ResistanceCalculationError;
+use cfd_core::error::ResistanceCalculationErrorKind as ResistanceCalculationError;
 use crate::solver::analysis::ResistanceAnalysis;
 use cfd_core::error::Result;
 use cfd_core::physics::constants::physics::thermo::{P_ATM, T_STANDARD};

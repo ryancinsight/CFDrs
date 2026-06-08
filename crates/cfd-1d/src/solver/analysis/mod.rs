@@ -5,7 +5,6 @@
 
 pub mod analyzers;
 pub mod blood_safety;
-pub mod error;
 pub mod flow;
 pub mod performance;
 pub mod pressure;
