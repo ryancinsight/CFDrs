@@ -1231,6 +1231,26 @@ impl From<BoundaryErrorKind> for Error {
     fn from(kind: BoundaryErrorKind) -> Self { Error::Boundary(kind) }
 }
 
+// Cross-kind conversions used by state_management
+impl From<ConstraintErrorKind> for ParameterErrorKind {
+    fn from(err: ConstraintErrorKind) -> Self {
+        Self::InvalidValue {
+            name: String::new(),
+            value: String::new(),
+            constraint: err.to_string(),
+        }
+    }
+}
+impl From<ValidationErrorKind> for ParameterErrorKind {
+    fn from(err: ValidationErrorKind) -> Self {
+        Self::InvalidValue {
+            name: String::new(),
+            value: String::new(),
+            constraint: err.to_string(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

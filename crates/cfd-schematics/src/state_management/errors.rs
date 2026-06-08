@@ -13,7 +13,7 @@ use cfd_core::error::{
 pub type StateManagementResult<T> = Result<T>;
 
 /// Result type for parameter operations
-pub type ParameterResult<T> = Result<T>;
+pub type ParameterResult<T> = std::result::Result<T, ParameterErrorKind>;
 
 // Re-export Kind types for direct construction
 pub use cfd_core::error::{ConstraintErrorKind as ConstraintError, DependencyErrorKind as DependencyError, ParameterErrorKind as ParameterError, RegistryErrorKind as RegistryError, ValidationErrorKind as ValidationError};
