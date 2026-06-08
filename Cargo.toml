@@ -38,7 +38,7 @@ tracing-subscriber = "0.3"
 nalgebra = { version = "0.33", features = ["serde-serialize"] }
 nalgebra-sparse = "0.10"
 rsparse = "1.2"
-ndarray = { version = "0.16", features = ["rayon"] }
+ndarray = { version = "0.16", default-features = false }
 num-traits = "0.2"
 num-complex = "0.4"
 approx = "0.5"
@@ -63,7 +63,6 @@ serde_json = "1.0"
 bincode = { version = "2.0.0-rc.3", features = ["serde"] }
 
 # Parallel processing
-rayon = "1.8"
 crossbeam = "0.8"
 pollster = "0.3"
 
@@ -172,7 +171,6 @@ petgraph.workspace = true
 wgpu = { version = "0.19", optional = true, features = ["fragile-send-sync-non-atomic-wasm", "webgl"] }
 rand.workspace = true
 tracing = { workspace = true }
-rayon.workspace = true
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
