@@ -5,7 +5,7 @@ use nalgebra::{DVector, RealField};
 use nalgebra_sparse::CsrMatrix;
 // use nalgebra_sparse::ops::serial::spmm_csr_csr;
 use crate::linear_solver::LinearOperator;
-use moirai::ParallelSliceMut;
+use moirai::prelude::ParallelSliceMut;
 use num_traits::{Float, FromPrimitive, Signed};
 
 impl<T: RealField + Copy + Send + Sync> LinearOperator<T> for CsrMatrix<T> {

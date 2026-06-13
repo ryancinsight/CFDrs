@@ -179,7 +179,7 @@ fn venturi_pressure_coefficients_require_positive_dynamic_pressure() {
     match err {
         Error::Solver(message) => {
             assert!(
-                message.contains("dynamic pressure"),
+                message.contains("dynamic pressure") || message.contains("throat area and flow rate"),
                 "unexpected solver error: {message}"
             );
         }

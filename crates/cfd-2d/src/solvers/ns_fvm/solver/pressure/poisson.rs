@@ -183,9 +183,10 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         }
 
         let alpha_p = self.config.alpha_p;
+        let alpha_u = self.config.alpha_u;
         for i in 0..nx {
             for j in 0..ny {
-                self.field.p[(i, j)] += alpha_p * p_prime[(i, j)];
+                self.field.p[(i, j)] += (alpha_p / alpha_u) * p_prime[(i, j)];
             }
         }
 

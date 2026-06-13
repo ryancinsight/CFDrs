@@ -79,6 +79,8 @@ fn test_momentum_solver_pure_diffusion() -> Result<()> {
             component_values: None,
         },
     );
+    solver.set_boundary("west".to_string(), BoundaryCondition::Outflow);
+    solver.set_boundary("east".to_string(), BoundaryCondition::Outflow);
 
     // Solve to convergence
     let max_time_steps = 1000;
@@ -186,6 +188,8 @@ fn test_momentum_solver_deferred_correction() -> Result<()> {
             component_values: None,
         },
     );
+    solver.set_boundary("west".to_string(), BoundaryCondition::Outflow);
+    solver.set_boundary("east".to_string(), BoundaryCondition::Outflow);
 
     // Solve to convergence
     let max_time_steps = 100;

@@ -111,7 +111,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowField2D<T> {
         let one = T::one();
         for i in 0..grid.nx {
             for j in 0..grid.ny {
-                let gamma = self.compute_shear_rate(i, j, grid.dx, grid.dy);
+                let dy_j = grid.dy_at(j);
+                let gamma = self.compute_shear_rate(i, j, grid.dx, dy_j);
                 self.gamma_dot[(i, j)] = gamma;
                 let mu_computed = match blood {
                     BloodModel::Casson(m) => m.apparent_viscosity(gamma),

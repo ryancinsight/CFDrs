@@ -3,7 +3,8 @@
 //! This module provides vectorized operations using platform-specific SIMD instructions
 //! when available, with automatic fallback to scalar operations.
 
-use moirai::{map_collect_index_with, reduce_index_with, Adaptive, ParallelSlice};
+use moirai::prelude::ParallelSlice;
+use moirai::{map_collect_index_with, reduce_index_with, Adaptive};
 use nalgebra::{DVector, RealField};
 
 /// Trait for SIMD-optimized vector operations

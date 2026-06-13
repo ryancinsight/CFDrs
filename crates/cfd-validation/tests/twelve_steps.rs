@@ -911,6 +911,7 @@ fn test_step_12_channel_flow() {
         max_inner_iterations: 3,
         alpha_u: 0.85,
         alpha_p: 0.4,
+        use_rhie_chow: true,
         ..Default::default()
     };
 
@@ -947,6 +948,9 @@ fn test_step_12_channel_flow() {
     );
 
     let mut fields = SimulationFields::new(nx, ny);
+    for j in 0..ny {
+        fields.u.set(0, j, 1.0);
+    }
 
     // Budgeted developing-flow loop: the current inlet BC treatment drives a
     // physically admissible channel-flow profile but does not reach a strict

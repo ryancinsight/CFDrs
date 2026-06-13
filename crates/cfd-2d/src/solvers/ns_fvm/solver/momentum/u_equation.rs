@@ -109,7 +109,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 let a_n = Float::max(d_n - f_n * half, zero) + Float::max(-f_n, zero);
                 let a_s = Float::max(d_s + f_s * half, zero) + Float::max(f_s, zero);
 
-                let mut a_p = a_e + a_w + a_n + a_s + (f_e - f_w) + (f_n - f_s);
+                let mut a_p = a_e + a_w + a_n + a_s;
                 if a_p < T::from_f64(1e-30).unwrap_or(zero) {
                     a_p = T::from_f64(1e-10).unwrap_or(one);
                 }

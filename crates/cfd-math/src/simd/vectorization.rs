@@ -14,7 +14,8 @@
 
 use crate::error::Result;
 use crate::simd::SimdOps;
-use moirai::{reduce_index_with, Adaptive, ParallelSliceMut};
+use moirai::prelude::ParallelSliceMut;
+use moirai::{reduce_index_with, Adaptive};
 use nalgebra::RealField;
 
 /// Vectorized operations for CFD computations with SIMD support

@@ -33,22 +33,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Float, F: FluidTrait<T>
         let residuals = &mut workspace.anderson_residuals;
         let iterates = &mut workspace.anderson_iterates;
         let last_solution = &workspace.last_solution;
+        let residual = &picard_solution - last_solution;
         if iter == 0 || n <= 1 {
             if iter == 0 {
-                let residual = &picard_solution - last_solution;
                 residuals.push_back(residual);
-                iterates.push_back(picard_solution.clone());
+                iterates.push_back(last_solution.clone());
             }
             return picard_solution;
         }
 
-        let residual = &picard_solution - last_solution;
         if residuals.len() >= depth {
             residuals.pop_front();
             iterates.pop_front();
         }
         residuals.push_back(residual);
-        iterates.push_back(picard_solution.clone());
+        iterates.push_back(last_solution.clone());
 
         let m = residuals.len();
         if m < 2 {
@@ -112,7 +111,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Float, F: FluidTrait<T>
             }
         }
 
-        let backup_damped = Self::damped_picard(&workspace.last_solution, &picard_solution, 0.5);
+        let alpha = if iter < 20 {
+            0.5
+        } else if iter < 100 {
+            0.35
+        } else {
+            0.2
+        };
+        let backup_damped = Self::damped_picard(&workspace.last_solution, &picard_solution, alpha);
         if Self::vector_is_finite(&backup_damped) {
             let damped_step_norm = (&backup_damped - &workspace.last_solution).norm();
             if damped_step_norm < picard_step_norm {

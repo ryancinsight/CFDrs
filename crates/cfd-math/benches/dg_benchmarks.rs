@@ -1,6 +1,7 @@
 //! Benchmarks for Discontinuous Galerkin methods
 
 use cfd_math::high_order::dg::*;
+use cfd_math::error::Result;
 use criterion::{criterion_group, criterion_main, Criterion};
 use nalgebra::{DMatrix, DVector};
 

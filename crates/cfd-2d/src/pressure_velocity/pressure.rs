@@ -54,10 +54,10 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         solver_type: PressureLinearSolver,
     ) -> cfd_core::error::Result<Self> {
         let config = cfd_math::linear_solver::IterativeSolverConfig {
-            max_iterations: crate::constants::solver::DEFAULT_MAX_ITERATIONS,
-            tolerance: T::from_f64(crate::constants::solver::DEFAULT_TOLERANCE)
+            max_iterations: 200,
+            tolerance: T::from_f64(1e-3)
                 .expect("Failed to convert pressure solver tolerance"),
-            use_preconditioner: true,
+            use_preconditioner: false,
             use_parallel_spmv: false,
         };
 
@@ -108,8 +108,29 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                     continue;
                 }
 
-                let dp_dx = (p_correction[(i + 1, j)] - p_correction[(i - 1, j)]) / (two * dx);
-                let dp_dy = (p_correction[(i, j + 1)] - p_correction[(i, j - 1)]) / (two * dy);
+                let left_fluid = fields.mask.at(i - 1, j);
+                let right_fluid = fields.mask.at(i + 1, j);
+                let dp_dx = if left_fluid && right_fluid {
+                    (p_correction[(i + 1, j)] - p_correction[(i - 1, j)]) / (two * dx)
+                } else if right_fluid {
+                    (p_correction[(i + 1, j)] - p_correction[(i, j)]) / (two * dx)
+                } else if left_fluid {
+                    (p_correction[(i, j)] - p_correction[(i - 1, j)]) / (two * dx)
+                } else {
+                    T::zero()
+                };
+
+                let south_fluid = fields.mask.at(i, j - 1);
+                let north_fluid = fields.mask.at(i, j + 1);
+                let dp_dy = if south_fluid && north_fluid {
+                    (p_correction[(i, j + 1)] - p_correction[(i, j - 1)]) / (two * dy)
+                } else if north_fluid {
+                    (p_correction[(i, j + 1)] - p_correction[(i, j)]) / (two * dy)
+                } else if south_fluid {
+                    (p_correction[(i, j)] - p_correction[(i, j - 1)]) / (two * dy)
+                } else {
+                    T::zero()
+                };
 
                 let factor_u = volume / ap_u.at(i, j);
                 let factor_v = volume / ap_v.at(i, j);

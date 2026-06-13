@@ -11,7 +11,6 @@ where
     let nx = solver.grid.nx;
     let ny = solver.grid.ny;
     let dx = solver.grid.dx;
-    let dy = solver.grid.dy;
     let mut max_tau = T::zero();
     let mut sum_tau = T::zero();
     let mut count = 0u64;
@@ -33,7 +32,8 @@ where
                 continue;
             }
 
-            let gamma = solver.field.compute_shear_rate(i, j, dx, dy);
+            let dy_j = solver.grid.dy_at(j);
+            let gamma = solver.field.compute_shear_rate(i, j, dx, dy_j);
             let tau = solver.field.mu[(i, j)] * gamma;
             if tau > max_tau {
                 max_tau = tau;

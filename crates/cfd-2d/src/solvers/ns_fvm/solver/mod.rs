@@ -324,9 +324,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             // development phase (iteration > 50) to avoid interfering with
             // the pressure field while it's still establishing the flow
             // pattern (Versteeg & Malalasekera 2007, §11.9).
-            if iteration > 50 {
-                self.apply_mass_flux_correction();
-            }
+            // if iteration > 50 {
+            //     self.apply_mass_flux_correction();
+            // }
 
             // Turbulence model update: solve k and omega transport equations
             // and compute nu_t.  Only runs when turbulence is enabled and
@@ -387,6 +387,41 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
 
             let (res_cont, res_pcorr, res_max) = self.compute_residuals();
             last_residual = Float::max(res_cont, res_pcorr);
+
+            if iteration % 1 == 0 || last_residual < self.config.tolerance {
+                let mut max_u = T::zero();
+                let mut max_v = T::zero();
+                let mut max_p = T::zero();
+                for i in 0..=self.grid.nx {
+                    for j in 0..self.grid.ny {
+                        let val = Float::abs(self.field.u[(i, j)]);
+                        if val > max_u { max_u = val; }
+                    }
+                }
+                for i in 0..self.grid.nx {
+                    for j in 0..=self.grid.ny {
+                        let val = Float::abs(self.field.v[(i, j)]);
+                        if val > max_v { max_v = val; }
+                    }
+                }
+                for i in 0..self.grid.nx {
+                    for j in 0..self.grid.ny {
+                        let val = Float::abs(self.field.p[(i, j)]);
+                        if val > max_p { max_p = val; }
+                    }
+                }
+
+                println!(
+                    "SIMPLE iteration {} residuals: cont={:.6e}, pcorr={:.6e}, max_pointwise={:.6e} | max_u={:.4e}, max_v={:.4e}, max_p={:.4e}",
+                    iteration,
+                    res_cont.to_f64().unwrap_or(0.0),
+                    res_pcorr.to_f64().unwrap_or(0.0),
+                    res_max.to_f64().unwrap_or(0.0),
+                    max_u.to_f64().unwrap_or(0.0),
+                    max_v.to_f64().unwrap_or(0.0),
+                    max_p.to_f64().unwrap_or(0.0),
+                );
+            }
 
             // Divergence guard: detect NaN/Inf or residual growth.
             if self.check_divergence() || !last_residual.is_finite() {

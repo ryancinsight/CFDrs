@@ -475,7 +475,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             default_hematocrit: T::from_f64(0.45).unwrap_or_else(T::zero),
             default_plasma_viscosity: state.dynamic_viscosity
                 / T::from_f64(3.2).unwrap_or_else(T::one),
-            tiny: T::from_f64(1.0e-30).unwrap_or(epsilon),
+            tiny: T::from_f64(1.0e-7).unwrap_or(epsilon),
         })
     }
 

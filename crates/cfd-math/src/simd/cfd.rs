@@ -9,7 +9,7 @@
 //! - Integration with existing CFD solver pipeline
 
 use crate::error::Result;
-use moirai::{ParallelSlice, ParallelSliceMut};
+use moirai::prelude::{ParallelSlice, ParallelSliceMut};
 use nalgebra::RealField;
 use num_traits::FromPrimitive;
 

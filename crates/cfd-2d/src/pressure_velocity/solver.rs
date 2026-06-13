@@ -108,8 +108,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
 
         self.apply_uniform_boundary_condition(bc)?;
 
-        let u_source = self.u.as_slice();
-        let p_source = self.p.as_slice();
+
 
         // Step 1: Solve momentum equations for predicted velocity.
         // Reuse one field workspace to avoid per-iteration heap allocation.
@@ -129,17 +128,18 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
             state_buffer.force_v.as_mut_slice().fill(T::zero());
             state_buffer.mask.as_mut_slice().fill(true);
 
-            for ((dst_u, dst_v), vel) in state_buffer
-                .u
-                .as_mut_slice()
-                .iter_mut()
-                .zip(state_buffer.v.as_mut_slice().iter_mut())
-                .zip(u_source.iter())
-            {
-                *dst_u = vel.x;
-                *dst_v = vel.y;
+            let nx = self.grid.nx;
+            let ny = self.grid.ny;
+            for i in 0..nx {
+                for j in 0..ny {
+                    let vel = self.u[(i, j)];
+                    state_buffer.u.set(i, j, vel.x);
+                    state_buffer.v.set(i, j, vel.y);
+                    state_buffer.u_old.set(i, j, vel.x);
+                    state_buffer.v_old.set(i, j, vel.y);
+                    state_buffer.p.set(i, j, self.p[(i, j)]);
+                }
             }
-            state_buffer.p.as_mut_slice().clone_from_slice(p_source);
 
             momentum_solver.solve(MomentumComponent::U, state_buffer, dt)?;
             momentum_solver.solve(MomentumComponent::V, state_buffer, dt)?;
@@ -153,6 +153,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
                 state_buffer,
                 dt,
                 rho,
+                Some(self.momentum_solver.boundary_conditions()),
                 true,
                 p_correction_workspace,
             )?;

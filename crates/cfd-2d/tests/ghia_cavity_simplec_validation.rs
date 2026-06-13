@@ -618,7 +618,7 @@ where
     // Set u_star values into fields if needed, but the solver interface may vary
     let mut p_correction = cfd_2d::grid::Array2D::new(nx, ny, 0.0);
     solver
-        .solve_pressure_correction(&fields, dt, rho, true, &mut p_correction)
+        .solve_pressure_correction(&fields, dt, rho, None, true, &mut p_correction)
         .expect("Pressure correction failed");
 
     // For a divergence-free field, pressure correction should be small

@@ -38,16 +38,6 @@
 //! solver.set_convection_scheme(ConvectionScheme::Upwind);
 //! ```
 //!
-//! # Theorem
-//! The momentum discretization must conserve linear momentum globally and locally.
-//!
-//! **Proof sketch**:
-//! By integrating the Navier-Stokes momentum equation over a control volume $\Omega$,
-//! Gauss's divergence theorem converts the convective and diffusive volume integrals
-//! into surface fluxes. The finite volume method ensures that the flux leaving one
-//! cell exactly equals the flux entering the adjacent cell. Thus, in the absence of
-//! external forces and boundary fluxes, the total momentum $\int_\Omega \rho \mathbf{u} dV$
-//! is exactly conserved to machine precision.
 
 use super::coefficient_corrections::{
     apply_second_order_deferred_correction, apply_weno_z_deferred_correction,
@@ -430,28 +420,26 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
 
                 let ap_sum =
                     self.ae.at(i, j) + self.aw.at(i, j) + self.an.at(i, j) + self.as_.at(i, j);
+                let ap_val = ap_sum + rho * volume / dt;
                 if let Some(ap) = self.ap.at_mut(i, j) {
-                    *ap = ap_sum + rho * volume / dt;
+                    *ap = ap_val;
                 }
 
-                // SIMPLEC consistent diagonal: aP - sum(aNb)
+                // SIMPLEC consistent diagonal: aP - gamma * sum(aNb)
                 // This represents the part of aP that does not depend on neighbor velocities.
                 // For SIMPLEC consistency, we use this in the velocity correction equation.
                 if let Some(ap_c) = self.ap_consistent.at_mut(i, j) {
-                    // Start with the time term
-                    let time_term = rho * volume / dt;
-
-                    // Add a small epsilon to ensure we never divide by zero in steady state
-                    // This is standard practice in SIMPLEC implementations
+                    let gamma = T::from_f64(0.85).expect("analytical constant conversion");
+                    let val = ap_val - ap_sum * gamma;
                     let eps = T::from_f64(1e-10).expect("analytical constant conversion");
 
-                    *ap_c = time_term + eps;
+                    *ap_c = if val > eps { val } else { eps };
                 }
 
                 // Source term (including previous time step and pressure gradient)
                 let previous_velocity = match component {
-                    MomentumComponent::U => fields.u.at(i, j),
-                    MomentumComponent::V => fields.v.at(i, j),
+                    MomentumComponent::U => fields.u_old.at(i, j),
+                    MomentumComponent::V => fields.v_old.at(i, j),
                 };
 
                 // Body force term
@@ -488,17 +476,11 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 };
 
                 if let Some(source) = self.source.at_mut(i, j) {
-                    // RHS = ρ * V * u_old / dt + pressure_force + body_force
-                    // where pressure_force = -∂p/∂x * V (total force on control volume)
-                    // and V = dx * dy (cell volume in 2D, per unit depth)
-                    //
-                    // NOTE: Use += to ACCUMULATE with any deferred correction (QUICK/TVD)
-                    // that was already added to the source term above. For Upwind scheme,
-                    // source is still zero here, so += is equivalent to =.
                     let volume = dx * dy;
-                    *source += fields.density.at(i, j) * volume * previous_velocity / dt
-                        + pressure_gradient * volume
-                        + body_force * volume;
+                    let time_val = fields.density.at(i, j) * volume * previous_velocity / dt;
+                    let press_val = pressure_gradient * volume;
+                    let body_val = body_force * volume;
+                    *source += time_val + press_val + body_val;
                 }
             }
         }

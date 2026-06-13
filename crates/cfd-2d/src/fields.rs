@@ -241,6 +241,10 @@ pub struct SimulationFields<T: RealField + Copy> {
     pub u: Field2D<T>,
     /// Y-component of velocity field  
     pub v: Field2D<T>,
+    /// X-component of velocity field at start of time step
+    pub u_old: Field2D<T>,
+    /// Y-component of velocity field at start of time step
+    pub v_old: Field2D<T>,
     /// Predicted X-velocity (momentum solution)
     pub u_star: Field2D<T>,
     /// Predicted Y-velocity (momentum solution)
@@ -271,6 +275,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
         Self {
             u: Field2D::new(nx, ny, T::zero()),
             v: Field2D::new(nx, ny, T::zero()),
+            u_old: Field2D::new(nx, ny, T::zero()),
+            v_old: Field2D::new(nx, ny, T::zero()),
             u_star: Field2D::new(nx, ny, T::zero()),
             v_star: Field2D::new(nx, ny, T::zero()),
             p: Field2D::new(nx, ny, T::zero()),
@@ -305,6 +311,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     pub fn reset(&mut self) {
         self.u.map_inplace(|val| *val = T::zero());
         self.v.map_inplace(|val| *val = T::zero());
+        self.u_old.map_inplace(|val| *val = T::zero());
+        self.v_old.map_inplace(|val| *val = T::zero());
         self.u_star.map_inplace(|val| *val = T::zero());
         self.v_star.map_inplace(|val| *val = T::zero());
         self.p.map_inplace(|val| *val = T::zero());
@@ -330,6 +338,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
         // Copy field data using slices (efficient memcpy)
         self.u.data.copy_from_slice(&other.u.data);
         self.v.data.copy_from_slice(&other.v.data);
+        self.u_old.data.copy_from_slice(&other.u_old.data);
+        self.v_old.data.copy_from_slice(&other.v_old.data);
         self.u_star.data.copy_from_slice(&other.u_star.data);
         self.v_star.data.copy_from_slice(&other.v_star.data);
         self.p.data.copy_from_slice(&other.p.data);

@@ -329,9 +329,10 @@ pub fn solve_lid_driven_cavity(
             // SOR for pressure correction pp
             let mut pp = vec![vec![0.0_f64; ny]; nx];
             let omega = 1.2_f64; // conservative SOR (< optimal for stability)
-            let n_inner = (8 * nx * ny).max(1000);
+            let n_inner = (8 * nx * ny).min(1000).max(100);
 
             for _gs in 0..n_inner {
+                let mut max_change = 0.0_f64;
                 for i in 0..nx {
                     for j in 0..ny {
                         // Skip the pinned reference cell
@@ -359,11 +360,16 @@ pub fn solve_lid_driven_cavity(
                         let pn = if j + 1 < ny { pp[i][j + 1] } else { pp[i][j] };
                         let ps = if j > 0 { pp[i][j - 1] } else { pp[i][j] };
                         let p_new = (ae * pe + aw * pw + an * pn + a_s * ps + b[i][j]) / a_p;
-                        pp[i][j] += omega * (p_new - pp[i][j]);
+                        let diff = omega * (p_new - pp[i][j]);
+                        pp[i][j] += diff;
+                        max_change = max_change.max(diff.abs());
                     }
                 }
                 // Reference pressure pinned at (0,0)
                 pp[0][0] = 0.0;
+                if max_change < 1e-6 {
+                    break;
+                }
             }
 
             // Correct velocities

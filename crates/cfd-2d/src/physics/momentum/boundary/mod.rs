@@ -330,29 +330,38 @@ where
         wall_type: cfd_core::physics::boundary::WallType::NoSlip,
     }) = boundaries.get("west")
     {
-        apply_higher_order_west_wall(matrix, rhs, component, grid, nx, ny)?;
+        if matches!(component, MomentumComponent::V) {
+            apply_higher_order_west_wall(matrix, rhs, component, grid, nx, ny)?;
+        }
     }
     if let Some(BoundaryCondition::Wall {
         wall_type: cfd_core::physics::boundary::WallType::NoSlip,
     }) = boundaries.get("east")
     {
-        apply_higher_order_east_wall(matrix, rhs, component, grid, nx, ny)?;
+        if matches!(component, MomentumComponent::V) {
+            apply_higher_order_east_wall(matrix, rhs, component, grid, nx, ny)?;
+        }
     }
     if let Some(BoundaryCondition::Wall {
         wall_type: cfd_core::physics::boundary::WallType::NoSlip,
     }) = boundaries.get("north")
     {
-        apply_higher_order_north_wall(matrix, rhs, component, grid, nx, ny)?;
+        if matches!(component, MomentumComponent::U) {
+            apply_higher_order_north_wall(matrix, rhs, component, grid, nx, ny)?;
+        }
     }
     if let Some(BoundaryCondition::Wall {
         wall_type: cfd_core::physics::boundary::WallType::NoSlip,
     }) = boundaries.get("south")
     {
-        apply_higher_order_south_wall(matrix, rhs, component, grid, nx, ny)?;
+        if matches!(component, MomentumComponent::U) {
+            apply_higher_order_south_wall(matrix, rhs, component, grid, nx, ny)?;
+        }
     }
 
     Ok(())
 }
+
 
 /// Quadratic extrapolation: u_0 = (4*u_1 - u_2)/3 for west wall
 fn apply_higher_order_west_wall<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
@@ -503,7 +512,7 @@ mod tests {
         apply_higher_order_wall_boundaries(
             &mut matrix,
             &mut rhs,
-            MomentumComponent::U,
+            MomentumComponent::V,
             &boundaries,
             &grid,
         )

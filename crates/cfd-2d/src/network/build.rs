@@ -178,22 +178,23 @@ fn solver_config_for_channel<T: RealField + Copy + Float + FromPrimitive>(
             max_iterations: 12_000,
             alpha_u: T::from_f64(0.25).expect("analytical constant conversion"),
             alpha_p: T::from_f64(0.05).expect("analytical constant conversion"),
-            n_correctors: 4,
+            n_correctors: 1,
             ..SIMPLEConfig::default()
         }
     } else if matches!(shape, ChannelShape::Serpentine { .. }) || mean_velocity_m_s > 0.5 {
         SIMPLEConfig {
             max_iterations: 8_000,
-            alpha_u: T::from_f64(0.45).expect("analytical constant conversion"),
-            alpha_p: T::from_f64(0.15).expect("analytical constant conversion"),
-            n_correctors: 2,
+            alpha_u: T::from_f64(0.4).expect("analytical constant conversion"),
+            alpha_p: T::from_f64(0.12).expect("analytical constant conversion"),
+            n_correctors: 1,
             ..SIMPLEConfig::default()
         }
     } else {
         SIMPLEConfig {
-            max_iterations: 5_000,
-            alpha_u: T::from_f64(0.5).expect("analytical constant conversion"),
-            alpha_p: T::from_f64(0.2).expect("analytical constant conversion"),
+            max_iterations: 8_000,
+            alpha_u: T::from_f64(0.35).expect("analytical constant conversion"),
+            alpha_p: T::from_f64(0.1).expect("analytical constant conversion"),
+            n_correctors: 1,
             ..SIMPLEConfig::default()
         }
     }

@@ -217,14 +217,32 @@ pub(super) fn solve_pressure_correction_with_caches<
 
         for i in 0..grid.nx - 1 {
             for j in 0..grid.ny {
-                u_face[(i, j)] = consistent_velocity[(i, j)].x;
-                d_x[(i, j)] = rhie_chow.d_face_x(i, j, grid.dx, grid.dy);
+                let is_fluid_face = fields.mask.at(i, j) && fields.mask.at(i + 1, j);
+                u_face[(i, j)] = if is_fluid_face {
+                    consistent_velocity[(i, j)].x
+                } else {
+                    T::zero()
+                };
+                d_x[(i, j)] = if is_fluid_face {
+                    rhie_chow.d_face_x(i, j, grid.dx, grid.dy)
+                } else {
+                    T::zero()
+                };
             }
         }
         for i in 0..grid.nx {
             for j in 0..grid.ny - 1 {
-                v_face[(i, j)] = consistent_velocity[(i, j)].y;
-                d_y[(i, j)] = rhie_chow.d_face_y(i, j, grid.dx, grid.dy);
+                let is_fluid_face = fields.mask.at(i, j) && fields.mask.at(i, j + 1);
+                v_face[(i, j)] = if is_fluid_face {
+                    consistent_velocity[(i, j)].y
+                } else {
+                    T::zero()
+                };
+                d_y[(i, j)] = if is_fluid_face {
+                    rhie_chow.d_face_y(i, j, grid.dx, grid.dy)
+                } else {
+                    T::zero()
+                };
             }
         }
 
@@ -245,6 +263,7 @@ pub(super) fn solve_pressure_correction_with_caches<
             fields,
             dt,
             rho,
+            Some(momentum_solver.boundary_conditions()),
             rebuild_matrix,
             output_correction,
         )

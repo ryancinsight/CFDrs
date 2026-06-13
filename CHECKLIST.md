@@ -1,4 +1,5 @@
 # CFDrs Work Checklist
+- [x] Enable Moirai parallel, Mnemosyne memory integration, and Mellinoe branding through the CFDrs Moirai dependency while preserving the opt-in `cfd-core/mnemosyne` process allocator to avoid `cfd-validation` allocator conflicts; verified with `cargo check --workspace`.
 - [x] Audit `cfd-schematics` crate for redundancy and consolidate shared components.
 - [x] Enhance deep vertical hierarchical file tree in `cfd-schematics` with DIP, SRP, SSOT, SOC.
 - [ ] Optimize performance and memory efficiency representation in `cfd-schematics`.

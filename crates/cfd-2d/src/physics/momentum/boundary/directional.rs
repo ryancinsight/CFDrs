@@ -55,7 +55,18 @@ pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive, M: Matrix
                 cfd_core::physics::boundary::WallType::NoSlip => {
                     rhs[idx] = T::zero();
                 }
-                cfd_core::physics::boundary::WallType::Slip => {}
+                cfd_core::physics::boundary::WallType::Slip => {
+                    match component {
+                        MomentumComponent::U => {
+                            rhs[idx] = T::zero();
+                        }
+                        MomentumComponent::V => {
+                            matrix.add_entry(idx, idx, T::one())?;
+                            matrix.add_entry(idx, idx + 1, -T::one())?;
+                            rhs[idx] = T::zero();
+                        }
+                    }
+                }
                 cfd_core::physics::boundary::WallType::Moving { velocity } => {
                     let component_idx = match component {
                         MomentumComponent::U => 0,
@@ -78,9 +89,16 @@ pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive, M: Matrix
                 rhs[idx] = T::zero();
             }
             BoundaryCondition::Symmetry => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx + 1, -T::one())?;
-                rhs[idx] = T::zero();
+                match component {
+                    MomentumComponent::U => {
+                        rhs[idx] = T::zero();
+                    }
+                    MomentumComponent::V => {
+                        matrix.add_entry(idx, idx, T::one())?;
+                        matrix.add_entry(idx, idx + 1, -T::one())?;
+                        rhs[idx] = T::zero();
+                    }
+                }
             }
             BoundaryCondition::PressureInlet { .. } | BoundaryCondition::PressureOutlet { .. } => {
                 matrix.add_entry(idx, idx, T::one())?;
@@ -168,7 +186,18 @@ pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive, M: Matrix
                 cfd_core::physics::boundary::WallType::NoSlip => {
                     rhs[idx] = T::zero();
                 }
-                cfd_core::physics::boundary::WallType::Slip => {}
+                cfd_core::physics::boundary::WallType::Slip => {
+                    match component {
+                        MomentumComponent::U => {
+                            rhs[idx] = T::zero();
+                        }
+                        MomentumComponent::V => {
+                            matrix.add_entry(idx, idx, T::one())?;
+                            matrix.add_entry(idx, idx - 1, -T::one())?;
+                            rhs[idx] = T::zero();
+                        }
+                    }
+                }
                 cfd_core::physics::boundary::WallType::Moving { velocity } => {
                     let component_idx = match component {
                         MomentumComponent::U => 0,
@@ -191,9 +220,16 @@ pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive, M: Matrix
                 rhs[idx] = T::zero();
             }
             BoundaryCondition::Symmetry => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx - 1, -T::one())?;
-                rhs[idx] = T::zero();
+                match component {
+                    MomentumComponent::U => {
+                        rhs[idx] = T::zero();
+                    }
+                    MomentumComponent::V => {
+                        matrix.add_entry(idx, idx, T::one())?;
+                        matrix.add_entry(idx, idx - 1, -T::one())?;
+                        rhs[idx] = T::zero();
+                    }
+                }
             }
             BoundaryCondition::PressureInlet { .. } | BoundaryCondition::PressureOutlet { .. } => {
                 matrix.add_entry(idx, idx, T::one())?;
@@ -255,7 +291,18 @@ pub(super) fn apply_north_boundary<T: RealField + Copy + FromPrimitive, M: Matri
                 cfd_core::physics::boundary::WallType::NoSlip => {
                     rhs[idx] = T::zero();
                 }
-                cfd_core::physics::boundary::WallType::Slip => {}
+                cfd_core::physics::boundary::WallType::Slip => {
+                    match component {
+                        MomentumComponent::V => {
+                            rhs[idx] = T::zero();
+                        }
+                        MomentumComponent::U => {
+                            matrix.add_entry(idx, idx, T::one())?;
+                            matrix.add_entry(idx, idx - nx, -T::one())?;
+                            rhs[idx] = T::zero();
+                        }
+                    }
+                }
                 cfd_core::physics::boundary::WallType::Moving { velocity } => {
                     let component_idx = match component {
                         MomentumComponent::U => 0,
@@ -278,9 +325,16 @@ pub(super) fn apply_north_boundary<T: RealField + Copy + FromPrimitive, M: Matri
                 rhs[idx] = T::zero();
             }
             BoundaryCondition::Symmetry => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx - nx, -T::one())?;
-                rhs[idx] = T::zero();
+                match component {
+                    MomentumComponent::V => {
+                        rhs[idx] = T::zero();
+                    }
+                    MomentumComponent::U => {
+                        matrix.add_entry(idx, idx, T::one())?;
+                        matrix.add_entry(idx, idx - nx, -T::one())?;
+                        rhs[idx] = T::zero();
+                    }
+                }
             }
             BoundaryCondition::PressureInlet { .. } | BoundaryCondition::PressureOutlet { .. } => {
                 matrix.add_entry(idx, idx, T::one())?;
@@ -342,7 +396,18 @@ pub(super) fn apply_south_boundary<T: RealField + Copy + FromPrimitive, M: Matri
                 cfd_core::physics::boundary::WallType::NoSlip => {
                     rhs[idx] = T::zero();
                 }
-                cfd_core::physics::boundary::WallType::Slip => {}
+                cfd_core::physics::boundary::WallType::Slip => {
+                    match component {
+                        MomentumComponent::V => {
+                            rhs[idx] = T::zero();
+                        }
+                        MomentumComponent::U => {
+                            matrix.add_entry(idx, idx, T::one())?;
+                            matrix.add_entry(idx, idx + nx, -T::one())?;
+                            rhs[idx] = T::zero();
+                        }
+                    }
+                }
                 cfd_core::physics::boundary::WallType::Moving { velocity } => {
                     let component_idx = match component {
                         MomentumComponent::U => 0,
@@ -365,9 +430,16 @@ pub(super) fn apply_south_boundary<T: RealField + Copy + FromPrimitive, M: Matri
                 rhs[idx] = T::zero();
             }
             BoundaryCondition::Symmetry => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx + nx, -T::one())?;
-                rhs[idx] = T::zero();
+                match component {
+                    MomentumComponent::V => {
+                        rhs[idx] = T::zero();
+                    }
+                    MomentumComponent::U => {
+                        matrix.add_entry(idx, idx, T::one())?;
+                        matrix.add_entry(idx, idx + nx, -T::one())?;
+                        rhs[idx] = T::zero();
+                    }
+                }
             }
             BoundaryCondition::PressureInlet { .. } | BoundaryCondition::PressureOutlet { .. } => {
                 matrix.add_entry(idx, idx, T::one())?;

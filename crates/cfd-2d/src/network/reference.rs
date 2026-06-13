@@ -115,8 +115,8 @@ where
     )?;
 
     let solver = NetworkSolver::<T, ConstantPropertyFluid<T>>::with_config(SolverConfig::<T> {
-        tolerance: T::from_f64(1e-12).unwrap_or_else(T::default_epsilon),
-        max_iterations: 1000,
+        tolerance: T::from_f64(1e-8).unwrap_or_else(T::default_epsilon),
+        max_iterations: 10000,
     });
     let (solved, diagnostics) = solver
         .solve_network_with_diagnostics(&NetworkProblem::<T, ConstantPropertyFluid<T>>::new(

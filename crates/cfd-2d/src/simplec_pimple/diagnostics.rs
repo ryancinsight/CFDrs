@@ -19,7 +19,6 @@
 use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;
-use crate::solvers::continuity::{max_central_continuity_residual, max_face_continuity_residual};
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
 
@@ -48,14 +47,31 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     ///
     /// Uses the standard central-difference discretization of the divergence operator.
     pub(super) fn calculate_continuity_residual(&self, fields: &SimulationFields<T>) -> T {
-        max_central_continuity_residual(
-            self.grid.nx,
-            self.grid.ny,
-            self.grid.dx,
-            self.grid.dy,
-            |i, j| fields.u.at(i, j),
-            |i, j| fields.v.at(i, j),
-        )
+        let mut max_divergence = T::zero();
+        let two = T::from_f64(2.0).expect("Exact mathematically representable f64");
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
+        let dx = self.grid.dx;
+        let dy = self.grid.dy;
+
+        if nx < 3 || ny < 3 {
+            return T::zero();
+        }
+
+        for i in 1..nx - 1 {
+            for j in 1..ny - 1 {
+                if !fields.mask.at(i, j) {
+                    continue;
+                }
+                let du_dx = (fields.u.at(i + 1, j) - fields.u.at(i - 1, j)) / (two * dx);
+                let dv_dy = (fields.v.at(i, j + 1) - fields.v.at(i, j - 1)) / (two * dy);
+                let abs_divergence = (du_dx + dv_dy).abs();
+                if abs_divergence > max_divergence {
+                    max_divergence = abs_divergence;
+                }
+            }
+        }
+        max_divergence
     }
 
     /// Calculate continuity residual from Rhie-Chow consistent face velocities
@@ -66,15 +82,32 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     pub(super) fn calculate_continuity_residual_from_faces(
         &self,
         face_velocity: &Array2D<Vector2<T>>,
+        fields: &SimulationFields<T>,
     ) -> T {
-        max_face_continuity_residual(
-            self.grid.nx,
-            self.grid.ny,
-            self.grid.dx,
-            self.grid.dy,
-            |i, j| face_velocity[(i, j)].x,
-            |i, j| face_velocity[(i, j)].y,
-        )
+        let mut max_divergence = T::zero();
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
+        let dx = self.grid.dx;
+        let dy = self.grid.dy;
+
+        if nx < 3 || ny < 3 {
+            return T::zero();
+        }
+
+        for i in 1..nx - 1 {
+            for j in 1..ny - 1 {
+                if !fields.mask.at(i, j) {
+                    continue;
+                }
+                let du_dx = (face_velocity[(i, j)].x - face_velocity[(i - 1, j)].x) / dx;
+                let dv_dy = (face_velocity[(i, j)].y - face_velocity[(i, j - 1)].y) / dy;
+                let abs_divergence = (du_dx + dv_dy).abs();
+                if abs_divergence > max_divergence {
+                    max_divergence = abs_divergence;
+                }
+            }
+        }
+        max_divergence
     }
 
     /// Compute continuity residual with Rhie-Chow awareness
@@ -86,7 +119,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         fields: &SimulationFields<T>,
         dt: Option<T>,
     ) -> T {
-        if let Some(ref rhie_chow) = self.rhie_chow {
+        let raw_res = if let Some(ref rhie_chow) = self.rhie_chow {
             let mut vfc = self._vel_field_cache.borrow_mut();
             if vfc.as_ref().is_none_or(|v| {
                 let (nx, ny) = v.dimensions();
@@ -116,10 +149,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 velocity_field,
                 consistent_velocity,
             );
-            self.calculate_continuity_residual_from_faces(consistent_velocity)
+            self.calculate_continuity_residual_from_faces(consistent_velocity, fields)
         } else {
             self.calculate_continuity_residual(fields)
-        }
+        };
+
+        let cell_scale = (self.grid.dx * self.grid.dy).sqrt();
+        raw_res * cell_scale
     }
 
     /// Extract velocity field from simulation fields as 2D vector array
@@ -137,5 +173,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 *vel = Vector2::new(u, v);
             });
         velocity
+    }
+
+    /// Promote momentum solver predicted star state to the current fields
+    pub(super) fn promote_predicted_velocity_state(
+        fields: &mut SimulationFields<T>,
+        workspace: &mut Array2D<Vector2<T>>,
+    ) {
+        fields.copy_velocity_star_to(workspace);
+        fields.promote_velocity_star_to_current();
     }
 }

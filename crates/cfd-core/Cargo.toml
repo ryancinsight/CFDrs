@@ -32,9 +32,9 @@ default = ["gpu"]
 gpu = ["dep:wgpu"]
 simd = []
 experimental = []
-# Install Mnemosyne as the process global allocator for every binary that links
-# cfd-core. Off by default; mutually exclusive with cfd-validation's tracking
-# allocator (only one #[global_allocator] may exist per binary).
+# Install Mnemosyne as the process global allocator for binaries that link
+# cfd-core. This stays opt-in because cfd-validation owns a tracking allocator
+# and only one #[global_allocator] may exist per binary.
 mnemosyne = ["dep:mnemosyne"]
 
 [dev-dependencies]

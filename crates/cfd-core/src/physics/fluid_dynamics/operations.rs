@@ -3,7 +3,7 @@
 //! Provides operations on flow fields including vorticity, divergence,
 //! and other fluid mechanical quantities.
 
-use moirai::{ParallelSlice, ParallelSliceMut};
+use moirai::prelude::{ParallelSlice, ParallelSliceMut};
 use nalgebra::{RealField, Vector3};
 use num_traits::FromPrimitive;
 

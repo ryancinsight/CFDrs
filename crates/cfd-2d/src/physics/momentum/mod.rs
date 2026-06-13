@@ -18,6 +18,7 @@ mod discretization;
 mod interpolation;
 pub mod muscl;
 mod setup;
+mod solve;
 mod solver;
 pub mod tvd_limiters;
 

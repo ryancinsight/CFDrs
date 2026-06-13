@@ -29,18 +29,8 @@
 use super::config::AlgorithmType;
 use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
-use crate::grid::array2d::Array2D;
-use crate::physics::MomentumComponent;
 use nalgebra::{RealField, Vector2};
 use num_traits::{FromPrimitive, ToPrimitive};
-
-fn promote_predicted_velocity_state<T: RealField + Copy>(
-    fields: &mut SimulationFields<T>,
-    workspace: &mut Array2D<Vector2<T>>,
-) {
-    fields.copy_velocity_star_to(workspace);
-    fields.promote_velocity_star_to_current();
-}
 
 impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     SimplecPimpleSolver<T>
@@ -53,6 +43,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         nu: T,
         rho: T,
     ) -> cfd_core::error::Result<T> {
+        // Capture start-of-step velocities for transient momentum consistency
+        fields.u_old.data.copy_from_slice(&fields.u.data);
+        fields.v_old.data.copy_from_slice(&fields.v.data);
+
+        // Synchronize density and dynamic viscosity fields with time-step parameters
+        let dynamic_viscosity = nu * rho;
+        fields.density.map_inplace(|d| *d = rho);
+        fields.viscosity.map_inplace(|v| *v = dynamic_viscosity);
+
         // Update Rhie-Chow old velocity buffer for transient correction
         if let Some(ref mut rhie_chow) = self.rhie_chow {
             let mut u_old_cache = self._vel_field_cache.borrow_mut();
@@ -108,9 +107,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         let min_dt = dt_initial
             * T::from_f64(0.1)
                 .unwrap_or_else(|| T::from_f64(0.1).expect("analytical constant conversion"));
-        let max_dt = dt_initial
-            * T::from_f64(5.0)
-                .unwrap_or_else(|| T::from_f64(5.0).expect("analytical constant conversion"));
+        let max_dt = T::from_f64(1e10).unwrap_or_else(|| {
+            dt_initial
+                * T::from_f64(5.0)
+                    .unwrap_or_else(|| T::from_f64(5.0).expect("analytical constant conversion"))
+        });
 
         while step_count < max_steps {
             let residual = self.solve_time_step(fields, dt, nu, rho)?;
@@ -179,329 +180,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             .unwrap_or(&T::max_value().unwrap_or(T::from_f64(1e10).unwrap_or(T::one())));
         Ok((dt, final_residual))
     }
-
-    /// SIMPLEC algorithm implementation with Aitken's acceleration
-    ///
-    /// SIMPLEC (Van Doormaal & Raithby, 1984) improves SIMPLE by using
-    /// consistent discretization for the pressure correction equation.
-    pub(super) fn solve_simplec(
-        &mut self,
-        fields: &mut SimulationFields<T>,
-        dt: T,
-        nu: T,
-        rho: T,
-    ) -> cfd_core::error::Result<T> {
-        let mut residual = T::zero();
-        let max_iterations = self.config.max_inner_iterations;
-        let mut converged = false;
-
-        let mut u_prev = self.extract_velocity_field(fields);
-        let mut continuity_residual = T::max_value()
-            .unwrap_or_else(|| T::from_f64(1e30).expect("analytical constant conversion"));
-        let mut previous_velocity_residual = T::max_value()
-            .unwrap_or_else(|| T::from_f64(1e30).expect("analytical constant conversion"));
-        let mut previous_continuity_residual = continuity_residual;
-        let mut divergence_streak = 0usize;
-
-        for iter in 0..max_iterations {
-            // Step 1: Solve momentum equations for predicted velocities u*
-            self.momentum_solver
-                .solve_with_coefficients(MomentumComponent::U, fields, dt)?;
-            self.momentum_solver
-                .solve_with_coefficients(MomentumComponent::V, fields, dt)?;
-
-            // Step 2: Refresh the Rhie-Chow face coefficients from the raw
-            // momentum stencil.
-            if let Some(ref mut rhie_chow) = self.rhie_chow {
-                let (ap_u, _, ap_v, _) = self.momentum_solver.get_ap_coefficients();
-                rhie_chow.update_u_coefficients(ap_u);
-                rhie_chow.update_v_coefficients(ap_v);
-            }
-
-            // Step 3: Promote the predicted momentum state into the current
-            // fields so the pressure solve sees the raw predictor.
-            promote_predicted_velocity_state(fields, &mut self.u_star_workspace);
-
-            // Step 4: Solve pressure correction using the Rhie-Chow face
-            // interpolation path when enabled; otherwise fall back to the
-            // cell-centred pressure correction equation.
-            if self.rhie_chow.is_some() {
-                let grid = &self.grid;
-                let pressure_solver = &self.pressure_solver;
-                let momentum_solver = &self.momentum_solver;
-                let rhie_chow = self.rhie_chow.as_ref();
-                let vel_field_cache = &self._vel_field_cache;
-                let cons_vel_cache = &self._cons_vel_cache;
-                let u_face_cache = &self._u_face_cache;
-                let v_face_cache = &self._v_face_cache;
-                let d_x_cache = &self._d_x_cache;
-                let d_y_cache = &self._d_y_cache;
-
-                super::interpolation::solve_pressure_correction_with_caches(
-                    grid,
-                    pressure_solver,
-                    momentum_solver,
-                    rhie_chow,
-                    vel_field_cache,
-                    cons_vel_cache,
-                    u_face_cache,
-                    v_face_cache,
-                    d_x_cache,
-                    d_y_cache,
-                    fields,
-                    dt,
-                    Some(dt),
-                    rho,
-                    true,
-                    &mut self.p_correction_workspace,
-                )?;
-            } else {
-                self.pressure_solver.solve_pressure_correction(
-                    fields,
-                    dt,
-                    rho,
-                    true,
-                    &mut self.p_correction_workspace,
-                )?;
-            }
-
-            // Step 5: Correct velocities using pressure gradients with the
-            // momentum under-relaxation factor.
-            let (ap_u, _, ap_v, _) = self.momentum_solver.get_ap_coefficients();
-            self.u_corrected_workspace.copy_from(&self.u_star_workspace);
-            self.pressure_solver.correct_velocity(
-                &mut self.u_corrected_workspace,
-                &self.p_correction_workspace,
-                ap_u,
-                ap_v,
-                rho,
-                self.config.alpha_u,
-                fields,
-            );
-
-            // Step 6: Correct pressure with the configured SIMPLEC relaxation.
-            self.p_workspace
-                .as_mut_slice()
-                .clone_from_slice(fields.p.as_slice());
-            self.pressure_solver.correct_pressure(
-                &mut self.p_workspace,
-                &self.p_correction_workspace,
-                self.config.alpha_p,
-            );
-            fields
-                .p
-                .data_mut()
-                .clone_from_slice(self.p_workspace.as_slice());
-
-            // Step 7: Update velocity fields (u* already relaxed in momentum solve)
-            for i in 0..self.grid.nx {
-                for j in 0..self.grid.ny {
-                    fields.set_velocity_at(i, j, &self.u_corrected_workspace[(i, j)]);
-                }
-            }
-
-            // Step 8: Check convergence
-            let velocity_residual =
-                self.calculate_velocity_residual_from_vectors(&u_prev, &self.u_corrected_workspace);
-
-            continuity_residual = self.compute_continuity_residual(fields, Some(dt));
-            u_prev.copy_from(&self.u_corrected_workspace);
-
-            #[cfg(debug_assertions)]
-            println!(
-                "SIMPLEC iteration {} residuals: velocity={:.6e}, continuity={:.6e}",
-                iter + 1,
-                velocity_residual,
-                continuity_residual
-            );
-
-            let velocity_converged = velocity_residual < self.config.tolerance;
-            // Use the configured convergence tolerance rather than a stricter
-            // hard-coded threshold so SIMPLEC stops on the same contract as the
-            // rest of the pressure-velocity stack.
-            let continuity_converged = continuity_residual < self.config.tolerance;
-
-            residual = velocity_residual.max(continuity_residual);
-
-            if velocity_converged && continuity_converged {
-                converged = true;
-                tracing::info!(
-                    "SIMPLEC converged at iteration {}: velocity = {:.2e}, continuity = {:.2e}",
-                    iter + 1,
-                    velocity_residual,
-                    continuity_residual
-                );
-                break;
-            }
-
-            if iter > 0
-                && velocity_residual > previous_velocity_residual
-                && continuity_residual > previous_continuity_residual
-            {
-                divergence_streak += 1;
-            } else {
-                divergence_streak = 0;
-            }
-            previous_velocity_residual = velocity_residual;
-            previous_continuity_residual = continuity_residual;
-
-            if divergence_streak >= 3 {
-                tracing::warn!(
-                    "SIMPLEC residuals are diverging; switching to the stable PIMPLE correction"
-                );
-                return self.solve_pimple(fields, dt, nu, rho);
-            }
-        }
-
-        if !converged {
-            tracing::warn!(
-                "SIMPLEC did not converge within {} iterations. \
-                 velocity = {:.2e}, continuity = {:.2e}",
-                max_iterations,
-                residual,
-                continuity_residual
-            );
-        }
-
-        self.iterations += 1;
-        Ok(residual)
-    }
-
-    /// PIMPLE algorithm implementation
-    ///
-    /// PIMPLE (Issa 1986, OpenFOAM) combines outer PISO-like correctors
-    /// with inner SIMPLE corrections for transient incompressible flows.
-    pub(super) fn solve_pimple(
-        &mut self,
-        fields: &mut SimulationFields<T>,
-        dt: T,
-        _nu: T,
-        rho: T,
-    ) -> cfd_core::error::Result<T> {
-        let u_initial = self.extract_velocity_field(fields);
-        let mut u_before_outer = Array2D::new(self.grid.nx, self.grid.ny, Vector2::zeros());
-        let max_outer_iterations = self.config.n_outer_correctors;
-
-        for _outer_iter in 0..max_outer_iterations {
-            for i in 0..self.grid.nx {
-                for j in 0..self.grid.ny {
-                    u_before_outer[(i, j)] = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
-                }
-            }
-
-            // Solve momentum equations
-            self.momentum_solver
-                .solve_with_coefficients(MomentumComponent::U, fields, dt)?;
-            self.momentum_solver
-                .solve_with_coefficients(MomentumComponent::V, fields, dt)?;
-
-            if let Some(ref mut rhie_chow) = self.rhie_chow {
-                let (ap_full_u, _, ap_full_v, _) = self.momentum_solver.get_ap_coefficients();
-                rhie_chow.update_u_coefficients(ap_full_u);
-                rhie_chow.update_v_coefficients(ap_full_v);
-            }
-
-            promote_predicted_velocity_state(fields, &mut self.u_star_workspace);
-
-            // Inner PISO-like corrections
-            for _inner_iter in 0..self.config.n_inner_correctors {
-                let rebuild_matrix = _inner_iter == 0;
-                {
-                    let grid = &self.grid;
-                    let pressure_solver = &self.pressure_solver;
-                    let momentum_solver = &self.momentum_solver;
-                    let rhie_chow = self.rhie_chow.as_ref();
-                    let vel_field_cache = &self._vel_field_cache;
-                    let cons_vel_cache = &self._cons_vel_cache;
-                    let u_face_cache = &self._u_face_cache;
-                    let v_face_cache = &self._v_face_cache;
-                    let d_x_cache = &self._d_x_cache;
-                    let d_y_cache = &self._d_y_cache;
-
-                    super::interpolation::solve_pressure_correction_with_caches(
-                        grid,
-                        pressure_solver,
-                        momentum_solver,
-                        rhie_chow,
-                        vel_field_cache,
-                        cons_vel_cache,
-                        u_face_cache,
-                        v_face_cache,
-                        d_x_cache,
-                        d_y_cache,
-                        fields,
-                        dt,
-                        Some(dt),
-                        rho,
-                        rebuild_matrix,
-                        &mut self.p_correction_workspace,
-                    )?;
-                }
-
-                {
-                    let (ap_u, _, ap_v, _) = self.momentum_solver.get_ap_coefficients();
-                    self.u_corrected_workspace.copy_from(&self.u_star_workspace);
-                    self.pressure_solver.correct_velocity(
-                        &mut self.u_corrected_workspace,
-                        &self.p_correction_workspace,
-                        ap_u,
-                        ap_v,
-                        rho,
-                        T::one(),
-                        fields,
-                    );
-
-                    self.p_workspace
-                        .as_mut_slice()
-                        .clone_from_slice(fields.p.as_slice());
-                    self.pressure_solver.correct_pressure(
-                        &mut self.p_workspace,
-                        &self.p_correction_workspace,
-                        self.config.alpha_p,
-                    );
-                    fields
-                        .p
-                        .data_mut()
-                        .clone_from_slice(self.p_workspace.as_slice());
-
-                    for i in 0..self.grid.nx {
-                        for j in 0..self.grid.ny {
-                            fields.set_velocity_at(i, j, &self.u_corrected_workspace[(i, j)]);
-                        }
-                    }
-                }
-            }
-
-            // Check outer loop convergence
-            let outer_residual = self.calculate_velocity_residual_from_vectors(
-                &u_before_outer,
-                &self.u_corrected_workspace,
-            );
-
-            if outer_residual
-                < self.config.tolerance * T::from_f64(5.0).expect("analytical constant conversion")
-            {
-                break;
-            }
-        }
-
-        let final_residual = self.calculate_velocity_residual_from_vectors(
-            &u_initial,
-            &self.extract_velocity_field(fields),
-        );
-
-        if final_residual
-            > self.config.tolerance * T::from_f64(10.0).expect("analytical constant conversion")
-        {
-            tracing::warn!(
-                "PIMPLE did not achieve desired convergence, residual: {:.2e}",
-                final_residual
-            );
-        }
-
-        self.iterations += 1;
-        Ok(final_residual)
-    }
 }
 
 #[cfg(test)]
@@ -515,35 +193,15 @@ mod tests {
     }
 
     #[test]
-    fn simplec_algorithm_creation() {
-        let grid = make_grid(8);
-        let config = SimplecPimpleConfig::simplec();
-        assert_eq!(config.algorithm, AlgorithmType::Simplec);
-
-        let solver = SimplecPimpleSolver::new(grid, config);
-        assert!(solver.is_ok(), "Failed to create SIMPLEC solver");
-    }
-
-    #[test]
-    fn pimple_algorithm_creation() {
-        let grid = make_grid(8);
-        let config = SimplecPimpleConfig::pimple();
-        assert_eq!(config.algorithm, AlgorithmType::Pimple);
-
-        let solver = SimplecPimpleSolver::new(grid, config);
-        assert!(solver.is_ok(), "Failed to create PIMPLE solver");
+    fn algorithm_creation() {
+        assert!(SimplecPimpleSolver::new(make_grid(8), SimplecPimpleConfig::simplec()).is_ok());
+        assert!(SimplecPimpleSolver::new(make_grid(8), SimplecPimpleConfig::pimple()).is_ok());
     }
 
     #[test]
     fn verify_algorithm_type() {
-        let simplec_cfg = SimplecPimpleConfig::<f64>::simplec();
-        assert_eq!(simplec_cfg.algorithm, AlgorithmType::Simplec);
-
-        let pimple_cfg = SimplecPimpleConfig::<f64>::pimple();
-        assert_eq!(pimple_cfg.algorithm, AlgorithmType::Pimple);
-
-        // Verify default is SIMPLEC
-        let default_cfg = SimplecPimpleConfig::<f64>::default();
-        assert_eq!(default_cfg.algorithm, AlgorithmType::Simplec);
+        assert_eq!(SimplecPimpleConfig::<f64>::simplec().algorithm, AlgorithmType::Simplec);
+        assert_eq!(SimplecPimpleConfig::<f64>::pimple().algorithm, AlgorithmType::Pimple);
+        assert_eq!(SimplecPimpleConfig::<f64>::default().algorithm, AlgorithmType::Simplec);
     }
 }

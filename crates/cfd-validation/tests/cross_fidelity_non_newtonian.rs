@@ -138,12 +138,17 @@ fn cross_fidelity_stenosis_shear_thinning() {
         let blood = if is_newtonian {
             BloodModel::Newtonian(mu_0)
         } else {
-            BloodModel::Casson(CassonBlood::<f64>::normal_blood())
+            let mut cb = CassonBlood::<f64>::normal_blood();
+            cb.regularization_shear_rate = 1.0;
+            BloodModel::Casson(cb)
         };
 
         let config = SIMPLEConfig {
             max_iterations: 20000,
             tolerance: 1e-4,
+            alpha_u: 0.5,
+            alpha_p: 0.2,
+            alpha_mu: 0.1,
             ..SIMPLEConfig::default()
         };
         let mut solver = VenturiSolver2D::new_stretched_with_config(

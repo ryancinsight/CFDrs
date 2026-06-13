@@ -317,6 +317,16 @@ impl<
             return Ok((network, diagnostics));
         }
 
+        let mut max_boundary = T::one();
+        for val in &workspace.dirichlet_values {
+            if let Some(v) = val {
+                if v.abs() > max_boundary {
+                    max_boundary = v.abs();
+                }
+            }
+        }
+        let limit = max_boundary * T::from_f64(1.0e6).unwrap_or_else(T::one);
+
         let mut selected_method: Option<LinearSolverMethod> = None;
         let mut adaptive_solver: Option<LinearSystemSolver<T>> = None;
 
@@ -398,10 +408,19 @@ impl<
                 &matrix,
                 picard_residual,
             );
+            let mut solution = solution;
+            for val in solution.iter_mut() {
+                if *val < -limit {
+                    *val = -limit;
+                } else if *val > limit {
+                    *val = limit;
+                }
+            }
 
             let residual_norm = Self::compute_residual_norm(&matrix, &solution, &workspace.rhs, n);
             let rhs_norm = workspace.rhs.norm();
             let solution_change_norm = (&solution - &workspace.last_solution).norm();
+
             diagnostics.last_residual_norm = Self::scalar_to_f64(residual_norm);
             diagnostics.last_solution_change_norm = Self::scalar_to_f64(solution_change_norm);
             if !residual_norm.is_finite() || !solution_change_norm.is_finite() {

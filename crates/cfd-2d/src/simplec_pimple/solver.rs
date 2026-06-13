@@ -184,4 +184,63 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     pub fn reset_iterations(&mut self) {
         self.iterations = 0;
     }
+
+    /// Extrapolate pressure field to solid cells
+    pub(super) fn extrapolate_pressure_to_solids(&self, fields: &mut crate::fields::SimulationFields<T>) {
+        let nx = self.grid.nx;
+        let ny = self.grid.ny;
+
+        let mut valid = Array2D::new(nx, ny, false);
+        for j in 0..ny {
+            for i in 0..nx {
+                if fields.mask.at(i, j) {
+                    valid[(i, j)] = true;
+                }
+            }
+        }
+
+        let max_passes = nx.max(ny);
+        for _pass in 0..max_passes {
+            let mut updates = Vec::new();
+            for j in 0..ny {
+                for i in 0..nx {
+                    if !valid[(i, j)] {
+                        let mut sum = T::zero();
+                        let mut count = 0;
+
+                        if i > 0 && valid[(i - 1, j)] {
+                            sum = sum + fields.p.at(i - 1, j);
+                            count += 1;
+                        }
+                        if i < nx - 1 && valid[(i + 1, j)] {
+                            sum = sum + fields.p.at(i + 1, j);
+                            count += 1;
+                        }
+                        if j > 0 && valid[(i, j - 1)] {
+                            sum = sum + fields.p.at(i, j - 1);
+                            count += 1;
+                        }
+                        if j < ny - 1 && valid[(i, j + 1)] {
+                            sum = sum + fields.p.at(i, j + 1);
+                            count += 1;
+                        }
+
+                        if count > 0 {
+                            let avg = sum / T::from_usize(count).unwrap_or_else(T::one);
+                            updates.push(((i, j), avg));
+                        }
+                    }
+                }
+            }
+
+            if updates.is_empty() {
+                break;
+            }
+
+            for ((i, j), val) in updates {
+                fields.p.set(i, j, val);
+                valid[(i, j)] = true;
+            }
+        }
+    }
 }

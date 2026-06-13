@@ -22,6 +22,7 @@ pub(crate) mod boundary;
 pub mod coefficients;
 pub mod config;
 mod correction;
+mod faces;
 pub mod pressure;
 pub mod rhie_chow;
 pub mod solver;

@@ -99,11 +99,11 @@ mnemosyne = { git = "https://github.com/ryancinsight/Mnemosyne.git" }
 # hermes: SIMD abstraction workspace. Provides generic runtime-dispatched
 # SIMD operations (dot, elementwise, reductions) over f32/f64/i32.
 hermes-simd = { git = "https://github.com/ryancinsight/hermes.git" }
-# moirai: unified concurrency runtime replacing tokio + rayon. default-features
-# off so it does not install its own #[global_allocator]; `parallel` pulls the
-# moirai-parallel data-parallel API (rayon replacement), `async` the task/async
-# API (tokio replacement) as crates need them.
-moirai = { git = "https://github.com/ryancinsight/Moirai.git", default-features = false, features = ["parallel"] }
+# moirai: unified concurrency runtime replacing tokio + rayon. CFDrs owns the
+# process allocator through `cfd-core/mnemosyne`, so Moirai's parallel,
+# Mnemosyne, and Mellinoe surfaces are enabled without installing a second
+# global allocator.
+moirai = { git = "https://github.com/ryancinsight/Moirai.git", rev = "029275807a4a406f7be0ee4be22ecae4a72fa27c", default-features = false, features = ["parallel", "mnemosyne", "melinoe", "no-global-alloc"] }
 cfd-schematics = { path = "crates/cfd-schematics" }
 cfd-1d = { path = "crates/cfd-1d" }
 cfd-2d = { path = "crates/cfd-2d" }

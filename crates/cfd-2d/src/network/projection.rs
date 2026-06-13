@@ -264,9 +264,10 @@ where
     for i in 0..nx {
         let x = solver.grid.x_center(i).to_f64().unwrap_or(0.0);
         let center_y = interpolate_piecewise_linear(&transformed, x);
+        let min_half_width = 2.0 * grid_half_step;
         let half_width = match venturi_meta.as_ref() {
-            Some(geom) => venturi_width_at_x(geom, x, domain.length_m).max(grid_half_step),
-            None => fluid_half_width.max(grid_half_step),
+            Some(geom) => (0.5 * venturi_width_at_x(geom, x, domain.length_m)).max(min_half_width),
+            None => fluid_half_width.max(min_half_width),
         };
 
         for j in 0..ny {

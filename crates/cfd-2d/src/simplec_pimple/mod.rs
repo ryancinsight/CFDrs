@@ -29,6 +29,8 @@ mod algorithms;
 pub mod config;
 mod diagnostics;
 mod interpolation;
+mod pimple;
+mod simplec;
 pub mod solver;
 
 pub use config::{AlgorithmType, SimplecPimpleConfig};
