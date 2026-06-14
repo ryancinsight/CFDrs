@@ -141,6 +141,10 @@ mod gpu_performance_tests {
 
         let cpu_time = cpu_start.elapsed() / iterations;
         let cpu_ops_per_sec = size as f64 / cpu_time.as_secs_f64();
+        std::hint::black_box(&cpu_sgs);
+
+        let avg_cpu_sgs = cpu_sgs.iter().sum::<f32>() / size as f32;
+        assert!(avg_cpu_sgs > 0.0, "CPU SGS viscosity should be positive");
 
         // Performance analysis
         let speedup = gpu_ops_per_sec / cpu_ops_per_sec;
