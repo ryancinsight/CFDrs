@@ -28,6 +28,7 @@
 //! ### DG Method Example
 //! ```no_run
 //! use cfd_math::high_order::*;
+//! use cfd_math::error::Result;
 //! use nalgebra::{DVector, DMatrix};
 //!
 //! // Create a DG operator
