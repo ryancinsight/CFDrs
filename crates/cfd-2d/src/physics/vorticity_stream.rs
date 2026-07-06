@@ -21,10 +21,12 @@
 //! converging at rate $O(h^{-1})$ with optimal relaxation $\omega^* \approx 2/(1 + \sin(\pi h))$.
 
 use crate::grid::{array2d::Array2D, StructuredGrid2D};
+use crate::scalar::Cfd2dScalar;
+use crate::scalar::{from_f64, one, zero};
 use cfd_core::compute::solver::SolverConfiguration;
 use cfd_core::error::Result;
-use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use leto::geometry::Vector2;
 use serde::{Deserialize, Serialize};
 
 // Named constants
@@ -35,7 +37,7 @@ const SOR_OPTIMAL_FACTOR: f64 = 1.85; // Optimal for Poisson on square grid
 
 /// Vorticity-Stream function solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VorticityStreamConfig<T: RealField + Copy> {
+pub struct VorticityStreamConfig<T: Cfd2dScalar + EunomiaRealField + Copy> {
     /// Base solver configuration
     pub base: cfd_core::compute::solver::SolverConfig<T>,
     /// Time step for transient simulation
@@ -48,22 +50,19 @@ pub struct VorticityStreamConfig<T: RealField + Copy> {
     pub sor_omega: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Default for VorticityStreamConfig<T> {
+impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> Default for VorticityStreamConfig<T> {
     fn default() -> Self {
         let base = cfd_core::compute::solver::SolverConfig::builder()
             .max_iterations(DEFAULT_MAX_ITERATIONS)
-            .tolerance(T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::zero()))
+            .tolerance(from_f64(DEFAULT_TOLERANCE))
             .build();
 
         Self {
             base,
-            time_step: T::from_f64(
-                cfd_core::physics::constants::numerical::time::DEFAULT_TIME_STEP,
-            )
-            .unwrap_or_else(|| T::zero()), // Default time step
-            stream_tolerance: T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::zero()),
-            vorticity_tolerance: T::from_f64(DEFAULT_TOLERANCE).unwrap_or_else(|| T::zero()),
-            sor_omega: T::from_f64(SOR_OPTIMAL_FACTOR).unwrap_or_else(|| T::zero()),
+            time_step: from_f64(cfd_core::physics::constants::numerical::time::DEFAULT_TIME_STEP),
+            stream_tolerance: from_f64(DEFAULT_TOLERANCE),
+            vorticity_tolerance: from_f64(DEFAULT_TOLERANCE),
+            sor_omega: from_f64(SOR_OPTIMAL_FACTOR),
         }
     }
 }
@@ -85,7 +84,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Default for VorticityStreamConf
 /// ## References:
 /// Anderson, J.D. (1995). "Computational Fluid Dynamics: The Cores with Applications."
 /// McGraw-Hill.
-pub struct VorticityStreamSolver<T: RealField + Copy> {
+pub struct VorticityStreamSolver<T: Cfd2dScalar + EunomiaRealField + Copy> {
     config: VorticityStreamConfig<T>,
     /// Stream function field [nx, ny]
     psi: Array2D<T>,
@@ -105,7 +104,9 @@ pub struct VorticityStreamSolver<T: RealField + Copy> {
     reynolds: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T> {
+impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + Send + Sync>
+    VorticityStreamSolver<T>
+{
     /// Create a new vorticity-stream solver
     pub fn new(config: VorticityStreamConfig<T>, grid: &StructuredGrid2D<T>, reynolds: T) -> Self {
         let nx = grid.nx;
@@ -113,9 +114,9 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
 
         Self {
             config,
-            psi: Array2D::new(nx, ny, T::zero()),
-            omega: Array2D::new(nx, ny, T::zero()),
-            omega_old: Array2D::new(nx, ny, T::zero()),
+            psi: Array2D::new(nx, ny, zero()),
+            omega: Array2D::new(nx, ny, zero()),
+            omega_old: Array2D::new(nx, ny, zero()),
             u: Array2D::new(nx, ny, Vector2::zeros()),
             nx,
             ny,
@@ -130,15 +131,15 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
         // Initialize stream function to zero
         for i in 0..self.nx {
             for j in 0..self.ny {
-                self.psi[(i, j)] = T::zero();
-                self.omega[(i, j)] = T::zero();
+                self.psi[(i, j)] = zero();
+                self.omega[(i, j)] = zero();
             }
         }
 
         // Set top lid velocity boundary condition
         for i in 0..self.nx {
-            self.u[(i, self.ny - 1)].x = lid_velocity;
-            self.u[(i, self.ny - 1)].y = T::zero();
+            self.u[(i, self.ny - 1)][0] = lid_velocity;
+            self.u[(i, self.ny - 1)][1] = zero();
         }
 
         Ok(())
@@ -149,13 +150,12 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
         let omega_sor = self.config.sor_omega;
         let dx2 = self.dx * self.dx;
         let dy2 = self.dy * self.dy;
-        let denominator = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero())
-            * (T::one() / dx2 + T::one() / dy2);
+        let denominator = from_f64::<T>(GRADIENT_FACTOR) * (one::<T>() / dx2 + one::<T>() / dy2);
         let max_iterations = self.config.base.max_iterations().max(1);
 
         // SOR iteration for Poisson equation
         for _ in 0..max_iterations {
-            let mut max_change = T::zero();
+            let mut max_change = zero::<T>();
 
             for i in 1..self.nx - 1 {
                 for j in 1..self.ny - 1 {
@@ -168,9 +168,9 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
                         / denominator;
 
                     // SOR update
-                    self.psi[(i, j)] = (T::one() - omega_sor) * psi_old + omega_sor * psi_new;
+                    self.psi[(i, j)] = (one::<T>() - omega_sor) * psi_old + omega_sor * psi_new;
 
-                    let change = (self.psi[(i, j)] - psi_old).abs();
+                    let change = <T as NumericElement>::abs(self.psi[(i, j)] - psi_old);
                     if change > max_change {
                         max_change = change;
                     }
@@ -195,16 +195,16 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // Convection terms (upwind differencing for stability)
-                let u = self.u[(i, j)].x;
-                let v = self.u[(i, j)].y;
+                let u = self.u[(i, j)][0];
+                let v = self.u[(i, j)][1];
 
-                let dwdx = if u >= T::zero() {
+                let dwdx = if u >= zero() {
                     (self.omega[(i, j)] - self.omega[(i - 1, j)]) / self.dx
                 } else {
                     (self.omega[(i + 1, j)] - self.omega[(i, j)]) / self.dx
                 };
 
-                let dwdy = if v >= T::zero() {
+                let dwdy = if v >= zero() {
                     (self.omega[(i, j)] - self.omega[(i, j - 1)]) / self.dy
                 } else {
                     (self.omega[(i, j + 1)] - self.omega[(i, j)]) / self.dy
@@ -213,14 +213,11 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
                 let convection = u * dwdx + v * dwdy;
 
                 // Diffusion term (central differencing)
-                let d2wdx2 = (self.omega_old[(i + 1, j)]
-                    - T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero())
-                        * self.omega_old[(i, j)]
+                let two = from_f64::<T>(GRADIENT_FACTOR);
+                let d2wdx2 = (self.omega_old[(i + 1, j)] - two * self.omega_old[(i, j)]
                     + self.omega_old[(i - 1, j)])
                     / dx2;
-                let d2wdy2 = (self.omega_old[(i, j + 1)]
-                    - T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero())
-                        * self.omega_old[(i, j)]
+                let d2wdy2 = (self.omega_old[(i, j + 1)] - two * self.omega_old[(i, j)]
                     + self.omega_old[(i, j - 1)])
                     / dy2;
 
@@ -234,15 +231,15 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
 
     /// Update velocity field from stream function
     fn update_velocity(&mut self) {
-        let two_dx = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dx;
-        let two_dy = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero()) * self.dy;
+        let two_dx = from_f64::<T>(GRADIENT_FACTOR) * self.dx;
+        let two_dy = from_f64::<T>(GRADIENT_FACTOR) * self.dy;
 
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // u = ∂ψ/∂y
-                self.u[(i, j)].x = (self.psi[(i, j + 1)] - self.psi[(i, j - 1)]) / two_dy;
+                self.u[(i, j)][0] = (self.psi[(i, j + 1)] - self.psi[(i, j - 1)]) / two_dy;
                 // v = -∂ψ/∂x
-                self.u[(i, j)].y = -(self.psi[(i + 1, j)] - self.psi[(i - 1, j)]) / two_dx;
+                self.u[(i, j)][1] = -(self.psi[(i + 1, j)] - self.psi[(i - 1, j)]) / two_dx;
             }
         }
     }
@@ -251,7 +248,7 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
     fn update_boundary_vorticity(&mut self) {
         let dx2 = self.dx * self.dx;
         let dy2 = self.dy * self.dy;
-        let two = T::from_f64(GRADIENT_FACTOR).unwrap_or_else(|| T::zero());
+        let two = from_f64::<T>(GRADIENT_FACTOR);
 
         // Bottom wall (y = 0)
         for i in 1..self.nx - 1 {
@@ -260,7 +257,7 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
 
         // Top wall (y = L) - moving lid
         for i in 1..self.nx - 1 {
-            let lid_velocity = self.u[(i, self.ny - 1)].x;
+            let lid_velocity = self.u[(i, self.ny - 1)][0];
             self.omega[(i, self.ny - 1)] =
                 -two * self.psi[(i, self.ny - 2)] / dy2 - two * lid_velocity * self.dy / dy2;
         }
@@ -295,11 +292,11 @@ impl<T: RealField + Copy + FromPrimitive + Send + Sync> VorticityStreamSolver<T>
 
     /// Check convergence based on change in stream function
     pub fn check_convergence(&self, psi_old: &Array2D<T>) -> bool {
-        let mut max_change = T::zero();
+        let mut max_change = zero::<T>();
 
         for i in 0..self.nx {
             for j in 0..self.ny {
-                let change = (self.psi[(i, j)] - psi_old[(i, j)]).abs();
+                let change = <T as NumericElement>::abs(self.psi[(i, j)] - psi_old[(i, j)]);
                 if change > max_change {
                     max_change = change;
                 }
@@ -364,8 +361,8 @@ mod tests {
             .expect("Failed to initialize lid driven cavity");
 
         // Check lid velocity
-        assert_relative_eq!(solver.u[(2, 4)].x, 1.0, epsilon = 1e-10);
-        assert_relative_eq!(solver.u[(2, 4)].y, 0.0, epsilon = 1e-10);
+        assert_relative_eq!(solver.u[(2, 4)][0], 1.0, epsilon = 1e-10);
+        assert_relative_eq!(solver.u[(2, 4)][1], 0.0, epsilon = 1e-10);
 
         // Check initial stream function and vorticity
         assert_relative_eq!(solver.psi[(2, 2)], 0.0, epsilon = 1e-10);
@@ -404,11 +401,11 @@ mod tests {
         // using central differences
         for i in 2..n - 2 {
             for j in 2..n - 2 {
-                let du_dx = (solver.u[(i + 1, j)].x - solver.u[(i - 1, j)].x) / (2.0 * solver.dx);
-                let dv_dy = (solver.u[(i, j + 1)].y - solver.u[(i, j - 1)].y) / (2.0 * solver.dy);
+                let du_dx = (solver.u[(i + 1, j)][0] - solver.u[(i - 1, j)][0]) / (2.0 * solver.dx);
+                let dv_dy = (solver.u[(i, j + 1)][1] - solver.u[(i, j - 1)][1]) / (2.0 * solver.dy);
                 let div = du_dx + dv_dy;
                 assert!(
-                    div.abs() < 1e-6,
+                    <f64 as NumericElement>::abs(div) < 1e-6,
                     "Continuity violated at ({i},{j}): ∇·u = {div}"
                 );
             }

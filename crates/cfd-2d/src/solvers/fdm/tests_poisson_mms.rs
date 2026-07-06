@@ -12,8 +12,10 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
+use super::config::FdmConfig;
 use super::poisson::PoissonSolver;
 use crate::grid::structured::StructuredGrid2D;
+use eunomia::NumericElement;
 use std::collections::HashMap;
 
 #[test]
@@ -29,8 +31,8 @@ fn test_poisson_mms_dirichlet_quadratic_interior_accuracy() {
 
     for (i, j) in grid.iter() {
         let center = grid.cell_center(i, j).unwrap();
-        let x = center.x;
-        let y = center.y;
+        let x = center[0];
+        let y = center[1];
         let phi = x * x + y * y;
 
         if grid.is_boundary(i, j) {
@@ -40,22 +42,29 @@ fn test_poisson_mms_dirichlet_quadratic_interior_accuracy() {
         }
     }
 
-    let solver = PoissonSolver::default();
-    let result = solver.solve(&grid, &source, &boundary_values).expect("solve");
+    let mut config = FdmConfig::default();
+    config.base.convergence.max_iterations = 20000;
+    config.base.convergence.tolerance = 1.0e-8;
+    let solver = PoissonSolver::new(config);
+    let result = solver
+        .solve(&grid, &source, &boundary_values)
+        .expect("solve");
 
     // Check interior points only (boundary values enforced)
     let mut max_err = 0.0f64;
     for j in 1..ny - 1 {
         for i in 1..nx - 1 {
             let center = grid.cell_center(i, j).unwrap();
-            let x = center.x;
-            let y = center.y;
+            let x = center[0];
+            let y = center[1];
             let phi_exact = x * x + y * y;
             let phi_num = result.get(&(i, j)).copied().unwrap_or(0.0);
-            let err = (phi_num - phi_exact).abs();
-            if err > max_err { max_err = err; }
+            let err = <f64 as NumericElement>::abs(phi_num - phi_exact);
+            if err > max_err {
+                max_err = err;
+            }
         }
     }
 
-    assert!(max_err < 1.0e-3, "Interior MMS error too large: {}", max_err);
+    assert!(max_err < 1.0e-3, "Interior MMS error too large: {max_err}");
 }

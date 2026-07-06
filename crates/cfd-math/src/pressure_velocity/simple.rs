@@ -10,9 +10,12 @@
 //! tuned such that the SIMPLE iteration converges monotonically:
 //! α_p ≈ 1 - α_u is the classical recommendation (Patankar 1980, §6.7).
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, RealField};
 use serde::{Deserialize, Serialize};
+
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
 
 /// Configuration for the SIMPLE pressure-velocity coupling algorithm.
 ///
@@ -36,22 +39,22 @@ pub struct SIMPLEConfig<T: RealField + Copy> {
     pub n_correctors: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for SIMPLEConfig<T> {
+impl<T: RealField + FloatElement + Copy> Default for SIMPLEConfig<T> {
     /// Standard SIMPLE relaxation factors following Patankar (1980) §6.7
     fn default() -> Self {
         Self {
             max_iterations: 1000,
-            tolerance: T::from_f64(1e-6).expect("1e-6 fits in T"),
-            alpha_u: T::from_f64(0.7).expect("0.7 fits in T"),
-            alpha_p: T::from_f64(0.3).expect("0.3 fits in T"),
-            alpha_mu: T::one(),
+            tolerance: from_f64(1e-6),
+            alpha_u: from_f64(0.7),
+            alpha_p: from_f64(0.3),
+            alpha_mu: T::ONE,
             viscosity_update_interval: 1,
             n_correctors: 1, // Default to traditional SIMPLE
         }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> SIMPLEConfig<T> {
+impl<T: RealField + Copy> SIMPLEConfig<T> {
     /// Construct with explicit parameters.
     ///
     /// # Panics
@@ -67,15 +70,15 @@ impl<T: RealField + Copy + FromPrimitive> SIMPLEConfig<T> {
         n_correctors: usize,
     ) -> Self {
         assert!(
-            alpha_u > T::zero() && alpha_u <= T::one(),
+            alpha_u > T::ZERO && alpha_u <= T::ONE,
             "alpha_u must be in (0, 1]"
         );
         assert!(
-            alpha_p > T::zero() && alpha_p <= T::one(),
+            alpha_p > T::ZERO && alpha_p <= T::ONE,
             "alpha_p must be in (0, 1]"
         );
         assert!(
-            alpha_mu > T::zero() && alpha_mu <= T::one(),
+            alpha_mu > T::ZERO && alpha_mu <= T::ONE,
             "alpha_mu must be in (0, 1]"
         );
         Self {
@@ -130,5 +133,18 @@ mod tests {
         let r = SolveResult::new(42, 1e-8, true);
         assert!(r.converged);
         assert_eq!(r.iterations, 42);
+    }
+
+    #[test]
+    fn explicit_config_preserves_relaxation_values() {
+        let cfg = SIMPLEConfig::new(25, 1e-9, 0.6, 0.4, 0.8, 2, 3);
+
+        assert_eq!(cfg.max_iterations, 25);
+        assert_eq!(cfg.tolerance, 1e-9);
+        assert_eq!(cfg.alpha_u, 0.6);
+        assert_eq!(cfg.alpha_p, 0.4);
+        assert_eq!(cfg.alpha_mu, 0.8);
+        assert_eq!(cfg.viscosity_update_interval, 2);
+        assert_eq!(cfg.n_correctors, 3);
     }
 }

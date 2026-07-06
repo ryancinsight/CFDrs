@@ -42,15 +42,16 @@ use super::shape_factors::poiseuille_number;
 use crate::domain::channel::flow::{Channel, FlowRegime, FlowState, NumericalParameters};
 use crate::domain::channel::geometry::ChannelGeometry;
 use crate::physics::resistance::models::{DarcyWeisbachModel, FlowConditions, ResistanceModel};
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::constants::physics::dimensionless::reynolds::{
     PIPE_LAMINAR_MAX, PIPE_TURBULENT_MIN,
 };
 use cfd_core::physics::fluid::{ConstantFluid, ConstantPropertyFluid};
-use nalgebra::RealField;
-use num_traits::{cast::FromPrimitive, Float};
+use eunomia::FloatElement;
 
-impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
     /// Create a new channel with geometry.
     pub fn new(geometry: ChannelGeometry<T>) -> Self {
         Self {
@@ -64,7 +65,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
             },
             numerical_params: NumericalParameters {
                 discretization_points: 100,
-                tolerance: T::from_f64(1e-6).expect("Mathematical constant conversion compromised"),
+                tolerance: T::from_f64_or_one(1e-6),
                 entrance_effects: false,
                 surface_tension_effects: false,
             },
@@ -101,8 +102,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
         let dh = self.geometry.hydraulic_diameter();
 
         let kn_opt = if dh > T::zero() {
-            let sqrt_half_pi =
-                T::from_f64(std::f64::consts::FRAC_PI_2.sqrt()).unwrap_or_else(T::one);
+            let sqrt_half_pi = T::from_f64_or_one(std::f64::consts::FRAC_PI_2.sqrt());
             let lam =
                 fluid.dynamic_viscosity() * sqrt_half_pi / (fluid.density * fluid.speed_of_sound);
             if lam > T::zero() {
@@ -125,20 +125,14 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
             let entrance_length = match self.flow_state.flow_regime {
                 FlowRegime::Laminar | FlowRegime::Stokes => {
                     // Schlichting (1979): L_e / Dh = 0.06 Re
-                    dh * T::from_f64(0.06).expect("Mathematical constant conversion compromised")
-                        * re
+                    dh * T::from_f64_or_one(0.06) * re
                 }
                 FlowRegime::Transitional | FlowRegime::Turbulent => {
                     // L_e / Dh = 4.4 Re^(1/6)
-                    let one_sixth = T::from_f64(1.0 / 6.0)
-                        .expect("Mathematical constant conversion compromised");
-                    dh * T::from_f64(4.4).expect("Mathematical constant conversion compromised")
-                        * Float::powf(re, one_sixth)
+                    let one_sixth = T::from_f64_or_one(1.0 / 6.0);
+                    dh * T::from_f64_or_one(4.4) * <T as FloatElement>::powf(re, one_sixth)
                 }
-                FlowRegime::SlipFlow => {
-                    dh * T::from_f64(0.06).expect("Mathematical constant conversion compromised")
-                        * re
-                }
+                FlowRegime::SlipFlow => dh * T::from_f64_or_one(0.06) * re,
             };
             self.flow_state.entrance_effects = self.geometry.length < entrance_length;
         }
@@ -179,10 +173,8 @@ impl<T: RealField + Copy + FromPrimitive + Float> Channel<T> {
             )
         })?;
 
-        let re_l =
-            T::from_f64(PIPE_LAMINAR_MAX).expect("Mathematical constant conversion compromised");
-        let re_u =
-            T::from_f64(PIPE_TURBULENT_MIN).expect("Mathematical constant conversion compromised");
+        let re_l = T::from_f64_or_one(PIPE_LAMINAR_MAX);
+        let re_u = T::from_f64_or_one(PIPE_TURBULENT_MIN);
 
         let r_l = self.laminar_resistance(fluid)?;
         let r_u = self.turbulent_resistance(fluid)?;

@@ -8,7 +8,7 @@ use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::momentum::{
     DiscretizationScheme, MusclDiscretization, MusclOrder, MusclScheme, Superbee, VanLeer,
 };
-use nalgebra::Vector2;
+use leto::geometry::Vector2;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("MUSCL Schemes Demonstration");

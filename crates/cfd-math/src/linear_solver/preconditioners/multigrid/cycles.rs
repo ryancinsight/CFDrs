@@ -1,18 +1,57 @@
 //! Multigrid cycle algorithms for AMG
 
-use super::MultigridLevel;
-use crate::SparseMatrix;
-use cfd_core::error::{Error, NumericalErrorKind, Result};
-use nalgebra::{DMatrix, DVector};
+use super::{MultigridLevel, MultigridVector, SparseMatrix};
+use crate::linear_solver::dense_bridge::solve_leto_csr_with_leto_dense_array;
+use cfd_core::error::{Error, Result};
+use leto_ops::spmv as leto_spmv;
 use std::time::Instant;
+
+fn l2_norm(vector: &MultigridVector<f64>) -> f64 {
+    let mut sum = 0.0;
+    for i in 0..vector.shape()[0] {
+        sum += vector[i] * vector[i];
+    }
+    sum.sqrt()
+}
+
+fn vector_sub(lhs: &MultigridVector<f64>, rhs: &MultigridVector<f64>) -> MultigridVector<f64> {
+    let mut output = MultigridVector::zeros([lhs.shape()[0]]);
+    for i in 0..lhs.shape()[0] {
+        output[i] = lhs[i] - rhs[i];
+    }
+    output
+}
+
+fn vector_add_assign(lhs: &mut MultigridVector<f64>, rhs: &MultigridVector<f64>) {
+    for i in 0..lhs.shape()[0] {
+        lhs[i] += rhs[i];
+    }
+}
+
+fn residual(
+    matrix: &SparseMatrix<f64>,
+    rhs: &MultigridVector<f64>,
+    solution: &MultigridVector<f64>,
+) -> MultigridVector<f64> {
+    let applied =
+        leto_spmv(matrix, &solution.view()).expect("invariant: multigrid SpMV inputs are valid");
+    vector_sub(rhs, &applied)
+}
+
+fn sparse_vector_mul(
+    matrix: &SparseMatrix<f64>,
+    vector: &MultigridVector<f64>,
+) -> MultigridVector<f64> {
+    leto_spmv(matrix, &vector.view()).expect("invariant: multigrid transfer SpMV inputs are valid")
+}
 
 /// Apply V-cycle multigrid algorithm
 pub fn apply_v_cycle(
     levels: &[MultigridLevel<f64>],
-    residual: &DVector<f64>,
+    residual: &MultigridVector<f64>,
     max_cycles: usize,
     tolerance: f64,
-) -> Result<(DVector<f64>, CycleStatistics)> {
+) -> Result<(MultigridVector<f64>, CycleStatistics)> {
     let start_time = Instant::now();
 
     if levels.is_empty() {
@@ -21,7 +60,7 @@ pub fn apply_v_cycle(
         ));
     }
 
-    let mut correction = DVector::zeros(residual.len());
+    let mut correction = MultigridVector::zeros([residual.shape()[0]]);
     let mut cycle_count = 0;
     let mut residual_history: Vec<f64> = Vec::new();
 
@@ -32,7 +71,7 @@ pub fn apply_v_cycle(
         // Apply one V-cycle
         apply_multigrid_cycle(1, levels, residual, &mut correction)?;
 
-        let residual_norm = (residual - &levels[0].matrix * &correction).norm();
+        let residual_norm = l2_norm(&self::residual(&levels[0].matrix, residual, &correction));
         residual_history.push(residual_norm);
         if residual_norm < tolerance {
             break;
@@ -71,8 +110,8 @@ pub fn apply_v_cycle(
 fn apply_multigrid_cycle(
     gamma: usize,
     levels: &[MultigridLevel<f64>],
-    residual: &DVector<f64>,
-    correction: &mut DVector<f64>,
+    residual: &MultigridVector<f64>,
+    correction: &mut MultigridVector<f64>,
 ) -> Result<()> {
     if levels.is_empty() {
         return Ok(());
@@ -95,11 +134,11 @@ fn apply_multigrid_cycle(
 
     // 2. Compute residual after pre-smoothing
     // r = b - A*x
-    let r_fine = residual - &current_level.matrix * &*correction;
+    let r_fine = self::residual(&current_level.matrix, residual, correction);
 
     // 3. Restrict residual
     let r_coarse = if let Some(ref restriction) = current_level.restriction {
-        restriction * r_fine
+        sparse_vector_mul(restriction, &r_fine)
     } else {
         return Err(Error::InvalidConfiguration(
             "Missing restriction operator".to_string(),
@@ -107,15 +146,15 @@ fn apply_multigrid_cycle(
     };
 
     // 4. Recursive call for coarser levels
-    let mut coarse_correction = DVector::zeros(r_coarse.len());
+    let mut coarse_correction = MultigridVector::zeros([r_coarse.shape()[0]]);
     for _ in 0..gamma {
         apply_multigrid_cycle(gamma, &levels[1..], &r_coarse, &mut coarse_correction)?;
     }
 
     // 5. Interpolate correction back
     if let Some(ref interpolation) = current_level.interpolation {
-        let fine_correction = interpolation * coarse_correction;
-        *correction += fine_correction;
+        let fine_correction = sparse_vector_mul(interpolation, &coarse_correction);
+        vector_add_assign(correction, &fine_correction);
     } else {
         return Err(Error::InvalidConfiguration(
             "Missing interpolation operator".to_string(),
@@ -136,10 +175,10 @@ fn apply_multigrid_cycle(
 /// Apply W-cycle multigrid algorithm
 pub fn apply_w_cycle(
     levels: &[MultigridLevel<f64>],
-    residual: &DVector<f64>,
+    residual: &MultigridVector<f64>,
     max_cycles: usize,
     tolerance: f64,
-) -> Result<(DVector<f64>, CycleStatistics)> {
+) -> Result<(MultigridVector<f64>, CycleStatistics)> {
     let start_time = Instant::now();
 
     if levels.is_empty() {
@@ -148,7 +187,7 @@ pub fn apply_w_cycle(
         ));
     }
 
-    let mut correction = DVector::zeros(residual.len());
+    let mut correction = MultigridVector::zeros([residual.shape()[0]]);
     let mut cycle_count = 0;
     let mut residual_history: Vec<f64> = Vec::new();
 
@@ -159,7 +198,7 @@ pub fn apply_w_cycle(
         apply_multigrid_cycle(2, levels, residual, &mut correction)?;
 
         // Check convergence
-        let residual_norm = (residual - &levels[0].matrix * &correction).norm();
+        let residual_norm = l2_norm(&self::residual(&levels[0].matrix, residual, &correction));
         residual_history.push(residual_norm);
         if residual_norm < tolerance {
             break;
@@ -197,10 +236,10 @@ pub fn apply_w_cycle(
 /// Apply Full Multigrid (F-cycle) algorithm
 pub fn apply_f_cycle(
     levels: &[MultigridLevel<f64>],
-    rhs: &DVector<f64>,
+    rhs: &MultigridVector<f64>,
     max_cycles: usize,
     tolerance: f64,
-) -> Result<(DVector<f64>, CycleStatistics)> {
+) -> Result<(MultigridVector<f64>, CycleStatistics)> {
     let start_time = Instant::now();
 
     if levels.is_empty() {
@@ -217,19 +256,19 @@ pub fn apply_f_cycle(
         return Ok((correction, final_stats));
     }
 
-    let mut rhs_levels: Vec<DVector<f64>> = Vec::with_capacity(levels.len());
+    let mut rhs_levels: Vec<MultigridVector<f64>> = Vec::with_capacity(levels.len());
     rhs_levels.push(rhs.clone());
 
     for level_idx in 0..levels.len() - 1 {
         let restriction = levels[level_idx].restriction.as_ref().ok_or_else(|| {
             Error::InvalidConfiguration("Missing restriction operator".to_string())
         })?;
-        let coarse_rhs = restriction * &rhs_levels[level_idx];
+        let coarse_rhs = sparse_vector_mul(restriction, &rhs_levels[level_idx]);
         rhs_levels.push(coarse_rhs);
     }
 
     let coarsest_idx = levels.len() - 1;
-    let mut correction = DVector::zeros(rhs_levels[coarsest_idx].len());
+    let mut correction = MultigridVector::zeros([rhs_levels[coarsest_idx].shape()[0]]);
     solve_coarsest_level(
         &levels[coarsest_idx].matrix,
         &rhs_levels[coarsest_idx],
@@ -243,7 +282,7 @@ pub fn apply_f_cycle(
         let interpolation = levels[level_idx].interpolation.as_ref().ok_or_else(|| {
             Error::InvalidConfiguration("Missing interpolation operator".to_string())
         })?;
-        let mut fine_correction = interpolation * &correction;
+        let mut fine_correction = sparse_vector_mul(interpolation, &correction);
 
         apply_multigrid_cycle(
             1,
@@ -254,7 +293,11 @@ pub fn apply_f_cycle(
 
         if level_idx == 0 {
             cycle_count += 1;
-            let mut residual_norm = (&rhs_levels[0] - &levels[0].matrix * &fine_correction).norm();
+            let mut residual_norm = l2_norm(&self::residual(
+                &levels[0].matrix,
+                &rhs_levels[0],
+                &fine_correction,
+            ));
             residual_history.push(residual_norm);
 
             while cycle_count < max_cycles && residual_norm >= tolerance {
@@ -265,7 +308,11 @@ pub fn apply_f_cycle(
                     &mut fine_correction,
                 )?;
                 cycle_count += 1;
-                residual_norm = (&rhs_levels[0] - &levels[0].matrix * &fine_correction).norm();
+                residual_norm = l2_norm(&self::residual(
+                    &levels[0].matrix,
+                    &rhs_levels[0],
+                    &fine_correction,
+                ));
                 residual_history.push(residual_norm);
             }
         }
@@ -330,21 +377,16 @@ pub struct CycleStatistics {
 /// Solve system on coarsest level using direct or iterative method
 fn solve_coarsest_level(
     matrix: &SparseMatrix<f64>,
-    rhs: &DVector<f64>,
-    solution: &mut DVector<f64>,
+    rhs: &MultigridVector<f64>,
+    solution: &mut MultigridVector<f64>,
 ) -> Result<()> {
     let n = matrix.nrows();
 
     if n <= 100 {
-        // For small systems, convert to dense and use Gaussian elimination
-        let mut dense = DMatrix::zeros(n, n);
-        for i in 0..n {
-            let row = matrix.row(i);
-            for (&j, &val) in row.col_indices().iter().zip(row.values().iter()) {
-                dense[(i, j)] = val;
-            }
+        let dense_solution = solve_leto_csr_with_leto_dense_array(matrix, rhs)?;
+        for i in 0..solution.shape()[0] {
+            solution[i] = dense_solution[i];
         }
-        gaussian_elimination_solve(&dense, rhs, solution)?;
     } else {
         // For larger systems, use iterative method
         let tolerance = 1e-12;
@@ -372,8 +414,8 @@ fn solve_coarsest_level(
                 }
             }
 
-            let residual = rhs - matrix * &*solution;
-            if residual.norm() < tolerance {
+            let residual = self::residual(matrix, rhs, solution);
+            if l2_norm(&residual) < tolerance {
                 break;
             }
         }
@@ -382,86 +424,21 @@ fn solve_coarsest_level(
     Ok(())
 }
 
-/// Simple Gaussian elimination solver for small matrices
-fn gaussian_elimination_solve(
-    matrix: &DMatrix<f64>,
-    rhs: &DVector<f64>,
-    solution: &mut DVector<f64>,
-) -> Result<()> {
-    let n = matrix.nrows();
-    let mut augmented = DMatrix::zeros(n, n + 1);
-
-    // Create augmented matrix [A | b]
-    for i in 0..n {
-        for j in 0..n {
-            augmented[(i, j)] = matrix[(i, j)];
-        }
-        augmented[(i, n)] = rhs[i];
-    }
-
-    // Forward elimination
-    for i in 0..n {
-        // Find pivot
-        let mut max_row = i;
-        for k in i + 1..n {
-            if augmented[(k, i)].abs() > augmented[(max_row, i)].abs() {
-                max_row = k;
-            }
-        }
-
-        // Swap rows
-        augmented.swap_rows(i, max_row);
-
-        // Check for singularity
-        if augmented[(i, i)].abs() < 1e-15 {
-            return Err(Error::Numerical(NumericalErrorKind::SingularMatrix));
-        }
-
-        // Eliminate
-        for k in i + 1..n {
-            let factor = augmented[(k, i)] / augmented[(i, i)];
-            for j in i..=n {
-                augmented[(k, j)] -= factor * augmented[(i, j)];
-            }
-        }
-    }
-
-    // Backward substitution
-    for i in (0..n).rev() {
-        let mut sum = 0.0;
-        for j in i + 1..n {
-            sum += augmented[(i, j)] * solution[j];
-        }
-        solution[i] = (augmented[(i, n)] - sum) / augmented[(i, i)];
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
+    use super::super::csr_from_parts;
     use super::*;
 
-    fn compute_residual(
-        matrix: &SparseMatrix<f64>,
-        rhs: &DVector<f64>,
-        solution: &DVector<f64>,
-    ) -> DVector<f64> {
-        rhs - matrix * solution
-    }
-
     fn create_test_multigrid_level() -> MultigridLevel<f64> {
-        // Create a simple 3x3 matrix
-        let mut coo = nalgebra_sparse::CooMatrix::new(3, 3);
-        coo.push(0, 0, 2.0);
-        coo.push(0, 1, -1.0);
-        coo.push(1, 0, -1.0);
-        coo.push(1, 1, 2.0);
-        coo.push(1, 2, -1.0);
-        coo.push(2, 1, -1.0);
-        coo.push(2, 2, 2.0);
-
-        let matrix = nalgebra_sparse::CsrMatrix::from(&coo);
+        let matrix = csr_from_parts(
+            3,
+            3,
+            vec![0, 2, 5, 7],
+            vec![0, 1, 0, 1, 2, 1, 2],
+            vec![2.0, -1.0, -1.0, 2.0, -1.0, -1.0, 2.0],
+            "cycle test matrix",
+        )
+        .unwrap();
 
         // Simple Gauss-Seidel smoother
         let smoother = super::super::smoothers::GaussSeidelSmoother::new(1.0);
@@ -479,14 +456,14 @@ mod tests {
         let level = create_test_multigrid_level();
         let levels = vec![level];
 
-        let rhs = nalgebra::DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let initial_solution = nalgebra::DVector::from_vec(vec![0.3, -0.2, 0.4]);
-        let residual = compute_residual(&levels[0].matrix, &rhs, &initial_solution);
+        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
+        let initial_solution = MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4]).unwrap();
+        let residual = self::residual(&levels[0].matrix, &rhs, &initial_solution);
 
         let (correction, stats) = apply_v_cycle(&levels, &residual, 5, 1e-6).unwrap();
 
         // Check that we got a result
-        assert_eq!(correction.len(), 3);
+        assert_eq!(correction.shape(), [3]);
         assert_eq!(stats.cycle_type, CycleType::VCycle);
         assert!(stats.total_cycles > 0);
         assert!(stats.total_time > 0.0);
@@ -497,13 +474,13 @@ mod tests {
         let level = create_test_multigrid_level();
         let levels = vec![level];
 
-        let rhs = nalgebra::DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let initial_solution = nalgebra::DVector::from_vec(vec![0.3, -0.2, 0.4]);
-        let residual = compute_residual(&levels[0].matrix, &rhs, &initial_solution);
+        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
+        let initial_solution = MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4]).unwrap();
+        let residual = self::residual(&levels[0].matrix, &rhs, &initial_solution);
 
         let (correction, stats) = apply_w_cycle(&levels, &residual, 3, 1e-6).unwrap();
 
-        assert_eq!(correction.len(), 3);
+        assert_eq!(correction.shape(), [3]);
         assert_eq!(stats.cycle_type, CycleType::WCycle);
         assert!(stats.total_cycles > 0);
     }
@@ -513,9 +490,9 @@ mod tests {
         let level = create_test_multigrid_level();
         let levels = vec![level];
 
-        let rhs = nalgebra::DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let initial_solution = nalgebra::DVector::from_vec(vec![0.3, -0.2, 0.4]);
-        let residual = compute_residual(&levels[0].matrix, &rhs, &initial_solution);
+        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
+        let initial_solution = MultigridVector::from_shape_vec([3], vec![0.3, -0.2, 0.4]).unwrap();
+        let residual = self::residual(&levels[0].matrix, &rhs, &initial_solution);
 
         // Use 0.0 tolerance to ensure it runs for all 2 cycles
         let (_, stats) = apply_v_cycle(&levels, &residual, 2, 0.0).unwrap();
@@ -526,28 +503,31 @@ mod tests {
     }
 
     #[test]
-    fn test_gaussian_elimination_small_matrix() {
-        let mut matrix = nalgebra::DMatrix::zeros(3, 3);
-        matrix[(0, 0)] = 1.0;
-        matrix[(1, 1)] = 1.0;
-        matrix[(2, 2)] = 1.0;
-        matrix[(0, 1)] = 1.0;
-        matrix[(1, 2)] = 1.0;
+    fn test_leto_coarsest_solve_small_matrix() {
+        let matrix = csr_from_parts(
+            3,
+            3,
+            vec![0, 2, 4, 5],
+            vec![0, 1, 1, 2, 2],
+            vec![1.0, 1.0, 1.0, 1.0, 1.0],
+            "cycle coarsest test matrix",
+        )
+        .unwrap();
 
-        let rhs = nalgebra::DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let mut solution = nalgebra::DVector::zeros(3);
+        let rhs = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
+        let mut solution = MultigridVector::zeros([3]);
 
-        gaussian_elimination_solve(&matrix, &rhs, &mut solution).unwrap();
+        solve_coarsest_level(&matrix, &rhs, &mut solution).unwrap();
 
-        // Check that solution is reasonable (exact values depend on matrix)
-        assert!(solution.iter().all(|&x| x.is_finite()));
-        assert!(solution.iter().any(|&x| x.abs() > 1e-10)); // Should not be zero
+        assert!((solution[0] - 2.0_f64).abs() < 1e-12_f64);
+        assert!((solution[1] + 1.0_f64).abs() < 1e-12_f64);
+        assert!((solution[2] - 3.0_f64).abs() < 1e-12_f64);
     }
 
     #[test]
     fn test_empty_levels_error() {
         let levels = Vec::new();
-        let residual = nalgebra::DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let residual = MultigridVector::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
 
         let result = apply_v_cycle(&levels, &residual, 1, 1e-6);
         assert!(result.is_err());

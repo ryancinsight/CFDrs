@@ -16,20 +16,20 @@
 //! This discrete 1D formulation reduces the Navier-Stokes equations to systems of ordinary
 //! differential equations or algebraic equations, neglecting purely transverse momentum transport.
 
+use crate::scalar::Cfd1dScalar;
 use cfd_core::geometry::Domain;
-use nalgebra::{Point1, RealField};
-use num_traits::FromPrimitive;
+use leto::geometry::Point1;
 
 /// 1D Network domain for the Problem trait
 #[derive(Debug, Clone)]
-pub struct NetworkDomain<T: RealField + Copy> {
+pub struct NetworkDomain<T: Cfd1dScalar + Copy> {
     /// Number of nodes in the network
     pub node_count: usize,
     /// Network characteristic length scale
     pub characteristic_length: T,
 }
 
-impl<T: RealField + Copy> NetworkDomain<T> {
+impl<T: Cfd1dScalar + Copy> NetworkDomain<T> {
     /// Create a new network domain
     pub fn new(node_count: usize, characteristic_length: T) -> Self {
         Self {
@@ -39,7 +39,7 @@ impl<T: RealField + Copy> NetworkDomain<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Domain<T> for NetworkDomain<T> {
+impl<T: Cfd1dScalar + Copy> Domain<T> for NetworkDomain<T> {
     fn dimension(&self) -> usize {
         1 // 1D network
     }

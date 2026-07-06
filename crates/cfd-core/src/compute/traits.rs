@@ -1,7 +1,7 @@
 //! Core traits for compute operations
 
 use crate::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::fmt::Debug;
 
 /// Trait for compute kernels that can run on different backends
@@ -118,7 +118,7 @@ pub enum ComputeBackend {
     Cpu,
     /// SIMD backend (vectorized CPU)
     Simd,
-    /// GPU backend (wgpu)
+    /// GPU backend through the Hephaestus provider
     Gpu,
     /// Hybrid backend (CPU + GPU)
     Hybrid,
@@ -158,13 +158,16 @@ impl ComputeBackend {
     fn detect_gpu_support() -> bool {
         #[cfg(feature = "gpu")]
         {
-            // Check if wgpu can create an adapter
-            pollster::block_on(async {
-                let instance = wgpu::Instance::default();
-                let options: wgpu::RequestAdapterOptions<'_, '_> =
-                    wgpu::RequestAdapterOptions::default();
-                instance.request_adapter(&options).await.is_some()
-            })
+            match hephaestus_wgpu::WgpuDevice::try_default("cfdrs-gpu-probe") {
+                Ok(device) => {
+                    drop(device);
+                    true
+                }
+                Err(error) => {
+                    tracing::debug!(%error, "Hephaestus GPU device acquisition failed");
+                    false
+                }
+            }
         }
         #[cfg(not(feature = "gpu"))]
         {

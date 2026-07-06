@@ -14,7 +14,8 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
-use nalgebra::RealField;
+use crate::scalar::Cfd2dScalar;
+use eunomia::Complex as AtlasComplex;
 use serde::{Deserialize, Serialize};
 
 // Re-export submodules
@@ -67,7 +68,7 @@ pub enum SpatialScheme {
 }
 
 /// Trait for spatial discretization schemes
-pub trait SpatialDiscretization<T: RealField + Copy> {
+pub trait SpatialDiscretization<T: Cfd2dScalar + Copy> {
     /// Compute the spatial derivative on a cell-centered grid.
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T;
 
@@ -88,14 +89,14 @@ pub trait SpatialDiscretization<T: RealField + Copy> {
 
     /// Compute von Neumann amplification factor for given wavenumber and CFL
     /// For 1D advection: G(k) = 1 - i * CFL * sin(k*dx)
-    fn amplification_factor(&self, k: f64, cfl: f64) -> num_complex::Complex<f64> {
+    fn amplification_factor(&self, k: f64, cfl: f64) -> AtlasComplex<f64> {
         let sin_kdx = (k * std::f64::consts::PI).sin(); // Assuming dx=1 for normalized analysis
-        num_complex::Complex::new(1.0, 0.0) - num_complex::Complex::new(0.0, cfl * sin_kdx)
+        AtlasComplex::new(1.0, 0.0) - AtlasComplex::new(0.0, cfl * sin_kdx)
     }
 }
 
 /// Trait for face reconstruction schemes used in finite volume methods
-pub trait FaceReconstruction<T: RealField + Copy> {
+pub trait FaceReconstruction<T: Cfd2dScalar + Copy> {
     /// Reconstruct scalar value at x-face (between cells i and i+1)
     fn reconstruct_face_value_x(
         &self,

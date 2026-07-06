@@ -13,24 +13,25 @@
 
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::array2d::Array2D;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::FloatElement;
 
-fn harmonic_face_coefficient<T: RealField + Copy + FromPrimitive>(
+fn harmonic_face_coefficient<T: Cfd2dScalar + Copy + FloatElement>(
     ap_left: T,
     ap_right: T,
     volume: T,
 ) -> T {
-    let tiny = T::from_f64(1e-30).unwrap_or_else(T::default_epsilon);
+    let tiny = scalar::from_f64(1e-30);
     let ap_left = if ap_left > tiny { ap_left } else { tiny };
     let ap_right = if ap_right > tiny { ap_right } else { tiny };
     let d_left = volume / ap_left;
     let d_right = volume / ap_right;
     let denom = d_left + d_right;
     if denom <= tiny {
-        T::zero()
+        scalar::zero()
     } else {
-        (T::one() + T::one()) * d_left * d_right / denom
+        scalar::from_f64::<T>(2.0) * d_left * d_right / denom
     }
 }
 
@@ -39,7 +40,7 @@ fn harmonic_face_coefficient<T: RealField + Copy + FromPrimitive>(
 /// The face coefficient uses harmonic averaging of the adjacent momentum diagonals,
 /// matching the coefficient-aware Rhie-Chow formulation used by the pressure-velocity
 /// coupling solvers elsewhere in the crate.
-pub fn rhie_chow_interpolation<T: RealField + Copy + FromPrimitive>(
+pub fn rhie_chow_interpolation<T: Cfd2dScalar + Copy + FloatElement>(
     fields: &SimulationFields<T>,
     ap_u: &Field2D<T>,
     ap_v: &Field2D<T>,
@@ -47,11 +48,11 @@ pub fn rhie_chow_interpolation<T: RealField + Copy + FromPrimitive>(
     dy: T,
 ) -> (Array2D<T>, Array2D<T>) {
     let (nx, ny) = fields.u.dimensions();
-    let two = T::one() + T::one();
+    let two = scalar::from_f64::<T>(2.0);
     let volume = dx * dy;
 
-    let mut u_face = Array2D::new(nx + 1, ny, T::zero());
-    let mut v_face = Array2D::new(nx, ny + 1, T::zero());
+    let mut u_face = Array2D::new(nx + 1, ny, scalar::zero());
+    let mut v_face = Array2D::new(nx, ny + 1, scalar::zero());
 
     for j in 0..ny {
         for i in 0..=nx {
@@ -131,7 +132,7 @@ mod tests {
     use crate::grid::StructuredGrid2D;
     use crate::pressure_velocity::RhieChowInterpolation;
     use approx::assert_relative_eq;
-    use nalgebra::Vector2;
+    use leto::geometry::Vector2;
 
     #[test]
     fn coefficient_aware_interpolation_matches_exact_reference() {

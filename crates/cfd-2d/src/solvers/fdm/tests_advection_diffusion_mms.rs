@@ -15,6 +15,7 @@
 use super::advection_diffusion::AdvectionDiffusionSolver;
 use super::config::FdmConfig;
 use crate::grid::structured::StructuredGrid2D;
+use eunomia::NumericElement;
 use std::collections::HashMap;
 
 #[test]
@@ -47,7 +48,9 @@ fn test_advection_diffusion_mms_dirichlet_linear_solution() {
         }
     }
 
-    let cfg = FdmConfig::default();
+    let mut cfg = FdmConfig::default();
+    cfg.base.convergence.max_iterations = 10000;
+    cfg.base.convergence.tolerance = 1.0e-8;
     let solver = AdvectionDiffusionSolver::new(cfg);
     let result = solver
         .solve_steady(&grid, &vel_x, &vel_y, diffusivity, &source, &boundary)
@@ -60,9 +63,11 @@ fn test_advection_diffusion_mms_dirichlet_linear_solution() {
             let y = j as f64 * dy;
             let phi_exact = x + y;
             let phi_num = *result.get(&(i, j)).unwrap();
-            let err = (phi_num - phi_exact).abs();
-            if err > max_err { max_err = err; }
+            let err = <f64 as NumericElement>::abs(phi_num - phi_exact);
+            if err > max_err {
+                max_err = err;
+            }
         }
     }
-    assert!(max_err < 5.0e-3, "MMS error too large: {}", max_err);
+    assert!(max_err < 5.0e-3, "MMS error too large: {max_err}");
 }

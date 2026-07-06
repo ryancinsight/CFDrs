@@ -7,9 +7,8 @@
 //! - Roache, P.J. (2002) "Code Verification by the Method of Manufactured Solutions"
 //! - Salari, K. & Knupp, P. (2000) "Code Verification by the Method of Manufactured Solutions"
 
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::{ComplexField, RealField};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::{FloatElement, RealField};
 
 pub mod advanced_physics;
 pub mod advection;
@@ -52,7 +51,7 @@ pub use turbulent::{
 };
 
 /// Trait for manufactured solutions
-pub trait ManufacturedSolution<T: RealField + Copy + FromPrimitive> {
+pub trait ManufacturedSolution<T: RealField + Copy + FloatElement> {
     /// Evaluate the exact solution at given point and time
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T;
 
@@ -61,7 +60,7 @@ pub trait ManufacturedSolution<T: RealField + Copy + FromPrimitive> {
 
     /// Get the initial condition at a given point
     fn initial_condition(&self, x: T, y: T, z: T) -> T {
-        self.exact_solution(x, y, z, T::zero())
+        self.exact_solution(x, y, z, scalar::zero::<T>())
     }
 
     /// Get the boundary condition type and value
@@ -71,15 +70,15 @@ pub trait ManufacturedSolution<T: RealField + Copy + FromPrimitive> {
 
     /// Calculate the L2 error norm between numerical and exact solutions
     fn calculate_error_norm(&self, numerical: &[T], exact: &[T]) -> T {
-        let mut sum = T::zero();
-        let n = T::from_f64_or_one(numerical.len() as f64);
+        let mut sum = scalar::zero::<T>();
+        let n = scalar::from_usize::<T>(numerical.len());
 
         for (num, ex) in numerical.iter().zip(exact.iter()) {
             let diff = *num - *ex;
             sum += diff * diff;
         }
 
-        ComplexField::sqrt(sum / n)
+        scalar::sqrt(sum / n)
     }
 
     /// Calculate the maximum error between numerical and exact solutions
@@ -87,8 +86,11 @@ pub trait ManufacturedSolution<T: RealField + Copy + FromPrimitive> {
         numerical
             .iter()
             .zip(exact.iter())
-            .map(|(num, ex)| ComplexField::abs(*num - *ex))
-            .fold(T::zero(), |max, val| if val > max { val } else { max })
+            .map(|(num, ex)| scalar::abs(*num - *ex))
+            .fold(
+                scalar::zero::<T>(),
+                |max, val| if val > max { val } else { max },
+            )
     }
 }
 
@@ -97,8 +99,8 @@ pub struct ManufacturedFunctions;
 
 impl ManufacturedFunctions {
     /// Sinusoidal solution: sin(kx * x) * sin(ky * y) * exp(-t)
-    pub fn sinusoidal<T: RealField + Copy>(x: T, y: T, t: T, kx: T, ky: T) -> T {
-        ComplexField::sin(kx * x) * ComplexField::sin(ky * y) * ComplexField::exp(-t)
+    pub fn sinusoidal<T: RealField + Copy + FloatElement>(x: T, y: T, t: T, kx: T, ky: T) -> T {
+        scalar::sin(kx * x) * scalar::sin(ky * y) * scalar::exp(-t)
     }
 
     /// Polynomial solution: x^2 + y^2 + t
@@ -107,14 +109,12 @@ impl ManufacturedFunctions {
     }
 
     /// Exponential solution: exp(x + y - t)
-    pub fn exponential<T: RealField + Copy>(x: T, y: T, t: T) -> T {
-        ComplexField::exp(x + y - t)
+    pub fn exponential<T: RealField + Copy + FloatElement>(x: T, y: T, t: T) -> T {
+        scalar::exp(x + y - t)
     }
 
     /// Trigonometric-exponential: cos(x) * sin(y) * exp(-2t)
-    pub fn trig_exp<T: RealField + Copy>(x: T, y: T, t: T) -> T {
-        ComplexField::cos(x)
-            * ComplexField::sin(y)
-            * ComplexField::exp(T::from_f64_or_one(-2.0) * t)
+    pub fn trig_exp<T: RealField + Copy + FloatElement>(x: T, y: T, t: T) -> T {
+        scalar::cos(x) * scalar::sin(y) * scalar::exp(scalar::from_f64::<T>(-2.0) * t)
     }
 }

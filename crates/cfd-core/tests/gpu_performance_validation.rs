@@ -6,6 +6,7 @@
 #[cfg(feature = "gpu")]
 mod gpu_performance_tests {
     use cfd_core::compute::gpu::{GpuBuffer, GpuTurbulenceCompute};
+    use hephaestus_wgpu::wgpu;
 
     use std::time::Instant;
 

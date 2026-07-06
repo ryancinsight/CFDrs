@@ -62,11 +62,16 @@ The suite is organized into 10 specialized crates:
 - **Viscosity Models**: Temperature-dependent viscosity updates
 
 ### GPU Compute Acceleration
+- **Atlas GPU Provider**: Hephaestus is the active GPU device-acquisition
+  provider; legacy WGSL kernels remain isolated in `cfd-core::compute::gpu`
+  while migration to Hephaestus buffer and kernel abstractions continues
 - **WGSL Shaders**: WebGPU Shading Language implementations for CFD kernels
 - **Turbulence Kernels**: GPU-accelerated Smagorinsky LES and DES computations
 - **Compute Pipelines**: Optimized shader dispatch with workgroup management
 - **Memory Management**: Zero-copy buffers with efficient CPU-GPU data transfer
-- **Backend Abstraction**: Automatic CPU/GPU dispatch based on hardware capabilities
+- **Backend Abstraction**: Automatic CPU/GPU dispatch based on hardware
+  capabilities, with math-layer GPU metrics routed through `cfd-core` rather
+  than direct downstream WGPU dependencies
 - **Performance Scaling**: 3-10x speedup potential for turbulence calculations
 - **Feature Gating**: Optional GPU compilation with CPU fallback
 
@@ -523,7 +528,7 @@ The CFD suite includes comprehensive MPI parallelization for high-performance co
 ### ✅ Successfully Implemented
 - **Convection Schemes**: Upwind, Deferred Correction with QUICK, Central, Power Law, Hybrid
 - **SIMD Architecture**: Architecture-conditional dispatch (AVX2/SSE/NEON/SWAR) with optimized SpMV (Sprint 1.41.0)
-- **GPU Infrastructure**: WGPU integration with compute shaders
+- **GPU Infrastructure**: Hephaestus-owned device acquisition with remaining WGPU compute-shader kernels under migration
 - **Modular Design**: Clean separation of concerns, proper dendrogram structure
 - **Build System**: Optional dependencies, clean builds
 - **Linear Solvers**: CG, BiCGSTAB, GMRES implementations (algorithmically correct, tested independently)
@@ -725,7 +730,7 @@ This codebase has undergone systematic refactoring and quality improvement acros
 **MPI Parallelization**: Complete infrastructure with domain decomposition, load balancing, parallel solvers ✅
 **Advanced Solvers**: Algebraic Multigrid (AMG) preconditioner with 5-10x speedup potential ✅
 **Advanced Physics**: LES/DES turbulence models for complex flow simulation ✅
-**GPU Acceleration**: wgpu-based GPU compute with turbulence kernels ✅
+**GPU Acceleration**: Hephaestus device acquisition with WGPU compute kernels under migration ✅
 **Unstructured Meshes**: Triangle/tetrahedral elements, mesh generation, FVM discretization ✅
 **Thermal Physics**: Natural convection, conjugate heat transfer, multi-region coupling ✅
 **Multiphase Flows**: VOF/level-set methods, surface tension, interface tracking ✅
@@ -735,7 +740,7 @@ This codebase has undergone systematic refactoring and quality improvement acros
 **Production Assessment**: **FULLY PRODUCTION READY** - All metrics PASS, zero critical issues ✅
 **Implementation Completeness**: **100%** - Complete MPI parallelization + AMG + GPU acceleration + unstructured meshes + thermal physics + multiphase flows + validated turbulence models ✅
 **MPI Features**: Domain decomposition, ghost cells, distributed solvers, load balancing, parallel I/O ✅
-**GPU Features**: wgpu compute shaders, turbulence kernels, CPU/GPU dispatch, performance benchmarking ✅
+**GPU Features**: Hephaestus GPU probing, WGPU compute shaders, turbulence kernels, CPU/GPU dispatch, performance benchmarking ✅
 **Mesh Features**: Triangle/tetrahedral elements, quadrilateral/hexahedral support, mesh generation algorithms ✅
 **Thermal Features**: Boussinesq approximation, conjugate interfaces, thermal BCs, Rayleigh scaling ✅
 **Multiphase Features**: VOF with PLIC, level-set with reinitialization, surface tension, phase coupling ✅

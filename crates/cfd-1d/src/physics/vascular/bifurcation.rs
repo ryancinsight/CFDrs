@@ -31,12 +31,12 @@
 //! - Sherwin, S.J. et al. (2003) "One-dimensional modelling of a vascular network"
 
 use super::murrays_law::MurraysLaw;
+use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::resistance::{
     parallel_resistance as combine_parallel_resistances,
     series_resistance as combine_series_resistances,
 };
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -73,7 +73,7 @@ pub enum JunctionLossModel {
 
 /// A single vessel segment in the vascular network
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VesselSegment<T: RealField + Copy> {
+pub struct VesselSegment<T: Cfd1dScalar + Copy> {
     /// Segment identifier
     pub id: usize,
     /// Vessel radius \[m]
@@ -90,17 +90,15 @@ pub struct VesselSegment<T: RealField + Copy> {
     pub outlet_node: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> VesselSegment<T> {
+impl<T: Cfd1dScalar + FloatElement + Copy> VesselSegment<T> {
     /// Create new vessel segment
     pub fn new(id: usize, radius: T, length: T, inlet_node: usize, outlet_node: usize) -> Self {
         Self {
             id,
             radius,
             length,
-            wall_thickness: radius
-                * T::from_f64(0.1).expect("Mathematical constant conversion compromised"), // 10% of radius
-            youngs_modulus: T::from_f64(0.4e6)
-                .expect("Mathematical constant conversion compromised"), // ~0.4 MPa for arteries
+            wall_thickness: radius * <T as FloatElement>::from_f64(0.1), // 10% of radius
+            youngs_modulus: <T as FloatElement>::from_f64(0.4e6),        // ~0.4 MPa for arteries
             inlet_node,
             outlet_node,
         }
@@ -109,8 +107,8 @@ impl<T: RealField + FromPrimitive + Copy> VesselSegment<T> {
     /// Calculate Poiseuille resistance R = 8μL/(πR⁴)
     pub fn resistance(&self, viscosity: T) -> T {
         let pi = T::pi();
-        let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
-        eight * viscosity * self.length / (pi * self.radius.powi(4))
+        let eight = <T as FloatElement>::from_f64(8.0);
+        eight * viscosity * self.length / (pi * <T as FloatElement>::powi(self.radius, 4))
     }
 
     /// Calculate inertance L = ρL/(πR²)
@@ -125,14 +123,16 @@ impl<T: RealField + FromPrimitive + Copy> VesselSegment<T> {
         let pi = T::pi();
         let three = T::one() + T::one() + T::one();
         let two = T::one() + T::one();
-        three * pi * self.radius.powi(3) * self.length
+        three * pi * <T as FloatElement>::powi(self.radius, 3) * self.length
             / (two * self.youngs_modulus * self.wall_thickness)
     }
 
     /// Calculate wave speed c = √(Eh/(2ρR))
     pub fn wave_speed(&self, density: T) -> T {
         let two = T::one() + T::one();
-        (self.youngs_modulus * self.wall_thickness / (two * density * self.radius)).sqrt()
+        <T as NumericElement>::sqrt(
+            self.youngs_modulus * self.wall_thickness / (two * density * self.radius),
+        )
     }
 
     /// Calculate cross-sectional area
@@ -154,7 +154,7 @@ impl<T: RealField + FromPrimitive + Copy> VesselSegment<T> {
 
 /// A bifurcation junction connecting vessel segments
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Bifurcation<T: RealField + Copy> {
+pub struct Bifurcation<T: Cfd1dScalar + Copy> {
     /// Node identifier
     pub id: usize,
     /// Junction type
@@ -173,7 +173,7 @@ pub struct Bifurcation<T: RealField + Copy> {
     pub flow_rates: Vec<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Bifurcation<T> {
+impl<T: Cfd1dScalar + FloatElement + Copy> Bifurcation<T> {
     /// Create new bifurcation junction
     pub fn new(id: usize, parent_id: usize, daughter_ids: Vec<usize>) -> Self {
         let n_flows = 1 + daughter_ids.len();
@@ -185,10 +185,10 @@ impl<T: RealField + FromPrimitive + Copy> Bifurcation<T> {
                 JunctionType::Trifurcation
             },
             loss_model: JunctionLossModel::None,
-            k_factor: T::from_f64(0.1).expect("Mathematical constant conversion compromised"),
+            k_factor: <T as FloatElement>::from_f64(0.1),
             parent_vessels: vec![parent_id],
             daughter_vessels: daughter_ids,
-            pressure: T::from_f64(13_332.0).expect("Mathematical constant conversion compromised"), // ~100 mmHg
+            pressure: <T as FloatElement>::from_f64(13_332.0), // ~100 mmHg
             flow_rates: vec![T::zero(); n_flows],
         }
     }
@@ -200,10 +200,10 @@ impl<T: RealField + FromPrimitive + Copy> Bifurcation<T> {
             id,
             junction_type: JunctionType::Confluence,
             loss_model: JunctionLossModel::None,
-            k_factor: T::from_f64(0.05).expect("Mathematical constant conversion compromised"),
+            k_factor: <T as FloatElement>::from_f64(0.05),
             parent_vessels: parent_ids,
             daughter_vessels: vec![daughter_id],
-            pressure: T::from_f64(1_333.0).expect("Mathematical constant conversion compromised"), // ~10 mmHg for veins
+            pressure: <T as FloatElement>::from_f64(1_333.0), // ~10 mmHg for veins
             flow_rates: vec![T::zero(); n_flows],
         }
     }
@@ -225,13 +225,12 @@ impl<T: RealField + FromPrimitive + Copy> Bifurcation<T> {
             .skip(self.parent_vessels.len())
             .fold(T::zero(), |acc, &f| acc + f);
 
-        if parent_flow.abs()
-            < T::from_f64(1e-20).expect("Mathematical constant conversion compromised")
-        {
+        if <T as NumericElement>::abs(parent_flow) < <T as FloatElement>::from_f64(1e-20) {
             return T::zero();
         }
 
-        (parent_flow - daughter_flow).abs() / parent_flow.abs()
+        <T as NumericElement>::abs(parent_flow - daughter_flow)
+            / <T as NumericElement>::abs(parent_flow)
     }
 
     /// Apply junction loss model to get pressure at daughters
@@ -257,7 +256,7 @@ impl<T: RealField + FromPrimitive + Copy> Bifurcation<T> {
 
 /// A network of vessel segments connected by bifurcations
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BifurcationNetwork<T: RealField + Copy> {
+pub struct BifurcationNetwork<T: Cfd1dScalar + Copy> {
     /// All vessel segments
     pub vessels: Vec<VesselSegment<T>>,
     /// All junction nodes
@@ -272,18 +271,16 @@ pub struct BifurcationNetwork<T: RealField + Copy> {
     pub viscosity: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> BifurcationNetwork<T> {
+impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
     /// Create empty network with default blood properties
     pub fn new() -> Self {
         Self {
             vessels: Vec::new(),
             junctions: Vec::new(),
-            inlet_pressure: T::from_f64(13_332.0)
-                .expect("Mathematical constant conversion compromised"), // 100 mmHg
-            outlet_resistance: T::from_f64(1e9)
-                .expect("Mathematical constant conversion compromised"),
-            density: T::from_f64(1060.0).expect("Mathematical constant conversion compromised"),
-            viscosity: T::from_f64(0.0035).expect("Mathematical constant conversion compromised"),
+            inlet_pressure: <T as FloatElement>::from_f64(13_332.0), // 100 mmHg
+            outlet_resistance: <T as FloatElement>::from_f64(1e9),
+            density: <T as FloatElement>::from_f64(1060.0),
+            viscosity: <T as FloatElement>::from_f64(0.0035),
         }
     }
 
@@ -318,7 +315,7 @@ impl<T: RealField + FromPrimitive + Copy> BifurcationNetwork<T> {
         let murray = MurraysLaw::<T>::new();
 
         // Recursive helper to build tree
-        fn add_generation<T: RealField + FromPrimitive + Copy>(
+        fn add_generation<T: Cfd1dScalar + FloatElement + Copy>(
             network: &mut BifurcationNetwork<T>,
             murray: &MurraysLaw<T>,
             _parent_id: usize,
@@ -535,7 +532,7 @@ impl<T: RealField + FromPrimitive + Copy> BifurcationNetwork<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for BifurcationNetwork<T> {
+impl<T: Cfd1dScalar + FloatElement + Copy> Default for BifurcationNetwork<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -564,7 +561,7 @@ mod tests {
         let c = vessel.wave_speed(1060.0);
 
         // Wave speed should be ~5-10 m/s for arteries
-        assert!(c > 1.0 && c < 20.0, "Wave speed {} should be 5-10 m/s", c);
+        assert!(c > 1.0 && c < 20.0, "Wave speed {c} should be 5-10 m/s");
     }
 
     #[test]

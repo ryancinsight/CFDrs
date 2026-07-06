@@ -13,7 +13,7 @@
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
-use nalgebra::DMatrix;
+use leto::Array2;
 
 /// Compute the magnitude of the strain rate tensor.
 ///
@@ -31,21 +31,21 @@ use nalgebra::DMatrix;
 /// `h^2 f'''`; hence boundary strain is computed from the resolved velocity
 /// field instead of imposed as an artificial zero state.
 pub fn compute_strain_rate_magnitude(
-    velocity_u: &DMatrix<f64>,
-    velocity_v: &DMatrix<f64>,
+    velocity_u: &Array2<f64>,
+    velocity_v: &Array2<f64>,
     dx: f64,
     dy: f64,
-) -> DMatrix<f64> {
-    let nx = velocity_u.nrows();
-    let ny = velocity_u.ncols();
-    let mut strain_magnitude = DMatrix::zeros(nx, ny);
+) -> Array2<f64> {
+    let nx = velocity_u.shape()[0];
+    let ny = velocity_u.shape()[1];
+    let mut strain_magnitude = Array2::zeros([nx, ny]);
 
     for i in 0..nx {
         for j in 0..ny {
-            let du_dx = differentiate_uniform(nx, i, dx, |ii| velocity_u[(ii, j)]);
-            let du_dy = differentiate_uniform(ny, j, dy, |jj| velocity_u[(i, jj)]);
-            let dv_dx = differentiate_uniform(nx, i, dx, |ii| velocity_v[(ii, j)]);
-            let dv_dy = differentiate_uniform(ny, j, dy, |jj| velocity_v[(i, jj)]);
+            let du_dx = differentiate_uniform(nx, i, dx, |ii| velocity_u[[ii, j]]);
+            let du_dy = differentiate_uniform(ny, j, dy, |jj| velocity_u[[i, jj]]);
+            let dv_dx = differentiate_uniform(nx, i, dx, |ii| velocity_v[[ii, j]]);
+            let dv_dy = differentiate_uniform(ny, j, dy, |jj| velocity_v[[i, jj]]);
 
             // Strain rate tensor components
             let s11 = du_dx;
@@ -57,7 +57,7 @@ pub fn compute_strain_rate_magnitude(
             let s22_sq = s22 * s22;
             let s12_sq = 4.0 * s12 * s12; // 2*s12*s12 * 2
 
-            strain_magnitude[(i, j)] = (2.0 * (s11_sq + s22_sq) + s12_sq).sqrt();
+            strain_magnitude[[i, j]] = (2.0 * (s11_sq + s22_sq) + s12_sq).sqrt();
         }
     }
 
@@ -69,27 +69,27 @@ pub fn compute_strain_rate_magnitude(
 /// Returns (s11, s22, s12) components of the strain rate tensor.
 /// Useful for more advanced SGS models that need full tensor information.
 pub fn compute_strain_rate_components(
-    velocity_u: &DMatrix<f64>,
-    velocity_v: &DMatrix<f64>,
+    velocity_u: &Array2<f64>,
+    velocity_v: &Array2<f64>,
     dx: f64,
     dy: f64,
-) -> (DMatrix<f64>, DMatrix<f64>, DMatrix<f64>) {
-    let nx = velocity_u.nrows();
-    let ny = velocity_u.ncols();
-    let mut s11 = DMatrix::zeros(nx, ny);
-    let mut s22 = DMatrix::zeros(nx, ny);
-    let mut s12 = DMatrix::zeros(nx, ny);
+) -> (Array2<f64>, Array2<f64>, Array2<f64>) {
+    let nx = velocity_u.shape()[0];
+    let ny = velocity_u.shape()[1];
+    let mut s11 = Array2::zeros([nx, ny]);
+    let mut s22 = Array2::zeros([nx, ny]);
+    let mut s12 = Array2::zeros([nx, ny]);
 
     for i in 0..nx {
         for j in 0..ny {
-            let du_dx = differentiate_uniform(nx, i, dx, |ii| velocity_u[(ii, j)]);
-            let du_dy = differentiate_uniform(ny, j, dy, |jj| velocity_u[(i, jj)]);
-            let dv_dx = differentiate_uniform(nx, i, dx, |ii| velocity_v[(ii, j)]);
-            let dv_dy = differentiate_uniform(ny, j, dy, |jj| velocity_v[(i, jj)]);
+            let du_dx = differentiate_uniform(nx, i, dx, |ii| velocity_u[[ii, j]]);
+            let du_dy = differentiate_uniform(ny, j, dy, |jj| velocity_u[[i, jj]]);
+            let dv_dx = differentiate_uniform(nx, i, dx, |ii| velocity_v[[ii, j]]);
+            let dv_dy = differentiate_uniform(ny, j, dy, |jj| velocity_v[[i, jj]]);
 
-            s11[(i, j)] = du_dx;
-            s22[(i, j)] = dv_dy;
-            s12[(i, j)] = 0.5 * (du_dy + dv_dx);
+            s11[[i, j]] = du_dx;
+            s22[[i, j]] = dv_dy;
+            s12[[i, j]] = 0.5 * (du_dy + dv_dx);
         }
     }
 
@@ -121,15 +121,15 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
 
-    fn create_test_velocity_fields(nx: usize, ny: usize) -> (DMatrix<f64>, DMatrix<f64>) {
-        let mut velocity_u = DMatrix::zeros(nx, ny);
-        let mut velocity_v = DMatrix::zeros(nx, ny);
+    fn create_test_velocity_fields(nx: usize, ny: usize) -> (Array2<f64>, Array2<f64>) {
+        let mut velocity_u = Array2::zeros([nx, ny]);
+        let mut velocity_v = Array2::zeros([nx, ny]);
 
         // Simple shear flow: u = y, v = 0
         for i in 0..nx {
             for j in 0..ny {
-                velocity_u[(i, j)] = j as f64 * 0.1; // Linear shear
-                velocity_v[(i, j)] = 0.0;
+                velocity_u[[i, j]] = j as f64 * 0.1; // Linear shear
+                velocity_v[[i, j]] = 0.0;
             }
         }
 
@@ -149,8 +149,8 @@ mod tests {
         }
 
         // Check dimensions
-        assert_eq!(strain.nrows(), 10);
-        assert_eq!(strain.ncols(), 10);
+        assert_eq!(strain.shape()[0], 10);
+        assert_eq!(strain.shape()[1], 10);
     }
 
     #[test]
@@ -165,25 +165,25 @@ mod tests {
 
         for i in 0..10 {
             for j in 0..10 {
-                assert_relative_eq!(s11[(i, j)], 0.0, epsilon = 1e-10);
-                assert_relative_eq!(s22[(i, j)], 0.0, epsilon = 1e-10);
-                assert_relative_eq!(s12[(i, j)], 0.5, epsilon = 1e-6);
+                assert_relative_eq!(s11[[i, j]], 0.0, epsilon = 1e-10);
+                assert_relative_eq!(s22[[i, j]], 0.0, epsilon = 1e-10);
+                assert_relative_eq!(s12[[i, j]], 0.5, epsilon = 1e-6);
             }
         }
 
         // Check dimensions
-        assert_eq!(s11.nrows(), 10);
-        assert_eq!(s11.ncols(), 10);
-        assert_eq!(s22.nrows(), 10);
-        assert_eq!(s22.ncols(), 10);
-        assert_eq!(s12.nrows(), 10);
-        assert_eq!(s12.ncols(), 10);
+        assert_eq!(s11.shape()[0], 10);
+        assert_eq!(s11.shape()[1], 10);
+        assert_eq!(s22.shape()[0], 10);
+        assert_eq!(s22.shape()[1], 10);
+        assert_eq!(s12.shape()[0], 10);
+        assert_eq!(s12.shape()[1], 10);
     }
 
     #[test]
     fn test_zero_velocity_field() {
-        let velocity_u = DMatrix::zeros(10, 10);
-        let velocity_v = DMatrix::zeros(10, 10);
+        let velocity_u = Array2::zeros([10, 10]);
+        let velocity_v = Array2::zeros([10, 10]);
         let strain = compute_strain_rate_magnitude(&velocity_u, &velocity_v, 0.1, 0.1);
 
         // Zero velocity field should give zero strain everywhere

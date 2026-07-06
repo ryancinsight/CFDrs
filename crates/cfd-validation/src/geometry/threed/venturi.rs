@@ -1,8 +1,8 @@
 //! 3D Venturi tube geometry implementation for CFD validation
 
 use super::super::{BoundaryCondition, BoundaryFace, Geometry3D, Point3D};
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
+use crate::scalar;
+use eunomia::{FloatElement, RealField};
 
 /// 3D Venturi tube geometry
 #[derive(Debug, Clone)]
@@ -41,7 +41,7 @@ impl<T: RealField + Copy> Venturi3D<T> {
     }
 }
 
-impl<T: RealField + Copy> Geometry3D<T> for Venturi3D<T> {
+impl<T: RealField + Copy + FloatElement> Geometry3D<T> for Venturi3D<T> {
     fn clone_box(&self) -> Box<dyn Geometry3D<T>> {
         Box::new(self.clone())
     }
@@ -71,12 +71,12 @@ impl<T: RealField + Copy> Geometry3D<T> for Venturi3D<T> {
             return false;
         };
 
-        let r = d / T::from_f64_or_one(2.0);
+        let r = d * scalar::from_f64::<T>(0.5);
         r_sq <= r * r
     }
 
     fn distance_to_boundary(&self, _point: &Point3D<T>) -> T {
-        T::zero()
+        scalar::zero()
     }
 
     fn boundary_normal(&self, _point: &Point3D<T>) -> Option<Point3D<T>> {
@@ -85,19 +85,19 @@ impl<T: RealField + Copy> Geometry3D<T> for Venturi3D<T> {
 
     fn boundary_condition(&self, face: BoundaryFace, _s: T, _t: T) -> BoundaryCondition<T> {
         match face {
-            BoundaryFace::Left => BoundaryCondition::Dirichlet(T::zero()),
-            BoundaryFace::Right => BoundaryCondition::Neumann(T::zero()),
-            _ => BoundaryCondition::Dirichlet(T::zero()),
+            BoundaryFace::Left => BoundaryCondition::Dirichlet(scalar::zero()),
+            BoundaryFace::Right => BoundaryCondition::Neumann(scalar::zero()),
+            _ => BoundaryCondition::Dirichlet(scalar::zero()),
         }
     }
 
     fn bounds(&self) -> (Point3D<T>, Point3D<T>) {
         let total_l =
             self.l_inlet + self.l_convergent + self.l_throat + self.l_divergent + self.l_outlet;
-        let max_d = self.d_inlet.max(self.d_outlet);
+        let max_d = scalar::max(self.d_inlet, self.d_outlet);
         (
-            Point3D::new(-max_d, -max_d, T::zero(),),
-            Point3D::new(max_d, max_d, total_l,),
+            Point3D::new(-max_d, -max_d, scalar::zero()),
+            Point3D::new(max_d, max_d, total_l),
         )
     }
 
@@ -111,6 +111,6 @@ impl<T: RealField + Copy> Geometry3D<T> for Venturi3D<T> {
 
     fn measure(&self) -> T {
         // Volume integration of piecewise cone frustums
-        T::zero()
+        scalar::zero()
     }
 }

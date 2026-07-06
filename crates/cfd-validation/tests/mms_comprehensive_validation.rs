@@ -42,8 +42,8 @@ fn test_taylor_green_mms_incompressibility() {
         let vel_dx_plus = tg.velocity(x + dx, y, t);
         let vel_dy_plus = tg.velocity(x, y + dy, t);
 
-        let du_dx = (vel_dx_plus.x - vel.x) / dx;
-        let dv_dy = (vel_dy_plus.y - vel.y) / dy;
+        let du_dx = (vel_dx_plus[0] - vel[0]) / dx;
+        let dv_dy = (vel_dy_plus[1] - vel[1]) / dy;
 
         let divergence = du_dx + dv_dy;
 
@@ -169,8 +169,8 @@ fn test_taylor_green_mms_energy_decay() {
             let vel_t = tg.velocity(x, y, t);
             let vel_0 = tg.velocity(x, y, 0.0);
 
-            energy_t += (vel_t.x * vel_t.x + vel_t.y * vel_t.y) * 0.5 * dx * dy;
-            energy_0 += (vel_0.x * vel_0.x + vel_0.y * vel_0.y) * 0.5 * dx * dy;
+            energy_t += (vel_t[0] * vel_t[0] + vel_t[1] * vel_t[1]) * 0.5 * dx * dy;
+            energy_0 += (vel_0[0] * vel_0[0] + vel_0[1] * vel_0[1]) * 0.5 * dx * dy;
         }
     }
 
@@ -239,15 +239,15 @@ fn test_mms_periodic_boundary_conditions() {
     let vel_x0 = tg.velocity(0.0, 0.5, t);
     let vel_x2 = tg.velocity(2.0, 0.5, t);
 
-    assert_relative_eq!(vel_x0.x, vel_x2.x, epsilon = 1.0e-10);
-    assert_relative_eq!(vel_x0.y, vel_x2.y, epsilon = 1.0e-10);
+    assert_relative_eq!(vel_x0[0], vel_x2[0], epsilon = 1.0e-10);
+    assert_relative_eq!(vel_x0[1], vel_x2[1], epsilon = 1.0e-10);
 
     // Test periodicity in y-direction
     let vel_y0 = tg.velocity(0.5, 0.0, t);
     let vel_y2 = tg.velocity(0.5, 2.0, t);
 
-    assert_relative_eq!(vel_y0.x, vel_y2.x, epsilon = 1.0e-10);
-    assert_relative_eq!(vel_y0.y, vel_y2.y, epsilon = 1.0e-10);
+    assert_relative_eq!(vel_y0[0], vel_y2[0], epsilon = 1.0e-10);
+    assert_relative_eq!(vel_y0[1], vel_y2[1], epsilon = 1.0e-10);
 }
 
 /// Test MMS Reynolds number consistency
@@ -272,8 +272,8 @@ fn test_mms_reynolds_number() {
     let vel = tg.velocity(0.5, 0.0, 0.0); // At peak u location
 
     // At (0.5, 0) with k=π: u = sin(π/2)*cos(0) = 1, v = -cos(π/2)*sin(0) = 0
-    assert_relative_eq!(vel.x, 1.0, epsilon = 1.0e-10);
-    assert_relative_eq!(vel.y, 0.0, epsilon = 1.0e-10);
+    assert_relative_eq!(vel[0], 1.0, epsilon = 1.0e-10);
+    assert_relative_eq!(vel[1], 0.0, epsilon = 1.0e-10);
 
     // Reynolds number based on characteristic scales
     assert_relative_eq!(expected_re, 100.0 / std::f64::consts::PI, epsilon = 1.0e-10);
@@ -305,8 +305,8 @@ mod property_tests {
             let vel_dx = tg.velocity(x + dx, y, t);
             let vel_dy = tg.velocity(x, y + dy, t);
 
-            let du_dx = (vel_dx.x - vel.x) / dx;
-            let dv_dy = (vel_dy.y - vel.y) / dy;
+            let du_dx = (vel_dx[0] - vel[0]) / dx;
+            let dv_dy = (vel_dy[1] - vel[1]) / dy;
 
             let divergence = du_dx + dv_dy;
 
@@ -333,7 +333,7 @@ mod property_tests {
 
             for t in times {
                 let vel = tg.velocity(x, y, t);
-                let ke = 0.5 * (vel.x * vel.x + vel.y * vel.y);
+                let ke = 0.5 * (vel[0] * vel[0] + vel[1] * vel[1]);
 
                 prop_assert!(ke <= prev_ke || t == 0.0,
                     "Kinetic energy should not increase: KE({}) = {} > KE(prev) = {}", t, ke, prev_ke);

@@ -6,15 +6,14 @@
 use crate::error::Result;
 use crate::physics::fluid::ConstantPropertyFluid;
 use crate::physics::fluid_dynamics::flow_regimes::{FlowClassifier, FlowRegime};
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement, RealField};
 
 /// Service for fluid dynamics calculations
 pub struct FluidDynamicsService;
 
 impl FluidDynamicsService {
     /// Calculate Reynolds number for a given flow configuration
-    pub fn reynolds_number<T: RealField + Copy + Float>(
+    pub fn reynolds_number<T: RealField + Copy>(
         fluid: &ConstantPropertyFluid<T>,
         velocity: T,
         characteristic_length: T,
@@ -24,7 +23,7 @@ impl FluidDynamicsService {
     }
 
     /// Calculate Prandtl number for constant property fluid
-    pub fn prandtl_number<T: RealField + Copy + Float>(fluid: &ConstantPropertyFluid<T>) -> T {
+    pub fn prandtl_number<T: RealField + Copy>(fluid: &ConstantPropertyFluid<T>) -> T {
         let cp = fluid.specific_heat;
         let k = fluid.thermal_conductivity;
         let mu = fluid.viscosity;
@@ -32,14 +31,12 @@ impl FluidDynamicsService {
     }
 
     /// Determine flow regime based on Reynolds number
-    pub fn flow_regime<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>(
-        reynolds: T,
-    ) -> FlowRegime {
+    pub fn flow_regime<T: RealField>(reynolds: T) -> FlowRegime {
         FlowClassifier::classify_by_reynolds(reynolds)
     }
 
     /// Calculate pressure drop for pipe flow
-    pub fn pipe_pressure_drop<T: RealField + FromPrimitive + Copy + Float>(
+    pub fn pipe_pressure_drop<T: RealField + FloatElement + Copy>(
         fluid: &ConstantPropertyFluid<T>,
         velocity: T,
         length: T,
@@ -49,22 +46,21 @@ impl FluidDynamicsService {
         let reynolds = Self::reynolds_number(fluid, velocity, diameter);
         let friction_factor = Self::friction_factor(reynolds, diameter, roughness)?;
 
-        let two = T::one() + T::one();
+        let two = <T as NumericElement>::ONE + <T as NumericElement>::ONE;
 
         Ok(friction_factor * length * fluid.density * velocity * velocity / (two * diameter))
     }
 
     /// Calculate friction factor using appropriate correlation
-    fn friction_factor<T: RealField + FromPrimitive + Copy + Float>(
+    fn friction_factor<T: RealField + FloatElement + Copy>(
         reynolds: T,
         diameter: T,
         roughness: Option<T>,
     ) -> Result<T> {
-        let re_2300 = T::from_f64(
+        let re_2300 = <T as FloatElement>::from_f64(
             crate::physics::constants::physics::dimensionless::reynolds::PIPE_LAMINAR_MAX,
-        )
-        .unwrap_or_else(|| T::one());
-        let sixty_four = T::from_f64(64.0).unwrap_or_else(|| T::one());
+        );
+        let sixty_four = <T as FloatElement>::from_f64(64.0);
 
         if reynolds < re_2300 {
             // Laminar flow: f = 64/Re
@@ -75,76 +71,79 @@ impl FluidDynamicsService {
             Self::colebrook_white_friction_factor(reynolds, relative_roughness)
         } else {
             // Smooth pipe: Blasius (low Re) or Haaland (general explicit)
-            let blasius_max =
-                T::from_f64(crate::physics::constants::physics::hydraulics::BLASIUS_MAX_RE)
-                    .unwrap_or_else(|| T::one());
+            let blasius_max = <T as FloatElement>::from_f64(
+                crate::physics::constants::physics::hydraulics::BLASIUS_MAX_RE,
+            );
             if reynolds < blasius_max {
-                let coeff = T::from_f64(
+                let coeff = <T as FloatElement>::from_f64(
                     crate::physics::constants::physics::hydraulics::BLASIUS_COEFFICIENT,
-                )
-                .unwrap_or_else(|| T::one());
-                let exp =
-                    T::from_f64(crate::physics::constants::physics::hydraulics::BLASIUS_EXPONENT)
-                        .unwrap_or_else(|| T::one());
-                Ok(coeff / Float::powf(reynolds, exp))
+                );
+                let exp = <T as FloatElement>::from_f64(
+                    crate::physics::constants::physics::hydraulics::BLASIUS_EXPONENT,
+                );
+                Ok(coeff / <T as FloatElement>::powf(reynolds, exp))
             } else {
-                Self::haaland_friction_factor(reynolds, T::zero())
+                Self::haaland_friction_factor(reynolds, <T as NumericElement>::ZERO)
             }
         }
     }
 
     /// Calculate friction factor using Colebrook-White equation (iterative)
-    fn colebrook_white_friction_factor<T: RealField + FromPrimitive + Copy + Float>(
+    fn colebrook_white_friction_factor<T: RealField + FloatElement + Copy>(
         reynolds: T,
         relative_roughness: T,
     ) -> Result<T> {
         // Initial guess using Haaland equation
         let f_init = Self::haaland_friction_factor(reynolds, relative_roughness)?;
         // Solve for x = 1/sqrt(f)
-        let mut x = T::one() / Float::sqrt(f_init);
+        let one = <T as NumericElement>::ONE;
+        let mut x = one / <T as NumericElement>::sqrt(f_init);
 
-        let ten = T::from_f64(10.0).unwrap_or_else(|| T::one());
-        let tolerance = T::from_f64(1e-6).unwrap_or_else(|| T::one());
-        let two = T::one() + T::one();
-        let three_point_seven = T::from_f64(3.7).unwrap_or_else(|| T::one());
-        let two_point_five_one = T::from_f64(2.51).unwrap_or_else(|| T::one());
-        let ln_10 = Float::ln(ten);
+        let ten = <T as FloatElement>::from_f64(10.0);
+        let tolerance = <T as FloatElement>::from_f64(1e-6);
+        let two = one + one;
+        let three_point_seven = <T as FloatElement>::from_f64(3.7);
+        let two_point_five_one = <T as FloatElement>::from_f64(2.51);
+        let ln_10 = <T as FloatElement>::ln(ten);
 
         // Newton-Raphson iteration on x = 1/sqrt(f)
         // Equation: g(x) = x + 2 * log10(eps/(3.7*D) + 2.51*x/Re) = 0
         for _ in 0..20 {
             let argument =
                 relative_roughness / three_point_seven + two_point_five_one * x / reynolds;
-            let g = x + two * Float::log(argument, ten);
-            let g_prime = T::one() + (two / ln_10) * (two_point_five_one / reynolds) / argument;
+            let g = x + two * (<T as FloatElement>::ln(argument) / ln_10);
+            let g_prime = one + (two / ln_10) * (two_point_five_one / reynolds) / argument;
 
             let x_new = x - g / g_prime;
 
-            if Float::abs(x_new - x) < tolerance {
-                return Ok(T::one() / (x_new * x_new));
+            if <T as NumericElement>::abs(x_new - x) < tolerance {
+                return Ok(one / (x_new * x_new));
             }
             x = x_new;
         }
 
-        Ok(T::one() / (x * x))
+        Ok(one / (x * x))
     }
 
     /// Calculate friction factor using Haaland explicit correlation
-    fn haaland_friction_factor<T: RealField + FromPrimitive + Copy + Float>(
+    fn haaland_friction_factor<T: RealField + FloatElement + Copy>(
         reynolds: T,
         relative_roughness: T,
     ) -> Result<T> {
-        let ten = T::from_f64(10.0).unwrap_or_else(|| T::one());
-        let six_point_nine = T::from_f64(6.9).unwrap_or_else(|| T::one());
-        let three_point_seven = T::from_f64(3.7).unwrap_or_else(|| T::one());
-        let one_point_one_one = T::from_f64(1.11).unwrap_or_else(|| T::one());
-        let one_point_eight = T::from_f64(1.8).unwrap_or_else(|| T::one());
+        let one = <T as NumericElement>::ONE;
+        let ten = <T as FloatElement>::from_f64(10.0);
+        let six_point_nine = <T as FloatElement>::from_f64(6.9);
+        let three_point_seven = <T as FloatElement>::from_f64(3.7);
+        let one_point_one_one = <T as FloatElement>::from_f64(1.11);
+        let one_point_eight = <T as FloatElement>::from_f64(1.8);
 
-        let term1 = Float::powf(relative_roughness / three_point_seven, one_point_one_one);
+        let term1 =
+            <T as FloatElement>::powf(relative_roughness / three_point_seven, one_point_one_one);
         let term2 = six_point_nine / reynolds;
-        let inv_sqrt_f = -one_point_eight * Float::log(term1 + term2, ten);
+        let inv_sqrt_f = -one_point_eight
+            * (<T as FloatElement>::ln(term1 + term2) / <T as FloatElement>::ln(ten));
 
-        Ok(T::one() / (inv_sqrt_f * inv_sqrt_f))
+        Ok(one / (inv_sqrt_f * inv_sqrt_f))
     }
 }
 
@@ -152,6 +151,14 @@ impl FluidDynamicsService {
 mod tests {
     use super::*;
     use crate::physics::fluid::ConstantPropertyFluid;
+
+    #[test]
+    fn laminar_friction_factor_matches_closed_form() -> Result<()> {
+        let friction = FluidDynamicsService::friction_factor(1_000.0_f64, 0.1, None)?;
+
+        assert!((friction - 0.064).abs() < 1e-12);
+        Ok(())
+    }
 
     #[test]
     fn test_colebrook_white_convergence() {

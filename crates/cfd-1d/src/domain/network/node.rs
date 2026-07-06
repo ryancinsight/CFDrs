@@ -1,12 +1,13 @@
 //! Network node definitions
 
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
 use cfd_schematics::domain::model::NodeKind;
-use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 
 /// Node in the network
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Node<T: RealField + Copy> {
+pub struct Node<T: Cfd1dScalar + Copy> {
     /// Unique identifier
     pub id: String,
     /// Type of node
@@ -17,7 +18,7 @@ pub struct Node<T: RealField + Copy> {
 
 use cfd_schematics::domain::model::NodeSpec;
 
-impl<T: RealField + Copy> From<&NodeSpec> for Node<T> {
+impl<T: Cfd1dScalar + Copy> From<&NodeSpec> for Node<T> {
     fn from(spec: &NodeSpec) -> Self {
         Self {
             id: spec.id.as_str().to_string(),
@@ -27,7 +28,7 @@ impl<T: RealField + Copy> From<&NodeSpec> for Node<T> {
     }
 }
 
-impl<T: RealField + Copy> Node<T> {
+impl<T: Cfd1dScalar + Copy> Node<T> {
     /// Create a new node
     #[must_use]
     pub fn new(id: String, node_type: NodeKind) -> Self {
@@ -47,7 +48,7 @@ impl<T: RealField + Copy> Node<T> {
 
 /// Properties associated with a node
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NodeProperties<T: RealField + Copy> {
+pub struct NodeProperties<T: Cfd1dScalar + Copy> {
     /// Pressure at the node
     pub pressure: T,
     /// Temperature at the node
@@ -56,11 +57,11 @@ pub struct NodeProperties<T: RealField + Copy> {
     pub metadata: std::collections::HashMap<String, T>,
 }
 
-impl<T: RealField + Copy> Default for NodeProperties<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> Default for NodeProperties<T> {
     fn default() -> Self {
         Self {
             pressure: T::zero(),
-            temperature: T::from_f64(293.15).expect("Mathematical constant conversion compromised"), // 20°C default
+            temperature: T::from_f64_or_zero(293.15), // 20°C default
             metadata: std::collections::HashMap::new(),
         }
     }

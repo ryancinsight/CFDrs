@@ -19,14 +19,15 @@
 //! or when the channel is nanoscale.
 
 use super::geometry::ChannelGeometry;
-use nalgebra::RealField;
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
 
 /// Minimum Knudsen number for slip-flow regime (Schaaf-Chambre 1961)
 pub const KN_SLIP_MIN: f64 = 0.001;
 
 /// Extended channel flow model
 #[derive(Debug, Clone)]
-pub struct Channel<T: RealField + Copy> {
+pub struct Channel<T: Cfd1dScalar + Copy> {
     /// Channel geometry
     pub geometry: ChannelGeometry<T>,
     /// Flow state
@@ -37,7 +38,7 @@ pub struct Channel<T: RealField + Copy> {
 
 /// Flow state information
 #[derive(Debug, Clone)]
-pub struct FlowState<T: RealField + Copy> {
+pub struct FlowState<T: Cfd1dScalar + Copy> {
     /// Reynolds number
     pub reynolds_number: Option<T>,
     /// Knudsen number `Kn = λ / Dh` — `None` if not computed
@@ -71,10 +72,10 @@ impl FlowRegime {
     /// Determine flow regime from Reynolds number alone (no Kn data available).
     ///
     /// Use `classify_with_knudsen` when the Knudsen number is known.
-    pub fn from_reynolds_number<T: RealField + Copy + num_traits::FromPrimitive>(re: T) -> Self {
+    pub fn from_reynolds_number<T: Cfd1dScalar + Copy + SafeFromF64>(re: T) -> Self {
         let re_1 = T::one();
-        let re_2300 = T::from_f64(2300.0).expect("Mathematical constant conversion compromised");
-        let re_4000 = T::from_f64(4000.0).expect("Mathematical constant conversion compromised");
+        let re_2300 = T::from_f64_or_one(2300.0);
+        let re_4000 = T::from_f64_or_one(4000.0);
 
         if re < re_1 {
             FlowRegime::Stokes
@@ -91,14 +92,8 @@ impl FlowRegime {
     ///
     /// `Kn = λ / Dh` where `λ` is the fluid mean free path and `Dh` is the hydraulic diameter.
     /// When `Kn ≥ 0.001`, slip flow overrides the continuum classification.
-    pub fn classify_with_knudsen<
-        T: RealField + Copy + num_traits::FromPrimitive + num_traits::ToPrimitive,
-    >(
-        re: T,
-        kn: T,
-    ) -> Self {
-        let kn_val = kn.to_f64().unwrap_or(0.0);
-        if kn_val >= KN_SLIP_MIN {
+    pub fn classify_with_knudsen<T: Cfd1dScalar + Copy + SafeFromF64>(re: T, kn: T) -> Self {
+        if kn >= T::from_f64_or_one(KN_SLIP_MIN) {
             FlowRegime::SlipFlow
         } else {
             Self::from_reynolds_number(re)
@@ -108,7 +103,7 @@ impl FlowRegime {
 
 /// Numerical parameters for advanced modeling
 #[derive(Debug, Clone)]
-pub struct NumericalParameters<T: RealField + Copy> {
+pub struct NumericalParameters<T: Cfd1dScalar + Copy> {
     /// Number of discretization points
     pub discretization_points: usize,
     /// Convergence tolerance

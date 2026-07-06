@@ -46,20 +46,30 @@ mod weno7;
 
 pub use weno7::WENO7;
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, RealField};
+
+pub(super) fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+pub(super) fn squared<T>(value: T) -> T
+where
+    T: Copy + std::ops::Mul<Output = T>,
+{
+    value * value
+}
 
 /// Unified interface for WENO reconstruction schemes
 pub struct WenoReconstruction;
 
 impl WenoReconstruction {
     /// Create a 5th-order WENO reconstruction scheme
-    pub fn weno5<T: RealField + Copy + FromPrimitive>() -> WENO5<T> {
+    pub fn weno5<T: RealField + Copy + FloatElement>() -> WENO5<T> {
         WENO5::new()
     }
 
     /// Create a 7th-order WENO reconstruction scheme
-    pub fn weno7<T: RealField + Copy + FromPrimitive>() -> WENO7<T> {
+    pub fn weno7<T: RealField + Copy + FloatElement>() -> WENO7<T> {
         WENO7::new()
     }
 }
@@ -68,17 +78,17 @@ impl WenoReconstruction {
 ///
 /// Implements the 5th-order WENO scheme of Jiang & Shu (1996) with
 /// improved weights of Borges et al. (2008).
-pub struct WENO5<T: RealField + Copy + FromPrimitive> {
+pub struct WENO5<T: RealField + Copy + FloatElement> {
     /// Small parameter to avoid division by zero in smoothness indicators
     epsilon: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
+impl<T: RealField + Copy + FloatElement> WENO5<T> {
     /// Create a new WENO5 scheme
     #[must_use]
     pub fn new() -> Self {
         Self {
-            epsilon: T::from_f64(1e-6).unwrap_or_else(T::zero),
+            epsilon: from_f64::<T>(1e-6),
         }
     }
 
@@ -108,14 +118,14 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
         let beta2 = self.smoothness_indicator_2(cells);
 
         // Linear weights (Borges et al. 2008 improved weights)
-        let c0 = T::from_f64(1.0 / 10.0).unwrap_or_else(T::one);
-        let c1 = T::from_f64(6.0 / 10.0).unwrap_or_else(T::one);
-        let c2 = T::from_f64(3.0 / 10.0).unwrap_or_else(T::one);
+        let c0 = from_f64::<T>(1.0 / 10.0);
+        let c1 = from_f64::<T>(6.0 / 10.0);
+        let c2 = from_f64::<T>(3.0 / 10.0);
 
         // Nonlinear weights
-        let alpha0 = c0 / (self.epsilon + beta0).powi(2);
-        let alpha1 = c1 / (self.epsilon + beta1).powi(2);
-        let alpha2 = c2 / (self.epsilon + beta2).powi(2);
+        let alpha0 = c0 / squared(self.epsilon + beta0);
+        let alpha1 = c1 / squared(self.epsilon + beta1);
+        let alpha2 = c2 / squared(self.epsilon + beta2);
 
         let alpha_sum = alpha0 + alpha1 + alpha2;
 
@@ -147,14 +157,14 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
         let beta2 = self.smoothness_indicator_2(cells);
 
         // Linear weights (Borges et al. 2008 improved weights)
-        let c0 = T::from_f64(1.0 / 10.0).unwrap_or_else(T::one);
-        let c1 = T::from_f64(6.0 / 10.0).unwrap_or_else(T::one);
-        let c2 = T::from_f64(3.0 / 10.0).unwrap_or_else(T::one);
+        let c0 = from_f64::<T>(1.0 / 10.0);
+        let c1 = from_f64::<T>(6.0 / 10.0);
+        let c2 = from_f64::<T>(3.0 / 10.0);
 
         // Nonlinear weights
-        let alpha0 = c0 / (self.epsilon + beta0).powi(2);
-        let alpha1 = c1 / (self.epsilon + beta1).powi(2);
-        let alpha2 = c2 / (self.epsilon + beta2).powi(2);
+        let alpha0 = c0 / squared(self.epsilon + beta0);
+        let alpha1 = c1 / squared(self.epsilon + beta1);
+        let alpha2 = c2 / squared(self.epsilon + beta2);
 
         let alpha_sum = alpha0 + alpha1 + alpha2;
 
@@ -169,10 +179,10 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
     /// 3rd-order ENO stencil 0 (left reconstruction): {u_{j-2}, u_{j-1}, u_j}
     #[must_use]
     fn eno3_stencil_0(&self, cells: &[T; 5]) -> T {
-        let two = T::from_f64(2.0).unwrap_or_else(T::one);
-        let seven = T::from_f64(7.0).unwrap_or_else(T::one);
-        let eleven = T::from_f64(11.0).unwrap_or_else(T::one);
-        let six = T::from_f64(6.0).unwrap_or_else(T::one);
+        let two = from_f64::<T>(2.0);
+        let seven = from_f64::<T>(7.0);
+        let eleven = from_f64::<T>(11.0);
+        let six = from_f64::<T>(6.0);
 
         (two * cells[0] - seven * cells[1] + eleven * cells[2]) / six
     }
@@ -180,9 +190,9 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
     /// 3rd-order ENO stencil 1 (left reconstruction): {u_{j-1}, u_j, u_{j+1}}
     #[must_use]
     fn eno3_stencil_1(&self, cells: &[T; 5]) -> T {
-        let five = T::from_f64(5.0).unwrap_or_else(T::one);
-        let two = T::from_f64(2.0).unwrap_or_else(T::one);
-        let six = T::from_f64(6.0).unwrap_or_else(T::one);
+        let five = from_f64::<T>(5.0);
+        let two = from_f64::<T>(2.0);
+        let six = from_f64::<T>(6.0);
 
         (-cells[1] + five * cells[2] + two * cells[3]) / six
     }
@@ -190,9 +200,9 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
     /// 3rd-order ENO stencil 2 (left reconstruction): {u_j, u_{j+1}, u_{j+2}}
     #[must_use]
     fn eno3_stencil_2(&self, cells: &[T; 5]) -> T {
-        let two = T::from_f64(2.0).unwrap_or_else(T::one);
-        let five = T::from_f64(5.0).unwrap_or_else(T::one);
-        let six = T::from_f64(6.0).unwrap_or_else(T::one);
+        let two = from_f64::<T>(2.0);
+        let five = from_f64::<T>(5.0);
+        let six = from_f64::<T>(6.0);
 
         (two * cells[2] + five * cells[3] - cells[4]) / six
     }
@@ -200,10 +210,10 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
     /// 3rd-order ENO stencil 0 (right reconstruction): {u_{j-2}, u_{j-1}, u_j}
     #[must_use]
     fn eno3_stencil_0_right(&self, cells: &[T; 5]) -> T {
-        let eleven = T::from_f64(11.0).unwrap_or_else(T::one);
-        let seven = T::from_f64(7.0).unwrap_or_else(T::one);
-        let two = T::from_f64(2.0).unwrap_or_else(T::one);
-        let six = T::from_f64(6.0).unwrap_or_else(T::one);
+        let eleven = from_f64::<T>(11.0);
+        let seven = from_f64::<T>(7.0);
+        let two = from_f64::<T>(2.0);
+        let six = from_f64::<T>(6.0);
 
         (eleven * cells[0] - seven * cells[1] + two * cells[2]) / six
     }
@@ -211,9 +221,9 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
     /// 3rd-order ENO stencil 1 (right reconstruction): {u_{j-1}, u_j, u_{j+1}}
     #[must_use]
     fn eno3_stencil_1_right(&self, cells: &[T; 5]) -> T {
-        let two = T::from_f64(2.0).unwrap_or_else(T::one);
-        let five = T::from_f64(5.0).unwrap_or_else(T::one);
-        let six = T::from_f64(6.0).unwrap_or_else(T::one);
+        let two = from_f64::<T>(2.0);
+        let five = from_f64::<T>(5.0);
+        let six = from_f64::<T>(6.0);
 
         (two * cells[1] + five * cells[2] - cells[3]) / six
     }
@@ -221,9 +231,9 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
     /// 3rd-order ENO stencil 2 (right reconstruction): {u_j, u_{j+1}, u_{j+2}}
     #[must_use]
     fn eno3_stencil_2_right(&self, cells: &[T; 5]) -> T {
-        let five = T::from_f64(5.0).unwrap_or_else(T::one);
-        let two = T::from_f64(2.0).unwrap_or_else(T::one);
-        let six = T::from_f64(6.0).unwrap_or_else(T::one);
+        let five = from_f64::<T>(5.0);
+        let two = from_f64::<T>(2.0);
+        let six = from_f64::<T>(6.0);
 
         (-cells[2] + five * cells[3] + two * cells[4]) / six
     }
@@ -232,16 +242,15 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
     #[must_use]
     #[inline]
     fn smoothness_indicator_0(&self, cells: &[T; 5]) -> T {
-        let thirteen_twelfth = T::from_f64(13.0 / 12.0).unwrap_or_else(T::one);
-        let one_fourth = T::from_f64(1.0 / 4.0).unwrap_or_else(T::one);
+        let thirteen_twelfth = from_f64::<T>(13.0 / 12.0);
+        let one_fourth = from_f64::<T>(1.0 / 4.0);
 
         let u0 = cells[0];
         let u1 = cells[1];
         let u2 = cells[2];
 
-        let term1 = u0 - T::from_f64(2.0).unwrap_or_else(T::one) * u1 + u2;
-        let term2 = u0 - T::from_f64(4.0).unwrap_or_else(T::one) * u1
-            + T::from_f64(3.0).unwrap_or_else(T::one) * u2;
+        let term1 = u0 - from_f64::<T>(2.0) * u1 + u2;
+        let term2 = u0 - from_f64::<T>(4.0) * u1 + from_f64::<T>(3.0) * u2;
 
         thirteen_twelfth * term1 * term1 + one_fourth * term2 * term2
     }
@@ -249,14 +258,14 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
     /// Smoothness indicator β_1 for stencil r=1
     #[must_use]
     fn smoothness_indicator_1(&self, cells: &[T; 5]) -> T {
-        let thirteen_twelfth = T::from_f64(13.0 / 12.0).unwrap_or_else(T::one);
-        let one_fourth = T::from_f64(1.0 / 4.0).unwrap_or_else(T::one);
+        let thirteen_twelfth = from_f64::<T>(13.0 / 12.0);
+        let one_fourth = from_f64::<T>(1.0 / 4.0);
 
         let u1 = cells[1];
         let u2 = cells[2];
         let u3 = cells[3];
 
-        let term1 = u1 - T::from_f64(2.0).unwrap_or_else(T::one) * u2 + u3;
+        let term1 = u1 - from_f64::<T>(2.0) * u2 + u3;
         let term2 = u1 - u3;
 
         thirteen_twelfth * term1 * term1 + one_fourth * term2 * term2
@@ -265,23 +274,21 @@ impl<T: RealField + Copy + FromPrimitive> WENO5<T> {
     /// Smoothness indicator β_2 for stencil r=2
     #[must_use]
     fn smoothness_indicator_2(&self, cells: &[T; 5]) -> T {
-        let thirteen_twelfth = T::from_f64(13.0 / 12.0).unwrap_or_else(T::one);
-        let one_fourth = T::from_f64(1.0 / 4.0).unwrap_or_else(T::one);
+        let thirteen_twelfth = from_f64::<T>(13.0 / 12.0);
+        let one_fourth = from_f64::<T>(1.0 / 4.0);
 
         let u2 = cells[2];
         let u3 = cells[3];
         let u4 = cells[4];
 
-        let term1 = u2 - T::from_f64(2.0).unwrap_or_else(T::one) * u3 + u4;
-        let term2 = T::from_f64(3.0).unwrap_or_else(T::one) * u2
-            - T::from_f64(4.0).unwrap_or_else(T::one) * u3
-            + u4;
+        let term1 = u2 - from_f64::<T>(2.0) * u3 + u4;
+        let term2 = from_f64::<T>(3.0) * u2 - from_f64::<T>(4.0) * u3 + u4;
 
         thirteen_twelfth * term1 * term1 + one_fourth * term2 * term2
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for WENO5<T> {
+impl<T: RealField + Copy + FloatElement> Default for WENO5<T> {
     fn default() -> Self {
         Self::new()
     }

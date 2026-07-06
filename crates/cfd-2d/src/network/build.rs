@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result as CfdResult;
 use cfd_core::physics::fluid::BloodModel;
 use cfd_schematics::application::ports::GraphSink;
@@ -7,9 +8,9 @@ use cfd_schematics::domain::model::{ChannelShape, NetworkBlueprint};
 use cfd_schematics::domain::rules::BlueprintValidator;
 use cfd_schematics::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
 use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 
+use crate::scalar;
 use crate::solvers::ns_fvm::{NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 
 use super::projection::{
@@ -22,7 +23,7 @@ use super::ChannelReferenceTrace;
 
 /// A [`GraphSink`] that converts a validated [`NetworkBlueprint`] into a
 /// solver-ready [`Network2DSolver<T>`].
-pub struct Network2dBuilderSink<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> {
+pub struct Network2dBuilderSink<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> {
     blood: BloodModel<T>,
     density: f64,
     /// Total inlet flow rate [m³/s] used to scale the cfd-1d reference trace.
@@ -32,7 +33,7 @@ pub struct Network2dBuilderSink<T: RealField + Copy + Float + FromPrimitive + To
     separation_tracking_enabled: bool,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> Network2dBuilderSink<T> {
+impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> Network2dBuilderSink<T> {
     /// Create a new sink.
     #[must_use]
     pub fn new(
@@ -62,7 +63,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> Network2dBuilder
 
 impl<T> GraphSink for Network2dBuilderSink<T>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug + 'static,
+    T: Cfd2dScalar + Copy + FloatElement + EunomiaRealField + std::fmt::Debug + 'static,
 {
     type Output = Network2DSolver<T>;
 
@@ -93,7 +94,7 @@ where
                     ))
                 })?;
             let cross_section_area_m2 = channel.cross_section.area();
-            let q_ch = channel_reference.flow_rate_m3_s.to_f64().unwrap_or(0.0);
+            let q_ch = <T as NumericElement>::to_f64(channel_reference.flow_rate_m3_s);
             let mean_velocity_m_s = q_ch / cross_section_area_m2.max(1e-18);
 
             let therapy_zone = channel
@@ -117,12 +118,10 @@ where
             let is_venturi_throat = venturi_meta.is_some();
 
             let projection_domain = channel_projection_domain(channel);
-            let l_t =
-                T::from_f64(projection_domain.length_m).expect("analytical constant conversion");
-            let grid_w =
-                T::from_f64(projection_domain.width_m).expect("analytical constant conversion");
+            let l_t = scalar::from_f64(projection_domain.length_m);
+            let grid_w = scalar::from_f64(projection_domain.width_m);
             let grid = StaggeredGrid2D::new(self.grid_nx, self.grid_ny, l_t, grid_w);
-            let density_t = T::from_f64(self.density).expect("analytical constant conversion");
+            let density_t = scalar::from_f64(self.density);
             let config = solver_config_for_channel::<T>(&channel.channel_shape, mean_velocity_m_s);
             let mut solver = NavierStokesSolver2D::new(grid, self.blood.clone(), density_t, config);
 
@@ -160,40 +159,40 @@ where
 }
 
 /// Extract a representative dynamic viscosity [Pa·s] from the blood model.
-fn blood_viscosity_f64<T: RealField + Copy + Float + FromPrimitive + ToPrimitive>(
+fn blood_viscosity_f64<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement>(
     model: &BloodModel<T>,
 ) -> f64 {
     const REF_SHEAR: f64 = 100.0;
-    let shear_t = T::from_f64(REF_SHEAR).expect("analytical constant conversion");
-    model.viscosity(shear_t).to_f64().unwrap_or(3.5e-3)
+    let shear_t = scalar::from_f64(REF_SHEAR);
+    <T as NumericElement>::to_f64(model.viscosity(shear_t))
 }
 
 /// Select a SIMPLE/PISO relaxation profile for the channel shape.
-fn solver_config_for_channel<T: RealField + Copy + Float + FromPrimitive>(
+fn solver_config_for_channel<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement>(
     shape: &ChannelShape,
     mean_velocity_m_s: f64,
 ) -> SIMPLEConfig<T> {
     if mean_velocity_m_s > 0.55 {
         SIMPLEConfig {
             max_iterations: 12_000,
-            alpha_u: T::from_f64(0.25).expect("analytical constant conversion"),
-            alpha_p: T::from_f64(0.05).expect("analytical constant conversion"),
+            alpha_u: scalar::from_f64(0.25),
+            alpha_p: scalar::from_f64(0.05),
             n_correctors: 1,
             ..SIMPLEConfig::default()
         }
     } else if matches!(shape, ChannelShape::Serpentine { .. }) || mean_velocity_m_s > 0.5 {
         SIMPLEConfig {
             max_iterations: 8_000,
-            alpha_u: T::from_f64(0.4).expect("analytical constant conversion"),
-            alpha_p: T::from_f64(0.12).expect("analytical constant conversion"),
+            alpha_u: scalar::from_f64(0.4),
+            alpha_p: scalar::from_f64(0.12),
             n_correctors: 1,
             ..SIMPLEConfig::default()
         }
     } else {
         SIMPLEConfig {
             max_iterations: 8_000,
-            alpha_u: T::from_f64(0.35).expect("analytical constant conversion"),
-            alpha_p: T::from_f64(0.1).expect("analytical constant conversion"),
+            alpha_u: scalar::from_f64(0.35),
+            alpha_p: scalar::from_f64(0.1),
             n_correctors: 1,
             ..SIMPLEConfig::default()
         }

@@ -174,10 +174,10 @@ fn validate_taylor_green(tg: &TaylorGreenManufactured<f64>, name: &str) -> bool 
         let p = tg.pressure(x, y, t);
         let omega = tg.vorticity(x, y, t);
 
-        if !vel.x.is_finite() || !vel.y.is_finite() || !p.is_finite() || !omega.is_finite() {
+        if !vel[0].is_finite() || !vel[1].is_finite() || !p.is_finite() || !omega.is_finite() {
             println!(
                 "    {} failed at ({},{},t={}): vel=({},{}), p={}, omega={}",
-                name, x, y, t, vel.x, vel.y, p, omega
+                name, x, y, t, vel[0], vel[1], p, omega
             );
             return false;
         }
@@ -223,8 +223,8 @@ mod property_tests {
             let vel = tg.velocity(0.5, 0.5, 0.0);
             let p = tg.pressure(0.5, 0.5, 0.0);
 
-            prop_assert!(vel.x.is_finite());
-            prop_assert!(vel.y.is_finite());
+            prop_assert!(vel[0].is_finite());
+            prop_assert!(vel[1].is_finite());
             prop_assert!(p.is_finite());
         }
     }

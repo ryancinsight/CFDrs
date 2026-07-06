@@ -41,8 +41,8 @@ pub fn temperature_viscosity_factor(temp_c: f64) -> f64 {
     (B_K * (1.0 / t_k - 1.0 / T_REF_K)).exp()
 }
 use crate::physics::fluid::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Casson blood model for hemodynamic simulations
@@ -91,7 +91,7 @@ pub struct CassonBlood<T: RealField + Copy> {
     pub regularization_shear_rate: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
+impl<T: RealField + FloatElement + Copy> CassonBlood<T> {
     /// Create Casson blood model with literature-validated parameters for normal blood
     ///
     /// Uses parameters from Merrill et al. (1969) and Fung (1993):
@@ -109,21 +109,19 @@ impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
     /// ```
     pub fn normal_blood() -> Self {
         Self {
-            density: T::from_f64(constants::BLOOD_DENSITY).unwrap_or_else(num_traits::Zero::zero),
-            yield_stress: T::from_f64(constants::YIELD_STRESS)
-                .unwrap_or_else(num_traits::Zero::zero),
-            infinite_shear_viscosity: T::from_f64(constants::INFINITE_SHEAR_VISCOSITY)
-                .unwrap_or_else(num_traits::Zero::zero),
-            hematocrit: T::from_f64(constants::NORMAL_HEMATOCRIT)
-                .unwrap_or_else(num_traits::Zero::zero),
-            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT)
-                .unwrap_or_else(num_traits::Zero::zero),
-            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY)
-                .unwrap_or_else(num_traits::Zero::zero),
-            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND)
-                .unwrap_or_else(num_traits::Zero::zero),
-            reference_shear_rate: T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero),
-            regularization_shear_rate: T::from_f64(0.001).unwrap_or_else(num_traits::Zero::zero),
+            density: <T as FloatElement>::from_f64(constants::BLOOD_DENSITY),
+            yield_stress: <T as FloatElement>::from_f64(constants::YIELD_STRESS),
+            infinite_shear_viscosity: <T as FloatElement>::from_f64(
+                constants::INFINITE_SHEAR_VISCOSITY,
+            ),
+            hematocrit: <T as FloatElement>::from_f64(constants::NORMAL_HEMATOCRIT),
+            specific_heat: <T as FloatElement>::from_f64(constants::BLOOD_SPECIFIC_HEAT),
+            thermal_conductivity: <T as FloatElement>::from_f64(
+                constants::BLOOD_THERMAL_CONDUCTIVITY,
+            ),
+            speed_of_sound: <T as FloatElement>::from_f64(constants::BLOOD_SPEED_OF_SOUND),
+            reference_shear_rate: <T as FloatElement>::from_f64(100.0),
+            regularization_shear_rate: <T as FloatElement>::from_f64(0.001),
         }
     }
 
@@ -134,14 +132,13 @@ impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
             yield_stress,
             infinite_shear_viscosity,
             hematocrit,
-            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT)
-                .unwrap_or_else(num_traits::Zero::zero),
-            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY)
-                .unwrap_or_else(num_traits::Zero::zero),
-            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND)
-                .unwrap_or_else(num_traits::Zero::zero),
-            reference_shear_rate: T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero),
-            regularization_shear_rate: T::from_f64(0.001).unwrap_or_else(num_traits::Zero::zero),
+            specific_heat: <T as FloatElement>::from_f64(constants::BLOOD_SPECIFIC_HEAT),
+            thermal_conductivity: <T as FloatElement>::from_f64(
+                constants::BLOOD_THERMAL_CONDUCTIVITY,
+            ),
+            speed_of_sound: <T as FloatElement>::from_f64(constants::BLOOD_SPEED_OF_SOUND),
+            reference_shear_rate: <T as FloatElement>::from_f64(100.0),
+            regularization_shear_rate: <T as FloatElement>::from_f64(0.001),
         }
     }
 
@@ -151,34 +148,32 @@ impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
     /// - τ_y(H_t) = τ_y,ref · (H_t / H_t,ref)^3  (Chien 1970)
     /// - μ_∞(H_t) = μ_plasma · exp(k · H_t / (1 - H_t))  (Quemada 1978)
     pub fn with_hematocrit(hematocrit: T) -> Self {
-        let h_ref =
-            T::from_f64(constants::NORMAL_HEMATOCRIT).unwrap_or_else(num_traits::Zero::zero);
-        let tau_ref = T::from_f64(constants::YIELD_STRESS).unwrap_or_else(num_traits::Zero::zero);
-        let mu_plasma =
-            T::from_f64(constants::PLASMA_VISCOSITY_37C).unwrap_or_else(num_traits::Zero::zero);
+        let h_ref = <T as FloatElement>::from_f64(constants::NORMAL_HEMATOCRIT);
+        let tau_ref = <T as FloatElement>::from_f64(constants::YIELD_STRESS);
+        let mu_plasma = <T as FloatElement>::from_f64(constants::PLASMA_VISCOSITY_37C);
 
         // Yield stress scaling with hematocrit (Chien 1970)
         let ratio = hematocrit / h_ref;
         let yield_stress = tau_ref * ratio * ratio * ratio;
 
         // Infinite-shear viscosity from Quemada model
-        let k = T::from_f64(2.5).unwrap_or_else(num_traits::Zero::zero); // Intrinsic viscosity coefficient
-        let one = T::one();
-        let infinite_shear_viscosity = mu_plasma * (k * hematocrit / (one - hematocrit)).exp();
+        let k = <T as FloatElement>::from_f64(2.5); // Intrinsic viscosity coefficient
+        let one = <T as NumericElement>::ONE;
+        let infinite_shear_viscosity =
+            mu_plasma * <T as FloatElement>::exp(k * hematocrit / (one - hematocrit));
 
         Self {
-            density: T::from_f64(constants::BLOOD_DENSITY).unwrap_or_else(num_traits::Zero::zero),
+            density: <T as FloatElement>::from_f64(constants::BLOOD_DENSITY),
             yield_stress,
             infinite_shear_viscosity,
             hematocrit,
-            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT)
-                .unwrap_or_else(num_traits::Zero::zero),
-            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY)
-                .unwrap_or_else(num_traits::Zero::zero),
-            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND)
-                .unwrap_or_else(num_traits::Zero::zero),
-            reference_shear_rate: T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero),
-            regularization_shear_rate: T::from_f64(0.001).unwrap_or_else(num_traits::Zero::zero),
+            specific_heat: <T as FloatElement>::from_f64(constants::BLOOD_SPECIFIC_HEAT),
+            thermal_conductivity: <T as FloatElement>::from_f64(
+                constants::BLOOD_THERMAL_CONDUCTIVITY,
+            ),
+            speed_of_sound: <T as FloatElement>::from_f64(constants::BLOOD_SPEED_OF_SOUND),
+            reference_shear_rate: <T as FloatElement>::from_f64(100.0),
+            regularization_shear_rate: <T as FloatElement>::from_f64(0.001),
         }
     }
 
@@ -212,9 +207,9 @@ impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
         };
 
         // Casson model: μ_app = (√τ_y/√γ̇ + √μ_∞)²
-        let sqrt_tau_y = self.yield_stress.sqrt();
-        let sqrt_mu_inf = self.infinite_shear_viscosity.sqrt();
-        let sqrt_gamma = gamma_eff.sqrt();
+        let sqrt_tau_y = <T as NumericElement>::sqrt(self.yield_stress);
+        let sqrt_mu_inf = <T as NumericElement>::sqrt(self.infinite_shear_viscosity);
+        let sqrt_gamma = <T as NumericElement>::sqrt(gamma_eff);
 
         let casson_sqrt = sqrt_tau_y / sqrt_gamma + sqrt_mu_inf;
         casson_sqrt * casson_sqrt
@@ -241,11 +236,17 @@ impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
     /// * `shear_rate` — Wall shear rate [s⁻¹]
     /// * `temp_k`     — Blood temperature \[K]; if ≤ 0, defaults to 310 K (37 °C)
     pub fn apparent_viscosity_at_temp(&self, shear_rate: T, temp_k: T) -> T {
-        let t_ref = T::from_f64(310.15).unwrap_or_else(num_traits::Zero::zero);
-        let b = T::from_f64(1500.0).unwrap_or_else(num_traits::Zero::zero);
-        let t_eff = if temp_k <= T::zero() { t_ref } else { temp_k };
+        let t_ref = <T as FloatElement>::from_f64(310.15);
+        let b = <T as FloatElement>::from_f64(1500.0);
+        let t_eff = if temp_k <= <T as NumericElement>::ZERO {
+            t_ref
+        } else {
+            temp_k
+        };
         // Andrade factor: exp(B × (1/T − 1/T_ref))
-        let factor = (b * (T::one() / t_eff - T::one() / t_ref)).exp();
+        let factor = <T as FloatElement>::exp(
+            b * (<T as NumericElement>::ONE / t_eff - <T as NumericElement>::ONE / t_ref),
+        );
         self.apparent_viscosity(shear_rate) * factor
     }
 
@@ -254,20 +255,22 @@ impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
     /// # Errors
     /// Returns error if parameters are physically invalid
     pub fn validate(&self) -> Result<(), Error> {
-        if self.density <= T::zero() {
+        if self.density <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput("Density must be positive".to_string()));
         }
-        if self.yield_stress < T::zero() {
+        if self.yield_stress < <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Yield stress must be non-negative".to_string(),
             ));
         }
-        if self.infinite_shear_viscosity <= T::zero() {
+        if self.infinite_shear_viscosity <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Infinite-shear viscosity must be positive".to_string(),
             ));
         }
-        if self.hematocrit < T::zero() || self.hematocrit > T::one() {
+        if self.hematocrit < <T as NumericElement>::ZERO
+            || self.hematocrit > <T as NumericElement>::ONE
+        {
             return Err(Error::InvalidInput(
                 "Hematocrit must be between 0 and 1".to_string(),
             ));
@@ -276,7 +279,7 @@ impl<T: RealField + FromPrimitive + Copy> CassonBlood<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CassonBlood<T> {
+impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CassonBlood<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
@@ -302,7 +305,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CassonBlood<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for CassonBlood<T> {
+impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for CassonBlood<T> {
     fn apparent_viscosity(&self, shear_rate: T) -> T {
         CassonBlood::apparent_viscosity(self, shear_rate)
     }

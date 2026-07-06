@@ -26,8 +26,7 @@
 
 use cfd_core::physics::fluid_dynamics::fields::{FlowField, VelocityField};
 use cfd_core::physics::fluid_dynamics::TurbulenceModel;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 
 use super::field_ops::derivative_y;
 
@@ -35,7 +34,7 @@ use super::field_ops::derivative_y;
 ///
 /// See [module-level documentation](self) for the theorem and proof sketch.
 #[derive(Debug, Clone)]
-pub struct MixingLengthModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct MixingLengthModel<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// Mixing length scale lₘ \[m]
     pub length_scale: T,
     /// von Kármán constant κ = 0.41 (dimensionless)
@@ -51,7 +50,7 @@ pub struct MixingLengthModel<T: cfd_mesh::domain::core::Scalar + RealField + Cop
     pub filter_width: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> MixingLengthModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> MixingLengthModel<T> {
     /// Create a new mixing length model.
     ///
     /// Sets `wall_normal_spacing = length_scale` and `filter_width =
@@ -59,10 +58,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Mixin
     /// comparable). For physically correct gradient computation use
     /// [`MixingLengthModel::with_filter_width`].
     pub fn new(length_scale: T) -> Self {
-        let kappa = <T as FromPrimitive>::from_f64(
-            cfd_core::physics::constants::physics::fluid::VON_KARMAN,
-        )
-        .expect("VON_KARMAN is an IEEE 754 representable f64 constant");
+        let kappa =
+            <T as FloatElement>::from_f64(cfd_core::physics::constants::physics::fluid::VON_KARMAN);
         Self {
             length_scale,
             kappa,
@@ -81,12 +78,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Mixin
     /// * `length_scale` — Prandtl mixing length lₘ \[m]
     /// * `dx`, `dy`, `dz` — physical cell dimensions \[m]
     pub fn with_filter_width(length_scale: T, dx: T, dy: T, dz: T) -> Self {
-        let kappa = <T as FromPrimitive>::from_f64(
-            cfd_core::physics::constants::physics::fluid::VON_KARMAN,
-        )
-        .expect("VON_KARMAN is an IEEE 754 representable f64 constant");
-        let one_third = T::one() / (T::one() + T::one() + T::one());
-        let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
+        let kappa =
+            <T as FloatElement>::from_f64(cfd_core::physics::constants::physics::fluid::VON_KARMAN);
+        let one_third = T::ONE / (T::ONE + T::ONE + T::ONE);
+        let filter_width = <T as FloatElement>::powf(dx * dy * dz, one_third);
         Self {
             length_scale,
             kappa,
@@ -117,13 +112,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Mixin
             k,
             self.wall_normal_spacing,
         );
-        num_traits::Float::abs(gradient.x)
+        <T as NumericElement>::abs(gradient.x)
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
-    for MixingLengthModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for MixingLengthModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         // νₜ = l² * |∂u/∂y| (Prandtl's mixing length hypothesis)
         flow_field

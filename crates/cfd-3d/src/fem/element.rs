@@ -30,9 +30,9 @@
 //!
 //! **Reference:** Zienkiewicz & Taylor, "The Finite Element Method", Vol. 1, 6th Ed., §7.3.
 
-use crate::fem::constants;
+use crate::fem::{constants, scalar};
+use eunomia::{FloatElement, NumericElement};
 use nalgebra::{DMatrix, DVector, Matrix3, RealField, Vector3};
-use num_traits::{Float, FromPrimitive};
 
 /// Element matrices for FEM assembly
 #[derive(Debug, Clone)]
@@ -45,7 +45,7 @@ pub struct ElementMatrices<T: cfd_mesh::domain::core::Scalar + RealField + Copy>
     pub f_e: DMatrix<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ElementMatrices<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> ElementMatrices<T> {
     /// Create new element matrices
     #[must_use]
     pub fn new(n_dof: usize) -> Self {
@@ -68,14 +68,14 @@ pub struct FluidElement<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub shape_derivatives: DMatrix<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Float> FluidElement<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> FluidElement<T> {
     /// Create new fluid element
     #[must_use]
     pub fn new(nodes: Vec<usize>) -> Self {
         let n = nodes.len();
         Self {
             nodes,
-            volume: T::zero(),
+            volume: scalar::zero::<T>(),
             shape_derivatives: DMatrix::zeros(3, n),
         }
     }
@@ -94,7 +94,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     /// $\mathbb{R}^3$). The sign of $\det J$ encodes orientation.
     pub fn calculate_volume(&mut self, vertices: &[Vector3<T>]) -> T {
         if vertices.len() < 4 {
-            return T::zero();
+            return scalar::zero::<T>();
         }
 
         let v0 = &vertices[0];
@@ -107,9 +107,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let e3 = v3 - v0;
 
         let det_j = e1.dot(&e2.cross(&e3)); // Signed 6V
-        self.volume = num_traits::Float::abs(det_j)
-            / <T as FromPrimitive>::from_f64(6.0)
-                .expect("6.0 is representable in all IEEE 754 types");
+        self.volume = <T as NumericElement>::abs(det_j) / scalar::constant::<T>(6.0);
         det_j // Return signed 6V for orientation-correct assembly
     }
 
@@ -147,10 +145,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let d3_vec = v4 - v1;
         let six_v = d1_vec.dot(&d2_vec.cross(&d3_vec));
 
-        if num_traits::Float::abs(six_v)
-            < <T as FromPrimitive>::from_f64(1e-24)
-                .expect("1e-24 is an IEEE 754 representable f64 constant")
-        {
+        if <T as NumericElement>::abs(six_v) < scalar::constant::<T>(1e-24) {
             self.shape_derivatives = DMatrix::zeros(3, 4);
             return;
         }
@@ -215,7 +210,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                         let col = j * 3 + d;
 
                         // Viscous contribution: μ ∫ (∇Ni : ∇Nj) dΩ
-                        let mut visc_term = T::zero();
+                        let mut visc_term = scalar::zero::<T>();
                         for k in 0..3 {
                             visc_term +=
                                 self.shape_derivatives[(k, i)] * self.shape_derivatives[(k, j)];
@@ -229,10 +224,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                                     * self.shape_derivatives[(k, j)]
                                     + self.shape_derivatives[(k, i)]
                                         * self.shape_derivatives[(d, j)];
-                                k_e[(row, col)] += factor
-                                    * cross_term
-                                    * <T as FromPrimitive>::from_f64(0.5)
-                                        .expect("0.5 is exactly representable in IEEE 754");
+                                k_e[(row, col)] += factor * cross_term * scalar::constant::<T>(0.5);
                             }
                         }
                     }
@@ -244,8 +236,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
     /// Calculate strain rate from velocity gradient
     pub fn strain_rate(&self, velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
-        let half =
-            <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
+        let half = scalar::constant::<T>(0.5);
         (velocity_gradient + velocity_gradient.transpose()) * half
     }
 }

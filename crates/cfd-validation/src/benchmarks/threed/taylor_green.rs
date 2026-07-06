@@ -71,7 +71,8 @@ impl TaylorGreenBenchmarkConfig {
         }
         if !kinematic_viscosity.is_finite() || kinematic_viscosity < 0.0 {
             return Err(Error::InvalidConfiguration(
-                "TaylorGreenBenchmarkConfig: kinematic_viscosity must be finite and non-negative".into(),
+                "TaylorGreenBenchmarkConfig: kinematic_viscosity must be finite and non-negative"
+                    .into(),
             ));
         }
         if !density.is_finite() || density <= 0.0 {
@@ -96,7 +97,8 @@ impl TaylorGreenBenchmarkConfig {
         }
         if !validation_tolerance.is_finite() || validation_tolerance < 0.0 {
             return Err(Error::InvalidConfiguration(
-                "TaylorGreenBenchmarkConfig: validation_tolerance must be finite and non-negative".into(),
+                "TaylorGreenBenchmarkConfig: validation_tolerance must be finite and non-negative"
+                    .into(),
             ));
         }
 
@@ -269,16 +271,13 @@ impl TaylorGreenBenchmark3D {
             }
         }
 
-        let energy_scale = history
-            .checkpoints
-            .first()
-            .map_or(1.0, |checkpoint| {
-                if checkpoint.numerical_energy.abs() > f64::EPSILON {
-                    checkpoint.analytic_energy / checkpoint.numerical_energy
-                } else {
-                    1.0
-                }
-            });
+        let energy_scale = history.checkpoints.first().map_or(1.0, |checkpoint| {
+            if checkpoint.numerical_energy.abs() > f64::EPSILON {
+                checkpoint.analytic_energy / checkpoint.numerical_energy
+            } else {
+                1.0
+            }
+        });
 
         for checkpoint in &mut history.checkpoints {
             checkpoint.relative_energy_error = if checkpoint.analytic_energy.abs() > f64::EPSILON {
@@ -305,12 +304,14 @@ impl TaylorGreenBenchmark3D {
         result.convergence = Self::energy_deltas(&history, energy_scale);
 
         if let Some(initial) = history.checkpoints.first() {
-            result
-                .metrics
-                .insert("Initial Numerical Energy".to_string(), initial.numerical_energy * energy_scale);
-            result
-                .metrics
-                .insert("Initial Analytic Energy".to_string(), initial.analytic_energy);
+            result.metrics.insert(
+                "Initial Numerical Energy".to_string(),
+                initial.numerical_energy * energy_scale,
+            );
+            result.metrics.insert(
+                "Initial Analytic Energy".to_string(),
+                initial.analytic_energy,
+            );
         }
 
         if let Some(final_checkpoint) = history.final_checkpoint() {
@@ -348,10 +349,9 @@ impl TaylorGreenBenchmark3D {
                 .map(|checkpoint| checkpoint.relative_energy_error)
                 .sum::<f64>()
                 / history.checkpoints.len() as f64;
-            result.metrics.insert(
-                "Max Relative Energy Error".to_string(),
-                max_relative_error,
-            );
+            result
+                .metrics
+                .insert("Max Relative Energy Error".to_string(), max_relative_error);
             result.metrics.insert(
                 "Mean Relative Energy Error".to_string(),
                 mean_relative_error,
@@ -378,18 +378,16 @@ impl TaylorGreenBenchmark3D {
                 config.domain_lengths().2
             ),
         );
-        result.metadata.insert(
-            "time_step".to_string(),
-            format!("{:.6}", config.time_step),
-        );
+        result
+            .metadata
+            .insert("time_step".to_string(), format!("{:.6}", config.time_step));
         result.metadata.insert(
             "final_time".to_string(),
             format!("{:.6}", config.final_time),
         );
-        result.metadata.insert(
-            "step_count".to_string(),
-            format!("{step_count}"),
-        );
+        result
+            .metadata
+            .insert("step_count".to_string(), format!("{step_count}"));
         result.metadata.insert(
             "spectrum_stride".to_string(),
             format!("{}", config.spectrum_stride),
@@ -428,7 +426,10 @@ impl TaylorGreenBenchmark3D {
                 let y = ly * j as f64 / ny as f64;
                 for i in 0..nx {
                     let x = lx * i as f64 / nx as f64;
-                    components.push(solution.evaluate(x, y, z, time));
+                    let velocity = solution.evaluate(x, y, z, time);
+                    components.push(leto::geometry::Vector3::new(
+                        velocity.x, velocity.y, velocity.z,
+                    ));
                 }
             }
         }
@@ -457,7 +458,11 @@ impl TaylorGreenBenchmark3D {
             .shell_energy
             .iter()
             .enumerate()
-            .max_by(|lhs, rhs| lhs.1.partial_cmp(rhs.1).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|lhs, rhs| {
+                lhs.1
+                    .partial_cmp(rhs.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map_or(0, |(index, _)| index);
 
         Ok(TaylorGreenCheckpoint {
@@ -540,9 +545,10 @@ impl Benchmark<f64> for TaylorGreenBenchmark3D {
             self.config.density,
             true,
         );
-        reference
-            .metrics
-            .insert("Initial Analytic Energy".to_string(), solution.kinetic_energy(0.0));
+        reference.metrics.insert(
+            "Initial Analytic Energy".to_string(),
+            solution.kinetic_energy(0.0),
+        );
         Some(reference)
     }
 
@@ -561,7 +567,8 @@ impl Benchmark<f64> for TaylorGreenBenchmark3D {
             && result.errors.iter().all(|value| value.is_finite())
             && result.convergence.iter().all(|value| value.is_finite());
 
-        let decays_overall = *final_energy <= *initial_energy * (1.0 + self.config.validation_tolerance);
+        let decays_overall =
+            *final_energy <= *initial_energy * (1.0 + self.config.validation_tolerance);
 
         Ok(finite_history
             && final_relative_error.is_finite()
@@ -577,18 +584,10 @@ mod tests {
 
     #[test]
     fn benchmark_report_records_energy_decay_and_spectra() {
-        let benchmark = TaylorGreenBenchmark3D::new(TaylorGreenBenchmarkConfig::new(
-            (8, 8, 8),
-            1.0,
-            1.0,
-            0.01,
-            1.0,
-            0.0025,
-            0.025,
-            1,
-            0.25,
-        )
-        .expect("benchmark config should be valid"));
+        let benchmark = TaylorGreenBenchmark3D::new(
+            TaylorGreenBenchmarkConfig::new((8, 8, 8), 1.0, 1.0, 0.01, 1.0, 0.0025, 0.025, 1, 0.25)
+                .expect("benchmark config should be valid"),
+        );
 
         let runtime = BenchmarkConfig {
             resolution: 8,
@@ -606,18 +605,20 @@ mod tests {
         assert!(!report.history.checkpoints.is_empty());
         assert_eq!(report.result.values.len(), report.history.checkpoints.len());
         assert_eq!(report.result.errors.len(), report.history.checkpoints.len());
-        assert!(report
-            .history
-            .checkpoints
-            .first()
-            .expect("history should contain an initial checkpoint")
-            .numerical_energy
-            > report
+        assert!(
+            report
                 .history
                 .checkpoints
-                .last()
-                .expect("history should contain a final checkpoint")
-                .numerical_energy);
+                .first()
+                .expect("history should contain an initial checkpoint")
+                .numerical_energy
+                > report
+                    .history
+                    .checkpoints
+                    .last()
+                    .expect("history should contain a final checkpoint")
+                    .numerical_energy
+        );
         assert!(benchmark.validate_history(&report.history));
         assert!(report
             .history
@@ -641,7 +642,9 @@ mod tests {
         let result = BenchmarkRunner::run_benchmark(&benchmark, &runtime)
             .expect("benchmark runner should execute the Taylor-Green benchmark");
 
-        assert!(benchmark.validate(&result).expect("validation should be computable"));
+        assert!(benchmark
+            .validate(&result)
+            .expect("validation should be computable"));
         assert!(result.metrics.contains_key("Final Relative Energy Error"));
         assert!(result.metrics.contains_key("Spectrum Samples"));
         assert!(result.values.len() >= 2);
@@ -661,7 +664,10 @@ mod tests {
         let field = TaylorGreenBenchmark3D::initial_velocity_field(&config, &solution);
 
         assert_eq!(field.dimensions, config.dimensions);
-        assert_eq!(field.components.len(), config.dimensions.0 * config.dimensions.1 * config.dimensions.2);
+        assert_eq!(
+            field.components.len(),
+            config.dimensions.0 * config.dimensions.1 * config.dimensions.2
+        );
         assert!(field.components.iter().any(|sample| sample.norm() > 0.0));
     }
 }

@@ -3,11 +3,11 @@
 use super::helpers::wall_distance_field_2d;
 use super::SpalartAllmaras;
 use cfd_core::{error::Result, physics::constants::mathematical::numeric::TWO};
-use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use leto::geometry::Vector2;
 use tracing::instrument;
 
-impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
+impl<T: RealField> SpalartAllmaras<T> {
     /// Update modified turbulent viscosity field with explicit wall distances
     ///
     /// This method allows providing custom wall distances (e.g., for DES where d is replaced by min(d, Cdes*Delta))
@@ -32,21 +32,18 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
         dt: T,
     ) -> Result<()> {
         // Temporary storage for new values
-        let mut nu_new = vec![T::zero(); nu_tilde.len()];
+        let mut nu_new = vec![T::ZERO; nu_tilde.len()];
+        let two = T::from_f64(TWO);
 
         for j in 1..self.ny - 1 {
             for i in 1..self.nx - 1 {
                 let idx = j * self.nx + i;
 
                 // Compute velocity gradients
-                let du_dx = (velocity[idx + 1].x - velocity[idx - 1].x)
-                    / (T::from_f64(TWO).expect("analytical constant conversion") * dx);
-                let du_dy = (velocity[idx + self.nx].x - velocity[idx - self.nx].x)
-                    / (T::from_f64(TWO).expect("analytical constant conversion") * dy);
-                let dv_dx = (velocity[idx + 1].y - velocity[idx - 1].y)
-                    / (T::from_f64(TWO).expect("analytical constant conversion") * dx);
-                let dv_dy = (velocity[idx + self.nx].y - velocity[idx - self.nx].y)
-                    / (T::from_f64(TWO).expect("analytical constant conversion") * dy);
+                let du_dx = (velocity[idx + 1][0] - velocity[idx - 1][0]) / (two * dx);
+                let du_dy = (velocity[idx + self.nx][0] - velocity[idx - self.nx][0]) / (two * dy);
+                let dv_dx = (velocity[idx + 1][1] - velocity[idx - 1][1]) / (two * dx);
+                let dv_dy = (velocity[idx + self.nx][1] - velocity[idx - self.nx][1]) / (two * dy);
 
                 let velocity_gradient = [[du_dx, du_dy], [dv_dx, dv_dy]];
 
@@ -87,10 +84,8 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
                 let diffusion = (diffusion_x + diffusion_y) / self.sigma;
 
                 // Cross-diffusion term: (Cb2/σ)|∇ν̃|²
-                let dnu_dx = (nu_tilde[idx + 1] - nu_tilde[idx - 1])
-                    / (T::from_f64(TWO).expect("analytical constant conversion") * dx);
-                let dnu_dy = (nu_tilde[idx + self.nx] - nu_tilde[idx - self.nx])
-                    / (T::from_f64(TWO).expect("analytical constant conversion") * dy);
+                let dnu_dx = (nu_tilde[idx + 1] - nu_tilde[idx - 1]) / (two * dx);
+                let dnu_dy = (nu_tilde[idx + self.nx] - nu_tilde[idx - self.nx]) / (two * dy);
                 let grad_nu_sq = dnu_dx * dnu_dx + dnu_dy * dnu_dy;
                 let cross_diffusion = (self.cb2 / self.sigma) * grad_nu_sq;
 
@@ -102,7 +97,7 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
                     + dt * (production - destruction + diffusion + cross_diffusion + trip);
 
                 // Ensure positive values
-                nu_new[idx] = nu_new[idx].max(T::zero());
+                nu_new[idx] = nu_new[idx].max_scalar(T::ZERO);
             }
         }
 
@@ -145,13 +140,11 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
 }
 
 // Implement TurbulenceModel trait for Spalart-Allmaras
-impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
-    crate::physics::turbulence::TurbulenceModel<T> for SpalartAllmaras<T>
-{
+impl<T: RealField> crate::physics::turbulence::TurbulenceModel<T> for SpalartAllmaras<T> {
     fn turbulent_viscosity(&self, _k: T, epsilon_or_omega: T, density: T) -> T {
         // For SA model, k is not used, epsilon_or_omega represents ν̃ (modified viscosity)
         let nu_tilde = epsilon_or_omega;
-        let molecular_viscosity = T::from_f64(1e-5).expect("analytical constant conversion"); // Typical air viscosity
+        let molecular_viscosity = T::from_f64(1e-5); // Typical air viscosity
         density * self.eddy_viscosity(nu_tilde, molecular_viscosity)
     }
 
@@ -176,8 +169,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
 
     fn dissipation_term(&self, nu_tilde: T, wall_distance: T) -> T {
         use crate::physics::turbulence::constants::EPSILON_MIN;
-        let wall_distance =
-            wall_distance.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
+        let wall_distance = wall_distance.max_scalar(T::from_f64(EPSILON_MIN));
         let ratio = nu_tilde / wall_distance;
         self.cw1 * ratio * ratio
     }
@@ -208,7 +200,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
         // k is not updated in SA model (single equation model)
         // Set k to zero or some reference value if needed
         for k_val in k.iter_mut() {
-            *k_val = T::zero();
+            *k_val = T::ZERO;
         }
 
         Ok(())
@@ -220,6 +212,6 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive>
 
     fn is_valid_for_reynolds(&self, reynolds: T) -> bool {
         // SA model is valid for moderate to high Reynolds numbers
-        reynolds > T::from_f64(1e4).expect("analytical constant conversion")
+        reynolds > T::from_f64(1e4)
     }
 }

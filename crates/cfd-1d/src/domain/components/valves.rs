@@ -25,10 +25,10 @@
 //! - `Cv > 0`: physically required (positive conductance)
 
 use super::{real_from_f64, Component};
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -58,7 +58,7 @@ pub enum ValveType {
 /// Models a proportional valve with flow coefficient `Cv` and fractional opening.
 /// See module docs for the full theorem.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Microvalve<T: RealField + Copy> {
+pub struct Microvalve<T: Cfd1dScalar + Copy> {
     /// Flow coefficient [m³/s/√Pa] at full opening
     pub cv: T,
     /// Opening fraction (0 = closed, 1 = fully open; clamped to [0, 1])
@@ -67,7 +67,7 @@ pub struct Microvalve<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Microvalve<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> Microvalve<T> {
     /// Create a new microvalve with specified flow coefficient (fully open)
     pub fn new(cv: T) -> Self {
         Self {
@@ -83,7 +83,7 @@ impl<T: RealField + Copy + FromPrimitive> Microvalve<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Component<T> for Microvalve<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for Microvalve<T> {
     /// Returns the linear hydraulic resistance.
     ///
     /// - **Closed** (`opening ≤ 0`): large linear resistance `1e12` Pa·s/m³ prevents

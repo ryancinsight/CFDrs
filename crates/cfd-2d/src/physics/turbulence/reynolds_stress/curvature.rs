@@ -12,11 +12,10 @@
 //! where K is the curvature parameter and C_curv > 0 for convex, < 0 for concave
 //! (Suga & Craft, 2003).
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
 
-fn c<T: RealField + Copy + FromPrimitive>(v: f64) -> T {
-    T::from_f64(v).expect("curvature constant must be representable")
+fn c<T: RealField + Copy>(v: f64) -> T {
+    T::from_f64(v)
 }
 
 /// Compute the Suga-Craft (2003) curvature correction term.
@@ -29,7 +28,7 @@ fn c<T: RealField + Copy + FromPrimitive>(v: f64) -> T {
 /// * `i, j` — tensor indices
 #[allow(clippy::too_many_arguments)]
 #[inline]
-pub fn curvature_correction<T: RealField + Copy + FromPrimitive>(
+pub fn curvature_correction<T: RealField + Copy>(
     a_xx: T,
     a_xy: T,
     a_yy: T,
@@ -45,12 +44,12 @@ pub fn curvature_correction<T: RealField + Copy + FromPrimitive>(
 
     let curvature_strength = curvature_param.abs();
     if curvature_strength <= c::<T>(1e-6) {
-        return T::zero();
+        return T::ZERO;
     }
 
     let c_convex = c::<T>(0.15);
     let c_concave = c::<T>(-0.1);
-    let curvature_factor = if curvature_param >= T::zero() {
+    let curvature_factor = if curvature_param >= T::ZERO {
         c_convex
     } else {
         c_concave
@@ -72,7 +71,7 @@ pub fn curvature_correction<T: RealField + Copy + FromPrimitive>(
                 * curvature_strength
                 * (a_xy * s12 + a_yy * s22 - c::<T>(2.0 / 3.0) * (a_xx + a_yy) * s22)
         }
-        _ => T::zero(),
+        _ => T::ZERO,
     };
 
     correction / time_scale
@@ -84,18 +83,13 @@ pub fn curvature_correction<T: RealField + Copy + FromPrimitive>(
 /// - K > 0: convex (strain-dominated)
 /// - K < 0: concave (rotation-dominated)
 #[inline]
-pub fn calculate_curvature_parameter<T: RealField + Copy + FromPrimitive>(
-    s11: T,
-    s12: T,
-    s22: T,
-    w12: T,
-) -> T {
+pub fn calculate_curvature_parameter<T: RealField + Copy>(s11: T, s12: T, s22: T, w12: T) -> T {
     let strain_sq = s11 * s11 + c::<T>(2.0) * s12 * s12 + s22 * s22;
     let rotation_sq = c::<T>(2.0) * w12 * w12;
     let denom = strain_sq + rotation_sq;
     if denom > c::<T>(1e-12) {
         (strain_sq - rotation_sq) / denom
     } else {
-        T::zero()
+        T::ZERO
     }
 }

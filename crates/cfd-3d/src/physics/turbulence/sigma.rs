@@ -33,8 +33,7 @@
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 
 use super::constants::SIGMA_C;
 use super::field_ops::velocity_gradient_tensor;
@@ -45,7 +44,7 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 /// Computes eddy viscosity from singular values of the velocity gradient tensor.
 /// Automatically satisfies νₜ = 0 at walls without ad hoc damping.
 #[derive(Debug, Clone)]
-pub struct SigmaModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct SigmaModel<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// Sigma model constant C_σ = 1.35 (Nicoud et al. 2011).
     pub c_sigma: T,
     /// Physical grid spacing in the x direction \[m].
@@ -58,18 +57,15 @@ pub struct SigmaModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub filter_width: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
-    SigmaModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> SigmaModel<T> {
     /// Create a Sigma model with default constant and unit filter width.
     pub fn new() -> Self {
         Self {
-            c_sigma: <T as FromPrimitive>::from_f64(SIGMA_C)
-                .expect("SIGMA_C is an IEEE 754 representable f64 constant"),
-            dx: T::one(),
-            dy: T::one(),
-            dz: T::one(),
-            filter_width: T::one(),
+            c_sigma: <T as FloatElement>::from_f64(SIGMA_C),
+            dx: T::ONE,
+            dy: T::ONE,
+            dz: T::ONE,
+            filter_width: T::ONE,
         }
     }
 
@@ -78,11 +74,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
     /// # Arguments
     /// * `dx`, `dy`, `dz` — physical cell dimensions \[m]
     pub fn with_filter_width(dx: T, dy: T, dz: T) -> Self {
-        let one_third = T::one() / (T::one() + T::one() + T::one());
-        let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
+        let one_third = T::ONE / (T::ONE + T::ONE + T::ONE);
+        let filter_width = <T as FloatElement>::powf(dx * dy * dz, one_third);
         Self {
-            c_sigma: <T as FromPrimitive>::from_f64(SIGMA_C)
-                .expect("SIGMA_C is an IEEE 754 representable f64 constant"),
+            c_sigma: <T as FloatElement>::from_f64(SIGMA_C),
             dx,
             dy,
             dz,
@@ -99,8 +94,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
     /// evaluates the characteristic polynomial without heap allocation, so the
     /// singular values derived from it are exact up to floating-point roundoff.
     fn symmetric_eigenvalues_3x3(matrix: &[[T; 3]; 3]) -> [T; 3] {
-        let two = T::one() + T::one();
-        let three = two + T::one();
+        let two = T::ONE + T::ONE;
+        let three = two + T::ONE;
         let six = three + three;
         let trace = matrix[0][0] + matrix[1][1] + matrix[2][2];
         let mean = trace / three;
@@ -112,14 +107,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
         let b12 = matrix[1][2];
         let p2 =
             (b00 * b00 + b11 * b11 + b22 * b22 + two * (b01 * b01 + b02 * b02 + b12 * b12)) / six;
-        let eps = <T as FromPrimitive>::from_f64(1e-30)
-            .expect("1e-30 is an IEEE 754 representable f64 constant");
+        let eps = <T as FloatElement>::from_f64(1e-30);
 
         if p2 <= eps {
             return [mean, mean, mean];
         }
 
-        let p = <T as num_traits::Float>::sqrt(p2);
+        let p = <T as NumericElement>::sqrt(p2);
         let p3 = p * p2;
         if p3 <= eps {
             return [mean, mean, mean];
@@ -129,22 +123,20 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
             + b02 * (b01 * b12 - b11 * b02);
         let denom = two * p3;
         let mut r = det_b / denom;
-        let one = T::one();
-        if r > one {
-            r = one;
-        } else if r < -one {
-            r = -one;
+        if r > T::ONE {
+            r = T::ONE;
+        } else if r < T::ZERO - T::ONE {
+            r = T::ZERO - T::ONE;
         }
 
-        let phi = <T as num_traits::Float>::acos(r) / three;
-        let pi = <T as FromPrimitive>::from_f64(std::f64::consts::PI)
-            .expect("PI is an IEEE 754 representable f64 constant");
+        let phi = <T as FloatElement>::acos(r) / three;
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
         let two_pi_over_three = two * pi / three;
         let four_pi_over_three = two_pi_over_three * two;
         let mut eigenvalues = [
-            mean + two * p * num_traits::Float::cos(phi),
-            mean + two * p * num_traits::Float::cos(phi + two_pi_over_three),
-            mean + two * p * num_traits::Float::cos(phi + four_pi_over_three),
+            mean + two * p * <T as FloatElement>::cos(phi),
+            mean + two * p * <T as FloatElement>::cos(phi + two_pi_over_three),
+            mean + two * p * <T as FloatElement>::cos(phi + four_pi_over_three),
         ];
 
         eigenvalues.sort_by(|a, b| b.partial_cmp(a).expect("Sigma eigenvalues must be finite"));
@@ -167,7 +159,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
             self.dz,
         );
 
-        let mut gtg = [[T::zero(); 3]; 3];
+        let mut gtg = [[T::ZERO; 3]; 3];
         for ii in 0..3 {
             for jj in 0..3 {
                 for kk in 0..3 {
@@ -177,34 +169,33 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
         }
 
         let eigenvalues = Self::symmetric_eigenvalues_3x3(&gtg);
-        let sigma1 = if eigenvalues[0] > T::zero() {
-            <T as num_traits::Float>::sqrt(eigenvalues[0])
+        let sigma1 = if eigenvalues[0] > T::ZERO {
+            <T as NumericElement>::sqrt(eigenvalues[0])
         } else {
-            T::zero()
+            T::ZERO
         };
-        let sigma2 = if eigenvalues[1] > T::zero() {
-            <T as num_traits::Float>::sqrt(eigenvalues[1])
+        let sigma2 = if eigenvalues[1] > T::ZERO {
+            <T as NumericElement>::sqrt(eigenvalues[1])
         } else {
-            T::zero()
+            T::ZERO
         };
-        let sigma3 = if eigenvalues[2] > T::zero() {
-            <T as num_traits::Float>::sqrt(eigenvalues[2])
+        let sigma3 = if eigenvalues[2] > T::ZERO {
+            <T as NumericElement>::sqrt(eigenvalues[2])
         } else {
-            T::zero()
+            T::ZERO
         };
 
-        let eps = <T as FromPrimitive>::from_f64(1e-30)
-            .expect("1e-30 is an IEEE 754 representable f64 constant");
+        let eps = <T as FloatElement>::from_f64(1e-30);
         let denominator = sigma1 * sigma1;
         let sigma_product = if denominator > eps {
             let product = sigma3 * (sigma1 - sigma2) * (sigma2 - sigma3) / denominator;
-            if product > T::zero() {
+            if product > T::ZERO {
                 product
             } else {
-                T::zero()
+                T::ZERO
             }
         } else {
-            T::zero()
+            T::ZERO
         };
 
         let c_delta = self.c_sigma * self.filter_width;
@@ -217,17 +208,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
-    Default for SigmaModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> Default for SigmaModel<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
-    TurbulenceModel<T> for SigmaModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for SigmaModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let mut viscosity = Vec::with_capacity(nx * ny * nz);
@@ -258,7 +245,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use nalgebra::Vector3;
+    use leto::geometry::Vector3;
 
     fn fill_velocity_field<F>(flow: &mut FlowField<f64>, mut generator: F)
     where

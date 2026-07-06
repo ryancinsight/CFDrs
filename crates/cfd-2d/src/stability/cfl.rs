@@ -20,11 +20,10 @@
 //! $\nu$, the combined condition is $|u|\Delta t/\Delta x + |v|\Delta t/\Delta y
 //! + 2\nu\Delta t(1/\Delta x^2 + 1/\Delta y^2) \le 1$.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 
 /// CFL condition calculator for various numerical schemes
-pub struct CFLCalculator<T: RealField + Copy> {
+pub struct CFLCalculator<T: FloatElement + Copy> {
     /// Grid spacing in x-direction
     dx: T,
     /// Grid spacing in y-direction
@@ -33,7 +32,7 @@ pub struct CFLCalculator<T: RealField + Copy> {
     dt: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
+impl<T: FloatElement + Copy> CFLCalculator<T> {
     /// Create new CFL calculator
     pub fn new(dx: T, dy: T, dt: T) -> Self {
         Self { dx, dy, dt }
@@ -48,7 +47,8 @@ impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
     /// - `MacCormack`: CFL ≤ 1.0
     /// - QUICK: CFL ≤ 0.75 (for third-order accuracy)
     pub fn advection_cfl(&self, u: T, v: T) -> T {
-        u.abs() * self.dt / self.dx + v.abs() * self.dt / self.dy
+        <T as NumericElement>::abs(u) * self.dt / self.dx
+            + <T as NumericElement>::abs(v) * self.dt / self.dy
     }
 
     /// Calculate diffusion number (von Neumann number) for pure diffusion
@@ -58,7 +58,9 @@ impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
     /// - Explicit Euler: D ≤ 0.5 (2D), D ≤ 0.25 (3D)
     /// - Crank-Nicolson: Unconditionally stable
     pub fn diffusion_number(&self, nu: T) -> T {
-        nu * self.dt * (T::one() / (self.dx * self.dx) + T::one() / (self.dy * self.dy))
+        nu * self.dt
+            * (<T as NumericElement>::ONE / (self.dx * self.dx)
+                + <T as NumericElement>::ONE / (self.dy * self.dy))
     }
 
     /// Calculate combined CFL for advection-diffusion problems
@@ -71,7 +73,7 @@ impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
     pub fn combined_stability(&self, u: T, v: T, nu: T) -> (T, T, T) {
         let cfl = self.advection_cfl(u, v);
         let diff = self.diffusion_number(nu);
-        let peclet = u.abs() * self.dx / nu;
+        let peclet = <T as NumericElement>::abs(u) * self.dx / nu;
         (cfl, diff, peclet)
     }
 
@@ -81,7 +83,7 @@ impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
         let diff = self.diffusion_number(nu);
 
         // Explicit Euler requires CFL ≤ 1 and D ≤ 0.5 in 2D
-        cfl <= T::one() && diff <= T::from_f64(0.5).expect("Exact mathematically representable f64")
+        cfl <= <T as NumericElement>::ONE && diff <= <T as FloatElement>::from_f64(0.5)
     }
 
     /// Check stability for QUICK scheme with explicit time stepping
@@ -91,8 +93,8 @@ impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
 
         // QUICK requires stricter CFL for third-order accuracy
         // Leonard (1979) suggests CFL ≤ 0.75 for stability
-        let cfl_limit = T::from_f64(0.75).expect("Exact mathematically representable f64");
-        let diff_limit = T::from_f64(0.5).expect("Exact mathematically representable f64");
+        let cfl_limit = <T as FloatElement>::from_f64(0.75);
+        let diff_limit = <T as FloatElement>::from_f64(0.5);
 
         cfl <= cfl_limit && diff <= diff_limit
     }
@@ -114,26 +116,30 @@ impl<T: RealField + Copy + FromPrimitive> CFLCalculator<T> {
     /// `νΔt(1/Δx² + 1/Δy²) ≤ 1/2`; solving for `Δt` gives the reciprocal
     /// summed diffusive rate. Taking the minimum satisfies both constraints.
     pub fn max_stable_dt(&self, u_max: T, v_max: T, nu: T) -> T {
-        let advective_rate = u_max.abs() / self.dx + v_max.abs() / self.dy;
-        let large_dt = T::from_f64(1e10).expect("Exact mathematically representable f64");
+        let advective_rate = <T as NumericElement>::abs(u_max) / self.dx
+            + <T as NumericElement>::abs(v_max) / self.dy;
+        let large_dt = <T as FloatElement>::from_f64(1e10);
 
-        let dt_advection = if advective_rate > T::zero() {
-            T::one() / advective_rate
+        let dt_advection = if advective_rate > <T as NumericElement>::ZERO {
+            <T as NumericElement>::ONE / advective_rate
         } else {
             large_dt
         };
 
         // Diffusion constraint: dt ≤ 0.5 / (ν(1/dx² + 1/dy²)).
-        let dt_diffusion = if nu > T::zero() {
-            let inv_dx2 = T::one() / (self.dx * self.dx);
-            let inv_dy2 = T::one() / (self.dy * self.dy);
-            T::from_f64(0.5).expect("Exact mathematically representable f64")
-                / (nu * (inv_dx2 + inv_dy2))
+        let dt_diffusion = if nu > <T as NumericElement>::ZERO {
+            let inv_dx2 = <T as NumericElement>::ONE / (self.dx * self.dx);
+            let inv_dy2 = <T as NumericElement>::ONE / (self.dy * self.dy);
+            <T as FloatElement>::from_f64(0.5) / (nu * (inv_dx2 + inv_dy2))
         } else {
             large_dt
         };
 
-        dt_advection.min(dt_diffusion)
+        if dt_advection <= dt_diffusion {
+            dt_advection
+        } else {
+            dt_diffusion
+        }
     }
 }
 

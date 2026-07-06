@@ -19,7 +19,7 @@
 //! constant $\Lambda_N = O(\log N)$ for Chebyshev–Gauss–Lobatto points.
 //! For analytic $u$, $E_N(u) = O(e^{-cN})$, so convergence is spectral.
 
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 /// Spectral basis type

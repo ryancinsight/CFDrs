@@ -4,14 +4,15 @@ use super::types::{
     SplitMode,
 };
 use crate::domain::network::{Network, NodeType};
+use crate::scalar::Cfd1dScalar;
 use crate::solver::core::transient::composition::{
     CompositionState, EdgeFlowEvent, InletCompositionEvent, PressureBoundaryEvent,
     TransientCompositionSimulator,
 };
+use crate::solver::core::NetworkSolveScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
@@ -50,7 +51,7 @@ impl TransientDropletSimulator {
     /// This convenience API first computes transient composition states using
     /// flow events and then runs droplet tracking with the default split policy.
     pub fn simulate_with_flow_events<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -71,7 +72,7 @@ impl TransientDropletSimulator {
 
     /// Simulate droplet states with flow events and an explicit split policy.
     pub fn simulate_with_flow_events_and_policy<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -100,10 +101,7 @@ impl TransientDropletSimulator {
     ///
     /// This convenience API first computes transient composition states using
     /// pressure events and then runs droplet tracking with the default split policy.
-    pub fn simulate_with_pressure_events<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
-        F: FluidTrait<T> + Clone,
-    >(
+    pub fn simulate_with_pressure_events<T: NetworkSolveScalar, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         injections: Vec<DropletInjection<T>>,
         composition_events: Vec<InletCompositionEvent<T>>,
@@ -122,7 +120,7 @@ impl TransientDropletSimulator {
 
     /// Simulate droplet states with pressure events and an explicit split policy.
     pub fn simulate_with_pressure_events_and_policy<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        T: NetworkSolveScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -149,7 +147,7 @@ impl TransientDropletSimulator {
 
     /// Simulate droplet state transitions on top of transient composition states.
     pub fn simulate_on_composition<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -167,7 +165,7 @@ impl TransientDropletSimulator {
     /// Simulate droplet states with an explicit split policy.
     #[allow(clippy::too_many_lines)]
     pub fn simulate_on_composition_with_policy<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -297,7 +295,7 @@ impl TransientDropletSimulator {
         Ok(output)
     }
 
-    fn edge_area<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    fn edge_area<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         edge: EdgeIndex,
     ) -> T {
@@ -308,7 +306,7 @@ impl TransientDropletSimulator {
             .map_or(one, |p| if p.area > T::zero() { p.area } else { one })
     }
 
-    fn edge_length<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    fn edge_length<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         edge: EdgeIndex,
     ) -> T {
@@ -319,7 +317,7 @@ impl TransientDropletSimulator {
             .map_or(one, |p| if p.length > T::zero() { p.length } else { one })
     }
 
-    fn advance_droplet<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    fn advance_droplet<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         droplet: &mut ActiveDroplet<T>,
         dt: T,
@@ -360,7 +358,7 @@ impl TransientDropletSimulator {
         Ok(())
     }
 
-    fn branch_interval<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    fn branch_interval<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         branch: &DropletBranch<T>,
     ) -> Result<(T, T)> {
@@ -370,14 +368,14 @@ impl TransientDropletSimulator {
         Ok((start, end))
     }
 
-    fn branch_interval_raw<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    fn branch_interval_raw<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         branch: &DropletBranch<T>,
     ) -> Result<(T, T)> {
         let edge = EdgeIndex::new(branch.channel_index);
         let area = Self::edge_area(network, edge);
         let length = Self::edge_length(network, edge);
-        let eps = T::from_f64(1e-12).expect("Mathematical constant conversion compromised");
+        let eps = <T as FloatElement>::from_f64(1e-12);
         if area <= eps || length <= eps {
             return Err(Error::InvalidConfiguration(
                 "Edge area/length must be positive for finite-length droplet tracking".to_string(),
@@ -391,7 +389,7 @@ impl TransientDropletSimulator {
         Ok((start, end))
     }
 
-    fn advance_branch<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    fn advance_branch<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         mut branch: DropletBranch<T>,
         dt: T,
@@ -405,7 +403,7 @@ impl TransientDropletSimulator {
             return Ok(());
         }
 
-        let eps = T::from_f64(1e-12).expect("Mathematical constant conversion compromised");
+        let eps = <T as FloatElement>::from_f64(1e-12);
         let hops_remaining = network.edge_count().saturating_mul(4).max(8);
 
         if let Some(_hop) = (0..hops_remaining).next() {
@@ -415,7 +413,7 @@ impl TransientDropletSimulator {
                 .get(edge_idx.index())
                 .copied()
                 .unwrap_or(T::zero());
-            if q.abs() <= eps {
+            if <T as NumericElement>::abs(q) <= eps {
                 out_branches.push(branch);
                 return Ok(());
             }
@@ -516,7 +514,7 @@ impl TransientDropletSimulator {
         Ok(())
     }
 
-    fn select_split_targets<T: RealField + Copy + FromPrimitive>(
+    fn select_split_targets<T: Cfd1dScalar + Copy + FloatElement>(
         branch_volume: T,
         mut outgoing: Vec<(EdgeIndex, T, T)>,
         split_policy: &DropletSplitPolicy<T>,
@@ -587,7 +585,7 @@ impl TransientDropletSimulator {
         }
     }
 
-    fn merge_branches<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    fn merge_branches<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         droplet: &mut ActiveDroplet<T>,
     ) -> Result<()> {
@@ -636,7 +634,7 @@ impl TransientDropletSimulator {
         Ok(())
     }
 
-    fn is_sink_node<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    fn is_sink_node<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         node: NodeIndex,
     ) -> Result<bool> {
@@ -653,12 +651,12 @@ impl TransientDropletSimulator {
         Ok(degree <= 1)
     }
 
-    fn select_outgoing_edges<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    fn select_outgoing_edges<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         node: NodeIndex,
         previous_edge: EdgeIndex,
     ) -> Vec<(EdgeIndex, T, T)> {
-        let eps = T::from_f64(1e-12).expect("Mathematical constant conversion compromised");
+        let eps = <T as FloatElement>::from_f64(1e-12);
         let mut candidates = Vec::new();
 
         for edge_ref in network.graph.edge_references() {
@@ -675,14 +673,14 @@ impl TransientDropletSimulator {
                 .copied()
                 .unwrap_or(T::zero());
 
-            if q.abs() <= eps {
+            if <T as NumericElement>::abs(q) <= eps {
                 continue;
             }
 
             let candidate = if src == node && q > T::zero() {
-                Some((edge_idx, T::zero(), q.abs()))
+                Some((edge_idx, T::zero(), <T as NumericElement>::abs(q)))
             } else if dst == node && q < T::zero() {
-                Some((edge_idx, T::one(), q.abs()))
+                Some((edge_idx, T::one(), <T as NumericElement>::abs(q)))
             } else {
                 None
             };

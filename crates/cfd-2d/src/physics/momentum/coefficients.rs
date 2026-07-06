@@ -47,12 +47,13 @@ use super::coefficient_corrections::{
 use super::solver::MomentumComponent;
 use super::tvd_limiters::{Minmod, Superbee, VanLeer};
 use crate::fields::{Field2D, SimulationFields};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::FloatElement;
 
 /// Coefficients for momentum discretization
 #[derive(Debug, Clone)]
-pub struct MomentumCoefficients<T: RealField + Copy> {
+pub struct MomentumCoefficients<T: Cfd2dScalar + Copy> {
     /// Central coefficient (aP)
     pub ap: Field2D<T>,
     /// Consistent diagonal coefficient (aP - sum(aNb)) for SIMPLEC
@@ -139,7 +140,7 @@ impl Default for ConvectionScheme {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> MomentumCoefficients<T> {
     /// Compute momentum equation coefficients with advanced convection scheme
     ///
     /// # Arguments
@@ -299,9 +300,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         );
                     }
                     ConvectionScheme::DeferredCorrectionQuick { relaxation_factor } => {
-                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
-                            T::from_f64(0.7).expect("analytical constant conversion")
-                        });
+                        let alpha: T = scalar::from_f64(relaxation_factor);
 
                         // Compute QUICK-upwind correction for X-direction
                         let quick_correction_x = if i >= 2 && i < nx - 2 {
@@ -325,9 +324,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         }
                     }
                     ConvectionScheme::TvdSuperbee { relaxation_factor } => {
-                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
-                            T::from_f64(0.8).expect("analytical constant conversion")
-                        });
+                        let alpha: T = scalar::from_f64(relaxation_factor);
                         let limiter = Superbee;
 
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
@@ -348,9 +345,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         }
                     }
                     ConvectionScheme::TvdVanLeer { relaxation_factor } => {
-                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
-                            T::from_f64(0.8).expect("analytical constant conversion")
-                        });
+                        let alpha: T = scalar::from_f64(relaxation_factor);
                         let limiter = VanLeer;
 
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
@@ -371,9 +366,7 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                         }
                     }
                     ConvectionScheme::TvdMinmod { relaxation_factor } => {
-                        let alpha = T::from_f64(relaxation_factor).unwrap_or_else(|| {
-                            T::from_f64(0.8).expect("analytical constant conversion")
-                        });
+                        let alpha: T = scalar::from_f64(relaxation_factor);
                         let limiter = Minmod;
 
                         let tvd_correction_x = if i >= 1 && i < nx - 1 {
@@ -429,9 +422,9 @@ impl<T: RealField + Copy + FromPrimitive> MomentumCoefficients<T> {
                 // This represents the part of aP that does not depend on neighbor velocities.
                 // For SIMPLEC consistency, we use this in the velocity correction equation.
                 if let Some(ap_c) = self.ap_consistent.at_mut(i, j) {
-                    let gamma = T::from_f64(0.85).expect("analytical constant conversion");
+                    let gamma: T = scalar::from_f64(0.85);
                     let val = ap_val - ap_sum * gamma;
-                    let eps = T::from_f64(1e-10).expect("analytical constant conversion");
+                    let eps: T = scalar::from_f64(1e-10);
 
                     *ap_c = if val > eps { val } else { eps };
                 }

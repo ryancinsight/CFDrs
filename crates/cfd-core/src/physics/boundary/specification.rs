@@ -2,7 +2,8 @@
 
 use super::time_dependent::TimeDependentSpec;
 use crate::physics::boundary::BoundaryCondition;
-use nalgebra::RealField;
+use eunomia::FloatElement;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
@@ -17,7 +18,7 @@ pub struct BoundaryConditionSpec<T: RealField + Copy> {
     pub time_dependent: Option<TimeDependentSpec<T>>,
 }
 
-impl<T: RealField + Copy> BoundaryConditionSpec<T> {
+impl<T: RealField + FloatElement + Copy> BoundaryConditionSpec<T> {
     /// Create a new boundary condition specification
     pub fn new(condition: BoundaryCondition<T>, region_id: String) -> Self {
         Self {

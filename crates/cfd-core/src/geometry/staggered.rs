@@ -16,8 +16,8 @@
 //! Harlow, F.H. & Welch, J.E. (1965). Numerical Calculation of Time-Dependent
 //! Viscous Incompressible Flow of Fluid with Free Surface. *Physics of Fluids*, 8(12), 2182.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Staggered (MAC) grid descriptor for 2D finite volume methods.
@@ -48,7 +48,27 @@ pub struct StaggeredGrid2D<T: RealField + Copy> {
     pub y_faces: Option<Vec<T>>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> StaggeredGrid2D<T> {
+impl<T: RealField + Copy + FloatElement> StaggeredGrid2D<T> {
+    #[inline]
+    fn grid_index(value: usize, label: &str) -> T {
+        const MAX_EXACT_INTEGER_IN_F64: usize = if usize::BITS <= f64::MANTISSA_DIGITS {
+            usize::MAX
+        } else {
+            1usize << f64::MANTISSA_DIGITS
+        };
+        assert!(
+            value <= MAX_EXACT_INTEGER_IN_F64,
+            "{label} must be exactly representable as f64 before conversion"
+        );
+        let as_real = <T as FloatElement>::from_f64(value as f64);
+        assert!(
+            <T as NumericElement>::is_finite(as_real)
+                && <T as NumericElement>::to_f64(as_real) == value as f64,
+            "{label} must be exactly representable in the grid scalar type"
+        );
+        as_real
+    }
+
     /// Construct a uniform grid from cell counts and total domain size.
     ///
     /// # Panics
@@ -56,8 +76,8 @@ impl<T: RealField + Copy + FromPrimitive> StaggeredGrid2D<T> {
     #[must_use]
     pub fn new(nx: usize, ny: usize, lx: T, ly: T) -> Self {
         assert!(nx > 0 && ny > 0, "Grid dimensions must be positive");
-        let dx = lx / T::from_usize(nx).expect("nx fits in T");
-        let dy = ly / T::from_usize(ny).expect("ny fits in T");
+        let dx = lx / Self::grid_index(nx, "nx");
+        let dy = ly / Self::grid_index(ny, "ny");
         Self {
             nx,
             ny,
@@ -86,9 +106,9 @@ impl<T: RealField + Copy + FromPrimitive> StaggeredGrid2D<T> {
             ny + 1,
             y_face_coords.len()
         );
-        let dx = lx / T::from_usize(nx).expect("nx fits in T");
+        let dx = lx / Self::grid_index(nx, "nx");
         let ly = y_face_coords[ny];
-        let dy = ly / T::from_usize(ny).expect("ny fits in T"); // reference (average) dy
+        let dy = ly / Self::grid_index(ny, "ny"); // reference (average) dy
         Self {
             nx,
             ny,
@@ -117,7 +137,7 @@ impl<T: RealField + Copy + FromPrimitive> StaggeredGrid2D<T> {
     /// `(dy[j] + dy[j+1]) / 2`.
     #[inline]
     pub fn dy_face(&self, j: usize) -> T {
-        let half = T::from_f64(0.5).expect("0.5 fits in T");
+        let half = <T as FloatElement>::from_f64(0.5);
         match &self.y_faces {
             Some(yf) => {
                 let dy_j = yf[j + 1] - yf[j];
@@ -133,18 +153,18 @@ impl<T: RealField + Copy + FromPrimitive> StaggeredGrid2D<T> {
     /// x-coordinate of pressure cell centre (i, j)
     #[inline]
     pub fn x_center(&self, i: usize) -> T {
-        let half = T::from_f64(0.5).expect("0.5 fits in T");
-        (T::from_usize(i).expect("i fits in T") + half) * self.dx
+        let half = <T as FloatElement>::from_f64(0.5);
+        (Self::grid_index(i, "i") + half) * self.dx
     }
 
     /// y-coordinate of pressure cell centre at index j.
     /// For non-uniform grids, returns `(y_faces[j] + y_faces[j+1]) / 2`.
     #[inline]
     pub fn y_center(&self, j: usize) -> T {
-        let half = T::from_f64(0.5).expect("0.5 fits in T");
+        let half = <T as FloatElement>::from_f64(0.5);
         match &self.y_faces {
             Some(yf) => (yf[j] + yf[j + 1]) * half,
-            None => (T::from_usize(j).expect("j fits in T") + half) * self.dy,
+            None => (Self::grid_index(j, "j") + half) * self.dy,
         }
     }
 
@@ -153,7 +173,7 @@ impl<T: RealField + Copy + FromPrimitive> StaggeredGrid2D<T> {
     /// x-coordinate of the U-velocity face between cells (i-1, j) and (i, j)
     #[inline]
     pub fn x_u_face(&self, i: usize) -> T {
-        T::from_usize(i).expect("i fits in T") * self.dx
+        Self::grid_index(i, "i") * self.dx
     }
 
     // ── V-face (north/south) y-coordinates ────────────────────────────────
@@ -164,7 +184,7 @@ impl<T: RealField + Copy + FromPrimitive> StaggeredGrid2D<T> {
     pub fn y_v_face(&self, j: usize) -> T {
         match &self.y_faces {
             Some(yf) => yf[j],
-            None => T::from_usize(j).expect("j fits in T") * self.dy,
+            None => Self::grid_index(j, "j") * self.dy,
         }
     }
 

@@ -1,8 +1,7 @@
 //! Temperature value object
 
 use crate::error::Result;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -14,19 +13,19 @@ const RANKINE_TO_KELVIN_FACTOR: f64 = 5.0 / 9.0;
 
 /// Temperature value with unit conversions
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub struct Temperature<T: RealField + Copy> {
+pub struct Temperature<T: FloatElement + Copy> {
     /// Value in Kelvin (SI unit)
     kelvin: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Temperature<T> {
+impl<T: FloatElement + Copy> Temperature<T> {
     /// Create temperature in Kelvin
     ///
     /// # Errors
     ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn from_kelvin(value: T) -> Result<Self> {
-        if value < T::zero() {
+        if value < <T as NumericElement>::ZERO {
             return Err(crate::error::Error::InvalidConfiguration(
                 "Temperature in Kelvin cannot be negative".into(),
             ));
@@ -40,9 +39,9 @@ impl<T: RealField + Copy + FromPrimitive> Temperature<T> {
     ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn from_celsius(value: T) -> Result<Self> {
-        let offset = T::from_f64(KELVIN_TO_CELSIUS_OFFSET).unwrap_or_else(T::zero);
+        let offset = <T as FloatElement>::from_f64(KELVIN_TO_CELSIUS_OFFSET);
         let kelvin = value + offset;
-        if kelvin < T::zero() {
+        if kelvin < <T as NumericElement>::ZERO {
             return Err(crate::error::Error::InvalidConfiguration(
                 "Temperature below absolute zero".into(),
             ));
@@ -56,14 +55,14 @@ impl<T: RealField + Copy + FromPrimitive> Temperature<T> {
     ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn from_fahrenheit(value: T) -> Result<Self> {
-        let scale = T::from_f64(FAHRENHEIT_SCALE_FACTOR).unwrap_or_else(T::one);
-        let f_offset = T::from_f64(FAHRENHEIT_OFFSET).unwrap_or_else(T::zero);
-        let k_offset = T::from_f64(KELVIN_TO_CELSIUS_OFFSET).unwrap_or_else(T::zero);
+        let scale = <T as FloatElement>::from_f64(FAHRENHEIT_SCALE_FACTOR);
+        let f_offset = <T as FloatElement>::from_f64(FAHRENHEIT_OFFSET);
+        let k_offset = <T as FloatElement>::from_f64(KELVIN_TO_CELSIUS_OFFSET);
 
         let celsius = (value - f_offset) / scale;
         let kelvin = celsius + k_offset;
 
-        if kelvin < T::zero() {
+        if kelvin < <T as NumericElement>::ZERO {
             return Err(crate::error::Error::InvalidConfiguration(
                 "Temperature below absolute zero".into(),
             ));
@@ -78,43 +77,43 @@ impl<T: RealField + Copy + FromPrimitive> Temperature<T> {
 
     /// Get temperature in Celsius
     pub fn celsius(&self) -> T {
-        self.kelvin - T::from_f64(KELVIN_TO_CELSIUS_OFFSET).unwrap_or_else(T::zero)
+        self.kelvin - <T as FloatElement>::from_f64(KELVIN_TO_CELSIUS_OFFSET)
     }
 
     /// Get temperature in Fahrenheit
     pub fn fahrenheit(&self) -> T {
-        let scale = T::from_f64(FAHRENHEIT_SCALE_FACTOR).unwrap_or_else(T::one);
-        let f_offset = T::from_f64(FAHRENHEIT_OFFSET).unwrap_or_else(T::zero);
+        let scale = <T as FloatElement>::from_f64(FAHRENHEIT_SCALE_FACTOR);
+        let f_offset = <T as FloatElement>::from_f64(FAHRENHEIT_OFFSET);
         self.celsius() * scale + f_offset
     }
 
     /// Get temperature in Rankine
     pub fn rankine(&self) -> T {
-        let factor = T::from_f64(RANKINE_TO_KELVIN_FACTOR).unwrap_or_else(T::one);
+        let factor = <T as FloatElement>::from_f64(RANKINE_TO_KELVIN_FACTOR);
         self.kelvin / factor
     }
 
     /// Check if temperature is at standard conditions (20°C)
     pub fn is_standard(&self) -> bool {
-        let standard = T::from_f64(293.15).unwrap_or_else(T::zero); // 20°C in Kelvin
-        let tolerance = T::from_f64(0.1).unwrap_or_else(T::zero);
-        (self.kelvin - standard).abs() < tolerance
+        let standard = <T as FloatElement>::from_f64(293.15); // 20°C in Kelvin
+        let tolerance = <T as FloatElement>::from_f64(0.1);
+        <T as NumericElement>::abs(self.kelvin - standard) < tolerance
     }
 
     /// Check if temperature is cryogenic (< 120K)
     pub fn is_cryogenic(&self) -> bool {
-        let limit = T::from_f64(120.0).unwrap_or_else(T::zero);
+        let limit = <T as FloatElement>::from_f64(120.0);
         self.kelvin < limit
     }
 
     /// Check if temperature is high (> 1000K)
     pub fn is_high_temperature(&self) -> bool {
-        let limit = T::from_f64(1000.0).unwrap_or_else(T::zero);
+        let limit = <T as FloatElement>::from_f64(1000.0);
         self.kelvin > limit
     }
 }
 
-impl<T: RealField + Copy + fmt::Display> fmt::Display for Temperature<T> {
+impl<T: FloatElement + Copy + fmt::Display> fmt::Display for Temperature<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} K", self.kelvin)
     }

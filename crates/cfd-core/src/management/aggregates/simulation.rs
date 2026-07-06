@@ -8,14 +8,14 @@ use crate::geometry::Domain;
 use crate::physics::boundary::BoundaryCondition;
 use crate::physics::fluid::ConstantPropertyFluid;
 // FluidDynamicsService trait removed - using domain services directly
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Simulation aggregate root that encapsulates all simulation-related entities
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SimulationAggregate<T: RealField + Copy, D: Domain<T>> {
+pub struct SimulationAggregate<T: RealField + Copy + FloatElement, D: Domain<T>> {
     /// Unique simulation identifier
     pub id: String,
     /// Simulation metadata
@@ -32,9 +32,7 @@ pub struct SimulationAggregate<T: RealField + Copy, D: Domain<T>> {
     pub state: SimulationState,
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
-    SimulationAggregate<T, D>
-{
+impl<T: RealField + Copy + FloatElement, D: Domain<T>> SimulationAggregate<T, D> {
     /// Create a new simulation aggregate
     pub fn new(id: String, domain: D, fluid: ConstantPropertyFluid<T>) -> Self {
         Self {
@@ -146,20 +144,20 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
     /// - Physical parameters are inconsistent
     pub fn validate_configuration(&self) -> Result<()> {
         // Check if domain is valid (has non-zero volume)
-        if self.domain.volume() <= T::zero() {
+        if self.domain.volume() <= T::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Domain has zero volume".to_string(),
             ));
         }
 
         // Check if fluid properties are valid
-        if self.fluid.density <= T::zero() {
+        if self.fluid.density <= T::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Fluid density must be positive".to_string(),
             ));
         }
 
-        if self.fluid.viscosity <= T::zero() {
+        if self.fluid.viscosity <= T::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Fluid viscosity must be positive".to_string(),
             ));
@@ -195,10 +193,10 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>>
 
     /// Get simulation progress
     pub fn progress(&self, current_time: T) -> T {
-        if self.parameters.max_time > T::zero() {
+        if self.parameters.max_time > T::ZERO {
             current_time / self.parameters.max_time
         } else {
-            T::zero()
+            T::ZERO
         }
     }
 }

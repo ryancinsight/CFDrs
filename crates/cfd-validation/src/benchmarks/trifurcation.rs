@@ -5,14 +5,14 @@
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::{Geometry2D, Point2D, Trifurcation2D};
+use crate::scalar;
+use crate::scalar::ValidationScalar;
 use cfd_2d::fields::SimulationFields;
-use cfd_2d::grid::traits::Grid2D;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::solver::SimplecPimpleSolver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::blood::CassonBlood;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, RealField};
 
 /// 2D Trifurcation Flow benchmark
 pub struct TrifurcationFlow<T: RealField + Copy> {
@@ -20,14 +20,15 @@ pub struct TrifurcationFlow<T: RealField + Copy> {
     geometry: Trifurcation2D<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp + std::fmt::Debug>
-    TrifurcationFlow<T>
+impl<T: ValidationScalar + std::fmt::LowerExp> TrifurcationFlow<T>
+where
+    T: FloatElement,
 {
     /// Create a new trifurcation flow benchmark
     pub fn new(width: T, length: T, angle: T) -> Self {
         // Extended Murray's Law: D_parent^3 = 3 * D_daughter^3
         // D_daughter = D_parent / 3^(1/3) ≈ 0.693 * D_parent
-        let murray_factor = T::from_f64(0.69336127435).unwrap_or_else(num_traits::Zero::zero);
+        let murray_factor = scalar::from_f64(0.69336127435);
         let daughter_width = width * murray_factor;
 
         Self {
@@ -36,15 +37,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp + st
                 width,
                 length,
                 daughter_width,
-                length * T::from_f64(1.5).unwrap_or_else(num_traits::Zero::zero),
+                length * scalar::from_f64(1.5),
                 angle,
             ),
         }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp + std::fmt::Debug>
-    Benchmark<T> for TrifurcationFlow<T>
+impl<T: ValidationScalar + std::fmt::LowerExp> Benchmark<T> for TrifurcationFlow<T>
+where
+    T: FloatElement,
 {
     fn name(&self) -> &str {
         &self.name
@@ -60,7 +62,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp + st
         let ly = max_p.y - min_p.y;
 
         let nx = config.resolution;
-        let ny = (config.resolution as f64 * ly.to_f64().unwrap() / lx.to_f64().unwrap()) as usize;
+        let ny = (config.resolution as f64 * scalar::to_f64(ly) / scalar::to_f64(lx)) as usize;
 
         let grid = StructuredGrid2D::new(nx, ny, min_p.x, max_p.x, min_p.y, max_p.y)?;
 
@@ -71,20 +73,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp + st
         for i in 0..nx {
             for j in 0..ny {
                 let center = grid.cell_center(i, j)?;
-                let point = Point2D::new(center.x, center.y,);
+                let point = Point2D::new(center[0], center[1]);
                 let is_fluid = self.geometry.contains(&point);
                 fields.mask.set(i, j, is_fluid);
 
                 if is_fluid {
-                    fields.viscosity.set(
-                        i,
-                        j,
-                        blood.apparent_viscosity(
-                            T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero),
-                        ),
-                    );
+                    fields
+                        .viscosity
+                        .set(i, j, blood.apparent_viscosity(scalar::from_f64(100.0)));
                 } else {
-                    fields.viscosity.set(i, j, T::zero());
+                    fields.viscosity.set(i, j, scalar::from_f64(0.0));
                 }
             }
         }
@@ -96,13 +94,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp + st
 
         let start_time = std::time::Instant::now();
         let mut convergence = Vec::new();
-        let rho = T::from_f64(1060.0).unwrap_or_else(num_traits::Zero::zero);
+        let rho = scalar::from_f64(1060.0);
 
         for _ in 0..config.max_iterations {
-            let dt = config
-                .time_step
-                .unwrap_or(T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero));
-            let residual = solver.solve_time_step(&mut fields, dt, T::zero(), rho)?;
+            let dt = config.time_step.unwrap_or_else(|| scalar::from_f64(0.01));
+            let residual = solver.solve_time_step(&mut fields, dt, scalar::from_f64(0.0), rho)?;
             convergence.push(residual);
 
             if residual < config.tolerance {
@@ -129,7 +125,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp + st
             .convergence
             .last()
             .copied()
-            .unwrap_or_else(|| T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero));
-        Ok(last_residual < T::from_f64(1e-3).unwrap_or_else(num_traits::Zero::zero))
+            .unwrap_or_else(|| scalar::from_f64(1.0));
+        Ok(last_residual < scalar::from_f64(1e-3))
     }
 }

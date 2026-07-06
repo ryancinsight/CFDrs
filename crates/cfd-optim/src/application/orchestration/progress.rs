@@ -5,11 +5,13 @@ use std::time::Instant;
 
 /// Logs periodic heartbeat messages during parallel evaluation scans.
 ///
-/// Use with `rayon::par_iter()`:
+/// Use with Moirai parallel evaluation loops:
 /// ```rust,ignore
+/// use moirai::{for_each_with, Adaptive};
+///
 /// let progress = Arc::new(ScanProgress::new("option2 scan", candidates.len()));
 /// let progress_ref = Arc::clone(&progress);
-/// candidates.par_iter().for_each(move |c| {
+/// for_each_with::<Adaptive, _, _>(&candidates, move |c| {
 ///     // ... evaluate ...
 ///     progress_ref.record();
 /// });

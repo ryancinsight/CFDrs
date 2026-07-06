@@ -40,9 +40,11 @@
 //! - Yasuda, K. (1979). Investigation of the analogies between viscometric and
 //!   linear viscoelastic properties of polystyrene fluids. PhD thesis, MIT.
 
+use crate::scalar::Cfd3dScalar;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use nalgebra::{Matrix3, RealField};
-use num_traits::FromPrimitive;
+use nalgebra::Matrix3;
+
+use super::scalar;
 
 /// Calculate the Cauchy stress tensor from a scalar viscosity, pressure,
 /// and strain-rate tensor.
@@ -60,14 +62,9 @@ use num_traits::FromPrimitive;
 /// * `mu` — Dynamic viscosity [Pa·s] (scalar, possibly element-local).
 /// * `pressure` — Mechanical pressure \[Pa].
 /// * `strain_rate` — Symmetric strain-rate tensor ε̇ = ½(∇u + (∇u)ᵀ).
-pub fn stress_tensor<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
-    mu: T,
-    pressure: T,
-    strain_rate: &Matrix3<T>,
-) -> Matrix3<T> {
-    let two =
-        <T as FromPrimitive>::from_f64(2.0).expect("2.0 is representable in all IEEE 754 types");
-    let mut stress = strain_rate * (two * mu);
+pub fn stress_tensor<T: Cfd3dScalar>(mu: T, pressure: T, strain_rate: &Matrix3<T>) -> Matrix3<T> {
+    let two = scalar::constant::<T>(2.0);
+    let mut stress: Matrix3<T> = strain_rate * (two * mu);
 
     // Add pressure contribution to diagonal: σ_ij += −p δ_ij
     stress[(0, 0)] -= pressure;
@@ -81,7 +78,7 @@ pub fn stress_tensor<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
 ///
 /// Convenience wrapper over [`stress_tensor`] that extracts
 /// `fluid.viscosity` as the scalar viscosity parameter.
-pub fn stress_tensor_with_fluid<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
+pub fn stress_tensor_with_fluid<T: Cfd3dScalar>(
     fluid: &ConstantPropertyFluid<T>,
     pressure: T,
     strain_rate: &Matrix3<T>,
@@ -98,11 +95,8 @@ pub fn stress_tensor_with_fluid<T: cfd_mesh::domain::core::Scalar + RealField + 
 /// # Theorem (Symmetry)
 ///
 /// The output is symmetric by construction: ε̇_{ij} = ε̇_{ji}.
-pub fn strain_rate_tensor<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
-    velocity_gradient: &Matrix3<T>,
-) -> Matrix3<T> {
-    let half =
-        <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
+pub fn strain_rate_tensor<T: Cfd3dScalar>(velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
+    let half = scalar::constant::<T>(0.5);
     (velocity_gradient + velocity_gradient.transpose()) * half
 }
 

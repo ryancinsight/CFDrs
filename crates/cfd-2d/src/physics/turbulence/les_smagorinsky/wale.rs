@@ -46,29 +46,29 @@
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
-use crate::fields::Field2D;
-use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use cfd_core::error::{Error, Result};
+use eunomia::{NumericElement, RealField};
+use leto::Array2;
 
 /// WALE model constant (literature value: 0.5)
 const C_WALE: f64 = 0.5;
 
 /// Wall-Adapting Local Eddy-viscosity (WALE) SGS model
 #[derive(Debug, Clone)]
-pub struct WaleModel<T: RealField + Copy + FromPrimitive> {
+pub struct WaleModel<T: RealField + Copy> {
     /// WALE model constant
     c_w: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for WaleModel<T> {
+impl<T: RealField + Copy> Default for WaleModel<T> {
     fn default() -> Self {
         Self {
-            c_w: T::from_f64(C_WALE).expect("analytical constant conversion"),
+            c_w: T::from_f64(C_WALE),
         }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
+impl<T: RealField + Copy> WaleModel<T> {
     /// Create new WALE model
     pub fn new() -> Self {
         Self::default()
@@ -82,39 +82,45 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
     /// Compute WALE SGS viscosity at a grid point
     ///
     /// # Arguments
-    /// * `velocity` - Velocity field
+    /// * `velocity_u` - x-component velocity field
+    /// * `velocity_v` - y-component velocity field
     /// * `i`, `j` - Grid indices
     /// * `dx`, `dy` - Grid spacings
     /// * `delta` - Filter width (typically (dx*dy*dz)^(1/3))
     ///
-    /// # Returns
-    /// SGS viscosity ν_sgs
+    /// # Errors
+    /// Returns an error when the velocity component fields have mismatched
+    /// shapes, the queried point is outside the field, the grid has fewer than
+    /// two cells in either direction, or a grid spacing is non-positive.
     pub fn sgs_viscosity(
         &self,
-        velocity: &Field2D<Vector2<T>>,
+        velocity_u: &Array2<T>,
+        velocity_v: &Array2<T>,
         i: usize,
         j: usize,
         dx: T,
         dy: T,
         delta: T,
-    ) -> T {
+    ) -> Result<T> {
+        Self::validate_velocity_fields(velocity_u, velocity_v, i, j, dx, dy)?;
+
         // Compute velocity gradients
-        let (du_dx, du_dy, dv_dx, dv_dy) = self.velocity_gradients(velocity, i, j, dx, dy);
+        let (du_dx, du_dy, dv_dx, dv_dy) =
+            self.velocity_gradients(velocity_u, velocity_v, i, j, dx, dy)?;
 
         // Compute strain rate tensor components
         let s_xx = du_dx;
-        let s_xy = T::from_f64(0.5).expect("analytical constant conversion") * (du_dy + dv_dx);
+        let s_xy = T::from_f64(0.5) * (du_dy + dv_dx);
         let s_yy = dv_dy;
 
         // Strain rate magnitude squared: |S|² = 2*S_ij*S_ij
-        let strain_mag_sq = T::from_f64(2.0).expect("analytical constant conversion")
-            * (s_xx * s_xx + s_xy * s_xy + s_yy * s_yy);
+        let strain_mag_sq = T::from_f64(2.0) * (s_xx * s_xx + s_xy * s_xy + s_yy * s_yy);
 
         // Compute WALE tensor S_ij^d
         let wale_tensor_mag_sq = self.wale_tensor_magnitude_squared(du_dx, du_dy, dv_dx, dv_dy);
 
         // Avoid division by zero
-        let epsilon = T::from_f64(1e-12).expect("analytical constant conversion");
+        let epsilon = T::from_f64(1e-12);
 
         // WALE SGS viscosity formula
         let delta_sq = delta * delta;
@@ -122,19 +128,20 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
 
         if wale_tensor_mag_sq <= epsilon {
             // Near walls where WALE tensor vanishes, fall back to small constant
-            T::zero()
+            Ok(T::ZERO)
         } else {
             // Full WALE formula
-            let numerator = wale_tensor_mag_sq * wale_tensor_mag_sq.sqrt(); // (S^d_ij S^d_ij)^{3/2}
-            let denominator_base = strain_mag_sq * strain_mag_sq.sqrt(); // (|S|²)^{5/2}
-            let wale_term = wale_tensor_mag_sq * wale_tensor_mag_sq.sqrt().sqrt(); // (S^d_ij S^d_ij)^{5/4}
+            let numerator = wale_tensor_mag_sq * NumericElement::sqrt(wale_tensor_mag_sq); // (S^d_ij S^d_ij)^{3/2}
+            let denominator_base = strain_mag_sq * NumericElement::sqrt(strain_mag_sq); // (|S|²)^{5/2}
+            let wale_term =
+                wale_tensor_mag_sq * NumericElement::sqrt(NumericElement::sqrt(wale_tensor_mag_sq)); // (S^d_ij S^d_ij)^{5/4}
 
             let denominator = denominator_base + wale_term;
 
             if denominator > epsilon {
-                c_w_delta_sq * numerator / denominator
+                Ok(c_w_delta_sq * numerator / denominator)
             } else {
-                T::zero()
+                Ok(T::ZERO)
             }
         }
     }
@@ -159,21 +166,57 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
     /// zero-gradient state.
     fn velocity_gradients(
         &self,
-        velocity: &Field2D<Vector2<T>>,
+        velocity_u: &Array2<T>,
+        velocity_v: &Array2<T>,
         i: usize,
         j: usize,
         dx: T,
         dy: T,
-    ) -> (T, T, T, T) {
-        let nx = velocity.nx();
-        let ny = velocity.ny();
+    ) -> Result<(T, T, T, T)> {
+        Self::validate_velocity_fields(velocity_u, velocity_v, i, j, dx, dy)?;
+        let [nx, ny] = velocity_u.shape();
 
-        let du_dx = Self::differentiate_uniform(nx, i, dx, |ii| velocity.at(ii, j).x);
-        let du_dy = Self::differentiate_uniform(ny, j, dy, |jj| velocity.at(i, jj).x);
-        let dv_dx = Self::differentiate_uniform(nx, i, dx, |ii| velocity.at(ii, j).y);
-        let dv_dy = Self::differentiate_uniform(ny, j, dy, |jj| velocity.at(i, jj).y);
+        let du_dx = Self::differentiate_uniform(nx, i, dx, |ii| velocity_u[[ii, j]]);
+        let du_dy = Self::differentiate_uniform(ny, j, dy, |jj| velocity_u[[i, jj]]);
+        let dv_dx = Self::differentiate_uniform(nx, i, dx, |ii| velocity_v[[ii, j]]);
+        let dv_dy = Self::differentiate_uniform(ny, j, dy, |jj| velocity_v[[i, jj]]);
 
-        (du_dx, du_dy, dv_dx, dv_dy)
+        Ok((du_dx, du_dy, dv_dx, dv_dy))
+    }
+
+    fn validate_velocity_fields(
+        velocity_u: &Array2<T>,
+        velocity_v: &Array2<T>,
+        i: usize,
+        j: usize,
+        dx: T,
+        dy: T,
+    ) -> Result<()> {
+        let u_shape = velocity_u.shape();
+        let v_shape = velocity_v.shape();
+        if u_shape != v_shape {
+            return Err(Error::InvalidInput(format!(
+                "WALE velocity component shape mismatch: u={u_shape:?}, v={v_shape:?}"
+            )));
+        }
+        let [nx, ny] = u_shape;
+        if nx < 2 || ny < 2 {
+            return Err(Error::InvalidInput(format!(
+                "WALE velocity fields require at least 2 cells per dimension, got {nx}x{ny}"
+            )));
+        }
+        if i >= nx {
+            return Err(Error::IndexOutOfBounds { index: i, size: nx });
+        }
+        if j >= ny {
+            return Err(Error::IndexOutOfBounds { index: j, size: ny });
+        }
+        if dx <= T::ZERO || dy <= T::ZERO {
+            return Err(Error::InvalidInput(
+                "WALE grid spacing must be positive".to_string(),
+            ));
+        }
+        Ok(())
     }
 
     #[inline]
@@ -181,22 +224,16 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
     where
         F: Fn(usize) -> T,
     {
-        let two = T::from_f64(2.0).expect("analytical constant conversion");
-        if n < 2 {
-            return T::zero();
-        }
+        let two = T::from_f64(2.0);
         if n == 2 {
             return (sample(1) - sample(0)) / spacing;
         }
         if idx == 0 {
-            return (-T::from_f64(3.0).expect("analytical constant conversion") * sample(0)
-                + T::from_f64(4.0).expect("analytical constant conversion") * sample(1)
-                - sample(2))
+            return (-T::from_f64(3.0) * sample(0) + T::from_f64(4.0) * sample(1) - sample(2))
                 / (two * spacing);
         }
         if idx + 1 == n {
-            return (T::from_f64(3.0).expect("analytical constant conversion") * sample(n - 1)
-                - T::from_f64(4.0).expect("analytical constant conversion") * sample(n - 2)
+            return (T::from_f64(3.0) * sample(n - 1) - T::from_f64(4.0) * sample(n - 2)
                 + sample(n - 3))
                 / (two * spacing);
         }
@@ -225,23 +262,19 @@ impl<T: RealField + Copy + FromPrimitive> WaleModel<T> {
 
         // Symmetric part of G²: (1/2)(G²_ij + G²_ji)
         let s2_xx = g2_xx;
-        let s2_xy = T::from_f64(0.5).expect("analytical constant conversion") * (g2_xy + g2_yx);
+        let s2_xy = T::from_f64(0.5) * (g2_xy + g2_yx);
         let s2_yy = g2_yy;
 
         // Trace of symmetric G²: tr(S²) = S²_kk
         let trace_s2 = s2_xx + s2_yy;
 
         // WALE tensor: S_ij^d = S²_ij - (1/3)δ_ij tr(S²)
-        let sd_xx =
-            s2_xx - T::from_f64(1.0 / 3.0).expect("analytical constant conversion") * trace_s2;
+        let sd_xx = s2_xx - T::from_f64(1.0 / 3.0) * trace_s2;
         let sd_xy = s2_xy; // Off-diagonal terms unchanged
-        let sd_yy =
-            s2_yy - T::from_f64(1.0 / 3.0).expect("analytical constant conversion") * trace_s2;
+        let sd_yy = s2_yy - T::from_f64(1.0 / 3.0) * trace_s2;
 
         // Magnitude squared: S^d_ij S^d_ij
-        sd_xx * sd_xx
-            + T::from_f64(2.0).expect("analytical constant conversion") * sd_xy * sd_xy
-            + sd_yy * sd_yy
+        sd_xx * sd_xx + T::from_f64(2.0) * sd_xy * sd_xy + sd_yy * sd_yy
     }
 }
 
@@ -253,17 +286,20 @@ mod tests {
     #[test]
     fn test_wale_viscosity() {
         let model = WaleModel::<f64>::new();
-        let mut velocity = Field2D::new(5, 5, Vector2::new(1.0, 0.0));
+        let mut velocity_u = Array2::from_elem([5, 5], 1.0);
+        let velocity_v = Array2::zeros([5, 5]);
 
         // Set up a simple shear flow: u = y, v = 0
         for i in 0..5 {
             for j in 0..5 {
                 let y = j as f64 * 0.1;
-                velocity[(i, j)] = Vector2::new(y, 0.0);
+                velocity_u[[i, j]] = y;
             }
         }
 
-        let nu_sgs = model.sgs_viscosity(&velocity, 2, 2, 0.1, 0.1, 0.1);
+        let nu_sgs = model
+            .sgs_viscosity(&velocity_u, &velocity_v, 2, 2, 0.1, 0.1, 0.1)
+            .expect("invariant: valid WALE test grid");
 
         // Should be positive but small for this simple case
         assert!(nu_sgs >= 0.0);
@@ -273,15 +309,12 @@ mod tests {
     #[test]
     fn test_wale_at_wall() {
         let model = WaleModel::<f64>::new();
-        let mut velocity = Field2D::new(5, 5, Vector2::new(0.0, 0.0));
+        let velocity_u = Array2::zeros([5, 5]);
+        let velocity_v = Array2::zeros([5, 5]);
 
-        // Set up no-slip boundary conditions (walls)
-        for i in 0..5 {
-            velocity[(i, 0)] = Vector2::new(0.0, 0.0); // Bottom wall
-            velocity[(i, 4)] = Vector2::new(0.0, 0.0); // Top wall
-        }
-
-        let nu_sgs_wall = model.sgs_viscosity(&velocity, 2, 0, 0.1, 0.1, 0.1);
+        let nu_sgs_wall = model
+            .sgs_viscosity(&velocity_u, &velocity_v, 2, 0, 0.1, 0.1, 0.1)
+            .expect("invariant: valid WALE wall test grid");
 
         // At walls, WALE tensor should vanish, giving zero viscosity
         assert_relative_eq!(nu_sgs_wall, 0.0, epsilon = 1e-10);
@@ -290,25 +323,45 @@ mod tests {
     #[test]
     fn boundary_gradients_use_second_order_one_sided_stencils() {
         let model = WaleModel::<f64>::new();
-        let mut velocity = Field2D::new(5, 5, Vector2::new(0.0, 0.0));
+        let mut velocity_u = Array2::zeros([5, 5]);
+        let mut velocity_v = Array2::zeros([5, 5]);
 
         for i in 0..5 {
             for j in 0..5 {
                 let x = i as f64 * 0.25;
                 let y = j as f64 * 0.25;
-                velocity[(i, j)] = Vector2::new(x * x + 2.0 * y, 3.0 * x + y * y);
+                velocity_u[[i, j]] = x * x + 2.0 * y;
+                velocity_v[[i, j]] = 3.0 * x + y * y;
             }
         }
 
-        let (du_dx_left, du_dy_bottom, dv_dx_left, dv_dy_bottom) =
-            model.velocity_gradients(&velocity, 0, 0, 0.25, 0.25);
+        let (du_dx_left, du_dy_bottom, dv_dx_left, dv_dy_bottom) = model
+            .velocity_gradients(&velocity_u, &velocity_v, 0, 0, 0.25, 0.25)
+            .expect("invariant: valid WALE gradient test grid");
         assert_relative_eq!(du_dx_left, 0.0, epsilon = 1.0e-12);
         assert_relative_eq!(du_dy_bottom, 2.0, epsilon = 1.0e-12);
         assert_relative_eq!(dv_dx_left, 3.0, epsilon = 1.0e-12);
         assert_relative_eq!(dv_dy_bottom, 0.0, epsilon = 1.0e-12);
 
-        let (du_dx_right, _, _, dv_dy_top) = model.velocity_gradients(&velocity, 4, 4, 0.25, 0.25);
+        let (du_dx_right, _, _, dv_dy_top) = model
+            .velocity_gradients(&velocity_u, &velocity_v, 4, 4, 0.25, 0.25)
+            .expect("invariant: valid WALE gradient test grid");
         assert_relative_eq!(du_dx_right, 2.0, epsilon = 1.0e-12);
         assert_relative_eq!(dv_dy_top, 2.0, epsilon = 1.0e-12);
+    }
+
+    #[test]
+    fn mismatched_velocity_component_shapes_are_rejected() {
+        let model = WaleModel::<f64>::new();
+        let velocity_u = Array2::zeros([5, 5]);
+        let velocity_v = Array2::zeros([4, 5]);
+
+        let error = model
+            .sgs_viscosity(&velocity_u, &velocity_v, 2, 2, 0.1, 0.1, 0.1)
+            .expect_err("mismatched WALE velocity fields must be rejected");
+
+        assert!(
+            matches!(error, Error::InvalidInput(message) if message.contains("shape mismatch"))
+        );
     }
 }

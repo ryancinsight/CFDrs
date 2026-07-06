@@ -13,9 +13,9 @@ use cfd_1d::{
     cascade_junction_separation, cascade_junction_separation_from_qfracs,
     cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs_cross_junction,
     fahraeus_lindqvist_viscosity, incremental_filtration_separation_cross_junction,
-    incremental_filtration_separation_from_qfracs, plasma_skimming_hematocrit,
-    quemada_viscosity, three_population_equilibria,
-    treatment_bifurcation_separation, tri_center_q_frac_cross_junction,
+    incremental_filtration_separation_from_qfracs, plasma_skimming_hematocrit, quemada_viscosity,
+    three_population_equilibria, treatment_bifurcation_separation,
+    tri_center_q_frac_cross_junction,
 };
 
 // ── Physical constants ──────────────────────────────────────────────────
@@ -27,13 +27,13 @@ const BLOOD_VISCOSITY: f64 = 3.5e-3; // Pa·s
 
 // ── Helper: simulate N-way junction as cascade of bifurcations ──────────
 
-/// Simulate an N-furcation by using a cascade of trifurcations with
-/// center_frac = 1/N. For N=4, a single trifurcation at center_frac=0.25
-/// produces 3 arms; a 2-layer bifurcation (4 terminal branches) is
-/// simulated as 2 levels of cascade with center_frac=0.5.
-///
-/// For quadfurcation (4 arms): 2-level cascade with center_frac=0.5.
-/// For pentafurcation (5 arms): 2-level cascade with center_frac=0.4.
+// Simulate an N-furcation by using a cascade of trifurcations with
+// center_frac = 1/N. For N=4, a single trifurcation at center_frac=0.25
+// produces 3 arms; a 2-layer bifurcation (4 terminal branches) is
+// simulated as 2 levels of cascade with center_frac=0.5.
+//
+// For quadfurcation (4 arms): 2-level cascade with center_frac=0.5.
+// For pentafurcation (5 arms): 2-level cascade with center_frac=0.4.
 
 // =========================================================================
 // Bifurcation (1/2/3 layers)
@@ -467,15 +467,12 @@ fn test_incremental_filtration_staged_vs_explicit_qfracs_consistency() {
         parent_width_m,
         channel_height_m,
     );
-    let terminal_parent_width_m = cif_pretri_stage_center_fracs(
-        n_pretri,
-        pretri_center_frac,
-        terminal_tri_frac,
-    )
-    .iter()
-    .fold(parent_width_m, |width_m, stage_center_frac| {
-        width_m * stage_center_frac
-    });
+    let terminal_parent_width_m =
+        cif_pretri_stage_center_fracs(n_pretri, pretri_center_frac, terminal_tri_frac)
+            .iter()
+            .fold(parent_width_m, |width_m, stage_center_frac| {
+                width_m * stage_center_frac
+            });
     let terminal_q = tri_center_q_frac_cross_junction(
         terminal_tri_frac,
         terminal_parent_width_m,

@@ -15,10 +15,11 @@ default = []
 cfd-core = { path = "../cfd-core" }
 cfd-math = { path = "../cfd-math" }
 cfd-schematics = { path = "../cfd-schematics" }
+eunomia.workspace = true
+leto.workspace = true
+leto-ops.workspace = true
 nalgebra.workspace = true
 nalgebra-sparse = "0.10"
-sprs = "0.11"
-num-traits.workspace = true
 petgraph.workspace = true
 serde.workspace = true
 serde_json.workspace = true

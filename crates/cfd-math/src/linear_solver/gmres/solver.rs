@@ -6,8 +6,8 @@ use super::super::traits::{
 };
 use super::{arnoldi, givens};
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
-use nalgebra::{DMatrix, DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::{Array1, Array2};
 use std::fmt::Debug;
 use std::sync::Mutex;
 
@@ -79,17 +79,51 @@ pub struct GMRES<T: RealField + Copy> {
 
 #[derive(Clone)]
 struct GMRESWorkspace<T: RealField + Copy> {
-    v: DMatrix<T>,
-    h: DMatrix<T>,
-    g: DVector<T>,
-    c: DVector<T>,
-    s: DVector<T>,
-    work: DVector<T>,
-    precond_work: DVector<T>,
-    ax: DVector<T>,
+    v: Array2<T>,
+    h: Array2<T>,
+    g: Array1<T>,
+    c: Array1<T>,
+    s: Array1<T>,
+    basis_work: Array1<T>,
+    work: Array1<T>,
+    precond_work: Array1<T>,
+    ax: Array1<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
+#[inline]
+fn array_vector_fill<T: Copy>(vector: &mut Array1<T>, value: T) {
+    for row in 0..vector.shape()[0] {
+        vector[row] = value;
+    }
+}
+
+#[inline]
+fn array_matrix_fill<T: Copy>(matrix: &mut Array2<T>, value: T) {
+    let [rows, cols] = matrix.shape();
+    for row in 0..rows {
+        for col in 0..cols {
+            matrix[[row, col]] = value;
+        }
+    }
+}
+
+#[inline]
+fn array_vector_norm<T: NumericElement>(vector: &Array1<T>) -> T {
+    let mut sum = T::ZERO;
+    for row in 0..vector.shape()[0] {
+        sum += vector[row] * vector[row];
+    }
+    sum.sqrt()
+}
+
+#[inline]
+fn array_vector_sub_assign<T: NumericElement>(target: &mut Array1<T>, rhs: &Array1<T>) {
+    for row in 0..target.shape()[0] {
+        target[row] -= rhs[row];
+    }
+}
+
+impl<T: RealField + Copy + FloatElement + Debug> GMRES<T> {
     /// Create new GMRES(m) solver
     ///
     /// # Arguments
@@ -119,8 +153,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
     pub fn solve_unpreconditioned<Op: LinearOperator<T> + ?Sized>(
         &self,
         a: &Op,
-        b: &DVector<T>,
-        x: &mut DVector<T>,
+        b: &Array1<T>,
+        x: &mut Array1<T>,
     ) -> Result<ConvergenceMonitor<T>> {
         use crate::linear_solver::preconditioners::IdentityPreconditioner;
         let preconditioner = IdentityPreconditioner;
@@ -131,11 +165,11 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
     pub fn solve_preconditioned<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
         a: &Op,
-        b: &DVector<T>,
+        b: &Array1<T>,
         preconditioner: &P,
-        x: &mut DVector<T>,
+        x: &mut Array1<T>,
     ) -> Result<ConvergenceMonitor<T>> {
-        let n = b.len();
+        let n = b.shape()[0];
         let a_size = a.size();
         if a_size != 0 && a_size != n {
             return Err(Error::InvalidConfiguration(format!(
@@ -148,17 +182,18 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
         let mut cache_ref = self.workspace.lock().unwrap();
         if cache_ref
             .as_ref()
-            .is_none_or(|cache| cache.v.nrows() != n || cache.v.ncols() != m + 1)
+            .is_none_or(|cache| cache.v.shape() != [n, m + 1])
         {
             *cache_ref = Some(GMRESWorkspace {
-                v: DMatrix::zeros(n, m + 1),
-                h: DMatrix::zeros(m + 1, m),
-                g: DVector::zeros(m + 1),
-                c: DVector::zeros(m),
-                s: DVector::zeros(m),
-                work: DVector::zeros(n),
-                precond_work: DVector::zeros(n),
-                ax: DVector::zeros(n),
+                v: Array2::zeros([n, m + 1]),
+                h: Array2::zeros([m + 1, m]),
+                g: Array1::zeros([m + 1]),
+                c: Array1::zeros([m]),
+                s: Array1::zeros([m]),
+                basis_work: Array1::zeros([n]),
+                work: Array1::zeros([n]),
+                precond_work: Array1::zeros([n]),
+                ax: Array1::zeros([n]),
             });
         }
         let ws = cache_ref.as_mut().unwrap();
@@ -166,18 +201,18 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
         // 1. Initial residual: r0 = b - A*x
         a.apply(x, &mut ws.ax)?;
         let mut r0 = b.clone();
-        r0 -= &ws.ax;
+        array_vector_sub_assign(&mut r0, &ws.ax);
 
         // Apply preconditioning to initial residual if needed (Left Preconditioning)
         preconditioner.apply_to(&r0, &mut ws.work)?;
-        let beta = ws.work.norm();
+        let beta = array_vector_norm(&ws.work);
 
-        let r0_norm = r0.norm();
+        let r0_norm = array_vector_norm(&r0);
         if r0_norm < self.config.tolerance {
             return Ok(ConvergenceMonitor::new(r0_norm));
         }
 
-        if beta <= T::default_epsilon() {
+        if beta <= <T as RealField>::EPSILON {
             return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
         }
 
@@ -191,22 +226,24 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
             } else {
                 a.apply(x, &mut ws.ax)?;
                 let mut r_restart = b.clone();
-                r_restart -= &ws.ax;
+                array_vector_sub_assign(&mut r_restart, &ws.ax);
                 preconditioner.apply_to(&r_restart, &mut ws.work)?;
-                ws.work.norm()
+                array_vector_norm(&ws.work)
             };
 
-            if beta_restart <= T::default_epsilon() {
+            if beta_restart <= <T as RealField>::EPSILON {
                 return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
             }
 
-            ws.v.column_mut(0)
-                .copy_from(&(ws.work.clone() / beta_restart));
+            let inv_beta = <T as NumericElement>::ONE / beta_restart;
+            for row in 0..n {
+                ws.v[[row, 0]] = ws.work[row] * inv_beta;
+            }
 
-            ws.h.fill(T::zero());
-            ws.g.fill(T::zero());
-            ws.c.fill(T::zero());
-            ws.s.fill(T::zero());
+            array_matrix_fill(&mut ws.h, <T as NumericElement>::ZERO);
+            array_vector_fill(&mut ws.g, <T as NumericElement>::ZERO);
+            array_vector_fill(&mut ws.c, <T as NumericElement>::ZERO);
+            array_vector_fill(&mut ws.s, <T as NumericElement>::ZERO);
             ws.g[0] = beta_restart;
 
             // 3. Arnoldi iterations
@@ -220,6 +257,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
                     &mut ws.v,
                     &mut ws.h,
                     k,
+                    &mut ws.basis_work,
                     &mut ws.work,
                     Some(preconditioner),
                     Some(&mut ws.precond_work),
@@ -230,7 +268,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
                 givens::apply_previous_rotations(&mut ws.h, &ws.c, &ws.s, k);
 
                 // Compute new Givens rotation to zero out H(k+1, k)
-                let (ck, sk) = givens::compute_rotation(ws.h[(k, k)], ws.h[(k + 1, k)]);
+                let (ck, sk) = givens::compute_rotation(ws.h[[k, k]], ws.h[[k + 1, k]]);
                 ws.c[k] = ck;
                 ws.s[k] = sk;
 
@@ -238,7 +276,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
                 givens::apply_new_rotation(&mut ws.h, &mut ws.g, ck, sk, k);
 
                 // Check convergence using residual norm estimate
-                let residual_estimate = ws.g[k + 1].abs();
+                let residual_estimate = NumericElement::abs(ws.g[k + 1]);
                 monitor.record_residual(residual_estimate);
 
                 if residual_estimate < self.config.tolerance {
@@ -255,13 +293,15 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
             let y = givens::solve_upper_triangular(&ws.h, &ws.g, k_final)?;
 
             for i in 0..k_final {
-                x.axpy(y[i], &ws.v.column(i), T::one());
+                for row in 0..n {
+                    x[row] += y[i] * ws.v[[row, i]];
+                }
             }
 
             a.apply(x, &mut ws.ax)?;
             let mut r_check = b.clone();
-            r_check -= &ws.ax;
-            if r_check.norm() < self.config.tolerance {
+            array_vector_sub_assign(&mut r_check, &ws.ax);
+            if array_vector_norm(&r_check) < self.config.tolerance {
                 return Ok(monitor);
             }
 
@@ -276,7 +316,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> GMRES<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Debug> Configurable<T> for GMRES<T> {
+impl<T: RealField + Copy + FloatElement + Debug> Configurable<T> for GMRES<T> {
     type Config = IterativeSolverConfig<T>;
 
     fn config(&self) -> &Self::Config {
@@ -284,12 +324,12 @@ impl<T: RealField + Copy + FromPrimitive + Debug> Configurable<T> for GMRES<T> {
     }
 }
 
-impl<T: RealField + Debug + Copy + FromPrimitive> IterativeLinearSolver<T> for GMRES<T> {
+impl<T: RealField + Debug + Copy + FloatElement> IterativeLinearSolver<T> for GMRES<T> {
     fn solve<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
         a: &Op,
-        b: &DVector<T>,
-        x: &mut DVector<T>,
+        b: &Array1<T>,
+        x: &mut Array1<T>,
         preconditioner: Option<&P>,
     ) -> Result<ConvergenceMonitor<T>> {
         if let Some(p) = preconditioner {
@@ -300,19 +340,19 @@ impl<T: RealField + Debug + Copy + FromPrimitive> IterativeLinearSolver<T> for G
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Debug> super::super::traits::LinearSolver<T>
+impl<T: RealField + Copy + FloatElement + Debug> super::super::traits::LinearSolver<T>
     for GMRES<T>
 {
     fn solve_system(
         &self,
         a: &dyn LinearOperator<T>,
-        b: &DVector<T>,
-        x0: Option<&DVector<T>>,
-    ) -> Result<DVector<T>> {
+        b: &Array1<T>,
+        x0: Option<&Array1<T>>,
+    ) -> Result<Array1<T>> {
         let mut x = if let Some(initial) = x0 {
             initial.clone()
         } else {
-            DVector::zeros(b.len())
+            Array1::zeros(b.shape())
         };
 
         self.solve(

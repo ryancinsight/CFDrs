@@ -2,25 +2,26 @@
 
 use super::traits::NetworkAnalyzer;
 use crate::domain::network::Network;
+use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::PerformanceMetrics;
+use cfd_core::conversion::SafeFromUsize;
 use cfd_core::error::Result;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::NumericElement;
 use petgraph::visit::EdgeRef;
 use std::iter::Sum;
 
 /// Performance analyzer for network components
-pub struct PerformanceAnalyzer<T: RealField + Copy> {
+pub struct PerformanceAnalyzer<T: Cfd1dScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> Default for PerformanceAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy> Default for PerformanceAnalyzer<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy> PerformanceAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy> PerformanceAnalyzer<T> {
     /// Create new performance analyzer
     #[must_use]
     pub fn new() -> Self {
@@ -30,7 +31,7 @@ impl<T: RealField + Copy> PerformanceAnalyzer<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
+impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> NetworkAnalyzer<T>
     for PerformanceAnalyzer<T>
 {
     type Result = PerformanceMetrics<T>;
@@ -62,7 +63,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> PerformanceAnalyzer<T> {
     fn calculate_total_pressure_drop(&self, network: &Network<T>) -> T {
         let pressures = network.pressures();
         if pressures.is_empty() {
@@ -92,7 +93,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
                 for edge_ref in network.graph.edges(node_idx) {
                     let edge_idx = edge_ref.id();
                     if let Some(&flow) = network.flow_rates().get(edge_idx.index()) {
-                        total += Float::abs(flow);
+                        total += <T as NumericElement>::abs(flow);
                     }
                 }
             }
@@ -133,8 +134,8 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> PerformanceAnalyzer<T> {
                     pressures.get(from_idx.index()),
                     pressures.get(to_idx.index()),
                 ) {
-                    let pressure_drop = Float::abs(p_from - p_to);
-                    total_power += pressure_drop * Float::abs(flow_rate);
+                    let pressure_drop = <T as NumericElement>::abs(p_from - p_to);
+                    total_power += pressure_drop * <T as NumericElement>::abs(flow_rate);
                 }
             }
         }

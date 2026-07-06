@@ -9,9 +9,8 @@
 //! - Integration with existing CFD solver pipeline
 
 use crate::error::Result;
+use eunomia::{FloatElement, NumericElement, RealField};
 use moirai::prelude::{ParallelSlice, ParallelSliceMut};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
 
 /// CFD-specific SIMD operations dispatcher
 pub struct CfdSimdOps<T: RealField + Copy> {
@@ -28,7 +27,12 @@ impl<T: RealField + Copy> CfdSimdOps<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
+#[inline]
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+impl<T: RealField + Copy + FloatElement> CfdSimdOps<T> {
     /// Compute gradient components with SIMD acceleration
     ///
     /// Computes ∂u/∂x and ∂u/∂y using central differences with SIMD operations
@@ -51,11 +55,12 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
             ));
         }
 
-        let mut dudy = vec![T::zero(); nx * ny];
-        let mut dudx = vec![T::zero(); nx * ny];
+        let mut dudy = vec![T::ZERO; nx * ny];
+        let mut dudx = vec![T::ZERO; nx * ny];
 
-        let dx_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dx);
-        let dy_inv = T::one() / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * dy);
+        let two: T = from_f64(2.0);
+        let dx_inv = T::ONE / (two * dx);
+        let dy_inv = T::ONE / (two * dy);
 
         // Interior points - use parallel processing for better performance
         let u_slice = &u;
@@ -113,9 +118,7 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
             let idx = j * nx;
             let u_right = u[j * nx + 1];
             let u_here = u[idx];
-            dudx[idx] = (u_right - u_here)
-                * dx_inv
-                * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+            dudx[idx] = (u_right - u_here) * dx_inv * from_f64(2.0);
 
             let u_up = u[(j + 1) * nx];
             let u_down = u[(j - 1) * nx];
@@ -127,9 +130,7 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
             let idx = j * nx + (nx - 1);
             let u_left = u[j * nx + (nx - 2)];
             let u_here = u[idx];
-            dudx[idx] = (u_here - u_left)
-                * dx_inv
-                * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+            dudx[idx] = (u_here - u_left) * dx_inv * from_f64(2.0);
 
             let u_up = u[(j + 1) * nx + (nx - 1)];
             let u_down = u[(j - 1) * nx + (nx - 1)];
@@ -141,8 +142,7 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
             let idx = i;
             let u_up = u[nx + i];
             let u_here = u[idx];
-            dudy[idx] =
-                (u_up - u_here) * dy_inv * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+            dudy[idx] = (u_up - u_here) * dy_inv * from_f64(2.0);
 
             let u_right = u[i + 1];
             let u_left = u[i - 1];
@@ -154,9 +154,7 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
             let idx = (ny - 1) * nx + i;
             let u_down = u[(ny - 2) * nx + i];
             let u_here = u[idx];
-            dudy[idx] = (u_here - u_down)
-                * dy_inv
-                * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+            dudy[idx] = (u_here - u_down) * dy_inv * from_f64(2.0);
 
             let u_right = u[(ny - 1) * nx + i + 1];
             let u_left = u[(ny - 1) * nx + i - 1];
@@ -174,8 +172,8 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
             ));
         }
 
-        let mut f_flux = vec![T::zero(); phi.len()];
-        let mut g_flux = vec![T::zero(); phi.len()];
+        let mut f_flux = vec![T::ZERO; phi.len()];
+        let mut g_flux = vec![T::ZERO; phi.len()];
 
         // Adaptive parallelism routes small arrays to the sequential path.
         f_flux.par_mut().enumerate(|i, f| *f = phi[i] * u[i]);
@@ -199,8 +197,8 @@ impl<T: RealField + Copy + FromPrimitive> CfdSimdOps<T> {
             ));
         }
 
-        let mut f_viscous = vec![T::zero(); dphi_dx.len()];
-        let mut g_viscous = vec![T::zero(); dphi_dx.len()];
+        let mut f_viscous = vec![T::ZERO; dphi_dx.len()];
+        let mut g_viscous = vec![T::ZERO; dphi_dx.len()];
 
         // F_viscous = -μ * ∂φ/∂x
         // G_viscous = -μ * ∂φ/∂y
@@ -229,7 +227,7 @@ pub struct CfdFieldOps<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> CfdFieldOps<T> {
+impl<T: RealField + Copy + NumericElement> CfdFieldOps<T> {
     /// Add two CFD fields element-wise
     pub fn add_fields(&self, a: &[T], b: &[T], result: &mut [T]) -> Result<()> {
         if a.len() != b.len() || a.len() != result.len() {
@@ -257,13 +255,13 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> CfdFieldOps<T> {
     /// Compute L2 norm of CFD field
     pub fn field_norm(&self, field: &[T]) -> Result<T> {
         if field.is_empty() {
-            return Ok(T::zero());
+            return Ok(T::ZERO);
         }
 
         let sum_sq = field
             .par()
-            .map_reduce(T::zero(), |&x| x * x, |acc, x| acc + x);
-        Ok(sum_sq.sqrt())
+            .map_reduce(T::ZERO, |&x| x * x, |acc, x| acc + x);
+        Ok(NumericElement::sqrt(sum_sq))
     }
 }
 

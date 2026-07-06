@@ -3,8 +3,9 @@
 use super::*;
 use crate::linear_solver::Preconditioner;
 use approx::assert_relative_eq;
-use nalgebra::DVector;
-use nalgebra_sparse::CsrMatrix;
+use cfd_core::error::Error;
+use leto::Array1;
+use leto_ops::CsrMatrix;
 
 /// Create a simple 4x4 tridiagonal test matrix
 /// [4 -1  0  0]
@@ -26,7 +27,7 @@ fn create_tridiagonal_matrix() -> CsrMatrix<f64> {
         -1.0, 4.0, // row 3
     ];
 
-    CsrMatrix::try_from_csr_data(4, 4, row_offsets, col_indices, values).expect("Valid CSR matrix")
+    CsrMatrix::from_parts(values, col_indices, row_offsets, 4, 4).expect("valid CSR matrix")
 }
 
 /// Create a 5x5 sparse matrix with more complex structure
@@ -47,7 +48,15 @@ fn create_sparse_matrix() -> CsrMatrix<f64> {
         -1.0, 5.0, // row 4
     ];
 
-    CsrMatrix::try_from_csr_data(5, 5, row_offsets, col_indices, values).expect("Valid CSR matrix")
+    CsrMatrix::from_parts(values, col_indices, row_offsets, 5, 5).expect("valid CSR matrix")
+}
+
+fn assert_invalid_configuration(result: cfd_core::error::Result<()>, expected_message: &str) {
+    match result {
+        Err(Error::InvalidConfiguration(message)) => assert_eq!(message, expected_message),
+        Err(error) => panic!("expected invalid configuration, got {error:?}"),
+        Ok(()) => panic!("expected invalid configuration error"),
+    }
 }
 
 #[test]
@@ -76,8 +85,8 @@ fn test_ilu0_apply() {
     let ilu = IncompleteLU::new(&matrix).expect("ILU(0) construction");
 
     // Test with a simple vector
-    let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0]);
-    let mut z = DVector::zeros(4);
+    let b = Array1::from_shape_vec([4], vec![1.0, 2.0, 3.0, 4.0]).expect("valid shape");
+    let mut z = Array1::zeros([4]);
     ilu.apply_to(&b, &mut z).expect("Apply preconditioner");
 
     // Solution should be positive and bounded
@@ -85,6 +94,26 @@ fn test_ilu0_apply() {
     assert!(z[1] > 0.0 && z[1] < 10.0);
     assert!(z[2] > 0.0 && z[2] < 10.0);
     assert!(z[3] > 0.0 && z[3] < 10.0);
+}
+
+#[test]
+fn test_ilu_rejects_mismatched_leto_vector_lengths() {
+    let matrix = create_tridiagonal_matrix();
+    let ilu = IncompleteLU::new(&matrix).expect("ILU(0) construction");
+
+    let r_short = Array1::zeros([3]);
+    let mut z = Array1::zeros([4]);
+    assert_invalid_configuration(
+        ilu.apply_to(&r_short, &mut z),
+        "ILU residual length mismatch: expected 4, got 3",
+    );
+
+    let r = Array1::zeros([4]);
+    let mut z_short = Array1::zeros([3]);
+    assert_invalid_configuration(
+        ilu.apply_to(&r, &mut z_short),
+        "ILU output length mismatch: expected 4, got 3",
+    );
 }
 
 #[test]
@@ -111,8 +140,8 @@ fn test_ilu0_preconditioner_quality() {
     let ilu = IncompleteLU::new(&matrix).expect("ILU(0) construction");
 
     // Test with identity-like vector
-    let b = DVector::from_vec(vec![1.0, 1.0, 1.0, 1.0]);
-    let mut z = DVector::zeros(4);
+    let b = Array1::from_shape_vec([4], vec![1.0, 1.0, 1.0, 1.0]).expect("valid shape");
+    let mut z = Array1::zeros([4]);
     ilu.apply_to(&b, &mut z).expect("Apply preconditioner");
 
     // For a diagonally dominant matrix, preconditioner should give reasonable approximation
@@ -131,10 +160,10 @@ fn test_iluk_improved_approximation() {
     let ilu0 = IncompleteLU::new(&matrix).expect("ILU(0) construction");
     let ilu1 = IncompleteLU::with_fill_level(&matrix, 1).expect("ILU(1) construction");
 
-    let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+    let b = Array1::from_shape_vec([5], vec![1.0, 2.0, 3.0, 4.0, 5.0]).expect("valid shape");
 
-    let mut z0 = DVector::zeros(5);
-    let mut z1 = DVector::zeros(5);
+    let mut z0 = Array1::zeros([5]);
+    let mut z1 = Array1::zeros([5]);
     ilu0.apply_to(&b, &mut z0).expect("Apply ILU(0)");
     ilu1.apply_to(&b, &mut z1).expect("Apply ILU(1)");
 
@@ -146,7 +175,15 @@ fn test_iluk_improved_approximation() {
 
     // ILU(1) should generally give different (hopefully better) results
     // We don't test for "better" directly, just that fill improves approximation
-    let diff = (&z0 - &z1).norm();
+    let diff = z0
+        .iter()
+        .zip(z1.iter())
+        .map(|(a, b)| {
+            let d = a - b;
+            d * d
+        })
+        .sum::<f64>()
+        .sqrt();
     assert!(diff > 0.0, "ILU(1) should differ from ILU(0)");
 }
 
@@ -159,8 +196,8 @@ fn test_ilu_non_square_matrix() {
     let col_indices = vec![0, 1, 1, 2];
     let values = vec![1.0, 2.0, 3.0, 4.0];
 
-    let matrix = CsrMatrix::try_from_csr_data(2, 3, row_offsets, col_indices, values)
-        .expect("Valid CSR matrix");
+    let matrix =
+        CsrMatrix::from_parts(values, col_indices, row_offsets, 2, 3).expect("valid CSR matrix");
 
     let ilu = IncompleteLU::new(&matrix);
     assert!(ilu.is_err());

@@ -1,6 +1,7 @@
 //! Tolerance settings for conservation checks
 
-use nalgebra::RealField;
+use crate::scalar;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 /// Tolerance settings for conservation checks
@@ -20,6 +21,6 @@ impl<T: RealField + Copy> ConservationTolerance<T> {
 
     /// Check if error is within tolerance
     pub fn is_satisfied(&self, error: T, reference: T) -> bool {
-        error <= self.absolute || error <= self.relative * reference.abs()
+        error <= self.absolute || error <= self.relative * scalar::abs(reference)
     }
 }

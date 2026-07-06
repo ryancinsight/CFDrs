@@ -3,10 +3,10 @@
 use super::{GpuBuffer, GpuContext};
 use crate::compute::traits::KernelParams;
 use crate::error::{Error, Result};
-use nalgebra::RealField;
+use eunomia::RealField;
+use hephaestus_wgpu::wgpu::{self, util::DeviceExt};
 use std::collections::HashMap;
 use std::sync::Arc;
-use wgpu::util::DeviceExt;
 
 /// Manages GPU compute pipelines and resources
 pub struct GpuPipelineManager {
@@ -127,7 +127,9 @@ impl GpuPipelineManager {
                     label: Some(&format!("{name} Pipeline")),
                     layout: Some(&pipeline_layout),
                     module: &shader_module,
-                    entry_point,
+                    entry_point: Some(entry_point),
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    cache: None,
                 });
 
         self.bind_group_layouts
@@ -184,7 +186,7 @@ impl GpuPipelineManager {
             entries.push(wgpu::BindGroupEntry {
                 #[allow(clippy::cast_possible_truncation)] // GPU buffer binding IDs are typically small
                 binding: (i + 1) as u32,
-                resource: buffer.buffer.as_entire_binding(),
+                resource: buffer.buffer().as_entire_binding(),
             });
         }
 
@@ -192,7 +194,7 @@ impl GpuPipelineManager {
         entries.push(wgpu::BindGroupEntry {
             #[allow(clippy::cast_possible_truncation)] // GPU buffer binding IDs are typically small
             binding: (input_buffers.len() + 1) as u32,
-            resource: output_buffer.buffer.as_entire_binding(),
+            resource: output_buffer.buffer().as_entire_binding(),
         });
 
         let bind_group = self

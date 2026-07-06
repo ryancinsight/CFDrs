@@ -68,9 +68,9 @@ mod solver;
 
 pub use solver::{VenturiSolver2D, VenturiValidationResult, VenturiValidator};
 
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd2dScalar;
+use crate::scalar::{self, from_f64};
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -85,7 +85,7 @@ use serde::{Deserialize, Serialize};
 /// - Throat section (constant width)
 /// - Diverging section (linear expansion)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VenturiGeometry<T: RealField + Copy> {
+pub struct VenturiGeometry<T: Cfd2dScalar + Copy> {
     /// Inlet width \[m]
     pub w_inlet: T,
     /// Throat width \[m]
@@ -102,7 +102,7 @@ pub struct VenturiGeometry<T: RealField + Copy> {
     pub height: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> VenturiGeometry<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> VenturiGeometry<T> {
     /// Create standard ISO 5167 Venturi with area ratio 0.5
     ///
     /// # Configuration
@@ -114,13 +114,13 @@ impl<T: RealField + Copy + FromPrimitive> VenturiGeometry<T> {
     /// - Standard diverging length: ~0.3-0.5 × inlet width
     pub fn iso_5167_standard() -> Self {
         Self {
-            w_inlet: T::from_f64_or_one(10e-3),
-            w_throat: T::from_f64_or_one(7.07e-3),
-            l_inlet: T::from_f64_or_one(10e-3),
-            l_converge: T::from_f64_or_one(1e-3),
-            l_throat: T::from_f64_or_one(2e-3),
-            l_diverge: T::from_f64_or_one(3e-3),
-            height: T::from_f64_or_one(1.0e-3),
+            w_inlet: from_f64::<T>(10e-3),
+            w_throat: from_f64::<T>(7.07e-3),
+            l_inlet: from_f64::<T>(10e-3),
+            l_converge: from_f64::<T>(1e-3),
+            l_throat: from_f64::<T>(2e-3),
+            l_diverge: from_f64::<T>(3e-3),
+            height: from_f64::<T>(1.0e-3),
         }
     }
 
@@ -153,10 +153,13 @@ impl<T: RealField + Copy + FromPrimitive> VenturiGeometry<T> {
     /// `beta` value instead of using this helper.
     #[must_use]
     pub fn recommended_center_clustering_beta(&self) -> T {
-        let four = T::from_f64_or_one(4.0);
-        let max_beta = T::from_f64_or_one(0.9);
-        let candidate = T::one() - four * self.w_throat / self.w_inlet;
-        candidate.max(T::zero()).min(max_beta)
+        let four = from_f64::<T>(4.0);
+        let max_beta = from_f64::<T>(0.9);
+        let candidate = scalar::one::<T>() - four * self.w_throat / self.w_inlet;
+        <T as NumericElement>::min_scalar(
+            <T as NumericElement>::max_scalar(candidate, scalar::zero::<T>()),
+            max_beta,
+        )
     }
 
     /// Calculate area ratio (A_throat / A_inlet)
@@ -181,10 +184,8 @@ impl<T: RealField + Copy + FromPrimitive> VenturiGeometry<T> {
 
     /// Check if a point (x, y) is within the fluid domain
     pub fn contains(&self, x: T, y: T) -> bool {
-        let _half_w_inlet =
-            self.w_inlet / T::from_f64(2.0).expect("Exact mathematically representable f64");
-        let _half_w_throat =
-            self.w_throat / T::from_f64(2.0).expect("Exact mathematically representable f64");
+        let _half_w_inlet = self.w_inlet / from_f64::<T>(2.0);
+        let _half_w_throat = self.w_throat / from_f64::<T>(2.0);
 
         // X-ranges
         let x_inlet_end = self.l_inlet;
@@ -192,7 +193,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiGeometry<T> {
         let x_throat_end = x_converge_end + self.l_throat;
         let x_diverge_end = x_throat_end + self.l_diverge;
 
-        if x < T::zero() || x > x_diverge_end {
+        if x < scalar::zero::<T>() || x > x_diverge_end {
             return false;
         }
 
@@ -213,8 +214,8 @@ impl<T: RealField + Copy + FromPrimitive> VenturiGeometry<T> {
             self.w_inlet
         };
 
-        let half_w = w_local / T::from_f64(2.0).expect("Exact mathematically representable f64");
-        y.abs() <= half_w
+        let half_w = w_local / from_f64::<T>(2.0);
+        eunomia::NumericElement::abs(y) <= half_w
     }
 }
 
@@ -226,7 +227,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiGeometry<T> {
 ///
 /// Provides exact (frictionless) prediction of pressure distribution
 /// for validation against numerical solutions.
-pub struct BernoulliVenturi<T: RealField + Copy> {
+pub struct BernoulliVenturi<T: Cfd2dScalar + Copy> {
     geometry: VenturiGeometry<T>,
     /// Inlet velocity \[m/s]
     pub u_inlet: T,
@@ -236,7 +237,7 @@ pub struct BernoulliVenturi<T: RealField + Copy> {
     pub rho: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> BernoulliVenturi<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> BernoulliVenturi<T> {
     /// Create new Bernoulli solution
     pub fn new(geometry: VenturiGeometry<T>, u_inlet: T, p_inlet: T, rho: T) -> Self {
         Self {
@@ -270,7 +271,7 @@ impl<T: RealField + Copy + FromPrimitive> BernoulliVenturi<T> {
     ///          = P_inlet + (1/2)ρu_inlet²(1 - (A_inlet/A_throat)²)
     /// ```
     pub fn pressure_throat(&self) -> T {
-        let one_half = T::from_f64_or_one(0.5);
+        let one_half = from_f64::<T>(0.5);
         let u_throat = self.velocity_throat();
         let dynamic_pressure_inlet = one_half * self.rho * self.u_inlet * self.u_inlet;
         let dynamic_pressure_throat = one_half * self.rho * u_throat * u_throat;
@@ -294,7 +295,7 @@ impl<T: RealField + Copy + FromPrimitive> BernoulliVenturi<T> {
     /// ```
     pub fn pressure_coefficient_throat(&self) -> T {
         let ar = self.geometry.area_ratio();
-        let one = T::one();
+        let one = scalar::one::<T>();
 
         // Cp_ideal = 1 - (1/area_ratio)²
         one - (one / ar) * (one / ar)
@@ -315,7 +316,7 @@ impl<T: RealField + Copy + FromPrimitive> BernoulliVenturi<T> {
     /// Real Venturi: Cp_recovery ~ -(0.05 to 0.15) (friction loss)
     pub fn pressure_recovery_ideal(&self) -> T {
         // For ideal flow with full recovery
-        T::zero()
+        scalar::zero::<T>()
     }
 }
 
@@ -333,13 +334,13 @@ impl<T: RealField + Copy + FromPrimitive> BernoulliVenturi<T> {
 /// ```
 ///
 /// where ζ is the loss coefficient (0.1-0.3 for typical Venturi).
-pub struct ViscousVenturi<T: RealField + Copy> {
+pub struct ViscousVenturi<T: Cfd2dScalar + Copy> {
     bernoulli: BernoulliVenturi<T>,
     /// Loss coefficient (typical: 0.1-0.3)
     pub loss_coefficient: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> ViscousVenturi<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> ViscousVenturi<T> {
     /// Create Venturi with friction losses
     ///
     /// # Loss Coefficient
@@ -371,7 +372,7 @@ impl<T: RealField + Copy + FromPrimitive> ViscousVenturi<T> {
     /// P_outlet = P_inlet - ζ × (1/2)ρu_inlet²
     /// ```
     pub fn pressure_outlet_with_loss(&self) -> T {
-        let one_half = T::from_f64_or_one(0.5);
+        let one_half = from_f64::<T>(0.5);
         let dynamic_pressure_inlet =
             one_half * self.bernoulli.rho * self.bernoulli.u_inlet * self.bernoulli.u_inlet;
 
@@ -397,7 +398,7 @@ impl<T: RealField + Copy + FromPrimitive> ViscousVenturi<T> {
 
 /// Solution to the Venturi flow problem
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct VenturiFlowSolution<T: RealField + Copy> {
+pub struct VenturiFlowSolution<T: Cfd2dScalar + Copy> {
     /// Inlet velocity \[m/s]
     pub u_inlet: T,
     /// Inlet pressure \[Pa]
@@ -438,17 +439,17 @@ pub struct VenturiFlowSolution<T: RealField + Copy> {
     pub converged: bool,
 }
 
-impl<T: RealField + Copy + FromPrimitive> VenturiFlowSolution<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> VenturiFlowSolution<T> {
     /// Create Venturi solution from Bernoulli
     pub fn from_bernoulli(bernoulli: &BernoulliVenturi<T>, p_outlet: T) -> Self {
         let u_throat = bernoulli.velocity_throat();
         let p_throat = bernoulli.pressure_throat();
         let cp_throat = bernoulli.pressure_coefficient_throat();
 
-        let one_half = T::from_f64_or_one(0.5);
+        let one_half = from_f64::<T>(0.5);
         let dynamic_pressure = one_half * bernoulli.rho * bernoulli.u_inlet * bernoulli.u_inlet;
-        let cp_recovery =
-            (p_outlet - bernoulli.p_inlet) / dynamic_pressure.max(T::from_f64_or_one(1.0));
+        let cp_recovery = (p_outlet - bernoulli.p_inlet)
+            / <T as NumericElement>::max_scalar(dynamic_pressure, from_f64::<T>(1.0));
 
         Self {
             u_inlet: bernoulli.u_inlet,
@@ -477,12 +478,13 @@ impl<T: RealField + Copy + FromPrimitive> VenturiFlowSolution<T> {
     ///
     /// Returns dissipated energy \[Pa]
     pub fn energy_dissipation(&self, rho: T) -> T {
-        let one_half = T::from_f64_or_one(0.5);
+        let one_half = from_f64::<T>(0.5);
 
         let energy_inlet = self.p_inlet + one_half * rho * self.u_inlet * self.u_inlet;
         let energy_outlet = self.p_outlet + one_half * rho * self.u_outlet * self.u_outlet;
 
-        (energy_inlet - energy_outlet).max(T::zero()) // Dissipation is positive
+        <T as NumericElement>::max_scalar(energy_inlet - energy_outlet, scalar::zero::<T>())
+        // Dissipation is positive
     }
 }
 

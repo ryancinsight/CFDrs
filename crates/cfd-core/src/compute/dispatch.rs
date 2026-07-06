@@ -3,7 +3,7 @@
 use super::backend::{BackendContext, ComputeCapability};
 use super::traits::{ComputeBackend, ComputeKernel, KernelParams};
 use crate::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::sync::Arc;
 
 /// Compute dispatcher that selects appropriate backend at runtime

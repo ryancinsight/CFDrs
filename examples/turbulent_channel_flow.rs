@@ -13,7 +13,7 @@
 //! for fully developed turbulent channel flow between parallel plates.
 
 use cfd_2d::physics::turbulence::{KOmegaSSTModel, TurbulenceModel};
-use nalgebra::Vector2;
+use leto::geometry::Vector2;
 
 fn main() {
     println!("=== Turbulent Channel Flow with k-ω SST Model ===\n");
@@ -87,7 +87,7 @@ fn main() {
             };
 
             // Velocity profile (logarithmic law of the wall)
-            velocity[idx].x = if y_plus < 11.0 {
+            velocity[idx][0] = if y_plus < 11.0 {
                 // Viscous sublayer: u+ = y+
                 u_tau * y_plus
             } else {
@@ -119,7 +119,7 @@ fn main() {
         // Calculate strain rate magnitude for SST limiter
         let strain_rate = if j > 0 && j < ny - 1 {
             // Simple central difference: S ≈ |∂u/∂y|
-            let du_dy = (velocity[(j + 1) * nx].x - velocity[(j - 1) * nx].x) / (2.0 * dy);
+            let du_dy = (velocity[(j + 1) * nx][0] - velocity[(j - 1) * nx][0]) / (2.0 * dy);
             du_dy.abs()
         } else {
             1.0 // Near boundaries
@@ -137,7 +137,7 @@ fn main() {
             f2,
         ) / density; // Convert to kinematic viscosity
 
-        let u_plus = velocity[idx].x / u_tau;
+        let u_plus = velocity[idx][0] / u_tau;
 
         println!(
             "{:8.4} {:10.2} {:12.6} {:12.2} {:12.4}",

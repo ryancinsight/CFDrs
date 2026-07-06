@@ -3,8 +3,11 @@
 //! This module provides the fundamental building blocks for defining the
 //! computational space in which simulations are performed.
 
-use nalgebra::{Point1, Point2, Point3, RealField, Vector3};
+use eunomia::RealField;
+use leto::geometry::{Point, Point2, Point3, Vector3};
 use serde::{Deserialize, Serialize};
+
+type Point1<T> = Point<T, 1>;
 
 /// Trait for geometric shapes and spatial operations
 pub trait Geometry<T: RealField + Copy>: Send + Sync {
@@ -81,13 +84,13 @@ impl<T: RealField + Copy> Domain1D<T> {
 
     /// Get the center of the domain
     pub fn center(&self) -> T {
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
         (self.start + self.end) / two
     }
 
     /// Check if a point is within the domain
     pub fn contains(&self, point: &Point1<T>) -> bool {
-        point.x >= self.start && point.x <= self.end
+        point[0] >= self.start && point[0] <= self.end
     }
 }
 
@@ -117,8 +120,8 @@ pub struct Domain2D<T: RealField + Copy> {
 impl<T: RealField + Copy> Domain2D<T> {
     /// Create a new 2D domain with automatic ordering
     pub fn new(p1: Point2<T>, p2: Point2<T>) -> Self {
-        let (x_min, x_max) = order(p1.x, p2.x);
-        let (y_min, y_max) = order(p1.y, p2.y);
+        let (x_min, x_max) = order(p1[0], p2[0]);
+        let (y_min, y_max) = order(p1[1], p2[1]);
         Self {
             min: Point2::new(x_min, y_min),
             max: Point2::new(x_max, y_max),
@@ -132,21 +135,21 @@ impl<T: RealField + Copy> Domain2D<T> {
 
     /// Get the center of the domain
     pub fn center(&self) -> Point2<T> {
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
         Point2::new(
-            (self.min.x + self.max.x) / two,
-            (self.min.y + self.max.y) / two,
+            (self.min[0] + self.max[0]) / two,
+            (self.min[1] + self.max[1]) / two,
         )
     }
 
     /// Get the width of the domain
     pub fn width(&self) -> T {
-        self.max.x - self.min.x
+        self.max[0] - self.min[0]
     }
 
     /// Get the height of the domain
     pub fn height(&self) -> T {
-        self.max.y - self.min.y
+        self.max[1] - self.min[1]
     }
 
     /// Get the area of the domain
@@ -156,10 +159,10 @@ impl<T: RealField + Copy> Domain2D<T> {
 
     /// Check if a point is within the domain
     pub fn contains(&self, point: &Point2<T>) -> bool {
-        point.x >= self.min.x
-            && point.x <= self.max.x
-            && point.y >= self.min.y
-            && point.y <= self.max.y
+        point[0] >= self.min[0]
+            && point[0] <= self.max[0]
+            && point[1] >= self.min[1]
+            && point[1] <= self.max[1]
     }
 }
 
@@ -189,9 +192,9 @@ pub struct Domain3D<T: RealField + Copy> {
 impl<T: RealField + Copy> Domain3D<T> {
     /// Create a new 3D domain with automatic ordering
     pub fn new(p1: Point3<T>, p2: Point3<T>) -> Self {
-        let (x_min, x_max) = order(p1.x, p2.x);
-        let (y_min, y_max) = order(p1.y, p2.y);
-        let (z_min, z_max) = order(p1.z, p2.z);
+        let (x_min, x_max) = order(p1[0], p2[0]);
+        let (y_min, y_max) = order(p1[1], p2[1]);
+        let (z_min, z_max) = order(p1[2], p2[2]);
         Self {
             min: Point3::new(x_min, y_min, z_min),
             max: Point3::new(x_max, y_max, z_max),
@@ -205,27 +208,27 @@ impl<T: RealField + Copy> Domain3D<T> {
 
     /// Get the center of the domain
     pub fn center(&self) -> Point3<T> {
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
         Point3::new(
-            (self.min.x + self.max.x) / two,
-            (self.min.y + self.max.y) / two,
-            (self.min.z + self.max.z) / two,
+            (self.min[0] + self.max[0]) / two,
+            (self.min[1] + self.max[1]) / two,
+            (self.min[2] + self.max[2]) / two,
         )
     }
 
     /// Check if a point is within the domain
     pub fn contains(&self, point: &Point3<T>) -> bool {
-        point.x >= self.min.x
-            && point.x <= self.max.x
-            && point.y >= self.min.y
-            && point.y <= self.max.y
-            && point.z >= self.min.z
-            && point.z <= self.max.z
+        point[0] >= self.min[0]
+            && point[0] <= self.max[0]
+            && point[1] >= self.min[1]
+            && point[1] <= self.max[1]
+            && point[2] >= self.min[2]
+            && point[2] <= self.max[2]
     }
 
     /// Get volume
     pub fn volume(&self) -> T {
-        (self.max.x - self.min.x) * (self.max.y - self.min.y) * (self.max.z - self.min.z)
+        (self.max[0] - self.min[0]) * (self.max[1] - self.min[1]) * (self.max[2] - self.min[2])
     }
 }
 

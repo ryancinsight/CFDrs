@@ -32,9 +32,10 @@
 //! discretisation (provided CFL ≤ 1) and therefore converges.
 
 use super::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result as CfdResult;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -46,7 +47,7 @@ use serde::{Deserialize, Serialize};
 /// The horizontal channel runs along the x-axis and the vertical channel
 /// along the y-axis.  Both are centred on the same junction point.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrossJunctionGeometry<T: RealField + Copy> {
+pub struct CrossJunctionGeometry<T: Cfd2dScalar + Copy> {
     /// Width of the horizontal channel \[m].
     pub horizontal_width: T,
     /// Total length of the horizontal channel \[m].
@@ -57,7 +58,7 @@ pub struct CrossJunctionGeometry<T: RealField + Copy> {
     pub vertical_length: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> CrossJunctionGeometry<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> CrossJunctionGeometry<T> {
     /// Create a symmetric cross-junction (equal channel widths and lengths).
     pub fn symmetric(width: T, length: T) -> Self {
         Self {
@@ -72,7 +73,7 @@ impl<T: RealField + Copy + FromPrimitive> CrossJunctionGeometry<T> {
     ///
     /// The junction is centred at the origin.
     pub fn contains(&self, x: T, y: T) -> bool {
-        let two = T::from_f64(2.0).expect("Exact mathematically representable f64");
+        let two = scalar::from_f64::<T>(2.0);
 
         // Horizontal channel: x ∈ [-L_h/2, L_h/2], y ∈ [-w_h/2, w_h/2]
         let half_h_len = self.horizontal_length / two;
@@ -93,7 +94,7 @@ impl<T: RealField + Copy + FromPrimitive> CrossJunctionGeometry<T> {
 
     /// Return the axis-aligned bounding box `[min_x, max_x, min_y, max_y]`.
     pub fn bounding_box(&self) -> [T; 4] {
-        let two = T::from_f64(2.0).expect("Exact mathematically representable f64");
+        let two = scalar::from_f64::<T>(2.0);
         let half_h_len = self.horizontal_length / two;
         let half_v_len = self.vertical_length / two;
         let half_v_w = self.vertical_width / two;
@@ -118,14 +119,14 @@ impl<T: RealField + Copy + FromPrimitive> CrossJunctionGeometry<T> {
 /// perpendicular channels.  The horizontal channel is driven by an
 /// imposed inlet velocity; the vertical channel can be configured as
 /// no-flow walls (closed side ports) or open outlets.
-pub struct CrossJunctionSolver2D<T: RealField + Copy + Float + FromPrimitive> {
+pub struct CrossJunctionSolver2D<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> {
     /// Cross-junction geometry.
     pub geometry: CrossJunctionGeometry<T>,
     /// Underlying Navier-Stokes solver.
     pub ns_solver: NavierStokesSolver2D<T>,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSolver2D<T> {
+impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> CrossJunctionSolver2D<T> {
     /// Construct a new cross-junction solver.
     ///
     /// # Arguments
@@ -182,7 +183,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSol
 
         // Compute fluxes at each port.
         // West (x = 0, inlet)
-        let mut q_west = T::zero();
+        let mut q_west = scalar::zero();
         for j in 0..ny {
             if self.ns_solver.field.mask[(0, j)] {
                 q_west += self.ns_solver.field.u[(0, j)] * dy;
@@ -190,7 +191,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSol
         }
 
         // East (x = nx)
-        let mut q_east = T::zero();
+        let mut q_east = scalar::zero();
         for j in 0..ny {
             if self.ns_solver.field.mask[(nx - 1, j)] {
                 q_east += self.ns_solver.field.u[(nx, j)] * dy;
@@ -198,7 +199,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSol
         }
 
         // South (y = 0)
-        let mut q_south = T::zero();
+        let mut q_south = scalar::zero();
         for i in 0..nx {
             if self.ns_solver.field.mask[(i, 0)] {
                 q_south += self.ns_solver.field.v[(i, 0)] * dx;
@@ -206,7 +207,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSol
         }
 
         // North (y = ny)
-        let mut q_north = T::zero();
+        let mut q_north = scalar::zero();
         for i in 0..nx {
             if self.ns_solver.field.mask[(i, ny - 1)] {
                 q_north += self.ns_solver.field.v[(i, ny)] * dx;
@@ -215,12 +216,11 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSol
 
         let q_total_in = q_west;
         let q_total_out = q_east + q_north + q_south;
-        let mass_balance_error = if Float::abs(q_total_in)
-            > T::from_f64(1e-30).expect("Exact mathematically representable f64")
-        {
-            Float::abs(q_total_in - q_total_out) / Float::abs(q_total_in)
+        let q_total_in_abs = <T as NumericElement>::abs(q_total_in);
+        let mass_balance_error = if q_total_in_abs > scalar::from_f64::<T>(1e-30) {
+            <T as NumericElement>::abs(q_total_in - q_total_out) / q_total_in_abs
         } else {
-            T::zero()
+            scalar::zero()
         };
 
         // Compute junction pressure loss ΔP between west and east centroids.
@@ -242,7 +242,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> CrossJunctionSol
 
 /// Solution data from a cross-junction flow simulation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrossJunctionSolution<T: RealField + Copy> {
+pub struct CrossJunctionSolution<T: Cfd2dScalar + Copy> {
     /// Flow rate through the west port (inlet).
     pub q_west: T,
     /// Flow rate through the east port (outlet).
@@ -264,6 +264,7 @@ pub struct CrossJunctionSolution<T: RealField + Copy> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use eunomia::NumericElement;
 
     #[test]
     fn symmetric_geometry_contains_junction_centre() {
@@ -295,10 +296,10 @@ mod tests {
     fn bounding_box_symmetric() {
         let g = CrossJunctionGeometry::<f64>::symmetric(1e-3, 10e-3);
         let bb = g.bounding_box();
-        assert!((bb[0] - (-5e-3)).abs() < 1e-10);
-        assert!((bb[1] - 5e-3).abs() < 1e-10);
-        assert!((bb[2] - (-5e-3)).abs() < 1e-10);
-        assert!((bb[3] - 5e-3).abs() < 1e-10);
+        assert!(<f64 as NumericElement>::abs(bb[0] - (-5e-3)) < 1e-10);
+        assert!(<f64 as NumericElement>::abs(bb[1] - 5e-3) < 1e-10);
+        assert!(<f64 as NumericElement>::abs(bb[2] - (-5e-3)) < 1e-10);
+        assert!(<f64 as NumericElement>::abs(bb[3] - 5e-3) < 1e-10);
     }
 
     #[test]

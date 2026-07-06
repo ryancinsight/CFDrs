@@ -12,7 +12,16 @@
 mod tests {
     use super::super::ChebyshevPolynomial;
     use approx::assert_relative_eq;
+    use leto::Array1;
     use std::f64::consts::PI;
+
+    fn array_from_points<F>(points: &[f64], mut f: F) -> Array1<f64>
+    where
+        F: FnMut(f64) -> f64,
+    {
+        Array1::from_vec([points.len()], points.iter().copied().map(&mut f).collect())
+            .expect("invariant: generated values match Chebyshev point count")
+    }
 
     /// Test Gauss-Lobatto collocation points
     /// Reference: Trefethen (2000), Chapter 6
@@ -62,9 +71,9 @@ mod tests {
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
         let d_matrix = cheb.diff_matrix();
 
-        assert_eq!(d_matrix.nrows(), n);
+        assert_eq!(d_matrix.shape()[0], n);
         assert_eq!(
-            d_matrix.ncols(),
+            d_matrix.shape()[1],
             n,
             "Differentiation matrix wrong column count"
         );
@@ -76,11 +85,10 @@ mod tests {
     fn test_differentiation_constant_function() {
         let n = 8;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-        let d_matrix = cheb.diff_matrix();
 
         // Constant function u = 1 at all points
-        let u = nalgebra::DVector::from_element(n, 1.0);
-        let du_dx = d_matrix * &u;
+        let u = Array1::from_elem([n], 1.0);
+        let du_dx = cheb.differentiate(&u).unwrap();
 
         // Derivative should be zero everywhere
         for i in 0..n {
@@ -94,12 +102,12 @@ mod tests {
     fn test_differentiation_linear_function() {
         let n = 10;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-        let d_matrix = cheb.diff_matrix();
         let points = cheb.points();
 
         // Linear function u = x
-        let u = nalgebra::DVector::from_vec(points.to_vec());
-        let du_dx = d_matrix * &u;
+        let u = Array1::from_vec([n], points.to_vec())
+            .expect("invariant: Chebyshev points match vector shape");
+        let du_dx = cheb.differentiate(&u).unwrap();
 
         // Derivative should be 1 everywhere
         for i in 0..n {
@@ -113,13 +121,11 @@ mod tests {
     fn test_differentiation_quadratic_function() {
         let n = 12;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-        let d_matrix = cheb.diff_matrix();
         let points = cheb.points();
 
         // Quadratic function u = x²
-        let u: nalgebra::DVector<f64> =
-            nalgebra::DVector::from_iterator(n, points.iter().map(|&x| x * x));
-        let du_dx = d_matrix * &u;
+        let u = array_from_points(points, |x| x * x);
+        let du_dx = cheb.differentiate(&u).unwrap();
 
         // Derivative should be 2x
         for i in 0..n {
@@ -135,18 +141,16 @@ mod tests {
     fn test_differentiation_sin_function() {
         let n = 20;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-        let d_matrix = cheb.diff_matrix();
         let points = cheb.points();
 
         // Function u = sin(πx)
-        let u: nalgebra::DVector<f64> =
-            nalgebra::DVector::from_iterator(n, points.iter().map(|&x| (PI * x).sin()));
-        let du_dx = d_matrix * &u;
+        let u = array_from_points(points, |x| (PI * x).sin());
+        let du_dx = cheb.differentiate(&u).unwrap();
 
         // Analytical derivative: π*cos(πx)
         for i in 1..n - 1 {
             // Skip endpoints where sin(πx) = 0
-            let expected = PI * num_traits::Float::cos(PI * points[i]);
+            let expected = PI * (PI * points[i]).cos();
             assert_relative_eq!(du_dx[i], expected, epsilon = 1e-9);
         }
     }
@@ -157,16 +161,11 @@ mod tests {
     fn test_second_derivative_sin_function() {
         let n = 20;
         let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-        let d_matrix = cheb.diff_matrix();
         let points = cheb.points();
 
-        // Second derivative matrix D²
-        let d2_matrix = d_matrix * d_matrix;
-
         // Function u = sin(πx)
-        let u: nalgebra::DVector<f64> =
-            nalgebra::DVector::from_iterator(n, points.iter().map(|&x| (PI * x).sin()));
-        let d2u_dx2 = d2_matrix * &u;
+        let u = array_from_points(points, |x| (PI * x).sin());
+        let d2u_dx2 = cheb.second_derivative(&u).unwrap();
 
         // Analytical second derivative: -π²*sin(πx)
         for i in 2..n - 2 {
@@ -206,25 +205,23 @@ mod tests {
     fn test_spectral_accuracy_exponential_decay() {
         // Test function: exp(sin(πx))
         let f = |x: f64| (PI * x).sin().exp();
-        let df = |x: f64| PI * num_traits::Float::cos(PI * x) * (PI * x).sin().exp();
+        let df = |x: f64| PI * (PI * x).cos() * (PI * x).sin().exp();
 
         let n_values = [8, 12, 16];
         let mut errors = Vec::new();
 
         for &n in &n_values {
             let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-            let d_matrix = cheb.diff_matrix();
             let points = cheb.points();
 
-            let u: nalgebra::DVector<f64> =
-                nalgebra::DVector::from_iterator(n, points.iter().map(|&x| f(x)));
-            let du_dx = d_matrix * &u;
+            let u = array_from_points(points, f);
+            let du_dx = cheb.differentiate(&u).unwrap();
 
             // Compute error at interior points
             let mut max_error = 0.0_f64;
             for i in 2..n - 2 {
                 let error = (du_dx[i] - df(points[i])).abs();
-                max_error = num_traits::Float::max(max_error, error);
+                max_error = max_error.max(error);
             }
             errors.push(max_error);
         }
@@ -259,8 +256,7 @@ mod tests {
         let points = cheb.points();
 
         // Function with specific boundary values
-        let u: nalgebra::DVector<f64> =
-            nalgebra::DVector::from_iterator(n, points.iter().map(|&x| x * x));
+        let u = array_from_points(points, |x| x * x);
 
         // Boundary values should be exactly 1 (at x = ±1)
         assert_relative_eq!(u[0], 1.0, epsilon = 1e-14);

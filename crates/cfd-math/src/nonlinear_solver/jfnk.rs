@@ -53,8 +53,13 @@
 //!   *J. Comput. Phys.* 193(2):357–397.
 
 use cfd_core::error::Result;
-use nalgebra::{DVector, RealField};
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::Array1;
+
+use super::linalg::{
+    add, add_scaled, add_scaled_in_place, dot, neg, norm, scale, sub, sub_in_place_scaled,
+    vector_zeros,
+};
 
 /// Configuration for the JFNK nonlinear solver.
 #[derive(Debug, Clone)]
@@ -77,17 +82,22 @@ pub struct JfnkConfig<T: RealField> {
     pub eta_max: T,
 }
 
-impl<T: RealField + FromPrimitive> Default for JfnkConfig<T> {
+#[inline]
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+impl<T: RealField + FloatElement> Default for JfnkConfig<T> {
     fn default() -> Self {
         Self {
             max_newton_iterations: 50,
-            atol: T::from_f64(1e-10).unwrap_or_else(T::zero),
-            rtol: T::from_f64(1e-8).unwrap_or_else(T::zero),
+            atol: from_f64(1e-10),
+            rtol: from_f64(1e-8),
             max_krylov_iterations: 200,
             krylov_restart: 30,
-            inner_tol_init: T::from_f64(0.5).unwrap_or_else(T::one),
-            eta_min: T::from_f64(1e-4).unwrap_or_else(T::zero),
-            eta_max: T::from_f64(0.9).unwrap_or_else(T::one),
+            inner_tol_init: from_f64(0.5),
+            eta_min: from_f64(1e-4),
+            eta_max: from_f64(0.9),
         }
     }
 }
@@ -111,13 +121,13 @@ pub struct JfnkConvergence<T: Copy> {
 /// share the same pivot evaluation (one function call per Newton step, not per Krylov step).
 struct JvpOperator<'a, T, F>
 where
-    T: RealField + Copy + Float,
-    F: Fn(&DVector<T>) -> DVector<T>,
+    T: RealField + Copy + FloatElement,
+    F: Fn(&Array1<T>) -> Array1<T>,
 {
     /// Current Newton point $x_k$ (pivot)
-    x_pivot: &'a DVector<T>,
+    x_pivot: &'a Array1<T>,
     /// $F(x_k)$ — pre-computed residual at pivot
-    f_pivot: &'a DVector<T>,
+    f_pivot: &'a Array1<T>,
     /// The nonlinear function $F$
     func: &'a F,
     /// Finite-difference perturbation size $\varepsilon$
@@ -126,8 +136,8 @@ where
 
 impl<T, F> JvpOperator<'_, T, F>
 where
-    T: RealField + Copy + Float,
-    F: Fn(&DVector<T>) -> DVector<T>,
+    T: RealField + Copy + FloatElement,
+    F: Fn(&Array1<T>) -> Array1<T>,
 {
     /// Compute $J(x) v \approx [F(x + \varepsilon v) - F(x)] / \varepsilon$.
     ///
@@ -135,12 +145,12 @@ where
     ///
     /// Uses the caller-pre-computed `eps` which already encodes
     /// $\varepsilon = \sqrt{\varepsilon_{\rm mach}} (1 + \|x\|) / \|v\|$.
-    fn apply_jvp(&self, v: &DVector<T>) -> DVector<T> {
+    fn apply_jvp(&self, v: &Array1<T>) -> Array1<T> {
         // Perturbed point: x + ε v
-        let x_pert = self.x_pivot + v * self.eps;
+        let x_pert = add_scaled(self.x_pivot, v, self.eps);
         // Finite difference: [F(x + ε v) - F(x)] / ε
         let f_pert = (self.func)(&x_pert);
-        (f_pert - self.f_pivot) / self.eps
+        scale(&sub(&f_pert, self.f_pivot), T::ONE / self.eps)
     }
 }
 
@@ -151,7 +161,7 @@ pub struct JfnkSolver<T: RealField + Copy> {
     config: JfnkConfig<T>,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T> {
+impl<T: RealField + Copy + FloatElement + std::fmt::Debug> JfnkSolver<T> {
     /// Create a new JFNK solver with the given configuration.
     pub fn new(config: JfnkConfig<T>) -> Self {
         Self { config }
@@ -164,27 +174,27 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
     /// $\varepsilon = \sqrt{\varepsilon_{\rm mach}} \cdot (1 + \|x\|_2) / \|v\|_2$
     ///
     /// Guards against $\|v\| = 0$ by returning $\varepsilon = \sqrt{\varepsilon_{\rm mach}}$.
-    fn compute_eps(x: &DVector<T>, v: &DVector<T>) -> T {
-        let eps_mach = T::epsilon();
-        let sqrt_eps = Float::sqrt(eps_mach);
-        let norm_v = v.norm();
-        if norm_v < eps_mach * T::from_f64(100.0).unwrap_or_else(T::one) {
+    fn compute_eps(x: &Array1<T>, v: &Array1<T>) -> T {
+        let eps_mach = T::EPSILON;
+        let sqrt_eps = NumericElement::sqrt(eps_mach);
+        let norm_v = norm(v);
+        if norm_v < eps_mach * from_f64(100.0) {
             sqrt_eps
         } else {
-            sqrt_eps * (T::one() + x.norm()) / norm_v
+            sqrt_eps * (T::ONE + norm(x)) / norm_v
         }
     }
 
     /// Solve $F(x) = 0$ with initial guess $x_0$ using JFNK.
     ///
     /// Returns the solution and convergence diagnostics.
-    pub fn solve<F>(&self, func: F, mut x: DVector<T>) -> Result<(DVector<T>, JfnkConvergence<T>)>
+    pub fn solve<F>(&self, func: F, mut x: Array1<T>) -> Result<(Array1<T>, JfnkConvergence<T>)>
     where
-        F: Fn(&DVector<T>) -> DVector<T>,
+        F: Fn(&Array1<T>) -> Array1<T>,
     {
-        let n = x.len();
+        let n = x.shape()[0];
         let mut f = func(&x);
-        let norm0 = f.norm();
+        let norm0 = norm(&f);
 
         if norm0 < self.config.atol {
             return Ok((
@@ -198,7 +208,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
             ));
         }
 
-        let abs_tol = Float::max(self.config.atol, self.config.rtol * norm0);
+        let abs_tol = self.config.atol.max_scalar(self.config.rtol * norm0);
 
         let mut history = vec![norm0];
         let mut eta = self.config.inner_tol_init; // EW forcing term
@@ -206,7 +216,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
         let mut prev_model_residual = norm0; // ‖F(xₖ₋₁) + J δxₖ₋₁‖ for EW2
 
         for newton_iter in 0..self.config.max_newton_iterations {
-            let norm_f = f.norm();
+            let norm_f = norm(&f);
 
             if norm_f < abs_tol {
                 return Ok((
@@ -223,18 +233,18 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
             // Inner Krylov tolerance via Eisenstat-Walker EW2 forcing term
             if newton_iter > 0 {
                 // EW2: η_k = |‖F_k‖ - ‖F_{k-1} + J_{k-1} δx_{k-1}‖| / ‖F_{k-1}‖
-                let ew2_candidate = Float::abs(norm_f - prev_model_residual) / prev_norm;
+                let ew2_candidate = NumericElement::abs(norm_f - prev_model_residual) / prev_norm;
                 // Safeguard: stay in [eta_min, eta_max]
-                eta = Float::max(
-                    self.config.eta_min,
-                    Float::min(self.config.eta_max, ew2_candidate),
-                );
+                eta = self
+                    .config
+                    .eta_min
+                    .max_scalar(self.config.eta_max.min_scalar(ew2_candidate));
             }
 
             let inner_tol = eta * norm_f;
 
             // Solve J(x) δx = -F(x) via matrix-free GMRES
-            let rhs = -f.clone();
+            let rhs = neg(&f);
             let delta_x = self.gmres_matrix_free(&func, &x, &f, &rhs, inner_tol, n)?;
 
             // Model residual estimate: ‖F(xₖ) + J(xₖ)δxₖ‖ (via JvP)
@@ -246,17 +256,17 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
                 eps,
             };
             let j_delta = jop.apply_jvp(&delta_x);
-            prev_model_residual = (&f + j_delta).norm();
+            prev_model_residual = norm(&add(&f, &j_delta));
             prev_norm = norm_f;
 
             // Update: x ← x + δx
-            x += delta_x;
+            x = add(&x, &delta_x);
             f = func(&x);
 
-            history.push(f.norm());
+            history.push(norm(&f));
         }
 
-        let final_norm = f.norm();
+        let final_norm = norm(&f);
         Ok((
             x,
             JfnkConvergence {
@@ -281,23 +291,23 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
     fn gmres_matrix_free<F>(
         &self,
         func: &F,
-        x: &DVector<T>,
-        f_x: &DVector<T>,
-        b: &DVector<T>,
+        x: &Array1<T>,
+        f_x: &Array1<T>,
+        b: &Array1<T>,
         tol: T,
         n: usize,
-    ) -> Result<DVector<T>>
+    ) -> Result<Array1<T>>
     where
-        F: Fn(&DVector<T>) -> DVector<T>,
+        F: Fn(&Array1<T>) -> Array1<T>,
     {
         let restart = self.config.krylov_restart.min(n);
         let max_iter = self.config.max_krylov_iterations;
 
-        let mut delta = DVector::zeros(n);
+        let mut delta = vector_zeros(n);
         // δ₀ = 0 ⇒ J(x)·δ₀ = 0 ⇒ r₀ = b
         let mut r = b.clone();
 
-        let beta = r.norm();
+        let beta = norm(&r);
         if beta < tol {
             return Ok(delta);
         }
@@ -305,21 +315,21 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
         let mut total_iters = 0usize;
         while total_iters < max_iter {
             // Restarted Arnoldi iteration
-            let mut v_basis: Vec<DVector<T>> = Vec::with_capacity(restart + 1);
+            let mut v_basis: Vec<Array1<T>> = Vec::with_capacity(restart + 1);
             // H: (restart+1) × restart upper Hessenberg
-            let mut h = vec![vec![T::zero(); restart]; restart + 1];
+            let mut h = vec![vec![T::ZERO; restart]; restart + 1];
             // Givens rotation parameters
-            let mut cs = vec![T::zero(); restart];
-            let mut sn = vec![T::zero(); restart];
+            let mut cs = vec![T::ZERO; restart];
+            let mut sn = vec![T::ZERO; restart];
             // RHS of projected problem (length restart+1)
-            let mut g = vec![T::zero(); restart + 1];
+            let mut g = vec![T::ZERO; restart + 1];
 
-            let beta_r = r.norm();
+            let beta_r = norm(&r);
             if beta_r < tol {
                 break;
             }
             g[0] = beta_r;
-            v_basis.push(r.clone() / beta_r);
+            v_basis.push(scale(&r, T::ONE / beta_r));
 
             let mut inner_converged = false;
             for j in 0..restart {
@@ -341,16 +351,16 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
 
                 // Modified Gram-Schmidt orthogonalization
                 for i in 0..=j {
-                    h[i][j] = v_basis[i].dot(&w);
-                    w -= &v_basis[i] * h[i][j];
+                    h[i][j] = dot(&v_basis[i], &w);
+                    sub_in_place_scaled(&mut w, &v_basis[i], h[i][j]);
                 }
-                h[j + 1][j] = w.norm();
+                h[j + 1][j] = norm(&w);
 
-                if h[j + 1][j] > T::zero() {
-                    v_basis.push(w / h[j + 1][j]);
+                if h[j + 1][j] > T::ZERO {
+                    v_basis.push(scale(&w, T::ONE / h[j + 1][j]));
                 } else {
                     // Breakdown: Krylov subspace exhausted (exact solution found)
-                    v_basis.push(DVector::zeros(n));
+                    v_basis.push(vector_zeros(n));
                 }
 
                 // Apply previous Givens rotations to new column
@@ -367,15 +377,15 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
 
                 // Apply new rotation to H and g
                 h[j][j] = cs[j] * h[j][j] + sn[j] * h[j + 1][j];
-                h[j + 1][j] = T::zero();
+                h[j + 1][j] = T::ZERO;
                 g[j + 1] = -sn[j] * g[j];
                 g[j] = cs[j] * g[j];
 
-                if Float::abs(g[j + 1]) < tol {
+                if NumericElement::abs(g[j + 1]) < tol {
                     // Converged within this restart
                     let y = Self::back_substitute(&h, &g, j + 1);
                     for (k, yk) in y.iter().enumerate() {
-                        delta += &v_basis[k] * *yk;
+                        add_scaled_in_place(&mut delta, &v_basis[k], *yk);
                     }
                     let fwd = {
                         let eps = Self::compute_eps(x, &delta);
@@ -387,7 +397,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
                         };
                         jop.apply_jvp(&delta)
                     };
-                    r = b - fwd;
+                    r = sub(b, &fwd);
                     inner_converged = true;
                     break;
                 }
@@ -400,7 +410,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
                 if m > 0 {
                     let y = Self::back_substitute(&h, &g, m);
                     for (k, yk) in y.iter().enumerate() {
-                        delta += &v_basis[k] * *yk;
+                        add_scaled_in_place(&mut delta, &v_basis[k], *yk);
                     }
                     let fwd = {
                         let eps = Self::compute_eps(x, &delta);
@@ -412,11 +422,11 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
                         };
                         jop.apply_jvp(&delta)
                     };
-                    r = b - fwd;
+                    r = sub(b, &fwd);
                 }
             }
 
-            if r.norm() < tol {
+            if norm(&r) < tol {
                 break;
             }
         }
@@ -429,28 +439,28 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
     ///
     /// Uses the numerically stable form from Golub & Van Loan (2013), §5.1.8.
     fn givens(a: T, b: T) -> (T, T) {
-        if Float::abs(b) < T::epsilon() {
-            (T::one(), T::zero())
-        } else if Float::abs(b) >= Float::abs(a) {
+        if NumericElement::abs(b) < T::EPSILON {
+            (T::ONE, T::ZERO)
+        } else if NumericElement::abs(b) >= NumericElement::abs(a) {
             let tau = -a / b;
-            let s = T::one() / Float::sqrt(T::one() + tau * tau);
+            let s = T::ONE / NumericElement::sqrt(T::ONE + tau * tau);
             (s * tau, s)
         } else {
             let tau = -b / a;
-            let c = T::one() / Float::sqrt(T::one() + tau * tau);
+            let c = T::ONE / NumericElement::sqrt(T::ONE + tau * tau);
             (c, c * tau)
         }
     }
 
     /// Back-substitution for upper-triangular system from Hessenberg QR.
     fn back_substitute(h: &[Vec<T>], g: &[T], m: usize) -> Vec<T> {
-        let mut y = vec![T::zero(); m];
+        let mut y = vec![T::ZERO; m];
         for i in (0..m).rev() {
             let mut s = g[i];
             for j in (i + 1)..m {
                 s -= h[i][j] * y[j];
             }
-            if Float::abs(h[i][i]) > T::epsilon() {
+            if NumericElement::abs(h[i][i]) > T::EPSILON {
                 y[i] = s / h[i][i];
             }
         }
@@ -460,26 +470,40 @@ impl<T: RealField + Copy + Float + FromPrimitive + std::fmt::Debug> JfnkSolver<T
 
 #[cfg(test)]
 mod tests {
+    use super::super::linalg::vector_from_vec;
     use super::*;
     use approx::assert_relative_eq;
+    use leto::Array2;
+
+    fn vec(values: Vec<f64>) -> Array1<f64> {
+        vector_from_vec(values)
+    }
+
+    fn mat_vec(matrix: &Array2<f64>, vector: &Array1<f64>) -> Array1<f64> {
+        let [rows, cols] = matrix.shape();
+        assert_eq!(cols, vector.shape()[0]);
+        vector_from_vec(
+            (0..rows)
+                .map(|row| (0..cols).fold(0.0, |acc, col| acc + matrix[[row, col]] * vector[col]))
+                .collect(),
+        )
+    }
 
     /// Theorem: JFNK on a linear system F(x) = Ax - b must recover the exact solution
     /// in ≤ n outer iterations (linear case degenerates to GMRES = direct solver).
     #[test]
     fn test_jfnk_linear_system() {
         // F(x) = Ax - b = 0, x* = [1.0, 2.0, 3.0]
-        let a_data = nalgebra::DMatrix::<f64>::from_row_slice(
-            3,
-            3,
-            &[4.0, 1.0, 0.0, 1.0, 3.0, 1.0, 0.0, 1.0, 2.0],
-        );
-        let b = nalgebra::DVector::from_vec(vec![
+        let a_data =
+            Array2::from_shape_vec([3, 3], vec![4.0, 1.0, 0.0, 1.0, 3.0, 1.0, 0.0, 1.0, 2.0])
+                .unwrap();
+        let b = vec(vec![
             4.0 * 1.0 + 1.0 * 2.0,
             1.0 * 1.0 + 3.0 * 2.0 + 1.0 * 3.0,
             1.0 * 2.0 + 2.0 * 3.0,
         ]);
 
-        let func = |x: &nalgebra::DVector<f64>| &a_data * x - &b;
+        let func = |x: &Array1<f64>| sub(&mat_vec(&a_data, x), &b);
 
         let config = JfnkConfig::<f64> {
             max_newton_iterations: 20,
@@ -492,7 +516,7 @@ mod tests {
             eta_max: 0.9,
         };
 
-        let x0 = nalgebra::DVector::zeros(3);
+        let x0 = vector_zeros(3);
         let solver = JfnkSolver::new(config);
         let (x_sol, conv) = solver.solve(func, x0).expect("JFNK must succeed");
 
@@ -507,9 +531,7 @@ mod tests {
     #[test]
     fn test_jfnk_nonlinear_quadratic_convergence() {
         // F(x) = [x[0]^2 - 1, x[1]^2 - 4], x* = [1.0, 2.0]
-        let func = |x: &nalgebra::DVector<f64>| {
-            nalgebra::DVector::from_vec(vec![x[0] * x[0] - 1.0, x[1] * x[1] - 4.0])
-        };
+        let func = |x: &Array1<f64>| vec(vec![x[0] * x[0] - 1.0, x[1] * x[1] - 4.0]);
 
         let config = JfnkConfig::<f64> {
             max_newton_iterations: 30,
@@ -519,7 +541,7 @@ mod tests {
             krylov_restart: 10,
             ..Default::default()
         };
-        let x0 = nalgebra::DVector::from_vec(vec![0.5, 1.5]);
+        let x0 = vec(vec![0.5, 1.5]);
         let solver = JfnkSolver::new(config);
         let (x_sol, conv) = solver.solve(func, x0).expect("JFNK must succeed");
 
@@ -550,10 +572,9 @@ mod tests {
     /// Verify JfnkSolver returns converged=true when initial guess is already a root.
     #[test]
     fn test_jfnk_already_converged_initial_guess() {
-        let func =
-            |x: &nalgebra::DVector<f64>| nalgebra::DVector::from_vec(vec![x[0] - 1.0, x[1] - 2.0]);
+        let func = |x: &Array1<f64>| vec(vec![x[0] - 1.0, x[1] - 2.0]);
         let config = JfnkConfig::<f64>::default();
-        let x0 = nalgebra::DVector::from_vec(vec![1.0, 2.0]);
+        let x0 = vec(vec![1.0, 2.0]);
         let solver = JfnkSolver::new(config);
         let (_, conv) = solver.solve(func, x0).unwrap();
         assert!(conv.converged);

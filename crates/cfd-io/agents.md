@@ -1,19 +1,27 @@
 # cfd-io — Agent Reference
 
 > **Role**: All file I/O for simulation data. No solver logic.  
-> **Direct internal deps**: `cfd-core`, `cfd-math`
+> **Direct internal deps**: none. Solvers and validation crates depend on
+> `cfd-io`; `cfd-io` does not depend back on solver, physics, mesh, or math
+> crates.
+> **Atlas providers**: Leto owns dense checkpoint/binary arrays, Eunomia owns
+> scalar bounds, Consus owns HDF5, and RITK owns optional VTK.
 
 ---
 
 
 <!-- AGENT-AUDIT-SNAPSHOT:START -->
-## Verified Audit Snapshot (2026-02-26)
+## Verified Audit Snapshot (2026-07-04)
 
 - Verified against `Cargo.toml`, `src/lib.rs`, and the top-level `src/` tree.
-- Direct internal crate dependencies (`cargo metadata`): `cfd-core`, `cfd-math`.
-- Cargo features: `default`, `mpi`.
-- `src/lib.rs` module surface: `binary`, `checkpoint`, `csv`, `vtk`.
-- Top-level `src/` entries: `binary.rs`, `checkpoint`, `csv`, `error.rs`, `formats.rs`, `hdf5_module`, `json.rs`, `lib.rs`, `vtk`.
+- Direct internal crate dependencies: none.
+- Cargo features: `default`, `hdf5`, `vtk`.
+- Provider dependencies: `leto`, `eunomia`, `consus-core`/`consus-hdf5`
+  behind `hdf5`, and `ritk-vtk` behind `vtk`.
+- `src/lib.rs` module surface: `binary`, `checkpoint`, `csv`, `error`,
+  `hdf5` (feature), `vtk` (feature).
+- Top-level `src/` entries: `binary.rs`, `checkpoint`, `csv`, `error.rs`,
+  `formats.rs`, `hdf5/`, `json.rs`, `leto_arrays.rs`, `lib.rs`, `vtk.rs`.
 
 <!-- AGENT-AUDIT-SNAPSHOT:END -->
 ## Purpose
@@ -35,33 +43,30 @@ No solver, mesh geometry, or physics logic lives in this crate.
 ```
 src/
   lib.rs                    pub mods; no prelude (hierarchical access preferred)
-  error.rs                  IoError, IoResult
+  error.rs                  Error, Result
   formats.rs                Format registry + auto-detection by extension
   json.rs                   Serde-based JSON read/write helpers
-  binary.rs                 Raw binary field dumps (f32/f64 array blobs)
-
-  vtk/
-    mod.rs
-    types.rs                VtkDataSet, VtkArray, VtkCellType
-    builder.rs              VtkBuilder — fluent API for structured/unstructured datasets
-    writer.rs               VtkWriter — ASCII + binary VTK legacy + XML VTK
-    reader.rs               VtkReader — legacy ASCII reader
-    parallel.rs             Parallel VTK (PVD collection, PVTS/PVTU writers)
+  leto_arrays.rs            row-major helpers for provider-owned Leto arrays
+  binary.rs                 Raw binary Array1/Array2 payload dumps
+  vtk.rs                    optional RITK VTK re-export
 
   csv/
     mod.rs
     types.rs                CsvRecord, ColumnSchema
     reader.rs               CsvReader — typed, header-aware
     writer.rs               CsvWriter — structured output with optional headers
-    streaming.rs            StreamingCsvWriter — low-memory row-by-row export
+    streaming.rs            StreamingReader/StreamingWriter — low-memory row-by-row export
 
   checkpoint/
     mod.rs
-    data.rs                 CheckpointData — field snapshot container
+    data.rs                 Checkpoint — Leto-backed field snapshot container
     metadata.rs             CheckpointMetadata — timestamp, git hash, solver params
     manager.rs              CheckpointManager — save/load/rotate logic
     compression.rs          zstd / lz4 frame compression wrappers
     validator.rs            Checksum + schema validation on restore
+
+  hdf5/
+    mod.rs                  optional Consus-backed HDF5 writer
 ```
 
 ---
@@ -71,48 +76,47 @@ src/
 ### VTK Output
 
 ```rust
-use cfd_io::vtk::{VtkBuilder, VtkWriter};
+use cfd_io::vtk;
 
-// Structured grid (FDM/FVM output)
-let dataset = VtkBuilder::structured_grid(nx, ny, nz)
-    .with_points(coords)
-    .add_cell_scalar("pressure", &p_field)
-    .add_cell_vector("velocity", &u_field, &v_field, &w_field)
-    .build()?;
-
-VtkWriter::write_xml(&dataset, "output/step_0001.vts")?;
-
-// Parallel output (MPI ranks write sub-domains)
-use cfd_io::vtk::ParallelVtkWriter;
-ParallelVtkWriter::write_piece(&dataset, rank, n_ranks, "output/step_0001")?;
+// `cfd_io::vtk::*` is the optional RITK VTK surface re-exported behind the
+// `vtk` feature. Keep VTK model/writer behavior in RITK, not in cfd-io.
 ```
 
 ### Checkpoint
 
 ```rust
-use cfd_io::checkpoint::{CheckpointManager, CheckpointData};
+use cfd_io::checkpoint::{Checkpoint, CheckpointManager, CheckpointMetadata};
+use leto::Array2;
 
-let mut mgr = CheckpointManager::new("checkpoints/", max_keep: 5);
+let mut mgr = CheckpointManager::new("checkpoints/")?;
+mgr.set_max_checkpoints(5);
 
-// Save
-let data = CheckpointData::from_fields(&solver_state);
-mgr.save(step, &data)?;
+let metadata = CheckpointMetadata::new(time, step, (ny, nx), (lx, ly));
+let u = Array2::from_elem([ny, nx], 0.0);
+let v = Array2::from_elem([ny, nx], 0.0);
+let p = Array2::from_elem([ny, nx], 0.0);
+let checkpoint = Checkpoint::new(metadata, u, v, p);
 
-// Restore (last valid checkpoint)  
-let restored = mgr.load_latest()?;
+let path = mgr.save(&checkpoint)?;
+let restored = mgr.load(path)?;
 ```
 
 ### CSV
 
 ```rust
-use cfd_io::csv::{CsvWriter, StreamingCsvWriter};
+use cfd_io::csv::{CsvWriter, StreamingWriter};
 
 // Full table
-CsvWriter::write("results/convergence.csv", &headers, &rows)?;
+CsvWriter::<f64>::new().write_time_series(
+    "results/convergence.csv".as_ref(),
+    &headers,
+    rows,
+)?;
 
 // Streaming (append per time-step)
-let mut stream = StreamingCsvWriter::open("results/residuals.csv", &["step","residual"])?;
-stream.write_row(&[step.to_string(), residual.to_string()])?;
+let mut stream =
+    StreamingWriter::<f64>::create("results/residuals.csv".as_ref(), &["time", "residual"])?;
+stream.write_row(&[time, residual])?;
 ```
 
 ---
@@ -121,11 +125,13 @@ stream.write_row(&[step.to_string(), residual.to_string()])?;
 
 | Rule | Rationale |
 |------|-----------|
-| No `unwrap` on file paths | I/O paths are external inputs; always return `IoResult` |
+| No `unwrap` on file paths | I/O paths are external inputs; always return `Result` |
 | Streaming writes for large fields | Fields can exceed RAM when written all at once |
 | Checkpoint validator runs on every load | Silent corruption is worse than a loud error |
 | VTK XML preferred over legacy | Better tooling support in ParaView / VisIt |
 | Parallel VTK uses reference files (`.pvts`, `.pvtu`) | Enables post-processing without re-running |
+| Dense checkpoint and binary payloads use Leto arrays | Prevents nalgebra from re-entering the I/O boundary |
+| Scalar bounds use Eunomia | Prevents direct `num-traits` drift in format code |
 
 ---
 
@@ -134,6 +140,10 @@ stream.write_row(&[step.to_string(), residual.to_string()])?;
 - No physics computations — strip data from solver state before writing
 - No in-memory caching of field data (fields are large; stream through)
 - No direct dependency on `cfd-mesh`, `cfd-math`, `cfd-2d`, `cfd-3d` (one-way: solvers call cfd-io)
+- No direct dependency on `cfd-core` only for error reporting; use the local
+  file-format `Error`/`Result` type.
+- No nalgebra or ndarray dense payloads; use Leto `Array1`/`Array2`.
+- No direct `num-traits` scalar bounds; use Eunomia traits.
 
 
 

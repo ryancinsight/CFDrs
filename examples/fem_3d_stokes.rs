@@ -23,6 +23,7 @@ use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::domain::core::index::VertexId;
 use cfd_mesh::domain::topology::Cell;
 use cfd_mesh::IndexedMesh;
+use leto::geometry::Vector3 as LetoVector3;
 use nalgebra::{Point3, Vector3};
 use std::collections::HashMap;
 
@@ -72,7 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Top face (y=1): Lid velocity
             boundary_conditions.insert(
                 i,
-                BoundaryCondition::velocity_inlet(Vector3::new(1.0, 0.0, 0.0)),
+                BoundaryCondition::velocity_inlet(LetoVector3::new(1.0, 0.0, 0.0)),
             );
         }
     }
@@ -148,7 +149,7 @@ fn create_refined_cube_mesh(nx: usize) -> Result<IndexedMesh<f64>, Box<dyn std::
                 let y = j as f64 * h;
                 let z = k as f64 * h;
                 mesh.vertices
-                    .insert_unique(Point3::new(x, y, z), Vector3::z());
+                    .insert_unique(Point3::new(x, y, z), Vector3::new(0.0, 0.0, 1.0));
             }
         }
     }

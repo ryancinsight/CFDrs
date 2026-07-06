@@ -34,8 +34,7 @@ use super::constants::{
     BLENDING_FACTOR, C_MU, EPSILON_MIN, E_WALL_FUNCTION, KAPPA, OMEGA_WALL_COEFFICIENT,
     Y_PLUS_LOG_LAW, Y_PLUS_VISCOUS_SUBLAYER,
 };
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
 
 pub use roughness::{RoughnessType, WallRoughness};
 pub use spalding::spalding_u_plus;
@@ -59,7 +58,7 @@ pub enum WallFunction {
 
 /// Enhanced wall treatment for turbulence models with roughness support.
 #[derive(Debug, Clone)]
-pub struct WallTreatment<T: RealField + Copy> {
+pub struct WallTreatment<T: RealField> {
     wall_function: WallFunction,
     kappa: T,
     e_wall: T,
@@ -68,13 +67,13 @@ pub struct WallTreatment<T: RealField + Copy> {
     validation_mode: bool,
 }
 
-impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatment<T> {
+impl<T: RealField> WallTreatment<T> {
     /// Create a new wall treatment with smooth wall.
     pub fn new(wall_function: WallFunction) -> Self {
         Self {
             wall_function,
-            kappa: T::from_f64(KAPPA).expect("analytical constant conversion"),
-            e_wall: T::from_f64(E_WALL_FUNCTION).expect("analytical constant conversion"),
+            kappa: T::from_f64(KAPPA),
+            e_wall: T::from_f64(E_WALL_FUNCTION),
             roughness: WallRoughness::smooth(),
             validation_mode: false,
         }
@@ -84,8 +83,8 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
     pub fn with_roughness(wall_function: WallFunction, roughness: WallRoughness<T>) -> Self {
         Self {
             wall_function,
-            kappa: T::from_f64(KAPPA).expect("analytical constant conversion"),
-            e_wall: T::from_f64(E_WALL_FUNCTION).expect("analytical constant conversion"),
+            kappa: T::from_f64(KAPPA),
+            e_wall: T::from_f64(E_WALL_FUNCTION),
             roughness,
             validation_mode: false,
         }
@@ -127,31 +126,30 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
 
     /// Standard log-law wall function.
     fn standard_wall_function(&self, y_plus: T) -> T {
-        let y_visc = T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).expect("analytical constant conversion");
-        let y_log = T::from_f64(Y_PLUS_LOG_LAW).expect("analytical constant conversion");
+        let y_visc = T::from_f64(Y_PLUS_VISCOUS_SUBLAYER);
+        let y_log = T::from_f64(Y_PLUS_LOG_LAW);
 
         if y_plus <= y_visc {
             y_plus
         } else if y_plus >= y_log {
-            (y_plus.ln() / self.kappa) + T::from_f64(5.5).expect("analytical constant conversion")
+            <T as FloatElement>::ln(y_plus) / self.kappa + T::from_f64(5.5)
         } else {
             let u_visc = y_visc;
-            let u_log = (y_log.ln() / self.kappa)
-                + T::from_f64(5.5).expect("analytical constant conversion");
+            let u_log = <T as FloatElement>::ln(y_log) / self.kappa + T::from_f64(5.5);
             let blend = (y_plus - y_visc) / (y_log - y_visc);
-            u_visc * (T::one() - blend) + u_log * blend
+            u_visc * (T::ONE - blend) + u_log * blend
         }
     }
 
     /// Blended wall function for all y⁺ values (Reichardt blending).
     fn blended_wall_function(&self, y_plus: T) -> T {
-        let blending = T::from_f64(BLENDING_FACTOR).expect("analytical constant conversion");
-        let exp_factor = (-y_plus * blending).exp();
+        let blending = T::from_f64(BLENDING_FACTOR);
+        let exp_factor = <T as FloatElement>::exp(-y_plus * blending);
 
         let u_visc = y_plus;
-        let u_log = (T::one() / self.kappa) * ((self.e_wall * y_plus).ln());
+        let u_log = (T::ONE / self.kappa) * <T as FloatElement>::ln(self.e_wall * y_plus);
 
-        u_visc * exp_factor + u_log * (T::one() - exp_factor)
+        u_visc * exp_factor + u_log * (T::ONE - exp_factor)
     }
 
     /// Rough wall function with equivalent sand-grain roughness.
@@ -163,18 +161,18 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
 
         let k_s_plus = k_s;
 
-        if k_s_plus <= T::from_f64(0.1).expect("analytical constant conversion") {
+        if k_s_plus <= T::from_f64(0.1) {
             self.standard_wall_function(y_plus)
         } else {
-            let y_visc =
-                T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).expect("analytical constant conversion");
+            let y_visc = T::from_f64(Y_PLUS_VISCOUS_SUBLAYER);
 
             if y_plus <= y_visc {
                 y_plus
             } else {
-                let b_smooth = T::from_f64(5.5).expect("analytical constant conversion");
+                let b_smooth = T::from_f64(5.5);
                 let b_rough = b_smooth - delta_b;
-                (T::one() / self.kappa) * ((y_plus + k_s_plus) / k_s_plus).ln() + b_rough
+                (T::ONE / self.kappa) * <T as FloatElement>::ln((y_plus + k_s_plus) / k_s_plus)
+                    + b_rough
             }
         }
     }
@@ -183,65 +181,60 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
     fn werner_wengle_wall_function(&self, y_plus: T) -> T {
         let k_s_plus = self.roughness.equivalent_sand_grain;
 
-        if k_s_plus <= T::from_f64(0.1).expect("analytical constant conversion") {
+        if k_s_plus <= T::from_f64(0.1) {
             self.blended_wall_function(y_plus)
         } else {
-            let a1 = T::from_f64(8.3).expect("analytical constant conversion");
-            let a2 = T::from_f64(1.0 / 7.0).expect("analytical constant conversion");
-            let b = T::from_f64(1.0 / 7.0).expect("analytical constant conversion");
+            let a1 = T::from_f64(8.3);
+            let a2 = T::from_f64(1.0 / 7.0);
+            let b = T::from_f64(1.0 / 7.0);
 
-            let y_eff = T::one() / self.kappa * (y_plus + k_s_plus).ln() - T::one();
-            let exp_term = (-a1 * y_eff * y_eff).exp();
+            let y_eff = T::ONE / self.kappa * <T as FloatElement>::ln(y_plus + k_s_plus) - T::ONE;
+            let exp_term = <T as FloatElement>::exp(-a1 * y_eff * y_eff);
 
-            a1 * (T::one() - exp_term)
-                + a2 * (T::one() - (-b * y_eff).exp()) * (T::one() - exp_term)
+            a1 * (T::ONE - exp_term)
+                + a2 * (T::ONE - <T as FloatElement>::exp(-b * y_eff)) * (T::ONE - exp_term)
         }
     }
 
     /// Automatic wall treatment that blends all approaches based on y⁺.
     fn automatic_wall_function(&self, y_plus: T) -> T {
-        let y_visc = T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).expect("analytical constant conversion");
-        let y_log = T::from_f64(Y_PLUS_LOG_LAW).expect("analytical constant conversion");
+        let y_visc = T::from_f64(Y_PLUS_VISCOUS_SUBLAYER);
+        let y_log = T::from_f64(Y_PLUS_LOG_LAW);
 
         if y_plus <= y_visc {
             y_plus
         } else if y_plus >= y_log {
-            if self.roughness.equivalent_sand_grain
-                > T::from_f64(0.1).expect("analytical constant conversion")
-            {
+            if self.roughness.equivalent_sand_grain > T::from_f64(0.1) {
                 self.rough_wall_function(y_plus)
             } else {
                 self.standard_wall_function(y_plus)
             }
         } else {
-            let viscous_part = self.blended_wall_function(y_plus.min(y_visc));
-            let log_part = if self.roughness.equivalent_sand_grain
-                > T::from_f64(0.1).expect("analytical constant conversion")
-            {
-                self.rough_wall_function(y_plus.max(y_log))
+            let viscous_part = self.blended_wall_function(y_plus.min_scalar(y_visc));
+            let log_part = if self.roughness.equivalent_sand_grain > T::from_f64(0.1) {
+                self.rough_wall_function(y_plus.max_scalar(y_log))
             } else {
-                self.standard_wall_function(y_plus.max(y_log))
+                self.standard_wall_function(y_plus.max_scalar(y_log))
             };
 
             let blend_factor = (y_plus - y_visc) / (y_log - y_visc);
-            viscous_part * (T::one() - blend_factor) + log_part * blend_factor
+            viscous_part * (T::ONE - blend_factor) + log_part * blend_factor
         }
     }
 
     /// Validate log-law compliance and issue warnings if needed.
     fn validate_log_law(&self, y_plus: T, u_plus: T) {
-        let y_log = T::from_f64(Y_PLUS_LOG_LAW).expect("analytical constant conversion");
+        let y_log = T::from_f64(Y_PLUS_LOG_LAW);
 
         if y_plus >= y_log {
-            let log_law_value = (y_plus.ln() / self.kappa)
-                + T::from_f64(5.5).expect("analytical constant conversion");
-            let relative_error = (u_plus - log_law_value).abs() / log_law_value;
+            let log_law_value = <T as FloatElement>::ln(y_plus) / self.kappa + T::from_f64(5.5);
+            let relative_error = <T as NumericElement>::abs(u_plus - log_law_value) / log_law_value;
 
-            if relative_error > T::from_f64(0.1).expect("analytical constant conversion") {
+            if relative_error > T::from_f64(0.1) {
                 tracing::debug!(
                     "Warning: Wall function deviates from log-law at y+ = {:.1}, error = {:.1}%",
-                    y_plus.to_f64().unwrap_or(0.0),
-                    relative_error.to_f64().unwrap_or(0.0) * 100.0
+                    <T as NumericElement>::to_f64(y_plus),
+                    <T as NumericElement>::to_f64(relative_error) * 100.0
                 );
             }
         }
@@ -258,7 +251,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
         let y_plus = self.calculate_y_plus(wall_distance, velocity_parallel, density, viscosity);
         let u_plus = self.u_plus(y_plus);
 
-        if u_plus > T::zero() {
+        if u_plus > T::ZERO {
             let u_tau = velocity_parallel / u_plus;
             density * u_tau * u_tau
         } else {
@@ -274,15 +267,17 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
         density: T,
         viscosity: T,
     ) -> T {
-        let u_tau_init = (viscosity * velocity_parallel.abs() / (density * wall_distance)).sqrt();
+        let u_tau_init = <T as NumericElement>::sqrt(
+            viscosity * <T as NumericElement>::abs(velocity_parallel) / (density * wall_distance),
+        );
         let y_plus = density * u_tau_init * wall_distance / viscosity;
-        y_plus.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"))
+        y_plus.max_scalar(T::from_f64(EPSILON_MIN))
     }
 
     /// Calculate turbulent kinetic energy at wall-adjacent cell.
     pub fn wall_k(&self, u_tau: T, _c_mu: T) -> T {
-        let c_mu_val = T::from_f64(C_MU).expect("analytical constant conversion");
-        u_tau * u_tau / c_mu_val.sqrt()
+        let c_mu_val = T::from_f64(C_MU);
+        u_tau * u_tau / <T as NumericElement>::sqrt(c_mu_val)
     }
 
     /// Calculate epsilon at wall-adjacent cell.
@@ -294,19 +289,15 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> WallTreatmen
     /// Calculate omega at wall.
     pub fn wall_omega(&self, wall_distance: T, viscosity: T, density: T) -> T {
         if let WallFunction::LowReynolds = self.wall_function {
-            let coeff =
-                T::from_f64(OMEGA_WALL_COEFFICIENT).expect("analytical constant conversion");
+            let coeff = T::from_f64(OMEGA_WALL_COEFFICIENT);
             let nu = viscosity / density;
             coeff * nu / (wall_distance * wall_distance)
         } else {
-            let u_tau = (viscosity / (density * wall_distance)).sqrt();
+            let u_tau = <T as NumericElement>::sqrt(viscosity / (density * wall_distance));
             let y_plus = density * u_tau * wall_distance / viscosity;
 
-            if y_plus
-                < T::from_f64(Y_PLUS_VISCOUS_SUBLAYER).expect("analytical constant conversion")
-            {
-                let coeff =
-                    T::from_f64(OMEGA_WALL_COEFFICIENT).expect("analytical constant conversion");
+            if y_plus < T::from_f64(Y_PLUS_VISCOUS_SUBLAYER) {
+                let coeff = T::from_f64(OMEGA_WALL_COEFFICIENT);
                 let nu = viscosity / density;
                 coeff * nu / (wall_distance * wall_distance)
             } else {

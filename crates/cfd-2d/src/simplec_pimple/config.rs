@@ -6,9 +6,10 @@
 //! All tolerances must be strictly positive.
 
 use crate::pressure_velocity::PressureLinearSolver;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use crate::schemes::SpatialScheme;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
 
 /// Algorithm selection
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -21,7 +22,7 @@ pub enum AlgorithmType {
 
 /// Configuration for SIMPLEC/PIMPLE algorithms
 #[derive(Debug, Clone)]
-pub struct SimplecPimpleConfig<T: RealField + Copy> {
+pub struct SimplecPimpleConfig<T: Cfd2dScalar + Copy> {
     /// Algorithm type
     pub algorithm: AlgorithmType,
     /// Time step size
@@ -46,19 +47,16 @@ pub struct SimplecPimpleConfig<T: RealField + Copy> {
     pub pressure_linear_solver: PressureLinearSolver,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for SimplecPimpleConfig<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> Default for SimplecPimpleConfig<T> {
     fn default() -> Self {
         Self {
             algorithm: AlgorithmType::Simplec,
-            dt: T::from_f64(0.01).expect("analytical constant conversion"),
-            alpha_u: T::from_f64(0.7)
-                .unwrap_or_else(|| T::from_f64(0.7).expect("analytical constant conversion")),
-            alpha_p: T::from_f64(0.3)
-                .unwrap_or_else(|| T::from_f64(0.3).expect("analytical constant conversion")),
+            dt: scalar::from_f64(0.01),
+            alpha_u: scalar::from_f64(0.7),
+            alpha_p: scalar::from_f64(0.3),
             n_outer_correctors: 2,
             n_inner_correctors: 1,
-            tolerance: T::from_f64(1e-6)
-                .unwrap_or_else(|| T::from_f64(1e-6).expect("analytical constant conversion")),
+            tolerance: scalar::from_f64(1e-6),
             max_inner_iterations: 50,
             use_rhie_chow: false,
             convection_scheme: SpatialScheme::SecondOrderUpwind,
@@ -67,7 +65,7 @@ impl<T: RealField + Copy + FromPrimitive> Default for SimplecPimpleConfig<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> SimplecPimpleConfig<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> SimplecPimpleConfig<T> {
     /// Create configuration for SIMPLEC algorithm
     pub fn simplec() -> Self {
         Self {
@@ -89,12 +87,12 @@ impl<T: RealField + Copy + FromPrimitive> SimplecPimpleConfig<T> {
 
     /// Validate configuration parameters
     pub fn validate(&self) -> cfd_core::error::Result<()> {
-        if self.alpha_u <= T::zero() || self.alpha_u > T::one() {
+        if self.alpha_u <= scalar::zero() || self.alpha_u > scalar::one() {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "alpha_u must be in (0, 1]".to_string(),
             ));
         }
-        if self.alpha_p <= T::zero() || self.alpha_p > T::one() {
+        if self.alpha_p <= scalar::zero() || self.alpha_p > scalar::one() {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "alpha_p must be in (0, 1]".to_string(),
             ));

@@ -14,23 +14,25 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result;
 use cfd_math::sparse::SparseMatrixBuilder;
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, RealField as EunomiaRealField};
+use leto::Array1;
 use std::collections::HashMap;
 
 use super::config::FdmConfig;
 use super::linear_solver::solve_gauss_seidel;
-use crate::grid::{Grid2D, StructuredGrid2D};
+use crate::grid::StructuredGrid2D;
+use crate::scalar;
 
 /// Advection-diffusion equation solver
-pub struct AdvectionDiffusionSolver<T: RealField + Copy> {
+pub struct AdvectionDiffusionSolver<T: Cfd2dScalar + EunomiaRealField + Copy> {
     config: FdmConfig<T>,
     matrix_builder: core::cell::RefCell<Option<SparseMatrixBuilder<T>>>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
+impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> AdvectionDiffusionSolver<T> {
     /// Create a new advection-diffusion solver
     pub fn new(config: FdmConfig<T>) -> Self {
         Self {
@@ -55,13 +57,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
             .borrow_mut()
             .take()
             .unwrap_or_else(|| SparseMatrixBuilder::new(n, n));
-        let mut rhs = DVector::from_element(n, T::zero());
+        let zero: T = scalar::zero();
+        let one: T = scalar::one();
+        let mut rhs = Array1::from_elem([n], zero);
 
         // Build system matrix and RHS vector
         for (linear_idx, (i, j)) in grid.iter().enumerate() {
             if let Some(boundary_value) = boundary_values.get(&(i, j)).copied() {
                 // Dirichlet boundary condition
-                matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
+                matrix_builder.add_entry(linear_idx, linear_idx, one)?;
                 rhs[linear_idx] = boundary_value;
             } else {
                 // Interior point: discretize advection-diffusion operator
@@ -98,7 +102,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
     fn add_advection_diffusion_stencil(
         &self,
         matrix_builder: &mut SparseMatrixBuilder<T>,
-        rhs: &mut DVector<T>,
+        rhs: &mut Array1<T>,
         grid: &StructuredGrid2D<T>,
         i: usize,
         j: usize,
@@ -112,50 +116,51 @@ impl<T: RealField + Copy + FromPrimitive + Copy> AdvectionDiffusionSolver<T> {
         let dx2 = dx * dx;
         let dy2 = dy * dy;
 
-        let u = velocity_x.get(&(i, j)).copied().unwrap_or(T::zero());
-        let v = velocity_y.get(&(i, j)).copied().unwrap_or(T::zero());
+        let zero: T = scalar::zero();
+        let u = velocity_x.get(&(i, j)).copied().unwrap_or(zero);
+        let v = velocity_y.get(&(i, j)).copied().unwrap_or(zero);
 
-        // Central coefficient (diffusion part): -2α/dx² - 2α/dy²
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-        let mut center_coeff = -two * diffusivity / dx2 - two * diffusivity / dy2;
+        // Central coefficient for u·∇φ - α∇²φ = S.
+        let two = scalar::from_f64::<T>(2.0);
+        let mut center_coeff = two * diffusivity / dx2 + two * diffusivity / dy2;
 
         // Add neighbor contributions with upwind scheme for advection
         let neighbors = grid.neighbors(i, j);
         for &(ni, nj) in &neighbors {
             let neighbor_idx = Self::linear_index(grid, ni, nj);
-            let mut coeff = T::zero();
+            let mut coeff = zero;
 
             if ni == i + 1 {
                 // Right neighbor: diffusion + upwind advection
-                coeff += diffusivity / dx2;
-                if u < T::zero() {
+                coeff -= diffusivity / dx2;
+                if u < zero {
                     // Negative velocity: flow from right to left
                     coeff += u / dx;
                     center_coeff -= u / dx;
                 }
             } else if ni + 1 == i {
                 // Left neighbor: diffusion + upwind advection
-                coeff += diffusivity / dx2;
-                if u > T::zero() {
+                coeff -= diffusivity / dx2;
+                if u > zero {
                     // Positive velocity: flow from left to right
-                    coeff += u / dx;
-                    center_coeff -= u / dx;
+                    coeff -= u / dx;
+                    center_coeff += u / dx;
                 }
             } else if nj == j + 1 {
                 // Top neighbor: diffusion + upwind advection
-                coeff += diffusivity / dy2;
-                if v < T::zero() {
+                coeff -= diffusivity / dy2;
+                if v < zero {
                     // Negative velocity: flow from top to bottom
                     coeff += v / dy;
                     center_coeff -= v / dy;
                 }
             } else if nj + 1 == j {
                 // Bottom neighbor: diffusion + upwind advection
-                coeff += diffusivity / dy2;
-                if v > T::zero() {
+                coeff -= diffusivity / dy2;
+                if v > zero {
                     // Positive velocity: flow from bottom to top
-                    coeff += v / dy;
-                    center_coeff -= v / dy;
+                    coeff -= v / dy;
+                    center_coeff += v / dy;
                 }
             }
 

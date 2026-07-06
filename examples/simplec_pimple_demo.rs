@@ -18,7 +18,7 @@
 use cfd_2d::fields::SimulationFields;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::{AlgorithmType, SimplecPimpleConfig, SimplecPimpleSolver};
-use nalgebra::Vector2;
+use leto::geometry::Vector2;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("SIMPLEC and PIMPLE Algorithm Demonstration");
@@ -131,8 +131,8 @@ fn run_algorithm(
     for i in 0..grid.nx {
         for j in 0..grid.ny {
             let vel = Vector2::new(fields.u.at(i, j), fields.v.at(i, j));
-            max_u = max_u.max(vel.x.abs());
-            max_v = max_v.max(vel.y.abs());
+            max_u = max_u.max(vel[0].abs());
+            max_v = max_v.max(vel[1].abs());
         }
     }
 

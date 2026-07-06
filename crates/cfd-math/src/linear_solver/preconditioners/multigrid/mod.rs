@@ -104,15 +104,12 @@
 //!
 //! ```no_run
 //! use cfd_math::linear_solver::*;
-//! use nalgebra_sparse::CsrMatrix;
-//! use nalgebra::DVector;
+//! use leto::Array1;
+//! use leto_ops::CsrMatrix;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create AMG preconditioner
-//! # let matrix = CsrMatrix::<f64>::try_from_pattern_and_values(
-//! #     nalgebra_sparse::pattern::SparsityPattern::try_from_offsets_and_indices(1, 1, vec![0, 1], vec![0])?,
-//! #     vec![1.0]
-//! # ).unwrap();
+//! # let matrix = CsrMatrix::from_parts(vec![1.0], vec![0], vec![0, 1], 1, 1)?;
 //! let amg = AlgebraicMultigrid::new(&matrix, AMGConfig::default())?;
 //!
 //! // Set up GMRES solver with AMG as preconditioner
@@ -121,8 +118,8 @@
 //! let solver = GMRES::new(config, restart_dim);
 //!
 //! // Solve the system: A * x = b
-//! # let rhs = DVector::from_element(1, 1.0);
-//! let mut x = DVector::from_element(1, 0.0);
+//! # let rhs = Array1::<f64>::from_elem([1], 1.0);
+//! let mut x = Array1::<f64>::from_elem([1], 0.0);
 //! solver.solve(&matrix, &rhs, &mut x, Some(&amg))?;
 //! # Ok(())
 //! # }
@@ -183,8 +180,39 @@ pub use smoothers::*;
 // Re-export nonlinear operator trait for FAS
 pub use gmg::NonlinearOperator;
 
-use crate::sparse::SparseMatrix;
-use nalgebra::DVector;
+use eunomia::RealField as EunomiaRealField;
+use leto::Array1;
+use leto_ops::{CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};
+
+type MultigridVector<T> = Array1<T>;
+pub(crate) type SparseMatrix<T> = LetoCsrMatrix<T>;
+
+pub(crate) fn csr_from_parts<T: EunomiaRealField + Copy + LetoScalar>(
+    nrows: usize,
+    ncols: usize,
+    row_ptr: Vec<usize>,
+    col_indices: Vec<usize>,
+    values: Vec<T>,
+    context: &str,
+) -> cfd_core::error::Result<SparseMatrix<T>> {
+    LetoCsrMatrix::from_parts(values, col_indices, row_ptr, nrows, ncols).map_err(|error| {
+        cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::InvalidValue {
+            value: format!("{context}: {error}"),
+        })
+    })
+}
+
+pub(crate) fn csr_value<T: EunomiaRealField + Copy + LetoScalar>(
+    matrix: &SparseMatrix<T>,
+    row: usize,
+    col: usize,
+) -> T {
+    let matrix_row = matrix.row(row);
+    match matrix_row.col_indices().binary_search(&col) {
+        Ok(index) => matrix_row.values()[index],
+        Err(_) => <T as eunomia::NumericElement>::ZERO,
+    }
+}
 
 /// Configuration for Algebraic Multigrid preconditioner
 #[derive(Debug, Clone)]
@@ -276,7 +304,7 @@ pub enum SmootherType {
 
 /// Multigrid level representation
 #[derive(Clone)]
-pub struct MultigridLevel<T: nalgebra::RealField + Copy> {
+pub struct MultigridLevel<T: EunomiaRealField + Copy + LetoScalar> {
     /// System matrix for this level
     pub matrix: SparseMatrix<T>,
     /// Restriction operator from fine to coarse
@@ -289,12 +317,12 @@ pub struct MultigridLevel<T: nalgebra::RealField + Copy> {
 
 /// A cached AMG hierarchy containing transfer operators
 #[derive(Clone)]
-pub struct AMGHierarchy<T: nalgebra::RealField + Copy> {
+pub struct AMGHierarchy<T: EunomiaRealField + Copy + LetoScalar> {
     /// Transfer operators for each level: (Restriction, Interpolation)
     pub operators: Vec<(SparseMatrix<T>, SparseMatrix<T>)>,
 }
 
-impl<T: nalgebra::RealField + Copy> AMGHierarchy<T> {
+impl<T: EunomiaRealField + Copy + LetoScalar> AMGHierarchy<T> {
     /// Create a new hierarchy from existing levels
     pub fn from_levels(levels: &[MultigridLevel<T>]) -> Self {
         let operators = levels
@@ -313,13 +341,13 @@ impl<T: nalgebra::RealField + Copy> AMGHierarchy<T> {
 }
 
 /// Trait for multigrid smoothers
-pub trait MultigridSmoother<T: nalgebra::RealField + Copy>: Send + Sync {
+pub trait MultigridSmoother<T: EunomiaRealField + Copy + LetoScalar>: Send + Sync {
     /// Apply the smoother to the system Ax = b
     fn apply(
         &self,
         matrix: &SparseMatrix<T>,
-        x: &mut DVector<T>,
-        b: &DVector<T>,
+        x: &mut MultigridVector<T>,
+        b: &MultigridVector<T>,
         iterations: usize,
     );
 
@@ -327,7 +355,7 @@ pub trait MultigridSmoother<T: nalgebra::RealField + Copy>: Send + Sync {
     fn clone_box(&self) -> Box<dyn MultigridSmoother<T>>;
 }
 
-impl<T: nalgebra::RealField + Copy> Clone for Box<dyn MultigridSmoother<T>> {
+impl<T: EunomiaRealField + Copy + LetoScalar> Clone for Box<dyn MultigridSmoother<T>> {
     fn clone(&self) -> Self {
         self.clone_box()
     }

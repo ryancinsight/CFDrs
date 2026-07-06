@@ -19,7 +19,7 @@
 use cfd_3d::spectral::poisson::PoissonBoundaryCondition;
 use cfd_3d::spectral::solver::PoissonProblem;
 use cfd_3d::spectral::{SpectralConfig, SpectralSolver};
-use nalgebra::DVector;
+use leto::Array1;
 use std::f64::consts::PI;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -96,8 +96,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// Build the source term f = 3*pi^2 * sin(pi*x)*sin(pi*y)*sin(pi*z)
 /// evaluated on Chebyshev-Gauss-Lobatto nodes mapped to [0,1].
-fn build_source_term(n: usize) -> DVector<f64> {
-    let mut source = DVector::zeros(n * n * n);
+fn build_source_term(n: usize) -> Array1<f64> {
+    let mut source = Array1::zeros([n * n * n]);
 
     for k in 0..n {
         for j in 0..n {
@@ -107,7 +107,7 @@ fn build_source_term(n: usize) -> DVector<f64> {
                 let z = chebyshev_node(k, n);
 
                 let idx = k * n * n + j * n + i;
-                source[idx] = 3.0 * PI * PI * (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
+                source[[idx]] = 3.0 * PI * PI * (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
             }
         }
     }
@@ -122,7 +122,7 @@ fn chebyshev_node(i: usize, n: usize) -> f64 {
 }
 
 /// Compute L2 and L-infinity errors against the exact solution.
-fn compute_errors(u_numerical: &DVector<f64>, n: usize) -> (f64, f64) {
+fn compute_errors(u_numerical: &Array1<f64>, n: usize) -> (f64, f64) {
     let mut l2_sum = 0.0;
     let mut linf = 0.0_f64;
     let total = n * n * n;
@@ -136,7 +136,7 @@ fn compute_errors(u_numerical: &DVector<f64>, n: usize) -> (f64, f64) {
 
                 let exact = (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
                 let idx = k * n * n + j * n + i;
-                let err = (u_numerical[idx] - exact).abs();
+                let err = (u_numerical[[idx]] - exact).abs();
 
                 l2_sum += err * err;
                 linf = linf.max(err);

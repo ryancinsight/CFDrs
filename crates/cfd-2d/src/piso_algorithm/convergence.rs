@@ -8,13 +8,14 @@
 
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use crate::solvers::continuity::max_forward_continuity_residual;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 
 /// Convergence criteria for PISO iterations
 #[derive(Debug, Clone)]
-pub struct ConvergenceCriteria<T: RealField + Copy> {
+pub struct ConvergenceCriteria<T: Cfd2dScalar + Copy> {
     /// Tolerance for velocity residual
     pub velocity_tolerance: T,
     /// Tolerance for pressure residual
@@ -25,22 +26,19 @@ pub struct ConvergenceCriteria<T: RealField + Copy> {
     pub max_iterations: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for ConvergenceCriteria<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> Default for ConvergenceCriteria<T> {
     fn default() -> Self {
         Self {
             max_iterations: 1000,
-            velocity_tolerance: T::from_f64(1e-5)
-                .unwrap_or_else(|| T::from_f64(1e-6).expect("analytical constant conversion")),
-            pressure_tolerance: T::from_f64(1e-4)
-                .unwrap_or_else(|| T::from_f64(1e-5).expect("analytical constant conversion")),
-            continuity_tolerance: T::from_f64(1e-5)
-                .unwrap_or_else(|| T::from_f64(1e-6).expect("analytical constant conversion")),
+            velocity_tolerance: scalar::from_f64(1e-5),
+            pressure_tolerance: scalar::from_f64(1e-4),
+            continuity_tolerance: scalar::from_f64(1e-5),
         }
     }
 }
 
 /// Convergence monitor for tracking residuals
-pub struct ConvergenceMonitor<T: RealField + Copy> {
+pub struct ConvergenceMonitor<T: Cfd2dScalar + Copy> {
     /// Velocity residual history
     pub velocity_residuals: Vec<T>,
     /// Pressure residual history
@@ -51,13 +49,13 @@ pub struct ConvergenceMonitor<T: RealField + Copy> {
     pub iteration: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Default for ConvergenceMonitor<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> Default for ConvergenceMonitor<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> ConvergenceMonitor<T> {
     /// Create new convergence monitor
     #[must_use]
     pub fn new() -> Self {
@@ -78,13 +76,21 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
             return false;
         }
 
-        let vel_res = self.velocity_residuals.last().copied().unwrap_or(T::one());
-        let pres_res = self.pressure_residuals.last().copied().unwrap_or(T::one());
+        let vel_res = self
+            .velocity_residuals
+            .last()
+            .copied()
+            .unwrap_or_else(scalar::one::<T>);
+        let pres_res = self
+            .pressure_residuals
+            .last()
+            .copied()
+            .unwrap_or_else(scalar::one::<T>);
         let cont_res = self
             .continuity_residuals
             .last()
             .copied()
-            .unwrap_or(T::one());
+            .unwrap_or_else(scalar::one::<T>);
 
         vel_res < criteria.velocity_tolerance
             && pres_res < criteria.pressure_tolerance
@@ -116,7 +122,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
         nx: usize,
         ny: usize,
     ) -> T {
-        let mut sum = T::zero();
+        let mut sum = scalar::zero::<T>();
         let mut count = 0;
 
         for i in 1..nx - 1 {
@@ -128,8 +134,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
             }
         }
 
-        let count_t = T::from_usize(count).expect("analytical constant conversion");
-        (sum / count_t).sqrt()
+        let count_t = scalar::from_usize::<T>(count);
+        <T as NumericElement>::sqrt(sum / count_t)
     }
 
     /// Calculate pressure residual (L2 norm)
@@ -140,7 +146,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
         nx: usize,
         ny: usize,
     ) -> T {
-        let mut sum = T::zero();
+        let mut sum = scalar::zero::<T>();
         let mut count = 0;
 
         for i in 1..nx - 1 {
@@ -151,8 +157,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvergenceMonitor<T> {
             }
         }
 
-        let count_t = T::from_usize(count).expect("analytical constant conversion");
-        (sum / count_t).sqrt()
+        let count_t = scalar::from_usize::<T>(count);
+        <T as NumericElement>::sqrt(sum / count_t)
     }
 
     /// Calculate continuity residual (mass imbalance)

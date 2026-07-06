@@ -11,9 +11,11 @@
 
 mod advection;
 pub mod config;
+mod scalar;
 pub mod solver;
 mod weno;
 
 // Re-export main types
 pub use config::LevelSetConfig;
+pub use scalar::LevelSetScalar;
 pub use solver::LevelSetSolver;

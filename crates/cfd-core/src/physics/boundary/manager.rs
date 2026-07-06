@@ -3,18 +3,19 @@
 use super::applicator::BoundaryConditionApplicator;
 use super::geometry::BoundaryRegion;
 use super::specification::BoundaryConditionSpec;
-use nalgebra::RealField;
+use eunomia::FloatElement;
+use eunomia::RealField;
 use std::collections::HashMap;
 
 /// Boundary condition manager
-pub struct BoundaryConditionManager<T: RealField + Copy> {
+pub struct BoundaryConditionManager<T: RealField + FloatElement + Copy> {
     /// Registered boundary regions
     regions: HashMap<String, BoundaryRegion<T>>,
     /// Registered applicators
     applicators: Vec<Box<dyn BoundaryConditionApplicator<T>>>,
 }
 
-impl<T: RealField + Copy> BoundaryConditionManager<T> {
+impl<T: RealField + FloatElement + Copy> BoundaryConditionManager<T> {
     /// Create a new boundary condition manager
     #[must_use]
     pub fn new() -> Self {
@@ -143,7 +144,7 @@ impl<T: RealField + Copy> BoundaryConditionManager<T> {
     }
 }
 
-impl<T: RealField + Copy> Default for BoundaryConditionManager<T> {
+impl<T: RealField + FloatElement + Copy> Default for BoundaryConditionManager<T> {
     fn default() -> Self {
         Self::new()
     }

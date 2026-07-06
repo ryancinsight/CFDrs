@@ -1,14 +1,14 @@
 //! Solution type for two-way branch junction problems.
 
+use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::NumericElement;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Solution to the two-way branch problem
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct TwoWayBranchSolution<T: RealField + Copy> {
+pub struct TwoWayBranchSolution<T: Cfd1dScalar + Copy> {
     /// Parent branch volumetric flow rate [m³/s]
     pub q_parent: T,
     /// Daughter 1 volumetric flow rate [m³/s]
@@ -48,7 +48,7 @@ pub struct TwoWayBranchSolution<T: RealField + Copy> {
     pub mass_conservation_error: T,
 }
 
-impl<T: RealField + Copy> TwoWayBranchSolution<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchSolution<T> {
     /// Check if solution satisfies conservation laws within tolerance
     pub fn is_valid(&self, tolerance: T) -> bool {
         self.mass_conservation_error < tolerance && self.junction_pressure_error < tolerance
@@ -60,18 +60,16 @@ impl<T: RealField + Copy> TwoWayBranchSolution<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> fmt::Display
-    for TwoWayBranchSolution<T>
-{
+impl<T: Cfd1dScalar + Copy + SafeFromF64> fmt::Display for TwoWayBranchSolution<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let q_parent_f = self.q_parent.to_f64().unwrap_or(f64::NAN);
-        let q_1_f = self.q_1.to_f64().unwrap_or(f64::NAN);
-        let q_2_f = self.q_2.to_f64().unwrap_or(f64::NAN);
-        let p_parent_f = self.p_parent.to_f64().unwrap_or(f64::NAN);
-        let p_1_f = self.p_1.to_f64().unwrap_or(f64::NAN);
-        let p_2_f = self.p_2.to_f64().unwrap_or(f64::NAN);
-        let junction_error_f = self.junction_pressure_error.to_f64().unwrap_or(f64::NAN);
-        let mass_error_f = self.mass_conservation_error.to_f64().unwrap_or(f64::NAN);
+        let q_parent_f = <T as NumericElement>::to_f64(self.q_parent);
+        let q_1_f = <T as NumericElement>::to_f64(self.q_1);
+        let q_2_f = <T as NumericElement>::to_f64(self.q_2);
+        let p_parent_f = <T as NumericElement>::to_f64(self.p_parent);
+        let p_1_f = <T as NumericElement>::to_f64(self.p_1);
+        let p_2_f = <T as NumericElement>::to_f64(self.p_2);
+        let junction_error_f = <T as NumericElement>::to_f64(self.junction_pressure_error);
+        let mass_error_f = <T as NumericElement>::to_f64(self.mass_conservation_error);
 
         write!(
             f,

@@ -6,7 +6,7 @@
 use super::{Mesh, MeshGeneration, MeshQuality, MeshRefinement};
 use crate::error::Result;
 use crate::geometry::shapes::Geometry;
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::sync::Arc;
 
 /// Service for coordinating mesh operations

@@ -3,7 +3,7 @@
 //! This module provides functionality for assembling global matrices and vectors
 //! from element-local contributions in spectral element methods.
 
-use nalgebra::{DMatrix, DVector};
+use leto::{Array1, Array2};
 
 /// Represents a global sparse matrix in compressed sparse row (CSR) format
 #[derive(Debug, Clone)]
@@ -62,13 +62,13 @@ impl SparseMatrixCSR {
         &self.values
     }
 
-    /// Convert to a dense matrix (for debugging and small problems)
-    pub fn to_dense(&self) -> DMatrix<f64> {
-        let mut mat = DMatrix::zeros(self.nrows, self.ncols);
+    /// Convert to a dense Leto matrix for debugging and small problems.
+    pub fn to_dense(&self) -> Array2<f64> {
+        let mut mat = Array2::zeros([self.nrows, self.ncols]);
 
         for i in 0..self.nrows {
             for j in self.row_ptr[i]..self.row_ptr[i + 1] {
-                mat[(i, self.col_ind[j])] = self.values[j];
+                mat[[i, self.col_ind[j]]] = self.values[j];
             }
         }
 
@@ -147,14 +147,16 @@ impl GlobalAssembly {
     pub fn add_element_matrix(
         &mut self,
         elem_idx: usize,
-        local_mat: &DMatrix<f64>,
-        local_rhs: Option<&DVector<f64>>,
+        local_mat: &Array2<f64>,
+        local_rhs: Option<&Array1<f64>>,
     ) {
         let dofs = &self.element_dofs[elem_idx];
         let n = dofs.len();
 
-        assert_eq!(local_mat.nrows(), n);
-        assert_eq!(local_mat.ncols(), n);
+        assert_eq!(local_mat.shape(), [n, n]);
+        if let Some(rhs) = local_rhs {
+            assert_eq!(rhs.shape(), [n]);
+        }
 
         // Add matrix entries
         for i in 0..n {
@@ -166,7 +168,7 @@ impl GlobalAssembly {
 
             for j in 0..n {
                 let gj = dofs[j];
-                let val = local_mat[(i, j)];
+                let val = local_mat[[i, j]];
 
                 if val != 0.0 {
                     self.coo_rows.push(gi);
@@ -428,7 +430,7 @@ mod tests {
                     0.0
                 };
 
-                assert_relative_eq!(dense[(i, j)], expected, epsilon = 1e-10);
+                assert_relative_eq!(dense[[i, j]], expected, epsilon = 1e-10);
             }
         }
     }
@@ -444,11 +446,11 @@ mod tests {
         // Add element contributions (simple mass matrix for each element)
         for e in 0..mesh.num_elements() {
             let n = mesh.nodes_per_element();
-            let mut local_mat = DMatrix::zeros(n, n);
+            let mut local_mat = Array2::zeros([n, n]);
 
             // Simple diagonal matrix for testing
             for i in 0..n {
-                local_mat[(i, i)] = 1.0;
+                local_mat[[i, i]] = 1.0;
             }
 
             assembly.add_element_matrix(e, &local_mat, None);
@@ -476,7 +478,7 @@ mod tests {
                     0.0
                 };
 
-                assert_relative_eq!(dense[(i, j)], expected, epsilon = 1e-10);
+                assert_relative_eq!(dense[[i, j]], expected, epsilon = 1e-10);
             }
         }
     }
@@ -492,11 +494,11 @@ mod tests {
         // Add element contributions (simple mass matrix for each element)
         for e in 0..mesh.num_elements() {
             let n = mesh.nodes_per_element();
-            let mut local_mat = DMatrix::zeros(n, n);
+            let mut local_mat = Array2::zeros([n, n]);
 
             // Simple diagonal matrix for testing
             for i in 0..n {
-                local_mat[(i, i)] = 1.0;
+                local_mat[[i, i]] = 1.0;
             }
 
             assembly.add_element_matrix(e, &local_mat, None);
@@ -520,15 +522,15 @@ mod tests {
         let dense = mat.to_dense();
 
         // First row should be [1, 0, 0, 0, 0]
-        assert_relative_eq!(dense[(0, 0)], 1.0, epsilon = 1e-10);
+        assert_relative_eq!(dense[[0, 0]], 1.0, epsilon = 1e-10);
         for j in 1..5 {
-            assert_relative_eq!(dense[(0, j)], 0.0, epsilon = 1e-10);
+            assert_relative_eq!(dense[[0, j]], 0.0, epsilon = 1e-10);
         }
 
         // Last row should be [0, 0, 0, 0, 1]
         for j in 0..4 {
-            assert_relative_eq!(dense[(4, j)], 0.0, epsilon = 1e-10);
+            assert_relative_eq!(dense[[4, j]], 0.0, epsilon = 1e-10);
         }
-        assert_relative_eq!(dense[(4, 4)], 1.0, epsilon = 1e-10);
+        assert_relative_eq!(dense[[4, 4]], 1.0, epsilon = 1e-10);
     }
 }

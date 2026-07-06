@@ -16,7 +16,7 @@ use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::application::channel::serpentine::SerpentineMeshBuilder;
 use cfd_mesh::VenturiMeshBuilder;
-use nalgebra::DVector;
+use leto::Array1;
 use std::f64::consts::PI;
 
 // ──────────────────────────────────────────────────────────────────────
@@ -179,7 +179,8 @@ fn venturi_pressure_coefficients_require_positive_dynamic_pressure() {
     match err {
         Error::Solver(message) => {
             assert!(
-                message.contains("dynamic pressure") || message.contains("throat area and flow rate"),
+                message.contains("dynamic pressure")
+                    || message.contains("throat area and flow rate"),
                 "unexpected solver error: {message}"
             );
         }
@@ -305,8 +306,8 @@ fn chebyshev_node(i: usize, n: usize) -> f64 {
 }
 
 /// Build source for -laplacian(u) = 3*pi^2 * sin(pi*x)*sin(pi*y)*sin(pi*z).
-fn build_poisson_source(n: usize) -> DVector<f64> {
-    let mut source = DVector::zeros(n * n * n);
+fn build_poisson_source(n: usize) -> Array1<f64> {
+    let mut source = Array1::zeros([n * n * n]);
     for k in 0..n {
         for j in 0..n {
             for i in 0..n {
@@ -314,7 +315,7 @@ fn build_poisson_source(n: usize) -> DVector<f64> {
                 let y = chebyshev_node(j, n);
                 let z = chebyshev_node(k, n);
                 let idx = k * n * n + j * n + i;
-                source[idx] = 3.0 * PI * PI * (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
+                source[[idx]] = 3.0 * PI * PI * (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
             }
         }
     }
@@ -322,7 +323,7 @@ fn build_poisson_source(n: usize) -> DVector<f64> {
 }
 
 /// Compute L2 error against exact solution.
-fn poisson_l2_error(u: &DVector<f64>, n: usize) -> f64 {
+fn poisson_l2_error(u: &Array1<f64>, n: usize) -> f64 {
     let mut l2_sum = 0.0;
     let total = n * n * n;
     for k in 0..n {
@@ -333,7 +334,7 @@ fn poisson_l2_error(u: &DVector<f64>, n: usize) -> f64 {
                 let z = chebyshev_node(k, n);
                 let exact = (PI * x).sin() * (PI * y).sin() * (PI * z).sin();
                 let idx = k * n * n + j * n + i;
-                let err = u[idx] - exact;
+                let err = u[[idx]] - exact;
                 l2_sum += err * err;
             }
         }
@@ -445,5 +446,5 @@ fn spectral_solution_correct_dimensions() {
     assert_eq!(solution.nx, n);
     assert_eq!(solution.ny, n);
     assert_eq!(solution.nz, n);
-    assert_eq!(solution.u.len(), n * n * n);
+    assert_eq!(solution.u.size(), n * n * n);
 }

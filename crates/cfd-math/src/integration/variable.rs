@@ -2,8 +2,11 @@
 
 use crate::integration::traits::Quadrature;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
 
 /// Variable quadrature with error control
 pub struct VariableQuadrature<Q> {
@@ -25,7 +28,7 @@ impl<Q> VariableQuadrature<Q> {
     /// Variable integration with recursive subdivision
     pub fn integrate_adaptive<T, F>(&self, f: F, a: T, b: T) -> Result<T>
     where
-        T: RealField + From<f64> + FromPrimitive + Copy,
+        T: RealField + FloatElement + Copy,
         F: Fn(T) -> T + Copy,
         Q: Quadrature<T>,
     {
@@ -34,7 +37,7 @@ impl<Q> VariableQuadrature<Q> {
 
     fn integrate_recursive<T, F>(&self, f: F, a: T, b: T, depth: usize) -> Result<T>
     where
-        T: RealField + From<f64> + FromPrimitive + Copy,
+        T: RealField + FloatElement + Copy,
         F: Fn(T) -> T + Copy,
         Q: Quadrature<T>,
     {
@@ -50,15 +53,15 @@ impl<Q> VariableQuadrature<Q> {
         let whole = self.base_rule.integrate(f, a, b);
 
         // Compute integral over two halves
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let two = from_f64::<T>(2.0);
         let mid = (a + b) / two;
         let left = self.base_rule.integrate(f, a, mid);
         let right = self.base_rule.integrate(f, mid, b);
         let halves = left + right;
 
         // Estimate error
-        let error_estimate = (halves - whole).abs();
-        let tolerance_t = T::from_f64(self.tolerance).unwrap_or_else(|| T::zero());
+        let error_estimate = <T as NumericElement>::abs(halves - whole);
+        let tolerance_t = from_f64::<T>(self.tolerance);
 
         if error_estimate < tolerance_t {
             // Accept the more accurate estimate from halves
@@ -69,5 +72,22 @@ impl<Q> VariableQuadrature<Q> {
             let right_refined = self.integrate_recursive(f, mid, b, depth + 1)?;
             Ok(left_refined + right_refined)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::integration::quadrature::GaussQuadrature;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn adaptive_quadrature_refines_until_tolerance() {
+        let base = GaussQuadrature::<f64>::new(2).unwrap();
+        let adaptive = VariableQuadrature::new(base, 1e-12, 20);
+
+        let integral = adaptive.integrate_adaptive(|x| x * x, 0.0, 1.0).unwrap();
+
+        assert_relative_eq!(integral, 1.0 / 3.0, epsilon = 1e-12);
     }
 }

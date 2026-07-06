@@ -42,8 +42,7 @@ pub mod model;
 
 // Re-import traits needed by this module's types
 use super::traits;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use super::traits::{scalar_from_f64, ResistanceScalar};
 use serde::{Deserialize, Serialize};
 
 // ── Enums ───────────────────────────────────────────────────────────────────
@@ -84,10 +83,10 @@ impl BendType {
     }
 
     /// Compute bend loss coefficient K at the given Reynolds number
-    pub fn loss_coefficient<T: RealField + Copy + FromPrimitive>(&self, reynolds: T) -> T {
+    pub fn loss_coefficient<T: ResistanceScalar>(&self, reynolds: T) -> T {
         let (c1, c2) = self.loss_constants();
-        let c1_t = T::from_f64(c1).expect("Mathematical constant conversion compromised");
-        let c2_t = T::from_f64(c2).expect("Mathematical constant conversion compromised");
+        let c1_t = scalar_from_f64::<T>(c1);
+        let c2_t = scalar_from_f64::<T>(c2);
         c1_t + c2_t / reynolds
     }
 }

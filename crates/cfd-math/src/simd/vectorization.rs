@@ -14,9 +14,9 @@
 
 use crate::error::Result;
 use crate::simd::SimdOps;
+use eunomia::{NumericElement, RealField};
 use moirai::prelude::ParallelSliceMut;
 use moirai::{reduce_index_with, Adaptive};
-use nalgebra::RealField;
 
 /// Vectorized operations for CFD computations with SIMD support
 pub struct VectorizedOps {
@@ -52,7 +52,9 @@ impl VectorizedOps {
         result: &mut [T],
     ) -> Result<()> {
         if a.len() != b.len() || a.len() != result.len() {
-            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Dimension mismatch".to_string(),
+            ));
         }
         result.par_mut().enumerate(|i, r| *r = a[i] + b[i]);
         Ok(())
@@ -76,19 +78,31 @@ impl VectorizedOps {
         result: &mut [T],
     ) -> Result<()> {
         if a.len() != b.len() || a.len() != result.len() {
-            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Dimension mismatch".to_string(),
+            ));
         }
         result.par_mut().enumerate(|i, r| *r = a[i] * b[i]);
         Ok(())
     }
 
     /// Vectorized scalar multiplication (f32).
-    pub fn scale_vectorized_f32(&self, input: &[f32], scalar: f32, result: &mut [f32]) -> Result<()> {
+    pub fn scale_vectorized_f32(
+        &self,
+        input: &[f32],
+        scalar: f32,
+        result: &mut [f32],
+    ) -> Result<()> {
         self.simd_ops.scale(input, scalar, result)
     }
 
     /// Vectorized scalar multiplication (f64).
-    pub fn scale_vectorized_f64(&self, input: &[f64], scalar: f64, result: &mut [f64]) -> Result<()> {
+    pub fn scale_vectorized_f64(
+        &self,
+        input: &[f64],
+        scalar: f64,
+        result: &mut [f64],
+    ) -> Result<()> {
         self.simd_ops.scale_f64(input, scalar, result)
     }
 
@@ -100,7 +114,9 @@ impl VectorizedOps {
         result: &mut [T],
     ) -> Result<()> {
         if input.len() != result.len() {
-            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Dimension mismatch".to_string(),
+            ));
         }
         result.par_mut().enumerate(|i, r| *r = scalar * input[i]);
         Ok(())
@@ -123,20 +139,23 @@ impl VectorizedOps {
         b: &[T],
     ) -> Result<T> {
         if a.len() != b.len() {
-            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Dimension mismatch".to_string(),
+            ));
         }
-        let sum =
-            reduce_index_with::<Adaptive, _, _, _>(a.len(), T::zero(), |i| a[i] * b[i], |acc, v| acc + v);
+        let sum = reduce_index_with::<Adaptive, _, _, _>(
+            a.len(),
+            T::ZERO,
+            |i| a[i] * b[i],
+            |acc, v| acc + v,
+        );
         Ok(sum)
     }
 
     /// Compute L2 norm using moirai parallel reduction.
-    pub fn l2_norm<T: RealField + Copy + Send + Sync>(
-        &self,
-        input: &[T],
-    ) -> Result<T> {
+    pub fn l2_norm<T: RealField + Copy + Send + Sync>(&self, input: &[T]) -> Result<T> {
         let dot = self.dot_product_generic(input, input)?;
-        Ok(dot.sqrt())
+        Ok(NumericElement::sqrt(dot))
     }
 
     /// Broadcasting addition: adds scalar to each element of vector.
@@ -147,7 +166,9 @@ impl VectorizedOps {
         result: &mut [T],
     ) -> Result<()> {
         if input.len() != result.len() {
-            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Dimension mismatch".to_string(),
+            ));
         }
         result.par_mut().enumerate(|i, r| *r = input[i] + scalar);
         Ok(())
@@ -162,13 +183,19 @@ impl VectorizedOps {
         result: &mut [T],
     ) -> Result<()> {
         if !matrix.len().is_multiple_of(matrix_cols) {
-            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Dimension mismatch".to_string(),
+            ));
         }
         if vector.len() != matrix_cols {
-            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Dimension mismatch".to_string(),
+            ));
         }
         if result.len() != matrix.len() {
-            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Dimension mismatch".to_string(),
+            ));
         }
         result
             .par_mut()
@@ -186,14 +213,16 @@ impl VectorizedOps {
         y: &mut [T],
     ) -> Result<()> {
         if row_ptr.len() != y.len() + 1 {
-            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Dimension mismatch".to_string(),
+            ));
         }
         y.par_mut().enumerate(|i, y_i| {
             let start = row_ptr[i];
             let end = row_ptr[i + 1];
             *y_i = (start..end)
                 .map(|j| values[j] * x[col_indices[j]])
-                .fold(T::zero(), |acc, val| acc + val);
+                .fold(T::ZERO, |acc, val| acc + val);
         });
         Ok(())
     }
@@ -210,13 +239,15 @@ impl VectorizedOps {
         let result_len = signal_len + kernel_len - 1;
 
         if result.len() != result_len {
-            return Err(cfd_core::error::Error::InvalidInput("Dimension mismatch".to_string()));
+            return Err(cfd_core::error::Error::InvalidInput(
+                "Dimension mismatch".to_string(),
+            ));
         }
 
         result.par_mut().enumerate(|n, output| {
             let k_min = n.saturating_sub(signal_len - 1);
             let k_max = n.min(kernel_len - 1);
-            let mut sum = T::zero();
+            let mut sum = T::ZERO;
             if k_min <= k_max {
                 for k in k_min..=k_max {
                     sum += signal[n - k] * kernel[k];

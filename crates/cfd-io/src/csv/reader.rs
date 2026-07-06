@@ -1,8 +1,8 @@
 //! CSV reading functionality
 
-use cfd_core::error::{Error, Result};
+use crate::error::{Error, Result};
 use csv::Reader as CsvReaderImpl;
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
@@ -10,11 +10,11 @@ use std::path::Path;
 use std::str::FromStr;
 
 /// CSV reader for simulation data
-pub struct CsvReader<T: RealField + Copy> {
+pub struct CsvReader<T: RealField> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> CsvReader<T> {
+impl<T: RealField> CsvReader<T> {
     /// Create a new CSV reader
     #[must_use]
     pub fn new() -> Self {
@@ -101,7 +101,7 @@ impl<T: RealField + Copy> CsvReader<T> {
     }
 }
 
-impl<T: RealField + Copy> Default for CsvReader<T> {
+impl<T: RealField> Default for CsvReader<T> {
     fn default() -> Self {
         Self::new()
     }

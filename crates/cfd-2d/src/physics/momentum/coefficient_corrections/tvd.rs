@@ -20,7 +20,7 @@
 
 use super::super::tvd_limiters::TvdLimiter;
 use crate::fields::SimulationFields;
-use nalgebra::RealField;
+use crate::scalar::Cfd2dScalar;
 
 use super::super::solver::MomentumComponent;
 
@@ -43,7 +43,7 @@ pub fn compute_tvd_correction_x<T, L>(
     limiter: &L,
 ) -> T
 where
-    T: RealField + Copy,
+    T: Cfd2dScalar + Copy,
     L: TvdLimiter<T>,
 {
     // Get velocity values for 3-point stencil
@@ -107,7 +107,7 @@ pub fn compute_tvd_correction_y<T, L>(
     limiter: &L,
 ) -> T
 where
-    T: RealField + Copy,
+    T: Cfd2dScalar + Copy,
     L: TvdLimiter<T>,
 {
     // Get velocity values for 3-point stencil

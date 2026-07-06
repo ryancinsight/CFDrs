@@ -208,8 +208,8 @@ mod tests {
 #[cfg(test)]
 mod cfd_integration_tests {
     use super::*;
-    use nalgebra::DVector;
-    use nalgebra_sparse::{CooMatrix, CsrMatrix};
+    use leto::Array1;
+    use leto_ops::{spmv, CsrMatrix};
 
     /// Test SIMD in CFD-like momentum update (v_new = v_old + dt * rhs)
     #[test]
@@ -225,7 +225,8 @@ mod cfd_integration_tests {
         ops.mul(&dt_vec, &rhs, &mut scaled_rhs).unwrap();
 
         let mut velocity_new = vec![0.0f32; 4];
-        ops.add(&velocity_old, &scaled_rhs, &mut velocity_new).unwrap();
+        ops.add(&velocity_old, &scaled_rhs, &mut velocity_new)
+            .unwrap();
 
         let expected = [1.001f32, 2.002, 3.003, 4.004];
         for (actual, expected) in velocity_new.iter().zip(expected.iter()) {
@@ -239,26 +240,27 @@ mod cfd_integration_tests {
         let ops = SimdOps::new();
 
         let rhs = vec![1.0f32, 2.0, 3.0, 4.0];
-        let mut coo = CooMatrix::new(4, 4);
-        coo.push(0, 0, 2.0);
-        coo.push(0, 1, -1.0);
-        coo.push(1, 0, -1.0);
-        coo.push(1, 1, 2.0);
-        coo.push(1, 2, -1.0);
-        coo.push(2, 1, -1.0);
-        coo.push(2, 2, 2.0);
-        coo.push(2, 3, -1.0);
-        coo.push(3, 2, -1.0);
-        coo.push(3, 3, 2.0);
-        let matrix: CsrMatrix<f32> = CsrMatrix::from(&coo);
-        let x = DVector::from_vec(vec![1.0f32, 2.0, 3.0, 4.0]);
-        let ax = &matrix * x;
-        let ax = ax.iter().copied().collect::<Vec<f32>>();
+        let matrix = CsrMatrix::from_parts(
+            vec![2.0, -1.0, -1.0, 2.0, -1.0, -1.0, 2.0, -1.0, -1.0, 2.0],
+            vec![0, 1, 0, 1, 2, 1, 2, 3, 2, 3],
+            vec![0, 2, 5, 8, 10],
+            4,
+            4,
+        )
+        .expect("invariant: test CSR parts are sorted and shape-valid");
+        let x = Array1::from_shape_vec([4], vec![1.0f32, 2.0, 3.0, 4.0])
+            .expect("invariant: vector shape matches values");
+        let ax = spmv(&matrix, &x.view()).expect("invariant: matrix and vector dimensions match");
+        let ax_values = (0..ax.shape()[0]).map(|idx| ax[idx]).collect::<Vec<f32>>();
 
         let mut residual = vec![0.0f32; 4];
-        ops.sub(&rhs, &ax, &mut residual).unwrap();
+        ops.sub(&rhs, &ax_values, &mut residual).unwrap();
 
-        let expected = rhs.iter().zip(ax.iter()).map(|(&r, &a)| r - a).collect::<Vec<f32>>();
+        let expected = rhs
+            .iter()
+            .zip(ax_values.iter())
+            .map(|(&r, &a)| r - a)
+            .collect::<Vec<f32>>();
         for (actual, expected) in residual.iter().zip(expected.iter()) {
             assert_relative_eq!(*actual, *expected, epsilon = 1e-6);
         }
@@ -272,7 +274,13 @@ mod cfd_integration_tests {
         let u = vec![1.0f32, 2.0, 3.0, 4.0];
         let mut slopes = vec![0.0f32; u.len()];
         let minmod = |a: f32, b: f32| -> f32 {
-            if a * b <= 0.0 { 0.0 } else if a.abs() < b.abs() { a } else { b }
+            if a * b <= 0.0 {
+                0.0
+            } else if a.abs() < b.abs() {
+                a
+            } else {
+                b
+            }
         };
         for i in 1..u.len() - 1 {
             let du_left = u[i] - u[i - 1];
@@ -283,7 +291,11 @@ mod cfd_integration_tests {
         let mut convection = vec![0.0f32; 4];
         ops.mul(&u, &slopes, &mut convection).unwrap();
 
-        let expected = u.iter().zip(slopes.iter()).map(|(&v, &s)| v * s).collect::<Vec<f32>>();
+        let expected = u
+            .iter()
+            .zip(slopes.iter())
+            .map(|(&v, &s)| v * s)
+            .collect::<Vec<f32>>();
         for (actual, expected) in convection.iter().zip(expected.iter()) {
             assert_relative_eq!(*actual, *expected, epsilon = 1e-6);
         }

@@ -5,8 +5,8 @@
 //! - Morinishi et al. (1998) "Fully Conservative Higher Order Finite Difference Schemes"
 
 use crate::error::{BoundaryErrorKind, Error, Result};
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 
 /// Ghost cell calculator for maintaining high-order accuracy at boundaries
 pub struct GhostCellCalculator<T: RealField + Copy> {
@@ -18,7 +18,7 @@ pub struct GhostCellCalculator<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
+impl<T: RealField + Copy + FloatElement> GhostCellCalculator<T> {
     /// Create ghost cell calculator for given stencil order
     #[must_use]
     pub fn new(order: usize) -> Self {
@@ -64,13 +64,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
             2 => {
                 // Second-order: linear extrapolation
                 // g₀ = 2*b - i₀
-                let two = T::from_f64(2.0).unwrap_or_else(T::one);
+                let two = <T as FloatElement>::from_f64(2.0);
                 ghost_values[0] = two * boundary_value - interior_values[0];
             }
             3 | 4 => {
                 // Third/Fourth-order: quadratic extrapolation
                 // g₀ = 3*b - 3*i₀ + i₁
-                let three = T::from_f64(3.0).unwrap_or_else(T::one);
+                let three = <T as FloatElement>::from_f64(3.0);
                 ghost_values[0] =
                     three * boundary_value - three * interior_values[0] + interior_values[1];
 
@@ -78,8 +78,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
                     // Second ghost cell for fourth-order
                     // g₁ = 5*b - 10*i₀ + 10*i₁ - 5*i₂ + i₃
                     if interior_values.len() >= 4 {
-                        let five = T::from_f64(5.0).unwrap_or_else(T::one);
-                        let ten = T::from_f64(10.0).unwrap_or_else(T::one);
+                        let five = <T as FloatElement>::from_f64(5.0);
+                        let ten = <T as FloatElement>::from_f64(10.0);
                         ghost_values[1] = five * boundary_value - ten * interior_values[0]
                             + ten * interior_values[1]
                             - five * interior_values[2]
@@ -88,7 +88,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
                 }
             }
             _ => {
-                return Err(Error::Boundary(BoundaryErrorKind::UnsupportedOrder(self.order)));
+                return Err(Error::Boundary(BoundaryErrorKind::UnsupportedOrder(
+                    self.order,
+                )));
             }
         }
 
@@ -122,19 +124,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
             1 | 2 => {
                 // First/Second-order: simple reflection
                 // g₀ = i₀ - 2*Δx*gradient
-                let two = T::from_f64(2.0).unwrap_or_else(T::one);
+                let two = <T as FloatElement>::from_f64(2.0);
                 ghost_values[0] = interior_values[0] - two * dx * gradient;
             }
             3 | 4 => {
                 // Third/Fourth-order: higher-order extrapolation
                 // g₀ = i₀ - (8/3)*Δx*gradient + (2/3)*i₁
-                let eight_thirds = T::from_f64(8.0 / 3.0).unwrap_or_else(T::one);
-                let two_thirds = T::from_f64(2.0 / 3.0).unwrap_or_else(T::one);
+                let eight_thirds = <T as FloatElement>::from_f64(8.0 / 3.0);
+                let two_thirds = <T as FloatElement>::from_f64(2.0 / 3.0);
                 ghost_values[0] = interior_values[0] - eight_thirds * dx * gradient
                     + two_thirds * interior_values[1];
             }
             _ => {
-                return Err(Error::Boundary(BoundaryErrorKind::UnsupportedOrder(self.order)));
+                return Err(Error::Boundary(BoundaryErrorKind::UnsupportedOrder(
+                    self.order,
+                )));
             }
         }
 
@@ -158,24 +162,31 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> GhostCellCalculator<T> {
         interior_values: &[T],
         ghost_values: &mut [T],
     ) -> Result<()> {
-        if alpha == T::zero() {
+        let singular_tolerance = <T as FloatElement>::from_f64(1e-10);
+
+        if alpha == T::ZERO {
+            if beta == T::ZERO {
+                return Err(Error::Boundary(BoundaryErrorKind::RobinSingularity {
+                    value: <T as NumericElement>::to_f64(beta),
+                }));
+            }
             // Pure Neumann
             let gradient = gamma / beta;
             self.apply_neumann(gradient, dx, interior_values, ghost_values)
-        } else if beta == T::zero() {
+        } else if beta == T::ZERO {
             // Pure Dirichlet
             let boundary_value = gamma / alpha;
             self.apply_dirichlet(boundary_value, interior_values, ghost_values)
         } else {
             // Mixed condition
             // For second-order: g₀ = (i₀*(β - α*dx) + 2*γ*dx) / (β + α*dx)
-            let two = T::from_f64(2.0).unwrap_or_else(T::one);
+            let two = <T as FloatElement>::from_f64(2.0);
             let numerator = interior_values[0] * (beta - alpha * dx) + two * gamma * dx;
             let denominator = beta + alpha * dx;
 
-            if denominator.abs() < T::from_f64(1e-10).unwrap_or_else(T::zero) {
+            if <T as NumericElement>::abs(denominator) < singular_tolerance {
                 return Err(Error::Boundary(BoundaryErrorKind::RobinSingularity {
-                    value: denominator.to_f64().unwrap_or(0.0),
+                    value: <T as NumericElement>::to_f64(denominator),
                 }));
             }
 
@@ -219,5 +230,48 @@ mod tests {
 
         // Zero gradient: ghost should equal first interior
         assert!((ghost[0] - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn fourth_order_dirichlet_uses_quadratic_and_second_ghost_formula() {
+        let calc = GhostCellCalculator::<f64>::new(4);
+        let mut ghost = vec![0.0; calc.ghost_cells_required()];
+        let interior = vec![1.0, 2.0, 4.0, 8.0];
+
+        calc.apply_dirichlet(0.5, &interior, &mut ghost).unwrap();
+
+        assert_eq!(ghost.len(), 2);
+        assert!((ghost[0] - 0.5).abs() < 1e-12);
+        assert!((ghost[1] - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn fourth_order_neumann_uses_high_order_gradient_formula() {
+        let calc = GhostCellCalculator::<f64>::new(4);
+        let mut ghost = vec![0.0; calc.ghost_cells_required()];
+        let interior = vec![2.0, 5.0, 8.0, 13.0];
+
+        calc.apply_neumann(3.0, 0.25, &interior, &mut ghost)
+            .unwrap();
+
+        assert!((ghost[0] - (10.0 / 3.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn robin_rejects_degenerate_coefficients() {
+        let calc = GhostCellCalculator::<f64>::new(2);
+        let mut ghost = vec![0.0; calc.ghost_cells_required()];
+        let interior = vec![1.0, 2.0];
+
+        let err = calc
+            .apply_robin(0.0, 0.0, 1.0, 0.1, &interior, &mut ghost)
+            .unwrap_err();
+
+        match err {
+            Error::Boundary(BoundaryErrorKind::RobinSingularity { value }) => {
+                assert_eq!(value, 0.0);
+            }
+            other => panic!("expected RobinSingularity, got {other:?}"),
+        }
     }
 }

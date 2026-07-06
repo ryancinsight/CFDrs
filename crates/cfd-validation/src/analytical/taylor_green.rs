@@ -1,9 +1,10 @@
 //! Taylor-Green vortex - decaying vortex solution
 
 use super::AnalyticalSolution;
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::geometry::Vector3;
 use std::f64::consts::PI;
 
 /// Taylor-Green vortex analytical solution
@@ -23,7 +24,7 @@ pub struct TaylorGreenVortex<T: RealField + Copy> {
     pub is_3d: bool,
 }
 
-impl<T: RealField + Copy + FromPrimitive> TaylorGreenVortex<T> {
+impl<T: RealField + Copy + FloatElement> TaylorGreenVortex<T> {
     /// Create Taylor-Green vortex solution
     pub fn create(
         length_scale: T,
@@ -47,7 +48,7 @@ impl<T: RealField + Copy + FromPrimitive> TaylorGreenVortex<T> {
             length_scale,
             velocity_scale,
             viscosity,
-            density: T::one(),
+            density: scalar::one::<T>(),
             is_3d: false,
         }
     }
@@ -58,7 +59,7 @@ impl<T: RealField + Copy + FromPrimitive> TaylorGreenVortex<T> {
             length_scale,
             velocity_scale,
             viscosity,
-            density: T::one(),
+            density: scalar::one::<T>(),
             is_3d: true,
         }
     }
@@ -70,11 +71,11 @@ impl<T: RealField + Copy + FromPrimitive> TaylorGreenVortex<T> {
 
     /// Get the decay rate
     pub fn decay_rate(&self) -> T {
-        let pi = <T as SafeFromF64>::try_from_f64(PI).unwrap_or(T::from_f64_or_one(3.14159));
+        let pi = scalar::from_f64::<T>(PI);
         let factor = if self.is_3d {
-            T::from_f64_or_one(3.0)
+            scalar::from_f64::<T>(3.0)
         } else {
-            T::from_f64_or_one(2.0)
+            scalar::from_f64::<T>(2.0)
         };
 
         factor * self.viscosity * pi * pi / (self.length_scale * self.length_scale)
@@ -84,8 +85,7 @@ impl<T: RealField + Copy + FromPrimitive> TaylorGreenVortex<T> {
     pub fn kinetic_energy(&self, t: T) -> T {
         let initial_energy = if self.is_3d {
             // E₀ = (1/16) * ρ * U² * L³ for 3D
-            let factor =
-                <T as SafeFromF64>::try_from_f64(1.0 / 16.0).unwrap_or(T::from_f64_or_one(0.0625));
+            let factor = scalar::from_f64::<T>(1.0 / 16.0);
             factor
                 * self.density
                 * self.velocity_scale
@@ -95,7 +95,7 @@ impl<T: RealField + Copy + FromPrimitive> TaylorGreenVortex<T> {
                 * self.length_scale
         } else {
             // E₀ = (1/4) * ρ * U² * L² for 2D
-            let factor = T::try_from_f64(0.25).unwrap_or(T::one() / T::from_f64_or_one(4.0));
+            let factor = scalar::from_f64::<T>(0.25);
             factor
                 * self.density
                 * self.velocity_scale
@@ -104,25 +104,25 @@ impl<T: RealField + Copy + FromPrimitive> TaylorGreenVortex<T> {
                 * self.length_scale
         };
 
-        let decay = (-(T::from_f64_or_one(2.0)) * self.decay_rate() * t).exp();
+        let decay = scalar::exp(-(scalar::from_f64::<T>(2.0)) * self.decay_rate() * t);
         initial_energy * decay
     }
 
     /// Get enstrophy (vorticity squared) at time t
     pub fn enstrophy(&self, t: T) -> T {
-        let pi = <T as SafeFromF64>::try_from_f64(PI).unwrap_or(T::from_f64_or_one(3.14159));
+        let pi = scalar::from_f64::<T>(PI);
         let initial_enstrophy = self.velocity_scale * self.velocity_scale * pi * pi
             / (self.length_scale * self.length_scale);
 
-        let decay = (-(T::from_f64_or_one(2.0)) * self.decay_rate() * t).exp();
+        let decay = scalar::exp(-(scalar::from_f64::<T>(2.0)) * self.decay_rate() * t);
         initial_enstrophy * decay
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for TaylorGreenVortex<T> {
+impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for TaylorGreenVortex<T> {
     fn evaluate(&self, x: T, y: T, z: T, t: T) -> Vector3<T> {
-        let pi = <T as SafeFromF64>::try_from_f64(PI).unwrap_or(T::from_f64_or_one(3.14159));
-        let decay = (-self.decay_rate() * t).exp();
+        let pi = scalar::from_f64::<T>(PI);
+        let decay = scalar::exp(-self.decay_rate() * t);
 
         // Normalize coordinates
         let kx = pi * x / self.length_scale;
@@ -132,23 +132,25 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for TaylorGreenV
             let kz = pi * z / self.length_scale;
 
             // 3D Taylor-Green vortex
-            let u = self.velocity_scale * kx.sin() * ky.cos() * kz.cos() * decay;
-            let v = -self.velocity_scale * kx.cos() * ky.sin() * kz.cos() * decay;
-            let w = T::zero(); // For the standard case
+            let u =
+                self.velocity_scale * scalar::sin(kx) * scalar::cos(ky) * scalar::cos(kz) * decay;
+            let v =
+                -self.velocity_scale * scalar::cos(kx) * scalar::sin(ky) * scalar::cos(kz) * decay;
+            let w = scalar::zero::<T>(); // For the standard case
 
             Vector3::new(u, v, w)
         } else {
             // 2D Taylor-Green vortex
-            let u = self.velocity_scale * kx.cos() * ky.sin() * decay;
-            let v = -self.velocity_scale * kx.sin() * ky.cos() * decay;
+            let u = self.velocity_scale * scalar::cos(kx) * scalar::sin(ky) * decay;
+            let v = -self.velocity_scale * scalar::sin(kx) * scalar::cos(ky) * decay;
 
-            Vector3::new(u, v, T::zero())
+            Vector3::new(u, v, scalar::zero::<T>())
         }
     }
 
     fn pressure(&self, x: T, y: T, z: T, t: T) -> T {
-        let pi = <T as SafeFromF64>::try_from_f64(PI).unwrap_or(T::from_f64_or_one(3.14159));
-        let decay = (-T::from_f64_or_one(2.0) * self.decay_rate() * t).exp();
+        let pi = scalar::from_f64::<T>(PI);
+        let decay = scalar::exp(-scalar::from_f64::<T>(2.0) * self.decay_rate() * t);
 
         // Normalize coordinates
         let kx = pi * x / self.length_scale;
@@ -156,27 +158,27 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for TaylorGreenV
 
         if self.is_3d {
             let kz = pi * z / self.length_scale;
-            let factor =
-                <T as SafeFromF64>::try_from_f64(1.0 / 16.0).unwrap_or(T::from_f64_or_one(0.0625));
+            let factor = scalar::from_f64::<T>(1.0 / 16.0);
+            let two = scalar::from_f64::<T>(2.0);
 
             // p = ρU²/16 * (cos(2kx) + cos(2ky)) * (cos(2kz) + 2) * exp(-2νk²t)
             factor
                 * self.density
                 * self.velocity_scale
                 * self.velocity_scale
-                * (((T::from_f64(2.0).unwrap_or(T::one() + T::one())) * kx).cos()
-                    + ((T::from_f64_or_one(2.0)) * ky).cos())
-                * (((T::from_f64_or_one(2.0)) * kz).cos() + T::from_f64_or_one(2.0))
+                * (scalar::cos(two * kx) + scalar::cos(two * ky))
+                * (scalar::cos(two * kz) + two)
                 * decay
         } else {
-            let factor = T::try_from_f64(0.25).unwrap_or(T::one() / T::from_f64_or_one(4.0));
+            let factor = scalar::from_f64::<T>(0.25);
+            let two = scalar::from_f64::<T>(2.0);
 
             // p = -ρU²/4 * (cos(2kx) + cos(2ky)) * exp(-2νk²t)
             -factor
                 * self.density
                 * self.velocity_scale
                 * self.velocity_scale
-                * (((T::from_f64_or_one(2.0)) * kx).cos() + ((T::from_f64_or_one(2.0)) * ky).cos())
+                * (scalar::cos(two * kx) + scalar::cos(two * ky))
                 * decay
         }
     }
@@ -190,16 +192,18 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for TaylorGreenV
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let two_pi_l = <T as SafeFromF64>::try_from_f64(2.0 * PI)
-            .unwrap_or(T::from_f64_or_one(6.28318))
-            * self.length_scale;
+        let two_pi_l = scalar::from_f64::<T>(2.0 * PI) * self.length_scale;
         [
-            T::zero(),
+            scalar::zero::<T>(),
             two_pi_l, // x: [0, 2πL]
-            T::zero(),
+            scalar::zero::<T>(),
             two_pi_l, // y: [0, 2πL]
-            T::zero(),
-            if self.is_3d { two_pi_l } else { T::zero() }, // z
+            scalar::zero::<T>(),
+            if self.is_3d {
+                two_pi_l
+            } else {
+                scalar::zero::<T>()
+            }, // z
         ]
     }
 

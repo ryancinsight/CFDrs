@@ -25,9 +25,23 @@ mod sensitivity;
 
 pub use dns_database::DnsChannelFlowDatabase;
 
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement, RealField};
 use std::collections::HashMap;
+
+#[inline]
+fn scalar<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+#[inline]
+fn to_f64<T: NumericElement>(value: T) -> f64 {
+    <T as NumericElement>::to_f64(value)
+}
+
+#[inline]
+fn zero<T: NumericElement>() -> T {
+    <T as NumericElement>::ZERO
+}
 
 /// Turbulence constants validation framework
 pub struct TurbulenceConstantsValidator<T: RealField + Copy> {
@@ -37,18 +51,16 @@ pub struct TurbulenceConstantsValidator<T: RealField + Copy> {
     pub tolerance: T,
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive + Copy> Default
-    for TurbulenceConstantsValidator<T>
-{
+impl<T: RealField + Copy> Default for TurbulenceConstantsValidator<T> {
     fn default() -> Self {
         Self {
             dns_database: DnsChannelFlowDatabase::moser_1999_re590(),
-            tolerance: T::from_f64(0.05).expect("analytical constant conversion"),
+            tolerance: scalar::<T>(0.05),
         }
     }
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceConstantsValidator<T> {
+impl<T: RealField + Copy> TurbulenceConstantsValidator<T> {
     /// Create new validator with DNS database
     pub fn new() -> Self {
         Self::default()
@@ -94,19 +106,16 @@ pub struct ConstantsValidationResult<T: RealField + Copy> {
     pub reference: String,
 }
 
-impl<T: RealField + Copy + ToPrimitive> ConstantsValidationResult<T> {
+impl<T: RealField + Copy> ConstantsValidationResult<T> {
     /// Display validation result
     pub fn display(&self) {
         let status = if self.passed { "✅ PASS" } else { "❌ FAIL" };
         println!("{}: {} Constants Validation", status, self.model_name);
         println!("  Reference: {}", self.reference);
-        println!(
-            "  Baseline RMS Error: {:.4}",
-            self.baseline_error.to_f64().unwrap_or(0.0)
-        );
+        println!("  Baseline RMS Error: {:.4}", to_f64(self.baseline_error));
         println!(
             "  Max Uncertainty Bound: {:.4}",
-            self.max_uncertainty_bound.to_f64().unwrap_or(0.0)
+            to_f64(self.max_uncertainty_bound)
         );
 
         println!("  Constant Sensitivity Analysis:");
@@ -114,9 +123,9 @@ impl<T: RealField + Copy + ToPrimitive> ConstantsValidationResult<T> {
             println!(
                 "    {}: Δε = {:.4} (bounds: {:.4}, {:.4})",
                 constant_name,
-                sensitivity.uncertainty_bound.to_f64().unwrap_or(0.0),
-                sensitivity.minus_10_error.to_f64().unwrap_or(0.0),
-                sensitivity.plus_10_error.to_f64().unwrap_or(0.0)
+                to_f64(sensitivity.uncertainty_bound),
+                to_f64(sensitivity.minus_10_error),
+                to_f64(sensitivity.plus_10_error)
             );
         }
         println!();
@@ -124,7 +133,7 @@ impl<T: RealField + Copy + ToPrimitive> ConstantsValidationResult<T> {
 }
 
 /// Run comprehensive turbulence constants validation against DNS databases
-pub fn run_turbulence_constants_validation<T: RealField + FromPrimitive + ToPrimitive + Copy>() {
+pub fn run_turbulence_constants_validation<T: RealField + Copy>() {
     println!("🔬 Turbulence Model Constants Validation Suite");
     println!("=============================================");
     println!("MAJOR-004: Validating constants against DNS channel flow databases");

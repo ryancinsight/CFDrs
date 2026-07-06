@@ -1,6 +1,6 @@
 //! Solution monitoring for iterative solvers
 
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::marker::PhantomData;
 
 /// Solution monitor trait

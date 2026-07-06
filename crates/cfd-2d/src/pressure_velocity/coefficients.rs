@@ -6,13 +6,15 @@
 //! and $a_P = \sum_{nb} a_{nb} + S_P$ with $S_P \ge 0$. This ensures
 //! diagonal dominance and the discrete maximum principle.
 
-use nalgebra::RealField;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::NumericElement;
 use serde::{Deserialize, Serialize};
 
 /// Cell coefficients for discretized momentum equation
 /// Following Patankar notation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CellCoefficients<T: RealField + Copy> {
+pub struct CellCoefficients<T: Cfd2dScalar + Copy> {
     /// Central coefficient (diagonal)
     pub ap: T,
     /// East neighbor coefficient
@@ -29,18 +31,18 @@ pub struct CellCoefficients<T: RealField + Copy> {
     pub d: T,
 }
 
-impl<T: RealField + Copy> CellCoefficients<T> {
+impl<T: Cfd2dScalar + Copy + NumericElement> CellCoefficients<T> {
     /// Create zero coefficients
     #[must_use]
     pub fn zero() -> Self {
         Self {
-            ap: T::zero(),
-            ae: T::zero(),
-            aw: T::zero(),
-            an: T::zero(),
-            as_: T::zero(),
-            su: T::zero(),
-            d: T::zero(),
+            ap: scalar::zero::<T>(),
+            ae: scalar::zero::<T>(),
+            aw: scalar::zero::<T>(),
+            an: scalar::zero::<T>(),
+            as_: scalar::zero::<T>(),
+            su: scalar::zero::<T>(),
+            d: scalar::zero::<T>(),
         }
     }
 
@@ -51,7 +53,7 @@ impl<T: RealField + Copy> CellCoefficients<T> {
 
     /// Apply under-relaxation
     pub fn apply_relaxation(&mut self, alpha: T) {
-        let one = T::one();
+        let one = scalar::one::<T>();
         self.ap /= alpha;
         self.su += ((one - alpha) * self.ap) * self.d;
     }

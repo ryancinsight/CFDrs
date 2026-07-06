@@ -9,21 +9,31 @@
 
 #[cfg(test)]
 mod time_integration_edge_tests {
-    use crate::time_integration::integrators::{ForwardEuler, RungeKutta2, TimeIntegratorTrait};
+    use crate::time_integration::integrators::{
+        state_from_elem, state_from_vec, state_len, state_zeros, ForwardEuler, RungeKutta2, State,
+        TimeIntegratorTrait,
+    };
     use approx::assert_relative_eq;
-    use nalgebra::DVector;
+
+    fn scaled(state: &State<f64>, factor: f64) -> State<f64> {
+        let mut values = Vec::with_capacity(state_len(state));
+        for i in 0..state_len(state) {
+            values.push(state[i] * factor);
+        }
+        state_from_vec(values)
+    }
 
     /// Test Forward Euler with zero initial condition
     /// Validates: dy/dt = 0 → y(t) = 0
     #[test]
     fn test_forward_euler_zero_initial() {
         let integrator = ForwardEuler;
-        let mut y = DVector::from_element(3, 0.0);
+        let mut y = state_from_elem(3, 0.0);
         let t = 0.0;
         let dt = 0.1;
 
         // ODE: dy/dt = 0
-        let f = |_t: f64, _y: &DVector<f64>| DVector::zeros(3);
+        let f = |_t: f64, _y: &State<f64>| state_zeros(3);
 
         integrator.step(&mut y, t, dt, f).unwrap();
 
@@ -38,13 +48,13 @@ mod time_integration_edge_tests {
     #[test]
     fn test_forward_euler_constant_derivative() {
         let integrator = ForwardEuler;
-        let mut y = DVector::from_element(2, 1.0);
+        let mut y = state_from_elem(2, 1.0);
         let t = 0.0;
         let dt = 0.1;
         let constant = 2.0;
 
         // ODE: dy/dt = 2.0
-        let f = |_t: f64, _y: &DVector<f64>| DVector::from_element(2, constant);
+        let f = |_t: f64, _y: &State<f64>| state_from_elem(2, constant);
 
         integrator.step(&mut y, t, dt, f).unwrap();
 
@@ -60,13 +70,13 @@ mod time_integration_edge_tests {
     #[test]
     fn test_forward_euler_negative_derivative() {
         let integrator = ForwardEuler;
-        let mut y = DVector::from_element(1, 1.0);
+        let mut y = state_from_elem(1, 1.0);
         let t = 0.0;
         let dt = 0.01; // Small timestep for accuracy
         let lambda = 1.0;
 
         // ODE: dy/dt = -y (exponential decay)
-        let f = |_t: f64, y: &DVector<f64>| DVector::from_element(1, -lambda * y[0]);
+        let f = |_t: f64, y: &State<f64>| state_from_elem(1, -lambda * y[0]);
 
         // Take 10 small steps
         let mut current_t = t;
@@ -85,13 +95,13 @@ mod time_integration_edge_tests {
     #[test]
     fn test_rk2_zero_timestep() {
         let integrator = RungeKutta2;
-        let mut y = DVector::from_element(2, 5.0);
+        let mut y = state_from_elem(2, 5.0);
         let y_initial = y.clone();
         let t = 1.0;
         let dt = 0.0;
 
         // Any ODE
-        let f = |_t: f64, y: &DVector<f64>| y * 2.0;
+        let f = |_t: f64, y: &State<f64>| scaled(y, 2.0);
 
         integrator.step(&mut y, t, dt, f).unwrap();
 
@@ -105,12 +115,12 @@ mod time_integration_edge_tests {
     #[test]
     fn test_rk2_small_timestep() {
         let integrator = RungeKutta2;
-        let mut y = DVector::from_element(1, 1.0);
+        let mut y = state_from_elem(1, 1.0);
         let t = 0.0;
         let dt = 1.0e-10; // Very small timestep
 
         // ODE: dy/dt = y
-        let f = |_t: f64, y: &DVector<f64>| y.clone();
+        let f = |_t: f64, y: &State<f64>| y.clone();
 
         integrator.step(&mut y, t, dt, f).unwrap();
 
@@ -156,12 +166,12 @@ mod time_integration_edge_tests {
     #[test]
     fn test_forward_euler_large_timestep() {
         let integrator = ForwardEuler;
-        let mut y = DVector::from_element(1, 1.0);
+        let mut y = state_from_elem(1, 1.0);
         let t = 0.0;
         let dt = 10.0; // Large timestep
 
         // Stable ODE: dy/dt = -0.1*y
-        let f = |_t: f64, y: &DVector<f64>| y * -0.1;
+        let f = |_t: f64, y: &State<f64>| scaled(y, -0.1);
 
         integrator.step(&mut y, t, dt, f).unwrap();
 
@@ -178,13 +188,13 @@ mod time_integration_edge_tests {
     #[test]
     fn test_rk2_stiff_ode() {
         let integrator = RungeKutta2;
-        let mut y = DVector::from_element(1, 1.0);
+        let mut y = state_from_elem(1, 1.0);
         let t = 0.0;
         let dt = 0.001; // Small timestep for stiff problem
         let lambda = -1000.0; // Stiff parameter
 
         // Stiff ODE: dy/dt = -1000*y
-        let f = |_t: f64, y: &DVector<f64>| y * lambda;
+        let f = |_t: f64, y: &State<f64>| scaled(y, lambda);
 
         // Take several steps
         let mut current_t = t;
@@ -206,12 +216,12 @@ mod time_integration_edge_tests {
     #[test]
     fn test_forward_euler_multidimensional() {
         let integrator = ForwardEuler;
-        let mut y = DVector::from_vec(vec![1.0, 0.0]); // Initial: [1, 0]
+        let mut y = state_from_vec(vec![1.0, 0.0]); // Initial: [1, 0]
         let t = 0.0;
         let dt = 0.1;
 
         // Coupled system: dy1/dt = -y2, dy2/dt = y1 (harmonic oscillator)
-        let f = |_t: f64, y: &DVector<f64>| DVector::from_vec(vec![-y[1], y[0]]);
+        let f = |_t: f64, y: &State<f64>| state_from_vec(vec![-y[1], y[0]]);
 
         integrator.step(&mut y, t, dt, f).unwrap();
 
@@ -236,14 +246,14 @@ mod time_integration_edge_tests {
         let euler = ForwardEuler;
         let rk2 = RungeKutta2;
 
-        let mut y_euler = DVector::from_element(1, 1.0);
-        let mut y_rk2 = DVector::from_element(1, 1.0);
+        let mut y_euler = state_from_elem(1, 1.0);
+        let mut y_rk2 = state_from_elem(1, 1.0);
 
         let t = 0.0;
         let dt = 0.1;
 
         // ODE: dy/dt = -y
-        let f = |_t: f64, y: &DVector<f64>| -y.clone();
+        let f = |_t: f64, y: &State<f64>| scaled(y, -1.0);
 
         euler.step(&mut y_euler, t, dt, f).unwrap();
         rk2.step(&mut y_rk2, t, dt, f).unwrap();

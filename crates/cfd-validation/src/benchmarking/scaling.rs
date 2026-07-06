@@ -84,8 +84,7 @@ impl Default for ScalingConfig {
     fn default() -> Self {
         Self {
             min_processors: 1,
-            max_processors: std::thread::available_parallelism()
-                .map_or(4, |p| p.get()),
+            max_processors: std::thread::available_parallelism().map_or(4, |p| p.get()),
             processor_multiplier: 2,
             efficiency_threshold: 0.5, // 50% efficiency threshold
             reference_timing: None,
@@ -439,7 +438,7 @@ impl CfdScalingAnalysis {
         for &num_threads in &[1, 2, 4, 8, 16] {
             // Parallel work inside `cavity.run()` schedules on moirai's shared
             // executor; per-thread-count pools are not constructed here (the
-            // previous rayon guard pool did not scope `cavity.run` either).
+            // previous scoped guard did not cover `cavity.run` either).
 
             // Measure actual execution time
             let start = Instant::now();
@@ -473,7 +472,7 @@ impl CfdScalingAnalysis {
         for &num_threads in &[1, 2, 4, 8] {
             // Parallel work inside `cavity.run()` schedules on moirai's shared
             // executor; per-thread-count pools are not constructed here (the
-            // previous rayon guard pool did not scope `cavity.run` either).
+            // previous scoped guard did not cover `cavity.run` either).
 
             // Weak scaling: problem size scales with thread count
             let resolution = 32 * num_threads; // Base 32x32 per thread

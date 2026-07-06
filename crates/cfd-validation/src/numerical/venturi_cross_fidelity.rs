@@ -18,7 +18,7 @@
 //!
 //! Every [`VenturiCrossFidelityResult`] carries solver-validity flags
 //! (`two_d_converged`, `high_re_stokes_mismatch`) and a detailed
-//! [`FidelityBreakdown`] of the 1D model so discrepancies are
+//! [`FidelityBreakdown1D`] of the 1D model so discrepancies are
 //! self-documenting rather than requiring post-hoc explanation.
 
 use serde::{Deserialize, Serialize};
@@ -26,21 +26,19 @@ use std::path::Path;
 
 use cfd_1d::{FlowConditions, VenturiModel};
 use cfd_2d::fields::SimulationFields;
-use cfd_2d::grid::{Grid2D, StructuredGrid2D};
+use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::pressure_velocity::PressureLinearSolver;
 use cfd_2d::schemes::SpatialScheme;
 use cfd_2d::simplec_pimple::{SimplecPimpleConfig, SimplecPimpleSolver};
 use cfd_2d::solvers::ns_fvm::{BloodModel, SIMPLEConfig};
-use cfd_2d::solvers::venturi_flow::{
-    VenturiGeometry as VenturiGeom2D, VenturiSolver2D,
-};
+use cfd_2d::solvers::venturi_flow::{VenturiGeometry as VenturiGeom2D, VenturiSolver2D};
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
-use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_core::physics::fluid::CassonBlood;
+use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::VenturiMeshBuilder;
-use nalgebra::Vector3;
+use leto::geometry::Vector3;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -291,9 +289,9 @@ fn run_1d(input: &VenturiValidationInput) -> FidelityBreakdown1D {
         "blood_newtonian_37c".to_string(),
         RHO,
         MU,
-        3617.0,  // cp blood at 37 °C [J/(kg·K)]
-        0.52,    // k blood [W/(m·K)]
-        1570.0,  // speed of sound in blood [m/s]
+        3617.0, // cp blood at 37 °C [J/(kg·K)]
+        0.52,   // k blood [W/(m·K)]
+        1570.0, // speed of sound in blood [m/s]
     );
 
     let analysis = model
@@ -359,8 +357,8 @@ fn run_2d(input: &VenturiValidationInput) -> Fidelity2DResult {
     let blood = BloodModel::Casson(cb);
 
     let ny = (5.0 * cr).round().clamp(40.0, 160.0) as usize;
-    let beta = (1.0 - 4.0 * input.throat_diameter_m / input.inlet_diameter_m.max(1e-12))
-        .clamp(0.0, 0.9);
+    let beta =
+        (1.0 - 4.0 * input.throat_diameter_m / input.inlet_diameter_m.max(1e-12)).clamp(0.0, 0.9);
     let u_inlet = input.inlet_velocity_1d();
 
     // Adaptive SIMPLE relaxation based on throat Re.
@@ -376,14 +374,13 @@ fn run_2d(input: &VenturiValidationInput) -> Fidelity2DResult {
         }
     };
 
-    let mut solver = VenturiSolver2D::new_stretched_with_config(
-        geom, blood, RHO, 48, ny, beta, config,
-    );
+    let mut solver =
+        VenturiSolver2D::new_stretched_with_config(geom, blood, RHO, 48, ny, beta, config);
 
     let sol = match solver.solve(u_inlet) {
         Ok(sol) => sol,
         Err(e) => {
-            println!("Staggered solver failed: {:?}", e);
+            println!("Staggered solver failed: {e:?}");
             return run_2d_simplec(input);
         }
     };
@@ -391,8 +388,7 @@ fn run_2d(input: &VenturiValidationInput) -> Fidelity2DResult {
     let dp_2d = -sol.dp_throat;
 
     // Velocity-continuity convergence check (2D planar: ratio = D_in/D_th).
-    let u_throat_expected =
-        u_inlet * input.inlet_diameter_m / input.throat_diameter_m.max(1e-12);
+    let u_throat_expected = u_inlet * input.inlet_diameter_m / input.throat_diameter_m.max(1e-12);
     let p_abs_inlet = P_ATM + input.inlet_gauge_pa;
     let p_abs_throat = p_abs_inlet + sol.dp_throat; // dp_throat is negative
     let dyn_p = 0.5 * RHO * sol.u_throat * sol.u_throat;
@@ -503,10 +499,7 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
         "east".to_string(),
         BoundaryCondition::PressureOutlet { pressure: 0.0 },
     );
-    solver.set_boundary(
-        "south".to_string(),
-        BoundaryCondition::Symmetry,
-    );
+    solver.set_boundary("south".to_string(), BoundaryCondition::Symmetry);
     solver.set_boundary(
         "north".to_string(),
         BoundaryCondition::Wall {
@@ -521,7 +514,10 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
     fields.density.map_inplace(|d| *d = RHO);
     fields.viscosity.map_inplace(|v| *v = MU);
 
-    let dp_seed = run_1d(input).dp_total_pa.max(0.0).min(input.inlet_gauge_pa.max(0.0));
+    let dp_seed = run_1d(input)
+        .dp_total_pa
+        .max(0.0)
+        .min(input.inlet_gauge_pa.max(0.0));
 
     // Venturi mask: at each cell centre, check if y < local half-width.
     let x_inlet_end = l_inlet;
@@ -532,8 +528,8 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
     for j in 0..ny {
         for i in 0..nx {
             if let Ok(cc) = grid.cell_center(i, j) {
-                let x = cc.x;
-                let y = cc.y; // y ≥ 0 (half-model)
+                let x = cc[0];
+                let y = cc[1]; // y ≥ 0 (half-model)
 
                 let local_half_w = local_half_width(
                     x,
@@ -550,7 +546,7 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
                 if is_fluid {
                     let area_ratio = (h_half / local_half_w.max(h_throat_half)).clamp(1.0, cr);
                     let u_val = u_inlet * area_ratio;
-                    
+
                     let dh_dx = if x < x_inlet_end {
                         0.0
                     } else if x < x_converge_end {
@@ -566,7 +562,9 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
 
                     fields.u.set(i, j, u_val);
                     fields.v.set(i, j, v_val);
-                    fields.p.set(i, j, (1.0 - x / l_total).clamp(0.0, 1.0) * dp_seed);
+                    fields
+                        .p
+                        .set(i, j, (1.0 - x / l_total).clamp(0.0, 1.0) * dp_seed);
                 } else {
                     fields.u.set(i, j, 0.0);
                     fields.v.set(i, j, 0.0);
@@ -582,17 +580,11 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
     let target_residual = 1e-4;
     let dt_initial = 1e-6;
 
-    let _ = match solver.solve_adaptive(
-        &mut fields,
-        dt_initial,
-        nu,
-        RHO,
-        max_steps,
-        target_residual,
-    ) {
-        Ok((_dt_final, residual)) => residual < 1e-3,
-        Err(_) => false,
-    };
+    let _ =
+        match solver.solve_adaptive(&mut fields, dt_initial, nu, RHO, max_steps, target_residual) {
+            Ok((_dt_final, residual)) => residual < 1e-3,
+            Err(_) => false,
+        };
 
     // Extract pressure drop: average p at inlet column vs throat column.
     let i_inlet = 1; // second column (avoid boundary)
@@ -645,8 +637,6 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
         0.0
     };
 
-
-
     // Cavitation number.
     let p_abs_inlet = P_ATM + input.inlet_gauge_pa;
     let p_abs_throat = p_abs_inlet - dp_2d;
@@ -661,8 +651,7 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
     // staggered FVM path: width contracts by D_in/D_th while the area-equivalent
     // depth is fixed. The physical throat target is therefore the planar
     // continuity velocity, not the cylindrical 1D area ratio.
-    let u_throat_expected =
-        u_inlet * input.inlet_diameter_m / input.throat_diameter_m.max(1e-12);
+    let u_throat_expected = u_inlet * input.inlet_diameter_m / input.throat_diameter_m.max(1e-12);
     let throat_velocity_ratio = if u_throat_expected > 1e-12 {
         u_throat / u_throat_expected
     } else {
@@ -721,8 +710,7 @@ fn run_3d(input: &VenturiValidationInput) -> Fidelity3DResult {
             ..Default::default()
         };
 
-        match VenturiSolver3D::new(builder, config)
-            .solve(CarreauYasudaBlood::<f64>::normal_blood())
+        match VenturiSolver3D::new(builder, config).solve(CarreauYasudaBlood::<f64>::normal_blood())
         {
             Ok(s) => {
                 sol3d = Some(s);
@@ -757,9 +745,7 @@ fn run_3d(input: &VenturiValidationInput) -> Fidelity3DResult {
 ///
 /// Orchestrates the 1D, 2D, and 3D solvers and computes agreement
 /// metrics.  The caller is responsible for interpreting validity flags.
-pub fn validate_venturi(
-    input: &VenturiValidationInput,
-) -> VenturiCrossFidelityResult {
+pub fn validate_venturi(input: &VenturiValidationInput) -> VenturiCrossFidelityResult {
     let breakdown_1d = run_1d(input);
     let result_2d = run_2d(input);
     let result_3d = run_3d(input);
@@ -849,10 +835,26 @@ mod tests {
         );
 
         let result = run_2d(&input);
-        assert!(result.converged, "2D fallback should converge for the representative microventuri case: {result:?}");
-        assert!(result.dp_throat_pa.is_finite() && result.dp_throat_pa > 0.0, "2D throat pressure drop must be finite and positive: {}", result.dp_throat_pa);
-        assert!(result.u_throat.is_finite() && result.u_throat > result.u_inlet, "2D throat velocity must be finite and exceed inlet velocity: inlet={}, throat={}", result.u_inlet, result.u_throat);
-        assert!(result.sigma.is_finite(), "2D cavitation number must be finite: {}", result.sigma);
+        assert!(
+            result.converged,
+            "2D fallback should converge for the representative microventuri case: {result:?}"
+        );
+        assert!(
+            result.dp_throat_pa.is_finite() && result.dp_throat_pa > 0.0,
+            "2D throat pressure drop must be finite and positive: {}",
+            result.dp_throat_pa
+        );
+        assert!(
+            result.u_throat.is_finite() && result.u_throat > result.u_inlet,
+            "2D throat velocity must be finite and exceed inlet velocity: inlet={}, throat={}",
+            result.u_inlet,
+            result.u_throat
+        );
+        assert!(
+            result.sigma.is_finite(),
+            "2D cavitation number must be finite: {}",
+            result.sigma
+        );
     }
 
     #[test]
@@ -869,7 +871,10 @@ mod tests {
         assert!(should_use_collocated_fallback(&input));
 
         let result = run_2d(&input);
-        assert!(result.converged, "2D fallback should converge for the 35 um microventuri case: {result:?}");
+        assert!(
+            result.converged,
+            "2D fallback should converge for the 35 um microventuri case: {result:?}"
+        );
         assert!(result.dp_throat_pa.is_finite() && result.dp_throat_pa > 0.0);
         assert!(result.u_throat.is_finite() && result.u_throat > result.u_inlet);
         assert!(result.sigma.is_finite());
@@ -892,7 +897,10 @@ mod tests {
         );
 
         let result = run_2d(&input);
-        assert!(result.converged, "2D validation should converge for the selected 45 um Option 2 geometry: {result:?}");
+        assert!(
+            result.converged,
+            "2D validation should converge for the selected 45 um Option 2 geometry: {result:?}"
+        );
         assert!(result.dp_throat_pa.is_finite() && result.dp_throat_pa > 0.0);
         assert!(result.u_throat.is_finite() && result.u_throat > result.u_inlet);
         assert!(result.sigma.is_finite());

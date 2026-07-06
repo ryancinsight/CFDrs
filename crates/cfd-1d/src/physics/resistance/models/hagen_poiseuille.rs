@@ -62,11 +62,9 @@
 //!   l'Académie Royale des Sciences de l'Institut de France*, 9, 433-544.
 //! - White, F. M. (2006). *Viscous Fluid Flow* (3rd ed.). McGraw-Hill. Eq. 3-52.
 
-use super::traits::{FlowConditions, ResistanceModel};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 // Named constants
@@ -74,21 +72,21 @@ const HAGEN_POISEUILLE_COEFFICIENT: f64 = 128.0;
 
 /// Hagen-Poiseuille resistance model for circular channels
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HagenPoiseuilleModel<T: RealField + Copy> {
+pub struct HagenPoiseuilleModel<T> {
     /// Channel diameter \[m]
     pub diameter: T,
     /// Channel length \[m]
     pub length: T,
 }
 
-impl<T: RealField + Copy> HagenPoiseuilleModel<T> {
+impl<T: ResistanceScalar> HagenPoiseuilleModel<T> {
     /// Create a new Hagen-Poiseuille model
     pub fn new(diameter: T, length: T) -> Self {
         Self { diameter, length }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for HagenPoiseuilleModel<T> {
+impl<T: ResistanceScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
@@ -125,8 +123,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for HagenPoiseuille
                 T::zero()
             };
             let v_abs = if v >= T::zero() { v } else { -v };
-            T::from_f64(8.0).expect("Mathematical constant conversion compromised") * v_abs
-                / self.diameter
+            scalar_from_f64::<T>(8.0) * v_abs / self.diameter
         };
 
         let viscosity =
@@ -134,8 +131,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for HagenPoiseuille
 
         let pi = T::pi();
 
-        let coefficient = T::from_f64(HAGEN_POISEUILLE_COEFFICIENT)
-            .expect("Mathematical constant conversion compromised");
+        let coefficient = scalar_from_f64::<T>(HAGEN_POISEUILLE_COEFFICIENT);
 
         // R = (128 * μ * L) / (π * D^4)
         let d2 = self.diameter * self.diameter;
@@ -150,10 +146,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for HagenPoiseuille
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (
-            T::zero(),
-            T::from_f64(2300.0).expect("Mathematical constant conversion compromised"),
-        )
+        (T::zero(), scalar_from_f64::<T>(2300.0))
     }
 
     fn validate_invariants<F: FluidTrait<T>>(
@@ -181,7 +174,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for HagenPoiseuille
 
         // Entrance length validation: L/D > 10
         let ratio = self.length / self.diameter;
-        let limit = T::from_f64(10.0).expect("Mathematical constant conversion compromised");
+        let limit = scalar_from_f64::<T>(10.0);
 
         if ratio < limit {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(

@@ -1,12 +1,15 @@
 //! BiCGSTAB solver implementation.
 
+use super::array_ops::{
+    assign_residual, axpy, copy_array, dot, norm, scale_add, validate_vector_len, vector_len,
+};
 use super::config::IterativeSolverConfig;
 use super::traits::{
     Configurable, ConvergenceMonitor, IterativeLinearSolver, LinearOperator, Preconditioner,
 };
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::Array1;
 use std::fmt::Debug;
 
 /// BiCGSTAB solver with efficient memory management
@@ -68,11 +71,11 @@ pub struct BiCGSTAB<T: RealField + Copy> {
     config: IterativeSolverConfig<T>,
 }
 
-fn is_finite_scalar<T: RealField + Copy>(x: T) -> bool {
-    x.to_subset().is_none_or(f64::is_finite)
+fn is_finite_scalar<T: RealField + Copy + NumericElement>(x: T) -> bool {
+    NumericElement::to_f64(x).is_finite()
 }
 
-impl<T: RealField + Copy> BiCGSTAB<T> {
+impl<T: RealField + Copy + NumericElement> BiCGSTAB<T> {
     /// Create new BiCGSTAB solver
     pub const fn new(config: IterativeSolverConfig<T>) -> Self {
         Self { config }
@@ -82,7 +85,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
     #[must_use]
     pub fn default() -> Self
     where
-        T: FromPrimitive,
+        T: FloatElement,
     {
         Self::new(IterativeSolverConfig::default())
     }
@@ -91,11 +94,12 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
     pub fn solve_preconditioned<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
         a: &Op,
-        b: &DVector<T>,
+        b: &Array1<T>,
         preconditioner: &P,
-        x: &mut DVector<T>,
+        x: &mut Array1<T>,
     ) -> Result<ConvergenceMonitor<T>> {
-        let n = b.len();
+        let n = vector_len(b);
+        validate_vector_len("BiCGSTAB solution", x, n)?;
         let a_size = a.size();
         if a_size != 0 && a_size != n {
             return Err(Error::InvalidConfiguration(format!(
@@ -103,21 +107,20 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
             )));
         }
 
-        let mut r = DVector::zeros(n);
-        let mut r0_hat = DVector::zeros(n);
-        let mut p = DVector::zeros(n);
-        let mut v = DVector::zeros(n);
-        let mut s = DVector::zeros(n);
-        let mut t = DVector::zeros(n);
-        let mut z = DVector::zeros(n);
-        let mut z2 = DVector::zeros(n);
-        let mut ax = DVector::zeros(n);
+        let mut r = Array1::zeros([n]);
+        let mut r0_hat = Array1::zeros([n]);
+        let mut p = Array1::zeros([n]);
+        let mut v = Array1::zeros([n]);
+        let mut s = Array1::zeros([n]);
+        let mut t = Array1::zeros([n]);
+        let mut z = Array1::zeros([n]);
+        let mut z2 = Array1::zeros([n]);
+        let mut ax = Array1::zeros([n]);
 
         a.apply(x, &mut ax)?;
-        r.copy_from(b);
-        r -= &ax;
+        assign_residual(&mut r, b, &ax);
 
-        let initial_residual_norm = r.norm();
+        let initial_residual_norm = norm(&r);
         let mut monitor = ConvergenceMonitor::new(initial_residual_norm);
 
         if self.is_converged(initial_residual_norm) {
@@ -125,43 +128,48 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
             return Ok(monitor);
         }
 
-        let epsilon = T::default_epsilon();
+        let epsilon = <T as RealField>::EPSILON;
         let breakdown_tolerance = epsilon * epsilon;
 
-        r0_hat.copy_from(&r);
+        copy_array(&r, &mut r0_hat);
 
-        let mut rho = T::one();
-        let mut alpha = T::one();
-        let mut omega = T::one();
+        let mut rho = <T as NumericElement>::ONE;
+        let mut alpha = <T as NumericElement>::ONE;
+        let mut omega = <T as NumericElement>::ONE;
 
         for _iter in 0..self.config.max_iterations {
-            let rho_new = r0_hat.dot(&r);
-            let rho_scale = r0_hat.norm() * r.norm();
+            let rho_new = dot(&r0_hat, &r);
+            let rho_scale = norm(&r0_hat) * norm(&r);
 
-            if rho_new.abs() < breakdown_tolerance * (T::one() + rho_scale) {
+            if NumericElement::abs(rho_new)
+                < breakdown_tolerance * (<T as NumericElement>::ONE + rho_scale)
+            {
                 return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
             }
 
-            if omega.abs() < breakdown_tolerance * (T::one() + alpha.abs()) {
+            if NumericElement::abs(omega)
+                < breakdown_tolerance * (<T as NumericElement>::ONE + NumericElement::abs(alpha))
+            {
                 return Err(Error::Convergence(
                     ConvergenceErrorKind::StagnatedResidual {
-                        residual: r.norm().to_subset().unwrap_or(0.0),
+                        residual: NumericElement::to_f64(norm(&r)),
                     },
                 ));
             }
 
             let beta = (rho_new / rho) * (alpha / omega);
 
-            p.axpy(-omega, &v, T::one());
-            p *= beta;
-            p += &r;
+            axpy(&mut p, -omega, &v);
+            scale_add(&mut p, beta, &r);
 
             preconditioner.apply_to(&p, &mut z)?;
             a.apply(&z, &mut v)?;
 
-            let r0_hat_dot_v = r0_hat.dot(&v);
-            let r0_hat_dot_v_scale = r0_hat.norm() * v.norm();
-            if r0_hat_dot_v.abs() < breakdown_tolerance * (T::one() + r0_hat_dot_v_scale) {
+            let r0_hat_dot_v = dot(&r0_hat, &v);
+            let r0_hat_dot_v_scale = norm(&r0_hat) * norm(&v);
+            if NumericElement::abs(r0_hat_dot_v)
+                < breakdown_tolerance * (<T as NumericElement>::ONE + r0_hat_dot_v_scale)
+            {
                 return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
             }
             alpha = rho_new / r0_hat_dot_v;
@@ -169,12 +177,12 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
                 return Err(Error::Convergence(ConvergenceErrorKind::InvalidValue));
             }
 
-            s.copy_from(&r);
-            s.axpy(-alpha, &v, T::one());
+            copy_array(&r, &mut s);
+            axpy(&mut s, -alpha, &v);
 
-            let s_norm = s.norm();
+            let s_norm = norm(&s);
             if self.is_converged(s_norm) {
-                x.axpy(alpha, &z, T::one());
+                axpy(x, alpha, &z);
                 monitor.record_residual(s_norm);
                 return Ok(monitor);
             }
@@ -182,36 +190,37 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
             preconditioner.apply_to(&s, &mut z2)?;
             a.apply(&z2, &mut t)?;
 
-            let t_dot_t = t.dot(&t);
-            let t_dot_t_scale = t.norm() * t.norm();
-            if t_dot_t.abs() < breakdown_tolerance * (T::one() + t_dot_t_scale) {
-                x.axpy(alpha, &z, T::one());
+            let t_dot_t = dot(&t, &t);
+            let t_dot_t_scale = norm(&t) * norm(&t);
+            if NumericElement::abs(t_dot_t)
+                < breakdown_tolerance * (<T as NumericElement>::ONE + t_dot_t_scale)
+            {
+                axpy(x, alpha, &z);
                 a.apply(x, &mut ax)?;
-                r.copy_from(b);
-                r -= &ax;
-                let final_norm = r.norm();
+                assign_residual(&mut r, b, &ax);
+                let final_norm = norm(&r);
                 monitor.record_residual(final_norm);
                 if self.is_converged(final_norm) {
                     return Ok(monitor);
                 }
                 return Err(Error::Convergence(
                     ConvergenceErrorKind::StagnatedResidual {
-                        residual: final_norm.to_subset().unwrap_or(0.0),
+                        residual: NumericElement::to_f64(final_norm),
                     },
                 ));
             }
 
-            omega = t.dot(&s) / t_dot_t;
+            omega = dot(&t, &s) / t_dot_t;
             if !is_finite_scalar(omega) {
                 return Err(Error::Convergence(ConvergenceErrorKind::InvalidValue));
             }
-            x.axpy(alpha, &z, T::one());
-            x.axpy(omega, &z2, T::one());
+            axpy(x, alpha, &z);
+            axpy(x, omega, &z2);
 
-            r.copy_from(&s);
-            r.axpy(-omega, &t, T::one());
+            copy_array(&s, &mut r);
+            axpy(&mut r, -omega, &t);
 
-            let residual_norm = r.norm();
+            let residual_norm = norm(&r);
             if !is_finite_scalar(residual_norm) {
                 return Err(Error::Convergence(ConvergenceErrorKind::InvalidValue));
             }
@@ -221,10 +230,12 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
                 return Ok(monitor);
             }
 
-            if omega.abs() < breakdown_tolerance * (T::one() + residual_norm) {
+            if NumericElement::abs(omega)
+                < breakdown_tolerance * (<T as NumericElement>::ONE + residual_norm)
+            {
                 return Err(Error::Convergence(
                     ConvergenceErrorKind::StagnatedResidual {
-                        residual: residual_norm.to_subset().unwrap_or(0.0),
+                        residual: NumericElement::to_f64(residual_norm),
                     },
                 ));
             }
@@ -243,8 +254,8 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
     pub fn solve_unpreconditioned<Op: LinearOperator<T> + ?Sized>(
         &self,
         a: &Op,
-        b: &DVector<T>,
-        x: &mut DVector<T>,
+        b: &Array1<T>,
+        x: &mut Array1<T>,
     ) -> Result<ConvergenceMonitor<T>> {
         use super::preconditioners::IdentityPreconditioner;
         let preconditioner = IdentityPreconditioner;
@@ -256,7 +267,7 @@ impl<T: RealField + Copy> BiCGSTAB<T> {
     }
 }
 
-impl<T: RealField + Debug + Copy> Configurable<T> for BiCGSTAB<T> {
+impl<T: RealField + Debug + Copy + NumericElement> Configurable<T> for BiCGSTAB<T> {
     type Config = IterativeSolverConfig<T>;
 
     fn config(&self) -> &Self::Config {
@@ -264,12 +275,12 @@ impl<T: RealField + Debug + Copy> Configurable<T> for BiCGSTAB<T> {
     }
 }
 
-impl<T: RealField + Debug + Copy> IterativeLinearSolver<T> for BiCGSTAB<T> {
+impl<T: RealField + Debug + Copy + NumericElement> IterativeLinearSolver<T> for BiCGSTAB<T> {
     fn solve<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
         a: &Op,
-        b: &DVector<T>,
-        x: &mut DVector<T>,
+        b: &Array1<T>,
+        x: &mut Array1<T>,
         preconditioner: Option<&P>,
     ) -> Result<ConvergenceMonitor<T>> {
         if let Some(p) = preconditioner {
@@ -280,19 +291,19 @@ impl<T: RealField + Debug + Copy> IterativeLinearSolver<T> for BiCGSTAB<T> {
     }
 }
 
-impl<T: RealField + Copy + num_traits::FromPrimitive> super::traits::LinearSolver<T>
+impl<T: RealField + Copy + FloatElement + NumericElement> super::traits::LinearSolver<T>
     for BiCGSTAB<T>
 {
     fn solve_system(
         &self,
         a: &dyn LinearOperator<T>,
-        b: &DVector<T>,
-        x0: Option<&DVector<T>>,
-    ) -> Result<DVector<T>> {
+        b: &Array1<T>,
+        x0: Option<&Array1<T>>,
+    ) -> Result<Array1<T>> {
         let mut x = if let Some(initial) = x0 {
             initial.clone()
         } else {
-            DVector::zeros(b.len())
+            Array1::zeros(b.shape())
         };
 
         self.solve(
@@ -311,15 +322,44 @@ mod tests {
     use super::super::traits::{Configurable, LinearSolver};
     use super::*;
     use approx::assert_relative_eq;
-    use nalgebra_sparse::CsrMatrix;
+    use leto_ops::CsrMatrix;
+
+    fn array(values: Vec<f64>) -> Array1<f64> {
+        Array1::from_shape_vec([values.len()], values).expect("valid Leto vector shape")
+    }
+
+    fn assert_solves(a: &CsrMatrix<f64>, x: &Array1<f64>, b: &Array1<f64>, epsilon: f64) {
+        let mut ax = Array1::zeros([vector_len(b)]);
+        a.apply(x, &mut ax).expect("operator application");
+        for idx in 0..vector_len(b) {
+            assert_relative_eq!(ax[idx], b[idx], epsilon = epsilon);
+        }
+    }
+
+    fn assert_invalid_configuration<T>(result: Result<T>, expected_message: &str) {
+        match result {
+            Err(Error::InvalidConfiguration(message)) => assert_eq!(message, expected_message),
+            Err(error) => panic!("expected invalid configuration, got {error:?}"),
+            Ok(_) => panic!("expected invalid configuration error"),
+        }
+    }
+
+    fn assert_max_iterations<T>(result: Result<T>, expected_max: usize) {
+        match result {
+            Err(Error::Convergence(ConvergenceErrorKind::MaxIterationsExceeded { max })) => {
+                assert_eq!(max, expected_max);
+            }
+            Err(error) => panic!("expected max-iteration convergence error, got {error:?}"),
+            Ok(_) => panic!("expected max-iteration convergence error"),
+        }
+    }
 
     fn create_nonsymmetric_matrix() -> CsrMatrix<f64> {
         let row_offsets = vec![0, 2, 5, 7];
         let col_indices = vec![0, 1, 0, 1, 2, 1, 2];
         let values = vec![5.0, 1.0, 2.0, 4.0, 1.0, 2.0, 3.0];
 
-        CsrMatrix::try_from_csr_data(3, 3, row_offsets, col_indices, values)
-            .expect("Valid CSR matrix")
+        CsrMatrix::from_parts(values, col_indices, row_offsets, 3, 3).expect("Valid CSR matrix")
     }
 
     fn create_diagonal_matrix() -> CsrMatrix<f64> {
@@ -327,8 +367,7 @@ mod tests {
         let col_indices = vec![0, 1, 2];
         let values = vec![2.0, 3.0, 4.0];
 
-        CsrMatrix::try_from_csr_data(3, 3, row_offsets, col_indices, values)
-            .expect("Valid CSR matrix")
+        CsrMatrix::from_parts(values, col_indices, row_offsets, 3, 3).expect("Valid CSR matrix")
     }
 
     #[test]
@@ -345,39 +384,42 @@ mod tests {
     #[test]
     fn test_solve_simple_system() {
         let a = create_nonsymmetric_matrix();
-        let b = DVector::from_vec(vec![6.0, 11.0, 8.0]);
-        let mut x = DVector::zeros(3);
+        let b = array(vec![6.0, 11.0, 8.0]);
+        let mut x = Array1::zeros([3]);
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
 
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
-        assert!(result.is_ok());
-
-        let ax = &a * &x;
-        for i in 0..3 {
-            assert_relative_eq!(ax[i], b[i], epsilon = 1e-6);
-        }
+        assert!(
+            result.is_ok(),
+            "BiCGSTAB should solve nonsymmetric CSR system"
+        );
+        assert_solves(&a, &x, &b, 1e-6);
     }
 
     #[test]
     fn test_solve_with_initial_guess() {
         let a = create_nonsymmetric_matrix();
-        let b = DVector::from_vec(vec![6.0, 11.0, 8.0]);
-        let mut x = DVector::from_vec(vec![0.1, 0.2, 0.3]);
+        let b = array(vec![6.0, 11.0, 8.0]);
+        let mut x = array(vec![0.1, 0.2, 0.3]);
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
 
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
-        assert!(result.is_ok());
+        assert!(
+            result.is_ok(),
+            "BiCGSTAB should converge from nonzero initial guess"
+        );
+        assert_solves(&a, &x, &b, 1e-6);
     }
 
     #[test]
     fn test_solve_diagonal_matrix() {
         let a = create_diagonal_matrix();
-        let b = DVector::from_vec(vec![2.0, 3.0, 4.0]);
-        let mut x = DVector::zeros(3);
+        let b = array(vec![2.0, 3.0, 4.0]);
+        let mut x = Array1::zeros([3]);
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
@@ -393,21 +435,21 @@ mod tests {
     #[test]
     fn test_mismatched_dimensions() {
         let a = create_nonsymmetric_matrix();
-        let b = DVector::from_vec(vec![1.0, 2.0]);
-        let mut x = DVector::zeros(2);
+        let b = array(vec![1.0, 2.0]);
+        let mut x = Array1::zeros([2]);
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;
 
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
-        assert!(result.is_err());
+        assert_invalid_configuration(result, "Operator size (3) doesn't match RHS vector (2)");
     }
 
     #[test]
     fn test_convergence_with_tight_tolerance() {
         let a = create_nonsymmetric_matrix();
-        let b = DVector::from_vec(vec![6.0, 11.0, 8.0]);
-        let mut x = DVector::zeros(3);
+        let b = array(vec![6.0, 11.0, 8.0]);
+        let mut x = Array1::zeros([3]);
         let config = IterativeSolverConfig::<f64> {
             tolerance: 1e-12,
             ..Default::default()
@@ -416,14 +458,18 @@ mod tests {
         let precond = IdentityPreconditioner;
 
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
-        assert!(result.is_ok());
+        assert!(
+            result.is_ok(),
+            "BiCGSTAB should converge with tight tolerance"
+        );
+        assert_solves(&a, &x, &b, 1e-12);
     }
 
     #[test]
     fn test_max_iterations_exceeded() {
         let a = create_nonsymmetric_matrix();
-        let b = DVector::from_vec(vec![6.0, 11.0, 8.0]);
-        let mut x = DVector::zeros(3);
+        let b = array(vec![6.0, 11.0, 8.0]);
+        let mut x = Array1::zeros([3]);
         let config = IterativeSolverConfig::<f64> {
             max_iterations: 1,
             tolerance: 1e-12,
@@ -433,7 +479,7 @@ mod tests {
         let precond = IdentityPreconditioner;
 
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
-        assert!(result.is_err());
+        assert_max_iterations(result, 1);
     }
 
     #[test]
@@ -454,25 +500,22 @@ mod tests {
     #[test]
     fn test_linear_solver_trait() {
         let a = create_nonsymmetric_matrix();
-        let b = DVector::from_vec(vec![6.0, 11.0, 8.0]);
+        let b = Array1::from_shape_vec([3], vec![6.0, 11.0, 8.0]).unwrap();
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
 
         let result = solver.solve_system(&a, &b, None);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "linear-solver facade should converge");
 
         let x = result.unwrap();
-        let ax = &a * &x;
-        for i in 0..3 {
-            assert_relative_eq!(ax[i], b[i], epsilon = 1e-6);
-        }
+        assert_solves(&a, &x, &b, 1e-6);
     }
 
     #[test]
     fn test_already_converged() {
         let a = create_diagonal_matrix();
-        let b = DVector::from_vec(vec![2.0, 3.0, 4.0]);
-        let mut x = DVector::from_vec(vec![1.0, 1.0, 1.0]);
+        let b = array(vec![2.0, 3.0, 4.0]);
+        let mut x = array(vec![1.0, 1.0, 1.0]);
         let config = IterativeSolverConfig::default();
         let solver = BiCGSTAB::new(config);
         let precond = IdentityPreconditioner;

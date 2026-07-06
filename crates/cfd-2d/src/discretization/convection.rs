@@ -29,11 +29,12 @@
 //! the Godunov theorem states that no linear scheme of order $\ge 2$ is monotone.
 //! TVD limiters restore boundedness for higher-order schemes.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::{FloatElement, NumericElement};
 
 /// Trait for convection discretization schemes
-pub trait ConvectionScheme<T: RealField + Copy>: Send + Sync {
+pub trait ConvectionScheme<T: Cfd2dScalar + Copy>: Send + Sync {
     /// Calculate convection coefficients for east and west faces
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T);
 
@@ -47,13 +48,13 @@ pub trait ConvectionScheme<T: RealField + Copy>: Send + Sync {
 /// First-order upwind scheme - stable but diffusive
 pub struct FirstOrderUpwind;
 
-impl<T: RealField + Copy> ConvectionScheme<T> for FirstOrderUpwind {
+impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T> for FirstOrderUpwind {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         // Upwind scheme: always take from upwind direction
         // ae coefficient includes diffusion + convection from east face
         // aw coefficient includes diffusion + convection from west face
-        let ae = de + T::max(T::zero(), -fe);
-        let aw = dw + T::max(T::zero(), fw);
+        let ae = de + scalar::max(scalar::zero(), -fe);
+        let aw = dw + scalar::max(scalar::zero(), fw);
         (ae, aw)
     }
 
@@ -69,9 +70,9 @@ impl<T: RealField + Copy> ConvectionScheme<T> for FirstOrderUpwind {
 /// Central difference scheme - second-order accurate but can oscillate
 pub struct CentralDifference;
 
-impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for CentralDifference {
+impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T> for CentralDifference {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let two: T = scalar::from_f64(2.0);
         let ae = de - fe / two;
         let aw = dw + fw / two;
         (ae, aw)
@@ -89,13 +90,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for Central
 /// Hybrid scheme - switches between upwind and central difference
 pub struct HybridScheme;
 
-impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for HybridScheme {
+impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T> for HybridScheme {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let two: T = scalar::from_f64(2.0);
 
         // Calculate Peclet numbers
-        let pe_e = fe.abs() / de;
-        let pe_w = fw.abs() / dw;
+        let pe_e = NumericElement::abs(fe) / de;
+        let pe_w = NumericElement::abs(fw) / dw;
 
         // Hybrid switching criteria (Pe = 2)
         let switch_criterion = two;
@@ -105,7 +106,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for HybridS
             de - fe / two
         } else {
             // Upwind
-            de + T::max(T::zero(), -fe)
+            de + scalar::max(scalar::zero(), -fe)
         };
 
         let aw = if pe_w <= switch_criterion {
@@ -113,7 +114,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for HybridS
             dw + fw / two
         } else {
             // Upwind
-            dw + T::max(T::zero(), fw)
+            dw + scalar::max(scalar::zero(), fw)
         };
 
         (ae, aw)
@@ -131,28 +132,28 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for HybridS
 /// Power-law scheme - more accurate interpolation for convection-diffusion
 pub struct PowerLawScheme;
 
-impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for PowerLawScheme {
+impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T> for PowerLawScheme {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
         // Power-law function: max(0, (1 - 0.1|Pe|)^5)
         let power_law = |pe: T| -> T {
-            let abs_pe = pe.abs();
-            let one_tenth = T::from_f64(0.1).unwrap_or_else(|| T::zero());
-            let factor = T::one() - one_tenth * abs_pe;
-            if factor > T::zero() {
+            let abs_pe = NumericElement::abs(pe);
+            let one_tenth: T = scalar::from_f64(0.1);
+            let factor = scalar::one::<T>() - one_tenth * abs_pe;
+            if factor > scalar::zero() {
                 // Exact finite product for (1 - 0.1|Pe|)^5.
                 let factor2 = factor * factor;
                 let factor4 = factor2 * factor2;
                 factor4 * factor
             } else {
-                T::zero()
+                scalar::zero()
             }
         };
 
         let pe_e = fe / de;
         let pe_w = fw / dw;
 
-        let d_e_eff = de * power_law(pe_e) + T::max(T::zero(), -fe);
-        let d_w_eff = dw * power_law(pe_w) + T::max(T::zero(), fw);
+        let d_e_eff = de * power_law(pe_e) + scalar::max(scalar::zero(), -fe);
+        let d_w_eff = dw * power_law(pe_w) + scalar::max(scalar::zero(), fw);
 
         let ae = d_e_eff;
         let aw = d_w_eff;
@@ -173,7 +174,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T> for PowerLa
 /// Reference: Leonard, B.P. (1979). "A stable and accurate convective modelling procedure based on quadratic upstream interpolation"
 pub struct QuadraticUpstreamInterpolationScheme;
 
-impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T>
+impl<T: Cfd2dScalar + Copy + FloatElement> ConvectionScheme<T>
     for QuadraticUpstreamInterpolationScheme
 {
     fn coefficients(&self, fe: T, fw: T, de: T, dw: T) -> (T, T) {
@@ -185,8 +186,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ConvectionScheme<T>
         // Treat as upwind for implicit part, add QUICK correction explicitly
 
         // Base upwind coefficients
-        let ae = de + T::max(T::zero(), -fe);
-        let aw = dw + T::max(T::zero(), fw);
+        let ae = de + scalar::max(scalar::zero(), -fe);
+        let aw = dw + scalar::max(scalar::zero(), fw);
 
         // Note: Full QUICK requires access to φ_UU which this API doesn't provide
         // Users should use the extended stencil API for accurate QUICK
@@ -208,7 +209,7 @@ pub struct ConvectionSchemeFactory;
 impl ConvectionSchemeFactory {
     /// Create scheme by name
     #[must_use]
-    pub fn create<T: RealField + Copy + FromPrimitive + Copy>(
+    pub fn create<T: Cfd2dScalar + Copy + FloatElement>(
         scheme_name: &str,
     ) -> Box<dyn ConvectionScheme<T>> {
         match scheme_name.to_lowercase().as_str() {

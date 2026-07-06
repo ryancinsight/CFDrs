@@ -1,12 +1,13 @@
 //! u-momentum Gauss-Seidel solver.
 
-use cfd_core::error::Error;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::boundary::{BCType, BoundaryCondition};
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use cfd_core::error::Error;
+use eunomia::{FloatElement, NumericElement};
 
-impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
+impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Solves the u-momentum equation on the staggered grid.
     ///
     /// Calculates upwind convective fluxes and central differenced diffusive
@@ -22,9 +23,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let dx = self.grid.dx;
         let rho = self.density;
         let alpha = self.config.alpha_u;
-        let one = T::one();
+        let one: T = scalar::one();
         let half = one / (one + one);
-        let zero = T::zero();
+        let zero: T = scalar::zero();
 
         self.u_old_workspace.copy_from(&self.field.u);
         self.v_old_workspace.copy_from(&self.field.v);
@@ -77,12 +78,12 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 let v_n = if j < ny - 1 {
                     (v_old[(i - 1, j + 1)] + v_old[(i, j + 1)]) * half
                 } else {
-                    T::zero()
+                    zero
                 };
                 let v_s = if j > 0 {
                     (v_old[(i - 1, j)] + v_old[(i, j)]) * half
                 } else {
-                    T::zero()
+                    zero
                 };
                 let f_n = rho * v_n * dx;
                 let f_s = rho * v_s * dx;
@@ -92,26 +93,26 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 // low-Pe regions (channel cores) while maintaining stability
                 // near walls and in high-velocity throat regions.
                 let two = one + one;
-                let pe_e = Float::abs(f_e) / d_e;
-                let pe_w = Float::abs(f_w) / d_w;
+                let pe_e = <T as NumericElement>::abs(f_e) / d_e;
+                let pe_w = <T as NumericElement>::abs(f_w) / d_w;
                 let a_e = if pe_e <= two {
                     d_e - f_e * half // central
                 } else {
-                    d_e + Float::max(zero, -f_e) // upwind
+                    d_e + zero.max_scalar(-f_e) // upwind
                 };
                 let a_w = if pe_w <= two {
                     d_w + f_w * half
                 } else {
-                    d_w + Float::max(zero, f_w)
+                    d_w + zero.max_scalar(f_w)
                 };
                 // North/south faces remain upwind (cross-stream direction
                 // typically has low velocity so upwind is stable and adequate).
-                let a_n = Float::max(d_n - f_n * half, zero) + Float::max(-f_n, zero);
-                let a_s = Float::max(d_s + f_s * half, zero) + Float::max(f_s, zero);
+                let a_n = (d_n - f_n * half).max_scalar(zero) + (-f_n).max_scalar(zero);
+                let a_s = (d_s + f_s * half).max_scalar(zero) + f_s.max_scalar(zero);
 
                 let mut a_p = a_e + a_w + a_n + a_s;
-                if a_p < T::from_f64(1e-30).unwrap_or(zero) {
-                    a_p = T::from_f64(1e-10).unwrap_or(one);
+                if a_p < scalar::from_f64::<T>(1e-30) {
+                    a_p = scalar::from_f64::<T>(1e-10);
                 }
 
                 let p_left = if i > 0 && i - 1 < nx {

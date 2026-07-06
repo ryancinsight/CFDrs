@@ -2,7 +2,7 @@
 
 use crate::abstractions::problem::Problem;
 use crate::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 
 /// Core solver trait following Single Responsibility Principle
 /// Focused solely on solving problems

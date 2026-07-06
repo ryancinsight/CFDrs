@@ -13,14 +13,14 @@ pub use resistance::ResistanceAnalyzer;
 pub use traits::NetworkAnalyzer;
 
 use super::{FlowAnalysis, PerformanceMetrics, PressureAnalysis, ResistanceAnalysis};
+use crate::scalar::Cfd1dScalar;
+use crate::solver::core::NetworkSolveScalar;
 use cfd_core::error::Result;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
 use std::iter::Sum;
 
 /// Complete network analysis results
 #[derive(Debug, Clone)]
-pub struct NetworkAnalysisResult<T: RealField + Copy> {
+pub struct NetworkAnalysisResult<T: Cfd1dScalar + Copy> {
     /// Flow analysis
     pub flow_analysis: FlowAnalysis<T>,
     /// Pressure analysis
@@ -32,7 +32,7 @@ pub struct NetworkAnalysisResult<T: RealField + Copy> {
 }
 
 /// Comprehensive network analyzer orchestrator
-pub struct NetworkAnalyzerOrchestrator<T: RealField + Copy> {
+pub struct NetworkAnalyzerOrchestrator<T: Cfd1dScalar + Copy> {
     flow_analyzer: FlowAnalyzer<T>,
     pressure_analyzer: PressureAnalyzer<T>,
     resistance_analyzer: ResistanceAnalyzer<T>,
@@ -40,13 +40,13 @@ pub struct NetworkAnalyzerOrchestrator<T: RealField + Copy> {
     solver: crate::solver::core::NetworkSolver<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float + Sum> Default for NetworkAnalyzerOrchestrator<T> {
+impl<T: NetworkSolveScalar + Sum> Default for NetworkAnalyzerOrchestrator<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzerOrchestrator<T> {
+impl<T: NetworkSolveScalar + Sum> NetworkAnalyzerOrchestrator<T> {
     /// Create a new network analyzer
     #[must_use]
     pub fn new() -> Self {

@@ -2,12 +2,32 @@
 
 use crate::linear_solver::Preconditioner;
 use cfd_core::error::Result;
-use nalgebra::{DVector, RealField};
-use nalgebra_sparse::CsrMatrix;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::Array1;
+use leto_ops::{CsrMatrix, Scalar as LetoScalar};
 
 // Default relaxation parameter
 const DEFAULT_OMEGA: f64 = 1.0;
+
+#[inline]
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+#[inline]
+fn vector_len<T>(vector: &Array1<T>) -> usize {
+    vector.shape()[0]
+}
+
+fn validate_vector_len<T>(name: &str, vector: &Array1<T>, expected: usize) -> Result<()> {
+    let actual = vector_len(vector);
+    if actual != expected {
+        return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+            "{name} length mismatch: expected {expected}, got {actual}"
+        )));
+    }
+    Ok(())
+}
 
 /// Symmetric Successive Over-Relaxation (SSOR) preconditioner
 ///
@@ -30,17 +50,17 @@ const DEFAULT_OMEGA: f64 = 1.0;
 /// $\omega \in (0, 2)$ when $A$ is SPD.
 ///
 /// **Reference**: Saad (2003) §4.2; Young (1971) §5.3.
-pub struct SSOR<T: RealField + Copy> {
+pub struct SSOR<T: RealField + Copy + LetoScalar> {
     /// System matrix
     matrix: CsrMatrix<T>,
     /// Relaxation parameter (0 < ω < 2)
     omega: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> SSOR<T> {
+impl<T: RealField + Copy + FloatElement + LetoScalar> SSOR<T> {
     /// Create SSOR preconditioner with default relaxation parameter
     pub fn new(matrix: CsrMatrix<T>) -> Result<Self> {
-        Self::with_omega(matrix, T::from_f64(DEFAULT_OMEGA).unwrap_or_else(T::one))
+        Self::with_omega(matrix, from_f64(DEFAULT_OMEGA))
     }
 
     /// Create SSOR preconditioner with specified relaxation parameter
@@ -49,20 +69,16 @@ impl<T: RealField + Copy + FromPrimitive> SSOR<T> {
     }
 
     /// Forward SOR sweep
-    fn forward_sweep(&self, b: &DVector<T>, x: &mut DVector<T>) {
+    fn forward_sweep(&self, b: &Array1<T>, x: &mut Array1<T>) {
         let n = self.matrix.nrows();
 
         for i in 0..n {
             let mut sum = b[i];
-            let mut diag = T::one();
+            let mut diag = <T as NumericElement>::ONE;
 
-            let row_start = self.matrix.row_offsets()[i];
-            let row_end = self.matrix.row_offsets()[i + 1];
+            let row = self.matrix.row(i);
 
-            for idx in row_start..row_end {
-                let j = self.matrix.col_indices()[idx];
-                let val = self.matrix.values()[idx];
-
+            for (&j, &val) in row.col_indices().iter().zip(row.values()) {
                 match j.cmp(&i) {
                     std::cmp::Ordering::Less | std::cmp::Ordering::Greater => {
                         sum -= val * x[j];
@@ -73,25 +89,21 @@ impl<T: RealField + Copy + FromPrimitive> SSOR<T> {
                 }
             }
 
-            x[i] = (T::one() - self.omega) * x[i] + self.omega * sum / diag;
+            x[i] = (<T as NumericElement>::ONE - self.omega) * x[i] + self.omega * sum / diag;
         }
     }
 
     /// Backward SOR sweep
-    fn backward_sweep(&self, b: &DVector<T>, x: &mut DVector<T>) {
+    fn backward_sweep(&self, b: &Array1<T>, x: &mut Array1<T>) {
         let n = self.matrix.nrows();
 
         for i in (0..n).rev() {
             let mut sum = b[i];
-            let mut diag = T::one();
+            let mut diag = <T as NumericElement>::ONE;
 
-            let row_start = self.matrix.row_offsets()[i];
-            let row_end = self.matrix.row_offsets()[i + 1];
+            let row = self.matrix.row(i);
 
-            for idx in row_start..row_end {
-                let j = self.matrix.col_indices()[idx];
-                let val = self.matrix.values()[idx];
-
+            for (&j, &val) in row.col_indices().iter().zip(row.values()) {
                 match j.cmp(&i) {
                     std::cmp::Ordering::Less | std::cmp::Ordering::Greater => {
                         sum -= val * x[j];
@@ -102,15 +114,20 @@ impl<T: RealField + Copy + FromPrimitive> SSOR<T> {
                 }
             }
 
-            x[i] = (T::one() - self.omega) * x[i] + self.omega * sum / diag;
+            x[i] = (<T as NumericElement>::ONE - self.omega) * x[i] + self.omega * sum / diag;
         }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for SSOR<T> {
-    fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
+impl<T: RealField + Copy + FloatElement + LetoScalar> Preconditioner<T> for SSOR<T> {
+    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> Result<()> {
+        validate_vector_len("SSOR residual", r, self.matrix.nrows())?;
+        validate_vector_len("SSOR output", z, self.matrix.nrows())?;
+
         // Initialize z to zero for the first sweep
-        z.fill(T::zero());
+        for idx in 0..vector_len(z) {
+            z[idx] = <T as NumericElement>::ZERO;
+        }
 
         // Forward sweep: solve (D + ωL)z = ωr
         self.forward_sweep(r, z);

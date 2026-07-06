@@ -3,8 +3,8 @@
 use super::ValidationResult;
 use crate::physics::turbulence::traits::LESTurbulenceModel;
 use crate::physics::turbulence::{DetachedEddySimulation, SmagorinskyLES};
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::RealField as EunomiaRealField;
+use leto::Array2;
 
 use super::TurbulenceValidator;
 
@@ -45,7 +45,7 @@ impl BenchmarkModel {
     }
 }
 
-impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
+impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
     /// Validate turbulence model performance
     pub fn validate_model_performance(&self, model_name: &str) -> ValidationResult {
         let Some(model) = BenchmarkModel::parse(model_name) else {
@@ -78,9 +78,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                 };
                 let mut model = SmagorinskyLES::new(nx, ny, 0.1, 0.1, config);
 
-                let velocity_u = nalgebra::DMatrix::from_element(nx, ny, 1.0);
-                let velocity_v = nalgebra::DMatrix::from_element(nx, ny, 0.0);
-                let pressure = nalgebra::DMatrix::zeros(nx, ny);
+                let velocity_u = Array2::from_elem([nx, ny], 1.0);
+                let velocity_v = Array2::from_elem([nx, ny], 0.0);
+                let pressure = Array2::zeros([nx, ny]);
 
                 for _ in 0..iterations {
                     model
@@ -107,9 +107,9 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                 };
                 let mut model = DetachedEddySimulation::new(nx, ny, 0.1, 0.1, config, &[]);
 
-                let velocity_u = nalgebra::DMatrix::from_element(nx, ny, 1.0);
-                let velocity_v = nalgebra::DMatrix::from_element(nx, ny, 0.0);
-                let pressure = nalgebra::DMatrix::zeros(nx, ny);
+                let velocity_u = Array2::from_elem([nx, ny], 1.0);
+                let velocity_v = Array2::from_elem([nx, ny], 0.0);
+                let pressure = Array2::zeros([nx, ny]);
 
                 for _ in 0..iterations {
                     model

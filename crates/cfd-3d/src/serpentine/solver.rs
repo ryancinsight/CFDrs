@@ -46,13 +46,15 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
+use crate::scalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use cfd_mesh::SerpentineMeshBuilder;
+use eunomia::{FloatElement, NumericElement};
+use leto::geometry::Vector3 as LetoVector3;
 use nalgebra::{RealField, Vector3};
-use num_traits::{Float, FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -80,22 +82,16 @@ pub struct SerpentineConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + Co
     pub circular: bool,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64,
-    > Default for SerpentineConfig3D<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Default
+    for SerpentineConfig3D<T>
 {
     fn default() -> Self {
         Self {
-            inlet_flow_rate: T::from_f64_or_one(1e-7),
-            inlet_pressure: T::from_f64_or_one(100.0),
-            outlet_pressure: T::zero(),
+            inlet_flow_rate: scalar::from_f64::<T>(1e-7),
+            inlet_pressure: scalar::from_f64::<T>(100.0),
+            outlet_pressure: scalar::zero::<T>(),
             max_nonlinear_iterations: 15,
-            nonlinear_tolerance: T::from_f64_or_one(1e-4),
+            nonlinear_tolerance: scalar::from_f64::<T>(1e-4),
             resolution: (80, 8),
             circular: false,
         }
@@ -107,21 +103,13 @@ impl<
 // ============================================================================
 
 /// 3D Finite Element Navier-Stokes solver for Serpentine channels
-pub struct SerpentineSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float> {
+pub struct SerpentineSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> {
     builder: SerpentineMeshBuilder<T>,
     config: SerpentineConfig3D<T>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64
-            + Float
-            + From<f64>,
-    > SerpentineSolver3D<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeFromF64>
+    SerpentineSolver3D<T>
 {
     /// Create new solver from mesh builder and config
     pub fn new(builder: SerpentineMeshBuilder<T>, config: SerpentineConfig3D<T>) -> Self {
@@ -161,10 +149,10 @@ impl<
         // shared corner/edge nodes get the correct BC instead of a no-slip wall BC.
         let mut boundary_conditions = HashMap::new();
         let fluid_props =
-            fluid.properties_at(T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
+            fluid.properties_at(scalar::from_f64::<T>(310.0), self.config.inlet_pressure)?;
 
         let area_inlet = if self.config.circular {
-            T::from_f64_or_one(std::f64::consts::PI / 4.0)
+            scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
                 * self.builder.diameter
                 * self.builder.diameter
         } else {
@@ -183,7 +171,7 @@ impl<
             boundary_conditions.insert(
                 v_idx,
                 BoundaryCondition::VelocityInlet {
-                    velocity: Vector3::new(0.0_f64, 0.0_f64, u_inlet.to_f64().unwrap_or(0.0)),
+                    velocity: LetoVector3::new(0.0_f64, 0.0_f64, scalar::to_f64(u_inlet)),
                 },
             );
         }
@@ -191,7 +179,7 @@ impl<
             boundary_conditions
                 .entry(v_idx)
                 .or_insert(BoundaryCondition::PressureOutlet {
-                    pressure: self.config.outlet_pressure.to_f64().unwrap_or(0.0),
+                    pressure: scalar::to_f64(self.config.outlet_pressure),
                 });
         }
         for &v_idx in &face_sets.wall_nodes {
@@ -206,11 +194,11 @@ impl<
         // 3. Set up FEM Problem with initial viscosity
         let constant_basis = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
             name: "Picard Basis".to_string(),
-            density: fluid_props.density.to_f64().unwrap_or(0.0),
-            viscosity: fluid_props.dynamic_viscosity.to_f64().unwrap_or(0.0),
-            specific_heat: fluid_props.specific_heat.to_f64().unwrap_or(0.0),
-            thermal_conductivity: fluid_props.thermal_conductivity.to_f64().unwrap_or(0.0),
-            speed_of_sound: fluid_props.speed_of_sound.to_f64().unwrap_or(0.0),
+            density: scalar::to_f64(fluid_props.density),
+            viscosity: scalar::to_f64(fluid_props.dynamic_viscosity),
+            specific_heat: scalar::to_f64(fluid_props.specific_heat),
+            thermal_conductivity: scalar::to_f64(fluid_props.thermal_conductivity),
+            speed_of_sound: scalar::to_f64(fluid_props.speed_of_sound),
         };
 
         let mut problem = StokesFlowProblem::<f64>::new(
@@ -221,7 +209,7 @@ impl<
         );
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities =
-            vec![fluid_props.dynamic_viscosity.to_f64().unwrap_or(0.0); n_elements];
+            vec![scalar::to_f64(fluid_props.dynamic_viscosity); n_elements];
         let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
@@ -256,8 +244,11 @@ impl<
 
             // Apply Anderson Acceleration
             let updated_solution = if let Some(ref prev) = last_solution {
-                let acc_velocity =
-                    anderson_accelerator.compute_next(&prev.velocity, &fem_solution.velocity);
+                let acc_velocity = crate::atlas_anderson::accelerate_velocity(
+                    &mut anderson_accelerator,
+                    &prev.velocity,
+                    &fem_solution.velocity,
+                );
                 let mut acc_sol = fem_solution;
                 acc_sol.velocity = acc_velocity;
                 acc_sol
@@ -275,15 +266,15 @@ impl<
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
                 let shear_rate_f64 =
                     self.calculate_cell_shear_rate_f64(cell, &problem.mesh, &updated_solution)?;
-                let shear_rate = <T as From<f64>>::from(shear_rate_f64);
+                let shear_rate = scalar::from_f64::<T>(shear_rate_f64);
                 let new_visc_t = fluid.viscosity_at_shear(
                     shear_rate,
-                    T::from_f64_or_one(310.0),
+                    scalar::from_f64::<T>(310.0),
                     self.config.inlet_pressure,
                 )?;
-                let new_visc = new_visc_t.to_f64().unwrap_or(0.0);
+                let new_visc = scalar::to_f64(new_visc_t);
 
-                let change = Float::abs(new_visc - current_viscosities[i]) / current_viscosities[i];
+                let change = (new_visc - current_viscosities[i]).abs() / current_viscosities[i];
                 if change > max_change_f64 {
                     max_change_f64 = change;
                 }
@@ -302,7 +293,7 @@ impl<
                 visc_change = max_change_f64,
                 "Serpentine Picard iteration"
             );
-            if max_change_f64 < self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4) {
+            if max_change_f64 < scalar::to_f64(self.config.nonlinear_tolerance) {
                 break;
             }
         }
@@ -320,26 +311,14 @@ impl<
         // Calculate Dean Number: De = Re * sqrt(Dh / 2Rc)
         // For sine wave path x = A*sin(k*z), curvature kappa = |x''| / (1 + x'^2)^(3/2)
         // Max curvature at peaks: kappa_max = A*k^2. Radius Rc = 1/kappa_max = 1 / (A * (2pi/lambda)^2)
-        let k = <T as FromPrimitive>::from_f64(2.0 * std::f64::consts::PI)
-            .expect("2π is an IEEE 754 representable f64 constant")
-            / self.builder.wavelength;
+        let k = scalar::from_f64::<T>(2.0 * std::f64::consts::PI) / self.builder.wavelength;
         let kappa_max = self.builder.amplitude * k * k;
-        let rc = T::one()
-            / Float::max(
-                kappa_max,
-                <T as FromPrimitive>::from_f64(1e-10)
-                    .expect("1e-10 is an IEEE 754 representable f64 constant"),
-            );
+        let rc = scalar::one::<T>() / scalar::max(kappa_max, scalar::from_f64::<T>(1e-10));
 
         let re =
             (fluid_props.density * u_inlet * self.builder.diameter) / fluid_props.dynamic_viscosity;
-        solution.dean_number = re
-            * Float::sqrt(
-                self.builder.diameter
-                    / (<T as FromPrimitive>::from_f64(2.0)
-                        .expect("2.0 is representable in all IEEE 754 types")
-                        * rc),
-            );
+        solution.dean_number =
+            re * scalar::sqrt(self.builder.diameter / (scalar::from_f64::<T>(2.0) * rc));
 
         Ok(solution)
     }
@@ -466,20 +445,24 @@ pub struct SerpentineSolution3D<T: cfd_mesh::domain::core::Scalar + RealField + 
     pub dean_number: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> SerpentineSolution3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + NumericElement + Copy>
+    SerpentineSolution3D<T>
+{
     /// Create new solution structure
     pub fn new() -> Self {
         Self {
-            u_inlet: T::zero(),
-            p_inlet: T::zero(),
-            p_outlet: T::zero(),
-            dp_total: T::zero(),
-            dean_number: T::zero(),
+            u_inlet: scalar::zero::<T>(),
+            p_inlet: scalar::zero::<T>(),
+            p_outlet: scalar::zero::<T>(),
+            dp_total: scalar::zero::<T>(),
+            dean_number: scalar::zero::<T>(),
         }
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> Default for SerpentineSolution3D<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + NumericElement + Copy> Default
+    for SerpentineSolution3D<T>
+{
     fn default() -> Self {
         Self::new()
     }

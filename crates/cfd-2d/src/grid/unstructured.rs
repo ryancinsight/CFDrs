@@ -13,12 +13,12 @@
 use super::boundary::BoundaryType;
 use super::traits::Grid2D;
 use cfd_core::error::{Error, Result};
-use nalgebra::{RealField, Vector2};
+use leto::geometry::Vector2;
 use std::collections::HashMap;
 
 /// 2D unstructured grid implementation
 #[derive(Debug, Clone)]
-pub struct UnstructuredGrid2D<T: RealField + Copy> {
+pub struct UnstructuredGrid2D<T> {
     /// Cell centers
     pub centers: Vec<Vector2<T>>,
     /// Cell areas
@@ -32,7 +32,7 @@ pub struct UnstructuredGrid2D<T: RealField + Copy> {
     ny: usize,
 }
 
-impl<T: RealField + Copy> UnstructuredGrid2D<T> {
+impl<T> UnstructuredGrid2D<T> {
     /// Create a new unstructured grid
     pub fn new(
         centers: Vec<Vector2<T>>,
@@ -82,7 +82,7 @@ impl<T: RealField + Copy> UnstructuredGrid2D<T> {
     }
 }
 
-impl<T: RealField + Copy> Grid2D<T> for UnstructuredGrid2D<T> {
+impl<T: Copy> Grid2D<T> for UnstructuredGrid2D<T> {
     fn nx(&self) -> usize {
         self.nx
     }

@@ -10,11 +10,12 @@ use cfd_1d::{
     SurfaceProperties, Wettability,
 };
 use cfd_core::compute::solver::Solver;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
 
-fn network_two_node<T: nalgebra::RealField + Copy + num_traits::FromPrimitive>() -> (
+fn network_two_node<T: cfd_1d::Cfd1dScalar + Copy + SafeFromF64>() -> (
     Network<T>,
     petgraph::graph::EdgeIndex,
     petgraph::graph::NodeIndex,

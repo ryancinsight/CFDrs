@@ -336,17 +336,17 @@ mod tests {
         let source = vec![0.0f32; n];
 
         // Set specific neighbors for cell (1,1)
-        phi[0 * ny + 1] = 1.0; // left
+        phi[1] = 1.0; // left
         phi[2 * ny + 1] = 3.0; // right
-        phi[1 * ny + 0] = 2.0; // bottom
-        phi[1 * ny + 2] = 4.0; // top
+        phi[ny] = 2.0; // bottom
+        phi[ny + 2] = 4.0; // top
 
         jacobi_iteration_simd(&mut phi, &mut phi_new, &source, nx, ny, dx, dy)
             .expect("SIMD execution failed dimension check or mathematical constraint");
 
         // factor = 0.5 / (1/dx² + 1/dy²) = 0.5 / 2 = 0.25
         // phi_new[1,1] = 0.25 * ((1+3)/1 + (2+4)/1 - 0) = 0.25 * 10 = 2.5
-        let idx = 1 * ny + 1;
+        let idx = ny + 1;
         assert!(
             (phi_new[idx] - 2.5).abs() < 1e-6,
             "Jacobi stencil: expected 2.5, got {}",

@@ -3,7 +3,7 @@
 //! Provides zero-copy broadcasting operations similar to `NumPy` broadcasting,
 //! enabling efficient element-wise operations on arrays of different shapes.
 
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::borrow::Cow;
 
 /// Broadcasting trait for array operations
@@ -156,8 +156,8 @@ impl<'a, T: RealField + Copy> BroadcastView<'a, T> {
                 .map(|(&i, &s)| if s == 1 { 0 } else { i })
                 .collect();
 
-            let a = self.get(&a_indices).unwrap_or(T::zero());
-            let b = other.get(&b_indices).unwrap_or(T::zero());
+            let a = self.get(&a_indices).unwrap_or(T::ZERO);
+            let b = other.get(&b_indices).unwrap_or(T::ZERO);
             result.push(op(a, b));
         }
 

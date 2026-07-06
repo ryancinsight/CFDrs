@@ -1,13 +1,14 @@
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result as CfdResult;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
 
 use super::channel::solve_channel_entry;
 use super::types::{Channel2dResult, Network2DSolver, Network2dResult, ProjectedNetwork2dResult};
+use crate::scalar;
 
 impl<T> Network2DSolver<T>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug,
+    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     /// Solve every channel domain in parallel and return per-channel results.
     pub fn solve_all(&mut self, tolerance: f64) -> CfdResult<Network2dResult<T>> {
@@ -23,16 +24,17 @@ where
                 solve_channel_entry(
                     entry,
                     tolerance,
-                    channel_trace.flow_rate_m3_s.to_f64().unwrap_or(0.0),
+                    <T as NumericElement>::to_f64(channel_trace.flow_rate_m3_s),
                     channel_trace,
                     separation_tracking_enabled,
                 )
             });
 
         let mut results = Vec::with_capacity(per_channel.len());
-        let mut total_hi = T::zero();
-        let mut total_outlet_error_pct = T::zero();
-        let mut max_outlet_error_pct = T::zero();
+        let zero: T = scalar::zero();
+        let mut total_hi = zero;
+        let mut total_outlet_error_pct = zero;
+        let mut max_outlet_error_pct = zero;
         let mut converged_count = 0usize;
 
         for result in per_channel {
@@ -49,10 +51,9 @@ where
         }
 
         let mean_outlet_error_pct = if results.is_empty() {
-            T::zero()
+            zero
         } else {
-            total_outlet_error_pct
-                / T::from_usize(results.len()).expect("analytical constant conversion")
+            total_outlet_error_pct / scalar::from_usize::<T>(results.len())
         };
 
         Ok(Network2dResult {

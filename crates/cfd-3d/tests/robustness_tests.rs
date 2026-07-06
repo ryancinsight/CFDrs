@@ -386,7 +386,7 @@ fn test_delta_function_symmetry() {
         DeltaFunction::Peskin4,
     ];
     for df in &variants {
-        let kernel = InterpolationKernel::new(df.clone(), 1.0_f64);
+        let kernel = InterpolationKernel::new(*df, 1.0_f64);
         for &r in &[0.0, 0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0] {
             let pos = kernel.delta(r);
             let neg = kernel.delta(-r);
@@ -485,13 +485,13 @@ fn test_vof_alpha_bounds_after_advection() {
     }
 
     // Set uniform velocity
-    let vel = vec![Vector3::new(0.5, 0.0, 0.0); n * n * n];
+    let vel = vec![leto::geometry::Vector3::new(0.5, 0.0, 0.0); n * n * n];
     solver.set_velocity_field(vel).unwrap();
 
     let _ = solver.advance(0.001);
 
     for &a in solver.alpha() {
-        assert!(a >= -1e-14 && a <= 1.0 + 1e-14, "α = {a} outside [0,1]");
+        assert!((-1e-14..=1.0 + 1e-14).contains(&a), "α = {a} outside [0,1]");
     }
 }
 
@@ -554,7 +554,7 @@ fn test_vof_set_velocity_field_wrong_size() {
         enable_compression: false,
     };
     let mut solver = VofSolver::<f64>::new(5, 5, 5, cfg).unwrap();
-    let result = solver.set_velocity_field(vec![Vector3::zeros(); 10]);
+    let result = solver.set_velocity_field(vec![leto::geometry::Vector3::zeros(); 10]);
     assert!(result.is_err(), "Should reject wrong-size velocity vector");
 }
 
@@ -693,7 +693,7 @@ fn test_level_set_sphere_reinit_preserves_zero() {
     };
     let mut solver = LevelSetSolver::<f64>::new(cfg, n, n, n, dx, dx, dx);
 
-    let center = Vector3::new(0.5, 0.5, 0.5);
+    let center = leto::geometry::Vector3::new(0.5, 0.5, 0.5);
     let radius = 0.3;
 
     // Initialize as sphere SDF
@@ -701,7 +701,7 @@ fn test_level_set_sphere_reinit_preserves_zero() {
         for j in 0..n {
             for i in 0..n {
                 let idx = solver.index(i, j, k);
-                let pos = Vector3::new(
+                let pos = leto::geometry::Vector3::new(
                     (i as f64 + 0.5) * dx,
                     (j as f64 + 0.5) * dx,
                     (k as f64 + 0.5) * dx,
@@ -727,7 +727,7 @@ fn test_level_set_sphere_reinit_preserves_zero() {
     );
 
     // Advance with zero velocity (triggers reinitialization)
-    let vel = vec![Vector3::zeros(); n * n * n];
+    let vel = vec![leto::geometry::Vector3::zeros(); n * n * n];
     solver.set_velocity(vel);
     let _ = solver.advance(dx * 0.1);
 
@@ -760,12 +760,13 @@ fn test_level_set_narrow_band_correctness() {
         for j in 0..n {
             for i in 0..n {
                 let idx = solver.index(i, j, k);
-                let pos = Vector3::new(
+                let pos = leto::geometry::Vector3::new(
                     (i as f64 + 0.5) * dx,
                     (j as f64 + 0.5) * dx,
                     (k as f64 + 0.5) * dx,
                 );
-                solver.phi_mut()[idx] = (pos - Vector3::new(0.5, 0.5, 0.5)).norm() - 0.25;
+                solver.phi_mut()[idx] =
+                    (pos - leto::geometry::Vector3::new(0.5, 0.5, 0.5)).norm() - 0.25;
             }
         }
     }
@@ -822,7 +823,7 @@ fn test_level_set_zero_velocity_preserves_phi() {
 
     let phi_before: Vec<f64> = solver.phi().to_vec();
 
-    let vel = vec![Vector3::zeros(); n * n * n];
+    let vel = vec![leto::geometry::Vector3::zeros(); n * n * n];
     solver.set_velocity(vel);
     let _ = solver.advance(0.001);
 
@@ -885,7 +886,7 @@ fn test_mixing_length_zero_tke_uniform_flow() {
     let mut flow = FlowField::<f64>::new(4, 4, 4);
     // Uniform velocity → zero gradient
     for v in flow.velocity.components.iter_mut() {
-        *v = Vector3::new(1.0, 0.0, 0.0);
+        *v = leto::geometry::Vector3::new(1.0, 0.0, 0.0);
     }
 
     let tke = model.turbulent_kinetic_energy(&flow);
@@ -913,7 +914,7 @@ fn test_mixing_length_anisotropic_wall_spacing() {
             for i in 0..3 {
                 let y = j as f64 * dy;
                 if let Some(vel) = flow.velocity.get_mut(i, j, k) {
-                    *vel = Vector3::new(y, 0.0, 0.0);
+                    *vel = leto::geometry::Vector3::new(y, 0.0, 0.0);
                 }
             }
         }
@@ -1135,7 +1136,7 @@ fn test_ibm_kernel_continuity_at_support() {
         DeltaFunction::RomaPeskin4,
         DeltaFunction::Peskin4,
     ] {
-        let kernel = InterpolationKernel::new(df.clone(), 1.5_f64);
+        let kernel = InterpolationKernel::new(*df, 1.5_f64);
         // At support boundary: δ(r) should approach 0
         let r_boundary = 2.5; // well outside support for width=1.5
         let val = kernel.delta(r_boundary);
@@ -1171,14 +1172,17 @@ fn test_roma_peskin3_partition_of_unity() {
 #[test]
 fn test_chebyshev_derivative_x_squared() {
     use cfd_3d::spectral::ChebyshevPolynomial;
-    use nalgebra::DVector;
+    use leto::Array1;
 
     let n = 16;
     let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
     let points = cheb.points();
 
-    let u: DVector<f64> = DVector::from_iterator(n, points.iter().map(|&x| x * x));
-    let du = cheb.differentiate(&u);
+    let u = Array1::from_vec([n], points.iter().copied().map(|x| x * x).collect())
+        .expect("invariant: generated values match Chebyshev point count");
+    let du = cheb
+        .differentiate(&u)
+        .expect("Chebyshev differentiation must accept matching vector shape");
 
     // du/dx = 2x
     for (i, &x) in points.iter().enumerate() {
@@ -1201,16 +1205,21 @@ fn test_chebyshev_quadrature_weights_sum() {
 #[test]
 fn test_chebyshev_second_derivative() {
     use cfd_3d::spectral::ChebyshevPolynomial;
-    use nalgebra::DVector;
+    use leto::Array1;
 
     let n = 24;
     let cheb = ChebyshevPolynomial::<f64>::new(n).unwrap();
-    let d2 = cheb.second_derivative_matrix().unwrap();
     let points = cheb.points();
 
     let pi = std::f64::consts::PI;
-    let u: DVector<f64> = DVector::from_iterator(n, points.iter().map(|&x| (pi * x).cos()));
-    let d2u = &d2 * &u;
+    let u = Array1::from_vec(
+        [n],
+        points.iter().copied().map(|x| (pi * x).cos()).collect(),
+    )
+    .expect("invariant: generated values match Chebyshev point count");
+    let d2u = cheb
+        .second_derivative(&u)
+        .expect("Chebyshev second derivative must accept matching vector shape");
 
     // Skip endpoints (boundary effects)
     for (i, &x) in points.iter().enumerate().skip(1).take(n - 2) {
@@ -1223,11 +1232,11 @@ fn test_chebyshev_second_derivative() {
 #[test]
 fn test_poisson_zero_rhs_zero_solution() {
     use cfd_3d::spectral::poisson::{PoissonBoundaryCondition, PoissonSolver};
-    use nalgebra::DVector;
+    use leto::Array1;
 
     let n = 5;
     let solver = PoissonSolver::<f64>::new(n, n, n).unwrap();
-    let rhs = DVector::zeros(n * n * n);
+    let rhs = Array1::zeros([n * n * n]);
 
     let bc = (
         PoissonBoundaryCondition::Dirichlet(0.0),
@@ -1235,8 +1244,8 @@ fn test_poisson_zero_rhs_zero_solution() {
     );
 
     let u = solver.solve(&rhs, &bc, &bc, &bc).unwrap();
-    for i in 0..u.len() {
-        assert_relative_eq!(u[i], 0.0, epsilon = 1e-8);
+    for i in 0..u.size() {
+        assert_relative_eq!(u[[i]], 0.0, epsilon = 1e-8);
     }
 }
 

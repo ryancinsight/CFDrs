@@ -4,7 +4,8 @@
 //! 2D bifurcation flow simulations against analytical and literature benchmarks.
 
 use super::{BoundaryCondition, BoundaryFace, Geometry2D, Point2D};
-use nalgebra::RealField;
+use crate::scalar;
+use eunomia::{FloatElement, RealField};
 
 /// Bifurcation geometry consisting of one parent and two daughter branches
 #[derive(Debug, Clone)]
@@ -29,7 +30,7 @@ pub struct Bifurcation2D<T: RealField> {
     pub junction_center: Point2D<T>,
 }
 
-impl<T: RealField + Copy> Bifurcation2D<T> {
+impl<T: RealField + Copy + FloatElement> Bifurcation2D<T> {
     /// Create a new symmetric bifurcation
     pub fn new_symmetric(
         width: T,
@@ -47,7 +48,7 @@ impl<T: RealField + Copy> Bifurcation2D<T> {
             daughter2_width: daughter_width,
             daughter2_length: daughter_length,
             daughter2_angle: -angle,
-            junction_center: Point2D::new(length, T::zero(),),
+            junction_center: Point2D::new(length, scalar::zero()),
         }
     }
 
@@ -58,29 +59,29 @@ impl<T: RealField + Copy> Bifurcation2D<T> {
         let dy = point.y - start.y;
 
         // Rotate to align with segment
-        let cos_a = angle.cos();
-        let sin_a = angle.sin();
+        let cos_a = scalar::cos(angle);
+        let sin_a = scalar::sin(angle);
         let local_x = dx * cos_a + dy * sin_a;
         let local_y = -dx * sin_a + dy * cos_a;
 
-        let half_width = width / (T::one() + T::one());
+        let half_width = width / (scalar::one::<T>() + scalar::one::<T>());
 
-        local_x >= T::zero() && local_x <= length && local_y.abs() <= half_width
+        local_x >= scalar::zero() && local_x <= length && scalar::abs(local_y) <= half_width
     }
 }
 
-impl<T: RealField + Copy> Geometry2D<T> for Bifurcation2D<T> {
+impl<T: RealField + Copy + FloatElement> Geometry2D<T> for Bifurcation2D<T> {
     fn clone_box(&self) -> Box<dyn Geometry2D<T>> {
         Box::new(self.clone())
     }
 
     fn contains(&self, point: &Point2D<T>) -> bool {
         // Check parent branch (horizontal from 0 to parent_length)
-        let parent_start = Point2D::new(T::zero(), T::zero(),);
+        let parent_start = Point2D::new(scalar::zero(), scalar::zero());
         if Self::in_segment(
             point,
             &parent_start,
-            T::zero(),
+            scalar::zero(),
             self.parent_length,
             self.parent_width,
         ) {
@@ -114,7 +115,7 @@ impl<T: RealField + Copy> Geometry2D<T> for Bifurcation2D<T> {
 
     fn distance_to_boundary(&self, _point: &Point2D<T>) -> T {
         // Simplified for now, can be implemented exactly if needed for wall-distance solvers
-        T::zero()
+        scalar::zero()
     }
 
     fn boundary_normal(&self, _point: &Point2D<T>) -> Option<Point2D<T>> {
@@ -123,22 +124,26 @@ impl<T: RealField + Copy> Geometry2D<T> for Bifurcation2D<T> {
 
     fn boundary_condition(&self, face: BoundaryFace, _s: T) -> BoundaryCondition<T> {
         match face {
-            BoundaryFace::Left => BoundaryCondition::Dirichlet(T::one()), // Inlet
-            _ => BoundaryCondition::Dirichlet(T::zero()),                 // Walls/Outlets
+            BoundaryFace::Left => BoundaryCondition::Dirichlet(scalar::one()), // Inlet
+            _ => BoundaryCondition::Dirichlet(scalar::zero()),                 // Walls/Outlets
         }
     }
 
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
         // Calculate max bounds based on daughter angles and lengths
         let x_max = self.parent_length
-            + self.daughter1_length * self.daughter1_angle.cos().max(self.daughter2_angle.cos());
-        let y_max = (self.daughter1_length * self.daughter1_angle.sin())
-            .abs()
-            .max((self.daughter2_length * self.daughter2_angle.sin()).abs())
-            + self.parent_width;
+            + self.daughter1_length
+                * scalar::max(
+                    scalar::cos(self.daughter1_angle),
+                    scalar::cos(self.daughter2_angle),
+                );
+        let y_max = scalar::max(
+            scalar::abs(self.daughter1_length * scalar::sin(self.daughter1_angle)),
+            scalar::abs(self.daughter2_length * scalar::sin(self.daughter2_angle)),
+        ) + self.parent_width;
 
         (
-            Point2D::new(T::zero(), -y_max,),
+            Point2D::new(scalar::zero(), -y_max),
             Point2D::new(x_max, y_max),
         )
     }

@@ -4,10 +4,11 @@
 
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
-use cfd_core::conversion::SafeFromF64;
+use crate::scalar;
 use cfd_core::error::Result;
-use nalgebra::{DMatrix, DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::{Array1, Array2};
 
 /// Mass conservation checker
 pub struct MassConservationChecker<T: RealField + Copy> {
@@ -16,7 +17,7 @@ pub struct MassConservationChecker<T: RealField + Copy> {
     ny: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive> MassConservationChecker<T> {
+impl<T: RealField + Copy + FloatElement> MassConservationChecker<T> {
     /// Create new mass conservation checker
     pub fn new(tolerance: T, nx: usize, ny: usize) -> Self {
         Self { tolerance, nx, ny }
@@ -27,44 +28,43 @@ impl<T: RealField + Copy + FromPrimitive> MassConservationChecker<T> {
     /// Computes divergence ∇·u = ∂u/∂x + ∂v/∂y using central differences
     pub fn check_divergence_2d(
         &self,
-        u: &DMatrix<T>,
-        v: &DMatrix<T>,
+        u: &Array2<T>,
+        v: &Array2<T>,
         dx: T,
         dy: T,
     ) -> Result<ConservationReport<T>> {
-        assert_eq!(u.nrows(), self.nx);
-        assert_eq!(u.ncols(), self.ny);
-        assert_eq!(v.nrows(), self.nx);
-        assert_eq!(v.ncols(), self.ny);
+        assert_eq!(u.shape()[0], self.nx);
+        assert_eq!(u.shape()[1], self.ny);
+        assert_eq!(v.shape()[0], self.nx);
+        assert_eq!(v.shape()[1], self.ny);
 
-        let mut max_divergence = T::zero();
-        let mut total_divergence = T::zero();
+        let mut max_divergence = scalar::zero::<T>();
+        let mut total_divergence = scalar::zero::<T>();
         let mut count = 0;
 
         // Compute divergence at interior points using central differences
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // ∂u/∂x using central difference
-                let dudx = (u[(i + 1, j)] - u[(i - 1, j)])
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
+                let dudx = (u[[i + 1, j]] - u[[i - 1, j]]) / (scalar::from_f64::<T>(2.0) * dx);
 
                 // ∂v/∂y using central difference
-                let dvdy = (v[(i, j + 1)] - v[(i, j - 1)])
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
+                let dvdy = (v[[i, j + 1]] - v[[i, j - 1]]) / (scalar::from_f64::<T>(2.0) * dy);
 
                 // Divergence = ∂u/∂x + ∂v/∂y
                 let div = dudx + dvdy;
 
-                max_divergence = max_divergence.max(div.abs());
-                total_divergence += div.abs();
+                let abs_div = scalar::abs(div);
+                max_divergence = scalar::max(max_divergence, abs_div);
+                total_divergence += abs_div;
                 count += 1;
             }
         }
 
         let avg_divergence = if count > 0 {
-            total_divergence / T::from_usize(count).unwrap_or(T::one())
+            total_divergence / scalar::from_usize::<T>(count)
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
         let mut report = ConservationReport::new(
@@ -77,7 +77,7 @@ impl<T: RealField + Copy + FromPrimitive> MassConservationChecker<T> {
         report.add_detail("avg_divergence".to_string(), avg_divergence);
         report.add_detail(
             "grid_points_checked".to_string(),
-            T::from_usize(count).unwrap_or(T::zero()),
+            scalar::from_usize::<T>(count),
         );
 
         Ok(report)
@@ -86,15 +86,15 @@ impl<T: RealField + Copy + FromPrimitive> MassConservationChecker<T> {
     /// Check mass conservation for a 1D velocity field (for pipes/channels)
     pub fn check_divergence_1d(
         &self,
-        u: &DVector<T>,
-        area: &DVector<T>,
+        u: &Array1<T>,
+        area: &Array1<T>,
         dx: T,
     ) -> Result<ConservationReport<T>> {
-        let n = u.len();
-        assert_eq!(area.len(), n);
+        let n = u.shape()[0];
+        assert_eq!(area.shape()[0], n);
 
-        let mut max_divergence = T::zero();
-        let mut total_divergence = T::zero();
+        let mut max_divergence = scalar::zero::<T>();
+        let mut total_divergence = scalar::zero::<T>();
         let mut count = 0;
 
         // For 1D flow in variable area: ∂(ρAu)/∂x = 0
@@ -103,17 +103,18 @@ impl<T: RealField + Copy + FromPrimitive> MassConservationChecker<T> {
             // Mass flux gradient using central difference
             let flux_plus = area[i + 1] * u[i + 1];
             let flux_minus = area[i - 1] * u[i - 1];
-            let div = (flux_plus - flux_minus) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
+            let div = (flux_plus - flux_minus) / (scalar::from_f64::<T>(2.0) * dx);
 
-            max_divergence = max_divergence.max(div.abs());
-            total_divergence += div.abs();
+            let abs_div = scalar::abs(div);
+            max_divergence = scalar::max(max_divergence, abs_div);
+            total_divergence += abs_div;
             count += 1;
         }
 
         let avg_divergence = if count > 0 {
-            total_divergence / T::from_usize(count).unwrap_or(T::one())
+            total_divergence / scalar::from_usize::<T>(count)
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
         let mut report = ConservationReport::new(
@@ -126,21 +127,21 @@ impl<T: RealField + Copy + FromPrimitive> MassConservationChecker<T> {
         report.add_detail("avg_divergence".to_string(), avg_divergence);
         report.add_detail(
             "grid_points_checked".to_string(),
-            T::from_usize(count).unwrap_or(T::zero()),
+            scalar::from_usize::<T>(count),
         );
 
         Ok(report)
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for MassConservationChecker<T> {
-    type FlowField = (DMatrix<T>, DMatrix<T>);
+impl<T: RealField + Copy + FloatElement> ConservationChecker<T> for MassConservationChecker<T> {
+    type FlowField = (Array2<T>, Array2<T>);
 
     fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
         let (u, v) = field;
         // Assume unit spacing for generic check
-        let dx = T::one();
-        let dy = T::one();
+        let dx = scalar::one::<T>();
+        let dy = scalar::one::<T>();
 
         self.check_divergence_2d(u, v, dx, dy)
     }
@@ -157,7 +158,7 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for MassConserv
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::DMatrix;
+    use leto::Array2;
 
     #[test]
     fn test_zero_divergence_uniform_flow() {
@@ -166,8 +167,8 @@ mod tests {
         let checker = MassConservationChecker::<f64>::new(1e-10, nx, ny);
 
         // Uniform flow has zero divergence
-        let u = DMatrix::from_element(nx, ny, 1.0);
-        let v = DMatrix::from_element(nx, ny, 0.0);
+        let u = Array2::from_elem([nx, ny], 1.0);
+        let v = Array2::from_elem([nx, ny], 0.0);
 
         let report = checker.check_divergence_2d(&u, &v, 0.1, 0.1).unwrap();
         assert!(report.error < 1e-10);
@@ -181,8 +182,8 @@ mod tests {
         let checker = MassConservationChecker::<f64>::new(1e-6, nx, ny);
 
         // Create a velocity field with a source (non-zero divergence)
-        let mut u = DMatrix::zeros(nx, ny);
-        let mut v = DMatrix::zeros(nx, ny);
+        let mut u = Array2::zeros([nx, ny]);
+        let mut v = Array2::zeros([nx, ny]);
 
         // Radial outflow from center: u = x/r, v = y/r
         // Expected divergence: ∇·u = ∂u/∂x + ∂v/∂y = ∂(x/r)/∂x + ∂(y/r)/∂y
@@ -195,8 +196,8 @@ mod tests {
                 let dy = j as f64 - cy as f64;
                 let r = (dx * dx + dy * dy).sqrt();
                 if r > 0.0 {
-                    u[(i, j)] = dx / r;
-                    v[(i, j)] = dy / r;
+                    u[[i, j]] = dx / r;
+                    v[[i, j]] = dy / r;
                 }
             }
         }
@@ -233,8 +234,8 @@ mod tests {
         let checker = MassConservationChecker::<f64>::new(1e-10, n, n);
 
         // Constant area pipe with uniform flow
-        let u = DVector::from_element(n, 2.0);
-        let area = DVector::from_element(n, 1.0);
+        let u = Array1::from_elem([n], 2.0);
+        let area = Array1::from_elem([n], 1.0);
 
         let report = checker.check_divergence_1d(&u, &area, 0.1).unwrap();
         assert!(report.error < 1e-10);

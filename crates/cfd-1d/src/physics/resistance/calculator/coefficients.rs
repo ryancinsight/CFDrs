@@ -1,12 +1,10 @@
 use crate::physics::resistance::geometry::ChannelGeometry;
 use crate::physics::resistance::models::{
     DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, RectangularChannelModel,
-    ResistanceModel, SerpentineModel, VenturiModel,
+    ResistanceModel, ResistanceScalar, SerpentineModel, VenturiModel,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
 
 /// Calculate linear (R) and quadratic (k) coefficients with automatic model selection
 pub fn calculate_coefficients_auto<T, F>(
@@ -15,7 +13,7 @@ pub fn calculate_coefficients_auto<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<(T, T)>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     let mut local_conditions = conditions.clone();
@@ -73,7 +71,7 @@ pub fn calculate_hagen_poiseuille_coefficients<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<(T, T)>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     let model = HagenPoiseuilleModel { diameter, length };
@@ -90,7 +88,7 @@ pub fn calculate_rectangular_coefficients<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<(T, T)>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     let model = RectangularChannelModel {
@@ -111,7 +109,7 @@ pub fn calculate_darcy_weisbach_coefficients<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<(T, T)>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     let model = DarcyWeisbachModel::circular(hydraulic_diameter, length, roughness);
@@ -126,7 +124,7 @@ pub fn calculate_serpentine_coefficients<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<(T, T)>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     model.validate_invariants(fluid, conditions)?;
@@ -140,7 +138,7 @@ pub fn calculate_venturi_coefficients<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<(T, T)>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     model.validate_invariants(fluid, conditions)?;

@@ -1,13 +1,15 @@
 use super::solver::{MomentumComponent, MomentumSolver};
 use crate::fields::SimulationFields;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
-use cfd_math::linear_solver::DirectSparseSolver;
-use cfd_math::linear_solver::IterativeLinearSolver;
+use cfd_math::linear_solver::{DirectSparseSolver, IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixBuilder;
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
+use leto::Array1;
+use leto_ops::norm_l2;
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolver<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
     /// Solve momentum equation for specified component.
     ///
     /// Integrates with any configured turbulence model by updating
@@ -42,7 +44,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
             let mut nonzero_count = 0;
             for j in 0..self.grid.ny {
                 for i in 0..self.grid.nx {
-                    if coeffs.ap.at(i, j).abs() > T::default_epsilon() {
+                    if NumericElement::abs(coeffs.ap.at(i, j)) > T::default_epsilon() {
                         nonzero_count += 1;
                     }
                 }
@@ -86,13 +88,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         }
 
         // Solve linear system
-        let mut solution = DVector::zeros(matrix.nrows());
-        let _rhs_norm = rhs.norm();
+        let mut solution = Array1::from_elem([matrix.nrows()], scalar::zero::<T>());
+        let _rhs_norm =
+            norm_l2(&rhs.view()).expect("invariant: momentum RHS Leto vector has a valid layout");
         let solve_result =
             self.linear_solver
                 .solve(matrix, rhs, &mut solution, None::<&IdentityPreconditioner>);
-
-
 
         match solve_result {
             Ok(_) => {}
@@ -153,17 +154,21 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         };
 
         if match component {
-            MomentumComponent::U => self.rhs_u.as_ref().is_none_or(|r| r.len() != n),
-            MomentumComponent::V => self.rhs_v.as_ref().is_none_or(|r| r.len() != n),
+            MomentumComponent::U => self.rhs_u.as_ref().is_none_or(|r| r.shape()[0] != n),
+            MomentumComponent::V => self.rhs_v.as_ref().is_none_or(|r| r.shape()[0] != n),
         } {
             match component {
-                MomentumComponent::U => self.rhs_u = Some(DVector::zeros(n)),
-                MomentumComponent::V => self.rhs_v = Some(DVector::zeros(n)),
+                MomentumComponent::U => {
+                    self.rhs_u = Some(Array1::from_elem([n], scalar::zero::<T>()));
+                }
+                MomentumComponent::V => {
+                    self.rhs_v = Some(Array1::from_elem([n], scalar::zero::<T>()));
+                }
             }
         } else {
             match component {
-                MomentumComponent::U => self.rhs_u.as_mut().unwrap().fill(T::zero()),
-                MomentumComponent::V => self.rhs_v.as_mut().unwrap().fill(T::zero()),
+                MomentumComponent::U => self.rhs_u.as_mut().unwrap().fill(scalar::zero::<T>()),
+                MomentumComponent::V => self.rhs_v.as_mut().unwrap().fill(scalar::zero::<T>()),
             }
         }
 
@@ -178,7 +183,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                     .take()
                     .unwrap_or_else(|| SparseMatrixBuilder::new(n, n)),
             };
-            let mut rhs = DVector::zeros(n);
+            let mut rhs = Array1::from_elem([n], scalar::zero::<T>());
             let mask_data = fields.mask.data.as_slice();
             let ap_data = coeffs.ap.data.as_slice();
             let aw_data = coeffs.aw.data.as_slice();
@@ -235,7 +240,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                 }
             }
 
-
             // Apply higher-order boundary conditions for improved near-wall accuracy
             // This provides better velocity gradients near walls for production accuracy
             super::boundary::apply_higher_order_wall_boundaries(
@@ -255,17 +259,16 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                 &self.grid,
             )?;
 
-
             match component {
                 MomentumComponent::U => {
                     self.matrix_u = Some(builder.build()?);
                     self.matrix_builder_u = Some(SparseMatrixBuilder::new(n, n));
-                    self.rhs_u.as_mut().unwrap().copy_from(&rhs);
+                    self.rhs_u = Some(rhs);
                 }
                 MomentumComponent::V => {
                     self.matrix_v = Some(builder.build()?);
                     self.matrix_builder_v = Some(SparseMatrixBuilder::new(n, n));
-                    self.rhs_v.as_mut().unwrap().copy_from(&rhs);
+                    self.rhs_v = Some(rhs);
                 }
             }
         } else {
@@ -275,12 +278,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
             };
             matrix.values_mut().fill(T::zero());
 
-            let mut rhs = DVector::zeros(n);
+            let mut rhs = Array1::from_elem([n], scalar::zero::<T>());
 
-            let (row_offsets, col_indices, values) = matrix.csr_data_mut();
+            let row_ptr = matrix.row_ptr().to_vec();
+            let col_indices = matrix.col_indices().to_vec();
+            let values = matrix.values_mut();
             let mut update_entry = |r: usize, c: usize, v: T| {
-                let start = row_offsets[r];
-                let end = row_offsets[r + 1];
+                let start = row_ptr[r];
+                let end = row_ptr[r + 1];
                 for idx in start..end {
                     if col_indices[idx] == c {
                         values[idx] += v;
@@ -334,7 +339,6 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                 }
             }
 
-
             super::boundary::apply_higher_order_wall_boundaries(
                 &mut matrix,
                 &mut rhs,
@@ -351,15 +355,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                 &self.grid,
             )?;
 
-
             match component {
                 MomentumComponent::U => {
                     self.matrix_u = Some(matrix);
-                    self.rhs_u.as_mut().unwrap().copy_from(&rhs);
+                    self.rhs_u = Some(rhs);
                 }
                 MomentumComponent::V => {
                     self.matrix_v = Some(matrix);
-                    self.rhs_v.as_mut().unwrap().copy_from(&rhs);
+                    self.rhs_v = Some(rhs);
                 }
             }
         }
@@ -371,7 +374,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
         &self,
         component: MomentumComponent,
         fields: &mut SimulationFields<T>,
-        solution: &DVector<T>,
+        solution: &Array1<T>,
     ) {
         let alpha = self.velocity_relaxation;
         let one_minus_alpha = T::one() - alpha;
@@ -388,7 +391,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                             // Enforce zero velocity in masked (solid) cells
                             if fields.mask.at(i, j) {
                                 // Under-relaxation: u_new = α * u_computed + (1-α) * u_old
-                                let relaxed_value = alpha * computed_value + one_minus_alpha * old_value;
+                                let relaxed_value =
+                                    alpha * computed_value + one_minus_alpha * old_value;
                                 *u = relaxed_value;
                                 if let Some(u_star) = fields.u_star.at_mut(i, j) {
                                     *u_star = relaxed_value;
@@ -407,7 +411,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> MomentumSolv
                             // Enforce zero velocity in masked (solid) cells
                             if fields.mask.at(i, j) {
                                 // Under-relaxation: v_new = α * v_computed + (1-α) * v_old
-                                let relaxed_value = alpha * computed_value + one_minus_alpha * old_value;
+                                let relaxed_value =
+                                    alpha * computed_value + one_minus_alpha * old_value;
                                 *v = relaxed_value;
                                 if let Some(v_star) = fields.v_star.at_mut(i, j) {
                                     *v_star = relaxed_value;

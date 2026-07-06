@@ -36,13 +36,14 @@
 //! - Olufsen, M. S. (1999). "Structured tree outflow condition for blood flow in
 //!   larger systemic arteries". *American Journal of Physiology*.
 
+use crate::scalar::Cfd1dScalar;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
+use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 /// Morphological parameters establishing the Olufsen (1999) fractal tree
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct OlufsenParameters<T: RealField + Copy> {
+pub struct OlufsenParameters<T: Cfd1dScalar + Copy> {
     /// Ratio of the primary daughter radius to parent radius ($\alpha$)
     pub alpha: T,
     /// Ratio of the secondary daughter radius to parent radius ($\beta$)
@@ -53,14 +54,14 @@ pub struct OlufsenParameters<T: RealField + Copy> {
     pub r_min: T,
 }
 
-impl<T: RealField + Copy> OlufsenParameters<T> {
+impl<T: Cfd1dScalar + FloatElement + Copy> OlufsenParameters<T> {
     /// Creates a physiologically-backed generic parameter set
     /// Uses accepted systemic values where $\alpha=0.9$, $\beta=0.6$, $\lambda=50$.
     pub fn new_systemic(r_min: T) -> Self {
         Self {
-            alpha: T::from_f64(0.90).expect("Mathematical constant conversion compromised"),
-            beta: T::from_f64(0.60).expect("Mathematical constant conversion compromised"),
-            length_ratio: T::from_f64(50.0).expect("Mathematical constant conversion compromised"),
+            alpha: <T as FloatElement>::from_f64(0.90),
+            beta: <T as FloatElement>::from_f64(0.60),
+            length_ratio: <T as FloatElement>::from_f64(50.0),
             r_min,
         }
     }
@@ -88,7 +89,7 @@ impl<T: RealField + Copy> OlufsenParameters<T> {
 
     fn recursive_resistance(&self, current_r: T, viscosity: T) -> T {
         // Poiseuille segment resistance parameterization for this single branch
-        let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
+        let eight = <T as FloatElement>::from_f64(8.0);
         let pi = T::pi();
 
         let r3 = current_r * current_r * current_r;

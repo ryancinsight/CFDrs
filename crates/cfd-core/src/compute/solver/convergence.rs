@@ -1,6 +1,6 @@
 //! Convergence criteria for iterative solvers
 
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::marker::PhantomData;
 
 /// Convergence criteria trait

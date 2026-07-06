@@ -26,8 +26,10 @@
 //! $e_q$ terms for each $(q, \bar{q})$ pair, whose contributions cancel exactly,
 //! giving $u = 0$. □
 
+use crate::scalar::zero;
+use crate::scalar::Cfd2dScalar;
 use crate::solvers::lbm::lattice::D2Q9;
-use nalgebra::RealField;
+use eunomia::NumericElement;
 
 /// Streaming operator for D2Q9 LBM on a flat contiguous buffer.
 ///
@@ -65,7 +67,7 @@ impl StreamingOperator {
     /// ```
     ///
     /// This is a pure permutation (Theorem above), so mass is exactly conserved.
-    pub fn stream<T: RealField + Copy>(f_src: &[T], f_dst: &mut [T], nx: usize, ny: usize) {
+    pub fn stream<T: Cfd2dScalar + Copy>(f_src: &[T], f_dst: &mut [T], nx: usize, ny: usize) {
         for j in 0..ny {
             for i in 0..nx {
                 for q in 0..9 {
@@ -82,7 +84,7 @@ impl StreamingOperator {
     /// Streaming with interior-only update (boundary nodes excluded via mask).
     ///
     /// The `boundary_mask` is a flat `bool` slice with layout `mask[j*nx + i]`.
-    pub fn stream_with_boundaries<T: RealField + Copy>(
+    pub fn stream_with_boundaries<T: Cfd2dScalar + Copy>(
         f_src: &[T],
         f_dst: &mut [T],
         boundary_mask: &[bool],
@@ -111,10 +113,15 @@ impl StreamingOperator {
     }
 
     /// Push-scheme streaming (alternative; pull scheme preferred for cache).
-    pub fn stream_push<T: RealField + Copy>(f_src: &[T], f_dst: &mut [T], nx: usize, ny: usize) {
+    pub fn stream_push<T: Cfd2dScalar + Copy + NumericElement>(
+        f_src: &[T],
+        f_dst: &mut [T],
+        nx: usize,
+        ny: usize,
+    ) {
         // Zero destination first
         for v in f_dst.iter_mut() {
-            *v = T::zero();
+            *v = zero();
         }
         for j in 0..ny {
             for i in 0..nx {

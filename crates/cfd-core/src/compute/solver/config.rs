@@ -1,11 +1,11 @@
 //! Solver configuration types following SOLID principles
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+
 use serde::{Deserialize, Serialize};
 
 /// Core solver configuration trait
-pub trait SolverConfiguration<T: RealField + Copy>: Clone + Send + Sync {
+pub trait SolverConfiguration<T: Copy>: Clone + Send + Sync {
     /// Get maximum iterations
     fn max_iterations(&self) -> usize;
 
@@ -62,13 +62,13 @@ pub struct SolverConfig<T: RealField + Copy> {
     pub numerical: NumericalConfig<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for SolverConfig<T> {
+impl<T: RealField + FloatElement + Copy> Default for SolverConfig<T> {
     fn default() -> Self {
         Self {
             convergence: ConvergenceConfig {
                 max_iterations: 1000,
-                tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
-                relative_tolerance: T::from_f64(1e-4).unwrap_or_else(num_traits::Zero::zero),
+                tolerance: <T as FloatElement>::from_f64(1e-6),
+                relative_tolerance: <T as FloatElement>::from_f64(1e-4),
             },
             execution: ExecutionConfig {
                 parallel: true,
@@ -77,9 +77,9 @@ impl<T: RealField + FromPrimitive + Copy> Default for SolverConfig<T> {
                 save_intermediate: false,
             },
             numerical: NumericalConfig {
-                dt: T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero),
-                cfl: T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
-                relaxation: T::one(),
+                dt: <T as FloatElement>::from_f64(0.01),
+                cfl: <T as FloatElement>::from_f64(0.5),
+                relaxation: <T as NumericElement>::ONE,
             },
         }
     }
@@ -90,7 +90,7 @@ impl<T: RealField + Copy> SolverConfig<T> {
     #[must_use]
     pub fn builder() -> SolverConfigBuilder<T>
     where
-        T: FromPrimitive,
+        T: FloatElement,
     {
         SolverConfigBuilder::new()
     }
@@ -134,11 +134,11 @@ pub struct LinearSolverConfig<T: RealField + Copy> {
     pub preconditioning: bool,
 }
 
-impl<T: RealField + Copy + num_traits::FromPrimitive> Default for LinearSolverConfig<T> {
+impl<T: RealField + Copy + FloatElement> Default for LinearSolverConfig<T> {
     fn default() -> Self {
         Self {
             max_iterations: 1000,
-            tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
+            tolerance: <T as FloatElement>::from_f64(1e-6),
             preconditioning: false,
         }
     }
@@ -149,7 +149,7 @@ impl<T: RealField + Copy> LinearSolverConfig<T> {
     #[must_use]
     pub fn builder() -> LinearSolverConfigBuilder<T>
     where
-        T: FromPrimitive,
+        T: FloatElement,
     {
         LinearSolverConfigBuilder::new()
     }
@@ -160,7 +160,7 @@ pub struct LinearSolverConfigBuilder<T: RealField + Copy> {
     config: LinearSolverConfig<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> LinearSolverConfigBuilder<T> {
+impl<T: RealField + Copy + FloatElement> LinearSolverConfigBuilder<T> {
     /// Create a new builder
     #[must_use]
     pub fn new() -> Self {
@@ -196,7 +196,7 @@ impl<T: RealField + Copy + FromPrimitive> LinearSolverConfigBuilder<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for LinearSolverConfigBuilder<T> {
+impl<T: RealField + Copy + FloatElement> Default for LinearSolverConfigBuilder<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -225,38 +225,19 @@ pub struct SolverConfigBuilder<T: RealField + Copy> {
     config: SolverConfig<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for SolverConfigBuilder<T> {
+impl<T: RealField + Copy + FloatElement> Default for SolverConfigBuilder<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> SolverConfigBuilder<T> {
+impl<T: RealField + Copy + FloatElement> SolverConfigBuilder<T> {
     /// Create new builder with defaults
     ///
-    /// # Panics
-    /// Panics if default tolerance value cannot be converted from f64
     #[must_use]
     pub fn new() -> Self {
         Self {
-            config: SolverConfig {
-                convergence: ConvergenceConfig {
-                    max_iterations: 1000,
-                    tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
-                    relative_tolerance: T::from_f64(1e-4).unwrap_or_else(num_traits::Zero::zero),
-                },
-                execution: ExecutionConfig {
-                    parallel: true,
-                    num_threads: None,
-                    verbose: false,
-                    save_intermediate: false,
-                },
-                numerical: NumericalConfig {
-                    dt: T::from_f64(0.01).unwrap_or_else(num_traits::Zero::zero),
-                    cfl: T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
-                    relaxation: T::one(),
-                },
-            },
+            config: SolverConfig::default(),
         }
     }
 
@@ -312,5 +293,40 @@ impl<T: RealField + Copy + FromPrimitive> SolverConfigBuilder<T> {
     /// Build the configuration
     pub fn build(self) -> SolverConfig<T> {
         self.config
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn solver_config_defaults_match_builder_defaults() {
+        let default = SolverConfig::<f64>::default();
+        let built = SolverConfig::<f64>::builder().build();
+
+        assert_eq!(
+            built.convergence.max_iterations,
+            default.convergence.max_iterations
+        );
+        assert_eq!(built.convergence.tolerance, 1e-6);
+        assert_eq!(built.convergence.relative_tolerance, 1e-4);
+        assert!(built.execution.parallel);
+        assert_eq!(built.execution.num_threads, None);
+        assert!(!built.execution.verbose);
+        assert!(!built.execution.save_intermediate);
+        assert_eq!(built.numerical.dt, 0.01);
+        assert_eq!(built.numerical.cfl, 0.5);
+        assert_eq!(built.numerical.relaxation, 1.0);
+    }
+
+    #[test]
+    fn linear_solver_config_defaults_match_builder_defaults() {
+        let default = LinearSolverConfig::<f64>::default();
+        let built = LinearSolverConfig::<f64>::builder().build();
+
+        assert_eq!(built.max_iterations, default.max_iterations);
+        assert_eq!(built.tolerance, 1e-6);
+        assert!(!built.preconditioning);
     }
 }

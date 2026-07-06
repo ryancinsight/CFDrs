@@ -34,7 +34,6 @@
 //! ```
 
 use nalgebra::RealField;
-use num_traits::FromPrimitive;
 
 /// 1D Channel Geometry with Cavitation
 #[derive(Debug, Clone)]
@@ -83,7 +82,7 @@ struct CavitationAnalysis1D<T: RealField + Copy> {
     void_fraction: Vec<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> CavitatingChannel1D<T> {
+impl<T: RealField + Copy> CavitatingChannel1D<T> {
     /// Create a standard venturi geometry
     fn venturi(
         length: T,
@@ -216,10 +215,10 @@ impl<T: RealField + Copy + FromPrimitive> CavitatingChannel1D<T> {
         let mut cavity_length = Vec::with_capacity(num_points);
         let mut void_fraction = Vec::with_capacity(num_points);
 
-        let dx = self.length / T::from_usize(num_points - 1).unwrap_or_else(|| T::one());
+        let dx = self.length / T::from_f64((num_points - 1) as f64).unwrap_or_else(|| T::one());
 
         for i in 0..num_points {
-            let x = T::from_usize(i).unwrap_or_else(|| T::zero()) * dx;
+            let x = T::from_f64(i as f64).unwrap_or_else(|| T::zero()) * dx;
 
             let local_area = self.area_at_position(x);
             let local_velocity = self.velocity_at_position(x);

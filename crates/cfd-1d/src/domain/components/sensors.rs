@@ -27,10 +27,10 @@
 //! a review. *Journal of Micromechanics and Microengineering*, 3(4), 168–182.
 
 use super::Component;
+use crate::scalar::Cfd1dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::NumericElement;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -51,7 +51,7 @@ pub enum SensorType {
 ///
 /// See module documentation for the governing theorem.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FlowSensor<T: RealField + Copy> {
+pub struct FlowSensor<T: Cfd1dScalar + Copy> {
     /// Insertion resistance [Pa·s/m³] (≥ 0; use 0.0 for ideal sensor)
     pub resistance: T,
     /// Measurement range [m³/s] (must be > 0)
@@ -60,7 +60,7 @@ pub struct FlowSensor<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> FlowSensor<T> {
+impl<T: Cfd1dScalar + Copy + NumericElement> FlowSensor<T> {
     /// Create a new flow sensor with validated parameters.
     ///
     /// # Errors
@@ -87,11 +87,11 @@ impl<T: RealField + Copy + FromPrimitive> FlowSensor<T> {
     /// Return `true` if the measured flow rate exceeds the sensor range.
     #[must_use]
     pub fn is_overrange(&self, flow_rate: T) -> bool {
-        flow_rate.abs() > self.range
+        <T as NumericElement>::abs(flow_rate) > self.range
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Component<T> for FlowSensor<T> {
+impl<T: Cfd1dScalar + Copy + NumericElement> Component<T> for FlowSensor<T> {
     /// Returns the sensor insertion resistance [Pa·s/m³].
     ///
     /// **Invariant**: `R_insertion ≥ 0`. A return value of `0.0` denotes

@@ -6,7 +6,11 @@
 
 use crate::integration::traits::Quadrature3D;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
+use eunomia::{FloatElement, RealField};
+
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
 
 /// Tetrahedral quadrature rule
 pub struct TetrahedronQuadrature<T: RealField + Copy> {
@@ -15,7 +19,7 @@ pub struct TetrahedronQuadrature<T: RealField + Copy> {
     degree: usize,
 }
 
-impl<T: RealField + Copy + From<f64>> TetrahedronQuadrature<T> {
+impl<T: RealField + Copy + FloatElement> TetrahedronQuadrature<T> {
     /// Create a new tetrahedral quadrature rule of specified degree
     /// Supported degrees: 1, 2, 5
     pub fn new(degree: usize) -> Result<Self> {
@@ -32,19 +36,19 @@ impl<T: RealField + Copy + From<f64>> TetrahedronQuadrature<T> {
 
     /// Degree 1 (1 point) - exact for linear polynomials
     fn degree_1() -> Self {
-        let q = T::from(0.25);
+        let q = from_f64(0.25);
         Self {
             points: vec![[q, q, q, q]],
-            weights: vec![T::one()],
+            weights: vec![T::ONE],
             degree: 1,
         }
     }
 
     /// Degree 2 (4 points) - exact for quadratic polynomials
     fn degree_2() -> Self {
-        let alpha = T::from(0.5854101966249685);
-        let beta = T::from(0.1381966011250105);
-        let w = T::from(0.25);
+        let alpha = from_f64(0.5854101966249685);
+        let beta = from_f64(0.1381966011250105);
+        let w = from_f64(0.25);
 
         Self {
             points: vec![
@@ -60,11 +64,11 @@ impl<T: RealField + Copy + From<f64>> TetrahedronQuadrature<T> {
 
     /// Degree 3 (5 points)
     fn degree_3() -> Self {
-        let w1 = T::from(-0.8);
-        let w2 = T::from(0.45);
-        let q = T::from(0.25);
-        let a = T::from(1.0 / 6.0);
-        let b = T::from(0.5);
+        let w1 = from_f64(-0.8);
+        let w2 = from_f64(0.45);
+        let q = from_f64(0.25);
+        let a = from_f64(1.0 / 6.0);
+        let b = from_f64(0.5);
 
         Self {
             points: vec![
@@ -82,23 +86,23 @@ impl<T: RealField + Copy + From<f64>> TetrahedronQuadrature<T> {
     /// Degree 5 (15 points) - Keast Rule 5
     fn degree_5() -> Self {
         // Point 1 (1)
-        let w1 = T::from(0.030283678097089 * 6.0);
-        let p1 = T::from(1.0 / 4.0);
+        let w1 = from_f64(0.030283678097089 * 6.0);
+        let p1 = from_f64(1.0 / 4.0);
 
         // Point 2 (4)
-        let w2 = T::from(0.010959110309130 * 6.0);
-        let x2_a = T::from(0.0543467785602507);
-        let x2_b = T::from(0.3152177404799164);
+        let w2 = from_f64(0.010959110309130 * 6.0);
+        let x2_a = from_f64(0.0543467785602507);
+        let x2_b = from_f64(0.3152177404799164);
 
         // Point 3 (4)
-        let w3 = T::from(0.013436499589410 * 6.0);
-        let x3_a = T::from(0.702284731154388);
-        let x3_b = T::from(0.0992384229485373);
+        let w3 = from_f64(0.013436499589410 * 6.0);
+        let x3_a = from_f64(0.702284731154388);
+        let x3_b = from_f64(0.0992384229485373);
 
         // Point 4 (6)
-        let w4 = T::from(0.007022847311543 * 6.0);
-        let x4_a = T::from(0.454763304449814);
-        let x4_b = T::from(0.0452366955501859);
+        let w4 = from_f64(0.007022847311543 * 6.0);
+        let x4_a = from_f64(0.454763304449814);
+        let x4_b = from_f64(0.0452366955501859);
 
         let mut points = Vec::with_capacity(15);
         let mut weights = Vec::with_capacity(15);
@@ -155,5 +159,42 @@ impl<T: RealField + Copy> Quadrature3D<T> for TetrahedronQuadrature<T> {
 
     fn order(&self) -> usize {
         self.degree
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn degree_one_rule_has_centroid_and_unit_weight() {
+        let rule = TetrahedronQuadrature::<f64>::new(1).unwrap();
+
+        assert_eq!(rule.num_points(), 1);
+        assert_eq!(rule.order(), 1);
+        assert_eq!(rule.points()[0], [0.25, 0.25, 0.25, 0.25]);
+        assert_eq!(rule.weights(), &[1.0]);
+    }
+
+    #[test]
+    fn degree_two_rule_weights_sum_to_one() {
+        let rule = TetrahedronQuadrature::<f64>::new(2).unwrap();
+        let weight_sum: f64 = rule.weights().iter().copied().sum();
+
+        assert_relative_eq!(weight_sum, 1.0, epsilon = 1e-15);
+        assert_eq!(rule.num_points(), 4);
+    }
+
+    #[test]
+    fn tetrahedron_quadrature_rejects_unsupported_degree() {
+        let Err(error) = TetrahedronQuadrature::<f64>::new(4) else {
+            panic!("expected degree 4 to be rejected");
+        };
+
+        assert!(
+            error.to_string().contains("Use 1, 2, 3, or 5"),
+            "unexpected error: {error}"
+        );
     }
 }

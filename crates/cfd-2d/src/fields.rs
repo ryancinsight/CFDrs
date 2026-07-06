@@ -20,38 +20,38 @@
 //! | `at_mut(i, j)` | returns `None` if out of bounds | `Option<&mut T>` |
 //! | `set(i, j, v)` | **debug-assert** only | `()` |
 
-use crate::grid::array2d::Array2D;
+use crate::scalar::Cfd2dScalar;
+use crate::{grid::array2d::Array2D, scalar};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use nalgebra::{RealField, Vector2};
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement};
+use leto::geometry::Vector2;
 use std::ops::{Index, IndexMut};
 
 /// Constants for field operations
 pub mod constants {
-    use nalgebra::RealField;
-    use num_traits::FromPrimitive;
+    use crate::scalar;
+    use eunomia::FloatElement;
 
     /// Default Reynolds number for laminar flow
     #[must_use]
-    pub fn default_reynolds<T: RealField + FromPrimitive>() -> T {
-        T::from_f64(100.0)
-            .unwrap_or_else(|| T::from_i32(100).expect("analytical constant conversion"))
+    pub fn default_reynolds<T: FloatElement>() -> T {
+        scalar::from_f64(100.0)
     }
 
     /// Minimum allowed time step for stability
-    pub fn min_time_step<T: RealField + FromPrimitive>() -> T {
-        T::from_f64(1e-6).unwrap_or_else(T::default_epsilon)
+    pub fn min_time_step<T: FloatElement>() -> T {
+        scalar::from_f64(1e-6)
     }
 
     /// Maximum allowed time step
     #[must_use]
-    pub fn max_time_step<T: RealField + FromPrimitive>() -> T {
-        T::one()
+    pub fn max_time_step<T: FloatElement>() -> T {
+        scalar::one()
     }
 
     /// Convergence tolerance for iterative methods
-    pub fn convergence_tolerance<T: RealField + FromPrimitive>() -> T {
-        T::from_f64(1e-6).unwrap_or_else(T::default_epsilon)
+    pub fn convergence_tolerance<T: FloatElement>() -> T {
+        scalar::from_f64(1e-6)
     }
 }
 
@@ -77,10 +77,10 @@ impl<T: Clone> Field2D<T> {
     #[must_use]
     pub fn zeros(nx: usize, ny: usize) -> Self
     where
-        T: num_traits::Zero,
+        T: NumericElement,
     {
         Self {
-            data: vec![T::zero(); nx * ny],
+            data: vec![scalar::zero(); nx * ny],
             nx,
             ny,
         }
@@ -236,7 +236,7 @@ impl<T: Clone> Field2D<T> {
 /// This structure provides both vector and component access to velocity fields,
 /// supporting the requirements of SIMPLE, PISO, and other algorithms.
 #[derive(Debug, Clone)]
-pub struct SimulationFields<T: RealField + Copy> {
+pub struct SimulationFields<T: Cfd2dScalar + Copy> {
     /// X-component of velocity field
     pub u: Field2D<T>,
     /// Y-component of velocity field  
@@ -269,26 +269,22 @@ pub struct SimulationFields<T: RealField + Copy> {
     pub ny: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> SimulationFields<T> {
     /// Create new simulation fields with zero initialization
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
-            u: Field2D::new(nx, ny, T::zero()),
-            v: Field2D::new(nx, ny, T::zero()),
-            u_old: Field2D::new(nx, ny, T::zero()),
-            v_old: Field2D::new(nx, ny, T::zero()),
-            u_star: Field2D::new(nx, ny, T::zero()),
-            v_star: Field2D::new(nx, ny, T::zero()),
-            p: Field2D::new(nx, ny, T::zero()),
-            p_prime: Field2D::new(nx, ny, T::zero()),
-            density: Field2D::new(nx, ny, T::one()),
-            viscosity: Field2D::new(
-                nx,
-                ny,
-                T::from_f64(0.001).expect("analytical constant conversion"),
-            ),
-            force_u: Field2D::new(nx, ny, T::zero()),
-            force_v: Field2D::new(nx, ny, T::zero()),
+            u: Field2D::new(nx, ny, scalar::zero()),
+            v: Field2D::new(nx, ny, scalar::zero()),
+            u_old: Field2D::new(nx, ny, scalar::zero()),
+            v_old: Field2D::new(nx, ny, scalar::zero()),
+            u_star: Field2D::new(nx, ny, scalar::zero()),
+            v_star: Field2D::new(nx, ny, scalar::zero()),
+            p: Field2D::new(nx, ny, scalar::zero()),
+            p_prime: Field2D::new(nx, ny, scalar::zero()),
+            density: Field2D::new(nx, ny, scalar::one()),
+            viscosity: Field2D::new(nx, ny, scalar::from_f64(0.001)),
+            force_u: Field2D::new(nx, ny, scalar::zero()),
+            force_v: Field2D::new(nx, ny, scalar::zero()),
             mask: Field2D::new(nx, ny, true),
             nx,
             ny,
@@ -296,10 +292,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     }
 
     /// Create fields with specified fluid properties
-    pub fn with_fluid(nx: usize, ny: usize, fluid: &ConstantPropertyFluid<T>) -> Self
-    where
-        T: Float,
-    {
+    pub fn with_fluid(nx: usize, ny: usize, fluid: &ConstantPropertyFluid<T>) -> Self {
         let mut fields = Self::new(nx, ny);
         fields.density.map_inplace(|d| *d = fluid.density);
         // For initialization, use the fluid's dynamic viscosity
@@ -309,18 +302,20 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
 
     /// Reset all fields to zero
     pub fn reset(&mut self) {
-        self.u.map_inplace(|val| *val = T::zero());
-        self.v.map_inplace(|val| *val = T::zero());
-        self.u_old.map_inplace(|val| *val = T::zero());
-        self.v_old.map_inplace(|val| *val = T::zero());
-        self.u_star.map_inplace(|val| *val = T::zero());
-        self.v_star.map_inplace(|val| *val = T::zero());
-        self.p.map_inplace(|val| *val = T::zero());
-        self.p_prime.map_inplace(|val| *val = T::zero());
-        self.force_u.map_inplace(|val| *val = T::zero());
-        self.force_v.map_inplace(|val| *val = T::zero());
+        self.u.map_inplace(|val| *val = scalar::zero());
+        self.v.map_inplace(|val| *val = scalar::zero());
+        self.u_old.map_inplace(|val| *val = scalar::zero());
+        self.v_old.map_inplace(|val| *val = scalar::zero());
+        self.u_star.map_inplace(|val| *val = scalar::zero());
+        self.v_star.map_inplace(|val| *val = scalar::zero());
+        self.p.map_inplace(|val| *val = scalar::zero());
+        self.p_prime.map_inplace(|val| *val = scalar::zero());
+        self.force_u.map_inplace(|val| *val = scalar::zero());
+        self.force_v.map_inplace(|val| *val = scalar::zero());
     }
+}
 
+impl<T: Cfd2dScalar + Copy> SimulationFields<T> {
     /// Efficiently copy data from another `SimulationFields` instance
     /// This is much more efficient than cloning when reusing buffers
     ///
@@ -390,10 +385,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     #[inline]
     pub fn set_velocity_at(&mut self, i: usize, j: usize, vel: &Vector2<T>) {
         if let Some(u) = self.u.at_mut(i, j) {
-            *u = vel.x;
+            *u = vel[0];
         }
         if let Some(v) = self.v.at_mut(i, j) {
-            *v = vel.y;
+            *v = vel[1];
         }
     }
 
@@ -403,7 +398,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
     pub fn velocity_star_at(&self, i: usize, j: usize) -> Vector2<T> {
         Vector2::new(self.u_star.at(i, j), self.v_star.at(i, j))
     }
+}
 
+impl<T: Cfd2dScalar + Copy + FloatElement> SimulationFields<T> {
     /// Get maximum velocity magnitude for stability analysis using iterators
     #[must_use]
     pub fn max_velocity_magnitude(&self) -> T {
@@ -414,9 +411,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
             .map(|(u, v)| {
                 let u2 = *u * *u;
                 let v2 = *v * *v;
-                (u2 + v2).sqrt()
+                NumericElement::sqrt(u2 + v2)
             })
-            .fold(T::zero(), |acc, mag| if mag > acc { mag } else { acc })
+            .fold(scalar::zero::<T>(), |acc, mag| scalar::max(acc, mag))
     }
 
     /// Calculate kinematic viscosity field (nu = mu/rho)
@@ -441,15 +438,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SimulationFields<T> {
             .density
             .data()
             .iter()
-            .fold(T::zero(), |acc, d| acc + *d)
-            / T::from_usize(self.density.data.len()).expect("analytical constant conversion");
+            .fold(scalar::zero::<T>(), |acc, d| acc + *d)
+            / scalar::from_usize(self.density.data.len());
 
         let avg_viscosity = self
             .viscosity
             .data()
             .iter()
-            .fold(T::zero(), |acc, v| acc + *v)
-            / T::from_usize(self.viscosity.data.len()).expect("analytical constant conversion");
+            .fold(scalar::zero::<T>(), |acc, v| acc + *v)
+            / scalar::from_usize(self.viscosity.data.len());
 
         avg_density * characteristic_velocity * characteristic_length / avg_viscosity
     }

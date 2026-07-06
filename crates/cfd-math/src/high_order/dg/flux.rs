@@ -3,7 +3,11 @@
 //! This module provides various numerical flux functions that can be used
 //! to approximate the flux at element interfaces in DG methods.
 
-use nalgebra::DVector;
+use leto::Array1;
+
+use super::{
+    vector_add, vector_amax, vector_dot, vector_len, vector_norm, vector_scale, vector_sub,
+};
 
 /// Type of numerical flux
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,14 +72,14 @@ pub trait NumericalFlux {
     /// Compute the numerical flux at an interface
     fn compute_flux(
         &self,
-        u_l: &DVector<f64>,
-        u_r: &DVector<f64>,
-        n: &DVector<f64>,
+        u_l: &Array1<f64>,
+        u_r: &Array1<f64>,
+        n: &Array1<f64>,
         params: &FluxParams,
-    ) -> DVector<f64>;
+    ) -> Array1<f64>;
 
     /// Compute the maximum wave speed for the given states
-    fn max_wave_speed(&self, u_l: &DVector<f64>, u_r: &DVector<f64>, n: &DVector<f64>) -> f64;
+    fn max_wave_speed(&self, u_l: &Array1<f64>, u_r: &Array1<f64>, n: &Array1<f64>) -> f64;
 }
 
 /// Central flux (average of left and right states).
@@ -95,17 +99,17 @@ pub struct CentralFlux;
 impl NumericalFlux for CentralFlux {
     fn compute_flux(
         &self,
-        u_l: &DVector<f64>,
-        u_r: &DVector<f64>,
-        _n: &DVector<f64>,
+        u_l: &Array1<f64>,
+        u_r: &Array1<f64>,
+        _n: &Array1<f64>,
         _params: &FluxParams,
-    ) -> DVector<f64> {
+    ) -> Array1<f64> {
         // Simple average of left and right fluxes
         // F* = 0.5 * (F(u_l) + F(u_r))
-        0.5 * (u_l + u_r)
+        vector_scale(&vector_add(u_l, u_r), 0.5)
     }
 
-    fn max_wave_speed(&self, _u_l: &DVector<f64>, _u_r: &DVector<f64>, _n: &DVector<f64>) -> f64 {
+    fn max_wave_speed(&self, _u_l: &Array1<f64>, _u_r: &Array1<f64>, _n: &Array1<f64>) -> f64 {
         // Central flux adds no dissipation, so the effective wave speed is zero.
         0.0
     }
@@ -127,18 +131,21 @@ pub struct LaxFriedrichsFlux;
 impl NumericalFlux for LaxFriedrichsFlux {
     fn compute_flux(
         &self,
-        u_l: &DVector<f64>,
-        u_r: &DVector<f64>,
-        n: &DVector<f64>,
+        u_l: &Array1<f64>,
+        u_r: &Array1<f64>,
+        n: &Array1<f64>,
         params: &FluxParams,
-    ) -> DVector<f64> {
+    ) -> Array1<f64> {
         let alpha = self.max_wave_speed(u_l, u_r, n) * params.alpha;
 
         // F* = 0.5 * (F(u_l) + F(u_r)) - 0.5 * alpha * (u_r - u_l)
-        0.5 * (u_l + u_r) - 0.5 * alpha * (u_r - u_l)
+        vector_sub(
+            &vector_scale(&vector_add(u_l, u_r), 0.5),
+            &vector_scale(&vector_sub(u_r, u_l), 0.5 * alpha),
+        )
     }
 
-    fn max_wave_speed(&self, u_l: &DVector<f64>, u_r: &DVector<f64>, n: &DVector<f64>) -> f64 {
+    fn max_wave_speed(&self, u_l: &Array1<f64>, u_r: &Array1<f64>, n: &Array1<f64>) -> f64 {
         // Rusanov wave speed estimate: spectral radius of the flux Jacobian
         // projected onto the interface normal.
         //
@@ -147,18 +154,18 @@ impl NumericalFlux for LaxFriedrichsFlux {
         // max(|u_L · n̂|, |u_R · n̂|). For general systems where the state
         // has more components than the spatial dimension, we fall back to
         // ||u||∞ · ||n̂|| which upper-bounds the true spectral radius.
-        let n_norm = n.norm();
+        let n_norm = vector_norm(n);
         if n_norm < f64::EPSILON {
-            return u_l.amax().max(u_r.amax());
+            return vector_amax(u_l).max(vector_amax(u_r));
         }
-        if u_l.len() == n.len() {
-            let n_hat = n / n_norm;
-            let lambda_l = u_l.dot(&n_hat).abs();
-            let lambda_r = u_r.dot(&n_hat).abs();
+        if vector_len(u_l) == vector_len(n) {
+            let n_hat = vector_scale(n, 1.0 / n_norm);
+            let lambda_l = vector_dot(u_l, &n_hat).abs();
+            let lambda_r = vector_dot(u_r, &n_hat).abs();
             lambda_l.max(lambda_r)
         } else {
             // General systems: conservative upper bound
-            u_l.amax().max(u_r.amax()) * n_norm
+            vector_amax(u_l).max(vector_amax(u_r)) * n_norm
         }
     }
 }
@@ -181,11 +188,11 @@ pub struct HLLFlux;
 impl NumericalFlux for HLLFlux {
     fn compute_flux(
         &self,
-        u_l: &DVector<f64>,
-        u_r: &DVector<f64>,
-        n: &DVector<f64>,
+        u_l: &Array1<f64>,
+        u_r: &Array1<f64>,
+        n: &Array1<f64>,
         params: &FluxParams,
-    ) -> DVector<f64> {
+    ) -> Array1<f64> {
         let s_l = self.wave_speed_left(u_l, u_r, n);
         let s_r = self.wave_speed_right(u_l, u_r, n);
         let eps = params.epsilon;
@@ -198,16 +205,22 @@ impl NumericalFlux for HLLFlux {
             u_r.clone()
         } else if s_l <= 0.0 && 0.0 <= s_r {
             // Sonic point
-            (s_r * u_l - s_l * u_r + s_l * s_r * (u_r - u_l) / (s_r - s_l + eps))
-                / (s_r - s_l + eps)
+            let numerator = vector_add(
+                &vector_sub(&vector_scale(u_l, s_r), &vector_scale(u_r, s_l)),
+                &vector_scale(&vector_sub(u_r, u_l), s_l * s_r / (s_r - s_l + eps)),
+            );
+            vector_scale(&numerator, 1.0 / (s_r - s_l + eps))
         } else {
             // Use Lax-Friedrichs as a fallback
             let alpha = self.max_wave_speed(u_l, u_r, n);
-            0.5 * (u_l + u_r) - 0.5 * alpha * (u_r - u_l)
+            vector_sub(
+                &vector_scale(&vector_add(u_l, u_r), 0.5),
+                &vector_scale(&vector_sub(u_r, u_l), 0.5 * alpha),
+            )
         }
     }
 
-    fn max_wave_speed(&self, u_l: &DVector<f64>, u_r: &DVector<f64>, n: &DVector<f64>) -> f64 {
+    fn max_wave_speed(&self, u_l: &Array1<f64>, u_r: &Array1<f64>, n: &Array1<f64>) -> f64 {
         self.wave_speed_left(u_l, u_r, n)
             .abs()
             .max(self.wave_speed_right(u_l, u_r, n).abs())
@@ -219,18 +232,18 @@ impl HLLFlux {
     ///
     /// For matching dimensions: $S_L = \min(u_L \cdot \hat{n},\, u_R \cdot \hat{n})$.
     /// For general systems: uses $-\max(\|u_L\|_\infty, \|u_R\|_\infty)$.
-    fn wave_speed_left(self, u_l: &DVector<f64>, u_r: &DVector<f64>, n: &DVector<f64>) -> f64 {
-        let n_norm = n.norm();
+    fn wave_speed_left(self, u_l: &Array1<f64>, u_r: &Array1<f64>, n: &Array1<f64>) -> f64 {
+        let n_norm = vector_norm(n);
         if n_norm < f64::EPSILON {
-            return -(u_l.amax().max(u_r.amax()));
+            return -(vector_amax(u_l).max(vector_amax(u_r)));
         }
-        if u_l.len() == n.len() {
-            let n_hat = n / n_norm;
-            let v_l = u_l.dot(&n_hat);
-            let v_r = u_r.dot(&n_hat);
+        if vector_len(u_l) == vector_len(n) {
+            let n_hat = vector_scale(n, 1.0 / n_norm);
+            let v_l = vector_dot(u_l, &n_hat);
+            let v_r = vector_dot(u_r, &n_hat);
             v_l.min(v_r)
         } else {
-            -(u_l.amax().max(u_r.amax()) * n_norm)
+            -(vector_amax(u_l).max(vector_amax(u_r)) * n_norm)
         }
     }
 
@@ -238,18 +251,18 @@ impl HLLFlux {
     ///
     /// For matching dimensions: $S_R = \max(u_L \cdot \hat{n},\, u_R \cdot \hat{n})$.
     /// For general systems: uses $\max(\|u_L\|_\infty, \|u_R\|_\infty)$.
-    fn wave_speed_right(self, u_l: &DVector<f64>, u_r: &DVector<f64>, n: &DVector<f64>) -> f64 {
-        let n_norm = n.norm();
+    fn wave_speed_right(self, u_l: &Array1<f64>, u_r: &Array1<f64>, n: &Array1<f64>) -> f64 {
+        let n_norm = vector_norm(n);
         if n_norm < f64::EPSILON {
-            return u_l.amax().max(u_r.amax());
+            return vector_amax(u_l).max(vector_amax(u_r));
         }
-        if u_l.len() == n.len() {
-            let n_hat = n / n_norm;
-            let v_l = u_l.dot(&n_hat);
-            let v_r = u_r.dot(&n_hat);
+        if vector_len(u_l) == vector_len(n) {
+            let n_hat = vector_scale(n, 1.0 / n_norm);
+            let v_l = vector_dot(u_l, &n_hat);
+            let v_r = vector_dot(u_r, &n_hat);
             v_l.max(v_r)
         } else {
-            u_l.amax().max(u_r.amax()) * n_norm
+            vector_amax(u_l).max(vector_amax(u_r)) * n_norm
         }
     }
 }
@@ -269,11 +282,11 @@ impl NumericalFlux for FluxImpl {
     #[inline]
     fn compute_flux(
         &self,
-        u_l: &DVector<f64>,
-        u_r: &DVector<f64>,
-        n: &DVector<f64>,
+        u_l: &Array1<f64>,
+        u_r: &Array1<f64>,
+        n: &Array1<f64>,
         params: &FluxParams,
-    ) -> DVector<f64> {
+    ) -> Array1<f64> {
         match self {
             FluxImpl::Central(f) => f.compute_flux(u_l, u_r, n, params),
             FluxImpl::LaxFriedrichs(f) => f.compute_flux(u_l, u_r, n, params),
@@ -282,7 +295,7 @@ impl NumericalFlux for FluxImpl {
     }
 
     #[inline]
-    fn max_wave_speed(&self, u_l: &DVector<f64>, u_r: &DVector<f64>, n: &DVector<f64>) -> f64 {
+    fn max_wave_speed(&self, u_l: &Array1<f64>, u_r: &Array1<f64>, n: &Array1<f64>) -> f64 {
         match self {
             FluxImpl::Central(f) => f.max_wave_speed(u_l, u_r, n),
             FluxImpl::LaxFriedrichs(f) => f.max_wave_speed(u_l, u_r, n),
@@ -311,20 +324,20 @@ impl FluxFactory {
 /// Compute the numerical flux at an interface
 #[inline]
 pub fn numerical_flux(
-    u_l: &DVector<f64>,
-    u_r: &DVector<f64>,
-    n: &DVector<f64>,
+    u_l: &Array1<f64>,
+    u_r: &Array1<f64>,
+    n: &Array1<f64>,
     params: &FluxParams,
-) -> DVector<f64> {
+) -> Array1<f64> {
     let flux = FluxFactory::create(params.flux_type);
     flux.compute_flux(u_l, u_r, n, params)
 }
 
 /// Compute the maximum wave speed at an interface
 pub fn max_wave_speed(
-    u_l: &DVector<f64>,
-    u_r: &DVector<f64>,
-    n: &DVector<f64>,
+    u_l: &Array1<f64>,
+    u_r: &Array1<f64>,
+    n: &Array1<f64>,
     params: &FluxParams,
 ) -> f64 {
     let flux = FluxFactory::create(params.flux_type);
@@ -333,23 +346,26 @@ pub fn max_wave_speed(
 
 /// Compute the Rusanov (local Lax-Friedrichs) flux
 pub fn rusanov_flux(
-    f_l: &DVector<f64>,
-    f_r: &DVector<f64>,
-    u_l: &DVector<f64>,
-    u_r: &DVector<f64>,
+    f_l: &Array1<f64>,
+    f_r: &Array1<f64>,
+    u_l: &Array1<f64>,
+    u_r: &Array1<f64>,
     alpha: f64,
-) -> DVector<f64> {
-    0.5 * (f_l + f_r) - 0.5 * alpha * (u_r - u_l)
+) -> Array1<f64> {
+    vector_sub(
+        &vector_scale(&vector_add(f_l, f_r), 0.5),
+        &vector_scale(&vector_sub(u_r, u_l), 0.5 * alpha),
+    )
 }
 
 /// Compute the upwind flux for a scalar conservation law
 pub fn upwind_flux(
-    f_l: &DVector<f64>,
-    f_r: &DVector<f64>,
-    _u_l: &DVector<f64>,
-    _u_r: &DVector<f64>,
+    f_l: &Array1<f64>,
+    f_r: &Array1<f64>,
+    _u_l: &Array1<f64>,
+    _u_r: &Array1<f64>,
     a: f64,
-) -> DVector<f64> {
+) -> Array1<f64> {
     if a >= 0.0 {
         f_l.clone()
     } else {
@@ -434,14 +450,15 @@ pub fn hllc_flux(
 
 #[cfg(test)]
 mod tests {
+    use super::super::vector_from_vec;
     use super::*;
     use approx::assert_relative_eq;
 
     #[test]
     fn test_central_flux() {
-        let u_l = DVector::from_vec(vec![1.0, 2.0]);
-        let u_r = DVector::from_vec(vec![3.0, 4.0]);
-        let n = DVector::from_vec(vec![1.0, 0.0]);
+        let u_l = vector_from_vec(vec![1.0, 2.0]);
+        let u_r = vector_from_vec(vec![3.0, 4.0]);
+        let n = vector_from_vec(vec![1.0, 0.0]);
 
         let params = FluxParams::new(FluxType::Central);
         let flux = FluxFactory::create(params.flux_type);
@@ -453,9 +470,9 @@ mod tests {
 
     #[test]
     fn test_lax_friedrichs_flux() {
-        let u_l = DVector::from_vec(vec![0.0, 0.0]);
-        let u_r = DVector::from_vec(vec![2.0, 2.0]);
-        let n = DVector::from_vec(vec![1.0, 0.0]);
+        let u_l = vector_from_vec(vec![0.0, 0.0]);
+        let u_r = vector_from_vec(vec![2.0, 2.0]);
+        let n = vector_from_vec(vec![1.0, 0.0]);
 
         let params = FluxParams::new(FluxType::LaxFriedrichs).with_alpha(1.0);
         let flux = FluxFactory::create(params.flux_type);
@@ -467,9 +484,9 @@ mod tests {
         assert_relative_eq!(f2d[1], -1.0, epsilon = 1e-10);
 
         // 1-D scalar case with matching 1-D normal
-        let u_l = DVector::from_vec(vec![0.0]);
-        let u_r = DVector::from_vec(vec![2.0]);
-        let n1 = DVector::from_vec(vec![1.0]);
+        let u_l = vector_from_vec(vec![0.0]);
+        let u_r = vector_from_vec(vec![2.0]);
+        let n1 = vector_from_vec(vec![1.0]);
         let f = flux.compute_flux(&u_l, &u_r, &n1, &params);
 
         // max_wave_speed = max(|0·1|, |2·1|) = 2
@@ -480,9 +497,9 @@ mod tests {
 
     #[test]
     fn test_hll_flux() {
-        let u_l = DVector::from_vec(vec![1.0, 2.0]);
-        let u_r = DVector::from_vec(vec![3.0, 4.0]);
-        let n = DVector::from_vec(vec![1.0, 0.0]);
+        let u_l = vector_from_vec(vec![1.0, 2.0]);
+        let u_r = vector_from_vec(vec![3.0, 4.0]);
+        let n = vector_from_vec(vec![1.0, 0.0]);
 
         let params = FluxParams::new(FluxType::HLL);
         let flux = FluxFactory::create(params.flux_type);
@@ -490,15 +507,15 @@ mod tests {
 
         // The exact value depends on the wave speed estimates
         // Just verify that the result has the right dimensions
-        assert_eq!(f.len(), 2);
+        assert_eq!(vector_len(&f), 2);
     }
 
     #[test]
     fn test_rusanov_flux() {
-        let f_l = DVector::from_vec(vec![1.0, 2.0]);
-        let f_r = DVector::from_vec(vec![4.0, 5.0]);
-        let u_l = DVector::from_vec(vec![1.0, 2.0]);
-        let u_r = DVector::from_vec(vec![3.0, 4.0]);
+        let f_l = vector_from_vec(vec![1.0, 2.0]);
+        let f_r = vector_from_vec(vec![4.0, 5.0]);
+        let u_l = vector_from_vec(vec![1.0, 2.0]);
+        let u_r = vector_from_vec(vec![3.0, 4.0]);
         let alpha = 2.0;
 
         let f = rusanov_flux(&f_l, &f_r, &u_l, &u_r, alpha);
@@ -512,10 +529,10 @@ mod tests {
 
     #[test]
     fn test_upwind_flux() {
-        let f_l = DVector::from_vec(vec![1.0, 2.0]);
-        let f_r = DVector::from_vec(vec![4.0, 5.0]);
-        let u_l = DVector::from_vec(vec![1.0, 2.0]);
-        let u_r = DVector::from_vec(vec![3.0, 4.0]);
+        let f_l = vector_from_vec(vec![1.0, 2.0]);
+        let f_r = vector_from_vec(vec![4.0, 5.0]);
+        let u_l = vector_from_vec(vec![1.0, 2.0]);
+        let u_r = vector_from_vec(vec![3.0, 4.0]);
 
         // Test left-going flow (a < 0)
         let f = upwind_flux(&f_l, &f_r, &u_l, &u_r, -1.0);

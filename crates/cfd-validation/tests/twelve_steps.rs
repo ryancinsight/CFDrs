@@ -1,18 +1,18 @@
 use approx::assert_relative_eq;
 use cfd_2d::fields::{Field2D, SimulationFields};
-use cfd_2d::grid::{traits::Grid2D, StructuredGrid2D};
-use cfd_2d::solvers::solve_lid_driven_cavity;
+use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::{
     config::{AlgorithmType, SimplecPimpleConfig},
     SimplecPimpleSolver,
 };
+use cfd_2d::solvers::solve_lid_driven_cavity;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::{
     preconditioners::IncompleteLU, ConjugateGradient, IterativeSolverConfig,
 };
 use cfd_math::sparse::SparseMatrixBuilder;
-use nalgebra::{DVector, Vector3};
 use cfd_validation::analytical_benchmarks::lid_driven_cavity as ghia_lid_driven_cavity;
+use leto::{geometry::Vector3, Array1};
 
 /// Step 1: 1D Linear Convection
 /// Equation: du/dt + c*du/dx = 0
@@ -40,8 +40,8 @@ fn test_step_1_linear_convection() {
 
     // Initial Condition: Square wave from 0.5 to 1.0
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap().x;
-        if x >= 0.5 && x <= 1.0 {
+        let x = grid.cell_center(i, 0).unwrap()[0];
+        if (0.5..=1.0).contains(&x) {
             u.set(i, 0, 2.0);
         } else {
             u.set(i, 0, 1.0);
@@ -108,8 +108,8 @@ fn test_step_1_linear_convection() {
     // Discrete Initial Mass explicitly
     let mut init_mass_discrete = 0.0;
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap().x;
-        let val = if x >= 0.5 && x <= 1.0 { 2.0 } else { 1.0 };
+        let x = grid.cell_center(i, 0).unwrap()[0];
+        let val = if (0.5..=1.0).contains(&x) { 2.0 } else { 1.0 };
         init_mass_discrete += val * dx;
     }
 
@@ -144,8 +144,8 @@ fn test_step_2_nonlinear_convection() {
 
     // Initial Condition: Square wave u=2 inside [0.5, 1.0], u=1 elsewhere
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap().x;
-        if x >= 0.5 && x <= 1.0 {
+        let x = grid.cell_center(i, 0).unwrap()[0];
+        if (0.5..=1.0).contains(&x) {
             u.set(i, 0, 2.0);
         } else {
             u.set(i, 0, 1.0);
@@ -190,8 +190,8 @@ fn test_step_2_nonlinear_convection() {
     // Initial mass calculation
     let mut init_mass_discrete = 0.0;
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap().x;
-        let val = if x >= 0.5 && x <= 1.0 { 2.0 } else { 1.0 };
+        let x = grid.cell_center(i, 0).unwrap()[0];
+        let val = if (0.5..=1.0).contains(&x) { 2.0 } else { 1.0 };
         init_mass_discrete += val * dx;
     }
 
@@ -234,7 +234,7 @@ fn test_step_3_diffusion() {
     let mut u_new = Field2D::new(nx, 2, 0.0);
 
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap().x;
+        let x = grid.cell_center(i, 0).unwrap()[0];
         u.set(i, 0, analytical(x, 0.0));
     }
 
@@ -246,9 +246,9 @@ fn test_step_3_diffusion() {
 
             // Neighbors with Fixed BC u=0 at walls (Dirichlet for infinite domain approx)
             // Or use analytical BC
-            let x_w = grid.cell_center(0, 0).unwrap().x - dx;
+            let x_w = grid.cell_center(0, 0).unwrap()[0] - dx;
             let val_w_bc = analytical(x_w, t); // Analytical BC at west ghost
-            let x_e = grid.cell_center(nx - 1, 0).unwrap().x + dx;
+            let x_e = grid.cell_center(nx - 1, 0).unwrap()[0] + dx;
             let val_e_bc = analytical(x_e, t); // Analytical BC at east ghost
 
             let u_west = if i == 0 { val_w_bc } else { u.at(i - 1, 0) };
@@ -272,7 +272,7 @@ fn test_step_3_diffusion() {
     // 4. Verification
     let mut l2_error = 0.0;
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap().x;
+        let x = grid.cell_center(i, 0).unwrap()[0];
         let u_num = u.at(i, 0);
         let u_ana = analytical(x, t);
         l2_error += (u_num - u_ana).powi(2);
@@ -317,7 +317,7 @@ fn test_step_4_burgers() {
     // It will steepen into a N-wave shock and then decay.
 
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap().x;
+        let x = grid.cell_center(i, 0).unwrap()[0];
         u.set(i, 0, (x).sin());
     }
 
@@ -402,7 +402,7 @@ fn test_step_4_burgers() {
     // Initial mass
     let mut init_mass = 0.0;
     for i in 0..nx {
-        let x = grid.cell_center(i, 0).unwrap().x;
+        let x = grid.cell_center(i, 0).unwrap()[0];
         init_mass += (x).sin() * dx;
     }
 
@@ -453,7 +453,7 @@ fn test_step_5_2d_linear_convection() {
     for i in 0..nx {
         for j in 0..ny {
             let center = grid.cell_center(i, j).unwrap();
-            if center.x >= 0.5 && center.x <= 1.0 && center.y >= 0.5 && center.y <= 1.0 {
+            if center[0] >= 0.5 && center[0] <= 1.0 && center[1] >= 0.5 && center[1] <= 1.0 {
                 u.set(i, j, 2.0);
             } else {
                 u.set(i, j, 1.0);
@@ -506,11 +506,12 @@ fn test_step_5_2d_linear_convection() {
     for i in 0..nx {
         for j in 0..ny {
             let center = grid.cell_center(i, j).unwrap();
-            let val = if center.x >= 0.5 && center.x <= 1.0 && center.y >= 0.5 && center.y <= 1.0 {
-                2.0
-            } else {
-                1.0
-            };
+            let val =
+                if center[0] >= 0.5 && center[0] <= 1.0 && center[1] >= 0.5 && center[1] <= 1.0 {
+                    2.0
+                } else {
+                    1.0
+                };
             init_mass_discrete += val * dx * dy;
         }
     }
@@ -548,7 +549,7 @@ fn test_step_6_nonlinear_convection() {
     for i in 0..nx {
         for j in 0..ny {
             let center = grid.cell_center(i, j).unwrap();
-            if center.x >= 0.5 && center.x <= 1.0 && center.y >= 0.5 && center.y <= 1.0 {
+            if center[0] >= 0.5 && center[0] <= 1.0 && center[1] >= 0.5 && center[1] <= 1.0 {
                 u.set(i, j, 2.0);
             } else {
                 u.set(i, j, 1.0);
@@ -603,11 +604,12 @@ fn test_step_6_nonlinear_convection() {
     for i in 0..nx {
         for j in 0..ny {
             let center = grid.cell_center(i, j).unwrap();
-            let val = if center.x >= 0.5 && center.x <= 1.0 && center.y >= 0.5 && center.y <= 1.0 {
-                2.0
-            } else {
-                1.0
-            };
+            let val =
+                if center[0] >= 0.5 && center[0] <= 1.0 && center[1] >= 0.5 && center[1] <= 1.0 {
+                    2.0
+                } else {
+                    1.0
+                };
             init_mass_discrete += val * dx * dy;
         }
     }
@@ -660,7 +662,7 @@ fn test_step_7_diffusion() {
     for i in 0..nx {
         for j in 0..ny {
             let center = grid.cell_center(i, j).unwrap();
-            u.set(i, j, analytical(center.x, center.y, 0.0));
+            u.set(i, j, analytical(center[0], center[1], 0.0));
         }
     }
 
@@ -674,7 +676,7 @@ fn test_step_7_diffusion() {
 
                 // Boundaries fixed to analytical solution
                 if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
-                    u_new.set(i, j, analytical(center.x, center.y, t + dt));
+                    u_new.set(i, j, analytical(center[0], center[1], t + dt));
                     continue;
                 }
 
@@ -700,7 +702,7 @@ fn test_step_7_diffusion() {
         for j in 1..ny - 1 {
             let center = grid.cell_center(i, j).unwrap();
             let u_num = u.at(i, j);
-            let u_ana = analytical(center.x, center.y, t);
+            let u_ana = analytical(center[0], center[1], t);
             l2_error += (u_num - u_ana).powi(2);
         }
     }
@@ -734,7 +736,7 @@ fn test_step_8_burgers_2d() {
     for i in 0..nx {
         for j in 0..ny {
             let center = grid.cell_center(i, j).unwrap();
-            let r2 = (center.x - 1.0).powi(2) + (center.y - 1.0).powi(2);
+            let r2 = (center[0] - 1.0).powi(2) + (center[1] - 1.0).powi(2);
             u.set(i, j, (-r2 / 0.1).exp());
         }
     }
@@ -1118,7 +1120,7 @@ fn solve_poisson_2d(
     // Precompute Dirichlet boundary values on all boundary nodes.
     let bc_val = |i: usize, j: usize| -> f64 {
         let center = grid.cell_center(i, j).unwrap();
-        boundary_val_func(center.x, center.y)
+        boundary_val_func(center[0], center[1])
     };
 
     // Assemble the negated interior Laplacian: (-L_int) x = -f_int
@@ -1130,7 +1132,7 @@ fn solve_poisson_2d(
     let diag = 2.0 * coeff_x + 2.0 * coeff_y; // positive diagonal of negated system
 
     let mut builder = SparseMatrixBuilder::new(n_interior, n_interior);
-    let mut rhs = DVector::zeros(n_interior);
+    let mut rhs = Array1::<f64>::zeros([n_interior]);
 
     for j in 1..ny - 1 {
         for i in 1..nx - 1 {
@@ -1185,7 +1187,7 @@ fn solve_poisson_2d(
         ..Default::default()
     });
     let preconditioner = IncompleteLU::new(&matrix).unwrap();
-    let mut x_interior = DVector::zeros(n_interior);
+    let mut x_interior = Array1::<f64>::zeros([n_interior]);
     solver
         .solve_preconditioned(&matrix, &rhs, &preconditioner, &mut x_interior)
         .unwrap();
@@ -1225,7 +1227,7 @@ fn test_step_9_laplace() {
     for i in 0..nx {
         for j in 0..ny {
             let center = grid.cell_center(i, j).unwrap();
-            let p_ana = analytical(center.x, center.y);
+            let p_ana = analytical(center[0], center[1]);
             l2_error += (p_num.at(i, j) - p_ana).powi(2);
         }
     }
@@ -1259,7 +1261,7 @@ fn test_step_10_poisson() {
             source.set(
                 i,
                 j,
-                -2.0 * pi * pi * (pi * center.x).sin() * (pi * center.y).sin(),
+                -2.0 * pi * pi * (pi * center[0]).sin() * (pi * center[1]).sin(),
             );
         }
     }
@@ -1277,7 +1279,7 @@ fn test_step_10_poisson() {
     for i in 0..nx {
         for j in 0..ny {
             let center = grid.cell_center(i, j).unwrap();
-            let p_ana = analytical_func(center.x, center.y);
+            let p_ana = analytical_func(center[0], center[1]);
             l2_error += (p_num.at(i, j) - p_ana).powi(2);
         }
     }

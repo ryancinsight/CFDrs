@@ -32,13 +32,12 @@
 //! - Menter, F.R. (1994). AIAA Journal, 32(8), 1598-1605.
 
 use super::super::constants::{OMEGA_MIN, SST_BETA_STAR, SST_SIGMA_OMEGA2};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
 
 /// Cross-diffusion term `CD_kω` for the SST blending function F1.
 ///
 /// Evaluates `2 σ_ω₂ (∇k · ∇ω) / ω`, clamped to `≥ ω_min` for numerical stability.
-pub fn cross_diffusion<T: RealField + FromPrimitive + Copy>(
+pub fn cross_diffusion<T: RealField>(
     k: &[T],
     omega: &[T],
     idx: usize,
@@ -47,7 +46,7 @@ pub fn cross_diffusion<T: RealField + FromPrimitive + Copy>(
     dx: T,
     dy: T,
 ) -> T {
-    let omega_min = T::from_f64(OMEGA_MIN).expect("analytical constant conversion");
+    let omega_min = T::from_f64(OMEGA_MIN);
     let i = idx % nx;
     let j = idx / nx;
 
@@ -55,7 +54,7 @@ pub fn cross_diffusion<T: RealField + FromPrimitive + Copy>(
         return omega_min;
     }
 
-    let two = T::from_f64(2.0).expect("analytical constant conversion");
+    let two = T::from_f64(2.0);
 
     // ∇k
     let dk_dx = (k[idx + 1] - k[idx - 1]) / (two * dx);
@@ -68,14 +67,14 @@ pub fn cross_diffusion<T: RealField + FromPrimitive + Copy>(
     // ∇k · ∇ω
     let grad_dot = dk_dx * domega_dx + dk_dy * domega_dy;
 
-    let sigma_omega2 = T::from_f64(SST_SIGMA_OMEGA2).expect("analytical constant conversion");
-    (two * sigma_omega2 * grad_dot / omega[idx].max(omega_min)).max(omega_min)
+    let sigma_omega2 = T::from_f64(SST_SIGMA_OMEGA2);
+    (two * sigma_omega2 * grad_dot / omega[idx].max_scalar(omega_min)).max_scalar(omega_min)
 }
 
 /// Compute SST blending functions F1 and F2 for all grid points.
 ///
 /// F1 and F2 are stored in the provided mutable slices.
-pub fn compute_blending_functions<T: RealField + FromPrimitive + Copy>(
+pub fn compute_blending_functions<T: RealField>(
     f1: &mut [T],
     f2: &mut [T],
     k: &[T],
@@ -88,38 +87,31 @@ pub fn compute_blending_functions<T: RealField + FromPrimitive + Copy>(
     dx: T,
     dy: T,
 ) {
-    let beta_star = T::from_f64(SST_BETA_STAR).expect("analytical constant conversion");
-    let sigma_omega2 = T::from_f64(SST_SIGMA_OMEGA2).expect("analytical constant conversion");
-    let omega_min = T::from_f64(OMEGA_MIN).expect("analytical constant conversion");
+    let beta_star = T::from_f64(SST_BETA_STAR);
+    let sigma_omega2 = T::from_f64(SST_SIGMA_OMEGA2);
+    let omega_min = T::from_f64(OMEGA_MIN);
 
     for idx in 0..k.len() {
         let y = wall_distance[idx];
-        let k_val = k[idx].max(omega_min);
-        let omega_val = omega[idx].max(omega_min);
+        let k_val = k[idx].max_scalar(omega_min);
+        let omega_val = omega[idx].max_scalar(omega_min);
         let nu = molecular_viscosity / density;
 
         let cd_kw = cross_diffusion(k, omega, idx, nx, ny, dx, dy);
 
         // F1 arguments
-        let sqrt_k = k_val.sqrt();
+        let sqrt_k = <T as NumericElement>::sqrt(k_val);
         let arg1_1 = sqrt_k / (beta_star * omega_val * y);
-        let arg1_2 =
-            T::from_f64(500.0).expect("analytical constant conversion") * nu / (y * y * omega_val);
-        let arg1_3 = T::from_f64(4.0).expect("analytical constant conversion")
-            * density
-            * sigma_omega2
-            * k_val
-            / (cd_kw * y * y);
-        let arg1 = arg1_1.min(arg1_2).max(arg1_3);
-        f1[idx] = (T::from_f64(4.0).expect("analytical constant conversion") * arg1).tanh();
+        let arg1_2 = T::from_f64(500.0) * nu / (y * y * omega_val);
+        let arg1_3 = T::from_f64(4.0) * density * sigma_omega2 * k_val / (cd_kw * y * y);
+        let arg1 = arg1_1.min_scalar(arg1_2).max_scalar(arg1_3);
+        f1[idx] = <T as FloatElement>::tanh(T::from_f64(4.0) * arg1);
 
         // F2 arguments
-        let arg2_1 = T::from_f64(2.0).expect("analytical constant conversion") * sqrt_k
-            / (beta_star * omega_val * y);
-        let arg2_2 =
-            T::from_f64(500.0).expect("analytical constant conversion") * nu / (y * y * omega_val);
-        let arg2 = arg2_1.max(arg2_2);
-        f2[idx] = (arg2 * arg2).tanh();
+        let arg2_1 = T::from_f64(2.0) * sqrt_k / (beta_star * omega_val * y);
+        let arg2_2 = T::from_f64(500.0) * nu / (y * y * omega_val);
+        let arg2 = arg2_1.max_scalar(arg2_2);
+        f2[idx] = <T as FloatElement>::tanh(arg2 * arg2);
     }
 }
 
@@ -127,8 +119,8 @@ pub fn compute_blending_functions<T: RealField + FromPrimitive + Copy>(
 ///
 /// `φ = F₁ · φ₁ + (1 − F₁) · φ₂`
 #[inline]
-pub fn blend_coefficient<T: RealField + FromPrimitive + Copy>(coef1: f64, coef2: f64, f1: T) -> T {
-    let c1 = T::from_f64(coef1).expect("analytical constant conversion");
-    let c2 = T::from_f64(coef2).expect("analytical constant conversion");
-    f1 * c1 + (T::one() - f1) * c2
+pub fn blend_coefficient<T: RealField>(coef1: f64, coef2: f64, f1: T) -> T {
+    let c1 = T::from_f64(coef1);
+    let c2 = T::from_f64(coef2);
+    f1 * c1 + (T::ONE - f1) * c2
 }

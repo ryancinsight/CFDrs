@@ -37,12 +37,11 @@
 
 use crate::domain::channel::cross_section::CrossSection;
 use crate::domain::channel::geometry::{ChannelGeometry, ChannelType};
-use cfd_core::conversion::SafeFromF64;
+use crate::scalar::Cfd1dScalar;
 use cfd_core::physics::constants::mathematical::{numeric, PI};
-use nalgebra::RealField;
-use num_traits::{cast::FromPrimitive, Float};
+use eunomia::{FloatElement, NumericElement};
 
-impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
+impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
     /// Create a rectangular channel geometry.
     pub fn rectangular(length: T, width: T, height: T, roughness: T) -> Self {
         use crate::domain::channel::surface::{SurfaceProperties, Wettability};
@@ -123,7 +122,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
             } => {
                 let area = self.area();
                 let hw = (*top_width - *bottom_width) / (T::one() + T::one());
-                let side_length = Float::sqrt(Float::powi(*height, 2) + Float::powi(hw, 2));
+                let side_length = <T as NumericElement>::sqrt(
+                    <T as FloatElement>::powi(*height, 2) + <T as FloatElement>::powi(hw, 2),
+                );
                 let perimeter = *top_width + *bottom_width + (T::one() + T::one()) * side_length;
                 (T::one() + T::one() + T::one() + T::one()) * area / perimeter
             }
@@ -153,7 +154,9 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
                 height,
             } => {
                 let hw = (*top_width - *bottom_width) / (T::one() + T::one());
-                let side_length = Float::sqrt(Float::powi(*height, 2) + Float::powi(hw, 2));
+                let side_length = <T as NumericElement>::sqrt(
+                    <T as FloatElement>::powi(*height, 2) + <T as FloatElement>::powi(hw, 2),
+                );
                 *top_width + *bottom_width + (T::one() + T::one()) * side_length
             }
             CrossSection::Custom {
@@ -186,15 +189,15 @@ impl<T: RealField + Copy + FromPrimitive + Float> ChannelGeometry<T> {
         let m = T::one() - (b * b) / (a * a);
 
         let mut a_n = T::one();
-        let mut b_n = Float::sqrt(T::one() - m);
-        let mut c_n = Float::sqrt(m);
+        let mut b_n = <T as NumericElement>::sqrt(T::one() - m);
+        let mut c_n = <T as NumericElement>::sqrt(m);
         let mut sum = c_n * c_n / two;
         let mut power = T::one();
-        let tolerance = T::from_f64(1e-14).expect("AGM tolerance constant");
+        let tolerance = T::from_f64_or_one(1e-14);
 
         for _ in 0..20 {
             let a_next = (a_n + b_n) / two;
-            let b_next = Float::sqrt(a_n * b_n);
+            let b_next = <T as NumericElement>::sqrt(a_n * b_n);
             let c_next = (a_n - b_n) / two;
 
             a_n = a_next;

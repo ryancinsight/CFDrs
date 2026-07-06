@@ -12,11 +12,12 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
-use nalgebra::{RealField, Vector2};
+use eunomia::{NumericElement, RealField};
+use leto::geometry::Vector2;
 
 /// Face between two control volumes
 #[derive(Debug, Clone)]
-pub struct Face<T: RealField + Copy> {
+pub struct Face<T: NumericElement> {
     /// Face center position
     pub center: Vector2<T>,
     /// Face normal vector (unit)
@@ -29,7 +30,7 @@ pub struct Face<T: RealField + Copy> {
     pub neighbor: Option<usize>,
 }
 
-impl<T: RealField + Copy> Face<T> {
+impl<T: NumericElement + RealField> Face<T> {
     /// Create a new face
     pub fn new(
         center: Vector2<T>,
@@ -47,20 +48,26 @@ impl<T: RealField + Copy> Face<T> {
         }
     }
 
+    /// Get the flux through this face
+    pub fn flux(&self, velocity: Vector2<T>) -> T {
+        self.area * velocity.dot(self.normal)
+    }
+}
+
+impl<T: NumericElement> Face<T> {
     /// Check if this is a boundary face
     pub fn is_boundary(&self) -> bool {
         self.neighbor.is_none()
-    }
-
-    /// Get the flux through this face
-    pub fn flux(&self, velocity: Vector2<T>) -> T {
-        self.area * velocity.dot(&self.normal)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn abs(value: f64) -> f64 {
+        <f64 as NumericElement>::abs(value)
+    }
 
     #[test]
     fn test_face_normal_is_unit() {
@@ -73,7 +80,7 @@ mod tests {
         );
         let norm = face.normal.norm();
         assert!(
-            (norm - 1.0).abs() < 1e-14,
+            abs(norm - 1.0) < 1e-14,
             "Normal should be unit vector, got norm {norm}"
         );
     }
@@ -108,7 +115,7 @@ mod tests {
             Some(1),
         );
         let flux = face.flux(Vector2::new(3.0, 0.0));
-        assert!((flux - 6.0).abs() < 1e-14, "Expected 6.0, got {flux}");
+        assert!(abs(flux - 6.0) < 1e-14, "Expected 6.0, got {flux}");
     }
 
     #[test]
@@ -123,7 +130,7 @@ mod tests {
         );
         let flux = face.flux(Vector2::new(0.0, 5.0));
         assert!(
-            flux.abs() < 1e-14,
+            abs(flux) < 1e-14,
             "Tangential flux should be zero, got {flux}"
         );
     }
@@ -138,6 +145,6 @@ mod tests {
             Some(1),
         );
         let flux = face.flux(Vector2::zeros());
-        assert!(flux.abs() < 1e-14, "Zero velocity flux should be zero");
+        assert!(abs(flux) < 1e-14, "Zero velocity flux should be zero");
     }
 }

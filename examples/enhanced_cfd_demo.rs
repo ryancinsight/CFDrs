@@ -26,7 +26,7 @@ use cfd_2d::physics::{
 };
 use cfd_math::high_order::weno::WenoReconstruction;
 use cfd_math::time_stepping::RungeKuttaChebyshev;
-use nalgebra::Vector2;
+use leto::{geometry::Vector2, Array2};
 
 /// Advanced CFD simulation with all implemented enhancements
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -85,14 +85,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🌪️  Turbulence Model Demonstration:");
 
     // Create a sample velocity gradient tensor for SGS stress computation
-    let velocity_gradient = nalgebra::DMatrix::from_row_slice(
-        2,
-        2,
-        &[
+    let velocity_gradient = Array2::from_shape_vec(
+        [2, 2],
+        vec![
             1.0, 0.5, // ∂u/∂x, ∂u/∂y
             0.2, -0.8, // ∂v/∂x, ∂v/∂y
         ],
-    );
+    )
+    .expect("valid velocity gradient shape");
 
     let nu_vreman = vreman.sgs_viscosity(&velocity_gradient);
     let nu_sigma = sigma.sgs_viscosity(&velocity_gradient);
@@ -145,15 +145,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Demonstrate immersed boundary force computation
     println!("\n🌊 Immersed Boundary Force Computation:");
 
-    // Create sample velocity field
-    use nalgebra::DMatrix;
-    let mut velocity_field = DMatrix::zeros(256 * 128 * 2, 1);
+    // Create sample velocity field as [n_points, 2] (u=col0, v=col1)
+    let mut velocity_field = Array2::<f64>::zeros([256 * 128, 2]);
 
     // Set up a simple uniform flow with some disturbance
     for i in 0..256 {
         for j in 0..128 {
-            let idx_u = 2 * (j * 256 + i);
-            let idx_v = 2 * (j * 256 + i) + 1;
+            let cell = j * 256 + i;
 
             // Uniform flow with cylinder wake effect
             let x = i as f64 * 4.0 / 256.0;
@@ -167,8 +165,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 1.0
             };
 
-            velocity_field[idx_u] = u_base * wake_factor;
-            velocity_field[idx_v] = 0.0;
+            velocity_field[[cell, 0]] = u_base * wake_factor;
+            velocity_field[[cell, 1]] = 0.0;
         }
     }
 
@@ -176,12 +174,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let boundary_velocities = ibm.interpolate_velocities(&velocity_field)?;
 
     // Update forces to enforce no-slip condition
-    ibm.update_forces(
-        &boundary_velocities
-            .iter()
-            .map(|&v| Vector2::new(v.x, v.y))
-            .collect::<Vec<_>>(),
-    )?;
+    ibm.update_forces(&boundary_velocities)?;
 
     println!("🏊 Boundary Force Enforcement:");
     println!(

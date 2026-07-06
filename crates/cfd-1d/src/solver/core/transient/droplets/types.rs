@@ -1,6 +1,6 @@
+use crate::scalar::Cfd1dScalar;
 use crate::solver::core::transient::composition::MixtureComposition;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
 use std::collections::HashMap;
 
 /// Split mode selection at junctions.
@@ -16,7 +16,7 @@ pub enum SplitMode {
 
 /// Policy controlling droplet split behavior at junctions.
 #[derive(Debug, Clone)]
-pub struct DropletSplitPolicy<T: RealField + Copy> {
+pub struct DropletSplitPolicy<T: Cfd1dScalar + Copy> {
     /// Split decision mode.
     pub mode: SplitMode,
     /// Minimum secondary-flow fraction needed to trigger split in auto mode.
@@ -28,14 +28,12 @@ pub struct DropletSplitPolicy<T: RealField + Copy> {
     pub max_split_branches: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for DropletSplitPolicy<T> {
+impl<T: Cfd1dScalar + Copy + FloatElement> Default for DropletSplitPolicy<T> {
     fn default() -> Self {
         Self {
             mode: SplitMode::AutoFlowWeighted,
-            min_secondary_flow_fraction: T::from_f64(0.2)
-                .expect("Mathematical constant conversion compromised"),
-            min_child_volume: T::from_f64(1e-15)
-                .expect("Mathematical constant conversion compromised"),
+            min_secondary_flow_fraction: <T as FloatElement>::from_f64(0.2),
+            min_child_volume: <T as FloatElement>::from_f64(1e-15),
             max_split_branches: 2,
         }
     }
@@ -56,7 +54,7 @@ pub enum DropletState {
 
 /// Droplet injection definition.
 #[derive(Debug, Clone)]
-pub struct DropletInjection<T: RealField + Copy> {
+pub struct DropletInjection<T: Cfd1dScalar + Copy> {
     /// Unique droplet id.
     pub droplet_id: i32,
     /// Carrier fluid id (for provenance).
@@ -73,7 +71,7 @@ pub struct DropletInjection<T: RealField + Copy> {
 
 /// Droplet boundary point on a channel.
 #[derive(Debug, Clone)]
-pub struct DropletBoundary<T: RealField + Copy> {
+pub struct DropletBoundary<T: Cfd1dScalar + Copy> {
     /// Channel index.
     pub channel_index: usize,
     /// Relative position in channel [0, 1].
@@ -82,7 +80,7 @@ pub struct DropletBoundary<T: RealField + Copy> {
 
 /// Occupancy span for one channel segment [start, end].
 #[derive(Debug, Clone)]
-pub struct ChannelOccupancy<T: RealField + Copy> {
+pub struct ChannelOccupancy<T: Cfd1dScalar + Copy> {
     /// Channel index.
     pub channel_index: usize,
     /// Start of occupied interval in channel coordinates.
@@ -93,7 +91,7 @@ pub struct ChannelOccupancy<T: RealField + Copy> {
 
 /// Position of a droplet while in network.
 #[derive(Debug, Clone)]
-pub struct DropletPosition<T: RealField + Copy> {
+pub struct DropletPosition<T: Cfd1dScalar + Copy> {
     /// Current edge index.
     pub channel_index: usize,
     /// Relative position in edge [0, 1].
@@ -116,7 +114,7 @@ pub struct DropletPosition<T: RealField + Copy> {
 /// there is no stored point-droplet channel set that can diverge from span
 /// geometry.
 #[derive(Debug, Clone)]
-pub struct DropletSnapshot<T: RealField + Copy> {
+pub struct DropletSnapshot<T: Cfd1dScalar + Copy> {
     /// Droplet id.
     pub droplet_id: i32,
     /// Current state.
@@ -135,7 +133,7 @@ pub struct DropletSnapshot<T: RealField + Copy> {
     pub local_mixture: Option<MixtureComposition<T>>,
 }
 
-impl<T: RealField + Copy> DropletSnapshot<T> {
+impl<T: Cfd1dScalar + Copy> DropletSnapshot<T> {
     /// Compute the ordered unique channel projection of finite-length spans.
     #[must_use]
     pub fn occupied_channels(&self) -> Vec<usize> {
@@ -165,7 +163,7 @@ impl<T: RealField + Copy> DropletSnapshot<T> {
 
 /// Droplet tracking state at one timepoint.
 #[derive(Debug, Clone)]
-pub struct DropletTrackingState<T: RealField + Copy> {
+pub struct DropletTrackingState<T: Cfd1dScalar + Copy> {
     /// Simulation time.
     pub time: T,
     /// Droplet snapshots keyed by droplet id.
@@ -173,13 +171,13 @@ pub struct DropletTrackingState<T: RealField + Copy> {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct ActiveDroplet<T: RealField + Copy> {
+pub(crate) struct ActiveDroplet<T: Cfd1dScalar + Copy> {
     pub(crate) state: DropletState,
     pub(crate) branches: Vec<DropletBranch<T>>,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct DropletBranch<T: RealField + Copy> {
+pub(crate) struct DropletBranch<T: Cfd1dScalar + Copy> {
     pub(crate) channel_index: usize,
     pub(crate) center: T,
     pub(crate) volume: T,

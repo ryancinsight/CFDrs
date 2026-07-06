@@ -7,6 +7,7 @@ use super::{GpuBuffer, GpuContext};
 use crate::compute::gpu::kernels::turbulence::{GpuDesKernel, GpuSmagorinskyKernel};
 use crate::compute::traits::ComputeBuffer;
 use crate::error::Result;
+use hephaestus_wgpu::wgpu;
 use std::sync::Arc;
 
 /// GPU turbulence compute manager

@@ -11,14 +11,13 @@
 //! $\sum_f \mathbf{A}_f = \mathbf{0}$.
 
 use super::structured::StructuredGrid2D;
-use super::traits::Grid2D;
+use crate::scalar::from_usize;
 use cfd_core::error::Result;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
 
 /// Refinement criterion for adaptive grids
 #[derive(Debug, Clone, Copy)]
-pub enum RefinementCriterion<T: RealField + Copy> {
+pub enum RefinementCriterion<T> {
     /// Refine based on gradient threshold
     Gradient(T),
     /// Refine based on error estimate
@@ -34,7 +33,7 @@ pub enum RefinementCriterion<T: RealField + Copy> {
 /// the y-index. This avoids the heap indirection of `Vec<Vec<usize>>`
 /// and improves cache locality during full-grid traversals.
 #[derive(Debug, Clone)]
-pub struct AdaptiveGrid2D<T: RealField + Copy> {
+pub struct AdaptiveGrid2D<T> {
     /// Base grid.
     pub base_grid: StructuredGrid2D<T>,
     /// Refinement levels for each cell, stored flat as `[i * ny + j]`.
@@ -45,7 +44,7 @@ pub struct AdaptiveGrid2D<T: RealField + Copy> {
     pub max_level: usize,
 }
 
-impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
+impl<T: FloatElement> AdaptiveGrid2D<T> {
     /// Create a new adaptive grid.
     pub fn new(base_grid: StructuredGrid2D<T>, max_level: usize) -> Self {
         let nx = base_grid.nx();
@@ -243,7 +242,7 @@ impl<T: RealField + FromPrimitive + Copy> AdaptiveGrid2D<T> {
     /// Get effective resolution at a point.
     pub fn effective_resolution(&self, i: usize, j: usize) -> (T, T) {
         let level = self.refinement_levels[i * self.ny + j];
-        let factor = T::from_usize(1 << level).unwrap_or_else(|| T::one());
+        let factor = from_usize(1 << level);
 
         (self.base_grid.dx / factor, self.base_grid.dy / factor)
     }
@@ -314,7 +313,7 @@ mod tests {
             }
         }
         grid.coarsen().unwrap();
-        let any_reduced = grid.levels().iter().any(|&l| l == 0);
+        let any_reduced = grid.levels().contains(&0);
         assert!(
             any_reduced,
             "At least some cells should have been coarsened"

@@ -5,8 +5,8 @@
 
 use super::WomersleyNumber;
 use crate::physics::vascular::bessel::{bessel_j0, bessel_j0_j1};
-use nalgebra::{Complex, RealField};
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd1dScalar;
+use eunomia::{Complex, FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Womersley velocity profile calculator
@@ -19,14 +19,14 @@ use serde::{Deserialize, Serialize};
 /// The low-$\alpha$ and high-$\alpha$ expressions are retained only as
 /// analytical limits for interpretation and tests, not as runtime branches.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WomersleyProfile<T: RealField + Copy> {
+pub struct WomersleyProfile<T: Cfd1dScalar + Copy> {
     /// Womersley number parameters
     pub womersley: WomersleyNumber<T>,
     /// Pressure gradient amplitude [Pa/m]
     pub pressure_amplitude: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
+impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
     /// Create velocity profile calculator
     pub fn new(womersley: WomersleyNumber<T>, pressure_amplitude: T) -> Self {
         Self {
@@ -60,7 +60,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         };
 
         // i^{3/2} = e^{i 3pi/4} = (-1 + i) / sqrt(2)
-        let sqrt2 = (T::one() + T::one()).sqrt();
+        let sqrt2 = <T as NumericElement>::sqrt(T::one() + T::one());
         let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
 
         // z = i^{3/2} * alpha
@@ -78,7 +78,10 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
 
         // e^{i \omega t} = cos(\omega t) + i \sin(\omega t)
         let phase = omega * t;
-        let exp_iwt = Complex::new(phase.cos(), phase.sin());
+        let exp_iwt = Complex::new(
+            <T as FloatElement>::cos(phase),
+            <T as FloatElement>::sin(phase),
+        );
 
         // Final: Re{ coeff * term_brackets * exp_iwt }
         (coeff * term_brackets * exp_iwt).re
@@ -101,7 +104,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         let p_hat = self.pressure_amplitude;
         let one = T::one();
 
-        let sqrt2 = (T::one() + T::one()).sqrt();
+        let sqrt2 = <T as NumericElement>::sqrt(T::one() + T::one());
         let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
 
         let z = i_3_2 * alpha;
@@ -114,7 +117,10 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
 
         let phase = omega * t;
-        let exp_iwt = Complex::new(phase.cos(), phase.sin());
+        let exp_iwt = Complex::new(
+            <T as FloatElement>::cos(phase),
+            <T as FloatElement>::sin(phase),
+        );
 
         // du/dxi at xi=1
         let du_dxi = (coeff * term * exp_iwt).re;
@@ -134,7 +140,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         let two = T::one() + T::one();
         let pi = T::pi();
 
-        let sqrt2 = two.sqrt();
+        let sqrt2 = <T as NumericElement>::sqrt(two);
         let i_3_2 = Complex::new(-one / sqrt2, one / sqrt2);
 
         let z = i_3_2 * alpha;
@@ -149,7 +155,10 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyProfile<T> {
         let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
 
         let phase = omega * t;
-        let exp_iwt = Complex::new(phase.cos(), phase.sin());
+        let exp_iwt = Complex::new(
+            <T as FloatElement>::cos(phase),
+            <T as FloatElement>::sin(phase),
+        );
 
         // Q = pi * R^2 * Re{ coeff * bracket * exp_iwt }
         pi * r * r * (coeff * bracket * exp_iwt).re

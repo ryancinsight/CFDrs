@@ -19,19 +19,19 @@
 use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;
-use nalgebra::{RealField, Vector2};
-use num_traits::{FromPrimitive, ToPrimitive};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::{FloatElement, NumericElement};
+use leto::geometry::Vector2;
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
-    SimplecPimpleSolver<T>
-{
+impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
     /// Calculate velocity residual between two velocity fields (L∞ norm)
     pub(super) fn calculate_velocity_residual_from_vectors(
         &self,
         old_velocity: &Array2D<Vector2<T>>,
         new_velocity: &Array2D<Vector2<T>>,
     ) -> T {
-        let mut max_residual = T::zero();
+        let mut max_residual = scalar::zero();
         for i in 1..self.grid.nx - 1 {
             for j in 1..self.grid.ny - 1 {
                 let residual = (new_velocity[(i, j)] - old_velocity[(i, j)]).norm();
@@ -47,15 +47,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     ///
     /// Uses the standard central-difference discretization of the divergence operator.
     pub(super) fn calculate_continuity_residual(&self, fields: &SimulationFields<T>) -> T {
-        let mut max_divergence = T::zero();
-        let two = T::from_f64(2.0).expect("Exact mathematically representable f64");
+        let mut max_divergence = scalar::zero();
+        let two: T = scalar::from_f64(2.0);
         let nx = self.grid.nx;
         let ny = self.grid.ny;
         let dx = self.grid.dx;
         let dy = self.grid.dy;
 
         if nx < 3 || ny < 3 {
-            return T::zero();
+            return scalar::zero();
         }
 
         for i in 1..nx - 1 {
@@ -65,7 +65,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 }
                 let du_dx = (fields.u.at(i + 1, j) - fields.u.at(i - 1, j)) / (two * dx);
                 let dv_dy = (fields.v.at(i, j + 1) - fields.v.at(i, j - 1)) / (two * dy);
-                let abs_divergence = (du_dx + dv_dy).abs();
+                let abs_divergence = NumericElement::abs(du_dx + dv_dy);
                 if abs_divergence > max_divergence {
                     max_divergence = abs_divergence;
                 }
@@ -84,14 +84,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         face_velocity: &Array2D<Vector2<T>>,
         fields: &SimulationFields<T>,
     ) -> T {
-        let mut max_divergence = T::zero();
+        let mut max_divergence = scalar::zero();
         let nx = self.grid.nx;
         let ny = self.grid.ny;
         let dx = self.grid.dx;
         let dy = self.grid.dy;
 
         if nx < 3 || ny < 3 {
-            return T::zero();
+            return scalar::zero();
         }
 
         for i in 1..nx - 1 {
@@ -99,9 +99,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 if !fields.mask.at(i, j) {
                     continue;
                 }
-                let du_dx = (face_velocity[(i, j)].x - face_velocity[(i - 1, j)].x) / dx;
-                let dv_dy = (face_velocity[(i, j)].y - face_velocity[(i, j - 1)].y) / dy;
-                let abs_divergence = (du_dx + dv_dy).abs();
+                let du_dx = (face_velocity[(i, j)][0] - face_velocity[(i - 1, j)][0]) / dx;
+                let dv_dy = (face_velocity[(i, j)][1] - face_velocity[(i, j - 1)][1]) / dy;
+                let abs_divergence = NumericElement::abs(du_dx + dv_dy);
                 if abs_divergence > max_divergence {
                     max_divergence = abs_divergence;
                 }
@@ -154,7 +154,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             self.calculate_continuity_residual(fields)
         };
 
-        let cell_scale = (self.grid.dx * self.grid.dy).sqrt();
+        let cell_scale = NumericElement::sqrt(self.grid.dx * self.grid.dy);
         raw_res * cell_scale
     }
 

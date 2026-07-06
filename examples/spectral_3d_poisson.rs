@@ -8,7 +8,7 @@
 //! - Literature-validated spectral methods
 
 use cfd_3d::spectral::{PoissonBoundaryCondition, PoissonSolver};
-use nalgebra::DVector;
+use leto::Array1;
 use std::f64::consts::PI;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -28,7 +28,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     // Define right-hand side function f(x,y,z) = sin(πx)sin(πy)sin(πz)
     // This has exact solution u(x,y,z) = -sin(πx)sin(πy)sin(πz)/(3π²)
-    let mut rhs = DVector::zeros(nx * ny * nz);
+    let mut rhs = Array1::zeros([nx * ny * nz]);
 
     for i in 0..nx {
         for j in 0..ny {
@@ -68,7 +68,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     match solver.solve(&rhs, &bc_x, &bc_y, &bc_z) {
         Ok(solution) => {
             println!("Spectral solution converged successfully!");
-            println!("Solution vector length: {}", solution.len());
+            println!("Solution vector length: {}", solution.size());
             println!();
 
             // Display some sample values
@@ -90,7 +90,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             // Compute and display some basic statistics
             let max_val = solution.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
             let min_val = solution.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-            let mean_val = solution.iter().sum::<f64>() / solution.len() as f64;
+            let mean_val = solution.iter().sum::<f64>() / solution.size() as f64;
 
             println!();
             println!("Solution statistics:");

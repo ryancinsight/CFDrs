@@ -34,12 +34,12 @@
 //! - Boyd, J. et al. (2007). A common-sense approach to blood rheology.
 //!   *Biophys. J.* 92:1565.
 
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use crate::scalar::{from_f64, max, one, zero};
+use eunomia::FloatElement;
 
 /// Carreau-Yasuda model parameters.
 #[derive(Debug, Clone, Copy)]
-pub struct CarreauYasudaModel<T: RealField + Copy> {
+pub struct CarreauYasudaModel<T: FloatElement> {
     /// Fluid density [kg/m^3]
     pub density: T,
     /// Zero-shear viscosity limit $\mu_0$ [Pa·s]
@@ -54,19 +54,19 @@ pub struct CarreauYasudaModel<T: RealField + Copy> {
     pub n: T,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive> CarreauYasudaModel<T> {
+impl<T: FloatElement> CarreauYasudaModel<T> {
     /// Standard Carreau-Yasuda parameters for bulk human blood
     ///
     /// Derived from Leuprecht & Perktold (2001) for healthy blood at 37°C.
     #[must_use]
     pub fn typical_blood() -> Self {
         Self {
-            density: T::from_f64(1060.0).expect("analytical constant conversion"),
-            mu_0: T::from_f64(0.022).expect("analytical constant conversion"),
-            mu_inf: T::from_f64(0.0022).expect("analytical constant conversion"),
-            lambda: T::from_f64(0.11).expect("analytical constant conversion"),
-            a: T::from_f64(0.644).expect("analytical constant conversion"),
-            n: T::from_f64(0.392).expect("analytical constant conversion"),
+            density: from_f64(1060.0),
+            mu_0: from_f64(0.022),
+            mu_inf: from_f64(0.0022),
+            lambda: from_f64(0.11),
+            a: from_f64(0.644),
+            n: from_f64(0.392),
         }
     }
 
@@ -81,15 +81,15 @@ impl<T: RealField + Copy + Float + FromPrimitive> CarreauYasudaModel<T> {
     #[inline]
     #[must_use]
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
-        let sr = Float::max(shear_rate, T::zero());
-        let one = T::one();
+        let sr = max(shear_rate, zero());
+        let one = one::<T>();
 
         // [1 + (λ γ̇)^a]
-        let base = one + Float::powf(self.lambda * sr, self.a);
+        let base = one + <T as FloatElement>::powf(self.lambda * sr, self.a);
         // Exponent: (1-n)/a
         let exp = (one - self.n) / self.a;
 
-        self.mu_inf + (self.mu_0 - self.mu_inf) * Float::powf(base, -exp)
+        self.mu_inf + (self.mu_0 - self.mu_inf) * <T as FloatElement>::powf(base, zero::<T>() - exp)
     }
 
     /// Compute the kinematic viscosity $\nu = \mu / \rho$.

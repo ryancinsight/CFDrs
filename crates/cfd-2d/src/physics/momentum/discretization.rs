@@ -13,10 +13,10 @@
 
 // MusclReconstruction and MusclOrder integrated into TVD module
 use super::muscl::MusclReconstruction;
-use nalgebra::RealField;
+use crate::scalar::Cfd2dScalar;
 
 /// Trait for discretization schemes
-pub trait DiscretizationScheme<T: RealField + Copy> {
+pub trait DiscretizationScheme<T: Cfd2dScalar + Copy> {
     /// Compute convective flux using a 4-point stencil (i-1, i, i+1, i+2)
     /// Flux is computed at the interface between cell i and i+1 (face i+1/2)
     fn convective_flux(&self, phi_im1: T, phi_i: T, phi_ip1: T, phi_ip2: T, velocity: T) -> T;
@@ -28,7 +28,7 @@ pub trait DiscretizationScheme<T: RealField + Copy> {
 /// MUSCL-based discretization scheme
 pub struct MusclDiscretization<T, M>
 where
-    T: RealField + Copy,
+    T: Cfd2dScalar + Copy,
     M: MusclReconstruction<T>,
 {
     muscl: M,
@@ -37,7 +37,7 @@ where
 
 impl<T, M> MusclDiscretization<T, M>
 where
-    T: RealField + Copy,
+    T: Cfd2dScalar + Copy,
     M: MusclReconstruction<T>,
 {
     /// Create new MUSCL discretization scheme
@@ -51,7 +51,7 @@ where
 
 impl<T, M> DiscretizationScheme<T> for MusclDiscretization<T, M>
 where
-    T: RealField + Copy,
+    T: Cfd2dScalar + Copy,
     M: MusclReconstruction<T>,
 {
     fn convective_flux(&self, phi_im1: T, phi_i: T, phi_ip1: T, phi_ip2: T, velocity: T) -> T {
@@ -90,7 +90,7 @@ where
 /// Upwind discretization scheme
 pub struct Upwind;
 
-impl<T: RealField + Copy> DiscretizationScheme<T> for Upwind {
+impl<T: Cfd2dScalar + Copy> DiscretizationScheme<T> for Upwind {
     fn convective_flux(&self, _phi_im1: T, phi_i: T, phi_ip1: T, _phi_ip2: T, velocity: T) -> T {
         if velocity > T::zero() {
             // Flow L->R, upwind is i
@@ -109,7 +109,7 @@ impl<T: RealField + Copy> DiscretizationScheme<T> for Upwind {
 /// Central difference discretization scheme
 pub struct CentralDifference;
 
-impl<T: RealField + Copy> DiscretizationScheme<T> for CentralDifference {
+impl<T: Cfd2dScalar + Copy> DiscretizationScheme<T> for CentralDifference {
     fn convective_flux(&self, _phi_im1: T, phi_i: T, phi_ip1: T, _phi_ip2: T, velocity: T) -> T {
         let half = T::one() / (T::one() + T::one());
         velocity * (phi_i + phi_ip1) * half

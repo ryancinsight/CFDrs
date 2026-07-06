@@ -1,8 +1,8 @@
 //! Time-dependent boundary condition functionality
 
 use crate::physics::boundary::BoundaryCondition;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 // Mathematical constants
@@ -34,7 +34,7 @@ pub enum TimeFunctionType {
     Custom(String),
 }
 
-impl<T: RealField + Copy + FromPrimitive> TimeDependentSpec<T> {
+impl<T: RealField + FloatElement + Copy> TimeDependentSpec<T> {
     /// Create a constant time function
     #[must_use]
     pub fn constant() -> Self {
@@ -80,40 +80,40 @@ impl<T: RealField + Copy + FromPrimitive> TimeDependentSpec<T> {
     /// Evaluate the time function at a given time
     pub fn evaluate(&self, time: T) -> T {
         match self.function_type {
-            TimeFunctionType::Constant | TimeFunctionType::Custom(_) => T::one(),
+            TimeFunctionType::Constant | TimeFunctionType::Custom(_) => T::ONE,
 
             TimeFunctionType::Linear => {
                 if self.parameters.len() >= 2 {
                     self.parameters[0] + self.parameters[1] * time
                 } else {
-                    T::one()
+                    T::ONE
                 }
             }
 
             TimeFunctionType::Sinusoidal => {
                 if self.parameters.len() >= 4 {
-                    let two_pi = T::from_f64(TWO_PI).unwrap_or_else(T::one);
+                    let two_pi = <T as FloatElement>::from_f64(TWO_PI);
                     let amplitude = self.parameters[0];
                     let frequency = self.parameters[1];
                     let phase = self.parameters[2];
                     let offset = self.parameters[3];
-                    amplitude * (two_pi * frequency * time + phase).sin() + offset
+                    amplitude * FloatElement::sin(two_pi * frequency * time + phase) + offset
                 } else {
-                    T::one()
+                    T::ONE
                 }
             }
 
             TimeFunctionType::Exponential => {
                 if self.parameters.len() >= 2 {
-                    self.parameters[0] * (self.parameters[1] * time).exp()
+                    self.parameters[0] * FloatElement::exp(self.parameters[1] * time)
                 } else {
-                    T::one()
+                    T::ONE
                 }
             }
 
             TimeFunctionType::Polynomial => {
-                let mut result = T::zero();
-                let mut time_power = T::one();
+                let mut result = T::ZERO;
+                let mut time_power = T::ONE;
                 for coeff in &self.parameters {
                     result += *coeff * time_power;
                     time_power *= time;
@@ -151,5 +151,50 @@ impl<T: RealField + Copy + FromPrimitive> TimeDependentSpec<T> {
             },
             other => other.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TimeDependentSpec;
+    use crate::physics::boundary::BoundaryCondition;
+
+    #[test]
+    fn sinusoidal_time_function_matches_closed_form() {
+        let spec = TimeDependentSpec::sinusoidal(2.0_f64, 0.25, 0.5, 1.0);
+
+        let value = spec.evaluate(0.5);
+        let expected = 2.0 * f64::sin(2.0 * std::f64::consts::PI * 0.25 * 0.5 + 0.5) + 1.0;
+
+        assert!((value - expected).abs() <= 8.0 * f64::EPSILON * expected.abs().max(1.0));
+    }
+
+    #[test]
+    fn exponential_time_function_matches_closed_form() {
+        let spec = TimeDependentSpec::exponential(3.0_f64, -0.25);
+
+        let value = spec.evaluate(4.0);
+        let expected = 3.0 * f64::exp(-0.25 * 4.0);
+
+        assert!((value - expected).abs() <= 8.0 * f64::EPSILON * expected);
+    }
+
+    #[test]
+    fn time_function_scales_boundary_condition_components() {
+        let spec = TimeDependentSpec::linear(2.0_f64, 0.5);
+        let condition = BoundaryCondition::Dirichlet {
+            value: 4.0,
+            component_values: Some(vec![Some(1.0), None, Some(3.0)]),
+        };
+
+        let scaled = spec.apply_to_condition(&condition, 2.0);
+
+        assert_eq!(
+            scaled,
+            BoundaryCondition::Dirichlet {
+                value: 12.0,
+                component_values: Some(vec![Some(3.0), None, Some(9.0)]),
+            }
+        );
     }
 }

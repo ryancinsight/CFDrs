@@ -3,7 +3,8 @@
 //! Mathematical classification of boundary conditions following
 //! standard PDE theory.
 
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::geometry::Vector3;
 use serde::{Deserialize, Serialize};
 
 /// Fundamental physical type of a boundary condition

@@ -7,12 +7,12 @@
 
 use crate::fields::Field2D;
 use crate::fields::SimulationFields;
-use nalgebra::RealField;
+use crate::scalar::Cfd2dScalar;
 
 use super::super::solver::MomentumComponent;
 
 #[inline]
-pub fn compute_second_order_correction_x<T: RealField + Copy>(
+pub fn compute_second_order_correction_x<T: Cfd2dScalar + Copy>(
     i: usize,
     j: usize,
     u: T,
@@ -66,7 +66,7 @@ pub fn compute_second_order_correction_x<T: RealField + Copy>(
 }
 
 #[inline]
-pub fn compute_second_order_correction_y<T: RealField + Copy>(
+pub fn compute_second_order_correction_y<T: Cfd2dScalar + Copy>(
     i: usize,
     j: usize,
     v: T,
@@ -120,7 +120,7 @@ pub fn compute_second_order_correction_y<T: RealField + Copy>(
 }
 
 #[inline]
-pub fn apply_second_order_deferred_correction<T: RealField + Copy>(
+pub fn apply_second_order_deferred_correction<T: Cfd2dScalar + Copy>(
     source: &mut Field2D<T>,
     i: usize,
     j: usize,
@@ -135,8 +135,7 @@ pub fn apply_second_order_deferred_correction<T: RealField + Copy>(
     component: MomentumComponent,
     relaxation_factor: f64,
 ) {
-    let alpha = T::from_f64(relaxation_factor)
-        .unwrap_or_else(|| T::from_f64(0.7).expect("analytical constant conversion"));
+    let alpha = crate::scalar::from_f64::<T>(relaxation_factor);
 
     let correction_x = if i >= 1 && i < nx - 2 {
         compute_second_order_correction_x(i, j, u, rho, dy, fields, component)

@@ -1,36 +1,40 @@
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
 use crate::physics::momentum::{validate_boundary_consistency, MomentumSolver};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use crate::solvers::fdm::PoissonSolver;
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::sparse::SparseMatrix;
-use nalgebra::{DVector, RealField};
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, RealField as EunomiaRealField};
+use leto::Array1;
 use std::collections::HashMap;
 
 /// SIMPLE (Semi-Implicit Method for Pressure-Linked Equations) algorithm
-pub struct SimpleAlgorithm<T: RealField + Copy + FromPrimitive + std::fmt::Debug> {
+pub struct SimpleAlgorithm<
+    T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug,
+> {
     pub(crate) pressure_relaxation: T,
     pub(crate) velocity_relaxation: T,
     pub(crate) max_iterations: usize,
     pub(crate) tolerance: T,
     pub(crate) pressure_matrix: Option<SparseMatrix<T>>,
     pub(crate) matrix_builder: Option<cfd_math::sparse::SparseMatrixBuilder<T>>,
-    pub(crate) rhs: Option<DVector<T>>,
-    pub(crate) p_prime: Option<DVector<T>>,
+    pub(crate) rhs: Option<Array1<T>>,
+    pub(crate) p_prime: Option<Array1<T>>,
     pub(crate) d_u: Option<Field2D<T>>,
     pub(crate) d_v: Option<Field2D<T>>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
+impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> SimpleAlgorithm<T> {
     /// Construct with Patankar-recommended defaults: α_u = 0.7, α_p = 0.3.
     pub fn new() -> Self {
         Self {
-            pressure_relaxation: T::from_f64(0.3).expect("Exact mathematically representable f64"),
-            velocity_relaxation: T::from_f64(0.7).expect("Exact mathematically representable f64"),
+            pressure_relaxation: scalar::from_f64(0.3),
+            velocity_relaxation: scalar::from_f64(0.7),
             max_iterations: 50,
-            tolerance: T::from_f64(1e-6).expect("Exact mathematically representable f64"),
+            tolerance: scalar::from_f64(1e-6),
             pressure_matrix: None,
             matrix_builder: None,
             rhs: None,
@@ -69,25 +73,25 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         if self.pressure_matrix.as_ref().is_none_or(|b| b.nrows() != n) {
             self.pressure_matrix = None; // Reset if matrix geometry violates new bounds
         }
-        if self.rhs.as_ref().is_none_or(|v| v.len() != n) {
-            self.rhs = Some(DVector::zeros(n));
+        if self.rhs.as_ref().is_none_or(|v| v.shape()[0] != n) {
+            self.rhs = Some(Array1::from_elem([n], scalar::zero::<T>()));
         }
-        if self.p_prime.as_ref().is_none_or(|v| v.len() != n) {
-            self.p_prime = Some(DVector::zeros(n));
+        if self.p_prime.as_ref().is_none_or(|v| v.shape()[0] != n) {
+            self.p_prime = Some(Array1::from_elem([n], scalar::zero::<T>()));
         }
         if self
             .d_u
             .as_ref()
             .is_none_or(|f| f.nx() != nx || f.ny() != ny)
         {
-            self.d_u = Some(Field2D::new(nx, ny, T::zero()));
+            self.d_u = Some(Field2D::new(nx, ny, scalar::zero::<T>()));
         }
         if self
             .d_v
             .as_ref()
             .is_none_or(|f| f.nx() != nx || f.ny() != ny)
         {
-            self.d_v = Some(Field2D::new(nx, ny, T::zero()));
+            self.d_v = Some(Field2D::new(nx, ny, scalar::zero::<T>()));
         }
     }
 
@@ -163,7 +167,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Default
+impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement + std::fmt::Debug> Default
     for SimpleAlgorithm<T>
 {
     fn default() -> Self {
@@ -179,6 +183,7 @@ mod tests {
     use crate::physics::momentum::MomentumSolver;
     use crate::solvers::fdm::PoissonSolver;
     use cfd_core::physics::boundary::BoundaryCondition;
+    use eunomia::NumericElement;
     use std::collections::HashMap;
 
     #[test]
@@ -189,7 +194,9 @@ mod tests {
         assert!(simple.velocity_relaxation > 0.0 && simple.velocity_relaxation < 1.0);
         // Invariant: Patankar's recommendation α_u + α_p ≈ 1
         assert!(
-            (simple.velocity_relaxation + simple.pressure_relaxation - 1.0).abs() < 0.01,
+            <f64 as NumericElement>::abs(
+                simple.velocity_relaxation + simple.pressure_relaxation - 1.0,
+            ) < 0.01,
             "Expected α_u + α_p ≈ 1 (Patankar 1980 recommendation)"
         );
     }
@@ -201,7 +208,6 @@ mod tests {
         //   d_e * (avg_grad_pe - face_grad_pe)
         // must be identically zero, since both gradients equal zero.
         let dx = 0.1_f64;
-        let _dy = 0.1_f64;
         let two = 2.0_f64;
 
         // All pressures equal → all gradients zero
@@ -213,7 +219,7 @@ mod tests {
         let rc_correction = avg_grad_pe - face_grad_pe;
 
         assert!(
-            rc_correction.abs() < 1e-14,
+            <f64 as NumericElement>::abs(rc_correction) < 1e-14,
             "RC correction for uniform pressure must be zero; got {rc_correction}"
         );
     }
@@ -236,7 +242,7 @@ mod tests {
         let rc_correction = avg_grad_pe - face_grad_pe; // 0 - (-20) = 20 ≠ 0
 
         assert!(
-            rc_correction.abs() > 1e-10,
+            <f64 as NumericElement>::abs(rc_correction) > 1e-10,
             "RC correction for checker-board pressure must be non-zero; got {rc_correction}"
         );
     }

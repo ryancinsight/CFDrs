@@ -5,24 +5,16 @@
 
 use tracing;
 
-use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
-use nalgebra::{RealField, Vector3};
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::FloatElement;
+use nalgebra::Vector3;
 
 use super::solver::BifurcationSolver3D;
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64
-            + Float
-            + From<f64>,
-    > BifurcationSolver3D<T>
+impl<T> BifurcationSolver3D<T>
+where
+    T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + FloatElement + Copy,
 {
     /// Calculate flow rate through a boundary label using u·n integration (f64 precision)
     ///
@@ -204,6 +196,6 @@ impl<
             }
         }
 
-        Ok(num_traits::Float::sqrt(2.0_f64 * inner_prod))
+        Ok((2.0_f64 * inner_prod).sqrt())
     }
 }

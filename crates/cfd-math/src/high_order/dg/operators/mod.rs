@@ -9,9 +9,14 @@ pub use params::{BoundaryCondition, BoundaryFlux, DGOperatorParams};
 
 use super::basis::{BasisType, DGBasis};
 use super::FluxType;
+use super::{
+    column_vector, matrix_solve, matrix_sub, matrix_zeros, row_vector, set_column, set_row,
+    vector_add, vector_add_assign_scaled, vector_len, vector_scale, vector_sub, vector_sum,
+    vector_zeros,
+};
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
-use nalgebra::{DMatrix, DVector};
+use leto::{Array1, Array2};
 
 /// Represents a DG operator for spatial discretization
 #[derive(Clone)]
@@ -23,7 +28,7 @@ pub struct DGOperator {
     /// Basis functions and matrices
     pub basis: DGBasis,
     /// Lifting operators for boundary conditions
-    pub lift_operators: Vec<DMatrix<f64>>,
+    pub lift_operators: Vec<Array2<f64>>,
     /// Parameters for the DG operator
     pub params: DGOperatorParams,
 }
@@ -52,25 +57,24 @@ impl DGOperator {
         }
 
         let params = params.unwrap_or_default();
-        let basis = DGBasis::new(order, basis_type)
-            .context("constructing DG operator basis")?;
+        let basis = DGBasis::new(order, basis_type).context("constructing DG operator basis")?;
         let num_basis = order + 1;
 
         // Compute lifting operators for boundary conditions
         let mut lift_operators = Vec::with_capacity(2);
 
         // Left boundary lifting operator
-        let mut lift_l = DMatrix::zeros(num_basis, 1);
+        let mut lift_l = matrix_zeros(num_basis, 1);
         for i in 0..num_basis {
-            lift_l[(i, 0)] = basis.phi[(i, 0)] * basis.quad_weights[0];
+            lift_l[[i, 0]] = basis.phi[[i, 0]] * basis.quad_weights[0];
         }
         lift_operators.push(lift_l);
 
         // Right boundary lifting operator
-        let mut lift_r = DMatrix::zeros(num_basis, 1);
+        let mut lift_r = matrix_zeros(num_basis, 1);
         for i in 0..num_basis {
-            lift_r[(i, 0)] = basis.phi[(i, basis.quad_points.len() - 1)]
-                * basis.quad_weights[basis.quad_points.len() - 1];
+            lift_r[[i, 0]] = basis.phi[[i, vector_len(&basis.quad_points) - 1]]
+                * basis.quad_weights[vector_len(&basis.quad_points) - 1];
         }
         lift_operators.push(lift_r);
 
@@ -84,85 +88,85 @@ impl DGOperator {
     }
 
     /// Compute the derivative of the solution
-    pub fn compute_derivative(&self, u: &DMatrix<f64>) -> Result<DMatrix<f64>> {
+    pub fn compute_derivative(&self, u: &Array2<f64>) -> Result<Array2<f64>> {
         let num_basis = self.order + 1;
-        let mut du_dx = DMatrix::zeros(self.num_components, num_basis);
+        let mut du_dx = matrix_zeros(self.num_components, num_basis);
 
         // M * c_deriv = K^T * c_orig
         // where K_ij = ∫ φ_i' φ_j dx
         // So (K^T)_ij = K_ji = ∫ φ_j' φ_i dx
 
-        let kt = self.basis.stiffness_matrix.transpose();
-        let mass_lu = self.basis.mass_matrix.clone().lu();
-
         for i in 0..self.num_components {
-            let u_row = u.row(i).transpose();
-            let rhs = &kt * u_row;
-            if let Some(sol) = mass_lu.solve(&rhs) {
-                du_dx.row_mut(i).copy_from(&sol.transpose());
-            } else {
-                return Err(Error::Solver(
-                    "Failed to solve mass matrix system for derivative".to_string(),
-                ));
-            }
+            let u_row = row_vector(u, i);
+            let rhs = super::matrix_transpose_vector_mul(&self.basis.stiffness_matrix, &u_row);
+            let sol = matrix_solve(&self.basis.mass_matrix, &rhs)
+                .context("solving DG mass matrix for derivative coefficients")?;
+            set_row(&mut du_dx, i, &sol);
         }
 
         Ok(du_dx)
     }
 
     /// Compute the right-hand side of the DG semi-discrete equation
-    pub fn rhs<F, G>(
-        &self,
-        u: &DMatrix<f64>,
-        flux: F,
-        boundary_condition: G,
-    ) -> Result<DMatrix<f64>>
+    pub fn rhs<F, G>(&self, u: &Array2<f64>, flux: F, boundary_condition: G) -> Result<Array2<f64>>
     where
-        F: Fn(&DVector<f64>) -> DVector<f64>,
-        G: Fn(f64, &DVector<f64>, bool) -> DVector<f64>,
+        F: Fn(&Array1<f64>) -> Array1<f64>,
+        G: Fn(f64, &Array1<f64>, bool) -> Array1<f64>,
     {
         let num_basis = self.order + 1;
-        let num_quad = self.basis.quad_points.len();
-        let mut rhs = DMatrix::zeros(self.num_components, num_basis);
+        let num_quad = vector_len(&self.basis.quad_points);
+        let mut rhs = matrix_zeros(self.num_components, num_basis);
 
         // Compute volume integral terms
         if self.params.strong_form {
             // Strong form: M^{-1} * (K^T * F - F^*|_{-1}^1)
 
             // Compute the flux at all quadrature points
-            let mut f_quad = DMatrix::zeros(self.num_components, num_quad);
+            let mut f_quad = matrix_zeros(self.num_components, num_quad);
             for q in 0..num_quad {
                 // Evaluate the solution at the quadrature point
-                let mut u_q = DVector::zeros(self.num_components);
+                let mut u_q = vector_zeros(self.num_components);
                 for i in 0..num_basis {
-                    u_q += u.column(i) * self.basis.phi[(i, q)];
+                    vector_add_assign_scaled(
+                        &mut u_q,
+                        &column_vector(u, i),
+                        self.basis.phi[[i, q]],
+                    );
                 }
 
                 // Compute the flux
-                f_quad.column_mut(q).copy_from(&flux(&u_q));
+                set_column(&mut f_quad, q, &flux(&u_q));
             }
 
             // Compute K^T * F
-            let mut kt_f = DMatrix::zeros(self.num_components, num_basis);
+            let mut kt_f = matrix_zeros(self.num_components, num_basis);
             for i in 0..self.num_components {
                 for j in 0..num_basis {
                     let mut sum = 0.0;
                     for q in 0..num_quad {
                         sum += self.basis.quad_weights[q]
-                            * self.basis.dphi_dx[(j, q)]
-                            * f_quad[(i, q)];
+                            * self.basis.dphi_dx[[j, q]]
+                            * f_quad[[i, q]];
                     }
-                    kt_f[(i, j)] = sum;
+                    kt_f[[i, j]] = sum;
                 }
             }
 
             // Compute the numerical flux at the boundaries
             // Evaluate solution at boundaries correctly for any basis
-            let mut u_l = DVector::zeros(self.num_components);
-            let mut u_r = DVector::zeros(self.num_components);
+            let mut u_l = vector_zeros(self.num_components);
+            let mut u_r = vector_zeros(self.num_components);
             for i in 0..num_basis {
-                u_l += u.column(i) * self.basis.evaluate_basis(i, -1.0);
-                u_r += u.column(i) * self.basis.evaluate_basis(i, 1.0);
+                vector_add_assign_scaled(
+                    &mut u_l,
+                    &column_vector(u, i),
+                    self.basis.evaluate_basis(i, -1.0),
+                );
+                vector_add_assign_scaled(
+                    &mut u_r,
+                    &column_vector(u, i),
+                    self.basis.evaluate_basis(i, 1.0),
+                );
             }
 
             // Apply boundary conditions
@@ -174,39 +178,42 @@ impl DGOperator {
             let f_num_r = self.compute_numerical_flux(1.0, &f_r, &u_r, None, &boundary_condition);
 
             // Compute the boundary terms
-            let mut boundary_term = DMatrix::zeros(self.num_components, num_basis);
+            let mut boundary_term = matrix_zeros(self.num_components, num_basis);
             for i in 0..self.num_components {
                 for j in 0..num_basis {
-                    boundary_term[(i, j)] = self.basis.evaluate_basis(j, 1.0) * f_num_r[i]
+                    boundary_term[[i, j]] = self.basis.evaluate_basis(j, 1.0) * f_num_r[i]
                         - self.basis.evaluate_basis(j, -1.0) * f_num_l[i];
                 }
             }
 
             // Compute the right-hand side
-            rhs = kt_f - boundary_term;
+            rhs = matrix_sub(&kt_f, &boundary_term);
 
             // Multiply by the inverse mass matrix
-            let mass_lu = self.basis.mass_matrix.clone().lu();
             for i in 0..self.num_components {
-                let rhs_row = rhs.row(i).transpose();
-                if let Some(sol) = mass_lu.solve(&rhs_row) {
-                    rhs.row_mut(i).copy_from(&sol.transpose());
-                }
+                let rhs_row = row_vector(&rhs, i);
+                let sol = matrix_solve(&self.basis.mass_matrix, &rhs_row)
+                    .context("solving DG mass matrix for strong-form RHS")?;
+                set_row(&mut rhs, i, &sol);
             }
         } else {
             // Weak form: F * dφ/dx - F^* φ|_{-1}^1
 
             // Compute the flux at all quadrature points
-            let mut f_quad = DMatrix::zeros(self.num_components, num_quad);
+            let mut f_quad = matrix_zeros(self.num_components, num_quad);
             for q in 0..num_quad {
                 // Evaluate the solution at the quadrature point
-                let mut u_q = DVector::zeros(self.num_components);
+                let mut u_q = vector_zeros(self.num_components);
                 for i in 0..num_basis {
-                    u_q += u.column(i) * self.basis.phi[(i, q)];
+                    vector_add_assign_scaled(
+                        &mut u_q,
+                        &column_vector(u, i),
+                        self.basis.phi[[i, q]],
+                    );
                 }
 
                 // Compute the flux
-                f_quad.column_mut(q).copy_from(&flux(&u_q));
+                set_column(&mut f_quad, q, &flux(&u_q));
             }
 
             // Compute the volume integral: F * dφ/dx
@@ -215,20 +222,28 @@ impl DGOperator {
                     let mut sum = 0.0;
                     for q in 0..num_quad {
                         sum += self.basis.quad_weights[q]
-                            * f_quad[(i, q)]
-                            * self.basis.dphi_dx[(j, q)];
+                            * f_quad[[i, q]]
+                            * self.basis.dphi_dx[[j, q]];
                     }
-                    rhs[(i, j)] = -sum; // Negative sign from integration by parts
+                    rhs[[i, j]] = -sum; // Negative sign from integration by parts
                 }
             }
 
             // Compute the numerical flux at the boundaries
             // Evaluate solution at boundaries correctly for any basis
-            let mut u_l = DVector::zeros(self.num_components);
-            let mut u_r = DVector::zeros(self.num_components);
+            let mut u_l = vector_zeros(self.num_components);
+            let mut u_r = vector_zeros(self.num_components);
             for i in 0..num_basis {
-                u_l += u.column(i) * self.basis.evaluate_basis(i, -1.0);
-                u_r += u.column(i) * self.basis.evaluate_basis(i, 1.0);
+                vector_add_assign_scaled(
+                    &mut u_l,
+                    &column_vector(u, i),
+                    self.basis.evaluate_basis(i, -1.0),
+                );
+                vector_add_assign_scaled(
+                    &mut u_r,
+                    &column_vector(u, i),
+                    self.basis.evaluate_basis(i, 1.0),
+                );
             }
 
             // Apply boundary conditions
@@ -242,18 +257,17 @@ impl DGOperator {
             // Add the surface integral terms
             for i in 0..self.num_components {
                 for j in 0..num_basis {
-                    rhs[(i, j)] += self.basis.evaluate_basis(j, 1.0) * f_num_r[i]
+                    rhs[[i, j]] += self.basis.evaluate_basis(j, 1.0) * f_num_r[i]
                         - self.basis.evaluate_basis(j, -1.0) * f_num_l[i];
                 }
             }
 
             // Multiply by the inverse mass matrix
-            let mass_lu = self.basis.mass_matrix.clone().lu();
             for i in 0..self.num_components {
-                let rhs_row = rhs.row(i).transpose();
-                if let Some(sol) = mass_lu.solve(&rhs_row) {
-                    rhs.row_mut(i).copy_from(&sol.transpose());
-                }
+                let rhs_row = row_vector(&rhs, i);
+                let sol = matrix_solve(&self.basis.mass_matrix, &rhs_row)
+                    .context("solving DG mass matrix for weak-form RHS")?;
+                set_row(&mut rhs, i, &sol);
             }
         }
 
@@ -264,13 +278,13 @@ impl DGOperator {
     fn compute_numerical_flux<G>(
         &self,
         x: f64,
-        f: &DVector<f64>,
-        u: &DVector<f64>,
-        u_ext: Option<&DVector<f64>>,
+        f: &Array1<f64>,
+        u: &Array1<f64>,
+        u_ext: Option<&Array1<f64>>,
         boundary_condition: G,
-    ) -> DVector<f64>
+    ) -> Array1<f64>
     where
-        G: Fn(f64, &DVector<f64>, bool) -> DVector<f64>,
+        G: Fn(f64, &Array1<f64>, bool) -> Array1<f64>,
     {
         let is_right_boundary = x > 0.0;
 
@@ -285,12 +299,12 @@ impl DGOperator {
 
         // Compute the numerical flux based on the selected type
         match self.params.surface_flux {
-            FluxType::Central => 0.5 * (f + &f_ext),
+            FluxType::Central => vector_scale(&vector_add(f, &f_ext), 0.5),
             FluxType::Upwind => {
                 // Upwind direction determined by the characteristic speed.
                 // Use the local normal velocity: average of interior and exterior
                 // state projections, falling back to params.alpha for sign.
-                let a = 0.5 * (u.sum() + u_ext.sum());
+                let a = 0.5 * (vector_sum(u) + vector_sum(&u_ext));
                 let a = if a.abs() < f64::EPSILON {
                     self.params.alpha
                 } else {
@@ -304,46 +318,52 @@ impl DGOperator {
             }
             FluxType::LaxFriedrichs => {
                 let alpha = self.params.alpha;
-                0.5 * (f + &f_ext) - 0.5 * alpha * (&u_ext - u)
+                vector_sub(
+                    &vector_scale(&vector_add(f, &f_ext), 0.5),
+                    &vector_scale(&vector_sub(&u_ext, u), 0.5 * alpha),
+                )
             }
             _ => {
                 // Default to Lax-Friedrichs
                 let alpha = self.params.alpha;
-                0.5 * (f + &f_ext) - 0.5 * alpha * (&u_ext - u)
+                vector_sub(
+                    &vector_scale(&vector_add(f, &f_ext), 0.5),
+                    &vector_scale(&vector_sub(&u_ext, u), 0.5 * alpha),
+                )
             }
         }
     }
 
     /// Apply boundary conditions to the solution
-    pub fn apply_boundary_conditions<G>(&self, u: &mut DMatrix<f64>, boundary_condition: G)
+    pub fn apply_boundary_conditions<G>(&self, u: &mut Array2<f64>, boundary_condition: G)
     where
-        G: Fn(f64, &DVector<f64>, bool) -> DVector<f64>,
+        G: Fn(f64, &Array1<f64>, bool) -> Array1<f64>,
     {
         let num_basis = self.order + 1;
 
         // Apply boundary conditions at the left boundary (x = -1)
-        let u_l = u.column(0).into_owned();
+        let u_l = column_vector(u, 0);
         let u_l_bc = boundary_condition(-1.0, &u_l, false);
 
         // Apply boundary conditions at the right boundary (x = 1)
-        let u_r = u.column(num_basis - 1).into_owned();
+        let u_r = column_vector(u, num_basis - 1);
         let u_r_bc = boundary_condition(1.0, &u_r, true);
 
         // Update the solution with the boundary values
         for i in 0..self.num_components {
-            u[(i, 0)] = u_l_bc[i];
-            u[(i, num_basis - 1)] = u_r_bc[i];
+            u[[i, 0]] = u_l_bc[i];
+            u[[i, num_basis - 1]] = u_r_bc[i];
         }
     }
 
     /// Project a function onto the DG basis
-    pub fn project<F>(&self, f: F) -> DMatrix<f64>
+    pub fn project<F>(&self, f: F) -> Result<Array2<f64>>
     where
-        F: Fn(f64) -> DVector<f64>,
+        F: Fn(f64) -> Array1<f64>,
     {
         let num_basis = self.order + 1;
-        let num_quad = self.basis.quad_points.len();
-        let mut u = DMatrix::zeros(self.num_components, num_basis);
+        let num_quad = vector_len(&self.basis.quad_points);
+        let mut u = matrix_zeros(self.num_components, num_basis);
 
         // Compute the projection
         for q in 0..num_quad {
@@ -352,29 +372,29 @@ impl DGOperator {
             let f_q = f(x_q);
 
             for i in 0..num_basis {
-                let phi_i = self.basis.phi[(i, q)];
+                let phi_i = self.basis.phi[[i, q]];
                 for c in 0..self.num_components {
-                    u[(c, i)] += w_q * f_q[c] * phi_i;
+                    u[[c, i]] += w_q * f_q[c] * phi_i;
                 }
             }
         }
 
         // Solve the mass matrix system
-        let mass_lu = self.basis.mass_matrix.clone().lu();
         for i in 0..self.num_components {
-            let u_row = u.row(i).transpose();
-            if let Some(sol) = mass_lu.solve(&u_row) {
-                u.row_mut(i).copy_from(&sol.transpose());
-            }
+            let u_row = row_vector(&u, i);
+            let sol = matrix_solve(&self.basis.mass_matrix, &u_row)
+                .context("solving DG mass matrix for projection")?;
+            set_row(&mut u, i, &sol);
         }
 
-        u
+        Ok(u)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::high_order::dg::{matrix_cols, matrix_rows, vector_from_element};
     use approx::assert_relative_eq;
 
     #[test]
@@ -386,16 +406,16 @@ mod tests {
         assert_eq!(dg_op.order, order);
         assert_eq!(dg_op.num_components, num_components);
         // Orthogonal basis uses order + 2 quadrature points
-        assert_eq!(dg_op.basis.quad_points.len(), order + 2);
-        assert_eq!(dg_op.basis.quad_weights.len(), order + 2);
-        assert_eq!(dg_op.basis.phi.nrows(), order + 1);
-        assert_eq!(dg_op.basis.phi.ncols(), order + 2);
-        assert_eq!(dg_op.basis.mass_matrix.nrows(), order + 1);
-        assert_eq!(dg_op.basis.mass_matrix.ncols(), order + 1);
-        assert_eq!(dg_op.basis.stiffness_matrix.nrows(), order + 1);
-        assert_eq!(dg_op.basis.stiffness_matrix.ncols(), order + 1);
-        assert_eq!(dg_op.basis.diff_matrix.nrows(), order + 1);
-        assert_eq!(dg_op.basis.diff_matrix.ncols(), order + 1);
+        assert_eq!(vector_len(&dg_op.basis.quad_points), order + 2);
+        assert_eq!(vector_len(&dg_op.basis.quad_weights), order + 2);
+        assert_eq!(matrix_rows(&dg_op.basis.phi), order + 1);
+        assert_eq!(matrix_cols(&dg_op.basis.phi), order + 2);
+        assert_eq!(matrix_rows(&dg_op.basis.mass_matrix), order + 1);
+        assert_eq!(matrix_cols(&dg_op.basis.mass_matrix), order + 1);
+        assert_eq!(matrix_rows(&dg_op.basis.stiffness_matrix), order + 1);
+        assert_eq!(matrix_cols(&dg_op.basis.stiffness_matrix), order + 1);
+        assert_eq!(matrix_rows(&dg_op.basis.diff_matrix), order + 1);
+        assert_eq!(matrix_cols(&dg_op.basis.diff_matrix), order + 1);
     }
 
     #[test]
@@ -406,14 +426,14 @@ mod tests {
 
         // u(x) = x -> u' (x) = 1
         // In Legendre basis: u(x) = P_1(x) -> u' (x) = P_0(x)
-        let mut u = DMatrix::zeros(1, order + 1);
-        u[(0, 1)] = 1.0;
+        let mut u = matrix_zeros(1, order + 1);
+        u[[0, 1]] = 1.0;
 
         let du_dx = dg_op.compute_derivative(&u).unwrap();
 
-        assert_relative_eq!(du_dx[(0, 0)], 1.0, epsilon = 1e-10);
-        assert_relative_eq!(du_dx[(0, 1)], 0.0, epsilon = 1e-10);
-        assert_relative_eq!(du_dx[(0, 2)], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(du_dx[[0, 0]], 1.0, epsilon = 1e-10);
+        assert_relative_eq!(du_dx[[0, 1]], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(du_dx[[0, 2]], 0.0, epsilon = 1e-10);
     }
 
     #[test]
@@ -423,17 +443,17 @@ mod tests {
         let dg_op = DGOperator::new(order, num_components, None).unwrap();
 
         // Test with a constant solution u(x) = 1
-        let mut u = DMatrix::zeros(1, order + 1);
-        u[(0, 0)] = 1.0; // P_0(x) = 1
+        let mut u = matrix_zeros(1, order + 1);
+        u[[0, 0]] = 1.0; // P_0(x) = 1
 
         // For a constant solution, the RHS should be zero
-        let flux = |u: &DVector<f64>| u.clone();
-        let bc = |_: f64, u: &DVector<f64>, _: bool| u.clone();
+        let flux = |u: &Array1<f64>| u.clone();
+        let bc = |_: f64, u: &Array1<f64>, _: bool| u.clone();
 
         let rhs = dg_op.rhs(&u, flux, bc).unwrap();
 
         for i in 0..=order {
-            assert_relative_eq!(rhs[(0, i)], 0.0, epsilon = 1e-10);
+            assert_relative_eq!(rhs[[0, i]], 0.0, epsilon = 1e-10);
         }
     }
 
@@ -444,14 +464,14 @@ mod tests {
         let dg_op = DGOperator::new(order, num_components, None).unwrap();
 
         // Project f(x) = x^2
-        let f = |x: f64| DVector::from_element(1, x * x);
-        let u = dg_op.project(f);
+        let f = |x: f64| vector_from_element(1, x * x);
+        let u = dg_op.project(f).unwrap();
 
         // Verify projection at quadrature points
         for (i, &xi) in dg_op.basis.quad_points.iter().enumerate() {
             let mut projected = 0.0;
             for j in 0..=order {
-                projected += u[(0, j)] * dg_op.basis.phi[(j, i)];
+                projected += u[[0, j]] * dg_op.basis.phi[[j, i]];
             }
             assert_relative_eq!(projected, xi * xi, epsilon = 1e-10);
         }
@@ -462,7 +482,7 @@ mod tests {
             let w = dg_op.basis.quad_weights[q];
             let mut projected = 0.0;
             for j in 0..=order {
-                projected += u[(0, j)] * dg_op.basis.phi[(j, q)];
+                projected += u[[0, j]] * dg_op.basis.phi[[j, q]];
             }
             let error = projected - x * x;
             l2_error_sq += w * error * error;
@@ -476,9 +496,9 @@ mod tests {
         let num_components = 1;
         let dg_op = DGOperator::new(order, num_components, None).unwrap();
 
-        let u = DVector::from_element(1, 1.0);
-        let f = DVector::from_element(1, 1.0);
-        let bc = |_: f64, u: &DVector<f64>, _: bool| u.clone();
+        let u = vector_from_element(1, 1.0);
+        let f = vector_from_element(1, 1.0);
+        let bc = |_: f64, u: &Array1<f64>, _: bool| u.clone();
 
         // Central flux: f_num = 0.5 * (f_l + f_r)
         let f_num = dg_op.compute_numerical_flux(0.0, &f, &u, Some(&u), bc);

@@ -101,15 +101,16 @@
 
 mod numerics;
 
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for Poiseuille flow solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PoiseuilleConfig<T: RealField + Copy> {
+pub struct PoiseuilleConfig<T: Cfd2dScalar + Copy> {
     /// Channel height \[m]
     pub height: T,
 
@@ -137,17 +138,17 @@ pub struct PoiseuilleConfig<T: RealField + Copy> {
     pub relaxation_factor: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for PoiseuilleConfig<T> {
+impl<T: Cfd2dScalar + FloatElement + Copy> Default for PoiseuilleConfig<T> {
     fn default() -> Self {
         Self {
-            height: T::from_f64(100e-6).expect("analytical constant conversion"), // 100 μm
-            width: T::from_f64(500e-6).expect("analytical constant conversion"),  // 500 μm
-            length: T::from_f64(1e-3).expect("analytical constant conversion"),   // 1 mm
-            ny: 101, // 101 points for 100 intervals
-            pressure_gradient: T::from_f64(1000.0).expect("analytical constant conversion"), // 1000 Pa/m
-            tolerance: T::from_f64(1e-6).expect("analytical constant conversion"),
+            height: scalar::from_f64(100e-6),            // 100 μm
+            width: scalar::from_f64(500e-6),             // 500 μm
+            length: scalar::from_f64(1e-3),              // 1 mm
+            ny: 101,                                     // 101 points for 100 intervals
+            pressure_gradient: scalar::from_f64(1000.0), // 1000 Pa/m
+            tolerance: scalar::from_f64(1e-6),
             max_iterations: 1000,
-            relaxation_factor: T::from_f64(0.7).expect("analytical constant conversion"),
+            relaxation_factor: scalar::from_f64(0.7),
         }
     }
 }
@@ -156,7 +157,7 @@ impl<T: RealField + FromPrimitive + Copy> Default for PoiseuilleConfig<T> {
 ///
 /// Solves steady-state velocity profile u(y) between parallel plates.
 #[derive(Debug)]
-pub struct PoiseuilleFlow2D<T: RealField + Copy + Float> {
+pub struct PoiseuilleFlow2D<T: Cfd2dScalar + Copy + FloatElement> {
     /// Configuration
     pub(super) config: PoiseuilleConfig<T>,
 
@@ -187,7 +188,7 @@ pub struct PoiseuilleFlow2D<T: RealField + Copy + Float> {
 
 /// Blood rheology model selection
 #[derive(Debug, Clone)]
-pub enum BloodModel<T: RealField + Copy> {
+pub enum BloodModel<T: Cfd2dScalar + Copy> {
     /// Casson model with yield stress
     Casson(CassonBlood<T>),
 
@@ -195,7 +196,7 @@ pub enum BloodModel<T: RealField + Copy> {
     CarreauYasuda(CarreauYasudaBlood<T>),
 }
 
-impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
+impl<T: Cfd2dScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
     /// Create new Poiseuille flow solver
     ///
     /// # Arguments
@@ -215,19 +216,18 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
     /// ```
     pub fn new(config: PoiseuilleConfig<T>, blood_model: BloodModel<T>) -> Self {
         let ny = config.ny;
-        let dy = config.height / T::from_usize(ny - 1).expect("analytical constant conversion");
+        let dy = config.height / scalar::from_usize::<T>(ny - 1);
 
         // Create grid points
-        let y_coords: Vec<T> = (0..ny)
-            .map(|j| T::from_usize(j).expect("analytical constant conversion") * dy)
-            .collect();
+        let y_coords: Vec<T> = (0..ny).map(|j| scalar::from_usize::<T>(j) * dy).collect();
 
         // Initialize fields
-        let velocity = vec![T::zero(); ny];
-        let shear_rate = vec![T::zero(); ny];
+        let zero: T = scalar::zero();
+        let velocity = vec![zero; ny];
+        let shear_rate = vec![zero; ny];
 
         // Initialize viscosity with constant value
-        let mu_init = T::from_f64(0.004).expect("analytical constant conversion"); // ~4 cP initial guess
+        let mu_init = <T as FloatElement>::from_f64(0.004); // ~4 cP initial guess
         let viscosity = vec![mu_init; ny];
 
         Self {
@@ -279,8 +279,8 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
 
             // 4. Apply under-relaxation
             for j in 0..ny {
-                self.viscosity[j] =
-                    alpha * self.viscosity[j] + (T::one() - alpha) * self.viscosity_work[j];
+                self.viscosity[j] = alpha * self.viscosity[j]
+                    + (scalar::one::<T>() - alpha) * self.viscosity_work[j];
             }
 
             // 5. Check convergence
@@ -294,12 +294,12 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
 
         Err(Error::Solver(format!(
             "Convergence failed after {max_iter} iterations (residual: {:.2e})",
-            self.residuals
-                .last()
-                .copied()
-                .unwrap_or(T::zero())
-                .to_f64()
-                .unwrap_or(f64::NAN)
+            <T as NumericElement>::to_f64(
+                self.residuals
+                    .last()
+                    .copied()
+                    .unwrap_or_else(scalar::zero::<T>)
+            )
         )))
     }
 
@@ -311,7 +311,7 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
     pub fn analytical_solution(&self, viscosity: T) -> Vec<T> {
         let dp_dx = self.config.pressure_gradient;
         let height = self.config.height;
-        let two = T::from_f64(2.0).expect("analytical constant conversion");
+        let two = scalar::from_f64::<T>(2.0);
 
         self.y_coords
             .iter()
@@ -324,7 +324,7 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
         self.velocity
             .iter()
             .copied()
-            .fold(T::zero(), |acc, v| if v > acc { v } else { acc })
+            .fold(scalar::zero(), |acc, v| if v > acc { v } else { acc })
     }
 
     /// Calculate volumetric flow rate per unit width
@@ -335,9 +335,9 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
     pub fn flow_rate_per_width(&self) -> T {
         let ny = self.config.ny;
         let dy = self.dy;
-        let two = T::from_f64(2.0).expect("analytical constant conversion");
+        let two = scalar::from_f64::<T>(2.0);
 
-        let mut sum = T::zero();
+        let mut sum: T = scalar::zero();
         for j in 0..ny - 1 {
             sum += (self.velocity[j] + self.velocity[j + 1]) / two * dy;
         }
@@ -393,6 +393,7 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use eunomia::NumericElement;
 
     #[test]
     fn test_thomas_algorithm() {
@@ -405,24 +406,26 @@ mod tests {
         let x = numerics::thomas_algorithm(&a, &b, &c, &d).unwrap();
 
         // Verify solution
-        assert!((x[0] - 1.0).abs() < 1e-10);
-        assert!((x[3] - 1.0).abs() < 1e-10);
+        assert!(<f64 as NumericElement>::abs(x[0] - 1.0) < 1e-10);
+        assert!(<f64 as NumericElement>::abs(x[3] - 1.0) < 1e-10);
     }
 
     #[test]
     fn test_poiseuille_newtonian() {
         // Test with non-Newtonian blood model at high shear (approaches Newtonian)
-        let mut config = PoiseuilleConfig::default();
-        config.ny = 51;
-        config.height = 0.001; // 1mm channel
-        config.pressure_gradient = 100000.0; // High pressure gradient for high shear
-        config.tolerance = 1e-8;
+        let config = PoiseuilleConfig {
+            ny: 51,
+            height: 0.001,               // 1mm channel
+            pressure_gradient: 100000.0, // High pressure gradient for high shear
+            tolerance: 1e-8,
+            ..Default::default()
+        };
 
         let blood = CassonBlood::<f64>::normal_blood();
         let mut solver = PoiseuilleFlow2D::new(config.clone(), BloodModel::Casson(blood));
 
         let iterations = solver.solve().unwrap();
-        println!("Converged in {} iterations", iterations);
+        println!("Converged in {iterations} iterations");
 
         // Debug: check shear rates and viscosities
         let max_shear_rate = solver
@@ -435,17 +438,14 @@ mod tests {
             .iter()
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
-        println!("Max shear rate: {:.6e} s^-1", max_shear_rate);
-        println!("Min viscosity: {:.6e} Pa·s", min_viscosity);
+        println!("Max shear rate: {max_shear_rate:.6e} s^-1");
+        println!("Min viscosity: {min_viscosity:.6e} Pa·s");
 
         // For validation with non-Newtonian fluid:
         // Use minimum viscosity (high-shear asymptotic value) for analytical comparison
         // This represents the Newtonian behavior at high shear rates
         let effective_viscosity = *min_viscosity;
-        println!(
-            "Effective viscosity (min): {:.6e} Pa·s",
-            effective_viscosity
-        );
+        println!("Effective viscosity (min): {effective_viscosity:.6e} Pa·s");
 
         let analytical = solver.analytical_solution(effective_viscosity);
 
@@ -457,28 +457,26 @@ mod tests {
             .enumerate()
             .filter(|(i, _)| *i > 0 && *i < solver.velocity.len() - 1) // Skip boundaries
             .map(|(_, (num, ana))| {
-                if ana.abs() < 1e-14 {
+                if <f64 as NumericElement>::abs(*ana) < 1e-14 {
                     0.0 // Skip near-zero values
                 } else {
-                    ((num - ana) / ana).abs()
+                    <f64 as NumericElement>::abs((num - ana) / ana)
                 }
             })
             .fold(0.0_f64, |max, val| if val > max { val } else { max });
 
-        println!("Maximum relative error: {:.2e}", max_error);
-        println!(
-            "Velocity at center: numerical={:.6e}, analytical={:.6e}",
-            solver.velocity[solver.velocity.len() / 2],
-            analytical[analytical.len() / 2]
-        );
+        println!("Maximum relative error: {max_error:.2e}");
+        let numerical_center = solver.velocity[solver.velocity.len() / 2];
+        let analytical_center = analytical[analytical.len() / 2];
+        println!("Velocity at center: numerical={numerical_center:.6e}, analytical={analytical_center:.6e}");
 
         // With high-shear viscosity, non-Newtonian blood should approach Newtonian behavior
         // Error comes from shear-thinning effects away from centerline
         // Accept up to 15% error due to viscosity variation across channel
+        let max_error_percent = max_error * 100.0;
         assert!(
             max_error < 0.15,
-            "Error too large: {:.2}% (expected <15% for high-shear non-Newtonian vs Newtonian)",
-            max_error * 100.0
+            "Error too large: {max_error_percent:.2}% (expected <15% for high-shear non-Newtonian vs Newtonian)"
         );
 
         // Verify solver converged and produced reasonable results

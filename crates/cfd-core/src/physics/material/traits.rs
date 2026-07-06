@@ -3,10 +3,10 @@
 //! This module provides abstractions for non-fluid material properties
 //! used in Fluid-Structure Interaction (FSI) and multi-phase simulations.
 
-use nalgebra::RealField;
+use eunomia::{FloatElement, NumericElement};
 
 /// Solid properties abstraction for structural and thermal analysis
-pub trait SolidProperties<T: RealField + Copy>: Send + Sync {
+pub trait SolidProperties<T: FloatElement + Copy>: Send + Sync {
     /// Get density [kg/m³]
     fn density(&self) -> T;
 
@@ -18,8 +18,8 @@ pub trait SolidProperties<T: RealField + Copy>: Send + Sync {
 
     /// Get shear modulus \[Pa]
     fn shear_modulus(&self) -> T {
-        let two = T::one() + T::one();
-        self.youngs_modulus() / (two * (T::one() + self.poissons_ratio()))
+        let two = <T as NumericElement>::ONE + <T as NumericElement>::ONE;
+        self.youngs_modulus() / (two * (<T as NumericElement>::ONE + self.poissons_ratio()))
     }
 
     /// Get thermal conductivity [W/(m·K)]
@@ -33,7 +33,7 @@ pub trait SolidProperties<T: RealField + Copy>: Send + Sync {
 }
 
 /// Interface properties for multi-phase and surface physics
-pub trait InterfaceProperties<T: RealField + Copy>: Send + Sync {
+pub trait InterfaceProperties<T: FloatElement + Copy>: Send + Sync {
     /// Get surface tension [N/m]
     fn surface_tension(&self) -> T;
 
@@ -42,6 +42,6 @@ pub trait InterfaceProperties<T: RealField + Copy>: Send + Sync {
 
     /// Get adhesion energy [J/m²]
     fn adhesion_energy(&self) -> T {
-        self.surface_tension() * self.contact_angle().cos()
+        self.surface_tension() * <T as FloatElement>::cos(self.contact_angle())
     }
 }

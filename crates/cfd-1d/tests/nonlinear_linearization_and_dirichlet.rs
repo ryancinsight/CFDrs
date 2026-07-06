@@ -1,9 +1,10 @@
 use cfd_1d::domain::network::{Edge, EdgeType, Network, NetworkBuilder};
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::newtonian::ConstantPropertyFluid;
 use nalgebra::DVector;
 
-fn build_simple_network<T: nalgebra::RealField + Copy + num_traits::FromPrimitive>() -> (
+fn build_simple_network<T: cfd_1d::Cfd1dScalar + Copy + SafeFromF64>() -> (
     Network<T>,
     petgraph::graph::EdgeIndex,
     petgraph::graph::NodeIndex,

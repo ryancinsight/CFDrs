@@ -2,6 +2,7 @@
 
 use super::{DGSolution, Limiter, LimiterParams};
 use crate::error::Result;
+use crate::high_order::dg::matrix_cols;
 
 /// WENO (Weighted Essentially Non-Oscillatory) limiter
 pub struct WENOLimiter {
@@ -158,13 +159,13 @@ impl Limiter for WENOLimiter {
                 let u_rec = weno_limiter.weno_reconstruction(&u_stencil, params.weno_epsilon);
 
                 // Update the solution coefficients
-                for j in 1..solution.coefficients.ncols() {
-                    solution.coefficients[(i, j)] = 0.0;
+                for j in 1..matrix_cols(&solution.coefficients) {
+                    solution.coefficients[[i, j]] = 0.0;
                 }
 
                 // Set the first moment (linear term)
-                if solution.coefficients.ncols() > 1 {
-                    solution.coefficients[(i, 1)] = u_rec - u_avg[i];
+                if matrix_cols(&solution.coefficients) > 1 {
+                    solution.coefficients[[i, 1]] = u_rec - u_avg[i];
                 }
             }
         }
@@ -186,8 +187,8 @@ impl Limiter for WENOLimiter {
         let u_avg = solution.average();
 
         for i in 0..solution.num_components {
-            for j in 1..solution.coefficients.ncols() {
-                let c = solution.coefficients[(i, j)];
+            for j in 1..matrix_cols(&solution.coefficients) {
+                let c = solution.coefficients[[i, j]];
 
                 if c.abs() > params.tolerance * u_avg[i].abs() {
                     return true;

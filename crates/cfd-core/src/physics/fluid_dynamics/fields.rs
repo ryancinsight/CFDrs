@@ -3,13 +3,14 @@
 //! Provides core data structures for velocity, pressure, and scalar fields
 //! following SSOT and zero-copy principles.
 
-use nalgebra::{RealField, Vector3};
+use eunomia::{NumericElement, RealField};
+use leto::geometry::Vector3;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Flow field abstraction representing velocity, pressure, and scalar fields
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FlowField<T: RealField + Copy> {
+pub struct FlowField<T: NumericElement> {
     /// Velocity field components
     pub velocity: VelocityField<T>,
     /// Pressure field
@@ -20,7 +21,7 @@ pub struct FlowField<T: RealField + Copy> {
 
 /// Velocity field representation with zero-copy operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VelocityField<T: RealField + Copy> {
+pub struct VelocityField<T: NumericElement> {
     /// Velocity components (u, v, w)
     pub components: Vec<Vector3<T>>,
     /// Field dimensions
@@ -29,7 +30,7 @@ pub struct VelocityField<T: RealField + Copy> {
 
 /// Pressure field representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PressureField<T: RealField + Copy> {
+pub struct PressureField<T: NumericElement> {
     /// Pressure values
     pub values: Vec<T>,
     /// Field dimensions
@@ -38,7 +39,7 @@ pub struct PressureField<T: RealField + Copy> {
 
 /// Generic scalar field for temperature, concentration, etc.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScalarField<T: RealField + Copy> {
+pub struct ScalarField<T: NumericElement> {
     /// Scalar values
     pub values: Vec<T>,
     /// Field dimensions
@@ -47,7 +48,7 @@ pub struct ScalarField<T: RealField + Copy> {
     pub name: String,
 }
 
-impl<T: RealField + Copy> FlowField<T> {
+impl<T: NumericElement + RealField> FlowField<T> {
     /// Create a new flow field with specified dimensions
     #[must_use]
     pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
@@ -58,7 +59,7 @@ impl<T: RealField + Copy> FlowField<T> {
                 dimensions: (nx, ny, nz),
             },
             pressure: PressureField {
-                values: vec![T::zero(); total_points],
+                values: vec![T::ZERO; total_points],
                 dimensions: (nx, ny, nz),
             },
             scalars: HashMap::new(),
@@ -84,7 +85,7 @@ impl<T: RealField + Copy> FlowField<T> {
     }
 }
 
-impl<T: RealField + Copy> VelocityField<T> {
+impl<T: NumericElement + RealField> VelocityField<T> {
     /// Get velocity at a specific grid point
     #[must_use]
     pub fn get(&self, i: usize, j: usize, k: usize) -> Option<&Vector3<T>> {
@@ -112,7 +113,7 @@ impl<T: RealField + Copy> VelocityField<T> {
     }
 }
 
-impl<T: RealField + Copy> PressureField<T> {
+impl<T: NumericElement + RealField> PressureField<T> {
     /// Get pressure at a specific grid point
     #[must_use]
     pub fn get(&self, i: usize, j: usize, k: usize) -> Option<T> {

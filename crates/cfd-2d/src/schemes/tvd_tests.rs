@@ -38,10 +38,10 @@ mod tests {
     /// Build a grid where φ(i, _) = `slope * i` (linear in x, uniform in y).
     fn make_linear_grid_x(nx: usize, ny: usize, slope: f64) -> Grid2D<f64> {
         let mut grid = Grid2D::<f64>::new(nx, ny, 1.0, 1.0, 0);
-        let (rows, cols) = grid.data.shape();
+        let [rows, cols] = grid.data.shape();
         for i in 0..rows {
             for j in 0..cols {
-                grid.data[(i, j)] = slope * i as f64;
+                grid.data[[i, j]] = slope * i as f64;
             }
         }
         grid
@@ -50,10 +50,10 @@ mod tests {
     /// Build a grid where φ(_, j) = `slope * j` (linear in y, uniform in x).
     fn make_linear_grid_y(nx: usize, ny: usize, slope: f64) -> Grid2D<f64> {
         let mut grid = Grid2D::<f64>::new(nx, ny, 1.0, 1.0, 0);
-        let (rows, cols) = grid.data.shape();
+        let [rows, cols] = grid.data.shape();
         for i in 0..rows {
             for j in 0..cols {
-                grid.data[(i, j)] = slope * j as f64;
+                grid.data[[i, j]] = slope * j as f64;
             }
         }
         grid
@@ -176,10 +176,10 @@ mod tests {
         let constant = 7.0;
 
         let mut grid = Grid2D::<f64>::new(nx, ny, 1.0, 1.0, 0);
-        let (rows, cols) = grid.data.shape();
+        let [rows, cols] = grid.data.shape();
         for i in 0..rows {
             for j in 0..cols {
-                grid.data[(i, j)] = constant;
+                grid.data[[i, j]] = constant;
             }
         }
 

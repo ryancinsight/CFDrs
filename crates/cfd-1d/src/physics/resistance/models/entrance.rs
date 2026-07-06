@@ -77,11 +77,9 @@
 //!   *Journal of Applied Mechanics*, 9(2), A55-A58.
 //! - Schlichting, H. (1979). *Boundary Layer Theory* (7th ed.). McGraw-Hill. §9.2.
 
-use super::traits::{FlowConditions, ResistanceModel};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 // Named constants for entrance effects (Idelchik 1994 §5)
@@ -108,7 +106,7 @@ const LAMINAR_SMOOTH_ENTRANCE_COEFFICIENT: f64 = 1.25;
 /// The `calculate_resistance` method returns the effective linearized
 /// `R_eff = k · |Q|` in units of [Pa·s/m³].
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EntranceEffectsModel<T: RealField + Copy> {
+pub struct EntranceEffectsModel<T> {
     /// Upstream cross-sectional area \[m²]
     pub upstream_area: T,
     /// Downstream cross-sectional area \[m²]
@@ -117,7 +115,7 @@ pub struct EntranceEffectsModel<T: RealField + Copy> {
     pub inlet_smoothness: T,
 }
 
-impl<T: RealField + Copy> EntranceEffectsModel<T> {
+impl<T: ResistanceScalar> EntranceEffectsModel<T> {
     /// Create a new entrance effects model
     pub fn new(upstream_area: T, downstream_area: T, inlet_smoothness: T) -> Self {
         Self {
@@ -143,9 +141,7 @@ impl<T: RealField + Copy> EntranceEffectsModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
-    for EntranceEffectsModel<T>
-{
+impl<T: ResistanceScalar> ResistanceModel<T> for EntranceEffectsModel<T> {
     /// Calculate effective linearised hydraulic resistance [Pa·s/m³].
     ///
     /// Returns `R_eff = k · |Q|` where `k = K_entry · ρ / (2 A₂²)`.
@@ -221,11 +217,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (
-            T::zero(),
-            T::from_f64(MAX_REYNOLDS_ENTRANCE)
-                .expect("Mathematical constant conversion compromised"),
-        )
+        (T::zero(), scalar_from_f64::<T>(MAX_REYNOLDS_ENTRANCE))
     }
 
     fn validate_invariants<F: FluidTrait<T>>(
@@ -256,7 +248,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> ResistanceModel<T>
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float> EntranceEffectsModel<T> {
+impl<T: ResistanceScalar> EntranceEffectsModel<T> {
     /// Compute K for sudden (sharp-edged) contraction (Idelchik 1994 §5).
     ///
     /// ```text
@@ -273,8 +265,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> EntranceEffectsMod
         // base: 0.5·(1 − A₂/A₁)
         let k_base = (T::one() / (T::one() + T::one())) * contraction_ratio;
         // Low-Re correction: multiply by (1 + C/Re)
-        let c = T::from_f64(SUDDEN_CONTRACTION_CONSTANT)
-            .expect("Mathematical constant conversion compromised");
+        let c = scalar_from_f64::<T>(SUDDEN_CONTRACTION_CONSTANT);
         let re_correction = c / reynolds;
         k_base * (T::one() + re_correction)
     }
@@ -284,19 +275,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float> EntranceEffectsMod
     /// Turbulent (Re > 10⁴): `K = 0.05 + 0.19 · (A₁/A₂)`  [Blevins 1984 ch. 6]
     /// Laminar: `K = 1.25`  [Langhaar 1942 exact analytical solution]
     fn calculate_smooth_contraction_coefficient(&self, area_ratio: T, reynolds: T) -> T {
-        let re_transition = T::from_f64(TURBULENT_TRANSITION_RE)
-            .expect("Mathematical constant conversion compromised");
+        let re_transition = scalar_from_f64::<T>(TURBULENT_TRANSITION_RE);
         if reynolds > re_transition {
             // Turbulent smooth inlet correlation (Blevins 1984)
-            T::from_f64(SMOOTH_CONTRACTION_BASE)
-                .expect("Mathematical constant conversion compromised")
-                + T::from_f64(SMOOTH_CONTRACTION_SLOPE)
-                    .expect("Mathematical constant conversion compromised")
-                    * area_ratio
+            scalar_from_f64::<T>(SMOOTH_CONTRACTION_BASE)
+                + scalar_from_f64::<T>(SMOOTH_CONTRACTION_SLOPE) * area_ratio
         } else {
             // Laminar: Langhaar (1942) exact total entrance coefficient = 1.25
-            T::from_f64(LAMINAR_SMOOTH_ENTRANCE_COEFFICIENT)
-                .expect("Mathematical constant conversion compromised")
+            scalar_from_f64::<T>(LAMINAR_SMOOTH_ENTRANCE_COEFFICIENT)
         }
     }
 }

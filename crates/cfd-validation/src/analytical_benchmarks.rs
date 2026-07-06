@@ -3,13 +3,13 @@
 //! These are exact solutions to the Navier-Stokes equations
 //! used to validate numerical implementations.
 
-use cfd_core::conversion::SafeFromF64;
+use crate::scalar;
 use cfd_core::physics::constants::mathematical::{
     numeric::{ONE_HALF, TWO, TWO_THIRDS},
     TWO_PI,
 };
+use eunomia::FloatElement;
 use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
 
 /// Couette flow: Shear-driven flow between parallel plates
 ///
@@ -25,14 +25,14 @@ pub struct CouetteFlow<T: RealField + Copy> {
     pub mu: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
+impl<T: RealField + Copy + FloatElement> CouetteFlow<T> {
     /// Exact velocity profile: u(y) = U*y/h + (h²/2μ)(dp/dx)(y/h)(1-y/h)
     ///
     /// Source: Schlichting & Gersten (2017), Eq. 5.10
     pub fn velocity(&self, y: T) -> T {
         let y_norm = y / self.h;
         let linear_term = self.u_wall * y_norm;
-        let two = T::from_f64_or_one(TWO);
+        let two = scalar::from_f64::<T>(TWO);
         let pressure_term =
             (self.h * self.h / (two * self.mu)) * self.dp_dx * y_norm * (T::one() - y_norm);
         linear_term + pressure_term
@@ -40,7 +40,7 @@ impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
 
     /// Wall shear stress
     pub fn wall_shear(&self) -> T {
-        let two = T::from_f64_or_one(TWO);
+        let two = scalar::from_f64::<T>(TWO);
         self.mu * self.u_wall / self.h - self.h * self.dp_dx / two
     }
 }
@@ -57,7 +57,7 @@ pub struct PoiseuilleFlow<T: RealField + Copy> {
     pub mu: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
+impl<T: RealField + Copy + FloatElement> PoiseuilleFlow<T> {
     /// Exact velocity profile: u(y) = -(1/2μ)(dp/dx)(h² - y²)
     ///
     /// The negative sign ensures positive velocity when pressure decreases
@@ -65,7 +65,7 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
     ///
     /// Source: White (2016), Eq. 3.36
     pub fn velocity(&self, y: T) -> T {
-        let half = T::from_f64_or_one(ONE_HALF);
+        let half = scalar::from_f64::<T>(ONE_HALF);
         let factor = half / self.mu;
         -factor * self.dp_dx * (self.h * self.h - y * y)
     }
@@ -77,13 +77,13 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
 
     /// Average velocity: `u_avg` = (2/3) * `u_max`
     pub fn average_velocity(&self) -> T {
-        let two_thirds = T::from_f64_or_one(TWO_THIRDS);
+        let two_thirds = scalar::from_f64::<T>(TWO_THIRDS);
         two_thirds * self.max_velocity()
     }
 
     /// Volume flow rate per unit width
     pub fn flow_rate(&self) -> T {
-        let two = T::from_f64_or_one(TWO);
+        let two = scalar::from_f64::<T>(TWO);
         two * self.h * self.average_velocity()
     }
 }
@@ -100,35 +100,40 @@ pub struct TaylorGreenVortex<T: RealField + Copy> {
     pub nu: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> TaylorGreenVortex<T> {
+impl<T: RealField + Copy + FloatElement> TaylorGreenVortex<T> {
     /// Exact velocity field at time t
     pub fn velocity(&self, x: T, y: T, t: T) -> Vector3<T> {
-        let k = T::from_f64_or_one(TWO_PI) / self.l;
-        let decay = (-k * k * self.nu * t).exp();
+        let k = scalar::from_f64::<T>(TWO_PI) / self.l;
+        let decay = scalar::exp(-k * k * self.nu * t);
 
-        let u = self.u0 * (k * x).sin() * (k * y).cos() * decay;
-        let v = -self.u0 * (k * x).cos() * (k * y).sin() * decay;
+        let u = self.u0 * scalar::sin(k * x) * scalar::cos(k * y) * decay;
+        let v = -self.u0 * scalar::cos(k * x) * scalar::sin(k * y) * decay;
 
         Vector3::new(u, v, T::zero())
     }
 
     /// Exact pressure field
     pub fn pressure(&self, x: T, y: T, t: T, rho: T) -> T {
-        let k = T::from_f64_or_one(TWO_PI) / self.l;
-        let two = T::from_f64_or_one(TWO);
-        let decay = (-two * k * k * self.nu * t).exp();
+        let k = scalar::from_f64::<T>(TWO_PI) / self.l;
+        let two = scalar::from_f64::<T>(TWO);
+        let decay = scalar::exp(-two * k * k * self.nu * t);
 
-        let quarter = T::from_f64_or_zero(0.25);
-        -quarter * rho * self.u0 * self.u0 * ((two * k * x).cos() + (two * k * y).cos()) * decay
+        let quarter = scalar::from_f64::<T>(0.25);
+        -quarter
+            * rho
+            * self.u0
+            * self.u0
+            * (scalar::cos(two * k * x) + scalar::cos(two * k * y))
+            * decay
     }
 
     /// Kinetic energy decay rate
     pub fn kinetic_energy(&self, t: T) -> T {
-        let k = T::from_f64_or_one(TWO_PI) / self.l;
-        let two = T::from_f64_or_one(TWO);
-        let decay = (-two * k * k * self.nu * t).exp();
+        let k = scalar::from_f64::<T>(TWO_PI) / self.l;
+        let two = scalar::from_f64::<T>(TWO);
+        let decay = scalar::exp(-two * k * k * self.nu * t);
 
-        let half = T::from_f64_or_one(ONE_HALF);
+        let half = scalar::from_f64::<T>(ONE_HALF);
         half * self.u0 * self.u0 * decay
     }
 }

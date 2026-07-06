@@ -1,11 +1,11 @@
 //! Cross-sectional geometry definitions for channels
 
-use nalgebra::RealField;
+use crate::scalar::Cfd1dScalar;
 use serde::{Deserialize, Serialize};
 
 /// Cross-sectional geometry
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CrossSection<T: RealField + Copy> {
+pub enum CrossSection<T: Cfd1dScalar + Copy> {
     /// Rectangular cross-section
     Rectangular {
         /// Width of the rectangular channel

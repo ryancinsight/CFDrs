@@ -4,10 +4,13 @@
 //! spectral elements, including node definitions, basis functions, and element-local
 //! operations.
 
-use super::{compute_derivative_matrix, compute_lgl_nodes, compute_lgl_weights};
+use super::{
+    compute_derivative_matrix, compute_lgl_nodes, compute_lgl_weights, dot, mat_vec_mul,
+    stiffness_matrix, vector_from_vec,
+};
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
-use nalgebra::{DMatrix, DVector};
+use leto::{Array1, Array2};
 
 /// Represents a spectral element with nodes, weights, and differentiation matrices
 #[derive(Debug, Clone)]
@@ -17,15 +20,15 @@ pub struct SpectralElement {
     /// Number of nodes (order + 1)
     pub num_nodes: usize,
     /// Legendre-Gauss-Lobatto nodes
-    pub nodes: DVector<f64>,
+    pub nodes: Array1<f64>,
     /// Quadrature weights
-    pub weights: DVector<f64>,
+    pub weights: Array1<f64>,
     /// First derivative matrix
-    pub derivative_matrix: DMatrix<f64>,
+    pub derivative_matrix: Array2<f64>,
     /// Mass matrix (diagonal)
-    pub mass_matrix: DMatrix<f64>,
+    pub mass_matrix: Array2<f64>,
     /// Stiffness matrix
-    pub stiffness_matrix: DMatrix<f64>,
+    pub stiffness_matrix: Array2<f64>,
 }
 
 impl SpectralElement {
@@ -38,22 +41,23 @@ impl SpectralElement {
         }
 
         let num_nodes = order + 1;
-        let nodes = DVector::from_vec(
-            compute_lgl_nodes(order).context("computing LGL nodes for spectral element")?,
-        );
-        let weights = DVector::from_vec(compute_lgl_weights(nodes.as_slice(), order));
+        let nodes_vec =
+            compute_lgl_nodes(order).context("computing LGL nodes for spectral element")?;
+        let weights_vec = compute_lgl_weights(&nodes_vec, order);
+        let nodes = vector_from_vec(nodes_vec.clone());
+        let weights = vector_from_vec(weights_vec);
 
         // Compute derivative matrix
-        let derivative_matrix = compute_derivative_matrix(nodes.as_slice(), order);
+        let derivative_matrix = compute_derivative_matrix(&nodes_vec, order);
 
         // Compute mass matrix (diagonal)
-        let mut mass_matrix = DMatrix::zeros(num_nodes, num_nodes);
+        let mut mass_matrix = Array2::zeros([num_nodes, num_nodes]);
         for i in 0..num_nodes {
-            mass_matrix[(i, i)] = weights[i];
+            mass_matrix[[i, i]] = weights[i];
         }
 
         // Compute stiffness matrix K_ij = ∫ φ'_i φ'_j dx
-        let stiffness_matrix = &derivative_matrix.transpose() * &mass_matrix * &derivative_matrix;
+        let stiffness_matrix = stiffness_matrix(&derivative_matrix, &mass_matrix);
 
         Ok(Self {
             order,
@@ -105,15 +109,15 @@ impl SpectralElement {
     }
 
     /// Interpolate a function at the element nodes
-    pub fn interpolate<F>(&self, f: F) -> DVector<f64>
+    pub fn interpolate<F>(&self, f: F) -> Array1<f64>
     where
         F: Fn(f64) -> f64,
     {
-        self.nodes.map(f)
+        Array1::from_shape_fn([self.num_nodes], |[i]| f(self.nodes[i]))
     }
 
     /// Compute the L2 error between a function and its interpolant
-    pub fn l2_error<F>(&self, f: F, u: &DVector<f64>) -> f64
+    pub fn l2_error<F>(&self, f: F, u: &Array1<f64>) -> f64
     where
         F: Fn(f64) -> f64,
     {
@@ -128,13 +132,13 @@ impl SpectralElement {
     }
 
     /// Compute the derivative of a function represented by its nodal values
-    pub fn derivative(&self, u: &DVector<f64>) -> DVector<f64> {
-        &self.derivative_matrix * u
+    pub fn derivative(&self, u: &Array1<f64>) -> Array1<f64> {
+        mat_vec_mul(&self.derivative_matrix, u)
     }
 
     /// Compute the integral of a function represented by its nodal values
-    pub fn integrate(&self, u: &DVector<f64>) -> f64 {
-        self.weights.dot(u)
+    pub fn integrate(&self, u: &Array1<f64>) -> f64 {
+        dot(&self.weights, u)
     }
 }
 
@@ -238,11 +242,11 @@ impl SpectralMesh1D {
     }
 
     /// Interpolate a function to the global nodes
-    pub fn interpolate_global<F>(&self, f: F) -> DVector<f64>
+    pub fn interpolate_global<F>(&self, f: F) -> Array1<f64>
     where
         F: Fn(f64) -> f64,
     {
-        let mut u = DVector::zeros(self.num_global_nodes());
+        let mut u = Array1::zeros([self.num_global_nodes()]);
 
         for e in 0..self.num_elements() {
             let conn = &self.element_connectivity[e];
@@ -257,7 +261,7 @@ impl SpectralMesh1D {
     }
 
     /// Compute the L2 error between a function and its global interpolant
-    pub fn l2_error_global<F>(&self, f: F, u: &DVector<f64>) -> f64
+    pub fn l2_error_global<F>(&self, f: F, u: &Array1<f64>) -> f64
     where
         F: Fn(f64) -> f64,
     {
@@ -268,7 +272,7 @@ impl SpectralMesh1D {
             let element = &self.elements[e];
 
             // Extract local solution
-            let mut u_local = DVector::zeros(element.num_nodes);
+            let mut u_local = Array1::zeros([element.num_nodes]);
             for (local, &global) in conn.iter().enumerate() {
                 u_local[local] = u[global];
             }
@@ -326,7 +330,7 @@ mod tests {
         for i in 0..element.num_nodes {
             for j in 0..element.num_nodes {
                 if i != j {
-                    assert_relative_eq!(element.mass_matrix[(i, j)], 0.0, epsilon = 1e-10);
+                    assert_relative_eq!(element.mass_matrix[[i, j]], 0.0, epsilon = 1e-10);
                 }
             }
         }

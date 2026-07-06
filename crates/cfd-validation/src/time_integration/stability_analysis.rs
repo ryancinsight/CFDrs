@@ -11,10 +11,22 @@
 //! - Trefthen (1996): Finite Difference and Spectral Methods
 //! - LeVeque (2002): Finite Volume Methods for Hyperbolic Problems
 
-use cfd_core::conversion::SafeFromF64;
+use crate::scalar;
 use cfd_core::error::Result;
 use cfd_math::time_stepping::{NumericalScheme, StabilityAnalyzer};
-use nalgebra::{DMatrix, DVector, RealField};
+use eunomia::Complex as AtlasComplex;
+use eunomia::{FloatElement, RealField};
+use leto::{Array1, Array2};
+
+fn vector_from_vec<T>(values: Vec<T>) -> Array1<T> {
+    Array1::from_shape_vec([values.len()], values)
+        .expect("invariant: vector length matches Leto rank-1 shape")
+}
+
+fn matrix_from_row_slice<T: Copy>(rows: usize, cols: usize, values: &[T]) -> Array2<T> {
+    Array2::from_shape_vec([rows, cols], values.to_vec())
+        .expect("invariant: row-major slice length matches Leto rank-2 shape")
+}
 
 /// Comprehensive stability analysis report
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -94,12 +106,12 @@ pub struct StabilityAssessment {
 }
 
 /// Comprehensive stability analysis runner
-pub struct StabilityAnalysisRunner<T: RealField + Copy + num_traits::ToPrimitive> {
+pub struct StabilityAnalysisRunner<T: RealField + Copy + FloatElement> {
     analyzer: StabilityAnalyzer<T>,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
+impl<T: RealField + Copy + FloatElement> StabilityAnalysisRunner<T> {
     /// Create new stability analysis runner
     pub fn new() -> Self {
         Self {
@@ -172,9 +184,9 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     /// Analyze Forward Euler stability region
     fn analyze_forward_euler_stability(&self) -> Result<RKStabilityResult<T>> {
         // Forward Euler: A = [0], b = [1], c = [0]
-        let a = DMatrix::from_row_slice(1, 1, &[T::zero()]);
-        let b = DVector::from_vec(vec![T::one()]);
-        let c = DVector::from_vec(vec![T::zero()]);
+        let a = matrix_from_row_slice(1, 1, &[scalar::zero()]);
+        let b = vector_from_vec(vec![scalar::one()]);
+        let c = vector_from_vec(vec![scalar::zero()]);
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
 
@@ -194,27 +206,27 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     /// Analyze RK3 stability region
     fn analyze_rk3_stability(&self) -> Result<RKStabilityResult<T>> {
         // Heun's method (RK3): A = [[0,0,0],[1/3,0,0],[0,2/3,0]], b = [1/4,0,3/4], c = [0,1/3,2/3]
-        let one_third = <T as SafeFromF64>::try_from_f64(1.0 / 3.0)?;
-        let two_thirds = <T as SafeFromF64>::try_from_f64(2.0 / 3.0)?;
-        let a = DMatrix::from_row_slice(
+        let one_third = scalar::from_f64::<T>(1.0 / 3.0);
+        let two_thirds = scalar::from_f64::<T>(2.0 / 3.0);
+        let a = matrix_from_row_slice(
             3,
             3,
             &[
-                T::zero(),
-                T::zero(),
-                T::zero(),
+                scalar::zero(),
+                scalar::zero(),
+                scalar::zero(),
                 one_third,
-                T::zero(),
-                T::zero(),
-                T::zero(),
+                scalar::zero(),
+                scalar::zero(),
+                scalar::zero(),
                 two_thirds,
-                T::zero(),
+                scalar::zero(),
             ],
         );
-        let one_quarter = <T as SafeFromF64>::try_from_f64(0.25)?;
-        let three_quarters = <T as SafeFromF64>::try_from_f64(0.75)?;
-        let b = DVector::from_vec(vec![one_quarter, T::zero(), three_quarters]);
-        let c = DVector::from_vec(vec![T::zero(), one_third, two_thirds]);
+        let one_quarter = scalar::from_f64::<T>(0.25);
+        let three_quarters = scalar::from_f64::<T>(0.75);
+        let b = vector_from_vec(vec![one_quarter, scalar::zero(), three_quarters]);
+        let c = vector_from_vec(vec![scalar::zero(), one_third, two_thirds]);
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
         let stability_limit = self
@@ -233,33 +245,33 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     /// Analyze classic RK4 stability region
     fn analyze_rk4_stability(&self) -> Result<RKStabilityResult<T>> {
         // Classic RK4
-        let one_half = <T as SafeFromF64>::try_from_f64(0.5)?;
-        let a = DMatrix::from_row_slice(
+        let one_half = scalar::from_f64::<T>(0.5);
+        let a = matrix_from_row_slice(
             4,
             4,
             &[
-                T::zero(),
-                T::zero(),
-                T::zero(),
-                T::zero(),
+                scalar::zero(),
+                scalar::zero(),
+                scalar::zero(),
+                scalar::zero(),
                 one_half,
-                T::zero(),
-                T::zero(),
-                T::zero(),
-                T::zero(),
+                scalar::zero(),
+                scalar::zero(),
+                scalar::zero(),
+                scalar::zero(),
                 one_half,
-                T::zero(),
-                T::zero(),
-                T::zero(),
-                T::zero(),
-                T::one(),
-                T::zero(),
+                scalar::zero(),
+                scalar::zero(),
+                scalar::zero(),
+                scalar::zero(),
+                scalar::one(),
+                scalar::zero(),
             ],
         );
-        let one_sixth = <T as SafeFromF64>::try_from_f64(1.0 / 6.0)?;
-        let one_third = <T as SafeFromF64>::try_from_f64(1.0 / 3.0)?;
-        let b = DVector::from_vec(vec![one_sixth, one_third, one_third, one_sixth]);
-        let c = DVector::from_vec(vec![T::zero(), one_half, one_half, T::one()]);
+        let one_sixth = scalar::from_f64::<T>(1.0 / 6.0);
+        let one_third = scalar::from_f64::<T>(1.0 / 3.0);
+        let b = vector_from_vec(vec![one_sixth, one_third, one_third, one_sixth]);
+        let c = vector_from_vec(vec![scalar::zero(), one_half, one_half, scalar::one()]);
 
         let region = self.analyzer.compute_rk_stability_region(&a, &b, &c)?;
         let stability_limit = self
@@ -280,9 +292,9 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         println!("\n🌊 CFL Condition Validation");
 
         // Test case 1: Low-speed laminar flow
-        let vel_laminar = <T as SafeFromF64>::try_from_f64(0.1)?; // velocity
-        let dt_laminar = <T as SafeFromF64>::try_from_f64(0.001)?; // dt
-        let dx_laminar = <T as SafeFromF64>::try_from_f64(0.01)?; // dx
+        let vel_laminar = scalar::from_f64::<T>(0.1); // velocity
+        let dt_laminar = scalar::from_f64::<T>(0.001); // dt
+        let dx_laminar = scalar::from_f64::<T>(0.01); // dx
         let laminar_result = self.validate_single_cfl_case(
             "Laminar Channel Flow",
             vel_laminar,
@@ -293,9 +305,9 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         report.cfl_analyses.push(laminar_result);
 
         // Test case 2: High-speed compressible flow
-        let vel_comp = <T as SafeFromF64>::try_from_f64(300.0)?; // velocity (Mach ~1)
-        let dt_comp = <T as SafeFromF64>::try_from_f64(1e-6)?; // dt
-        let dx_comp = <T as SafeFromF64>::try_from_f64(0.001)?; // dx
+        let vel_comp = scalar::from_f64::<T>(300.0); // velocity (Mach ~1)
+        let dt_comp = scalar::from_f64::<T>(1e-6); // dt
+        let dx_comp = scalar::from_f64::<T>(0.001); // dx
         let compressible_result = self.validate_single_cfl_case(
             "Compressible Flow",
             vel_comp,
@@ -306,9 +318,9 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
         report.cfl_analyses.push(compressible_result);
 
         // Test case 3: Turbulent boundary layer
-        let vel_turb = <T as SafeFromF64>::try_from_f64(10.0)?; // velocity
-        let dt_turb = <T as SafeFromF64>::try_from_f64(1e-5)?; // dt
-        let dx_turb = <T as SafeFromF64>::try_from_f64(1e-4)?; // dx (near wall)
+        let vel_turb = scalar::from_f64::<T>(10.0); // velocity
+        let dt_turb = scalar::from_f64::<T>(1e-5); // dt
+        let dx_turb = scalar::from_f64::<T>(1e-4); // dx (near wall)
         let turbulent_result = self.validate_single_cfl_case(
             "Turbulent Boundary Layer",
             vel_turb,
@@ -386,30 +398,30 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
     /// Analyze advection equation stability
     fn analyze_advection_equation(&self, scheme: NumericalScheme) -> Result<VonNeumannResult<T>> {
-        let dt = <T as SafeFromF64>::try_from_f64(0.01)?;
-        let a = T::one(); // Advection speed
+        let dt = scalar::from_f64::<T>(0.01);
+        let advection_speed = scalar::one::<T>();
 
         // Test range of wave numbers
-        let k_min = <T as SafeFromF64>::try_from_f64(0.0)?;
-        let k_max = <T as SafeFromF64>::try_from_f64(10.0)?;
+        let k_min = scalar::from_f64::<T>(0.0);
+        let k_max = scalar::from_f64::<T>(10.0);
         let num_k = 50;
 
         let wave_numbers: Vec<T> = (0..num_k)
             .map(|i| {
                 let ratio = f64::from(i) / f64::from(num_k - 1);
-                k_min + (k_max - k_min) * <T as SafeFromF64>::from_f64_or_zero(ratio)
+                k_min + (k_max - k_min) * scalar::from_f64::<T>(ratio)
             })
             .collect();
 
         // Upwind discretization: ∂u/∂x ≈ (u_j - u_{j-1}) / Δx
         // L_hat(k) = -a * (1 - e^{-i k Δx}) / Δx
         // For unit Δx, L_hat(k) = -a * (1 - e^{-i k})
-        let spatial_operator = |k: num_complex::Complex<f64>| {
-            let a_f64 = a.to_f64().unwrap();
+        let spatial_operator = |k: AtlasComplex<f64>| {
+            let a_f64 = scalar::to_f64::<T>(advection_speed);
             let delta_x = 1.0;
-            -num_complex::Complex::new(a_f64, 0.0)
-                * (num_complex::Complex::new(1.0, 0.0)
-                    - (-num_complex::Complex::new(0.0, k.im * delta_x)).exp())
+            -AtlasComplex::<f64>::new(a_f64, 0.0)
+                * (AtlasComplex::<f64>::new(1.0, 0.0)
+                    - (-AtlasComplex::<f64>::new(0.0, k.im * delta_x)).exp())
         };
 
         let scheme_label = format!("{scheme:?}");
@@ -431,31 +443,31 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
     /// Analyze diffusion equation stability
     fn analyze_diffusion_equation(&self, scheme: NumericalScheme) -> Result<VonNeumannResult<T>> {
-        let dt = <T as SafeFromF64>::try_from_f64(0.01)?;
-        let nu = <T as SafeFromF64>::try_from_f64(0.1)?; // Viscosity
+        let dt = scalar::from_f64::<T>(0.01);
+        let nu = scalar::from_f64::<T>(0.1); // Viscosity
 
         // Test range of wave numbers
-        let k_min = <T as SafeFromF64>::try_from_f64(0.0)?;
-        let k_max = <T as SafeFromF64>::try_from_f64(20.0)?;
+        let k_min = scalar::from_f64::<T>(0.0);
+        let k_max = scalar::from_f64::<T>(20.0);
         let num_k = 50;
 
         let wave_numbers: Vec<T> = (0..num_k)
             .map(|i| {
                 let ratio = f64::from(i) / f64::from(num_k - 1);
-                k_min + (k_max - k_min) * <T as SafeFromF64>::from_f64_or_zero(ratio)
+                k_min + (k_max - k_min) * scalar::from_f64::<T>(ratio)
             })
             .collect();
 
         // Central difference: ∂²u/∂x² ≈ (u_{j+1} - 2u_j + u_{j-1}) / Δx²
         // L_hat(k) = -ν * (2 - 2cos(k Δx)) / Δx²
         // For unit Δx, L_hat(k) = -ν * 2 * (1 - cos(k))
-        let spatial_operator = |k: num_complex::Complex<f64>| {
-            let nu_f64 = nu.to_f64().unwrap();
+        let spatial_operator = |k: AtlasComplex<f64>| {
+            let nu_f64 = scalar::to_f64::<T>(nu);
             let delta_x = 1.0;
-            -num_complex::Complex::new(nu_f64, 0.0)
-                * num_complex::Complex::new(2.0, 0.0)
-                * (num_complex::Complex::new(1.0, 0.0)
-                    - (num_complex::Complex::new(0.0, k.im * delta_x)).cos())
+            -AtlasComplex::<f64>::new(nu_f64, 0.0)
+                * AtlasComplex::<f64>::new(2.0, 0.0)
+                * (AtlasComplex::<f64>::new(1.0, 0.0)
+                    - (AtlasComplex::<f64>::new(0.0, k.im * delta_x)).cos())
         };
 
         let scheme_label = format!("{scheme:?}");
@@ -477,29 +489,29 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
 
     /// Analyze Burgers' equation stability
     fn analyze_burgers_equation(&self, scheme: NumericalScheme) -> Result<VonNeumannResult<T>> {
-        let dt = <T as SafeFromF64>::try_from_f64(0.001)?;
-        let nu = <T as SafeFromF64>::try_from_f64(0.01)?; // Viscosity
-        let u0 = <T as SafeFromF64>::try_from_f64(1.0)?; // Base velocity
+        let dt = scalar::from_f64::<T>(0.001);
+        let nu = scalar::from_f64::<T>(0.01); // Viscosity
+        let u0 = scalar::from_f64::<T>(1.0); // Base velocity
 
         // Test range of wave numbers
-        let k_min = <T as SafeFromF64>::try_from_f64(0.0)?;
-        let k_max = <T as SafeFromF64>::try_from_f64(15.0)?;
+        let k_min = scalar::from_f64::<T>(0.0);
+        let k_max = scalar::from_f64::<T>(15.0);
         let num_k = 50;
 
         let wave_numbers: Vec<T> = (0..num_k)
             .map(|i| {
                 let ratio = f64::from(i) / f64::from(num_k - 1);
-                k_min + (k_max - k_min) * <T as SafeFromF64>::from_f64_or_zero(ratio)
+                k_min + (k_max - k_min) * scalar::from_f64::<T>(ratio)
             })
             .collect();
 
         // Simplified analysis: treat as advection + diffusion
         // L_hat(k) = -u0 * i*k - ν*k²
-        let spatial_operator = |k: num_complex::Complex<f64>| {
-            let u0_f64 = u0.to_f64().unwrap();
-            let nu_f64 = nu.to_f64().unwrap();
-            -num_complex::Complex::new(0.0, u0_f64 * k.im)
-                - num_complex::Complex::new(nu_f64 * k.im * k.im, 0.0)
+        let spatial_operator = |k: AtlasComplex<f64>| {
+            let u0_f64 = scalar::to_f64::<T>(u0);
+            let nu_f64 = scalar::to_f64::<T>(nu);
+            -AtlasComplex::<f64>::new(0.0, u0_f64 * k.im)
+                - AtlasComplex::<f64>::new(nu_f64 * k.im * k.im, 0.0)
         };
 
         let scheme_label = format!("{scheme:?}");
@@ -633,7 +645,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
             println!(
                 "  {}: CFL = {:.3}, Status: {}",
                 cfl.test_case,
-                cfl.cfl_number.to_f64().unwrap(),
+                scalar::to_f64::<T>(cfl.cfl_number),
                 cfl.status
             );
         }
@@ -643,7 +655,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
             println!(
                 "  {}: Max Amp = {:.3}, Stable: {}",
                 vn.pde_type,
-                vn.max_amplification.to_f64().unwrap(),
+                scalar::to_f64::<T>(vn.max_amplification),
                 vn.is_stable
             );
         }
@@ -659,7 +671,7 @@ impl<T: RealField + Copy + num_traits::ToPrimitive> StabilityAnalysisRunner<T> {
     }
 }
 
-impl<T: RealField + Copy + num_traits::ToPrimitive> Default for StabilityAnalysisRunner<T> {
+impl<T: RealField + Copy + FloatElement> Default for StabilityAnalysisRunner<T> {
     fn default() -> Self {
         Self::new()
     }

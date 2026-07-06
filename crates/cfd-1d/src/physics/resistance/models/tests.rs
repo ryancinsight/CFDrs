@@ -1,4 +1,4 @@
-use super::traits::{FlowConditions, ResistanceModel};
+use super::traits::{FlowConditions, ResistanceModel, ResistanceScalar};
 use super::{hagen_poiseuille::HagenPoiseuilleModel, darcy_weisbach::DarcyWeisbachModel};
 use cfd_core::physics::fluid::{FluidTrait, ConstantPropertyFluid};
 

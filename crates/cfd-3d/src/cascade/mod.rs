@@ -51,7 +51,7 @@ use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
-use nalgebra::Vector3;
+use leto::geometry::Vector3;
 use serde::{Deserialize, Serialize};
 
 // ── Hematocrit-viscosity coupling ─────────────────────────────────────────────
@@ -192,8 +192,8 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
     /// Solve all channels independently and return aggregate results.
     ///
     /// Each channel gets its own 3D structured mesh and FEM solve.
-    /// Channels are solved sequentially (could be parallelised with `rayon`
-    /// in a future sprint).
+    /// Channels are solved sequentially; future parallel channel evaluation
+    /// must route through the workspace Moirai execution provider.
     pub fn solve(&self, channels: &[CascadeChannelSpec]) -> Result<CascadeResult3D> {
         if channels.is_empty() {
             return Err(Error::InvalidConfiguration(

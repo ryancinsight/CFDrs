@@ -2,7 +2,8 @@
 //!
 //! Reference: Versteeg & Malalasekera (2007), Ch. 9
 
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::geometry::Vector3;
 use serde::{Deserialize, Serialize};
 
 /// Wall boundary condition types

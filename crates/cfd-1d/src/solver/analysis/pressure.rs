@@ -15,14 +15,14 @@
 //! `P > max_pressure` and updates `min_pressure` only when `P < min_pressure`.
 //! Both operations preserve `max_pressure ≥ min_pressure` by induction. ∎
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use std::collections::HashMap;
 use std::iter::Sum;
 
 /// Pressure analysis for network systems
 #[derive(Debug, Clone)]
-pub struct PressureAnalysis<T: RealField + Copy> {
+pub struct PressureAnalysis<T: Cfd1dScalar + Copy> {
     /// Pressure distribution \[Pa]
     pub pressures: HashMap<String, T>,
     /// Pressure drops across components \[Pa]
@@ -35,16 +35,14 @@ pub struct PressureAnalysis<T: RealField + Copy> {
     pub pressure_gradients: HashMap<String, T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Sum> PressureAnalysis<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> PressureAnalysis<T> {
     /// Create a new pressure analysis
     pub fn new() -> Self {
         Self {
             pressures: HashMap::new(),
             pressure_drops: HashMap::new(),
-            max_pressure: T::from_f64(f64::NEG_INFINITY)
-                .expect("Mathematical constant conversion compromised"),
-            min_pressure: T::from_f64(f64::INFINITY)
-                .expect("Mathematical constant conversion compromised"),
+            max_pressure: T::from_f64_or_zero(f64::NEG_INFINITY),
+            min_pressure: T::from_f64_or_zero(f64::INFINITY),
             pressure_gradients: HashMap::new(),
         }
     }
@@ -77,7 +75,7 @@ impl<T: RealField + Copy + FromPrimitive + Sum> PressureAnalysis<T> {
             T::zero()
         } else {
             let sum: T = self.pressures.values().copied().sum();
-            sum / T::from_usize(self.pressures.len()).unwrap_or_else(T::one)
+            sum / T::from_usize_or_one(self.pressures.len())
         }
     }
 
@@ -101,7 +99,7 @@ impl<T: RealField + Copy + FromPrimitive + Sum> PressureAnalysis<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Sum> Default for PressureAnalysis<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> Default for PressureAnalysis<T> {
     fn default() -> Self {
         Self::new()
     }

@@ -4,8 +4,8 @@
 
 use super::super::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use crate::error::Error;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Casson fluid model
@@ -31,7 +31,7 @@ pub struct Casson<T: RealField + Copy> {
     pub speed_of_sound: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Casson<T> {
+impl<T: RealField + FloatElement + Copy> Casson<T> {
     /// Create a new Casson fluid
     pub fn new(
         name: String,
@@ -55,16 +55,17 @@ impl<T: RealField + FromPrimitive + Copy> Casson<T> {
 
     /// Calculate apparent viscosity at given shear rate
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
-        if shear_rate <= T::from_f64(1e-6).unwrap_or(T::zero()) {
-            return T::from_f64(100.0).unwrap_or_else(T::one);
+        if shear_rate <= <T as FloatElement>::from_f64(1e-6) {
+            return <T as FloatElement>::from_f64(100.0);
         }
 
-        let sqrt_mu = self.plastic_viscosity.sqrt() + (self.yield_stress / shear_rate).sqrt();
+        let sqrt_mu = <T as NumericElement>::sqrt(self.plastic_viscosity)
+            + <T as NumericElement>::sqrt(self.yield_stress / shear_rate);
         sqrt_mu * sqrt_mu
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for Casson<T> {
+impl<T: RealField + FloatElement + Copy> FluidTrait<T> for Casson<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         Ok(FluidState {
             density: self.density,
@@ -84,7 +85,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for Casson<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for Casson<T> {
+impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for Casson<T> {
     fn apparent_viscosity(&self, shear_rate: T) -> T {
         Casson::apparent_viscosity(self, shear_rate)
     }

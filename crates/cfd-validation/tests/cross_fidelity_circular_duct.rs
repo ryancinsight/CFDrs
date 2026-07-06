@@ -125,14 +125,16 @@ fn cross_fidelity_circular_straight_duct_flux_and_velocity_bounds() {
 
     let bp = circular_straight_blueprint(diameter_m, length_m);
 
-    let trace_1d =
-        solve_reference_trace::<f64>(&bp, RHO, MU, target_flow_m3_s).expect("1D solve");
+    let trace_1d = solve_reference_trace::<f64>(&bp, RHO, MU, target_flow_m3_s).expect("1D solve");
     let channel_1d = trace_1d.channel_traces.first().expect("1D channel trace");
 
     let mass_error_1d = ((trace_1d.total_inlet_flow_m3_s - trace_1d.total_outlet_flow_m3_s)
         / trace_1d.total_inlet_flow_m3_s)
         .abs();
-    assert!(mass_error_1d < 1e-4, "1D mass error {mass_error_1d} exceeds 0.01%");
+    assert!(
+        mass_error_1d < 1e-4,
+        "1D mass error {mass_error_1d} exceeds 0.01%"
+    );
 
     let mean_velocity_1d = channel_1d.mean_velocity_m_s.abs();
     assert!(mean_velocity_1d.is_finite() && mean_velocity_1d > 0.0);
@@ -153,10 +155,9 @@ fn cross_fidelity_circular_straight_duct_flux_and_velocity_bounds() {
     let sol3d = solve_circular_pipe_3d_poiseuille(mean_velocity_1d);
     let pressure_drop_coefficient_1d =
         channel_1d.pressure_drop_pa * diameter_m * diameter_m / (MU * mean_velocity_1d * length_m);
-    let pressure_drop_error_3d =
-        ((sol3d.pressure_drop_coefficient - pressure_drop_coefficient_1d)
-            / pressure_drop_coefficient_1d)
-            .abs();
+    let pressure_drop_error_3d = ((sol3d.pressure_drop_coefficient - pressure_drop_coefficient_1d)
+        / pressure_drop_coefficient_1d)
+        .abs();
 
     assert!(
         sol3d.mass_error < 0.50,
@@ -183,7 +184,9 @@ fn cross_fidelity_circular_straight_duct_flux_and_velocity_bounds() {
 
     let velocity_ratio_3d_1d = sol3d.throat_velocity_m_s / mean_velocity_1d;
     assert!(
-        velocity_ratio_3d_1d.is_finite() && velocity_ratio_3d_1d > 0.5 && velocity_ratio_3d_1d < 1.5,
+        velocity_ratio_3d_1d.is_finite()
+            && velocity_ratio_3d_1d > 0.5
+            && velocity_ratio_3d_1d < 1.5,
         "3D straight-pipe velocity {} falls outside 50% of the 1D mean velocity {}",
         sol3d.throat_velocity_m_s,
         mean_velocity_1d

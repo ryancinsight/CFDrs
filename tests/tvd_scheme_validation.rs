@@ -44,7 +44,7 @@ fn square_wave(phi: &mut Grid2D<f64>, amplitude: f64, width: f64, center: f64) {
     let start = start_idx.clamp(0, NX as isize) as usize;
     let end = end_idx.clamp(0, NX as isize) as usize;
 
-    let slice = phi.data.as_mut_slice();
+    let slice = phi.data.as_slice_mut().expect("Grid data must be contiguous");
 
     // Fill regions
     if start > 0 {
@@ -108,7 +108,7 @@ fn test_muscl2_superbee_monotonicity() {
 
     let mut flux = vec![0.0_f64; NX + 1];
     // Left boundary: F_{-1/2} = outflow from cell 0 (no left neighbour)
-    flux[0] = phi.data[(0, 0)];
+    flux[0] = phi.data[[0, 0]];
     // Interior + right boundary faces
     for i in 0..NX {
         flux[i + 1] = scheme.reconstruct_face_value_x(&phi, velocity, i, 0);
@@ -119,7 +119,7 @@ fn test_muscl2_superbee_monotonicity() {
     //            = phi[i] - CFL * (flux[i+1] - flux[i])
     let mut phi_new = create_test_grid();
     for i in 0..NX {
-        phi_new.data[(i, 0)] = phi.data[(i, 0)] - cfl * (flux[i + 1] - flux[i]);
+        phi_new.data[[i, 0]] = phi.data[[i, 0]] - cfl * (flux[i + 1] - flux[i]);
     }
 
     // Verify global TVD property: TV(u^{n+1}) ≤ TV(u^n)
@@ -133,10 +133,10 @@ fn test_muscl2_superbee_monotonicity() {
     // Reference: Harten, A. (1983). "High resolution schemes for hyperbolic
     // conservation laws." J. Comput. Phys. 49:357–393.
     let tv_original: f64 = (1..NX)
-        .map(|i| (phi.data[(i, 0)] - phi.data[(i - 1, 0)]).abs())
+        .map(|i| (phi.data[[i, 0]] - phi.data[[i - 1, 0]]).abs())
         .sum();
     let tv_new: f64 = (1..NX)
-        .map(|i| (phi_new.data[(i, 0)] - phi_new.data[(i - 1, 0)]).abs())
+        .map(|i| (phi_new.data[[i, 0]] - phi_new.data[[i - 1, 0]]).abs())
         .sum();
 
     assert!(
@@ -183,19 +183,19 @@ fn test_muscl3_vs_muscl2_accuracy() {
                         let face_next_muscl3 =
                             scheme_muscl3.reconstruct_face_value_x(&phi_muscl3, velocity, i + 1, 0);
 
-                        phi_muscl2.data[(i, 0)] -=
+                        phi_muscl2.data[[i, 0]] -=
                             velocity * dt / DX * (face_next_muscl2 - face_muscl2);
-                        phi_muscl3.data[(i, 0)] -=
+                        phi_muscl3.data[[i, 0]] -=
                             velocity * dt / DX * (face_next_muscl3 - face_muscl3);
                     }
                 }
 
                 // MUSCL3 should preserve sharper profile than MUSCL2
                 let max_muscl3 = (0..NX)
-                    .map(|i| phi_muscl3.data[(i, 0)])
+                    .map(|i| phi_muscl3.data[[i, 0]])
                     .fold(f64::NEG_INFINITY, f64::max);
                 let max_muscl2 = (0..NX)
-                    .map(|i| phi_muscl2.data[(i, 0)])
+                    .map(|i| phi_muscl2.data[[i, 0]])
                     .fold(f64::NEG_INFINITY, f64::max);
 
                 // MUSCL3 should maintain higher peak (less diffusion) for narrow features
@@ -217,7 +217,7 @@ fn test_muscl_scheme_order_accuracy() {
     let mut phi = create_test_grid();
     for i in 0..NX {
         let x = (i as f64 + 0.5) * DX;
-        phi.data[(i, 0)] = (2.0 * std::f64::consts::PI * x).sin();
+        phi.data[[i, 0]] = (2.0 * std::f64::consts::PI * x).sin();
     }
 
     let velocity: f64 = 1.0;
@@ -237,12 +237,12 @@ fn test_muscl_scheme_order_accuracy() {
             let face_muscl2 = scheme_muscl2.reconstruct_face_value_x(&phi_muscl2, velocity, i, 0);
             let face_next_muscl2 =
                 scheme_muscl2.reconstruct_face_value_x(&phi_muscl2, velocity, i + 1, 0);
-            phi_new_muscl2.data[(i, 0)] -= velocity * dt / DX * (face_next_muscl2 - face_muscl2);
+            phi_new_muscl2.data[[i, 0]] -= velocity * dt / DX * (face_next_muscl2 - face_muscl2);
 
             let face_muscl3 = scheme_muscl3.reconstruct_face_value_x(&phi_muscl3, velocity, i, 0);
             let face_next_muscl3 =
                 scheme_muscl3.reconstruct_face_value_x(&phi_muscl3, velocity, i + 1, 0);
-            phi_new_muscl3.data[(i, 0)] -= velocity * dt / DX * (face_next_muscl3 - face_muscl3);
+            phi_new_muscl3.data[[i, 0]] -= velocity * dt / DX * (face_next_muscl3 - face_muscl3);
         }
 
         phi_muscl2 = phi_new_muscl2;
@@ -257,8 +257,8 @@ fn test_muscl_scheme_order_accuracy() {
         let x = (i as f64 + 0.5) * DX;
         let exact = (2.0 * std::f64::consts::PI * (x - velocity * t_final)).sin();
 
-        let error_muscl2 = phi_muscl2.data[(i, 0)] - exact;
-        let error_muscl3 = phi_muscl3.data[(i, 0)] - exact;
+        let error_muscl2 = phi_muscl2.data[[i, 0]] - exact;
+        let error_muscl3 = phi_muscl3.data[[i, 0]] - exact;
 
         l2_muscl2 += error_muscl2 * error_muscl2;
         l2_muscl3 += error_muscl3 * error_muscl3;
@@ -326,7 +326,7 @@ fn test_boundary_one_sided_reconstruction() {
     // Test boundary handling: one-sided reconstruction at left boundary
     let mut phi = create_test_grid();
     for i in 0..NX {
-        phi.data[(i, 0)] = i as f64;
+        phi.data[[i, 0]] = i as f64;
     }
 
     // Left boundary (i=0) with outflow (positive velocity)
@@ -363,7 +363,7 @@ fn test_muscl3_boundary_fallback() {
     // Test that MUSCL3 falls back to MUSCL2 at boundaries
     let mut phi = create_test_grid();
     for i in 0..NX {
-        phi.data[(i, 0)] = (i as f64).powi(2);
+        phi.data[[i, 0]] = (i as f64).powi(2);
     }
 
     // At boundary point where MUSCL3 needs points beyond boundary

@@ -11,13 +11,13 @@ use cfd_core::compute::gpu::{kernels::laplacian::Laplacian2DKernel, GpuBuffer, G
 #[cfg(feature = "gpu")]
 use cfd_core::compute::ComputeBuffer;
 #[cfg(feature = "gpu")]
-use nalgebra::{DVector, RealField};
+use cfd_core::error::Error;
 #[cfg(feature = "gpu")]
-use num_traits::ToPrimitive;
+use eunomia::{NumericElement, RealField};
+#[cfg(feature = "gpu")]
+use leto::Array1;
 #[cfg(feature = "gpu")]
 use std::sync::Arc;
-#[cfg(feature = "gpu")]
-use wgpu;
 
 /// Metrics collected for a compute dispatch
 #[cfg(feature = "gpu")]
@@ -45,7 +45,7 @@ pub struct GpuLaplacianOperator2D<T: RealField + Copy + bytemuck::Pod + bytemuck
 }
 
 #[cfg(feature = "gpu")]
-impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive>
+impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + NumericElement>
     GpuLaplacianOperator2D<T>
 {
     /// Create a new GPU-accelerated 2D Laplacian operator.
@@ -71,13 +71,13 @@ impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive>
     }
 
     /// Internal method to apply the operator using CPU buffers (with GPU acceleration)
-    async fn apply_gpu_async(&self, x: &[T], y: &mut [T]) -> Result<()> {
+    fn apply_gpu(&self, x: &[T], y: &mut [T]) -> Result<()> {
         // Create GPU buffers from CPU data
         let input_buffer = GpuBuffer::from_data(self.gpu_context.clone(), x)?;
         let mut output_buffer = GpuBuffer::new(self.gpu_context.clone(), y.len())?;
 
-        let dx_f32 = self.dx.to_f32().unwrap_or(1.0);
-        let dy_f32 = self.dy.to_f32().unwrap_or(1.0);
+        let dx_f32 = <T as NumericElement>::to_f64(self.dx) as f32;
+        let dy_f32 = <T as NumericElement>::to_f64(self.dy) as f32;
 
         // Execute kernel
         self.kernel.execute_on_gpu(
@@ -97,28 +97,45 @@ impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive>
     }
 
     /// Execute the operator with performance metrics
-    pub async fn apply_gpu_with_metrics(&self, x: &[T], y: &mut [T]) -> Result<DispatchMetrics> {
+    pub fn apply_gpu_with_metrics(&self, x: &[T], y: &mut [T]) -> Result<DispatchMetrics> {
         let start = std::time::Instant::now();
-        self.apply_gpu_async(x, y).await?;
-        self.gpu_context.device.poll(wgpu::Maintain::Wait);
+        self.apply_gpu(x, y)?;
+        self.gpu_context.synchronize()?;
         let elapsed = start.elapsed();
 
         Ok(DispatchMetrics {
             duration_ms: elapsed.as_secs_f64() * 1e3,
-            timestamp_supported: self
-                .gpu_context
-                .supports_features(wgpu::Features::TIMESTAMP_QUERY),
+            timestamp_supported: self.gpu_context.supports_timestamp_queries(),
         })
     }
 }
 
 #[cfg(feature = "gpu")]
-impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive> LinearOperator<T>
+impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + NumericElement> LinearOperator<T>
     for GpuLaplacianOperator2D<T>
 {
-    fn apply(&self, x: &DVector<T>, y: &mut DVector<T>) -> Result<()> {
-        // Use block_on for the async path when called from sync context
-        pollster::block_on(self.apply_gpu_async(x.as_slice(), y.as_mut_slice()))
+    fn apply(&self, x: &Array1<T>, y: &mut Array1<T>) -> Result<()> {
+        let expected = self.size();
+        if x.shape()[0] != expected {
+            return Err(Error::DimensionMismatch {
+                expected,
+                actual: x.shape()[0],
+            });
+        }
+        if y.shape()[0] != expected {
+            return Err(Error::DimensionMismatch {
+                expected,
+                actual: y.shape()[0],
+            });
+        }
+
+        let input: Vec<T> = (0..expected).map(|idx| x[idx]).collect();
+        let mut output = vec![<T as NumericElement>::ZERO; expected];
+        self.apply_gpu(&input, &mut output)?;
+        for idx in 0..expected {
+            y[idx] = output[idx];
+        }
+        Ok(())
     }
 
     fn size(&self) -> usize {
@@ -131,7 +148,7 @@ impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive> Lin
 }
 
 #[cfg(feature = "gpu")]
-impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive> GpuLinearOperator<T>
+impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + NumericElement> GpuLinearOperator<T>
     for GpuLaplacianOperator2D<T>
 {
     fn apply_gpu(
@@ -140,8 +157,8 @@ impl<T: RealField + Copy + bytemuck::Pod + bytemuck::Zeroable + ToPrimitive> Gpu
         input_buffer: &GpuBuffer<T>,
         output_buffer: &mut GpuBuffer<T>,
     ) -> Result<()> {
-        let dx_f32 = self.dx.to_f32().unwrap_or(1.0);
-        let dy_f32 = self.dy.to_f32().unwrap_or(1.0);
+        let dx_f32 = <T as NumericElement>::to_f64(self.dx) as f32;
+        let dy_f32 = <T as NumericElement>::to_f64(self.dy) as f32;
 
         // Execute kernel directly on GPU buffers
         self.kernel.execute_on_gpu(

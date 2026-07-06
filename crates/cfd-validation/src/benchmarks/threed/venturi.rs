@@ -5,35 +5,26 @@
 
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Venturi3D;
+use crate::scalar;
+use crate::scalar::ValidationScalar;
 use cfd_3d::venturi::{VenturiConfig3D, VenturiSolver3D};
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_mesh::VenturiMeshBuilder;
-use nalgebra::RealField;
 
 /// 3D Venturi Flow benchmark
-pub struct VenturiFlow3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct VenturiFlow3D<T: ValidationScalar> {
     /// The 3D venturi geometry
     pub geometry: Venturi3D<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> VenturiFlow3D<T> {
+impl<T: ValidationScalar> VenturiFlow3D<T> {
     /// Create a new 3D venturi flow benchmark
     pub fn new(geometry: Venturi3D<T>) -> Self {
         Self { geometry }
     }
 }
 
-impl<
-        T: RealField
-            + Copy
-            + num_traits::Float
-            + num_traits::FromPrimitive
-            + num_traits::ToPrimitive
-            + cfd_core::conversion::SafeFromF64
-            + std::convert::From<f64>
-            + cfd_mesh::domain::core::Scalar,
-    > Benchmark<T> for VenturiFlow3D<T>
-{
+impl<T: ValidationScalar> Benchmark<T> for VenturiFlow3D<T> {
     fn name(&self) -> &'static str {
         "3D Venturi Tube Flow"
     }
@@ -65,7 +56,7 @@ impl<
         // mm-scale geometries.  circular=true matches the builder above.
         let _ = config; // resolution from config would give PSPG dominance for mm-scale
         let solver_config = VenturiConfig3D {
-            inlet_flow_rate: T::from_f64_or_one(1.0e-7),
+            inlet_flow_rate: scalar::from_f64(1.0e-7),
             resolution: (40, 6),
             circular: true,
             ..VenturiConfig3D::default()
@@ -139,7 +130,7 @@ impl<
         let cp_finite = result
             .metrics
             .get("Throat Cp")
-            .is_none_or(|&cp| num_traits::Float::abs(cp) < T::from_f64_or_one(1.0e8)); // if metric missing assume ok (pressure not primary criterion)
+            .is_none_or(|&cp| scalar::abs(cp) < scalar::from_f64(1.0e8)); // if metric missing assume ok (pressure not primary criterion)
 
         Ok(u_throat_ok && throat_accel_ok && cp_finite)
     }

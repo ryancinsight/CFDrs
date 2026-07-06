@@ -19,7 +19,7 @@ pub use operators::*;
 
 use crate::error::Result;
 use cfd_core::error::Error;
-use nalgebra::DMatrix;
+use leto::{Array1, Array2};
 use std::f64::consts::PI;
 
 /// Legendre polynomial evaluation
@@ -148,23 +148,23 @@ fn compute_lgl_weights(nodes: &[f64], n: usize) -> Vec<f64> {
 }
 
 /// Compute the derivative matrix for Legendre-Gauss-Lobatto points
-fn compute_derivative_matrix(nodes: &[f64], n: usize) -> DMatrix<f64> {
+fn compute_derivative_matrix(nodes: &[f64], n: usize) -> Array2<f64> {
     let np = nodes.len();
-    let mut d = DMatrix::zeros(np, np);
+    let mut d = Array2::zeros([np, np]);
 
     for i in 0..np {
         let pi = legendre_poly(n, nodes[i]);
         for j in 0..np {
             if i != j {
                 let pj = legendre_poly(n, nodes[j]);
-                d[(i, j)] = (pi / pj) / (nodes[i] - nodes[j]);
+                d[[i, j]] = (pi / pj) / (nodes[i] - nodes[j]);
             }
         }
     }
 
     // Diagonal entries
-    d[(0, 0)] = -(n as f64 * (n + 1) as f64) / 4.0;
-    d[(np - 1, np - 1)] = (n as f64 * (n + 1) as f64) / 4.0;
+    d[[0, 0]] = -(n as f64 * (n + 1) as f64) / 4.0;
+    d[[np - 1, np - 1]] = (n as f64 * (n + 1) as f64) / 4.0;
 
     // For interior points, the diagonal is 0.0
     // But it's more robust to enforce sum to zero property: d_ii = -sum_{j != i} d_ij
@@ -172,20 +172,66 @@ fn compute_derivative_matrix(nodes: &[f64], n: usize) -> DMatrix<f64> {
         let mut sum = 0.0;
         for j in 0..np {
             if i != j {
-                sum += d[(i, j)];
+                sum += d[[i, j]];
             }
         }
-        d[(i, i)] = -sum;
+        d[[i, i]] = -sum;
     }
 
     d
+}
+
+fn vector_from_vec(values: Vec<f64>) -> Array1<f64> {
+    Array1::from_shape_vec([values.len()], values)
+        .expect("invariant: vector shape matches element count")
+}
+
+fn mat_vec_mul(matrix: &Array2<f64>, vector: &Array1<f64>) -> Array1<f64> {
+    let [rows, cols] = matrix.shape();
+    assert_eq!(
+        vector.shape(),
+        [cols],
+        "invariant: matrix-vector dimensions must match"
+    );
+
+    Array1::from_shape_fn([rows], |[i]| {
+        (0..cols).map(|j| matrix[[i, j]] * vector[j]).sum()
+    })
+}
+
+fn dot(lhs: &Array1<f64>, rhs: &Array1<f64>) -> f64 {
+    assert_eq!(
+        lhs.shape(),
+        rhs.shape(),
+        "invariant: dot operands must have equal length"
+    );
+
+    lhs.iter().zip(rhs.iter()).map(|(&l, &r)| l * r).sum()
+}
+
+fn stiffness_matrix(derivative: &Array2<f64>, mass: &Array2<f64>) -> Array2<f64> {
+    let [rows, cols] = derivative.shape();
+    assert_eq!(
+        mass.shape(),
+        [rows, rows],
+        "invariant: mass matrix must be square over derivative rows"
+    );
+
+    Array2::from_shape_fn([cols, cols], |[i, j]| {
+        (0..rows)
+            .map(|k| {
+                (0..rows)
+                    .map(|l| derivative[[k, i]] * mass[[k, l]] * derivative[[l, j]])
+                    .sum::<f64>()
+            })
+            .sum()
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use nalgebra::DVector;
 
     #[test]
     fn test_legendre_poly() {
@@ -233,15 +279,15 @@ mod tests {
         let d = compute_derivative_matrix(&nodes, n);
 
         // Derivative of constant should be zero
-        let ones = DVector::from_element(n + 1, 1.0);
-        let deriv = &d * &ones;
+        let ones = Array1::from_elem([n + 1], 1.0);
+        let deriv = mat_vec_mul(&d, &ones);
         for &val in deriv.iter() {
             assert_relative_eq!(val, 0.0, epsilon = 1e-10);
         }
 
         // Derivative of x should be 1
-        let x = DVector::from_vec(nodes.clone());
-        let deriv = &d * &x;
+        let x = vector_from_vec(nodes.clone());
+        let deriv = mat_vec_mul(&d, &x);
         for &val in deriv.iter() {
             assert_relative_eq!(val, 1.0, epsilon = 1e-10);
         }

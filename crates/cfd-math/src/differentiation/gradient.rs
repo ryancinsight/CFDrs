@@ -1,8 +1,12 @@
 //! Gradient computation for multi-dimensional fields.
 
 use cfd_core::error::{Error, Result};
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::geometry::Vector3;
+
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
 
 /// Gradient computation for multi-dimensional fields
 pub struct Gradient<T: RealField + Copy> {
@@ -11,7 +15,7 @@ pub struct Gradient<T: RealField + Copy> {
     dz: T,
 }
 
-impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
+impl<T: RealField + FloatElement + Copy> Gradient<T> {
     /// Create gradient operator
     pub fn new(dx: T, dy: T, dz: T) -> Self {
         Self { dx, dy, dz }
@@ -30,7 +34,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
         use super::FiniteDifference;
         let fd = FiniteDifference::central(self.dx);
         let grad = fd.first_derivative(field)?;
-        // Zero-copy: convert DVector to Vec via into_iter (avoids clone)
+        // Copy the Leto result into the historical Vec return surface.
         Ok(grad.iter().copied().collect())
     }
 
@@ -46,7 +50,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
         }
 
         let mut gradients = Vec::with_capacity(nx * ny);
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let two = from_f64::<T>(2.0);
 
         // Use iterator combinators instead of nested loops
         gradients.extend((0..ny).flat_map(|j| {
@@ -79,7 +83,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
                     (field[idx + nx] - field[idx - nx]) / (two * dy)
                 };
 
-                Vector3::new(dfdx, dfdy, T::zero())
+                Vector3::new(dfdx, dfdy, <T as NumericElement>::ZERO)
             })
         }));
 
@@ -101,7 +105,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
         }
 
         let mut gradients = Vec::with_capacity(nx * ny * nz);
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let two = from_f64::<T>(2.0);
 
         // Use iterator combinators for better performance
         gradients.extend((0..nz).flat_map(|k| {
@@ -158,7 +162,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
             ));
         }
 
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let two = from_f64::<T>(2.0);
 
         let divergence: Vec<T> = (0..ny)
             .flat_map(|j| (0..nx).map(move |i| (i, j)))
@@ -199,7 +203,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
         }
 
         let mut curl = Vec::with_capacity(nx * ny);
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let two = from_f64::<T>(2.0);
 
         for j in 0..ny {
             for i in 0..nx {
@@ -233,18 +237,18 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Gradient<T> {
 }
 
 /// Compute gradient of a 2D field using central differences
-pub fn compute_gradient_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
+pub fn compute_gradient_2d<T: RealField + FloatElement + Copy>(
     field: &[T],
     nx: usize,
     ny: usize,
     dx: T,
     dy: T,
 ) -> Result<Vec<Vector3<T>>> {
-    Gradient::new(dx, dy, T::one()).gradient_2d(field, nx, ny)
+    Gradient::new(dx, dy, <T as NumericElement>::ONE).gradient_2d(field, nx, ny)
 }
 
 /// Compute gradient of a 3D field using central differences
-pub fn compute_gradient_3d<T: RealField + From<f64> + FromPrimitive + Copy>(
+pub fn compute_gradient_3d<T: RealField + FloatElement + Copy>(
     field: &[T],
     nx: usize,
     ny: usize,

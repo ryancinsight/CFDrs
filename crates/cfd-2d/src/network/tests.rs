@@ -861,8 +861,7 @@ fn two_d_bifurcation_mass_conservation_tracks_1d_reference() {
     let ref_err = ((ref_in - ref_out) / ref_in).abs();
     assert!(
         ref_err < 1e-4,
-        "1D reference inlet/outlet mismatch {:.2e} m³/s must be < 0.01%",
-        ref_err
+        "1D reference inlet/outlet mismatch {ref_err:.2e} m³/s must be < 0.01%"
     );
 
     // 2D per-channel outlet error vs 1D reference

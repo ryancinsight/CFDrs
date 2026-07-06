@@ -2,13 +2,15 @@
 
 use super::{NetworkGraph, Node};
 use crate::domain::channel::ChannelGeometry;
+use crate::scalar::Cfd1dScalar;
 use cfd_core::{
+    conversion::{SafeFromF64, SafeFromUsize},
     error::{Error, Result},
     physics::boundary::BoundaryCondition,
     physics::fluid::{ConstantPropertyFluid, FluidTrait},
 };
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
+use nalgebra::DVector;
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
@@ -16,7 +18,7 @@ use std::collections::HashMap;
 
 /// Extended network with fluid properties and convenience methods
 #[derive(Clone, Debug)]
-pub struct Network<T: RealField + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
+pub struct Network<T: Cfd1dScalar + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
     /// The underlying graph
     pub graph: NetworkGraph<T>,
     /// Fluid properties for the network
@@ -37,7 +39,7 @@ pub struct Network<T: RealField + Copy, F: FluidTrait<T> = ConstantPropertyFluid
 
 /// Properties for edges in the network
 #[derive(Debug, Clone)]
-pub struct EdgeProperties<T: RealField + Copy> {
+pub struct EdgeProperties<T: Cfd1dScalar + Copy> {
     /// Edge identifier
     pub id: String,
     /// Physical component type
@@ -79,34 +81,27 @@ pub const EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S: &str = "plasma_viscosity_pa_s";
 /// Edge-property key for a transiently assembled local apparent viscosity in Pa·s.
 pub const EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S: &str = "local_apparent_viscosity_pa_s";
 
-impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for EdgeProperties<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for EdgeProperties<T> {
     /// Convert a `ChannelSpec` from `cfd-schematics` into solver-layer `EdgeProperties`.
     ///
     /// This is the canonical bridge between the schematic domain model and the
     /// 1D solver. It eliminates the need for examples to import `cfd_1d::channel`
     /// types directly.
     fn from(spec: &ChannelSpec) -> Self {
-        let length =
-            T::from_f64(spec.length_m).expect("Mathematical constant conversion compromised");
-        let resistance =
-            T::from_f64(spec.resistance).expect("Mathematical constant conversion compromised");
+        let length = T::from_f64_or_zero(spec.length_m);
+        let resistance = T::from_f64_or_zero(spec.resistance);
 
         let (cross_section, area, hydraulic_diameter) = match spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
-                let d =
-                    T::from_f64(diameter_m).expect("Mathematical constant conversion compromised");
-                let a = T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
-                    .unwrap_or(T::zero());
+                let d = T::from_f64_or_zero(diameter_m);
+                let a = T::from_f64_or_zero(std::f64::consts::PI * (diameter_m / 2.0).powi(2));
                 (CrossSection::Circular { diameter: d }, a, Some(d))
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
-                let w = T::from_f64(width_m).expect("Mathematical constant conversion compromised");
-                let h =
-                    T::from_f64(height_m).expect("Mathematical constant conversion compromised");
-                let a = T::from_f64(width_m * height_m)
-                    .expect("Mathematical constant conversion compromised");
-                let dh = T::from_f64(2.0 * width_m * height_m / (width_m + height_m))
-                    .unwrap_or(T::zero());
+                let w = T::from_f64_or_zero(width_m);
+                let h = T::from_f64_or_zero(height_m);
+                let a = T::from_f64_or_zero(width_m * height_m);
+                let dh = T::from_f64_or_zero(2.0 * width_m * height_m / (width_m + height_m));
                 (
                     CrossSection::Rectangular {
                         width: w,
@@ -152,7 +147,7 @@ impl<T: RealField + Copy + FromPrimitive> From<&ChannelSpec> for EdgeProperties<
 }
 
 /// Edge with properties for iteration
-pub struct EdgeWithProperties<'a, T: RealField + Copy> {
+pub struct EdgeWithProperties<'a, T: Cfd1dScalar + Copy> {
     /// Edge identifier
     pub id: String,
     /// Flow rate
@@ -164,14 +159,14 @@ pub struct EdgeWithProperties<'a, T: RealField + Copy> {
 }
 
 /// Edge for parallel processing
-pub struct ParallelEdge<T: RealField + Copy> {
+pub struct ParallelEdge<T: Cfd1dScalar + Copy> {
     /// Node indices (from, to) as usize
     pub nodes: (usize, usize),
     /// Conductance (1/resistance)
     pub conductance: T,
 }
 
-struct ResistanceUpdateContext<T: RealField + Copy> {
+struct ResistanceUpdateContext<T: Cfd1dScalar + Copy> {
     calculator: crate::physics::resistance::ResistanceCalculator<T>,
     epsilon: T,
     is_blood_like: bool,
@@ -188,7 +183,7 @@ struct ResistanceUpdateContext<T: RealField + Copy> {
     tiny: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
+impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
     /// Create a new network
     pub fn new(graph: NetworkGraph<T>, fluid: F) -> Self {
         let n_nodes = graph.node_count();
@@ -320,7 +315,10 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
     }
 
     /// Get characteristic length of the network
-    pub fn characteristic_length(&self) -> T {
+    pub fn characteristic_length(&self) -> T
+    where
+        T: SafeFromUsize,
+    {
         // Calculate based on average edge length
         if self.properties.is_empty() {
             T::one()
@@ -330,12 +328,15 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                 .values()
                 .map(|p| p.length)
                 .fold(T::zero(), |a, b| a + b);
-            total_length / T::from_usize(self.properties.len()).unwrap_or(T::one())
+            total_length / T::from_usize_or_one(self.properties.len())
         }
     }
 
     /// Update network state from solution vector
-    pub fn update_from_solution(&mut self, solution: &DVector<T>) -> Result<()> {
+    pub fn update_from_solution(&mut self, solution: &DVector<T>) -> Result<()>
+    where
+        T: SafeFromF64 + SafeFromUsize,
+    {
         // Direct copy: pressures[i] = solution[i]
         let n = solution.len();
         self.pressures.resize(n, T::zero());
@@ -358,7 +359,13 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             let (resistance, quad_coeff, previous_flow_rate) = self
                 .graph
                 .edge_weight(edge_idx)
-                .map(|edge| (edge.resistance, edge.quad_coeff, edge.flow_rate.abs()))
+                .map(|edge| {
+                    (
+                        edge.resistance,
+                        edge.quad_coeff,
+                        <T as NumericElement>::abs(edge.flow_rate),
+                    )
+                })
                 .ok_or_else(|| Error::InvalidConfiguration("Missing edge data".into()))?;
 
             // Invariant checks: physical coefficients must be non-negative
@@ -377,7 +384,9 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                 )));
             }
 
-            if resistance.abs() < epsilon && quad_coeff.abs() < epsilon {
+            if <T as NumericElement>::abs(resistance) < epsilon
+                && <T as NumericElement>::abs(quad_coeff) < epsilon
+            {
                 return Err(Error::InvalidConfiguration(format!(
                     "Edge {} has zero resistance and zero quadratic coefficient, cannot infer flow",
                     edge_idx.index()
@@ -428,14 +437,18 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         density: T,
         eight: T,
         epsilon: T,
-    ) -> Result<(crate::physics::resistance::FlowConditions<T>, Option<T>)> {
-        let mut conditions =
-            crate::physics::resistance::FlowConditions::from_flow_rate(flow_rate.abs());
+    ) -> Result<(crate::physics::resistance::FlowConditions<T>, Option<T>)>
+    where
+        T: NumericElement + FloatElement,
+    {
+        let mut conditions = crate::physics::resistance::FlowConditions::from_flow_rate(
+            <T as NumericElement>::abs(flow_rate),
+        );
         conditions.temperature = t_std;
         let mut apparent_viscosity = None;
         if let Some(d_h) = props.hydraulic_diameter {
             if d_h > epsilon && props.area > epsilon {
-                let velocity = flow_rate.abs() / props.area;
+                let velocity = <T as NumericElement>::abs(flow_rate) / props.area;
                 let shear_rate = eight * velocity / d_h;
                 let apparent_viscosity_local = self.fluid.viscosity_at_shear(
                     shear_rate,
@@ -453,12 +466,13 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         Ok((conditions, apparent_viscosity))
     }
 
-    fn resistance_update_context(&self) -> Result<ResistanceUpdateContext<T>> {
+    fn resistance_update_context(&self) -> Result<ResistanceUpdateContext<T>>
+    where
+        T: SafeFromF64,
+    {
         let epsilon = T::default_epsilon();
-        let t_std = T::from_f64(cfd_core::physics::constants::physics::thermo::T_STANDARD)
-            .unwrap_or_else(T::one);
-        let p_std = T::from_f64(cfd_core::physics::constants::physics::thermo::P_ATM)
-            .unwrap_or_else(T::zero);
+        let t_std = T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD);
+        let p_std = T::from_f64_or_zero(cfd_core::physics::constants::physics::thermo::P_ATM);
         let state = self.fluid.properties_at(t_std, p_std)?;
         Ok(ResistanceUpdateContext {
             calculator: crate::physics::resistance::ResistanceCalculator::new(),
@@ -467,15 +481,14 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             t_std,
             density: state.density,
             viscosity: state.dynamic_viscosity,
-            durst_limit: T::from_f64(50.0).unwrap_or_else(T::one),
-            durst_offset: T::from_f64(2.28).unwrap_or_else(T::one),
-            sixty_four: T::from_f64(64.0).unwrap_or_else(T::one),
-            eight: T::from_f64(8.0).unwrap_or_else(T::one),
-            microchannel_limit: T::from_f64(300.0e-6).unwrap_or_else(T::one),
-            default_hematocrit: T::from_f64(0.45).unwrap_or_else(T::zero),
-            default_plasma_viscosity: state.dynamic_viscosity
-                / T::from_f64(3.2).unwrap_or_else(T::one),
-            tiny: T::from_f64(1.0e-7).unwrap_or(epsilon),
+            durst_limit: T::from_f64_or_one(50.0),
+            durst_offset: T::from_f64_or_one(2.28),
+            sixty_four: T::from_f64_or_one(64.0),
+            eight: T::from_f64_or_one(8.0),
+            microchannel_limit: T::from_f64_or_one(300.0e-6),
+            default_hematocrit: T::from_f64_or_zero(0.45),
+            default_plasma_viscosity: state.dynamic_viscosity / T::from_f64_or_one(3.2),
+            tiny: T::from_f64_or(epsilon.to_f64().max(1.0e-7), epsilon),
         })
     }
 
@@ -484,7 +497,10 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         edge_idx: EdgeIndex,
         flow_rate: T,
         context: &ResistanceUpdateContext<T>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        T: SafeFromF64,
+    {
         let (resistance, quad_coeff) = {
             let Some(props) = self.properties.get(&edge_idx) else {
                 return Ok(());
@@ -509,7 +525,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                 context.epsilon,
             )?;
 
-            let rectangular_laminar_max = T::from_f64(2300.0).unwrap_or_else(T::one);
+            let rectangular_laminar_max = T::from_f64_or_one(2300.0);
             let is_rectangular = matches!(
                 &res_geometry,
                 crate::physics::resistance::ChannelGeometry::Rectangular { .. }
@@ -593,7 +609,10 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
     }
 
     /// Re-calculate resistances and quadratic coefficients for all edges based on current flow rates.
-    pub fn update_resistances(&mut self) -> Result<()> {
+    pub fn update_resistances(&mut self) -> Result<()>
+    where
+        T: SafeFromF64,
+    {
         let edge_indices: Vec<_> = self.graph.edge_indices().collect();
         let context = self.resistance_update_context()?;
         self.propagate_blood_hematocrit(&context)?;
@@ -609,13 +628,16 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         Ok(())
     }
 
-    fn propagate_blood_hematocrit(&mut self, context: &ResistanceUpdateContext<T>) -> Result<()> {
+    fn propagate_blood_hematocrit(&mut self, context: &ResistanceUpdateContext<T>) -> Result<()>
+    where
+        T: SafeFromF64,
+    {
         if !context.is_blood_like {
             return Ok(());
         }
 
         let node_indices: Vec<_> = self.graph.node_indices().collect();
-        let tolerance = T::from_f64(1.0e-9).unwrap_or(context.epsilon);
+        let tolerance = T::from_f64_or(1.0e-9, context.epsilon);
         let max_sweeps = self.graph.node_count().clamp(2, 12);
         let mut node_hematocrit = vec![context.default_hematocrit; self.graph.node_count()];
         let mut next_node_hematocrit = vec![context.default_hematocrit; self.graph.node_count()];
@@ -659,7 +681,9 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                     &mut inflows,
                     &mut outflows,
                 );
-                max_change = max_change.max((node_hematocrit[node_idx.index()] - estimate).abs());
+                max_change = max_change.max(<T as NumericElement>::abs(
+                    node_hematocrit[node_idx.index()] - estimate,
+                ));
                 next_node_hematocrit[node_idx.index()] = estimate;
             }
 
@@ -681,16 +705,12 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                             context.epsilon,
                         )
                     {
-                        max_change = max_change.max(
-                            (self.edge_hematocrit(edge_a, context.default_hematocrit)
-                                - hematocrit_a)
-                                .abs(),
-                        );
-                        max_change = max_change.max(
-                            (self.edge_hematocrit(edge_b, context.default_hematocrit)
-                                - hematocrit_b)
-                                .abs(),
-                        );
+                        max_change = max_change.max(<T as NumericElement>::abs(
+                            self.edge_hematocrit(edge_a, context.default_hematocrit) - hematocrit_a,
+                        ));
+                        max_change = max_change.max(<T as NumericElement>::abs(
+                            self.edge_hematocrit(edge_b, context.default_hematocrit) - hematocrit_b,
+                        ));
                         updates.push((edge_a, hematocrit_a));
                         updates.push((edge_b, hematocrit_b));
                         continue;
@@ -698,10 +718,9 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                 }
 
                 for &(edge_idx, _) in &outflows {
-                    max_change = max_change.max(
-                        (self.edge_hematocrit(edge_idx, context.default_hematocrit) - node_hct)
-                            .abs(),
-                    );
+                    max_change = max_change.max(<T as NumericElement>::abs(
+                        self.edge_hematocrit(edge_idx, context.default_hematocrit) - node_hct,
+                    ));
                     updates.push((edge_idx, node_hct));
                 }
             }
@@ -710,7 +729,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                 if let Some(props) = self.properties.get_mut(&edge_idx) {
                     props.properties.insert(
                         EDGE_PROPERTY_LOCAL_HEMATOCRIT.to_string(),
-                        hematocrit.clamp(T::zero(), T::one()),
+                        <T as eunomia::RealField>::clamp(hematocrit, T::zero(), T::one()),
                     );
                 }
             }
@@ -824,28 +843,31 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
         daughter_b: (EdgeIndex, T),
         feed_hematocrit: T,
         epsilon: T,
-    ) -> Option<(EdgeIndex, T, EdgeIndex, T)> {
+    ) -> Option<(EdgeIndex, T, EdgeIndex, T)>
+    where
+        T: SafeFromF64,
+    {
         let parent_diameter = self
             .properties
             .get(&parent_edge)?
             .hydraulic_diameter
-            .and_then(|d| nalgebra::try_convert::<T, f64>(d))?;
+            .map(<T as NumericElement>::to_f64)?;
         let daughter_a_diameter = self
             .properties
             .get(&daughter_a.0)?
             .hydraulic_diameter
-            .and_then(|d| nalgebra::try_convert::<T, f64>(d))?;
+            .map(<T as NumericElement>::to_f64)?;
         let daughter_b_diameter = self
             .properties
             .get(&daughter_b.0)?
             .hydraulic_diameter
-            .and_then(|d| nalgebra::try_convert::<T, f64>(d))?;
-        let q_a = nalgebra::try_convert::<T, f64>(daughter_a.1)?;
-        let q_b = nalgebra::try_convert::<T, f64>(daughter_b.1)?;
-        let h_feed = nalgebra::try_convert::<T, f64>(feed_hematocrit)?;
+            .map(<T as NumericElement>::to_f64)?;
+        let q_a = daughter_a.1.to_f64();
+        let q_b = daughter_b.1.to_f64();
+        let h_feed = feed_hematocrit.to_f64();
 
         let total_q = q_a + q_b;
-        if total_q <= nalgebra::try_convert::<T, f64>(epsilon)? {
+        if total_q <= epsilon.to_f64() {
             return None;
         }
 
@@ -867,16 +889,19 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
 
         Some((
             daughter_a.0,
-            T::from_f64(result_a.daughter_hematocrit)?,
+            T::try_from_f64(result_a.daughter_hematocrit).ok()?,
             daughter_b.0,
-            T::from_f64(hematocrit_b)?,
+            T::try_from_f64(hematocrit_b).ok()?,
         ))
     }
 
     /// Validate network edge coefficients (resistance and quadratic coefficients).
     ///
     /// Returns an error if any edge has negative resistance or quadratic coefficient.
-    pub fn validate_coefficients(&self) -> Result<()> {
+    pub fn validate_coefficients(&self) -> Result<()>
+    where
+        T: NumericElement,
+    {
         let eps = T::default_epsilon();
         for edge_ref in self.graph.edge_references() {
             let idx = edge_ref.id();
@@ -897,7 +922,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
                     k
                 )));
             }
-            if r.abs() < eps && k.abs() < eps {
+            if <T as NumericElement>::abs(r) < eps && <T as NumericElement>::abs(k) < eps {
                 return Err(Error::InvalidConfiguration(format!(
                     "Edge {} has zero resistance and zero quadratic coefficient",
                     idx.index()
@@ -913,12 +938,15 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
     }
 
     /// Process edges in parallel
-    pub fn edges_parallel(&self) -> impl Iterator<Item = ParallelEdge<T>> + '_ {
+    pub fn edges_parallel(&self) -> impl Iterator<Item = ParallelEdge<T>> + '_
+    where
+        T: NumericElement,
+    {
         self.graph.edge_references().map(move |edge_ref| {
             let (from, to) = (edge_ref.source(), edge_ref.target());
             let edge_data = edge_ref.weight();
 
-            let q = edge_data.flow_rate.abs();
+            let q = <T as NumericElement>::abs(edge_data.flow_rate);
             // Using Picard iteration (secant modulus):
             // ΔP ≈ (R + k|Q_k|)·Q.
             // Thus, effective resistance R_eff = R + k|Q_k|.
@@ -927,7 +955,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
             // Conductance is 1/R_eff. We enforce R_eff > ε to avoid division by zero.
             // If R_eff is effectively zero or invalid, we return zero conductance (infinite resistance).
             let conductance = if r_eff > eps && r_eff.is_finite() {
-                r_eff.recip()
+                T::one() / r_eff
             } else {
                 T::zero()
             };
@@ -941,7 +969,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T>> Network<T, F> {
 }
 
 /// Map a `CrossSection` + length to the resistance-crate `ChannelGeometry`.
-fn channel_to_res_geometry<T: nalgebra::RealField + Copy>(
+fn channel_to_res_geometry<T: crate::scalar::Cfd1dScalar + Copy>(
     cross_section: &crate::domain::channel::CrossSection<T>,
     length: T,
 ) -> crate::physics::resistance::ChannelGeometry<T> {
@@ -996,7 +1024,7 @@ fn channel_to_res_geometry<T: nalgebra::RealField + Copy>(
 /// entrance correction is undefined and the base laminar conductance must
 /// generate the first pressure-driven iterate.
 #[allow(clippy::too_many_arguments)]
-fn apply_resistance_corrections<T: nalgebra::RealField + Copy>(
+fn apply_resistance_corrections<T: crate::scalar::Cfd1dScalar + Copy + SafeFromF64>(
     r: &mut T,
     d_h: T,
     area: T,
@@ -1021,7 +1049,7 @@ fn apply_resistance_corrections<T: nalgebra::RealField + Copy>(
     if d_h > epsilon && area > epsilon {
         let l_over_dh = length / d_h;
         if l_over_dh < durst_limit && viscosity > epsilon && flow_rate != T::zero() {
-            let velocity = flow_rate.abs() / area;
+            let velocity = <T as NumericElement>::abs(flow_rate) / area;
             let reynolds = density * velocity * d_h / viscosity;
             let k_entrance = durst_offset + sixty_four / (reynolds * l_over_dh).max(tiny);
             let multiplier = T::one() + k_entrance / (sixty_four * l_over_dh).max(T::one());
@@ -1070,18 +1098,18 @@ fn apply_resistance_corrections<T: nalgebra::RealField + Copy>(
 /// diameter, hematocrit in `[0, 0.95]`, and positive plasma viscosity, so it
 /// provides a finite resistance for the first linear solve. Once `Q != 0`, the
 /// shear rate `8|Q|/(A D_h)` is defined and the shear-dependent model enters.
-pub fn blood_microchannel_apparent_viscosity<T: nalgebra::RealField + Copy + FromPrimitive>(
+pub fn blood_microchannel_apparent_viscosity<T: crate::scalar::Cfd1dScalar + Copy + SafeFromF64>(
     d_h: T,
     flow_rate: T,
     area: T,
     hematocrit: T,
     plasma_viscosity: T,
 ) -> Option<T> {
-    let d_h_m = nalgebra::try_convert::<T, f64>(d_h)?;
-    let flow_rate_m3_s = nalgebra::try_convert::<T, f64>(flow_rate.abs())?;
-    let area_m2 = nalgebra::try_convert::<T, f64>(area)?;
-    let hematocrit = nalgebra::try_convert::<T, f64>(hematocrit)?;
-    let plasma_viscosity = nalgebra::try_convert::<T, f64>(plasma_viscosity)?;
+    let d_h_m = d_h.to_f64();
+    let flow_rate_m3_s = <T as NumericElement>::abs(flow_rate).to_f64();
+    let area_m2 = area.to_f64();
+    let hematocrit = hematocrit.to_f64();
+    let plasma_viscosity = plasma_viscosity.to_f64();
     if d_h_m <= 0.0 || area_m2 <= 0.0 || plasma_viscosity <= 0.0 {
         return None;
     }
@@ -1095,7 +1123,7 @@ pub fn blood_microchannel_apparent_viscosity<T: nalgebra::RealField + Copy + Fro
         plasma_viscosity,
     );
     if flow_rate_m3_s == 0.0 {
-        return T::from_f64(secomb);
+        return Some(T::from_f64_or_zero(secomb));
     }
     let quemada = crate::physics::cell_separation::rouleaux_aggregation::checked_quemada_viscosity(
         shear_rate,
@@ -1105,7 +1133,7 @@ pub fn blood_microchannel_apparent_viscosity<T: nalgebra::RealField + Copy + Fro
     .unwrap_or(secomb);
 
     let target = secomb.max(quemada);
-    T::from_f64(target)
+    Some(T::from_f64_or_zero(target))
 }
 
 #[cfg(test)]

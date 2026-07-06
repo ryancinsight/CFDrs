@@ -26,7 +26,10 @@
 //! **Reference:** Brenner & Scott, "Math. Theory of FEM", 3rd Ed., Thm. 4.4.20.
 
 use nalgebra::{DMatrix, Matrix3x4, RealField};
-use num_traits::{Float, FromPrimitive};
+
+use eunomia::{FloatElement, NumericElement};
+
+use super::scalar;
 
 /// Quadratic Lagrange shape functions for 10-node tetrahedra (P2)
 pub struct LagrangeTet10<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
@@ -34,9 +37,7 @@ pub struct LagrangeTet10<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     p1_gradients: Matrix3x4<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Float>
-    LagrangeTet10<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> LagrangeTet10<T> {
     /// Create new P2 shape functions from elemental P1 gradients
     pub fn new(p1_gradients: Matrix3x4<T>) -> Self {
         Self { p1_gradients }
@@ -45,15 +46,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     /// Calculate shape function values N_i at barycentric coordinates L
     /// L = [L1, L2, L3, L4] where sum(L) = 1.0
     pub fn values(&self, l: &[T; 4]) -> [T; 10] {
-        let mut n = [T::zero(); 10];
-        let two = <T as FromPrimitive>::from_f64(2.0)
-            .expect("2.0 is representable in all IEEE 754 types");
-        let four = <T as FromPrimitive>::from_f64(4.0)
-            .expect("4.0 is representable in all IEEE 754 types");
+        let mut n = [scalar::zero::<T>(); 10];
+        let one = scalar::one::<T>();
+        let two = scalar::constant::<T>(2.0);
+        let four = scalar::constant::<T>(4.0);
 
         // Corner nodes (0-3)
         for i in 0..4 {
-            n[i] = (two * l[i] - T::one()) * l[i];
+            n[i] = (two * l[i] - one) * l[i];
         }
 
         // Mid-edge nodes (4-9)
@@ -77,12 +77,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     /// Returns 3x10 matrix (rows for x,y,z; columns for nodes 0-9)
     pub fn gradients(&self, l: &[T; 4]) -> DMatrix<T> {
         let mut grad = DMatrix::zeros(3, 10);
-        let four = <T as FromPrimitive>::from_f64(4.0)
-            .expect("4.0 is representable in all IEEE 754 types");
+        let one = <T as NumericElement>::ONE;
+        let four = scalar::constant::<T>(4.0);
 
         // Corner nodes (0-3): ∇Ni = (4Li - 1) ∇Li
         for (i, &li) in l.iter().enumerate() {
-            let factor = four * li - T::one();
+            let factor = four * li - one;
             let g_i = self.p1_gradients.column(i) * factor;
             grad.set_column(i, &g_i);
         }

@@ -73,7 +73,44 @@ use super::cavitation_types::{CavitationStatistics, CavitationVofConfig};
 use crate::vof::solver::VofSolver;
 use cfd_core::error::Result;
 use cfd_core::physics::cavitation::rayleigh_plesset::RayleighPlesset;
-use nalgebra::{DMatrix, Vector3};
+use leto::{geometry::Vector3, Array2};
+
+/// Dense row-major cavitation scalar field with logical shape `[nx, ny * nz]`.
+pub type CavitationField = Array2<f64>;
+
+#[inline]
+fn field_len(field: &CavitationField) -> usize {
+    field.size()
+}
+
+#[inline]
+fn field_shape_matches(field: &CavitationField, rows: usize, columns: usize) -> bool {
+    field.shape() == [rows, columns]
+}
+
+#[inline]
+fn field_offset(column_count: usize, i: usize, col: usize) -> usize {
+    i * column_count + col
+}
+
+#[inline]
+fn alpha_offset(nx: usize, i: usize, col: usize) -> usize {
+    col * nx + i
+}
+
+#[inline]
+fn dense_field_slice(field: &CavitationField) -> &[f64] {
+    field
+        .as_slice()
+        .expect("invariant: cavitation fields are dense row-major Leto Array2 values")
+}
+
+#[inline]
+fn dense_field_slice_mut(field: &mut CavitationField) -> &mut [f64] {
+    field
+        .as_slice_mut()
+        .expect("invariant: cavitation fields are dense row-major Leto Array2 values")
+}
 
 /// Cavitation-VOF solver
 pub struct CavitationVofSolver {
@@ -88,17 +125,17 @@ pub struct CavitationVofSolver {
     /// Configuration
     config: CavitationVofConfig,
     /// Cavitation inception field (tracks where cavitation starts)
-    inception_field: DMatrix<f64>,
+    inception_field: CavitationField,
     /// Accumulated damage field
-    damage_field: Option<DMatrix<f64>>,
+    damage_field: Option<CavitationField>,
     /// Bubble radius field for Rayleigh-Plesset
-    bubble_radius_field: Option<DMatrix<f64>>,
+    bubble_radius_field: Option<CavitationField>,
     /// Passive scalar tracking for cavitation nuclei cascade
-    nuclei_field: Option<DMatrix<f64>>,
+    nuclei_field: Option<CavitationField>,
     /// Reusable workspace for nuclei advection.
-    nuclei_workspace: Option<DMatrix<f64>>,
+    nuclei_workspace: Option<CavitationField>,
     /// Reusable workspace for cavitation source terms.
-    cavitation_source_workspace: DMatrix<f64>,
+    cavitation_source_workspace: CavitationField,
     /// Nuclei transport evaluator
     nuclei_transport: Option<cfd_core::physics::cavitation::nuclei_transport::NucleiTransport<f64>>,
 }
@@ -144,30 +181,30 @@ impl CavitationVofSolver {
             )
         });
 
-        let inception_field = DMatrix::zeros(nx, ny * nz);
+        let inception_field = CavitationField::zeros([nx, ny * nz]);
         let damage_field = if config.damage_model.is_some() {
-            Some(DMatrix::zeros(nx, ny * nz))
+            Some(CavitationField::zeros([nx, ny * nz]))
         } else {
             None
         };
 
         let bubble_radius_field = if config.bubble_dynamics.is_some() {
-            Some(DMatrix::zeros(nx, ny * nz))
+            Some(CavitationField::zeros([nx, ny * nz]))
         } else {
             None
         };
 
         let nuclei_field = if config.nuclei_transport.is_some() {
-            Some(DMatrix::zeros(nx, ny * nz))
+            Some(CavitationField::zeros([nx, ny * nz]))
         } else {
             None
         };
         let nuclei_workspace = if config.nuclei_transport.is_some() {
-            Some(DMatrix::zeros(nx, ny * nz))
+            Some(CavitationField::zeros([nx, ny * nz]))
         } else {
             None
         };
-        let cavitation_source_workspace = DMatrix::zeros(nx, ny * nz);
+        let cavitation_source_workspace = CavitationField::zeros([nx, ny * nz]);
 
         let nuclei_transport = config
             .nuclei_transport
@@ -194,8 +231,8 @@ impl CavitationVofSolver {
         &mut self,
         dt: f64,
         velocity_field: &[Vector3<f64>],
-        pressure_field: &DMatrix<f64>,
-        density_field: &DMatrix<f64>,
+        pressure_field: &CavitationField,
+        density_field: &CavitationField,
     ) -> Result<()> {
         self.validate_flow_field_dimensions(velocity_field, pressure_field, density_field)?;
 
@@ -203,7 +240,7 @@ impl CavitationVofSolver {
         self.update_bubble_dynamics(dt, velocity_field, pressure_field, density_field)?;
 
         // 2. Calculate cavitation mass transfer rates into the reusable workspace.
-        let mut cavitation_source = DMatrix::zeros(0, 0);
+        let mut cavitation_source = CavitationField::zeros([0, 0]);
         std::mem::swap(
             &mut cavitation_source,
             &mut self.cavitation_source_workspace,
@@ -220,9 +257,17 @@ impl CavitationVofSolver {
         self.update_nuclei_advection_diffusion(dt, velocity_field, &cavitation_source)?;
 
         // 3. Update VOF with cavitation source term
-        for idx in 0..self.vof_solver.alpha.len() {
-            self.vof_solver.alpha[idx] =
-                (self.vof_solver.alpha[idx] + cavitation_source[idx]).clamp(0.0, 1.0);
+        let nx = self.vof_solver.nx;
+        let column_count = self.vof_solver.ny * self.vof_solver.nz;
+        let cavitation_source_data = dense_field_slice(&cavitation_source);
+        for col in 0..column_count {
+            for i in 0..nx {
+                let alpha_idx = alpha_offset(nx, i, col);
+                let field_idx = field_offset(column_count, i, col);
+                self.vof_solver.alpha[alpha_idx] = (self.vof_solver.alpha[alpha_idx]
+                    + cavitation_source_data[field_idx])
+                    .clamp(0.0, 1.0);
+            }
         }
 
         std::mem::swap(
@@ -230,7 +275,7 @@ impl CavitationVofSolver {
             &mut self.cavitation_source_workspace,
         );
 
-        // 4. Update VOF velocity and advance
+        // 4. Update VOF velocity and advance.
         self.vof_solver.velocity.clone_from_slice(velocity_field);
         self.vof_solver.advance(dt)?;
 
@@ -244,19 +289,20 @@ impl CavitationVofSolver {
     ///
     /// If the nuclei transport state matches the solver grid, the explicit
     /// advection-diffusion-reaction update reads and writes only within the
-    /// contiguous column-major slices allocated for each plane. The final
+    /// Leto row-major field slice allocated for `[nx, ny * nz]`. The final
     /// pointwise clamp enforces nonnegative nuclei values.
     ///
-    /// **Proof sketch**: the solver stores each `(j, k)` plane as a contiguous
-    /// slice of length `nx`. The loop uses `base = (j + k * ny) * nx` and
-    /// derives all in-plane and adjacent-plane neighbors from fixed slice
-    /// offsets. This keeps every access within the allocated domain, and the
-    /// `max(0.0)` clamp enforces the nonnegative state constraint cell by cell.
+    /// **Proof sketch**: each physical cell maps to `field_offset(ny * nz, i,
+    /// j + k * ny)` in the Leto field and `alpha_offset(nx, i, j + k * ny)` in
+    /// the VOF flat vector. Neighbor coordinates are constructed only after
+    /// checking the corresponding domain boundary. This keeps every access
+    /// within the allocated domain, and the `max(0.0)` clamp enforces the
+    /// nonnegative state constraint cell by cell.
     fn update_nuclei_advection_diffusion(
         &mut self,
         dt: f64,
         velocity_field: &[Vector3<f64>],
-        cavitation_source: &DMatrix<f64>,
+        cavitation_source: &CavitationField,
     ) -> Result<()> {
         let nx = self.vof_solver.nx;
         let ny = self.vof_solver.ny;
@@ -267,10 +313,10 @@ impl CavitationVofSolver {
         let column_count = ny * nz;
         let grid_size = nx * column_count;
 
-        if cavitation_source.nrows() != nx || cavitation_source.ncols() != column_count {
+        if !field_shape_matches(cavitation_source, nx, column_count) {
             return Err(cfd_core::error::Error::DimensionMismatch {
                 expected: grid_size,
-                actual: cavitation_source.len(),
+                actual: field_len(cavitation_source),
             });
         }
         if velocity_field.len() != grid_size {
@@ -288,10 +334,8 @@ impl CavitationVofSolver {
             return Ok(());
         };
 
-        if nuclei.nrows() != nx
-            || nuclei.ncols() != column_count
-            || next_nuclei.nrows() != nx
-            || next_nuclei.ncols() != column_count
+        if !field_shape_matches(nuclei, nx, column_count)
+            || !field_shape_matches(next_nuclei, nx, column_count)
         {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "nuclei transport workspace dimensions must match the solver grid".to_string(),
@@ -302,46 +346,21 @@ impl CavitationVofSolver {
         let inv_dx2 = if dx > 0.0 { 1.0 / (dx * dx) } else { 0.0 };
         let inv_dy2 = if dy > 0.0 { 1.0 / (dy * dy) } else { 0.0 };
         let inv_dz2 = if dz > 0.0 { 1.0 / (dz * dz) } else { 0.0 };
-        let nuclei_data = nuclei.as_slice();
-        let next_data = next_nuclei.as_mut_slice();
-        let source_data = cavitation_source.as_slice();
+        let nuclei_data = dense_field_slice(nuclei);
+        let next_data = dense_field_slice_mut(next_nuclei);
+        let source_data = dense_field_slice(cavitation_source);
 
         next_data.copy_from_slice(nuclei_data);
 
         for k in 0..nz {
             let col_offset = k * ny;
-            let lower_k_offset = if k > 0 { Some((k - 1) * ny * nx) } else { None };
-            let upper_k_offset = if k + 1 < nz {
-                Some((k + 1) * ny * nx)
-            } else {
-                None
-            };
-
             for j in 0..ny {
                 let col = col_offset + j;
-                let base = col * nx;
-                let current = &nuclei_data[base..base + nx];
-                let source_col = &source_data[base..base + nx];
-                let next_col = &mut next_data[base..base + nx];
-                let left_col = if j > 0 {
-                    Some(&nuclei_data[base - nx..base])
-                } else {
-                    None
-                };
-                let right_col = if j + 1 < ny {
-                    Some(&nuclei_data[base + nx..base + 2 * nx])
-                } else {
-                    None
-                };
-                let lower_col = lower_k_offset
-                    .map(|offset| &nuclei_data[offset + j * nx..offset + j * nx + nx]);
-                let upper_col = upper_k_offset
-                    .map(|offset| &nuclei_data[offset + j * nx..offset + j * nx + nx]);
-
                 for i in 0..nx {
-                    let idx = base + i;
-                    let u = velocity_field[idx];
-                    let center = current[i];
+                    let field_idx = field_offset(column_count, i, col);
+                    let alpha_idx = alpha_offset(nx, i, col);
+                    let u = velocity_field[alpha_idx];
+                    let center = nuclei_data[field_idx];
                     let mut flux_x = 0.0;
                     let mut flux_y = 0.0;
                     let mut flux_z = 0.0;
@@ -351,51 +370,65 @@ impl CavitationVofSolver {
 
                     // 1st-order upwind advection.
                     if u.x > 0.0 && i > 0 {
-                        flux_x = u.x * (current[i] - current[i - 1]) / dx;
+                        let neighbor = nuclei_data[field_offset(column_count, i - 1, col)];
+                        flux_x = u.x * (center - neighbor) / dx;
                     } else if u.x < 0.0 && i + 1 < nx {
-                        flux_x = u.x * (current[i + 1] - current[i]) / dx;
+                        let neighbor = nuclei_data[field_offset(column_count, i + 1, col)];
+                        flux_x = u.x * (neighbor - center) / dx;
                     }
 
                     if u.y > 0.0 {
-                        if let Some(left) = left_col {
-                            flux_y = u.y * (current[i] - left[i]) / dy;
+                        if j > 0 {
+                            let neighbor = nuclei_data[field_offset(column_count, i, col - 1)];
+                            flux_y = u.y * (center - neighbor) / dy;
                         }
-                    } else if u.y < 0.0 {
-                        if let Some(right) = right_col {
-                            flux_y = u.y * (right[i] - current[i]) / dy;
-                        }
+                    } else if u.y < 0.0 && j + 1 < ny {
+                        let neighbor = nuclei_data[field_offset(column_count, i, col + 1)];
+                        flux_y = u.y * (neighbor - center) / dy;
                     }
 
                     if u.z > 0.0 {
-                        if let Some(lower) = lower_col {
-                            flux_z = u.z * (current[i] - lower[i]) / dz;
+                        if k > 0 {
+                            let neighbor = nuclei_data[field_offset(column_count, i, col - ny)];
+                            flux_z = u.z * (center - neighbor) / dz;
                         }
-                    } else if u.z < 0.0 {
-                        if let Some(upper) = upper_col {
-                            flux_z = u.z * (upper[i] - current[i]) / dz;
-                        }
+                    } else if u.z < 0.0 && k + 1 < nz {
+                        let neighbor = nuclei_data[field_offset(column_count, i, col + ny)];
+                        flux_z = u.z * (neighbor - center) / dz;
                     }
 
                     if diffusion_coefficient > 0.0 {
                         if i > 0 {
-                            diffusion_x += (current[i - 1] - center) * inv_dx2;
+                            diffusion_x += (nuclei_data[field_offset(column_count, i - 1, col)]
+                                - center)
+                                * inv_dx2;
                         }
                         if i + 1 < nx {
-                            diffusion_x += (current[i + 1] - center) * inv_dx2;
+                            diffusion_x += (nuclei_data[field_offset(column_count, i + 1, col)]
+                                - center)
+                                * inv_dx2;
                         }
 
-                        if let Some(left) = left_col {
-                            diffusion_y += (left[i] - center) * inv_dy2;
+                        if j > 0 {
+                            diffusion_y += (nuclei_data[field_offset(column_count, i, col - 1)]
+                                - center)
+                                * inv_dy2;
                         }
-                        if let Some(right) = right_col {
-                            diffusion_y += (right[i] - center) * inv_dy2;
+                        if j + 1 < ny {
+                            diffusion_y += (nuclei_data[field_offset(column_count, i, col + 1)]
+                                - center)
+                                * inv_dy2;
                         }
 
-                        if let Some(lower) = lower_col {
-                            diffusion_z += (lower[i] - center) * inv_dz2;
+                        if k > 0 {
+                            diffusion_z += (nuclei_data[field_offset(column_count, i, col - ny)]
+                                - center)
+                                * inv_dz2;
                         }
-                        if let Some(upper) = upper_col {
-                            diffusion_z += (upper[i] - center) * inv_dz2;
+                        if k + 1 < nz {
+                            diffusion_z += (nuclei_data[field_offset(column_count, i, col + ny)]
+                                - center)
+                                * inv_dz2;
                         }
 
                         diffusion_x *= diffusion_coefficient;
@@ -405,16 +438,16 @@ impl CavitationVofSolver {
 
                     let s_net = transport.calculate_net_reaction_rate(
                         center,
-                        source_col[i].max(0.0), // Only vapor generation acts as a nuclei source.
+                        source_data[field_idx].max(0.0), // Only vapor generation acts as a nuclei source.
                     );
 
-                    next_col[i] += dt
+                    next_data[field_idx] += dt
                         * (-flux_x - flux_y - flux_z
                             + diffusion_x
                             + diffusion_y
                             + diffusion_z
                             + s_net);
-                    next_col[i] = next_col[i].max(0.0);
+                    next_data[field_idx] = next_data[field_idx].max(0.0);
                 }
             }
         }
@@ -427,8 +460,8 @@ impl CavitationVofSolver {
         &mut self,
         dt: f64,
         velocity_field: &[Vector3<f64>],
-        pressure_field: &DMatrix<f64>,
-        density_field: &DMatrix<f64>,
+        pressure_field: &CavitationField,
+        density_field: &CavitationField,
     ) -> Result<()> {
         let nx = self.vof_solver.nx;
         let ny = self.vof_solver.ny;
@@ -442,13 +475,13 @@ impl CavitationVofSolver {
                     for k in 0..nz {
                         let idx = self.vof_solver.index(i, j, k);
                         let col = j + k * ny;
-                        let pressure = pressure_field[(i, col)];
+                        let pressure = pressure_field[[i, col]];
                         let velocity = velocity_field[idx];
-                        let density = density_field[(i, col)];
+                        let density = density_field[[i, col]];
 
                         let radius = bubble_solver
                             .update_bubble(i, j, k, pressure, velocity, density, dt)?;
-                        radius_field[(i, col)] = radius;
+                        radius_field[[i, col]] = radius;
                     }
                 }
             }
@@ -461,14 +494,14 @@ impl CavitationVofSolver {
         &mut self,
         dt: f64,
         velocity_field: &[Vector3<f64>],
-        pressure_field: &DMatrix<f64>,
-        density_field: &DMatrix<f64>,
-    ) -> DMatrix<f64> {
+        pressure_field: &CavitationField,
+        density_field: &CavitationField,
+    ) -> CavitationField {
         let nx = self.vof_solver.nx;
         let ny = self.vof_solver.ny;
         let nz = self.vof_solver.nz;
 
-        let mut cavitation_source = DMatrix::zeros(nx, ny * nz);
+        let mut cavitation_source = CavitationField::zeros([nx, ny * nz]);
         self.calculate_cavitation_source_into(
             dt,
             velocity_field,
@@ -495,9 +528,9 @@ impl CavitationVofSolver {
         &mut self,
         dt: f64,
         velocity_field: &[Vector3<f64>],
-        pressure_field: &DMatrix<f64>,
-        density_field: &DMatrix<f64>,
-        cavitation_source: &mut DMatrix<f64>,
+        pressure_field: &CavitationField,
+        density_field: &CavitationField,
+        cavitation_source: &mut CavitationField,
     ) -> Result<()> {
         let nx = self.vof_solver.nx;
         let ny = self.vof_solver.ny;
@@ -505,28 +538,28 @@ impl CavitationVofSolver {
         let column_count = ny * nz;
         let grid_size = nx * column_count;
 
-        if pressure_field.nrows() != nx || pressure_field.ncols() != column_count {
+        if !field_shape_matches(pressure_field, nx, column_count) {
             return Err(cfd_core::error::Error::DimensionMismatch {
                 expected: grid_size,
-                actual: pressure_field.len(),
+                actual: field_len(pressure_field),
             });
         }
-        if density_field.nrows() != nx || density_field.ncols() != column_count {
+        if !field_shape_matches(density_field, nx, column_count) {
             return Err(cfd_core::error::Error::DimensionMismatch {
                 expected: grid_size,
-                actual: density_field.len(),
+                actual: field_len(density_field),
             });
         }
-        if cavitation_source.nrows() != nx || cavitation_source.ncols() != column_count {
+        if !field_shape_matches(cavitation_source, nx, column_count) {
             return Err(cfd_core::error::Error::DimensionMismatch {
                 expected: grid_size,
-                actual: cavitation_source.len(),
+                actual: field_len(cavitation_source),
             });
         }
 
-        let pressure_data = pressure_field.as_slice();
-        let density_data = density_field.as_slice();
-        let source_data = cavitation_source.as_mut_slice();
+        let pressure_data = dense_field_slice(pressure_field);
+        let density_data = dense_field_slice(density_field);
+        let source_data = dense_field_slice_mut(cavitation_source);
         let alpha = self.vof_solver.alpha.as_slice();
         let inception_threshold = self.config.inception_threshold;
         let max_void_fraction = self.config.max_void_fraction;
@@ -541,30 +574,26 @@ impl CavitationVofSolver {
             let col_offset = k * ny;
             for j in 0..ny {
                 let col = col_offset + j;
-                let base = col * nx;
-                let pressure_col = &pressure_data[base..base + nx];
-                let density_col = &density_data[base..base + nx];
-                let alpha_col = &alpha[base..base + nx];
-                let source_col = &mut source_data[base..base + nx];
 
                 for i in 0..nx {
-                    let idx = base + i;
-                    let pressure = pressure_col[i];
-                    let void_fraction = alpha_col[i].clamp(0.0, 1.0);
-                    let density_liquid = density_col[i];
+                    let field_idx = field_offset(column_count, i, col);
+                    let alpha_idx = alpha_offset(nx, i, col);
+                    let pressure = pressure_data[field_idx];
+                    let void_fraction = alpha[alpha_idx].clamp(0.0, 1.0);
+                    let density_liquid = density_data[field_idx];
                     let mut vapor_pressure = vapor_pressure_base;
 
                     // Cascade effect: modify vapor pressure assumption if pre-existing nuclei are advected.
                     if let Some(nuclei) = nuclei_field {
                         vapor_pressure = cfd_core::physics::cavitation::nuclei_transport::nuclei_adjusted_vapor_pressure(
                             vapor_pressure,
-                            nuclei[(i, col)],
+                            nuclei[[i, col]],
                         );
                     }
 
                     // Calculate cavitation number (relative to vapor pressure).
                     // Zero dynamic pressure maps to infinite cavitation number.
-                    let ref_vel = velocity_field[idx].norm();
+                    let ref_vel = velocity_field[alpha_idx].norm();
                     let cavitation_number =
                         Self::cavitation_number(pressure, vapor_pressure, density_liquid, ref_vel);
 
@@ -572,7 +601,7 @@ impl CavitationVofSolver {
                         || (cavitation_number.is_finite()
                             && cavitation_number < inception_threshold)
                     {
-                        self.inception_field[(i, col)] = INCEPTION_ACTIVE;
+                        self.inception_field[[i, col]] = INCEPTION_ACTIVE;
                     }
 
                     let mass_transfer = self.cavitation_model.mass_transfer_rate(
@@ -586,18 +615,18 @@ impl CavitationVofSolver {
                     let alpha_source = mass_transfer / vapor_density;
                     let relaxed_rate = alpha_source * dt / (dt + relaxation_time);
 
-                    source_col[i] = relaxed_rate;
+                    source_data[field_idx] = relaxed_rate;
 
                     // Limit void fraction increment.
-                    if source_col[i] > 0.0 {
+                    if source_data[field_idx] > 0.0 {
                         let room = (max_void_fraction - void_fraction).max(0.0);
-                        if source_col[i] > room {
-                            source_col[i] = room;
+                        if source_data[field_idx] > room {
+                            source_data[field_idx] = room;
                         }
-                    } else if source_col[i] < 0.0 {
+                    } else if source_data[field_idx] < 0.0 {
                         let available = void_fraction.max(0.0);
-                        if source_col[i].abs() > available {
-                            source_col[i] = -available;
+                        if source_data[field_idx].abs() > available {
+                            source_data[field_idx] = -available;
                         }
                     }
                 }
@@ -610,23 +639,23 @@ impl CavitationVofSolver {
     fn validate_flow_field_dimensions(
         &self,
         velocity_field: &[Vector3<f64>],
-        pressure_field: &DMatrix<f64>,
-        density_field: &DMatrix<f64>,
+        pressure_field: &CavitationField,
+        density_field: &CavitationField,
     ) -> Result<()> {
         let nx = self.vof_solver.nx;
         let ny = self.vof_solver.ny;
         let nz = self.vof_solver.nz;
 
-        if pressure_field.nrows() != nx || pressure_field.ncols() != ny * nz {
+        if !field_shape_matches(pressure_field, nx, ny * nz) {
             return Err(cfd_core::error::Error::DimensionMismatch {
                 expected: nx * ny * nz,
-                actual: pressure_field.len(),
+                actual: field_len(pressure_field),
             });
         }
-        if density_field.nrows() != nx || density_field.ncols() != ny * nz {
+        if !field_shape_matches(density_field, nx, ny * nz) {
             return Err(cfd_core::error::Error::DimensionMismatch {
                 expected: nx * ny * nz,
-                actual: density_field.len(),
+                actual: field_len(density_field),
             });
         }
         if velocity_field.len() != nx * ny * nz {
@@ -670,8 +699,8 @@ impl CavitationVofSolver {
     fn update_damage(
         &mut self,
         dt: f64,
-        pressure_field: &DMatrix<f64>,
-        density_field: &DMatrix<f64>,
+        pressure_field: &CavitationField,
+        density_field: &CavitationField,
     ) -> Result<()> {
         let nx = self.vof_solver.nx;
         let ny = self.vof_solver.ny;
@@ -679,16 +708,16 @@ impl CavitationVofSolver {
         let column_count = ny * nz;
         let grid_size = nx * column_count;
 
-        if pressure_field.nrows() != nx || pressure_field.ncols() != column_count {
+        if !field_shape_matches(pressure_field, nx, column_count) {
             return Err(cfd_core::error::Error::DimensionMismatch {
                 expected: grid_size,
-                actual: pressure_field.len(),
+                actual: field_len(pressure_field),
             });
         }
-        if density_field.nrows() != nx || density_field.ncols() != column_count {
+        if !field_shape_matches(density_field, nx, column_count) {
             return Err(cfd_core::error::Error::DimensionMismatch {
                 expected: grid_size,
-                actual: density_field.len(),
+                actual: field_len(density_field),
             });
         }
 
@@ -700,38 +729,35 @@ impl CavitationVofSolver {
             return Ok(());
         };
 
-        if damage_field.nrows() != nx || damage_field.ncols() != column_count {
+        if !field_shape_matches(damage_field, nx, column_count) {
             return Err(cfd_core::error::Error::DimensionMismatch {
                 expected: grid_size,
-                actual: damage_field.len(),
+                actual: field_len(damage_field),
             });
         }
         let bubble_population = bubble_solver.population_weight();
-        let pressure_data = pressure_field.as_slice();
-        let density_data = density_field.as_slice();
-        let damage_data = damage_field.as_mut_slice();
+        let pressure_data = dense_field_slice(pressure_field);
+        let density_data = dense_field_slice(density_field);
+        let damage_data = dense_field_slice_mut(damage_field);
         let alpha = self.vof_solver.alpha.as_slice();
 
         for k in 0..nz {
             let col_offset = k * ny;
             for j in 0..ny {
                 let col = col_offset + j;
-                let base = col * nx;
-                let pressure_col = &pressure_data[base..base + nx];
-                let density_col = &density_data[base..base + nx];
-                let damage_col = &mut damage_data[base..base + nx];
 
                 for i in 0..nx {
-                    let idx = base + i;
-                    let void_fraction = alpha[idx];
+                    let field_idx = field_offset(column_count, i, col);
+                    let alpha_idx = alpha_offset(nx, i, col);
+                    let void_fraction = alpha[alpha_idx];
 
                     if void_fraction > 0.0 {
-                        let pressure = pressure_col[i];
+                        let pressure = pressure_data[field_idx];
                         let impact_pressure = bubble_solver.collapse_pressure(
                             i,
                             j,
                             k,
-                            density_col[i],
+                            density_data[field_idx],
                             self.config.sound_speed,
                         );
                         let impact_frequency = bubble_solver
@@ -739,7 +765,7 @@ impl CavitationVofSolver {
                             * bubble_population;
 
                         let erosion_rate = damage_model.mdpr(impact_pressure, impact_frequency, dt);
-                        damage_col[i] += erosion_rate * void_fraction;
+                        damage_data[field_idx] += erosion_rate * void_fraction;
                     }
                 }
             }
@@ -749,46 +775,59 @@ impl CavitationVofSolver {
     }
 
     /// Get current volume fraction field
-    pub fn volume_fraction(&self) -> DMatrix<f64> {
+    pub fn volume_fraction(&self) -> CavitationField {
         let nx = self.vof_solver.nx;
         let ny = self.vof_solver.ny;
         let nz = self.vof_solver.nz;
-        // alpha is stored in k*ny*nx + j*nx + i order, which matches column-major (j+k*ny)*nx + i
-        DMatrix::from_column_slice(nx, ny * nz, &self.vof_solver.alpha)
+        let column_count = ny * nz;
+        let mut volume_fraction = CavitationField::zeros([nx, column_count]);
+        let data = dense_field_slice_mut(&mut volume_fraction);
+        for col in 0..column_count {
+            for i in 0..nx {
+                data[field_offset(column_count, i, col)] =
+                    self.vof_solver.alpha[alpha_offset(nx, i, col)];
+            }
+        }
+        volume_fraction
     }
 
     /// Set current volume fraction field
-    pub fn set_volume_fraction(&mut self, volume_fraction: &DMatrix<f64>) -> Result<()> {
+    pub fn set_volume_fraction(&mut self, volume_fraction: &CavitationField) -> Result<()> {
         let nx = self.vof_solver.nx;
         let ny = self.vof_solver.ny;
         let nz = self.vof_solver.nz;
         let grid_size = nx * ny * nz;
 
-        if volume_fraction.len() != grid_size {
+        if !field_shape_matches(volume_fraction, nx, ny * nz) {
             return Err(cfd_core::error::Error::DimensionMismatch {
                 expected: grid_size,
-                actual: volume_fraction.len(),
+                actual: field_len(volume_fraction),
             });
         }
 
-        self.vof_solver
-            .alpha
-            .copy_from_slice(volume_fraction.as_slice());
+        let column_count = ny * nz;
+        let data = dense_field_slice(volume_fraction);
+        for col in 0..column_count {
+            for i in 0..nx {
+                self.vof_solver.alpha[alpha_offset(nx, i, col)] =
+                    data[field_offset(column_count, i, col)];
+            }
+        }
         Ok(())
     }
 
     /// Get cavitation inception field
-    pub fn inception_field(&self) -> &DMatrix<f64> {
+    pub fn inception_field(&self) -> &CavitationField {
         &self.inception_field
     }
 
     /// Get accumulated damage field
-    pub fn damage_field(&self) -> Option<&DMatrix<f64>> {
+    pub fn damage_field(&self) -> Option<&CavitationField> {
         self.damage_field.as_ref()
     }
 
     /// Get bubble radius field
-    pub fn bubble_radius_field(&self) -> Option<&DMatrix<f64>> {
+    pub fn bubble_radius_field(&self) -> Option<&CavitationField> {
         self.bubble_radius_field.as_ref()
     }
 
@@ -798,19 +837,19 @@ impl CavitationVofSolver {
     /// Rayleigh-Plesset adiabatic compression model and Stefan-Boltzmann law.
     pub fn sonoluminescence_energy_field(
         &self,
-        pressure_field: &DMatrix<f64>,
+        pressure_field: &CavitationField,
         ambient_temperature: f64,
         flash_duration: f64,
         emissivity: f64,
-    ) -> Result<DMatrix<f64>> {
+    ) -> Result<CavitationField> {
         let nx = self.vof_solver.nx;
         let ny = self.vof_solver.ny;
         let nz = self.vof_solver.nz;
 
-        if pressure_field.nrows() != nx || pressure_field.ncols() != ny * nz {
+        if !field_shape_matches(pressure_field, nx, ny * nz) {
             return Err(cfd_core::error::Error::DimensionMismatch {
                 expected: nx * ny * nz,
-                actual: pressure_field.len(),
+                actual: field_len(pressure_field),
             });
         }
         let Some(radius_field) = &self.bubble_radius_field else {
@@ -824,7 +863,7 @@ impl CavitationVofSolver {
             ));
         };
 
-        let mut energy = DMatrix::zeros(nx, ny * nz);
+        let mut energy = CavitationField::zeros([nx, ny * nz]);
 
         let rp = RayleighPlesset::<f64> {
             initial_radius: bubble_cfg.initial_radius,
@@ -840,18 +879,18 @@ impl CavitationVofSolver {
             for j in 0..ny {
                 for k in 0..nz {
                     let col = j + k * ny;
-                    let r_collapse = radius_field[(i, col)];
+                    let r_collapse = radius_field[[i, col]];
                     if r_collapse <= 0.0 || r_collapse >= bubble_cfg.initial_radius {
                         continue;
                     }
                     let estimate = rp.estimate_sonoluminescence(
-                        pressure_field[(i, col)],
+                        pressure_field[[i, col]],
                         ambient_temperature,
                         r_collapse,
                         emissivity,
                         flash_duration,
                     )?;
-                    energy[(i, col)] = estimate.radiated_energy * bubble_population;
+                    energy[[i, col]] = estimate.radiated_energy * bubble_population;
                 }
             }
         }
@@ -861,7 +900,7 @@ impl CavitationVofSolver {
 
     /// Calculate cavitation statistics
     pub fn cavitation_statistics(&self) -> CavitationStatistics {
-        let total_cells = self.inception_field.len();
+        let total_cells = field_len(&self.inception_field);
         let cavitating_cells = self
             .inception_field
             .iter()
@@ -929,8 +968,8 @@ mod tests {
 
         let dt = 1e-5;
         // Pressure well below vapor pressure -> vaporization expected.
-        let pressure_field = DMatrix::from_element(nx, ny * nz, 500.0); // 500 Pa << 2300 Pa
-        let density_field = DMatrix::from_element(nx, ny * nz, 1000.0);
+        let pressure_field = CavitationField::from_elem([nx, ny * nz], 500.0); // 500 Pa << 2300 Pa
+        let density_field = CavitationField::from_elem([nx, ny * nz], 1000.0);
         let velocity_field = vec![Vector3::new(1.0, 0.0, 0.0); grid];
 
         let source = solver.calculate_cavitation_source(
@@ -971,8 +1010,8 @@ mod tests {
         }
 
         let dt = 1e-5;
-        let pressure_field = DMatrix::from_element(nx, ny * nz, 100_000.0); // well above vapor
-        let density_field = DMatrix::from_element(nx, ny * nz, 1000.0);
+        let pressure_field = CavitationField::from_elem([nx, ny * nz], 100_000.0); // well above vapor
+        let density_field = CavitationField::from_elem([nx, ny * nz], 1000.0);
         let velocity_field = vec![Vector3::new(1.0, 0.0, 0.0); grid];
 
         let source = solver.calculate_cavitation_source(
@@ -1022,12 +1061,12 @@ mod tests {
         let mut solver = CavitationVofSolver::new(3, 3, 1, config).expect("solver construction");
         if let Some(nuclei) = solver.nuclei_field.as_mut() {
             nuclei.fill(0.0);
-            nuclei[(1, 1)] = 1.0;
+            nuclei[[1, 1]] = 1.0;
         }
 
         let dt = 1.0e-3;
-        let pressure_field = DMatrix::from_element(3, 3, 100_000.0);
-        let density_field = DMatrix::from_element(3, 3, 1000.0);
+        let pressure_field = CavitationField::from_elem([3, 3], 100_000.0);
+        let density_field = CavitationField::from_elem([3, 3], 1000.0);
         let velocity_field = vec![Vector3::zeros(); 9];
 
         solver
@@ -1035,8 +1074,8 @@ mod tests {
             .expect("step should remain stable under diffusion-only transport");
 
         let nuclei = solver.nuclei_field.as_ref().expect("nuclei field");
-        let center = nuclei[(1, 1)];
-        let neighbor_sum = nuclei[(0, 1)] + nuclei[(2, 1)] + nuclei[(1, 0)] + nuclei[(1, 2)];
+        let center = nuclei[[1, 1]];
+        let neighbor_sum = nuclei[[0, 1]] + nuclei[[2, 1]] + nuclei[[1, 0]] + nuclei[[1, 2]];
 
         assert!(center < 1.0, "diffusion must decrease the central peak");
         assert!(
@@ -1062,8 +1101,10 @@ mod tests {
         }
 
         let dt = 1.0e-3;
-        let pressure_field = DMatrix::from_column_slice(2, 1, &[500.0, 100_000.0]);
-        let density_field = DMatrix::from_column_slice(2, 1, &[1000.0, 1000.0]);
+        let pressure_field = CavitationField::from_shape_vec([2, 1], vec![500.0, 100_000.0])
+            .expect("valid pressure field shape");
+        let density_field = CavitationField::from_shape_vec([2, 1], vec![1000.0, 1000.0])
+            .expect("valid density field shape");
         let velocity_field = vec![Vector3::zeros(); 2];
 
         solver
@@ -1072,11 +1113,11 @@ mod tests {
 
         let nuclei = solver.nuclei_field.as_ref().expect("nuclei field");
         assert!(
-            nuclei[(0, 0)] > 0.0,
+            nuclei[[0, 0]] > 0.0,
             "active cavitation must generate nuclei in the vaporizing cell"
         );
         assert_eq!(
-            nuclei[(1, 0)],
+            nuclei[[1, 0]],
             0.0,
             "inactive cells must not accumulate nuclei from a nonpositive source"
         );
@@ -1086,21 +1127,21 @@ mod tests {
     fn cavitation_source_workspace_is_reused_across_steps() {
         let config = make_config();
         let mut solver = CavitationVofSolver::new(2, 2, 1, config).expect("solver construction");
-        let expected_len = solver.cavitation_source_workspace.len();
+        let expected_len = field_len(&solver.cavitation_source_workspace);
 
-        let pressure_field = DMatrix::from_element(2, 2, 500.0);
-        let density_field = DMatrix::from_element(2, 2, 1000.0);
+        let pressure_field = CavitationField::from_elem([2, 2], 500.0);
+        let density_field = CavitationField::from_elem([2, 2], 1000.0);
         let velocity_field = vec![Vector3::new(1.0, 0.0, 0.0); 4];
 
         solver
             .step(1.0e-5, &velocity_field, &pressure_field, &density_field)
             .expect("first cavitation step");
-        assert_eq!(solver.cavitation_source_workspace.len(), expected_len);
+        assert_eq!(field_len(&solver.cavitation_source_workspace), expected_len);
 
         solver
             .step(1.0e-5, &velocity_field, &pressure_field, &density_field)
             .expect("second cavitation step");
-        assert_eq!(solver.cavitation_source_workspace.len(), expected_len);
+        assert_eq!(field_len(&solver.cavitation_source_workspace), expected_len);
     }
 
     #[test]
@@ -1111,9 +1152,9 @@ mod tests {
         solver.vof_solver.alpha[0] = solver.config.max_void_fraction;
         solver.vof_solver.alpha[1] = 0.0;
 
-        let mut pressure_field = DMatrix::from_element(2, 1, 100_000.0);
-        pressure_field[(0, 0)] = 500.0;
-        let density_field = DMatrix::from_element(2, 1, 1000.0);
+        let mut pressure_field = CavitationField::from_elem([2, 1], 100_000.0);
+        pressure_field[[0, 0]] = 500.0;
+        let density_field = CavitationField::from_elem([2, 1], 1000.0);
         let velocity_field = vec![Vector3::new(1.0, 0.0, 0.0); 2];
 
         let source = solver.calculate_cavitation_source(
@@ -1123,8 +1164,8 @@ mod tests {
             &density_field,
         );
 
-        assert_eq!(source[(0, 0)], 0.0);
-        assert_eq!(source[(1, 0)], 0.0);
+        assert_eq!(source[[0, 0]], 0.0);
+        assert_eq!(source[[1, 0]], 0.0);
     }
 
     #[test]
@@ -1132,8 +1173,8 @@ mod tests {
         let config = make_config();
         let mut solver = CavitationVofSolver::new(2, 2, 1, config).expect("solver construction");
 
-        let pressure_field = DMatrix::from_element(2, 2, 500.0);
-        let density_field = DMatrix::from_element(2, 2, 1000.0);
+        let pressure_field = CavitationField::from_elem([2, 2], 500.0);
+        let density_field = CavitationField::from_elem([2, 2], 1000.0);
         let velocity_field = vec![Vector3::new(1.0, 0.0, 0.0); 3];
 
         let err = solver
@@ -1170,13 +1211,13 @@ mod tests {
         let mut solver_high = CavitationVofSolver::new(1, 1, 1, high_density).unwrap();
 
         if let Some(radius_field) = solver_low.bubble_radius_field.as_mut() {
-            radius_field[(0, 0)] = 5.0e-7;
+            radius_field[[0, 0]] = 5.0e-7;
         }
         if let Some(radius_field) = solver_high.bubble_radius_field.as_mut() {
-            radius_field[(0, 0)] = 5.0e-7;
+            radius_field[[0, 0]] = 5.0e-7;
         }
 
-        let pressure_field = DMatrix::from_element(1, 1, 1.0e5);
+        let pressure_field = CavitationField::from_elem([1, 1], 1.0e5);
         let energy_low = solver_low
             .sonoluminescence_energy_field(&pressure_field, 293.15, 5.0e-11, 1.0)
             .unwrap();
@@ -1184,7 +1225,7 @@ mod tests {
             .sonoluminescence_energy_field(&pressure_field, 293.15, 5.0e-11, 1.0)
             .unwrap();
 
-        let ratio = energy_high[(0, 0)] / energy_low[(0, 0)];
+        let ratio = energy_high[[0, 0]] / energy_low[[0, 0]];
         assert!((ratio - 2.0).abs() < 1e-12 * 2.0);
     }
 
@@ -1200,8 +1241,8 @@ mod tests {
 
         let dt = 1e-5;
         // Very low pressure to drive maximum vaporization.
-        let pressure_field = DMatrix::from_element(nx, ny * nz, 100.0);
-        let density_field = DMatrix::from_element(nx, ny * nz, 1000.0);
+        let pressure_field = CavitationField::from_elem([nx, ny * nz], 100.0);
+        let density_field = CavitationField::from_elem([nx, ny * nz], 1000.0);
         let velocity_field = vec![Vector3::new(0.1, 0.0, 0.0); grid];
 
         // Run several steps.
@@ -1248,8 +1289,8 @@ mod tests {
 
         // Keep the pressure just above vapor pressure so the bubble frequency
         // remains positive while the low-void cell still survives the source update.
-        let pressure_field = DMatrix::from_element(nx, ny * nz, 2_300.1);
-        let density_field = DMatrix::from_element(nx, ny * nz, 1000.0);
+        let pressure_field = CavitationField::from_elem([nx, ny * nz], 2_300.1);
+        let density_field = CavitationField::from_elem([nx, ny * nz], 1000.0);
         let velocity_field = vec![Vector3::new(0.1, 0.0, 0.0); nx * ny * nz];
 
         solver
@@ -1258,11 +1299,11 @@ mod tests {
 
         let damage = solver.damage_field().expect("damage field");
         assert!(
-            damage[(0, 0)] > 0.0,
+            damage[[0, 0]] > 0.0,
             "damage must accumulate for sub-1% void fraction cells"
         );
         assert_eq!(
-            damage[(1, 0)],
+            damage[[1, 0]],
             0.0,
             "pure liquid cells must not accumulate cavitation damage"
         );
@@ -1286,8 +1327,8 @@ mod tests {
         });
 
         let mut solver = CavitationVofSolver::new(2, 1, 1, config).expect("solver");
-        let pressure_field = DMatrix::from_element(1, 1, 2_300.1);
-        let density_field = DMatrix::from_element(2, 1, 1000.0);
+        let pressure_field = CavitationField::from_elem([1, 1], 2_300.1);
+        let density_field = CavitationField::from_elem([2, 1], 1000.0);
 
         let err = solver
             .update_damage(1.0e-5, &pressure_field, &density_field)

@@ -57,8 +57,10 @@
 //! - Kelley, C. T. (1995). *Iterative Methods for Linear and Nonlinear Equations.*
 //!   SIAM. Ch. 1.
 
-use cfd_core::error::Result;
-use nalgebra::{DVector, RealField};
+use crate::scalar::Cfd1dScalar;
+use cfd_core::error::{Error, Result};
+use eunomia::{FloatElement, NumericElement};
+use leto::Array1;
 
 /// Convergence checker for iterative solutions.
 ///
@@ -67,12 +69,12 @@ use nalgebra::{DVector, RealField};
 /// - **Change criterion**: `‖Δx‖/‖x‖ < ε` (non-linear/Picard fixed-point)
 ///
 /// Both must hold simultaneously for `has_converged_dual`.
-pub struct ConvergenceChecker<T: RealField + Copy> {
+pub struct ConvergenceChecker<T: Cfd1dScalar + Copy> {
     tolerance: T,
     max_iterations: usize,
 }
 
-impl<T: RealField + Copy> ConvergenceChecker<T> {
+impl<T: Cfd1dScalar + Copy + FloatElement> ConvergenceChecker<T> {
     /// Create a new convergence checker
     pub fn new(tolerance: T) -> Self {
         Self {
@@ -101,20 +103,22 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
     ///
     /// **Note**: This method cannot check the true residual `‖Ax − b‖` without
     /// access to A and b. Use `has_converged_dual` for a complete convergence test.
-    pub fn check(&self, solution: &DVector<T>) -> Result<()> {
+    pub fn check(&self, solution: &Array1<T>) -> Result<()> {
         // Invariant: no NaN/Inf in the solution vector
-        if solution.iter().any(|x| !x.is_finite()) {
+        if solution
+            .iter()
+            .any(|x| !<T as NumericElement>::is_finite(*x))
+        {
             return Err(cfd_core::error::Error::Convergence(
                 cfd_core::error::ConvergenceErrorKind::Diverged { norm: 0.0 },
             ));
         }
 
         // Divergence guard: solution magnitude must not explode
-        let norm = solution.norm();
-        let divergence_limit =
-            T::from_f64(1e10).expect("Mathematical constant conversion compromised");
+        let norm = l2_norm(solution);
+        let divergence_limit = <T as FloatElement>::from_f64(1e10);
         if norm > divergence_limit {
-            let norm_f64 = nalgebra::try_convert::<T, f64>(norm).unwrap_or(f64::INFINITY);
+            let norm_f64 = <T as NumericElement>::to_f64(norm);
             return Err(cfd_core::error::Error::Convergence(
                 cfd_core::error::ConvergenceErrorKind::Diverged { norm: norm_f64 },
             ));
@@ -129,16 +133,21 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
     }
 
     /// Check if solution has converged by comparing two solution vectors
-    pub fn has_converged(&self, current: &DVector<T>, previous: &DVector<T>) -> Result<bool> {
+    pub fn has_converged(&self, current: &Array1<T>, previous: &Array1<T>) -> Result<bool> {
+        ensure_matching_lengths(current, previous, "solution-change convergence")?;
+
         // Check for NaN/Inf values indicating divergence
-        if current.iter().any(|x| !x.is_finite()) {
+        if current
+            .iter()
+            .any(|x| !<T as NumericElement>::is_finite(*x))
+        {
             return Err(cfd_core::error::Error::Convergence(
                 cfd_core::error::ConvergenceErrorKind::Diverged { norm: 0.0 },
             ));
         }
 
         // Compute the L2 norm of the change
-        let change = (current - previous).norm();
+        let change = l2_delta_norm(current, previous);
 
         // Check if change is within tolerance
         Ok(change < self.tolerance)
@@ -155,21 +164,26 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
     /// the nominal absolute tolerance while the iterate itself is unchanged.
     pub fn has_converged_dual(
         &self,
-        current: &DVector<T>,
-        previous: &DVector<T>,
+        current: &Array1<T>,
+        previous: &Array1<T>,
         residual_norm: T,
         rhs_norm: T,
     ) -> Result<bool> {
+        ensure_matching_lengths(current, previous, "dual convergence")?;
+
         // Check for NaN/Inf values indicating divergence
-        if current.iter().any(|x| !x.is_finite()) {
+        if current
+            .iter()
+            .any(|x| !<T as NumericElement>::is_finite(*x))
+        {
             return Err(cfd_core::error::Error::Convergence(
                 cfd_core::error::ConvergenceErrorKind::Diverged { norm: 0.0 },
             ));
         }
 
         // 1. Solution change convergence
-        let change = (current - previous).norm();
-        let solution_norm = current.norm();
+        let change = l2_delta_norm(current, previous);
+        let solution_norm = l2_norm(current);
         let relative_change = if solution_norm > T::default_epsilon() {
             change / solution_norm
         } else {
@@ -182,8 +196,7 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
         } else {
             residual_norm
         };
-        let stagnation_floor = self.tolerance
-            * T::from_f64(100.0).expect("Mathematical constant conversion compromised");
+        let stagnation_floor = self.tolerance * <T as FloatElement>::from_f64(100.0);
         let rhs_effectively_zero = rhs_norm <= self.tolerance.max(T::default_epsilon());
         let residual_converged = relative_residual < self.tolerance
             || (rhs_effectively_zero && residual_norm < self.tolerance)
@@ -199,59 +212,99 @@ impl<T: RealField + Copy> ConvergenceChecker<T> {
     }
 }
 
+fn ensure_matching_lengths<T: Cfd1dScalar + Copy>(
+    current: &Array1<T>,
+    previous: &Array1<T>,
+    context: &str,
+) -> Result<()> {
+    let current_len = current.shape()[0];
+    let previous_len = previous.shape()[0];
+    if current_len == previous_len {
+        return Ok(());
+    }
+
+    Err(Error::InvalidInput(format!(
+        "{context} requires equal vector lengths: current={current_len}, previous={previous_len}"
+    )))
+}
+
+fn l2_norm<T: Cfd1dScalar + Copy + NumericElement>(vector: &Array1<T>) -> T {
+    <T as NumericElement>::sqrt(
+        vector
+            .iter()
+            .fold(T::zero(), |sum, value| sum + *value * *value),
+    )
+}
+
+fn l2_delta_norm<T: Cfd1dScalar + Copy + NumericElement>(
+    current: &Array1<T>,
+    previous: &Array1<T>,
+) -> T {
+    <T as NumericElement>::sqrt(current.iter().zip(previous.iter()).fold(
+        T::zero(),
+        |sum, (current, previous)| {
+            let delta = *current - *previous;
+            sum + delta * delta
+        },
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::DVector;
+
+    fn vector(values: Vec<f64>) -> Array1<f64> {
+        Array1::from_shape_vec([values.len()], values).expect("valid Leto vector shape")
+    }
 
     #[test]
     fn nan_detection_fails_check() {
         let checker = ConvergenceChecker::new(1e-6);
-        let v = DVector::from_vec(vec![1.0, f64::NAN, 3.0]);
+        let v = vector(vec![1.0, f64::NAN, 3.0]);
         assert!(checker.check(&v).is_err());
     }
 
     #[test]
     fn inf_detection_fails_check() {
         let checker = ConvergenceChecker::new(1e-6);
-        let v = DVector::from_vec(vec![1.0, f64::INFINITY, 3.0]);
+        let v = vector(vec![1.0, f64::INFINITY, 3.0]);
         assert!(checker.check(&v).is_err());
     }
 
     #[test]
     fn divergence_guard_large_norm() {
         let checker = ConvergenceChecker::new(1e-6);
-        let v = DVector::from_vec(vec![1e11]);
+        let v = vector(vec![1e11]);
         assert!(checker.check(&v).is_err());
     }
 
     #[test]
     fn finite_small_vector_passes_check() {
         let checker = ConvergenceChecker::new(1e-6);
-        let v = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let v = vector(vec![1.0, 2.0, 3.0]);
         assert!(checker.check(&v).is_ok());
     }
 
     #[test]
     fn identical_vectors_converged() {
         let checker = ConvergenceChecker::new(1e-6);
-        let v = DVector::from_vec(vec![10.0, 20.0, 30.0]);
+        let v = vector(vec![10.0, 20.0, 30.0]);
         assert!(checker.has_converged(&v, &v).unwrap());
     }
 
     #[test]
     fn distant_vectors_not_converged() {
         let checker = ConvergenceChecker::new(1e-6);
-        let a = DVector::from_vec(vec![0.0, 0.0]);
-        let b = DVector::from_vec(vec![100.0, 100.0]);
+        let a = vector(vec![0.0, 0.0]);
+        let b = vector(vec![100.0, 100.0]);
         assert!(!checker.has_converged(&a, &b).unwrap());
     }
 
     #[test]
     fn dual_convergence_requires_both_criteria() {
         let checker = ConvergenceChecker::new(1e-6);
-        let current = DVector::from_vec(vec![10.0, 20.0]);
-        let previous = DVector::from_vec(vec![10.0, 20.0]);
+        let current = vector(vec![10.0, 20.0]);
+        let previous = vector(vec![10.0, 20.0]);
 
         // Both change=0 and residual tiny => converged
         assert!(checker
@@ -264,9 +317,23 @@ mod tests {
             .unwrap());
 
         // Residual converged but change large => not converged
-        let far_previous = DVector::from_vec(vec![0.0, 0.0]);
+        let far_previous = vector(vec![0.0, 0.0]);
         assert!(!checker
             .has_converged_dual(&current, &far_previous, 1e-8, 1.0)
             .unwrap());
+    }
+
+    #[test]
+    fn mismatched_lengths_return_typed_error() {
+        let checker = ConvergenceChecker::new(1e-6);
+        let current = vector(vec![1.0, 2.0, 3.0]);
+        let previous = vector(vec![1.0, 2.0]);
+
+        let error = checker
+            .has_converged(&current, &previous)
+            .expect_err("length mismatch must fail");
+        assert!(
+            matches!(error, Error::InvalidInput(message) if message.contains("current=3, previous=2"))
+        );
     }
 }

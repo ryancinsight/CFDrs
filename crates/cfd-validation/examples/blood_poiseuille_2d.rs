@@ -12,14 +12,16 @@ fn main() {
     println!("====================================================\n");
 
     // Channel geometry: 200 µm height, 1 mm length
-    let mut config = PoiseuilleConfig::<f64>::default();
-    config.height = 200e-6;
-    config.width = 200e-6;
-    config.length = 1e-3;
-    config.ny = 64;
-    config.pressure_gradient = 500.0; // Pa/m
-    config.tolerance = 1e-8;
-    config.max_iterations = 200;
+    let config = PoiseuilleConfig::<f64> {
+        height: 200e-6,
+        width: 200e-6,
+        length: 1e-3,
+        ny: 64,
+        pressure_gradient: 500.0, // Pa/m
+        tolerance: 1e-8,
+        max_iterations: 200,
+        ..Default::default()
+    };
 
     let blood = BloodModel::Casson(CassonBlood::normal_blood());
 

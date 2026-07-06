@@ -199,30 +199,6 @@ pub fn sort_pareto_points(points: &mut [ParetoPoint]) {
     });
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{pareto_point_from_report_design, Milestone12ReportDesign, ParetoTag};
-    use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
-    use crate::reporting::compute_blueprint_report_metrics;
-
-    #[test]
-    fn pareto_point_carries_healthy_cell_protection_index() {
-        let candidate = canonical_option2_candidate(
-            "pareto-health-composite",
-            operating_point(2.0e-6, 30_000.0, 0.18),
-        );
-        let metrics =
-            compute_blueprint_report_metrics(&candidate).expect("report metrics should compute");
-        let design = Milestone12ReportDesign::new(1, candidate, metrics, 0.74);
-        let point = pareto_point_from_report_design(&design, ParetoTag::Option2);
-
-        assert_eq!(
-            point.healthy_cell_protection_index,
-            design.metrics.healthy_cell_protection_index
-        );
-    }
-}
-
 #[must_use]
 pub fn is_hydrosdt_venturi_report_candidate(design: &Milestone12ReportDesign) -> bool {
     design.metrics.active_venturi_throat_count > 0
@@ -314,4 +290,28 @@ pub fn compute_blueprint_report_metrics(
     candidate: &BlueprintCandidate,
 ) -> Result<SdtMetrics, OptimError> {
     crate::reporting::report_metrics::compute_blueprint_report_metrics(candidate)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{pareto_point_from_report_design, Milestone12ReportDesign, ParetoTag};
+    use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
+    use crate::reporting::compute_blueprint_report_metrics;
+
+    #[test]
+    fn pareto_point_carries_healthy_cell_protection_index() {
+        let candidate = canonical_option2_candidate(
+            "pareto-health-composite",
+            operating_point(2.0e-6, 30_000.0, 0.18),
+        );
+        let metrics =
+            compute_blueprint_report_metrics(&candidate).expect("report metrics should compute");
+        let design = Milestone12ReportDesign::new(1, candidate, metrics, 0.74);
+        let point = pareto_point_from_report_design(&design, ParetoTag::Option2);
+
+        assert_eq!(
+            point.healthy_cell_protection_index,
+            design.metrics.healthy_cell_protection_index
+        );
+    }
 }

@@ -3,8 +3,9 @@
 //! Models a 3D branching vessel with cylindrical parent and daughter branches.
 
 use super::super::{BoundaryCondition, BoundaryFace, Geometry3D, Point3D};
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::{RealField, Vector3};
+use crate::scalar;
+use eunomia::{FloatElement, RealField};
+use leto::geometry::Vector3;
 
 /// 3D Bifurcation geometry
 #[derive(Debug, Clone)]
@@ -34,7 +35,7 @@ impl<T: RealField + Copy> Bifurcation3D<T> {
     }
 }
 
-impl<T: RealField + Copy> Geometry3D<T> for Bifurcation3D<T> {
+impl<T: RealField + Copy + FloatElement> Geometry3D<T> for Bifurcation3D<T> {
     fn clone_box(&self) -> Box<dyn Geometry3D<T>> {
         Box::new(self.clone())
     }
@@ -44,8 +45,9 @@ impl<T: RealField + Copy> Geometry3D<T> for Bifurcation3D<T> {
         // In practice, this uses cylinder intersection tests
 
         // Parent branch (assumed along Z-axis from Z=0 to Z=l_parent)
-        let r_p = self.d_parent / T::from_f64_or_one(2.0);
-        if point.z >= T::zero() && point.z <= self.l_parent {
+        let half = scalar::from_f64::<T>(0.5);
+        let r_p = self.d_parent * half;
+        if point.z >= scalar::zero() && point.z <= self.l_parent {
             let r_sq = point.x * point.x + point.y * point.y;
             if r_sq <= r_p * r_p {
                 return true;
@@ -62,13 +64,13 @@ impl<T: RealField + Copy> Geometry3D<T> for Bifurcation3D<T> {
             let d_rel = Vector3::new(point.x, point.y, point.z - self.l_parent);
 
             // Rotate back to daughter axis (simplified 2D rotation in XZ plane)
-            let cos_a = angle.cos();
-            let sin_a = angle.sin();
+            let cos_a = scalar::cos(angle);
+            let sin_a = scalar::sin(angle);
             let x_rot = d_rel.x * cos_a + d_rel.z * sin_a;
             let z_rot = -d_rel.x * sin_a + d_rel.z * cos_a;
 
-            let r_d = self.d_daughters[i] / T::from_f64_or_one(2.0);
-            if z_rot >= T::zero() && z_rot <= self.l_daughters[i] {
+            let r_d = self.d_daughters[i] * half;
+            if z_rot >= scalar::zero() && z_rot <= self.l_daughters[i] {
                 let r_sq = x_rot * x_rot + point.y * point.y;
                 if r_sq <= r_d * r_d {
                     return true;
@@ -81,7 +83,7 @@ impl<T: RealField + Copy> Geometry3D<T> for Bifurcation3D<T> {
 
     fn distance_to_boundary(&self, _point: &Point3D<T>) -> T {
         // Simplified for now, can be implemented with cylinder distance formulas
-        T::zero()
+        scalar::zero()
     }
 
     fn boundary_normal(&self, _point: &Point3D<T>) -> Option<Point3D<T>> {
@@ -90,23 +92,23 @@ impl<T: RealField + Copy> Geometry3D<T> for Bifurcation3D<T> {
 
     fn boundary_condition(&self, face: BoundaryFace, _s: T, _t: T) -> BoundaryCondition<T> {
         match face {
-            BoundaryFace::Left => BoundaryCondition::Dirichlet(T::zero()), // Inlet
-            BoundaryFace::Right => BoundaryCondition::Neumann(T::zero()),  // Outlet
-            _ => BoundaryCondition::Dirichlet(T::zero()),                  // Wall
+            BoundaryFace::Left => BoundaryCondition::Dirichlet(scalar::zero()), // Inlet
+            BoundaryFace::Right => BoundaryCondition::Neumann(scalar::zero()),  // Outlet
+            _ => BoundaryCondition::Dirichlet(scalar::zero()),                  // Wall
         }
     }
 
     fn bounds(&self) -> (Point3D<T>, Point3D<T>) {
         // Rough bounding box
-        let max_l = self.l_parent + self.l_daughters[0].max(self.l_daughters[1]);
-        let max_d = self
-            .d_parent
-            .max(self.d_daughters[0])
-            .max(self.d_daughters[1]);
+        let max_l = self.l_parent + scalar::max(self.l_daughters[0], self.l_daughters[1]);
+        let max_d = scalar::max(
+            scalar::max(self.d_parent, self.d_daughters[0]),
+            self.d_daughters[1],
+        );
 
         (
-            Point3D::new(-max_d, -max_d, T::zero(),),
-            Point3D::new(max_d, max_d, max_l,),
+            Point3D::new(-max_d, -max_d, scalar::zero()),
+            Point3D::new(max_d, max_d, max_l),
         )
     }
 
@@ -119,12 +121,13 @@ impl<T: RealField + Copy> Geometry3D<T> for Bifurcation3D<T> {
     }
 
     fn measure(&self) -> T {
-        let pi = T::from_f64_or_one(std::f64::consts::PI);
-        let v_p = pi * (self.d_parent / T::from_f64_or_one(2.0)).powi(2) * self.l_parent;
-        let v_d1 =
-            pi * (self.d_daughters[0] / T::from_f64_or_one(2.0)).powi(2) * self.l_daughters[0];
-        let v_d2 =
-            pi * (self.d_daughters[1] / T::from_f64_or_one(2.0)).powi(2) * self.l_daughters[1];
+        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+        let r_parent = self.d_parent * scalar::from_f64::<T>(0.5);
+        let r_daughter_1 = self.d_daughters[0] * scalar::from_f64::<T>(0.5);
+        let r_daughter_2 = self.d_daughters[1] * scalar::from_f64::<T>(0.5);
+        let v_p = pi * r_parent * r_parent * self.l_parent;
+        let v_d1 = pi * r_daughter_1 * r_daughter_1 * self.l_daughters[0];
+        let v_d2 = pi * r_daughter_2 * r_daughter_2 * self.l_daughters[1];
         v_p + v_d1 + v_d2
     }
 }

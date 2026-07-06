@@ -4,8 +4,8 @@
 //! where S is the manufactured source term
 
 use super::ManufacturedSolution;
-use nalgebra::{ComplexField, RealField};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::{FloatElement, RealField};
 use std::f64::consts::PI;
 
 /// Manufactured solution for 2D heat diffusion
@@ -21,15 +21,15 @@ pub struct ManufacturedDiffusion<T: RealField + Copy> {
     pub omega: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> ManufacturedDiffusion<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedDiffusion<T> {
     /// Create a new manufactured diffusion solution
     pub fn new(alpha: T) -> Self {
-        let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
+        let pi = scalar::from_f64(PI);
         Self {
             alpha,
             kx: pi,
             ky: pi,
-            omega: T::one(),
+            omega: scalar::one::<T>(),
         }
     }
 
@@ -44,12 +44,10 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedDiffusion<T> {
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedDiffusion<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for ManufacturedDiffusion<T> {
     /// Exact solution: u(x,y,t) = sin(kx*x) * sin(ky*y) * exp(-omega*t)
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
-        ComplexField::sin(self.kx * x)
-            * ComplexField::sin(self.ky * y)
-            * ComplexField::exp(-self.omega * t)
+        scalar::sin(self.kx * x) * scalar::sin(self.ky * y) * scalar::exp(-self.omega * t)
     }
 
     /// Source term: S = ∂u/∂t - α∇²u
@@ -71,17 +69,19 @@ pub struct ManufacturedAdvectionDiffusion<T: RealField + Copy> {
     pub vy: T,
 }
 
-impl<T: RealField + Copy> ManufacturedAdvectionDiffusion<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedAdvectionDiffusion<T> {
     /// Create a new manufactured advection-diffusion solution
     pub fn new(alpha: T, vx: T, vy: T) -> Self {
         Self { alpha, vx, vy }
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedAdvectionDiffusion<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T>
+    for ManufacturedAdvectionDiffusion<T>
+{
     /// Exact solution: u(x,y,t) = cos(x - vx*t) * sin(y - vy*t)
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
-        ComplexField::cos(x - self.vx * t) * ComplexField::sin(y - self.vy * t)
+        scalar::cos(x - self.vx * t) * scalar::sin(y - self.vy * t)
     }
 
     /// Source term for advection-diffusion equation
@@ -91,17 +91,16 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedAdvectionDiffu
         let eta = y - self.vy * t;
 
         // Time derivative
-        let dudt = self.vx * ComplexField::sin(xi) * ComplexField::sin(eta)
-            - self.vy * ComplexField::cos(xi) * ComplexField::cos(eta);
+        let dudt = self.vx * scalar::sin(xi) * scalar::sin(eta)
+            - self.vy * scalar::cos(xi) * scalar::cos(eta);
 
         // Advection term: v·∇u
-        let advection = -self.vx * ComplexField::sin(xi) * ComplexField::sin(eta)
-            + self.vy * ComplexField::cos(xi) * ComplexField::cos(eta);
+        let advection = -self.vx * scalar::sin(xi) * scalar::sin(eta)
+            + self.vy * scalar::cos(xi) * scalar::cos(eta);
 
         // Diffusion term: α∇²u
-        let diffusion = -self.alpha
-            * (ComplexField::cos(xi) * ComplexField::sin(eta)
-                + ComplexField::cos(xi) * ComplexField::sin(eta));
+        let diffusion =
+            -self.alpha * (scalar::cos(xi) * scalar::sin(eta) + scalar::cos(xi) * scalar::sin(eta));
 
         // Source term: S = ∂u/∂t + v·∇u - α∇²u
         dudt + advection - diffusion
@@ -114,10 +113,10 @@ mod tests {
 
     #[test]
     fn test_diffusion_solution() {
-        let _solution = ManufacturedDiffusion::new(0.1); // Validation framework for diffusion MMS
+        let _solution = ManufacturedDiffusion::new(0.1_f64); // Validation framework for diffusion MMS
 
         // Test exact solution validation
-        let solution = ManufacturedDiffusion::new(0.1);
+        let solution = ManufacturedDiffusion::new(0.1_f64);
 
         // Test at origin and t=0: sin(π*0)*sin(π*0)*exp(-1*0) = 0*0*1 = 0
         let u0 = solution.exact_solution(0.0, 0.0, 0.0, 0.0);
@@ -148,7 +147,7 @@ mod tests {
 
     #[test]
     fn test_source_term_consistency() {
-        let solution = ManufacturedDiffusion::new(0.1);
+        let solution = ManufacturedDiffusion::new(0.1_f64);
 
         // At steady state (large t), source term should approach zero
         let s = solution.source_term(PI / 2.0, PI / 2.0, 0.0, 100.0);

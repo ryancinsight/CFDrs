@@ -1,17 +1,17 @@
 //! Sparse matrix operations and extensions
 
-use cfd_core::error::{Error, Result};
-use nalgebra::{DVector, RealField};
-use nalgebra_sparse::CsrMatrix;
-// use nalgebra_sparse::ops::serial::spmm_csr_csr;
 use crate::linear_solver::LinearOperator;
-use moirai::prelude::ParallelSliceMut;
-use num_traits::{Float, FromPrimitive, Signed};
+use cfd_core::error::{Error, Result};
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::Array1;
+use leto_ops::{
+    spgemm, spmv_into as leto_spmv_into, CsrMatrix, RealScalar as LetoRealScalar,
+    Scalar as LetoScalar,
+};
 
-impl<T: RealField + Copy + Send + Sync> LinearOperator<T> for CsrMatrix<T> {
-    fn apply(&self, x: &DVector<T>, y: &mut DVector<T>) -> Result<()> {
-        spmv_parallel(self, x, y);
-        Ok(())
+impl<T: RealField + Copy + Send + Sync + LetoScalar> LinearOperator<T> for CsrMatrix<T> {
+    fn apply(&self, x: &Array1<T>, y: &mut Array1<T>) -> Result<()> {
+        try_spmv(self, x, y)
     }
 
     fn size(&self) -> usize {
@@ -21,182 +21,150 @@ impl<T: RealField + Copy + Send + Sync> LinearOperator<T> for CsrMatrix<T> {
 
 /// Sparse matrix-vector multiplication (SpMV): y = A * x
 ///
-/// This is the standard CSR (Compressed Sparse Row) SpMV algorithm,
-/// optimized for cache locality and zero-copy operations.
-///
-/// Performance optimization: Automatically chooses between scalar and parallel
-/// implementations based on matrix size and sparsity pattern.
+/// Uses the Atlas-owned Leto CSR provider. Vectors are Leto arrays, so the
+/// sparse operation surface does not expose nalgebra matrix or vector storage.
 ///
 /// # Arguments
 /// * `a` - Sparse matrix in CSR format
 /// * `x` - Input vector (must have length = a.ncols())
 /// * `y` - Output vector (must have length = a.nrows(), will be overwritten)
-///
-/// # Performance
-/// - Time complexity: O(nnz) where nnz is number of non-zero elements
-/// - Space complexity: O(1) auxiliary space (zero-copy, in-place output)
-/// - Cache-friendly: Sequential access to row offsets and values
-/// - Parallel scaling: 3-8x speedup for matrices >1000 rows
 ///
 /// # Panics
 /// Panics if vector dimensions don't match matrix dimensions
-pub fn spmv<T: RealField + Copy>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVector<T>) {
-    assert_eq!(x.len(), a.ncols(), "Input vector dimension mismatch");
-    assert_eq!(y.len(), a.nrows(), "Output vector dimension mismatch");
-
-    let parallel_threshold = parallel_threshold(a);
-
-    // Use parallel implementation for large matrices
-    if a.nrows() >= parallel_threshold || a.nnz() >= parallel_threshold.saturating_mul(64) {
-        spmv_parallel(a, x, y);
-        return;
-    }
-
-    // Standard CSR SpMV: y[i] = sum(A[i,j] * x[j]) for j in row i
-    let x_slice = x.as_slice();
-    let values = a.values();
-    let col_indices = a.col_indices();
-    let row_offsets = a.row_offsets();
-    for i in 0..a.nrows() {
-        let row_start = row_offsets[i];
-        let row_end = row_offsets[i + 1];
-
-        let mut sum = T::zero();
-        for j in row_start..row_end {
-            let col_idx = col_indices[j];
-            let val = values[j];
-            sum += val * x_slice[col_idx];
-        }
-        y.as_mut_slice()[i] = sum;
-    }
+pub fn spmv<T>(a: &CsrMatrix<T>, x: &Array1<T>, y: &mut Array1<T>)
+where
+    T: Copy + LetoScalar,
+{
+    try_spmv(a, x, y).expect("invariant: sparse matrix-vector product inputs are valid");
 }
-
-fn parallel_threshold<T: RealField + Copy>(a: &CsrMatrix<T>) -> usize {
-    let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
-    let rows = a.nrows();
-    let cols = a.ncols();
-    let nnz = a.nnz();
-    let density = if rows == 0 || cols == 0 {
-        0.0
-    } else {
-        nnz as f64 / (rows * cols) as f64
-    };
-    let avg_nnz_per_row = nnz.checked_div(rows).unwrap_or(0);
-    let base = 256_usize.saturating_mul(cores);
-    let density_factor = if density >= 0.05 {
-        0.5
-    } else if density <= 0.005 {
-        1.5
-    } else {
-        1.0
-    };
-    let workload_factor = if avg_nnz_per_row >= 64 {
-        0.5
-    } else if avg_nnz_per_row <= 8 {
-        1.5
-    } else {
-        1.0
-    };
-    let threshold = (base as f64 * density_factor * workload_factor).round() as usize;
-    let min_threshold = 64_usize.saturating_mul(cores);
-    let max_threshold = 8192_usize.saturating_mul(cores);
-    threshold.clamp(min_threshold, max_threshold)
-}
-
-
-
-
 
 /// Parallel sparse matrix-vector multiplication (SpMV): y = A * x
 ///
-/// Uses rayon for row-wise parallelization, providing near-linear speedup
-/// with the number of CPU cores. Each row computation is independent,
-/// making this embarrassingly parallel.
+/// Preserves the pre-existing public entry point name while delegating to the
+/// provider-owned Leto CSR SpMV kernel. Parallel execution policy is owned by
+/// the provider boundary rather than duplicated in CFDrs.
 ///
 /// # Arguments
 /// * `a` - Sparse matrix in CSR format
 /// * `x` - Input vector (must have length = a.ncols())
 /// * `y` - Output vector (must have length = a.nrows(), will be overwritten)
-///
-/// # Performance
-/// - Time complexity: O(nnz/p) where p is number of cores
-/// - Expected speedup: 3-8x on 4-8 cores vs scalar
-/// - Overhead: ~1-2μs thread pool startup (amortized for large matrices)
-/// - Recommended for: matrices with >1000 rows or >10,000 non-zeros
-///
-/// # Thread Safety
-/// - Requires T: Send + Sync
-/// - Read-only access to matrix and input vector
-/// - Write access to output vector (each thread writes different rows)
 ///
 /// # Panics
 /// Panics if vector dimensions don't match matrix dimensions
 ///
 /// # Example
 /// ```ignore
-/// use nalgebra::DVector;
-/// use nalgebra_sparse::CsrMatrix;
+/// use leto::Array1;
+/// use leto_ops::CsrMatrix;
 /// use cfd_math::sparse::spmv_parallel;
 ///
-/// let a = CsrMatrix::identity(1000); // Large sparse matrix
-/// let x = DVector::from_element(1000, 1.0);
-/// let mut y = DVector::zeros(1000);
+/// let a = CsrMatrix::from_parts(vec![1.0; 1000], (0..1000).collect(), (0..=1000).collect(), 1000, 1000)?;
+/// let x = Array1::from_shape_vec([1000], vec![1.0; 1000]).unwrap();
+/// let mut y = Array1::zeros([1000]);
 ///
 /// spmv_parallel(&a, &x, &mut y); // Parallel computation
 /// ```
-pub fn spmv_parallel<T>(a: &CsrMatrix<T>, x: &DVector<T>, y: &mut DVector<T>)
+pub fn spmv_parallel<T>(a: &CsrMatrix<T>, x: &Array1<T>, y: &mut Array1<T>)
 where
-    T: RealField + Copy + Send + Sync,
+    T: Copy + LetoScalar,
 {
-    assert_eq!(x.len(), a.ncols(), "Input vector dimension mismatch");
-    assert_eq!(y.len(), a.nrows(), "Output vector dimension mismatch");
+    try_spmv(a, x, y).expect("invariant: sparse matrix-vector product inputs are valid");
+}
 
-    let x_slice = x.as_slice();
-    let row_offsets = a.row_offsets();
-    let col_indices = a.col_indices();
-    let values = a.values();
+fn map_leto_sparse_error(operation: &str, error: leto::LetoError) -> Error {
+    Error::InvalidConfiguration(format!("Leto CSR {operation} failed: {error}"))
+}
 
-    // Parallel row-wise computation using rayon
-    // Each thread processes a subset of rows independently
-    y.as_mut_slice().par_mut().enumerate(|i, y_i| {
-        let row_start = row_offsets[i];
-        let row_end = row_offsets[i + 1];
+/// Fallible sparse matrix-vector multiplication (SpMV): `y = A * x`.
+///
+pub fn try_spmv<T>(a: &CsrMatrix<T>, x: &Array1<T>, y: &mut Array1<T>) -> Result<()>
+where
+    T: Copy + LetoScalar,
+{
+    try_leto_spmv(a, x, y)
+}
 
-        let mut sum = T::zero();
-        for j in row_start..row_end {
-            let col_idx = col_indices[j];
-            let val = values[j];
-            sum += val * x_slice[col_idx];
-        }
-        *y_i = sum;
-    });
+/// Fallible Leto CSR sparse matrix-vector multiplication: `y = A * x`.
+///
+/// This is the Atlas-native sparse operator path. It lets iterative solvers
+/// consume `leto_ops::CsrMatrix` directly through [`try_spmv`].
+pub fn try_leto_spmv<T>(a: &CsrMatrix<T>, x: &Array1<T>, y: &mut Array1<T>) -> Result<()>
+where
+    T: Copy + LetoScalar,
+{
+    if x.shape()[0] != a.ncols() {
+        return Err(Error::InvalidConfiguration(format!(
+            "Input vector dimension mismatch for SpMV: matrix is {}x{}, vector length is {}",
+            a.nrows(),
+            a.ncols(),
+            x.shape()[0]
+        )));
+    }
+    if y.shape()[0] != a.nrows() {
+        return Err(Error::InvalidConfiguration(format!(
+            "Output vector dimension mismatch for SpMV: matrix is {}x{}, vector length is {}",
+            a.nrows(),
+            a.ncols(),
+            y.shape()[0]
+        )));
+    }
+
+    let mut output = vec![<T as NumericElement>::ZERO; a.nrows()];
+    leto_spmv_into(a, &x.view(), &mut output)
+        .map_err(|e| Error::InvalidConfiguration(format!("Leto SpMV failed: {e}")))?;
+    for idx in 0..output.len() {
+        y[idx] = output[idx];
+    }
+    Ok(())
+}
+
+/// Fallible sparse matrix-matrix multiplication (SpMM): `C = A * B`.
+///
+pub fn try_sparse_sparse_mul<T>(a: &CsrMatrix<T>, b: &CsrMatrix<T>) -> Result<CsrMatrix<T>>
+where
+    T: RealField + Copy + LetoScalar,
+{
+    if a.ncols() != b.nrows() {
+        return Err(Error::InvalidConfiguration(format!(
+            "Matrix dimension mismatch for multiplication: lhs is {}x{}, rhs is {}x{}",
+            a.nrows(),
+            a.ncols(),
+            b.nrows(),
+            b.ncols()
+        )));
+    }
+
+    spgemm(a, b).map_err(|e| Error::InvalidConfiguration(format!("Leto SpGEMM failed: {e}")))
+}
+
+/// Fallible sparse matrix transpose.
+///
+pub fn try_sparse_transpose<T>(matrix: &CsrMatrix<T>) -> Result<CsrMatrix<T>>
+where
+    T: RealField + Copy + LetoScalar,
+{
+    Ok(matrix.transpose())
 }
 
 /// Sparse matrix-matrix multiplication (SpMM): C = A * B
 ///
 /// Multiplies two CSR matrices and returns the result in CSR format.
-/// This operation is significantly more complex than SpMV and is performed
-/// serially using nalgebra-sparse's optimized implementation.
-pub fn sparse_sparse_mul<T: RealField + Copy>(a: &CsrMatrix<T>, b: &CsrMatrix<T>) -> CsrMatrix<T> {
-    assert_eq!(
-        a.ncols(),
-        b.nrows(),
-        "Matrix dimension mismatch for multiplication"
-    );
-
-    // In nalgebra-sparse 0.10, we might need to use a different approach for CSR-CSR multiplication
-    // if spmm_csr_csr is not available. Let's try to see if multiplication is implemented.
-    // If not, this will fail and we will know.
-    a * b
+/// Delegates to [`try_sparse_sparse_mul`] and panics on invalid inputs, matching
+/// the pre-existing infallible API contract.
+pub fn sparse_sparse_mul<T>(a: &CsrMatrix<T>, b: &CsrMatrix<T>) -> CsrMatrix<T>
+where
+    T: RealField + Copy + LetoScalar,
+{
+    try_sparse_sparse_mul(a, b).expect("invariant: sparse matrix product inputs are valid")
 }
 
 /// Extension trait for sparse matrix operations
 pub trait SparseMatrixExt<T: RealField + Copy> {
     /// Extract diagonal elements
-    fn diagonal(&self) -> DVector<T>;
+    fn diagonal(&self) -> Array1<T>;
 
     /// Set diagonal elements
-    fn set_diagonal(&mut self, diag: &DVector<T>) -> Result<()>;
+    fn set_diagonal(&mut self, diag: &Array1<T>) -> Result<()>;
 
     /// Scale matrix by a scalar
     fn scale(&mut self, factor: T);
@@ -207,43 +175,33 @@ pub trait SparseMatrixExt<T: RealField + Copy> {
     /// Compute Frobenius norm
     fn frobenius_norm(&self) -> T
     where
-        T: Float;
+        T: NumericElement;
 
     /// Compute condition number estimate
     fn condition_estimate(&self) -> Result<T>
     where
-        T: Float + FromPrimitive;
+        T: FloatElement + LetoRealScalar;
 
     /// Check if matrix is diagonally dominant
-    fn is_diagonally_dominant(&self) -> bool;
+    fn is_diagonally_dominant(&self) -> bool
+    where
+        T: NumericElement;
 
     /// Apply row scaling
-    fn scale_rows(&mut self, scaling: &DVector<T>) -> Result<()>;
+    fn scale_rows(&mut self, scaling: &Array1<T>) -> Result<()>;
 
     /// Apply column scaling  
-    fn scale_columns(&mut self, scaling: &DVector<T>) -> Result<()>;
+    fn scale_columns(&mut self, scaling: &Array1<T>) -> Result<()>;
 }
 
-impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
-    fn diagonal(&self) -> DVector<T> {
-        let mut diag = DVector::zeros(self.nrows().min(self.ncols()));
-
-        for i in 0..diag.len() {
-            // Access row and find diagonal element
-            let row = self.row(i);
-            for (col_idx, &col) in row.col_indices().iter().enumerate() {
-                if col == i {
-                    diag[i] = row.values()[col_idx];
-                    break;
-                }
-            }
-        }
-
-        diag
+impl<T: RealField + Copy + LetoScalar> SparseMatrixExt<T> for CsrMatrix<T> {
+    fn diagonal(&self) -> Array1<T> {
+        Array1::from_shape_vec([self.nrows().min(self.ncols())], self.diagonal())
+            .expect("invariant: CSR diagonal length matches matrix diagonal shape")
     }
 
-    fn set_diagonal(&mut self, diag: &DVector<T>) -> Result<()> {
-        if diag.len() != self.nrows().min(self.ncols()) {
+    fn set_diagonal(&mut self, diag: &Array1<T>) -> Result<()> {
+        if diag.shape()[0] != self.nrows().min(self.ncols()) {
             return Err(Error::InvalidConfiguration(
                 "Diagonal size mismatch".to_string(),
             ));
@@ -257,10 +215,7 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
     }
 
     fn scale(&mut self, factor: T) {
-        // Scale all values in the matrix
-        for value in self.values_mut() {
-            *value *= factor;
-        }
+        self.scale_values(factor);
     }
 
     fn add_identity(&mut self, _factor: T) -> Result<()> {
@@ -279,117 +234,37 @@ impl<T: RealField + Copy> SparseMatrixExt<T> for CsrMatrix<T> {
 
     fn frobenius_norm(&self) -> T
     where
-        T: Float,
+        T: NumericElement,
     {
-        Float::sqrt(
-            self.values()
-                .iter()
-                .map(|&v| v * v)
-                .fold(T::zero(), |acc, v| acc + v),
-        )
+        self.frobenius_norm()
     }
 
     fn condition_estimate(&self) -> Result<T>
     where
-        T: Float + FromPrimitive,
+        T: FloatElement + LetoRealScalar,
     {
-        if self.nrows() != self.ncols() {
-            return Err(Error::InvalidConfiguration(
-                "Condition number requires square matrix".to_string(),
-            ));
-        }
-
-        // Estimate using diagonal dominance
-        let diag = self.diagonal();
-        let mut max_ratio = T::one();
-
-        for i in 0..self.nrows() {
-            if Signed::abs(&diag[i]) < T::from_f64(1e-12).unwrap_or(T::epsilon()) {
-                return Ok(T::infinity());
-            }
-
-            let row = self.row(i);
-            let row_sum: T = row
-                .values()
-                .iter()
-                .enumerate()
-                .filter(|(idx, _)| row.col_indices()[*idx] != i)
-                .map(|(_, &v)| Signed::abs(&v))
-                .fold(T::zero(), |acc, v| acc + v);
-
-            let ratio = (row_sum + Signed::abs(&diag[i])) / Signed::abs(&diag[i]);
-            if ratio > max_ratio {
-                max_ratio = ratio;
-            }
-        }
-
-        Ok(max_ratio)
+        self.condition_estimate()
+            .map_err(|error| map_leto_sparse_error("condition estimate", error))
     }
 
-    fn is_diagonally_dominant(&self) -> bool {
-        if self.nrows() != self.ncols() {
-            return false;
-        }
-
-        for i in 0..self.nrows() {
-            let row = self.row(i);
-            let mut diag_val = T::zero();
-            let mut off_diag_sum = T::zero();
-
-            for (idx, &col) in row.col_indices().iter().enumerate() {
-                let val = Signed::abs(&row.values()[idx]);
-                if col == i {
-                    diag_val = val;
-                } else {
-                    off_diag_sum += val;
-                }
-            }
-
-            if diag_val <= off_diag_sum {
-                return false;
-            }
-        }
-
-        true
+    fn is_diagonally_dominant(&self) -> bool
+    where
+        T: NumericElement,
+    {
+        self.is_strictly_diagonally_dominant()
     }
 
-    fn scale_rows(&mut self, scaling: &DVector<T>) -> Result<()> {
-        if scaling.len() != self.nrows() {
-            return Err(Error::InvalidConfiguration(
-                "Scaling vector size mismatch".to_string(),
-            ));
-        }
-
-        // CSR format stores row offsets, so row scaling is straightforward:
-        // entries for row i are at indices row_offsets[i]..row_offsets[i+1]
-        let row_offsets = self.row_offsets().to_vec();
-        for i in 0..self.nrows() {
-            let start = row_offsets[i];
-            let end = row_offsets[i + 1];
-            let s = scaling[i];
-            for idx in start..end {
-                self.values_mut()[idx] *= s;
-            }
-        }
-
+    fn scale_rows(&mut self, scaling: &Array1<T>) -> Result<()> {
+        let scaling_values: Vec<T> = (0..scaling.shape()[0]).map(|idx| scaling[idx]).collect();
+        self.scale_rows(&scaling_values)
+            .map_err(|error| map_leto_sparse_error("row scaling", error))?;
         Ok(())
     }
 
-    fn scale_columns(&mut self, scaling: &DVector<T>) -> Result<()> {
-        if scaling.len() != self.ncols() {
-            return Err(Error::InvalidConfiguration(
-                "Scaling vector size mismatch".to_string(),
-            ));
-        }
-
-        // Column scaling in CSR format - need to iterate carefully
-        // Get the column indices first, then update values
-        let n_entries = self.nnz();
-        for idx in 0..n_entries {
-            let col = self.col_indices()[idx];
-            self.values_mut()[idx] *= scaling[col];
-        }
-
+    fn scale_columns(&mut self, scaling: &Array1<T>) -> Result<()> {
+        let scaling_values: Vec<T> = (0..scaling.shape()[0]).map(|idx| scaling[idx]).collect();
+        self.scale_columns(&scaling_values)
+            .map_err(|error| map_leto_sparse_error("column scaling", error))?;
         Ok(())
     }
 }

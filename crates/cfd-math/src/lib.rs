@@ -22,7 +22,7 @@
 //!
 //! ### Vectorization & Performance
 //! - **SIMD Operations**: AVX2/SSE4.1 optimized kernels
-//! - **Parallel Algorithms**: Rayon-based parallelism
+//! - **Parallel Algorithms**: Moirai-backed parallelism
 //! - **Cache-Optimized**: Block-based algorithms for modern architectures
 //!
 //! ## Fundamental Mathematical Theorems

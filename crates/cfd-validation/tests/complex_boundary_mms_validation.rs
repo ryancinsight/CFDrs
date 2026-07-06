@@ -6,17 +6,17 @@
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_core::physics::boundary::{BoundaryCondition, BoundaryConditionSet, WallType};
 use cfd_validation::manufactured::{ManufacturedDiffusion, TaylorGreenManufactured};
-use nalgebra::Vector3;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use leto::geometry::Vector3;
 
 /// Helper function to compute x coordinate at grid index
-fn x_at<T: nalgebra::RealField + FromPrimitive + Copy>(grid: &StructuredGrid2D<T>, i: usize) -> T {
-    grid.bounds.0 + T::from_usize(i).unwrap_or_else(T::zero) * grid.dx
+fn x_at<T: nalgebra::RealField + FloatElement + Copy>(grid: &StructuredGrid2D<T>, i: usize) -> T {
+    grid.bounds.0 + <T as FloatElement>::from_f64(i as f64) * grid.dx
 }
 
 /// Helper function to compute y coordinate at grid index
-fn y_at<T: nalgebra::RealField + FromPrimitive + Copy>(grid: &StructuredGrid2D<T>, j: usize) -> T {
-    grid.bounds.2 + T::from_usize(j).unwrap_or_else(T::zero) * grid.dy
+fn y_at<T: nalgebra::RealField + FloatElement + Copy>(grid: &StructuredGrid2D<T>, j: usize) -> T {
+    grid.bounds.2 + <T as FloatElement>::from_f64(j as f64) * grid.dy
 }
 
 /// Test boundary condition set creation with mixed types
@@ -215,13 +215,13 @@ fn test_taylor_green_evaluation() {
 
             // Verify values are finite
             assert!(
-                vel.x.is_finite(),
+                vel[0].is_finite(),
                 "Velocity u is not finite at ({}, {})",
                 x,
                 y
             );
             assert!(
-                vel.y.is_finite(),
+                vel[1].is_finite(),
                 "Velocity v is not finite at ({}, {})",
                 x,
                 y
@@ -319,8 +319,8 @@ mod property_tests {
             let _vel = tg.velocity(0.5, 0.5, 0.0);
             let _p = tg.pressure(0.5, 0.5, 0.0);
 
-            prop_assert!(_vel.x.is_finite());
-            prop_assert!(_vel.y.is_finite());
+            prop_assert!(_vel[0].is_finite());
+            prop_assert!(_vel[1].is_finite());
             prop_assert!(_p.is_finite());
 
             // Verify energy decay rate increases with viscosity

@@ -7,6 +7,7 @@ mod weno;
 
 pub use weno::WENOLimiter;
 
+use super::matrix_cols;
 use super::DGSolution;
 use crate::error::Result;
 
@@ -179,13 +180,13 @@ impl Limiter for MinmodLimiter {
                 };
 
                 // Update the solution coefficients
-                for j in 1..solution.coefficients.ncols() {
-                    solution.coefficients[(i, j)] = 0.0;
+                for j in 1..matrix_cols(&solution.coefficients) {
+                    solution.coefficients[[i, j]] = 0.0;
                 }
 
                 // Set the linear term (if any)
-                if solution.coefficients.ncols() > 1 {
-                    solution.coefficients[(i, 1)] = slope;
+                if matrix_cols(&solution.coefficients) > 1 {
+                    solution.coefficients[[i, 1]] = slope;
                 }
             }
         }
@@ -268,13 +269,13 @@ impl Limiter for TVBLimiter {
                 };
 
                 // Update the solution coefficients
-                for j in 1..solution.coefficients.ncols() {
-                    solution.coefficients[(i, j)] = 0.0;
+                for j in 1..matrix_cols(&solution.coefficients) {
+                    solution.coefficients[[i, j]] = 0.0;
                 }
 
                 // Set the linear term (if any)
-                if solution.coefficients.ncols() > 1 {
-                    solution.coefficients[(i, 1)] = slope;
+                if matrix_cols(&solution.coefficients) > 1 {
+                    solution.coefficients[[i, 1]] = slope;
                 }
             }
         }
@@ -345,9 +346,9 @@ impl Limiter for MomentLimiter {
             // Limit each component
             for i in 0..solution.num_components {
                 // First, limit the highest order coefficients
-                for j in (1..solution.coefficients.ncols()).rev() {
+                for j in (1..matrix_cols(&solution.coefficients)).rev() {
                     // Compute the limited coefficient
-                    let c = solution.coefficients[(i, j)];
+                    let c = solution.coefficients[[i, j]];
 
                     // Compute the minmod of the coefficient and its neighbors
                     let c_min = if j == 1 {
@@ -365,16 +366,17 @@ impl Limiter for MomentLimiter {
                     } else {
                         // For higher moments, use the minmod of the current coefficient
                         // and the same coefficient from the neighbors
-                        let c_left =
-                            if !neighbors.is_empty() && neighbors[0].coefficients.ncols() > j {
-                                neighbors[0].coefficients[(i, j)]
-                            } else {
-                                0.0
-                            };
+                        let c_left = if !neighbors.is_empty()
+                            && matrix_cols(&neighbors[0].coefficients) > j
+                        {
+                            neighbors[0].coefficients[[i, j]]
+                        } else {
+                            0.0
+                        };
 
                         let c_right =
-                            if neighbors.len() > 1 && neighbors[1].coefficients.ncols() > j {
-                                neighbors[1].coefficients[(i, j)]
+                            if neighbors.len() > 1 && matrix_cols(&neighbors[1].coefficients) > j {
+                                neighbors[1].coefficients[[i, j]]
                             } else {
                                 0.0
                             };
@@ -399,7 +401,7 @@ impl Limiter for MomentLimiter {
                     };
 
                     // Update the coefficient
-                    solution.coefficients[(i, j)] = c_min;
+                    solution.coefficients[[i, j]] = c_min;
                 }
             }
         }
@@ -421,8 +423,8 @@ impl Limiter for MomentLimiter {
         let u_avg = solution.average();
 
         for i in 0..solution.num_components {
-            for j in 1..solution.coefficients.ncols() {
-                let c = solution.coefficients[(i, j)];
+            for j in 1..matrix_cols(&solution.coefficients) {
+                let c = solution.coefficients[[i, j]];
 
                 if c.abs() > params.tolerance * u_avg[i].abs() {
                     return true;
@@ -455,19 +457,19 @@ impl LimiterFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::high_order::dg::matrix_from_vec;
     use approx::assert_relative_eq;
-    use nalgebra::DMatrix;
 
     #[test]
     fn test_minmod_limiter() {
         let mut solution = DGSolution::new(2, 1).unwrap();
-        solution.coefficients = DMatrix::from_vec(1, 3, vec![1.0, 1.0, 0.5]);
+        solution.coefficients = matrix_from_vec(1, 3, vec![1.0, 1.0, 0.5]);
 
         let mut left = DGSolution::new(2, 1).unwrap();
-        left.coefficients = DMatrix::from_vec(1, 3, vec![0.0, 0.0, 0.0]);
+        left.coefficients = matrix_from_vec(1, 3, vec![0.0, 0.0, 0.0]);
 
         let mut right = DGSolution::new(2, 1).unwrap();
-        right.coefficients = DMatrix::from_vec(1, 3, vec![2.0, 0.0, 0.0]);
+        right.coefficients = matrix_from_vec(1, 3, vec![2.0, 0.0, 0.0]);
 
         let limiter = MinmodLimiter;
         let mut params = LimiterParams::new(LimiterType::Minmod);
@@ -477,21 +479,21 @@ mod tests {
             .limit(&mut solution, &[left, right], &params)
             .unwrap();
 
-        assert_eq!(solution.coefficients[(0, 0)], 1.0);
-        assert_eq!(solution.coefficients[(0, 1)], 1.0);
-        assert_eq!(solution.coefficients[(0, 2)], 0.0);
+        assert_eq!(solution.coefficients[[0, 0]], 1.0);
+        assert_eq!(solution.coefficients[[0, 1]], 1.0);
+        assert_eq!(solution.coefficients[[0, 2]], 0.0);
     }
 
     #[test]
     fn test_tvb_limiter() {
         let mut solution = DGSolution::new(2, 1).unwrap();
-        solution.coefficients = DMatrix::from_vec(1, 3, vec![1.0, 0.1, 0.01]);
+        solution.coefficients = matrix_from_vec(1, 3, vec![1.0, 0.1, 0.01]);
 
         let mut left = DGSolution::new(2, 1).unwrap();
-        left.coefficients = DMatrix::from_vec(1, 3, vec![0.9, 0.1, 0.0]);
+        left.coefficients = matrix_from_vec(1, 3, vec![0.9, 0.1, 0.0]);
 
         let mut right = DGSolution::new(2, 1).unwrap();
-        right.coefficients = DMatrix::from_vec(1, 3, vec![1.1, 0.1, 0.0]);
+        right.coefficients = matrix_from_vec(1, 3, vec![1.1, 0.1, 0.0]);
 
         let limiter = TVBLimiter;
         let params = LimiterParams::new(LimiterType::TVB).with_tvb_m(1.0);
@@ -500,21 +502,21 @@ mod tests {
             .limit(&mut solution, &[left, right], &params)
             .unwrap();
 
-        assert_relative_eq!(solution.coefficients[(0, 0)], 1.0, epsilon = 1e-10);
-        assert_relative_eq!(solution.coefficients[(0, 1)], 0.1, epsilon = 1e-10);
-        assert_relative_eq!(solution.coefficients[(0, 2)], 0.01, epsilon = 1e-10);
+        assert_relative_eq!(solution.coefficients[[0, 0]], 1.0, epsilon = 1e-10);
+        assert_relative_eq!(solution.coefficients[[0, 1]], 0.1, epsilon = 1e-10);
+        assert_relative_eq!(solution.coefficients[[0, 2]], 0.01, epsilon = 1e-10);
     }
 
     #[test]
     fn test_moment_limiter() {
         let mut solution = DGSolution::new(3, 1).unwrap();
-        solution.coefficients = DMatrix::from_vec(1, 4, vec![1.0, 1.0, 0.5, 0.1]);
+        solution.coefficients = matrix_from_vec(1, 4, vec![1.0, 1.0, 0.5, 0.1]);
 
         let mut left = DGSolution::new(3, 1).unwrap();
-        left.coefficients = DMatrix::from_vec(1, 4, vec![0.0, 0.0, 0.0, 0.0]);
+        left.coefficients = matrix_from_vec(1, 4, vec![0.0, 0.0, 0.0, 0.0]);
 
         let mut right = DGSolution::new(3, 1).unwrap();
-        right.coefficients = DMatrix::from_vec(1, 4, vec![2.0, 0.0, 0.0, 0.0]);
+        right.coefficients = matrix_from_vec(1, 4, vec![2.0, 0.0, 0.0, 0.0]);
 
         let limiter = MomentLimiter;
         let mut params = LimiterParams::new(LimiterType::Moment);
@@ -524,9 +526,9 @@ mod tests {
             .limit(&mut solution, &[left, right], &params)
             .unwrap();
 
-        assert_eq!(solution.coefficients[(0, 0)], 1.0);
-        assert_eq!(solution.coefficients[(0, 1)], 1.0);
-        assert_eq!(solution.coefficients[(0, 2)], 0.0);
-        assert_eq!(solution.coefficients[(0, 3)], 0.0);
+        assert_eq!(solution.coefficients[[0, 0]], 1.0);
+        assert_eq!(solution.coefficients[[0, 1]], 1.0);
+        assert_eq!(solution.coefficients[[0, 2]], 0.0);
+        assert_eq!(solution.coefficients[[0, 3]], 0.0);
     }
 }

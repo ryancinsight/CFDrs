@@ -20,8 +20,7 @@
 //! - Recent wall-function formulations using the Spalding law appear in
 //!   wall-modelled LES and RANS literature.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 
 use super::constants::{WALL_B, WALL_KAPPA, WALL_Y_PLUS_TRANSITION};
 
@@ -32,87 +31,84 @@ use super::constants::{WALL_B, WALL_KAPPA, WALL_Y_PLUS_TRANSITION};
 pub struct WallFunctions;
 
 impl WallFunctions {
-    fn spalding_e<T: RealField + Copy + FromPrimitive + num_traits::Float>() -> T {
-        let kappa = <T as FromPrimitive>::from_f64(WALL_KAPPA)
-            .expect("WALL_KAPPA is an IEEE 754 representable f64 constant");
-        let b = <T as FromPrimitive>::from_f64(WALL_B)
-            .expect("WALL_B is an IEEE 754 representable f64 constant");
-        num_traits::Float::exp(-(kappa * b))
+    fn scalar<T: FloatElement>(value: f64) -> T {
+        <T as FloatElement>::from_f64(value)
+    }
+
+    fn spalding_e<T: FloatElement>() -> T {
+        let kappa = Self::scalar::<T>(WALL_KAPPA);
+        let b = Self::scalar::<T>(WALL_B);
+        <T as FloatElement>::exp(<T as NumericElement>::ZERO - kappa * b)
     }
 
     /// Evaluate the Spalding wall law `y⁺(u⁺)`.
-    fn spalding_y_plus<T: RealField + Copy + FromPrimitive + num_traits::Float>(u_plus: T) -> T {
-        if u_plus <= T::zero() {
-            return T::zero();
+    fn spalding_y_plus<T: FloatElement>(u_plus: T) -> T {
+        let zero = <T as NumericElement>::ZERO;
+        let one = <T as NumericElement>::ONE;
+        if u_plus <= zero {
+            return zero;
         }
 
-        let kappa = <T as FromPrimitive>::from_f64(WALL_KAPPA)
-            .expect("WALL_KAPPA is an IEEE 754 representable f64 constant");
+        let kappa = Self::scalar::<T>(WALL_KAPPA);
         let e = Self::spalding_e::<T>();
         let ku = kappa * u_plus;
         let ku_sq = ku * ku;
         let ku_cu = ku_sq * ku;
-        u_plus
-            + e * (num_traits::Float::exp(ku)
-                - T::one()
-                - ku
-                - ku_sq / (T::one() + T::one())
-                - ku_cu / (T::one() + T::one() + T::one() + T::one() + T::one() + T::one()))
+        let two = one + one;
+        let six = two + two + two;
+        u_plus + e * (<T as FloatElement>::exp(ku) - one - ku - ku_sq / two - ku_cu / six)
     }
 
     /// Evaluate `dy⁺/du⁺` for the Spalding wall law.
-    fn spalding_dy_plus_du_plus<T: RealField + Copy + FromPrimitive + num_traits::Float>(
-        u_plus: T,
-    ) -> T {
-        if u_plus <= T::zero() {
-            return T::one();
+    fn spalding_dy_plus_du_plus<T: FloatElement>(u_plus: T) -> T {
+        let zero = <T as NumericElement>::ZERO;
+        let one = <T as NumericElement>::ONE;
+        if u_plus <= zero {
+            return one;
         }
 
-        let kappa = <T as FromPrimitive>::from_f64(WALL_KAPPA)
-            .expect("WALL_KAPPA is an IEEE 754 representable f64 constant");
+        let kappa = Self::scalar::<T>(WALL_KAPPA);
         let e = Self::spalding_e::<T>();
         let ku = kappa * u_plus;
-        let exp_ku = num_traits::Float::exp(ku);
+        let exp_ku = <T as FloatElement>::exp(ku);
         let kappa_sq = kappa * kappa;
         let kappa_cu = kappa_sq * kappa;
-        T::one()
-            + e * (kappa * exp_ku
+        one + e
+            * (kappa * exp_ku
                 - kappa
                 - kappa_sq * u_plus
-                - (kappa_cu * u_plus * u_plus) / (T::one() + T::one()))
+                - (kappa_cu * u_plus * u_plus) / (one + one))
     }
 
-    fn solve_u_plus_from_y_plus<T: RealField + Copy + FromPrimitive + num_traits::Float>(
-        y_plus: T,
-    ) -> T {
-        let eps = <T as FromPrimitive>::from_f64(1e-14)
-            .expect("1e-14 is an IEEE 754 representable f64 constant");
+    fn solve_u_plus_from_y_plus<T: FloatElement>(y_plus: T) -> T {
+        let zero = <T as NumericElement>::ZERO;
+        let one = <T as NumericElement>::ONE;
+        let eps = Self::scalar::<T>(1e-14);
         if y_plus <= eps {
-            return T::zero();
+            return zero;
         }
 
-        let kappa = <T as FromPrimitive>::from_f64(WALL_KAPPA)
-            .expect("WALL_KAPPA is an IEEE 754 representable f64 constant");
-        let b = <T as FromPrimitive>::from_f64(WALL_B)
-            .expect("WALL_B is an IEEE 754 representable f64 constant");
-        let transition = <T as FromPrimitive>::from_f64(WALL_Y_PLUS_TRANSITION)
-            .expect("WALL_Y_PLUS_TRANSITION is an IEEE 754 representable f64 constant");
+        let kappa = Self::scalar::<T>(WALL_KAPPA);
+        let b = Self::scalar::<T>(WALL_B);
+        let transition = Self::scalar::<T>(WALL_Y_PLUS_TRANSITION);
 
         let mut u_plus = if y_plus < transition {
             y_plus
         } else {
-            num_traits::Float::ln(y_plus) / kappa + b
+            <T as FloatElement>::ln(y_plus) / kappa + b
         };
-        u_plus = num_traits::Float::max(u_plus, eps);
+        u_plus = <T as NumericElement>::max_scalar(u_plus, eps);
 
         for _ in 0..32 {
             let f = Self::spalding_y_plus(u_plus) - y_plus;
             let df = Self::spalding_dy_plus_du_plus(u_plus);
             let du = f / df;
             u_plus -= du;
-            u_plus = num_traits::Float::max(u_plus, eps);
+            u_plus = <T as NumericElement>::max_scalar(u_plus, eps);
 
-            if num_traits::Float::abs(du) <= eps * num_traits::Float::max(T::one(), u_plus) {
+            if <T as NumericElement>::abs(du)
+                <= eps * <T as NumericElement>::max_scalar(one, u_plus)
+            {
                 break;
             }
         }
@@ -121,30 +117,27 @@ impl WallFunctions {
     }
 
     /// Compute the dimensionless velocity `u⁺` from `y⁺`.
-    pub fn u_plus<T: RealField + Copy + FromPrimitive + num_traits::Float>(y_plus: T) -> T {
+    pub fn u_plus<T: FloatElement>(y_plus: T) -> T {
         Self::solve_u_plus_from_y_plus(y_plus)
     }
 
     /// Compute dimensionless wall distance `y⁺ = y · u_τ / ν`.
-    pub fn y_plus<T: RealField + Copy>(y: T, u_tau: T, nu: T) -> T {
+    pub fn y_plus<T: FloatElement>(y: T, u_tau: T, nu: T) -> T {
         y * u_tau / nu
     }
 
     /// Estimate friction velocity `u_τ` from near-wall velocity using the
     /// Spalding wall law.
-    pub fn friction_velocity<T: RealField + Copy + FromPrimitive + num_traits::Float>(
-        u_wall: T,
-        y_p: T,
-        nu: T,
-    ) -> T {
-        let eps = <T as FromPrimitive>::from_f64(1e-14)
-            .expect("1e-14 is an IEEE 754 representable f64 constant");
+    pub fn friction_velocity<T: FloatElement>(u_wall: T, y_p: T, nu: T) -> T {
+        let zero = <T as NumericElement>::ZERO;
+        let one = <T as NumericElement>::ONE;
+        let eps = Self::scalar::<T>(1e-14);
         if u_wall <= eps || y_p <= eps || nu <= eps {
-            return T::zero();
+            return zero;
         }
 
-        let u_tau_guess = num_traits::Float::sqrt(nu * u_wall / y_p);
-        let mut u_plus = num_traits::Float::max(u_wall / u_tau_guess, eps);
+        let u_tau_guess = <T as NumericElement>::sqrt(nu * u_wall / y_p);
+        let mut u_plus = <T as NumericElement>::max_scalar(u_wall / u_tau_guess, eps);
         let target = y_p * u_wall / nu;
 
         for _ in 0..32 {
@@ -152,36 +145,29 @@ impl WallFunctions {
             let df = Self::spalding_dy_plus_du_plus(u_plus) + target / (u_plus * u_plus);
             let du = f / df;
             u_plus -= du;
-            u_plus = num_traits::Float::max(u_plus, eps);
+            u_plus = <T as NumericElement>::max_scalar(u_plus, eps);
 
-            if num_traits::Float::abs(du) <= eps * num_traits::Float::max(T::one(), u_plus) {
+            if <T as NumericElement>::abs(du)
+                <= eps * <T as NumericElement>::max_scalar(one, u_plus)
+            {
                 break;
             }
         }
 
         let u_tau = u_wall / u_plus;
-        num_traits::Float::max(u_tau, T::zero())
+        <T as NumericElement>::max_scalar(u_tau, zero)
     }
 
     /// Compute wall shear stress `τ_w = ρ u_τ²`.
-    pub fn wall_shear_stress<T: RealField + Copy + FromPrimitive + num_traits::Float>(
-        u_wall: T,
-        y_p: T,
-        nu: T,
-        rho: T,
-    ) -> T {
+    pub fn wall_shear_stress<T: FloatElement>(u_wall: T, y_p: T, nu: T, rho: T) -> T {
         let u_tau = Self::friction_velocity(u_wall, y_p, nu);
         rho * u_tau * u_tau
     }
 
     /// Determine whether `y⁺` lies in the traditional log-law region.
-    pub fn in_log_law_region<T: RealField + Copy + FromPrimitive + num_traits::Float>(
-        y_plus: T,
-    ) -> bool {
-        let y_tr = <T as FromPrimitive>::from_f64(WALL_Y_PLUS_TRANSITION)
-            .expect("WALL_Y_PLUS_TRANSITION is an IEEE 754 representable f64 constant");
-        let y_max = <T as FromPrimitive>::from_f64(300.0)
-            .expect("300.0 is representable in all IEEE 754 types");
+    pub fn in_log_law_region<T: FloatElement>(y_plus: T) -> bool {
+        let y_tr = Self::scalar::<T>(WALL_Y_PLUS_TRANSITION);
+        let y_max = Self::scalar::<T>(300.0);
         y_plus >= y_tr && y_plus <= y_max
     }
 }

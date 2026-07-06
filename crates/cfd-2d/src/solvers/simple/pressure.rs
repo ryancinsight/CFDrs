@@ -6,16 +6,17 @@ use crate::pressure_velocity::boundary::{
     has_pressure_anchor as pressure_has_anchor, is_pressure_anchor_boundary,
     pressure_neighbor_for_side,
 };
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
 use cfd_math::linear_solver::{BiCGSTAB, IterativeLinearSolver, IterativeSolverConfig};
 use cfd_math::sparse::SparseMatrixBuilder;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use std::collections::HashMap;
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> SimpleAlgorithm<T> {
+impl<T: Cfd2dScalar + EunomiaRealField + Copy + std::fmt::Debug + FloatElement> SimpleAlgorithm<T> {
     pub(crate) fn assemble_pressure_correction(
         &mut self,
         fields: &SimulationFields<T>,
@@ -29,21 +30,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         let ny = grid.ny;
         let dx = grid.dx;
         let dy = grid.dy;
-        let half = T::from_f64(0.5).unwrap();
-        let two = T::from_f64(2.0).unwrap();
+        let half = scalar::from_f64::<T>(0.5);
+        let two = scalar::from_f64::<T>(2.0);
         let has_pressure_anchor = pressure_has_anchor(boundary_conditions);
 
         let rhs = self.rhs.as_mut().unwrap();
-        rhs.fill(T::zero());
+        rhs.fill(scalar::zero::<T>());
         let p_prime = self.p_prime.as_mut().unwrap();
-        p_prime.fill(T::zero());
+        p_prime.fill(scalar::zero::<T>());
 
         let d_u = self.d_u.as_ref().unwrap();
         let d_v = self.d_v.as_ref().unwrap();
 
         let n = nx * ny;
         let should_rebuild = self.pressure_matrix.is_none();
-        let mut max_residual = T::zero();
+        let mut max_residual = scalar::zero::<T>();
 
         if should_rebuild {
             let u_data = fields.u.data.as_slice();
@@ -134,8 +135,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
 
                     rhs[idx] = mass_imbalance;
 
-                    if mass_imbalance.abs() > max_residual {
-                        max_residual = mass_imbalance.abs();
+                    let abs_mass_imbalance = NumericElement::abs(mass_imbalance);
+                    if abs_mass_imbalance > max_residual {
+                        max_residual = abs_mass_imbalance;
                     }
                 }
             }
@@ -152,8 +154,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     if i == 0 {
                         if let Some(bc) = boundary_conditions.get("west") {
                             if is_pressure_anchor_boundary(bc) {
-                                matrix_builder.add_entry(idx, idx, T::one())?;
-                                rhs[idx] = T::zero();
+                                matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
+                                rhs[idx] = scalar::zero::<T>();
                                 continue;
                             }
                             neighbor_indices.push(pressure_neighbor_for_side(
@@ -170,8 +172,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     if i == nx - 1 {
                         if let Some(bc) = boundary_conditions.get("east") {
                             if is_pressure_anchor_boundary(bc) {
-                                matrix_builder.add_entry(idx, idx, T::one())?;
-                                rhs[idx] = T::zero();
+                                matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
+                                rhs[idx] = scalar::zero::<T>();
                                 continue;
                             }
                             neighbor_indices.push(pressure_neighbor_for_side(
@@ -188,8 +190,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     if j == 0 {
                         if let Some(bc) = boundary_conditions.get("south") {
                             if is_pressure_anchor_boundary(bc) {
-                                matrix_builder.add_entry(idx, idx, T::one())?;
-                                rhs[idx] = T::zero();
+                                matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
+                                rhs[idx] = scalar::zero::<T>();
                                 continue;
                             }
                             neighbor_indices.push(pressure_neighbor_for_side(
@@ -206,8 +208,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     if j == ny - 1 {
                         if let Some(bc) = boundary_conditions.get("north") {
                             if is_pressure_anchor_boundary(bc) {
-                                matrix_builder.add_entry(idx, idx, T::one())?;
-                                rhs[idx] = T::zero();
+                                matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
+                                rhs[idx] = scalar::zero::<T>();
                                 continue;
                             }
                             neighbor_indices.push(pressure_neighbor_for_side(
@@ -222,33 +224,34 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     }
 
                     if !has_pressure_anchor && idx == 0 {
-                        matrix_builder.add_entry(idx, idx, T::one())?;
+                        matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
                     } else if neighbor_indices.is_empty() {
-                        matrix_builder.add_entry(idx, idx, T::one())?;
+                        matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
                     } else {
                         neighbor_indices.sort_unstable();
                         neighbor_indices.dedup();
-                        let neighbor_count = T::from_usize(neighbor_indices.len())
-                            .expect("analytical constant conversion");
-                        let weight = T::one() / neighbor_count;
-                        matrix_builder.add_entry(idx, idx, T::one())?;
+                        let neighbor_count = scalar::from_usize::<T>(neighbor_indices.len());
+                        let weight = scalar::one::<T>() / neighbor_count;
+                        matrix_builder.add_entry(idx, idx, scalar::one::<T>())?;
                         for neighbor_idx in neighbor_indices {
                             matrix_builder.add_entry(idx, neighbor_idx, -weight)?;
                         }
                     }
-                    rhs[idx] = T::zero();
+                    rhs[idx] = scalar::zero::<T>();
                 }
             }
             self.pressure_matrix = Some(matrix_builder.build()?);
             self.matrix_builder = Some(SparseMatrixBuilder::new(n, n));
         } else {
             let matrix = self.pressure_matrix.as_mut().unwrap();
-            matrix.values_mut().fill(T::zero());
+            matrix.values_mut().fill(scalar::zero::<T>());
 
-            let (row_offsets, col_indices, values) = matrix.csr_data_mut();
+            let row_ptr = matrix.row_ptr().to_vec();
+            let col_indices = matrix.col_indices().to_vec();
+            let values = matrix.values_mut();
             let mut update_entry = |r: usize, c: usize, v: T| {
-                let start = row_offsets[r];
-                let end = row_offsets[r + 1];
+                let start = row_ptr[r];
+                let end = row_ptr[r + 1];
                 for idx in start..end {
                     if col_indices[idx] == c {
                         values[idx] += v;
@@ -340,8 +343,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
 
                     rhs[idx] = mass_imbalance;
 
-                    if mass_imbalance.abs() > max_residual {
-                        max_residual = mass_imbalance.abs();
+                    let abs_mass_imbalance = NumericElement::abs(mass_imbalance);
+                    if abs_mass_imbalance > max_residual {
+                        max_residual = abs_mass_imbalance;
                     }
                 }
             }
@@ -358,8 +362,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     if i == 0 {
                         if let Some(bc) = boundary_conditions.get("west") {
                             if is_pressure_anchor_boundary(bc) {
-                                update_entry(idx, idx, T::one());
-                                rhs[idx] = T::zero();
+                                update_entry(idx, idx, scalar::one::<T>());
+                                rhs[idx] = scalar::zero::<T>();
                                 continue;
                             }
                             neighbor_indices.push(pressure_neighbor_for_side(
@@ -376,8 +380,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     if i == nx - 1 {
                         if let Some(bc) = boundary_conditions.get("east") {
                             if is_pressure_anchor_boundary(bc) {
-                                update_entry(idx, idx, T::one());
-                                rhs[idx] = T::zero();
+                                update_entry(idx, idx, scalar::one::<T>());
+                                rhs[idx] = scalar::zero::<T>();
                                 continue;
                             }
                             neighbor_indices.push(pressure_neighbor_for_side(
@@ -394,8 +398,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     if j == 0 {
                         if let Some(bc) = boundary_conditions.get("south") {
                             if is_pressure_anchor_boundary(bc) {
-                                update_entry(idx, idx, T::one());
-                                rhs[idx] = T::zero();
+                                update_entry(idx, idx, scalar::one::<T>());
+                                rhs[idx] = scalar::zero::<T>();
                                 continue;
                             }
                             neighbor_indices.push(pressure_neighbor_for_side(
@@ -412,8 +416,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     if j == ny - 1 {
                         if let Some(bc) = boundary_conditions.get("north") {
                             if is_pressure_anchor_boundary(bc) {
-                                update_entry(idx, idx, T::one());
-                                rhs[idx] = T::zero();
+                                update_entry(idx, idx, scalar::one::<T>());
+                                rhs[idx] = scalar::zero::<T>();
                                 continue;
                             }
                             neighbor_indices.push(pressure_neighbor_for_side(
@@ -428,21 +432,20 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
                     }
 
                     if !has_pressure_anchor && idx == 0 {
-                        update_entry(idx, idx, T::one());
+                        update_entry(idx, idx, scalar::one::<T>());
                     } else if neighbor_indices.is_empty() {
-                        update_entry(idx, idx, T::one());
+                        update_entry(idx, idx, scalar::one::<T>());
                     } else {
                         neighbor_indices.sort_unstable();
                         neighbor_indices.dedup();
-                        let neighbor_count = T::from_usize(neighbor_indices.len())
-                            .expect("analytical constant conversion");
-                        let weight = T::one() / neighbor_count;
-                        update_entry(idx, idx, T::one());
+                        let neighbor_count = scalar::from_usize::<T>(neighbor_indices.len());
+                        let weight = scalar::one::<T>() / neighbor_count;
+                        update_entry(idx, idx, scalar::one::<T>());
                         for neighbor_idx in neighbor_indices {
                             update_entry(idx, neighbor_idx, -weight);
                         }
                     }
-                    rhs[idx] = T::zero();
+                    rhs[idx] = scalar::zero::<T>();
                 }
             }
         }
@@ -466,8 +469,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         )?;
 
         let pp = self.p_prime.as_mut().unwrap();
-        if pp.iter().any(|v| !v.is_finite()) {
-            pp.fill(T::zero());
+        if pp.iter().any(|&v| !<T as NumericElement>::is_finite(v)) {
+            pp.fill(scalar::zero::<T>());
         }
         Ok(())
     }
@@ -481,7 +484,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::Debug> Simple
         let ny = grid.ny;
         let dx = grid.dx;
         let dy = grid.dy;
-        let two = T::from_f64(2.0).unwrap();
+        let two = scalar::from_f64::<T>(2.0);
 
         let p_prime = self.p_prime.as_ref().unwrap();
         let d_u = self.d_u.as_ref().unwrap();
@@ -516,6 +519,17 @@ mod tests {
     use crate::fields::SimulationFields;
     use cfd_core::physics::boundary::BoundaryCondition;
 
+    fn csr_value(matrix: &cfd_math::SparseMatrix<f64>, row: usize, col: usize) -> f64 {
+        let csr_row = matrix.row(row);
+        for (&entry_col, &entry_value) in csr_row.col_indices().iter().zip(csr_row.values().iter())
+        {
+            if entry_col == col {
+                return entry_value;
+            }
+        }
+        0.0
+    }
+
     #[test]
     fn pressure_correction_equation_construction() {
         let mut simple = SimpleAlgorithm::<f64>::new();
@@ -545,8 +559,8 @@ mod tests {
         let center_idx = 4;
 
         assert!(max_residual > 0.0);
-        assert!(rhs[center_idx].abs() > 0.0);
-        assert!((rhs[0]).abs() < 1e-12);
+        assert!(<f64 as NumericElement>::abs(rhs[center_idx]) > 0.0);
+        assert!(<f64 as NumericElement>::abs(rhs[0]) < 1e-12);
     }
 
     #[test]
@@ -568,13 +582,13 @@ mod tests {
 
         let matrix = simple.pressure_matrix.take().unwrap();
 
-        let west_anchor = matrix.get_entry(0, 0).unwrap().into_value();
-        let east_mid_diag = matrix.get_entry(5, 5).unwrap().into_value();
-        let east_mid_left = matrix.get_entry(5, 4).unwrap().into_value();
+        let west_anchor = csr_value(&matrix, 0, 0);
+        let east_mid_diag = csr_value(&matrix, 5, 5);
+        let east_mid_left = csr_value(&matrix, 5, 4);
 
-        assert!((west_anchor - 1.0).abs() < 1e-12);
-        assert!((east_mid_diag - 1.0).abs() < 1e-12);
-        assert!((east_mid_left + 1.0).abs() < 1e-12);
+        assert!(<f64 as NumericElement>::abs(west_anchor - 1.0) < 1e-12);
+        assert!(<f64 as NumericElement>::abs(east_mid_diag - 1.0) < 1e-12);
+        assert!(<f64 as NumericElement>::abs(east_mid_left + 1.0) < 1e-12);
     }
 
     #[test]
@@ -615,14 +629,14 @@ mod tests {
 
         let matrix = simple.pressure_matrix.take().unwrap();
 
-        let fallback_anchor = matrix.get_entry(0, 0).unwrap().into_value();
-        let corner_diag = matrix.get_entry(6, 6).unwrap().into_value();
-        let corner_east = matrix.get_entry(6, 7).unwrap().into_value();
-        let corner_south = matrix.get_entry(6, 3).unwrap().into_value();
+        let fallback_anchor = csr_value(&matrix, 0, 0);
+        let corner_diag = csr_value(&matrix, 6, 6);
+        let corner_east = csr_value(&matrix, 6, 7);
+        let corner_south = csr_value(&matrix, 6, 3);
 
-        assert!((fallback_anchor - 1.0).abs() < 1e-12);
-        assert!((corner_diag - 1.0).abs() < 1e-12);
-        assert!((corner_east + 0.5).abs() < 1e-12);
-        assert!((corner_south + 0.5).abs() < 1e-12);
+        assert!(<f64 as NumericElement>::abs(fallback_anchor - 1.0) < 1e-12);
+        assert!(<f64 as NumericElement>::abs(corner_diag - 1.0) < 1e-12);
+        assert!(<f64 as NumericElement>::abs(corner_east + 0.5) < 1e-12);
+        assert!(<f64 as NumericElement>::abs(corner_south + 0.5) < 1e-12);
     }
 }

@@ -24,17 +24,11 @@ use cfd_validation::analytical_benchmarks::lid_driven_cavity;
 use cfd_validation::benchmarks::cavity::LidDrivenCavity;
 use cfd_validation::error_metrics::ErrorMetric;
 use cfd_validation::error_metrics::L2Norm;
-use nalgebra::RealField;
-use num_traits::Signed;
-use num_traits::{FromPrimitive, ToPrimitive};
 
 /// Test SIMPLEC solver basic functionality with Rhie-Chow interpolation
 #[test]
 #[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
-fn test_simplec_solver_creation_and_basic_functionality()
-where
-    f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
-{
+fn test_simplec_solver_creation_and_basic_functionality() {
     // Create lid-driven cavity setup
     let nx = 16; // Smaller grid for faster testing
     let ny = 16;
@@ -137,10 +131,7 @@ where
 /// Test SIMPLEC solver convergence for lid-driven cavity at Re=100
 #[test]
 #[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
-fn test_simplec_convergence_ghia_cavity_re100()
-where
-    f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
-{
+fn test_simplec_convergence_ghia_cavity_re100() {
     // Create lid-driven cavity setup with optimized parameters
     let nx = 32;
     let ny = 32;
@@ -271,10 +262,7 @@ where
 /// Test PIMPLE solver with Rhie-Chow interpolation at Re=100
 #[test]
 #[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
-fn test_pimple_rhie_chow_ghia_cavity_re100()
-where
-    f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
-{
+fn test_pimple_rhie_chow_ghia_cavity_re100() {
     // Create lid-driven cavity setup
     let nx = 64;
     let ny = 64;
@@ -353,7 +341,6 @@ where
     let (ref_y, ref_u) = cavity
         .ghia_u_centerline(100.0)
         .into_iter()
-        .map(|(y, u)| (y, u))
         .unzip::<_, _, Vec<f64>, Vec<f64>>();
 
     // Interpolate numerical solution to match Ghia reference points
@@ -397,10 +384,7 @@ where
 /// Test Rhie-Chow effectiveness by comparing with/without interpolation
 #[test]
 #[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
-fn test_rhie_chow_effectiveness()
-where
-    f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
-{
+fn test_rhie_chow_effectiveness() {
     let nx = 32;
     let ny = 32;
     let lid_velocity = 1.0_f64;
@@ -571,13 +555,10 @@ fn check_pressure_smoothness(pressure: &cfd_2d::fields::Field2D<f64>) -> f64 {
 
 /// Simple test for pressure correction equation with known divergence
 #[test]
-fn test_pressure_correction_basic()
-where
-    f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
-{
+fn test_pressure_correction_basic() {
     use cfd_2d::grid::StructuredGrid2D;
     use cfd_2d::pressure_velocity::{config::PressureLinearSolver, PressureCorrectionSolver};
-    use nalgebra::Vector2;
+    use leto::geometry::Vector2;
 
     // Create a simple 4x4 grid
     let nx = 4;
@@ -616,7 +597,7 @@ where
         ),
     );
     // Set u_star values into fields if needed, but the solver interface may vary
-    let mut p_correction = cfd_2d::grid::Array2D::new(nx, ny, 0.0);
+    let mut p_correction: cfd_2d::grid::Array2D<f64> = cfd_2d::grid::Array2D::new(nx, ny, 0.0);
     solver
         .solve_pressure_correction(&fields, dt, rho, None, true, &mut p_correction)
         .expect("Pressure correction failed");
@@ -625,7 +606,7 @@ where
     let mut max_correction = 0.0_f64;
     for i in 0..nx {
         for j in 0..ny {
-            max_correction = max_correction.max(p_correction.get(i, j).abs());
+            max_correction = max_correction.max((*p_correction.get(i, j)).abs());
         }
     }
 
@@ -849,10 +830,7 @@ fn test_backward_facing_step_recirculation() -> cfd_core::error::Result<()> {
 /// Parameter optimization study for SIMPLEC algorithm accuracy
 #[test]
 #[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
-fn test_simplec_parameter_optimization_re100()
-where
-    f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
-{
+fn test_simplec_parameter_optimization_re100() {
     // Create lid-driven cavity setup
     let nx = 32;
     let ny = 32;
@@ -918,7 +896,6 @@ where
                 let (ref_y, ref_u) = cavity
                     .ghia_u_centerline(100.0)
                     .into_iter()
-                    .map(|(y, u)| (y, u))
                     .unzip::<_, _, Vec<f64>, Vec<f64>>();
 
                 // Interpolate numerical solution to match Ghia reference points
@@ -987,10 +964,7 @@ where
 /// Grid convergence study to validate spatial accuracy scaling
 #[test]
 #[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
-fn test_simplec_grid_convergence_study()
-where
-    f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
-{
+fn test_simplec_grid_convergence_study() {
     let reynolds = 100.0_f64;
     let lid_velocity = 1.0_f64;
     let nu = lid_velocity / reynolds;
@@ -1047,7 +1021,6 @@ where
                     let (ref_y, ref_u) = cavity
                         .ghia_u_centerline(reynolds)
                         .into_iter()
-                        .map(|(y, u)| (y, u))
                         .unzip::<_, _, Vec<f64>, Vec<f64>>();
 
                     // Interpolate numerical solution
@@ -1130,10 +1103,7 @@ where
 /// Comprehensive validation at higher Reynolds numbers (Re=400, Re=1000)
 #[test]
 #[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
-fn test_simplec_higher_reynolds_validation()
-where
-    f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
-{
+fn test_simplec_higher_reynolds_validation() {
     let nx = 32;
     let ny = 32;
     let lid_velocity = 1.0_f64;
@@ -1187,10 +1157,8 @@ where
                     let cavity = LidDrivenCavity::new(1.0, 1.0, reynolds);
                     let ghia_data = cavity.ghia_u_centerline(reynolds);
                     if !ghia_data.is_empty() {
-                        let (ref_y, ref_u) = ghia_data
-                            .into_iter()
-                            .map(|(y, u)| (y, u))
-                            .unzip::<_, _, Vec<f64>, Vec<f64>>();
+                        let (ref_y, ref_u) =
+                            ghia_data.into_iter().unzip::<_, _, Vec<f64>, Vec<f64>>();
                         // Interpolate numerical solution to match Ghia reference points
                         let mut interpolated_u = Vec::new();
                         for &y_ref in &ref_y {
@@ -1253,10 +1221,7 @@ where
 /// Performance benchmarking for production deployment
 #[test]
 #[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
-fn test_simplec_performance_benchmark()
-where
-    f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
-{
+fn test_simplec_performance_benchmark() {
     use std::time::Instant;
 
     let reynolds = 100.0_f64;
@@ -1417,10 +1382,7 @@ where
 /// Channel flow validation - test fully developed Poiseuille flow
 #[test]
 #[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
-fn test_simplec_channel_flow_validation()
-where
-    f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
-{
+fn test_simplec_channel_flow_validation() {
     // Create channel flow setup (Poiseuille flow between parallel plates)
     let nx = 32;
     let ny = 16; // Narrow channel
@@ -1580,10 +1542,7 @@ where
 /// Edge case validation: very low Reynolds number (Stokes flow)
 #[test]
 #[ignore = "slow (>3 min) — run with `cargo test --test ghia_cavity_simplec_validation -- --ignored`"]
-fn test_simplec_stokes_flow_validation()
-where
-    f64: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
-{
+fn test_simplec_stokes_flow_validation() {
     // Test extremely low Reynolds number for Stokes flow regime
     let nx = 16;
     let ny = 16;
@@ -1645,7 +1604,7 @@ where
                 );
 
                 // Check that velocities are small (as expected for low Re)
-                let mut max_velocity = 0.0;
+                let mut max_velocity = 0.0_f64;
                 for i in 0..nx {
                     for j in 0..ny {
                         max_velocity = max_velocity.max(fields.u.at(i, j).abs());

@@ -26,14 +26,16 @@ use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::{LinearSolverChain, GMRES};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
-use nalgebra::{DVector, RealField, Vector3};
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement};
+use nalgebra::{DVector, Vector3};
 use tracing;
 
+use crate::fem::leto_bridge::{array_to_vector, build_with_vector_rhs, vector_to_array};
 use crate::fem::mid_node_cache::MidNodeCache;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
-use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
+use crate::fem::{scalar, FemConfig, StokesFlowProblem, StokesFlowSolution};
+use crate::scalar::Cfd3dScalar;
 use moirai::{fold_reduce_with, Adaptive};
 use std::collections::HashMap;
 
@@ -42,14 +44,7 @@ pub(crate) use super::mesh_utils::compute_mesh_scale;
 pub use super::mesh_utils::{extract_vertex_indices, extract_vertex_indices_cached};
 
 /// Finite Element Method solver for 3D incompressible flow
-pub struct FemSolver<
-    T: cfd_mesh::domain::core::Scalar
-        + RealField
-        + Copy
-        + FromPrimitive
-        + num_traits::Float
-        + std::fmt::Debug,
-> {
+pub struct FemSolver<T: Cfd3dScalar> {
     config: FemConfig<T>,
     _linear_solver: GMRES<T>,
     /// Reusable matrix builder to avoid O(N) allocations per iteration
@@ -58,16 +53,7 @@ pub struct FemSolver<
     rhs: Option<DVector<T>>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + FromPrimitive
-            + Copy
-            + Float
-            + std::fmt::Debug
-            + From<f64>,
-    > FemSolver<T>
-{
+impl<T: Cfd3dScalar> FemSolver<T> {
     /// Create a new FEM solver with the given configuration
     pub fn new(config: FemConfig<T>) -> Self {
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
@@ -124,11 +110,7 @@ impl<
         // was previously duplicated across fem/solver.rs and fem/projection_solver.rs.
         // Tier order: Direct LU → GMRES+BlockDiag → GMRES (unprec) → GMRES+ILU → BiCGSTAB.
         let rel_tol = self.config.base.convergence.tolerance;
-        let abs_tol = Float::max(
-            rel_tol * rhs.norm(),
-            <T as FromPrimitive>::from_f64(1e-14)
-                .expect("1e-14 is an IEEE 754 representable f64 constant"),
-        );
+        let abs_tol = (rel_tol * rhs.norm()).max_scalar(<T as FloatElement>::from_f64(1e-14));
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: self.config.base.convergence.max_iterations,
             tolerance: abs_tol,
@@ -143,16 +125,18 @@ impl<
         let chain = LinearSolverChain::new(solver_config)
             .with_direct_threshold(100_000)
             .with_krylov_restart(std::cmp::min(200, n_total_dof.max(1)));
-        let x = chain.solve(&matrix, &rhs, n_velocity_dof)?;
+        let rhs_array = vector_to_array(&rhs, "FEM solver RHS")?;
+        let x_array = chain.solve(&matrix, &rhs_array, n_velocity_dof)?;
 
         // Guard: detect NaN/Inf from ill-conditioned or singular systems before
         // they silently propagate into the velocity/pressure solution fields.
-        if x.iter().any(|v| !v.is_finite()) {
+        if x_array.iter().any(|v| !NumericElement::is_finite(*v)) {
             return Err(cfd_core::error::Error::Solver(
                 "FEM linear solve produced non-finite values (NaN or Inf)".into(),
             ));
         }
 
+        let x = array_to_vector(x_array);
         let velocity = x.rows(0, n_velocity_dof).into_owned();
         let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
         let solution =
@@ -203,25 +187,14 @@ impl<
 
         // Adaptive tolerance (inexact Picard / Eisenstat–Walker strategy):
         // Early iterations use 100× looser tolerance since viscosity is still changing.
-        let base_tol = self
-            .config
-            .base
-            .convergence
-            .tolerance
-            .to_f64()
-            .unwrap_or(1e-8_f64);
+        let base_tol = NumericElement::to_f64(self.config.base.convergence.tolerance);
         let adaptive_factor = if picard_iteration < max_picard_iterations / 2 {
             100.0_f64
         } else {
             1.0_f64
         };
-        let rel_tol = <T as FromPrimitive>::from_f64(base_tol * adaptive_factor)
-            .expect("base_tol*adaptive_factor is an IEEE 754 representable f64 constant");
-        let abs_tol = Float::max(
-            rel_tol * rhs.norm(),
-            <T as FromPrimitive>::from_f64(1e-14)
-                .expect("1e-14 is an IEEE 754 representable f64 constant"),
-        );
+        let rel_tol = <T as FloatElement>::from_f64(base_tol * adaptive_factor);
+        let abs_tol = (rel_tol * rhs.norm()).max_scalar(<T as FloatElement>::from_f64(1e-14));
 
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: self.config.base.convergence.max_iterations,
@@ -238,12 +211,15 @@ impl<
             let mut x0 = DVector::zeros(n_total_dof);
             let vel_len = n_velocity_dof.min(prev.velocity.len());
             let pres_len = n_corner_nodes.min(prev.pressure.len());
-            x0.rows_mut(0, vel_len)
-                .copy_from(&prev.velocity.rows(0, vel_len));
-            x0.rows_mut(n_velocity_dof, pres_len)
-                .copy_from(&prev.pressure.rows(0, pres_len));
+            x0.as_mut_slice()[..vel_len].copy_from_slice(&prev.velocity.as_slice()[..vel_len]);
+            x0.as_mut_slice()[n_velocity_dof..n_velocity_dof + pres_len]
+                .copy_from_slice(&prev.pressure.as_slice()[..pres_len]);
             x0
         });
+        let initial_guess_array = initial_guess
+            .as_ref()
+            .map(|guess| vector_to_array(guess, "FEM initial guess"))
+            .transpose()?;
 
         tracing::info!(
             n_total_dof,
@@ -264,7 +240,13 @@ impl<
         );
 
         let solve_start = std::time::Instant::now();
-        let x = chain.solve_with_guess(&matrix, &rhs, n_velocity_dof, initial_guess.as_ref())?;
+        let rhs_array = vector_to_array(&rhs, "FEM solver RHS")?;
+        let x_array = chain.solve_with_guess(
+            &matrix,
+            &rhs_array,
+            n_velocity_dof,
+            initial_guess_array.as_ref(),
+        )?;
         let solve_elapsed = solve_start.elapsed();
 
         tracing::info!(
@@ -275,12 +257,13 @@ impl<
 
         // Guard: detect NaN/Inf from ill-conditioned or singular systems before
         // they silently propagate into the velocity/pressure solution fields.
-        if x.iter().any(|v| !v.is_finite()) {
+        if x_array.iter().any(|v| !NumericElement::is_finite(*v)) {
             return Err(cfd_core::error::Error::Solver(
                 "FEM linear solve (Picard) produced non-finite values (NaN or Inf)".into(),
             ));
         }
 
+        let x = array_to_vector(x_array);
         let velocity = x.rows(0, n_velocity_dof).into_owned();
         let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
         let solution =
@@ -294,8 +277,8 @@ impl<
     ///
     /// # Parallelization (GAP-PERF-008)
     ///
-    /// Cells are processed in parallel via `par_iter().fold().reduce()`, accumulating
-    /// per-thread partial accumulators `(residual_vec, max_abs, sum, l2, net)` that
+    /// Cells are processed in parallel via Moirai `fold_reduce_with`, accumulating
+    /// per-worker partial accumulators `(residual_vec, max_abs, sum, l2, net)` that
     /// are merged hierarchically. This matches the pattern used in `assemble_system`.
     fn print_continuity_residual_stats(
         &self,
@@ -311,110 +294,107 @@ impl<
             problem.mesh.cells.len(),
             || {
                 (
-                    vec![T::zero(); n_corner],
-                    T::zero(),
-                    T::zero(),
-                    T::zero(),
-                    T::zero(),
+                    vec![scalar::zero::<T>(); n_corner],
+                    scalar::zero::<T>(),
+                    scalar::zero::<T>(),
+                    scalar::zero::<T>(),
+                    scalar::zero::<T>(),
                 )
             },
             |(mut res, mut mx, mut sm, mut l2acc, mut nt), cell_idx| {
-                    let cell = &problem.mesh.cells[cell_idx];
-                    let idxs = match extract_vertex_indices(cell, &problem.mesh, n_corner) {
-                        Ok(v) => v,
-                        Err(_) => return (res, mx, sm, l2acc, nt),
-                    };
-                    if idxs.len() < 4 {
-                        return (res, mx, sm, l2acc, nt);
+                let cell = &problem.mesh.cells[cell_idx];
+                let idxs = match extract_vertex_indices(cell, &problem.mesh, n_corner) {
+                    Ok(v) => v,
+                    Err(_) => return (res, mx, sm, l2acc, nt),
+                };
+                if idxs.len() < 4 {
+                    return (res, mx, sm, l2acc, nt);
+                }
+
+                let verts: Vec<Vector3<T>> = idxs
+                    .iter()
+                    .map(|&idx| {
+                        problem
+                            .mesh
+                            .vertices
+                            .position(cfd_mesh::domain::core::index::VertexId::from_usize(idx))
+                            .coords
+                    })
+                    .collect();
+
+                let j_mat = nalgebra::Matrix3::from_columns(&[
+                    verts[1] - verts[0],
+                    verts[2] - verts[0],
+                    verts[3] - verts[0],
+                ]);
+                let det_j = j_mat.determinant();
+                let abs_det = NumericElement::abs(det_j);
+                if abs_det <= <T as FloatElement>::from_f64(1e-24) {
+                    return (res, mx, sm, l2acc, nt);
+                }
+                let j_inv_t = match j_mat.try_inverse() {
+                    Some(ji) => ji.transpose(),
+                    None => return (res, mx, sm, l2acc, nt),
+                };
+
+                let grad_ref_p1 = nalgebra::Matrix3x4::new(
+                    -scalar::one::<T>(),
+                    scalar::one::<T>(),
+                    scalar::zero::<T>(),
+                    scalar::zero::<T>(),
+                    -scalar::one::<T>(),
+                    scalar::zero::<T>(),
+                    scalar::one::<T>(),
+                    scalar::zero::<T>(),
+                    -scalar::one::<T>(),
+                    scalar::zero::<T>(),
+                    scalar::zero::<T>(),
+                    scalar::one::<T>(),
+                );
+                let p1_gradients_phys = j_inv_t * grad_ref_p1;
+                let shape = LagrangeTet10::new(p1_gradients_phys);
+
+                let quad = TetrahedronQuadrature::keast_degree_3();
+                for (qp, &qw) in quad.points().iter().zip(quad.weights().iter()) {
+                    let weight = qw * abs_det;
+                    let l = [scalar::one::<T>() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
+                    let grad_p2 = shape.gradients(&l);
+
+                    let mut div_u = scalar::zero::<T>();
+                    for i in 0..idxs.len().min(10) {
+                        let vel = solution.get_velocity(idxs[i]);
+                        let grad_i = if idxs.len() == 4 {
+                            Vector3::new(
+                                p1_gradients_phys[(0, i)],
+                                p1_gradients_phys[(1, i)],
+                                p1_gradients_phys[(2, i)],
+                            )
+                        } else {
+                            Vector3::new(grad_p2[(0, i)], grad_p2[(1, i)], grad_p2[(2, i)])
+                        };
+                        div_u += grad_i.x * vel.x + grad_i.y * vel.y + grad_i.z * vel.z;
                     }
 
-                    let verts: Vec<Vector3<T>> = idxs
-                        .iter()
-                        .map(|&idx| {
-                            problem
-                                .mesh
-                                .vertices
-                                .position(cfd_mesh::domain::core::index::VertexId::from_usize(idx))
-                                .coords
-                        })
-                        .collect();
-
-                    let j_mat = nalgebra::Matrix3::from_columns(&[
-                        verts[1] - verts[0],
-                        verts[2] - verts[0],
-                        verts[3] - verts[0],
-                    ]);
-                    let det_j = j_mat.determinant();
-                    let abs_det = Float::abs(det_j);
-                    if abs_det
-                        <= <T as FromPrimitive>::from_f64(1e-24)
-                            .expect("1e-24 is an IEEE 754 representable f64 constant")
-                    {
-                        return (res, mx, sm, l2acc, nt);
-                    }
-                    let j_inv_t = match j_mat.try_inverse() {
-                        Some(ji) => ji.transpose(),
-                        None => return (res, mx, sm, l2acc, nt),
-                    };
-
-                    let grad_ref_p1 = nalgebra::Matrix3x4::new(
-                        -T::one(),
-                        T::one(),
-                        T::zero(),
-                        T::zero(),
-                        -T::one(),
-                        T::zero(),
-                        T::one(),
-                        T::zero(),
-                        -T::one(),
-                        T::zero(),
-                        T::zero(),
-                        T::one(),
-                    );
-                    let p1_gradients_phys = j_inv_t * grad_ref_p1;
-                    let shape = LagrangeTet10::new(p1_gradients_phys);
-
-                    let quad = TetrahedronQuadrature::keast_degree_3();
-                    for (qp, &qw) in quad.points().iter().zip(quad.weights().iter()) {
-                        let weight = qw * abs_det;
-                        let l = [T::one() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
-                        let grad_p2 = shape.gradients(&l);
-
-                        let mut div_u = T::zero();
-                        for i in 0..idxs.len().min(10) {
-                            let vel = solution.get_velocity(idxs[i]);
-                            let grad_i = if idxs.len() == 4 {
-                                Vector3::new(
-                                    p1_gradients_phys[(0, i)],
-                                    p1_gradients_phys[(1, i)],
-                                    p1_gradients_phys[(2, i)],
-                                )
-                            } else {
-                                Vector3::new(grad_p2[(0, i)], grad_p2[(1, i)], grad_p2[(2, i)])
-                            };
-                            div_u += grad_i.x * vel.x + grad_i.y * vel.y + grad_i.z * vel.z;
-                        }
-
-                        for j in 0..4 {
-                            let p_idx = idxs[j];
-                            if p_idx < n_corner {
-                                res[p_idx] += l[j] * div_u * weight;
-                            }
+                    for j in 0..4 {
+                        let p_idx = idxs[j];
+                        if p_idx < n_corner {
+                            res[p_idx] += l[j] * div_u * weight;
                         }
                     }
+                }
 
-                    // Update running stats (local thread, no synchronization needed)
-                    for &r in &res {
-                        let a = Float::abs(r);
-                        if a > mx {
-                            mx = a;
-                        }
-                        sm += a;
-                        l2acc += r * r;
-                        nt += r;
+                // Update running stats (local thread, no synchronization needed)
+                for &r in &res {
+                    let a = NumericElement::abs(r);
+                    if a > mx {
+                        mx = a;
                     }
+                    sm += a;
+                    l2acc += r * r;
+                    nt += r;
+                }
 
-                    (res, mx, sm, l2acc, nt)
+                (res, mx, sm, l2acc, nt)
             },
             |(mut r1, mx1, sm1, l2a1, nt1), (r2, mx2, sm2, l2a2, nt2)| {
                 for i in 0..n_corner {
@@ -432,10 +412,10 @@ impl<
 
         let n = residual.len();
         if n > 0 {
-            let mean_abs = sum_abs
-                / T::from_usize(n)
-                    .expect("residual slice length n is always a representable usize");
-            let l2_norm = Float::sqrt(l2);
+            let n_as_u64 = u64::try_from(n).expect("residual slice length is representable as u64");
+            let mean_abs =
+                sum_abs / <T as FloatElement>::from_f64(NumericElement::to_f64(n_as_u64));
+            let l2_norm = NumericElement::sqrt(l2);
             tracing::debug!(
                 max_abs = ?max_abs, mean_abs = ?mean_abs,
                 l2 = ?l2_norm, net = ?net, n,
@@ -468,9 +448,9 @@ impl<
     ///
     /// # Parallelization
     ///
-    /// Element-level assembly is data-parallel via `rayon::par_iter().fold().reduce()`.
-    /// Each thread accumulates into a local `HashMap<(row, col), T>` and
-    /// `DVector<T>`. Thread-local maps are merged, then inserted into the
+    /// Element-level assembly is data-parallel via Moirai `fold_reduce_with`.
+    /// Each worker accumulates into a local `HashMap<(row, col), T>` and
+    /// `DVector<T>`. Worker-local maps are merged, then inserted into the
     /// global `SparseMatrixBuilder`.
     fn assemble_system(
         &mut self,
@@ -501,7 +481,7 @@ impl<
             self.rhs
                 .as_mut()
                 .expect("checked Some above")
-                .fill(T::zero());
+                .fill(scalar::zero::<T>());
         }
 
         let mut matrix_builder = self
@@ -532,61 +512,59 @@ impl<
             problem.mesh.cells.len(),
             || (HashMap::with_capacity(512), DVector::zeros(n_total_dof)),
             |(mut local_map, local_rhs), i| {
-                    let cell = &problem.mesh.cells[i];
-                    let viscosity = problem
-                        .element_viscosities
-                        .as_ref()
-                        .map_or(problem.fluid.viscosity, |v| v[i]);
-                    // Use cache-accelerated index extraction (O(1) per edge vs O(N_mid))
-                    let idxs =
-                        match extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes) {
-                            Ok(v) => v,
-                            Err(_) => return (local_map, local_rhs), // skip degenerate cell
-                        };
-                    let local_verts: Vec<Vector3<T>> =
-                        idxs.iter().map(|&idx| vertex_positions[idx]).collect();
+                let cell = &problem.mesh.cells[i];
+                let viscosity = problem
+                    .element_viscosities
+                    .as_ref()
+                    .map_or(problem.fluid.viscosity, |v| v[i]);
+                // Use cache-accelerated index extraction (O(1) per edge vs O(N_mid))
+                let idxs = match extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)
+                {
+                    Ok(v) => v,
+                    Err(_) => return (local_map, local_rhs), // skip degenerate cell
+                };
+                let local_verts: Vec<Vector3<T>> =
+                    idxs.iter().map(|&idx| vertex_positions[idx]).collect();
 
-                    if local_verts.len() < 4_usize {
-                        // Only tetrahedral cells are supported by this assembler.
-                        // Mesh extraction can occasionally surface malformed cells
-                        // with insufficient recovered corner vertices; they carry no
-                        // valid tetra contribution and must be skipped.
-                        return (local_map, local_rhs);
-                    }
+                if local_verts.len() < 4_usize {
+                    // Only tetrahedral cells are supported by this assembler.
+                    // Mesh extraction can occasionally surface malformed cells
+                    // with insufficient recovered corner vertices; they carry no
+                    // valid tetra contribution and must be skipped.
+                    return (local_map, local_rhs);
+                }
 
-                    let v0 = local_verts[0];
-                    let v1 = local_verts[1];
-                    let v2 = local_verts[2];
-                    let v3 = local_verts[3];
+                let v0 = local_verts[0];
+                let v1 = local_verts[1];
+                let v2 = local_verts[2];
+                let v3 = local_verts[3];
 
-                    let six = <T as FromPrimitive>::from_f64(6.0)
-                        .expect("6.0 is representable in all IEEE 754 types");
-                    let vol = ((v1 - v0).cross(&(v2 - v0))).dot(&(v3 - v0)) / six;
-                    let vol_tol = <T as FromPrimitive>::from_f64(1e-22)
-                        .expect("1e-22 is an IEEE 754 representable f64 constant");
-                    if Float::abs(vol) < vol_tol {
-                        // Skip degenerate element — zero volume means zero
-                        // contribution to the global stiffness matrix
-                        return (local_map, local_rhs);
-                    }
+                let six = <T as FloatElement>::from_f64(6.0);
+                let vol = ((v1 - v0).cross(&(v2 - v0))).dot(&(v3 - v0)) / six;
+                let vol_tol = <T as FloatElement>::from_f64(1e-22);
+                if NumericElement::abs(vol) < vol_tol {
+                    // Skip degenerate element — zero volume means zero
+                    // contribution to the global stiffness matrix
+                    return (local_map, local_rhs);
+                }
 
-                    let u_avg = self.calculate_u_avg(&idxs, previous_solution);
+                let u_avg = self.calculate_u_avg(&idxs, previous_solution);
 
-                    self.assemble_element_local(
-                        &mut local_map,
-                        &idxs,
-                        &local_verts,
-                        viscosity,
-                        problem.fluid.density,
-                        u_avg,
-                        n_nodes,
-                    );
+                self.assemble_element_local(
+                    &mut local_map,
+                    &idxs,
+                    &local_verts,
+                    viscosity,
+                    problem.fluid.density,
+                    u_avg,
+                    n_nodes,
+                );
 
-                    (local_map, local_rhs)
+                (local_map, local_rhs)
             },
             |(mut map1, mut rhs1), (map2, rhs2)| {
                 for (k, v) in map2 {
-                    *map1.entry(k).or_insert(T::zero()) += v;
+                    *map1.entry(k).or_insert(scalar::zero::<T>()) += v;
                 }
                 rhs1 += rhs2;
                 (map1, rhs1)
@@ -612,14 +590,14 @@ impl<
             tracing::warn!("All velocity DOFs constrained — may cause incompressibility conflict");
         }
 
-        let diag_eps = problem.fluid.viscosity
-            * <T as FromPrimitive>::from_f64(1e-12)
-                .expect("1e-12 is an IEEE 754 representable f64 constant");
+        let diag_eps = problem.fluid.viscosity * <T as FloatElement>::from_f64(1e-12);
         for i in n_velocity_dof..n_total_dof {
             let _ = matrix_builder.add_entry(i, i, diag_eps);
         }
 
-        let matrix = matrix_builder.build_with_rhs(&mut rhs)?;
+        let (matrix, rhs_after_assembly) =
+            build_with_vector_rhs(matrix_builder, rhs, "FEM saddle-point RHS")?;
+        rhs = rhs_after_assembly;
         rhs_store.copy_from(&rhs);
         self.rhs = Some(rhs_store);
         Ok((matrix, rhs))
@@ -646,25 +624,25 @@ impl<
             verts[3] - verts[0],
         ]);
         let det_j = j_mat.determinant();
-        let abs_det = Float::abs(det_j);
+        let abs_det = NumericElement::abs(det_j);
         let j_inv_t = match j_mat.try_inverse() {
             Some(inv) => inv.transpose(),
             None => return, // Degenerate element — skip assembly
         };
 
         let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            -T::one(),
-            T::one(),
-            T::zero(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::one(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::zero(),
-            T::one(),
+            -scalar::one::<T>(),
+            scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::zero::<T>(),
+            -scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::one::<T>(),
+            scalar::zero::<T>(),
+            -scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::zero::<T>(),
+            scalar::one::<T>(),
         );
         let p1_gradients_phys = j_inv_t * grad_ref_p1;
         let shape = LagrangeTet10::new(p1_gradients_phys);
@@ -674,7 +652,7 @@ impl<
 
         for (qp, &qw) in points.iter().zip(weights.iter()) {
             let weight = qw * abs_det;
-            let l = [T::one() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
+            let l = [scalar::one::<T>() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
             let n_p2 = shape.values(&l);
             let grad_p2_mat = shape.gradients(&l);
             let n_p1 = l;
@@ -725,12 +703,14 @@ impl<
                         // Accumulated in same float accumulator — identical to two separate adds.
                         let visc = viscosity * grad_i.dot(&grad_j) * weight;
                         let adv = density * n_i * u_avg.dot(&grad_j) * weight;
-                        *local_map.entry((gv_i, gv_j)).or_insert(T::zero()) += visc + adv;
-                        if grad_div_penalty > T::zero() {
+                        *local_map.entry((gv_i, gv_j)).or_insert(scalar::zero::<T>()) += visc + adv;
+                        if grad_div_penalty > scalar::zero::<T>() {
                             for e in 0..3 {
                                 let gv_j_e = gj + e * v_offset;
                                 let grad_div = grad_div_penalty * grad_i[d] * grad_j[e] * weight;
-                                *local_map.entry((gv_i, gv_j_e)).or_insert(T::zero()) += grad_div;
+                                *local_map
+                                    .entry((gv_i, gv_j_e))
+                                    .or_insert(scalar::zero::<T>()) += grad_div;
                             }
                         }
                     }
@@ -738,8 +718,8 @@ impl<
                         let gj = idxs[j];
                         let gp_j = p_offset + gj;
                         let b_val = n_p1[j] * grad_i[d] * weight;
-                        *local_map.entry((gv_i, gp_j)).or_insert(T::zero()) -= b_val;
-                        *local_map.entry((gp_j, gv_i)).or_insert(T::zero()) += b_val;
+                        *local_map.entry((gv_i, gp_j)).or_insert(scalar::zero::<T>()) -= b_val;
+                        *local_map.entry((gp_j, gv_i)).or_insert(scalar::zero::<T>()) += b_val;
                     }
                 }
             }
@@ -748,14 +728,12 @@ impl<
             // Adds τ_BP * ∫ ∇q_i · ∇q_j dΩ to the pressure-pressure block.
             // τ_BP = h_e² / (12 * μ), where h_e = (6V)^(1/3).
             // Circumvents the LBB inf-sup condition for equal-order P1-P1 elements.
-            if viscosity > T::zero() {
-                let h_e = Float::cbrt(abs_det); // (6V)^(1/3) ≈ element diameter
-                let twelve = <T as FromPrimitive>::from_f64(12.0)
-                    .expect("12.0 is representable in all IEEE 754 types");
+            if viscosity > scalar::zero::<T>() {
+                let one_third = <T as FloatElement>::from_f64(1.0 / 3.0);
+                let h_e = FloatElement::powf(abs_det, one_third); // (6V)^(1/3) ≈ element diameter
+                let twelve = <T as FloatElement>::from_f64(12.0);
                 let tau_bp = h_e * h_e / (twelve * viscosity);
-                let vol_e = abs_det
-                    / <T as FromPrimitive>::from_f64(6.0)
-                        .expect("6.0 is representable in all IEEE 754 types");
+                let vol_e = abs_det / <T as FloatElement>::from_f64(6.0);
 
                 for i in 0..4 {
                     let gi = idxs[i];
@@ -774,7 +752,7 @@ impl<
                             p1_gradients_phys[(2, j)],
                         );
                         let pspg = tau_bp * grad_p_i.dot(&grad_p_j) * vol_e;
-                        *local_map.entry((gp_i, gp_j)).or_insert(T::zero()) += pspg;
+                        *local_map.entry((gp_i, gp_j)).or_insert(scalar::zero::<T>()) += pspg;
                     }
                 }
             }
@@ -840,8 +818,8 @@ impl<
                     wall_nodes += 1;
                     for d in 0..3 {
                         let dof = node_idx + d * v_offset;
-                        builder.set_dirichlet_row(dof, diag_scale, T::zero());
-                        rhs[dof] = T::zero();
+                        builder.set_dirichlet_row(dof, diag_scale, scalar::zero::<T>());
+                        rhs[dof] = scalar::zero::<T>();
                         vel_dofs.insert(dof);
                     }
                 }
@@ -899,8 +877,8 @@ impl<
         // as reference to remove this null space and make the system non-singular.
         if !has_pressure_bc && problem.n_corner_nodes > 0 {
             let reference_pressure_dof = p_offset; // First corner node
-            builder.set_dirichlet_row(reference_pressure_dof, diag_scale, T::zero());
-            rhs[reference_pressure_dof] = T::zero();
+            builder.set_dirichlet_row(reference_pressure_dof, diag_scale, scalar::zero::<T>());
+            rhs[reference_pressure_dof] = scalar::zero::<T>();
             tracing::info!(
                 reference_pressure_dof,
                 "Pinned pressure DOF to zero (no pressure BC specified)"
@@ -938,9 +916,9 @@ impl<
             for &n in nodes {
                 sum += sol.get_velocity(n);
             }
-            // `nodes` is non-empty here; T::from_usize cannot fail for valid lengths.
-            sum / T::from_usize(nodes.len())
-                .expect("node count is always a representable non-zero usize")
+            let node_count =
+                u64::try_from(nodes.len()).expect("node count is representable as u64");
+            sum / <T as FloatElement>::from_f64(NumericElement::to_f64(node_count))
         } else {
             Vector3::zeros()
         }

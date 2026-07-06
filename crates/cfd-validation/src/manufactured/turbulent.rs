@@ -4,8 +4,8 @@
 //! including k-ε, k-ω, and Spalart-Allmaras turbulence models.
 
 use super::{ManufacturedFunctions, ManufacturedSolution};
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
+use crate::scalar;
+use eunomia::{FloatElement, RealField};
 
 /// Manufactured solution for k-ε turbulence model
 ///
@@ -25,7 +25,7 @@ pub struct ManufacturedKEpsilon<T: RealField + Copy> {
     pub production_scale: T,
 }
 
-impl<T: RealField + Copy> ManufacturedKEpsilon<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedKEpsilon<T> {
     /// Create a new manufactured k-ε solution
     pub fn new(kx: T, ky: T, amplitude: T, nu_t: T) -> Self {
         Self {
@@ -33,12 +33,12 @@ impl<T: RealField + Copy> ManufacturedKEpsilon<T> {
             ky,
             amplitude,
             nu_t,
-            production_scale: T::from_f64_or_one(0.1), // Reasonable production scaling without unwrap
+            production_scale: scalar::from_f64::<T>(0.1),
         }
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKEpsilon<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for ManufacturedKEpsilon<T> {
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Turbulent kinetic energy: k = A * sin(kx*x) * sin(ky*y) * exp(-t)
         ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky) * self.amplitude
@@ -49,9 +49,9 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKEpsilon<T> {
         // k-equation: ∂k/∂t + U_j ∂k/∂x_j = P_k - ε + ∇·(ν_t ∇k)
 
         // Manufactured solution: k = A * sin(kx*x) * sin(ky*y) * exp(-t)
-        let sin_kx_x = nalgebra::ComplexField::sin(self.kx * x);
-        let sin_ky_y = nalgebra::ComplexField::sin(self.ky * y);
-        let exp_t = nalgebra::ComplexField::exp(-t);
+        let sin_kx_x = scalar::sin(self.kx * x);
+        let sin_ky_y = scalar::sin(self.ky * y);
+        let exp_t = scalar::exp(-t);
 
         let k = self.amplitude * sin_kx_x * sin_ky_y * exp_t;
 
@@ -60,13 +60,11 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKEpsilon<T> {
 
         // Convection term: U_j ∂k/∂x_j
         // Using manufactured velocity field: u = sin(kx*x)*cos(ky*y)*exp(-t), v = cos(kx*x)*sin(ky*y)*exp(-t)
-        let u = sin_kx_x * nalgebra::ComplexField::cos(self.ky * y) * exp_t;
-        let v = nalgebra::ComplexField::cos(self.kx * x) * sin_ky_y * exp_t;
+        let u = sin_kx_x * scalar::cos(self.ky * y) * exp_t;
+        let v = scalar::cos(self.kx * x) * sin_ky_y * exp_t;
 
-        let dk_dx =
-            self.amplitude * self.kx * nalgebra::ComplexField::cos(self.kx * x) * sin_ky_y * exp_t;
-        let dk_dy =
-            self.amplitude * sin_kx_x * self.ky * nalgebra::ComplexField::cos(self.ky * y) * exp_t;
+        let dk_dx = self.amplitude * self.kx * scalar::cos(self.kx * x) * sin_ky_y * exp_t;
+        let dk_dy = self.amplitude * sin_kx_x * self.ky * scalar::cos(self.ky * y) * exp_t;
 
         let convection = u * dk_dx + v * dk_dy;
 
@@ -77,31 +75,25 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKEpsilon<T> {
 
         // Exact production term: P_k = 2ν_t * S_ij * S_ij
         // Strain rate tensor from manufactured velocity field
-        let du_dx = self.kx
-            * nalgebra::ComplexField::cos(self.kx * x)
-            * nalgebra::ComplexField::cos(self.ky * y)
-            * exp_t;
-        let du_dy = -self.kx * sin_kx_x * nalgebra::ComplexField::sin(self.ky * y) * exp_t;
-        let dv_dx = -self.ky * nalgebra::ComplexField::sin(self.kx * x) * sin_ky_y * exp_t;
-        let dv_dy = self.ky
-            * nalgebra::ComplexField::cos(self.kx * x)
-            * nalgebra::ComplexField::cos(self.ky * y)
-            * exp_t;
+        let du_dx = self.kx * scalar::cos(self.kx * x) * scalar::cos(self.ky * y) * exp_t;
+        let du_dy = -self.kx * sin_kx_x * scalar::sin(self.ky * y) * exp_t;
+        let dv_dx = -self.ky * scalar::sin(self.kx * x) * sin_ky_y * exp_t;
+        let dv_dy = self.ky * scalar::cos(self.kx * x) * scalar::cos(self.ky * y) * exp_t;
 
         let s_xx = du_dx;
-        let s_xy = T::from_f64_or_one(0.5) * (du_dy + dv_dx);
+        let s_xy = scalar::from_f64::<T>(0.5) * (du_dy + dv_dx);
         let s_yy = dv_dy;
 
         let strain_rate_magnitude_sq =
-            s_xx * s_xx + T::from_f64_or_one(2.0) * s_xy * s_xy + s_yy * s_yy;
-        let production = T::from_f64_or_one(2.0) * self.nu_t * strain_rate_magnitude_sq;
+            s_xx * s_xx + scalar::from_f64::<T>(2.0) * s_xy * s_xy + s_yy * s_yy;
+        let production = scalar::from_f64::<T>(2.0) * self.nu_t * strain_rate_magnitude_sq;
 
         // Exact dissipation rate from manufactured solution
         // For MMS, ε must satisfy: ε = P_k - ∇·(ν_t ∇k) + ∂k/∂t + convection
         let epsilon = production - diffusion + dk_dt + convection;
 
         // Ensure ε is positive and physically reasonable
-        let epsilon = epsilon.max(T::from_f64_or_zero(1e-10));
+        let epsilon = scalar::max(epsilon, scalar::from_f64::<T>(1e-10));
 
         // Source term: P_k - ε + ∇·(ν_t ∇k) - ∂k/∂t - U_j ∂k/∂x_j
         production - epsilon + diffusion - dk_dt - convection
@@ -131,7 +123,7 @@ pub struct ManufacturedKOmega<T: RealField + Copy> {
     field: KOmegaField,
 }
 
-impl<T: RealField + Copy> ManufacturedKOmega<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedKOmega<T> {
     /// Create a new manufactured k-ω solution
     pub fn new(kx: T, ky: T, k_amplitude: T, omega_amplitude: T, nu_t: T) -> Self {
         Self {
@@ -151,7 +143,7 @@ impl<T: RealField + Copy> ManufacturedKOmega<T> {
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKOmega<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for ManufacturedKOmega<T> {
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
         match self.field {
@@ -166,9 +158,9 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKOmega<T> {
 
         // Manufactured solutions: k = A_k * sin(kx*x) * sin(ky*y) * exp(-t)
         //                       ω = A_ω * sin(kx*x) * sin(ky*y) * exp(-t)
-        let sin_kx_x = nalgebra::ComplexField::sin(self.kx * x);
-        let sin_ky_y = nalgebra::ComplexField::sin(self.ky * y);
-        let exp_t = nalgebra::ComplexField::exp(-t);
+        let sin_kx_x = scalar::sin(self.kx * x);
+        let sin_ky_y = scalar::sin(self.ky * y);
+        let exp_t = scalar::exp(-t);
 
         let k = self.k_amplitude * sin_kx_x * sin_ky_y * exp_t;
         let omega = self.omega_amplitude * sin_kx_x * sin_ky_y * exp_t;
@@ -178,19 +170,11 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKOmega<T> {
 
         // Convection term: U_j ∂k/∂x_j
         // Using manufactured velocity field: u = sin(kx*x)*cos(ky*y)*exp(-t), v = cos(kx*x)*sin(ky*y)*exp(-t)
-        let u = sin_kx_x * nalgebra::ComplexField::cos(self.ky * y) * exp_t;
-        let v = nalgebra::ComplexField::cos(self.kx * x) * sin_ky_y * exp_t;
+        let u = sin_kx_x * scalar::cos(self.ky * y) * exp_t;
+        let v = scalar::cos(self.kx * x) * sin_ky_y * exp_t;
 
-        let dk_dx = self.k_amplitude
-            * self.kx
-            * nalgebra::ComplexField::cos(self.kx * x)
-            * sin_ky_y
-            * exp_t;
-        let dk_dy = self.k_amplitude
-            * sin_kx_x
-            * self.ky
-            * nalgebra::ComplexField::cos(self.ky * y)
-            * exp_t;
+        let dk_dx = self.k_amplitude * self.kx * scalar::cos(self.kx * x) * sin_ky_y * exp_t;
+        let dk_dy = self.k_amplitude * sin_kx_x * self.ky * scalar::cos(self.ky * y) * exp_t;
 
         let convection = u * dk_dx + v * dk_dy;
 
@@ -201,27 +185,21 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedKOmega<T> {
 
         // Exact production term: P_k = 2ν_t * S_ij * S_ij
         // Strain rate tensor from manufactured velocity field
-        let du_dx = self.kx
-            * nalgebra::ComplexField::cos(self.kx * x)
-            * nalgebra::ComplexField::cos(self.ky * y)
-            * exp_t;
-        let du_dy = -self.kx * sin_kx_x * nalgebra::ComplexField::sin(self.ky * y) * exp_t;
-        let dv_dx = -self.ky * nalgebra::ComplexField::sin(self.kx * x) * sin_ky_y * exp_t;
-        let dv_dy = self.ky
-            * nalgebra::ComplexField::cos(self.kx * x)
-            * nalgebra::ComplexField::cos(self.ky * y)
-            * exp_t;
+        let du_dx = self.kx * scalar::cos(self.kx * x) * scalar::cos(self.ky * y) * exp_t;
+        let du_dy = -self.kx * sin_kx_x * scalar::sin(self.ky * y) * exp_t;
+        let dv_dx = -self.ky * scalar::sin(self.kx * x) * sin_ky_y * exp_t;
+        let dv_dy = self.ky * scalar::cos(self.kx * x) * scalar::cos(self.ky * y) * exp_t;
 
         let s_xx = du_dx;
-        let s_xy = T::from_f64_or_one(0.5) * (du_dy + dv_dx);
+        let s_xy = scalar::from_f64::<T>(0.5) * (du_dy + dv_dx);
         let s_yy = dv_dy;
 
         let strain_rate_magnitude_sq =
-            s_xx * s_xx + T::from_f64_or_one(2.0) * s_xy * s_xy + s_yy * s_yy;
-        let production = T::from_f64_or_one(2.0) * self.nu_t * strain_rate_magnitude_sq;
+            s_xx * s_xx + scalar::from_f64::<T>(2.0) * s_xy * s_xy + s_yy * s_yy;
+        let production = scalar::from_f64::<T>(2.0) * self.nu_t * strain_rate_magnitude_sq;
 
         // Exact dissipation term: β* k ω (standard k-ω model)
-        let beta = T::from_f64_or_one(0.09); // Standard k-ω constant
+        let beta = scalar::from_f64::<T>(0.09); // Standard k-ω constant
         let dissipation = beta * k * omega;
 
         // Source term: P_k - β* k ω + ∇·(ν_t ∇k) - ∂k/∂t - U_j ∂k/∂x_j
@@ -242,7 +220,7 @@ pub struct ManufacturedSpalartAllmaras<T: RealField + Copy> {
     pub wall_distance: T,
 }
 
-impl<T: RealField + Copy> ManufacturedSpalartAllmaras<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedSpalartAllmaras<T> {
     /// Create a new manufactured solution for Spalart-Allmaras
     pub fn new(kx: T, ky: T, amplitude: T, wall_distance: T) -> Self {
         Self {
@@ -254,14 +232,16 @@ impl<T: RealField + Copy> ManufacturedSpalartAllmaras<T> {
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedSpalartAllmaras<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T>
+    for ManufacturedSpalartAllmaras<T>
+{
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Modified vorticity ν̃ = ν + ν_t
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
-        let wall_factor = if self.wall_distance < T::from_f64_or_one(10.0) {
+        let wall_factor = if self.wall_distance < scalar::from_f64::<T>(10.0) {
             self.wall_distance
         } else {
-            T::from_f64_or_one(10.0)
+            scalar::from_f64::<T>(10.0)
         }; // Damping near wall
         base * self.amplitude * wall_factor
     }
@@ -274,41 +254,44 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedSpalartAllmara
         let dnu_dt = -nu_tilde;
 
         // Production term: C_b1 (1 - f_t2) ν̃ |Ω̃|
-        let cb1 = T::from_f64_or_one(0.1355);
+        let cb1 = scalar::from_f64::<T>(0.1355);
         let vorticity = self.kx * self.kx + self.ky * self.ky; // |Ω̃| approximation
-        let production = cb1 * nu_tilde * nalgebra::ComplexField::sqrt(vorticity);
+        let production = cb1 * nu_tilde * scalar::sqrt(vorticity);
 
         // Destruction term: C_w1 f_w (ν̃/d)²
-        let cw1 = T::from_f64_or_one(3.239067816775729);
-        let kappa = T::from_f64_or_one(0.41);
-        let d = if self.wall_distance > T::from_f64_or_zero(1e-10) {
+        let cw1 = scalar::from_f64::<T>(3.239067816775729);
+        let kappa = scalar::from_f64::<T>(0.41);
+        let d = if self.wall_distance > scalar::from_f64::<T>(1e-10) {
             self.wall_distance
         } else {
-            T::from_f64_or_zero(1e-10)
+            scalar::from_f64::<T>(1e-10)
         };
         let chi = nu_tilde / d;
         let chi3 = chi * chi * chi;
-        let denom =
-            chi3 + T::from_f64_or_one(7.1) * T::from_f64_or_one(7.1) * T::from_f64_or_one(7.1);
-        let fv1 = nalgebra::ComplexField::cbrt(chi3 / denom);
-        let fv2 = T::one() - chi / (T::one() + chi * fv1);
+        let fv1_constant = scalar::from_f64::<T>(7.1);
+        let denom = chi3 + fv1_constant * fv1_constant * fv1_constant;
+        let fv1 = scalar::cbrt(chi3 / denom);
+        let fv2 = scalar::one::<T>() - chi / (scalar::one::<T>() + chi * fv1);
         let s = vorticity + nu_tilde * fv2 / (kappa * kappa * d * d);
-        let r = if nu_tilde / (s * kappa * kappa * d * d) < T::from_f64_or_one(10.0) {
+        let r_limit = scalar::from_f64::<T>(10.0);
+        let r_candidate = nu_tilde / (s * kappa * kappa * d * d);
+        let r = if r_candidate < r_limit {
             nu_tilde / (s * kappa * kappa * d * d)
         } else {
-            T::from_f64_or_one(10.0)
+            r_limit
         };
-        let g = r + T::from_f64_or_one(1.0) / (T::from_f64_or_one(9.0) + r * r);
-        let fw_inner = T::one() + T::from_f64_or_one(6.0) * T::from_f64_or_one(6.0);
+        let g = r + scalar::one::<T>() / (scalar::from_f64::<T>(9.0) + r * r);
+        let fw_constant = scalar::from_f64::<T>(6.0);
+        let fw_inner = scalar::one::<T>() + fw_constant * fw_constant;
         let fw_denom = fw_inner + g * g;
-        let fw = g * nalgebra::ComplexField::sqrt(fw_inner / fw_denom);
+        let fw = g * scalar::sqrt(fw_inner / fw_denom);
 
         let destruction = cw1 * fw * nu_tilde * nu_tilde / (d * d);
 
         // Diffusion term: ∇·((ν + ν̃) ∇ν̃)
         let kx_sq = self.kx * self.kx;
         let ky_sq = self.ky * self.ky;
-        let nu = T::from_f64_or_zero(1e-5); // Molecular viscosity
+        let nu = scalar::from_f64::<T>(1e-5); // Molecular viscosity
         let diffusion_coeff = nu + nu_tilde;
         let diffusion = diffusion_coeff * (kx_sq + ky_sq) * nu_tilde;
 
@@ -333,7 +316,7 @@ pub struct ManufacturedReynoldsStress<T: RealField + Copy> {
     pub strain_rate: T,
 }
 
-impl<T: RealField + Copy> ManufacturedReynoldsStress<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedReynoldsStress<T> {
     /// Create a new manufactured solution for Reynolds stress components
     pub fn new(kx: T, ky: T, uu_amp: T, vv_amp: T, uv_amp: T, strain_rate: T) -> Self {
         Self {
@@ -347,7 +330,7 @@ impl<T: RealField + Copy> ManufacturedReynoldsStress<T> {
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedReynoldsStress<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for ManufacturedReynoldsStress<T> {
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Return -uv (Reynolds shear stress) as primary quantity
         ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky) * self.uv_amp
@@ -364,22 +347,22 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedReynoldsStress
         let dudy = self.strain_rate;
         let production = -(vv * dudy);
 
-        let k_raw = T::from_f64_or_one(0.5) * (uu + vv);
-        let k = nalgebra::ComplexField::abs(k_raw).max(T::from_f64_or_zero(1e-12));
-        let c_mu = T::from_f64_or_one(0.09);
+        let k_raw = scalar::from_f64::<T>(0.5) * (uu + vv);
+        let k = scalar::max(scalar::abs(k_raw), scalar::from_f64::<T>(1e-12));
+        let c_mu = scalar::from_f64::<T>(0.09);
         let kx_sq = self.kx * self.kx;
         let ky_sq = self.ky * self.ky;
-        let length = nalgebra::ComplexField::sqrt(kx_sq + ky_sq).max(T::from_f64_or_zero(1e-12));
-        let l_scale = T::one() / length;
-        let epsilon = nalgebra::ComplexField::powf(k, T::from_f64_or_one(1.5))
-            * nalgebra::ComplexField::powf(c_mu, T::from_f64_or_one(0.75))
+        let length = scalar::max(scalar::sqrt(kx_sq + ky_sq), scalar::from_f64::<T>(1e-12));
+        let l_scale = scalar::one::<T>() / length;
+        let epsilon = scalar::powf(k, scalar::from_f64::<T>(1.5))
+            * scalar::powf(c_mu, scalar::from_f64::<T>(0.75))
             / l_scale;
 
-        let c1 = T::from_f64_or_one(1.8);
+        let c1 = scalar::from_f64::<T>(1.8);
         let redistribution = -(c1 * epsilon / k) * uv;
 
-        let nu = T::from_f64_or_zero(1e-5);
-        let nu_t = (c_mu * k * k / epsilon).max(T::from_f64_or_zero(1e-12));
+        let nu = scalar::from_f64::<T>(1e-5);
+        let nu_t = scalar::max(c_mu * k * k / epsilon, scalar::from_f64::<T>(1e-12));
         let laplacian_uv = -(kx_sq + ky_sq) * uv;
         let diffusion = (nu + nu_t) * laplacian_uv;
 

@@ -2,7 +2,7 @@
 
 use super::BoundaryCondition;
 use crate::error::{Error, Result};
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

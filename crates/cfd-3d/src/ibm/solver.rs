@@ -136,18 +136,17 @@ use super::{
     interpolation::{DeltaFunction, InterpolationKernel},
     lagrangian::LagrangianPoint,
 };
-use cfd_core::error::Result;
+use crate::scalar;
+use cfd_core::error::{Error, Result};
+use eunomia::FloatElement;
 use nalgebra::{RealField, Vector3};
-use num_traits::{FromPrimitive, ToPrimitive};
 
 // Feedback control constants
 const DEFAULT_PROPORTIONAL_GAIN: f64 = 10.0;
 const DEFAULT_INTEGRAL_GAIN: f64 = 1.0;
 
 /// IBM solver for 3D flow around immersed boundaries
-pub struct IbmSolver<
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy,
-> {
+pub struct IbmSolver<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> {
     /// Configuration
     config: IbmConfig,
     /// Lagrangian points representing the immersed boundary
@@ -162,25 +161,20 @@ pub struct IbmSolver<
     grid_size: (usize, usize, usize),
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive + Copy>
-    IbmSolver<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> IbmSolver<T> {
     /// Create a new IBM solver
     pub fn new(config: IbmConfig, dx: Vector3<T>, grid_size: (usize, usize, usize)) -> Self {
         let kernel = InterpolationKernel::new(
             DeltaFunction::RomaPeskin4,
-            <T as FromPrimitive>::from_f64(config.smoothing_width)
-                .expect("smoothing_width is an IEEE 754 representable f64 config value"),
+            scalar::from_f64::<T>(config.smoothing_width),
         );
 
         let forcing: Box<dyn ForcingMethod<T>> = if config.use_direct_forcing {
             Box::new(DirectForcing::new())
         } else {
             Box::new(FeedbackForcing::new(
-                <T as FromPrimitive>::from_f64(DEFAULT_PROPORTIONAL_GAIN)
-                    .expect("DEFAULT_PROPORTIONAL_GAIN is an IEEE 754 representable f64 constant"),
-                <T as FromPrimitive>::from_f64(DEFAULT_INTEGRAL_GAIN)
-                    .expect("DEFAULT_INTEGRAL_GAIN is an IEEE 754 representable f64 constant"),
+                scalar::from_f64::<T>(DEFAULT_PROPORTIONAL_GAIN),
+                scalar::from_f64::<T>(DEFAULT_INTEGRAL_GAIN),
             ))
         };
 
@@ -252,15 +246,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
         let stencil = self.kernel.stencil_size();
 
         // Find grid indices and convert to integers
-        let i_int = (num_traits::Float::floor(position.x / self.dx.x))
-            .to_isize()
-            .unwrap_or(0);
-        let j_int = (num_traits::Float::floor(position.y / self.dx.y))
-            .to_isize()
-            .unwrap_or(0);
-        let k_int = (num_traits::Float::floor(position.z / self.dx.z))
-            .to_isize()
-            .unwrap_or(0);
+        let i_int = Self::floored_grid_index(position.x / self.dx.x, "x")?;
+        let j_int = Self::floored_grid_index(position.y / self.dx.y, "y")?;
+        let k_int = Self::floored_grid_index(position.z / self.dx.z, "z")?;
 
         let i_start = i_int - (stencil as isize / 2);
         let j_start = j_int - (stencil as isize / 2);
@@ -277,15 +265,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
                         let idx =
                             ii + jj * self.grid_size.0 + kk * self.grid_size.0 * self.grid_size.1;
 
-                        let rx = position.x / self.dx.x
-                            - T::from_usize(ii)
-                                .expect("grid index ii is always a representable usize");
-                        let ry = position.y / self.dx.y
-                            - T::from_usize(jj)
-                                .expect("grid index jj is always a representable usize");
-                        let rz = position.z / self.dx.z
-                            - T::from_usize(kk)
-                                .expect("grid index kk is always a representable usize");
+                        let rx = position.x / self.dx.x - scalar::from_usize::<T>(ii);
+                        let ry = position.y / self.dx.y - scalar::from_usize::<T>(jj);
+                        let rz = position.z / self.dx.z - scalar::from_usize::<T>(kk);
 
                         let weight =
                             self.kernel.delta(rx) * self.kernel.delta(ry) * self.kernel.delta(rz);
@@ -307,15 +289,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
         let stencil = self.kernel.stencil_size();
 
         // Find grid indices and convert to integers
-        let i_int = (num_traits::Float::floor(point.position.x / self.dx.x))
-            .to_isize()
-            .unwrap_or(0);
-        let j_int = (num_traits::Float::floor(point.position.y / self.dx.y))
-            .to_isize()
-            .unwrap_or(0);
-        let k_int = (num_traits::Float::floor(point.position.z / self.dx.z))
-            .to_isize()
-            .unwrap_or(0);
+        let i_int = Self::floored_grid_index(point.position.x / self.dx.x, "x")?;
+        let j_int = Self::floored_grid_index(point.position.y / self.dx.y, "y")?;
+        let k_int = Self::floored_grid_index(point.position.z / self.dx.z, "z")?;
 
         let i_start = i_int - (stencil as isize / 2);
         let j_start = j_int - (stencil as isize / 2);
@@ -332,15 +308,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
                         let idx =
                             ii + jj * self.grid_size.0 + kk * self.grid_size.0 * self.grid_size.1;
 
-                        let rx = point.position.x / self.dx.x
-                            - T::from_usize(ii)
-                                .expect("grid index ii is always a representable usize");
-                        let ry = point.position.y / self.dx.y
-                            - T::from_usize(jj)
-                                .expect("grid index jj is always a representable usize");
-                        let rz = point.position.z / self.dx.z
-                            - T::from_usize(kk)
-                                .expect("grid index kk is always a representable usize");
+                        let rx = point.position.x / self.dx.x - scalar::from_usize::<T>(ii);
+                        let ry = point.position.y / self.dx.y - scalar::from_usize::<T>(jj);
+                        let rz = point.position.z / self.dx.z - scalar::from_usize::<T>(kk);
 
                         let weight =
                             self.kernel.delta(rx) * self.kernel.delta(ry) * self.kernel.delta(rz);
@@ -373,6 +343,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + ToPrimitive
     /// Get mutable reference to Lagrangian points
     pub fn points_mut(&mut self) -> &mut [LagrangianPoint<T>] {
         &mut self.lagrangian_points
+    }
+
+    fn floored_grid_index(value: T, axis: &str) -> Result<isize> {
+        let floored = scalar::floor::<T>(value);
+        let index = scalar::to_f64(floored);
+        if !index.is_finite() || index < isize::MIN as f64 || index > isize::MAX as f64 {
+            return Err(Error::InvalidConfiguration(format!(
+                "IBM grid {axis}-coordinate must be finite and within isize range after scaling"
+            )));
+        }
+        Ok(index as isize)
     }
 }
 

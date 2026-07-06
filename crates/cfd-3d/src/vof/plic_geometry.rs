@@ -14,8 +14,8 @@
 //!   volume-of-fluid algorithms for tracking material interfaces".
 //!   J. Comput. Phys. 199:465–502.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use super::scalar::{self, VofScalar};
+use leto::geometry::Vector3;
 
 /// Compute the fluid volume fraction inside a rectangular prism cut by a PLIC plane.
 ///
@@ -43,19 +43,16 @@ use num_traits::FromPrimitive;
 /// in the (full) donor cell and evaluate what fraction of the *swept prism* is fluid.
 /// Since the PLIC plane is the same, the fraction in the swept prism is the ratio
 /// of the volume below the PLIC plane inside the prism to the total prism volume.
-pub(crate) fn plic_volume_fraction_in_prism<
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
->(
-    normal: nalgebra::Vector3<T>,
+pub(crate) fn plic_volume_fraction_in_prism<T: VofScalar>(
+    normal: Vector3<T>,
     alpha_donor: T,
     depth: T,
     dx: T,
     dy: T,
     dz: T,
 ) -> T {
-    use num_traits::Float;
-    let zero = T::zero();
-    let one = T::one();
+    let zero = scalar::zero::<T>();
+    let one = scalar::one::<T>();
 
     // If the cell is entirely full or empty, the swept prism carries the same fraction.
     if alpha_donor <= zero {
@@ -80,35 +77,29 @@ pub(crate) fn plic_volume_fraction_in_prism<
     }
 
     let vol = volume_under_plane_3d(normal, c_plane, depth, dy, dz);
-    Float::min(Float::max(vol / prism_vol, zero), one)
+    scalar::min(scalar::max(vol / prism_vol, zero), one)
 }
 
 /// Find the PLIC plane constant C such that the volume under **n**·**x** = C
 /// in `[0,dx]×[0,dy]×[0,dz]` equals `alpha * dx * dy * dz`.
 ///
 /// Uses iterative bisection (tolerance 1e-12 of cell size) per Scardovelli & Zaleski.
-pub(crate) fn find_plic_plane_constant<
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
->(
-    normal: nalgebra::Vector3<T>,
+pub(crate) fn find_plic_plane_constant<T: VofScalar>(
+    normal: Vector3<T>,
     alpha: T,
     dx: T,
     dy: T,
     dz: T,
 ) -> T {
-    use num_traits::Float;
-    let zero = T::zero();
-    let half = T::one() / (T::one() + T::one());
+    let zero = scalar::zero::<T>();
+    let half = scalar::constant::<T>(0.5);
 
-    let n_abs = Float::abs(normal.x) * dx + Float::abs(normal.y) * dy + Float::abs(normal.z) * dz;
+    let n_abs =
+        scalar::abs(normal.x) * dx + scalar::abs(normal.y) * dy + scalar::abs(normal.z) * dz;
     let mut c_lo = zero;
     let mut c_hi = n_abs;
     let target = alpha * dx * dy * dz;
-    let tol = <T as FromPrimitive>::from_f64(1e-12)
-        .expect("1e-12 is an IEEE 754 representable f64 constant")
-        * dx
-        * dy
-        * dz;
+    let tol = scalar::constant::<T>(1e-12) * dx * dy * dz;
 
     for _ in 0..64 {
         if c_hi - c_lo < tol {
@@ -148,31 +139,27 @@ pub(crate) fn find_plic_plane_constant<
 /// **Reference**: Scardovelli, R. & Zaleski, S. (2000). "Analytical relations
 ///   connecting linear interfaces and volume fractions in rectangular grids".
 ///   J. Comput. Phys. 164:228–237. (Eqs. 2.34–2.38)
-pub fn volume_under_plane_3d<
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
->(
-    normal: nalgebra::Vector3<T>,
+pub fn volume_under_plane_3d<T: VofScalar>(
+    normal: Vector3<T>,
     plane_constant: T,
     dx: T,
     dy: T,
     dz: T,
 ) -> T {
-    use num_traits::Float;
-
-    let zero = T::zero();
+    let zero = scalar::zero::<T>();
     let cell_volume = dx * dy * dz;
-    let six = T::one() + T::one() + T::one() + T::one() + T::one() + T::one();
+    let six = scalar::constant::<T>(6.0);
 
     // Absolute normal scaled by cell dimensions.
-    let m1 = Float::abs(normal.x) * dx;
-    let m2 = Float::abs(normal.y) * dy;
-    let m3 = Float::abs(normal.z) * dz;
+    let m1 = scalar::abs(normal.x) * dx;
+    let m2 = scalar::abs(normal.y) * dy;
+    let m3 = scalar::abs(normal.z) * dz;
     let m_sum = m1 + m2 + m3;
 
     // Degenerate case: all normal components essentially zero.
-    let eps = <T as FromPrimitive>::from_f64(1e-14).unwrap_or(zero);
+    let eps = scalar::constant::<T>(1e-14);
     if m1 + m2 + m3 < eps {
-        return (T::one() / (T::one() + T::one())) * cell_volume;
+        return scalar::constant::<T>(0.5) * cell_volume;
     }
 
     let c = plane_constant;
@@ -213,13 +200,15 @@ pub fn volume_under_plane_3d<
     let volume_fraction = numerator / denom;
 
     // Clamp to [0, cell_volume] for numerical safety.
-    Float::min(Float::max(volume_fraction * cell_volume, zero), cell_volume)
+    scalar::min(
+        scalar::max(volume_fraction * cell_volume, zero),
+        cell_volume,
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::Vector3;
     use proptest::prelude::*;
 
     proptest! {

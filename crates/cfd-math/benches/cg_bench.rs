@@ -1,7 +1,7 @@
 use cfd_math::linear_solver::{ConjugateGradient, IdentityPreconditioner, IterativeSolverConfig};
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use nalgebra::DVector;
-use nalgebra_sparse::CsrMatrix;
+use leto::Array1;
+use leto_ops::CsrMatrix;
 
 fn bench_cg(c: &mut Criterion) {
     let mut group = c.benchmark_group("cg_solver");
@@ -26,9 +26,9 @@ fn bench_cg(c: &mut Criterion) {
             }
             row_offsets.push(col_indices.len());
         }
-        let a = CsrMatrix::try_from_csr_data(n, n, row_offsets, col_indices, values).unwrap();
+        let a = CsrMatrix::from_parts(values, col_indices, row_offsets, n, n).unwrap();
 
-        let b = DVector::from_element(n, 1.0);
+        let b = Array1::from_elem([n], 1.0);
 
         // Limit iterations to ensure we measure setup overhead significantly
         let config = IterativeSolverConfig {
@@ -41,7 +41,7 @@ fn bench_cg(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |bench, &_| {
             bench.iter_batched_ref(
-                || DVector::zeros(n),
+                || Array1::zeros([n]),
                 |x_mut| {
                     let _ = solver.solve_preconditioned(
                         black_box(&a),

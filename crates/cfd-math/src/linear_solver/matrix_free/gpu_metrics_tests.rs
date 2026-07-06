@@ -1,7 +1,7 @@
 #![cfg(feature = "gpu")]
 
-use super::{GpuContext};
-use crate::linear_solver::operators::gpu::{GpuLaplacianOperator2D, BoundaryType};
+use super::GpuContext;
+use crate::linear_solver::operators::gpu::{BoundaryType, GpuLaplacianOperator2D};
 
 #[test]
 fn test_gpu_dispatch_metrics_present_or_skip() {
@@ -35,6 +35,6 @@ fn test_gpu_dispatch_metrics_present_or_skip() {
     }
     let mut lap = vec![0.0f32; nx * ny];
     // Drive the GPU future to completion without an async runtime.
-    let metrics = pollster::block_on(op.apply_gpu_with_metrics(&field, &mut lap)).unwrap();
+    let metrics = op.apply_gpu_with_metrics(&field, &mut lap).unwrap();
     assert!(metrics.duration_ms >= 0.0);
 }

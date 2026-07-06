@@ -17,24 +17,23 @@
 
 use crate::physics::turbulence::boundary_conditions::TurbulenceBoundaryManager;
 use cfd_core::physics::constants::mathematical::numeric::{THREE, TWO};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{NumericElement, RealField};
 use tracing::instrument;
 
 /// Compute cube root using Newton-Raphson iteration
 ///
 /// Needed because `RealField` trait doesn't provide cbrt directly
 #[instrument(skip(x))]
-pub fn cbrt<T: RealField + Copy + FromPrimitive>(x: T) -> T {
+pub fn cbrt<T: RealField>(x: T) -> T {
     const EPSILON_MIN: f64 = 1e-10;
 
-    if x.abs() < T::from_f64(EPSILON_MIN).expect("analytical constant conversion") {
-        return T::zero();
+    if <T as NumericElement>::abs(x) < T::from_f64(EPSILON_MIN) {
+        return T::ZERO;
     }
 
     // Initial guess: x^(1/3) ≈ x/3
-    let three = T::from_f64(THREE).expect("analytical constant conversion");
-    let two = T::from_f64(TWO).expect("analytical constant conversion");
+    let three = T::from_f64(THREE);
+    let two = T::from_f64(TWO);
 
     let mut guess = x / three;
 
@@ -42,7 +41,7 @@ pub fn cbrt<T: RealField + Copy + FromPrimitive>(x: T) -> T {
     for _ in 0..10 {
         let guess_sq = guess * guess;
         let new_guess = (two * guess + x / guess_sq) / three;
-        if (new_guess - guess).abs() < T::from_f64(1e-10).expect("analytical constant conversion") {
+        if <T as NumericElement>::abs(new_guess - guess) < T::from_f64(1e-10) {
             break;
         }
         guess = new_guess;
@@ -54,12 +53,7 @@ pub fn cbrt<T: RealField + Copy + FromPrimitive>(x: T) -> T {
 /// Calculate the rectangular wall-distance field shared with the turbulence
 /// boundary manager.
 #[instrument(skip(dx, dy))]
-pub fn wall_distance_field_2d<T: RealField + Copy + FromPrimitive>(
-    nx: usize,
-    ny: usize,
-    dx: T,
-    dy: T,
-) -> Vec<T> {
+pub fn wall_distance_field_2d<T: RealField>(nx: usize, ny: usize, dx: T, dy: T) -> Vec<T> {
     TurbulenceBoundaryManager::new(nx, ny, dx, dy).wall_distances
 }
 

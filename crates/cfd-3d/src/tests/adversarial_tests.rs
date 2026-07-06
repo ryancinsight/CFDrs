@@ -91,7 +91,12 @@ mod vof_conservation_tests {
 #[cfg(test)]
 mod spectral_round_trip_tests {
     use crate::spectral::{FourierTransform, SpectralConfig, SpectralSolver};
-    use nalgebra::{ComplexField, DVector};
+    use leto::Array1;
+
+    fn array_from_fn(n: usize, mut f: impl FnMut(usize) -> f64) -> Array1<f64> {
+        Array1::from_vec([n], (0..n).map(&mut f).collect())
+            .expect("invariant: generated signal length matches declared Leto shape")
+    }
 
     /// Theorem: Parseval's identity — IDFT(DFT(f)) must recover f to machine precision.
     /// Round-trip error bound: ‖f - IDFT(DFT(f))‖ < N·2.2e-16.
@@ -102,7 +107,7 @@ mod spectral_round_trip_tests {
             FourierTransform::<f64>::new(n).expect("FourierTransform::new must succeed for N=16");
 
         // Test signal: sum of two harmonics within Nyquist band
-        let signal: DVector<f64> = DVector::from_fn(n, |i, _| {
+        let signal = array_from_fn(n, |i| {
             let x = 2.0 * std::f64::consts::PI * i as f64 / n as f64;
             (x).sin() + 0.5 * (3.0 * x).cos()
         });
@@ -111,7 +116,15 @@ mod spectral_round_trip_tests {
         let recovered = ft.inverse(&spectrum).expect("inverse FFT must succeed");
 
         // Parseval: round-trip must be identity to near-machine precision.
-        let error = (&signal - &recovered).norm();
+        let error = signal
+            .iter()
+            .zip(recovered.iter())
+            .map(|(&expected, &actual)| {
+                let delta = expected - actual;
+                delta * delta
+            })
+            .sum::<f64>()
+            .sqrt();
         let tolerance = n as f64 * 2.3e-15; // N · ε_mach
         assert!(
             error < tolerance,
@@ -127,7 +140,7 @@ mod spectral_round_trip_tests {
         let ft =
             FourierTransform::<f64>::new(n).expect("FourierTransform::new must succeed for N=16");
 
-        let signal: DVector<f64> = DVector::from_fn(n, |i, _| {
+        let signal = array_from_fn(n, |i| {
             let x = 2.0 * std::f64::consts::PI * k0 as f64 * i as f64 / n as f64;
             x.cos()
         });
@@ -139,7 +152,7 @@ mod spectral_round_trip_tests {
             .iter()
             .enumerate()
             .filter(|(k, _)| *k != k0 && *k != n - k0)
-            .map(|(_, c)| c.modulus_squared())
+            .map(|(_, c)| c.norm_sqr())
             .sum();
         assert!(
             non_k0_energy < 1e-20,

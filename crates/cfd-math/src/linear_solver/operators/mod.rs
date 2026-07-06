@@ -15,14 +15,17 @@ pub use poisson::{LaplacianOperator2D, PoissonOperator3D};
 
 use crate::linear_solver::traits::LinearOperator;
 use cfd_core::error::Result;
-use nalgebra::{DVector, RealField};
+use eunomia::RealField;
+use leto::Array1;
 
 /// Identity operator: y = x
 pub struct IdentityOperator;
 
 impl<T: RealField + Copy> LinearOperator<T> for IdentityOperator {
-    fn apply(&self, x: &DVector<T>, y: &mut DVector<T>) -> Result<()> {
-        y.copy_from(x);
+    fn apply(&self, x: &Array1<T>, y: &mut Array1<T>) -> Result<()> {
+        for idx in 0..x.shape()[0] {
+            y[idx] = x[idx];
+        }
         Ok(())
     }
 
@@ -49,9 +52,11 @@ impl<'a, T: RealField + Copy> ScaledOperator<'a, T> {
 }
 
 impl<T: RealField + Copy> LinearOperator<T> for ScaledOperator<'_, T> {
-    fn apply(&self, x: &DVector<T>, y: &mut DVector<T>) -> Result<()> {
+    fn apply(&self, x: &Array1<T>, y: &mut Array1<T>) -> Result<()> {
         self.inner.apply(x, y)?;
-        y.scale_mut(self.alpha);
+        for idx in 0..y.shape()[0] {
+            y[idx] *= self.alpha;
+        }
         Ok(())
     }
 

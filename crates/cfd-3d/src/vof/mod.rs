@@ -69,12 +69,14 @@ mod config;
 mod initialization;
 mod plic_geometry;
 mod reconstruction;
+mod scalar;
 mod solver;
 
 pub use bubble_dynamics::BubbleDynamicsConfig;
 pub use cavitation_solver::CavitationVofSolver;
 pub use cavitation_types::{CavitationStatistics, CavitationVofConfig};
 pub use config::{constants, VofConfig};
+pub use scalar::VofScalar;
 pub use solver::VofSolver;
 
 // Re-export key types for convenience

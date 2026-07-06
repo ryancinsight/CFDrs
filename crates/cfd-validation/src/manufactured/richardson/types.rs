@@ -1,6 +1,6 @@
 //! Data structures for Richardson extrapolation and validation
 
-use nalgebra::RealField;
+use eunomia::RealField;
 
 /// Result of Richardson extrapolation error analysis
 #[derive(Debug, Clone)]
@@ -49,7 +49,7 @@ pub struct RichardsonMmsResult<T: RealField + Copy> {
     pub is_asymptotic: Vec<bool>,
 }
 
-impl<T: RealField + Copy> RichardsonMmsResult<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> RichardsonMmsResult<T> {
     /// Check if all grids are in asymptotic range
     pub fn all_asymptotic(&self) -> bool {
         self.is_asymptotic.iter().all(|&x| x)

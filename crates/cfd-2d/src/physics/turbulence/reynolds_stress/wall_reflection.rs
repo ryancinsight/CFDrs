@@ -12,11 +12,10 @@
 //! where `n` is the wall-normal direction and `f(y+)` is a damping function
 //! that vanishes in the log-layer (Gibson & Launder, 1978).
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
 
-fn c<T: RealField + Copy + FromPrimitive>(v: f64) -> T {
-    T::from_f64(v).expect("wall-reflection constant must be representable")
+fn c<T: RealField + Copy>(v: f64) -> T {
+    T::from_f64(v)
 }
 
 /// Compute the Gibson-Launder (1978) wall-reflection correction to `Φ_ij`.
@@ -29,7 +28,7 @@ fn c<T: RealField + Copy + FromPrimitive>(v: f64) -> T {
 /// * `i`, `j` — tensor indices
 #[allow(clippy::too_many_arguments)]
 #[inline]
-pub fn wall_reflection_correction<T: RealField + Copy + FromPrimitive>(
+pub fn wall_reflection_correction<T: RealField + Copy>(
     a_nn: T,
     a_pp: T,
     a_ps: T,
@@ -41,8 +40,8 @@ pub fn wall_reflection_correction<T: RealField + Copy + FromPrimitive>(
     i: usize,
     j: usize,
 ) -> T {
-    if y <= T::zero() || epsilon <= T::zero() || k <= T::zero() {
-        return T::zero();
+    if y <= T::ZERO || epsilon <= T::ZERO || k <= T::ZERO {
+        return T::ZERO;
     }
 
     let time_scale = k / epsilon;
@@ -53,25 +52,25 @@ pub fn wall_reflection_correction<T: RealField + Copy + FromPrimitive>(
 
     // y⁺ damping function: (1 − exp(−y⁺/A))/ y⁺  (Van Driest form)
     let u_tau = (epsilon * c::<T>(0.09).sqrt() * k).sqrt(); // u_τ ≈ C_μ^{1/4} k^{1/2}
-    let y_plus = if nu > T::zero() {
+    let y_plus = if nu > T::ZERO {
         y * u_tau / nu
     } else {
-        T::zero()
+        T::ZERO
     };
 
-    let damping_factor = if y_plus > T::zero() {
+    let damping_factor = if y_plus > T::ZERO {
         let a_damping = c::<T>(25.0);
-        (T::one() - (-y_plus / a_damping).exp()) / y_plus
+        (T::ONE - (-y_plus / a_damping).exp()) / y_plus
     } else {
-        T::zero()
+        T::ZERO
     };
 
     let reflection_term = match (i, j) {
         (0, 0) => {
             let delta = if wall_normal_index == 0 {
-                T::one()
+                T::ONE
             } else {
-                T::zero()
+                T::ZERO
             };
             -c_w1
                 * damping_factor
@@ -80,15 +79,15 @@ pub fn wall_reflection_correction<T: RealField + Copy + FromPrimitive>(
         (0, 1) | (1, 0) => -c_w2 * damping_factor * (a_nn * a_ps + a_pp * a_ps),
         (1, 1) => {
             let delta = if wall_normal_index == 1 {
-                T::one()
+                T::ONE
             } else {
-                T::zero()
+                T::ZERO
             };
             -c_w1
                 * damping_factor
                 * (a_nn * a_nn + a_pp * a_pp - c::<T>(2.0 / 3.0) * (a_nn + a_pp) * delta)
         }
-        _ => T::zero(),
+        _ => T::ZERO,
     };
 
     reflection_term / time_scale

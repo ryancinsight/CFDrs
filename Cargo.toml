@@ -38,13 +38,10 @@ tracing-subscriber = "0.3"
 nalgebra = { version = "0.33", features = ["serde-serialize"] }
 nalgebra-sparse = "0.10"
 rsparse = "1.2"
-ndarray = { version = "0.16", default-features = false }
-num-traits = "0.2"
-num-complex = "0.4"
+eunomia = { git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
 approx = "0.5"
 bytemuck = "1.14"
 rand = "0.8"
-simba = "0.9"
 
 # Data structures
 indexmap = "2.0"
@@ -62,19 +59,12 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 bincode = { version = "2.0.0-rc.3", features = ["serde"] }
 
-# Parallel processing
-crossbeam = "0.8"
-pollster = "0.3"
-
 # File I/O
 csv = "1.3"
 
 # Testing
 proptest = "1.4"
 criterion = "0.5"
-
-# GPU compute
-wgpu = { version = "0.19", features = ["fragile-send-sync-non-atomic-wasm", "webgl"] }
 
 # Internal crates
 cfd-core = { path = "crates/cfd-core", default-features = false }
@@ -86,6 +76,8 @@ cfd-io = { path = "crates/cfd-io" }
 cfd-mesh = { package = "gaia", git = "https://github.com/ryancinsight/gaia.git" }
 apollo-fft = { git = "https://github.com/ryancinsight/apollo.git" }
 apollo-nufft = { git = "https://github.com/ryancinsight/apollo.git" }
+leto = { git = "https://github.com/ryancinsight/leto.git", rev = "a673325f61e933f6d3d6ecb9569d8f07c78152a8", default-features = false, features = ["std"] }
+leto-ops = { git = "https://github.com/ryancinsight/leto.git", rev = "a673325f61e933f6d3d6ecb9569d8f07c78152a8", default-features = false, features = ["std"] }
 # consus: pure-Rust scientific storage formats (HDF5 etc.). Consumed by cfd-io
 # behind the `hdf5` feature for real HDF5 output.
 consus-core = { git = "https://github.com/ryancinsight/consus.git", default-features = false }
@@ -104,6 +96,9 @@ hermes-simd = { git = "https://github.com/ryancinsight/hermes.git" }
 # Mnemosyne, and Mellinoe surfaces are enabled without installing a second
 # global allocator.
 moirai = { git = "https://github.com/ryancinsight/Moirai.git", rev = "029275807a4a406f7be0ee4be22ecae4a72fa27c", default-features = false, features = ["parallel", "mnemosyne", "melinoe", "no-global-alloc"] }
+# hephaestus-wgpu: Atlas GPU provider used for device acquisition and the
+# ongoing replacement of CFDrs-owned raw WGPU kernels.
+hephaestus-wgpu = { git = "https://github.com/ryancinsight/hephaestus.git" }
 cfd-schematics = { path = "crates/cfd-schematics" }
 cfd-1d = { path = "crates/cfd-1d" }
 cfd-2d = { path = "crates/cfd-2d" }
@@ -113,6 +108,39 @@ cfd-validation = { path = "crates/cfd-validation" }
 
 [patch."https://github.com/ryancinsight/CFDrs.git"]
 cfd-schematics = { path = "crates/cfd-schematics" }
+
+[patch."https://github.com/ryancinsight/apollo.git"]
+apollo-fft = { path = "../apollo/crates/apollo-fft" }
+apollo-nufft = { path = "../apollo/crates/apollo-nufft" }
+
+[patch."https://github.com/ryancinsight/Mnemosyne.git"]
+mnemosyne = { path = "../mnemosyne/crates/mnemosyne" }
+mnemosyne-core = { path = "../mnemosyne/crates/mnemosyne-core" }
+mnemosyne-arena = { path = "../mnemosyne/crates/mnemosyne-arena" }
+mnemosyne-local = { path = "../mnemosyne/crates/mnemosyne-local" }
+mnemosyne-heap = { path = "../mnemosyne/crates/mnemosyne-heap" }
+
+[patch."https://github.com/ryancinsight/Moirai.git"]
+moirai = { path = "../moirai/moirai" }
+moirai-core = { path = "../moirai/moirai-core" }
+moirai-scheduler = { path = "../moirai/moirai-scheduler" }
+moirai-parallel = { path = "../moirai/moirai-parallel" }
+
+[patch."https://github.com/ryancinsight/eunomia"]
+eunomia = { path = "../eunomia/crates/eunomia" }
+
+[patch."https://github.com/ryancinsight/leto.git"]
+leto = { path = "../leto/crates/leto" }
+leto-ops = { path = "../leto/crates/leto-ops" }
+
+[patch."https://github.com/ryancinsight/hephaestus.git"]
+hephaestus-wgpu = { path = "../hephaestus/crates/hephaestus-wgpu" }
+
+[patch."https://github.com/ryancinsight/hermes.git"]
+hermes-simd = { path = "../hermes/crates/hermes-simd" }
+
+[patch."https://github.com/ryancinsight/melinoe.git"]
+melinoe = { path = "../melinoe" }
 
 [profile.release]
 opt-level = 3
@@ -142,7 +170,7 @@ readme.workspace = true
 
 [features]
 default = ["gpu"]
-gpu = ["cfd-core/gpu", "dep:wgpu"]
+gpu = ["cfd-core/gpu"]
 
 # Use Mnemosyne as the global allocator for the suite's binaries (examples,
 # benches). Mutually exclusive with the `validation` feature (cfd-validation
@@ -151,6 +179,7 @@ mnemosyne = ["cfd-core/mnemosyne"]
 simd = ["cfd-core/simd"]
 millifluidic = ["cfd-mesh/millifluidic"]
 scheme-io = ["cfd-mesh/scheme-io"]
+legacy-benches = []
 # Gate validation suite behind an opt-in feature so it does not block
 # default workspace builds when its imports are stale.
 validation = ["dep:cfd-validation"]
@@ -167,11 +196,9 @@ cfd-3d.workspace = true
 # cfd-validation is optional — compile explicitly with `cargo test -p cfd-validation`
 # or enable via `--features validation`.
 cfd-validation = { workspace = true, optional = true }
+leto.workspace = true
 nalgebra.workspace = true
-num-traits.workspace = true
-simba.workspace = true
 petgraph.workspace = true
-wgpu = { version = "0.19", optional = true, features = ["fragile-send-sync-non-atomic-wasm", "webgl"] }
 rand.workspace = true
 tracing = { workspace = true }
 
@@ -180,6 +207,7 @@ criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.0"
 approx = "0.5"
 nalgebra-sparse = "0.10"
+leto-ops.workspace = true
 serde_json.workspace = true
 serde = { workspace = true, features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
@@ -201,6 +229,11 @@ harness = false
 [[example]]
 name = "spectral_performance"
 path = "examples/spectral_performance.rs"
+
+[[example]]
+name = "matrix_free_demo"
+path = "examples/matrix_free_demo.rs"
+required-features = ["legacy-benches"]
 
 
 
@@ -250,11 +283,13 @@ harness = false
 [[bench]]
 name = "simd_spmv"
 harness = false
+required-features = ["simd"]
 
 
 [[bench]]
 name = "gpu_turbulence_benchmark"
 harness = false
+required-features = ["legacy-benches"]
 
 [[bench]]
 name = "solver_performance"
@@ -267,10 +302,12 @@ harness = false
 [[bench]]
 name = "turbulence_model_benchmarks"
 harness = false
+required-features = ["legacy-benches"]
 
 [[bench]]
 name = "vector_simd_benchmark"
 harness = false
+required-features = ["simd"]
 
 [[bench]]
 name = "cfd_3d_benchmarks"

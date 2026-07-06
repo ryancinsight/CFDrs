@@ -129,9 +129,9 @@ fn cross_fidelity_asymmetric_bifurcation() {
     let parent_l = 10.0e-3;
     let d1_w = 1.5e-3; // wider → more flow
     let d2_w = 0.75e-3; // narrower
-    // Long daughters ensure L/D_h > 20 → fully-developed flow.
-    // D_h(d1) ≈ 2×1.5×2/(1.5+2) = 1.71 mm → L/D_h = 20/1.71 ≈ 11.7
-    // D_h(d2) ≈ 2×0.75×2/(0.75+2) = 1.09 mm → L/D_h = 20/1.09 ≈ 18.3
+                        // Long daughters ensure L/D_h > 20 → fully-developed flow.
+                        // D_h(d1) ≈ 2×1.5×2/(1.5+2) = 1.71 mm → L/D_h = 20/1.71 ≈ 11.7
+                        // D_h(d2) ≈ 2×0.75×2/(0.75+2) = 1.09 mm → L/D_h = 20/1.09 ≈ 18.3
     let daughter_l = 20.0e-3;
     let angle = 0.2; // shallow angle reduces junction losses
 
@@ -225,10 +225,7 @@ fn cross_fidelity_symmetric_trifurcation() {
     );
 
     // Flow must exit through daughters
-    assert!(
-        result.q_total_out > 0.0,
-        "total out flux must be positive"
-    );
+    assert!(result.q_total_out > 0.0, "total out flux must be positive");
 }
 
 /// Symmetric quadfurcation (4 daughters): validates N-furcation generalization.
@@ -281,10 +278,10 @@ fn cross_fidelity_symmetric_quadfurcation() {
 fn cross_fidelity_venturi_blueprint_1d_vs_2d() {
     let bp = venturi_rect(
         "xfid_venturi",
-        2.0e-3,  // inlet width
-        0.5e-3,  // throat width
-        1.0e-3,  // height
-        3.0e-3,  // throat length
+        2.0e-3, // inlet width
+        0.5e-3, // throat width
+        1.0e-3, // height
+        3.0e-3, // throat length
     );
 
     let blood = BloodModel::Newtonian(VISCOSITY);
@@ -467,7 +464,10 @@ fn cross_fidelity_cross_junction() {
     eprintln!(
         "[cross-junction] q_west={:.3e}, q_east={:.3e}, q_north={:.3e}, q_south={:.3e}, \
          imbalance={:.1}%",
-        result.q_west, result.q_east, result.q_north, result.q_south,
+        result.q_west,
+        result.q_east,
+        result.q_north,
+        result.q_south,
         imbalance * 100.0,
     );
 
@@ -493,13 +493,13 @@ fn cross_fidelity_venturi_standalone_bernoulli() {
     let u_inlet = 0.05; // 50 mm/s
 
     let geom = VenturiGeometry::new(
-        w_inlet,   // w_inlet
-        w_throat,  // w_throat
-        0.0,       // l_inlet (no straight inlet section)
-        3.0e-3,    // l_converge
-        3.0e-3,    // l_throat
-        3.0e-3,    // l_diverge
-        1.0e-3,    // height
+        w_inlet,  // w_inlet
+        w_throat, // w_throat
+        0.0,      // l_inlet (no straight inlet section)
+        3.0e-3,   // l_converge
+        3.0e-3,   // l_throat
+        3.0e-3,   // l_diverge
+        1.0e-3,   // height
     );
 
     let blood = BloodModel::Newtonian(VISCOSITY);
@@ -541,10 +541,7 @@ fn cross_fidelity_venturi_standalone_bernoulli() {
     );
 
     // Solution must have converged.
-    assert!(
-        result.converged,
-        "Venturi solver did not converge"
-    );
+    assert!(result.converged, "Venturi solver did not converge");
 }
 
 /// Poiseuille flow: 2D numerical solution vs analytical Q = H³W/(12μ)|dP/dx|.
@@ -576,10 +573,10 @@ fn cross_fidelity_poiseuille_2d_vs_analytical() {
 
     // Approximate Newtonian: Casson with near-zero yield stress and μ_∞ = 3.5e-3.
     let casson = CassonBlood::new(
-        DENSITY,     // density
-        1e-12,       // yield_stress ≈ 0 (Newtonian limit)
-        mu,          // infinite_shear_viscosity
-        0.45,        // hematocrit (unused at zero yield stress)
+        DENSITY, // density
+        1e-12,   // yield_stress ≈ 0 (Newtonian limit)
+        mu,      // infinite_shear_viscosity
+        0.45,    // hematocrit (unused at zero yield stress)
     );
     let blood = PoiseuilleBloodModel::Casson(casson);
 
@@ -665,7 +662,7 @@ fn cross_fidelity_cell_routing_asymmetric_bifurcation() {
     let y_div = flow.dividing_streamline_y();
     let config = CellTrackerConfig {
         viscosity: VISCOSITY,
-        fluid_density: DENSITY as f64,
+        fluid_density: DENSITY,
         hydraulic_diameter_m: parent_w,
         u_max: 0.05,
         outlet_zones: vec![
@@ -691,9 +688,13 @@ fn cross_fidelity_cell_routing_asymmetric_bifurcation() {
     let mut cells = Vec::with_capacity(n * 3);
     for i in 0..n {
         let y = parent_w * 0.05 + parent_w * 0.9 * (i as f64 / (n - 1) as f64);
-        for (pop_idx, pop) in [CellPopulation::CTC, CellPopulation::WBC, CellPopulation::RBC]
-            .iter()
-            .enumerate()
+        for (pop_idx, pop) in [
+            CellPopulation::CTC,
+            CellPopulation::WBC,
+            CellPopulation::RBC,
+        ]
+        .iter()
+        .enumerate()
         {
             cells.push(TrackedCell {
                 population: *pop,
@@ -716,7 +717,10 @@ fn cross_fidelity_cell_routing_asymmetric_bifurcation() {
     };
 
     eprintln!("=== Cross-fidelity cell routing validation ===");
-    eprintln!("Geometry: {parent_w:.1e} m parent, {:.0}% center, y_div = {y_div:.6} m", center_frac * 100.0);
+    eprintln!(
+        "Geometry: {parent_w:.1e} m parent, {:.0}% center, y_div = {y_div:.6} m",
+        center_frac * 100.0
+    );
     eprintln!(
         "1D Zweifach-Fung:  cancer_center = {ccf_1d:.3}, rbc_peripheral = {rbc_periph_1d:.3}"
     );

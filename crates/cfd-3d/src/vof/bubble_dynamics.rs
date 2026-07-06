@@ -44,7 +44,7 @@
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::cavitation::rayleigh_plesset::RayleighPlesset;
 use cfd_core::physics::fluid::BloodModel;
-use nalgebra::Vector3;
+use leto::geometry::Vector3;
 
 /// Bubble dynamics configuration
 #[derive(Debug, Clone)]

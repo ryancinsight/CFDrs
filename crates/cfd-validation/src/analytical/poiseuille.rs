@@ -1,9 +1,10 @@
 //! Poiseuille flow - laminar flow between parallel plates or in a pipe
 
 use super::AnalyticalSolution;
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::geometry::Vector3;
 
 /// Poiseuille flow configuration
 #[derive(Debug, Clone, Copy)]
@@ -33,7 +34,7 @@ pub struct PoiseuilleFlow<T: RealField + Copy> {
     pub geometry: PoiseuilleGeometry,
 }
 
-impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
+impl<T: RealField + Copy + FloatElement> PoiseuilleFlow<T> {
     /// Create Poiseuille flow solution
     pub fn create(
         u_max: T,
@@ -59,11 +60,11 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
         geometry: PoiseuilleGeometry,
     ) -> T {
         let factor = match geometry {
-            PoiseuilleGeometry::Plates => T::from_f64_or_one(2.0),
-            PoiseuilleGeometry::Pipe => T::from_f64_or_one(4.0),
+            PoiseuilleGeometry::Plates => scalar::from_f64::<T>(2.0),
+            PoiseuilleGeometry::Pipe => scalar::from_f64::<T>(4.0),
         };
 
-        pressure_gradient.abs() * characteristic_length * characteristic_length
+        scalar::abs(pressure_gradient) * characteristic_length * characteristic_length
             / (factor * viscosity)
     }
 
@@ -72,14 +73,12 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
         match self.geometry {
             PoiseuilleGeometry::Plates => {
                 // Q = (2/3) * u_max * h
-                let two_thirds =
-                    T::try_from_f64(2.0 / 3.0).unwrap_or(T::from_f64_or_one(2.0 / 3.0));
+                let two_thirds = scalar::from_f64::<T>(2.0 / 3.0);
                 two_thirds * self.u_max * self.characteristic_length
             }
             PoiseuilleGeometry::Pipe => {
                 // Q = (π/2) * u_max * R²
-                let pi_half = T::try_from_f64(std::f64::consts::PI / 2.0)
-                    .unwrap_or(T::from_f64_or_one(std::f64::consts::PI / 2.0));
+                let pi_half = scalar::from_f64::<T>(std::f64::consts::PI / 2.0);
                 pi_half * self.u_max * self.characteristic_length * self.characteristic_length
             }
         }
@@ -88,34 +87,34 @@ impl<T: RealField + Copy + FromPrimitive> PoiseuilleFlow<T> {
     /// Get Reynolds number
     pub fn reynolds_number(&self, density: T) -> T {
         let characteristic_velocity = self.u_max;
-        let two = T::from_f64_or_one(2.0);
+        let two = scalar::from_f64::<T>(2.0);
         let characteristic_length = self.characteristic_length * two; // Diameter for pipe, full width for plates
 
         density * characteristic_velocity * characteristic_length / self.viscosity
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFlow<T> {
+impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for PoiseuilleFlow<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         let velocity = match self.geometry {
             PoiseuilleGeometry::Plates => {
                 // u(y) = u_max * (1 - (y/h)²)
                 let normalized_y = y / self.characteristic_length;
-                self.u_max * (T::one() - normalized_y * normalized_y)
+                self.u_max * (scalar::one::<T>() - normalized_y * normalized_y)
             }
             PoiseuilleGeometry::Pipe => {
                 // u(r) = u_max * (1 - (r/R)²) where r = sqrt(y² + z²)
-                let r = (y * y + _z * _z).sqrt();
+                let r = scalar::sqrt(y * y + _z * _z);
                 let normalized_r = r / self.characteristic_length;
-                if normalized_r <= T::one() {
-                    self.u_max * (T::one() - normalized_r * normalized_r)
+                if normalized_r <= scalar::one::<T>() {
+                    self.u_max * (scalar::one::<T>() - normalized_r * normalized_r)
                 } else {
-                    T::zero()
+                    scalar::zero::<T>()
                 }
             }
         };
 
-        Vector3::new(velocity, T::zero(), T::zero())
+        Vector3::new(velocity, scalar::zero::<T>(), scalar::zero::<T>())
     }
 
     fn pressure(&self, x: T, _y: T, _z: T, _t: T) -> T {
@@ -131,10 +130,10 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFl
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let large = T::from_f64_or_one(1000.0);
+        let large = scalar::from_f64::<T>(1000.0);
         match self.geometry {
             PoiseuilleGeometry::Plates => [
-                T::zero(),
+                scalar::zero::<T>(),
                 large, // x: [0, L]
                 -self.characteristic_length,
                 self.characteristic_length, // y: [-h, h]
@@ -142,7 +141,7 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for PoiseuilleFl
                 large, // z: arbitrary
             ],
             PoiseuilleGeometry::Pipe => [
-                T::zero(),
+                scalar::zero::<T>(),
                 large, // x: [0, L]
                 -self.characteristic_length,
                 self.characteristic_length, // y: [-R, R]

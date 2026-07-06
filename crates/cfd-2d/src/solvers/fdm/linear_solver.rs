@@ -14,12 +14,14 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_math::SparseMatrix;
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use leto::Array1;
 
 use super::config::FdmConfig;
+use crate::scalar;
 
 /// Shared Gauss-Seidel linear solver implementation
 ///
@@ -31,21 +33,25 @@ use super::config::FdmConfig;
 /// This provides better convergence than Jacobi (which uses all old values).
 ///
 /// Returns an error if convergence is not achieved within `max_iterations`.
-pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive>(
+pub fn solve_gauss_seidel<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement>(
     matrix: &SparseMatrix<T>,
-    rhs: &DVector<T>,
+    rhs: &Array1<T>,
     config: &FdmConfig<T>,
     solver_name: &str,
-) -> Result<DVector<T>> {
-    let n = rhs.len();
-    let mut solution: DVector<T> = DVector::from_element(n, T::zero());
+) -> Result<Array1<T>> {
+    let n = rhs.shape()[0];
+    let zero: T = scalar::zero();
+    let one: T = scalar::one();
+    let singular_tolerance = scalar::from_f64::<T>(1e-14);
+    let mut solution: Array1<T> = Array1::from_elem([n], zero);
 
     for iteration in 0..config.max_iterations() {
-        let mut max_residual = T::zero();
+        let mut max_residual = zero;
 
-        for (row_idx, row) in matrix.row_iter().enumerate() {
-            let mut sum = T::zero();
-            let mut diagonal = T::one();
+        for row_idx in 0..matrix.nrows() {
+            let row = matrix.row(row_idx);
+            let mut sum = zero;
+            let mut diagonal = one;
 
             // Sum contributions from other variables using UPDATED values (Gauss-Seidel)
             // For j < i: use x_j^(k+1) (already updated in this iteration)
@@ -60,7 +66,7 @@ pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive>(
             }
 
             // Check for zero diagonal (singular matrix)
-            if diagonal.abs() < T::from_f64(1e-14).unwrap_or_else(|| T::zero()) {
+            if <T as NumericElement>::abs(diagonal) < singular_tolerance {
                 return Err(Error::InvalidConfiguration(format!(
                     "{solver_name}: Singular matrix detected (zero diagonal)"
                 )));
@@ -70,7 +76,7 @@ pub fn solve_gauss_seidel<T: RealField + Copy + FromPrimitive>(
             let new_value = (rhs[row_idx] - sum) / diagonal;
 
             // Calculate residual before applying relaxation
-            let residual = (new_value - solution[row_idx]).abs();
+            let residual = <T as NumericElement>::abs(new_value - solution[row_idx]);
             if residual > max_residual {
                 max_residual = residual;
             }

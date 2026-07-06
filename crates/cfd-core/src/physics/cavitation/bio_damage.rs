@@ -51,7 +51,7 @@
 //! cavitation-induced overpressure above ambient, so ambient-only conditions
 //! produce zero induced strain and therefore preserve the fully healthy state.
 
-use nalgebra::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 use super::rayleigh_plesset::RayleighPlesset;
@@ -66,7 +66,7 @@ const REFERENCE_LOADING_DURATION_S: f64 = 0.1;
 const BLOOD_DENSITY_KG_M3: f64 = 1060.0;
 /// Defined structural mechanics for cellular membranes.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct CellularMembraneMechanics<T: RealField + Copy> {
+pub struct CellularMembraneMechanics<T: FloatElement + Copy> {
     /// Nominal radius of the cell \[m].
     pub cell_radius_m: T,
     /// Thickness of the cellular membrane \[m].
@@ -83,7 +83,7 @@ pub struct CellularMembraneMechanics<T: RealField + Copy> {
 
 /// Distribution of cellular populations post-cavitation injury.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct CellularInjuryProfile<T: RealField + Copy> {
+pub struct CellularInjuryProfile<T: FloatElement + Copy> {
     /// Fraction of unaffected robust cells in the localized domain.
     pub fraction_healthy: T,
     /// Fraction of cells surviving but acquiring membrane porosity (ideal for drug uptake).
@@ -94,10 +94,10 @@ pub struct CellularInjuryProfile<T: RealField + Copy> {
     pub fraction_lysed: T,
 }
 
-impl<T: RealField + Copy> CellularMembraneMechanics<T> {
+impl<T: FloatElement + Copy> CellularMembraneMechanics<T> {
     /// Validates the strictly monotonic ordering of cellular injury thresholds and positive dimensions.
     pub fn is_valid(&self) -> bool {
-        let zero = T::zero();
+        let zero = <T as NumericElement>::ZERO;
         self.cell_radius_m > zero
             && self.membrane_thickness_m > zero
             && self.membrane_elastic_modulus_pa > zero
@@ -117,12 +117,12 @@ impl<T: RealField + Copy> CellularMembraneMechanics<T> {
         standoff_distance_m: T,
         ambient_pressure_pa: T,
     ) -> CellularInjuryProfile<T> {
-        let zero = T::zero();
-        let one = T::one();
-        let reference_duration = T::from_f64(REFERENCE_LOADING_DURATION_S).unwrap_or(one);
-        let blood_density = T::from_f64(BLOOD_DENSITY_KG_M3).unwrap_or(one);
+        let zero = <T as NumericElement>::ZERO;
+        let one = <T as NumericElement>::ONE;
+        let reference_duration = <T as FloatElement>::from_f64(REFERENCE_LOADING_DURATION_S);
+        let blood_density = <T as FloatElement>::from_f64(BLOOD_DENSITY_KG_M3);
 
-        let r_impact = standoff_distance_m.max(bubble_radius_m);
+        let r_impact = standoff_distance_m.max_scalar(bubble_radius_m);
         // Acoustic radiation decay P(r) = P_inf + R/r * (P_c - P_inf)
         // Bounded mathematically to ensure P(r) does not exceed collapse pressure
         let ratio = bubble_radius_m / r_impact;
@@ -131,7 +131,7 @@ impl<T: RealField + Copy> CellularMembraneMechanics<T> {
 
         let loading_duration = self.loading_duration_proxy(
             bubble_radius_m,
-            pressure_difference.max(zero),
+            pressure_difference.max_scalar(zero),
             blood_density,
         );
 
@@ -139,14 +139,14 @@ impl<T: RealField + Copy> CellularMembraneMechanics<T> {
         // ambient baseline itself. Ambient-only loading must therefore map to
         // zero induced strain.
         let two = one + one;
-        let impact_overpressure = (p_r - ambient_pressure_pa).max(zero);
+        let impact_overpressure = (p_r - ambient_pressure_pa).max_scalar(zero);
         let membrane_stress =
             (impact_overpressure * self.cell_radius_m) / (two * self.membrane_thickness_m);
 
         // Areal strain approx for Hookean membrane
         let strain = membrane_stress / self.membrane_elastic_modulus_pa;
         let rate_factor = if loading_duration > zero {
-            (reference_duration / loading_duration).sqrt()
+            <T as NumericElement>::sqrt(reference_duration / loading_duration)
         } else {
             one
         };
@@ -163,22 +163,28 @@ impl<T: RealField + Copy> CellularMembraneMechanics<T> {
                 zero
             } else {
                 let r = strain / threshold;
-                let exponent = -r;
-                one - exponent.exp()
+                let exponent = zero - r;
+                one - <T as FloatElement>::exp(exponent)
             }
         };
 
-        let cumulative_lysed = evaluate_cumulative(adjusted_lysis).clamp(zero, one);
-        let cumulative_necrotic = evaluate_cumulative(adjusted_necrosis).clamp(zero, one);
-        let cumulative_permeabilized =
-            evaluate_cumulative(adjusted_permeabilization).clamp(zero, one);
+        let cumulative_lysed = evaluate_cumulative(adjusted_lysis)
+            .max_scalar(zero)
+            .min_scalar(one);
+        let cumulative_necrotic = evaluate_cumulative(adjusted_necrosis)
+            .max_scalar(zero)
+            .min_scalar(one);
+        let cumulative_permeabilized = evaluate_cumulative(adjusted_permeabilization)
+            .max_scalar(zero)
+            .min_scalar(one);
 
         let fraction_lysed = cumulative_lysed;
-        let fraction_necrotic = (cumulative_necrotic - cumulative_lysed).max(zero);
-        let fraction_permeabilized = (cumulative_permeabilized - cumulative_necrotic).max(zero);
+        let fraction_necrotic = (cumulative_necrotic - cumulative_lysed).max_scalar(zero);
+        let fraction_permeabilized =
+            (cumulative_permeabilized - cumulative_necrotic).max_scalar(zero);
 
         let subtotal = fraction_lysed + fraction_necrotic + fraction_permeabilized;
-        let fraction_healthy = (one - subtotal).max(zero);
+        let fraction_healthy = (one - subtotal).max_scalar(zero);
 
         // Ensure rigorous conservation normalization due to floating-point drift
         let total = fraction_healthy + fraction_permeabilized + fraction_necrotic + fraction_lysed;
@@ -197,27 +203,29 @@ impl<T: RealField + Copy> CellularMembraneMechanics<T> {
         pressure_difference_pa: T,
         blood_density: T,
     ) -> T {
-        if bubble_radius_m <= T::zero() || pressure_difference_pa <= T::zero() {
-            return T::from_f64(REFERENCE_LOADING_DURATION_S).unwrap_or(T::one());
+        if bubble_radius_m <= <T as NumericElement>::ZERO
+            || pressure_difference_pa <= <T as NumericElement>::ZERO
+        {
+            return <T as FloatElement>::from_f64(REFERENCE_LOADING_DURATION_S);
         }
 
         let bubble = RayleighPlesset {
             initial_radius: bubble_radius_m,
             liquid_density: blood_density,
-            liquid_viscosity: T::zero(),
-            surface_tension: T::zero(),
-            vapor_pressure: T::zero(),
-            polytropic_index: T::from_f64(1.4).unwrap_or(T::one()),
+            liquid_viscosity: <T as NumericElement>::ZERO,
+            surface_tension: <T as NumericElement>::ZERO,
+            vapor_pressure: <T as NumericElement>::ZERO,
+            polytropic_index: <T as FloatElement>::from_f64(1.4),
         };
 
         bubble.collapse_time(bubble_radius_m, pressure_difference_pa)
     }
 
     fn rate_adjusted_threshold(&self, threshold: T, rate_factor: T) -> T {
-        if threshold <= T::zero() {
-            return T::zero();
+        if threshold <= <T as NumericElement>::ZERO {
+            return <T as NumericElement>::ZERO;
         }
-        threshold * rate_factor.max(T::zero())
+        threshold * rate_factor.max_scalar(<T as NumericElement>::ZERO)
     }
 }
 

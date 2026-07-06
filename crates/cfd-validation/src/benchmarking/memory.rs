@@ -3,7 +3,6 @@
 //! Tracks memory allocation patterns, peak usage, and memory efficiency
 //! of CFD algorithms and data structures.
 
-use cfd_2d::grid::Grid2D;
 use cfd_core::error::Result;
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -378,8 +377,8 @@ impl CfdMemoryProfiler {
                 }
 
                 let matrix = builder.build().unwrap();
-                let vector = nalgebra::DVector::from_vec(vec![1.0f64; 100]);
-                let mut result = nalgebra::DVector::zeros(100);
+                let vector = leto::Array1::from_elem([100], 1.0_f64);
+                let mut result = leto::Array1::from_elem([100], 0.0_f64);
 
                 // Perform SPMV operations
                 for _ in 0..10 {

@@ -232,7 +232,7 @@ use super::strain::compute_strain_rate_magnitude;
 use super::viscosity::compute_sgs_viscosity;
 use crate::physics::turbulence::boundary_conditions;
 use crate::physics::turbulence::traits::LESTurbulenceModel;
-use nalgebra::DMatrix;
+use leto::Array2;
 
 #[cfg(feature = "gpu")]
 use cfd_core::compute::gpu::turbulence_compute::GpuTurbulenceCompute;
@@ -251,15 +251,15 @@ pub struct SmagorinskyLES {
     dx: f64,
     dy: f64,
     /// Filter width (Δ = (dx·dy)^(1/2))
-    filter_width: DMatrix<f64>,
+    filter_width: Array2<f64>,
     /// SGS viscosity field
-    sgs_viscosity: DMatrix<f64>,
+    sgs_viscosity: Array2<f64>,
     /// Diagnostic SGS turbulent kinetic energy field.
-    sgs_kinetic_energy: DMatrix<f64>,
+    sgs_kinetic_energy: Array2<f64>,
     /// Diagnostic SGS dissipation-rate field.
-    sgs_dissipation_rate: DMatrix<f64>,
+    sgs_dissipation_rate: Array2<f64>,
     /// Dynamic Smagorinsky constant field (if using dynamic procedure)
-    dynamic_constant: Option<DMatrix<f64>>,
+    dynamic_constant: Option<Array2<f64>>,
     /// GPU compute manager (if GPU acceleration is enabled)
     #[cfg(feature = "gpu")]
     gpu_compute: Option<GpuTurbulenceCompute>,
@@ -268,14 +268,14 @@ pub struct SmagorinskyLES {
 impl SmagorinskyLES {
     /// Create a new Smagorinsky LES model
     pub fn new(nx: usize, ny: usize, dx: f64, dy: f64, config: SmagorinskyConfig) -> Self {
-        let mut filter_width = DMatrix::zeros(nx, ny);
+        let mut filter_width = Array2::zeros([nx, ny]);
 
         // Initialize filter width as geometric mean of grid spacings
         let delta = (dx * dy).sqrt();
         filter_width.fill(delta);
 
         let dynamic_constant = if config.dynamic_procedure {
-            Some(DMatrix::from_element(nx, ny, config.smagorinsky_constant))
+            Some(Array2::from_elem([nx, ny], config.smagorinsky_constant))
         } else {
             None
         };
@@ -303,9 +303,9 @@ impl SmagorinskyLES {
             dx,
             dy,
             filter_width,
-            sgs_viscosity: DMatrix::zeros(nx, ny),
-            sgs_kinetic_energy: DMatrix::zeros(nx, ny),
-            sgs_dissipation_rate: DMatrix::zeros(nx, ny),
+            sgs_viscosity: Array2::zeros([nx, ny]),
+            sgs_kinetic_energy: Array2::zeros([nx, ny]),
+            sgs_dissipation_rate: Array2::zeros([nx, ny]),
             dynamic_constant,
             #[cfg(feature = "gpu")]
             gpu_compute,
@@ -315,8 +315,8 @@ impl SmagorinskyLES {
     /// CPU-based update implementation
     fn update_cpu(
         &mut self,
-        velocity_u: &DMatrix<f64>,
-        velocity_v: &DMatrix<f64>,
+        velocity_u: &Array2<f64>,
+        velocity_v: &Array2<f64>,
         density: f64,
     ) -> cfd_core::error::Result<()> {
         // Compute strain rate magnitude
@@ -374,8 +374,8 @@ impl SmagorinskyLES {
     fn update_sgs_energy_diagnostics(&mut self, density: f64) {
         for i in 0..self.nx {
             for j in 0..self.ny {
-                let delta = self.filter_width[(i, j)];
-                let dynamic_viscosity = self.sgs_viscosity[(i, j)];
+                let delta = self.filter_width[[i, j]];
+                let dynamic_viscosity = self.sgs_viscosity[[i, j]];
                 let kinematic_viscosity = if density > 0.0 {
                     dynamic_viscosity / density
                 } else {
@@ -386,8 +386,8 @@ impl SmagorinskyLES {
                 } else {
                     0.0
                 };
-                self.sgs_kinetic_energy[(i, j)] = k_sgs;
-                self.sgs_dissipation_rate[(i, j)] = if k_sgs > 0.0 && delta > 0.0 {
+                self.sgs_kinetic_energy[[i, j]] = k_sgs;
+                self.sgs_dissipation_rate[[i, j]] = if k_sgs > 0.0 && delta > 0.0 {
                     SGS_DISSIPATION_C_EPSILON * k_sgs.powf(1.5) / delta
                 } else {
                     0.0
@@ -400,8 +400,8 @@ impl SmagorinskyLES {
     #[cfg(feature = "gpu")]
     fn update_gpu(
         &mut self,
-        velocity_u: &DMatrix<f64>,
-        velocity_v: &DMatrix<f64>,
+        velocity_u: &Array2<f64>,
+        velocity_v: &Array2<f64>,
         density: f64,
     ) -> cfd_core::error::Result<()> {
         if let Some(gpu_compute) = &mut self.gpu_compute {
@@ -417,8 +417,10 @@ impl SmagorinskyLES {
             )?;
         } else {
             // Fallback to CPU if GPU compute failed
-            self.update_cpu(velocity_u, velocity_v, density)?;
+            return self.update_cpu(velocity_u, velocity_v, density);
         }
+
+        self.update_sgs_energy_diagnostics(density);
 
         Ok(())
     }
@@ -429,7 +431,7 @@ impl SmagorinskyLES {
     }
 
     /// Get the filter width field
-    pub const fn filter_width(&self) -> &DMatrix<f64> {
+    pub const fn filter_width(&self) -> &Array2<f64> {
         &self.filter_width
     }
 }
@@ -437,9 +439,9 @@ impl SmagorinskyLES {
 impl LESTurbulenceModel for SmagorinskyLES {
     fn update(
         &mut self,
-        velocity_u: &DMatrix<f64>,
-        velocity_v: &DMatrix<f64>,
-        _pressure: &DMatrix<f64>,
+        velocity_u: &Array2<f64>,
+        velocity_v: &Array2<f64>,
+        _pressure: &Array2<f64>,
         density: f64,
         _viscosity: f64,
         _dt: f64,
@@ -467,19 +469,19 @@ impl LESTurbulenceModel for SmagorinskyLES {
     }
 
     fn get_viscosity(&self, i: usize, j: usize) -> f64 {
-        self.sgs_viscosity[(i, j)]
+        self.sgs_viscosity[[i, j]]
     }
 
-    fn get_turbulent_viscosity_field(&self) -> &DMatrix<f64> {
+    fn get_turbulent_viscosity_field(&self) -> &Array2<f64> {
         &self.sgs_viscosity
     }
 
     fn get_turbulent_kinetic_energy(&self, i: usize, j: usize) -> f64 {
-        self.sgs_kinetic_energy[(i, j)]
+        self.sgs_kinetic_energy[[i, j]]
     }
 
     fn get_dissipation_rate(&self, i: usize, j: usize) -> f64 {
-        self.sgs_dissipation_rate[(i, j)]
+        self.sgs_dissipation_rate[[i, j]]
     }
 
     fn boundary_condition_update(
@@ -518,15 +520,15 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
 
-    fn create_test_velocity_fields(nx: usize, ny: usize) -> (DMatrix<f64>, DMatrix<f64>) {
-        let mut velocity_u = DMatrix::zeros(nx, ny);
-        let mut velocity_v = DMatrix::zeros(nx, ny);
+    fn create_test_velocity_fields(nx: usize, ny: usize) -> (Array2<f64>, Array2<f64>) {
+        let mut velocity_u = Array2::zeros([nx, ny]);
+        let mut velocity_v = Array2::zeros([nx, ny]);
 
         // Simple shear flow
         for i in 0..nx {
             for j in 0..ny {
-                velocity_u[(i, j)] = (j as f64) * 0.1; // Linear shear
-                velocity_v[(i, j)] = 0.0;
+                velocity_u[[i, j]] = (j as f64) * 0.1; // Linear shear
+                velocity_v[[i, j]] = 0.0;
             }
         }
 
@@ -538,10 +540,10 @@ mod tests {
         let config = SmagorinskyConfig::default();
         let les = SmagorinskyLES::new(10, 10, 0.1, 0.1, config);
 
-        assert_eq!(les.sgs_viscosity.nrows(), 10);
-        assert_eq!(les.sgs_viscosity.ncols(), 10);
-        assert_eq!(les.filter_width.nrows(), 10);
-        assert_eq!(les.filter_width.ncols(), 10);
+        assert_eq!(les.sgs_viscosity.shape()[0], 10);
+        assert_eq!(les.sgs_viscosity.shape()[1], 10);
+        assert_eq!(les.filter_width.shape()[0], 10);
+        assert_eq!(les.filter_width.shape()[1], 10);
 
         // Check filter width calculation
         let expected_delta = (0.1f64 * 0.1f64).sqrt();
@@ -555,7 +557,7 @@ mod tests {
         let config = SmagorinskyConfig::default();
         let mut les = SmagorinskyLES::new(10, 10, 0.1, 0.1, config);
         let (velocity_u, velocity_v) = create_test_velocity_fields(10, 10);
-        let pressure = DMatrix::zeros(10, 10);
+        let pressure = Array2::zeros([10, 10]);
 
         let result = les.update(
             &velocity_u,
@@ -581,7 +583,7 @@ mod tests {
         };
         let mut les = SmagorinskyLES::new(10, 10, 0.1, 0.1, config);
         let (velocity_u, velocity_v) = create_test_velocity_fields(10, 10);
-        let pressure = DMatrix::zeros(10, 10);
+        let pressure = Array2::zeros([10, 10]);
         les.update(
             &velocity_u,
             &velocity_v,
@@ -596,7 +598,7 @@ mod tests {
 
         let mu_sgs = les.get_viscosity(5, 5);
         let nu_sgs = mu_sgs / 2.0;
-        let delta = les.filter_width[(5, 5)];
+        let delta = les.filter_width[[5, 5]];
         let expected_k = (nu_sgs / (YOSHIZAWA_C_K * delta)).powi(2);
         let expected_eps = SGS_DISSIPATION_C_EPSILON * expected_k.powf(1.5) / delta;
 
@@ -645,7 +647,7 @@ mod tests {
         let config = SmagorinskyConfig::default();
         let mut les = SmagorinskyLES::new(10, 10, 0.1, 0.1, config);
         let (velocity_u, velocity_v) = create_test_velocity_fields(10, 10);
-        let pressure = DMatrix::zeros(10, 10);
+        let pressure = Array2::zeros([10, 10]);
 
         // Update with different grid spacing
         let result = les.update(
@@ -674,9 +676,9 @@ mod tests {
             ..Default::default()
         };
         let mut les = SmagorinskyLES::new(4, 4, 0.1, 0.1, config);
-        let velocity_u = DMatrix::zeros(4, 4);
-        let velocity_v = DMatrix::zeros(4, 4);
-        let pressure = DMatrix::zeros(4, 4);
+        let velocity_u = Array2::zeros([4, 4]);
+        let velocity_v = Array2::zeros([4, 4]);
+        let pressure = Array2::zeros([4, 4]);
 
         les.update(
             &velocity_u,

@@ -58,13 +58,14 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
+use crate::scalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use cfd_mesh::VenturiMeshBuilder;
-use nalgebra::{RealField, Vector3};
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::FloatElement;
+use leto::geometry::Vector3;
 
 pub use super::types::{VenturiConfig3D, VenturiSolution3D};
 
@@ -73,7 +74,9 @@ pub use super::types::{VenturiConfig3D, VenturiSolution3D};
 // ============================================================================
 
 /// 3D Finite Element Navier-Stokes solver for Venturi throats
-pub struct VenturiSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float> {
+pub struct VenturiSolver3D<
+    T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + FloatElement + Copy,
+> {
     builder: VenturiMeshBuilder<T>,
     config: VenturiConfig3D<T>,
 }
@@ -95,7 +98,7 @@ pub struct VenturiSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy 
 /// throat velocity into `0.5 ρ u_t²` gives the expression above. Non-positive
 /// `Q` or `A_t` makes the dynamic-pressure scale undefined and is rejected.
 fn pressure_coefficients_from_throat_flux<
-    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + Float,
+    T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + FloatElement + Copy,
 >(
     density: T,
     throat_flow_rate: T,
@@ -103,9 +106,8 @@ fn pressure_coefficients_from_throat_flux<
     dp_throat: T,
     dp_recovery: T,
 ) -> Result<(T, T)> {
-    let half =
-        <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
-    if throat_area <= T::zero() || throat_flow_rate <= T::zero() {
+    let half = scalar::from_f64::<T>(0.5);
+    if throat_area <= scalar::zero::<T>() || throat_flow_rate <= scalar::zero::<T>() {
         return Err(Error::Solver(
             "Venturi pressure coefficients require positive throat area and flow rate".to_string(),
         ));
@@ -113,7 +115,7 @@ fn pressure_coefficients_from_throat_flux<
 
     let u_throat_mean = throat_flow_rate / throat_area;
     let throat_dynamic_pressure = half * density * u_throat_mean * u_throat_mean;
-    if throat_dynamic_pressure <= T::zero() {
+    if throat_dynamic_pressure <= scalar::zero::<T>() {
         return Err(Error::Solver(
             "Venturi pressure coefficients require positive throat dynamic pressure".to_string(),
         ));
@@ -125,16 +127,9 @@ fn pressure_coefficients_from_throat_flux<
     ))
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64
-            + Float
-            + From<f64>,
-    > VenturiSolver3D<T>
+impl<T> VenturiSolver3D<T>
+where
+    T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + FloatElement + Copy + SafeFromF64,
 {
     /// Create new solver from mesh builder and config
     pub fn new(builder: VenturiMeshBuilder<T>, config: VenturiConfig3D<T>) -> Self {
@@ -160,46 +155,15 @@ impl<
         .build()
         .map_err(|e| Error::Solver(e.to_string()))?;
 
-        // Convert all Venturi geometry parameters T → f64 for the iso-parametric
-        // mapping closure.  These conversions must succeed: if T cannot represent
-        // the builder's physical dimensions the mesh would be degenerate.
-        let r_in = self
-            .builder
-            .d_inlet
-            .to_f64()
-            .ok_or_else(|| Error::Solver("d_inlet T→f64 conversion failed".into()))?
-            / 2.0;
-        let r_th = self
-            .builder
-            .d_throat
-            .to_f64()
-            .ok_or_else(|| Error::Solver("d_throat T→f64 conversion failed".into()))?
-            / 2.0;
-        let l_in = self
-            .builder
-            .l_inlet
-            .to_f64()
-            .ok_or_else(|| Error::Solver("l_inlet T→f64 conversion failed".into()))?;
-        let l_conv = self
-            .builder
-            .l_convergent
-            .to_f64()
-            .ok_or_else(|| Error::Solver("l_convergent T→f64 conversion failed".into()))?;
-        let l_th = self
-            .builder
-            .l_throat
-            .to_f64()
-            .ok_or_else(|| Error::Solver("l_throat T→f64 conversion failed".into()))?;
-        let l_div = self
-            .builder
-            .l_divergent
-            .to_f64()
-            .ok_or_else(|| Error::Solver("l_divergent T→f64 conversion failed".into()))?;
-        let l_out = self
-            .builder
-            .l_outlet
-            .to_f64()
-            .ok_or_else(|| Error::Solver("l_outlet T→f64 conversion failed".into()))?;
+        // Convert Venturi geometry parameters through Eunomia for the f64
+        // iso-parametric mapping closure.
+        let r_in = scalar::to_f64(self.builder.d_inlet) / 2.0;
+        let r_th = scalar::to_f64(self.builder.d_throat) / 2.0;
+        let l_in = scalar::to_f64(self.builder.l_inlet);
+        let l_conv = scalar::to_f64(self.builder.l_convergent);
+        let l_th = scalar::to_f64(self.builder.l_throat);
+        let l_div = scalar::to_f64(self.builder.l_divergent);
+        let l_out = scalar::to_f64(self.builder.l_outlet);
         let total_l = l_in + l_conv + l_th + l_div + l_out;
 
         let radius_at = |z: f64| -> f64 {
@@ -225,14 +189,7 @@ impl<
         let half_height: Option<f64> = if is_circular {
             None
         } else {
-            self.config
-                .rect_height
-                .map(|h| {
-                    h.to_f64()
-                        .ok_or_else(|| Error::Solver("rect_height T→f64 conversion failed".into()))
-                })
-                .transpose()?
-                .map(|h| h / 2.0)
+            self.config.rect_height.map(|h| scalar::to_f64(h) / 2.0)
         };
         for i in 0..base_mesh.vertex_count() {
             use cfd_mesh::domain::core::index::VertexId;
@@ -396,10 +353,10 @@ impl<
         // (rim) nodes can be treated consistently.
         let mut boundary_conditions = HashMap::new();
         let fluid_props =
-            fluid.properties_at(T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
+            fluid.properties_at(scalar::from_f64::<T>(310.0), self.config.inlet_pressure)?;
 
         let area_inlet = if self.config.circular {
-            T::from_f64_or_one(std::f64::consts::PI / 4.0)
+            scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
                 * self.builder.d_inlet
                 * self.builder.d_inlet
         } else {
@@ -442,7 +399,7 @@ impl<
                 boundary_conditions.insert(
                     v_idx,
                     BoundaryCondition::VelocityInlet {
-                        velocity: Vector3::new(0.0_f64, 0.0_f64, u_inlet.to_f64().unwrap_or(0.0)),
+                        velocity: Vector3::new(0.0_f64, 0.0_f64, scalar::to_f64(u_inlet)),
                     },
                 );
             }
@@ -455,7 +412,7 @@ impl<
         // condition.  The FEM solver only applies PressureOutlet to corner
         // nodes (those carrying a pressure DOF); mid-edge nodes are marked
         // Outflow so they are not flagged as unconstrained by diagnostics.
-        let outlet_pressure_f64 = self.config.outlet_pressure.to_f64().unwrap_or(0.0);
+        let outlet_pressure_f64 = scalar::to_f64(self.config.outlet_pressure);
         let mut outlet_corner_count = 0usize;
         for &v_idx in &outlet_nodes {
             if v_idx < n_corner_nodes {
@@ -487,10 +444,8 @@ impl<
 
         // Pass 4: Ensure all boundary vertices have a BC unless intentionally left as outlet natural boundary.
         let inlet_radius_sq = {
-            let half = <T as FromPrimitive>::from_f64(0.5)
-                .expect("0.5 is exactly representable in IEEE 754");
-            let margin = <T as FromPrimitive>::from_f64(0.98)
-                .expect("0.98 is an IEEE 754 representable f64 constant");
+            let half = scalar::from_f64::<T>(0.5);
+            let margin = scalar::from_f64::<T>(0.98);
             let r = half * self.builder.d_inlet * margin;
             r * r
         };
@@ -505,7 +460,7 @@ impl<
             } else if inlet_nodes.contains(&v_idx) {
                 let v = mesh.vertices.get(VertexId::from_usize(v_idx));
                 if self.config.circular {
-                    let r_sq = <T as From<f64>>::from(
+                    let r_sq = scalar::from_f64::<T>(
                         v.position.x * v.position.x + v.position.y * v.position.y,
                     );
                     if r_sq >= inlet_radius_sq {
@@ -525,11 +480,7 @@ impl<
                         boundary_conditions.insert(
                             v_idx,
                             BoundaryCondition::VelocityInlet {
-                                velocity: Vector3::new(
-                                    0.0_f64,
-                                    0.0_f64,
-                                    u_inlet.to_f64().unwrap_or(0.0),
-                                ),
+                                velocity: Vector3::new(0.0_f64, 0.0_f64, scalar::to_f64(u_inlet)),
                             },
                         );
                     }
@@ -550,11 +501,7 @@ impl<
                     boundary_conditions.insert(
                         v_idx,
                         BoundaryCondition::VelocityInlet {
-                            velocity: Vector3::new(
-                                0.0_f64,
-                                0.0_f64,
-                                u_inlet.to_f64().unwrap_or(0.0),
-                            ),
+                            velocity: Vector3::new(0.0_f64, 0.0_f64, scalar::to_f64(u_inlet)),
                         },
                     );
                 }
@@ -590,11 +537,11 @@ impl<
         // 3. Set up FEM Problem with initial viscosity
         let constant_basis = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
             name: "Picard Basis".to_string(),
-            density: fluid_props.density.to_f64().unwrap_or(0.0),
-            viscosity: fluid_props.dynamic_viscosity.to_f64().unwrap_or(0.0),
-            specific_heat: fluid_props.specific_heat.to_f64().unwrap_or(0.0),
-            thermal_conductivity: fluid_props.thermal_conductivity.to_f64().unwrap_or(0.0),
-            speed_of_sound: fluid_props.speed_of_sound.to_f64().unwrap_or(0.0),
+            density: scalar::to_f64(fluid_props.density),
+            viscosity: scalar::to_f64(fluid_props.dynamic_viscosity),
+            specific_heat: scalar::to_f64(fluid_props.specific_heat),
+            thermal_conductivity: scalar::to_f64(fluid_props.thermal_conductivity),
+            speed_of_sound: scalar::to_f64(fluid_props.speed_of_sound),
         };
 
         let mut problem = StokesFlowProblem::<f64>::new(
@@ -605,7 +552,7 @@ impl<
         );
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities =
-            vec![fluid_props.dynamic_viscosity.to_f64().unwrap_or(0.0); n_elements];
+            vec![scalar::to_f64(fluid_props.dynamic_viscosity); n_elements];
         let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
@@ -652,8 +599,11 @@ impl<
 
             // Apply Anderson Acceleration
             let updated_solution = if let Some(ref prev) = last_solution {
-                let acc_velocity =
-                    anderson_accelerator.compute_next(&prev.velocity, &fem_solution.velocity);
+                let acc_velocity = crate::atlas_anderson::accelerate_velocity(
+                    &mut anderson_accelerator,
+                    &prev.velocity,
+                    &fem_solution.velocity,
+                );
                 let mut acc_sol = fem_solution;
                 acc_sol.velocity = acc_velocity;
                 acc_sol
@@ -689,13 +639,13 @@ impl<
                 }
                 shear_sum_f64 += shear_rate_f64;
 
-                let shear_rate = <T as From<f64>>::from(shear_rate_f64);
+                let shear_rate = scalar::from_f64::<T>(shear_rate_f64);
                 let new_visc_t = fluid.viscosity_at_shear(
                     shear_rate,
-                    T::from_f64_or_one(310.0),
+                    scalar::from_f64::<T>(310.0),
                     self.config.inlet_pressure,
                 )?;
-                let mut new_visc = new_visc_t.to_f64().unwrap_or(0.0);
+                let mut new_visc = scalar::to_f64(new_visc_t);
 
                 // Cap viscosity at 20x reference (stability)
                 let max_viscosity = problem.fluid.viscosity * 20.0_f64;
@@ -708,8 +658,7 @@ impl<
 
                 let relaxed_visc =
                     relax_alpha * new_visc + (1.0 - relax_alpha) * current_viscosities[i];
-                let change = num_traits::Float::abs(relaxed_visc - current_viscosities[i])
-                    / current_viscosities[i];
+                let change = (relaxed_visc - current_viscosities[i]).abs() / current_viscosities[i];
                 if change > max_change_f64 {
                     max_change_f64 = change;
                 }
@@ -728,10 +677,17 @@ impl<
             // Track velocity convergence
             let mut vel_change_f64 = 0.0_f64;
             if let Some(ref prev) = last_solution {
-                let diff = &updated_solution.velocity - &prev.velocity;
                 let norm_prev = prev.velocity.norm();
                 if norm_prev > f64::MIN_POSITIVE {
-                    vel_change_f64 = diff.norm() / norm_prev;
+                    let diff_norm = updated_solution
+                        .velocity
+                        .difference_norm(&prev.velocity)
+                        .ok_or_else(|| {
+                            Error::Solver(
+                                "FEM Picard velocity vectors have mismatched DOF counts".into(),
+                            )
+                        })?;
+                    vel_change_f64 = diff_norm / norm_prev;
                 }
             } else {
                 vel_change_f64 = 1.0_f64;
@@ -769,7 +725,7 @@ impl<
                 break;
             }
 
-            let tol_f64 = self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4);
+            let tol_f64 = scalar::to_f64(self.config.nonlinear_tolerance);
             if vel_change_f64 < tol_f64 && max_change_f64 < tol_f64 {
                 tracing::debug!(iter, "Picard converged");
                 break;
@@ -786,13 +742,13 @@ impl<
             let mut u_max_idx = 0;
             let mut nonzero_count = 0;
             let thr = 1e-10_f64;
-            let total_length_f64 = (self.builder.l_inlet
-                + self.builder.l_convergent
-                + self.builder.l_throat
-                + self.builder.l_divergent
-                + self.builder.l_outlet)
-                .to_f64()
-                .unwrap_or(1.0);
+            let total_length_f64 = scalar::to_f64(
+                self.builder.l_inlet
+                    + self.builder.l_convergent
+                    + self.builder.l_throat
+                    + self.builder.l_divergent
+                    + self.builder.l_outlet,
+            );
             let n_bins = 10;
             let mut bin_u_max = vec![0.0_f64; n_bins];
             let mut bin_count = vec![0usize; n_bins];
@@ -855,7 +811,7 @@ impl<
         solution.u_inlet = u_inlet;
 
         // Average pressure at inlet
-        let mut p_in_sum = T::zero();
+        let mut p_in_sum = scalar::zero::<T>();
         let mut p_in_count = 0usize;
         let mut count_in = 0;
         let mut inlet_nodes = std::collections::HashSet::new();
@@ -876,65 +832,57 @@ impl<
             "Venturi solver setup"
         );
 
-        let mut u_in_sol_sum = T::zero();
+        let mut u_in_sol_sum = scalar::zero::<T>();
         for &v_idx in &inlet_nodes {
             if v_idx < fem_solution.n_corner_nodes {
-                p_in_sum += <T as From<f64>>::from(fem_solution.get_pressure(v_idx));
+                p_in_sum += scalar::from_f64::<T>(fem_solution.get_pressure(v_idx));
                 p_in_count += 1;
             }
             // Use axial (z) component for mass-flux diagnostic
-            u_in_sol_sum += <T as From<f64>>::from(fem_solution.get_velocity(v_idx).z);
+            u_in_sol_sum += scalar::from_f64::<T>(fem_solution.get_velocity(v_idx).z);
             count_in += 1;
         }
 
         if p_in_count > 0 {
-            solution.p_inlet = p_in_sum
-                / T::from_usize(p_in_count).expect("p_in_count is always a representable usize");
+            solution.p_inlet = p_in_sum / scalar::from_usize::<T>(p_in_count);
         } else {
             solution.p_inlet = self.config.inlet_pressure;
         }
 
         let u_in_sol_avg = if count_in > 0 {
-            u_in_sol_sum
-                / T::from_usize(count_in).expect("count_in is always a representable usize")
+            u_in_sol_sum / scalar::from_usize::<T>(count_in)
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
         tracing::debug!(u_in_sol_avg = ?u_in_sol_avg, "Venturi average inlet velocity");
 
         // Identify throat section nodes and average pressure
         let z_throat_center = self.builder.l_inlet
             + self.builder.l_convergent
-            + self.builder.l_throat
-                / <T as FromPrimitive>::from_f64(2.0)
-                    .expect("2.0 is representable in all IEEE 754 types");
+            + self.builder.l_throat / scalar::from_f64::<T>(2.0);
         let total_length = self.builder.l_inlet
             + self.builder.l_convergent
             + self.builder.l_throat
             + self.builder.l_divergent
             + self.builder.l_outlet;
         // Use tolerance proportional to mesh spacing (half the axial element size)
-        let throat_tol = total_length
-            / T::from_usize(self.config.resolution.0.max(1))
-                .expect("resolution is always a representable usize")
-            * <T as FromPrimitive>::from_f64(0.6)
-                .expect("0.6 is an IEEE 754 representable f64 constant");
-        let mut p_throat_sum = T::zero();
+        let throat_tol = total_length / scalar::from_usize::<T>(self.config.resolution.0.max(1))
+            * scalar::from_f64::<T>(0.6);
+        let mut p_throat_sum = scalar::zero::<T>();
         let mut p_throat_count = 0usize;
-        let mut u_throat_max = T::zero();
-        let mut u_throat_sum = T::zero();
+        let mut u_throat_max = scalar::zero::<T>();
+        let mut u_throat_sum = scalar::zero::<T>();
         let mut count_th = 0;
 
         for i in 0..n_corner_nodes {
             let v = problem.mesh.vertices.get(VertexId::from_usize(i));
-            let dist_z =
-                num_traits::Float::abs(<T as From<f64>>::from(v.position.z) - z_throat_center);
+            let dist_z = scalar::abs(scalar::from_f64::<T>(v.position.z) - z_throat_center);
             if dist_z < throat_tol {
                 if i < fem_solution.n_corner_nodes {
-                    p_throat_sum += <T as From<f64>>::from(fem_solution.get_pressure(i));
+                    p_throat_sum += scalar::from_f64::<T>(fem_solution.get_pressure(i));
                     p_throat_count += 1;
                 }
-                let u_mag = <T as From<f64>>::from(fem_solution.get_velocity(i).norm());
+                let u_mag = scalar::from_f64::<T>(fem_solution.get_velocity(i).norm());
                 if u_mag > u_throat_max {
                     u_throat_max = u_mag;
                 }
@@ -944,23 +892,20 @@ impl<
         }
 
         let u_throat_avg = if count_th > 0 {
-            u_throat_sum
-                / T::from_usize(count_th).expect("count_th is always a representable usize")
+            u_throat_sum / scalar::from_usize::<T>(count_th)
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
         if p_throat_count > 0 {
-            solution.p_throat = p_throat_sum
-                / T::from_usize(p_throat_count)
-                    .expect("p_throat_count is always a representable usize");
+            solution.p_throat = p_throat_sum / scalar::from_usize::<T>(p_throat_count);
             solution.u_throat = u_throat_max;
         }
 
         // Average pressure at outlet
-        let mut p_out_sum = T::zero();
+        let mut p_out_sum = scalar::zero::<T>();
         let mut p_out_count = 0usize;
-        let mut u_out_sum = T::zero();
+        let mut u_out_sum = scalar::zero::<T>();
         let mut count_out = 0;
         let mut outlet_nodes = std::collections::HashSet::new();
 
@@ -977,59 +922,45 @@ impl<
 
         for &v_idx in &outlet_nodes {
             if v_idx < fem_solution.n_corner_nodes {
-                p_out_sum += <T as From<f64>>::from(fem_solution.get_pressure(v_idx));
+                p_out_sum += scalar::from_f64::<T>(fem_solution.get_pressure(v_idx));
                 p_out_count += 1;
             }
-            u_out_sum += <T as From<f64>>::from(fem_solution.get_velocity(v_idx).z);
+            u_out_sum += scalar::from_f64::<T>(fem_solution.get_velocity(v_idx).z);
             count_out += 1;
         }
 
         let u_out_avg = if count_out > 0 {
-            u_out_sum / T::from_usize(count_out).expect("count_out is always a representable usize")
+            u_out_sum / scalar::from_usize::<T>(count_out)
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
         if p_out_count > 0 {
-            solution.p_outlet = p_out_sum
-                / T::from_usize(p_out_count).expect("p_out_count is always a representable usize");
+            solution.p_outlet = p_out_sum / scalar::from_usize::<T>(p_out_count);
         }
 
         // Sample pressure from interior inlet/outlet slices to reduce boundary-node artifacts.
         // Use flux-weighted averaging (u_z-weighted) for better effective pressure-drop estimate.
-        let axial_dx = total_length
-            / T::from_usize(self.config.resolution.0.max(1))
-                .expect("resolution is always a representable usize");
-        let slice_tol = axial_dx
-            * <T as FromPrimitive>::from_f64(0.55)
-                .expect("0.55 is an IEEE 754 representable f64 constant");
-        let z_in_sample = axial_dx
-            * <T as FromPrimitive>::from_f64(5.0)
-                .expect("5.0 is representable in all IEEE 754 types");
-        let z_out_sample = total_length
-            - axial_dx
-                * <T as FromPrimitive>::from_f64(5.0)
-                    .expect("5.0 is representable in all IEEE 754 types");
-        let core_radius_frac = <T as FromPrimitive>::from_f64(0.90)
-            .expect("0.90 is an IEEE 754 representable f64 constant");
+        let axial_dx = total_length / scalar::from_usize::<T>(self.config.resolution.0.max(1));
+        let slice_tol = axial_dx * scalar::from_f64::<T>(0.55);
+        let z_in_sample = axial_dx * scalar::from_f64::<T>(5.0);
+        let z_out_sample = total_length - axial_dx * scalar::from_f64::<T>(5.0);
+        let core_radius_frac = scalar::from_f64::<T>(0.90);
         let core_radius_sq = if self.config.circular {
-            let r_core = <T as FromPrimitive>::from_f64(0.5)
-                .expect("0.5 is exactly representable in IEEE 754")
-                * self.builder.d_inlet
-                * core_radius_frac;
+            let r_core = scalar::from_f64::<T>(0.5) * self.builder.d_inlet * core_radius_frac;
             r_core * r_core
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
-        let mut p_in_slice_sum = T::zero();
+        let mut p_in_slice_sum = scalar::zero::<T>();
         let mut p_in_slice_count = 0usize;
-        let mut p_out_slice_sum = T::zero();
+        let mut p_out_slice_sum = scalar::zero::<T>();
         let mut p_out_slice_count = 0usize;
-        let mut p_in_slice_weight_sum = T::zero();
-        let mut p_out_slice_weight_sum = T::zero();
-        let mut p_in_slice_weighted_sum = T::zero();
-        let mut p_out_slice_weighted_sum = T::zero();
+        let mut p_in_slice_weight_sum = scalar::zero::<T>();
+        let mut p_out_slice_weight_sum = scalar::zero::<T>();
+        let mut p_in_slice_weighted_sum = scalar::zero::<T>();
+        let mut p_out_slice_weighted_sum = scalar::zero::<T>();
 
         for i in 0..n_corner_nodes {
             let v = problem.mesh.vertices.get(VertexId::from_usize(i));
@@ -1037,9 +968,9 @@ impl<
                 continue;
             }
 
-            let z = <T as From<f64>>::from(v.position.z);
+            let z = scalar::from_f64::<T>(v.position.z);
             if self.config.circular {
-                let r_sq = <T as From<f64>>::from(
+                let r_sq = scalar::from_f64::<T>(
                     v.position.x * v.position.x + v.position.y * v.position.y,
                 );
                 if r_sq > core_radius_sq {
@@ -1047,20 +978,18 @@ impl<
                 }
             }
 
-            if Float::abs(z - z_in_sample) <= slice_tol {
-                let p_i = <T as From<f64>>::from(fem_solution.get_pressure(i));
-                let uzi =
-                    <T as From<f64>>::from(Float::max(fem_solution.get_velocity(i).z, 0.0_f64));
+            if scalar::abs(z - z_in_sample) <= slice_tol {
+                let p_i = scalar::from_f64::<T>(fem_solution.get_pressure(i));
+                let uzi = scalar::from_f64::<T>(fem_solution.get_velocity(i).z.max(0.0_f64));
                 let wi = uzi;
                 p_in_slice_sum += p_i;
                 p_in_slice_count += 1;
                 p_in_slice_weighted_sum += wi * p_i;
                 p_in_slice_weight_sum += wi;
             }
-            if Float::abs(z - z_out_sample) <= slice_tol {
-                let p_i = <T as From<f64>>::from(fem_solution.get_pressure(i));
-                let uzi =
-                    <T as From<f64>>::from(Float::max(fem_solution.get_velocity(i).z, 0.0_f64));
+            if scalar::abs(z - z_out_sample) <= slice_tol {
+                let p_i = scalar::from_f64::<T>(fem_solution.get_pressure(i));
+                let uzi = scalar::from_f64::<T>(fem_solution.get_velocity(i).z.max(0.0_f64));
                 let wi = uzi;
                 p_out_slice_sum += p_i;
                 p_out_slice_count += 1;
@@ -1070,21 +999,17 @@ impl<
         }
 
         if p_in_slice_count > 0 {
-            if p_in_slice_weight_sum > T::zero() {
+            if p_in_slice_weight_sum > scalar::zero::<T>() {
                 solution.p_inlet = p_in_slice_weighted_sum / p_in_slice_weight_sum;
             } else {
-                solution.p_inlet = p_in_slice_sum
-                    / T::from_usize(p_in_slice_count)
-                        .expect("p_in_slice_count is always a representable usize");
+                solution.p_inlet = p_in_slice_sum / scalar::from_usize::<T>(p_in_slice_count);
             }
         }
         if p_out_slice_count > 0 {
-            if p_out_slice_weight_sum > T::zero() {
+            if p_out_slice_weight_sum > scalar::zero::<T>() {
                 solution.p_outlet = p_out_slice_weighted_sum / p_out_slice_weight_sum;
             } else {
-                solution.p_outlet = p_out_slice_sum
-                    / T::from_usize(p_out_slice_count)
-                        .expect("p_out_slice_count is always a representable usize");
+                solution.p_outlet = p_out_slice_sum / scalar::from_usize::<T>(p_out_slice_count);
             }
         }
 
@@ -1116,12 +1041,11 @@ impl<
             + self.builder.l_throat
             + self.builder.l_divergent
             + self.builder.l_outlet;
-        let plane_tol = total_length.to_f64().unwrap_or(1.0)
-            / (self.config.resolution.0.max(1) as f64)
-            * 0.55_f64;
+        let total_length_f64 = scalar::to_f64(total_length);
+        let plane_tol = total_length_f64 / (self.config.resolution.0.max(1) as f64) * 0.55_f64;
         let plane_fracs = [0.0_f64, 0.25, 0.5, 0.75, 1.0];
         for frac in plane_fracs {
-            let z_plane = total_length.to_f64().unwrap_or(0.0) * frac;
+            let z_plane = total_length_f64 * frac;
             let (q_plane, faces) =
                 self.calculate_plane_flux(&problem.mesh, &fem_solution, z_plane, plane_tol)?;
             tracing::debug!(frac, z_plane, faces, q_plane, "Venturi slice flux");
@@ -1135,7 +1059,7 @@ impl<
         // Qth = u_th_avg * A_th (slice-based)
         // q_in_face/q_out_face = integrated boundary flux
         let area_throat = if self.config.circular {
-            T::from_f64_or_one(std::f64::consts::PI / 4.0)
+            scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
                 * self.builder.d_throat
                 * self.builder.d_throat
         } else {
@@ -1143,7 +1067,7 @@ impl<
             self.builder.d_throat * h
         };
         let coefficient_flow_rate = if q_in_face > 0.0_f64 {
-            <T as From<f64>>::from(q_in_face)
+            scalar::from_f64::<T>(q_in_face)
         } else {
             self.config.inlet_flow_rate
         };
@@ -1159,11 +1083,11 @@ impl<
 
         let q_in = u_in_sol_avg * area_inlet;
         let q_th = u_throat_avg * area_throat;
-        solution.q_in_face = <T as From<f64>>::from(q_in_face);
+        solution.q_in_face = scalar::from_f64::<T>(q_in_face);
         solution.mass_error = if q_in_face > 1e-12_f64 {
-            <T as From<f64>>::from((q_in_face - q_out_face) / q_in_face)
+            scalar::from_f64::<T>((q_in_face - q_out_face) / q_in_face)
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
         tracing::debug!(

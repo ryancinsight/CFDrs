@@ -47,8 +47,10 @@
 //!   Fast Iterative Solvers.* Oxford University Press, §3.4.
 
 use cfd_mesh::{domain::core::index::FaceId, domain::core::Scalar, IndexedMesh};
-use num_traits::Float;
+use eunomia::{FloatElement, NumericElement};
 use std::collections::{HashMap, HashSet};
+
+use super::scalar;
 
 // ── Named tolerancing constant ────────────────────────────────────────────────
 
@@ -117,7 +119,7 @@ pub struct AxialBoundaryClassifier<'a, T: Scalar> {
     resolution_axial: usize,
 }
 
-impl<'a, T: Scalar> AxialBoundaryClassifier<'a, T> {
+impl<'a, T: Scalar + FloatElement> AxialBoundaryClassifier<'a, T> {
     /// Create a classifier for `mesh`.
     ///
     /// `resolution_axial` is the number of cells along the extrusion axis;
@@ -175,8 +177,8 @@ impl<'a, T: Scalar> AxialBoundaryClassifier<'a, T> {
     // ── Z-bounds helper ───────────────────────────────────────────────────────
 
     fn compute_z_bounds(&self) -> (T, T, T) {
-        let mut z_min = <T as nalgebra::RealField>::max_value().unwrap_or_else(T::one);
-        let mut z_max = -<T as nalgebra::RealField>::max_value().unwrap_or_else(T::one);
+        let mut z_min = <T as NumericElement>::MAX_VALUE;
+        let mut z_max = <T as NumericElement>::MIN_VALUE;
         for (_, v) in self.mesh.vertices.iter() {
             let z = v.position.z;
             if z < z_min {
@@ -187,8 +189,8 @@ impl<'a, T: Scalar> AxialBoundaryClassifier<'a, T> {
             }
         }
         let z_span = z_max - z_min;
-        let n_axial = <T as Scalar>::from_f64(self.resolution_axial.max(1) as f64);
-        let z_tol = z_span / n_axial * <T as Scalar>::from_f64(AXIAL_TOL_FACTOR);
+        let n_axial = scalar::constant::<T>(self.resolution_axial.max(1) as f64);
+        let z_tol = z_span / n_axial * scalar::constant::<T>(AXIAL_TOL_FACTOR);
         (z_min, z_max, z_tol)
     }
 
@@ -228,11 +230,11 @@ impl<'a, T: Scalar> AxialBoundaryClassifier<'a, T> {
                 None => {
                     // Unlabeled face: classify by z-proximity to endpoints.
                     let z_center = self.face_z_center(face);
-                    if Float::abs(z_center - z_min) <= z_tol {
+                    if <T as NumericElement>::abs(z_center - z_min) <= z_tol {
                         for &v_idx in &face.vertices {
                             sets.inlet_nodes.insert(v_idx.as_usize());
                         }
-                    } else if Float::abs(z_center - z_max) <= z_tol {
+                    } else if <T as NumericElement>::abs(z_center - z_max) <= z_tol {
                         let per_label = sets
                             .outlet_nodes_by_label
                             .entry("outlet".to_string())
@@ -280,16 +282,16 @@ impl<'a, T: Scalar> AxialBoundaryClassifier<'a, T> {
     // ── Per-face z-centroid helper ────────────────────────────────────────────
 
     fn face_z_center(&self, face: &cfd_mesh::infrastructure::storage::face_store::FaceData) -> T {
-        let mut z_sum = T::zero();
+        let mut z_sum = scalar::zero::<T>();
         let mut count = 0usize;
         for &v_idx in &face.vertices {
             z_sum += self.mesh.vertices.get(v_idx).position.z;
             count += 1;
         }
         if count > 0 {
-            z_sum / <T as Scalar>::from_f64(count as f64)
+            z_sum / scalar::constant::<T>(count as f64)
         } else {
-            T::zero()
+            scalar::zero::<T>()
         }
     }
 }

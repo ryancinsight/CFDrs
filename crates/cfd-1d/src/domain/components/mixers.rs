@@ -50,10 +50,10 @@
 //! - `efficiency ∈ [0, 1]` (clamped on set)
 
 use super::{real_from_f64, Component};
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -98,7 +98,7 @@ impl MixerType {
 /// via the Hagen-Poiseuille base term plus Idelchik minor losses.
 /// See module documentation for the governing equations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Micromixer<T: RealField + Copy> {
+pub struct Micromixer<T: Cfd1dScalar + Copy> {
     /// Mixer geometry type
     pub mixer_type: MixerType,
     /// Hydraulic diameter of the mixer channel \[m] (must be > 0)
@@ -113,7 +113,7 @@ pub struct Micromixer<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Micromixer<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Micromixer<T> {
     /// Create a new micromixer with validated geometry.
     ///
     /// # Errors
@@ -154,9 +154,9 @@ impl<T: RealField + Copy + FromPrimitive> Micromixer<T> {
     /// ```
     #[must_use]
     pub fn effective_k_loss(&self) -> T {
-        let k_base = T::from_f64(self.mixer_type.base_k_loss()).unwrap_or_else(T::zero);
+        let k_base = T::from_f64_or_zero(self.mixer_type.base_k_loss());
         if self.mixer_type.is_multi_bend() {
-            let n = T::from_usize(self.n_bends).unwrap_or_else(T::one);
+            let n = T::from_usize_or_one(self.n_bends);
             k_base * n
         } else {
             k_base
@@ -172,7 +172,7 @@ impl<T: RealField + Copy + FromPrimitive> Micromixer<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Component<T> for Micromixer<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Component<T> for Micromixer<T> {
     /// Compute the hydraulic resistance of the micromixer.
     ///
     /// ## Theorem: Micromixer Resistance

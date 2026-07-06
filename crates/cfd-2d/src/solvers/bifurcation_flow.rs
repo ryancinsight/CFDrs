@@ -44,9 +44,10 @@
 //! at the junction control volume.
 
 use super::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result as CfdResult;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -55,7 +56,7 @@ use serde::{Deserialize, Serialize};
 
 /// Bifurcation geometry configuration for 2D branching channels
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BifurcationGeometry<T: RealField + Copy> {
+pub struct BifurcationGeometry<T: Cfd2dScalar + Copy> {
     /// Parent channel width \[m]
     pub parent_width: T,
     /// Parent channel length \[m]
@@ -74,7 +75,7 @@ pub struct BifurcationGeometry<T: RealField + Copy> {
     pub daughter2_angle: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> BifurcationGeometry<T> {
     /// Create a new symmetric bifurcation
     pub fn new_symmetric(
         parent_width: T,
@@ -98,8 +99,8 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
     /// Check if a point (x, y) is within the fluid domain
     pub fn contains(&self, x: T, y: T) -> bool {
         // Parent branch: Horizontal from x=0 to parent_length, centered at y=0
-        let half_pw = self.parent_width / T::from_f64(2.0).expect("analytical constant conversion");
-        if x >= T::zero() && x <= self.parent_length && y >= -half_pw && y <= half_pw {
+        let half_pw = self.parent_width / scalar::from_f64::<T>(2.0);
+        if x >= scalar::zero::<T>() && x <= self.parent_length && y >= -half_pw && y <= half_pw {
             return true;
         }
 
@@ -108,7 +109,7 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
             x,
             y,
             self.parent_length,
-            T::zero(),
+            scalar::zero::<T>(),
             self.daughter1_angle,
             self.daughter1_length,
             self.daughter1_width,
@@ -121,7 +122,7 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
             x,
             y,
             self.parent_length,
-            T::zero(),
+            scalar::zero::<T>(),
             self.daughter2_angle,
             self.daughter2_length,
             self.daughter2_width,
@@ -145,32 +146,34 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
         let dx = x - start_x;
         let dy = y - start_y;
 
-        let cos_a = angle.cos();
-        let sin_a = angle.sin();
+        let cos_a = <T as FloatElement>::cos(angle);
+        let sin_a = <T as FloatElement>::sin(angle);
 
         // Local coordinates (aligned with branch)
         let lx = dx * cos_a + dy * sin_a;
         let ly = -dx * sin_a + dy * cos_a;
 
-        let half_w = width / T::from_f64(2.0).expect("analytical constant conversion");
+        let half_w = width / scalar::from_f64::<T>(2.0);
 
-        lx >= T::zero() && lx <= length && ly >= -half_w && ly <= half_w
+        lx >= scalar::zero::<T>() && lx <= length && ly >= -half_w && ly <= half_w
     }
 
     /// Get bounding box [min_x, max_x, min_y, max_y]
     pub fn bounding_box(&self) -> [T; 4] {
-        let d1_end_x = self.parent_length + self.daughter1_length * self.daughter1_angle.cos();
-        let d1_end_y = self.daughter1_length * self.daughter1_angle.sin();
-        let d2_end_x = self.parent_length + self.daughter2_length * self.daughter2_angle.cos();
-        let d2_end_y = self.daughter2_length * self.daughter2_angle.sin();
+        let d1_angle_cos = <T as FloatElement>::cos(self.daughter1_angle);
+        let d1_angle_sin = <T as FloatElement>::sin(self.daughter1_angle);
+        let d2_angle_cos = <T as FloatElement>::cos(self.daughter2_angle);
+        let d2_angle_sin = <T as FloatElement>::sin(self.daughter2_angle);
+        let d1_end_x = self.parent_length + self.daughter1_length * d1_angle_cos;
+        let d1_end_y = self.daughter1_length * d1_angle_sin;
+        let d2_end_x = self.parent_length + self.daughter2_length * d2_angle_cos;
+        let d2_end_y = self.daughter2_length * d2_angle_sin;
 
-        let half_pw = self.parent_width / T::from_f64(2.0).expect("analytical constant conversion");
-        let half_d1w =
-            self.daughter1_width / T::from_f64(2.0).expect("analytical constant conversion");
-        let half_d2w =
-            self.daughter2_width / T::from_f64(2.0).expect("analytical constant conversion");
+        let half_pw = self.parent_width / scalar::from_f64::<T>(2.0);
+        let half_d1w = self.daughter1_width / scalar::from_f64::<T>(2.0);
+        let half_d2w = self.daughter2_width / scalar::from_f64::<T>(2.0);
 
-        let mut min_x = T::zero();
+        let mut min_x = scalar::zero::<T>();
         let mut max_x = self.parent_length;
         let mut min_y = -half_pw;
         let mut max_y = half_pw;
@@ -179,9 +182,9 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
             (d2_end_x, d2_end_y, half_d2w, self.daughter2_angle),
         ] {
             let start_x = self.parent_length;
-            let start_y = T::zero();
-            let normal_x = -angle.sin();
-            let normal_y = angle.cos();
+            let start_y = scalar::zero::<T>();
+            let normal_x = -<T as FloatElement>::sin(angle);
+            let normal_y = <T as FloatElement>::cos(angle);
             let corners = [
                 (start_x + half_w * normal_x, start_y + half_w * normal_y),
                 (start_x - half_w * normal_x, start_y - half_w * normal_y),
@@ -206,14 +209,14 @@ impl<T: RealField + Copy + FromPrimitive> BifurcationGeometry<T> {
 // ============================================================================
 
 /// Solver for branching flow junctions
-pub struct BifurcationSolver2D<T: RealField + Copy + Float + FromPrimitive> {
+pub struct BifurcationSolver2D<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> {
     /// Bifurcation channel geometry.
     pub geometry: BifurcationGeometry<T>,
     /// Underlying Navier-Stokes solver.
     pub ns_solver: NavierStokesSolver2D<T>,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolver2D<T> {
+impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> BifurcationSolver2D<T> {
     /// Create a new bifurcation solver
     pub fn new(
         geometry: BifurcationGeometry<T>,
@@ -258,8 +261,8 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
         let dy = self.ns_solver.grid.dy;
         let bbox = self.geometry.bounding_box();
 
-        let mut q_d1 = T::zero();
-        let mut q_d2 = T::zero();
+        let mut q_d1 = scalar::zero::<T>();
+        let mut q_d2 = scalar::zero::<T>();
 
         for j in 0..ny {
             if self.ns_solver.field.mask[(nx - 1, j)] {
@@ -271,7 +274,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
                     x,
                     y,
                     self.geometry.parent_length,
-                    T::zero(),
+                    scalar::zero::<T>(),
                     self.geometry.daughter1_angle,
                     self.geometry.daughter1_length,
                     self.geometry.daughter1_width,
@@ -281,7 +284,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
                     x,
                     y,
                     self.geometry.parent_length,
-                    T::zero(),
+                    scalar::zero::<T>(),
                     self.geometry.daughter2_angle,
                     self.geometry.daughter2_length,
                     self.geometry.daughter2_width,
@@ -293,7 +296,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
             }
         }
 
-        let mut q_in_actual = T::zero();
+        let mut q_in_actual = scalar::zero::<T>();
         for j in 0..ny {
             if self.ns_solver.field.mask[(0, j)] {
                 q_in_actual += self.ns_solver.field.u[(0, j)] * dy;
@@ -305,14 +308,14 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> BifurcationSolve
             q_parent,
             q_daughter1: q_d1,
             q_daughter2: q_d2,
-            mass_balance_error: Float::abs(q_parent - (q_d1 + q_d2)) / q_parent,
+            mass_balance_error: <T as NumericElement>::abs(q_parent - (q_d1 + q_d2)) / q_parent,
         })
     }
 }
 
 /// Results from a bifurcation flow simulation
 #[derive(Debug, Serialize, Deserialize)]
-pub struct BifurcationSolution<T: RealField + Copy> {
+pub struct BifurcationSolution<T: Cfd2dScalar + Copy> {
     /// Volume flow rate through the parent (inlet) channel.
     pub q_parent: T,
     /// Volume flow rate through daughter branch 1.
@@ -344,11 +347,13 @@ mod tests {
         let nx = 50;
         let ny = 30;
 
-        let mut config = SIMPLEConfig::default();
-        config.max_iterations = 5000;
-        config.tolerance = 1e-5;
-        config.alpha_u = 0.5;
-        config.alpha_p = 0.2;
+        let config = SIMPLEConfig {
+            max_iterations: 5000,
+            tolerance: 1e-5,
+            alpha_u: 0.5,
+            alpha_p: 0.2,
+            ..Default::default()
+        };
 
         let mut solver = BifurcationSolver2D::new(geom, blood, density, nx, ny, config);
         let result = solver.solve(0.1);
@@ -364,7 +369,8 @@ mod tests {
         assert!(sol.mass_balance_error < 0.05);
 
         // Symmetric case: daughters should have roughly equal flow
-        let flow_diff = Float::abs(sol.q_daughter1 - sol.q_daughter2) / sol.q_parent;
+        let flow_diff =
+            <f64 as NumericElement>::abs(sol.q_daughter1 - sol.q_daughter2) / sol.q_parent;
         assert!(flow_diff < 0.05);
     }
 
@@ -388,16 +394,18 @@ mod tests {
             daughter2_angle: -0.5,
         };
 
-        let mut config = SIMPLEConfig::default();
         // Match Newtonian test parameters: 5000 iterations at 1e-5.
         // With under-relaxed viscosity (alpha_mu = 0.5), Casson SIMPLE converges
         // at roughly the same rate as Newtonian for this low-Re (~24) geometry.
-        config.max_iterations = 5000;
-        config.tolerance = 1e-5;
-        config.alpha_u = 0.5;
-        config.alpha_p = 0.2;
         // Under-relax viscosity updates to suppress non-Newtonian oscillations.
-        config.alpha_mu = 0.5;
+        let config = SIMPLEConfig {
+            max_iterations: 5000,
+            tolerance: 1e-5,
+            alpha_u: 0.5,
+            alpha_p: 0.2,
+            alpha_mu: 0.5,
+            ..Default::default()
+        };
 
         let mut solver = BifurcationSolver2D::new(geom, blood, density, 50, 30, config);
         let u_inlet = 0.1;

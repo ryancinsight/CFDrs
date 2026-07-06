@@ -1,8 +1,9 @@
 //! Circular domain geometry implementation
 
 use super::{BoundaryCondition, BoundaryFace, Geometry2D, Point2D};
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::{ComplexField, RealField};
+use crate::scalar;
+use eunomia::FloatElement;
+use eunomia::RealField;
 
 /// Circular domain geometry (disk)
 #[derive(Debug, Clone)]
@@ -15,7 +16,7 @@ pub struct CircularDomain<T: RealField> {
     radius: T,
 }
 
-impl<T: RealField + Copy> CircularDomain<T> {
+impl<T: RealField + Copy + FloatElement> CircularDomain<T> {
     /// Create a new circular domain
     pub fn new(center_x: T, center_y: T, radius: T) -> Self {
         Self {
@@ -30,25 +31,25 @@ impl<T: RealField + Copy> CircularDomain<T> {
     where
         T: From<f64>,
     {
-        Self::new(T::zero(), T::zero(), T::one())
+        Self::new(scalar::zero(), scalar::zero(), scalar::one())
     }
 
     /// Get the distance from center to a point
     fn distance_from_center(&self, point: &Point2D<T>) -> T {
         let dx = point.x - self.center_x;
         let dy = point.y - self.center_y;
-        ComplexField::sqrt(dx * dx + dy * dy)
+        scalar::sqrt(dx * dx + dy * dy)
     }
 
     /// Get the angle (in radians) from center to a point
     fn angle_from_center(&self, point: &Point2D<T>) -> T {
         let dx = point.x - self.center_x;
         let dy = point.y - self.center_y;
-        RealField::atan2(dy, dx)
+        scalar::atan2(dy, dx)
     }
 }
 
-impl<T: RealField + Copy> Geometry2D<T> for CircularDomain<T> {
+impl<T: RealField + Copy + FloatElement> Geometry2D<T> for CircularDomain<T> {
     fn clone_box(&self) -> Box<dyn Geometry2D<T>> {
         Box::new(self.clone())
     }
@@ -70,19 +71,19 @@ impl<T: RealField + Copy> Geometry2D<T> for CircularDomain<T> {
 
     fn boundary_normal(&self, point: &Point2D<T>) -> Option<Point2D<T>> {
         let distance = self.distance_from_center(point);
-        let tol = T::from_f64_or_zero(1e-10);
+        let tol = scalar::from_f64::<T>(1e-10);
 
-        if (distance - self.radius).abs() < tol {
+        if scalar::abs(distance - self.radius) < tol {
             // Point is on the boundary, compute outward normal
             let dx = point.x - self.center_x;
             let dy = point.y - self.center_y;
-            let norm = ComplexField::sqrt(dx * dx + dy * dy);
+            let norm = scalar::sqrt(dx * dx + dy * dy);
 
-            if norm > T::zero() {
-                Some(Point2D::new(dx / norm, dy / norm,))
+            if norm > scalar::zero() {
+                Some(Point2D::new(dx / norm, dy / norm))
             } else {
                 // Point is at the center, return arbitrary normal (e.g., along x-axis)
-                Some(Point2D::new(T::one(), T::zero(),))
+                Some(Point2D::new(scalar::one(), scalar::zero()))
             }
         } else {
             None
@@ -98,16 +99,16 @@ impl<T: RealField + Copy> Geometry2D<T> for CircularDomain<T> {
             BoundaryFace::Outer => {
                 // Default to Dirichlet with zero value
                 // Specific MMS implementations can override this
-                BoundaryCondition::Dirichlet(T::zero())
+                BoundaryCondition::Dirichlet(scalar::zero())
             }
-            _ => BoundaryCondition::Dirichlet(T::zero()),
+            _ => BoundaryCondition::Dirichlet(scalar::zero()),
         }
     }
 
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
         (
-            Point2D::new(self.center_x - self.radius, self.center_y - self.radius,),
-            Point2D::new(self.center_x + self.radius, self.center_y + self.radius,),
+            Point2D::new(self.center_x - self.radius, self.center_y - self.radius),
+            Point2D::new(self.center_x + self.radius, self.center_y + self.radius),
         )
     }
 
@@ -115,15 +116,14 @@ impl<T: RealField + Copy> Geometry2D<T> for CircularDomain<T> {
         match face {
             BoundaryFace::Outer => {
                 let distance = self.distance_from_center(point);
-                let tol = T::from_f64_or_zero(1e-10);
+                let tol = scalar::from_f64::<T>(1e-10);
 
-                if (distance - self.radius).abs() < tol {
+                if scalar::abs(distance - self.radius) < tol {
                     // Point is on boundary, return angular parameter [0, 2π)
                     let angle = self.angle_from_center(point);
                     // Normalize to [0, 2π)
-                    let two_pi = <T as SafeFromF64>::try_from_f64(2.0 * std::f64::consts::PI)
-                        .unwrap_or(T::from_f64_or_one(6.28318));
-                    Some(if angle >= T::zero() {
+                    let two_pi = scalar::from_f64::<T>(2.0 * std::f64::consts::PI);
+                    Some(if angle >= scalar::zero() {
                         angle
                     } else {
                         angle + two_pi
@@ -140,7 +140,7 @@ impl<T: RealField + Copy> Geometry2D<T> for CircularDomain<T> {
         match face {
             BoundaryFace::Outer => {
                 let distance = self.distance_from_center(point);
-                (distance - self.radius).abs() < tolerance
+                scalar::abs(distance - self.radius) < tolerance
             }
             _ => false,
         }
@@ -148,8 +148,7 @@ impl<T: RealField + Copy> Geometry2D<T> for CircularDomain<T> {
 
     fn measure(&self) -> T {
         // Area of circle: πr²
-        let pi = <T as SafeFromF64>::try_from_f64(std::f64::consts::PI)
-            .unwrap_or(T::from_f64_or_one(3.14159));
+        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
         pi * self.radius * self.radius
     }
 }

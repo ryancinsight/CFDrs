@@ -4,8 +4,8 @@
 
 use super::super::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use crate::error::Error;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Carreau-Yasuda fluid model
@@ -36,7 +36,7 @@ pub struct CarreauYasuda<T: RealField + Copy> {
     pub speed_of_sound: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> CarreauYasuda<T> {
+impl<T: RealField + FloatElement + Copy> CarreauYasuda<T> {
     /// Create a new Carreau-Yasuda fluid
     pub fn new(
         name: String,
@@ -66,32 +66,33 @@ impl<T: RealField + FromPrimitive + Copy> CarreauYasuda<T> {
 
     /// Calculate apparent viscosity at given shear rate
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
-        let one = T::one();
-        let term1 = (self.lambda * shear_rate).powf(self.yasuda_index);
+        let one = <T as NumericElement>::ONE;
+        let term1 = <T as FloatElement>::powf(self.lambda * shear_rate, self.yasuda_index);
         let base = one + term1;
         let exponent = (self.power_index - one) / self.yasuda_index;
 
-        self.viscosity_inf + (self.viscosity_zero - self.viscosity_inf) * base.powf(exponent)
+        self.viscosity_inf
+            + (self.viscosity_zero - self.viscosity_inf) * <T as FloatElement>::powf(base, exponent)
     }
 
     /// Standard blood parameters (approximate)
     pub fn blood() -> Self {
         Self::new(
             "Blood".to_string(),
-            T::from_f64(1060.0).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.056).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.0035).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(3.313).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.3568).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(3600.0).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(1540.0).unwrap_or_else(num_traits::Zero::zero),
+            <T as FloatElement>::from_f64(1060.0),
+            <T as FloatElement>::from_f64(0.056),
+            <T as FloatElement>::from_f64(0.0035),
+            <T as FloatElement>::from_f64(3.313),
+            <T as FloatElement>::from_f64(0.3568),
+            <T as FloatElement>::from_f64(2.0),
+            <T as FloatElement>::from_f64(3600.0),
+            <T as FloatElement>::from_f64(0.5),
+            <T as FloatElement>::from_f64(1540.0),
         )
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CarreauYasuda<T> {
+impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CarreauYasuda<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         Ok(FluidState {
             density: self.density,
@@ -111,7 +112,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CarreauYasuda<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for CarreauYasuda<T> {
+impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for CarreauYasuda<T> {
     fn apparent_viscosity(&self, shear_rate: T) -> T {
         CarreauYasuda::apparent_viscosity(self, shear_rate)
     }

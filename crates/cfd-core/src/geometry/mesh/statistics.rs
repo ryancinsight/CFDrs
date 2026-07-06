@@ -4,7 +4,7 @@
 //! the mesh, such as element counts and material distributions.
 
 use super::{ElementType, Mesh};
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

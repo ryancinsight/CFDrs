@@ -2,7 +2,7 @@
 
 use super::report::ConservationReport;
 use cfd_core::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 
 /// Trait for conservation checking
 pub trait ConservationChecker<T: RealField + Copy> {

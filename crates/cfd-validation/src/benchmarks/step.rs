@@ -3,9 +3,10 @@
 //! Reference: Gartling (1990) "A test problem for outflow boundary conditions"
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
+use crate::scalar;
 use cfd_core::error::Result;
+use eunomia::FloatElement;
 use nalgebra::{DMatrix, RealField};
-use num_traits::FromPrimitive;
 
 /// Backward facing step benchmark
 pub struct BackwardFacingStep<T: RealField + Copy> {
@@ -19,7 +20,7 @@ pub struct BackwardFacingStep<T: RealField + Copy> {
     pub inlet_velocity: T,
 }
 
-impl<T: RealField + Copy> BackwardFacingStep<T> {
+impl<T: RealField + Copy + FloatElement> BackwardFacingStep<T> {
     /// Create a new backward facing step benchmark
     pub fn new(step_height: T, channel_height: T, channel_length: T, inlet_velocity: T) -> Self {
         Self {
@@ -34,12 +35,11 @@ impl<T: RealField + Copy> BackwardFacingStep<T> {
     fn calculate_reattachment_length(&self, _u_field: &DMatrix<T>) -> T {
         // Find where flow reattaches to bottom wall
         // Simplified - look for sign change in u-velocity at wall
-        T::from_f64(6.0).unwrap_or_else(|| T::from_i32(6).unwrap_or_else(num_traits::Zero::zero))
-            * self.step_height
+        scalar::from_f64::<T>(6.0) * self.step_height
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacingStep<T> {
+impl<T: RealField + Copy + FloatElement> Benchmark<T> for BackwardFacingStep<T> {
     fn name(&self) -> &'static str {
         "Backward Facing Step"
     }
@@ -61,29 +61,27 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         // Set parabolic inlet profile
         let _h_inlet = self.channel_height - self.step_height; // Height parameter for inlet calculations
         for j in 0..ny / 2 {
-            let y = T::from_usize(j).unwrap_or_else(|| T::zero())
-                / T::from_usize(ny / 2).unwrap_or_else(|| T::one());
+            let y = scalar::from_usize::<T>(j) / scalar::from_usize::<T>(ny / 2);
             u[(j + ny / 2, 0)] = self.inlet_velocity
-                * (T::one()
-                    - (y - T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero))
-                        * (y - T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero)));
+                * (scalar::from_f64::<T>(1.0)
+                    - (y - scalar::from_f64::<T>(0.5)) * (y - scalar::from_f64::<T>(0.5)));
         }
 
         // Grid spacing and time step
-        let dx = self.channel_length / T::from_usize(nx).unwrap_or_else(T::one);
-        let dy = self.channel_height / T::from_usize(ny).unwrap_or_else(T::one);
+        let dx = self.channel_length / scalar::from_usize::<T>(nx);
+        let dy = self.channel_height / scalar::from_usize::<T>(ny);
         // Calculate Reynolds number based on step height and inlet velocity
-        let reynolds =
-            self.inlet_velocity * self.step_height / T::from_f64(0.01).unwrap_or_else(T::one); // Assuming nu = 0.01
+        let reynolds = self.inlet_velocity * self.step_height / scalar::from_f64::<T>(0.01); // Assuming nu = 0.01
         let nu = self.inlet_velocity * self.step_height / reynolds; // Kinematic viscosity
-        let dt = T::from_f64(0.01).unwrap_or_else(T::one) * dx.min(dy) * dx.min(dy) / nu; // CFL condition
+        let min_spacing = scalar::min(dx, dy);
+        let dt = scalar::from_f64::<T>(0.01) * min_spacing * min_spacing / nu; // CFL condition
 
         // Iterative solver for demonstration
         let mut convergence = Vec::new();
         let mut max_residual; // Global residual tracking for convergence
 
         for _iter in 0..config.max_iterations {
-            let mut local_max_residual = T::zero();
+            let mut local_max_residual = scalar::from_f64::<T>(0.0);
 
             // Update interior points using finite difference
             // Note: DMatrix indexing is (row, col) = (j, i) where j is y-direction, i is x-direction
@@ -93,39 +91,33 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
 
                     // Gauss-Seidel update for momentum equation with proper physics
                     // Solves the steady incompressible Navier-Stokes momentum equation
-                    let viscous_term = (u[(j, i + 1)]
-                        - T::from_f64(2.0).unwrap_or_else(T::one) * u[(j, i)]
+                    let viscous_term = (u[(j, i + 1)] - scalar::from_f64::<T>(2.0) * u[(j, i)]
                         + u[(j, i - 1)])
                         / (dx * dx)
-                        + (u[(j + 1, i)] - T::from_f64(2.0).unwrap_or_else(T::one) * u[(j, i)]
-                            + u[(j - 1, i)])
+                        + (u[(j + 1, i)] - scalar::from_f64::<T>(2.0) * u[(j, i)] + u[(j - 1, i)])
                             / (dy * dy);
 
-                    let convective_u = (u[(j, i + 1)] - u[(j, i - 1)])
-                        / (T::from_f64(2.0).unwrap_or_else(T::one) * dx);
-                    let convective_v = (u[(j + 1, i)] - u[(j - 1, i)])
-                        / (T::from_f64(2.0).unwrap_or_else(T::one) * dy);
+                    let convective_u =
+                        (u[(j, i + 1)] - u[(j, i - 1)]) / (scalar::from_f64::<T>(2.0) * dx);
+                    let convective_v =
+                        (u[(j + 1, i)] - u[(j - 1, i)]) / (scalar::from_f64::<T>(2.0) * dy);
 
                     let u_update = u_old
                         + dt * (nu * viscous_term
                             - u_old * convective_u
                             - v[(j, i)] * convective_v);
-                    u[(j, i)] =
-                        u_old + T::from_f64(0.7).unwrap_or_else(T::one) * (u_update - u_old);
+                    u[(j, i)] = u_old + scalar::from_f64::<T>(0.7) * (u_update - u_old);
 
                     // Update v-velocity similarly
-                    let viscous_term_v = (v[(j, i + 1)]
-                        - T::from_f64(2.0).unwrap_or_else(T::one) * v[(j, i)]
+                    let viscous_term_v = (v[(j, i + 1)] - scalar::from_f64::<T>(2.0) * v[(j, i)]
                         + v[(j, i - 1)])
                         / (dx * dx)
-                        + (v[(j + 1, i)] - T::from_f64(2.0).unwrap_or_else(T::one) * v[(j, i)]
-                            + v[(j - 1, i)])
+                        + (v[(j + 1, i)] - scalar::from_f64::<T>(2.0) * v[(j, i)] + v[(j - 1, i)])
                             / (dy * dy);
                     let v_update = v[(j, i)] + dt * nu * viscous_term_v;
-                    v[(j, i)] = v[(j, i)]
-                        + T::from_f64(0.7).unwrap_or_else(T::one) * (v_update - v[(j, i)]);
+                    v[(j, i)] = v[(j, i)] + scalar::from_f64::<T>(0.7) * (v_update - v[(j, i)]);
 
-                    let residual = (u_update - u_old).abs();
+                    let residual = scalar::abs(u_update - u_old);
                     if residual > local_max_residual {
                         local_max_residual = residual;
                     }
@@ -172,9 +164,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         // At Re=800: x_r/h ≈ 6.31 * h
 
         // Default reference for moderate Reynolds number (Re~200-400)
-        let reference_reattachment = T::from_f64(6.0)
-            .unwrap_or_else(|| T::from_i32(6).unwrap_or_else(num_traits::Zero::zero))
-            * self.step_height;
+        let reference_reattachment = scalar::from_f64::<T>(6.0) * self.step_height;
 
         Some(BenchmarkResult {
             name: "Backward Facing Step (Reference)".to_string(),
@@ -204,27 +194,20 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
             // 2. Grid resolution effects (coarse grids over-predict)
             // 3. Reference data variability across different studies
             // This is consistent with literature comparisons (Gartling 1990, Armaly et al. 1983)
-            let tolerance = T::from_f64(0.30)
-                .unwrap_or_else(|| T::from_f64(0.3).unwrap_or_else(num_traits::Zero::zero));
-            let relative_error =
-                ((computed_reattachment - reference_reattachment).abs()) / reference_reattachment;
+            let tolerance = scalar::from_f64::<T>(0.30);
+            let relative_error = scalar::abs(computed_reattachment - reference_reattachment)
+                / reference_reattachment;
 
             // Validation passes if within 30% of reference
             let within_tolerance = relative_error <= tolerance;
 
             // Additional sanity checks
-            let physically_reasonable = computed_reattachment > T::zero()
-                && computed_reattachment
-                    < T::from_f64(20.0)
-                        .unwrap_or_else(|| T::from_i32(20).unwrap_or_else(num_traits::Zero::zero))
-                        * self.step_height;
+            let physically_reasonable = computed_reattachment > scalar::from_f64::<T>(0.0)
+                && computed_reattachment < scalar::from_f64::<T>(20.0) * self.step_height;
 
             // Check convergence occurred
             let converged = if let Some(last_residual) = result.convergence.last() {
-                last_residual.abs()
-                    < T::from_f64(1e-4).unwrap_or_else(|| {
-                        T::from_f64(0.0001).unwrap_or_else(num_traits::Zero::zero)
-                    })
+                scalar::abs(*last_residual) < scalar::from_f64::<T>(1e-4)
             } else {
                 false
             };
@@ -233,11 +216,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for BackwardFacing
         }
 
         // Fallback: basic sanity checks without reference
-        let physically_reasonable = computed_reattachment > T::zero()
-            && computed_reattachment
-                < T::from_f64(20.0)
-                    .unwrap_or_else(|| T::from_i32(20).unwrap_or_else(num_traits::Zero::zero))
-                    * self.step_height;
+        let physically_reasonable = computed_reattachment > scalar::from_f64::<T>(0.0)
+            && computed_reattachment < scalar::from_f64::<T>(20.0) * self.step_height;
 
         Ok(physically_reasonable)
     }

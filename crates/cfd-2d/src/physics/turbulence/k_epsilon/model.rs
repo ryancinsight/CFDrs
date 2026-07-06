@@ -13,8 +13,8 @@ use cfd_core::{
     error::Result,
     physics::constants::mathematical::numeric::{ONE_HALF, TWO},
 };
-use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use eunomia::{NumericElement, RealField};
+use leto::geometry::Vector2;
 
 /// k-ε turbulence model.
 ///
@@ -33,7 +33,7 @@ use num_traits::FromPrimitive;
 ///
 /// Shih, T.-H., Zhu, J., & Lumley, J. L. (1995). A New Reynolds Stress Algebraic
 /// Equation Model. *Computers & Fluids*, 24(3), 227–238.
-pub struct KEpsilonModel<T: RealField + Copy + num_traits::ToPrimitive> {
+pub struct KEpsilonModel<T: RealField> {
     /// Grid X dimension.
     pub(crate) nx: usize,
     /// Grid Y dimension.
@@ -60,22 +60,22 @@ pub struct KEpsilonModel<T: RealField + Copy + num_traits::ToPrimitive> {
     pub(crate) eps_scratch: Vec<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonModel<T> {
+impl<T: RealField> KEpsilonModel<T> {
     /// Create a new standard k-ε model (C_mu = 0.09 fixed).
     pub fn new(nx: usize, ny: usize) -> Self {
         let n = nx * ny;
         Self {
             nx,
             ny,
-            c_mu: T::from_f64(C_MU).expect("analytical constant conversion"),
-            c1_epsilon: T::from_f64(C1_EPSILON).expect("analytical constant conversion"),
-            c2_epsilon: T::from_f64(C2_EPSILON).expect("analytical constant conversion"),
-            sigma_k: T::from_f64(SIGMA_K).expect("analytical constant conversion"),
-            sigma_epsilon: T::from_f64(SIGMA_EPSILON).expect("analytical constant conversion"),
+            c_mu: T::from_f64(C_MU),
+            c1_epsilon: T::from_f64(C1_EPSILON),
+            c2_epsilon: T::from_f64(C2_EPSILON),
+            sigma_k: T::from_f64(SIGMA_K),
+            sigma_epsilon: T::from_f64(SIGMA_EPSILON),
             use_realizable: false,
             use_kato_launder: false,
-            k_scratch: vec![T::zero(); n],
-            eps_scratch: vec![T::zero(); n],
+            k_scratch: vec![T::ZERO; n],
+            eps_scratch: vec![T::ZERO; n],
         }
     }
 
@@ -118,25 +118,25 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
     /// Frobenius norm |S| = √(2 S_ij S_ij) is always non-negative and
     /// vanishes if and only if the flow is in rigid-body rotation.
     pub(crate) fn strain_rate(&self, velocity_gradient: &[[T; 2]; 2]) -> T {
-        let mut s_ij = [[T::zero(); 2]; 2];
+        let mut s_ij = [[T::ZERO; 2]; 2];
 
         // S_ij = 0.5 * (du_i/dx_j + du_j/dx_i)
         for i in 0..2 {
             for j in 0..2 {
-                s_ij[i][j] = (velocity_gradient[i][j] + velocity_gradient[j][i])
-                    * T::from_f64(ONE_HALF).expect("analytical constant conversion");
+                s_ij[i][j] =
+                    (velocity_gradient[i][j] + velocity_gradient[j][i]) * T::from_f64(ONE_HALF);
             }
         }
 
         // Calculate magnitude: sqrt(2 * S_ij * S_ij)
-        let mut s_squared = T::zero();
+        let mut s_squared = T::ZERO;
         for i in 0..2 {
             for j in 0..2 {
                 s_squared += s_ij[i][j] * s_ij[i][j];
             }
         }
 
-        (T::from_f64(TWO).expect("analytical constant conversion") * s_squared).sqrt()
+        <T as NumericElement>::sqrt(T::from_f64(TWO) * s_squared)
     }
 
     /// Apply boundary conditions using the boundary condition system.
@@ -146,7 +146,7 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
         };
         use crate::physics::turbulence::wall_functions::{WallFunction, WallTreatment};
 
-        let manager = TurbulenceBoundaryManager::new(self.nx, self.ny, T::one(), T::one());
+        let manager = TurbulenceBoundaryManager::new(self.nx, self.ny, T::ONE, T::ONE);
 
         let boundaries = vec![
             (
@@ -179,12 +179,10 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> KEpsilonMode
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceModel<T>
-    for KEpsilonModel<T>
-{
+impl<T: RealField> TurbulenceModel<T> for KEpsilonModel<T> {
     fn turbulent_viscosity(&self, k: T, epsilon: T, density: T) -> T {
-        let eps_min = T::from_f64(EPSILON_MIN).expect("analytical constant conversion");
-        density * self.c_mu * k * k / epsilon.max(eps_min)
+        let eps_min = T::from_f64(EPSILON_MIN);
+        density * self.c_mu * k * k / epsilon.max_scalar(eps_min)
     }
 
     fn production_term(
@@ -223,11 +221,11 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
         self.k_scratch.copy_from_slice(k);
         self.eps_scratch.copy_from_slice(epsilon);
 
-        // Hoist T::from_f64 conversions out of the inner loop
-        let two = T::from_f64(TWO).expect("analytical constant conversion");
-        let two_f = T::from_f64(2.0).expect("analytical constant conversion");
-        let k_min = T::from_f64(K_MIN).expect("analytical constant conversion");
-        let eps_min = T::from_f64(EPSILON_MIN).expect("analytical constant conversion");
+        // Hoist scalar conversions out of the inner loop.
+        let two = T::from_f64(TWO);
+        let two_f = T::from_f64(2.0);
+        let k_min = T::from_f64(K_MIN);
+        let eps_min = T::from_f64(EPSILON_MIN);
 
         let two_dx = two * dx;
         let two_dy = two * dy;
@@ -243,17 +241,17 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 let eps_prev = self.eps_scratch[idx];
 
                 // Calculate velocity gradients
-                let du_dx = (velocity[idx + 1].x - velocity[idx - 1].x) / two_dx;
-                let du_dy = (velocity[idx + nx].x - velocity[idx - nx].x) / two_dy;
-                let dv_dx = (velocity[idx + 1].y - velocity[idx - 1].y) / two_dx;
-                let dv_dy = (velocity[idx + nx].y - velocity[idx - nx].y) / two_dy;
+                let du_dx = (velocity[idx + 1][0] - velocity[idx - 1][0]) / two_dx;
+                let du_dy = (velocity[idx + nx][0] - velocity[idx - nx][0]) / two_dy;
+                let dv_dx = (velocity[idx + 1][1] - velocity[idx - 1][1]) / two_dx;
+                let dv_dy = (velocity[idx + nx][1] - velocity[idx - nx][1]) / two_dy;
 
                 let grad = [[du_dx, du_dy], [dv_dx, dv_dy]];
 
                 // Calculate turbulent viscosity
                 let nu_t = if self.use_realizable {
                     let c_mu_local = realizable::realizable_c_mu(self, &grad, k_prev, eps_prev);
-                    density * c_mu_local * k_prev * k_prev / eps_prev.max(eps_min)
+                    density * c_mu_local * k_prev * k_prev / eps_prev.max_scalar(eps_min)
                 } else {
                     self.turbulent_viscosity(k_prev, eps_prev, density)
                 };
@@ -262,19 +260,18 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                 let p_k = if self.use_kato_launder {
                     let grad_f64 = [
                         [
-                            grad[0][0].to_f64().unwrap_or(0.0),
-                            grad[0][1].to_f64().unwrap_or(0.0),
+                            <T as NumericElement>::to_f64(grad[0][0]),
+                            <T as NumericElement>::to_f64(grad[0][1]),
                         ],
                         [
-                            grad[1][0].to_f64().unwrap_or(0.0),
-                            grad[1][1].to_f64().unwrap_or(0.0),
+                            <T as NumericElement>::to_f64(grad[1][0]),
+                            <T as NumericElement>::to_f64(grad[1][1]),
                         ],
                     ];
-                    let nu_t_f64 = nu_t.to_f64().unwrap_or(0.0);
+                    let nu_t_f64 = <T as NumericElement>::to_f64(nu_t);
                     T::from_f64(kato_launder::kato_launder_production(&grad_f64, nu_t_f64))
-                        .expect("analytical constant conversion")
                 } else {
-                    self.production_term(&grad, nu_t, k_prev, T::zero(), molecular_viscosity)
+                    self.production_term(&grad, nu_t, k_prev, T::ZERO, molecular_viscosity)
                 };
 
                 // Diffusion terms
@@ -299,14 +296,14 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
 
                 // Update k with realizability constraints
                 let k_new = k_prev + dt * (p_k - eps_prev + diff_k);
-                k[idx] = k_new.max(k_min);
+                k[idx] = k_new.max_scalar(k_min);
 
                 // Update epsilon with realizability constraints
-                let k_denom = k_prev.max(eps_min);
+                let k_denom = k_prev.max_scalar(eps_min);
                 let eps_source = self.c1_epsilon * eps_prev / k_denom * p_k;
                 let eps_sink = self.c2_epsilon * eps_prev * eps_prev / k_denom;
                 let eps_new = eps_prev + dt * (eps_source - eps_sink + diff_eps);
-                epsilon[idx] = eps_new.max(eps_min);
+                epsilon[idx] = eps_new.max_scalar(eps_min);
             }
         }
 
@@ -321,6 +318,6 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
     }
 
     fn is_valid_for_reynolds(&self, reynolds: T) -> bool {
-        reynolds > T::from_f64(1e4).expect("analytical constant conversion")
+        reynolds > T::from_f64(1e4)
     }
 }

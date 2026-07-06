@@ -4,7 +4,8 @@
 //! reconciling the needs of both constant and variable property models.
 
 use crate::error::Error;
-use nalgebra::RealField;
+use eunomia::NumericElement;
+use eunomia::RealField;
 
 /// Core fluid properties structure
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -21,7 +22,7 @@ pub struct FluidState<T: RealField + Copy> {
     pub speed_of_sound: T,
 }
 
-impl<T: RealField + Copy> FluidState<T> {
+impl<T: RealField + NumericElement + Copy> FluidState<T> {
     /// Calculate kinematic viscosity [m²/s]
     #[inline]
     pub fn kinematic_viscosity(&self) -> T {
@@ -55,7 +56,7 @@ impl<T: RealField + Copy> FluidState<T> {
     /// Calculate Mach number
     #[inline]
     pub fn mach_number(&self, velocity: T) -> T {
-        let v_abs = if velocity >= T::zero() {
+        let v_abs = if velocity >= <T as NumericElement>::ZERO {
             velocity
         } else {
             -velocity

@@ -2,9 +2,9 @@
 
 use super::builder::{MatrixEntry, SparseMatrixBuilder};
 use cfd_core::error::Result;
+use eunomia::RealField;
+use leto_ops::{CsrMatrix, Scalar as LetoScalar};
 use moirai::{fold_reduce_with, Adaptive};
-use nalgebra::RealField;
-use nalgebra_sparse::CsrMatrix;
 
 /// Parallel assembly utilities
 pub struct ParallelAssembly;
@@ -17,7 +17,7 @@ impl ParallelAssembly {
         combine: F,
     ) -> Result<CsrMatrix<T>>
     where
-        T: RealField + Copy + Send + Sync,
+        T: RealField + Copy + Send + Sync + LetoScalar,
         F: Fn(&[Vec<T>]) -> Vec<T> + Sync,
     {
         // Parallel computation of element contributions: each worker chunk
@@ -55,7 +55,7 @@ impl ParallelAssembly {
         domains: Vec<(Vec<usize>, CsrMatrix<T>)>,
     ) -> Result<CsrMatrix<T>>
     where
-        T: RealField + Copy + Send + Sync,
+        T: RealField + Copy + Send + Sync + LetoScalar,
     {
         let mut builder = SparseMatrixBuilder::with_capacity(n, n, n * 10).allow_duplicates(true);
 
@@ -79,7 +79,7 @@ impl ParallelAssembly {
     /// Assemble block diagonal matrix
     pub fn block_diagonal<T>(blocks: Vec<CsrMatrix<T>>) -> Result<CsrMatrix<T>>
     where
-        T: RealField + Copy,
+        T: RealField + Copy + LetoScalar,
     {
         if blocks.is_empty() {
             return Ok(CsrMatrix::zeros(0, 0));

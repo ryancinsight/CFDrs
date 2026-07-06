@@ -9,8 +9,8 @@ mod quality;
 pub use algorithms::*;
 pub use quality::*;
 
-use crate::SparseMatrix;
-use nalgebra::RealField;
+use super::SparseMatrix;
+use eunomia::RealField;
 
 /// Result of coarsening operation
 #[derive(Debug, Clone)]
@@ -25,34 +25,45 @@ pub struct CoarseningResult<T: RealField + Copy> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::csr_from_parts;
     use super::*;
-    use nalgebra::DMatrix;
-    use nalgebra_sparse::CsrMatrix;
 
-    fn create_test_matrix() -> CsrMatrix<f64> {
+    fn create_test_matrix() -> SparseMatrix<f64> {
         let n = 4;
-        let mut matrix = DMatrix::zeros(n * n, n * n);
+        create_grid_laplacian_matrix(n)
+    }
 
+    fn create_grid_laplacian_matrix(n: usize) -> SparseMatrix<f64> {
+        let size = n * n;
+        let mut row_ptr = Vec::with_capacity(size + 1);
+        let mut col_indices = Vec::new();
+        let mut values = Vec::new();
+        row_ptr.push(0);
         for i in 0..n {
             for j in 0..n {
                 let idx = i * n + j;
-                matrix[(idx, idx)] = 4.0;
                 if i > 0 {
-                    matrix[(idx, (i - 1) * n + j)] = -1.0;
-                }
-                if i < n - 1 {
-                    matrix[(idx, (i + 1) * n + j)] = -1.0;
+                    col_indices.push((i - 1) * n + j);
+                    values.push(-1.0);
                 }
                 if j > 0 {
-                    matrix[(idx, i * n + (j - 1))] = -1.0;
+                    col_indices.push(i * n + (j - 1));
+                    values.push(-1.0);
                 }
+                col_indices.push(idx);
+                values.push(4.0);
                 if j < n - 1 {
-                    matrix[(idx, i * n + (j + 1))] = -1.0;
+                    col_indices.push(i * n + (j + 1));
+                    values.push(-1.0);
                 }
+                if i < n - 1 {
+                    col_indices.push((i + 1) * n + j);
+                    values.push(-1.0);
+                }
+                row_ptr.push(col_indices.len());
             }
         }
-
-        CsrMatrix::from(&matrix)
+        csr_from_parts(size, size, row_ptr, col_indices, values, "grid Laplacian").unwrap()
     }
 
     #[test]
@@ -90,6 +101,23 @@ mod tests {
         assert!(quality.coarsening_ratio > 0.0 && quality.coarsening_ratio <= 1.0);
         assert!(quality.assignment_ratio >= 0.0 && quality.assignment_ratio <= 1.0);
         assert!(quality.avg_interpolation_points >= 0.0);
+    }
+
+    #[test]
+    fn strength_matrix_marks_expected_grid_connections() {
+        let matrix = create_test_matrix();
+        let strength = compute_strength_matrix(&matrix, 0.5).unwrap();
+
+        assert_eq!(strength.nrows(), matrix.nrows());
+        assert_eq!(strength.nnz(), 48);
+
+        let corner = strength.row(0);
+        assert_eq!(corner.col_indices(), &[1, 4]);
+        assert_eq!(corner.values(), &[1.0, 1.0]);
+
+        let interior = strength.row(5);
+        assert_eq!(interior.col_indices(), &[1, 4, 6, 9]);
+        assert_eq!(interior.values(), &[1.0, 1.0, 1.0, 1.0]);
     }
 
     #[test]
@@ -145,28 +173,7 @@ mod tests {
     #[test]
     fn test_coarsening_ratio_bounds() {
         let n = 10;
-        let mut matrix = DMatrix::zeros(n * n, n * n);
-
-        for i in 0..n {
-            for j in 0..n {
-                let idx = i * n + j;
-                matrix[(idx, idx)] = 4.0;
-                if i > 0 {
-                    matrix[(idx, (i - 1) * n + j)] = -1.0;
-                }
-                if i < n - 1 {
-                    matrix[(idx, (i + 1) * n + j)] = -1.0;
-                }
-                if j > 0 {
-                    matrix[(idx, i * n + (j - 1))] = -1.0;
-                }
-                if j < n - 1 {
-                    matrix[(idx, i * n + (j + 1))] = -1.0;
-                }
-            }
-        }
-
-        let sparse_matrix = CsrMatrix::from(&matrix);
+        let sparse_matrix = create_grid_laplacian_matrix(n);
         let result = ruge_stueben_coarsening(&sparse_matrix, 0.25).unwrap();
 
         let n_total = sparse_matrix.nrows();
@@ -229,27 +236,7 @@ mod tests {
     #[test]
     fn test_coarsening_convergence_behavior() {
         let n = 8;
-        let mut matrix = DMatrix::zeros(n * n, n * n);
-        for i in 0..n {
-            for j in 0..n {
-                let idx = i * n + j;
-                matrix[(idx, idx)] = 4.0;
-                if i > 0 {
-                    matrix[(idx, (i - 1) * n + j)] = -1.0;
-                }
-                if i < n - 1 {
-                    matrix[(idx, (i + 1) * n + j)] = -1.0;
-                }
-                if j > 0 {
-                    matrix[(idx, i * n + (j - 1))] = -1.0;
-                }
-                if j < n - 1 {
-                    matrix[(idx, i * n + (j + 1))] = -1.0;
-                }
-            }
-        }
-
-        let sparse_matrix = CsrMatrix::from(&matrix);
+        let sparse_matrix = create_grid_laplacian_matrix(n);
         let result = ruge_stueben_coarsening(&sparse_matrix, 0.25).unwrap();
         let quality = analyze_coarsening_quality(&result, &sparse_matrix);
         let coarsening_ratio = quality.coarsening_ratio;

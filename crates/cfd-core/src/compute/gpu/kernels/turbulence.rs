@@ -5,9 +5,9 @@ use crate::compute::traits::{
     BoundaryCondition2D, ComputeBackend, ComputeKernel, DomainParams, KernelParams,
 };
 use crate::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
+use hephaestus_wgpu::wgpu::{self, util::DeviceExt};
 use std::marker::PhantomData;
-use wgpu::util::DeviceExt;
 
 /// Parameters for turbulence compute kernels.
 /// Matches the uniform struct in turbulence.wgsl.
@@ -82,7 +82,9 @@ impl<T: RealField + Copy> GpuSmagorinskyKernel<T> {
                 label: Some("Smagorinsky LES Pipeline"),
                 layout: None,
                 module: shader_module,
-                entry_point: "smagorinsky_sgs",
+                entry_point: Some("smagorinsky_sgs"),
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                cache: None,
             });
             self.compute_pipeline = Some(pipeline);
         }
@@ -213,7 +215,9 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuSmagorinskyKernel<T> {
             label: Some("Smagorinsky LES Pipeline"),
             layout: None,
             module: &shader_module,
-            entry_point: "smagorinsky_sgs",
+            entry_point: Some("smagorinsky_sgs"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
         });
 
         Ok(pipeline)
@@ -293,7 +297,9 @@ impl<T: RealField + Copy> GpuDesKernel<T> {
                 label: Some("DES Length Scale Pipeline"),
                 layout: None,
                 module: shader_module,
-                entry_point: "des_length_scale",
+                entry_point: Some("des_length_scale"),
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                cache: None,
             });
             self.compute_pipeline = Some(pipeline);
         }
@@ -423,7 +429,9 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuDesKernel<T> {
             label: Some("DES Pipeline"),
             layout: None,
             module: &shader_module,
-            entry_point: "des_length_scale",
+            entry_point: Some("des_length_scale"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
         });
 
         Ok(pipeline)

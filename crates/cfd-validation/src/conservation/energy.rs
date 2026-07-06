@@ -4,10 +4,11 @@
 
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
-use cfd_core::conversion::SafeFromF64;
+use crate::scalar;
 use cfd_core::error::Result;
-use nalgebra::{DMatrix, RealField};
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::Array2;
 
 /// Energy conservation checker
 pub struct EnergyConservationChecker<T: RealField + Copy> {
@@ -18,7 +19,7 @@ pub struct EnergyConservationChecker<T: RealField + Copy> {
     specific_heat: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
+impl<T: RealField + Copy + FloatElement> EnergyConservationChecker<T> {
     /// Create new energy conservation checker
     pub fn new(tolerance: T, nx: usize, ny: usize, density: T, specific_heat: T) -> Self {
         Self {
@@ -36,32 +37,32 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
     /// ∂(ρcₚT)/∂t + ∇·(ρcₚuT) = ∇·(k∇T) + Φ + Q
     pub fn check_energy_2d(
         &self,
-        temperature: &DMatrix<T>,
-        temperature_prev: &DMatrix<T>,
-        u: &DMatrix<T>,
-        v: &DMatrix<T>,
+        temperature: &Array2<T>,
+        temperature_prev: &Array2<T>,
+        u: &Array2<T>,
+        v: &Array2<T>,
         thermal_conductivity: T,
         dt: T,
         dx: T,
         dy: T,
-        source: Option<&DMatrix<T>>,
+        source: Option<&Array2<T>>,
     ) -> Result<ConservationReport<T>> {
-        assert_eq!(temperature.nrows(), self.nx);
-        assert_eq!(temperature.ncols(), self.ny);
-        assert_eq!(u.nrows(), self.nx);
-        assert_eq!(v.nrows(), self.nx);
+        assert_eq!(temperature.shape()[0], self.nx);
+        assert_eq!(temperature.shape()[1], self.ny);
+        assert_eq!(u.shape()[0], self.nx);
+        assert_eq!(v.shape()[0], self.nx);
 
-        let mut max_residual = T::zero();
-        let mut total_residual = T::zero();
-        let mut total_energy = T::zero();
-        let mut total_energy_prev = T::zero();
+        let mut max_residual = scalar::zero::<T>();
+        let mut total_residual = scalar::zero::<T>();
+        let mut total_energy = scalar::zero::<T>();
+        let mut total_energy_prev = scalar::zero::<T>();
         let mut count = 0;
 
         // Check energy conservation at interior points
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
-                let t_center = temperature[(i, j)];
-                let t_prev = temperature_prev[(i, j)];
+                let t_center = temperature[[i, j]];
+                let t_prev = temperature_prev[[i, j]];
 
                 // Accumulate total energy
                 total_energy += self.density * self.specific_heat * t_center * dx * dy;
@@ -73,44 +74,45 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
                 // Convective term: ∇·(ρcₚuT) using central differences
                 let conv = self.density
                     * self.specific_heat
-                    * (u[(i, j)] * (temperature[(i + 1, j)] - temperature[(i - 1, j)])
-                        / (T::from_f64_or_one(2.0) * dx)
-                        + v[(i, j)] * (temperature[(i, j + 1)] - temperature[(i, j - 1)])
-                            / (T::from_f64_or_one(2.0) * dy));
+                    * (u[[i, j]] * (temperature[[i + 1, j]] - temperature[[i - 1, j]])
+                        / (scalar::from_f64::<T>(2.0) * dx)
+                        + v[[i, j]] * (temperature[[i, j + 1]] - temperature[[i, j - 1]])
+                            / (scalar::from_f64::<T>(2.0) * dy));
 
                 // Diffusive term: ∇·(k∇T) using central differences
                 let diff = thermal_conductivity
-                    * ((temperature[(i + 1, j)] - T::from_f64_or_one(2.0) * t_center
-                        + temperature[(i - 1, j)])
+                    * ((temperature[[i + 1, j]] - scalar::from_f64::<T>(2.0) * t_center
+                        + temperature[[i - 1, j]])
                         / (dx * dx)
-                        + (temperature[(i, j + 1)] - T::from_f64_or_one(2.0) * t_center
-                            + temperature[(i, j - 1)])
+                        + (temperature[[i, j + 1]] - scalar::from_f64::<T>(2.0) * t_center
+                            + temperature[[i, j - 1]])
                             / (dy * dy));
 
                 // Source term
-                let q = source.map_or(T::zero(), |s| s[(i, j)]);
+                let q = source.map_or(scalar::zero::<T>(), |s| s[[i, j]]);
 
                 // Energy residual
                 let residual = dtdt + conv - diff - q;
 
-                max_residual = max_residual.max(residual.abs());
-                total_residual += residual.abs();
+                let abs_residual = scalar::abs(residual);
+                max_residual = scalar::max(max_residual, abs_residual);
+                total_residual += abs_residual;
                 count += 1;
             }
         }
 
         let avg_residual = if count > 0 {
-            total_residual / T::from_usize(count).unwrap_or(T::one())
+            total_residual / scalar::from_usize::<T>(count)
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
         // Global energy change
-        let energy_change = (total_energy - total_energy_prev).abs();
-        let relative_change = if total_energy_prev == T::zero() {
-            T::zero()
+        let energy_change = scalar::abs(total_energy - total_energy_prev);
+        let relative_change = if total_energy_prev == scalar::zero::<T>() {
+            scalar::zero::<T>()
         } else {
-            energy_change / total_energy_prev.abs()
+            energy_change / scalar::abs(total_energy_prev)
         };
 
         let mut report = ConservationReport::new(
@@ -126,7 +128,7 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
         report.add_detail("relative_change".to_string(), relative_change);
         report.add_detail(
             "grid_points_checked".to_string(),
-            T::from_usize(count).unwrap_or(T::zero()),
+            scalar::from_usize::<T>(count),
         );
 
         Ok(report)
@@ -135,33 +137,37 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
     /// Check total kinetic energy conservation
     pub fn check_kinetic_energy(
         &self,
-        u: &DMatrix<T>,
-        v: &DMatrix<T>,
-        u_prev: &DMatrix<T>,
-        v_prev: &DMatrix<T>,
+        u: &Array2<T>,
+        v: &Array2<T>,
+        u_prev: &Array2<T>,
+        v_prev: &Array2<T>,
         dx: T,
         dy: T,
     ) -> Result<ConservationReport<T>> {
-        let mut ke_current = T::zero();
-        let mut ke_prev = T::zero();
+        let mut ke_current = scalar::zero::<T>();
+        let mut ke_prev = scalar::zero::<T>();
 
-        let half = T::from_f64_or(0.5, T::one() / (T::one() + T::one()));
+        let half = scalar::from_f64::<T>(0.5);
 
         for i in 0..self.nx {
             for j in 0..self.ny {
-                let u2 = u[(i, j)].powi(2) + v[(i, j)].powi(2);
-                let u2_prev = u_prev[(i, j)].powi(2) + v_prev[(i, j)].powi(2);
+                let u_current = u[[i, j]];
+                let v_current = v[[i, j]];
+                let u_previous = u_prev[[i, j]];
+                let v_previous = v_prev[[i, j]];
+                let u2 = u_current * u_current + v_current * v_current;
+                let u2_prev = u_previous * u_previous + v_previous * v_previous;
 
                 ke_current += half * self.density * u2 * dx * dy;
                 ke_prev += half * self.density * u2_prev * dx * dy;
             }
         }
 
-        let ke_change = (ke_current - ke_prev).abs();
-        let relative_change = if ke_prev == T::zero() {
-            T::zero()
+        let ke_change = scalar::abs(ke_current - ke_prev);
+        let relative_change = if ke_prev == scalar::zero::<T>() {
+            scalar::zero::<T>()
         } else {
-            ke_change / ke_prev.abs()
+            ke_change / scalar::abs(ke_prev)
         };
 
         let mut report = ConservationReport::new(
@@ -178,18 +184,18 @@ impl<T: RealField + Copy + FromPrimitive> EnergyConservationChecker<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for EnergyConservationChecker<T> {
-    type FlowField = DMatrix<T>;
+impl<T: RealField + Copy + FloatElement> ConservationChecker<T> for EnergyConservationChecker<T> {
+    type FlowField = Array2<T>;
 
     fn check_conservation(&self, field: &Self::FlowField) -> Result<ConservationReport<T>> {
         // For generic check, assume steady state temperature field
         let temperature = field;
-        let u = DMatrix::zeros(self.nx, self.ny);
-        let v = DMatrix::zeros(self.nx, self.ny);
-        let thermal_conductivity = T::from_f64_or_one(0.025);
-        let dt = T::from_f64_or_one(1e-3);
-        let dx = T::one();
-        let dy = T::one();
+        let u = Array2::zeros([self.nx, self.ny]);
+        let v = Array2::zeros([self.nx, self.ny]);
+        let thermal_conductivity = scalar::from_f64::<T>(0.025);
+        let dt = scalar::from_f64::<T>(1e-3);
+        let dx = scalar::one::<T>();
+        let dy = scalar::one::<T>();
 
         self.check_energy_2d(
             temperature,
@@ -216,7 +222,7 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for EnergyConse
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::DMatrix;
+    use leto::Array2;
 
     #[test]
     fn test_uniform_temperature_conservation() {
@@ -225,9 +231,9 @@ mod tests {
         let checker = EnergyConservationChecker::<f64>::new(1e-10, nx, ny, 1.0, 1000.0);
 
         // Uniform temperature field (steady state)
-        let temperature = DMatrix::from_element(nx, ny, 300.0);
-        let u = DMatrix::zeros(nx, ny);
-        let v = DMatrix::zeros(nx, ny);
+        let temperature = Array2::from_elem([nx, ny], 300.0);
+        let u = Array2::zeros([nx, ny]);
+        let v = Array2::zeros([nx, ny]);
 
         let report = checker
             .check_energy_2d(
@@ -255,15 +261,15 @@ mod tests {
         let checker = EnergyConservationChecker::<f64>::new(1e-6, nx, ny, 1.0, 1000.0);
 
         // Linear temperature gradient
-        let mut temperature = DMatrix::zeros(nx, ny);
+        let mut temperature = Array2::zeros([nx, ny]);
         for i in 0..nx {
             for j in 0..ny {
-                temperature[(i, j)] = 300.0 + 10.0 * (i as f64 / (nx - 1) as f64);
+                temperature[[i, j]] = 300.0 + 10.0 * (i as f64 / (nx - 1) as f64);
             }
         }
 
-        let u = DMatrix::zeros(nx, ny);
-        let v = DMatrix::zeros(nx, ny);
+        let u = Array2::zeros([nx, ny]);
+        let v = Array2::zeros([nx, ny]);
 
         let report = checker
             .check_energy_2d(
@@ -291,8 +297,8 @@ mod tests {
         let checker = EnergyConservationChecker::<f64>::new(1e-10, nx, ny, 1.0, 1000.0);
 
         // Uniform velocity field
-        let u = DMatrix::from_element(nx, ny, 1.0);
-        let v = DMatrix::from_element(nx, ny, 0.5);
+        let u = Array2::from_elem([nx, ny], 1.0);
+        let v = Array2::from_elem([nx, ny], 0.5);
 
         // Check kinetic energy conservation (steady state)
         let report = checker

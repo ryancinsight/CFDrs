@@ -90,9 +90,9 @@ mod solver;
 
 pub use solver::SerpentineSolver2D;
 
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd2dScalar;
+use crate::scalar::{self, from_f64};
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 
@@ -105,7 +105,7 @@ use std::f64::consts::PI;
 /// Defines a channel that alternates between straight sections and 90° turns.
 /// The path creates a snake-like pattern that enhances mixing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SerpentineGeometry<T: RealField + Copy> {
+pub struct SerpentineGeometry<T: Cfd2dScalar + Copy> {
     /// Channel width \[m]
     pub width: T,
     /// Channel height \[m] (constant)
@@ -118,7 +118,7 @@ pub struct SerpentineGeometry<T: RealField + Copy> {
     pub n_cycles: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> SerpentineGeometry<T> {
     /// Create standard serpentine for microfluidics
     ///
     /// # Typical Design
@@ -129,10 +129,10 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
     /// - Cycles: 5-10 (for ~5-10 mm total length)
     pub fn microfluidic_standard() -> Self {
         Self {
-            width: T::from_f64_or_one(200e-6),
-            height: T::from_f64_or_one(50e-6),
-            l_straight: T::from_f64_or_one(500e-6),
-            turn_radius: T::from_f64_or_one(200e-6),
+            width: from_f64::<T>(200e-6),
+            height: from_f64::<T>(50e-6),
+            l_straight: from_f64::<T>(500e-6),
+            turn_radius: from_f64::<T>(200e-6),
             n_cycles: 5,
         }
     }
@@ -153,11 +153,11 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
     /// Length = n_cycles × (2 × l_straight + turn_length)
     /// where turn_length ≈ π × turn_radius (90° arc)
     pub fn total_length(&self) -> T {
-        let pi = T::from_f64_or_one(PI);
-        let two = T::from_f64_or_one(2.0);
-        let turn_length = pi / T::from_f64_or_one(2.0) * self.turn_radius;
+        let pi = from_f64::<T>(PI);
+        let two = from_f64::<T>(2.0);
+        let turn_length = pi / from_f64::<T>(2.0) * self.turn_radius;
 
-        T::from_f64_or_one(self.n_cycles as f64) * (two * self.l_straight + turn_length)
+        scalar::from_usize::<T>(self.n_cycles) * (two * self.l_straight + turn_length)
     }
 
     /// Get cross-sectional area
@@ -175,8 +175,8 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
     ///
     /// where Pe = u·w/D (Peclet number)
     pub fn diffusion_lengths_per_section(&self, peclet: T) -> T {
-        let three = T::from_f64_or_one(3.0);
-        (self.l_straight / (self.width + T::from_f64_or_one(1e-15))) * three * peclet
+        let three = from_f64::<T>(3.0);
+        (self.l_straight / (self.width + from_f64::<T>(1e-15))) * three * peclet
     }
 
     /// Check if a point (x, y) is within the fluid domain
@@ -192,8 +192,8 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
         let r = self.turn_radius;
         let ls = self.l_straight;
         let w = self.width;
-        let half_w = w / T::from_f64(2.0).expect("analytical constant conversion");
-        let four_r = r * T::from_f64(4.0).expect("analytical constant conversion");
+        let half_w = w / from_f64::<T>(2.0);
+        let four_r = r * from_f64::<T>(4.0);
 
         // Normalize y to cycle 0
         let y_in_cycle = y % four_r;
@@ -215,18 +215,18 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
             }
         }
 
-        if y_in_cycle < T::from_f64(3.0).expect("analytical constant conversion") * r + half_w
-            && y_in_cycle > T::from_f64(3.0).expect("analytical constant conversion") * r - half_w
+        if y_in_cycle < from_f64::<T>(3.0) * r + half_w
+            && y_in_cycle > from_f64::<T>(3.0) * r - half_w
         {
             // Segment 2: (Ls, 3R) -> (0, 3R)
-            if x >= T::zero() && x <= ls {
+            if x >= scalar::zero() && x <= ls {
                 return true;
             }
         }
 
         // Right Turn (around x=ls, y=2R)
         let dx_r = x - ls;
-        let dy_r = y_in_cycle - r * T::from_f64(2.0).expect("analytical constant conversion");
+        let dy_r = y_in_cycle - r * from_f64::<T>(2.0);
         let d_sq_r = dx_r * dx_r + dy_r * dy_r;
         if x >= ls && d_sq_r >= inner_r_sq && d_sq_r <= outer_r_sq {
             return true;
@@ -236,12 +236,12 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
         // Check both top of this cycle and bottom of next
         let dy_l_top = y_in_cycle - four_r;
         let d_sq_l_top = x * x + dy_l_top * dy_l_top;
-        if x <= T::zero() && d_sq_l_top >= inner_r_sq && d_sq_l_top <= outer_r_sq {
+        if x <= scalar::zero() && d_sq_l_top >= inner_r_sq && d_sq_l_top <= outer_r_sq {
             return true;
         }
 
         let d_sq_l_bot = x * x + y_in_cycle * y_in_cycle;
-        if x <= T::zero() && d_sq_l_bot >= inner_r_sq && d_sq_l_bot <= outer_r_sq {
+        if x <= scalar::zero() && d_sq_l_bot >= inner_r_sq && d_sq_l_bot <= outer_r_sq {
             return true;
         }
 
@@ -253,14 +253,14 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
         let r = self.turn_radius;
         let ls = self.l_straight;
         let w = self.width;
-        let half_w = w / T::from_f64(2.0).expect("analytical constant conversion");
-        let four_r = r * T::from_f64(4.0).expect("analytical constant conversion");
+        let half_w = w / from_f64::<T>(2.0);
+        let four_r = r * from_f64::<T>(4.0);
 
         [
             -r - half_w,
             ls + r + half_w,
-            T::zero(),
-            four_r * T::from_f64(self.n_cycles as f64).expect("analytical constant conversion"),
+            scalar::zero(),
+            four_r * scalar::from_usize::<T>(self.n_cycles),
         ]
     }
 }
@@ -298,7 +298,7 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineGeometry<T> {
 /// basis gives coefficients `a_n = -2 sin(nπ/2)/(nπ)`. Orthogonality gives
 /// `σ²(t)=Σ a_n² exp(-2n²π²Dt/w²)/2`, while `σ²(0)=1/4`. Substitution leaves
 /// the odd-mode series and the stated mixing fraction. ∎
-pub struct AdvectionDiffusionMixing<T: RealField + Copy> {
+pub struct AdvectionDiffusionMixing<T: Cfd2dScalar + Copy> {
     /// Channel width \[m]
     pub width: T,
     /// Mean flow velocity \[m/s]
@@ -307,7 +307,7 @@ pub struct AdvectionDiffusionMixing<T: RealField + Copy> {
     pub diffusion_coeff: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> AdvectionDiffusionMixing<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> AdvectionDiffusionMixing<T> {
     /// Create mixing model
     pub fn new(width: T, velocity: T, diffusion_coeff: T) -> Self {
         Self {
@@ -321,25 +321,25 @@ impl<T: RealField + Copy + FromPrimitive> AdvectionDiffusionMixing<T> {
     ///
     /// Pe = u·w / D
     pub fn peclet_number(&self) -> T {
-        (self.velocity * self.width) / (self.diffusion_coeff + T::from_f64_or_one(1e-15))
+        (self.velocity * self.width) / (self.diffusion_coeff + from_f64::<T>(1e-15))
     }
 
     #[inline]
     fn variance_ratio_from_fourier_number(fourier: T) -> T {
-        if fourier <= T::zero() {
-            return T::one();
+        if fourier <= scalar::zero() {
+            return scalar::one();
         }
 
-        let pi = T::from_f64_or_one(PI);
+        let pi = from_f64::<T>(PI);
         let pi_sq = pi * pi;
-        let eight_over_pi_sq = T::from_f64_or_one(8.0) / pi_sq;
-        let two = T::from_f64_or_one(2.0);
-        let mut sum = T::zero();
+        let eight_over_pi_sq = from_f64::<T>(8.0) / pi_sq;
+        let two = from_f64::<T>(2.0);
+        let mut sum: T = scalar::zero();
 
         for mode in 0..256 {
-            let n = T::from_f64_or_one(f64::from(2 * mode + 1));
+            let n = scalar::from_usize::<T>(2 * mode + 1);
             let n_sq = n * n;
-            sum += (-two * n_sq * pi_sq * fourier).exp() / n_sq;
+            sum += FloatElement::exp(-two * n_sq * pi_sq * fourier) / n_sq;
         }
 
         eight_over_pi_sq * sum
@@ -350,19 +350,19 @@ impl<T: RealField + Copy + FromPrimitive> AdvectionDiffusionMixing<T> {
     /// The method solves `σ²(t)/σ²(0)=0.01` for `Fo = Dt/w²` by bisection of
     /// the closed-form eigenfunction series and returns `L90 = u w² Fo90 / D`.
     pub fn mixing_length_90_percent(&self) -> T {
-        if self.width <= T::zero()
-            || self.velocity <= T::zero()
-            || self.diffusion_coeff <= T::zero()
+        if self.width <= scalar::zero()
+            || self.velocity <= scalar::zero()
+            || self.diffusion_coeff <= scalar::zero()
         {
-            return T::zero();
+            return scalar::zero();
         }
 
-        let target_variance_ratio = T::from_f64_or_one(0.01);
-        let mut lo = T::zero();
-        let mut hi = T::from_f64_or_one(0.5);
+        let target_variance_ratio = from_f64::<T>(0.01);
+        let mut lo: T = scalar::zero();
+        let mut hi = from_f64::<T>(0.5);
 
         for _ in 0..80 {
-            let mid = (lo + hi) / T::from_f64_or_one(2.0);
+            let mid = (lo + hi) / from_f64::<T>(2.0);
             if Self::variance_ratio_from_fourier_number(mid) > target_variance_ratio {
                 lo = mid;
             } else {
@@ -379,8 +379,8 @@ impl<T: RealField + Copy + FromPrimitive> AdvectionDiffusionMixing<T> {
     /// t_mix = L_mix / u
     pub fn mixing_time_90_percent(&self) -> T {
         let l_mix = self.mixing_length_90_percent();
-        if self.velocity <= T::zero() {
-            T::zero()
+        if self.velocity <= scalar::zero() {
+            scalar::zero()
         } else {
             l_mix / self.velocity
         }
@@ -398,17 +398,17 @@ impl<T: RealField + Copy + FromPrimitive> AdvectionDiffusionMixing<T> {
     /// At the centerline (y=0), maximum mixing occurs there.
     /// Returns fraction mixed at position x relative to channel width.
     pub fn mixing_fraction(&self, x: T) -> T {
-        if x <= T::zero()
-            || self.width <= T::zero()
-            || self.velocity <= T::zero()
-            || self.diffusion_coeff <= T::zero()
+        if x <= scalar::zero()
+            || self.width <= scalar::zero()
+            || self.velocity <= scalar::zero()
+            || self.diffusion_coeff <= scalar::zero()
         {
-            return T::zero();
+            return scalar::zero();
         }
 
         let fourier = self.diffusion_coeff * x / (self.velocity * self.width * self.width);
         let variance_ratio = Self::variance_ratio_from_fourier_number(fourier);
-        T::one() - variance_ratio.sqrt()
+        scalar::one::<T>() - <T as NumericElement>::sqrt(variance_ratio)
     }
 }
 
@@ -418,7 +418,7 @@ impl<T: RealField + Copy + FromPrimitive> AdvectionDiffusionMixing<T> {
 
 /// Solution for serpentine channel mixing
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct SerpentineMixingSolution<T: RealField + Copy> {
+pub struct SerpentineMixingSolution<T: Cfd2dScalar + Copy> {
     /// Inlet concentration (first inlet) [mol/m³]
     pub c_inlet_a: T,
     /// Inlet concentration (second inlet) [mol/m³]
@@ -435,7 +435,7 @@ pub struct SerpentineMixingSolution<T: RealField + Copy> {
     pub pressure_drop: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> SerpentineMixingSolution<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> SerpentineMixingSolution<T> {
     /// Create solution from parameters
     pub fn new(
         geometry: &SerpentineGeometry<T>,
@@ -456,11 +456,11 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineMixingSolution<T> {
 
         // Pressure drop: ΔP = f × (L/D_h) × (1/2)ρu²
         // For laminar flow, friction factor f = 64/Re
-        let d_h = T::from_f64_or_one(2.0) * (geometry.width * geometry.height)
+        let d_h = from_f64::<T>(2.0) * (geometry.width * geometry.height)
             / (geometry.width + geometry.height);
         let re = (density * velocity * d_h) / viscosity;
-        let f = T::from_f64_or_one(64.0) / re.max(T::from_f64_or_one(1.0));
-        let dynamic_pressure = T::from_f64_or_one(0.5) * density * velocity * velocity;
+        let f = from_f64::<T>(64.0) / re.max(from_f64::<T>(1.0));
+        let dynamic_pressure = from_f64::<T>(0.5) * density * velocity * velocity;
         let dp = f * (total_length / d_h) * dynamic_pressure;
 
         Self {
@@ -478,14 +478,14 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineMixingSolution<T> {
     ///
     /// Typically consider "mixed" if fraction > 0.9 (90%)
     pub fn is_well_mixed(&self) -> bool {
-        self.mixing_fraction_outlet > T::from_f64_or_one(0.9)
+        self.mixing_fraction_outlet > from_f64::<T>(0.9)
     }
 
     /// Estimate outlet concentration (assuming complete mixing)
     ///
     /// For equal volume flows: c_outlet = (c_A + c_B) / 2
     pub fn estimated_outlet_concentration(&self) -> T {
-        (self.c_inlet_a + self.c_inlet_b) / T::from_f64_or_one(2.0)
+        (self.c_inlet_a + self.c_inlet_b) / from_f64::<T>(2.0)
     }
 }
 
@@ -494,11 +494,11 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineMixingSolution<T> {
 // ============================================================================
 
 /// Validator for serpentine mixing channels
-pub struct SerpentineValidator<T: RealField + Copy> {
+pub struct SerpentineValidator<T: Cfd2dScalar + Copy> {
     geometry: SerpentineGeometry<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> SerpentineValidator<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> SerpentineValidator<T> {
     /// Create new validator
     pub fn new(geometry: SerpentineGeometry<T>) -> Self {
         Self { geometry }
@@ -520,13 +520,13 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> SerpentineVa
         let l_mix = solution.l_mix_90;
 
         // Check if mixing length is achieved within channel
-        let achievable = l_mix < total_length * T::from_f64_or_one(2.0);
+        let achievable = l_mix < total_length * from_f64::<T>(2.0);
 
         // Check mixing fraction at outlet
         let well_mixed = solution.is_well_mixed();
 
         // Check pressure drop is reasonable
-        let dp_reasonable = solution.pressure_drop < T::from_f64_or_one(1e5); // < 100 kPa
+        let dp_reasonable = solution.pressure_drop < from_f64::<T>(1e5); // < 100 kPa
 
         let validation_passed = achievable && well_mixed && dp_reasonable;
 
@@ -536,14 +536,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> SerpentineVa
         } else if !well_mixed {
             error_message = Some(format!(
                 "Mixing fraction {:.2}% < 90% at outlet",
-                (solution.mixing_fraction_outlet * T::from_f64_or_one(100.0))
-                    .to_f64()
-                    .unwrap_or(f64::NAN)
+                eunomia::NumericElement::to_f64(
+                    solution.mixing_fraction_outlet * from_f64::<T>(100.0),
+                )
             ));
         } else if !dp_reasonable {
             error_message = Some(format!(
                 "Pressure drop {:.0} Pa > 100 kPa",
-                solution.pressure_drop.to_f64().unwrap_or(f64::NAN)
+                eunomia::NumericElement::to_f64(solution.pressure_drop)
             ));
         }
 
@@ -557,7 +557,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> SerpentineVa
 
 /// Validation result for serpentine
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SerpentineValidationResult<T: RealField + Copy> {
+pub struct SerpentineValidationResult<T: Cfd2dScalar + Copy> {
     /// Validation passed
     pub validation_passed: bool,
     /// Measured mixing fraction at outlet
@@ -569,6 +569,7 @@ pub struct SerpentineValidationResult<T: RealField + Copy> {
 #[cfg(test)]
 mod tests {
     use super::AdvectionDiffusionMixing;
+    use eunomia::NumericElement;
 
     #[test]
     fn transverse_diffusion_series_starts_unmixed() {
@@ -583,7 +584,7 @@ mod tests {
         let fraction = model.mixing_fraction(l90);
 
         assert!(
-            (fraction - 0.9).abs() < 5.0e-12,
+            <f64 as NumericElement>::abs(fraction - 0.9) < 5.0e-12,
             "Expected eigenfunction L90 to produce 90% mixing, got {fraction:.15}"
         );
     }
@@ -595,13 +596,15 @@ mod tests {
         let more_diffusive = AdvectionDiffusionMixing::new(200e-6_f64, 0.01, 2.0e-10);
 
         assert!(
-            (faster.mixing_length_90_percent() / baseline.mixing_length_90_percent() - 2.0).abs()
-                < 1.0e-12
+            <f64 as NumericElement>::abs(
+                faster.mixing_length_90_percent() / baseline.mixing_length_90_percent() - 2.0,
+            ) < 1.0e-12
         );
         assert!(
-            (more_diffusive.mixing_length_90_percent() / baseline.mixing_length_90_percent() - 0.5)
-                .abs()
-                < 1.0e-12
+            <f64 as NumericElement>::abs(
+                more_diffusive.mixing_length_90_percent() / baseline.mixing_length_90_percent()
+                    - 0.5,
+            ) < 1.0e-12
         );
     }
 }

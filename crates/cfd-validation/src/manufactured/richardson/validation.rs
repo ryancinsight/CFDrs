@@ -1,8 +1,7 @@
 //! MMS validation and Richardson extrapolation study
 
 use cfd_core::error::{Error, Result};
-use nalgebra::{ComplexField, RealField};
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, RealField};
 use std::collections::HashMap;
 
 use super::core::{DataDrivenOrderEstimation, RichardsonExtrapolation};
@@ -10,16 +9,21 @@ use super::types::{RichardsonMmsResult, RichardsonResult};
 use crate::convergence::ConvergenceStudy;
 use crate::geometry::Geometry2D;
 use crate::manufactured::ManufacturedSolution;
+use crate::scalar;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::solvers::fdm::{FdmConfig, PoissonSolver};
+use cfd_2d::Cfd2dScalar;
 
 /// Automated MMS-Richardson convergence study
-pub struct MmsRichardsonStudy<T: RealField + Copy + FromPrimitive> {
+pub struct MmsRichardsonStudy<T: RealField + Copy + FloatElement> {
     /// Manufactured solution to test
     manufactured_solution: Box<dyn ManufacturedSolution<T>>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsRichardsonStudy<T> {
+impl<T> MmsRichardsonStudy<T>
+where
+    T: RealField + Copy + FloatElement + Cfd2dScalar,
+{
     /// Create new MMS-Richardson study
     pub fn new(
         manufactured_solution: Box<dyn ManufacturedSolution<T>>,
@@ -57,9 +61,9 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
     pub fn run_study(&self) -> Result<RichardsonMmsResult<T>> {
         // Default grid sizes for geometric refinement
         let grid_sizes = vec![
-            T::from_f64(0.25).unwrap_or_else(num_traits::Zero::zero), // coarse
-            T::from_f64(0.125).unwrap_or_else(num_traits::Zero::zero), // medium
-            T::from_f64(0.0625).unwrap_or_else(num_traits::Zero::zero), // fine
+            scalar::from_f64::<T>(0.25),   // coarse
+            scalar::from_f64::<T>(0.125),  // medium
+            scalar::from_f64::<T>(0.0625), // fine
         ];
 
         self.run_study_with_grids(&grid_sizes)
@@ -80,8 +84,8 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
             let error = self.compute_l2_error(h)?;
             println!(
                 "      h={:.4}, L2 error={:e}",
-                h.to_f64().unwrap(),
-                error.to_f64().unwrap()
+                scalar::to_f64(h),
+                scalar::to_f64(error)
             );
             l2_errors.push(error);
         }
@@ -169,7 +173,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         let mut refinement_ratios = Vec::new();
         for i in 0..grid_sizes.len() - 1 {
             let r =
-                T::from_usize(grid_sizes[i + 1]).unwrap() / T::from_usize(grid_sizes[i]).unwrap();
+                scalar::from_usize::<T>(grid_sizes[i + 1]) / scalar::from_usize::<T>(grid_sizes[i]);
             refinement_ratios.push(r);
         }
 
@@ -191,18 +195,18 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
             let r = refinement_ratios[i];
 
             // Richardson extrapolation: φ_exact = φ_fine + (φ_fine - φ_coarse) / (r^p - 1)
-            let r_p = ComplexField::powf(r, estimated_order);
-            let denominator = r_p - T::one();
+            let r_p = scalar::powf(r, estimated_order);
+            let denominator = r_p - scalar::one::<T>();
 
             // Numerical stability protection: prevent division by near-zero
-            let eps = T::from_f64(1e-8).unwrap_or_else(num_traits::Zero::zero);
-            let phi_exact = if ComplexField::abs(denominator) > eps {
+            let eps = scalar::from_f64::<T>(1e-8);
+            let phi_exact = if scalar::abs(denominator) > eps {
                 phi_fine + (phi_fine - phi_coarse) / denominator
             } else {
                 // Fallback: use simple average when r^p ≈ 1 (unreliable convergence)
                 // This indicates numerical instability or poor grid refinement
                 println!("Warning: Richardson extrapolation numerically unstable (r^p ≈ 1). Using fallback averaging.");
-                (phi_coarse + phi_fine) / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero)
+                (phi_coarse + phi_fine) / scalar::from_f64::<T>(2.0)
             };
 
             extrapolated_solutions.push(phi_exact);
@@ -214,14 +218,12 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
             grid_errors.push(error_fine);
 
             // Convergence rate
-            if ComplexField::abs(error_coarse)
-                > T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero)
-                && ComplexField::abs(error_fine)
-                    > T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero)
+            if scalar::abs(error_coarse) > scalar::from_f64::<T>(1e-12)
+                && scalar::abs(error_fine) > scalar::from_f64::<T>(1e-12)
             {
-                let convergence_rate = ComplexField::ln(ComplexField::abs(error_fine))
-                    / ComplexField::ln(ComplexField::abs(error_coarse))
-                    / ComplexField::ln(r);
+                let convergence_rate = scalar::ln(scalar::abs(error_fine))
+                    / scalar::ln(scalar::abs(error_coarse))
+                    / scalar::ln(r);
                 convergence_rates.push(convergence_rate);
             }
         }
@@ -251,31 +253,38 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         // the numerical solution against the exact manufactured solution.
 
         // Create numerical grid with specified size
-        let n_intervals = (T::one() / grid_size).to_usize().unwrap_or(32);
+        let intervals = scalar::to_f64(scalar::one::<T>() / grid_size);
+        let n_intervals = if intervals.is_finite() && intervals >= 1.0 {
+            intervals as usize
+        } else {
+            32
+        };
         let nx = n_intervals + 1;
         let ny = nx;
-        let dx = T::one() / T::from_usize(n_intervals).unwrap();
+        let dx = scalar::one::<T>() / scalar::from_usize::<T>(n_intervals);
         let dy = dx;
 
         // Evaluate manufactured solution and source at grid points
-        let mut numerical_solution = vec![vec![T::zero(); ny]; nx];
-        let mut exact_solution = vec![vec![T::zero(); ny]; nx];
-        let mut source_term = vec![vec![T::zero(); ny]; nx];
+        let mut numerical_solution = vec![vec![scalar::zero::<T>(); ny]; nx];
+        let mut exact_solution = vec![vec![scalar::zero::<T>(); ny]; nx];
+        let mut source_term = vec![vec![scalar::zero::<T>(); ny]; nx];
 
         // Sample manufactured solution and source term on grid
         for i in 0..nx {
             for j in 0..ny {
-                let x = T::from_usize(i).unwrap() * dx;
-                let y = T::from_usize(j).unwrap() * dy;
-                let t = T::zero(); // Evaluation at t=0 for steady problems
+                let x = scalar::from_usize::<T>(i) * dx;
+                let y = scalar::from_usize::<T>(j) * dy;
+                let t = scalar::zero::<T>(); // Evaluation at t=0 for steady problems
 
                 // Get exact manufactured solution
                 exact_solution[i][j] =
                     self.manufactured_solution
-                        .exact_solution(x, y, T::zero(), t);
+                        .exact_solution(x, y, scalar::zero::<T>(), t);
 
                 // Get source term for numerical solution
-                source_term[i][j] = self.manufactured_solution.source_term(x, y, T::zero(), t);
+                source_term[i][j] =
+                    self.manufactured_solution
+                        .source_term(x, y, scalar::zero::<T>(), t);
             }
         }
 
@@ -283,7 +292,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         self.solve_numerical_system(&source_term, &mut numerical_solution, dx, dy)?;
 
         // Compute L2 error norm
-        let mut l2_error_squared = T::zero();
+        let mut l2_error_squared = scalar::zero::<T>();
 
         for i in 0..nx {
             for j in 0..ny {
@@ -293,7 +302,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         }
 
         // L2 norm: sqrt(Σ error² / N)
-        let l2_error = ComplexField::sqrt(l2_error_squared / T::from_usize(nx * ny).unwrap());
+        let l2_error = scalar::sqrt(l2_error_squared / scalar::from_usize::<T>(nx * ny));
 
         Ok(l2_error)
     }
@@ -310,13 +319,20 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         let ny = source[0].len();
 
         // Create structured grid for the Poisson solver
-        let grid = StructuredGrid2D::new(nx, ny, T::zero(), T::one(), T::zero(), T::one())
-            .map_err(|e| Error::InvalidConfiguration(format!("Failed to create grid: {e}")))?;
+        let grid = StructuredGrid2D::new(
+            nx,
+            ny,
+            scalar::zero::<T>(),
+            scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::one::<T>(),
+        )
+        .map_err(|e| Error::InvalidConfiguration(format!("Failed to create grid: {e}")))?;
 
         // Configure Poisson solver with production settings
         use cfd_core::compute::solver::SolverConfig;
         let solver_config = SolverConfig::builder()
-            .tolerance(T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero))
+            .tolerance(scalar::from_f64::<T>(1e-12))
             .max_iterations(1000)
             .parallel(false)
             .build();
@@ -335,11 +351,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
             for j in 0..ny {
                 // Apply Dirichlet boundary conditions from exact solution
                 if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
-                    let x = T::from_usize(i).unwrap() * dx;
-                    let y = T::from_usize(j).unwrap() * dy;
-                    let val = self
-                        .manufactured_solution
-                        .exact_solution(x, y, T::zero(), T::zero());
+                    let x = scalar::from_usize::<T>(i) * dx;
+                    let y = scalar::from_usize::<T>(j) * dy;
+                    let val = self.manufactured_solution.exact_solution(
+                        x,
+                        y,
+                        scalar::zero::<T>(),
+                        scalar::zero::<T>(),
+                    );
                     boundary_map.insert((i, j), val);
                 } else {
                     source_map.insert((i, j), source[i][j]);
@@ -355,7 +374,10 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
         // Convert solution back to Vec<Vec<T>> format
         for i in 0..nx {
             for j in 0..ny {
-                solution[i][j] = solution_map.get(&(i, j)).copied().unwrap_or(T::zero());
+                solution[i][j] = solution_map
+                    .get(&(i, j))
+                    .copied()
+                    .unwrap_or(scalar::zero::<T>());
             }
         }
 
@@ -364,7 +386,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
 }
 
 // Static methods for Richardson extrapolation analysis
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsRichardsonStudy<T> {
+impl<T: RealField + Copy + FloatElement> MmsRichardsonStudy<T> {
     /// Compute Richardson extrapolation using sliding triples (coarse, medium, fine)
     pub fn compute_richardson_extrapolation(
         grid_sizes: &[T],
@@ -417,47 +439,43 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float + ToPrimitive> MmsR
 
                 // Use three-point Richardson extrapolation to estimate p
                 // p = ln((e3 - e2)/(e2 - e1)) / ln(r)
-                let numerator = ComplexField::ln((e3 - e2) / (e2 - e1));
-                let denominator = ComplexField::ln(r);
+                let numerator = scalar::ln((e3 - e2) / (e2 - e1));
+                let denominator = scalar::ln(r);
 
-                if ComplexField::abs(denominator)
-                    > T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero)
-                {
+                if scalar::abs(denominator) > scalar::from_f64::<T>(1e-12) {
                     numerator / denominator
                 } else {
-                    T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) // Default to second order
+                    scalar::from_f64::<T>(2.0) // Default to second order
                 }
             } else {
                 // Use two-point estimation if only two points available
                 // p = ln(e1/e2) / ln(r)
                 let ratio = e1 / e2;
-                if ratio > T::zero() && r > T::one() {
-                    ComplexField::ln(ratio) / ComplexField::ln(r)
+                if ratio > scalar::zero::<T>() && r > scalar::one::<T>() {
+                    scalar::ln(ratio) / scalar::ln(r)
                 } else {
-                    T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) // Default to second order
+                    scalar::from_f64::<T>(2.0) // Default to second order
                 }
             };
 
             // Standard GCI formula (FS-based)
             // GCI = Fs * |(e2/e1) / (r^p - 1)|
-            let r_p = ComplexField::powf(r, p);
-            let safety_factor = T::from_f64(1.25).unwrap_or_else(num_traits::Zero::zero); // Standard safety factor
+            let r_p = scalar::powf(r, p);
+            let safety_factor = scalar::from_f64::<T>(1.25); // Standard safety factor
 
-            if ComplexField::abs(r_p - T::one())
-                > T::from_f64(1e-8).unwrap_or_else(num_traits::Zero::zero)
-            {
+            if scalar::abs(r_p - scalar::one::<T>()) > scalar::from_f64::<T>(1e-8) {
                 let error_ratio = e2 / e1;
-                let gci = safety_factor * ComplexField::abs(error_ratio)
-                    / ComplexField::abs(r_p - T::one());
+                let gci = safety_factor * scalar::abs(error_ratio)
+                    / scalar::abs(r_p - scalar::one::<T>());
                 gci_values.push(gci);
             } else {
-                gci_values.push(T::zero());
+                gci_values.push(scalar::zero::<T>());
             }
         }
 
         // Pad with zeros for consistency
         while gci_values.len() < grid_sizes.len() {
-            gci_values.push(T::zero());
+            gci_values.push(scalar::zero::<T>());
         }
 
         Ok(gci_values)

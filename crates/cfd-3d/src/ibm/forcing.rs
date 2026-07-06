@@ -1,7 +1,8 @@
 //! Forcing methods for IBM
 
+use crate::scalar;
+use eunomia::FloatElement;
 use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
 
 /// Forcing method for IBM
 pub trait ForcingMethod<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
@@ -43,7 +44,7 @@ impl Default for DirectForcing {
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ForcingMethod<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> ForcingMethod<T>
     for DirectForcing
 {
     fn calculate_force(
@@ -53,7 +54,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Forci
         dt: T,
     ) -> Vector3<T> {
         // Exact direct-forcing: f = (u_desired − u*) / Δt
-        if dt > T::zero() {
+        if dt > scalar::zero::<T>() {
             (desired_velocity - current_velocity) / dt
         } else {
             Vector3::zeros()
@@ -72,7 +73,7 @@ pub struct FeedbackForcing<T: cfd_mesh::domain::core::Scalar + RealField + Copy>
     integral: Vector3<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> FeedbackForcing<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> FeedbackForcing<T> {
     /// Create a new feedback forcing method
     pub fn new(kp: T, ki: T) -> Self {
         Self {
@@ -88,7 +89,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Feedb
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ForcingMethod<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> ForcingMethod<T>
     for FeedbackForcing<T>
 {
     fn calculate_force(

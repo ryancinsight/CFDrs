@@ -27,5 +27,5 @@ pub use serpentine::{
     bayat_rezai_enhancement, BendType, SerpentineAnalysis, SerpentineCrossSection, SerpentineModel,
 };
 pub use slug_flow::SlugFlowModel;
-pub use traits::{FlowConditions, ResistanceModel};
+pub use traits::{FlowConditions, ResistanceModel, ResistanceScalar};
 pub use venturi::{ExpansionType, VenturiAnalysis, VenturiGeometry, VenturiModel};

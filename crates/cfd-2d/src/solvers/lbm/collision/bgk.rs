@@ -32,10 +32,10 @@
 //! $\mu / \rho = c_s^2 (\tau - \tfrac{1}{2}) \Delta t$. See He & Luo (1997). □
 
 use super::traits::CollisionOperator;
+use crate::scalar::{from_f64, one};
 use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 use crate::solvers::lbm::streaming::f_idx;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
 
 /// Lattice sound speed squared: $c_s^2 = 1/3$ (exact in IEEE 754).
 const LATTICE_CS2: f64 = 1.0 / 3.0;
@@ -45,14 +45,14 @@ const HALF: f64 = 0.5;
 /// BGK single-relaxation-time collision operator.
 ///
 /// Operates on the flat distribution buffer with layout `f[j*nx*9 + i*9 + q]`.
-pub struct BgkCollision<T: RealField + Copy> {
+pub struct BgkCollision<T: FloatElement> {
     /// Relaxation time τ (lattice units). Must satisfy τ > 0.5 for stability.
     tau: T,
     /// Collision frequency ω = 1/τ. Precomputed to avoid per-node division.
     omega: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> BgkCollision<T> {
+impl<T: FloatElement> BgkCollision<T> {
     /// Construct from relaxation time τ.
     ///
     /// # Panics
@@ -61,7 +61,7 @@ impl<T: RealField + Copy + FromPrimitive> BgkCollision<T> {
     pub fn new(tau: T) -> Self {
         Self {
             tau,
-            omega: T::one() / tau,
+            omega: one::<T>() / tau,
         }
     }
 
@@ -69,14 +69,14 @@ impl<T: RealField + Copy + FromPrimitive> BgkCollision<T> {
     ///
     /// τ = ½ + ν Δt / (c_s² Δx²)
     pub fn from_viscosity(nu: T, dt: T, dx: T) -> Self {
-        let cs2 = T::from_f64(LATTICE_CS2).expect("T must represent f64; cs² = 1/3");
-        let half = T::from_f64(HALF).expect("T must represent f64; ½");
+        let cs2 = from_f64::<T>(LATTICE_CS2);
+        let half = from_f64::<T>(HALF);
         let tau = half + nu * dt / (cs2 * dx * dx);
         Self::new(tau)
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for BgkCollision<T> {
+impl<T: FloatElement> CollisionOperator<T> for BgkCollision<T> {
     /// Perform BGK collision on the flat distribution buffer.
     ///
     /// For each node (i, j) and direction q:
@@ -94,8 +94,7 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for BgkCollision<
                 let u = [velocity[cell * 2], velocity[cell * 2 + 1]];
 
                 for q in 0..9 {
-                    let weight = T::from_f64(D2Q9::WEIGHTS[q])
-                        .expect("D2Q9 weights are exact f64 constants");
+                    let weight = from_f64::<T>(D2Q9::WEIGHTS[q]);
                     let lattice_vel = D2Q9::VELOCITIES[q];
                     let f_eq = equilibrium(rho, &u, q, weight, lattice_vel);
                     let idx = f_idx(j, i, q, nx);
@@ -112,8 +111,8 @@ impl<T: RealField + Copy + FromPrimitive> CollisionOperator<T> for BgkCollision<
     /// Kinematic viscosity: ν = c_s²(τ − ½)Δt / Δx² × Δx² = c_s²(τ − ½)Δt
     /// (in physical units, divide by Δx² if Δx ≠ 1)
     fn viscosity(&self, dt: T, dx: T) -> T {
-        let cs2 = T::from_f64(LATTICE_CS2).expect("T must represent f64; cs² = 1/3");
-        let half = T::from_f64(HALF).expect("T must represent f64; ½");
+        let cs2 = from_f64::<T>(LATTICE_CS2);
+        let half = from_f64::<T>(HALF);
         cs2 * dx * dx * (self.tau - half) / dt
     }
 }

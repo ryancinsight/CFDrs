@@ -4,15 +4,14 @@
 //! implementation, including Bernoulli contraction, throat friction, and
 //! Borda-Carnot expansion loss calculations.
 
-use super::traits::{FlowConditions, ResistanceModel};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use super::{
     ExpansionType, VenturiGeometry, DURST_ENTRANCE_BLEND_L_OVER_DH, LAMINAR_FRICTION_COEFF,
     LAMINAR_LIMIT_RE,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 /// Venturi tube resistance model for converging-diverging channels
@@ -26,7 +25,7 @@ use serde::{Deserialize, Serialize};
 /// The model supports both Newtonian and non-Newtonian fluids through
 /// the `FluidTrait<T>` generic parameter.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VenturiModel<T: RealField + Copy> {
+pub struct VenturiModel<T> {
     /// Upstream (inlet) diameter \[m]
     pub inlet_diameter: T,
     /// Throat diameter \[m]
@@ -45,7 +44,7 @@ pub struct VenturiModel<T: RealField + Copy> {
     pub throat_roughness: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
+impl<T: ResistanceScalar> VenturiModel<T> {
     /// Create a new Venturi model with specified geometry
     pub fn new(
         inlet_diameter: T,
@@ -86,8 +85,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
 
     /// Create a millifluidic Venturi with typical parameters
     pub fn millifluidic(inlet_diameter: T, throat_diameter: T, throat_length: T) -> Self {
-        let total_length =
-            throat_length * T::from_f64(5.0).expect("Mathematical constant conversion compromised");
+        let total_length = throat_length * scalar_from_f64::<T>(5.0);
         Self {
             inlet_diameter,
             throat_diameter,
@@ -165,42 +163,35 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
     }
 
     pub(crate) fn friction_factor_with_roughness(reynolds_throat: T, relative_roughness: T) -> T {
-        let re_lam =
-            T::from_f64(LAMINAR_LIMIT_RE).expect("Mathematical constant conversion compromised");
+        let re_lam = scalar_from_f64::<T>(LAMINAR_LIMIT_RE);
         if reynolds_throat <= T::zero() {
-            return T::from_f64(LAMINAR_FRICTION_COEFF)
-                .expect("Mathematical constant conversion compromised");
+            return scalar_from_f64::<T>(LAMINAR_FRICTION_COEFF);
         }
 
         if reynolds_throat < re_lam {
-            T::from_f64(LAMINAR_FRICTION_COEFF)
-                .expect("Mathematical constant conversion compromised")
-                / reynolds_throat
+            scalar_from_f64::<T>(LAMINAR_FRICTION_COEFF) / reynolds_throat
         } else {
-            let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
-            let twelve = T::from_f64(12.0).expect("Mathematical constant conversion compromised");
-            let sixteen = T::from_f64(16.0).expect("Mathematical constant conversion compromised");
-            let one_point_five =
-                T::from_f64(1.5).expect("Mathematical constant conversion compromised");
-            let zero_point_nine =
-                T::from_f64(0.9).expect("Mathematical constant conversion compromised");
-            let coeff_2_457 =
-                T::from_f64(2.457).expect("Mathematical constant conversion compromised");
-            let coeff_0_27 =
-                T::from_f64(0.27).expect("Mathematical constant conversion compromised");
-            let coeff_37_530 =
-                T::from_f64(37_530.0).expect("Mathematical constant conversion compromised");
-            let coeff_7 = T::from_f64(7.0).expect("Mathematical constant conversion compromised");
+            let eight = scalar_from_f64::<T>(8.0);
+            let twelve = scalar_from_f64::<T>(12.0);
+            let sixteen = scalar_from_f64::<T>(16.0);
+            let one_point_five = scalar_from_f64::<T>(1.5);
+            let zero_point_nine = scalar_from_f64::<T>(0.9);
+            let coeff_2_457 = scalar_from_f64::<T>(2.457);
+            let coeff_0_27 = scalar_from_f64::<T>(0.27);
+            let coeff_37_530 = scalar_from_f64::<T>(37_530.0);
+            let coeff_7 = scalar_from_f64::<T>(7.0);
             let roughness = relative_roughness.max(T::zero());
 
-            let a_argument =
-                (coeff_7 / reynolds_throat).powf(zero_point_nine) + coeff_0_27 * roughness;
-            let a = (coeff_2_457 * a_argument.recip().ln()).powf(sixteen);
-            let b = (coeff_37_530 / reynolds_throat).powf(sixteen);
-            let inverse_sum = (a + b).powf(one_point_five).recip();
-            let blended = (eight / reynolds_throat).powf(twelve) + inverse_sum;
+            let a_argument = <T as FloatElement>::powf(coeff_7 / reynolds_throat, zero_point_nine)
+                + coeff_0_27 * roughness;
+            let a_argument_recip = T::one() / a_argument;
+            let a_log = <T as FloatElement>::ln(a_argument_recip);
+            let a = <T as FloatElement>::powf(coeff_2_457 * a_log, sixteen);
+            let b = <T as FloatElement>::powf(coeff_37_530 / reynolds_throat, sixteen);
+            let inverse_sum = T::one() / <T as FloatElement>::powf(a + b, one_point_five);
+            let blended = <T as FloatElement>::powf(eight / reynolds_throat, twelve) + inverse_sum;
 
-            eight * blended.powf(T::one() / twelve)
+            eight * <T as FloatElement>::powf(blended, T::one() / twelve)
         }
     }
 
@@ -222,19 +213,14 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
             return T::one();
         }
         let l_over_dh = throat_length / throat_diameter;
-        let limit = T::from_f64(DURST_ENTRANCE_BLEND_L_OVER_DH)
-            .expect("Mathematical constant conversion compromised");
+        let limit = scalar_from_f64::<T>(DURST_ENTRANCE_BLEND_L_OVER_DH);
         if l_over_dh >= limit {
             return T::one();
         }
-        let reynolds = reynolds_throat
-            .max(T::from_f64(10.0).expect("Mathematical constant conversion compromised"));
-        let sixty_four = T::from_f64(64.0).expect("Mathematical constant conversion compromised");
-        let k_entrance = T::from_f64(2.28).expect("Mathematical constant conversion compromised")
-            + sixty_four
-                / (reynolds * l_over_dh).max(
-                    T::from_f64(1.0e-30).expect("Mathematical constant conversion compromised"),
-                );
+        let reynolds = reynolds_throat.max(scalar_from_f64::<T>(10.0));
+        let sixty_four = scalar_from_f64::<T>(64.0);
+        let k_entrance = scalar_from_f64::<T>(2.28)
+            + sixty_four / (reynolds * l_over_dh).max(scalar_from_f64::<T>(1.0e-30));
         T::one() + k_entrance / (sixty_four * l_over_dh).max(T::one())
     }
 
@@ -243,12 +229,12 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
     /// At low Re (millifluidic regime), C_d decreases due to boundary layer growth.
     /// Empirical correction: C_d_eff = C_d_nominal × min(1, 0.5 + 0.5×(Re/1000)^0.3)
     pub(crate) fn discharge_coefficient_reynolds_correction(reynolds: T) -> T {
-        let re_ref = T::from_f64(1000.0).expect("Mathematical constant conversion compromised");
+        let re_ref = scalar_from_f64::<T>(1000.0);
         let ratio = reynolds / re_ref;
 
         let half = T::one() / (T::one() + T::one());
-        let exp = T::from_f64(0.3).expect("Mathematical constant conversion compromised");
-        let correction = half + half * ratio.powf(exp);
+        let exp = scalar_from_f64::<T>(0.3);
+        let correction = half + half * <T as FloatElement>::powf(ratio, exp);
         let one = T::one();
         if correction > one {
             one
@@ -258,33 +244,28 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
     }
 
     pub(crate) fn effective_discharge_coefficient(&self, reynolds: T) -> T {
-        let c_d_nom =
-            T::from_f64(self.geometry_type.discharge_coefficient()).unwrap_or_else(T::one);
+        let c_d_nom = scalar_from_f64::<T>(self.geometry_type.discharge_coefficient());
         c_d_nom * Self::discharge_coefficient_reynolds_correction(reynolds)
     }
 
     /// Reynolds correction applied to diffuser pressure recovery.
     pub(crate) fn diffuser_recovery_reynolds_correction(reynolds: T) -> T {
-        let re_high = T::from_f64(2000.0).expect("Mathematical constant conversion compromised");
-        let re_low = T::from_f64(200.0).expect("Mathematical constant conversion compromised");
+        let re_high = scalar_from_f64::<T>(2000.0);
+        let re_low = scalar_from_f64::<T>(200.0);
 
         if reynolds > re_high {
             T::one()
         } else if reynolds > re_low {
-            T::from_f64(0.60).expect("Mathematical constant conversion compromised")
-                + T::from_f64(0.40).expect("Mathematical constant conversion compromised")
-                    * (reynolds - re_low)
-                    / (re_high - re_low)
+            scalar_from_f64::<T>(0.60)
+                + scalar_from_f64::<T>(0.40) * (reynolds - re_low) / (re_high - re_low)
         } else {
-            T::from_f64(0.50).expect("Mathematical constant conversion compromised")
-                + T::from_f64(0.10).expect("Mathematical constant conversion compromised")
-                    * (reynolds / re_low)
+            scalar_from_f64::<T>(0.50) + scalar_from_f64::<T>(0.10) * (reynolds / re_low)
         }
     }
 
     /// Effective diffuser recovery efficiency including Reynolds degradation.
     pub(crate) fn effective_recovery_efficiency(&self, reynolds_throat: T) -> T {
-        let eta_r = T::from_f64(self.expansion_type.recovery_efficiency()).unwrap_or_else(T::one);
+        let eta_r = scalar_from_f64::<T>(self.expansion_type.recovery_efficiency());
         eta_r * Self::diffuser_recovery_reynolds_correction(reynolds_throat)
     }
 
@@ -315,7 +296,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T> {
+impl<T: ResistanceScalar> ResistanceModel<T> for VenturiModel<T> {
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
@@ -368,7 +349,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         let q_abs = v_inlet_abs * a_inlet;
 
         // Compute shear-rate magnitude at throat wall: γ̇ = 8|V|/D for circular pipe.
-        let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
+        let eight = scalar_from_f64::<T>(8.0);
         let shear_rate_throat = eight * v_throat_abs / self.throat_diameter;
 
         // Get viscosity at throat shear rate (supports non-Newtonian fluids)
@@ -416,7 +397,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         );
 
         // --- 3. Expansion loss (Borda-Carnot) ---
-        let k_exp = T::from_f64(self.expansion_type.loss_coefficient()).unwrap_or_else(T::one);
+        let k_exp = scalar_from_f64::<T>(self.expansion_type.loss_coefficient());
         let dv = v_throat - v_outlet;
         let dp_expansion_loss = k_exp * half * density * dv * dv;
 
@@ -427,8 +408,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         // --- Net pressure drop ---
         let q_sq = q_abs * q_abs;
 
-        let vel_threshold =
-            T::from_f64(1e-15).expect("Mathematical constant conversion compromised");
+        let vel_threshold = scalar_from_f64::<T>(1e-15);
         if v_inlet_abs > vel_threshold {
             // Decompose: laminar part (friction ∝ V → R·Q) and inertial part (∝ V² → k·Q²)
             let r = dp_friction / q_abs;
@@ -441,7 +421,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
         } else {
             // Zero flow: return linear estimate from viscous part only
             // R = 128 μ L_throat / (π D_throat⁴) (Hagen-Poiseuille in throat)
-            let coeff = T::from_f64(128.0).expect("Mathematical constant conversion compromised");
+            let coeff = scalar_from_f64::<T>(128.0);
             let pi = T::pi();
             let d2 = self.throat_diameter * self.throat_diameter;
             let d4 = d2 * d2;
@@ -456,10 +436,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
 
     fn reynolds_range(&self) -> (T, T) {
         // Valid across laminar and turbulent regimes
-        (
-            T::from_f64(0.1).expect("Mathematical constant conversion compromised"),
-            T::from_f64(1e7).expect("Mathematical constant conversion compromised"),
-        )
+        (scalar_from_f64::<T>(0.1), scalar_from_f64::<T>(1e7))
     }
 
     fn validate_invariants<F: FluidTrait<T>>(
@@ -494,8 +471,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for VenturiModel<T>
 
         // Area ratio constraint: β = D_throat/D_inlet typically 0.2-0.75
         let beta = self.throat_diameter / self.inlet_diameter;
-        let beta_min = T::from_f64(0.1).expect("Mathematical constant conversion compromised");
-        let beta_max = T::from_f64(0.9).expect("Mathematical constant conversion compromised");
+        let beta_min = scalar_from_f64::<T>(0.1);
+        let beta_max = scalar_from_f64::<T>(0.9);
         if beta < beta_min || beta > beta_max {
             return Err(Error::PhysicsViolation(format!(
                 "Venturi β = D_throat/D_inlet = {beta:.3} outside recommended range [0.1, 0.9]"

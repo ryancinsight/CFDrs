@@ -11,26 +11,30 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::constants::mathematical::numeric::{ONE_HALF, TWO};
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+
+use super::vector::{l2_norm, StateVector};
 
 /// Backward Euler step: y_{n+1} = y_n + dt*f(t_{n+1}, y_{n+1})
 ///
 /// Implicit equation solved via fixed-point iteration.
 ///
 /// Reference: Hairer & Wanner (1996) - Solving Ordinary Differential Equations II
-pub fn backward_euler<T, F>(f: F, y: &DVector<T>, t: T, dt: T) -> DVector<T>
+pub fn backward_euler<T, F>(f: F, y: &StateVector<T>, t: T, dt: T) -> StateVector<T>
 where
-    T: RealField + Copy + FromPrimitive,
-    F: Fn(T, &DVector<T>) -> DVector<T>,
+    T: Cfd2dScalar + Copy + FloatElement,
+    F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
     let t_next = t + dt;
-    let tol = T::from_f64(1e-10).expect("analytical constant conversion");
+    let tol = scalar::from_f64::<T>(1e-10);
     let max_iter = 100;
 
     // Initial guess: Forward Euler predictor
-    let mut y_next = y + &f(t, y) * dt;
+    let predictor = &f(t, y) * dt;
+    let mut y_next = y + &predictor;
 
     // Fixed-point iteration: y^{k+1} = y_n + dt*f(t_{n+1}, y^k)
     for iter in 0..max_iter {
@@ -40,11 +44,12 @@ where
         let f_val = f(t_next, &y_next);
 
         // Update: y^{k+1} = y_n + dt*f(t_{n+1}, y^k)
-        y_next = y + &f_val * dt;
+        let increment = &f_val * dt;
+        y_next = y + &increment;
 
         // Check convergence: ||y^{k+1} - y^k|| < tol
         let diff = &y_next - &y_old;
-        let diff_norm = diff.norm();
+        let diff_norm = l2_norm(&diff);
 
         if diff_norm < tol {
             break;
@@ -52,8 +57,10 @@ where
 
         // For very stiff problems, apply relaxation
         if iter > 20 {
-            let relax = T::from_f64(0.5).expect("analytical constant conversion");
-            y_next = y_old * (T::one() - relax) + y_next * relax;
+            let relax = scalar::from_f64::<T>(0.5);
+            let old_part = &y_old * (scalar::one::<T>() - relax);
+            let next_part = &y_next * relax;
+            y_next = &old_part + &next_part;
         }
     }
 
@@ -66,35 +73,37 @@ where
 /// Implicit equation solved via fixed-point iteration.
 ///
 /// Reference: Crank & Nicolson (1947), Patankar (1980)
-pub fn crank_nicolson<T, F>(f: F, y: &DVector<T>, t: T, dt: T) -> DVector<T>
+pub fn crank_nicolson<T, F>(f: F, y: &StateVector<T>, t: T, dt: T) -> StateVector<T>
 where
-    T: RealField + Copy + FromPrimitive,
-    F: Fn(T, &DVector<T>) -> DVector<T>,
+    T: Cfd2dScalar + Copy + FloatElement,
+    F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
-    let half = T::from_f64(ONE_HALF).expect("analytical constant conversion");
+    let half = scalar::from_f64::<T>(ONE_HALF);
     let t_next = t + dt;
-    let tol = T::from_f64(1e-10).expect("analytical constant conversion");
+    let tol = scalar::from_f64::<T>(1e-10);
     let max_iter = 100;
 
     // Explicit part: dt/2 * f(t_n, y_n)
-    let explicit_part = f(t, y) * (dt * half);
+    let explicit_part = &f(t, y) * (dt * half);
 
     // Initial guess: Forward Euler predictor
-    let mut y_next = y + &explicit_part * T::from_f64(TWO).expect("analytical constant conversion");
+    let explicit_predictor = &explicit_part * scalar::from_f64::<T>(TWO);
+    let mut y_next: StateVector<T> = y + &explicit_predictor;
 
     // Fixed-point iteration: y^{k+1} = y_n + (dt/2)*(f(t_n, y_n) + f(t_{n+1}, y^k))
     for iter in 0..max_iter {
         let y_old = y_next.clone();
 
         // Implicit part: dt/2 * f(t_{n+1}, y^k)
-        let implicit_part = f(t_next, &y_next) * (dt * half);
+        let implicit_part = &f(t_next, &y_next) * (dt * half);
 
         // Update: y^{k+1} = y_n + (dt/2)*(f_n + f_{n+1})
-        y_next = y + &explicit_part + &implicit_part;
+        let correction = &explicit_part + &implicit_part;
+        y_next = y + &correction;
 
         // Check convergence: ||y^{k+1} - y^k|| < tol
         let diff = &y_next - &y_old;
-        let diff_norm = diff.norm();
+        let diff_norm = l2_norm(&diff);
 
         if diff_norm < tol {
             break;
@@ -102,8 +111,10 @@ where
 
         // For very stiff problems, apply relaxation
         if iter > 20 {
-            let relax = T::from_f64(0.5).expect("analytical constant conversion");
-            y_next = y_old * (T::one() - relax) + y_next * relax;
+            let relax = scalar::from_f64::<T>(0.5);
+            let old_part = &y_old * (scalar::one::<T>() - relax);
+            let next_part = &y_next * relax;
+            y_next = &old_part + &next_part;
         }
     }
 

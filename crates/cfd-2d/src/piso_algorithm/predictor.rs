@@ -8,16 +8,17 @@
 
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
 
 // Named constants for numerical operations
 const HALF: f64 = 0.5;
 const TWO: f64 = 2.0;
 
 /// Velocity predictor for PISO algorithm
-pub struct VelocityPredictor<T: RealField + Copy> {
+pub struct VelocityPredictor<T: Cfd2dScalar + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
@@ -28,7 +29,7 @@ pub struct VelocityPredictor<T: RealField + Copy> {
     relaxation_factor: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> VelocityPredictor<T> {
     /// Create new velocity predictor
     pub fn new(grid: &StructuredGrid2D<T>, relaxation_factor: T) -> Self {
         Self {
@@ -43,14 +44,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
     /// Predict velocity field without pressure gradient
     /// This is the first step in PISO algorithm
     pub fn predict(&self, fields: &mut SimulationFields<T>, dt: T) -> Result<()> {
-        let mut u_star = Field2D::new(self.nx, self.ny, T::zero());
-        let mut v_star = Field2D::new(self.nx, self.ny, T::zero());
+        let mut u_star = Field2D::new(self.nx, self.ny, scalar::zero::<T>());
+        let mut v_star = Field2D::new(self.nx, self.ny, scalar::zero::<T>());
 
         // Solve momentum equations without pressure gradient
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 // Get velocities at cell faces (linear interpolation)
-                let half = T::from_f64(HALF).expect("analytical constant conversion");
+                let half = scalar::from_f64::<T>(HALF);
                 let ue = (fields.u.at(i, j) + fields.u.at(i + 1, j)) * half;
                 let uw = (fields.u.at(i - 1, j) + fields.u.at(i, j)) * half;
                 let un = (fields.u.at(i, j) + fields.u.at(i, j + 1)) * half;
@@ -87,9 +88,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
                 let u_relaxed = self.relaxation_factor * u_star.at(i, j)
-                    + (T::one() - self.relaxation_factor) * fields.u.at(i, j);
+                    + (scalar::one::<T>() - self.relaxation_factor) * fields.u.at(i, j);
                 let v_relaxed = self.relaxation_factor * v_star.at(i, j)
-                    + (T::one() - self.relaxation_factor) * fields.v.at(i, j);
+                    + (scalar::one::<T>() - self.relaxation_factor) * fields.v.at(i, j);
 
                 if let Some(u) = fields.u.at_mut(i, j) {
                     *u = u_relaxed;
@@ -117,25 +118,25 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
         let rho = fields.density.at(i, j);
 
         // Upwind scheme for stability
-        let fe = if ue > T::zero() {
+        let fe = if ue > scalar::zero::<T>() {
             rho * ue * fields.u.at(i, j)
         } else {
             rho * ue * fields.u.at(i + 1, j)
         };
 
-        let fw = if uw > T::zero() {
+        let fw = if uw > scalar::zero::<T>() {
             rho * uw * fields.u.at(i - 1, j)
         } else {
             rho * uw * fields.u.at(i, j)
         };
 
-        let f_n = if un > T::zero() {
+        let f_n = if un > scalar::zero::<T>() {
             rho * un * fields.u.at(i, j)
         } else {
             rho * un * fields.u.at(i, j + 1)
         };
 
-        let f_s = if us > T::zero() {
+        let f_s = if us > scalar::zero::<T>() {
             rho * us * fields.u.at(i, j - 1)
         } else {
             rho * us * fields.u.at(i, j)
@@ -158,25 +159,25 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
         let rho = fields.density.at(i, j);
 
         // Upwind scheme
-        let fe = if ve > T::zero() {
+        let fe = if ve > scalar::zero::<T>() {
             rho * ve * fields.v.at(i, j)
         } else {
             rho * ve * fields.v.at(i + 1, j)
         };
 
-        let fw = if vw > T::zero() {
+        let fw = if vw > scalar::zero::<T>() {
             rho * vw * fields.v.at(i - 1, j)
         } else {
             rho * vw * fields.v.at(i, j)
         };
 
-        let f_n = if vn > T::zero() {
+        let f_n = if vn > scalar::zero::<T>() {
             rho * vn * fields.v.at(i, j)
         } else {
             rho * vn * fields.v.at(i, j + 1)
         };
 
-        let f_s = if vs > T::zero() {
+        let f_s = if vs > scalar::zero::<T>() {
             rho * vs * fields.v.at(i, j - 1)
         } else {
             rho * vs * fields.v.at(i, j)
@@ -188,7 +189,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
     /// Calculate diffusion term for u-velocity
     fn calculate_diffusion_u(&self, fields: &SimulationFields<T>, i: usize, j: usize) -> T {
         let mu = fields.viscosity.at(i, j);
-        let two = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
+        let two = scalar::from_f64::<T>(TWO);
 
         let d2u_dx2 = (fields.u.at(i + 1, j) - two * fields.u.at(i, j) + fields.u.at(i - 1, j))
             / (self.dx * self.dx);
@@ -201,7 +202,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> VelocityPredictor<T> {
     /// Calculate diffusion term for v-velocity
     fn calculate_diffusion_v(&self, fields: &SimulationFields<T>, i: usize, j: usize) -> T {
         let mu = fields.viscosity.at(i, j);
-        let two = T::from_f64(TWO).unwrap_or_else(|| T::one() + T::one());
+        let two = scalar::from_f64::<T>(TWO);
         let d2v_dx2 = (fields.v.at(i + 1, j) - two * fields.v.at(i, j) + fields.v.at(i - 1, j))
             / (self.dx * self.dx);
         let d2v_dy2 = (fields.v.at(i, j + 1) - two * fields.v.at(i, j) + fields.v.at(i, j - 1))

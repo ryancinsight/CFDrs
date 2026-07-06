@@ -1,11 +1,12 @@
 //! Shared scalar pressure-balance utilities for branching junction solvers.
 
+use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
+use eunomia::NumericElement;
 
 /// Scalar tolerances used by bracketed bisection solves.
 #[derive(Debug, Clone, Copy)]
-pub(super) struct ScalarSolveTolerances<T: RealField + Copy> {
+pub(super) struct ScalarSolveTolerances<T: Cfd1dScalar + Copy> {
     /// Absolute/relative target tolerance.
     pub value_tolerance: T,
     /// Interval-width tolerance.
@@ -14,13 +15,14 @@ pub(super) struct ScalarSolveTolerances<T: RealField + Copy> {
     pub max_iterations: usize,
 }
 
-impl<T: RealField + Copy + SafeFromF64> ScalarSolveTolerances<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> ScalarSolveTolerances<T> {
     /// Tolerances for flow-root solves over `[0, q_parent]`.
     pub(super) fn for_flow_interval(q_parent: T) -> Self {
         let tiny = T::from_f64_or_one(1e-18);
         Self {
             value_tolerance: T::from_f64_or_one(1e-12),
-            interval_tolerance: q_parent.abs() * T::from_f64_or_one(1e-10) + tiny,
+            interval_tolerance: <T as NumericElement>::abs(q_parent) * T::from_f64_or_one(1e-10)
+                + tiny,
             max_iterations: 80,
         }
     }
@@ -29,8 +31,10 @@ impl<T: RealField + Copy + SafeFromF64> ScalarSolveTolerances<T> {
     pub(super) fn for_target(target: T, interval_scale: T) -> Self {
         let tiny = T::from_f64_or_one(1e-18);
         Self {
-            value_tolerance: target.abs() * T::from_f64_or_one(1e-10) + tiny,
-            interval_tolerance: interval_scale.abs() * T::from_f64_or_one(1e-10) + tiny,
+            value_tolerance: <T as NumericElement>::abs(target) * T::from_f64_or_one(1e-10) + tiny,
+            interval_tolerance: <T as NumericElement>::abs(interval_scale)
+                * T::from_f64_or_one(1e-10)
+                + tiny,
             max_iterations: 80,
         }
     }
@@ -45,7 +49,7 @@ pub(super) fn bisect_root<T, F>(
     residual: F,
 ) -> T
 where
-    T: RealField + Copy + SafeFromF64,
+    T: Cfd1dScalar + Copy + SafeFromF64,
     F: Fn(T) -> T,
 {
     let mut lower = lower;
@@ -53,7 +57,7 @@ where
 
     if let Some(seed) = seed {
         let seed_residual = residual(seed);
-        if seed_residual.abs() <= tolerances.value_tolerance {
+        if <T as NumericElement>::abs(seed_residual) <= tolerances.value_tolerance {
             return seed;
         }
         if seed_residual < T::zero() {
@@ -67,8 +71,8 @@ where
         let midpoint = (lower + upper) / T::from_f64_or_one(2.0);
         let midpoint_residual = residual(midpoint);
 
-        if midpoint_residual.abs() <= tolerances.value_tolerance
-            || (upper - lower).abs() <= tolerances.interval_tolerance
+        if <T as NumericElement>::abs(midpoint_residual) <= tolerances.value_tolerance
+            || <T as NumericElement>::abs(upper - lower) <= tolerances.interval_tolerance
         {
             return midpoint;
         }
@@ -92,7 +96,7 @@ pub(super) fn bisect_monotone_target<T, F>(
     value: F,
 ) -> T
 where
-    T: RealField + Copy + SafeFromF64,
+    T: Cfd1dScalar + Copy + SafeFromF64,
     F: Fn(T) -> T,
 {
     let mut lower = lower;
@@ -106,8 +110,8 @@ where
         let midpoint = (lower + upper) / T::from_f64_or_one(2.0);
         let midpoint_value = value(midpoint);
 
-        if (midpoint_value - target).abs() <= tolerances.value_tolerance
-            || (upper - lower).abs() <= tolerances.interval_tolerance
+        if <T as NumericElement>::abs(midpoint_value - target) <= tolerances.value_tolerance
+            || <T as NumericElement>::abs(upper - lower) <= tolerances.interval_tolerance
         {
             return midpoint;
         }

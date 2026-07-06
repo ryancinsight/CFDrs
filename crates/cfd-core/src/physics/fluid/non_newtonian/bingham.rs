@@ -4,8 +4,8 @@
 
 use super::super::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use crate::error::Error;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Bingham plastic fluid model
@@ -33,7 +33,7 @@ pub struct BinghamPlastic<T: RealField + Copy> {
     pub reference_shear_rate: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> BinghamPlastic<T> {
+impl<T: RealField + FloatElement + Copy> BinghamPlastic<T> {
     /// Create a new Bingham plastic fluid
     pub fn new(
         name: String,
@@ -59,8 +59,8 @@ impl<T: RealField + FromPrimitive + Copy> BinghamPlastic<T> {
 
     /// Calculate apparent viscosity at given shear rate
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
-        if shear_rate <= T::zero() {
-            return T::from_f64(1e6).unwrap_or_else(T::one);
+        if shear_rate <= <T as NumericElement>::ZERO {
+            return <T as FloatElement>::from_f64(1e6);
         }
 
         self.plastic_viscosity + self.yield_stress / shear_rate
@@ -72,7 +72,7 @@ impl<T: RealField + FromPrimitive + Copy> BinghamPlastic<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for BinghamPlastic<T> {
+impl<T: RealField + FloatElement + Copy> FluidTrait<T> for BinghamPlastic<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
@@ -90,7 +90,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for BinghamPlastic<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for BinghamPlastic<T> {
+impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for BinghamPlastic<T> {
     fn apparent_viscosity(&self, shear_rate: T) -> T {
         BinghamPlastic::apparent_viscosity(self, shear_rate)
     }

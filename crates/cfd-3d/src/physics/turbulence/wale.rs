@@ -28,8 +28,7 @@
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::TurbulenceModel;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
 
 use super::constants::WALE_CW;
 use super::field_ops::{
@@ -40,7 +39,7 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 
 /// Wall-Adapting Local Eddy-viscosity model.
 #[derive(Debug, Clone)]
-pub struct WaleModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct WaleModel<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// WALE constant `C_w`.
     pub c_w: T,
     /// Physical grid spacing in the x direction \[m].
@@ -53,28 +52,24 @@ pub struct WaleModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub filter_width: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
-    WaleModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> WaleModel<T> {
     /// Create a WALE model on a unit grid.
     pub fn new() -> Self {
         Self {
-            c_w: <T as FromPrimitive>::from_f64(WALE_CW)
-                .expect("WALE_CW is an IEEE 754 representable f64 constant"),
-            dx: T::one(),
-            dy: T::one(),
-            dz: T::one(),
-            filter_width: T::one(),
+            c_w: <T as FloatElement>::from_f64(WALE_CW),
+            dx: T::ONE,
+            dy: T::ONE,
+            dz: T::ONE,
+            filter_width: T::ONE,
         }
     }
 
     /// Create a WALE model with a physically correct filter width.
     pub fn with_filter_width(dx: T, dy: T, dz: T) -> Self {
-        let one_third = T::one() / (T::one() + T::one() + T::one());
-        let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
+        let one_third = T::ONE / (T::ONE + T::ONE + T::ONE);
+        let filter_width = <T as FloatElement>::powf(dx * dy * dz, one_third);
         Self {
-            c_w: <T as FromPrimitive>::from_f64(WALE_CW)
-                .expect("WALE_CW is an IEEE 754 representable f64 constant"),
+            c_w: <T as FloatElement>::from_f64(WALE_CW),
             dx,
             dy,
             dz,
@@ -84,8 +79,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
 
     /// Create a WALE model with a custom coefficient and grid spacing.
     pub fn with_constant(c_w: T, dx: T, dy: T, dz: T) -> Self {
-        let one_third = T::one() / (T::one() + T::one() + T::one());
-        let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
+        let one_third = T::ONE / (T::ONE + T::ONE + T::ONE);
+        let filter_width = <T as FloatElement>::powf(dx * dy * dz, one_third);
         Self {
             c_w,
             dx,
@@ -121,43 +116,35 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
     #[inline]
     fn wale_viscosity_at(&self, flow: &FlowField<T>, i: usize, j: usize, k: usize) -> T {
         let (strain_energy, sd_energy) = self.wale_invariants(flow, i, j, k);
-        let eps = <T as FromPrimitive>::from_f64(1e-30)
-            .expect("1e-30 is an IEEE 754 representable f64 constant");
+        let eps = <T as FloatElement>::from_f64(1e-30);
 
         if sd_energy <= eps {
-            return T::zero();
+            return T::ZERO;
         }
 
-        let three_over_two =
-            <T as FromPrimitive>::from_f64(1.5).expect("1.5 is representable in IEEE 754");
-        let five_over_two =
-            <T as FromPrimitive>::from_f64(2.5).expect("2.5 is representable in IEEE 754");
-        let five_over_four =
-            <T as FromPrimitive>::from_f64(1.25).expect("1.25 is representable in IEEE 754");
+        let three_over_two = <T as FloatElement>::from_f64(1.5);
+        let five_over_two = <T as FloatElement>::from_f64(2.5);
+        let five_over_four = <T as FloatElement>::from_f64(1.25);
         let c_delta = self.c_w * self.filter_width;
-        let numerator = num_traits::Float::powf(sd_energy, three_over_two);
-        let denominator = num_traits::Float::powf(strain_energy, five_over_two)
-            + num_traits::Float::powf(sd_energy, five_over_four);
+        let numerator = <T as FloatElement>::powf(sd_energy, three_over_two);
+        let denominator = <T as FloatElement>::powf(strain_energy, five_over_two)
+            + <T as FloatElement>::powf(sd_energy, five_over_four);
 
         if denominator <= eps {
-            T::zero()
+            T::ZERO
         } else {
             c_delta * c_delta * numerator / denominator
         }
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
-    Default for WaleModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> Default for WaleModel<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
-    TurbulenceModel<T> for WaleModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for WaleModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let mut viscosity = Vec::with_capacity(nx * ny * nz);
@@ -187,7 +174,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use nalgebra::Vector3;
+    use leto::geometry::Vector3;
 
     fn fill_velocity_field<F>(flow: &mut FlowField<f64>, mut generator: F)
     where

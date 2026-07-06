@@ -3,7 +3,8 @@
 use super::GpuKernel;
 use crate::compute::traits::{ComputeBackend, ComputeKernel, KernelParams};
 use crate::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
+use hephaestus_wgpu::wgpu;
 use std::marker::PhantomData;
 
 /// GPU diffusion kernel using central difference
@@ -97,7 +98,9 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuDiffusionKernel<T> {
             label: Some("Diffusion Pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader_module,
-            entry_point: "diffusion_central",
+            entry_point: Some("diffusion_central"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
         });
 
         Ok(pipeline)

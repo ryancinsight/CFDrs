@@ -3,10 +3,10 @@
 //! All collision operators work on the flat distribution buffer
 //! with layout `f[j * nx * 9 + i * 9 + q]`.
 
-use nalgebra::RealField;
+use eunomia::FloatElement;
 
 /// Trait for LBM collision operators operating on flat distribution buffers.
-pub trait CollisionOperator<T: RealField + Copy>: Send + Sync {
+pub trait CollisionOperator<T: FloatElement>: Send + Sync {
     /// Apply collision to the flat distribution buffer `f`.
     ///
     /// # Arguments

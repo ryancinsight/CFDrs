@@ -2,7 +2,7 @@ use approx::assert_relative_eq;
 use cfd_3d::physics::turbulence::SmagorinskyModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use nalgebra::Vector3;
+use leto::geometry::Vector3;
 
 #[test]
 fn test_smagorinsky_turbulent_viscosity() {

@@ -1,12 +1,46 @@
 //! Interpolation operators for AMG multigrid methods
 
-use crate::sparse::SparseMatrix;
+use super::{csr_from_parts, csr_value, SparseMatrix};
 use cfd_core::error::{Error, NumericalErrorKind, Result};
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto_ops::{spmv as leto_spmv, Scalar as LetoScalar};
+
+#[inline]
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+#[inline]
+fn usize_to_f64(value: usize) -> f64 {
+    let value_u64 = u64::try_from(value).expect("invariant: usize count fits into u64");
+    <u64 as NumericElement>::to_f64(value_u64)
+}
+
+#[inline]
+fn from_usize<T: FloatElement>(value: usize) -> T {
+    from_f64(usize_to_f64(value))
+}
+
+#[inline]
+fn average_f64(sum: f64, count: usize) -> f64 {
+    if count == 0 {
+        0.0
+    } else {
+        sum / usize_to_f64(count)
+    }
+}
+
+#[inline]
+fn ratio_usize(numerator: usize, denominator: usize) -> f64 {
+    if denominator == 0 {
+        0.0
+    } else {
+        usize_to_f64(numerator) / usize_to_f64(denominator)
+    }
+}
 
 /// Create classical interpolation operator (Ruge-Stüben)
-pub fn create_classical_interpolation<T: RealField + Copy + FromPrimitive>(
+pub fn create_classical_interpolation<T: RealField + Copy + FloatElement + LetoScalar>(
     fine_matrix: &SparseMatrix<T>,
     coarse_points: &[usize],
     strength_matrix: &SparseMatrix<T>,
@@ -31,18 +65,18 @@ pub fn create_classical_interpolation<T: RealField + Copy + FromPrimitive>(
         if let Some(coarse_idx) = coarse_map[fine_i] {
             // Point is a C-point: Direct injection
             col_indices.push(coarse_idx);
-            values.push(T::one());
+            values.push(<T as NumericElement>::ONE);
         } else {
             // Point is an F-point: Interpolate from C-neighbors using Ruge-Stüben formula
             // w_ij = - ( A_ij + sum_{k in F_i^s} ( A_ik * A_kj / sum_{m in C_i} A_km ) ) / ( A_ii + sum_{n in D_i^w} A_in )
 
-            let row_start = fine_matrix.row_offsets()[fine_i];
-            let row_end = fine_matrix.row_offsets()[fine_i + 1];
+            let row_start = fine_matrix.row_ptr()[fine_i];
+            let row_end = fine_matrix.row_ptr()[fine_i + 1];
             let fine_row_cols = &fine_matrix.col_indices()[row_start..row_end];
             let fine_row_vals = &fine_matrix.values()[row_start..row_end];
 
-            let strength_start = strength_matrix.row_offsets()[fine_i];
-            let strength_end = strength_matrix.row_offsets()[fine_i + 1];
+            let strength_start = strength_matrix.row_ptr()[fine_i];
+            let strength_end = strength_matrix.row_ptr()[fine_i + 1];
             let strength_cols = &strength_matrix.col_indices()[strength_start..strength_end];
 
             // Identify sets C_i (strong C-points) and F_i^s (strong F-points)
@@ -64,8 +98,8 @@ pub fn create_classical_interpolation<T: RealField + Copy + FromPrimitive>(
                 // Leaving row empty effectively means zero value (Dirichlet-like).
             } else {
                 // Identify diagonal A_ii and sum of weak connections
-                let mut a_ii = T::zero();
-                let mut sum_weak = T::zero();
+                let mut a_ii = <T as NumericElement>::ZERO;
+                let mut sum_weak = <T as NumericElement>::ZERO;
 
                 for (k, &neighbor_idx) in fine_row_cols.iter().enumerate() {
                     let val = fine_row_vals[k];
@@ -82,49 +116,44 @@ pub fn create_classical_interpolation<T: RealField + Copy + FromPrimitive>(
 
                 let diagonal = a_ii + sum_weak;
 
-                if diagonal.abs() > T::default_epsilon() {
+                if NumericElement::abs(diagonal) > <T as RealField>::EPSILON {
                     // Precompute denominators for k in F_i^s: sum_{m in C_i} A_km
                     let mut k_denoms = Vec::with_capacity(f_i_s.len());
                     for &k in &f_i_s {
-                        let mut denom = T::zero();
+                        let mut denom = <T as NumericElement>::ZERO;
                         for &m in &c_i {
-                            if let Some(val) = fine_matrix.get_entry(k, m) {
-                                denom += val.into_value();
-                            }
+                            denom += csr_value(fine_matrix, k, m);
                         }
                         k_denoms.push(denom);
                     }
 
                     // Compute weights for each j in C_i
                     let mut weights = Vec::new();
-                    let neg_diag_inv = T::one() / -diagonal;
+                    let neg_diag_inv = <T as NumericElement>::ONE / -diagonal;
 
                     for &j in &c_i {
                         let coarse_local_idx = coarse_map[j].unwrap();
 
                         // A_ij (direct connection)
-                        let mut a_ij = T::zero();
+                        let mut a_ij = <T as NumericElement>::ZERO;
                         if let Ok(idx) = fine_row_cols.binary_search(&j) {
                             a_ij = fine_row_vals[idx];
                         }
 
-                        let mut indirect_sum = T::zero();
+                        let mut indirect_sum = <T as NumericElement>::ZERO;
 
                         // Sum over k in F_i^s
                         for (idx, &k) in f_i_s.iter().enumerate() {
                             let denom = k_denoms[idx];
-                            if denom.abs() > T::default_epsilon() {
+                            if NumericElement::abs(denom) > <T as RealField>::EPSILON {
                                 // A_ik
-                                let mut a_ik = T::zero();
+                                let mut a_ik = <T as NumericElement>::ZERO;
                                 if let Ok(k_idx) = fine_row_cols.binary_search(&k) {
                                     a_ik = fine_row_vals[k_idx];
                                 }
 
                                 // A_kj
-                                let mut a_kj = T::zero();
-                                if let Some(val) = fine_matrix.get_entry(k, j) {
-                                    a_kj = val.into_value();
-                                }
+                                let a_kj = csr_value(fine_matrix, k, j);
 
                                 indirect_sum += a_ik * a_kj / denom;
                             }
@@ -147,17 +176,23 @@ pub fn create_classical_interpolation<T: RealField + Copy + FromPrimitive>(
         row_offsets[fine_i + 1] = col_indices.len();
     }
 
-    SparseMatrix::try_from_csr_data(fine_n, coarse_n, row_offsets, col_indices, values).map_err(
-        |e| {
-            Error::Numerical(NumericalErrorKind::InvalidValue {
-                value: format!("Failed to create classical interpolation matrix: {e}"),
-            })
-        },
+    csr_from_parts(
+        fine_n,
+        coarse_n,
+        row_offsets,
+        col_indices,
+        values,
+        "classical interpolation matrix",
     )
+    .map_err(|e| {
+        Error::Numerical(NumericalErrorKind::InvalidValue {
+            value: format!("Failed to create classical interpolation matrix: {e}"),
+        })
+    })
 }
 
 /// Create direct interpolation operator
-pub fn create_direct_interpolation<T: RealField + Copy + FromPrimitive>(
+pub fn create_direct_interpolation<T: RealField + Copy + FloatElement + LetoScalar>(
     fine_to_coarse_map: &[Option<usize>],
     fine_n: usize,
     coarse_n: usize,
@@ -169,17 +204,24 @@ pub fn create_direct_interpolation<T: RealField + Copy + FromPrimitive>(
     for (fine_i, &coarse_opt) in fine_to_coarse_map.iter().enumerate() {
         if let Some(coarse_i) = coarse_opt {
             col_indices.push(coarse_i);
-            values.push(T::one());
+            values.push(<T as NumericElement>::ONE);
         }
         row_offsets[fine_i + 1] = col_indices.len();
     }
 
-    SparseMatrix::try_from_csr_data(fine_n, coarse_n, row_offsets, col_indices, values)
-        .expect("Failed to create direct interpolation matrix")
+    csr_from_parts(
+        fine_n,
+        coarse_n,
+        row_offsets,
+        col_indices,
+        values,
+        "direct interpolation matrix",
+    )
+    .expect("Failed to create direct interpolation matrix")
 }
 
 /// Create standard interpolation operator
-pub fn create_standard_interpolation<T: RealField + Copy + FromPrimitive>(
+pub fn create_standard_interpolation<T: RealField + Copy + FloatElement + LetoScalar>(
     fine_matrix: &SparseMatrix<T>,
     coarse_points: &[usize],
     strength_matrix: &SparseMatrix<T>,
@@ -196,36 +238,38 @@ pub fn create_standard_interpolation<T: RealField + Copy + FromPrimitive>(
             // Direct injection for coarse points
             let coarse_idx = coarse_points.iter().position(|&x| x == fine_i).unwrap();
             col_indices.push(coarse_idx);
-            values.push(T::one());
+            values.push(<T as NumericElement>::ONE);
         } else {
             // Distance-weighted interpolation for F-points
             let mut weights = Vec::new();
-            let mut total_weight = T::zero();
+            let mut total_weight = <T as NumericElement>::ZERO;
 
             // Find neighboring coarse points
             for (coarse_local_idx, &coarse_global_idx) in coarse_points.iter().enumerate() {
-                let distance = ((fine_i as f64) - (coarse_global_idx as f64)).abs();
+                let distance = fine_i.abs_diff(coarse_global_idx);
 
                 // Weight by inverse distance and connection strength
-                if distance > 0.0 {
-                    let strength =
-                        if let Some(s) = strength_matrix.get_entry(fine_i, coarse_global_idx) {
-                            s.into_value()
+                if distance > 0 {
+                    let strength = {
+                        let stored = csr_value(strength_matrix, fine_i, coarse_global_idx);
+                        if stored == <T as NumericElement>::ZERO {
+                            from_f64(1e-6)
                         } else {
-                            T::from_f64(1e-6).unwrap_or_else(T::zero)
-                        };
+                            stored
+                        }
+                    };
                     let weight =
-                        strength / (T::from_f64(distance).unwrap_or_else(T::zero) + T::one());
+                        strength / (from_usize::<T>(distance) + <T as NumericElement>::ONE);
                     weights.push((coarse_local_idx, weight));
                     total_weight += weight;
                 }
             }
 
             for &(coarse_idx, weight) in &weights {
-                let normalized_weight = if total_weight > T::zero() {
+                let normalized_weight = if total_weight > <T as NumericElement>::ZERO {
                     weight / total_weight
                 } else {
-                    T::one() / T::from_usize(weights.len()).unwrap_or_else(T::one)
+                    <T as NumericElement>::ONE / from_usize(weights.len())
                 };
                 col_indices.push(coarse_idx);
                 values.push(normalized_weight);
@@ -234,17 +278,23 @@ pub fn create_standard_interpolation<T: RealField + Copy + FromPrimitive>(
         row_offsets[fine_i + 1] = col_indices.len();
     }
 
-    SparseMatrix::try_from_csr_data(fine_n, coarse_n, row_offsets, col_indices, values).map_err(
-        |e| {
-            Error::Numerical(NumericalErrorKind::InvalidValue {
-                value: format!("Failed to create standard interpolation matrix: {e}"),
-            })
-        },
+    csr_from_parts(
+        fine_n,
+        coarse_n,
+        row_offsets,
+        col_indices,
+        values,
+        "standard interpolation matrix",
     )
+    .map_err(|e| {
+        Error::Numerical(NumericalErrorKind::InvalidValue {
+            value: format!("Failed to create standard interpolation matrix: {e}"),
+        })
+    })
 }
 
 /// Validate interpolation operator properties
-pub fn validate_interpolation_operator<T: RealField + Copy + FromPrimitive + ToPrimitive>(
+pub fn validate_interpolation_operator<T: RealField + Copy + FloatElement + LetoScalar>(
     interpolation: &SparseMatrix<T>,
     coarse_points: &[usize],
 ) -> InterpolationQuality {
@@ -254,9 +304,9 @@ pub fn validate_interpolation_operator<T: RealField + Copy + FromPrimitive + ToP
     // Check row sums (should be 1 for F-points, 1 for C-points)
     let mut row_sums = Vec::new();
     for i in 0..fine_n {
-        let row_start = interpolation.row_offsets()[i];
-        let row_end = interpolation.row_offsets()[i + 1];
-        let mut row_sum = T::zero();
+        let row_start = interpolation.row_ptr()[i];
+        let row_end = interpolation.row_ptr()[i + 1];
+        let mut row_sum = <T as NumericElement>::ZERO;
         for k in row_start..row_end {
             row_sum += interpolation.values()[k];
         }
@@ -284,39 +334,50 @@ pub fn validate_interpolation_operator<T: RealField + Copy + FromPrimitive + ToP
     let avg_c_point_sum = if c_point_row_sums.is_empty() {
         0.0
     } else {
-        c_point_row_sums
-            .iter()
-            .map(|&s| s.to_f64().unwrap_or(0.0))
-            .sum::<f64>()
-            / c_point_row_sums.len() as f64
+        average_f64(
+            c_point_row_sums
+                .iter()
+                .map(|&s| NumericElement::to_f64(s))
+                .sum::<f64>(),
+            c_point_row_sums.len(),
+        )
     };
 
     let avg_f_point_sum = if f_point_row_sums.is_empty() {
         0.0
     } else {
-        f_point_row_sums
-            .iter()
-            .map(|&s| s.to_f64().unwrap_or(0.0))
-            .sum::<f64>()
-            / f_point_row_sums.len() as f64
+        average_f64(
+            f_point_row_sums
+                .iter()
+                .map(|&s| NumericElement::to_f64(s))
+                .sum::<f64>(),
+            f_point_row_sums.len(),
+        )
     };
 
     // Check conservation property (interpolation should preserve constants)
-    let constant_vector = nalgebra::DVector::from_element(coarse_n, T::one());
-    let mut interpolated = nalgebra::DVector::zeros(fine_n);
-    crate::sparse::spmv(interpolation, &constant_vector, &mut interpolated);
+    let constant_vector =
+        leto::Array1::from_shape_vec([coarse_n], vec![<T as NumericElement>::ONE; coarse_n])
+            .expect("invariant: constant vector shape is valid");
+    let interpolated = leto_spmv(interpolation, &constant_vector.view())
+        .expect("invariant: interpolation dimensions are valid");
 
-    let constant_error: f64 = interpolated
-        .iter()
-        .map(|&x| (x - T::one()).abs().to_f64().unwrap_or(0.0))
-        .sum::<f64>()
-        / fine_n as f64;
+    let constant_error: f64 = average_f64(
+        (0..fine_n)
+            .map(|idx| {
+                NumericElement::to_f64(NumericElement::abs(
+                    interpolated[idx] - <T as NumericElement>::ONE,
+                ))
+            })
+            .sum::<f64>(),
+        fine_n,
+    );
 
     // Sparsity metrics
     let total_entries = fine_n * coarse_n;
     let non_zero_entries = interpolation.nnz();
     let sparsity_ratio = if total_entries > 0 {
-        non_zero_entries as f64 / total_entries as f64
+        ratio_usize(non_zero_entries, total_entries)
     } else {
         0.0
     };
@@ -361,24 +422,43 @@ impl InterpolationQuality {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::DMatrix;
+    use leto::Array1;
+    use leto_ops::spmv as leto_spmv;
 
-    fn create_test_matrix() -> DMatrix<f64> {
+    fn csr_from_dense(values_2d: &[Vec<f64>], context: &str) -> SparseMatrix<f64> {
+        let nrows = values_2d.len();
+        let ncols = values_2d.first().map_or(0, Vec::len);
+        let mut row_ptr = Vec::with_capacity(nrows + 1);
+        let mut col_indices = Vec::new();
+        let mut values = Vec::new();
+        row_ptr.push(0);
+        for row in values_2d {
+            assert_eq!(row.len(), ncols);
+            for (col, &value) in row.iter().enumerate() {
+                if value != 0.0 {
+                    col_indices.push(col);
+                    values.push(value);
+                }
+            }
+            row_ptr.push(col_indices.len());
+        }
+        csr_from_parts(nrows, ncols, row_ptr, col_indices, values, context).unwrap()
+    }
+
+    fn create_test_matrix() -> SparseMatrix<f64> {
         // Create a simple tridiagonal matrix
         let n = 5;
-        let mut matrix = DMatrix::zeros(n, n);
-
+        let mut dense = vec![vec![0.0; n]; n];
         for i in 0..n {
-            matrix[(i, i)] = 2.0;
+            dense[i][i] = 2.0;
             if i > 0 {
-                matrix[(i, i - 1)] = -1.0;
+                dense[i][i - 1] = -1.0;
             }
             if i < n - 1 {
-                matrix[(i, i + 1)] = -1.0;
+                dense[i][i + 1] = -1.0;
             }
         }
-
-        matrix
+        csr_from_dense(&dense, "interpolation test matrix")
     }
 
     fn create_simple_coarsening() -> (Vec<usize>, Vec<Option<usize>>) {
@@ -391,63 +471,37 @@ mod tests {
     #[test]
     fn test_direct_interpolation() {
         let (_coarse_points, fine_to_coarse_map) = create_simple_coarsening();
-        let interpolation = create_direct_interpolation(&fine_to_coarse_map, 5, 3);
+        let interpolation = create_direct_interpolation::<f64>(&fine_to_coarse_map, 5, 3);
 
         // Check dimensions
         assert_eq!(interpolation.nrows(), 5);
         assert_eq!(interpolation.ncols(), 3);
 
         // Check that coarse points map correctly
-        assert_eq!(
-            interpolation
-                .get_entry(0, 0)
-                .map_or(0.0, |e| e.into_value()),
-            1.0
-        ); // Point 0 -> coarse 0
-        assert_eq!(
-            interpolation
-                .get_entry(2, 1)
-                .map_or(0.0, |e| e.into_value()),
-            1.0
-        ); // Point 2 -> coarse 1
-        assert_eq!(
-            interpolation
-                .get_entry(4, 2)
-                .map_or(0.0, |e| e.into_value()),
-            1.0
-        ); // Point 4 -> coarse 2
+        assert_eq!(csr_value(&interpolation, 0, 0), 1.0); // Point 0 -> coarse 0
+        assert_eq!(csr_value(&interpolation, 2, 1), 1.0); // Point 2 -> coarse 1
+        assert_eq!(csr_value(&interpolation, 4, 2), 1.0); // Point 4 -> coarse 2
 
         // Check that F-points are zero
-        assert_eq!(
-            interpolation
-                .get_entry(1, 0)
-                .map_or(0.0, |e| e.into_value()),
-            0.0
-        ); // Point 1 not mapped
-        assert_eq!(
-            interpolation
-                .get_entry(3, 1)
-                .map_or(0.0, |e| e.into_value()),
-            0.0
-        ); // Point 3 not mapped
+        assert_eq!(csr_value(&interpolation, 1, 0), 0.0); // Point 1 not mapped
+        assert_eq!(csr_value(&interpolation, 3, 1), 0.0); // Point 3 not mapped
     }
 
     #[test]
     fn test_classical_interpolation() {
-        let matrix_dense = create_test_matrix();
-        let matrix = SparseMatrix::from(&matrix_dense);
+        let matrix = create_test_matrix();
         let (coarse_points, _) = create_simple_coarsening();
 
         // Create a simple strength matrix
-        let mut strength_builder = nalgebra_sparse::CooMatrix::new(5, 5);
-        for i in 0..5 {
-            for j in 0..5 {
-                if (i as i32 - j as i32).abs() == 1 {
-                    strength_builder.push(i, j, 1.0);
+        let mut strength_dense = vec![vec![0.0; 5]; 5];
+        for i in 0usize..5 {
+            for j in 0usize..5 {
+                if i.abs_diff(j) == 1 {
+                    strength_dense[i][j] = 1.0;
                 }
             }
         }
-        let strength_matrix = SparseMatrix::from(&strength_builder);
+        let strength_matrix = csr_from_dense(&strength_dense, "classical strength matrix");
 
         let interpolation =
             create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2).unwrap();
@@ -457,24 +511,9 @@ mod tests {
         assert_eq!(interpolation.ncols(), 3);
 
         // Check that coarse points have direct injection
-        assert_eq!(
-            interpolation
-                .get_entry(0, 0)
-                .map_or(0.0, |e| e.into_value()),
-            1.0
-        );
-        assert_eq!(
-            interpolation
-                .get_entry(2, 1)
-                .map_or(0.0, |e| e.into_value()),
-            1.0
-        );
-        assert_eq!(
-            interpolation
-                .get_entry(4, 2)
-                .map_or(0.0, |e| e.into_value()),
-            1.0
-        );
+        assert_eq!(csr_value(&interpolation, 0, 0), 1.0);
+        assert_eq!(csr_value(&interpolation, 2, 1), 1.0);
+        assert_eq!(csr_value(&interpolation, 4, 2), 1.0);
 
         // For 1D Laplacian 3-point stencil [-1, 2, -1], linear interpolation is exact.
         // F-point 1 is between C-point 0 and C-point 2. Weight should be 0.5 each.
@@ -483,12 +522,8 @@ mod tests {
         // w_10 = -(-1)/2 = 0.5
         // w_12 = -(-1)/2 = 0.5
 
-        let w10 = interpolation
-            .get_entry(1, 0)
-            .map_or(0.0, |e| e.into_value());
-        let w11 = interpolation
-            .get_entry(1, 1)
-            .map_or(0.0, |e| e.into_value());
+        let w10 = csr_value(&interpolation, 1, 0);
+        let w11 = csr_value(&interpolation, 1, 1);
 
         assert!(
             (w10 - 0.5).abs() < 1e-10,
@@ -526,9 +561,12 @@ mod tests {
         let (_coarse_points, fine_to_coarse_map) = create_simple_coarsening();
         let interpolation = create_direct_interpolation::<f64>(&fine_to_coarse_map, 5, 3);
 
-        let constant_coarse = nalgebra::DVector::from_element(3, 1.0);
-        let mut interpolated = nalgebra::DVector::zeros(5);
-        crate::sparse::spmv(&interpolation, &constant_coarse, &mut interpolated);
+        let constant_coarse = Array1::from_shape_vec([3], vec![1.0; 3]).unwrap();
+        let mut interpolated = Array1::zeros([5]);
+        let interpolated_result = leto_spmv(&interpolation, &constant_coarse.view()).unwrap();
+        for i in 0..interpolated.shape()[0] {
+            interpolated[i] = interpolated_result[i];
+        }
 
         // C-points should be 1.0, F-points should be 0.0
         assert_eq!(interpolated[0], 1.0); // C-point
@@ -552,36 +590,36 @@ mod tests {
         // F-F connection (1,2) should distribute 2's influence on 1 to common C-neighbor 0.
 
         let n = 5;
-        let mut matrix_dense = DMatrix::<f64>::zeros(n, n);
+        let mut dense_values = vec![vec![0.0; n]; n];
 
         // Setup connections with -1.0, and diagonal 3.0
         let edges = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4)];
 
         for i in 0..n {
-            matrix_dense[(i, i)] = 3.0;
+            dense_values[i][i] = 3.0;
         }
 
         for (u, v) in edges {
-            matrix_dense[(u, v)] = -1.0;
-            matrix_dense[(v, u)] = -1.0;
+            dense_values[u][v] = -1.0;
+            dense_values[v][u] = -1.0;
         }
         // Fix diagonals for C-points to be consistent with laplacian?
         // Doesn't strictly matter for interpolation formula as we only look at F-point rows.
         // Row 1: -1(0), -1(2), -1(3). Sum abs off-diag = 3. Diag=3.
 
-        let matrix = SparseMatrix::from(&matrix_dense);
+        let matrix = csr_from_dense(&dense_values, "classical weighted interpolation matrix");
 
         let coarse_points = vec![0, 3, 4];
         // Strength matrix (all neighbors are strong)
-        let mut strength_builder = nalgebra_sparse::CooMatrix::new(n, n);
+        let mut strength_dense = vec![vec![0.0; n]; n];
         for i in 0..n {
             for j in 0..n {
-                if i != j && matrix_dense[(i, j)].abs() > 0.0_f64 {
-                    strength_builder.push(i, j, 1.0);
+                if i != j && dense_values[i][j].abs() > 0.0_f64 {
+                    strength_dense[i][j] = 1.0;
                 }
             }
         }
-        let strength_matrix = SparseMatrix::from(&strength_builder);
+        let strength_matrix = csr_from_dense(&strength_dense, "classical weighted strength matrix");
 
         let interpolation =
             create_classical_interpolation(&matrix, &coarse_points, &strength_matrix, 2).unwrap();
@@ -595,14 +633,8 @@ mod tests {
         // w_{1,3}: Direct -1. Indirect via 2: a_{12}*a_{23}/S_2 = (-1*0)/-1 = 0. Total -1.
         // w_{1,3} = -(-1)/3 = 1/3.
 
-        let w1_0 = interpolation
-            .get_entry(1, 0)
-            .map_or(0.0, |e| e.into_value());
-        let w1_3 = interpolation
-            .get_entry(1, 1)
-            .map_or(0.0, |e| e.into_value());
-
-        println!("Weights for point 1: w(0)={w1_0}, w(3)={w1_3}");
+        let w1_0 = csr_value(&interpolation, 1, 0);
+        let w1_3 = csr_value(&interpolation, 1, 1);
 
         assert!((w1_0 - 2.0 / 3.0).abs() < 1e-10, "Expected 2/3, got {w1_0}");
         assert!((w1_3 - 1.0 / 3.0).abs() < 1e-10, "Expected 1/3, got {w1_3}");

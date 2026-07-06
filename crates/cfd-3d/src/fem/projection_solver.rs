@@ -64,24 +64,22 @@
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::{
-    ConjugateGradient, IdentityPreconditioner, IterativeLinearSolver, GMRES,
-};
+use cfd_math::linear_solver::{ConjugateGradient, IdentityPreconditioner, GMRES};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
-use nalgebra::{DVector, RealField, Vector3};
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement};
+use nalgebra::{DVector, Vector3};
 use std::collections::HashSet;
 
+use crate::fem::leto_bridge::{build_with_vector_rhs, iterative_solve};
 use crate::fem::mesh_utils::compute_mesh_scale;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::solver::extract_vertex_indices;
-use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
+use crate::fem::{scalar, FemConfig, StokesFlowProblem, StokesFlowSolution};
+use crate::scalar::Cfd3dScalar;
 
 /// Pressure projection solver for incompressible Stokes/Navier-Stokes equations
-pub struct ProjectionSolver<
-    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + Float + std::fmt::Debug,
-> {
+pub struct ProjectionSolver<T: Cfd3dScalar> {
     _config: FemConfig<T>,
     /// Time step for transient simulations
     dt: T,
@@ -95,22 +93,12 @@ pub struct ProjectionSolver<
     pressure_rhs: Option<DVector<T>>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + FromPrimitive
-            + Copy
-            + Float
-            + std::fmt::Debug
-            + From<f64>,
-    > ProjectionSolver<T>
-{
+impl<T: Cfd3dScalar> ProjectionSolver<T> {
     /// Create new projection solver with default time step
     pub fn new(config: FemConfig<T>) -> Self {
         Self {
             _config: config,
-            dt: <T as FromPrimitive>::from_f64(0.001)
-                .expect("0.001 is an IEEE 754 representable f64 constant"),
+            dt: <T as FloatElement>::from_f64(0.001),
             momentum_builder: None,
             momentum_rhs: None,
             pressure_builder: None,
@@ -147,7 +135,7 @@ impl<
         let (momentum_matrix, momentum_rhs) = self.assemble_momentum_system(problem)?;
 
         let mut u_star = if let Some(sol) = previous_solution {
-            sol.velocity.clone()
+            sol.velocity.to_dvector()
         } else {
             DVector::zeros(n_velocity_dof)
         };
@@ -155,24 +143,24 @@ impl<
         // Use GMRES for momentum (non-symmetric due to convection)
         let gmres_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: 10000,
-            tolerance: <T as FromPrimitive>::from_f64(1e-10)
-                .expect("1e-10 is an IEEE 754 representable f64 constant"),
+            tolerance: <T as FloatElement>::from_f64(1e-10),
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
 
         let momentum_solver = GMRES::new(gmres_config, 100);
-        let monitor = momentum_solver
-            .solve(
-                &momentum_matrix,
-                &momentum_rhs,
-                &mut u_star,
-                None::<&IdentityPreconditioner>,
-            )
-            .map_err(|e| Error::Solver(format!("Momentum solve failed: {e}")))?;
+        let (momentum_iterations, momentum_residual) = iterative_solve(
+            &momentum_solver,
+            &momentum_matrix,
+            &momentum_rhs,
+            &mut u_star,
+            None::<&IdentityPreconditioner>,
+            "projection momentum",
+        )
+        .map_err(|e| Error::Solver(format!("Momentum solve failed: {e}")))?;
 
         tracing::debug!(
-            iter = monitor.iteration,
-            residual = ?monitor.residual_history.last(),
+            iter = momentum_iterations,
+            residual = ?momentum_residual,
             "Momentum solve converged"
         );
 
@@ -181,25 +169,26 @@ impl<
         let (pressure_matrix, pressure_rhs) = self.assemble_pressure_poisson(problem, &u_star)?;
 
         let mut pressure = if let Some(sol) = previous_solution {
-            sol.pressure.clone()
+            sol.pressure.to_dvector()
         } else {
             DVector::zeros(n_corner_nodes)
         };
 
         // Use Conjugate Gradient for pressure (symmetric positive definite after pinning)
         let cg_solver = ConjugateGradient::new(gmres_config);
-        let monitor = cg_solver
-            .solve(
-                &pressure_matrix,
-                &pressure_rhs,
-                &mut pressure,
-                None::<&IdentityPreconditioner>,
-            )
-            .map_err(|e| Error::Solver(format!("Pressure solve failed: {e}")))?;
+        let (pressure_iterations, pressure_residual) = iterative_solve(
+            &cg_solver,
+            &pressure_matrix,
+            &pressure_rhs,
+            &mut pressure,
+            None::<&IdentityPreconditioner>,
+            "projection pressure",
+        )
+        .map_err(|e| Error::Solver(format!("Pressure solve failed: {e}")))?;
 
         tracing::debug!(
-            iter = monitor.iteration,
-            residual = ?monitor.residual_history.last(),
+            iter = pressure_iterations,
+            residual = ?pressure_residual,
             "Pressure solve converged"
         );
 
@@ -252,7 +241,7 @@ impl<
             self.momentum_rhs
                 .as_mut()
                 .expect("checked Some above")
-                .fill(T::zero());
+                .fill(scalar::zero::<T>());
         }
 
         let mut builder = self
@@ -299,7 +288,7 @@ impl<
 
         // Apply boundary conditions
         self.apply_velocity_boundary_conditions(&mut builder, &mut rhs_out, problem)?;
-        let matrix = builder.build_with_rhs(&mut rhs_out)?;
+        let (matrix, rhs_out) = build_with_vector_rhs(builder, rhs_out, "projection momentum RHS")?;
 
         Ok((matrix, rhs_out))
     }
@@ -335,7 +324,7 @@ impl<
             self.pressure_rhs
                 .as_mut()
                 .expect("checked Some above")
-                .fill(T::zero());
+                .fill(scalar::zero::<T>());
         }
 
         let mut builder = self
@@ -377,7 +366,7 @@ impl<
 
         // Pin one pressure DOF to remove null space
         self.pin_pressure_reference(&mut builder, &mut rhs_out)?;
-        let matrix = builder.build_with_rhs(&mut rhs_out)?;
+        let (matrix, rhs_out) = build_with_vector_rhs(builder, rhs_out, "projection pressure RHS")?;
 
         Ok((matrix, rhs_out))
     }
@@ -452,12 +441,9 @@ impl<
         let j_mat = nalgebra::Matrix3::from_columns(&[v1 - v0, v2 - v0, v3 - v0]);
 
         let det_j = j_mat.determinant();
-        let abs_det = Float::abs(det_j);
+        let abs_det = NumericElement::abs(det_j);
 
-        if abs_det
-            < <T as FromPrimitive>::from_f64(1e-20)
-                .expect("1e-20 is an IEEE 754 representable f64 constant")
-        {
+        if abs_det < <T as FloatElement>::from_f64(1e-20) {
             return Err(Error::Solver(
                 "Near-zero element volume in momentum assembly".to_string(),
             ));
@@ -470,18 +456,18 @@ impl<
 
         // P1 gradients in reference space
         let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            -T::one(),
-            T::one(),
-            T::zero(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::one(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::zero(),
-            T::one(),
+            -scalar::one::<T>(),
+            scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::zero::<T>(),
+            -scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::one::<T>(),
+            scalar::zero::<T>(),
+            -scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::zero::<T>(),
+            scalar::one::<T>(),
         );
 
         // Transform to physical space
@@ -494,7 +480,7 @@ impl<
         // Integrate using quadrature
         for (qp, &qw) in quad.points().iter().zip(quad.weights().iter()) {
             let weight = qw * abs_det;
-            let l = [T::one() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
+            let l = [scalar::one::<T>() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
 
             // P2 shape function values and gradients
             let n_p2 = shape.values(&l);
@@ -549,12 +535,9 @@ impl<
         let j_mat = nalgebra::Matrix3::from_columns(&[v1 - v0, v2 - v0, v3 - v0]);
 
         let det_j = j_mat.determinant();
-        let abs_det = Float::abs(det_j);
+        let abs_det = NumericElement::abs(det_j);
 
-        if abs_det
-            < <T as FromPrimitive>::from_f64(1e-20)
-                .expect("1e-20 is an IEEE 754 representable f64 constant")
-        {
+        if abs_det < <T as FloatElement>::from_f64(1e-20) {
             return Err(Error::Solver(
                 "Near-zero element volume in pressure assembly".to_string(),
             ));
@@ -567,18 +550,18 @@ impl<
 
         // P1 gradients in reference space
         let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            -T::one(),
-            T::one(),
-            T::zero(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::one(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::zero(),
-            T::one(),
+            -scalar::one::<T>(),
+            scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::zero::<T>(),
+            -scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::one::<T>(),
+            scalar::zero::<T>(),
+            -scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::zero::<T>(),
+            scalar::one::<T>(),
         );
 
         // Transform to physical space (constant for P1)
@@ -587,9 +570,7 @@ impl<
         // For P1 elements, the Laplacian matrix is constant over the element
         // K_ij = ∫ ∇N_i · ∇N_j dV = (∇N_i · ∇N_j) * V/4
         // Using exact integration for linear elements
-        let vol = abs_det
-            / <T as FromPrimitive>::from_f64(6.0)
-                .expect("6.0 is representable in all IEEE 754 types");
+        let vol = abs_det / <T as FloatElement>::from_f64(6.0);
 
         for i in 0..4 {
             let grad_i = grad_p1_phys.column(i);
@@ -607,7 +588,7 @@ impl<
 
         for (qp, &qw) in quad.points().iter().zip(quad.weights().iter()) {
             let weight = qw * abs_det;
-            let l = [T::one() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
+            let l = [scalar::one::<T>() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
 
             // Compute divergence of u* at this quadrature point
             let div_u =
@@ -628,7 +609,7 @@ impl<
         grad_p1_phys: &nalgebra::Matrix3x4<T>,
         velocity: &DVector<T>,
     ) -> T {
-        let mut div = T::zero();
+        let mut div = scalar::zero::<T>();
 
         // ∇·u = Σ (∂u_x/∂x + ∂u_y/∂y + ∂u_z/∂z)
         // For P1 interpolation: u = Σ N_i u_i
@@ -676,18 +657,18 @@ impl<
 
         // P1 gradients in reference space
         let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            -T::one(),
-            T::one(),
-            T::zero(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::one(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::zero(),
-            T::one(),
+            -scalar::one::<T>(),
+            scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::zero::<T>(),
+            -scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::one::<T>(),
+            scalar::zero::<T>(),
+            -scalar::one::<T>(),
+            scalar::zero::<T>(),
+            scalar::zero::<T>(),
+            scalar::one::<T>(),
         );
 
         let grad_p1_phys = j_inv_t * grad_ref_p1;
@@ -741,8 +722,8 @@ impl<
                     for d in 0..3 {
                         let dof = node_idx + d * v_offset;
                         if !applied_bcs.contains(&dof) {
-                            builder.set_dirichlet_row(dof, diag_scale, T::zero());
-                            rhs[dof] = T::zero();
+                            builder.set_dirichlet_row(dof, diag_scale, scalar::zero::<T>());
+                            rhs[dof] = scalar::zero::<T>();
                             applied_bcs.insert(dof);
                         }
                     }
@@ -802,7 +783,7 @@ impl<
                 }
                 BoundaryCondition::Wall { .. } => {
                     for d in 0..3 {
-                        velocity[node_idx * 3 + d] = T::zero();
+                        velocity[node_idx * 3 + d] = scalar::zero::<T>();
                     }
                 }
                 BoundaryCondition::Dirichlet {
@@ -839,11 +820,11 @@ impl<
         }
 
         // Compute diagonal scale for pressure DOF
-        let diag_scale = T::one();
+        let diag_scale = scalar::one::<T>();
 
         // Pin first pressure DOF to zero
-        builder.set_dirichlet_row(0, diag_scale, T::zero());
-        rhs[0] = T::zero();
+        builder.set_dirichlet_row(0, diag_scale, scalar::zero::<T>());
+        rhs[0] = scalar::zero::<T>();
 
         tracing::debug!("Pinned pressure DOF 0 to zero (reference pressure)");
 
@@ -863,7 +844,7 @@ impl<
             .map(|v| v.1.position.coords)
             .collect();
 
-        let mut max_div = T::zero();
+        let mut max_div = scalar::zero::<T>();
 
         for cell in &problem.mesh.cells {
             let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
@@ -887,26 +868,27 @@ impl<
 
             // P1 gradients
             let grad_ref_p1 = nalgebra::Matrix3x4::new(
-                -T::one(),
-                T::one(),
-                T::zero(),
-                T::zero(),
-                -T::one(),
-                T::zero(),
-                T::one(),
-                T::zero(),
-                -T::one(),
-                T::zero(),
-                T::zero(),
-                T::one(),
+                -scalar::one::<T>(),
+                scalar::one::<T>(),
+                scalar::zero::<T>(),
+                scalar::zero::<T>(),
+                -scalar::one::<T>(),
+                scalar::zero::<T>(),
+                scalar::one::<T>(),
+                scalar::zero::<T>(),
+                -scalar::one::<T>(),
+                scalar::zero::<T>(),
+                scalar::zero::<T>(),
+                scalar::one::<T>(),
             );
             let grad_p1_phys = j_inv_t * grad_ref_p1;
 
             // Compute divergence at element center
             let div = self.compute_divergence_at_quad_point(&corner_idxs, &grad_p1_phys, velocity);
 
-            if Float::abs(div) > max_div {
-                max_div = Float::abs(div);
+            let abs_div = NumericElement::abs(div);
+            if abs_div > max_div {
+                max_div = abs_div;
             }
         }
 

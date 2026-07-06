@@ -4,6 +4,7 @@
 
 use cfd_core::physics::fluid_dynamics::{FlowField, FlowOperations};
 use cfd_math::linear_solver::IterativeLinearSolver;
+use leto::Array1;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== CFD Demonstration ===\n");
@@ -67,16 +68,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 5. Test linear solver
     println!("\n5. Solving linear system...");
 
-    use nalgebra::DVector;
-
-    let b = DVector::from_vec(vec![1.0, 0.0, 1.0]);
+    let b = Array1::from_shape_vec([3], vec![1.0, 0.0, 1.0]).expect("valid RHS shape");
     use cfd_math::linear_solver::{preconditioners::IdentityPreconditioner, ConjugateGradient};
     let solver = ConjugateGradient::<f64>::default();
-    let mut x = DVector::zeros(3);
+    let mut x = Array1::zeros([3]);
     let preconditioner: Option<&IdentityPreconditioner> = None;
     solver.solve(&matrix, &b, &mut x, preconditioner)?;
     println!("   Solved Ax = b using Conjugate Gradient");
-    println!("   Solution norm: {:.6}", x.norm());
+    let x_norm = x.iter().map(|v| v * v).sum::<f64>().sqrt();
+    println!("   Solution norm: {:.6}", x_norm);
 
     // 6. Summary
     println!("\n=== Summary ===");

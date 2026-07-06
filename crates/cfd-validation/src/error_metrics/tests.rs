@@ -2,7 +2,7 @@
 
 use super::*;
 use approx::assert_relative_eq;
-use nalgebra::Vector3;
+use leto::geometry::Vector3;
 
 #[test]
 fn test_l2_norm() -> Result<()> {
@@ -19,7 +19,7 @@ fn test_l2_norm() -> Result<()> {
 
 #[test]
 fn test_l2_norm_vector() -> Result<()> {
-    // Test L2 norm with scalar values - Vector3 doesn't implement RealField
+    // Test L2 norm with scalar values; vector-field errors are covered below.
     let numerical = vec![1.0, 2.0, 3.0];
     let reference = vec![1.1, 1.9, 3.2];
 
@@ -184,7 +184,6 @@ fn test_error_statistics() -> Result<()> {
 
 #[test]
 fn test_error_statistics_vector() -> Result<()> {
-    use nalgebra::Vector3;
     let numerical = vec![Vector3::new(1.0, 2.0, 3.0), Vector3::new(3.0, 4.0, 5.0)];
     let reference = vec![Vector3::new(1.1, 1.9, 3.2), Vector3::new(3.2, 3.8, 5.3)];
 

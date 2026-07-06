@@ -4,8 +4,9 @@
 //! for any network derived from a [`cfd_schematics`] topology.
 
 use super::super::{Edge, EdgeType, NetworkGraph, Node, NodeType};
+use crate::scalar::Cfd1dScalar;
 use cfd_core::error::Result;
-use nalgebra::RealField;
+use eunomia::NumericElement;
 use petgraph::visit::EdgeRef;
 
 /// Builder for constructing network graphs directly (internal / advanced use).
@@ -14,11 +15,11 @@ use petgraph::visit::EdgeRef;
 /// [`cfd_schematics`] topology. This builder is retained for low-level
 /// graph construction in blood-vessel models and other domain-specific
 /// applications that build the graph programmatically.
-pub struct NetworkBuilder<T: RealField + Copy> {
+pub struct NetworkBuilder<T: Cfd1dScalar + Copy> {
     graph: NetworkGraph<T>,
 }
 
-impl<T: RealField + Copy> NetworkBuilder<T> {
+impl<T: Cfd1dScalar + Copy> NetworkBuilder<T> {
     /// Create a new network builder
     #[must_use]
     pub fn new() -> Self {
@@ -122,7 +123,7 @@ impl<T: RealField + Copy> NetworkBuilder<T> {
                     k
                 )));
             }
-            if r.abs() < eps && k.abs() < eps {
+            if <T as NumericElement>::abs(r) < eps && <T as NumericElement>::abs(k) < eps {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Edge {} has zero resistance and zero quadratic coefficient",
                     idx.index()
@@ -134,7 +135,7 @@ impl<T: RealField + Copy> NetworkBuilder<T> {
     }
 }
 
-impl<T: RealField + Copy> Default for NetworkBuilder<T> {
+impl<T: Cfd1dScalar + Copy> Default for NetworkBuilder<T> {
     fn default() -> Self {
         Self::new()
     }

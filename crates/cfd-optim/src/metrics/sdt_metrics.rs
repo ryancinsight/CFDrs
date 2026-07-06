@@ -745,6 +745,19 @@ pub struct SdtMetrics {
     #[serde(default)]
     pub specific_cavitation_energy_j_ml: f64,
 
+    /// Acoustic energy density [J/m³] computed from pressure amplitude, density,
+    /// and sound speed.
+    #[serde(default)]
+    pub acoustic_energy_density_j_m3: f64,
+
+    /// Acoustic contrast factor Φ for CTCs in plasma.
+    #[serde(default)]
+    pub ctc_contrast_factor: f64,
+
+    /// Acoustic contrast factor Φ for RBCs in plasma.
+    #[serde(default)]
+    pub rbc_contrast_factor: f64,
+
     /// Cavitation-amplified haemolysis index per pass (dimensionless).
     ///
     /// Applies `cavitation_amplified_hi` from `cfd_1d::hemolysis`:

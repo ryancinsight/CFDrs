@@ -20,7 +20,8 @@ pub use norms::{L1Norm, L2Norm, LInfNorm};
 pub use statistics::ErrorStatistics;
 
 use cfd_core::error::Result;
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::geometry::Vector3;
 
 /// Trait for error metrics
 pub trait ErrorMetric<T: RealField + Copy> {
@@ -42,8 +43,8 @@ pub trait ErrorMetric<T: RealField + Copy> {
         }
 
         // Extract magnitude for each vector
-        let num_magnitudes: Vec<T> = numerical.iter().map(nalgebra::Matrix::norm).collect();
-        let ref_magnitudes: Vec<T> = reference.iter().map(nalgebra::Matrix::norm).collect();
+        let num_magnitudes: Vec<T> = numerical.iter().copied().map(Vector3::norm).collect();
+        let ref_magnitudes: Vec<T> = reference.iter().copied().map(Vector3::norm).collect();
 
         self.compute_error(&num_magnitudes, &ref_magnitudes)
     }

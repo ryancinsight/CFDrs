@@ -1,8 +1,8 @@
 //! Utility functions for analytical solutions
 
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::FloatElement;
+use eunomia::RealField;
 
 /// Analytical utilities for common calculations
 pub struct AnalyticalUtils;
@@ -29,12 +29,12 @@ impl AnalyticalUtils {
     }
 
     /// Calculate Froude number
-    pub fn froude_number<T: RealField + Copy + FromPrimitive>(
+    pub fn froude_number<T: RealField + Copy + FloatElement>(
         velocity: T,
         length: T,
         gravity: T,
     ) -> T {
-        velocity / (gravity * length).sqrt()
+        velocity / scalar::sqrt(gravity * length)
     }
 
     /// Calculate Mach number
@@ -43,69 +43,62 @@ impl AnalyticalUtils {
     }
 
     /// Calculate pressure coefficient
-    pub fn pressure_coefficient<T: RealField + Copy + FromPrimitive>(
+    pub fn pressure_coefficient<T: RealField + Copy + FloatElement>(
         pressure: T,
         reference_pressure: T,
         density: T,
         reference_velocity: T,
     ) -> T {
-        let half = T::try_from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
+        let half = scalar::from_f64::<T>(0.5);
         let dynamic_pressure = half * density * reference_velocity * reference_velocity;
         (pressure - reference_pressure) / dynamic_pressure
     }
 
     /// Calculate skin friction coefficient
-    pub fn skin_friction_coefficient<T: RealField + Copy + FromPrimitive>(
+    pub fn skin_friction_coefficient<T: RealField + Copy + FloatElement>(
         wall_shear_stress: T,
         density: T,
         reference_velocity: T,
     ) -> T {
-        let half = T::try_from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
+        let half = scalar::from_f64::<T>(0.5);
         let dynamic_pressure = half * density * reference_velocity * reference_velocity;
         wall_shear_stress / dynamic_pressure
     }
 
     /// Calculate drag coefficient
-    pub fn drag_coefficient<T: RealField + Copy + FromPrimitive>(
+    pub fn drag_coefficient<T: RealField + Copy + FloatElement>(
         drag_force: T,
         density: T,
         velocity: T,
         reference_area: T,
     ) -> T {
-        let half = T::try_from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
+        let half = scalar::from_f64::<T>(0.5);
         let dynamic_pressure = half * density * velocity * velocity;
         drag_force / (dynamic_pressure * reference_area)
     }
 
     /// Calculate lift coefficient
-    pub fn lift_coefficient<T: RealField + Copy + FromPrimitive>(
+    pub fn lift_coefficient<T: RealField + Copy + FloatElement>(
         lift_force: T,
         density: T,
         velocity: T,
         reference_area: T,
     ) -> T {
-        let half = T::try_from_f64(0.5).unwrap_or(T::one() / (T::one() + T::one()));
+        let half = scalar::from_f64::<T>(0.5);
         let dynamic_pressure = half * density * velocity * velocity;
         lift_force / (dynamic_pressure * reference_area)
     }
 
     /// Check if flow is laminar based on Reynolds number
     #[allow(clippy::match_same_arms)] // Same critical Re for Sphere/Cylinder per fluid mechanics
-    pub fn is_laminar<T: RealField + Copy + FromPrimitive>(
+    pub fn is_laminar<T: RealField + Copy + FloatElement>(
         reynolds: T,
         geometry: FlowGeometry,
     ) -> bool {
         let critical_re = match geometry {
-            FlowGeometry::Pipe => T::try_from_f64(2300.0).unwrap_or(T::from_f64_or_one(2000.0)),
-            FlowGeometry::FlatPlate => {
-                T::try_from_f64(500_000.0).unwrap_or(T::from_f64_or_one(100_000.0))
-            }
-            FlowGeometry::Sphere => {
-                T::try_from_f64(200_000.0).unwrap_or(T::from_f64_or_one(100_000.0))
-            }
-            FlowGeometry::Cylinder => {
-                T::try_from_f64(200_000.0).unwrap_or(T::from_f64_or_one(100_000.0))
-            }
+            FlowGeometry::Pipe => scalar::from_f64(2300.0),
+            FlowGeometry::FlatPlate => scalar::from_f64(500_000.0),
+            FlowGeometry::Sphere | FlowGeometry::Cylinder => scalar::from_f64(200_000.0),
         };
         reynolds < critical_re
     }

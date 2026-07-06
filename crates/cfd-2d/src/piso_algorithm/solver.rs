@@ -23,9 +23,10 @@ use super::{
 };
 use crate::fields::SimulationFields;
 use crate::grid::StructuredGrid2D;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
 
 /// Minimum time step threshold to avoid numerical issues
 const MIN_DT_THRESHOLD: f64 = 1e-10;
@@ -34,14 +35,14 @@ const MIN_DT_THRESHOLD: f64 = 1e-10;
 const PERCENTAGE_FACTOR: f64 = 100.0;
 
 /// State for PISO solver execution
-pub struct PisoState<T: RealField + Copy> {
+pub struct PisoState<T: Cfd2dScalar + Copy> {
     /// Convergence monitor
     pub monitor: ConvergenceMonitor<T>,
     /// Buffer for double-buffering pattern (allocated once)
     pub fields_buffer: SimulationFields<T>,
 }
 
-impl<T: RealField + Copy> PisoState<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> PisoState<T> {
     /// Create new state with initialized fields
     #[must_use]
     pub fn new(fields: &SimulationFields<T>) -> Self {
@@ -54,7 +55,7 @@ impl<T: RealField + Copy> PisoState<T> {
 
 /// PISO solver for incompressible flow (transient algorithm)
 /// Stateless solver - all mutable state is external
-pub struct PisoSolver<T: RealField + Copy> {
+pub struct PisoSolver<T: Cfd2dScalar + Copy> {
     /// Solver configuration
     config: PisoConfig<T>,
     /// Velocity predictor
@@ -65,7 +66,7 @@ pub struct PisoSolver<T: RealField + Copy> {
     criteria: ConvergenceCriteria<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSolver<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement + std::iter::Sum> PisoSolver<T> {
     /// Create new PISO solver
     pub fn new(config: PisoConfig<T>, grid: &StructuredGrid2D<T>) -> Self {
         let predictor = VelocityPredictor::new(grid, config.velocity_relaxation);
@@ -137,10 +138,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
             if let Some(freq) = self.config.log_frequency {
                 if freq > 0 && step % freq == 0 && step > 0 {
                     if let Some(vel_res) = state.monitor.velocity_residuals.last() {
-                        // Convert to f64 for display since T might not implement LowerExp
-                        if let Some(vel_res_f64) = vel_res.to_f64() {
-                            tracing::info!("Step {}: velocity residual = {:e}", step, vel_res_f64);
-                        }
+                        let vel_res_f64 = <T as NumericElement>::to_f64(*vel_res);
+                        tracing::info!("Step {}: velocity residual = {:e}", step, vel_res_f64);
                     }
                 }
             }
@@ -170,7 +169,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
         state: &mut PisoState<T>,
         total_duration: T,
     ) -> Result<()> {
-        let mut current_time = T::zero();
+        let mut current_time = scalar::zero::<T>();
         let mut step = 0;
 
         while current_time < total_duration {
@@ -183,8 +182,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
             };
 
             // Skip if time step becomes too small
-            let min_dt_threshold = T::from_f64(MIN_DT_THRESHOLD)
-                .expect("Failed to represent minimum dt threshold in numeric type T");
+            let min_dt_threshold = scalar::from_f64::<T>(MIN_DT_THRESHOLD);
             if dt <= min_dt_threshold {
                 break;
             }
@@ -197,19 +195,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::iter::Sum> PisoSol
             // Optional: Log progress based on configuration
             if let Some(freq) = self.config.log_frequency {
                 if freq > 0 && step % freq == 0 {
-                    let percent_factor = T::from_f64(PERCENTAGE_FACTOR)
-                        .expect("Failed to represent percentage factor in numeric type T");
+                    let percent_factor = scalar::from_f64::<T>(PERCENTAGE_FACTOR);
                     let progress = current_time / total_duration * percent_factor;
-                    // Convert to f64 for display
-                    if let (Some(progress_f64), Some(time_f64)) =
-                        (progress.to_f64(), current_time.to_f64())
-                    {
-                        tracing::info!(
-                            "Simulation progress: {:.1}% (t = {:.3})",
-                            progress_f64,
-                            time_f64
-                        );
-                    }
+                    let progress_f64 = <T as NumericElement>::to_f64(progress);
+                    let time_f64 = <T as NumericElement>::to_f64(current_time);
+                    tracing::info!(
+                        "Simulation progress: {:.1}% (t = {:.3})",
+                        progress_f64,
+                        time_f64
+                    );
                 }
             }
         }

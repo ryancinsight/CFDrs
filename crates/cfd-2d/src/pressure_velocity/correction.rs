@@ -26,21 +26,22 @@
 use super::config::PressureLinearSolver;
 use super::pressure::PressureCorrectionSolver;
 use crate::grid::array2d::Array2D;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_math::linear_solver::preconditioners::{AlgebraicMultigrid, IdentityPreconditioner};
 use cfd_math::linear_solver::{DirectSparseSolver, IterativeLinearSolver};
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use leto::Array1;
+use leto_ops::{norm_l2, Scalar as LetoScalar};
 use std::fmt::Debug;
 
-impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
-    PressureCorrectionSolver<T>
-{
+impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrectionSolver<T> {
     /// Dispatch a linear solve to the configured solver backend
     pub(super) fn dispatch_solve(
         &self,
         matrix: &cfd_math::sparse::SparseMatrix<T>,
-        rhs: &DVector<T>,
-        solution: &mut DVector<T>,
+        rhs: &Array1<T>,
+        solution: &mut Array1<T>,
     ) -> cfd_core::error::Result<()> {
         // Phase 8: Deep Optimization & AMG Caching
         //
@@ -195,7 +196,9 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
         fields: &crate::fields::SimulationFields<T>,
         dt: T,
         rho: T,
-        boundary_conditions: Option<&std::collections::HashMap<String, cfd_core::physics::boundary::BoundaryCondition<T>>>,
+        boundary_conditions: Option<
+            &std::collections::HashMap<String, cfd_core::physics::boundary::BoundaryCondition<T>>,
+        >,
         _rebuild_matrix: bool,
         output_correction: &mut Array2D<T>,
     ) -> cfd_core::error::Result<()> {
@@ -208,7 +211,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
         if n <= 1 {
             for i in 0..nx {
                 for j in 0..ny {
-                    output_correction[(i, j)] = T::zero();
+                    output_correction[(i, j)] = scalar::zero::<T>();
                 }
             }
             return Ok(());
@@ -228,7 +231,10 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
             false
         };
 
-        let has_dirichlet = is_dirichlet("west") || is_dirichlet("east") || is_dirichlet("south") || is_dirichlet("north");
+        let has_dirichlet = is_dirichlet("west")
+            || is_dirichlet("east")
+            || is_dirichlet("south")
+            || is_dirichlet("north");
 
         let (system_size, reference_idx) = if has_dirichlet {
             (n, None)
@@ -258,16 +264,16 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
             ._rhs_cache
             .borrow_mut()
             .take()
-            .filter(|vector| vector.len() == system_size)
-            .unwrap_or_else(|| DVector::zeros(system_size));
-        rhs.fill(T::zero());
+            .filter(|vector| vector.shape()[0] == system_size)
+            .unwrap_or_else(|| Array1::from_elem([system_size], scalar::zero::<T>()));
+        rhs.fill(scalar::zero::<T>());
 
-        let dx2_inv = T::one() / (dx * dx);
-        let dy2_inv = T::one() / (dy * dy);
+        let dx2_inv = scalar::one::<T>() / (dx * dx);
+        let dy2_inv = scalar::one::<T>() / (dy * dy);
         let coeff = rho / dt;
 
-        let two = T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
-            .unwrap_or_else(|| T::one() + T::one());
+        let two =
+            <T as FloatElement>::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO);
 
         let mut n_fluid = 0;
         let mut n_solid = 0;
@@ -282,13 +288,13 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
 
                 if !fields.mask.at(i, j) {
                     n_solid += 1;
-                    builder.add_entry(row_idx, row_idx, T::one())?;
-                    rhs[row_idx] = T::zero();
+                    builder.add_entry(row_idx, row_idx, scalar::one::<T>())?;
+                    rhs[row_idx] = scalar::zero::<T>();
                     continue;
                 }
                 n_fluid += 1;
 
-                let mut ap = T::zero();
+                let mut ap = scalar::zero::<T>();
 
                 // West neighbour
                 if i > 1 && fields.mask.at(i - 1, j) {
@@ -339,7 +345,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
             }
         }
 
-        let rhs_norm = rhs.norm();
+        let rhs_norm =
+            norm_l2(&rhs.view()).expect("invariant: pressure RHS Leto vector has a valid layout");
         tracing::debug!(
             "Pressure Solve: n_fluid={n_fluid}, n_solid={n_solid}, \
              system_size={system_size}, rhs_norm={rhs_norm:?}"
@@ -351,9 +358,9 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
             ._solution_cache
             .borrow_mut()
             .take()
-            .filter(|vector| vector.len() == matrix.nrows())
-            .unwrap_or_else(|| DVector::zeros(matrix.nrows()));
-        p_correction_vec.fill(T::zero());
+            .filter(|vector| vector.shape()[0] == matrix.nrows())
+            .unwrap_or_else(|| Array1::from_elem([matrix.nrows()], scalar::zero::<T>()));
+        p_correction_vec.fill(scalar::zero::<T>());
         self.dispatch_solve(&matrix, &rhs, &mut p_correction_vec)?;
 
         self.scatter_correction(

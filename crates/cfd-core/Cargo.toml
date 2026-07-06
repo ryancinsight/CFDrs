@@ -15,21 +15,21 @@ anyhow.workspace = true
 tracing.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-wgpu = { version = "0.19", optional = true }
 bytemuck = { version = "1.14", features = ["derive"] }
-pollster = "0.3"
 futures = "0.3"
 num_cpus = "1.16"
 nalgebra.workspace = true
 nalgebra-sparse.workspace = true
-num-traits.workspace = true
+leto.workspace = true
+eunomia.workspace = true
 indexmap.workspace = true
 moirai.workspace = true
+hephaestus-wgpu = { workspace = true, optional = true }
 mnemosyne = { workspace = true, optional = true }
 
 [features]
 default = ["gpu"]
-gpu = ["dep:wgpu"]
+gpu = ["dep:hephaestus-wgpu"]
 simd = []
 experimental = []
 # Install Mnemosyne as the process global allocator for binaries that link
@@ -46,3 +46,4 @@ approx.workspace = true
 [[bench]]
 name = "turbulence_benchmark"
 harness = false
+required-features = ["gpu"]

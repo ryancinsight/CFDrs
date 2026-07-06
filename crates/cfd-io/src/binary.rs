@@ -3,8 +3,10 @@
 //! This module provides efficient binary serialization/deserialization
 //! using iterator-based streaming and zero-copy operations.
 
-use cfd_core::error::{Error, Result};
-use nalgebra::{DMatrix, DVector, RealField};
+use crate::error::{Error, Result};
+use crate::leto_arrays::try_for_each_row_major;
+use eunomia::RealField;
+use leto::{Array1, Array2};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -34,29 +36,28 @@ impl<W: Write> BinaryWriter<W> {
     }
 
     /// Write vector data using iterator-based streaming
-    pub fn write_vector<T: RealField + Copy + Serialize>(
-        &mut self,
-        vector: &DVector<T>,
-    ) -> Result<()> {
+    pub fn write_vector<T: RealField + Serialize>(&mut self, vector: &Array1<T>) -> Result<()> {
         // Write length first
-        self.write(&vector.len())?;
+        self.write(&vector.size())?;
 
         // Stream vector data using iterator
-        vector.iter().try_for_each(|value| self.write(value))
+        let [len] = vector.shape();
+        for index in 0..len {
+            let value = vector
+                .get([index])
+                .expect("invariant: generated Leto vector index is in bounds");
+            self.write(value)?;
+        }
+        Ok(())
     }
 
     /// Write matrix data with zero-copy slicing
-    pub fn write_matrix<T: RealField + Copy + Serialize>(
-        &mut self,
-        matrix: &DMatrix<T>,
-    ) -> Result<()> {
+    pub fn write_matrix<T: RealField + Serialize>(&mut self, matrix: &Array2<T>) -> Result<()> {
         // Write dimensions
-        self.write(&(matrix.nrows(), matrix.ncols()))?;
+        self.write(&matrix.shape())?;
 
-        // Stream matrix data row by row using iterators
-        matrix
-            .row_iter()
-            .try_for_each(|row| row.iter().try_for_each(|value| self.write(value)))
+        // Stream matrix data in Leto's logical row-major order.
+        try_for_each_row_major(matrix, |value| self.write(&value))
     }
 
     /// Flush the writer
@@ -97,27 +98,30 @@ impl<R: Read> BinaryReader<R> {
     }
 
     /// Read vector data using iterator-based construction
-    pub fn read_vector<T: RealField + Copy + for<'de> Deserialize<'de>>(
-        &mut self,
-    ) -> Result<DVector<T>> {
+    pub fn read_vector<T: RealField + for<'de> Deserialize<'de>>(&mut self) -> Result<Array1<T>> {
         let len: usize = self.read()?;
 
         // Use iterator to collect vector elements efficiently
         let data: Result<Vec<T>> = (0..len).map(|_| self.read()).collect();
 
-        Ok(DVector::from_vec(data?))
+        Array1::from_shape_vec([len], data?).map_err(|error| {
+            Error::InvalidInput(format!("Invalid Leto vector payload shape: {error}"))
+        })
     }
 
     /// Read matrix data with efficient allocation
-    pub fn read_matrix<T: RealField + Copy + for<'de> Deserialize<'de>>(
-        &mut self,
-    ) -> Result<DMatrix<T>> {
-        let (nrows, ncols): (usize, usize) = self.read()?;
+    pub fn read_matrix<T: RealField + for<'de> Deserialize<'de>>(&mut self) -> Result<Array2<T>> {
+        let shape: [usize; 2] = self.read()?;
 
         // Use iterator to collect matrix elements efficiently
-        let data: Result<Vec<T>> = (0..nrows * ncols).map(|_| self.read()).collect();
+        let element_count = shape[0]
+            .checked_mul(shape[1])
+            .ok_or_else(|| Error::InvalidInput("Matrix shape overflows usize".to_string()))?;
+        let data: Result<Vec<T>> = (0..element_count).map(|_| self.read()).collect();
 
-        Ok(DMatrix::from_vec(nrows, ncols, data?))
+        Array2::from_shape_vec(shape, data?).map_err(|error| {
+            Error::InvalidInput(format!("Invalid Leto matrix payload shape: {error}"))
+        })
     }
 }
 

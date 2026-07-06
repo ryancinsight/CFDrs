@@ -2,12 +2,12 @@ use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;
 use crate::physics::MomentumComponent;
-use nalgebra::{RealField, Vector2};
-use num_traits::{FromPrimitive, ToPrimitive};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::FloatElement;
+use leto::geometry::Vector2;
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
-    SimplecPimpleSolver<T>
-{
+impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
     /// SIMPLEC (Van Doormaal & Raithby, 1984) improves SIMPLE by using
     /// consistent discretization for the pressure correction equation.
     pub(super) fn solve_simplec(
@@ -17,15 +17,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         nu: T,
         rho: T,
     ) -> cfd_core::error::Result<T> {
-        let mut residual = T::zero();
+        let mut residual = scalar::zero();
         let max_iterations = self.config.max_inner_iterations;
         let mut converged = false;
 
         let mut u_prev = self.extract_velocity_field(fields);
-        let mut continuity_residual = T::max_value()
-            .unwrap_or_else(|| T::from_f64(1e30).expect("analytical constant conversion"));
-        let mut previous_velocity_residual = T::max_value()
-            .unwrap_or_else(|| T::from_f64(1e30).expect("analytical constant conversion"));
+        let mut continuity_residual = scalar::from_f64(1e30);
+        let mut previous_velocity_residual = scalar::from_f64(1e30);
         let mut previous_continuity_residual = continuity_residual;
         let mut divergence_streak = 0usize;
 
@@ -41,7 +39,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             // Step 2: Refresh the Rhie-Chow face coefficients from the raw
             // momentum stencil.
             if let Some(ref mut rhie_chow) = self.rhie_chow {
-                let (_, ap_u_consistent, _, ap_v_consistent) = self.momentum_solver.get_ap_coefficients();
+                let (_, ap_u_consistent, _, ap_v_consistent) =
+                    self.momentum_solver.get_ap_coefficients();
                 rhie_chow.update_u_coefficients(ap_u_consistent);
                 rhie_chow.update_v_coefficients(ap_v_consistent);
             }
@@ -65,7 +64,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 let d_x_cache = &self._d_x_cache;
                 let d_y_cache = &self._d_y_cache;
 
-                let face_dt = if dt > T::from_f64(1.0).unwrap_or_else(T::one) {
+                let face_dt = if dt > scalar::from_f64(1.0) {
                     None
                 } else {
                     Some(dt)
@@ -101,7 +100,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
             // Step 5: Correct velocities using pressure gradients with the
             // momentum under-relaxation factor.
-            let (_, ap_u_consistent, _, ap_v_consistent) = self.momentum_solver.get_ap_coefficients();
+            let (_, ap_u_consistent, _, ap_v_consistent) =
+                self.momentum_solver.get_ap_coefficients();
             self.u_corrected_workspace.copy_from(&self.u_star_workspace);
             self.pressure_solver.correct_velocity(
                 &mut self.u_corrected_workspace,
@@ -149,8 +149,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 self.calculate_velocity_residual_from_vectors(&u_prev, &self.u_corrected_workspace);
 
             continuity_residual = self.compute_continuity_residual(fields, Some(dt));
-            
-
 
             u_prev.copy_from(&self.u_corrected_workspace);
 
@@ -216,7 +214,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
 
     pub(super) fn apply_field_velocity_boundaries(
         grid: &crate::grid::StructuredGrid2D<T>,
-        boundary_conditions: &std::collections::HashMap<String, cfd_core::physics::boundary::BoundaryCondition<T>>,
+        boundary_conditions: &std::collections::HashMap<
+            String,
+            cfd_core::physics::boundary::BoundaryCondition<T>,
+        >,
         u_star: &mut Array2D<Vector2<T>>,
     ) {
         use cfd_core::physics::boundary::BoundaryCondition;
@@ -235,16 +236,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         u_star[(0, j)] = u_star[(1, j)];
                     }
                     BoundaryCondition::Symmetry => {
-                        u_star[(0, j)].x = T::zero();
-                        u_star[(0, j)].y = u_star[(1, j)].y;
+                        u_star[(0, j)][0] = scalar::zero();
+                        u_star[(0, j)][1] = u_star[(1, j)][1];
                     }
-                    BoundaryCondition::Wall { wall_type } => match wall_type {
-                        cfd_core::physics::boundary::WallType::Slip => {
-                            u_star[(0, j)].x = T::zero();
-                            u_star[(0, j)].y = u_star[(1, j)].y;
-                        }
-                        _ => {}
-                    },
+                    BoundaryCondition::Wall {
+                        wall_type: cfd_core::physics::boundary::WallType::Slip,
+                    } => {
+                        u_star[(0, j)][0] = scalar::zero();
+                        u_star[(0, j)][1] = u_star[(1, j)][1];
+                    }
                     BoundaryCondition::Periodic { .. } => {
                         u_star[(0, j)] = u_star[(nx - 2, j)];
                     }
@@ -267,16 +267,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         u_star[(nx - 1, j)] = u_star[(nx - 2, j)];
                     }
                     BoundaryCondition::Symmetry => {
-                        u_star[(nx - 1, j)].x = T::zero();
-                        u_star[(nx - 1, j)].y = u_star[(nx - 2, j)].y;
+                        u_star[(nx - 1, j)][0] = scalar::zero();
+                        u_star[(nx - 1, j)][1] = u_star[(nx - 2, j)][1];
                     }
-                    BoundaryCondition::Wall { wall_type } => match wall_type {
-                        cfd_core::physics::boundary::WallType::Slip => {
-                            u_star[(nx - 1, j)].x = T::zero();
-                            u_star[(nx - 1, j)].y = u_star[(nx - 2, j)].y;
-                        }
-                        _ => {}
-                    },
+                    BoundaryCondition::Wall {
+                        wall_type: cfd_core::physics::boundary::WallType::Slip,
+                    } => {
+                        u_star[(nx - 1, j)][0] = scalar::zero();
+                        u_star[(nx - 1, j)][1] = u_star[(nx - 2, j)][1];
+                    }
                     BoundaryCondition::Periodic { .. } => {
                         u_star[(nx - 1, j)] = u_star[(1, j)];
                     }
@@ -299,16 +298,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         u_star[(i, 0)] = u_star[(i, 1)];
                     }
                     BoundaryCondition::Symmetry => {
-                        u_star[(i, 0)].y = T::zero();
-                        u_star[(i, 0)].x = u_star[(i, 1)].x;
+                        u_star[(i, 0)][1] = scalar::zero();
+                        u_star[(i, 0)][0] = u_star[(i, 1)][0];
                     }
-                    BoundaryCondition::Wall { wall_type } => match wall_type {
-                        cfd_core::physics::boundary::WallType::Slip => {
-                            u_star[(i, 0)].y = T::zero();
-                            u_star[(i, 0)].x = u_star[(i, 1)].x;
-                        }
-                        _ => {}
-                    },
+                    BoundaryCondition::Wall {
+                        wall_type: cfd_core::physics::boundary::WallType::Slip,
+                    } => {
+                        u_star[(i, 0)][1] = scalar::zero();
+                        u_star[(i, 0)][0] = u_star[(i, 1)][0];
+                    }
                     BoundaryCondition::Periodic { .. } => {
                         u_star[(i, 0)] = u_star[(i, ny - 2)];
                     }
@@ -331,16 +329,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         u_star[(i, ny - 1)] = u_star[(i, ny - 2)];
                     }
                     BoundaryCondition::Symmetry => {
-                        u_star[(i, ny - 1)].y = T::zero();
-                        u_star[(i, ny - 1)].x = u_star[(i, ny - 2)].x;
+                        u_star[(i, ny - 1)][1] = scalar::zero();
+                        u_star[(i, ny - 1)][0] = u_star[(i, ny - 2)][0];
                     }
-                    BoundaryCondition::Wall { wall_type } => match wall_type {
-                        cfd_core::physics::boundary::WallType::Slip => {
-                            u_star[(i, ny - 1)].y = T::zero();
-                            u_star[(i, ny - 1)].x = u_star[(i, ny - 2)].x;
-                        }
-                        _ => {}
-                    },
+                    BoundaryCondition::Wall {
+                        wall_type: cfd_core::physics::boundary::WallType::Slip,
+                    } => {
+                        u_star[(i, ny - 1)][1] = scalar::zero();
+                        u_star[(i, ny - 1)][0] = u_star[(i, ny - 2)][0];
+                    }
                     BoundaryCondition::Periodic { .. } => {
                         u_star[(i, ny - 1)] = u_star[(i, 1)];
                     }

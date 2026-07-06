@@ -1,5 +1,6 @@
 //! GPU compute kernels for CFD operations
 
+use hephaestus_wgpu::wgpu;
 pub mod advection;
 pub mod arithmetic;
 pub mod diffusion;
@@ -13,7 +14,7 @@ pub use laplacian::Laplacian2DKernel;
 
 use crate::compute::traits::{ComputeKernel, KernelParams};
 use crate::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 
 /// Base trait for GPU kernels
 pub trait GpuKernel<T: RealField + Copy>: ComputeKernel<T> {

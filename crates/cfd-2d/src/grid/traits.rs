@@ -12,10 +12,10 @@
 
 use super::boundary::BoundaryType;
 use cfd_core::error::Result;
-use nalgebra::{RealField, Vector2};
+use leto::geometry::Vector2;
 
 /// Trait for 2D computational grids
-pub trait Grid2D<T: RealField + Copy> {
+pub trait Grid2D<T> {
     /// Get the number of cells in x direction
     fn nx(&self) -> usize;
 

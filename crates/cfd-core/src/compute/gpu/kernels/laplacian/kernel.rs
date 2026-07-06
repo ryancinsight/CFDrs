@@ -7,8 +7,9 @@ use crate::compute::gpu::shaders::LAPLACIAN_2D_SHADER;
 use crate::compute::gpu::GpuContext;
 use crate::error::Result;
 use bytemuck;
+use eunomia::RealField;
+use hephaestus_wgpu::wgpu::{self, util::DeviceExt};
 use std::sync::Arc;
-use wgpu::util::DeviceExt;
 
 /// GPU kernel for 2D Laplacian computation
 pub struct Laplacian2DKernel {
@@ -81,7 +82,9 @@ impl Laplacian2DKernel {
                 label: Some("Laplacian 2D Pipeline"),
                 layout: Some(&pipeline_layout),
                 module: &shader_module,
-                entry_point: "laplacian_2d",
+                entry_point: Some("laplacian_2d"),
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                cache: None,
             });
 
         Self { context, pipeline }
@@ -190,7 +193,7 @@ impl Laplacian2DKernel {
         bc: BoundaryType,
     ) -> Result<()>
     where
-        T: nalgebra::RealField + bytemuck::Pod + bytemuck::Zeroable + Copy,
+        T: RealField + bytemuck::Pod + bytemuck::Zeroable + Copy,
     {
         // Create uniform buffer for dimensions and grid spacing
         let uniforms = Laplacian2DUniforms {
@@ -378,7 +381,12 @@ impl Laplacian2DKernel {
                 tx.send(result).unwrap();
             });
 
-        self.context.device.poll(wgpu::Maintain::Wait);
+        self.context
+            .device
+            .poll(wgpu::PollType::Wait)
+            .map_err(|error| {
+                crate::error::Error::GpuCompute(format!("GPU device poll failed: {error:?}"))
+            })?;
 
         // Wait for result with timeout
         if let Ok(Ok(())) = rx.recv_timeout(std::time::Duration::from_millis(250)) {

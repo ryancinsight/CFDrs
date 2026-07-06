@@ -2,7 +2,7 @@
 
 use super::traits::{Configurable, Solver};
 use crate::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::marker::PhantomData;
 
 /// Iterative solver trait

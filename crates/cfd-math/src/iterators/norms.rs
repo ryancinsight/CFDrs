@@ -1,6 +1,6 @@
 //! Norm operations for iterators
 
-use nalgebra::RealField;
+use eunomia::RealField;
 
 /// Extension trait for norm operations on iterators
 pub trait NormIteratorExt: Iterator {
@@ -10,7 +10,7 @@ pub trait NormIteratorExt: Iterator {
         Self: Iterator<Item = T> + Sized,
         T: RealField + Copy,
     {
-        self.map(|x| x * x).fold(T::zero(), |acc, x| acc + x).sqrt()
+        self.map(|x| x * x).fold(T::ZERO, |acc, x| acc + x).sqrt()
     }
 
     /// Compute L1 norm without cloning
@@ -19,7 +19,7 @@ pub trait NormIteratorExt: Iterator {
         Self: Iterator<Item = T> + Sized,
         T: RealField + Copy,
     {
-        self.map(|x| x.abs()).fold(T::zero(), |acc, x| acc + x)
+        self.map(|x| x.abs()).fold(T::ZERO, |acc, x| acc + x)
     }
 
     /// Compute L∞ norm without cloning
@@ -29,7 +29,7 @@ pub trait NormIteratorExt: Iterator {
         T: RealField + Copy,
     {
         self.map(|x| x.abs())
-            .fold(T::zero(), |acc, x| if x > acc { x } else { acc })
+            .fold(T::ZERO, |acc, x| if x > acc { x } else { acc })
     }
 }
 

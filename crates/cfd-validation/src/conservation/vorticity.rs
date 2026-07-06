@@ -5,10 +5,11 @@
 
 use super::report::ConservationReport;
 use super::traits::ConservationChecker;
-use cfd_core::conversion::SafeFromF64;
+use crate::scalar;
 use cfd_core::error::{Error, Result};
-use nalgebra::{DMatrix, RealField};
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::Array2;
 
 /// Vorticity conservation checker
 pub struct VorticityChecker<T: RealField + Copy> {
@@ -17,7 +18,7 @@ pub struct VorticityChecker<T: RealField + Copy> {
     ny: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
+impl<T: RealField + Copy + FloatElement> VorticityChecker<T> {
     /// Create new vorticity conservation checker
     pub fn new(tolerance: T, nx: usize, ny: usize) -> Self {
         Self { tolerance, nx, ny }
@@ -29,19 +30,19 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
     /// where ω = ∂v/∂x - ∂u/∂y
     pub fn check_vorticity_transport_2d(
         &self,
-        u: &DMatrix<T>,
-        v: &DMatrix<T>,
+        u: &Array2<T>,
+        v: &Array2<T>,
         viscosity: T,
         dx: T,
         dy: T,
     ) -> Result<ConservationReport<T>> {
-        assert_eq!(u.nrows(), self.nx);
-        assert_eq!(u.ncols(), self.ny);
-        assert_eq!(v.nrows(), self.nx);
-        assert_eq!(v.ncols(), self.ny);
+        assert_eq!(u.shape()[0], self.nx);
+        assert_eq!(u.shape()[1], self.ny);
+        assert_eq!(v.shape()[0], self.nx);
+        assert_eq!(v.shape()[1], self.ny);
 
-        let mut max_error = T::zero();
-        let mut total_error = T::zero();
+        let mut max_error = scalar::zero::<T>();
+        let mut total_error = scalar::zero::<T>();
         let mut count = 0;
 
         // Check vorticity transport equation at interior points
@@ -49,56 +50,44 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
         for i in 2..self.nx - 2 {
             for j in 2..self.ny - 2 {
                 // Compute vorticity ω = ∂v/∂x - ∂u/∂y
-                let dv_dx = (v[(i + 1, j)] - v[(i - 1, j)])
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
-                let du_dy = (u[(i, j + 1)] - u[(i, j - 1)])
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
+                let dv_dx = (v[[i + 1, j]] - v[[i - 1, j]]) / (scalar::from_f64::<T>(2.0) * dx);
+                let du_dy = (u[[i, j + 1]] - u[[i, j - 1]]) / (scalar::from_f64::<T>(2.0) * dy);
                 let omega = dv_dx - du_dy;
 
                 // Convective term: u·∇ω
                 // Compute ∇ω using central differences on vorticity field
                 // First, compute vorticity at neighboring points
-                let omega_ip1 = ((v[(i + 2, j)] - v[(i, j)])
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx))
-                    - ((u[(i + 1, j + 1)] - u[(i + 1, j - 1)])
-                        / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy));
+                let omega_ip1 = ((v[[i + 2, j]] - v[[i, j]]) / (scalar::from_f64::<T>(2.0) * dx))
+                    - ((u[[i + 1, j + 1]] - u[[i + 1, j - 1]]) / (scalar::from_f64::<T>(2.0) * dy));
 
-                let omega_im1 = ((v[(i, j)] - v[(i - 2, j)])
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx))
-                    - ((u[(i - 1, j + 1)] - u[(i - 1, j - 1)])
-                        / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy));
+                let omega_im1 = ((v[[i, j]] - v[[i - 2, j]]) / (scalar::from_f64::<T>(2.0) * dx))
+                    - ((u[[i - 1, j + 1]] - u[[i - 1, j - 1]]) / (scalar::from_f64::<T>(2.0) * dy));
 
-                let omega_jp1 = ((v[(i + 1, j + 1)] - v[(i - 1, j + 1)])
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx))
-                    - ((u[(i, j + 2)] - u[(i, j)])
-                        / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy));
+                let omega_jp1 = ((v[[i + 1, j + 1]] - v[[i - 1, j + 1]])
+                    / (scalar::from_f64::<T>(2.0) * dx))
+                    - ((u[[i, j + 2]] - u[[i, j]]) / (scalar::from_f64::<T>(2.0) * dy));
 
-                let omega_jm1 = ((v[(i + 1, j - 1)] - v[(i - 1, j - 1)])
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx))
-                    - ((u[(i, j)] - u[(i, j - 2)])
-                        / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy));
+                let omega_jm1 = ((v[[i + 1, j - 1]] - v[[i - 1, j - 1]])
+                    / (scalar::from_f64::<T>(2.0) * dx))
+                    - ((u[[i, j]] - u[[i, j - 2]]) / (scalar::from_f64::<T>(2.0) * dy));
 
-                let domega_dx =
-                    (omega_ip1 - omega_im1) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
-                let domega_dy =
-                    (omega_jp1 - omega_jm1) / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
-                let u_dot_grad_omega = u[(i, j)] * domega_dx + v[(i, j)] * domega_dy;
+                let domega_dx = (omega_ip1 - omega_im1) / (scalar::from_f64::<T>(2.0) * dx);
+                let domega_dy = (omega_jp1 - omega_jm1) / (scalar::from_f64::<T>(2.0) * dy);
+                let u_dot_grad_omega = u[[i, j]] * domega_dx + v[[i, j]] * domega_dy;
 
                 // Viscous diffusion: ν∇²ω
                 // Use proper second-order central differences for Laplacian
-                let d2omega_dx2 = (omega_ip1 - <T as SafeFromF64>::from_f64_or_one(2.0) * omega
-                    + omega_im1)
-                    / (dx * dx);
-                let d2omega_dy2 = (omega_jp1 - <T as SafeFromF64>::from_f64_or_one(2.0) * omega
-                    + omega_jm1)
-                    / (dy * dy);
+                let d2omega_dx2 =
+                    (omega_ip1 - scalar::from_f64::<T>(2.0) * omega + omega_im1) / (dx * dx);
+                let d2omega_dy2 =
+                    (omega_jp1 - scalar::from_f64::<T>(2.0) * omega + omega_jm1) / (dy * dy);
                 let viscous_diffusion = viscosity * (d2omega_dx2 + d2omega_dy2);
 
                 // Vorticity transport equation residual: ∂ω/∂t + u·∇ω - ν∇²ω
                 // For steady state, this should be zero
                 let residual = u_dot_grad_omega - viscous_diffusion;
 
-                let abs_residual = residual.abs();
+                let abs_residual = scalar::abs(residual);
                 if abs_residual > max_error {
                     max_error = abs_residual;
                 }
@@ -108,9 +97,9 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
         }
 
         let rms_error = if count > 0 {
-            (total_error / T::from_usize(count).unwrap()).sqrt()
+            scalar::sqrt(total_error / scalar::from_usize::<T>(count))
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
         let is_conserved = max_error < self.tolerance;
@@ -133,8 +122,8 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
     /// ∮ u·dl = constant for material curves
     pub fn check_kelvin_circulation(
         &self,
-        u: &DMatrix<T>,
-        v: &DMatrix<T>,
+        u: &Array2<T>,
+        v: &Array2<T>,
         curve_points: &[(usize, usize)], // Points defining closed curve
         dx: T,
         dy: T,
@@ -146,7 +135,7 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
         }
 
         // Compute circulation ∮ u·dl around the curve
-        let mut circulation = T::zero();
+        let mut circulation = scalar::zero::<T>();
 
         for i in 0..curve_points.len() {
             let (i1, j1) = curve_points[i];
@@ -173,16 +162,12 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
             let i_mid = usize::midpoint(i1, i2).min(self.nx - 1);
             let j_mid = usize::midpoint(j1, j2).min(self.ny - 1);
 
-            let u_mid = u[(i_mid, j_mid)];
-            let v_mid = v[(i_mid, j_mid)];
+            let u_mid = u[[i_mid, j_mid]];
+            let v_mid = v[[i_mid, j_mid]];
 
             // dl component (tangent vector)
-            let dl_x = T::from_i64(di)
-                .ok_or_else(|| Error::ConversionError(format!("Failed to convert di={di} to T")))?
-                * dx;
-            let dl_y = T::from_i64(dj)
-                .ok_or_else(|| Error::ConversionError(format!("Failed to convert dj={dj} to T")))?
-                * dy;
+            let dl_x = scalar::from_f64::<T>(di as f64) * dx;
+            let dl_y = scalar::from_f64::<T>(dj as f64) * dy;
 
             // u·dl contribution
             circulation = circulation + u_mid * dl_x + v_mid * dl_y;
@@ -190,8 +175,8 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
 
         // For inviscid flow, circulation should be conserved (constant)
         // Here we just check it's finite and reasonable
-        let error = circulation.abs();
-        let is_conserved = error < self.tolerance * <T as SafeFromF64>::try_from_f64(100.0)?; // More lenient check
+        let error = scalar::abs(circulation);
+        let is_conserved = error < self.tolerance * scalar::from_f64::<T>(100.0); // More lenient check
 
         let mut details = std::collections::HashMap::new();
         details.insert("rms_error".to_string(), error);
@@ -208,25 +193,23 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
     /// Check potential flow vorticity (should be zero everywhere)
     pub fn check_potential_flow_vorticity(
         &self,
-        u: &DMatrix<T>,
-        v: &DMatrix<T>,
+        u: &Array2<T>,
+        v: &Array2<T>,
         dx: T,
         dy: T,
     ) -> Result<ConservationReport<T>> {
-        let mut max_vorticity = T::zero();
-        let mut total_vorticity_sq = T::zero();
+        let mut max_vorticity = scalar::zero::<T>();
+        let mut total_vorticity_sq = scalar::zero::<T>();
         let mut count = 0;
 
         // Compute vorticity at all points
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
-                let dv_dx = (v[(i + 1, j)] - v[(i - 1, j)])
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dx);
-                let du_dy = (u[(i, j + 1)] - u[(i, j - 1)])
-                    / (<T as SafeFromF64>::from_f64_or_one(2.0) * dy);
+                let dv_dx = (v[[i + 1, j]] - v[[i - 1, j]]) / (scalar::from_f64::<T>(2.0) * dx);
+                let du_dy = (u[[i, j + 1]] - u[[i, j - 1]]) / (scalar::from_f64::<T>(2.0) * dy);
                 let vorticity = dv_dx - du_dy;
 
-                let abs_vorticity = vorticity.abs();
+                let abs_vorticity = scalar::abs(vorticity);
                 if abs_vorticity > max_vorticity {
                     max_vorticity = abs_vorticity;
                 }
@@ -236,9 +219,9 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
         }
 
         let rms_vorticity = if count > 0 {
-            (total_vorticity_sq / T::from_usize(count).unwrap()).sqrt()
+            scalar::sqrt(total_vorticity_sq / scalar::from_usize::<T>(count))
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
         // For potential flow, vorticity should be exactly zero
@@ -257,8 +240,8 @@ impl<T: RealField + Copy + FromPrimitive> VorticityChecker<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for VorticityChecker<T> {
-    type FlowField = Vec<DMatrix<T>>;
+impl<T: RealField + Copy + FloatElement> ConservationChecker<T> for VorticityChecker<T> {
+    type FlowField = Vec<Array2<T>>;
 
     fn name(&self) -> &'static str {
         "Vorticity Conservation Checker"
@@ -278,11 +261,11 @@ impl<T: RealField + Copy + FromPrimitive> ConservationChecker<T> for VorticityCh
         // Define a simple closed curve for circulation check
         let curve_points = vec![
             (0, 0),
-            (u.ncols() - 1, 0),
-            (u.ncols() - 1, u.nrows() - 1),
-            (0, u.nrows() - 1),
+            (u.shape()[1] - 1, 0),
+            (u.shape()[1] - 1, u.shape()[0] - 1),
+            (0, u.shape()[0] - 1),
         ];
-        self.check_kelvin_circulation(u, v, &curve_points, T::one(), T::one())
+        self.check_kelvin_circulation(u, v, &curve_points, scalar::one::<T>(), scalar::one::<T>())
     }
 
     fn tolerance(&self) -> T {

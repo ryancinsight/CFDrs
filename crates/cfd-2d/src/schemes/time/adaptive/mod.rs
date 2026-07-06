@@ -26,9 +26,12 @@ mod integrator;
 
 pub use integrator::AdaptiveTimeIntegrator;
 
-use nalgebra::{DVector, RealField};
-use num_traits::{FromPrimitive, ToPrimitive};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::{FloatElement, NumericElement};
 use std::fmt;
+
+use super::StateVector;
 
 /// Adaptation strategy for time step control
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -77,7 +80,7 @@ impl Default for AdaptationStrategy {
 
 /// Adaptive time step controller
 #[derive(Debug, Clone)]
-pub struct AdaptiveController<T: RealField + Copy> {
+pub struct AdaptiveController<T: Cfd2dScalar + Copy> {
     /// Current time step
     pub dt_current: T,
     /// Minimum allowed time step
@@ -94,11 +97,11 @@ pub struct AdaptiveController<T: RealField + Copy> {
     pub max_rejections: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveController<T> {
     /// Create new adaptive controller with default parameters
     pub fn new(dt_initial: T, strategy: AdaptationStrategy) -> Self {
-        let dt_min = T::from_f64(1e-12).expect("analytical constant conversion");
-        let dt_max = T::from_f64(1e6).expect("analytical constant conversion");
+        let dt_min = scalar::from_f64::<T>(1e-12);
+        let dt_max = scalar::from_f64::<T>(1e6);
 
         Self {
             dt_current: dt_initial,
@@ -136,24 +139,28 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
         };
 
         // CFL condition: dt ≤ CFL_target * min(dx/|u_max|, dy/|v_max|)
-        let dt_cfl_x = if u_max.abs() > T::zero() {
-            dx * T::from_f64(cfl_target).expect("analytical constant conversion") / u_max.abs()
+        let u_abs = <T as NumericElement>::abs(u_max);
+        let v_abs = <T as NumericElement>::abs(v_max);
+        let dt_cfl_x = if u_abs > scalar::zero() {
+            dx * scalar::from_f64::<T>(cfl_target) / u_abs
         } else {
-            T::from_f64(1e10).expect("analytical constant conversion") // Large value for zero velocity
+            scalar::from_f64::<T>(1e10) // Large value for zero velocity
         };
 
-        let dt_cfl_y = if v_max.abs() > T::zero() {
-            dy * T::from_f64(cfl_target).expect("analytical constant conversion") / v_max.abs()
+        let dt_cfl_y = if v_abs > scalar::zero() {
+            dy * scalar::from_f64::<T>(cfl_target) / v_abs
         } else {
-            T::from_f64(1e10).expect("analytical constant conversion")
+            scalar::from_f64::<T>(1e10)
         };
 
-        let dt_cfl = dt_cfl_x.min(dt_cfl_y);
+        let dt_cfl = <T as NumericElement>::min_scalar(dt_cfl_x, dt_cfl_y);
 
         // Apply safety factor and clamp to bounds
-        let dt_adapted =
-            dt_cfl * T::from_f64(safety_factor).expect("analytical constant conversion");
-        dt_adapted.max(self.dt_min).min(self.dt_max)
+        let dt_adapted = dt_cfl * scalar::from_f64::<T>(safety_factor);
+        <T as NumericElement>::min_scalar(
+            <T as NumericElement>::max_scalar(dt_adapted, self.dt_min),
+            self.dt_max,
+        )
     }
 
     /// Estimate local truncation error using Richardson extrapolation
@@ -165,16 +172,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
     ///
     /// # Returns
     /// Estimated local truncation error
-    pub fn richardson_error(&self, y1: &DVector<T>, y2: &DVector<T>, p: usize) -> T {
-        let n = y1.len();
-        let mut error_max = T::zero();
+    pub fn richardson_error(&self, y1: &StateVector<T>, y2: &StateVector<T>, p: usize) -> T {
+        let n = y1.shape()[0];
+        let mut error_max = scalar::zero();
 
         for i in 0..n {
-            let diff = (y1[i] - y2[i]).abs();
-            let error = diff
-                / (T::from_f64(2.0_f64.powi(p as i32)).expect("analytical constant conversion")
-                    - T::one());
-            error_max = error_max.max(error);
+            let diff = <T as NumericElement>::abs(y1[i] - y2[i]);
+            let error = diff / (scalar::from_f64::<T>(2.0_f64.powi(p as i32)) - scalar::one::<T>());
+            error_max = <T as NumericElement>::max_scalar(error_max, error);
         }
 
         error_max
@@ -202,18 +207,19 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
             AdaptationStrategy::CFLBased { .. } => return (self.dt_current, true), // No error-based adaptation
         };
 
-        let error_tolerance_t =
-            T::from_f64(error_tolerance).expect("analytical constant conversion");
+        let error_tolerance_t = scalar::from_f64::<T>(error_tolerance);
 
         if error_estimate <= error_tolerance_t {
             // Step accepted - try to increase time step
             self.steps_accepted += 1;
 
-            let factor = T::from_f64(safety_factor).expect("analytical constant conversion")
-                * (error_tolerance_t / error_estimate)
-                    .powf(T::from_f64(1.0 / 4.0).expect("analytical constant conversion"));
+            let factor = scalar::from_f64::<T>(safety_factor)
+                * <T as FloatElement>::powf(
+                    error_tolerance_t / error_estimate,
+                    scalar::from_f64::<T>(1.0 / 4.0),
+                );
 
-            let new_dt = (self.dt_current * factor).min(self.dt_max);
+            let new_dt = <T as NumericElement>::min_scalar(self.dt_current * factor, self.dt_max);
             self.dt_current = new_dt;
             (new_dt, true)
         } else {
@@ -225,11 +231,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
                 "Too many step rejections in adaptive time stepping"
             );
 
-            let factor = T::from_f64(safety_factor).expect("analytical constant conversion")
-                * (error_tolerance_t / error_estimate)
-                    .powf(T::from_f64(1.0 / 3.0).expect("analytical constant conversion"));
+            let factor = scalar::from_f64::<T>(safety_factor)
+                * <T as FloatElement>::powf(
+                    error_tolerance_t / error_estimate,
+                    scalar::from_f64::<T>(1.0 / 3.0),
+                );
 
-            let new_dt = (self.dt_current * factor).max(self.dt_min);
+            let new_dt = <T as NumericElement>::max_scalar(self.dt_current * factor, self.dt_min);
             self.dt_current = new_dt;
             (new_dt, false)
         }
@@ -246,7 +254,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
     /// true if divergence detected
     pub fn detect_divergence(&self, residual: T, _residual_prev: T, tolerance: T) -> bool {
         // Check if residual is growing rapidly
-        if _residual_prev > T::zero() {
+        if _residual_prev > scalar::zero() {
             residual / _residual_prev > tolerance
         } else {
             residual > tolerance
@@ -260,7 +268,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AdaptiveController<T> {
     }
 }
 
-impl<T: RealField + Copy> fmt::Display for AdaptiveController<T>
+impl<T: Cfd2dScalar + Copy> fmt::Display for AdaptiveController<T>
 where
     T: fmt::Display,
 {
@@ -278,11 +286,12 @@ mod tests {
     use super::*;
     use crate::schemes::TimeScheme;
     use approx::assert_relative_eq;
+    use leto::Array1;
 
     /// Test ODE: dy/dt = -2y, exact solution: y(t) = y0 * exp(-2t)
-    fn test_ode(_t: f64, y: &DVector<f64>) -> DVector<f64> {
-        let mut f = DVector::zeros(y.len());
-        for i in 0..y.len() {
+    fn test_ode(_t: f64, y: &Array1<f64>) -> Array1<f64> {
+        let mut f = Array1::zeros([y.shape()[0]]);
+        for i in 0..y.shape()[0] {
             f[i] = -2.0 * y[i];
         }
         f
@@ -343,7 +352,7 @@ mod tests {
         let controller = AdaptiveController::new(0.01, strategy);
         let mut integrator = AdaptiveTimeIntegrator::new(TimeScheme::RungeKutta4, controller);
 
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = Array1::from_vec([1], vec![1.0]).expect("test vector shape matches data");
         let t0 = 0.0;
 
         // Single step with CFL adaptation
@@ -371,7 +380,7 @@ mod tests {
         let controller = AdaptiveController::new(0.01, strategy);
         let mut integrator = AdaptiveTimeIntegrator::new(TimeScheme::RungeKutta4, controller);
 
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = Array1::from_vec([1], vec![1.0]).expect("test vector shape matches data");
         let t0 = 0.0;
 
         // Single step with error adaptation

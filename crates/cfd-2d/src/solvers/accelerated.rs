@@ -9,9 +9,9 @@
 //! operation scheduling. The Jacobi/Red-Black Gauss-Seidel stencil coefficients
 //! are identical across backends.
 
-use cfd_core::error::{Error, Result};
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
+use cfd_core::error::{Error, Result};
 #[cfg(feature = "gpu")]
 use std::sync::Arc;
 

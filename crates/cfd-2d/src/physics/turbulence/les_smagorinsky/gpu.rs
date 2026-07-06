@@ -15,20 +15,20 @@
 
 #[cfg(feature = "gpu")]
 use cfd_core::compute::gpu::turbulence_compute::GpuTurbulenceCompute;
-use nalgebra::DMatrix;
+use leto::Array2;
 
 /// GPU-accelerated SGS viscosity computation
 #[cfg(feature = "gpu")]
 pub fn compute_sgs_viscosity_gpu(
     gpu_compute: &mut GpuTurbulenceCompute,
-    velocity_u: &DMatrix<f64>,
-    velocity_v: &DMatrix<f64>,
+    velocity_u: &Array2<f64>,
+    velocity_v: &Array2<f64>,
     nx: usize,
     ny: usize,
     dx: f64,
     dy: f64,
     smagorinsky_constant: f64,
-) -> cfd_core::error::Result<DMatrix<f64>> {
+) -> cfd_core::error::Result<Array2<f64>> {
     // Convert f64 matrices to f32 for GPU computation
     let velocity_u_f32: Vec<f32> = velocity_u.iter().map(|&x| x as f32).collect();
     let velocity_v_f32: Vec<f32> = velocity_v.iter().map(|&x| x as f32).collect();
@@ -46,13 +46,13 @@ pub fn compute_sgs_viscosity_gpu(
 
     // Read back results and convert to f64
     let sgs_f32 = gpu_compute.read_buffer(&sgs_buffer)?;
-    let mut sgs_viscosity = DMatrix::zeros(nx, ny);
+    let mut sgs_viscosity = Array2::zeros([nx, ny]);
 
     // Convert back to f64 matrix
     for (i, &val) in sgs_f32.iter().enumerate() {
         let j = i / nx;
         let ii = i % nx;
-        sgs_viscosity[(ii, j)] = val as f64;
+        sgs_viscosity[[ii, j]] = f64::from(val);
     }
 
     Ok(sgs_viscosity)
@@ -68,14 +68,14 @@ pub fn gpu_acceleration_available() -> bool {
 #[cfg(not(feature = "gpu"))]
 pub fn compute_sgs_viscosity_gpu(
     _gpu_compute: &mut (),
-    _velocity_u: &DMatrix<f64>,
-    _velocity_v: &DMatrix<f64>,
+    _velocity_u: &Array2<f64>,
+    _velocity_v: &Array2<f64>,
     _nx: usize,
     _ny: usize,
     _dx: f64,
     _dy: f64,
     _smagorinsky_constant: f64,
-) -> cfd_core::error::Result<DMatrix<f64>> {
+) -> cfd_core::error::Result<Array2<f64>> {
     // This should never be called when GPU feature is not enabled
     Err(cfd_core::error::Error::UnsupportedOperation(
         "GPU acceleration not available".to_string(),
@@ -119,14 +119,14 @@ mod tests {
         let ny = 16;
 
         // Create test velocity field
-        let mut velocity_u = DMatrix::zeros(nx, ny);
-        let mut velocity_v = DMatrix::zeros(nx, ny);
+        let mut velocity_u = Array2::zeros([nx, ny]);
+        let mut velocity_v = Array2::zeros([nx, ny]);
 
         // Simple shear flow
         for i in 0..nx {
             for j in 0..ny {
-                velocity_u[(i, j)] = (j as f64) * 0.1;
-                velocity_v[(i, j)] = 0.0;
+                velocity_u[[i, j]] = (j as f64) * 0.1;
+                velocity_v[[i, j]] = 0.0;
             }
         }
 
@@ -146,8 +146,8 @@ mod tests {
         let sgs_viscosity = result.unwrap();
 
         // Check dimensions
-        assert_eq!(sgs_viscosity.nrows(), nx);
-        assert_eq!(sgs_viscosity.ncols(), ny);
+        assert_eq!(sgs_viscosity.shape()[0], nx);
+        assert_eq!(sgs_viscosity.shape()[1], ny);
 
         // Check that SGS viscosity is non-negative
         assert!(sgs_viscosity.iter().all(|&v| v >= 0.0));

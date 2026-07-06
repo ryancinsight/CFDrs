@@ -3,10 +3,11 @@
 //! Reference: Patankar, S.V. (1980). "Numerical Heat Transfer and Fluid Flow"
 
 use super::{LiteratureValidation, ValidationReport};
+use crate::scalar;
 use cfd_core::error::Error;
 use cfd_core::error::Result;
+use eunomia::FloatElement;
 use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
 
 /// Patankar's lid-driven cavity test case
 pub struct PatankarLidDrivenCavity<T: RealField + Copy> {
@@ -16,7 +17,7 @@ pub struct PatankarLidDrivenCavity<T: RealField + Copy> {
     _marker: core::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> PatankarLidDrivenCavity<T> {
+impl<T: RealField + Copy + FloatElement> PatankarLidDrivenCavity<T> {
     /// Create new test case
     pub fn new(reynolds: T, grid_size: usize) -> Self {
         let _ = reynolds;
@@ -31,108 +32,47 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> PatankarLidDrivenCavity<
     pub fn reference_centerline_velocity(&self) -> Result<Vec<(T, T)>> {
         // y-coordinate, u-velocity pairs for Re=100
         let data = vec![
+            (scalar::from_f64::<T>(0.0000), scalar::from_f64::<T>(0.0000)),
             (
-                T::from_f64(0.0000)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.0000)))?,
-                T::from_f64(0.0000)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", 0.0000)))?,
+                scalar::from_f64::<T>(0.0625),
+                scalar::from_f64::<T>(-0.0391),
             ),
             (
-                T::from_f64(0.0625)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.0625)))?,
-                T::from_f64(-0.0391)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", -0.0391)))?,
+                scalar::from_f64::<T>(0.1250),
+                scalar::from_f64::<T>(-0.0649),
             ),
             (
-                T::from_f64(0.1250)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.1250)))?,
-                T::from_f64(-0.0649)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", -0.0649)))?,
+                scalar::from_f64::<T>(0.1875),
+                scalar::from_f64::<T>(-0.0780),
             ),
             (
-                T::from_f64(0.1875)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.1875)))?,
-                T::from_f64(-0.0780)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", -0.0780)))?,
+                scalar::from_f64::<T>(0.2500),
+                scalar::from_f64::<T>(-0.0808),
             ),
             (
-                T::from_f64(0.2500)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.2500)))?,
-                T::from_f64(-0.0808)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", -0.0808)))?,
+                scalar::from_f64::<T>(0.3125),
+                scalar::from_f64::<T>(-0.0762),
             ),
             (
-                T::from_f64(0.3125)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.3125)))?,
-                T::from_f64(-0.0762)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", -0.0762)))?,
+                scalar::from_f64::<T>(0.3750),
+                scalar::from_f64::<T>(-0.0643),
             ),
             (
-                T::from_f64(0.3750)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.3750)))?,
-                T::from_f64(-0.0643)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", -0.0643)))?,
+                scalar::from_f64::<T>(0.4375),
+                scalar::from_f64::<T>(-0.0448),
             ),
             (
-                T::from_f64(0.4375)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.4375)))?,
-                T::from_f64(-0.0448)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", -0.0448)))?,
+                scalar::from_f64::<T>(0.5000),
+                scalar::from_f64::<T>(-0.0172),
             ),
-            (
-                T::from_f64(0.5000)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.5000)))?,
-                T::from_f64(-0.0172)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", -0.0172)))?,
-            ),
-            (
-                T::from_f64(0.5625)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.5625)))?,
-                T::from_f64(0.0196)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", 0.0196)))?,
-            ),
-            (
-                T::from_f64(0.6250)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.6250)))?,
-                T::from_f64(0.0652)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", 0.0652)))?,
-            ),
-            (
-                T::from_f64(0.6875)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.6875)))?,
-                T::from_f64(0.1176)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", 0.1176)))?,
-            ),
-            (
-                T::from_f64(0.7500)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.7500)))?,
-                T::from_f64(0.1737)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", 0.1737)))?,
-            ),
-            (
-                T::from_f64(0.8125)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.8125)))?,
-                T::from_f64(0.2280)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", 0.2280)))?,
-            ),
-            (
-                T::from_f64(0.8750)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.8750)))?,
-                T::from_f64(0.2735)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", 0.2735)))?,
-            ),
-            (
-                T::from_f64(0.9375)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 0.9375)))?,
-                T::from_f64(0.3004)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", 0.3004)))?,
-            ),
-            (
-                T::from_f64(1.0000)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert y={}", 1.0000)))?,
-                T::from_f64(1.0000)
-                    .ok_or_else(|| Error::InvalidInput(format!("Cannot convert u={}", 1.0000)))?,
-            ),
+            (scalar::from_f64::<T>(0.5625), scalar::from_f64::<T>(0.0196)),
+            (scalar::from_f64::<T>(0.6250), scalar::from_f64::<T>(0.0652)),
+            (scalar::from_f64::<T>(0.6875), scalar::from_f64::<T>(0.1176)),
+            (scalar::from_f64::<T>(0.7500), scalar::from_f64::<T>(0.1737)),
+            (scalar::from_f64::<T>(0.8125), scalar::from_f64::<T>(0.2280)),
+            (scalar::from_f64::<T>(0.8750), scalar::from_f64::<T>(0.2735)),
+            (scalar::from_f64::<T>(0.9375), scalar::from_f64::<T>(0.3004)),
+            (scalar::from_f64::<T>(1.0000), scalar::from_f64::<T>(1.0000)),
         ];
 
         Ok(data)
@@ -141,39 +81,23 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> PatankarLidDrivenCavity<
     /// Reference pressure coefficient
     pub fn reference_pressure_coefficient(&self) -> Result<T> {
         // From Patankar's convergence studies
-        <T as cfd_core::conversion::SafeFromF64>::try_from_f64(0.118)
+        Ok(scalar::from_f64::<T>(0.118))
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
-    for PatankarLidDrivenCavity<T>
-{
+impl<T: RealField + Copy + FloatElement> LiteratureValidation<T> for PatankarLidDrivenCavity<T> {
     fn validate(&self) -> Result<ValidationReport<T>> {
         // Patankar (1980) reference data for lid-driven cavity
         // Stream function values at specific locations for Re=100
         let reference_data = vec![
-            (
-                0.5,
-                0.9375,
-                <T as cfd_core::conversion::SafeFromF64>::try_from_f64(-0.0625)?,
-            ), // ψ at center-top
-            (
-                0.5,
-                0.5,
-                <T as cfd_core::conversion::SafeFromF64>::try_from_f64(-0.1)?,
-            ), // ψ at center
-            (
-                0.5,
-                0.0625,
-                <T as cfd_core::conversion::SafeFromF64>::try_from_f64(-0.0625)?,
-            ), // ψ at center-bottom
+            (8usize, 15usize, scalar::from_f64::<T>(-0.0625)), // ψ at center-top
+            (8usize, 8usize, scalar::from_f64::<T>(-0.1)),     // ψ at center
+            (8usize, 1usize, scalar::from_f64::<T>(-0.0625)),  // ψ at center-bottom
         ];
 
         // Run simulation with specified grid size
         let grid_points = self.grid_size;
-        let _dx = T::one()
-            / T::from_usize(grid_points - 1)
-                .ok_or_else(|| Error::InvalidInput("Cannot calculate dx".to_string()))?;
+        let _dx = T::one() / scalar::from_usize::<T>(grid_points - 1);
 
         // Initialize stream function
         let mut psi = nalgebra::DMatrix::<T>::zeros(grid_points, grid_points);
@@ -183,7 +107,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
         // Vorticity boundary conditions derived from stream function
 
         let max_iterations = 10000;
-        let tolerance = <T as cfd_core::conversion::SafeFromF64>::try_from_f64(1e-6)?;
+        let tolerance = scalar::from_f64::<T>(1e-6);
         let mut iteration = 0;
         let mut max_change = T::one();
 
@@ -191,14 +115,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
             psi_prev.copy_from(&psi);
 
             // Interior points: solve ∇²ψ = -ω using SOR
-            let omega_sor = <T as cfd_core::conversion::SafeFromF64>::try_from_f64(1.5)?; // SOR relaxation factor
+            let omega_sor = scalar::from_f64::<T>(1.5); // SOR relaxation factor
 
             for i in 1..grid_points - 1 {
                 for j in 1..grid_points - 1 {
                     let psi_old = psi[(i, j)];
                     let psi_new =
                         (psi[(i + 1, j)] + psi[(i - 1, j)] + psi[(i, j + 1)] + psi[(i, j - 1)])
-                            / <T as cfd_core::conversion::SafeFromF64>::try_from_f64(4.0)?;
+                            / scalar::from_f64::<T>(4.0);
                     psi[(i, j)] = psi_old + omega_sor * (psi_new - psi_old);
                 }
             }
@@ -207,7 +131,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
             max_change = T::zero();
             for i in 0..grid_points {
                 for j in 0..grid_points {
-                    let change = (psi[(i, j)] - psi_prev[(i, j)]).abs();
+                    let change = scalar::abs(psi[(i, j)] - psi_prev[(i, j)]);
                     if change > max_change {
                         max_change = change;
                     }
@@ -222,32 +146,22 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
         let mut sum_error = T::zero();
         let mut count = 0;
 
-        for (x_ref, y_ref, psi_ref) in reference_data {
-            let grid_size_t = T::from_usize(grid_points - 1)
-                .ok_or_else(|| Error::InvalidInput("Cannot convert grid size".to_string()))?;
-            let x_ref_t = <T as cfd_core::conversion::SafeFromF64>::try_from_f64(x_ref)?;
-            let y_ref_t = <T as cfd_core::conversion::SafeFromF64>::try_from_f64(y_ref)?;
-            let i_float = x_ref_t * grid_size_t;
-            let j_float = y_ref_t * grid_size_t;
-            // Convert to f64 first, then to usize
-            let i = i_float
-                .to_f64()
-                .and_then(|f| f.to_usize())
-                .ok_or_else(|| Error::InvalidInput("Cannot convert i to usize".to_string()))?;
-            let j = j_float
-                .to_f64()
-                .and_then(|f| f.to_usize())
-                .ok_or_else(|| Error::InvalidInput("Cannot convert j to usize".to_string()))?;
-            let error = (psi[(i, j)] - psi_ref).abs();
-            max_error = max_error.max(error);
+        for (x_num, y_num, psi_ref) in reference_data {
+            let i = ((grid_points - 1) * x_num + 8) / 16;
+            let j = ((grid_points - 1) * y_num + 8) / 16;
+            if i >= grid_points || j >= grid_points {
+                return Err(Error::InvalidInput(
+                    "Reference point falls outside Patankar grid".to_string(),
+                ));
+            }
+            let error = scalar::abs(psi[(i, j)] - psi_ref);
+            max_error = scalar::max(max_error, error);
             sum_error += error;
             count += 1;
         }
 
-        let avg_error = sum_error
-            / T::from_usize(count)
-                .ok_or_else(|| Error::InvalidInput("Cannot calculate avg_error".to_string()))?;
-        let tolerance_threshold = <T as cfd_core::conversion::SafeFromF64>::try_from_f64(0.01)?;
+        let avg_error = sum_error / scalar::from_usize::<T>(count);
+        let tolerance_threshold = scalar::from_f64::<T>(0.01);
 
         Ok(ValidationReport {
             test_name: "Patankar Lid-Driven Cavity".to_string(),
@@ -256,8 +170,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
             avg_error,
             passed: max_error < tolerance_threshold,
             details: format!("Stream function validation against Patankar (1980) reference data. Max error: {:.6}, Avg error: {:.6}", 
-                           max_error.to_f64().unwrap_or(0.0),
-                           avg_error.to_f64().unwrap_or(0.0)),
+                           scalar::to_f64(max_error),
+                           scalar::to_f64(avg_error)),
         })
     }
 
@@ -266,6 +180,6 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
     }
 
     fn expected_accuracy(&self) -> T {
-        T::from_f64(0.02).unwrap_or_else(T::one) // 2% accuracy expected
+        scalar::from_f64::<T>(0.02) // 2% accuracy expected
     }
 }

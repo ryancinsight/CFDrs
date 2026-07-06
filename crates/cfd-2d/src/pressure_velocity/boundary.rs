@@ -1,8 +1,8 @@
+use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::boundary::BoundaryCondition;
-use nalgebra::RealField;
 use std::collections::HashMap;
 
-pub(crate) fn has_pressure_anchor<T: RealField + Copy>(
+pub(crate) fn has_pressure_anchor<T: Cfd2dScalar + Copy>(
     boundary_conditions: &HashMap<String, BoundaryCondition<T>>,
 ) -> bool {
     boundary_conditions
@@ -10,7 +10,7 @@ pub(crate) fn has_pressure_anchor<T: RealField + Copy>(
         .any(is_pressure_anchor_boundary)
 }
 
-pub(crate) fn is_pressure_anchor_boundary<T: RealField + Copy>(
+pub(crate) fn is_pressure_anchor_boundary<T: Cfd2dScalar + Copy>(
     boundary_condition: &BoundaryCondition<T>,
 ) -> bool {
     matches!(
@@ -26,7 +26,7 @@ pub(crate) fn is_pressure_anchor_boundary<T: RealField + Copy>(
     )
 }
 
-pub(crate) fn pressure_neighbor_for_side<T: RealField + Copy>(
+pub(crate) fn pressure_neighbor_for_side<T: Cfd2dScalar + Copy>(
     side: &str,
     i: usize,
     j: usize,

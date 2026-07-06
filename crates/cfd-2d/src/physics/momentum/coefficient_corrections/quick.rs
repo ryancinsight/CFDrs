@@ -20,7 +20,9 @@
 
 use crate::discretization::extended_stencil::{ExtendedStencilScheme, QuickScheme};
 use crate::fields::SimulationFields;
-use nalgebra::RealField;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::FloatElement;
 
 use super::super::solver::MomentumComponent;
 
@@ -30,7 +32,7 @@ use super::super::solver::MomentumComponent;
 ///
 /// # References
 /// * Leonard (1979), Patankar (1980) §5.4.3
-pub fn compute_quick_correction_x<T: RealField + Copy>(
+pub fn compute_quick_correction_x<T: Cfd2dScalar + Copy + FloatElement>(
     i: usize,
     j: usize,
     u: T,
@@ -63,7 +65,7 @@ pub fn compute_quick_correction_x<T: RealField + Copy>(
     let phi_e_quick = quick.face_value(&phi_values, u, None);
 
     // Upwind face value at east face
-    let phi_e_upwind = if u > T::zero() {
+    let phi_e_upwind = if u > scalar::zero() {
         phi_values[2] // From cell i (current)
     } else {
         phi_values[3] // From cell i+1 (downstream)
@@ -80,7 +82,7 @@ pub fn compute_quick_correction_x<T: RealField + Copy>(
 ///
 /// # References
 /// * Leonard (1979), Patankar (1980) §5.4.3
-pub fn compute_quick_correction_y<T: RealField + Copy>(
+pub fn compute_quick_correction_y<T: Cfd2dScalar + Copy + FloatElement>(
     i: usize,
     j: usize,
     v: T,
@@ -113,7 +115,7 @@ pub fn compute_quick_correction_y<T: RealField + Copy>(
     let phi_n_quick = quick.face_value(&phi_values, v, None);
 
     // Upwind face value at north face
-    let phi_n_upwind = if v > T::zero() {
+    let phi_n_upwind = if v > scalar::zero() {
         phi_values[2] // From cell j (current)
     } else {
         phi_values[3] // From cell j+1 (downstream)

@@ -12,7 +12,9 @@ use crate::linear_solver::IterativeSolverConfig;
 use crate::linear_solver::{BiCGSTAB, ConjugateGradient};
 use crate::sparse::SparseMatrixBuilder;
 use approx::assert_relative_eq;
-use nalgebra::DVector;
+use leto::Array1;
+
+use super::{all_finite, array, basic_preconditioner_matrix, filled_array, vector_distance};
 
 #[test]
 fn test_bicgstab_zero_rhs() -> Result<(), Box<dyn std::error::Error>> {
@@ -30,8 +32,8 @@ fn test_bicgstab_zero_rhs() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::zeros(n);
-    let mut x = DVector::from_element(n, 1.0);
+    let b = Array1::zeros([n]);
+    let mut x = filled_array(n, 1.0);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = BiCGSTAB::new(config);
@@ -61,8 +63,8 @@ fn test_cg_zero_rhs() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::zeros(n);
-    let mut x = DVector::from_element(n, 1.0);
+    let b = Array1::zeros([n]);
+    let mut x = filled_array(n, 1.0);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = ConjugateGradient::new(config);
@@ -92,8 +94,8 @@ fn test_bicgstab_large_negative() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::from_element(n, -100.0);
-    let mut x = DVector::zeros(n);
+    let b = filled_array(n, -100.0);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-8).with_max_iterations(1000);
     let solver = BiCGSTAB::new(config);
@@ -101,10 +103,7 @@ fn test_bicgstab_large_negative() -> Result<(), Box<dyn std::error::Error>> {
 
     solver.solve(&a, &b, &mut x, Some(&identity))?;
 
-    let ax = &a * &x;
-    for i in 0..n {
-        assert_relative_eq!(ax[i], b[i], epsilon = 1e-6);
-    }
+    super::assert_spmv_matches(&a, &x, &b, 1e-6);
     Ok(())
 }
 
@@ -125,8 +124,8 @@ fn test_bicgstab_ill_conditioned() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::from_element(n, 1.0);
-    let mut x = DVector::zeros(n);
+    let b = filled_array(n, 1.0);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-6).with_max_iterations(10000);
     let solver = BiCGSTAB::new(config);
@@ -134,10 +133,7 @@ fn test_bicgstab_ill_conditioned() -> Result<(), Box<dyn std::error::Error>> {
 
     solver.solve(&a, &b, &mut x, Some(&identity))?;
 
-    let ax = &a * &x;
-    for i in 0..n {
-        assert_relative_eq!(ax[i], b[i], epsilon = 1e-4);
-    }
+    super::assert_spmv_matches(&a, &x, &b, 1e-4);
     Ok(())
 }
 
@@ -158,9 +154,10 @@ fn test_jacobi_mixed_signs() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let precond = JacobiPreconditioner::new(&a)?;
-    let r = DVector::from_element(n, 1.0);
-    let mut z = DVector::zeros(n);
+    let preconditioner_matrix = basic_preconditioner_matrix(&a);
+    let precond = JacobiPreconditioner::new(&preconditioner_matrix)?;
+    let r = filled_array(n, 1.0);
+    let mut z = Array1::zeros([n]);
 
     precond.apply_to(&r, &mut z)?;
 
@@ -189,16 +186,14 @@ fn test_sor_boundary_omega() -> Result<(), Box<dyn std::error::Error>> {
     let a = builder.build()?;
 
     for omega in [0.1, 0.5, 1.0, 1.5, 1.9] {
-        let sor = SORPreconditioner::new(&a, omega)?;
-        let r = DVector::from_element(n, 1.0);
-        let mut z = DVector::zeros(n);
+        let preconditioner_matrix = basic_preconditioner_matrix(&a);
+        let sor = SORPreconditioner::new(&preconditioner_matrix, omega)?;
+        let r = filled_array(n, 1.0);
+        let mut z = Array1::zeros([n]);
 
         sor.apply_to(&r, &mut z)?;
 
-        assert!(
-            z.iter().all(|&x: &f64| x.is_finite()),
-            "omega={omega}: NaN detected"
-        );
+        assert!(all_finite(&z), "omega={omega}: NaN detected");
     }
     Ok(())
 }
@@ -220,8 +215,8 @@ fn test_bicgstab_small_positive() {
     }
     let a = builder.build().unwrap();
 
-    let b = DVector::from_element(n, small);
-    let mut x = DVector::zeros(n);
+    let b = filled_array(n, small);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-15).with_max_iterations(1000);
     let solver = BiCGSTAB::new(config);
@@ -230,7 +225,7 @@ fn test_bicgstab_small_positive() {
     let result = solver.solve(&a, &b, &mut x, Some(&identity));
 
     if result.is_ok() {
-        assert!(x.iter().all(|&xi: &f64| xi.is_finite()));
+        assert!(all_finite(&x));
     } else {
         assert!(
             result.is_err(),
@@ -255,20 +250,18 @@ fn test_cg_perfect_initial_guess() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::from_element(n, 1.0);
-    let mut x_exact = DVector::zeros(n);
+    let b = filled_array(n, 1.0);
+    let mut x_exact = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-12).with_max_iterations(100);
     let solver = ConjugateGradient::new(config);
     let identity = IdentityPreconditioner;
     let _ = solver.solve(&a, &b, &mut x_exact, Some(&identity))?;
 
-    let mut x = x_exact.clone();
+    let mut x = array((0..x_exact.shape()[0]).map(|idx| x_exact[idx]).collect());
     let _ = solver.solve(&a, &b, &mut x, Some(&identity))?;
 
-    for i in 0..n {
-        assert_relative_eq!(x[i], x_exact[i], epsilon = 1e-10);
-    }
+    assert!(vector_distance(&x, &x_exact) < 1e-10);
     Ok(())
 }
 
@@ -300,8 +293,8 @@ fn test_bicgstab_pentadiagonal() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::from_element(n, 1.0);
-    let mut x = DVector::zeros(n);
+    let b = filled_array(n, 1.0);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-8).with_max_iterations(1000);
     let solver = BiCGSTAB::new(config);
@@ -309,10 +302,7 @@ fn test_bicgstab_pentadiagonal() -> Result<(), Box<dyn std::error::Error>> {
 
     solver.solve(&a, &b, &mut x, Some(&identity))?;
 
-    let ax = &a * &x;
-    for i in 0..n {
-        assert_relative_eq!(ax[i], b[i], epsilon = 1e-6);
-    }
+    super::assert_spmv_matches(&a, &x, &b, 1e-6);
     Ok(())
 }
 
@@ -332,8 +322,8 @@ fn test_bicgstab_max_iterations() {
     }
     let a = builder.build().unwrap();
 
-    let b = DVector::from_element(n, 1.0);
-    let mut x = DVector::zeros(n);
+    let b = filled_array(n, 1.0);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-15).with_max_iterations(1);
     let solver = BiCGSTAB::new(config);

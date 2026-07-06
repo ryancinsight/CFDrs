@@ -1,11 +1,11 @@
 //! CSV data types and structures
 
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 /// Generic CSV record
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CsvRecord<T: RealField + Copy> {
+pub struct CsvRecord<T: RealField> {
     /// Time or iteration number
     pub time: T,
     /// Data values
@@ -14,7 +14,7 @@ pub struct CsvRecord<T: RealField + Copy> {
 
 /// Field data structure for 2D/3D fields
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FieldData<T: RealField + Copy> {
+pub struct FieldData<T: RealField> {
     /// X coordinates
     pub x: Vec<T>,
     /// Y coordinates
@@ -29,7 +29,7 @@ pub struct FieldData<T: RealField + Copy> {
 
 /// Time series data structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TimeSeriesData<T: RealField + Copy> {
+pub struct TimeSeriesData<T: RealField> {
     /// Time values
     pub time: Vec<T>,
     /// Data columns
@@ -38,7 +38,7 @@ pub struct TimeSeriesData<T: RealField + Copy> {
     pub headers: Vec<String>,
 }
 
-impl<T: RealField + Copy> FieldData<T> {
+impl<T: RealField> FieldData<T> {
     /// Create new 2D field data
     pub fn new_2d(x: Vec<T>, y: Vec<T>, field: Vec<T>, name: String) -> Self {
         Self {
@@ -72,7 +72,7 @@ impl<T: RealField + Copy> FieldData<T> {
     }
 }
 
-impl<T: RealField + Copy> TimeSeriesData<T> {
+impl<T: RealField> TimeSeriesData<T> {
     /// Create new time series data
     pub fn new(time: Vec<T>, data: Vec<Vec<T>>, headers: Vec<String>) -> Self {
         Self {

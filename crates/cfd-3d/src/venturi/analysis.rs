@@ -7,19 +7,14 @@
 use crate::fem::solver::extract_vertex_indices;
 use cfd_core::error::{Error, Result};
 use cfd_mesh::domain::core::index::VertexId;
-use nalgebra::{RealField, Vector3};
-use num_traits::Float;
+use eunomia::FloatElement;
+use nalgebra::Vector3;
 
 use super::solver::VenturiSolver3D;
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + num_traits::FromPrimitive
-            + num_traits::ToPrimitive
-            + cfd_core::conversion::SafeFromF64,
-    > VenturiSolver3D<T>
+impl<T> VenturiSolver3D<T>
+where
+    T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + FloatElement + Copy,
 {
     /// Compute the scalar shear rate $\dot\gamma$ for a single mesh cell.
     ///
@@ -163,7 +158,7 @@ impl<
             if idxs.len() == 10 {
                 let mut tet4 = crate::fem::element::FluidElement::new(idxs[0..4].to_vec());
                 let six_v = tet4.calculate_volume(&local_verts);
-                if Float::abs(six_v) < 1e-24_f64 {
+                if six_v.abs() < 1e-24_f64 {
                     continue;
                 }
                 cell_volume = tet4.volume;
@@ -212,7 +207,7 @@ impl<
                 }
             }
 
-            let div_abs = Float::abs(div);
+            let div_abs = div.abs();
             if div_abs < min_div {
                 min_div = div_abs;
             }
@@ -317,7 +312,7 @@ impl<
             let mut on_plane = true;
             for &v_idx in &face.vertices {
                 let v = mesh.vertices.get(v_idx);
-                if Float::abs(v.position.z - z_plane) > tol {
+                if (v.position.z - z_plane).abs() > tol {
                     on_plane = false;
                     break;
                 }

@@ -1,14 +1,14 @@
 //! Standard norm-based error metrics (L1, L2, L∞)
 
 use super::ErrorMetric;
+use crate::scalar;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::{FloatElement, RealField};
 
 /// L2 (Euclidean) norm error metric
 pub struct L2Norm;
 
-impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L2Norm {
+impl<T: RealField + FloatElement + Copy> ErrorMetric<T> for L2Norm {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
@@ -17,7 +17,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L2Norm {
         }
 
         if numerical.is_empty() {
-            return Ok(T::zero());
+            return Ok(scalar::zero());
         }
 
         let sum_squared_diff: T = numerical
@@ -27,12 +27,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L2Norm {
                 let diff = *num - *ref_val;
                 diff * diff
             })
-            .fold(T::zero(), |acc, x| acc + x);
+            .fold(scalar::zero(), |acc, x| acc + x);
 
-        let n = T::from_usize(numerical.len()).ok_or_else(|| {
-            Error::InvalidConfiguration("Failed to convert array length to target type".to_string())
-        })?;
-        Ok((sum_squared_diff / n).sqrt())
+        let n = scalar::from_usize(numerical.len());
+        Ok(scalar::sqrt(sum_squared_diff / n))
     }
 
     fn name(&self) -> &'static str {
@@ -43,7 +41,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L2Norm {
 /// L∞ (maximum) norm error metric
 pub struct LInfNorm;
 
-impl<T: RealField + Copy> ErrorMetric<T> for LInfNorm {
+impl<T: RealField + FloatElement + Copy> ErrorMetric<T> for LInfNorm {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
@@ -52,14 +50,14 @@ impl<T: RealField + Copy> ErrorMetric<T> for LInfNorm {
         }
 
         if numerical.is_empty() {
-            return Ok(T::zero());
+            return Ok(scalar::zero());
         }
 
         let max_diff = numerical
             .iter()
             .zip(reference.iter())
-            .map(|(num, ref_val)| (*num - *ref_val).abs())
-            .fold(T::zero(), |acc, x| if x > acc { x } else { acc });
+            .map(|(num, ref_val)| scalar::abs(*num - *ref_val))
+            .fold(scalar::zero(), |acc, x| scalar::max(acc, x));
 
         Ok(max_diff)
     }
@@ -72,7 +70,7 @@ impl<T: RealField + Copy> ErrorMetric<T> for LInfNorm {
 /// L1 (Manhattan) norm error metric
 pub struct L1Norm;
 
-impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L1Norm {
+impl<T: RealField + FloatElement + Copy> ErrorMetric<T> for L1Norm {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
@@ -81,18 +79,16 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for L1Norm {
         }
 
         if numerical.is_empty() {
-            return Ok(T::zero());
+            return Ok(scalar::zero());
         }
 
         let sum_abs_diff: T = numerical
             .iter()
             .zip(reference.iter())
-            .map(|(num, ref_val)| (*num - *ref_val).abs())
-            .fold(T::zero(), |acc, x| acc + x);
+            .map(|(num, ref_val)| scalar::abs(*num - *ref_val))
+            .fold(scalar::zero(), |acc, x| acc + x);
 
-        let n = T::from_usize(numerical.len()).ok_or_else(|| {
-            Error::InvalidConfiguration("Failed to convert array length to target type".to_string())
-        })?;
+        let n = scalar::from_usize(numerical.len());
         Ok(sum_abs_diff / n)
     }
 

@@ -1,7 +1,7 @@
 //! Traits for interpolation methods.
 
 use cfd_core::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 
 /// Trait for interpolation methods
 pub trait Interpolation<T: RealField + Copy>: Send + Sync {

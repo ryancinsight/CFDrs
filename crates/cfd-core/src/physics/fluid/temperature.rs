@@ -2,8 +2,8 @@
 
 use super::traits::{Fluid as FluidTrait, FluidState};
 use crate::error::Error;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Temperature-dependent viscosity model using polynomial fit
@@ -31,11 +31,11 @@ pub struct PolynomialViscosity<T: RealField + Copy> {
     pub speed_of_sound: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> PolynomialViscosity<T> {
+impl<T: RealField + NumericElement + Copy> PolynomialViscosity<T> {
     /// Calculate viscosity at given temperature
     pub fn calculate_viscosity(&self, temperature: T) -> T {
-        let mut viscosity = T::zero();
-        let mut t_power = T::one();
+        let mut viscosity = <T as NumericElement>::ZERO;
+        let mut t_power = <T as NumericElement>::ONE;
 
         for coeff in &self.viscosity_coeffs {
             viscosity += *coeff * t_power;
@@ -48,13 +48,13 @@ impl<T: RealField + FromPrimitive + Copy> PolynomialViscosity<T> {
     /// Calculate density with thermal expansion
     pub fn calculate_density(&self, temperature: T) -> T {
         let dt = temperature - self.t_ref;
-        self.density_ref * (T::one() - self.thermal_expansion * dt)
+        self.density_ref * (<T as NumericElement>::ONE - self.thermal_expansion * dt)
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for PolynomialViscosity<T> {
+impl<T: RealField + NumericElement + Copy> FluidTrait<T> for PolynomialViscosity<T> {
     fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
-        if temperature <= T::zero() {
+        if temperature <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Temperature must be positive".to_string(),
             ));
@@ -108,20 +108,20 @@ pub struct ArrheniusViscosity<T: RealField + Copy> {
     pub speed_of_sound: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> ArrheniusViscosity<T> {
+impl<T: RealField + FloatElement + Copy> ArrheniusViscosity<T> {
     /// Calculate viscosity using Arrhenius model
     pub fn calculate_viscosity(&self, temperature: T) -> Result<T, Error> {
-        if temperature <= T::zero() {
+        if temperature <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Temperature must be positive".to_string(),
             ));
         }
 
-        Ok(self.a_factor * (self.b_factor / temperature).exp())
+        Ok(self.a_factor * FloatElement::exp(self.b_factor / temperature))
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for ArrheniusViscosity<T> {
+impl<T: RealField + FloatElement + Copy> FluidTrait<T> for ArrheniusViscosity<T> {
     fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         let viscosity = self.calculate_viscosity(temperature)?;
 
@@ -167,22 +167,22 @@ pub struct AndradeViscosity<T: RealField + Copy> {
     pub speed_of_sound: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> AndradeViscosity<T> {
+impl<T: RealField + FloatElement + Copy> AndradeViscosity<T> {
     /// Calculate viscosity using Andrade model
     pub fn calculate_viscosity(&self, temperature: T) -> Result<T, Error> {
         let denominator = temperature - self.c_factor;
-        if denominator <= T::zero() {
+        if denominator <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(format!(
-                "Temperature must be greater than {}",
+                "Temperature must be greater than {:?}",
                 self.c_factor
             )));
         }
 
-        Ok(self.a_factor * (self.b_factor / denominator).exp())
+        Ok(self.a_factor * FloatElement::exp(self.b_factor / denominator))
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for AndradeViscosity<T> {
+impl<T: RealField + FloatElement + Copy> FluidTrait<T> for AndradeViscosity<T> {
     fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         let viscosity = self.calculate_viscosity(temperature)?;
 
@@ -228,21 +228,21 @@ pub struct SutherlandViscosity<T: RealField + Copy> {
     pub speed_of_sound: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> SutherlandViscosity<T> {
+impl<T: RealField + FloatElement + Copy> SutherlandViscosity<T> {
     /// Calculate viscosity using Sutherland's law
     pub fn calculate_viscosity(&self, temperature: T) -> T {
         let t_ratio = temperature / self.t_ref;
         let numerator = self.t_ref + self.s_constant;
         let denominator = temperature + self.s_constant;
 
-        self.mu_ref * t_ratio.powf(T::from_f64(1.5).unwrap_or_else(T::one)) * numerator
+        self.mu_ref * FloatElement::powf(t_ratio, <T as FloatElement>::from_f64(1.5)) * numerator
             / denominator
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for SutherlandViscosity<T> {
+impl<T: RealField + FloatElement + Copy> FluidTrait<T> for SutherlandViscosity<T> {
     fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
-        if temperature <= T::zero() {
+        if temperature <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Temperature must be positive".to_string(),
             ));
@@ -298,8 +298,9 @@ mod tests {
         // 1.15016 * 383.55 / 410.4 * 1.716e-5
         // 1.15016 * 0.93457 * 1.716e-5 = 1.0749 * 1.716e-5 = 1.844e-5 roughly
         let mu_300 = air.calculate_viscosity(300.0);
-        // Expected value from online calculators/tables for air at 300K is approx 1.846e-5
-        assert!((mu_300 - 1.846e-5).abs() < 1e-7);
+        let expected_mu_300 =
+            1.716e-5 * f64::powf(300.0 / 273.15, 1.5) * (273.15 + 110.4) / (300.0 + 110.4);
+        assert!((mu_300 - expected_mu_300).abs() <= 16.0 * f64::EPSILON * expected_mu_300);
     }
 
     #[test]
@@ -350,5 +351,48 @@ mod tests {
 
         assert!(fluid.calculate_viscosity(0.0).is_err());
         assert!(fluid.calculate_viscosity(-1.0).is_err());
+    }
+
+    #[test]
+    fn test_polynomial_viscosity_and_density_are_value_semantic() {
+        let fluid = PolynomialViscosity::<f64> {
+            name: "Polynomial".to_string(),
+            density_ref: 1000.0,
+            thermal_expansion: 2.0e-4,
+            viscosity_coeffs: vec![1.0, -0.01, 0.0001],
+            t_ref: 300.0,
+            specific_heat: 4180.0,
+            thermal_conductivity: 0.6,
+            speed_of_sound: 1480.0,
+        };
+
+        let viscosity = fluid.calculate_viscosity(310.0);
+        let expected_viscosity = 1.0 - 0.01 * 310.0 + 0.0001 * 310.0 * 310.0;
+        assert!((viscosity - expected_viscosity).abs() <= 16.0 * f64::EPSILON);
+
+        let density = fluid.calculate_density(310.0);
+        let expected_density = 1000.0 * (1.0 - 2.0e-4 * 10.0);
+        assert!((density - expected_density).abs() <= 16.0 * f64::EPSILON * expected_density);
+    }
+
+    #[test]
+    fn test_andrade_viscosity_and_domain_are_value_semantic() {
+        let fluid = AndradeViscosity::<f64> {
+            name: "Andrade".to_string(),
+            density: 1000.0,
+            a_factor: 0.25,
+            b_factor: 10.0,
+            c_factor: 2.0,
+            specific_heat: 1000.0,
+            thermal_conductivity: 1.0,
+            speed_of_sound: 1500.0,
+        };
+
+        let viscosity = fluid.calculate_viscosity(7.0).unwrap();
+        let expected_viscosity = 0.25 * f64::exp(10.0 / (7.0 - 2.0));
+        assert!((viscosity - expected_viscosity).abs() <= 8.0 * f64::EPSILON * expected_viscosity);
+
+        assert!(fluid.calculate_viscosity(2.0).is_err());
+        assert!(fluid.calculate_viscosity(1.0).is_err());
     }
 }

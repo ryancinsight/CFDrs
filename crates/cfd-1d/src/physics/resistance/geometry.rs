@@ -1,12 +1,13 @@
 //! Channel geometry definitions for resistance calculations.
 
 use cfd_core::error::Result;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::NumericElement;
+
+use super::traits::{scalar_from_f64, ResistanceScalar};
 
 /// Geometry enum for resistance model selection
 #[derive(Debug, Clone)]
-pub enum ChannelGeometry<T: RealField + Copy> {
+pub enum ChannelGeometry<T> {
     /// Circular channel
     Circular {
         /// Diameter of the circular channel
@@ -54,7 +55,7 @@ pub enum ChannelGeometry<T: RealField + Copy> {
     },
 }
 
-impl<T: RealField + Copy + FromPrimitive> ChannelGeometry<T> {
+impl<T: ResistanceScalar> ChannelGeometry<T> {
     /// Cross-sectional area \[m²]
     pub fn cross_sectional_area(&self) -> Result<T> {
         let pi = T::pi();
@@ -113,18 +114,17 @@ impl<T: RealField + Copy + FromPrimitive> ChannelGeometry<T> {
                 let m = T::one() - (b * b) / (a * a);
 
                 let mut a_n = T::one();
-                let mut b_n = (T::one() - m).sqrt();
-                let mut c_n = m.sqrt();
+                let mut b_n = <T as NumericElement>::sqrt(T::one() - m);
+                let mut c_n = <T as NumericElement>::sqrt(m);
 
                 let mut sum = c_n * c_n / two;
                 let mut power = T::one();
 
-                let tolerance =
-                    T::from_f64(1e-14).expect("Mathematical constant conversion compromised");
+                let tolerance = scalar_from_f64::<T>(1e-14);
 
                 for _ in 0..20 {
                     let a_next = (a_n + b_n) / two;
-                    let b_next = (a_n * b_n).sqrt();
+                    let b_next = <T as NumericElement>::sqrt(a_n * b_n);
                     let c_next = (a_n - b_n) / two;
 
                     a_n = a_next;
@@ -153,7 +153,7 @@ impl<T: RealField + Copy + FromPrimitive> ChannelGeometry<T> {
                 let area = self.cross_sectional_area()?;
                 // Side lengths via Pythagorean theorem
                 let half_diff = (*top_width - *bottom_width) / two;
-                let side = (*height * *height + half_diff * half_diff).sqrt();
+                let side = <T as NumericElement>::sqrt(*height * *height + half_diff * half_diff);
                 let perimeter = *top_width + *bottom_width + two * side;
                 Ok(four * area / perimeter)
             }

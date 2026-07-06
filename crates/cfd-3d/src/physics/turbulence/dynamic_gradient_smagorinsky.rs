@@ -25,8 +25,8 @@
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::TurbulenceModel;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use leto::geometry::Vector3;
 
 use super::field_ops::{
     gradient_magnitude, linear_index, matrix_contract, symmetric_matrix_contract,
@@ -37,7 +37,7 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 
 /// Local dynamic gradient Smagorinsky model.
 #[derive(Debug, Clone)]
-pub struct DynamicGradientSmagorinskyModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct DynamicGradientSmagorinskyModel<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// Grid spacing in the x direction \[m].
     pub dx: T,
     /// Grid spacing in the y direction \[m].
@@ -50,12 +50,10 @@ pub struct DynamicGradientSmagorinskyModel<T: cfd_mesh::domain::core::Scalar + R
     pub test_filter_ratio: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
-    DynamicGradientSmagorinskyModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> DynamicGradientSmagorinskyModel<T> {
     /// Create a local DGSM with unit grid spacing.
     pub fn new() -> Self {
-        let one = T::one();
+        let one = T::ONE;
         let two = one + one;
         Self {
             dx: one,
@@ -68,11 +66,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
 
     /// Create a local DGSM with the physical filter width.
     pub fn with_filter_width(dx: T, dy: T, dz: T) -> Self {
-        let one = T::one();
+        let one = T::ONE;
         let two = one + one;
-        let one_third = <T as FromPrimitive>::from_f64(1.0 / 3.0)
-            .expect("1/3 is an IEEE 754 representable f64 constant");
-        let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
+        let one_third = <T as FloatElement>::from_f64(1.0 / 3.0);
+        let filter_width = <T as FloatElement>::powf(dx * dy * dz, one_third);
         Self {
             dx,
             dy,
@@ -95,11 +92,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
         resolved_scale: T,
         filtered_scale: T,
     ) -> [[T; 3]; 3] {
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
         let delta_sq = self.filter_width * self.filter_width;
         let delta_hat = self.test_filter_width();
         let delta_hat_sq = delta_hat * delta_hat;
-        let mut tensor = [[T::zero(); 3]; 3];
+        let mut tensor = [[T::ZERO; 3]; 3];
 
         for i in 0..3 {
             for j in 0..3 {
@@ -116,7 +113,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
     fn local_viscosity_at(
         &self,
         flow: &FlowField<T>,
-        filtered_velocity: &[nalgebra::Vector3<T>],
+        filtered_velocity: &[Vector3<T>],
         i: usize,
         j: usize,
         k: usize,
@@ -159,32 +156,31 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
         );
         let numerator = symmetric_matrix_contract(leonard, &m);
         let denominator = matrix_contract(&m, &m);
-        let eps = <T as FromPrimitive>::from_f64(1e-30)
-            .expect("1e-30 is an IEEE 754 representable f64 constant");
+        let eps = <T as FloatElement>::from_f64(1e-30);
 
         if denominator <= eps {
-            T::zero()
+            T::ZERO
         } else {
             let coefficient = numerator / denominator;
-            if coefficient > T::zero() {
+            if coefficient > T::ZERO {
                 coefficient * self.filter_width * self.filter_width * resolved_scale
             } else {
-                T::zero()
+                T::ZERO
             }
         }
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
-    Default for DynamicGradientSmagorinskyModel<T>
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> Default
+    for DynamicGradientSmagorinskyModel<T>
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
-    TurbulenceModel<T> for DynamicGradientSmagorinskyModel<T>
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
+    for DynamicGradientSmagorinskyModel<T>
 {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
@@ -241,7 +237,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use nalgebra::Vector3;
+    use leto::geometry::Vector3;
 
     fn fill_velocity_field<F>(flow: &mut FlowField<f64>, mut generator: F)
     where

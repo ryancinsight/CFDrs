@@ -71,8 +71,8 @@
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
-use nalgebra::{DMatrix, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::Array2;
 
 /// MILES configuration parameters
 #[derive(Debug, Clone, Copy)]
@@ -86,12 +86,12 @@ pub struct MilesConfig<T: RealField + Copy> {
     pub max_dissipation: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for MilesConfig<T> {
+impl<T: RealField + Copy> Default for MilesConfig<T> {
     fn default() -> Self {
         Self {
-            min_resolution_ratio: T::from_f64(4.0).expect("analytical constant conversion"), // Require 4 points per large eddy
-            shock_threshold: T::from_f64(0.1).expect("analytical constant conversion"), // Shock detection sensitivity
-            max_dissipation: T::from_f64(1.0).expect("analytical constant conversion"), // Maximum dissipation limit
+            min_resolution_ratio: T::from_f64(4.0), // Require 4 points per large eddy
+            shock_threshold: T::from_f64(0.1),      // Shock detection sensitivity
+            max_dissipation: T::from_f64(1.0),      // Maximum dissipation limit
         }
     }
 }
@@ -102,7 +102,7 @@ pub struct MilesLES<T: RealField + Copy> {
     config: MilesConfig<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
+impl<T: RealField + Copy> MilesLES<T> {
     /// Create new MILES implementation
     pub fn new() -> Self {
         Self {
@@ -168,17 +168,21 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
     /// # Returns
     ///
     /// Shock detection indicator (0 = smooth, 1 = strong shock)
-    pub fn shock_detector(&self, velocity_gradient: &DMatrix<T>, pressure_gradient: T) -> T {
+    pub fn shock_detector(&self, velocity_gradient: &Array2<T>, pressure_gradient: T) -> T {
+        if velocity_gradient.shape() != [2, 2] {
+            return T::ZERO;
+        }
+
         // Simple shock detector based on velocity divergence and pressure gradient
-        let divergence = velocity_gradient[(0, 0)] + velocity_gradient[(1, 1)];
+        let divergence = velocity_gradient[[0, 0]] + velocity_gradient[[1, 1]];
 
         // Shock indicator combines divergence and pressure gradient
-        let shock_indicator = divergence.abs()
-            + pressure_gradient.abs() * T::from_f64(0.1).expect("analytical constant conversion");
+        let shock_indicator = NumericElement::abs(divergence)
+            + NumericElement::abs(pressure_gradient) * T::from_f64(0.1);
 
         // Normalize and clamp
         if shock_indicator > self.config.shock_threshold {
-            T::one()
+            T::ONE
         } else {
             shock_indicator / self.config.shock_threshold
         }
@@ -202,19 +206,18 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
         &self,
         left_state: T,
         right_state: T,
-        velocity_gradient: &DMatrix<T>,
+        velocity_gradient: &Array2<T>,
         pressure_gradient: T,
     ) -> T {
         // Compute shock detection
         let _shock_strength = self.shock_detector(velocity_gradient, pressure_gradient);
 
         // Base flux (Lax-Friedrichs for simplicity)
-        let alpha = (left_state.abs() + right_state.abs())
-            * T::from_f64(0.5).expect("analytical constant conversion");
+        let alpha =
+            (NumericElement::abs(left_state) + NumericElement::abs(right_state)) * T::from_f64(0.5);
         // Add implicit dissipation based on shock strength
         // In MILES, the shock-capturing scheme provides the dissipation
-        T::from_f64(0.5).expect("analytical constant conversion")
-            * (left_state.powi(2) + right_state.powi(2))
+        T::from_f64(0.5) * (FloatElement::powi(left_state, 2) + FloatElement::powi(right_state, 2))
             - alpha * (right_state - left_state)
     }
 
@@ -240,29 +243,28 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
         // 2. Compressible flows (shock-containing)
         // 3. Sufficient grid resolution
 
-        let re_score =
-            if reynolds_number > T::from_f64(1000.0).expect("analytical constant conversion") {
-                T::one()
-            } else {
-                reynolds_number / T::from_f64(1000.0).expect("analytical constant conversion")
-            };
-
-        let mach_score = if mach_number > T::from_f64(0.3).expect("analytical constant conversion")
-        {
-            T::one()
+        let re_threshold = T::from_f64(1000.0);
+        let re_score = if reynolds_number > re_threshold {
+            T::ONE
         } else {
-            mach_number / T::from_f64(0.3).expect("analytical constant conversion")
+            reynolds_number / re_threshold
+        };
+
+        let mach_threshold = T::from_f64(0.3);
+        let mach_score = if mach_number > mach_threshold {
+            T::ONE
+        } else {
+            mach_number / mach_threshold
         };
 
         let grid_score = if grid_resolution > self.config.min_resolution_ratio {
-            T::one()
+            T::ONE
         } else {
             grid_resolution / self.config.min_resolution_ratio
         };
 
         // Geometric mean of all scores
-        (re_score * mach_score * grid_score)
-            .powf(T::from_f64(1.0 / 3.0).expect("analytical constant conversion"))
+        FloatElement::powf(re_score * mach_score * grid_score, T::from_f64(1.0 / 3.0))
     }
 
     /// Get MILES configuration
@@ -276,7 +278,7 @@ impl<T: RealField + Copy + FromPrimitive> MilesLES<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for MilesLES<T> {
+impl<T: RealField + Copy> Default for MilesLES<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -286,6 +288,10 @@ impl<T: RealField + Copy + FromPrimitive> Default for MilesLES<T> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+
+    fn zero_gradient() -> Array2<f64> {
+        Array2::zeros([2, 2])
+    }
 
     #[test]
     fn test_miles_creation() {
@@ -327,15 +333,15 @@ mod tests {
         let miles = MilesLES::<f64>::new();
 
         // Test smooth flow (low gradients)
-        let mut grad = DMatrix::zeros(2, 2);
-        grad[(0, 0)] = 0.01;
-        grad[(1, 1)] = 0.01;
+        let mut grad = zero_gradient();
+        grad[[0, 0]] = 0.01;
+        grad[[1, 1]] = 0.01;
         let shock_strength = miles.shock_detector(&grad, 0.01);
         assert!(shock_strength < 0.5);
 
         // Test shock flow (high gradients)
-        grad[(0, 0)] = 10.0;
-        grad[(1, 1)] = 10.0;
+        grad[[0, 0]] = 10.0;
+        grad[[1, 1]] = 10.0;
         let shock_strength = miles.shock_detector(&grad, 1.0);
         assert_eq!(shock_strength, 1.0); // Clamped to 1.0
     }
@@ -357,7 +363,7 @@ mod tests {
     fn test_numerical_flux() {
         let miles = MilesLES::<f64>::new();
 
-        let grad = DMatrix::zeros(2, 2);
+        let grad = zero_gradient();
         let flux = miles.numerical_flux(1.0, 0.5, &grad, 0.0);
 
         // Should compute some flux value

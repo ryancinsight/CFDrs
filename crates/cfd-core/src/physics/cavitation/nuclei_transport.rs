@@ -18,7 +18,7 @@
 //! the parcel. The exponential decay model for dissolution assumes nuclei dissolve linearly proportional to their
 //! concentration at a rate scaled by the characteristic relaxation time $\tau_{diss}$.
 
-use nalgebra::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Default linear vapor-pressure boost per unit nuclei fraction.
@@ -38,18 +38,17 @@ pub const NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION: f64 = 10_000.0;
 /// threshold is preserved at `n = 0`, and the effective threshold increases
 /// monotonically for nonnegative nuclei fractions.
 #[must_use]
-pub fn nuclei_adjusted_vapor_pressure<T: RealField + Copy>(
+pub fn nuclei_adjusted_vapor_pressure<T: FloatElement + Copy>(
     vapor_pressure_pa: T,
     nuclei_fraction: T,
 ) -> T {
-    let boost = T::from_f64(NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION)
-        .expect("10_000.0 is an IEEE 754 representable f64 constant");
+    let boost = <T as FloatElement>::from_f64(NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION);
     vapor_pressure_pa + nuclei_fraction * boost
 }
 
 /// Configuration parameters for the Nuclei Transport model
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct NucleiTransportConfig<T: RealField + Copy> {
+pub struct NucleiTransportConfig<T: FloatElement + Copy> {
     /// Characteristic dissolution time \[s] ($\tau_{diss}$)
     pub dissolution_time_s: T,
     /// Proportional generation factor from active cavitation events
@@ -58,22 +57,22 @@ pub struct NucleiTransportConfig<T: RealField + Copy> {
     pub diffusion_coefficient: T,
 }
 
-impl<T: RealField + Copy> Default for NucleiTransportConfig<T> {
+impl<T: FloatElement + Copy> Default for NucleiTransportConfig<T> {
     fn default() -> Self {
         Self {
-            dissolution_time_s: T::from_f64(0.05).unwrap_or_else(T::one), // default 50ms
-            generation_rate_factor: T::from_f64(1.0).unwrap_or_else(T::one),
-            diffusion_coefficient: T::from_f64(1e-6).unwrap_or_else(T::one),
+            dissolution_time_s: <T as FloatElement>::from_f64(0.05), // default 50ms
+            generation_rate_factor: <T as NumericElement>::ONE,
+            diffusion_coefficient: <T as FloatElement>::from_f64(1e-6),
         }
     }
 }
 
 /// Evaluates the nuclei source and sink terms at a point in the flow.
-pub struct NucleiTransport<T: RealField + Copy> {
+pub struct NucleiTransport<T: FloatElement + Copy> {
     config: NucleiTransportConfig<T>,
 }
 
-impl<T: RealField + Copy> NucleiTransport<T> {
+impl<T: FloatElement + Copy> NucleiTransport<T> {
     /// Create a new nuclei transport evaluator
     #[must_use]
     pub const fn new(config: NucleiTransportConfig<T>) -> Self {
@@ -95,10 +94,10 @@ impl<T: RealField + Copy> NucleiTransport<T> {
     /// Returns the rate of change ($dn/dt$).
     #[must_use]
     pub fn calculate_dissolution_rate(&self, current_nuclei_fraction: T) -> T {
-        if self.config.dissolution_time_s > T::zero() {
-            -current_nuclei_fraction / self.config.dissolution_time_s
+        if self.config.dissolution_time_s > <T as NumericElement>::ZERO {
+            <T as NumericElement>::ZERO - current_nuclei_fraction / self.config.dissolution_time_s
         } else {
-            T::zero()
+            <T as NumericElement>::ZERO
         }
     }
 
@@ -106,10 +105,10 @@ impl<T: RealField + Copy> NucleiTransport<T> {
     /// based on the local macroscopic cavitation source rate.
     #[must_use]
     pub fn calculate_generation_rate(&self, macroscopic_cavitation_source: T) -> T {
-        if macroscopic_cavitation_source > T::zero() {
+        if macroscopic_cavitation_source > <T as NumericElement>::ZERO {
             macroscopic_cavitation_source * self.config.generation_rate_factor
         } else {
-            T::zero()
+            <T as NumericElement>::ZERO
         }
     }
 
@@ -131,9 +130,10 @@ impl<T: RealField + Copy> NucleiTransport<T> {
     /// $n(t + \Delta t) = n(t) \exp(-\Delta t / \tau_{diss})$
     #[must_use]
     pub fn advect_1d_dissolution(&self, upstream_nuclei: T, transit_time: T) -> T {
-        if self.config.dissolution_time_s > T::zero() {
-            let exponent = -transit_time / self.config.dissolution_time_s;
-            upstream_nuclei * exponent.exp()
+        if self.config.dissolution_time_s > <T as NumericElement>::ZERO {
+            let exponent =
+                <T as NumericElement>::ZERO - transit_time / self.config.dissolution_time_s;
+            upstream_nuclei * <T as FloatElement>::exp(exponent)
         } else {
             upstream_nuclei
         }

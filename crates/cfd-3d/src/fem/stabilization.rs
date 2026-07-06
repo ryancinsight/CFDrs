@@ -42,8 +42,10 @@
 //!   for convection dominated flows with particular emphasis on the incompressible Navier-Stokes equations"
 //! - Tezduyar, T.E. (1991). "Stabilized finite element formulations for incompressible flow computations"
 
+use eunomia::{FloatElement, NumericElement};
 use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+
+use super::scalar;
 
 // Named constants for stabilization
 const TWO: f64 = 2.0;
@@ -61,7 +63,7 @@ pub struct StabilizationParameters<T: cfd_mesh::domain::core::Scalar + RealField
     dt: Option<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy>
     StabilizationParameters<T>
 {
     /// Create new stabilization parameters
@@ -77,17 +79,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
     ///
     /// For steady-state: τ = [(2U/h)² + (4ν/h²)²]^(-1/2)
     pub fn tau_supg(&self) -> T {
-        let two = <T as FromPrimitive>::from_f64(TWO)
-            .expect("TWO (2.0) is representable in all IEEE 754 types");
-        let four = <T as FromPrimitive>::from_f64(FOUR)
-            .expect("FOUR (4.0) is representable in all IEEE 754 types");
+        let two = scalar::constant::<T>(TWO);
+        let four = scalar::constant::<T>(FOUR);
 
         // Advection term: (2U/h)²
-        let advection_term = if self.u_mag > T::zero() {
+        let advection_term = if self.u_mag > scalar::zero::<T>() {
             let term = (two * self.u_mag) / self.h;
             term * term
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
         // Diffusion term: (4ν/h²)²
@@ -101,15 +101,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
             let term = two / dt;
             term * term
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
         // Combined tau
         let sum = time_term + advection_term + diffusion_term;
-        if sum > T::zero() {
-            T::one() / num_traits::Float::sqrt(sum)
+        if sum > scalar::zero::<T>() {
+            scalar::one::<T>() / <T as NumericElement>::sqrt(sum)
         } else {
-            T::zero()
+            scalar::zero::<T>()
         }
     }
 
@@ -123,23 +123,20 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
     /// Calculate element Peclet number
     /// Pe = U*h/(2ν)
     pub fn peclet_number(&self) -> T {
-        if self.nu > T::zero() {
-            (self.u_mag * self.h)
-                / (<T as FromPrimitive>::from_f64(TWO)
-                    .expect("TWO (2.0) is representable in all IEEE 754 types")
-                    * self.nu)
+        if self.nu > scalar::zero::<T>() {
+            (self.u_mag * self.h) / (scalar::constant::<T>(TWO) * self.nu)
         } else {
-            T::zero()
+            scalar::zero::<T>()
         }
     }
 
     /// Calculate element Reynolds number
     /// Re = U*h/ν
     pub fn element_reynolds(&self) -> T {
-        if self.nu > T::zero() {
+        if self.nu > scalar::zero::<T>() {
             (self.u_mag * self.h) / self.nu
         } else {
-            T::zero()
+            scalar::zero::<T>()
         }
     }
 
@@ -149,18 +146,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
         let tau_supg = self.tau_supg();
 
         // Adjust based on Peclet number
-        if pe < T::one() {
+        if pe < scalar::one::<T>() {
             // Diffusion-dominated: reduce stabilization
             tau_supg * pe
-        } else if pe
-            > <T as FromPrimitive>::from_f64(100.0)
-                .expect("100.0 is representable in all IEEE 754 types")
-        {
+        } else if pe > scalar::constant::<T>(100.0) {
             // Highly advection-dominated: use full stabilization
             tau_supg
         } else {
             // Intermediate regime: smooth transition
-            let factor = num_traits::Float::max(T::one() - T::one() / pe, T::zero());
+            let factor = <T as NumericElement>::max_scalar(
+                scalar::one::<T>() - scalar::one::<T>() / pe,
+                scalar::zero::<T>(),
+            );
             tau_supg * factor
         }
     }
@@ -207,7 +204,7 @@ pub fn grad_div_parameter(h_element: f64, gamma: f64) -> f64 {
 
 /// Calculate element size for different element types
 pub fn calculate_element_size<
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
 >(
     vertices: &[Vector3<T>],
     velocity_direction: &Vector3<T>,
@@ -226,26 +223,26 @@ pub fn calculate_element_size<
 
 /// Calculate size for tetrahedral element
 fn calculate_tetrahedral_size<
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
 >(
     vertices: &[Vector3<T>],
     velocity_direction: &Vector3<T>,
 ) -> T {
-    if velocity_direction.norm() > T::zero() {
+    if velocity_direction.norm() > scalar::zero::<T>() {
         // Directional element size in flow direction
         let dir = velocity_direction.normalize();
 
         // Project element onto flow direction
-        let mut min_proj = <T as RealField>::max_value().unwrap_or_else(T::one);
-        let mut max_proj = <T as RealField>::min_value().unwrap_or_else(T::zero);
+        let mut min_proj = <T as NumericElement>::MAX_VALUE;
+        let mut max_proj = <T as NumericElement>::MIN_VALUE;
 
         for vertex in vertices {
             let proj = vertex.dot(&dir);
-            min_proj = num_traits::Float::min(min_proj, proj);
-            max_proj = num_traits::Float::max(max_proj, proj);
+            min_proj = <T as NumericElement>::min_scalar(min_proj, proj);
+            max_proj = <T as NumericElement>::max_scalar(max_proj, proj);
         }
 
-        num_traits::Float::abs(max_proj - min_proj)
+        <T as NumericElement>::abs(max_proj - min_proj)
     } else {
         // No flow: use characteristic length
         calculate_min_edge_length(vertices)
@@ -254,7 +251,7 @@ fn calculate_tetrahedral_size<
 
 /// Calculate size for hexahedral element
 fn calculate_hexahedral_size<
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
 >(
     vertices: &[Vector3<T>],
     velocity_direction: &Vector3<T>,
@@ -264,15 +261,17 @@ fn calculate_hexahedral_size<
 }
 
 /// Calculate minimum edge length of element
-fn calculate_min_edge_length<T: cfd_mesh::domain::core::Scalar + RealField + Copy>(
+fn calculate_min_edge_length<
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
+>(
     vertices: &[Vector3<T>],
 ) -> T {
-    let mut min_length = <T as RealField>::max_value().unwrap_or_else(T::one);
+    let mut min_length = <T as NumericElement>::MAX_VALUE;
 
     for i in 0..vertices.len() {
         for j in i + 1..vertices.len() {
             let edge_length = (vertices[i] - vertices[j]).norm();
-            min_length = num_traits::Float::min(min_length, edge_length);
+            min_length = <T as NumericElement>::min_scalar(min_length, edge_length);
         }
     }
 

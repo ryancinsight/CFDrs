@@ -14,11 +14,12 @@
 //! This is the standard Orszag 2/3 rule used here to keep the nonlinear term
 //! free of wraparound contamination.
 
-use apollo_fft::{fft_3d_array, ifft_3d_array, Complex64, Shape3D};
+use crate::atlas_array::{fft_3d_array, ifft_3d_array, set, value};
+use apollo_fft::{Complex64, Shape3D};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
-use nalgebra::Vector3;
-use ndarray::Array3;
+use leto::geometry::Vector3;
+use leto::Array3;
 
 /// Configuration for a periodic pseudospectral DNS stepper.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -164,9 +165,9 @@ impl PeriodicPseudospectralDns3D {
         }
 
         let (u, v, w) = self.velocity_components_to_arrays(velocity);
-        let mut u_hat = fft_3d_array(&u);
-        let mut v_hat = fft_3d_array(&v);
-        let mut w_hat = fft_3d_array(&w);
+        let mut u_hat = fft_3d_array(&u)?;
+        let mut v_hat = fft_3d_array(&v)?;
+        let mut w_hat = fft_3d_array(&w)?;
         self.apply_dealiasing_filter(&mut u_hat);
         self.apply_dealiasing_filter(&mut v_hat);
         self.apply_dealiasing_filter(&mut w_hat);
@@ -179,40 +180,54 @@ impl PeriodicPseudospectralDns3D {
     ) -> Result<VelocityField<f64>> {
         let [u_hat, v_hat, w_hat] = spectra;
         let (u, v, w) = (
-            ifft_3d_array(u_hat),
-            ifft_3d_array(v_hat),
-            ifft_3d_array(w_hat),
+            ifft_3d_array(u_hat)?,
+            ifft_3d_array(v_hat)?,
+            ifft_3d_array(w_hat)?,
         );
 
-        let du_dx = self.spectral_derivative(u_hat, 0);
-        let du_dy = self.spectral_derivative(u_hat, 1);
-        let du_dz = self.spectral_derivative(u_hat, 2);
-        let dv_dx = self.spectral_derivative(v_hat, 0);
-        let dv_dy = self.spectral_derivative(v_hat, 1);
-        let dv_dz = self.spectral_derivative(v_hat, 2);
-        let dw_dx = self.spectral_derivative(w_hat, 0);
-        let dw_dy = self.spectral_derivative(w_hat, 1);
-        let dw_dz = self.spectral_derivative(w_hat, 2);
+        let du_dx = self.spectral_derivative(u_hat, 0)?;
+        let du_dy = self.spectral_derivative(u_hat, 1)?;
+        let du_dz = self.spectral_derivative(u_hat, 2)?;
+        let dv_dx = self.spectral_derivative(v_hat, 0)?;
+        let dv_dy = self.spectral_derivative(v_hat, 1)?;
+        let dv_dz = self.spectral_derivative(v_hat, 2)?;
+        let dw_dx = self.spectral_derivative(w_hat, 0)?;
+        let dw_dy = self.spectral_derivative(w_hat, 1)?;
+        let dw_dz = self.spectral_derivative(w_hat, 2)?;
 
-        let mut adv_x = Array3::<f64>::zeros(self.config.dimensions);
-        let mut adv_y = Array3::<f64>::zeros(self.config.dimensions);
-        let mut adv_z = Array3::<f64>::zeros(self.config.dimensions);
+        let (nx, ny, nz) = self.config.dimensions;
+        let mut adv_x = Array3::<f64>::zeros([nx, ny, nz]);
+        let mut adv_y = Array3::<f64>::zeros([nx, ny, nz]);
+        let mut adv_z = Array3::<f64>::zeros([nx, ny, nz]);
 
         for k in 0..self.config.dimensions.2 {
             for j in 0..self.config.dimensions.1 {
                 for i in 0..self.config.dimensions.0 {
-                    let velocity_x = u[[i, j, k]];
-                    let velocity_y = v[[i, j, k]];
-                    let velocity_z = w[[i, j, k]];
-                    adv_x[[i, j, k]] = velocity_x * du_dx[[i, j, k]]
-                        + velocity_y * du_dy[[i, j, k]]
-                        + velocity_z * du_dz[[i, j, k]];
-                    adv_y[[i, j, k]] = velocity_x * dv_dx[[i, j, k]]
-                        + velocity_y * dv_dy[[i, j, k]]
-                        + velocity_z * dv_dz[[i, j, k]];
-                    adv_z[[i, j, k]] = velocity_x * dw_dx[[i, j, k]]
-                        + velocity_y * dw_dy[[i, j, k]]
-                        + velocity_z * dw_dz[[i, j, k]];
+                    let index = [i, j, k];
+                    let velocity_x = value(&u, index);
+                    let velocity_y = value(&v, index);
+                    let velocity_z = value(&w, index);
+                    set(
+                        &mut adv_x,
+                        index,
+                        velocity_x * value(&du_dx, index)
+                            + velocity_y * value(&du_dy, index)
+                            + velocity_z * value(&du_dz, index),
+                    );
+                    set(
+                        &mut adv_y,
+                        index,
+                        velocity_x * value(&dv_dx, index)
+                            + velocity_y * value(&dv_dy, index)
+                            + velocity_z * value(&dv_dz, index),
+                    );
+                    set(
+                        &mut adv_z,
+                        index,
+                        velocity_x * value(&dw_dx, index)
+                            + velocity_y * value(&dw_dy, index)
+                            + velocity_z * value(&dw_dz, index),
+                    );
                 }
             }
         }
@@ -226,9 +241,9 @@ impl PeriodicPseudospectralDns3D {
     ) -> Result<[Array3<Complex64>; 3]> {
         let adv = self.nonlinear_advection_from_spectrum(spectra)?;
         let (adv_x, adv_y, adv_z) = self.velocity_components_to_arrays(&adv);
-        let mut adv_hat_x = fft_3d_array(&adv_x);
-        let mut adv_hat_y = fft_3d_array(&adv_y);
-        let mut adv_hat_z = fft_3d_array(&adv_z);
+        let mut adv_hat_x = fft_3d_array(&adv_x)?;
+        let mut adv_hat_y = fft_3d_array(&adv_y)?;
+        let mut adv_hat_z = fft_3d_array(&adv_z)?;
         self.apply_dealiasing_filter(&mut adv_hat_x);
         self.apply_dealiasing_filter(&mut adv_hat_y);
         self.apply_dealiasing_filter(&mut adv_hat_z);
@@ -242,9 +257,9 @@ impl PeriodicPseudospectralDns3D {
         forcing_hat: Option<&[Array3<Complex64>; 3]>,
     ) -> Result<VelocityField<f64>> {
         let (nx, ny, nz) = self.config.dimensions;
-        let mut next_u_hat = Array3::<Complex64>::zeros((nx, ny, nz));
-        let mut next_v_hat = Array3::<Complex64>::zeros((nx, ny, nz));
-        let mut next_w_hat = Array3::<Complex64>::zeros((nx, ny, nz));
+        let mut next_u_hat = Array3::<Complex64>::zeros([nx, ny, nz]);
+        let mut next_v_hat = Array3::<Complex64>::zeros([nx, ny, nz]);
+        let mut next_w_hat = Array3::<Complex64>::zeros([nx, ny, nz]);
 
         let [u_hat, v_hat, w_hat] = spectra;
         let [adv_hat_x, adv_hat_y, adv_hat_z] = nonlinear_hat;
@@ -259,14 +274,15 @@ impl PeriodicPseudospectralDns3D {
                     let dt = self.config.time_step;
                     let nu = self.config.kinematic_viscosity;
 
-                    let mut rhs_x = -adv_hat_x[[i, j, k]];
-                    let mut rhs_y = -adv_hat_y[[i, j, k]];
-                    let mut rhs_z = -adv_hat_z[[i, j, k]];
+                    let index = [i, j, k];
+                    let mut rhs_x = -value(adv_hat_x, index);
+                    let mut rhs_y = -value(adv_hat_y, index);
+                    let mut rhs_z = -value(adv_hat_z, index);
 
-                    if let Some(forcing_hat) = forcing_hat {
-                        rhs_x += forcing_hat[0][[i, j, k]];
-                        rhs_y += forcing_hat[1][[i, j, k]];
-                        rhs_z += forcing_hat[2][[i, j, k]];
+                    if let Some([forcing_hat_x, forcing_hat_y, forcing_hat_z]) = forcing_hat {
+                        rhs_x += value(forcing_hat_x, index);
+                        rhs_y += value(forcing_hat_y, index);
+                        rhs_z += value(forcing_hat_z, index);
                     }
 
                     if k2 > 0.0 {
@@ -282,9 +298,21 @@ impl PeriodicPseudospectralDns3D {
                     }
 
                     let viscous_denominator = 1.0 + nu * k2 * dt;
-                    next_u_hat[[i, j, k]] = (u_hat[[i, j, k]] + dt * rhs_x) / viscous_denominator;
-                    next_v_hat[[i, j, k]] = (v_hat[[i, j, k]] + dt * rhs_y) / viscous_denominator;
-                    next_w_hat[[i, j, k]] = (w_hat[[i, j, k]] + dt * rhs_z) / viscous_denominator;
+                    set(
+                        &mut next_u_hat,
+                        index,
+                        (value(u_hat, index) + rhs_x * dt) / viscous_denominator,
+                    );
+                    set(
+                        &mut next_v_hat,
+                        index,
+                        (value(v_hat, index) + rhs_y * dt) / viscous_denominator,
+                    );
+                    set(
+                        &mut next_w_hat,
+                        index,
+                        (value(w_hat, index) + rhs_z * dt) / viscous_denominator,
+                    );
                 }
             }
         }
@@ -293,13 +321,17 @@ impl PeriodicPseudospectralDns3D {
         self.apply_dealiasing_filter(&mut next_v_hat);
         self.apply_dealiasing_filter(&mut next_w_hat);
 
-        let next_u = ifft_3d_array(&next_u_hat);
-        let next_v = ifft_3d_array(&next_v_hat);
-        let next_w = ifft_3d_array(&next_w_hat);
+        let next_u = ifft_3d_array(&next_u_hat)?;
+        let next_v = ifft_3d_array(&next_v_hat)?;
+        let next_w = ifft_3d_array(&next_w_hat)?;
         Ok(self.arrays_to_velocity(next_u, next_v, next_w))
     }
 
-    fn spectral_derivative(&self, spectrum: &Array3<Complex64>, axis: usize) -> Array3<f64> {
+    fn spectral_derivative(
+        &self,
+        spectrum: &Array3<Complex64>,
+        axis: usize,
+    ) -> Result<Array3<f64>> {
         let mut derivative_hat = spectrum.clone();
         let (nx, ny, nz) = self.config.dimensions;
         for k in 0..nz {
@@ -310,7 +342,10 @@ impl PeriodicPseudospectralDns3D {
                         1 => self.wavenumbers_y[j],
                         _ => self.wavenumbers_z[k],
                     };
-                    derivative_hat[[i, j, k]] *= Complex64::new(0.0, wave_number);
+                    let index = [i, j, k];
+                    let differentiated =
+                        value(&derivative_hat, index) * Complex64::new(0.0, wave_number);
+                    set(&mut derivative_hat, index, differentiated);
                 }
             }
         }
@@ -325,7 +360,7 @@ impl PeriodicPseudospectralDns3D {
                 let keep_y = self.mode_is_kept(j, ny, self.cutoff_y);
                 for i in 0..nx {
                     if !(self.mode_is_kept(i, nx, self.cutoff_x) && keep_y && keep_z) {
-                        spectrum[[i, j, k]] = Complex64::new(0.0, 0.0);
+                        set(spectrum, [i, j, k], Complex64::new(0.0, 0.0));
                     }
                 }
             }
@@ -366,18 +401,19 @@ impl PeriodicPseudospectralDns3D {
         velocity: &VelocityField<f64>,
     ) -> (Array3<f64>, Array3<f64>, Array3<f64>) {
         let (nx, ny, nz) = self.config.dimensions;
-        let mut u = Array3::<f64>::zeros((nx, ny, nz));
-        let mut v = Array3::<f64>::zeros((nx, ny, nz));
-        let mut w = Array3::<f64>::zeros((nx, ny, nz));
+        let mut u = Array3::<f64>::zeros([nx, ny, nz]);
+        let mut v = Array3::<f64>::zeros([nx, ny, nz]);
+        let mut w = Array3::<f64>::zeros([nx, ny, nz]);
 
         for k in 0..nz {
             for j in 0..ny {
                 for i in 0..nx {
                     let idx = k * nx * ny + j * nx + i;
                     let sample = velocity.components[idx];
-                    u[[i, j, k]] = sample.x;
-                    v[[i, j, k]] = sample.y;
-                    w[[i, j, k]] = sample.z;
+                    let index = [i, j, k];
+                    set(&mut u, index, sample.x);
+                    set(&mut v, index, sample.y);
+                    set(&mut w, index, sample.z);
                 }
             }
         }
@@ -397,7 +433,12 @@ impl PeriodicPseudospectralDns3D {
         for k in 0..nz {
             for j in 0..ny {
                 for i in 0..nx {
-                    components.push(Vector3::new(u[[i, j, k]], v[[i, j, k]], w[[i, j, k]]));
+                    let index = [i, j, k];
+                    components.push(Vector3::new(
+                        value(&u, index),
+                        value(&v, index),
+                        value(&w, index),
+                    ));
                 }
             }
         }
@@ -412,10 +453,12 @@ impl PeriodicPseudospectralDns3D {
 #[cfg(test)]
 mod tests {
     use super::{PeriodicPseudospectralDns3D, PeriodicPseudospectralDnsConfig};
+    use crate::atlas_array::value;
     use crate::spectral::{BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig};
     use apollo_fft::Complex64;
     use cfd_core::physics::fluid_dynamics::VelocityField;
-    use nalgebra::Vector3;
+    use leto::geometry::Vector3;
+    use leto::Array3;
 
     fn constant_velocity_field(
         dimensions: (usize, usize, usize),
@@ -460,7 +503,7 @@ mod tests {
         let config = PeriodicPseudospectralDnsConfig::new((6, 6, 6), (1.0, 1.0, 1.0), 0.0, 0.05)
             .expect("config should be valid");
         let stepper = PeriodicPseudospectralDns3D::new(config).expect("stepper should be valid");
-        let mut spectrum = ndarray::Array3::from_elem((6, 6, 6), Complex64::new(1.0, 0.0));
+        let mut spectrum = Array3::from_elem([6, 6, 6], Complex64::new(1.0, 0.0));
 
         stepper.apply_dealiasing_filter(&mut spectrum);
 
@@ -474,7 +517,7 @@ mod tests {
                     let kept = kx.abs() as usize <= cutoff
                         && ky.abs() as usize <= cutoff
                         && kz.abs() as usize <= cutoff;
-                    let value = spectrum[[i, j, k]];
+                    let value = value(&spectrum, [i, j, k]);
                     if kept {
                         assert!((value.re - 1.0).abs() < 1e-12);
                     } else {

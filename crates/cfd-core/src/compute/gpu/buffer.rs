@@ -4,14 +4,15 @@ use super::GpuContext;
 use crate::compute::traits::ComputeBuffer;
 use crate::error::{Error, Result};
 use bytemuck::{Pod, Zeroable};
-use nalgebra::RealField;
+use eunomia::RealField;
+use hephaestus_wgpu::{wgpu, ComputeDevice, WgpuBuffer as HephaestusWgpuBuffer};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// GPU buffer wrapper
 pub struct GpuBuffer<T: RealField + Pod + Zeroable> {
-    /// Underlying wgpu buffer
-    pub buffer: Arc<wgpu::Buffer>,
+    /// Hephaestus-owned WGPU buffer.
+    pub buffer: HephaestusWgpuBuffer<T>,
     /// Buffer size in elements
     size: usize,
     /// GPU context
@@ -39,17 +40,12 @@ impl<T: RealField + Pod + Zeroable + Copy> GpuBuffer<T> {
     /// Returns an error if the GPU buffer creation fails due to insufficient memory,
     /// invalid size parameters, or GPU device issues.
     pub fn new(context: Arc<GpuContext>, size: usize) -> Result<Self> {
-        let buffer = context.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("CFD Compute Buffer"),
-            size: (size * std::mem::size_of::<T>()) as u64,
-            usage: wgpu::BufferUsages::STORAGE
-                | wgpu::BufferUsages::COPY_DST
-                | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false,
-        });
+        let buffer = context.provider().alloc_zeroed(size).map_err(|error| {
+            Error::GpuCompute(format!("Hephaestus WGPU buffer allocation failed: {error}"))
+        })?;
 
         Ok(Self {
-            buffer: Arc::new(buffer),
+            buffer,
             size,
             context,
             _phantom: PhantomData,
@@ -63,22 +59,12 @@ impl<T: RealField + Pod + Zeroable + Copy> GpuBuffer<T> {
     /// Returns an error if buffer creation fails due to data size issues,
     /// memory allocation failures, or GPU device limitations.
     pub fn from_data(context: Arc<GpuContext>, data: &[T]) -> Result<Self> {
-        use wgpu::util::DeviceExt;
-
-        let buffer =
-            context
-                .device
-                .as_ref()
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("CFD Compute Buffer"),
-                    contents: bytemuck::cast_slice(data),
-                    usage: wgpu::BufferUsages::STORAGE
-                        | wgpu::BufferUsages::COPY_DST
-                        | wgpu::BufferUsages::COPY_SRC,
-                });
+        let buffer = context.provider().upload(data).map_err(|error| {
+            Error::GpuCompute(format!("Hephaestus WGPU buffer upload failed: {error}"))
+        })?;
 
         Ok(Self {
-            buffer: Arc::new(buffer),
+            buffer,
             size: data.len(),
             context,
             _phantom: PhantomData,
@@ -87,7 +73,7 @@ impl<T: RealField + Pod + Zeroable + Copy> GpuBuffer<T> {
 
     /// Get underlying wgpu buffer
     pub fn buffer(&self) -> &wgpu::Buffer {
-        &self.buffer
+        self.buffer.raw()
     }
 }
 
@@ -97,55 +83,13 @@ impl<T: RealField + Pod + Zeroable + Copy> ComputeBuffer<T> for GpuBuffer<T> {
     }
 
     fn read(&self) -> Result<Vec<T>> {
-        // Create staging buffer for reading
-        let staging_buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Staging Buffer"),
-            size: (self.size * std::mem::size_of::<T>()) as u64,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        // Copy from GPU buffer to staging buffer
-        let mut encoder =
-            self.context
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Buffer Read Encoder"),
-                });
-
-        encoder.copy_buffer_to_buffer(
-            &self.buffer,
-            0,
-            &staging_buffer,
-            0,
-            (self.size * std::mem::size_of::<T>()) as u64,
-        );
-
-        self.context.queue.submit(Some(encoder.finish()));
-
-        // Map staging buffer and read data
-        let buffer_slice = staging_buffer.slice(..);
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-            // Ignore send error as receiver might have been dropped
-            let _ = tx.send(result);
-        });
-
-        self.context.device.poll(wgpu::Maintain::Wait);
-
-        rx.recv()
-            .map_err(|_| {
-                Error::InvalidConfiguration("Failed to receive buffer mapping".to_string())
-            })?
-            .map_err(|_| Error::InvalidConfiguration("Failed to map buffer".to_string()))?;
-
-        let data = buffer_slice.get_mapped_range();
-        let result: Vec<T> = bytemuck::cast_slice(&data).to_vec();
-
-        drop(data);
-        staging_buffer.unmap();
-
+        let mut result = vec![T::zeroed(); self.size];
+        self.context
+            .provider()
+            .download(&self.buffer, &mut result)
+            .map_err(|error| {
+                Error::GpuCompute(format!("Hephaestus WGPU buffer download failed: {error}"))
+            })?;
         Ok(result)
     }
 
@@ -159,8 +103,11 @@ impl<T: RealField + Pod + Zeroable + Copy> ComputeBuffer<T> for GpuBuffer<T> {
         }
 
         self.context
-            .queue
-            .write_buffer(&self.buffer, 0, bytemuck::cast_slice(data));
+            .provider()
+            .write_buffer(&self.buffer, data)
+            .map_err(|error| {
+                Error::GpuCompute(format!("Hephaestus WGPU buffer write failed: {error}"))
+            })?;
 
         Ok(())
     }
@@ -180,7 +127,7 @@ impl<T: RealField + Pod + Zeroable> std::fmt::Debug for GpuBuffer<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GpuBuffer")
             .field("size", &self.size)
-            .field("buffer_id", &format!("{:?}", self.buffer.global_id()))
+            .field("buffer", &"<wgpu::Buffer>")
             .field("context", &"<GpuContext>") // Avoid recursive Debug
             .finish()
     }

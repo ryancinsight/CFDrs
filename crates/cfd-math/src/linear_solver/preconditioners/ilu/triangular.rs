@@ -1,28 +1,26 @@
 //! Triangular system solvers for ILU preconditioner
 
-use nalgebra::{DVector, RealField};
-use nalgebra_sparse::CsrMatrix;
+use eunomia::{NumericElement, RealField};
+use leto::Array1;
+use leto_ops::{CsrMatrix, Scalar as LetoScalar};
 
 /// Forward substitution with L (unit diagonal)
 ///
 /// Solves L*y = b where L is lower triangular with unit diagonal
-pub fn forward_substitution<T: RealField + Copy>(
+pub fn forward_substitution<T: RealField + Copy + LetoScalar>(
     lu_factor: &CsrMatrix<T>,
-    b: &DVector<T>,
-    y: &mut DVector<T>,
+    b: &Array1<T>,
+    y: &mut Array1<T>,
 ) {
     let n = lu_factor.nrows();
 
     for i in 0..n {
         let mut sum = b[i];
 
-        let row_start = lu_factor.row_offsets()[i];
-        let row_end = lu_factor.row_offsets()[i + 1];
-
-        for idx in row_start..row_end {
-            let j = lu_factor.col_indices()[idx];
+        let row = lu_factor.row(i);
+        for (&j, &value) in row.col_indices().iter().zip(row.values()) {
             if j < i {
-                sum -= lu_factor.values()[idx] * y[j];
+                sum -= value * y[j];
             }
         }
 
@@ -33,27 +31,24 @@ pub fn forward_substitution<T: RealField + Copy>(
 /// Backward substitution with U
 ///
 /// Solves U*x = y where U is upper triangular
-pub fn backward_substitution<T: RealField + Copy>(
+pub fn backward_substitution<T: RealField + Copy + NumericElement + LetoScalar>(
     lu_factor: &CsrMatrix<T>,
-    y: &DVector<T>,
-    x: &mut DVector<T>,
+    y: &Array1<T>,
+    x: &mut Array1<T>,
 ) {
     let n = lu_factor.nrows();
 
     for i in (0..n).rev() {
         let mut sum = y[i];
 
-        let row_start = lu_factor.row_offsets()[i];
-        let row_end = lu_factor.row_offsets()[i + 1];
+        let mut diag_val = <T as NumericElement>::ONE;
 
-        let mut diag_val = T::one();
-
-        for idx in row_start..row_end {
-            let j = lu_factor.col_indices()[idx];
+        let row = lu_factor.row(i);
+        for (&j, &value) in row.col_indices().iter().zip(row.values()) {
             if j > i {
-                sum -= lu_factor.values()[idx] * x[j];
+                sum -= value * x[j];
             } else if j == i {
-                diag_val = lu_factor.values()[idx];
+                diag_val = value;
             }
         }
 

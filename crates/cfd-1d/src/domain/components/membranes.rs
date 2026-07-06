@@ -2,16 +2,16 @@
 
 use super::{real_from_f64, Component};
 use crate::physics::resistance::models::{FlowConditions, MembranePoreModel, ResistanceModel};
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Porous membrane represented as many cylindrical pores in parallel.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PorousMembrane<T: RealField + Copy> {
+pub struct PorousMembrane<T: Cfd1dScalar + Copy> {
     /// Membrane thickness \[m]
     pub thickness: T,
     /// Membrane width \[m]
@@ -26,7 +26,7 @@ pub struct PorousMembrane<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> PorousMembrane<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> PorousMembrane<T> {
     /// Create a new porous membrane component.
     pub fn new(thickness: T, width: T, height: T, pore_radius: T, porosity: T) -> Self {
         Self {
@@ -45,7 +45,7 @@ impl<T: RealField + Copy + FromPrimitive> PorousMembrane<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Component<T> for PorousMembrane<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for PorousMembrane<T> {
     fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
         let model = MembranePoreModel::new(
             self.thickness,
@@ -89,7 +89,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for PorousMembrane<T> {
 
 /// Organ chamber represented as a compartment with user-defined hydraulic resistance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrganCompartment<T: RealField + Copy> {
+pub struct OrganCompartment<T: Cfd1dScalar + Copy> {
     /// Chamber length \[m]
     pub length: T,
     /// Chamber width \[m]
@@ -102,7 +102,7 @@ pub struct OrganCompartment<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> OrganCompartment<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> OrganCompartment<T> {
     /// Create a new organ compartment component.
     pub fn new(length: T, width: T, height: T, hydraulic_resistance: T) -> Self {
         Self {
@@ -120,7 +120,7 @@ impl<T: RealField + Copy + FromPrimitive> OrganCompartment<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Component<T> for OrganCompartment<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for OrganCompartment<T> {
     fn resistance(&self, _fluid: &ConstantPropertyFluid<T>) -> T {
         self.hydraulic_resistance
     }

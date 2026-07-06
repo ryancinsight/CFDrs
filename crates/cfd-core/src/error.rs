@@ -492,21 +492,47 @@ impl GeometryErrorKind {
     /// Create an insufficient space error
     #[must_use]
     pub const fn insufficient_space(required: f64, available: f64) -> Self {
-        Self::InsufficientSpace { required, available }
+        Self::InsufficientSpace {
+            required,
+            available,
+        }
     }
 }
 
 impl fmt::Display for GeometryErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidBoxDimensions { width, height } => write!(f, "Invalid box dimensions: width={width}, height={height}. Both must be positive."),
-            Self::InvalidPoint { x, y } => write!(f, "Invalid point coordinates: ({x}, {y}). Must be finite."),
-            Self::InsufficientSpace { required, available } => write!(f, "Insufficient space: required {required}, available {available}"),
+            Self::InvalidBoxDimensions { width, height } => write!(
+                f,
+                "Invalid box dimensions: width={width}, height={height}. Both must be positive."
+            ),
+            Self::InvalidPoint { x, y } => {
+                write!(f, "Invalid point coordinates: ({x}, {y}). Must be finite.")
+            }
+            Self::InsufficientSpace {
+                required,
+                available,
+            } => write!(
+                f,
+                "Insufficient space: required {required}, available {available}"
+            ),
             Self::InvalidSplitPattern { reason } => write!(f, "Invalid split pattern: {reason}"),
-            Self::NodeCreationFailed { x, y, reason } => write!(f, "Failed to create node at ({x}, {y}): {reason}"),
-            Self::ChannelCreationFailed { from_id, to_id, reason } => write!(f, "Failed to create channel from {from_id} to {to_id}: {reason}"),
+            Self::NodeCreationFailed { x, y, reason } => {
+                write!(f, "Failed to create node at ({x}, {y}): {reason}")
+            }
+            Self::ChannelCreationFailed {
+                from_id,
+                to_id,
+                reason,
+            } => write!(
+                f,
+                "Failed to create channel from {from_id} to {to_id}: {reason}"
+            ),
             Self::InvalidChannelPath { reason } => write!(f, "Invalid channel path: {reason}"),
-            Self::OverlappingChannels { x1, y1, x2, y2 } => write!(f, "Overlapping channels between ({x1},{y1}) and ({x2},{y2})"),
+            Self::OverlappingChannels { x1, y1, x2, y2 } => write!(
+                f,
+                "Overlapping channels between ({x1},{y1}) and ({x2},{y2})"
+            ),
         }
     }
 }
@@ -575,44 +601,91 @@ impl ConfigurationErrorKind {
     /// Create an invalid geometry config error
     #[must_use]
     pub fn invalid_geometry_config(field: &str, value: f64, constraint: &str) -> Self {
-        Self::InvalidGeometryConfig { field: field.to_string(), value, constraint: constraint.to_string() }
+        Self::InvalidGeometryConfig {
+            field: field.to_string(),
+            value,
+            constraint: constraint.to_string(),
+        }
     }
 
     /// Create an invalid serpentine config error
     #[must_use]
     pub fn invalid_serpentine_config(field: &str, value: f64, constraint: &str) -> Self {
-        Self::InvalidSerpentineConfig { field: field.to_string(), value, constraint: constraint.to_string() }
+        Self::InvalidSerpentineConfig {
+            field: field.to_string(),
+            value,
+            constraint: constraint.to_string(),
+        }
     }
 
     /// Create an invalid arc config error
     #[must_use]
     pub fn invalid_arc_config(field: &str, value: f64, constraint: &str) -> Self {
-        Self::InvalidArcConfig { field: field.to_string(), value, constraint: constraint.to_string() }
+        Self::InvalidArcConfig {
+            field: field.to_string(),
+            value,
+            constraint: constraint.to_string(),
+        }
     }
 
     /// Create an invalid frustum config error
     #[must_use]
     pub fn invalid_frustum_config(field: &str, value: f64, constraint: &str) -> Self {
-        Self::InvalidFrustumConfig { field: field.to_string(), value, constraint: constraint.to_string() }
+        Self::InvalidFrustumConfig {
+            field: field.to_string(),
+            value,
+            constraint: constraint.to_string(),
+        }
     }
 
     /// Create an invalid generation config error
     #[must_use]
     pub fn invalid_generation_config(field: &str, constraint: &str) -> Self {
-        Self::InvalidGenerationConfig { field: field.to_string(), constraint: constraint.to_string() }
+        Self::InvalidGenerationConfig {
+            field: field.to_string(),
+            constraint: constraint.to_string(),
+        }
     }
 }
 
 impl fmt::Display for ConfigurationErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidGeometryConfig { field, value, constraint } => write!(f, "Invalid geometry config: {field} = {value}. {constraint}"),
-            Self::InvalidSerpentineConfig { field, value, constraint } => write!(f, "Invalid serpentine config: {field} = {value}. {constraint}"),
-            Self::InvalidArcConfig { field, value, constraint } => write!(f, "Invalid arc config: {field} = {value}. {constraint}"),
-            Self::InvalidFrustumConfig { field, value, constraint } => write!(f, "Invalid frustum config: {field} = {value}. {constraint}"),
-            Self::InvalidGenerationConfig { field, constraint } => write!(f, "Invalid generation config: {field}. {constraint}"),
-            Self::ConflictingValues { conflict } => write!(f, "Conflicting configuration values: {conflict}"),
-            Self::MissingConfiguration { field } => write!(f, "Missing required configuration: {field}"),
+            Self::InvalidGeometryConfig {
+                field,
+                value,
+                constraint,
+            } => write!(
+                f,
+                "Invalid geometry config: {field} = {value}. {constraint}"
+            ),
+            Self::InvalidSerpentineConfig {
+                field,
+                value,
+                constraint,
+            } => write!(
+                f,
+                "Invalid serpentine config: {field} = {value}. {constraint}"
+            ),
+            Self::InvalidArcConfig {
+                field,
+                value,
+                constraint,
+            } => write!(f, "Invalid arc config: {field} = {value}. {constraint}"),
+            Self::InvalidFrustumConfig {
+                field,
+                value,
+                constraint,
+            } => write!(f, "Invalid frustum config: {field} = {value}. {constraint}"),
+            Self::InvalidGenerationConfig { field, constraint } => {
+                write!(f, "Invalid generation config: {field}. {constraint}")
+            }
+            Self::ConflictingValues { conflict } => {
+                write!(f, "Conflicting configuration values: {conflict}")
+            }
+            Self::MissingConfiguration { field } => {
+                write!(f, "Missing required configuration: {field}")
+            }
         }
     }
 }
@@ -668,25 +741,35 @@ impl VisualizationErrorKind {
     /// Create a file error
     #[must_use]
     pub fn file_error(message: &str) -> Self {
-        Self::FileError { message: message.to_string() }
+        Self::FileError {
+            message: message.to_string(),
+        }
     }
 
     /// Create an invalid output path error
     #[must_use]
     pub fn invalid_output_path(path: &str, reason: &str) -> Self {
-        Self::InvalidOutputPath { path: path.to_string(), reason: reason.to_string() }
+        Self::InvalidOutputPath {
+            path: path.to_string(),
+            reason: reason.to_string(),
+        }
     }
 
     /// Create a rendering error
     #[must_use]
     pub fn rendering_error(message: &str) -> Self {
-        Self::RenderingError { message: message.to_string() }
+        Self::RenderingError {
+            message: message.to_string(),
+        }
     }
 
     /// Create an unsupported format error
     #[must_use]
     pub fn unsupported_format(format: &str, message: &str) -> Self {
-        Self::UnsupportedFormat { format: format.to_string(), message: message.to_string() }
+        Self::UnsupportedFormat {
+            format: format.to_string(),
+            message: message.to_string(),
+        }
     }
 }
 
@@ -694,12 +777,22 @@ impl fmt::Display for VisualizationErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::FileError { message } => write!(f, "File I/O error: {message}"),
-            Self::InvalidOutputPath { path, reason } => write!(f, "Invalid output path: '{path}'. {reason}"),
+            Self::InvalidOutputPath { path, reason } => {
+                write!(f, "Invalid output path: '{path}'. {reason}")
+            }
             Self::RenderingError { message } => write!(f, "Rendering error: {message}"),
-            Self::InvalidParameters { parameter, value, constraint } => write!(f, "Invalid parameters: {parameter} = {value}. {constraint}"),
+            Self::InvalidParameters {
+                parameter,
+                value,
+                constraint,
+            } => write!(f, "Invalid parameters: {parameter} = {value}. {constraint}"),
             Self::EmptyChannelSystem => write!(f, "Cannot visualize empty channel system"),
-            Self::UnsupportedFormat { format, message } => write!(f, "Unsupported format: {format}. {message}"),
-            Self::CoordinateTransformError { message } => write!(f, "Coordinate transform error: {message}"),
+            Self::UnsupportedFormat { format, message } => {
+                write!(f, "Unsupported format: {format}. {message}")
+            }
+            Self::CoordinateTransformError { message } => {
+                write!(f, "Coordinate transform error: {message}")
+            }
         }
     }
 }
@@ -749,23 +842,53 @@ impl StrategyErrorKind {
     /// Create a strategy creation failed error
     #[must_use]
     pub fn strategy_creation_failed(channel_type: &str, reason: &str) -> Self {
-        Self::StrategyCreationFailed { channel_type: channel_type.to_string(), reason: reason.to_string() }
+        Self::StrategyCreationFailed {
+            channel_type: channel_type.to_string(),
+            reason: reason.to_string(),
+        }
     }
 
     /// Create an execution failed error
     #[must_use]
     pub fn execution_failed(from_x: f64, from_y: f64, to_x: f64, to_y: f64, reason: &str) -> Self {
-        Self::ExecutionFailed { from_x, from_y, to_x, to_y, reason: reason.to_string() }
+        Self::ExecutionFailed {
+            from_x,
+            from_y,
+            to_x,
+            to_y,
+            reason: reason.to_string(),
+        }
     }
 }
 
 impl fmt::Display for StrategyErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::StrategyCreationFailed { channel_type, reason } => write!(f, "Failed to create strategy for {channel_type}: {reason}"),
-            Self::InvalidParameters { parameter, value, constraint } => write!(f, "Invalid strategy parameters: {parameter} = {value}. {constraint}"),
-            Self::ExecutionFailed { from_x, from_y, to_x, to_y, reason } => write!(f, "Strategy execution failed from ({from_x},{from_y}) to ({to_x},{to_y}): {reason}"),
-            Self::UnsupportedChannelType { channel_type } => write!(f, "Unsupported channel type: {channel_type}"),
+            Self::StrategyCreationFailed {
+                channel_type,
+                reason,
+            } => write!(f, "Failed to create strategy for {channel_type}: {reason}"),
+            Self::InvalidParameters {
+                parameter,
+                value,
+                constraint,
+            } => write!(
+                f,
+                "Invalid strategy parameters: {parameter} = {value}. {constraint}"
+            ),
+            Self::ExecutionFailed {
+                from_x,
+                from_y,
+                to_x,
+                to_y,
+                reason,
+            } => write!(
+                f,
+                "Strategy execution failed from ({from_x},{from_y}) to ({to_x},{to_y}): {reason}"
+            ),
+            Self::UnsupportedChannelType { channel_type } => {
+                write!(f, "Unsupported channel type: {channel_type}")
+            }
         }
     }
 }
@@ -830,55 +953,96 @@ impl ParameterErrorKind {
     /// Create a not-found error
     #[must_use]
     pub fn not_found(name: &str, domain: &str) -> Self {
-        Self::NotFound { name: name.to_string(), domain: domain.to_string() }
+        Self::NotFound {
+            name: name.to_string(),
+            domain: domain.to_string(),
+        }
     }
 
     /// Create an invalid-value error
     pub fn invalid_value(name: &str, value: &dyn fmt::Debug, constraint: &str) -> Self {
-        Self::InvalidValue { name: name.to_string(), value: format!("{value:?}"), constraint: constraint.to_string() }
+        Self::InvalidValue {
+            name: name.to_string(),
+            value: format!("{value:?}"),
+            constraint: constraint.to_string(),
+        }
     }
 
     /// Create a type-mismatch error
     #[must_use]
     pub fn type_mismatch(name: &str, expected: &str, actual: &str) -> Self {
-        Self::TypeMismatch { name: name.to_string(), expected: expected.to_string(), actual: actual.to_string() }
+        Self::TypeMismatch {
+            name: name.to_string(),
+            expected: expected.to_string(),
+            actual: actual.to_string(),
+        }
     }
 
     /// Create a read-only error
     #[must_use]
     pub fn read_only(name: &str) -> Self {
-        Self::ReadOnly { name: name.to_string() }
+        Self::ReadOnly {
+            name: name.to_string(),
+        }
     }
 
     /// Create a dependency-not-satisfied error
     #[must_use]
     pub fn dependency_not_satisfied(name: &str, dependency: &str) -> Self {
-        Self::DependencyNotSatisfied { name: name.to_string(), dependency: dependency.to_string() }
+        Self::DependencyNotSatisfied {
+            name: name.to_string(),
+            dependency: dependency.to_string(),
+        }
     }
 
     /// Create a circular-dependency error
     #[must_use]
     pub fn circular_dependency(name: &str) -> Self {
-        Self::CircularDependency { name: name.to_string() }
+        Self::CircularDependency {
+            name: name.to_string(),
+        }
     }
 
     /// Create an adaptation-failed error
     #[must_use]
     pub fn adaptation_failed(name: &str, reason: &str) -> Self {
-        Self::AdaptationFailed { name: name.to_string(), reason: reason.to_string() }
+        Self::AdaptationFailed {
+            name: name.to_string(),
+            reason: reason.to_string(),
+        }
     }
 }
 
 impl fmt::Display for ParameterErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NotFound { name, domain } => write!(f, "Parameter '{name}' not found in domain '{domain}'"),
-            Self::InvalidValue { name, value, constraint } => write!(f, "Invalid value for '{name}': {value}. {constraint}"),
-            Self::TypeMismatch { name, expected, actual } => write!(f, "Type mismatch for '{name}': expected {expected}, got {actual}"),
+            Self::NotFound { name, domain } => {
+                write!(f, "Parameter '{name}' not found in domain '{domain}'")
+            }
+            Self::InvalidValue {
+                name,
+                value,
+                constraint,
+            } => write!(f, "Invalid value for '{name}': {value}. {constraint}"),
+            Self::TypeMismatch {
+                name,
+                expected,
+                actual,
+            } => write!(
+                f,
+                "Type mismatch for '{name}': expected {expected}, got {actual}"
+            ),
             Self::ReadOnly { name } => write!(f, "Parameter '{name}' is read-only"),
-            Self::DependencyNotSatisfied { name, dependency } => write!(f, "Parameter '{name}' dependency '{dependency}' not satisfied"),
-            Self::CircularDependency { name } => write!(f, "Circular dependency involving parameter '{name}'"),
-            Self::AdaptationFailed { name, reason } => write!(f, "Failed to adapt parameter '{name}': {reason}"),
+            Self::DependencyNotSatisfied { name, dependency } => write!(
+                f,
+                "Parameter '{name}' dependency '{dependency}' not satisfied"
+            ),
+            Self::CircularDependency { name } => {
+                write!(f, "Circular dependency involving parameter '{name}'")
+            }
+            Self::AdaptationFailed { name, reason } => {
+                write!(f, "Failed to adapt parameter '{name}': {reason}")
+            }
         }
     }
 }
@@ -916,7 +1080,10 @@ impl ValidationErrorKind {
     /// Create a rule-failed error
     #[must_use]
     pub fn rule_failed(field: &str, message: &str) -> Self {
-        Self::RuleFailed { field: field.to_string(), message: message.to_string() }
+        Self::RuleFailed {
+            field: field.to_string(),
+            message: message.to_string(),
+        }
     }
 
     /// Create a multiple-failures error
@@ -928,23 +1095,35 @@ impl ValidationErrorKind {
     /// Create a custom error
     #[must_use]
     pub fn custom(message: &str) -> Self {
-        Self::Custom { message: message.to_string() }
+        Self::Custom {
+            message: message.to_string(),
+        }
     }
 
     /// Create a constraint-violation error
     #[must_use]
     pub fn constraint_violation(constraint: &str) -> Self {
-        Self::ConstraintViolation { constraint: constraint.to_string() }
+        Self::ConstraintViolation {
+            constraint: constraint.to_string(),
+        }
     }
 }
 
 impl fmt::Display for ValidationErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::RuleFailed { field, message } => write!(f, "Validation failed for '{field}': {message}"),
-            Self::Multiple { failures } => write!(f, "Multiple validation failures ({} errors)", failures.len()),
+            Self::RuleFailed { field, message } => {
+                write!(f, "Validation failed for '{field}': {message}")
+            }
+            Self::Multiple { failures } => write!(
+                f,
+                "Multiple validation failures ({} errors)",
+                failures.len()
+            ),
             Self::Custom { message } => write!(f, "Validation error: {message}"),
-            Self::ConstraintViolation { constraint } => write!(f, "Constraint violation: {constraint}"),
+            Self::ConstraintViolation { constraint } => {
+                write!(f, "Constraint violation: {constraint}")
+            }
         }
     }
 }
@@ -983,11 +1162,20 @@ pub enum RegistryErrorKind {
 impl fmt::Display for RegistryErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ManagerNotFound { domain } => write!(f, "Parameter manager for domain '{domain}' not found"),
-            Self::ManagerAlreadyRegistered { domain } => write!(f, "Parameter manager for domain '{domain}' already registered"),
+            Self::ManagerNotFound { domain } => {
+                write!(f, "Parameter manager for domain '{domain}' not found")
+            }
+            Self::ManagerAlreadyRegistered { domain } => write!(
+                f,
+                "Parameter manager for domain '{domain}' already registered"
+            ),
             Self::RegistryLocked => write!(f, "Registry is locked"),
-            Self::InitializationFailed { reason } => write!(f, "Registry initialization failed: {reason}"),
-            Self::UpdateConflict { parameter, reason } => write!(f, "Update conflict for '{parameter}': {reason}"),
+            Self::InitializationFailed { reason } => {
+                write!(f, "Registry initialization failed: {reason}")
+            }
+            Self::UpdateConflict { parameter, reason } => {
+                write!(f, "Update conflict for '{parameter}': {reason}")
+            }
         }
     }
 }
@@ -1027,29 +1215,48 @@ pub enum ConstraintErrorKind {
 
 impl ConstraintErrorKind {
     /// Create a range-violation error
-    pub fn range_violation(value: &dyn fmt::Debug, min: &dyn fmt::Debug, max: &dyn fmt::Debug) -> Self {
-        Self::RangeViolation { value: format!("{value:?}"), min: format!("{min:?}"), max: format!("{max:?}") }
+    pub fn range_violation(
+        value: &dyn fmt::Debug,
+        min: &dyn fmt::Debug,
+        max: &dyn fmt::Debug,
+    ) -> Self {
+        Self::RangeViolation {
+            value: format!("{value:?}"),
+            min: format!("{min:?}"),
+            max: format!("{max:?}"),
+        }
     }
 
     /// Create a set-violation error
     pub fn set_violation(value: &dyn fmt::Debug, allowed: &[&dyn fmt::Debug]) -> Self {
-        Self::SetViolation { value: format!("{value:?}"), allowed: allowed.iter().map(|v| format!("{v:?}")).collect() }
+        Self::SetViolation {
+            value: format!("{value:?}"),
+            allowed: allowed.iter().map(|v| format!("{v:?}")).collect(),
+        }
     }
 
     /// Create a custom-violation error
     #[must_use]
     pub fn custom_violation(message: &str) -> Self {
-        Self::CustomViolation { message: message.to_string() }
+        Self::CustomViolation {
+            message: message.to_string(),
+        }
     }
 }
 
 impl fmt::Display for ConstraintErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::RangeViolation { value, min, max } => write!(f, "Value {value} is outside range [{min}, {max}]"),
-            Self::SetViolation { value, allowed } => write!(f, "Value {value} is not in allowed set: {allowed:?}"),
+            Self::RangeViolation { value, min, max } => {
+                write!(f, "Value {value} is outside range [{min}, {max}]")
+            }
+            Self::SetViolation { value, allowed } => {
+                write!(f, "Value {value} is not in allowed set: {allowed:?}")
+            }
             Self::CustomViolation { message } => write!(f, "Constraint violation: {message}"),
-            Self::CompositionError { reason } => write!(f, "Constraint composition error: {reason}"),
+            Self::CompositionError { reason } => {
+                write!(f, "Constraint composition error: {reason}")
+            }
         }
     }
 }
@@ -1089,8 +1296,14 @@ impl fmt::Display for DependencyErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::CycleDetected { cycle } => write!(f, "Dependency cycle: {}", cycle.join(" -> ")),
-            Self::MissingDependency { parameter, dependency } => write!(f, "Missing dependency '{dependency}' for '{parameter}'"),
-            Self::ResolutionFailed { parameter, reason } => write!(f, "Dependency resolution failed for '{parameter}': {reason}"),
+            Self::MissingDependency {
+                parameter,
+                dependency,
+            } => write!(f, "Missing dependency '{dependency}' for '{parameter}'"),
+            Self::ResolutionFailed { parameter, reason } => write!(
+                f,
+                "Dependency resolution failed for '{parameter}': {reason}"
+            ),
             Self::InvalidGraph { reason } => write!(f, "Invalid dependency graph: {reason}"),
         }
     }
@@ -1131,9 +1344,15 @@ impl fmt::Display for AdaptationErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidContext { reason } => write!(f, "Invalid adaptation context: {reason}"),
-            Self::CalculationFailed { parameter, reason } => write!(f, "Adaptation failed for '{parameter}': {reason}"),
-            Self::InvalidResult { value, constraint } => write!(f, "Adaptation result '{value}' violates: {constraint}"),
-            Self::DependencyMissing { dependency } => write!(f, "Required dependency '{dependency}' not available"),
+            Self::CalculationFailed { parameter, reason } => {
+                write!(f, "Adaptation failed for '{parameter}': {reason}")
+            }
+            Self::InvalidResult { value, constraint } => {
+                write!(f, "Adaptation result '{value}' violates: {constraint}")
+            }
+            Self::DependencyMissing { dependency } => {
+                write!(f, "Required dependency '{dependency}' not available")
+            }
         }
     }
 }
@@ -1237,7 +1456,9 @@ pub enum ResistanceCalculationErrorKind {
 impl fmt::Display for ResistanceCalculationErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::MissingHydraulicDiameter => write!(f, "Hydraulic diameter is missing for component"),
+            Self::MissingHydraulicDiameter => {
+                write!(f, "Hydraulic diameter is missing for component")
+            }
             Self::ModelError(msg) => write!(f, "Resistance model calculation failed: {msg}"),
             Self::InvalidFlowConditions(msg) => write!(f, "Invalid flow conditions: {msg}"),
             Self::NumericalError(msg) => write!(f, "Numerical computation error: {msg}"),
@@ -1256,40 +1477,64 @@ impl From<String> for Error {
 // ── From impls for all Kind types → Error ───────────────────────────────────
 
 impl From<GeometryErrorKind> for Error {
-    fn from(kind: GeometryErrorKind) -> Self { Error::Geometry(kind) }
+    fn from(kind: GeometryErrorKind) -> Self {
+        Error::Geometry(kind)
+    }
 }
 impl From<ConfigurationErrorKind> for Error {
-    fn from(kind: ConfigurationErrorKind) -> Self { Error::Configuration(kind) }
+    fn from(kind: ConfigurationErrorKind) -> Self {
+        Error::Configuration(kind)
+    }
 }
 impl From<VisualizationErrorKind> for Error {
-    fn from(kind: VisualizationErrorKind) -> Self { Error::Visualization(kind) }
+    fn from(kind: VisualizationErrorKind) -> Self {
+        Error::Visualization(kind)
+    }
 }
 impl From<StrategyErrorKind> for Error {
-    fn from(kind: StrategyErrorKind) -> Self { Error::Strategy(kind) }
+    fn from(kind: StrategyErrorKind) -> Self {
+        Error::Strategy(kind)
+    }
 }
 impl From<ParameterErrorKind> for Error {
-    fn from(kind: ParameterErrorKind) -> Self { Error::Parameter(kind) }
+    fn from(kind: ParameterErrorKind) -> Self {
+        Error::Parameter(kind)
+    }
 }
 impl From<ValidationErrorKind> for Error {
-    fn from(kind: ValidationErrorKind) -> Self { Error::Validation(kind) }
+    fn from(kind: ValidationErrorKind) -> Self {
+        Error::Validation(kind)
+    }
 }
 impl From<RegistryErrorKind> for Error {
-    fn from(kind: RegistryErrorKind) -> Self { Error::Registry(kind) }
+    fn from(kind: RegistryErrorKind) -> Self {
+        Error::Registry(kind)
+    }
 }
 impl From<ConstraintErrorKind> for Error {
-    fn from(kind: ConstraintErrorKind) -> Self { Error::Constraint(kind) }
+    fn from(kind: ConstraintErrorKind) -> Self {
+        Error::Constraint(kind)
+    }
 }
 impl From<DependencyErrorKind> for Error {
-    fn from(kind: DependencyErrorKind) -> Self { Error::Dependency(kind) }
+    fn from(kind: DependencyErrorKind) -> Self {
+        Error::Dependency(kind)
+    }
 }
 impl From<AdaptationErrorKind> for Error {
-    fn from(kind: AdaptationErrorKind) -> Self { Error::Adaptation(kind) }
+    fn from(kind: AdaptationErrorKind) -> Self {
+        Error::Adaptation(kind)
+    }
 }
 impl From<ResistanceCalculationErrorKind> for Error {
-    fn from(kind: ResistanceCalculationErrorKind) -> Self { Error::ResistanceCalculation(kind) }
+    fn from(kind: ResistanceCalculationErrorKind) -> Self {
+        Error::ResistanceCalculation(kind)
+    }
 }
 impl From<BoundaryErrorKind> for Error {
-    fn from(kind: BoundaryErrorKind) -> Self { Error::Boundary(kind) }
+    fn from(kind: BoundaryErrorKind) -> Self {
+        Error::Boundary(kind)
+    }
 }
 
 // Cross-kind conversions used by state_management

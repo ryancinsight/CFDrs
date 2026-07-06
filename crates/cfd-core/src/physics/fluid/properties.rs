@@ -1,7 +1,8 @@
 //! Basic fluid properties and calculations
 
 use crate::error::Error;
-use nalgebra::RealField;
+use eunomia::NumericElement;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 /// A block of computed fluid properties at a single state point
@@ -32,13 +33,15 @@ impl<T: RealField + Copy> FluidProperties<T> {
             thermal_conductivity,
         }
     }
+}
 
+impl<T: RealField + NumericElement + Copy> FluidProperties<T> {
     /// Calculate kinematic viscosity [m²/s] from base properties
     ///
     /// # Errors
     /// Returns an error if density is non-positive
     pub fn kinematic_viscosity(&self) -> Result<T, Error> {
-        if self.density <= T::zero() {
+        if self.density <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput("Density must be positive".to_string()));
         }
         Ok(self.dynamic_viscosity / self.density)
@@ -49,7 +52,7 @@ impl<T: RealField + Copy> FluidProperties<T> {
     /// # Errors
     /// Returns an error if thermal conductivity is non-positive
     pub fn prandtl_number(&self) -> Result<T, Error> {
-        if self.thermal_conductivity <= T::zero() {
+        if self.thermal_conductivity <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Thermal conductivity must be positive".to_string(),
             ));
@@ -62,7 +65,7 @@ impl<T: RealField + Copy> FluidProperties<T> {
     /// # Errors
     /// Returns an error if the dynamic viscosity is zero or negative
     pub fn reynolds_number(&self, velocity: T, characteristic_length: T) -> Result<T, Error> {
-        if self.dynamic_viscosity <= T::zero() {
+        if self.dynamic_viscosity <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Viscosity must be positive".to_string(),
             ));
@@ -85,7 +88,9 @@ impl<T: RealField + Copy> FluidProperties<T> {
     /// # Errors
     /// Returns an error if density or specific heat are non-positive
     pub fn thermal_diffusivity(&self) -> Result<T, Error> {
-        if self.density <= T::zero() || self.specific_heat <= T::zero() {
+        if self.density <= <T as NumericElement>::ZERO
+            || self.specific_heat <= <T as NumericElement>::ZERO
+        {
             return Err(Error::InvalidInput(
                 "Density and specific heat must be positive".to_string(),
             ));
@@ -99,12 +104,14 @@ impl<T: RealField + Copy> FluidProperties<T> {
     /// # Errors
     /// Returns an error if any input parameter is non-positive
     pub fn speed_of_sound(&self, gamma: T, temperature: T, gas_constant: T) -> Result<T, Error> {
-        if temperature <= T::zero() {
+        if temperature <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Temperature must be positive".to_string(),
             ));
         }
-        Ok((gamma * gas_constant * temperature).sqrt())
+        Ok(<T as NumericElement>::sqrt(
+            gamma * gas_constant * temperature,
+        ))
     }
 
     /// Calculate Mach number for given flow velocity
@@ -113,7 +120,7 @@ impl<T: RealField + Copy> FluidProperties<T> {
     ///
     /// Returns `Error::InvalidInput` if sound speed is non-positive.
     pub fn mach_number(&self, velocity: T, sound_speed: T) -> Result<T, Error> {
-        if sound_speed <= T::zero() {
+        if sound_speed <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Sound speed must be positive".to_string(),
             ));

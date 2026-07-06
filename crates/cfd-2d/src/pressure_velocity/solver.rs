@@ -13,14 +13,16 @@ use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use crate::physics::{MomentumComponent, MomentumSolver};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::boundary::BoundaryCondition;
-use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use leto::geometry::Vector2;
 use std::fmt::LowerExp;
 
 /// SIMPLE (Semi-Implicit Method for Pressure-Linked Equations) solver
 /// Implementation follows Patankar (1980) "Numerical Heat Transfer and Fluid Flow"
-pub struct PressureVelocitySolver<T: RealField + Copy> {
+pub struct PressureVelocitySolver<T: Cfd2dScalar + EunomiaRealField + Copy> {
     /// Configuration
     config: PressureVelocityConfig<T>,
     /// Grid
@@ -45,9 +47,7 @@ pub struct PressureVelocitySolver<T: RealField + Copy> {
     iterations: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimitive>
-    PressureVelocitySolver<T>
-{
+impl<T: Cfd2dScalar + EunomiaRealField + Copy + LowerExp + FloatElement> PressureVelocitySolver<T> {
     /// Create new pressure-velocity coupling solver
     pub fn new(
         grid: StructuredGrid2D<T>,
@@ -75,9 +75,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
             pressure_solver,
             rhie_chow,
             u: Array2D::new(nx, ny, Vector2::zeros()),
-            p: Array2D::new(nx, ny, T::zero()),
+            p: Array2D::new(nx, ny, scalar::zero::<T>()),
             u_star_workspace: Array2D::new(nx, ny, Vector2::zeros()),
-            p_correction_workspace: Array2D::new(nx, ny, T::zero()),
+            p_correction_workspace: Array2D::new(nx, ny, scalar::zero::<T>()),
             state_workspace: SimulationFields::new(nx, ny),
             iterations: 0,
         })
@@ -108,8 +108,6 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
 
         self.apply_uniform_boundary_condition(bc)?;
 
-
-
         // Step 1: Solve momentum equations for predicted velocity.
         // Reuse one field workspace to avoid per-iteration heap allocation.
         {
@@ -124,8 +122,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
                 .viscosity
                 .as_mut_slice()
                 .fill(dynamic_viscosity);
-            state_buffer.force_u.as_mut_slice().fill(T::zero());
-            state_buffer.force_v.as_mut_slice().fill(T::zero());
+            state_buffer
+                .force_u
+                .as_mut_slice()
+                .fill(scalar::zero::<T>());
+            state_buffer
+                .force_v
+                .as_mut_slice()
+                .fill(scalar::zero::<T>());
             state_buffer.mask.as_mut_slice().fill(true);
 
             let nx = self.grid.nx;
@@ -133,10 +137,10 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
             for i in 0..nx {
                 for j in 0..ny {
                     let vel = self.u[(i, j)];
-                    state_buffer.u.set(i, j, vel.x);
-                    state_buffer.v.set(i, j, vel.y);
-                    state_buffer.u_old.set(i, j, vel.x);
-                    state_buffer.v_old.set(i, j, vel.y);
+                    state_buffer.u.set(i, j, vel[0]);
+                    state_buffer.v.set(i, j, vel[1]);
+                    state_buffer.u_old.set(i, j, vel[0]);
+                    state_buffer.v_old.set(i, j, vel[1]);
                     state_buffer.p.set(i, j, self.p[(i, j)]);
                 }
             }
@@ -148,7 +152,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
             state_buffer.promote_velocity_star_to_current();
 
             // Step 2: Solve pressure correction equation.
-            p_correction_workspace.fill(T::zero());
+            p_correction_workspace.fill(scalar::zero::<T>());
             pressure_solver.solve_pressure_correction(
                 state_buffer,
                 dt,
@@ -207,13 +211,13 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
     }
 
     fn validate_physical_inputs(&self, nu: T, rho: T) -> cfd_core::error::Result<()> {
-        if !rho.is_finite() || rho <= T::zero() {
+        if !<T as NumericElement>::is_finite(rho) || rho <= scalar::zero::<T>() {
             return Err(cfd_core::error::Error::InvalidInput(
                 "pressure-velocity solver requires positive finite density".to_string(),
             ));
         }
 
-        if !nu.is_finite() || nu < T::zero() {
+        if !<T as NumericElement>::is_finite(nu) || nu < scalar::zero::<T>() {
             return Err(cfd_core::error::Error::InvalidInput(
                 "pressure-velocity solver requires non-negative finite kinematic viscosity"
                     .to_string(),
@@ -292,7 +296,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + LowerExp + num_traits::ToPrimi
         let nx = self.grid.nx;
         let ny = self.grid.ny;
 
-        let mut max_diff = T::zero();
+        let mut max_diff = scalar::zero::<T>();
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
                 let diff = (current[(i, j)] - previous[(i, j)]).norm();
@@ -327,7 +331,7 @@ mod tests {
     use crate::grid::StructuredGrid2D;
     use cfd_core::error::Error;
     use cfd_core::physics::boundary::{BoundaryCondition, WallType};
-    use nalgebra::Vector3;
+    use leto::geometry::Vector3;
 
     fn make_solver(nx: usize, ny: usize) -> PressureVelocitySolver<f64> {
         let grid = StructuredGrid2D::new(nx, ny, 0.0, 1.0, 0.0, 1.0).unwrap();
@@ -401,7 +405,7 @@ mod tests {
 
         for velocity in solver.velocity().as_slice() {
             assert!(
-                velocity.x.is_finite() && velocity.y.is_finite(),
+                velocity[0].is_finite() && velocity[1].is_finite(),
                 "velocity field must remain finite after repeated steps"
             );
         }
@@ -456,13 +460,13 @@ mod tests {
         let high_viscosity_center = high_viscosity_solver.velocity()[(center.0, center.1)];
 
         assert!(
-            (moving_center.x - no_slip_center.x).abs() > 1e-12
-                || (moving_center.y - no_slip_center.y).abs() > 1e-12,
+            (moving_center[0] - no_slip_center[0]).abs() > 1e-12
+                || (moving_center[1] - no_slip_center[1]).abs() > 1e-12,
             "boundary condition must affect the corrected velocity field"
         );
         assert!(
-            (high_viscosity_center.x - low_viscosity_center.x).abs() > 1e-12
-                || (high_viscosity_center.y - low_viscosity_center.y).abs() > 1e-12,
+            (high_viscosity_center[0] - low_viscosity_center[0]).abs() > 1e-12
+                || (high_viscosity_center[1] - low_viscosity_center[1]).abs() > 1e-12,
             "viscosity input must affect the corrected velocity field"
         );
     }

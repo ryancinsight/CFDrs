@@ -56,24 +56,25 @@
 //! - Non-finite values (NaN/Inf) indicate numerical instability and are rejected immediately.
 
 use crate::domain::network::Network;
+use crate::scalar::Cfd1dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::{DVector, RealField};
+use eunomia::NumericElement;
+use leto::Array1;
 use nalgebra_sparse::{coo::CooMatrix, CsrMatrix};
-use num_traits::FromPrimitive;
 
 /// Matrix assembler for building the linear system from network equations
-pub struct MatrixAssembler<T: RealField + Copy> {
+pub struct MatrixAssembler<T: Cfd1dScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> Default for MatrixAssembler<T> {
+impl<T: Cfd1dScalar + Copy> Default for MatrixAssembler<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy> MatrixAssembler<T> {
+impl<T: Cfd1dScalar + Copy> MatrixAssembler<T> {
     /// Create a new matrix assembler
     #[must_use]
     pub fn new() -> Self {
@@ -83,7 +84,7 @@ impl<T: RealField + Copy> MatrixAssembler<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAssembler<T> {
+impl<T: Cfd1dScalar + Copy + Send + Sync + NumericElement> MatrixAssembler<T> {
     /// Classify boundary conditions into Dirichlet and Neumann arrays.
     ///
     /// Validates that at least one Dirichlet BC exists and that
@@ -186,7 +187,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
                 ));
             }
 
-            if !conductance.is_finite() {
+            if !<T as NumericElement>::is_finite(conductance) {
                 return Err(Error::InvalidConfiguration(format!(
                     "Non-finite conductance encountered in network assembly: {conductance:?}"
                 )));
@@ -249,9 +250,9 @@ impl<T: RealField + Copy + FromPrimitive + Copy + Send + Sync + Copy> MatrixAsse
     pub fn assemble<F: FluidTrait<T>>(
         &self,
         network: &Network<T, F>,
-    ) -> Result<(CsrMatrix<T>, DVector<T>)> {
+    ) -> Result<(CsrMatrix<T>, Array1<T>)> {
         let n = network.node_count();
-        let mut workspace = crate::solver::core::workspace::SolverWorkspace::new(n, 1);
+        let mut workspace = crate::solver::core::workspace::SolverWorkspace::new(n);
         Self::classify_boundary_conditions_into(
             network,
             &mut workspace.dirichlet_values,

@@ -11,7 +11,7 @@
 
 use approx::assert_relative_eq;
 use cfd_3d::vof::{AdvectionMethod, InterfaceReconstruction, VofConfig, VofSolver};
-use nalgebra::Vector3;
+use leto::geometry::Vector3;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -84,24 +84,24 @@ fn test_volume_fraction_bounds_preserved_geometric() {
     let nx = 12usize;
     {
         let alpha = solver.alpha_mut();
-        for idx in 0..alpha.len() {
+        for (idx, a) in alpha.iter_mut().enumerate() {
             let i = idx % nx;
-            alpha[idx] = if i < nx / 2 { 1.0 } else { 0.0 };
+            *a = if i < nx / 2 { 1.0 } else { 0.0 };
         }
     }
 
     // Uniform x-velocity (CFL ≈ 0.1)
     let n = 12 * 12 * 12;
     let vel = vec![Vector3::new(0.1, 0.0, 0.0); n];
-    for idx in 0..n {
-        solver.set_velocity_at(idx, vel[idx]);
+    for (idx, velocity) in vel.iter().copied().enumerate() {
+        solver.set_velocity_at(idx, velocity);
     }
 
     for _ in 0..20 {
         solver.step(1e-4, &[], &[], &[]).ok();
         for &a in solver.alpha() {
             assert!(
-                a >= -1e-12 && a <= 1.0 + 1e-12,
+                (-1e-12..=1.0 + 1e-12).contains(&a),
                 "Volume fraction out of bounds: {a}"
             );
         }
@@ -115,23 +115,23 @@ fn test_volume_fraction_bounds_algebraic() {
     let nx = 10usize;
     {
         let alpha = solver.alpha_mut();
-        for idx in 0..alpha.len() {
+        for (idx, a) in alpha.iter_mut().enumerate() {
             let i = idx % nx;
-            alpha[idx] = if i < 5 { 0.9 } else { 0.1 };
+            *a = if i < 5 { 0.9 } else { 0.1 };
         }
     }
 
     let n = 10 * 10 * 10;
     let vel = vec![Vector3::new(0.05, 0.0, 0.0); n];
-    for idx in 0..n {
-        solver.set_velocity_at(idx, vel[idx]);
+    for (idx, velocity) in vel.iter().copied().enumerate() {
+        solver.set_velocity_at(idx, velocity);
     }
 
     for _ in 0..30 {
         solver.step(1e-4, &[], &[], &[]).ok();
         for &a in solver.alpha() {
             assert!(
-                a >= -1e-9 && a <= 1.0 + 1e-9,
+                (-1e-9..=1.0 + 1e-9).contains(&a),
                 "Algebraic advection out of bounds: {a}"
             );
         }
@@ -169,9 +169,9 @@ fn test_weakly_mixed_interface_cells_participate_in_compression() {
 
     for solver in [&mut compression_off, &mut compression_on] {
         let alpha = solver.alpha_mut();
-        for idx in 0..alpha.len() {
+        for (idx, a) in alpha.iter_mut().enumerate() {
             let i = idx % nx;
-            alpha[idx] = i as f64 / (nx - 1) as f64;
+            *a = i as f64 / (nx - 1) as f64;
         }
         solver.reconstruct_interface();
     }
@@ -216,9 +216,9 @@ fn test_plic_normal_planar_interface() {
 
     {
         let alpha = solver.alpha_mut();
-        for idx in 0..alpha.len() {
+        for (idx, a) in alpha.iter_mut().enumerate() {
             let i = idx % nx;
-            alpha[idx] = if i < nx / 2 { 1.0 } else { 0.0 };
+            *a = if i < nx / 2 { 1.0 } else { 0.0 };
         }
     }
 
@@ -256,8 +256,8 @@ fn test_full_domain_no_volume_change() {
 
     let n = 8 * 8 * 8;
     let vel = vec![Vector3::new(0.3, 0.2, 0.1); n];
-    for idx in 0..n {
-        solver.set_velocity_at(idx, vel[idx]);
+    for (idx, velocity) in vel.iter().copied().enumerate() {
+        solver.set_velocity_at(idx, velocity);
     }
 
     for _ in 0..10 {
@@ -317,8 +317,8 @@ fn test_empty_domain_no_volume_change() {
 
     let n = 8 * 8 * 8;
     let vel = vec![Vector3::new(0.5, 0.0, 0.0); n];
-    for idx in 0..n {
-        solver.set_velocity_at(idx, vel[idx]);
+    for (idx, velocity) in vel.iter().copied().enumerate() {
+        solver.set_velocity_at(idx, velocity);
     }
 
     for _ in 0..10 {
@@ -391,7 +391,7 @@ fn test_out_of_bounds_alpha_clamped() {
     let _ = solver.step(1e-6, &[], &[], &[]);
     for &a in solver.alpha() {
         assert!(
-            a >= -1e-12 && a <= 1.0 + 1e-12,
+            (-1e-12..=1.0 + 1e-12).contains(&a),
             "Volume fraction must be in [0,1] after step, got {a}"
         );
     }
@@ -410,8 +410,8 @@ fn test_high_cfl_no_panic() {
     // CFL >> 1
     let n = 8 * 8 * 8;
     let vel = vec![Vector3::new(100.0, 0.0, 0.0); n];
-    for idx in 0..n {
-        solver.set_velocity_at(idx, vel[idx]);
+    for (idx, velocity) in vel.iter().copied().enumerate() {
+        solver.set_velocity_at(idx, velocity);
     }
     // Must not panic — may produce inaccurate results
     let _ = solver.step(1.0, &[], &[], &[]);
@@ -425,7 +425,7 @@ fn test_high_cfl_no_panic() {
 #[test]
 fn test_volume_formula_zero_at_c_equals_zero() {
     use cfd_3d::vof::volume_under_plane_3d;
-    let n = nalgebra::Vector3::new(
+    let n = Vector3::new(
         1.0f64 / 3.0f64.sqrt(),
         1.0 / 3.0f64.sqrt(),
         1.0 / 3.0f64.sqrt(),
@@ -441,7 +441,7 @@ fn test_volume_formula_full_at_c_equals_sum() {
     let dx = 0.1;
     let dy = 0.2;
     let dz = 0.3;
-    let n = nalgebra::Vector3::new(
+    let n = Vector3::new(
         1.0f64 / 3.0f64.sqrt(),
         1.0 / 3.0f64.sqrt(),
         1.0 / 3.0f64.sqrt(),
@@ -456,7 +456,7 @@ fn test_volume_formula_full_at_c_equals_sum() {
 #[test]
 fn test_volume_formula_monotone_in_c() {
     use cfd_3d::vof::volume_under_plane_3d;
-    let n = nalgebra::Vector3::new(0.6f64, 0.6, 0.529150262);
+    let n = Vector3::new(0.6f64, 0.6, 0.529150262);
     let n_unit = n / n.norm();
     let dx = 1.0;
     let dy = 1.0;
@@ -483,14 +483,14 @@ fn test_reconstructed_normal_unit_magnitude() {
     let mut solver = make_solver(nx, 6, 6, default_config());
     {
         let alpha = solver.alpha_mut();
-        for idx in 0..alpha.len() {
+        for (idx, a) in alpha.iter_mut().enumerate() {
             let i = idx % nx;
-            alpha[idx] = if i < nx / 2 { 1.0 } else { 0.0 };
+            *a = if i < nx / 2 { 1.0 } else { 0.0 };
         }
     }
     solver.reconstruct_interface();
     for (idx, &n) in solver.normals().iter().enumerate() {
-        let mag = n.into_iter().map(|x| x * x).sum::<f64>().sqrt();
+        let mag = n.norm();
         if mag > 0.01 {
             assert!(
                 (mag - 1.0).abs() < 1e-10,

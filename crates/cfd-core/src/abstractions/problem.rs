@@ -4,8 +4,9 @@ use crate::error::Result;
 use crate::geometry::Domain;
 use crate::physics::boundary::BoundaryConditionSet;
 use crate::physics::fluid::{ConstantPropertyFluid, FluidTrait};
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::geometry::Vector3;
 use std::sync::Arc;
 
 /// Trait for defining CFD problems
@@ -58,18 +59,18 @@ pub struct ProblemParameters<T: RealField + Copy> {
     /// Reference temperature \[K]
     pub reference_temperature: Option<T>,
     /// Gravity vector \[m/s²]
-    pub gravity: Option<nalgebra::Vector3<T>>,
+    pub gravity: Option<Vector3<T>>,
     /// Time-dependent problem
     pub transient: bool,
     /// Include energy equation
     pub energy: bool,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for ProblemParameters<T> {
+impl<T: RealField + FloatElement + Copy> Default for ProblemParameters<T> {
     fn default() -> Self {
         Self {
-            reference_pressure: T::from_f64(101_325.0).unwrap_or_else(|| T::one()), // 1 atm
-            reference_temperature: Some(T::from_f64(293.15).unwrap_or_else(|| T::one())), // 20°C
+            reference_pressure: <T as FloatElement>::from_f64(101_325.0), // 1 atm
+            reference_temperature: Some(<T as FloatElement>::from_f64(293.15)), // 20°C
             gravity: None,
             transient: false,
             energy: false,
@@ -89,7 +90,7 @@ pub struct ProblemBuilder<
     parameters: ProblemParameters<T>,
 }
 
-impl<T: RealField + Copy, D: Domain<T>, F: FluidTrait<T>> ProblemBuilder<T, D, F> {
+impl<T: RealField + FloatElement + Copy, D: Domain<T>, F: FluidTrait<T>> ProblemBuilder<T, D, F> {
     /// Create a new problem builder
     #[must_use]
     pub fn new() -> Self {
@@ -100,7 +101,9 @@ impl<T: RealField + Copy, D: Domain<T>, F: FluidTrait<T>> ProblemBuilder<T, D, F
             parameters: ProblemParameters::default(),
         }
     }
+}
 
+impl<T: RealField + Copy, D: Domain<T>, F: FluidTrait<T>> ProblemBuilder<T, D, F> {
     /// Set the domain
     #[must_use]
     pub fn domain(mut self, domain: D) -> Self {
@@ -134,7 +137,7 @@ impl<T: RealField + Copy, D: Domain<T>, F: FluidTrait<T>> ProblemBuilder<T, D, F
 
     /// Set gravity
     #[must_use]
-    pub fn gravity(mut self, gravity: nalgebra::Vector3<T>) -> Self {
+    pub fn gravity(mut self, gravity: Vector3<T>) -> Self {
         self.parameters.gravity = Some(gravity);
         self
     }
@@ -167,7 +170,9 @@ impl<T: RealField + Copy, D: Domain<T>, F: FluidTrait<T>> ProblemBuilder<T, D, F
     }
 }
 
-impl<T: RealField + Copy, D: Domain<T>, F: FluidTrait<T>> Default for ProblemBuilder<T, D, F> {
+impl<T: RealField + FloatElement + Copy, D: Domain<T>, F: FluidTrait<T>> Default
+    for ProblemBuilder<T, D, F>
+{
     fn default() -> Self {
         Self::new()
     }
@@ -178,7 +183,6 @@ mod tests {
     use super::*;
     use crate::geometry::Domain2D;
     use crate::physics::boundary::BoundaryCondition;
-    use nalgebra::vector;
 
     #[test]
     fn test_problem_builder() {
@@ -189,11 +193,15 @@ mod tests {
             )
             .boundary_condition(
                 "inlet",
-                BoundaryCondition::velocity_inlet(vector![1.0, 0.0, 0.0]),
+                BoundaryCondition::Dirichlet {
+                    value: 1.0,
+                    component_values: None,
+                },
             )
             .boundary_condition("outlet", BoundaryCondition::pressure_outlet(0.0))
             .boundary_condition("walls", BoundaryCondition::wall_no_slip())
             .reference_pressure(101_325.0)
+            .gravity(Vector3::new(0.0, -9.81, 0.0))
             .transient(true)
             .build()
             .expect("CRITICAL: Add proper error handling");
@@ -201,5 +209,9 @@ mod tests {
         assert_eq!(problem.fluid.name, "Water (20°C)");
         assert_eq!(problem.boundary_conditions.len(), 3);
         assert!(problem.parameters.transient);
+        assert_eq!(
+            problem.parameters.gravity,
+            Some(Vector3::new(0.0, -9.81, 0.0))
+        );
     }
 }

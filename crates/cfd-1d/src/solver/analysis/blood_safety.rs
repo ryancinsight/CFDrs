@@ -3,12 +3,12 @@
 //! This module provides configurable limit checks to flag channel segments that
 //! may exceed blood-handling shear thresholds used during device risk screening.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
 
 /// Configurable blood shear limits used to flag potentially unsafe conditions.
 #[derive(Debug, Clone)]
-pub struct BloodShearLimits<T: RealField + Copy> {
+pub struct BloodShearLimits<T: Cfd1dScalar + Copy> {
     /// Maximum allowable wall shear stress \[Pa].
     pub max_wall_shear_stress_pa: T,
     /// Optional maximum allowable wall shear rate [1/s].
@@ -19,7 +19,7 @@ pub struct BloodShearLimits<T: RealField + Copy> {
     pub max_taskin_hi: Option<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> BloodShearLimits<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> BloodShearLimits<T> {
     /// Conservative default profile for FDA-oriented whole-blood design screening.
     ///
     /// FDA guidance is risk-based and does not prescribe a single universal shear
@@ -28,8 +28,7 @@ impl<T: RealField + Copy + FromPrimitive> BloodShearLimits<T> {
     #[must_use]
     pub fn fda_conservative_whole_blood() -> Self {
         Self {
-            max_wall_shear_stress_pa: T::from_f64(150.0)
-                .expect("Mathematical constant conversion compromised"),
+            max_wall_shear_stress_pa: T::from_f64_or_one(150.0),
             max_wall_shear_rate_per_s: None,
             max_giersiepen_hi: None,
             max_taskin_hi: None,
@@ -51,7 +50,7 @@ impl<T: RealField + Copy + FromPrimitive> BloodShearLimits<T> {
 
 /// Shear-limit violation details for a single component.
 #[derive(Debug, Clone)]
-pub struct ShearLimitViolation<T: RealField + Copy> {
+pub struct ShearLimitViolation<T: Cfd1dScalar + Copy> {
     /// Component identifier.
     pub component_id: String,
     /// Computed wall shear stress \[Pa].
@@ -68,7 +67,7 @@ pub struct ShearLimitViolation<T: RealField + Copy> {
 
 /// Exposure-time-aware hemolysis-limit violation details for a single component.
 #[derive(Debug, Clone)]
-pub struct HemolysisLimitViolation<T: RealField + Copy> {
+pub struct HemolysisLimitViolation<T: Cfd1dScalar + Copy> {
     /// Component identifier.
     pub component_id: String,
     /// Computed wall shear stress \[Pa].

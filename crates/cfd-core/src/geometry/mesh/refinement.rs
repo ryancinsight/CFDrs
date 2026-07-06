@@ -5,7 +5,7 @@
 
 use super::Mesh;
 use crate::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 /// Trait for mesh refinement and adaptation strategies

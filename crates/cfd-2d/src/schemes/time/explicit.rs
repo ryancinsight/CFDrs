@@ -11,53 +11,68 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::constants::mathematical::numeric::{ONE_HALF, SIX, TWO};
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+
+use super::vector::StateVector;
 
 /// Forward Euler step: y_{n+1} = y_n + dt*f(t_n, y_n)
-pub fn forward_euler<T, F>(f: F, y: &DVector<T>, t: T, dt: T) -> DVector<T>
+pub fn forward_euler<T, F>(f: F, y: &StateVector<T>, t: T, dt: T) -> StateVector<T>
 where
-    T: RealField + Copy,
-    F: Fn(T, &DVector<T>) -> DVector<T>,
+    T: Cfd2dScalar + Copy,
+    F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
-    y + f(t, y) * dt
+    let increment = &f(t, y) * dt;
+    y + &increment
 }
 
 /// Second-order Runge-Kutta step (RK2 - Heun's method)
 ///
 /// Reference: Butcher (2016) - Numerical Methods for Ordinary Differential Equations
-pub fn runge_kutta2<T, F>(f: F, y: &DVector<T>, t: T, dt: T) -> DVector<T>
+pub fn runge_kutta2<T, F>(f: F, y: &StateVector<T>, t: T, dt: T) -> StateVector<T>
 where
-    T: RealField + Copy + FromPrimitive,
-    F: Fn(T, &DVector<T>) -> DVector<T>,
+    T: Cfd2dScalar + Copy + FloatElement,
+    F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
     let k1 = f(t, y);
-    let half_dt = dt * T::from_f64(ONE_HALF).expect("analytical constant conversion");
-    let y_mid = y + &k1 * half_dt;
+    let half_dt = dt * scalar::from_f64::<T>(ONE_HALF);
+    let k1_half = &k1 * half_dt;
+    let y_mid = y + &k1_half;
     let k2 = f(t + half_dt, &y_mid);
-    y + k2 * dt
+    let increment = &k2 * dt;
+    y + &increment
 }
 
 /// Fourth-order Runge-Kutta step (RK4 - classical)
 ///
 /// Reference: Butcher (2016) - Numerical Methods for Ordinary Differential Equations
-pub fn runge_kutta4<T, F>(f: F, y: &DVector<T>, t: T, dt: T) -> DVector<T>
+pub fn runge_kutta4<T, F>(f: F, y: &StateVector<T>, t: T, dt: T) -> StateVector<T>
 where
-    T: RealField + Copy + FromPrimitive,
-    F: Fn(T, &DVector<T>) -> DVector<T>,
+    T: Cfd2dScalar + Copy + FloatElement,
+    F: Fn(T, &StateVector<T>) -> StateVector<T>,
 {
-    let two = T::from_f64(TWO).expect("analytical constant conversion");
-    let six = T::from_f64(SIX).expect("analytical constant conversion");
+    let two = scalar::from_f64::<T>(TWO);
+    let six = scalar::from_f64::<T>(SIX);
 
     let k1 = f(t, y);
-    let half_dt = dt * T::from_f64(ONE_HALF).expect("analytical constant conversion");
-    let y2 = y + &k1 * half_dt;
+    let half_dt = dt * scalar::from_f64::<T>(ONE_HALF);
+    let k1_half = &k1 * half_dt;
+    let y2 = y + &k1_half;
     let k2 = f(t + half_dt, &y2);
-    let y3 = y + &k2 * half_dt;
+    let k2_half = &k2 * half_dt;
+    let y3 = y + &k2_half;
     let k3 = f(t + half_dt, &y3);
-    let y4 = y + &k3 * dt;
+    let k3_full = &k3 * dt;
+    let y4 = y + &k3_full;
     let k4 = f(t + dt, &y4);
 
-    y + (k1 + k2 * two + k3 * two + k4) * (dt / six)
+    let k2_weighted = &k2 * two;
+    let k3_weighted = &k3 * two;
+    let sum_12 = &k1 + &k2_weighted;
+    let sum_123 = &sum_12 + &k3_weighted;
+    let sum = &sum_123 + &k4;
+    let increment = &sum * (dt / six);
+    y + &increment
 }

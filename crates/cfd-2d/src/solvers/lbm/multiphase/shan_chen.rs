@@ -31,28 +31,29 @@
 //! - Shan, X., & Chen, H. (1993). Lattice Boltzmann model for simulating flows with
 //!   multiple phases and components. *Physical Review E*, 47(3), 1815.
 
+use crate::scalar::Cfd2dScalar;
+use crate::scalar::{from_f64, zero};
 use crate::solvers::lbm::lattice::D2Q9;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::{CastFrom, FloatElement};
 
 /// Configuration for Shan-Chen pseudopotential multiphase simulation
 #[derive(Debug, Clone, Copy)]
-pub struct ShanChenMultiphase<T: RealField + Copy> {
+pub struct ShanChenMultiphase<T: Cfd2dScalar + Copy> {
     /// Interaction strength G ($G < 0$ for attraction). Usually around -5.0 to -6.0.
     pub g_c: T,
     /// Reference density $\rho_0$ for the exponential pseudopotential form
     pub rho_0: T,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive> ShanChenMultiphase<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> ShanChenMultiphase<T> {
     /// Compute the exponential effective mass $\psi(\rho)$
     ///
     /// $\psi(\rho) = \rho_0 [1 - \exp(-\rho / \rho_0)]$
     #[inline]
     #[must_use]
     pub fn pseudopotential(&self, density: T) -> T {
-        let one = T::one();
-        self.rho_0 * (one - Float::exp(-density / self.rho_0))
+        let one = crate::scalar::one::<T>();
+        self.rho_0 * (one - <T as FloatElement>::exp(-density / self.rho_0))
     }
 
     /// Compute the local cohesive force field $\vec{F}(x,y)$ for the entire domain.
@@ -60,10 +61,10 @@ impl<T: RealField + Copy + Float + FromPrimitive> ShanChenMultiphase<T> {
     /// Requires calculating the gradient-like sum of the pseudopotential over
     /// all neighboring lattice nodes, assuming periodic or bounce-back walls.
     pub fn compute_cohesive_force(&self, density: &[T], nx: usize, ny: usize) -> (Vec<T>, Vec<T>) {
-        let mut f_x = vec![T::zero(); nx * ny];
-        let mut f_y = vec![T::zero(); nx * ny];
+        let mut f_x = vec![zero(); nx * ny];
+        let mut f_y = vec![zero(); nx * ny];
 
-        let zero = T::zero();
+        let zero = zero::<T>();
 
         // Precompute psi field
         let mut psi_field = vec![zero; nx * ny];
@@ -83,7 +84,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> ShanChenMultiphase<T> {
                     // Skip q=0 (rest particle has e_i = 0)
                     let ex = D2Q9::VELOCITIES[q].0;
                     let ey = D2Q9::VELOCITIES[q].1;
-                    let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap();
+                    let weight = from_f64::<T>(D2Q9::WEIGHTS[q]);
 
                     // Calculate neighbor coordinates (assuming periodic boundaries for bulk force)
                     let nb_x = (i as i32 + ex).rem_euclid(nx as i32) as usize;
@@ -91,8 +92,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> ShanChenMultiphase<T> {
                     let nb_cell = nb_y * nx + nb_x;
 
                     let nb_psi = psi_field[nb_cell];
-                    let e_x_t = T::from_i32(ex).unwrap();
-                    let e_y_t = T::from_i32(ey).unwrap();
+                    let e_x_t = <T as CastFrom<i32>>::cast_from(ex);
+                    let e_y_t = <T as CastFrom<i32>>::cast_from(ey);
 
                     sum_x += weight * nb_psi * e_x_t;
                     sum_y += weight * nb_psi * e_y_t;
@@ -113,7 +114,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> ShanChenMultiphase<T> {
     #[inline]
     #[must_use]
     pub fn shift_equilibrium_velocity(u: [T; 2], force: [T; 2], tau: T, rho: T) -> [T; 2] {
-        if rho > T::from_f64(1e-12).unwrap() {
+        if rho > from_f64(1e-12) {
             [u[0] + (tau * force[0]) / rho, u[1] + (tau * force[1]) / rho]
         } else {
             u
@@ -140,8 +141,16 @@ mod tests {
         let (fx, fy) = sc.compute_cohesive_force(&density, nx, ny);
 
         for i in 0..(nx * ny) {
-            assert!(fx[i].abs() < 1e-12, "Force X must be zero: {}", fx[i]);
-            assert!(fy[i].abs() < 1e-12, "Force Y must be zero: {}", fy[i]);
+            assert!(
+                <f64 as eunomia::NumericElement>::abs(fx[i]) < 1e-12,
+                "Force X must be zero: {}",
+                fx[i]
+            );
+            assert!(
+                <f64 as eunomia::NumericElement>::abs(fy[i]) < 1e-12,
+                "Force Y must be zero: {}",
+                fy[i]
+            );
         }
     }
 

@@ -46,7 +46,8 @@
 //! third-order finite-volume face accuracy for smooth cell-centered fields.
 
 use super::tvd_limiters::TvdLimiter;
-use nalgebra::RealField;
+use crate::scalar::{from_f64, Cfd2dScalar};
+use eunomia::NumericElement;
 
 /// MUSCL reconstruction scheme order
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -58,7 +59,7 @@ pub enum MusclOrder {
 }
 
 /// MUSCL reconstruction interface
-pub trait MusclReconstruction<T: RealField + Copy> {
+pub trait MusclReconstruction<T: Cfd2dScalar + Copy> {
     /// Reconstruct left interface value at cell face (φ_{i+1/2}^L)
     fn reconstruct_left(&self, phi_im1: T, phi_i: T, phi_ip1: T, phi_ip2: Option<T>) -> T;
 
@@ -75,7 +76,7 @@ pub trait MusclReconstruction<T: RealField + Copy> {
 /// MUSCL reconstruction with TVD limiter
 pub struct MusclScheme<T, L>
 where
-    T: RealField + Copy,
+    T: Cfd2dScalar + Copy,
     L: TvdLimiter<T>,
 {
     limiter: L,
@@ -85,7 +86,7 @@ where
 
 impl<T, L> MusclScheme<T, L>
 where
-    T: RealField + Copy,
+    T: Cfd2dScalar + Copy,
     L: TvdLimiter<T>,
 {
     /// Create new MUSCL scheme with specified limiter and order
@@ -104,10 +105,10 @@ where
         let delta_ip1 = phi_ip1 - phi_i;
 
         // Avoid division by zero - use small epsilon
-        let epsilon = T::from_f64(1e-12).unwrap_or_else(T::default_epsilon);
+        let epsilon = from_f64(1e-12);
 
         // Compute r = δ_{i+1} / δ_i (with protection)
-        let r = if delta_i.abs() > epsilon {
+        let r = if <T as NumericElement>::abs(delta_i) > epsilon {
             delta_ip1 / delta_i
         } else {
             T::zero()
@@ -123,7 +124,7 @@ where
 
 impl<T, L> MusclReconstruction<T> for MusclScheme<T, L>
 where
-    T: RealField + Copy,
+    T: Cfd2dScalar + Copy,
     L: TvdLimiter<T>,
 {
     fn reconstruct_left(&self, phi_im1: T, phi_i: T, phi_ip1: T, phi_ip2: Option<T>) -> T {
@@ -144,7 +145,7 @@ where
 
                     // Blend QUICK with MUSCL2 based on limiter
                     let muscl2 = phi_i + slope1 / (T::one() + T::one());
-                    let r = if slope1.abs() > T::default_epsilon() {
+                    let r = if <T as NumericElement>::abs(slope1) > T::default_epsilon() {
                         slope2 / slope1
                     } else {
                         T::zero()
@@ -179,7 +180,7 @@ where
 
                     // Blend with MUSCL2
                     let muscl2 = phi_i - slope1 / (T::one() + T::one());
-                    let r = if slope1.abs() > T::default_epsilon() {
+                    let r = if <T as NumericElement>::abs(slope1) > T::default_epsilon() {
                         slope2 / slope1
                     } else {
                         T::zero()
@@ -209,18 +210,18 @@ where
 }
 
 #[inline]
-fn quadratic_left_face<T: RealField + Copy>(phi_im1: T, phi_i: T, phi_ip1: T) -> T {
-    let one_eighth = T::from_f64(0.125).expect("analytical constant conversion");
-    let three_eighths = T::from_f64(0.375).expect("analytical constant conversion");
-    let three_quarters = T::from_f64(0.75).expect("analytical constant conversion");
+fn quadratic_left_face<T: Cfd2dScalar + Copy>(phi_im1: T, phi_i: T, phi_ip1: T) -> T {
+    let one_eighth = from_f64::<T>(0.125);
+    let three_eighths = from_f64::<T>(0.375);
+    let three_quarters = from_f64::<T>(0.75);
     -one_eighth * phi_im1 + three_quarters * phi_i + three_eighths * phi_ip1
 }
 
 #[inline]
-fn quadratic_right_face<T: RealField + Copy>(phi_i: T, phi_ip1: T, phi_ip2: T) -> T {
-    let one_eighth = T::from_f64(0.125).expect("analytical constant conversion");
-    let three_eighths = T::from_f64(0.375).expect("analytical constant conversion");
-    let three_quarters = T::from_f64(0.75).expect("analytical constant conversion");
+fn quadratic_right_face<T: Cfd2dScalar + Copy>(phi_i: T, phi_ip1: T, phi_ip2: T) -> T {
+    let one_eighth = from_f64::<T>(0.125);
+    let three_eighths = from_f64::<T>(0.375);
+    let three_quarters = from_f64::<T>(0.75);
     three_eighths * phi_i + three_quarters * phi_ip1 - one_eighth * phi_ip2
 }
 

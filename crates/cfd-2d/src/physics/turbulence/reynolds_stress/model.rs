@@ -14,12 +14,12 @@
 use super::super::constants::C_MU;
 use super::tensor::ReynoldsStressTensor;
 use super::PressureStrainModel;
-use nalgebra::{DMatrix, RealField};
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::RealField;
+use leto::Array2;
 
 /// Reynolds Stress Transport Model — model parameters and grid metadata.
 #[derive(Debug, Clone)]
-pub struct ReynoldsStressModel<T: RealField + Copy + FromPrimitive + ToPrimitive> {
+pub struct ReynoldsStressModel<T: RealField + Copy> {
     pub(super) nx: usize,
     pub(super) ny: usize,
     pub(super) wall_distance: Option<Vec<T>>,
@@ -39,11 +39,11 @@ pub struct ReynoldsStressModel<T: RealField + Copy + FromPrimitive + ToPrimitive
     pub(super) _curvature_correction: bool,
 }
 
-fn constant<T: RealField + Copy + FromPrimitive>(v: f64) -> T {
-    T::from_f64(v).expect("RSTM constant must be representable")
+fn constant<T: RealField + Copy>(v: f64) -> T {
+    T::from_f64(v)
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
+impl<T: RealField + Copy> ReynoldsStressModel<T> {
     /// Construct a new RSTM with literature-calibrated default constants.
     ///
     /// # Panics
@@ -86,11 +86,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     /// Compute wall-distance field via iterative distance transform.
     pub fn compute_wall_distance_field(&self, wall_mask: &[bool], dx: T, dy: T) -> Vec<T> {
         let n = self.nx * self.ny;
-        let max_val = T::max_value().expect("max_value required");
+        let max_val = T::MAX_VALUE;
         let mut distance = vec![max_val; n];
         for i in 0..n {
             if wall_mask[i] {
-                distance[i] = T::zero();
+                distance[i] = T::ZERO;
             }
         }
 
@@ -130,25 +130,25 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         initial_k: T,
         initial_epsilon: T,
     ) -> ReynoldsStressTensor<T> {
-        assert!(initial_k > T::zero(), "Initial TKE must be positive");
+        assert!(initial_k > T::ZERO, "Initial TKE must be positive");
         assert!(
-            initial_epsilon > T::zero(),
+            initial_epsilon > T::ZERO,
             "Initial dissipation must be positive"
         );
 
         let iso = initial_k * constant::<T>(2.0 / 3.0);
-        let mut xx = DMatrix::zeros(self.nx, self.ny);
-        let xy = DMatrix::zeros(self.nx, self.ny);
-        let mut yy = DMatrix::zeros(self.nx, self.ny);
-        let mut k = DMatrix::zeros(self.nx, self.ny);
-        let mut eps = DMatrix::zeros(self.nx, self.ny);
+        let mut xx = Array2::from_elem([self.nx, self.ny], T::ZERO);
+        let xy = Array2::from_elem([self.nx, self.ny], T::ZERO);
+        let mut yy = Array2::from_elem([self.nx, self.ny], T::ZERO);
+        let mut k = Array2::from_elem([self.nx, self.ny], T::ZERO);
+        let mut eps = Array2::from_elem([self.nx, self.ny], T::ZERO);
 
         for i in 0..self.nx {
             for j in 0..self.ny {
-                xx[(i, j)] = iso;
-                yy[(i, j)] = iso;
-                k[(i, j)] = initial_k;
-                eps[(i, j)] = initial_epsilon;
+                xx[[i, j]] = iso;
+                yy[[i, j]] = iso;
+                k[[i, j]] = initial_k;
+                eps[[i, j]] = initial_epsilon;
             }
         }
 
@@ -173,13 +173,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         initial_epsilon: T,
     ) {
         let iso = initial_epsilon * constant::<T>(2.0 / 3.0);
-        let mut eps_xx = DMatrix::zeros(self.nx, self.ny);
-        let eps_xy = DMatrix::zeros(self.nx, self.ny);
-        let mut eps_yy = DMatrix::zeros(self.nx, self.ny);
+        let mut eps_xx = Array2::from_elem([self.nx, self.ny], T::ZERO);
+        let eps_xy = Array2::from_elem([self.nx, self.ny], T::ZERO);
+        let mut eps_yy = Array2::from_elem([self.nx, self.ny], T::ZERO);
         for i in 0..self.nx {
             for j in 0..self.ny {
-                eps_xx[(i, j)] = iso;
-                eps_yy[(i, j)] = iso;
+                eps_xx[[i, j]] = iso;
+                eps_yy[[i, j]] = iso;
             }
         }
         tensor.epsilon_xx = Some(eps_xx);

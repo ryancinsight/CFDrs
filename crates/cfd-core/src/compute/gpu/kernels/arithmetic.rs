@@ -2,8 +2,8 @@
 
 use crate::compute::gpu::shaders::{FIELD_ADD_SHADER, FIELD_MUL_SHADER};
 use crate::compute::gpu::GpuContext;
+use hephaestus_wgpu::wgpu::{self, util::DeviceExt};
 use std::sync::Arc;
-use wgpu::util::DeviceExt;
 
 /// GPU kernel for field addition
 pub struct FieldAddKernel {
@@ -76,7 +76,9 @@ impl FieldAddKernel {
                 label: Some("Add Pipeline"),
                 layout: Some(&pipeline_layout),
                 module: &shader_module,
-                entry_point: "add_fields",
+                entry_point: Some("add_fields"),
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                cache: None,
             });
 
         Self { context, pipeline }
@@ -202,7 +204,9 @@ impl FieldAddKernel {
         // Poll with timeout to prevent hanging
         let start = std::time::Instant::now();
         while rx.try_recv().is_err() {
-            self.context.device.poll(wgpu::Maintain::Wait);
+            if self.context.device.poll(wgpu::PollType::Wait).is_err() {
+                return Err("GPU device poll failed");
+            }
             if start.elapsed().as_secs() > 5 {
                 return Err("GPU readback timeout");
             }
@@ -292,7 +296,9 @@ impl FieldMulKernel {
                 label: Some("Field Mul Pipeline"),
                 layout: Some(&pipeline_layout),
                 module: &shader_module,
-                entry_point: "multiply_field",
+                entry_point: Some("multiply_field"),
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                cache: None,
             });
 
         Self { context, pipeline }
@@ -421,7 +427,9 @@ impl FieldMulKernel {
         // Poll with timeout to prevent hanging
         let start = std::time::Instant::now();
         while rx.try_recv().is_err() {
-            self.context.device.poll(wgpu::Maintain::Wait);
+            if self.context.device.poll(wgpu::PollType::Wait).is_err() {
+                return Err("GPU device poll failed".into());
+            }
             if start.elapsed().as_secs() > 5 {
                 return Err("GPU readback timeout".into());
             }

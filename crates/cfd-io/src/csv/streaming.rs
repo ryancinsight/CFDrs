@@ -1,20 +1,20 @@
 //! Streaming CSV I/O for large datasets
 
-use cfd_core::error::{Error, Result};
+use crate::error::{Error, Result};
 use csv::{Reader as CsvReaderImpl, Writer as CsvWriterImpl};
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::str::FromStr;
 
 /// Streaming CSV reader for memory-efficient processing
-pub struct StreamingReader<T: RealField + Copy> {
+pub struct StreamingReader<T: RealField> {
     reader: Option<CsvReaderImpl<BufReader<File>>>,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> StreamingReader<T> {
+impl<T: RealField> StreamingReader<T> {
     /// Open a CSV file for streaming
     pub fn open(path: &Path) -> Result<Self> {
         let file = File::open(path)?;
@@ -84,12 +84,12 @@ impl<T: RealField + Copy> StreamingReader<T> {
 }
 
 /// Streaming CSV writer for memory-efficient output
-pub struct StreamingWriter<T: RealField + Copy> {
+pub struct StreamingWriter<T: RealField> {
     writer: Option<CsvWriterImpl<BufWriter<File>>>,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> StreamingWriter<T> {
+impl<T: RealField> StreamingWriter<T> {
     /// Create a new streaming CSV writer
     pub fn create(path: &Path, headers: &[&str]) -> Result<Self> {
         let file = File::create(path)?;
@@ -147,7 +147,7 @@ impl<T: RealField + Copy> StreamingWriter<T> {
     }
 }
 
-impl<T: RealField + Copy> Drop for StreamingWriter<T> {
+impl<T: RealField> Drop for StreamingWriter<T> {
     fn drop(&mut self) {
         // Best effort flush on drop
         let _ = self.flush();

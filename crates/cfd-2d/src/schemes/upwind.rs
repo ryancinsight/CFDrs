@@ -79,21 +79,22 @@
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
 use super::{FaceReconstruction, Grid2D};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::FloatElement;
 
 /// First-order upwind scheme
-pub struct FirstOrderUpwind<T: RealField + Copy> {
+pub struct FirstOrderUpwind<T: Cfd2dScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Default for FirstOrderUpwind<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> Default for FirstOrderUpwind<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> FirstOrderUpwind<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> FirstOrderUpwind<T> {
     /// Create new first-order upwind scheme
     #[must_use]
     pub fn new() -> Self {
@@ -103,7 +104,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> FirstOrderUpwind<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for FirstOrderUpwind<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> FaceReconstruction<T> for FirstOrderUpwind<T> {
     fn reconstruct_face_value_x(
         &self,
         phi: &Grid2D<T>,
@@ -112,20 +113,20 @@ impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for First
         j: usize,
     ) -> T {
         // Check boundaries - return boundary value
-        let nx = phi.data.ncols();
+        let nx = phi.data.shape()[0];
         if i >= nx - 1 {
             // At boundary, return the last cell value
-            return phi.data[(nx - 1, j)];
+            return phi.data[[nx - 1, j]];
         }
 
-        if velocity_at_face > T::zero() {
+        if velocity_at_face > scalar::zero() {
             // Positive velocity: flow is from left (i) to right (i+1)
             // The upwind value is from the cell on the left
-            phi.data[(i, j)]
+            phi.data[[i, j]]
         } else {
             // Negative velocity: flow is from right (i+1) to left (i)
             // The upwind value is from the cell on the right
-            phi.data[(i + 1, j)]
+            phi.data[[i + 1, j]]
         }
     }
 
@@ -137,20 +138,20 @@ impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for First
         j: usize,
     ) -> T {
         // Check boundaries - return boundary value
-        let ny = phi.data.nrows();
+        let ny = phi.data.shape()[1];
         if j >= ny - 1 {
             // At boundary, return the last cell value
-            return phi.data[(i, ny - 1)];
+            return phi.data[[i, ny - 1]];
         }
 
-        if velocity_at_face > T::zero() {
+        if velocity_at_face > scalar::zero() {
             // Positive velocity: flow is from bottom (j) to top (j+1)
             // The upwind value is from the cell on the bottom
-            phi.data[(i, j)]
+            phi.data[[i, j]]
         } else {
             // Negative velocity: flow is from top (j+1) to bottom (j)
             // The upwind value is from the cell on the top
-            phi.data[(i, j + 1)]
+            phi.data[[i, j + 1]]
         }
     }
 
@@ -160,17 +161,17 @@ impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for First
 }
 
 /// Second-order upwind scheme
-pub struct SecondOrderUpwind<T: RealField + Copy> {
+pub struct SecondOrderUpwind<T: Cfd2dScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Default for SecondOrderUpwind<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> Default for SecondOrderUpwind<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> SecondOrderUpwind<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> SecondOrderUpwind<T> {
     /// Create new second-order upwind scheme
     #[must_use]
     pub fn new() -> Self {
@@ -180,7 +181,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SecondOrderUpwind<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for SecondOrderUpwind<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> FaceReconstruction<T> for SecondOrderUpwind<T> {
     fn reconstruct_face_value_x(
         &self,
         phi: &Grid2D<T>,
@@ -188,28 +189,28 @@ impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for Secon
         i: usize,
         j: usize,
     ) -> T {
-        let half = T::from_f64(0.5).expect("Failed to represent 0.5 in numeric type T");
-        let three_half = T::from_f64(1.5).expect("Failed to represent 1.5 in numeric type T");
+        let half: T = scalar::from_f64(0.5);
+        let three_half: T = scalar::from_f64(1.5);
 
-        if velocity_at_face > T::zero() {
+        if velocity_at_face > scalar::zero() {
             // Positive velocity: use backward-biased stencil
             // Check boundaries
             if i < 1 {
                 // Fall back to first-order at boundary
-                return phi.data[(i, j)];
+                return phi.data[[i, j]];
             }
             // Second-order reconstruction: phi_face = 3/2*phi_i - 1/2*phi_{i-1}
-            three_half * phi.data[(i, j)] - half * phi.data[(i - 1, j)]
+            three_half * phi.data[[i, j]] - half * phi.data[[i - 1, j]]
         } else {
             // Negative velocity: use forward-biased stencil
             // Check boundaries
-            let nx = phi.data.ncols();
+            let nx = phi.data.shape()[0];
             if i >= nx - 2 {
                 // Fall back to first-order at boundary
-                return phi.data[(i + 1, j)];
+                return phi.data[[i + 1, j]];
             }
             // Second-order reconstruction: phi_face = 3/2*phi_{i+1} - 1/2*phi_{i+2}
-            three_half * phi.data[(i + 1, j)] - half * phi.data[(i + 2, j)]
+            three_half * phi.data[[i + 1, j]] - half * phi.data[[i + 2, j]]
         }
     }
 
@@ -220,28 +221,28 @@ impl<T: RealField + Copy + FromPrimitive + Copy> FaceReconstruction<T> for Secon
         i: usize,
         j: usize,
     ) -> T {
-        let half = T::from_f64(0.5).expect("Failed to represent 0.5 in numeric type T");
-        let three_half = T::from_f64(1.5).expect("Failed to represent 1.5 in numeric type T");
+        let half: T = scalar::from_f64(0.5);
+        let three_half: T = scalar::from_f64(1.5);
 
-        if velocity_at_face > T::zero() {
+        if velocity_at_face > scalar::zero() {
             // Positive velocity: use backward-biased stencil
             // Check boundaries
             if j < 1 {
                 // Fall back to first-order at boundary
-                return phi.data[(i, j)];
+                return phi.data[[i, j]];
             }
             // Second-order reconstruction: phi_face = 3/2*phi_j - 1/2*phi_{j-1}
-            three_half * phi.data[(i, j)] - half * phi.data[(i, j - 1)]
+            three_half * phi.data[[i, j]] - half * phi.data[[i, j - 1]]
         } else {
             // Negative velocity: use forward-biased stencil
             // Check boundaries
-            let ny = phi.data.nrows();
+            let ny = phi.data.shape()[1];
             if j >= ny - 2 {
                 // Fall back to first-order at boundary
-                return phi.data[(i, j + 1)];
+                return phi.data[[i, j + 1]];
             }
             // Second-order reconstruction: phi_face = 3/2*phi_{j+1} - 1/2*phi_{j+2}
-            three_half * phi.data[(i, j + 1)] - half * phi.data[(i, j + 2)]
+            three_half * phi.data[[i, j + 1]] - half * phi.data[[i, j + 2]]
         }
     }
 

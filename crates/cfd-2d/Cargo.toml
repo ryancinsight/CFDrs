@@ -15,15 +15,14 @@ cfd-mesh.workspace = true
 cfd-io.workspace = true
 cfd-1d.workspace = true
 cfd-schematics = { path = "../cfd-schematics" }
-nalgebra.workspace = true
-nalgebra-sparse.workspace = true
 petgraph.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 serde = { workspace = true, features = ["derive"] }
 moirai.workspace = true
-num-traits.workspace = true
-num-complex.workspace = true
+eunomia.workspace = true
+leto.workspace = true
+leto-ops.workspace = true
 tracing.workspace = true
 
 [features]

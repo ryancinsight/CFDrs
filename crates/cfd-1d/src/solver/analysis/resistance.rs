@@ -14,13 +14,14 @@
 //!
 //! These inequalities are strict when `n > 1` and all `R_i` are finite and positive. ∎
 
-use nalgebra::RealField;
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromUsize;
 use std::collections::HashMap;
 use std::iter::Sum;
 
 /// Resistance analysis for network components
 #[derive(Debug, Clone)]
-pub struct ResistanceAnalysis<T: RealField + Copy> {
+pub struct ResistanceAnalysis<T: Cfd1dScalar + Copy> {
     /// Hydraulic resistances [Pa·s/m³]
     pub resistances: HashMap<String, T>,
     /// Equivalent circuit resistance [Pa·s/m³]
@@ -36,7 +37,7 @@ pub struct ResistanceAnalysis<T: RealField + Copy> {
 /// The reduction is exact for any 1D chain of components arranged end-to-end.
 pub(crate) fn series_resistance<T, I>(resistances: I) -> T
 where
-    T: RealField + Copy,
+    T: Cfd1dScalar + Copy,
     I: IntoIterator<Item = T>,
 {
     resistances
@@ -50,7 +51,7 @@ where
 /// reduction numerically stable on malformed inputs.
 pub(crate) fn parallel_resistance<T, I>(resistances: I) -> T
 where
-    T: RealField + Copy,
+    T: Cfd1dScalar + Copy,
     I: IntoIterator<Item = T>,
 {
     let mut reciprocal_sum = T::zero();
@@ -70,7 +71,7 @@ where
     }
 }
 
-impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> ResistanceAnalysis<T> {
     /// Create a new resistance analysis
     #[must_use]
     pub fn new() -> Self {
@@ -107,7 +108,7 @@ impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
             T::zero()
         } else {
             let sum: T = self.resistances.values().copied().sum();
-            sum / T::from_usize(self.resistances.len()).unwrap_or_else(T::one)
+            sum / T::from_usize_or_one(self.resistances.len())
         }
     }
 
@@ -138,7 +139,7 @@ impl<T: RealField + Copy + Sum> ResistanceAnalysis<T> {
     }
 }
 
-impl<T: RealField + Copy + Sum> Default for ResistanceAnalysis<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> Default for ResistanceAnalysis<T> {
     fn default() -> Self {
         Self::new()
     }

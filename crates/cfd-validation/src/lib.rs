@@ -87,6 +87,7 @@ pub mod literature;
 pub mod manufactured;
 pub mod numerical;
 pub mod reporting;
+mod scalar;
 pub mod solutions;
 pub mod time_integration;
 

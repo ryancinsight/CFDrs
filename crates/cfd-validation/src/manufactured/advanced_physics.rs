@@ -8,8 +8,8 @@
 //! - Hypersonic flows
 
 use super::{ManufacturedFunctions, ManufacturedSolution};
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
+use crate::scalar;
+use eunomia::RealField;
 
 /// Manufactured solution for compressible Euler equations
 ///
@@ -31,7 +31,7 @@ pub struct ManufacturedCompressibleEuler<T: RealField + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Copy> ManufacturedCompressibleEuler<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedCompressibleEuler<T> {
     /// Create a new manufactured solution for compressible Euler equations
     pub fn new(mach_number: T, gamma: T, flow_angle: T, amplitude: T, kx: T, ky: T) -> Self {
         Self {
@@ -46,17 +46,17 @@ impl<T: RealField + Copy> ManufacturedCompressibleEuler<T> {
 
     /// Reference state density
     pub fn rho_0(&self) -> T {
-        T::one()
+        scalar::one::<T>()
     }
 
     /// Reference state pressure
     pub fn p_0(&self) -> T {
-        T::one() / self.gamma
+        scalar::one::<T>() / self.gamma
     }
 
     /// Reference state velocity magnitude
     pub fn u_0(&self) -> T {
-        self.mach_number * nalgebra::ComplexField::sqrt(self.gamma * self.p_0() / self.rho_0())
+        self.mach_number * scalar::sqrt(self.gamma * self.p_0() / self.rho_0())
     }
 
     /// Perturbation function for density
@@ -67,12 +67,14 @@ impl<T: RealField + Copy> ManufacturedCompressibleEuler<T> {
     /// Perturbation function for velocity
     fn velocity_perturbation(&self, x: T, y: T, t: T) -> T {
         self.amplitude
-            * T::from_f64_or_one(0.1)
+            * scalar::from_f64::<T>(0.1)
             * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky)
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedCompressibleEuler<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
+    for ManufacturedCompressibleEuler<T>
+{
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Return density as the primary solution
         // In practice, this should return a vector of conserved variables
@@ -104,13 +106,13 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedCompressibleEu
         // Time derivatives (exact analytical)
         let kx = self.kx;
         let ky = self.ky;
-        let omega = T::from_f64_or_one(0.5); // Decay rate
+        let omega = scalar::from_f64::<T>(0.5); // Decay rate
 
-        let cos_kx_x = nalgebra::ComplexField::cos(kx * x);
-        let cos_ky_y = nalgebra::ComplexField::cos(ky * y);
-        let sin_kx_x = nalgebra::ComplexField::sin(kx * x);
-        let sin_ky_y = nalgebra::ComplexField::sin(ky * y);
-        let exp_omega_t = nalgebra::ComplexField::exp(-omega * t);
+        let cos_kx_x = scalar::cos(kx * x);
+        let cos_ky_y = scalar::cos(ky * y);
+        let sin_kx_x = scalar::sin(kx * x);
+        let sin_ky_y = scalar::sin(ky * y);
+        let exp_omega_t = scalar::exp(-omega * t);
 
         // ∂ρ/∂t
         let drho_dt = -omega * rho_prime;
@@ -148,7 +150,7 @@ pub struct ManufacturedTCI<T: RealField + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Copy> ManufacturedTCI<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedTCI<T> {
     /// Create a new manufactured solution for TCI
     pub fn new(
         schmidt_t: T,
@@ -171,14 +173,14 @@ impl<T: RealField + Copy> ManufacturedTCI<T> {
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedTCI<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T> for ManufacturedTCI<T> {
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Mixture fraction Z
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
-        let z = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero) + self.amplitude * base;
+        let z = scalar::from_f64::<T>(0.5) + self.amplitude * base;
 
-        // Clamp to [0,1] for physical validity
-        z.max(T::zero()).min(T::one())
+        // Clamp to [0,1] for physical validity.
+        scalar::min(scalar::max(z, scalar::zero::<T>()), scalar::one::<T>())
     }
 
     fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
@@ -188,7 +190,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedTCI<T> {
         // where ω(Z) = Da * Z * (1-Z) * exp(-T_activation/T)
 
         // Simplified reaction rate (no temperature dependence for MMS)
-        let omega = self.damkohler * z * (T::one() - z);
+        let omega = self.damkohler * z * (scalar::one::<T>() - z);
 
         // Time derivative (from analytical solution)
         let dz_dt = -self.amplitude * ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
@@ -229,7 +231,7 @@ pub struct ManufacturedHypersonic<T: RealField + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Copy> ManufacturedHypersonic<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedHypersonic<T> {
     /// Create a new manufactured solution for hypersonic flows
     pub fn new(
         mach_inf: T,
@@ -254,7 +256,9 @@ impl<T: RealField + Copy> ManufacturedHypersonic<T> {
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedHypersonic<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
+    for ManufacturedHypersonic<T>
+{
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Return temperature field (simplified)
         let base = ManufacturedFunctions::sinusoidal(x, y, t, self.kx, self.ky);
@@ -298,7 +302,7 @@ pub struct ManufacturedShockCapturing<T: RealField + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Copy> ManufacturedShockCapturing<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedShockCapturing<T> {
     /// Create a new manufactured solution for shock capturing
     pub fn new(shock_strength: T, shock_speed: T, shock_x0: T, amplitude: T, kx: T, ky: T) -> Self {
         Self {
@@ -318,7 +322,7 @@ impl<T: RealField + Copy> ManufacturedShockCapturing<T> {
 
     /// Pre-shock density
     fn rho_pre() -> T {
-        T::one()
+        scalar::one::<T>()
     }
 
     /// Post-shock density
@@ -327,7 +331,9 @@ impl<T: RealField + Copy> ManufacturedShockCapturing<T> {
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedShockCapturing<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
+    for ManufacturedShockCapturing<T>
+{
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         let shock_x = self.shock_position(t);
         let perturbation =
@@ -335,10 +341,10 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedShockCapturing
 
         if x < shock_x {
             // Pre-shock region with relative perturbation
-            Self::rho_pre() * (T::one() + perturbation)
+            Self::rho_pre() * (scalar::one::<T>() + perturbation)
         } else {
             // Post-shock region with relative perturbation
-            self.rho_post() * (T::one() + perturbation)
+            self.rho_post() * (scalar::one::<T>() + perturbation)
         }
     }
 

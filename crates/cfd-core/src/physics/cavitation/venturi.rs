@@ -1,12 +1,11 @@
 //! Venturi cavitation analysis.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Venturi cavitation parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VenturiCavitation<T: RealField + Copy> {
+pub struct VenturiCavitation<T: FloatElement + Copy> {
     /// Inlet diameter (m)
     pub inlet_diameter: T,
     /// Throat diameter (m)
@@ -27,10 +26,10 @@ pub struct VenturiCavitation<T: RealField + Copy> {
     pub vapor_pressure: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> VenturiCavitation<T> {
+impl<T: FloatElement + Copy> VenturiCavitation<T> {
     /// Calculate throat velocity using continuity equation
     pub fn throat_velocity(&self) -> T {
-        let area_ratio = (self.inlet_diameter / self.throat_diameter).powi(2);
+        let area_ratio = <T as FloatElement>::powi(self.inlet_diameter / self.throat_diameter, 2);
         self.inlet_velocity * area_ratio
     }
 
@@ -38,7 +37,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiCavitation<T> {
     pub fn throat_pressure(&self) -> T {
         let v_inlet = self.inlet_velocity;
         let v_throat = self.throat_velocity();
-        let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
+        let half = <T as FloatElement>::from_f64(0.5);
 
         self.inlet_pressure - half * self.density * (v_throat * v_throat - v_inlet * v_inlet)
     }
@@ -47,12 +46,12 @@ impl<T: RealField + Copy + FromPrimitive> VenturiCavitation<T> {
     pub fn cavitation_number(&self) -> T {
         let p_throat = self.throat_pressure();
         let v_throat = self.throat_velocity();
-        let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
+        let half = <T as FloatElement>::from_f64(0.5);
 
-        if v_throat > T::zero() {
+        if v_throat > <T as NumericElement>::ZERO {
             (p_throat - self.vapor_pressure) / (half * self.density * v_throat * v_throat)
         } else {
-            T::from_f64(1e10).unwrap_or_else(|| T::one())
+            <T as FloatElement>::from_f64(1e10)
         }
     }
 
@@ -65,7 +64,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiCavitation<T> {
     pub fn outlet_pressure(&self, recovery_coefficient: T) -> T {
         let v_inlet = self.inlet_velocity;
         let v_outlet = self.outlet_velocity();
-        let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
+        let half = <T as FloatElement>::from_f64(0.5);
 
         let ideal_recovery = half * self.density * (v_inlet * v_inlet - v_outlet * v_outlet);
         self.inlet_pressure + recovery_coefficient * ideal_recovery
@@ -73,28 +72,27 @@ impl<T: RealField + Copy + FromPrimitive> VenturiCavitation<T> {
 
     /// Calculate outlet velocity
     pub fn outlet_velocity(&self) -> T {
-        let area_ratio = (self.inlet_diameter / self.outlet_diameter).powi(2);
+        let area_ratio = <T as FloatElement>::powi(self.inlet_diameter / self.outlet_diameter, 2);
         self.inlet_velocity * area_ratio
     }
 
     /// Calculate loss coefficient
     pub fn loss_coefficient(&self, measured_outlet_pressure: T) -> T {
-        let ideal_outlet = self.outlet_pressure(T::one());
+        let ideal_outlet = self.outlet_pressure(<T as NumericElement>::ONE);
         let actual_recovery = measured_outlet_pressure - self.inlet_pressure;
         let ideal_recovery = ideal_outlet - self.inlet_pressure;
 
-        if ideal_recovery.abs() > T::from_f64(1e-10).unwrap_or_else(|| T::zero()) {
-            T::one() - actual_recovery / ideal_recovery
+        if <T as NumericElement>::abs(ideal_recovery) > <T as FloatElement>::from_f64(1e-10) {
+            <T as NumericElement>::ONE - actual_recovery / ideal_recovery
         } else {
-            T::zero()
+            <T as NumericElement>::ZERO
         }
     }
 
     /// Calculate choked flow condition
     pub fn is_choked(&self) -> bool {
         let sigma = self.cavitation_number();
-        let sigma_critical =
-            T::from_f64(super::constants::SIGMA_CRITICAL).unwrap_or_else(|| T::one());
+        let sigma_critical = <T as FloatElement>::from_f64(super::constants::SIGMA_CRITICAL);
         sigma < sigma_critical
     }
 
@@ -103,22 +101,20 @@ impl<T: RealField + Copy + FromPrimitive> VenturiCavitation<T> {
     /// L/D = K * (1/σ - `1/σ_i)^n` where `σ_i` is incipient cavitation number
     pub fn cavity_length(&self, cavitation_number: T) -> T {
         // Nurick correlation constants from literature
-        let k_coefficient =
-            T::from_f64(super::constants::NURICK_K_COEFFICIENT).unwrap_or_else(|| T::one());
-        let exponent = T::from_f64(super::constants::NURICK_EXPONENT)
-            .unwrap_or_else(|| T::one() / (T::one() + T::one()));
-        let sigma_incipient =
-            T::from_f64(super::constants::SIGMA_INCIPIENT).unwrap_or_else(|| T::one());
+        let k_coefficient = <T as FloatElement>::from_f64(super::constants::NURICK_K_COEFFICIENT);
+        let exponent = <T as FloatElement>::from_f64(super::constants::NURICK_EXPONENT);
+        let sigma_incipient = <T as FloatElement>::from_f64(super::constants::SIGMA_INCIPIENT);
 
-        if cavitation_number < sigma_incipient && cavitation_number > T::zero() {
-            let term = T::one() / cavitation_number - T::one() / sigma_incipient;
-            if term > T::zero() {
-                self.throat_diameter * k_coefficient * term.powf(exponent)
+        if cavitation_number < sigma_incipient && cavitation_number > <T as NumericElement>::ZERO {
+            let term = <T as NumericElement>::ONE / cavitation_number
+                - <T as NumericElement>::ONE / sigma_incipient;
+            if term > <T as NumericElement>::ZERO {
+                self.throat_diameter * k_coefficient * <T as FloatElement>::powf(term, exponent)
             } else {
-                T::zero()
+                <T as NumericElement>::ZERO
             }
         } else {
-            T::zero()
+            <T as NumericElement>::ZERO
         }
     }
 
@@ -126,12 +122,13 @@ impl<T: RealField + Copy + FromPrimitive> VenturiCavitation<T> {
     /// Based on Callenaere et al. (2001) for cavity closure location
     pub fn cavity_closure_position(&self, cavitation_number: T) -> T {
         let cavity_len = self.cavity_length(cavitation_number);
-        let divergence_factor = self.divergent_angle.tan();
+        let divergence_factor = <T as FloatElement>::tan(self.divergent_angle);
 
-        if divergence_factor > T::zero() {
+        if divergence_factor > <T as NumericElement>::ZERO {
             // Closure position from throat
             cavity_len
-                + self.throat_diameter * divergence_factor * cavity_len / (T::one() + T::one())
+                + self.throat_diameter * divergence_factor * cavity_len
+                    / (<T as NumericElement>::ONE + <T as NumericElement>::ONE)
         } else {
             cavity_len
         }
@@ -140,12 +137,15 @@ impl<T: RealField + Copy + FromPrimitive> VenturiCavitation<T> {
     /// Calculate cavity volume based on conical approximation
     pub fn cavity_volume(&self, cavitation_number: T) -> T {
         let cavity_len = self.cavity_length(cavitation_number);
-        let pi = T::from_f64(std::f64::consts::PI)
-            .unwrap_or_else(|| T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::one()));
-        let one_third = T::one() / (T::one() + T::one() + T::one());
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
+        let one_third = <T as NumericElement>::ONE
+            / (<T as NumericElement>::ONE
+                + <T as NumericElement>::ONE
+                + <T as NumericElement>::ONE);
 
         // Conical cavity approximation: V = (π/3) * r² * L
-        let radius = self.throat_diameter / (T::one() + T::one());
+        let radius =
+            self.throat_diameter / (<T as NumericElement>::ONE + <T as NumericElement>::ONE);
         one_third * pi * radius * radius * cavity_len
     }
 }

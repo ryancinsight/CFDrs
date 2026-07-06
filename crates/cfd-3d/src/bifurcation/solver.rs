@@ -44,11 +44,13 @@
 
 use super::geometry::BifurcationGeometry3D;
 use super::types::{BifurcationConfig3D, BifurcationSolution3D};
+use crate::scalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use nalgebra::{RealField, Vector3};
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::FloatElement;
+use leto::geometry::Vector3 as LetoVector3;
+use nalgebra::RealField;
 
 // ============================================================================
 // 3D Bifurcation Solver
@@ -89,16 +91,9 @@ pub struct BifurcationSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + C
     pub(crate) config: BifurcationConfig3D<T>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64
-            + Float
-            + From<f64>,
-    > BifurcationSolver3D<T>
+impl<T> BifurcationSolver3D<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeFromF64,
 {
     /// Create new solver for given geometry and configuration
     pub fn new(geometry: BifurcationGeometry3D<T>, config: BifurcationConfig3D<T>) -> Self {
@@ -138,17 +133,12 @@ impl<
             use nalgebra::Point3 as P3;
             use std::collections::HashMap as HMid;
 
-            let r_p = self.geometry.d_parent.to_f64().unwrap_or(50e-6) * 0.5;
-            let r_d = self.geometry.d_daughter1.to_f64().unwrap_or(40e-6) * 0.5;
-            let l_p = self.geometry.l_parent.to_f64().unwrap_or(1e-3);
-            let l_d = self.geometry.l_daughter1.to_f64().unwrap_or(1e-3);
+            let r_p = scalar::to_f64(self.geometry.d_parent) * 0.5;
+            let r_d = scalar::to_f64(self.geometry.d_daughter1) * 0.5;
+            let l_p = scalar::to_f64(self.geometry.l_parent);
+            let l_d = scalar::to_f64(self.geometry.l_daughter1);
             // branching_angle is the full included angle between the two daughters
-            let half_ang = self
-                .geometry
-                .branching_angle
-                .to_f64()
-                .unwrap_or(std::f64::consts::PI / 3.0)
-                * 0.5;
+            let half_ang = scalar::to_f64(self.geometry.branching_angle) * 0.5;
             let (sin_a, cos_a) = half_ang.sin_cos();
 
             // Parent capsule: axis (0,0,0) → (0,0,l_p)
@@ -212,10 +202,11 @@ impl<
         // 2. Define Boundary Conditions
         let mut boundary_conditions = HashMap::new();
         let fluid_props =
-            fluid.properties_at(T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
+            fluid.properties_at(scalar::from_f64::<T>(310.0), self.config.inlet_pressure)?;
 
-        let inlet_area = T::from_f64_or_one(std::f64::consts::PI / 4.0)
-            * num_traits::Float::powf(self.geometry.d_parent, T::from_f64_or_one(2.0));
+        let inlet_area = scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
+            * self.geometry.d_parent
+            * self.geometry.d_parent;
         let u_inlet = self.config.inlet_flow_rate / inlet_area;
 
         // ── Classify boundary faces ───────────────────────────────────────────
@@ -237,7 +228,7 @@ impl<
             boundary_conditions
                 .entry(v_idx)
                 .or_insert(BoundaryCondition::VelocityInlet {
-                    velocity: Vector3::new(u_inlet, T::zero(), T::zero()),
+                    velocity: LetoVector3::new(u_inlet, scalar::zero::<T>(), scalar::zero::<T>()),
                 });
         }
         // Apply wall BCs to all remaining boundary nodes
@@ -245,25 +236,29 @@ impl<
             boundary_conditions
                 .entry(v_idx)
                 .or_insert(BoundaryCondition::Dirichlet {
-                    value: T::zero(),
-                    component_values: Some(vec![Some(T::zero()), Some(T::zero()), Some(T::zero())]),
+                    value: scalar::zero::<T>(),
+                    component_values: Some(vec![
+                        Some(scalar::zero::<T>()),
+                        Some(scalar::zero::<T>()),
+                        Some(scalar::zero::<T>()),
+                    ]),
                 });
         }
 
         // 3. Set up FEM Problem with f64 precision (build_surface produces f64 mesh)
         let constant_fluid_f64 = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
             name: "Picard Iteration Basis".to_string(),
-            density: fluid_props.density.to_f64().unwrap_or(1060.0),
-            viscosity: fluid_props.dynamic_viscosity.to_f64().unwrap_or(3.5e-3),
-            specific_heat: fluid_props.specific_heat.to_f64().unwrap_or(3600.0),
-            thermal_conductivity: fluid_props.thermal_conductivity.to_f64().unwrap_or(0.5),
-            speed_of_sound: fluid_props.speed_of_sound.to_f64().unwrap_or(1540.0),
+            density: scalar::to_f64(fluid_props.density),
+            viscosity: scalar::to_f64(fluid_props.dynamic_viscosity),
+            specific_heat: scalar::to_f64(fluid_props.specific_heat),
+            thermal_conductivity: scalar::to_f64(fluid_props.thermal_conductivity),
+            speed_of_sound: scalar::to_f64(fluid_props.speed_of_sound),
         };
 
         // Convert boundary conditions from T -> f64 via manual variant mapping
         let convert_bc = |bc: BoundaryCondition<T>| -> BoundaryCondition<f64> {
             use cfd_core::physics::boundary::BoundaryCondition as BC;
-            let to_f = |v: T| v.to_f64().unwrap_or(0.0);
+            let to_f = scalar::to_f64::<T>;
             match bc {
                 BC::Dirichlet {
                     value,
@@ -274,7 +269,7 @@ impl<
                         .map(|vs| vs.into_iter().map(|v| v.map(to_f)).collect()),
                 },
                 BC::VelocityInlet { velocity } => BC::VelocityInlet {
-                    velocity: nalgebra::Vector3::new(
+                    velocity: LetoVector3::new(
                         to_f(velocity.x),
                         to_f(velocity.y),
                         to_f(velocity.z),
@@ -292,7 +287,7 @@ impl<
                 } => BC::PressureInlet {
                     pressure: to_f(pressure),
                     velocity_direction: velocity_direction
-                        .map(|v| nalgebra::Vector3::new(to_f(v.x), to_f(v.y), to_f(v.z))),
+                        .map(|v| LetoVector3::new(to_f(v.x), to_f(v.y), to_f(v.z))),
                 },
                 BC::MassFlowInlet {
                     mass_flow_rate,
@@ -325,8 +320,7 @@ impl<
                     riemann_invariant_r1: riemann_invariant_r1.map(to_f),
                     riemann_invariant_r2: riemann_invariant_r2.map(to_f),
                     entropy: entropy.map(to_f),
-                    velocity: velocity
-                        .map(|v| nalgebra::Vector3::new(to_f(v.x), to_f(v.y), to_f(v.z))),
+                    velocity: velocity.map(|v| LetoVector3::new(to_f(v.x), to_f(v.y), to_f(v.z))),
                     pressure: pressure.map(to_f),
                 },
                 BC::CharacteristicOutlet {
@@ -351,7 +345,7 @@ impl<
         );
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities: Vec<f64> =
-            vec![fluid_props.dynamic_viscosity.to_f64().unwrap_or(3.5e-3); n_elements];
+            vec![scalar::to_f64(fluid_props.dynamic_viscosity); n_elements];
         let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
@@ -382,8 +376,11 @@ impl<
 
             // Apply Anderson Acceleration
             let updated_solution = if let Some(ref prev) = last_solution {
-                let acc_velocity =
-                    anderson_accelerator.compute_next(&prev.velocity, &fem_solution.velocity);
+                let acc_velocity = crate::atlas_anderson::accelerate_velocity(
+                    &mut anderson_accelerator,
+                    &prev.velocity,
+                    &fem_solution.velocity,
+                );
                 let mut acc_sol = fem_solution;
                 acc_sol.velocity = acc_velocity;
                 acc_sol
@@ -402,16 +399,15 @@ impl<
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
                 let shear_rate_f64 =
                     self.calculate_element_shear_rate_f64(cell, &problem.mesh, &updated_solution)?;
-                let shear_rate = T::from_f64_or_one(shear_rate_f64);
+                let shear_rate = scalar::from_f64::<T>(shear_rate_f64);
                 let new_visc_t = fluid.viscosity_at_shear(
                     shear_rate,
-                    T::from_f64_or_one(310.0),
+                    scalar::from_f64::<T>(310.0),
                     self.config.inlet_pressure,
                 )?;
-                let new_visc = new_visc_t.to_f64().unwrap_or(3.5e-3);
+                let new_visc = scalar::to_f64(new_visc_t);
 
-                let change = num_traits::Float::abs(new_visc - current_viscosities[i])
-                    / current_viscosities[i];
+                let change = (new_visc - current_viscosities[i]).abs() / current_viscosities[i];
                 if change > max_change_f64 {
                     max_change_f64 = change;
                 }
@@ -425,7 +421,7 @@ impl<
             std::mem::swap(&mut element_viscosities, &mut next_viscosities);
             last_solution = Some(updated_solution);
 
-            if max_change_f64 < self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4) {
+            if max_change_f64 < scalar::to_f64(self.config.nonlinear_tolerance) {
                 tracing::info!("Picard converged in {} iterations", iter + 1);
                 break;
             }
@@ -438,12 +434,12 @@ impl<
         let vel_max_f64: f64 = fem_solution
             .velocity
             .iter()
-            .map(|v| num_traits::Float::abs(*v))
+            .map(|v| v.abs())
             .fold(0.0_f64, f64::max);
         let p_max_f64: f64 = fem_solution
             .pressure
             .iter()
-            .map(|p| num_traits::Float::abs(*p))
+            .map(|p| p.abs())
             .fold(0.0_f64, f64::max);
         tracing::debug!(
             max_velocity = ?vel_max_f64,
@@ -460,11 +456,11 @@ impl<
         // Calculate flows through daughters
         let q_d1_f64 = self.calculate_boundary_flow_f64(mesh, &fem_solution, "outlet_0")?;
         let q_d2_f64 = self.calculate_boundary_flow_f64(mesh, &fem_solution, "outlet_1")?;
-        solution.q_daughter1 = <T as From<f64>>::from(q_d1_f64);
-        solution.q_daughter2 = <T as From<f64>>::from(q_d2_f64);
+        solution.q_daughter1 = scalar::from_f64::<T>(q_d1_f64);
+        solution.q_daughter2 = scalar::from_f64::<T>(q_d2_f64);
 
         // Ensure u_daughter_mean is calculated
-        let a_d1 = T::from_f64_or_one(std::f64::consts::PI / 4.0)
+        let a_d1 = scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
             * self.geometry.d_daughter1
             * self.geometry.d_daughter1;
         solution.u_daughter1_mean = solution.q_daughter1 / a_d1;
@@ -481,13 +477,9 @@ impl<
         let p_junc_f64 = self.extract_point_pressure_f64(
             mesh,
             &fem_solution,
-            nalgebra::Vector3::new(
-                self.geometry.l_parent.to_f64().unwrap_or(0.0),
-                0.0_f64,
-                0.0_f64,
-            ),
+            nalgebra::Vector3::new(scalar::to_f64(self.geometry.l_parent), 0.0_f64, 0.0_f64),
         )?;
-        solution.p_junction_mid = <T as From<f64>>::from(p_junc_f64);
+        solution.p_junction_mid = scalar::from_f64::<T>(p_junc_f64);
 
         // Calculate pressure drops
         solution.dp_parent = solution.p_inlet - solution.p_junction_mid;
@@ -496,32 +488,32 @@ impl<
 
         // Mass conservation check
         solution.mass_conservation_error =
-            Float::abs(solution.q_parent - (solution.q_daughter1 + solution.q_daughter2));
+            scalar::abs(solution.q_parent - (solution.q_daughter1 + solution.q_daughter2));
 
         // Calculate wall shear stresses using analytical Poiseuille formula: τ_w = 8*μ*u_mean/R
         let mu = fluid_props.dynamic_viscosity;
-        let r_parent = self.geometry.d_parent / T::from_f64_or_one(2.0);
-        let r_daughter1 = self.geometry.d_daughter1 / T::from_f64_or_one(2.0);
-        let r_daughter2 = self.geometry.d_daughter2 / T::from_f64_or_one(2.0);
+        let r_parent = self.geometry.d_parent / scalar::from_f64::<T>(2.0);
+        let r_daughter1 = self.geometry.d_daughter1 / scalar::from_f64::<T>(2.0);
+        let r_daughter2 = self.geometry.d_daughter2 / scalar::from_f64::<T>(2.0);
 
         solution.wall_shear_stress_parent =
-            T::from_f64_or_one(8.0) * mu * solution.u_parent_mean / r_parent;
+            scalar::from_f64::<T>(8.0) * mu * solution.u_parent_mean / r_parent;
         solution.wall_shear_stress_daughter1 =
-            T::from_f64_or_one(8.0) * mu * solution.u_daughter1_mean / r_daughter1;
+            scalar::from_f64::<T>(8.0) * mu * solution.u_daughter1_mean / r_daughter1;
         solution.wall_shear_stress_daughter2 =
-            T::from_f64_or_one(8.0) * mu * solution.u_daughter2_mean / r_daughter2;
+            scalar::from_f64::<T>(8.0) * mu * solution.u_daughter2_mean / r_daughter2;
 
         Ok(solution)
     }
 
     /// Validate solver configuration
     fn validate_configuration(&self) -> Result<()> {
-        if self.config.inlet_flow_rate <= T::zero() {
+        if self.config.inlet_flow_rate <= scalar::zero::<T>() {
             return Err(Error::InvalidInput(
                 "Inlet flow rate must be positive".to_string(),
             ));
         }
-        if self.config.nonlinear_tolerance <= T::zero() {
+        if self.config.nonlinear_tolerance <= scalar::zero::<T>() {
             return Err(Error::InvalidInput(
                 "Nonlinear tolerance must be positive".to_string(),
             ));
@@ -536,9 +528,10 @@ impl<
 
     /// Calculate Reynolds number in parent branch
     pub fn reynolds_number<F: FluidTrait<T> + Clone>(&self, fluid: F) -> Result<T> {
-        let props = fluid.properties_at(T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
+        let props =
+            fluid.properties_at(scalar::from_f64::<T>(310.0), self.config.inlet_pressure)?;
         let u = self.config.inlet_flow_rate
-            / (T::from_f64_or_one(std::f64::consts::PI / 4.0)
+            / (scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
                 * self.geometry.d_parent
                 * self.geometry.d_parent);
 
@@ -549,7 +542,7 @@ impl<
     /// Check if flow is laminar
     pub fn is_laminar<F: FluidTrait<T> + Clone>(&self, fluid: F) -> Result<bool> {
         let re = self.reynolds_number(fluid)?;
-        Ok(re < T::from_f64_or_one(2300.0))
+        Ok(re < scalar::from_f64::<T>(2300.0))
     }
 }
 

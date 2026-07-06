@@ -1,5 +1,6 @@
 use cfd_math::linear_solver::matrix_free::{LaplacianOperator2D, LinearOperator};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use leto::Array1;
 
 fn bench_laplacian_cpu(c: &mut Criterion) {
     let mut group = c.benchmark_group("laplacian_cpu");
@@ -9,8 +10,7 @@ fn bench_laplacian_cpu(c: &mut Criterion) {
         let dx = 1.0f64 / (nx as f64 - 1.0);
         let dy = 1.0f64 / (ny as f64 - 1.0);
         let op = LaplacianOperator2D::new(nx, ny, dx, dy);
-        use nalgebra::DVector;
-        let mut field = DVector::zeros(nx * ny);
+        let mut field = Array1::zeros([nx * ny]);
         for j in 0..ny {
             for i in 0..nx {
                 let x = i as f64 * dx;
@@ -18,7 +18,7 @@ fn bench_laplacian_cpu(c: &mut Criterion) {
                 field[j * nx + i] = x * (1.0 - x) + y * (1.0 - y);
             }
         }
-        let mut out = DVector::zeros(nx * ny);
+        let mut out = Array1::zeros([nx * ny]);
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &_| {
             b.iter(|| {
                 black_box(op.apply(&field, &mut out)).unwrap();
@@ -32,8 +32,7 @@ fn bench_cg_small_spd(c: &mut Criterion) {
     use cfd_math::linear_solver::{
         preconditioners::IdentityPreconditioner, ConjugateGradient, IterativeSolverConfig,
     };
-    use nalgebra::DVector;
-    use nalgebra_sparse::CsrMatrix;
+    use leto_ops::CsrMatrix;
 
     fn spd(n: usize) -> CsrMatrix<f64> {
         let mut row_offsets = Vec::with_capacity(n + 1);
@@ -53,19 +52,19 @@ fn bench_cg_small_spd(c: &mut Criterion) {
             }
             row_offsets.push(col_indices.len());
         }
-        CsrMatrix::try_from_csr_data(n, n, row_offsets, col_indices, values).unwrap()
+        CsrMatrix::from_parts(values, col_indices, row_offsets, n, n).unwrap()
     }
 
     let mut group = c.benchmark_group("cg_spd");
     for &n in &[128usize, 256usize, 512usize] {
         let a = spd(n);
-        let b = DVector::from_element(n, 1.0);
+        let b = Array1::from_elem([n], 1.0);
         let solver =
             ConjugateGradient::new(IterativeSolverConfig::new(1e-8).with_max_iterations(1000));
         let pre = IdentityPreconditioner;
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |bmk, &_| {
             bmk.iter(|| {
-                let mut x = DVector::zeros(n);
+                let mut x = Array1::zeros([n]);
                 black_box(solver.solve_preconditioned(&a, &b, &pre, &mut x)).unwrap();
             });
         });

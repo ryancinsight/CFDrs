@@ -3,7 +3,8 @@
 use super::GpuKernel;
 use crate::compute::traits::{ComputeBackend, ComputeKernel, KernelParams};
 use crate::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
+use hephaestus_wgpu::wgpu;
 use std::marker::PhantomData;
 
 /// GPU pressure Poisson solver kernel
@@ -97,7 +98,9 @@ impl<T: RealField + Copy> GpuKernel<T> for GpuPressureKernel<T> {
             label: Some("Pressure Pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader_module,
-            entry_point: "pressure_solve",
+            entry_point: Some("pressure_solve"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
         });
 
         Ok(pipeline)

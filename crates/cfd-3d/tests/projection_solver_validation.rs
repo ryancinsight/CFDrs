@@ -15,7 +15,7 @@ use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::domain::core::index::VertexId;
 use cfd_mesh::domain::grid::StructuredGridBuilder;
 use cfd_mesh::IndexedMesh;
-use nalgebra::Vector3;
+use leto::geometry::Vector3;
 use std::collections::HashMap;
 
 /// Create a simple tetrahedral mesh for a unit cube using structured grid builder

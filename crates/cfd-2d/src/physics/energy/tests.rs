@@ -6,7 +6,7 @@ use cfd_core::physics::boundary::BoundaryCondition;
 use std::collections::HashMap;
 
 #[cfg(test)]
-mod tests {
+mod energy_tests {
     use super::*;
     use approx::assert_relative_eq;
 

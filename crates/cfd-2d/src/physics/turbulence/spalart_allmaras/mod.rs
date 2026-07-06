@@ -235,8 +235,7 @@ use super::constants::{
     SA_CW3, SA_KAPPA_SQ, SA_SIGMA,
 };
 use cfd_core::physics::constants::mathematical::numeric::{ONE, ONE_HALF, TWO};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
 use tracing::instrument;
 
 /// Spalart-Allmaras turbulence model
@@ -249,7 +248,7 @@ use tracing::instrument;
 /// - d = distance to nearest wall
 /// - fw = wall destruction function
 #[derive(Debug)]
-pub struct SpalartAllmaras<T: RealField + Copy> {
+pub struct SpalartAllmaras<T: RealField> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
@@ -269,25 +268,25 @@ pub struct SpalartAllmaras<T: RealField + Copy> {
     kappa_sq: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
+impl<T: RealField> SpalartAllmaras<T> {
     /// Create new Spalart-Allmaras model
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
             nx,
             ny,
-            cb1: T::from_f64(SA_CB1).expect("analytical constant conversion"),
-            cb2: T::from_f64(SA_CB2).expect("analytical constant conversion"),
-            cw1: T::from_f64(SA_CW1).expect("analytical constant conversion"),
-            cw2: T::from_f64(SA_CW2).expect("analytical constant conversion"),
-            cw3: T::from_f64(SA_CW3).expect("analytical constant conversion"),
-            cv1: T::from_f64(SA_CV1).expect("analytical constant conversion"),
-            cv2: T::from_f64(SA_CV2).expect("analytical constant conversion"),
-            ct1: T::from_f64(SA_CT1).expect("analytical constant conversion"),
-            ct2: T::from_f64(SA_CT2).expect("analytical constant conversion"),
-            ct3: T::from_f64(SA_CT3).expect("analytical constant conversion"),
-            ct4: T::from_f64(SA_CT4).expect("analytical constant conversion"),
-            sigma: T::from_f64(SA_SIGMA).expect("analytical constant conversion"),
-            kappa_sq: T::from_f64(SA_KAPPA_SQ).expect("analytical constant conversion"),
+            cb1: T::from_f64(SA_CB1),
+            cb2: T::from_f64(SA_CB2),
+            cw1: T::from_f64(SA_CW1),
+            cw2: T::from_f64(SA_CW2),
+            cw3: T::from_f64(SA_CW3),
+            cv1: T::from_f64(SA_CV1),
+            cv2: T::from_f64(SA_CV2),
+            ct1: T::from_f64(SA_CT1),
+            ct2: T::from_f64(SA_CT2),
+            ct3: T::from_f64(SA_CT3),
+            ct4: T::from_f64(SA_CT4),
+            sigma: T::from_f64(SA_SIGMA),
+            kappa_sq: T::from_f64(SA_KAPPA_SQ),
         }
     }
 
@@ -297,9 +296,7 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
     /// where fv1 = χ³/(χ³ + Cv1³) and χ = ν̃/ν
     #[instrument(skip(self))]
     pub fn eddy_viscosity(&self, nu_tilde: T, molecular_viscosity: T) -> T {
-        let chi = nu_tilde
-            / molecular_viscosity
-                .max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
+        let chi = nu_tilde / molecular_viscosity.max_scalar(T::from_f64(EPSILON_MIN));
         let chi_cubed = chi * chi * chi;
         let cv1_cubed = self.cv1 * self.cv1 * self.cv1;
         let fv1 = chi_cubed / (chi_cubed + cv1_cubed);
@@ -315,12 +312,11 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
         // Rotation tensor Ωij = 0.5 * (dui/dxj - duj/dxi)
         // Ω12 = 0.5 * (du/dy - dv/dx)
         // Ω21 = 0.5 * (dv/dx - du/dy) = -Ω12
-        let omega12 = (velocity_gradient[0][1] - velocity_gradient[1][0])
-            * T::from_f64(ONE_HALF).expect("analytical constant conversion");
+        let omega12 = (velocity_gradient[0][1] - velocity_gradient[1][0]) * T::from_f64(ONE_HALF);
 
         // For 2D: Ω = √(2 * (Ω12² + Ω21²)) = √(2 * 2 * Ω12²) = 2|Ω12|
-        let two = T::from_f64(TWO).expect("analytical constant conversion");
-        two * omega12.abs()
+        let two = T::from_f64(TWO);
+        two * <T as NumericElement>::abs(omega12)
     }
 
     /// Calculate modified vorticity S̃
@@ -335,23 +331,19 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
         molecular_viscosity: T,
         wall_distance: T,
     ) -> T {
-        let chi = nu_tilde
-            / molecular_viscosity
-                .max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
+        let chi = nu_tilde / molecular_viscosity.max_scalar(T::from_f64(EPSILON_MIN));
         let chi_cubed = chi * chi * chi;
         let cv1_cubed = self.cv1 * self.cv1 * self.cv1;
         let fv1 = chi_cubed / (chi_cubed + cv1_cubed);
 
         // fv2 = 1 - χ/(1 + χ * fv1)
-        let fv2 = T::from_f64(ONE).expect("analytical constant conversion")
-            - chi / (T::from_f64(ONE).expect("analytical constant conversion") + chi * fv1);
+        let one = T::from_f64(ONE);
+        let fv2 = one - chi / (one + chi * fv1);
 
         // S̃ = Ω + ν̃/(κ²d²) * fv2
         let d_sq = wall_distance * wall_distance;
-        let modification = (nu_tilde
-            / (self.kappa_sq
-                * d_sq.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"))))
-            * fv2;
+        let modification =
+            (nu_tilde / (self.kappa_sq * d_sq.max_scalar(T::from_f64(EPSILON_MIN)))) * fv2;
 
         vorticity + modification
     }
@@ -374,16 +366,14 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
         let denominator = s_tilde * self.kappa_sq * d_sq;
 
         // Limit r to prevent division by zero
-        let r = if denominator.abs()
-            > T::from_f64(EPSILON_MIN).expect("analytical constant conversion")
-        {
+        let r = if <T as NumericElement>::abs(denominator) > T::from_f64(EPSILON_MIN) {
             nu_tilde / denominator
         } else {
-            T::from_f64(EPSILON_MIN).expect("analytical constant conversion")
+            T::from_f64(EPSILON_MIN)
         };
 
         // Limit r to reasonable range (prevents numerical issues)
-        let r = r.min(T::from_f64(10.0).expect("analytical constant conversion"));
+        let r = r.min_scalar(T::from_f64(10.0));
 
         // g = r + Cw2 * (r⁶ - r)
         let r_sq = r * r;
@@ -396,11 +386,11 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
         let g_sq = g * g;
         let g_6 = g_sq * g_sq * g_sq;
 
-        let one = T::from_f64(ONE).expect("analytical constant conversion");
+        let one = T::from_f64(ONE);
         let ratio = (one + cw3_6) / (g_6 + cw3_6);
 
         // Compute sixth root using helper: x^(1/6) = (x^(1/2))^(1/3)
-        let sqrt_ratio = ratio.sqrt();
+        let sqrt_ratio = <T as NumericElement>::sqrt(ratio);
         let cbrt_sqrt = cbrt(sqrt_ratio);
 
         g * cbrt_sqrt
@@ -411,8 +401,7 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
     /// D = Cw1 * fw * (ν̃/d)²
     #[instrument(skip(self))]
     pub fn destruction(&self, nu_tilde: T, wall_distance: T, fw: T) -> T {
-        let ratio = nu_tilde
-            / wall_distance.max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
+        let ratio = nu_tilde / wall_distance.max_scalar(T::from_f64(EPSILON_MIN));
         self.cw1 * fw * ratio * ratio
     }
 
@@ -424,7 +413,7 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
     pub fn trip_term(&self, _nu_tilde: T, _wall_distance: T) -> T {
         // For fully turbulent flows, trip term is zero
         // Can be activated for transition modeling if needed
-        T::zero()
+        T::ZERO
     }
 
     /// Laminar suppression function $f_{t2} = C_{t3} \exp(-C_{t4} \chi^2)$
@@ -433,14 +422,12 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
     /// Uses `cv2` as the negative-SA cutoff: ignored when $\chi < cv2$.
     #[instrument(skip(self))]
     pub fn ft2(&self, nu_tilde: T, molecular_viscosity: T) -> T {
-        let chi = nu_tilde
-            / molecular_viscosity
-                .max(T::from_f64(EPSILON_MIN).expect("analytical constant conversion"));
+        let chi = nu_tilde / molecular_viscosity.max_scalar(T::from_f64(EPSILON_MIN));
         // Skip for large chi (fully turbulent) or when chi < cv2 (negative SA guard)
         if chi < self.cv2 {
-            return T::zero();
+            return T::ZERO;
         }
-        self.ct3 * (-self.ct4 * chi * chi).exp()
+        self.ct3 * <T as FloatElement>::exp(-self.ct4 * chi * chi)
     }
 
     /// Trip-term coefficient $C_{t1}$
@@ -467,13 +454,13 @@ impl<T: RealField + FromPrimitive + Copy> SpalartAllmaras<T> {
     fn apply_boundary_conditions(&self, nu_tilde: &mut [T]) {
         // Wall boundaries: ν̃ = 0
         for i in 0..self.nx {
-            nu_tilde[i] = T::zero(); // Bottom wall
-            nu_tilde[(self.ny - 1) * self.nx + i] = T::zero(); // Top wall
+            nu_tilde[i] = T::ZERO; // Bottom wall
+            nu_tilde[(self.ny - 1) * self.nx + i] = T::ZERO; // Top wall
         }
 
         for j in 0..self.ny {
-            nu_tilde[j * self.nx] = T::zero(); // Left wall
-            nu_tilde[j * self.nx + (self.nx - 1)] = T::zero(); // Right wall
+            nu_tilde[j * self.nx] = T::ZERO; // Left wall
+            nu_tilde[j * self.nx + (self.nx - 1)] = T::ZERO; // Right wall
         }
     }
 }

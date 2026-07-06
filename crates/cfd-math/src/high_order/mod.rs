@@ -29,7 +29,7 @@
 //! ```no_run
 //! use cfd_math::high_order::*;
 //! use cfd_math::error::Result;
-//! use nalgebra::{DVector, DMatrix};
+//! use leto::{Array1, Array2};
 //!
 //! // Create a DG operator
 //! let order = 3;
@@ -51,13 +51,13 @@
 //! );
 //!
 //! // Initialize and solve
-//! solver.initialize(|x| DVector::from_vec(vec![x.sin()])).unwrap();
+//! solver.initialize(|x| Array1::from_shape_vec([1], vec![x.sin()]).unwrap()).unwrap();
 //!
-//! fn rhs(_t: f64, u: &DMatrix<f64>) -> Result<DMatrix<f64>> {
-//!     Ok(-u.clone())
+//! fn rhs(_t: f64, u: &Array2<f64>) -> Result<Array2<f64>> {
+//!     Ok(Array2::from_shape_fn(u.shape(), |idx| -u[idx]))
 //! }
 //!
-//! solver.solve(rhs, None::<fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>).unwrap();
+//! solver.solve(rhs, None::<fn(f64, &Array2<f64>) -> Result<Array2<f64>>>).unwrap();
 //! ```
 //!
 //! ## Performance Considerations
@@ -65,8 +65,8 @@
 //! - **Vectorization**: The implementations are designed to take advantage of
 //!   SIMD instructions when available.
 //! - **Memory Layout**: Data structures are optimized for cache efficiency.
-//! - **Parallelism**: The code is designed to be easily parallelizable using
-//!   Rust's concurrency primitives or external crates like `rayon`.
+//! - **Parallelism**: The code is designed to be parallelized through the
+//!   workspace Moirai execution provider.
 //!
 //! ## References
 //!

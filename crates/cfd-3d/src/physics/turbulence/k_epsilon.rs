@@ -27,12 +27,11 @@
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::{RANSModel, TurbulenceModel};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 
 /// k-epsilon turbulence model state
 #[derive(Debug, Clone)]
-pub struct KEpsilonState<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct KEpsilonState<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// Turbulent kinetic energy
     pub k: Vec<T>,
     /// Dissipation rate
@@ -41,7 +40,7 @@ pub struct KEpsilonState<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
 
 /// k-epsilon turbulence model
 #[derive(Debug, Clone)]
-pub struct KEpsilonModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct KEpsilonModel<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// Model constants
     pub constants: KEpsilonConstants<T>,
     /// Current state (k and epsilon fields)
@@ -61,7 +60,7 @@ pub struct KEpsilonModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
 /// Launder, B.E. and Spalding, D.B. (1974). "The numerical computation of turbulent flows."
 /// Computer Methods in Applied Mechanics and Engineering, 3(2), 269-289.
 #[derive(Debug, Clone)]
-pub struct KEpsilonConstants<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct KEpsilonConstants<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// Model constant `C_μ` = 0.09
     pub c_mu: T,
     /// Production constant `C_1ε` = 1.44
@@ -74,43 +73,36 @@ pub struct KEpsilonConstants<T: cfd_mesh::domain::core::Scalar + RealField + Cop
     pub sigma_epsilon: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsilonConstants<T> {
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> KEpsilonConstants<T> {
     /// Create standard k-epsilon constants
     pub fn standard() -> Self {
         Self {
-            c_mu: <T as FromPrimitive>::from_f64(
+            c_mu: <T as FloatElement>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_C_MU,
-            )
-            .expect("K_EPSILON_C_MU is an IEEE 754 representable f64 constant"),
-            c_1: <T as FromPrimitive>::from_f64(
+            ),
+            c_1: <T as FloatElement>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_C1,
-            )
-            .expect("K_EPSILON_C1 is an IEEE 754 representable f64 constant"),
-            c_2: <T as FromPrimitive>::from_f64(
+            ),
+            c_2: <T as FloatElement>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_C2,
-            )
-            .expect("K_EPSILON_C2 is an IEEE 754 representable f64 constant"),
-            sigma_k: <T as FromPrimitive>::from_f64(
+            ),
+            sigma_k: <T as FloatElement>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_SIGMA_K,
-            )
-            .expect("K_EPSILON_SIGMA_K is an IEEE 754 representable f64 constant"),
-            sigma_epsilon: <T as FromPrimitive>::from_f64(
+            ),
+            sigma_epsilon: <T as FloatElement>::from_f64(
                 cfd_core::physics::constants::physics::turbulence::K_EPSILON_SIGMA_EPSILON,
-            )
-            .expect("K_EPSILON_SIGMA_EPSILON is an IEEE 754 representable f64 constant"),
+            ),
         }
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default
-    for KEpsilonModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> Default for KEpsilonModel<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsilonModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> KEpsilonModel<T> {
     /// Create a new k-epsilon model with standard constants
     #[must_use]
     pub fn new() -> Self {
@@ -142,21 +134,22 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsi
         let mut k_field = Vec::with_capacity(n);
 
         for vel in &flow_field.velocity.components {
-            let u_mag = vel.norm();
-            let three_half = (T::one() + T::one() + T::one()) / (T::one() + T::one());
-            let k = three_half * num_traits::Float::powi(u_mag * turbulence_intensity, 2);
+            let u_mag =
+                <T as NumericElement>::sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+            let three_half = (T::ONE + T::ONE + T::ONE) / (T::ONE + T::ONE);
+            let k = three_half * <T as FloatElement>::powi(u_mag * turbulence_intensity, 2);
             k_field.push(k);
         }
 
         // Initialize epsilon mathematically
         let mut epsilon_field = Vec::with_capacity(n);
 
-        let three = T::one() + T::one() + T::one();
-        let four = three + T::one();
-        let c_mu_34 = num_traits::Float::powf(self.constants.c_mu, three / four);
+        let three = T::ONE + T::ONE + T::ONE;
+        let four = three + T::ONE;
+        let c_mu_34 = <T as FloatElement>::powf(self.constants.c_mu, three / four);
         for &k in &k_field {
             let epsilon =
-                c_mu_34 * num_traits::Float::powf(k, three / (T::one() + T::one())) / mixing_length;
+                c_mu_34 * <T as FloatElement>::powf(k, three / (T::ONE + T::ONE)) / mixing_length;
             epsilon_field.push(epsilon);
         }
 
@@ -191,9 +184,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KEpsi
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
-    for KEpsilonModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for KEpsilonModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         // νₜ = C_μ * k² / ε
         let state = self.state_for_flow(flow_field);
@@ -202,18 +193,18 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
             let k = state.k[idx];
             let eps = state.epsilon[idx];
             assert!(
-                k >= T::zero(),
+                k >= T::ZERO,
                 "k-epsilon turbulent kinetic energy must be non-negative"
             );
             assert!(
-                eps >= T::zero(),
+                eps >= T::ZERO,
                 "k-epsilon dissipation rate must be non-negative"
             );
-            if k == T::zero() {
-                viscosity.push(T::zero());
+            if k == T::ZERO {
+                viscosity.push(T::ZERO);
             } else {
                 assert!(
-                    eps > T::zero(),
+                    eps > T::ZERO,
                     "positive k-epsilon turbulent kinetic energy requires positive dissipation"
                 );
                 viscosity.push(self.constants.c_mu * k * k / eps);
@@ -231,9 +222,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> RANSModel<T>
-    for KEpsilonModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> RANSModel<T> for KEpsilonModel<T> {
     fn dissipation_rate(&self, flow_field: &FlowField<T>) -> Vec<T> {
         self.state_for_flow(flow_field).epsilon.clone()
     }

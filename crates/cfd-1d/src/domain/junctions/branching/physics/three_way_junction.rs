@@ -4,11 +4,11 @@
 //! (one parent to three daughters).
 
 use crate::domain::channel::Channel;
+use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 use super::pressure_balance::{bisect_monotone_target, ScalarSolveTolerances};
@@ -18,7 +18,7 @@ use super::two_way_junction::TwoWayBranchJunction;
 ///
 /// Generalizes the two-way branch formulation to a three-way split.
 #[derive(Debug, Clone)]
-pub struct ThreeWayBranchJunction<T: RealField + Copy> {
+pub struct ThreeWayBranchJunction<T: Cfd1dScalar + Copy> {
     /// Parent channel (incoming flow)
     pub parent: Channel<T>,
     /// First daughter channel
@@ -35,7 +35,7 @@ pub struct ThreeWayBranchJunction<T: RealField + Copy> {
     pub flow_split_ratios: (T, T, T),
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBranchJunction<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> ThreeWayBranchJunction<T> {
     /// Create a new three-way branch junction
     pub fn new(
         parent: Channel<T>,
@@ -64,9 +64,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         let d1 = TwoWayBranchJunction::hydraulic_diameter(&self.daughter1);
         let d2 = TwoWayBranchJunction::hydraulic_diameter(&self.daughter2);
         let d3 = TwoWayBranchJunction::hydraulic_diameter(&self.daughter3);
-        let d0_cubed = d0.powf(three);
-        let daughters_sum = d1.powf(three) + d2.powf(three) + d3.powf(three);
-        (d0_cubed - daughters_sum).abs() / d0_cubed.max(T::from_f64_or_one(1e-10))
+        let d0_cubed = <T as FloatElement>::powf(d0, three);
+        let daughters_sum = <T as FloatElement>::powf(d1, three)
+            + <T as FloatElement>::powf(d2, three)
+            + <T as FloatElement>::powf(d3, three);
+        <T as NumericElement>::abs(d0_cubed - daughters_sum)
+            / d0_cubed.max(T::from_f64_or_one(1e-10))
     }
 
     fn validate_split_ratios(&self) -> Result<(), Error> {
@@ -78,11 +81,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         }
 
         let ratio_sum = r1 + r2 + r3;
-        let ratio_error = (ratio_sum - T::one()).abs();
+        let ratio_error = <T as NumericElement>::abs(ratio_sum - T::one());
         if ratio_error > T::from_f64_or_one(1e-12) {
             return Err(Error::InvalidConfiguration(format!(
                 "three-way flow split ratios must sum to 1.0, got {}",
-                ratio_sum.to_f64().unwrap_or(f64::NAN)
+                <T as NumericElement>::to_f64(ratio_sum)
             )));
         }
 
@@ -179,7 +182,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         pressure: T,
     ) -> Result<(T, T, T), Error> {
         let tiny_flow = T::from_f64_or_one(1e-18);
-        let q_parent_magnitude = q_parent.abs();
+        let q_parent_magnitude = <T as NumericElement>::abs(q_parent);
         if q_parent_magnitude <= tiny_flow {
             return Ok((T::zero(), T::zero(), T::zero()));
         }
@@ -220,7 +223,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         if upper_sum < target_sum {
             return Err(Error::Convergence(
                 cfd_core::error::ConvergenceErrorKind::StagnatedResidual {
-                    residual: (target_sum - upper_sum).to_f64().unwrap_or(f64::NAN),
+                    residual: <T as NumericElement>::to_f64(target_sum - upper_sum),
                 },
             ));
         }
@@ -274,12 +277,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
         pressure: T,
     ) -> Result<ThreeWayBranchSolution<T>, Error> {
         let q_sum = q_1 + q_2 + q_3;
-        let mass_error = (q_sum - q_parent).abs() / q_parent.abs().max(T::from_f64_or_one(1e-15));
+        let mass_error = <T as NumericElement>::abs(q_sum - q_parent)
+            / <T as NumericElement>::abs(q_parent).max(T::from_f64_or_one(1e-15));
 
         if mass_error > T::from_f64_or_one(1e-10) {
             use cfd_core::error::ConvergenceErrorKind;
             return Err(Error::Convergence(ConvergenceErrorKind::Diverged {
-                norm: mass_error.to_f64().unwrap_or(f64::NAN),
+                norm: <T as NumericElement>::to_f64(mass_error),
             }));
         }
 
@@ -319,8 +323,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
 
         let p_max = p_1.max(p_2).max(p_3);
         let p_min = p_1.min(p_2).min(p_3);
-        let junction_pressure_error =
-            (p_max - p_min).abs() / (p_junction.abs() + T::from_f64_or_one(1.0));
+        let junction_pressure_error = <T as NumericElement>::abs(p_max - p_min)
+            / (<T as NumericElement>::abs(p_junction) + T::from_f64_or_one(1.0));
 
         let gamma_1 = TwoWayBranchJunction::shear_rate(q_1, &self.daughter1);
         let gamma_2 = TwoWayBranchJunction::shear_rate(q_2, &self.daughter2);
@@ -424,7 +428,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> ThreeWayBr
 
 /// Solution to the three-way branch problem
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct ThreeWayBranchSolution<T: RealField + Copy> {
+pub struct ThreeWayBranchSolution<T: Cfd1dScalar + Copy> {
     /// Parent flow rate [m³/s]
     pub q_parent: T,
     /// Daughter-1 flow rate [m³/s]
@@ -470,7 +474,7 @@ pub struct ThreeWayBranchSolution<T: RealField + Copy> {
     pub mass_conservation_error: T,
 }
 
-impl<T: RealField + Copy> ThreeWayBranchSolution<T> {
+impl<T: Cfd1dScalar + Copy> ThreeWayBranchSolution<T> {
     /// Check if solution is valid
     pub fn is_valid(&self, tolerance: T) -> bool {
         self.mass_conservation_error < tolerance && self.junction_pressure_error < tolerance

@@ -1,6 +1,6 @@
 //! Core traits for numerical integration
 
-use nalgebra::RealField;
+use eunomia::RealField;
 
 /// Trait for quadrature methods
 pub trait Quadrature<T: RealField + Copy> {

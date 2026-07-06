@@ -21,7 +21,8 @@ pub use taylor_green::TaylorGreenVortex;
 pub use utils::{AnalyticalUtils, FlowGeometry};
 pub use womersley::WomersleyFlow;
 
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::geometry::Vector3;
 
 /// Trait for analytical solutions
 pub trait AnalyticalSolution<T: RealField + Copy> {

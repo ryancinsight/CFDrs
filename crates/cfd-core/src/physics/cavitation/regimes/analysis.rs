@@ -1,7 +1,6 @@
 //! Cavitation regime analysis results and reporting.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
@@ -11,7 +10,7 @@ use super::types::CavitationRegime;
 
 /// Cavitation regime analysis results
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CavitationRegimeAnalysis<T: RealField + Copy> {
+pub struct CavitationRegimeAnalysis<T: FloatElement + Copy> {
     /// Identified regime
     pub regime: CavitationRegime,
     /// Blake threshold pressure (Pa)
@@ -32,7 +31,7 @@ pub struct CavitationRegimeAnalysis<T: RealField + Copy> {
     pub hemolysis_risk: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
+impl<T: FloatElement + Copy> CavitationRegimeClassifier<T> {
     /// Perform comprehensive regime analysis
     pub fn analyze(&self) -> Result<CavitationRegimeAnalysis<T>> {
         let regime = self.classify_regime();
@@ -45,13 +44,13 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
             self.ambient_pressure
         };
 
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::one());
+        let two = <T as FloatElement>::from_f64(2.0);
         let v_sq =
             (self.ambient_pressure - current_pressure) * two / self.bubble_model.liquid_density;
-        let current_velocity = if v_sq > T::zero() {
-            v_sq.sqrt()
+        let current_velocity = if v_sq > <T as NumericElement>::ZERO {
+            <T as NumericElement>::sqrt(v_sq)
         } else {
-            T::from_f64(1e-6).unwrap_or_else(|| T::one())
+            <T as FloatElement>::from_f64(1e-6)
         };
 
         let cavitation_number = self.cavitation_number(current_pressure, current_velocity);
@@ -75,7 +74,7 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
     }
 }
 
-impl<T: RealField + Copy + std::fmt::Display> std::fmt::Display for CavitationRegimeAnalysis<T> {
+impl<T: FloatElement + Copy + std::fmt::Display> std::fmt::Display for CavitationRegimeAnalysis<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

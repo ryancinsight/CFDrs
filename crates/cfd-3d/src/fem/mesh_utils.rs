@@ -6,9 +6,11 @@
 use cfd_core::error::Result;
 use cfd_mesh::domain::topology::Cell;
 use cfd_mesh::IndexedMesh;
+use eunomia::{FloatElement, NumericElement};
 use nalgebra::{RealField, Vector3};
-use num_traits::{Float, FromPrimitive};
 use std::collections::HashSet;
+
+use super::scalar;
 
 /// Extract vertex indices from a cell for element assembly.
 ///
@@ -27,7 +29,9 @@ use std::collections::HashSet;
 /// which evaluates all 24 permutations. Mid-edge assignment by nearest-midpoint
 /// is unique when the mesh is P2-conforming (each edge has exactly one mid-node
 /// at its geometric centre).
-pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
+pub fn extract_vertex_indices<
+    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FloatElement,
+>(
     cell: &Cell,
     mesh: &IndexedMesh<T>,
     n_corner_nodes: usize,
@@ -141,7 +145,7 @@ pub fn extract_vertex_indices<T: cfd_mesh::domain::core::Scalar + RealField + Co
 /// conformity). `extract_vertex_indices` finds the same node via exhaustive nearest-
 /// midpoint scan. Both converge to the same index by definition of the minimum.
 pub fn extract_vertex_indices_cached<
-    T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float,
+    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FloatElement,
 >(
     cell: &Cell,
     mesh: &IndexedMesh<T>,
@@ -237,12 +241,10 @@ pub fn extract_vertex_indices_cached<
                 .vertices
                 .position(cfd_mesh::domain::core::index::VertexId::from_usize(v_j))
                 .coords;
-            let target = (p_i + p_j)
-                * <T as FromPrimitive>::from_f64(0.5)
-                    .expect("0.5 is exactly representable in IEEE 754");
+            let target = (p_i + p_j) * scalar::constant::<T>(0.5);
 
             let mut best_node = None;
-            let mut min_dist = T::infinity();
+            let mut min_dist = <T as NumericElement>::MAX_VALUE;
             for &m_idx in &mid_edges {
                 if used_mid_edges.contains(&m_idx) {
                     continue;
@@ -286,7 +288,7 @@ pub fn extract_vertex_indices_cached<
 /// **Proof**: For a non-degenerate tetrahedron `det(J) ≠ 0`. Since swapping any
 /// two vertices negates the determinant, exactly 12 of the 24 permutations yield
 /// `det > 0`. This function selects the lexicographically smallest such permutation.
-fn order_tet_corners<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
+fn order_tet_corners<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FloatElement>(
     corners: &[usize],
     mesh: &IndexedMesh<T>,
 ) -> Vec<usize> {
@@ -318,7 +320,7 @@ fn order_tet_corners<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Floa
     ];
 
     let mut best: Option<Vec<usize>> = None;
-    let mut best_det = T::neg_infinity();
+    let mut best_det = <T as NumericElement>::MIN_VALUE;
 
     for perm in &perms {
         let v0 = corners[perm[0]];
@@ -344,7 +346,7 @@ fn order_tet_corners<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Floa
             .coords;
 
         let det = (p1 - p0).cross(&(p2 - p0)).dot(&(p3 - p0));
-        if det > T::zero() {
+        if det > scalar::zero::<T>() {
             let candidate = vec![v0, v1, v2, v3];
             let take = match &best {
                 None => true,
@@ -367,19 +369,29 @@ fn order_tet_corners<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Floa
 ///
 /// Returns `‖max − min‖₂` where `min` and `max` are the component-wise
 /// extrema of all vertex positions.
-pub(crate) fn compute_mesh_scale<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float>(
+pub(crate) fn compute_mesh_scale<
+    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FloatElement,
+>(
     mesh: &IndexedMesh<T>,
 ) -> T {
-    let mut min = Vector3::new(T::infinity(), T::infinity(), T::infinity());
-    let mut max = Vector3::new(T::neg_infinity(), T::neg_infinity(), T::neg_infinity());
+    let mut min = Vector3::new(
+        <T as NumericElement>::MAX_VALUE,
+        <T as NumericElement>::MAX_VALUE,
+        <T as NumericElement>::MAX_VALUE,
+    );
+    let mut max = Vector3::new(
+        <T as NumericElement>::MIN_VALUE,
+        <T as NumericElement>::MIN_VALUE,
+        <T as NumericElement>::MIN_VALUE,
+    );
     for v in mesh.vertices.iter() {
         let p = v.1.position.coords;
-        min.x = Float::min(min.x, p.x);
-        min.y = Float::min(min.y, p.y);
-        min.z = Float::min(min.z, p.z);
-        max.x = Float::max(max.x, p.x);
-        max.y = Float::max(max.y, p.y);
-        max.z = Float::max(max.z, p.z);
+        min.x = <T as NumericElement>::min_scalar(min.x, p.x);
+        min.y = <T as NumericElement>::min_scalar(min.y, p.y);
+        min.z = <T as NumericElement>::min_scalar(min.z, p.z);
+        max.x = <T as NumericElement>::max_scalar(max.x, p.x);
+        max.y = <T as NumericElement>::max_scalar(max.y, p.y);
+        max.z = <T as NumericElement>::max_scalar(max.z, p.z);
     }
     (max - min).norm()
 }
@@ -393,19 +405,18 @@ fn nearest_mid_node<T, I>(
     excluded: Option<&HashSet<usize>>,
 ) -> usize
 where
-    T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float,
+    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FloatElement,
     I: IntoIterator<Item = usize> + Clone,
 {
     use cfd_mesh::domain::core::index::VertexId;
 
     let p_i = mesh.vertices.position(VertexId::from_usize(v_i)).coords;
     let p_j = mesh.vertices.position(VertexId::from_usize(v_j)).coords;
-    let target = (p_i + p_j)
-        * <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
+    let target = (p_i + p_j) * scalar::constant::<T>(0.5);
 
     let search = |skip_used: bool| -> Option<usize> {
         let mut best_node = None;
-        let mut min_dist_sq = T::infinity();
+        let mut min_dist_sq = <T as NumericElement>::MAX_VALUE;
 
         for m_idx in candidates.clone() {
             if skip_used && excluded.is_some_and(|used| used.contains(&m_idx)) {

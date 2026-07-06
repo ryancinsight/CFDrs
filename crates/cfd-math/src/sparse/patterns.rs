@@ -2,17 +2,22 @@
 
 use super::builder::SparseMatrixBuilder;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
-use nalgebra_sparse::CsrMatrix;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto_ops::{CsrMatrix, Scalar as LetoScalar};
 
 /// Factory for common sparse matrix patterns
 pub struct SparsePatterns;
+
+#[inline]
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
 
 impl SparsePatterns {
     /// Create tridiagonal matrix pattern
     pub fn tridiagonal<T>(n: usize, lower: T, diag: T, upper: T) -> Result<CsrMatrix<T>>
     where
-        T: RealField + Copy,
+        T: RealField + Copy + LetoScalar,
     {
         if n == 0 {
             return Err(Error::InvalidConfiguration(
@@ -47,7 +52,7 @@ impl SparsePatterns {
     /// Create five-point stencil for 2D Laplacian
     pub fn five_point_stencil<T>(nx: usize, ny: usize, dx: T, dy: T) -> Result<CsrMatrix<T>>
     where
-        T: RealField + Copy,
+        T: RealField + Copy + FloatElement + LetoScalar,
     {
         if nx == 0 || ny == 0 {
             return Err(Error::InvalidConfiguration(
@@ -58,9 +63,10 @@ impl SparsePatterns {
         let n = nx * ny;
         let dx2 = dx * dx;
         let dy2 = dy * dy;
-        let cx = T::one() / dx2;
-        let cy = T::one() / dy2;
-        let center = -(T::from_f64(2.0).unwrap_or(T::one() + T::one()) * (cx + cy));
+        let cx = <T as NumericElement>::ONE / dx2;
+        let cy = <T as NumericElement>::ONE / dy2;
+        let two: T = from_f64(2.0);
+        let center = <T as NumericElement>::ZERO - two * (cx + cy);
 
         let mut builder = SparseMatrixBuilder::with_capacity(n, n, 5 * n);
 
@@ -99,7 +105,7 @@ impl SparsePatterns {
     /// Create nine-point stencil for 2D biharmonic operator
     pub fn nine_point_stencil<T>(nx: usize, ny: usize, dx: T, dy: T) -> Result<CsrMatrix<T>>
     where
-        T: RealField + Copy,
+        T: RealField + Copy + FloatElement + LetoScalar,
     {
         if nx < 3 || ny < 3 {
             return Err(Error::InvalidConfiguration(
@@ -111,13 +117,14 @@ impl SparsePatterns {
         let dx2 = dx * dx;
         let dy2 = dy * dy;
         let dxdy = dx * dy;
+        let two: T = from_f64(2.0);
+        let four: T = from_f64(4.0);
 
         // Stencil coefficients
-        let corner = T::one() / (T::from_f64(4.0).unwrap_or(T::one()) * dxdy);
-        let x_side = T::one() / dx2;
-        let y_side = T::one() / dy2;
-        let center = -(T::from_f64(2.0).unwrap_or(T::one() + T::one()) * (x_side + y_side)
-            + T::from_f64(4.0).unwrap_or(T::one()) * corner);
+        let corner = <T as NumericElement>::ONE / (four * dxdy);
+        let x_side = <T as NumericElement>::ONE / dx2;
+        let y_side = <T as NumericElement>::ONE / dy2;
+        let center = <T as NumericElement>::ZERO - (two * (x_side + y_side) + four * corner);
 
         let mut builder = SparseMatrixBuilder::with_capacity(n, n, 9 * n);
 
@@ -164,7 +171,7 @@ impl SparsePatterns {
     /// Create banded matrix pattern
     pub fn banded<T>(n: usize, bandwidth: usize, value: T) -> Result<CsrMatrix<T>>
     where
-        T: RealField + Copy,
+        T: RealField + Copy + LetoScalar,
     {
         if n == 0 || bandwidth == 0 {
             return Err(Error::InvalidConfiguration(

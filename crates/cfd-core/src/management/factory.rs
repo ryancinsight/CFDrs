@@ -5,7 +5,7 @@
 
 use crate::compute::solver::{Solver, SolverConfiguration};
 use crate::error::{Error, Result};
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;

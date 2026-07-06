@@ -22,13 +22,14 @@
 //! For an ideal network without junction losses, `η_hyd → 1` as all power goes
 //! into moving fluid through the channel resistances.
 
-use nalgebra::RealField;
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromUsize;
 use std::collections::HashMap;
 use std::iter::Sum;
 
 /// Network performance metrics
 #[derive(Debug, Clone)]
-pub struct PerformanceMetrics<T: RealField + Copy> {
+pub struct PerformanceMetrics<T: Cfd1dScalar + Copy> {
     /// Throughput [m³/s]
     pub throughput: T,
     /// Pressure efficiency (useful pressure / total pressure)
@@ -41,7 +42,7 @@ pub struct PerformanceMetrics<T: RealField + Copy> {
     pub residence_times: HashMap<String, T>,
 }
 
-impl<T: RealField + Copy + Sum> PerformanceMetrics<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> PerformanceMetrics<T> {
     /// Create new performance metrics
     #[must_use]
     pub fn new() -> Self {
@@ -114,7 +115,7 @@ impl<T: RealField + Copy + Sum> PerformanceMetrics<T> {
             T::zero()
         } else {
             let sum: T = self.residence_times.values().copied().sum();
-            sum / T::from_usize(self.residence_times.len()).unwrap_or_else(T::one)
+            sum / T::from_usize_or_one(self.residence_times.len())
         }
     }
 
@@ -140,7 +141,7 @@ impl<T: RealField + Copy + Sum> PerformanceMetrics<T> {
     }
 }
 
-impl<T: RealField + Copy + Sum> Default for PerformanceMetrics<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> Default for PerformanceMetrics<T> {
     fn default() -> Self {
         Self::new()
     }

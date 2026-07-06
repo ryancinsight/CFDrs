@@ -10,7 +10,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use nalgebra::{DMatrix, Vector3};
 use apollo_fft::{fft_3d_array, ifft_3d_array};
-use ndarray::Array3;
+use leto::Array3;
 
 /// Benchmark FEM element matrix assembly
 pub fn bench_fem_element_assembly(c: &mut Criterion) {
@@ -43,7 +43,7 @@ pub fn bench_spectral_fft(c: &mut Criterion) {
     let mut group = c.benchmark_group("spectral_fft");
 
     for &size in [8, 16, 32, 64].iter() {
-        let field = Array3::from_shape_fn((size, size, size), |(i, j, k)| {
+        let field = Array3::from_shape_fn([size, size, size], |[i, j, k]| {
             ((i + j + k) as f64 * 0.3).sin() + 0.25 * ((i * j + k) as f64 * 0.1).cos()
         });
         let spectrum = fft_3d_array(&field);

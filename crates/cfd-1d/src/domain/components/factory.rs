@@ -4,15 +4,15 @@ use super::{
     constants, try_real_from_f64, CircularChannel, Component, HashMap, Micropump, Microvalve,
     OrganCompartment, PorousMembrane, RectangularChannel,
 };
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
 
 /// Factory for creating microfluidic components
 pub struct ComponentFactory;
 
 impl ComponentFactory {
-    fn required_param<T: RealField + Copy + FromPrimitive + Float>(
+    fn required_param<T: Cfd1dScalar + Copy + SafeFromF64>(
         params: &HashMap<String, T>,
         name: &str,
     ) -> Result<T> {
@@ -22,7 +22,7 @@ impl ComponentFactory {
             .ok_or_else(|| Error::InvalidConfiguration(format!("Missing {name} parameter")))
     }
 
-    fn optional_param<T: RealField + Copy + FromPrimitive + Float>(
+    fn optional_param<T: Cfd1dScalar + Copy + SafeFromF64>(
         params: &HashMap<String, T>,
         name: &str,
         default: f64,
@@ -36,7 +36,7 @@ impl ComponentFactory {
     }
 
     /// Create a component from type string and parameters
-    pub fn create<T: RealField + Copy + FromPrimitive + Float>(
+    pub fn create<T: Cfd1dScalar + Copy + SafeFromF64 + 'static>(
         component_type: &str,
         params: &HashMap<String, T>,
     ) -> Result<Box<dyn Component<T>>> {

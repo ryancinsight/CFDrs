@@ -3,24 +3,22 @@
 //! Provides SPD detection for assembled conductance matrices and
 //! validation of linear systems before solve.
 
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::NumericElement;
+use leto::{Array1, Storage};
 
-use super::{LinearSolverMethod, NetworkSolver};
+use super::{LinearSolverMethod, NetworkSolveScalar, NetworkSolver};
 use crate::domain::network::Network;
 use cfd_core::error::{Error, NumericalErrorKind, Result};
 use cfd_core::physics::fluid::FluidTrait;
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Float, F: FluidTrait<T> + Clone>
-    NetworkSolver<T, F>
-{
+impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     /// Detect whether the network has only linear (flow-independent) resistances.
     pub(super) fn is_linear_static_network(network: &Network<T, F>) -> bool {
         let eps = T::default_epsilon();
         let all_edges_linear = network
             .graph
             .edge_weights()
-            .all(|edge| <T as Float>::abs(edge.quad_coeff) <= eps);
+            .all(|edge| <T as NumericElement>::abs(edge.quad_coeff) <= eps);
         let no_geometry_updates = network
             .properties
             .values()
@@ -48,7 +46,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Float, F: FluidTrait<T>
                     is_spd = false;
                     break;
                 } else {
-                    sum_off += <T as Float>::abs(*val);
+                    sum_off += <T as NumericElement>::abs(*val);
                 }
             }
             if !is_spd {
@@ -70,7 +68,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Float, F: FluidTrait<T>
     /// Validate assembled linear system for well-formedness.
     pub(super) fn validate_linear_system(
         matrix: &nalgebra_sparse::CsrMatrix<T>,
-        rhs: &nalgebra::DVector<T>,
+        rhs: &Array1<T>,
     ) -> Result<()> {
         if matrix.nrows() == 0 || matrix.ncols() == 0 {
             return Err(Error::InvalidConfiguration(
@@ -80,14 +78,19 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Float, F: FluidTrait<T>
         for row_idx in 0..matrix.nrows() {
             let row = matrix.row(row_idx);
             for value in row.values() {
-                if !value.is_finite() {
+                if !<T as NumericElement>::is_finite(*value) {
                     return Err(Error::Numerical(NumericalErrorKind::InvalidValue {
                         value: format!("matrix[{row_idx}] is non-finite"),
                     }));
                 }
             }
         }
-        if rhs.iter().any(|value| !value.is_finite()) {
+        if rhs
+            .storage()
+            .as_slice()
+            .iter()
+            .any(|value| !<T as NumericElement>::is_finite(*value))
+        {
             return Err(Error::Numerical(NumericalErrorKind::InvalidValue {
                 value: "RHS contains non-finite entries".to_string(),
             }));
@@ -99,7 +102,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Float, F: FluidTrait<T>
     pub(super) fn compute_residual_norm(
         matrix: &nalgebra_sparse::CsrMatrix<T>,
         solution: &nalgebra::DVector<T>,
-        rhs: &nalgebra::DVector<T>,
+        rhs: &Array1<T>,
         n: usize,
     ) -> T {
         let mut norm = T::zero();
@@ -112,16 +115,18 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + Float, F: FluidTrait<T>
             let r_i = ax_i - rhs[i];
             norm += r_i * r_i;
         }
-        <T as Float>::sqrt(norm)
+        <T as NumericElement>::sqrt(norm)
     }
 
     /// Check all entries in a vector are finite.
     pub(super) fn vector_is_finite(values: &nalgebra::DVector<T>) -> bool {
-        values.iter().all(|value| value.is_finite())
+        values
+            .iter()
+            .all(|value| <T as NumericElement>::is_finite(*value))
     }
 
     /// Convert a scalar T to f64 for diagnostics.
     pub(super) fn scalar_to_f64(value: T) -> Option<f64> {
-        value.to_f64()
+        Some(<T as NumericElement>::to_f64(value))
     }
 }

@@ -467,7 +467,6 @@ mod tests {
                 narrow_daughter_dh: 2.0e-3 * (1.0 - center_frac),
                 feed_hematocrit: 0.45,
             }),
-            ..Default::default()
         };
         let tracker = CellTracker::new(&flow, config);
 

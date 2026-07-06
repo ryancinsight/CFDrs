@@ -10,11 +10,11 @@
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
-use nalgebra::{DMatrix, RealField, Vector2};
-use num_traits::ToPrimitive;
+use eunomia::RealField;
+use leto::{geometry::Vector2, Array2};
 
 /// Trait for RANS turbulence models (k-ε, k-ω, SA)
-pub trait TurbulenceModel<T: RealField + Copy + ToPrimitive> {
+pub trait TurbulenceModel<T: RealField> {
     /// Calculate turbulent viscosity
     ///
     /// # Arguments
@@ -102,9 +102,9 @@ pub trait LESTurbulenceModel {
     /// * `dx`, `dy` - grid spacing
     fn update(
         &mut self,
-        velocity_u: &DMatrix<f64>,
-        velocity_v: &DMatrix<f64>,
-        pressure: &DMatrix<f64>,
+        velocity_u: &Array2<f64>,
+        velocity_v: &Array2<f64>,
+        pressure: &Array2<f64>,
         density: f64,
         viscosity: f64,
         dt: f64,
@@ -116,7 +116,7 @@ pub trait LESTurbulenceModel {
     fn get_viscosity(&self, i: usize, j: usize) -> f64;
 
     /// Get turbulent viscosity field
-    fn get_turbulent_viscosity_field(&self) -> &DMatrix<f64>;
+    fn get_turbulent_viscosity_field(&self) -> &Array2<f64>;
 
     /// Get turbulent kinetic energy at a grid point.
     fn get_turbulent_kinetic_energy(&self, i: usize, j: usize) -> f64;
