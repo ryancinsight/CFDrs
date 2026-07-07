@@ -10,8 +10,6 @@ pub trait Cfd3dScalar:
     cfd_mesh::domain::core::Scalar
     + eunomia::RealField
     + LetoRealScalar
-    + num_traits::Zero
-    + num_traits::One
     + FloatElement
     + NumericElement
     + Copy
@@ -22,14 +20,23 @@ pub trait Cfd3dScalar:
     + Sync
     + 'static
 {
+    /// Additive identity from the Eunomia numeric contract.
+    #[inline]
+    fn zero() -> Self {
+        <Self as NumericElement>::ZERO
+    }
+
+    /// Multiplicative identity from the Eunomia numeric contract.
+    #[inline]
+    fn one() -> Self {
+        <Self as NumericElement>::ONE
+    }
 }
 
 impl<T> Cfd3dScalar for T where
     T: cfd_mesh::domain::core::Scalar
         + eunomia::RealField
         + LetoRealScalar
-        + num_traits::Zero
-        + num_traits::One
         + FloatElement
         + NumericElement
         + Copy

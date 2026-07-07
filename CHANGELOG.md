@@ -34,6 +34,15 @@ All notable changes to this project will be documented in this file.
 Consolidated domain error types into `cfd_core::error` with 15 Kind enums and 28 Error variants. `cfd-io` now owns a local file-format error type so the I/O crate does not depend on `cfd-core` only for error reporting while the Atlas provider migration removes nalgebra from its normal dependency graph. Only `cfd-optim` retains a local `OptimError` (bridged via `From` impl). Removed 8 dead extension traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
 
 ### Changed
+- **cfd-1d/cfd-3d**: Removed direct `num-traits` dependency ownership from the
+  crate scalar seams. The workspace dependency catalog and both crate
+  manifests no longer declare `num-traits`, and `Cfd1dScalar`/`Cfd3dScalar`
+  now expose `zero()`/`one()` through Eunomia `NumericElement` constants
+  instead of `num_traits::{Zero,One}` bounds. Evidence: touched-file rustfmt,
+  `cargo check -p cfd-1d -p cfd-3d`, targeted direct-residue scan, and
+  dual-package nextest 1122/1122 with one existing slow 3D mesh-convergence
+  validation. Residual: package-wide fmt/clippy are still blocked by unrelated
+  baseline formatting/lint drift outside this scalar dependency slice.
 - **cfd-1d**: Moved solver-core reusable workspace vectors from nalgebra
   `DVector` to Leto `Array1`. `SolverWorkspace` now stores RHS, previous
   solution, and linear initial-guess/output buffers as Leto arrays;

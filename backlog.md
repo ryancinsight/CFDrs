@@ -26,6 +26,15 @@
 # CFDrs Backlog
 
 ## Structural Improvements
+- [x] `cfd-1d`/`cfd-3d` [patch]: Remove direct `num-traits` scalar
+  dependency ownership from the crate scalar seams. The workspace dependency
+  catalog and both crate manifests no longer declare `num-traits`, and
+  `Cfd1dScalar`/`Cfd3dScalar` source identity values from Eunomia
+  `NumericElement` constants. Evidence: touched-file rustfmt, dual-package
+  check, targeted direct-dependency/source residue scan, and dual-package
+  nextest 1122/1122 with one existing slow 3D mesh-convergence validation.
+  Residual: package-wide fmt/clippy are still blocked by unrelated baseline
+  formatting and lint debt outside the touched scalar/manifests cone.
 - [x] `cfd-1d` [patch]: Move solver-core reusable workspace vector storage
   to Leto arrays. `SolverWorkspace::{rhs,last_solution,linear_solution}` now
   stores `leto::Array1<T>` values, matrix assembly returns a Leto RHS array,

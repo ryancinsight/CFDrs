@@ -25,6 +25,32 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Sprint 2026-07-07: cfd-1d/cfd-3d Eunomia identity seam
+
+- **Resolved direct scalar dependency**:
+  `Cargo.toml`, `crates/cfd-1d/Cargo.toml`, and
+  `crates/cfd-3d/Cargo.toml` no longer declare direct `num-traits`
+  dependencies for the 1D/3D solver scalar seams.
+- **Resolved identity ownership**:
+  `Cfd1dScalar` and `Cfd3dScalar` now expose `zero()` and `one()` through the
+  Eunomia `NumericElement` constants already required by the crate-local
+  scalar contracts, removing `num_traits::{Zero,One}` as a supertrait
+  requirement.
+- **Evidence tier**: compile-time integration, empirical nextest coverage,
+  touched-file formatting, and static source/manifest audit. In
+  `D:/atlas/repos/CFDrs`, touched-file rustfmt passed; `rustup run nightly
+  cargo check -p cfd-1d -p cfd-3d` passed; direct residue scan found no
+  `num_traits` or direct `num-traits` hits in the touched manifests/scalar
+  cones; and `rustup run nightly cargo nextest run -p cfd-1d -p cfd-3d
+  --status-level fail` passed 1122/1122 with one existing slow 3D
+  mesh-convergence validation.
+- **Residual risk**: package-wide fmt and all-targets clippy remain blocked by
+  pre-existing unrelated formatting/lint debt outside this slice. Lockfile
+  `num-traits` entries, if present, are transitive provider dependencies owned
+  by upstream crates rather than direct CFDrs scalar-seam dependencies.
+
+---
+
 ## Sprint 2026-07-05: cfd-1d solver workspace Leto vector storage
 
 - **Resolved workspace vector storage boundary**:
