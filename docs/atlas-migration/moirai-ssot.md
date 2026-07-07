@@ -5,11 +5,15 @@ This artifact declares the **Atlas-typed `moirai-parallel` macro-thread
 fan-out across the cfdrs workspace, replacing the legacy `rayon` +
 `tokio` + `ndarray::Zip::indexed().par_*` fan-out surfaces. This
 sub-batch formalizes the SSOT alignment under the
-kwavers-Atlas-migration-push ceremony naming. cfdrs HEAD =
+kwavers-Atlas-migration-push ceremony naming. cfdrs HEAD at discovery time =
 `1d768895 refactor(cfdrs): Atlas-provider migration push (Leto CSR +
 Eunomia scalar + Hephaestus GPU + cfd-math / cfd-2d / cfd-3d /
-cfd-1d / cfd-validation consumer cones)` is the trailing Atlas-typed
-sweep.
+cfd-1d / cfd-validation consumer cones)` was the trailing
+Atlas-typed sweep; the SSOT formalization chore itself landed at
+`8ef153b1 chore(cfdrs): Moirai parallel-surface SSOT formalization
+and Atlas-provider audit`, with the accuracy-slips docs fixup
+layered at `docs:` follow-up — both anchored under the
+`kwavers-Atlas-migration-push` ceremony anchor.
 
 ## Surface inventory
 
