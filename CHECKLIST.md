@@ -1,4 +1,19 @@
 # CFDrs Work Checklist
+- [x] Remove direct `num-traits` from the `cfd-1d` and `cfd-3d` scalar
+  seams. `Cargo.toml` no longer declares `num-traits` in the workspace
+  dependency catalog, `crates/cfd-1d/Cargo.toml` and
+  `crates/cfd-3d/Cargo.toml` no longer depend on it directly, and
+  `Cfd1dScalar`/`Cfd3dScalar` now provide `zero()`/`one()` through Eunomia
+  `NumericElement` constants instead of `num_traits::{Zero,One}` bounds.
+  Evidence in `D:/atlas/repos/CFDrs`: touched-file rustfmt passed,
+  `rustup run nightly cargo check -p cfd-1d -p cfd-3d` passed, targeted
+  residue scan found no `num_traits`/direct `num-traits` hits in the touched
+  manifests and scalar cones, and `rustup run nightly cargo nextest run -p
+  cfd-1d -p cfd-3d --status-level fail` passed 1122/1122 with one existing
+  slow 3D mesh-convergence validation. Residual: package-wide
+  `cargo fmt -p cfd-1d -p cfd-3d --check` and all-targets clippy remain
+  blocked by pre-existing unrelated formatting/lint drift outside this scalar
+  dependency slice.
 - [x] Move `cfd-1d::solver::core::SolverWorkspace` reusable vector storage
   off nalgebra `DVector`. `SolverWorkspace::{rhs,last_solution,
   linear_solution}` now store `leto::Array1<T>`, `MatrixAssembler::assemble`
