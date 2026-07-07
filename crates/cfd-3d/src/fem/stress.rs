@@ -42,7 +42,7 @@
 
 use crate::scalar::Cfd3dScalar;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use nalgebra::Matrix3;
+use crate::linalg::{matrix3_scale, symmetric_part, Matrix3};
 
 use super::scalar;
 
@@ -64,7 +64,7 @@ use super::scalar;
 /// * `strain_rate` — Symmetric strain-rate tensor ε̇ = ½(∇u + (∇u)ᵀ).
 pub fn stress_tensor<T: Cfd3dScalar>(mu: T, pressure: T, strain_rate: &Matrix3<T>) -> Matrix3<T> {
     let two = scalar::constant::<T>(2.0);
-    let mut stress: Matrix3<T> = strain_rate * (two * mu);
+    let mut stress = matrix3_scale(strain_rate, two * mu);
 
     // Add pressure contribution to diagonal: σ_ij += −p δ_ij
     stress[(0, 0)] -= pressure;
@@ -96,14 +96,13 @@ pub fn stress_tensor_with_fluid<T: Cfd3dScalar>(
 ///
 /// The output is symmetric by construction: ε̇_{ij} = ε̇_{ji}.
 pub fn strain_rate_tensor<T: Cfd3dScalar>(velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
-    let half = scalar::constant::<T>(0.5);
-    (velocity_gradient + velocity_gradient.transpose()) * half
+    symmetric_part(velocity_gradient)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::Matrix3;
+    use crate::linalg::Matrix3;
 
     /// Simple shear flow: u = (γ̇·y, 0, 0).
     /// ∇u has only (0,1) entry = γ̇.
@@ -120,7 +119,7 @@ mod tests {
         let pressure: f64 = 100.0;
 
         // Velocity gradient for simple shear: du_x/dy = γ̇
-        let grad_u = Matrix3::new(0.0, gamma_dot, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let grad_u = Matrix3::from_rows([[0.0, gamma_dot, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]);
         let eps = strain_rate_tensor(&grad_u);
         let sigma = stress_tensor(mu, pressure, &eps);
 
@@ -155,7 +154,7 @@ mod tests {
     fn stress_tensor_with_fluid_matches_scalar_api() {
         let fluid = ConstantPropertyFluid::<f64>::water_20c().unwrap();
         let pressure = 50.0;
-        let grad_u = Matrix3::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
+        let grad_u = Matrix3::from_rows([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]);
         let eps = strain_rate_tensor(&grad_u);
         let sigma_scalar = stress_tensor(fluid.viscosity, pressure, &eps);
         let sigma_fluid = stress_tensor_with_fluid(&fluid, pressure, &eps);
@@ -175,7 +174,8 @@ mod tests {
     /// Strain rate tensor must be symmetric for an arbitrary velocity gradient.
     #[test]
     fn strain_rate_tensor_symmetry() {
-        let grad_u: Matrix3<f64> = Matrix3::new(1.0, 3.0, 5.0, 2.0, 4.0, 7.0, 9.0, 6.0, 8.0);
+        let grad_u: Matrix3<f64> =
+            Matrix3::from_rows([[1.0, 3.0, 5.0], [2.0, 4.0, 7.0], [9.0, 6.0, 8.0]]);
         let eps = strain_rate_tensor(&grad_u);
         for i in 0..3 {
             for j in 0..3 {
@@ -194,7 +194,8 @@ mod tests {
     #[test]
     fn strain_rate_tensor_trace_free_for_incompressible_shear() {
         let gamma_dot: f64 = 500.0;
-        let grad_u: Matrix3<f64> = Matrix3::new(0.0, gamma_dot, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let grad_u: Matrix3<f64> =
+            Matrix3::from_rows([[0.0, gamma_dot, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]);
         let eps = strain_rate_tensor(&grad_u);
         let trace = eps[(0, 0)] + eps[(1, 1)] + eps[(2, 2)];
         assert!(

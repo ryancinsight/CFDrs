@@ -36,7 +36,8 @@
 
 use crate::scalar;
 use eunomia::FloatElement;
-use nalgebra::{Point3, RealField, Vector3};
+use eunomia::RealField;
+use leto::{Point3, Vector3};
 use serde::{Deserialize, Serialize};
 
 // ============================================================================

@@ -25,9 +25,10 @@
 //!
 //! **Reference:** Brenner & Scott, "Math. Theory of FEM", 3rd Ed., Thm. 4.4.20.
 
-use nalgebra::{DMatrix, Matrix3x4, RealField};
-
+use crate::linalg::{array2_set_column3, matrix3x4_column, Matrix3x4};
 use eunomia::{FloatElement, NumericElement};
+use leto::Array2;
+use eunomia::RealField;
 
 use super::scalar;
 
@@ -75,24 +76,25 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Lagran
 
     /// Calculate shape function gradients ∇N_i at barycentric coordinates L
     /// Returns 3x10 matrix (rows for x,y,z; columns for nodes 0-9)
-    pub fn gradients(&self, l: &[T; 4]) -> DMatrix<T> {
-        let mut grad = DMatrix::zeros(3, 10);
+    pub fn gradients(&self, l: &[T; 4]) -> Array2<T> {
+        let mut grad = Array2::zeros([3, 10]);
         let one = <T as NumericElement>::ONE;
         let four = scalar::constant::<T>(4.0);
 
         // Corner nodes (0-3): ∇Ni = (4Li - 1) ∇Li
         for (i, &li) in l.iter().enumerate() {
             let factor = four * li - one;
-            let g_i = self.p1_gradients.column(i) * factor;
-            grad.set_column(i, &g_i);
+            let g_i = matrix3x4_column(&self.p1_gradients, i) * factor;
+            array2_set_column3(&mut grad, i, g_i);
         }
 
         // Mid-edge nodes (4-9): ∇Nij = 4(Li ∇Lj + Lj ∇Li)
         let edges = [(0, 1), (1, 2), (2, 0), (0, 3), (1, 3), (2, 3)];
         for (idx, &(i, j)) in edges.iter().enumerate() {
-            let g_ij =
-                (self.p1_gradients.column(j) * l[i] + self.p1_gradients.column(i) * l[j]) * four;
-            grad.set_column(4 + idx, &g_ij);
+            let g_ij = (matrix3x4_column(&self.p1_gradients, j) * l[i]
+                + matrix3x4_column(&self.p1_gradients, i) * l[j])
+                * four;
+            array2_set_column3(&mut grad, 4 + idx, g_ij);
         }
 
         grad
@@ -109,11 +111,7 @@ mod tests {
     /// Barycentric coords: L1=1-x-y-z, L2=x, L3=y, L4=z.
     /// ∇L1=(-1,-1,-1), ∇L2=(1,0,0), ∇L3=(0,1,0), ∇L4=(0,0,1).
     fn reference_tet_shape() -> LagrangeTet10<f64> {
-        let p1_gradients = Matrix3x4::new(
-            -1.0, 1.0, 0.0, 0.0, // row x
-            -1.0, 0.0, 1.0, 0.0, // row y
-            -1.0, 0.0, 0.0, 1.0, // row z
-        );
+        let p1_gradients = crate::linalg::reference_tet_gradients();
         LagrangeTet10::new(p1_gradients)
     }
 
@@ -196,7 +194,7 @@ mod tests {
 
         // Sum over all 10 shape function gradients (columns)
         for row in 0..3 {
-            let sum: f64 = (0..10).map(|col| grad[(row, col)]).sum();
+            let sum: f64 = (0..10).map(|col| grad[[row, col]]).sum();
             assert_relative_eq!(sum, 0.0, epsilon = 1e-13);
         }
     }

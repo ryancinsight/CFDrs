@@ -30,7 +30,7 @@
 use crate::bifurcation::ConicalTransition;
 use crate::scalar;
 use eunomia::FloatElement;
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 /// 3D Trifurcation geometry
@@ -90,12 +90,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy>
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + FloatElement + Copy>
+impl<T: cfd_mesh::domain::core::Scalar + eunomia::RealField + FloatElement + Copy>
     cfd_mesh::application::delaunay::dim3::sdf::Sdf3D<T> for TrifurcationGeometry3D<T>
 {
-    fn eval(&self, p: &nalgebra::Point3<T>) -> T {
+    fn eval(&self, p: &leto::Point3<T>) -> T {
         use cfd_mesh::application::delaunay::dim3::sdf::FiniteCylinderSdf;
-        use nalgebra::{Point3, Vector3};
+        use leto::{Point3, Vector3};
 
         // Start with parent cylinder distance
         let half = scalar::from_f64::<T>(2.0);
@@ -133,9 +133,9 @@ impl<T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + FloatElement + Co
         min_val
     }
 
-    fn bounds(&self) -> (nalgebra::Point3<T>, nalgebra::Point3<T>) {
+    fn bounds(&self) -> (leto::Point3<T>, leto::Point3<T>) {
         use cfd_mesh::application::delaunay::dim3::sdf::FiniteCylinderSdf;
-        use nalgebra::{Point3, Vector3};
+        use leto::{Point3, Vector3};
 
         let half = scalar::from_f64::<T>(2.0);
 

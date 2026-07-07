@@ -22,9 +22,10 @@
 use cfd_mesh::domain::core::Scalar;
 use cfd_mesh::IndexedMesh;
 use eunomia::{FloatElement, NumericElement};
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::collections::HashMap;
 
+use crate::linalg::vector3_from_indexed;
 use super::scalar;
 
 /// Map from canonical edge pair `(min(v_i, v_j), max(v_i, v_j))` → mid-node index.
@@ -57,14 +58,19 @@ impl MidNodeCache {
         use cfd_mesh::domain::core::index::VertexId;
 
         // Collect corner node positions
-        let corner_positions: Vec<nalgebra::Vector3<T>> = (0..n_corner_nodes)
-            .map(|i| mesh.vertices.position(VertexId::from_usize(i)).coords)
+        let corner_positions: Vec<leto::Vector3<T>> = (0..n_corner_nodes)
+            .map(|i| vector3_from_indexed(&mesh.vertices.position(VertexId::from_usize(i)).coords))
             .collect();
 
         // Collect mid-node positions
-        let mid_node_positions: Vec<(usize, nalgebra::Vector3<T>)> = (n_corner_nodes
+        let mid_node_positions: Vec<(usize, leto::Vector3<T>)> = (n_corner_nodes
             ..mesh.vertex_count())
-            .map(|i| (i, mesh.vertices.position(VertexId::from_usize(i)).coords))
+            .map(|i| {
+                (
+                    i,
+                    vector3_from_indexed(&mesh.vertices.position(VertexId::from_usize(i)).coords),
+                )
+            })
             .collect();
 
         let half = scalar::constant::<T>(0.5);
@@ -80,7 +86,7 @@ impl MidNodeCache {
             for vi in 0..n_corner_nodes {
                 for vj in (vi + 1)..n_corner_nodes {
                     let midpt = (corner_positions[vi] + corner_positions[vj]) * half;
-                    let d2 = (m_pos - midpt).norm_squared();
+                    let d2 = (*m_pos - midpt).norm_squared();
                     if d2 < best_dist_sq {
                         best_dist_sq = d2;
                         best_edge = Some((vi, vj));

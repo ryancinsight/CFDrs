@@ -10,7 +10,6 @@ use eunomia::{FloatElement, NumericElement};
 pub trait ValidationScalar:
     cfd_2d::Cfd2dScalar
     + cfd_mesh::domain::core::Scalar
-    + nalgebra::RealField
     + eunomia::RealField
     + FloatElement
     + NumericElement
@@ -25,7 +24,6 @@ pub trait ValidationScalar:
 impl<T> ValidationScalar for T where
     T: cfd_2d::Cfd2dScalar
         + cfd_mesh::domain::core::Scalar
-        + nalgebra::RealField
         + eunomia::RealField
         + FloatElement
         + NumericElement

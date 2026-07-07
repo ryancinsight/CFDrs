@@ -35,8 +35,7 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 
 # Math and numerical
-nalgebra = { version = "0.33", features = ["serde-serialize"] }
-nalgebra-sparse = "0.10"
+num-traits = "0.2"
 rsparse = "1.2"
 eunomia = { git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
 approx = "0.5"
@@ -84,7 +83,7 @@ consus-core = { git = "https://github.com/ryancinsight/consus.git", default-feat
 consus-hdf5 = { git = "https://github.com/ryancinsight/consus.git" }
 # ritk: RITK imaging toolkit; owns the VTK data model and I/O. Consumed by
 # cfd-io behind the `vtk` feature for VTK creation.
-ritk-vtk = { git = "https://github.com/ryancinsight/ritk.git" }
+ritk-vtk = { path = "../ritk/crates/ritk-vtk" }
 # mnemosyne: high-performance global allocator. Wired into cfd-core behind the
 # `mnemosyne` feature as the process #[global_allocator].
 mnemosyne = { git = "https://github.com/ryancinsight/Mnemosyne.git" }
@@ -132,6 +131,9 @@ eunomia = { path = "../eunomia/crates/eunomia" }
 [patch."https://github.com/ryancinsight/leto.git"]
 leto = { path = "../leto/crates/leto" }
 leto-ops = { path = "../leto/crates/leto-ops" }
+
+[patch."https://github.com/ryancinsight/gaia.git"]
+gaia = { path = "../gaia" }
 
 [patch."https://github.com/ryancinsight/hephaestus.git"]
 hephaestus-wgpu = { path = "../hephaestus/crates/hephaestus-wgpu" }
@@ -197,7 +199,6 @@ cfd-3d.workspace = true
 # or enable via `--features validation`.
 cfd-validation = { workspace = true, optional = true }
 leto.workspace = true
-nalgebra.workspace = true
 petgraph.workspace = true
 rand.workspace = true
 tracing = { workspace = true }
@@ -206,7 +207,6 @@ tracing = { workspace = true }
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.0"
 approx = "0.5"
-nalgebra-sparse = "0.10"
 leto-ops.workspace = true
 serde_json.workspace = true
 serde = { workspace = true, features = ["derive"] }

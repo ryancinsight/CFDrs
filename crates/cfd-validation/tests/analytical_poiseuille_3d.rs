@@ -19,7 +19,7 @@ use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::application::delaunay::dim3::sdf::{FiniteCylinderSdf, Sdf3D};
 use cfd_mesh::application::delaunay::dim3::SdfMesher;
 use leto::geometry::Vector3 as LetoVector3;
-use nalgebra::{Point3, Vector3};
+use leto::Point3;
 use std::collections::HashMap;
 
 #[test]
@@ -36,7 +36,7 @@ fn test_3d_poiseuille_stokes_flow() {
     // Rotate the pipe by ~0.15 radians in the XY plane to totally shatter
     // exact BCC lattice alignments with the bounding cylinder geometry.
     let theta = 0.15_f64;
-    let axis_dir = Vector3::new(theta.cos(), theta.sin(), 0.0);
+    let axis_dir = LetoVector3::new(theta.cos(), theta.sin(), 0.0);
 
     let p_inlet = Point3::new(0.0, 0.0, 0.0);
     let p_outlet = p_inlet + axis_dir * length;
@@ -71,7 +71,7 @@ fn test_3d_poiseuille_stokes_flow() {
             .vertices
             .get(cfd_mesh::domain::core::index::VertexId::from_usize(i));
         let p = vertex.position.coords;
-        let x_proj = (p - p_inlet.coords).dot(&axis_dir);
+        let x_proj = (p - p_inlet.coords).dot(axis_dir);
         min_boundary_proj = min_boundary_proj.min(x_proj);
         max_boundary_proj = max_boundary_proj.max(x_proj);
     }
@@ -84,12 +84,12 @@ fn test_3d_poiseuille_stokes_flow() {
         let p = vertex.position.coords;
         // Vector from inlet to point
         let dp = p - p_inlet.coords;
-        let x_proj = dp.dot(&axis_dir);
+        let x_proj = dp.dot(axis_dir);
         let radial_vec = dp - axis_dir * x_proj;
         let r_sq = radial_vec.norm_squared();
 
         // With snap_iterations=10, boundary is exactly at SDF=0
-        let dist = sdf.eval(&Point3::from(p));
+        let dist = sdf.eval(&vertex.position);
         let _on_boundary = dist.abs() < 1e-4;
 
         if x_proj <= min_boundary_proj + axial_tol {
@@ -165,7 +165,7 @@ fn test_3d_poiseuille_stokes_flow() {
     for (i, (_, vertex)) in mesh.vertices.iter().enumerate() {
         let p = vertex.position.coords;
         let dp = p - p_inlet.coords;
-        let x_proj = dp.dot(&axis_dir);
+        let x_proj = dp.dot(axis_dir);
         let radial_vec = dp - axis_dir * x_proj;
         let r_sq = radial_vec.norm_squared();
 
@@ -179,7 +179,7 @@ fn test_3d_poiseuille_stokes_flow() {
 
         if x_proj > length * 0.25 && x_proj < length * 0.75 {
             let num_vel = result.get_velocity(i);
-            let axial = num_vel.dot(&axis_dir);
+            let axial = num_vel.dot(axis_dir);
             let transverse = (num_vel - axis_dir * axial).norm();
 
             if r_sq <= (0.35 * radius).powi(2) {

@@ -27,10 +27,14 @@ use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::linear_solver::{LinearSolverChain, GMRES};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use eunomia::{FloatElement, NumericElement};
-use nalgebra::{DVector, Vector3};
+use leto::{Array1, Vector3};
 use tracing;
 
-use crate::fem::leto_bridge::{array_to_vector, build_with_vector_rhs, vector_to_array};
+use crate::fem::leto_bridge::build_with_vector_rhs;
+use crate::linalg::{
+    array1_copy, array1_l2_norm, array1_len, array1_subarray, matrix3_determinant,
+    matrix3_from_columns, matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed,
+};
 use crate::fem::mid_node_cache::MidNodeCache;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
@@ -50,7 +54,7 @@ pub struct FemSolver<T: Cfd3dScalar> {
     /// Reusable matrix builder to avoid O(N) allocations per iteration
     matrix_builder: Option<SparseMatrixBuilder<T>>,
     /// Reusable RHS vector
-    rhs: Option<DVector<T>>,
+    rhs: Option<Array1<T>>,
 }
 
 impl<T: Cfd3dScalar> FemSolver<T> {
@@ -97,7 +101,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
 
         let (matrix, rhs) = self.assemble_system(problem, previous_solution)?;
 
-        let n_total_dof = rhs.len();
+        let n_total_dof = array1_len(&rhs);
         let n_nodes = problem.mesh.vertex_count();
         let n_corner_nodes = problem.n_corner_nodes;
         let n_velocity_dof = n_nodes * 3;
@@ -110,7 +114,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         // was previously duplicated across fem/solver.rs and fem/projection_solver.rs.
         // Tier order: Direct LU → GMRES+BlockDiag → GMRES (unprec) → GMRES+ILU → BiCGSTAB.
         let rel_tol = self.config.base.convergence.tolerance;
-        let abs_tol = (rel_tol * rhs.norm()).max_scalar(<T as FloatElement>::from_f64(1e-14));
+        let abs_tol = (rel_tol * array1_l2_norm(&rhs)).max_scalar(<T as FloatElement>::from_f64(1e-14));
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: self.config.base.convergence.max_iterations,
             tolerance: abs_tol,
@@ -125,8 +129,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         let chain = LinearSolverChain::new(solver_config)
             .with_direct_threshold(100_000)
             .with_krylov_restart(std::cmp::min(200, n_total_dof.max(1)));
-        let rhs_array = vector_to_array(&rhs, "FEM solver RHS")?;
-        let x_array = chain.solve(&matrix, &rhs_array, n_velocity_dof)?;
+        let x_array = chain.solve(&matrix, &rhs, n_velocity_dof)?;
 
         // Guard: detect NaN/Inf from ill-conditioned or singular systems before
         // they silently propagate into the velocity/pressure solution fields.
@@ -136,9 +139,8 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             ));
         }
 
-        let x = array_to_vector(x_array);
-        let velocity = x.rows(0, n_velocity_dof).into_owned();
-        let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
+        let velocity = array1_subarray(&x_array, 0, n_velocity_dof);
+        let pressure = array1_subarray(&x_array, n_velocity_dof, n_corner_nodes);
         let solution =
             StokesFlowSolution::new_with_corners(velocity, pressure, n_nodes, n_corner_nodes);
         self.print_continuity_residual_stats(problem, &solution)?;
@@ -180,7 +182,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         let (matrix, rhs) = self.assemble_system(problem, previous_solution)?;
         let assembly_elapsed = assembly_start.elapsed();
 
-        let n_total_dof = rhs.len();
+        let n_total_dof = array1_len(&rhs);
         let n_nodes = problem.mesh.vertex_count();
         let n_corner_nodes = problem.n_corner_nodes;
         let n_velocity_dof = n_nodes * 3;
@@ -194,7 +196,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             1.0_f64
         };
         let rel_tol = <T as FloatElement>::from_f64(base_tol * adaptive_factor);
-        let abs_tol = (rel_tol * rhs.norm()).max_scalar(<T as FloatElement>::from_f64(1e-14));
+        let abs_tol = (rel_tol * array1_l2_norm(&rhs)).max_scalar(<T as FloatElement>::from_f64(1e-14));
 
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: self.config.base.convergence.max_iterations,
@@ -208,18 +210,18 @@ impl<T: Cfd3dScalar> FemSolver<T> {
 
         // Warm-start: reconstruct DOF vector from previous Picard solution.
         let initial_guess = previous_solution.map(|prev| {
-            let mut x0 = DVector::zeros(n_total_dof);
+            let mut x0 = Array1::zeros([n_total_dof]);
             let vel_len = n_velocity_dof.min(prev.velocity.len());
             let pres_len = n_corner_nodes.min(prev.pressure.len());
-            x0.as_mut_slice()[..vel_len].copy_from_slice(&prev.velocity.as_slice()[..vel_len]);
-            x0.as_mut_slice()[n_velocity_dof..n_velocity_dof + pres_len]
+            let x0_slice = x0
+                .as_slice_mut()
+                .expect("invariant: warm-start vectors are dense one-dimensional Leto arrays");
+            x0_slice[..vel_len].copy_from_slice(&prev.velocity.as_slice()[..vel_len]);
+            x0_slice[n_velocity_dof..n_velocity_dof + pres_len]
                 .copy_from_slice(&prev.pressure.as_slice()[..pres_len]);
             x0
         });
-        let initial_guess_array = initial_guess
-            .as_ref()
-            .map(|guess| vector_to_array(guess, "FEM initial guess"))
-            .transpose()?;
+        let initial_guess_array = initial_guess.as_ref();
 
         tracing::info!(
             n_total_dof,
@@ -240,13 +242,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         );
 
         let solve_start = std::time::Instant::now();
-        let rhs_array = vector_to_array(&rhs, "FEM solver RHS")?;
-        let x_array = chain.solve_with_guess(
-            &matrix,
-            &rhs_array,
-            n_velocity_dof,
-            initial_guess_array.as_ref(),
-        )?;
+        let x_array = chain.solve_with_guess(&matrix, &rhs, n_velocity_dof, initial_guess_array)?;
         let solve_elapsed = solve_start.elapsed();
 
         tracing::info!(
@@ -263,9 +259,8 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             ));
         }
 
-        let x = array_to_vector(x_array);
-        let velocity = x.rows(0, n_velocity_dof).into_owned();
-        let pressure = x.rows(n_velocity_dof, n_corner_nodes).into_owned();
+        let velocity = array1_subarray(&x_array, 0, n_velocity_dof);
+        let pressure = array1_subarray(&x_array, n_velocity_dof, n_corner_nodes);
         let solution =
             StokesFlowSolution::new_with_corners(velocity, pressure, n_nodes, n_corner_nodes);
         self.print_continuity_residual_stats(problem, &solution)?;
@@ -314,43 +309,29 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                 let verts: Vec<Vector3<T>> = idxs
                     .iter()
                     .map(|&idx| {
-                        problem
-                            .mesh
-                            .vertices
-                            .position(cfd_mesh::domain::core::index::VertexId::from_usize(idx))
-                            .coords
+                        vector3_from_indexed(
+                            &problem
+                                .mesh
+                                .vertices
+                                .position(cfd_mesh::domain::core::index::VertexId::from_usize(idx))
+                                .coords,
+                        )
                     })
                     .collect();
 
-                let j_mat = nalgebra::Matrix3::from_columns(&[
-                    verts[1] - verts[0],
-                    verts[2] - verts[0],
-                    verts[3] - verts[0],
-                ]);
-                let det_j = j_mat.determinant();
+                let j_mat =
+                    matrix3_from_columns(verts[1] - verts[0], verts[2] - verts[0], verts[3] - verts[0]);
+                let det_j = matrix3_determinant(&j_mat);
                 let abs_det = NumericElement::abs(det_j);
                 if abs_det <= <T as FloatElement>::from_f64(1e-24) {
                     return (res, mx, sm, l2acc, nt);
                 }
-                let j_inv_t = match j_mat.try_inverse() {
+                let j_inv_t = match matrix3_try_inverse(&j_mat) {
                     Some(ji) => ji.transpose(),
                     None => return (res, mx, sm, l2acc, nt),
                 };
 
-                let grad_ref_p1 = nalgebra::Matrix3x4::new(
-                    -scalar::one::<T>(),
-                    scalar::one::<T>(),
-                    scalar::zero::<T>(),
-                    scalar::zero::<T>(),
-                    -scalar::one::<T>(),
-                    scalar::zero::<T>(),
-                    scalar::one::<T>(),
-                    scalar::zero::<T>(),
-                    -scalar::one::<T>(),
-                    scalar::zero::<T>(),
-                    scalar::zero::<T>(),
-                    scalar::one::<T>(),
-                );
+                let grad_ref_p1 = reference_tet_gradients();
                 let p1_gradients_phys = j_inv_t * grad_ref_p1;
                 let shape = LagrangeTet10::new(p1_gradients_phys);
 
@@ -370,7 +351,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                                 p1_gradients_phys[(2, i)],
                             )
                         } else {
-                            Vector3::new(grad_p2[(0, i)], grad_p2[(1, i)], grad_p2[(2, i)])
+                            Vector3::new(grad_p2[[0, i]], grad_p2[[1, i]], grad_p2[[2, i]])
                         };
                         div_u += grad_i.x * vel.x + grad_i.y * vel.y + grad_i.z * vel.z;
                     }
@@ -456,7 +437,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         &mut self,
         problem: &StokesFlowProblem<T>,
         previous_solution: Option<&StokesFlowSolution<T>>,
-    ) -> Result<(SparseMatrix<T>, DVector<T>)> {
+    ) -> Result<(SparseMatrix<T>, Array1<T>)> {
         let n_nodes = problem.mesh.vertex_count();
         let n_corner_nodes = problem.n_corner_nodes;
         let n_velocity_dof = n_nodes * 3;
@@ -475,8 +456,8 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                 .clear();
         }
 
-        if self.rhs.as_ref().is_none_or(|r| r.len() != n_total_dof) {
-            self.rhs = Some(DVector::zeros(n_total_dof));
+        if self.rhs.as_ref().is_none_or(|r| array1_len(r) != n_total_dof) {
+            self.rhs = Some(Array1::zeros([n_total_dof]));
         } else {
             self.rhs
                 .as_mut()
@@ -494,7 +475,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             .mesh
             .vertices
             .iter()
-            .map(|v| v.1.position.coords)
+            .map(|v| vector3_from_indexed(&v.1.position.coords))
             .collect();
 
         // GAP-PERF-001: Build edge→mid-node lookup cache once per mesh (O(n_mid × n_edges))
@@ -510,7 +491,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
 
         let (entry_map, mut rhs) = fold_reduce_with::<Adaptive, _, _, _, _>(
             problem.mesh.cells.len(),
-            || (HashMap::with_capacity(512), DVector::zeros(n_total_dof)),
+            || (HashMap::with_capacity(512), Array1::zeros([n_total_dof])),
             |(mut local_map, local_rhs), i| {
                 let cell = &problem.mesh.cells[i];
                 let viscosity = problem
@@ -540,7 +521,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                 let v3 = local_verts[3];
 
                 let six = <T as FloatElement>::from_f64(6.0);
-                let vol = ((v1 - v0).cross(&(v2 - v0))).dot(&(v3 - v0)) / six;
+                let vol = ((v1 - v0).cross(v2 - v0)).dot(v3 - v0) / six;
                 let vol_tol = <T as FloatElement>::from_f64(1e-22);
                 if NumericElement::abs(vol) < vol_tol {
                     // Skip degenerate element — zero volume means zero
@@ -566,7 +547,9 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                 for (k, v) in map2 {
                     *map1.entry(k).or_insert(scalar::zero::<T>()) += v;
                 }
-                rhs1 += rhs2;
+                for index in 0..array1_len(&rhs1) {
+                    rhs1[index] += rhs2[index];
+                }
                 (map1, rhs1)
             },
         );
@@ -598,7 +581,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         let (matrix, rhs_after_assembly) =
             build_with_vector_rhs(matrix_builder, rhs, "FEM saddle-point RHS")?;
         rhs = rhs_after_assembly;
-        rhs_store.copy_from(&rhs);
+        array1_copy(&rhs, &mut rhs_store);
         self.rhs = Some(rhs_store);
         Ok((matrix, rhs))
     }
@@ -618,32 +601,15 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         let weights = quad.weights();
         let grad_div_penalty = self.config.grad_div_penalty;
 
-        let j_mat = nalgebra::Matrix3::from_columns(&[
-            verts[1] - verts[0],
-            verts[2] - verts[0],
-            verts[3] - verts[0],
-        ]);
-        let det_j = j_mat.determinant();
+        let j_mat = matrix3_from_columns(verts[1] - verts[0], verts[2] - verts[0], verts[3] - verts[0]);
+        let det_j = matrix3_determinant(&j_mat);
         let abs_det = NumericElement::abs(det_j);
-        let j_inv_t = match j_mat.try_inverse() {
+        let j_inv_t = match matrix3_try_inverse(&j_mat) {
             Some(inv) => inv.transpose(),
             None => return, // Degenerate element — skip assembly
         };
 
-        let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            -scalar::one::<T>(),
-            scalar::one::<T>(),
-            scalar::zero::<T>(),
-            scalar::zero::<T>(),
-            -scalar::one::<T>(),
-            scalar::zero::<T>(),
-            scalar::one::<T>(),
-            scalar::zero::<T>(),
-            -scalar::one::<T>(),
-            scalar::zero::<T>(),
-            scalar::zero::<T>(),
-            scalar::one::<T>(),
-        );
+        let grad_ref_p1 = reference_tet_gradients();
         let p1_gradients_phys = j_inv_t * grad_ref_p1;
         let shape = LagrangeTet10::new(p1_gradients_phys);
 
@@ -667,9 +633,9 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                     )
                 } else {
                     Vector3::new(
-                        grad_p2_mat[(0, i)],
-                        grad_p2_mat[(1, i)],
-                        grad_p2_mat[(2, i)],
+                        grad_p2_mat[[0, i]],
+                        grad_p2_mat[[1, i]],
+                        grad_p2_mat[[2, i]],
                     )
                 };
                 let n_i = if idxs.len() == 4 { n_p1[i] } else { n_p2[i] };
@@ -687,9 +653,9 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                             )
                         } else {
                             Vector3::new(
-                                grad_p2_mat[(0, j)],
-                                grad_p2_mat[(1, j)],
-                                grad_p2_mat[(2, j)],
+                                grad_p2_mat[[0, j]],
+                                grad_p2_mat[[1, j]],
+                                grad_p2_mat[[2, j]],
                             )
                         };
                         let _n_j = if idxs.len() == 4 { n_p1[j] } else { n_p2[j] };
@@ -701,8 +667,8 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                         // # Proof of numerical equivalence:
                         // visc + adv = μ(∇Nᵢ · ∇Nⱼ)w + ρ Nᵢ (u_avg · ∇Nⱼ)w
                         // Accumulated in same float accumulator — identical to two separate adds.
-                        let visc = viscosity * grad_i.dot(&grad_j) * weight;
-                        let adv = density * n_i * u_avg.dot(&grad_j) * weight;
+                        let visc = viscosity * grad_i.dot(grad_j) * weight;
+                        let adv = density * n_i * u_avg.dot(grad_j) * weight;
                         *local_map.entry((gv_i, gv_j)).or_insert(scalar::zero::<T>()) += visc + adv;
                         if grad_div_penalty > scalar::zero::<T>() {
                             for e in 0..3 {
@@ -751,7 +717,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                             p1_gradients_phys[(1, j)],
                             p1_gradients_phys[(2, j)],
                         );
-                        let pspg = tau_bp * grad_p_i.dot(&grad_p_j) * vol_e;
+                        let pspg = tau_bp * grad_p_i.dot(grad_p_j) * vol_e;
                         *local_map.entry((gp_i, gp_j)).or_insert(scalar::zero::<T>()) += pspg;
                     }
                 }
@@ -763,7 +729,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
     fn apply_boundary_conditions_block(
         &self,
         builder: &mut SparseMatrixBuilder<T>,
-        rhs: &mut DVector<T>,
+        rhs: &mut Array1<T>,
         problem: &StokesFlowProblem<T>,
         n_nodes: usize,
     ) -> Result<()> {

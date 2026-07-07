@@ -118,7 +118,7 @@ fn cross_fidelity_poiseuille_circular_vs_square() {
         let l_div = 0.0;
         let l_out = length * 0.4;
 
-        let builder = VenturiMeshBuilder::<f64>::new(d, d, l_in, l_conv, l_throat, l_div, l_out)
+        let builder = VenturiMeshBuilder::new(d, d, l_in, l_conv, l_throat, l_div, l_out)
             .with_resolution(8, 2) // Very coarse but topologically accurate
             .with_circular(is_circular);
 

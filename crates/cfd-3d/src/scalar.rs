@@ -5,18 +5,19 @@ use leto_ops::RealScalar as LetoRealScalar;
 
 /// Real scalar supported by the 3D solver stack during Atlas provider migration.
 ///
-/// `cfd-3d` still contains nalgebra-backed FEM and mesh-adjacent geometry, while
-/// migrated cfd-core boundary/fluid contracts require Eunomia. This trait is the
-/// crate-level scalar seam for code that crosses those contracts.
+/// This trait is the crate-level scalar seam for code that crosses those contracts.
 pub trait Cfd3dScalar:
     cfd_mesh::domain::core::Scalar
-    + nalgebra::RealField
     + eunomia::RealField
     + LetoRealScalar
+    + num_traits::Zero
+    + num_traits::One
     + FloatElement
     + NumericElement
     + Copy
     + std::fmt::Debug
+    + std::fmt::Display
+    + std::ops::DivAssign
     + Send
     + Sync
     + 'static
@@ -25,13 +26,16 @@ pub trait Cfd3dScalar:
 
 impl<T> Cfd3dScalar for T where
     T: cfd_mesh::domain::core::Scalar
-        + nalgebra::RealField
         + eunomia::RealField
         + LetoRealScalar
+        + num_traits::Zero
+        + num_traits::One
         + FloatElement
         + NumericElement
         + Copy
         + std::fmt::Debug
+        + std::fmt::Display
+        + std::ops::DivAssign
         + Send
         + Sync
         + 'static

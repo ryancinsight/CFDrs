@@ -38,6 +38,9 @@
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
 use crate::scalar;
+use crate::linalg::{
+    matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3,
+};
 use crate::trifurcation::geometry::TrifurcationGeometry3D;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
@@ -45,7 +48,8 @@ use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use eunomia::FloatElement;
 use leto::geometry::Vector3 as LetoVector3;
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::Vector3;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for 3D trifurcation solver
@@ -203,36 +207,36 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         // ── Classify boundary faces ───────────────────────────────────────────
         // The TrifurcationGeometry3D branches in the XY plane, so AxialBoundaryClassifier (Z-axis)
         // is invalid. We manually classify based on Euclidean distance to geometric endpoints.
-        let inlet_axis = nalgebra::Vector3::new(-1.0, 0.0, 0.0);
-        let mut outlet_axes = [nalgebra::Vector3::zeros(); 3];
+        let inlet_axis = leto::Vector3::new(-1.0, 0.0, 0.0);
+        let mut outlet_axes = [leto::Vector3::zeros(); 3];
         for i in 0..3 {
             let angle = geom_f64.branching_angles[i];
-            let dir = nalgebra::Vector3::new(angle.cos(), angle.sin(), 0.0);
+            let dir = leto::Vector3::new(angle.cos(), angle.sin(), 0.0);
             outlet_axes[i] = dir;
         }
         let axial_tol = 1.5 * target_h;
         let radial_tol = target_h;
 
-        let radial_distance = |point: nalgebra::Point3<f64>, axis: nalgebra::Vector3<f64>| {
-            let axial = point.coords.dot(&axis);
+        let radial_distance = |point: leto::Point3<f64>, axis: leto::Vector3<f64>| {
+            let axial = point.coords.dot(axis);
             (point.coords - axis * axial).norm()
         };
         let face_axis_alignment =
             |face: &cfd_mesh::infrastructure::storage::face_store::FaceData,
-             axis: nalgebra::Vector3<f64>|
+             axis: leto::Vector3<f64>|
              -> f64 {
                 if face.vertices.len() < 3 {
                     return 0.0_f64;
                 }
-                let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
-                let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
-                let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
-                let n_vec = (v1 - v0).cross(&(v2 - v0));
+                let v0 = vector3_from_indexed(&mesh.vertices.get(face.vertices[0]).position.coords);
+                let v1 = vector3_from_indexed(&mesh.vertices.get(face.vertices[1]).position.coords);
+                let v2 = vector3_from_indexed(&mesh.vertices.get(face.vertices[2]).position.coords);
+                let n_vec = (v1 - v0).cross(v2 - v0);
                 let norm = n_vec.norm();
                 if norm <= 1e-12_f64 {
                     return 0.0_f64;
                 }
-                n_vec.normalize().dot(&axis).abs()
+                n_vec.normalize().dot(axis).abs()
             };
         let classify_boundary_faces = |min_alignment: f64| {
             let mut local_face_sets = crate::fem::boundary_classifier::BoundaryFaceSets::default();
@@ -243,20 +247,20 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
 
             for f_id in mesh.boundary_faces() {
                 let face = mesh.faces.get(f_id);
-                let mut z_sum = nalgebra::Vector3::zeros();
+                let mut z_sum = leto::Vector3::zeros();
                 let mut count = 0.0;
                 for &v_idx in &face.vertices {
-                    z_sum += mesh.vertices.get(v_idx).position.coords;
+                    z_sum += vector3_from_indexed(&mesh.vertices.get(v_idx).position.coords);
                     count += 1.0;
                     local_face_sets.boundary_vertices.insert(v_idx.as_usize());
                 }
-                let centroid = nalgebra::Point3::from(z_sum / count);
+                let centroid = leto::Point3::from(z_sum / count);
 
                 if radial_distance(centroid, inlet_axis) <= geom_f64.d_parent / 2.0 + radial_tol
                     && face_axis_alignment(face, inlet_axis) >= min_alignment
                 {
                     local_inlet_projection_max =
-                        local_inlet_projection_max.max(centroid.coords.dot(&inlet_axis));
+                        local_inlet_projection_max.max(centroid.coords.dot(inlet_axis));
                 }
                 for i in 0..3 {
                     if radial_distance(centroid, outlet_axes[i])
@@ -264,7 +268,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                         && face_axis_alignment(face, outlet_axes[i]) >= min_alignment
                     {
                         local_outlet_projection_max[i] = local_outlet_projection_max[i]
-                            .max(centroid.coords.dot(&outlet_axes[i]));
+                            .max(centroid.coords.dot(outlet_axes[i]));
                     }
                 }
                 local_boundary_face_centroids.push((f_id, centroid));
@@ -273,7 +277,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
             for (f_id, centroid) in local_boundary_face_centroids {
                 let face = mesh.faces.get(f_id);
 
-                let inlet_projection = centroid.coords.dot(&inlet_axis);
+                let inlet_projection = centroid.coords.dot(inlet_axis);
                 let inlet_radial = radial_distance(centroid, inlet_axis);
                 if inlet_projection >= local_inlet_projection_max - axial_tol
                     && inlet_radial <= geom_f64.d_parent / 2.0 + radial_tol
@@ -292,7 +296,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 let mut is_outlet = false;
                 for i in 0..3 {
                     let outlet_axis = outlet_axes[i];
-                    let outlet_projection = centroid.coords.dot(&outlet_axis);
+                    let outlet_projection = centroid.coords.dot(outlet_axis);
                     let outlet_radial = radial_distance(centroid, outlet_axis);
                     if outlet_projection >= local_outlet_projection_max[i] - axial_tol
                         && outlet_radial <= geom_f64.d_daughters[i] / 2.0 + radial_tol
@@ -637,26 +641,26 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         for &fid in face_ids {
             let face = mesh.faces.get(fid);
             if face.vertices.len() >= 3 {
-                let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
-                let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
-                let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
-                let n_vec = (v1 - v0).cross(&(v2 - v0));
+                let v0 = vector3_from_indexed(&mesh.vertices.get(face.vertices[0]).position.coords);
+                let v1 = vector3_from_indexed(&mesh.vertices.get(face.vertices[1]).position.coords);
+                let v2 = vector3_from_indexed(&mesh.vertices.get(face.vertices[2]).position.coords);
+                let n_vec = (v1 - v0).cross(v2 - v0);
                 let area = n_vec.norm() * 0.5_f64;
                 if area <= 0.0_f64 {
                     continue;
                 }
                 let mut face_normal = n_vec.normalize();
                 if let Some(ref_n) = reference_normal {
-                    if face_normal.dot(&ref_n) < 0.0_f64 {
+                    if face_normal.dot(ref_n) < 0.0_f64 {
                         face_normal = -face_normal;
                     }
                 }
-                let mut u_avg = nalgebra::Vector3::zeros();
+                let mut u_avg = leto::Vector3::zeros();
                 for &v_idx in &face.vertices {
                     u_avg += solution.get_velocity(v_idx.as_usize());
                 }
                 u_avg /= face.vertices.len() as f64;
-                total_q += u_avg.dot(&face_normal) * area;
+                total_q += u_avg.dot(face_normal) * area;
             }
         }
         Ok(total_q.abs())
@@ -684,20 +688,20 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         (cnt > 0).then(|| sum / cnt as f64)
     }
 
-    fn boundary_reference_normal(&self, label: &str) -> Option<nalgebra::Vector3<f64>> {
+    fn boundary_reference_normal(&self, label: &str) -> Option<leto::Vector3<f64>> {
         match label {
-            "inlet" => Some(nalgebra::Vector3::new(-1.0_f64, 0.0_f64, 0.0_f64)),
+            "inlet" => Some(leto::Vector3::new(-1.0_f64, 0.0_f64, 0.0_f64)),
             "outlet_0" => {
                 let theta = scalar::to_f64(self.geometry.branching_angles[0]);
-                Some(nalgebra::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
+                Some(leto::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
             }
             "outlet_1" => {
                 let theta = scalar::to_f64(self.geometry.branching_angles[1]);
-                Some(nalgebra::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
+                Some(leto::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
             }
             "outlet_2" => {
                 let theta = scalar::to_f64(self.geometry.branching_angles[2]);
-                Some(nalgebra::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
+                Some(leto::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
             }
             _ => None,
         }
@@ -719,9 +723,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         }
         let mut local_verts = Vec::with_capacity(idxs.len());
         for &idx in &idxs {
-            local_verts.push(mesh.vertices.get(VertexId::from_usize(idx)).position.coords);
+            local_verts.push(vector3_from_indexed(
+                &mesh.vertices.get(VertexId::from_usize(idx)).position.coords,
+            ));
         }
-        let mut l = nalgebra::Matrix3::zeros();
+        let mut l: Matrix3<f64> = Matrix3::zeros();
         if idxs.len() == 10 {
             use crate::fem::shape_functions::LagrangeTet10;
             let mut tet4 = crate::fem::element::FluidElement::<f64>::new(idxs[0..4].to_vec());
@@ -730,26 +736,26 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 return Ok(0.0_f64);
             }
             tet4.calculate_shape_derivatives(&local_verts[0..4]);
-            let p1_grads = nalgebra::Matrix3x4::from_columns(&[
+            let p1_grads = matrix3x4_from_columns([
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 0)],
-                    tet4.shape_derivatives[(1, 0)],
-                    tet4.shape_derivatives[(2, 0)],
+                    tet4.shape_derivatives[[0, 0]],
+                    tet4.shape_derivatives[[1, 0]],
+                    tet4.shape_derivatives[[2, 0]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 1)],
-                    tet4.shape_derivatives[(1, 1)],
-                    tet4.shape_derivatives[(2, 1)],
+                    tet4.shape_derivatives[[0, 1]],
+                    tet4.shape_derivatives[[1, 1]],
+                    tet4.shape_derivatives[[2, 1]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 2)],
-                    tet4.shape_derivatives[(1, 2)],
-                    tet4.shape_derivatives[(2, 2)],
+                    tet4.shape_derivatives[[0, 2]],
+                    tet4.shape_derivatives[[1, 2]],
+                    tet4.shape_derivatives[[2, 2]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 3)],
-                    tet4.shape_derivatives[(1, 3)],
-                    tet4.shape_derivatives[(2, 3)],
+                    tet4.shape_derivatives[[0, 3]],
+                    tet4.shape_derivatives[[1, 3]],
+                    tet4.shape_derivatives[[2, 3]],
                 ),
             ]);
             let tet10 = LagrangeTet10::new(p1_grads);
@@ -759,7 +765,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 let u = solution.get_velocity(idxs[i]);
                 for row in 0..3 {
                     for col in 0..3 {
-                        l[(row, col)] += p2_grads[(col, i)] * u[row];
+                        l[(row, col)] += p2_grads[[col, i]] * u[row];
                     }
                 }
             }
@@ -770,12 +776,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 let u = solution.get_velocity(idx);
                 for row in 0..3 {
                     for col in 0..3 {
-                        l[(row, col)] += element.shape_derivatives[(col, i)] * u[row];
+                        l[(row, col)] += element.shape_derivatives[[col, i]] * u[row];
                     }
                 }
             }
         }
-        let epsilon = (l + l.transpose()) * 0.5_f64;
+        let epsilon = symmetric_part(&l);
         let mut inner_prod = 0.0_f64;
         for i in 0..3 {
             for j in 0..3 {

@@ -50,7 +50,7 @@ use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use eunomia::FloatElement;
 use leto::geometry::Vector3 as LetoVector3;
-use nalgebra::RealField;
+use eunomia::RealField;
 
 // ============================================================================
 // 3D Bifurcation Solver
@@ -130,7 +130,7 @@ where
             use cfd_mesh::application::delaunay::dim3::lattice::SdfMesher;
             use cfd_mesh::application::delaunay::dim3::sdf::{CapsuleSdf, SmoothUnionSdf};
             use cfd_mesh::domain::core::index::VertexId;
-            use nalgebra::Point3 as P3;
+            use leto::Point3 as P3;
             use std::collections::HashMap as HMid;
 
             let r_p = scalar::to_f64(self.geometry.d_parent) * 0.5;
@@ -189,7 +189,7 @@ where
                                     (pi.y + pj.y) * 0.5,
                                     (pi.z + pj.z) * 0.5,
                                 ),
-                                nalgebra::Vector3::zeros(),
+                                leto::Vector3::new(0.0, 0.0, 0.0),
                             )
                             .as_usize()
                         });
@@ -477,7 +477,7 @@ where
         let p_junc_f64 = self.extract_point_pressure_f64(
             mesh,
             &fem_solution,
-            nalgebra::Vector3::new(scalar::to_f64(self.geometry.l_parent), 0.0_f64, 0.0_f64),
+            leto::Vector3::new(scalar::to_f64(self.geometry.l_parent), 0.0_f64, 0.0_f64),
         )?;
         solution.p_junction_mid = scalar::from_f64::<T>(p_junc_f64);
 

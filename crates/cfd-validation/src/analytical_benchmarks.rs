@@ -4,17 +4,18 @@
 //! used to validate numerical implementations.
 
 use crate::scalar;
+use crate::scalar::ValidationScalar;
 use cfd_core::physics::constants::mathematical::{
     numeric::{ONE_HALF, TWO, TWO_THIRDS},
     TWO_PI,
 };
 use eunomia::FloatElement;
-use nalgebra::{RealField, Vector3};
+use leto::geometry::Vector3;
 
 /// Couette flow: Shear-driven flow between parallel plates
 ///
 /// Reference: White, F.M. (2016). Viscous Fluid Flow, 3rd ed., Section 3.2
-pub struct CouetteFlow<T: RealField + Copy> {
+pub struct CouetteFlow<T: ValidationScalar> {
     /// Upper plate velocity \[m/s]
     pub u_wall: T,
     /// Gap height \[m]
@@ -25,7 +26,7 @@ pub struct CouetteFlow<T: RealField + Copy> {
     pub mu: T,
 }
 
-impl<T: RealField + Copy + FloatElement> CouetteFlow<T> {
+impl<T: ValidationScalar + FloatElement> CouetteFlow<T> {
     /// Exact velocity profile: u(y) = U*y/h + (h²/2μ)(dp/dx)(y/h)(1-y/h)
     ///
     /// Source: Schlichting & Gersten (2017), Eq. 5.10
@@ -48,7 +49,7 @@ impl<T: RealField + Copy + FloatElement> CouetteFlow<T> {
 /// Poiseuille flow: Pressure-driven flow in a channel
 ///
 /// Reference: Batchelor, G.K. (2000). An Introduction to Fluid Dynamics, Section 4.2
-pub struct PoiseuilleFlow<T: RealField + Copy> {
+pub struct PoiseuilleFlow<T: ValidationScalar> {
     /// Channel half-height \[m]
     pub h: T,
     /// Pressure gradient dp/dx [Pa/m] (negative for flow in +x direction)
@@ -57,7 +58,7 @@ pub struct PoiseuilleFlow<T: RealField + Copy> {
     pub mu: T,
 }
 
-impl<T: RealField + Copy + FloatElement> PoiseuilleFlow<T> {
+impl<T: ValidationScalar + FloatElement> PoiseuilleFlow<T> {
     /// Exact velocity profile: u(y) = -(1/2μ)(dp/dx)(h² - y²)
     ///
     /// The negative sign ensures positive velocity when pressure decreases
@@ -91,7 +92,7 @@ impl<T: RealField + Copy + FloatElement> PoiseuilleFlow<T> {
 /// Taylor-Green vortex: Exact unsteady solution
 ///
 /// Reference: Taylor & Green (1937). Proc. R. Soc. Lond. A, 158(895), 499-521
-pub struct TaylorGreenVortex<T: RealField + Copy> {
+pub struct TaylorGreenVortex<T: ValidationScalar> {
     /// Characteristic velocity \[m/s]
     pub u0: T,
     /// Characteristic length \[m]
@@ -100,7 +101,7 @@ pub struct TaylorGreenVortex<T: RealField + Copy> {
     pub nu: T,
 }
 
-impl<T: RealField + Copy + FloatElement> TaylorGreenVortex<T> {
+impl<T: ValidationScalar + FloatElement> TaylorGreenVortex<T> {
     /// Exact velocity field at time t
     pub fn velocity(&self, x: T, y: T, t: T) -> Vector3<T> {
         let k = scalar::from_f64::<T>(TWO_PI) / self.l;

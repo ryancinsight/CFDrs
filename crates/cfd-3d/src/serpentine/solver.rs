@@ -47,6 +47,7 @@
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
 use crate::scalar;
+use crate::linalg::{matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
@@ -54,7 +55,8 @@ use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use cfd_mesh::SerpentineMeshBuilder;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector3 as LetoVector3;
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::Vector3;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -104,7 +106,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Defaul
 
 /// 3D Finite Element Navier-Stokes solver for Serpentine channels
 pub struct SerpentineSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> {
-    builder: SerpentineMeshBuilder<T>,
+    builder: SerpentineMeshBuilder,
     config: SerpentineConfig3D<T>,
 }
 
@@ -112,7 +114,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
     SerpentineSolver3D<T>
 {
     /// Create new solver from mesh builder and config
-    pub fn new(builder: SerpentineMeshBuilder<T>, config: SerpentineConfig3D<T>) -> Self {
+    pub fn new(builder: SerpentineMeshBuilder, config: SerpentineConfig3D<T>) -> Self {
         Self { builder, config }
     }
 
@@ -151,12 +153,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         let fluid_props =
             fluid.properties_at(scalar::from_f64::<T>(310.0), self.config.inlet_pressure)?;
 
+        let diameter = scalar::from_f64::<T>(self.builder.diameter);
         let area_inlet = if self.config.circular {
             scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
-                * self.builder.diameter
-                * self.builder.diameter
+                * diameter
+                * diameter
         } else {
-            self.builder.diameter * self.builder.diameter
+            diameter * diameter
         };
         let u_inlet = self.config.inlet_flow_rate / area_inlet;
 
@@ -311,14 +314,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
         // Calculate Dean Number: De = Re * sqrt(Dh / 2Rc)
         // For sine wave path x = A*sin(k*z), curvature kappa = |x''| / (1 + x'^2)^(3/2)
         // Max curvature at peaks: kappa_max = A*k^2. Radius Rc = 1/kappa_max = 1 / (A * (2pi/lambda)^2)
-        let k = scalar::from_f64::<T>(2.0 * std::f64::consts::PI) / self.builder.wavelength;
-        let kappa_max = self.builder.amplitude * k * k;
+        let wavelength = scalar::from_f64::<T>(self.builder.wavelength);
+        let amplitude = scalar::from_f64::<T>(self.builder.amplitude);
+        let k = scalar::from_f64::<T>(2.0 * std::f64::consts::PI) / wavelength;
+        let kappa_max = amplitude * k * k;
         let rc = scalar::one::<T>() / scalar::max(kappa_max, scalar::from_f64::<T>(1e-10));
 
-        let re =
-            (fluid_props.density * u_inlet * self.builder.diameter) / fluid_props.dynamic_viscosity;
-        solution.dean_number =
-            re * scalar::sqrt(self.builder.diameter / (scalar::from_f64::<T>(2.0) * rc));
+        let re = (fluid_props.density * u_inlet * diameter) / fluid_props.dynamic_viscosity;
+        solution.dean_number = re * scalar::sqrt(diameter / (scalar::from_f64::<T>(2.0) * rc));
 
         Ok(solution)
     }
@@ -346,10 +349,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
 
         let mut local_verts = Vec::with_capacity(idxs.len());
         for &idx in &idxs {
-            local_verts.push(mesh.vertices.get(VertexId::from_usize(idx)).position.coords);
+            local_verts.push(vector3_from_indexed(
+                &mesh.vertices.get(VertexId::from_usize(idx)).position.coords,
+            ));
         }
 
-        let mut l = nalgebra::Matrix3::zeros();
+        let mut l: Matrix3<f64> = Matrix3::zeros();
 
         if idxs.len() == 10 {
             // Tet10 (P2): Evaluate gradient at centroid (L = [0.25, 0.25, 0.25, 0.25])
@@ -362,26 +367,26 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 return Ok(0.0_f64);
             }
             tet4.calculate_shape_derivatives(&local_verts[0..4]);
-            let p1_grads = nalgebra::Matrix3x4::from_columns(&[
+            let p1_grads = matrix3x4_from_columns([
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 0)],
-                    tet4.shape_derivatives[(1, 0)],
-                    tet4.shape_derivatives[(2, 0)],
+                    tet4.shape_derivatives[[0, 0]],
+                    tet4.shape_derivatives[[1, 0]],
+                    tet4.shape_derivatives[[2, 0]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 1)],
-                    tet4.shape_derivatives[(1, 1)],
-                    tet4.shape_derivatives[(2, 1)],
+                    tet4.shape_derivatives[[0, 1]],
+                    tet4.shape_derivatives[[1, 1]],
+                    tet4.shape_derivatives[[2, 1]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 2)],
-                    tet4.shape_derivatives[(1, 2)],
-                    tet4.shape_derivatives[(2, 2)],
+                    tet4.shape_derivatives[[0, 2]],
+                    tet4.shape_derivatives[[1, 2]],
+                    tet4.shape_derivatives[[2, 2]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 3)],
-                    tet4.shape_derivatives[(1, 3)],
-                    tet4.shape_derivatives[(2, 3)],
+                    tet4.shape_derivatives[[0, 3]],
+                    tet4.shape_derivatives[[1, 3]],
+                    tet4.shape_derivatives[[2, 3]],
                 ),
             ]);
 
@@ -395,7 +400,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 let u = solution.get_velocity(idxs[i]);
                 for row in 0..3 {
                     for col in 0..3 {
-                        l[(row, col)] += p2_grads[(col, i)] * u[row];
+                        l[(row, col)] += p2_grads[[col, i]] * u[row];
                     }
                 }
             }
@@ -407,13 +412,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                 let u = solution.get_velocity(idx);
                 for row in 0..3 {
                     for col in 0..3 {
-                        l[(row, col)] += element.shape_derivatives[(col, i)] * u[row];
+                        l[(row, col)] += element.shape_derivatives[[col, i]] * u[row];
                     }
                 }
             }
         }
 
-        let epsilon = (l + l.transpose()) * 0.5_f64;
+        let epsilon = symmetric_part(&l);
         let mut inner_prod = 0.0_f64;
         for i in 0..3 {
             for j in 0..3 {

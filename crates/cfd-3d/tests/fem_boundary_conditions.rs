@@ -3,7 +3,7 @@ use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::domain::topology::Cell;
 use cfd_mesh::IndexedMesh;
-use nalgebra::Point3;
+use leto::Point3;
 use std::collections::HashMap;
 
 #[test]

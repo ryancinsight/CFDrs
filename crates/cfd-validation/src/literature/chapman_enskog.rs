@@ -6,8 +6,7 @@
 use super::{LiteratureValidation, ValidationReport};
 use crate::scalar;
 use cfd_core::error::Result;
-use eunomia::FloatElement;
-use nalgebra::RealField;
+use eunomia::{FloatElement, RealField};
 
 /// Chapman-Enskog validation for transport coefficients
 pub struct ChapmanEnskogValidation<T: RealField + Copy> {

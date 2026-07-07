@@ -3,11 +3,11 @@
 //! Reference: Patankar, S.V. (1980). "Numerical Heat Transfer and Fluid Flow"
 
 use super::{LiteratureValidation, ValidationReport};
+use crate::matrix::DMatrix;
 use crate::scalar;
 use cfd_core::error::Error;
 use cfd_core::error::Result;
-use eunomia::FloatElement;
-use nalgebra::RealField;
+use eunomia::{FloatElement, RealField};
 
 /// Patankar's lid-driven cavity test case
 pub struct PatankarLidDrivenCavity<T: RealField + Copy> {
@@ -97,10 +97,10 @@ impl<T: RealField + Copy + FloatElement> LiteratureValidation<T> for PatankarLid
 
         // Run simulation with specified grid size
         let grid_points = self.grid_size;
-        let _dx = T::one() / scalar::from_usize::<T>(grid_points - 1);
+        let _dx = scalar::one::<T>() / scalar::from_usize::<T>(grid_points - 1);
 
         // Initialize stream function
-        let mut psi = nalgebra::DMatrix::<T>::zeros(grid_points, grid_points);
+        let mut psi = DMatrix::<T>::zeros(grid_points, grid_points);
         let mut psi_prev = psi.clone();
 
         // Boundary conditions: ψ = 0 on all walls
@@ -109,7 +109,7 @@ impl<T: RealField + Copy + FloatElement> LiteratureValidation<T> for PatankarLid
         let max_iterations = 10000;
         let tolerance = scalar::from_f64::<T>(1e-6);
         let mut iteration = 0;
-        let mut max_change = T::one();
+        let mut max_change = scalar::one::<T>();
 
         while iteration < max_iterations && max_change > tolerance {
             psi_prev.copy_from(&psi);
@@ -128,7 +128,7 @@ impl<T: RealField + Copy + FloatElement> LiteratureValidation<T> for PatankarLid
             }
 
             // Calculate maximum change
-            max_change = T::zero();
+            max_change = scalar::zero::<T>();
             for i in 0..grid_points {
                 for j in 0..grid_points {
                     let change = scalar::abs(psi[(i, j)] - psi_prev[(i, j)]);
@@ -142,8 +142,8 @@ impl<T: RealField + Copy + FloatElement> LiteratureValidation<T> for PatankarLid
         }
 
         // Compare with reference data
-        let mut max_error = T::zero();
-        let mut sum_error = T::zero();
+        let mut max_error = scalar::zero::<T>();
+        let mut sum_error = scalar::zero::<T>();
         let mut count = 0;
 
         for (x_num, y_num, psi_ref) in reference_data {

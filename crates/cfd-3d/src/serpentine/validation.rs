@@ -21,8 +21,9 @@ use crate::scalar;
 use cfd_core::error::Error;
 use cfd_mesh::SerpentineMeshBuilder;
 use eunomia::FloatElement;
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
 // ============================================================================
 // Serpentine Validator
@@ -33,13 +34,17 @@ pub struct SerpentineValidator3D<
     T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
 > {
     /// Mesh builder holding serpentine geometry parameters
-    pub mesh_builder: SerpentineMeshBuilder<T>,
+    pub mesh_builder: SerpentineMeshBuilder,
+    _marker: PhantomData<T>,
 }
 
 impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> SerpentineValidator3D<T> {
     /// Create a new validator from the serpentine mesh builder
-    pub fn new(mesh_builder: SerpentineMeshBuilder<T>) -> Self {
-        Self { mesh_builder }
+    pub fn new(mesh_builder: SerpentineMeshBuilder) -> Self {
+        Self {
+            mesh_builder,
+            _marker: PhantomData,
+        }
     }
 
     /// Validate Serpentine flow results using strictly analytical constraints
@@ -50,13 +55,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Serpen
         fluid_density: T,
         fluid_viscosity: T,
     ) -> Result<SerpentineValidationResult3D<T>, Error> {
-        let diameter = self.mesh_builder.diameter;
-        let k = scalar::from_f64::<T>(2.0 * std::f64::consts::PI) / self.mesh_builder.wavelength;
+        let diameter = scalar::from_f64::<T>(self.mesh_builder.diameter);
+        let wavelength = scalar::from_f64::<T>(self.mesh_builder.wavelength);
+        let amplitude = scalar::from_f64::<T>(self.mesh_builder.amplitude);
+        let k = scalar::from_f64::<T>(2.0 * std::f64::consts::PI) / wavelength;
 
         // 1. Mathematically Exact Maximum Dean Number Analysis
         // For y = A sin(kx), exact curvature kappa = |y''| / (1 + y'^2)^(3/2)
         // Max curvature occurs at peaks where y' = 0, so kappa_max = |y''| = A k^2
-        let max_curvature = self.mesh_builder.amplitude * k * k;
+        let max_curvature = amplitude * k * k;
         let min_radius_of_curvature = scalar::one::<T>() / max_curvature;
 
         // Area for mean velocity
@@ -84,8 +91,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Serpen
         // 2. Analytical Pressure Continuity Bounds
         // Curved pipe minimum pressure drop is strictly bounded below by the Hagen-Poiseuille
         // straight-pipe flow projected over the exact mathematical arc length.
-        let straight_length =
-            self.mesh_builder.wavelength * scalar::from_usize::<T>(self.mesh_builder.num_periods);
+        let straight_length = wavelength * scalar::from_usize::<T>(self.mesh_builder.num_periods);
 
         let exact_straight_dp = if config.circular {
             scalar::from_f64::<T>(32.0) * fluid_viscosity * straight_length * u_mean

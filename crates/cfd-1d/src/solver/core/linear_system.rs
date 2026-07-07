@@ -31,12 +31,9 @@ use cfd_math::linear_solver::Preconditioner;
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Storage};
-use leto_ops::{CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};
-use nalgebra::{DMatrix, DVector};
-use nalgebra_sparse::CsrMatrix as NalgebraCsrMatrix;
+use leto_ops::{lu_decompose, qr_decompose, CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};
 use serde::{Deserialize, Serialize};
 
-use super::vector_bridge::dvector_from_array;
 use super::NetworkSolveScalar;
 
 /// Linear solver method selection
@@ -92,7 +89,7 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
     }
 
     /// Solve the linear system Ax = b
-    pub fn solve(&self, a: &NalgebraCsrMatrix<T>, b: &Array1<T>) -> Result<DVector<T>>
+    pub fn solve(&self, a: &LetoCsrMatrix<T>, b: &Array1<T>) -> Result<Array1<T>>
     where
         T: Copy,
     {
@@ -118,18 +115,18 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
     /// solution.
     pub fn solve_with_initial_guess(
         &self,
-        a: &NalgebraCsrMatrix<T>,
+        a: &LetoCsrMatrix<T>,
         b: &Array1<T>,
         x: &mut Array1<T>,
-    ) -> Result<DVector<T>>
+    ) -> Result<Array1<T>>
     where
         T: Copy,
     {
         let (scaled_a, scaled_b) = Self::row_equilibrated_system(a, b)?;
         if a.nrows() <= Self::DIRECT_SOLVE_NODE_THRESHOLD {
-            let direct_result = Self::solve_dense_fallback_leto(&scaled_a, &scaled_b);
+            let direct_result = Self::solve_dense_fallback(&scaled_a, &scaled_b);
             return match direct_result {
-                Ok(x) if self.solution_meets_residual_target(a, &x, b) => Ok(x),
+                Ok(ref sol) if self.solution_meets_residual_target(a, sol, b) => direct_result,
                 Ok(_) | Err(_) => Self::solve_dense_fallback(a, b),
             };
         }
@@ -148,9 +145,8 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
                     .solve(&scaled_a, &scaled_b, x, Some(&precond))
                     .is_ok()
                 {
-                    let solution = dvector_from_array(x);
-                    if self.solution_meets_residual_target(a, &solution, b) {
-                        Ok(solution)
+                    if self.solution_meets_residual_target(a, x, b) {
+                        Ok(x.clone())
                     } else {
                         Self::solve_dense_fallback(a, b)
                     }
@@ -171,9 +167,8 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
                     .solve(&scaled_a, &scaled_b, x, Some(&precond))
                     .is_ok()
                 {
-                    let solution = dvector_from_array(x);
-                    if self.solution_meets_residual_target(a, &solution, b) {
-                        Ok(solution)
+                    if self.solution_meets_residual_target(a, x, b) {
+                        Ok(x.clone())
                     } else {
                         Self::solve_dense_fallback(a, b)
                     }
@@ -184,23 +179,8 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
         }
     }
 
-    fn to_leto_csr(matrix: &NalgebraCsrMatrix<T>) -> Result<LetoCsrMatrix<T>> {
-        LetoCsrMatrix::from_parts(
-            matrix.values().to_vec(),
-            matrix.col_indices().to_vec(),
-            matrix.row_offsets().to_vec(),
-            matrix.nrows(),
-            matrix.ncols(),
-        )
-        .map_err(|error| {
-            Error::InvalidConfiguration(format!(
-                "Leto network solver CSR bridge failed for nalgebra input: {error}"
-            ))
-        })
-    }
-
     fn row_equilibrated_system(
-        a: &NalgebraCsrMatrix<T>,
+        a: &LetoCsrMatrix<T>,
         b: &Array1<T>,
     ) -> Result<(LetoCsrMatrix<T>, Array1<T>)> {
         let mut scaling = Array1::from_elem([a.nrows()], T::one());
@@ -215,7 +195,7 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
             }
         }
 
-        let mut scaled_a = Self::to_leto_csr(a)?;
+        let mut scaled_a = a.clone();
         scaled_a
             .scale_rows(scaling.storage().as_slice())
             .map_err(|error| {
@@ -232,8 +212,8 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
 
     fn solution_meets_residual_target(
         &self,
-        a: &NalgebraCsrMatrix<T>,
-        x: &DVector<T>,
+        a: &LetoCsrMatrix<T>,
+        x: &Array1<T>,
         b: &Array1<T>,
     ) -> bool {
         let residual = Self::compute_equilibrated_residual_norm(a, x, b);
@@ -249,8 +229,8 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
     }
 
     fn compute_equilibrated_residual_norm(
-        a: &NalgebraCsrMatrix<T>,
-        x: &DVector<T>,
+        a: &LetoCsrMatrix<T>,
+        x: &Array1<T>,
         b: &Array1<T>,
     ) -> T {
         let mut norm = T::zero();
@@ -274,7 +254,7 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
         <T as NumericElement>::sqrt(norm)
     }
 
-    fn compute_equilibrated_rhs_norm(a: &NalgebraCsrMatrix<T>, b: &Array1<T>) -> T {
+    fn compute_equilibrated_rhs_norm(a: &LetoCsrMatrix<T>, b: &Array1<T>) -> T {
         let mut norm = T::zero();
         for row_idx in 0..a.nrows() {
             let row = a.row(row_idx);
@@ -294,64 +274,25 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
         <T as NumericElement>::sqrt(norm)
     }
 
-    fn solve_dense_fallback(a: &NalgebraCsrMatrix<T>, b: &Array1<T>) -> Result<DVector<T>> {
-        let dense = Self::sparse_to_dense(a);
-        let b = dvector_from_array(b);
+    fn solve_dense_fallback(a: &LetoCsrMatrix<T>, b: &Array1<T>) -> Result<Array1<T>> {
+        let dense = a.to_dense();
 
-        // Try LU first (consumes `dense`). LU succeeds for the vast majority
-        // of millifluidic networks, so we avoid the clone that was previously
-        // needed to keep `dense` alive for the QR fallback.
-        if let Some(x) = dense.lu().solve(&b) {
-            return Ok(x);
-        }
-
-        // QR fallback (rare): rebuild dense from sparse.
-        let dense2 = Self::sparse_to_dense(a);
-        dense2
-            .qr()
-            .solve(&b)
-            .ok_or(cfd_core::error::Error::Numerical(
-                cfd_core::error::NumericalErrorKind::DivisionByZero,
-            ))
-    }
-
-    fn solve_dense_fallback_leto(a: &LetoCsrMatrix<T>, b: &Array1<T>) -> Result<DVector<T>> {
-        let dense = Self::sparse_to_dense_leto(a);
-        let b = dvector_from_array(b);
-
-        if let Some(x) = dense.lu().solve(&b) {
-            return Ok(x);
-        }
-
-        let dense2 = Self::sparse_to_dense_leto(a);
-        dense2
-            .qr()
-            .solve(&b)
-            .ok_or(cfd_core::error::Error::Numerical(
-                cfd_core::error::NumericalErrorKind::DivisionByZero,
-            ))
-    }
-
-    fn sparse_to_dense(a: &NalgebraCsrMatrix<T>) -> DMatrix<T> {
-        let mut dense = DMatrix::zeros(a.nrows(), a.ncols());
-        for row_idx in 0..a.nrows() {
-            let row = a.row(row_idx);
-            for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
-                dense[(row_idx, *col_idx)] += *value;
+        // Try LU first.
+        if let Ok(lu) = lu_decompose(&dense.view()) {
+            if let Ok(x) = lu.solve(&b.view()) {
+                return Ok(x);
             }
         }
-        dense
-    }
 
-    fn sparse_to_dense_leto(a: &LetoCsrMatrix<T>) -> DMatrix<T> {
-        let mut dense = DMatrix::zeros(a.nrows(), a.ncols());
-        for row_idx in 0..a.nrows() {
-            let row = a.row(row_idx);
-            for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
-                dense[(row_idx, *col_idx)] += *value;
-            }
-        }
-        dense
+        // QR fallback (rare): recompute dense from sparse.
+        let dense2 = a.to_dense();
+        qr_decompose(&dense2.view())
+            .and_then(|qr| qr.solve_least_squares(&b.view()))
+            .map_err(|_| {
+                cfd_core::error::Error::Numerical(
+                    cfd_core::error::NumericalErrorKind::DivisionByZero,
+                )
+            })
     }
 }
 

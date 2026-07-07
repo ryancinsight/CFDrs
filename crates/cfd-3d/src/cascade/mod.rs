@@ -489,15 +489,15 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         // Characteristic length: cube root of element volume estimate.
         let n = positions.len() as f64;
         let centroid = positions.iter().fold(
-            nalgebra::Point3::<f64>::origin(),
-            |acc: nalgebra::Point3<f64>, p| {
-                nalgebra::Point3::new(acc.x + p.x, acc.y + p.y, acc.z + p.z)
+            leto::Point3::<f64>::origin(),
+            |acc: leto::Point3<f64>, p| {
+                leto::Point3::new(acc.x + p.x, acc.y + p.y, acc.z + p.z)
             },
         );
-        let centroid = nalgebra::Point3::new(centroid.x / n, centroid.y / n, centroid.z / n);
+        let centroid = leto::Point3::new(centroid.x / n, centroid.y / n, centroid.z / n);
         let h = positions
             .iter()
-            .map(|p| (nalgebra::Point3::new(p.x, p.y, p.z) - centroid).norm())
+            .map(|p| (leto::Point3::new(p.x, p.y, p.z) - centroid).norm())
             .fold(0.0_f64, f64::max)
             .max(1e-15);
 
@@ -576,9 +576,9 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
             let centroid =
                 face.vertices
                     .iter()
-                    .fold(nalgebra::Point3::<f64>::origin(), |acc, vid| {
+                    .fold(leto::Point3::<f64>::origin(), |acc, vid| {
                         let p = mesh.vertices.position(*vid);
-                        nalgebra::Point3::new(
+                        leto::Point3::new(
                             acc.x + p.x / n_fv,
                             acc.y + p.y / n_fv,
                             acc.z + p.z / n_fv,
@@ -630,7 +630,7 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
                 .iter()
                 .map(|&vi| {
                     let p = mesh.vertices.position(VertexId::from_usize(vi));
-                    let d = (nalgebra::Point3::new(p.x, p.y, p.z) - centroid).norm();
+                    let d = (leto::Point3::new(p.x, p.y, p.z) - centroid).norm();
                     (vi, d)
                 })
                 .min_by(|(_, da), (_, db)| da.partial_cmp(db).unwrap_or(std::cmp::Ordering::Equal))

@@ -40,13 +40,13 @@ impl<T: ValidationScalar> Benchmark<T> for VenturiFlow3D<T> {
         // Use resolution (40, 6) and circular=true, matching the validated VenturiSolver3D
         // configuration that produces correct PSPG-stabilised Stokes flow.
         let builder = VenturiMeshBuilder::new(
-            self.geometry.d_inlet,
-            self.geometry.d_throat,
-            self.geometry.l_inlet,
-            self.geometry.l_convergent,
-            self.geometry.l_throat,
-            self.geometry.l_divergent,
-            self.geometry.l_outlet,
+            scalar::to_f64(self.geometry.d_inlet),
+            scalar::to_f64(self.geometry.d_throat),
+            scalar::to_f64(self.geometry.l_inlet),
+            scalar::to_f64(self.geometry.l_convergent),
+            scalar::to_f64(self.geometry.l_throat),
+            scalar::to_f64(self.geometry.l_divergent),
+            scalar::to_f64(self.geometry.l_outlet),
         )
         .with_resolution(40, 6)
         .with_circular(true);

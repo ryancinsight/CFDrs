@@ -5,16 +5,17 @@
 
 use tracing;
 
+use crate::linalg::{matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3};
 use cfd_core::error::{Error, Result};
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use eunomia::FloatElement;
-use nalgebra::Vector3;
+use leto::Vector3;
 
 use super::solver::BifurcationSolver3D;
 
 impl<T> BifurcationSolver3D<T>
 where
-    T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + FloatElement + Copy,
+    T: cfd_mesh::domain::core::Scalar + eunomia::RealField + FloatElement + Copy,
 {
     /// Calculate flow rate through a boundary label using u·n integration (f64 precision)
     ///
@@ -38,15 +39,15 @@ where
                 face_count += 1;
                 let face = mesh.faces.get(f_id);
                 // FaceData always has exactly 3 vertices
-                let v0 = mesh.vertices.position(face.vertices[0]).coords;
-                let v1 = mesh.vertices.position(face.vertices[1]).coords;
-                let v2 = mesh.vertices.position(face.vertices[2]).coords;
+                let v0 = vector3_from_indexed(&mesh.vertices.position(face.vertices[0]).coords);
+                let v1 = vector3_from_indexed(&mesh.vertices.position(face.vertices[1]).coords);
+                let v2 = vector3_from_indexed(&mesh.vertices.position(face.vertices[2]).coords);
 
-                let n_vec = (v1 - v0).cross(&(v2 - v0));
+                let n_vec = (v1 - v0).cross(v2 - v0);
                 let area = n_vec.norm() * 0.5_f64;
                 let face_normal = n_vec.normalize();
 
-                let mut u_avg = nalgebra::Vector3::zeros();
+                let mut u_avg = leto::Vector3::zeros();
                 for &v_id in &face.vertices {
                     let u = solution.get_velocity(v_id.as_usize());
                     u_avg += u;
@@ -56,7 +57,7 @@ where
                 }
                 u_avg /= 3.0_f64;
 
-                let face_flow = u_avg.dot(&face_normal) * area;
+                let face_flow = u_avg.dot(face_normal) * area;
                 total_q += face_flow;
             }
         }
@@ -70,15 +71,15 @@ where
         &self,
         mesh: &cfd_mesh::IndexedMesh<f64>,
         solution: &crate::fem::StokesFlowSolution<f64>,
-        point: nalgebra::Vector3<f64>,
+        point: leto::Vector3<f64>,
     ) -> Result<f64> {
         let mut best_node = 0;
         let mut min_dist = f64::MAX;
 
         let n_pressure_nodes = solution.n_corner_nodes.min(mesh.vertex_count());
         for i in 0..n_pressure_nodes {
-            let pos = mesh.vertices.position(VertexId::from_usize(i));
-            let dist = (pos.coords - point).norm();
+            let pos = vector3_from_indexed(&mesh.vertices.position(VertexId::from_usize(i)).coords);
+            let dist = (pos - point).norm();
             if dist < min_dist {
                 min_dist = dist;
                 best_node = i;
@@ -121,10 +122,12 @@ where
 
         let mut local_verts = Vec::with_capacity(idxs.len());
         for &idx in &idxs {
-            local_verts.push(mesh.vertices.position(VertexId::from_usize(idx)).coords);
+            local_verts.push(vector3_from_indexed(
+                &mesh.vertices.position(VertexId::from_usize(idx)).coords,
+            ));
         }
 
-        let mut l = nalgebra::Matrix3::zeros();
+        let mut l: Matrix3<f64> = Matrix3::zeros();
 
         if idxs.len() == 10_usize {
             // Tet10 (P2): Evaluate gradient at centroid (L = [0.25, 0.25, 0.25, 0.25])
@@ -137,26 +140,26 @@ where
                 return Ok(0.0_f64);
             }
             tet4.calculate_shape_derivatives(&local_verts[0..4]);
-            let p1_grads = nalgebra::Matrix3x4::from_columns(&[
+            let p1_grads = matrix3x4_from_columns([
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 0)],
-                    tet4.shape_derivatives[(1, 0)],
-                    tet4.shape_derivatives[(2, 0)],
+                    tet4.shape_derivatives[[0, 0]],
+                    tet4.shape_derivatives[[1, 0]],
+                    tet4.shape_derivatives[[2, 0]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 1)],
-                    tet4.shape_derivatives[(1, 1)],
-                    tet4.shape_derivatives[(2, 1)],
+                    tet4.shape_derivatives[[0, 1]],
+                    tet4.shape_derivatives[[1, 1]],
+                    tet4.shape_derivatives[[2, 1]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 2)],
-                    tet4.shape_derivatives[(1, 2)],
-                    tet4.shape_derivatives[(2, 2)],
+                    tet4.shape_derivatives[[0, 2]],
+                    tet4.shape_derivatives[[1, 2]],
+                    tet4.shape_derivatives[[2, 2]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 3)],
-                    tet4.shape_derivatives[(1, 3)],
-                    tet4.shape_derivatives[(2, 3)],
+                    tet4.shape_derivatives[[0, 3]],
+                    tet4.shape_derivatives[[1, 3]],
+                    tet4.shape_derivatives[[2, 3]],
                 ),
             ]);
 
@@ -170,7 +173,7 @@ where
                 let u = solution.get_velocity(idxs[i]);
                 for row in 0..3 {
                     for col in 0..3 {
-                        l[(row, col)] += p2_grads[(col, i)] * u[row];
+                        l[(row, col)] += p2_grads[[col, i]] * u[row];
                     }
                 }
             }
@@ -182,13 +185,13 @@ where
                 let u = solution.get_velocity(idx);
                 for row in 0..3 {
                     for col in 0..3 {
-                        l[(row, col)] += element.shape_derivatives[(col, i)] * u[row];
+                        l[(row, col)] += element.shape_derivatives[[col, i]] * u[row];
                     }
                 }
             }
         }
 
-        let epsilon = (l + l.transpose()) * 0.5_f64;
+        let epsilon = symmetric_part(&l);
         let mut inner_prod = 0.0_f64;
         for i in 0..3 {
             for j in 0..3 {

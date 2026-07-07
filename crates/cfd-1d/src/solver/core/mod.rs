@@ -49,12 +49,12 @@ use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
 use leto_ops::Scalar as LetoScalar;
 use serde::{Deserialize, Serialize};
 
-use self::vector_bridge::{array_from_dvector, array_l2_norm, copy_array, dvector_from_array};
+use self::vector_bridge::{array_l2_norm, copy_array};
 
 /// Scalar contract for the primary 1D network solver.
 ///
-/// This binds the legacy nalgebra linear-system boundary to the Eunomia scalar
-/// surface required by the Leto-backed cfd-math Anderson accelerator.
+/// Binds the Eunomia scalar surface required by the Leto-backed cfd-math
+/// Anderson accelerator and the linear system solver.
 pub trait NetworkSolveScalar:
     Cfd1dScalar + EunomiaRealField + LetoScalar + Copy + SafeFromF64 + SafeFromUsize + std::fmt::Debug
 {
@@ -322,7 +322,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
             }
             let residual_norm = Self::compute_residual_norm(&matrix, &solution, &workspace.rhs, n);
             diagnostics.last_residual_norm = Self::scalar_to_f64(residual_norm);
-            diagnostics.last_solution_change_norm = Self::scalar_to_f64(solution.norm());
+            diagnostics.last_solution_change_norm = Self::scalar_to_f64(array_l2_norm(&solution));
             if !<T as NumericElement>::is_finite(residual_norm) {
                 return Err(PrimarySolveError::new(
                     SolveFailureReason::NonFiniteResidual,
@@ -442,8 +442,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
 
             let residual_norm = Self::compute_residual_norm(&matrix, &solution, &workspace.rhs, n);
             let rhs_norm = array_l2_norm(&workspace.rhs);
-            let last_solution = dvector_from_array(&workspace.last_solution);
-            let solution_change_norm = (&solution - &last_solution).norm();
+            let solution_change_norm = array_l2_norm(&(&solution - &workspace.last_solution));
 
             diagnostics.last_residual_norm = Self::scalar_to_f64(residual_norm);
             diagnostics.last_solution_change_norm = Self::scalar_to_f64(solution_change_norm);
@@ -460,11 +459,10 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
             }
             network.residuals.push(residual_norm);
 
-            let solution_array = array_from_dvector(&solution);
             let converged = self
                 .convergence
                 .has_converged_dual(
-                    &solution_array,
+                    &solution,
                     &workspace.last_solution,
                     residual_norm,
                     rhs_norm,
@@ -510,7 +508,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
                 return Ok((network, diagnostics));
             }
 
-            workspace.last_solution = solution_array;
+             workspace.last_solution = solution;
             last_flow_rates.clone_from(&network.flow_rates);
         }
 
@@ -526,7 +524,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     fn update_network_solution(
         &self,
         network: &mut Network<T, F>,
-        solution: &nalgebra::DVector<T>,
+        solution: &leto::Array1<T>,
     ) -> Result<()> {
         network.update_from_solution(solution)
     }

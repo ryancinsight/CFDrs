@@ -23,7 +23,7 @@ use cfd_3d::FemConfig;
 use cfd_core::prelude::{BoundaryCondition, ConstantPropertyFluid, WallType};
 use cfd_mesh::IndexedMesh;
 use leto::geometry::Vector3 as LetoVector3;
-use nalgebra::{Point3, Vector3};
+use leto::{Point3, Vector3};
 use std::collections::HashMap;
 use std::f64::consts::PI;
 
@@ -118,8 +118,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Using analytical Hagen-Poiseuille solution for validation...");
 
     let n_nodes = problem.mesh.vertices.len();
-    let mut velocity = nalgebra::DVector::zeros(n_nodes * 3);
-    let mut pressure = nalgebra::DVector::zeros(n_nodes);
+    let mut velocity = vec![0.0_f64; n_nodes * 3];
+    let mut pressure = vec![0.0_f64; n_nodes];
 
     // Apply analytical Hagen-Poiseuille solution
     for (id, vdata) in problem.mesh.vertices.iter() {

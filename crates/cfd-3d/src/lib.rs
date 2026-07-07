@@ -119,6 +119,7 @@
 
 mod atlas_anderson;
 mod atlas_array;
+mod linalg;
 mod scalar;
 
 pub mod bifurcation;
@@ -168,8 +169,6 @@ pub use level_set::{LevelSetConfig, LevelSetSolver};
 pub use vof::{VofConfig, VofSolver};
 
 // CSG integration from cfd-mesh - feature-gated for optional dependency
-
-pub use cfd_mesh::application::csg::CsgError;
 
 #[cfg(test)]
 mod tests {

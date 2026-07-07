@@ -7,7 +7,8 @@ use cfd_core::error::Result;
 use cfd_mesh::domain::topology::Cell;
 use cfd_mesh::IndexedMesh;
 use eunomia::{FloatElement, NumericElement};
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::Vector3;
 use std::collections::HashSet;
 
 use super::scalar;
@@ -345,7 +346,7 @@ fn order_tet_corners<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Floa
             .position(cfd_mesh::domain::core::index::VertexId::from_usize(v3))
             .coords;
 
-        let det = (p1 - p0).cross(&(p2 - p0)).dot(&(p3 - p0));
+        let det = (p1 - p0).cross(p2 - p0).dot(p3 - p0);
         if det > scalar::zero::<T>() {
             let candidate = vec![v0, v1, v2, v3];
             let take = match &best {
@@ -445,7 +446,7 @@ mod tests {
     use crate::fem::mid_node_cache::MidNodeCache;
     use cfd_mesh::domain::topology::Cell;
     use cfd_mesh::IndexedMesh;
-    use nalgebra::Point3;
+    use leto::Point3;
 
     /// Build a minimal P1 tet mesh: 4 vertices, 4 triangular faces, 1 cell.
     fn build_single_tet_mesh() -> IndexedMesh<f64> {

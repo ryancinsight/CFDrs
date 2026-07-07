@@ -7,7 +7,10 @@
 //! shape-function gradient completeness.
 
 use approx::assert_relative_eq;
-use nalgebra::{Matrix3, Matrix3x4, Vector3};
+use leto::{FixedMatrix, Vector3};
+
+type Matrix3<T> = FixedMatrix<T, 3, 3>;
+type Matrix3x4<T> = FixedMatrix<T, 3, 4>;
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  P2 Shape Functions — Partition of Unity / Kronecker Delta
@@ -35,9 +38,11 @@ fn p2_nodes() -> [[f64; 4]; 10] {
 /// v0=(0,0,0), v1=(1,0,0), v2=(0,1,0), v3=(0,0,1).
 /// ∇L_0 = (-1,-1,-1), ∇L_1 = (1,0,0), ∇L_2 = (0,1,0), ∇L_3 = (0,0,1).
 fn reference_p1_gradients() -> Matrix3x4<f64> {
-    Matrix3x4::new(
-        -1.0, 1.0, 0.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 1.0,
-    )
+    Matrix3x4::from_rows([
+        [-1.0, 1.0, 0.0, 0.0],
+        [-1.0, 0.0, 1.0, 0.0],
+        [-1.0, 0.0, 0.0, 1.0],
+    ])
 }
 
 /// Theorem: Σ N_i(x) = 1 for all x in the element (Partition of Unity).
@@ -98,7 +103,7 @@ fn test_p2_gradient_sum_zero() {
         let grad = sf.gradients(l);
         // Sum columns (nodes) for each row (x,y,z)
         for row in 0..3 {
-            let sum: f64 = (0..10).map(|col| grad[(row, col)]).sum();
+            let sum: f64 = (0..10).map(|col| grad[[row, col]]).sum();
             assert_relative_eq!(sum, 0.0, epsilon = 1e-12);
         }
     }
@@ -125,7 +130,7 @@ fn test_quadrature_weights_sum_to_reference_volume() {
 #[test]
 fn test_strain_rate_symmetry() {
     use cfd_3d::fem::stress::strain_rate_tensor;
-    let grad_u = Matrix3::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
+    let grad_u = Matrix3::from_rows([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]);
     let eps = strain_rate_tensor(&grad_u);
     for i in 0..3 {
         for j in 0..3 {
@@ -139,7 +144,7 @@ fn test_strain_rate_symmetry() {
 fn test_strain_rate_zero_for_rigid_rotation() {
     use cfd_3d::fem::stress::strain_rate_tensor;
     // Antisymmetric ∇u → solid-body rotation
-    let grad_u = Matrix3::new(0.0, 1.0, -2.0, -1.0, 0.0, 3.0, 2.0, -3.0, 0.0);
+    let grad_u = Matrix3::from_rows([[0.0, 1.0, -2.0], [-1.0, 0.0, 3.0], [2.0, -3.0, 0.0]]);
     let eps = strain_rate_tensor(&grad_u);
     for i in 0..3 {
         for j in 0..3 {
@@ -157,7 +162,7 @@ fn test_stress_trace_is_neg_3p() {
     let fluid = ConstantPropertyFluid::new("test".into(), 1000.0, 0.001, 4186.0, 0.6, 1500.0);
 
     // Divergence-free velocity gradient: tr(∇u) = 0.
-    let grad_u = Matrix3::new(1.0, 0.5, 0.0, 0.5, -2.0, 0.3, 0.0, 0.3, 1.0);
+    let grad_u = Matrix3::from_rows([[1.0, 0.5, 0.0], [0.5, -2.0, 0.3], [0.0, 0.3, 1.0]]);
     let eps = strain_rate_tensor(&grad_u);
     let pressure = 42.0;
     let sigma = stress_tensor_with_fluid(&fluid, pressure, &eps);
@@ -220,7 +225,7 @@ fn test_p1_shape_derivative_sum_zero() {
     elem.calculate_shape_derivatives(&verts);
 
     for row in 0..3 {
-        let sum: f64 = (0..4).map(|col| elem.shape_derivatives[(row, col)]).sum();
+        let sum: f64 = (0..4).map(|col| elem.shape_derivatives[[row, col]]).sum();
         assert_relative_eq!(sum, 0.0, epsilon = 1e-12);
     }
 }
@@ -240,10 +245,10 @@ fn test_stiffness_matrix_symmetry() {
     elem.calculate_shape_derivatives(&verts);
 
     let k = elem.stiffness_contribution(0.001);
-    let n = k.nrows();
+    let n = k.shape()[0];
     for i in 0..n {
         for j in i + 1..n {
-            assert_relative_eq!(k[(i, j)], k[(j, i)], epsilon = 1e-15);
+            assert_relative_eq!(k[[i, j]], k[[j, i]], epsilon = 1e-15);
         }
     }
 }

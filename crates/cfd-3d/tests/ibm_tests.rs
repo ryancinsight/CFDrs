@@ -12,7 +12,7 @@
 use cfd_3d::ibm::{
     config::IbmConfig, DeltaFunction, IbmSolver, InterpolationKernel, LagrangianPoint,
 };
-use nalgebra::Vector3;
+use leto::Vector3;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers

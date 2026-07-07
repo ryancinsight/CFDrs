@@ -22,7 +22,7 @@ impl<T: RealField + Copy + Send + Sync + LetoScalar> LinearOperator<T> for CsrMa
 /// Sparse matrix-vector multiplication (SpMV): y = A * x
 ///
 /// Uses the Atlas-owned Leto CSR provider. Vectors are Leto arrays, so the
-/// sparse operation surface does not expose nalgebra matrix or vector storage.
+/// sparse operation surface does not expose legacy matrix or vector storage.
 ///
 /// # Arguments
 /// * `a` - Sparse matrix in CSR format

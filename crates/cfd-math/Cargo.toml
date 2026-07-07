@@ -10,7 +10,6 @@ description = "Mathematical utilities and numerical methods for CFD simulations"
 
 [dependencies]
 cfd-core.workspace = true
-nalgebra-sparse.workspace = true
 rsparse.workspace = true
 eunomia.workspace = true
 leto.workspace = true

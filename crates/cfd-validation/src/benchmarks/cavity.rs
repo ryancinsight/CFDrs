@@ -5,10 +5,10 @@
 //! using the Navier-Stokes equations and a multigrid method"
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
+use crate::matrix::DMatrix;
 use crate::scalar;
 use cfd_core::error::Result;
-use eunomia::FloatElement;
-use nalgebra::{DMatrix, RealField};
+use eunomia::{FloatElement, RealField};
 
 /// Lid-driven cavity benchmark
 pub struct LidDrivenCavity<T: RealField + Copy> {

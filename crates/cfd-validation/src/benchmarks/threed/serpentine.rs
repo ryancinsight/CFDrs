@@ -5,6 +5,7 @@
 
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Serpentine3D;
+use crate::scalar;
 use crate::scalar::ValidationScalar;
 use cfd_3d::serpentine::{SerpentineConfig3D, SerpentineSolver3D};
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
@@ -36,12 +37,10 @@ impl<T: ValidationScalar> Benchmark<T> for SerpentineFlow3D<T> {
         let mut result = BenchmarkResult::new(self.name());
 
         // 1. Setup Mesh Builder
-        // Note: Serpentine3D fields might be named differently from SerpentineMeshBuilder
-        // I'll check Serpentine3D again.
         let builder = SerpentineMeshBuilder::new(
-            self.geometry.diameter,
-            self.geometry.amplitude,
-            self.geometry.wavelength,
+            scalar::to_f64(self.geometry.diameter),
+            scalar::to_f64(self.geometry.amplitude),
+            scalar::to_f64(self.geometry.wavelength),
         )
         .with_periods(self.geometry.num_periods);
 

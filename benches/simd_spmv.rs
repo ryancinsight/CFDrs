@@ -16,8 +16,8 @@
 
 use cfd_math::sparse::{spmv, spmv_parallel, SparseMatrixBuilder};
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use nalgebra::DVector;
-use nalgebra_sparse::CsrMatrix;
+use leto::Array1;
+use leto_ops::CsrMatrix;
 
 /// Create a tridiagonal CSR matrix (3 non-zeros per row)
 /// Common in 1D heat/diffusion equations
@@ -116,8 +116,8 @@ fn bench_scalar_spmv(c: &mut Criterion) {
 
     // Small: 100x100 (300 non-zeros)
     let matrix = create_tridiagonal_csr_f64(100);
-    let x = DVector::from_element(100, 1.0);
-    let mut y = DVector::zeros(100);
+    let x = Array1::from_shape_vec([100], vec![1.0; 100]).expect("shape matches");
+    let mut y = Array1::zeros([100]);
     group.throughput(Throughput::Elements(matrix.nnz() as u64));
     group.bench_function("tridiagonal_100", |b| {
         b.iter(|| {
@@ -127,8 +127,8 @@ fn bench_scalar_spmv(c: &mut Criterion) {
 
     // Medium: 500x500 (1500 non-zeros)
     let matrix = create_tridiagonal_csr_f64(500);
-    let x = DVector::from_element(500, 1.0);
-    let mut y = DVector::zeros(500);
+    let x = Array1::from_shape_vec([500], vec![1.0; 500]).expect("shape matches");
+    let mut y = Array1::zeros([500]);
     group.throughput(Throughput::Elements(matrix.nnz() as u64));
     group.bench_function("tridiagonal_500", |b| {
         b.iter(|| {
@@ -138,8 +138,8 @@ fn bench_scalar_spmv(c: &mut Criterion) {
 
     // Large: 2000x2000 (6000 non-zeros)
     let matrix = create_tridiagonal_csr_f64(2000);
-    let x = DVector::from_element(2000, 1.0);
-    let mut y = DVector::zeros(2000);
+    let x = Array1::from_shape_vec([2000], vec![1.0; 2000]).expect("shape matches");
+    let mut y = Array1::zeros([2000]);
     group.throughput(Throughput::Elements(matrix.nnz() as u64));
     group.bench_function("tridiagonal_2000", |b| {
         b.iter(|| {
@@ -156,8 +156,8 @@ fn bench_pentadiagonal(c: &mut Criterion) {
 
     // 32x32 grid = 1024 unknowns
     let matrix = create_pentadiagonal_csr_f64(32);
-    let x = DVector::from_element(1024, 1.0);
-    let mut y = DVector::zeros(1024);
+    let x = Array1::from_shape_vec([1024], vec![1.0; 1024]).expect("shape matches");
+    let mut y = Array1::zeros([1024]);
     group.throughput(Throughput::Elements(matrix.nnz() as u64));
     group.bench_function("scalar_32x32", |b| {
         b.iter(|| {
@@ -168,8 +168,8 @@ fn bench_pentadiagonal(c: &mut Criterion) {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
         let matrix_f32 = create_pentadiagonal_csr_f32(32);
-        let x_f32 = DVector::from_element(1024, 1.0f32);
-        let mut y_f32 = DVector::zeros(1024);
+        let x_f32 = Array1::from_shape_vec([1024], vec![1.0f32; 1024]).expect("shape matches");
+        let mut y_f32 = Array1::zeros([1024]);
         group.bench_function("simd_32x32_deprecated", |b| {
             b.iter(|| {
                 // SIMD implementation was removed due to 27-32% regression
@@ -185,8 +185,8 @@ fn bench_pentadiagonal(c: &mut Criterion) {
 
     // 64x64 grid = 4096 unknowns
     let matrix = create_pentadiagonal_csr_f64(64);
-    let x = DVector::from_element(4096, 1.0);
-    let mut y = DVector::zeros(4096);
+    let x = Array1::from_shape_vec([4096], vec![1.0; 4096]).expect("shape matches");
+    let mut y = Array1::zeros([4096]);
     group.throughput(Throughput::Elements(matrix.nnz() as u64));
     group.bench_function("scalar_64x64", |b| {
         b.iter(|| {
@@ -197,8 +197,8 @@ fn bench_pentadiagonal(c: &mut Criterion) {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
         let matrix_f32 = create_pentadiagonal_csr_f32(64);
-        let x_f32 = DVector::from_element(4096, 1.0f32);
-        let mut y_f32 = DVector::zeros(4096);
+        let x_f32 = Array1::from_shape_vec([4096], vec![1.0f32; 4096]).expect("shape matches");
+        let mut y_f32 = Array1::zeros([4096]);
         group.bench_function("simd_64x64_deprecated", |b| {
             b.iter(|| {
                 // SIMD implementation was removed due to 27-32% regression
@@ -222,8 +222,8 @@ fn bench_parallel_spmv(c: &mut Criterion) {
     // Medium: 1000x1000 tridiagonal (3000 non-zeros)
     // Parallel benefit starts to show
     let matrix = create_tridiagonal_csr_f64(1000);
-    let x = DVector::from_element(1000, 1.0);
-    let mut y = DVector::zeros(1000);
+    let x = Array1::from_shape_vec([1000], vec![1.0; 1000]).expect("shape matches");
+    let mut y = Array1::zeros([1000]);
     group.throughput(Throughput::Elements(matrix.nnz() as u64));
     group.bench_function("tridiagonal_1000_scalar", |b| {
         b.iter(|| {
@@ -239,8 +239,8 @@ fn bench_parallel_spmv(c: &mut Criterion) {
     // Large: 5000x5000 tridiagonal (15000 non-zeros)
     // Expected 3-8x speedup on 4-8 cores
     let matrix = create_tridiagonal_csr_f64(5000);
-    let x = DVector::from_element(5000, 1.0);
-    let mut y = DVector::zeros(5000);
+    let x = Array1::from_shape_vec([5000], vec![1.0; 5000]).expect("shape matches");
+    let mut y = Array1::zeros([5000]);
     group.throughput(Throughput::Elements(matrix.nnz() as u64));
     group.bench_function("tridiagonal_5000_scalar", |b| {
         b.iter(|| {
@@ -256,8 +256,8 @@ fn bench_parallel_spmv(c: &mut Criterion) {
     // XL: 10000x10000 tridiagonal (30000 non-zeros)
     // Target: demonstrate scaling benefit
     let matrix = create_tridiagonal_csr_f64(10000);
-    let x = DVector::from_element(10000, 1.0);
-    let mut y = DVector::zeros(10000);
+    let x = Array1::from_shape_vec([10000], vec![1.0; 10000]).expect("shape matches");
+    let mut y = Array1::zeros([10000]);
     group.throughput(Throughput::Elements(matrix.nnz() as u64));
     group.bench_function("tridiagonal_10000_scalar", |b| {
         b.iter(|| {
@@ -279,8 +279,8 @@ fn bench_parallel_pentadiagonal(c: &mut Criterion) {
 
     // 50x50 grid = 2500 unknowns (12500 non-zeros)
     let matrix = create_pentadiagonal_csr_f64(50);
-    let x = DVector::from_element(2500, 1.0);
-    let mut y = DVector::zeros(2500);
+    let x = Array1::from_shape_vec([2500], vec![1.0; 2500]).expect("shape matches");
+    let mut y = Array1::zeros([2500]);
     group.throughput(Throughput::Elements(matrix.nnz() as u64));
     group.bench_function("50x50_scalar", |b| {
         b.iter(|| {
@@ -296,8 +296,8 @@ fn bench_parallel_pentadiagonal(c: &mut Criterion) {
     // 100x100 grid = 10000 unknowns (50000 non-zeros)
     // Target workload for CFD simulations
     let matrix = create_pentadiagonal_csr_f64(100);
-    let x = DVector::from_element(10000, 1.0);
-    let mut y = DVector::zeros(10000);
+    let x = Array1::from_shape_vec([10000], vec![1.0; 10000]).expect("shape matches");
+    let mut y = Array1::zeros([10000]);
     group.throughput(Throughput::Elements(matrix.nnz() as u64));
     group.bench_function("100x100_scalar", |b| {
         b.iter(|| {
@@ -313,8 +313,8 @@ fn bench_parallel_pentadiagonal(c: &mut Criterion) {
     // 200x200 grid = 40000 unknowns (200000 non-zeros)
     // Large-scale CFD simulation
     let matrix = create_pentadiagonal_csr_f64(200);
-    let x = DVector::from_element(40000, 1.0);
-    let mut y = DVector::zeros(40000);
+    let x = Array1::from_shape_vec([40000], vec![1.0; 40000]).expect("shape matches");
+    let mut y = Array1::zeros([40000]);
     group.throughput(Throughput::Elements(matrix.nnz() as u64));
     group.bench_function("200x200_scalar", |b| {
         b.iter(|| {

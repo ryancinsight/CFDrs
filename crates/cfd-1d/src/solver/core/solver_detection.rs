@@ -5,6 +5,7 @@
 
 use eunomia::NumericElement;
 use leto::{Array1, Storage};
+use leto_ops::CsrMatrix as LetoCsrMatrix;
 
 use super::{LinearSolverMethod, NetworkSolveScalar, NetworkSolver};
 use crate::domain::network::Network;
@@ -31,9 +32,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     /// The Laplacian sign structure (positive diagonal, non-positive off-diagonal)
     /// is topologically invariant, so this classification is stable across
     /// Picard iterations.
-    pub(super) fn detect_solver_method(
-        matrix: &nalgebra_sparse::CsrMatrix<T>,
-    ) -> LinearSolverMethod {
+    pub(super) fn detect_solver_method(matrix: &LetoCsrMatrix<T>) -> LinearSolverMethod {
         let mut is_spd = true;
         for i in 0..matrix.nrows() {
             let row = matrix.row(i);
@@ -66,10 +65,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     }
 
     /// Validate assembled linear system for well-formedness.
-    pub(super) fn validate_linear_system(
-        matrix: &nalgebra_sparse::CsrMatrix<T>,
-        rhs: &Array1<T>,
-    ) -> Result<()> {
+    pub(super) fn validate_linear_system(matrix: &LetoCsrMatrix<T>, rhs: &Array1<T>) -> Result<()> {
         if matrix.nrows() == 0 || matrix.ncols() == 0 {
             return Err(Error::InvalidConfiguration(
                 "Assembled network matrix is empty".to_string(),
@@ -100,8 +96,8 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
 
     /// Compute the L2 norm of the linear-system residual ||Ax - b||₂.
     pub(super) fn compute_residual_norm(
-        matrix: &nalgebra_sparse::CsrMatrix<T>,
-        solution: &nalgebra::DVector<T>,
+        matrix: &LetoCsrMatrix<T>,
+        solution: &Array1<T>,
         rhs: &Array1<T>,
         n: usize,
     ) -> T {
@@ -119,8 +115,10 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     }
 
     /// Check all entries in a vector are finite.
-    pub(super) fn vector_is_finite(values: &nalgebra::DVector<T>) -> bool {
+    pub(super) fn vector_is_finite(values: &Array1<T>) -> bool {
         values
+            .storage()
+            .as_slice()
             .iter()
             .all(|value| <T as NumericElement>::is_finite(*value))
     }

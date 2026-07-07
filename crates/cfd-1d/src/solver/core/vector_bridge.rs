@@ -1,19 +1,5 @@
 use eunomia::NumericElement;
 use leto::{Array1, Storage};
-use nalgebra::DVector;
-
-pub(super) fn array_from_dvector<T: nalgebra::Scalar + Copy>(vector: &DVector<T>) -> Array1<T> {
-    Array1::from_shape_vec([vector.len()], vector.as_slice().to_vec())
-        .expect("invariant: DVector length matches produced Leto vector shape")
-}
-
-pub(super) fn dvector_from_array<T: nalgebra::Scalar + Clone>(array: &Array1<T>) -> DVector<T> {
-    DVector::from_vec(array.storage().as_slice().to_vec())
-}
-
-pub(super) fn dvector_from_owned_array<T: nalgebra::Scalar>(array: Array1<T>) -> DVector<T> {
-    DVector::from_vec(array.into_vec())
-}
 
 pub(super) fn array_l2_norm<T: NumericElement + Copy>(values: &Array1<T>) -> T {
     let norm_sq = values

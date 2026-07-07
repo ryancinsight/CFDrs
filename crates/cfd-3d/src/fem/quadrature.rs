@@ -17,7 +17,8 @@
 //! **Reference:** Keast, P., "Moderate-degree tetrahedral quadrature formulas",
 //! CMAME 55(3), 1986, pp. 339–348.
 
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::Vector3;
 
 use eunomia::FloatElement;
 

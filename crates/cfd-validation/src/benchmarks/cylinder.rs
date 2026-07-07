@@ -4,10 +4,10 @@
 //! around a cylinder"
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
+use crate::matrix::DMatrix;
 use crate::scalar;
 use cfd_core::error::Result;
-use eunomia::FloatElement;
-use nalgebra::{DMatrix, RealField};
+use eunomia::{FloatElement, RealField};
 
 /// Flow over cylinder benchmark
 pub struct FlowOverCylinder<T: RealField + Copy> {
@@ -45,7 +45,7 @@ impl<T: RealField + Copy> FlowOverCylinder<T> {
         if forces.len() > 1 {
             forces[1]
         } else {
-            T::zero()
+            scalar::zero::<T>()
         }
     }
 
@@ -98,7 +98,7 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for FlowOverCylinder<T> {
 
             // Calculate forces on cylinder
             let drag = scalar::from_f64::<T>(1.0);
-            let lift = T::zero();
+            let lift = scalar::zero::<T>();
             forces.push(drag);
             forces.push(lift);
 
@@ -184,7 +184,7 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for FlowOverCylinder<T> {
 
             // Additional sanity checks
             let cd_physically_reasonable =
-                computed_cd > T::zero() && computed_cd < scalar::from_f64::<T>(20.0);
+                computed_cd > scalar::zero::<T>() && computed_cd < scalar::from_f64::<T>(20.0);
             let cl_physically_reasonable = scalar::abs(computed_cl) < scalar::from_f64::<T>(5.0);
 
             // Check convergence occurred
@@ -203,7 +203,7 @@ impl<T: RealField + Copy + FloatElement> Benchmark<T> for FlowOverCylinder<T> {
 
         // Fallback: basic sanity checks without reference
         let cd_physically_reasonable =
-            computed_cd > T::zero() && computed_cd < scalar::from_f64::<T>(20.0);
+            computed_cd > scalar::zero::<T>() && computed_cd < scalar::from_f64::<T>(20.0);
         let cl_physically_reasonable = scalar::abs(computed_cl) < scalar::from_f64::<T>(5.0);
 
         // Check convergence

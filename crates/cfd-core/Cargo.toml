@@ -18,8 +18,6 @@ serde_json.workspace = true
 bytemuck = { version = "1.14", features = ["derive"] }
 futures = "0.3"
 num_cpus = "1.16"
-nalgebra.workspace = true
-nalgebra-sparse.workspace = true
 leto.workspace = true
 eunomia.workspace = true
 indexmap.workspace = true

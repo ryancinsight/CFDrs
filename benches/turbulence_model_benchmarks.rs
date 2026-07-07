@@ -7,6 +7,7 @@
 
 use cfd_2d::physics::turbulence::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use leto::{geometry::Vector2, Array2};
 
 /// Benchmark RANS model performance (k-ε, k-ω SST, SA)
 fn bench_rans_models(c: &mut Criterion) {
@@ -21,7 +22,7 @@ fn bench_rans_models(c: &mut Criterion) {
             let mut k_model = KEpsilonModel::<f64>::new(nx, ny);
             let mut k_field = vec![0.1; nx * ny];
             let mut eps_field = vec![0.01; nx * ny];
-            let velocity_field = vec![nalgebra::Vector2::new(1.0, 0.0); nx * ny];
+            let velocity_field = vec![Vector2::new(1.0, 0.0); nx * ny];
 
             b.iter(|| {
                 k_model
@@ -44,7 +45,7 @@ fn bench_rans_models(c: &mut Criterion) {
             let mut k_model = KOmegaSSTModel::<f64>::new(nx, ny);
             let mut k_field = vec![0.1; nx * ny];
             let mut omega_field = vec![10.0; nx * ny];
-            let velocity_field = vec![nalgebra::Vector2::new(1.0, 0.0); nx * ny];
+            let velocity_field = vec![Vector2::new(1.0, 0.0); nx * ny];
 
             b.iter(|| {
                 k_model
@@ -66,7 +67,7 @@ fn bench_rans_models(c: &mut Criterion) {
         group.bench_function(format!("spalart_allmaras_{}x{}", nx, ny), |b| {
             let sa_model = SpalartAllmaras::<f64>::new(nx, ny);
             let mut nu_tilde_field = vec![1e-4; nx * ny];
-            let velocity_field = vec![nalgebra::Vector2::new(1.0, 0.0); nx * ny];
+            let velocity_field = vec![Vector2::new(1.0, 0.0); nx * ny];
 
             b.iter(|| {
                 sa_model
@@ -104,9 +105,9 @@ fn bench_les_models(c: &mut Criterion) {
                 use_gpu: false, // CPU benchmark
             };
             let mut les_model = SmagorinskyLES::new(nx, ny, 0.01, 0.01, config);
-            let velocity_u = nalgebra::DMatrix::from_element(nx, ny, 1.0);
-            let velocity_v = nalgebra::DMatrix::from_element(nx, ny, 0.0);
-            let pressure = nalgebra::DMatrix::zeros(nx, ny);
+            let velocity_u = Array2::from_shape_fn([nx, ny], |_| 1.0);
+            let velocity_v = Array2::from_shape_fn([nx, ny], |_| 0.0);
+            let pressure = Array2::zeros([nx, ny]);
 
             b.iter(|| {
                 les_model
@@ -134,9 +135,9 @@ fn bench_les_models(c: &mut Criterion) {
                 use_gpu: false, // CPU benchmark
             };
             let mut des_model = DetachedEddySimulation::new(nx, ny, 0.01, 0.01, config, &[]);
-            let velocity_u = nalgebra::DMatrix::from_element(nx, ny, 1.0);
-            let velocity_v = nalgebra::DMatrix::from_element(nx, ny, 0.0);
-            let pressure = nalgebra::DMatrix::zeros(nx, ny);
+            let velocity_u = Array2::from_shape_fn([nx, ny], |_| 1.0);
+            let velocity_v = Array2::from_shape_fn([nx, ny], |_| 0.0);
+            let pressure = Array2::zeros([nx, ny]);
 
             b.iter(|| {
                 des_model
@@ -254,16 +255,16 @@ fn bench_memory_usage(c: &mut Criterion) {
         b.iter(|| {
             let _k = vec![0.1f64; 64 * 64];
             let _eps = vec![0.01f64; 64 * 64];
-            let _velocity = vec![nalgebra::Vector2::<f64>::zeros(); 64 * 64];
+            let _velocity = vec![Vector2::<f64>::zeros(); 64 * 64];
             black_box(());
         });
     });
 
     group.bench_function("matrix_allocation_64x64", |b| {
         b.iter(|| {
-            let _velocity_u = nalgebra::DMatrix::<f64>::zeros(64, 64);
-            let _velocity_v = nalgebra::DMatrix::<f64>::zeros(64, 64);
-            let _pressure = nalgebra::DMatrix::<f64>::zeros(64, 64);
+            let _velocity_u = Array2::<f64>::zeros([64, 64]);
+            let _velocity_v = Array2::<f64>::zeros([64, 64]);
+            let _pressure = Array2::<f64>::zeros([64, 64]);
             black_box(());
         });
     });

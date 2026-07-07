@@ -9,7 +9,7 @@ use cfd_core::error::Result as CfdResult;
 use eunomia::{FloatElement, NumericElement};
 
 /// Discretized 2D Serpentine Flow Solver
-pub struct SerpentineSolver2D<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> {
+pub struct SerpentineSolver2D<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<Output = T>> {
     /// Serpentine channel geometry definition.
     pub geometry: SerpentineGeometry<T>,
     /// Navier-Stokes flow solver on a staggered grid.
@@ -18,7 +18,7 @@ pub struct SerpentineSolver2D<T: Cfd2dScalar + eunomia::RealField + Copy + Float
     pub scalar_solver: ScalarTransportSolver2D<T>,
 }
 
-impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> SerpentineSolver2D<T> {
+impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<Output = T>> SerpentineSolver2D<T> {
     /// Create new discretized serpentine solver
     pub fn new(
         geometry: SerpentineGeometry<T>,

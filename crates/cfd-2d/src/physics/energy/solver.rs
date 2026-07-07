@@ -177,7 +177,7 @@ impl<T: Cfd2dScalar + Copy> EnergyEquationSolver<T> {
                         let scale = self.viscous_dissipation_mu[(i, j)] / rho_cp;
                         // Convert scale factor from f64 to T via successive halvings.
                         // For f64 T this is exact; for f32 it rounds.
-                        self.heat_source[(i, j)] += contribs[(i, j)] * T::from_subset(&scale);
+                        self.heat_source[(i, j)] += contribs[(i, j)] * <T as eunomia::FloatElement>::from_f64(scale);
                     }
                 }
             }
@@ -240,7 +240,7 @@ impl<T: Cfd2dScalar + Copy> EnergyEquationSolver<T> {
                 for i in 1..self.nx - 1 {
                     for j in 1..self.ny - 1 {
                         let scale = self.viscous_dissipation_mu[(i, j)] / rho_cp;
-                        self.heat_source[(i, j)] -= contribs[(i, j)] * T::from_subset(&scale);
+                        self.heat_source[(i, j)] -= contribs[(i, j)] * <T as eunomia::FloatElement>::from_f64(scale);
                     }
                 }
             }

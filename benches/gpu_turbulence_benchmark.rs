@@ -9,12 +9,12 @@ use cfd_2d::physics::turbulence::{
     LESTurbulenceModel,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use nalgebra::DMatrix;
+use leto::Array2;
 
 /// Create test velocity fields for benchmarking
-fn create_benchmark_velocity_fields(nx: usize, ny: usize) -> (DMatrix<f64>, DMatrix<f64>) {
-    let mut velocity_u = DMatrix::zeros(nx, ny);
-    let mut velocity_v = DMatrix::zeros(nx, ny);
+fn create_benchmark_velocity_fields(nx: usize, ny: usize) -> (Array2<f64>, Array2<f64>) {
+    let mut velocity_u = Array2::zeros([nx, ny]);
+    let mut velocity_v = Array2::zeros([nx, ny]);
 
     // Create realistic turbulent flow field
     for i in 0..nx {
@@ -23,10 +23,10 @@ fn create_benchmark_velocity_fields(nx: usize, ny: usize) -> (DMatrix<f64>, DMat
             let y = j as f64 / ny as f64;
 
             // Base flow + turbulence
-            velocity_u[(i, j)] = 1.0
+            velocity_u[[i, j]] = 1.0
                 + 0.1 * (2.0 * std::f64::consts::PI * x).sin()
                 + 0.05 * (4.0 * std::f64::consts::PI * y).cos();
-            velocity_v[(i, j)] = 0.1 * (2.0 * std::f64::consts::PI * y).sin()
+            velocity_v[[i, j]] = 0.1 * (2.0 * std::f64::consts::PI * y).sin()
                 + 0.05 * (4.0 * std::f64::consts::PI * x).cos();
         }
     }
@@ -40,7 +40,7 @@ fn bench_smagorinsky_les(c: &mut Criterion) {
 
     for &size in [32, 64, 128].iter() {
         let (velocity_u, velocity_v) = create_benchmark_velocity_fields(size, size);
-        let pressure = DMatrix::zeros(size, size);
+        let pressure = Array2::zeros([size, size]);
 
         // CPU benchmark
         let config_cpu = SmagorinskyConfig {
@@ -101,7 +101,7 @@ fn bench_des(c: &mut Criterion) {
 
     for &size in [32, 64, 128].iter() {
         let (velocity_u, velocity_v) = create_benchmark_velocity_fields(size, size);
-        let pressure = DMatrix::zeros(size, size);
+        let pressure = Array2::zeros([size, size]);
 
         // CPU benchmark
         let config_cpu = DESConfig {
@@ -165,19 +165,19 @@ fn bench_strain_rate_computation(c: &mut Criterion) {
 
         group.bench_function(format!("CPU {}x{}", size, size), |b| {
             b.iter(|| {
-                let mut strain = DMatrix::zeros(size, size);
+                let mut strain = Array2::zeros([size, size]);
                 for i in 1..size - 1 {
                     for j in 1..size - 1 {
-                        let du_dx = (velocity_u[(i + 1, j)] - velocity_u[(i - 1, j)]) / 0.02;
-                        let du_dy = (velocity_u[(i, j + 1)] - velocity_u[(i, j - 1)]) / 0.02;
-                        let dv_dx = (velocity_v[(i + 1, j)] - velocity_v[(i - 1, j)]) / 0.02;
-                        let dv_dy = (velocity_v[(i, j + 1)] - velocity_v[(i, j - 1)]) / 0.02;
+                        let du_dx = (velocity_u[[i + 1, j]] - velocity_u[[i - 1, j]]) / 0.02;
+                        let du_dy = (velocity_u[[i, j + 1]] - velocity_u[[i, j - 1]]) / 0.02;
+                        let dv_dx = (velocity_v[[i + 1, j]] - velocity_v[[i - 1, j]]) / 0.02;
+                        let dv_dy = (velocity_v[[i, j + 1]] - velocity_v[[i, j - 1]]) / 0.02;
 
                         let s11 = du_dx;
                         let s22 = dv_dy;
                         let s12 = 0.5 * (du_dy + dv_dx);
 
-                        strain[(i, j)] =
+                        strain[[i, j]] =
                             black_box((2.0 * s11 * s11 + 2.0 * s22 * s22 + 4.0 * s12 * s12).sqrt());
                     }
                 }
@@ -195,7 +195,7 @@ fn bench_accuracy_validation(c: &mut Criterion) {
 
     let size = 64;
     let (velocity_u, velocity_v) = create_benchmark_velocity_fields(size, size);
-    let pressure = DMatrix::zeros(size, size);
+    let pressure = Array2::zeros([size, size]);
 
     // Compare CPU and GPU results for accuracy
     group.bench_function("Smagorinsky Accuracy Check", |b| {
@@ -246,8 +246,8 @@ fn bench_accuracy_validation(c: &mut Criterion) {
                 let mut max_relative_error = 0.0f64;
                 for i in 0..size {
                     for j in 0..size {
-                        let cpu_val = cpu_viscosity[(i, j)];
-                        let gpu_val = gpu_viscosity[(i, j)];
+                        let cpu_val = cpu_viscosity[[i, j]];
+                        let gpu_val = gpu_viscosity[[i, j]];
 
                         if cpu_val.abs() > 1e-12 {
                             let rel_error = ((cpu_val - gpu_val) / cpu_val).abs();

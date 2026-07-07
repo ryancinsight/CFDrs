@@ -4,7 +4,7 @@ use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use cfd_3d::{LagrangianPoint, NufftMarkerCoupler3D};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
-use nalgebra::Vector3;
+use leto::Vector3;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
@@ -204,7 +204,7 @@ impl NufftCouplingBenchmark3D {
 
         for (index, (position, sample)) in probes.iter().zip(sampled.iter()).enumerate() {
             let analytic = Self::analytic_velocity(position, config.length_scale);
-            let absolute_error = (sample - analytic).norm();
+            let absolute_error = (*sample - analytic).norm();
             cumulative_error = cumulative_error.max(absolute_error);
 
             history.probe_checkpoints.push(NufftCouplingCheckpoint {

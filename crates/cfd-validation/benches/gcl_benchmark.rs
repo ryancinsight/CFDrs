@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use nalgebra::DMatrix;
+use leto::Array2;
 
 fn benchmark_gcl_loop(c: &mut Criterion) {
     let mut group = c.benchmark_group("gcl_loop");
@@ -13,7 +13,7 @@ fn benchmark_gcl_loop(c: &mut Criterion) {
     group.bench_function("baseline", |b| {
         b.iter(|| {
             // Setup similar to the test function
-            let u = DMatrix::from_element(nx, ny, constant_value);
+            let u = Array2::from_shape_fn([nx, ny], |_| constant_value);
             let mut u_current = u.clone();
 
             for _ in 0..steps {
@@ -21,7 +21,7 @@ fn benchmark_gcl_loop(c: &mut Criterion) {
                 let u_next = u_current.clone();
 
                 // Simulate some access to prevent optimization
-                black_box(&u_next[(0, 0)]);
+                black_box(&u_next[[0, 0]]);
 
                 u_current = u_next;
             }
@@ -31,16 +31,16 @@ fn benchmark_gcl_loop(c: &mut Criterion) {
     group.bench_function("optimized_copy_from", |b| {
         b.iter(|| {
             // Setup
-            let u = DMatrix::from_element(nx, ny, constant_value);
+            let u = Array2::from_shape_fn([nx, ny], |_| constant_value);
             let mut u_current = u.clone();
             let mut u_next = u.clone(); // Pre-allocate
 
             for _ in 0..steps {
                 // Optimized: Copy into existing buffer
-                u_next.copy_from(&u_current);
+                u_next.clone_from(&u_current);
 
                 // Simulate some access
-                black_box(&u_next[(0, 0)]);
+                black_box(&u_next[[0, 0]]);
 
                 // Swap buffers
                 std::mem::swap(&mut u_current, &mut u_next);
@@ -51,7 +51,7 @@ fn benchmark_gcl_loop(c: &mut Criterion) {
     group.bench_function("optimized_clone_from", |b| {
         b.iter(|| {
             // Setup
-            let u = DMatrix::from_element(nx, ny, constant_value);
+            let u = Array2::from_shape_fn([nx, ny], |_| constant_value);
             let mut u_current = u.clone();
             let mut u_next = u.clone(); // Pre-allocate
 
@@ -60,7 +60,7 @@ fn benchmark_gcl_loop(c: &mut Criterion) {
                 u_next.clone_from(&u_current);
 
                 // Simulate some access
-                black_box(&u_next[(0, 0)]);
+                black_box(&u_next[[0, 0]]);
 
                 // Swap buffers
                 std::mem::swap(&mut u_current, &mut u_next);

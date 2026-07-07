@@ -2,7 +2,7 @@
 
 use crate::scalar;
 use eunomia::FloatElement;
-use nalgebra::RealField;
+use eunomia::RealField;
 
 const INTERPOLATION_STENCIL_SIZE: usize = 4;
 

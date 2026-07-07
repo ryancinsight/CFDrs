@@ -6,16 +6,16 @@
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_core::physics::boundary::{BoundaryCondition, BoundaryConditionSet, WallType};
 use cfd_validation::manufactured::{ManufacturedDiffusion, TaylorGreenManufactured};
-use eunomia::FloatElement;
+use eunomia::{FloatElement, RealField};
 use leto::geometry::Vector3;
 
 /// Helper function to compute x coordinate at grid index
-fn x_at<T: nalgebra::RealField + FloatElement + Copy>(grid: &StructuredGrid2D<T>, i: usize) -> T {
+fn x_at<T: RealField + FloatElement + Copy>(grid: &StructuredGrid2D<T>, i: usize) -> T {
     grid.bounds.0 + <T as FloatElement>::from_f64(i as f64) * grid.dx
 }
 
 /// Helper function to compute y coordinate at grid index
-fn y_at<T: nalgebra::RealField + FloatElement + Copy>(grid: &StructuredGrid2D<T>, j: usize) -> T {
+fn y_at<T: RealField + FloatElement + Copy>(grid: &StructuredGrid2D<T>, j: usize) -> T {
     grid.bounds.2 + <T as FloatElement>::from_f64(j as f64) * grid.dy
 }
 

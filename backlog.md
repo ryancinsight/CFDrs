@@ -1,3 +1,28 @@
+> ## Vocabulary policy (canonical atlas-migration terms-of-art)
+>
+> **Canonical functional terms-of-art (preserve)**:
+> - `Atlas-typed` (the CoeUs/MoiraiBackend-typed twin type-system family that pairs with `Burn-keyed` as the atomic-boundary partition term per ADR 0012 §Decision §1)
+> - `Atlas-side` (the additive production-side / subtractive test-side partition — pairs with `Burn-side`)
+> - `Atlas-only` (the validation-gate constraint term, e.g. "Atlas-only backend trait assertion")
+> - `Atlas-meta` (the atlas-meta repo/branch identifier, codex/kwavers-atlas-integration)
+> - `Atlas-native` (a label for modules/edges that route through native CoeUs/Eunomia/Leto without burn-compat shims)
+> - `Atlas-backed` (a run-time / compile-time Atlas-runtime carrier — Atlas-runtime kernels, Codex-Atlas pipelines, etc.)
+> - `Atlas migration push` / `Atlas migration` (the pregnant noun phrase used to describe the ongoing per-crate migration ceremonies — Atlas-migration makes the chronology explicit without over-decoration)
+> - `cfd-* Atlas-typed` /
+>   `cfd-math` / `cfd-1d` / `cfd-2d` / `cfd-3d` /
+>   `cfd-core` / `cfd-io` / `cfd-schematics` / `cfd-validation` /
+>   `cfd-python` / `cfd-optim` (the CFDrs inner-crate atomic-boundary partition terms that pair with the Atlas-migration-push ceremony list in the canonical Atlas-meta rubric)
+>
+> **Discouraged over-decorated compounds (drop)**:
+> - `Atlas-parent` -> collapse to `atlas-meta`
+> - `Atlas-root` -> collapse to `atlas-meta working tree`
+> - `Atlas-provider` -> collapse to bare `Atlas` when it modifies a non-push noun (e.g. "Atlas-provider boundaries/work/slices/residue"), or `Atlas migration push` when it modifies a ceremony noun (e.g. "Atlas-provider migration push")
+>
+> **CFDrs-specific guidance**:
+> - The CFDrs migration covers `cfd-math` + `cfd-1d` + `cfd-2d` + `cfd-3d` + `cfd-core` + `cfd-io` + `cfd-schematics` + `cfd-validation` + `cfd-python` + `cfd-optim` (per the canonical Atlas-meta rubric + the inner refactor commit history). Per-crate case-study references should preserve the inner-crate-name as a compound prefix without dropping the `Atlas-` prefix.
+> - The CFDrs cross-crate edges use `Atlas-native` (no burn-compat) for the inner-crate heap and `Atlas-backed` for the `cfd-validate` / `cfd-optim` consumer cones that import MoiraiAtlas-runtime kernels. The Atlas-migration-push ceremony chain lives in the `Atlas migration / Atlas migration push` canonical form.
+>
+> Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
 ## Structural Improvements
@@ -168,7 +193,7 @@
   residue scan with no `leto::Storage`, `StorageMut`,
   `.storage().as_slice()`, `as_slice_mut()`, `vector_slice_mut`, or
   `matrix_slice_mut` matches. Residual cfd-math provider work is now
-  nalgebra/nalgebra-sparse and other Atlas-provider boundaries, not Leto
+  nalgebra/nalgebra-sparse and other Atlas boundaries, not Leto
   storage-slice access.
 - [x] `cfd-math` [patch]: Remove sparse/basic preconditioner Leto
   storage-slice dependencies. `src/sparse/operations.rs` now stages SpMV

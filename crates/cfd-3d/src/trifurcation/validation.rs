@@ -18,7 +18,7 @@ use super::solver::TrifurcationSolution3D;
 use crate::scalar;
 use cfd_core::error::Error;
 use eunomia::FloatElement;
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================

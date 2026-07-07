@@ -43,7 +43,8 @@
 //! - Tezduyar, T.E. (1991). "Stabilized finite element formulations for incompressible flow computations"
 
 use eunomia::{FloatElement, NumericElement};
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::Vector3;
 
 use super::scalar;
 
@@ -237,7 +238,7 @@ fn calculate_tetrahedral_size<
         let mut max_proj = <T as NumericElement>::MIN_VALUE;
 
         for vertex in vertices {
-            let proj = vertex.dot(&dir);
+            let proj = vertex.dot(dir);
             min_proj = <T as NumericElement>::min_scalar(min_proj, proj);
             max_proj = <T as NumericElement>::max_scalar(max_proj, proj);
         }

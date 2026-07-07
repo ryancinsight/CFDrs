@@ -2,7 +2,7 @@
 
 use crate::scalar;
 use eunomia::FloatElement;
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================

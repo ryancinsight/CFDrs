@@ -1,9 +1,8 @@
 //! Solution structure for FEM
 
 use crate::fem::{constants, scalar};
-use eunomia::NumericElement;
-use leto::Array1;
-use nalgebra::{DVector, RealField, Vector3};
+use eunomia::{NumericElement, RealField};
+use leto::{Array1, Vector3};
 use std::ops::{Index, IndexMut};
 
 /// FEM degree-of-freedom vector backed by Leto array storage.
@@ -65,17 +64,15 @@ impl<T> FemDofVector<T> {
 }
 
 impl<T: Clone> FemDofVector<T> {
-    /// Build from the current nalgebra sparse-solver vector boundary.
-    pub fn from_dvector(vector: DVector<T>) -> Self {
-        Self::from_vec(vector.as_slice().to_vec())
+    /// Build from an owned Leto dense vector.
+    pub fn from_array(array: Array1<T>) -> Self {
+        Self { data: array }
     }
 
-    /// Convert into the current nalgebra sparse-solver vector boundary.
-    pub fn to_dvector(&self) -> DVector<T>
-    where
-        T: nalgebra::Scalar,
-    {
-        DVector::from_vec(self.as_slice().to_vec())
+    /// Clone into an owned Leto dense vector.
+    pub fn to_array(&self) -> Array1<T> {
+        Array1::from_shape_vec([self.len()], self.as_slice().to_vec())
+            .expect("invariant: one-dimensional Leto shape matches vector length")
     }
 }
 
@@ -112,9 +109,9 @@ impl<T> From<Vec<T>> for FemDofVector<T> {
     }
 }
 
-impl<T: Clone> From<DVector<T>> for FemDofVector<T> {
-    fn from(value: DVector<T>) -> Self {
-        Self::from_dvector(value)
+impl<T: Clone> From<Array1<T>> for FemDofVector<T> {
+    fn from(value: Array1<T>) -> Self {
+        Self::from_array(value)
     }
 }
 
@@ -253,11 +250,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> StokesFlowSolution<T>
 
     /// Interleave velocity and pressure into a single vector for the linear solver
     /// Format: [u_nodes..., v_nodes..., w_nodes..., p_nodes...]
-    pub fn interleave(&self) -> DVector<T> {
+    pub fn interleave(&self) -> Array1<T> {
         // Blocks: [U...V...W... P...]
         let n_vel = self.n_nodes * constants::VELOCITY_COMPONENTS;
         let n_pres = self.n_corner_nodes;
-        let mut data = DVector::zeros(n_vel + n_pres);
+        let mut data = Array1::zeros([n_vel + n_pres]);
 
         for i in 0..n_vel {
             data[i] = self.velocity[i];

@@ -2,7 +2,7 @@ use cfd_1d::domain::network::{Edge, EdgeType, Network, NetworkBuilder};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::newtonian::ConstantPropertyFluid;
-use nalgebra::DVector;
+use leto::Array1;
 
 fn build_simple_network<T: cfd_1d::Cfd1dScalar + Copy + SafeFromF64>() -> (
     Network<T>,
@@ -74,7 +74,7 @@ fn update_from_solution_picard_step_correct_sign_and_magnitude() -> Result<()> {
     }
 
     // Prepare a solution vector with a pressure drop of 6 Pa
-    let mut x = DVector::<F>::zeros(network.node_count());
+    let mut x = Array1::<F>::zeros([network.node_count()]);
     x[inlet.index()] = 10.0; // Pa
     x[outlet.index()] = 4.0; // Pa
     network.update_from_solution(&x)?;

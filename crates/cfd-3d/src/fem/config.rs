@@ -1,9 +1,9 @@
 //! FEM solver configuration
 
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
-use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use eunomia::{FloatElement, NumericElement};
 
 use super::{constants, scalar};
 
@@ -12,7 +12,7 @@ pub use cfd_core::geometry::ElementType;
 
 /// FEM configuration for fluid dynamics
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FemConfig<T: cfd_mesh::domain::core::Scalar + RealField + EunomiaRealField + Copy> {
+pub struct FemConfig<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Base solver configuration
     pub base: cfd_core::compute::solver::SolverConfig<T>,
     /// Use SUPG/PSPG stabilization
@@ -46,7 +46,7 @@ pub struct FemConfig<T: cfd_mesh::domain::core::Scalar + RealField + EunomiaReal
     pub grad_div_gamma: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + EunomiaRealField + FloatElement + Copy> Default
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Default
     for FemConfig<T>
 {
     fn default() -> Self {

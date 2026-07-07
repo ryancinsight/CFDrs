@@ -3,10 +3,10 @@
 //! Reference: Gartling (1990) "A test problem for outflow boundary conditions"
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
+use crate::matrix::DMatrix;
 use crate::scalar;
 use cfd_core::error::Result;
-use eunomia::FloatElement;
-use nalgebra::{DMatrix, RealField};
+use eunomia::{FloatElement, RealField};
 
 /// Backward facing step benchmark
 pub struct BackwardFacingStep<T: RealField + Copy> {

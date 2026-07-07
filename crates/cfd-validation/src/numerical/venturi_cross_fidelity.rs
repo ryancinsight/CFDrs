@@ -690,7 +690,7 @@ fn run_3d(input: &VenturiValidationInput) -> Fidelity3DResult {
 
     for &res in &resolutions {
         resolution = res;
-        let builder = VenturiMeshBuilder::<f64>::new(
+        let builder = VenturiMeshBuilder::new(
             input.inlet_diameter_m,
             input.throat_diameter_m,
             5.0 * input.inlet_diameter_m,

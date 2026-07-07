@@ -139,7 +139,8 @@ use super::{
 use crate::scalar;
 use cfd_core::error::{Error, Result};
 use eunomia::FloatElement;
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::Vector3;
 
 // Feedback control constants
 const DEFAULT_PROPORTIONAL_GAIN: f64 = 10.0;

@@ -75,9 +75,9 @@ pub use super::types::{VenturiConfig3D, VenturiSolution3D};
 
 /// 3D Finite Element Navier-Stokes solver for Venturi throats
 pub struct VenturiSolver3D<
-    T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + FloatElement + Copy,
+    T: cfd_mesh::domain::core::Scalar + eunomia::RealField + FloatElement + Copy,
 > {
-    builder: VenturiMeshBuilder<T>,
+    builder: VenturiMeshBuilder,
     config: VenturiConfig3D<T>,
 }
 
@@ -98,7 +98,7 @@ pub struct VenturiSolver3D<
 /// throat velocity into `0.5 ρ u_t²` gives the expression above. Non-positive
 /// `Q` or `A_t` makes the dynamic-pressure scale undefined and is rejected.
 fn pressure_coefficients_from_throat_flux<
-    T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + FloatElement + Copy,
+    T: cfd_mesh::domain::core::Scalar + eunomia::RealField + FloatElement + Copy,
 >(
     density: T,
     throat_flow_rate: T,
@@ -129,10 +129,10 @@ fn pressure_coefficients_from_throat_flux<
 
 impl<T> VenturiSolver3D<T>
 where
-    T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + FloatElement + Copy + SafeFromF64,
+    T: cfd_mesh::domain::core::Scalar + eunomia::RealField + FloatElement + Copy + SafeFromF64,
 {
     /// Create new solver from mesh builder and config
-    pub fn new(builder: VenturiMeshBuilder<T>, config: VenturiConfig3D<T>) -> Self {
+    pub fn new(builder: VenturiMeshBuilder, config: VenturiConfig3D<T>) -> Self {
         Self { builder, config }
     }
 
@@ -157,13 +157,13 @@ where
 
         // Convert Venturi geometry parameters through Eunomia for the f64
         // iso-parametric mapping closure.
-        let r_in = scalar::to_f64(self.builder.d_inlet) / 2.0;
-        let r_th = scalar::to_f64(self.builder.d_throat) / 2.0;
-        let l_in = scalar::to_f64(self.builder.l_inlet);
-        let l_conv = scalar::to_f64(self.builder.l_convergent);
-        let l_th = scalar::to_f64(self.builder.l_throat);
-        let l_div = scalar::to_f64(self.builder.l_divergent);
-        let l_out = scalar::to_f64(self.builder.l_outlet);
+        let r_in = self.builder.d_inlet / 2.0;
+        let r_th = self.builder.d_throat / 2.0;
+        let l_in = self.builder.l_inlet;
+        let l_conv = self.builder.l_convergent;
+        let l_th = self.builder.l_throat;
+        let l_div = self.builder.l_divergent;
+        let l_out = self.builder.l_outlet;
         let total_l = l_in + l_conv + l_th + l_div + l_out;
 
         let radius_at = |z: f64| -> f64 {
@@ -355,14 +355,15 @@ where
         let fluid_props =
             fluid.properties_at(scalar::from_f64::<T>(310.0), self.config.inlet_pressure)?;
 
+        let d_inlet = scalar::from_f64::<T>(self.builder.d_inlet);
         let area_inlet = if self.config.circular {
             scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
-                * self.builder.d_inlet
-                * self.builder.d_inlet
+                * d_inlet
+                * d_inlet
         } else {
             // Rectangular: width × height (height may differ from width)
-            let h = self.config.rect_height.unwrap_or(self.builder.d_inlet);
-            self.builder.d_inlet * h
+            let h = self.config.rect_height.unwrap_or(d_inlet);
+            d_inlet * h
         };
         let u_inlet = self.config.inlet_flow_rate / area_inlet;
 
@@ -446,7 +447,7 @@ where
         let inlet_radius_sq = {
             let half = scalar::from_f64::<T>(0.5);
             let margin = scalar::from_f64::<T>(0.98);
-            let r = half * self.builder.d_inlet * margin;
+            let r = half * d_inlet * margin;
             r * r
         };
         let mut repaired_nodes = 0usize;
@@ -742,13 +743,11 @@ where
             let mut u_max_idx = 0;
             let mut nonzero_count = 0;
             let thr = 1e-10_f64;
-            let total_length_f64 = scalar::to_f64(
-                self.builder.l_inlet
-                    + self.builder.l_convergent
-                    + self.builder.l_throat
-                    + self.builder.l_divergent
-                    + self.builder.l_outlet,
-            );
+            let total_length_f64 = self.builder.l_inlet
+                + self.builder.l_convergent
+                + self.builder.l_throat
+                + self.builder.l_divergent
+                + self.builder.l_outlet;
             let n_bins = 10;
             let mut bin_u_max = vec![0.0_f64; n_bins];
             let mut bin_count = vec![0usize; n_bins];
@@ -857,14 +856,13 @@ where
         tracing::debug!(u_in_sol_avg = ?u_in_sol_avg, "Venturi average inlet velocity");
 
         // Identify throat section nodes and average pressure
-        let z_throat_center = self.builder.l_inlet
-            + self.builder.l_convergent
-            + self.builder.l_throat / scalar::from_f64::<T>(2.0);
-        let total_length = self.builder.l_inlet
-            + self.builder.l_convergent
-            + self.builder.l_throat
-            + self.builder.l_divergent
-            + self.builder.l_outlet;
+        let l_inlet = scalar::from_f64::<T>(self.builder.l_inlet);
+        let l_convergent = scalar::from_f64::<T>(self.builder.l_convergent);
+        let l_throat = scalar::from_f64::<T>(self.builder.l_throat);
+        let l_divergent = scalar::from_f64::<T>(self.builder.l_divergent);
+        let l_outlet = scalar::from_f64::<T>(self.builder.l_outlet);
+        let z_throat_center = l_inlet + l_convergent + l_throat / scalar::from_f64::<T>(2.0);
+        let total_length = l_inlet + l_convergent + l_throat + l_divergent + l_outlet;
         // Use tolerance proportional to mesh spacing (half the axial element size)
         let throat_tol = total_length / scalar::from_usize::<T>(self.config.resolution.0.max(1))
             * scalar::from_f64::<T>(0.6);
@@ -947,7 +945,7 @@ where
         let z_out_sample = total_length - axial_dx * scalar::from_f64::<T>(5.0);
         let core_radius_frac = scalar::from_f64::<T>(0.90);
         let core_radius_sq = if self.config.circular {
-            let r_core = scalar::from_f64::<T>(0.5) * self.builder.d_inlet * core_radius_frac;
+            let r_core = scalar::from_f64::<T>(0.5) * d_inlet * core_radius_frac;
             r_core * r_core
         } else {
             scalar::zero::<T>()
@@ -1041,7 +1039,7 @@ where
             + self.builder.l_throat
             + self.builder.l_divergent
             + self.builder.l_outlet;
-        let total_length_f64 = scalar::to_f64(total_length);
+        let total_length_f64 = total_length;
         let plane_tol = total_length_f64 / (self.config.resolution.0.max(1) as f64) * 0.55_f64;
         let plane_fracs = [0.0_f64, 0.25, 0.5, 0.75, 1.0];
         for frac in plane_fracs {
@@ -1058,13 +1056,14 @@ where
         // Qin = u_in_avg * A_in (reference)
         // Qth = u_th_avg * A_th (slice-based)
         // q_in_face/q_out_face = integrated boundary flux
+        let d_throat = scalar::from_f64::<T>(self.builder.d_throat);
         let area_throat = if self.config.circular {
             scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
-                * self.builder.d_throat
-                * self.builder.d_throat
+                * d_throat
+                * d_throat
         } else {
-            let h = self.config.rect_height.unwrap_or(self.builder.d_throat);
-            self.builder.d_throat * h
+            let h = self.config.rect_height.unwrap_or(d_throat);
+            d_throat * h
         };
         let coefficient_flow_rate = if q_in_face > 0.0_f64 {
             scalar::from_f64::<T>(q_in_face)

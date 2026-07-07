@@ -3,7 +3,7 @@
 //! Provides Richardson extrapolation, adjoint-based, residual-based,
 //! and smoothness-based error estimators.
 
-use nalgebra::DMatrix;
+use crate::matrix::DMatrix;
 
 use super::AdaptiveMeshRefinement;
 

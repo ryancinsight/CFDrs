@@ -56,8 +56,7 @@ use cfd_1d::bifurcation::junction::BifurcationJunction;
 use cfd_2d::solvers::{BloodModel as BloodModel2D, PoiseuilleConfig, PoiseuilleFlow2D};
 use crate::scalar;
 use cfd_core::physics::fluid::blood::CassonBlood;
-use eunomia::FloatElement;
-use nalgebra::RealField;
+use eunomia::{FloatElement, RealField};
 use serde::{Deserialize, Serialize};
 
 /// Complete 2D bifurcation solution combining 1D network + 2D flow in each segment

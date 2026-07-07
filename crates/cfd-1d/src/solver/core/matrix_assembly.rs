@@ -61,7 +61,7 @@ use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::NumericElement;
 use leto::Array1;
-use nalgebra_sparse::{coo::CooMatrix, CsrMatrix};
+use leto_ops::{CooMatrix, CsrMatrix};
 
 /// Matrix assembler for building the linear system from network equations
 pub struct MatrixAssembler<T: Cfd1dScalar + Copy> {
@@ -243,7 +243,7 @@ impl<T: Cfd1dScalar + Copy + Send + Sync + NumericElement> MatrixAssembler<T> {
             }
         }
 
-        Ok(CsrMatrix::from(&coo))
+        Ok(coo.to_csr())
     }
 
     /// Assemble the linear system matrix and right-hand side vector (allocates workspace)
@@ -326,21 +326,21 @@ mod tests {
         let (mat, rhs) = assembler.assemble(&net).unwrap();
 
         // Node A (index 0): identity row, RHS = 100
-        assert!((mat.get_entry(0, 0).unwrap().into_value() - 1.0).abs() < 1e-12);
+        assert!((mat.get(0, 0).unwrap() - 1.0).abs() < 1e-12);
         assert!((rhs[0] - 100.0).abs() < 1e-12);
 
         // Node C (index 2): identity row, RHS = 0
-        assert!((mat.get_entry(2, 2).unwrap().into_value() - 1.0).abs() < 1e-12);
+        assert!((mat.get(2, 2).unwrap() - 1.0).abs() < 1e-12);
         assert!((rhs[2] - 0.0).abs() < 1e-12);
 
         // Off-diagonals in Dirichlet rows should be zero
         assert!(
-            mat.get_entry(0, 1).is_none()
-                || mat.get_entry(0, 1).unwrap().into_value().abs() < 1e-12
+            mat.get(0, 1).is_none()
+                || mat.get(0, 1).unwrap().abs() < 1e-12
         );
         assert!(
-            mat.get_entry(2, 1).is_none()
-                || mat.get_entry(2, 1).unwrap().into_value().abs() < 1e-12
+            mat.get(2, 1).is_none()
+                || mat.get(2, 1).unwrap().abs() < 1e-12
         );
     }
 
@@ -355,15 +355,15 @@ mod tests {
 
         // Row B (index 1): after Dirichlet column elimination, only diagonal remains
         // A(1,1) = g1 + g2 = 3.0
-        let diag_b = mat.get_entry(1, 1).unwrap().into_value();
+        let diag_b = mat.get(1, 1).unwrap();
         assert!(
             (diag_b - 3.0).abs() < 1e-12,
             "B diagonal should be 3.0, got {diag_b}"
         );
 
         // Off-diagonal entries (1,0) and (1,2) should be absent (eliminated)
-        let off_10 = mat.get_entry(1, 0).map(|e| e.into_value()).unwrap_or(0.0);
-        let off_12 = mat.get_entry(1, 2).map(|e| e.into_value()).unwrap_or(0.0);
+        let off_10 = mat.get(1, 0).unwrap_or(0.0);
+        let off_12 = mat.get(1, 2).unwrap_or(0.0);
         assert!(
             off_10.abs() < 1e-12,
             "A(1,0) should be 0 after elimination, got {off_10}"
@@ -430,8 +430,8 @@ mod tests {
         let active = [1usize, 2];
         for &i in &active {
             for &j in &active {
-                let aij = mat.get_entry(i, j).map(|e| e.into_value()).unwrap_or(0.0);
-                let aji = mat.get_entry(j, i).map(|e| e.into_value()).unwrap_or(0.0);
+                let aij = mat.get(i, j).unwrap_or(0.0);
+                let aji = mat.get(j, i).unwrap_or(0.0);
                 assert!(
                     (aij - aji).abs() < 1e-12,
                     "Symmetry violation: A[{i},{j}]={aij} != A[{j},{i}]={aji}"

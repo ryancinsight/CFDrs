@@ -164,7 +164,7 @@ mod tests {
     use super::*;
     use cfd_mesh::domain::topology::Cell;
     use cfd_mesh::IndexedMesh;
-    use nalgebra::Point3;
+    use leto::Point3;
 
     /// Create a simple tetrahedral mesh for testing
     ///

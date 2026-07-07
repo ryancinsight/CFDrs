@@ -179,6 +179,24 @@ impl<T: Cfd2dScalar + Copy + FloatElement> SerpentineGeometry<T> {
         (self.l_straight / (self.width + from_f64::<T>(1e-15))) * three * peclet
     }
 
+    /// Get bounding box [min_x, max_x, min_y, max_y]
+    pub fn bounding_box(&self) -> [T; 4] {
+        let r = self.turn_radius;
+        let ls = self.l_straight;
+        let w = self.width;
+        let half_w = w / from_f64::<T>(2.0);
+        let four_r = r * from_f64::<T>(4.0);
+
+        [
+            -r - half_w,
+            ls + r + half_w,
+            scalar::zero(),
+            four_r * scalar::from_usize::<T>(self.n_cycles),
+        ]
+    }
+}
+
+impl<T: Cfd2dScalar + Copy + FloatElement + std::ops::Rem<Output = T>> SerpentineGeometry<T> {
     /// Check if a point (x, y) is within the fluid domain
     ///
     /// Assuming serpentine starts at (0, R) and snakes upwards in Y.
@@ -246,22 +264,6 @@ impl<T: Cfd2dScalar + Copy + FloatElement> SerpentineGeometry<T> {
         }
 
         false
-    }
-
-    /// Get bounding box [min_x, max_x, min_y, max_y]
-    pub fn bounding_box(&self) -> [T; 4] {
-        let r = self.turn_radius;
-        let ls = self.l_straight;
-        let w = self.width;
-        let half_w = w / from_f64::<T>(2.0);
-        let four_r = r * from_f64::<T>(4.0);
-
-        [
-            -r - half_w,
-            ls + r + half_w,
-            scalar::zero(),
-            four_r * scalar::from_usize::<T>(self.n_cycles),
-        ]
     }
 }
 

@@ -5,8 +5,7 @@
 
 use crate::scalar;
 use cfd_core::error::Result;
-use eunomia::FloatElement;
-use nalgebra::RealField;
+use eunomia::{FloatElement, RealField};
 use serde::{Deserialize, Serialize};
 
 pub mod bifurcation;

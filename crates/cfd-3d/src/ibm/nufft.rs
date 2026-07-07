@@ -8,7 +8,7 @@ use cfd_core::{
     physics::fluid_dynamics::VelocityField,
 };
 use leto::Array3;
-use nalgebra::Vector3;
+use leto::Vector3;
 
 use super::lagrangian::LagrangianPoint;
 

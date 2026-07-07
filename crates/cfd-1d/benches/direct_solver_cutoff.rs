@@ -1,10 +1,9 @@
 use cfd_math::linear_solver::DirectSparseSolver;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use leto_ops::CsrMatrix as LetoCsrMatrix;
-use nalgebra::{DMatrix, DVector};
-use nalgebra_sparse::{coo::CooMatrix, CsrMatrix};
+use leto::Array1;
+use leto_ops::{lu_decompose, qr_decompose, CooMatrix, CsrMatrix as LetoCsrMatrix};
 
-fn tridiagonal_spd_matrix(n: usize) -> (CsrMatrix<f64>, DVector<f64>) {
+fn tridiagonal_spd_matrix(n: usize) -> (LetoCsrMatrix<f64>, Array1<f64>) {
     let mut coo = CooMatrix::new(n, n);
     for i in 0..n {
         coo.push(i, i, 2.0);
@@ -15,57 +14,32 @@ fn tridiagonal_spd_matrix(n: usize) -> (CsrMatrix<f64>, DVector<f64>) {
             coo.push(i, i + 1, -1.0);
         }
     }
-    let rhs = DVector::from_element(n, 1.0);
-    (CsrMatrix::from(&coo), rhs)
+    let rhs = Array1::from_elem([n], 1.0_f64);
+    (coo.to_csr(), rhs)
 }
 
-fn solve_dense_cutoff(matrix: &CsrMatrix<f64>, rhs: &DVector<f64>) -> DVector<f64> {
-    let mut dense = DMatrix::zeros(matrix.nrows(), matrix.ncols());
-    for row_idx in 0..matrix.nrows() {
-        let row = matrix.row(row_idx);
-        for (col_idx, value) in row.col_indices().iter().zip(row.values()) {
-            dense[(row_idx, *col_idx)] = *value;
+fn solve_dense_cutoff(matrix: &LetoCsrMatrix<f64>, rhs: &Array1<f64>) -> Array1<f64> {
+    let dense = matrix.to_dense();
+
+    if let Ok(lu) = lu_decompose(&dense.view()) {
+        if let Ok(x) = lu.solve(&rhs.view()) {
+            return x;
         }
     }
-    if let Some(cholesky) = dense.clone().cholesky() {
-        return cholesky.solve(rhs);
-    }
-    if let Some(solution) = dense.clone().lu().solve(rhs) {
-        return solution;
-    }
-    dense
-        .qr()
-        .solve(rhs)
+
+    qr_decompose(&dense.view())
+        .and_then(|qr| qr.solve_least_squares(&rhs.view()))
         .expect("dense QR fallback must solve SPD benchmark matrix")
 }
 
-fn solve_sparse_spd_direct(matrix: &CsrMatrix<f64>, rhs: &DVector<f64>) -> DVector<f64> {
-    let matrix_leto = LetoCsrMatrix::from_parts(
-        matrix.values().to_vec(),
-        matrix.col_indices().to_vec(),
-        matrix.row_offsets().to_vec(),
-        matrix.nrows(),
-        matrix.ncols(),
-    )
-    .expect("benchmark matrix must map to valid leto CSR");
-
-    let rhs_array = leto::Array1::from_shape_vec([rhs.nrows()], rhs.iter().copied().collect())
-        .expect("benchmark rhs must map to contiguous leto Array1");
-
-    let solution = DirectSparseSolver {
+fn solve_sparse_spd_direct(matrix: &LetoCsrMatrix<f64>, rhs: &Array1<f64>) -> Array1<f64> {
+    DirectSparseSolver {
         max_size: 256,
         ordering: 0,
         pivot_tolerance: 1e-12,
     }
-    .solve(&matrix_leto, &rhs_array)
-    .expect("sparse direct SPD solver must solve benchmark matrix");
-
-    DVector::from_vec(
-        solution
-            .as_slice_memory_order()
-            .expect("solver output must be contiguous for benchmark conversion")
-            .to_vec(),
-    )
+    .solve(matrix, rhs)
+    .expect("sparse direct SPD solver must solve benchmark matrix")
 }
 
 fn bench_small_system_direct_solvers(c: &mut Criterion) {

@@ -10,7 +10,7 @@ use cfd_core::{
     physics::fluid::{ConstantPropertyFluid, FluidTrait},
 };
 use eunomia::{FloatElement, NumericElement};
-use nalgebra::DVector;
+use leto::Array1;
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
@@ -333,12 +333,12 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
     }
 
     /// Update network state from solution vector
-    pub fn update_from_solution(&mut self, solution: &DVector<T>) -> Result<()>
+    pub fn update_from_solution(&mut self, solution: &Array1<T>) -> Result<()>
     where
         T: SafeFromF64 + SafeFromUsize,
     {
         // Direct copy: pressures[i] = solution[i]
-        let n = solution.len();
+        let n = solution.size();
         self.pressures.resize(n, T::zero());
         for i in 0..n {
             self.pressures[i] = solution[i];

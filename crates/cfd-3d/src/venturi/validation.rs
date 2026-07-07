@@ -26,8 +26,9 @@ use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_mesh::VenturiMeshBuilder;
 use eunomia::FloatElement;
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
 // ============================================================================
 // ISO 5167 Validation Logic
@@ -68,7 +69,8 @@ pub fn iso_discharge_coefficient<
 /// Validator for 3D Venturi tube flow results
 pub struct VenturiValidator3D<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> {
     /// Mesh builder holding Venturi geometry parameters
-    pub mesh_builder: VenturiMeshBuilder<T>,
+    pub mesh_builder: VenturiMeshBuilder,
+    _marker: PhantomData<T>,
 }
 
 impl<T> VenturiValidator3D<T>
@@ -76,8 +78,11 @@ where
     T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeFromF64,
 {
     /// Create a new Venturi validator from the mesh builder
-    pub fn new(mesh_builder: VenturiMeshBuilder<T>) -> Self {
-        Self { mesh_builder }
+    pub fn new(mesh_builder: VenturiMeshBuilder) -> Self {
+        Self {
+            mesh_builder,
+            _marker: PhantomData,
+        }
     }
 
     /// Validate Venturi flow results
@@ -93,20 +98,22 @@ where
         // or re-calculate it. FemSolver ensures mass conservation weakly.
         // We'll trust solver.u_inlet * A_in vs solution.u_throat * A_throat vs Q_in
 
+        let d_inlet = scalar::from_f64::<T>(self.mesh_builder.d_inlet);
+        let d_throat = scalar::from_f64::<T>(self.mesh_builder.d_throat);
         let a_inlet = if config.circular {
             scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
-                * self.mesh_builder.d_inlet
-                * self.mesh_builder.d_inlet
+                * d_inlet
+                * d_inlet
         } else {
-            self.mesh_builder.d_inlet * self.mesh_builder.d_inlet
+            d_inlet * d_inlet
         };
 
         let a_throat = if config.circular {
             scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
-                * self.mesh_builder.d_throat
-                * self.mesh_builder.d_throat
+                * d_throat
+                * d_throat
         } else {
-            self.mesh_builder.d_throat * self.mesh_builder.d_throat
+            d_throat * d_throat
         };
 
         // Check continuity at throat: u_throat_avg * A_throat should ≈ Q_in

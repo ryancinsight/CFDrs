@@ -8,7 +8,7 @@ pub mod chapman_enskog;
 pub mod patankar_1980;
 
 use cfd_core::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 
 /// Literature validation test trait
 pub trait LiteratureValidation<T: RealField + Copy> {

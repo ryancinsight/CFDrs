@@ -24,7 +24,7 @@ use cfd_mesh::domain::core::index::VertexId;
 use cfd_mesh::domain::topology::Cell;
 use cfd_mesh::IndexedMesh;
 use leto::geometry::Vector3 as LetoVector3;
-use nalgebra::{Point3, Vector3};
+use leto::{Point3, Vector3};
 use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

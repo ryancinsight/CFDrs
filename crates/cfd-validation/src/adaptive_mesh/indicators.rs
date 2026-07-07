@@ -4,7 +4,7 @@
 //! decomposition, Q-criterion, boundary-layer proximity, and multiphase
 //! interface indicators for adaptive mesh refinement.
 
-use nalgebra::DMatrix;
+use crate::matrix::DMatrix;
 
 use super::{AdaptiveMeshRefinement, PhysicsPhenomena};
 

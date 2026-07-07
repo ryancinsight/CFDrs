@@ -2,7 +2,8 @@
 
 use crate::scalar;
 use eunomia::FloatElement;
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::Vector3;
 
 /// Forcing method for IBM
 pub trait ForcingMethod<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
@@ -55,7 +56,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Forcin
     ) -> Vector3<T> {
         // Exact direct-forcing: f = (u_desired − u*) / Δt
         if dt > scalar::zero::<T>() {
-            (desired_velocity - current_velocity) / dt
+            (*desired_velocity - *current_velocity) / dt
         } else {
             Vector3::zeros()
         }
@@ -98,13 +99,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Forcin
         current_velocity: &Vector3<T>,
         _dt: T,
     ) -> Vector3<T> {
-        let error = desired_velocity - current_velocity;
+        let error = *desired_velocity - *current_velocity;
 
         // PI control
         error * self.kp + self.integral * self.ki
     }
 
     fn update(&mut self, error: &Vector3<T>) {
-        self.integral += error;
+        self.integral += *error;
     }
 }

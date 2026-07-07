@@ -10,7 +10,7 @@ use cfd_math::linear_solver::{
     ConjugateGradient, IterativeLinearSolver, IterativeSolverConfig, LaplacianOperator2D,
     LinearOperator,
 };
-use nalgebra::DVector;
+use leto::Array1;
 
 /// Simple 1D diffusion operator for demonstration
 struct DiffusionOperator1D {
@@ -25,8 +25,8 @@ impl DiffusionOperator1D {
 }
 
 impl LinearOperator<f64> for DiffusionOperator1D {
-    fn apply(&self, x: &DVector<f64>, y: &mut DVector<f64>) -> Result<()> {
-        if x.len() != self.size() || y.len() != self.size() {
+    fn apply(&self, x: &Array1<f64>, y: &mut Array1<f64>) -> Result<()> {
+        if x.shape()[0] != self.size() || y.shape()[0] != self.size() {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Vector dimensions don't match operator size".to_string(),
             ));
@@ -77,13 +77,13 @@ fn main() -> Result<()> {
         let x = i as f64 * dx;
         *b_i = pi * pi * x.sin();
     }
-    let b = DVector::from_vec(b_data);
+    let b = Array1::from_shape_vec([n], b_data).expect("shape matches data length");
 
     // Solve using matrix-free CG
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(1000);
     let solver = ConjugateGradient::new(config);
 
-    let mut x = DVector::zeros(n);
+    let mut x = Array1::zeros([n]);
     solver.solve(
         &operator,
         &b,
@@ -119,9 +119,9 @@ fn main() -> Result<()> {
 
     // Simple test: solve -∇²p = 1 with homogeneous Neumann BC
     let size = laplacian.size();
-    let b_laplace = DVector::from_element(size, 1.0);
+    let b_laplace = Array1::from_shape_fn([size], |_| 1.0);
 
-    let mut p = DVector::zeros(size);
+    let mut p = Array1::zeros([size]);
     solver.solve(
         &laplacian,
         &b_laplace,
