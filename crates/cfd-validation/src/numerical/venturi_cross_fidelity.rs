@@ -451,11 +451,12 @@ fn run_2d_simplec(input: &VenturiValidationInput) -> Fidelity2DResult {
     let l_diverge = 3.0 * d_in;
     let l_total = l_inlet + l_converge + input.throat_length_m + l_diverge;
 
-    // Resolution: keep grid size small to satisfy the 30-second test budget
-    // while maintaining stability.
-    // Resolution: keep grid size small to satisfy the 30-second test budget
-    // while maintaining stability.
-    let ny = ((h_half / h_throat_half) * 1.5).ceil() as usize + 2;
+    // Resolution: at least 8 cells must span the throat half-width for the
+    // SIMPLEC diffusion/convection coefficients to stay diagonally dominant
+    // at high contraction ratios (Patankar 1980 §5.3); below that the throat
+    // becomes under-resolved and the outer iteration diverges within a few
+    // steps instead of converging (see cfd-validation gap_audit).
+    let ny = ((h_half / h_throat_half) * 8.0).ceil().clamp(96.0, 480.0) as usize;
     let nx = 80;
 
     // Build grid: x ∈ [0, l_total], y ∈ [0, h_half] (half-model).
