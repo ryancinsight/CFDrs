@@ -4271,3 +4271,32 @@ This bug violates the audit framework's evidence hierarchy:
 - `cargo check -p cfd-validation --no-default-features` completed successfully in 3.44 seconds after warm build.
 - `cargo test -p cfd-validation --no-default-features analytical::womersley --lib -- --nocapture` passed 5/5 tests in 10.50 seconds after compilation.
 - `cargo nextest run -p cfd-validation --no-default-features womersley --fail-fast --hide-progress-bar` exceeded the 60-second compilation bound before test execution; no failing Rust test was reported.
+
+---
+
+## OPEN-033: Anderson-Accelerated Picard Solver Stalls on Ill-Conditioned Networks (limit cycle)
+
+**Severity**: OPEN — real numerical defect, requires algorithm work (not a mechanical fix)
+**Component**: `crates/cfd-math/src/nonlinear_solver/anderson.rs` (`AndersonAccelerator::compute_next`, `QrState`), `crates/cfd-1d/src/solver/core/anderson_acceleration.rs` (`select_next_iterate`), `crates/cfd-1d/src/solver/core/convergence.rs` (`has_converged_dual`)
+**Failing test**: `tests/cross_fidelity_blueprint.rs::cross_fidelity_blueprint_complex_branching` — panics with `MaxIterationsExceeded: Convergence failed: Maximum iterations (10000) exceeded` when solving the double-trifurcation blueprint's 1D reference network (`solve_reference_trace` in `crates/cfd-2d/src/network/reference.rs`).
+
+### Root cause (instrumented-run evidence, not yet fixed)
+
+Two independent investigations (temporary debug instrumentation, fully reverted — no diff left in the tree) converged on the following:
+
+1. **Confirmed NOT the cause**: the resistance formula (`crates/cfd-1d/src/physics/resistance/models/hagen_poiseuille.rs:136-139`), `MatrixAssembler::assemble_into`, and `LinearSystemSolver` are unaffected by the leto/eunomia migration (mechanical ports only, verified by diffing `d58d1fe3^..1d768895`). The linear solve itself is exact: instrumented `rel_resid = ‖Ax−b‖/‖b‖` converges to ~1e-13 by iteration 8 and to machine precision (~1e-16) from iteration ~200 onward, for the entire 10000-iteration run. This network's conductance ratio is genuinely ill-conditioned (main channel 4mm vs. 80µm throat: `R_throat/R_main ≈ (0.2mm/15mm)×(4000µm/80µm)⁴ ≈ 8.3×10⁴`, ~5 orders of magnitude) — this is within the range `LinearSystemSolver`'s own docstring claims to handle (linear_system.rs:5-7), and it does handle it correctly.
+
+2. **Confirmed the actual failure mode**: the *outer* nonlinear Picard/Anderson fixed-point iteration is stuck in a **persistent limit cycle**, not diverging and not slow-monotonic. Instrumented `rel_change = ‖Δx‖/‖x‖` oscillates in the band 8.0e-5 to 4.4e-4 with a visible ~400-iteration quasi-period from iteration ~200 through iteration 9999 — no decreasing trend over ~9600 iterations. `has_converged_dual` (convergence.rs:211) requires `relative_change < tolerance` (1e-8), which this never approaches.
+
+3. **Contributing candidate (real defect, independently confirmed by code inspection, but did NOT fire in the instrumented run — 0 occurrences)**: `AndersonAccelerator::compute_next` (anderson.rs:281-334) indexes `self.delta_x[j]`/`self.delta_f[j]` for `j` over `gamma.len()` (`= qr_state.q_cols.len()`), but `QrState::append_column` (anderson.rs:129-186) can silently discard a near-collinear column (`norm_w <= drop_tol`) without evicting the corresponding entry from the *separately tracked* `delta_x`/`delta_f` deques. Whenever this triggers, `gamma[j]` no longer corresponds to `delta_x[j]`/`delta_f[j]` — the accelerated correction is applied against the wrong history vectors. This is a genuine latent bug in the QR-based Anderson accelerator introduced by the leto/eunomia migration (the pre-migration implementation was a dense Gram-matrix + `nalgebra::linalg::LU` recompute each iteration with no incremental QR state to desync). It should be fixed regardless of whether it's the proximate cause of this specific test's stall — recommended fix: make `append_column` report whether it accepted or dropped the column, and have `compute_next` evict the same index from `delta_x`/`delta_f` in lockstep, with a `debug_assert!(qr_state.q_cols.len() == self.delta_x.len())` invariant to catch regressions.
+
+4. **Most likely proximate mechanism for the observed cycle (reasoned inference, not directly instrumented)**: `select_next_iterate` (`anderson_acceleration.rs:42-95`) accepts the Anderson-accelerated iterate whenever `accelerated_residual <= picard_residual` and `damped_step_norm < picard_step_norm` — there is no oscillation/stagnation detector (e.g. no sign-reversal check on `Δx_k · Δx_{k-1}`, no history reset on stagnation). On a network with a ~5-order-of-magnitude conductance spread, the linearized fixed-point Jacobian has no single dominant eigenvalue; a rank-5 QR-secant correction can steer into a stable 2-or-more-cycle that is locally no worse than raw Picard by those two metrics alone, so it's accepted indefinitely without ever being flagged as non-convergent.
+
+### Fix direction (not yet implemented — needs real algorithm work, do not attempt a mechanical patch)
+
+- Fix item 3 above regardless (real bug, straightforward once flagged).
+- For item 4: add an oscillation/stagnation detector to `select_next_iterate` or the outer Picard loop — e.g. track a short window of `rel_change` history and trigger an Anderson-history reset (clear `delta_x`/`delta_f`/`qr_state`, fall back to plain damped Picard for a few steps) when the window shows non-decaying periodic behavior, then re-engage Anderson acceleration. This is standard practice for Anderson acceleration on stiff/ill-conditioned fixed-point maps (see e.g. Walker & Ni 2011 restart heuristics) — do not implement without deriving/citing the specific restart criterion, and do not weaken `has_converged_dual`'s tolerance or raise `max_iterations` as a substitute fix (that would be test-gaming, not a fix).
+
+### Verification the fix must satisfy
+
+`cargo nextest run -p cfd-suite cross_fidelity_blueprint_complex_branching` passes without raising `max_iterations` or loosening `tolerance`; `cargo nextest run -p cfd-1d -p cfd-2d -p cfd-math --no-fail-fast` shows no regressions (in particular any test currently relying on the exact QR-Anderson trajectory); `cargo clippy` and `cargo fmt --check` clean on touched files.
