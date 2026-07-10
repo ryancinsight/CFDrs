@@ -143,6 +143,9 @@ hermes-simd = { path = "../hermes/crates/hermes-simd" }
 [patch."https://github.com/ryancinsight/melinoe.git"]
 melinoe = { path = "../melinoe" }
 
+[patch."https://github.com/ryancinsight/themis"]
+themis = { path = "../themis" }
+
 [profile.release]
 opt-level = 3
 

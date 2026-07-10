@@ -125,8 +125,20 @@ impl<T: RealField + Copy + FloatElement + std::fmt::Debug> QrState<T> {
 
     /// Append a new column `v` to ΔF, extending Q and R by one column via MGS.
     ///
-    /// If history is full, drop the oldest column first (O(m²) R shift).
-    fn append_column(&mut self, v: &Array1<T>, _m_hint: usize) {
+    /// If the history is full, the oldest column is dropped first (O(m²) R
+    /// shift). When the new direction is linearly dependent on the active
+    /// history (norm_w ≤ `drop_tol`), the column is **silently rejected** and
+    /// the QR state remains unchanged.
+    ///
+    /// # Returns
+    ///
+    /// `true` iff the column was accepted (Q/R grown by one); `false` iff it
+    /// was rejected as near-collinear. Callers that keep a parallel
+    /// `delta_x`/`delta_f` history **must** match the result: on `false`, the
+    /// just-pushed `(Δx, Δf)` pair must be evicted from the parallel history
+    /// to preserve the lockstep invariant
+    /// `self.q_cols.len() == delta_x.len() == delta_f.len()`.
+    fn append_column(&mut self, v: &Array1<T>, _m_hint: usize) -> bool {
         let m_current = self.q_cols.len();
         // Drop oldest column when at capacity
         if m_current >= self.max_depth && !self.q_cols.is_empty() {
@@ -163,26 +175,33 @@ impl<T: RealField + Copy + FloatElement + std::fmt::Debug> QrState<T> {
         let norm_w = NumericElement::sqrt(dot(&w, &w));
         r_col[[m_new]] = norm_w;
 
-        // Append new Q column (or handle near-zero case by skipping)
-        if norm_w > self.drop_tol {
-            self.q_cols.push_back(scale(&w, T::ONE / norm_w));
+        // Append new Q column, or signal rejection if linearly dependent.
+        if norm_w <= self.drop_tol {
+            // Column is linearly dependent on the active history — discard.
+            // Returning `false` lets the caller evict the corresponding
+            // entry from the parallel `delta_x`/`delta_f` deques so the
+            // lockstep invariant holds.
+            return false;
+        }
 
-            // Expand R by one column on the right and one row at the bottom
-            let new_m = m_new + 1;
-            let mut new_r = matrix_zeros(new_m, new_m);
-            if m_new > 0 && self.r_mat.shape() == [m_new, m_new] {
-                for row in 0..m_new {
-                    for col in 0..m_new {
-                        new_r[[row, col]] = self.r_mat[[row, col]];
-                    }
+        self.q_cols.push_back(scale(&w, T::ONE / norm_w));
+
+        // Expand R by one column on the right and one row at the bottom
+        let new_m = m_new + 1;
+        let mut new_r = matrix_zeros(new_m, new_m);
+        if m_new > 0 && self.r_mat.shape() == [m_new, m_new] {
+            for row in 0..m_new {
+                for col in 0..m_new {
+                    new_r[[row, col]] = self.r_mat[[row, col]];
                 }
             }
-            for i in 0..=m_new {
-                new_r[[i, m_new]] = r_col[[i]];
-            }
-            self.r_mat = new_r;
         }
-        // If norm_w ≤ drop_tol: column is linearly dependent; discard silently.
+        for i in 0..=m_new {
+            new_r[[i, m_new]] = r_col[[i]];
+        }
+        self.r_mat = new_r;
+
+        true
     }
 
     /// Solve the least-squares problem min ‖f − ΔF γ‖₂ = min ‖f − QR γ‖₂
@@ -292,23 +311,62 @@ impl<T: RealField + Copy + FloatElement + std::fmt::Debug> AndersonAccelerator<T
                 self.delta_x.pop_front();
                 self.delta_f.pop_front();
             }
-            let m_before = self.delta_f.len();
             self.delta_x.push_back(dx);
             self.delta_f.push_back(df.clone());
 
-            // Solve Anderson subproblem
+            // Solve Anderson subproblem.
+            //
+            // QR-path lockstep invariant:
+            //     delta_x.len() == delta_f.len() == qr.q_cols.len()
+            // holds at every iteration. When the QR silently rejects a
+            // near-collinear column (norm_w ≤ drop_tol), the just-pushed
+            // pair `(Δx, Δf)` is evicted from the deques so future
+            // `compute_next` calls index an in-sync (γ, Δx, Δf) tuple.
             let gamma_opt = match self.config.method {
                 AndersonMethod::QR => {
-                    // Update QR factorization with new ΔF column, then solve
-                    if let Some(qr) = &mut self.qr_state {
-                        qr.append_column(&df, m_before);
-                        qr.solve_least_squares(&f)
+                    let accepted = if let Some(qr) = &mut self.qr_state {
+                        qr.append_column(&df, 0)
                     } else {
+                        false
+                    };
+                    if accepted {
+                        if let Some(qr) = &self.qr_state {
+                            qr.solve_least_squares(&f)
+                        } else {
+                            None
+                        }
+                    } else {
+                        // QR rejected this column — drop the parallel
+                        // deque entry to keep the indices aligned.
+                        self.delta_x.pop_back();
+                        self.delta_f.pop_back();
                         None
                     }
                 }
                 AndersonMethod::NormalEquations => self.solve_normal_equations(&f),
             };
+
+            // Invariant (debug build only): the QR path must keep
+            // delta_x, delta_f, and qr.q_cols in lockstep.
+            #[cfg(debug_assertions)]
+            if let Some(qr) = &self.qr_state {
+                debug_assert_eq!(
+                    self.delta_x.len(),
+                    qr.q_cols.len(),
+                    "Anderson QR lockstep violated: \
+                     delta_x.len()={}, qr.q_cols.len()={}",
+                    self.delta_x.len(),
+                    qr.q_cols.len(),
+                );
+                debug_assert_eq!(
+                    self.delta_f.len(),
+                    qr.q_cols.len(),
+                    "Anderson QR lockstep violated: \
+                     delta_f.len()={}, qr.q_cols.len()={}",
+                    self.delta_f.len(),
+                    qr.q_cols.len(),
+                );
+            }
 
             if let Some(gamma) = gamma_opt {
                 // x_next = x + β·f − (ΔX + β·ΔF) · γ
@@ -575,5 +633,58 @@ mod tests {
             "QR Anderson must converge on ill-conditioned problem: x[1]={:.6}",
             x[[1]]
         );
+    }
+
+    /// Lockstep invariant (OPEN-033 mitigation): when the QR path silently
+    /// rejects a near-collinear column, the parallel `delta_x`/`delta_f`
+    /// deques must stay aligned with `qr.q_cols` so subsequent
+    /// `compute_next` calls index `(γᵢ, Δxᵢ, Δfᵢ)` triples that refer to
+    /// the **same** history entry. A regression here would re-introduce the
+    /// desync that the gap_audit flagged.
+    #[test]
+    fn test_anderson_qr_lockstep_invariant_under_rejection() {
+        // Fixed point map that produces ΔF vectors that are highly
+        // collinear after iter 0, forcing QR to reject most columns.
+        let a = Array2::from_shape_vec([2, 2], vec![0.99, 0.0, 0.0, 0.99]).unwrap();
+        // Tiny RHS so the iterates shrink slowly and ΔF stays near-linear.
+        let b = vec(vec![1e-12, 2e-12]);
+
+        let config = AndersonConfig::<f64> {
+            history_depth: 5,
+            relaxation: 1.0,
+            // A loose drop tolerance forces *every* new column to be
+            // rejected after the first, so we exercise the eviction path
+            // many times in a row.
+            drop_tolerance: 1e-2,
+            method: AndersonMethod::QR,
+        };
+        let mut acc = AndersonAccelerator::new(config);
+        let mut x = vec(vec![1.0, 2.0]);
+
+        for iter in 0..200 {
+            let g_x = add_scaled(&mat_vec(&a, &x), &b, 1.0);
+            x = acc.compute_next(&x, &g_x);
+
+            // Invariant: every step, the parallel deque lengths must match
+            // the QR column count exactly — or be the empty initial state
+            // (before the first iteration has produced (Δx, Δf)).
+            let qr_cols = acc.qr_state.as_ref().map(|qr| qr.q_cols.len()).unwrap_or(0);
+            assert_eq!(
+                acc.delta_x.len(),
+                qr_cols,
+                "iter {}: delta_x.len()={} should equal qr.q_cols.len()={}",
+                iter,
+                acc.delta_x.len(),
+                qr_cols,
+            );
+            assert_eq!(
+                acc.delta_f.len(),
+                qr_cols,
+                "iter {}: delta_f.len()={} should equal qr.q_cols.len()={}",
+                iter,
+                acc.delta_f.len(),
+                qr_cols,
+            );
+        }
     }
 }

@@ -1185,7 +1185,7 @@ dependencies = [
 
 [[package]]
 name = "coeus-core"
-version = "0.5.8"
+version = "0.5.11"
 dependencies = [
  "bytemuck",
  "eunomia",
@@ -1199,7 +1199,7 @@ dependencies = [
 
 [[package]]
 name = "coeus-leto"
-version = "0.5.8"
+version = "0.5.11"
 dependencies = [
  "coeus-core",
  "leto",
@@ -1208,7 +1208,7 @@ dependencies = [
 
 [[package]]
 name = "coeus-ops"
-version = "0.5.8"
+version = "0.5.11"
 dependencies = [
  "bytemuck",
  "coeus-core",
@@ -1217,14 +1217,14 @@ dependencies = [
  "coeus-tensor",
  "half",
  "leto-ops",
- "melinoe 0.8.0",
+ "melinoe",
  "smallvec",
  "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "coeus-sparse"
-version = "0.5.8"
+version = "0.5.11"
 dependencies = [
  "coeus-core",
  "coeus-tensor",
@@ -1234,7 +1234,7 @@ dependencies = [
 
 [[package]]
 name = "coeus-tensor"
-version = "0.5.8"
+version = "0.5.11"
 dependencies = [
  "bytemuck",
  "coeus-core",
@@ -2309,6 +2309,7 @@ dependencies = [
  "bytemuck",
  "half",
  "libm",
+ "num-traits",
  "rkyv",
  "serde",
 ]
@@ -2616,7 +2617,6 @@ name = "gaia"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "approx",
  "aquamarine",
  "cfd-schematics",
  "eunomia",
@@ -2624,7 +2624,7 @@ dependencies = [
  "hashbrown 0.15.5",
  "indexmap",
  "leto",
- "melinoe 0.8.0",
+ "melinoe",
  "rand 0.8.6",
  "serde",
  "serde_json",
@@ -3764,11 +3764,6 @@ checksum = "ae960838283323069879657ca3de837e9f7bbb4c7bf6ea7f1b290d5e9476d2e0"
 
 [[package]]
 name = "melinoe"
-version = "0.7.0"
-source = "git+https://github.com/ryancinsight/melinoe.git#f0139dd77e2c175aeea51687669ef5d5fdafd078"
-
-[[package]]
-name = "melinoe"
 version = "0.8.0"
 
 [[package]]
@@ -3948,7 +3943,7 @@ dependencies = [
 name = "mnemosyne-heap"
 version = "0.1.0"
 dependencies = [
- "melinoe 0.8.0",
+ "melinoe",
  "mnemosyne-arena 0.2.0",
  "mnemosyne-backend 0.1.0",
  "mnemosyne-core",
@@ -3961,7 +3956,7 @@ dependencies = [
 name = "mnemosyne-local"
 version = "0.1.0"
 dependencies = [
- "melinoe 0.7.0",
+ "melinoe",
  "mnemosyne-arena 0.2.0",
  "mnemosyne-backend 0.1.0",
  "mnemosyne-build-util",
@@ -3999,7 +3994,7 @@ checksum = "4a0b3262dc837d2513fe2ef31ff8461352ef932dcca31ba0c0abe33547cf6b9b"
 name = "moirai"
 version = "0.2.0"
 dependencies = [
- "melinoe 0.8.0",
+ "melinoe",
  "mnemosyne 0.2.0",
  "moirai-async",
  "moirai-core",
@@ -4040,7 +4035,7 @@ dependencies = [
 name = "moirai-executor"
 version = "0.2.0"
 dependencies = [
- "melinoe 0.7.0",
+ "melinoe",
  "mnemosyne 0.2.0",
  "moirai-core",
  "moirai-pal",
@@ -4079,7 +4074,7 @@ version = "0.2.0"
 dependencies = [
  "js-sys",
  "libc",
- "melinoe 0.7.0",
+ "melinoe",
  "moirai-core",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -4091,7 +4086,7 @@ dependencies = [
 name = "moirai-parallel"
 version = "0.2.0"
 dependencies = [
- "melinoe 0.7.0",
+ "melinoe",
  "moirai-executor",
 ]
 
@@ -5168,7 +5163,6 @@ version = "0.1.0"
 name = "ritk-spatial"
 version = "0.1.0"
 dependencies = [
- "burn",
  "leto",
  "serde",
 ]
@@ -5178,7 +5172,6 @@ name = "ritk-statistics"
 version = "0.1.1"
 dependencies = [
  "anyhow",
- "burn",
  "coeus-core",
  "coeus-tensor",
  "moirai",
@@ -5219,6 +5212,9 @@ name = "ritk-wgpu-compat"
 version = "0.1.0"
 dependencies = [
  "burn",
+ "coeus-core",
+ "coeus-tensor",
+ "hephaestus-wgpu",
 ]
 
 [[package]]
@@ -5795,15 +5791,14 @@ name = "themis"
 version = "0.6.0"
 source = "git+https://github.com/ryancinsight/themis?rev=bdcddfe294f941ef2f84fd4ce38537906b0fec23#bdcddfe294f941ef2f84fd4ce38537906b0fec23"
 dependencies = [
- "melinoe 0.8.0",
+ "melinoe",
 ]
 
 [[package]]
 name = "themis"
 version = "0.9.17"
-source = "git+https://github.com/ryancinsight/themis#e87618a241c69502302da296767a9e3c0acc4906"
 dependencies = [
- "melinoe 0.7.0",
+ "melinoe",
 ]
 
 [[package]]
