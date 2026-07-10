@@ -71,6 +71,36 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-10: Hephaestus owns GPU field arithmetic [arch]
+
+**Context**: `cfd-core` duplicated field addition and scalar multiplication as
+raw WGPU pipelines, staging buffers, polling loops, and local WGSL. Both paths
+silently recomputed on the CPU after any GPU error; the readback loops also
+consumed the successful map notification before waiting for it a second time.
+Hephaestus already provides typed, cached, monomorphized `AddOp` and `MulOp`
+elementwise kernels with checked lengths and partial-workgroup handling.
+
+**Decision**: Delete the CFDRS arithmetic kernel types and shaders. Keep
+`GpuFieldOps` as the sole CFD-facing facade and implement its arithmetic methods
+through Hephaestus typed buffers, `binary_elementwise::<AddOp, f32>`, and
+`scalar_elementwise::<MulOp, f32>`. Propagate provider failures through a typed
+`cfd_core::error::Error` variant; never downgrade a failed GPU operation to CPU.
+
+**Consequences**: Arithmetic kernel compilation, dispatch sizing, buffer
+ownership, and readback live in one upstream implementation. The public
+`FieldAddKernel` and `FieldMulKernel` transitional types are removed; callers
+use the fallible `GpuFieldOps::{add_fields,multiply_field}` methods.
+
+**Verification contract**: Exact-value tests cover nonuniform inputs spanning
+partial workgroups, empty inputs, and typed length mismatches. Package GPU
+clippy, full nextest, doctests, docs, and static raw-WGPU residue checks gate the
+change.
+
+**Evidence**: No-default and GPU checks pass; all-target GPU clippy passes;
+cfd-core nextest passes 230/230 with no skips; doctests pass 5/5; package docs
+are warning-clean; and static audit finds no arithmetic WGSL, raw WGPU,
+polling, timeout, or CPU fallback residue.
+
 ### Sprint 1.48.0: Production Readiness Micro-Sprint (CURRENT)
 **Context**: Post-Sprint 1.47.0 advection fix, comprehensive audit per IEEE 29148  
 **Research Foundation**:

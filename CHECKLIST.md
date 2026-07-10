@@ -1,4 +1,12 @@
 # CFDrs Work Checklist
+- [x] `cfd-core` [arch]: Delete duplicated raw-WGPU field addition and scalar
+  multiplication kernels and route the fallible `GpuFieldOps` arithmetic
+  facade through Hephaestus typed elementwise operations. Exact tests cover
+  partial workgroups through length 257, empty inputs, and typed length errors;
+  static audit finds no arithmetic WGSL/raw WGPU/fallback residue. Evidence in
+  `D:/atlas/repos/CFDrs`: no-default and GPU checks pass, all-target GPU clippy
+  passes, full cfd-core nextest passes 230/230 with no skips, doctests pass 5/5,
+  and package docs are warning-clean.
 - [x] Remove direct `num-traits` from the `cfd-1d` and `cfd-3d` scalar
   seams. `Cargo.toml` no longer declares `num-traits` in the workspace
   dependency catalog, `crates/cfd-1d/Cargo.toml` and

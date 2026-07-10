@@ -31,9 +31,33 @@ All notable changes to this project will be documented in this file.
 
 ### Summary
 
-Consolidated domain error types into `cfd_core::error` with 15 Kind enums and 28 Error variants. `cfd-io` now owns a local file-format error type so the I/O crate does not depend on `cfd-core` only for error reporting while the Atlas provider migration removes nalgebra from its normal dependency graph. Only `cfd-optim` retains a local `OptimError` (bridged via `From` impl). Removed 8 dead extension traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
+Consolidated domain error types into `cfd_core::error` with 15 Kind enums and
+29 Error variants when GPU support is enabled. `cfd-io` now owns a local
+file-format error type so the I/O
+crate does not depend on `cfd-core` only for error reporting while the provider
+migration removes nalgebra from its normal dependency graph. Only `cfd-optim`
+retains a local `OptimError` (bridged via `From` impl). Removed 8 dead extension
+traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
+
+### Breaking
+- **cfd-core GPU arithmetic**: Removed the transitional public
+  `FieldAddKernel` and `FieldMulKernel` types. `GpuFieldOps::add_fields` and
+  `GpuFieldOps::multiply_field` now return `cfd_core::error::Result<()>` and
+  propagate typed Hephaestus failures instead of silently recomputing on CPU.
+
+### Migration
+- Construct `GpuFieldOps` as before, but handle the `Result` returned by
+  `add_fields` and `multiply_field`. Consumers that instantiated the deleted
+  kernel types should use the corresponding `GpuFieldOps` method.
 
 ### Changed
+- **cfd-core**: Routed GPU field addition and scalar multiplication through
+  Hephaestus typed, cached elementwise kernels. Deleted the 449-line duplicate
+  raw WGPU pipeline, WGSL, staging, polling, timeout, and fallback code; split
+  the field-operation facade into arithmetic, Laplacian, and test leaves.
+  Exact partial-workgroup and typed-error regressions pass, as do no-default
+  and GPU checks, all-target clippy, 230/230 nextest, 5/5 doctests, and
+  warning-clean docs.
 - **cfd-1d/cfd-3d**: Removed direct `num-traits` dependency ownership from the
   crate scalar seams. The workspace dependency catalog and both crate
   manifests no longer declare `num-traits`, and `Cfd1dScalar`/`Cfd3dScalar`

@@ -27,6 +27,11 @@ pub enum Error {
     #[error("GPU compute error: {0}")]
     GpuCompute(String),
 
+    /// Typed GPU provider failure
+    #[cfg(feature = "gpu")]
+    #[error("GPU provider error: {0}")]
+    GpuProvider(#[from] hephaestus_wgpu::HephaestusError),
+
     /// Convergence failure
     #[error("Convergence failed: {0}")]
     Convergence(ConvergenceErrorKind),
@@ -399,7 +404,10 @@ impl fmt::Display for BoundaryErrorKind {
                 write!(f, "Stencil order {order} is unsupported (supported: 1-4)")
             }
             Self::RobinSingularity { value } => {
-                write!(f, "Robin condition denominator near zero: β + α*dx = {value}")
+                write!(
+                    f,
+                    "Robin condition denominator near zero: β + α*dx = {value}"
+                )
             }
             Self::InvalidRegion(msg) => write!(f, "Invalid boundary region: {msg}"),
             Self::DimensionMismatch { expected, actual } => {

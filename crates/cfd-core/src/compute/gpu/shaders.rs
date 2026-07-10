@@ -1,36 +1,4 @@
-//! GPU shader definitions for field operations
-
-/// WGSL shader for field addition
-pub const FIELD_ADD_SHADER: &str = r"
-@group(0) @binding(0) var<storage, read> a: array<f32>;
-@group(0) @binding(1) var<storage, read> b: array<f32>;
-@group(0) @binding(2) var<storage, read_write> result: array<f32>;
-
-@compute @workgroup_size(64)
-fn add_fields(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let index = global_id.x;
-    if (index >= arrayLength(&a)) {
-        return;
-    }
-    result[index] = a[index] + b[index];
-}
-";
-
-/// WGSL shader for scalar multiplication
-pub const FIELD_MUL_SHADER: &str = r"
-@group(0) @binding(0) var<storage, read> field: array<f32>;
-@group(0) @binding(1) var<uniform> scalar: f32;
-@group(0) @binding(2) var<storage, read_write> result: array<f32>;
-
-@compute @workgroup_size(64)
-fn multiply_field(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let index = global_id.x;
-    if (index >= arrayLength(&field)) {
-        return;
-    }
-    result[index] = field[index] * scalar;
-}
-";
+//! GPU shader definitions for stencil operations
 
 /// WGSL shader for 2D Laplacian with rigorous boundary handling
 /// Implements a mathematically correct 5‑point stencil for elliptic PDEs

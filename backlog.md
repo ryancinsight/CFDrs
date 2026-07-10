@@ -26,6 +26,13 @@
 # CFDrs Backlog
 
 ## Structural Improvements
+- [x] `cfd-core` [arch]: Consolidate GPU add and scalar multiply on the
+  Hephaestus elementwise SSOT. Delete the raw WGPU pipelines, local WGSL,
+  staging/polling code, and silent CPU fallbacks; retain one fallible
+  `GpuFieldOps` domain surface with exact-value and typed-error verification.
+  Completed with clean GPU/no-default compilation, all-target clippy, 230/230
+  nextest, 5/5 doctests, warning-clean docs, and zero arithmetic provider
+  residue.
 - [x] `cfd-1d`/`cfd-3d` [patch]: Remove direct `num-traits` scalar
   dependency ownership from the crate scalar seams. The workspace dependency
   catalog and both crate manifests no longer declare `num-traits`, and

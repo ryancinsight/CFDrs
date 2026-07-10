@@ -25,6 +25,28 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Sprint 2026-07-10: cfd-core GPU arithmetic Hephaestus elementwise
+
+- **Resolved duplicated provider orchestration**: Removed `FieldAddKernel`,
+  `FieldMulKernel`, their local WGSL, raw WGPU pipelines, staging buffers,
+  polling channels, and timeout logic. `GpuFieldOps` now uploads typed buffers,
+  dispatches Hephaestus `AddOp`/`MulOp`, and downloads through the provider seam.
+- **Resolved hidden degradation**: GPU failures now propagate through the typed
+  `Error::GpuProvider` variant. No small-input or failure-triggered CPU branch
+  remains in the arithmetic path.
+- **Resolved partial-workgroup defect**: Exact-value regressions cover lengths
+  1, 63, 64, 65, and 257, closing the former aligned-readback panic and proving
+  tail dispatch through the real provider.
+- **Evidence tier**: Compile-time integration, exact empirical differential
+  tests, typed negative tests, and static source audit. No-default and GPU
+  checks pass; all-target GPU clippy passes; cfd-core nextest passes 230/230
+  with no skips; doctests pass 5/5; docs are warning-clean.
+- **Residual risk**: Other cfd-core raw WGPU kernels and their independent CPU
+  fallback policies remain outside this arithmetic slice and require separate
+  provider-owned migrations.
+
+---
+
 ## Sprint 2026-07-07: cfd-1d/cfd-3d Eunomia identity seam
 
 - **Resolved direct scalar dependency**:
