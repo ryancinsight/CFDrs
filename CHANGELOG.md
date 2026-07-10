@@ -40,6 +40,11 @@ retains a local `OptimError` (bridged via `From` impl). Removed 8 dead extension
 traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
 
 ### Breaking
+- **cfd-core GPU velocity**: Replaced the non-executing generic
+  `GpuVelocityKernel<T>` with real `f32` Hephaestus correction and
+  divergence-source operations constructed from a `GpuContext`. Callers now
+  provide `VelocityConfig`, component slices, output slices, and handle
+  `Result`.
 - **cfd-core GPU diffusion**: Replaced the non-executing generic
   `GpuDiffusionKernel<T>` with a real `f32` Hephaestus kernel constructed from
   a `GpuContext`. Callers now provide `DiffusionConfig`, input/output slices,
@@ -57,6 +62,9 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   propagate typed Hephaestus failures instead of silently recomputing on CPU.
 
 ### Migration
+- Replace `GpuVelocityKernel::<T>::new()` and the raw `GpuKernel` trait path
+  with `GpuVelocityKernel::new(context)?`, then call `correct(...)` or
+  `divergence_source(...)` with `VelocityConfig`.
 - Replace `GpuDiffusionKernel::<T>::new()` and the raw `GpuKernel` trait path
   with `GpuDiffusionKernel::new(context)?` followed by
   `execute(input, config, output)?`.
@@ -71,6 +79,14 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   kernel types should use the corresponding `GpuFieldOps` method.
 
 ### Changed
+- **cfd-core**: Routed SIMPLE velocity correction and pressure-source
+  divergence through separate Hephaestus typed multi-storage kernels. Added a
+  validating grid/physical-coefficient contract, requested the derived
+  seven-storage-buffer device capability during provider acquisition, moved
+  the family to `kernels/velocity/{mod,kernel,tests}`, and replaced
+  name/shader-only coverage with exact linear pressure/velocity field tests.
+  Focused tests pass 5/5 and full core tests pass 242/242; checks, clippy,
+  doctests, docs, and static migration/provider audits are clean.
 - **cfd-core**: Routed explicit three-dimensional central diffusion through
   Hephaestus typed multi-storage dispatch. Added a validating grid, physical
   coefficient, and von Neumann stability contract; moved the family to

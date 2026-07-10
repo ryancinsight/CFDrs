@@ -5,7 +5,7 @@ mod gpu_tests {
     use cfd_core::compute::gpu::kernels::{
         advection::{AdvectionConfig, GpuAdvectionKernel},
         pressure::GpuPressureKernel,
-        velocity::GpuVelocityKernel,
+        velocity::{GpuVelocityKernel, VelocityConfig},
     };
     use cfd_core::compute::gpu::{GpuBuffer, GpuContext};
     use cfd_core::compute::traits::{ComputeBuffer, ComputeKernel, DomainParams, KernelParams};
@@ -74,11 +74,17 @@ mod gpu_tests {
 
     #[test]
     fn test_velocity_kernel() {
-        let kernel = GpuVelocityKernel::<f64>::new();
-        assert_eq!(kernel.name(), "GPU Velocity Correction (SIMPLE)");
+        let context = Arc::new(GpuContext::create().expect("GPU velocity requires a provider"));
+        let kernel = GpuVelocityKernel::new(context).expect("velocity shaders must compile");
+        let config = VelocityConfig::new([3, 3, 3], [1.0; 3], 0.5, 2.0).unwrap();
+        let velocity = vec![0.0; config.element_count()];
+        let mut source = vec![1.0; config.element_count()];
 
-        use cfd_core::compute::gpu::kernels::GpuKernel;
-        assert!(!kernel.shader_code().is_empty());
+        kernel
+            .divergence_source(&velocity, &velocity, &velocity, config, &mut source)
+            .unwrap();
+
+        assert_eq!(source, velocity);
     }
 
     #[test]

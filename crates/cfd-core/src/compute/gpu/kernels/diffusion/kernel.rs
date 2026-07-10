@@ -1,6 +1,6 @@
 //! Validated diffusion configuration and provider dispatch.
 
-use crate::compute::gpu::kernels::validate_field_len;
+use crate::compute::gpu::kernels::{validate_field_len, validate_finite_field};
 use crate::compute::gpu::GpuContext;
 use crate::error::{Error, Result};
 use bytemuck::{Pod, Zeroable};
@@ -157,11 +157,7 @@ impl GpuDiffusionKernel {
     ) -> Result<()> {
         validate_field_len(config.len, input.len())?;
         validate_field_len(config.len, output.len())?;
-        if let Some(index) = input.iter().position(|value| !value.is_finite()) {
-            return Err(Error::PhysicsViolation(format!(
-                "diffusion input is non-finite at index {index}"
-            )));
-        }
+        validate_finite_field("diffusion input", input)?;
 
         let provider = self.context.provider();
         let input = provider.upload(input)?;

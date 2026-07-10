@@ -11,6 +11,7 @@ pub mod velocity;
 pub use advection::{AdvectionConfig, GpuAdvectionKernel};
 pub use diffusion::{DiffusionConfig, GpuDiffusionKernel};
 pub use laplacian::Laplacian2DKernel;
+pub use velocity::{GpuVelocityKernel, VelocityConfig};
 
 use crate::compute::traits::{ComputeKernel, KernelParams};
 use crate::error::{Error, Result};
@@ -21,6 +22,16 @@ fn validate_field_len(expected: usize, actual: usize) -> Result<()> {
         Ok(())
     } else {
         Err(Error::DimensionMismatch { expected, actual })
+    }
+}
+
+fn validate_finite_field(name: &str, values: &[f32]) -> Result<()> {
+    if let Some(index) = values.iter().position(|value| !value.is_finite()) {
+        Err(Error::PhysicsViolation(format!(
+            "{name} field is non-finite at index {index}"
+        )))
+    } else {
+        Ok(())
     }
 }
 

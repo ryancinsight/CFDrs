@@ -25,6 +25,38 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Sprint 2026-07-10: GPU velocity Hephaestus dispatch
+
+- **Resolved cosmetic execution surface**: The old
+  `GpuVelocityKernel<T>` returned `UnsupportedOperation`, stored a raw shader
+  module, and advertised arbitrary precision over `f32` WGSL storage. The
+  replacement executes both SIMPLE correction and pressure-source divergence
+  through Hephaestus typed multi-storage kernels.
+- **Resolved unreachable computation**: The previous WGSL contained a
+  divergence entry point that the Rust type never compiled or dispatched. The
+  public `divergence_source` operation now assembles
+  `(density / dt) * divergence(velocity)` as documented.
+- **Resolved device-contract mismatch**: Real correction requires three input
+  velocity buffers, pressure, and three output buffers. `GpuContext` now asks
+  Hephaestus for the derived seven-storage-buffer limit during acquisition, so
+  unsupported adapters fail at the provider boundary rather than during
+  pipeline creation.
+- **Resolved physical and topology drift**: `VelocityConfig` validates the 3D
+  centered-difference grid, finite positive spacing, timestep, density, checked
+  element count, and representable coefficients. The family now lives under
+  `kernels/velocity/{mod,kernel,tests}` with correction and divergence WGSL
+  leaves separated by responsibility.
+- **Evidence tier**: Type-level configuration and device-capability boundaries,
+  exact analytical linear-field tests, typed negative tests, compile-time
+  provider integration, and static source audit. Focused velocity nextest
+  passes 5/5; full `cfd-core` nextest passes 242/242; GPU and no-default checks,
+  warning-denied clippy, 3/3 doctests, docs, and migration audit are clean.
+- **Residual risk**: Pressure, turbulence, and the generic pipeline manager
+  still own raw WGPU lifecycle code. Continue by complete operation family
+  without reviving the deleted trait shape.
+
+---
+
 ## Sprint 2026-07-10: GPU diffusion Hephaestus dispatch
 
 - **Resolved cosmetic execution surface**: The old
@@ -48,7 +80,7 @@
   passes 238/238; GPU and no-default checks pass; warning-denied all-target
   clippy passes; doctests pass 3/3; docs are warning-clean; the migration
   allowlist and provider/fake-generic audits are clean.
-- **Residual risk**: Velocity, pressure, turbulence, and the generic pipeline
+- **Residual risk**: Pressure, turbulence, and the generic pipeline
   manager still own raw WGPU lifecycle code. Continue by complete operation
   family without reviving the deleted trait shape.
 

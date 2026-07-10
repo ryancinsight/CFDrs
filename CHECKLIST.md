@@ -1,4 +1,12 @@
 # CFDrs Work Checklist
+- [x] `cfd-core` [arch]: Replace the cosmetic generic/raw-WGPU velocity type
+  with real Hephaestus `f32` correction and divergence-source operations plus
+  validated `VelocityConfig`; delete the unsupported compute-trait and raw
+  pipeline surfaces. Evidence: focused velocity nextest passes 5/5; full
+  `cfd-core` nextest passes 242/242; GPU and no-default checks pass; all-target
+  clippy passes with warnings denied; doctests pass 3/3; docs are
+  warning-clean; migration allowlist and raw-provider/fake-generic audits are
+  clean.
 - [x] `cfd-core` [arch]: Replace the cosmetic generic/raw-WGPU diffusion type
   with a real Hephaestus `f32` kernel and validated `DiffusionConfig`; delete
   the unsupported compute-trait body and unbound raw-pipeline surface.

@@ -71,6 +71,44 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-10: Hephaestus owns GPU velocity dispatch [arch]
+
+**Context**: `GpuVelocityKernel<T>` stored an optional raw WGPU shader module,
+advertised arbitrary precision over `f32` storage, and returned
+`UnsupportedOperation` from its only compute-trait method. Its shader contained
+velocity correction and divergence entry points, but the raw pipeline surface
+compiled only correction and bound none of the declared resources.
+
+**Decision**: Replace the cosmetic generic type with one `f32` velocity family
+containing separate Hephaestus kernels for SIMPLE correction and
+pressure-source divergence. Introduce `VelocityConfig` for grid, spacing,
+timestep, density, and derived centered-gradient factors. Request the seven
+storage buffers required by correction while acquiring the provider device.
+Move the implementation to `velocity/{mod,kernel,tests}` with one WGSL leaf per
+operation.
+
+**Rejected alternative**: Packing vector components into interleaved buffers
+to remain under Hephaestus' downlevel four-buffer default was rejected because
+it would impose conversion and duplicated layout policy in CFDrs. Arbitrary
+`T` conversion to `f32` and retention of the unsupported trait were rejected as
+fake-generic compatibility paths.
+
+**Consequences**: Callers construct the kernel with a `GpuContext`, handle
+`Result`, and supply `f32` component fields plus `VelocityConfig`. Provider
+acquisition rejects adapters unable to support the seven-buffer correction
+contract. Both operations impose zero values at outer cells.
+
+**Verification contract**: Exact analytical tests cover linear pressure
+gradients, linear velocity divergence, boundary values, multiple z-planes, and
+partial workgroups. Typed tests cover dimensions, spacing, timestep, density,
+lengths, and non-finite fields. Static audit must find no raw WGPU lifecycle,
+unsupported placeholder, fake generic, or old flat velocity module.
+
+**Evidence**: Focused velocity nextest passes 5/5; full `cfd-core` nextest
+passes 242/242; GPU and no-default checks pass; all-target clippy passes with
+warnings denied; doctests pass 3/3; docs are warning-clean; migration allowlist
+and provider/fake-generic audits are clean.
+
 ### 2026-07-10: Hephaestus owns GPU diffusion dispatch [arch]
 
 **Context**: `GpuDiffusionKernel<T>` stored an optional raw WGPU shader module,

@@ -26,6 +26,13 @@
 # CFDrs Backlog
 
 ## Structural Improvements
+- [x] `cfd-core` [arch]: Consolidate SIMPLE velocity correction and
+  pressure-source divergence on Hephaestus. Replace
+  `GpuVelocityKernel<T>`'s raw shader-module and unsupported execution surface
+  with real `f32` operations, a validated grid/physical contract, an explicit
+  seven-storage-buffer device requirement, vertical module hierarchy, and
+  exact analytical coverage. Complete with 5/5 focused and 242/242 full core
+  tests, warning-denied clippy, doctests, docs, and static audits.
 - [x] `cfd-core` [arch]: Consolidate explicit three-dimensional GPU diffusion
   on Hephaestus. Replace `GpuDiffusionKernel<T>`'s raw shader-module and
   unsupported execution surface with one real `f32` operation, validated

@@ -4,6 +4,8 @@ use crate::error::{Error, Result};
 use hephaestus_wgpu::{wgpu, WgpuDevice};
 use std::sync::Arc;
 
+const REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE: u32 = 7;
+
 pub mod buffer;
 pub mod constants;
 pub mod field_ops;
@@ -41,11 +43,19 @@ impl GpuContext {
     /// # Errors
     /// Returns error if GPU device initialization fails or no suitable adapter found
     pub fn create() -> Result<Self> {
-        let provider = WgpuDevice::try_default("CFD GPU Device").map_err(|error| {
-            Error::InvalidConfiguration(format!(
-                "Failed to acquire Hephaestus WGPU provider: {error}"
-            ))
-        })?;
+        let required_limits = wgpu::Limits {
+            // Three velocity inputs, pressure, and three corrected outputs are
+            // bound in one operation; requesting the derived limit makes the
+            // provider reject unsupported adapters during acquisition.
+            max_storage_buffers_per_shader_stage: REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE,
+            ..wgpu::Limits::downlevel_defaults()
+        };
+        let provider = WgpuDevice::try_default_with_limits("CFD GPU Device", required_limits)
+            .map_err(|error| {
+                Error::InvalidConfiguration(format!(
+                    "Failed to acquire Hephaestus WGPU provider: {error}"
+                ))
+            })?;
         let adapter_info = provider.adapter_info().cloned().ok_or_else(|| {
             Error::InvalidConfiguration(
                 "Hephaestus WGPU provider did not report adapter metadata".to_string(),
