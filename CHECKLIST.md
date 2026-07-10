@@ -1,4 +1,14 @@
 # CFDrs Work Checklist
+- [x] `cfd-core` [arch]: Replace the cosmetic generic/raw-WGPU advection type
+  with a real Hephaestus `f32` kernel and validated `AdvectionConfig`; delete
+  the unsupported compute-trait body and separate raw-pipeline test. Completion
+  requires exact directional/boundary/partial-workgroup tests, typed invalid
+  input and CFL tests, clean provider/fake-generic residue audits, package
+  format/check/clippy/nextest/doctest/doc gates, and synchronized artifacts.
+  Evidence: focused advection nextest passes 6/6; full `cfd-core` nextest passes
+  234/234; GPU and no-default checks pass; all-target clippy passes with
+  warnings denied; doctests pass 3/3; docs are warning-clean; migration
+  allowlist and raw-provider/fake-generic audits are clean.
 - [x] `cfd-core`/`cfd-math` [arch]: Route the 2D GPU Laplacian through
   Hephaestus typed multi-storage dispatch, remove raw WGPU orchestration and
   silent CPU fallback, and narrow the downstream operator to the WGSL kernel's

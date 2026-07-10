@@ -71,6 +71,43 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-10: Hephaestus owns GPU advection dispatch [arch]
+
+**Context**: `GpuAdvectionKernel<T>` stored an optional raw WGPU shader module,
+advertised arbitrary scalar precision while its WGSL storage was fixed to
+`f32`, and returned `UnsupportedOperation` from its only compute-trait method.
+The integration test asserted only its name/complexity and separately attempted
+raw pipeline registration without executing the numerical operation.
+
+**Decision**: Replace the cosmetic generic type with a real `f32` kernel
+compiled and dispatched through Hephaestus `WgslMultiStorageKernel`. Introduce
+one validated `AdvectionConfig` as the grid/timestep contract, enforce finite
+fields and the unsplit upwind CFL limit before dispatch, and expose one direct
+operation over scalar and velocity fields. Move the implementation into the
+vertical `advection/{mod,kernel,tests}` family and colocate its WGSL source.
+
+**Rejected alternative**: Retaining `ComputeKernel<T>` with an unsupported host
+method or converting arbitrary `T` fields to `f32` was rejected as a fake
+generic and compatibility shim. A second raw-pipeline route was rejected because
+Hephaestus already owns typed compilation, binding, dispatch, and readback.
+
+**Consequences**: Callers construct the kernel with a `GpuContext`, handle
+`Result`, and supply `f32` fields plus `AdvectionConfig`. X/Y boundaries are
+copied unchanged; each z-plane advances independently. Other scalar precisions
+require real provider kernels rather than conversion.
+
+**Verification contract**: Exact tests cover zero-velocity identity,
+positive/negative directional upwinding, copied boundaries, multiple z-planes,
+and partial workgroups. Typed negative tests cover dimensions, spacing,
+timestep, field lengths, non-finite values, and CFL violation. Static audit must
+find no raw WGPU lifecycle, unsupported placeholder, fake generic, or old flat
+module in the advection family.
+
+**Evidence**: Focused advection nextest passes 6/6; full `cfd-core` nextest
+passes 234/234; GPU and no-default checks pass; all-target clippy passes with
+warnings denied; doctests pass 3/3; docs are warning-clean; migration allowlist
+and provider/fake-generic audits are clean.
+
 ### 2026-07-10: Hephaestus owns GPU Laplacian dispatch [arch]
 
 **Context**: `Laplacian2DKernel` duplicated WGSL compilation, bind-group and

@@ -8,6 +8,7 @@ pub mod pressure;
 pub mod turbulence;
 pub mod velocity;
 
+pub use advection::{AdvectionConfig, GpuAdvectionKernel};
 pub use laplacian::Laplacian2DKernel;
 
 use crate::compute::traits::{ComputeKernel, KernelParams};

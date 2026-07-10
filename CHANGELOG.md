@@ -40,6 +40,10 @@ retains a local `OptimError` (bridged via `From` impl). Removed 8 dead extension
 traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
 
 ### Breaking
+- **cfd-core GPU advection**: Replaced the non-executing generic
+  `GpuAdvectionKernel<T>` with a real `f32` Hephaestus kernel constructed from a
+  `GpuContext`. Callers now provide `AdvectionConfig`, scalar/velocity fields,
+  an output slice, and handle `Result`.
 - **cfd-core/cfd-math GPU Laplacian**: `Laplacian2DKernel::new`, host execution,
   and `GpuFieldOps::new` are now fallible. `GpuLaplacianOperator2D` exposes the
   real `f32` WGSL precision instead of a generic scalar parameter.
@@ -49,6 +53,9 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   propagate typed Hephaestus failures instead of silently recomputing on CPU.
 
 ### Migration
+- Replace `GpuAdvectionKernel::<T>::new()` and the raw `GpuKernel` trait path
+  with `GpuAdvectionKernel::new(context)?` followed by
+  `execute(scalar, velocity_x, velocity_y, config, output)?`.
 - Handle the `Result` returned by Laplacian kernel/facade construction and
   execution. Use the CPU operator for non-`f32` scalar domains until a native
   provider kernel for that precision exists.
@@ -57,6 +64,13 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   kernel types should use the corresponding `GpuFieldOps` method.
 
 ### Changed
+- **cfd-core**: Routed first-order upwind advection through Hephaestus typed
+  multi-storage dispatch. Added a validating grid/timestep contract with finite
+  input and CFL enforcement, moved the family to
+  `kernels/advection/{mod,kernel,tests}`, colocated the WGSL source, and replaced
+  name/complexity-only coverage with exact GPU value tests. Focused tests pass
+  6/6 and full core tests pass 234/234; checks, clippy, doctests, docs, and
+  static migration/provider audits are clean.
 - **cfd-core/cfd-math**: Routed the 2D GPU Laplacian through Hephaestus typed
   multi-storage dispatch and deleted raw WGPU pipeline, bind-group, staging,
   polling, timeout, and silent CPU-fallback code. Corrected endpoint-inclusive

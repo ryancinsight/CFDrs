@@ -25,6 +25,35 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Sprint 2026-07-10: GPU advection Hephaestus dispatch
+
+- **Resolved cosmetic execution surface**: The old
+  `GpuAdvectionKernel<T>` never computed through `ComputeKernel`; it returned
+  `UnsupportedOperation`, stored a raw shader module, and exposed arbitrary
+  scalar precision over an `f32` WGSL buffer contract. The replacement is a
+  real `GpuAdvectionKernel` compiled and dispatched through Hephaestus typed
+  multi-storage bindings.
+- **Resolved primitive configuration boundary**: `AdvectionConfig` validates
+  dimensions, checked element count, `u32` representability, positive finite
+  spacing, and nonnegative finite timestep once. Dispatch validates all field
+  lengths and finite values and enforces the unsplit first-order upwind CFL
+  condition before GPU work is submitted.
+- **Resolved topology drift**: The operation family now lives in
+  `kernels/advection/{mod,kernel,tests}` with its WGSL source colocated beside
+  the kernel. The old flat Rust/WGSL sibling files and separate raw-pipeline
+  integration path were deleted.
+- **Evidence tier**: Type-level configuration boundary, exact analytical value
+  tests, typed negative tests, compile-time provider integration, and static
+  source audit. Focused advection nextest passes 6/6; full `cfd-core` nextest
+  passes 234/234; GPU and no-default checks pass; warning-denied all-target
+  clippy passes; doctests pass 3/3; docs are warning-clean; the migration
+  allowlist and provider/fake-generic audits are clean.
+- **Residual risk**: Diffusion, velocity, pressure, turbulence, and the generic
+  pipeline manager still own raw WGPU lifecycle code. Continue by complete
+  operation family without reviving the deleted trait shape.
+
+---
+
 ## Sprint 2026-07-10: 2D Laplacian Hephaestus dispatch
 
 - **Resolved duplicate GPU infrastructure**: `Laplacian2DKernel` now compiles

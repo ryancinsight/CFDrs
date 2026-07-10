@@ -3,9 +3,11 @@
 #[cfg(feature = "gpu")]
 mod gpu_tests {
     use cfd_core::compute::gpu::kernels::{
-        advection::GpuAdvectionKernel, pressure::GpuPressureKernel, velocity::GpuVelocityKernel,
+        advection::{AdvectionConfig, GpuAdvectionKernel},
+        pressure::GpuPressureKernel,
+        velocity::GpuVelocityKernel,
     };
-    use cfd_core::compute::gpu::{pipeline::GpuPipelineManager, GpuBuffer, GpuContext};
+    use cfd_core::compute::gpu::{GpuBuffer, GpuContext};
     use cfd_core::compute::traits::{ComputeBuffer, ComputeKernel, DomainParams, KernelParams};
     use std::sync::Arc;
 
@@ -44,12 +46,20 @@ mod gpu_tests {
 
     #[test]
     fn test_advection_kernel() {
-        let kernel = GpuAdvectionKernel::<f64>::new();
-        assert_eq!(kernel.name(), "GPU Advection (Upwind)");
+        let context = Arc::new(GpuContext::create().expect("GPU advection requires a provider"));
+        let kernel = GpuAdvectionKernel::new(context).expect("advection shader must compile");
+        let config = AdvectionConfig::new([3, 3, 1], [1.0; 3], 0.5).unwrap();
+        let scalar: Vec<f32> = (0..config.element_count())
+            .map(|index| index as f32)
+            .collect();
+        let velocity = vec![0.0; config.element_count()];
+        let mut output = vec![0.0; config.element_count()];
 
-        // Test complexity calculation
-        let complexity = kernel.complexity(1000);
-        assert!(complexity > 0);
+        kernel
+            .execute(&scalar, &velocity, &velocity, config, &mut output)
+            .unwrap();
+
+        assert_eq!(output, scalar);
     }
 
     #[test]
@@ -69,29 +79,6 @@ mod gpu_tests {
 
         use cfd_core::compute::gpu::kernels::GpuKernel;
         assert!(!kernel.shader_code().is_empty());
-    }
-
-    #[test]
-    fn test_pipeline_manager() {
-        let context = match GpuContext::create() {
-            Ok(ctx) => Arc::new(ctx),
-            Err(_) => return, // Skip if no GPU
-        };
-
-        let mut manager = GpuPipelineManager::new(context);
-
-        // Register advection pipeline - needs 3 input buffers (u_in, velocity_x, velocity_y)
-        let result = manager.register_pipeline_with_bindings(
-            "advection",
-            include_str!("../src/compute/gpu/kernels/advection.wgsl"),
-            "advection_upwind",
-            3, // 3 input buffers: u_in, velocity_x, velocity_y
-        );
-
-        // Should succeed or fail gracefully
-        if let Err(e) = result {
-            println!("Pipeline registration failed (expected on CI): {e}");
-        }
     }
 
     #[test]

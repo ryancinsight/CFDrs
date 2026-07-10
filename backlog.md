@@ -26,6 +26,12 @@
 # CFDrs Backlog
 
 ## Structural Improvements
+- [x] `cfd-core` [arch]: Consolidate first-order GPU advection on Hephaestus.
+  Replace `GpuAdvectionKernel<T>`'s raw shader-module and unsupported execution
+  surface with one real `f32` field operation, validated grid/timestep/CFL
+  contract, typed provider errors, vertical module hierarchy, and exact
+  differential/value-semantic coverage. Complete with 6/6 focused and 234/234
+  full core tests, warning-denied clippy, doctests, docs, and static audits.
 - [x] `cfd-core`/`cfd-math` [arch]: Consolidate 2D Laplacian GPU dispatch on
   Hephaestus. Delete consumer-owned WGSL pipeline/bind-group/staging/polling
   orchestration and silent CPU fallback; make the CFD facade fallible; remove
