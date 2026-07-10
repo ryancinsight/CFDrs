@@ -26,6 +26,13 @@
 # CFDrs Backlog
 
 ## Structural Improvements
+- [x] `cfd-core` [arch]: Consolidate pressure weighted-Jacobi iteration and
+  pointwise residual evaluation on Hephaestus. Replace
+  `GpuPressureKernel<T>`'s raw shader-module and unsupported execution surface
+  with real `f32` operations, a validated grid/relaxation contract, corrected
+  Neumann corners, shared 3D dispatch construction, vertical module hierarchy,
+  and exact analytical coverage. Complete with 6/6 focused and 247/247 full
+  core tests plus all package and static gates.
 - [x] `cfd-core` [arch]: Consolidate SIMPLE velocity correction and
   pressure-source divergence on Hephaestus. Replace
   `GpuVelocityKernel<T>`'s raw shader-module and unsupported execution surface

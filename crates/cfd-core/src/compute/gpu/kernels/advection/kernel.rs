@@ -1,11 +1,11 @@
 //! Validated advection configuration and provider dispatch.
 
-use crate::compute::gpu::kernels::validate_field_len;
+use crate::compute::gpu::kernels::{dispatch_grid_3d, validate_field_len};
 use crate::compute::gpu::GpuContext;
 use crate::error::{Error, Result};
 use bytemuck::{Pod, Zeroable};
 use hephaestus_wgpu::{
-    ComputeDevice, DispatchGrid, MultiStorageKernel, WgslMultiStorageKernel, WgslStorageBinding,
+    ComputeDevice, MultiStorageKernel, WgslMultiStorageKernel, WgslStorageBinding,
     WgslStorageBindingLayout,
 };
 use std::sync::Arc;
@@ -142,15 +142,7 @@ impl GpuAdvectionKernel {
         let velocity_x = provider.upload(velocity_x)?;
         let velocity_y = provider.upload(velocity_y)?;
         let result = provider.alloc_zeroed(config.len)?;
-        let [nx, ny, nz, _] = config.params.dimensions;
-        let grid = DispatchGrid::covering_domain(
-            [
-                usize::try_from(nx).expect("invariant: u32 fits usize"),
-                usize::try_from(ny).expect("invariant: u32 fits usize"),
-                usize::try_from(nz).expect("invariant: u32 fits usize"),
-            ],
-            WORKGROUP,
-        )?;
+        let grid = dispatch_grid_3d(config.params.dimensions, WORKGROUP)?;
         self.kernel.dispatch(
             provider,
             [

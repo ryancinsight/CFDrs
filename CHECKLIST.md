@@ -1,4 +1,11 @@
 # CFDrs Work Checklist
+- [x] `cfd-core` [arch]: Replace the cosmetic generic/raw-WGPU pressure type
+  with real Hephaestus `f32` weighted-Jacobi and residual operations plus
+  validated `PressureConfig`; correct edge/corner Neumann application and
+  consolidate shared 3D dispatch construction. Evidence: focused pressure
+  nextest passes 6/6; full `cfd-core` nextest passes 247/247; GPU and
+  no-default checks pass; all-target clippy passes with warnings denied;
+  doctests pass 3/3; docs, migration allowlist, and static audits are clean.
 - [x] `cfd-core` [arch]: Replace the cosmetic generic/raw-WGPU velocity type
   with real Hephaestus `f32` correction and divergence-source operations plus
   validated `VelocityConfig`; delete the unsupported compute-trait and raw

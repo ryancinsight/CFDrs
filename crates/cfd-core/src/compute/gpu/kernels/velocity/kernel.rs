@@ -1,11 +1,11 @@
 //! Validated SIMPLE velocity operations and provider dispatch.
 
-use crate::compute::gpu::kernels::{validate_field_len, validate_finite_field};
+use crate::compute::gpu::kernels::{dispatch_grid_3d, validate_field_len, validate_finite_field};
 use crate::compute::gpu::GpuContext;
 use crate::error::{Error, Result};
 use bytemuck::{Pod, Zeroable};
 use hephaestus_wgpu::{
-    ComputeDevice, DispatchGrid, MultiStorageKernel, WgslMultiStorageKernel, WgslStorageBinding,
+    ComputeDevice, MultiStorageKernel, WgslMultiStorageKernel, WgslStorageBinding,
     WgslStorageBindingLayout,
 };
 use std::sync::Arc;
@@ -210,7 +210,7 @@ impl GpuVelocityKernel {
                 WgslStorageBinding::new(7, &result_z),
             ],
             &config.params,
-            dispatch_grid(config.params.dimensions)?,
+            dispatch_grid_3d(config.params.dimensions, WORKGROUP)?,
         )?;
         provider.download(&result_x, output_x)?;
         provider.download(&result_y, output_y)?;
@@ -260,23 +260,11 @@ impl GpuVelocityKernel {
                 WgslStorageBinding::new(4, &result),
             ],
             &config.params,
-            dispatch_grid(config.params.dimensions)?,
+            dispatch_grid_3d(config.params.dimensions, WORKGROUP)?,
         )?;
         provider.download(&result, output)?;
         Ok(())
     }
-}
-
-fn dispatch_grid(dimensions: [u32; 4]) -> Result<DispatchGrid> {
-    let [nx, ny, nz, _] = dimensions;
-    Ok(DispatchGrid::covering_domain(
-        [
-            usize::try_from(nx).expect("invariant: u32 fits usize"),
-            usize::try_from(ny).expect("invariant: u32 fits usize"),
-            usize::try_from(nz).expect("invariant: u32 fits usize"),
-        ],
-        WORKGROUP,
-    )?)
 }
 
 impl std::fmt::Debug for GpuVelocityKernel {

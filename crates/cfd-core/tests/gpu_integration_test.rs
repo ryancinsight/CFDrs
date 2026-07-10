@@ -4,11 +4,11 @@
 mod gpu_tests {
     use cfd_core::compute::gpu::kernels::{
         advection::{AdvectionConfig, GpuAdvectionKernel},
-        pressure::GpuPressureKernel,
+        pressure::{GpuPressureKernel, PressureConfig},
         velocity::{GpuVelocityKernel, VelocityConfig},
     };
     use cfd_core::compute::gpu::{GpuBuffer, GpuContext};
-    use cfd_core::compute::traits::{ComputeBuffer, ComputeKernel, DomainParams, KernelParams};
+    use cfd_core::compute::traits::{ComputeBuffer, DomainParams, KernelParams};
     use std::sync::Arc;
 
     #[test]
@@ -64,12 +64,18 @@ mod gpu_tests {
 
     #[test]
     fn test_pressure_kernel() {
-        let kernel = GpuPressureKernel::<f64>::new();
-        assert_eq!(kernel.name(), "GPU Pressure Poisson Solver");
+        let context = Arc::new(GpuContext::create().expect("GPU pressure requires a provider"));
+        let kernel = GpuPressureKernel::new(context).expect("pressure shaders must compile");
+        let config = PressureConfig::new([3, 3, 3], [1.0; 3], 1.0).unwrap();
+        let pressure = vec![0.0; config.element_count()];
+        let source = vec![0.0; config.element_count()];
+        let mut residual = vec![1.0; config.element_count()];
 
-        // Verify shader code is not empty
-        use cfd_core::compute::gpu::kernels::GpuKernel;
-        assert!(!kernel.shader_code().is_empty());
+        kernel
+            .residual(&pressure, &source, config, &mut residual)
+            .unwrap();
+
+        assert_eq!(residual, pressure);
     }
 
     #[test]

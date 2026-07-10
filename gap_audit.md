@@ -25,6 +25,36 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Sprint 2026-07-10: GPU pressure Hephaestus dispatch
+
+- **Resolved cosmetic execution surface**: The old
+  `GpuPressureKernel<T>` returned `UnsupportedOperation`, stored a raw shader
+  module, and advertised arbitrary precision over `f32` WGSL storage. The
+  replacement executes weighted-Jacobi iteration and residual evaluation
+  through Hephaestus typed multi-storage kernels.
+- **Resolved unreachable computation**: The previous residual entry point had
+  no Rust dispatch path. `GpuPressureKernel::residual` now exposes the absolute
+  pointwise Poisson residual with explicit zero boundary semantics.
+- **Resolved boundary defect**: Boundary selection previously copied along the
+  first matching axis, so edges and corners could copy another boundary cell.
+  Iteration now clamps all three coordinates to the nearest interior cell,
+  enforcing the homogeneous Neumann contract at faces, edges, and corners.
+- **Resolved numerical and structural drift**: `PressureConfig` validates 3D
+  dimensions, finite positive spacing, representable inverse-square factors,
+  and weighted-Jacobi relaxation in `(0, 1]`. The family now lives under
+  `kernels/pressure/{mod,kernel,tests}` with one WGSL leaf per operation. Shared
+  3D dispatch-grid construction now has one home in the kernel-family parent.
+- **Evidence tier**: Type-level configuration boundary, exact quadratic
+  Poisson identities, typed negative tests, compile-time provider integration,
+  and static source audit. Focused pressure nextest passes 6/6; full
+  `cfd-core` nextest passes 247/247; GPU/no-default checks, warning-denied
+  clippy, 3/3 doctests, docs, and migration audit are clean.
+- **Residual risk**: Turbulence and the generic pipeline manager still own raw
+  WGPU lifecycle code. Continue by complete operation family without reviving
+  the deleted trait shape.
+
+---
+
 ## Sprint 2026-07-10: GPU velocity Hephaestus dispatch
 
 - **Resolved cosmetic execution surface**: The old
@@ -51,7 +81,7 @@
   provider integration, and static source audit. Focused velocity nextest
   passes 5/5; full `cfd-core` nextest passes 242/242; GPU and no-default checks,
   warning-denied clippy, 3/3 doctests, docs, and migration audit are clean.
-- **Residual risk**: Pressure, turbulence, and the generic pipeline manager
+- **Residual risk**: Turbulence and the generic pipeline manager
   still own raw WGPU lifecycle code. Continue by complete operation family
   without reviving the deleted trait shape.
 

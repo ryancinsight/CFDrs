@@ -40,6 +40,11 @@ retains a local `OptimError` (bridged via `From` impl). Removed 8 dead extension
 traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
 
 ### Breaking
+- **cfd-core GPU pressure**: Replaced the non-executing generic
+  `GpuPressureKernel<T>` with real `f32` Hephaestus weighted-Jacobi and residual
+  operations constructed from a `GpuContext`. Callers now provide
+  `PressureConfig`, pressure/source slices, an output slice, and handle
+  `Result`.
 - **cfd-core GPU velocity**: Replaced the non-executing generic
   `GpuVelocityKernel<T>` with real `f32` Hephaestus correction and
   divergence-source operations constructed from a `GpuContext`. Callers now
@@ -62,6 +67,9 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   propagate typed Hephaestus failures instead of silently recomputing on CPU.
 
 ### Migration
+- Replace `GpuPressureKernel::<T>::new()` and the raw `GpuKernel` trait path
+  with `GpuPressureKernel::new(context)?`, then call `iterate(...)` or
+  `residual(...)` with `PressureConfig`.
 - Replace `GpuVelocityKernel::<T>::new()` and the raw `GpuKernel` trait path
   with `GpuVelocityKernel::new(context)?`, then call `correct(...)` or
   `divergence_source(...)` with `VelocityConfig`.
@@ -79,6 +87,13 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   kernel types should use the corresponding `GpuFieldOps` method.
 
 ### Changed
+- **cfd-core**: Routed weighted-Jacobi pressure iteration and pointwise
+  residual evaluation through separate Hephaestus typed multi-storage kernels.
+  Added a validating grid/relaxation contract, corrected Neumann edge/corner
+  handling, consolidated shared 3D dispatch sizing, moved the family to
+  `kernels/pressure/{mod,kernel,tests}`, and replaced name/shader-only coverage
+  with exact quadratic Poisson tests. Focused tests pass 6/6 and full core tests
+  pass 247/247; checks, clippy, doctests, docs, and static audits are clean.
 - **cfd-core**: Routed SIMPLE velocity correction and pressure-source
   divergence through separate Hephaestus typed multi-storage kernels. Added a
   validating grid/physical-coefficient contract, requested the derived

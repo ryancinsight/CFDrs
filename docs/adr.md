@@ -71,6 +71,41 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-10: Hephaestus owns GPU pressure dispatch [arch]
+
+**Context**: `GpuPressureKernel<T>` stored an optional raw WGPU shader module,
+advertised arbitrary precision over `f32` storage, and returned
+`UnsupportedOperation`. Its shader contained iteration and residual entry
+points, but the raw surface compiled a nonexistent entry point, bound no
+resources, and exposed neither numerical operation.
+
+**Decision**: Replace the cosmetic generic type with one `f32` pressure family
+containing separate Hephaestus kernels for weighted-Jacobi iteration and
+absolute pointwise residual evaluation. Introduce `PressureConfig` for grid,
+spacing, inverse-square coefficients, and relaxation. Clamp every boundary
+coordinate to the interior for homogeneous Neumann faces, edges, and corners.
+Move the implementation to `pressure/{mod,kernel,tests}` and consolidate 3D
+dispatch sizing at the common kernel-family ancestor.
+
+**Rejected alternative**: Retaining the advertised SOR range above one was
+rejected because this is simultaneous weighted Jacobi, not sequential SOR.
+Arbitrary `T` conversion to `f32` and retention of the unsupported trait were
+rejected as fake-generic compatibility paths.
+
+**Consequences**: Callers construct the kernel with a `GpuContext`, handle
+`Result`, and supply `f32` fields plus `PressureConfig`. Relaxation is validated
+in `(0, 1]`. Both previously embedded operations have direct typed APIs.
+
+**Verification contract**: Exact analytical tests cover the discrete
+Laplacian of a quadratic field, weighted source response, pointwise residual,
+Neumann faces/edges/corners, multiple z-planes, and partial workgroups. Typed
+tests cover dimensions, spacing, relaxation, lengths, and non-finite fields.
+
+**Evidence**: Focused pressure nextest passes 6/6; full `cfd-core` nextest
+passes 247/247; GPU and no-default checks pass; all-target clippy passes with
+warnings denied; doctests pass 3/3; docs are warning-clean; migration allowlist
+and provider/fake-generic audits are clean.
+
 ### 2026-07-10: Hephaestus owns GPU velocity dispatch [arch]
 
 **Context**: `GpuVelocityKernel<T>` stored an optional raw WGPU shader module,
