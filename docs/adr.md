@@ -71,6 +71,43 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-10: Hephaestus owns GPU Laplacian dispatch [arch]
+
+**Context**: `Laplacian2DKernel` duplicated WGSL compilation, bind-group and
+uniform construction, dispatch sizing, staging readback, polling, and timeout
+handling already owned by Hephaestus. Its host API silently recomputed on CPU
+for small inputs and every provider failure. The downstream math operator was
+generic over `T` although the WGSL source and parameter block always interpreted
+storage as `f32`.
+
+**Decision**: Retain the CFD-specific stencil and boundary-condition contract,
+but compile and dispatch it through Hephaestus `WgslMultiStorageKernel` and
+typed provider buffers. Make kernel construction and execution fallible, delete
+all production CPU fallback/readback orchestration, and expose the downstream
+GPU operator at its real `f32` precision. Provider errors propagate unchanged
+through `Error::GpuProvider`.
+
+**Rejected alternative**: A generic `T` wrapper around an `f32` shader was
+rejected because it reinterprets non-`f32` storage rather than computing in the
+declared scalar precision. A consumer-local Hephaestus adapter was rejected
+because the provider already exposes the required multi-storage contract.
+
+**Consequences**: GPU callers handle `Result`; non-`f32` GPU Laplacian support
+requires a real provider kernel for that scalar, not a conversion or fake
+generic. The independent CPU implementation remains test-only as a differential
+oracle.
+
+**Verification contract**: Exact and analytically bounded GPU/CPU differential
+tests cover all boundary policies and partial workgroups; typed tests cover
+shape, grid, and spacing failures. Static audit must find no raw WGPU pipeline,
+staging, timeout, or production CPU-fallback code in the Laplacian family.
+
+**Evidence**: GPU/no-default checks pass; focused Laplacian nextest passes
+10/10; full `cfd-core` and `cfd-math` nextest pass 231/231 and 362/362;
+all-target GPU clippy passes with warnings denied; doctests pass 6/6 with 3
+intentionally ignored; package docs are warning-clean; targeted raw-provider
+and fake-generic audits are clean.
+
 ### 2026-07-10: Hephaestus owns GPU field arithmetic [arch]
 
 **Context**: `cfd-core` duplicated field addition and scalar multiplication as

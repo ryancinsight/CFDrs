@@ -276,12 +276,13 @@ impl<T: RealField + Copy + NumericElement + LetoScalar> SerialSchwarzPreconditio
             row_ptr.push(values.len());
         }
 
-        CsrMatrix::from_parts(values, col_indices, row_ptr, subdomain_size, subdomain_size)
-            .map_err(|error| {
+        CsrMatrix::from_parts(values, col_indices, row_ptr, subdomain_size, subdomain_size).map_err(
+            |error| {
                 Error::InvalidConfiguration(format!(
                     "Schwarz subdomain Leto CSR construction failed: {error}"
                 ))
-            })
+            },
+        )
     }
 
     /// Apply Schwarz preconditioner (additive version)

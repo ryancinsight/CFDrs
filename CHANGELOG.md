@@ -40,17 +40,30 @@ retains a local `OptimError` (bridged via `From` impl). Removed 8 dead extension
 traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
 
 ### Breaking
+- **cfd-core/cfd-math GPU Laplacian**: `Laplacian2DKernel::new`, host execution,
+  and `GpuFieldOps::new` are now fallible. `GpuLaplacianOperator2D` exposes the
+  real `f32` WGSL precision instead of a generic scalar parameter.
 - **cfd-core GPU arithmetic**: Removed the transitional public
   `FieldAddKernel` and `FieldMulKernel` types. `GpuFieldOps::add_fields` and
   `GpuFieldOps::multiply_field` now return `cfd_core::error::Result<()>` and
   propagate typed Hephaestus failures instead of silently recomputing on CPU.
 
 ### Migration
+- Handle the `Result` returned by Laplacian kernel/facade construction and
+  execution. Use the CPU operator for non-`f32` scalar domains until a native
+  provider kernel for that precision exists.
 - Construct `GpuFieldOps` as before, but handle the `Result` returned by
   `add_fields` and `multiply_field`. Consumers that instantiated the deleted
   kernel types should use the corresponding `GpuFieldOps` method.
 
 ### Changed
+- **cfd-core/cfd-math**: Routed the 2D GPU Laplacian through Hephaestus typed
+  multi-storage dispatch and deleted raw WGPU pipeline, bind-group, staging,
+  polling, timeout, and silent CPU-fallback code. Corrected endpoint-inclusive
+  periodic wrapping, added typed contract validation, retained the CPU stencil
+  only as a differential oracle, and removed the false downstream scalar
+  generic. Focused tests pass 10/10; full core/math tests pass 231/231 and
+  362/362; clippy, doctests, and docs are clean.
 - **cfd-core**: Routed GPU field addition and scalar multiplication through
   Hephaestus typed, cached elementwise kernels. Deleted the 449-line duplicate
   raw WGPU pipeline, WGSL, staging, polling, timeout, and fallback code; split

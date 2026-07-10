@@ -25,6 +25,42 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Sprint 2026-07-10: 2D Laplacian Hephaestus dispatch
+
+- **Resolved duplicate GPU infrastructure**: `Laplacian2DKernel` now compiles
+  and dispatches the CFD stencil through Hephaestus
+  `WgslMultiStorageKernel`, typed storage bindings, dispatch-grid validation,
+  provider buffers, and provider-owned transfer synchronization. Consumer-owned
+  pipelines, layouts, bind groups, uniform allocation, staging buffers,
+  mapping channels, polling, and timeouts were deleted.
+- **Resolved hidden degradation**: Kernel construction and execution return
+  typed errors. Small inputs and provider failures no longer trigger silent CPU
+  recomputation; the CPU stencil is compiled only for differential tests.
+- **Resolved fake generic**: `GpuLaplacianOperator2D` now exposes its actual
+  WGSL `f32` contract. The prior generic path converted spacing to `f32` while
+  reinterpreting arbitrary `T` device storage as `f32`.
+- **Resolved periodic-boundary drift**: Endpoint-inclusive periodic neighbors
+  now wrap to the opposite inner point (`nx-2`/`1`, `ny-2`/`1`) as documented
+  and as implemented by the independent CPU oracle.
+- **Resolved diagnostic debt**: The clean Anderson test cone now uses
+  `Option::map_or`, closing the warning surfaced by the full all-target gate.
+- **Evidence tier**: Compile-time provider integration, exact and
+  analytically-bounded GPU/CPU differential tests, typed negative tests, and
+  static source audit. No-default and GPU checks pass; focused Laplacian
+  nextest passes 10/10; full `cfd-core` and `cfd-math` nextest pass 231/231 and
+  362/362; warning-denied all-target clippy passes; doctests pass 6/6 with 3
+  intentionally ignored; package docs are warning-clean.
+- **SemVer evidence limit**: `cargo-semver-checks check-release -p cfd-core -p
+  cfd-math` cannot retrieve a baseline because neither crate is published to
+  crates.io. The fallible-constructor and scalar-contract changes are manually
+  classified as breaking and documented with migration instructions.
+- **Residual risk**: Advection, diffusion, velocity, pressure, turbulence, and
+  generic pipeline modules still own raw WGPU orchestration. Migrate each
+  operation family independently through the existing Hephaestus authored
+  kernel seam.
+
+---
+
 ## Sprint 2026-07-10: cfd-core GPU arithmetic Hephaestus elementwise
 
 - **Resolved duplicated provider orchestration**: Removed `FieldAddKernel`,

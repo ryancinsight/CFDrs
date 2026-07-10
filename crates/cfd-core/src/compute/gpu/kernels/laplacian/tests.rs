@@ -6,14 +6,14 @@ use super::types::BoundaryType;
 use crate::compute::gpu::GpuContext;
 use std::sync::Arc;
 
-fn create_kernel() -> Option<Laplacian2DKernel> {
-    GpuContext::create()
-        .ok()
-        .map(|ctx| Laplacian2DKernel::new(Arc::new(ctx)))
+fn create_kernel() -> Laplacian2DKernel {
+    let context = GpuContext::create().expect("Laplacian tests require a WGPU provider");
+    Laplacian2DKernel::new(Arc::new(context))
+        .expect("Laplacian kernel must compile through Hephaestus")
 }
 
-fn execute_with_fallback(
-    kernel: Option<&Laplacian2DKernel>,
+fn execute_gpu(
+    kernel: &Laplacian2DKernel,
     field: &[f32],
     nx: usize,
     ny: usize,
@@ -22,15 +22,12 @@ fn execute_with_fallback(
     bc: BoundaryType,
     result: &mut [f32],
 ) {
-    if let Some(kernel) = kernel {
-        kernel.execute_with_bc(field, nx, ny, dx, dy, bc, result);
-    } else {
-        execute_cpu_reference(field, nx, ny, dx, dy, bc, result);
-    }
+    kernel
+        .execute_with_bc(field, nx, ny, dx, dy, bc, result)
+        .expect("Hephaestus Laplacian dispatch must succeed");
 }
 
-fn execute_cpu_fallback(
-    _kernel: Option<&Laplacian2DKernel>,
+fn execute_cpu_reference_path(
     field: &[f32],
     nx: usize,
     ny: usize,
@@ -39,7 +36,6 @@ fn execute_cpu_fallback(
     bc: BoundaryType,
     result: &mut [f32],
 ) {
-    // Always use the CPU reference to avoid depending on the private execute_cpu method
     execute_cpu_reference(field, nx, ny, dx, dy, bc, result);
 }
 
@@ -82,8 +78,8 @@ fn test_laplacian_accuracy_polynomial() {
         }
     }
 
-    execute_with_fallback(
-        kernel.as_ref(),
+    execute_gpu(
+        &kernel,
         &field,
         n,
         n,
@@ -136,8 +132,8 @@ fn test_laplacian_convergence_rate() {
             }
         }
 
-        execute_with_fallback(
-            kernel.as_ref(),
+        execute_gpu(
+            &kernel,
             &field,
             n,
             n,
@@ -187,8 +183,8 @@ fn test_boundary_conditions_dirichlet() {
         }
     }
 
-    execute_with_fallback(
-        kernel.as_ref(),
+    execute_gpu(
+        &kernel,
         &field,
         n,
         n,
@@ -233,8 +229,8 @@ fn test_boundary_conditions_neumann() {
         }
     }
 
-    execute_with_fallback(
-        kernel.as_ref(),
+    execute_gpu(
+        &kernel,
         &field,
         n,
         n,
@@ -296,8 +292,8 @@ fn test_boundary_conditions_periodic() {
         }
     }
 
-    execute_with_fallback(
-        kernel.as_ref(),
+    execute_gpu(
+        &kernel,
         &field,
         n,
         n,
@@ -395,7 +391,7 @@ fn test_boundary_conditions_comprehensive() {
             "Periodic" => BoundaryType::Periodic,
             _ => BoundaryType::Dirichlet,
         };
-        execute_with_fallback(kernel.as_ref(), &field, n, n, dx, dy, bc, &mut result);
+        execute_gpu(&kernel, &field, n, n, dx, dy, bc, &mut result);
 
         // Verify all computed values are finite and reasonable
         let mut max_val = f32::NEG_INFINITY;
@@ -490,8 +486,7 @@ fn test_gpu_cpu_consistency() {
     }
 
     // Force CPU execution
-    execute_cpu_fallback(
-        kernel.as_ref(),
+    execute_cpu_reference_path(
         &field,
         n,
         n,
@@ -502,8 +497,8 @@ fn test_gpu_cpu_consistency() {
     );
 
     // Force GPU execution
-    execute_with_fallback(
-        kernel.as_ref(),
+    execute_gpu(
+        &kernel,
         &field,
         n,
         n,
@@ -513,16 +508,24 @@ fn test_gpu_cpu_consistency() {
         &mut gpu_result,
     );
 
-    // Compare results (allowing for small numerical differences)
     let mut max_diff = 0.0f32;
     for i in 0..field.len() {
         let diff = (gpu_result[i] - cpu_result[i]).abs();
         max_diff = max_diff.max(diff);
     }
 
+    // The CPU oracle evaluates each stencil in f64 before narrowing, while
+    // WGSL evaluates eight arithmetic stages in native f32. For
+    // |u_left| + 2|u_center| + |u_right| <= 4 max|u| per axis, Higham's
+    // gamma_n model bounds the absolute forward error by
+    // gamma_8 * 4 max|u| * (dx^-2 + dy^-2).
+    let epsilon = f32::EPSILON;
+    let gamma = 8.0 * epsilon / (1.0 - 8.0 * epsilon);
+    let max_input = field.iter().copied().map(f32::abs).fold(0.0, f32::max);
+    let rounding_bound = gamma * 4.0 * max_input * (dx.recip().powi(2) + dy.recip().powi(2));
     assert!(
-        max_diff < 1e-6,
-        "GPU/CPU inconsistency: max difference {max_diff}"
+        max_diff <= rounding_bound,
+        "GPU/CPU inconsistency: max difference {max_diff} exceeds {rounding_bound}"
     );
 }
 
@@ -562,8 +565,7 @@ fn test_gpu_cpu_performance_benchmark() {
         let cpu_time = {
             // Warmup runs
             for _ in 0..num_warmup_runs {
-                execute_cpu_fallback(
-                    kernel.as_ref(),
+                execute_cpu_reference_path(
                     &field,
                     n,
                     n,
@@ -577,8 +579,7 @@ fn test_gpu_cpu_performance_benchmark() {
             // Timing runs
             let start = Instant::now();
             for _ in 0..num_timing_runs {
-                execute_cpu_fallback(
-                    kernel.as_ref(),
+                execute_cpu_reference_path(
                     &field,
                     n,
                     n,
@@ -596,8 +597,8 @@ fn test_gpu_cpu_performance_benchmark() {
         let gpu_time = {
             // Warmup runs
             for _ in 0..num_warmup_runs {
-                execute_with_fallback(
-                    kernel.as_ref(),
+                execute_gpu(
+                    &kernel,
                     &field,
                     n,
                     n,
@@ -611,8 +612,8 @@ fn test_gpu_cpu_performance_benchmark() {
             // Timing runs
             let start = Instant::now();
             for _ in 0..num_timing_runs {
-                execute_with_fallback(
-                    kernel.as_ref(),
+                execute_gpu(
+                    &kernel,
                     &field,
                     n,
                     n,

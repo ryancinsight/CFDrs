@@ -23,7 +23,8 @@ fn test_gpu_dispatch_metrics_present_or_skip() {
         dx,
         dy,
         BoundaryType::Dirichlet,
-    );
+    )
+    .expect("Laplacian kernel must compile through Hephaestus");
 
     let mut field = vec![0.0f32; nx * ny];
     for j in 0..ny {

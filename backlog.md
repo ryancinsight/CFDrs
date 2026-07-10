@@ -26,6 +26,13 @@
 # CFDrs Backlog
 
 ## Structural Improvements
+- [x] `cfd-core`/`cfd-math` [arch]: Consolidate 2D Laplacian GPU dispatch on
+  Hephaestus. Delete consumer-owned WGSL pipeline/bind-group/staging/polling
+  orchestration and silent CPU fallback; make the CFD facade fallible; remove
+  the false scalar generic from the downstream operator; preserve the CPU
+  stencil only as an independent test oracle. Complete with 10/10 focused,
+  231/231 core, and 362/362 math tests; warning-denied clippy; doctests; docs;
+  and static provider-residue verification.
 - [x] `cfd-core` [arch]: Consolidate GPU add and scalar multiply on the
   Hephaestus elementwise SSOT. Delete the raw WGPU pipelines, local WGSL,
   staging/polling code, and silent CPU fallbacks; retain one fallible

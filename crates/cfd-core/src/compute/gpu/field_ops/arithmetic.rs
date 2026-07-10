@@ -2,7 +2,7 @@
 
 use super::GpuFieldOps;
 use crate::error::{Error, Result};
-use hephaestus_wgpu::{AddOp, ComputeDevice, MulOp, binary_elementwise, scalar_elementwise};
+use hephaestus_wgpu::{binary_elementwise, scalar_elementwise, AddOp, ComputeDevice, MulOp};
 
 impl GpuFieldOps {
     /// Add two fields element-wise into `result`.

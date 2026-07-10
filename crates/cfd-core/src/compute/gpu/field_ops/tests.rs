@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 fn operations() -> GpuFieldOps {
     let context = GpuContext::create().expect("GPU arithmetic tests require a WGPU provider");
-    GpuFieldOps::new(Arc::new(context))
+    GpuFieldOps::new(Arc::new(context)).expect("field kernels must compile through Hephaestus")
 }
 
 #[test]
@@ -95,4 +95,38 @@ fn arithmetic_rejects_mismatched_lengths() {
             actual: 1
         }
     ));
+}
+
+#[test]
+fn laplacian_rejects_invalid_contracts() {
+    let operations = operations();
+
+    let mut output = [0.0; 4];
+    let input_error = operations
+        .laplacian_2d(&[1.0; 3], 2, 2, 1.0, 1.0, &mut output)
+        .unwrap_err();
+    assert!(matches!(
+        input_error,
+        Error::DimensionMismatch {
+            expected: 4,
+            actual: 3
+        }
+    ));
+
+    let mut short_output = [0.0; 3];
+    let output_error = operations
+        .laplacian_2d(&[1.0; 4], 2, 2, 1.0, 1.0, &mut short_output)
+        .unwrap_err();
+    assert!(matches!(
+        output_error,
+        Error::DimensionMismatch {
+            expected: 4,
+            actual: 3
+        }
+    ));
+
+    let spacing_error = operations
+        .laplacian_2d(&[1.0; 4], 2, 2, 0.0, 1.0, &mut output)
+        .unwrap_err();
+    assert!(matches!(spacing_error, Error::InvalidConfiguration(_)));
 }

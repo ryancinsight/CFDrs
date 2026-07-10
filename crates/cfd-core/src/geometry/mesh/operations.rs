@@ -40,7 +40,8 @@ impl<T: RealField + Copy + FloatElement> MeshOperations<T> for Mesh<T> {
         let centroid = self.centroid();
         for node in &mut self.nodes {
             let relative = *node - centroid;
-            let rotated = Vector3::from_array((rotation * FixedVector::new(relative.data)).into_array());
+            let rotated =
+                Vector3::from_array((rotation * FixedVector::new(relative.data)).into_array());
             *node = centroid + rotated;
         }
     }

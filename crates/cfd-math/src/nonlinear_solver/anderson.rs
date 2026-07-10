@@ -668,7 +668,7 @@ mod tests {
             // Invariant: every step, the parallel deque lengths must match
             // the QR column count exactly — or be the empty initial state
             // (before the first iteration has produced (Δx, Δf)).
-            let qr_cols = acc.qr_state.as_ref().map(|qr| qr.q_cols.len()).unwrap_or(0);
+            let qr_cols = acc.qr_state.as_ref().map_or(0, |qr| qr.q_cols.len());
             assert_eq!(
                 acc.delta_x.len(),
                 qr_cols,

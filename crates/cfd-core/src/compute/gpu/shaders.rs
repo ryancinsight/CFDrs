@@ -65,7 +65,7 @@ fn laplacian_2d(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 laplacian += (right - 2.0 * center + right) * uniforms.inv2.x;
             }
         } else if (uniforms.dims_bc.z == 2u) { // Periodic
-            let left = field[j * uniforms.dims_bc.x + (uniforms.dims_bc.x - 1u)];
+            let left = field[j * uniforms.dims_bc.x + (uniforms.dims_bc.x - 2u)];
             let center = field[idx];
             let right = field[j * uniforms.dims_bc.x + (i + 1u)];
             laplacian += (left - 2.0 * center + right) * uniforms.inv2.x;
@@ -93,7 +93,7 @@ fn laplacian_2d(@builtin(global_invocation_id) global_id: vec3<u32>) {
         } else if (uniforms.dims_bc.z == 2u) { // Periodic
             let left = field[j * uniforms.dims_bc.x + (i - 1u)];
             let center = field[idx];
-            let right = field[j * uniforms.dims_bc.x + 0u];
+            let right = field[j * uniforms.dims_bc.x + 1u];
             laplacian += (left - 2.0 * center + right) * uniforms.inv2.x;
         }
     }
@@ -126,7 +126,7 @@ fn laplacian_2d(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 laplacian += (top - 2.0 * center + top) * uniforms.inv2.y;
             }
         } else if (uniforms.dims_bc.z == 2u) { // Periodic
-            let bottom = field[(uniforms.dims_bc.y - 1u) * uniforms.dims_bc.x + i];
+            let bottom = field[(uniforms.dims_bc.y - 2u) * uniforms.dims_bc.x + i];
             let center = field[idx];
             let top = field[(j + 1u) * uniforms.dims_bc.x + i];
             laplacian += (bottom - 2.0 * center + top) * uniforms.inv2.y;
@@ -154,7 +154,7 @@ fn laplacian_2d(@builtin(global_invocation_id) global_id: vec3<u32>) {
         } else if (uniforms.dims_bc.z == 2u) { // Periodic
             let bottom = field[(j - 1u) * uniforms.dims_bc.x + i];
             let center = field[idx];
-            let top = field[0u * uniforms.dims_bc.x + i];
+            let top = field[uniforms.dims_bc.x + i];
             laplacian += (bottom - 2.0 * center + top) * uniforms.inv2.y;
         }
     }

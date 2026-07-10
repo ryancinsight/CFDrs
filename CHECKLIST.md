@@ -1,4 +1,18 @@
 # CFDrs Work Checklist
+- [x] `cfd-core`/`cfd-math` [arch]: Route the 2D GPU Laplacian through
+  Hephaestus typed multi-storage dispatch, remove raw WGPU orchestration and
+  silent CPU fallback, and narrow the downstream operator to the WGSL kernel's
+  real `f32` contract. Completion requires exact/differential boundary tests,
+  typed invalid-contract tests, static residue audit, package checks, clippy,
+  nextest, doctests, and warning-clean docs. Evidence: GPU/no-default checks
+  pass; focused Laplacian nextest passes 10/10; full `cfd-core` nextest passes
+  231/231; full `cfd-math` nextest passes 362/362; all-target GPU clippy passes
+  with warnings denied; doctests pass 6/6 with 3 intentionally ignored; docs
+  are warning-clean; raw pipeline/staging/fallback and fake-generic audits are
+  clean. The pass also resolves one pre-existing Anderson clippy diagnostic.
+  `cargo-semver-checks` cannot select a registry baseline because `cfd-core`
+  and `cfd-math` are not published; the breaking API delta is recorded in the
+  ADR and CHANGELOG migration section.
 - [x] `cfd-core` [arch]: Delete duplicated raw-WGPU field addition and scalar
   multiplication kernels and route the fallible `GpuFieldOps` arithmetic
   facade through Hephaestus typed elementwise operations. Exact tests cover
