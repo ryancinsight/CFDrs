@@ -6883,3 +6883,14 @@
 ### 2. Leaking Physics Constants (SOC Violation)
 - `BLOOD_MU` (3.5e-3) and `shah_london_resistance` / `hp_resistance` formulas are hardcoded into schematic generation (`cfd-schematics/src/interface/presets/*` and `factory.rs`).
 - **Gap**: Schematic generation (topology/geometry mappings) should not calculate fluidic resistances. That is the domain of `cfd-1d`. The schematic layer should only provide geometry (`length_m`, `width_m`, `height_m`) and let downstream solvers compute resistances based on their own runtime fluid models.
+
+---
+
+# Finding 2026-07-10: cfd-1d double-trifurcation Picard non-convergence (test regression)
+
+- **Symptom**: `cfd-suite` integration test `tests/cross_fidelity_blueprint.rs::cross_fidelity_blueprint_complex_branching` fails. `solve_reference_trace` → cfd-1d `Network2DSolver` returns `MaxIterationsExceeded: Maximum iterations (10000) exceeded` on the `double_trifurcation_cif_venturi_rect` network (blood ρ=1060, µ=3.5e-3, Q=1e-7 m³/s). The sibling `cross_fidelity_blueprint_bifurcation` passes.
+- **Isolation**: Reproduces with `-p cfd-suite --no-default-features` (gpu OFF), so it is independent of the concurrent cfd-core `gpu/turbulence_compute` directory-module refactor that currently breaks the `gpu` feature build (`E0583 turbulence_compute` — peer WIP, not this finding).
+- **Locus**: `crates/cfd-1d/src/solver/core/mod.rs` Picard fixed-point loop (line ~358) with Anderson acceleration + Newton fallback; `has_converged_dual` never satisfied within 10000 iters for this stiff nonlinear network. Solver correctly returns a typed error (no silent bad result).
+- **Hypothesis (unverified)**: migration regression from the Leto-CSR assembly push (`d58d1fe3`/`1d768895`) subtly altering the assembled matrix, or a genuine conditioning/stiffness limit the current Picard+Anderson path cannot crack (cf. recent peer work `0d101352` "enhance Anderson QR collapse detection" — actively-evolving convergence path).
+- **DoR to resolve**: (1) differential-test the assembled cfd-1d matrix + rhs for this network against the pre-migration commit (parent of `d58d1fe3`) to classify regression vs. genuine stiffness; (2) capture the Picard residual trajectory (diverge / plateau / slow-decay) via a bounded-iteration diagnostic; (3) if genuine stiffness, verify the Newton fallback engages on Picard stagnation. Blocked from immediate fix: convergence path is under active concurrent peer edit (`0d101352`); coordinate before touching `solver/core`.
+- **Evidence tier**: empirical (reproduced deterministically, gpu-independent). Not test-gaming: the test asserts real mass-conservation physics; the fix must be in the solver/assembly, never a weakened tolerance or raised iteration cap.
