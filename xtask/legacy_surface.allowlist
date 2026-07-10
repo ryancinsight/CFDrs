@@ -38,7 +38,6 @@ source:crates/cfd-1d/src/physics/vascular/murrays_law/mod.rs
 source:crates/cfd-1d/src/physics/vascular/structured_tree.rs
 source:crates/cfd-1d/src/physics/vascular/womersley/mod.rs
 source:crates/cfd-1d/src/physics/vascular/womersley/profile.rs
-source:crates/cfd-1d/src/scalar.rs
 source:crates/cfd-1d/tests/adversarial_tests.rs
 source:crates/cfd-1d/tests/analysis_tests.rs
 source:crates/cfd-1d/tests/cell_separation_tests.rs
@@ -106,7 +105,6 @@ source:crates/cfd-3d/src/physics/turbulence/k_omega_sst.rs
 source:crates/cfd-3d/src/physics/turbulence/sigma.rs
 source:crates/cfd-3d/src/physics/turbulence/vreman.rs
 source:crates/cfd-3d/src/physics/turbulence/wale.rs
-source:crates/cfd-3d/src/scalar.rs
 source:crates/cfd-3d/src/spectral/chebyshev_tests.rs
 source:crates/cfd-3d/src/vof/bubble_dynamics.rs
 source:crates/cfd-3d/tests/fourier_validation.rs

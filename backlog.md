@@ -30,6 +30,9 @@
 # CFDrs Backlog
 
 ## Structural Improvements
+- [x] `cfd-1d`/`cfd-3d` [patch]: Remove obsolete legacy-audit exemptions for
+  the Eunomia/Leto scalar seams after confirming both files contain no legacy
+  dependency tokens. Preserve the active `cfd-core` compute-dispatch work.
 - [x] `cfd-core` [patch]: Make compute dispatch provider-strict. Remove the
   residual CPU downgrade path from `ComputeDispatcher`, return typed
   `UnsupportedOperation` for unsupported kernel/backend pairings, propagate GPU

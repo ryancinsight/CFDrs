@@ -31,6 +31,10 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+- 2026-07-10: Removed stale allowlist entries for `cfd-1d/src/scalar.rs` and
+  `cfd-3d/src/scalar.rs`. Both seams are provider-native and contain no legacy
+  dependency tokens; the active `cfd-core` compute-dispatch diff is untouched.
+
 ## Sprint 2026-07-10: dead GPU pipeline surface removal
 
 - **Resolved redundant lifecycle ownership**: The unconsumed

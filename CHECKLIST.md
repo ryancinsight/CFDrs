@@ -1,4 +1,7 @@
 # CFDrs Work Checklist
+- [x] `cfd-1d`/`cfd-3d` [patch]: Delete the two stale scalar-file entries from
+  `xtask/legacy_surface.allowlist`; exact source scans are clean and the legacy
+  migration audit reports no cleanup candidates while retaining clean status.
 - [x] `cfd-math`/`cfd-1d`/`cfd-2d` [major]: Delete the dead
   `spmv_parallel`, `use_parallel_spmv`, and `with_parallel_spmv` compatibility
   surface after Leto became the single CSR SpMV owner; migrate every live

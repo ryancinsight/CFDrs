@@ -25,6 +25,9 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Changelog
 
+- Removed stale legacy-migration audit exemptions for the fully Eunomia/Leto
+  `cfd-1d` and `cfd-3d` scalar seams.
+
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - Error Consolidation
