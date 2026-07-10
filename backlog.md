@@ -26,6 +26,11 @@
 # CFDrs Backlog
 
 ## Structural Improvements
+- [x] `cfd-core` [arch]: Remove dead generic GPU lifecycle surfaces after the
+  operation-family migrations. Delete the name-keyed raw pipeline registry,
+  generic uniform reconstruction, context pipeline constructor, and
+  `GpuKernel<T>` raw-device trait rather than wrapping them around Hephaestus.
+  Complete with empty consumer/provider-residue audits and all cfd-core gates.
 - [x] `cfd-core`/`cfd-2d` [arch]: Consolidate GPU turbulence on Hephaestus.
   Replace two fake-generic/raw-WGPU kernel types and the duplicate buffer
   manager with one caller-output facade over Smagorinsky, DES grid scale, and

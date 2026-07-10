@@ -25,6 +25,30 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Sprint 2026-07-10: dead GPU pipeline surface removal
+
+- **Resolved redundant lifecycle ownership**: The unconsumed
+  `GpuPipelineManager` independently compiled shaders, created layouts,
+  reconstructed untyped uniform vectors, stored name-keyed pipelines, built
+  bind groups, and submitted raw WGPU commands. Every live CFD operation now
+  uses a typed Hephaestus kernel, so the manager was deleted.
+- **Resolved obsolete abstraction seam**: `GpuKernel<T>` exposed raw WGPU
+  devices, pipelines, encoders, and the legacy `KernelParams` shape but had no
+  implementors after the operation-family migrations. The trait and the
+  unconsumed context pipeline constructor were deleted rather than retained as
+  compatibility layers.
+- **Evidence tier**: Compile-time integration and static consumer/provider
+  audit. No `GpuPipelineManager`, `GpuKernel`, shader-module creation, or
+  compute-pipeline creation remains in `cfd-core::compute::gpu`; cfd-core
+  nextest passes 243/243; warning-denied all-target clippy, GPU/no-default and
+  downstream cfd-2d checks, 3/3 doctests, warning-clean core docs, and migration
+  audit pass.
+- **Residual risk**: `GpuBuffer` and public raw device/queue fields still expose
+  consumer-side WGPU storage infrastructure. Audit their live consumers and
+  collapse them onto Hephaestus typed buffers next.
+
+---
+
 ## Sprint 2026-07-10: GPU turbulence Hephaestus consolidation
 
 - **Resolved duplicated infrastructure**: `GpuSmagorinskyKernel<T>`,
@@ -54,9 +78,8 @@
   warning-denied all-target clippy, legacy benchmark compilation, doctests,
   and migration audit pass. cfd-core docs are warning-clean; cfd-2d docs retain
   eight unrelated pre-existing intra-doc-link warnings.
-- **Residual risk**: The generic GPU pipeline manager and context raw-pipeline
-  helper still own consumer-side WGPU lifecycle code. Consolidate or delete
-  those surfaces next.
+- **Residual risk**: `GpuBuffer` and public raw device/queue fields still expose
+  consumer-side WGPU storage infrastructure.
 
 ---
 

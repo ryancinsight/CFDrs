@@ -40,6 +40,9 @@ retains a local `OptimError` (bridged via `From` impl). Removed 8 dead extension
 traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
 
 ### Breaking
+- **cfd-core generic GPU pipeline**: Removed the unused `GpuPipelineManager`,
+  `GpuKernel<T>`, and `GpuContext::create_compute_pipeline_with_layout` raw-WGPU
+  surfaces. Consumers define operations through Hephaestus typed kernels.
 - **cfd-core/cfd-2d GPU turbulence**: `GpuTurbulenceCompute` now writes native
   f32 results into caller-owned slices using `TurbulenceGrid`. Removed public
   raw kernel accessors, GPU-buffer return/readback methods,
@@ -71,6 +74,9 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   propagate typed Hephaestus failures instead of silently recomputing on CPU.
 
 ### Migration
+- Delete generic pipeline registration and raw `GpuKernel<T>` implementations.
+  Construct the appropriate operation-specific Hephaestus-backed CFD facade and
+  call its typed method.
 - Construct `TurbulenceGrid`, allocate an output slice, and call
   `GpuTurbulenceCompute::{compute_smagorinsky_sgs,compute_des_length_scale,
   compute_wall_distance}`. DES grid scale no longer accepts unused velocity
@@ -96,6 +102,10 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   kernel types should use the corresponding `GpuFieldOps` method.
 
 ### Changed
+- **cfd-core**: Deleted 319 lines of unconsumed raw-WGPU pipeline registry,
+  bind-group, uniform reconstruction, dispatch, context helper, and obsolete
+  trait code. Static audit finds no CFDrs-owned shader or compute-pipeline
+  creation under `compute::gpu`; all core package gates pass.
 - **cfd-core/cfd-2d**: Routed Smagorinsky viscosity, DES grid cutoff, and
   rectangular wall distance through Hephaestus typed multi-storage kernels.
   Consolidated duplicate raw pipelines and buffer caches, exposed the formerly

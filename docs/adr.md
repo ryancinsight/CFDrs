@@ -71,6 +71,33 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-10: delete generic GPU pipeline ownership [arch]
+
+**Context**: After every live CFD GPU operation moved to a typed Hephaestus
+kernel, `GpuPipelineManager`, `GpuKernel<T>`, and a raw context pipeline helper
+had no consumers or implementors. They duplicated shader compilation, layout,
+uniform, bind-group, dispatch, and submission responsibilities already owned by
+Hephaestus.
+
+**Decision**: Delete all three surfaces. CFD owns numerical operation contracts;
+Hephaestus owns GPU lifecycle and typed storage dispatch. No generic name-keyed
+registry or raw-device operation trait remains between those layers.
+
+**Rejected alternative**: Reimplementing the manager over
+`WgslMultiStorageKernel` was rejected because there are no dynamic consumers and
+it would erase typed operation contracts behind strings. Retaining an empty
+trait for future backends was rejected because `ComputeBackend` is the intended
+backend seam.
+
+**Consequences**: New GPU operations must declare a typed, operation-specific
+contract and delegate provider mechanics to Hephaestus. The public surface is
+smaller by 319 lines and cannot revive the old untyped uniform layout.
+
+**Evidence**: Static audit finds no consumers, implementors, shader-module
+creation, or compute-pipeline creation in `cfd-core::compute::gpu`. Cfd-core
+nextest passes 243/243; clippy, GPU/no-default and downstream checks, doctests,
+docs, and migration audit pass.
+
 ### 2026-07-10: Hephaestus owns GPU turbulence dispatch [arch]
 
 **Context**: Two fake-generic turbulence kernels duplicated raw WGPU lifecycle

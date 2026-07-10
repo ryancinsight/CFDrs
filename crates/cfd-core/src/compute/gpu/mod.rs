@@ -10,7 +10,6 @@ pub mod buffer;
 pub mod constants;
 pub mod field_ops;
 pub mod kernels;
-pub mod pipeline;
 pub mod poisson_solver;
 pub mod shaders;
 pub mod turbulence_compute;
@@ -131,39 +130,5 @@ impl GpuContext {
     #[must_use]
     pub fn max_buffer_size(&self) -> usize {
         self.limits.max_buffer_size as usize
-    }
-
-    /// Create compute pipeline with explicit bind group layout
-    #[must_use]
-    pub fn create_compute_pipeline_with_layout(
-        &self,
-        shader_source: &str,
-        entry_point: &str,
-        bind_group_layout: &wgpu::BindGroupLayout,
-    ) -> wgpu::ComputePipeline {
-        let shader = self
-            .device
-            .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some(entry_point),
-                source: wgpu::ShaderSource::Wgsl(shader_source.into()),
-            });
-
-        let pipeline_layout = self
-            .device
-            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some(&format!("{entry_point} Pipeline Layout")),
-                bind_group_layouts: &[bind_group_layout],
-                push_constant_ranges: &[],
-            });
-
-        self.device
-            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some(&format!("{entry_point} Pipeline")),
-                layout: Some(&pipeline_layout),
-                module: &shader,
-                entry_point: Some(entry_point),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                cache: None,
-            })
     }
 }

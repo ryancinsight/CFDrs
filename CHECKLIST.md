@@ -1,4 +1,10 @@
 # CFDrs Work Checklist
+- [x] `cfd-core` [arch]: Delete the unconsumed raw-WGPU
+  `GpuPipelineManager`, `GpuContext::create_compute_pipeline_with_layout`, and
+  obsolete `GpuKernel<T>` trait after all live operations moved to Hephaestus.
+  Evidence: static consumer and raw-pipeline audits are empty; cfd-core
+  nextest passes 243/243; GPU/no-default and downstream cfd-2d all-target checks,
+  warning-denied clippy, doctests 3/3, docs, and migration audit pass.
 - [x] `cfd-core`/`cfd-2d` [arch]: Consolidate Smagorinsky viscosity, DES grid
   scale, and rectangular wall distance behind one Hephaestus turbulence facade;
   delete raw-WGPU/fake-generic kernels, duplicate buffer caches, unused DES
