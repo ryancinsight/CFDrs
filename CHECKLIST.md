@@ -1,4 +1,12 @@
 # CFDrs Work Checklist
+- [x] `cfd-core`/`cfd-2d` [arch]: Consolidate Smagorinsky viscosity, DES grid
+  scale, and rectangular wall distance behind one Hephaestus turbulence facade;
+  delete raw-WGPU/fake-generic kernels, duplicate buffer caches, unused DES
+  velocity inputs, hardcoded speedup estimates, the nondeterministic wall-clock
+  test, and the precision-changing f64 GPU bridge. Evidence: focused provider
+  nextest passes 4/4; full `cfd-core` passes 243/243; full `cfd-2d` passes
+  570/570 with 27 existing skips; warning-denied dual-package clippy, legacy
+  benchmark compilation, doctests, and migration audit pass.
 - [x] `cfd-core` [arch]: Replace the cosmetic generic/raw-WGPU pressure type
   with real Hephaestus `f32` weighted-Jacobi and residual operations plus
   validated `PressureConfig`; correct edge/corner Neumann application and

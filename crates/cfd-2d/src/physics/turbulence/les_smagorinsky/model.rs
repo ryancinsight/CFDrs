@@ -226,16 +226,11 @@
 
 use super::config::SmagorinskyConfig;
 use super::dynamic::update_dynamic_constant;
-#[cfg(feature = "gpu")]
-use super::gpu::compute_sgs_viscosity_gpu;
 use super::strain::compute_strain_rate_magnitude;
 use super::viscosity::compute_sgs_viscosity;
 use crate::physics::turbulence::boundary_conditions;
 use crate::physics::turbulence::traits::LESTurbulenceModel;
 use leto::Array2;
-
-#[cfg(feature = "gpu")]
-use cfd_core::compute::gpu::turbulence_compute::GpuTurbulenceCompute;
 
 const YOSHIZAWA_C_K: f64 = 0.094;
 const SGS_DISSIPATION_C_EPSILON: f64 = 1.048;
@@ -260,9 +255,6 @@ pub struct SmagorinskyLES {
     sgs_dissipation_rate: Array2<f64>,
     /// Dynamic Smagorinsky constant field (if using dynamic procedure)
     dynamic_constant: Option<Array2<f64>>,
-    /// GPU compute manager (if GPU acceleration is enabled)
-    #[cfg(feature = "gpu")]
-    gpu_compute: Option<GpuTurbulenceCompute>,
 }
 
 impl SmagorinskyLES {
@@ -280,22 +272,6 @@ impl SmagorinskyLES {
             None
         };
 
-        #[cfg(feature = "gpu")]
-        let gpu_compute = if config.use_gpu {
-            match GpuTurbulenceCompute::new() {
-                Ok(compute) => Some(compute),
-                Err(e) => {
-                    tracing::warn!(
-                        "Failed to initialize GPU compute for Smagorinsky LES: {}",
-                        e
-                    );
-                    None
-                }
-            }
-        } else {
-            None
-        };
-
         Self {
             config,
             nx,
@@ -307,8 +283,6 @@ impl SmagorinskyLES {
             sgs_kinetic_energy: Array2::zeros([nx, ny]),
             sgs_dissipation_rate: Array2::zeros([nx, ny]),
             dynamic_constant,
-            #[cfg(feature = "gpu")]
-            gpu_compute,
         }
     }
 
@@ -396,35 +370,6 @@ impl SmagorinskyLES {
         }
     }
 
-    /// GPU-accelerated update implementation
-    #[cfg(feature = "gpu")]
-    fn update_gpu(
-        &mut self,
-        velocity_u: &Array2<f64>,
-        velocity_v: &Array2<f64>,
-        density: f64,
-    ) -> cfd_core::error::Result<()> {
-        if let Some(gpu_compute) = &mut self.gpu_compute {
-            self.sgs_viscosity = compute_sgs_viscosity_gpu(
-                gpu_compute,
-                velocity_u,
-                velocity_v,
-                self.nx,
-                self.ny,
-                self.dx,
-                self.dy,
-                self.config.smagorinsky_constant,
-            )?;
-        } else {
-            // Fallback to CPU if GPU compute failed
-            return self.update_cpu(velocity_u, velocity_v, density);
-        }
-
-        self.update_sgs_energy_diagnostics(density);
-
-        Ok(())
-    }
-
     /// Get the model configuration (for testing/debugging)
     pub const fn config(&self) -> &SmagorinskyConfig {
         &self.config
@@ -456,15 +401,6 @@ impl LESTurbulenceModel for SmagorinskyLES {
             self.filter_width.fill(delta);
         }
 
-        // Try GPU acceleration if available and enabled
-        #[cfg(feature = "gpu")]
-        {
-            if self.config.use_gpu && self.gpu_compute.is_some() {
-                return self.update_gpu(velocity_u, velocity_v, density);
-            }
-        }
-
-        // Fallback to CPU computation
         self.update_cpu(velocity_u, velocity_v, density)
     }
 

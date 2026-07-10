@@ -30,8 +30,6 @@ pub struct SmagorinskyConfig {
     /// exactly laminar. Nonzero values are explicit user-selected numerical
     /// regularization and are not part of the Smagorinsky closure.
     pub min_sgs_viscosity: f64,
-    /// Use GPU acceleration if available
-    pub use_gpu: bool,
 }
 
 impl Default for SmagorinskyConfig {
@@ -42,7 +40,6 @@ impl Default for SmagorinskyConfig {
             wall_damping: true,        // Enable wall damping
             van_driest_constant: 0.4,  // Standard van Driest constant
             min_sgs_viscosity: 0.0,
-            use_gpu: cfg!(feature = "gpu"), // Use GPU if feature is enabled
         }
     }
 }
@@ -56,7 +53,6 @@ impl SmagorinskyConfig {
             wall_damping: true,
             van_driest_constant: 0.4,
             min_sgs_viscosity: 0.0,
-            use_gpu: cfg!(feature = "gpu"),
         }
     }
 

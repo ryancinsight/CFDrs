@@ -25,6 +25,41 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Sprint 2026-07-10: GPU turbulence Hephaestus consolidation
+
+- **Resolved duplicated infrastructure**: `GpuSmagorinskyKernel<T>`,
+  `GpuDesKernel<T>`, and `GpuTurbulenceCompute` independently owned raw shader,
+  pipeline, bind-group, buffer-cache, and dispatch state. One
+  `GpuTurbulenceCompute` now owns three typed Hephaestus kernels and writes into
+  caller-owned slices.
+- **Resolved fake precision and degradation**: The cfd-2d Smagorinsky model
+  converted its concrete f64 fields to f32, computed on GPU, converted back to
+  f64, and silently used CPU when provider creation failed. That invalid bridge
+  and its `use_gpu` configuration were removed. The provider facade now states
+  its real f32 contract; the f64 domain model remains native-precision CPU.
+- **Resolved false and unreachable contracts**: DES accepted two velocity
+  buffers but never used them; its API now exposes the actual grid-cutoff
+  quantity. Rectangular wall distance existed only as an unreachable shader
+  entry point and now has a direct operation. The hardcoded device-type
+  speedup estimator and wall-clock threshold test were deleted; Criterion is
+  the only performance instrument.
+- **Resolved topology drift**: Turbulence kernels now live in
+  `kernels/turbulence/{mod,kernel,smagorinsky,des_grid_scale,wall_distance}`;
+  the facade remains the single consumer-facing module. Shared uniform layout,
+  field validation, provider transfers, and dispatch live once.
+- **Evidence tier**: Type-level grid/provider contracts, exact linear-strain,
+  constant-grid-scale, and rectangular-distance tests, typed negative tests,
+  cross-crate compilation, and static audit. Focused nextest passes 4/4; full
+  core passes 243/243; full cfd-2d passes 570/570 with 27 existing skips;
+  warning-denied all-target clippy, legacy benchmark compilation, doctests,
+  and migration audit pass. cfd-core docs are warning-clean; cfd-2d docs retain
+  eight unrelated pre-existing intra-doc-link warnings.
+- **Residual risk**: The generic GPU pipeline manager and context raw-pipeline
+  helper still own consumer-side WGPU lifecycle code. Consolidate or delete
+  those surfaces next.
+
+---
+
 ## Sprint 2026-07-10: GPU pressure Hephaestus dispatch
 
 - **Resolved cosmetic execution surface**: The old
@@ -49,7 +84,7 @@
   and static source audit. Focused pressure nextest passes 6/6; full
   `cfd-core` nextest passes 247/247; GPU/no-default checks, warning-denied
   clippy, 3/3 doctests, docs, and migration audit are clean.
-- **Residual risk**: Turbulence and the generic pipeline manager still own raw
+- **Residual risk**: The generic pipeline manager still owns raw
   WGPU lifecycle code. Continue by complete operation family without reviving
   the deleted trait shape.
 

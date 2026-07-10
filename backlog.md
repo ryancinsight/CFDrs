@@ -26,6 +26,13 @@
 # CFDrs Backlog
 
 ## Structural Improvements
+- [x] `cfd-core`/`cfd-2d` [arch]: Consolidate GPU turbulence on Hephaestus.
+  Replace two fake-generic/raw-WGPU kernel types and the duplicate buffer
+  manager with one caller-output facade over Smagorinsky, DES grid scale, and
+  wall distance. Delete the unused DES velocity dependency, fabricated
+  performance estimator, wall-clock test, and f64-to-f32-to-f64 cfd-2d bridge.
+  Complete with 4/4 focused, 243/243 core, and 570/570 cfd-2d tests plus
+  warning-denied clippy, doctests, benchmark compilation, and static audits.
 - [x] `cfd-core` [arch]: Consolidate pressure weighted-Jacobi iteration and
   pointwise residual evaluation on Hephaestus. Replace
   `GpuPressureKernel<T>`'s raw shader-module and unsupported execution surface

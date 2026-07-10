@@ -18,8 +18,9 @@ pub mod validation_tests;
 
 pub use buffer::GpuBuffer;
 pub use field_ops::GpuFieldOps;
+pub use kernels::turbulence::TurbulenceGrid;
 pub use poisson_solver::{GpuPoissonSolver, PoissonParams};
-pub use turbulence_compute::{GpuTurbulenceCompute, TurbulencePerformanceInfo};
+pub use turbulence_compute::GpuTurbulenceCompute;
 
 /// GPU context for managing device and queue
 pub struct GpuContext {

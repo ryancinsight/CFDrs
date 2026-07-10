@@ -40,6 +40,10 @@ retains a local `OptimError` (bridged via `From` impl). Removed 8 dead extension
 traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
 
 ### Breaking
+- **cfd-core/cfd-2d GPU turbulence**: `GpuTurbulenceCompute` now writes native
+  f32 results into caller-owned slices using `TurbulenceGrid`. Removed public
+  raw kernel accessors, GPU-buffer return/readback methods,
+  `TurbulencePerformanceInfo`, and the cfd-2d f64 Smagorinsky `use_gpu` path.
 - **cfd-core GPU pressure**: Replaced the non-executing generic
   `GpuPressureKernel<T>` with real `f32` Hephaestus weighted-Jacobi and residual
   operations constructed from a `GpuContext`. Callers now provide
@@ -67,6 +71,11 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   propagate typed Hephaestus failures instead of silently recomputing on CPU.
 
 ### Migration
+- Construct `TurbulenceGrid`, allocate an output slice, and call
+  `GpuTurbulenceCompute::{compute_smagorinsky_sgs,compute_des_length_scale,
+  compute_wall_distance}`. DES grid scale no longer accepts unused velocity
+  fields. The f64 cfd-2d Smagorinsky model executes in native precision on CPU;
+  use the cfd-core f32 facade only for f32 domains.
 - Replace `GpuPressureKernel::<T>::new()` and the raw `GpuKernel` trait path
   with `GpuPressureKernel::new(context)?`, then call `iterate(...)` or
   `residual(...)` with `PressureConfig`.
@@ -87,6 +96,14 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   kernel types should use the corresponding `GpuFieldOps` method.
 
 ### Changed
+- **cfd-core/cfd-2d**: Routed Smagorinsky viscosity, DES grid cutoff, and
+  rectangular wall distance through Hephaestus typed multi-storage kernels.
+  Consolidated duplicate raw pipelines and buffer caches, exposed the formerly
+  unreachable wall-distance operation, removed unused DES velocity inputs,
+  removed fabricated speedup estimation and a wall-clock threshold test, and
+  deleted the precision-changing cfd-2d GPU bridge. Focused tests pass 4/4,
+  full core passes 243/243, and full cfd-2d passes 570/570; clippy, doctests,
+  benchmark compilation, and static audits pass.
 - **cfd-core**: Routed weighted-Jacobi pressure iteration and pointwise
   residual evaluation through separate Hephaestus typed multi-storage kernels.
   Added a validating grid/relaxation contract, corrected Neumann edge/corner

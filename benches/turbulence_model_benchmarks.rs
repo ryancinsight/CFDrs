@@ -102,7 +102,6 @@ fn bench_les_models(c: &mut Criterion) {
                 wall_damping: false,
                 van_driest_constant: 0.0,
                 min_sgs_viscosity: 1e-10,
-                use_gpu: false, // CPU benchmark
             };
             let mut les_model = SmagorinskyLES::new(nx, ny, 0.01, 0.01, config);
             let velocity_u = Array2::from_shape_fn([nx, ny], |_| 1.0);
@@ -188,7 +187,6 @@ fn bench_model_initialization(c: &mut Criterion) {
             wall_damping: false,
             van_driest_constant: 0.0,
             min_sgs_viscosity: 1e-10,
-            use_gpu: false,
         };
         b.iter(|| {
             black_box(SmagorinskyLES::new(64, 64, 0.01, 0.01, config.clone()));

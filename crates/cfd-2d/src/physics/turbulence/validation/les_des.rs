@@ -21,7 +21,6 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
             wall_damping: false,
             van_driest_constant: 0.0,
             min_sgs_viscosity: 0.0,
-            use_gpu: false,
         };
         let mut model = SmagorinskyLES::new(16, 16, 0.1, 0.1, config);
 
@@ -322,7 +321,6 @@ impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
             wall_damping: false,
             van_driest_constant: 0.0,
             min_sgs_viscosity: 0.0,
-            use_gpu: false,
         };
 
         let mut les_model = SmagorinskyLES::new(nx, ny, 0.05, 0.05, config);

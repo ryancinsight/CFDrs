@@ -71,6 +71,41 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-10: Hephaestus owns GPU turbulence dispatch [arch]
+
+**Context**: Two fake-generic turbulence kernels duplicated raw WGPU lifecycle
+and a facade duplicated their buffer state. DES accepted but ignored velocity
+fields, wall distance was unreachable, performance estimation was hardcoded by
+device class, and cfd-2d narrowed concrete f64 fields to f32 before silently
+falling back to CPU on provider failure.
+
+**Decision**: Retain `GpuTurbulenceCompute` as the sole consumer facade and
+compile Smagorinsky viscosity, DES grid cutoff, and rectangular wall distance
+as separate Hephaestus kernels. Introduce `TurbulenceGrid` as the validated
+shape/spacing contract and require caller-owned output slices. Delete public raw
+kernel/buffer access, the hardcoded estimator, the wall-clock test, and the
+precision-changing cfd-2d bridge.
+
+**Rejected alternative**: Keeping velocity inputs on DES was rejected because
+the grid-cutoff branch is independent of resolved velocity. Preserving the f64
+consumer through conversion was rejected because it violates the concrete
+precision contract. Silent provider fallback was rejected as defect masking.
+
+**Consequences**: The provider API is explicitly f32 and allocation ownership
+is visible at the call site. The cfd-2d f64 Smagorinsky model remains a
+native-f64 CPU implementation until a real f64-capable accelerator substrate
+exists. Criterion benchmarks exercise the production facade.
+
+**Verification contract**: Exact tests cover linear strain, boundary zeros,
+DES grid scale, rectangular distance, partial workgroups, invalid grids,
+lengths, constants, and non-finite fields. Cross-crate all-target compilation,
+full nextest, clippy, doctests, benchmark compilation, and static audits gate
+the change.
+
+**Evidence**: Focused nextest passes 4/4; full cfd-core passes 243/243; full
+cfd-2d passes 570/570 with 27 existing skips; warning-denied dual-package
+clippy, legacy benchmark compilation, doctests, and migration audit pass.
+
 ### 2026-07-10: Hephaestus owns GPU pressure dispatch [arch]
 
 **Context**: `GpuPressureKernel<T>` stored an optional raw WGPU shader module,
