@@ -1,4 +1,15 @@
 # CFDrs Work Checklist
+- [x] `cfd-core` [arch]: Replace the cosmetic generic/raw-WGPU diffusion type
+  with a real Hephaestus `f32` kernel and validated `DiffusionConfig`; delete
+  the unsupported compute-trait body and unbound raw-pipeline surface.
+  Completion requires exact constant/quadratic/boundary/partial-workgroup
+  tests, typed invalid input and stability tests, clean provider/fake-generic
+  residue audits, package format/check/clippy/nextest/doctest/doc gates, and
+  synchronized artifacts. Evidence: focused diffusion nextest passes 4/4;
+  full `cfd-core` nextest passes 238/238; GPU and no-default checks pass;
+  all-target clippy passes with warnings denied; doctests pass 3/3; docs are
+  warning-clean; migration allowlist and raw-provider/fake-generic audits are
+  clean.
 - [x] `cfd-core` [arch]: Replace the cosmetic generic/raw-WGPU advection type
   with a real Hephaestus `f32` kernel and validated `AdvectionConfig`; delete
   the unsupported compute-trait body and separate raw-pipeline test. Completion

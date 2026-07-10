@@ -40,6 +40,10 @@ retains a local `OptimError` (bridged via `From` impl). Removed 8 dead extension
 traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
 
 ### Breaking
+- **cfd-core GPU diffusion**: Replaced the non-executing generic
+  `GpuDiffusionKernel<T>` with a real `f32` Hephaestus kernel constructed from
+  a `GpuContext`. Callers now provide `DiffusionConfig`, input/output slices,
+  and handle `Result`.
 - **cfd-core GPU advection**: Replaced the non-executing generic
   `GpuAdvectionKernel<T>` with a real `f32` Hephaestus kernel constructed from a
   `GpuContext`. Callers now provide `AdvectionConfig`, scalar/velocity fields,
@@ -53,6 +57,9 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   propagate typed Hephaestus failures instead of silently recomputing on CPU.
 
 ### Migration
+- Replace `GpuDiffusionKernel::<T>::new()` and the raw `GpuKernel` trait path
+  with `GpuDiffusionKernel::new(context)?` followed by
+  `execute(input, config, output)?`.
 - Replace `GpuAdvectionKernel::<T>::new()` and the raw `GpuKernel` trait path
   with `GpuAdvectionKernel::new(context)?` followed by
   `execute(scalar, velocity_x, velocity_y, config, output)?`.
@@ -64,6 +71,14 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   kernel types should use the corresponding `GpuFieldOps` method.
 
 ### Changed
+- **cfd-core**: Routed explicit three-dimensional central diffusion through
+  Hephaestus typed multi-storage dispatch. Added a validating grid, physical
+  coefficient, and von Neumann stability contract; moved the family to
+  `kernels/diffusion/{mod,kernel,tests}` with an aligned Rust/WGSL parameter
+  layout; and replaced name/complexity-only behavior with exact constant and
+  quadratic-field GPU tests. Focused tests pass 4/4 and full core tests pass
+  238/238; checks, clippy, doctests, docs, and static migration/provider audits
+  are clean.
 - **cfd-core**: Routed first-order upwind advection through Hephaestus typed
   multi-storage dispatch. Added a validating grid/timestep contract with finite
   input and CFL enforcement, moved the family to

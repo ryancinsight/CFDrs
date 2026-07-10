@@ -9,11 +9,20 @@ pub mod turbulence;
 pub mod velocity;
 
 pub use advection::{AdvectionConfig, GpuAdvectionKernel};
+pub use diffusion::{DiffusionConfig, GpuDiffusionKernel};
 pub use laplacian::Laplacian2DKernel;
 
 use crate::compute::traits::{ComputeKernel, KernelParams};
-use crate::error::Result;
+use crate::error::{Error, Result};
 use eunomia::RealField;
+
+fn validate_field_len(expected: usize, actual: usize) -> Result<()> {
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(Error::DimensionMismatch { expected, actual })
+    }
+}
 
 /// Base trait for GPU kernels
 pub trait GpuKernel<T: RealField + Copy>: ComputeKernel<T> {

@@ -26,6 +26,13 @@
 # CFDrs Backlog
 
 ## Structural Improvements
+- [x] `cfd-core` [arch]: Consolidate explicit three-dimensional GPU diffusion
+  on Hephaestus. Replace `GpuDiffusionKernel<T>`'s raw shader-module and
+  unsupported execution surface with one real `f32` operation, validated
+  grid/coefficient/stability contract, typed provider errors, vertical module
+  hierarchy, and exact analytical/value-semantic coverage. Complete with 4/4
+  focused and 238/238 full core tests, warning-denied clippy, doctests, docs,
+  and static audits.
 - [x] `cfd-core` [arch]: Consolidate first-order GPU advection on Hephaestus.
   Replace `GpuAdvectionKernel<T>`'s raw shader-module and unsupported execution
   surface with one real `f32` field operation, validated grid/timestep/CFL

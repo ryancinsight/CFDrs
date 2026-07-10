@@ -25,6 +25,35 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Sprint 2026-07-10: GPU diffusion Hephaestus dispatch
+
+- **Resolved cosmetic execution surface**: The old
+  `GpuDiffusionKernel<T>` never computed through `ComputeKernel`; it returned
+  `UnsupportedOperation`, stored a raw shader module, and exposed arbitrary
+  scalar precision over an `f32` WGSL buffer contract. The replacement is a
+  real `GpuDiffusionKernel` compiled and dispatched through Hephaestus typed
+  multi-storage bindings.
+- **Resolved physical contract gap**: `DiffusionConfig` validates dimensions,
+  checked element count, `u32` representability, positive finite spacing,
+  nonnegative finite timestep/diffusivity, and the exact three-dimensional
+  forward-Euler stability condition before dispatch. Execution validates field
+  lengths and rejects non-finite scalar input.
+- **Resolved topology and layout drift**: The operation family now lives in
+  `kernels/diffusion/{mod,kernel,tests}` with its WGSL source colocated beside
+  the kernel. A pair of aligned four-lane parameter blocks is the SSOT for the
+  Rust/WGSL uniform layout. The old flat Rust/WGSL files were deleted.
+- **Evidence tier**: Type-level configuration boundary, exact analytical value
+  tests, typed negative tests, compile-time provider integration, and static
+  source audit. Focused diffusion nextest passes 4/4; full `cfd-core` nextest
+  passes 238/238; GPU and no-default checks pass; warning-denied all-target
+  clippy passes; doctests pass 3/3; docs are warning-clean; the migration
+  allowlist and provider/fake-generic audits are clean.
+- **Residual risk**: Velocity, pressure, turbulence, and the generic pipeline
+  manager still own raw WGPU lifecycle code. Continue by complete operation
+  family without reviving the deleted trait shape.
+
+---
+
 ## Sprint 2026-07-10: GPU advection Hephaestus dispatch
 
 - **Resolved cosmetic execution surface**: The old
@@ -48,7 +77,7 @@
   passes 234/234; GPU and no-default checks pass; warning-denied all-target
   clippy passes; doctests pass 3/3; docs are warning-clean; the migration
   allowlist and provider/fake-generic audits are clean.
-- **Residual risk**: Diffusion, velocity, pressure, turbulence, and the generic
+- **Residual risk**: Velocity, pressure, turbulence, and the generic
   pipeline manager still own raw WGPU lifecycle code. Continue by complete
   operation family without reviving the deleted trait shape.
 

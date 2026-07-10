@@ -71,6 +71,44 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-10: Hephaestus owns GPU diffusion dispatch [arch]
+
+**Context**: `GpuDiffusionKernel<T>` stored an optional raw WGPU shader module,
+advertised arbitrary scalar precision while its WGSL storage was fixed to
+`f32`, and returned `UnsupportedOperation` from its only compute-trait method.
+Its raw pipeline surface did not bind the documented uniform or storage
+resources and had no numerical execution coverage.
+
+**Decision**: Replace the cosmetic generic type with a real `f32` kernel
+compiled and dispatched through Hephaestus `WgslMultiStorageKernel`. Introduce
+one validated `DiffusionConfig` as the grid, timestep, diffusivity, and
+stability contract. Move the implementation into the vertical
+`diffusion/{mod,kernel,tests}` family and colocate its WGSL source. Represent
+the uniform as two four-lane blocks shared exactly between Rust and WGSL.
+
+**Rejected alternative**: Retaining `ComputeKernel<T>` with an unsupported host
+method or converting arbitrary `T` fields to `f32` was rejected as a fake
+generic and compatibility shim. Consumer-owned raw pipeline setup was rejected
+because Hephaestus already owns typed compilation, binding, dispatch, and
+readback.
+
+**Consequences**: Callers construct the kernel with a `GpuContext`, handle
+`Result`, and supply `f32` fields plus `DiffusionConfig`. All outer boundary
+values are copied unchanged. Other scalar precisions require real provider
+kernels rather than conversion.
+
+**Verification contract**: Exact tests cover constant-field identity, the
+closed-form Laplacian of a quadratic field, copied boundaries, multiple
+z-planes, and partial workgroups. Typed negative tests cover dimensions,
+spacing, timestep, diffusivity, stability, field lengths, and non-finite input.
+Static audit must find no raw WGPU lifecycle, unsupported placeholder, fake
+generic, or old flat module in the diffusion family.
+
+**Evidence**: Focused diffusion nextest passes 4/4; full `cfd-core` nextest
+passes 238/238; GPU and no-default checks pass; all-target clippy passes with
+warnings denied; doctests pass 3/3; docs are warning-clean; migration allowlist
+and provider/fake-generic audits are clean.
+
 ### 2026-07-10: Hephaestus owns GPU advection dispatch [arch]
 
 **Context**: `GpuAdvectionKernel<T>` stored an optional raw WGPU shader module,

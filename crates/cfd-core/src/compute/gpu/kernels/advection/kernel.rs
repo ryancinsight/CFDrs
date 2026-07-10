@@ -1,5 +1,6 @@
 //! Validated advection configuration and provider dispatch.
 
+use crate::compute::gpu::kernels::validate_field_len;
 use crate::compute::gpu::GpuContext;
 use crate::error::{Error, Result};
 use bytemuck::{Pod, Zeroable};
@@ -163,14 +164,6 @@ impl GpuAdvectionKernel {
         )?;
         provider.download(&result, output)?;
         Ok(())
-    }
-}
-
-fn validate_field_len(expected: usize, actual: usize) -> Result<()> {
-    if actual == expected {
-        Ok(())
-    } else {
-        Err(Error::DimensionMismatch { expected, actual })
     }
 }
 
