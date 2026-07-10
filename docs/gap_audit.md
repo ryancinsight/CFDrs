@@ -1096,8 +1096,9 @@
 - **Issue**: The public sparse SpMV wrappers still accepted nalgebra
   `DVector` even though the provider computation already routed through
   Leto-ops.
-- **Remediation**: Moved `spmv`, `spmv_parallel`, and `try_spmv` to Leto
-  `Array1` input/output vectors and confined the `DVector` adapter to a
+- **Remediation**: Moved the then-public SpMV entry points to Leto `Array1`
+  input/output vectors, later deleted the redundant parallel-named wrapper,
+  and confined the `DVector` adapter to a
   private helper for `LinearOperator for CsrMatrix`.
 - **Verification**: `cargo fmt -p cfd-math --check`; `cargo check -p
   cfd-math --no-default-features --lib`; `cargo nextest run -p cfd-math

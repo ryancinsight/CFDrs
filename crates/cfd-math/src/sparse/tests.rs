@@ -291,8 +291,8 @@ fn test_sparse_transpose_uses_leto_provider() {
 }
 
 #[test]
-fn test_spmv_parallel_correctness() {
-    use crate::sparse::{spmv, spmv_parallel};
+fn test_spmv_infallible_and_fallible_entry_points_agree() {
+    use crate::sparse::{spmv, try_spmv};
     use leto_ops::CsrMatrix;
 
     // Create a simple 3x3 matrix:
@@ -307,23 +307,23 @@ fn test_spmv_parallel_correctness() {
     // Test with x = [1, 2, 3]
     let x = Array1::from_shape_vec([3], vec![1.0, 2.0, 3.0]).unwrap();
 
-    // Compute with scalar version
+    // Compute through the infallible entry point.
     let mut y_scalar = Array1::zeros([3]);
     spmv(&a, &x, &mut y_scalar);
 
-    // Compute with parallel version
-    let mut y_parallel = Array1::zeros([3]);
-    spmv_parallel(&a, &x, &mut y_parallel);
+    // Compute through the fallible entry point.
+    let mut y_fallible = Array1::zeros([3]);
+    try_spmv(&a, &x, &mut y_fallible).unwrap();
 
     // Expected: [2*1 + 1*3, 3*2, 1*1 + 2*3] = [5, 6, 7]
     for i in 0..3 {
-        assert_relative_eq!(y_parallel[i], y_scalar[i], epsilon = 1e-10);
+        assert_relative_eq!(y_fallible[i], y_scalar[i], epsilon = 1e-10);
     }
 }
 
 #[test]
-fn test_spmv_parallel_large_matrix() {
-    use crate::sparse::{spmv, spmv_parallel};
+fn test_spmv_entry_points_agree_for_large_matrix() {
+    use crate::sparse::{spmv, try_spmv};
 
     // Create a larger matrix to benefit from parallelization (1000x1000)
     let n = 1000;
@@ -344,23 +344,23 @@ fn test_spmv_parallel_large_matrix() {
     // Test vector
     let x = Array1::from_shape_vec([n], (0..n).map(|i| (i + 1) as f64).collect()).unwrap();
 
-    // Compute with scalar version
+    // Compute through the infallible entry point.
     let mut y_scalar = Array1::zeros([n]);
     spmv(&a, &x, &mut y_scalar);
 
-    // Compute with parallel version
-    let mut y_parallel = Array1::zeros([n]);
-    spmv_parallel(&a, &x, &mut y_parallel);
+    // Compute through the fallible entry point.
+    let mut y_fallible = Array1::zeros([n]);
+    try_spmv(&a, &x, &mut y_fallible).unwrap();
 
     // Compare results
     for i in 0..n {
-        assert_relative_eq!(y_parallel[i], y_scalar[i], epsilon = 1e-10);
+        assert_relative_eq!(y_fallible[i], y_scalar[i], epsilon = 1e-10);
     }
 }
 
 #[test]
-fn test_spmv_parallel_five_point_stencil() {
-    use crate::sparse::{spmv, spmv_parallel};
+fn test_spmv_entry_points_agree_for_five_point_stencil() {
+    use crate::sparse::{spmv, try_spmv};
 
     // Create a 50x50 five-point stencil (2500x2500 matrix, ~12k non-zeros)
     let nx = 50;
@@ -372,23 +372,23 @@ fn test_spmv_parallel_five_point_stencil() {
     let x = Array1::from_shape_vec([n], (0..n).map(|i| ((i % 10) as f64) * 0.1 + 1.0).collect())
         .unwrap();
 
-    // Compute with scalar version
+    // Compute through the infallible entry point.
     let mut y_scalar = Array1::zeros([n]);
     spmv(&matrix, &x, &mut y_scalar);
 
-    // Compute with parallel version
-    let mut y_parallel = Array1::zeros([n]);
-    spmv_parallel(&matrix, &x, &mut y_parallel);
+    // Compute through the fallible entry point.
+    let mut y_fallible = Array1::zeros([n]);
+    try_spmv(&matrix, &x, &mut y_fallible).unwrap();
 
     // Compare results
     for i in 0..n {
-        assert_relative_eq!(y_parallel[i], y_scalar[i], epsilon = 1e-10);
+        assert_relative_eq!(y_fallible[i], y_scalar[i], epsilon = 1e-10);
     }
 }
 
 #[test]
-fn test_spmv_parallel_sparse_pattern() {
-    use crate::sparse::{spmv, spmv_parallel};
+fn test_spmv_entry_points_agree_for_sparse_pattern() {
+    use crate::sparse::{spmv, try_spmv};
 
     // Test with very sparse rows (edge case for parallel overhead)
     let mut builder = SparseMatrixBuilder::new(100, 100);
@@ -406,17 +406,17 @@ fn test_spmv_parallel_sparse_pattern() {
     let mut y_scalar = Array1::zeros([100]);
     spmv(&a, &x, &mut y_scalar);
 
-    let mut y_parallel = Array1::zeros([100]);
-    spmv_parallel(&a, &x, &mut y_parallel);
+    let mut y_fallible = Array1::zeros([100]);
+    try_spmv(&a, &x, &mut y_fallible).unwrap();
 
     for i in 0..100 {
-        assert_relative_eq!(y_parallel[i], y_scalar[i], epsilon = 1e-10);
+        assert_relative_eq!(y_fallible[i], y_scalar[i], epsilon = 1e-10);
     }
 }
 
 #[test]
-fn test_spmv_parallel_dense_block() {
-    use crate::sparse::{spmv, spmv_parallel};
+fn test_spmv_entry_points_agree_for_dense_block() {
+    use crate::sparse::{spmv, try_spmv};
 
     // Test with denser structure (pentadiagonal-like pattern)
     let n = 500;
@@ -445,10 +445,10 @@ fn test_spmv_parallel_dense_block() {
     let mut y_scalar = Array1::zeros([n]);
     spmv(&a, &x, &mut y_scalar);
 
-    let mut y_parallel = Array1::zeros([n]);
-    spmv_parallel(&a, &x, &mut y_parallel);
+    let mut y_fallible = Array1::zeros([n]);
+    try_spmv(&a, &x, &mut y_fallible).unwrap();
 
     for i in 0..n {
-        assert_relative_eq!(y_parallel[i], y_scalar[i], epsilon = 1e-10);
+        assert_relative_eq!(y_fallible[i], y_scalar[i], epsilon = 1e-10);
     }
 }

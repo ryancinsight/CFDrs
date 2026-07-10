@@ -12,6 +12,7 @@
 | **GPU Acceleration** | 2023-Q4 | Parallel compute acceleration | WGPU backend, async dispatch | ✅ Scalability ⚠️ Complexity |
 | **Production CFD Physics** | 2024-Sprint1.27 | Functional solver requirement | Operational momentum solver | ✅ Real CFD ⚠️ Implementation effort |
 | **GMRES Linear Solver** | 2024-Sprint1.36 | Industry standard for SIMPLE/PISO | Configurable backend, GMRES default | ✅ Robust convergence ⚠️ Memory O(mn) |
+| **Provider-owned CSR execution** | 2026-07-10 | Leto is the CSR SpMV SSOT; CFDrs parallel flags had no behavioral effect | One `spmv`/`try_spmv` family; zero ignored execution flags | Breaking removal of inert compatibility APIs |
 
 ## Architecture Overview
 

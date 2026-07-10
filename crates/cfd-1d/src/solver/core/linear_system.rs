@@ -137,7 +137,6 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
                     max_iterations: self.max_iterations,
                     tolerance: self.tolerance,
                     use_preconditioner: true,
-                    use_parallel_spmv: true,
                 };
                 let solver = ConjugateGradient::<T>::new(config);
                 let precond = DiagJacobi::new(&scaled_a)?;
@@ -159,7 +158,6 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
                     max_iterations: self.max_iterations,
                     tolerance: self.tolerance,
                     use_preconditioner: true,
-                    use_parallel_spmv: true,
                 };
                 let solver = BiCGSTAB::<T>::new(config);
                 let precond = DiagJacobi::new(&scaled_a)?;

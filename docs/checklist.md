@@ -1283,8 +1283,8 @@ Leto `Array1`.
 Leto `Array1`.
 
 **Success Criteria**:
-- [x] `spmv`, `spmv_parallel`, and `try_spmv` accept `leto::Array1` input and
-  output vectors.
+- [x] The then-public SpMV entry points accepted `leto::Array1` input/output
+  vectors; the redundant parallel-named wrapper was removed on 2026-07-10.
 - [x] The nalgebra `DVector` SpMV path is private to `LinearOperator for
   CsrMatrix`.
 - [x] Sparse tests, GMRES/AMG integration tests, interpolation quality checks,

@@ -1,4 +1,8 @@
 > ## Vocabulary policy (canonical atlas-migration terms-of-art)
+
+> **2026-07-10 migration increment**: `[major]` closed the behaviorally inert
+> parallel-SpMV compatibility API. Leto owns CSR SpMV execution policy; CFDrs
+> exposes one `spmv`/`try_spmv` operation family with no ignored parallel flag.
 >
 > **Canonical functional terms-of-art (preserve)**:
 > - `Atlas-typed` (the CoeUs/MoiraiBackend-typed twin type-system family that pairs with `Burn-keyed` as the atomic-boundary partition term per ADR 0012 §Decision §1)
@@ -26,6 +30,13 @@
 # CFDrs Backlog
 
 ## Structural Improvements
+- [x] `cfd-core` [patch]: Make compute dispatch provider-strict. Remove the
+  residual CPU downgrade path from `ComputeDispatcher`, return typed
+  `UnsupportedOperation` for unsupported kernel/backend pairings, propagate GPU
+  execution errors, and cover the unsupported-backend case with a
+  value-semantic regression test. Evidence: focused dispatcher nextest 4/4,
+  `cfd-core` warning-denied clippy, exact migration-target scan, and clean
+  legacy migration audit.
 - [x] `cfd-core` [arch]: Remove dead generic GPU lifecycle surfaces after the
   operation-family migrations. Delete the name-keyed raw pipeline registry,
   generic uniform reconstruction, context pipeline constructor, and
@@ -677,8 +688,9 @@
   `nalgebra_sparse::CsrMatrix` and nalgebra `DVector` still need replacement
   by `leto_ops::CsrMatrix` and `leto::Array1`.
 - [x] `cfd-math` [patch]: Move public sparse SpMV wrappers to Leto vectors.
-  `spmv`, `spmv_parallel`, and `try_spmv` now accept `leto::Array1` input and
-  output vectors. The only remaining nalgebra `DVector` SpMV bridge is private
+  The then-public SpMV entry points moved to `leto::Array1` input/output
+  vectors; the redundant parallel-named wrapper was subsequently deleted.
+  The only remaining nalgebra `DVector` SpMV bridge is private
   to `LinearOperator for CsrMatrix`, matching the still-unmigrated
   linear-solver trait boundary. Sparse tests, GMRES/AMG integration tests,
   interpolation quality checks, and the SpMV benchmark now use Leto arrays at
@@ -783,8 +795,9 @@
   transpose to `leto_ops::CsrMatrix::transpose`, and AMG hierarchy setup uses
   it for restriction construction instead of `nalgebra_sparse::transpose_as_csc`.
   `try_spmv` now converts the current `DVector`/CSR boundary into Leto views
-  and delegates SpMV to `leto_ops::spmv_into`; `spmv_parallel` no longer owns a
-  separate CFDrs CSR traversal. Evidence: cfd-math fmt/check, focused sparse
+  and delegates SpMV to `leto_ops::spmv_into`; the former parallel-named
+  wrapper owned no separate CFDrs traversal and was subsequently deleted.
+  Evidence: cfd-math fmt/check, focused sparse
   nextest (17/17), focused interpolation nextest (15/15), focused AMG nextest
   (6/6), and no-default all-target clippy pass. Residual cfd-math provider work
   remains in the sparse/linear-solver storage boundary:

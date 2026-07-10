@@ -1250,8 +1250,8 @@
 **Start Date**: July 4, 2026
 
 ### Sprint Objectives
-- Move public `spmv`, `spmv_parallel`, and `try_spmv` vector arguments to
-  `leto::Array1`.
+- Move the then-public SpMV vector arguments to `leto::Array1`; the redundant
+  parallel-named wrapper was removed in the 2026-07-10 closure.
 - Keep the nalgebra `DVector` SpMV path private for the current
   `LinearOperator` trait implementation.
 - Update sparse tests, GMRES/AMG integration tests, interpolation quality

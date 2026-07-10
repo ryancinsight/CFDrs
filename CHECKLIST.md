@@ -1,4 +1,20 @@
 # CFDrs Work Checklist
+- [x] `cfd-math`/`cfd-1d`/`cfd-2d` [major]: Delete the dead
+  `spmv_parallel`, `use_parallel_spmv`, and `with_parallel_spmv` compatibility
+  surface after Leto became the single CSR SpMV owner; migrate every live
+  solver initializer to the canonical operation and delete the duplicate
+  benchmark/example. Evidence: three-package compile passes; focused SpMV
+  nextest passes 7/7; production static audit has no removed symbols or stale
+  Rayon wording. Full warning-denied SpMV gates were not rerun in the
+  compute-dispatch slice; `cfd-core` compute-dispatch clippy is now clean.
+- [x] `cfd-core` [patch]: Remove the residual compute-dispatch CPU downgrade
+  path. `ComputeDispatcher` now executes the requested backend, reports
+  unsupported kernel/backend combinations as `UnsupportedOperation`, and
+  propagates GPU provider failures instead of recomputing on CPU. Evidence:
+  focused dispatcher nextest passes 4/4; `cfd-core` all-target clippy passes
+  with warnings denied; exact migration-target scan finds only audit-tool
+  tokens plus the root Moirai replacement comment; legacy migration audit
+  reports allowlist status clean.
 - [x] `cfd-core` [arch]: Delete the unconsumed raw-WGPU
   `GpuPipelineManager`, `GpuContext::create_compute_pipeline_with_layout`, and
   obsolete `GpuKernel<T>` trait after all live operations moved to Hephaestus.
@@ -1036,8 +1052,9 @@
   preconditioner traits still expose `nalgebra_sparse::CsrMatrix` and
   nalgebra `DVector`.
 - [x] Migrate public `cfd-math::sparse` SpMV wrappers to Leto vectors.
-  `spmv`, `spmv_parallel`, and `try_spmv` now accept `leto::Array1` input and
-  output vectors while still delegating computation to `leto_ops::spmv_into`.
+  The then-public `spmv`, `spmv_parallel`, and `try_spmv` accepted
+  `leto::Array1` input/output vectors; the compatibility entry point was
+  subsequently removed by the 2026-07-10 provider-ownership closure above.
   The remaining nalgebra `DVector` SpMV bridge is private to the
   `LinearOperator for CsrMatrix` implementation because that trait boundary is
   still nalgebra-based. Sparse tests, GMRES/AMG integration tests, interpolation
@@ -1184,8 +1201,8 @@
   construction (`R = P^T`) to `leto_ops::CsrMatrix::transpose`, removing the
   `nalgebra_sparse::transpose_as_csc` dependency from AMG setup. `try_spmv`
   now delegates the current `DVector`/CSR boundary to `leto_ops::spmv_into`,
-  and the legacy `spmv`/`spmv_parallel` entry points are thin wrappers over
-  that provider call. Evidence in `D:/atlas/repos/CFDrs`: `cargo fmt -p
+  and the legacy entry points delegated to that provider call. The redundant
+  parallel-named wrapper was subsequently deleted. Evidence in `D:/atlas/repos/CFDrs`: `cargo fmt -p
   cfd-math --check`, `cargo check -p cfd-math --no-default-features --lib`,
   `cargo nextest run -p cfd-math --no-default-features sparse --status-level
   fail` (17/17), `cargo nextest run -p cfd-math --no-default-features

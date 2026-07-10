@@ -59,7 +59,6 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
             max_iterations: 200,
             tolerance: <T as FloatElement>::from_f64(1e-3),
             use_preconditioner: false,
-            use_parallel_spmv: false,
         };
 
         let gmres_solver = match solver_type {

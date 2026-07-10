@@ -1,4 +1,10 @@
 > ## Vocabulary policy (canonical atlas-migration terms-of-art)
+
+> **Closed 2026-07-10 — sparse execution-policy duplication**: the prior
+> `spmv_parallel` wrapper delegated to the same Leto kernel as `spmv`, while
+> `use_parallel_spmv` was written but never read. The wrapper, flag, builder,
+> duplicate tests/benchmarks, and example were removed. Evidence tier:
+> compile-time API removal plus focused value-semantic nextest (7/7).
 >
 > **Canonical functional terms-of-art (preserve)**:
 > - `Atlas-typed` (the CoeUs/MoiraiBackend-typed twin type-system family that pairs with `Burn-keyed` as the atomic-boundary partition term per ADR 0012 §Decision §1)

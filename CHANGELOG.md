@@ -29,6 +29,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - Error Consolidation
 
+### Breaking
+
+- Removed `spmv_parallel`, `IterativeSolverConfig::use_parallel_spmv`,
+  `IterativeSolverConfig::with_parallel_spmv`, and
+  `MomentumSolver::with_parallel_spmv`. Callers use `spmv`, `try_spmv`, and
+  `MomentumSolver::new`; Leto owns the CSR execution policy.
+- `ComputeDispatcher::execute` no longer silently executes unsupported or
+  failed GPU/SIMD work on CPU. Unsupported kernel/backend pairings and
+  unavailable requested providers now return typed `UnsupportedOperation`
+  errors; GPU execution errors propagate to the caller.
+
 ### Summary
 
 Consolidated domain error types into `cfd_core::error` with 15 Kind enums and
@@ -74,6 +85,9 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   propagate typed Hephaestus failures instead of silently recomputing on CPU.
 
 ### Migration
+- Handle `ComputeDispatcher::execute` errors when a kernel does not implement
+  the selected backend. Select an explicit CPU dispatcher for CPU execution
+  instead of relying on provider downgrade behavior.
 - Delete generic pipeline registration and raw `GpuKernel<T>` implementations.
   Construct the appropriate operation-specific Hephaestus-backed CFD facade and
   call its typed method.
@@ -102,6 +116,9 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   kernel types should use the corresponding `GpuFieldOps` method.
 
 ### Changed
+- **cfd-core**: Removed residual CPU fallback from runtime compute dispatch and
+  added a regression proving unsupported backend requests do not mutate output
+  through hidden CPU execution.
 - **cfd-core**: Deleted 319 lines of unconsumed raw-WGPU pipeline registry,
   bind-group, uniform reconstruction, dispatch, context helper, and obsolete
   trait code. Static audit finds no CFDrs-owned shader or compute-pipeline
@@ -696,9 +713,10 @@ traits (~323 lines). Fixed ~100 rustdoc warnings across 161 files.
   `git diff --check`. Residual: the public sparse storage alias and
   linear-solver/preconditioner traits still expose `nalgebra_sparse::CsrMatrix`
   and nalgebra `DVector`.
-- **cfd-math**: Migrated public sparse SpMV wrappers to Leto vectors.
-  `spmv`, `spmv_parallel`, and `try_spmv` now accept `leto::Array1` input and
-  output vectors while delegating to `leto_ops::spmv_into`. The remaining
+- **cfd-math**: Migrated public sparse SpMV wrappers to Leto vectors. The
+  then-public entry points accepted `leto::Array1` input/output vectors while
+  delegating to `leto_ops::spmv_into`; the redundant parallel-named wrapper
+  was later removed under Breaking. The remaining
   nalgebra `DVector` SpMV bridge is private to `LinearOperator for CsrMatrix`
   until the linear-solver trait family moves to Leto. Sparse tests,
   GMRES/AMG integration tests, interpolation quality checks, and the SpMV

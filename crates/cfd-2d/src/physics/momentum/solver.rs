@@ -148,51 +148,6 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
         }
     }
 
-    /// Create new momentum solver with parallel SpMV enabled for multi-core performance
-    #[must_use]
-    pub fn with_parallel_spmv(grid: &StructuredGrid2D<T>) -> Self {
-        let mut config = Self::linear_solver_config();
-        config.use_parallel_spmv = true;
-        let linear_solver = GMRES::new(config, 30);
-
-        Self {
-            grid: grid.clone(),
-            boundary_conditions: HashMap::new(),
-            linear_solver,
-            convection_scheme: ConvectionScheme::default(),
-            velocity_relaxation: <T as FloatElement>::from_f64(0.7),
-            turbulence_model: None,
-            coeffs_u: MomentumCoefficients::compute(
-                grid.nx,
-                grid.ny,
-                T::one(),
-                T::one(),
-                T::one(),
-                MomentumComponent::U,
-                &SimulationFields::new(grid.nx, grid.ny),
-                ConvectionScheme::default(),
-            )
-            .unwrap(),
-            coeffs_v: MomentumCoefficients::compute(
-                grid.nx,
-                grid.ny,
-                T::one(),
-                T::one(),
-                T::one(),
-                MomentumComponent::V,
-                &SimulationFields::new(grid.nx, grid.ny),
-                ConvectionScheme::default(),
-            )
-            .unwrap(),
-            matrix_u: None,
-            matrix_v: None,
-            matrix_builder_u: None,
-            matrix_builder_v: None,
-            rhs_u: None,
-            rhs_v: None,
-        }
-    }
-
     /// Set convection scheme
     pub fn set_convection_scheme(&mut self, scheme: ConvectionScheme) {
         self.convection_scheme = scheme;
@@ -250,7 +205,6 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
             max_iterations: crate::constants::solver::DEFAULT_MAX_ITERATIONS,
             tolerance: <T as FloatElement>::from_f64(crate::constants::solver::DEFAULT_TOLERANCE),
             use_preconditioner: false,
-            use_parallel_spmv: false,
         }
     }
 

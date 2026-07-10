@@ -38,39 +38,6 @@ where
     try_spmv(a, x, y).expect("invariant: sparse matrix-vector product inputs are valid");
 }
 
-/// Parallel sparse matrix-vector multiplication (SpMV): y = A * x
-///
-/// Preserves the pre-existing public entry point name while delegating to the
-/// provider-owned Leto CSR SpMV kernel. Parallel execution policy is owned by
-/// the provider boundary rather than duplicated in CFDrs.
-///
-/// # Arguments
-/// * `a` - Sparse matrix in CSR format
-/// * `x` - Input vector (must have length = a.ncols())
-/// * `y` - Output vector (must have length = a.nrows(), will be overwritten)
-///
-/// # Panics
-/// Panics if vector dimensions don't match matrix dimensions
-///
-/// # Example
-/// ```ignore
-/// use leto::Array1;
-/// use leto_ops::CsrMatrix;
-/// use cfd_math::sparse::spmv_parallel;
-///
-/// let a = CsrMatrix::from_parts(vec![1.0; 1000], (0..1000).collect(), (0..=1000).collect(), 1000, 1000)?;
-/// let x = Array1::from_shape_vec([1000], vec![1.0; 1000]).unwrap();
-/// let mut y = Array1::zeros([1000]);
-///
-/// spmv_parallel(&a, &x, &mut y); // Parallel computation
-/// ```
-pub fn spmv_parallel<T>(a: &CsrMatrix<T>, x: &Array1<T>, y: &mut Array1<T>)
-where
-    T: Copy + LetoScalar,
-{
-    try_spmv(a, x, y).expect("invariant: sparse matrix-vector product inputs are valid");
-}
-
 fn map_leto_sparse_error(operation: &str, error: leto::LetoError) -> Error {
     Error::InvalidConfiguration(format!("Leto CSR {operation} failed: {error}"))
 }
