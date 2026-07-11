@@ -83,17 +83,12 @@ consus-hdf5 = { git = "https://github.com/ryancinsight/consus.git" }
 # ritk: RITK imaging toolkit; owns the VTK data model and I/O. Consumed by
 # cfd-io behind the `vtk` feature for VTK creation.
 ritk-vtk = { path = "../ritk/crates/ritk-vtk" }
-# mnemosyne: high-performance global allocator. Wired into cfd-core behind the
-# `mnemosyne` feature as the process #[global_allocator].
-mnemosyne = { git = "https://github.com/ryancinsight/Mnemosyne.git" }
 # hermes: SIMD abstraction workspace. Provides generic runtime-dispatched
 # SIMD operations (dot, elementwise, reductions) over f32/f64/i32.
 hermes-simd = { git = "https://github.com/ryancinsight/hermes.git" }
-# moirai: unified concurrency runtime replacing tokio + rayon. CFDrs owns the
-# process allocator through `cfd-core/mnemosyne`, so Moirai's parallel,
-# Mnemosyne, and Mellinoe surfaces are enabled without installing a second
-# global allocator.
-moirai = { git = "https://github.com/ryancinsight/Moirai.git", rev = "029275807a4a406f7be0ee4be22ecae4a72fa27c", default-features = false, features = ["parallel", "mnemosyne", "melinoe", "no-global-alloc"] }
+# moirai: unified concurrency runtime replacing tokio + rayon. Moirai's parallel,
+# Mnemosyne, and Melinoe surfaces are enabled for the CFDrs workspace.
+moirai = { git = "https://github.com/ryancinsight/Moirai.git", rev = "029275807a4a406f7be0ee4be22ecae4a72fa27c", default-features = false, features = ["parallel", "mnemosyne", "melinoe"] }
 # hephaestus-wgpu: Atlas GPU provider used for device acquisition and the
 # ongoing replacement of CFDrs-owned raw WGPU kernels.
 hephaestus-wgpu = { git = "https://github.com/ryancinsight/hephaestus.git" }
@@ -176,10 +171,6 @@ readme.workspace = true
 default = ["gpu"]
 gpu = ["cfd-core/gpu"]
 
-# Use Mnemosyne as the global allocator for the suite's binaries (examples,
-# benches). Mutually exclusive with the `validation` feature (cfd-validation
-# installs its own tracking allocator).
-mnemosyne = ["cfd-core/mnemosyne"]
 simd = ["cfd-core/simd"]
 millifluidic = ["cfd-mesh/millifluidic"]
 scheme-io = ["cfd-mesh/scheme-io"]

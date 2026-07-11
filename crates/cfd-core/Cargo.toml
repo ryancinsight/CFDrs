@@ -23,17 +23,12 @@ eunomia.workspace = true
 indexmap.workspace = true
 moirai.workspace = true
 hephaestus-wgpu = { workspace = true, optional = true }
-mnemosyne = { workspace = true, optional = true }
 
 [features]
 default = ["gpu"]
 gpu = ["dep:hephaestus-wgpu"]
 simd = []
 experimental = []
-# Install Mnemosyne as the process global allocator for binaries that link
-# cfd-core. This stays opt-in because cfd-validation owns a tracking allocator
-# and only one #[global_allocator] may exist per binary.
-mnemosyne = ["dep:mnemosyne"]
 
 [dev-dependencies]
 proptest.workspace = true
