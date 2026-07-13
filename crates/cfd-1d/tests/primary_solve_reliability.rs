@@ -86,6 +86,7 @@ fn solve_blueprint(
     let solver = NetworkSolver::<f64, CassonBlood<f64>>::with_config(SolverConfig {
         tolerance: 1.0e-8,
         max_iterations,
+        require_flow_convergence: true,
     });
     solver.solve_network_with_diagnostics(&NetworkProblem::new(network))
 }

@@ -254,6 +254,7 @@ where
         let solver = NetworkSolver::<T, ConstantPropertyFluid<T>>::with_config(SolverConfig::<T> {
             tolerance: scalar::from_f64(1e-12),
             max_iterations: 500,
+            require_flow_convergence: true,
         });
         let mut coupling_mixer = CoupledResistanceMixer::<T>::new(COUPLING_ANDERSON_DEPTH);
         let channel_coupling_weights = build_channel_coupling_weights::<T>(&self.blueprint);

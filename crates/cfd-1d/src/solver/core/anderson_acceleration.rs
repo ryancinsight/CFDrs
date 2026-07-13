@@ -48,6 +48,17 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
         matrix: &LetoCsrMatrix<T>,
         picard_residual: T,
     ) -> Array1<T> {
+        // On the first iteration the previous iterate is the all-zeros initial
+        // condition; any under-relaxation would propagate a scaled pressure to
+        // `update_from_solution`, which then computes half-magnitude flow rates
+        // and applies flow-dependent corrections (e.g. Durst entrance length) at
+        // the wrong operating point.  Use the full Picard solution here so that
+        // the resistance update on iteration 1 sees realistic flow rates and
+        // converges in a handful of subsequent steps.
+        if iter == 0 {
+            return picard_solution;
+        }
+
         let picard_step_norm =
             array_l2_norm(&(&picard_solution - &workspace.last_solution));
         let accelerated = Self::anderson_accelerate(

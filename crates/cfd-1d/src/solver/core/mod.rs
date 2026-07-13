@@ -78,6 +78,22 @@ pub struct SolverConfig<T: Cfd1dScalar + Copy> {
     pub tolerance: T,
     /// Maximum number of solver iterations before termination
     pub max_iterations: usize,
+    /// When `true` (the default), the outer Picard loop also requires the flow
+    /// rates to change by less than `tolerance` between consecutive iterates.
+    ///
+    /// Set to `false` for the reference-trace path where **pressure convergence
+    /// plus a tiny linear-system residual is sufficient** — the flow rates are
+    /// uniquely derived from the converged pressure and do not need an
+    /// independent secondary criterion.  This is particularly important for
+    /// networks with venturi channels whose quadratic loss terms create a
+    /// slowly converging secondary fixed-point that the pressure already
+    /// satisfies in a handful of Picard steps.
+    #[serde(default = "default_require_flow_convergence")]
+    pub require_flow_convergence: bool,
+}
+
+fn default_require_flow_convergence() -> bool {
+    true
 }
 
 impl<T: Cfd1dScalar + Copy> cfd_core::compute::solver::SolverConfiguration<T> for SolverConfig<T> {
@@ -121,6 +137,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
         let config = SolverConfig {
             tolerance,
             max_iterations: 1000,
+            require_flow_convergence: true,
         };
         let convergence = ConvergenceChecker::new(config.tolerance);
         Self {
@@ -487,22 +504,28 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
                     )
                 })?;
 
-            let mut flow_diff_sq = T::zero();
-            let mut flow_norm_sq = T::zero();
-            for (i, &new_flow) in network.flow_rates.iter().enumerate() {
-                let old_flow = last_flow_rates.get(i).copied().unwrap_or(T::zero());
-                let diff = new_flow - old_flow;
-                flow_diff_sq += diff * diff;
-                flow_norm_sq += new_flow * new_flow;
-            }
-            let flow_change = <T as NumericElement>::sqrt(flow_diff_sq);
-            let flow_norm = <T as NumericElement>::sqrt(flow_norm_sq);
-            let relative_flow_change = if flow_norm > T::default_epsilon() {
-                flow_change / flow_norm
+            let flows_converged = if self.config.require_flow_convergence {
+                let mut flow_diff_sq = T::zero();
+                let mut flow_norm_sq = T::zero();
+                for (i, &new_flow) in network.flow_rates.iter().enumerate() {
+                    let old_flow = last_flow_rates.get(i).copied().unwrap_or(T::zero());
+                    let diff = new_flow - old_flow;
+                    flow_diff_sq += diff * diff;
+                    flow_norm_sq += new_flow * new_flow;
+                }
+                let flow_change = <T as NumericElement>::sqrt(flow_diff_sq);
+                let flow_norm = <T as NumericElement>::sqrt(flow_norm_sq);
+                let relative_flow_change = if flow_norm > T::default_epsilon() {
+                    flow_change / flow_norm
+                } else {
+                    flow_change
+                };
+                relative_flow_change < self.config.tolerance
             } else {
-                flow_change
+                // Reference-trace mode: pressure convergence alone is sufficient.
+                // Flow rates are uniquely derived from the converged pressure.
+                true
             };
-            let flows_converged = relative_flow_change < self.config.tolerance;
 
             if converged && flows_converged {
                 return Ok((network, diagnostics));

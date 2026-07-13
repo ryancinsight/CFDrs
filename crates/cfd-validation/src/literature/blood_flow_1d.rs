@@ -146,6 +146,7 @@ impl<T: ValidationScalar> LiteratureValidation<T> for StenosisValidation<T> {
         let solver = NetworkSolver::with_config(SolverConfig {
             tolerance: scalar::from_f64::<T>(1e-6),
             max_iterations: 100,
+            require_flow_convergence: true,
         });
 
         let solution = solver.solve_network(&problem)?;
@@ -344,6 +345,7 @@ impl<T: ValidationScalar> LiteratureValidation<T> for BifurcationValidation<T> {
         let solver = NetworkSolver::with_config(SolverConfig {
             tolerance: scalar::from_f64::<T>(1e-6),
             max_iterations: 100,
+            require_flow_convergence: true,
         });
 
         let solution = solver.solve_network(&problem)?;

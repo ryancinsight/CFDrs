@@ -111,6 +111,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let solver_config = SolverConfig::<f64> {
         tolerance: SOLVER_TOLERANCE,
         max_iterations: MAX_ITERATIONS,
+        require_flow_convergence: true,
     };
 
     let solver = NetworkSolver::with_config(solver_config);

@@ -358,6 +358,7 @@ fn test_network_solver_configuration() -> Result<()> {
     let config = SolverConfig {
         tolerance,
         max_iterations: 500,
+        require_flow_convergence: true,
     };
 
     let mut solver = NetworkSolver::<f64>::with_config(config.clone());
@@ -370,6 +371,7 @@ fn test_network_solver_configuration() -> Result<()> {
     let new_config = SolverConfig {
         tolerance: 1e-10,
         max_iterations: 2000,
+        require_flow_convergence: true,
     };
     solver.set_config(new_config.clone());
 
