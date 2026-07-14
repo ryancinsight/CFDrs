@@ -114,7 +114,7 @@ impl GpuContext {
     /// # Errors
     /// Returns an error if WGPU reports that polling failed.
     pub fn synchronize(&self) -> Result<()> {
-        self.device.poll(wgpu::PollType::Wait).map_err(|error| {
+        self.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|error| {
             Error::InvalidConfiguration(format!("GPU device poll failed: {error:?}"))
         })?;
         Ok(())
