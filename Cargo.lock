@@ -3080,7 +3080,7 @@ version = "0.13.0"
 dependencies = [
  "bytemuck",
  "leto",
- "themis",
+ "themis 0.10.0",
  "thiserror 2.0.18",
 ]
 
@@ -3097,7 +3097,7 @@ dependencies = [
  "moirai-gpu",
  "moirai-sync 0.2.0 (git+https://github.com/ryancinsight/Moirai.git?rev=c43f86a21e0ea73d8e3bba68d75db9cedae3abb3)",
  "num-complex",
- "themis",
+ "themis 0.10.0",
  "wgpu 30.0.0",
  "windows 0.62.2",
 ]
@@ -3112,7 +3112,7 @@ dependencies = [
  "hermes-simd-intrinsics",
  "hermes-simd-macros",
  "hermes-simd-types",
- "themis",
+ "themis 0.9.17",
 ]
 
 [[package]]
@@ -3124,7 +3124,7 @@ dependencies = [
  "half",
  "mnemosyne",
  "rkyv 0.7.46",
- "themis",
+ "themis 0.9.17",
 ]
 
 [[package]]
@@ -3606,7 +3606,7 @@ dependencies = [
  "hermes-simd",
  "leto",
  "moirai",
- "themis",
+ "themis 0.10.0",
  "thiserror 2.0.18",
 ]
 
@@ -3859,7 +3859,7 @@ dependencies = [
  "eunomia",
  "mnemosyne-backend",
  "mnemosyne-core",
- "themis",
+ "themis 0.9.17",
 ]
 
 [[package]]
@@ -3903,7 +3903,7 @@ dependencies = [
  "mnemosyne-core",
  "mnemosyne-local",
  "mnemosyne-prof",
- "themis",
+ "themis 0.9.17",
 ]
 
 [[package]]
@@ -3917,7 +3917,7 @@ dependencies = [
  "mnemosyne-core",
  "mnemosyne-decay",
  "mnemosyne-prof",
- "themis",
+ "themis 0.9.17",
 ]
 
 [[package]]
@@ -3996,7 +3996,7 @@ dependencies = [
  "mnemosyne-core",
  "moirai-core",
  "moirai-utils 0.2.0 (git+https://github.com/ryancinsight/Moirai.git?rev=c43f86a21e0ea73d8e3bba68d75db9cedae3abb3)",
- "themis",
+ "themis 0.9.17",
 ]
 
 [[package]]
@@ -4010,7 +4010,7 @@ dependencies = [
  "moirai-scheduler",
  "moirai-utils 0.2.0",
  "num_cpus",
- "themis",
+ "themis 0.10.0",
  "thiserror 1.0.69",
 ]
 
@@ -4044,7 +4044,7 @@ dependencies = [
  "moirai-core",
  "moirai-utils 0.2.0",
  "num_cpus",
- "themis",
+ "themis 0.10.0",
 ]
 
 [[package]]
@@ -5975,6 +5975,14 @@ dependencies = [
 [[package]]
 name = "themis"
 version = "0.9.17"
+source = "git+https://github.com/ryancinsight/themis?rev=6140468c79279ec8f112641ea7422cef4688c7f6#6140468c79279ec8f112641ea7422cef4688c7f6"
+dependencies = [
+ "melinoe",
+]
+
+[[package]]
+name = "themis"
+version = "0.10.0"
 dependencies = [
  "melinoe",
 ]
