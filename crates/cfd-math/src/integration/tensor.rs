@@ -1,8 +1,7 @@
 //! Multi-dimensional integration using tensor products
 
 use crate::integration::traits::Quadrature;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::{FloatElement, RealField};
 
 /// Multi-dimensional integration using tensor products
 pub struct TensorProductQuadrature<Q> {
@@ -27,7 +26,7 @@ impl<Q> TensorProductQuadrature<Q> {
     /// Integrate over 2D rectangle [ax, bx] × [ay, by]
     pub fn integrate_2d<T, F>(&self, f: F, ax: T, bx: T, ay: T, by: T) -> T
     where
-        T: RealField + From<f64> + FromPrimitive + Copy + Clone,
+        T: RealField + FloatElement + Copy + Clone,
         F: Fn(T, T) -> T,
         Q: Quadrature<T>,
     {

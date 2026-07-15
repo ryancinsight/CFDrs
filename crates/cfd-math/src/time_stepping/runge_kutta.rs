@@ -45,9 +45,13 @@
 //! - **SIMD vectorization**: Accelerate vector operations in stage computations
 //! - **Cache-aware implementations**: Optimize memory layout for CFD data structures
 
-use super::traits::TimeStepper;
+use super::traits::{
+    add_scaled_in_place, assign_base_plus_scaled, from_f64, state_len, state_zeros, TimeState,
+    TimeStepper,
+};
 use cfd_core::error::Result;
-use nalgebra::{DVector, RealField};
+use eunomia::FloatElement;
+use eunomia::RealField;
 use std::cell::RefCell;
 
 /// Classical 4th-order Runge-Kutta method
@@ -77,74 +81,74 @@ use std::cell::RefCell;
 /// ----+----------------
 ///     | 1/6  1/3  1/3  1/6
 /// ```
-pub struct RungeKutta4<T: RealField> {
+pub struct RungeKutta4<T: RealField + Copy> {
     /// Scratch buffer for intermediate calculations to avoid allocation
-    scratch: RefCell<DVector<T>>,
+    scratch: RefCell<TimeState<T>>,
 }
 
-impl<T: RealField> Default for RungeKutta4<T> {
+impl<T: RealField + Copy> Default for RungeKutta4<T> {
     fn default() -> Self {
         Self {
-            scratch: RefCell::new(DVector::zeros(0)),
+            scratch: RefCell::new(state_zeros(0)),
         }
     }
 }
 
-impl<T: RealField> RungeKutta4<T> {
+impl<T: RealField + Copy> RungeKutta4<T> {
     /// Create a new fourth-order Runge-Kutta integrator
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl<T: RealField + Copy> TimeStepper<T> for RungeKutta4<T> {
-    fn step<F>(&self, f: F, t: T, u: &DVector<T>, dt: T) -> Result<DVector<T>>
+impl<T: RealField + Copy + FloatElement> TimeStepper<T> for RungeKutta4<T> {
+    fn step<F>(&self, f: F, t: T, u: &TimeState<T>, dt: T) -> Result<TimeState<T>>
     where
-        F: Fn(T, &DVector<T>) -> Result<DVector<T>>,
+        F: Fn(T, &TimeState<T>) -> Result<TimeState<T>>,
     {
-        let n = u.len();
+        let n = state_len(u);
 
         // Reuse scratch buffer for intermediate states to avoid allocation
         let mut scratch = self.scratch.borrow_mut();
-        if scratch.len() != n {
-            *scratch = DVector::zeros(n);
+        if state_len(&scratch) != n {
+            *scratch = state_zeros(n);
         }
 
         // k1 = f(t, u)
         let k1 = f(t, u)?;
 
-        let dt_half = dt / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let dt_half = dt / from_f64(2.0);
         let t2 = t + dt_half;
 
         // k2 = f(t + dt/2, u + dt/2 * k1)
-        scratch.copy_from(u);
-        scratch.axpy(dt_half, &k1, T::one());
+        scratch.assign(u);
+        add_scaled_in_place(&mut scratch, &k1, dt_half, "RK4 k2 stage")?;
         let k2 = f(t2, &scratch)?;
 
         // k3 = f(t + dt/2, u + dt/2 * k2)
-        scratch.copy_from(u);
-        scratch.axpy(dt_half, &k2, T::one());
+        scratch.assign(u);
+        add_scaled_in_place(&mut scratch, &k2, dt_half, "RK4 k3 stage")?;
         let k3 = f(t2, &scratch)?;
 
         // k4 = f(t + dt, u + dt * k3)
         let t4 = t + dt;
-        scratch.copy_from(u);
-        scratch.axpy(dt, &k3, T::one());
+        scratch.assign(u);
+        add_scaled_in_place(&mut scratch, &k3, dt, "RK4 k4 stage")?;
         let k4 = f(t4, &scratch)?;
 
         // u_new = u + dt/6 * (k1 + 2*k2 + 2*k3 + k4)
-        // We allocate u_new because the API requires returning an owned DVector.
+        // We allocate u_new because the API requires returning an owned state.
         // However, we avoid intermediate temporary vectors in the summation.
-        let mut u_new = DVector::zeros(n);
-        u_new.copy_from(u);
+        let mut u_new = state_zeros(n);
+        u_new.assign(u);
 
-        let coeff = dt / T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero);
-        let coeff_2 = coeff * T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let coeff = dt / from_f64(6.0);
+        let coeff_2 = coeff * from_f64(2.0);
 
-        u_new.axpy(coeff, &k1, T::one());
-        u_new.axpy(coeff_2, &k2, T::one());
-        u_new.axpy(coeff_2, &k3, T::one());
-        u_new.axpy(coeff, &k4, T::one());
+        add_scaled_in_place(&mut u_new, &k1, coeff, "RK4 final k1 accumulation")?;
+        add_scaled_in_place(&mut u_new, &k2, coeff_2, "RK4 final k2 accumulation")?;
+        add_scaled_in_place(&mut u_new, &k3, coeff_2, "RK4 final k3 accumulation")?;
+        add_scaled_in_place(&mut u_new, &k4, coeff, "RK4 final k4 accumulation")?;
 
         Ok(u_new)
     }
@@ -183,11 +187,11 @@ impl<T: RealField + Copy> TimeStepper<T> for RungeKutta4<T> {
 /// ----+------------
 ///     | 1/6  4/6  1/6
 /// ```
-pub struct RungeKutta3<T: RealField> {
+pub struct RungeKutta3<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField> Default for RungeKutta3<T> {
+impl<T: RealField + Copy> Default for RungeKutta3<T> {
     fn default() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
@@ -195,48 +199,45 @@ impl<T: RealField> Default for RungeKutta3<T> {
     }
 }
 
-impl<T: RealField> RungeKutta3<T> {
+impl<T: RealField + Copy> RungeKutta3<T> {
     /// Create a new third-order Runge-Kutta integrator
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl<T: RealField + Copy> TimeStepper<T> for RungeKutta3<T> {
-    fn step<F>(&self, f: F, t: T, u: &DVector<T>, dt: T) -> Result<DVector<T>>
+impl<T: RealField + Copy + FloatElement> TimeStepper<T> for RungeKutta3<T> {
+    fn step<F>(&self, f: F, t: T, u: &TimeState<T>, dt: T) -> Result<TimeState<T>>
     where
-        F: Fn(T, &DVector<T>) -> Result<DVector<T>>,
+        F: Fn(T, &TimeState<T>) -> Result<TimeState<T>>,
     {
-        let n = u.len();
+        let n = state_len(u);
 
         // k1 = f(t, u)
         let k1 = f(t, u)?;
 
         // k2 = f(t + dt/2, u + dt/2 * k1)
-        let t2 = t + dt / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-        let u2 = u + &k1 * (dt / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero));
+        let t2 = t + dt / from_f64(2.0);
+        let mut u2 = state_zeros(n);
+        assign_base_plus_scaled(&mut u2, u, &k1, dt / from_f64(2.0), "RK3 k2 stage")?;
         let k2 = f(t2, &u2)?;
 
         // k3 = f(t + dt, u - dt*k1 + 2*dt*k2)
         let t3 = t + dt;
-        let mut u3 = DVector::zeros(n);
-        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let mut u3 = state_zeros(n);
+        let two = from_f64::<T>(2.0);
         for i in 0..n {
             u3[i] = u[i] - dt * k1[i] + two * dt * k2[i];
         }
         let k3 = f(t3, &u3)?;
 
         // u_new = u + dt/6 * (k1 + 4*k2 + k3)
-        let mut u_new = DVector::zeros(n);
-        let coeff1 = dt / T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero);
-        let _coeff4 = dt / T::from_f64(1.5).unwrap_or_else(num_traits::Zero::zero);
+        let mut u_new = state_zeros(n);
+        let coeff1 = dt / from_f64::<T>(6.0);
+        let four = from_f64::<T>(4.0);
 
         for i in 0..n {
-            u_new[i] = u[i]
-                + coeff1
-                    * (k1[i]
-                        + T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero) * k2[i]
-                        + k3[i]);
+            u_new[i] = u[i] + coeff1 * (k1[i] + four * k2[i] + k3[i]);
         }
 
         Ok(u_new)
@@ -261,11 +262,11 @@ impl<T: RealField + Copy> TimeStepper<T> for RungeKutta3<T> {
 /// - Only requires 2 temporary vectors regardless of stages
 /// - Optimal for memory-constrained CFD simulations
 /// - Maintains 4th-order accuracy with minimal storage
-pub struct LowStorageRK4<T: RealField> {
+pub struct LowStorageRK4<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField> Default for LowStorageRK4<T> {
+impl<T: RealField + Copy> Default for LowStorageRK4<T> {
     fn default() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
@@ -273,64 +274,62 @@ impl<T: RealField> Default for LowStorageRK4<T> {
     }
 }
 
-impl<T: RealField> LowStorageRK4<T> {
+impl<T: RealField + Copy> LowStorageRK4<T> {
     /// Create a new low-storage fourth-order Runge-Kutta integrator
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl<T: RealField + Copy> TimeStepper<T> for LowStorageRK4<T> {
-    fn step<F>(&self, f: F, t: T, u: &DVector<T>, dt: T) -> Result<DVector<T>>
+impl<T: RealField + Copy + FloatElement> TimeStepper<T> for LowStorageRK4<T> {
+    fn step<F>(&self, f: F, t: T, u: &TimeState<T>, dt: T) -> Result<TimeState<T>>
     where
-        F: Fn(T, &DVector<T>) -> Result<DVector<T>>,
+        F: Fn(T, &TimeState<T>) -> Result<TimeState<T>>,
     {
-        let mut u_tmp = u.clone();
-        let mut u_new = u.clone();
+        let mut u_stage = u.clone();
+        let mut residual = state_zeros(state_len(u));
 
         // Coefficients for Carpenter-Kennedy low-storage RK4
         let a = [
-            T::from_f64(0.0).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(-0.4178904745).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(-1.1921516946).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(-1.6977846925).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(-1.5141834443).unwrap_or_else(num_traits::Zero::zero),
+            from_f64::<T>(0.0),
+            from_f64::<T>(-0.4178904745),
+            from_f64::<T>(-1.1921516946),
+            from_f64::<T>(-1.6977846925),
+            from_f64::<T>(-1.5141834443),
         ];
 
         let b = [
-            T::from_f64(0.1496590219993).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.3792103129999).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.8229550293869).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.6994504559488).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.1530572479681).unwrap_or_else(num_traits::Zero::zero),
+            from_f64::<T>(0.1496590219993),
+            from_f64::<T>(0.3792103129999),
+            from_f64::<T>(0.8229550293869),
+            from_f64::<T>(0.6994504559488),
+            from_f64::<T>(0.1530572479681),
         ];
 
         let c = [
-            T::from_f64(0.0).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.1496590219993).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.3704009573644).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.6222557631345).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.9582821306784).unwrap_or_else(num_traits::Zero::zero),
+            from_f64::<T>(0.0),
+            from_f64::<T>(0.1496590219993),
+            from_f64::<T>(0.3704009573644),
+            from_f64::<T>(0.6222557631345),
+            from_f64::<T>(0.9582821306784),
         ];
 
         for stage in 0..5 {
             let t_stage = t + c[stage] * dt;
 
             // Compute RHS at current stage
-            let rhs = f(t_stage, &u_tmp)?;
+            let rhs = f(t_stage, &u_stage)?;
 
-            // Low-storage update: u_new = a[stage] * u_new + u_tmp
-            // u_tmp = u_tmp + b[stage] * dt * rhs
-            for i in 0..u.len() {
-                let u_new_i = a[stage] * u_new[i] + u_tmp[i];
-                let u_tmp_i = u_tmp[i] + b[stage] * dt * rhs[i];
-
-                u_new[i] = u_new_i;
-                u_tmp[i] = u_tmp_i;
+            // Carpenter-Kennedy 2N form:
+            // residual_i = a_i * residual_{i-1} + dt * f(t_i, u_i)
+            // u_{i+1} = u_i + b_i * residual_i
+            for i in 0..state_len(u) {
+                residual[i] = a[stage] * residual[i] + dt * rhs[i];
+                u_stage[i] += b[stage] * residual[i];
             }
         }
 
-        Ok(u_new)
+        Ok(u_stage)
     }
 
     fn order(&self) -> usize {
@@ -349,17 +348,18 @@ impl<T: RealField + Copy> TimeStepper<T> for LowStorageRK4<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::time_stepping::traits::{state_from_vec, state_neg};
     use approx::assert_relative_eq;
 
     // Test function: du/dt = -u (exponential decay)
-    fn exponential_decay(_t: f64, u: &DVector<f64>) -> Result<DVector<f64>> {
-        Ok(-u.clone())
+    fn exponential_decay(_t: f64, u: &TimeState<f64>) -> Result<TimeState<f64>> {
+        Ok(state_neg(u))
     }
 
     #[test]
     fn test_rk4_exponential_decay() {
         let rk4 = RungeKutta4::new();
-        let u0 = DVector::from_vec(vec![1.0]);
+        let u0 = state_from_vec(vec![1.0]);
         let dt = 0.1;
         let t = 0.0;
 
@@ -382,15 +382,31 @@ mod tests {
     #[test]
     fn test_low_storage_rk4() {
         let rk4_ls = LowStorageRK4::new();
-        let u0 = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let u0 = state_from_vec(vec![1.0, 2.0, 3.0]);
         let dt = 0.01;
         let t = 0.0;
 
         let u1 = rk4_ls.step(exponential_decay, t, &u0, dt).unwrap();
 
-        // Should produce reasonable results
-        assert!(u1[0] > 0.0 && u1[0] < 1.0);
-        assert!(u1[1] > 0.0 && u1[1] < 2.0);
-        assert!(u1[2] > 0.0 && u1[2] < 3.0);
+        let decay = (-dt).exp();
+        assert_relative_eq!(u1[0], u0[0] * decay, epsilon = 1e-10);
+        assert_relative_eq!(u1[1], u0[1] * decay, epsilon = 1e-10);
+        assert_relative_eq!(u1[2], u0[2] * decay, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_low_storage_rk4_preserves_constant_solution() {
+        let rk4_ls = LowStorageRK4::new();
+        let u0 = state_from_vec(vec![1.0, -2.0, 3.5]);
+        let dt = 0.25;
+        let t = 1.0;
+
+        let u1 = rk4_ls
+            .step(|_, u| Ok(state_zeros(state_len(u))), t, &u0, dt)
+            .unwrap();
+
+        assert_relative_eq!(u1[0], u0[0], epsilon = 1e-14);
+        assert_relative_eq!(u1[1], u0[1], epsilon = 1e-14);
+        assert_relative_eq!(u1[2], u0[2], epsilon = 1e-14);
     }
 }

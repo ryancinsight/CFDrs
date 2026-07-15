@@ -5,7 +5,19 @@ use crate::linear_solver::preconditioners::IdentityPreconditioner;
 use crate::linear_solver::traits::IterativeLinearSolver;
 use crate::linear_solver::{ConjugateGradient, IterativeSolverConfig, GMRES};
 use approx::assert_relative_eq;
-use nalgebra::DVector;
+use cfd_core::error::Error;
+use leto::Array1;
+
+fn array(values: Vec<f64>) -> Array1<f64> {
+    Array1::from_shape_vec([values.len()], values).expect("valid Leto vector shape")
+}
+
+fn assert_array_close(actual: &Array1<f64>, expected: &Array1<f64>, epsilon: f64) {
+    assert_eq!(actual.shape(), expected.shape());
+    for idx in 0..actual.shape()[0] {
+        assert_relative_eq!(actual[idx], expected[idx], epsilon = epsilon);
+    }
+}
 
 #[test]
 fn test_matrix_free_cg_identity() {
@@ -13,16 +25,14 @@ fn test_matrix_free_cg_identity() {
     let solver = ConjugateGradient::new(config);
     let operator = IdentityOperator;
 
-    let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
-    let mut x = DVector::zeros(5);
+    let b = array(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+    let mut x = Array1::zeros([5]);
 
     solver
         .solve(&operator, &b, &mut x, None::<&IdentityPreconditioner>)
         .unwrap();
 
-    for i in 0..5 {
-        assert_relative_eq!(x[i], b[i], epsilon = 1e-8);
-    }
+    assert_array_close(&x, &b, 1e-8);
 }
 
 #[test]
@@ -31,16 +41,14 @@ fn test_matrix_free_gmres_identity() {
     let solver = GMRES::new(config, 5);
     let operator = IdentityOperator;
 
-    let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
-    let mut x = DVector::zeros(5);
+    let b = array(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+    let mut x = Array1::zeros([5]);
 
     solver
         .solve(&operator, &b, &mut x, None::<&IdentityPreconditioner>)
         .unwrap();
 
-    for i in 0..5 {
-        assert_relative_eq!(x[i], b[i], epsilon = 1e-8);
-    }
+    assert_array_close(&x, &b, 1e-8);
 }
 
 #[test]
@@ -51,8 +59,8 @@ fn test_scaled_operator_integration() {
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = ConjugateGradient::new(config);
 
-    let b = DVector::from_vec(vec![2.0, 4.0, 6.0]); // Should give solution [1, 2, 3]
-    let mut x = DVector::zeros(3);
+    let b = array(vec![2.0, 4.0, 6.0]); // Should give solution [1, 2, 3]
+    let mut x = Array1::zeros([3]);
 
     solver
         .solve(&scaled_op, &b, &mut x, None::<&IdentityPreconditioner>)
@@ -72,10 +80,15 @@ fn test_operator_size_mismatch() {
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = ConjugateGradient::new(config);
 
-    let b = DVector::from_vec(vec![1.0, 2.0]); // Wrong size (expected 4)
-    let mut x = DVector::zeros(4);
+    let b = array(vec![1.0, 2.0]); // Wrong size (expected 4)
+    let mut x = Array1::zeros([2]);
 
-    assert!(solver
-        .solve(&operator, &b, &mut x, None::<&IdentityPreconditioner>)
-        .is_err());
+    let result = solver.solve(&operator, &b, &mut x, None::<&IdentityPreconditioner>);
+    match result {
+        Err(Error::InvalidConfiguration(message)) => {
+            assert_eq!(message, "Operator size (4) doesn't match RHS vector (2)");
+        }
+        Err(error) => panic!("expected invalid configuration, got {error:?}"),
+        Ok(_) => panic!("expected operator size mismatch"),
+    }
 }

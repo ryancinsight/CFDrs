@@ -144,8 +144,9 @@ mod quick;
 pub use muscl::{MUSCLOrder, MUSCLScheme};
 pub use quick::QUICKScheme;
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd2dScalar;
+use crate::scalar::{from_f64, one, zero};
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Flux limiter for TVD schemes
@@ -167,39 +168,37 @@ pub enum FluxLimiter {
 
 impl FluxLimiter {
     /// Apply flux limiter function
-    pub fn apply<T: RealField + Copy + FromPrimitive + Copy>(&self, r: T) -> T {
+    pub fn apply<T: Cfd2dScalar + Copy + FloatElement>(&self, r: T) -> T {
         match self {
-            FluxLimiter::None => T::one(),
+            FluxLimiter::None => one(),
             FluxLimiter::VanLeer => {
-                if r > T::zero() {
-                    let _two =
-                        super::constants::to_realfield::<T>(super::constants::FLUX_LIMITER_TWO);
-                    (r + r.abs()) / (T::one() + r.abs())
+                if r > zero() {
+                    (r + NumericElement::abs(r)) / (one::<T>() + NumericElement::abs(r))
                 } else {
-                    T::zero()
+                    zero()
                 }
             }
             FluxLimiter::VanAlbada => {
-                if r > T::zero() {
-                    (r * r + r) / (r * r + T::one())
+                if r > zero() {
+                    (r * r + r) / (r * r + one())
                 } else {
-                    T::zero()
+                    zero()
                 }
             }
             FluxLimiter::Superbee => {
-                let two = super::constants::to_realfield::<T>(super::constants::FLUX_LIMITER_TWO);
+                let two = from_f64::<T>(super::constants::FLUX_LIMITER_TWO);
                 // Superbee limiter: φ(r) = max(0, min(1, 2r), min(2, r))
-                T::zero().max(T::one().min(two * r).max(two.min(r)))
+                zero::<T>().max_scalar(one::<T>().min_scalar(two * r).max_scalar(two.min_scalar(r)))
             }
             FluxLimiter::MC => {
-                let two = super::constants::to_realfield::<T>(super::constants::FLUX_LIMITER_TWO);
-                T::zero().max(((T::one() + r) / two).min(two.min(two * r)))
+                let two = from_f64::<T>(super::constants::FLUX_LIMITER_TWO);
+                zero::<T>().max_scalar(((one::<T>() + r) / two).min_scalar(two.min_scalar(two * r)))
             }
             FluxLimiter::Minmod => {
-                if r > T::zero() {
-                    T::one().min(r)
+                if r > zero() {
+                    one::<T>().min_scalar(r)
                 } else {
-                    T::zero()
+                    zero()
                 }
             }
         }

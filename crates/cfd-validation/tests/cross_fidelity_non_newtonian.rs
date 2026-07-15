@@ -1,6 +1,6 @@
 use cfd_1d::{
-    ChannelGeometry, ChannelType, ComponentType, CrossSection, EdgeProperties,
-    Network, NetworkBuilder, ResistanceUpdatePolicy, SurfaceProperties, Wettability,
+    ChannelGeometry, ChannelType, ComponentType, CrossSection, EdgeProperties, Network,
+    NetworkBuilder, ResistanceUpdatePolicy, SurfaceProperties, Wettability,
 };
 use cfd_2d::{
     solvers::ns_fvm::{BloodModel, SIMPLEConfig},
@@ -42,21 +42,21 @@ fn cross_fidelity_stenosis_shear_thinning() {
     // -------------------------------------------------------------------------------- //
     // 1D Fidelity: Network Solver (Implicit formulation allows nonlinear viscosity)
     // -------------------------------------------------------------------------------- //
-    
+
     // 1D setup macro
     let build_1d_network = |is_newtonian: bool| -> f64 {
         let mut builder = NetworkBuilder::new();
         let n_inlet = builder.add_inlet("Inlet".to_string());
         let n_out = builder.add_outlet("Outlet".to_string());
         let edge = builder.connect_with_pipe(n_inlet, n_out, "Stenosis".to_string());
-        
+
         // Single narrow pipe to strictly measure friction
         let pi = std::f64::consts::PI;
         let area = pi * diameter_narrow * diameter_narrow / 4.0;
         let r_init = 128.0 * mu_0 * length_narrow / (pi * f64::powi(diameter_narrow, 4));
 
         let graph = builder.build().expect("valid graph");
-        
+
         let blood = if is_newtonian {
             // High Newtonian threshold (approximate mu_0 with Carreau but constant)
             // By setting zero relaxation we make it effectively constant
@@ -69,7 +69,7 @@ fn cross_fidelity_stenosis_shear_thinning() {
         };
 
         let mut network = Network::new(graph, blood);
-        
+
         network.add_edge_properties(
             edge,
             EdgeProperties {
@@ -83,7 +83,9 @@ fn cross_fidelity_stenosis_shear_thinning() {
                 geometry: Some(ChannelGeometry {
                     channel_type: ChannelType::Straight,
                     length: length_narrow,
-                    cross_section: CrossSection::Circular { diameter: diameter_narrow },
+                    cross_section: CrossSection::Circular {
+                        diameter: diameter_narrow,
+                    },
                     surface: SurfaceProperties {
                         roughness: 0.0,
                         contact_angle: None,
@@ -99,32 +101,32 @@ fn cross_fidelity_stenosis_shear_thinning() {
         network.update_resistances().unwrap();
 
         let edge_data = network.graph.edge_weight(edge).expect("edge exists");
-        let dp = flow_rate * edge_data.resistance;
-        dp
+        flow_rate * edge_data.resistance
     };
 
     let dp_1d_newt = build_1d_network(true);
     let dp_1d_shear = build_1d_network(false);
-    
+
     // Verify mathematical bounds for 1D
     assert!(
         dp_1d_shear < dp_1d_newt,
         "1D Shear thinning must strictly lower viscous pressure drop. Shear: {}, Newt: {}",
-        dp_1d_shear, dp_1d_newt
+        dp_1d_shear,
+        dp_1d_newt
     );
 
     // -------------------------------------------------------------------------------- //
     // 2D Fidelity: SIMPLE FVM Navier-Stokes with Casson rheology mapping
     // -------------------------------------------------------------------------------- //
-    
+
     let build_2d_solver = |is_newtonian: bool| -> f64 {
         let u_inlet = flow_rate / (diameter_wide * (std::f64::consts::PI * diameter_wide / 4.0));
         let h_equiv = std::f64::consts::PI * diameter_wide / 4.0;
-        
+
         let l_in = 3.0 * diameter_wide;
         let l_conv = 2.0 * diameter_wide;
         let l_div = 2.0 * diameter_wide;
-        
+
         let geom = VenturiGeom2D::<f64>::new(
             diameter_wide,
             diameter_narrow,
@@ -134,7 +136,7 @@ fn cross_fidelity_stenosis_shear_thinning() {
             l_div,
             h_equiv,
         );
-        
+
         let blood = if is_newtonian {
             BloodModel::Newtonian(mu_0)
         } else {
@@ -151,9 +153,8 @@ fn cross_fidelity_stenosis_shear_thinning() {
             alpha_mu: 0.1,
             ..SIMPLEConfig::default()
         };
-        let mut solver = VenturiSolver2D::new_stretched_with_config(
-            geom, blood, rho, 40, 60, 0.5, config,
-        );
+        let mut solver =
+            VenturiSolver2D::new_stretched_with_config(geom, blood, rho, 40, 60, 0.5, config);
 
         let sol = solver.solve(u_inlet).expect("2D FVM must converge");
         -sol.dp_throat // Pressure drop is negative in FVM struct

@@ -10,6 +10,7 @@
 //! - Ku, D. N. (1997). "Blood flow in arteries." Annual review of fluid mechanics, 29(1), 399-434.
 
 use super::{LiteratureValidation, ValidationReport};
+use crate::scalar::{self, ValidationScalar};
 use cfd_1d::{
     // Channel geometry types — re-exported at crate root from domain::channel
     ChannelGeometry,
@@ -28,8 +29,6 @@ use cfd_1d::{
     Wettability,
 };
 use cfd_core::{error::Result, physics::fluid::non_newtonian::CarreauYasuda};
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
 use std::collections::HashMap;
 
 /// Stenosis validation case (Venturi-like geometry)
@@ -41,22 +40,20 @@ use std::collections::HashMap;
 /// - Mass conservation
 /// - Pressure drop increase in constriction
 /// - Shear-thinning behavior (lower viscosity in constriction)
-pub struct StenosisValidation<T: RealField + Copy> {
+pub struct StenosisValidation<T: ValidationScalar> {
     accuracy: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> StenosisValidation<T> {
+impl<T: ValidationScalar> StenosisValidation<T> {
     /// Create a new stenosis validation test
     pub fn new() -> Self {
         Self {
-            accuracy: T::from_f64(1e-2).unwrap_or_else(num_traits::Zero::zero), // 1% accuracy target
+            accuracy: scalar::from_f64::<T>(1e-2), // 1% accuracy target
         }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> LiteratureValidation<T>
-    for StenosisValidation<T>
-{
+impl<T: ValidationScalar> LiteratureValidation<T> for StenosisValidation<T> {
     fn validate(&self) -> Result<ValidationReport<T>> {
         let mut builder = NetworkBuilder::new();
 
@@ -86,25 +83,24 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Lite
         let mut network = Network::new(graph, blood);
 
         // 5. Assign Properties (Geometry)
-        let mm = T::from_f64(1e-3).unwrap_or_else(num_traits::Zero::zero);
-        let d_wide = T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero) * mm;
-        let d_mid = T::from_f64(7.5).unwrap_or_else(num_traits::Zero::zero) * mm;
-        let d_narrow = T::from_f64(5.0).unwrap_or_else(num_traits::Zero::zero) * mm;
+        let mm = scalar::from_f64::<T>(1e-3);
+        let d_wide = scalar::from_f64::<T>(10.0) * mm;
+        let d_mid = scalar::from_f64::<T>(7.5) * mm;
+        let d_narrow = scalar::from_f64::<T>(5.0) * mm;
 
         // Ensure L/D > 10 for Hagen-Poiseuille validity
-        let l_wide = T::from_f64(150.0).unwrap_or_else(num_traits::Zero::zero) * mm;
-        let l_trans = T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero) * mm;
-        let l_narrow = T::from_f64(60.0).unwrap_or_else(num_traits::Zero::zero) * mm;
+        let l_wide = scalar::from_f64::<T>(150.0) * mm;
+        let l_trans = scalar::from_f64::<T>(100.0) * mm;
+        let l_narrow = scalar::from_f64::<T>(60.0) * mm;
 
         // Helper to create properties
         let create_props = |d: T, l: T| -> EdgeProperties<T> {
-            let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(num_traits::Zero::zero);
-            let area = pi * d * d / T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero);
+            let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+            let area = pi * d * d / scalar::from_f64::<T>(4.0);
             // Estimate initial resistance using Poiseuille for water (approx) to avoid huge initial flows
             // R = 128 * mu * L / (pi * D^4). mu_water ~ 1e-3.
-            let mu = T::from_f64(1e-3).unwrap_or_else(num_traits::Zero::zero);
-            let r_init = T::from_f64(128.0).unwrap_or_else(num_traits::Zero::zero) * mu * l
-                / (pi * num_traits::Float::powi(d, 4));
+            let mu = scalar::from_f64::<T>(1e-3);
+            let r_init = scalar::from_f64::<T>(128.0) * mu * l / (pi * scalar::powi(d, 4));
 
             EdgeProperties {
                 id: String::new(), // Overwritten by network map
@@ -140,7 +136,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Lite
 
         // 6. Set Boundary Conditions
         // Reduce pressure to ensure Laminar flow for shear thinning validation
-        let p_in = T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero);
+        let p_in = scalar::from_f64::<T>(100.0);
         let p_out = T::zero();
         network.set_pressure(n_inlet, p_in);
         network.set_pressure(n_outlet, p_out);
@@ -148,31 +144,42 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Lite
         // 7. Solve
         let problem = NetworkProblem::new(network);
         let solver = NetworkSolver::with_config(SolverConfig {
-            tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
+            tolerance: scalar::from_f64::<T>(1e-6),
             max_iterations: 100,
+            require_flow_convergence: true,
         });
 
         let solution = solver.solve_network(&problem)?;
 
         // 8. Analysis and Validation
-        let q1 = num_traits::Float::abs(solution.flow_rates.get(e1.index()).copied().unwrap_or(T::zero()));
-        let q3 = num_traits::Float::abs(solution.flow_rates.get(e3.index()).copied().unwrap_or(T::zero()));
-        let q_err = num_traits::Float::abs(q1 - q3);
+        let q1 = scalar::abs(
+            solution
+                .flow_rates
+                .get(e1.index())
+                .copied()
+                .unwrap_or(T::zero()),
+        );
+        let q3 = scalar::abs(
+            solution
+                .flow_rates
+                .get(e3.index())
+                .copied()
+                .unwrap_or(T::zero()),
+        );
+        let q_err = scalar::abs(q1 - q3);
 
-        let dp1 = num_traits::Float::abs(solution.pressures[n_inlet.index()] - solution.pressures[n1.index()]);
-        let dp3 =
-            num_traits::Float::abs(solution.pressures[n2.index()] - solution.pressures[n3.index()]);
+        let dp1 = scalar::abs(solution.pressures[n_inlet.index()] - solution.pressures[n1.index()]);
+        let dp3 = scalar::abs(solution.pressures[n2.index()] - solution.pressures[n3.index()]);
 
         let grad1 = dp1 / l_wide;
         let grad3 = dp3 / l_narrow;
 
         let grad_ratio = grad3 / grad1;
 
-        let mu_ratio = grad_ratio / T::from_f64(16.0).unwrap_or_else(num_traits::Zero::zero);
+        let mu_ratio = grad_ratio / scalar::from_f64::<T>(16.0);
         // Check if apparent viscosity is significantly reduced compared to Newtonian baseline
         // For Carreau-Yasuda blood model, high shear in stenosis drastically lowers viscosity.
-        let is_viscosity_reduced =
-            mu_ratio < T::from_f64(0.95).unwrap_or_else(num_traits::Zero::zero);
+        let is_viscosity_reduced = mu_ratio < scalar::from_f64::<T>(0.95);
 
         // Debug info from edges
         let mut details = String::new();
@@ -182,35 +189,34 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Lite
             details.push_str(&format!(
                 "Edge {} R: {:e}, k: {:e}\n",
                 edge_ref.id().index(),
-                w.resistance.to_f64().unwrap(),
-                w.quad_coeff.to_f64().unwrap()
+                scalar::to_f64(w.resistance),
+                scalar::to_f64(w.quad_coeff)
             ));
         }
 
-        details.push_str(&format!("Flow Rate Q: {:e} m3/s\n", q1.to_f64().unwrap()));
+        details.push_str(&format!("Flow Rate Q: {:e} m3/s\n", scalar::to_f64(q1)));
         details.push_str(&format!(
             "Pressure Gradient Wide: {:e} Pa/m\n",
-            grad1.to_f64().unwrap()
+            scalar::to_f64(grad1)
         ));
         details.push_str(&format!(
             "Pressure Gradient Stenosis: {:e} Pa/m\n",
-            grad3.to_f64().unwrap()
+            scalar::to_f64(grad3)
         ));
         details.push_str(&format!(
             "Gradient Ratio: {:.2} (Newtonian exp: 16.0)\n",
-            grad_ratio.to_f64().unwrap()
+            scalar::to_f64(grad_ratio)
         ));
         details.push_str(&format!(
             "Apparent Viscosity Ratio (Stenosis/Wide): {:.2}\n",
-            mu_ratio.to_f64().unwrap()
+            scalar::to_f64(mu_ratio)
         ));
 
         // In turbulent regime (if k > 0), simple ratio checks fail. We accept if Q is reasonable and mass conserved.
         // Or if we specifically targeted laminar regime (which we did by lowering pressure), we expect shear thinning.
         // However, if transition still happens or if "shear thinning" effect is small, we should be lenient.
         // We mainly validate that the simulation runs physically correctly AND shows shear thinning.
-        let passed = q_err < T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero)
-            && is_viscosity_reduced;
+        let passed = q_err < scalar::from_f64::<T>(1e-10) && is_viscosity_reduced;
 
         Ok(ValidationReport {
             test_name: "1D Stenosis Blood Flow".to_string(),
@@ -239,22 +245,20 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Lite
 /// Validates:
 /// - Flow splitting based on resistance
 /// - Mass conservation at junction
-pub struct BifurcationValidation<T: RealField + Copy> {
+pub struct BifurcationValidation<T: ValidationScalar> {
     accuracy: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> BifurcationValidation<T> {
+impl<T: ValidationScalar> BifurcationValidation<T> {
     /// Create a new bifurcation validation test
     pub fn new() -> Self {
         Self {
-            accuracy: T::from_f64(1e-2).unwrap_or_else(num_traits::Zero::zero),
+            accuracy: scalar::from_f64::<T>(1e-2),
         }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> LiteratureValidation<T>
-    for BifurcationValidation<T>
-{
+impl<T: ValidationScalar> LiteratureValidation<T> for BifurcationValidation<T> {
     fn validate(&self) -> Result<ValidationReport<T>> {
         let mut builder = NetworkBuilder::new();
 
@@ -271,18 +275,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Lite
         let blood = CarreauYasuda::<T>::blood();
         let mut network = Network::new(graph, blood);
 
-        let mm = T::from_f64(1e-3).unwrap_or_else(num_traits::Zero::zero);
+        let mm = scalar::from_f64::<T>(1e-3);
         // Parent: 10mm dia, 150mm len (L/D > 10)
         // Branch 1: 8mm dia, 100mm len
         // Branch 2: 6mm dia, 100mm len (Higher resistance)
 
         let create_props = |d: T, l: T| -> EdgeProperties<T> {
-            let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(num_traits::Zero::zero);
-            let area = pi * d * d / T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero);
+            let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+            let area = pi * d * d / scalar::from_f64::<T>(4.0);
             // Initial resistance guess
-            let mu = T::from_f64(1e-3).unwrap_or_else(num_traits::Zero::zero);
-            let r_init = T::from_f64(128.0).unwrap_or_else(num_traits::Zero::zero) * mu * l
-                / (pi * num_traits::Float::powi(d, 4));
+            let mu = scalar::from_f64::<T>(1e-3);
+            let r_init = scalar::from_f64::<T>(128.0) * mu * l / (pi * scalar::powi(d, 4));
 
             EdgeProperties {
                 id: String::new(),
@@ -311,22 +314,22 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Lite
         network.add_edge_properties(
             e_parent,
             create_props(
-                T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero) * mm,
-                T::from_f64(150.0).unwrap_or_else(num_traits::Zero::zero) * mm,
+                scalar::from_f64::<T>(10.0) * mm,
+                scalar::from_f64::<T>(150.0) * mm,
             ),
         );
         network.add_edge_properties(
             e_branch1,
             create_props(
-                T::from_f64(8.0).unwrap_or_else(num_traits::Zero::zero) * mm,
-                T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero) * mm,
+                scalar::from_f64::<T>(8.0) * mm,
+                scalar::from_f64::<T>(100.0) * mm,
             ),
         );
         network.add_edge_properties(
             e_branch2,
             create_props(
-                T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero) * mm,
-                T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero) * mm,
+                scalar::from_f64::<T>(6.0) * mm,
+                scalar::from_f64::<T>(100.0) * mm,
             ),
         );
 
@@ -334,32 +337,48 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Lite
         network.update_resistances()?;
 
         // Low pressure for laminar flow
-        network.set_pressure(
-            n_inlet,
-            T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero),
-        );
+        network.set_pressure(n_inlet, scalar::from_f64::<T>(10.0));
         network.set_pressure(n_out1, T::zero());
         network.set_pressure(n_out2, T::zero());
 
         let problem = NetworkProblem::new(network);
         let solver = NetworkSolver::with_config(SolverConfig {
-            tolerance: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
+            tolerance: scalar::from_f64::<T>(1e-6),
             max_iterations: 100,
+            require_flow_convergence: true,
         });
 
         let solution = solver.solve_network(&problem)?;
 
-        let q_parent = num_traits::Float::abs(solution.flow_rates.get(e_parent.index()).copied().unwrap_or(T::zero()));
-        let q_b1 = num_traits::Float::abs(solution.flow_rates.get(e_branch1.index()).copied().unwrap_or(T::zero()));
-        let q_b2 = num_traits::Float::abs(solution.flow_rates.get(e_branch2.index()).copied().unwrap_or(T::zero()));
+        let q_parent = scalar::abs(
+            solution
+                .flow_rates
+                .get(e_parent.index())
+                .copied()
+                .unwrap_or(T::zero()),
+        );
+        let q_b1 = scalar::abs(
+            solution
+                .flow_rates
+                .get(e_branch1.index())
+                .copied()
+                .unwrap_or(T::zero()),
+        );
+        let q_b2 = scalar::abs(
+            solution
+                .flow_rates
+                .get(e_branch2.index())
+                .copied()
+                .unwrap_or(T::zero()),
+        );
 
         // 1. Mass Conservation
         let sum_out = q_b1 + q_b2;
-        let mass_err = num_traits::Float::abs(q_parent - sum_out);
+        let mass_err = scalar::abs(q_parent - sum_out);
 
         // 2. Flow Splitting
         let flow_ratio = q_b1 / q_b2;
-        let expected_ratio_newtonian = T::from_f64(3.16).unwrap_or_else(num_traits::Zero::zero);
+        let expected_ratio_newtonian = scalar::from_f64::<T>(3.16);
 
         // Shear rate analysis:
         // R ~ 1/D^4. Q ~ D^4. V ~ Q/D^2 ~ D^2. Shear ~ V/D ~ D.
@@ -370,17 +389,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float> Lite
         let is_shear_thinning_split = flow_ratio > expected_ratio_newtonian;
 
         let mut details = String::new();
-        details.push_str(&format!("Q Parent: {:e}\n", q_parent.to_f64().unwrap()));
-        details.push_str(&format!("Q Branch 1 (8mm): {:e}\n", q_b1.to_f64().unwrap()));
-        details.push_str(&format!("Q Branch 2 (6mm): {:e}\n", q_b2.to_f64().unwrap()));
+        details.push_str(&format!("Q Parent: {:e}\n", scalar::to_f64(q_parent)));
+        details.push_str(&format!("Q Branch 1 (8mm): {:e}\n", scalar::to_f64(q_b1)));
+        details.push_str(&format!("Q Branch 2 (6mm): {:e}\n", scalar::to_f64(q_b2)));
         details.push_str(&format!(
             "Flow Ratio Q1/Q2: {:.2} (Newtonian exp: 3.16)\n",
-            flow_ratio.to_f64().unwrap()
+            scalar::to_f64(flow_ratio)
         ));
-        details.push_str(&format!("Mass Error: {:e}\n", mass_err.to_f64().unwrap()));
+        details.push_str(&format!("Mass Error: {:e}\n", scalar::to_f64(mass_err)));
 
-        let passed = mass_err < T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero)
-            && is_shear_thinning_split;
+        let passed = mass_err < scalar::from_f64::<T>(1e-10) && is_shear_thinning_split;
 
         Ok(ValidationReport {
             test_name: "1D Bifurcation Blood Flow".to_string(),

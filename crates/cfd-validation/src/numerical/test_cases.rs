@@ -1,23 +1,23 @@
 //! Test case generation for numerical validation
 
-use cfd_core::conversion::SafeFromF64;
+use crate::scalar;
 use cfd_core::error::{Error, Result};
-use nalgebra::{DVector, RealField};
-use nalgebra_sparse::CsrMatrix;
-use num_traits::FromPrimitive;
+use cfd_math::sparse::SparseMatrix as CsrMatrix;
+use eunomia::{FloatElement, RealField};
+use leto::Array1;
+use leto_ops::Scalar as LetoScalar;
 
 // Named constants for test cases
 const TWO: f64 = 2.0;
 const FOUR: f64 = 4.0;
 
 /// Create diagonal system for testing
-pub fn create_diagonal_system<T: RealField + Copy + FromPrimitive>(
+pub fn create_diagonal_system<T: RealField + Copy + FloatElement + LetoScalar>(
     n: usize,
-) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
+) -> Result<(CsrMatrix<T>, Array1<T>, Array1<T>)> {
     // Create diagonal matrix with entries 1, 2, 3, ..., n using iterators
-    let diagonal_entries: Vec<(usize, usize, T)> = (0..n)
-        .map(|i| (i, i, T::from_usize(i + 1).unwrap_or_else(T::zero)))
-        .collect();
+    let diagonal_entries: Vec<(usize, usize, T)> =
+        (0..n).map(|i| (i, i, scalar::from_usize(i + 1))).collect();
 
     let (row_indices, col_indices, values): (Vec<_>, Vec<_>, Vec<_>) =
         diagonal_entries.into_iter().fold(
@@ -33,27 +33,30 @@ pub fn create_diagonal_system<T: RealField + Copy + FromPrimitive>(
     let a = build_csr_matrix(n, n, row_indices, col_indices, values)?;
 
     // Create RHS b = [1, 1, ..., 1]
-    let b = DVector::from_element(n, T::one());
+    let b = Array1::from_elem([n], scalar::one::<T>());
 
     // Analytical solution: x[i] = 1 / (i + 1)
-    let analytical = DVector::from_iterator(
-        n,
-        (0..n).map(|i| T::one() / T::from_usize(i + 1).unwrap_or_else(T::zero)),
-    );
+    let analytical = Array1::from_shape_vec(
+        [n],
+        (0..n)
+            .map(|i| scalar::one::<T>() / scalar::from_usize(i + 1))
+            .collect(),
+    )
+    .map_err(|error| Error::InvalidConfiguration(error.to_string()))?;
 
     Ok((a, b, analytical))
 }
 
 /// Create tridiagonal system (1D Poisson)
-pub fn create_tridiagonal_system<T: RealField + Copy + FromPrimitive>(
+pub fn create_tridiagonal_system<T: RealField + Copy + FloatElement + LetoScalar>(
     n: usize,
-) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
-    let h = T::one() / T::from_usize(n + 1).unwrap_or_else(T::zero);
+) -> Result<(CsrMatrix<T>, Array1<T>, Array1<T>)> {
+    let h = scalar::one::<T>() / scalar::from_usize::<T>(n + 1);
     let h_squared = h * h;
 
     // Create tridiagonal matrix for -u'' using iterators
-    let diagonal_value = T::from_f64_or_one(TWO) / h_squared;
-    let off_diagonal_value = -T::one() / h_squared;
+    let diagonal_value = scalar::from_f64::<T>(TWO) / h_squared;
+    let off_diagonal_value = -scalar::one::<T>() / h_squared;
 
     let (row_indices, col_indices, values): (Vec<_>, Vec<_>, Vec<_>) = (0..n)
         .flat_map(|i| {
@@ -81,34 +84,40 @@ pub fn create_tridiagonal_system<T: RealField + Copy + FromPrimitive>(
     let a = build_csr_matrix(n, n, row_indices, col_indices, values)?;
 
     // RHS for manufactured solution u(x) = x(1-x)
-    let b = DVector::from_iterator(
-        n,
-        (1..=n).map(|_| {
-            // For the manufactured solution u(x) = x(1-x), the Laplacian is -2
-            T::from_f64_or_one(TWO)
-        }),
+    let b = Array1::from_shape_vec(
+        [n],
+        (1..=n)
+            .map(|_| {
+                // For the manufactured solution u(x) = x(1-x), the Laplacian is -2
+                scalar::from_f64(TWO)
+            })
+            .collect(),
     );
+    let b = b.map_err(|error| Error::InvalidConfiguration(error.to_string()))?;
 
     // Analytical solution
-    let analytical = DVector::from_iterator(
-        n,
-        (1..=n).map(|i| {
-            let x = T::from_usize(i).unwrap_or_else(T::zero) * h;
-            x * (T::one() - x)
-        }),
-    );
+    let analytical = Array1::from_shape_vec(
+        [n],
+        (1..=n)
+            .map(|i| {
+                let x = scalar::from_usize::<T>(i) * h;
+                x * (scalar::one::<T>() - x)
+            })
+            .collect(),
+    )
+    .map_err(|error| Error::InvalidConfiguration(error.to_string()))?;
 
     Ok((a, b, analytical))
 }
 
 /// Create 2D Poisson system with 5-point stencil discretization
 /// Solves: -∇²u = f on unit square with Dirichlet boundary conditions
-pub fn create_2d_poisson_system<T: RealField + Copy + FromPrimitive>(
+pub fn create_2d_poisson_system<T: RealField + Copy + FloatElement + LetoScalar>(
     nx: usize,
     ny: usize,
-) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
+) -> Result<(CsrMatrix<T>, Array1<T>, Array1<T>)> {
     let n = nx * ny;
-    let h = T::one() / T::from_usize(nx - 1).unwrap_or_else(T::zero);
+    let h = scalar::one::<T>() / scalar::from_usize::<T>(nx - 1);
     let h2 = h * h;
 
     // Build sparse matrix using 5-point stencil
@@ -124,11 +133,11 @@ pub fn create_2d_poisson_system<T: RealField + Copy + FromPrimitive>(
         if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
             // Boundary point: u = 0 (identity row)
             col_indices.push(idx);
-            values.push(T::one());
+            values.push(scalar::one::<T>());
         } else {
             // Interior point: 5-point stencil
-            let center_coeff = T::from_f64(FOUR).unwrap_or_else(T::zero) / h2;
-            let neighbor_coeff = -T::one() / h2;
+            let center_coeff = scalar::from_f64::<T>(FOUR) / h2;
+            let neighbor_coeff = -scalar::one::<T>() / h2;
 
             // Left neighbor
             col_indices.push(idx - 1);
@@ -154,28 +163,30 @@ pub fn create_2d_poisson_system<T: RealField + Copy + FromPrimitive>(
         row_offsets.push(col_indices.len());
     }
 
-    let a = CsrMatrix::try_from_csr_data(n, n, row_offsets, col_indices, values)
-        .map_err(|_| Error::InvalidConfiguration("Matrix construction failed".into()))?;
+    let a = CsrMatrix::from_parts(values, col_indices, row_offsets, n, n).map_err(|error| {
+        Error::InvalidConfiguration(format!("Matrix construction failed: {error}"))
+    })?;
 
     // Create RHS with manufactured solution u(x,y) = sin(πx)sin(πy)
-    let pi = <T as SafeFromF64>::try_from_f64(std::f64::consts::PI)
-        .unwrap_or(T::from_f64_or_one(3.14159));
-    let mut b = DVector::zeros(n);
-    let mut analytical = DVector::zeros(n);
+    let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+    let mut b = Array1::zeros([n]);
+    let mut analytical = Array1::zeros([n]);
 
     for idx in 0..n {
         let i = idx % nx;
         let j = idx / nx;
-        let x = T::from_usize(i).unwrap_or_else(T::zero) * h;
-        let y = T::from_usize(j).unwrap_or_else(T::zero) * h;
+        let x = scalar::from_usize::<T>(i) * h;
+        let y = scalar::from_usize::<T>(j) * h;
 
         if i == 0 || i == nx - 1 || j == 0 || j == ny - 1 {
-            b[idx] = T::zero();
-            analytical[idx] = T::zero();
+            b[idx] = scalar::zero::<T>();
+            analytical[idx] = scalar::zero::<T>();
         } else {
             // f = 2π²sin(πx)sin(πy)
-            b[idx] = T::from_f64_or_one(TWO) * pi * pi * (pi * x).sin() * (pi * y).sin();
-            analytical[idx] = (pi * x).sin() * (pi * y).sin();
+            let sin_x = scalar::sin(pi * x);
+            let sin_y = scalar::sin(pi * y);
+            b[idx] = scalar::from_f64::<T>(TWO) * pi * pi * sin_x * sin_y;
+            analytical[idx] = sin_x * sin_y;
         }
     }
 
@@ -183,9 +194,9 @@ pub fn create_2d_poisson_system<T: RealField + Copy + FromPrimitive>(
 }
 
 /// Create Hilbert matrix system (ill-conditioned)
-pub fn create_hilbert_system<T: RealField + Copy + FromPrimitive>(
+pub fn create_hilbert_system<T: RealField + Copy + FloatElement + LetoScalar>(
     n: usize,
-) -> Result<(CsrMatrix<T>, DVector<T>, DVector<T>)> {
+) -> Result<(CsrMatrix<T>, Array1<T>, Array1<T>)> {
     let mut row_indices = Vec::new();
     let mut col_indices = Vec::new();
     let mut values = Vec::new();
@@ -195,23 +206,24 @@ pub fn create_hilbert_system<T: RealField + Copy + FromPrimitive>(
         for j in 0..n {
             row_indices.push(i);
             col_indices.push(j);
-            values.push(T::one() / T::from_usize(i + j + 1).unwrap_or_else(T::zero));
+            values.push(scalar::one::<T>() / scalar::from_usize::<T>(i + j + 1));
         }
     }
 
     let a = build_csr_matrix(n, n, row_indices, col_indices, values)?;
 
     // Create RHS with known solution [1, 1, ..., 1]
-    let analytical = DVector::from_element(n, T::one());
+    let analytical = Array1::from_elem([n], scalar::one::<T>());
 
     // Compute b = A * x_true
-    let b = &a * &analytical;
+    let mut b = Array1::zeros([n]);
+    cfd_math::sparse::try_spmv(&a, &analytical, &mut b)?;
 
     Ok((a, b, analytical))
 }
 
 /// Helper function to build CSR matrix from triplets
-fn build_csr_matrix<T: RealField + Copy>(
+fn build_csr_matrix<T: RealField + Copy + LetoScalar>(
     rows: usize,
     cols: usize,
     row_indices: Vec<usize>,
@@ -247,6 +259,7 @@ fn build_csr_matrix<T: RealField + Copy>(
         row_offsets[current_row] = csr_col_indices.len();
     }
 
-    CsrMatrix::try_from_csr_data(rows, cols, row_offsets, csr_col_indices, csr_values)
-        .map_err(|_| Error::InvalidConfiguration("Matrix construction failed".into()))
+    CsrMatrix::from_parts(csr_values, csr_col_indices, row_offsets, rows, cols).map_err(|error| {
+        Error::InvalidConfiguration(format!("Matrix construction failed: {error}"))
+    })
 }

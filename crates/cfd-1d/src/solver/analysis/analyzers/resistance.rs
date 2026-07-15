@@ -2,28 +2,29 @@
 
 use super::traits::NetworkAnalyzer;
 use crate::domain::network::{Network, NetworkGraphExt};
-use cfd_core::error::ResistanceCalculationErrorKind as ResistanceCalculationError;
+use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::ResistanceAnalysis;
+use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
+use cfd_core::error::ResistanceCalculationErrorKind as ResistanceCalculationError;
 use cfd_core::error::Result;
 use cfd_core::physics::constants::physics::thermo::{P_ATM, T_STANDARD};
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::NumericElement;
 use petgraph::algo::all_simple_paths;
 use petgraph::visit::EdgeRef;
 use std::iter::Sum;
 
 /// Resistance analyzer for network components
-pub struct ResistanceAnalyzer<T: RealField + Copy> {
+pub struct ResistanceAnalyzer<T: Cfd1dScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> Default for ResistanceAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy> Default for ResistanceAnalyzer<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy> ResistanceAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy> ResistanceAnalyzer<T> {
     /// Create new resistance analyzer
     #[must_use]
     pub fn new() -> Self {
@@ -33,7 +34,7 @@ impl<T: RealField + Copy> ResistanceAnalyzer<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
+impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<T>
     for ResistanceAnalyzer<T>
 {
     type Result = ResistanceAnalysis<T>;
@@ -54,7 +55,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T>
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float + Sum> ResistanceAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
     fn populate_edge_resistances(
         &self,
         network: &Network<T>,
@@ -172,8 +173,8 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> ResistanceAnalyzer<T> {
                                 best_paths = vec![edge_ids];
                             }
                             Some(best) => {
-                                let diff = num_traits::Float::abs(resistance_sum - best);
-                                let scale = num_traits::Float::abs(best) + T::one();
+                                let diff = <T as NumericElement>::abs(resistance_sum - best);
+                                let scale = <T as NumericElement>::abs(best) + T::one();
                                 if resistance_sum > best {
                                     best_resistance = Some(resistance_sum);
                                     best_paths = vec![edge_ids];
@@ -191,7 +192,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> ResistanceAnalyzer<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float> ResistanceAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> ResistanceAnalyzer<T> {
     fn calculate_resistance(
         &self,
         properties: &crate::domain::network::EdgeProperties<T>,
@@ -215,16 +216,12 @@ impl<T: RealField + Copy + FromPrimitive + Float> ResistanceAnalyzer<T> {
             .properties
             .get(REF_TEMPERATURE_KEY)
             .copied()
-            .unwrap_or_else(|| {
-                T::from_f64(T_STANDARD).expect("Mathematical constant conversion compromised")
-            });
+            .unwrap_or_else(|| T::from_f64_or_one(T_STANDARD));
         let pressure = properties
             .properties
             .get(REF_PRESSURE_KEY)
             .copied()
-            .unwrap_or_else(|| {
-                T::from_f64(P_ATM).expect("Mathematical constant conversion compromised")
-            });
+            .unwrap_or_else(|| T::from_f64_or_one(P_ATM));
 
         let conditions = FlowConditions {
             reynolds_number: flow_rate.map(|q| {

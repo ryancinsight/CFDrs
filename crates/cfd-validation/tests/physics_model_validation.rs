@@ -553,7 +553,7 @@ fn ddes_shielding_smooth_transition() {
         let d = i as f64 * 0.05;
         let fd = ddes_shielding(nu_t, nu, d, strain, vorticity);
         assert!(
-            fd >= 0.0 && fd <= 1.0,
+            (0.0..=1.0).contains(&fd),
             "f_d must be bounded in [0,1], got {fd} at d={d}"
         );
 
@@ -729,7 +729,10 @@ fn multi_layer_bifurcation_with_sdt_acoustic_physics() {
         result.cancer_center_fraction.clamp(0.0, 1.0), // I_cav proxy
         transit_time,
     );
-    assert!(eta >= 0.0 && eta <= 1.0, "Activation must be bounded [0,1]");
+    assert!(
+        (0.0..=1.0).contains(&eta),
+        "Activation must be bounded [0,1]"
+    );
 
     // Step 4: Hemolysis check
     let hi = cfd_1d::giersiepen_hi(100.0, transit_time);

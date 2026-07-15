@@ -17,13 +17,16 @@
 
 use super::basis::SpectralBasis;
 use super::chebyshev::ChebyshevPolynomial;
-use cfd_core::error::Result;
-use nalgebra::{DMatrix, DVector, RealField};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use cfd_core::error::{Error, NumericalErrorKind, Result};
+use eunomia::RealField;
+use leto::{Array1, Array2};
+use leto_ops::{MatrixProduct, MatrixSolve, RealScalar};
 
 /// Boundary condition type for Poisson equation
 #[derive(Debug, Clone)]
-pub enum PoissonBoundaryCondition<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub enum PoissonBoundaryCondition<T: cfd_mesh::domain::core::Scalar + RealField + RealScalar + Copy>
+{
     /// Dirichlet: u = g on boundary
     Dirichlet(T),
     /// Neumann: ∂u/∂n = g on boundary
@@ -42,7 +45,7 @@ pub enum PoissonBoundaryCondition<T: cfd_mesh::domain::core::Scalar + RealField 
 }
 
 /// Spectral Poisson solver
-pub struct PoissonSolver<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct PoissonSolver<T: cfd_mesh::domain::core::Scalar + RealField + RealScalar + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
@@ -53,7 +56,10 @@ pub struct PoissonSolver<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     basis_z: ChebyshevPolynomial<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> PoissonSolver<T> {
+impl<T> PoissonSolver<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + RealScalar + Copy,
+{
     /// Create new Poisson solver with default Chebyshev basis
     pub fn new(nx: usize, ny: usize, nz: usize) -> Result<Self> {
         Ok(Self {
@@ -83,14 +89,23 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Poiss
     /// Using tensor product of 1D operators
     pub fn solve(
         &self,
-        f: &DVector<T>,
+        f: &Array1<T>,
         bc_x: &(PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
         bc_y: &(PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
         bc_z: &(PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
-    ) -> Result<DVector<T>> {
-        // Build the discrete Laplacian operator
+    ) -> Result<Array1<T>> {
+        let expected_len = self.nx * self.ny * self.nz;
+        if f.size() != expected_len {
+            return Err(Error::DimensionMismatch {
+                expected: expected_len,
+                actual: f.size(),
+            });
+        }
+
+        // Build the discrete Laplacian operator.
         let mut laplacian = self.build_laplacian_matrix()?;
-        let mut rhs = f.clone();
+        let mut rhs = Array1::from_vec([expected_len], f.iter().copied().collect())
+            .map_err(|error| Error::InvalidConfiguration(format!("Poisson RHS shape: {error}")))?;
 
         // Apply boundary conditions to all nodes on the boundary surfaces
         // X-boundaries
@@ -153,13 +168,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Poiss
             1,
         )?;
 
-        // Solve the linear system using LU decomposition
-        let lu = laplacian.lu();
-        let solution = lu.solve(&rhs).ok_or({
-            cfd_core::error::Error::Numerical(cfd_core::error::NumericalErrorKind::SingularMatrix)
-        })?;
-
-        Ok(solution)
+        // Solve the linear system using Leto-ops LU decomposition.
+        laplacian
+            .solve(&rhs.view())
+            .map_err(|error| Self::map_leto_error("PoissonSolver::solve", error))
     }
 
     fn get_indices_x(&self, i: usize) -> Vec<usize> {
@@ -193,32 +205,91 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Poiss
     }
 
     /// Build the discrete Laplacian matrix using Kronecker products
-    fn build_laplacian_matrix(&self) -> Result<DMatrix<T>> {
+    fn build_laplacian_matrix(&self) -> Result<Array2<T>> {
         // Get the 1D second-derivative operators from the basis functions
         let d2x = self.basis_x.second_derivative_matrix()?;
         let d2y = self.basis_y.second_derivative_matrix()?;
         let d2z = self.basis_z.second_derivative_matrix()?;
 
         // Get identity matrices of the appropriate sizes
-        let ix = DMatrix::<T>::identity(self.nx, self.nx);
-        let iy = DMatrix::<T>::identity(self.ny, self.ny);
-        let iz = DMatrix::<T>::identity(self.nz, self.nz);
+        let ix = Self::identity_matrix(self.nx);
+        let iy = Self::identity_matrix(self.ny);
+        let iz = Self::identity_matrix(self.nz);
 
         // Build the 3D operator by summing the Kronecker products
         // L = D2x ⊗ Iy ⊗ Iz + Ix ⊗ D2y ⊗ Iz + Ix ⊗ Iy ⊗ D2z
-        let term_x = d2x.kronecker(&iy).kronecker(&iz);
-        let term_y = ix.kronecker(&d2y).kronecker(&iz);
-        let term_z = ix.kronecker(&iy).kronecker(&d2z);
+        let term_x = d2x
+            .kron(&iy)
+            .and_then(|term| term.kron(&iz))
+            .map_err(|error| Self::map_leto_error("Poisson x-Laplacian kron", error))?;
+        let term_y = ix
+            .kron(&d2y)
+            .and_then(|term| term.kron(&iz))
+            .map_err(|error| Self::map_leto_error("Poisson y-Laplacian kron", error))?;
+        let term_z = ix
+            .kron(&iy)
+            .and_then(|term| term.kron(&d2z))
+            .map_err(|error| Self::map_leto_error("Poisson z-Laplacian kron", error))?;
 
-        let laplacian = term_x + term_y + term_z;
-        Ok(laplacian)
+        Self::add_three_matrices(&term_x, &term_y, &term_z)
+    }
+
+    fn identity_matrix(n: usize) -> Array2<T> {
+        Array2::from_shape_fn([n, n], |[row, col]| {
+            if row == col {
+                scalar::one::<T>()
+            } else {
+                scalar::zero::<T>()
+            }
+        })
+    }
+
+    fn add_three_matrices(
+        left: &Array2<T>,
+        middle: &Array2<T>,
+        right: &Array2<T>,
+    ) -> Result<Array2<T>> {
+        let shape = left.shape();
+        if middle.shape() != shape {
+            return Err(Error::DimensionMismatch {
+                expected: left.size(),
+                actual: middle.size(),
+            });
+        }
+        if right.shape() != shape {
+            return Err(Error::DimensionMismatch {
+                expected: left.size(),
+                actual: right.size(),
+            });
+        }
+
+        Array2::from_vec(
+            shape,
+            left.iter()
+                .zip(middle.iter())
+                .zip(right.iter())
+                .map(|((&x, &y), &z)| x + y + z)
+                .collect(),
+        )
+        .map_err(|error| Error::InvalidConfiguration(format!("Poisson Laplacian sum: {error}")))
+    }
+
+    fn map_leto_error(context: &str, error: leto::LetoError) -> Error {
+        if matches!(
+            &error,
+            leto::LetoError::StorageError { reason } if reason.contains("singular")
+        ) {
+            Error::Numerical(NumericalErrorKind::SingularMatrix)
+        } else {
+            Error::InvalidConfiguration(format!("{context}: {error}"))
+        }
     }
 
     /// Apply boundary conditions to the system
     fn apply_boundary_conditions(
         &self,
-        matrix: &mut DMatrix<T>,
-        rhs: &mut DVector<T>,
+        matrix: &mut Array2<T>,
+        rhs: &mut Array1<T>,
         bc: &PoissonBoundaryCondition<T>,
         boundary_indices: &[usize],
         basis: &ChebyshevPolynomial<T>,
@@ -231,14 +302,22 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Poiss
         // Normal direction factor:
         // Index 0 is x=1, normal is +direction
         // Index n-1 is x=-1, normal is -direction
-        let normal_factor = if local_idx == 0 { T::one() } else { -T::one() };
+        let normal_factor = if local_idx == 0 {
+            scalar::one::<T>()
+        } else {
+            -scalar::one::<T>()
+        };
 
         match bc {
             PoissonBoundaryCondition::Dirichlet(value) => {
                 for &idx in boundary_indices {
                     // Set row to identity
-                    for j in 0..matrix.ncols() {
-                        matrix[(idx, j)] = if idx == j { T::one() } else { T::zero() };
+                    for j in 0..matrix.shape()[1] {
+                        matrix[[idx, j]] = if idx == j {
+                            scalar::one::<T>()
+                        } else {
+                            scalar::zero::<T>()
+                        };
                     }
                     rhs[idx] = *value;
                 }
@@ -246,8 +325,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Poiss
             PoissonBoundaryCondition::Neumann(value) => {
                 for &idx in boundary_indices {
                     // Clear row
-                    for j in 0..matrix.ncols() {
-                        matrix[(idx, j)] = T::zero();
+                    for j in 0..matrix.shape()[1] {
+                        matrix[[idx, j]] = scalar::zero::<T>();
                     }
 
                     // ∂u/∂n = normal_factor * ∂u/∂x = value
@@ -258,7 +337,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Poiss
                         } else {
                             idx - (local_idx - m) * stride
                         };
-                        matrix[(idx, pencil_idx)] = normal_factor * diff_matrix[(local_idx, m)];
+                        matrix[[idx, pencil_idx]] = normal_factor * diff_matrix[[local_idx, m]];
                     }
                     rhs[idx] = *value;
                 }
@@ -266,8 +345,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Poiss
             PoissonBoundaryCondition::Robin { alpha, beta, value } => {
                 for &idx in boundary_indices {
                     // Clear row
-                    for j in 0..matrix.ncols() {
-                        matrix[(idx, j)] = T::zero();
+                    for j in 0..matrix.shape()[1] {
+                        matrix[[idx, j]] = scalar::zero::<T>();
                     }
 
                     // αu + β∂u/∂n = value
@@ -279,11 +358,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Poiss
                             idx - (local_idx - m) * stride
                         };
 
-                        let mut coeff = *beta * normal_factor * diff_matrix[(local_idx, m)];
+                        let mut coeff = *beta * normal_factor * diff_matrix[[local_idx, m]];
                         if m == local_idx {
                             coeff += *alpha;
                         }
-                        matrix[(idx, pencil_idx)] = coeff;
+                        matrix[[idx, pencil_idx]] = coeff;
                     }
                     rhs[idx] = *value;
                 }

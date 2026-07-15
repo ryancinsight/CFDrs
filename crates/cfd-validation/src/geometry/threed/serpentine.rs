@@ -1,7 +1,8 @@
 //! 3D Serpentine micromixer geometry implementation for CFD validation
 
 use super::super::{BoundaryCondition, BoundaryFace, Geometry3D, Point3D};
-use nalgebra::RealField;
+use crate::scalar;
+use eunomia::{FloatElement, RealField};
 
 /// 3D Serpentine channel geometry (Sine-wave)
 #[derive(Debug, Clone)]
@@ -28,7 +29,7 @@ impl<T: RealField + Copy> Serpentine3D<T> {
     }
 }
 
-impl<T: RealField + Copy> Geometry3D<T> for Serpentine3D<T> {
+impl<T: RealField + Copy + FloatElement> Geometry3D<T> for Serpentine3D<T> {
     fn clone_box(&self) -> Box<dyn Geometry3D<T>> {
         Box::new(self.clone())
     }
@@ -40,7 +41,7 @@ impl<T: RealField + Copy> Geometry3D<T> for Serpentine3D<T> {
     }
 
     fn distance_to_boundary(&self, _point: &Point3D<T>) -> T {
-        T::zero()
+        scalar::zero()
     }
 
     fn boundary_normal(&self, _point: &Point3D<T>) -> Option<Point3D<T>> {
@@ -49,18 +50,18 @@ impl<T: RealField + Copy> Geometry3D<T> for Serpentine3D<T> {
 
     fn boundary_condition(&self, face: BoundaryFace, _s: T, _t: T) -> BoundaryCondition<T> {
         match face {
-            BoundaryFace::Left => BoundaryCondition::Dirichlet(T::zero()),
-            BoundaryFace::Right => BoundaryCondition::Neumann(T::zero()),
-            _ => BoundaryCondition::Dirichlet(T::zero()),
+            BoundaryFace::Left => BoundaryCondition::Dirichlet(scalar::zero()),
+            BoundaryFace::Right => BoundaryCondition::Neumann(scalar::zero()),
+            _ => BoundaryCondition::Dirichlet(scalar::zero()),
         }
     }
 
     fn bounds(&self) -> (Point3D<T>, Point3D<T>) {
-        let total_l = self.wavelength * T::from_usize(self.num_periods).unwrap();
-        let half_d = self.diameter / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+        let total_l = self.wavelength * scalar::from_usize::<T>(self.num_periods);
+        let half_d = self.diameter / scalar::from_f64::<T>(2.0);
         (
-            Point3D::new(-self.amplitude - half_d, -half_d, T::zero(),),
-            Point3D::new(self.amplitude + half_d, half_d, total_l,),
+            Point3D::new(-self.amplitude - half_d, -half_d, scalar::zero()),
+            Point3D::new(self.amplitude + half_d, half_d, total_l),
         )
     }
 
@@ -73,11 +74,10 @@ impl<T: RealField + Copy> Geometry3D<T> for Serpentine3D<T> {
     }
 
     fn measure(&self) -> T {
-        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(num_traits::Zero::zero);
-        let total_l = self.wavelength * T::from_usize(self.num_periods).unwrap();
-        let area = pi
-            * (self.diameter / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero))
-                .powf(T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero));
+        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+        let total_l = self.wavelength * scalar::from_usize::<T>(self.num_periods);
+        let radius = self.diameter / scalar::from_f64::<T>(2.0);
+        let area = pi * scalar::powf(radius, scalar::from_f64::<T>(2.0));
         area * total_l
     }
 }

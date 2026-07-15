@@ -2,12 +2,12 @@
 
 use super::cross_section::CrossSection;
 use super::surface::SurfaceProperties;
-use nalgebra::RealField;
+use crate::scalar::Cfd1dScalar;
 use serde::{Deserialize, Serialize};
 
 /// Extended channel geometry representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChannelGeometry<T: RealField + Copy> {
+pub struct ChannelGeometry<T: Cfd1dScalar + Copy> {
     /// Channel type
     pub channel_type: ChannelType,
     /// Length \[m]
@@ -46,7 +46,7 @@ pub enum ChannelType {
 
 /// Geometric variation along channel length
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GeometricVariation<T: RealField + Copy> {
+pub struct GeometricVariation<T: Cfd1dScalar + Copy> {
     /// Position along channel [0-1]
     pub position: T,
     /// Scale factor for cross-section

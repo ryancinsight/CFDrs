@@ -87,9 +87,9 @@
 //! - Brackbill, J.U. et al. (1992). "A continuum method for modeling surface tension"
 //! - Scardovelli, R. & Zaleski, S. (1999). *Direct Numerical Simulation of Free-Surface and Interfacial Flow*
 
+use super::scalar::{self, VofScalar};
 use cfd_core::error::Result;
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use leto::geometry::Vector3;
 
 use super::advection::AdvectionMethod;
 use super::config::VofConfig;
@@ -97,7 +97,7 @@ use super::initialization::Initialization;
 use super::reconstruction::InterfaceReconstruction;
 
 /// VOF solver for multiphase flow
-pub struct VofSolver<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> {
+pub struct VofSolver<T: VofScalar> {
     pub(crate) config: VofConfig,
     /// Grid dimensions
     pub(crate) nx: usize,
@@ -119,7 +119,7 @@ pub struct VofSolver<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimiti
     pub(crate) curvature: Vec<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSolver<T> {
+impl<T: VofScalar> VofSolver<T> {
     /// Create VOF solver — convenience alias matching `LevelSetSolver::new` ergonomics.
     pub fn new(nx: usize, ny: usize, nz: usize, config: VofConfig) -> Result<Self> {
         if nx == 0 || ny == 0 || nz == 0 {
@@ -127,9 +127,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSo
                 "VOF grid dimensions must be positive".to_string(),
             ));
         }
-        let dx = T::one() / <T as FromPrimitive>::from_usize(nx).unwrap_or(T::one());
-        let dy = T::one() / <T as FromPrimitive>::from_usize(ny).unwrap_or(T::one());
-        let dz = T::one() / <T as FromPrimitive>::from_usize(nz).unwrap_or(T::one());
+        let dx = scalar::one::<T>() / scalar::from_usize(nx);
+        let dy = scalar::one::<T>() / scalar::from_usize(ny);
+        let dz = scalar::one::<T>() / scalar::from_usize(nz);
         Ok(Self::create(config, nx, ny, nz, dx, dy, dz))
     }
 
@@ -144,11 +144,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSo
             dx,
             dy,
             dz,
-            alpha: vec![T::zero(); grid_size],
-            alpha_previous: vec![T::zero(); grid_size],
+            alpha: vec![scalar::zero(); grid_size],
+            alpha_previous: vec![scalar::zero(); grid_size],
             velocity: vec![Vector3::zeros(); grid_size],
             normals: vec![Vector3::zeros(); grid_size],
-            curvature: vec![T::zero(); grid_size],
+            curvature: vec![scalar::zero(); grid_size],
         }
     }
 
@@ -301,7 +301,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSo
 
         // Enforce physical bounds: α ∈ [0, 1]
         for a in &mut self.alpha {
-            *a = num_traits::Float::max(T::zero(), num_traits::Float::min(T::one(), *a));
+            *a = scalar::max(scalar::zero(), scalar::min(scalar::one(), *a));
         }
 
         Ok(())
@@ -337,30 +337,26 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> VofSo
     /// spacing is not equivalent for diagonal flow on anisotropic meshes and
     /// does not target the accepted VOF CFL invariant.
     pub fn calculate_timestep(&self) -> T {
-        use num_traits::Float;
-
-        let mut max_advective_rate = T::zero();
+        let mut max_advective_rate = scalar::zero();
         for vel in &self.velocity {
-            let rate = Float::abs(vel.x) / self.dx
-                + Float::abs(vel.y) / self.dy
-                + Float::abs(vel.z) / self.dz;
+            let rate = scalar::abs(vel.x) / self.dx
+                + scalar::abs(vel.y) / self.dy
+                + scalar::abs(vel.z) / self.dz;
             if rate > max_advective_rate {
                 max_advective_rate = rate;
             }
         }
 
-        if max_advective_rate > T::zero() {
-            <T as FromPrimitive>::from_f64(self.config.cfl_number)
-                .expect("VOF cfl_number must be representable by the scalar type")
-                / max_advective_rate
+        if max_advective_rate > scalar::zero() {
+            scalar::constant::<T>(self.config.cfl_number) / max_advective_rate
         } else {
-            <T as FromPrimitive>::from_f64(1e-3).unwrap_or(T::one())
+            scalar::constant(1e-3)
         }
     }
 
     /// Check mass conservation
     pub fn total_volume(&self) -> T {
-        let mut total = T::zero();
+        let mut total = scalar::zero();
         let cell_volume = self.dx * self.dy * self.dz;
         for &alpha in &self.alpha {
             total += alpha * cell_volume;

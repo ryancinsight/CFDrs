@@ -7,16 +7,15 @@
 //! **Proof**: Derived from tensor representation theory requiring material-frame
 //! indifference and Galilean invariance (Speziale et al., 1991).
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
 
-fn c<T: RealField + Copy + FromPrimitive>(v: f64) -> T {
-    T::from_f64(v).expect("quadratic constant must be representable")
+fn c<T: RealField + Copy>(v: f64) -> T {
+    T::from_f64(v)
 }
 
 /// Compute `Φ_ij` for the quadratic pressure-strain (Speziale-Sarkar-Gatski slow) model.
 #[inline]
-pub fn pressure_strain_quadratic<T: RealField + Copy + FromPrimitive>(
+pub fn pressure_strain_quadratic<T: RealField + Copy>(
     c1: T,
     c1_star: T,
     c2_star: T,
@@ -55,6 +54,6 @@ pub fn pressure_strain_quadratic<T: RealField + Copy + FromPrimitive>(
                 c2_star * (a_yy * s11 - a_xy * s12 + two_thirds * (a_xx + a_yy) * (s11 + s22));
             (slow + rapid_sym + rapid_cross) / time_scale
         }
-        _ => T::zero(),
+        _ => T::ZERO,
     }
 }

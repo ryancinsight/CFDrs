@@ -31,16 +31,16 @@
 
 use super::{real_from_f64, Component};
 use crate::physics::resistance::models::ResistanceModel;
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Rectangular microchannel component
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RectangularChannel<T: RealField + Copy> {
+pub struct RectangularChannel<T: Cfd1dScalar + Copy> {
     /// Channel length \[m]
     pub length: T,
     /// Channel width \[m]
@@ -53,7 +53,7 @@ pub struct RectangularChannel<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> RectangularChannel<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> RectangularChannel<T> {
     /// Create a new rectangular channel
     pub fn new(length: T, width: T, height: T, roughness: T) -> Self {
         Self {
@@ -87,7 +87,7 @@ impl<T: RealField + Copy + FromPrimitive> RectangularChannel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Component<T> for RectangularChannel<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for RectangularChannel<T> {
     fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
         // Use the validated RectangularChannelModel for consistency
         let model = crate::physics::resistance::models::RectangularChannelModel {
@@ -140,7 +140,7 @@ impl<T: RealField + Copy + FromPrimitive> Component<T> for RectangularChannel<T>
 
 /// Circular microchannel component
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircularChannel<T: RealField + Copy> {
+pub struct CircularChannel<T: Cfd1dScalar + Copy> {
     /// Channel length \[m]
     pub length: T,
     /// Channel diameter \[m]
@@ -151,7 +151,7 @@ pub struct CircularChannel<T: RealField + Copy> {
     pub parameters: HashMap<String, T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> CircularChannel<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> CircularChannel<T> {
     /// Create a new circular channel
     pub fn new(length: T, diameter: T, roughness: T) -> Self {
         Self {
@@ -171,6 +171,51 @@ impl<T: RealField + Copy + FromPrimitive> CircularChannel<T> {
     /// Get hydraulic diameter (equals diameter for circular channels)
     pub fn hydraulic_diameter(&self) -> T {
         self.diameter
+    }
+}
+
+impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for CircularChannel<T> {
+    fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
+        // Use Hagen-Poiseuille model for laminar circular flow
+        let model = crate::physics::resistance::models::HagenPoiseuilleModel {
+            diameter: self.diameter,
+            length: self.length,
+        };
+        let conditions = crate::physics::resistance::models::FlowConditions::new(T::zero());
+        model
+            .calculate_resistance(fluid, &conditions)
+            .unwrap_or_else(|_| real_from_f64(1e12))
+    }
+
+    fn coefficients(&self, fluid: &ConstantPropertyFluid<T>) -> (T, T) {
+        // By default, components return laminar resistance.
+        // For turbulent flow, one should use the ResistanceCalculator or a model
+        // that supports flow-dependent coefficients.
+        (self.resistance(fluid), T::zero())
+    }
+
+    fn component_type(&self) -> &'static str {
+        "CircularChannel"
+    }
+
+    fn parameters(&self) -> &HashMap<String, T> {
+        &self.parameters
+    }
+
+    fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
+        match key {
+            "length" => self.length = value,
+            "diameter" => self.diameter = value,
+            "roughness" => self.roughness = value,
+            _ => {
+                self.parameters.insert(key.to_string(), value);
+            }
+        }
+        Ok(())
+    }
+
+    fn volume(&self) -> Option<T> {
+        Some(self.length * self.area())
     }
 }
 
@@ -238,50 +283,5 @@ mod tests {
         let chan = CircularChannel::<f64>::new(l, d, 0.0);
         let expected = l * std::f64::consts::PI * d * d / 4.0;
         assert_relative_eq!(chan.volume().unwrap(), expected, epsilon = 1e-15);
-    }
-}
-
-impl<T: RealField + Copy + FromPrimitive> Component<T> for CircularChannel<T> {
-    fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
-        // Use Hagen-Poiseuille model for laminar circular flow
-        let model = crate::physics::resistance::models::HagenPoiseuilleModel {
-            diameter: self.diameter,
-            length: self.length,
-        };
-        let conditions = crate::physics::resistance::models::FlowConditions::new(T::zero());
-        model
-            .calculate_resistance(fluid, &conditions)
-            .unwrap_or_else(|_| real_from_f64(1e12))
-    }
-
-    fn coefficients(&self, fluid: &ConstantPropertyFluid<T>) -> (T, T) {
-        // By default, components return laminar resistance.
-        // For turbulent flow, one should use the ResistanceCalculator or a model
-        // that supports flow-dependent coefficients.
-        (self.resistance(fluid), T::zero())
-    }
-
-    fn component_type(&self) -> &'static str {
-        "CircularChannel"
-    }
-
-    fn parameters(&self) -> &HashMap<String, T> {
-        &self.parameters
-    }
-
-    fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
-        match key {
-            "length" => self.length = value,
-            "diameter" => self.diameter = value,
-            "roughness" => self.roughness = value,
-            _ => {
-                self.parameters.insert(key.to_string(), value);
-            }
-        }
-        Ok(())
-    }
-
-    fn volume(&self) -> Option<T> {
-        Some(self.length * self.area())
     }
 }

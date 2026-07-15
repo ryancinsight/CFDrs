@@ -1,12 +1,12 @@
-//! Runtime dispatch for compute operations
+//! Runtime dispatch for compute operations.
 
 use super::backend::{BackendContext, ComputeCapability};
 use super::traits::{ComputeBackend, ComputeKernel, KernelParams};
 use crate::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::sync::Arc;
 
-/// Compute dispatcher that selects appropriate backend at runtime
+/// Compute dispatcher for an explicit backend context.
 pub struct ComputeDispatcher {
     /// Backend context
     context: BackendContext,
@@ -15,7 +15,7 @@ pub struct ComputeDispatcher {
 }
 
 impl ComputeDispatcher {
-    /// Create a new dispatcher with automatic backend selection
+    /// Create a new dispatcher with capability-selected backend preference.
     ///
     /// # Errors
     /// Returns error if no suitable compute backend is available on this system
@@ -44,26 +44,26 @@ impl ComputeDispatcher {
         })
     }
 
-    /// Execute a kernel with automatic backend selection
+    /// Execute a kernel on the dispatcher's backend.
     ///
     /// # Errors
     /// Returns error if kernel execution fails or if input/output buffers are invalid
     pub fn execute<T: RealField + Copy>(
         &self,
-        kernel: &dyn ComputeKernel<T>,
+        kernel: &impl ComputeKernel<T>,
         input: &[T],
         output: &mut [T],
         params: KernelParams,
     ) -> Result<()> {
-        // Select backend based on problem size and kernel support
-        let backend = if kernel.supports_backend(&self.context.backend) {
-            self.context.backend
-        } else {
-            // Fallback to CPU if kernel doesn't support current backend
-            ComputeBackend::Cpu
-        };
+        if !kernel.supports_backend(&self.context.backend) {
+            return Err(crate::error::Error::UnsupportedOperation(format!(
+                "kernel '{}' does not support requested backend {:?}",
+                kernel.name(),
+                self.context.backend
+            )));
+        }
 
-        match backend {
+        match self.context.backend {
             ComputeBackend::Cpu => Self::execute_cpu(kernel, input, output, params),
             ComputeBackend::Simd => Self::execute_simd(kernel, input, output, params),
             ComputeBackend::Gpu => self.execute_gpu(kernel, input, output, params),
@@ -73,7 +73,7 @@ impl ComputeDispatcher {
 
     /// Execute on CPU backend
     fn execute_cpu<T: RealField + Copy>(
-        kernel: &dyn ComputeKernel<T>,
+        kernel: &impl ComputeKernel<T>,
         input: &[T],
         output: &mut [T],
         params: KernelParams,
@@ -83,23 +83,23 @@ impl ComputeDispatcher {
 
     /// Execute on SIMD backend
     fn execute_simd<T: RealField + Copy>(
-        kernel: &dyn ComputeKernel<T>,
+        kernel: &impl ComputeKernel<T>,
         input: &[T],
         output: &mut [T],
         params: KernelParams,
     ) -> Result<()> {
-        // Check if we can use SIMD, otherwise fall back to CPU
-        if ComputeBackend::Simd.is_available() {
-            kernel.execute(input, output, params)
-        } else {
-            Self::execute_cpu(kernel, input, output, params)
+        if !ComputeBackend::Simd.is_available() {
+            return Err(crate::error::Error::UnsupportedOperation(
+                "SIMD backend is not available on this system".to_string(),
+            ));
         }
+        kernel.execute(input, output, params)
     }
 
     /// Execute on GPU backend
     fn execute_gpu<T: RealField + Copy>(
         &self,
-        kernel: &dyn ComputeKernel<T>,
+        kernel: &impl ComputeKernel<T>,
         input: &[T],
         output: &mut [T],
         params: KernelParams,
@@ -107,45 +107,50 @@ impl ComputeDispatcher {
         #[cfg(feature = "gpu")]
         {
             if let Some(ref gpu_context) = self.context.gpu_context {
-                // Check if kernel supports GPU execution
                 if !kernel.supports_backend(&ComputeBackend::Gpu) {
-                    return Self::execute_cpu(kernel, input, output, params);
+                    return Err(crate::error::Error::UnsupportedOperation(format!(
+                        "kernel '{}' does not support requested backend {:?}",
+                        kernel.name(),
+                        ComputeBackend::Gpu
+                    )));
                 }
-
-                // Attempt GPU execution
-                match kernel.execute_gpu(gpu_context, input, output, params) {
-                    Ok(result) => Ok(result),
-                    Err(e) => {
-                        tracing::warn!("GPU execution failed: {}, falling back to CPU", e);
-                        Self::execute_cpu(kernel, input, output, params)
-                    }
-                }
+                kernel.execute_gpu(gpu_context, input, output, params)
             } else {
-                Self::execute_cpu(kernel, input, output, params)
+                Err(crate::error::Error::UnsupportedOperation(
+                    "GPU backend was requested without an initialized Hephaestus context"
+                        .to_string(),
+                ))
             }
         }
         #[cfg(not(feature = "gpu"))]
         {
-            Self::execute_cpu(kernel, input, output, params)
+            Err(crate::error::Error::UnsupportedOperation(
+                "GPU backend was requested but the gpu feature is disabled".to_string(),
+            ))
         }
     }
 
-    /// Execute on hybrid backend (split between CPU and GPU)
+    /// Execute on the strongest supported member of the hybrid backend.
     fn execute_hybrid<T: RealField + Copy>(
         &self,
-        kernel: &dyn ComputeKernel<T>,
+        kernel: &impl ComputeKernel<T>,
         input: &[T],
         output: &mut [T],
         params: KernelParams,
     ) -> Result<()> {
-        // Backend dispatch: Select best available compute backend.
-        // Priority: GPU > SIMD > CPU (future: hybrid GPU+CPU for large problems)
-        if ComputeBackend::Gpu.is_available() {
+        if kernel.supports_backend(&ComputeBackend::Gpu) && ComputeBackend::Gpu.is_available() {
             self.execute_gpu(kernel, input, output, params)
-        } else if ComputeBackend::Simd.is_available() {
+        } else if kernel.supports_backend(&ComputeBackend::Simd)
+            && ComputeBackend::Simd.is_available()
+        {
             Self::execute_simd(kernel, input, output, params)
-        } else {
+        } else if kernel.supports_backend(&ComputeBackend::Cpu) {
             Self::execute_cpu(kernel, input, output, params)
+        } else {
+            Err(crate::error::Error::UnsupportedOperation(format!(
+                "kernel '{}' does not support any available hybrid backend member",
+                kernel.name()
+            )))
         }
     }
 

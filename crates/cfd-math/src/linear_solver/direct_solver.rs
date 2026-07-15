@@ -1,6 +1,7 @@
 //! Direct sparse solver for linear systems.
 //!
-//! Uses rsparse (CSparse-based LU) for robust direct solves of sparse matrices.
+//! Uses rsparse (CSparse-based LU) for sparse solves and Leto LU for the dense
+//! fallback path over the public Leto CSR sparse-solver storage boundary.
 //!
 //! # Theorem — LU Factorisation Uniqueness
 //!
@@ -10,11 +11,13 @@
 //! Markowitz pivoting to maintain sparsity.
 
 use cfd_core::error::{Error, Result};
-use nalgebra::{DMatrix, DVector, RealField};
-use nalgebra_sparse::CsrMatrix;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::Array1;
+use leto_ops::{CsrMatrix, RealScalar as LetoRealScalar};
 use rsparse::data::Sprs;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+
+use super::dense_bridge::solve_leto_csr_with_leto_dense_array;
 
 /// Direct sparse solver configuration.
 #[derive(Debug, Clone)]
@@ -44,19 +47,20 @@ impl DirectSparseSolver {
     }
 
     /// Solve Ax = b using sparse LU factorization.
-    pub fn solve<T>(&self, matrix: &CsrMatrix<T>, rhs: &DVector<T>) -> Result<DVector<T>>
+    pub fn solve<T>(&self, matrix: &CsrMatrix<T>, rhs: &Array1<T>) -> Result<Array1<T>>
     where
-        T: RealField + Copy + FromPrimitive + ToPrimitive,
+        T: RealField + Copy + FloatElement + LetoRealScalar,
     {
         let nrows = matrix.nrows();
         let ncols = matrix.ncols();
+        let rhs_len = rhs.shape()[0];
 
         if nrows != ncols {
             return Err(Error::InvalidConfiguration(
                 "Direct solver requires a square matrix".to_string(),
             ));
         }
-        if rhs.len() != nrows {
+        if rhs_len != nrows {
             return Err(Error::InvalidConfiguration(
                 "RHS dimension does not match matrix size".to_string(),
             ));
@@ -70,7 +74,7 @@ impl DirectSparseSolver {
 
         match sparse_result {
             Ok(Ok(())) => {
-                let mut x = DVector::zeros(nrows);
+                let mut x = Array1::from_elem([nrows], <T as NumericElement>::ZERO);
                 for (i, value) in b.iter().enumerate() {
                     x[i] = Self::convert_solution_value(*value)?;
                 }
@@ -97,12 +101,12 @@ impl DirectSparseSolver {
     fn retry_dense_or_error<T>(
         &self,
         matrix: &CsrMatrix<T>,
-        rhs: &DVector<T>,
+        rhs: &Array1<T>,
         nrows: usize,
         sparse_error: String,
-    ) -> Result<DVector<T>>
+    ) -> Result<Array1<T>>
     where
-        T: RealField + Copy + FromPrimitive + ToPrimitive,
+        T: RealField + Copy + FloatElement + LetoRealScalar,
     {
         let dense_threshold = 1024usize;
         if nrows <= dense_threshold {
@@ -112,7 +116,8 @@ impl DirectSparseSolver {
                 pivot_tolerance = self.pivot_tolerance,
                 "Direct sparse LU failed; retrying with dense LU"
             );
-            let dense_solution = dense_lu_solve(matrix, rhs).map_err(|dense_error| {
+            let dense_solution =
+                solve_leto_csr_with_leto_dense_array(matrix, rhs).map_err(|dense_error| {
                 Error::Solver(format!(
                     "Direct sparse LU failed: {sparse_error}; dense LU fallback failed: {dense_error}"
                 ))
@@ -128,14 +133,10 @@ impl DirectSparseSolver {
 
     fn convert_solution_value<T>(value: f64) -> Result<T>
     where
-        T: RealField + Copy + FromPrimitive + ToPrimitive,
+        T: RealField + Copy + FloatElement,
     {
-        let converted = T::from_f64(value).ok_or_else(|| {
-            Error::ConversionError(format!(
-                "Direct sparse LU solution value {value} cannot be represented in target precision"
-            ))
-        })?;
-        if !converted.to_f64().is_some_and(f64::is_finite) {
+        let converted = <T as FloatElement>::from_f64(value);
+        if !NumericElement::to_f64(converted).is_finite() {
             return Err(Error::ConversionError(format!(
                 "Direct sparse LU solution value {value} cannot be represented in target precision"
             )));
@@ -143,12 +144,12 @@ impl DirectSparseSolver {
         Ok(converted)
     }
 
-    fn ensure_finite_solution<T>(solution: &DVector<T>) -> Result<()>
+    fn ensure_finite_solution<T>(solution: &Array1<T>) -> Result<()>
     where
-        T: RealField + Copy + FromPrimitive + ToPrimitive,
+        T: RealField + Copy + FloatElement,
     {
         for (index, value) in solution.iter().enumerate() {
-            if !value.to_f64().is_some_and(f64::is_finite) {
+            if !NumericElement::to_f64(*value).is_finite() {
                 return Err(Error::ConversionError(format!(
                     "Direct dense LU solution entry {index} cannot be represented in target precision"
                 )));
@@ -158,39 +159,14 @@ impl DirectSparseSolver {
     }
 }
 
-fn dense_lu_solve<T>(matrix: &CsrMatrix<T>, rhs: &DVector<T>) -> Result<DVector<T>>
+fn csr_to_csc_sprs_f64<T>(matrix: &CsrMatrix<T>, rhs: &Array1<T>) -> Result<(Sprs<f64>, Vec<f64>)>
 where
-    T: RealField + Copy + FromPrimitive + ToPrimitive,
-{
-    let nrows = matrix.nrows();
-    let ncols = matrix.ncols();
-    let mut dense = DMatrix::zeros(nrows, ncols);
-
-    let row_offsets = matrix.row_offsets();
-    let col_indices = matrix.col_indices();
-    let values = matrix.values();
-
-    for row in 0..nrows {
-        for idx in row_offsets[row]..row_offsets[row + 1] {
-            dense[(row, col_indices[idx])] = values[idx];
-        }
-    }
-
-    let solution = dense
-        .lu()
-        .solve(rhs)
-        .ok_or_else(|| Error::Solver("Dense LU failed: matrix is singular".to_string()))?;
-    Ok(solution)
-}
-
-fn csr_to_csc_sprs_f64<T>(matrix: &CsrMatrix<T>, rhs: &DVector<T>) -> Result<(Sprs<f64>, Vec<f64>)>
-where
-    T: RealField + Copy + FromPrimitive + ToPrimitive,
+    T: RealField + Copy + FloatElement + LetoRealScalar,
 {
     let nrows = matrix.nrows();
     let ncols = matrix.ncols();
     let nnz = matrix.nnz();
-    let row_offsets = matrix.row_offsets();
+    let row_offsets = matrix.row_ptr();
     let col_indices = matrix.col_indices();
     let values = matrix.values();
 
@@ -215,19 +191,26 @@ where
             let col = col_indices[idx];
             let dst = next[col];
             i[dst] = row;
-            let value = values[idx].to_f64().ok_or_else(|| {
-                Error::InvalidConfiguration("Matrix value not convertible to f64".to_string())
-            })?;
+            let value = NumericElement::to_f64(values[idx]);
+            if !value.is_finite() {
+                return Err(Error::InvalidConfiguration(
+                    "Matrix value is not finite for direct sparse LU".to_string(),
+                ));
+            }
             x[dst] = value;
             next[col] += 1;
         }
     }
 
-    let mut b = Vec::with_capacity(rhs.len());
+    let mut b = Vec::with_capacity(rhs.shape()[0]);
     for value in rhs.iter() {
-        b.push(value.to_f64().ok_or_else(|| {
-            Error::InvalidConfiguration("RHS value not convertible to f64".to_string())
-        })?);
+        let value = NumericElement::to_f64(*value);
+        if !value.is_finite() {
+            return Err(Error::InvalidConfiguration(
+                "RHS value is not finite for direct sparse LU".to_string(),
+            ));
+        }
+        b.push(value);
     }
 
     let sprs = Sprs {
@@ -246,6 +229,7 @@ where
 mod tests {
     use super::*;
     use crate::sparse::SparseMatrixBuilder;
+    use leto::Array1;
     use std::panic::{catch_unwind, AssertUnwindSafe};
 
     #[test]
@@ -256,10 +240,11 @@ mod tests {
         builder.add_entry(1, 0, 1.0_f64).unwrap();
         builder.add_entry(1, 1, 2.0_f64).unwrap();
 
-        let mut rhs = DVector::from_vec(vec![9.0_f64, 8.0_f64]);
-        let matrix = builder.build_with_rhs(&mut rhs).unwrap();
+        let mut assembly_rhs = Array1::from_shape_vec([2], vec![9.0_f64, 8.0_f64]).unwrap();
+        let matrix = builder.build_with_rhs(&mut assembly_rhs).unwrap();
 
         let solver = DirectSparseSolver::default();
+        let rhs = Array1::from_shape_vec([2], vec![9.0_f64, 8.0_f64]).unwrap();
         let x = solver.solve(&matrix, &rhs).unwrap();
 
         assert!((x[0] - 2.0_f64).abs() < 1e-8_f64);
@@ -269,10 +254,11 @@ mod tests {
     #[test]
     fn direct_solver_singular_system_does_not_panic() {
         let builder = SparseMatrixBuilder::new(2, 2);
-        let mut rhs = DVector::from_vec(vec![0.0_f64, 0.0_f64]);
-        let matrix = builder.build_with_rhs(&mut rhs).unwrap();
+        let mut assembly_rhs = Array1::from_shape_vec([2], vec![0.0_f64, 0.0_f64]).unwrap();
+        let matrix = builder.build_with_rhs(&mut assembly_rhs).unwrap();
 
         let solver = DirectSparseSolver::default();
+        let rhs = Array1::from_shape_vec([2], vec![0.0_f64, 0.0_f64]).unwrap();
         let result = catch_unwind(AssertUnwindSafe(|| solver.solve(&matrix, &rhs)));
 
         assert!(
@@ -287,10 +273,11 @@ mod tests {
         let mut builder = SparseMatrixBuilder::new(1, 1);
         builder.add_entry(0, 0, 1.0e-39_f32).unwrap();
 
-        let mut rhs = DVector::from_vec(vec![1.0_f32]);
-        let matrix = builder.build_with_rhs(&mut rhs).unwrap();
+        let mut assembly_rhs = Array1::from_shape_vec([1], vec![1.0_f32]).unwrap();
+        let matrix = builder.build_with_rhs(&mut assembly_rhs).unwrap();
 
         let solver = DirectSparseSolver::default();
+        let rhs = Array1::from_shape_vec([1], vec![1.0_f32]).unwrap();
         let err = solver.solve(&matrix, &rhs).unwrap_err();
 
         match err {
@@ -302,5 +289,23 @@ mod tests {
             }
             other => panic!("Expected ConversionError, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn dense_lu_fallback_uses_leto_provider() {
+        let mut builder = SparseMatrixBuilder::new(2, 2);
+        builder.add_entry(0, 0, 4.0_f64).unwrap();
+        builder.add_entry(0, 1, 1.0_f64).unwrap();
+        builder.add_entry(1, 0, 2.0_f64).unwrap();
+        builder.add_entry(1, 1, 3.0_f64).unwrap();
+
+        let mut assembly_rhs = Array1::from_shape_vec([2], vec![1.0_f64, 7.0_f64]).unwrap();
+        let matrix = builder.build_with_rhs(&mut assembly_rhs).unwrap();
+
+        let rhs = Array1::from_shape_vec([2], vec![1.0_f64, 7.0_f64]).unwrap();
+        let x = solve_leto_csr_with_leto_dense_array(&matrix, &rhs).unwrap();
+
+        assert!((x[0] + 0.4_f64).abs() < 1e-12_f64);
+        assert!((x[1] - 2.6_f64).abs() < 1e-12_f64);
     }
 }

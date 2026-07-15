@@ -1,6 +1,6 @@
 //! Conservation history tracking
 
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 /// Track conservation properties over time

@@ -3,8 +3,8 @@
 //! Reference: Rhie, C.M. and Chow, W.L. (1983). "Numerical study of the turbulent
 //! flow past an airfoil with trailing edge separation". AIAA Journal, 21(11), 1525-1532.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use eunomia::RealField;
 
 /// Rhie-Chow interpolation for pressure-velocity coupling
 ///
@@ -19,20 +19,20 @@ pub struct RhieChowInterpolation<T: RealField + Copy> {
     alpha: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
+impl<T: RealField + FloatElement + Copy> RhieChowInterpolation<T> {
     /// Create new Rhie-Chow interpolator
     pub fn new(dx: T, dy: T) -> Self {
         Self {
             dx,
             dy,
-            alpha: T::from_f64(0.8).unwrap_or_else(T::one),
+            alpha: <T as FloatElement>::from_f64(0.8),
         }
     }
 
     /// Helper to get the constant 2.0 safely
     #[inline]
     fn two() -> T {
-        T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one())
+        <T as FloatElement>::from_f64(2.0)
     }
 
     /// Interpolate velocity to face with pressure correction
@@ -93,5 +93,62 @@ impl<T: RealField + FromPrimitive + Copy> RhieChowInterpolation<T> {
         // Rhie-Chow correction with relaxation
         let correction = d_f * dp_dy;
         v_bar - self.alpha * correction
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RhieChowInterpolation;
+
+    fn assert_close(actual: f64, expected: f64) {
+        let scale = actual.abs().max(expected.abs()).max(1.0);
+        // Straight-line interpolation has fewer than eight rounded operations.
+        let tolerance = f64::EPSILON * scale * 8.0;
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "actual={actual}, expected={expected}, tolerance={tolerance}"
+        );
+    }
+
+    #[test]
+    fn u_face_interpolation_applies_pressure_correction() {
+        let interpolation = RhieChowInterpolation::new(0.5_f64, 0.25);
+
+        let actual = interpolation.interpolate_u_face(
+            2.0,  // u_p
+            4.0,  // u_e
+            10.0, // p_p
+            14.0, // p_e
+            3.0,  // a_p
+            5.0,  // a_e
+            0.2,  // dt
+        );
+
+        let u_bar = f64::midpoint(2.0, 4.0);
+        let d_f = 0.2 * 2.0 / (3.0 + 5.0);
+        let dp_dx = (14.0 - 10.0) / 0.5;
+        let expected = u_bar - 0.8 * d_f * dp_dx;
+        assert_close(actual, expected);
+    }
+
+    #[test]
+    fn v_face_interpolation_applies_pressure_correction() {
+        let interpolation = RhieChowInterpolation::new(0.5_f64, 0.25);
+
+        let actual = interpolation.interpolate_v_face(
+            -1.0, // v_p
+            3.0,  // v_n
+            8.0,  // p_p
+            9.0,  // p_n
+            2.0,  // a_p
+            6.0,  // a_n
+            0.4,  // dt
+        );
+
+        let v_bar = f64::midpoint(-1.0, 3.0);
+        let d_f = 0.4 * 2.0 / (2.0 + 6.0);
+        let dp_dy = (9.0 - 8.0) / 0.25;
+        let expected = v_bar - 0.8 * d_f * dp_dy;
+        assert_close(actual, expected);
     }
 }

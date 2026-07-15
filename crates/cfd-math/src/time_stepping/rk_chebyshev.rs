@@ -38,8 +38,20 @@
 //! The stability limit is $\beta \approx (w_0 + 1) s^2 / 2 \approx 0.8 s^2$ for damped RKC.
 
 use crate::error::Result;
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use crate::time_stepping::traits::{from_f64, one, state_len, state_zeros, zero, TimeState};
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
+
+fn from_usize<T: FloatElement>(value: usize) -> T {
+    const MAX_EXACT_F64_INTEGER: u64 = 1_u64 << f64::MANTISSA_DIGITS;
+    let value_u64 =
+        u64::try_from(value).expect("invariant: usize value fits in u64 for RKC scalar conversion");
+    assert!(
+        value_u64 <= MAX_EXACT_F64_INTEGER,
+        "RKC scalar conversion requires exact f64 representation of usize value"
+    );
+    from_f64(<u64 as NumericElement>::to_f64(value_u64))
+}
 
 /// RKC method configuration
 #[derive(Debug, Clone, Copy)]
@@ -56,14 +68,14 @@ pub struct RkcConfig<T: RealField + Copy> {
     pub safety_factor: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for RkcConfig<T> {
+impl<T: RealField + Copy + FloatElement> Default for RkcConfig<T> {
     fn default() -> Self {
         Self {
             num_stages: 10,
-            damping: T::from_f64(2.0 / 13.0).unwrap_or_else(num_traits::Zero::zero),
-            atol: T::from_f64(1e-8).unwrap_or_else(num_traits::Zero::zero),
-            rtol: T::from_f64(1e-6).unwrap_or_else(num_traits::Zero::zero),
-            safety_factor: T::from_f64(0.9).unwrap_or_else(num_traits::Zero::zero),
+            damping: from_f64(2.0 / 13.0),
+            atol: from_f64(1e-8),
+            rtol: from_f64(1e-6),
+            safety_factor: from_f64(0.9),
         }
     }
 }
@@ -88,10 +100,10 @@ struct RkcStageCoeffs<T> {
 /// Right-hand side function trait
 pub trait RhsFunction<T: RealField + Copy> {
     /// Evaluate the right-hand side f(t, y)
-    fn evaluate(&self, t: T, y: &DVector<T>) -> Result<DVector<T>>;
+    fn evaluate(&self, t: T, y: &TimeState<T>) -> Result<TimeState<T>>;
 }
 
-impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
+impl<T: RealField + Copy + FloatElement> RungeKuttaChebyshev<T> {
     /// Create RKC method with default configuration
     pub fn new() -> Self {
         Self::with_config(RkcConfig::default())
@@ -110,62 +122,62 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
         // Stage 0 and 1 are special or unused in the recurrence loop (j=2..s)
         // We define dummy values for index 0 and 1 to align with 1-based indexing logic
         coeffs.push(RkcStageCoeffs {
-            mu: T::zero(),
-            nu: T::zero(),
-            mu_tilde: T::zero(),
-            gamma_tilde: T::zero(),
-            c: T::zero(),
+            mu: zero::<T>(),
+            nu: zero::<T>(),
+            mu_tilde: zero::<T>(),
+            gamma_tilde: zero::<T>(),
+            c: zero::<T>(),
         }); // Index 0
 
         // w0 = 1 + epsilon / s^2
-        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-        let four = T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero);
-        let s_t = T::from_usize(s).unwrap();
+        let two: T = from_f64(2.0);
+        let four: T = from_f64(4.0);
+        let s_t = from_usize(s);
         let s_sq = s_t * s_t;
-        let w0 = T::one() + epsilon / s_sq;
+        let w0 = one::<T>() + epsilon / s_sq;
 
-        let temp1 = w0 * w0 - T::one();
-        let temp2 = temp1.sqrt();
-        let arg = s_t * (w0 + temp2).ln();
-        let sinh_arg = arg.sinh();
-        let cosh_arg = arg.cosh();
+        let temp1 = w0 * w0 - one::<T>();
+        let temp2 = <T as NumericElement>::sqrt(temp1);
+        let arg: T = s_t * <T as FloatElement>::ln(w0 + temp2);
+        let sinh_arg = <T as FloatElement>::sinh(arg);
+        let cosh_arg = <T as FloatElement>::cosh(arg);
         let w1 = sinh_arg * temp1 / (cosh_arg * s_t * temp2 - w0 * sinh_arg);
 
-        let mut bjm1 = T::one() / ((two * w0) * (two * w0));
+        let mut bjm1 = one::<T>() / ((two * w0) * (two * w0));
         let mut bjm2 = bjm1;
 
         let mu_tilde_1 = w1 * bjm1;
         coeffs.push(RkcStageCoeffs {
-            mu: T::zero(),
-            nu: T::zero(),
+            mu: zero::<T>(),
+            nu: zero::<T>(),
             mu_tilde: mu_tilde_1,
-            gamma_tilde: T::zero(),
+            gamma_tilde: zero::<T>(),
             c: mu_tilde_1,
         }); // Index 1
 
         let mut zjm1 = w0;
-        let mut zjm2 = T::one();
-        let mut dzjm1 = T::one();
-        let mut dzjm2 = T::zero();
-        let mut d2zjm1 = T::zero();
-        let mut d2zjm2 = T::zero();
+        let mut zjm2 = one::<T>();
+        let mut dzjm1 = one::<T>();
+        let mut dzjm2 = zero::<T>();
+        let mut d2zjm1 = zero::<T>();
+        let mut d2zjm2 = zero::<T>();
 
         for j in 2..=s {
-            let zj = two * w0 * zjm1 - zjm2;
-            let dzj = two * w0 * dzjm1 - dzjm2 + two * zjm1;
-            let d2zj = two * w0 * d2zjm1 - d2zjm2 + four * dzjm1;
+            let zj: T = two * w0 * zjm1 - zjm2;
+            let dzj: T = two * w0 * dzjm1 - dzjm2 + two * zjm1;
+            let d2zj: T = two * w0 * d2zjm1 - d2zjm2 + four * dzjm1;
 
-            let bj = d2zj / (dzj * dzj);
-            let mu_j = two * w0 * bj / bjm1;
-            let nu_j = -bj / bjm2;
-            let mu_tilde_j = mu_j * w1 / w0;
+            let bj: T = d2zj / (dzj * dzj);
+            let mu_j: T = two * w0 * bj / bjm1;
+            let nu_j: T = -bj / bjm2;
+            let mu_tilde_j: T = mu_j * w1 / w0;
 
-            let ajm1 = T::one() - zjm1 * bjm1;
-            let gamma_tilde_j = -ajm1 * mu_tilde_j;
+            let ajm1: T = one::<T>() - zjm1 * bjm1;
+            let gamma_tilde_j: T = -ajm1 * mu_tilde_j;
 
             let c_prev = coeffs[j - 1].c;
             let c_prev2 = coeffs[j - 2].c;
-            let c_j = mu_j * c_prev + nu_j * c_prev2 + mu_tilde_j + gamma_tilde_j;
+            let c_j: T = mu_j * c_prev + nu_j * c_prev2 + mu_tilde_j + gamma_tilde_j;
 
             coeffs.push(RkcStageCoeffs {
                 mu: mu_j,
@@ -192,10 +204,10 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
         &self,
         rhs: &F,
         t0: T,
-        y0: &DVector<T>,
+        y0: &TimeState<T>,
         dt: T,
-    ) -> Result<DVector<T>> {
-        let n = y0.len();
+    ) -> Result<TimeState<T>> {
+        let n = state_len(y0);
 
         // Y_0 = y_n
         let mut y_prev2 = y0.clone(); // Y_{j-2} (initially Y_0)
@@ -205,7 +217,10 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
 
         // Y_1 = Y_0 + mu_tilde_1 * dt * F_0
         let mu_tilde_1 = self.coeffs[1].mu_tilde;
-        let mut y_prev1 = &y_prev2 + &f0 * (mu_tilde_1 * dt); // Y_{j-1} (initially Y_1)
+        let mut y_prev1 = state_zeros(n); // Y_{j-1} (initially Y_1)
+        for i in 0..n {
+            y_prev1[i] = y_prev2[i] + mu_tilde_1 * dt * f0[i];
+        }
 
         // Stages 2 to s
         for j in 2..=self.config.num_stages {
@@ -215,9 +230,9 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
             let f_prev = rhs.evaluate(t_stage, &y_prev1)?;
 
             // Y_j = (1 - mu - nu) Y_0 + mu Y_{j-1} + nu Y_{j-2} + mu_tilde dt F_{j-1} + gamma_tilde dt F_0
-            let term_y0 = T::one() - coeff.mu - coeff.nu;
+            let term_y0 = one::<T>() - coeff.mu - coeff.nu;
 
-            let mut y_curr = DVector::zeros(n);
+            let mut y_curr = state_zeros(n);
             for i in 0..n {
                 y_curr[i] = term_y0 * y0[i]
                     + coeff.mu * y_prev1[i]
@@ -238,10 +253,10 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
         &self,
         rhs: &F,
         t0: T,
-        y0: &DVector<T>,
+        y0: &TimeState<T>,
         t_final: T,
         dt_initial: T,
-    ) -> Result<(DVector<T>, T)> {
+    ) -> Result<(TimeState<T>, T)> {
         let mut t = t0;
         let mut y = y0.clone();
         let mut dt = dt_initial;
@@ -265,44 +280,45 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
                 }
 
                 let y_full = self.step_raw(rhs, t, &y, dt)?;
-                let dt_half = dt / T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+                let dt_half = dt / from_f64(2.0);
                 let y_half = self.step_raw(rhs, t, &y, dt_half)?;
                 let y_half_full = self.step_raw(rhs, t + dt_half, &y_half, dt_half)?;
 
-                let n = y.len();
-                let mut err_sum = T::zero();
+                let n = state_len(&y);
+                let mut err_sum = zero::<T>();
                 for i in 0..n {
-                    let scale =
-                        self.config.atol + self.config.rtol * y[i].abs().max(y_half_full[i].abs());
-                    let denom = if scale > T::zero() { scale } else { T::one() };
-                    let diff = (y_half_full[i] - y_full[i]).abs()
-                        / (T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero) * denom);
+                    let max_component = <T as NumericElement>::abs(y[i])
+                        .max_scalar(<T as NumericElement>::abs(y_half_full[i]));
+                    let scale = self.config.atol + self.config.rtol * max_component;
+                    let denom = if scale > zero::<T>() {
+                        scale
+                    } else {
+                        one::<T>()
+                    };
+                    let diff = <T as NumericElement>::abs(y_half_full[i] - y_full[i])
+                        / (from_f64::<T>(3.0) * denom);
                     err_sum += diff * diff;
                 }
-                let n_t = T::from_usize(n).unwrap();
-                let err_norm = (err_sum / n_t).sqrt();
+                let n_t = from_usize(n);
+                let err_norm = <T as NumericElement>::sqrt(err_sum / n_t);
 
-                if err_norm <= T::one() {
+                if err_norm <= one::<T>() {
                     y = y_half_full;
                     t += dt;
-                    let factor = if err_norm == T::zero() {
-                        T::from_f64(5.0).unwrap_or_else(num_traits::Zero::zero)
+                    let factor = if err_norm == zero::<T>() {
+                        from_f64(5.0)
                     } else {
-                        let exponent =
-                            T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
-                        self.config.safety_factor * err_norm.powf(-exponent)
+                        let exponent: T = from_f64(1.0 / 3.0);
+                        self.config.safety_factor * <T as FloatElement>::powf(err_norm, -exponent)
                     };
-                    let factor = factor
-                        .max(T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero))
-                        .min(T::from_f64(5.0).unwrap_or_else(num_traits::Zero::zero));
+                    let factor = factor.max_scalar(from_f64(0.1)).min_scalar(from_f64(5.0));
                     dt *= factor;
                     accepted = true;
                 } else {
-                    let exponent = T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
-                    let factor = self.config.safety_factor * err_norm.powf(-exponent);
-                    let factor = factor
-                        .max(T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero))
-                        .min(T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero));
+                    let exponent: T = from_f64(1.0 / 3.0);
+                    let factor =
+                        self.config.safety_factor * <T as FloatElement>::powf(err_norm, -exponent);
+                    let factor = factor.max_scalar(from_f64(0.1)).min_scalar(from_f64(0.5));
                     dt *= factor;
                     if t + dt > t_final {
                         dt = t_final - t;
@@ -319,9 +335,9 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
         &self,
         rhs: &F,
         t0: T,
-        y0: &DVector<T>,
+        y0: &TimeState<T>,
         dt: T,
-    ) -> Result<DVector<T>> {
+    ) -> Result<TimeState<T>> {
         let t_final = t0 + dt;
         let (y, _) = self.integrate_adaptive(rhs, t0, y0, t_final, dt)?;
         Ok(y)
@@ -332,10 +348,10 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
         &self,
         rhs: &F,
         t0: T,
-        y0: &DVector<T>,
+        y0: &TimeState<T>,
         t_final: T,
         dt_initial: T,
-    ) -> Result<(DVector<T>, T)> {
+    ) -> Result<(TimeState<T>, T)> {
         self.integrate_adaptive(rhs, t0, y0, t_final, dt_initial)
     }
 
@@ -345,7 +361,7 @@ impl<T: RealField + Copy + FromPrimitive> RungeKuttaChebyshev<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for RungeKuttaChebyshev<T> {
+impl<T: RealField + Copy + FloatElement> Default for RungeKuttaChebyshev<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -354,6 +370,7 @@ impl<T: RealField + Copy + FromPrimitive> Default for RungeKuttaChebyshev<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::time_stepping::traits::{state_from_vec, state_scale};
     use approx::assert_relative_eq;
 
     struct ExponentialDecay<T: RealField + Copy> {
@@ -366,9 +383,9 @@ mod tests {
         }
     }
 
-    impl<T: RealField + Copy + FromPrimitive> RhsFunction<T> for ExponentialDecay<T> {
-        fn evaluate(&self, _t: T, y: &DVector<T>) -> Result<DVector<T>> {
-            Ok(y.scale(-self.lambda))
+    impl<T: RealField + Copy> RhsFunction<T> for ExponentialDecay<T> {
+        fn evaluate(&self, _t: T, y: &TimeState<T>) -> Result<TimeState<T>> {
+            Ok(state_scale(y, -self.lambda))
         }
     }
 
@@ -384,7 +401,7 @@ mod tests {
         let rhs = ExponentialDecay::new(lambda);
         let rkc = RungeKuttaChebyshev::<f64>::new();
 
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = state_from_vec(vec![1.0]);
         let dt = 0.1;
         let y_final = rkc.step(&rhs, 0.0, &y0, dt).unwrap();
 
@@ -404,7 +421,7 @@ mod tests {
         };
         let rkc = RungeKuttaChebyshev::with_config(config);
 
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = state_from_vec(vec![1.0]);
         let dt = 0.01; // lambda*dt = 1
         let y_final = rkc.step(&rhs, 0.0, &y0, dt).unwrap();
 
@@ -418,7 +435,7 @@ mod tests {
         let rhs = ExponentialDecay::new(lambda);
         let rkc = RungeKuttaChebyshev::<f64>::new();
 
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = state_from_vec(vec![1.0]);
         let (y_final, _) = rkc.solve_adaptive(&rhs, 0.0, &y0, 1.0, 0.1).unwrap();
 
         let analytical = (-lambda).exp();

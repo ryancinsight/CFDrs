@@ -21,9 +21,12 @@
 
 use cfd_mesh::domain::core::Scalar;
 use cfd_mesh::IndexedMesh;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement};
+use eunomia::RealField;
 use std::collections::HashMap;
+
+use crate::linalg::vector3_from_indexed;
+use super::scalar;
 
 /// Map from canonical edge pair `(min(v_i, v_j), max(v_i, v_j))` → mid-node index.
 ///
@@ -46,7 +49,7 @@ impl MidNodeCache {
     /// Returns an empty cache for P1 meshes where `vertex_count == n_corner_nodes`.
     pub fn build<T>(mesh: &IndexedMesh<T>, n_corner_nodes: usize) -> Self
     where
-        T: Scalar + RealField + Copy + Float,
+        T: Scalar + RealField + Copy + FloatElement,
     {
         if mesh.vertex_count() <= n_corner_nodes {
             return Self::default(); // P1 mesh — no mid-nodes
@@ -55,18 +58,22 @@ impl MidNodeCache {
         use cfd_mesh::domain::core::index::VertexId;
 
         // Collect corner node positions
-        let corner_positions: Vec<nalgebra::Vector3<T>> = (0..n_corner_nodes)
-            .map(|i| mesh.vertices.position(VertexId::from_usize(i)).coords)
+        let corner_positions: Vec<leto::Vector3<T>> = (0..n_corner_nodes)
+            .map(|i| vector3_from_indexed(&mesh.vertices.position(VertexId::from_usize(i)).coords))
             .collect();
 
         // Collect mid-node positions
-        let mid_node_positions: Vec<(usize, nalgebra::Vector3<T>)> = (n_corner_nodes
+        let mid_node_positions: Vec<(usize, leto::Vector3<T>)> = (n_corner_nodes
             ..mesh.vertex_count())
-            .map(|i| (i, mesh.vertices.position(VertexId::from_usize(i)).coords))
+            .map(|i| {
+                (
+                    i,
+                    vector3_from_indexed(&mesh.vertices.position(VertexId::from_usize(i)).coords),
+                )
+            })
             .collect();
 
-        let half =
-            <T as FromPrimitive>::from_f64(0.5_f64).unwrap_or(T::one() / (T::one() + T::one()));
+        let half = scalar::constant::<T>(0.5);
 
         // For each mid-node, find its closest corner-corner midpoint
         let mut inner: HashMap<(usize, usize), usize> =
@@ -74,12 +81,12 @@ impl MidNodeCache {
 
         for (m_idx, m_pos) in &mid_node_positions {
             let mut best_edge: Option<(usize, usize)> = None;
-            let mut best_dist_sq = T::infinity();
+            let mut best_dist_sq = <T as NumericElement>::MAX_VALUE;
 
             for vi in 0..n_corner_nodes {
                 for vj in (vi + 1)..n_corner_nodes {
                     let midpt = (corner_positions[vi] + corner_positions[vj]) * half;
-                    let d2 = (m_pos - midpt).norm_squared();
+                    let d2 = (*m_pos - midpt).norm_squared();
                     if d2 < best_dist_sq {
                         best_dist_sq = d2;
                         best_edge = Some((vi, vj));

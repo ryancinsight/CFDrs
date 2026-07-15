@@ -37,8 +37,9 @@ use crate::linear_solver::{
     IncompleteLU, IterativeSolverConfig, GMRES,
 };
 use cfd_core::error::{Error, Result};
-use nalgebra::{DVector, RealField};
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::Array1;
+use leto_ops::RealScalar as LetoRealScalar;
 use std::fmt::Debug;
 
 use crate::sparse::SparseMatrix;
@@ -57,7 +58,7 @@ use crate::sparse::SparseMatrix;
 /// let chain = LinearSolverChain::new(solver_config);
 /// let x = chain.solve(&matrix, &rhs, n_velocity_dof)?;
 /// ```
-pub struct LinearSolverChain<T: RealField + Copy + Float + FromPrimitive + Debug> {
+pub struct LinearSolverChain<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> {
     /// Configuration (tolerance, max iterations) for all iterative solvers.
     config: IterativeSolverConfig<T>,
     /// DOF count below which the direct LU solver is preferred.
@@ -72,7 +73,7 @@ pub struct LinearSolverChain<T: RealField + Copy + Float + FromPrimitive + Debug
     krylov_restart: usize,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
+impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverChain<T> {
     /// Create a new solver chain with the given iterative solver configuration.
     ///
     /// Defaults: direct_threshold = 100,000;  krylov_restart = 100.
@@ -122,12 +123,12 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
     pub fn solve(
         &self,
         matrix: &SparseMatrix<T>,
-        rhs: &DVector<T>,
+        rhs: &Array1<T>,
         n_velocity_dof: usize,
-    ) -> Result<DVector<T>> {
-        let n_total_dof = rhs.len();
+    ) -> Result<Array1<T>> {
+        let n_total_dof = rhs.shape()[0];
         let n_pressure_dof = n_total_dof.saturating_sub(n_velocity_dof);
-        let mut x = DVector::zeros(n_total_dof);
+        let mut x = Array1::zeros([n_total_dof]);
 
         // ── Tier 1: Direct sparse LU (exact, preferred for small systems) ─────
         if n_total_dof < self.direct_threshold {
@@ -193,7 +194,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
         }
 
         // ── Tier 4: GMRES unpreconditioned ────────────────────────────────────
-        x.fill(T::zero());
+        x.fill(<T as NumericElement>::ZERO);
         match solver.solve_unpreconditioned(matrix, rhs, &mut x) {
             Ok(monitor) => {
                 tracing::debug!(
@@ -208,7 +209,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
         }
 
         // ── Tier 5: GMRES + ILU preconditioner ───────────────────────────────
-        x.fill(T::zero());
+        x.fill(<T as NumericElement>::ZERO);
         match IncompleteLU::new(matrix) {
             Ok(ilu) => match solver.solve_preconditioned(matrix, rhs, &ilu, &mut x) {
                 Ok(monitor) => {
@@ -228,7 +229,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
         }
 
         // ── Tier 6: BiCGSTAB (last resort) ────────────────────────────────────
-        x.fill(T::zero());
+        x.fill(<T as NumericElement>::ZERO);
         let bicg = BiCGSTAB::new(self.config);
         bicg.solve_unpreconditioned(matrix, rhs, &mut x)
             .map_err(|e| {
@@ -256,21 +257,24 @@ impl<T: RealField + Copy + Float + FromPrimitive + Debug> LinearSolverChain<T> {
     pub fn solve_with_guess(
         &self,
         matrix: &SparseMatrix<T>,
-        rhs: &DVector<T>,
+        rhs: &Array1<T>,
         n_velocity_dof: usize,
-        initial_guess: Option<&DVector<T>>,
-    ) -> Result<DVector<T>> {
-        let n_total_dof = rhs.len();
+        initial_guess: Option<&Array1<T>>,
+    ) -> Result<Array1<T>> {
+        let n_total_dof = rhs.shape()[0];
         let n_pressure_dof = n_total_dof.saturating_sub(n_velocity_dof);
+        let initial_guess_vector = initial_guess.cloned();
         let mut x = initial_guess
             .cloned()
-            .unwrap_or_else(|| DVector::zeros(n_total_dof));
+            .unwrap_or_else(|| Array1::zeros([n_total_dof]));
 
-        let reset = |x: &mut DVector<T>| {
-            if let Some(guess) = initial_guess {
-                x.copy_from(guess);
+        let reset = |x: &mut Array1<T>| {
+            if let Some(guess) = initial_guess_vector.as_ref() {
+                for row in 0..guess.shape()[0] {
+                    x[row] = guess[row];
+                }
             } else {
-                x.fill(T::zero());
+                x.fill(<T as NumericElement>::ZERO);
             }
         };
 

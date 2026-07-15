@@ -6,11 +6,11 @@ use crate::domain::network::{
     Network, EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
     EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
 };
-use crate::solver::core::NetworkSolver;
+use crate::scalar::Cfd1dScalar;
+use crate::solver::core::{NetworkSolveScalar, NetworkSolver};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
@@ -29,6 +29,60 @@ struct IncidentEdge {
     target: usize,
 }
 
+#[inline]
+fn scalar<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+#[inline]
+fn scalar_from_usize<T: FloatElement>(value: usize, context: &str) -> T {
+    let narrowed = u32::try_from(value).expect(context);
+    scalar::<T>(f64::from(narrowed))
+}
+
+#[inline]
+fn finite_f64<T: NumericElement>(value: T, context: &str) -> Result<f64> {
+    let converted = <T as NumericElement>::to_f64(value);
+    if converted.is_finite() {
+        Ok(converted)
+    } else {
+        Err(Error::InvalidConfiguration(format!(
+            "{context} requires a finite Eunomia scalar conversion"
+        )))
+    }
+}
+
+#[inline]
+fn checked_substep_count<T: NumericElement>(value: T, context: &str) -> Result<usize> {
+    let converted = finite_f64(value, context)?;
+    if converted <= 1.0 {
+        return Ok(1);
+    }
+
+    let ceiled = converted.ceil();
+    if ceiled > f64::from(u32::MAX) {
+        return Err(Error::InvalidConfiguration(format!(
+            "{context} exceeds the supported u32-bounded substep count"
+        )));
+    }
+
+    // The range and finiteness checks above make this float-to-integer
+    // conversion exact for the supported substep-count domain.
+    let narrowed = ceiled as u32;
+    Ok(usize::try_from(narrowed).expect("invariant: u32 substep count fits in usize"))
+}
+
+#[inline]
+fn clamp_unit<T: NumericElement + PartialOrd>(value: T) -> T {
+    if value < <T as NumericElement>::ZERO {
+        <T as NumericElement>::ZERO
+    } else if value > <T as NumericElement>::ONE {
+        <T as NumericElement>::ONE
+    } else {
+        value
+    }
+}
+
 /// Time control configuration for transient simulations.
 ///
 /// This mirrors MMFT-style controls:
@@ -36,7 +90,7 @@ struct IncidentEdge {
 /// - `result_time_step`: interval between returned states
 /// - `calculation_time_step`: internal update interval
 #[derive(Debug, Clone)]
-pub struct SimulationTimeConfig<T: RealField + Copy> {
+pub struct SimulationTimeConfig<T: Cfd1dScalar + Copy> {
     /// Total simulation duration.
     pub duration: T,
     /// Interval between result snapshots.
@@ -45,7 +99,7 @@ pub struct SimulationTimeConfig<T: RealField + Copy> {
     pub calculation_time_step: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> SimulationTimeConfig<T> {
+impl<T: Cfd1dScalar + Copy + FloatElement> SimulationTimeConfig<T> {
     /// Create a new time control configuration.
     #[must_use]
     pub fn new(duration: T, result_time_step: T, calculation_time_step: T) -> Self {
@@ -94,7 +148,7 @@ impl<T: RealField + Copy + FromPrimitive> SimulationTimeConfig<T> {
     }
 
     fn uniform_timepoints(duration: T, dt: T) -> Vec<T> {
-        let tolerance = T::from_f64(1e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1e-12);
         if duration <= tolerance {
             return vec![T::zero()];
         }
@@ -108,7 +162,7 @@ impl<T: RealField + Copy + FromPrimitive> SimulationTimeConfig<T> {
 
         let needs_terminal = points
             .last()
-            .is_none_or(|last| (*last - duration).abs() > tolerance);
+            .is_none_or(|last| <T as NumericElement>::abs(*last - duration) > tolerance);
 
         if needs_terminal {
             points.push(duration);
@@ -140,14 +194,14 @@ pub struct TransientCompositionSimulator;
 
 /// Configuration for segmented blood transport along each advecting edge.
 #[derive(Debug, Clone)]
-pub struct BloodEdgeTransportConfig<T: RealField + Copy> {
+pub struct BloodEdgeTransportConfig<T: Cfd1dScalar + Copy> {
     /// Number of axial control volumes per transport-capable edge.
     pub segments_per_edge: usize,
     /// Maximum explicit Courant number used for substepping.
     pub max_courant_number: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> BloodEdgeTransportConfig<T> {
+impl<T: Cfd1dScalar + Copy + FloatElement> BloodEdgeTransportConfig<T> {
     /// Create a segmented transport configuration.
     #[must_use]
     pub fn new(segments_per_edge: usize, max_courant_number: T) -> Self {
@@ -172,18 +226,17 @@ impl<T: RealField + Copy + FromPrimitive> BloodEdgeTransportConfig<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for BloodEdgeTransportConfig<T> {
+impl<T: Cfd1dScalar + Copy + FloatElement> Default for BloodEdgeTransportConfig<T> {
     fn default() -> Self {
         Self {
             segments_per_edge: 4,
-            max_courant_number: T::from_f64(0.9)
-                .expect("Mathematical constant conversion compromised"),
+            max_courant_number: scalar::<T>(0.9),
         }
     }
 }
 
 impl TransientCompositionSimulator {
-    fn build_node_incidence_cache<T: RealField + Copy, F: FluidTrait<T> + Clone>(
+    fn build_node_incidence_cache<T: Cfd1dScalar + Copy, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
     ) -> Vec<Vec<IncidentEdge>> {
         let node_count = network.node_count();
@@ -218,7 +271,7 @@ impl TransientCompositionSimulator {
         incidence
     }
 
-    fn fill_edge_flow_rate_map<T: RealField + Copy, F: FluidTrait<T> + Clone>(
+    fn fill_edge_flow_rate_map<T: Cfd1dScalar + Copy, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         edge_flow_rates: &mut HashMap<usize, T>,
     ) {
@@ -231,7 +284,7 @@ impl TransientCompositionSimulator {
         }
     }
 
-    fn fill_effective_flow_rates_from_overrides<T: RealField + Copy, F: FluidTrait<T> + Clone>(
+    fn fill_effective_flow_rates_from_overrides<T: Cfd1dScalar + Copy, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         active_flow_overrides: &HashMap<usize, T>,
         edge_flow_rates: &mut HashMap<usize, T>,
@@ -244,7 +297,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate transported blood hematocrit using canonical RBC/plasma mixture keys.
     pub fn simulate_blood_hematocrit<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -260,7 +313,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with finite edge transport inventory.
     pub fn simulate_blood_hematocrit_with_edge_lag<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -272,7 +325,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with a per-edge control-volume transport state.
     pub fn simulate_blood_hematocrit_with_edge_transport<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -289,7 +342,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with segmented axial advection along each edge.
     pub fn simulate_blood_hematocrit_with_segmented_edge_transport<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -309,7 +362,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate transported blood hematocrit with time-scheduled edge-flow updates.
     pub fn simulate_blood_hematocrit_with_flow_events<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -327,7 +380,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with edge-flow updates and finite edge transport.
     pub fn simulate_blood_hematocrit_with_flow_events_and_edge_lag<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -345,7 +398,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with edge-flow updates and per-edge transport state.
     pub fn simulate_blood_hematocrit_with_flow_events_and_edge_transport<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -363,7 +416,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with flow events and segmented axial advection.
     pub fn simulate_blood_hematocrit_with_flow_events_and_segmented_edge_transport<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -384,7 +437,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate transported blood hematocrit with pressure-boundary updates.
     pub fn simulate_blood_hematocrit_with_pressure_events<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        T: NetworkSolveScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -402,7 +455,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with pressure updates and per-edge transport state.
     pub fn simulate_blood_hematocrit_with_pressure_events_and_edge_transport<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        T: NetworkSolveScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -420,7 +473,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit with pressure events and segmented axial advection.
     pub fn simulate_blood_hematocrit_with_pressure_events_and_segmented_edge_transport<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        T: NetworkSolveScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -456,7 +509,7 @@ impl TransientCompositionSimulator {
     /// positive resistances, so a positive pressure drop produces finite
     /// nonzero branch flows.
     pub fn simulate_blood_hematocrit_with_coupled_pressure_events<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        T: NetworkSolveScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -474,7 +527,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate transient blood hematocrit with coupled hydraulics and edge transport state.
     pub fn simulate_blood_hematocrit_with_coupled_pressure_events_and_edge_transport<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        T: NetworkSolveScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -492,7 +545,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate transient blood hematocrit with coupled hydraulics and segmented axial transport.
     pub fn simulate_blood_hematocrit_with_coupled_pressure_events_and_segmented_edge_transport<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        T: NetworkSolveScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -513,7 +566,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate transported blood hematocrit using MMFT-style timing controls.
     pub fn simulate_blood_hematocrit_with_time_config<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -529,7 +582,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit on MMFT-style timing controls with edge transport.
     pub fn simulate_blood_hematocrit_with_time_config_and_edge_lag<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -541,7 +594,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit on MMFT-style timing controls with edge transport state.
     pub fn simulate_blood_hematocrit_with_time_config_and_edge_transport<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -556,7 +609,7 @@ impl TransientCompositionSimulator {
                 internal_timepoints.push(event.time);
             }
         }
-        let tolerance = T::from_f64(1.0e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
         let states = Self::simulate_blood_hematocrit_with_edge_transport(
             network,
@@ -568,7 +621,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate blood hematocrit on MMFT-style timing controls with segmented axial advection.
     pub fn simulate_blood_hematocrit_with_time_config_and_segmented_edge_transport<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -585,7 +638,7 @@ impl TransientCompositionSimulator {
                 internal_timepoints.push(event.time);
             }
         }
-        let tolerance = T::from_f64(1.0e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
         let states = Self::simulate_blood_hematocrit_with_segmented_edge_transport(
             network,
@@ -597,7 +650,7 @@ impl TransientCompositionSimulator {
     }
 
     fn simulate_blood_mixture_with_coupled_pressure_events<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        T: NetworkSolveScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -629,7 +682,7 @@ impl TransientCompositionSimulator {
         let mut composition_event_cursor = 0usize;
         let mut pressure_event_cursor = 0usize;
         let mut states = Vec::with_capacity(timepoints.len());
-        let tolerance = T::from_f64(1.0e-9).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1.0e-9);
         let max_coupling_iters = working_network.node_count().clamp(2, 10);
 
         for &time in &timepoints {
@@ -703,7 +756,9 @@ impl TransientCompositionSimulator {
 
             let reported_flow_rates = current_flow_rates
                 .iter()
-                .map(|(&edge_index, &flow_rate)| (edge_index, num_traits::Float::abs(flow_rate)))
+                .map(|(&edge_index, &flow_rate)| {
+                    (edge_index, <T as NumericElement>::abs(flow_rate))
+                })
                 .collect();
             states.push(CompositionState {
                 time,
@@ -718,7 +773,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn simulate_blood_mixture_with_flow_events_and_edge_transport<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -747,7 +802,7 @@ impl TransientCompositionSimulator {
         let mut internal_timepoints = requested_timepoints.clone();
         internal_timepoints.extend(composition_events.iter().map(|event| event.time));
         internal_timepoints.extend(flow_events.iter().map(|event| event.time));
-        let tolerance = T::from_f64(1.0e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
 
         let mut active_inlet_mixtures: HashMap<usize, MixtureComposition<T>> = HashMap::new();
@@ -858,7 +913,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn simulate_blood_mixture_with_flow_events_and_segmented_edge_transport<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -888,7 +943,7 @@ impl TransientCompositionSimulator {
         let mut internal_timepoints = requested_timepoints.clone();
         internal_timepoints.extend(composition_events.iter().map(|event| event.time));
         internal_timepoints.extend(flow_events.iter().map(|event| event.time));
-        let tolerance = T::from_f64(1.0e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
 
         let mut active_inlet_mixtures: HashMap<usize, MixtureComposition<T>> = HashMap::new();
@@ -956,7 +1011,7 @@ impl TransientCompositionSimulator {
                 &previous_flow_rates,
                 dt,
                 &config,
-            );
+            )?;
 
             while event_cursor < composition_events.len()
                 && composition_events[event_cursor].time <= time
@@ -1007,7 +1062,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn simulate_blood_mixture_with_pressure_events_and_edge_transport<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        T: NetworkSolveScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1036,7 +1091,7 @@ impl TransientCompositionSimulator {
         let mut internal_timepoints = requested_timepoints.clone();
         internal_timepoints.extend(composition_events.iter().map(|event| event.time));
         internal_timepoints.extend(pressure_events.iter().map(|event| event.time));
-        let tolerance = T::from_f64(1.0e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
 
         let solver = NetworkSolver::<T, F>::new();
@@ -1142,7 +1197,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn simulate_blood_mixture_with_pressure_events_and_segmented_edge_transport<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        T: NetworkSolveScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1172,7 +1227,7 @@ impl TransientCompositionSimulator {
         let mut internal_timepoints = requested_timepoints.clone();
         internal_timepoints.extend(composition_events.iter().map(|event| event.time));
         internal_timepoints.extend(pressure_events.iter().map(|event| event.time));
-        let tolerance = T::from_f64(1.0e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
 
         let solver = NetworkSolver::<T, F>::new();
@@ -1239,7 +1294,7 @@ impl TransientCompositionSimulator {
                 &previous_flow_rates,
                 dt,
                 &config,
-            );
+            )?;
 
             while composition_event_cursor < composition_events.len()
                 && composition_events[composition_event_cursor].time <= time
@@ -1287,7 +1342,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn simulate_blood_mixture_with_coupled_pressure_events_and_edge_transport<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        T: NetworkSolveScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1316,7 +1371,7 @@ impl TransientCompositionSimulator {
         let mut internal_timepoints = requested_timepoints.clone();
         internal_timepoints.extend(composition_events.iter().map(|event| event.time));
         internal_timepoints.extend(pressure_events.iter().map(|event| event.time));
-        let tolerance = T::from_f64(1.0e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
 
         let solver = NetworkSolver::<T, F>::new();
@@ -1419,7 +1474,7 @@ impl TransientCompositionSimulator {
 
     #[allow(clippy::too_many_lines)]
     fn simulate_blood_mixture_with_coupled_pressure_events_and_segmented_edge_transport<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
+        T: NetworkSolveScalar,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1449,7 +1504,7 @@ impl TransientCompositionSimulator {
         let mut internal_timepoints = requested_timepoints.clone();
         internal_timepoints.extend(composition_events.iter().map(|event| event.time));
         internal_timepoints.extend(pressure_events.iter().map(|event| event.time));
-        let tolerance = T::from_f64(1.0e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
 
         let solver = NetworkSolver::<T, F>::new();
@@ -1515,7 +1570,7 @@ impl TransientCompositionSimulator {
                 &previous_flow_rates,
                 dt,
                 &config,
-            );
+            )?;
 
             while composition_event_cursor < composition_events.len()
                 && composition_events[composition_event_cursor].time <= time
@@ -1561,7 +1616,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate using MMFT-style timing controls.
     pub fn simulate_with_time_config<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1582,7 +1637,7 @@ impl TransientCompositionSimulator {
             }
         }
 
-        let tolerance = T::from_f64(1e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1e-12);
         let merged_timepoints = Self::sort_unique_timepoints(all_timepoints, tolerance);
         let all_states = Self::simulate(network, events, merged_timepoints)?;
         Self::sample_states_at_timepoints(all_states, result_timepoints, tolerance).map_err(
@@ -1594,7 +1649,7 @@ impl TransientCompositionSimulator {
     }
 
     /// Simulate composition over the provided timepoints using the network flow field.
-    pub fn simulate<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    pub fn simulate<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         events: Vec<InletCompositionEvent<T>>,
         timepoints: Vec<T>,
@@ -1604,7 +1659,7 @@ impl TransientCompositionSimulator {
 
     /// Simulate composition with time-scheduled edge flow updates.
     pub fn simulate_with_flow_events<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1679,10 +1734,7 @@ impl TransientCompositionSimulator {
     /// At each requested timepoint, pressure events active at that time are applied,
     /// the hydraulic network is re-solved, and composition mixing is computed from
     /// the resulting flow field.
-    pub fn simulate_with_pressure_events<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
-        F: FluidTrait<T> + Clone,
-    >(
+    pub fn simulate_with_pressure_events<T: NetworkSolveScalar, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         mut composition_events: Vec<InletCompositionEvent<T>>,
         mut timepoints: Vec<T>,
@@ -1760,11 +1812,11 @@ impl TransientCompositionSimulator {
         Ok(states)
     }
 
-    fn times_close<T: RealField + Copy>(a: T, b: T, tolerance: T) -> bool {
-        (a - b).abs() <= tolerance
+    fn times_close<T: Cfd1dScalar + Copy + NumericElement>(a: T, b: T, tolerance: T) -> bool {
+        <T as NumericElement>::abs(a - b) <= tolerance
     }
 
-    fn hematocrit_events_to_mixture_events<T: RealField + Copy + FromPrimitive>(
+    fn hematocrit_events_to_mixture_events<T: Cfd1dScalar + Copy + FloatElement>(
         events: Vec<InletHematocritEvent<T>>,
     ) -> Result<Vec<InletCompositionEvent<T>>> {
         let mut converted = Vec::with_capacity(events.len());
@@ -1784,7 +1836,7 @@ impl TransientCompositionSimulator {
     }
 
     fn stamp_edge_hematocrit_from_mixtures<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &mut Network<T, F>,
@@ -1800,7 +1852,7 @@ impl TransientCompositionSimulator {
                         .get(EDGE_PROPERTY_LOCAL_HEMATOCRIT)
                         .copied()
                         .unwrap_or(T::zero());
-                    max_change = max_change.max((current - hematocrit).abs());
+                    max_change = max_change.max(<T as NumericElement>::abs(current - hematocrit));
                     props.properties.insert(
                         EDGE_PROPERTY_LOCAL_HEMATOCRIT.to_string(),
                         hematocrit.max(T::zero()).min(T::one()),
@@ -1812,7 +1864,7 @@ impl TransientCompositionSimulator {
     }
 
     fn stamp_edge_apparent_viscosity_from_segments<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &mut Network<T, F>,
@@ -1848,19 +1900,19 @@ impl TransientCompositionSimulator {
         }
     }
 
-    fn max_flow_change<T: RealField + Copy>(previous: &[T], current: &[T]) -> T {
+    fn max_flow_change<T: Cfd1dScalar + Copy + NumericElement>(previous: &[T], current: &[T]) -> T {
         let n = previous.len().max(current.len());
         let mut max_change = T::zero();
         for idx in 0..n {
             let a = previous.get(idx).copied().unwrap_or(T::zero());
             let b = current.get(idx).copied().unwrap_or(T::zero());
-            max_change = max_change.max((a - b).abs());
+            max_change = max_change.max(<T as NumericElement>::abs(a - b));
         }
         max_change
     }
 
     fn backfill_blood_edge_mixtures_from_network<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1885,7 +1937,7 @@ impl TransientCompositionSimulator {
         }
     }
 
-    fn apply_active_inlet_edge_mixtures<T: RealField + Copy, F: FluidTrait<T> + Clone>(
+    fn apply_active_inlet_edge_mixtures<T: Cfd1dScalar + Copy, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         active_inlet_mixtures: &HashMap<usize, MixtureComposition<T>>,
         edge_mixtures: &mut HashMap<usize, MixtureComposition<T>>,
@@ -1898,7 +1950,10 @@ impl TransientCompositionSimulator {
         }
     }
 
-    fn sort_unique_timepoints<T: RealField + Copy>(mut timepoints: Vec<T>, tolerance: T) -> Vec<T> {
+    fn sort_unique_timepoints<T: Cfd1dScalar + Copy + NumericElement>(
+        mut timepoints: Vec<T>,
+        tolerance: T,
+    ) -> Vec<T> {
         timepoints.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let mut unique = Vec::with_capacity(timepoints.len());
@@ -1913,12 +1968,12 @@ impl TransientCompositionSimulator {
         unique
     }
 
-    fn sorted_timepoints<T: RealField + Copy>(mut timepoints: Vec<T>) -> Vec<T> {
+    fn sorted_timepoints<T: Cfd1dScalar + Copy>(mut timepoints: Vec<T>) -> Vec<T> {
         timepoints.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         timepoints
     }
 
-    fn sample_states_at_timepoints<T: RealField + Copy>(
+    fn sample_states_at_timepoints<T: Cfd1dScalar + Copy + NumericElement>(
         states: Vec<CompositionState<T>>,
         target_timepoints: Vec<T>,
         tolerance: T,
@@ -1963,7 +2018,7 @@ impl TransientCompositionSimulator {
     }
 
     fn initial_blood_edge_mixtures<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -1995,7 +2050,7 @@ impl TransientCompositionSimulator {
     }
 
     fn initial_segmented_blood_state<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -2027,7 +2082,7 @@ impl TransientCompositionSimulator {
         segment_state
     }
 
-    fn average_segment_hematocrit<T: RealField + Copy + FromPrimitive>(segments: &[T]) -> T {
+    fn average_segment_hematocrit<T: Cfd1dScalar + Copy + FloatElement>(segments: &[T]) -> T {
         if segments.is_empty() {
             return T::zero();
         }
@@ -2035,10 +2090,13 @@ impl TransientCompositionSimulator {
             .iter()
             .copied()
             .fold(T::zero(), |acc, value| acc + value);
-        sum / T::from_usize(segments.len()).expect("usize conversion compromised")
+        sum / scalar_from_usize::<T>(
+            segments.len(),
+            "invariant: segment count fits in u32 for scalar averaging",
+        )
     }
 
-    fn outlet_segment_hematocrit<T: RealField + Copy + FromPrimitive>(
+    fn outlet_segment_hematocrit<T: Cfd1dScalar + Copy + FloatElement>(
         segments: &[T],
         positive_direction: bool,
     ) -> T {
@@ -2049,7 +2107,7 @@ impl TransientCompositionSimulator {
         }
     }
 
-    fn segment_integrated_blood_apparent_viscosity<T: RealField + Copy + FromPrimitive>(
+    fn segment_integrated_blood_apparent_viscosity<T: Cfd1dScalar + Copy + FloatElement>(
         hydraulic_diameter: Option<T>,
         flow_rate: T,
         area: T,
@@ -2060,7 +2118,7 @@ impl TransientCompositionSimulator {
         if segments.is_empty() {
             return None;
         }
-        let plasma_viscosity = plasma_viscosity_override.or_else(|| T::from_f64(1.05e-3))?;
+        let plasma_viscosity = plasma_viscosity_override.unwrap_or_else(|| scalar::<T>(1.05e-3));
         let mut mu_sum = T::zero();
         let mut count = 0usize;
         for &hematocrit in segments {
@@ -2077,14 +2135,17 @@ impl TransientCompositionSimulator {
         if count == 0 {
             None
         } else {
-            Some(mu_sum / T::from_usize(count).expect("usize conversion compromised"))
+            Some(
+                mu_sum
+                    / scalar_from_usize::<T>(
+                        count,
+                        "invariant: segment count fits in u32 for viscosity averaging",
+                    ),
+            )
         }
     }
 
-    fn resolve_coupled_blood_snapshot<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
-        F: FluidTrait<T> + Clone,
-    >(
+    fn resolve_coupled_blood_snapshot<T: NetworkSolveScalar, F: FluidTrait<T> + Clone>(
         mut working_network: Network<T, F>,
         active_inlet_mixtures: &HashMap<usize, MixtureComposition<T>>,
         transported_edge_mixtures: &HashMap<usize, MixtureComposition<T>>,
@@ -2142,10 +2203,7 @@ impl TransientCompositionSimulator {
         ))
     }
 
-    fn resolve_coupled_segmented_blood_snapshot<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
-        F: FluidTrait<T> + Clone,
-    >(
+    fn resolve_coupled_segmented_blood_snapshot<T: NetworkSolveScalar, F: FluidTrait<T> + Clone>(
         mut working_network: Network<T, F>,
         active_inlet_mixtures: &HashMap<usize, MixtureComposition<T>>,
         segment_state: &HashMap<usize, Vec<T>>,
@@ -2208,11 +2266,11 @@ impl TransientCompositionSimulator {
         ))
     }
 
-    fn edge_supports_transport<T: RealField + Copy, F: FluidTrait<T> + Clone>(
+    fn edge_supports_transport<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         edge_idx: petgraph::graph::EdgeIndex,
     ) -> bool {
-        let tolerance = T::from_f64(1.0e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1.0e-12);
         network
             .properties
             .get(&edge_idx)
@@ -2220,7 +2278,7 @@ impl TransientCompositionSimulator {
     }
 
     fn advance_blood_edge_mixtures<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -2229,7 +2287,7 @@ impl TransientCompositionSimulator {
         previous_flow_rates: &HashMap<usize, T>,
         dt: T,
     ) -> HashMap<usize, MixtureComposition<T>> {
-        let tolerance = T::from_f64(1.0e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1.0e-12);
         let mut advanced = previous_edge_mixtures.clone();
         if dt <= tolerance {
             return advanced;
@@ -2245,14 +2303,14 @@ impl TransientCompositionSimulator {
                 .get(&edge_idx.index())
                 .copied()
                 .unwrap_or_else(T::zero);
-            if num_traits::Float::abs(flow_rate) <= tolerance {
+            if <T as NumericElement>::abs(flow_rate) <= tolerance {
                 continue;
             }
 
             let Some(props) = network.properties.get(&edge_idx) else {
                 continue;
             };
-            let residence_time = props.area * props.length / num_traits::Float::abs(flow_rate);
+            let residence_time = props.area * props.length / <T as NumericElement>::abs(flow_rate);
             if residence_time <= tolerance {
                 continue;
             }
@@ -2270,14 +2328,11 @@ impl TransientCompositionSimulator {
                 .get(&edge_idx.index())
                 .and_then(MixtureComposition::hematocrit)
                 .unwrap_or_else(T::zero);
-            let decay = num_traits::Float::exp(-(dt / residence_time));
+            let decay = <T as FloatElement>::exp(-(dt / residence_time));
             let updated_hct = inlet_hct + (previous_hct - inlet_hct) * decay;
             advanced.insert(
                 edge_idx.index(),
-                MixtureComposition::from_blood_hematocrit(num_traits::Float::min(
-                    num_traits::Float::max(updated_hct, T::zero()),
-                    T::one(),
-                )),
+                MixtureComposition::from_blood_hematocrit(clamp_unit(updated_hct)),
             );
         }
 
@@ -2285,7 +2340,7 @@ impl TransientCompositionSimulator {
     }
 
     fn advance_blood_edge_segments<
-        T: RealField + Copy + FromPrimitive + num_traits::Float,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -2295,11 +2350,11 @@ impl TransientCompositionSimulator {
         previous_flow_rates: &HashMap<usize, T>,
         dt: T,
         config: &BloodEdgeTransportConfig<T>,
-    ) -> HashMap<usize, Vec<T>> {
-        let tolerance = T::from_f64(1.0e-12).expect("Mathematical constant conversion compromised");
+    ) -> Result<HashMap<usize, Vec<T>>> {
+        let tolerance = scalar::<T>(1.0e-12);
         let mut advanced = previous_segment_state.clone();
         if dt <= tolerance {
-            return advanced;
+            return Ok(advanced);
         }
 
         for edge_ref in network.graph.edge_references() {
@@ -2312,7 +2367,7 @@ impl TransientCompositionSimulator {
                 .get(&edge_idx.index())
                 .copied()
                 .unwrap_or_else(T::zero);
-            if num_traits::Float::abs(flow_rate) <= tolerance {
+            if <T as NumericElement>::abs(flow_rate) <= tolerance {
                 continue;
             }
 
@@ -2326,10 +2381,12 @@ impl TransientCompositionSimulator {
                 continue;
             }
 
-            let segment_count =
-                T::from_usize(current_segments.len()).expect("usize conversion compromised");
+            let segment_count = scalar_from_usize::<T>(
+                current_segments.len(),
+                "invariant: segment count fits in u32 for transport substepping",
+            );
             let segment_residence_time =
-                props.area * props.length / (num_traits::Float::abs(flow_rate) * segment_count);
+                props.area * props.length / (<T as NumericElement>::abs(flow_rate) * segment_count);
             if segment_residence_time <= tolerance {
                 continue;
             }
@@ -2350,11 +2407,15 @@ impl TransientCompositionSimulator {
                 .unwrap_or_else(T::zero);
 
             let total_courant = dt / segment_residence_time;
-            let steps = num_traits::Float::ceil(total_courant / config.max_courant_number)
-                .to_usize()
-                .unwrap_or(1)
-                .max(1);
-            let sub_dt = dt / T::from_usize(steps).expect("usize conversion compromised");
+            let steps = checked_substep_count(
+                total_courant / config.max_courant_number,
+                "Segmented blood transport substep count",
+            )?;
+            let sub_dt = dt
+                / scalar_from_usize::<T>(
+                    steps,
+                    "invariant: substep count fits in u32 for transport substepping",
+                );
             let cfl = sub_dt / segment_residence_time;
 
             for _ in 0..steps {
@@ -2373,36 +2434,27 @@ impl TransientCompositionSimulator {
                 }
 
                 for segment in current_segments.iter_mut() {
-                    *segment = num_traits::Float::min(
-                        num_traits::Float::max(*segment, T::zero()),
-                        T::one(),
-                    );
+                    *segment = clamp_unit(*segment);
                 }
             }
         }
 
-        advanced
+        Ok(advanced)
     }
 
     #[allow(clippy::too_many_lines)]
     fn solve_blood_edge_inlet_hematocrits_with_segmented_edge_transport<
-        T: RealField + Copy + FromPrimitive + ToPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
         node_mixtures: &HashMap<usize, MixtureComposition<T>>,
         flow_rates: &HashMap<usize, T>,
     ) -> Result<HashMap<usize, T>> {
-        let tolerance = T::from_f64(1.0e-12).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1.0e-12);
         let micron_scale = 1.0e6_f64;
         let tiny_fraction = 1.0e-15_f64;
-        let to_f64 = |value: T| {
-            value.to_f64().ok_or_else(|| {
-                Error::InvalidConfiguration(
-                    "Segmented blood transport requires finite scalar conversions".to_string(),
-                )
-            })
-        };
+        let to_f64 = |value: T| finite_f64(value, "Segmented blood transport Pries f64 bridge");
         let mut edge_inlet_hematocrits = HashMap::with_capacity(network.edge_count());
         let node_incidence = Self::build_node_incidence_cache(network);
         let mut incoming: Vec<(usize, T)> = Vec::with_capacity(2);
@@ -2428,7 +2480,7 @@ impl TransientCompositionSimulator {
 
             for incident in incident_edges {
                 let q = *flow_rates.get(&incident.edge_index).unwrap_or(&T::zero());
-                let q_abs = q.abs();
+                let q_abs = <T as NumericElement>::abs(q);
                 if q_abs <= T::default_epsilon() {
                     continue;
                 }
@@ -2545,20 +2597,16 @@ impl TransientCompositionSimulator {
                     let q_second_fraction =
                         to_f64((q_second / total_q).max(T::zero()).min(T::one()))?;
                     let daughter_b_hct = if q_second_fraction > tiny_fraction {
-                        T::from_f64(
+                        scalar::<T>(
                             ((1.0 - daughter_a.cell_fraction) * to_f64(node_hct)?
                                 / q_second_fraction)
                                 .clamp(0.0, 1.0),
                         )
-                        .expect("Mathematical constant conversion compromised")
                     } else {
                         T::zero()
                     };
-                    edge_inlet_hematocrits.insert(
-                        first.0,
-                        T::from_f64(daughter_a.daughter_hematocrit)
-                            .expect("Mathematical constant conversion compromised"),
-                    );
+                    edge_inlet_hematocrits
+                        .insert(first.0, scalar::<T>(daughter_a.daughter_hematocrit));
                     edge_inlet_hematocrits.insert(second.0, daughter_b_hct);
                     continue;
                 }
@@ -2573,7 +2621,7 @@ impl TransientCompositionSimulator {
     }
 
     fn solve_blood_node_mixtures_with_edge_transport<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -2583,7 +2631,7 @@ impl TransientCompositionSimulator {
     ) -> Result<HashMap<usize, MixtureComposition<T>>> {
         let mut node_mixtures = active_inlet_mixtures.clone();
         let max_iter = network.node_count().saturating_mul(4).max(8);
-        let tolerance = T::from_f64(1e-9).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1e-9);
         let node_incidence = Self::build_node_incidence_cache(network);
         let mut incoming: Vec<(MixtureComposition<T>, T)> = Vec::new();
 
@@ -2604,7 +2652,7 @@ impl TransientCompositionSimulator {
 
                 for incident in incident_edges {
                     let q = *flow_rates.get(&incident.edge_index).unwrap_or(&T::zero());
-                    let q_abs = q.abs();
+                    let q_abs = <T as NumericElement>::abs(q);
 
                     if q_abs <= T::default_epsilon() {
                         continue;
@@ -2662,7 +2710,7 @@ impl TransientCompositionSimulator {
     }
 
     fn solve_blood_node_mixtures_with_segmented_edge_transport<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -2672,7 +2720,7 @@ impl TransientCompositionSimulator {
     ) -> Result<HashMap<usize, MixtureComposition<T>>> {
         let mut node_mixtures = active_inlet_mixtures.clone();
         let max_iter = network.node_count().saturating_mul(4).max(8);
-        let tolerance = T::from_f64(1e-9).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1e-9);
         let node_incidence = Self::build_node_incidence_cache(network);
         let mut incoming_owned: Vec<(MixtureComposition<T>, T)> = Vec::new();
 
@@ -2693,7 +2741,7 @@ impl TransientCompositionSimulator {
 
                 for incident in incident_edges {
                     let q = *flow_rates.get(&incident.edge_index).unwrap_or(&T::zero());
-                    let q_abs = q.abs();
+                    let q_abs = <T as NumericElement>::abs(q);
 
                     if q_abs <= T::default_epsilon() {
                         continue;
@@ -2757,7 +2805,7 @@ impl TransientCompositionSimulator {
     }
 
     fn compose_blood_edge_snapshot<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -2789,7 +2837,7 @@ impl TransientCompositionSimulator {
     }
 
     fn compose_segmented_blood_edge_snapshot<
-        T: RealField + Copy + FromPrimitive,
+        T: Cfd1dScalar + Copy + FloatElement,
         F: FluidTrait<T> + Clone,
     >(
         network: &Network<T, F>,
@@ -2825,14 +2873,14 @@ impl TransientCompositionSimulator {
         edge_mixtures
     }
 
-    fn solve_node_mixtures<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    fn solve_node_mixtures<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         active_inlet_mixtures: &HashMap<usize, MixtureComposition<T>>,
         flow_rates: &HashMap<usize, T>,
     ) -> Result<HashMap<usize, MixtureComposition<T>>> {
         let mut node_mixtures = active_inlet_mixtures.clone();
         let max_iter = network.node_count().saturating_mul(4).max(8);
-        let tolerance = T::from_f64(1e-9).expect("Mathematical constant conversion compromised");
+        let tolerance = scalar::<T>(1e-9);
         let node_incidence = Self::build_node_incidence_cache(network);
         let mut incoming: Vec<(MixtureComposition<T>, T)> = Vec::new();
 
@@ -2853,7 +2901,7 @@ impl TransientCompositionSimulator {
 
                 for incident in incident_edges {
                     let q = *flow_rates.get(&incident.edge_index).unwrap_or(&T::zero());
-                    let q_abs = q.abs();
+                    let q_abs = <T as NumericElement>::abs(q);
 
                     if q_abs <= T::default_epsilon() {
                         continue;
@@ -2894,7 +2942,7 @@ impl TransientCompositionSimulator {
         Ok(node_mixtures)
     }
 
-    fn compute_edge_mixtures<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone>(
+    fn compute_edge_mixtures<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         node_mixtures: &HashMap<usize, MixtureComposition<T>>,
         flow_rates: &HashMap<usize, T>,

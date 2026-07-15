@@ -32,12 +32,13 @@
 //! - Bruus, H. (2012). Acoustofluidics 7: The acoustic radiation force on small particles.
 //!   *Lab on a Chip*, 12(6), 1014-1021.
 
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use crate::scalar::Cfd2dScalar;
+use crate::scalar::{from_f64, one};
+use eunomia::FloatElement;
 
 /// Core parameters for calculating Acoustic Radiation Force fields
 #[derive(Debug, Clone, Copy)]
-pub struct GorkovPotential<T: RealField + Copy> {
+pub struct GorkovPotential<T: Cfd2dScalar + Copy> {
     /// Fluid density $\rho_0$ [kg/m³]
     pub fluid_density: T,
     /// Fluid speed of sound $c_0$ \[m/s]
@@ -50,7 +51,7 @@ pub struct GorkovPotential<T: RealField + Copy> {
     pub particle_radius: T,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive> GorkovPotential<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> GorkovPotential<T> {
     /// Instantiate a typical configuration for standard human Red Blood Cells in water/plasma.
     ///
     /// Values derived from Bruus (2012) standard physiological tables:
@@ -60,11 +61,11 @@ impl<T: RealField + Copy + Float + FromPrimitive> GorkovPotential<T> {
     #[must_use]
     pub fn typical_rbc() -> Self {
         Self {
-            fluid_density: T::from_f64(1000.0).unwrap(),
-            fluid_sound_speed: T::from_f64(1500.0).unwrap(),
-            particle_density: T::from_f64(1090.0).unwrap(),
-            particle_sound_speed: T::from_f64(1639.0).unwrap(),
-            particle_radius: T::from_f64(2.5e-6).unwrap(),
+            fluid_density: from_f64(1000.0),
+            fluid_sound_speed: from_f64(1500.0),
+            particle_density: from_f64(1090.0),
+            particle_sound_speed: from_f64(1639.0),
+            particle_radius: from_f64(2.5e-6),
         }
     }
 
@@ -72,16 +73,14 @@ impl<T: RealField + Copy + Float + FromPrimitive> GorkovPotential<T> {
     #[inline]
     #[must_use]
     pub fn fluid_compressibility(&self) -> T {
-        let one = T::one();
-        one / (self.fluid_density * self.fluid_sound_speed * self.fluid_sound_speed)
+        one::<T>() / (self.fluid_density * self.fluid_sound_speed * self.fluid_sound_speed)
     }
 
     /// Compute the particle compressibility $\kappa_p = 1 / (\rho_p c_p^2)$.
     #[inline]
     #[must_use]
     pub fn particle_compressibility(&self) -> T {
-        let one = T::one();
-        one / (self.particle_density * self.particle_sound_speed * self.particle_sound_speed)
+        one::<T>() / (self.particle_density * self.particle_sound_speed * self.particle_sound_speed)
     }
 
     /// Compute the monopole scattering coefficient $f_1$ (compressibility contrast).
@@ -92,8 +91,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> GorkovPotential<T> {
     #[inline]
     #[must_use]
     pub fn f1_monopole(&self) -> T {
-        let one = T::one();
-        one - (self.particle_compressibility() / self.fluid_compressibility())
+        one::<T>() - (self.particle_compressibility() / self.fluid_compressibility())
     }
 
     /// Compute the dipole scattering coefficient $f_2$ (density contrast).
@@ -104,7 +102,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> GorkovPotential<T> {
     #[inline]
     #[must_use]
     pub fn f2_dipole(&self) -> T {
-        let two = T::from_f64(2.0).unwrap();
+        let two = from_f64::<T>(2.0);
         let num = two * (self.particle_density - self.fluid_density);
         let den = two * self.particle_density + self.fluid_density;
         num / den
@@ -118,8 +116,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> GorkovPotential<T> {
     #[inline]
     #[must_use]
     pub fn contrast_factor(&self) -> T {
-        let three = T::from_f64(3.0).unwrap();
-        let two = T::from_f64(2.0).unwrap();
+        let three = from_f64::<T>(3.0);
+        let two = from_f64::<T>(2.0);
         (self.f1_monopole() / three) + (self.f2_dipole() / two)
     }
 
@@ -135,9 +133,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> GorkovPotential<T> {
     #[inline]
     #[must_use]
     pub fn standing_wave_force_1d(&self, pressure_amplitude: T, frequency: T, x: T) -> T {
-        let pi = T::from_f64(std::f64::consts::PI).unwrap();
-        let two = T::from_f64(2.0).unwrap();
-        let four = T::from_f64(4.0).unwrap();
+        let pi = from_f64::<T>(std::f64::consts::PI);
+        let two = from_f64::<T>(2.0);
+        let four = from_f64::<T>(4.0);
 
         let wave_number = (two * pi * frequency) / self.fluid_sound_speed;
         let e_ac = (pressure_amplitude * pressure_amplitude)
@@ -146,7 +144,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> GorkovPotential<T> {
         let a3 = self.particle_radius * self.particle_radius * self.particle_radius;
         let phi = self.contrast_factor();
 
-        let sin_2kx = Float::sin(two * wave_number * x);
+        let sin_2kx = <T as FloatElement>::sin(two * wave_number * x);
 
         four * pi * phi * a3 * wave_number * e_ac * sin_2kx
     }

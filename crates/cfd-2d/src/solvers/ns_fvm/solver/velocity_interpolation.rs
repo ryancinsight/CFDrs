@@ -18,21 +18,22 @@
 //! changes sample locations, not the interpolation degree.
 
 use super::NavierStokesSolver2D;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use crate::solvers::cell_tracking::physics::VelocityFieldInterpolator;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement};
 
-impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
+impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
     #[inline]
     fn uniform_bracket(query: T, origin: T, step: T, count: usize) -> (usize, T) {
-        let zero = T::zero();
-        let one = T::one();
+        let zero: T = scalar::zero();
+        let one: T = scalar::one();
 
         if count <= 1 || step <= zero {
             return (0, zero);
         }
 
-        let last = origin + step * T::from_usize(count - 1).expect("grid size fits in T");
+        let last = origin + step * scalar::from_usize::<T>(count - 1);
         if query <= origin {
             return (0, zero);
         }
@@ -41,12 +42,18 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         }
 
         let scaled = (query - origin) / step;
-        let mut index: usize = Float::floor(scaled).to_usize().unwrap_or(0);
+        let floored = <T as FloatElement>::floor(scaled);
+        let floored_index = <T as NumericElement>::to_f64(floored);
+        let mut index = if floored_index.is_finite() && floored_index >= 0.0 {
+            floored_index as usize
+        } else {
+            0
+        };
         if index >= count - 1 {
             index = count - 2;
         }
 
-        let left = origin + step * T::from_usize(index).expect("grid index fits in T");
+        let left = origin + step * scalar::from_usize::<T>(index);
         let mut fraction = (query - left) / step;
         if fraction < zero {
             fraction = zero;
@@ -62,8 +69,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
     where
         F: Fn(usize) -> T,
     {
-        let zero = T::zero();
-        let one = T::one();
+        let zero: T = scalar::zero();
+        let one: T = scalar::one();
 
         if count <= 1 {
             return (0, zero);
@@ -94,7 +101,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let left = coordinate(low);
         let right = coordinate(low + 1);
         let denom = right - left;
-        if Float::abs(denom) <= T::from_f64(1.0e-30).expect("tolerance fits in T") {
+        if <T as NumericElement>::abs(denom) <= scalar::from_f64::<T>(1.0e-30) {
             (low, zero)
         } else {
             let mut fraction = (query - left) / denom;
@@ -112,9 +119,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
     fn interpolate_u_component(&self, x: T, y: T) -> T {
         let x_count = self.field.u.rows();
         let y_count = self.field.u.cols();
-        let zero = T::zero();
-        let one = T::one();
-        let half = T::from_f64(0.5).expect("0.5 fits in T");
+        let zero: T = scalar::zero();
+        let one: T = scalar::one();
+        let half: T = scalar::from_f64(0.5);
 
         if x_count == 0 || y_count == 0 {
             return zero;
@@ -138,7 +145,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             return u0 * (one - ty) + u1 * ty;
         }
 
-        let (i, tx) = Self::uniform_bracket(x, T::zero(), self.grid.dx, x_count);
+        let (i, tx) = Self::uniform_bracket(x, zero, self.grid.dx, x_count);
 
         if y_count == 1 {
             let u0 = self.field.u[(i, 0)];
@@ -165,9 +172,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
     fn interpolate_v_component(&self, x: T, y: T) -> T {
         let x_count = self.field.v.rows();
         let y_count = self.field.v.cols();
-        let zero = T::zero();
-        let one = T::one();
-        let half = T::from_f64(0.5).expect("0.5 fits in T");
+        let zero: T = scalar::zero();
+        let one: T = scalar::one();
+        let half: T = scalar::from_f64(0.5);
 
         if x_count == 0 || y_count == 0 {
             return zero;
@@ -180,7 +187,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             let (j, ty) = if self.grid.y_faces.is_some() {
                 Self::monotonic_bracket(y, y_count, |jj| self.grid.y_v_face(jj))
             } else {
-                Self::uniform_bracket(y, T::zero(), self.grid.dy, y_count)
+                Self::uniform_bracket(y, zero, self.grid.dy, y_count)
             };
 
             let v0 = self.field.v[(0, j)];
@@ -202,7 +209,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let (j, ty) = if self.grid.y_faces.is_some() {
             Self::monotonic_bracket(y, y_count, |jj| self.grid.y_v_face(jj))
         } else {
-            Self::uniform_bracket(y, T::zero(), self.grid.dy, y_count)
+            Self::uniform_bracket(y, zero, self.grid.dy, y_count)
         };
 
         let v00 = self.field.v[(i, j)];
@@ -215,28 +222,31 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
     }
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive> VelocityFieldInterpolator
+impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VelocityFieldInterpolator
     for NavierStokesSolver2D<T>
 {
     fn velocity_at(&self, x: f64, y: f64) -> (f64, f64) {
-        let x_t = T::from_f64(x).unwrap_or(T::zero());
-        let y_t = T::from_f64(y).unwrap_or(T::zero());
+        let x_t: T = scalar::from_f64(x);
+        let y_t: T = scalar::from_f64(y);
 
         let u = self.interpolate_u_component(x_t, y_t);
         let v = self.interpolate_v_component(x_t, y_t);
 
-        (u.to_f64().unwrap_or(0.0), v.to_f64().unwrap_or(0.0))
+        (
+            <T as NumericElement>::to_f64(u),
+            <T as NumericElement>::to_f64(v),
+        )
     }
 
     fn is_fluid(&self, x: f64, y: f64) -> bool {
-        let lx_f64 = self.grid.lx.to_f64().unwrap_or(0.0);
-        let ly_f64 = self.grid.ly.to_f64().unwrap_or(0.0);
+        let lx_f64 = <T as NumericElement>::to_f64(self.grid.lx);
+        let ly_f64 = <T as NumericElement>::to_f64(self.grid.ly);
         x >= 0.0 && x <= lx_f64 && y >= 0.0 && y <= ly_f64
     }
 
     fn bounds(&self) -> (f64, f64, f64, f64) {
-        let lx_f64 = self.grid.lx.to_f64().unwrap_or(0.0);
-        let ly_f64 = self.grid.ly.to_f64().unwrap_or(0.0);
+        let lx_f64 = <T as NumericElement>::to_f64(self.grid.lx);
+        let ly_f64 = <T as NumericElement>::to_f64(self.grid.ly);
         (0.0, lx_f64, 0.0, ly_f64)
     }
 }

@@ -1,3 +1,4 @@
+use leto::Array1;
 use cfd_1d::domain::network::{
     Edge, EdgeProperties, EdgeType, Network, NetworkBuilder, ResistanceUpdatePolicy,
     EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
@@ -10,11 +11,12 @@ use cfd_1d::{
     SurfaceProperties, Wettability,
 };
 use cfd_core::compute::solver::Solver;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
 
-fn network_two_node<T: nalgebra::RealField + Copy + num_traits::FromPrimitive>() -> (
+fn network_two_node<T: cfd_1d::Cfd1dScalar + Copy + SafeFromF64>() -> (
     Network<T>,
     petgraph::graph::EdgeIndex,
     petgraph::graph::NodeIndex,
@@ -57,8 +59,7 @@ fn negative_coefficients_rejected_in_update() {
         e.resistance = -1.0;
         e.quad_coeff = 0.0;
     }
-    let mut x = nalgebra::DVector::<F>::zeros(net.node_count());
-    x[inlet.index()] = 5.0;
+    let mut x = Array1::<F>::zeros([net.node_count()]);    x[inlet.index()] = 5.0;
     x[outlet.index()] = 0.0;
     let err = net.update_from_solution(&x).unwrap_err();
     match err {

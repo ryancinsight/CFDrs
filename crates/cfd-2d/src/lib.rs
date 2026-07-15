@@ -155,6 +155,8 @@ pub mod constants;
 pub mod fields;
 pub mod grid;
 pub mod problem;
+pub mod scalar;
+pub use scalar::Cfd2dScalar;
 
 // Domain-organized modules
 pub mod discretization;

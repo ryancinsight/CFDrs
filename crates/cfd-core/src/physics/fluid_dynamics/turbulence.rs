@@ -1,9 +1,9 @@
 //! Turbulence modeling abstractions
 use super::fields::FlowField;
-use nalgebra::RealField;
+use eunomia::NumericElement;
 
 /// Turbulence model abstraction following Strategy pattern
-pub trait TurbulenceModel<T: RealField + Copy>: Send + Sync {
+pub trait TurbulenceModel<T: NumericElement>: Send + Sync {
     /// Calculate turbulent viscosity
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T>;
 

@@ -25,7 +25,7 @@
 //! values[k]      := val of k-th sorted triplet  (O(nnz) fill)
 //! ```
 //!
-//! This eliminates the intermediate `CooMatrix` heap allocation of size O(nnz),
+//! This eliminates the intermediate coordinate-matrix heap allocation of size O(nnz),
 //! saving one full-nnz alloc per linear solve in fine meshes.
 //!
 //! **Reference**: Saad, Y. (2003). *Iterative Methods for Sparse Linear Systems*, §3.
@@ -40,9 +40,10 @@
 //! This is the standard symmetric Dirichlet enforcement (Hughes 2000, §1.12).
 
 use cfd_core::error::{Error, Result};
+use eunomia::RealField;
+use leto::Array1;
+use leto_ops::{CsrMatrix, Scalar as LetoScalar};
 use moirai::{fold_reduce_with, Adaptive};
-use nalgebra::{DVector, RealField};
-use nalgebra_sparse::CsrMatrix;
 use std::collections::{BTreeMap, HashMap};
 
 /// Entry for sparse matrix assembly
@@ -173,9 +174,10 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     ///
     /// # Complexity
     /// O(nnz) average — HashMap O(1) amortised per entry (GAP-PERF-003).
-    fn accumulate_to_hashmap(&self, rhs: &mut DVector<T>) -> HashMap<(usize, usize), T> {
+    fn accumulate_to_hashmap(&self, rhs: &mut Array1<T>) -> HashMap<(usize, usize), T> {
         // Estimate: each entry is unique (upper bound). Reserve for minimal rehash.
         let mut entry_map: HashMap<(usize, usize), T> = HashMap::with_capacity(self.entries.len());
+        let rhs_len = rhs.shape()[0];
 
         for entry in &self.entries {
             let row_is_dirichlet = self.dirichlet_dofs.contains_key(&entry.row);
@@ -189,7 +191,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
             if let Some(&(_diag, prescribed_val)) = col_is_dirichlet {
                 // Column elimination: move contribution to RHS
                 // rhs[row] -= K[row, col] * prescribed_value
-                if entry.row < rhs.len() {
+                if entry.row < rhs_len {
                     rhs[entry.row] -= entry.value * prescribed_val;
                 }
                 // Don't add to matrix (column is zeroed)
@@ -226,7 +228,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
         sorted
     }
 
-    /// Build CSR directly from sorted triplets without an intermediate CooMatrix.
+    /// Build CSR directly from sorted triplets without an intermediate coordinate matrix.
     ///
     /// # Theorem — Direct CSR Construction (GAP-PERF-007)
     ///
@@ -235,12 +237,15 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     /// - `col_indices[k] = col of k-th triplet`
     /// - `values[k] = val of k-th triplet`
     ///
-    /// This saves the O(nnz) `CooMatrix` intermediate heap allocation.
+    /// This saves the O(nnz) intermediate coordinate-matrix heap allocation.
     fn build_csr_from_sorted(
         rows: usize,
         cols: usize,
         sorted: Vec<((usize, usize), T)>,
-    ) -> Result<CsrMatrix<T>> {
+    ) -> Result<CsrMatrix<T>>
+    where
+        T: LetoScalar,
+    {
         if sorted.is_empty() {
             return Ok(CsrMatrix::zeros(rows, cols));
         }
@@ -265,20 +270,23 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
             values.push(v);
         }
 
-        CsrMatrix::try_from_csr_data(rows, cols, row_offsets, col_indices, values)
-            .map_err(|e| Error::InvalidConfiguration(format!("CSR construction failed: {e:?}")))
+        CsrMatrix::from_parts(values, col_indices, row_offsets, rows, cols)
+            .map_err(|e| Error::InvalidConfiguration(format!("Leto CSR construction failed: {e}")))
     }
 
     /// Build the sparse matrix with Dirichlet enforcement including column elimination.
     ///
     /// For each Dirichlet DOF i with prescribed value gᵢ:
     ///   - Row i → diag_value on diagonal, zero elsewhere
-    ///   - For each non-Dirichlet row j with K\[j,i]: rhs[j] -= K\[j,i] * gᵢ; K\[j,i] = 0
+    ///   - For each non-Dirichlet row j with `K[j,i]`: `rhs[j] -= K[j,i] * g_i`; `K[j,i] = 0`
     ///
     /// # Complexity
     /// O(nnz) average via HashMap accumulation + O(nnz log nnz) single sort +
-    /// O(nnz) CSR fill — no intermediate CooMatrix allocation (GAP-PERF-003, -007).
-    pub fn build_with_rhs(self, rhs: &mut DVector<T>) -> Result<CsrMatrix<T>> {
+    /// O(nnz) CSR fill without an intermediate coordinate-matrix allocation.
+    pub fn build_with_rhs(self, rhs: &mut Array1<T>) -> Result<CsrMatrix<T>>
+    where
+        T: LetoScalar,
+    {
         if self.entries.is_empty() && self.dirichlet_dofs.is_empty() {
             return Ok(CsrMatrix::zeros(self.rows, self.cols));
         }
@@ -292,17 +300,16 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
 
     /// Build without column elimination (legacy behavior for non-FEM use cases).
     /// Only zeros Dirichlet rows, does NOT eliminate columns.
-    pub fn build(self) -> Result<CsrMatrix<T>> {
+    pub fn build(self) -> Result<CsrMatrix<T>>
+    where
+        T: LetoScalar,
+    {
         if self.entries.is_empty() && self.dirichlet_dofs.is_empty() {
             return Ok(CsrMatrix::zeros(self.rows, self.cols));
         }
 
         let rows = self.rows;
         let cols = self.cols;
-        // For the non-rhs variant, fabricate a dummy rhs to reuse accumulate_to_hashmap.
-        // No actual column elimination occurs because we pass a zero-length vector.
-        let mut dummy_rhs: DVector<T> = DVector::zeros(0);
-        // We replicate the loop manually here to skip column elimination entirely.
         let mut entry_map: HashMap<(usize, usize), T> = HashMap::with_capacity(self.entries.len());
 
         for entry in &self.entries {
@@ -314,7 +321,6 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
                 .and_modify(|v| *v += entry.value)
                 .or_insert(entry.value);
         }
-        let _ = &mut dummy_rhs; // suppress unused warning
 
         let sorted = Self::hashmap_to_sorted_triplets(entry_map, &self.dirichlet_dofs);
         Self::build_csr_from_sorted(rows, cols, sorted)
@@ -323,7 +329,7 @@ impl<T: RealField + Copy> SparseMatrixBuilder<T> {
     /// Build matrix in parallel for large systems using hash-fold-reduce.
     pub fn build_parallel(self) -> Result<CsrMatrix<T>>
     where
-        T: Send + Sync,
+        T: Send + Sync + LetoScalar,
     {
         if self.entries.is_empty() && self.dirichlet_dofs.is_empty() {
             return Ok(CsrMatrix::zeros(self.rows, self.cols));

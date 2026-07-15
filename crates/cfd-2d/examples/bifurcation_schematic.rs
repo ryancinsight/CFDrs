@@ -143,11 +143,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let blood = BloodModel::Casson(casson);
     let u_inlet = 0.1_f64; // 100 mm/s
 
-    let mut config = SIMPLEConfig::default();
-    config.max_iterations = 3000;
-    config.tolerance = 1e-4;
-    config.alpha_u = 0.5;
-    config.alpha_p = 0.2;
+    let config = SIMPLEConfig {
+        max_iterations: 3000,
+        tolerance: 1e-4,
+        alpha_u: 0.5,
+        alpha_p: 0.2,
+        ..Default::default()
+    };
 
     println!("  Parent width:   {:.2} mm", w_parent);
     println!("  Daughter width: {:.3} mm  (Murray's law)", w_daughter);

@@ -5,8 +5,7 @@ use super::{
     VariableQuadrature,
 };
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::{FloatElement, RealField};
 
 /// Utility functions for common integration patterns
 pub struct IntegrationUtils;
@@ -15,7 +14,7 @@ impl IntegrationUtils {
     /// Integrate using trapezoidal rule with n intervals
     pub fn trapezoidal<T, F>(f: F, a: T, b: T, n: usize) -> T
     where
-        T: RealField + From<f64> + FromPrimitive + Copy,
+        T: RealField + FloatElement + Copy,
         F: Fn(T) -> T,
     {
         let composite = CompositeQuadrature::new(TrapezoidalRule, n);
@@ -25,7 +24,7 @@ impl IntegrationUtils {
     /// Integrate using Simpson's rule with n intervals (must be even)
     pub fn simpsons<T, F>(f: F, a: T, b: T, n: usize) -> Result<T>
     where
-        T: RealField + From<f64> + FromPrimitive + Copy,
+        T: RealField + FloatElement + Copy,
         F: Fn(T) -> T,
     {
         if !n.is_multiple_of(2) {
@@ -41,7 +40,7 @@ impl IntegrationUtils {
     /// Integrate using Gauss-Legendre quadrature
     pub fn gauss_legendre<T, F>(f: F, a: T, b: T, order: usize) -> Result<T>
     where
-        T: RealField + From<f64> + FromPrimitive + Copy,
+        T: RealField + FloatElement + Copy,
         F: Fn(T) -> T,
     {
         let gauss = GaussQuadrature::new(order)?;
@@ -51,7 +50,7 @@ impl IntegrationUtils {
     /// Variable integration with automatic error control
     pub fn variable<T, F>(f: F, a: T, b: T, tolerance: f64) -> Result<T>
     where
-        T: RealField + From<f64> + FromPrimitive + Copy,
+        T: RealField + FloatElement + Copy,
         F: Fn(T) -> T + Copy,
     {
         let gauss = GaussQuadrature::new(3)?; // Use 3-point Gauss rule

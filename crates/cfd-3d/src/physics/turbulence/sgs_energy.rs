@@ -21,8 +21,7 @@
 //! dimensionless. Algebraic inversion preserves non-negativity because both
 //! `ν_t` and `Δ` are non-negative in the validated LES closures. ∎
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
 
 /// Yoshizawa SGS kinetic-energy coefficient used in algebraic LES closures.
 const YOSHIZAWA_C_K: f64 = 0.094;
@@ -31,16 +30,14 @@ const YOSHIZAWA_C_K: f64 = 0.094;
 #[inline]
 pub(crate) fn kinetic_energy_from_eddy_viscosity<T>(eddy_viscosity: T, length_scale: T) -> T
 where
-    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive,
+    T: cfd_mesh::domain::core::Scalar + FloatElement,
 {
-    let eps = <T as FromPrimitive>::from_f64(1.0e-30)
-        .expect("1e-30 is an IEEE 754 representable f64 constant");
-    if eddy_viscosity <= T::zero() || length_scale <= eps {
-        return T::zero();
+    let eps = <T as FloatElement>::from_f64(1.0e-30);
+    if eddy_viscosity <= T::ZERO || length_scale <= eps {
+        return T::ZERO;
     }
 
-    let c_k = <T as FromPrimitive>::from_f64(YOSHIZAWA_C_K)
-        .expect("YOSHIZAWA_C_K is an IEEE 754 representable f64 constant");
+    let c_k = <T as FloatElement>::from_f64(YOSHIZAWA_C_K);
     let velocity_scale = eddy_viscosity / (c_k * length_scale);
     velocity_scale * velocity_scale
 }

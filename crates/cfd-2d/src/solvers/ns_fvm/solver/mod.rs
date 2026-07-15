@@ -39,16 +39,18 @@ use super::config::{SIMPLEConfig, SolveResult};
 use super::field::FlowField2D;
 use super::grid::StaggeredGrid2D;
 use super::BloodModel;
-use cfd_core::error::Error;
 use crate::grid::array2d::Array2D;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use cfd_core::error::Error;
+use eunomia::{FloatElement, NumericElement};
+use leto::geometry::Vector2;
 
 /// 2D Navier-Stokes FVM solver with SIMPLE pressure-velocity coupling.
 ///
 /// Used as the numerical engine by geometry-specific pass-through solvers
 /// (bifurcation, Venturi, serpentine, etc.).
-pub struct NavierStokesSolver2D<T: RealField + Copy + Float + FromPrimitive> {
+pub struct NavierStokesSolver2D<T: Cfd2dScalar + Copy + FloatElement> {
     /// Computational grid
     pub grid: StaggeredGrid2D<T>,
     /// Flow field (u, v, p, μ, γ̇)
@@ -82,7 +84,7 @@ pub struct NavierStokesSolver2D<T: RealField + Copy + Float + FromPrimitive> {
 }
 
 /// Turbulence model coupling state for the SIMPLE solver.
-struct TurbulenceCoupling<T: RealField + Copy> {
+struct TurbulenceCoupling<T: Cfd2dScalar + Copy> {
     /// k-omega SST model.
     model: crate::physics::turbulence::k_omega_sst::KOmegaSSTModel<T>,
     /// Turbulent kinetic energy at cell centers \[nx]\[ny].
@@ -93,7 +95,7 @@ struct TurbulenceCoupling<T: RealField + Copy> {
     update_interval: usize,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Create a new solver.
     pub fn new(
         grid: StaggeredGrid2D<T>,
@@ -102,14 +104,16 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         config: SIMPLEConfig<T>,
     ) -> Self {
         let field = FlowField2D::<T>::new(grid.nx, grid.ny);
-        let a_p_u = Array2D::new(grid.nx + 1, grid.ny, T::one());
-        let a_p_v = Array2D::new(grid.nx, grid.ny + 1, T::one());
-        let u_old_workspace = Array2D::new(grid.nx + 1, grid.ny, T::zero());
-        let v_old_workspace = Array2D::new(grid.nx, grid.ny + 1, T::zero());
-        let pressure_poisson_d_u = Array2D::new(grid.nx + 1, grid.ny, T::zero());
-        let pressure_poisson_d_v = Array2D::new(grid.nx, grid.ny + 1, T::zero());
-        let pressure_poisson_p_prime = Array2D::new(grid.nx, grid.ny, T::zero());
-        let pressure_poisson_rhs = Array2D::new(grid.nx, grid.ny, T::zero());
+        let one: T = scalar::one();
+        let zero: T = scalar::zero();
+        let a_p_u = Array2D::new(grid.nx + 1, grid.ny, one);
+        let a_p_v = Array2D::new(grid.nx, grid.ny + 1, one);
+        let u_old_workspace = Array2D::new(grid.nx + 1, grid.ny, zero);
+        let v_old_workspace = Array2D::new(grid.nx, grid.ny + 1, zero);
+        let pressure_poisson_d_u = Array2D::new(grid.nx + 1, grid.ny, zero);
+        let pressure_poisson_d_v = Array2D::new(grid.nx, grid.ny + 1, zero);
+        let pressure_poisson_p_prime = Array2D::new(grid.nx, grid.ny, zero);
+        let pressure_poisson_rhs = Array2D::new(grid.nx, grid.ny, zero);
         Self {
             grid,
             field,
@@ -139,10 +143,10 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let ny = self.grid.ny;
         let size = nx * ny;
         // Initial k and omega from free-stream turbulence intensity ~1%.
-        let u_ref = T::from_f64(0.1).unwrap_or(T::one());
-        let ti = T::from_f64(0.01).unwrap_or(T::zero());
-        let k_init = T::from_f64(1.5).unwrap_or(T::one()) * (u_ref * ti) * (u_ref * ti);
-        let omega_init = k_init / (T::from_f64(0.001).unwrap_or(T::one()));
+        let u_ref: T = scalar::from_f64(0.1);
+        let ti: T = scalar::from_f64(0.01);
+        let k_init = scalar::from_f64::<T>(1.5) * (u_ref * ti) * (u_ref * ti);
+        let omega_init = k_init / scalar::from_f64::<T>(0.001);
         self.turbulence = Some(TurbulenceCoupling {
             model: crate::physics::turbulence::k_omega_sst::KOmegaSSTModel::new(nx, ny),
             k: vec![k_init; size],
@@ -186,9 +190,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let dx = self.grid.dx;
         let rho = self.density;
 
-        let mut cont_sum = T::zero();
-        let mut cont_l1_sum = T::zero();
-        let mut max_imb = T::zero();
+        let mut cont_sum: T = scalar::zero();
+        let mut cont_l1_sum: T = scalar::zero();
+        let mut max_imb: T = scalar::zero();
         let mut n_fluid = 0_usize;
 
         for i in 0..nx {
@@ -206,18 +210,18 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                 cont_sum += imb * imb;
 
                 // L-infinity: track max pointwise imbalance.
-                let abs_imb = Float::abs(imb);
+                let abs_imb = <T as NumericElement>::abs(imb);
                 if abs_imb > max_imb {
                     max_imb = abs_imb;
                 }
 
                 // Continuity L1 norm over fluid cells.
-                cont_l1_sum += Float::abs(imb);
+                cont_l1_sum += <T as NumericElement>::abs(imb);
             }
         }
 
-        let n: T = T::from_usize(n_fluid.max(1)).unwrap_or(T::one());
-        let res_cont = Float::sqrt(cont_sum / n);
+        let n: T = scalar::from_usize(n_fluid.max(1));
+        let res_cont = <T as NumericElement>::sqrt(cont_sum / n);
         let res_cont_l1 = cont_l1_sum / n;
         (res_cont, res_cont_l1, max_imb)
     }
@@ -229,7 +233,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         for i in 0..=nx {
             for j in 0..ny {
                 let u = self.field.u[(i, j)];
-                if !u.is_finite() {
+                if !<T as NumericElement>::is_finite(u) {
                     return true;
                 }
             }
@@ -237,7 +241,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         for i in 0..nx {
             for j in 0..=ny {
                 let v = self.field.v[(i, j)];
-                if !v.is_finite() {
+                if !<T as NumericElement>::is_finite(v) {
                     return true;
                 }
             }
@@ -261,35 +265,41 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             }
         }
         if !y_coords.is_empty() {
-            let y_min = y_coords.iter().copied().fold(y_coords[0], Float::min);
-            let y_max = y_coords.iter().copied().fold(y_coords[0], Float::max);
+            let y_min = y_coords
+                .iter()
+                .copied()
+                .fold(y_coords[0], NumericElement::min_scalar);
+            let y_max = y_coords
+                .iter()
+                .copied()
+                .fold(y_coords[0], NumericElement::max_scalar);
             // Channel height = span from first to last fluid centre + half-cells at edges.
             let h = y_max - y_min
-                + (dy_cells[0] + dy_cells[dy_cells.len() - 1])
-                    * T::from_f64(0.5).expect("analytical constant conversion");
+                + (dy_cells[0] + dy_cells[dy_cells.len().saturating_sub(1)])
+                    * scalar::from_f64::<T>(0.5);
 
-            let mut discrete_sum = T::zero();
+            let mut discrete_sum: T = scalar::zero();
+            let half: T = scalar::from_f64(0.5);
+            let six: T = scalar::from_f64(6.0);
+            let one: T = scalar::one();
+            let zero: T = scalar::zero();
 
             for j in 0..ny {
                 if self.field.mask[(0, j)] {
                     let dy_j = self.grid.dy_at(j);
-                    let y_local = (self.grid.y_center(j) - y_min)
-                        + T::from_f64(0.5).expect("analytical constant conversion") * dy_j;
+                    let y_local = (self.grid.y_center(j) - y_min) + half * dy_j;
                     let y_frac = y_local / h;
-                    let u_val = T::from_f64(6.0).expect("analytical constant conversion")
-                        * u_inlet
-                        * y_frac
-                        * (T::one() - y_frac);
+                    let u_val = six * u_inlet * y_frac * (one - y_frac);
                     self.field.u[(0, j)] = u_val;
                     discrete_sum += u_val * dy_j;
                 } else {
-                    self.field.u[(0, j)] = T::zero();
+                    self.field.u[(0, j)] = zero;
                 }
             }
 
             // Normalise the discrete profile so numerical mass flux matches continuous theory precisely
             let target_sum = u_inlet * h;
-            let tiny = T::from_f64(1e-30).expect("analytical constant conversion");
+            let tiny: T = scalar::from_f64(1e-30);
             if discrete_sum > tiny {
                 let normalize_factor = target_sum / discrete_sum;
                 for j in 0..ny {
@@ -300,14 +310,12 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             }
         }
 
-        let mut last_residual = T::from_f64(1e10).unwrap_or(T::one());
+        let mut last_residual: T = scalar::from_f64(1e10);
+        let zero: T = scalar::zero();
 
-        let bc_inlet = BoundaryCondition::velocity_inlet(nalgebra::Vector3::new(
-            u_inlet,
-            T::zero(),
-            T::zero(),
-        ));
-        let bc_outlet = BoundaryCondition::pressure_outlet(T::zero());
+        let bc_inlet =
+            BoundaryCondition::velocity_inlet(leto::geometry::Vector3::new(u_inlet, zero, zero));
+        let bc_outlet = BoundaryCondition::pressure_outlet(zero);
         let bc_wall_noslip = BoundaryCondition::wall_no_slip();
 
         for iteration in 0..self.config.max_iterations {
@@ -336,17 +344,18 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                     // Build velocity vector from staggered u,v fields.
                     let nx = self.grid.nx;
                     let ny = self.grid.ny;
-                    let mut velocity = vec![nalgebra::Vector2::new(T::zero(), T::zero()); nx * ny];
-                    let half = T::from_f64(0.5).unwrap_or(T::one());
+                    let zero: T = scalar::zero();
+                    let mut velocity = vec![Vector2::new(zero, zero); nx * ny];
+                    let half: T = scalar::from_f64(0.5);
                     for i in 0..nx {
                         for j in 0..ny {
                             let u_cc = (self.field.u[(i, j)] + self.field.u[(i + 1, j)]) * half;
                             let v_cc = (self.field.v[(i, j)] + self.field.v[(i, j + 1)]) * half;
-                            velocity[j * nx + i] = nalgebra::Vector2::new(u_cc, v_cc);
+                            velocity[j * nx + i] = Vector2::new(u_cc, v_cc);
                         }
                     }
                     let mu_mol = self.field.mu[(0, 0)]; // reference molecular viscosity
-                    let dt_pseudo = T::from_f64(1e-3).unwrap_or(T::one());
+                    let dt_pseudo: T = scalar::from_f64(1e-3);
                     let _ = turb.model.update(
                         &mut turb.k,
                         &mut turb.omega,
@@ -368,11 +377,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
                                 self.density,
                             );
                             let nu_t_val = nu_t / self.density;
-                            self.field.nu_t[(i, j)] = if nu_t_val > T::zero() {
-                                nu_t_val
-                            } else {
-                                T::zero()
-                            };
+                            self.field.nu_t[(i, j)] = if nu_t_val > zero { nu_t_val } else { zero };
                         }
                     }
                 }
@@ -386,45 +391,49 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             }
 
             let (res_cont, res_pcorr, res_max) = self.compute_residuals();
-            last_residual = Float::max(res_cont, res_pcorr);
+            last_residual = res_cont.max_scalar(res_pcorr);
 
-            if iteration % 1 == 0 || last_residual < self.config.tolerance {
-                let mut max_u = T::zero();
-                let mut max_v = T::zero();
-                let mut max_p = T::zero();
-                for i in 0..=self.grid.nx {
-                    for j in 0..self.grid.ny {
-                        let val = Float::abs(self.field.u[(i, j)]);
-                        if val > max_u { max_u = val; }
+            let mut max_u: T = scalar::zero();
+            let mut max_v: T = scalar::zero();
+            let mut max_p: T = scalar::zero();
+            for i in 0..=self.grid.nx {
+                for j in 0..self.grid.ny {
+                    let val = <T as NumericElement>::abs(self.field.u[(i, j)]);
+                    if val > max_u {
+                        max_u = val;
                     }
                 }
-                for i in 0..self.grid.nx {
-                    for j in 0..=self.grid.ny {
-                        let val = Float::abs(self.field.v[(i, j)]);
-                        if val > max_v { max_v = val; }
+            }
+            for i in 0..self.grid.nx {
+                for j in 0..=self.grid.ny {
+                    let val = <T as NumericElement>::abs(self.field.v[(i, j)]);
+                    if val > max_v {
+                        max_v = val;
                     }
                 }
-                for i in 0..self.grid.nx {
-                    for j in 0..self.grid.ny {
-                        let val = Float::abs(self.field.p[(i, j)]);
-                        if val > max_p { max_p = val; }
+            }
+            for i in 0..self.grid.nx {
+                for j in 0..self.grid.ny {
+                    let val = <T as NumericElement>::abs(self.field.p[(i, j)]);
+                    if val > max_p {
+                        max_p = val;
                     }
                 }
-
-                println!(
-                    "SIMPLE iteration {} residuals: cont={:.6e}, pcorr={:.6e}, max_pointwise={:.6e} | max_u={:.4e}, max_v={:.4e}, max_p={:.4e}",
-                    iteration,
-                    res_cont.to_f64().unwrap_or(0.0),
-                    res_pcorr.to_f64().unwrap_or(0.0),
-                    res_max.to_f64().unwrap_or(0.0),
-                    max_u.to_f64().unwrap_or(0.0),
-                    max_v.to_f64().unwrap_or(0.0),
-                    max_p.to_f64().unwrap_or(0.0),
-                );
             }
 
+            println!(
+                "SIMPLE iteration {} residuals: cont={:.6e}, pcorr={:.6e}, max_pointwise={:.6e} | max_u={:.4e}, max_v={:.4e}, max_p={:.4e}",
+                iteration,
+                <T as NumericElement>::to_f64(res_cont),
+                <T as NumericElement>::to_f64(res_pcorr),
+                <T as NumericElement>::to_f64(res_max),
+                <T as NumericElement>::to_f64(max_u),
+                <T as NumericElement>::to_f64(max_v),
+                <T as NumericElement>::to_f64(max_p),
+            );
+
             // Divergence guard: detect NaN/Inf or residual growth.
-            if self.check_divergence() || !last_residual.is_finite() {
+            if self.check_divergence() || !<T as NumericElement>::is_finite(last_residual) {
                 return Err(Error::Solver(
                     "SIMPLE solver diverged: NaN or Inf detected in velocity field".to_string(),
                 ));
@@ -434,11 +443,11 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
             // Skip this check during the initial flow establishment phase so
             // high-Re or highly branched cases can settle before being judged.
             if iteration > 50 {
-                let growth_limit = T::from_f64(1e6).unwrap_or(T::one());
+                let growth_limit: T = scalar::from_f64(1e6);
                 if res_max > growth_limit {
                     return Err(Error::Solver(format!(
                         "SIMPLE solver diverged: max pointwise residual {} exceeds limit",
-                        nalgebra::try_convert::<T, f64>(res_max).unwrap_or(f64::INFINITY)
+                        <T as NumericElement>::to_f64(res_max)
                     )));
                 }
             }

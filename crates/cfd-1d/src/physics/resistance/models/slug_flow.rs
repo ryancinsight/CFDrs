@@ -43,11 +43,10 @@
 //! - Kreutzer, M. T. et al. (2005). "Inertial and interfacial effects on pressure
 //!   drop of Taylor flow in capillaries". *AIChE Journal*, 51(9), 2428-2440.
 
-use super::traits::{FlowConditions, ResistanceModel};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 const KREUTZER_CONSTANT: f64 = 0.17;
@@ -55,7 +54,7 @@ const HAGEN_POISEUILLE_COEFFICIENT: f64 = 128.0;
 
 /// Kreutzer (2005) gas-liquid slug flow resistance model
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SlugFlowModel<T: RealField + Copy> {
+pub struct SlugFlowModel<T> {
     /// Capillary tube diameter \[m]
     pub diameter: T,
     /// Total channel length \[m]
@@ -66,7 +65,7 @@ pub struct SlugFlowModel<T: RealField + Copy> {
     pub surface_tension: T,
 }
 
-impl<T: RealField + Copy> SlugFlowModel<T> {
+impl<T: ResistanceScalar> SlugFlowModel<T> {
     /// Create a new Slug Flow resistance model
     pub fn new(diameter: T, length: T, slug_length: T, surface_tension: T) -> Self {
         Self {
@@ -78,7 +77,7 @@ impl<T: RealField + Copy> SlugFlowModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SlugFlowModel<T> {
+impl<T: ResistanceScalar> ResistanceModel<T> for SlugFlowModel<T> {
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
@@ -109,8 +108,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SlugFlowModel<T
             } else {
                 T::zero()
             };
-            T::from_f64(8.0).expect("Mathematical constant conversion compromised") * v
-                / self.diameter
+            scalar_from_f64::<T>(8.0) * v / self.diameter
         };
 
         let viscosity =
@@ -121,17 +119,17 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SlugFlowModel<T
 
         // Multiplier = 1.0 + 0.17 * (D / L_s) * (Re/Ca)^(1/3)
         let one = T::one();
-        let kreutzer = T::from_f64(KREUTZER_CONSTANT).expect("Mathematical conversion compromised");
+        let kreutzer = scalar_from_f64::<T>(KREUTZER_CONSTANT);
         let geometric_ratio = self.diameter / self.slug_length;
-        let third = one / T::from_f64(3.0).expect("Mathematical conversion compromised");
+        let third = one / scalar_from_f64::<T>(3.0);
 
         // Since Re/Ca is strictly non-negative (density, dia, tension, viscosity are positive)
-        let multiplier = one + kreutzer * geometric_ratio * re_over_ca.powf(third);
+        let multiplier =
+            one + kreutzer * geometric_ratio * <T as FloatElement>::powf(re_over_ca, third);
 
         // Base Hagen-Poiseuille resistance
         let pi = T::pi();
-        let coefficient = T::from_f64(HAGEN_POISEUILLE_COEFFICIENT)
-            .expect("Mathematical constant conversion compromised");
+        let coefficient = scalar_from_f64::<T>(HAGEN_POISEUILLE_COEFFICIENT);
         let d2 = self.diameter * self.diameter;
         let d4 = d2 * d2;
         let r_linear = coefficient * viscosity * self.length / (pi * d4);
@@ -147,10 +145,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for SlugFlowModel<T
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (
-            T::zero(),
-            T::from_f64(2000.0).expect("Mathematical conversion compromised"),
-        )
+        (T::zero(), scalar_from_f64::<T>(2000.0))
     }
 
     fn validate_invariants<F: FluidTrait<T>>(

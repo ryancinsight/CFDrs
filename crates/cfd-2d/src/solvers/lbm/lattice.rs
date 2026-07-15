@@ -14,7 +14,8 @@
 //! tensor emerges, yielding the weakly compressible Navier-Stokes equations.
 //! The kinematic viscosity is related to the relaxation time $\tau$ by $\nu = c_s^2 (\tau - 0.5)\Delta t$.
 
-use nalgebra::RealField;
+use crate::scalar::{from_f64, one};
+use eunomia::FloatElement;
 
 /// Trait defining a lattice model for LBM
 pub trait LatticeModel {
@@ -85,15 +86,15 @@ impl LatticeModel for D2Q9 {
 }
 
 /// Compute equilibrium distribution function
-pub fn equilibrium<T: RealField + Copy>(
+pub fn equilibrium<T: FloatElement>(
     density: T,
     velocity: &[T; 2],
     _direction: usize,
     weight: T,
     lattice_velocity: (i32, i32), // Pass small tuple by value (8 bytes)
 ) -> T {
-    let cx = T::from_i32(lattice_velocity.0).expect("analytical constant conversion");
-    let cy = T::from_i32(lattice_velocity.1).expect("analytical constant conversion");
+    let cx = from_f64::<T>(f64::from(lattice_velocity.0));
+    let cy = from_f64::<T>(f64::from(lattice_velocity.1));
 
     let u_sq = velocity[0] * velocity[0] + velocity[1] * velocity[1];
     let cu = cx * velocity[0] + cy * velocity[1];
@@ -103,13 +104,13 @@ pub fn equilibrium<T: RealField + Copy>(
     const VELOCITY_SQ_SCALE: f64 = 4.5; // 9/2 coefficient
     const KINETIC_SCALE: f64 = 1.5; // 3/2 coefficient
 
-    let velocity_scale = T::from_f64(VELOCITY_SCALE).expect("analytical constant conversion");
-    let velocity_sq_scale = T::from_f64(VELOCITY_SQ_SCALE).expect("analytical constant conversion");
-    let kinetic_scale = T::from_f64(KINETIC_SCALE).expect("analytical constant conversion");
+    let velocity_scale = from_f64::<T>(VELOCITY_SCALE);
+    let velocity_sq_scale = from_f64::<T>(VELOCITY_SQ_SCALE);
+    let kinetic_scale = from_f64::<T>(KINETIC_SCALE);
 
     weight
         * density
-        * (T::one() + velocity_scale * cu + velocity_sq_scale * cu * cu - kinetic_scale * u_sq)
+        * (one::<T>() + velocity_scale * cu + velocity_sq_scale * cu * cu - kinetic_scale * u_sq)
 }
 
 #[cfg(test)]
@@ -125,7 +126,7 @@ mod tests {
 
         // Test weight sum equals 1
         let weight_sum: f64 = D2Q9::WEIGHTS.iter().sum();
-        assert!((weight_sum - 1.0).abs() < 1e-10);
+        assert!(<f64 as eunomia::NumericElement>::abs(weight_sum - 1.0) < 1e-10);
 
         // Test opposite directions
         for i in 0..9 {

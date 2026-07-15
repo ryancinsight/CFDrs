@@ -2,9 +2,8 @@
 //!
 //! Provides tools for analyzing and classifying convergence behavior.
 
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::{FloatElement, RealField};
 
 /// Convergence order classification
 #[derive(Debug, Clone, PartialEq)]
@@ -27,24 +26,24 @@ pub enum ConvergenceOrder<T: RealField + Copy> {
     Custom(T),
 }
 
-impl<T: RealField + Copy + FromPrimitive> ConvergenceOrder<T> {
+impl<T: RealField + Copy + FloatElement> ConvergenceOrder<T> {
     /// Determine convergence order from observed rate
     pub fn from_rate(rate: T) -> Self {
-        let tolerance = T::from_f64_or_one(0.15);
+        let tolerance = scalar::from_f64::<T>(0.15);
 
-        if rate < T::from_f64(0.5).unwrap_or_else(T::zero) {
+        if rate < scalar::from_f64::<T>(0.5) {
             Self::SubLinear
-        } else if (rate - T::one()).abs() < tolerance {
+        } else if scalar::abs(rate - scalar::one::<T>()) < tolerance {
             Self::FirstOrder
-        } else if (rate - T::from_f64_or_one(2.0)).abs() < tolerance {
+        } else if scalar::abs(rate - scalar::from_f64::<T>(2.0)) < tolerance {
             Self::SecondOrder
-        } else if (rate - T::from_f64_or_one(3.0)).abs() < tolerance {
+        } else if scalar::abs(rate - scalar::from_f64::<T>(3.0)) < tolerance {
             Self::ThirdOrder
-        } else if (rate - T::from_f64_or_one(4.0)).abs() < tolerance {
+        } else if scalar::abs(rate - scalar::from_f64::<T>(4.0)) < tolerance {
             Self::FourthOrder
-        } else if rate > T::from_f64_or_one(6.0) {
+        } else if rate > scalar::from_f64::<T>(6.0) {
             Self::Spectral
-        } else if rate > T::one() && rate < T::from_f64_or_one(2.0) {
+        } else if rate > scalar::one::<T>() && rate < scalar::from_f64::<T>(2.0) {
             Self::SuperLinear
         } else {
             Self::Custom(rate)
@@ -54,13 +53,13 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceOrder<T> {
     /// Get expected rate for this order
     pub fn expected_rate(&self) -> T {
         match self {
-            Self::SubLinear => T::from_f64_or_one(0.5),
-            Self::FirstOrder => T::one(),
-            Self::SuperLinear => T::from_f64_or_one(1.5),
-            Self::SecondOrder => T::from_f64_or_one(2.0),
-            Self::ThirdOrder => T::from_f64_or_one(3.0),
-            Self::FourthOrder => T::from_f64_or_one(4.0),
-            Self::Spectral => T::from_f64_or_one(10.0),
+            Self::SubLinear => scalar::from_f64::<T>(0.5),
+            Self::FirstOrder => scalar::one::<T>(),
+            Self::SuperLinear => scalar::from_f64::<T>(1.5),
+            Self::SecondOrder => scalar::from_f64::<T>(2.0),
+            Self::ThirdOrder => scalar::from_f64::<T>(3.0),
+            Self::FourthOrder => scalar::from_f64::<T>(4.0),
+            Self::Spectral => scalar::from_f64::<T>(10.0),
             Self::Custom(rate) => *rate,
         }
     }
@@ -68,8 +67,8 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceOrder<T> {
     /// Check if observed rate matches expected within tolerance
     pub fn matches(&self, observed_rate: T) -> bool {
         let expected = self.expected_rate();
-        let tolerance = T::from_f64_or_one(0.25); // 25% tolerance
-        (observed_rate - expected).abs() < expected * tolerance
+        let tolerance = scalar::from_f64::<T>(0.25); // 25% tolerance
+        scalar::abs(observed_rate - expected) < expected * tolerance
     }
 }
 
@@ -88,20 +87,19 @@ impl ConvergenceAnalysis {
     /// Check if refinement is uniform (constant ratio)
     pub fn is_uniform_refinement<T>(grid_sizes: &[T]) -> bool
     where
-        T: RealField + Copy + FromPrimitive + std::iter::Sum,
+        T: RealField + Copy + FloatElement + std::iter::Sum,
     {
         let ratios = Self::refinement_ratio(grid_sizes);
         if ratios.is_empty() {
             return true;
         }
 
-        let mean_ratio =
-            ratios.iter().copied().sum::<T>() / T::from_usize(ratios.len()).unwrap_or_else(T::one);
-        let tolerance = T::from_f64_or_one(0.05); // 5% variation allowed
+        let mean_ratio = ratios.iter().copied().sum::<T>() / scalar::from_usize::<T>(ratios.len());
+        let tolerance = scalar::from_f64::<T>(0.05); // 5% variation allowed
 
         ratios
             .iter()
-            .all(|r| ((*r - mean_ratio) / mean_ratio).abs() < tolerance)
+            .all(|r| scalar::abs((*r - mean_ratio) / mean_ratio) < tolerance)
     }
 
     /// Estimate required grid size for target accuracy
@@ -112,17 +110,17 @@ impl ConvergenceAnalysis {
         order: T,
     ) -> T
     where
-        T: RealField + Copy,
+        T: RealField + Copy + FloatElement,
     {
-        current_grid * (target_error / current_error).powf(T::one() / order)
+        current_grid * scalar::powf(target_error / current_error, scalar::one::<T>() / order)
     }
 
     /// Compute effective convergence rate between two solutions
     pub fn effective_rate<T>(h1: T, h2: T, error1: T, error2: T) -> T
     where
-        T: RealField + Copy,
+        T: RealField + Copy + FloatElement,
     {
-        (error1 / error2).ln() / (h1 / h2).ln()
+        scalar::ln(error1 / error2) / scalar::ln(h1 / h2)
     }
 
     /// Check monotonic convergence
@@ -156,7 +154,7 @@ impl ConvergenceAnalysis {
         let ratios = Self::convergence_ratio(errors);
 
         // Check for sign changes in convergence ratio
-        ratios.windows(2).any(|w| w[0] * w[1] < T::zero())
+        ratios.windows(2).any(|w| w[0] * w[1] < scalar::zero::<T>())
     }
 }
 

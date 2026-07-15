@@ -29,12 +29,12 @@
 use super::config::AlgorithmType;
 use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
-use nalgebra::{RealField, Vector2};
-use num_traits::{FromPrimitive, ToPrimitive};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::{FloatElement, NumericElement};
+use leto::geometry::Vector2;
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
-    SimplecPimpleSolver<T>
-{
+impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
     /// Solve pressure-velocity coupling for one time step with adaptive stepping
     pub fn solve_time_step(
         &mut self,
@@ -97,21 +97,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
         let mut dt = dt_initial;
         let mut step_count = 0;
         let mut residuals = Vec::new();
-        let mut last_residual = T::max_value().unwrap_or(T::from_f64(1e10).unwrap_or(T::one()));
+        let mut last_residual = scalar::from_f64(1e10);
 
-        let dt_increase_factor = T::from_f64(1.2).unwrap_or_else(|| {
-            T::one() + T::from_f64(0.2).expect("analytical constant conversion")
-        });
-        let dt_decrease_factor = T::from_f64(0.7)
-            .unwrap_or_else(|| T::from_f64(0.7).expect("analytical constant conversion"));
-        let min_dt = dt_initial
-            * T::from_f64(0.1)
-                .unwrap_or_else(|| T::from_f64(0.1).expect("analytical constant conversion"));
-        let max_dt = T::from_f64(1e10).unwrap_or_else(|| {
-            dt_initial
-                * T::from_f64(5.0)
-                    .unwrap_or_else(|| T::from_f64(5.0).expect("analytical constant conversion"))
-        });
+        let dt_increase_factor = scalar::from_f64(1.2);
+        let dt_decrease_factor = scalar::from_f64(0.7);
+        let min_dt = dt_initial * scalar::from_f64(0.1);
+        let max_dt = scalar::from_f64(1e10);
 
         while step_count < max_steps {
             let residual = self.solve_time_step(fields, dt, nu, rho)?;
@@ -128,13 +119,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 let r1 = residuals[n - 2];
                 let r2 = residuals[n - 1];
 
-                let denominator =
-                    r2 - r1 * T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one()) + r0;
-                if denominator.abs() > T::default_epsilon() {
+                let denominator = r2 - r1 * scalar::from_f64(2.0) + r0;
+                if NumericElement::abs(denominator) > T::default_epsilon() {
                     let numerator = (r1 - r0) * (r1 - r0);
                     let r_accelerated = r0 - numerator / denominator;
 
-                    if r_accelerated > T::zero() && r_accelerated < residual {
+                    if r_accelerated > scalar::zero() && r_accelerated < residual {
                         tracing::debug!(
                             "Aitken acceleration applied: {:.6e} -> {:.6e}",
                             residual,
@@ -145,24 +135,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             }
 
             // Adaptive time step adjustment
-            if residual
-                < last_residual
-                    * T::from_f64(0.95).unwrap_or_else(|| {
-                        T::from_f64(0.95).expect("analytical constant conversion")
-                    })
-            {
+            if residual < last_residual * scalar::from_f64(0.95) {
                 dt = (dt * dt_increase_factor).min(max_dt);
                 tracing::debug!(
                     "Time step increased to {:.6}, residual: {:.6e}",
                     dt,
                     residual
                 );
-            } else if residual
-                > last_residual
-                    * T::from_f64(1.05).unwrap_or_else(|| {
-                        T::from_f64(1.05).expect("analytical constant conversion")
-                    })
-            {
+            } else if residual > last_residual * scalar::from_f64(1.05) {
                 dt = (dt * dt_decrease_factor).max(min_dt);
                 tracing::debug!(
                     "Time step decreased to {:.6}, residual: {:.6e}",
@@ -175,9 +155,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             step_count += 1;
         }
 
-        let final_residual = *residuals
-            .last()
-            .unwrap_or(&T::max_value().unwrap_or(T::from_f64(1e10).unwrap_or(T::one())));
+        let fallback_residual = scalar::from_f64(1e10);
+        let final_residual = *residuals.last().unwrap_or(&fallback_residual);
         Ok((dt, final_residual))
     }
 }
@@ -200,8 +179,17 @@ mod tests {
 
     #[test]
     fn verify_algorithm_type() {
-        assert_eq!(SimplecPimpleConfig::<f64>::simplec().algorithm, AlgorithmType::Simplec);
-        assert_eq!(SimplecPimpleConfig::<f64>::pimple().algorithm, AlgorithmType::Pimple);
-        assert_eq!(SimplecPimpleConfig::<f64>::default().algorithm, AlgorithmType::Simplec);
+        assert_eq!(
+            SimplecPimpleConfig::<f64>::simplec().algorithm,
+            AlgorithmType::Simplec
+        );
+        assert_eq!(
+            SimplecPimpleConfig::<f64>::pimple().algorithm,
+            AlgorithmType::Pimple
+        );
+        assert_eq!(
+            SimplecPimpleConfig::<f64>::default().algorithm,
+            AlgorithmType::Simplec
+        );
     }
 }

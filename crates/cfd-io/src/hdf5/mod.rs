@@ -28,7 +28,7 @@ use std::path::Path;
 use consus_core::{ByteOrder, Datatype, Shape, StringEncoding};
 use consus_hdf5::file::writer::{DatasetCreationProps, FileCreationProps, Hdf5FileBuilder};
 
-use cfd_core::error::{Error, Result};
+use crate::error::{Error, Result};
 
 mod sealed {
     /// Prevents external implementations of [`super::Hdf5Float`], protecting the
@@ -198,8 +198,16 @@ mod tests {
         let field: Vec<f64> = vec![1.5, -2.5, 3.0, 4.25, -5.0, 6.125];
         let velocity: Vec<f64> = vec![0.0, 10.0, -20.0, 30.5];
         let datasets = [
-            DatasetView { name: "field", shape: &[2, 3], data: &field },
-            DatasetView { name: "velocity", shape: &[4], data: &velocity },
+            DatasetView {
+                name: "field",
+                shape: &[2, 3],
+                data: &field,
+            },
+            DatasetView {
+                name: "velocity",
+                shape: &[4],
+                data: &velocity,
+            },
         ];
         let metadata = [("solver", "PISO"), ("units", "SI")];
 
@@ -236,13 +244,20 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("f32.h5");
         let data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0];
-        let datasets = [DatasetView { name: "x", shape: &[4], data: &data }];
+        let datasets = [DatasetView {
+            name: "x",
+            shape: &[4],
+            data: &data,
+        }];
         write_hdf5(&path, &datasets, &[]).expect("write f32 hdf5");
 
         let bytes = std::fs::read(&path).expect("read back");
         let file = Hdf5File::open(MemCursor::from_bytes(bytes)).expect("open");
         let children = file.list_root_group().expect("list root");
-        let (_, addr, _) = children.iter().find(|(n, _, _)| n == "x").expect("dataset x");
+        let (_, addr, _) = children
+            .iter()
+            .find(|(n, _, _)| n == "x")
+            .expect("dataset x");
         let dataset = file.dataset_at(*addr).expect("dataset header");
         // Stored in native f32 precision (4 bytes/element), not widened to f64.
         match dataset.datatype {
@@ -256,7 +271,11 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("bad.h5");
         let data: Vec<f64> = vec![1.0, 2.0, 3.0];
-        let datasets = [DatasetView { name: "x", shape: &[2, 2], data: &data }];
+        let datasets = [DatasetView {
+            name: "x",
+            shape: &[2, 2],
+            data: &data,
+        }];
         let err = write_hdf5(&path, &datasets, &[]).unwrap_err();
         assert!(matches!(err, Error::InvalidInput(_)));
     }

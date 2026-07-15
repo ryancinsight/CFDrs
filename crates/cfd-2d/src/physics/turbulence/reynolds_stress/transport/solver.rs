@@ -9,15 +9,15 @@ use super::super::tensor::ReynoldsStressTensor;
 use super::super::PressureStrainModel;
 use super::EPSILON_MIN;
 use cfd_core::error::Result;
-use nalgebra::{DMatrix, RealField};
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::RealField;
+use leto::Array2;
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
+impl<T: RealField + Copy> ReynoldsStressModel<T> {
     /// Primary entry: update Reynolds stresses using the optimised path.
     pub fn update_reynolds_stresses(
         &self,
         rs: &mut ReynoldsStressTensor<T>,
-        velocity: &[DMatrix<T>; 2],
+        velocity: &[Array2<T>; 2],
         dt: T,
         dx: T,
         dy: T,
@@ -49,7 +49,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     pub fn update_reynolds_stresses_optimized(
         &self,
         rs: &mut ReynoldsStressTensor<T>,
-        velocity: &[DMatrix<T>; 2],
+        velocity: &[Array2<T>; 2],
         dt: T,
         dx: T,
         dy: T,
@@ -57,17 +57,17 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let nx = self.nx;
         let ny = self.ny;
 
-        let dx_inv = T::one() / dx;
-        let dy_inv = T::one() / dy;
+        let dx_inv = T::ONE / dx;
+        let dy_inv = T::ONE / dy;
         let half = Self::c(0.5);
         let two_thirds = Self::c(2.0 / 3.0);
         let epsilon_min = Self::c(EPSILON_MIN);
 
-        let mut xx_new = DMatrix::zeros(nx, ny);
-        let mut xy_new = DMatrix::zeros(nx, ny);
-        let mut yy_new = DMatrix::zeros(nx, ny);
-        let mut k_new = DMatrix::zeros(nx, ny);
-        let mut epsilon_new = DMatrix::zeros(nx, ny);
+        let mut xx_new = Array2::from_elem([nx, ny], T::ZERO);
+        let mut xy_new = Array2::from_elem([nx, ny], T::ZERO);
+        let mut yy_new = Array2::from_elem([nx, ny], T::ZERO);
+        let mut k_new = Array2::from_elem([nx, ny], T::ZERO);
+        let mut epsilon_new = Array2::from_elem([nx, ny], T::ZERO);
 
         let block_size = 4;
         for bi in (1..nx - 1).step_by(block_size) {
@@ -79,10 +79,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                     for j in bj..bj_end {
                         let (i1, i_1, j1, j_1) = (i + 1, i - 1, j + 1, j - 1);
 
-                        let du_dx = dx_inv * (velocity[0][(i1, j)] - velocity[0][(i_1, j)]) * half;
-                        let du_dy = dy_inv * (velocity[0][(i, j1)] - velocity[0][(i, j_1)]) * half;
-                        let dv_dx = dx_inv * (velocity[1][(i1, j)] - velocity[1][(i_1, j)]) * half;
-                        let dv_dy = dy_inv * (velocity[1][(i, j1)] - velocity[1][(i, j_1)]) * half;
+                        let du_dx = dx_inv * (velocity[0][[i1, j]] - velocity[0][[i_1, j]]) * half;
+                        let du_dy = dy_inv * (velocity[0][[i, j1]] - velocity[0][[i, j_1]]) * half;
+                        let dv_dx = dx_inv * (velocity[1][[i1, j]] - velocity[1][[i_1, j]]) * half;
+                        let dv_dy = dy_inv * (velocity[1][[i, j1]] - velocity[1][[i, j_1]]) * half;
 
                         let velocity_gradient = [[du_dx, du_dy], [dv_dx, dv_dy]];
 
@@ -93,19 +93,19 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                         let w21 = -w12;
 
                         let strain_rate = [[s11, s12], [s12, s22]];
-                        let rotation_rate = [[T::zero(), w12], [w21, T::zero()]];
+                        let rotation_rate = [[T::ZERO, w12], [w21, T::ZERO]];
 
-                        let dxx_dx = dx_inv * (rs.xx[(i1, j)] - rs.xx[(i_1, j)]) * half;
-                        let dxx_dy = dy_inv * (rs.xx[(i, j1)] - rs.xx[(i, j_1)]) * half;
-                        let dxy_dx = dx_inv * (rs.xy[(i1, j)] - rs.xy[(i_1, j)]) * half;
-                        let dxy_dy = dy_inv * (rs.xy[(i, j1)] - rs.xy[(i, j_1)]) * half;
+                        let dxx_dx = dx_inv * (rs.xx[[i1, j]] - rs.xx[[i_1, j]]) * half;
+                        let dxx_dy = dy_inv * (rs.xx[[i, j1]] - rs.xx[[i, j_1]]) * half;
+                        let dxy_dx = dx_inv * (rs.xy[[i1, j]] - rs.xy[[i_1, j]]) * half;
+                        let dxy_dy = dy_inv * (rs.xy[[i, j1]] - rs.xy[[i, j_1]]) * half;
                         let stress_gradient = [[dxx_dx, dxx_dy], [dxy_dx, dxy_dy]];
 
-                        let xx = rs.xx[(i, j)];
-                        let xy = rs.xy[(i, j)];
-                        let yy = rs.yy[(i, j)];
-                        let k = rs.k[(i, j)];
-                        let epsilon = rs.epsilon[(i, j)];
+                        let xx = rs.xx[[i, j]];
+                        let xy = rs.xy[[i, j]];
+                        let yy = rs.yy[[i, j]];
+                        let k = rs.k[[i, j]];
+                        let epsilon = rs.epsilon[[i, j]];
 
                         // Production (unrolled for 2D)
                         let p_xx = -Self::c(2.0) * xy * du_dy;
@@ -160,19 +160,21 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                         let t_xy = turbulent_transport(k, epsilon, &stress_gradient, 0, 1);
                         let t_yy = turbulent_transport(k, epsilon, &stress_gradient, 1, 1);
 
-                        xx_new[(i, j)] = (xx + dt * (p_xx + phi_xx - eps_xx + t_xx)).max(T::zero());
-                        xy_new[(i, j)] = xy + dt * (p_xy + phi_xy - eps_xy + t_xy);
-                        yy_new[(i, j)] = (yy + dt * (p_yy + phi_yy - eps_yy + t_yy)).max(T::zero());
+                        xx_new[[i, j]] =
+                            (xx + dt * (p_xx + phi_xx - eps_xx + t_xx)).max_scalar(T::ZERO);
+                        xy_new[[i, j]] = xy + dt * (p_xy + phi_xy - eps_xy + t_xy);
+                        yy_new[[i, j]] =
+                            (yy + dt * (p_yy + phi_yy - eps_yy + t_yy)).max_scalar(T::ZERO);
 
                         // Schwarz inequality: |⟨u'v'⟩|² ≤ ⟨u'u'⟩⟨v'v'⟩
-                        let xy_max = (xx_new[(i, j)] * yy_new[(i, j)]).sqrt();
-                        xy_new[(i, j)] = xy_new[(i, j)].clamp(-xy_max, xy_max);
+                        let xy_max = (xx_new[[i, j]] * yy_new[[i, j]]).sqrt();
+                        xy_new[[i, j]] = xy_new[[i, j]].clamp(-xy_max, xy_max);
 
-                        k_new[(i, j)] = half * (xx_new[(i, j)] + yy_new[(i, j)]);
-                        epsilon_new[(i, j)] = self.update_epsilon_optimized(
-                            xx_new[(i, j)],
-                            yy_new[(i, j)],
-                            k_new[(i, j)],
+                        k_new[[i, j]] = half * (xx_new[[i, j]] + yy_new[[i, j]]);
+                        epsilon_new[[i, j]] = self.update_epsilon_optimized(
+                            xx_new[[i, j]],
+                            yy_new[[i, j]],
+                            k_new[[i, j]],
                             epsilon,
                             &velocity_gradient,
                             &rs.epsilon,
@@ -218,8 +220,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         i: usize,
         j: usize,
     ) -> T {
-        if epsilon <= T::zero() || k <= T::zero() {
-            return T::zero();
+        if epsilon <= T::ZERO || k <= T::ZERO {
+            return T::ZERO;
         }
 
         let two_thirds = Self::c(2.0 / 3.0);
@@ -266,8 +268,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
                 s11,
                 s12,
                 s22,
-                T::zero(),
-                T::zero(),
+                T::ZERO,
+                T::ZERO,
                 i,
                 j,
             ),
@@ -285,14 +287,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         x: usize,
         y: usize,
     ) -> T {
-        let k = rs.k[(x, y)];
-        let epsilon = rs.epsilon[(x, y)];
-        let xx = rs.xx[(x, y)];
-        let xy = rs.xy[(x, y)];
-        let yy = rs.yy[(x, y)];
+        let k = rs.k[[x, y]];
+        let epsilon = rs.epsilon[[x, y]];
+        let xx = rs.xx[[x, y]];
+        let xy = rs.xy[[x, y]];
+        let yy = rs.yy[[x, y]];
 
-        if epsilon <= T::zero() || k <= T::zero() {
-            return T::zero();
+        if epsilon <= T::ZERO || k <= T::ZERO {
+            return T::ZERO;
         }
 
         let two_thirds = Self::c(2.0 / 3.0);
@@ -374,7 +376,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         k_new: T,
         epsilon_old: T,
         velocity_gradient: &[[T; 2]; 2],
-        epsilon_field: &DMatrix<T>,
+        epsilon_field: &Array2<T>,
         i: usize,
         j: usize,
         dx: T,
@@ -382,7 +384,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         dt: T,
         epsilon_min: T,
     ) -> T {
-        if k_new <= T::zero() || epsilon_old <= T::zero() {
+        if k_new <= T::ZERO || epsilon_old <= T::ZERO {
             return epsilon_min;
         }
 
@@ -401,13 +403,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         // 5-point Laplacian stencil: ∇²ε = (ε_{i+1,j} - 2ε_{i,j} + ε_{i-1,j})/dx²
         //                                 + (ε_{i,j+1} - 2ε_{i,j} + ε_{i,j-1})/dy²
         let two = Self::c(2.0);
-        let eps_laplacian = (epsilon_field[(i + 1, j)] - two * epsilon_field[(i, j)]
-            + epsilon_field[(i - 1, j)])
+        let eps_laplacian = (epsilon_field[[i + 1, j]] - two * epsilon_field[[i, j]]
+            + epsilon_field[[i - 1, j]])
             / (dx * dx)
-            + (epsilon_field[(i, j + 1)] - two * epsilon_field[(i, j)] + epsilon_field[(i, j - 1)])
+            + (epsilon_field[[i, j + 1]] - two * epsilon_field[[i, j]] + epsilon_field[[i, j - 1]])
                 / (dy * dy);
         let diffusion = (nu_t / sigma_eps) * eps_laplacian;
 
-        (epsilon_old + dt * (production - destruction + diffusion)).max(epsilon_min)
+        (epsilon_old + dt * (production - destruction + diffusion)).max_scalar(epsilon_min)
     }
 }

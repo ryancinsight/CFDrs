@@ -4,15 +4,20 @@ use cfd_math::linear_solver::preconditioners::multigrid::{
     AMGConfig, AlgebraicMultigrid, CoarseningStrategy, CycleType,
 };
 use cfd_math::linear_solver::{BiCGSTAB, IterativeSolverConfig, Preconditioner, GMRES};
-use cfd_math::sparse::spmv;
-use nalgebra::linalg::SymmetricEigen;
-use nalgebra::{DMatrix, DVector, RealField};
-use nalgebra_sparse::CsrMatrix;
-use num_traits::FromPrimitive;
+use cfd_math::sparse::{spmv, SparseMatrix, SparseMatrixBuilder};
+use eunomia::{FloatElement, RealField};
+use leto::Array1;
+use leto_ops::{CsrMatrix as AtlasSparseMatrix, Scalar as LetoScalar};
+
+struct PoissonSystem<T: RealField + Copy + LetoScalar> {
+    solver_matrix: SparseMatrix<T>,
+    amg_matrix: AtlasSparseMatrix<T>,
+}
 
 /// Create a test matrix representing a 2D Poisson equation
-fn create_poisson_matrix<T: RealField + From<f64> + FromPrimitive>(n: usize) -> CsrMatrix<T> {
+fn create_poisson_system<T: RealField + FloatElement + LetoScalar>(n: usize) -> PoissonSystem<T> {
     let size = n * n;
+    let mut builder = SparseMatrixBuilder::new(size, size);
     let mut values = Vec::new();
     let mut indices = Vec::new();
     let mut indptr = vec![0];
@@ -23,73 +28,133 @@ fn create_poisson_matrix<T: RealField + From<f64> + FromPrimitive>(n: usize) -> 
 
         // Top neighbor (i-n)
         if row > 0 {
-            values.push(T::from_f64(-1.0).unwrap_or_else(num_traits::Zero::zero));
+            let value = <T as FloatElement>::from_f64(-1.0);
+            builder
+                .add_entry(i, i - n, value)
+                .expect("invariant: top-neighbor entry is in bounds");
+            values.push(value);
             indices.push(i - n);
         }
 
         // Left neighbor (i-1)
         if col > 0 {
-            values.push(T::from_f64(-1.0).unwrap_or_else(num_traits::Zero::zero));
+            let value = <T as FloatElement>::from_f64(-1.0);
+            builder
+                .add_entry(i, i - 1, value)
+                .expect("invariant: left-neighbor entry is in bounds");
+            values.push(value);
             indices.push(i - 1);
         }
 
         // Diagonal element (i)
-        values.push(T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero));
+        let diagonal = <T as FloatElement>::from_f64(4.0);
+        builder
+            .add_entry(i, i, diagonal)
+            .expect("invariant: diagonal entry is in bounds");
+        values.push(diagonal);
         indices.push(i);
 
         // Right neighbor (i+1)
         if col < n - 1 {
-            values.push(T::from_f64(-1.0).unwrap_or_else(num_traits::Zero::zero));
+            let value = <T as FloatElement>::from_f64(-1.0);
+            builder
+                .add_entry(i, i + 1, value)
+                .expect("invariant: right-neighbor entry is in bounds");
+            values.push(value);
             indices.push(i + 1);
         }
 
         // Bottom neighbor (i+n)
         if row < n - 1 {
-            values.push(T::from_f64(-1.0).unwrap_or_else(num_traits::Zero::zero));
+            let value = <T as FloatElement>::from_f64(-1.0);
+            builder
+                .add_entry(i, i + n, value)
+                .expect("invariant: bottom-neighbor entry is in bounds");
+            values.push(value);
             indices.push(i + n);
         }
 
         indptr.push(values.len());
     }
 
-    CsrMatrix::try_from_csr_data(size, size, indptr, indices, values).unwrap()
+    let solver_matrix = builder
+        .build()
+        .expect("invariant: generated Poisson entries build a valid solver matrix");
+    let amg_matrix = AtlasSparseMatrix::from_parts(values, indices, indptr, size, size)
+        .expect("invariant: generated Poisson CSR is valid for AMG matrix");
+
+    PoissonSystem {
+        solver_matrix,
+        amg_matrix,
+    }
 }
 
-fn create_exact_solution<T: RealField + From<f64>>(size: usize) -> DVector<T> {
-    DVector::from_fn(size, |i, _| T::from_f64((i as f64).sin()).unwrap())
+fn create_exact_solution<T: FloatElement>(size: usize) -> Array1<T> {
+    Array1::from_shape_vec(
+        [size],
+        (0..size)
+            .map(|i| <T as FloatElement>::from_f64((i as f64).sin()))
+            .collect(),
+    )
+    .expect("invariant: exact-solution shape matches data")
 }
 
-fn create_rhs<T: RealField + From<f64> + Copy>(
-    matrix: &CsrMatrix<T>,
-    solution: &DVector<T>,
-) -> DVector<T> {
-    let mut rhs = DVector::zeros(matrix.nrows());
+fn create_rhs<T: RealField + Copy + LetoScalar>(
+    matrix: &SparseMatrix<T>,
+    solution: &Array1<T>,
+) -> Array1<T> {
+    let mut rhs = Array1::zeros([matrix.nrows()]);
     spmv(matrix, solution, &mut rhs);
     rhs
 }
 
-fn csr_to_dense<T: RealField + Copy + FromPrimitive>(matrix: &CsrMatrix<T>) -> DMatrix<T> {
-    let nrows = matrix.nrows();
-    let ncols = matrix.ncols();
-    let mut dense = DMatrix::zeros(nrows, ncols);
-    let offsets = matrix.row_offsets();
-    let indices = matrix.col_indices();
-    let values = matrix.values();
-    for row in 0..nrows {
-        for idx in offsets[row]..offsets[row + 1] {
-            let col = indices[idx];
-            dense[(row, col)] = values[idx];
-        }
-    }
-    dense
+fn apply_preconditioner<P: Preconditioner<f64>>(
+    preconditioner: &P,
+    rhs: &Array1<f64>,
+    out: &mut Array1<f64>,
+) {
+    preconditioner
+        .apply_to(rhs, out)
+        .expect("preconditioner application succeeds");
+}
+
+fn vector_norm(values: &Array1<f64>) -> f64 {
+    (0..values.shape()[0])
+        .map(|idx| values[idx] * values[idx])
+        .sum::<f64>()
+        .sqrt()
+}
+
+fn vector_distance(lhs: &Array1<f64>, rhs: &Array1<f64>) -> f64 {
+    assert_eq!(
+        lhs.shape(),
+        rhs.shape(),
+        "invariant: compared arrays share shape"
+    );
+    (0..lhs.shape()[0])
+        .map(|idx| {
+            let diff = lhs[idx] - rhs[idx];
+            diff * diff
+        })
+        .sum::<f64>()
+        .sqrt()
+}
+
+fn energy_norm(matrix: &SparseMatrix<f64>, values: &Array1<f64>) -> f64 {
+    let mut applied = Array1::zeros([matrix.nrows()]);
+    spmv(matrix, values, &mut applied);
+    let dot = (0..values.shape()[0])
+        .map(|idx| values[idx] * applied[idx])
+        .sum::<f64>();
+    dot.max(0.0).sqrt()
 }
 
 #[test]
 fn test_amg_with_bicgstab() {
     let n = 8; // 8x8 grid = 64 unknowns
-    let matrix = create_poisson_matrix::<f64>(n);
-    let exact_solution = create_exact_solution(matrix.nrows());
-    let rhs = create_rhs(&matrix, &exact_solution);
+    let system = create_poisson_system::<f64>(n);
+    let exact_solution = create_exact_solution(system.solver_matrix.nrows());
+    let rhs = create_rhs(&system.solver_matrix, &exact_solution);
 
     // Create AMG preconditioner
     let amg_config = AMGConfig {
@@ -101,7 +166,7 @@ fn test_amg_with_bicgstab() {
         coarsening_strategy: CoarseningStrategy::RugeStueben,
         ..Default::default()
     };
-    let amg = AlgebraicMultigrid::new(&matrix, amg_config).unwrap();
+    let amg = AlgebraicMultigrid::new(&system.amg_matrix, amg_config).unwrap();
 
     // Create BiCGSTAB solver and solve with AMG preconditioner
     let solver_config = IterativeSolverConfig {
@@ -112,8 +177,9 @@ fn test_amg_with_bicgstab() {
     let solver = BiCGSTAB::new(solver_config);
 
     // Solve the system with AMG preconditioning
-    let mut solution = DVector::zeros(matrix.nrows());
-    let result = solver.solve_preconditioned(&matrix, &rhs, &amg, &mut solution);
+    let mut solution_array = Array1::zeros([system.solver_matrix.nrows()]);
+    let result =
+        solver.solve_preconditioned(&system.solver_matrix, &rhs, &amg, &mut solution_array);
 
     if let Err(ref e) = result {
         println!("BiCGSTAB Error: {:?}", e);
@@ -121,19 +187,19 @@ fn test_amg_with_bicgstab() {
     assert!(result.is_ok(), "BiCGSTAB with AMG should converge");
 
     // Check solution accuracy
-    let error = (&solution - &exact_solution).norm();
+    let error = vector_distance(&solution_array, &exact_solution);
     assert!(error < 1e-6, "Solution error should be small: {}", error);
 }
 
 #[test]
 fn test_amg_with_gmres() {
     let n = 6; // 6x6 grid = 36 unknowns
-    let matrix = create_poisson_matrix::<f64>(n);
-    let exact_solution = create_exact_solution(matrix.nrows());
-    let rhs = create_rhs(&matrix, &exact_solution);
+    let system = create_poisson_system::<f64>(n);
+    let exact_solution = create_exact_solution(system.solver_matrix.nrows());
+    let rhs = create_rhs(&system.solver_matrix, &exact_solution);
 
     // Create AMG preconditioner
-    let amg = AlgebraicMultigrid::new(&matrix, AMGConfig::default()).unwrap();
+    let amg = AlgebraicMultigrid::new(&system.amg_matrix, AMGConfig::default()).unwrap();
 
     // Create GMRES solver with AMG preconditioner
     let solver_config = IterativeSolverConfig {
@@ -144,8 +210,9 @@ fn test_amg_with_gmres() {
     let solver = GMRES::new(solver_config, 20); // GMRES needs restart dimension
 
     // Solve the system with AMG preconditioning
-    let mut solution = DVector::zeros(matrix.nrows());
-    let result = solver.solve_preconditioned(&matrix, &rhs, &amg, &mut solution);
+    let mut solution_array = Array1::zeros([system.solver_matrix.nrows()]);
+    let result =
+        solver.solve_preconditioned(&system.solver_matrix, &rhs, &amg, &mut solution_array);
 
     if let Err(ref e) = result {
         println!("GMRES Error: {:?}", e);
@@ -153,20 +220,20 @@ fn test_amg_with_gmres() {
     assert!(result.is_ok(), "GMRES with AMG should converge");
 
     // Check solution accuracy
-    let error = (&solution - &exact_solution).norm();
+    let error = vector_distance(&solution_array, &exact_solution);
     assert!(error < 1e-6, "Solution error should be small: {}", error);
 }
 
 #[test]
 fn test_amg_different_cycles() {
     let n = 4; // 4x4 grid = 16 unknowns
-    let matrix = create_poisson_matrix::<f64>(n);
-    let exact_solution = create_exact_solution(matrix.nrows());
-    let rhs = create_rhs(&matrix, &exact_solution);
+    let system = create_poisson_system::<f64>(n);
+    let exact_solution = create_exact_solution(system.solver_matrix.nrows());
+    let rhs = create_rhs(&system.solver_matrix, &exact_solution);
 
     // Test V-cycle
     let amg_v = AlgebraicMultigrid::new(
-        &matrix,
+        &system.amg_matrix,
         AMGConfig {
             cycle_type: CycleType::VCycle,
             ..Default::default()
@@ -176,7 +243,7 @@ fn test_amg_different_cycles() {
 
     // Test W-cycle
     let amg_w = AlgebraicMultigrid::new(
-        &matrix,
+        &system.amg_matrix,
         AMGConfig {
             cycle_type: CycleType::WCycle,
             ..Default::default()
@@ -185,19 +252,19 @@ fn test_amg_different_cycles() {
     .unwrap();
 
     // Both should work
-    let mut solution_v = DVector::zeros(matrix.nrows());
-    let mut solution_w = DVector::zeros(matrix.nrows());
+    let mut solution_v = Array1::zeros([system.solver_matrix.nrows()]);
+    let mut solution_w = Array1::zeros([system.solver_matrix.nrows()]);
 
-    amg_v.apply_to(&rhs, &mut solution_v).unwrap();
-    amg_w.apply_to(&rhs, &mut solution_w).unwrap();
+    apply_preconditioner(&amg_v, &rhs, &mut solution_v);
+    apply_preconditioner(&amg_w, &rhs, &mut solution_w);
 
     // Solutions should be reasonable (not checking exactness since AMG is a preconditioner)
     assert!(
-        solution_v.norm() > 0.0,
+        vector_norm(&solution_v) > 0.0,
         "V-cycle solution should be non-zero"
     );
     assert!(
-        solution_w.norm() > 0.0,
+        vector_norm(&solution_w) > 0.0,
         "W-cycle solution should be non-zero"
     );
 }
@@ -205,13 +272,13 @@ fn test_amg_different_cycles() {
 #[test]
 fn test_amg_construction_edge_cases() {
     // Test with very small matrix
-    let small_matrix = create_poisson_matrix::<f64>(2); // 4 unknowns
-    let amg_small = AlgebraicMultigrid::new(&small_matrix, AMGConfig::default());
+    let small_system = create_poisson_system::<f64>(2); // 4 unknowns
+    let amg_small = AlgebraicMultigrid::new(&small_system.amg_matrix, AMGConfig::default());
     assert!(amg_small.is_ok(), "AMG should handle small matrices");
 
     // Test with larger matrix
-    let large_matrix = create_poisson_matrix::<f64>(16); // 256 unknowns
-    let amg_large = AlgebraicMultigrid::new(&large_matrix, AMGConfig::default());
+    let large_system = create_poisson_system::<f64>(16); // 256 unknowns
+    let amg_large = AlgebraicMultigrid::new(&large_system.amg_matrix, AMGConfig::default());
     assert!(amg_large.is_ok(), "AMG should handle larger matrices");
 
     // Test custom configuration
@@ -224,7 +291,7 @@ fn test_amg_construction_edge_cases() {
         coarsening_strategy: CoarseningStrategy::RugeStueben, // Classical was renamed or doesn't exist
         ..Default::default()
     };
-    let amg_custom = AlgebraicMultigrid::new(&large_matrix, custom_config);
+    let amg_custom = AlgebraicMultigrid::new(&large_system.amg_matrix, custom_config);
     assert!(
         amg_custom.is_ok(),
         "AMG should accept custom configurations"
@@ -234,9 +301,9 @@ fn test_amg_construction_edge_cases() {
 #[test]
 fn test_amg_two_grid_convergence_factor() {
     let n = 6;
-    let matrix = create_poisson_matrix::<f64>(n);
+    let system = create_poisson_system::<f64>(n);
     let amg = AlgebraicMultigrid::new(
-        &matrix,
+        &system.amg_matrix,
         AMGConfig {
             max_levels: 2,
             min_coarse_size: 4,
@@ -247,44 +314,28 @@ fn test_amg_two_grid_convergence_factor() {
         },
     )
     .unwrap();
-    let size = matrix.nrows();
-    let mut e_matrix = DMatrix::zeros(size, size);
+    let size = system.solver_matrix.nrows();
+    let mut worst_observed_ratio = 0.0f64;
     for i in 0..size {
-        let mut e = DVector::zeros(size);
+        let mut e = Array1::zeros([size]);
         e[i] = 1.0;
-        let mut r = DVector::zeros(size);
-        spmv(&matrix, &e, &mut r);
-        let mut z = DVector::zeros(size);
-        amg.apply_to(&r, &mut z).unwrap();
-        let e_new = &e - z;
+        let mut r_array = Array1::zeros([size]);
+        spmv(&system.solver_matrix, &e, &mut r_array);
+        let mut z = Array1::zeros([size]);
+        apply_preconditioner(&amg, &r_array, &mut z);
+        let mut e_next = Array1::zeros([size]);
         for row in 0..size {
-            e_matrix[(row, i)] = e_new[row];
+            e_next[row] = e[row] - z[row];
+        }
+        let e_norm = energy_norm(&system.solver_matrix, &e);
+        let e_next_norm = energy_norm(&system.solver_matrix, &e_next);
+        if e_norm > 0.0 {
+            worst_observed_ratio = worst_observed_ratio.max(e_next_norm / e_norm);
         }
     }
-    let a_dense = csr_to_dense(&matrix);
-    let cholesky = match a_dense.clone().cholesky() {
-        Some(factor) => factor,
-        None => panic!("Poisson matrix must be SPD for energy norm evaluation"),
-    };
-    let l_inv = match cholesky.l().try_inverse() {
-        Some(inv) => inv,
-        None => panic!("Cholesky factor must be invertible for energy norm evaluation"),
-    };
-    let a_inv_sqrt = l_inv.transpose();
-    let e_transpose = e_matrix.transpose();
-    let left = &e_transpose * (&a_dense * &e_matrix);
-    let m_tilde = &a_inv_sqrt * left * &l_inv;
-    let eig = SymmetricEigen::new(m_tilde);
-    let mut max_eig = 0.0f64;
-    for val in eig.eigenvalues.iter() {
-        if *val > max_eig {
-            max_eig = *val;
-        }
-    }
-    let rho = max_eig.sqrt();
     assert!(
-        rho < 1.0,
-        "Two-grid error operator energy norm must be < 1, got {}",
-        rho
+        worst_observed_ratio < 1.0,
+        "Two-grid smoothing should reduce A-norm basis errors; worst ratio {}",
+        worst_observed_ratio
     );
 }

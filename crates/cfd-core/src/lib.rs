@@ -42,14 +42,6 @@
 #![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 
-// Mnemosyne is installed as the process-wide global allocator for every binary
-// that links cfd-core with the `mnemosyne` feature enabled. A binary may declare
-// only one `#[global_allocator]`, so this is mutually exclusive with
-// cfd-validation's tracking allocator — do not enable both in the same build.
-#[cfg(feature = "mnemosyne")]
-#[global_allocator]
-static GLOBAL_ALLOCATOR: mnemosyne::Mnemosyne = mnemosyne::Mnemosyne;
-
 pub mod abstractions;
 pub mod compute;
 pub mod error;

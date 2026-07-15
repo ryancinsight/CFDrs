@@ -1,5 +1,7 @@
 //! 2D Lid-Driven Cavity solver `PyO3` wrapper — Ghia et al. (1982) benchmark.
 
+use super::pyarray2_from_leto;
+use leto::Array2;
 use numpy::PyArray2;
 use pyo3::prelude::*;
 
@@ -103,26 +105,26 @@ impl PyCavitySolver2D {
 
     /// Get Ghia benchmark data for U-velocity along vertical centerline
     fn ghia_u_centerline<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
-        let array = ndarray::Array2::from_shape_fn((GHIA_U_RE100.len(), 2), |(i, j)| {
+        let array = Array2::from_shape_fn([GHIA_U_RE100.len(), 2], |[i, j]| {
             if j == 0 {
                 GHIA_U_RE100[i].0
             } else {
                 GHIA_U_RE100[i].1
             }
         });
-        Ok(PyArray2::from_owned_array_bound(py, array))
+        pyarray2_from_leto(py, array)
     }
 
     /// Get Ghia benchmark data for V-velocity along horizontal centerline
     fn ghia_v_centerline<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
-        let array = ndarray::Array2::from_shape_fn((GHIA_V_RE100.len(), 2), |(i, j)| {
+        let array = Array2::from_shape_fn([GHIA_V_RE100.len(), 2], |[i, j]| {
             if j == 0 {
                 GHIA_V_RE100[i].0
             } else {
                 GHIA_V_RE100[i].1
             }
         });
-        Ok(PyArray2::from_owned_array_bound(py, array))
+        pyarray2_from_leto(py, array)
     }
 
     /// Solve lid-driven cavity flow

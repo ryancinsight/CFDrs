@@ -6,8 +6,8 @@ use super::{
     ErrorMetric,
 };
 use cfd_core::error::{Error, Result};
-use nalgebra::{RealField, Vector3};
-use num_traits::cast::FromPrimitive;
+use eunomia::{FloatElement, RealField};
+use leto::geometry::Vector3;
 
 /// Error statistics for comprehensive analysis
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -28,7 +28,7 @@ pub struct ErrorStatistics<T: RealField + Copy> {
     pub num_points: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> ErrorStatistics<T> {
+impl<T: RealField + FloatElement + Copy> ErrorStatistics<T> {
     /// Compute comprehensive error statistics
     pub fn compute(numerical: &[T], reference: &[T]) -> Result<Self> {
         if numerical.len() != reference.len() {
@@ -64,8 +64,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorStatistics<T> {
         }
 
         // Extract magnitudes
-        let num_magnitudes: Vec<T> = numerical.iter().map(nalgebra::Matrix::norm).collect();
-        let ref_magnitudes: Vec<T> = reference.iter().map(nalgebra::Matrix::norm).collect();
+        let num_magnitudes: Vec<T> = numerical.iter().copied().map(Vector3::norm).collect();
+        let ref_magnitudes: Vec<T> = reference.iter().copied().map(Vector3::norm).collect();
 
         Self::compute(&num_magnitudes, &ref_magnitudes)
     }

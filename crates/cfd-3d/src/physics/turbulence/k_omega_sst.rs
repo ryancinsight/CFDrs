@@ -14,15 +14,14 @@
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 
 use super::constants::{SST_A1, SST_BETA_STAR};
 use super::field_ops::{strain_magnitude, velocity_gradient_tensor};
 
 /// State fields for the k-omega SST model.
 #[derive(Debug, Clone)]
-pub struct KOmegaSSTState<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct KOmegaSSTState<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// Turbulent kinetic energy k [m^2/s^2].
     pub k: Vec<T>,
     /// Specific dissipation rate omega [1/s].
@@ -36,7 +35,7 @@ pub struct KOmegaSSTState<T: cfd_mesh::domain::core::Scalar + RealField + Copy> 
 /// Blends k-omega near walls and k-epsilon in free-stream.  The eddy viscosity
 /// limiter nu_t = a1*k/max(a1*omega, S*F2) suppresses overprediction in APG.
 #[derive(Debug, Clone)]
-pub struct KOmegaSSTModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct KOmegaSSTModel<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// a1 = 0.31 (eddy viscosity limiter constant).
     pub a1: T,
     /// beta_star = 0.09 (k-equation destruction constant).
@@ -53,18 +52,16 @@ pub struct KOmegaSSTModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> 
     pub state: Option<KOmegaSSTState<T>>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmegaSSTModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> KOmegaSSTModel<T> {
     /// Create a k-omega SST model with given kinematic viscosity.
     pub fn new(nu: T) -> Self {
         Self {
-            a1: <T as FromPrimitive>::from_f64(SST_A1)
-                .expect("SST_A1 is an IEEE 754 representable f64 constant"),
-            beta_star: <T as FromPrimitive>::from_f64(SST_BETA_STAR)
-                .expect("SST_BETA_STAR is an IEEE 754 representable f64 constant"),
+            a1: <T as FloatElement>::from_f64(SST_A1),
+            beta_star: <T as FloatElement>::from_f64(SST_BETA_STAR),
             nu,
-            dx: T::one(),
-            dy: T::one(),
-            dz: T::one(),
+            dx: T::ONE,
+            dy: T::ONE,
+            dz: T::ONE,
             state: None,
         }
     }
@@ -72,10 +69,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
     /// Create a k-omega SST model with the physical grid spacing.
     pub fn with_grid_spacing(nu: T, dx: T, dy: T, dz: T) -> Self {
         Self {
-            a1: <T as FromPrimitive>::from_f64(SST_A1)
-                .expect("SST_A1 is an IEEE 754 representable f64 constant"),
-            beta_star: <T as FromPrimitive>::from_f64(SST_BETA_STAR)
-                .expect("SST_BETA_STAR is an IEEE 754 representable f64 constant"),
+            a1: <T as FloatElement>::from_f64(SST_A1),
+            beta_star: <T as FloatElement>::from_f64(SST_BETA_STAR),
             nu,
             dx,
             dy,
@@ -98,28 +93,26 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
             n,
             "SST wall_distances must match the flow-field size"
         );
-        let three_half = <T as FromPrimitive>::from_f64(1.5)
-            .expect("1.5 is an IEEE 754 representable f64 constant");
-        let four = T::one() + T::one() + T::one() + T::one();
-        let c_mu = <T as FromPrimitive>::from_f64(
+        let three_half = <T as FloatElement>::from_f64(1.5);
+        let four = T::ONE + T::ONE + T::ONE + T::ONE;
+        let c_mu = <T as FloatElement>::from_f64(
             cfd_core::physics::constants::physics::turbulence::K_EPSILON_C_MU,
-        )
-        .expect("K_EPSILON_C_MU is an IEEE 754 representable f64 constant");
-        let c_mu_fourth_root = num_traits::Float::powf(c_mu, T::one() / four);
+        );
+        let c_mu_fourth_root = <T as FloatElement>::powf(c_mu, T::ONE / four);
 
         let k_field: Vec<T> = flow_field
             .velocity
             .components
             .iter()
             .map(|v| {
-                let u_mag = v.norm();
-                three_half * num_traits::Float::powi(u_mag * turbulence_intensity, 2)
+                let u_mag = <T as NumericElement>::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+                three_half * <T as FloatElement>::powi(u_mag * turbulence_intensity, 2)
             })
             .collect();
 
         let omega_field: Vec<T> = k_field
             .iter()
-            .map(|&k| num_traits::Float::sqrt(k) / (c_mu_fourth_root * length_scale))
+            .map(|&k| <T as NumericElement>::sqrt(k) / (c_mu_fourth_root * length_scale))
             .collect();
 
         self.state = Some(KOmegaSSTState {
@@ -163,16 +156,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> KOmeg
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
-    for KOmegaSSTModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for KOmegaSSTModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let n = nx * ny * nz;
-        let eps = <T as FromPrimitive>::from_f64(1e-15)
-            .expect("1e-15 is an IEEE 754 representable f64 constant");
+        let eps = <T as FloatElement>::from_f64(1e-15);
         match &self.state {
-            None => vec![T::zero(); n],
+            None => vec![T::ZERO; n],
             Some(state) => {
                 assert_eq!(state.k.len(), n, "SST k must match the flow-field size");
                 assert_eq!(
@@ -190,22 +180,17 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
                     let k = state.k[idx];
                     let om = state.omega[idx];
                     let d = state.wall_distance[idx];
-                    let arg2 = num_traits::Float::max(
-                        <T as FromPrimitive>::from_f64(2.0)
-                            .expect("2.0 is representable in all IEEE 754 types")
-                            * num_traits::Float::sqrt(k)
+                    let arg2 = <T as NumericElement>::max_scalar(
+                        <T as FloatElement>::from_f64(2.0) * <T as NumericElement>::sqrt(k)
                             / (self.beta_star * om * d + eps),
-                        <T as FromPrimitive>::from_f64(500.0)
-                            .expect("500.0 is representable in all IEEE 754 types")
-                            * self.nu
-                            / (d * d * om + eps),
+                        <T as FloatElement>::from_f64(500.0) * self.nu / (d * d * om + eps),
                     );
-                    let f2 = num_traits::Float::tanh(arg2 * arg2);
+                    let f2 = <T as FloatElement>::tanh(arg2 * arg2);
                     let ii = idx % nx;
                     let jj = (idx / nx) % ny;
                     let kk = idx / (nx * ny);
                     let s_mag = self.strain_rate(flow_field, ii, jj, kk);
-                    let denom = num_traits::Float::max(self.a1 * om, s_mag * f2 + eps);
+                    let denom = <T as NumericElement>::max_scalar(self.a1 * om, s_mag * f2 + eps);
                     viscosity.push(self.a1 * k / denom);
                 }
                 viscosity
@@ -216,7 +201,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
     fn turbulent_kinetic_energy(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let n = flow_field.velocity.components.len();
         match &self.state {
-            None => vec![T::zero(); n],
+            None => vec![T::ZERO; n],
             Some(state) => {
                 assert_eq!(state.k.len(), n, "SST k must match the flow-field size");
                 state.k.clone()
@@ -234,7 +219,7 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
     use cfd_core::physics::fluid_dynamics::TurbulenceModel;
-    use nalgebra::Vector3;
+    use leto::geometry::Vector3;
 
     fn fill_velocity_field<F>(flow: &mut FlowField<f64>, mut generator: F)
     where
@@ -268,7 +253,7 @@ mod tests {
         let eps = 1.0e-15;
         let arg2 = (2.0 * 1.0_f64.sqrt() / (0.09 * 1.0 * 1.0 + eps)).max(500.0 * nu / (1.0 + eps));
         let f2 = (arg2 * arg2).tanh();
-        let expected = 0.31 * 1.0 / (0.31 * 1.0).max(f2 + eps);
+        let expected = 0.31_f64 * 1.0_f64 / (0.31_f64 * 1.0_f64).max(f2 + eps);
 
         assert_relative_eq!(viscosity[13], expected, epsilon = 1e-12);
         assert!(viscosity[13] < 1.0);

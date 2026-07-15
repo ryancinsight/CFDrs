@@ -5,15 +5,17 @@
 
 use super::apply_rotating_wall_bc;
 use crate::physics::momentum::solver::MomentumComponent;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::boundary::BoundaryCondition;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use leto::Array1;
 
 use super::MatrixUpdater;
 
-pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+pub(super) fn apply_west_boundary<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
-    rhs: &mut nalgebra::DVector<T>,
+    rhs: &mut Array1<T>,
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
     grid: &crate::grid::StructuredGrid2D<T>,
@@ -53,20 +55,18 @@ pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive, M: Matrix
             }
             BoundaryCondition::Wall { wall_type } => match wall_type {
                 cfd_core::physics::boundary::WallType::NoSlip => {
-                    rhs[idx] = T::zero();
+                    rhs[idx] = scalar::zero();
                 }
-                cfd_core::physics::boundary::WallType::Slip => {
-                    match component {
-                        MomentumComponent::U => {
-                            rhs[idx] = T::zero();
-                        }
-                        MomentumComponent::V => {
-                            matrix.add_entry(idx, idx, T::one())?;
-                            matrix.add_entry(idx, idx + 1, -T::one())?;
-                            rhs[idx] = T::zero();
-                        }
+                cfd_core::physics::boundary::WallType::Slip => match component {
+                    MomentumComponent::U => {
+                        rhs[idx] = scalar::zero();
                     }
-                }
+                    MomentumComponent::V => {
+                        matrix.add_entry(idx, idx, scalar::one())?;
+                        matrix.add_entry(idx, idx + 1, -scalar::one::<T>())?;
+                        rhs[idx] = scalar::zero();
+                    }
+                },
                 cfd_core::physics::boundary::WallType::Moving { velocity } => {
                     let component_idx = match component {
                         MomentumComponent::U => 0,
@@ -78,37 +78,35 @@ pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive, M: Matrix
                     rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                 }
             },
-            BoundaryCondition::Neumann { gradient } if *gradient == T::zero() => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx + 1, -T::one())?;
-                rhs[idx] = T::zero();
+            BoundaryCondition::Neumann { gradient } if *gradient == scalar::zero() => {
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx + 1, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             BoundaryCondition::Periodic { partner: _ } => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx + nx - 1, -T::one())?;
-                rhs[idx] = T::zero();
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx + nx - 1, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
-            BoundaryCondition::Symmetry => {
-                match component {
-                    MomentumComponent::U => {
-                        rhs[idx] = T::zero();
-                    }
-                    MomentumComponent::V => {
-                        matrix.add_entry(idx, idx, T::one())?;
-                        matrix.add_entry(idx, idx + 1, -T::one())?;
-                        rhs[idx] = T::zero();
-                    }
+            BoundaryCondition::Symmetry => match component {
+                MomentumComponent::U => {
+                    rhs[idx] = scalar::zero();
                 }
-            }
+                MomentumComponent::V => {
+                    matrix.add_entry(idx, idx, scalar::one())?;
+                    matrix.add_entry(idx, idx + 1, -scalar::one::<T>())?;
+                    rhs[idx] = scalar::zero();
+                }
+            },
             BoundaryCondition::PressureInlet { .. } | BoundaryCondition::PressureOutlet { .. } => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx + 1, -T::one())?;
-                rhs[idx] = T::zero();
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx + 1, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             BoundaryCondition::Outflow => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx + 1, -T::one())?;
-                rhs[idx] = T::zero();
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx + 1, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             BoundaryCondition::CharacteristicInlet { velocity, .. } => {
                 if let Some(vel) = velocity {
@@ -118,7 +116,7 @@ pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive, M: Matrix
                     };
                     rhs[idx] = vel[component_idx];
                 } else {
-                    rhs[idx] = T::zero();
+                    rhs[idx] = scalar::zero();
                 }
             }
             BoundaryCondition::CharacteristicOutlet {
@@ -126,13 +124,13 @@ pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive, M: Matrix
                 ..
             } => {
                 if *extrapolate_velocity {
-                    matrix.add_entry(idx, idx, T::one())?;
-                    matrix.add_entry(idx, idx + 1, -T::one())?;
-                    rhs[idx] = T::zero();
+                    matrix.add_entry(idx, idx, scalar::one())?;
+                    matrix.add_entry(idx, idx + 1, -scalar::one::<T>())?;
+                    rhs[idx] = scalar::zero();
                 } else {
-                    matrix.add_entry(idx, idx, T::one())?;
-                    matrix.add_entry(idx, idx + 1, -T::one())?;
-                    rhs[idx] = T::zero();
+                    matrix.add_entry(idx, idx, scalar::one())?;
+                    matrix.add_entry(idx, idx + 1, -scalar::one::<T>())?;
+                    rhs[idx] = scalar::zero();
                 }
             }
             _ => {}
@@ -142,9 +140,9 @@ pub(super) fn apply_west_boundary<T: RealField + Copy + FromPrimitive, M: Matrix
     Ok(())
 }
 
-pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+pub(super) fn apply_east_boundary<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
-    rhs: &mut nalgebra::DVector<T>,
+    rhs: &mut Array1<T>,
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
     grid: &crate::grid::StructuredGrid2D<T>,
@@ -184,20 +182,18 @@ pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive, M: Matrix
             }
             BoundaryCondition::Wall { wall_type } => match wall_type {
                 cfd_core::physics::boundary::WallType::NoSlip => {
-                    rhs[idx] = T::zero();
+                    rhs[idx] = scalar::zero();
                 }
-                cfd_core::physics::boundary::WallType::Slip => {
-                    match component {
-                        MomentumComponent::U => {
-                            rhs[idx] = T::zero();
-                        }
-                        MomentumComponent::V => {
-                            matrix.add_entry(idx, idx, T::one())?;
-                            matrix.add_entry(idx, idx - 1, -T::one())?;
-                            rhs[idx] = T::zero();
-                        }
+                cfd_core::physics::boundary::WallType::Slip => match component {
+                    MomentumComponent::U => {
+                        rhs[idx] = scalar::zero();
                     }
-                }
+                    MomentumComponent::V => {
+                        matrix.add_entry(idx, idx, scalar::one())?;
+                        matrix.add_entry(idx, idx - 1, -scalar::one::<T>())?;
+                        rhs[idx] = scalar::zero();
+                    }
+                },
                 cfd_core::physics::boundary::WallType::Moving { velocity } => {
                     let component_idx = match component {
                         MomentumComponent::U => 0,
@@ -209,37 +205,35 @@ pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive, M: Matrix
                     rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                 }
             },
-            BoundaryCondition::Neumann { gradient } if *gradient == T::zero() => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx - 1, -T::one())?;
-                rhs[idx] = T::zero();
+            BoundaryCondition::Neumann { gradient } if *gradient == scalar::zero() => {
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx - 1, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             BoundaryCondition::Periodic { partner: _ } => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, j * nx, -T::one())?;
-                rhs[idx] = T::zero();
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, j * nx, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
-            BoundaryCondition::Symmetry => {
-                match component {
-                    MomentumComponent::U => {
-                        rhs[idx] = T::zero();
-                    }
-                    MomentumComponent::V => {
-                        matrix.add_entry(idx, idx, T::one())?;
-                        matrix.add_entry(idx, idx - 1, -T::one())?;
-                        rhs[idx] = T::zero();
-                    }
+            BoundaryCondition::Symmetry => match component {
+                MomentumComponent::U => {
+                    rhs[idx] = scalar::zero();
                 }
-            }
+                MomentumComponent::V => {
+                    matrix.add_entry(idx, idx, scalar::one())?;
+                    matrix.add_entry(idx, idx - 1, -scalar::one::<T>())?;
+                    rhs[idx] = scalar::zero();
+                }
+            },
             BoundaryCondition::PressureInlet { .. } | BoundaryCondition::PressureOutlet { .. } => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx - 1, -T::one())?;
-                rhs[idx] = T::zero();
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx - 1, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             BoundaryCondition::Outflow => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx - 1, -T::one())?;
-                rhs[idx] = T::zero();
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx - 1, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             _ => {}
         }
@@ -248,9 +242,9 @@ pub(super) fn apply_east_boundary<T: RealField + Copy + FromPrimitive, M: Matrix
     Ok(())
 }
 
-pub(super) fn apply_north_boundary<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+pub(super) fn apply_north_boundary<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
-    rhs: &mut nalgebra::DVector<T>,
+    rhs: &mut Array1<T>,
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
     grid: &crate::grid::StructuredGrid2D<T>,
@@ -289,20 +283,18 @@ pub(super) fn apply_north_boundary<T: RealField + Copy + FromPrimitive, M: Matri
             }
             BoundaryCondition::Wall { wall_type } => match wall_type {
                 cfd_core::physics::boundary::WallType::NoSlip => {
-                    rhs[idx] = T::zero();
+                    rhs[idx] = scalar::zero();
                 }
-                cfd_core::physics::boundary::WallType::Slip => {
-                    match component {
-                        MomentumComponent::V => {
-                            rhs[idx] = T::zero();
-                        }
-                        MomentumComponent::U => {
-                            matrix.add_entry(idx, idx, T::one())?;
-                            matrix.add_entry(idx, idx - nx, -T::one())?;
-                            rhs[idx] = T::zero();
-                        }
+                cfd_core::physics::boundary::WallType::Slip => match component {
+                    MomentumComponent::V => {
+                        rhs[idx] = scalar::zero();
                     }
-                }
+                    MomentumComponent::U => {
+                        matrix.add_entry(idx, idx, scalar::one())?;
+                        matrix.add_entry(idx, idx - nx, -scalar::one::<T>())?;
+                        rhs[idx] = scalar::zero();
+                    }
+                },
                 cfd_core::physics::boundary::WallType::Moving { velocity } => {
                     let component_idx = match component {
                         MomentumComponent::U => 0,
@@ -314,37 +306,35 @@ pub(super) fn apply_north_boundary<T: RealField + Copy + FromPrimitive, M: Matri
                     rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                 }
             },
-            BoundaryCondition::Neumann { gradient } if *gradient == T::zero() => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx - nx, -T::one())?;
-                rhs[idx] = T::zero();
+            BoundaryCondition::Neumann { gradient } if *gradient == scalar::zero() => {
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx - nx, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             BoundaryCondition::Periodic { partner: _ } => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, i, -T::one())?;
-                rhs[idx] = T::zero();
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, i, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
-            BoundaryCondition::Symmetry => {
-                match component {
-                    MomentumComponent::V => {
-                        rhs[idx] = T::zero();
-                    }
-                    MomentumComponent::U => {
-                        matrix.add_entry(idx, idx, T::one())?;
-                        matrix.add_entry(idx, idx - nx, -T::one())?;
-                        rhs[idx] = T::zero();
-                    }
+            BoundaryCondition::Symmetry => match component {
+                MomentumComponent::V => {
+                    rhs[idx] = scalar::zero();
                 }
-            }
+                MomentumComponent::U => {
+                    matrix.add_entry(idx, idx, scalar::one())?;
+                    matrix.add_entry(idx, idx - nx, -scalar::one::<T>())?;
+                    rhs[idx] = scalar::zero();
+                }
+            },
             BoundaryCondition::PressureInlet { .. } | BoundaryCondition::PressureOutlet { .. } => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx - nx, -T::one())?;
-                rhs[idx] = T::zero();
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx - nx, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             BoundaryCondition::Outflow => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx - nx, -T::one())?;
-                rhs[idx] = T::zero();
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx - nx, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             _ => {}
         }
@@ -353,9 +343,9 @@ pub(super) fn apply_north_boundary<T: RealField + Copy + FromPrimitive, M: Matri
     Ok(())
 }
 
-pub(super) fn apply_south_boundary<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+pub(super) fn apply_south_boundary<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
-    rhs: &mut nalgebra::DVector<T>,
+    rhs: &mut Array1<T>,
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
     grid: &crate::grid::StructuredGrid2D<T>,
@@ -394,20 +384,18 @@ pub(super) fn apply_south_boundary<T: RealField + Copy + FromPrimitive, M: Matri
             }
             BoundaryCondition::Wall { wall_type } => match wall_type {
                 cfd_core::physics::boundary::WallType::NoSlip => {
-                    rhs[idx] = T::zero();
+                    rhs[idx] = scalar::zero();
                 }
-                cfd_core::physics::boundary::WallType::Slip => {
-                    match component {
-                        MomentumComponent::V => {
-                            rhs[idx] = T::zero();
-                        }
-                        MomentumComponent::U => {
-                            matrix.add_entry(idx, idx, T::one())?;
-                            matrix.add_entry(idx, idx + nx, -T::one())?;
-                            rhs[idx] = T::zero();
-                        }
+                cfd_core::physics::boundary::WallType::Slip => match component {
+                    MomentumComponent::V => {
+                        rhs[idx] = scalar::zero();
                     }
-                }
+                    MomentumComponent::U => {
+                        matrix.add_entry(idx, idx, scalar::one())?;
+                        matrix.add_entry(idx, idx + nx, -scalar::one::<T>())?;
+                        rhs[idx] = scalar::zero();
+                    }
+                },
                 cfd_core::physics::boundary::WallType::Moving { velocity } => {
                     let component_idx = match component {
                         MomentumComponent::U => 0,
@@ -419,37 +407,35 @@ pub(super) fn apply_south_boundary<T: RealField + Copy + FromPrimitive, M: Matri
                     rhs[idx] = apply_rotating_wall_bc(component, omega, center, grid, idx);
                 }
             },
-            BoundaryCondition::Neumann { gradient } if *gradient == T::zero() => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx + nx, -T::one())?;
-                rhs[idx] = T::zero();
+            BoundaryCondition::Neumann { gradient } if *gradient == scalar::zero() => {
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx + nx, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             BoundaryCondition::Periodic { partner: _ } => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, (ny - 1) * nx + i, -T::one())?;
-                rhs[idx] = T::zero();
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, (ny - 1) * nx + i, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
-            BoundaryCondition::Symmetry => {
-                match component {
-                    MomentumComponent::V => {
-                        rhs[idx] = T::zero();
-                    }
-                    MomentumComponent::U => {
-                        matrix.add_entry(idx, idx, T::one())?;
-                        matrix.add_entry(idx, idx + nx, -T::one())?;
-                        rhs[idx] = T::zero();
-                    }
+            BoundaryCondition::Symmetry => match component {
+                MomentumComponent::V => {
+                    rhs[idx] = scalar::zero();
                 }
-            }
+                MomentumComponent::U => {
+                    matrix.add_entry(idx, idx, scalar::one())?;
+                    matrix.add_entry(idx, idx + nx, -scalar::one::<T>())?;
+                    rhs[idx] = scalar::zero();
+                }
+            },
             BoundaryCondition::PressureInlet { .. } | BoundaryCondition::PressureOutlet { .. } => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx + nx, -T::one())?;
-                rhs[idx] = T::zero();
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx + nx, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             BoundaryCondition::Outflow => {
-                matrix.add_entry(idx, idx, T::one())?;
-                matrix.add_entry(idx, idx + nx, -T::one())?;
-                rhs[idx] = T::zero();
+                matrix.add_entry(idx, idx, scalar::one())?;
+                matrix.add_entry(idx, idx + nx, -scalar::one::<T>())?;
+                rhs[idx] = scalar::zero();
             }
             _ => {}
         }

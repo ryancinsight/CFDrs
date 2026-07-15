@@ -67,8 +67,8 @@
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
-use nalgebra::{DMatrix, RealField};
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use leto::Array2;
 
 /// Sigma SGS model configuration
 #[derive(Debug, Clone, Copy)]
@@ -79,11 +79,11 @@ pub struct SigmaConfig<T: RealField + Copy> {
     pub filter_width: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for SigmaConfig<T> {
+impl<T: RealField + Copy> Default for SigmaConfig<T> {
     fn default() -> Self {
         Self {
-            c_sigma: T::from_f64(1.35).expect("analytical constant conversion"), // Standard value from literature
-            filter_width: T::one(),
+            c_sigma: T::from_f64(1.35), // Standard value from literature
+            filter_width: T::ONE,
         }
     }
 }
@@ -95,7 +95,7 @@ pub struct SigmaModel<T: RealField + Copy> {
     pub config: SigmaConfig<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> SigmaModel<T> {
+impl<T: RealField + Copy> SigmaModel<T> {
     /// Create new Sigma model with default configuration
     pub fn new() -> Self {
         Self {
@@ -117,16 +117,16 @@ impl<T: RealField + Copy + FromPrimitive> SigmaModel<T> {
     /// # Returns
     ///
     /// SGS viscosity ν_SGS
-    pub fn sgs_viscosity(&self, velocity_gradient: &DMatrix<T>) -> T {
-        if velocity_gradient.nrows() != 2 || velocity_gradient.ncols() != 2 {
-            return T::zero();
+    pub fn sgs_viscosity(&self, velocity_gradient: &Array2<T>) -> T {
+        if velocity_gradient.shape() != [2, 2] {
+            return T::ZERO;
         }
 
         // Compute Σ_{i,j} (∂u_i/∂x_j)² = α_ij α_ij
-        let mut gradient_squared_sum = T::zero();
+        let mut gradient_squared_sum = T::ZERO;
         for i in 0..2 {
             for j in 0..2 {
-                let grad_ij = velocity_gradient[(i, j)];
+                let grad_ij = velocity_gradient[[i, j]];
                 gradient_squared_sum += grad_ij * grad_ij;
             }
         }
@@ -145,27 +145,26 @@ impl<T: RealField + Copy + FromPrimitive> SigmaModel<T> {
     /// # Returns
     ///
     /// SGS stress tensor τ_ij (symmetric 2x2 matrix)
-    pub fn sgs_stress(&self, velocity_gradient: &DMatrix<T>) -> DMatrix<T> {
+    pub fn sgs_stress(&self, velocity_gradient: &Array2<T>) -> Array2<T> {
         let nu_sgs = self.sgs_viscosity(velocity_gradient);
 
         // Compute strain rate tensor S_ij = (1/2)(∂u_i/∂x_j + ∂u_j/∂x_i)
-        let mut strain_rate = DMatrix::zeros(2, 2);
+        let mut strain_rate = Array2::zeros([2, 2]);
         for i in 0..2 {
             for j in 0..2 {
-                let duidxj = velocity_gradient[(i, j)];
-                let duidxi = velocity_gradient[(j, i)];
-                strain_rate[(i, j)] =
-                    (duidxj + duidxi) * T::from_f64(0.5).expect("analytical constant conversion");
+                let duidxj = velocity_gradient[[i, j]];
+                let duidxi = velocity_gradient[[j, i]];
+                strain_rate[[i, j]] = (duidxj + duidxi) * T::from_f64(0.5);
             }
         }
 
         // SGS stress τ_ij = -2 ν_SGS S_ij
-        let mut sgs_stress = DMatrix::zeros(2, 2);
-        let minus_two_nu = -T::from_f64(2.0).expect("analytical constant conversion") * nu_sgs;
+        let mut sgs_stress = Array2::zeros([2, 2]);
+        let minus_two_nu = -T::from_f64(2.0) * nu_sgs;
 
         for i in 0..2 {
             for j in 0..2 {
-                sgs_stress[(i, j)] = minus_two_nu * strain_rate[(i, j)];
+                sgs_stress[[i, j]] = minus_two_nu * strain_rate[[i, j]];
             }
         }
 
@@ -190,15 +189,15 @@ impl<T: RealField + Copy + FromPrimitive> SigmaModel<T> {
     /// Compute the Sigma invariant (for analysis and validation)
     ///
     /// This returns Σ_{i,j} (∂u_i/∂x_j)² which is used in the SGS viscosity formula
-    pub fn sigma_invariant(&self, velocity_gradient: &DMatrix<T>) -> T {
-        if velocity_gradient.nrows() != 2 || velocity_gradient.ncols() != 2 {
-            return T::zero();
+    pub fn sigma_invariant(&self, velocity_gradient: &Array2<T>) -> T {
+        if velocity_gradient.shape() != [2, 2] {
+            return T::ZERO;
         }
 
-        let mut sum = T::zero();
+        let mut sum = T::ZERO;
         for i in 0..2 {
             for j in 0..2 {
-                let grad_ij = velocity_gradient[(i, j)];
+                let grad_ij = velocity_gradient[[i, j]];
                 sum += grad_ij * grad_ij;
             }
         }
@@ -206,7 +205,7 @@ impl<T: RealField + Copy + FromPrimitive> SigmaModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for SigmaModel<T> {
+impl<T: RealField + Copy> Default for SigmaModel<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -216,6 +215,10 @@ impl<T: RealField + Copy + FromPrimitive> Default for SigmaModel<T> {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+
+    fn zero_gradient() -> Array2<f64> {
+        Array2::zeros([2, 2])
+    }
 
     #[test]
     fn test_sigma_model_creation() {
@@ -227,15 +230,15 @@ mod tests {
     #[test]
     fn test_sigma_zero_velocity_gradient() {
         let model = SigmaModel::<f64>::new();
-        let zero_gradient = DMatrix::zeros(2, 2);
+        let zero_gradient = zero_gradient();
 
         let nu_sgs = model.sgs_viscosity(&zero_gradient);
         assert_eq!(nu_sgs, 0.0);
 
         let stress = model.sgs_stress(&zero_gradient);
-        assert_eq!(stress[(0, 0)], 0.0);
-        assert_eq!(stress[(0, 1)], 0.0);
-        assert_eq!(stress[(1, 1)], 0.0);
+        assert_eq!(stress[[0, 0]], 0.0);
+        assert_eq!(stress[[0, 1]], 0.0);
+        assert_eq!(stress[[1, 1]], 0.0);
     }
 
     #[test]
@@ -244,8 +247,8 @@ mod tests {
 
         // Simple shear flow: u = γ y, v = 0
         // Velocity gradient: [0, γ; 0, 0] where γ = 1
-        let mut velocity_gradient = DMatrix::zeros(2, 2);
-        velocity_gradient[(0, 1)] = 1.0;
+        let mut velocity_gradient = zero_gradient();
+        velocity_gradient[[0, 1]] = 1.0;
 
         let nu_sgs = model.sgs_viscosity(&velocity_gradient);
         // ν_SGS = (1.35 * 1)² * (0² + 1² + 0² + 0²) = 1.8225 * 1 = 1.8225
@@ -254,8 +257,8 @@ mod tests {
         let stress = model.sgs_stress(&velocity_gradient);
         // For simple shear: S_12 = S_21 = 0.5
         // τ_12 = τ_21 = -2 * ν_SGS * 0.5 = -ν_SGS
-        assert_relative_eq!(stress[(0, 1)], -nu_sgs, epsilon = 1e-10);
-        assert_relative_eq!(stress[(1, 0)], -nu_sgs, epsilon = 1e-10);
+        assert_relative_eq!(stress[[0, 1]], -nu_sgs, epsilon = 1e-10);
+        assert_relative_eq!(stress[[1, 0]], -nu_sgs, epsilon = 1e-10);
     }
 
     #[test]
@@ -273,11 +276,11 @@ mod tests {
     fn test_sigma_invariant() {
         let model = SigmaModel::<f64>::new();
 
-        let mut velocity_gradient = DMatrix::zeros(2, 2);
-        velocity_gradient[(0, 0)] = 1.0;
-        velocity_gradient[(0, 1)] = 2.0;
-        velocity_gradient[(1, 0)] = 3.0;
-        velocity_gradient[(1, 1)] = 4.0;
+        let mut velocity_gradient = zero_gradient();
+        velocity_gradient[[0, 0]] = 1.0;
+        velocity_gradient[[0, 1]] = 2.0;
+        velocity_gradient[[1, 0]] = 3.0;
+        velocity_gradient[[1, 1]] = 4.0;
 
         // Σ = 1² + 2² + 3² + 4² = 1 + 4 + 9 + 16 = 30
         let invariant = model.sigma_invariant(&velocity_gradient);
@@ -289,24 +292,24 @@ mod tests {
         let model = SigmaModel::<f64>::new();
 
         // General 2D flow
-        let mut velocity_gradient = DMatrix::zeros(2, 2);
-        velocity_gradient[(0, 0)] = 0.5;
-        velocity_gradient[(0, 1)] = 0.3;
-        velocity_gradient[(1, 0)] = 0.2;
-        velocity_gradient[(1, 1)] = -0.1;
+        let mut velocity_gradient = zero_gradient();
+        velocity_gradient[[0, 0]] = 0.5;
+        velocity_gradient[[0, 1]] = 0.3;
+        velocity_gradient[[1, 0]] = 0.2;
+        velocity_gradient[[1, 1]] = -0.1;
 
         let stress = model.sgs_stress(&velocity_gradient);
 
         // Check symmetry
-        assert_relative_eq!(stress[(0, 1)], stress[(1, 0)], epsilon = 1e-10);
+        assert_relative_eq!(stress[[0, 1]], stress[[1, 0]], epsilon = 1e-10);
     }
 
     #[test]
     fn test_sigma_scaling_properties() {
         let model = SigmaModel::<f64>::new();
 
-        let mut velocity_gradient = DMatrix::zeros(2, 2);
-        velocity_gradient[(0, 1)] = 1.0;
+        let mut velocity_gradient = zero_gradient();
+        velocity_gradient[[0, 1]] = 1.0;
 
         let nu1 = model.sgs_viscosity(&velocity_gradient);
 
@@ -320,7 +323,11 @@ mod tests {
 
         // Double the velocity gradient
         let mut velocity_gradient2 = velocity_gradient.clone();
-        velocity_gradient2.scale_mut(2.0);
+        for i in 0..2 {
+            for j in 0..2 {
+                velocity_gradient2[[i, j]] *= 2.0;
+            }
+        }
         let nu3 = model.sgs_viscosity(&velocity_gradient2);
 
         // ν_SGS should scale with (gradient)²

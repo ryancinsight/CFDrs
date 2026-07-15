@@ -10,7 +10,7 @@
 //! Geometry*, 3rd ed., Springer, 2008, Chapter 9).
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use nalgebra::Point3;
+use leto::Point3;
 
 /// Generate a deterministic set of BCC lattice points in the unit cube.
 ///

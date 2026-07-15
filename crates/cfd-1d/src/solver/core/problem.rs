@@ -19,20 +19,20 @@
 
 use super::geometry::NetworkDomain;
 use super::state::NetworkState;
+use super::NetworkSolveScalar;
 use crate::domain::network::Network;
+use crate::scalar::Cfd1dScalar;
 use cfd_core::abstractions::problem::Problem;
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryConditionSet;
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
 
 /// Problem definition for 1D network flow analysis
 ///
 /// This encapsulates the network state and configuration as a Problem that can be
 /// solved using the core trait system, enabling polymorphism and plugin architecture.
 #[derive(Debug, Clone)]
-pub struct NetworkProblem<T: RealField + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
+pub struct NetworkProblem<T: Cfd1dScalar + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
     /// The network to solve
     pub network: Network<T, F>,
     /// Computational domain information
@@ -43,7 +43,7 @@ pub struct NetworkProblem<T: RealField + Copy, F: FluidTrait<T> = ConstantProper
     boundary_conditions: BoundaryConditionSet<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> NetworkProblem<T, F> {
+impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkProblem<T, F> {
     /// Create a new network problem
     pub fn new(network: Network<T, F>) -> Self {
         let node_count = network.node_count();
@@ -58,9 +58,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Netwo
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy, F: FluidTrait<T> + Clone> Problem<T>
-    for NetworkProblem<T, F>
-{
+impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> Problem<T> for NetworkProblem<T, F> {
     type Domain = NetworkDomain<T>;
     type State = NetworkState<T>;
     type Fluid = F;

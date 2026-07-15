@@ -1,7 +1,8 @@
 //! Boundary geometry definitions
 
 use super::specification::BoundaryConditionSpec;
-use nalgebra::{Point3, RealField, Vector3};
+use eunomia::{FloatElement, RealField};
+use leto::geometry::{Point3, Vector3};
 use serde::{Deserialize, Serialize};
 
 /// Boundary region specification
@@ -76,10 +77,10 @@ impl<T: RealField + Copy> BoundaryGeometry<T> {
             Self::Line { start, end } => {
                 let line_vec = end - start;
                 let point_vec = point - start;
-                let t = point_vec.dot(&line_vec) / line_vec.norm_squared();
+                let t = point_vec.dot(line_vec) / line_vec.norm_squared();
 
-                if t >= T::zero() && t <= T::one() {
-                    let closest = start + line_vec.scale(t);
+                if t >= T::ZERO && t <= T::ONE {
+                    let closest = start + line_vec * t;
                     (point - closest).norm() <= tolerance
                 } else {
                     false
@@ -87,7 +88,7 @@ impl<T: RealField + Copy> BoundaryGeometry<T> {
             }
 
             Self::Plane { point: p, normal } => {
-                let distance = (point - p).dot(normal).abs();
+                let distance = (point - p).dot(*normal).abs();
                 distance <= tolerance
             }
 
@@ -103,10 +104,10 @@ impl<T: RealField + Copy> BoundaryGeometry<T> {
                 height,
             } => {
                 let to_point = point - center;
-                let axis_projection = to_point.dot(axis);
+                let axis_projection = to_point.dot(*axis);
 
-                if axis_projection >= T::zero() && axis_projection <= *height {
-                    let radial_vec = to_point - axis.scale(axis_projection);
+                if axis_projection >= T::ZERO && axis_projection <= *height {
+                    let radial_vec = to_point - *axis * axis_projection;
                     (radial_vec.norm() - *radius).abs() <= tolerance
                 } else {
                     false
@@ -126,27 +127,29 @@ impl<T: RealField + Copy> BoundaryGeometry<T> {
             Self::Volume { .. } | Self::Cylinder { .. } | Self::Sphere { .. } => 3,
         }
     }
+}
 
-    /// Calculate the measure (length/area/volume) of the geometry
+impl<T: RealField + Copy + FloatElement> BoundaryGeometry<T> {
+    /// Calculate the measure (length/area/volume) of the geometry.
     pub fn measure(&self) -> T {
         match self {
             Self::Point(_) | Self::Surface { .. } | Self::Volume { .. } | Self::Plane { .. } => {
                 // Point has zero measure, complex geometries need specialized calculations
-                T::zero()
+                T::ZERO
             }
 
             Self::Line { start, end } => (end - start).norm(),
 
             Self::Sphere { radius, .. } => {
-                let four = T::from_f64(4.0).unwrap_or_else(T::one);
-                let three = T::from_f64(3.0).unwrap_or_else(T::one);
-                let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(T::one);
-                four / three * pi * radius.powi(3)
+                let four = <T as FloatElement>::from_f64(4.0);
+                let three = <T as FloatElement>::from_f64(3.0);
+                let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
+                four / three * pi * <T as FloatElement>::powi(*radius, 3)
             }
 
             Self::Cylinder { radius, height, .. } => {
-                let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(T::one);
-                pi * radius.powi(2) * *height
+                let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
+                pi * <T as FloatElement>::powi(*radius, 2) * *height
             }
         }
     }
@@ -172,5 +175,57 @@ impl<T: RealField + Copy> BoundaryRegion<T> {
     /// Check if this region has an assigned boundary condition
     pub fn has_condition(&self) -> bool {
         self.condition.is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BoundaryGeometry;
+    use leto::geometry::{Point3, Vector3};
+
+    #[test]
+    fn line_measure_returns_segment_length() {
+        let geometry = BoundaryGeometry::Line {
+            start: Point3::new(0.0_f64, 0.0, 0.0),
+            end: Point3::new(3.0_f64, 4.0, 12.0),
+        };
+
+        assert_eq!(geometry.measure(), 13.0);
+    }
+
+    #[test]
+    fn sphere_measure_returns_volume() {
+        let geometry = BoundaryGeometry::Sphere {
+            center: Point3::origin(),
+            radius: 3.0_f64,
+        };
+
+        let expected = 4.0 / 3.0 * std::f64::consts::PI * 27.0;
+        assert!((geometry.measure() - expected).abs() <= f64::EPSILON * expected.abs() * 2.0);
+    }
+
+    #[test]
+    fn cylinder_measure_returns_volume() {
+        let geometry = BoundaryGeometry::Cylinder {
+            center: Point3::origin(),
+            axis: Vector3::z(),
+            radius: 2.0_f64,
+            height: 5.0_f64,
+        };
+
+        let expected = std::f64::consts::PI * 20.0;
+        assert!((geometry.measure() - expected).abs() <= f64::EPSILON * expected.abs() * 2.0);
+    }
+
+    #[test]
+    fn unsupported_measure_geometries_return_zero() {
+        let point = BoundaryGeometry::Point(Point3::new(1.0_f64, 2.0, 3.0));
+        let plane: BoundaryGeometry<f64> = BoundaryGeometry::Plane {
+            point: Point3::origin(),
+            normal: Vector3::z(),
+        };
+
+        assert_eq!(point.measure(), 0.0);
+        assert_eq!(plane.measure(), 0.0);
     }
 }

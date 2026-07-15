@@ -13,8 +13,38 @@
 
 mod analysis;
 
-use nalgebra::RealField;
-use num_traits::ToPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::{Array1, Array2};
+
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+fn to_f64<T: NumericElement>(value: T) -> f64 {
+    <T as NumericElement>::to_f64(value)
+}
+
+fn abs<T: NumericElement>(value: T) -> T {
+    <T as NumericElement>::abs(value)
+}
+
+fn zero<T: NumericElement>() -> T {
+    <T as NumericElement>::ZERO
+}
+
+fn one<T: NumericElement>() -> T {
+    <T as NumericElement>::ONE
+}
+
+fn vector_from_vec<T>(values: Vec<T>) -> Array1<T> {
+    Array1::from_shape_vec([values.len()], values)
+        .expect("invariant: vector length matches Leto rank-1 shape")
+}
+
+fn matrix_from_row_slice<T: Copy>(rows: usize, cols: usize, values: &[T]) -> Array2<T> {
+    Array2::from_shape_vec([rows, cols], values.to_vec())
+        .expect("invariant: row-major slice length matches Leto rank-2 shape")
+}
 
 /// Stability analysis for time-stepping schemes
 #[derive(Debug, Clone)]
@@ -26,12 +56,12 @@ pub struct StabilityAnalyzer<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
+impl<T: RealField + Copy + FloatElement> StabilityAnalyzer<T> {
     /// Create new stability analyzer with default parameters
     pub fn new() -> Self {
         Self {
             resolution: 200,
-            max_z: T::from_f64(10.0).unwrap_or_else(num_traits::Zero::zero),
+            max_z: from_f64(10.0),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -64,12 +94,12 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         dx: T,
         scheme: NumericalScheme,
     ) -> CFLAnalysis<T> {
-        let cfl_number = velocity.abs() * dt / dx;
+        let cfl_number = abs(velocity) * dt / dx;
         let max_cfl = scheme.max_cfl_number();
 
         let stability = if cfl_number <= max_cfl {
             StabilityStatus::Stable
-        } else if cfl_number <= max_cfl * T::from_f64(1.5).unwrap_or_else(num_traits::Zero::zero) {
+        } else if cfl_number <= max_cfl * from_f64(1.5) {
             StabilityStatus::MarginallyStable
         } else {
             StabilityStatus::Unstable
@@ -89,27 +119,27 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         let mut recommendations = Vec::new();
 
         if cfl > max_cfl {
-            let ratio = (cfl / max_cfl).to_f64().unwrap();
+            let ratio = to_f64(cfl / max_cfl);
             recommendations.push(format!(
                 "CFL number ({:.3}) exceeds stability limit ({:.3}) by {:.1}x",
-                cfl.to_f64().unwrap(),
-                max_cfl.to_f64().unwrap(),
+                to_f64(cfl),
+                to_f64(max_cfl),
                 ratio
             ));
             recommendations.push("Reduce time step or increase grid resolution".to_string());
             recommendations.push("Consider implicit methods for stiff problems".to_string());
-        } else if cfl > max_cfl * T::from_f64(0.8).unwrap_or_else(num_traits::Zero::zero) {
+        } else if cfl > max_cfl * from_f64(0.8) {
             recommendations.push(format!(
                 "CFL number ({:.3}) approaching stability limit ({:.3})",
-                cfl.to_f64().unwrap(),
-                max_cfl.to_f64().unwrap()
+                to_f64(cfl),
+                to_f64(max_cfl)
             ));
             recommendations.push("Monitor solution for oscillations".to_string());
         } else {
             recommendations.push(format!(
                 "CFL number ({:.3}) well within stability limit ({:.3})",
-                cfl.to_f64().unwrap(),
-                max_cfl.to_f64().unwrap()
+                to_f64(cfl),
+                to_f64(max_cfl)
             ));
         }
 
@@ -117,7 +147,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
     }
 }
 
-impl<T: RealField + Copy + ToPrimitive> Default for StabilityAnalyzer<T> {
+impl<T: RealField + Copy + FloatElement> Default for StabilityAnalyzer<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -214,16 +244,14 @@ pub enum NumericalScheme {
 
 impl NumericalScheme {
     /// Maximum CFL number for stability
-    pub fn max_cfl_number<T: RealField + Copy>(&self) -> T {
+    pub fn max_cfl_number<T: RealField + Copy + FloatElement>(&self) -> T {
         match self {
-            NumericalScheme::RK3 => T::from_f64(1.7).unwrap_or_else(num_traits::Zero::zero),
-            NumericalScheme::RK4 => T::from_f64(2.8).unwrap_or_else(num_traits::Zero::zero),
+            NumericalScheme::RK3 => from_f64(1.7),
+            NumericalScheme::RK4 => from_f64(2.8),
             NumericalScheme::ForwardEuler
             | NumericalScheme::LaxWendroff
-            | NumericalScheme::Upwind => T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero),
-            NumericalScheme::CentralDifference => {
-                T::from_f64(0.0).unwrap_or_else(num_traits::Zero::zero)
-            } // Unstable
+            | NumericalScheme::Upwind => from_f64(1.0),
+            NumericalScheme::CentralDifference => from_f64(0.0), // Unstable
         }
     }
 }
@@ -248,7 +276,6 @@ pub struct VonNeumannAnalysis<T: RealField + Copy> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::DVector;
 
     #[test]
     fn test_cfl_analysis() {
@@ -289,7 +316,7 @@ mod tests {
         let analyzer = StabilityAnalyzer::<f64>::new();
 
         // Classic RK4 Butcher tableau
-        let a = nalgebra::DMatrix::from_row_slice(
+        let a = matrix_from_row_slice(
             4,
             4,
             &[
@@ -297,8 +324,8 @@ mod tests {
             ],
         );
 
-        let b = DVector::from_vec(vec![1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0]);
-        let c = DVector::from_vec(vec![0.0, 0.5, 0.5, 1.0]);
+        let b = vector_from_vec(vec![1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0]);
+        let c = vector_from_vec(vec![0.0, 0.5, 0.5, 1.0]);
 
         let result = analyzer.compute_rk_stability_region(&a, &b, &c);
         assert!(result.is_ok());
@@ -316,37 +343,37 @@ mod tests {
         let analyzer = StabilityAnalyzer::<f64>::with_params(128, 10.0);
 
         // RK1 (Forward Euler)
-        let a1 = nalgebra::DMatrix::from_row_slice(1, 1, &[0.0]);
-        let b1 = DVector::from_vec(vec![1.0]);
-        let c1 = DVector::from_vec(vec![0.0]);
+        let a1 = matrix_from_row_slice(1, 1, &[0.0]);
+        let b1 = vector_from_vec(vec![1.0]);
+        let c1 = vector_from_vec(vec![0.0]);
         let lim1 = analyzer
             .compute_rk_absolute_stability_limit(&a1, &b1, &c1)
             .unwrap();
         assert_relative_eq!(lim1, 2.0, epsilon = 1e-6);
 
         // RK3 (Kutta/Heun 3rd order as used in validation)
-        let a3 = nalgebra::DMatrix::from_row_slice(
+        let a3 = matrix_from_row_slice(
             3,
             3,
             &[0.0, 0.0, 0.0, 1.0 / 3.0, 0.0, 0.0, 0.0, 2.0 / 3.0, 0.0],
         );
-        let b3 = DVector::from_vec(vec![0.25, 0.0, 0.75]);
-        let c3 = DVector::from_vec(vec![0.0, 1.0 / 3.0, 2.0 / 3.0]);
+        let b3 = vector_from_vec(vec![0.25, 0.0, 0.75]);
+        let c3 = vector_from_vec(vec![0.0, 1.0 / 3.0, 2.0 / 3.0]);
         let lim3 = analyzer
             .compute_rk_absolute_stability_limit(&a3, &b3, &c3)
             .unwrap();
         assert!(lim3 > 2.45 && lim3 < 2.58);
 
         // Classic RK4
-        let a4 = nalgebra::DMatrix::from_row_slice(
+        let a4 = matrix_from_row_slice(
             4,
             4,
             &[
                 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
             ],
         );
-        let b4 = DVector::from_vec(vec![1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0]);
-        let c4 = DVector::from_vec(vec![0.0, 0.5, 0.5, 1.0]);
+        let b4 = vector_from_vec(vec![1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0]);
+        let c4 = vector_from_vec(vec![0.0, 0.5, 0.5, 1.0]);
         let lim4 = analyzer
             .compute_rk_absolute_stability_limit(&a4, &b4, &c4)
             .unwrap();
@@ -357,12 +384,12 @@ mod tests {
     fn test_von_neumann_rk4_constant_negative_operator() {
         // If L_hat = -1, z = -dt, and RK4's amplification should be close to exp(-dt)
         // for modest dt. We only assert a loose bound to avoid overfitting.
-        use num_complex::Complex as NumComplex;
+        use eunomia::Complex as AtlasComplex;
         let analyzer = StabilityAnalyzer::<f64>::with_params(64, 10.0);
         let dt = 1.0;
         let wave_numbers = vec![1.0, 2.0, 3.0];
 
-        let spatial_operator = |_k: NumComplex<f64>| NumComplex::new(-1.0, 0.0);
+        let spatial_operator = |_k: AtlasComplex<f64>| AtlasComplex::new(-1.0, 0.0);
 
         let analysis = analyzer
             .von_neumann_analysis_with_scheme(

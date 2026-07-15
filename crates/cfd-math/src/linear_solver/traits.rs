@@ -2,7 +2,13 @@
 
 use super::config::IterativeSolverConfig;
 use cfd_core::error::Result;
-use nalgebra::{DVector, RealField};
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::Array1;
+
+#[inline]
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
 
 /// Configuration trait for solvers
 pub trait Configurable<T: RealField + Copy> {
@@ -19,9 +25,9 @@ pub trait LinearSolver<T: RealField + Copy>: Send + Sync {
     fn solve_system(
         &self,
         a: &dyn LinearOperator<T>,
-        b: &DVector<T>,
-        x0: Option<&DVector<T>>,
-    ) -> Result<DVector<T>>;
+        b: &Array1<T>,
+        x0: Option<&Array1<T>>,
+    ) -> Result<Array1<T>>;
 }
 
 /// Trait for linear operators that can compute matrix-vector products.
@@ -29,7 +35,7 @@ pub trait LinearSolver<T: RealField + Copy>: Send + Sync {
 /// This is the fundamental abstraction for matrix-free and matrix-based solvers.
 pub trait LinearOperator<T: RealField + Copy>: Send + Sync {
     /// Apply the linear operator to a vector: y = A * x
-    fn apply(&self, x: &DVector<T>, y: &mut DVector<T>) -> Result<()>;
+    fn apply(&self, x: &Array1<T>, y: &mut Array1<T>) -> Result<()>;
 
     /// Return the dimension of the operator
     fn size(&self) -> usize;
@@ -45,7 +51,7 @@ pub trait LinearOperator<T: RealField + Copy>: Send + Sync {
     }
 
     /// Optional: Apply the transpose operator.
-    fn apply_transpose(&self, _x: &DVector<T>, _y: &mut DVector<T>) -> Result<()> {
+    fn apply_transpose(&self, _x: &Array1<T>, _y: &mut Array1<T>) -> Result<()> {
         Err(cfd_core::error::Error::InvalidConfiguration(
             "transpose application is unsupported for this operator".to_string(),
         ))
@@ -89,8 +95,8 @@ pub trait IterativeLinearSolver<T: RealField + Copy>:
     fn solve<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
         a: &Op,
-        b: &DVector<T>,
-        x: &mut DVector<T>,
+        b: &Array1<T>,
+        x: &mut Array1<T>,
         preconditioner: Option<&P>,
     ) -> Result<ConvergenceMonitor<T>>;
 }
@@ -107,7 +113,7 @@ pub trait Preconditioner<T: RealField + Copy>: Send + Sync {
     ///
     /// # Errors
     /// Returns error if preconditioning fails or matrices are incompatible
-    fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()>;
+    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> Result<()>;
 }
 
 /// Convergence monitoring and theoretical bounds for linear solvers
@@ -154,37 +160,47 @@ impl<T: RealField + Copy> ConvergenceMonitor<T> {
     }
 
     /// Get convergence factor (reduction per iteration)
-    pub fn convergence_factor(&self) -> Option<T> {
+    pub fn convergence_factor(&self) -> Option<T>
+    where
+        T: FloatElement,
+    {
         if self.residual_history.len() >= 2 {
             let r0 = self.initial_residual;
             let r_final = *self.residual_history.last()?;
             // For simplicity, compute geometric mean of reduction factors
             let ratio = r_final / r0;
-            Some(ratio.powf(T::from_f64(1.0 / self.iteration as f64)?))
+            Some(FloatElement::powf(
+                ratio,
+                from_f64(1.0 / self.iteration as f64),
+            ))
         } else {
             None
         }
     }
 
     /// Get theoretical CG per-iteration reduction factor upper bound
-    pub fn cg_theoretical_bound(&self, kappa: f64) -> T {
-        use cfd_core::conversion::SafeFromF64;
+    pub fn cg_theoretical_bound(&self, kappa: f64) -> T
+    where
+        T: FloatElement,
+    {
         if !kappa.is_finite() || kappa < 1.0 {
-            return T::one();
+            return <T as NumericElement>::ONE;
         }
 
         let sqrt_kappa = kappa.sqrt();
         let factor = (sqrt_kappa - 1.0) / (sqrt_kappa + 1.0);
-        T::from_f64_or(factor, T::one())
+        from_f64(factor)
     }
 
     /// Check if convergence is within theoretical expectations
-    pub fn validate_convergence(&self) -> cfd_core::error::Result<()> {
-        use cfd_core::conversion::SafeFromF64;
+    pub fn validate_convergence(&self) -> cfd_core::error::Result<()>
+    where
+        T: FloatElement,
+    {
         if let (Some(factor), Some(theoretical)) =
             (self.convergence_factor(), self.theoretical_bound)
         {
-            let safety_multiplier = T::from_f64_or(1.5, T::one() + T::one());
+            let safety_multiplier = from_f64(1.5);
             if factor > theoretical * safety_multiplier {
                 return Err(cfd_core::error::Error::InvalidConfiguration(
                     "Convergence factor exceeds theoretical bound".to_string(),
@@ -192,5 +208,37 @@ impl<T: RealField + Copy> ConvergenceMonitor<T> {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn convergence_factor_is_geometric_mean_reduction() {
+        let mut monitor = ConvergenceMonitor::new(16.0);
+        monitor.record_residual(4.0);
+        monitor.record_residual(1.0);
+
+        assert_eq!(monitor.convergence_factor(), Some(0.25));
+    }
+
+    #[test]
+    fn cg_theoretical_bound_matches_condition_number_formula() {
+        let monitor = ConvergenceMonitor::new(1.0);
+
+        assert_eq!(monitor.cg_theoretical_bound(9.0), 0.5);
+        assert_eq!(monitor.cg_theoretical_bound(0.5), 1.0);
+        assert_eq!(monitor.cg_theoretical_bound(f64::INFINITY), 1.0);
+    }
+
+    #[test]
+    fn validate_convergence_rejects_factor_above_safety_bound() {
+        let mut monitor = ConvergenceMonitor::new(16.0);
+        monitor.record_residual(8.0);
+        monitor.set_theoretical_bound(0.25);
+
+        assert!(monitor.validate_convergence().is_err());
     }
 }

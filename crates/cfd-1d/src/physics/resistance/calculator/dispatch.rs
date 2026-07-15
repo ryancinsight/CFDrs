@@ -8,12 +8,10 @@
 use crate::physics::resistance::geometry::ChannelGeometry;
 use crate::physics::resistance::models::{
     DarcyWeisbachModel, FlowConditions, HagenPoiseuilleModel, MembranePoreModel,
-    RectangularChannelModel, ResistanceModel, VenturiModel,
+    RectangularChannelModel, ResistanceModel, ResistanceScalar, VenturiModel,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
 
 /// Calculate resistance with automatic model selection
 pub fn calculate_auto<T, F>(
@@ -22,7 +20,7 @@ pub fn calculate_auto<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     let mut local_conditions = conditions.clone();
@@ -83,7 +81,7 @@ pub fn calculate_hagen_poiseuille<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     let model = HagenPoiseuilleModel { diameter, length };
@@ -106,7 +104,7 @@ pub fn calculate_rectangular<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     let model = RectangularChannelModel {
@@ -133,7 +131,7 @@ pub fn calculate_darcy_weisbach<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     let model = DarcyWeisbachModel::circular(hydraulic_diameter, length, roughness);
@@ -156,7 +154,7 @@ pub fn calculate_serpentine_circular<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     let model = crate::physics::resistance::factory::ResistanceModelFactory::serpentine_circular(
@@ -185,7 +183,7 @@ pub fn calculate_serpentine_rectangular<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     let model = crate::physics::resistance::factory::ResistanceModelFactory::serpentine_rectangular(
@@ -215,7 +213,7 @@ pub fn calculate_venturi<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     let model =
@@ -241,7 +239,7 @@ pub fn calculate_membrane_porous<T, F>(
     conditions: &FlowConditions<T>,
 ) -> Result<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     let model = MembranePoreModel::new(thickness, width, height, pore_radius, porosity);

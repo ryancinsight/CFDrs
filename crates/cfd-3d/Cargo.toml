@@ -17,16 +17,14 @@ cfd-mesh = { workspace = true, features = ["cfdrs-integration"] }
 cfd-io.workspace = true
 apollo-fft.workspace = true
 apollo-nufft.workspace = true
-ndarray.workspace = true
+leto.workspace = true
+leto-ops.workspace = true
+eunomia.workspace = true
 cfd-schematics.workspace = true
-nalgebra.workspace = true
-nalgebra-sparse.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 serde = { workspace = true, features = ["derive"] }
 moirai.workspace = true
-crossbeam.workspace = true
-num-traits.workspace = true
 tracing.workspace = true
 # csgrs = { version = "0.19", features = ["f64", "stl-io", "delaunay"], optional = true }
 

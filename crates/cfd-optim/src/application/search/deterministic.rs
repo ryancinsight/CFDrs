@@ -71,7 +71,7 @@ mod tests {
         .expect("option1 evaluation");
         let option2_ranked = rank_blueprint_candidates(
             crate::OptimizationGoal::AsymmetricSplitVenturiCavitationSelectivity,
-            &[option2.clone()],
+            std::slice::from_ref(&option2),
         )
         .expect("option2 evaluation");
         let ga_ranked = rank_blueprint_candidates(

@@ -13,7 +13,7 @@ use cfd_3d::vof::{
 };
 use cfd_core::physics::cavitation::{damage::CavitationDamage, models::CavitationModel};
 use cfd_core::physics::fluid::BloodModel;
-use nalgebra::{DMatrix, Vector3};
+use leto::{geometry::Vector3, Array2};
 
 #[test]
 fn test_cavitation_inception() {
@@ -52,8 +52,8 @@ fn test_cavitation_inception() {
 
     // Create low pressure field (should trigger cavitation)
     let velocity_field = vec![Vector3::zeros(); 1000];
-    let pressure_field = DMatrix::from_element(10, 100, 2000.0); // Below vapor pressure
-    let density_field = DMatrix::from_element(10, 100, 998.0);
+    let pressure_field = Array2::from_elem([10, 100], 2000.0); // Below vapor pressure
+    let density_field = Array2::from_elem([10, 100], 998.0);
 
     // Step simulation
     solver
@@ -121,7 +121,7 @@ fn test_damage_accumulation() {
 
     // Create cavitating conditions
     let velocity_field = vec![Vector3::new(20.0, 0.0, 0.0); 1000]; // High velocity
-    let density_field = DMatrix::from_element(10, 100, 998.0);
+    let density_field = Array2::from_elem([10, 100], 998.0);
 
     // Initialize void fraction to ensure damage calculation is triggered
     {
@@ -135,7 +135,7 @@ fn test_damage_accumulation() {
     // Damage physically occurs during collapse events
     for i in 0..20 {
         let p_val = if i % 2 == 0 { 1000.0 } else { 50000.0 };
-        let pressure_field = DMatrix::from_element(10, 100, p_val);
+        let pressure_field = Array2::from_elem([10, 100], p_val);
         solver
             .step(1e-5, &velocity_field, &pressure_field, &density_field)
             .unwrap();
@@ -194,8 +194,8 @@ fn test_sonoluminescence_energy_field_requires_collapse_and_is_finite() {
     let mut solver = CavitationVofSolver::new(6, 4, 3, config).unwrap();
 
     let velocity_field = vec![Vector3::zeros(); 6 * 4 * 3];
-    let pressure_field = DMatrix::from_element(6, 4 * 3, 1.0e6);
-    let density_field = DMatrix::from_element(6, 4 * 3, 998.0);
+    let pressure_field = Array2::from_elem([6, 4 * 3], 1.0e6);
+    let density_field = Array2::from_elem([6, 4 * 3], 998.0);
 
     solver
         .step(1e-12, &velocity_field, &pressure_field, &density_field)
@@ -205,8 +205,7 @@ fn test_sonoluminescence_energy_field_requires_collapse_and_is_finite() {
         .sonoluminescence_energy_field(&pressure_field, 293.15, 50e-12, 1.0)
         .unwrap();
 
-    assert_eq!(energy.nrows(), 6);
-    assert_eq!(energy.ncols(), 4 * 3);
+    assert_eq!(energy.shape(), [6, 4 * 3]);
 
     let mut any_positive = false;
     for e in energy.iter().copied() {
@@ -254,11 +253,11 @@ fn test_mass_conservation() {
     // Initialize with some void fraction
     {
         let mut volume_fraction = solver.volume_fraction();
-        for i in 0..volume_fraction.nrows() {
-            for j in 0..volume_fraction.ncols() {
+        for i in 0..volume_fraction.shape()[0] {
+            for j in 0..volume_fraction.shape()[1] {
                 if i > 10 && i < 15 {
                     // Central region
-                    volume_fraction[(i, j)] = 0.1; // 10% void fraction
+                    volume_fraction[[i, j]] = 0.1; // 10% void fraction
                 }
             }
         }
@@ -266,8 +265,8 @@ fn test_mass_conservation() {
     }
 
     let velocity_field = vec![Vector3::new(1.0, 0.0, 0.0); 2000];
-    let pressure_field = DMatrix::from_element(20, 100, 2330.0); // Exactly vapor pressure
-    let density_field = DMatrix::from_element(20, 100, 998.0);
+    let pressure_field = Array2::from_elem([20, 100], 2330.0); // Exactly vapor pressure
+    let density_field = Array2::from_elem([20, 100], 998.0);
 
     // Measure initial total volume
     let initial_volume: f64 = solver.volume_fraction().iter().sum();
@@ -342,7 +341,7 @@ fn test_bubble_dynamics_integration() {
 
     // Test with varying pressure (should cause bubble oscillation)
     let velocity_field = vec![Vector3::zeros(); 125];
-    let mut pressure_field = DMatrix::from_element(5, 25, 50000.0);
+    let mut pressure_field = Array2::from_elem([5, 25], 50000.0);
 
     // Run simulation with pressure variations
     let mut last_radius = bubble_initial_radius;
@@ -351,20 +350,20 @@ fn test_bubble_dynamics_integration() {
     for step in 0..20 {
         // Vary pressure sinusoidally
         let pressure_variation = 10000.0 * (step as f64 * 0.1).sin();
-        for i in 0..pressure_field.nrows() {
-            for j in 0..pressure_field.ncols() {
-                pressure_field[(i, j)] = 50000.0 + pressure_variation;
+        for i in 0..pressure_field.shape()[0] {
+            for j in 0..pressure_field.shape()[1] {
+                pressure_field[[i, j]] = 50000.0 + pressure_variation;
             }
         }
 
-        let density_field = DMatrix::from_element(5, 25, 998.0);
+        let density_field = Array2::from_elem([5, 25], 998.0);
         solver
             .step(1e-6, &velocity_field, &pressure_field, &density_field)
             .unwrap();
 
         // Check that bubble radii are updated
         if let Some(radius_field) = solver.bubble_radius_field() {
-            let current_radius = radius_field[(0, 0)];
+            let current_radius = radius_field[[0, 0]];
             if (current_radius - last_radius).abs() > 1e-12 {
                 radius_changed = true;
             }
@@ -420,21 +419,21 @@ fn test_cavitation_statistics() {
 
     // Create mixed conditions
     let velocity_field = vec![Vector3::zeros(); 1000];
-    let mut pressure_field = DMatrix::zeros(10, 100);
+    let mut pressure_field = Array2::zeros([10, 100]);
 
     // Set some cells to cavitating pressure
     for i in 0..10 {
         for j in 0..100 {
             if i < 3 {
                 // First 3 rows cavitating
-                pressure_field[(i, j)] = 1000.0; // Low pressure
+                pressure_field[[i, j]] = 1000.0; // Low pressure
             } else {
-                pressure_field[(i, j)] = 101325.0; // Atmospheric
+                pressure_field[[i, j]] = 101325.0; // Atmospheric
             }
         }
     }
 
-    let density_field = DMatrix::from_element(10, 100, 998.0);
+    let density_field = Array2::from_elem([10, 100], 998.0);
 
     // Add some void fraction to cavitating regions
     {
@@ -442,7 +441,7 @@ fn test_cavitation_statistics() {
         for i in 0..10 {
             for j in 0..100 {
                 if i < 3 {
-                    volume_fraction[(i, j)] = 0.2; // 20% void fraction
+                    volume_fraction[[i, j]] = 0.2; // 20% void fraction
                 }
             }
         }
@@ -532,8 +531,8 @@ fn test_cavitation_model_comparison() {
 
         // Test with cavitating conditions
         let velocity_field = vec![Vector3::new(10.0, 0.0, 0.0); 125];
-        let pressure_field = DMatrix::from_element(5, 25, 1000.0); // Very low pressure
-        let density_field = DMatrix::from_element(5, 25, 998.0);
+        let pressure_field = Array2::from_elem([5, 25], 1000.0); // Very low pressure
+        let density_field = Array2::from_elem([5, 25], 998.0);
 
         solver
             .step(1e-5, &velocity_field, &pressure_field, &density_field)

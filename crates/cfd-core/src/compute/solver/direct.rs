@@ -1,7 +1,7 @@
 //! Direct solver traits
 
 use super::traits::{Configurable, Solver};
-use nalgebra::RealField;
+use eunomia::RealField;
 
 /// Direct solver trait
 pub trait DirectSolver<T: RealField + Copy>: Solver<T> + Configurable<T> {

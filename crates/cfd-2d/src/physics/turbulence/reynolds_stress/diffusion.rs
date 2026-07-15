@@ -20,11 +20,10 @@
 //! formulations, ensuring physical realizability and numerical stability.
 
 use super::tensor::ReynoldsStressTensor;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
 
-fn c<T: RealField + Copy + FromPrimitive>(v: f64) -> T {
-    T::from_f64(v).expect("diffusion constant must be representable")
+fn c<T: RealField + Copy>(v: f64) -> T {
+    T::from_f64(v)
 }
 
 /// Compute the dissipation tensor component `ε_ij` at grid point `(x, y)`.
@@ -32,7 +31,7 @@ fn c<T: RealField + Copy + FromPrimitive>(v: f64) -> T {
 /// Uses the stored anisotropic components when available and otherwise applies
 /// the isotropic closure.
 #[inline]
-pub fn dissipation_tensor<T: RealField + Copy + FromPrimitive>(
+pub fn dissipation_tensor<T: RealField + Copy>(
     rs: &ReynoldsStressTensor<T>,
     i: usize,
     j: usize,
@@ -43,23 +42,23 @@ pub fn dissipation_tensor<T: RealField + Copy + FromPrimitive>(
         (&rs.epsilon_xx, &rs.epsilon_xy, &rs.epsilon_yy)
     {
         match (i, j) {
-            (0, 0) => eps_xx[(x, y)],
-            (0, 1) | (1, 0) => eps_xy[(x, y)],
-            (1, 1) => eps_yy[(x, y)],
-            _ => T::zero(),
+            (0, 0) => eps_xx[[x, y]],
+            (0, 1) | (1, 0) => eps_xy[[x, y]],
+            (1, 1) => eps_yy[[x, y]],
+            _ => T::ZERO,
         }
     } else {
-        let epsilon = rs.epsilon[(x, y)];
+        let epsilon = rs.epsilon[[x, y]];
         match (i, j) {
             (0, 0) | (1, 1) => c::<T>(2.0 / 3.0) * epsilon,
-            _ => T::zero(),
+            _ => T::ZERO,
         }
     }
 }
 
 /// Optimised dissipation tensor (avoids Option unwrap for hot-path).
 #[inline]
-pub fn dissipation_tensor_optimized<T: RealField + Copy + FromPrimitive>(
+pub fn dissipation_tensor_optimized<T: RealField + Copy>(
     rs: &ReynoldsStressTensor<T>,
     i: usize,
     j: usize,
@@ -72,15 +71,15 @@ pub fn dissipation_tensor_optimized<T: RealField + Copy + FromPrimitive>(
         (&rs.epsilon_xx, &rs.epsilon_xy, &rs.epsilon_yy)
     {
         match (i, j) {
-            (0, 0) => eps_xx[(x, y)],
-            (0, 1) | (1, 0) => eps_xy[(x, y)],
-            (1, 1) => eps_yy[(x, y)],
-            _ => T::zero(),
+            (0, 0) => eps_xx[[x, y]],
+            (0, 1) | (1, 0) => eps_xy[[x, y]],
+            (1, 1) => eps_yy[[x, y]],
+            _ => T::ZERO,
         }
     } else {
         match (i, j) {
             (0, 0) | (1, 1) => two_thirds * epsilon,
-            _ => T::zero(),
+            _ => T::ZERO,
         }
     }
 }
@@ -89,7 +88,7 @@ pub fn dissipation_tensor_optimized<T: RealField + Copy + FromPrimitive>(
 ///
 /// `T_ij = −∂⟨u_i'u_j'u_k'⟩/∂x_k ≈ C_s (k³/ε²) ∇²⟨u_i'u_j'⟩`
 #[inline]
-pub fn turbulent_transport<T: RealField + Copy + FromPrimitive>(
+pub fn turbulent_transport<T: RealField + Copy>(
     k: T,
     epsilon: T,
     stress_gradient: &[[T; 2]; 2],
@@ -105,7 +104,7 @@ pub fn turbulent_transport<T: RealField + Copy + FromPrimitive>(
             -diffusion_coeff * c::<T>(0.5) * (stress_gradient[0][1] + stress_gradient[1][0])
         }
         (1, 1) => -diffusion_coeff * stress_gradient[1][1],
-        _ => T::zero(),
+        _ => T::ZERO,
     }
 }
 
@@ -114,16 +113,16 @@ mod tests {
     use super::*;
     use crate::physics::turbulence::reynolds_stress::model::ReynoldsStressModel;
     use approx::assert_relative_eq;
-    use nalgebra::DMatrix;
+    use leto::Array2;
 
     #[test]
     fn dissipation_tensor_prefers_anisotropic_components_when_available() {
         let model = ReynoldsStressModel::<f64>::new(2, 2);
         let mut tensor = model.initialize_reynolds_stresses(0.3, 0.1);
 
-        tensor.epsilon_xx = Some(DMatrix::from_element(2, 2, 1.23));
-        tensor.epsilon_xy = Some(DMatrix::from_element(2, 2, 0.45));
-        tensor.epsilon_yy = Some(DMatrix::from_element(2, 2, 2.34));
+        tensor.epsilon_xx = Some(Array2::from_elem([2, 2], 1.23));
+        tensor.epsilon_xy = Some(Array2::from_elem([2, 2], 0.45));
+        tensor.epsilon_yy = Some(Array2::from_elem([2, 2], 2.34));
 
         assert_relative_eq!(
             dissipation_tensor(&tensor, 0, 0, 1, 1),

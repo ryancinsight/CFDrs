@@ -46,11 +46,10 @@
 //! - Khodabandeh, E. et al. (2020). "Pressure drop and heat transfer in
 //!   T-junction microchannels." *Int. J. Heat Mass Transfer*, 154, 119689.
 
-use super::traits::{FlowConditions, ResistanceModel};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 /// Junction type classification.
@@ -159,7 +158,7 @@ impl JunctionLossModel {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossModel {
+impl<T: ResistanceScalar> ResistanceModel<T> for JunctionLossModel {
     /// Calculate hydraulic resistance [Pa·s/m³].
     ///
     /// Uses the linear + quadratic coefficient model; the linear part
@@ -189,8 +188,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossMod
         let density = state.density;
 
         // Estimate velocity from flow conditions for shear rate.
-        let area = T::from_f64(self.branch_area_m2)
-            .ok_or_else(|| Error::InvalidInput("branch_area_m2 conversion failed".into()))?;
+        let area = scalar_from_f64::<T>(self.branch_area_m2);
         let v = if let Some(v) = conditions.velocity {
             v
         } else if let Some(q) = conditions.flow_rate {
@@ -201,9 +199,8 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossMod
 
         // Shear rate is a scalar wall-rate magnitude. If a coupled model supplies
         // it explicitly, that value is authoritative for non-Newtonian rheology.
-        let d = T::from_f64(self.branch_diameter_m)
-            .ok_or_else(|| Error::InvalidInput("branch_diameter_m conversion failed".into()))?;
-        let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
+        let d = scalar_from_f64::<T>(self.branch_diameter_m);
+        let eight = scalar_from_f64::<T>(8.0);
         let v_abs = if v >= T::zero() { v } else { -v };
         let shear_rate = if let Some(shear_rate) = conditions.shear_rate {
             if shear_rate < T::zero() {
@@ -219,18 +216,15 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossMod
         let mu =
             fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
 
-        let l = T::from_f64(self.junction_length_m)
-            .ok_or_else(|| Error::InvalidInput("junction_length_m conversion failed".into()))?;
+        let l = scalar_from_f64::<T>(self.junction_length_m);
 
         // Linear component: Hagen-Poiseuille through the junction length.
         // R_lin = 128 μ L / (π D⁴)  [circular], or 12 μ L / (w h³) [rect]
         let pi = T::pi();
-        let r_lin =
-            T::from_f64(128.0).expect("Mathematical constant conversion compromised") * mu * l
-                / (pi * d.powi(4));
+        let r_lin = scalar_from_f64::<T>(128.0) * mu * l / (pi * <T as FloatElement>::powi(d, 4));
 
         // Quadratic component: K ρ / (2 A²).
-        let k_factor = T::from_f64(self.loss_coefficient()).unwrap_or_else(T::one);
+        let k_factor = scalar_from_f64::<T>(self.loss_coefficient());
         let two = T::one() + T::one();
         let k_quad = k_factor * density / (two * area * area);
 
@@ -246,10 +240,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for JunctionLossMod
 
     fn reynolds_range(&self) -> (T, T) {
         // Applicable from creeping flow to low-turbulence millifluidic range.
-        (
-            T::zero(),
-            T::from_f64(2300.0).expect("Mathematical constant conversion compromised"),
-        )
+        (T::zero(), scalar_from_f64::<T>(2300.0))
     }
 
     fn validate_invariants<F: FluidTrait<T>>(

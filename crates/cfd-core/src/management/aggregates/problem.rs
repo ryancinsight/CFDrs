@@ -5,14 +5,13 @@ use crate::geometry::Domain;
 use crate::physics::boundary::BoundaryCondition;
 use crate::physics::fluid::ConstantPropertyFluid;
 use crate::physics::values::{Pressure, Velocity};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, RealField};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Problem aggregate that defines a CFD problem setup
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProblemAggregate<T: RealField + Copy, D: Domain<T>> {
+pub struct ProblemAggregate<T: RealField + Copy + FloatElement, D: Domain<T>> {
     /// Problem name
     pub name: String,
     /// Problem description
@@ -31,7 +30,7 @@ pub struct ProblemAggregate<T: RealField + Copy, D: Domain<T>> {
 
 /// Initial conditions for the problem
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InitialConditions<T: RealField + Copy> {
+pub struct InitialConditions<T: FloatElement + Copy> {
     /// Initial velocity field
     pub velocity: Velocity<T>,
     /// Initial pressure field
@@ -53,7 +52,7 @@ pub enum ProblemType {
     Multiphase,
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> ProblemAggregate<T, D> {
+impl<T: RealField + Copy + FloatElement, D: Domain<T>> ProblemAggregate<T, D> {
     /// Create a new problem aggregate
     pub fn new(name: String, domain: D, fluid: ConstantPropertyFluid<T>) -> Self {
         Self {
@@ -118,14 +117,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Prob
     /// - Initial conditions are invalid
     pub fn validate(&self) -> Result<()> {
         // Check domain validity
-        if self.domain.volume() <= T::zero() {
+        if self.domain.volume() <= T::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Domain has zero volume".to_string(),
             ));
         }
 
         // Check fluid properties
-        if self.fluid.density <= T::zero() {
+        if self.fluid.density <= T::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Fluid density must be positive".to_string(),
             ));
@@ -152,7 +151,7 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::Float, D: Domain<T>> Prob
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for InitialConditions<T> {
+impl<T: FloatElement + Copy + RealField> Default for InitialConditions<T> {
     fn default() -> Self {
         Self {
             velocity: Velocity::zero(),
@@ -162,7 +161,7 @@ impl<T: RealField + Copy + FromPrimitive> Default for InitialConditions<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> InitialConditions<T> {
+impl<T: FloatElement + Copy + RealField> InitialConditions<T> {
     /// Create with velocity
     pub fn with_velocity(velocity: Velocity<T>) -> Self {
         Self {

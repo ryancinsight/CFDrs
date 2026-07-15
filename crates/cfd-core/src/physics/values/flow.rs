@@ -1,8 +1,7 @@
 //! Flow-related value objects
 
 use crate::error::Result;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 // Physical constants
@@ -29,18 +28,18 @@ pub enum FlowGeometry {
 
 /// Reynolds number with geometry-aware flow regime detection
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub struct ReynoldsNumber<T: RealField + Copy> {
+pub struct ReynoldsNumber<T: FloatElement + Copy> {
     value: T,
     geometry: FlowGeometry,
 }
 
-impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
+impl<T: FloatElement + Copy> ReynoldsNumber<T> {
     /// Create a new Reynolds number with specified geometry
     ///
     /// # Errors
     /// Returns an error if the value is negative
     pub fn new(value: T, geometry: FlowGeometry) -> Result<Self> {
-        if value < T::zero() {
+        if value < <T as NumericElement>::ZERO {
             return Err(crate::error::Error::InvalidConfiguration(
                 "Reynolds number must be non-negative".into(),
             ));
@@ -79,12 +78,12 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
     pub fn is_laminar(&self) -> bool {
         match self.geometry {
             FlowGeometry::Pipe | FlowGeometry::Internal => {
-                self.value < T::from_f64(REYNOLDS_LAMINAR_LIMIT_PIPE).unwrap_or_else(T::zero)
+                self.value < <T as FloatElement>::from_f64(REYNOLDS_LAMINAR_LIMIT_PIPE)
             }
             FlowGeometry::FlatPlate | FlowGeometry::External => {
-                self.value < T::from_f64(REYNOLDS_LAMINAR_LIMIT_PLATE).unwrap_or_else(T::zero)
+                self.value < <T as FloatElement>::from_f64(REYNOLDS_LAMINAR_LIMIT_PLATE)
             }
-            _ => self.value < T::from_f64(REYNOLDS_LAMINAR_LIMIT_PIPE).unwrap_or_else(T::zero),
+            _ => self.value < <T as FloatElement>::from_f64(REYNOLDS_LAMINAR_LIMIT_PIPE),
         }
     }
 
@@ -92,12 +91,12 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
     pub fn is_turbulent(&self) -> bool {
         match self.geometry {
             FlowGeometry::Pipe | FlowGeometry::Internal => {
-                self.value > T::from_f64(REYNOLDS_TURBULENT_ONSET_PIPE).unwrap_or_else(T::zero)
+                self.value > <T as FloatElement>::from_f64(REYNOLDS_TURBULENT_ONSET_PIPE)
             }
             FlowGeometry::FlatPlate | FlowGeometry::External => {
-                self.value > T::from_f64(REYNOLDS_LAMINAR_LIMIT_PLATE).unwrap_or_else(T::zero)
+                self.value > <T as FloatElement>::from_f64(REYNOLDS_LAMINAR_LIMIT_PLATE)
             }
-            _ => self.value > T::from_f64(REYNOLDS_TURBULENT_ONSET_PIPE).unwrap_or_else(T::zero),
+            _ => self.value > <T as FloatElement>::from_f64(REYNOLDS_TURBULENT_ONSET_PIPE),
         }
     }
 
@@ -118,7 +117,7 @@ impl<T: RealField + Copy + FromPrimitive> ReynoldsNumber<T> {
         viscosity: T,
         geometry: FlowGeometry,
     ) -> Result<Self> {
-        if viscosity <= T::zero() {
+        if viscosity <= <T as NumericElement>::ZERO {
             return Err(crate::error::Error::InvalidConfiguration(
                 "Viscosity must be positive".into(),
             ));

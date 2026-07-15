@@ -39,16 +39,18 @@ use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
 use crate::physics::MomentumSolver;
 use crate::pressure_velocity::{PressureCorrectionSolver, RhieChowInterpolation};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Error;
-use nalgebra::{RealField, Vector2};
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
+use leto::geometry::Vector2;
 
 /// SIMPLEC/PIMPLE pressure-velocity coupling solver
 ///
 /// This solver extends the basic SIMPLE algorithm with:
 /// - SIMPLEC: Consistent pressure-velocity coupling using Rhie-Chow interpolation
 /// - PIMPLE: Merged PISO-SIMPLE for better convergence in transient flows
-pub struct SimplecPimpleSolver<T: RealField + Copy> {
+pub struct SimplecPimpleSolver<T: Cfd2dScalar + Copy> {
     pub(super) config: SimplecPimpleConfig<T>,
     pub(super) grid: StructuredGrid2D<T>,
     pub(super) momentum_solver: MomentumSolver<T>,
@@ -63,15 +65,12 @@ pub struct SimplecPimpleSolver<T: RealField + Copy> {
     pub(super) _v_face_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
     pub(super) _d_x_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
     pub(super) _d_y_cache: std::cell::RefCell<Option<crate::grid::array2d::Array2D<T>>>,
-    pub(super) _vel_field_cache:
-        std::cell::RefCell<Option<crate::fields::Field2D<nalgebra::Vector2<T>>>>,
+    pub(super) _vel_field_cache: std::cell::RefCell<Option<crate::fields::Field2D<Vector2<T>>>>,
     pub(super) _cons_vel_cache:
-        std::cell::RefCell<Option<crate::grid::array2d::Array2D<nalgebra::Vector2<T>>>>,
+        std::cell::RefCell<Option<crate::grid::array2d::Array2D<Vector2<T>>>>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
-    SimplecPimpleSolver<T>
-{
+impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
     /// Create new SIMPLEC/PIMPLE solver
     pub fn new(
         grid: StructuredGrid2D<T>,
@@ -128,10 +127,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             let mut rhie_chow = RhieChowInterpolation::new(&grid);
             // Initialize Rhie-Chow coefficients with reasonable defaults
             // This prevents issues in the first iteration
-            let dx_f64 = grid.dx.to_f64().unwrap_or(1.0);
-            let dy_f64 = grid.dy.to_f64().unwrap_or(1.0);
+            let dx_f64 = NumericElement::to_f64(grid.dx);
+            let dy_f64 = NumericElement::to_f64(grid.dy);
             let default_ap_f64 = 1.0 / (dx_f64 * dx_f64 + dy_f64 * dy_f64);
-            let default_ap = T::from_f64(default_ap_f64).unwrap_or_else(|| T::one());
+            let default_ap = scalar::from_f64(default_ap_f64);
             let ap_u = Field2D::new(grid.nx, grid.ny, default_ap);
             let ap_v = Field2D::new(grid.nx, grid.ny, default_ap);
             rhie_chow.update_u_coefficients(&ap_u);
@@ -150,8 +149,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             iterations: 0,
             u_star_workspace: Array2D::new(grid_nx, grid_ny, Vector2::zeros()),
             u_corrected_workspace: Array2D::new(grid_nx, grid_ny, Vector2::zeros()),
-            p_workspace: Array2D::new(grid_nx, grid_ny, T::zero()),
-            p_correction_workspace: Array2D::new(grid_nx, grid_ny, T::zero()),
+            p_workspace: Array2D::new(grid_nx, grid_ny, scalar::zero()),
+            p_correction_workspace: Array2D::new(grid_nx, grid_ny, scalar::zero()),
             _u_face_cache: std::cell::RefCell::new(None),
             _v_face_cache: std::cell::RefCell::new(None),
             _d_x_cache: std::cell::RefCell::new(None),
@@ -186,7 +185,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
     }
 
     /// Extrapolate pressure field to solid cells
-    pub(super) fn extrapolate_pressure_to_solids(&self, fields: &mut crate::fields::SimulationFields<T>) {
+    pub(super) fn extrapolate_pressure_to_solids(
+        &self,
+        fields: &mut crate::fields::SimulationFields<T>,
+    ) {
         let nx = self.grid.nx;
         let ny = self.grid.ny;
 
@@ -205,28 +207,28 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             for j in 0..ny {
                 for i in 0..nx {
                     if !valid[(i, j)] {
-                        let mut sum = T::zero();
+                        let mut sum: T = scalar::zero();
                         let mut count = 0;
 
                         if i > 0 && valid[(i - 1, j)] {
-                            sum = sum + fields.p.at(i - 1, j);
+                            sum += fields.p.at(i - 1, j);
                             count += 1;
                         }
                         if i < nx - 1 && valid[(i + 1, j)] {
-                            sum = sum + fields.p.at(i + 1, j);
+                            sum += fields.p.at(i + 1, j);
                             count += 1;
                         }
                         if j > 0 && valid[(i, j - 1)] {
-                            sum = sum + fields.p.at(i, j - 1);
+                            sum += fields.p.at(i, j - 1);
                             count += 1;
                         }
                         if j < ny - 1 && valid[(i, j + 1)] {
-                            sum = sum + fields.p.at(i, j + 1);
+                            sum += fields.p.at(i, j + 1);
                             count += 1;
                         }
 
                         if count > 0 {
-                            let avg = sum / T::from_usize(count).unwrap_or_else(T::one);
+                            let avg = sum / scalar::from_usize(count);
                             updates.push(((i, j), avg));
                         }
                     }

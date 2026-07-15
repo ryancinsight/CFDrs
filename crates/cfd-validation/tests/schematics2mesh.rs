@@ -12,9 +12,11 @@ fn test_schematics2mesh_stl_output() {
 
     // 1. Generate 2D geometry (a simple symmetric bifurcation)
     let box_dims = (20.0, 10.0);
-    let mut config = GeometryConfig::default();
-    config.channel_width = 4.0; // 4mm
-    config.channel_height = 4.0;
+    let config = GeometryConfig {
+        channel_width: 4.0, // 4mm
+        channel_height: 4.0,
+        ..Default::default()
+    };
 
     let system = create_geometry(
         box_dims,
@@ -57,7 +59,7 @@ fn test_schematics2mesh_stl_output() {
         }
     }
 
-    assert!(mesh.faces.len() > 0, "Mesh should have faces");
+    assert!(!mesh.faces.is_empty(), "Mesh should have faces");
 
     // 4. Write to STL
     let mut stl_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

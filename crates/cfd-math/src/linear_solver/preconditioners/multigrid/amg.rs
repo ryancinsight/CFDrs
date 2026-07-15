@@ -42,21 +42,46 @@ use super::interpolation::{
 };
 use super::{
     AMGConfig, AMGHierarchy, AMGStatistics, CoarseningStrategy, GaussSeidelSmoother,
-    InterpolationStrategy, JacobiSmoother, MultigridLevel, MultigridSmoother, SmootherType,
-    SymmetricGaussSeidelSmoother,
+    InterpolationStrategy, JacobiSmoother, MultigridLevel, MultigridSmoother, MultigridVector,
+    SmootherType, SparseMatrix, SymmetricGaussSeidelSmoother,
 };
 use crate::error::Result;
-use cfd_core::error::Error;
 use crate::linear_solver::traits::Preconditioner;
-use crate::sparse::{sparse_sparse_mul, SparseMatrix};
-use nalgebra::DVector;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use cfd_core::error::Error;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::Array1;
+use leto_ops::{spgemm, spmv as leto_spmv, Scalar as LetoScalar};
 use std::time::Instant;
+
+#[inline]
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+#[inline]
+fn diagonal_epsilon<T: FloatElement>() -> T {
+    from_f64(1e-15)
+}
+
+fn sparse_product<T: RealField + Copy + LetoScalar>(
+    lhs: &SparseMatrix<T>,
+    rhs: &SparseMatrix<T>,
+) -> Result<SparseMatrix<T>> {
+    spgemm(lhs, rhs)
+        .map_err(|error| Error::InvalidConfiguration(format!("AMG sparse product failed: {error}")))
+}
+
+fn sparse_apply<T: RealField + Copy + LetoScalar>(
+    matrix: &SparseMatrix<T>,
+    vector: &Array1<T>,
+) -> Result<Array1<T>> {
+    leto_spmv(matrix, &vector.view())
+        .map_err(|error| Error::InvalidConfiguration(format!("AMG SpMV failed: {error}")))
+}
 
 /// Algebraic Multigrid preconditioner
 #[derive(Clone)]
-pub struct AlgebraicMultigrid<T: RealField + Copy> {
+pub struct AlgebraicMultigrid<T: RealField + Copy + LetoScalar> {
     /// Multigrid hierarchy levels
     levels: Vec<MultigridLevel<T>>,
     /// AMG configuration
@@ -69,7 +94,7 @@ pub struct AlgebraicMultigrid<T: RealField + Copy> {
     hierarchy: Option<AMGHierarchy<T>>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
+impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
     /// Create a new AMG preconditioner
     pub fn new(matrix: &SparseMatrix<T>, config: AMGConfig) -> Result<Self> {
         let mut amg = Self {
@@ -139,8 +164,8 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
             };
 
             // A_coarse = R * A_fine * P
-            let temp = sparse_sparse_mul(restriction, &self.levels[i].matrix);
-            let coarse_matrix = sparse_sparse_mul(&temp, interpolation);
+            let temp = sparse_product(restriction, &self.levels[i].matrix)?;
+            let coarse_matrix = sparse_product(&temp, interpolation)?;
 
             // Update next level
             self.levels[i + 1].matrix = coarse_matrix.clone();
@@ -171,7 +196,8 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
             for (restriction, interpolation) in &hierarchy.operators {
                 let coarse_matrix = {
                     let current_level = self.levels.last_mut().unwrap();
-                    let coarse_matrix = restriction * &current_level.matrix * interpolation;
+                    let temp_matrix = sparse_product(restriction, &current_level.matrix)?;
+                    let coarse_matrix = sparse_product(&temp_matrix, interpolation)?;
 
                     // Store operators in the finer level
                     current_level.restriction = Some(restriction.clone());
@@ -218,28 +244,28 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
             let coarsening_result = match self.config.coarsening_strategy {
                 CoarseningStrategy::RugeStueben => ruge_stueben_coarsening(
                     &current_level.matrix,
-                    T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero),
+                    from_f64(self.config.strength_threshold),
                 ),
                 CoarseningStrategy::Aggregation => {
                     aggregation_coarsening(&current_level.matrix, 8) // Use default aggregate size
                 }
                 CoarseningStrategy::Hybrid => hybrid_coarsening(
                     &current_level.matrix,
-                    T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero),
+                    from_f64(self.config.strength_threshold),
                     4,
                 ),
                 CoarseningStrategy::Falgout => falgout_coarsening(
                     &current_level.matrix,
-                    T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero),
+                    from_f64(self.config.strength_threshold),
                 ),
                 CoarseningStrategy::PMIS => pmis_coarsening(
                     &current_level.matrix,
-                    T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero),
+                    from_f64(self.config.strength_threshold),
                 ),
                 CoarseningStrategy::HMIS => hmis_coarsening(
                     &current_level.matrix,
-                    T::from_f64(self.config.strength_threshold).unwrap_or_else(T::zero),
-                    T::from_f64(0.5).unwrap_or_else(T::zero),
+                    from_f64(self.config.strength_threshold),
+                    from_f64(0.5),
                 ),
             }
             .map_err(|e| Error::InvalidInput(format!("Coarsening failed: {e}")))?;
@@ -266,12 +292,11 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
             .map_err(|e| Error::InvalidInput(format!("Interpolation failed: {e}")))?;
 
             // Create restriction operator (transpose of interpolation)
-            // In nalgebra-sparse, transpose of CSR is CSC, then convert back to CSR
-            let restriction = SparseMatrix::from(&interpolation.clone().transpose_as_csc());
+            let restriction = interpolation.transpose();
 
             // Create coarse matrix: R * A_fine * P
-            let temp_matrix = sparse_sparse_mul(&restriction, &current_level.matrix);
-            let coarse_matrix = sparse_sparse_mul(&temp_matrix, &interpolation);
+            let temp_matrix = sparse_product(&restriction, &current_level.matrix)?;
+            let coarse_matrix = sparse_product(&temp_matrix, &interpolation)?;
 
             (restriction, interpolation, coarse_matrix)
         };
@@ -301,7 +326,7 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
 
     /// Create smoother for a given matrix
     fn create_smoother(&self, _matrix: &SparseMatrix<T>) -> Box<dyn MultigridSmoother<T>> {
-        let relaxation = T::from_f64(self.config.relaxation_factor).unwrap_or_else(T::one);
+        let relaxation = from_f64(self.config.relaxation_factor);
         match self.config.smoother_type {
             SmootherType::SymmetricGaussSeidel => {
                 Box::new(SymmetricGaussSeidelSmoother::new(relaxation))
@@ -321,7 +346,7 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
             .matrix
             .values()
             .iter()
-            .filter(|&&x| x.abs() > T::from_f64(1e-15).unwrap_or_else(T::zero))
+            .filter(|&&x| NumericElement::abs(x) > diagonal_epsilon())
             .count();
         let mut total_nnz = 0;
         let mut total_vars = 0;
@@ -331,7 +356,7 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
                 .matrix
                 .values()
                 .iter()
-                .filter(|&&x| x.abs() > T::from_f64(1e-15).unwrap_or_else(T::zero))
+                .filter(|&&x| NumericElement::abs(x) > diagonal_epsilon())
                 .count();
             total_vars += level.matrix.nrows();
         }
@@ -341,7 +366,7 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
     }
 
     /// Perform a single V-cycle
-    fn v_cycle(&self, level_idx: usize, b: &DVector<T>, x: &mut DVector<T>) {
+    fn v_cycle(&self, level_idx: usize, b: &MultigridVector<T>, x: &mut MultigridVector<T>) {
         let current_level = &self.levels[level_idx];
 
         // 1. Pre-smoothing
@@ -354,20 +379,29 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
 
         if level_idx < self.levels.len() - 1 {
             // 2. Compute residual: r = b - A*x
-            let r = b - &current_level.matrix * &*x;
+            let applied = sparse_apply(&current_level.matrix, x)
+                .expect("invariant: AMG SpMV inputs are valid");
+            let mut r = MultigridVector::zeros([b.shape()[0]]);
+            for i in 0..b.shape()[0] {
+                r[i] = b[i] - applied[i];
+            }
 
             // 3. Restriction: r_coarse = R * r
-            let r_coarse = current_level.restriction.as_ref().unwrap() * r;
+            let r_coarse = sparse_apply(current_level.restriction.as_ref().unwrap(), &r)
+                .expect("invariant: AMG restriction dimensions are valid");
 
             // 4. Recursive call to coarse level
-            let mut e_coarse = DVector::zeros(r_coarse.len());
+            let mut e_coarse = MultigridVector::zeros([r_coarse.shape()[0]]);
             self.v_cycle(level_idx + 1, &r_coarse, &mut e_coarse);
 
             // 5. Interpolation: e = P * e_coarse
-            let e = current_level.interpolation.as_ref().unwrap() * e_coarse;
+            let e = sparse_apply(current_level.interpolation.as_ref().unwrap(), &e_coarse)
+                .expect("invariant: AMG interpolation dimensions are valid");
 
             // 6. Correction: x = x + e
-            *x += e;
+            for i in 0..x.shape()[0] {
+                x[i] += e[i];
+            }
 
             // 7. Post-smoothing
             current_level.smoother.apply(
@@ -385,11 +419,22 @@ impl<T: RealField + Copy + FromPrimitive> AlgebraicMultigrid<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Preconditioner<T> for AlgebraicMultigrid<T> {
-    fn apply_to(&self, r: &DVector<T>, z: &mut DVector<T>) -> Result<()> {
-        z.fill(T::zero());
+impl<T: RealField + Copy + FloatElement + LetoScalar> Preconditioner<T> for AlgebraicMultigrid<T> {
+    fn apply_to(&self, r: &MultigridVector<T>, z: &mut MultigridVector<T>) -> Result<()> {
+        for i in 0..z.shape()[0] {
+            z[i] = <T as NumericElement>::ZERO;
+        }
 
-        self.v_cycle(0, r, z);
+        let rhs = MultigridVector::from_shape_vec(r.shape(), r.iter().copied().collect()).map_err(
+            |error| Error::InvalidConfiguration(format!("Invalid AMG RHS bridge: {error}")),
+        )?;
+        let mut correction = MultigridVector::zeros(z.shape());
+
+        self.v_cycle(0, &rhs, &mut correction);
+
+        for i in 0..z.shape()[0] {
+            z[i] = correction[i];
+        }
 
         Ok(())
     }

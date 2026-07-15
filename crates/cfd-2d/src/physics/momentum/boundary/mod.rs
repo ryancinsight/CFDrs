@@ -90,15 +90,17 @@
 mod directional;
 
 use super::solver::MomentumComponent;
-use crate::grid::traits::Grid2D;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::{BoundaryErrorKind, Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_math::sparse::SparseMatrixBuilder;
 use directional::{
     apply_east_boundary, apply_north_boundary, apply_south_boundary, apply_west_boundary,
 };
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use leto::geometry::Vector3;
+use leto::Array1;
 use std::collections::HashMap;
 use std::hash::BuildHasher;
 
@@ -114,17 +116,19 @@ pub trait MatrixUpdater<T> {
     fn add_entry(&mut self, row: usize, col: usize, val: T) -> cfd_core::error::Result<()>;
 }
 
-impl<T: RealField + Copy> MatrixUpdater<T> for SparseMatrixBuilder<T> {
+impl<T: Cfd2dScalar + Copy> MatrixUpdater<T> for SparseMatrixBuilder<T> {
     fn add_entry(&mut self, row: usize, col: usize, val: T) -> cfd_core::error::Result<()> {
         self.add_entry(row, col, val)
     }
 }
 
-impl<T: RealField + Copy> MatrixUpdater<T> for cfd_math::sparse::SparseMatrix<T> {
+impl<T: Cfd2dScalar + Copy> MatrixUpdater<T> for cfd_math::sparse::SparseMatrix<T> {
     fn add_entry(&mut self, row: usize, col: usize, val: T) -> cfd_core::error::Result<()> {
-        let start = self.row_offsets()[row];
-        let end = self.row_offsets()[row + 1];
-        if let Ok(idx) = self.col_indices()[start..end].binary_search(&col) {
+        let row_ptr = self.row_ptr().to_vec();
+        let col_indices = self.col_indices().to_vec();
+        let start = row_ptr[row];
+        let end = row_ptr[row + 1];
+        if let Ok(idx) = col_indices[start..end].binary_search(&col) {
             self.values_mut()[start + idx] += val;
         }
         Ok(())
@@ -133,10 +137,10 @@ impl<T: RealField + Copy> MatrixUpdater<T> for cfd_math::sparse::SparseMatrix<T>
 
 /// Apply rotating wall boundary condition: u_wall = ω × r
 /// where r is the position vector from center of rotation
-fn apply_rotating_wall_bc<T: RealField + Copy + FromPrimitive>(
+fn apply_rotating_wall_bc<T: Cfd2dScalar + Copy + FloatElement>(
     component: MomentumComponent,
-    omega: &nalgebra::Vector3<T>,
-    center: &nalgebra::Vector3<T>,
+    omega: &Vector3<T>,
+    center: &Vector3<T>,
     grid: &crate::grid::StructuredGrid2D<T>,
     idx: usize,
 ) -> T {
@@ -145,8 +149,8 @@ fn apply_rotating_wall_bc<T: RealField + Copy + FromPrimitive>(
     let j = idx / nx;
 
     let cell_center = grid.cell_center(i, j).unwrap();
-    let x = cell_center.x;
-    let y = cell_center.y;
+    let x = cell_center[0];
+    let y = cell_center[1];
 
     let r_x = x - center.x;
     let r_y = y - center.y;
@@ -162,13 +166,13 @@ fn apply_rotating_wall_bc<T: RealField + Copy + FromPrimitive>(
 /// Apply boundary conditions to momentum equation system
 pub fn apply_momentum_boundaries<T, S, M>(
     matrix: &mut M,
-    rhs: &mut nalgebra::DVector<T>,
+    rhs: &mut Array1<T>,
     component: MomentumComponent,
     boundaries: &HashMap<String, BoundaryCondition<T>, S>,
     grid: &crate::grid::StructuredGrid2D<T>,
 ) -> cfd_core::error::Result<()>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: Cfd2dScalar + Copy + FloatElement,
     S: BuildHasher,
     M: MatrixUpdater<T>,
 {
@@ -189,7 +193,7 @@ where
 }
 
 /// Get the Dirichlet value for a boundary condition and component
-fn get_dirichlet_value<T: RealField + Copy>(
+fn get_dirichlet_value<T: Cfd2dScalar + Copy + FloatElement>(
     bc: &BoundaryCondition<T>,
     component: MomentumComponent,
 ) -> Option<T> {
@@ -220,7 +224,7 @@ fn get_dirichlet_value<T: RealField + Copy>(
             Some(velocity[idx])
         }
         BoundaryCondition::Wall { wall_type } => match wall_type {
-            cfd_core::physics::boundary::WallType::NoSlip => Some(T::zero()),
+            cfd_core::physics::boundary::WallType::NoSlip => Some(scalar::zero()),
             cfd_core::physics::boundary::WallType::Moving { velocity } => {
                 let idx = match component {
                     MomentumComponent::U => 0,
@@ -240,7 +244,7 @@ pub fn validate_boundary_consistency<T, S>(
     _grid: &crate::grid::StructuredGrid2D<T>,
 ) -> Result<()>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: Cfd2dScalar + Copy + FloatElement,
     S: BuildHasher,
 {
     for direction in &["north", "south", "east", "west"] {
@@ -290,9 +294,8 @@ where
                 get_dirichlet_value(b1, component),
                 get_dirichlet_value(b2, component),
             ) {
-                let diff = (v1 - v2).abs();
-                let epsilon = T::default_epsilon()
-                    * T::from_f64(100.0).expect("analytical constant conversion");
+                let diff = scalar::abs(v1 - v2);
+                let epsilon = T::default_epsilon() * scalar::from_f64(100.0);
                 if diff > epsilon {
                     tracing::debug!(
                         corner = %format!("{b1_name}-{b2_name}"),
@@ -313,13 +316,13 @@ where
 /// Implements quadratic extrapolation for better velocity gradients near walls.
 pub fn apply_higher_order_wall_boundaries<T, S, M>(
     matrix: &mut M,
-    rhs: &mut nalgebra::DVector<T>,
+    rhs: &mut Array1<T>,
     component: MomentumComponent,
     boundaries: &HashMap<String, BoundaryCondition<T>, S>,
     grid: &crate::grid::StructuredGrid2D<T>,
 ) -> cfd_core::error::Result<()>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: Cfd2dScalar + Copy + FloatElement,
     S: BuildHasher,
     M: MatrixUpdater<T>,
 {
@@ -362,18 +365,17 @@ where
     Ok(())
 }
 
-
 /// Quadratic extrapolation: u_0 = (4*u_1 - u_2)/3 for west wall
-fn apply_higher_order_west_wall<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+fn apply_higher_order_west_wall<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
-    rhs: &mut nalgebra::DVector<T>,
+    rhs: &mut Array1<T>,
     _component: MomentumComponent,
     _grid: &crate::grid::StructuredGrid2D<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
-    let four = T::from_f64(4.0).unwrap_or_else(|| T::one() + T::one() + T::one() + T::one());
-    let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
+    let four: T = scalar::from_f64(4.0);
+    let three: T = scalar::from_f64(3.0);
 
     // Horizontal walls own the corner nodes, so skip them here.
     for j in 1..ny.saturating_sub(1) {
@@ -383,24 +385,24 @@ fn apply_higher_order_west_wall<T: RealField + Copy + FromPrimitive, M: MatrixUp
 
         matrix.add_entry(idx_0, idx_0, three)?;
         matrix.add_entry(idx_0, idx_1, -four)?;
-        matrix.add_entry(idx_0, idx_2, T::one())?;
-        rhs[idx_0] = T::zero();
+        matrix.add_entry(idx_0, idx_2, scalar::one())?;
+        rhs[idx_0] = scalar::zero();
     }
 
     Ok(())
 }
 
 /// Quadratic extrapolation for east wall
-fn apply_higher_order_east_wall<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+fn apply_higher_order_east_wall<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
-    rhs: &mut nalgebra::DVector<T>,
+    rhs: &mut Array1<T>,
     _component: MomentumComponent,
     _grid: &crate::grid::StructuredGrid2D<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
-    let four = T::from_f64(4.0).unwrap_or_else(|| T::one() + T::one() + T::one() + T::one());
-    let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
+    let four: T = scalar::from_f64(4.0);
+    let three: T = scalar::from_f64(3.0);
 
     // Horizontal walls own the corner nodes, so skip them here.
     for j in 1..ny.saturating_sub(1) {
@@ -410,24 +412,24 @@ fn apply_higher_order_east_wall<T: RealField + Copy + FromPrimitive, M: MatrixUp
 
         matrix.add_entry(idx_0, idx_0, three)?;
         matrix.add_entry(idx_0, idx_1, -four)?;
-        matrix.add_entry(idx_0, idx_2, T::one())?;
-        rhs[idx_0] = T::zero();
+        matrix.add_entry(idx_0, idx_2, scalar::one())?;
+        rhs[idx_0] = scalar::zero();
     }
 
     Ok(())
 }
 
 /// Quadratic extrapolation for north wall
-fn apply_higher_order_north_wall<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+fn apply_higher_order_north_wall<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
-    rhs: &mut nalgebra::DVector<T>,
+    rhs: &mut Array1<T>,
     _component: MomentumComponent,
     _grid: &crate::grid::StructuredGrid2D<T>,
     nx: usize,
     ny: usize,
 ) -> cfd_core::error::Result<()> {
-    let four = T::from_f64(4.0).unwrap_or_else(|| T::one() + T::one() + T::one() + T::one());
-    let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
+    let four: T = scalar::from_f64(4.0);
+    let three: T = scalar::from_f64(3.0);
 
     for i in 0..nx {
         let idx_0 = (ny - 1) * nx + i;
@@ -436,24 +438,24 @@ fn apply_higher_order_north_wall<T: RealField + Copy + FromPrimitive, M: MatrixU
 
         matrix.add_entry(idx_0, idx_0, three)?;
         matrix.add_entry(idx_0, idx_1, -four)?;
-        matrix.add_entry(idx_0, idx_2, T::one())?;
-        rhs[idx_0] = T::zero();
+        matrix.add_entry(idx_0, idx_2, scalar::one())?;
+        rhs[idx_0] = scalar::zero();
     }
 
     Ok(())
 }
 
 /// Quadratic extrapolation for south wall
-fn apply_higher_order_south_wall<T: RealField + Copy + FromPrimitive, M: MatrixUpdater<T>>(
+fn apply_higher_order_south_wall<T: Cfd2dScalar + Copy + FloatElement, M: MatrixUpdater<T>>(
     matrix: &mut M,
-    rhs: &mut nalgebra::DVector<T>,
+    rhs: &mut Array1<T>,
     _component: MomentumComponent,
     _grid: &crate::grid::StructuredGrid2D<T>,
     nx: usize,
     _ny: usize,
 ) -> cfd_core::error::Result<()> {
-    let four = T::from_f64(4.0).unwrap_or_else(|| T::one() + T::one() + T::one() + T::one());
-    let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
+    let four: T = scalar::from_f64(4.0);
+    let three: T = scalar::from_f64(3.0);
 
     for i in 0..nx {
         let idx_0 = i;
@@ -462,8 +464,8 @@ fn apply_higher_order_south_wall<T: RealField + Copy + FromPrimitive, M: MatrixU
 
         matrix.add_entry(idx_0, idx_0, three)?;
         matrix.add_entry(idx_0, idx_1, -four)?;
-        matrix.add_entry(idx_0, idx_2, T::one())?;
-        rhs[idx_0] = T::zero();
+        matrix.add_entry(idx_0, idx_2, scalar::one())?;
+        rhs[idx_0] = scalar::zero();
     }
 
     Ok(())
@@ -474,7 +476,8 @@ mod tests {
     use super::*;
     use crate::grid::StructuredGrid2D;
     use cfd_core::physics::boundary::{BoundaryCondition, WallType};
-    use nalgebra::{DVector, Vector3};
+    use leto::geometry::Vector3;
+    use leto::Array1;
     use std::collections::HashMap;
 
     struct RecordingMatrix<T> {
@@ -489,7 +492,7 @@ mod tests {
         }
     }
 
-    impl<T: RealField + Copy> MatrixUpdater<T> for RecordingMatrix<T> {
+    impl<T: Cfd2dScalar + Copy> MatrixUpdater<T> for RecordingMatrix<T> {
         fn add_entry(&mut self, row: usize, col: usize, val: T) -> cfd_core::error::Result<()> {
             self.entries.push((row, col, val));
             Ok(())
@@ -501,7 +504,7 @@ mod tests {
         let grid = StructuredGrid2D::new(4, 4, 0.0_f64, 1.0_f64, 0.0_f64, 1.0_f64)
             .expect("grid creation failed");
         let mut matrix = RecordingMatrix::new();
-        let mut rhs = DVector::zeros(grid.nx * grid.ny);
+        let mut rhs = Array1::from_elem([grid.nx * grid.ny], 0.0);
         let boundaries = HashMap::from([(
             "west".to_string(),
             BoundaryCondition::Wall {
@@ -540,7 +543,7 @@ mod tests {
         let grid = StructuredGrid2D::new(4, 4, 0.0_f64, 1.0_f64, 0.0_f64, 1.0_f64)
             .expect("grid creation failed");
         let mut matrix = RecordingMatrix::new();
-        let mut rhs = DVector::zeros(grid.nx * grid.ny);
+        let mut rhs = Array1::from_elem([grid.nx * grid.ny], 0.0);
         let boundaries = HashMap::from([
             (
                 "north".to_string(),

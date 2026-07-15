@@ -8,14 +8,14 @@
 
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use cfd_3d::spectral::{
-    enstrophy_spectrum, kinetic_energy_spectrum, probe_signal_spectrum,
-    temporal_autocorrelation, BandLimitedRandomPhaseForcingConfig, EnstrophySpectrum,
-    KineticEnergySpectrum, PeriodicPseudospectralDns3D, PeriodicPseudospectralDnsConfig,
+    enstrophy_spectrum, kinetic_energy_spectrum, probe_signal_spectrum, temporal_autocorrelation,
+    BandLimitedRandomPhaseForcingConfig, EnstrophySpectrum, KineticEnergySpectrum,
+    PeriodicPseudospectralDns3D, PeriodicPseudospectralDnsConfig,
     TimeResampledBandLimitedForcing3D, TimeResampledBandLimitedForcingConfig,
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
-use nalgebra::Vector3;
+use leto::geometry::Vector3;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
@@ -272,12 +272,11 @@ impl ForcedTurbulenceBenchmark3D {
             config.forcing_amplitude,
             config.seed,
         )?;
-        let forcing_schedule = TimeResampledBandLimitedForcing3D::new(
-            TimeResampledBandLimitedForcingConfig::new(
+        let forcing_schedule =
+            TimeResampledBandLimitedForcing3D::new(TimeResampledBandLimitedForcingConfig::new(
                 forcing_config,
                 config.forcing_resample_stride,
-            )?,
-        )?;
+            )?)?;
 
         let mut velocity = Self::zero_velocity_field(config.dimensions);
         let mut history = ForcedTurbulenceBenchmarkHistory::default();
@@ -303,8 +302,8 @@ impl ForcedTurbulenceBenchmark3D {
 
         let mut previous_energy: Option<f64> = None;
         for checkpoint in &mut history.checkpoints {
-            checkpoint.energy_delta = previous_energy
-                .map_or(0.0, |energy| (checkpoint.kinetic_energy - energy).abs());
+            checkpoint.energy_delta =
+                previous_energy.map_or(0.0, |energy| (checkpoint.kinetic_energy - energy).abs());
             previous_energy = Some(checkpoint.kinetic_energy);
         }
 
@@ -330,14 +329,12 @@ impl ForcedTurbulenceBenchmark3D {
         }
 
         if let Some(final_checkpoint) = history.final_checkpoint() {
-            result.metrics.insert(
-                "Final Energy".to_string(),
-                final_checkpoint.kinetic_energy,
-            );
-            result.metrics.insert(
-                "Final Enstrophy".to_string(),
-                final_checkpoint.enstrophy,
-            );
+            result
+                .metrics
+                .insert("Final Energy".to_string(), final_checkpoint.kinetic_energy);
+            result
+                .metrics
+                .insert("Final Enstrophy".to_string(), final_checkpoint.enstrophy);
             result.metrics.insert(
                 "Final Dominant Shell".to_string(),
                 final_checkpoint.dominant_shell as f64,
@@ -358,21 +355,22 @@ impl ForcedTurbulenceBenchmark3D {
             .spectral_energy
             .iter()
             .enumerate()
-            .max_by(|lhs, rhs| lhs.1.partial_cmp(rhs.1).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|lhs, rhs| {
+                lhs.1
+                    .partial_cmp(rhs.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map_or(0, |(index, _)| index);
 
-        result.metrics.insert(
-            "Probe Samples".to_string(),
-            probe_samples.len() as f64,
-        );
-        result.metrics.insert(
-            "Probe Mean".to_string(),
-            probe_spectrum.mean,
-        );
-        result.metrics.insert(
-            "Probe Variance".to_string(),
-            probe_spectrum.variance,
-        );
+        result
+            .metrics
+            .insert("Probe Samples".to_string(), probe_samples.len() as f64);
+        result
+            .metrics
+            .insert("Probe Mean".to_string(), probe_spectrum.mean);
+        result
+            .metrics
+            .insert("Probe Variance".to_string(), probe_spectrum.variance);
         result.metrics.insert(
             "Probe Dominant Frequency".to_string(),
             probe_spectrum.frequencies_hz[probe_dominant_bin].abs(),
@@ -432,10 +430,9 @@ impl ForcedTurbulenceBenchmark3D {
                 "Spectrum Samples".to_string(),
                 history.checkpoints.len() as f64,
             );
-            result.metrics.insert(
-                "Forced Epochs".to_string(),
-                unique_epochs as f64,
-            );
+            result
+                .metrics
+                .insert("Forced Epochs".to_string(), unique_epochs as f64);
         }
 
         result.metadata.insert(
@@ -454,10 +451,9 @@ impl ForcedTurbulenceBenchmark3D {
                 config.domain_lengths().2
             ),
         );
-        result.metadata.insert(
-            "time_step".to_string(),
-            format!("{:.6}", config.time_step),
-        );
+        result
+            .metadata
+            .insert("time_step".to_string(), format!("{:.6}", config.time_step));
         result.metadata.insert(
             "final_time".to_string(),
             format!("{:.6}", config.final_time),
@@ -482,10 +478,9 @@ impl ForcedTurbulenceBenchmark3D {
             "spectrum_stride".to_string(),
             format!("{}", config.spectrum_stride),
         );
-        result.metadata.insert(
-            "seed".to_string(),
-            format!("{}", config.seed),
-        );
+        result
+            .metadata
+            .insert("seed".to_string(), format!("{}", config.seed));
 
         Ok(ForcedTurbulenceBenchmarkReport { result, history })
     }
@@ -511,7 +506,11 @@ impl ForcedTurbulenceBenchmark3D {
             .shell_energy
             .iter()
             .enumerate()
-            .max_by(|lhs, rhs| lhs.1.partial_cmp(rhs.1).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|lhs, rhs| {
+                lhs.1
+                    .partial_cmp(rhs.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map_or(0, |(index, _)| index);
         let enstrophy = enstrophy_spectrum.total_enstrophy;
         let forcing_epoch = (step / config.forcing_resample_stride) as u64;
@@ -595,10 +594,9 @@ impl ForcedTurbulenceBenchmark3D {
                 .checkpoints
                 .iter()
                 .all(|checkpoint| checkpoint.enstrophy_spectrum.total_enstrophy >= 0.0)
-            && history
-                .checkpoints
-                .iter()
-                .all(|checkpoint| checkpoint.dominant_shell < checkpoint.spectrum.shell_energy.len())
+            && history.checkpoints.iter().all(|checkpoint| {
+                checkpoint.dominant_shell < checkpoint.spectrum.shell_energy.len()
+            })
     }
 }
 
@@ -672,21 +670,23 @@ mod tests {
 
     #[test]
     fn benchmark_reports_nonzero_energy_and_spectra() {
-        let benchmark = ForcedTurbulenceBenchmark3D::new(ForcedTurbulenceBenchmarkConfig::new(
-            (8, 8, 8),
-            1.0,
-            0.01,
-            1.0,
-            0.005,
-            0.04,
-            2,
-            1,
-            0.35,
-            2,
-            1,
-            17,
-        )
-        .expect("benchmark config should be valid"));
+        let benchmark = ForcedTurbulenceBenchmark3D::new(
+            ForcedTurbulenceBenchmarkConfig::new(
+                (8, 8, 8),
+                1.0,
+                0.01,
+                1.0,
+                0.005,
+                0.04,
+                2,
+                1,
+                0.35,
+                2,
+                1,
+                17,
+            )
+            .expect("benchmark config should be valid"),
+        );
 
         let runtime = BenchmarkConfig {
             resolution: 8,
@@ -702,27 +702,33 @@ mod tests {
             .expect("forced turbulence benchmark should run");
 
         assert!(!report.history.checkpoints.is_empty());
-        assert!(report
-            .history
-            .checkpoints
-            .first()
-            .expect("history should contain an initial checkpoint")
-            .kinetic_energy
-            >= 0.0);
-        assert!(report
-            .history
-            .checkpoints
-            .last()
-            .expect("history should contain a final checkpoint")
-            .kinetic_energy
-            > 0.0);
-        assert!(report
-            .history
-            .checkpoints
-            .last()
-            .expect("history should contain a final checkpoint")
-            .enstrophy
-            >= 0.0);
+        assert!(
+            report
+                .history
+                .checkpoints
+                .first()
+                .expect("history should contain an initial checkpoint")
+                .kinetic_energy
+                >= 0.0
+        );
+        assert!(
+            report
+                .history
+                .checkpoints
+                .last()
+                .expect("history should contain a final checkpoint")
+                .kinetic_energy
+                > 0.0
+        );
+        assert!(
+            report
+                .history
+                .checkpoints
+                .last()
+                .expect("history should contain a final checkpoint")
+                .enstrophy
+                >= 0.0
+        );
         assert!(benchmark.validate_history(&report.history));
         assert!(report.result.metrics.contains_key("Spectrum Samples"));
         assert!(report.result.metrics.contains_key("Forced Epochs"));
@@ -747,7 +753,9 @@ mod tests {
         let result = BenchmarkRunner::run_benchmark(&benchmark, &runtime)
             .expect("benchmark runner should execute the forced turbulence benchmark");
 
-        assert!(benchmark.validate(&result).expect("validation should be computable"));
+        assert!(benchmark
+            .validate(&result)
+            .expect("validation should be computable"));
         assert!(result.metrics.contains_key("Final Energy"));
         assert!(result.metrics.contains_key("Peak Energy"));
         assert!(result.metrics.contains_key("Final Enstrophy"));

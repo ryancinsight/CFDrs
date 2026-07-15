@@ -34,9 +34,10 @@
 //! is $C^\infty$ on $(0, L)$ and $C^1$ at the endpoints $x = 0, L$,
 //! ensuring no slope discontinuity at the junction boundaries.
 
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::{Point3, RealField, Vector3};
-use num_traits::{FromPrimitive, ToPrimitive};
+use crate::scalar;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::{Point3, Vector3};
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -66,14 +67,9 @@ pub enum ConicalTransition<T: cfd_mesh::domain::core::Scalar + RealField + Copy>
     },
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64,
-    > ConicalTransition<T>
+impl<T> ConicalTransition<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
 {
     /// Calculate diameter at position along transition
     ///
@@ -88,7 +84,7 @@ impl<
         d_daughter: T,
         transition_length: T,
     ) -> T {
-        let one = T::one();
+        let one = scalar::one::<T>();
         let x_normalized = x / transition_length;
 
         match self {
@@ -96,7 +92,7 @@ impl<
                 d_parent - (d_parent - d_daughter) * x_normalized
             }
             ConicalTransition::AbruptJunction => {
-                if x <= T::zero() {
+                if x <= scalar::zero::<T>() {
                     d_parent
                 } else {
                     d_daughter
@@ -104,11 +100,9 @@ impl<
             }
             ConicalTransition::RoundedJunction { radius: _ } => {
                 // Exact C1-continuous cosine interpolation for mathematically smooth interfaces
-                let pi = T::from_f64_or_one(std::f64::consts::PI);
-                let two = T::from_f64_or_one(2.0);
-                d_daughter
-                    + (d_parent - d_daughter) / two
-                        * (one + num_traits::Float::cos(pi * x_normalized))
+                let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+                let two = scalar::from_f64::<T>(2.0);
+                d_daughter + (d_parent - d_daughter) / two * (one + scalar::cos(pi * x_normalized))
             }
         }
     }
@@ -149,14 +143,9 @@ pub struct BifurcationGeometry3D<T: cfd_mesh::domain::core::Scalar + RealField +
     pub parent_axis: Vector3<T>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64,
-    > BifurcationGeometry3D<T>
+impl<T> BifurcationGeometry3D<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
 {
     /// Create symmetric bifurcation (equal daughters)
     pub fn symmetric(
@@ -177,8 +166,8 @@ impl<
                 length: l_transition,
             },
             l_transition,
-            branching_angle: T::from_f64_or_one(std::f64::consts::PI / 3.0), // 60° typically
-            parent_axis: Vector3::new(T::zero(), T::zero(), T::one()),
+            branching_angle: scalar::from_f64::<T>(std::f64::consts::PI / 3.0), // 60° typically
+            parent_axis: Vector3::new(scalar::zero::<T>(), scalar::zero::<T>(), scalar::one::<T>()),
         }
     }
 
@@ -205,7 +194,7 @@ impl<
             },
             l_transition,
             branching_angle,
-            parent_axis: Vector3::new(T::zero(), T::zero(), T::one()),
+            parent_axis: Vector3::new(scalar::zero::<T>(), scalar::zero::<T>(), scalar::one::<T>()),
         }
     }
 
@@ -213,9 +202,8 @@ impl<
     ///
     /// Returns D₀³ - (D₁³ + D₂³), which should be close to 0
     pub fn murray_law_deviation(&self) -> T {
-        num_traits::Float::powi(self.d_parent, 3)
-            - (num_traits::Float::powi(self.d_daughter1, 3)
-                + num_traits::Float::powi(self.d_daughter2, 3))
+        scalar::powi(self.d_parent, 3)
+            - (scalar::powi(self.d_daughter1, 3) + scalar::powi(self.d_daughter2, 3))
     }
 
     /// Calculate total mathematically exact volume of bifurcation
@@ -224,8 +212,8 @@ impl<
     /// numerical integration (Gaussian Quadrature) over the transition domain
     /// to remove disconnected geometric integration error.
     pub fn total_volume(&self) -> T {
-        let pi = T::from_f64_or_one(std::f64::consts::PI);
-        let four = T::from_f64_or_one(4.0);
+        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
+        let four = scalar::from_f64::<T>(4.0);
 
         let v_parent = pi / four * self.d_parent * self.d_parent * self.l_parent;
         let v_daughter1 = pi / four * self.d_daughter1 * self.d_daughter1 * self.l_daughter1;
@@ -239,7 +227,7 @@ impl<
 
     /// Calculate total mathematically exact surface area (inner walls)
     pub fn total_surface_area(&self) -> T {
-        let pi = T::from_f64_or_one(std::f64::consts::PI);
+        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
 
         let a_parent = pi * self.d_parent * self.l_parent;
         let a_daughter1 = pi * self.d_daughter1 * self.l_daughter1;
@@ -253,18 +241,18 @@ impl<
 
     /// Exact 5-point Gauss-Legendre Quadrature for transition volume
     fn integrate_transition_volume(&self, d_parent: T, d_daughter: T) -> T {
-        let pi = T::from_f64_or_one(std::f64::consts::PI);
+        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
         let nodes = [-0.90617985, -0.53846931, 0.0, 0.53846931, 0.90617985];
         let weights = [0.23692689, 0.47862867, 0.56888889, 0.47862867, 0.23692689];
 
-        let mut volume = T::zero();
-        let half_l = self.l_transition / T::from_f64_or_one(2.0);
-        let four = T::from_f64_or_one(4.0);
+        let mut volume = scalar::zero::<T>();
+        let half_l = self.l_transition / scalar::from_f64::<T>(2.0);
+        let four = scalar::from_f64::<T>(4.0);
 
         for i in 0..5 {
-            let x_t = T::from_f64_or_one(nodes[i]);
-            let w_t = T::from_f64_or_one(weights[i]);
-            let x = half_l * (x_t + T::one());
+            let x_t = scalar::from_f64::<T>(nodes[i]);
+            let w_t = scalar::from_f64::<T>(weights[i]);
+            let x = half_l * (x_t + scalar::one::<T>());
 
             let d =
                 self.transition
@@ -277,19 +265,19 @@ impl<
 
     /// Exact 5-point Gauss-Legendre Quadrature for transition surface area
     fn integrate_transition_surface(&self, d_parent: T, d_daughter: T) -> T {
-        let pi = T::from_f64_or_one(std::f64::consts::PI);
+        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
         let nodes = [-0.90617985, -0.53846931, 0.0, 0.53846931, 0.90617985];
         let weights = [0.23692689, 0.47862867, 0.56888889, 0.47862867, 0.23692689];
 
-        let mut surface = T::zero();
-        let half_l = self.l_transition / T::from_f64_or_one(2.0);
-        let two = T::from_f64_or_one(2.0);
-        let epsilon = self.l_transition * T::from_f64_or_one(1e-5); // finite difference step
+        let mut surface = scalar::zero::<T>();
+        let half_l = self.l_transition / scalar::from_f64::<T>(2.0);
+        let two = scalar::from_f64::<T>(2.0);
+        let epsilon = self.l_transition * scalar::from_f64::<T>(1e-5); // finite difference step
 
         for i in 0..5 {
-            let x_t = T::from_f64_or_one(nodes[i]);
-            let w_t = T::from_f64_or_one(weights[i]);
-            let x = half_l * (x_t + T::one());
+            let x_t = scalar::from_f64::<T>(nodes[i]);
+            let w_t = scalar::from_f64::<T>(weights[i]);
+            let x = half_l * (x_t + scalar::one::<T>());
 
             let d =
                 self.transition
@@ -310,8 +298,8 @@ impl<
             );
             let d_prime = (d_plus - d_minus) / (two * epsilon);
 
-            let arg = T::one() + (d_prime / two) * (d_prime / two);
-            surface += w_t * pi * d * num_traits::Float::sqrt(arg) * half_l;
+            let arg = scalar::one::<T>() + (d_prime / two) * (d_prime / two);
+            surface += w_t * pi * d * scalar::sqrt(arg) * half_l;
         }
         surface
     }
@@ -336,14 +324,9 @@ pub struct BifurcationMesh<T: cfd_mesh::domain::core::Scalar + RealField + Copy>
     pub boundary_elements: Vec<Vec<usize>>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64,
-    > BifurcationMesh<T>
+impl<T> BifurcationMesh<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
 {
     /// Create empty mesh
     pub fn new(element_type: usize) -> Self {
@@ -378,10 +361,10 @@ impl<
     /// For tetrahedral elements: ratio of longest to shortest edge
     pub fn average_aspect_ratio(&self) -> T {
         if self.elements.is_empty() {
-            return T::one();
+            return scalar::one::<T>();
         }
 
-        let mut total_ar = T::zero();
+        let mut total_ar = scalar::zero::<T>();
         let mut count = 0;
 
         for element in &self.elements {
@@ -404,11 +387,11 @@ impl<
                 let mut max_edge = edges[0];
                 let mut min_edge = edges[0];
                 for &e in &edges[1..] {
-                    max_edge = num_traits::Float::max(max_edge, e);
-                    min_edge = num_traits::Float::min(min_edge, e);
+                    max_edge = scalar::max(max_edge, e);
+                    min_edge = scalar::min(min_edge, e);
                 }
 
-                if min_edge > T::from_f64_or_one(1e-15) {
+                if min_edge > scalar::from_f64::<T>(1e-15) {
                     total_ar += max_edge / min_edge;
                     count += 1;
                 }
@@ -416,9 +399,9 @@ impl<
         }
 
         if count > 0 {
-            total_ar / T::from_f64_or_one(f64::from(count))
+            total_ar / scalar::from_f64::<T>(f64::from(count))
         } else {
-            T::one()
+            scalar::one::<T>()
         }
     }
 }

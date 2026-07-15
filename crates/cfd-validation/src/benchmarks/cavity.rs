@@ -5,9 +5,10 @@
 //! using the Navier-Stokes equations and a multigrid method"
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
+use crate::matrix::DMatrix;
+use crate::scalar;
 use cfd_core::error::Result;
-use nalgebra::{DMatrix, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, RealField};
 
 /// Lid-driven cavity benchmark
 pub struct LidDrivenCavity<T: RealField + Copy> {
@@ -19,9 +20,7 @@ pub struct LidDrivenCavity<T: RealField + Copy> {
     pub reynolds: T,
 }
 
-use num_traits::ToPrimitive;
-
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LidDrivenCavity<T> {
+impl<T: RealField + Copy + FloatElement> LidDrivenCavity<T> {
     /// Create a new lid-driven cavity benchmark
     pub fn new(size: T, lid_velocity: T, reynolds: T) -> Self {
         Self {
@@ -33,7 +32,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LidDrivenCavity<T> {
 
     /// Get Ghia et al. (1982) reference data for u-velocity along vertical centerline (x=0.5)
     pub fn ghia_u_centerline(&self, re: T) -> Vec<(T, T)> {
-        let re_f64 = re.to_f64().unwrap_or(100.0);
+        let re_f64 = scalar::to_f64(re);
 
         // Tabulated data from Ghia et al. (1982) Table I, p. 396
         // Re = 100 column
@@ -58,12 +57,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LidDrivenCavity<T> {
                 (0.0000, 0.00000),
             ]
             .into_iter()
-            .map(|(y, u)| {
-                (
-                    T::from_f64(y).unwrap_or_else(num_traits::Zero::zero),
-                    T::from_f64(u).unwrap_or_else(num_traits::Zero::zero),
-                )
-            })
+            .map(|(y, u)| (scalar::from_f64::<T>(y), scalar::from_f64::<T>(u)))
             .collect()
         } else {
             // Fallback or other Reynolds numbers would go here
@@ -73,7 +67,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LidDrivenCavity<T> {
 
     /// Get Ghia et al. (1982) reference data for v-velocity along horizontal centerline (y=0.5)
     pub fn ghia_v_centerline(&self, re: T) -> Vec<(T, T)> {
-        let re_f64 = re.to_f64().unwrap_or(100.0);
+        let re_f64 = scalar::to_f64(re);
 
         // Tabulated data from Ghia et al. (1982) Table II, p. 398
         // Re = 100 column
@@ -98,12 +92,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LidDrivenCavity<T> {
                 (0.0000, 0.00000),
             ]
             .into_iter()
-            .map(|(x, v)| {
-                (
-                    T::from_f64(x).unwrap_or_else(num_traits::Zero::zero),
-                    T::from_f64(v).unwrap_or_else(num_traits::Zero::zero),
-                )
-            })
+            .map(|(x, v)| (scalar::from_f64::<T>(x), scalar::from_f64::<T>(v)))
             .collect()
         } else {
             vec![]
@@ -119,7 +108,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LidDrivenCavity<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> Benchmark<T> for LidDrivenCavity<T> {
+impl<T: RealField + Copy + FloatElement> Benchmark<T> for LidDrivenCavity<T> {
     fn name(&self) -> &'static str {
         "Lid-Driven Cavity"
     }
@@ -130,10 +119,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> Benchmark<T> for LidDriv
 
     fn run(&self, config: &BenchmarkConfig<T>) -> Result<BenchmarkResult<T>> {
         let n = config.resolution;
-        let _dx = self.size / T::from_usize(n).unwrap_or_else(T::one);
+        let _dx = self.size / scalar::from_usize::<T>(n);
         let _dt = config
             .time_step
-            .unwrap_or_else(|| T::from_f64(0.001).unwrap_or_else(num_traits::Zero::zero));
+            .unwrap_or_else(|| scalar::from_f64::<T>(0.001));
 
         // Initialize fields
         let mut u = DMatrix::<T>::zeros(n, n);
@@ -148,8 +137,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> Benchmark<T> for LidDriv
         // Numerical solving loop (simplified for benchmark interface)
         let mut convergence = Vec::new();
         for iter in 0..config.max_iterations {
-            let residual = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero)
-                / T::from_usize(iter + 1).unwrap_or_else(T::one);
+            let residual = scalar::from_f64::<T>(1.0) / scalar::from_usize::<T>(iter + 1);
             convergence.push(residual);
             if residual < config.tolerance {
                 break;
@@ -176,8 +164,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> Benchmark<T> for LidDriv
 
     fn validate(&self, result: &BenchmarkResult<T>) -> Result<bool> {
         // Compare with Ghia et al. reference data for exact L2 error validation
-        let _ghia_data =
-            self.ghia_reference_data(T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero)); // Default Re=100
+        let _ghia_data = self.ghia_reference_data(scalar::from_f64::<T>(100.0)); // Default Re=100
 
         // Return true if converged at minimum
         Ok(!result.convergence.is_empty())

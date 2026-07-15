@@ -1,5 +1,5 @@
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use eunomia::NumericElement;
+use leto::geometry::Vector3;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SymmetricTensor6<T> {
@@ -27,18 +27,18 @@ pub(crate) fn derivative_x<T>(
     dx: T,
 ) -> Vector3<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: NumericElement,
 {
     let idx = linear_index(nx, ny, i, j, k);
     if nx == 1 {
-        return Vector3::zeros();
+        return Vector3::new(T::ZERO, T::ZERO, T::ZERO);
     }
     if i == 0 {
         (velocity[idx + 1] - velocity[idx]) / dx
     } else if i + 1 == nx {
         (velocity[idx] - velocity[idx - 1]) / dx
     } else {
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
         (velocity[idx + 1] - velocity[idx - 1]) / (two * dx)
     }
 }
@@ -54,18 +54,18 @@ pub(crate) fn derivative_y<T>(
     dy: T,
 ) -> Vector3<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: NumericElement,
 {
     let idx = linear_index(nx, ny, i, j, k);
     if ny == 1 {
-        return Vector3::zeros();
+        return Vector3::new(T::ZERO, T::ZERO, T::ZERO);
     }
     if j == 0 {
         (velocity[idx + nx] - velocity[idx]) / dy
     } else if j + 1 == ny {
         (velocity[idx] - velocity[idx - nx]) / dy
     } else {
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
         (velocity[idx + nx] - velocity[idx - nx]) / (two * dy)
     }
 }
@@ -82,19 +82,19 @@ pub(crate) fn derivative_z<T>(
     dz: T,
 ) -> Vector3<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: NumericElement,
 {
     let idx = linear_index(nx, ny, i, j, k);
     let plane = nx * ny;
     if nz == 1 {
-        return Vector3::zeros();
+        return Vector3::new(T::ZERO, T::ZERO, T::ZERO);
     }
     if k == 0 {
         (velocity[idx + plane] - velocity[idx]) / dz
     } else if k + 1 == nz {
         (velocity[idx] - velocity[idx - plane]) / dz
     } else {
-        let two = T::one() + T::one();
+        let two = T::ONE + T::ONE;
         (velocity[idx + plane] - velocity[idx - plane]) / (two * dz)
     }
 }
@@ -113,7 +113,7 @@ pub(crate) fn velocity_gradient_tensor<T>(
     dz: T,
 ) -> [[T; 3]; 3]
 where
-    T: RealField + Copy + FromPrimitive,
+    T: NumericElement,
 {
     let du_dx = derivative_x(velocity, nx, ny, i, j, k, dx);
     let du_dy = derivative_y(velocity, nx, ny, i, j, k, dy);
@@ -129,9 +129,9 @@ where
 #[inline]
 pub(crate) fn strain_components<T>(gradient: &[[T; 3]; 3]) -> SymmetricTensor6<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: NumericElement,
 {
-    let half = T::one() / (T::one() + T::one());
+    let half = T::ONE / (T::ONE + T::ONE);
     SymmetricTensor6 {
         xx: gradient[0][0],
         yy: gradient[1][1],
@@ -145,9 +145,9 @@ where
 #[inline]
 pub(crate) fn symmetric_contract<T>(left: SymmetricTensor6<T>, right: SymmetricTensor6<T>) -> T
 where
-    T: RealField + Copy + FromPrimitive,
+    T: NumericElement,
 {
-    let two = T::one() + T::one();
+    let two = T::ONE + T::ONE;
     left.xx * right.xx
         + left.yy * right.yy
         + left.zz * right.zz
@@ -157,7 +157,7 @@ where
 #[inline]
 pub(crate) fn symmetric_matrix_contract<T>(left: SymmetricTensor6<T>, right: &[[T; 3]; 3]) -> T
 where
-    T: RealField + Copy + FromPrimitive,
+    T: NumericElement,
 {
     left.xx * right[0][0]
         + left.yy * right[1][1]
@@ -170,19 +170,19 @@ where
 #[inline]
 pub(crate) fn strain_magnitude<T>(gradient: &[[T; 3]; 3]) -> T
 where
-    T: RealField + Copy + FromPrimitive + num_traits::Float,
+    T: NumericElement,
 {
     let strain = strain_components(gradient);
-    let two = T::one() + T::one();
-    num_traits::Float::sqrt(two * symmetric_contract(strain, strain))
+    let two = T::ONE + T::ONE;
+    <T as NumericElement>::sqrt(two * symmetric_contract(strain, strain))
 }
 
 #[inline]
 pub(crate) fn matrix_contract<T>(left: &[[T; 3]; 3], right: &[[T; 3]; 3]) -> T
 where
-    T: RealField + Copy + FromPrimitive,
+    T: NumericElement,
 {
-    let mut total = T::zero();
+    let mut total = T::ZERO;
     for i in 0..3 {
         for j in 0..3 {
             total += left[i][j] * right[i][j];
@@ -194,7 +194,7 @@ where
 #[inline]
 pub(crate) fn matrix_frobenius_norm_sq<T>(matrix: &[[T; 3]; 3]) -> T
 where
-    T: RealField + Copy + FromPrimitive,
+    T: NumericElement,
 {
     matrix_contract(matrix, matrix)
 }
@@ -202,32 +202,32 @@ where
 #[inline]
 pub(crate) fn gradient_magnitude<T>(gradient: &[[T; 3]; 3]) -> T
 where
-    T: RealField + Copy + FromPrimitive + num_traits::Float,
+    T: NumericElement,
 {
-    let two = T::one() + T::one();
-    num_traits::Float::sqrt(two * matrix_frobenius_norm_sq(gradient))
+    let two = T::ONE + T::ONE;
+    <T as NumericElement>::sqrt(two * matrix_frobenius_norm_sq(gradient))
 }
 
 #[inline]
 pub(crate) fn vorticity_magnitude<T>(gradient: &[[T; 3]; 3]) -> T
 where
-    T: RealField + Copy + FromPrimitive + num_traits::Float,
+    T: NumericElement,
 {
     let omega_x = gradient[2][1] - gradient[1][2];
     let omega_y = gradient[0][2] - gradient[2][0];
     let omega_z = gradient[1][0] - gradient[0][1];
-    num_traits::Float::sqrt(omega_x * omega_x + omega_y * omega_y + omega_z * omega_z)
+    <T as NumericElement>::sqrt(omega_x * omega_x + omega_y * omega_y + omega_z * omega_z)
 }
 
 #[inline]
 pub(crate) fn matrix_square<T>(matrix: &[[T; 3]; 3]) -> [[T; 3]; 3]
 where
-    T: RealField + Copy + FromPrimitive,
+    T: NumericElement,
 {
-    let mut square = [[T::zero(); 3]; 3];
+    let mut square = [[T::ZERO; 3]; 3];
     for i in 0..3 {
         for j in 0..3 {
-            let mut value = T::zero();
+            let mut value = T::ZERO;
             for k in 0..3 {
                 value += matrix[i][k] * matrix[k][j];
             }
@@ -240,10 +240,10 @@ where
 #[inline]
 pub(crate) fn symmetric_trace_free_part<T>(matrix: &[[T; 3]; 3]) -> SymmetricTensor6<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: NumericElement,
 {
-    let half = T::one() / (T::one() + T::one());
-    let third = T::one() / (T::one() + T::one() + T::one());
+    let half = T::ONE / (T::ONE + T::ONE);
+    let third = T::ONE / (T::ONE + T::ONE + T::ONE);
     let trace = matrix[0][0] + matrix[1][1] + matrix[2][2];
 
     SymmetricTensor6 {

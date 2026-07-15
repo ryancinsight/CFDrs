@@ -1,13 +1,11 @@
-use cfd_math::sparse::spmv;
+use cfd_math::linear_solver::LinearOperator;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use nalgebra::DVector;
-use nalgebra_sparse::CsrMatrix;
+use leto::Array1;
+use leto_ops::CsrMatrix;
 
 fn bench_spmv(c: &mut Criterion) {
-    let mut group = c.benchmark_group("spmv_serial");
+    let mut group = c.benchmark_group("spmv_leto_provider");
 
-    // We want a size that falls into the serial path.
-    // Based on parallel_threshold logic, small matrices (e.g. 100) should be serial.
     for size in [100, 200, 500].iter() {
         let n = *size;
         // Create a simple tri-diagonal matrix
@@ -28,13 +26,13 @@ fn bench_spmv(c: &mut Criterion) {
             }
             row_offsets.push(col_indices.len());
         }
-        let a = CsrMatrix::try_from_csr_data(n, n, row_offsets, col_indices, values).unwrap();
-        let x = DVector::from_element(n, 1.0);
-        let mut y = DVector::zeros(n);
+        let a = CsrMatrix::from_parts(values, col_indices, row_offsets, n, n).unwrap();
+        let x = Array1::from_shape_vec([n], vec![1.0; n]).unwrap();
+        let mut y = Array1::zeros([n]);
 
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &_| {
             b.iter(|| {
-                spmv(black_box(&a), black_box(&x), black_box(&mut y));
+                black_box(a.apply(black_box(&x), black_box(&mut y))).unwrap();
             });
         });
     }

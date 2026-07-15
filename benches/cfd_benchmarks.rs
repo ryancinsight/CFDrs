@@ -1,9 +1,9 @@
 //! Performance benchmarks for critical CFD operations
 
-use cfd_2d::grid::{Grid2D, StructuredGrid2D};
-use cfd_math::sparse::SparseMatrixBuilder;
+use cfd_2d::grid::StructuredGrid2D;
+use cfd_math::sparse::{spmv, SparseMatrixBuilder};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use nalgebra::DVector;
+use leto::Array1;
 
 fn benchmark_grid_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("grid_operations");
@@ -71,14 +71,13 @@ fn benchmark_sparse_matrix_operations(c: &mut Criterion) {
             }
         }
         let matrix = builder.build().unwrap();
-        let x = DVector::from_element(*size, 1.0);
-        let mut y = DVector::zeros(*size);
+        let x = Array1::from_elem([*size], 1.0);
+        let mut y = Array1::zeros([*size]);
 
         // Benchmark matrix-vector multiplication
         group.bench_with_input(BenchmarkId::new("matvec", size), size, |b, _| {
             b.iter(|| {
-                // Replace custom matvec with standard multiplication
-                y.copy_from(&(&matrix * &x));
+                spmv(&matrix, &x, &mut y);
                 black_box(&y);
             });
         });
@@ -89,11 +88,11 @@ fn benchmark_sparse_matrix_operations(c: &mut Criterion) {
 
 fn benchmark_fluid_calculations(c: &mut Criterion) {
     use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-    use cfd_core::physics::fluid::traits::Fluid;
+    use cfd_core::physics::fluid::ConstantPropertyFluid;
 
     let mut group = c.benchmark_group("fluid_calculations");
 
-    let fluid = Fluid::new("water".to_string(), 1000.0, 0.001, 4182.0, 0.6, 1482.0);
+    let fluid = ConstantPropertyFluid::new("water".to_string(), 1000.0, 0.001, 4182.0, 0.6, 1482.0);
 
     let state = fluid.properties_at(0.0, 0.0).unwrap();
 

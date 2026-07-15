@@ -40,8 +40,7 @@
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 
 use super::constants::SA_CV1;
 #[cfg(test)]
@@ -53,7 +52,7 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 /// Uses a single modified turbulent viscosity nu_tilde as the working variable.
 /// Suitable for aerodynamic flows with mild separation; inexpensive for 3D FEM.
 #[derive(Debug, Clone)]
-pub struct SpalartAllmarasModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct SpalartAllmarasModel<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// Kinematic viscosity nu [m^2/s].
     pub nu: T,
     /// Modified turbulent working variable nu_tilde at each grid point.
@@ -62,7 +61,7 @@ pub struct SpalartAllmarasModel<T: cfd_mesh::domain::core::Scalar + RealField + 
     pub wall_distance: Vec<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> SpalartAllmarasModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> SpalartAllmarasModel<T> {
     /// Create SA model with uniform free-stream initialisation.
     ///
     /// Sets nu_tilde_0 = 3*nu (Spalart & Allmaras 1992, Section 4).
@@ -72,7 +71,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Spala
     /// * `nu`             -- kinematic viscosity [m^2/s]
     /// * `wall_distances` -- per-point wall distances \[m]
     pub fn new(n_points: usize, nu: T, wall_distances: Vec<T>) -> Self {
-        let three = T::one() + T::one() + T::one();
+        let three = T::ONE + T::ONE + T::ONE;
         let nu_tilde = vec![three * nu; n_points];
         assert_eq!(
             wall_distances.len(),
@@ -103,8 +102,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Spala
 
     /// Compute the wall-damping function f_v1 = chi^3 / (chi^3 + C_v1^3).
     fn f_v1(chi: T) -> T {
-        let cv1 = <T as FromPrimitive>::from_f64(SA_CV1)
-            .expect("SA_CV1 is an IEEE 754 representable f64 constant");
+        let cv1 = <T as FloatElement>::from_f64(SA_CV1);
         let cv1_3 = cv1 * cv1 * cv1;
         let chi_3 = chi * chi * chi;
         chi_3 / (chi_3 + cv1_3)
@@ -112,8 +110,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Spala
 
     /// Compute chi = nu_tilde / nu.
     fn chi(nu_tilde: T, nu: T) -> T {
-        let eps = <T as FromPrimitive>::from_f64(1e-30)
-            .expect("1e-30 is an IEEE 754 representable f64 constant");
+        let eps = <T as FloatElement>::from_f64(1e-30);
         nu_tilde / (nu + eps)
     }
 
@@ -144,21 +141,19 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Spala
     /// Compute the destruction function f_w (Spalart & Allmaras 1992 eq. 25).
     #[cfg(test)]
     fn f_w(r: T) -> T {
-        let cw2 = <T as FromPrimitive>::from_f64(SA_CW2)
-            .expect("SA_CW2 is an IEEE 754 representable f64 constant");
-        let cw3 = <T as FromPrimitive>::from_f64(SA_CW3)
-            .expect("SA_CW3 is an IEEE 754 representable f64 constant");
-        let cw3_6 = num_traits::Float::powi(cw3, 6);
-        let g = r + cw2 * (num_traits::Float::powi(r, 6) - r);
-        let g_6 = num_traits::Float::powi(g, 6);
-        g * num_traits::Float::powf(
-            (T::one() + cw3_6) / (g_6 + cw3_6),
-            T::one() / (T::one() + T::one() + T::one() + T::one() + T::one() + T::one()),
+        let cw2 = <T as FloatElement>::from_f64(SA_CW2);
+        let cw3 = <T as FloatElement>::from_f64(SA_CW3);
+        let cw3_6 = <T as FloatElement>::powi(cw3, 6);
+        let g = r + cw2 * (<T as FloatElement>::powi(r, 6) - r);
+        let g_6 = <T as FloatElement>::powi(g, 6);
+        g * <T as FloatElement>::powf(
+            (T::ONE + cw3_6) / (g_6 + cw3_6),
+            T::ONE / (T::ONE + T::ONE + T::ONE + T::ONE + T::ONE + T::ONE),
         )
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
     for SpalartAllmarasModel<T>
 {
     /// Compute SA eddy viscosity nu_t = nu_tilde * f_v1.
@@ -179,7 +174,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
             let nu_t = self.nu_tilde[idx];
             let chi = Self::chi(nu_t, self.nu);
             let fv1 = Self::f_v1(chi);
-            viscosity.push(num_traits::Float::max(T::zero(), nu_t * fv1));
+            viscosity.push(<T as NumericElement>::max_scalar(T::ZERO, nu_t * fv1));
         }
         viscosity
     }

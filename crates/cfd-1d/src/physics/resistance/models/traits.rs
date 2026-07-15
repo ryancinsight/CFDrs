@@ -1,12 +1,30 @@
 //! Traits and common types for resistance models.
 
+use crate::scalar::Cfd1dScalar;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
+
+/// Scalar contract for hydraulic resistance models.
+///
+/// `cfd-core::physics::fluid::FluidTrait` still requires `Cfd1dScalar`; Eunomia
+/// owns scalar construction and scalar-to-f64 diagnostics for resistance math.
+pub trait ResistanceScalar: Cfd1dScalar + FloatElement + Copy {}
+
+impl<T> ResistanceScalar for T where T: Cfd1dScalar + FloatElement + Copy {}
+
+#[inline]
+pub(crate) fn scalar_from_f64<T: ResistanceScalar>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+#[inline]
+pub(crate) fn scalar_to_f64<T: NumericElement>(value: T) -> f64 {
+    <T as NumericElement>::to_f64(value)
+}
 
 /// Trait for hydraulic resistance models
-pub trait ResistanceModel<T: RealField + Copy> {
+pub trait ResistanceModel<T: ResistanceScalar> {
     /// Calculate hydraulic resistance [Pa·s/m³]
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
@@ -62,8 +80,7 @@ pub trait ResistanceModel<T: RealField + Copy> {
                     -velocity
                 };
                 let mach = v_abs / speed_of_sound;
-                let mach_limit =
-                    T::from_f64(0.3).expect("Mathematical constant conversion compromised");
+                let mach_limit = scalar_from_f64::<T>(0.3);
                 if mach > mach_limit {
                     return Err(cfd_core::error::Error::PhysicsViolation(format!(
                         "Mach number violation: Ma > 0.3. Incompressibility assumption invalid for model '{}'",
@@ -89,7 +106,7 @@ pub trait ResistanceModel<T: RealField + Copy> {
 
 /// Flow conditions for resistance calculations
 #[derive(Debug, Clone)]
-pub struct FlowConditions<T: RealField + Copy> {
+pub struct FlowConditions<T> {
     /// Reynolds number
     pub reynolds_number: Option<T>,
     /// Flow velocity \[m/s]
@@ -104,7 +121,7 @@ pub struct FlowConditions<T: RealField + Copy> {
     pub pressure: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> FlowConditions<T> {
+impl<T: ResistanceScalar> FlowConditions<T> {
     /// Create new flow conditions with default temperature and pressure
     pub fn new(velocity: T) -> Self {
         use cfd_core::physics::constants::physics::thermo::{P_ATM, T_STANDARD};
@@ -114,9 +131,8 @@ impl<T: RealField + Copy + FromPrimitive> FlowConditions<T> {
             velocity: Some(velocity),
             flow_rate: None,
             shear_rate: None,
-            temperature: T::from_f64(T_STANDARD)
-                .expect("Mathematical constant conversion compromised"),
-            pressure: T::from_f64(P_ATM).expect("Mathematical constant conversion compromised"),
+            temperature: scalar_from_f64::<T>(T_STANDARD),
+            pressure: scalar_from_f64::<T>(P_ATM),
         }
     }
 

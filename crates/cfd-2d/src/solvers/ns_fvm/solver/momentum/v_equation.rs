@@ -1,12 +1,13 @@
 //! v-momentum Gauss-Seidel solver.
 
-use cfd_core::error::Error;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::boundary::BoundaryCondition;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use cfd_core::error::Error;
+use eunomia::{FloatElement, NumericElement};
 
-impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
+impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Solves the v-momentum equation on the staggered grid.
     ///
     /// Applies convection, diffusion, and boundary conditions to compute the
@@ -21,9 +22,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let dx = self.grid.dx;
         let rho = self.density;
         let alpha = self.config.alpha_u;
-        let one = T::one();
+        let one: T = scalar::one();
         let half = one / (one + one);
-        let zero = T::zero();
+        let zero: T = scalar::zero();
 
         self.u_old_workspace.copy_from(&self.field.u);
         self.v_old_workspace.copy_from(&self.field.v);
@@ -81,25 +82,25 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
 
                 // Hybrid convection: east/west remain upwind (cross-stream),
                 // north/south use hybrid (streamwise for v-equation).
-                let a_e = Float::max(d_e - f_e * half, zero) + Float::max(-f_e, zero);
-                let a_w = Float::max(d_w + f_w * half, zero) + Float::max(f_w, zero);
+                let a_e = (d_e - f_e * half).max_scalar(zero) + (-f_e).max_scalar(zero);
+                let a_w = (d_w + f_w * half).max_scalar(zero) + f_w.max_scalar(zero);
                 let two = one + one;
-                let pe_n = Float::abs(f_n) / d_n;
-                let pe_s = Float::abs(f_s) / d_s;
+                let pe_n = <T as NumericElement>::abs(f_n) / d_n;
+                let pe_s = <T as NumericElement>::abs(f_s) / d_s;
                 let a_n = if pe_n <= two {
                     d_n - f_n * half
                 } else {
-                    d_n + Float::max(zero, -f_n)
+                    d_n + zero.max_scalar(-f_n)
                 };
                 let a_s = if pe_s <= two {
                     d_s + f_s * half
                 } else {
-                    d_s + Float::max(zero, f_s)
+                    d_s + zero.max_scalar(f_s)
                 };
 
                 let mut a_p = a_e + a_w + a_n + a_s;
-                if a_p < T::from_f64(1e-30).unwrap_or(zero) {
-                    a_p = T::from_f64(1e-10).unwrap_or(one);
+                if a_p < scalar::from_f64::<T>(1e-30) {
+                    a_p = scalar::from_f64::<T>(1e-10);
                 }
 
                 let p_bot = if j > 0 && j - 1 < ny {

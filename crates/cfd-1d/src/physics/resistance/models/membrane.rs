@@ -62,16 +62,14 @@
 //! - Truskey, G. A., Yuan, F., & Deen, D. F. (2010).
 //!   *Transport Phenomena in Biological Systems* (2nd ed.). Prentice Hall. Ch. 3.
 
-use super::traits::{FlowConditions, ResistanceModel};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
 /// Porous membrane represented by equivalent parallel cylindrical pores.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MembranePoreModel<T: RealField + Copy> {
+pub struct MembranePoreModel<T> {
     /// Membrane thickness \[m]
     pub thickness: T,
     /// Membrane width \[m]
@@ -84,7 +82,7 @@ pub struct MembranePoreModel<T: RealField + Copy> {
     pub porosity: T,
 }
 
-impl<T: RealField + Copy> MembranePoreModel<T> {
+impl<T: ResistanceScalar> MembranePoreModel<T> {
     /// Create a new membrane pore model.
     pub fn new(thickness: T, width: T, height: T, pore_radius: T, porosity: T) -> Self {
         Self {
@@ -97,7 +95,7 @@ impl<T: RealField + Copy> MembranePoreModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for MembranePoreModel<T> {
+impl<T: ResistanceScalar> ResistanceModel<T> for MembranePoreModel<T> {
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
@@ -110,7 +108,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for MembranePoreMod
 
         let area = self.width * self.height;
         let denom = self.porosity * area * self.pore_radius * self.pore_radius;
-        let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
+        let eight = scalar_from_f64::<T>(8.0);
         Ok(eight * mu * self.thickness / denom)
     }
 
@@ -119,10 +117,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for MembranePoreMod
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (
-            T::zero(),
-            T::from_f64(100.0).expect("Mathematical constant conversion compromised"),
-        )
+        (T::zero(), scalar_from_f64::<T>(100.0))
     }
 
     fn validate_invariants<F: FluidTrait<T>>(

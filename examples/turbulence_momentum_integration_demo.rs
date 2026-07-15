@@ -17,7 +17,8 @@ use cfd_2d::physics::turbulence::KOmegaSSTModel;
 use cfd_2d::schemes::time::{
     AdaptationStrategy, AdaptiveController, AdaptiveTimeIntegrator, TimeScheme,
 };
-use nalgebra::{DVector, Vector2};
+use leto::geometry::Vector2;
+use leto::Array1;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Turbulence + MUSCL + Adaptive Time Stepping Integration Demo");
@@ -246,10 +247,10 @@ fn demonstrate_combined_turbulence_adaptive(
         let (_y_new, t_new, dt_new, accepted) = time_integrator.step_error_adaptive(
             // NOTE: Simplified RHS for demonstration. Production implementations should
             // integrate proper turbulence source terms from cfd-2d/cfd-3d turbulence models.
-            |_, y| DVector::from_vec(vec![0.0; y.len()]), // Placeholder for demo
+            |_, y: &Array1<f64>| Array1::from_elem(y.shape(), 0.0_f64), // Placeholder for demo
             // NOTE: Simplified solution for demonstration. Full turbulence integration
             // requires coupling with RANS/LES models.
-            &DVector::from_vec(vec![1.0]), // Placeholder solution
+            &Array1::from_elem([1], 1.0_f64), // Placeholder solution
             t,
         );
 

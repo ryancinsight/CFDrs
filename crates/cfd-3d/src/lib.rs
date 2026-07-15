@@ -117,6 +117,11 @@
 #![allow(clippy::manual_clamp)]
 #![allow(clippy::duplicated_attributes)]
 
+mod atlas_anderson;
+mod atlas_array;
+mod linalg;
+mod scalar;
+
 pub mod bifurcation;
 /// Canonical blueprint-driven preprocessing and cross-fidelity tracing for 3D workflows.
 pub mod blueprint_integration;
@@ -165,12 +170,9 @@ pub use vof::{VofConfig, VofSolver};
 
 // CSG integration from cfd-mesh - feature-gated for optional dependency
 
-pub use cfd_mesh::application::csg::CsgError;
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::ComplexField;
 
     /// Test module imports and configuration instantiation.
     ///
@@ -256,6 +258,7 @@ mod tests {
     #[test]
     fn test_chebyshev_polynomial_operations() {
         use crate::spectral::ChebyshevPolynomial;
+        use leto::Array1;
 
         let poly: ChebyshevPolynomial<f64> = ChebyshevPolynomial::new(5)
             .expect("ChebyshevPolynomial::new must succeed for valid N=5");
@@ -274,13 +277,14 @@ mod tests {
 
         // Test differentiation matrix shape
         let n = poly.num_points();
-        let test_vector = nalgebra::DVector::from_fn(n, |i, _| {
-            let x = poly.points()[i];
-            x * x // f(x) = x²
-        });
+        let test_vector =
+            Array1::from_vec([n], poly.points().iter().copied().map(|x| x * x).collect())
+                .expect("invariant: generated values match Chebyshev point count");
 
-        let derivative = poly.differentiate(&test_vector);
-        assert_eq!(derivative.len(), n);
+        let derivative = poly
+            .differentiate(&test_vector)
+            .expect("Chebyshev differentiation must accept matching vector shape");
+        assert_eq!(derivative.size(), n);
 
         // For f(x) = x², f'(x) = 2x
         let expected_derivative_at_x1: f64 = 2.0 * poly.points()[0]; // f'(x₀)
@@ -288,7 +292,7 @@ mod tests {
 
         // Allow for finite-N spectral differentiation error
         assert!(
-            num_traits::Float::abs(computed_derivative_at_x1 - expected_derivative_at_x1) < 0.1,
+            (computed_derivative_at_x1 - expected_derivative_at_x1).abs() < 0.1,
             "spectral derivative error {:.2e} must be < 0.1",
             (computed_derivative_at_x1 - expected_derivative_at_x1).abs()
         );
@@ -302,22 +306,25 @@ mod tests {
     #[test]
     fn test_fourier_transform_accuracy() -> Result<(), Box<dyn std::error::Error>> {
         use crate::spectral::FourierTransform;
-        use nalgebra::DVector;
+        use leto::Array1;
 
         let ft: FourierTransform<f64> =
             FourierTransform::new(8).expect("FourierTransform::new must succeed for valid N=8");
 
         let n = 8;
-        let constant_signal = DVector::from_element(n, 1.0);
+        let constant_signal = Array1::from_elem([n], 1.0);
 
         let spectrum = ft
             .forward(&constant_signal)
             .expect("forward FFT must succeed for finite, valid input");
 
-        assert_eq!(spectrum.len(), n, "output length must equal input length");
+        assert_eq!(spectrum.size(), n, "output length must equal input length");
 
         // DC component for normalized constant-1 signal must be 1.0
-        let dc_magnitude = spectrum[0].modulus();
+        let dc_magnitude = spectrum
+            .get([0])
+            .expect("invariant: non-empty spectrum has a DC mode")
+            .norm();
         assert!(
             (dc_magnitude - 1.0).abs() < 1e-12,
             "DC magnitude {dc_magnitude:.15} must equal 1.0 for constant signal"
@@ -325,10 +332,14 @@ mod tests {
 
         // All non-DC components must be essentially zero (aliasing theorem)
         for i in 1..n {
+            let component_magnitude = spectrum
+                .get([i])
+                .expect("invariant: generated spectrum index is in bounds")
+                .norm();
             assert!(
-                spectrum[i].modulus() < 1e-10,
+                component_magnitude < 1e-10,
                 "non-DC component {i} magnitude {:.2e} must be ~0 for constant signal",
-                spectrum[i].modulus()
+                component_magnitude
             );
         }
         Ok(())
@@ -400,6 +411,7 @@ mod tests {
     #[test]
     fn test_chebyshev_collocation_properties() {
         use crate::spectral::ChebyshevPolynomial;
+        use leto::Array1;
 
         let poly: ChebyshevPolynomial<f64> =
             ChebyshevPolynomial::new(6).expect("Failed to create polynomial");
@@ -407,7 +419,7 @@ mod tests {
 
         // Test Gauss-Lobatto point properties
         // First and last points should be ±1
-        assert!(num_traits::Float::abs(points[0] - 1.0) < 1e-14);
+        assert!((points[0] - 1.0).abs() < 1e-14);
         assert!((points[points.len() - 1] + 1.0).abs() < 1e-14);
 
         // Points should be in descending order (1, ..., -1)
@@ -419,20 +431,22 @@ mod tests {
         let d2_matrix = poly
             .second_derivative_matrix()
             .expect("Failed to create second derivative matrix");
-        assert_eq!(d2_matrix.nrows(), points.len());
-        assert_eq!(d2_matrix.ncols(), points.len());
+        assert_eq!(d2_matrix.shape(), [points.len(), points.len()]);
 
         // Test on a quadratic function: f(x) = x², f''(x) = 2
-        let quadratic = nalgebra::DVector::from_fn(points.len(), |i, _| {
-            let x: f64 = points[i];
-            x * x
-        });
+        let quadratic = Array1::from_vec(
+            [points.len()],
+            points.iter().copied().map(|x: f64| x * x).collect(),
+        )
+        .expect("invariant: generated values match Chebyshev point count");
 
-        let second_derivative = &d2_matrix * &quadratic;
+        let second_derivative = poly
+            .second_derivative(&quadratic)
+            .expect("Chebyshev second derivative must accept matching vector shape");
 
         // For f(x) = x², f''(x) should be 2 within machine precision
         for &val in second_derivative.iter() {
-            assert!(num_traits::Float::abs(val - 2.0) < 1e-10); // High accuracy expected
+            assert!((val - 2.0).abs() < 1e-10); // High accuracy expected
         }
     }
 }

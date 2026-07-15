@@ -5,7 +5,7 @@ use crate::physics::turbulence::constants::{
 };
 use crate::physics::turbulence::traits::TurbulenceModel;
 use approx::assert_relative_eq;
-use nalgebra::Vector2;
+use leto::geometry::Vector2;
 
 #[test]
 fn test_new_model_initialization() {
@@ -304,8 +304,8 @@ fn test_k_epsilon_numerical_stability() {
                 let idx = j * n + i;
                 let x = i as f64 * dx;
                 let y = j as f64 * dy;
-                velocity[idx].x = 0.1 * (std::f64::consts::PI * x).sin();
-                velocity[idx].y = 0.1 * (std::f64::consts::PI * y).cos();
+                velocity[idx][0] = 0.1 * (std::f64::consts::PI * x).sin();
+                velocity[idx][1] = 0.1 * (std::f64::consts::PI * y).cos();
             }
         }
 

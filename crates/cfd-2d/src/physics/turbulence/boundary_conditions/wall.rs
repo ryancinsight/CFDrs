@@ -4,10 +4,9 @@
 
 use super::{TurbulenceBoundaryCondition, TurbulenceBoundaryManager};
 use crate::physics::turbulence::constants::{EPSILON_MIN, SST_BETA_1};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
 
-impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
+impl<T: RealField> TurbulenceBoundaryManager<T> {
     /// Apply wall boundaries for k-ε model
     pub(super) fn apply_wall_boundaries_k_epsilon(
         &self,
@@ -15,7 +14,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
         epsilon: &mut [T],
         boundaries: &[(String, TurbulenceBoundaryCondition<T>)],
     ) {
-        let eps_min = T::from_f64(EPSILON_MIN).expect("analytical constant conversion");
+        let eps_min = T::from_f64(EPSILON_MIN);
 
         for (name, bc) in boundaries {
             if let TurbulenceBoundaryCondition::Wall { .. } = bc {
@@ -23,27 +22,27 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                     "west" => {
                         for j in 0..self.ny {
                             let idx = j * self.nx;
-                            k[idx] = T::zero();
+                            k[idx] = T::ZERO;
                             epsilon[idx] = eps_min;
                         }
                     }
                     "east" => {
                         for j in 0..self.ny {
                             let idx = j * self.nx + (self.nx - 1);
-                            k[idx] = T::zero();
+                            k[idx] = T::ZERO;
                             epsilon[idx] = eps_min;
                         }
                     }
                     "south" => {
                         for i in 0..self.nx {
-                            k[i] = T::zero();
+                            k[i] = T::ZERO;
                             epsilon[i] = eps_min;
                         }
                     }
                     "north" => {
                         let base_idx = (self.ny - 1) * self.nx;
                         for i in 0..self.nx {
-                            k[base_idx + i] = T::zero();
+                            k[base_idx + i] = T::ZERO;
                             epsilon[base_idx + i] = eps_min;
                         }
                     }
@@ -66,45 +65,30 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                     "west" => {
                         for j in 0..self.ny {
                             let idx = j * self.nx;
-                            k[idx] = T::zero();
+                            k[idx] = T::ZERO;
                             // ω_wall = 6ν/(β₁ y_wall²) for SST model
-                            let y_wall = self.wall_distances[idx]
-                                .max(T::from_f64(1e-6).expect("analytical constant conversion"));
-                            let omega_wall = T::from_f64(6.0)
-                                .expect("analytical constant conversion")
-                                / (T::from_f64(SST_BETA_1)
-                                    .expect("analytical constant conversion")
-                                    * y_wall
-                                    * y_wall);
+                            let y_wall = self.wall_distances[idx].max_scalar(T::from_f64(1e-6));
+                            let omega_wall =
+                                T::from_f64(6.0) / (T::from_f64(SST_BETA_1) * y_wall * y_wall);
                             omega[idx] = omega_wall;
                         }
                     }
                     "east" => {
                         for j in 0..self.ny {
                             let idx = j * self.nx + (self.nx - 1);
-                            k[idx] = T::zero();
-                            let y_wall = self.wall_distances[idx]
-                                .max(T::from_f64(1e-6).expect("analytical constant conversion"));
-                            let omega_wall = T::from_f64(6.0)
-                                .expect("analytical constant conversion")
-                                / (T::from_f64(SST_BETA_1)
-                                    .expect("analytical constant conversion")
-                                    * y_wall
-                                    * y_wall);
+                            k[idx] = T::ZERO;
+                            let y_wall = self.wall_distances[idx].max_scalar(T::from_f64(1e-6));
+                            let omega_wall =
+                                T::from_f64(6.0) / (T::from_f64(SST_BETA_1) * y_wall * y_wall);
                             omega[idx] = omega_wall;
                         }
                     }
                     "south" => {
                         for i in 0..self.nx {
-                            k[i] = T::zero();
-                            let y_wall = self.wall_distances[i]
-                                .max(T::from_f64(1e-6).expect("analytical constant conversion"));
-                            let omega_wall = T::from_f64(6.0)
-                                .expect("analytical constant conversion")
-                                / (T::from_f64(SST_BETA_1)
-                                    .expect("analytical constant conversion")
-                                    * y_wall
-                                    * y_wall);
+                            k[i] = T::ZERO;
+                            let y_wall = self.wall_distances[i].max_scalar(T::from_f64(1e-6));
+                            let omega_wall =
+                                T::from_f64(6.0) / (T::from_f64(SST_BETA_1) * y_wall * y_wall);
                             omega[i] = omega_wall;
                         }
                     }
@@ -112,15 +96,10 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                         let base_idx = (self.ny - 1) * self.nx;
                         for i in 0..self.nx {
                             let idx = base_idx + i;
-                            k[idx] = T::zero();
-                            let y_wall = self.wall_distances[idx]
-                                .max(T::from_f64(1e-6).expect("analytical constant conversion"));
-                            let omega_wall = T::from_f64(6.0)
-                                .expect("analytical constant conversion")
-                                / (T::from_f64(SST_BETA_1)
-                                    .expect("analytical constant conversion")
-                                    * y_wall
-                                    * y_wall);
+                            k[idx] = T::ZERO;
+                            let y_wall = self.wall_distances[idx].max_scalar(T::from_f64(1e-6));
+                            let omega_wall =
+                                T::from_f64(6.0) / (T::from_f64(SST_BETA_1) * y_wall * y_wall);
                             omega[idx] = omega_wall;
                         }
                     }
@@ -141,23 +120,23 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
                 match name.as_str() {
                     "west" => {
                         for j in 0..self.ny {
-                            nu_tilde[j * self.nx] = T::zero();
+                            nu_tilde[j * self.nx] = T::ZERO;
                         }
                     }
                     "east" => {
                         for j in 0..self.ny {
-                            nu_tilde[j * self.nx + (self.nx - 1)] = T::zero();
+                            nu_tilde[j * self.nx + (self.nx - 1)] = T::ZERO;
                         }
                     }
                     "south" => {
                         for i in 0..self.nx {
-                            nu_tilde[i] = T::zero();
+                            nu_tilde[i] = T::ZERO;
                         }
                     }
                     "north" => {
                         let base_idx = (self.ny - 1) * self.nx;
                         for i in 0..self.nx {
-                            nu_tilde[base_idx + i] = T::zero();
+                            nu_tilde[base_idx + i] = T::ZERO;
                         }
                     }
                     _ => {}

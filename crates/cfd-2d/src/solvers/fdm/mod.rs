@@ -29,6 +29,11 @@ pub mod diffusion;
 pub mod linear_solver;
 pub mod poisson;
 
+#[cfg(test)]
+mod tests_advection_diffusion_mms;
+#[cfg(test)]
+mod tests_poisson_mms;
+
 // Re-export main types
 pub use advection_diffusion::AdvectionDiffusionSolver;
 pub use config::FdmConfig;

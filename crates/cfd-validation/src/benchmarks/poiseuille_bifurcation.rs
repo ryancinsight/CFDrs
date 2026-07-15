@@ -54,14 +54,14 @@
 
 use cfd_1d::bifurcation::junction::BifurcationJunction;
 use cfd_2d::solvers::{BloodModel as BloodModel2D, PoiseuilleConfig, PoiseuilleFlow2D};
-use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use crate::scalar;
+use cfd_core::physics::fluid::blood::CassonBlood;
+use eunomia::{FloatElement, RealField};
 use serde::{Deserialize, Serialize};
 
 /// Complete 2D bifurcation solution combining 1D network + 2D flow in each segment
 #[derive(Debug, Clone)]
-pub struct BifurcationSolution2D<T: RealField + Copy + Float + FromPrimitive> {
+pub struct BifurcationSolution2D<T: RealField + Copy + FloatElement> {
     /// Parent vessel velocity profile
     pub parent_velocity: Vec<T>,
     /// Parent vessel y-coordinates
@@ -143,18 +143,18 @@ pub struct BifurcationConfig2D<T: RealField + Copy> {
     pub max_iterations: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float> BifurcationConfig2D<T> {
+impl<T: RealField + Copy + FloatElement> BifurcationConfig2D<T> {
     /// Create configuration with Murray's Law optimal diameters
     pub fn with_murrays_law(d_parent: T, flow_rate: T, inlet_pressure: T) -> Self {
         // Murray's Law: d_p³ = d₁³ + d₂³
         // For symmetric bifurcation: d₁ = d₂ = d_p / 2^(1/3)
-        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-        let one_third = T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero);
-        let daughter_ratio = Float::powf(two, one_third);
+        let two = scalar::from_f64::<T>(2.0);
+        let one_third = scalar::from_f64::<T>(1.0 / 3.0);
+        let daughter_ratio = scalar::powf(two, one_third);
         let d_daughter = d_parent / daughter_ratio;
 
         // Typical vessel length = 50 × diameter (entrance length)
-        let fifty = T::from_f64(50.0).unwrap_or_else(num_traits::Zero::zero);
+        let fifty = scalar::from_f64::<T>(50.0);
 
         Self {
             d_parent,
@@ -166,18 +166,17 @@ impl<T: RealField + Copy + FromPrimitive + Float> BifurcationConfig2D<T> {
             flow_rate,
             inlet_pressure,
             ny: 101,
-            tolerance: T::from_f64(1e-8).unwrap_or_else(num_traits::Zero::zero),
+            tolerance: scalar::from_f64::<T>(1e-8),
             max_iterations: 1000,
         }
     }
 }
 
 /// Solve complete 2D bifurcation with validated 1D+2D approach
-pub fn solve_bifurcation_2d<T: RealField + Copy + Float + FromPrimitive>(
+pub fn solve_bifurcation_2d<T: RealField + Copy + FloatElement>(
     config: &BifurcationConfig2D<T>,
     blood_casson: &CassonBlood<T>,
 ) -> Result<BifurcationSolution2D<T>, String> {
-
     // Step 1: Solve 1D network to get flow rates and pressure drops
     // This is already validated to 0.00% error
     let junction_1d = BifurcationJunction::new(
@@ -291,34 +290,34 @@ pub fn solve_bifurcation_2d<T: RealField + Copy + Float + FromPrimitive>(
 }
 
 /// Validate bifurcation solution against analytical predictions
-pub fn validate_bifurcation<T: RealField + Copy + Float + FromPrimitive>(
+pub fn validate_bifurcation<T: RealField + Copy + FloatElement>(
     solution: &BifurcationSolution2D<T>,
     config: &BifurcationConfig2D<T>,
 ) -> ValidationResult<T> {
-    let tolerance = T::from_f64(0.05).unwrap_or_else(num_traits::Zero::zero); // 5% tolerance
+    let tolerance = scalar::from_f64::<T>(0.05); // 5% tolerance
 
     // Check 1: Mass conservation
-    let mass_error = Float::abs(
-        (solution.q_parent - solution.q_daughter1 - solution.q_daughter2) / solution.q_parent
+    let mass_error = scalar::abs(
+        (solution.q_parent - solution.q_daughter1 - solution.q_daughter2) / solution.q_parent,
     );
 
     // Check 2: Murray's Law (if daughters are equal)
     let d_p_cubed = config.d_parent * config.d_parent * config.d_parent;
     let d_1_cubed = config.d_daughter1 * config.d_daughter1 * config.d_daughter1;
     let d_2_cubed = config.d_daughter2 * config.d_daughter2 * config.d_daughter2;
-    let murray_error = Float::abs((d_p_cubed - d_1_cubed - d_2_cubed) / d_p_cubed);
+    let murray_error = scalar::abs((d_p_cubed - d_1_cubed - d_2_cubed) / d_p_cubed);
 
     // Check 3: Pressure drop equality (at junction)
-    let dp_error = Float::abs(
-        (solution.dp_daughter1 - solution.dp_daughter2) /
-        Float::max(solution.dp_daughter1, solution.dp_daughter2)
+    let dp_error = scalar::abs(
+        (solution.dp_daughter1 - solution.dp_daughter2)
+            / scalar::max(solution.dp_daughter1, solution.dp_daughter2),
     );
 
     // Check 4: WSS scaling with diameter
     // WSS should be higher in smaller vessels
     let wss_ratio_expected = config.d_parent / config.d_daughter1;
     let wss_ratio_actual = solution.wss_daughter1 / solution.wss_parent;
-    let wss_error = Float::abs((wss_ratio_actual - wss_ratio_expected) / wss_ratio_expected);
+    let wss_error = scalar::abs((wss_ratio_actual - wss_ratio_expected) / wss_ratio_expected);
 
     ValidationResult {
         mass_conservation_error: mass_error,
@@ -328,7 +327,7 @@ pub fn validate_bifurcation<T: RealField + Copy + Float + FromPrimitive>(
         all_passed: mass_error < tolerance
             && murray_error < tolerance
             && dp_error < tolerance
-            && wss_error < T::from_f64(0.2).unwrap_or_else(num_traits::Zero::zero), // 20% tolerance for WSS
+            && wss_error < scalar::from_f64::<T>(0.2), // 20% tolerance for WSS
     }
 }
 

@@ -16,14 +16,16 @@
 //! All solvers prioritize memory efficiency by:
 //! - Using in-place operations to avoid unnecessary allocations
 //! - Pre-allocating workspace vectors outside iteration loops
-//! - Leveraging nalgebra's BLAS-like operations
+//! - Leveraging Leto array buffers for vector workspaces
 //! - Providing efficient preconditioner APIs
 
+mod array_ops;
 mod bicgstab;
 pub mod block_preconditioner;
 pub mod chain;
 mod config;
 mod conjugate_gradient;
+mod dense_bridge;
 mod direct_solver;
 pub mod gmres;
 pub mod matrix_free;

@@ -2,7 +2,7 @@ use cfd_3d::vof::{
     AdvectionMethod, CavitationVofConfig, CavitationVofSolver, InterfaceReconstruction, VofConfig,
 };
 use cfd_core::physics::cavitation::{models::CavitationModel, venturi::VenturiCavitation};
-use nalgebra::{DMatrix, Vector3};
+use leto::{geometry::Vector3, Array2};
 
 struct DatasetSpec {
     label: String,
@@ -186,11 +186,11 @@ fn build_venturi_like_fields(
     ny: usize,
     nz: usize,
     params: VenturiLikeFieldParams,
-) -> (Vec<Vector3<f64>>, DMatrix<f64>, DMatrix<f64>) {
+) -> (Vec<Vector3<f64>>, Array2<f64>, Array2<f64>) {
     let grid_size = nx * ny * nz;
     let mut velocity = vec![Vector3::<f64>::zeros(); grid_size];
-    let mut pressure = DMatrix::<f64>::zeros(nx, ny * nz);
-    let density_field = DMatrix::<f64>::from_element(nx, ny * nz, params.density);
+    let mut pressure = Array2::<f64>::zeros([nx, ny * nz]);
+    let density_field = Array2::<f64>::from_elem([nx, ny * nz], params.density);
 
     let x0 = 0.5 * (nx as f64 - 1.0) * params.dx;
     let w = 0.12 * (nx as f64 - 1.0) * params.dx;
@@ -212,7 +212,7 @@ fn build_venturi_like_fields(
                 let idx = (k * ny + j) * nx + i;
                 let col = j + k * ny;
                 velocity[idx] = Vector3::new(ux, 0.0, 0.0);
-                pressure[(i, col)] = p;
+                pressure[[i, col]] = p;
             }
         }
     }

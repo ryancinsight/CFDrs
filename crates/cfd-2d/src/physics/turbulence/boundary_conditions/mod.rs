@@ -19,12 +19,11 @@ mod wall;
 
 use super::constants::{C_MU, EPSILON_MIN, OMEGA_MIN};
 use super::wall_functions::WallTreatment;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
 
 /// Turbulence boundary condition types
 #[derive(Debug, Clone)]
-pub enum TurbulenceBoundaryCondition<T: RealField + Copy> {
+pub enum TurbulenceBoundaryCondition<T: RealField> {
     /// Wall boundary with specified wall function treatment
     Wall {
         /// Wall function treatment for near-wall turbulence modeling
@@ -46,7 +45,7 @@ pub enum TurbulenceBoundaryCondition<T: RealField + Copy> {
 }
 
 /// Turbulence boundary condition manager
-pub struct TurbulenceBoundaryManager<T: RealField + Copy> {
+pub struct TurbulenceBoundaryManager<T: RealField> {
     pub(crate) nx: usize,
     pub(crate) ny: usize,
     dx: T,
@@ -54,7 +53,7 @@ pub struct TurbulenceBoundaryManager<T: RealField + Copy> {
     pub(crate) wall_distances: Vec<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
+impl<T: RealField> TurbulenceBoundaryManager<T> {
     /// Create a new boundary condition manager
     pub fn new(nx: usize, ny: usize, dx: T, dy: T) -> Self {
         let mut manager = Self {
@@ -62,7 +61,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
             ny,
             dx,
             dy,
-            wall_distances: vec![T::zero(); nx * ny],
+            wall_distances: vec![T::ZERO; nx * ny],
         };
         manager.calculate_wall_distances();
         manager
@@ -74,22 +73,16 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
             for i in 0..self.nx {
                 let idx = j * self.nx + i;
 
-                let dist_left = (T::from_usize(i).expect("analytical constant conversion")
-                    + T::from_f64(0.5).expect("analytical constant conversion"))
-                    * self.dx;
-                let dist_right = (T::from_usize(self.nx - 1 - i)
-                    .expect("analytical constant conversion")
-                    + T::from_f64(0.5).expect("analytical constant conversion"))
-                    * self.dx;
-                let dist_bottom = (T::from_usize(j).expect("analytical constant conversion")
-                    + T::from_f64(0.5).expect("analytical constant conversion"))
-                    * self.dy;
-                let dist_top = (T::from_usize(self.ny - 1 - j)
-                    .expect("analytical constant conversion")
-                    + T::from_f64(0.5).expect("analytical constant conversion"))
-                    * self.dy;
+                let half = T::from_f64(0.5);
+                let dist_left = (T::from_f64(i as f64) + half) * self.dx;
+                let dist_right = (T::from_f64((self.nx - 1 - i) as f64) + half) * self.dx;
+                let dist_bottom = (T::from_f64(j as f64) + half) * self.dy;
+                let dist_top = (T::from_f64((self.ny - 1 - j) as f64) + half) * self.dy;
 
-                let min_dist = dist_left.min(dist_right).min(dist_bottom).min(dist_top);
+                let min_dist = dist_left
+                    .min_scalar(dist_right)
+                    .min_scalar(dist_bottom)
+                    .min_scalar(dist_top);
                 self.wall_distances[idx] = min_dist;
             }
         }
@@ -106,10 +99,10 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
         self.apply_inlet_boundaries_k_epsilon(k, epsilon, boundaries);
         self.apply_outlet_boundaries(k, epsilon, boundaries);
 
-        let eps_min = T::from_f64(EPSILON_MIN).expect("analytical constant conversion");
+        let eps_min = T::from_f64(EPSILON_MIN);
         for i in 0..k.len() {
-            k[i] = k[i].max(T::zero());
-            epsilon[i] = epsilon[i].max(eps_min);
+            k[i] = k[i].max_scalar(T::ZERO);
+            epsilon[i] = epsilon[i].max_scalar(eps_min);
         }
     }
 
@@ -124,10 +117,10 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
         self.apply_inlet_boundaries_k_omega(k, omega, boundaries);
         self.apply_outlet_boundaries(k, omega, boundaries);
 
-        let omega_min = T::from_f64(OMEGA_MIN).expect("analytical constant conversion");
+        let omega_min = T::from_f64(OMEGA_MIN);
         for i in 0..k.len() {
-            k[i] = k[i].max(T::zero());
-            omega[i] = omega[i].max(omega_min);
+            k[i] = k[i].max_scalar(T::ZERO);
+            omega[i] = omega[i].max_scalar(omega_min);
         }
     }
 
@@ -142,7 +135,7 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
         self.apply_outlet_boundaries_sa(nu_tilde, boundaries);
 
         for val in nu_tilde.iter_mut() {
-            *val = (*val).max(T::zero());
+            *val = (*val).max_scalar(T::ZERO);
         }
     }
 
@@ -161,17 +154,15 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
             } = bc
             {
                 // k = (3/2) * (I * U_ref)²
-                let k_inlet = T::from_f64(1.5).expect("analytical constant conversion")
+                let k_inlet = T::from_f64(1.5)
                     * *turbulence_intensity
                     * *turbulence_intensity
                     * *reference_velocity
                     * *reference_velocity;
 
                 // ε = C_μ^{3/4} * k^{3/2} / l
-                let c_mu_34 = T::from_f64(C_MU)
-                    .expect("analytical constant conversion")
-                    .powf(T::from_f64(0.75).expect("analytical constant conversion"));
-                let k_32 = k_inlet.powf(T::from_f64(1.5).expect("analytical constant conversion"));
+                let c_mu_34 = <T as FloatElement>::powf(T::from_f64(C_MU), T::from_f64(0.75));
+                let k_32 = <T as FloatElement>::powf(k_inlet, T::from_f64(1.5));
                 let eps_inlet = c_mu_34 * k_32 / *turbulence_length_scale;
 
                 match name.as_str() {
@@ -223,17 +214,16 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
             } = bc
             {
                 // k = (3/2) * (I * U_ref)²
-                let k_inlet = T::from_f64(1.5).expect("analytical constant conversion")
+                let k_inlet = T::from_f64(1.5)
                     * *turbulence_intensity
                     * *turbulence_intensity
                     * *reference_velocity
                     * *reference_velocity;
 
                 // ω = √k / (C_μ^{1/4} * l)
-                let c_mu_14 = T::from_f64(C_MU)
-                    .expect("analytical constant conversion")
-                    .powf(T::from_f64(0.25).expect("analytical constant conversion"));
-                let omega_inlet = k_inlet.sqrt() / (c_mu_14 * *turbulence_length_scale);
+                let c_mu_14 = <T as FloatElement>::powf(T::from_f64(C_MU), T::from_f64(0.25));
+                let omega_inlet =
+                    <T as NumericElement>::sqrt(k_inlet) / (c_mu_14 * *turbulence_length_scale);
 
                 match name.as_str() {
                     "west" => {
@@ -283,14 +273,14 @@ impl<T: RealField + FromPrimitive + Copy> TurbulenceBoundaryManager<T> {
             } = bc
             {
                 // For SA model, ν̃_inlet ≈ (3/2) * I² * U_ref * l / C_μ^{3/4}
-                let factor = T::from_f64(1.5).expect("analytical constant conversion")
+                let factor = T::from_f64(1.5)
                     * *turbulence_intensity
                     * *turbulence_intensity
                     * *reference_velocity
                     * *turbulence_length_scale;
-                let c_mu_inv = T::from_f64(1.0 / C_MU).expect("analytical constant conversion");
-                let nu_tilde_inlet = factor
-                    * c_mu_inv.powf(T::from_f64(0.75).expect("analytical constant conversion"));
+                let c_mu_inv = T::from_f64(1.0 / C_MU);
+                let nu_tilde_inlet =
+                    factor * <T as FloatElement>::powf(c_mu_inv, T::from_f64(0.75));
 
                 match name.as_str() {
                     "west" => {

@@ -79,21 +79,22 @@
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
 use super::{Grid2D, SpatialDiscretization};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::FloatElement;
 
 /// Second-order central difference scheme
-pub struct CentralDifference<T: RealField + Copy> {
+pub struct CentralDifference<T: Cfd2dScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> Default for CentralDifference<T> {
+impl<T: Cfd2dScalar + Copy> Default for CentralDifference<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy> CentralDifference<T> {
+impl<T: Cfd2dScalar + Copy> CentralDifference<T> {
     /// Create new central difference scheme
     #[must_use]
     pub fn new() -> Self {
@@ -103,11 +104,10 @@ impl<T: RealField + Copy> CentralDifference<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for CentralDifference<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> SpatialDiscretization<T> for CentralDifference<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        let divisor = T::from_f64(super::constants::CENTRAL_DIFF_DIVISOR)
-            .expect("analytical constant conversion");
-        (grid.data[(i + 1, j)] - grid.data[(i - 1, j)]) / (divisor * grid.dx)
+        let divisor: T = scalar::from_f64(super::constants::CENTRAL_DIFF_DIVISOR);
+        (grid.data[[i + 1, j]] - grid.data[[i - 1, j]]) / (divisor * grid.dx)
     }
 
     fn order(&self) -> usize {
@@ -126,17 +126,17 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for Ce
 }
 
 /// Fourth-order central difference scheme
-pub struct FourthOrderCentral<T: RealField + Copy> {
+pub struct FourthOrderCentral<T: Cfd2dScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> Default for FourthOrderCentral<T> {
+impl<T: Cfd2dScalar + Copy> Default for FourthOrderCentral<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy> FourthOrderCentral<T> {
+impl<T: Cfd2dScalar + Copy> FourthOrderCentral<T> {
     /// Create new fourth-order central scheme
     #[must_use]
     pub fn new() -> Self {
@@ -146,15 +146,13 @@ impl<T: RealField + Copy> FourthOrderCentral<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T>
-    for FourthOrderCentral<T>
-{
+impl<T: Cfd2dScalar + Copy + FloatElement> SpatialDiscretization<T> for FourthOrderCentral<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
-        let eight = T::from_f64(8.0).expect("analytical constant conversion");
-        let twelve = T::from_f64(12.0).expect("analytical constant conversion");
+        let eight: T = scalar::from_f64(8.0);
+        let twelve: T = scalar::from_f64(12.0);
 
-        (-grid.data[(i + 2, j)] + eight * grid.data[(i + 1, j)] - eight * grid.data[(i - 1, j)]
-            + grid.data[(i - 2, j)])
+        (-grid.data[[i + 2, j]] + eight * grid.data[[i + 1, j]] - eight * grid.data[[i - 1, j]]
+            + grid.data[[i - 2, j]])
             / (twelve * grid.dx)
     }
 

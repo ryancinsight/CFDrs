@@ -37,16 +37,16 @@
 
 use super::traits::CollisionOperator;
 use crate::physics::non_newtonian::CarreauYasudaModel;
+use crate::scalar::{from_f64, max, one, zero};
 use crate::solvers::lbm::lattice::{equilibrium, D2Q9};
 use crate::solvers::lbm::streaming::f_idx;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::{CastFrom, FloatElement, NumericElement};
 
 /// Lattice sound speed squared: $c_s^2 = 1/3$
 const LATTICE_CS2: f64 = 1.0 / 3.0;
 
 /// Carreau-Yasuda BGK collision operator.
-pub struct CarreauYasudaBgk<T: RealField + Copy + Float + FromPrimitive> {
+pub struct CarreauYasudaBgk<T: FloatElement> {
     /// Internal Carreau-Yasuda rheology model
     pub model: CarreauYasudaModel<T>,
     /// Base spatial discretization size $\Delta x$ \[m]
@@ -55,7 +55,7 @@ pub struct CarreauYasudaBgk<T: RealField + Copy + Float + FromPrimitive> {
     pub dt: T,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive> CarreauYasudaBgk<T> {
+impl<T: FloatElement> CarreauYasudaBgk<T> {
     /// Construct a new non-Newtonian BGK operator
     pub fn new(model: CarreauYasudaModel<T>, dx: T, dt: T) -> Self {
         Self { model, dx, dt }
@@ -66,18 +66,18 @@ impl<T: RealField + Copy + Float + FromPrimitive> CarreauYasudaBgk<T> {
     #[inline]
     #[must_use]
     fn compute_local_tau(&self, q_mag: T, rho: T) -> T {
-        let cs2 = T::from_f64(LATTICE_CS2).unwrap();
-        let half = T::from_f64(0.5).unwrap();
-        let tolerance = T::from_f64(1.0e-12).unwrap();
+        let cs2 = from_f64::<T>(LATTICE_CS2);
+        let half = from_f64::<T>(0.5);
+        let tolerance = from_f64::<T>(1.0e-12);
         let lower_bound = half + tolerance;
         // Base case: starting with zero-shear viscosity τ_0
-        let nu_0 = self.model.apparent_kinematic_viscosity(T::zero());
+        let nu_0 = self.model.apparent_kinematic_viscosity(zero::<T>());
         // Transform nu to lattice units: nu_L = nu * dt / dx^2
         let dt_dx2 = self.dt / (self.dx * self.dx);
         let mut tau = half + nu_0 * dt_dx2 / cs2;
 
         // Fixed-point iteration with a residual stop criterion.
-        let two = T::from_f64(2.0).unwrap();
+        let two = from_f64::<T>(2.0);
         let rho_safe = if rho < tolerance { tolerance } else { rho };
 
         for _ in 0..32 {
@@ -89,10 +89,10 @@ impl<T: RealField + Copy + Float + FromPrimitive> CarreauYasudaBgk<T> {
             // Compute new tau using under-relaxation and stop once the update is tiny.
             let tau_new = half + nu * dt_dx2 / cs2;
             let tau_next = half * tau_safe + half * tau_new;
-            let threshold_scale = if tau_next > T::one() {
+            let threshold_scale = if tau_next > one::<T>() {
                 tau_next
             } else {
-                T::one()
+                one::<T>()
             };
             let update = if tau_next > tau_safe {
                 tau_next - tau_safe
@@ -119,10 +119,10 @@ impl<T: RealField + Copy + Float + FromPrimitive> CarreauYasudaBgk<T> {
     }
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive> CollisionOperator<T> for CarreauYasudaBgk<T> {
+impl<T: FloatElement> CollisionOperator<T> for CarreauYasudaBgk<T> {
     /// Perform the collision using dynamically computed, spatially varying $\tau$.
     fn collide(&self, f: &mut [T], density: &[T], velocity: &[T], nx: usize, ny: usize) {
-        let zero = T::zero();
+        let zero = zero::<T>();
 
         for j in 0..ny {
             for i in 0..nx {
@@ -139,9 +139,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> CollisionOperator<T> for Carre
                 let mut f_eq_cache = [zero; 9];
 
                 for q in 0..9 {
-                    let weight = T::from_f64(D2Q9::WEIGHTS[q]).unwrap();
-                    let e_x = T::from_i32(D2Q9::VELOCITIES[q].0).unwrap();
-                    let e_y = T::from_i32(D2Q9::VELOCITIES[q].1).unwrap();
+                    let weight = from_f64::<T>(D2Q9::WEIGHTS[q]);
+                    let e_x = <T as CastFrom<i32>>::cast_from(D2Q9::VELOCITIES[q].0);
+                    let e_y = <T as CastFrom<i32>>::cast_from(D2Q9::VELOCITIES[q].1);
 
                     let f_eq = equilibrium(rho, &u, q, weight, D2Q9::VELOCITIES[q]);
                     f_eq_cache[q] = f_eq;
@@ -155,15 +155,15 @@ impl<T: RealField + Copy + Float + FromPrimitive> CollisionOperator<T> for Carre
                 }
 
                 // |Q| = sqrt(2 * (Q_xx^2 + Q_yy^2 + 2*Q_xy^2))
-                let two = T::from_f64(2.0).unwrap();
-                let q_mag = Float::sqrt(Float::max(
+                let two = from_f64::<T>(2.0);
+                let q_mag = <T as NumericElement>::sqrt(max(
                     two * (q_xx * q_xx + q_yy * q_yy + two * q_xy * q_xy),
                     zero,
                 ));
 
                 // Iterator for local tau
                 let local_tau = self.compute_local_tau(q_mag, rho);
-                let local_omega = T::one() / local_tau;
+                let local_omega = one::<T>() / local_tau;
 
                 // Apply BGK step with local omega
                 for q in 0..9 {
@@ -177,17 +177,14 @@ impl<T: RealField + Copy + Float + FromPrimitive> CollisionOperator<T> for Carre
     /// Returns the asymptotic infinite-shear base tau for trait compatibility
     fn tau(&self) -> T {
         let dt_dx2 = self.dt / (self.dx * self.dx);
-        let cs2 = T::from_f64(LATTICE_CS2).unwrap();
-        let nu_inf = self
-            .model
-            .apparent_kinematic_viscosity(T::from_f64(1e6).unwrap());
-        T::from_f64(0.5).unwrap() + nu_inf * dt_dx2 / cs2
+        let cs2 = from_f64::<T>(LATTICE_CS2);
+        let nu_inf = self.model.apparent_kinematic_viscosity(from_f64::<T>(1e6));
+        from_f64::<T>(0.5) + nu_inf * dt_dx2 / cs2
     }
 
     /// Returns the asymptotic infinite-shear base viscosity
     fn viscosity(&self, _dt: T, _dx: T) -> T {
-        self.model
-            .apparent_kinematic_viscosity(T::from_f64(1e6).unwrap())
+        self.model.apparent_kinematic_viscosity(from_f64::<T>(1e6))
     }
 }
 
@@ -211,7 +208,7 @@ mod tests {
         let dt_dx2 = dt / (dx * dx);
         let expected_tau_0 = 0.5 + cy.apparent_kinematic_viscosity(0.0_f64) * dt_dx2 / LATTICE_CS2;
         assert!(
-            (tau_0 - expected_tau_0).abs() < 1e-5,
+            <f64 as NumericElement>::abs(tau_0 - expected_tau_0) < 1e-5,
             "Zero shear tau failed"
         );
 

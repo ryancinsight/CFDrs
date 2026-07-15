@@ -91,17 +91,19 @@
 
 use super::basis::SpectralBasis;
 use super::poisson::{PoissonBoundaryCondition, PoissonSolver};
+use crate::scalar;
 use cfd_core::error::Result;
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, RealField};
+use leto::Array1;
+use leto_ops::RealScalar;
 use serde::{Deserialize, Serialize};
 
 /// Problem definition for Poisson equation
 #[derive(Debug, Clone)]
-pub struct PoissonProblem<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct PoissonProblem<T: cfd_mesh::domain::core::Scalar + RealField + RealScalar + Copy> {
     /// Source term field (right-hand side of Poisson equation)
     /// Flattened 3D field of size nx * ny * nz
-    pub source_term: DVector<T>,
+    pub source_term: Array1<T>,
     /// Boundary conditions in x-direction (min, max)
     pub bc_x: (PoissonBoundaryCondition<T>, PoissonBoundaryCondition<T>),
     /// Boundary conditions in y-direction (min, max)
@@ -131,7 +133,10 @@ pub struct SpectralConfig<T: cfd_mesh::domain::core::Scalar + RealField + Copy> 
     pub dt: Option<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> SpectralConfig<T> {
+impl<T> SpectralConfig<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
+{
     /// Create new configuration with validation
     pub fn new(nx: usize, ny: usize, nz: usize) -> Result<Self> {
         if nx == 0 || ny == 0 || nz == 0 {
@@ -141,9 +146,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Spect
         }
         Ok(Self {
             base: cfd_core::compute::solver::SolverConfig::builder()
-                .tolerance(<T as FromPrimitive>::from_f64(1e-10).ok_or_else(|| {
-                    cfd_core::error::Error::InvalidConfiguration("Cannot convert tolerance".into())
-                })?)
+                .tolerance(scalar::from_f64::<T>(1e-10))
                 .max_iterations(100)
                 .build(),
             nx_modes: nx,
@@ -158,12 +161,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Spect
 }
 
 /// Spectral solver for 3D problems
-pub struct SpectralSolver<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct SpectralSolver<T: cfd_mesh::domain::core::Scalar + RealField + RealScalar + Copy> {
     config: SpectralConfig<T>,
     poisson_solver: PoissonSolver<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> SpectralSolver<T> {
+impl<T> SpectralSolver<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + RealScalar + FloatElement + Copy,
+{
     /// Create new spectral solver
     pub fn new(config: SpectralConfig<T>) -> Result<Self> {
         // Pass the full configuration details to the sub-solver
@@ -205,7 +211,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Spect
 /// Solution from spectral solver
 pub struct SpectralSolution<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Solution field (flattened 3D)
-    pub u: DVector<T>,
+    pub u: Array1<T>,
     /// Grid dimensions
     pub nx: usize,
     /// Number of grid points in y-direction
@@ -214,12 +220,15 @@ pub struct SpectralSolution<T: cfd_mesh::domain::core::Scalar + RealField + Copy
     pub nz: usize,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> SpectralSolution<T> {
+impl<T> SpectralSolution<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + Copy,
+{
     /// Create new solution
     #[must_use]
     pub fn new(nx: usize, ny: usize, nz: usize) -> Self {
         Self {
-            u: DVector::zeros(nx * ny * nz),
+            u: Array1::zeros([nx * ny * nz]),
             nx,
             ny,
             nz,
@@ -230,6 +239,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> SpectralSolution<T> {
     #[must_use]
     pub fn at(&self, i: usize, j: usize, k: usize) -> T {
         let idx = i * self.ny * self.nz + j * self.nz + k;
-        self.u[idx]
+        self.u[[idx]]
     }
 }

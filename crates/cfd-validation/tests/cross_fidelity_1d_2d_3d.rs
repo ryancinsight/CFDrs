@@ -91,11 +91,16 @@ fn cross_fidelity_straight_duct_pressure_and_mass() {
     // 1D (Analytical Bounding)
     let bp = straight_blueprint(w, h, l);
     let trace_1d = solve_reference_trace::<f64>(&bp, RHO, MU, q).expect("1D solve must succeed");
-    
+
     // 1D Mass Conservation: Ensure total inlet = total outlet
-    let mass_error_1d = ((trace_1d.total_inlet_flow_m3_s - trace_1d.total_outlet_flow_m3_s) / trace_1d.total_inlet_flow_m3_s).abs();
-    assert!(mass_error_1d < 1e-4, "1D mass error {mass_error_1d} exceeds 0.01%");
-    
+    let mass_error_1d = ((trace_1d.total_inlet_flow_m3_s - trace_1d.total_outlet_flow_m3_s)
+        / trace_1d.total_inlet_flow_m3_s)
+        .abs();
+    assert!(
+        mass_error_1d < 1e-4,
+        "1D mass error {mass_error_1d} exceeds 0.01%"
+    );
+
     let dp_1d = trace_1d
         .channel_traces
         .first()
@@ -107,7 +112,7 @@ fn cross_fidelity_straight_duct_pressure_and_mass() {
     let mut net2d = sink.build(&bp).expect("2D build must succeed");
     let res2d = net2d.solve_all(1e-6).expect("2D solve must succeed");
     let ch2d = &res2d.channels[0];
-    
+
     assert!(
         ch2d.field_outlet_flow_error_pct.abs() < 20.0,
         "2D field error {}% exceeds 20% compared to 1D",
@@ -132,7 +137,7 @@ fn cross_fidelity_straight_duct_pressure_and_mass() {
     let res3d = CascadeSolver3D::new(config, blood_fluid())
         .solve(&[spec])
         .expect("3D solve must succeed");
-        
+
     let dp_3d = res3d.channel_results[0].pressure_drop_pa;
 
     // Output and Assertion bounds
@@ -162,18 +167,18 @@ fn cross_fidelity_venturi_constriction() {
 
     // ── 1D: Analytical Network Trace
     let trace_1d = solve_reference_trace::<f64>(&bp, RHO, MU, q).expect("1D Venturi solve");
-    
+
     let get_dp_1d = |prefix: &str| {
         trace_1d
             .channel_traces
             .iter()
             .find(|ch| ch.channel_id.contains(prefix))
             .map(|ch| ch.pressure_drop_pa)
-            .expect(&format!("1D {prefix} not found"))
+            .unwrap_or_else(|| panic!("1D {prefix} not found"))
     };
     let dp_throat_1d = get_dp_1d("throat");
     let dp_inlet_1d = get_dp_1d("inlet");
-    
+
     assert!(
         dp_throat_1d > dp_inlet_1d,
         "1D: throat DP ({dp_throat_1d}) must exceed inlet DP ({dp_inlet_1d})"
@@ -183,14 +188,14 @@ fn cross_fidelity_venturi_constriction() {
     let sink = Network2dBuilderSink::new(BloodModel::Newtonian(MU), RHO, q, 20, 8);
     let mut net2d = sink.build(&bp).expect("2D build");
     let res2d = net2d.solve_all(1e-6).expect("2D solve");
-    
+
     let get_shear_2d = |prefix: &str| {
         res2d
             .channels
             .iter()
             .find(|ch| ch.channel_id.contains(prefix))
             .map(|ch| ch.wall_shear_pa)
-            .expect(&format!("2D {prefix} not found"))
+            .unwrap_or_else(|| panic!("2D {prefix} not found"))
     };
     let tau_throat_2d = get_shear_2d("throat");
     let tau_inlet_2d = get_shear_2d("inlet");
@@ -228,7 +233,7 @@ fn cross_fidelity_venturi_constriction() {
     let res3d = CascadeSolver3D::new(config, blood_fluid())
         .solve(&[main_spec, throat_spec])
         .expect("3D solve");
-        
+
     let dp_inlet_3d = res3d.channel_results[0].pressure_drop_pa;
     let dp_throat_3d = res3d.channel_results[1].pressure_drop_pa;
 
@@ -289,14 +294,8 @@ fn cross_fidelity_asymmetric_bifurcation_invariance() {
         ..SIMPLEConfig::default()
     };
 
-    let mut solver = BifurcationSolver2D::new(
-        geom,
-        BloodModel::Newtonian(MU),
-        RHO,
-        100,
-        60,
-        config,
-    );
+    let mut solver =
+        BifurcationSolver2D::new(geom, BloodModel::Newtonian(MU), RHO, 100, 60, config);
     let result = solver.solve(u_inlet).expect("bifurcation 2D solve");
 
     let q1 = result.q_daughter1.abs();

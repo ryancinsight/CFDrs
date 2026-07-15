@@ -98,16 +98,20 @@ mod tests {
         let interp = LinearInterpolation::new(x_data, y_data)
             .expect("construction must succeed for valid data");
         // Query below domain minimum
-        let result = interp.interpolate(-0.1);
+        let error = interp
+            .interpolate(-0.1)
+            .expect_err("extrapolation below domain must return Err");
         assert!(
-            result.is_err(),
-            "extrapolation below domain must return Err"
+            error.to_string().contains("outside the data range"),
+            "unexpected error: {error}"
         );
         // Query above domain maximum
-        let result = interp.interpolate(2.1);
+        let error = interp
+            .interpolate(2.1)
+            .expect_err("extrapolation above domain must return Err");
         assert!(
-            result.is_err(),
-            "extrapolation above domain must return Err"
+            error.to_string().contains("outside the data range"),
+            "unexpected error: {error}"
         );
     }
 
@@ -116,11 +120,13 @@ mod tests {
     fn test_linear_single_point_rejected() {
         let x_data = vec![1.0];
         let y_data = vec![3.0];
-        let result = LinearInterpolation::new(x_data, y_data);
+        let Err(error) = LinearInterpolation::new(x_data, y_data) else {
+            panic!("single-point interpolation must return Err");
+        };
         // A single point cannot define an interpolation scheme — must fail gracefully.
         assert!(
-            result.is_err(),
-            "single-point interpolation must return Err"
+            error.to_string().contains("Need at least 2 points"),
+            "unexpected error: {error}"
         );
     }
 
@@ -129,8 +135,13 @@ mod tests {
     fn test_interpolation_duplicate_nodes_rejected() {
         let x_data = vec![0.0, 1.0, 1.0, 2.0]; // duplicate node at 1.0
         let y_data = vec![0.0, 1.0, 2.0, 3.0];
-        let result = LinearInterpolation::new(x_data, y_data);
-        assert!(result.is_err(), "duplicate nodes must return Err");
+        let Err(error) = LinearInterpolation::new(x_data, y_data) else {
+            panic!("duplicate nodes must return Err");
+        };
+        assert!(
+            error.to_string().contains("strictly increasing"),
+            "unexpected error: {error}"
+        );
     }
 
     #[test]
@@ -188,5 +199,20 @@ mod tests {
         assert_relative_eq!(interp.interpolate(0.5)?, 1.75, epsilon = 1e-10);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_lagrange_duplicate_nodes_rejected() {
+        let x_data = vec![0.0, 1.0, 1.0];
+        let y_data = vec![1.0, 3.0, 7.0];
+
+        let Err(error) = LagrangeInterpolation::new(x_data, y_data) else {
+            panic!("duplicate nodes must fail");
+        };
+
+        assert!(
+            error.to_string().contains("strictly increasing"),
+            "unexpected error: {error}"
+        );
     }
 }

@@ -222,6 +222,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = SolverConfig {
         tolerance: 1e-6,
         max_iterations: 100,
+        require_flow_convergence: true,
     };
     let solver = NetworkSolver::<f64, CarreauYasuda<f64>>::with_config(config);
     println!("Solving (Anderson-accelerated Picard iteration) ...");

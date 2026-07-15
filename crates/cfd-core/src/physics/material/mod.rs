@@ -12,11 +12,12 @@ pub use solid::ElasticSolid;
 pub use traits::{InterfaceProperties, SolidProperties};
 
 use crate::physics::fluid::traits::Fluid;
-use nalgebra::RealField;
+use eunomia::FloatElement;
+use eunomia::RealField;
 use std::collections::HashMap;
 
 /// Unified material database for multi-physics simulations
-pub struct MaterialDatabase<T: RealField + Copy> {
+pub struct MaterialDatabase<T: RealField + FloatElement + Copy> {
     /// Fluid materials (using the unified Fluid trait)
     fluids: HashMap<String, Box<dyn Fluid<T>>>,
     /// Solid materials
@@ -25,7 +26,7 @@ pub struct MaterialDatabase<T: RealField + Copy> {
     interfaces: HashMap<String, Box<dyn InterfaceProperties<T>>>,
 }
 
-impl<T: RealField + Copy> MaterialDatabase<T> {
+impl<T: RealField + FloatElement + Copy> MaterialDatabase<T> {
     /// Create new material database
     #[must_use]
     pub fn new() -> Self {
@@ -71,10 +72,7 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
 
     /// Initialize with common materials
     #[must_use]
-    pub fn with_common_materials() -> Self
-    where
-        T: nalgebra::RealField + Copy + num_traits::FromPrimitive,
-    {
+    pub fn with_common_materials() -> Self {
         let mut db = Self::new();
 
         // Add common fluids from the physics::fluid database
@@ -99,7 +97,7 @@ impl<T: RealField + Copy> MaterialDatabase<T> {
     }
 }
 
-impl<T: RealField + Copy> Default for MaterialDatabase<T> {
+impl<T: RealField + FloatElement + Copy> Default for MaterialDatabase<T> {
     fn default() -> Self {
         Self::new()
     }

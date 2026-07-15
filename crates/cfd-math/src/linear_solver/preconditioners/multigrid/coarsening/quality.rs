@@ -2,10 +2,35 @@
 //!
 //! Reference: Cleary, A. J., Falgout, R. D., Henson, V. E., & Jones, J. E. (2001)
 
+use super::super::SparseMatrix;
 use super::CoarseningResult;
-use crate::SparseMatrix;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto_ops::Scalar as LetoScalar;
+
+#[inline]
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+#[inline]
+fn from_usize<T: FloatElement>(value: usize) -> T {
+    from_f64(usize_to_f64(value))
+}
+
+#[inline]
+fn usize_to_f64(value: usize) -> f64 {
+    let value_u64 = u64::try_from(value).expect("invariant: usize count fits into u64");
+    <u64 as NumericElement>::to_f64(value_u64)
+}
+
+#[inline]
+fn ratio_usize(numerator: usize, denominator: usize) -> f64 {
+    if denominator == 0 {
+        0.0
+    } else {
+        usize_to_f64(numerator) / usize_to_f64(denominator)
+    }
+}
 
 /// Algebraic distance-based coarsening quality measures
 #[derive(Debug, Clone)]
@@ -20,16 +45,16 @@ pub struct AlgebraicDistances<T: RealField + Copy> {
     pub high_distance_points: Vec<(usize, T)>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AlgebraicDistances<T> {
+impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicDistances<T> {
     /// Compute algebraic distances for a coarsening result.
     ///
     /// Fine points should be algebraically "close" to coarse points for
     /// effective interpolation. Large distances indicate poor coarsening.
     pub fn compute(coarsening: &CoarseningResult<T>, matrix: &SparseMatrix<T>) -> Self {
         let n = matrix.nrows();
-        let mut distances = vec![T::max_value().unwrap_or_else(T::zero); n];
-        let mut total_distance = T::zero();
-        let mut max_distance = T::zero();
+        let mut distances = vec![T::MAX_VALUE; n];
+        let mut total_distance = <T as NumericElement>::ZERO;
+        let mut max_distance = <T as NumericElement>::ZERO;
         let mut high_distance_points = Vec::new();
 
         let mut is_coarse = vec![false; n];
@@ -41,14 +66,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AlgebraicDistances<T> {
 
         for i in 0..n {
             if is_coarse[i] {
-                distances[i] = T::zero();
+                distances[i] = <T as NumericElement>::ZERO;
             } else {
                 // Check for direct strong connections first (distance = 1)
                 let mut found_strong_coarse = false;
                 let row = coarsening.strength_matrix.row(i);
                 for &j in row.col_indices() {
                     if is_coarse[j] {
-                        distances[i] = T::one();
+                        distances[i] = <T as NumericElement>::ONE;
                         found_strong_coarse = true;
                         break;
                     }
@@ -70,16 +95,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AlgebraicDistances<T> {
                     max_distance = min_distance;
                 }
 
-                if min_distance > T::from_f64(2.0).unwrap_or_else(T::zero) {
+                if min_distance > from_f64(2.0) {
                     high_distance_points.push((i, min_distance));
                 }
             }
         }
 
         let average_distance = if n > 0 {
-            total_distance / T::from_usize(n).unwrap_or_else(T::one)
+            total_distance / from_usize(n)
         } else {
-            T::zero()
+            <T as NumericElement>::ZERO
         };
 
         high_distance_points.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
@@ -101,10 +126,9 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AlgebraicDistances<T> {
             max_interpolation_points: 0,
             coarse_points: 0,
             total_points: self.distances.len(),
-            average_distance: self.average_distance.to_f64().unwrap_or(0.0),
-            max_distance: self.max_distance.to_f64().unwrap_or(0.0),
-            high_distance_ratio: f64::from(self.high_distance_points.len() as u32)
-                / self.distances.len() as f64,
+            average_distance: NumericElement::to_f64(self.average_distance),
+            max_distance: NumericElement::to_f64(self.max_distance),
+            high_distance_ratio: ratio_usize(self.high_distance_points.len(), self.distances.len()),
             quality_score: 0.0,
             recommendations: Vec::new(),
         };
@@ -156,19 +180,19 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> AlgebraicDistances<T> {
 }
 
 /// Compute algebraic distance to the nearest coarse point via BFS
-fn compute_distance_to_nearest_coarse<T: RealField + Copy + FromPrimitive>(
+fn compute_distance_to_nearest_coarse<T: RealField + Copy + FloatElement + LetoScalar>(
     start: usize,
     is_coarse: &[bool],
     matrix: &SparseMatrix<T>,
     strength_matrix: &SparseMatrix<T>,
 ) -> T {
     let n = matrix.nrows();
-    let mut distances = vec![T::max_value().unwrap_or_else(T::zero); n];
+    let mut distances = vec![T::MAX_VALUE; n];
     let mut visited = vec![false; n];
     let mut queue = std::collections::VecDeque::new();
 
     queue.push_back(start);
-    distances[start] = T::zero();
+    distances[start] = <T as NumericElement>::ZERO;
     visited[start] = true;
 
     while let Some(node) = queue.pop_front() {
@@ -181,11 +205,11 @@ fn compute_distance_to_nearest_coarse<T: RealField + Copy + FromPrimitive>(
         // Explore neighbours via strong connections
         let row = strength_matrix.row(node);
         for (&j, &val) in row.col_indices().iter().zip(row.values().iter()) {
-            if val > T::zero() && !visited[j] {
-                let edge_weight = if val > T::from_f64(0.5).unwrap_or_else(T::zero) {
-                    T::one()
+            if val > <T as NumericElement>::ZERO && !visited[j] {
+                let edge_weight = if val > from_f64(0.5) {
+                    <T as NumericElement>::ONE
                 } else {
-                    T::from_f64(2.0).unwrap_or_else(T::zero)
+                    from_f64(2.0)
                 };
 
                 let new_dist = current_dist + edge_weight;
@@ -204,8 +228,8 @@ fn compute_distance_to_nearest_coarse<T: RealField + Copy + FromPrimitive>(
             .iter()
             .zip(matrix_row.values().iter())
         {
-            if j != node && val.abs() > T::from_f64(1e-12).unwrap_or_else(T::zero) && !visited[j] {
-                let edge_weight = T::from_f64(3.0).unwrap_or_else(T::zero);
+            if j != node && NumericElement::abs(val) > from_f64(1e-12) && !visited[j] {
+                let edge_weight = from_f64(3.0);
                 let new_dist = current_dist + edge_weight;
                 if new_dist < distances[j] {
                     distances[j] = new_dist;
@@ -216,11 +240,11 @@ fn compute_distance_to_nearest_coarse<T: RealField + Copy + FromPrimitive>(
         }
     }
 
-    T::from_f64(100.0).unwrap_or_else(T::zero)
+    from_f64(100.0)
 }
 
 /// Analyze coarsening quality comprehensively
-pub fn analyze_coarsening_quality<T: RealField + Copy + FromPrimitive + ToPrimitive>(
+pub fn analyze_coarsening_quality<T: RealField + Copy + FloatElement + LetoScalar>(
     result: &CoarseningResult<T>,
     matrix: &SparseMatrix<T>,
 ) -> CoarseningQuality {
@@ -232,8 +256,8 @@ pub fn analyze_coarsening_quality<T: RealField + Copy + FromPrimitive + ToPrimit
         .filter(|x| x.is_some())
         .count();
 
-    let coarsening_ratio = coarse_points as f64 / total_points as f64;
-    let assignment_ratio = assigned_points as f64 / total_points as f64;
+    let coarsening_ratio = ratio_usize(coarse_points, total_points);
+    let assignment_ratio = ratio_usize(assigned_points, total_points);
 
     let mut is_coarse = vec![false; total_points];
     for &cp in &result.coarse_points {
@@ -254,7 +278,10 @@ pub fn analyze_coarsening_quality<T: RealField + Copy + FromPrimitive + ToPrimit
     let avg_interpolation_points = if interpolation_points.is_empty() {
         0.0
     } else {
-        interpolation_points.iter().sum::<usize>() as f64 / interpolation_points.len() as f64
+        ratio_usize(
+            interpolation_points.iter().sum::<usize>(),
+            interpolation_points.len(),
+        )
     };
 
     let max_interpolation_points = interpolation_points.iter().copied().max().unwrap_or(0);

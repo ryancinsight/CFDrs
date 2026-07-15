@@ -17,8 +17,8 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd2dScalar;
+use eunomia::FloatElement;
 
 mod adaptive;
 mod explicit;
@@ -27,17 +27,19 @@ mod multistep;
 #[cfg(test)]
 mod tests;
 mod types;
+mod vector;
 
 pub use adaptive::{AdaptationStrategy, AdaptiveController, AdaptiveTimeIntegrator};
 pub use types::TimeScheme;
+pub use vector::StateVector;
 
 /// Time integrator for ODEs
-pub struct TimeIntegrator<T: RealField + Copy> {
+pub struct TimeIntegrator<T: Cfd2dScalar + Copy> {
     scheme: TimeScheme,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Clone> TimeIntegrator<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement + Clone> TimeIntegrator<T> {
     /// Create new time integrator
     #[must_use]
     pub fn new(scheme: TimeScheme) -> Self {
@@ -69,9 +71,9 @@ impl<T: RealField + Copy + FromPrimitive + Clone> TimeIntegrator<T> {
     /// # Returns
     ///
     /// Solution at time t + dt
-    pub fn step<F>(&self, f: F, y: &DVector<T>, t: T, dt: T) -> DVector<T>
+    pub fn step<F>(&self, f: F, y: &StateVector<T>, t: T, dt: T) -> StateVector<T>
     where
-        F: Fn(T, &DVector<T>) -> DVector<T>,
+        F: Fn(T, &StateVector<T>) -> StateVector<T>,
     {
         match self.scheme {
             TimeScheme::ForwardEuler => explicit::forward_euler(f, y, t, dt),
@@ -140,14 +142,14 @@ impl<T: RealField + Copy + FromPrimitive + Clone> TimeIntegrator<T> {
     pub fn step_with_history<F>(
         &self,
         f: F,
-        y_curr: &DVector<T>,
-        y_prev: Option<&DVector<T>>,
-        y_prev2: Option<&DVector<T>>,
+        y_curr: &StateVector<T>,
+        y_prev: Option<&StateVector<T>>,
+        y_prev2: Option<&StateVector<T>>,
         t: T,
         dt: T,
-    ) -> DVector<T>
+    ) -> StateVector<T>
     where
-        F: Fn(T, &DVector<T>) -> DVector<T>,
+        F: Fn(T, &StateVector<T>) -> StateVector<T>,
     {
         match self.scheme {
             TimeScheme::AdamsBashforth2 => multistep::adams_bashforth2(f, y_curr, y_prev, t, dt),

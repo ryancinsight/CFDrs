@@ -15,7 +15,11 @@
 mod unit {
     use super::super::{TimeIntegrator, TimeScheme};
     use approx::assert_relative_eq;
-    use nalgebra::DVector;
+    use leto::Array1;
+
+    fn state(values: Vec<f64>) -> Array1<f64> {
+        Array1::from_vec([values.len()], values).expect("test vector shape matches data")
+    }
 
     #[test]
     fn test_bdf2_is_implicit() {
@@ -29,14 +33,14 @@ mod unit {
         // BDF2 should remain stable due to A-stability
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::BDF2);
         let lambda = -10.0;
-        let f = move |_t: f64, y: &DVector<f64>| y * lambda;
+        let f = move |_t: f64, y: &Array1<f64>| y * lambda;
 
         let dt = 0.1;
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = state(vec![1.0]);
 
         // First step: use exact solution for better initial history
         // y(dt) = exp(-10*dt)
-        let y1 = DVector::from_vec(vec![(-10.0_f64 * dt).exp()]);
+        let y1 = state(vec![(-10.0_f64 * dt).exp()]);
 
         // Second step with BDF2
         let y2 = integrator.step_with_history(f, &y1, Some(&y0), None, dt, dt);
@@ -56,7 +60,7 @@ mod unit {
         // Verify BDF2 achieves 2nd-order convergence via MMS
         // Test problem: dy/dt = -y, y(0) = 1, exact solution: y(t) = exp(-t)
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::BDF2);
-        let f = |_t: f64, y: &DVector<f64>| -y;
+        let f = |_t: f64, y: &Array1<f64>| -y;
 
         let t_final = 1.0_f64;
         let exact_final = (-t_final).exp();
@@ -67,10 +71,10 @@ mod unit {
 
         for &dt in &dt_values {
             let n_steps = (t_final / dt).round() as usize;
-            let mut y_prev = DVector::from_vec(vec![1.0]);
+            let mut y_prev = state(vec![1.0]);
 
             // First step with exact solution (to start BDF2 properly)
-            let mut y_curr = DVector::from_vec(vec![(-dt).exp()]);
+            let mut y_curr = state(vec![(-dt).exp()]);
 
             // Subsequent steps with BDF2
             for step in 1..n_steps {
@@ -121,15 +125,15 @@ mod unit {
         // Test BDF3 with dy/dt = -y (exponential decay)
         // Exact solution: y(t) = exp(-t)
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::BDF3);
-        let f = |_t: f64, y: &DVector<f64>| -y;
+        let f = |_t: f64, y: &Array1<f64>| -y;
 
         let dt = 0.1_f64;
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = state(vec![1.0]);
 
         // First step with exact solution
-        let y1 = DVector::from_vec(vec![(-dt).exp()]);
+        let y1 = state(vec![(-dt).exp()]);
         // Second step with exact solution
-        let y2 = DVector::from_vec(vec![(-2.0 * dt).exp()]);
+        let y2 = state(vec![(-2.0 * dt).exp()]);
 
         // Third step with BDF3
         let y3 = integrator.step_with_history(f, &y2, Some(&y1), Some(&y0), 2.0 * dt, dt);
@@ -151,14 +155,14 @@ mod unit {
         // BDF3 should remain stable
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::BDF3);
         let lambda = -10.0;
-        let f = move |_t: f64, y: &DVector<f64>| y * lambda;
+        let f = move |_t: f64, y: &Array1<f64>| y * lambda;
 
         let dt = 0.1_f64;
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = state(vec![1.0]);
 
         // First two steps: use exact solution for better initial history
-        let y1 = DVector::from_vec(vec![(-10.0_f64 * dt).exp()]);
-        let y2 = DVector::from_vec(vec![(-10.0_f64 * 2.0 * dt).exp()]);
+        let y1 = state(vec![(-10.0_f64 * dt).exp()]);
+        let y2 = state(vec![(-10.0_f64 * 2.0 * dt).exp()]);
 
         // Third step with BDF3
         let y3 = integrator.step_with_history(f, &y2, Some(&y1), Some(&y0), 2.0 * dt, dt);
@@ -178,7 +182,7 @@ mod unit {
         // Verify BDF3 achieves 3rd-order convergence via MMS
         // Test problem: dy/dt = -y, y(0) = 1, exact solution: y(t) = exp(-t)
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::BDF3);
-        let f = |_t: f64, y: &DVector<f64>| -y;
+        let f = |_t: f64, y: &Array1<f64>| -y;
 
         let t_final = 1.0_f64;
         let exact_final = (-t_final).exp();
@@ -189,11 +193,11 @@ mod unit {
 
         for &dt in &dt_values {
             let n_steps = (t_final / dt).round() as usize;
-            let mut y_prev2 = DVector::from_vec(vec![1.0]);
+            let mut y_prev2 = state(vec![1.0]);
 
             // First two steps with exact solution (to start BDF3 properly)
-            let mut y_prev = DVector::from_vec(vec![(-dt).exp()]);
-            let mut y_curr = DVector::from_vec(vec![(-2.0 * dt).exp()]);
+            let mut y_prev = state(vec![(-dt).exp()]);
+            let mut y_curr = state(vec![(-2.0 * dt).exp()]);
 
             // Subsequent steps with BDF3
             for step in 2..n_steps {
@@ -235,10 +239,10 @@ mod unit {
         // Exact solution: y(t) = exp(-t)
         // Reference: Hairer & Wanner (1996) - Solving ODEs II
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::BackwardEuler);
-        let f = |_t: f64, y: &DVector<f64>| -y;
+        let f = |_t: f64, y: &Array1<f64>| -y;
 
         let dt = 0.1_f64;
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = state(vec![1.0]);
 
         // Single step
         let y1 = integrator.step(f, &y0, 0.0, dt);
@@ -275,10 +279,10 @@ mod unit {
         // Backward Euler should remain stable due to L-stability
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::BackwardEuler);
         let lambda = -10.0;
-        let f = move |_t: f64, y: &DVector<f64>| y * lambda;
+        let f = move |_t: f64, y: &Array1<f64>| y * lambda;
 
         let dt = 0.1_f64;
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = state(vec![1.0]);
 
         // Take several steps
         let mut y = y0;
@@ -301,7 +305,7 @@ mod unit {
         // Verify Backward Euler achieves 1st-order convergence via MMS
         // Test problem: dy/dt = -y, y(0) = 1, exact solution: y(t) = exp(-t)
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::BackwardEuler);
-        let f = |_t: f64, y: &DVector<f64>| -y;
+        let f = |_t: f64, y: &Array1<f64>| -y;
 
         let t_final = 1.0_f64;
         let exact_final = (-t_final).exp();
@@ -312,7 +316,7 @@ mod unit {
 
         for &dt in &dt_values {
             let n_steps = (t_final / dt).round() as usize;
-            let mut y = DVector::from_vec(vec![1.0]);
+            let mut y = state(vec![1.0]);
 
             for step in 0..n_steps {
                 let t = (step as f64) * dt;
@@ -349,10 +353,10 @@ mod unit {
         // Exact solution: y(t) = exp(-t)
         // Reference: Crank & Nicolson (1947), Patankar (1980)
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::CrankNicolson);
-        let f = |_t: f64, y: &DVector<f64>| -y;
+        let f = |_t: f64, y: &Array1<f64>| -y;
 
         let dt = 0.1_f64;
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = state(vec![1.0]);
 
         // Single step
         let y1 = integrator.step(f, &y0, 0.0, dt);
@@ -389,10 +393,10 @@ mod unit {
         // Crank-Nicolson is A-stable and should handle this well
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::CrankNicolson);
         let lambda = -10.0;
-        let f = move |_t: f64, y: &DVector<f64>| y * lambda;
+        let f = move |_t: f64, y: &Array1<f64>| y * lambda;
 
         let dt = 0.1_f64;
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = state(vec![1.0]);
 
         // Single step
         let y1 = integrator.step(f, &y0, 0.0, dt);
@@ -412,7 +416,7 @@ mod unit {
         // Verify Crank-Nicolson achieves 2nd-order convergence via MMS
         // Test problem: dy/dt = -y, y(0) = 1, exact solution: y(t) = exp(-t)
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::CrankNicolson);
-        let f = |_t: f64, y: &DVector<f64>| -y;
+        let f = |_t: f64, y: &Array1<f64>| -y;
 
         let t_final = 1.0_f64;
         let exact_final = (-t_final).exp();
@@ -423,7 +427,7 @@ mod unit {
 
         for &dt in &dt_values {
             let n_steps = (t_final / dt).round() as usize;
-            let mut y = DVector::from_vec(vec![1.0]);
+            let mut y = state(vec![1.0]);
 
             for step in 0..n_steps {
                 let t = (step as f64) * dt;
@@ -460,13 +464,13 @@ mod unit {
         // Exact solution: y(t) = exp(-t)
         // Reference: Butcher (2016) - Numerical Methods for ODEs
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::AdamsBashforth2);
-        let f = |_t: f64, y: &DVector<f64>| -y;
+        let f = |_t: f64, y: &Array1<f64>| -y;
 
         let dt = 0.1_f64;
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = state(vec![1.0]);
 
         // First step with exact solution for proper history
-        let y1 = DVector::from_vec(vec![(-dt).exp()]);
+        let y1 = state(vec![(-dt).exp()]);
 
         // Second step with Adams-Bashforth 2
         let y2 = integrator.step_with_history(f, &y1, Some(&y0), None, dt, dt);
@@ -501,10 +505,10 @@ mod unit {
     fn test_adams_bashforth2_no_history_fallback() {
         // Test that AB2 falls back to RK2 when no history is available
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::AdamsBashforth2);
-        let f = |_t: f64, y: &DVector<f64>| -y;
+        let f = |_t: f64, y: &Array1<f64>| -y;
 
         let dt = 0.1_f64;
-        let y0 = DVector::from_vec(vec![1.0]);
+        let y0 = state(vec![1.0]);
 
         // Call without history (should fall back to RK2)
         let y1 = integrator.step(f, &y0, 0.0, dt);
@@ -519,7 +523,7 @@ mod unit {
         // Verify Adams-Bashforth 2 achieves 2nd-order convergence via MMS
         // Test problem: dy/dt = -y, y(0) = 1, exact solution: y(t) = exp(-t)
         let integrator = TimeIntegrator::<f64>::new(TimeScheme::AdamsBashforth2);
-        let f = |_t: f64, y: &DVector<f64>| -y;
+        let f = |_t: f64, y: &Array1<f64>| -y;
 
         let t_final = 1.0_f64;
         let exact_final = (-t_final).exp();
@@ -530,10 +534,10 @@ mod unit {
 
         for &dt in &dt_values {
             let n_steps = (t_final / dt).round() as usize;
-            let mut y_prev = DVector::from_vec(vec![1.0]);
+            let mut y_prev = state(vec![1.0]);
 
             // First step with exact solution (to start AB2 properly)
-            let mut y_curr = DVector::from_vec(vec![(-dt).exp()]);
+            let mut y_curr = state(vec![(-dt).exp()]);
 
             // Subsequent steps with AB2
             for step in 1..n_steps {

@@ -16,9 +16,10 @@
 //! - Schlichting, H. (1979). "Boundary Layer Theory", 7th ed., McGraw-Hill.
 
 use super::AnalyticalSolution;
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::geometry::Vector3;
 
 /// Blasius boundary layer solution
 #[derive(Debug, Clone)]
@@ -77,7 +78,7 @@ const BLASIUS_TABLE: [(f64, f64, f64, f64); 41] = [
     (8.0, 6.27923, 1.00000, 0.00001),
 ];
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> BlasiusBoundaryLayer<T> {
+impl<T: RealField + Copy + FloatElement> BlasiusBoundaryLayer<T> {
     /// Create new Blasius boundary layer
     pub fn new(u_inf: T, nu: T, x: T) -> Self {
         Self { u_inf, nu, x }
@@ -86,18 +87,18 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> BlasiusBound
     /// Create air flow over flat plate at standard conditions
     pub fn air_flow(u_inf: f64) -> Self {
         Self {
-            u_inf: T::from_f64_or_one(u_inf),
-            nu: T::from_f64_or_one(1.5e-5), // Air kinematic viscosity
-            x: T::from_f64_or_one(1.0),
+            u_inf: scalar::from_f64(u_inf),
+            nu: scalar::from_f64(1.5e-5), // Air kinematic viscosity
+            x: scalar::from_f64(1.0),
         }
     }
 
     /// Create water flow over flat plate
     pub fn water_flow(u_inf: f64) -> Self {
         Self {
-            u_inf: T::from_f64_or_one(u_inf),
-            nu: T::from_f64_or_one(1.0e-6), // Water kinematic viscosity
-            x: T::from_f64_or_one(1.0),
+            u_inf: scalar::from_f64(u_inf),
+            nu: scalar::from_f64(1.0e-6), // Water kinematic viscosity
+            x: scalar::from_f64(1.0),
         }
     }
 
@@ -109,57 +110,57 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> BlasiusBound
     /// Calculate boundary layer thickness (99% of free-stream velocity)
     /// δ ≈ 5.0 * sqrt(νx/U) = 5.0x / sqrt(Re_x)
     pub fn boundary_layer_thickness(&self) -> T {
-        let five = T::from_f64_or_one(5.0);
-        five * (self.nu * self.x / self.u_inf).sqrt()
+        let five = scalar::from_f64::<T>(5.0);
+        five * scalar::sqrt(self.nu * self.x / self.u_inf)
     }
 
     /// Calculate displacement thickness
     /// δ* ≈ 1.72 * sqrt(νx/U) = 1.72x / sqrt(Re_x)
     pub fn displacement_thickness(&self) -> T {
-        let factor = T::from_f64_or_one(1.7208);
-        factor * (self.nu * self.x / self.u_inf).sqrt()
+        let factor = scalar::from_f64::<T>(1.7208);
+        factor * scalar::sqrt(self.nu * self.x / self.u_inf)
     }
 
     /// Calculate momentum thickness
     /// θ ≈ 0.664 * sqrt(νx/U) = 0.664x / sqrt(Re_x)
     pub fn momentum_thickness(&self) -> T {
-        let factor = T::from_f64_or_one(0.664);
-        factor * (self.nu * self.x / self.u_inf).sqrt()
+        let factor = scalar::from_f64::<T>(0.664);
+        factor * scalar::sqrt(self.nu * self.x / self.u_inf)
     }
 
     /// Calculate shape factor H = δ*/θ
     /// For Blasius: H ≈ 2.59
     pub fn shape_factor(&self) -> T {
-        T::from_f64_or_one(2.591)
+        scalar::from_f64(2.591)
     }
 
     /// Calculate wall shear stress
     /// τ_w = 0.332 * μ * U * sqrt(U/(νx))
     pub fn wall_shear_stress(&self) -> T {
-        let factor = T::from_f64_or_one(0.332);
+        let factor = scalar::from_f64::<T>(0.332);
         let mu = self.nu; // Assuming unit density for simplicity
-        factor * mu * self.u_inf * (self.u_inf / (self.nu * self.x)).sqrt()
+        factor * mu * self.u_inf * scalar::sqrt(self.u_inf / (self.nu * self.x))
     }
 
     /// Calculate skin friction coefficient
     /// Cf = 0.664 / sqrt(Re_x)
     pub fn skin_friction_coefficient(&self) -> T {
-        let factor = T::from_f64_or_one(0.664);
-        factor / self.local_reynolds().sqrt()
+        let factor = scalar::from_f64::<T>(0.664);
+        factor / scalar::sqrt(self.local_reynolds())
     }
 
     /// Calculate similarity variable η = y * sqrt(U/(νx))
     pub fn similarity_variable(&self, y: T) -> T {
-        y * (self.u_inf / (self.nu * self.x)).sqrt()
+        y * scalar::sqrt(self.u_inf / (self.nu * self.x))
     }
 
     /// Get normalized velocity u/U at similarity variable η
     /// Uses linear interpolation from tabulated Blasius solution
     fn velocity_ratio_at_eta(&self, eta: T) -> T {
-        let eta_f64 = eta.to_f64().unwrap_or(0.0);
-        let zero = T::zero();
-        let one = T::one();
-        let eight = T::from_f64_or_one(8.0);
+        let eta_f64 = scalar::to_f64(eta);
+        let zero = scalar::zero::<T>();
+        let one = scalar::one::<T>();
+        let eight = scalar::from_f64(8.0);
 
         if eta <= zero {
             return zero;
@@ -178,24 +179,24 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> BlasiusBound
         let (eta2, _, f2, _) = BLASIUS_TABLE[i + 1];
 
         // Linear interpolation
-        let frac = T::from_f64_or_one((eta_f64 - eta1) / (eta2 - eta1));
-        T::from_f64_or_one(f1) + frac * (T::from_f64_or_one(f2) - T::from_f64_or_one(f1))
+        let frac = scalar::from_f64::<T>((eta_f64 - eta1) / (eta2 - eta1));
+        scalar::from_f64::<T>(f1) + frac * (scalar::from_f64::<T>(f2) - scalar::from_f64::<T>(f1))
     }
 
     /// Get velocity at physical coordinates (x, y)
     /// Note: x should be >= self.x (downstream of leading edge)
     pub fn velocity_at(&self, x: T, y: T) -> T {
         // Adjust for different x positions
-        let local_eta = y * (self.u_inf / (self.nu * x)).sqrt();
+        let local_eta = y * scalar::sqrt(self.u_inf / (self.nu * x));
         self.velocity_ratio_at_eta(local_eta) * self.u_inf
     }
 
     /// Get wall-normal velocity component v/U at similarity variable
     /// v/U = (1/2) * sqrt(ν/(Ux)) * (ηf' - f)
     fn normal_velocity_ratio_at_eta(&self, eta: T) -> T {
-        let eta_f64 = eta.to_f64().unwrap_or(0.0);
-        let zero = T::zero();
-        let eight = T::from_f64_or_one(8.0);
+        let eta_f64 = scalar::to_f64(eta);
+        let zero = scalar::zero::<T>();
+        let eight = scalar::from_f64(8.0);
 
         if eta <= zero {
             return zero;
@@ -219,32 +220,30 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> BlasiusBound
         let fp = fp1 + frac * (fp2 - fp1);
 
         // Calculate (ηf' - f) / 2
-        T::from_f64_or_one((eta_f64 * fp - f) * 0.5)
+        scalar::from_f64((eta_f64 * fp - f) * 0.5)
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> AnalyticalSolution<T>
-    for BlasiusBoundaryLayer<T>
-{
+impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for BlasiusBoundaryLayer<T> {
     fn evaluate(&self, x: T, y: T, _z: T, _t: T) -> Vector3<T> {
-        if x <= T::zero() {
-            return Vector3::new(self.u_inf, T::zero(), T::zero());
+        if x <= scalar::zero::<T>() {
+            return Vector3::new(self.u_inf, scalar::zero::<T>(), scalar::zero::<T>());
         }
 
         let eta = self.similarity_variable(y);
         let u = self.velocity_ratio_at_eta(eta) * self.u_inf;
 
         // v-velocity (wall-normal)
-        let sqrt_term = (self.nu / (self.u_inf * x)).sqrt();
+        let sqrt_term = scalar::sqrt(self.nu / (self.u_inf * x));
         let v_ratio = self.normal_velocity_ratio_at_eta(eta);
         let v = sqrt_term * v_ratio * self.u_inf;
 
-        Vector3::new(u, v, T::zero())
+        Vector3::new(u, v, scalar::zero::<T>())
     }
 
     fn pressure(&self, _x: T, _y: T, _z: T, _t: T) -> T {
         // Constant pressure across boundary layer (first-order boundary layer theory)
-        T::zero()
+        scalar::zero::<T>()
     }
 
     fn name(&self) -> &'static str {
@@ -253,14 +252,14 @@ impl<T: RealField + Copy + FromPrimitive + num_traits::ToPrimitive> AnalyticalSo
 
     fn domain_bounds(&self) -> [T; 6] {
         let delta = self.boundary_layer_thickness();
-        let length = T::from_f64_or_one(10.0) * self.x;
+        let length = scalar::from_f64::<T>(10.0) * self.x;
         [
-            T::zero(),
+            scalar::zero::<T>(),
             length, // x: [0, 10x]
-            T::zero(),
-            delta * T::from_f64_or_one(5.0), // y: [0, 5δ]
-            T::zero(),
-            T::zero(), // z: 0 (2D flow)
+            scalar::zero::<T>(),
+            delta * scalar::from_f64::<T>(5.0), // y: [0, 5δ]
+            scalar::zero::<T>(),
+            scalar::zero::<T>(), // z: 0 (2D flow)
         ]
     }
 

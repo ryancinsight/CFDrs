@@ -31,7 +31,7 @@ use cfd_3d::vof::{
     CavitationVofSolver, InterfaceReconstruction, VofConfig,
 };
 use cfd_core::physics::cavitation::{damage::CavitationDamage, models::CavitationModel};
-use nalgebra::Vector3;
+use leto::{geometry::Vector3, Array2};
 use std::time::Instant;
 
 /// Simulation configuration
@@ -210,6 +210,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Run simulation
     println!("🚀 Starting cavitation simulation...");
     let start_time = Instant::now();
+    let pressure_matrix = Array2::from_shape_vec(
+        [config.nx, config.ny * config.nz],
+        pressure_field.clone(),
+    )
+    .expect("valid pressure field shape");
+    let density_matrix = Array2::from_shape_vec(
+        [config.nx, config.ny * config.nz],
+        density_field.clone(),
+    )
+    .expect("valid density field shape");
 
     let mut results = SimulationResults {
         time_steps: Vec::new(),
@@ -227,8 +237,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         solver.step(
             config.dt,
             &velocity_field,
-            &nalgebra::DMatrix::from_row_slice(config.nx, config.ny * config.nz, &pressure_field),
-            &nalgebra::DMatrix::from_row_slice(config.nx, config.ny * config.nz, &density_field),
+            &pressure_matrix,
+            &density_matrix,
         )?;
 
         time += config.dt;
@@ -254,7 +264,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             results.pressure_field.push(pressure_field.clone());
 
             if let Some(damage) = solver.damage_field() {
-                results.damage_field.push(damage.data.as_vec().clone());
+                results.damage_field.push(damage.iter().copied().collect());
             }
         }
     }

@@ -6,13 +6,13 @@
 //! faithful than a generic T-junction heuristic.
 
 use super::wrapper::Network;
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::physics::fluid::FluidTrait;
 use cfd_schematics::domain::model::NetworkBlueprint;
 use cfd_schematics::geometry::metadata::{
     JunctionFamily, JunctionGeometryMetadata, MetadataContainer,
 };
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
 use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
 
@@ -37,7 +37,7 @@ pub(crate) fn apply_blueprint_junction_losses<T, F>(
     blueprint: &NetworkBlueprint,
 ) -> JunctionLossAuditStats
 where
-    T: RealField + Copy + FromPrimitive,
+    T: Cfd1dScalar + Copy + SafeFromF64,
     F: FluidTrait<T> + Clone,
 {
     use crate::domain::network::NodeType;
@@ -46,12 +46,12 @@ where
     // Derive fluid density from the network's fluid model at reference conditions
     // (body temperature 310.15 K, atmospheric pressure 101 325 Pa).
     // Falls back to 1060 kg/m³ (whole-blood reference) if the fluid query fails.
-    let rho_ref_t = T::from_f64(310.15).expect("Mathematical constant conversion compromised");
-    let p_ref_t = T::from_f64(101_325.0).expect("Mathematical constant conversion compromised");
-    let rho_blood: T = network.fluid.properties_at(rho_ref_t, p_ref_t).map_or_else(
-        |_| T::from_f64(1060.0).expect("Mathematical constant conversion compromised"),
-        |state| state.density,
-    );
+    let rho_ref_t = T::from_f64_or_zero(310.15);
+    let p_ref_t = T::from_f64_or_zero(101_325.0);
+    let rho_blood: T = network
+        .fluid
+        .properties_at(rho_ref_t, p_ref_t)
+        .map_or_else(|_| T::from_f64_or_zero(1060.0), |state| state.density);
     let two: T = T::one() + T::one();
 
     let blueprint_node_meta: HashMap<
@@ -144,11 +144,9 @@ where
         );
         let k_run = scale_k_by_angle(profile.run_k, run_angle, profile.run_angle_ref_deg, true);
 
-        let k_branch_t =
-            T::from_f64(k_branch).expect("Mathematical constant conversion compromised");
-        let k_run_t = T::from_f64(k_run).expect("Mathematical constant conversion compromised");
-        let exp_t = T::from_f64(profile.area_ratio_exp)
-            .expect("Mathematical constant conversion compromised");
+        let k_branch_t = T::from_f64_or_zero(k_branch);
+        let k_run_t = T::from_f64_or_zero(k_run);
+        let exp_t = T::from_f64_or_zero(profile.area_ratio_exp);
 
         let run_area = run_edges
             .first()
@@ -169,7 +167,9 @@ where
                 }
                 let area_ratio_scale = run_area
                     .filter(|area| *area > T::zero())
-                    .map_or(T::one(), |run_area| (edge.area / run_area).powf(exp_t));
+                    .map_or(T::one(), |run_area| {
+                        <T as eunomia::FloatElement>::powf(edge.area / run_area, exp_t)
+                    });
                 let k_correction = (k_branch_t * area_ratio_scale) * rho_blood / (two * area_sq);
                 edge.quad_coeff += k_correction;
             }
@@ -182,8 +182,9 @@ where
                     continue;
                 }
                 let area_ratio_scale = if branch_area_sum > T::zero() && edge.area > T::zero() {
-                    (branch_area_sum / edge.area).powf(
-                        T::from_f64(0.25).expect("Mathematical constant conversion compromised"),
+                    <T as eunomia::FloatElement>::powf(
+                        branch_area_sum / edge.area,
+                        T::from_f64_or_zero(0.25),
                     )
                 } else {
                     T::one()

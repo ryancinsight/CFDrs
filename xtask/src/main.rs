@@ -25,6 +25,8 @@ use std::env;
 use std::path::{Path, PathBuf};
 use xshell::{cmd, Shell};
 
+mod migration_audit;
+
 #[derive(Parser)]
 #[command(name = "xtask")]
 #[command(about = "Build automation for CFD-rs validation")]
@@ -106,6 +108,10 @@ enum Commands {
 
     /// Check if compilation errors exist
     Check,
+    /// Audit legacy nalgebra/ndarray/burn/tokio/rayon migration surface.
+    LegacyMigrationAudit,
+    /// Refresh the legacy migration allowlist baseline file.
+    RefreshLegacyAllowlist,
 }
 
 fn main() -> Result<()> {
@@ -126,6 +132,8 @@ fn main() -> Result<()> {
         Commands::All { with_fenics, plot } => run_all(&sh, with_fenics, plot),
         Commands::Clean => clean(&sh),
         Commands::Check => check_compilation(&sh),
+        Commands::LegacyMigrationAudit => migration_audit::print_legacy_migration_audit(&project_root()),
+        Commands::RefreshLegacyAllowlist => migration_audit::refresh_legacy_allowlist(&project_root()),
     }
 }
 

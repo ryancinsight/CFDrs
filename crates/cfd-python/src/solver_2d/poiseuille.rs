@@ -1,6 +1,7 @@
 //! 2D Poiseuille flow solver `PyO3` wrapper.
 
-use nalgebra::DMatrix;
+use super::pyarray2_from_leto;
+use leto::Array2;
 use numpy::PyArray2;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -61,20 +62,14 @@ impl PyPoiseuille2DSolver {
         pressure_gradient: f64,
         viscosity: f64,
     ) -> PyResult<Bound<'py, PyArray2<f64>>> {
-        let mut u = DMatrix::<f64>::zeros(self.ny, self.nx);
         let dy = self.height / (self.ny - 1) as f64;
 
-        for j in 0..self.ny {
+        let u = Array2::from_shape_fn([self.ny, self.nx], |[j, _i]| {
             let y = j as f64 * dy;
-            let u_val = (-pressure_gradient / (2.0 * viscosity)) * y * (self.height - y);
-            for i in 0..self.nx {
-                u[(j, i)] = u_val;
-            }
-        }
+            (-pressure_gradient / (2.0 * viscosity)) * y * (self.height - y)
+        });
 
-        // Convert DMatrix to ndarray Array2
-        let array = ndarray::Array2::from_shape_fn((self.ny, self.nx), |(j, i)| u[(j, i)]);
-        Ok(PyArray2::from_owned_array_bound(py, array))
+        pyarray2_from_leto(py, u)
     }
 
     /// Compute analytical maximum velocity

@@ -26,9 +26,12 @@
 #![allow(clippy::return_self_not_must_use)] // Builder patterns used internally
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 
+mod leto_arrays;
+
 pub mod binary;
 pub mod checkpoint;
 pub mod csv;
+pub mod error;
 #[cfg(feature = "hdf5")]
 pub mod hdf5;
 #[cfg(feature = "vtk")]

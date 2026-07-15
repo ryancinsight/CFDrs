@@ -23,16 +23,15 @@
 //! - Optimal for complex CFD problems
 
 use cfd_2d::schemes::time::{
-    AdaptationStrategy, AdaptiveController, AdaptiveTimeIntegrator, TimeScheme,
+    AdaptationStrategy, AdaptiveController, AdaptiveTimeIntegrator, StateVector, TimeScheme,
 };
-use nalgebra::DVector;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Adaptive Time Stepping Demonstration");
     println!("====================================");
 
     // Test problem: dy/dt = -2y, exact solution: y(t) = y₀ * exp(-2t)
-    let y0 = DVector::from_vec(vec![1.0]);
+    let y0 = StateVector::from_shape_vec([1], vec![1.0]).expect("shape matches");
     let t_final = 2.0;
 
     println!("Test problem: dy/dt = -2y, y(0) = 1");
@@ -55,9 +54,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Right-hand side of the test ODE: dy/dt = -2y
-fn test_ode(_t: f64, y: &DVector<f64>) -> DVector<f64> {
-    let mut f = DVector::zeros(y.len());
-    for i in 0..y.len() {
+fn test_ode(_t: f64, y: &StateVector<f64>) -> StateVector<f64> {
+    let n = y.shape()[0];
+    let mut f = StateVector::zeros([n]);
+    for i in 0..n {
         f[i] = -2.0 * y[i];
     }
     f
@@ -69,7 +69,7 @@ fn exact_solution(t: f64, y0: f64) -> f64 {
 }
 
 fn demonstrate_cfl_adaptation(
-    y0: &DVector<f64>,
+    y0: &StateVector<f64>,
     t_final: f64,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("--- CFL-Based Adaptive Time Stepping ---");
@@ -127,7 +127,7 @@ fn demonstrate_cfl_adaptation(
 }
 
 fn demonstrate_error_adaptation(
-    y0: &DVector<f64>,
+    y0: &StateVector<f64>,
     t_final: f64,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("--- Error-Based Adaptive Time Stepping ---");
@@ -202,7 +202,7 @@ fn demonstrate_error_adaptation(
 }
 
 fn demonstrate_combined_adaptation(
-    y0: &DVector<f64>,
+    y0: &StateVector<f64>,
     t_final: f64,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("--- Combined CFL + Error Adaptive Time Stepping ---");
@@ -290,12 +290,14 @@ fn demonstrate_combined_adaptation(
 }
 
 /// Simple Euler integration for demonstration
-fn integrate_step<F>(f: &F, y: &DVector<f64>, t: f64, dt: f64) -> DVector<f64>
+fn integrate_step<F>(f: &F, y: &StateVector<f64>, t: f64, dt: f64) -> StateVector<f64>
 where
-    F: Fn(f64, &DVector<f64>) -> DVector<f64>,
+    F: Fn(f64, &StateVector<f64>) -> StateVector<f64>,
 {
-    // Simple Euler step for demonstration
-    // In practice, use the full adaptive integrator
     let k1 = f(t, y);
-    y + k1 * dt
+    let mut y_next = y.clone();
+    for i in 0..y_next.shape()[0] {
+        y_next[i] += k1[i] * dt;
+    }
+    y_next
 }

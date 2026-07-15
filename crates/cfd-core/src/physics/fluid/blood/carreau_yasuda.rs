@@ -1,8 +1,8 @@
 use super::constants;
 use crate::error::Error;
 use crate::physics::fluid::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Carreau-Yasuda blood model for wide shear rate range
@@ -52,7 +52,7 @@ pub struct CarreauYasudaBlood<T: RealField + Copy> {
     pub reference_shear_rate: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> CarreauYasudaBlood<T> {
+impl<T: RealField + FloatElement + Copy> CarreauYasudaBlood<T> {
     /// Create Carreau-Yasuda blood model with literature-validated parameters
     ///
     /// Uses parameters from Cho & Kensey (1991):
@@ -63,26 +63,21 @@ impl<T: RealField + FromPrimitive + Copy> CarreauYasudaBlood<T> {
     /// - a = 2.0
     pub fn normal_blood() -> Self {
         Self {
-            density: T::from_f64(constants::BLOOD_DENSITY).unwrap_or_else(num_traits::Zero::zero),
-            zero_shear_viscosity: T::from_f64(constants::ZERO_SHEAR_VISCOSITY)
-                .unwrap_or_else(num_traits::Zero::zero),
-            infinite_shear_viscosity: T::from_f64(constants::INFINITE_SHEAR_VISCOSITY)
-                .unwrap_or_else(num_traits::Zero::zero),
-            relaxation_time: T::from_f64(constants::CARREAU_LAMBDA)
-                .unwrap_or_else(num_traits::Zero::zero),
-            power_law_index: T::from_f64(constants::CARREAU_N)
-                .unwrap_or_else(num_traits::Zero::zero),
-            transition_parameter: T::from_f64(constants::CARREAU_A)
-                .unwrap_or_else(num_traits::Zero::zero),
-            hematocrit: T::from_f64(constants::NORMAL_HEMATOCRIT)
-                .unwrap_or_else(num_traits::Zero::zero),
-            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT)
-                .unwrap_or_else(num_traits::Zero::zero),
-            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY)
-                .unwrap_or_else(num_traits::Zero::zero),
-            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND)
-                .unwrap_or_else(num_traits::Zero::zero),
-            reference_shear_rate: T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero),
+            density: <T as FloatElement>::from_f64(constants::BLOOD_DENSITY),
+            zero_shear_viscosity: <T as FloatElement>::from_f64(constants::ZERO_SHEAR_VISCOSITY),
+            infinite_shear_viscosity: <T as FloatElement>::from_f64(
+                constants::INFINITE_SHEAR_VISCOSITY,
+            ),
+            relaxation_time: <T as FloatElement>::from_f64(constants::CARREAU_LAMBDA),
+            power_law_index: <T as FloatElement>::from_f64(constants::CARREAU_N),
+            transition_parameter: <T as FloatElement>::from_f64(constants::CARREAU_A),
+            hematocrit: <T as FloatElement>::from_f64(constants::NORMAL_HEMATOCRIT),
+            specific_heat: <T as FloatElement>::from_f64(constants::BLOOD_SPECIFIC_HEAT),
+            thermal_conductivity: <T as FloatElement>::from_f64(
+                constants::BLOOD_THERMAL_CONDUCTIVITY,
+            ),
+            speed_of_sound: <T as FloatElement>::from_f64(constants::BLOOD_SPEED_OF_SOUND),
+            reference_shear_rate: <T as FloatElement>::from_f64(100.0),
         }
     }
 
@@ -105,13 +100,12 @@ impl<T: RealField + FromPrimitive + Copy> CarreauYasudaBlood<T> {
             power_law_index,
             transition_parameter,
             hematocrit,
-            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT)
-                .unwrap_or_else(num_traits::Zero::zero),
-            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY)
-                .unwrap_or_else(num_traits::Zero::zero),
-            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND)
-                .unwrap_or_else(num_traits::Zero::zero),
-            reference_shear_rate: T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero),
+            specific_heat: <T as FloatElement>::from_f64(constants::BLOOD_SPECIFIC_HEAT),
+            thermal_conductivity: <T as FloatElement>::from_f64(
+                constants::BLOOD_THERMAL_CONDUCTIVITY,
+            ),
+            speed_of_sound: <T as FloatElement>::from_f64(constants::BLOOD_SPEED_OF_SOUND),
+            reference_shear_rate: <T as FloatElement>::from_f64(100.0),
         }
     }
 
@@ -126,10 +120,10 @@ impl<T: RealField + FromPrimitive + Copy> CarreauYasudaBlood<T> {
     /// - As γ̇ → 0: μ → μ_0 (zero-shear viscosity)
     /// - As γ̇ → ∞: μ → μ_∞ (infinite-shear viscosity)
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
-        let one = T::one();
+        let one = <T as NumericElement>::ONE;
 
         // Handle zero shear rate
-        if shear_rate <= T::zero() {
+        if shear_rate <= <T as NumericElement>::ZERO {
             return self.zero_shear_viscosity;
         }
 
@@ -137,7 +131,7 @@ impl<T: RealField + FromPrimitive + Copy> CarreauYasudaBlood<T> {
         let lambda_gamma = self.relaxation_time * shear_rate;
 
         // (λγ̇)^a
-        let lambda_gamma_a = lambda_gamma.powf(self.transition_parameter);
+        let lambda_gamma_a = <T as FloatElement>::powf(lambda_gamma, self.transition_parameter);
 
         // 1 + (λγ̇)^a
         let bracketed = one + lambda_gamma_a;
@@ -146,7 +140,7 @@ impl<T: RealField + FromPrimitive + Copy> CarreauYasudaBlood<T> {
         let exponent = (self.power_law_index - one) / self.transition_parameter;
 
         // [1 + (λγ̇)^a]^((n-1)/a)
-        let shear_factor = bracketed.powf(exponent);
+        let shear_factor = <T as FloatElement>::powf(bracketed, exponent);
 
         // μ_∞ + (μ_0 - μ_∞) · shear_factor
         self.infinite_shear_viscosity
@@ -155,15 +149,15 @@ impl<T: RealField + FromPrimitive + Copy> CarreauYasudaBlood<T> {
 
     /// Validate model parameters
     pub fn validate(&self) -> Result<(), Error> {
-        if self.density <= T::zero() {
+        if self.density <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput("Density must be positive".to_string()));
         }
-        if self.zero_shear_viscosity <= T::zero() {
+        if self.zero_shear_viscosity <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Zero-shear viscosity must be positive".to_string(),
             ));
         }
-        if self.infinite_shear_viscosity <= T::zero() {
+        if self.infinite_shear_viscosity <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Infinite-shear viscosity must be positive".to_string(),
             ));
@@ -173,17 +167,19 @@ impl<T: RealField + FromPrimitive + Copy> CarreauYasudaBlood<T> {
                 "Infinite-shear viscosity must be less than zero-shear viscosity".to_string(),
             ));
         }
-        if self.relaxation_time <= T::zero() {
+        if self.relaxation_time <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Relaxation time must be positive".to_string(),
             ));
         }
-        if self.power_law_index <= T::zero() || self.power_law_index >= T::one() {
+        if self.power_law_index <= <T as NumericElement>::ZERO
+            || self.power_law_index >= <T as NumericElement>::ONE
+        {
             return Err(Error::InvalidInput(
                 "Power-law index must be in (0, 1) for shear-thinning".to_string(),
             ));
         }
-        if self.transition_parameter <= T::zero() {
+        if self.transition_parameter <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Transition parameter must be positive".to_string(),
             ));
@@ -192,7 +188,7 @@ impl<T: RealField + FromPrimitive + Copy> CarreauYasudaBlood<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CarreauYasudaBlood<T> {
+impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CarreauYasudaBlood<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
@@ -217,7 +213,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CarreauYasudaBlood<T
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for CarreauYasudaBlood<T> {
+impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for CarreauYasudaBlood<T> {
     fn apparent_viscosity(&self, shear_rate: T) -> T {
         CarreauYasudaBlood::apparent_viscosity(self, shear_rate)
     }

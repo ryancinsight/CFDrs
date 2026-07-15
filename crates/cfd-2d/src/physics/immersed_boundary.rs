@@ -91,7 +91,8 @@
 //! the fluid–structure system, guaranteeing stability of the coupled solver.
 
 use cfd_core::error::{Error, Result};
-use nalgebra::{DMatrix, Vector2};
+use leto::geometry::Vector2;
+use leto::Array2;
 
 /// Immersed boundary configuration
 #[derive(Debug, Clone, Copy)]
@@ -213,8 +214,10 @@ impl ImmersedBoundaryMethod {
             let cos_angle = angle.cos();
             let sin_angle = angle.sin();
 
-            let position =
-                Vector2::new(center.x + radius * cos_angle, center.y + radius * sin_angle);
+            let position = Vector2::new(
+                center[0] + radius * cos_angle,
+                center[1] + radius * sin_angle,
+            );
 
             let point = BoundaryPoint {
                 position,
@@ -231,8 +234,8 @@ impl ImmersedBoundaryMethod {
     ///
     /// # Arguments
     ///
-    /// * `force_matrix` - Output force field (nx x ny x 2)
-    pub fn spread_forces(&self, force_matrix: &mut DMatrix<f64>) -> Result<()> {
+    /// * `force_matrix` - Output force field with shape `[nx * ny, 2]`
+    pub fn spread_forces(&self, force_matrix: &mut Array2<f64>) -> Result<()> {
         // Initialize force matrix to zero
         force_matrix.fill(0.0);
 
@@ -247,10 +250,10 @@ impl ImmersedBoundaryMethod {
     fn spread_single_force(
         &self,
         point: &BoundaryPoint,
-        force_matrix: &mut DMatrix<f64>,
+        force_matrix: &mut Array2<f64>,
     ) -> Result<()> {
-        let pos_x = point.position.x / self.dx;
-        let pos_y = point.position.y / self.dy;
+        let pos_x = point.position[0] / self.dx;
+        let pos_y = point.position[1] / self.dy;
 
         // Find grid cell containing the boundary point
         let i_center = (pos_x.floor() as usize).min(self.grid_size.0 - 1);
@@ -272,8 +275,8 @@ impl ImmersedBoundaryMethod {
                 let grid_x = i as f64 * self.dx;
                 let grid_y = j as f64 * self.dy;
 
-                let dx_dist = (grid_x - point.position.x) / self.dx;
-                let dy_dist = (grid_y - point.position.y) / self.dy;
+                let dx_dist = (grid_x - point.position[0]) / self.dx;
+                let dy_dist = (grid_y - point.position[1]) / self.dy;
 
                 // Discrete delta function (4-point for 2D)
                 let delta_x = self.discrete_delta(dx_dist);
@@ -281,11 +284,10 @@ impl ImmersedBoundaryMethod {
                 let delta = delta_x * delta_y;
 
                 // Spread forces to u and v components
-                let matrix_idx_u = 2 * (j * self.grid_size.0 + i);
-                let matrix_idx_v = 2 * (j * self.grid_size.0 + i) + 1;
+                let matrix_cell = j * self.grid_size.0 + i;
 
-                force_matrix[matrix_idx_u] += delta * point.force.x * point.segment_length;
-                force_matrix[matrix_idx_v] += delta * point.force.y * point.segment_length;
+                force_matrix[[matrix_cell, 0]] += delta * point.force[0] * point.segment_length;
+                force_matrix[[matrix_cell, 1]] += delta * point.force[1] * point.segment_length;
             }
         }
 
@@ -296,10 +298,10 @@ impl ImmersedBoundaryMethod {
     ///
     /// # Arguments
     ///
-    /// * `velocity_matrix` - Fluid velocity field (nx x ny x 2)
+    /// * `velocity_matrix` - Fluid velocity field with shape `[nx * ny, 2]`
     pub fn interpolate_velocities(
         &self,
-        velocity_matrix: &DMatrix<f64>,
+        velocity_matrix: &Array2<f64>,
     ) -> Result<Vec<Vector2<f64>>> {
         let mut interpolated_velocities = Vec::with_capacity(self.boundary_points.len());
 
@@ -315,10 +317,10 @@ impl ImmersedBoundaryMethod {
     fn interpolate_single_velocity(
         &self,
         point: &BoundaryPoint,
-        velocity_matrix: &DMatrix<f64>,
+        velocity_matrix: &Array2<f64>,
     ) -> Result<Vector2<f64>> {
-        let pos_x = point.position.x / self.dx;
-        let pos_y = point.position.y / self.dy;
+        let pos_x = point.position[0] / self.dx;
+        let pos_y = point.position[1] / self.dy;
 
         let i_center = (pos_x.floor() as usize).min(self.grid_size.0 - 1);
         let j_center = (pos_y.floor() as usize).min(self.grid_size.1 - 1);
@@ -340,18 +342,17 @@ impl ImmersedBoundaryMethod {
                 let grid_x = i as f64 * self.dx;
                 let grid_y = j as f64 * self.dy;
 
-                let dx_dist = (grid_x - point.position.x) / self.dx;
-                let dy_dist = (grid_y - point.position.y) / self.dy;
+                let dx_dist = (grid_x - point.position[0]) / self.dx;
+                let dy_dist = (grid_y - point.position[1]) / self.dy;
 
                 let delta_x = self.discrete_delta(dx_dist);
                 let delta_y = self.discrete_delta(dy_dist);
                 let delta = delta_x * delta_y;
 
-                let matrix_idx_u = 2 * (j * self.grid_size.0 + i);
-                let matrix_idx_v = 2 * (j * self.grid_size.0 + i) + 1;
+                let matrix_cell = j * self.grid_size.0 + i;
 
-                u_interp += delta * velocity_matrix[matrix_idx_u];
-                v_interp += delta * velocity_matrix[matrix_idx_v];
+                u_interp += delta * velocity_matrix[[matrix_cell, 0]];
+                v_interp += delta * velocity_matrix[[matrix_cell, 1]];
             }
         }
 
@@ -425,7 +426,6 @@ impl ImmersedBoundaryMethod {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use num_traits::ToPrimitive;
 
     #[test]
     fn test_immersed_boundary_creation() {
@@ -447,8 +447,8 @@ mod tests {
 
         // Check that points are on circle
         for point in &ibm.boundary_points {
-            let dx = point.position.x - center.x;
-            let dy = point.position.y - center.y;
+            let dx = point.position[0] - center[0];
+            let dy = point.position[1] - center[1];
             let radius = (dx * dx + dy * dy).sqrt();
             assert_relative_eq!(radius, 0.2, epsilon = 1e-10);
             assert_eq!(point.desired_velocity, velocity);
@@ -486,7 +486,7 @@ mod tests {
         };
         ibm.add_boundary_point(point);
 
-        let mut force_matrix = DMatrix::zeros(16 * 16 * 2, 1);
+        let mut force_matrix = Array2::zeros([16 * 16, 2]);
 
         ibm.spread_forces(&mut force_matrix).unwrap();
 
@@ -509,24 +509,23 @@ mod tests {
         ibm.add_boundary_point(point);
 
         // Create velocity field with constant velocity
-        let mut velocity_matrix = DMatrix::zeros(16 * 16 * 2, 1);
+        let mut velocity_matrix = Array2::zeros([16 * 16, 2]);
         let constant_u = 1.5;
         let constant_v = -0.8;
 
         for i in 0..16 {
             for j in 0..16 {
-                let idx_u = 2 * (j * 16 + i);
-                let idx_v = 2 * (j * 16 + i) + 1;
-                velocity_matrix[idx_u] = constant_u;
-                velocity_matrix[idx_v] = constant_v;
+                let cell = j * 16 + i;
+                velocity_matrix[[cell, 0]] = constant_u;
+                velocity_matrix[[cell, 1]] = constant_v;
             }
         }
 
         let velocities = ibm.interpolate_velocities(&velocity_matrix).unwrap();
 
         assert_eq!(velocities.len(), 1);
-        assert_relative_eq!(velocities[0].x, constant_u, epsilon = 1e-10);
-        assert_relative_eq!(velocities[0].y, constant_v, epsilon = 1e-10);
+        assert_relative_eq!(velocities[0][0], constant_u, epsilon = 1e-10);
+        assert_relative_eq!(velocities[0][1], constant_v, epsilon = 1e-10);
     }
 
     #[test]
@@ -547,12 +546,12 @@ mod tests {
         ibm.update_forces(&current_velocities).unwrap();
 
         // Force should be (1/regularization, 0)
-        let expected_force_x = 1.0 / ibm.config().regularization.to_f64().unwrap();
+        let expected_force_x = 1.0 / ibm.config().regularization;
         assert_relative_eq!(
-            ibm.boundary_points[0].force.x,
+            ibm.boundary_points[0].force[0],
             expected_force_x,
             epsilon = 1e-10
         );
-        assert_eq!(ibm.boundary_points[0].force.y, 0.0);
+        assert_eq!(ibm.boundary_points[0].force[1], 0.0);
     }
 }

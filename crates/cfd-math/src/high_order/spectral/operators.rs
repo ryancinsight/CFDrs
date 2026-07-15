@@ -3,15 +3,18 @@
 //! This module provides implementations of differential operators and numerical
 //! integration for spectral element methods.
 
-use super::{compute_lgl_nodes, compute_lgl_weights, SpectralElement};
+use super::{
+    compute_lgl_nodes, compute_lgl_weights, mat_vec_mul, vector_from_vec, SpectralElement,
+};
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
-use nalgebra::{DMatrix, DVector};
+use leto::{Array1, Array2};
+use leto_ops::MatrixSolve;
 
 /// Spectral differentiation operator
 pub struct SpectralDiffOp {
     /// Differentiation matrix
-    d_matrix: DMatrix<f64>,
+    d_matrix: Array2<f64>,
     /// Number of nodes
     num_nodes: usize,
 }
@@ -26,40 +29,43 @@ impl SpectralDiffOp {
     }
 
     /// Apply the differentiation operator to a function
-    pub fn apply(&self, u: &DVector<f64>) -> DVector<f64> {
-        &self.d_matrix * u
+    pub fn apply(&self, u: &Array1<f64>) -> Array1<f64> {
+        mat_vec_mul(&self.d_matrix, u)
     }
 
     /// Compute the gradient of a scalar field
-    pub fn gradient(&self, u: &DVector<f64>) -> DVector<f64> {
+    pub fn gradient(&self, u: &Array1<f64>) -> Array1<f64> {
         self.apply(u)
     }
 
     /// Compute the divergence of a vector field
-    pub fn divergence(&self, u: &[DVector<f64>]) -> DVector<f64> {
-        let mut div = DVector::zeros(self.num_nodes);
+    pub fn divergence(&self, u: &[Array1<f64>]) -> Array1<f64> {
+        let mut div = Array1::zeros([self.num_nodes]);
 
         for u_comp in u {
-            div += &self.apply(u_comp);
+            let derivative = self.apply(u_comp);
+            for i in 0..self.num_nodes {
+                div[i] += derivative[i];
+            }
         }
 
         div
     }
 
     /// Compute the curl of a 2D vector field
-    pub fn curl_2d(&self, u: &[DVector<f64>; 2]) -> DVector<f64> {
-        assert_eq!(u[0].len(), self.num_nodes);
-        assert_eq!(u[1].len(), self.num_nodes);
+    pub fn curl_2d(&self, u: &[Array1<f64>; 2]) -> Array1<f64> {
+        assert_eq!(u[0].shape(), [self.num_nodes]);
+        assert_eq!(u[1].shape(), [self.num_nodes]);
 
         // In 2D, curl(u,v) = ∂v/∂x - ∂u/∂y
         let du_dy = self.apply(&u[0]);
         let dv_dx = self.apply(&u[1]);
 
-        dv_dx - du_dy
+        Array1::from_shape_fn([self.num_nodes], |[i]| dv_dx[i] - du_dy[i])
     }
 
     /// Compute the Laplacian of a scalar field
-    pub fn laplacian(&self, u: &DVector<f64>) -> DVector<f64> {
+    pub fn laplacian(&self, u: &Array1<f64>) -> Array1<f64> {
         self.apply(&self.apply(u))
     }
 }
@@ -79,7 +85,7 @@ impl SpectralInterp {
     }
 
     /// Interpolate a function to the spectral element nodes
-    pub fn interpolate<F>(&self, f: F) -> DVector<f64>
+    pub fn interpolate<F>(&self, f: F) -> Array1<f64>
     where
         F: Fn(f64) -> f64,
     {
@@ -87,7 +93,7 @@ impl SpectralInterp {
     }
 
     /// Evaluate the interpolant at a point in the reference element
-    pub fn eval_at(&self, x: f64, u: &DVector<f64>) -> f64 {
+    pub fn eval_at(&self, x: f64, u: &Array1<f64>) -> f64 {
         let mut result = 0.0;
 
         for i in 0..self.element.num_nodes {
@@ -98,12 +104,12 @@ impl SpectralInterp {
     }
 
     /// Compute the L2 projection of a function onto the spectral element space
-    pub fn l2_projection<F>(&self, f: F) -> DVector<f64>
+    pub fn l2_projection<F>(&self, f: F) -> Result<Array1<f64>>
     where
         F: Fn(f64) -> f64 + Sync,
     {
-        let mut mass = DMatrix::zeros(self.element.num_nodes, self.element.num_nodes);
-        let mut rhs = DVector::zeros(self.element.num_nodes);
+        let mut mass = Array2::zeros([self.element.num_nodes, self.element.num_nodes]);
+        let mut rhs = Array1::zeros([self.element.num_nodes]);
 
         // Use Gauss-Lobatto quadrature for mass matrix and right-hand side
         for i in 0..self.element.num_nodes {
@@ -116,7 +122,7 @@ impl SpectralInterp {
                     mij += self.element.weights[k] * phi_i * phi_j;
                 }
 
-                mass[(i, j)] = mij;
+                mass[[i, j]] = mij;
             }
 
             // Compute right-hand side
@@ -131,9 +137,11 @@ impl SpectralInterp {
         }
 
         // Solve the linear system M u = f
-        mass.lu().solve(&rhs).unwrap_or_else(|| {
-            // Fall back to interpolation if the mass matrix is singular
-            self.interpolate(f)
+        mass.solve(&rhs.view()).map_err(|err| {
+            Error::Solver(format!(
+                "L2 projection mass solve failed for {} spectral nodes: {err}",
+                self.element.num_nodes
+            ))
         })
     }
 }
@@ -141,18 +149,18 @@ impl SpectralInterp {
 /// Spectral quadrature for numerical integration
 pub struct SpectralQuadrature {
     /// Quadrature weights
-    weights: DVector<f64>,
+    weights: Array1<f64>,
     /// Quadrature nodes
-    nodes: DVector<f64>,
+    nodes: Array1<f64>,
     /// Number of quadrature points
     num_points: usize,
 }
 
 impl SpectralQuadrature {
     /// Create a new spectral quadrature rule
-    pub fn new(weights: DVector<f64>, nodes: DVector<f64>) -> Self {
+    pub fn new(weights: Array1<f64>, nodes: Array1<f64>) -> Self {
         Self {
-            num_points: weights.len(),
+            num_points: weights.shape()[0],
             weights,
             nodes,
         }
@@ -166,10 +174,10 @@ impl SpectralQuadrature {
             )));
         }
 
-        let nodes_vec = compute_lgl_nodes(n - 1)
-            .context("computing LGL nodes for Gauss-Lobatto quadrature")?; // n points for order 2n-3
-        let weights = DVector::from_vec(compute_lgl_weights(&nodes_vec, n - 1));
-        let nodes = DVector::from_vec(nodes_vec);
+        let nodes_vec =
+            compute_lgl_nodes(n - 1).context("computing LGL nodes for Gauss-Lobatto quadrature")?; // n points for order 2n-3
+        let weights = vector_from_vec(compute_lgl_weights(&nodes_vec, n - 1));
+        let nodes = vector_from_vec(nodes_vec);
 
         Ok(Self {
             num_points: n,
@@ -224,7 +232,7 @@ impl SpectralQuadrature {
 /// Spectral filter for stabilization
 pub struct SpectralFilter {
     /// Filter coefficients
-    filter_coeffs: DVector<f64>,
+    filter_coeffs: Array1<f64>,
     /// Filter order
     _order: usize,
 }
@@ -233,7 +241,7 @@ impl SpectralFilter {
     /// Create a new spectral filter
     pub fn new(order: usize, alpha: f64, p: usize) -> Self {
         let n = order + 1;
-        let mut sigma = DVector::zeros(n);
+        let mut sigma = Array1::zeros([n]);
 
         // Exponential filter
         for i in 0..n {
@@ -248,14 +256,12 @@ impl SpectralFilter {
     }
 
     /// Apply the filter to a function
-    pub fn apply(&self, u: &DVector<f64>) -> DVector<f64> {
-        // In a real implementation, this would involve a forward and inverse transform
-        // For simplicity, we'll just apply a pointwise multiplication here
-        // A proper implementation would use FFT or similar
-
+    pub fn apply(&self, u: &Array1<f64>) -> Array1<f64> {
+        // This operator applies the stored stabilization coefficients to the
+        // supplied spectral coefficients without changing representation.
         let mut result = u.clone();
-        for i in 0..result.len() {
-            if i < self.filter_coeffs.len() {
+        for i in 0..result.shape()[0] {
+            if i < self.filter_coeffs.shape()[0] {
                 result[i] *= self.filter_coeffs[i];
             }
         }
@@ -266,7 +272,29 @@ impl SpectralFilter {
 
 /// Spectral time integration methods
 pub mod time_integration {
-    use super::DVector;
+    use leto::Array1;
+
+    fn add_scaled(lhs: &Array1<f64>, rhs: &Array1<f64>, scale: f64) -> Array1<f64> {
+        assert_eq!(
+            lhs.shape(),
+            rhs.shape(),
+            "invariant: add_scaled operands must have equal length"
+        );
+
+        Array1::from_shape_fn(lhs.shape(), |[i]| lhs[i] + scale * rhs[i])
+    }
+
+    fn add_assign_scaled(lhs: &mut Array1<f64>, rhs: &Array1<f64>, scale: f64) {
+        assert_eq!(
+            lhs.shape(),
+            rhs.shape(),
+            "invariant: add_assign_scaled operands must have equal length"
+        );
+
+        for i in 0..lhs.shape()[0] {
+            lhs[i] += scale * rhs[i];
+        }
+    }
 
     /// Runge-Kutta time integration for spectral methods
     pub struct RungeKutta {
@@ -312,30 +340,30 @@ pub mod time_integration {
         }
 
         /// Perform one time step
-        pub fn step<F>(&self, f: F, t: f64, dt: f64, u: &DVector<f64>) -> DVector<f64>
+        pub fn step<F>(&self, f: F, t: f64, dt: f64, u: &Array1<f64>) -> Array1<f64>
         where
-            F: Fn(f64, &DVector<f64>) -> DVector<f64>,
+            F: Fn(f64, &Array1<f64>) -> Array1<f64>,
         {
             let mut k = Vec::with_capacity(self.stages);
             let mut u_new = u.clone();
 
             // Compute stage values
             for i in 0..self.stages {
-                let mut sum = DVector::zeros(u.len());
+                let mut sum = Array1::zeros(u.shape());
 
                 for j in 0..i {
-                    sum += &k[j] * self.a[i][j];
+                    add_assign_scaled(&mut sum, &k[j], self.a[i][j]);
                 }
 
                 let t_stage = t + self.c[i] * dt;
-                let u_stage = u + &sum * dt;
+                let u_stage = add_scaled(u, &sum, dt);
 
                 k.push(f(t_stage, &u_stage));
             }
 
             // Combine stages
             for i in 0..self.stages {
-                u_new += &k[i] * (dt * self.b[i]);
+                add_assign_scaled(&mut u_new, &k[i], dt * self.b[i]);
             }
 
             u_new
@@ -371,20 +399,21 @@ pub mod time_integration {
             f: F,
             t: f64,
             dt: f64,
-            u: &DVector<f64>,
-            f_prev: &[DVector<f64>],
-        ) -> (DVector<f64>, Vec<DVector<f64>>)
+            u: &Array1<f64>,
+            f_prev: &[Array1<f64>],
+        ) -> (Array1<f64>, Vec<Array1<f64>>)
         where
-            F: Fn(f64, &DVector<f64>) -> DVector<f64>,
+            F: Fn(f64, &Array1<f64>) -> Array1<f64>,
         {
             let f_new = f(t, u);
-            let mut sum = &f_new * self.coeffs[0];
+            let mut sum = Array1::zeros(u.shape());
+            add_assign_scaled(&mut sum, &f_new, self.coeffs[0]);
 
             for (i, f_prev_i) in f_prev.iter().take(self.order - 1).enumerate() {
-                sum += f_prev_i * self.coeffs[i + 1];
+                add_assign_scaled(&mut sum, f_prev_i, self.coeffs[i + 1]);
             }
 
-            let u_new = u + &sum * dt;
+            let u_new = add_scaled(u, &sum, dt);
 
             // Update history of derivatives
             let mut f_history = Vec::with_capacity(self.order);
@@ -400,6 +429,7 @@ pub mod time_integration {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use leto::Array1;
 
     #[test]
     fn test_spectral_diff_op() {
@@ -475,14 +505,14 @@ mod tests {
         // Test the RK4 method on a simple ODE: du/dt = -u, u(0) = 1
         // Exact solution: u(t) = exp(-t)
         let rk = time_integration::RungeKutta::rk4();
-        let f = |_t: f64, u: &DVector<f64>| -u.clone();
+        let f = |_t: f64, u: &Array1<f64>| Array1::from_shape_fn(u.shape(), |[i]| -u[i]);
 
         let t0: f64 = 0.0;
         let t_final: f64 = 1.0;
         let dt: f64 = 0.1;
 
         let mut t = t0;
-        let mut u = DVector::from_vec(vec![1.0]);
+        let mut u = vector_from_vec(vec![1.0]);
 
         while t < t_final - 1e-10 {
             let dt_step = dt.min(t_final - t);

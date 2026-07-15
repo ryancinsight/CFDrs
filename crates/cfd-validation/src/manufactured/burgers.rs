@@ -11,8 +11,8 @@
 //! - Roache, P.J. (2002) "Code Verification by the Method of Manufactured Solutions"
 
 use super::ManufacturedSolution;
-use nalgebra::{ComplexField, RealField};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::{FloatElement, RealField};
 use std::f64::consts::PI;
 
 /// Manufactured solution for Burgers equation
@@ -32,7 +32,7 @@ pub struct ManufacturedBurgers<T: RealField + Copy> {
     nu: T,
 }
 
-impl<T: RealField + Copy> ManufacturedBurgers<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedBurgers<T> {
     /// Create new manufactured Burgers solution
     ///
     /// # Arguments
@@ -59,23 +59,23 @@ impl<T: RealField + Copy> ManufacturedBurgers<T> {
     ///
     /// Uses standard parameters: a=1, b=0.5, k=2π, ω=1, ν=0.01
     pub fn default_solution() -> Self {
-        let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
-        let two = <T as FromPrimitive>::from_f64(2.0).unwrap();
+        let pi = scalar::from_f64::<T>(PI);
+        let two = scalar::from_f64::<T>(2.0);
         Self::new(
-            T::one(),                                      // a = 1
-            <T as FromPrimitive>::from_f64(0.5).unwrap(),  // b = 0.5
-            two * pi,                                      // k = 2π
-            T::one(),                                      // ω = 1
-            <T as FromPrimitive>::from_f64(0.01).unwrap(), // ν = 0.01
+            scalar::one::<T>(),     // a = 1
+            scalar::from_f64(0.5),  // b = 0.5
+            two * pi,               // k = 2π
+            scalar::one::<T>(),     // ω = 1
+            scalar::from_f64(0.01), // ν = 0.01
         )
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedBurgers<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for ManufacturedBurgers<T> {
     /// Exact solution: u(x,t) = a + b*sin(k*x - ω*t)
     fn exact_solution(&self, x: T, _y: T, _z: T, t: T) -> T {
         let phase = self.k * x - self.omega * t;
-        self.a + self.b * ComplexField::sin(phase)
+        self.a + self.b * scalar::sin(phase)
     }
 
     /// Source term required to satisfy Burgers equation
@@ -93,8 +93,8 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedBurgers<T> {
     ///        = -bω*cos(θ) + abk*cos(θ) + b²k*sin(θ)*cos(θ) + νbk²*sin(θ)
     fn source_term(&self, x: T, _y: T, _z: T, t: T) -> T {
         let phase = self.k * x - self.omega * t;
-        let sin_theta = ComplexField::sin(phase);
-        let cos_theta = ComplexField::cos(phase);
+        let sin_theta = scalar::sin(phase);
+        let cos_theta = scalar::cos(phase);
 
         // Temporal derivative term
         let temporal = -self.b * self.omega * cos_theta;

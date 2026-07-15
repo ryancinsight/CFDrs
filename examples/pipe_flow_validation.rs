@@ -22,7 +22,8 @@ use cfd_3d::fem::{StokesFlowProblem, StokesFlowSolution};
 use cfd_3d::FemConfig;
 use cfd_core::prelude::{BoundaryCondition, ConstantPropertyFluid, WallType};
 use cfd_mesh::IndexedMesh;
-use nalgebra::{Point3, Vector3};
+use leto::geometry::Vector3 as LetoVector3;
+use leto::{Point3, Vector3};
 use std::collections::HashMap;
 use std::f64::consts::PI;
 
@@ -91,7 +92,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if z.abs() < 1e-6 {
             // Parabolic profile: v(r) = v_max * (1 - (r/R)^2)
             let velocity_z = max_velocity * (1.0 - (r / pipe_radius).powi(2));
-            let velocity = Vector3::new(0.0, 0.0, velocity_z);
+            let velocity = LetoVector3::new(0.0, 0.0, velocity_z);
             boundary_conditions.insert(idx, BoundaryCondition::VelocityInlet { velocity });
         }
         // Outlet (z = L): pressure outlet
@@ -117,8 +118,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Using analytical Hagen-Poiseuille solution for validation...");
 
     let n_nodes = problem.mesh.vertices.len();
-    let mut velocity = nalgebra::DVector::zeros(n_nodes * 3);
-    let mut pressure = nalgebra::DVector::zeros(n_nodes);
+    let mut velocity = vec![0.0_f64; n_nodes * 3];
+    let mut pressure = vec![0.0_f64; n_nodes];
 
     // Apply analytical Hagen-Poiseuille solution
     for (id, vdata) in problem.mesh.vertices.iter() {
@@ -184,7 +185,8 @@ fn create_pipe_mesh(
         }
         // Add center vertex for each cross-section
         let center = Point3::new(0.0, 0.0, z);
-        mesh.vertices.insert_unique(center, Vector3::z());
+        mesh.vertices
+            .insert_unique(center, Vector3::new(0.0, 0.0, 1.0));
     }
 
     // Create simple triangular faces (basic surface mesh)

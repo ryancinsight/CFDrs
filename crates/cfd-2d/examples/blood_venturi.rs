@@ -18,7 +18,8 @@ use cfd_2d::simplec_pimple::{SimplecPimpleConfig, SimplecPimpleSolver};
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
 use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::Vector2;
+use leto::geometry::{Vector2, Vector3};
+use leto::Array2;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Setup Domain
@@ -51,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     solver.set_boundary(
         "west".to_string(),
         BoundaryCondition::VelocityInlet {
-            velocity: nalgebra::Vector3::new(0.5, 0.0, 0.0),
+            velocity: Vector3::new(0.5, 0.0, 0.0),
         },
     ); // Average/Max
     solver.set_boundary(
@@ -171,11 +172,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // B. Immersed Boundary Method
         // 1. Interpolate velocity to boundary points
         // Use separate vector for velocity field from fields
-        let mut velocity_matrix = nalgebra::DMatrix::zeros(nx * ny * 2, 1);
+        let mut velocity_matrix = Array2::zeros([nx * ny, 2]);
         for j in 0..ny {
             for i in 0..nx {
-                velocity_matrix[2 * (j * nx + i)] = fields.u.at(i, j);
-                velocity_matrix[2 * (j * nx + i) + 1] = fields.v.at(i, j);
+                let cell = j * nx + i;
+                velocity_matrix[[cell, 0]] = fields.u.at(i, j);
+                velocity_matrix[[cell, 1]] = fields.v.at(i, j);
             }
         }
 
@@ -185,14 +187,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ibm.update_forces(&boundary_velocities)?;
 
         // 3. Spread forces to grid
-        let mut force_matrix = nalgebra::DMatrix::zeros(nx * ny * 2, 1);
+        let mut force_matrix = Array2::zeros([nx * ny, 2]);
         ibm.spread_forces(&mut force_matrix)?;
 
         // 4. Update fields.force
         for j in 0..ny {
             for i in 0..nx {
-                let fx = force_matrix[2 * (j * nx + i)];
-                let fy = force_matrix[2 * (j * nx + i) + 1];
+                let cell = j * nx + i;
+                let fx = force_matrix[[cell, 0]];
+                let fy = force_matrix[[cell, 1]];
                 fields.force_u.set(i, j, fx);
                 fields.force_v.set(i, j, fy);
             }
@@ -202,7 +205,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let residual = solver.solve_time_step(&mut fields, dt, 0.0, rho)?;
 
         time += dt;
-        if (time / dt) as usize % 10 == 0 {
+        if ((time / dt) as usize).is_multiple_of(10) {
             let u_max = fields.max_velocity_magnitude();
             println!(
                 "Time: {:.3}s, Residual: {:.2e}, Max U: {:.2} m/s",

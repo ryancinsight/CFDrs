@@ -10,11 +10,11 @@
 use super::physics::{
     ThreeWayBranchJunction, ThreeWayBranchSolution, TwoWayBranchJunction, TwoWayBranchSolution,
 };
+use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_core::physics::fluid::traits::NonNewtonianFluid;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -31,7 +31,7 @@ const GCI_SAFETY_FACTOR_FS: f64 = 1.25;
 
 /// Configuration for branch-junction validation studies
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BranchingValidationConfig<T: RealField + Copy> {
+pub struct BranchingValidationConfig<T: Cfd1dScalar + Copy> {
     /// Parent volumetric flow rate [m³/s]
     pub q_parent: T,
     /// Parent pressure \[Pa]
@@ -44,7 +44,7 @@ pub struct BranchingValidationConfig<T: RealField + Copy> {
 
 /// Result of branch-junction validation study
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BranchingValidationResult<T: RealField + Copy> {
+pub struct BranchingValidationResult<T: Cfd1dScalar + Copy> {
     /// Test case name
     pub test_name: String,
     /// Two-way branch solution at coarse grid
@@ -71,9 +71,7 @@ pub struct BranchingValidationResult<T: RealField + Copy> {
     pub error_message: Option<String>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + fmt::Display>
-    BranchingValidationResult<T>
-{
+impl<T: Cfd1dScalar + Copy + SafeFromF64 + fmt::Display> BranchingValidationResult<T> {
     /// Create a new validation result
     pub fn new(test_name: String, expected_order: T) -> Self {
         Self {
@@ -105,12 +103,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + fmt::Disp
             println!("Grid Convergence Index (GCI): {gci}%");
         }
         if let Some(l2) = self.l2_error {
-            println!("L2 Error: {:.2e}", l2.to_f64().unwrap_or(f64::NAN));
+            println!("L2 Error: {:.2e}", <T as NumericElement>::to_f64(l2));
         }
         if let Some(linf) = self.linf_error {
             println!(
                 "L-infinity Error: {:.2e}",
-                linf.to_f64().unwrap_or(f64::NAN)
+                <T as NumericElement>::to_f64(linf)
             );
         }
         println!(
@@ -133,11 +131,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64 + fmt::Disp
 // ============================================================================
 
 /// Comprehensive branching validator with multiple validation methods
-pub struct BranchingValidator<T: RealField + Copy> {
+pub struct BranchingValidator<T: Cfd1dScalar + Copy> {
     config: BranchingValidationConfig<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingValidator<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> BranchingValidator<T> {
     /// Create new validator with configuration
     pub fn new(config: BranchingValidationConfig<T>) -> Self {
         Self { config }
@@ -195,14 +193,15 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
             .map_err(|e| format!("Fine solution failed: {e}"))?;
 
         // Approximate relative error (using Q_1 as representative variable)
-        let error_coarse = (solution_coarse.q_1 - solution_fine.q_1).abs()
-            / (solution_fine.q_1.abs() + T::from_f64_or_one(1e-15));
+        let error_coarse = <T as NumericElement>::abs(solution_coarse.q_1 - solution_fine.q_1)
+            / (<T as NumericElement>::abs(solution_fine.q_1) + T::from_f64_or_one(1e-15));
 
         // Grid Convergence Index (Roache 1998)
         let r = self.config.refinement_factor;
         let p = expected_order;
         let e_a = error_coarse; // Approximate relative error
-        let gci = T::from_f64_or_one(GCI_SAFETY_FACTOR_FS) * e_a / (r.powf(p) - T::one());
+        let gci = T::from_f64_or_one(GCI_SAFETY_FACTOR_FS) * e_a
+            / (<T as FloatElement>::powf(r, p) - T::one());
 
         // Validation criteria
         let gci_threshold = T::from_f64_or_one(0.05); // 5% threshold
@@ -219,9 +218,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
         if !validation_passed {
             result.error_message = Some(format!(
                 "GCI = {:.2}% exceeds 5% threshold",
-                (gci * T::from_f64_or_one(100.0))
-                    .to_f64()
-                    .unwrap_or(f64::NAN)
+                <T as NumericElement>::to_f64(gci * T::from_f64_or_one(100.0))
             ));
         }
 
@@ -261,13 +258,14 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
 
         // For symmetric two-way branch, Q_1 should equal Q_2
         let q_analytical_1 = self.config.q_parent / T::from_f64_or_one(2.0);
-        let q_error = (solution.q_1 - q_analytical_1).abs() / q_analytical_1.abs();
+        let q_error = <T as NumericElement>::abs(solution.q_1 - q_analytical_1)
+            / <T as NumericElement>::abs(q_analytical_1);
 
         // For symmetric two-way branch with equal geometry, P_1 should equal P_2
-        let p_error = (solution.p_1 - solution.p_2).abs()
-            / (self.config.p_parent.abs() + T::from_f64_or_one(1.0));
+        let p_error = <T as NumericElement>::abs(solution.p_1 - solution.p_2)
+            / (<T as NumericElement>::abs(self.config.p_parent) + T::from_f64_or_one(1.0));
 
-        let l2_error = (q_error * q_error + p_error * p_error).sqrt();
+        let l2_error = <T as NumericElement>::sqrt(q_error * q_error + p_error * p_error);
 
         let mut result = BranchingValidationResult::new(
             "Branching vs Analytical".to_string(),
@@ -280,7 +278,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
         if !result.validation_passed {
             result.error_message = Some(format!(
                 "L2 error = {:.2e} exceeds 1% threshold",
-                l2_error.to_f64().unwrap_or(f64::NAN)
+                <T as NumericElement>::to_f64(l2_error)
             ));
         }
 
@@ -375,17 +373,22 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
             .map_err(|e| format!("Three-way branch solve failed: {e}"))?;
 
         let q_expected = self.config.q_parent / T::from_f64_or_one(3.0);
-        let q_err_1 = (solution.q_1 - q_expected).abs() / q_expected.max(T::from_f64_or_one(1e-15));
-        let q_err_2 = (solution.q_2 - q_expected).abs() / q_expected.max(T::from_f64_or_one(1e-15));
-        let q_err_3 = (solution.q_3 - q_expected).abs() / q_expected.max(T::from_f64_or_one(1e-15));
+        let q_err_1 = <T as NumericElement>::abs(solution.q_1 - q_expected)
+            / q_expected.max(T::from_f64_or_one(1e-15));
+        let q_err_2 = <T as NumericElement>::abs(solution.q_2 - q_expected)
+            / q_expected.max(T::from_f64_or_one(1e-15));
+        let q_err_3 = <T as NumericElement>::abs(solution.q_3 - q_expected)
+            / q_expected.max(T::from_f64_or_one(1e-15));
 
         let p_max = solution.p_1.max(solution.p_2).max(solution.p_3);
         let p_min = solution.p_1.min(solution.p_2).min(solution.p_3);
-        let p_err = (p_max - p_min).abs() / (self.config.p_parent.abs() + T::from_f64_or_one(1.0));
+        let p_err = <T as NumericElement>::abs(p_max - p_min)
+            / (<T as NumericElement>::abs(self.config.p_parent) + T::from_f64_or_one(1.0));
 
         let murray_err = branch_junction.murray_law_deviation();
-        let l2_error =
-            (q_err_1 * q_err_1 + q_err_2 * q_err_2 + q_err_3 * q_err_3 + p_err * p_err).sqrt();
+        let l2_error = <T as NumericElement>::sqrt(
+            q_err_1 * q_err_1 + q_err_2 * q_err_2 + q_err_3 * q_err_3 + p_err * p_err,
+        );
 
         let mut result = BranchingValidationResult::new(
             "Three-Way Branch vs Analytical".to_string(),
@@ -399,12 +402,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingV
             && solution.mass_conservation_error < T::from_f64_or_one(1e-10);
 
         if !result.validation_passed {
-            result.error_message =
-                Some(format!(
+            result.error_message = Some(format!(
                 "Three-way analytical validation failed: L2={:.2e}, Murray dev={:.2e}, mass={:.2e}",
-                l2_error.to_f64().unwrap_or(f64::NAN),
-                murray_err.to_f64().unwrap_or(f64::NAN),
-                solution.mass_conservation_error.to_f64().unwrap_or(f64::NAN)
+                <T as NumericElement>::to_f64(l2_error),
+                <T as NumericElement>::to_f64(murray_err),
+                <T as NumericElement>::to_f64(solution.mass_conservation_error)
             ));
         }
 

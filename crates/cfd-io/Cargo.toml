@@ -9,20 +9,16 @@ documentation.workspace = true
 description = "I/O operations and file format support for CFD simulations"
 
 [dependencies]
-cfd-core.workspace = true
-cfd-math.workspace = true
 thiserror.workspace = true
-anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 bincode = { version = "2.0", features = ["serde"] }
 csv.workspace = true
-nalgebra.workspace = true
-num-traits.workspace = true
+leto.workspace = true
+eunomia.workspace = true
 tracing.workspace = true
 zstd = "0.13"
 tempfile = "3.8"
-bytemuck.workspace = true
 consus-core = { workspace = true, optional = true }
 consus-hdf5 = { workspace = true, optional = true }
 ritk-vtk = { workspace = true, optional = true }
@@ -33,7 +29,7 @@ default = []
 # Independent of MPI; usable and testable on any platform.
 hdf5 = ["dep:consus-core", "dep:consus-hdf5"]
 # VTK creation and I/O, provided by the ritk-vtk crate (RITK toolkit owns VTK).
-# Re-exported as `cfd_io::vtk`. Pulls ritk-vtk (and its burn dependency).
+# Re-exported as `cfd_io::vtk`.
 vtk = ["dep:ritk-vtk"]
 
 [dev-dependencies]

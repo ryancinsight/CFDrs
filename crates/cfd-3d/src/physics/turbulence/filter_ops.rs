@@ -1,10 +1,10 @@
-use nalgebra::Vector3;
-use num_traits::FromPrimitive;
+use eunomia::{CastFrom, NumericElement};
+use leto::geometry::Vector3;
 
 use super::field_ops::SymmetricTensor6;
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct FilterMoments<T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + Copy> {
+pub(crate) struct FilterMoments<T: cfd_mesh::domain::core::Scalar + NumericElement> {
     pub(crate) uu: T,
     pub(crate) vv: T,
     pub(crate) ww: T,
@@ -13,16 +13,16 @@ pub(crate) struct FilterMoments<T: cfd_mesh::domain::core::Scalar + nalgebra::Re
     pub(crate) vw: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + Copy> FilterMoments<T> {
+impl<T: cfd_mesh::domain::core::Scalar + NumericElement> FilterMoments<T> {
     #[inline]
     pub(crate) fn zero() -> Self {
         Self {
-            uu: T::zero(),
-            vv: T::zero(),
-            ww: T::zero(),
-            uv: T::zero(),
-            uw: T::zero(),
-            vw: T::zero(),
+            uu: T::ZERO,
+            vv: T::ZERO,
+            ww: T::ZERO,
+            uv: T::ZERO,
+            uw: T::ZERO,
+            vw: T::ZERO,
         }
     }
 }
@@ -67,9 +67,9 @@ pub(crate) fn box_filter_velocity_at<T>(
     k: usize,
 ) -> Vector3<T>
 where
-    T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + Copy + FromPrimitive,
+    T: cfd_mesh::domain::core::Scalar + NumericElement,
 {
-    let mut sum = Vector3::zeros();
+    let mut sum = Vector3::new(T::ZERO, T::ZERO, T::ZERO);
     let mut count = 0usize;
 
     visit_box_stencil(nx, ny, nz, i, j, k, |idx| {
@@ -77,8 +77,8 @@ where
         count += 1;
     });
 
-    let count_t =
-        <T as FromPrimitive>::from_usize(count).expect("box filter stencil size is representable");
+    let count_i32 = i32::try_from(count).expect("box filter stencil size is at most 27");
+    let count_t = <T as CastFrom<i32>>::cast_from(count_i32);
     sum / count_t
 }
 
@@ -93,7 +93,7 @@ pub(crate) fn box_filter_moments_at<T>(
     k: usize,
 ) -> FilterMoments<T>
 where
-    T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + Copy + FromPrimitive,
+    T: cfd_mesh::domain::core::Scalar + NumericElement,
 {
     let mut moments = FilterMoments::zero();
     let mut count = 0usize;
@@ -109,9 +109,9 @@ where
         count += 1;
     });
 
-    let count_t =
-        <T as FromPrimitive>::from_usize(count).expect("box filter stencil size is representable");
-    let inv = T::one() / count_t;
+    let count_i32 = i32::try_from(count).expect("box filter stencil size is at most 27");
+    let count_t = <T as CastFrom<i32>>::cast_from(count_i32);
+    let inv = T::ONE / count_t;
     moments.uu *= inv;
     moments.vv *= inv;
     moments.ww *= inv;
@@ -127,7 +127,7 @@ pub(crate) fn resolved_stress_tensor<T>(
     filtered_velocity: Vector3<T>,
 ) -> SymmetricTensor6<T>
 where
-    T: cfd_mesh::domain::core::Scalar + nalgebra::RealField + Copy + FromPrimitive,
+    T: cfd_mesh::domain::core::Scalar + NumericElement,
 {
     SymmetricTensor6 {
         xx: moments.uu - filtered_velocity.x * filtered_velocity.x,

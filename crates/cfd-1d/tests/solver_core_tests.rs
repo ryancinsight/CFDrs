@@ -7,7 +7,7 @@ use approx::assert_relative_eq;
 use cfd_1d::solver::core::ConvergenceChecker;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_core::physics::fluid::database::water_20c;
-use nalgebra::DVector;
+use leto::Array1;
 use petgraph::visit::EdgeRef;
 
 fn water() -> cfd_core::physics::fluid::ConstantPropertyFluid<f64> {
@@ -16,6 +16,10 @@ fn water() -> cfd_core::physics::fluid::ConstantPropertyFluid<f64> {
 
 fn hp_resistance(d: f64, l: f64, mu: f64) -> f64 {
     128.0 * mu * l / (std::f64::consts::PI * d.powi(4))
+}
+
+fn leto_vector(values: Vec<f64>) -> Array1<f64> {
+    Array1::from_shape_vec([values.len()], values).expect("valid Leto vector shape")
 }
 
 // ============================================================
@@ -229,14 +233,14 @@ fn test_solver_no_dirichlet_bc_singular_system() {
 #[test]
 fn test_convergence_nan_returns_diverged() {
     let checker = ConvergenceChecker::<f64>::new(1e-6);
-    let sol = DVector::from_vec(vec![1.0, f64::NAN]);
+    let sol = leto_vector(vec![1.0, f64::NAN]);
     assert!(checker.check(&sol).is_err());
 }
 
 #[test]
 fn test_convergence_inf_returns_diverged() {
     let checker = ConvergenceChecker::<f64>::new(1e-6);
-    let sol = DVector::from_vec(vec![f64::INFINITY, 1.0]);
+    let sol = leto_vector(vec![f64::INFINITY, 1.0]);
     assert!(checker.check(&sol).is_err());
 }
 
@@ -250,7 +254,7 @@ fn test_convergence_max_iterations() {
 #[test]
 fn test_convergence_dual_identical_converged() {
     let checker = ConvergenceChecker::<f64>::new(1e-6);
-    let x = DVector::from_vec(vec![1.0_f64, 2.0, 3.0]);
+    let x = leto_vector(vec![1.0_f64, 2.0, 3.0]);
     let converged = checker
         .has_converged_dual(&x, &x, 0.0, 1.0)
         .expect("test invariant");
@@ -260,8 +264,8 @@ fn test_convergence_dual_identical_converged() {
 #[test]
 fn test_convergence_dual_large_change_not_converged() {
     let checker = ConvergenceChecker::<f64>::new(1e-6);
-    let x_old = DVector::from_vec(vec![0.0_f64, 0.0]);
-    let x_new = DVector::from_vec(vec![100.0_f64, 100.0]);
+    let x_old = leto_vector(vec![0.0_f64, 0.0]);
+    let x_new = leto_vector(vec![100.0_f64, 100.0]);
     let converged = checker
         .has_converged_dual(&x_new, &x_old, 50.0, 1.0)
         .expect("test invariant");

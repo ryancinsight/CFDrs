@@ -50,6 +50,7 @@
 //! - Strikwerda, J. C. (2004). *Finite Difference Schemes and Partial Differential Equations* (2nd ed.). SIAM.
 //! - Trefethen, L. N. (1996). *Finite Difference and Spectral Methods for ODEs/PDEs* (notes), stencils and accuracy analysis.
 
+#[cfg(test)]
 mod cpu_reference;
 mod kernel;
 mod types;

@@ -1,7 +1,8 @@
-//! Unified compute backend for CPU, GPU, and SIMD operations
+//! Unified compute backend for CPU, GPU, and SIMD operations.
 //!
-//! This module provides a hardware-agnostic compute layer that automatically
-//! dispatches operations to the most appropriate backend based on system capabilities.
+//! This module provides backend capability detection plus explicit dispatch
+//! through the selected provider. Unsupported provider/kernel combinations are
+//! reported as typed errors instead of being recomputed on another backend.
 
 pub mod backend;
 

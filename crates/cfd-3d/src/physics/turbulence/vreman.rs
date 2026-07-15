@@ -38,8 +38,7 @@
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 
 use super::constants::VREMAN_CV;
 use super::field_ops::velocity_gradient_tensor;
@@ -50,7 +49,7 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 /// Automatically vanishes for the laminar shear-flow classes identified by
 /// Vreman without ad hoc damping functions.
 #[derive(Debug, Clone)]
-pub struct VremanModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct VremanModel<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// Vreman constant C_V ≈ 0.025 (Vreman 2004 Table 1).
     pub c_v: T,
     /// Grid spacing in the x direction \[m].
@@ -63,26 +62,24 @@ pub struct VremanModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub filter_width: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> VremanModel<T> {
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> VremanModel<T> {
     /// Create a Vreman model with default constant and unit filter width.
     pub fn new() -> Self {
         Self {
-            c_v: <T as FromPrimitive>::from_f64(VREMAN_CV)
-                .expect("VREMAN_CV is an IEEE 754 representable f64 constant"),
-            dx: T::one(),
-            dy: T::one(),
-            dz: T::one(),
-            filter_width: T::one(),
+            c_v: <T as FloatElement>::from_f64(VREMAN_CV),
+            dx: T::ONE,
+            dy: T::ONE,
+            dz: T::ONE,
+            filter_width: T::ONE,
         }
     }
 
     /// Create a Vreman model with physically correct filter width Δ = (dx·dy·dz)^(1/3).
     pub fn with_filter_width(dx: T, dy: T, dz: T) -> Self {
-        let one_third = T::one() / (T::one() + T::one() + T::one());
-        let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
+        let one_third = T::ONE / (T::ONE + T::ONE + T::ONE);
+        let filter_width = <T as FloatElement>::powf(dx * dy * dz, one_third);
         Self {
-            c_v: <T as FromPrimitive>::from_f64(VREMAN_CV)
-                .expect("VREMAN_CV is an IEEE 754 representable f64 constant"),
+            c_v: <T as FloatElement>::from_f64(VREMAN_CV),
             dx,
             dy,
             dz,
@@ -105,13 +102,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
             self.dy,
             self.dz,
         );
-        let eps = <T as FromPrimitive>::from_f64(1e-30)
-            .expect("1e-30 is an IEEE 754 representable f64 constant");
+        let eps = <T as FloatElement>::from_f64(1e-30);
 
         let alpha = gradient;
 
         // Compute |α|² = Σ α_ij²
-        let mut alpha_sq = T::zero();
+        let mut alpha_sq = T::ZERO;
         for ai in &alpha {
             for &a in ai {
                 alpha_sq += a * a;
@@ -119,15 +115,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
         }
 
         if alpha_sq <= eps {
-            return T::zero();
+            return T::ZERO;
         }
 
         // β = A diag(Δx², Δy², Δz²) Aᵀ for the row-major velocity gradient A.
         let spacing_sq = [self.dx * self.dx, self.dy * self.dy, self.dz * self.dz];
-        let mut beta = [[T::zero(); 3]; 3];
+        let mut beta = [[T::ZERO; 3]; 3];
         for m in 0..3 {
             for n in 0..3 {
-                let mut s = T::zero();
+                let mut s = T::ZERO;
                 for p in 0..3 {
                     s += spacing_sq[p] * alpha[m][p] * alpha[n][p];
                 }
@@ -141,25 +137,21 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Vrema
             + beta[1][1] * beta[2][2]
             - beta[1][2] * beta[2][1];
 
-        if b_beta <= T::zero() {
-            return T::zero();
+        if b_beta <= T::ZERO {
+            return T::ZERO;
         }
 
-        self.c_v * num_traits::Float::sqrt(b_beta / alpha_sq)
+        self.c_v * <T as NumericElement>::sqrt(b_beta / alpha_sq)
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default
-    for VremanModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> Default for VremanModel<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
-    for VremanModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for VremanModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         let mut viscosity = Vec::with_capacity(nx * ny * nz);
@@ -189,7 +181,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use nalgebra::Vector3;
+    use leto::geometry::Vector3;
 
     fn fill_velocity_field<F>(flow: &mut FlowField<f64>, mut generator: F)
     where

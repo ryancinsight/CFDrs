@@ -2,10 +2,9 @@
 //!
 //! Implements convergence analysis following Richardson (1911) and Roache (1998) methodologies.
 
-use cfd_core::conversion::SafeFromF64;
+use crate::scalar;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, RealField};
 
 /// Grid convergence study results
 #[derive(Debug, Clone)]
@@ -24,7 +23,7 @@ pub struct ConvergenceStudy<T: RealField + Copy> {
     pub extrapolated_value: Option<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> ConvergenceStudy<T> {
+impl<T: RealField + Copy + FloatElement> ConvergenceStudy<T> {
     /// Create a new convergence study from grid sizes and errors
     ///
     /// # Arguments
@@ -70,31 +69,34 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceStudy<T> {
     ///
     /// Returns true if R² > 0.99, indicating consistent convergence behavior
     pub fn is_asymptotic(&self) -> bool {
-        self.r_squared > T::from_f64(0.99).unwrap_or_else(T::one)
+        self.r_squared > scalar::from_f64::<T>(0.99)
     }
 
     /// Predict error for a given grid size using the power law model
     ///
     /// error = C * h^p where C is `error_coefficient` and p is `convergence_rate`
     pub fn predict_error(&self, grid_size: T) -> T {
-        self.error_coefficient * grid_size.powf(self.convergence_rate)
+        self.error_coefficient * scalar::powf(grid_size, self.convergence_rate)
     }
 
     /// Estimate grid size needed to achieve target error
     pub fn grid_size_for_error(&self, target_error: T) -> Result<T> {
-        if self.error_coefficient <= T::zero() {
+        if self.error_coefficient <= scalar::zero::<T>() {
             return Err(Error::InvalidInput(
                 "Error coefficient must be positive".to_string(),
             ));
         }
 
-        if target_error <= T::zero() {
+        if target_error <= scalar::zero::<T>() {
             return Err(Error::InvalidInput(
                 "Target error must be positive".to_string(),
             ));
         }
 
-        Ok((target_error / self.error_coefficient).powf(T::one() / self.convergence_rate))
+        Ok(scalar::powf(
+            target_error / self.error_coefficient,
+            scalar::one::<T>() / self.convergence_rate,
+        ))
     }
 }
 
@@ -103,31 +105,34 @@ impl<T: RealField + Copy + FromPrimitive> ConvergenceStudy<T> {
 /// Fits log(error) = log(C) + p * log(h) to determine convergence order p
 pub fn compute_convergence_rate<T>(grid_sizes: &[T], errors: &[T]) -> Result<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: RealField + Copy + FloatElement,
 {
-    let n = T::from_usize(grid_sizes.len())
-        .ok_or_else(|| Error::InvalidInput("Cannot convert size".to_string()))?;
+    let n = scalar::from_usize::<T>(grid_sizes.len());
 
     // Compute logarithms for linear regression
     let (sum_log_h, sum_log_e, sum_log_h2, sum_log_he) = grid_sizes
         .iter()
         .zip(errors.iter())
         .map(|(h, e)| {
-            let log_h = h.ln();
-            let log_e = e.ln();
+            let log_h = scalar::ln(*h);
+            let log_e = scalar::ln(*e);
             (log_h, log_e, log_h * log_h, log_h * log_e)
         })
         .fold(
-            (T::zero(), T::zero(), T::zero(), T::zero()),
+            (
+                scalar::zero::<T>(),
+                scalar::zero::<T>(),
+                scalar::zero::<T>(),
+                scalar::zero::<T>(),
+            ),
             |(sh, se, sh2, she), (lh, le, lh2, lhe)| (sh + lh, se + le, sh2 + lh2, she + lhe),
         );
 
     // Least squares solution for slope (convergence rate)
     let denominator = n * sum_log_h2 - sum_log_h * sum_log_h;
 
-    if denominator.abs()
-        < T::try_from_f64(cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE)
-            .unwrap_or_else(|_| T::from_f64_or_zero(1e-10))
+    if scalar::abs(denominator)
+        < scalar::from_f64::<T>(cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE)
     {
         return Err(Error::Numerical(
             cfd_core::error::NumericalErrorKind::SingularMatrix,
@@ -142,22 +147,22 @@ where
 /// Compute fit quality metrics (error coefficient and R-squared)
 fn compute_fit_quality<T>(grid_sizes: &[T], errors: &[T], convergence_rate: T) -> Result<(T, T)>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: RealField + Copy + FloatElement,
 {
-    let n = T::from_usize(grid_sizes.len())
-        .ok_or_else(|| Error::InvalidInput("Cannot convert size".to_string()))?;
+    let n = scalar::from_usize::<T>(grid_sizes.len());
 
     // Compute error coefficient from intercept
     let (sum_log_h, sum_log_e) = grid_sizes
         .iter()
         .zip(errors.iter())
-        .map(|(h, e)| (h.ln(), e.ln()))
-        .fold((T::zero(), T::zero()), |(sh, se), (lh, le)| {
-            (sh + lh, se + le)
-        });
+        .map(|(h, e)| (scalar::ln(*h), scalar::ln(*e)))
+        .fold(
+            (scalar::zero::<T>(), scalar::zero::<T>()),
+            |(sh, se), (lh, le)| (sh + lh, se + le),
+        );
 
     let log_c = (sum_log_e - convergence_rate * sum_log_h) / n;
-    let error_coefficient = log_c.exp();
+    let error_coefficient = scalar::exp(log_c);
 
     // Compute R-squared for fit quality
     let mean_log_e = sum_log_e / n;
@@ -166,21 +171,22 @@ where
         .iter()
         .zip(grid_sizes.iter())
         .map(|(e, h)| {
-            let log_e = e.ln();
-            let log_h = h.ln();
+            let log_e = scalar::ln(*e);
+            let log_h = scalar::ln(*h);
             let predicted = log_c + convergence_rate * log_h;
             let total_dev = log_e - mean_log_e;
             let residual = log_e - predicted;
             (total_dev * total_dev, residual * residual)
         })
-        .fold((T::zero(), T::zero()), |(tot, res), (t, r)| {
-            (tot + t, res + r)
-        });
+        .fold(
+            (scalar::zero::<T>(), scalar::zero::<T>()),
+            |(tot, res), (t, r)| (tot + t, res + r),
+        );
 
-    let r_squared = if ss_tot > T::zero() {
-        T::one() - ss_res / ss_tot
+    let r_squared = if ss_tot > scalar::zero::<T>() {
+        scalar::one::<T>() - ss_res / ss_tot
     } else {
-        T::one()
+        scalar::one::<T>()
     };
 
     Ok((error_coefficient, r_squared))

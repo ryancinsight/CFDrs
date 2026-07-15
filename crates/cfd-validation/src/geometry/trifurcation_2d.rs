@@ -4,7 +4,8 @@
 //! used to validate 2D trifurcation flow simulations against literature.
 
 use super::{BoundaryCondition, BoundaryFace, Geometry2D, Point2D};
-use nalgebra::RealField;
+use crate::scalar;
+use eunomia::{FloatElement, RealField};
 
 /// Trifurcation geometry consisting of one parent and three daughter branches
 #[derive(Debug, Clone)]
@@ -35,7 +36,7 @@ pub struct Trifurcation2D<T: RealField> {
     pub junction_center: Point2D<T>,
 }
 
-impl<T: RealField + Copy> Trifurcation2D<T> {
+impl<T: RealField + Copy + FloatElement> Trifurcation2D<T> {
     /// Create a new symmetric trifurcation
     pub fn new_symmetric(
         width: T,
@@ -49,14 +50,14 @@ impl<T: RealField + Copy> Trifurcation2D<T> {
             parent_length: length,
             daughter1_width: daughter_width,
             daughter1_length: daughter_length,
-            daughter1_angle: T::zero(), // Center daughter is horizontal
+            daughter1_angle: scalar::zero(), // Center daughter is horizontal
             daughter2_width: daughter_width,
             daughter2_length: daughter_length,
             daughter2_angle: angle, // Top daughter
             daughter3_width: daughter_width,
             daughter3_length: daughter_length,
             daughter3_angle: -angle, // Bottom daughter
-            junction_center: Point2D::new(length, T::zero(),),
+            junction_center: Point2D::new(length, scalar::zero()),
         }
     }
 
@@ -67,29 +68,29 @@ impl<T: RealField + Copy> Trifurcation2D<T> {
         let dy = point.y - start.y;
 
         // Rotate to align with segment
-        let cos_a = angle.cos();
-        let sin_a = angle.sin();
+        let cos_a = scalar::cos(angle);
+        let sin_a = scalar::sin(angle);
         let local_x = dx * cos_a + dy * sin_a;
         let local_y = -dx * sin_a + dy * cos_a;
 
-        let half_width = width / (T::one() + T::one());
+        let half_width = width / (scalar::one::<T>() + scalar::one::<T>());
 
-        local_x >= T::zero() && local_x <= length && local_y.abs() <= half_width
+        local_x >= scalar::zero() && local_x <= length && scalar::abs(local_y) <= half_width
     }
 }
 
-impl<T: RealField + Copy> Geometry2D<T> for Trifurcation2D<T> {
+impl<T: RealField + Copy + FloatElement> Geometry2D<T> for Trifurcation2D<T> {
     fn clone_box(&self) -> Box<dyn Geometry2D<T>> {
         Box::new(self.clone())
     }
 
     fn contains(&self, point: &Point2D<T>) -> bool {
         // Check parent branch (horizontal from 0 to parent_length)
-        let parent_start = Point2D::new(T::zero(), T::zero(),);
+        let parent_start = Point2D::new(scalar::zero(), scalar::zero());
         if Self::in_segment(
             point,
             &parent_start,
-            T::zero(),
+            scalar::zero(),
             self.parent_length,
             self.parent_width,
         ) {
@@ -133,7 +134,7 @@ impl<T: RealField + Copy> Geometry2D<T> for Trifurcation2D<T> {
     }
 
     fn distance_to_boundary(&self, _point: &Point2D<T>) -> T {
-        T::zero()
+        scalar::zero()
     }
 
     fn boundary_normal(&self, _point: &Point2D<T>) -> Option<Point2D<T>> {
@@ -142,24 +143,26 @@ impl<T: RealField + Copy> Geometry2D<T> for Trifurcation2D<T> {
 
     fn boundary_condition(&self, face: BoundaryFace, _s: T) -> BoundaryCondition<T> {
         match face {
-            BoundaryFace::Left => BoundaryCondition::Dirichlet(T::one()), // Inlet
-            _ => BoundaryCondition::Dirichlet(T::zero()),                 // Walls/Outlets
+            BoundaryFace::Left => BoundaryCondition::Dirichlet(scalar::one()), // Inlet
+            _ => BoundaryCondition::Dirichlet(scalar::zero()),                 // Walls/Outlets
         }
     }
 
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
         // Calculate max bounds
+        let max_cos = scalar::max(
+            scalar::cos(self.daughter2_angle),
+            scalar::cos(self.daughter3_angle),
+        );
         let x_max = self.parent_length
-            + self.daughter1_length.max(
-                self.daughter2_length * self.daughter2_angle.cos().max(self.daughter3_angle.cos()),
-            );
-        let y_max = (self.daughter2_length * self.daughter2_angle.sin())
-            .abs()
-            .max((self.daughter3_length * self.daughter3_angle.sin()).abs())
-            + self.parent_width;
+            + scalar::max(self.daughter1_length, self.daughter2_length * max_cos);
+        let y_max = scalar::max(
+            scalar::abs(self.daughter2_length * scalar::sin(self.daughter2_angle)),
+            scalar::abs(self.daughter3_length * scalar::sin(self.daughter3_angle)),
+        ) + self.parent_width;
 
         (
-            Point2D::new(T::zero(), -y_max,),
+            Point2D::new(scalar::zero(), -y_max),
             Point2D::new(x_max, y_max),
         )
     }

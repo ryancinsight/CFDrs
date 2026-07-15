@@ -130,6 +130,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = SolverConfig {
         tolerance: 1e-8,
         max_iterations: 200,
+        require_flow_convergence: true,
     };
     let solver = NetworkSolver::with_config(config);
     let solution = solver.solve(&NetworkProblem::new(network))?;

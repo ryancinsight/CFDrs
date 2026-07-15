@@ -8,8 +8,8 @@
 //! - Turbulent combustion
 
 use super::{ManufacturedFunctions, ManufacturedSolution};
-use nalgebra::{ComplexField, RealField};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::RealField;
 
 /// Manufactured solution for conjugate heat transfer
 ///
@@ -29,7 +29,7 @@ pub struct ManufacturedConjugateHeatTransfer<T: RealField + Copy> {
     pub frequency: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedConjugateHeatTransfer<T> {
     /// Create a new manufactured solution for conjugate heat transfer
     pub fn new(
         conductivity_ratio: T,
@@ -63,13 +63,15 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
             self.frequency,
             self.frequency,
         );
-        let inv_k_ratio = T::one() / self.conductivity_ratio;
+        let inv_k_ratio = scalar::one::<T>() / self.conductivity_ratio;
 
         self.amplitude * (base_interface + (base - base_interface) * inv_k_ratio)
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedConjugateHeatTransfer<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
+    for ManufacturedConjugateHeatTransfer<T>
+{
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         if x < self.interface_x {
             self.fluid_temperature(x, y, t)
@@ -89,10 +91,10 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedConjugateHeatT
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedConjugateHeatTransfer<T> {
     fn fluid_heat_source(&self, x: T, y: T, t: T) -> T {
         let t_exact = self.fluid_temperature(x, y, t);
-        let alpha = <T as FromPrimitive>::from_f64(0.01f64).unwrap(); // Base thermal diffusivity
+        let alpha = scalar::from_f64::<T>(0.01f64); // Base thermal diffusivity
 
         // Time derivative: ∂T/∂t = -T (from exp(-t))
         let dt_dt = -t_exact;
@@ -109,7 +111,7 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
     fn solid_heat_source(&self, x: T, y: T, t: T) -> T {
         let t_exact = self.solid_temperature(x, y, t);
         // Solid thermal diffusivity α_s = α * (k_ratio / capacity_ratio)
-        let alpha = <T as FromPrimitive>::from_f64(0.01f64).unwrap();
+        let alpha = scalar::from_f64::<T>(0.01f64);
         let alpha_s = alpha * self.conductivity_ratio / self.capacity_ratio;
 
         // Time derivative
@@ -128,7 +130,7 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedConjugateHeatTransfer<T> {
         let laplacian_base = -(k_sq + k_sq) * base;
         let laplacian_base_interface = -k_sq * base_interface;
 
-        let inv_k_ratio = T::one() / self.conductivity_ratio;
+        let inv_k_ratio = scalar::one::<T>() / self.conductivity_ratio;
         let laplacian_adjusted =
             laplacian_base_interface + (laplacian_base - laplacian_base_interface) * inv_k_ratio;
         let laplacian_t = self.amplitude * laplacian_adjusted;
@@ -153,7 +155,7 @@ pub struct ManufacturedSpeciesTransport<T: RealField + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Copy> ManufacturedSpeciesTransport<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSpeciesTransport<T> {
     /// Create a new manufactured solution for species transport
     pub fn new(diffusivity: T, reaction_rate: T, amplitude: T, kx: T, ky: T) -> Self {
         Self {
@@ -166,15 +168,16 @@ impl<T: RealField + Copy> ManufacturedSpeciesTransport<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T>
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
     for ManufacturedSpeciesTransport<T>
 {
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // C = A * sin(kx*x) * sin(ky*y) * exp(-t) * exp(-k²t)
-        let spatial = ManufacturedFunctions::sinusoidal(x, y, T::zero(), self.kx, self.ky);
-        let temporal_decay = <T as FromPrimitive>::from_f64(-1.0).unwrap()
+        let spatial =
+            ManufacturedFunctions::sinusoidal(x, y, scalar::zero::<T>(), self.kx, self.ky);
+        let temporal_decay = scalar::from_f64::<T>(-1.0)
             - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
-        let temporal = nalgebra::ComplexField::exp(temporal_decay * t);
+        let temporal = scalar::exp(temporal_decay * t);
         self.amplitude * spatial * temporal
     }
 
@@ -185,7 +188,7 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T>
         // We want S such that the MMS satisfies this equation
 
         // Time derivative
-        let k_total = <T as FromPrimitive>::from_f64(-1.0).unwrap()
+        let k_total = scalar::from_f64::<T>(-1.0)
             - (self.kx * self.kx + self.ky * self.ky) * self.diffusivity;
         let dc_dt = k_total * c;
 
@@ -237,7 +240,7 @@ pub struct ManufacturedMHD<T: RealField + Copy> {
     pub viscosity: T,
 }
 
-impl<T: RealField + Copy> ManufacturedMHD<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedMHD<T> {
     /// Create a new manufactured solution for MHD
     pub fn new(
         mu_0: T,
@@ -269,31 +272,20 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
         let spatial_w = ManufacturedFunctions::sinusoidal(x, y, z, self.kx, self.kx);
 
         // Temporal decay
-        let temporal = nalgebra::ComplexField::exp(-t);
+        let temporal = scalar::exp(-t);
 
         // Velocity field components
         let u = self.velocity_amp * spatial_u * temporal;
-        let v = self.velocity_amp
-            * spatial_v
-            * temporal
-            * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
-        let w = self.velocity_amp
-            * spatial_w
-            * temporal
-            * T::from_f64(0.25).unwrap_or_else(num_traits::Zero::zero);
+        let v = self.velocity_amp * spatial_v * temporal * scalar::from_f64::<T>(0.5);
+        let w = self.velocity_amp * spatial_w * temporal * scalar::from_f64::<T>(0.25);
 
         // Magnetic field components (perpendicular to velocity for interesting dynamics)
         let bx = self.magnetic_amp * spatial_v * temporal;
         let by = self.magnetic_amp * spatial_u * temporal;
-        let bz = self.magnetic_amp
-            * spatial_w
-            * temporal
-            * T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero);
+        let bz = self.magnetic_amp * spatial_w * temporal * scalar::from_f64::<T>(0.1);
 
         // Pressure field (from momentum equation)
-        let pressure = self.density
-            * (u * u + v * v + w * w)
-            * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+        let pressure = self.density * (u * u + v * v + w * w) * scalar::from_f64::<T>(0.5);
 
         // Current density J = σ(E + u × B), assuming E = 0 for simplicity
         let jx = self.sigma * (v * bz - w * by);
@@ -344,7 +336,7 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
         let (_, fy, _) = fields.lorentz_force;
 
         // Time derivative
-        let dv_dt = -v * T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
+        let dv_dt = -v * scalar::from_f64::<T>(0.5);
 
         // Convective terms
         let convective = u * self.kx * v + v * self.ky * v + w * self.kx * v;
@@ -367,7 +359,7 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
         let (_, _, fz) = fields.lorentz_force;
 
         // Time derivative
-        let dw_dt = -w * T::from_f64(0.25).unwrap_or_else(num_traits::Zero::zero);
+        let dw_dt = -w * scalar::from_f64::<T>(0.25);
 
         // Convective terms
         let convective = u * self.kx * w + v * self.ky * w + w * self.kx * w;
@@ -377,7 +369,7 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
         let viscous = -self.viscosity * k_squared * w;
 
         // Pressure gradient (assuming no variation in z for pressure)
-        let pressure_grad_z = T::zero();
+        let pressure_grad_z = scalar::zero::<T>();
 
         // Source term
         dw_dt - convective + pressure_grad_z / self.density - viscous - fz / self.density
@@ -392,13 +384,13 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
         // Induction equation: ∂B/∂t = ∇×(u×B) + η∇²B
         // where η = 1/(μ₀σ) is magnetic diffusivity
 
-        let magnetic_diffusivity = T::one() / (self.mu_0 * self.sigma);
+        let magnetic_diffusivity = scalar::one::<T>() / (self.mu_0 * self.sigma);
         let k_squared = self.kx * self.kx + self.ky * self.ky + self.kx * self.kx;
 
         // Time derivatives
         let dbx_dt = -bx;
         let dby_dt = -by;
-        let dbz_dt = -bz * T::from_f64(0.1).unwrap_or_else(num_traits::Zero::zero);
+        let dbz_dt = -bz * scalar::from_f64::<T>(0.1);
 
         // Diffusion terms
         let diff_x = magnetic_diffusivity * k_squared * bx;
@@ -419,12 +411,12 @@ impl<T: RealField + Copy> ManufacturedMHD<T> {
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedMHD<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T> for ManufacturedMHD<T> {
     fn exact_solution(&self, x: T, y: T, z: T, t: T) -> T {
         // Return velocity magnitude for compatibility with scalar interface
         let fields = self.compute_vector_fields(x, y, z, t);
         let (u, v, w) = fields.velocity;
-        (u * u + v * v + w * w).sqrt()
+        scalar::sqrt(u * u + v * v + w * w)
     }
 
     fn source_term(&self, x: T, y: T, z: T, t: T) -> T {
@@ -450,7 +442,7 @@ pub struct ManufacturedMultiphase<T: RealField + Copy> {
     pub ky: T,
 }
 
-impl<T: RealField + Copy> ManufacturedMultiphase<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedMultiphase<T> {
     /// Create a new manufactured solution for multi-phase flows
     pub fn new(
         density_ratio: T,
@@ -471,38 +463,40 @@ impl<T: RealField + Copy> ManufacturedMultiphase<T> {
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedMultiphase<T> {
+impl<T: RealField + Copy + eunomia::FloatElement> ManufacturedSolution<T>
+    for ManufacturedMultiphase<T>
+{
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
-        let sin_kx = ComplexField::sin(self.kx * x);
-        let sin_ky = ComplexField::sin(self.ky * y);
-        let temporal = ComplexField::exp(-t);
+        let sin_kx = scalar::sin(self.kx * x);
+        let sin_ky = scalar::sin(self.ky * y);
+        let temporal = scalar::exp(-t);
         let perturbation = self.amplitude * sin_kx * sin_ky * temporal;
-        let epsilon = <T as FromPrimitive>::from_f64(0.02).unwrap();
+        let epsilon = scalar::from_f64::<T>(0.02);
         let signed_distance = y - self.interface_y + perturbation;
         let s = signed_distance / epsilon;
-        <T as FromPrimitive>::from_f64(0.5).unwrap() * (T::one() + ComplexField::tanh(s))
+        scalar::from_f64::<T>(0.5) * (scalar::one::<T>() + scalar::tanh(s))
     }
 
     fn source_term(&self, x: T, y: T, _z: T, t: T) -> T {
-        let sin_kx = ComplexField::sin(self.kx * x);
-        let cos_kx = ComplexField::cos(self.kx * x);
-        let sin_ky = ComplexField::sin(self.ky * y);
-        let cos_ky = ComplexField::cos(self.ky * y);
-        let temporal = ComplexField::exp(-t);
+        let sin_kx = scalar::sin(self.kx * x);
+        let cos_kx = scalar::cos(self.kx * x);
+        let sin_ky = scalar::sin(self.ky * y);
+        let cos_ky = scalar::cos(self.ky * y);
+        let temporal = scalar::exp(-t);
         let perturbation = self.amplitude * sin_kx * sin_ky * temporal;
-        let epsilon = <T as FromPrimitive>::from_f64(0.02).unwrap();
+        let epsilon = scalar::from_f64::<T>(0.02);
         let signed_distance = y - self.interface_y + perturbation;
         let s = signed_distance / epsilon;
-        let tanh_s = ComplexField::tanh(s);
-        let cosh_s = ComplexField::cosh(s);
-        let sech2 = T::one() / (cosh_s * cosh_s);
-        let dphi_ds = <T as FromPrimitive>::from_f64(0.5).unwrap() * sech2;
+        let tanh_s = scalar::tanh(s);
+        let cosh_s = scalar::cosh(s);
+        let sech2 = scalar::one::<T>() / (cosh_s * cosh_s);
+        let dphi_ds = scalar::from_f64::<T>(0.5) * sech2;
         let d2phi_ds2 = -sech2 * tanh_s;
 
-        let inv_epsilon = T::one() / epsilon;
+        let inv_epsilon = scalar::one::<T>() / epsilon;
         let ds_dx = self.amplitude * self.kx * cos_kx * sin_ky * temporal * inv_epsilon;
-        let ds_dy =
-            (T::one() + self.amplitude * self.ky * sin_kx * cos_ky * temporal) * inv_epsilon;
+        let ds_dy = (scalar::one::<T>() + self.amplitude * self.ky * sin_kx * cos_ky * temporal)
+            * inv_epsilon;
         let ds_dt = -perturbation * inv_epsilon;
 
         let d2s_dx2 =
@@ -521,7 +515,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedMultiphase<T> 
         let v = -self.amplitude * self.kx * cos_kx * sin_ky * temporal;
 
         let advection = u * dphi_dx + v * dphi_dy;
-        let diffusion = <T as FromPrimitive>::from_f64(0.01).unwrap() * laplacian;
+        let diffusion = scalar::from_f64::<T>(0.01) * laplacian;
 
         dphi_dt + advection - diffusion
     }

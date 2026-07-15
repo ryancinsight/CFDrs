@@ -1,10 +1,20 @@
 //! Bit-exact roundtrip tests for CheckpointManager
 
 use cfd_io::checkpoint::{Checkpoint, CheckpointManager, CheckpointMetadata, CompressionStrategy};
-use nalgebra::{dmatrix, DMatrix};
+use leto::Array2;
 use proptest::prelude::*;
 use std::f64::consts::E;
 use tempfile::tempdir;
+
+fn matrix_from_rows<const R: usize, const C: usize>(rows: [[f64; C]; R]) -> Array2<f64> {
+    Array2::from_shape_vec([R, C], rows.into_iter().flatten().collect())
+        .expect("test matrix shape and values must match")
+}
+
+fn assert_array_eq(left: &Array2<f64>, right: &Array2<f64>) {
+    assert_eq!(left.shape(), right.shape());
+    assert_eq!(left.clone().into_vec(), right.clone().into_vec());
+}
 
 #[test]
 fn checkpoint_roundtrip_no_compression() {
@@ -15,9 +25,9 @@ fn checkpoint_roundtrip_no_compression() {
     let nx = 10;
     let metadata = CheckpointMetadata::new(1.234, 100, (ny, nx), (1.0, 1.0));
 
-    let u = DMatrix::from_element(ny, nx, 1.0);
-    let v = DMatrix::from_element(ny, nx, 2.0);
-    let p = DMatrix::from_element(ny, nx, 3.0);
+    let u = Array2::from_elem([ny, nx], 1.0);
+    let v = Array2::from_elem([ny, nx], 2.0);
+    let p = Array2::from_elem([ny, nx], 3.0);
 
     let checkpoint = Checkpoint::new(metadata, u.clone(), v.clone(), p.clone());
 
@@ -26,9 +36,9 @@ fn checkpoint_roundtrip_no_compression() {
 
     assert_eq!(loaded.metadata.iteration, 100);
     assert_eq!(loaded.metadata.time.to_bits(), 1.234f64.to_bits());
-    assert_eq!(loaded.u_velocity, u);
-    assert_eq!(loaded.v_velocity, v);
-    assert_eq!(loaded.pressure, p);
+    assert_array_eq(&loaded.u_velocity, &u);
+    assert_array_eq(&loaded.v_velocity, &v);
+    assert_array_eq(&loaded.pressure, &p);
     assert_eq!(loaded.compute_checksum(), checkpoint.compute_checksum());
 }
 
@@ -42,9 +52,9 @@ fn checkpoint_roundtrip_zstd() {
     let nx = 5;
     let metadata = CheckpointMetadata::new(E, 200, (ny, nx), (2.0, 2.0));
 
-    let u = dmatrix![1.0,2.0; 3.0,4.0; 5.0,6.0; 7.0,8.0; 9.0,10.0];
-    let v = dmatrix![10.0,9.0; 8.0,7.0; 6.0,5.0; 4.0,3.0; 2.0,1.0];
-    let p = DMatrix::from_element(5, 5, 42.0);
+    let u = matrix_from_rows([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0], [9.0, 10.0]]);
+    let v = matrix_from_rows([[10.0, 9.0], [8.0, 7.0], [6.0, 5.0], [4.0, 3.0], [2.0, 1.0]]);
+    let p = Array2::from_elem([5, 5], 42.0);
 
     let checkpoint = Checkpoint::new(metadata, u.clone(), v.clone(), p.clone());
 
@@ -53,9 +63,9 @@ fn checkpoint_roundtrip_zstd() {
 
     assert_eq!(loaded.metadata.iteration, 200);
     assert_eq!(loaded.metadata.time.to_bits(), E.to_bits());
-    assert_eq!(loaded.u_velocity, u);
-    assert_eq!(loaded.v_velocity, v);
-    assert_eq!(loaded.pressure, p);
+    assert_array_eq(&loaded.u_velocity, &u);
+    assert_array_eq(&loaded.v_velocity, &v);
+    assert_array_eq(&loaded.pressure, &p);
     assert_eq!(loaded.compute_checksum(), checkpoint.compute_checksum());
 }
 
@@ -82,9 +92,9 @@ proptest::proptest! {
             (1.0, 1.0),
         );
 
-        let u = DMatrix::from_row_slice(ny, nx, &u_data);
-        let v = DMatrix::from_row_slice(ny, nx, &v_data);
-        let p = DMatrix::from_row_slice(ny, nx, &p_data);
+        let u = Array2::from_shape_vec([ny, nx], u_data.clone()).unwrap();
+        let v = Array2::from_shape_vec([ny, nx], v_data.clone()).unwrap();
+        let p = Array2::from_shape_vec([ny, nx], p_data.clone()).unwrap();
 
         let checkpoint = Checkpoint::new(metadata, u.clone(), v.clone(), p.clone());
 
@@ -96,9 +106,12 @@ proptest::proptest! {
 
         prop_assert_eq!(loaded.metadata.iteration, iteration);
         prop_assert_eq!(loaded.metadata.time.to_bits(), time.to_bits());
-        prop_assert_eq!(&loaded.u_velocity, &u);
-        prop_assert_eq!(&loaded.v_velocity, &v);
-        prop_assert_eq!(&loaded.pressure, &p);
+        prop_assert_eq!(loaded.u_velocity.shape(), u.shape());
+        prop_assert_eq!(loaded.v_velocity.shape(), v.shape());
+        prop_assert_eq!(loaded.pressure.shape(), p.shape());
+        prop_assert_eq!(loaded.u_velocity.clone().into_vec(), u.clone().into_vec());
+        prop_assert_eq!(loaded.v_velocity.clone().into_vec(), v.clone().into_vec());
+        prop_assert_eq!(loaded.pressure.clone().into_vec(), p.clone().into_vec());
         prop_assert_eq!(loaded.compute_checksum(), checkpoint.compute_checksum());
     }
 }

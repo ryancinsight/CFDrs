@@ -23,8 +23,7 @@
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 
 use super::constants::DEARDORFF_ONE_THIRD;
 use super::field_ops::{
@@ -36,7 +35,7 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 
 /// Dynamic Smagorinsky LES model (Germano et al. 1991).
 #[derive(Debug, Clone)]
-pub struct DynamicSmagorinskyModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct DynamicSmagorinskyModel<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// Grid spacing in the x direction \[m].
     pub dx: T,
     /// Grid spacing in the y direction \[m].
@@ -51,12 +50,10 @@ pub struct DynamicSmagorinskyModel<T: cfd_mesh::domain::core::Scalar + RealField
     pub cs_sq_max: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
-    DynamicSmagorinskyModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> DynamicSmagorinskyModel<T> {
     /// Create a dynamic Smagorinsky model with unit grid spacing.
     pub fn new() -> Self {
-        let one = T::one();
+        let one = T::ONE;
         let two = one + one;
         Self {
             dx: one,
@@ -70,11 +67,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
 
     /// Create a dynamic Smagorinsky model with the physical filter width.
     pub fn with_filter_width(dx: T, dy: T, dz: T) -> Self {
-        let one = T::one();
+        let one = T::ONE;
         let two = one + one;
-        let one_third = <T as FromPrimitive>::from_f64(DEARDORFF_ONE_THIRD)
-            .expect("DEARDORFF_ONE_THIRD is an IEEE 754 representable f64 constant");
-        let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
+        let one_third = <T as FloatElement>::from_f64(DEARDORFF_ONE_THIRD);
+        let filter_width = <T as FloatElement>::powf(dx * dy * dz, one_third);
         Self {
             dx,
             dy,
@@ -86,15 +82,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default
-    for DynamicSmagorinskyModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> Default for DynamicSmagorinskyModel<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
     for DynamicSmagorinskyModel<T>
 {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
@@ -104,9 +98,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         let delta_sq = delta * delta;
         let delta_hat = delta * self.test_filter_ratio;
         let delta_hat_sq = delta_hat * delta_hat;
-        let two = T::one() + T::one();
-        let eps = <T as FromPrimitive>::from_f64(1e-30)
-            .expect("1e-30 is an IEEE 754 representable f64 constant");
+        let two = T::ONE + T::ONE;
+        let eps = <T as FloatElement>::from_f64(1e-30);
 
         let mut filtered_velocity = Vec::with_capacity(n);
         for k in 0..nz {
@@ -125,8 +118,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
             }
         }
 
-        let mut numerator = T::zero();
-        let mut denominator = T::zero();
+        let mut numerator = T::ZERO;
+        let mut denominator = T::ZERO;
         for k in 0..nz {
             for j in 0..ny {
                 for i in 0..nx {
@@ -180,12 +173,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
         let cs_sq = if denominator > eps {
             numerator / denominator
         } else {
-            T::zero()
+            T::ZERO
         };
-        let cs_sq =
-            num_traits::Float::max(T::zero(), num_traits::Float::min(cs_sq, self.cs_sq_max));
+        let cs_sq = <T as NumericElement>::max_scalar(
+            T::ZERO,
+            <T as NumericElement>::min_scalar(cs_sq, self.cs_sq_max),
+        );
         if cs_sq <= eps {
-            return vec![T::zero(); n];
+            return vec![T::ZERO; n];
         }
 
         let prefactor = cs_sq * delta_sq;
@@ -230,7 +225,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use nalgebra::Vector3;
+    use leto::geometry::Vector3;
 
     fn fill_velocity_field<F>(flow: &mut FlowField<f64>, mut generator: F)
     where

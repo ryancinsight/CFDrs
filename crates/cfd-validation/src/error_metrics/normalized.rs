@@ -4,9 +4,9 @@ use super::{
     norms::{L1Norm, L2Norm},
     ErrorMetric,
 };
+use crate::scalar;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::{FloatElement, RealField};
 
 /// Relative error metric
 pub struct RelativeError<M> {
@@ -26,7 +26,7 @@ impl<M> RelativeError<M> {
 
 impl<T, M> ErrorMetric<T> for RelativeError<M>
 where
-    T: RealField + FromPrimitive + Copy,
+    T: RealField + FloatElement + Copy,
     M: ErrorMetric<T>,
 {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
@@ -39,11 +39,9 @@ where
         let absolute_error = self.base_metric.compute_error(numerical, reference)?;
         let reference_norm = self
             .base_metric
-            .compute_error(reference, &vec![T::zero(); reference.len()])?;
+            .compute_error(reference, &vec![scalar::zero(); reference.len()])?;
 
-        let tolerance_t = T::from_f64(self.tolerance).ok_or_else(|| {
-            Error::InvalidConfiguration("Failed to convert tolerance to target type".to_string())
-        })?;
+        let tolerance_t = scalar::from_f64(self.tolerance);
         if reference_norm < tolerance_t {
             // Reference is essentially zero, return absolute error
             Ok(absolute_error)
@@ -60,7 +58,7 @@ where
 /// Root Mean Square Error (RMSE)
 pub struct RootMeanSquareError;
 
-impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for RootMeanSquareError {
+impl<T: RealField + FloatElement + Copy> ErrorMetric<T> for RootMeanSquareError {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         // RMSE is the same as L2 norm
         let l2 = L2Norm;
@@ -75,7 +73,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for RootMeanSqua
 /// Mean Absolute Error (MAE)
 pub struct MeanAbsoluteError;
 
-impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for MeanAbsoluteError {
+impl<T: RealField + FloatElement + Copy> ErrorMetric<T> for MeanAbsoluteError {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         // MAE is the same as L1 norm
         let l1 = L1Norm;
@@ -113,7 +111,7 @@ impl NormalizedRMSE {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRMSE {
+impl<T: RealField + FloatElement + Copy> ErrorMetric<T> for NormalizedRMSE {
     fn compute_error(&self, numerical: &[T], reference: &[T]) -> Result<T> {
         if numerical.len() != reference.len() {
             return Err(Error::InvalidConfiguration(
@@ -122,7 +120,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRM
         }
 
         if numerical.is_empty() {
-            return Ok(T::zero());
+            return Ok(scalar::zero::<T>());
         }
 
         // Compute RMSE
@@ -141,22 +139,18 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRM
                 max_val - min_val
             }
             NormalizationMethod::Mean => {
-                let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + *x);
-                let n = T::from_usize(reference.len()).ok_or_else(|| {
-                    Error::InvalidConfiguration(
-                        "Failed to convert array length to target type".to_string(),
-                    )
-                })?;
+                let sum: T = reference
+                    .iter()
+                    .fold(scalar::zero::<T>(), |acc, x| acc + *x);
+                let n = scalar::from_usize(reference.len());
                 sum / n
             }
             NormalizationMethod::StandardDeviation => {
                 // Compute mean
-                let sum: T = reference.iter().fold(T::zero(), |acc, x| acc + *x);
-                let n = T::from_usize(reference.len()).ok_or_else(|| {
-                    Error::InvalidConfiguration(
-                        "Failed to convert array length to target type".to_string(),
-                    )
-                })?;
+                let sum: T = reference
+                    .iter()
+                    .fold(scalar::zero::<T>(), |acc, x| acc + *x);
+                let n = scalar::from_usize(reference.len());
                 let mean = sum / n;
 
                 // Compute variance
@@ -166,14 +160,14 @@ impl<T: RealField + Copy + FromPrimitive + Copy> ErrorMetric<T> for NormalizedRM
                         let diff = *x - mean;
                         diff * diff
                     })
-                    .fold(T::zero(), |acc, x| acc + x)
+                    .fold(scalar::zero::<T>(), |acc, x| acc + x)
                     / n;
 
-                variance.sqrt()
+                scalar::sqrt(variance)
             }
         };
 
-        if normalization == T::zero() {
+        if normalization == scalar::zero::<T>() {
             Ok(rmse_value)
         } else {
             Ok(rmse_value / normalization)

@@ -2,7 +2,7 @@
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use cfd_core::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 /// Benchmark runner for executing validation tests

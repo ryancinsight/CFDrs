@@ -6,7 +6,7 @@
 //! References:
 //! - Roache, P.J. (2002) "Code Verification by the Method of Manufactured Solutions"
 
-use nalgebra::RealField;
+use eunomia::RealField;
 
 // Submodules
 pub mod annular;
@@ -27,8 +27,8 @@ pub use self::serpentine_2d::Serpentine2D;
 pub use self::trifurcation_2d::Trifurcation2D;
 pub use self::venturi::Venturi2D;
 
-/// Re-export nalgebra point types (SSOT — no custom duplicates).
-pub use nalgebra::{Point2, Point3};
+/// Re-export Leto point types (SSOT — no custom duplicates).
+pub use leto::geometry::{Point2, Point3};
 
 /// Legacy alias for backwards compatibility within the crate.
 pub type Point2D<T> = Point2<T>;

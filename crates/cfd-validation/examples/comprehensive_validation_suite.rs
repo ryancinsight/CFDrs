@@ -73,7 +73,7 @@ fn main() -> Result<()> {
         let status = if res
             .convergence
             .last()
-            .map_or(false, |&c| c < config.tolerance)
+            .is_some_and(|&c| c < config.tolerance)
         {
             "CONVERGED"
         } else {

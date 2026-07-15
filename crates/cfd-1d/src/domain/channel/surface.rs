@@ -1,11 +1,11 @@
 //! Surface properties and wettability characteristics
 
-use nalgebra::RealField;
+use crate::scalar::Cfd1dScalar;
 use serde::{Deserialize, Serialize};
 
 /// Surface properties affecting flow
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SurfaceProperties<T: RealField + Copy> {
+pub struct SurfaceProperties<T: Cfd1dScalar + Copy> {
     /// Surface roughness \[m]
     pub roughness: T,
     /// Contact angle \[radians]

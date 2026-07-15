@@ -15,11 +15,12 @@
 //! invertibility. The first unmatched moment $m = n+1$ gives the leading
 //! truncation error $O(\Delta x^{n+1-d})$.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::FloatElement;
 
 /// Extended stencil trait for schemes needing wider access
-pub trait ExtendedStencilScheme<T: RealField + Copy> {
+pub trait ExtendedStencilScheme<T: Cfd2dScalar + Copy> {
     /// Compute face value using extended stencil
     ///
     /// # Arguments
@@ -34,18 +35,18 @@ pub trait ExtendedStencilScheme<T: RealField + Copy> {
 /// Reference: Leonard, B.P. (1979). Computer Methods in Applied Mechanics and Engineering, 19(1), 59-98
 pub struct QuickScheme;
 
-impl<T: RealField + Copy + FromPrimitive> ExtendedStencilScheme<T> for QuickScheme {
+impl<T: Cfd2dScalar + Copy + FloatElement> ExtendedStencilScheme<T> for QuickScheme {
     fn face_value(&self, values: &[T; 5], velocity: T, _positions: Option<&[T; 5]>) -> T {
         // Constants from Leonard (1979)
         const SIX_EIGHTHS: f64 = 6.0 / 8.0;
         const THREE_EIGHTHS: f64 = 3.0 / 8.0;
         const ONE_EIGHTH: f64 = 1.0 / 8.0;
 
-        let six_eighths = T::from_f64(SIX_EIGHTHS).expect("analytical constant conversion");
-        let three_eighths = T::from_f64(THREE_EIGHTHS).expect("analytical constant conversion");
-        let one_eighth = T::from_f64(ONE_EIGHTH).expect("analytical constant conversion");
+        let six_eighths: T = scalar::from_f64(SIX_EIGHTHS);
+        let three_eighths: T = scalar::from_f64(THREE_EIGHTHS);
+        let one_eighth: T = scalar::from_f64(ONE_EIGHTH);
 
-        if velocity > T::zero() {
+        if velocity > scalar::zero() {
             // Flow from left to right: use φ_U, φ_C, φ_D
             // φ_f = 6/8 * φ_C + 3/8 * φ_D - 1/8 * φ_U
             six_eighths * values[2] + three_eighths * values[3] - one_eighth * values[1]
@@ -62,9 +63,9 @@ impl<T: RealField + Copy + FromPrimitive> ExtendedStencilScheme<T> for QuickSche
 /// Reference: van Leer, B. (1979). Journal of Computational Physics, 32(1), 101-136
 pub struct MusclScheme;
 
-impl<T: RealField + Copy + FromPrimitive> ExtendedStencilScheme<T> for MusclScheme {
+impl<T: Cfd2dScalar + Copy + FloatElement> ExtendedStencilScheme<T> for MusclScheme {
     fn face_value(&self, values: &[T; 5], velocity: T, _positions: Option<&[T; 5]>) -> T {
-        let half = T::from_f64(0.5).expect("analytical constant conversion");
+        let half: T = scalar::from_f64(0.5);
 
         // Compute gradients
         let grad_left = values[2] - values[1];
@@ -72,15 +73,15 @@ impl<T: RealField + Copy + FromPrimitive> ExtendedStencilScheme<T> for MusclSche
 
         // Van Leer limiter
         let limiter = |r: T| -> T {
-            if r <= T::zero() {
-                T::zero()
+            if r <= scalar::zero() {
+                scalar::zero()
             } else {
-                let two = T::from_f64(2.0).expect("analytical constant conversion");
-                (two * r) / (T::one() + r)
+                let two: T = scalar::from_f64(2.0);
+                (two * r) / (scalar::one::<T>() + r)
             }
         };
 
-        if velocity > T::zero() {
+        if velocity > scalar::zero() {
             let r = grad_left / (grad_right + T::default_epsilon());
             values[2] + half * limiter(r) * grad_right
         } else {

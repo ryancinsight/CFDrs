@@ -39,8 +39,8 @@ pub mod flow_solver;
 pub mod profile;
 pub mod pulsatility;
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd1dScalar;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 
@@ -60,7 +60,7 @@ pub use pulsatility::womersley_pulsatility_index;
 /// α = R · √(ω·ρ/μ) = R · √(2πf·ρ/μ)
 /// ```
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct WomersleyNumber<T: RealField + Copy> {
+pub struct WomersleyNumber<T: Cfd1dScalar + Copy> {
     /// Vessel radius \[m]
     pub radius: T,
     /// Angular frequency of pulsation \[rad/s]
@@ -71,7 +71,7 @@ pub struct WomersleyNumber<T: RealField + Copy> {
     pub viscosity: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
+impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyNumber<T> {
     /// Create Womersley number calculator from physical parameters
     pub fn new(radius: T, omega: T, density: T, viscosity: T) -> Self {
         Self {
@@ -100,11 +100,10 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
         // Heart rate 72 bpm = 1.2 Hz
         // Blood: ρ = 1060 kg/m³, μ = 0.0035 Pa·s
         Self {
-            radius: T::from_f64(0.0125).expect("Mathematical constant conversion compromised"),
-            omega: T::from_f64(2.0 * PI * 1.2)
-                .expect("Mathematical constant conversion compromised"),
-            density: T::from_f64(1060.0).expect("Mathematical constant conversion compromised"),
-            viscosity: T::from_f64(0.0035).expect("Mathematical constant conversion compromised"),
+            radius: <T as FloatElement>::from_f64(0.0125),
+            omega: <T as FloatElement>::from_f64(2.0 * PI * 1.2),
+            density: <T as FloatElement>::from_f64(1060.0),
+            viscosity: <T as FloatElement>::from_f64(0.0035),
         }
     }
 
@@ -112,11 +111,10 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
     pub fn human_femoral() -> Self {
         // Femoral diameter ~6 mm
         Self {
-            radius: T::from_f64(0.003).expect("Mathematical constant conversion compromised"),
-            omega: T::from_f64(2.0 * PI * 1.2)
-                .expect("Mathematical constant conversion compromised"),
-            density: T::from_f64(1060.0).expect("Mathematical constant conversion compromised"),
-            viscosity: T::from_f64(0.0035).expect("Mathematical constant conversion compromised"),
+            radius: <T as FloatElement>::from_f64(0.003),
+            omega: <T as FloatElement>::from_f64(2.0 * PI * 1.2),
+            density: <T as FloatElement>::from_f64(1060.0),
+            viscosity: <T as FloatElement>::from_f64(0.0035),
         }
     }
 
@@ -124,7 +122,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
     ///
     /// α = R · √(ω·ρ/μ)
     pub fn value(&self) -> T {
-        self.radius * (self.omega * self.density / self.viscosity).sqrt()
+        self.radius * <T as NumericElement>::sqrt(self.omega * self.density / self.viscosity)
     }
 
     /// The Stokes layer thickness δ = √(2μ/(ρω))
@@ -133,7 +131,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
     /// from the wall into the flow during one oscillation cycle.
     pub fn stokes_layer_thickness(&self) -> T {
         let two = T::one() + T::one();
-        (two * self.viscosity / (self.density * self.omega)).sqrt()
+        <T as NumericElement>::sqrt(two * self.viscosity / (self.density * self.omega))
     }
 
     /// Ratio of radius to Stokes layer thickness R/δ
@@ -148,7 +146,7 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyNumber<T> {
         let alpha = self.value();
         let one = T::one();
         let three = T::one() + T::one() + T::one();
-        let ten = T::from_f64(10.0).expect("Mathematical constant conversion compromised");
+        let ten = <T as FloatElement>::from_f64(10.0);
 
         if alpha < one {
             FlowRegime::QuasiSteady
@@ -190,8 +188,7 @@ mod tests {
         let alpha = wom.value();
         assert!(
             alpha > 10.0 && alpha < 25.0,
-            "Aortic α = {} should be ~18",
-            alpha
+            "Aortic α = {alpha} should be ~18"
         );
     }
 
@@ -201,8 +198,7 @@ mod tests {
         let alpha = wom.value();
         assert!(
             alpha > 2.0 && alpha < 5.0,
-            "Femoral α = {} should be ~3.3",
-            alpha
+            "Femoral α = {alpha} should be ~3.3"
         );
     }
 
@@ -224,8 +220,7 @@ mod tests {
         let delta = wom.stokes_layer_thickness();
         assert!(
             delta > 0.0005 && delta < 0.002,
-            "δ = {} should be ~1 mm",
-            delta
+            "δ = {delta} should be ~1 mm"
         );
     }
 
@@ -245,7 +240,7 @@ mod tests {
         let wom = WomersleyNumber::<f64>::human_femoral();
         let profile = WomersleyProfile::<f64>::new(wom, 100.0);
         let u_wall = profile.velocity(1.0, 0.1);
-        assert!(u_wall.abs() < 0.01, "Wall velocity {} should be ~0", u_wall);
+        assert!(u_wall.abs() < 0.01, "Wall velocity {u_wall} should be ~0");
     }
 
     #[test]
@@ -270,10 +265,10 @@ mod tests {
         let wom = WomersleyNumber::<f64>::human_femoral();
         let profile = WomersleyProfile::<f64>::new(wom, 100.0);
         let q = profile.flow_rate(0.1);
+        let q_liters_per_second = q * 1000.0;
         assert!(
             q.abs() < 0.001,
-            "Flow rate {} L/s should be realistic",
-            q * 1000.0
+            "Flow rate {q_liters_per_second} L/s should be realistic"
         );
     }
 
@@ -283,7 +278,7 @@ mod tests {
         let alpha = flow.womersley_number().value();
         assert!(alpha > 2.0 && alpha < 5.0);
         let u = flow.velocity(0.5, 0.3);
-        assert!(u.abs() < 1.0, "Velocity {} should be < 1 m/s", u);
+        assert!(u.abs() < 1.0, "Velocity {u} should be < 1 m/s");
     }
 
     #[test]
@@ -292,8 +287,7 @@ mod tests {
         let z = flow.impedance_magnitude();
         assert!(
             z > 0.0 && z.is_finite(),
-            "Impedance {} should be finite positive",
-            z
+            "Impedance {z} should be finite positive"
         );
     }
 
@@ -302,7 +296,7 @@ mod tests {
         let wom = WomersleyNumber::<f64>::human_femoral();
         let profile = WomersleyProfile::<f64>::new(wom, 100.0);
         let tau_w = profile.wall_shear_stress(0.2);
-        assert!(tau_w.abs() < 200.0, "WSS {} Pa should be < 200 Pa", tau_w);
+        assert!(tau_w.abs() < 200.0, "WSS {tau_w} Pa should be < 200 Pa");
     }
 
     #[test]
@@ -330,16 +324,15 @@ mod tests {
 
         let mut net_volume = 0.0;
         let steps = 1000;
-        let dt = 1.0 / steps as f64;
+        let dt = 1.0 / f64::from(steps);
         for i in 0..steps {
-            let t = i as f64 * dt;
+            let t = f64::from(i) * dt;
             net_volume += profile.flow_rate(t) * dt;
         }
 
         assert!(
             net_volume.abs() < 1e-10,
-            "Net volume must sum to zero, got {}",
-            net_volume
+            "Net volume must sum to zero, got {net_volume}"
         );
     }
 
@@ -352,9 +345,7 @@ mod tests {
             let u_wall = profile.velocity(1.0, t);
             assert!(
                 u_wall.abs() < 1e-12,
-                "No-slip violated at t={}: u={}",
-                t,
-                u_wall
+                "No-slip violated at t={t}: u={u_wall}"
             );
         }
     }
@@ -367,11 +358,7 @@ mod tests {
         let q_mean = 5e-6;
         let (pi, v_peak, v_trough) = womersley_pulsatility_index(q_mean, 0.0, area);
 
-        assert!(
-            pi.abs() < 1e-12,
-            "PI should be 0 for steady flow, got {}",
-            pi
-        );
+        assert!(pi.abs() < 1e-12, "PI should be 0 for steady flow, got {pi}");
         let v_mean = q_mean / area;
         assert_relative_eq!(v_peak, v_mean, max_relative = 1e-12);
         assert_relative_eq!(v_trough, v_mean, max_relative = 1e-12);
@@ -386,14 +373,11 @@ mod tests {
 
         assert!(
             pi > 0.8 && pi < 2.0,
-            "Typical arterial PI = {:.2} should be in 0.8-2.0",
-            pi
+            "Typical arterial PI = {pi:.2} should be in 0.8-2.0"
         );
         assert!(
             v_peak > v_trough,
-            "Peak ({}) should exceed trough ({})",
-            v_peak,
-            v_trough
+            "Peak ({v_peak}) should exceed trough ({v_trough})"
         );
     }
 
@@ -405,10 +389,7 @@ mod tests {
                 let (pi, _, _) = womersley_pulsatility_index(q_mean, q_amp, area);
                 assert!(
                     pi >= 0.0,
-                    "PI should be >= 0, got {} for q_mean={}, q_amp={}",
-                    pi,
-                    q_mean,
-                    q_amp
+                    "PI should be >= 0, got {pi} for q_mean={q_mean}, q_amp={q_amp}"
                 );
             }
         }

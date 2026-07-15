@@ -4,7 +4,8 @@
 //! discretized domains (meshes), including nodes, elements, and connectivity.
 
 use crate::error::{Error, Result};
-use nalgebra::{Point3, RealField};
+use eunomia::RealField;
+use leto::geometry::Point3;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

@@ -4,11 +4,11 @@
 //! at a bifurcation point.
 
 use crate::domain::channel::{Channel, CrossSection};
+use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
 
 use super::pressure_balance::{bisect_root, ScalarSolveTolerances};
 use super::two_way_solution::TwoWayBranchSolution;
@@ -40,7 +40,7 @@ use super::two_way_solution::TwoWayBranchSolution;
 /// - Fung (1993): Branch-junction pressure losses in biological networks
 /// - Murray's Law: D_0^3 = D_1^3 + D_2^3
 #[derive(Debug, Clone)]
-pub struct TwoWayBranchJunction<T: RealField + Copy> {
+pub struct TwoWayBranchJunction<T: Cfd1dScalar + Copy> {
     /// Parent channel (incoming flow)
     pub parent: Channel<T>,
     /// First daughter channel (outgoing)
@@ -55,7 +55,7 @@ pub struct TwoWayBranchJunction<T: RealField + Copy> {
     pub flow_split_ratio: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBranchJunction<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
     /// Create a new two-way branch junction
     pub fn new(
         parent: Channel<T>,
@@ -106,8 +106,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
                 let m = T::from_f64_or_one(1.0) - (b * b) / (a * a);
 
                 let mut a_n = T::from_f64_or_one(1.0);
-                let mut b_n = (T::from_f64_or_one(1.0) - m).sqrt();
-                let mut c_n = m.sqrt();
+                let mut b_n = <T as NumericElement>::sqrt(T::from_f64_or_one(1.0) - m);
+                let mut c_n = <T as NumericElement>::sqrt(m);
 
                 let mut sum = c_n * c_n / two;
                 let mut power = T::from_f64_or_one(1.0);
@@ -115,7 +115,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
 
                 for _ in 0..20 {
                     let a_next = (a_n + b_n) / two;
-                    let b_next = (a_n * b_n).sqrt();
+                    let b_next = <T as NumericElement>::sqrt(a_n * b_n);
                     let c_next = (a_n - b_n) / two;
 
                     a_n = a_next;
@@ -143,8 +143,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
                 let two = T::from_f64_or_one(2.0);
                 let four = T::from_f64_or_one(4.0);
                 let area = (*top_width + *bottom_width) * *height / two;
-                let side_length =
-                    ((*top_width - *bottom_width).powi(2) / four + height.powi(2)).sqrt();
+                let side_length = <T as NumericElement>::sqrt(
+                    <T as FloatElement>::powi(*top_width - *bottom_width, 2) / four
+                        + <T as FloatElement>::powi(*height, 2),
+                );
                 let perimeter = *top_width + *bottom_width + two * side_length;
                 four * area / perimeter
             }
@@ -165,10 +167,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         let d0 = Self::hydraulic_diameter(&self.parent);
         let d1 = Self::hydraulic_diameter(&self.daughter1);
         let d2 = Self::hydraulic_diameter(&self.daughter2);
-        let d0_cubed = d0.powf(three);
-        let d1_cubed = d1.powf(three);
-        let d2_cubed = d2.powf(three);
-        (d0_cubed - (d1_cubed + d2_cubed)).abs() / d0_cubed.max(T::from_f64_or_one(1e-10))
+        let d0_cubed = <T as FloatElement>::powf(d0, three);
+        let d1_cubed = <T as FloatElement>::powf(d1, three);
+        let d2_cubed = <T as FloatElement>::powf(d2, three);
+        <T as NumericElement>::abs(d0_cubed - (d1_cubed + d2_cubed))
+            / d0_cubed.max(T::from_f64_or_one(1e-10))
     }
 
     /// Calculate shear rate in a channel for given volumetric flow rate
@@ -180,7 +183,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         let d = Self::hydraulic_diameter(channel);
         let pi = T::from_f64_or_one(std::f64::consts::PI);
         let thirty_two = T::from_f64_or_one(32.0);
-        (thirty_two * q.abs()) / (pi * d * d * d)
+        (thirty_two * <T as NumericElement>::abs(q)) / (pi * d * d * d)
     }
 
     /// Calculate apparent viscosity in a channel for given flow rate.
@@ -219,7 +222,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
     ) -> T {
         let one_two_eight = T::from_f64_or_one(128.0);
         let pi = T::from_f64_or_one(std::f64::consts::PI);
-        let mu = Self::apparent_viscosity(fluid, q.abs(), channel, temperature, pressure);
+        let mu = Self::apparent_viscosity(
+            fluid,
+            <T as NumericElement>::abs(q),
+            channel,
+            temperature,
+            pressure,
+        );
         let d = Self::hydraulic_diameter(channel);
         let l = channel.geometry.length;
         (one_two_eight * mu * q * l) / (pi * d * d * d * d)
@@ -229,7 +238,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         if self.flow_split_ratio < T::zero() || self.flow_split_ratio > T::one() {
             return Err(Error::InvalidConfiguration(format!(
                 "flow split ratio must be within [0, 1], got {}",
-                self.flow_split_ratio.to_f64().unwrap_or(f64::NAN)
+                <T as NumericElement>::to_f64(self.flow_split_ratio)
             )));
         }
         Ok(())
@@ -259,7 +268,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         self.validate_split_ratio()?;
 
         let tiny_flow = T::from_f64_or_one(1e-18);
-        let q_parent_magnitude = q_parent.abs();
+        let q_parent_magnitude = <T as NumericElement>::abs(q_parent);
         if q_parent_magnitude <= tiny_flow {
             return Ok(T::zero());
         }
@@ -289,9 +298,10 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         if lower_residual > T::zero() || upper_residual < T::zero() {
             return Err(Error::Convergence(
                 cfd_core::error::ConvergenceErrorKind::StagnatedResidual {
-                    residual: (lower_residual.abs() + upper_residual.abs())
-                        .to_f64()
-                        .unwrap_or(f64::NAN),
+                    residual: <T as NumericElement>::to_f64(
+                        <T as NumericElement>::abs(lower_residual)
+                            + <T as NumericElement>::abs(upper_residual),
+                    ),
                 },
             ));
         }
@@ -327,11 +337,12 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         let q_2 = q_parent - q_1;
 
         let q_sum = q_1 + q_2;
-        let mass_error = (q_sum - q_parent).abs() / q_parent.abs().max(T::from_f64_or_one(1e-15));
+        let mass_error = <T as NumericElement>::abs(q_sum - q_parent)
+            / <T as NumericElement>::abs(q_parent).max(T::from_f64_or_one(1e-15));
         if mass_error > T::from_f64_or_one(1e-10) {
             use cfd_core::error::ConvergenceErrorKind;
             return Err(Error::Convergence(ConvergenceErrorKind::Diverged {
-                norm: mass_error.to_f64().unwrap_or(f64::NAN),
+                norm: <T as NumericElement>::to_f64(mass_error),
             }));
         }
 
@@ -343,8 +354,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> TwoWayBran
         let p_1 = p_junction - dp_1;
         let p_2 = p_junction - dp_2;
 
-        let junction_pressure_error =
-            (p_1 - p_2).abs() / (p_junction.abs() + T::from_f64_or_one(1.0));
+        let junction_pressure_error = <T as NumericElement>::abs(p_1 - p_2)
+            / (<T as NumericElement>::abs(p_junction) + T::from_f64_or_one(1.0));
 
         let gamma_1 = Self::shear_rate(q_1, &self.daughter1);
         let gamma_2 = Self::shear_rate(q_2, &self.daughter2);

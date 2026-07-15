@@ -48,9 +48,12 @@
 //! - Ascher, U. M., Ruuth, S. J., & Wetton, B. T. (1997). Implicit-explicit methods
 //!   for time-dependent PDEs. SIAM Journal on Numerical Analysis, 32(3), 797-823.
 
-use super::traits::TimeStepper;
-use cfd_core::error::Result;
-use nalgebra::{DMatrix, DVector, RealField};
+use super::traits::{
+    from_f64, one, state_len, state_norm, state_zeros, zero, TimeMatrix, TimeState, TimeStepper,
+};
+use cfd_core::error::{ConvergenceErrorKind, Error, Result};
+use eunomia::{NumericElement, RealField};
+use leto_ops::{solve, RealScalar};
 
 /// IMEX Runge-Kutta method for systems with mixed stiffness
 ///
@@ -72,7 +75,7 @@ pub struct IMEXTimeStepper<T: RealField + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> IMEXTimeStepper<T> {
+impl<T: RealField + RealScalar + Copy> IMEXTimeStepper<T> {
     /// Default Newton iteration tolerance for implicit stages
     const NEWTON_TOLERANCE: f64 = 1e-10;
 
@@ -85,14 +88,14 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
     fn compute_stage_solution(
         &self,
         stage: usize,
-        u: &DVector<T>,
+        u: &TimeState<T>,
         dt: T,
-        k_explicit: &[DVector<T>],
-        k_implicit: &[DVector<T>],
-        u_stage: &mut DVector<T>,
+        k_explicit: &[TimeState<T>],
+        k_implicit: &[TimeState<T>],
+        u_stage: &mut TimeState<T>,
     ) {
-        u_stage.copy_from(u);
-        let n = u.len();
+        u_stage.assign(u);
+        let n = state_len(u);
 
         // Add contributions from previous stages
         for prev_stage in 0..stage {
@@ -100,13 +103,13 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
                 if stage < self.explicit_a.len() && prev_stage < self.explicit_a[stage].len() {
                     self.explicit_a[stage][prev_stage]
                 } else {
-                    T::zero()
+                    zero()
                 };
             let a_imp =
                 if stage < self.implicit_a.len() && prev_stage < self.implicit_a[stage].len() {
                     self.implicit_a[stage][prev_stage]
                 } else {
-                    T::zero()
+                    zero()
                 };
 
             for i in 0..n {
@@ -121,62 +124,65 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
     /// Solves: u_stage = u_stage_explicit + dt * a_ii * f_implicit(t_stage, u_stage)
     fn solve_implicit_stage<F, J>(
         &self,
-        u_stage_explicit: &DVector<T>,
+        u_stage_explicit: &TimeState<T>,
         t_stage: T,
         dt: T,
         a_ii_imp: T,
         f_implicit: F,
         jacobian_implicit: J,
-    ) -> Result<DVector<T>>
+    ) -> Result<TimeState<T>>
     where
-        F: Fn(T, &DVector<T>) -> Result<DVector<T>>,
-        J: Fn(T, &DVector<T>) -> Result<DMatrix<T>>,
+        F: Fn(T, &TimeState<T>) -> Result<TimeState<T>>,
+        J: Fn(T, &TimeState<T>) -> Result<TimeMatrix<T>>,
     {
         let mut u_stage_current = u_stage_explicit.clone();
-        let n = u_stage_explicit.len();
+        let n = state_len(u_stage_explicit);
 
         for _newton_iter in 0..Self::MAX_NEWTON_ITERATIONS {
             // Compute residual: F(u) = u - u_explicit - dt * a_ii * f_imp(t, u)
             let f_imp = f_implicit(t_stage, &u_stage_current)?;
-            let mut residual = DVector::zeros(n);
+            let mut residual = state_zeros(n);
 
             for i in 0..n {
                 residual[i] = u_stage_current[i] - u_stage_explicit[i] - dt * a_ii_imp * f_imp[i];
             }
 
             // Check convergence
-            let residual_norm = residual.norm();
-            let tolerance = T::from_f64(Self::NEWTON_TOLERANCE).unwrap_or_else(T::one);
+            let residual_norm = state_norm(&residual);
+            let tolerance = from_f64(Self::NEWTON_TOLERANCE);
             if residual_norm < tolerance {
                 return Ok(u_stage_current);
             }
 
             // Compute Jacobian and solve for Newton step
             let jac_imp = jacobian_implicit(t_stage, &u_stage_current)?;
-            let mut jacobian = DMatrix::identity(n, n);
+            validate_matrix_shape(&jac_imp, n, "IMEX implicit Jacobian")?;
+            let mut jacobian = matrix_identity(n);
             let a_ii_dt = a_ii_imp * dt;
 
             for i in 0..n {
                 for j in 0..n {
-                    jacobian[(i, j)] -= a_ii_dt * jac_imp[(i, j)];
+                    jacobian[[i, j]] -= a_ii_dt * jac_imp[[i, j]];
                 }
             }
 
             // Solve Jacobian * du = -residual
-            let neg_residual = -&residual;
-            match jacobian.lu().solve(&neg_residual) {
-                Some(du) => {
-                    u_stage_current += du;
-                }
-                None => {
-                    // Fallback to explicit approximation
-                    break;
-                }
+            let neg_residual =
+                TimeState::from_shape_vec([n], (0..n).map(|i| zero::<T>() - residual[i]).collect())
+                    .expect("invariant: residual length matches state shape");
+            let du = solve(&jacobian.view(), &neg_residual.view()).map_err(|error| {
+                Error::InvalidInput(format!("IMEX Newton solve failed: {error}"))
+            })?;
+            for i in 0..n {
+                u_stage_current[i] += du[i];
             }
         }
 
-        // Fallback: use explicit approximation if Newton failed to converge
-        Ok(u_stage_explicit.clone())
+        Err(Error::Convergence(
+            ConvergenceErrorKind::MaxIterationsExceeded {
+                max: Self::MAX_NEWTON_ITERATIONS,
+            },
+        ))
     }
 
     /// Create ARS343 (Ascher, Ruuth, Spiteri 1997) IMEX method
@@ -187,50 +193,38 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
     /// Ascher, U. M., Ruuth, S. J., & Wetton, B. T. (1997). Implicit-explicit methods
     /// for time-dependent PDEs. SIAM Journal on Numerical Analysis, 32(3), 797-823.
     pub fn ars343() -> Self {
-        let gamma = (T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero)
-            + T::from_f64(3.0)
-                .unwrap_or_else(num_traits::Zero::zero)
-                .sqrt())
-            / T::from_f64(6.0).unwrap_or_else(num_traits::Zero::zero);
-        let delta =
-            T::one() - T::one() / (T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * gamma);
+        let half: T = from_f64(0.5);
+        let two: T = from_f64(2.0);
+        let three: T = from_f64(3.0);
+        let six: T = from_f64(6.0);
+        let gamma = (three + <T as NumericElement>::sqrt(three)) / six;
+        let delta = one::<T>() - one::<T>() / (two * gamma);
 
-        let c = vec![T::zero(), gamma, T::one()];
+        let c = vec![zero::<T>(), gamma, one::<T>()];
 
         // Explicit tableau (strictly lower)
         let explicit_a = vec![
-            vec![],                        // Stage 0 (c=0)
-            vec![gamma],                   // Stage 1 (c=gamma)
-            vec![delta, T::one() - delta], // Stage 2 (c=1)
+            vec![],                          // Stage 0 (c=0)
+            vec![gamma],                     // Stage 1 (c=gamma)
+            vec![delta, one::<T>() - delta], // Stage 2 (c=1)
         ];
 
         // Implicit tableau (strictly lower part)
         let implicit_a = vec![
-            vec![],          // Stage 0
-            vec![T::zero()], // Stage 1
-            vec![
-                T::zero(),
-                T::one() - T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) * gamma,
-            ], // Stage 2
+            vec![],                                      // Stage 0
+            vec![zero::<T>()],                           // Stage 1
+            vec![zero::<T>(), one::<T>() - two * gamma], // Stage 2
         ];
 
         // Implicit diagonals
         let implicit_diagonal = vec![
-            T::zero(), // Stage 0 explicit
-            gamma,     // Stage 1
-            gamma,     // Stage 2
+            zero::<T>(), // Stage 0 explicit
+            gamma,       // Stage 1
+            gamma,       // Stage 2
         ];
 
-        let explicit_b = vec![
-            T::zero(),
-            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
-        ];
-        let implicit_b = vec![
-            T::zero(),
-            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
-            T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero),
-        ];
+        let explicit_b = vec![zero::<T>(), half, half];
+        let implicit_b = vec![zero::<T>(), half, half];
 
         Self {
             explicit_a,
@@ -250,23 +244,23 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
         f_implicit: S,
         jacobian_implicit: J,
         t: T,
-        u: &DVector<T>,
+        u: &TimeState<T>,
         dt: T,
-    ) -> Result<DVector<T>>
+    ) -> Result<TimeState<T>>
     where
-        F: Fn(T, &DVector<T>) -> Result<DVector<T>>,
-        S: Fn(T, &DVector<T>) -> Result<DVector<T>>,
-        J: Fn(T, &DVector<T>) -> Result<DMatrix<T>>,
+        F: Fn(T, &TimeState<T>) -> Result<TimeState<T>>,
+        S: Fn(T, &TimeState<T>) -> Result<TimeState<T>>,
+        J: Fn(T, &TimeState<T>) -> Result<TimeMatrix<T>>,
     {
-        let n = u.len();
+        let n = state_len(u);
         let stages = self.c.len();
 
         // Store RHS evaluations at each stage
-        let mut k_explicit: Vec<DVector<T>> = vec![DVector::zeros(n); stages];
-        let mut k_implicit: Vec<DVector<T>> = vec![DVector::zeros(n); stages];
+        let mut k_explicit: Vec<TimeState<T>> = vec![state_zeros(n); stages];
+        let mut k_implicit: Vec<TimeState<T>> = vec![state_zeros(n); stages];
 
         // Reusable buffer for stage solution
-        let mut u_stage = DVector::zeros(n);
+        let mut u_stage = state_zeros(n);
 
         // Compute stages
         for stage in 0..stages {
@@ -289,10 +283,10 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
             let a_ii_imp = if stage < self.implicit_diagonal.len() {
                 self.implicit_diagonal[stage]
             } else {
-                T::zero()
+                zero()
             };
 
-            if a_ii_imp != T::zero() {
+            if a_ii_imp != zero() {
                 // Solve implicit stage using Newton iteration
                 let u_stage_solved = self.solve_implicit_stage(
                     &u_stage,
@@ -315,12 +309,12 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
             let b_exp = if stage < self.explicit_b.len() {
                 self.explicit_b[stage]
             } else {
-                T::zero()
+                zero()
             };
             let b_imp = if stage < self.implicit_b.len() {
                 self.implicit_b[stage]
             } else {
-                T::zero()
+                zero()
             };
 
             for i in 0..n {
@@ -332,17 +326,17 @@ impl<T: RealField + Copy> IMEXTimeStepper<T> {
     }
 }
 
-impl<T: RealField + Copy> TimeStepper<T> for IMEXTimeStepper<T> {
-    fn step<F>(&self, f: F, t: T, u: &DVector<T>, dt: T) -> Result<DVector<T>>
+impl<T: RealField + RealScalar + Copy> TimeStepper<T> for IMEXTimeStepper<T> {
+    fn step<F>(&self, f: F, t: T, u: &TimeState<T>, dt: T) -> Result<TimeState<T>>
     where
-        F: Fn(T, &DVector<T>) -> Result<DVector<T>>,
+        F: Fn(T, &TimeState<T>) -> Result<TimeState<T>>,
     {
         // For simple TimeStepper interface, assume f is the explicit part
         // and implicit part is zero (falls back to explicit method)
-        let jacobian_zero = |_t: T, _u: &DVector<T>| Ok(DMatrix::zeros(u.len(), u.len()));
+        let jacobian_zero = |_t: T, _u: &TimeState<T>| Ok(matrix_zeros(state_len(u), state_len(u)));
         self.imex_step(
             f,
-            |_t, _u| Ok(DVector::zeros(u.len())),
+            |_t, _u| Ok(state_zeros(state_len(u))),
             jacobian_zero,
             t,
             u,
@@ -367,9 +361,48 @@ impl<T: RealField + Copy> TimeStepper<T> for IMEXTimeStepper<T> {
     }
 }
 
+fn validate_matrix_shape<T>(matrix: &TimeMatrix<T>, n: usize, context: &str) -> Result<()> {
+    let [rows, cols] = matrix.shape();
+    if rows != n || cols != n {
+        return Err(Error::InvalidInput(format!(
+            "{context}: matrix has shape {rows}x{cols}, expected {n}x{n}"
+        )));
+    }
+    Ok(())
+}
+
+fn matrix_zeros<T: RealScalar>(rows: usize, cols: usize) -> TimeMatrix<T> {
+    TimeMatrix::from_elem([rows, cols], zero::<T>())
+}
+
+fn matrix_identity<T: RealScalar>(n: usize) -> TimeMatrix<T> {
+    let mut matrix = matrix_zeros(n, n);
+    for i in 0..n {
+        matrix[[i, i]] = one::<T>();
+    }
+    matrix
+}
+
+#[cfg(test)]
+fn matrix_scale<T: RealScalar>(matrix: &TimeMatrix<T>, scale: T) -> TimeMatrix<T> {
+    let [rows, cols] = matrix.shape();
+    TimeMatrix::from_shape_vec(
+        [rows, cols],
+        (0..rows * cols)
+            .map(|idx| {
+                let row = idx / cols;
+                let col = idx % cols;
+                matrix[[row, col]] * scale
+            })
+            .collect(),
+    )
+    .expect("invariant: scaled matrix storage matches shape")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::time_stepping::traits::{state_from_vec, state_len, state_neg, state_scale};
     use approx::assert_relative_eq;
 
     #[test]
@@ -385,11 +418,12 @@ mod tests {
         let imex = IMEXTimeStepper::<f64>::ars343();
 
         // Simple test: du/dt = -u (explicit) + 0 (implicit)
-        let f_explicit = |_t: f64, u: &DVector<f64>| Ok(-u.clone());
-        let f_implicit = |_t: f64, u: &DVector<f64>| Ok(DVector::zeros(u.len()));
-        let jacobian_zero = |_t: f64, _u: &DVector<f64>| Ok(DMatrix::zeros(_u.len(), _u.len()));
+        let f_explicit = |_t: f64, u: &TimeState<f64>| Ok(state_neg(u));
+        let f_implicit = |_t: f64, u: &TimeState<f64>| Ok(state_zeros(state_len(u)));
+        let jacobian_zero =
+            |_t: f64, u: &TimeState<f64>| Ok(matrix_zeros(state_len(u), state_len(u)));
 
-        let u0 = DVector::from_vec(vec![1.0]);
+        let u0 = state_from_vec(vec![1.0]);
         let dt = 0.1;
         let t = 0.0;
 
@@ -408,24 +442,24 @@ mod tests {
         let imex = IMEXTimeStepper::<f64>::ars343();
 
         // Use closures that match the expected signature
-        let f_explicit = |_t: f64, u: &DVector<f64>| Ok(u.clone());
-        let f_implicit = |_t: f64, u: &DVector<f64>| Ok(-2.0 * u);
-        let jacobian_implicit = |_t: f64, u: &DVector<f64>| {
-            let mut jac = DMatrix::zeros(u.len(), u.len());
-            jac[(0, 0)] = -2.0;
+        let f_explicit = |_t: f64, u: &TimeState<f64>| Ok(u.clone());
+        let f_implicit = |_t: f64, u: &TimeState<f64>| Ok(state_scale(u, -2.0));
+        let jacobian_implicit = |_t: f64, u: &TimeState<f64>| {
+            let mut jac = matrix_zeros(state_len(u), state_len(u));
+            jac[[0, 0]] = -2.0;
             Ok(jac)
         };
 
-        let u0 = DVector::from_vec(vec![1.0]);
-        let t_final = 1.0;
+        let u0 = state_from_vec(vec![1.0]);
+        let t_final = 1.0f64;
         let analytical = |t: f64| (-t).exp();
 
-        let dts = vec![0.1, 0.05, 0.025, 0.0125];
+        let dts = vec![0.1f64, 0.05, 0.025, 0.0125];
         let mut errors = Vec::new();
 
         for &dt in &dts {
             let mut u = u0.clone();
-            let mut t = 0.0;
+            let mut t = 0.0f64;
 
             while t < t_final - 1e-10 {
                 let step_size = (t_final - t).min(dt);
@@ -465,12 +499,12 @@ mod tests {
         let imex = IMEXTimeStepper::<f64>::ars343();
 
         // Problem: du/dt = -u (entirely implicit for stiffness)
-        let f_explicit = |_t: f64, u: &DVector<f64>| Ok(DVector::zeros(u.len()));
-        let f_implicit = |_t: f64, u: &DVector<f64>| Ok(-u.clone());
+        let f_explicit = |_t: f64, u: &TimeState<f64>| Ok(state_zeros(state_len(u)));
+        let f_implicit = |_t: f64, u: &TimeState<f64>| Ok(state_neg(u));
         let jacobian_implicit =
-            |_t: f64, u: &DVector<f64>| Ok(-DMatrix::identity(u.len(), u.len()));
+            |_t: f64, u: &TimeState<f64>| Ok(matrix_scale(&matrix_identity(state_len(u)), -1.0));
 
-        let u0 = DVector::from_vec(vec![2.0, -1.0, 0.5]);
+        let u0 = state_from_vec(vec![2.0, -1.0, 0.5]);
         let dt = 0.01;
         let t = 0.0;
 
@@ -478,10 +512,10 @@ mod tests {
             .imex_step(f_explicit, f_implicit, jacobian_implicit, t, &u0, dt)
             .unwrap();
 
-        let analytical = u0.map(|x| x * (-dt).exp());
+        let analytical = state_from_vec((0..state_len(&u0)).map(|i| u0[i] * (-dt).exp()).collect());
 
         // Check accuracy
-        for i in 0..u1.len() {
+        for i in 0..state_len(&u1) {
             assert_relative_eq!(u1[i], analytical[i], epsilon = 1e-6);
         }
     }
@@ -492,15 +526,19 @@ mod tests {
 
         // Problem: dy/dt = -100*y^3 (non-linear stiff decay, tests Newton solver)
         let lambda = -100.0;
-        let f_explicit = |_t: f64, u: &DVector<f64>| Ok(DVector::zeros(u.len()));
-        let f_implicit = |_t: f64, u: &DVector<f64>| Ok(lambda * u.map(|x| x.powi(3)));
-        let jacobian_implicit = |_t: f64, u: &DVector<f64>| {
-            let mut jac = DMatrix::zeros(u.len(), u.len());
-            jac[(0, 0)] = 3.0 * lambda * u[0].powi(2);
+        let f_explicit = |_t: f64, u: &TimeState<f64>| Ok(state_zeros(state_len(u)));
+        let f_implicit = |_t: f64, u: &TimeState<f64>| {
+            Ok(state_from_vec(
+                (0..state_len(u)).map(|i| lambda * u[i].powi(3)).collect(),
+            ))
+        };
+        let jacobian_implicit = |_t: f64, u: &TimeState<f64>| {
+            let mut jac = matrix_zeros(state_len(u), state_len(u));
+            jac[[0, 0]] = 3.0 * lambda * u[0].powi(2);
             Ok(jac)
         };
 
-        let u0 = DVector::from_vec(vec![1.0]);
+        let u0 = state_from_vec(vec![1.0]);
         let dt = 0.01; // Reduced time step for better accuracy
         let t = 0.0;
 

@@ -5,21 +5,17 @@
 //! satisfy the 500-line Module Size Rule.
 
 use crate::fem::solver::extract_vertex_indices;
+use crate::linalg::{matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3};
 use cfd_core::error::{Error, Result};
 use cfd_mesh::domain::core::index::VertexId;
-use nalgebra::{RealField, Vector3};
-use num_traits::Float;
+use eunomia::FloatElement;
+use leto::Vector3;
 
 use super::solver::VenturiSolver3D;
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + num_traits::FromPrimitive
-            + num_traits::ToPrimitive
-            + cfd_core::conversion::SafeFromF64,
-    > VenturiSolver3D<T>
+impl<T> VenturiSolver3D<T>
+where
+    T: cfd_mesh::domain::core::Scalar + eunomia::RealField + FloatElement + Copy,
 {
     /// Compute the scalar shear rate $\dot\gamma$ for a single mesh cell.
     ///
@@ -50,11 +46,11 @@ impl<
         let vertex_positions: Vec<Vector3<f64>> = mesh
             .vertices
             .iter()
-            .map(|(_, v)| v.position.coords)
+            .map(|(_, v)| vector3_from_indexed(&v.position.coords))
             .collect();
         let local_verts: Vec<Vector3<f64>> = idxs.iter().map(|&i| vertex_positions[i]).collect();
 
-        let mut l = nalgebra::Matrix3::zeros();
+        let mut l: Matrix3<f64> = Matrix3::zeros();
 
         if idxs.len() == 4 {
             let mut tet4 = crate::fem::element::FluidElement::<f64>::new(idxs.clone());
@@ -68,7 +64,7 @@ impl<
                 let u = solution.get_velocity(idxs[k]);
                 for row in 0..3 {
                     for col in 0..3 {
-                        l[(row, col)] += u[row] * tet4.shape_derivatives[(col, k)];
+                        l[(row, col)] += u[row] * tet4.shape_derivatives[[col, k]];
                     }
                 }
             }
@@ -81,26 +77,26 @@ impl<
                 return Ok(0.0_f64);
             }
             tet4.calculate_shape_derivatives(&local_verts[0..4]);
-            let p1_grads = nalgebra::Matrix3x4::from_columns(&[
+            let p1_grads = matrix3x4_from_columns([
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 0)],
-                    tet4.shape_derivatives[(1, 0)],
-                    tet4.shape_derivatives[(2, 0)],
+                    tet4.shape_derivatives[[0, 0]],
+                    tet4.shape_derivatives[[1, 0]],
+                    tet4.shape_derivatives[[2, 0]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 1)],
-                    tet4.shape_derivatives[(1, 1)],
-                    tet4.shape_derivatives[(2, 1)],
+                    tet4.shape_derivatives[[0, 1]],
+                    tet4.shape_derivatives[[1, 1]],
+                    tet4.shape_derivatives[[2, 1]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 2)],
-                    tet4.shape_derivatives[(1, 2)],
-                    tet4.shape_derivatives[(2, 2)],
+                    tet4.shape_derivatives[[0, 2]],
+                    tet4.shape_derivatives[[1, 2]],
+                    tet4.shape_derivatives[[2, 2]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 3)],
-                    tet4.shape_derivatives[(1, 3)],
-                    tet4.shape_derivatives[(2, 3)],
+                    tet4.shape_derivatives[[0, 3]],
+                    tet4.shape_derivatives[[1, 3]],
+                    tet4.shape_derivatives[[2, 3]],
                 ),
             ]);
 
@@ -112,13 +108,13 @@ impl<
                 let u = solution.get_velocity(idxs[i]);
                 for row in 0..3 {
                     for col in 0..3 {
-                        l[(row, col)] += p2_grads[(col, i)] * u[row];
+                        l[(row, col)] += p2_grads[[col, i]] * u[row];
                     }
                 }
             }
         }
 
-        let epsilon = (l + l.transpose()) * 0.5_f64;
+        let epsilon = symmetric_part(&l);
         let mut inner_prod = 0.0_f64;
         for i in 0..3 {
             for j in 0..3 {
@@ -155,7 +151,9 @@ impl<
 
             let mut local_verts = Vec::with_capacity(idxs.len());
             for &idx in &idxs {
-                local_verts.push(mesh.vertices.get(VertexId::from_usize(idx)).position.coords);
+                local_verts.push(vector3_from_indexed(
+                    &mesh.vertices.get(VertexId::from_usize(idx)).position.coords,
+                ));
             }
 
             let mut div = 0.0_f64;
@@ -163,31 +161,31 @@ impl<
             if idxs.len() == 10 {
                 let mut tet4 = crate::fem::element::FluidElement::new(idxs[0..4].to_vec());
                 let six_v = tet4.calculate_volume(&local_verts);
-                if Float::abs(six_v) < 1e-24_f64 {
+                if six_v.abs() < 1e-24_f64 {
                     continue;
                 }
                 cell_volume = tet4.volume;
                 tet4.calculate_shape_derivatives(&local_verts[0..4]);
-                let p1_grads = nalgebra::Matrix3x4::from_columns(&[
+                let p1_grads = matrix3x4_from_columns([
                     Vector3::new(
-                        tet4.shape_derivatives[(0, 0)],
-                        tet4.shape_derivatives[(1, 0)],
-                        tet4.shape_derivatives[(2, 0)],
+                        tet4.shape_derivatives[[0, 0]],
+                        tet4.shape_derivatives[[1, 0]],
+                        tet4.shape_derivatives[[2, 0]],
                     ),
                     Vector3::new(
-                        tet4.shape_derivatives[(0, 1)],
-                        tet4.shape_derivatives[(1, 1)],
-                        tet4.shape_derivatives[(2, 1)],
+                        tet4.shape_derivatives[[0, 1]],
+                        tet4.shape_derivatives[[1, 1]],
+                        tet4.shape_derivatives[[2, 1]],
                     ),
                     Vector3::new(
-                        tet4.shape_derivatives[(0, 2)],
-                        tet4.shape_derivatives[(1, 2)],
-                        tet4.shape_derivatives[(2, 2)],
+                        tet4.shape_derivatives[[0, 2]],
+                        tet4.shape_derivatives[[1, 2]],
+                        tet4.shape_derivatives[[2, 2]],
                     ),
                     Vector3::new(
-                        tet4.shape_derivatives[(0, 3)],
-                        tet4.shape_derivatives[(1, 3)],
-                        tet4.shape_derivatives[(2, 3)],
+                        tet4.shape_derivatives[[0, 3]],
+                        tet4.shape_derivatives[[1, 3]],
+                        tet4.shape_derivatives[[2, 3]],
                     ),
                 ]);
 
@@ -197,7 +195,7 @@ impl<
 
                 for i in 0..10 {
                     let u = solution.get_velocity(idxs[i]);
-                    div += p2_grads[(0, i)] * u.x + p2_grads[(1, i)] * u.y + p2_grads[(2, i)] * u.z;
+                    div += p2_grads[[0, i]] * u.x + p2_grads[[1, i]] * u.y + p2_grads[[2, i]] * u.z;
                 }
             } else {
                 let mut element = crate::fem::element::FluidElement::new(idxs.clone());
@@ -206,13 +204,13 @@ impl<
                 cell_volume = element.volume;
                 for (i, &idx) in idxs.iter().enumerate().take(4) {
                     let u = solution.get_velocity(idx);
-                    div += element.shape_derivatives[(0, i)] * u.x
-                        + element.shape_derivatives[(1, i)] * u.y
-                        + element.shape_derivatives[(2, i)] * u.z;
+                    div += element.shape_derivatives[[0, i]] * u.x
+                        + element.shape_derivatives[[1, i]] * u.y
+                        + element.shape_derivatives[[2, i]] * u.z;
                 }
             }
 
-            let div_abs = Float::abs(div);
+            let div_abs = div.abs();
             if div_abs < min_div {
                 min_div = div_abs;
             }
@@ -257,11 +255,11 @@ impl<
                 let face = mesh.faces.get(f_idx);
                 if face.vertices.len() >= 3 {
                     face_count += 1;
-                    let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
-                    let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
-                    let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
+                    let v0 = vector3_from_indexed(&mesh.vertices.get(face.vertices[0]).position.coords);
+                    let v1 = vector3_from_indexed(&mesh.vertices.get(face.vertices[1]).position.coords);
+                    let v2 = vector3_from_indexed(&mesh.vertices.get(face.vertices[2]).position.coords);
 
-                    let n_vec = (v1 - v0).cross(&(v2 - v0));
+                    let n_vec = (v1 - v0).cross(v2 - v0);
                     let area = n_vec.norm() * 0.5_f64;
                     if area <= 0.0_f64 {
                         continue;
@@ -281,7 +279,7 @@ impl<
                         n_oriented = -n_oriented;
                     }
 
-                    let signed_flux = u_avg.dot(&n_oriented) * area;
+                    let signed_flux = u_avg.dot(n_oriented) * area;
                     let face_flow = if label == "inlet" {
                         -signed_flux
                     } else {
@@ -317,7 +315,7 @@ impl<
             let mut on_plane = true;
             for &v_idx in &face.vertices {
                 let v = mesh.vertices.get(v_idx);
-                if Float::abs(v.position.z - z_plane) > tol {
+                if (v.position.z - z_plane).abs() > tol {
                     on_plane = false;
                     break;
                 }
@@ -326,11 +324,11 @@ impl<
                 continue;
             }
 
-            let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
-            let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
-            let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
+            let v0 = vector3_from_indexed(&mesh.vertices.get(face.vertices[0]).position.coords);
+            let v1 = vector3_from_indexed(&mesh.vertices.get(face.vertices[1]).position.coords);
+            let v2 = vector3_from_indexed(&mesh.vertices.get(face.vertices[2]).position.coords);
 
-            let n_vec = (v1 - v0).cross(&(v2 - v0));
+            let n_vec = (v1 - v0).cross(v2 - v0);
             let area = n_vec.norm() * 0.5_f64;
             if area <= 0.0_f64 {
                 continue;
@@ -343,7 +341,7 @@ impl<
             }
             u_avg /= face.vertices.len() as f64;
 
-            let mut face_flow = u_avg.dot(&face_normal) * area;
+            let mut face_flow = u_avg.dot(face_normal) * area;
             if face_normal.z < 0.0_f64 {
                 face_flow = -face_flow;
             }

@@ -17,36 +17,34 @@
 //! transition is validated by checking secondary velocity magnitude.
 
 use super::solver::{SerpentineConfig3D, SerpentineSolution3D};
-use cfd_core::conversion::SafeFromF64;
+use crate::scalar;
 use cfd_core::error::Error;
 use cfd_mesh::SerpentineMeshBuilder;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::FloatElement;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
 // ============================================================================
 // Serpentine Validator
 // ============================================================================
 
 /// Validator for 3D serpentine channel flow results
-pub struct SerpentineValidator3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float> {
+pub struct SerpentineValidator3D<
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
+> {
     /// Mesh builder holding serpentine geometry parameters
-    pub mesh_builder: SerpentineMeshBuilder<T>,
+    pub mesh_builder: SerpentineMeshBuilder,
+    _marker: PhantomData<T>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64
-            + Float,
-    > SerpentineValidator3D<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> SerpentineValidator3D<T> {
     /// Create a new validator from the serpentine mesh builder
-    pub fn new(mesh_builder: SerpentineMeshBuilder<T>) -> Self {
-        Self { mesh_builder }
+    pub fn new(mesh_builder: SerpentineMeshBuilder) -> Self {
+        Self {
+            mesh_builder,
+            _marker: PhantomData,
+        }
     }
 
     /// Validate Serpentine flow results using strictly analytical constraints
@@ -57,23 +55,20 @@ impl<
         fluid_density: T,
         fluid_viscosity: T,
     ) -> Result<SerpentineValidationResult3D<T>, Error> {
-        let diameter = self.mesh_builder.diameter;
-        let k = <T as FromPrimitive>::from_f64(2.0 * std::f64::consts::PI)
-            .expect("2π is an IEEE 754 representable f64 constant")
-            / self.mesh_builder.wavelength;
+        let diameter = scalar::from_f64::<T>(self.mesh_builder.diameter);
+        let wavelength = scalar::from_f64::<T>(self.mesh_builder.wavelength);
+        let amplitude = scalar::from_f64::<T>(self.mesh_builder.amplitude);
+        let k = scalar::from_f64::<T>(2.0 * std::f64::consts::PI) / wavelength;
 
         // 1. Mathematically Exact Maximum Dean Number Analysis
         // For y = A sin(kx), exact curvature kappa = |y''| / (1 + y'^2)^(3/2)
         // Max curvature occurs at peaks where y' = 0, so kappa_max = |y''| = A k^2
-        let max_curvature = self.mesh_builder.amplitude * k * k;
-        let min_radius_of_curvature = T::one() / max_curvature;
+        let max_curvature = amplitude * k * k;
+        let min_radius_of_curvature = scalar::one::<T>() / max_curvature;
 
         // Area for mean velocity
         let area = if config.circular {
-            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0)
-                .expect("PI/4 is an IEEE 754 representable f64 constant")
-                * diameter
-                * diameter
+            scalar::from_f64::<T>(std::f64::consts::PI / 4.0) * diameter * diameter
         } else {
             diameter * diameter
         };
@@ -85,48 +80,30 @@ impl<
 
         // Exact Maximum Dean Number calculation
         let de_exact_max = reynolds_num
-            * num_traits::Float::sqrt(
-                diameter
-                    / (<T as FromPrimitive>::from_f64(2.0)
-                        .expect("2.0 is representable in all IEEE 754 types")
-                        * min_radius_of_curvature),
-            );
+            * scalar::sqrt(diameter / (scalar::from_f64::<T>(2.0) * min_radius_of_curvature));
 
         // Ensure the solver's calculated Dean number aligns with our analytical maximum
         let de_calc = solution.dean_number;
-        let de_tolerance = de_exact_max
-            * <T as FromPrimitive>::from_f64(0.05)
-                .expect("0.05 is an IEEE 754 representable f64 constant"); // 5% max deviation allowance for local averaging
+        let de_tolerance = de_exact_max * scalar::from_f64::<T>(0.05); // 5% max deviation allowance for local averaging
         let de_valid =
-            num_traits::Float::abs(de_calc - de_exact_max) < de_tolerance || de_calc > T::zero();
+            scalar::abs(de_calc - de_exact_max) < de_tolerance || de_calc > scalar::zero::<T>();
 
         // 2. Analytical Pressure Continuity Bounds
         // Curved pipe minimum pressure drop is strictly bounded below by the Hagen-Poiseuille
         // straight-pipe flow projected over the exact mathematical arc length.
-        let straight_length = self.mesh_builder.wavelength
-            * T::from_usize(self.mesh_builder.num_periods)
-                .expect("num_periods is always a representable usize");
+        let straight_length = wavelength * scalar::from_usize::<T>(self.mesh_builder.num_periods);
 
         let exact_straight_dp = if config.circular {
-            <T as FromPrimitive>::from_f64(32.0)
-                .expect("32.0 is representable in all IEEE 754 types")
-                * fluid_viscosity
-                * straight_length
-                * u_mean
+            scalar::from_f64::<T>(32.0) * fluid_viscosity * straight_length * u_mean
                 / (diameter * diameter)
         } else {
             // Exact infinite series solution for square duct yields f*Re ≈ 56.91
-            <T as FromPrimitive>::from_f64(28.455)
-                .expect("28.455 is an IEEE 754 representable f64 constant")
-                * fluid_viscosity
-                * straight_length
-                * u_mean
+            scalar::from_f64::<T>(28.455) * fluid_viscosity * straight_length * u_mean
                 / (diameter * diameter)
-                * <T as FromPrimitive>::from_f64(2.0)
-                    .expect("2.0 is representable in all IEEE 754 types")
+                * scalar::from_f64::<T>(2.0)
         };
 
-        let dp_actual = Float::abs(solution.dp_total);
+        let dp_actual = scalar::abs(solution.dp_total);
         let strictly_dissipative = dp_actual > exact_straight_dp;
 
         let mut result =

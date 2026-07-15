@@ -30,7 +30,8 @@
 //!
 //! **Reference**: He & Luo (1997), *Phys. Rev. E* 56, 6811; Succi (2001), §4.3.
 
-use crate::grid::{Grid2D, StructuredGrid2D};
+use crate::grid::StructuredGrid2D;
+use crate::scalar::Cfd2dScalar;
 use crate::solvers::lbm::{
     boundary::BoundaryHandler,
     collision::{BgkCollision, CollisionOperator},
@@ -40,14 +41,14 @@ use crate::solvers::lbm::{
 };
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
+use leto::geometry::Vector2;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Configuration for the LBM solver.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LbmConfig<T: RealField + Copy> {
+pub struct LbmConfig<T: Cfd2dScalar + Copy> {
     /// Relaxation time τ ∈ (0.5, ∞).  Stability requires τ > 0.5.
     pub tau: T,
     /// Maximum number of time steps.
@@ -60,12 +61,12 @@ pub struct LbmConfig<T: RealField + Copy> {
     pub verbose: bool,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for LbmConfig<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> Default for LbmConfig<T> {
     fn default() -> Self {
         Self {
-            tau: T::from_f64(1.0).expect("T must represent f64; τ = 1.0"),
+            tau: crate::scalar::from_f64(1.0),
             max_steps: 10_000,
-            tolerance: T::from_f64(1e-6).expect("T must represent f64; tol = 1e-6"),
+            tolerance: crate::scalar::from_f64(1e-6),
             output_frequency: 100,
             verbose: false,
         }
@@ -89,7 +90,7 @@ impl<T: RealField + Copy + FromPrimitive> Default for LbmConfig<T> {
 /// density[j * nx + i]
 /// velocity[(j * nx + i) * 2 + d]   // d=0→x, d=1→y
 /// ```
-pub struct LbmSolver<T: RealField + Copy> {
+pub struct LbmSolver<T: Cfd2dScalar + Copy + FloatElement> {
     config: LbmConfig<T>,
     /// Flat distribution buffer (layout: j*nx*9 + i*9 + q)
     f: Vec<T>,
@@ -118,7 +119,7 @@ pub struct LbmSolver<T: RealField + Copy> {
     tau_g: Option<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> LbmSolver<T>
+impl<T: Cfd2dScalar + Copy + FloatElement> LbmSolver<T>
 where
     T: Send + Sync + std::fmt::LowerExp,
 {
@@ -130,13 +131,13 @@ where
         let n = nx * ny;
 
         // Single flat allocation for all distribution functions
-        let f = vec![T::zero(); n * 9];
-        let f_buffer = vec![T::zero(); n * 9];
+        let f = vec![crate::scalar::zero(); n * 9];
+        let f_buffer = vec![crate::scalar::zero(); n * 9];
 
         let macroscopic = MacroscopicQuantities::new(nx, ny);
         let collision = Box::new(BgkCollision::new(config.tau));
         let boundary_handler = BoundaryHandler::new();
-        let previous_velocity = vec![T::zero(); n * 2];
+        let previous_velocity = vec![crate::scalar::zero(); n * 2];
 
         Self {
             config,
@@ -161,11 +162,11 @@ where
     #[inline]
     fn lattice_cavitation_source(density: T) -> T {
         let lattice_pressure = compute_pressure(density);
-        let lattice_vapor_threshold = compute_pressure(T::one());
+        let lattice_vapor_threshold = compute_pressure(crate::scalar::one());
         if lattice_pressure < lattice_vapor_threshold {
             lattice_vapor_threshold - lattice_pressure
         } else {
-            T::zero()
+            crate::scalar::zero()
         }
     }
 
@@ -176,8 +177,8 @@ where
         config: cfd_core::physics::cavitation::nuclei_transport::NucleiTransportConfig<T>,
     ) -> Self {
         let n = self.nx * self.ny;
-        self.g = Some(vec![T::zero(); n * 9]);
-        self.g_buffer = Some(vec![T::zero(); n * 9]);
+        self.g = Some(vec![crate::scalar::zero(); n * 9]);
+        self.g_buffer = Some(vec![crate::scalar::zero(); n * 9]);
         self.macroscopic = self.macroscopic.with_nuclei();
         self.nuclei_transport =
             Some(cfd_core::physics::cavitation::nuclei_transport::NucleiTransport::new(config));
@@ -189,11 +190,10 @@ where
 
     /// Compute the equilibrium distribution at given density and velocity.
     pub fn equilibrium_distribution(&self, density: T, velocity: Vector2<T>) -> Vec<T> {
-        let u = [velocity.x, velocity.y];
+        let u = [velocity[0], velocity[1]];
         (0..9)
             .map(|q| {
-                let weight =
-                    T::from_f64(D2Q9::WEIGHTS[q]).expect("D2Q9 weights are exact f64 constants");
+                let weight = <T as FloatElement>::from_f64(D2Q9::WEIGHTS[q]);
                 equilibrium(density, &u, q, weight, D2Q9::VELOCITIES[q])
             })
             .collect()
@@ -201,11 +201,12 @@ where
 
     #[inline]
     fn validate_low_mach_velocity(velocity: Vector2<T>) -> Result<()> {
-        let cs = T::from_f64(crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED)
-            .expect("cs² is an exact f64 constant")
-            .sqrt();
-        let mach_limit = T::from_f64(0.1).expect("0.1 is an exact f64 constant");
-        let speed = (velocity.x * velocity.x + velocity.y * velocity.y).sqrt();
+        let cs = <T as NumericElement>::sqrt(<T as FloatElement>::from_f64(
+            crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED,
+        ));
+        let mach_limit = <T as FloatElement>::from_f64(0.1);
+        let speed =
+            <T as NumericElement>::sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
 
         if speed / cs > mach_limit {
             return Err(Error::InvalidConfiguration(
@@ -235,13 +236,13 @@ where
 
         for j in 0..ny {
             for i in 0..nx {
-                let x = T::from_usize(i).expect("grid index fits in T") * self.dx;
-                let y = T::from_usize(j).expect("grid index fits in T") * self.dy;
+                let x = crate::scalar::from_usize::<T>(i) * self.dx;
+                let y = crate::scalar::from_usize::<T>(j) * self.dy;
 
                 let rho = density_fn(x, y);
                 let vel = velocity_fn(x, y);
                 Self::validate_low_mach_velocity(vel)?;
-                let u = [vel.x, vel.y];
+                let u = [vel[0], vel[1]];
 
                 let cell = j * nx + i;
                 self.macroscopic.density[cell] = rho;
@@ -249,8 +250,7 @@ where
                 self.macroscopic.velocity[cell * 2 + 1] = u[1];
 
                 for q in 0..9 {
-                    let weight = T::from_f64(D2Q9::WEIGHTS[q])
-                        .expect("D2Q9 weights are exact f64 constants");
+                    let weight = <T as FloatElement>::from_f64(D2Q9::WEIGHTS[q]);
                     self.f[f_idx(j, i, q, nx)] =
                         equilibrium(rho, &u, q, weight, D2Q9::VELOCITIES[q]);
                 }
@@ -294,7 +294,7 @@ where
             &self.nuclei_transport,
             self.tau_g,
         ) {
-            let omega_g = T::one() / tau_g;
+            let omega_g = crate::scalar::one::<T>() / tau_g;
             for j in 0..ny {
                 for i in 0..nx {
                     let cell = j * nx + i;
@@ -313,8 +313,7 @@ where
                     let s_net = transport.calculate_net_reaction_rate(phi, macroscopic_source);
 
                     for q in 0..9 {
-                        let weight = T::from_f64(D2Q9::WEIGHTS[q])
-                            .expect("D2Q9 weights are exact f64 constants");
+                        let weight = <T as FloatElement>::from_f64(D2Q9::WEIGHTS[q]);
                         let g_eq = equilibrium(phi, &u, q, weight, D2Q9::VELOCITIES[q]);
                         let idx = f_idx(j, i, q, nx);
                         // Advection-diffusion collision + source/sink
@@ -405,7 +404,9 @@ where
             .velocity
             .iter()
             .zip(self.previous_velocity.iter())
-            .fold(T::zero(), |acc, (&cur, &prev)| acc.max((cur - prev).abs()))
+            .fold(crate::scalar::zero(), |acc, (&cur, &prev)| {
+                <T as NumericElement>::max_scalar(acc, <T as NumericElement>::abs(cur - prev))
+            })
     }
 
     /// Get the flat velocity field slice.
@@ -474,8 +475,8 @@ mod tests {
 
         let (rho, u) = solver.compute_macroscopic(5, 5);
         assert_relative_eq!(rho, 1.0, epsilon = 1e-10);
-        assert_relative_eq!(u.x, 0.0, epsilon = 1e-10);
-        assert_relative_eq!(u.y, 0.0, epsilon = 1e-10);
+        assert_relative_eq!(u[0], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(u[1], 0.0, epsilon = 1e-10);
         Ok(())
     }
 

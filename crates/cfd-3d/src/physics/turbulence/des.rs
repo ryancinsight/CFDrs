@@ -41,11 +41,11 @@
 //! - Shur, M., Spalart, P.R., Strelets, M. & Travin, A. (1999). "Detached-
 //!   eddy simulation of an airfoil at high angle of attack." *IUTAM Symp.*
 
+use crate::scalar::Cfd3dScalar;
 use cfd_core::physics::fluid::BloodModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 
 use super::constants::{DES_C_DES, SMAGORINSKY_CS_DEFAULT};
 use super::field_ops::{
@@ -58,7 +58,7 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 /// Blends RANS behaviour near walls with LES behaviour away from walls
 /// by selecting the minimum of the RANS wall-distance and LES filter scale.
 #[derive(Debug, Clone)]
-pub struct DESModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> {
+pub struct DESModel<T: Cfd3dScalar> {
     /// DES constant C_DES = 0.65.
     pub c_des: T,
     /// Wall distance for each grid point (order: x-innermost, then y, then z).
@@ -99,7 +99,7 @@ pub struct DESModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromP
     pub background_turbulent_viscosity: Option<Vec<T>>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESModel<T> {
+impl<T: Cfd3dScalar> DESModel<T> {
     /// Create a DES model with uniform wall distance and filter width.
     ///
     /// # Arguments
@@ -108,38 +108,34 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
     ///   large value for pure LES, 0 for pure RANS)
     /// * `dx`, `dy`, `dz` — uniform cell dimensions \[m]
     pub fn new(n_points: usize, uniform_wall_distance: T, dx: T, dy: T, dz: T) -> Self {
-        let c_des = <T as FromPrimitive>::from_f64(DES_C_DES)
-            .expect("DES_C_DES is an IEEE 754 representable f64 constant");
-        let delta_max = num_traits::Float::max(dx, num_traits::Float::max(dy, dz));
+        let c_des = <T as FloatElement>::from_f64(DES_C_DES);
+        let delta_max =
+            <T as NumericElement>::max_scalar(dx, <T as NumericElement>::max_scalar(dy, dz));
         Self {
             c_des,
             wall_distances: vec![uniform_wall_distance; n_points],
             delta_max: vec![delta_max; n_points],
-            cs: <T as FromPrimitive>::from_f64(SMAGORINSKY_CS_DEFAULT)
-                .expect("SMAGORINSKY_CS_DEFAULT is an IEEE 754 representable f64 constant"),
+            cs: <T as FloatElement>::from_f64(SMAGORINSKY_CS_DEFAULT),
             use_ddes: false,
-            kinematic_viscosity: <T as FromPrimitive>::from_f64(1.5e-5)
-                .expect("1.5e-5 is an IEEE 754 representable f64 constant"),
+            kinematic_viscosity: <T as FloatElement>::from_f64(1.5e-5),
             blood_model: None,
-            fluid_density: T::one(),
+            fluid_density: T::ONE,
             background_turbulent_viscosity: None,
         }
     }
 
     /// Create a DES model with per-point wall distances and delta_max values.
     pub fn with_wall_distances(wall_distances: Vec<T>, delta_max: Vec<T>, cs: T) -> Self {
-        let c_des = <T as FromPrimitive>::from_f64(DES_C_DES)
-            .expect("DES_C_DES is an IEEE 754 representable f64 constant");
+        let c_des = <T as FloatElement>::from_f64(DES_C_DES);
         Self {
             c_des,
             wall_distances,
             delta_max,
             cs,
             use_ddes: false,
-            kinematic_viscosity: <T as FromPrimitive>::from_f64(1.5e-5)
-                .expect("1.5e-5 is an IEEE 754 representable f64 constant"),
+            kinematic_viscosity: <T as FloatElement>::from_f64(1.5e-5),
             blood_model: None,
-            fluid_density: T::one(),
+            fluid_density: T::ONE,
             background_turbulent_viscosity: None,
         }
     }
@@ -167,7 +163,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
             let nu = if let Some(model) = &self.blood_model {
                 let mu = model.viscosity(s_mag);
                 assert!(
-                    self.fluid_density > T::zero(),
+                    self.fluid_density > T::ZERO,
                     "fluid_density must be positive when using a blood_model"
                 );
                 mu / self.fluid_density
@@ -176,40 +172,30 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> DESMo
             };
 
             let fd = ddes_shielding(
-                nu_t.to_f64()
-                    .expect("background_turbulent_viscosity must be finite"),
-                nu.to_f64().expect("kinematic viscosity must be finite"),
-                d.to_f64().expect("wall distance must be finite"),
-                s_mag.to_f64().expect("strain magnitude must be finite"),
-                vorticity_magnitude(gradient)
-                    .to_f64()
-                    .expect("vorticity magnitude must be finite"),
+                <T as NumericElement>::to_f64(nu_t),
+                <T as NumericElement>::to_f64(nu),
+                <T as NumericElement>::to_f64(d),
+                <T as NumericElement>::to_f64(s_mag),
+                <T as NumericElement>::to_f64(vorticity_magnitude(gradient)),
             );
             ddes_length_scale(
-                d.to_f64().expect("wall distance must be finite"),
-                self.c_des
-                    .to_f64()
-                    .expect("C_DES must be representable as f64"),
-                delta.to_f64().expect("delta_max must be finite"),
+                <T as NumericElement>::to_f64(d),
+                <T as NumericElement>::to_f64(self.c_des),
+                <T as NumericElement>::to_f64(delta),
                 fd,
             )
         } else {
-            num_traits::Float::min(
-                d.to_f64().expect("wall distance must be finite"),
-                self.c_des
-                    .to_f64()
-                    .expect("C_DES must be representable as f64")
-                    * delta.to_f64().expect("delta_max must be finite"),
+            f64::min(
+                <T as NumericElement>::to_f64(d),
+                <T as NumericElement>::to_f64(self.c_des) * <T as NumericElement>::to_f64(delta),
             )
         };
 
-        <T as FromPrimitive>::from_f64(length).expect("DES length scale must be finite")
+        <T as FloatElement>::from_f64(length)
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
-    for DESModel<T>
-{
+impl<T: Cfd3dScalar> TurbulenceModel<T> for DESModel<T> {
     /// Compute DES eddy viscosity.
     ///
     /// At each grid point, uses l_DES = min(d, C_DES·Δ_max) as the effective
@@ -496,7 +482,7 @@ mod tests {
             for j in 0..3 {
                 for k in 0..3 {
                     if let Some(v) = flow.velocity.get_mut(i, j, k) {
-                        *v = nalgebra::Vector3::new(
+                        *v = leto::geometry::Vector3::new(
                             (i as f64) * 0.5,
                             (j as f64) * 0.3,
                             (k as f64) * 0.1,

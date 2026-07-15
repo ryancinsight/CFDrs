@@ -8,10 +8,10 @@
 //! model into its zero-flow fallback and suppresses the angle-dependent inertial
 //! loss coefficient.
 
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
 
 /// Compute venturi (R, K) pair from schematics geometry metadata.
 ///
@@ -22,7 +22,7 @@ pub(crate) fn venturi_coefficients<T, F>(
     fluid: &F,
 ) -> Result<(T, T)>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: Cfd1dScalar + Copy + SafeFromF64,
     F: FluidTrait<T> + Clone,
 {
     use crate::physics::resistance::models::{
@@ -70,27 +70,11 @@ where
     let diff_len = venturi_taper_length_m(outlet_width, throat_width, divergent_angle)?;
     let total_length = throat_length + conv_len + diff_len;
 
-    let inlet_d_t = T::from_f64(inlet_d).ok_or_else(|| {
-        cfd_core::error::Error::InvalidConfiguration("inlet diameter conversion failed".to_string())
-    })?;
-    let throat_d_t = T::from_f64(throat_d).ok_or_else(|| {
-        cfd_core::error::Error::InvalidConfiguration(
-            "throat diameter conversion failed".to_string(),
-        )
-    })?;
-    let outlet_d_t = T::from_f64(outlet_d).ok_or_else(|| {
-        cfd_core::error::Error::InvalidConfiguration(
-            "outlet diameter conversion failed".to_string(),
-        )
-    })?;
-    let throat_len_t = T::from_f64(throat_length).ok_or_else(|| {
-        cfd_core::error::Error::InvalidConfiguration("throat length conversion failed".to_string())
-    })?;
-    let total_len_t = T::from_f64(total_length).ok_or_else(|| {
-        cfd_core::error::Error::InvalidConfiguration(
-            "venturi total length conversion failed".to_string(),
-        )
-    })?;
+    let inlet_d_t = T::try_from_f64(inlet_d)?;
+    let throat_d_t = T::try_from_f64(throat_d)?;
+    let outlet_d_t = T::try_from_f64(outlet_d)?;
+    let throat_len_t = T::try_from_f64(throat_length)?;
+    let total_len_t = T::try_from_f64(total_length)?;
 
     let mut model = VenturiModel::new(inlet_d_t, throat_d_t, outlet_d_t, throat_len_t, total_len_t)
         .with_geometry(VenturiGeometry::Custom {
@@ -101,12 +85,9 @@ where
         .with_expansion(ExpansionType::Gradual {
             half_angle_deg: divergent_angle,
         });
-    model.throat_roughness =
-        T::from_f64(1e-7).expect("Mathematical constant conversion compromised");
+    model.throat_roughness = T::from_f64_or_zero(1e-7);
 
-    let conds = ModelFlowConditions::from_flow_rate(
-        T::from_f64(1e-12).expect("Mathematical constant conversion compromised"),
-    );
+    let conds = ModelFlowConditions::from_flow_rate(T::from_f64_or_zero(1e-12));
     model.calculate_coefficients(fluid, &conds)
 }
 

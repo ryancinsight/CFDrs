@@ -6,9 +6,7 @@
 //! - Automated regression detection and reporting
 
 use cfd_validation::benchmarking::config::BenchmarkConfig;
-use cfd_validation::benchmarking::suite::{
-    BenchmarkResult, BenchmarkStatus, BenchmarkSuite,
-};
+use cfd_validation::benchmarking::suite::{BenchmarkResult, BenchmarkStatus, BenchmarkSuite};
 use cfd_validation::manufactured::ManufacturedSolution;
 use cfd_validation::manufactured::{ManufacturedDiffusion, TaylorGreenManufactured};
 use std::time::{Duration, Instant};
@@ -151,7 +149,7 @@ fn validate_taylor_green(tg: &TaylorGreenManufactured<f64>, test_name: &str) {
 
         // Basic sanity checks
         assert!(
-            vel.x.is_finite() && vel.y.is_finite(),
+            vel[0].is_finite() && vel[1].is_finite(),
             "{}: Velocity should be finite at ({}, {}, {})",
             test_name,
             x,
@@ -268,8 +266,8 @@ mod property_tests {
             let vel = tg.velocity(0.5, 0.5, 0.0);
             let p = tg.pressure(0.5, 0.5, 0.0);
 
-            prop_assert!(vel.x.is_finite());
-            prop_assert!(vel.y.is_finite());
+            prop_assert!(vel[0].is_finite());
+            prop_assert!(vel[1].is_finite());
             prop_assert!(p.is_finite());
         }
     }

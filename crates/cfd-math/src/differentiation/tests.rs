@@ -2,7 +2,7 @@
 mod differentiation_tests {
     use super::super::*;
     use approx::assert_relative_eq;
-    use nalgebra::Vector3;
+    use leto::geometry::Vector3;
 
     #[test]
     fn test_finite_difference_central() {
@@ -36,7 +36,7 @@ mod differentiation_tests {
             .expect("Failed to compute finite differences in test");
 
         // Check interior points (central difference should be exact for linear derivative)
-        for i in 1..derivatives.len() - 1 {
+        for i in 1..x_points.len() - 1 {
             let x = x_points[i];
             let expected = 2.0 * x;
             let computed = derivatives[i];
@@ -126,7 +126,7 @@ mod differentiation_tests {
             .expect("Failed to compute finite differences in test");
 
         // Should be exactly 2.0 for quadratic function (interior points)
-        for i in 1..second_derivatives.len() - 1 {
+        for i in 1..x_values.len() - 1 {
             assert_relative_eq!(second_derivatives[i], 2.0, epsilon = 1e-10);
         }
     }

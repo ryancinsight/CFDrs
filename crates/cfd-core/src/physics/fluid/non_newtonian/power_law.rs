@@ -5,8 +5,8 @@
 use super::super::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use crate::error::Error;
 use crate::physics::constants::physics::universal::GAS_CONSTANT;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Power-law fluid model (Ostwald-de Waele model)
@@ -42,7 +42,7 @@ pub struct PowerLawFluid<T: RealField + Copy> {
     pub activation_energy_k: Option<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> PowerLawFluid<T> {
+impl<T: RealField + FloatElement + Copy> PowerLawFluid<T> {
     /// Create a new power-law fluid
     pub fn new(
         name: String,
@@ -81,11 +81,15 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawFluid<T> {
 
     /// Calculate apparent viscosity at given shear rate
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
-        if shear_rate <= T::zero() {
-            return self.consistency_index * T::from_f64(1000.0).unwrap_or_else(T::one);
+        if shear_rate <= <T as NumericElement>::ZERO {
+            return self.consistency_index * <T as FloatElement>::from_f64(1000.0);
         }
 
-        self.consistency_index * shear_rate.powf(self.flow_behavior_index - T::one())
+        self.consistency_index
+            * <T as FloatElement>::powf(
+                shear_rate,
+                self.flow_behavior_index - <T as NumericElement>::ONE,
+            )
     }
 
     /// Validate model parameters
@@ -93,15 +97,15 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawFluid<T> {
     /// # Errors
     /// Returns an error if any parameter is non-positive or physically invalid
     pub fn validate(&self) -> Result<(), Error> {
-        if self.density <= T::zero() {
+        if self.density <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput("Density must be positive".to_string()));
         }
-        if self.consistency_index <= T::zero() {
+        if self.consistency_index <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Consistency index must be positive".to_string(),
             ));
         }
-        if self.flow_behavior_index <= T::zero() {
+        if self.flow_behavior_index <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Flow behavior index must be positive".to_string(),
             ));
@@ -110,17 +114,17 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawFluid<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for PowerLawFluid<T> {
+impl<T: RealField + FloatElement + Copy> FluidTrait<T> for PowerLawFluid<T> {
     fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         let k_adj = if let Some(t_ref) = self.reference_temperature {
-            let r_gas = T::from_f64(GAS_CONSTANT).unwrap_or_else(T::one);
-            let inv_t = T::one() / temperature;
-            let inv_t_ref = T::one() / t_ref;
+            let r_gas = <T as FloatElement>::from_f64(GAS_CONSTANT);
+            let inv_t = <T as NumericElement>::ONE / temperature;
+            let inv_t_ref = <T as NumericElement>::ONE / t_ref;
             let diff_inv_t = inv_t - inv_t_ref;
 
             if let Some(ea_k) = self.activation_energy_k {
                 let arg = (ea_k / r_gas) * diff_inv_t;
-                self.consistency_index * arg.exp()
+                self.consistency_index * <T as FloatElement>::exp(arg)
             } else {
                 self.consistency_index
             }
@@ -129,10 +133,14 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for PowerLawFluid<T> {
         };
 
         let shear_rate = self.reference_shear_rate;
-        let apparent_viscosity = if shear_rate <= T::zero() {
-            k_adj * T::from_f64(1000.0).unwrap_or_else(T::one)
+        let apparent_viscosity = if shear_rate <= <T as NumericElement>::ZERO {
+            k_adj * <T as FloatElement>::from_f64(1000.0)
         } else {
-            k_adj * shear_rate.powf(self.flow_behavior_index - T::one())
+            k_adj
+                * <T as FloatElement>::powf(
+                    shear_rate,
+                    self.flow_behavior_index - <T as NumericElement>::ONE,
+                )
         };
 
         Ok(FluidState {
@@ -157,7 +165,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for PowerLawFluid<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for PowerLawFluid<T> {
+impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for PowerLawFluid<T> {
     fn apparent_viscosity(&self, shear_rate: T) -> T {
         PowerLawFluid::apparent_viscosity(self, shear_rate)
     }

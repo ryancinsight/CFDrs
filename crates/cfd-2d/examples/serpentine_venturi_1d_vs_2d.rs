@@ -154,6 +154,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config_1d = SolverConfig {
         tolerance: 1e-8,
         max_iterations: 200,
+        require_flow_convergence: true,
     };
     let solver_1d = NetworkSolver::<f64, CassonBlood<f64>>::with_config(config_1d);
     let problem = NetworkProblem::new(network);

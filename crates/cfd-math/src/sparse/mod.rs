@@ -44,11 +44,13 @@ mod patterns;
 
 pub use assembly::ParallelAssembly;
 pub use builder::{MatrixEntry, SparseMatrixBuilder};
-pub use operations::{sparse_sparse_mul, spmv, spmv_parallel, SparseMatrixExt};
+pub use operations::{
+    sparse_sparse_mul, spmv, try_sparse_sparse_mul, try_sparse_transpose, try_spmv, SparseMatrixExt,
+};
 pub use patterns::SparsePatterns;
 
-// Re-export the core sparse matrix type
-pub use nalgebra_sparse::CsrMatrix as SparseMatrix;
+// Re-export the Atlas-owned sparse matrix type.
+pub use leto_ops::CsrMatrix as SparseMatrix;
 
 #[cfg(test)]
 mod tests;

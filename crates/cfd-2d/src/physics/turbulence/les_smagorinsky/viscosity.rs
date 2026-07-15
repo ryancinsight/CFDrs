@@ -14,7 +14,7 @@
 //! formulations, ensuring physical realizability and numerical stability.
 
 use super::config::SmagorinskyConfig;
-use nalgebra::DMatrix;
+use leto::Array2;
 
 /// Compute SGS viscosity using Smagorinsky model.
 ///
@@ -31,26 +31,26 @@ use nalgebra::DMatrix;
 /// `nu_sgs = 0`. The optional lower bound is applied only after this physical
 /// evaluation, so the default configuration preserves the laminar invariant.
 pub fn compute_sgs_viscosity(
-    strain_magnitude: &DMatrix<f64>,
-    filter_width: &DMatrix<f64>,
-    dynamic_constant: Option<&DMatrix<f64>>,
+    strain_magnitude: &Array2<f64>,
+    filter_width: &Array2<f64>,
+    dynamic_constant: Option<&Array2<f64>>,
     config: &SmagorinskyConfig,
     dx: f64,
     dy: f64,
     density: f64,
-) -> DMatrix<f64> {
-    let nx = strain_magnitude.nrows();
-    let ny = strain_magnitude.ncols();
-    let mut sgs_viscosity = DMatrix::zeros(nx, ny);
+) -> Array2<f64> {
+    let nx = strain_magnitude.shape()[0];
+    let ny = strain_magnitude.shape()[1];
+    let mut sgs_viscosity = Array2::zeros([nx, ny]);
 
     for i in 0..nx {
         for j in 0..ny {
-            let delta = filter_width[(i, j)];
-            let strain_mag = strain_magnitude[(i, j)];
+            let delta = filter_width[[i, j]];
+            let strain_mag = strain_magnitude[[i, j]];
 
             // Get Smagorinsky constant (fixed or dynamic)
             let c_s =
-                dynamic_constant.map_or(config.smagorinsky_constant, |dynamic| dynamic[(i, j)]);
+                dynamic_constant.map_or(config.smagorinsky_constant, |dynamic| dynamic[[i, j]]);
 
             // Smagorinsky SGS viscosity
             let mut nu_sgs = (c_s * delta).powi(2) * strain_mag;
@@ -73,7 +73,7 @@ pub fn compute_sgs_viscosity(
             nu_sgs = nu_sgs.max(config.min_sgs_viscosity);
 
             // Convert kinematic to dynamic viscosity
-            sgs_viscosity[(i, j)] = nu_sgs * density;
+            sgs_viscosity[[i, j]] = nu_sgs * density;
         }
     }
 
@@ -119,24 +119,24 @@ fn compute_wall_distance(i: usize, j: usize, nx: usize, ny: usize, dx: f64, dy: 
 
 /// Compute SGS viscosity without wall damping (for comparison/debugging)
 pub fn compute_sgs_viscosity_no_damping(
-    strain_magnitude: &DMatrix<f64>,
-    filter_width: &DMatrix<f64>,
+    strain_magnitude: &Array2<f64>,
+    filter_width: &Array2<f64>,
     smagorinsky_constant: f64,
     min_viscosity: f64,
     density: f64,
-) -> DMatrix<f64> {
-    let nx = strain_magnitude.nrows();
-    let ny = strain_magnitude.ncols();
-    let mut sgs_viscosity = DMatrix::zeros(nx, ny);
+) -> Array2<f64> {
+    let nx = strain_magnitude.shape()[0];
+    let ny = strain_magnitude.shape()[1];
+    let mut sgs_viscosity = Array2::zeros([nx, ny]);
 
     for i in 0..nx {
         for j in 0..ny {
-            let delta = filter_width[(i, j)];
-            let strain_mag = strain_magnitude[(i, j)];
+            let delta = filter_width[[i, j]];
+            let strain_mag = strain_magnitude[[i, j]];
 
             let nu_sgs = ((smagorinsky_constant * delta).powi(2) * strain_mag).max(min_viscosity);
 
-            sgs_viscosity[(i, j)] = nu_sgs * density;
+            sgs_viscosity[[i, j]] = nu_sgs * density;
         }
     }
 
@@ -148,15 +148,15 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
 
-    fn create_test_strain_and_filter(nx: usize, ny: usize) -> (DMatrix<f64>, DMatrix<f64>) {
-        let mut strain = DMatrix::zeros(nx, ny);
-        let mut filter = DMatrix::zeros(nx, ny);
+    fn create_test_strain_and_filter(nx: usize, ny: usize) -> (Array2<f64>, Array2<f64>) {
+        let mut strain = Array2::zeros([nx, ny]);
+        let mut filter = Array2::zeros([nx, ny]);
 
         // Set up test data
         for i in 0..nx {
             for j in 0..ny {
-                strain[(i, j)] = 1.0; // Unit strain rate
-                filter[(i, j)] = 0.1; // Unit filter width
+                strain[[i, j]] = 1.0; // Unit strain rate
+                filter[[i, j]] = 0.1; // Unit filter width
             }
         }
 
@@ -173,8 +173,8 @@ mod tests {
         let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0, 1.0, 1.0);
 
         // Check dimensions
-        assert_eq!(viscosity.nrows(), 10);
-        assert_eq!(viscosity.ncols(), 10);
+        assert_eq!(viscosity.shape()[0], 10);
+        assert_eq!(viscosity.shape()[1], 10);
 
         // Check that SGS viscosity is non-negative
         assert!(viscosity.iter().all(|&v| v >= 0.0));
@@ -215,7 +215,7 @@ mod tests {
             wall_damping: false, // Disable wall damping for this test
             ..SmagorinskyConfig::default()
         };
-        let dynamic_constant = DMatrix::from_element(10, 10, 0.2); // Higher constant
+        let dynamic_constant = Array2::from_elem([10, 10], 0.2); // Higher constant
 
         let viscosity_dynamic = compute_sgs_viscosity(
             &strain,
@@ -231,7 +231,7 @@ mod tests {
         // Dynamic constant should give 4x higher viscosity (0.2/0.1 = 2, squared = 4)
         for i in 0..10 {
             for j in 0..10 {
-                let ratio = viscosity_dynamic[(i, j)] / viscosity_fixed[(i, j)];
+                let ratio = viscosity_dynamic[[i, j]] / viscosity_fixed[[i, j]];
                 assert_relative_eq!(ratio, 4.0, epsilon = 1e-10);
             }
         }
@@ -239,8 +239,8 @@ mod tests {
 
     #[test]
     fn test_minimum_viscosity() {
-        let mut strain = DMatrix::zeros(10, 10);
-        let filter = DMatrix::from_element(10, 10, 0.1);
+        let mut strain = Array2::zeros([10, 10]);
+        let filter = Array2::from_elem([10, 10], 0.1);
 
         // Very small strain rate
         strain.fill(1e-10);
@@ -259,8 +259,8 @@ mod tests {
 
     #[test]
     fn test_zero_strain_rate() {
-        let strain = DMatrix::zeros(10, 10);
-        let filter = DMatrix::from_element(10, 10, 0.1);
+        let strain = Array2::zeros([10, 10]);
+        let filter = Array2::from_elem([10, 10], 0.1);
         let config = SmagorinskyConfig::default();
         let viscosity = compute_sgs_viscosity(&strain, &filter, None, &config, 1.0, 1.0, 1.0);
 

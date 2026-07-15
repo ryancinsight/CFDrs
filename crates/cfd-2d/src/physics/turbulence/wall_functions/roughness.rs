@@ -17,11 +17,11 @@
 //! Jiménez, J. (2004). Turbulent flows over rough walls. *Anna. Rev. Fluid Mech.*, 36, 173–196.
 
 use crate::physics::turbulence::constants::KAPPA;
-use nalgebra::RealField;
+use eunomia::{FloatElement, RealField};
 
 /// Wall roughness parameters.
 #[derive(Debug, Clone)]
-pub struct WallRoughness<T: RealField + Copy> {
+pub struct WallRoughness<T: RealField> {
     /// Equivalent sand-grain roughness height (k_s) \[m].
     pub equivalent_sand_grain: T,
     /// Roughness type classification.
@@ -30,13 +30,13 @@ pub struct WallRoughness<T: RealField + Copy> {
     pub roughness_function: T,
 }
 
-impl<T: RealField + Copy> WallRoughness<T> {
+impl<T: RealField> WallRoughness<T> {
     /// Create smooth wall (k_s = 0).
     pub fn smooth() -> Self {
         Self {
-            equivalent_sand_grain: T::zero(),
+            equivalent_sand_grain: T::ZERO,
             roughness_type: RoughnessType::Smooth,
-            roughness_function: T::zero(),
+            roughness_function: T::ZERO,
         }
     }
 
@@ -55,26 +55,20 @@ impl<T: RealField + Copy> WallRoughness<T> {
     /// Calculate roughness function ΔB based on roughness type.
     fn calculate_roughness_function(k_s: T, roughness_type: RoughnessType) -> T {
         match roughness_type {
-            RoughnessType::Smooth => T::zero(),
+            RoughnessType::Smooth => T::ZERO,
             RoughnessType::TransitionallyRough => {
-                let kappa = T::from_f64(KAPPA).expect("analytical constant conversion");
-                (T::one() / kappa) * k_s.ln()
-                    + T::from_f64(8.5).expect("analytical constant conversion")
-                    - (T::one() / kappa)
-                        * T::from_f64(30.0)
-                            .expect("analytical constant conversion")
-                            .ln()
-                    - T::from_f64(8.5).expect("analytical constant conversion")
+                let kappa = T::from_f64(KAPPA);
+                (T::ONE / kappa) * <T as FloatElement>::ln(k_s) + T::from_f64(8.5)
+                    - (T::ONE / kappa) * <T as FloatElement>::ln(T::from_f64(30.0))
+                    - T::from_f64(8.5)
             }
             RoughnessType::FullyRough => {
-                let kappa = T::from_f64(KAPPA).expect("analytical constant conversion");
-                (T::one() / kappa) * k_s.ln()
-                    + T::from_f64(8.5).expect("analytical constant conversion")
+                let kappa = T::from_f64(KAPPA);
+                (T::ONE / kappa) * <T as FloatElement>::ln(k_s) + T::from_f64(8.5)
             }
             RoughnessType::VeryRough => {
-                let kappa = T::from_f64(KAPPA).expect("analytical constant conversion");
-                (T::one() / kappa) * k_s.ln()
-                    + T::from_f64(13.0).expect("analytical constant conversion")
+                let kappa = T::from_f64(KAPPA);
+                (T::ONE / kappa) * <T as FloatElement>::ln(k_s) + T::from_f64(13.0)
             }
         }
     }
@@ -95,11 +89,11 @@ pub enum RoughnessType {
 
 impl RoughnessType {
     /// Classify roughness based on k_s⁺ value.
-    pub fn classify<T: RealField + Copy>(k_s_plus: T) -> Self {
-        let threshold_trans = T::from_f64(10.0).expect("analytical constant conversion");
-        let threshold_very = T::from_f64(1000.0).expect("analytical constant conversion");
+    pub fn classify<T: RealField>(k_s_plus: T) -> Self {
+        let threshold_trans = T::from_f64(10.0);
+        let threshold_very = T::from_f64(1000.0);
 
-        if k_s_plus <= T::from_f64(0.1).expect("analytical constant conversion") {
+        if k_s_plus <= T::from_f64(0.1) {
             RoughnessType::Smooth
         } else if k_s_plus <= threshold_trans {
             RoughnessType::TransitionallyRough

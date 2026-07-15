@@ -15,8 +15,6 @@ use cfd_core::error::Result;
 use std::fmt::Write as _;
 use std::time::Duration;
 
-
-
 /// Individual benchmark result with comprehensive metrics
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BenchmarkResult {

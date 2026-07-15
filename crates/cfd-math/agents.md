@@ -65,7 +65,7 @@ src/
     block_preconditioner.rs   Block-diagonal preconditioner
     matrix_free/
       mod.rs                  Matrix-free Krylov interface
-      parallel_solvers.rs     Rayon-parallel SpMV
+      parallel_solvers.rs     Moirai-parallel SpMV
     operators/
       gpu.rs                  GPU operator wrappers
       momentum.rs             Discretised momentum operator
@@ -142,7 +142,7 @@ src/
   iterators/
     mod.rs
     norms.rs                  NormIteratorExt: L1, L2, L∞ in one pass
-    parallel.rs               Rayon parallel reduction helpers
+    parallel.rs               Moirai parallel reduction helpers
     statistics.rs             Mean, variance, running stats
     stencils.rs               Sliding stencil window iterator
     windows.rs                Overlapping window slices
@@ -249,8 +249,8 @@ Energy estimate: `d/dt ‖u‖² ≤ C · ‖f‖²` (discrete entropy inequalit
 **SIMD SpMV is 27–32% slower than scalar** for CSR matrices due to
 irregular gather access `x[col_indices[j]]` (Sprint 1.43.0 / 1.55.0 benchmarks).
 
-Recommendation: **Use Rayon parallelism** (`matrix_free/parallel_solvers.rs`)
-for 5–20× speedup on multi-core hardware. The `simd` feature flag is disabled by
+Recommendation: **Use Moirai parallelism** (`matrix_free/parallel_solvers.rs`)
+for multi-core sparse kernels. The `simd` feature flag is disabled by
 default; do NOT enable it expecting performance gains on CSR problems.
 
 ---

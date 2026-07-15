@@ -32,10 +32,9 @@ use cfd_1d::{
     cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs_cross_junction,
     incremental_filtration_separation_cross_junction,
     incremental_filtration_separation_from_qfracs, incremental_filtration_separation_staged,
-    mixed_cascade_separation,
-    mixed_cascade_separation_kappa_aware, parallel_channel_flow_fractions,
-    three_population_equilibria, tri_asymmetric_q_fracs, tri_center_q_frac,
-    tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
+    mixed_cascade_separation, mixed_cascade_separation_kappa_aware,
+    parallel_channel_flow_fractions, three_population_equilibria, tri_asymmetric_q_fracs,
+    tri_center_q_frac, tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
     IncrementalFiltrationResult,
 };
 
@@ -328,13 +327,13 @@ fn test_three_population_equilibria_serpentine() {
     );
 
     let eq_serpentine = three_population_equilibria(
-        2e-3,           // width
-        1e-3,           // height
-        1e-6,           // flow_rate
-        1060.0,         // blood density
-        3.5e-3,         // viscosity
-        0.45,           // hematocrit
-        Some(2e-3),     // bend radius = 2mm (tight serpentine)
+        2e-3,       // width
+        1e-3,       // height
+        1e-6,       // flow_rate
+        1060.0,     // blood density
+        3.5e-3,     // viscosity
+        0.45,       // hematocrit
+        Some(2e-3), // bend radius = 2mm (tight serpentine)
     );
 
     // All equilibrium positions should remain bounded.
@@ -461,8 +460,8 @@ fn test_kappa_aware_cascade_selective_enrichment() {
     // kappa_rbc = 7e-6 / 133e-6 = 0.053 (< 0.07, minimal focusing)
     let treatment_width = 200e-6;
     let treatment_height = 100e-6;
-    let treatment_dh = 2.0 * treatment_width * treatment_height
-        / (treatment_width + treatment_height);
+    let treatment_dh =
+        2.0 * treatment_width * treatment_height / (treatment_width + treatment_height);
 
     let stage = CascadeStage {
         arm_q_fracs: [0.5, 0.25, 0.25, 0.0, 0.0],

@@ -1,5 +1,4 @@
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd1dScalar;
 use std::collections::HashMap;
 
 /// Canonical mixture key for transported RBC volume fraction.
@@ -9,12 +8,12 @@ pub const BLOOD_PLASMA_FLUID_ID: i32 = -10_002;
 
 /// Mixture composition keyed by `fluid_id` with mass/volume fractions.
 #[derive(Debug, Clone)]
-pub struct MixtureComposition<T: RealField + Copy> {
+pub struct MixtureComposition<T: Cfd1dScalar + Copy> {
     /// Fraction per fluid id.
     pub fractions: HashMap<i32, T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> MixtureComposition<T> {
+impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
     /// Create a new mixture and normalize to unit sum (when non-empty).
     #[must_use]
     pub fn new(mut fractions: HashMap<i32, T>) -> Self {
@@ -121,14 +120,14 @@ impl<T: RealField + Copy + FromPrimitive> MixtureComposition<T> {
         keys.into_iter().all(|k| {
             let a = *self.fractions.get(&k).unwrap_or(&T::zero());
             let b = *other.fractions.get(&k).unwrap_or(&T::zero());
-            (a - b).abs() <= tolerance
+            <T as eunomia::NumericElement>::abs(a - b) <= tolerance
         })
     }
 }
 
 /// Composition state at one simulation timepoint.
 #[derive(Debug, Clone)]
-pub struct CompositionState<T: RealField + Copy> {
+pub struct CompositionState<T: Cfd1dScalar + Copy> {
     /// Simulation time.
     pub time: T,
     /// Node mixture compositions keyed by node index.
@@ -139,7 +138,7 @@ pub struct CompositionState<T: RealField + Copy> {
     pub edge_flow_rates: HashMap<usize, T>,
 }
 
-impl<T: RealField + Copy> CompositionState<T> {
+impl<T: Cfd1dScalar + Copy> CompositionState<T> {
     /// Return average fluid concentrations in an edge at this state.
     ///
     /// In the current architecture, each edge stores a single mixed composition

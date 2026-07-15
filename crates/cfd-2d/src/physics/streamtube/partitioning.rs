@@ -22,8 +22,8 @@
 //! flow is quadratic on that interval, and we solve the quadratic root analytically to obtain
 //! the exact $y_{sep}$ for the discrete representation.
 
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use crate::scalar;
+use eunomia::{FloatElement, NumericElement};
 
 /// Core 2D Streamtube Partitioning Tools
 pub struct ZweifachFung2D;
@@ -44,7 +44,7 @@ impl ZweifachFung2D {
     /// # Returns
     /// The exact interpolated $y_{sep}$ coordinate. Returns `None` if the input is invalid
     /// or if the profile contains significant reverse flow (which breaks the simple monotonic CDF).
-    pub fn separating_streamline_y<T: RealField + Copy + Float + FromPrimitive>(
+    pub fn separating_streamline_y<T: FloatElement>(
         y_coords: &[T],
         u_vel: &[T],
         target_fraction: T,
@@ -54,9 +54,9 @@ impl ZweifachFung2D {
             return None;
         }
 
-        let zero = T::zero();
-        let one = T::one();
-        let two = T::from_f64(2.0).unwrap();
+        let zero = scalar::zero();
+        let one = scalar::one();
+        let two = scalar::from_f64(2.0);
 
         if target_fraction <= zero {
             return Some(y_coords[0]);
@@ -106,23 +106,23 @@ impl ZweifachFung2D {
                 let u1 = u_vel[i];
                 let du = u1 - u0;
 
-                return if Float::abs(du) < T::from_f64(1e-12).unwrap() {
+                return if <T as NumericElement>::abs(du) < scalar::from_f64(1e-12) {
                     // Uniform velocity in this cell
                     Some(y0 + delta_q / u0)
                 } else {
                     // Quadratic formula: 0.5 * (du/dy_int) * s^2 + u0 * s - delta_q = 0
                     let a = (half::<T>() * du) / dy_interval;
                     let b = u0;
-                    let c = -delta_q;
+                    let c = zero - delta_q;
 
                     // s = (-b + sqrt(b^2 - 4ac)) / 2a
-                    let disc = b * b - T::from_f64(4.0).unwrap() * a * c;
+                    let disc = b * b - scalar::from_f64::<T>(4.0) * a * c;
                     if disc < zero {
                         // Fallback to linear if root imaginary due to precision edge cases
                         let t = delta_q / (q1 - q0);
                         Some(y0 + t * dy_interval)
                     } else {
-                        let s = (-b + Float::sqrt(disc)) / (two * a);
+                        let s = ((zero - b) + <T as NumericElement>::sqrt(disc)) / (two * a);
                         Some(y0 + s)
                     }
                 };
@@ -135,14 +135,18 @@ impl ZweifachFung2D {
 
 /// Helper to cast float to T
 #[inline]
-fn half<T: RealField + Float + FromPrimitive>() -> T {
-    T::from_f64(0.5).unwrap()
+fn half<T: FloatElement>() -> T {
+    scalar::from_f64(0.5)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+
+    fn abs(value: f64) -> f64 {
+        <f64 as NumericElement>::abs(value)
+    }
 
     /// Theorem: Analytical integration of steady Poiseuille flow between parallel plates.
     /// Profile: u(y) = u_max * (1 - (2*y/H)^2) for y in [-H/2, H/2].
@@ -168,25 +172,22 @@ mod tests {
         // Check 50% flow fraction (should be exactly at centerline y = 0.0)
         let y_sep_50 = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.5).unwrap();
         assert!(
-            y_sep_50.abs() < 1e-6,
-            "50% flow must split exactly at the centerline. Got: {}",
-            y_sep_50
+            abs(y_sep_50) < 1e-6,
+            "50% flow must split exactly at the centerline. Got: {y_sep_50}"
         );
 
         // Check 100% flow fraction
         let y_sep_100 = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 1.0).unwrap();
         assert!(
-            (y_sep_100 - half_h).abs() < 1e-6,
-            "100% flow must split exactly at upper wall. Got {}",
-            y_sep_100
+            abs(y_sep_100 - half_h) < 1e-6,
+            "100% flow must split exactly at upper wall. Got {y_sep_100}"
         );
 
         // Check 0% flow fraction
         let y_sep_0 = ZweifachFung2D::separating_streamline_y(&y_coords, &u_vel, 0.0).unwrap();
         assert!(
-            (y_sep_0 - (-half_h)).abs() < 1e-6,
-            "0% flow must split exactly at lower wall. Got {}",
-            y_sep_0
+            abs(y_sep_0 - (-half_h)) < 1e-6,
+            "0% flow must split exactly at lower wall. Got {y_sep_0}"
         );
     }
 

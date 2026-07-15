@@ -15,8 +15,20 @@ use crate::linear_solver::IterativeSolverConfig;
 use crate::linear_solver::{BiCGSTAB, ConjugateGradient, GMRES};
 use crate::sparse::SparseMatrixBuilder;
 use approx::assert_relative_eq;
-use nalgebra::DVector;
+use leto::Array1;
+use leto_ops::CsrMatrix as AtlasSparseMatrix;
 use proptest::prelude::*;
+
+use super::{
+    array_from_fn, assert_array_close, assert_spmv_matches, basic_preconditioner_matrix,
+    fill_array, filled_array, residual_norm,
+};
+
+fn amg_matrix_from_solver_matrix(
+    matrix: &crate::sparse::SparseMatrix<f64>,
+) -> AtlasSparseMatrix<f64> {
+    matrix.clone()
+}
 
 #[test]
 fn test_single_element_system() -> Result<(), Box<dyn std::error::Error>> {
@@ -25,8 +37,8 @@ fn test_single_element_system() -> Result<(), Box<dyn std::error::Error>> {
     builder.add_entry(0, 0, 5.0)?;
     let a = builder.build()?;
 
-    let b = DVector::from_element(n, 10.0);
-    let mut x = DVector::zeros(n);
+    let b = filled_array(n, 10.0);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(10);
     let solver = ConjugateGradient::new(config);
@@ -63,8 +75,8 @@ fn test_poisson_2d_amg_convergence() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::from_element(n * n, 1.0);
-    let mut x = DVector::zeros(n * n);
+    let b = filled_array(n * n, 1.0);
+    let mut x = Array1::zeros([n * n]);
 
     let config = IterativeSolverConfig::new(1e-8).with_max_iterations(100);
     let amg_config = AMGConfig {
@@ -72,24 +84,23 @@ fn test_poisson_2d_amg_convergence() -> Result<(), Box<dyn std::error::Error>> {
         min_coarse_size: 20,
         ..Default::default()
     };
-    let amg = AlgebraicMultigrid::new(&a, amg_config)?;
+    let amg_a = amg_matrix_from_solver_matrix(&a);
+    let amg = AlgebraicMultigrid::new(&amg_a, amg_config)?;
 
     let solver_gmres = GMRES::new(config, 30);
     solver_gmres.solve(&a, &b, &mut x, Some(&amg))?;
 
-    let ax = &a * &x;
-    let residual = (&ax - &b).norm();
+    let residual = residual_norm(&a, &x, &b);
     assert!(
         residual < 1e-7,
         "GMRES + AMG failed to converge, residual: {residual}"
     );
 
-    x.fill(0.0);
+    fill_array(&mut x, 0.0);
     let solver_bicg = BiCGSTAB::new(config);
     solver_bicg.solve(&a, &b, &mut x, Some(&amg))?;
 
-    let ax = &a * &x;
-    let residual = (&ax - &b).norm();
+    let residual = residual_norm(&a, &x, &b);
     assert!(
         residual < 1e-7,
         "BiCGSTAB + AMG failed to converge, residual: {residual}"
@@ -108,8 +119,8 @@ fn test_diagonal_matrix_cg() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::from_fn(n, |i, _| (i + 1) as f64);
-    let mut x = DVector::zeros(n);
+    let b = array_from_fn(n, |i| (i + 1) as f64);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-12).with_max_iterations(10);
     let solver = ConjugateGradient::new(config);
@@ -133,8 +144,8 @@ fn test_identity_matrix() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::from_fn(n, |i, _| (i + 1) as f64);
-    let mut x = DVector::zeros(n);
+    let b = array_from_fn(n, |i| (i + 1) as f64);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-12).with_max_iterations(10);
     let solver = BiCGSTAB::new(config);
@@ -142,9 +153,7 @@ fn test_identity_matrix() -> Result<(), Box<dyn std::error::Error>> {
 
     solver.solve(&a, &b, &mut x, Some(&identity))?;
 
-    for i in 0..n {
-        assert_relative_eq!(x[i], b[i], epsilon = 1e-10);
-    }
+    assert_array_close(&x, &b, 1e-10);
     Ok(())
 }
 
@@ -164,8 +173,8 @@ fn test_strongly_dominant_matrix() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::from_element(n, 1.0);
-    let mut x = DVector::zeros(n);
+    let b = filled_array(n, 1.0);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = ConjugateGradient::new(config);
@@ -173,10 +182,7 @@ fn test_strongly_dominant_matrix() -> Result<(), Box<dyn std::error::Error>> {
 
     solver.solve(&a, &b, &mut x, Some(&identity))?;
 
-    let ax = &a * &x;
-    for i in 0..n {
-        assert_relative_eq!(ax[i], b[i], epsilon = 1e-8);
-    }
+    assert_spmv_matches(&a, &x, &b, 1e-8);
     Ok(())
 }
 
@@ -196,8 +202,8 @@ fn test_all_ones_rhs() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::from_element(n, 1.0);
-    let mut x = DVector::zeros(n);
+    let b = filled_array(n, 1.0);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(1000);
     let solver = BiCGSTAB::new(config);
@@ -205,10 +211,7 @@ fn test_all_ones_rhs() -> Result<(), Box<dyn std::error::Error>> {
 
     solver.solve(&a, &b, &mut x, Some(&identity))?;
 
-    let ax = &a * &x;
-    for i in 0..n {
-        assert_relative_eq!(ax[i], b[i], epsilon = 1e-8);
-    }
+    assert_spmv_matches(&a, &x, &b, 1e-8);
     Ok(())
 }
 
@@ -228,8 +231,8 @@ fn test_alternating_sign_rhs() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::from_fn(n, |i, _| if i % 2 == 0 { 1.0 } else { -1.0 });
-    let mut x = DVector::zeros(n);
+    let b = array_from_fn(n, |i| if i % 2 == 0 { 1.0 } else { -1.0 });
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-8).with_max_iterations(1000);
     let solver = BiCGSTAB::new(config);
@@ -237,10 +240,7 @@ fn test_alternating_sign_rhs() -> Result<(), Box<dyn std::error::Error>> {
 
     solver.solve(&a, &b, &mut x, Some(&identity))?;
 
-    let ax = &a * &x;
-    for i in 0..n {
-        assert_relative_eq!(ax[i], b[i], epsilon = 1e-6);
-    }
+    assert_spmv_matches(&a, &x, &b, 1e-6);
     Ok(())
 }
 
@@ -260,9 +260,10 @@ fn test_jacobi_uniform_diagonal() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let precond = JacobiPreconditioner::new(&a)?;
-    let r = DVector::from_element(n, 6.0);
-    let mut z = DVector::zeros(n);
+    let preconditioner_matrix = basic_preconditioner_matrix(&a);
+    let precond = JacobiPreconditioner::new(&preconditioner_matrix)?;
+    let r = filled_array(n, 6.0);
+    let mut z = Array1::zeros([n]);
 
     precond.apply_to(&r, &mut z)?;
 
@@ -288,8 +289,8 @@ fn test_large_sparse_system() -> Result<(), Box<dyn std::error::Error>> {
     }
     let a = builder.build()?;
 
-    let b = DVector::from_element(n, 1.0);
-    let mut x = DVector::zeros(n);
+    let b = filled_array(n, 1.0);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-8).with_max_iterations(1000);
     let solver = ConjugateGradient::new(config);
@@ -297,14 +298,7 @@ fn test_large_sparse_system() -> Result<(), Box<dyn std::error::Error>> {
 
     solver.solve(&a, &b, &mut x, Some(&identity))?;
 
-    let ax = &a * &x;
-    let residual: f64 = (0..n)
-        .map(|i| {
-            let diff = ax[i] - b[i];
-            diff * diff
-        })
-        .sum::<f64>()
-        .sqrt();
+    let residual = residual_norm(&a, &x, &b);
     assert!(residual < 1e-6, "Residual {residual} exceeds tolerance");
     Ok(())
 }
@@ -330,8 +324,8 @@ proptest! {
         }
         let a = builder.build().unwrap();
 
-        let b = DVector::from_element(n, 1.0);
-        let mut x = DVector::zeros(n);
+        let b = filled_array(n, 1.0);
+        let mut x = Array1::zeros([n]);
 
         let config = IterativeSolverConfig::new(1e-8).with_max_iterations(1000);
         let solver = ConjugateGradient::new(config);
@@ -339,10 +333,7 @@ proptest! {
 
         solver.solve(&a, &b, &mut x, Some(&identity)).unwrap();
 
-        let ax = &a * &x;
-        for i in 0..n {
-            assert_relative_eq!(ax[i], b[i], epsilon = 1e-6);
-        }
+        assert_spmv_matches(&a, &x, &b, 1e-6);
     }
 }
 
@@ -365,8 +356,8 @@ proptest! {
         }
         let a = builder.build().unwrap();
 
-        let b = DVector::from_element(n, 1.0);
-        let mut x = DVector::zeros(n);
+        let b = filled_array(n, 1.0);
+        let mut x = Array1::zeros([n]);
 
         let config = IterativeSolverConfig::new(1e-7).with_max_iterations(1000);
         let solver = BiCGSTAB::new(config);
@@ -378,11 +369,7 @@ proptest! {
             assert!(x[i].is_finite(), "Solution contains non-finite values");
         }
 
-        let ax = &a * &x;
-        let residual: f64 = (0..n).map(|i| {
-            let diff = ax[i] - b[i];
-            diff * diff
-        }).sum::<f64>().sqrt();
+        let residual = residual_norm(&a, &x, &b);
         assert!(residual < 1e-5, "Residual {residual} too large");
     }
 }
@@ -406,9 +393,10 @@ proptest! {
         }
         let a = builder.build().unwrap();
 
-        let precond = JacobiPreconditioner::new(&a).unwrap();
-        let r = DVector::from_element(n, diag_val);
-        let mut z = DVector::zeros(n);
+        let preconditioner_matrix = basic_preconditioner_matrix(&a);
+        let precond = JacobiPreconditioner::new(&preconditioner_matrix).unwrap();
+        let r = filled_array(n, diag_val);
+        let mut z = Array1::zeros([n]);
 
         precond.apply_to(&r, &mut z).unwrap();
 
@@ -438,10 +426,10 @@ proptest! {
         }
         let a = builder.build().unwrap();
 
-        let b = DVector::from_element(n, 1.0);
+        let b = filled_array(n, 1.0);
 
-        let mut x1 = DVector::from_element(n, seed1);
-        let mut x2 = DVector::from_element(n, seed2);
+        let mut x1 = filled_array(n, seed1);
+        let mut x2 = filled_array(n, seed2);
 
         let config = IterativeSolverConfig::new(1e-9).with_max_iterations(1000);
         let solver = ConjugateGradient::new(config);

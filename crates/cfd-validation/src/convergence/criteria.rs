@@ -2,9 +2,8 @@
 //!
 //! Implements convergence assessment following CFD best practices.
 
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::{FloatElement, RealField};
 
 /// Convergence status for iterative solvers
 #[derive(Debug, Clone, PartialEq)]
@@ -41,7 +40,7 @@ pub enum ConvergenceStatus<T: RealField + Copy> {
     },
 }
 
-impl<T: RealField + Copy> ConvergenceStatus<T> {
+impl<T: RealField + Copy + FloatElement> ConvergenceStatus<T> {
     /// Check if converged
     pub fn is_converged(&self) -> bool {
         matches!(self, Self::Converged { .. })
@@ -52,7 +51,7 @@ impl<T: RealField + Copy> ConvergenceStatus<T> {
         match self {
             Self::Converged { final_error, .. } => *final_error,
             Self::NotConverged { current_error, .. } => *current_error,
-            Self::Diverging { .. } => <T as SafeFromF64>::from_f64_or_zero(f64::INFINITY),
+            Self::Diverging { .. } => <T as RealField>::infinity(),
             Self::Stalled { stall_error, .. } => *stall_error,
         }
     }
@@ -86,13 +85,13 @@ pub struct GridConvergenceIndex<T: RealField + Copy> {
     pub refinement_ratio: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> GridConvergenceIndex<T> {
+impl<T: RealField + Copy + FloatElement> GridConvergenceIndex<T> {
     /// Create GCI calculator with recommended safety factor
     pub fn new(num_grids: usize, order: T, refinement_ratio: T) -> Self {
         let safety_factor = if num_grids >= 3 {
-            T::from_f64_or_one(1.25) // Recommended for systematic studies
+            scalar::from_f64::<T>(1.25) // Recommended for systematic studies
         } else {
-            T::from_f64_or_one(3.0) // Conservative for limited grids
+            scalar::from_f64::<T>(3.0) // Conservative for limited grids
         };
 
         Self {
@@ -104,15 +103,15 @@ impl<T: RealField + Copy + FromPrimitive> GridConvergenceIndex<T> {
 
     /// Compute GCI for fine grid solution
     pub fn compute_fine(&self, f_fine: T, f_coarse: T) -> T {
-        let epsilon = (f_coarse - f_fine).abs() / f_fine.abs();
-        let r_p = self.refinement_ratio.powf(self.order);
+        let epsilon = scalar::abs(f_coarse - f_fine) / scalar::abs(f_fine);
+        let r_p = scalar::powf(self.refinement_ratio, self.order);
 
-        self.safety_factor * epsilon / (r_p - T::one())
+        self.safety_factor * epsilon / (r_p - scalar::one::<T>())
     }
 
     /// Compute GCI for coarse grid solution
     pub fn compute_coarse(&self, f_fine: T, f_coarse: T) -> T {
-        let r_p = self.refinement_ratio.powf(self.order);
+        let r_p = scalar::powf(self.refinement_ratio, self.order);
         r_p * self.compute_fine(f_fine, f_coarse)
     }
 
@@ -120,11 +119,11 @@ impl<T: RealField + Copy + FromPrimitive> GridConvergenceIndex<T> {
     ///
     /// Returns true if `GCI_coarse` / (r^p * `GCI_fine`) ≈ 1
     pub fn is_asymptotic(&self, gci_fine: T, gci_coarse: T) -> bool {
-        let r_p = self.refinement_ratio.powf(self.order);
+        let r_p = scalar::powf(self.refinement_ratio, self.order);
         let ratio = gci_coarse / (r_p * gci_fine);
 
         // Should be within 3% of unity for asymptotic range
-        (ratio - T::one()).abs() < <T as SafeFromF64>::from_f64_or_zero(0.03)
+        scalar::abs(ratio - scalar::one::<T>()) < scalar::from_f64::<T>(0.03)
     }
 
     /// Compute uncertainty band for solution
@@ -148,7 +147,7 @@ pub struct ConvergenceMonitor<T: RealField + Copy> {
     pub stall_window: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T> {
+impl<T: RealField + Copy + FloatElement + std::iter::Sum> ConvergenceMonitor<T> {
     /// Create a new convergence monitor
     pub fn new(abs_tol: T, rel_tol: T, max_iter: usize) -> Self {
         Self {
@@ -169,14 +168,14 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
     pub fn check_status(&self) -> ConvergenceStatus<T> {
         if self.history.is_empty() {
             return ConvergenceStatus::NotConverged {
-                current_error: <T as SafeFromF64>::from_f64_or_zero(f64::INFINITY),
+                current_error: <T as RealField>::infinity(),
                 iterations: 0,
             };
         }
 
         let Some(&current_error) = self.history.last() else {
             return ConvergenceStatus::NotConverged {
-                current_error: <T as SafeFromF64>::from_f64_or_zero(f64::INFINITY),
+                current_error: <T as RealField>::infinity(),
                 iterations: 0,
             };
         };
@@ -188,23 +187,26 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
             let window_start = iterations - self.stall_window;
             let window_errors = &self.history[window_start..];
             let mean_error = window_errors.iter().copied().sum::<T>()
-                / T::from_usize(self.stall_window).unwrap();
+                / scalar::from_usize::<T>(self.stall_window);
 
             // Avoid division by zero
-            if mean_error > T::zero() {
+            if mean_error > scalar::zero::<T>() {
                 let variance = window_errors
                     .iter()
-                    .map(|e| (*e - mean_error).powi(2))
+                    .map(|e| {
+                        let deviation = *e - mean_error;
+                        deviation * deviation
+                    })
                     .sum::<T>()
-                    / T::from_usize(self.stall_window).unwrap();
+                    / scalar::from_usize::<T>(self.stall_window);
 
-                let std_dev = variance.sqrt();
+                let std_dev = scalar::sqrt(variance);
                 // Use coefficient of variation (CV) for scale-invariant stall detection
                 let cv = std_dev / mean_error;
 
                 // Stalled if CV is very small (< 1% of relative tolerance)
                 // AND error is still above absolute tolerance (otherwise it's converged)
-                if cv < self.rel_tolerance * <T as SafeFromF64>::from_f64_or_zero(0.01)
+                if cv < self.rel_tolerance * scalar::from_f64::<T>(0.01)
                     && current_error > self.abs_tolerance
                 {
                     return ConvergenceStatus::Stalled {
@@ -220,8 +222,8 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
             let prev_error = self.history[iterations - 2];
 
             // Avoid division by zero
-            if prev_error > T::zero() {
-                let rel_change = (current_error - prev_error).abs() / prev_error;
+            if prev_error > scalar::zero::<T>() {
+                let rel_change = scalar::abs(current_error - prev_error) / prev_error;
 
                 if rel_change < self.rel_tolerance {
                     return ConvergenceStatus::Converged {
@@ -232,7 +234,7 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
                 }
 
                 // Check for divergence (error growing by more than 10%)
-                if current_error > prev_error * <T as SafeFromF64>::from_f64_or_one(1.1) {
+                if current_error > prev_error * scalar::from_f64::<T>(1.1) {
                     let growth_rate = current_error / prev_error;
                     return ConvergenceStatus::Diverging {
                         growth_rate,
@@ -276,11 +278,14 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> ConvergenceMonitor<T>
         let previous_error = self.history[start];
         let current_error = *self.history.last().unwrap();
 
-        if previous_error <= T::zero() || current_error <= T::zero() {
+        if previous_error <= scalar::zero::<T>() || current_error <= scalar::zero::<T>() {
             return None;
         }
 
-        Some((current_error / previous_error).powf(T::one() / T::from_usize(window).unwrap()))
+        Some(scalar::powf(
+            current_error / previous_error,
+            scalar::one::<T>() / scalar::from_usize::<T>(window),
+        ))
     }
 }
 

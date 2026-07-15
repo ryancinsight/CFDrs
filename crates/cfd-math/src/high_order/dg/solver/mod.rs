@@ -7,10 +7,13 @@ mod time_integration;
 
 pub use time_integration::*;
 
-use super::{legendre_poly, DGOperator};
+use super::{
+    legendre_poly, matrix_cols, matrix_norm, matrix_rows, matrix_zeros, vector_from_element,
+    vector_zeros, DGOperator,
+};
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
-use nalgebra::{DMatrix, DVector};
+use leto::{Array1, Array2};
 use std::time::Instant;
 
 /// Solver for time-dependent PDEs using DG methods
@@ -26,7 +29,7 @@ pub struct DGSolver {
     /// Current time step
     pub dt: f64,
     /// Current solution
-    pub u: DMatrix<f64>,
+    pub u: Array2<f64>,
     /// Number of time steps taken
     pub step_count: usize,
     /// Number of function evaluations
@@ -54,7 +57,7 @@ impl DGSolver {
             params,
             t: 0.0,
             dt: 0.0,
-            u: DMatrix::zeros(0, 0),
+            u: matrix_zeros(0, 0),
             step_count: 0,
             nfev: 0,
             njev: 0,
@@ -67,13 +70,14 @@ impl DGSolver {
     /// Initialize the solver with an initial condition
     pub fn initialize<F>(&mut self, u0: F) -> Result<()>
     where
-        F: Fn(f64) -> DVector<f64>,
+        F: Fn(f64) -> Array1<f64>,
     {
         // Project the initial condition onto the DG basis
-        self.u = self.dg_op.project(u0);
+        self.u = self.dg_op.project(u0)?;
 
         // Set initial time step
-        self.dt = self.compute_initial_dt()
+        self.dt = self
+            .compute_initial_dt()
             .context("computing initial time step for DG solver")?;
 
         self.t = 0.0;
@@ -116,23 +120,23 @@ impl DGSolver {
     fn compute_max_wave_speed(&self) -> Result<f64> {
         use super::flux::{FluxFactory, NumericalFlux};
 
-        let n_elem = self.u.ncols();
-        let n_dof = self.u.nrows();
+        let n_elem = matrix_cols(&self.u);
+        let n_dof = matrix_rows(&self.u);
         if n_elem == 0 || n_dof == 0 {
             return Ok(f64::EPSILON);
         }
 
         let flux = FluxFactory::create(self.dg_op.params.surface_flux);
         // Unit normal (1-D reference direction)
-        let n = DVector::from_element(1, 1.0);
+        let n = vector_from_element(1, 1.0);
 
         let mut max_speed: f64 = f64::EPSILON;
 
         for e in 0..n_elem.saturating_sub(1) {
             // Right boundary of element e
-            let u_l = DVector::from_element(1, self.u[(n_dof - 1, e)]);
+            let u_l = vector_from_element(1, self.u[[n_dof - 1, e]]);
             // Left boundary of element e+1
-            let u_r = DVector::from_element(1, self.u[(0, e + 1)]);
+            let u_r = vector_from_element(1, self.u[[0, e + 1]]);
             let speed = flux.max_wave_speed(&u_l, &u_r, &n);
             if speed > max_speed {
                 max_speed = speed;
@@ -145,8 +149,8 @@ impl DGSolver {
     /// Take a single time step
     pub fn step<F, J>(&mut self, f: &F, jac: Option<&J>) -> Result<TimeStepResult>
     where
-        F: Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>,
-        J: Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>,
+        F: Fn(f64, &Array2<f64>) -> Result<Array2<f64>>,
+        J: Fn(f64, &Array2<f64>) -> Result<Array2<f64>>,
     {
         if !self.initialized {
             return Err(Error::Solver(
@@ -178,8 +182,10 @@ impl DGSolver {
         };
 
         // Take a time step
-        let jac_dyn = jac.map(|j| j as &dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>);
-        let (u_new, error) = self.integrator.step(self.t, dt, &self.u, f, jac_dyn)
+        let jac_dyn = jac.map(|j| j as &dyn Fn(f64, &Array2<f64>) -> Result<Array2<f64>>);
+        let (u_new, error) = self
+            .integrator
+            .step(self.t, dt, &self.u, f, jac_dyn)
             .context("performing DG time integration step")?;
 
         // Update statistics
@@ -212,7 +218,7 @@ impl DGSolver {
                 self.step_count,
                 self.t,
                 dt,
-                self.u.norm()
+                matrix_norm(&self.u)
             );
         }
 
@@ -232,8 +238,8 @@ impl DGSolver {
     /// Run the solver until t_final is reached
     pub fn solve<F, J>(&mut self, f: F, jac: Option<J>) -> Result<()>
     where
-        F: Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>,
-        J: Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>,
+        F: Fn(f64, &Array2<f64>) -> Result<Array2<f64>>,
+        J: Fn(f64, &Array2<f64>) -> Result<Array2<f64>>,
     {
         if !self.initialized {
             return Err(Error::Solver(
@@ -253,7 +259,8 @@ impl DGSolver {
 
         // Main time-stepping loop
         while self.t < self.params.t_final && self.step_count < self.params.max_steps {
-            let result = self.step(&f, jac.as_ref())
+            let result = self
+                .step(&f, jac.as_ref())
                 .context("advancing DG solution in time")?;
 
             if !result.converged {
@@ -263,7 +270,8 @@ impl DGSolver {
 
                 if self.dt <= self.params.dt_min {
                     return Err(Error::Solver(format!(
-                        "Time step too small at t = {}", self.t
+                        "Time step too small at t = {}",
+                        self.t
                     )));
                 }
 
@@ -298,7 +306,8 @@ impl DGSolver {
 
         if self.t < self.params.t_final && self.step_count >= self.params.max_steps {
             return Err(Error::Solver(format!(
-                "Maximum number of time steps ({}) reached", self.params.max_steps
+                "Maximum number of time steps ({}) reached",
+                self.params.max_steps
             )));
         }
 
@@ -306,20 +315,20 @@ impl DGSolver {
     }
 
     /// Get the current solution
-    pub fn solution(&self) -> &DMatrix<f64> {
+    pub fn solution(&self) -> &Array2<f64> {
         &self.u
     }
 
     /// Evaluate the solution at a point x in the reference element [-1, 1]
-    pub fn evaluate(&self, x: f64) -> DVector<f64> {
-        let num_components = self.u.nrows();
-        let num_basis = self.u.ncols();
-        let mut u = DVector::zeros(num_components);
+    pub fn evaluate(&self, x: f64) -> Array1<f64> {
+        let num_components = matrix_rows(&self.u);
+        let num_basis = matrix_cols(&self.u);
+        let mut u = vector_zeros(num_components);
 
         for i in 0..num_basis {
             let phi_i = legendre_poly(i, x);
             for c in 0..num_components {
-                u[c] += self.u[(c, i)] * phi_i;
+                u[c] += self.u[[c, i]] * phi_i;
             }
         }
 
@@ -329,21 +338,22 @@ impl DGSolver {
 
 #[cfg(test)]
 mod tests {
+    use super::super::{matrix_from_element, matrix_neg, vector_from_vec};
     use super::*;
     use approx::assert_relative_eq;
 
     use crate::high_order::{DGOperatorParams, FluxType, LimiterType};
-    type Jacobian = dyn Fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>;
+    type Jacobian = dyn Fn(f64, &Array2<f64>) -> Result<Array2<f64>>;
 
     #[test]
     fn test_forward_euler() {
-        let f = |_t: f64, u: &DMatrix<f64>| Ok(-u.clone());
+        let f = |_t: f64, u: &Array2<f64>| Ok(matrix_neg(u));
 
         let dt = 0.01;
         let t_final = 1.0;
         let n_steps = (t_final / dt) as usize;
 
-        let mut u = DMatrix::from_element(1, 1, 1.0);
+        let mut u = matrix_from_element(1, 1, 1.0);
 
         let integrator = ForwardEuler;
 
@@ -354,18 +364,18 @@ mod tests {
         }
 
         let exact = (-t_final).exp();
-        assert_relative_eq!(u[(0, 0)], exact, epsilon = 1e-2);
+        assert_relative_eq!(u[[0, 0]], exact, epsilon = 1e-2);
     }
 
     #[test]
     fn test_rk4() {
-        let f = |_t: f64, u: &DMatrix<f64>| Ok(-u.clone());
+        let f = |_t: f64, u: &Array2<f64>| Ok(matrix_neg(u));
 
         let dt = 0.1;
         let t_final = 1.0;
         let n_steps = (t_final / dt) as usize;
 
-        let mut u = DMatrix::from_element(1, 1, 1.0);
+        let mut u = matrix_from_element(1, 1, 1.0);
 
         let integrator = RK4;
 
@@ -376,18 +386,18 @@ mod tests {
         }
 
         let exact = (-t_final).exp();
-        assert_relative_eq!(u[(0, 0)], exact, epsilon = 1e-6);
+        assert_relative_eq!(u[[0, 0]], exact, epsilon = 1e-6);
     }
 
     #[test]
     fn test_ssprk3() {
-        let f = |_t: f64, u: &DMatrix<f64>| Ok(-u.clone());
+        let f = |_t: f64, u: &Array2<f64>| Ok(matrix_neg(u));
 
         let dt = 0.1;
         let t_final = 1.0;
         let n_steps = (t_final / dt) as usize;
 
-        let mut u = DMatrix::from_element(1, 1, 1.0);
+        let mut u = matrix_from_element(1, 1, 1.0);
 
         let integrator = SSPRK3;
 
@@ -398,19 +408,19 @@ mod tests {
         }
 
         let exact = (-t_final).exp();
-        assert_relative_eq!(u[(0, 0)], exact, epsilon = 1e-4);
+        assert_relative_eq!(u[[0, 0]], exact, epsilon = 1e-4);
     }
 
     #[test]
     fn test_implicit_euler() {
-        let f = |_t: f64, u: &DMatrix<f64>| Ok(-u.clone());
-        let jac = |_t: f64, _u: &DMatrix<f64>| Ok(DMatrix::from_element(1, 1, -1.0));
+        let f = |_t: f64, u: &Array2<f64>| Ok(matrix_neg(u));
+        let jac = |_t: f64, _u: &Array2<f64>| Ok(matrix_from_element(1, 1, -1.0));
 
         let dt = 0.1;
         let t_final = 1.0;
         let n_steps = (t_final / dt) as usize;
 
-        let mut u = DMatrix::from_element(1, 1, 1.0);
+        let mut u = matrix_from_element(1, 1, 1.0);
 
         let integrator = ImplicitEuler::default();
 
@@ -420,7 +430,7 @@ mod tests {
         }
 
         let exact = (-t_final).exp();
-        assert_relative_eq!(u[(0, 0)], exact, epsilon = 2e-2);
+        assert_relative_eq!(u[[0, 0]], exact, epsilon = 2e-2);
     }
 
     #[test]
@@ -444,11 +454,11 @@ mod tests {
 
         let mut solver = DGSolver::new(dg_op, integrator, solver_params);
 
-        let u0 = |x: f64| DVector::from_vec(vec![1.0 + x + x * x]);
+        let u0 = |x: f64| vector_from_vec(vec![1.0 + x + x * x]);
         solver.initialize(u0)?;
 
-        let f = |_t: f64, u: &DMatrix<f64>| Ok(-u.clone());
-        solver.solve(f, None::<fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>)?;
+        let f = |_t: f64, u: &Array2<f64>| Ok(matrix_neg(u));
+        solver.solve(f, None::<fn(f64, &Array2<f64>) -> Result<Array2<f64>>>)?;
 
         let x = 0.5;
         let u_num = solver.evaluate(x)[0];

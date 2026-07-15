@@ -24,14 +24,14 @@ use crate::physics::turbulence::constants::{
 };
 use crate::physics::turbulence::traits::TurbulenceModel;
 use cfd_core::error::Result;
-use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use leto::geometry::Vector2;
 
 /// k-ω SST (Shear Stress Transport) turbulence model.
 ///
 /// Combines the robust near-wall k-ω model with the freestream-independent
 /// k-ε model through blending functions F1 and F2 (Menter 1994).
-pub struct KOmegaSSTModel<T: RealField + Copy> {
+pub struct KOmegaSSTModel<T: RealField> {
     /// Grid x-dimension.
     nx: usize,
     /// Grid y-dimension.
@@ -42,7 +42,7 @@ pub struct KOmegaSSTModel<T: RealField + Copy> {
     f2: Vec<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> KOmegaSSTModel<T> {
+impl<T: RealField> KOmegaSSTModel<T> {
     /// Create a new k-ω SST model for a grid of dimension `nx × ny`.
     #[must_use]
     pub fn new(nx: usize, ny: usize) -> Self {
@@ -50,47 +50,40 @@ impl<T: RealField + FromPrimitive + Copy> KOmegaSSTModel<T> {
         Self {
             nx,
             ny,
-            f1: vec![T::zero(); size],
-            f2: vec![T::zero(); size],
+            f1: vec![T::ZERO; size],
+            f2: vec![T::ZERO; size],
         }
     }
 
     /// Apply wall and positivity boundary conditions.
     fn apply_boundary_conditions(&self, k: &mut [T], omega: &mut [T], wall_distance: &[T]) {
-        let omega_min = T::from_f64(OMEGA_MIN).expect("analytical constant conversion");
+        let omega_min = T::from_f64(OMEGA_MIN);
 
         for i in 0..k.len() {
-            k[i] = k[i].max(omega_min);
-            omega[i] = omega[i].max(omega_min);
+            k[i] = k[i].max_scalar(omega_min);
+            omega[i] = omega[i].max_scalar(omega_min);
         }
 
         for j in 0..self.ny {
             for i in 0..self.nx {
                 let idx = j * self.nx + i;
                 const WALL_PROXIMITY_THRESHOLD: f64 = 1e-6;
-                if wall_distance[idx]
-                    < T::from_f64(WALL_PROXIMITY_THRESHOLD).expect("analytical constant conversion")
-                {
-                    k[idx] = T::zero();
-                    let y = wall_distance[idx]
-                        .max(T::from_f64(1e-10).expect("analytical constant conversion"));
-                    omega[idx] = T::from_f64(OMEGA_WALL_COEFFICIENT)
-                        .expect("analytical constant conversion")
-                        / (y * y);
+                if wall_distance[idx] < T::from_f64(WALL_PROXIMITY_THRESHOLD) {
+                    k[idx] = T::ZERO;
+                    let y = wall_distance[idx].max_scalar(T::from_f64(1e-10));
+                    omega[idx] = T::from_f64(OMEGA_WALL_COEFFICIENT) / (y * y);
                 }
             }
         }
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceModel<T>
-    for KOmegaSSTModel<T>
-{
+impl<T: RealField> TurbulenceModel<T> for KOmegaSSTModel<T> {
     fn turbulent_viscosity(&self, k: T, omega: T, density: T) -> T {
-        let omega_min = T::from_f64(OMEGA_MIN).expect("analytical constant conversion");
-        let a1 = T::from_f64(SST_ALPHA_1).expect("analytical constant conversion");
-        let nu_t_unlimited = k / omega.max(omega_min);
-        density * nu_t_unlimited.min(a1 * k / omega.max(omega_min))
+        let omega_min = T::from_f64(OMEGA_MIN);
+        let a1 = T::from_f64(SST_ALPHA_1);
+        let nu_t_unlimited = k / omega.max_scalar(omega_min);
+        density * nu_t_unlimited.min_scalar(a1 * k / omega.max_scalar(omega_min))
     }
 
     fn turbulent_viscosity_with_limiter(
@@ -101,10 +94,10 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
         strain_rate_magnitude: T,
         f2: T,
     ) -> T {
-        let omega_min = T::from_f64(OMEGA_MIN).expect("analytical constant conversion");
-        let a1 = T::from_f64(SST_ALPHA_1).expect("analytical constant conversion");
-        let denominator = (a1 * omega).max(strain_rate_magnitude * f2);
-        let nu_t = a1 * k / denominator.max(omega_min);
+        let omega_min = T::from_f64(OMEGA_MIN);
+        let a1 = T::from_f64(SST_ALPHA_1);
+        let denominator = (a1 * omega).max_scalar(strain_rate_magnitude * f2);
+        let nu_t = a1 * k / denominator.max_scalar(omega_min);
         density * nu_t
     }
 
@@ -116,20 +109,19 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
         _wall_distance: T,
         _molecular_viscosity: T,
     ) -> T {
-        let mut s_squared = T::zero();
+        let mut s_squared = T::ZERO;
         for i in 0..2 {
             for j in 0..2 {
-                let s_ij = (velocity_gradient[i][j] + velocity_gradient[j][i])
-                    * T::from_f64(0.5).expect("analytical constant conversion");
+                let s_ij = (velocity_gradient[i][j] + velocity_gradient[j][i]) * T::from_f64(0.5);
                 s_squared += s_ij * s_ij;
             }
         }
-        let two = T::from_f64(2.0).expect("analytical constant conversion");
+        let two = T::from_f64(2.0);
         turbulent_viscosity * two * s_squared
     }
 
     fn dissipation_term(&self, k: T, omega: T) -> T {
-        let beta_star = T::from_f64(SST_BETA_STAR).expect("analytical constant conversion");
+        let beta_star = T::from_f64(SST_BETA_STAR);
         beta_star * k * omega
     }
 
@@ -148,13 +140,13 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
         let ny = self.ny;
 
         // Wall distance (channel geometry: walls at y=0 and y=H)
-        let mut wall_distance = vec![T::one(); nx * ny];
+        let mut wall_distance = vec![T::ONE; nx * ny];
         for j in 0..ny {
             for i in 0..nx {
                 let idx = j * nx + i;
-                let y_bottom = T::from_usize(j).expect("analytical constant conversion") * dy;
-                let y_top = T::from_usize(ny - 1 - j).expect("analytical constant conversion") * dy;
-                wall_distance[idx] = y_bottom.min(y_top);
+                let y_bottom = T::from_f64(j as f64) * dy;
+                let y_top = T::from_f64((ny - 1 - j) as f64) * dy;
+                wall_distance[idx] = y_bottom.min_scalar(y_top);
             }
         }
 
@@ -188,11 +180,11 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                     blend_coefficient(SST_SIGMA_OMEGA1, SST_SIGMA_OMEGA2, self.f1[idx]);
 
                 // Velocity gradients (central differences)
-                let two = T::from_f64(2.0).expect("analytical constant conversion");
-                let du_dx = (velocity[idx + 1].x - velocity[idx - 1].x) / (two * dx);
-                let du_dy = (velocity[idx + nx].x - velocity[idx - nx].x) / (two * dy);
-                let dv_dx = (velocity[idx + 1].y - velocity[idx - 1].y) / (two * dx);
-                let dv_dy = (velocity[idx + nx].y - velocity[idx - nx].y) / (two * dy);
+                let two = T::from_f64(2.0);
+                let du_dx = (velocity[idx + 1][0] - velocity[idx - 1][0]) / (two * dx);
+                let du_dy = (velocity[idx + nx][0] - velocity[idx - nx][0]) / (two * dy);
+                let dv_dx = (velocity[idx + 1][1] - velocity[idx - 1][1]) / (two * dx);
+                let dv_dy = (velocity[idx + nx][1] - velocity[idx - nx][1]) / (two * dy);
                 let grad = [[du_dx, du_dy], [dv_dx, dv_dy]];
 
                 let nu_t = self.turbulent_viscosity(k_previous[idx], omega_previous[idx], density);
@@ -205,10 +197,10 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
                     wall_distance[idx],
                     molecular_viscosity,
                 );
-                let c_lim = T::from_f64(10.0).expect("analytical constant conversion");
-                let beta_star = T::from_f64(SST_BETA_STAR).expect("analytical constant conversion");
-                let p_k =
-                    p_k_unlimited.min(c_lim * beta_star * k_previous[idx] * omega_previous[idx]);
+                let c_lim = T::from_f64(10.0);
+                let beta_star = T::from_f64(SST_BETA_STAR);
+                let p_k = p_k_unlimited
+                    .min_scalar(c_lim * beta_star * k_previous[idx] * omega_previous[idx]);
 
                 // Effective viscosities
                 let nu_eff_k = molecular_viscosity + nu_t * sigma_k;
@@ -233,22 +225,21 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
 
                 // Cross-diffusion
                 let cd_kw = cross_diffusion(&k_previous, &omega_previous, idx, nx, ny, dx, dy);
-                let cd_term = (T::one() - self.f1[idx]) * cd_kw;
+                let cd_term = (T::ONE - self.f1[idx]) * cd_kw;
 
                 // Advance k
                 let k_new = k_previous[idx]
                     + dt * (p_k - beta_star * k_previous[idx] * omega_previous[idx] + diff_k);
-                let k_min = T::from_f64(K_MIN).expect("analytical constant conversion");
-                k[idx] = k_new.max(k_min);
+                let k_min = T::from_f64(K_MIN);
+                k[idx] = k_new.max_scalar(k_min);
 
                 // Advance ω
-                let omega_source = gamma * density * p_k
-                    / nu_t.max(T::from_f64(OMEGA_MIN).expect("analytical constant conversion"));
+                let omega_source = gamma * density * p_k / nu_t.max_scalar(T::from_f64(OMEGA_MIN));
                 let omega_sink = beta * density * omega_previous[idx] * omega_previous[idx];
                 let omega_new =
                     omega_previous[idx] + dt * (omega_source - omega_sink + diff_omega + cd_term);
-                let omega_min = T::from_f64(OMEGA_MIN).expect("analytical constant conversion");
-                omega[idx] = omega_new.max(omega_min);
+                let omega_min = T::from_f64(OMEGA_MIN);
+                omega[idx] = omega_new.max_scalar(omega_min);
             }
         }
 
@@ -261,6 +252,6 @@ impl<T: RealField + FromPrimitive + Copy + num_traits::ToPrimitive> TurbulenceMo
     }
 
     fn is_valid_for_reynolds(&self, reynolds: T) -> bool {
-        reynolds > T::zero()
+        reynolds > T::ZERO
     }
 }

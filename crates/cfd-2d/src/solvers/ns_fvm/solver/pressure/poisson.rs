@@ -1,11 +1,12 @@
 //! Pressure correction Poisson solver.
 
-use cfd_core::error::Error;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use cfd_core::error::Error;
+use eunomia::FloatElement;
 
-impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
+impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Solves the pressure-correction Poisson equation.
     ///
     /// Formulates the continuity residual from the intermediate velocity fields
@@ -15,8 +16,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> NavierStokesSolver2D<T> {
         let ny = self.grid.ny;
         let dx = self.grid.dx;
         let rho = self.density;
-        let zero = T::zero();
-        let tiny = T::from_f64(1e-30).unwrap_or(zero);
+        let zero: T = scalar::zero();
+        let tiny: T = scalar::from_f64(1e-30);
 
         let a_p_u = &self.a_p_u;
         let a_p_v = &self.a_p_v;

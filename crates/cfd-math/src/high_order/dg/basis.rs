@@ -5,8 +5,10 @@
 
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
-use nalgebra::{DMatrix, DVector};
+use leto::{Array1, Array2};
 use std::f64::consts::PI;
+
+use super::{matrix_solve, matrix_zeros, vector_len, vector_zeros};
 
 /// Type of basis functions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,19 +29,19 @@ pub struct DGBasis {
     /// Type of basis functions
     pub basis_type: BasisType,
     /// Quadrature points for integration
-    pub quad_points: DVector<f64>,
+    pub quad_points: Array1<f64>,
     /// Quadrature weights
-    pub quad_weights: DVector<f64>,
+    pub quad_weights: Array1<f64>,
     /// Basis function values at quadrature points (num_basis × num_quad_points)
-    pub phi: DMatrix<f64>,
+    pub phi: Array2<f64>,
     /// Basis function derivatives at quadrature points (num_basis × num_quad_points)
-    pub dphi_dx: DMatrix<f64>,
+    pub dphi_dx: Array2<f64>,
     /// Mass matrix (num_basis × num_basis)
-    pub mass_matrix: DMatrix<f64>,
+    pub mass_matrix: Array2<f64>,
     /// Stiffness matrix (num_basis × num_basis)
-    pub stiffness_matrix: DMatrix<f64>,
+    pub stiffness_matrix: Array2<f64>,
     /// Differentiation matrix (num_basis × num_basis)
-    pub diff_matrix: DMatrix<f64>,
+    pub diff_matrix: Array2<f64>,
 }
 
 impl DGBasis {
@@ -67,58 +69,57 @@ impl DGBasis {
             .context("computing Gauss-Lobatto quadrature for DG basis")?;
 
         // Initialize basis function values and derivatives
-        let mut phi = DMatrix::zeros(num_basis, num_quad);
-        let mut dphi_dx = DMatrix::zeros(num_basis, num_quad);
+        let mut phi = matrix_zeros(num_basis, num_quad);
+        let mut dphi_dx = matrix_zeros(num_basis, num_quad);
+        let nodes = quad_points.iter().copied().collect::<Vec<_>>();
 
         // Compute basis functions and derivatives at quadrature points
         for i in 0..num_basis {
             for (q, &xq) in quad_points.iter().enumerate() {
                 match basis_type {
                     BasisType::Orthogonal => {
-                        phi[(i, q)] = legendre_poly(i, xq);
-                        dphi_dx[(i, q)] = legendre_poly_deriv(i, xq);
+                        phi[[i, q]] = legendre_poly(i, xq);
+                        dphi_dx[[i, q]] = legendre_poly_deriv(i, xq);
                     }
                     BasisType::Nodal => {
-                        phi[(i, q)] = lagrange_basis(i, xq, quad_points.as_slice());
-                        dphi_dx[(i, q)] = lagrange_basis_deriv(i, xq, quad_points.as_slice());
+                        phi[[i, q]] = lagrange_basis(i, xq, &nodes);
+                        dphi_dx[[i, q]] = lagrange_basis_deriv(i, xq, &nodes);
                     }
                 }
             }
         }
 
         // Compute mass matrix M_ij = ∫ φ_i(x) φ_j(x) dx
-        let mut mass_matrix = DMatrix::zeros(num_basis, num_basis);
+        let mut mass_matrix = matrix_zeros(num_basis, num_basis);
         for i in 0..num_basis {
             for j in 0..num_basis {
                 let mut m_ij = 0.0;
                 for q in 0..num_quad {
-                    m_ij += quad_weights[q] * phi[(i, q)] * phi[(j, q)];
+                    m_ij += quad_weights[q] * phi[[i, q]] * phi[[j, q]];
                 }
-                mass_matrix[(i, j)] = m_ij;
+                mass_matrix[[i, j]] = m_ij;
             }
         }
 
         // Compute stiffness matrix K_ij = ∫ φ_i'(x) φ_j(x) dx
-        let mut stiffness_matrix = DMatrix::zeros(num_basis, num_basis);
+        let mut stiffness_matrix = matrix_zeros(num_basis, num_basis);
         for i in 0..num_basis {
             for j in 0..num_basis {
                 let mut k_ij = 0.0;
                 for q in 0..num_quad {
-                    k_ij += quad_weights[q] * dphi_dx[(i, q)] * phi[(j, q)];
+                    k_ij += quad_weights[q] * dphi_dx[[i, q]] * phi[[j, q]];
                 }
-                stiffness_matrix[(i, j)] = k_ij;
+                stiffness_matrix[[i, j]] = k_ij;
             }
         }
 
         // Compute differentiation matrix D_ij = φ_j'(x_i)
-        let mut diff_matrix = DMatrix::zeros(num_basis, num_basis);
+        let mut diff_matrix = matrix_zeros(num_basis, num_basis);
         for i in 0..num_basis {
             for j in 0..num_basis {
-                diff_matrix[(i, j)] = match basis_type {
+                diff_matrix[[i, j]] = match basis_type {
                     BasisType::Orthogonal => legendre_poly_deriv(j, quad_points[i]),
-                    BasisType::Nodal => {
-                        lagrange_basis_deriv(j, quad_points[i], quad_points.as_slice())
-                    }
+                    BasisType::Nodal => lagrange_basis_deriv(j, quad_points[i], &nodes),
                 };
             }
         }
@@ -143,7 +144,8 @@ impl DGBasis {
             BasisType::Orthogonal => legendre_poly(i, x),
             BasisType::Nodal => {
                 // For nodal basis, we need the original nodes
-                lagrange_basis(i, x, self.quad_points.as_slice())
+                let nodes = self.quad_points.iter().copied().collect::<Vec<_>>();
+                lagrange_basis(i, x, &nodes)
             }
         }
     }
@@ -154,39 +156,29 @@ impl DGBasis {
             BasisType::Orthogonal => legendre_poly_deriv(i, x),
             BasisType::Nodal => {
                 // For nodal basis, we need the original nodes
-                lagrange_basis_deriv(i, x, self.quad_points.as_slice())
+                let nodes = self.quad_points.iter().copied().collect::<Vec<_>>();
+                lagrange_basis_deriv(i, x, &nodes)
             }
         }
     }
 
     /// Project a function onto the DG basis
-    pub fn project<F>(&self, f: F) -> DVector<f64>
+    pub fn project<F>(&self, f: F) -> Result<Array1<f64>>
     where
         F: Fn(f64) -> f64,
     {
-        let mut rhs = DVector::zeros(self.num_basis);
+        let mut rhs = vector_zeros(self.num_basis);
 
         for i in 0..self.num_basis {
-            for q in 0..self.quad_points.len() {
+            for q in 0..vector_len(&self.quad_points) {
                 let x = self.quad_points[q];
                 let w = self.quad_weights[q];
-                rhs[i] += w * f(x) * self.phi[(i, q)];
+                rhs[i] += w * f(x) * self.phi[[i, q]];
             }
         }
 
         // Solve M c = rhs, where M is the mass matrix
-        self.mass_matrix
-            .clone()
-            .lu()
-            .solve(&rhs)
-            .unwrap_or_else(|| {
-                // Fall back to interpolation if the mass matrix is singular
-                let mut c = DVector::zeros(self.num_basis);
-                for i in 0..self.num_basis {
-                    c[i] = f(self.quad_points[i]);
-                }
-                c
-            })
+        matrix_solve(&self.mass_matrix, &rhs)
     }
 }
 
@@ -267,15 +259,15 @@ pub fn lagrange_basis_deriv(i: usize, x: f64, nodes: &[f64]) -> f64 {
 }
 
 /// Compute Gauss-Lobatto quadrature points and weights
-pub fn gauss_lobatto_quadrature(n: usize) -> Result<(DVector<f64>, DVector<f64>)> {
+pub fn gauss_lobatto_quadrature(n: usize) -> Result<(Array1<f64>, Array1<f64>)> {
     if n < 2 {
         return Err(Error::InvalidInput(format!(
             "Gauss-Lobatto quadrature requires at least 2 points, got {n}"
         )));
     }
 
-    let mut nodes = DVector::zeros(n);
-    let mut weights = DVector::zeros(n);
+    let mut nodes = vector_zeros(n);
+    let mut weights = vector_zeros(n);
 
     // Endpoints are always included in Gauss-Lobatto quadrature
     nodes[0] = -1.0;
@@ -309,7 +301,8 @@ pub fn gauss_lobatto_quadrature(n: usize) -> Result<(DVector<f64>, DVector<f64>)
 
             if d2p.abs() < f64::EPSILON {
                 return Err(Error::Solver(format!(
-                    "Zero second derivative at x = {x} for n = {}", n - 1
+                    "Zero second derivative at x = {x} for n = {}",
+                    n - 1
                 )));
             }
 
@@ -333,9 +326,7 @@ pub fn gauss_lobatto_quadrature(n: usize) -> Result<(DVector<f64>, DVector<f64>)
         let x = nodes[i];
         let p = legendre_poly(n - 1, x);
         if p.abs() < 1e-15 {
-            return Err(Error::Solver(format!(
-                "P_{}({x}) is zero", n - 1
-            )));
+            return Err(Error::Solver(format!("P_{}({x}) is zero", n - 1)));
         }
         weights[i] = 2.0 / (n as f64 * (n - 1) as f64) / (p * p);
         if weights[i].is_nan() {
@@ -375,6 +366,7 @@ fn legendre_poly_deriv_with_prev(n: usize, x: f64) -> (f64, f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::high_order::dg::{matrix_cols, matrix_rows};
     use approx::assert_relative_eq;
 
     #[test]
@@ -394,7 +386,7 @@ mod tests {
             for j in 0..=n {
                 let mut integral = 0.0;
 
-                for k in 0..quad.0.len() {
+                for k in 0..vector_len(&quad.0) {
                     let x = quad.0[k];
                     let w = quad.1[k];
                     integral += w * legendre_poly(i, x) * legendre_poly(j, x);
@@ -443,23 +435,23 @@ mod tests {
         let basis = DGBasis::new(order, BasisType::Orthogonal).unwrap();
 
         // Test mass matrix properties
-        assert_eq!(basis.mass_matrix.nrows(), order + 1);
-        assert_eq!(basis.mass_matrix.ncols(), order + 1);
+        assert_eq!(matrix_rows(&basis.mass_matrix), order + 1);
+        assert_eq!(matrix_cols(&basis.mass_matrix), order + 1);
 
         // Mass matrix should be diagonal for orthogonal bases
         for i in 0..=order {
             for j in 0..=order {
                 if i == j {
-                    assert!(basis.mass_matrix[(i, i)] > 0.0);
+                    assert!(basis.mass_matrix[[i, i]] > 0.0);
                 } else {
-                    assert_relative_eq!(basis.mass_matrix[(i, j)], 0.0, epsilon = 1e-10);
+                    assert_relative_eq!(basis.mass_matrix[[i, j]], 0.0, epsilon = 1e-10);
                 }
             }
         }
 
         // Test projection
         let f = |x: f64| x.powi(3) - 2.0 * x + 1.0;
-        let coeffs = basis.project(f);
+        let coeffs = basis.project(f).unwrap();
 
         // For order >= 3, the projection should be exact
         for &x in basis.quad_points.iter() {

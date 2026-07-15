@@ -1,10 +1,11 @@
 //! FEM solver configuration
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
-use super::constants;
+use eunomia::{FloatElement, NumericElement};
+
+use super::{constants, scalar};
 
 // Use ElementType from cfd-core as the single source of truth
 pub use cfd_core::geometry::ElementType;
@@ -45,27 +46,20 @@ pub struct FemConfig<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub grad_div_gamma: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Default
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Default
     for FemConfig<T>
 {
     fn default() -> Self {
         Self {
             base: cfd_core::compute::solver::SolverConfig::default(),
             use_stabilization: true,
-            tau: <T as FromPrimitive>::from_f64(constants::DEFAULT_STABILIZATION)
-                .expect("DEFAULT_STABILIZATION is an IEEE 754 representable f64 constant"),
-            dt: Some(
-                <T as FromPrimitive>::from_f64(constants::DEFAULT_TIME_STEP)
-                    .expect("DEFAULT_TIME_STEP is an IEEE 754 representable f64 constant"),
-            ),
-            reynolds: Some(
-                <T as FromPrimitive>::from_f64(constants::DEFAULT_REYNOLDS)
-                    .expect("DEFAULT_REYNOLDS is an IEEE 754 representable f64 constant"),
-            ),
+            tau: scalar::constant(constants::DEFAULT_STABILIZATION),
+            dt: Some(scalar::constant(constants::DEFAULT_TIME_STEP)),
+            reynolds: Some(scalar::constant(constants::DEFAULT_REYNOLDS)),
             element_type: ElementType::Tetrahedron,
             quadrature_order: constants::DEFAULT_QUADRATURE_ORDER,
-            grad_div_penalty: T::zero(),
-            grad_div_gamma: T::zero(),
+            grad_div_penalty: <T as NumericElement>::ZERO,
+            grad_div_gamma: <T as NumericElement>::ZERO,
         }
     }
 }

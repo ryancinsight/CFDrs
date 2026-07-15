@@ -4,10 +4,10 @@
 //! around a cylinder"
 
 use super::{Benchmark, BenchmarkConfig, BenchmarkResult};
-use cfd_core::conversion::SafeFromF64;
+use crate::matrix::DMatrix;
+use crate::scalar;
 use cfd_core::error::Result;
-use nalgebra::{DMatrix, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, RealField};
 
 /// Flow over cylinder benchmark
 pub struct FlowOverCylinder<T: RealField + Copy> {
@@ -45,7 +45,7 @@ impl<T: RealField + Copy> FlowOverCylinder<T> {
         if forces.len() > 1 {
             forces[1]
         } else {
-            T::zero()
+            scalar::zero::<T>()
         }
     }
 
@@ -57,7 +57,7 @@ impl<T: RealField + Copy> FlowOverCylinder<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylinder<T> {
+impl<T: RealField + Copy + FloatElement> Benchmark<T> for FlowOverCylinder<T> {
     fn name(&self) -> &'static str {
         "Flow Over Cylinder"
     }
@@ -85,21 +85,20 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
         let mut forces = Vec::new();
 
         // Set up computational domain and mesh
-        let _domain_width = T::from_f64_or_one(10.0) * self.diameter;
-        let _domain_height = T::from_f64_or_one(5.0) * self.diameter;
+        let _domain_width = scalar::from_f64::<T>(10.0) * self.diameter;
+        let _domain_height = scalar::from_f64::<T>(5.0) * self.diameter;
 
         for iter in 0..config.max_iterations {
             // Immersed boundary method iteration
             // Using fractional step method with cylinder forcing
 
             // Calculate residual based on continuity equation
-            let residual =
-                T::from_f64_or_one(1.0) / T::from_usize(iter + 1).unwrap_or_else(|| T::one());
+            let residual = scalar::from_f64::<T>(1.0) / scalar::from_usize(iter + 1);
             convergence.push(residual);
 
             // Calculate forces on cylinder
-            let drag = T::from_f64_or_one(1.0);
-            let lift = T::zero();
+            let drag = scalar::from_f64::<T>(1.0);
+            let lift = scalar::zero::<T>();
             forces.push(drag);
             forces.push(lift);
 
@@ -140,15 +139,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
         // For general implementation, we provide Re=20 steady reference
         // as the baseline validation case
 
-        let reference_cd = T::from_f64_or_one(5.57);
-        let reference_cl = T::from_f64_or_one(0.0106);
+        let reference_cd = scalar::from_f64::<T>(5.57);
+        let reference_cl = scalar::from_f64::<T>(0.0106);
 
         Some(BenchmarkResult {
             name: "Flow Over Cylinder (Schäfer & Turek 1996, Re=20)".to_string(),
             values: vec![reference_cd, reference_cl],
             errors: vec![
-                T::from_f64_or_one(0.01),   // Cd uncertainty
-                T::from_f64_or_one(0.0001), // Cl uncertainty
+                scalar::from_f64::<T>(0.01),   // Cd uncertainty
+                scalar::from_f64::<T>(0.0001), // Cl uncertainty
             ],
             convergence: vec![],
             execution_time: 0.0,
@@ -174,23 +173,23 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
 
             // Validation criteria based on Schäfer & Turek benchmark tolerances
             // Allow 5% error for drag coefficient (robust for different numerical schemes)
-            let cd_tolerance = T::from_f64_or_one(0.05); // 5% relative error
-            let cd_relative_error = ((computed_cd - reference_cd).abs()) / reference_cd;
+            let cd_tolerance = scalar::from_f64::<T>(0.05); // 5% relative error
+            let cd_relative_error = scalar::abs(computed_cd - reference_cd) / reference_cd;
             let cd_valid = cd_relative_error <= cd_tolerance;
 
             // For lift coefficient at Re=20, expect near-zero with absolute tolerance
             // (symmetry breaking is minimal at low Re)
-            let cl_tolerance = T::from_f64_or_one(0.1); // Absolute tolerance for near-zero value
-            let cl_valid = computed_cl.abs() < cl_tolerance;
+            let cl_tolerance = scalar::from_f64::<T>(0.1); // Absolute tolerance for near-zero value
+            let cl_valid = scalar::abs(computed_cl) < cl_tolerance;
 
             // Additional sanity checks
             let cd_physically_reasonable =
-                computed_cd > T::zero() && computed_cd < T::from_f64_or_one(20.0);
-            let cl_physically_reasonable = computed_cl.abs() < T::from_f64_or_one(5.0);
+                computed_cd > scalar::zero::<T>() && computed_cd < scalar::from_f64::<T>(20.0);
+            let cl_physically_reasonable = scalar::abs(computed_cl) < scalar::from_f64::<T>(5.0);
 
             // Check convergence occurred
             let converged = if let Some(last_residual) = result.convergence.last() {
-                last_residual.abs() < T::from_f64_or_one(1e-4)
+                scalar::abs(*last_residual) < scalar::from_f64::<T>(1e-4)
             } else {
                 false
             };
@@ -204,12 +203,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Benchmark<T> for FlowOverCylind
 
         // Fallback: basic sanity checks without reference
         let cd_physically_reasonable =
-            computed_cd > T::zero() && computed_cd < T::from_f64_or_one(20.0);
-        let cl_physically_reasonable = computed_cl.abs() < T::from_f64_or_one(5.0);
+            computed_cd > scalar::zero::<T>() && computed_cd < scalar::from_f64::<T>(20.0);
+        let cl_physically_reasonable = scalar::abs(computed_cl) < scalar::from_f64::<T>(5.0);
 
         // Check convergence
         let converged = if let Some(last_residual) = result.convergence.last() {
-            last_residual.abs() < T::from_f64_or_one(1e-4)
+            scalar::abs(*last_residual) < scalar::from_f64::<T>(1e-4)
         } else {
             false
         };

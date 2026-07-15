@@ -1,9 +1,10 @@
 //! Couette flow - shear-driven flow between parallel plates
 
 use super::AnalyticalSolution;
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::geometry::Vector3;
 
 /// Couette flow analytical solution
 ///
@@ -20,7 +21,7 @@ pub struct CouetteFlow<T: RealField + Copy> {
     pub viscosity: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
+impl<T: RealField + Copy + FloatElement> CouetteFlow<T> {
     /// Create Couette flow solution
     pub fn create(wall_velocity: T, gap_height: T, pressure_gradient: T, viscosity: T) -> Self {
         Self {
@@ -36,8 +37,8 @@ impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
         Self {
             wall_velocity,
             gap_height,
-            pressure_gradient: T::zero(),
-            viscosity: T::one(), // Normalized
+            pressure_gradient: scalar::zero::<T>(),
+            viscosity: scalar::one::<T>(), // Normalized
         }
     }
 
@@ -50,7 +51,7 @@ impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
     pub fn wall_shear_stress(&self) -> T {
         let base_shear = self.viscosity * self.wall_velocity / self.gap_height;
         let pressure_contribution =
-            self.pressure_gradient * self.gap_height / T::from_f64_or_one(2.0);
+            self.pressure_gradient * self.gap_height / scalar::from_f64::<T>(2.0);
         base_shear + pressure_contribution
     }
 
@@ -60,7 +61,7 @@ impl<T: RealField + Copy + FromPrimitive> CouetteFlow<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for CouetteFlow<T> {
+impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for CouetteFlow<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         // Normalize y coordinate: η = y/h where y ∈ [0, h]
         let eta = y / self.gap_height;
@@ -68,19 +69,19 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for CouetteFlow<
         // Couette-Poiseuille flow: u(y) = U*y/h + (1/2μ)(dp/dx)(y)(y-h)
         let couette_part = self.wall_velocity * eta;
 
-        let poiseuille_part = if self.pressure_gradient == T::zero() {
-            T::zero()
+        let poiseuille_part = if self.pressure_gradient == scalar::zero::<T>() {
+            scalar::zero::<T>()
         } else {
             // Plane Poiseuille contribution (Versteeg & Malalasekera):
             // u_p(y) = -(1/(2μ)) (dp/dx) y (h - y)
-            let two = T::from_f64_or_one(2.0);
+            let two = scalar::from_f64::<T>(2.0);
             let factor = -self.pressure_gradient / (two * self.viscosity);
             factor * y * (self.gap_height - y)
         };
 
         let u = couette_part + poiseuille_part;
 
-        Vector3::new(u, T::zero(), T::zero())
+        Vector3::new(u, scalar::zero::<T>(), scalar::zero::<T>())
     }
 
     fn pressure(&self, x: T, _y: T, _z: T, _t: T) -> T {
@@ -89,7 +90,7 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for CouetteFlow<
     }
 
     fn name(&self) -> &str {
-        if self.pressure_gradient == T::zero() {
+        if self.pressure_gradient == scalar::zero::<T>() {
             "Pure Couette Flow"
         } else {
             "Couette-Poiseuille Flow"
@@ -97,11 +98,11 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for CouetteFlow<
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let large = T::from_f64_or_one(1000.0);
+        let large = scalar::from_f64::<T>(1000.0);
         [
-            T::zero(),
+            scalar::zero::<T>(),
             large, // x: [0, L]
-            T::zero(),
+            scalar::zero::<T>(),
             self.gap_height, // y: [0, h]
             -large,
             large, // z: arbitrary

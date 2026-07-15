@@ -49,8 +49,8 @@
 //!   non-Newtonian model of blood flow." *Theor. Biol. Med. Model.* 6:7.
 
 use super::non_newtonian_flow_split_exponent;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd1dScalar;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Murray's Law calculator for optimal bifurcation design
@@ -58,7 +58,7 @@ use serde::{Deserialize, Serialize};
 /// Provides methods for calculating optimal vessel diameters, branching angles,
 /// and validating bifurcation geometry against Murray's principle.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct MurraysLaw<T: RealField + Copy> {
+pub struct MurraysLaw<T: Cfd1dScalar + Copy> {
     /// Bifurcation exponent k (default: 3.0 for laminar flow)
     ///
     /// - k = 3.0: Laminar Poiseuille flow (classic Murray's Law)
@@ -67,13 +67,13 @@ pub struct MurraysLaw<T: RealField + Copy> {
     pub exponent: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for MurraysLaw<T> {
+impl<T: Cfd1dScalar + FloatElement + Copy> Default for MurraysLaw<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
+impl<T: Cfd1dScalar + FloatElement + Copy> MurraysLaw<T> {
     /// Create Murray's Law calculator with classic exponent k=3
     pub fn new() -> Self {
         Self {
@@ -89,7 +89,7 @@ impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
     /// Create for turbulent flow conditions (k ≈ 2.7)
     pub fn turbulent() -> Self {
         Self {
-            exponent: T::from_f64(2.7).expect("Mathematical constant conversion compromised"),
+            exponent: <T as FloatElement>::from_f64(2.7),
         }
     }
 
@@ -125,12 +125,12 @@ impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
         let m = match power_law_n {
             Some(n) => {
                 let exponent = non_newtonian_flow_split_exponent(n);
-                T::from_f64(exponent).expect("Flow-split exponent conversion compromised")
+                <T as FloatElement>::from_f64(exponent)
             }
             None => self.exponent,
         };
         let ratio = d1 / d2;
-        ratio.powf(m)
+        <T as FloatElement>::powf(ratio, m)
     }
 
     /// Calculate optimal daughter diameters for symmetric bifurcation
@@ -142,7 +142,7 @@ impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
     pub fn symmetric_daughter_diameter(&self, parent_diameter: T) -> T {
         let two = T::one() + T::one();
         let one_over_k = T::one() / self.exponent;
-        parent_diameter / two.powf(one_over_k)
+        parent_diameter / <T as FloatElement>::powf(two, one_over_k)
     }
 
     /// Calculate optimal minor daughter diameter for asymmetric bifurcation
@@ -156,8 +156,8 @@ impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
         parent_diameter: T,
         major_daughter_diameter: T,
     ) -> Option<T> {
-        let d0_k = parent_diameter.powf(self.exponent);
-        let d1_k = major_daughter_diameter.powf(self.exponent);
+        let d0_k = <T as FloatElement>::powf(parent_diameter, self.exponent);
+        let d1_k = <T as FloatElement>::powf(major_daughter_diameter, self.exponent);
 
         if d1_k >= d0_k {
             return None; // Invalid: daughter cannot be larger than parent requires
@@ -169,7 +169,7 @@ impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
         }
 
         let one_over_k = T::one() / self.exponent;
-        Some(d2_k.powf(one_over_k))
+        Some(<T as FloatElement>::powf(d2_k, one_over_k))
     }
 
     /// Calculate required parent diameter for given daughter diameters
@@ -178,10 +178,10 @@ impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
     /// D₀ = (D₁^k + D₂^k)^(1/k)
     /// ```
     pub fn parent_diameter(&self, daughter1: T, daughter2: T) -> T {
-        let d1_k = daughter1.powf(self.exponent);
-        let d2_k = daughter2.powf(self.exponent);
+        let d1_k = <T as FloatElement>::powf(daughter1, self.exponent);
+        let d2_k = <T as FloatElement>::powf(daughter2, self.exponent);
         let one_over_k = T::one() / self.exponent;
-        (d1_k + d2_k).powf(one_over_k)
+        <T as FloatElement>::powf(d1_k + d2_k, one_over_k)
     }
 
     /// Calculate Murray's Law deviation for a bifurcation
@@ -191,10 +191,10 @@ impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
     /// ε = |D₀^k - D₁^k - D₂^k| / D₀^k
     /// ```
     pub fn deviation(&self, parent: T, daughter1: T, daughter2: T) -> T {
-        let d0_k = parent.powf(self.exponent);
-        let d1_k = daughter1.powf(self.exponent);
-        let d2_k = daughter2.powf(self.exponent);
-        ((d0_k - d1_k - d2_k).abs()) / d0_k
+        let d0_k = <T as FloatElement>::powf(parent, self.exponent);
+        let d1_k = <T as FloatElement>::powf(daughter1, self.exponent);
+        let d2_k = <T as FloatElement>::powf(daughter2, self.exponent);
+        <T as NumericElement>::abs(d0_k - d1_k - d2_k) / d0_k
     }
 
     /// Check if bifurcation satisfies Murray's Law within tolerance
@@ -218,7 +218,7 @@ impl<T: RealField + FromPrimitive + Copy> MurraysLaw<T> {
     pub fn ideal_area_ratio(&self) -> T {
         let two = T::one() + T::one();
         let exp = T::one() - two / self.exponent;
-        two.powf(exp)
+        <T as FloatElement>::powf(two, exp)
     }
 }
 

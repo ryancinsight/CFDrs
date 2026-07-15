@@ -37,13 +37,12 @@
 
 use super::models::HemolysisModel;
 use crate::error::{Error, Result};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Hemolysis calculator with blood properties
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HemolysisCalculator<T: RealField + Copy> {
+pub struct HemolysisCalculator<T: FloatElement + Copy> {
     /// Hemolysis model
     model: HemolysisModel,
     /// Hematocrit (volume fraction, 0-1)
@@ -56,7 +55,7 @@ pub struct HemolysisCalculator<T: RealField + Copy> {
     flow_rate: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> HemolysisCalculator<T> {
+impl<T: FloatElement + Copy> HemolysisCalculator<T> {
     /// Create new hemolysis calculator
     pub fn new(
         model: HemolysisModel,
@@ -65,22 +64,22 @@ impl<T: RealField + Copy + FromPrimitive> HemolysisCalculator<T> {
         blood_volume: T,
         flow_rate: T,
     ) -> Result<Self> {
-        if hematocrit < T::zero() || hematocrit > T::one() {
+        if hematocrit < <T as NumericElement>::ZERO || hematocrit > <T as NumericElement>::ONE {
             return Err(Error::InvalidConfiguration(
                 "Hematocrit must be between 0 and 1".to_string(),
             ));
         }
-        if hemoglobin_initial <= T::zero() {
+        if hemoglobin_initial <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Initial hemoglobin must be positive".to_string(),
             ));
         }
-        if blood_volume <= T::zero() {
+        if blood_volume <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Blood volume must be positive".to_string(),
             ));
         }
-        if flow_rate <= T::zero() {
+        if flow_rate <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Flow rate must be positive".to_string(),
             ));
@@ -97,52 +96,54 @@ impl<T: RealField + Copy + FromPrimitive> HemolysisCalculator<T> {
 
     /// Calculate Normalized Index of Hemolysis (NIH)
     pub fn normalized_index(&self, delta_hemoglobin: T) -> T {
-        let hundred = T::from_f64(100.0).unwrap_or_else(|| T::one());
+        let hundred = <T as FloatElement>::from_f64(100.0);
         let one_minus_hct = (hundred - self.hematocrit * hundred) / hundred;
 
-        if self.hemoglobin_initial > T::zero() {
+        if self.hemoglobin_initial > <T as NumericElement>::ZERO {
             one_minus_hct / self.hematocrit * delta_hemoglobin / self.hemoglobin_initial * hundred
         } else {
-            T::zero()
+            <T as NumericElement>::ZERO
         }
     }
 
     /// Calculate Modified Index of Hemolysis (MIH) in g/(100L)
     pub fn modified_index(&self, delta_hemoglobin: T, exposure_time: T) -> T {
-        let hundred = T::from_f64(100.0).unwrap_or_else(|| T::one());
+        let hundred = <T as FloatElement>::from_f64(100.0);
 
-        if self.flow_rate > T::zero() && exposure_time > T::zero() {
+        if self.flow_rate > <T as NumericElement>::ZERO
+            && exposure_time > <T as NumericElement>::ZERO
+        {
             self.blood_volume / (self.flow_rate * exposure_time)
                 * delta_hemoglobin
                 * (hundred - self.hematocrit * hundred)
                 / hundred
         } else {
-            T::zero()
+            <T as NumericElement>::ZERO
         }
     }
 
     /// Calculate hemoglobin release from damage index
     pub fn hemoglobin_release(&self, damage_index: T) -> T {
-        let scaling = self.hematocrit / (T::one() - self.hematocrit);
+        let scaling = self.hematocrit / (<T as NumericElement>::ONE - self.hematocrit);
         self.hemoglobin_initial * damage_index * scaling
     }
 
     /// Estimate exposure time from geometry
     pub fn estimate_exposure_time(&self, characteristic_length: T) -> T {
-        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::one());
-        let four = T::from_f64(4.0).unwrap_or_else(|| T::one());
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
+        let four = <T as FloatElement>::from_f64(4.0);
 
         let area = pi * characteristic_length * characteristic_length / four;
 
-        if area > T::zero() {
+        if area > <T as NumericElement>::ZERO {
             let velocity = self.flow_rate / area;
-            if velocity > T::zero() {
+            if velocity > <T as NumericElement>::ZERO {
                 characteristic_length / velocity
             } else {
-                T::zero()
+                <T as NumericElement>::ZERO
             }
         } else {
-            T::zero()
+            <T as NumericElement>::ZERO
         }
     }
 

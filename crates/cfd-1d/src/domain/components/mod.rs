@@ -4,10 +4,11 @@
 //! channels, pumps, valves, mixers, and sensors with their characteristic
 //! hydraulic properties and behaviors.
 
-use cfd_core::error::{Error, Result};
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
+use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::NumericElement;
 use std::collections::HashMap;
 
 // Re-export submodules
@@ -30,7 +31,7 @@ pub use sensors::{FlowSensor, SensorType};
 pub use valves::{Microvalve, ValveType};
 
 /// Trait for all microfluidic components
-pub trait Component<T: RealField + Copy> {
+pub trait Component<T: Cfd1dScalar + Copy + NumericElement> {
     /// Get the hydraulic resistance of the component (linear part R)
     fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T;
 
@@ -43,7 +44,7 @@ pub trait Component<T: RealField + Copy> {
     /// Get the pressure drop across the component for a given flow rate
     fn pressure_drop(&self, flow_rate: T, fluid: &ConstantPropertyFluid<T>) -> T {
         let (r, k) = self.coefficients(fluid);
-        r * flow_rate + k * flow_rate * flow_rate.abs()
+        r * flow_rate + k * flow_rate * <T as NumericElement>::abs(flow_rate)
     }
 
     /// Get the component type identifier
@@ -73,26 +74,16 @@ pub trait Component<T: RealField + Copy> {
 #[inline]
 pub(crate) fn real_from_f64<T>(value: f64) -> T
 where
-    T: RealField + Copy + FromPrimitive,
+    T: Cfd1dScalar + Copy + SafeFromF64,
 {
-    T::from_f64(value).unwrap_or_else(|| {
-        if value.is_sign_negative() {
-            -(T::one() / T::zero())
-        } else {
-            T::one() / T::zero()
-        }
-    })
+    T::from_f64_or_zero(value)
 }
 
 /// Convert a compile-time `f64` constant into a real scalar or return an error.
 #[inline]
-pub(crate) fn try_real_from_f64<T>(value: f64, context: &str) -> Result<T>
+pub(crate) fn try_real_from_f64<T>(value: f64, _context: &str) -> Result<T>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: Cfd1dScalar + Copy + SafeFromF64,
 {
-    T::from_f64(value).ok_or_else(|| {
-        Error::InvalidConfiguration(format!(
-            "{context}: constant {value} cannot be represented in the target scalar type"
-        ))
-    })
+    T::try_from_f64(value)
 }

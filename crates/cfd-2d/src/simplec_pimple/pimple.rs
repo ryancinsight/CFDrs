@@ -2,12 +2,12 @@ use super::solver::SimplecPimpleSolver;
 use crate::fields::SimulationFields;
 use crate::grid::array2d::Array2D;
 use crate::physics::MomentumComponent;
-use nalgebra::{RealField, Vector2};
-use num_traits::{FromPrimitive, ToPrimitive};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::FloatElement;
+use leto::geometry::Vector2;
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
-    SimplecPimpleSolver<T>
-{
+impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
     /// PIMPLE algorithm implementation
     ///
     /// PIMPLE (Issa 1986, OpenFOAM) combines outer PISO-like correctors
@@ -60,7 +60,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                     let d_x_cache = &self._d_x_cache;
                     let d_y_cache = &self._d_y_cache;
 
-                    let face_dt = if dt > T::from_f64(1.0).unwrap_or_else(T::one) {
+                    let face_dt = if dt > scalar::from_f64(1.0) {
                         None
                     } else {
                         Some(dt)
@@ -94,7 +94,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                         ap_u,
                         ap_v,
                         rho,
-                        T::one(),
+                        scalar::one(),
                         fields,
                     );
 
@@ -135,9 +135,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
                 &self.u_corrected_workspace,
             );
 
-            if outer_residual
-                < self.config.tolerance * T::from_f64(5.0).expect("analytical constant conversion")
-            {
+            if outer_residual < self.config.tolerance * scalar::from_f64(5.0) {
                 break;
             }
         }
@@ -147,9 +145,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp>
             &self.extract_velocity_field(fields),
         );
 
-        if final_residual
-            > self.config.tolerance * T::from_f64(10.0).expect("analytical constant conversion")
-        {
+        if final_residual > self.config.tolerance * scalar::from_f64(10.0) {
             tracing::warn!(
                 "PIMPLE did not achieve desired convergence, residual: {:.2e}",
                 final_residual

@@ -3,15 +3,40 @@
 //! Provides Ruge-Stüben, aggregation, Falgout (CLJP), PMIS, HMIS, and hybrid
 //! coarsening strategies.
 
+use super::super::{csr_from_parts, SparseMatrix};
 use super::CoarseningResult;
-use crate::SparseMatrix;
 use cfd_core::error::Result;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto_ops::Scalar as LetoScalar;
 use rand::Rng;
 
+#[inline]
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+#[inline]
+fn from_usize<T: FloatElement>(value: usize) -> T {
+    from_f64(usize_to_f64(value))
+}
+
+#[inline]
+fn usize_to_f64(value: usize) -> f64 {
+    let value_u64 = u64::try_from(value).expect("invariant: usize count fits into u64");
+    <u64 as NumericElement>::to_f64(value_u64)
+}
+
+#[inline]
+fn ratio_usize(numerator: usize, denominator: usize) -> f64 {
+    if denominator == 0 {
+        0.0
+    } else {
+        usize_to_f64(numerator) / usize_to_f64(denominator)
+    }
+}
+
 /// Ruge-Stüben coarsening algorithm
-pub fn ruge_stueben_coarsening<T: RealField + Copy + FromPrimitive>(
+pub fn ruge_stueben_coarsening<T: RealField + Copy + FloatElement + LetoScalar>(
     matrix: &SparseMatrix<T>,
     strength_threshold: T,
 ) -> Result<CoarseningResult<T>> {
@@ -27,7 +52,7 @@ pub fn ruge_stueben_coarsening<T: RealField + Copy + FromPrimitive>(
 
     // Step 2: Initialize lambda (measure of importance)
     let mut lambda = vec![0; n];
-    let st_offsets = strength_transpose.row_offsets();
+    let st_offsets = strength_transpose.row_ptr();
     for i in 0..n {
         lambda[i] = st_offsets[i + 1] - st_offsets[i];
     }
@@ -36,7 +61,7 @@ pub fn ruge_stueben_coarsening<T: RealField + Copy + FromPrimitive>(
     let mut status = vec![0; n];
     let mut undecided_count = n;
 
-    let s_offsets = strength_matrix.row_offsets();
+    let s_offsets = strength_matrix.row_ptr();
     let s_indices = strength_matrix.col_indices();
     let st_indices = strength_transpose.col_indices();
 
@@ -106,7 +131,7 @@ pub fn ruge_stueben_coarsening<T: RealField + Copy + FromPrimitive>(
 }
 
 /// Aggregation-based coarsening
-pub fn aggregation_coarsening<T: RealField + Copy + FromPrimitive>(
+pub fn aggregation_coarsening<T: RealField + Copy + FloatElement + LetoScalar>(
     matrix: &SparseMatrix<T>,
     max_aggregate_size: usize,
 ) -> Result<CoarseningResult<T>> {
@@ -115,9 +140,8 @@ pub fn aggregation_coarsening<T: RealField + Copy + FromPrimitive>(
     let mut fine_to_coarse_map = vec![None; n];
     let mut aggregated = vec![false; n];
 
-    let strength_matrix =
-        compute_strength_matrix(matrix, T::from_f64(0.5).unwrap_or_else(T::zero))?;
-    let s_offsets = strength_matrix.row_offsets();
+    let strength_matrix = compute_strength_matrix(matrix, from_f64(0.5))?;
+    let s_offsets = strength_matrix.row_ptr();
     let s_indices = strength_matrix.col_indices();
 
     let mut aggregate_id = 0;
@@ -153,7 +177,7 @@ pub fn aggregation_coarsening<T: RealField + Copy + FromPrimitive>(
 }
 
 /// Hybrid coarsening (Ruge-Stüben with aggregation fallback)
-pub fn hybrid_coarsening<T: RealField + Copy + FromPrimitive>(
+pub fn hybrid_coarsening<T: RealField + Copy + FloatElement + LetoScalar>(
     matrix: &SparseMatrix<T>,
     strength_threshold: T,
     max_aggregate_size: usize,
@@ -178,25 +202,25 @@ pub fn hybrid_coarsening<T: RealField + Copy + FromPrimitive>(
 }
 
 /// Assign unmapped F-points to their strongest connected C-point
-fn assign_closest_coarse_points<T: RealField + Copy + FromPrimitive>(
+fn assign_closest_coarse_points<T: RealField + Copy + FloatElement + LetoScalar>(
     fine_to_coarse_map: &mut [Option<usize>],
     status: &[i32],
     strength_matrix: &SparseMatrix<T>,
 ) {
     let n = strength_matrix.nrows();
-    let s_offsets = strength_matrix.row_offsets();
+    let s_offsets = strength_matrix.row_ptr();
     let s_indices = strength_matrix.col_indices();
 
     for i in 0..n {
         if fine_to_coarse_map[i].is_none() {
-            let mut max_strength = T::from_f64(-1.0).unwrap_or_else(T::zero);
+            let mut max_strength = <T as NumericElement>::ZERO;
             let mut best_coarse_idx = None;
 
             for k in s_offsets[i]..s_offsets[i + 1] {
                 let j = s_indices[k];
                 if status[j] == 1 {
                     let strength = strength_matrix.values()[k];
-                    if strength > max_strength {
+                    if best_coarse_idx.is_none() || strength > max_strength {
                         max_strength = strength;
                         best_coarse_idx = fine_to_coarse_map[j];
                     }
@@ -213,7 +237,7 @@ fn assign_closest_coarse_points<T: RealField + Copy + FromPrimitive>(
 /// Falgout coarsening algorithm (CLJP method)
 ///
 /// Reference: Falgout, R. D. (2006). An introduction to algebraic multigrid
-pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
+pub fn falgout_coarsening<T: RealField + Copy + FloatElement + LetoScalar>(
     matrix: &SparseMatrix<T>,
     strength_threshold: T,
 ) -> Result<CoarseningResult<T>> {
@@ -222,12 +246,12 @@ pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
     let mut fine_to_coarse_map = vec![None; n];
 
     let strength_matrix = compute_strength_matrix(matrix, strength_threshold)?;
-    let s_offsets = strength_matrix.row_offsets();
+    let s_offsets = strength_matrix.row_ptr();
     let s_indices = strength_matrix.col_indices();
 
     let mut measures = vec![0.0; n];
     for i in 0..n {
-        measures[i] = (s_offsets[i + 1] - s_offsets[i]) as f64;
+        measures[i] = usize_to_f64(s_offsets[i + 1] - s_offsets[i]);
     }
 
     let mut sorted_indices: Vec<usize> = (0..n).collect();
@@ -242,7 +266,7 @@ pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
         }
 
         let mut should_be_coarse = true;
-        let mut coarse_neighbors = 0;
+        let mut coarse_neighbors = 0usize;
         let total_strong_connections = s_offsets[i + 1] - s_offsets[i];
 
         for k in s_offsets[i]..s_offsets[i + 1] {
@@ -253,7 +277,7 @@ pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
         }
 
         if total_strong_connections > 0 {
-            let ratio = f64::from(coarse_neighbors) / total_strong_connections as f64;
+            let ratio = ratio_usize(coarse_neighbors, total_strong_connections);
             if ratio >= lambda {
                 should_be_coarse = false;
             }
@@ -288,7 +312,7 @@ pub fn falgout_coarsening<T: RealField + Copy + FromPrimitive>(
 /// PMIS (Parallel Modified Independent Set) coarsening
 ///
 /// Reference: Luby's algorithm adapted for parallel coarsening
-pub fn pmis_coarsening<T: RealField + Copy + FromPrimitive>(
+pub fn pmis_coarsening<T: RealField + Copy + FloatElement + LetoScalar>(
     matrix: &SparseMatrix<T>,
     strength_threshold: T,
 ) -> Result<CoarseningResult<T>> {
@@ -297,7 +321,7 @@ pub fn pmis_coarsening<T: RealField + Copy + FromPrimitive>(
     let mut fine_to_coarse_map = vec![None; n];
 
     let strength_matrix = compute_strength_matrix(matrix, strength_threshold)?;
-    let s_offsets = strength_matrix.row_offsets();
+    let s_offsets = strength_matrix.row_ptr();
     let s_indices = strength_matrix.col_indices();
 
     let mut status = vec![0; n];
@@ -337,7 +361,7 @@ pub fn pmis_coarsening<T: RealField + Copy + FromPrimitive>(
 /// HMIS (Hybrid Modified Independent Set) coarsening
 ///
 /// Combines PMIS with aggressive coarsening for better parallel performance.
-pub fn hmis_coarsening<T: RealField + Copy + FromPrimitive>(
+pub fn hmis_coarsening<T: RealField + Copy + FloatElement + LetoScalar>(
     matrix: &SparseMatrix<T>,
     strength_threshold: T,
     aggressive_threshold: T,
@@ -346,8 +370,11 @@ pub fn hmis_coarsening<T: RealField + Copy + FromPrimitive>(
 
     match pmis_coarsening(matrix, strength_threshold) {
         Ok(result) => {
-            let coarsening_ratio =
-                T::from_f64(result.coarse_points.len() as f64 / n as f64).unwrap_or_else(T::zero);
+            let coarsening_ratio = if n == 0 {
+                <T as NumericElement>::ZERO
+            } else {
+                from_usize::<T>(result.coarse_points.len()) / from_usize::<T>(n)
+            };
 
             if coarsening_ratio < aggressive_threshold {
                 aggressive_coarsening(matrix, strength_threshold, aggressive_threshold)
@@ -360,7 +387,7 @@ pub fn hmis_coarsening<T: RealField + Copy + FromPrimitive>(
 }
 
 /// Aggressive coarsening strategy for difficult matrices
-fn aggressive_coarsening<T: RealField + Copy + FromPrimitive>(
+fn aggressive_coarsening<T: RealField + Copy + FloatElement + LetoScalar>(
     matrix: &SparseMatrix<T>,
     _strength_threshold: T,
     _target_ratio: T,
@@ -370,30 +397,29 @@ fn aggressive_coarsening<T: RealField + Copy + FromPrimitive>(
 }
 
 /// Compute strength of connection matrix
-pub(super) fn compute_strength_matrix<T: RealField + Copy + FromPrimitive>(
+pub(super) fn compute_strength_matrix<T: RealField + Copy + FloatElement + LetoScalar>(
     matrix: &SparseMatrix<T>,
     strength_threshold: T,
 ) -> Result<SparseMatrix<T>> {
-    use cfd_core::error::{Error, NumericalErrorKind};
-
     let n = matrix.nrows();
     let mut row_offsets = vec![0; n + 1];
     let mut col_indices = Vec::new();
     let mut values = Vec::new();
 
-    let m_offsets = matrix.row_offsets();
+    let m_offsets = matrix.row_ptr();
     let m_indices = matrix.col_indices();
     let m_values = matrix.values();
 
     for i in 0..n {
-        let mut max_off_diag: T = T::zero();
+        let mut max_off_diag: T = <T as NumericElement>::ZERO;
         for k in m_offsets[i]..m_offsets[i + 1] {
             let j = m_indices[k];
             if i != j {
-                max_off_diag = if max_off_diag > m_values[k].abs() {
+                let value = NumericElement::abs(m_values[k]);
+                max_off_diag = if max_off_diag > value {
                     max_off_diag
                 } else {
-                    m_values[k].abs()
+                    value
                 };
             }
         }
@@ -401,7 +427,7 @@ pub(super) fn compute_strength_matrix<T: RealField + Copy + FromPrimitive>(
         for k in m_offsets[i]..m_offsets[i + 1] {
             let j = m_indices[k];
             if i != j {
-                let strength = m_values[k].abs();
+                let strength = NumericElement::abs(m_values[k]);
                 if strength >= strength_threshold * max_off_diag {
                     col_indices.push(j);
                     values.push(strength);
@@ -411,9 +437,5 @@ pub(super) fn compute_strength_matrix<T: RealField + Copy + FromPrimitive>(
         row_offsets[i + 1] = col_indices.len();
     }
 
-    SparseMatrix::try_from_csr_data(n, n, row_offsets, col_indices, values).map_err(|e| {
-        Error::Numerical(NumericalErrorKind::InvalidValue {
-            value: format!("Failed to create strength matrix: {e}"),
-        })
-    })
+    csr_from_parts(n, n, row_offsets, col_indices, values, "strength matrix")
 }

@@ -46,8 +46,8 @@
 //!   *ASME J. Heat Transfer*, 124(2), 260–267.
 
 use crate::domain::channel::cross_section::CrossSection;
-use nalgebra::RealField;
-use num_traits::{cast::FromPrimitive, Float};
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
 
 /// Shah-London 5-term polynomial coefficients for `Po(α)`.
 ///
@@ -69,20 +69,20 @@ const SHAH_LONDON_C: [f64; 5] = [1.3553, 1.9467, 1.7012, 0.9564, 0.2537];
 ///
 /// # Returns
 /// Poiseuille number `Po ∈ [56.908, 96]`.
-pub fn shah_london_po<T: RealField + Copy + FromPrimitive>(alpha: T) -> T {
+pub fn shah_london_po<T: Cfd1dScalar + Copy + SafeFromF64>(alpha: T) -> T {
     let inv_a = T::one() / alpha;
     let mut power = inv_a;
     let mut correction = T::zero();
     let mut sign = -T::one();
 
     for &coeff in &SHAH_LONDON_C {
-        let c = T::from_f64(coeff).expect("Shah-London coefficient conversion");
+        let c = T::from_f64_or_one(coeff);
         correction += sign * c * power;
         power *= inv_a;
         sign = -sign;
     }
 
-    T::from_f64(96.0).expect("Po base constant") * (T::one() + correction)
+    T::from_f64_or_one(96.0) * (T::one() + correction)
 }
 
 /// Compute the Poiseuille number `Po = f·Re` for a given cross-section shape.
@@ -90,13 +90,13 @@ pub fn shah_london_po<T: RealField + Copy + FromPrimitive>(alpha: T) -> T {
 /// Dispatches to the appropriate analytical formula based on cross-section type.
 ///
 /// See module-level documentation for the governing theorems and references.
-pub fn poiseuille_number<T: RealField + Copy + FromPrimitive + Float>(
+pub fn poiseuille_number<T: Cfd1dScalar + Copy + SafeFromF64>(
     cross_section: &CrossSection<T>,
 ) -> T {
     match cross_section {
         CrossSection::Circular { .. } => {
             // Exact Hagen-Poiseuille: Po = 64
-            T::from_f64(64.0).expect("Po constant")
+            T::from_f64_or_one(64.0)
         }
         CrossSection::Rectangular { width, height } => {
             // Shah-London polynomial for rectangular ducts
@@ -106,7 +106,7 @@ pub fn poiseuille_number<T: RealField + Copy + FromPrimitive + Float>(
                 (*height, *width)
             };
             if b <= T::zero() {
-                return T::from_f64(64.0).expect("Po fallback constant");
+                return T::from_f64_or_one(64.0);
             }
             shah_london_po(a / b)
         }
@@ -120,10 +120,9 @@ pub fn poiseuille_number<T: RealField + Copy + FromPrimitive + Float>(
             let a = *major_axis / two;
             let b = *minor_axis / two;
             if a <= T::zero() || b <= T::zero() {
-                return T::from_f64(64.0).expect("Po fallback constant");
+                return T::from_f64_or_one(64.0);
             }
-            T::from_f64(2.0 * std::f64::consts::PI).expect("2π constant") * (a * a + b * b)
-                / (a * b)
+            T::from_f64_or_one(2.0 * std::f64::consts::PI) * (a * a + b * b) / (a * b)
         }
         CrossSection::Trapezoidal {
             top_width,
@@ -134,7 +133,7 @@ pub fn poiseuille_number<T: RealField + Copy + FromPrimitive + Float>(
             // use mean width as the effective rectangular width.
             let avg_width = (*top_width + *bottom_width) / (T::one() + T::one());
             if *height <= T::zero() || avg_width <= T::zero() {
-                return T::from_f64(64.0).expect("Po fallback constant");
+                return T::from_f64_or_one(64.0);
             }
             let (a, b) = if avg_width >= *height {
                 (avg_width, *height)
@@ -145,7 +144,7 @@ pub fn poiseuille_number<T: RealField + Copy + FromPrimitive + Float>(
         }
         CrossSection::Custom { .. } => {
             // For custom cross-sections, assume circular (Po = 64).
-            T::from_f64(64.0).expect("Po fallback constant")
+            T::from_f64_or_one(64.0)
         }
     }
 }

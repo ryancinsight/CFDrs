@@ -28,15 +28,13 @@
 //! the scalar resistance coefficients for a symmetric venturi.
 
 use super::model::VenturiModel;
-use super::traits::FlowConditions;
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
 
 /// Detailed Venturi flow analysis result
 #[derive(Debug, Clone)]
-pub struct VenturiAnalysis<T: RealField + Copy> {
+pub struct VenturiAnalysis<T> {
     /// Throat velocity \[m/s]
     pub throat_velocity: T,
     /// Throat Reynolds number
@@ -63,7 +61,7 @@ pub struct VenturiAnalysis<T: RealField + Copy> {
     pub friction_factor: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
+impl<T: ResistanceScalar> VenturiModel<T> {
     /// Perform detailed Venturi flow analysis
     ///
     /// Returns comprehensive breakdown of pressure contributions
@@ -94,7 +92,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
         let v_inlet_abs = Self::magnitude(v_inlet);
         let v_throat_abs = Self::magnitude(v_throat);
 
-        let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
+        let eight = scalar_from_f64::<T>(8.0);
         let half = T::one() / (T::one() + T::one());
         let one = T::one();
 
@@ -117,7 +115,7 @@ impl<T: RealField + Copy + FromPrimitive> VenturiModel<T> {
         let beta_sq = self.beta_squared();
         let c_d = self.effective_discharge_coefficient(re_inlet);
         let f = self.throat_friction_factor(re_throat);
-        let k_exp = T::from_f64(self.expansion_type.loss_coefficient()).unwrap_or_else(T::one);
+        let k_exp = scalar_from_f64::<T>(self.expansion_type.loss_coefficient());
         let eta_r = self.effective_recovery_efficiency(re_throat);
 
         // ΔP_contraction = ½ρV_t²(1 − β⁴) / C_d²  where β⁴ = (A_t/A_i)² = beta_sq·beta_sq

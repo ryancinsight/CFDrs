@@ -19,7 +19,7 @@
 //! ```no_run
 //! use cfd_math::high_order::dg::*;
 //! use cfd_math::error::Result;
-//! use nalgebra::{DVector, DMatrix};
+//! use leto::{Array1, Array2};
 //!
 //! // Create a DG operator
 //! let order = 3;
@@ -44,19 +44,19 @@
 //! let mut solver = DGSolver::new(dg_op, integrator, solver_params);
 //!
 //! // Set initial condition
-//! let u0 = |x: f64| DVector::from_vec(vec![x.sin()]);
+//! let u0 = |x: f64| Array1::from_shape_vec([1], vec![x.sin()]).unwrap();
 //! solver.initialize(u0).unwrap();
 //!
 //! // Define the right-hand side function
-//! fn f(_t: f64, u: &DMatrix<f64>) -> Result<DMatrix<f64>> {
+//! fn f(_t: f64, u: &Array2<f64>) -> Result<Array2<f64>> {
 //!     // For the linear advection equation: du/dt = -du/dx
 //!     // This is a simplified example; in practice, you would use the DG operator
 //!     // to compute the spatial derivatives
-//!     Ok(-u.clone())
+//!     Ok(Array2::from_shape_fn(u.shape(), |idx| -u[idx]))
 //! }
 //!
 //! // Run the solver
-//! solver.solve(f, None::<fn(f64, &DMatrix<f64>) -> Result<DMatrix<f64>>>).unwrap();
+//! solver.solve(f, None::<fn(f64, &Array2<f64>) -> Result<Array2<f64>>>).unwrap();
 //!
 //! // Evaluate the solution
 //! let x = 0.5;
@@ -84,6 +84,9 @@ mod solver;
 
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
+use leto::{Array1, Array2};
+use leto_ops::MatrixSolve;
+use std::fmt;
 
 // Re-export all public types and traits
 pub use basis::*;
@@ -92,10 +95,251 @@ pub use limiter::*;
 pub use operators::*;
 pub use solver::*;
 
-use nalgebra::{DMatrix, DVector};
-use std::fmt;
+#[cfg(test)]
+pub(crate) fn vector_from_vec(values: Vec<f64>) -> Array1<f64> {
+    Array1::from_shape_vec([values.len()], values)
+        .expect("invariant: vector shape matches element count")
+}
 
+pub(crate) fn vector_from_element(len: usize, value: f64) -> Array1<f64> {
+    Array1::from_elem([len], value)
+}
 
+pub(crate) fn vector_zeros(len: usize) -> Array1<f64> {
+    Array1::zeros([len])
+}
+
+pub(crate) fn vector_len(vector: &Array1<f64>) -> usize {
+    vector.shape()[0]
+}
+
+pub(crate) fn vector_sum(vector: &Array1<f64>) -> f64 {
+    vector.iter().copied().sum()
+}
+
+pub(crate) fn vector_norm(vector: &Array1<f64>) -> f64 {
+    vector
+        .iter()
+        .map(|&value| value * value)
+        .sum::<f64>()
+        .sqrt()
+}
+
+pub(crate) fn vector_amax(vector: &Array1<f64>) -> f64 {
+    vector.iter().map(|&value| value.abs()).fold(0.0, f64::max)
+}
+
+pub(crate) fn vector_dot(lhs: &Array1<f64>, rhs: &Array1<f64>) -> f64 {
+    assert_eq!(
+        lhs.shape(),
+        rhs.shape(),
+        "invariant: vector dot operands must have equal length"
+    );
+    lhs.iter().zip(rhs.iter()).map(|(&l, &r)| l * r).sum()
+}
+
+pub(crate) fn vector_add(lhs: &Array1<f64>, rhs: &Array1<f64>) -> Array1<f64> {
+    assert_eq!(
+        lhs.shape(),
+        rhs.shape(),
+        "invariant: vector add operands must have equal length"
+    );
+    Array1::from_shape_fn(lhs.shape(), |idx| lhs[idx] + rhs[idx])
+}
+
+pub(crate) fn vector_sub(lhs: &Array1<f64>, rhs: &Array1<f64>) -> Array1<f64> {
+    assert_eq!(
+        lhs.shape(),
+        rhs.shape(),
+        "invariant: vector sub operands must have equal length"
+    );
+    Array1::from_shape_fn(lhs.shape(), |idx| lhs[idx] - rhs[idx])
+}
+
+pub(crate) fn vector_scale(vector: &Array1<f64>, scale: f64) -> Array1<f64> {
+    Array1::from_shape_fn(vector.shape(), |idx| vector[idx] * scale)
+}
+
+pub(crate) fn vector_add_assign_scaled(target: &mut Array1<f64>, source: &Array1<f64>, scale: f64) {
+    assert_eq!(
+        target.shape(),
+        source.shape(),
+        "invariant: vector add-assign operands must have equal length"
+    );
+    for i in 0..target.shape()[0] {
+        target[i] += scale * source[i];
+    }
+}
+
+pub(crate) fn matrix_zeros(rows: usize, cols: usize) -> Array2<f64> {
+    Array2::zeros([rows, cols])
+}
+
+#[cfg(test)]
+pub(crate) fn matrix_from_vec(rows: usize, cols: usize, values: Vec<f64>) -> Array2<f64> {
+    Array2::from_shape_vec([rows, cols], values)
+        .expect("invariant: matrix shape matches element count")
+}
+
+#[cfg(test)]
+pub(crate) fn matrix_from_element(rows: usize, cols: usize, value: f64) -> Array2<f64> {
+    Array2::from_elem([rows, cols], value)
+}
+
+pub(crate) fn matrix_rows(matrix: &Array2<f64>) -> usize {
+    matrix.shape()[0]
+}
+
+pub(crate) fn matrix_cols(matrix: &Array2<f64>) -> usize {
+    matrix.shape()[1]
+}
+
+pub(crate) fn matrix_len(matrix: &Array2<f64>) -> usize {
+    let [rows, cols] = matrix.shape();
+    rows * cols
+}
+
+pub(crate) fn matrix_norm(matrix: &Array2<f64>) -> f64 {
+    matrix
+        .iter()
+        .map(|&value| value * value)
+        .sum::<f64>()
+        .sqrt()
+}
+
+pub(crate) fn matrix_neg(matrix: &Array2<f64>) -> Array2<f64> {
+    Array2::from_shape_fn(matrix.shape(), |idx| -matrix[idx])
+}
+
+pub(crate) fn matrix_add(lhs: &Array2<f64>, rhs: &Array2<f64>) -> Array2<f64> {
+    assert_eq!(
+        lhs.shape(),
+        rhs.shape(),
+        "invariant: matrix add operands must have equal shape"
+    );
+    Array2::from_shape_fn(lhs.shape(), |idx| lhs[idx] + rhs[idx])
+}
+
+pub(crate) fn matrix_sub(lhs: &Array2<f64>, rhs: &Array2<f64>) -> Array2<f64> {
+    assert_eq!(
+        lhs.shape(),
+        rhs.shape(),
+        "invariant: matrix sub operands must have equal shape"
+    );
+    Array2::from_shape_fn(lhs.shape(), |idx| lhs[idx] - rhs[idx])
+}
+
+pub(crate) fn matrix_scale(matrix: &Array2<f64>, scale: f64) -> Array2<f64> {
+    Array2::from_shape_fn(matrix.shape(), |idx| matrix[idx] * scale)
+}
+
+pub(crate) fn matrix_add_scaled(lhs: &Array2<f64>, rhs: &Array2<f64>, scale: f64) -> Array2<f64> {
+    assert_eq!(
+        lhs.shape(),
+        rhs.shape(),
+        "invariant: matrix add-scaled operands must have equal shape"
+    );
+    Array2::from_shape_fn(lhs.shape(), |idx| lhs[idx] + scale * rhs[idx])
+}
+
+pub(crate) fn matrix_add_assign_scaled(target: &mut Array2<f64>, source: &Array2<f64>, scale: f64) {
+    assert_eq!(
+        target.shape(),
+        source.shape(),
+        "invariant: matrix add-assign operands must have equal shape"
+    );
+    let [rows, cols] = target.shape();
+    for row in 0..rows {
+        for col in 0..cols {
+            target[[row, col]] += scale * source[[row, col]];
+        }
+    }
+}
+
+pub(crate) fn matrix_identity(size: usize) -> Array2<f64> {
+    Array2::from_shape_fn(
+        [size, size],
+        |[row, col]| if row == col { 1.0 } else { 0.0 },
+    )
+}
+
+pub(crate) fn matrix_flatten(matrix: &Array2<f64>) -> Array1<f64> {
+    let [rows, cols] = matrix.shape();
+    Array1::from_shape_fn([rows * cols], |[idx]| matrix[[idx / cols, idx % cols]])
+}
+
+pub(crate) fn matrix_from_flat(rows: usize, cols: usize, values: &Array1<f64>) -> Array2<f64> {
+    assert_eq!(
+        values.shape(),
+        [rows * cols],
+        "invariant: flattened vector length must match matrix shape"
+    );
+    Array2::from_shape_fn([rows, cols], |[row, col]| values[row * cols + col])
+}
+
+pub(crate) fn matrix_solve(matrix: &Array2<f64>, rhs: &Array1<f64>) -> Result<Array1<f64>> {
+    matrix.solve(&rhs.view()).map_err(|err| {
+        Error::Solver(format!(
+            "Leto dense solve failed for {}x{} matrix and RHS length {}: {err}",
+            matrix_rows(matrix),
+            matrix_cols(matrix),
+            vector_len(rhs)
+        ))
+    })
+}
+
+pub(crate) fn matrix_transpose_vector_mul(
+    matrix: &Array2<f64>,
+    vector: &Array1<f64>,
+) -> Array1<f64> {
+    let [rows, cols] = matrix.shape();
+    assert_eq!(
+        vector.shape(),
+        [rows],
+        "invariant: transposed matrix-vector dimensions must match"
+    );
+    Array1::from_shape_fn([cols], |[col]| {
+        (0..rows).map(|row| matrix[[row, col]] * vector[row]).sum()
+    })
+}
+
+pub(crate) fn row_vector(matrix: &Array2<f64>, row: usize) -> Array1<f64> {
+    let [rows, cols] = matrix.shape();
+    assert!(row < rows, "invariant: requested row is in bounds");
+    Array1::from_shape_fn([cols], |[col]| matrix[[row, col]])
+}
+
+pub(crate) fn set_row(matrix: &mut Array2<f64>, row: usize, values: &Array1<f64>) {
+    let [rows, cols] = matrix.shape();
+    assert!(row < rows, "invariant: target row is in bounds");
+    assert_eq!(
+        values.shape(),
+        [cols],
+        "invariant: row value length must match matrix columns"
+    );
+    for col in 0..cols {
+        matrix[[row, col]] = values[col];
+    }
+}
+
+pub(crate) fn set_column(matrix: &mut Array2<f64>, col: usize, values: &Array1<f64>) {
+    let [rows, cols] = matrix.shape();
+    assert!(col < cols, "invariant: target column is in bounds");
+    assert_eq!(
+        values.shape(),
+        [rows],
+        "invariant: column value length must match matrix rows"
+    );
+    for row in 0..rows {
+        matrix[[row, col]] = values[row];
+    }
+}
+
+pub(crate) fn column_vector(matrix: &Array2<f64>, col: usize) -> Array1<f64> {
+    let [rows, cols] = matrix.shape();
+    assert!(col < cols, "invariant: requested column is in bounds");
+    Array1::from_shape_fn([rows], |[row]| matrix[[row, col]])
+}
 
 /// Represents a DG solution on a single element
 #[derive(Clone)]
@@ -105,7 +349,7 @@ pub struct DGSolution {
     /// Number of components (for systems of equations)
     pub num_components: usize,
     /// Solution coefficients (num_components × num_basis_functions)
-    pub coefficients: DMatrix<f64>,
+    pub coefficients: Array2<f64>,
     /// Basis functions
     pub basis: DGBasis,
 }
@@ -132,14 +376,13 @@ impl DGSolution {
             )));
         }
 
-        let basis = DGBasis::new(order, basis_type)
-            .context("constructing DG basis functions")?;
+        let basis = DGBasis::new(order, basis_type).context("constructing DG basis functions")?;
         let num_basis = order + 1;
 
         Ok(Self {
             order,
             num_components,
-            coefficients: DMatrix::zeros(num_components, num_basis),
+            coefficients: matrix_zeros(num_components, num_basis),
             basis,
         })
     }
@@ -151,13 +394,13 @@ impl DGSolution {
     ///
     /// # Returns
     /// The solution vector at the given point
-    pub fn evaluate(&self, x: f64) -> DVector<f64> {
-        let mut result = DVector::zeros(self.num_components);
+    pub fn evaluate(&self, x: f64) -> Array1<f64> {
+        let mut result = vector_zeros(self.num_components);
 
-        for i in 0..self.coefficients.ncols() {
+        for i in 0..matrix_cols(&self.coefficients) {
             let phi_i = self.basis.evaluate_basis(i, x);
             for c in 0..self.num_components {
-                result[c] += self.coefficients[(c, i)] * phi_i;
+                result[c] += self.coefficients[[c, i]] * phi_i;
             }
         }
 
@@ -172,11 +415,11 @@ impl DGSolution {
         let mut norm_sq = 0.0;
 
         for i in 0..self.num_components {
-            for j in 0..self.coefficients.ncols() {
-                for k in 0..self.coefficients.ncols() {
+            for j in 0..matrix_cols(&self.coefficients) {
+                for k in 0..matrix_cols(&self.coefficients) {
                     // Mass matrix M_{j,k} = ∫ φ_j(x) φ_k(x) dx
-                    let m_jk = self.basis.mass_matrix[(j, k)];
-                    norm_sq += self.coefficients[(i, j)] * self.coefficients[(i, k)] * m_jk;
+                    let m_jk = self.basis.mass_matrix[[j, k]];
+                    norm_sq += self.coefficients[[i, j]] * self.coefficients[[i, k]] * m_jk;
                 }
             }
         }
@@ -196,7 +439,8 @@ impl DGSolution {
         params: &LimiterParams,
     ) -> Result<()> {
         if !params.adaptive || limiter.is_troubled_cell(self, neighbors, params) {
-            limiter.limit(self, neighbors, params)
+            limiter
+                .limit(self, neighbors, params)
                 .context("applying slope limiter to DG solution")?;
         }
 
@@ -207,25 +451,25 @@ impl DGSolution {
     ///
     /// # Returns
     /// The cell average of the solution
-    pub fn average(&self) -> DVector<f64> {
-        let mut avg = DVector::zeros(self.num_components);
+    pub fn average(&self) -> Array1<f64> {
+        let mut avg = vector_zeros(self.num_components);
 
         // The average is (1/2) * ∫ u(x) dx over [-1, 1]
         // ∫ u(x) dx = ∑_j c_j * ∫ φ_j(x) dx
         // The integrals of the basis functions can be computed using quadrature
-        let mut basis_integrals = DVector::zeros(self.coefficients.ncols());
-        for j in 0..self.coefficients.ncols() {
+        let mut basis_integrals = vector_zeros(matrix_cols(&self.coefficients));
+        for j in 0..matrix_cols(&self.coefficients) {
             let mut int_phi_j = 0.0;
-            for q in 0..self.basis.quad_points.len() {
-                int_phi_j += self.basis.quad_weights[q] * self.basis.phi[(j, q)];
+            for q in 0..vector_len(&self.basis.quad_points) {
+                int_phi_j += self.basis.quad_weights[q] * self.basis.phi[[j, q]];
             }
             basis_integrals[j] = int_phi_j;
         }
 
         for i in 0..self.num_components {
             let mut sum = 0.0;
-            for j in 0..self.coefficients.ncols() {
-                sum += self.coefficients[(i, j)] * basis_integrals[j];
+            for j in 0..matrix_cols(&self.coefficients) {
+                sum += self.coefficients[[i, j]] * basis_integrals[j];
             }
             avg[i] = 0.5 * sum;
         }
@@ -270,9 +514,9 @@ mod tests {
 
         // Set the coefficients for u(x) = 1 + x + x²
         // In the Legendre basis: 4/3*P₀(x) + P₁(x) + (2/3)*P₂(x)
-        sol.coefficients[(0, 0)] = 4.0 / 3.0; // P₀ term
-        sol.coefficients[(0, 1)] = 1.0; // P₁ term
-        sol.coefficients[(0, 2)] = 2.0 / 3.0; // P₂ term
+        sol.coefficients[[0, 0]] = 4.0 / 3.0; // P₀ term
+        sol.coefficients[[0, 1]] = 1.0; // P₁ term
+        sol.coefficients[[0, 2]] = 2.0 / 3.0; // P₂ term
 
         // Test evaluation at x = 1.0
         let u1 = sol.evaluate(1.0);
@@ -297,7 +541,7 @@ mod tests {
 
         // Set the coefficients for u(x) = 2.0
         // Since P₀(x) = 1.0, u(x) = 2.0 * P₀(x)
-        sol.coefficients[(0, 0)] = 2.0;
+        sol.coefficients[[0, 0]] = 2.0;
 
         // The average should be 2.0
         let avg = sol.average();

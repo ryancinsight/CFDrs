@@ -57,7 +57,6 @@
 
 pub mod config;
 pub mod dynamic;
-pub mod gpu;
 pub mod miles;
 pub mod model;
 pub mod sigma;

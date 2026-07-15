@@ -87,7 +87,7 @@ pub use runge_kutta::{LowStorageRK4, RungeKutta3, RungeKutta4};
 pub use stability::{
     CFLAnalysis, NumericalScheme, StabilityAnalyzer, StabilityStatus, VonNeumannAnalysis,
 };
-pub use traits::{TimeStepController, TimeStepper};
+pub use traits::{TimeMatrix, TimeState, TimeStepController, TimeStepper};
 
 // Type aliases for common schemes
 

@@ -6,7 +6,7 @@
 mod test_cases;
 
 use cfd_core::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

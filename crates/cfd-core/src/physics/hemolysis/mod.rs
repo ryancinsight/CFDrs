@@ -80,14 +80,42 @@ mod tests {
 
     #[test]
     fn test_nih_calculation() {
-        let calc =
+        let calc: HemolysisCalculator<f64> =
             HemolysisCalculator::new(HemolysisModel::default(), 0.45, 15.0, 5e-3, 1e-4).unwrap();
 
         let delta_hb = 0.1;
         let nih = calc.normalized_index(delta_hb);
 
-        assert!(nih > 0.0);
-        assert!(nih < 100.0);
+        let expected: f64 = (1.0 - 0.45) / 0.45 * delta_hb / 15.0 * 100.0;
+        assert!((nih - expected).abs() <= 8.0 * f64::EPSILON);
+    }
+
+    #[test]
+    fn test_modified_index_and_exposure_time_are_value_semantic() {
+        let calc: HemolysisCalculator<f64> =
+            HemolysisCalculator::new(HemolysisModel::default(), 0.45, 15.0, 5e-3, 1e-4).unwrap();
+
+        let mih = calc.modified_index(0.1, 10.0);
+        let expected_mih: f64 = 5e-3 / (1e-4 * 10.0) * 0.1 * (1.0 - 0.45);
+        assert!((mih - expected_mih).abs() <= 8.0 * f64::EPSILON);
+
+        let exposure_time = calc.estimate_exposure_time(0.01);
+        let area = std::f64::consts::PI * 0.01 * 0.01 / 4.0;
+        let expected_exposure_time = 0.01 / (1e-4 / area);
+        assert!((exposure_time - expected_exposure_time).abs() <= 8.0 * f64::EPSILON);
+    }
+
+    #[test]
+    fn test_platelet_activation_probability_uses_decaying_exponential() {
+        let activation = PlateletActivation::<f64>::standard();
+
+        assert_eq!(activation.activation_probability(30.0, 2.0), 0.0);
+
+        let probability = activation.activation_probability(40.0, 2.0);
+        let expected = 1.0 - f64::exp(-0.01 * (40.0 - 30.0) * 2.0);
+        assert!((probability - expected).abs() <= 8.0 * f64::EPSILON);
+        assert!(probability > 0.0);
+        assert!(probability < 1.0);
     }
 
     #[test]

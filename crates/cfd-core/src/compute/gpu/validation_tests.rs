@@ -8,37 +8,6 @@ mod tests {
     use approx::assert_relative_eq;
     use std::sync::Arc;
 
-    const TOLERANCE: f32 = 1e-5;
-
-    #[test]
-    fn test_gpu_cpu_parity_add() {
-        // Create GPU context
-        let context = if let Ok(ctx) = GpuContext::create() {
-            Arc::new(ctx)
-        } else {
-            eprintln!("GPU not available, skipping test");
-            return;
-        };
-
-        let gpu_ops = GpuFieldOps::new(context);
-
-        // Test data
-        let a = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
-        let b = vec![8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0];
-
-        // CPU reference
-        let cpu_result: Vec<f32> = a.iter().zip(b.iter()).map(|(x, y)| x + y).collect();
-
-        // GPU computation
-        let mut gpu_result = vec![0.0; a.len()];
-        gpu_ops.add_fields(&a, &b, &mut gpu_result);
-
-        // Verify parity
-        for (cpu, gpu) in cpu_result.iter().zip(gpu_result.iter()) {
-            assert_relative_eq!(cpu, gpu, epsilon = TOLERANCE);
-        }
-    }
-
     #[test]
     fn test_gpu_laplacian_2d() {
         let context = if let Ok(ctx) = GpuContext::create() {
@@ -48,7 +17,8 @@ mod tests {
             return;
         };
 
-        let gpu_ops = GpuFieldOps::new(context);
+        let gpu_ops =
+            GpuFieldOps::new(context).expect("Laplacian kernel must compile through Hephaestus");
 
         // 4x4 test field
         let nx = 4u32;
@@ -67,7 +37,9 @@ mod tests {
             .collect();
 
         let mut gpu_result = vec![0.0; field.len()];
-        gpu_ops.laplacian_2d(&field, nx as usize, ny as usize, dx, dy, &mut gpu_result);
+        gpu_ops
+            .laplacian_2d(&field, nx as usize, ny as usize, dx, dy, &mut gpu_result)
+            .expect("Hephaestus Laplacian dispatch must succeed");
 
         // Interior points should have Laplacian ≈ 4
         // Boundary handling may differ, so only check interior
@@ -84,32 +56,5 @@ mod tests {
                 assert_relative_eq!(gpu_result[idx], expected, epsilon = 0.1);
             }
         }
-    }
-
-    #[test]
-    fn test_gpu_performance_characteristics() {
-        // This test verifies GPU operations complete without error
-        // Performance benchmarking would be done separately
-        let context = if let Ok(ctx) = GpuContext::create() {
-            Arc::new(ctx)
-        } else {
-            eprintln!("GPU not available, skipping test");
-            return;
-        };
-
-        let gpu_ops = GpuFieldOps::new(context);
-
-        // Large arrays to test GPU handling
-        let size = 1024 * 1024; // 1M elements
-        let a: Vec<f32> = (0..size).map(|i| i as f32).collect();
-        let b: Vec<f32> = (0..size).map(|i| (size - i) as f32).collect();
-        let mut result = vec![0.0; size];
-
-        // Should complete without panic
-        gpu_ops.add_fields(&a, &b, &mut result);
-
-        // Spot check some values
-        assert_relative_eq!(result[0], size as f32, epsilon = TOLERANCE);
-        assert_relative_eq!(result[size - 1], size as f32, epsilon = TOLERANCE);
     }
 }

@@ -65,14 +65,13 @@ pub use wale::WaleModel;
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::TurbulenceModel;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
 
 use self::field_ops::{strain_magnitude, velocity_gradient_tensor};
 
 /// Smagorinsky subgrid-scale model for LES
 #[derive(Debug, Clone)]
-pub struct SmagorinskyModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct SmagorinskyModel<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// Smagorinsky constant (typically 0.1-0.2)
     pub cs: T,
     /// Base Smagorinsky constant for dynamic model
@@ -104,22 +103,20 @@ pub struct SmagorinskyModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy
     pub filter_width: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
-    SmagorinskyModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> SmagorinskyModel<T> {
     /// Create a new Smagorinsky model with standard constant.
     ///
-    /// Uses `filter_width = T::one()` (unit-cube default).  For physically
+    /// Uses `filter_width = T::ONE` (unit-cube default).  For physically
     /// correct LES viscosity, use [`SmagorinskyModel::with_filter_width`]
     /// and pass the actual cell dimensions.
     pub fn new(cs: T) -> Self {
         Self {
             cs,
             cs_base: cs,
-            dx: T::one(),
-            dy: T::one(),
-            dz: T::one(),
-            filter_width: T::one(),
+            dx: T::ONE,
+            dy: T::ONE,
+            dz: T::ONE,
+            filter_width: T::ONE,
         }
     }
 
@@ -137,8 +134,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
     /// let smag = SmagorinskyModel::with_filter_width(0.1, 50e-6, 50e-6, 100e-6);
     /// ```
     pub fn with_filter_width(cs: T, dx: T, dy: T, dz: T) -> Self {
-        let one_third = T::one() / (T::one() + T::one() + T::one());
-        let filter_width = num_traits::Float::powf(dx * dy * dz, one_third);
+        let one_third = T::ONE / (T::ONE + T::ONE + T::ONE);
+        let filter_width = <T as FloatElement>::powf(dx * dy * dz, one_third);
         Self {
             cs,
             cs_base: cs,
@@ -174,9 +171,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + num_traits::Float>
-    TurbulenceModel<T> for SmagorinskyModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for SmagorinskyModel<T> {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
         let (nx, ny, nz) = flow_field.velocity.dimensions;
         // Physically correct filter width Δ = (dx·dy·dz)^(1/3); stored at construction time.

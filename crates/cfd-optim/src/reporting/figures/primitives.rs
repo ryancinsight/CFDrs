@@ -263,6 +263,13 @@ pub(super) fn process_box(
     }
 }
 
+pub(super) fn arrow(svg: &mut String, x1: f64, y1: f64, x2: f64, y2: f64) {
+    let _ = write!(
+        svg,
+        r##"<line x1="{x1:.1}" y1="{y1:.1}" x2="{x2:.1}" y2="{y2:.1}" stroke="#566573" stroke-width="3" marker-end="url(#arrowhead-flow)"/>"##
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::{escape_xml, wrap_text};
@@ -281,11 +288,4 @@ mod tests {
     fn wrap_text_returns_single_empty_line_for_blank_input() {
         assert_eq!(wrap_text("   ", 8), vec![String::new()]);
     }
-}
-
-pub(super) fn arrow(svg: &mut String, x1: f64, y1: f64, x2: f64, y2: f64) {
-    let _ = write!(
-        svg,
-        r##"<line x1="{x1:.1}" y1="{y1:.1}" x2="{x2:.1}" y2="{y2:.1}" stroke="#566573" stroke-width="3" marker-end="url(#arrowhead-flow)"/>"##
-    );
 }

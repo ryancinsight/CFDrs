@@ -17,12 +17,13 @@
 use super::geometry::BifurcationGeometry3D;
 use super::solver::BifurcationSolver3D;
 use super::types::{BifurcationConfig3D, BifurcationSolution3D};
+use crate::scalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_core::physics::fluid::traits::NonNewtonianFluid;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::FloatElement;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -40,20 +41,15 @@ pub struct MeshRefinementConfig<T: cfd_mesh::domain::core::Scalar + RealField + 
     pub expected_order: T,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64,
-    > Default for MeshRefinementConfig<T>
+impl<T> Default for MeshRefinementConfig<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
 {
     fn default() -> Self {
         Self {
             n_levels: 3,
-            refinement_factor: T::from_f64_or_one(2.0),
-            expected_order: T::from_f64_or_one(2.0),
+            refinement_factor: scalar::from_f64::<T>(2.0),
+            expected_order: scalar::from_f64::<T>(2.0),
         }
     }
 }
@@ -68,16 +64,9 @@ pub struct BifurcationValidator3D<T: cfd_mesh::domain::core::Scalar + RealField 
     mesh_config: MeshRefinementConfig<T>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64
-            + num_traits::Float
-            + From<f64>,
-    > BifurcationValidator3D<T>
+impl<T> BifurcationValidator3D<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeFromF64,
 {
     /// Create new validator
     pub fn new(geometry: BifurcationGeometry3D<T>, mesh_config: MeshRefinementConfig<T>) -> Self {
@@ -105,23 +94,22 @@ impl<
 
         // Compare pressure drops
         // In 1D, we compute ΔP = (128μQL) / (πD⁴)
-        let props = fluid.properties_at(T::from_f64_or_one(310.0), p_parent)?;
+        let props = fluid.properties_at(scalar::from_f64::<T>(310.0), p_parent)?;
         let mu = props.dynamic_viscosity;
-        let pi = T::from_f64_or_one(std::f64::consts::PI);
+        let pi = scalar::from_f64::<T>(std::f64::consts::PI);
 
-        let dp_parent_1d = (T::from_f64_or_one(128.0) * mu * q_parent * self.geometry.l_parent)
-            / (pi * num_traits::Float::powf(self.geometry.d_parent, T::from_f64_or_one(4.0)));
+        let dp_parent_1d = (scalar::from_f64::<T>(128.0) * mu * q_parent * self.geometry.l_parent)
+            / (pi * scalar::powf(self.geometry.d_parent, scalar::from_f64::<T>(4.0)));
 
-        let dp_error =
-            num_traits::Float::abs(solution_3d.p_inlet - solution_3d.p_outlet - dp_parent_1d)
-                / (num_traits::Float::abs(dp_parent_1d) + T::from_f64_or_one(1.0));
+        let dp_error = scalar::abs(solution_3d.p_inlet - solution_3d.p_outlet - dp_parent_1d)
+            / (scalar::abs(dp_parent_1d) + scalar::one::<T>());
 
         // Create result
         let mut result = BifurcationValidationResult3D::new("3D vs 1D".to_string());
         result.mass_error = Some(mass_error);
         result.pressure_error = Some(dp_error);
         result.validation_passed =
-            mass_error < T::from_f64_or_one(1e-10) && dp_error < T::from_f64_or_one(0.05); // < 5% error
+            mass_error < scalar::from_f64::<T>(1e-10) && dp_error < scalar::from_f64::<T>(0.05); // < 5% error
 
         Ok(result)
     }
@@ -142,7 +130,7 @@ impl<
         fluid: F,
     ) -> Result<BifurcationValidationResult3D<T>, Error> {
         let r = self.mesh_config.refinement_factor;
-        let r_f64 = r.to_f64().unwrap_or(2.0);
+        let r_f64 = scalar::to_f64(r);
         if r_f64 <= 1.0 {
             return Err(Error::InvalidInput(
                 "Mesh refinement factor must be > 1".to_string(),
@@ -175,14 +163,14 @@ impl<
         let phi_medium = sol_medium.p_inlet - sol_medium.p_outlet;
         let phi_fine = sol_fine.p_inlet - sol_fine.p_outlet;
 
-        let eps10 = num_traits::Float::abs(phi_medium - phi_coarse);
-        let eps21 = num_traits::Float::abs(phi_fine - phi_medium);
-        let tiny = T::from_f64_or_one(1e-20);
+        let eps10 = scalar::abs(phi_medium - phi_coarse);
+        let eps21 = scalar::abs(phi_fine - phi_medium);
+        let tiny = scalar::from_f64::<T>(1e-20);
 
         if eps10 <= tiny || eps21 <= tiny {
             let mut result = BifurcationValidationResult3D::new("Mesh Convergence".to_string());
             result.convergence_order = None;
-            result.gci = Some(T::zero());
+            result.gci = Some(scalar::zero::<T>());
             result.validation_passed = true;
             result.error_message = Some(
                 "Inter-level differences are at numerical noise floor; treating as grid-converged"
@@ -191,16 +179,16 @@ impl<
             return Ok(result);
         }
 
-        let p_obs = num_traits::Float::ln(eps10 / eps21) / num_traits::Float::ln(r);
-        let rel_error_fine = eps21 / (num_traits::Float::abs(phi_fine) + tiny);
-        let gci = T::from_f64_or_one(1.25) * rel_error_fine
-            / (num_traits::Float::powf(r, p_obs) - T::one());
+        let p_obs = scalar::ln(eps10 / eps21) / scalar::ln(r);
+        let rel_error_fine = eps21 / (scalar::abs(phi_fine) + tiny);
+        let gci = scalar::from_f64::<T>(1.25) * rel_error_fine
+            / (scalar::powf(r, p_obs) - scalar::one::<T>());
 
         let mut result = BifurcationValidationResult3D::new("Mesh Convergence".to_string());
         result.convergence_order = Some(p_obs);
         result.gci = Some(gci);
-        result.validation_passed = gci < T::from_f64_or_one(0.05)
-            && p_obs >= T::from_f64_or_one(0.5) * self.mesh_config.expected_order;
+        result.validation_passed = gci < scalar::from_f64::<T>(0.05)
+            && p_obs >= scalar::from_f64::<T>(0.5) * self.mesh_config.expected_order;
 
         Ok(result)
     }
@@ -211,12 +199,12 @@ impl<
         solution: &BifurcationSolution3D<T>,
     ) -> Result<BifurcationValidationResult3D<T>, Error> {
         // Physical reasonableness checks for microfluidic bifurcation flows
-        let mass_ok = solution.mass_conservation_error < T::from_f64_or_one(1e-6);
+        let mass_ok = solution.mass_conservation_error < scalar::from_f64::<T>(1e-6);
 
         // Wall shear stresses should be in physiological range for blood
         // For microfluidic flows with water, values can be in the range of 10-1000 Pa
-        let tau_w_reasonable = solution.wall_shear_stress_parent > T::from_f64_or_one(0.0)
-            && solution.wall_shear_stress_parent < T::from_f64_or_one(1000.0);
+        let tau_w_reasonable = solution.wall_shear_stress_parent > scalar::zero::<T>()
+            && solution.wall_shear_stress_parent < scalar::from_f64::<T>(1000.0);
 
         let mut result = BifurcationValidationResult3D::new("Blood Flow".to_string());
         result.validation_passed = mass_ok && tau_w_reasonable;
@@ -259,8 +247,9 @@ pub struct BifurcationValidationResult3D<T: cfd_mesh::domain::core::Scalar + Rea
     pub error_message: Option<String>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + ToPrimitive>
-    BifurcationValidationResult3D<T>
+impl<T> BifurcationValidationResult3D<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
 {
     /// Create new validation result
     pub fn new(test_name: String) -> Self {
@@ -282,24 +271,20 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + ToPrimitive>
         println!("{}", "-".repeat(60));
 
         if let Some(m_err) = self.mass_error {
-            if let Some(m) = m_err.to_f64() {
-                println!("Mass error: {m:.2e}");
-            }
+            let m = scalar::to_f64(m_err);
+            println!("Mass error: {m:.2e}");
         }
         if let Some(p_err) = self.pressure_error {
-            if let Some(p) = p_err.to_f64() {
-                println!("Pressure error: {p:.2e}");
-            }
+            let p = scalar::to_f64(p_err);
+            println!("Pressure error: {p:.2e}");
         }
         if let Some(order) = self.convergence_order {
-            if let Some(o) = order.to_f64() {
-                println!("Convergence order: {o:.2}");
-            }
+            let o = scalar::to_f64(order);
+            println!("Convergence order: {o:.2}");
         }
         if let Some(gci_val) = self.gci {
-            if let Some(g) = gci_val.to_f64() {
-                println!("GCI: {g:.2e}");
-            }
+            let g = scalar::to_f64(gci_val);
+            println!("GCI: {g:.2e}");
         }
 
         println!(

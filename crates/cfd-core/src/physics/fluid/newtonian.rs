@@ -2,8 +2,8 @@
 
 use super::traits::{ConstantFluid, Fluid as FluidTrait, FluidState};
 use crate::error::Error;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Constant property fluid model (incompressible, Newtonian)
@@ -50,26 +50,29 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     ///
     /// # Errors
     /// Returns an error if any physical property is non-positive or invalid
-    pub fn validate(&self) -> Result<(), Error> {
-        if self.density <= T::zero() {
+    pub fn validate(&self) -> Result<(), Error>
+    where
+        T: NumericElement,
+    {
+        if self.density <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput("Density must be positive".to_string()));
         }
-        if self.viscosity <= T::zero() {
+        if self.viscosity <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Viscosity must be positive".to_string(),
             ));
         }
-        if self.specific_heat <= T::zero() {
+        if self.specific_heat <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Specific heat must be positive".to_string(),
             ));
         }
-        if self.thermal_conductivity <= T::zero() {
+        if self.thermal_conductivity <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Thermal conductivity must be positive".to_string(),
             ));
         }
-        if self.speed_of_sound <= T::zero() {
+        if self.speed_of_sound <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Speed of sound must be positive".to_string(),
             ));
@@ -81,18 +84,18 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     /// Properties from NIST webbook
     ///
     /// # Errors
-    /// Returns an error if numeric conversion from f64 fails for the target type T
+    /// Returns an error if validation rejects the constructed physical constants.
     pub fn water_20c() -> Result<Self, Error>
     where
-        T: FromPrimitive,
+        T: FloatElement,
     {
         let fluid = Self::new(
             "Water (20°C)".to_string(),
-            T::from_f64(998.2).unwrap_or_else(num_traits::Zero::zero), // density [kg/m³]
-            T::from_f64(0.001_002).unwrap_or_else(num_traits::Zero::zero), // viscosity [Pa·s]
-            T::from_f64(4186.0).unwrap_or_else(num_traits::Zero::zero), // specific heat [J/(kg·K)]
-            T::from_f64(0.599).unwrap_or_else(num_traits::Zero::zero), // thermal conductivity [W/(m·K)]
-            T::from_f64(1482.0).unwrap_or_else(num_traits::Zero::zero), // speed of sound [m/s]
+            <T as FloatElement>::from_f64(998.2), // density [kg/m³]
+            <T as FloatElement>::from_f64(0.001_002), // viscosity [Pa·s]
+            <T as FloatElement>::from_f64(4186.0), // specific heat [J/(kg·K)]
+            <T as FloatElement>::from_f64(0.599), // thermal conductivity [W/(m·K)]
+            <T as FloatElement>::from_f64(1482.0), // speed of sound [m/s]
         );
         fluid.validate()?;
         Ok(fluid)
@@ -102,18 +105,18 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
     /// Properties from NIST webbook
     ///
     /// # Errors
-    /// Returns an error if numeric conversion from f64 fails for the target type T
+    /// Returns an error if validation rejects the constructed physical constants.
     pub fn air_20c() -> Result<Self, Error>
     where
-        T: FromPrimitive,
+        T: FloatElement,
     {
         let fluid = Self::new(
             "Air (20°C)".to_string(),
-            T::from_f64(1.204).unwrap_or_else(num_traits::Zero::zero), // density [kg/m³]
-            T::from_f64(1.825e-5).unwrap_or_else(num_traits::Zero::zero), // viscosity [Pa·s]
-            T::from_f64(1005.0).unwrap_or_else(num_traits::Zero::zero), // specific heat [J/(kg·K)]
-            T::from_f64(0.02538).unwrap_or_else(num_traits::Zero::zero), // thermal conductivity [W/(m·K)]
-            T::from_f64(343.2).unwrap_or_else(num_traits::Zero::zero),   // speed of sound [m/s]
+            <T as FloatElement>::from_f64(1.204), // density [kg/m³]
+            <T as FloatElement>::from_f64(1.825e-5), // viscosity [Pa·s]
+            <T as FloatElement>::from_f64(1005.0), // specific heat [J/(kg·K)]
+            <T as FloatElement>::from_f64(0.02538), // thermal conductivity [W/(m·K)]
+            <T as FloatElement>::from_f64(343.2), // speed of sound [m/s]
         );
         fluid.validate()?;
         Ok(fluid)
@@ -179,7 +182,7 @@ pub struct IdealGas<T: RealField + Copy> {
     pub k_coeff: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> IdealGas<T> {
+impl<T: RealField + FloatElement + Copy> IdealGas<T> {
     /// Create a new ideal gas
     pub fn new(
         name: String,
@@ -190,7 +193,7 @@ impl<T: RealField + FromPrimitive + Copy> IdealGas<T> {
         sutherland_constant: T,
     ) -> Self {
         // Thermal conductivity from Prandtl number assumption (Pr ≈ 0.7 for air)
-        let pr = T::from_f64(0.7).unwrap_or_else(T::one);
+        let pr = <T as FloatElement>::from_f64(0.7);
         let k_coeff = cp / pr;
 
         Self {
@@ -215,7 +218,9 @@ impl<T: RealField + FromPrimitive + Copy> IdealGas<T> {
         let numerator = self.t_ref + self.sutherland_constant;
         let denominator = temperature + self.sutherland_constant;
 
-        self.mu_ref * t_ratio.powf(T::from_f64(1.5).unwrap_or_else(T::one)) * numerator
+        self.mu_ref
+            * <T as FloatElement>::powf(t_ratio, <T as FloatElement>::from_f64(1.5))
+            * numerator
             / denominator
     }
 
@@ -225,14 +230,14 @@ impl<T: RealField + FromPrimitive + Copy> IdealGas<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for IdealGas<T> {
+impl<T: RealField + FloatElement + Copy> FluidTrait<T> for IdealGas<T> {
     fn properties_at(&self, temperature: T, pressure: T) -> Result<FluidState<T>, Error> {
-        if temperature <= T::zero() {
+        if temperature <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
                 "Temperature must be positive".to_string(),
             ));
         }
-        if pressure <= T::zero() {
+        if pressure <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput("Pressure must be positive".to_string()));
         }
 
@@ -244,7 +249,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for IdealGas<T> {
         // gamma = cp / cv = cp / (cp - R)
         let cv = self.cp - self.gas_constant;
         let gamma = self.cp / cv;
-        let speed_of_sound = (gamma * self.gas_constant * temperature).sqrt();
+        let speed_of_sound = <T as NumericElement>::sqrt(gamma * self.gas_constant * temperature);
 
         Ok(FluidState {
             density,

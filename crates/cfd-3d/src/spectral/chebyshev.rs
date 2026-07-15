@@ -24,9 +24,10 @@
 //!
 //! Reference: Trefethen, L.N. (2000). "Spectral Methods in MATLAB"
 
+use crate::scalar;
 use cfd_core::error::Result;
-use nalgebra::{DMatrix, DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, RealField};
+use leto::{Array1, Array2};
 use std::f64::consts::PI;
 
 /// Chebyshev polynomial basis
@@ -36,12 +37,18 @@ pub struct ChebyshevPolynomial<T: cfd_mesh::domain::core::Scalar + RealField + C
     /// Collocation points (Gauss-Lobatto)
     points: Vec<T>,
     /// Differentiation matrix
-    diff_matrix: DMatrix<T>,
+    diff_matrix: Array2<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ChebyshevPolynomial<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> ChebyshevPolynomial<T> {
     /// Create new Chebyshev basis with n collocation points
     pub fn new(n: usize) -> Result<Self> {
+        if n < 2 {
+            return Err(cfd_core::error::Error::InvalidConfiguration(format!(
+                "ChebyshevPolynomial requires at least 2 collocation points, got {n}"
+            )));
+        }
+
         let points = Self::gauss_lobatto_points(n)?;
         let diff_matrix = Self::differentiation_matrix(n, &points)?;
 
@@ -66,12 +73,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Cheby
 
         for j in 0..n {
             let theta = PI * (j as f64) / n_f64;
-            let x =
-                <T as FromPrimitive>::from_f64(num_traits::Float::cos(theta)).ok_or_else(|| {
-                    cfd_core::error::Error::InvalidConfiguration(
-                        "Cannot convert collocation point".into(),
-                    )
-                })?;
+            let x = scalar::from_f64::<T>(theta.cos());
             points.push(x);
         }
 
@@ -80,14 +82,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Cheby
 
     /// Construct Chebyshev differentiation matrix
     /// Based on Trefethen (2000), Chapter 6
-    fn differentiation_matrix(n: usize, points: &[T]) -> Result<DMatrix<T>> {
-        let mut d = DMatrix::zeros(n, n);
-        let two = <T as FromPrimitive>::from_f64(2.0).ok_or_else(|| {
-            cfd_core::error::Error::InvalidConfiguration("Cannot convert constant".into())
-        })?;
+    fn differentiation_matrix(n: usize, points: &[T]) -> Result<Array2<T>> {
+        let mut d = Array2::from_elem([n, n], scalar::zero::<T>());
+        let two = scalar::from_f64::<T>(2.0);
 
         // c_i = 2 for i = 0 or N, 1 otherwise
-        let mut c = vec![T::one(); n];
+        let mut c = vec![scalar::one::<T>(); n];
         c[0] = two;
         c[n - 1] = two;
 
@@ -95,37 +95,37 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Cheby
         for i in 0..n {
             for j in 0..n {
                 if i != j {
-                    let sign_factor = T::from_i32(if (i + j) % 2 == 0 { 1 } else { -1 })
-                        .ok_or_else(|| {
-                            cfd_core::error::Error::InvalidConfiguration(
-                                "Cannot convert sign factor (1 or -1) to numeric type T".into(),
-                            )
-                        })?;
+                    let sign_factor =
+                        scalar::from_f64::<T>(if (i + j) % 2 == 0 { 1.0 } else { -1.0 });
                     let num = c[i] * sign_factor;
                     let den = c[j] * (points[i] - points[j]);
-                    d[(i, j)] = num / den;
+                    d[[i, j]] = num / den;
                 }
             }
         }
 
         // Diagonal entries from sum rule
         for i in 0..n {
-            let mut sum = T::zero();
+            let mut sum = scalar::zero::<T>();
             for j in 0..n {
                 if i != j {
-                    sum += d[(i, j)];
+                    sum += d[[i, j]];
                 }
             }
-            d[(i, i)] = -sum;
+            d[[i, i]] = -sum;
         }
 
         Ok(d)
     }
 
     /// Apply differentiation operator
-    #[must_use]
-    pub fn differentiate(&self, u: &DVector<T>) -> DVector<T> {
-        &self.diff_matrix * u
+    ///
+    /// # Errors
+    ///
+    /// Returns [`cfd_core::error::Error::DimensionMismatch`] when `u` does not
+    /// contain exactly one value per collocation point.
+    pub fn differentiate(&self, u: &Array1<T>) -> Result<Array1<T>> {
+        Self::mat_vec(&self.diff_matrix, u)
     }
 
     /// Get collocation points
@@ -136,14 +136,67 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Cheby
 
     /// Get differentiation matrix reference
     #[must_use]
-    pub fn diff_matrix(&self) -> &DMatrix<T> {
+    pub fn diff_matrix(&self) -> &Array2<T> {
         &self.diff_matrix
     }
 
     /// Get second derivative matrix (D²)
-    pub fn second_derivative_matrix(&self) -> Result<DMatrix<T>> {
-        // Second derivative is D * D
-        Ok(&self.diff_matrix * &self.diff_matrix)
+    pub fn second_derivative_matrix(&self) -> Result<Array2<T>> {
+        Self::mat_mul(&self.diff_matrix, &self.diff_matrix)
+    }
+
+    /// Apply the second-derivative operator.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`cfd_core::error::Error::DimensionMismatch`] when `u` does not
+    /// contain exactly one value per collocation point.
+    pub fn second_derivative(&self, u: &Array1<T>) -> Result<Array1<T>> {
+        let d2 = self.second_derivative_matrix()?;
+        Self::mat_vec(&d2, u)
+    }
+
+    fn mat_vec(matrix: &Array2<T>, vector: &Array1<T>) -> Result<Array1<T>> {
+        let [rows, cols] = matrix.shape();
+        if vector.size() != cols {
+            return Err(cfd_core::error::Error::DimensionMismatch {
+                expected: cols,
+                actual: vector.size(),
+            });
+        }
+
+        let mut out = Array1::from_elem([rows], scalar::zero::<T>());
+        for row in 0..rows {
+            let mut sum = scalar::zero::<T>();
+            for col in 0..cols {
+                sum += matrix[[row, col]] * vector[col];
+            }
+            out[row] = sum;
+        }
+        Ok(out)
+    }
+
+    fn mat_mul(left: &Array2<T>, right: &Array2<T>) -> Result<Array2<T>> {
+        let [left_rows, left_cols] = left.shape();
+        let [right_rows, right_cols] = right.shape();
+        if left_cols != right_rows {
+            return Err(cfd_core::error::Error::DimensionMismatch {
+                expected: left_cols,
+                actual: right_rows,
+            });
+        }
+
+        let mut out = Array2::from_elem([left_rows, right_cols], scalar::zero::<T>());
+        for row in 0..left_rows {
+            for col in 0..right_cols {
+                let mut sum = scalar::zero::<T>();
+                for k in 0..left_cols {
+                    sum += left[[row, k]] * right[[k, col]];
+                }
+                out[[row, col]] = sum;
+            }
+        }
+        Ok(out)
     }
 
     /// Compute Clenshaw-Curtis quadrature weights
@@ -158,60 +211,55 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Cheby
 
         let big_n = n - 1; // N in Trefethen's notation
         let big_n_f64 = big_n as f64;
-        let mut w = vec![T::zero(); n];
+        let mut w = vec![scalar::zero::<T>(); n];
 
-        let one = T::one();
+        let one = scalar::one::<T>();
 
         // Helper to convert f64 to T
-        let to_t = |val: f64| -> Result<T> {
-            <T as FromPrimitive>::from_f64(val).ok_or_else(|| {
-                cfd_core::error::Error::InvalidConfiguration("Cannot convert value".into())
-            })
-        };
+        let to_t = |val: f64| -> T { scalar::from_f64::<T>(val) };
 
         if big_n.is_multiple_of(2) {
             // N is even
             let val = 1.0 / (big_n_f64 * big_n_f64 - 1.0);
-            let w_end = to_t(val)?;
+            let w_end = to_t(val);
             w[0] = w_end;
             w[big_n] = w_end;
 
             for (j, w_j) in w.iter_mut().enumerate().take(big_n).skip(1) {
                 let theta_j = PI * (j as f64) / big_n_f64;
-                let mut sum = T::zero();
+                let mut sum = scalar::zero::<T>();
 
                 for k in 1..(big_n / 2) {
                     let coef = 2.0 / (4.0 * (k as f64).powi(2) - 1.0);
-                    let term = to_t(coef)? * to_t((2.0 * (k as f64) * theta_j).cos())?;
+                    let term = to_t(coef) * to_t((2.0 * (k as f64) * theta_j).cos());
                     sum += term;
                 }
 
                 // Last term for even N
                 let last_coef = 1.0 / (big_n_f64 * big_n_f64 - 1.0);
-                let last_term =
-                    to_t(last_coef)? * to_t(num_traits::Float::cos(big_n_f64 * theta_j))?;
+                let last_term = to_t(last_coef) * to_t((big_n_f64 * theta_j).cos());
                 sum += last_term;
 
-                *w_j = to_t(2.0 / big_n_f64)? * (one - sum);
+                *w_j = to_t(2.0 / big_n_f64) * (one - sum);
             }
         } else {
             // N is odd
             let val = 1.0 / (big_n_f64 * big_n_f64);
-            let w_end = to_t(val)?;
+            let w_end = to_t(val);
             w[0] = w_end;
             w[big_n] = w_end;
 
             for (j, w_j) in w.iter_mut().enumerate().take(big_n).skip(1) {
                 let theta_j = PI * (j as f64) / big_n_f64;
-                let mut sum = T::zero();
+                let mut sum = scalar::zero::<T>();
 
                 for k in 1..=(big_n - 1) / 2 {
                     let coef = 2.0 / (4.0 * (k as f64).powi(2) - 1.0);
-                    let term = to_t(coef)? * to_t((2.0 * (k as f64) * theta_j).cos())?;
+                    let term = to_t(coef) * to_t((2.0 * (k as f64) * theta_j).cos());
                     sum += term;
                 }
 
-                *w_j = to_t(2.0 / big_n_f64)? * (one - sum);
+                *w_j = to_t(2.0 / big_n_f64) * (one - sum);
             }
         }
 
@@ -231,41 +279,31 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Cheby
             )));
         }
 
-        let two = <T as FromPrimitive>::from_f64(2.0).ok_or_else(|| {
-            cfd_core::error::Error::InvalidConfiguration("Cannot convert constant".into())
-        })?;
+        let two = scalar::from_f64::<T>(2.0);
 
         // Barycentric weights for Chebyshev points
-        let mut weights = vec![T::one(); self.n];
-        weights[0] = T::one() / two;
-        weights[self.n - 1] = T::from_i32(if (self.n - 1).is_multiple_of(2) {
-            1
+        let mut weights = vec![scalar::one::<T>(); self.n];
+        weights[0] = scalar::one::<T>() / two;
+        weights[self.n - 1] = scalar::from_f64::<T>(if (self.n - 1).is_multiple_of(2) {
+            1.0
         } else {
-            -1
-        })
-        .ok_or_else(|| {
-            cfd_core::error::Error::InvalidConfiguration("Cannot convert sign".into())
-        })? / two;
+            -1.0
+        }) / two;
 
         for (j, weight) in weights.iter_mut().enumerate().take(self.n - 1).skip(1) {
-            *weight = T::from_i32(if j % 2 == 0 { 1 } else { -1 }).ok_or_else(|| {
-                cfd_core::error::Error::InvalidConfiguration("Cannot convert sign".into())
-            })?;
+            *weight = scalar::from_f64::<T>(if j % 2 == 0 { 1.0 } else { -1.0 });
         }
 
         // Check if x matches a grid point
         for (j, &x_j) in self.points.iter().enumerate() {
-            if num_traits::Float::abs(x - x_j)
-                < <T as FromPrimitive>::from_f64(1e-14)
-                    .expect("1e-14 is an IEEE 754 representable f64 constant")
-            {
+            if scalar::abs::<T>(x - x_j) < scalar::from_f64::<T>(1e-14) {
                 return Ok(values[j]);
             }
         }
 
         // Barycentric interpolation
-        let mut numer = T::zero();
-        let mut denom = T::zero();
+        let mut numer = scalar::zero::<T>();
+        let mut denom = scalar::zero::<T>();
 
         for j in 0..self.n {
             let term = weights[j] / (x - self.points[j]);

@@ -1,24 +1,23 @@
 //! Blood trauma assessment and platelet activation models.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Shear-induced platelet activation model
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlateletActivation<T: RealField + Copy> {
+pub struct PlateletActivation<T: FloatElement + Copy> {
     /// Activation threshold (Pa)
     threshold: T,
     /// Activation rate constant (1/Pa/s)
     rate_constant: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> PlateletActivation<T> {
+impl<T: FloatElement + Copy> PlateletActivation<T> {
     /// Create standard platelet activation model
     pub fn standard() -> Self {
         Self {
-            threshold: T::from_f64(30.0).unwrap_or_else(|| T::one()),
-            rate_constant: T::from_f64(0.01).unwrap_or_else(|| T::one()),
+            threshold: <T as FloatElement>::from_f64(30.0),
+            rate_constant: <T as FloatElement>::from_f64(0.01),
         }
     }
 
@@ -26,10 +25,11 @@ impl<T: RealField + Copy + FromPrimitive> PlateletActivation<T> {
     pub fn activation_probability(&self, shear_stress: T, exposure_time: T) -> T {
         if shear_stress > self.threshold {
             let excess_stress = shear_stress - self.threshold;
-            let exponent = -(self.rate_constant * excess_stress * exposure_time);
-            T::one() - (-exponent).exp()
+            let exponent =
+                <T as NumericElement>::ZERO - self.rate_constant * excess_stress * exposure_time;
+            <T as NumericElement>::ONE - FloatElement::exp(exponent)
         } else {
-            T::zero()
+            <T as NumericElement>::ZERO
         }
     }
 }

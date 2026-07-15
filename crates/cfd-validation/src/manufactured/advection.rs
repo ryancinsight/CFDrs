@@ -4,8 +4,8 @@
 //! where S is the manufactured source term
 
 use super::ManufacturedSolution;
-use nalgebra::{ComplexField, RealField};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::{FloatElement, RealField};
 use std::f64::consts::PI;
 
 /// Manufactured solution for 2D linear advection
@@ -17,7 +17,7 @@ pub struct ManufacturedAdvection<T: RealField + Copy> {
     pub vy: T,
 }
 
-impl<T: RealField + Copy> ManufacturedAdvection<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedAdvection<T> {
     /// Create a new manufactured advection solution
     pub fn new(vx: T, vy: T) -> Self {
         Self { vx, vy }
@@ -26,17 +26,17 @@ impl<T: RealField + Copy> ManufacturedAdvection<T> {
     /// Create with unit velocity
     pub fn unit_velocity() -> Self {
         Self {
-            vx: T::one(),
-            vy: T::one(),
+            vx: scalar::one::<T>(),
+            vy: scalar::one::<T>(),
         }
     }
 }
 
-impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedAdvection<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for ManufacturedAdvection<T> {
     /// Exact solution: u(x,y,t) = sin(x - vx*t) * cos(y - vy*t)
     /// This represents a wave propagating with velocity (vx, vy)
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
-        ComplexField::sin(x - self.vx * t) * ComplexField::cos(y - self.vy * t)
+        scalar::sin(x - self.vx * t) * scalar::cos(y - self.vy * t)
     }
 
     /// Source term: S = ∂u/∂t + v·∇u
@@ -45,7 +45,7 @@ impl<T: RealField + Copy> ManufacturedSolution<T> for ManufacturedAdvection<T> {
     fn source_term(&self, _x: T, _y: T, _z: T, _t: T) -> T {
         // For pure advection, the source term is zero
         // But we can add a manufactured source for testing
-        T::zero()
+        scalar::zero::<T>()
     }
 }
 
@@ -59,13 +59,13 @@ pub struct RotatingAdvection<T: RealField + Copy> {
     pub cy: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> RotatingAdvection<T> {
+impl<T: RealField + Copy + FloatElement> RotatingAdvection<T> {
     /// Create a new rotating advection solution
     pub fn new(omega: T) -> Self {
         Self {
             omega,
-            cx: <T as FromPrimitive>::from_f64(0.5).unwrap(),
-            cy: <T as FromPrimitive>::from_f64(0.5).unwrap(),
+            cx: scalar::from_f64(0.5),
+            cy: scalar::from_f64(0.5),
         }
     }
 
@@ -79,13 +79,13 @@ impl<T: RealField + Copy + FromPrimitive> RotatingAdvection<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for RotatingAdvection<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for RotatingAdvection<T> {
     /// Exact solution: Gaussian bump rotating around center
     fn exact_solution(&self, x: T, y: T, _z: T, t: T) -> T {
         // Rotate the coordinates backward in time
         let theta = -self.omega * t;
-        let cos_theta = ComplexField::cos(theta);
-        let sin_theta = ComplexField::sin(theta);
+        let cos_theta = scalar::cos(theta);
+        let sin_theta = scalar::sin(theta);
 
         // Transform to rotated coordinates
         let dx = x - self.cx;
@@ -94,17 +94,15 @@ impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for RotatingAd
         let y_rot = dx * sin_theta + dy * cos_theta;
 
         // Gaussian bump at rotated position
-        let sigma = <T as FromPrimitive>::from_f64(0.1).unwrap();
+        let sigma = scalar::from_f64::<T>(0.1);
         let r_squared = x_rot * x_rot + y_rot * y_rot;
-        ComplexField::exp(
-            -r_squared / (<T as FromPrimitive>::from_f64(2.0).unwrap() * sigma * sigma),
-        )
+        scalar::exp(-r_squared / (scalar::from_f64::<T>(2.0) * sigma * sigma))
     }
 
     /// Source term for rotating advection
     fn source_term(&self, _x: T, _y: T, _z: T, _t: T) -> T {
         // For solid body rotation with no diffusion, source is zero
-        T::zero()
+        scalar::zero::<T>()
     }
 }
 
@@ -114,33 +112,29 @@ pub struct ManufacturedBurgers<T: RealField + Copy> {
     pub nu: T,
 }
 
-impl<T: RealField + Copy> ManufacturedBurgers<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedBurgers<T> {
     /// Create a new manufactured Burgers solution
     pub fn new(nu: T) -> Self {
         Self { nu }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ManufacturedSolution<T> for ManufacturedBurgers<T> {
+impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T> for ManufacturedBurgers<T> {
     /// Exact solution: u(x,t) = 2*nu*π*sin(π*x)*exp(-nu*π²*t) / (2 + cos(π*x)*exp(-nu*π²*t))
     /// This is the Cole-Hopf solution for Burgers' equation
     fn exact_solution(&self, x: T, _y: T, _z: T, t: T) -> T {
-        let pi = <T as FromPrimitive>::from_f64(PI).unwrap();
-        let exp_term = ComplexField::exp(-self.nu * pi * pi * t);
-        let numerator = <T as FromPrimitive>::from_f64(2.0).unwrap()
-            * self.nu
-            * pi
-            * ComplexField::sin(pi * x)
-            * exp_term;
-        let denominator =
-            <T as FromPrimitive>::from_f64(2.0).unwrap() + ComplexField::cos(pi * x) * exp_term;
+        let pi = scalar::from_f64::<T>(PI);
+        let two = scalar::from_f64::<T>(2.0);
+        let exp_term = scalar::exp(-self.nu * pi * pi * t);
+        let numerator = two * self.nu * pi * scalar::sin(pi * x) * exp_term;
+        let denominator = two + scalar::cos(pi * x) * exp_term;
         numerator / denominator
     }
 
     /// Source term for Burgers' equation: ∂u/∂t + u*∂u/∂x = nu*∂²u/∂x²
     fn source_term(&self, _x: T, _y: T, _z: T, _t: T) -> T {
         // For the Cole-Hopf solution, no source term is needed
-        T::zero()
+        scalar::zero::<T>()
     }
 }
 
@@ -150,7 +144,7 @@ mod tests {
 
     #[test]
     fn test_advection_solution() {
-        let solution = ManufacturedAdvection::new(1.0, 1.0);
+        let solution = ManufacturedAdvection::new(1.0_f64, 1.0);
 
         // Test wave propagation
         let u0 = solution.exact_solution(0.0, 0.0, 0.0, 0.0);
@@ -160,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_rotating_advection() {
-        let solution = RotatingAdvection::new(2.0 * PI);
+        let solution = RotatingAdvection::new(2.0_f64 * PI);
 
         // After one full rotation (t=1), solution should return to initial state
         let u0 = solution.exact_solution(0.6, 0.5, 0.0, 0.0);
@@ -170,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_burgers_decay() {
-        let solution = ManufacturedBurgers::new(0.01);
+        let solution = ManufacturedBurgers::new(0.01_f64);
 
         // Solution should decay with time
         let u0 = solution.exact_solution(0.5, 0.0, 0.0, 0.0);

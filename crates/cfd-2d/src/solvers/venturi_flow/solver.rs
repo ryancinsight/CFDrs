@@ -1,11 +1,11 @@
 //! Discretized Venturi solver and validation against analytical solutions.
 
 use super::{BernoulliVenturi, VenturiFlowSolution, VenturiGeometry};
+use crate::scalar::Cfd2dScalar;
+use crate::scalar::{self, from_f64};
 use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
-use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result as CfdResult};
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -13,12 +13,12 @@ use serde::{Deserialize, Serialize};
 // ============================================================================
 
 /// 2D Venturi flow solver using Finite Volume Method (FVM)
-pub struct VenturiSolver2D<T: RealField + Copy + Float + FromPrimitive> {
+pub struct VenturiSolver2D<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> {
     _geometry: VenturiGeometry<T>,
     solver: NavierStokesSolver2D<T>,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<T> {
+impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VenturiSolver2D<T> {
     /// Create a new discretized Venturi solver with uniform grid spacing.
     pub fn new(
         geometry: VenturiGeometry<T>,
@@ -101,18 +101,17 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         simple_config: SIMPLEConfig<T>,
     ) -> Self {
         assert!(
-            beta >= T::zero() && beta < T::one(),
+            beta >= scalar::zero::<T>() && beta < scalar::one::<T>(),
             "beta must be in [0, 1)"
         );
 
         let ly = geometry.w_inlet;
-        let two_pi = T::from_f64(2.0 * std::f64::consts::PI)
-            .expect("Exact mathematically representable f64");
+        let two_pi = from_f64::<T>(2.0 * std::f64::consts::PI);
         let mut y_faces = Vec::with_capacity(ny + 1);
-        let ny_t = T::from_usize(ny).expect("Exact mathematically representable f64");
+        let ny_t = scalar::from_usize::<T>(ny);
         for j in 0..=ny {
-            let eta = T::from_usize(j).expect("Exact mathematically representable f64") / ny_t;
-            let s = eta + beta * Float::sin(two_pi * eta) / two_pi;
+            let eta = scalar::from_usize::<T>(j) / ny_t;
+            let s = eta + beta * <T as FloatElement>::sin(two_pi * eta) / two_pi;
             y_faces.push(ly * s);
         }
 
@@ -122,24 +121,19 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         Self::populate_mask(&mut solver, &geometry, nx, ny);
 
         // Log resolution at throat for debugging
-        let dy_min = (0..ny).map(|j| solver.grid.dy_at(j)).fold(ly, Float::min);
+        let dy_min = (0..ny)
+            .map(|j| solver.grid.dy_at(j))
+            .fold(ly, NumericElement::min_scalar);
         let cr = geometry.w_inlet
-            / Float::max(
-                geometry.w_throat,
-                T::from_f64(1e-12).expect("Exact mathematically representable f64"),
-            );
-        if dy_min
-            > geometry.w_throat / T::from_f64(2.0).expect("Exact mathematically representable f64")
-        {
+            / <T as NumericElement>::max_scalar(geometry.w_throat, from_f64::<T>(1e-12));
+        if dy_min > geometry.w_throat / from_f64::<T>(2.0) {
+            let throat_half = geometry.w_throat / from_f64::<T>(2.0);
             tracing::debug!(
                 "[VenturiSolver2D] WARNING: dy_min ({:.2e}) > w_throat/2 ({:.2e}). \
                  CR={:.1}. Consider increasing ny or beta.",
-                dy_min.to_f64().unwrap_or(0.0),
-                (geometry.w_throat
-                    / T::from_f64(2.0).expect("Exact mathematically representable f64"))
-                .to_f64()
-                .unwrap_or(0.0),
-                cr.to_f64().unwrap_or(0.0),
+                <T as NumericElement>::to_f64(dy_min),
+                <T as NumericElement>::to_f64(throat_half),
+                <T as NumericElement>::to_f64(cr),
             );
         }
 
@@ -159,8 +153,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         nx: usize,
         ny: usize,
     ) {
-        let half_h =
-            geometry.w_inlet / T::from_f64(2.0).expect("Exact mathematically representable f64");
+        let half_h = geometry.w_inlet / from_f64::<T>(2.0);
         for i in 0..nx {
             for j in 0..ny {
                 let x = solver.grid.x_center(i);
@@ -192,13 +185,13 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         // Average inlet velocity from the first internal u-faces — zero-alloc fold.
         let (u_sum_in, count_inlet) = (0..ny)
             .filter(|&j| self.solver.field.mask[(0, j)])
-            .fold((T::zero(), 0usize), |(s, n), j| {
+            .fold((scalar::zero::<T>(), 0usize), |(s, n), j| {
                 (s + self.solver.field.u[(1, j)], n + 1)
             });
         let u_inlet_sim = if count_inlet > 0 {
-            u_sum_in / T::from_usize(count_inlet).expect("Exact mathematically representable f64")
+            u_sum_in / scalar::from_usize::<T>(count_inlet)
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
         // Area-averaged throat velocity: find the column at the throat midpoint
@@ -210,29 +203,32 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         // For fully-developed 2D laminar flow, ū = (2/3) u_max.
         let throat_x_mid = self._geometry.l_inlet
             + self._geometry.l_converge
-            + self._geometry.l_throat
-                / T::from_f64(2.0).expect("Exact mathematically representable f64");
-        let i_throat = (0..nx)
-            .min_by_key(|&i| {
-                let dx = self.solver.grid.x_center(i) - throat_x_mid;
-                // Convert to integer for Ord comparison (f64 doesn't implement Ord)
-                (dx * dx * T::from_f64(1e12).expect("Exact mathematically representable f64"))
-                    .to_u64()
-                    .unwrap_or(u64::MAX)
-            })
-            .unwrap_or(nx / 2);
+            + self._geometry.l_throat / from_f64::<T>(2.0);
+        let mut i_throat = 0usize;
+        let mut best_distance = {
+            let dx = self.solver.grid.x_center(0) - throat_x_mid;
+            dx * dx
+        };
+        for i in 1..nx {
+            let dx = self.solver.grid.x_center(i) - throat_x_mid;
+            let distance = dx * dx;
+            if distance < best_distance {
+                i_throat = i;
+                best_distance = distance;
+            }
+        }
         let (u_throat, p_throat, u_throat_mean) = self.sample_throat_section(i_throat, ny)?;
 
         // Average outlet pressure from the last fluid column — zero-alloc fold.
         let (p_sum_out, count_outlet) = (0..ny)
             .filter(|&j| self.solver.field.mask[(nx - 1, j)])
-            .fold((T::zero(), 0usize), |(s, n), j| {
+            .fold((scalar::zero::<T>(), 0usize), |(s, n), j| {
                 (s + self.solver.field.p[(nx - 1, j)], n + 1)
             });
         let p_outlet = if count_outlet > 0 {
-            p_sum_out / T::from_usize(count_outlet).expect("Exact mathematically representable f64")
+            p_sum_out / scalar::from_usize::<T>(count_outlet)
         } else {
-            T::zero()
+            scalar::zero::<T>()
         };
 
         let p_inlet = self.solver.field.p[(0, ny / 2)]; // Reference inlet pressure
@@ -241,16 +237,10 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
         let dp_recovery = p_outlet - p_inlet;
 
         let rho = self.solver.density;
-        let q_dyn = T::from_f64(0.5).expect("Exact mathematically representable f64")
-            * rho
-            * u_inlet
-            * u_inlet;
+        let q_dyn = from_f64::<T>(0.5) * rho * u_inlet * u_inlet;
         // Guard: avoid division by near-zero dynamic pressure.  Use 1e-6 Pa (not 1.0)
         // so Cp remains physically meaningful even at very low inlet velocities.
-        let q_dyn_safe = num_traits::Float::max(
-            q_dyn,
-            T::from_f64(1e-6).expect("Exact mathematically representable f64"),
-        );
+        let q_dyn_safe = <T as NumericElement>::max_scalar(q_dyn, from_f64::<T>(1e-6));
         let cp_throat = dp_throat / q_dyn_safe;
         let cp_recovery = dp_recovery / q_dyn_safe;
 
@@ -272,9 +262,9 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
 
     fn sample_throat_section(&self, i_throat: usize, ny: usize) -> CfdResult<(T, T, T)> {
         let mut count_throat = 0usize;
-        let mut u_sum_throat = T::zero();
-        let mut u_peak_throat = T::zero();
-        let mut p_at_peak_throat = T::zero();
+        let mut u_sum_throat = scalar::zero::<T>();
+        let mut u_peak_throat = scalar::zero::<T>();
+        let mut p_at_peak_throat = scalar::zero::<T>();
 
         for j in 0..ny {
             if !self.solver.field.mask[(i_throat, j)] {
@@ -296,8 +286,7 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
             ));
         }
 
-        let u_throat_mean = u_sum_throat
-            / T::from_usize(count_throat).expect("Exact mathematically representable f64");
+        let u_throat_mean = u_sum_throat / scalar::from_usize::<T>(count_throat);
         Ok((u_peak_throat, p_at_peak_throat, u_throat_mean))
     }
 }
@@ -307,11 +296,11 @@ impl<T: RealField + Copy + Float + FromPrimitive + ToPrimitive> VenturiSolver2D<
 // ============================================================================
 
 /// Venturi validation against analytical and literature solutions
-pub struct VenturiValidator<T: RealField + Copy> {
+pub struct VenturiValidator<T: Cfd2dScalar + Copy> {
     geometry: VenturiGeometry<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> VenturiValidator<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> VenturiValidator<T> {
     /// Create new validator
     pub fn new(geometry: VenturiGeometry<T>) -> Self {
         Self { geometry }
@@ -337,10 +326,13 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> VenturiValidator<T> {
         let p_throat_analytical = bernoulli.pressure_throat();
 
         // Calculate relative errors
-        let u_throat_error =
-            (numerical.u_throat - u_throat_analytical).abs() / u_throat_analytical.abs();
-        let p_throat_error = (numerical.p_throat - p_throat_analytical).abs()
-            / p_throat_analytical.abs().max(T::from_f64_or_one(1.0));
+        let u_throat_error = eunomia::NumericElement::abs(numerical.u_throat - u_throat_analytical)
+            / eunomia::NumericElement::abs(u_throat_analytical);
+        let p_throat_error = eunomia::NumericElement::abs(numerical.p_throat - p_throat_analytical)
+            / eunomia::NumericElement::max_scalar(
+                eunomia::NumericElement::abs(p_throat_analytical),
+                from_f64::<T>(1.0),
+            );
 
         let mut result = VenturiValidationResult {
             u_throat_error: Some(u_throat_error),
@@ -350,8 +342,8 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> VenturiValidator<T> {
         };
 
         // Check tolerances
-        let tolerance_u = T::from_f64_or_one(0.01); // 1%
-        let tolerance_p = T::from_f64_or_one(0.05); // 5%
+        let tolerance_u = from_f64::<T>(0.01); // 1%
+        let tolerance_p = from_f64::<T>(0.05); // 5%
 
         if u_throat_error < tolerance_u && p_throat_error < tolerance_p {
             result.validation_passed = true;
@@ -362,7 +354,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> VenturiValidator<T> {
                 let _ = write!(
                     msg,
                     "Throat velocity error {:.2e} > 1%",
-                    u_throat_error.to_f64().unwrap_or(f64::NAN)
+                    eunomia::NumericElement::to_f64(u_throat_error)
                 );
             }
             if p_throat_error >= tolerance_p {
@@ -370,7 +362,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> VenturiValidator<T> {
                 let _ = write!(
                     msg,
                     "Throat pressure error {:.2e} > 5%",
-                    p_throat_error.to_f64().unwrap_or(f64::NAN)
+                    eunomia::NumericElement::to_f64(p_throat_error)
                 );
             }
             result.error_message = Some(msg);
@@ -382,7 +374,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> VenturiValidator<T> {
 
 /// Validation result for Venturi
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VenturiValidationResult<T: RealField + Copy> {
+pub struct VenturiValidationResult<T: Cfd2dScalar + Copy> {
     /// Relative error in throat velocity
     pub u_throat_error: Option<T>,
     /// Relative error in throat pressure
@@ -408,7 +400,7 @@ mod tests {
 
         assert!(result.is_ok(), "Solver failed: {:?}", result.err());
         let sol = result.expect("Solver failed to converge");
-        println!("Venturi Solution: {:?}", sol);
+        println!("Venturi Solution: {sol:?}");
 
         // Qualification checks
         assert!(
@@ -471,9 +463,7 @@ mod tests {
         let dy_boundary = solver.solver.grid.dy_at(0);
         assert!(
             dy_center < dy_boundary,
-            "Centre cells ({:.6}) should be finer than boundary cells ({:.6})",
-            dy_center,
-            dy_boundary
+            "Centre cells ({dy_center:.6}) should be finer than boundary cells ({dy_boundary:.6})"
         );
     }
 

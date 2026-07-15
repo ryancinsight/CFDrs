@@ -20,7 +20,6 @@
 
 use crate::error::{Error, Result};
 use crate::physics::cavitation::nuclei_transport::NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION;
-use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 
 const REFERENCE_MEMBRANE_STIFFNESS_PA: f64 = 100_000.0;
@@ -150,15 +149,15 @@ pub struct SelectiveCavitationResult {
 
 /// Legacy coarse population type retained as a compatibility adapter.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct CellularPopulation<T: RealField + Copy> {
+pub struct CellularPopulation {
     /// Volume fraction of instances.
-    pub volume_fraction: T,
+    pub volume_fraction: f64,
     /// Absolute membrane stiffness scaling \[Pa].
-    pub membrane_stiffness_pa: T,
+    pub membrane_stiffness_pa: f64,
     /// Interfacial tension of the cellular envelope [N/m].
-    pub interfacial_tension_n_m: T,
+    pub interfacial_tension_n_m: f64,
     /// Nominal particle / cell radius acting as initial nuclei seed \[m].
-    pub particle_radius_m: T,
+    pub particle_radius_m: f64,
 }
 
 fn unit_f64() -> f64 {
@@ -376,11 +375,11 @@ pub fn rank_population_selectivity(
 }
 
 /// Compatibility adapter for the legacy coarse mixture helper.
-pub fn heterogeneous_inception_threshold_pa<T: RealField + Copy>(
-    base_vapor_pressure_pa: T,
-    ambient_pressure_pa: T,
-    populations: &[CellularPopulation<T>],
-) -> T {
+pub fn heterogeneous_inception_threshold_pa(
+    base_vapor_pressure_pa: f64,
+    ambient_pressure_pa: f64,
+    populations: &[CellularPopulation],
+) -> f64 {
     let mapped = populations
         .iter()
         .enumerate()
@@ -388,16 +387,13 @@ pub fn heterogeneous_inception_threshold_pa<T: RealField + Copy>(
             identity: CellPopulationIdentity::GenericHealthy,
             label: format!("population_{index}"),
             mechanical_state: CellMechanicalState {
-                membrane_stiffness_pa: pop
-                    .membrane_stiffness_pa
-                    .to_subset()
-                    .unwrap_or(REFERENCE_MEMBRANE_STIFFNESS_PA),
-                interfacial_tension_n_m: pop.interfacial_tension_n_m.to_subset().unwrap_or(0.05),
-                particle_radius_m: pop.particle_radius_m.to_subset().unwrap_or(5.0e-6),
+                membrane_stiffness_pa: pop.membrane_stiffness_pa,
+                interfacial_tension_n_m: pop.interfacial_tension_n_m,
+                particle_radius_m: pop.particle_radius_m,
                 deformability_factor: 1.0,
             },
             nucleation_state: PopulationNucleationState {
-                volume_fraction: pop.volume_fraction.to_subset().unwrap_or(0.0),
+                volume_fraction: pop.volume_fraction,
                 upstream_nuclei_fraction: 0.0,
                 seed_density_factor: 0.0,
                 inception_weight: 1.0,
@@ -406,17 +402,16 @@ pub fn heterogeneous_inception_threshold_pa<T: RealField + Copy>(
         .collect::<Vec<_>>();
 
     let input = SelectiveCavitationInput {
-        base_vapor_pressure_pa: base_vapor_pressure_pa.to_subset().unwrap_or(0.0),
-        ambient_pressure_pa: ambient_pressure_pa.to_subset().unwrap_or(101_325.0),
+        base_vapor_pressure_pa,
+        ambient_pressure_pa,
         density_kg_m3: 1_000.0,
         populations: mapped,
     };
 
-    let threshold = evaluate_selective_cavitation_thresholds(&input).map_or_else(
+    evaluate_selective_cavitation_thresholds(&input).map_or_else(
         |_| input.base_vapor_pressure_pa,
         |result| result.mixture_inception_threshold_pa,
-    );
-    T::from_f64(threshold).unwrap_or(base_vapor_pressure_pa)
+    )
 }
 
 #[cfg(test)]
@@ -529,6 +524,69 @@ mod tests {
 
         assert!(result.mixture_inception_threshold_pa >= min_threshold);
         assert!(result.mixture_inception_threshold_pa <= max_threshold);
+    }
+
+    #[test]
+    fn legacy_coarse_adapter_matches_selective_evaluator() {
+        let populations = [
+            CellularPopulation {
+                volume_fraction: 0.25,
+                membrane_stiffness_pa: 85_000.0,
+                interfacial_tension_n_m: 0.052,
+                particle_radius_m: 4.0e-6,
+            },
+            CellularPopulation {
+                volume_fraction: 0.75,
+                membrane_stiffness_pa: 130_000.0,
+                interfacial_tension_n_m: 0.071,
+                particle_radius_m: 5.5e-6,
+            },
+        ];
+        let expected = evaluate_selective_cavitation_thresholds(&SelectiveCavitationInput {
+            base_vapor_pressure_pa: 3_170.0,
+            ambient_pressure_pa: 101_325.0,
+            density_kg_m3: 1_000.0,
+            populations: vec![
+                SelectiveCavitationPopulation {
+                    identity: CellPopulationIdentity::GenericHealthy,
+                    label: "population_0".to_string(),
+                    mechanical_state: CellMechanicalState {
+                        membrane_stiffness_pa: populations[0].membrane_stiffness_pa,
+                        interfacial_tension_n_m: populations[0].interfacial_tension_n_m,
+                        particle_radius_m: populations[0].particle_radius_m,
+                        deformability_factor: 1.0,
+                    },
+                    nucleation_state: PopulationNucleationState {
+                        volume_fraction: populations[0].volume_fraction,
+                        upstream_nuclei_fraction: 0.0,
+                        seed_density_factor: 0.0,
+                        inception_weight: 1.0,
+                    },
+                },
+                SelectiveCavitationPopulation {
+                    identity: CellPopulationIdentity::GenericHealthy,
+                    label: "population_1".to_string(),
+                    mechanical_state: CellMechanicalState {
+                        membrane_stiffness_pa: populations[1].membrane_stiffness_pa,
+                        interfacial_tension_n_m: populations[1].interfacial_tension_n_m,
+                        particle_radius_m: populations[1].particle_radius_m,
+                        deformability_factor: 1.0,
+                    },
+                    nucleation_state: PopulationNucleationState {
+                        volume_fraction: populations[1].volume_fraction,
+                        upstream_nuclei_fraction: 0.0,
+                        seed_density_factor: 0.0,
+                        inception_weight: 1.0,
+                    },
+                },
+            ],
+        })
+        .expect("equivalent selective input should evaluate")
+        .mixture_inception_threshold_pa;
+
+        let actual = heterogeneous_inception_threshold_pa(3_170.0, 101_325.0, &populations);
+
+        assert!((actual - expected).abs() <= 1.0e-12);
     }
 
     proptest! {

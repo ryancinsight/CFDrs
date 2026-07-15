@@ -18,15 +18,17 @@ use super::config::PressureLinearSolver;
 use crate::fields::Field2D;
 use crate::grid::array2d::Array2D;
 use crate::grid::StructuredGrid2D;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_math::linear_solver::preconditioners::AlgebraicMultigrid;
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, GMRES};
 use cfd_math::sparse::SparseMatrixBuilder;
-use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use leto::{geometry::Vector2, Array1};
 use std::fmt::Debug;
 
 /// Pressure correction solver supporting multiple linear solver backends
-pub struct PressureCorrectionSolver<T: RealField + Copy> {
+pub struct PressureCorrectionSolver<T: Cfd2dScalar + Copy> {
     pub(super) grid: StructuredGrid2D<T>,
     pub(super) solver_type: PressureLinearSolver,
     pub(super) cg_solver: ConjugateGradient<T>,
@@ -34,13 +36,13 @@ pub struct PressureCorrectionSolver<T: RealField + Copy> {
     pub(super) gmres_solver: Option<GMRES<T>>,
     pub(super) _amg_preconditioner: std::cell::RefCell<Option<AlgebraicMultigrid<T>>>,
     pub(super) _laplacian_cache: std::cell::RefCell<Option<cfd_math::sparse::SparseMatrix<T>>>,
-    pub(super) _rhs_cache: std::cell::RefCell<Option<nalgebra::DVector<T>>>,
-    pub(super) _solution_cache: std::cell::RefCell<Option<nalgebra::DVector<T>>>,
+    pub(super) _rhs_cache: std::cell::RefCell<Option<Array1<T>>>,
+    pub(super) _solution_cache: std::cell::RefCell<Option<Array1<T>>>,
     pub(super) _p_correction_cache: std::cell::RefCell<Option<Array2D<T>>>,
     pub(super) _matrix_builder_cache: std::cell::RefCell<Option<SparseMatrixBuilder<T>>>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
+impl<T: Cfd2dScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
     /// Create new pressure correction solver with specified linear solver
     ///
     /// ## Recommended Solver Selection
@@ -55,10 +57,8 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
     ) -> cfd_core::error::Result<Self> {
         let config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: 200,
-            tolerance: T::from_f64(1e-3)
-                .expect("Failed to convert pressure solver tolerance"),
+            tolerance: <T as FloatElement>::from_f64(1e-3),
             use_preconditioner: false,
-            use_parallel_spmv: false,
         };
 
         let gmres_solver = match solver_type {
@@ -97,14 +97,14 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
         let dx = self.grid.dx;
         let dy = self.grid.dy;
         let volume = dx * dy;
-        let two = T::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO)
-            .unwrap_or_else(|| T::one() + T::one());
+        let two =
+            <T as FloatElement>::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO);
 
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
                 if !fields.mask.at(i, j) {
-                    u_star[(i, j)].x = T::zero();
-                    u_star[(i, j)].y = T::zero();
+                    u_star[(i, j)][0] = scalar::zero::<T>();
+                    u_star[(i, j)][1] = scalar::zero::<T>();
                     continue;
                 }
 
@@ -117,7 +117,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                 } else if left_fluid {
                     (p_correction[(i, j)] - p_correction[(i - 1, j)]) / (two * dx)
                 } else {
-                    T::zero()
+                    scalar::zero::<T>()
                 };
 
                 let south_fluid = fields.mask.at(i, j - 1);
@@ -129,14 +129,14 @@ impl<T: RealField + Copy + FromPrimitive + Debug> PressureCorrectionSolver<T> {
                 } else if south_fluid {
                     (p_correction[(i, j)] - p_correction[(i, j - 1)]) / (two * dy)
                 } else {
-                    T::zero()
+                    scalar::zero::<T>()
                 };
 
                 let factor_u = volume / ap_u.at(i, j);
                 let factor_v = volume / ap_v.at(i, j);
 
-                u_star[(i, j)].x -= alpha * factor_u * dp_dx;
-                u_star[(i, j)].y -= alpha * factor_v * dp_dy;
+                u_star[(i, j)][0] -= alpha * factor_u * dp_dx;
+                u_star[(i, j)][1] -= alpha * factor_v * dp_dy;
             }
         }
     }

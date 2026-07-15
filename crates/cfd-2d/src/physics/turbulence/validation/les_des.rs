@@ -6,12 +6,13 @@ use crate::physics::turbulence::traits::TurbulenceModel;
 use crate::physics::turbulence::{
     DetachedEddySimulation, KEpsilonModel, KOmegaSSTModel, SmagorinskyLES,
 };
-use nalgebra::{DMatrix, RealField, Vector2};
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::RealField as EunomiaRealField;
+use leto::geometry::Vector2;
+use leto::Array2;
 
 use super::TurbulenceValidator;
 
-impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
+impl<T: EunomiaRealField + Copy> TurbulenceValidator<T> {
     /// Validate Smagorinsky LES model SGS viscosity calculation
     pub fn validate_smagorinsky_sgs(&self) -> ValidationResult {
         let config = crate::physics::turbulence::les_smagorinsky::SmagorinskyConfig {
@@ -20,23 +21,22 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             wall_damping: false,
             van_driest_constant: 0.0,
             min_sgs_viscosity: 0.0,
-            use_gpu: false,
         };
         let mut model = SmagorinskyLES::new(16, 16, 0.1, 0.1, config);
 
-        let mut velocity_u = nalgebra::DMatrix::zeros(16, 16);
-        let velocity_v = nalgebra::DMatrix::zeros(16, 16);
+        let mut velocity_u = Array2::zeros([16, 16]);
+        let velocity_v = Array2::zeros([16, 16]);
 
         for j in 0..16 {
             for i in 0..16 {
-                velocity_u[(i, j)] = j as f64 * 0.1;
+                velocity_u[[i, j]] = j as f64 * 0.1;
             }
         }
 
         let result = model.update(
             &velocity_u,
             &velocity_v,
-            &nalgebra::DMatrix::zeros(16, 16),
+            &Array2::zeros([16, 16]),
             1.0,
             1e-5,
             0.001,
@@ -61,7 +61,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
         for j in 1..15 {
             for i in 1..15 {
-                let sgs = sgs_viscosity[(i, j)];
+                let sgs = sgs_viscosity[[i, j]];
                 if sgs < 0.0 {
                     all_positive = false;
                 }
@@ -94,22 +94,22 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         };
         let mut model = DetachedEddySimulation::new(16, 16, 0.1, 0.1, config, &[]);
 
-        let mut velocity_u = nalgebra::DMatrix::zeros(16, 16);
-        let mut velocity_v = nalgebra::DMatrix::zeros(16, 16);
+        let mut velocity_u = Array2::zeros([16, 16]);
+        let mut velocity_v = Array2::zeros([16, 16]);
 
         for j in 0..16 {
             for i in 0..16 {
                 let x = i as f64 * 0.1;
                 let y = j as f64 * 0.1;
-                velocity_u[(i, j)] = (x * 0.1).sin() + 0.1;
-                velocity_v[(i, j)] = (y * 0.1).cos() + 0.1;
+                velocity_u[[i, j]] = (x * 0.1).sin() + 0.1;
+                velocity_v[[i, j]] = (y * 0.1).cos() + 0.1;
             }
         }
 
         let result = model.update(
             &velocity_u,
             &velocity_v,
-            &nalgebra::DMatrix::zeros(16, 16),
+            &Array2::zeros([16, 16]),
             1.0,
             1e-5,
             0.001,
@@ -134,7 +134,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
         for j in 0..16 {
             for i in 0..16 {
-                let visc = sgs_viscosity[(i, j)];
+                let visc = sgs_viscosity[[i, j]];
                 if !visc.is_finite() {
                     all_finite = false;
                 }
@@ -206,7 +206,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
         }
 
         let wall_shear_stress =
-            kinematic_viscosity * (velocity_field[ny].x - velocity_field[0].x) / dy;
+            kinematic_viscosity * (velocity_field[ny][0] - velocity_field[0][0]) / dy;
         let calculated_cf = wall_shear_stress / (0.5 * free_stream_velocity * free_stream_velocity);
 
         let cf_ratio = calculated_cf / expected_cf;
@@ -277,7 +277,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
         for j in 0..ny {
             let y_plus = (j as f64 / (ny - 1) as f64) * re_tau;
-            let u_physical = velocity_field[j].x;
+            let u_physical = velocity_field[j][0];
             let u_plus_calc = u_physical / (kinematic_viscosity * re_tau);
 
             u_plus_calculated.push(u_plus_calc);
@@ -321,13 +321,12 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
             wall_damping: false,
             van_driest_constant: 0.0,
             min_sgs_viscosity: 0.0,
-            use_gpu: false,
         };
 
         let mut les_model = SmagorinskyLES::new(nx, ny, 0.05, 0.05, config);
 
-        let mut velocity_u = DMatrix::from_element(nx, ny, 0.0);
-        let mut velocity_v = DMatrix::from_element(nx, ny, 0.0);
+        let mut velocity_u = Array2::from_elem([nx, ny], 0.0);
+        let mut velocity_v = Array2::from_elem([nx, ny], 0.0);
 
         use std::f64::consts::PI;
         for j in 0..ny {
@@ -340,8 +339,8 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                 let fluctuation_v = 0.1_f64
                     * ((2.0_f64 * PI * x / 0.5_f64).cos() + (4.0_f64 * PI * x / 0.5_f64).cos())
                     * ((2.0_f64 * PI * y / 0.5_f64).sin() + (4.0_f64 * PI * y / 0.5_f64).sin());
-                velocity_u[(i, j)] = fluctuation_u;
-                velocity_v[(i, j)] = fluctuation_v;
+                velocity_u[[i, j]] = fluctuation_u;
+                velocity_v[[i, j]] = fluctuation_v;
             }
         }
 
@@ -359,7 +358,7 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
                 .update(
                     &velocity_u,
                     &velocity_v,
-                    &DMatrix::zeros(nx, ny),
+                    &Array2::zeros([nx, ny]),
                     density,
                     viscosity,
                     dt,
@@ -394,17 +393,17 @@ impl<T: RealField + FromPrimitive + ToPrimitive + Copy> TurbulenceValidator<T> {
 
     /// Helper function to calculate kinetic energy from velocity field
     pub(super) fn calculate_kinetic_energy(
-        velocity_u: &DMatrix<f64>,
-        velocity_v: &DMatrix<f64>,
+        velocity_u: &Array2<f64>,
+        velocity_v: &Array2<f64>,
     ) -> f64 {
         let mut ke = 0.0;
-        let nx = velocity_u.nrows();
-        let ny = velocity_u.ncols();
+        let nx = velocity_u.shape()[0];
+        let ny = velocity_u.shape()[1];
 
         for j in 0..ny {
             for i in 0..nx {
-                let u = velocity_u[(i, j)];
-                let v = velocity_v[(i, j)];
+                let u = velocity_u[[i, j]];
+                let v = velocity_v[[i, j]];
                 ke += 0.5 * (u * u + v * v);
             }
         }

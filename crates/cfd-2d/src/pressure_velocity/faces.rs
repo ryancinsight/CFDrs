@@ -5,14 +5,15 @@
 use super::pressure::PressureCorrectionSolver;
 use crate::grid::array2d::Array2D;
 use crate::physics::momentum::validate_boundary_consistency;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_math::sparse::SparseMatrixBuilder;
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
+use leto::Array1;
+use leto_ops::norm_l2;
 use std::fmt::Debug;
 
-impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
-    PressureCorrectionSolver<T>
-{
+impl<T: Cfd2dScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
     /// Solve pressure correction equation using face velocities (Rhie-Chow)
     pub fn solve_pressure_correction_from_faces(
         &self,
@@ -41,7 +42,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
         if n <= 1 {
             for i in 0..nx {
                 for j in 0..ny {
-                    output_correction[(i, j)] = T::zero();
+                    output_correction[(i, j)] = scalar::zero::<T>();
                 }
             }
             return Ok(());
@@ -60,7 +61,10 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
             }
         };
 
-        let has_dirichlet = is_dirichlet("west") || is_dirichlet("east") || is_dirichlet("south") || is_dirichlet("north");
+        let has_dirichlet = is_dirichlet("west")
+            || is_dirichlet("east")
+            || is_dirichlet("south")
+            || is_dirichlet("north");
 
         let (system_size, reference_idx) = if has_dirichlet {
             (n, None)
@@ -90,14 +94,14 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
             ._rhs_cache
             .borrow_mut()
             .take()
-            .filter(|vector| vector.len() == system_size)
-            .unwrap_or_else(|| DVector::zeros(system_size));
-        rhs.fill(T::zero());
+            .filter(|vector| vector.shape()[0] == system_size)
+            .unwrap_or_else(|| Array1::from_elem([system_size], scalar::zero::<T>()));
+        rhs.fill(scalar::zero::<T>());
 
-        let dx2_inv = T::one() / (dx * dx);
-        let dy2_inv = T::one() / (dy * dy);
+        let dx2_inv = scalar::one::<T>() / (dx * dx);
+        let dy2_inv = scalar::one::<T>() / (dy * dy);
 
-        let mut max_residual = T::zero();
+        let mut max_residual = scalar::zero::<T>();
 
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
@@ -108,12 +112,12 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
                 let row_idx = map_index(idx).expect("row index must exist");
 
                 if !fields.mask.at(i, j) {
-                    builder.add_entry(row_idx, row_idx, T::one())?;
-                    rhs[row_idx] = T::zero();
+                    builder.add_entry(row_idx, row_idx, scalar::one::<T>())?;
+                    rhs[row_idx] = scalar::zero::<T>();
                     continue;
                 }
 
-                let mut ap = T::zero();
+                let mut ap = scalar::zero::<T>();
 
                 // West neighbour
                 let aw = d_x[(i - 1, j)] * dx2_inv;
@@ -165,15 +169,17 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
                     + (v_face[(i, j)] - v_face[(i, j - 1)]) / dy;
                 rhs[row_idx] = -div_u;
 
-                if rhs[row_idx].abs() > max_residual {
-                    max_residual = rhs[row_idx].abs();
+                let abs_rhs = NumericElement::abs(rhs[row_idx]);
+                if abs_rhs > max_residual {
+                    max_residual = abs_rhs;
                 }
             }
         }
 
         tracing::debug!(
             "Pressure Solve (faces): n={n}, rhs_norm={:?}, max_residual={max_residual:?}",
-            rhs.norm()
+            norm_l2(&rhs.view())
+                .expect("invariant: face-pressure RHS Leto vector has a valid layout")
         );
 
         let matrix = builder.build()?;
@@ -183,9 +189,9 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
             ._solution_cache
             .borrow_mut()
             .take()
-            .filter(|vector| vector.len() == matrix.nrows())
-            .unwrap_or_else(|| DVector::zeros(matrix.nrows()));
-        p_correction_vec.fill(T::zero());
+            .filter(|vector| vector.shape()[0] == matrix.nrows())
+            .unwrap_or_else(|| Array1::from_elem([matrix.nrows()], scalar::zero::<T>()));
+        p_correction_vec.fill(scalar::zero::<T>());
         self.dispatch_solve(&matrix, &rhs, &mut p_correction_vec)?;
 
         self.scatter_correction(
@@ -205,13 +211,12 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
     /// Scatter solution vector back to 2D grid with appropriate boundary conditions
     pub(super) fn scatter_correction(
         &self,
-        solution: &DVector<T>,
+        solution: &Array1<T>,
         reference_idx: Option<usize>,
         map_index: &dyn Fn(usize) -> Option<usize>,
-        boundary_conditions: Option<&std::collections::HashMap<
-            String,
-            cfd_core::physics::boundary::BoundaryCondition<T>,
-        >>,
+        boundary_conditions: Option<
+            &std::collections::HashMap<String, cfd_core::physics::boundary::BoundaryCondition<T>>,
+        >,
         output_correction: &mut Array2D<T>,
     ) -> cfd_core::error::Result<()> {
         let nx = self.grid.nx;
@@ -220,11 +225,11 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
             for j in 1..ny - 1 {
                 let idx = (i - 1) * (ny - 2) + (j - 1);
                 let value = if Some(idx) == reference_idx {
-                    T::zero()
+                    scalar::zero::<T>()
                 } else if let Some(col_idx) = map_index(idx) {
                     solution[col_idx]
                 } else {
-                    T::zero()
+                    scalar::zero::<T>()
                 };
                 output_correction[(i, j)] = value;
             }
@@ -247,7 +252,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
         // South boundary
         if is_dirichlet("south") {
             for i in 0..nx {
-                output_correction[(i, 0)] = T::zero();
+                output_correction[(i, 0)] = scalar::zero::<T>();
             }
         } else {
             for i in 0..nx {
@@ -258,7 +263,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
         // North boundary
         if is_dirichlet("north") {
             for i in 0..nx {
-                output_correction[(i, ny - 1)] = T::zero();
+                output_correction[(i, ny - 1)] = scalar::zero::<T>();
             }
         } else {
             for i in 0..nx {
@@ -269,7 +274,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
         // West boundary
         if is_dirichlet("west") {
             for j in 0..ny {
-                output_correction[(0, j)] = T::zero();
+                output_correction[(0, j)] = scalar::zero::<T>();
             }
         } else {
             for j in 0..ny {
@@ -280,7 +285,7 @@ impl<T: RealField + Copy + FromPrimitive + Debug + num_traits::ToPrimitive>
         // East boundary
         if is_dirichlet("east") {
             for j in 0..ny {
-                output_correction[(nx - 1, j)] = T::zero();
+                output_correction[(nx - 1, j)] = scalar::zero::<T>();
             }
         } else {
             for j in 0..ny {

@@ -1,11 +1,11 @@
 use crate::grid::array2d::Array2D;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
-use nalgebra::RealField;
 use std::collections::HashMap;
 
 /// Energy equation solver for transporting thermal scalar fields.
-pub struct EnergyEquationSolver<T: RealField + Copy> {
+pub struct EnergyEquationSolver<T: Cfd2dScalar + Copy> {
     /// Temperature field
     pub temperature: Array2D<T>,
     /// Thermal diffusivity field
@@ -37,7 +37,7 @@ pub struct EnergyEquationSolver<T: RealField + Copy> {
     viscous_dissipation_cp: f64,
 }
 
-impl<T: RealField + Copy> EnergyEquationSolver<T> {
+impl<T: Cfd2dScalar + Copy> EnergyEquationSolver<T> {
     /// Create new energy equation solver
     pub fn new(nx: usize, ny: usize, initial_temperature: T, thermal_diffusivity: T) -> Self {
         Self {
@@ -149,7 +149,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
 
                         // Phi = 2*mu*[(du/dx)^2 + (dv/dy)^2] + mu*(du/dy + dv/dx)^2
                         // Compute in T-space using stored f64 mu converted via
-                        // repeated addition (safe for any RealField).
+                        // repeated addition (safe for any Cfd2dScalar).
                         // For simplicity, use the viscous_dissipation_2d function
                         // on f64 and store the contribution to add/remove.
                         let phi = two * (du_dx * du_dx + dv_dy * dv_dy)
@@ -177,7 +177,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
                         let scale = self.viscous_dissipation_mu[(i, j)] / rho_cp;
                         // Convert scale factor from f64 to T via successive halvings.
                         // For f64 T this is exact; for f32 it rounds.
-                        self.heat_source[(i, j)] += contribs[(i, j)] * T::from_subset(&scale);
+                        self.heat_source[(i, j)] += contribs[(i, j)] * <T as eunomia::FloatElement>::from_f64(scale);
                     }
                 }
             }
@@ -240,7 +240,7 @@ impl<T: RealField + Copy> EnergyEquationSolver<T> {
                 for i in 1..self.nx - 1 {
                     for j in 1..self.ny - 1 {
                         let scale = self.viscous_dissipation_mu[(i, j)] / rho_cp;
-                        self.heat_source[(i, j)] -= contribs[(i, j)] * T::from_subset(&scale);
+                        self.heat_source[(i, j)] -= contribs[(i, j)] * <T as eunomia::FloatElement>::from_f64(scale);
                     }
                 }
             }

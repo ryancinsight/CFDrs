@@ -77,11 +77,13 @@
 use crate::constants::numerical::TWO;
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
-use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::{FloatElement, NumericElement};
+use leto::geometry::Vector2;
 
 /// Complete Rhie-Chow interpolation with momentum coefficients
-pub struct RhieChowInterpolation<T: RealField + Copy> {
+pub struct RhieChowInterpolation<T: Cfd2dScalar + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
@@ -95,14 +97,14 @@ pub struct RhieChowInterpolation<T: RealField + Copy> {
     has_old_velocity: bool,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> RhieChowInterpolation<T> {
     /// Create new interpolator with momentum coefficients
     pub fn new(grid: &StructuredGrid2D<T>) -> Self {
         Self {
             nx: grid.nx,
             ny: grid.ny,
-            ap_u_coefficients: Field2D::new(grid.nx, grid.ny, T::one()),
-            ap_v_coefficients: Field2D::new(grid.nx, grid.ny, T::one()),
+            ap_u_coefficients: Field2D::new(grid.nx, grid.ny, scalar::one::<T>()),
+            ap_v_coefficients: Field2D::new(grid.nx, grid.ny, scalar::one::<T>()),
             u_old_buffer: Field2D::new(grid.nx, grid.ny, Vector2::zeros()),
             has_old_velocity: false,
         }
@@ -118,12 +120,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
     /// Update momentum equation coefficients for U component (zero-copy)
     /// `A_p` is the diagonal coefficient from U momentum discretization
     pub fn update_u_coefficients(&mut self, ap_u: &Field2D<T>) {
-        let min_ap = T::from_f64(1e-12).unwrap_or_else(T::default_epsilon);
+        let min_ap = scalar::from_f64(1e-12);
         for (dst, src) in self.ap_u_coefficients.data.iter_mut().zip(ap_u.data.iter()) {
-            *dst = if src.is_finite() && *src > min_ap {
+            *dst = if <T as NumericElement>::is_finite(*src) && *src > min_ap {
                 *src
             } else {
-                T::one()
+                scalar::one::<T>()
             };
         }
     }
@@ -131,24 +133,24 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
     /// Update momentum equation coefficients for V component (zero-copy)
     /// `A_p` is the diagonal coefficient from V momentum discretization
     pub fn update_v_coefficients(&mut self, ap_v: &Field2D<T>) {
-        let min_ap = T::from_f64(1e-12).unwrap_or_else(T::default_epsilon);
+        let min_ap = scalar::from_f64(1e-12);
         for (dst, src) in self.ap_v_coefficients.data.iter_mut().zip(ap_v.data.iter()) {
-            *dst = if src.is_finite() && *src > min_ap {
+            *dst = if <T as NumericElement>::is_finite(*src) && *src > min_ap {
                 *src
             } else {
-                T::one()
+                scalar::one::<T>()
             };
         }
     }
 
     /// Compute face pressure coefficient d_f = (Volume/A_p)_f for x-direction (east face)
     pub fn d_face_x(&self, i: usize, j: usize, dx: T, dy: T) -> T {
-        let two = T::from_f64(TWO).expect("Failed to represent 2.0 in numeric type T");
+        let two: T = scalar::from_f64(TWO);
         let volume = dx * dy;
         let d_p = volume / self.ap_u_coefficients.at(i, j);
         let d_e = volume / self.ap_u_coefficients.at(i + 1, j);
-        if d_p + d_e == T::zero() {
-            T::zero()
+        if d_p + d_e == scalar::zero::<T>() {
+            scalar::zero::<T>()
         } else {
             two * d_p * d_e / (d_p + d_e) // Harmonic averaging
         }
@@ -156,12 +158,12 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
 
     /// Compute face pressure coefficient d_f = (Volume/A_p)_f for y-direction (north face)
     pub fn d_face_y(&self, i: usize, j: usize, dx: T, dy: T) -> T {
-        let two = T::from_f64(TWO).expect("Failed to represent 2.0 in numeric type T");
+        let two: T = scalar::from_f64(TWO);
         let volume = dx * dy;
         let d_p = volume / self.ap_v_coefficients.at(i, j);
         let d_n = volume / self.ap_v_coefficients.at(i, j + 1);
-        if d_p + d_n == T::zero() {
-            T::zero()
+        if d_p + d_n == scalar::zero::<T>() {
+            scalar::zero::<T>()
         } else {
             two * d_p * d_n / (d_p + d_n) // Harmonic averaging
         }
@@ -193,8 +195,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         // East face between cells (i,j) and (i+1,j)
 
         // Linear interpolation of velocity
-        let two = T::from_f64(TWO).expect("Failed to represent 2.0 in numeric type T");
-        let u_bar = (u.at(i, j).x + u.at(i + 1, j).x) / two;
+        let two: T = scalar::from_f64(TWO);
+        let u_bar = (u.at(i, j)[0] + u.at(i + 1, j)[0]) / two;
 
         // Interpolate pressure gradient coefficient d_f = (Volume/A_p)_f
         // Use harmonic averaging for better handling of coefficient variations near boundaries
@@ -202,8 +204,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         let volume = dx * dy; // Correct 2D cell area for rectangular cells
         let d_p = volume / self.ap_u_coefficients.at(i, j);
         let d_e = volume / self.ap_u_coefficients.at(i + 1, j);
-        let d_face = if d_p + d_e == T::zero() {
-            T::zero() // Avoid division by zero
+        let d_face = if d_p + d_e == scalar::zero::<T>() {
+            scalar::zero::<T>() // Avoid division by zero
         } else {
             two * d_p * d_e / (d_p + d_e) // Harmonic averaging
         };
@@ -255,7 +257,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         if let Some(dt) = dt {
             if self.has_old_velocity {
                 let u_bar_old =
-                    (self.u_old_buffer.at(i, j).x + self.u_old_buffer.at(i + 1, j).x) / two;
+                    (self.u_old_buffer.at(i, j)[0] + self.u_old_buffer.at(i + 1, j)[0]) / two;
                 let transient_factor = dt / two; // First-order transient correction per Rhie-Chow (1983)
                 u_f += transient_factor * (u_bar - u_bar_old);
             }
@@ -278,8 +280,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         // North face between cells (i,j) and (i,j+1)
 
         // Linear interpolation of velocity
-        let two = T::from_f64(TWO).expect("Failed to represent 2.0 in numeric type T");
-        let v_bar = (v.at(i, j).y + v.at(i, j + 1).y) / two;
+        let two: T = scalar::from_f64(TWO);
+        let v_bar = (v.at(i, j)[1] + v.at(i, j + 1)[1]) / two;
 
         // Interpolate pressure gradient coefficient
         // Use harmonic averaging for better handling of coefficient variations near boundaries
@@ -287,8 +289,8 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         let volume = dx * dy; // Correct 2D cell area for rectangular cells
         let d_p = volume / self.ap_v_coefficients.at(i, j);
         let d_n = volume / self.ap_v_coefficients.at(i, j + 1);
-        let d_face = if d_p + d_n == T::zero() {
-            T::zero() // Avoid division by zero
+        let d_face = if d_p + d_n == scalar::zero::<T>() {
+            scalar::zero::<T>() // Avoid division by zero
         } else {
             two * d_p * d_n / (d_p + d_n) // Harmonic averaging
         };
@@ -332,7 +334,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> RhieChowInterpolation<T> {
         if let Some(dt) = dt {
             if self.has_old_velocity {
                 let v_bar_old =
-                    (self.u_old_buffer.at(i, j).y + self.u_old_buffer.at(i, j + 1).y) / two;
+                    (self.u_old_buffer.at(i, j)[1] + self.u_old_buffer.at(i, j + 1)[1]) / two;
                 let transient_factor = dt / two; // First-order transient correction per Rhie-Chow (1983)
                 v_f += transient_factor * (v_bar - v_bar_old);
             }

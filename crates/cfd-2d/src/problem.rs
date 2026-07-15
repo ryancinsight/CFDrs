@@ -14,15 +14,18 @@
 //! guarantees stability and physical realism.
 
 use crate::grid::array2d::Array2D;
-use crate::grid::{Grid2D, StructuredGrid2D};
+use crate::grid::StructuredGrid2D;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
-use nalgebra::{RealField, Vector2};
+use eunomia::FloatElement;
+use leto::geometry::Vector2;
 use std::collections::HashMap;
 
 /// Problem definition for 2D incompressible flow
 #[derive(Debug, Clone)]
-pub struct IncompressibleFlowProblem<T: RealField + Copy> {
+pub struct IncompressibleFlowProblem<T: Cfd2dScalar + FloatElement + Copy> {
     /// Computational grid
     pub grid: StructuredGrid2D<T>,
     /// Boundary conditions at specific grid points
@@ -39,7 +42,7 @@ pub struct IncompressibleFlowProblem<T: RealField + Copy> {
     pub end_time: Option<T>,
 }
 
-impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
+impl<T: Cfd2dScalar + FloatElement + Copy> IncompressibleFlowProblem<T> {
     /// Create new incompressible flow problem
     pub fn new(
         grid: StructuredGrid2D<T>,
@@ -54,7 +57,7 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
             boundary_conditions,
             fluid,
             initial_velocity: Array2D::new(nx, ny, Vector2::zeros()),
-            initial_pressure: Array2D::new(nx, ny, T::zero()),
+            initial_pressure: Array2D::new(nx, ny, scalar::zero()),
             time_step: None,
             end_time: None,
         }
@@ -135,7 +138,7 @@ impl<T: RealField + Copy> IncompressibleFlowProblem<T> {
 
 /// Solution structure for incompressible flow
 #[derive(Debug, Clone)]
-pub struct IncompressibleFlowSolution<T: RealField + Copy> {
+pub struct IncompressibleFlowSolution<T: Cfd2dScalar + FloatElement + Copy> {
     /// Final velocity field
     pub velocity: Array2D<Vector2<T>>,
     /// Final pressure field
@@ -148,7 +151,7 @@ pub struct IncompressibleFlowSolution<T: RealField + Copy> {
     pub time: T,
 }
 
-impl<T: RealField + Copy> IncompressibleFlowSolution<T> {
+impl<T: Cfd2dScalar + FloatElement + Copy> IncompressibleFlowSolution<T> {
     /// Create new solution
     pub fn new(
         velocity: Array2D<Vector2<T>>,
@@ -171,7 +174,7 @@ impl<T: RealField + Copy> IncompressibleFlowSolution<T> {
         self.velocity
             .iter()
             .map(|v| v.norm())
-            .fold(T::zero(), |acc, mag| if mag > acc { mag } else { acc })
+            .fold(scalar::zero(), scalar::max)
     }
 
     /// Get maximum pressure
@@ -179,6 +182,39 @@ impl<T: RealField + Copy> IncompressibleFlowSolution<T> {
         self.pressure
             .iter()
             .copied()
-            .fold(T::zero(), |acc, p| if p > acc { p } else { acc })
+            .fold(scalar::zero(), scalar::max)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn water() -> ConstantPropertyFluid<f64> {
+        ConstantPropertyFluid::new("water".to_string(), 1_000.0, 1.0e-3, 4_184.0, 0.6, 1_480.0)
+    }
+
+    #[test]
+    fn new_problem_initializes_provider_owned_fields() {
+        let grid = StructuredGrid2D::new(4, 3, 0.0, 1.0, 0.0, 1.0).unwrap();
+        let problem = IncompressibleFlowProblem::new(grid, HashMap::new(), water());
+
+        assert_eq!(problem.initial_velocity.rows(), 4);
+        assert_eq!(problem.initial_velocity.cols(), 3);
+        assert_eq!(problem.initial_velocity[(2, 1)], Vector2::zeros());
+        assert_eq!(problem.initial_pressure[(2, 1)], 0.0);
+    }
+
+    #[test]
+    fn solution_reports_value_semantic_maxima() {
+        let mut velocity = Array2D::new(2, 2, Vector2::zeros());
+        velocity[(0, 1)] = Vector2::new(3.0, 4.0);
+        let mut pressure = Array2D::new(2, 2, -2.0);
+        pressure[(1, 0)] = 7.0;
+
+        let solution = IncompressibleFlowSolution::new(velocity, pressure, 3, 1.0e-6, 0.1);
+
+        assert_eq!(solution.max_velocity_magnitude(), 5.0);
+        assert_eq!(solution.max_pressure(), 7.0);
     }
 }

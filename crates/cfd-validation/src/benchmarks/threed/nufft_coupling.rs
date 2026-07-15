@@ -4,7 +4,7 @@ use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use cfd_3d::{LagrangianPoint, NufftMarkerCoupler3D};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
-use nalgebra::Vector3;
+use leto::Vector3;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
@@ -67,7 +67,8 @@ impl NufftCouplingBenchmarkConfig {
         }
         if !marker_force_scale.is_finite() || marker_force_scale < 0.0 {
             return Err(Error::InvalidConfiguration(
-                "NufftCouplingBenchmarkConfig: marker_force_scale must be finite and non-negative".into(),
+                "NufftCouplingBenchmarkConfig: marker_force_scale must be finite and non-negative"
+                    .into(),
             ));
         }
         if !validation_tolerance.is_finite() || validation_tolerance < 0.0 {
@@ -179,10 +180,8 @@ impl NufftCouplingBenchmark3D {
         runtime: &BenchmarkConfig<f64>,
     ) -> Result<NufftCouplingBenchmarkReport> {
         let config = self.config.with_runtime_overrides(runtime);
-        let coupler = NufftMarkerCoupler3D::from_dimensions(
-            config.dimensions,
-            config.domain_lengths(),
-        )?;
+        let coupler =
+            NufftMarkerCoupler3D::from_dimensions(config.dimensions, config.domain_lengths())?;
 
         let field = Self::build_velocity_field(&coupler, config.length_scale);
         let probes = Self::probe_positions(config.probe_count, config.domain_lengths());
@@ -205,7 +204,7 @@ impl NufftCouplingBenchmark3D {
 
         for (index, (position, sample)) in probes.iter().zip(sampled.iter()).enumerate() {
             let analytic = Self::analytic_velocity(position, config.length_scale);
-            let absolute_error = (sample - analytic).norm();
+            let absolute_error = (*sample - analytic).norm();
             cumulative_error = cumulative_error.max(absolute_error);
 
             history.probe_checkpoints.push(NufftCouplingCheckpoint {
@@ -249,8 +248,14 @@ impl NufftCouplingBenchmark3D {
         result.metadata = HashMap::from([
             ("dimensions".to_string(), format!("{:?}", config.dimensions)),
             ("length_scale".to_string(), config.length_scale.to_string()),
-            ("marker_weight".to_string(), config.marker_weight.to_string()),
-            ("marker_force_scale".to_string(), config.marker_force_scale.to_string()),
+            (
+                "marker_weight".to_string(),
+                config.marker_weight.to_string(),
+            ),
+            (
+                "marker_force_scale".to_string(),
+                config.marker_force_scale.to_string(),
+            ),
         ]);
 
         Ok(NufftCouplingBenchmarkReport { result, history })
@@ -269,7 +274,10 @@ impl NufftCouplingBenchmark3D {
                 let y = j as f64 * grid.dy;
                 for i in 0..grid.nx {
                     let x = i as f64 * grid.dx;
-                    components.push(Self::analytic_velocity(&Vector3::new(x, y, z), length_scale));
+                    let velocity = Self::analytic_velocity(&Vector3::new(x, y, z), length_scale);
+                    components.push(leto::geometry::Vector3::new(
+                        velocity.x, velocity.y, velocity.z,
+                    ));
                 }
             }
         }
@@ -341,7 +349,9 @@ impl NufftCouplingBenchmark3D {
         field
             .components
             .iter()
-            .fold(Vector3::zeros(), |acc, value| acc + value)
+            .fold(Vector3::zeros(), |acc, value| {
+                acc + Vector3::new(value.x, value.y, value.z)
+            })
     }
 }
 
@@ -415,6 +425,8 @@ mod tests {
         let runtime = BenchmarkConfig::default();
         let result = benchmark.run(&runtime).expect("benchmark should run");
 
-        assert!(benchmark.validate(&result).expect("validation should succeed"));
+        assert!(benchmark
+            .validate(&result)
+            .expect("validation should succeed"));
     }
 }

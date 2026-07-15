@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         1,    // n_correctors (1 = SIMPLE, >1 = PISO)
     );
 
-    let blood = BloodModel::CarreauYasuda(blood_params.clone());
+    let blood = BloodModel::CarreauYasuda(blood_params);
     let grid = StaggeredGrid2D::new(nx, ny, length, height);
     let mut solver = NavierStokesSolver2D::new(grid, blood, rho, config);
 

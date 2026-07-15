@@ -1,13 +1,36 @@
 //! Restriction operators for AMG multigrid methods
 
-use nalgebra::DMatrix;
+use leto::{Array1, Array2};
+use leto_ops::MatrixProduct;
+
+type RestrictionMatrix = Array2<f64>;
+type RestrictionVector = Array1<f64>;
+
+#[inline]
+fn matrix_entry(matrix: &RestrictionMatrix, row: usize, col: usize) -> f64 {
+    *matrix
+        .get([row, col])
+        .expect("invariant: restriction matrix index is in bounds")
+}
+
+#[inline]
+fn vector_entry(vector: &RestrictionVector, row: usize) -> f64 {
+    *vector
+        .get([row])
+        .expect("invariant: restriction vector index is in bounds")
+}
 
 /// Create restriction operator from interpolation operator
 ///
 /// The restriction operator is typically the transpose of the interpolation operator.
 /// This ensures that the Galerkin condition (coarse_matrix = R * fine_matrix * P) is satisfied.
-pub fn create_restriction_from_interpolation(interpolation: &DMatrix<f64>) -> DMatrix<f64> {
-    interpolation.transpose()
+pub fn create_restriction_from_interpolation(
+    interpolation: &RestrictionMatrix,
+) -> RestrictionMatrix {
+    interpolation
+        .transpose([1, 0])
+        .expect("invariant: rank-2 transpose axes are valid")
+        .to_contiguous()
 }
 
 /// Create injection restriction operator
@@ -18,12 +41,14 @@ pub fn create_injection_restriction(
     fine_to_coarse_map: &[Option<usize>],
     fine_n: usize,
     coarse_n: usize,
-) -> DMatrix<f64> {
-    let mut restriction = DMatrix::zeros(coarse_n, fine_n);
+) -> RestrictionMatrix {
+    let mut restriction = RestrictionMatrix::zeros([coarse_n, fine_n]);
 
     for (fine_i, &coarse_opt) in fine_to_coarse_map.iter().enumerate() {
         if let Some(coarse_i) = coarse_opt {
-            restriction[(coarse_i, fine_i)] = 1.0;
+            *restriction
+                .get_mut([coarse_i, fine_i])
+                .expect("invariant: fine-to-coarse map points inside restriction shape") = 1.0;
         }
     }
 
@@ -34,10 +59,10 @@ pub fn create_injection_restriction(
 ///
 /// Full weighting averages all fine values in a neighborhood.
 /// This is commonly used for geometric multigrid.
-pub fn create_full_weighting_restriction(fine_n: usize, coarse_n: usize) -> DMatrix<f64> {
+pub fn create_full_weighting_restriction(fine_n: usize, coarse_n: usize) -> RestrictionMatrix {
     // Assuming 1D grid for simplicity
     // In practice, this would depend on the grid topology
-    let mut restriction = DMatrix::zeros(coarse_n, fine_n);
+    let mut restriction = RestrictionMatrix::zeros([coarse_n, fine_n]);
 
     for coarse_i in 0..coarse_n {
         let fine_start = coarse_i * 2;
@@ -46,7 +71,9 @@ pub fn create_full_weighting_restriction(fine_n: usize, coarse_n: usize) -> DMat
         let weight = 1.0 / (fine_end - fine_start) as f64;
 
         for fine_i in fine_start..fine_end {
-            restriction[(coarse_i, fine_i)] = weight;
+            *restriction
+                .get_mut([coarse_i, fine_i])
+                .expect("invariant: full-weighting index is inside restriction shape") = weight;
         }
     }
 
@@ -56,22 +83,28 @@ pub fn create_full_weighting_restriction(fine_n: usize, coarse_n: usize) -> DMat
 /// Create half weighting restriction operator
 ///
 /// Half weighting uses a weighted average with emphasis on direct neighbors.
-pub fn create_half_weighting_restriction(fine_n: usize, coarse_n: usize) -> DMatrix<f64> {
+pub fn create_half_weighting_restriction(fine_n: usize, coarse_n: usize) -> RestrictionMatrix {
     // Assuming 1D grid for simplicity
-    let mut restriction = DMatrix::zeros(coarse_n, fine_n);
+    let mut restriction = RestrictionMatrix::zeros([coarse_n, fine_n]);
 
     for coarse_i in 0..coarse_n {
         let fine_center = coarse_i * 2;
 
         // Weight direct point and neighbors
-        restriction[(coarse_i, fine_center)] = 0.5;
+        *restriction
+            .get_mut([coarse_i, fine_center])
+            .expect("invariant: half-weighting center index is inside restriction shape") = 0.5;
 
         if fine_center > 0 {
-            restriction[(coarse_i, fine_center - 1)] = 0.25;
+            *restriction
+                .get_mut([coarse_i, fine_center - 1])
+                .expect("invariant: half-weighting left index is inside restriction shape") = 0.25;
         }
 
         if fine_center + 1 < fine_n {
-            restriction[(coarse_i, fine_center + 1)] = 0.25;
+            *restriction
+                .get_mut([coarse_i, fine_center + 1])
+                .expect("invariant: half-weighting right index is inside restriction shape") = 0.25;
         }
     }
 
@@ -80,20 +113,25 @@ pub fn create_half_weighting_restriction(fine_n: usize, coarse_n: usize) -> DMat
 
 /// Validate restriction operator properties
 pub fn validate_restriction_operator(
-    restriction: &DMatrix<f64>,
-    interpolation: &DMatrix<f64>,
+    restriction: &RestrictionMatrix,
+    interpolation: &RestrictionMatrix,
 ) -> RestrictionQuality {
-    let coarse_n = restriction.nrows();
-    let fine_n = restriction.ncols();
+    let [coarse_n, fine_n] = restriction.shape();
 
     // Check that restriction is transpose of interpolation (within tolerance)
-    let transpose_check = (restriction - &interpolation.transpose()).abs();
-    let transpose_error: f64 = transpose_check.iter().sum::<f64>() / (coarse_n * fine_n) as f64;
+    let transpose_error: f64 = (0..coarse_n)
+        .flat_map(|row| {
+            (0..fine_n).map(move |col| {
+                (matrix_entry(restriction, row, col) - matrix_entry(interpolation, col, row)).abs()
+            })
+        })
+        .sum::<f64>()
+        / (coarse_n * fine_n) as f64;
 
     // Check row sums (should be reasonable)
     let mut row_sums = Vec::new();
     for i in 0..coarse_n {
-        let row_sum: f64 = (0..fine_n).map(|j| restriction[(i, j)]).sum();
+        let row_sum: f64 = (0..fine_n).map(|j| matrix_entry(restriction, i, j)).sum();
         row_sums.push(row_sum);
     }
 
@@ -104,7 +142,7 @@ pub fn validate_restriction_operator(
     // Check column sums (related to interpolation properties)
     let mut col_sums = Vec::new();
     for j in 0..fine_n {
-        let col_sum: f64 = (0..coarse_n).map(|i| restriction[(i, j)]).sum();
+        let col_sum: f64 = (0..coarse_n).map(|i| matrix_entry(restriction, i, j)).sum();
         col_sums.push(col_sum);
     }
 
@@ -158,38 +196,46 @@ impl RestrictionQuality {
 
 /// Apply restriction operator to a vector
 pub fn restrict_vector(
-    restriction: &DMatrix<f64>,
-    fine_vector: &nalgebra::DVector<f64>,
-) -> nalgebra::DVector<f64> {
-    restriction * fine_vector
+    restriction: &RestrictionMatrix,
+    fine_vector: &RestrictionVector,
+) -> RestrictionVector {
+    let [coarse_n, fine_n] = restriction.shape();
+    Array1::from_shape_fn([coarse_n], |[row]| {
+        (0..fine_n)
+            .map(|col| matrix_entry(restriction, row, col) * vector_entry(fine_vector, col))
+            .sum()
+    })
 }
 
 /// Apply restriction operator to a matrix (Galerkin projection)
 pub fn restrict_matrix(
-    restriction: &DMatrix<f64>,
-    fine_matrix: &DMatrix<f64>,
-    interpolation: &DMatrix<f64>,
-) -> Result<DMatrix<f64>, &'static str> {
+    restriction: &RestrictionMatrix,
+    fine_matrix: &RestrictionMatrix,
+    interpolation: &RestrictionMatrix,
+) -> Result<RestrictionMatrix, &'static str> {
     // Coarse matrix = R * A_fine * P
-    let coarse_matrix = restriction * fine_matrix * interpolation;
-    Ok(coarse_matrix)
+    let restricted = restriction
+        .matmul(fine_matrix)
+        .map_err(|_| "restriction/fine matrix shape mismatch")?;
+    restricted
+        .matmul(interpolation)
+        .map_err(|_| "restricted/interpolation matrix shape mismatch")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::DMatrix;
 
-    fn create_test_interpolation() -> DMatrix<f64> {
+    fn create_test_interpolation() -> RestrictionMatrix {
         // Create a simple interpolation matrix
-        let mut interpolation = DMatrix::zeros(5, 3);
-        interpolation[(0, 0)] = 1.0; // C-point
-        interpolation[(1, 0)] = 0.5; // F-point interpolated from C0
-        interpolation[(1, 1)] = 0.5; // F-point interpolated from C1
-        interpolation[(2, 1)] = 1.0; // C-point
-        interpolation[(3, 1)] = 0.3; // F-point
-        interpolation[(3, 2)] = 0.7; // F-point
-        interpolation[(4, 2)] = 1.0; // C-point
+        let mut interpolation = RestrictionMatrix::zeros([5, 3]);
+        *interpolation.get_mut([0, 0]).unwrap() = 1.0; // C-point
+        *interpolation.get_mut([1, 0]).unwrap() = 0.5; // F-point interpolated from C0
+        *interpolation.get_mut([1, 1]).unwrap() = 0.5; // F-point interpolated from C1
+        *interpolation.get_mut([2, 1]).unwrap() = 1.0; // C-point
+        *interpolation.get_mut([3, 1]).unwrap() = 0.3; // F-point
+        *interpolation.get_mut([3, 2]).unwrap() = 0.7; // F-point
+        *interpolation.get_mut([4, 2]).unwrap() = 1.0; // C-point
 
         interpolation
     }
@@ -200,14 +246,19 @@ mod tests {
         let restriction = create_restriction_from_interpolation(&interpolation);
 
         // Check dimensions
-        assert_eq!(restriction.nrows(), interpolation.ncols());
-        assert_eq!(restriction.ncols(), interpolation.nrows());
+        assert_eq!(restriction.shape(), [3, 5]);
+        assert_eq!(interpolation.shape(), [5, 3]);
 
         // Check transpose property
-        assert!((restriction - interpolation.transpose())
-            .abs()
-            .iter()
-            .all(|&x| x < 1e-15));
+        for row in 0..restriction.shape()[0] {
+            for col in 0..restriction.shape()[1] {
+                assert!(
+                    (matrix_entry(&restriction, row, col) - matrix_entry(&interpolation, col, row))
+                        .abs()
+                        < 1e-15
+                );
+            }
+        }
     }
 
     #[test]
@@ -217,17 +268,16 @@ mod tests {
         let restriction = create_injection_restriction(&fine_to_coarse_map, 5, 3);
 
         // Check dimensions
-        assert_eq!(restriction.nrows(), 3);
-        assert_eq!(restriction.ncols(), 5);
+        assert_eq!(restriction.shape(), [3, 5]);
 
         // Check that only mapped points contribute
-        assert_eq!(restriction[(0, 0)], 1.0); // Fine 0 -> coarse 0
-        assert_eq!(restriction[(1, 2)], 1.0); // Fine 2 -> coarse 1
-        assert_eq!(restriction[(2, 4)], 1.0); // Fine 4 -> coarse 2
+        assert_eq!(matrix_entry(&restriction, 0, 0), 1.0); // Fine 0 -> coarse 0
+        assert_eq!(matrix_entry(&restriction, 1, 2), 1.0); // Fine 2 -> coarse 1
+        assert_eq!(matrix_entry(&restriction, 2, 4), 1.0); // Fine 4 -> coarse 2
 
         // Check that unmapped points don't contribute
-        assert_eq!(restriction[(0, 1)], 0.0); // Fine 1 not mapped
-        assert_eq!(restriction[(1, 3)], 0.0); // Fine 3 not mapped
+        assert_eq!(matrix_entry(&restriction, 0, 1), 0.0); // Fine 1 not mapped
+        assert_eq!(matrix_entry(&restriction, 1, 3), 0.0); // Fine 3 not mapped
     }
 
     #[test]
@@ -253,15 +303,16 @@ mod tests {
         let interpolation = create_test_interpolation();
         let restriction = create_restriction_from_interpolation(&interpolation);
 
-        let fine_vector = nalgebra::DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        let fine_vector = RestrictionVector::from_shape_vec([5], vec![1.0, 2.0, 3.0, 4.0, 5.0])
+            .expect("valid test vector");
         let coarse_vector = restrict_vector(&restriction, &fine_vector);
 
         // Check dimensions
-        assert_eq!(coarse_vector.len(), restriction.nrows());
+        assert_eq!(coarse_vector.shape(), [restriction.shape()[0]]);
 
-        // Check that restriction preserves some properties
-        // (Specific values depend on interpolation pattern)
-        assert!(coarse_vector.iter().all(|&x| x.is_finite()));
+        assert_eq!(vector_entry(&coarse_vector, 0), 2.0);
+        assert_eq!(vector_entry(&coarse_vector, 1), 5.2);
+        assert_eq!(vector_entry(&coarse_vector, 2), 7.8);
     }
 
     #[test]
@@ -269,12 +320,11 @@ mod tests {
         let restriction = create_full_weighting_restriction(8, 4);
 
         // Check dimensions
-        assert_eq!(restriction.nrows(), 4);
-        assert_eq!(restriction.ncols(), 8);
+        assert_eq!(restriction.shape(), [4, 8]);
 
         // Check that each coarse point gets contributions from 2 fine points
         for i in 0..4 {
-            let row_sum: f64 = (0..8).map(|j| restriction[(i, j)]).sum();
+            let row_sum: f64 = (0..8).map(|j| matrix_entry(&restriction, i, j)).sum();
             assert!((row_sum - 1.0).abs() < 1e-10); // Should sum to 1
         }
     }
@@ -284,13 +334,37 @@ mod tests {
         let restriction = create_half_weighting_restriction(8, 4);
 
         // Check dimensions
-        assert_eq!(restriction.nrows(), 4);
-        assert_eq!(restriction.ncols(), 8);
+        assert_eq!(restriction.shape(), [4, 8]);
 
         // Check that row sums are reasonable
         for i in 0..4 {
-            let row_sum: f64 = (0..8).map(|j| restriction[(i, j)]).sum();
+            let row_sum: f64 = (0..8).map(|j| matrix_entry(&restriction, i, j)).sum();
             assert!(row_sum > 0.0 && row_sum <= 1.0);
         }
+    }
+
+    #[test]
+    fn test_restrict_matrix_uses_leto_galerkin_product() {
+        let interpolation = create_test_interpolation();
+        let restriction = create_restriction_from_interpolation(&interpolation);
+        let fine_matrix = RestrictionMatrix::from_shape_fn([5, 5], |[row, col]| {
+            if row == col {
+                2.0
+            } else if row.abs_diff(col) == 1 {
+                -1.0
+            } else {
+                0.0
+            }
+        });
+
+        let coarse_matrix = restrict_matrix(&restriction, &fine_matrix, &interpolation)
+            .expect("Galerkin projection dimensions are compatible");
+
+        assert_eq!(coarse_matrix.shape(), [3, 3]);
+        assert_eq!(matrix_entry(&coarse_matrix, 0, 0), 1.5);
+        assert_eq!(matrix_entry(&coarse_matrix, 0, 1), -0.5);
+        assert!((matrix_entry(&coarse_matrix, 1, 1) - 1.08).abs() < 1e-12);
+        assert!((matrix_entry(&coarse_matrix, 1, 2) + 0.58).abs() < 1e-12);
+        assert!((matrix_entry(&coarse_matrix, 2, 2) - 1.58).abs() < 1e-12);
     }
 }

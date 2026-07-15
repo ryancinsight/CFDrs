@@ -1,7 +1,7 @@
 //! Individual edge case test implementations.
 
 use cfd_core::error::Result;
-use nalgebra::RealField;
+use eunomia::RealField;
 
 use super::{EdgeCaseTestResult, EdgeCaseTestSuite, TestSeverity};
 

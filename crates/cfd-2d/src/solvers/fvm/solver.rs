@@ -17,19 +17,20 @@ use super::flux::{FluxScheme, FluxSchemeFactory};
 use super::geometry::Face;
 use crate::fields::Field2D;
 use crate::grid::StructuredGrid2D;
+use crate::scalar::{from_f64, from_usize};
 use cfd_core::error::Result;
-use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::geometry::Vector2;
 
 /// Finite Volume Method solver for 2D problems
-pub struct FvmSolver<T: RealField + Copy> {
+pub struct FvmSolver<T: FloatElement + core::ops::Neg<Output = T> + RealField> {
     config: FvmConfig<T>,
     grid: StructuredGrid2D<T>,
     faces: Vec<Face<T>>,
     flux_scheme: FluxScheme,
 }
 
-impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
+impl<T: FloatElement + core::ops::Neg<Output = T> + RealField> FvmSolver<T> {
     /// Create a new FVM solver
     pub fn new(config: FvmConfig<T>, grid: StructuredGrid2D<T>) -> Self {
         let faces = Self::generate_faces(&grid);
@@ -58,12 +59,10 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
         for j in 0..ny {
             for i in 0..=nx {
                 let center = Vector2::new(
-                    T::from_usize(i).expect("analytical constant conversion") * dx,
-                    (T::from_usize(j).expect("analytical constant conversion")
-                        + T::from_f64(0.5).expect("analytical constant conversion"))
-                        * dy,
+                    from_usize::<T>(i) * dx,
+                    (from_usize::<T>(j) + from_f64::<T>(0.5)) * dy,
                 );
-                let normal = Vector2::new(T::one(), T::zero());
+                let normal = Vector2::new(<T as NumericElement>::ONE, <T as NumericElement>::ZERO);
 
                 let owner = if i > 0 { Some(j * nx + i - 1) } else { None };
                 let neighbor = if i < nx { Some(j * nx + i) } else { None };
@@ -78,12 +77,10 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
         for j in 0..=ny {
             for i in 0..nx {
                 let center = Vector2::new(
-                    (T::from_usize(i).expect("analytical constant conversion")
-                        + T::from_f64(0.5).expect("analytical constant conversion"))
-                        * dx,
-                    T::from_usize(j).expect("analytical constant conversion") * dy,
+                    (from_usize::<T>(i) + from_f64::<T>(0.5)) * dx,
+                    from_usize::<T>(j) * dy,
                 );
-                let normal = Vector2::new(T::zero(), T::one());
+                let normal = Vector2::new(<T as NumericElement>::ZERO, <T as NumericElement>::ONE);
 
                 let owner = if j > 0 { Some((j - 1) * nx + i) } else { None };
                 let neighbor = if j < ny { Some(j * nx + i) } else { None };
@@ -104,13 +101,8 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
         velocity: &Field2D<Vector2<T>>,
         source: &Field2D<T>,
     ) -> Result<()> {
-        let flux_calculator = FluxSchemeFactory::create::<T>(
-            self.flux_scheme,
-            self.config
-                .diffusion_coefficient
-                .to_subset()
-                .unwrap_or(1e-3),
-        );
+        let flux_calculator =
+            FluxSchemeFactory::create::<T>(self.flux_scheme, self.config.diffusion_coefficient);
 
         let dx = self.grid.dx;
         let dy = self.grid.dy;
@@ -120,7 +112,7 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
 
         // Iterative solution using proper FVM discretization
         for _iter in 0..self.config.max_iterations {
-            let mut residual = T::zero();
+            let mut residual = <T as NumericElement>::ZERO;
 
             // Update each interior cell using FVM discretization
             for j in 1..ny - 1 {
@@ -133,8 +125,8 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
 
                     // Get velocity components
                     let vel = velocity.at(i, j);
-                    let u = vel.x;
-                    let v = vel.y;
+                    let u = vel[0];
+                    let v = vel[1];
 
                     // Calculate convective fluxes using proper discretization
                     let flux_e = flux_calculator.calculate_flux(phi_p, phi_e, phi_p, u, dx)?;
@@ -143,13 +135,7 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
                     let flux_s = flux_calculator.calculate_flux(phi_s, phi_p, phi_s, v, dy)?;
 
                     // Diffusive terms (central difference)
-                    let diff_coeff = T::from_f64(
-                        self.config
-                            .diffusion_coefficient
-                            .to_subset()
-                            .unwrap_or(1e-3),
-                    )
-                    .expect("analytical constant conversion");
+                    let diff_coeff = self.config.diffusion_coefficient;
                     let diff_e = diff_coeff * (phi_e - phi_p) / (dx * dx);
                     let diff_w = diff_coeff * (phi_p - phi_w) / (dx * dx);
                     let diff_n = diff_coeff * (phi_n - phi_p) / (dy * dy);
@@ -168,7 +154,10 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
                         *p = phi_new;
                     }
 
-                    residual = residual.max((phi_new - phi_p).abs());
+                    residual = <T as NumericElement>::max_scalar(
+                        residual,
+                        <T as NumericElement>::abs(phi_new - phi_p),
+                    );
                 }
             }
 
@@ -185,6 +174,10 @@ impl<T: RealField + Copy + FromPrimitive> FvmSolver<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn abs(value: f64) -> f64 {
+        <f64 as NumericElement>::abs(value)
+    }
 
     fn make_solver(nx: usize, ny: usize) -> FvmSolver<f64> {
         let grid =
@@ -221,7 +214,7 @@ mod tests {
         for i in 0..6 {
             for j in 0..6 {
                 assert!(
-                    (phi.at(i, j) - 1.0).abs() < 1e-10,
+                    abs(phi.at(i, j) - 1.0) < 1e-10,
                     "Uniform field with zero source/velocity should stay uniform at ({i},{j})"
                 );
             }

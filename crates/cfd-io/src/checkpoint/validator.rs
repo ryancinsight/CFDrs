@@ -1,8 +1,9 @@
 //! Checkpoint validation utilities
 
 use crate::checkpoint::Checkpoint;
-use nalgebra::RealField;
-use num_traits::ToPrimitive;
+use crate::leto_arrays::all_row_major;
+use eunomia::{FloatElement, RealField};
+use leto::Array2;
 
 /// Numerical constants for finite difference calculations
 mod numerical_constants {
@@ -15,7 +16,7 @@ pub struct CheckpointValidator;
 
 impl CheckpointValidator {
     /// Validate checkpoint for physical consistency
-    pub fn validate_physics<T: RealField + Copy>(checkpoint: &Checkpoint<T>) -> Result<(), String> {
+    pub fn validate_physics<T: RealField>(checkpoint: &Checkpoint<T>) -> Result<(), String> {
         // Check basic data consistency
         checkpoint.validate()?;
 
@@ -39,10 +40,8 @@ impl CheckpointValidator {
             }
 
             // Temperature should be positive (in Kelvin)
-            for val in temp.iter() {
-                if *val <= T::zero() {
-                    return Err("Temperature contains non-positive values".to_string());
-                }
+            if !all_row_major(temp, |value| value > T::ZERO) {
+                return Err("Temperature contains non-positive values".to_string());
             }
         }
 
@@ -52,10 +51,8 @@ impl CheckpointValidator {
             }
 
             // Turbulent kinetic energy should be non-negative
-            for val in k.iter() {
-                if *val < T::zero() {
-                    return Err("Turbulence k contains negative values".to_string());
-                }
+            if !all_row_major(k, |value| value >= T::ZERO) {
+                return Err("Turbulence k contains negative values".to_string());
             }
         }
 
@@ -65,10 +62,8 @@ impl CheckpointValidator {
             }
 
             // Dissipation rate should be positive
-            for val in eps.iter() {
-                if *val <= T::zero() {
-                    return Err("Turbulence epsilon contains non-positive values".to_string());
-                }
+            if !all_row_major(eps, |value| value > T::ZERO) {
+                return Err("Turbulence epsilon contains non-positive values".to_string());
             }
         }
 
@@ -76,40 +71,50 @@ impl CheckpointValidator {
     }
 
     /// Check if all values in a matrix are finite
-    fn is_field_finite<T: RealField>(field: &nalgebra::DMatrix<T>) -> bool {
-        field.iter().all(nalgebra::ComplexField::is_finite)
+    fn is_field_finite<T: RealField>(field: &Array2<T>) -> bool {
+        all_row_major(field, |value| value.is_finite())
     }
 
     /// Check mass conservation (divergence-free condition)
-    pub fn check_mass_conservation<T: RealField + Copy>(
-        checkpoint: &Checkpoint<T>,
-        tolerance: T,
-    ) -> bool {
+    pub fn check_mass_conservation<T: RealField>(checkpoint: &Checkpoint<T>, tolerance: T) -> bool {
         let (ny, nx) = checkpoint.dimensions();
         let (domain_x, domain_y) = checkpoint.metadata.domain_size;
 
-        // Use ToPrimitive for safer casting with bounds checking
-        // For mesh sizes < 2^52, this is exact; for larger meshes, this represents
-        // a physical limitation (4 petabytes of memory for f64 arrays)
-        let nx_f64 = nx.to_f64().unwrap_or(1.0);
-        let ny_f64 = ny.to_f64().unwrap_or(1.0);
+        let Some(nx_f64) = usize_to_exact_f64(nx) else {
+            return false;
+        };
+        let Some(ny_f64) = usize_to_exact_f64(ny) else {
+            return false;
+        };
 
-        let dx = T::from_f64(domain_x / nx_f64).unwrap_or_else(T::one);
-        let dy = T::from_f64(domain_y / ny_f64).unwrap_or_else(T::one);
+        let dx = <T as FloatElement>::from_f64(domain_x / nx_f64);
+        let dy = <T as FloatElement>::from_f64(domain_y / ny_f64);
+        let central_difference =
+            <T as FloatElement>::from_f64(numerical_constants::CENTRAL_DIFFERENCE_FACTOR);
 
-        let mut max_divergence = T::zero();
+        let mut max_divergence = T::ZERO;
 
         // Check interior points
         for i in 1..(ny.saturating_sub(1)) {
             for j in 1..(nx.saturating_sub(1)) {
-                let dudx = (checkpoint.u_velocity[(i, j + 1)] - checkpoint.u_velocity[(i, j - 1)])
-                    / (T::from_f64(numerical_constants::CENTRAL_DIFFERENCE_FACTOR)
-                        .unwrap_or_else(T::one)
-                        * dx);
-                let dvdy = (checkpoint.v_velocity[(i + 1, j)] - checkpoint.v_velocity[(i - 1, j)])
-                    / (T::from_f64(numerical_constants::CENTRAL_DIFFERENCE_FACTOR)
-                        .unwrap_or_else(T::one)
-                        * dy);
+                let dudx = (*checkpoint
+                    .u_velocity
+                    .get([i, j + 1])
+                    .expect("invariant: interior u east index is in bounds")
+                    - *checkpoint
+                        .u_velocity
+                        .get([i, j - 1])
+                        .expect("invariant: interior u west index is in bounds"))
+                    / (central_difference * dx);
+                let dvdy = (*checkpoint
+                    .v_velocity
+                    .get([i + 1, j])
+                    .expect("invariant: interior v north index is in bounds")
+                    - *checkpoint
+                        .v_velocity
+                        .get([i - 1, j])
+                        .expect("invariant: interior v south index is in bounds"))
+                    / (central_difference * dy);
 
                 let divergence = (dudx + dvdy).abs();
                 if divergence > max_divergence {
@@ -119,5 +124,14 @@ impl CheckpointValidator {
         }
 
         max_divergence < tolerance
+    }
+}
+
+#[allow(clippy::cast_precision_loss)] // invariant: values above f64's exact integer range are rejected before casting.
+fn usize_to_exact_f64(value: usize) -> Option<f64> {
+    if value == 0 || value as u128 > (1u128 << f64::MANTISSA_DIGITS) {
+        None
+    } else {
+        Some(value as f64)
     }
 }

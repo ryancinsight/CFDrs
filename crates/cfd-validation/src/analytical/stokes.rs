@@ -1,9 +1,10 @@
 //! Stokes flow solutions - low Reynolds number flows
 
 use super::AnalyticalSolution;
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::geometry::Vector3;
 use std::f64::consts::PI;
 
 /// Stokes flow around a sphere
@@ -20,7 +21,7 @@ pub struct StokesFlow<T: RealField + Copy> {
     pub density: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> StokesFlow<T> {
+impl<T: RealField + Copy + FloatElement> StokesFlow<T> {
     /// Create Stokes flow solution
     pub fn create(sphere_radius: T, free_stream_velocity: T, viscosity: T, density: T) -> Self {
         Self {
@@ -33,9 +34,8 @@ impl<T: RealField + Copy + FromPrimitive> StokesFlow<T> {
 
     /// Get the drag force on the sphere (Stokes' law)
     pub fn drag_force(&self) -> T {
-        let pi = <T as SafeFromF64>::try_from_f64(PI)
-            .unwrap_or(<T as SafeFromF64>::from_f64_or_one(3.14159));
-        let six = <T as SafeFromF64>::from_f64_or_one(6.0);
+        let pi = scalar::from_f64::<T>(PI);
+        let six = scalar::from_f64::<T>(6.0);
 
         six * pi * self.viscosity * self.sphere_radius * self.free_stream_velocity
     }
@@ -43,18 +43,18 @@ impl<T: RealField + Copy + FromPrimitive> StokesFlow<T> {
     /// Get the drag coefficient
     pub fn drag_coefficient(&self) -> T {
         let reynolds = self.reynolds_number();
-        if reynolds > <T as SafeFromF64>::from_f64_or_zero(0.01) {
+        if reynolds > scalar::from_f64::<T>(0.01) {
             // Stokes drag coefficient: CD = 24/Re
-            <T as SafeFromF64>::from_f64_or_one(24.0) / reynolds
+            scalar::from_f64::<T>(24.0) / reynolds
         } else {
             // Avoid division by very small number
-            <T as SafeFromF64>::from_f64_or_one(2400.0)
+            scalar::from_f64::<T>(2400.0)
         }
     }
 
     /// Get Reynolds number based on sphere diameter
     pub fn reynolds_number(&self) -> T {
-        let diameter = <T as SafeFromF64>::from_f64_or_one(2.0) * self.sphere_radius;
+        let diameter = scalar::from_f64::<T>(2.0) * self.sphere_radius;
         self.density * self.free_stream_velocity * diameter / self.viscosity
     }
 
@@ -64,13 +64,13 @@ impl<T: RealField + Copy + FromPrimitive> StokesFlow<T> {
         let u_inf = self.free_stream_velocity;
 
         // ψ = (U∞/2) * r² * sin²(θ) * (1 - 3a/(2r) + a³/(2r³))
-        let sin_theta = theta.sin();
+        let sin_theta = scalar::sin(theta);
         let sin2_theta = sin_theta * sin_theta;
 
-        let half = <T as SafeFromF64>::from_f64_or_zero(0.5);
-        let three_halves = <T as SafeFromF64>::from_f64_or_zero(1.5);
+        let half = scalar::from_f64::<T>(0.5);
+        let three_halves = scalar::from_f64::<T>(1.5);
 
-        let term1 = T::one();
+        let term1 = scalar::one::<T>();
         let term2 = -three_halves * a / r;
         let term3 = half * a * a * a / (r * r * r);
 
@@ -78,10 +78,10 @@ impl<T: RealField + Copy + FromPrimitive> StokesFlow<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T> {
+impl<T: RealField + Copy + FloatElement> AnalyticalSolution<T> for StokesFlow<T> {
     fn evaluate(&self, x: T, y: T, z: T, _t: T) -> Vector3<T> {
         // Convert to spherical coordinates (r, θ, φ)
-        let r = (x * x + y * y + z * z).sqrt();
+        let r = scalar::sqrt(x * x + y * y + z * z);
 
         if r < self.sphere_radius {
             // Inside sphere: no flow
@@ -95,31 +95,38 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T
         // u_r = U∞ * cos(θ) * (1 - 3a/(2r) + a³/(2r³))
         // u_θ = -U∞ * sin(θ) * (1 - 3a/(4r) - a³/(4r³))
 
-        let cos_theta = if r > T::zero() { x / r } else { T::zero() };
-        let sin_theta = if r > T::zero() {
-            (y * y + z * z).sqrt() / r
+        let cos_theta = if r > scalar::zero::<T>() {
+            x / r
         } else {
-            T::zero()
+            scalar::zero::<T>()
+        };
+        let sin_theta = if r > scalar::zero::<T>() {
+            scalar::sqrt(y * y + z * z) / r
+        } else {
+            scalar::zero::<T>()
         };
 
-        let three_halves = <T as SafeFromF64>::from_f64_or_zero(1.5);
-        let half = <T as SafeFromF64>::from_f64_or_zero(0.5);
-        let quarter = <T as SafeFromF64>::from_f64_or_zero(0.25);
+        let three_halves = scalar::from_f64::<T>(1.5);
+        let half = scalar::from_f64::<T>(0.5);
+        let quarter = scalar::from_f64::<T>(0.25);
 
         // Radial velocity component
-        let u_r =
-            u_inf * cos_theta * (T::one() - three_halves * a / r + half * a * a * a / (r * r * r));
+        let u_r = u_inf
+            * cos_theta
+            * (scalar::one::<T>() - three_halves * a / r + half * a * a * a / (r * r * r));
 
         // Tangential velocity component
         let u_theta = -u_inf
             * sin_theta
-            * (T::one() - three_halves * quarter * a / r - quarter * a * a * a / (r * r * r));
+            * (scalar::one::<T>()
+                - three_halves * quarter * a / r
+                - quarter * a * a * a / (r * r * r));
 
         // Convert from spherical (r, θ, φ) to Cartesian coordinates (x, y, z)
         // Full transformation with proper handling of all spherical angles
-        let phi = z.atan2(y); // Azimuthal angle in x-y plane
-        let cos_phi = phi.cos();
-        let sin_phi = phi.sin();
+        let phi = scalar::atan2(z, y); // Azimuthal angle in x-y plane
+        let cos_phi = scalar::cos(phi);
+        let sin_phi = scalar::sin(phi);
 
         // Complete spherical to Cartesian velocity transformation
         let u_x = u_r * sin_theta * cos_phi - u_theta * cos_theta * cos_phi;
@@ -130,15 +137,15 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T
     }
 
     fn pressure(&self, x: T, y: T, z: T, _t: T) -> T {
-        let r = (x * x + y * y + z * z).sqrt();
+        let r = scalar::sqrt(x * x + y * y + z * z);
 
         if r < self.sphere_radius {
             // Inside sphere
-            return T::zero();
+            return scalar::zero::<T>();
         }
 
         // p = p∞ - (3μU∞a/2) * (x/r³)
-        let three_halves = <T as SafeFromF64>::from_f64_or_zero(1.5);
+        let three_halves = scalar::from_f64::<T>(1.5);
         let pressure_drop =
             three_halves * self.viscosity * self.free_stream_velocity * self.sphere_radius * x
                 / (r * r * r);
@@ -151,7 +158,7 @@ impl<T: RealField + Copy + FromPrimitive> AnalyticalSolution<T> for StokesFlow<T
     }
 
     fn domain_bounds(&self) -> [T; 6] {
-        let domain_size = <T as SafeFromF64>::from_f64_or_one(10.0) * self.sphere_radius;
+        let domain_size = scalar::from_f64::<T>(10.0) * self.sphere_radius;
         [
             -domain_size,
             domain_size, // x

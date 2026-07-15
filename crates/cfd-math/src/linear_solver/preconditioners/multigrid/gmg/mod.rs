@@ -30,47 +30,111 @@ mod transfer;
 
 use crate::error::Result;
 use cfd_core::error::Error;
-use nalgebra::{DMatrix, DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::{Array1, Array2};
+
+type GmgVector<T> = Array1<T>;
+type GmgMatrix<T> = Array2<T>;
+
+#[inline]
+pub(super) fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+#[inline]
+fn from_usize<T: FloatElement>(value: usize) -> T {
+    let value_u64 = u64::try_from(value).expect("invariant: grid dimension fits into u64");
+    from_f64(<u64 as NumericElement>::to_f64(value_u64))
+}
+
+fn l2_norm<T: RealField>(vector: &GmgVector<T>) -> T {
+    let mut sum = <T as NumericElement>::ZERO;
+    for i in 0..vector.shape()[0] {
+        sum += vector[i] * vector[i];
+    }
+    <T as NumericElement>::sqrt(sum)
+}
+
+fn matrix_vector_product<T: RealField>(
+    matrix: &GmgMatrix<T>,
+    vector: &GmgVector<T>,
+) -> GmgVector<T> {
+    let [rows, cols] = matrix.shape();
+    debug_assert_eq!(cols, vector.shape()[0]);
+    let mut output = GmgVector::zeros([rows]);
+    for row in 0..rows {
+        let mut sum = <T as NumericElement>::ZERO;
+        for col in 0..cols {
+            sum += matrix[[row, col]] * vector[col];
+        }
+        output[row] = sum;
+    }
+    output
+}
+
+fn vector_add<T: RealField>(lhs: &GmgVector<T>, rhs: &GmgVector<T>) -> GmgVector<T> {
+    debug_assert_eq!(lhs.shape(), rhs.shape());
+    let mut output = GmgVector::zeros([lhs.shape()[0]]);
+    for i in 0..lhs.shape()[0] {
+        output[i] = lhs[i] + rhs[i];
+    }
+    output
+}
+
+fn vector_sub<T: RealField>(lhs: &GmgVector<T>, rhs: &GmgVector<T>) -> GmgVector<T> {
+    debug_assert_eq!(lhs.shape(), rhs.shape());
+    let mut output = GmgVector::zeros([lhs.shape()[0]]);
+    for i in 0..lhs.shape()[0] {
+        output[i] = lhs[i] - rhs[i];
+    }
+    output
+}
+
+fn vector_add_assign<T: RealField>(lhs: &mut GmgVector<T>, rhs: &GmgVector<T>) {
+    debug_assert_eq!(lhs.shape(), rhs.shape());
+    for i in 0..lhs.shape()[0] {
+        lhs[i] += rhs[i];
+    }
+}
 
 /// Trait for nonlinear operators in multigrid methods
 ///
 /// This trait defines the interface for nonlinear operators that can be used
 /// with the Full Approximation Scheme (FAS) multigrid method.
-pub trait NonlinearOperator<T: RealField + Copy> {
+pub trait NonlinearOperator<T: RealField> {
     /// Compute the nonlinear residual: r = f - F(u)
     ///
     /// The default implementation computes f - apply(u).
-    fn residual(&self, u: &DVector<T>, rhs: &DVector<T>, level: usize) -> DVector<T> {
-        rhs - self.apply(u, level)
+    fn residual(&self, u: &GmgVector<T>, rhs: &GmgVector<T>, level: usize) -> GmgVector<T> {
+        vector_sub(rhs, &self.apply(u, level))
     }
 
     /// Apply the nonlinear operator: F(u)
-    fn apply(&self, u: &DVector<T>, level: usize) -> DVector<T>;
+    fn apply(&self, u: &GmgVector<T>, level: usize) -> GmgVector<T>;
 
     /// Solve the nonlinear system on the coarsest level
-    fn coarsest_solve(&self, u: &mut DVector<T>, rhs: &DVector<T>, level: usize) -> Result<()>;
+    fn coarsest_solve(&self, u: &mut GmgVector<T>, rhs: &GmgVector<T>, level: usize) -> Result<()>;
 
     /// Restrict the residual to the next coarser level
-    fn restrict_residual(&self, fine: &DVector<T>, level: usize) -> DVector<T>;
+    fn restrict_residual(&self, fine: &GmgVector<T>, level: usize) -> GmgVector<T>;
 
     /// Restrict the solution to the next coarser level
-    fn restrict_solution(&self, fine: &DVector<T>, level: usize) -> DVector<T>;
+    fn restrict_solution(&self, fine: &GmgVector<T>, level: usize) -> GmgVector<T>;
 
     /// Prolongate a vector to the next finer level
-    fn prolongate(&self, coarse: &DVector<T>, level: usize) -> DVector<T>;
+    fn prolongate(&self, coarse: &GmgVector<T>, level: usize) -> GmgVector<T>;
 
     /// Apply smoothing to the solution u given RHS f
-    fn smooth(&self, u: &mut DVector<T>, rhs: &DVector<T>, level: usize, iterations: usize);
+    fn smooth(&self, u: &mut GmgVector<T>, rhs: &GmgVector<T>, level: usize, iterations: usize);
 }
 
 /// Geometric multigrid hierarchy for structured grids
 #[derive(Debug, Clone)]
-pub struct GeometricMultigrid<T: RealField + Copy> {
+pub struct GeometricMultigrid<T: RealField> {
     /// Grid dimensions for each level (finest to coarsest)
     pub(super) grid_sizes: Vec<(usize, usize)>,
     /// System matrices for each level
-    pub(super) matrices: Vec<DMatrix<T>>,
+    pub(super) matrices: Vec<GmgMatrix<T>>,
     /// Relaxation parameter (ω for weighted Jacobi/SOR)
     pub(super) relaxation_param: T,
     /// Number of pre-smoothing iterations
@@ -79,7 +143,7 @@ pub struct GeometricMultigrid<T: RealField + Copy> {
     pub(super) nu2: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
+impl<T: RealField + FloatElement> GeometricMultigrid<T> {
     /// Create geometric multigrid hierarchy for 2D Poisson equation
     ///
     /// # Arguments
@@ -103,8 +167,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
         // Build hierarchy from finest to coarsest
         let mut current_nx = nx;
         let mut current_ny = ny;
-        let mut current_h = T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero)
-            / T::from_usize(nx.max(ny)).unwrap();
+        let mut current_h = <T as NumericElement>::ONE / from_usize::<T>(nx.max(ny));
 
         for _level in 0..max_levels {
             grid_sizes.push((current_nx, current_ny));
@@ -121,50 +184,50 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
             // Coarsen grid (simple 2:1 coarsening)
             current_nx = current_nx.div_ceil(2);
             current_ny = current_ny.div_ceil(2);
-            current_h *= T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
+            current_h *= from_f64::<T>(2.0);
         }
 
         Ok(Self {
             grid_sizes,
             matrices,
-            relaxation_param: T::from_f64(0.8).unwrap_or_else(num_traits::Zero::zero), // Weighted Jacobi
-            nu1: 2, // Pre-smoothing iterations
-            nu2: 2, // Post-smoothing iterations
+            relaxation_param: from_f64::<T>(0.8), // Weighted Jacobi
+            nu1: 2,                               // Pre-smoothing iterations
+            nu2: 2,                               // Post-smoothing iterations
         })
     }
 
     /// Create discrete Poisson matrix (-Δu = f) for structured grid
-    fn create_poisson_matrix(nx: usize, ny: usize, h: T) -> Result<DMatrix<T>> {
+    fn create_poisson_matrix(nx: usize, ny: usize, h: T) -> Result<GmgMatrix<T>> {
         let n = nx * ny;
-        let mut matrix = DMatrix::zeros(n, n);
+        let mut matrix = GmgMatrix::zeros([n, n]);
 
         let h_squared = h * h;
-        let four = T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero);
-        let minus_one = -T::one();
+        let four = from_f64::<T>(4.0);
+        let minus_one = -<T as NumericElement>::ONE;
 
         for i in 0..nx {
             for j in 0..ny {
                 let idx = j * nx + i;
 
                 // Diagonal element
-                matrix[(idx, idx)] = four / h_squared;
+                matrix[[idx, idx]] = four / h_squared;
 
                 // Off-diagonal elements (5-point stencil)
                 if i > 0 {
                     let left_idx = j * nx + (i - 1);
-                    matrix[(idx, left_idx)] = minus_one / h_squared;
+                    matrix[[idx, left_idx]] = minus_one / h_squared;
                 }
                 if i < nx - 1 {
                     let right_idx = j * nx + (i + 1);
-                    matrix[(idx, right_idx)] = minus_one / h_squared;
+                    matrix[[idx, right_idx]] = minus_one / h_squared;
                 }
                 if j > 0 {
                     let down_idx = (j - 1) * nx + i;
-                    matrix[(idx, down_idx)] = minus_one / h_squared;
+                    matrix[[idx, down_idx]] = minus_one / h_squared;
                 }
                 if j < ny - 1 {
                     let up_idx = (j + 1) * nx + i;
-                    matrix[(idx, up_idx)] = minus_one / h_squared;
+                    matrix[[idx, up_idx]] = minus_one / h_squared;
                 }
             }
         }
@@ -199,22 +262,22 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
     pub fn solve_fas<Op: NonlinearOperator<T>>(
         &self,
         operator: &Op,
-        rhs: &DVector<T>,
+        rhs: &GmgVector<T>,
         tolerance: T,
         max_iterations: usize,
-    ) -> Result<(DVector<T>, usize, T)> {
-        if rhs.len() != self.matrices[0].nrows() {
+    ) -> Result<(GmgVector<T>, usize, T)> {
+        if rhs.shape()[0] != self.matrices[0].shape()[0] {
             return Err(Error::InvalidConfiguration(
                 "RHS vector size mismatch".to_string(),
             ));
         }
 
-        let n = rhs.len();
-        let mut u = DVector::zeros(n);
+        let n = rhs.shape()[0];
+        let mut u = GmgVector::zeros([n]);
 
         // Initial residual computation
         let initial_residual = operator.residual(&u, rhs, 0);
-        let mut residual_norm = initial_residual.norm();
+        let mut residual_norm = l2_norm(&initial_residual);
 
         for iteration in 0..max_iterations {
             // Perform one FAS V-cycle
@@ -222,7 +285,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
 
             // Check convergence using nonlinear residual
             let new_residual = operator.residual(&u, rhs, 0);
-            let new_residual_norm = new_residual.norm();
+            let new_residual_norm = l2_norm(&new_residual);
 
             if new_residual_norm < tolerance {
                 return Ok((u, iteration + 1, new_residual_norm));
@@ -237,18 +300,18 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
     /// Solve linear system using standard geometric multigrid
     pub fn solve(
         &self,
-        rhs: &DVector<T>,
+        rhs: &GmgVector<T>,
         tolerance: T,
         max_iterations: usize,
-    ) -> Result<(DVector<T>, usize, T)> {
-        if rhs.len() != self.matrices[0].nrows() {
+    ) -> Result<(GmgVector<T>, usize, T)> {
+        if rhs.shape()[0] != self.matrices[0].shape()[0] {
             return Err(Error::InvalidConfiguration(
                 "RHS vector size mismatch".to_string(),
             ));
         }
 
-        let n = rhs.len();
-        let mut u = DVector::zeros(n);
+        let n = rhs.shape()[0];
+        let mut u = GmgVector::zeros([n]);
         let mut residual_norm = self.compute_residual_norm(&self.matrices[0], &u, rhs);
 
         for iteration in 0..max_iterations {
@@ -269,7 +332,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
     }
 
     /// Perform one V-cycle iteration
-    fn v_cycle(&self, u: &mut DVector<T>, f: &DVector<T>, level: usize) {
+    fn v_cycle(&self, u: &mut GmgVector<T>, f: &GmgVector<T>, level: usize) {
         let current_matrix = &self.matrices[level];
         let (nx, ny) = self.grid_sizes[level];
 
@@ -290,7 +353,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
             );
 
             // Recursively solve on coarse grid
-            let mut coarse_correction = DVector::zeros(coarse_residual.len());
+            let mut coarse_correction = GmgVector::zeros([coarse_residual.shape()[0]]);
             self.v_cycle(&mut coarse_correction, &coarse_residual, level + 1);
 
             // Prolongate correction back to fine grid
@@ -303,7 +366,7 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
             );
 
             // Add correction
-            *u += fine_correction;
+            vector_add_assign(u, &fine_correction);
         } else {
             // Coarsest level: solve directly (or use iterative method)
             // For now, use additional Jacobi iterations
@@ -318,8 +381,8 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
     fn fas_v_cycle<Op: NonlinearOperator<T>>(
         &self,
         operator: &Op,
-        u: &mut DVector<T>,
-        f: &DVector<T>,
+        u: &mut GmgVector<T>,
+        f: &GmgVector<T>,
         level: usize,
     ) {
         // Pre-smoothing: Apply nonlinear relaxation
@@ -340,20 +403,20 @@ impl<T: RealField + Copy + FromPrimitive> GeometricMultigrid<T> {
             let coarse_operator_applied = operator.apply(&coarse_u_restricted, level + 1);
 
             // Compute FAS right-hand side: f_coarse = R(r) + F_coarse(R(u))
-            let coarse_rhs = &coarse_residual_restricted + &coarse_operator_applied;
+            let coarse_rhs = vector_add(&coarse_residual_restricted, &coarse_operator_applied);
 
             // Recursively solve on coarse grid
             let mut coarse_correction = coarse_u_restricted.clone(); // Start with restricted solution
             self.fas_v_cycle(operator, &mut coarse_correction, &coarse_rhs, level + 1);
 
             // Compute coarse grid correction: e_coarse = u_coarse - R(u)
-            let coarse_correction_delta = &coarse_correction - &coarse_u_restricted;
+            let coarse_correction_delta = vector_sub(&coarse_correction, &coarse_u_restricted);
 
             // Prolongate correction to fine grid
             let fine_correction = operator.prolongate(&coarse_correction_delta, level);
 
             // Add correction to fine grid solution
-            *u += fine_correction;
+            vector_add_assign(u, &fine_correction);
         } else {
             // Coarsest level: solve nonlinear system directly
             let _ = operator.coarsest_solve(u, f, level);
@@ -385,13 +448,32 @@ mod tests {
         assert!(matrix.is_ok(), "Poisson matrix creation should succeed");
 
         let matrix = matrix.unwrap();
-        assert_eq!(matrix.nrows(), 16, "Matrix should be 16x16");
-        assert_eq!(matrix.ncols(), 16, "Matrix should be 16x16");
+        assert_eq!(matrix.shape(), [16, 16], "Matrix should be 16x16");
 
         // Check that diagonal elements are positive
         for i in 0..16 {
-            assert!(matrix[(i, i)] > 0.0, "Diagonal elements should be positive");
+            assert!(matrix[[i, i]] > 0.0, "Diagonal elements should be positive");
         }
+
+        assert_eq!(matrix[[0, 0]], 64.0);
+        assert_eq!(matrix[[0, 1]], -16.0);
+        assert_eq!(matrix[[0, 4]], -16.0);
+        assert_eq!(matrix[[0, 5]], 0.0);
+    }
+
+    #[test]
+    fn restrict_residual_full_weighting_matches_boundary_stencil() {
+        let gmg = GeometricMultigrid::<f64>::new(3, 3, 2).unwrap();
+        let fine_residual =
+            GmgVector::from_shape_vec([9], (0usize..9).map(from_usize::<f64>).collect()).unwrap();
+
+        let restricted = gmg.restrict_residual(&fine_residual, 3, 3, 2, 2);
+
+        assert_eq!(restricted.shape(), [4]);
+        assert_eq!(restricted[0], 4.0 / 3.0);
+        assert_eq!(restricted[1], 8.0 / 3.0);
+        assert_eq!(restricted[2], 16.0 / 3.0);
+        assert_eq!(restricted[3], 20.0 / 3.0);
     }
 
     #[test]
@@ -400,7 +482,7 @@ mod tests {
 
         // Create a simple test problem: -Δu = 1 with u=0 on boundary
         let n = 8 * 8;
-        let mut rhs = DVector::from_element(n, 1.0);
+        let mut rhs = GmgVector::from_elem([n], 1.0);
 
         for i in 0..8 {
             for j in 0..8 {
@@ -409,9 +491,9 @@ mod tests {
                     rhs[idx] = 0.0;
                     let matrix = &mut gmg.matrices[0];
                     for col in 0..n {
-                        matrix[(idx, col)] = 0.0;
+                        matrix[[idx, col]] = 0.0;
                     }
-                    matrix[(idx, idx)] = 1.0;
+                    matrix[[idx, idx]] = 1.0;
                 }
             }
         }
@@ -420,7 +502,7 @@ mod tests {
 
         assert!(iterations > 0, "Should require at least one iteration");
         assert!(residual_norm < 1.0, "Residual should be reduced");
-        assert_eq!(solution.len(), n, "Solution should have correct size");
+        assert_eq!(solution.shape(), [n], "Solution should have correct size");
     }
 
     /// A linear operator wrapper to test the nonlinear FAS solver.
@@ -430,15 +512,15 @@ mod tests {
     }
 
     impl NonlinearOperator<f64> for LinearPoissonOperator<'_> {
-        fn apply(&self, u: &DVector<f64>, level: usize) -> DVector<f64> {
+        fn apply(&self, u: &GmgVector<f64>, level: usize) -> GmgVector<f64> {
             let matrix = &self.gmg.matrices[level];
-            matrix * u
+            matrix_vector_product(matrix, u)
         }
 
         fn coarsest_solve(
             &self,
-            u: &mut DVector<f64>,
-            rhs: &DVector<f64>,
+            u: &mut GmgVector<f64>,
+            rhs: &GmgVector<f64>,
             level: usize,
         ) -> Result<()> {
             // For testing, just run a few relaxation steps on the coarsest level
@@ -449,18 +531,18 @@ mod tests {
             Ok(())
         }
 
-        fn restrict_residual(&self, fine: &DVector<f64>, level: usize) -> DVector<f64> {
+        fn restrict_residual(&self, fine: &GmgVector<f64>, level: usize) -> GmgVector<f64> {
             let (fine_nx, fine_ny) = self.gmg.grid_sizes[level];
             let (coarse_nx, coarse_ny) = self.gmg.grid_sizes[level + 1];
             self.gmg
                 .restrict_residual(fine, fine_nx, fine_ny, coarse_nx, coarse_ny)
         }
 
-        fn restrict_solution(&self, fine: &DVector<f64>, level: usize) -> DVector<f64> {
+        fn restrict_solution(&self, fine: &GmgVector<f64>, level: usize) -> GmgVector<f64> {
             let (fine_nx, _fine_ny) = self.gmg.grid_sizes[level];
             let (coarse_nx, coarse_ny) = self.gmg.grid_sizes[level + 1];
 
-            let mut coarse = DVector::zeros(coarse_nx * coarse_ny);
+            let mut coarse = GmgVector::zeros([coarse_nx * coarse_ny]);
             for j in 0..coarse_ny {
                 for i in 0..coarse_nx {
                     // Injection: coincide with fine grid points
@@ -472,7 +554,7 @@ mod tests {
             coarse
         }
 
-        fn prolongate(&self, coarse: &DVector<f64>, level: usize) -> DVector<f64> {
+        fn prolongate(&self, coarse: &GmgVector<f64>, level: usize) -> GmgVector<f64> {
             let (fine_nx, fine_ny) = self.gmg.grid_sizes[level];
             let (coarse_nx, coarse_ny) = self.gmg.grid_sizes[level + 1];
             self.gmg
@@ -481,8 +563,8 @@ mod tests {
 
         fn smooth(
             &self,
-            u: &mut DVector<f64>,
-            rhs: &DVector<f64>,
+            u: &mut GmgVector<f64>,
+            rhs: &GmgVector<f64>,
             level: usize,
             iterations: usize,
         ) {
@@ -499,7 +581,7 @@ mod tests {
 
         // Test problem: -Δu = 1, u=0 on boundary
         let n = 16 * 16;
-        let mut rhs = DVector::from_element(n, 1.0);
+        let mut rhs = GmgVector::from_elem([n], 1.0);
 
         // Zero out boundaries in RHS effectively (though strict Dirichlet BCs usually involve modifying matrix/RHS)
         // For this test, we accept the matrix built by create_poisson_matrix which assumes zero BCs implicitly
@@ -531,12 +613,12 @@ mod tests {
         // Compare with standard linear solve
         let (linear_sol, _, _) = gmg.solve(&rhs, tolerance, max_iter).unwrap();
 
-        let diff = &solution - &linear_sol;
+        let diff = vector_sub(&solution, &linear_sol);
         // The solutions should be relatively close
         assert!(
-            diff.norm() < 1e-3,
+            l2_norm(&diff) < 1e-3,
             "FAS solution should match linear solution for linear problem (diff: {})",
-            diff.norm()
+            l2_norm(&diff)
         );
     }
 }

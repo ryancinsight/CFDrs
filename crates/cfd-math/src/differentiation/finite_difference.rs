@@ -2,8 +2,12 @@
 
 use super::schemes::FiniteDifferenceScheme;
 use cfd_core::error::{Error, Result};
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::Array1;
+
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
 
 /// Finite difference operator for 1D problems
 pub struct FiniteDifference<T: RealField + Copy> {
@@ -11,7 +15,7 @@ pub struct FiniteDifference<T: RealField + Copy> {
     spacing: T,
 }
 
-impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
+impl<T: RealField + FloatElement + Copy> FiniteDifference<T> {
     /// Create a finite difference operator
     pub fn new(scheme: FiniteDifferenceScheme, spacing: T) -> Self {
         Self { scheme, spacing }
@@ -36,7 +40,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
     ///
     /// # Errors
     /// Returns an error if the input array has fewer than 2 points
-    pub fn first_derivative(&self, values: &[T]) -> Result<DVector<T>> {
+    pub fn first_derivative(&self, values: &[T]) -> Result<Array1<T>> {
         if values.len() < 2 {
             return Err(Error::InvalidConfiguration(
                 "Need at least 2 points for differentiation".to_string(),
@@ -44,8 +48,8 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
         }
 
         let n = values.len();
-        let mut result = DVector::zeros(n);
-        let inv_spacing = T::one() / self.spacing;
+        let mut result = vector_zeros(n);
+        let inv_spacing = <T as NumericElement>::ONE / self.spacing;
 
         match self.scheme {
             FiniteDifferenceScheme::Forward => {
@@ -73,7 +77,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
                 result[0] = (values[1] - values[0]) * inv_spacing;
 
                 // Central difference using windows(3) for interior points
-                let two_inv_spacing = inv_spacing / T::from_f64(2.0).unwrap_or_else(|| T::zero());
+                let two_inv_spacing = inv_spacing / from_f64::<T>(2.0);
                 values.windows(3).enumerate().for_each(|(i, window)| {
                     result[i + 1] = (window[2] - window[0]) * two_inv_spacing;
                 });
@@ -90,31 +94,22 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
                     ));
                 }
 
-                let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-                let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
-                let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
+                let two = from_f64::<T>(2.0);
+                let three = from_f64::<T>(3.0);
+                let four = from_f64::<T>(4.0);
 
                 // Use forward difference for first n-2 points
-                result
-                    .iter_mut()
-                    .take(n.saturating_sub(2))
-                    .enumerate()
-                    .for_each(|(i, r)| {
-                        *r = (-three * values[i] + four * values[i + 1] - values[i + 2])
-                            / (two * self.spacing);
-                    });
+                for i in 0..n.saturating_sub(2) {
+                    result[i] = (-three * values[i] + four * values[i + 1] - values[i + 2])
+                        / (two * self.spacing);
+                }
 
                 // Use central difference for remaining points
-                result
-                    .iter_mut()
-                    .skip(n.saturating_sub(2))
-                    .enumerate()
-                    .for_each(|(idx, r)| {
-                        let i = idx + n.saturating_sub(2);
-                        if i > 0 && i < n - 1 {
-                            *r = (values[i + 1] - values[i - 1]) / (two * self.spacing);
-                        }
-                    });
+                for i in n.saturating_sub(2)..n {
+                    if i > 0 && i < n - 1 {
+                        result[i] = (values[i + 1] - values[i - 1]) / (two * self.spacing);
+                    }
+                }
             }
             FiniteDifferenceScheme::BackwardSecondOrder => {
                 if n < 3 {
@@ -123,67 +118,22 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
                     ));
                 }
 
-                let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
-                let three = T::from_f64(3.0).unwrap_or_else(|| T::zero());
-                let four = T::from_f64(4.0).unwrap_or_else(|| T::zero());
+                let two = from_f64::<T>(2.0);
+                let three = from_f64::<T>(3.0);
+                let four = from_f64::<T>(4.0);
 
                 // Use central difference for first points
-                result.iter_mut().take(2).enumerate().for_each(|(i, r)| {
+                for i in 0..2 {
                     if i > 0 && i < n - 1 {
-                        *r = (values[i + 1] - values[i - 1]) / (two * self.spacing);
+                        result[i] = (values[i + 1] - values[i - 1]) / (two * self.spacing);
                     }
-                });
+                }
 
                 // Use backward difference for remaining points
-                result.iter_mut().skip(2).enumerate().for_each(|(idx, r)| {
-                    let i = idx + 2;
-                    *r = (values[i - 2] - four * values[i - 1] + three * values[i])
+                for i in 2..n {
+                    result[i] = (values[i - 2] - four * values[i - 1] + three * values[i])
                         / (two * self.spacing);
-                });
-            }
-        }
-
-        Ok(result)
-    }
-
-    /// Compute first derivative using SIMD acceleration for f32 arrays
-    ///
-    /// # Errors
-    /// Returns an error if the input array has fewer than 2 points
-    pub fn first_derivative_simd_f32(&self, values: &[f32]) -> Result<Vec<f32>> {
-        if values.len() < 2 {
-            return Err(Error::InvalidConfiguration(
-                "Need at least 2 points for differentiation".to_string(),
-            ));
-        }
-
-        let n = values.len();
-        let mut result = vec![0.0f32; n];
-        let inv_spacing = 1.0f32 / (self.spacing.to_subset().unwrap_or(1.0) as f32);
-
-        if self.scheme == FiniteDifferenceScheme::Central {
-            // Use SIMD-friendly operations for central differences
-            if n > 2 {
-                // Compute differences and scale in one pass
-                let scale = inv_spacing * 0.5;
-                for i in 1..n - 1 {
-                    result[i] = (values[i + 1] - values[i - 1]) * scale;
                 }
-            }
-
-            // Handle boundaries
-            result[0] = (values[1] - values[0]) * inv_spacing;
-            result[n - 1] = (values[n - 1] - values[n - 2]) * inv_spacing;
-        } else {
-            // Fall back to scalar for other schemes
-            let scalar_result = self.first_derivative(
-                &values
-                    .iter()
-                    .map(|&v| T::from_f32(v).unwrap_or_else(|| T::zero()))
-                    .collect::<Vec<_>>(),
-            )?;
-            for (i, val) in scalar_result.iter().enumerate() {
-                result[i] = val.to_subset().unwrap_or(0.0) as f32;
             }
         }
 
@@ -194,7 +144,7 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
     ///
     /// # Errors
     /// Returns an error if the input array has fewer than 3 points
-    pub fn second_derivative(&self, values: &[T]) -> Result<DVector<T>> {
+    pub fn second_derivative(&self, values: &[T]) -> Result<Array1<T>> {
         if values.len() < 3 {
             return Err(Error::InvalidConfiguration(
                 "Need at least 3 points for second derivative".to_string(),
@@ -202,26 +152,20 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
         }
 
         let n = values.len();
-        let mut result = DVector::zeros(n);
+        let mut result = vector_zeros(n);
         let h_squared = self.spacing * self.spacing;
+        let two = from_f64::<T>(2.0);
 
         // Use forward difference for first point
-        result[0] = (values[2] - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * values[1]
-            + values[0])
-            / h_squared;
+        result[0] = (values[2] - two * values[1] + values[0]) / h_squared;
 
         // Central difference for interior points
         for i in 1..n - 1 {
-            result[i] = (values[i + 1] - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * values[i]
-                + values[i - 1])
-                / h_squared;
+            result[i] = (values[i + 1] - two * values[i] + values[i - 1]) / h_squared;
         }
 
         // Use backward difference for last point
-        result[n - 1] = (values[n - 1]
-            - T::from_f64(2.0).unwrap_or_else(|| T::zero()) * values[n - 2]
-            + values[n - 3])
-            / h_squared;
+        result[n - 1] = (values[n - 1] - two * values[n - 2] + values[n - 3]) / h_squared;
 
         Ok(result)
     }
@@ -237,9 +181,46 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> FiniteDifference<T> {
     }
 }
 
-impl<T: RealField + From<f64> + FromPrimitive + Copy> Default for FiniteDifference<T> {
+impl<T: RealField + FloatElement + Copy> Default for FiniteDifference<T> {
     fn default() -> Self {
-        Self::central(T::one())
+        Self::central(<T as NumericElement>::ONE)
+    }
+}
+
+impl FiniteDifference<f32> {
+    /// Compute first derivative using the f32 SIMD-friendly path.
+    ///
+    /// # Errors
+    /// Returns an error if the input array has fewer than 2 points.
+    pub fn first_derivative_simd(&self, values: &[f32]) -> Result<Vec<f32>> {
+        if values.len() < 2 {
+            return Err(Error::InvalidConfiguration(
+                "Need at least 2 points for differentiation".to_string(),
+            ));
+        }
+
+        let n = values.len();
+        let mut result = vec![0.0f32; n];
+        let inv_spacing = 1.0f32 / self.spacing;
+
+        if self.scheme == FiniteDifferenceScheme::Central {
+            if n > 2 {
+                let scale = inv_spacing * 0.5;
+                for i in 1..n - 1 {
+                    result[i] = (values[i + 1] - values[i - 1]) * scale;
+                }
+            }
+
+            result[0] = (values[1] - values[0]) * inv_spacing;
+            result[n - 1] = (values[n - 1] - values[n - 2]) * inv_spacing;
+        } else {
+            let scalar_result = self.first_derivative(values)?;
+            for (i, val) in scalar_result.iter().enumerate() {
+                result[i] = *val;
+            }
+        }
+
+        Ok(result)
     }
 }
 
@@ -247,10 +228,10 @@ impl<T: RealField + From<f64> + FromPrimitive + Copy> Default for FiniteDifferen
 ///
 /// # Errors
 /// Returns an error if the input array has fewer than 2 points
-pub fn differentiate_1d<T: RealField + From<f64> + FromPrimitive + Copy>(
+pub fn differentiate_1d<T: RealField + FloatElement + Copy>(
     values: &[T],
     spacing: T,
-) -> Result<DVector<T>> {
+) -> Result<Array1<T>> {
     FiniteDifference::central(spacing).first_derivative(values)
 }
 
@@ -258,7 +239,7 @@ pub fn differentiate_1d<T: RealField + From<f64> + FromPrimitive + Copy>(
 ///
 /// # Errors
 /// Returns an error if field dimensions are invalid or insufficient data points
-pub fn differentiate_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
+pub fn differentiate_2d<T: RealField + FloatElement + Copy>(
     field: &[T],
     nx: usize,
     ny: usize,
@@ -267,7 +248,7 @@ pub fn differentiate_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
 ) -> Result<(Vec<T>, Vec<T>)> {
     use crate::differentiation::Gradient;
 
-    let grad = Gradient::new(dx, dy, T::one());
+    let grad = Gradient::new(dx, dy, <T as NumericElement>::ONE);
     let gradients = grad.gradient_2d(field, nx, ny)?;
 
     let grad_x: Vec<T> = gradients.iter().map(|g| g.x).collect();
@@ -281,7 +262,7 @@ pub fn differentiate_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
 /// # Errors
 /// Returns an error if field dimensions are invalid or insufficient data points
 #[allow(clippy::similar_names)] // Mathematical derivatives use standard notation
-pub fn laplacian_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
+pub fn laplacian_2d<T: RealField + FloatElement + Copy>(
     field: &[T],
     nx: usize,
     ny: usize,
@@ -294,23 +275,20 @@ pub fn laplacian_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
         ));
     }
 
-    let mut laplacian = vec![T::zero(); nx * ny];
+    let mut laplacian = vec![<T as NumericElement>::ZERO; nx * ny];
     let dx2 = dx * dx;
     let dy2 = dy * dy;
+    let two = from_f64::<T>(2.0);
 
     for j in 1..ny - 1 {
         for i in 1..nx - 1 {
             let idx = j * nx + i;
 
             // ∂²f/∂x²
-            let d2fdx2 = (field[idx + 1] - T::from_f64(2.0).unwrap_or_else(T::zero) * field[idx]
-                + field[idx - 1])
-                / dx2;
+            let d2fdx2 = (field[idx + 1] - two * field[idx] + field[idx - 1]) / dx2;
 
             // ∂²f/∂y²
-            let d2fdy2 = (field[idx + nx] - T::from_f64(2.0).unwrap_or_else(T::zero) * field[idx]
-                + field[idx - nx])
-                / dy2;
+            let d2fdy2 = (field[idx + nx] - two * field[idx] + field[idx - nx]) / dy2;
 
             laplacian[idx] = d2fdx2 + d2fdy2;
         }
@@ -322,25 +300,16 @@ pub fn laplacian_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
         // Bottom boundary (j=0)
         let idx = i;
         if i > 0 && i < nx - 1 {
-            let d2fdx2 = (field[idx + 1] - T::from_f64(2.0).unwrap_or_else(T::zero) * field[idx]
-                + field[idx - 1])
-                / dx2;
-            let d2fdy2 = (field[idx + 2 * nx]
-                - T::from_f64(2.0).unwrap_or_else(T::zero) * field[idx + nx]
-                + field[idx])
-                / dy2;
+            let d2fdx2 = (field[idx + 1] - two * field[idx] + field[idx - 1]) / dx2;
+            let d2fdy2 = (field[idx + 2 * nx] - two * field[idx + nx] + field[idx]) / dy2;
             laplacian[idx] = d2fdx2 + d2fdy2;
         }
 
         // Top boundary (j=ny-1)
         let idx = (ny - 1) * nx + i;
         if i > 0 && i < nx - 1 {
-            let d2fdx2 = (field[idx + 1] - T::from_f64(2.0).unwrap_or_else(T::zero) * field[idx]
-                + field[idx - 1])
-                / dx2;
-            let d2fdy2 = (field[idx] - T::from_f64(2.0).unwrap_or_else(T::zero) * field[idx - nx]
-                + field[idx - 2 * nx])
-                / dy2;
+            let d2fdx2 = (field[idx + 1] - two * field[idx] + field[idx - 1]) / dx2;
+            let d2fdy2 = (field[idx] - two * field[idx - nx] + field[idx - 2 * nx]) / dy2;
             laplacian[idx] = d2fdx2 + d2fdy2;
         }
     }
@@ -349,24 +318,20 @@ pub fn laplacian_2d<T: RealField + From<f64> + FromPrimitive + Copy>(
     for j in 1..ny - 1 {
         // Left boundary (i=0)
         let idx = j * nx;
-        let d2fdx2 = (field[idx + 2] - T::from_f64(2.0).unwrap_or_else(T::zero) * field[idx + 1]
-            + field[idx])
-            / dx2;
-        let d2fdy2 = (field[idx + nx] - T::from_f64(2.0).unwrap_or_else(T::zero) * field[idx]
-            + field[idx - nx])
-            / dy2;
+        let d2fdx2 = (field[idx + 2] - two * field[idx + 1] + field[idx]) / dx2;
+        let d2fdy2 = (field[idx + nx] - two * field[idx] + field[idx - nx]) / dy2;
         laplacian[idx] = d2fdx2 + d2fdy2;
 
         // Right boundary (i=nx-1)
         let idx = j * nx + (nx - 1);
-        let d2fdx2 = (field[idx] - T::from_f64(2.0).unwrap_or_else(T::zero) * field[idx - 1]
-            + field[idx - 2])
-            / dx2;
-        let d2fdy2 = (field[idx + nx] - T::from_f64(2.0).unwrap_or_else(T::zero) * field[idx]
-            + field[idx - nx])
-            / dy2;
+        let d2fdx2 = (field[idx] - two * field[idx - 1] + field[idx - 2]) / dx2;
+        let d2fdy2 = (field[idx + nx] - two * field[idx] + field[idx - nx]) / dy2;
         laplacian[idx] = d2fdx2 + d2fdy2;
     }
 
     Ok(laplacian)
+}
+
+fn vector_zeros<T: NumericElement>(len: usize) -> Array1<T> {
+    Array1::from_elem([len], T::ZERO)
 }

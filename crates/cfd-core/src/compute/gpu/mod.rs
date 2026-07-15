@@ -1,13 +1,15 @@
-//! GPU compute backend using wgpu
+//! GPU compute backend using Hephaestus' WGPU provider ABI.
 
 use crate::error::{Error, Result};
+use hephaestus_wgpu::{wgpu, WgpuDevice};
 use std::sync::Arc;
+
+const REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE: u32 = 7;
 
 pub mod buffer;
 pub mod constants;
 pub mod field_ops;
 pub mod kernels;
-pub mod pipeline;
 pub mod poisson_solver;
 pub mod shaders;
 pub mod turbulence_compute;
@@ -15,15 +17,18 @@ pub mod validation_tests;
 
 pub use buffer::GpuBuffer;
 pub use field_ops::GpuFieldOps;
+pub use kernels::turbulence::TurbulenceGrid;
 pub use poisson_solver::{GpuPoissonSolver, PoissonParams};
-pub use turbulence_compute::{GpuTurbulenceCompute, TurbulencePerformanceInfo};
+pub use turbulence_compute::GpuTurbulenceCompute;
 
 /// GPU context for managing device and queue
 pub struct GpuContext {
-    /// wgpu instance
-    instance: wgpu::Instance,
-    /// GPU adapter
-    adapter: wgpu::Adapter,
+    /// Hephaestus-owned WGPU provider and capability metadata.
+    provider: WgpuDevice,
+    /// GPU adapter metadata captured during provider acquisition.
+    adapter_info: wgpu::AdapterInfo,
+    /// Enabled WGPU features for this provider device.
+    features: wgpu::Features,
     /// GPU device
     pub device: Arc<wgpu::Device>,
     /// Command queue
@@ -38,102 +43,81 @@ impl GpuContext {
     /// # Errors
     /// Returns error if GPU device initialization fails or no suitable adapter found
     pub fn create() -> Result<Self> {
-        pollster::block_on(Self::create_async())
-    }
-
-    /// Async initialization with support for integrated graphics
-    async fn create_async() -> Result<Self> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            ..Default::default()
-        });
-
-        // Try high performance first (discrete GPU if available)
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                force_fallback_adapter: false,
-                compatible_surface: None,
-            })
-            .await
-            // Fall back to low power (integrated graphics)
-            .or_else(|| {
-                pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::LowPower,
-                    force_fallback_adapter: false,
-                    compatible_surface: None,
-                }))
-            })
-            // Last resort: software fallback
-            .or_else(|| {
-                pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::LowPower,
-                    force_fallback_adapter: true,
-                    compatible_surface: None,
-                }))
-            })
-            .ok_or_else(|| {
-                Error::InvalidConfiguration(
-                    "No GPU adapter found (tried discrete, integrated, and software)".to_string(),
-                )
+        let required_limits = wgpu::Limits {
+            // Three velocity inputs, pressure, and three corrected outputs are
+            // bound in one operation; requesting the derived limit makes the
+            // provider reject unsupported adapters during acquisition.
+            max_storage_buffers_per_shader_stage: REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE,
+            ..wgpu::Limits::downlevel_defaults()
+        };
+        let provider = WgpuDevice::try_default_with_limits("CFD GPU Device", required_limits)
+            .map_err(|error| {
+                Error::InvalidConfiguration(format!(
+                    "Failed to acquire Hephaestus WGPU provider: {error}"
+                ))
             })?;
+        let adapter_info = provider.adapter_info().cloned().ok_or_else(|| {
+            Error::InvalidConfiguration(
+                "Hephaestus WGPU provider did not report adapter metadata".to_string(),
+            )
+        })?;
 
         // Log adapter info
-        let info = adapter.get_info();
         tracing::info!(
             "GPU adapter selected: {} ({:?}) - Backend: {:?}",
-            info.name,
-            info.device_type,
-            info.backend
+            adapter_info.name,
+            adapter_info.device_type,
+            adapter_info.backend
         );
 
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: Some("CFD GPU Device"),
-                    required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::default(),
-                },
-                None,
-            )
-            .await
-            .map_err(|e| {
-                Error::InvalidConfiguration(format!("Failed to create GPU device: {e}"))
-            })?;
-
-        let limits = device.limits();
+        let features = provider.features();
+        let limits = provider.limits();
+        let device = provider.device().clone();
+        let queue = provider.queue().clone();
 
         Ok(Self {
-            instance,
-            adapter,
-            device: Arc::new(device),
-            queue: Arc::new(queue),
+            provider,
+            adapter_info,
+            features,
+            device,
+            queue,
             limits,
         })
     }
 
-    /// Get the wgpu instance for surface creation
+    /// Get the Hephaestus WGPU provider.
     #[must_use]
-    pub fn instance(&self) -> &wgpu::Instance {
-        &self.instance
-    }
-
-    /// Get the GPU adapter information
-    #[must_use]
-    pub fn adapter(&self) -> &wgpu::Adapter {
-        &self.adapter
+    pub fn provider(&self) -> &WgpuDevice {
+        &self.provider
     }
 
     /// Get adapter info
     #[must_use]
     pub fn adapter_info(&self) -> wgpu::AdapterInfo {
-        self.adapter.get_info()
+        self.adapter_info.clone()
     }
 
     /// Check if GPU supports required features
     #[must_use]
     pub fn supports_features(&self, features: wgpu::Features) -> bool {
-        self.adapter.features().contains(features)
+        self.features.contains(features)
+    }
+
+    /// Check whether timestamp query metrics are available.
+    #[must_use]
+    pub fn supports_timestamp_queries(&self) -> bool {
+        self.supports_features(wgpu::Features::TIMESTAMP_QUERY)
+    }
+
+    /// Block until submitted GPU work visible to this context has completed.
+    ///
+    /// # Errors
+    /// Returns an error if WGPU reports that polling failed.
+    pub fn synchronize(&self) -> Result<()> {
+        self.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|error| {
+            Error::InvalidConfiguration(format!("GPU device poll failed: {error:?}"))
+        })?;
+        Ok(())
     }
 
     /// Get maximum work group size
@@ -146,37 +130,5 @@ impl GpuContext {
     #[must_use]
     pub fn max_buffer_size(&self) -> usize {
         self.limits.max_buffer_size as usize
-    }
-
-    /// Create compute pipeline with explicit bind group layout
-    #[must_use]
-    pub fn create_compute_pipeline_with_layout(
-        &self,
-        shader_source: &str,
-        entry_point: &str,
-        bind_group_layout: &wgpu::BindGroupLayout,
-    ) -> wgpu::ComputePipeline {
-        let shader = self
-            .device
-            .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some(entry_point),
-                source: wgpu::ShaderSource::Wgsl(shader_source.into()),
-            });
-
-        let pipeline_layout = self
-            .device
-            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some(&format!("{entry_point} Pipeline Layout")),
-                bind_group_layouts: &[bind_group_layout],
-                push_constant_ranges: &[],
-            });
-
-        self.device
-            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some(&format!("{entry_point} Pipeline")),
-                layout: Some(&pipeline_layout),
-                module: &shader,
-                entry_point,
-            })
     }
 }

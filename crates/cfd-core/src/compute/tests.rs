@@ -3,6 +3,31 @@
 use super::*;
 use crate::compute::cpu::CpuAdvectionKernel;
 use crate::compute::traits::{BoundaryCondition2D, ComputeBackend, DomainParams, KernelParams};
+use crate::error::{Error, Result};
+use eunomia::RealField;
+use std::fmt::Debug;
+
+#[derive(Debug)]
+struct SimdOnlyKernel;
+
+impl<T: RealField + Copy> ComputeKernel<T> for SimdOnlyKernel {
+    fn name(&self) -> &'static str {
+        "simd-only-test-kernel"
+    }
+
+    fn execute(&self, input: &[T], output: &mut [T], _params: KernelParams) -> Result<()> {
+        output.copy_from_slice(input);
+        Ok(())
+    }
+
+    fn complexity(&self, size: usize) -> usize {
+        size
+    }
+
+    fn supports_backend(&self, backend: &ComputeBackend) -> bool {
+        matches!(backend, ComputeBackend::Simd)
+    }
+}
 
 #[test]
 fn test_backend_detection() {
@@ -119,6 +144,40 @@ fn test_dispatcher_creation() {
     // Test specific backend selection
     let cpu_dispatcher = ComputeDispatcher::with_backend(ComputeBackend::Cpu).unwrap();
     assert_eq!(cpu_dispatcher.current_backend(), ComputeBackend::Cpu);
+}
+
+#[test]
+fn dispatcher_errors_instead_of_cpu_fallback_for_unsupported_backend() {
+    let dispatcher = ComputeDispatcher::with_backend(ComputeBackend::Cpu).unwrap();
+    let input = [1.0_f64, 2.0, 3.0];
+    let mut output = [9.0_f64, 9.0, 9.0];
+    let params = KernelParams {
+        size: input.len(),
+        work_group_size: 1,
+        domain_params: DomainParams {
+            grid_dims: (input.len(), 1, 1),
+            grid_spacing: (1.0, 1.0, 1.0),
+            dt: 0.0,
+            reynolds: 1.0,
+            velocity: (0.0, 0.0, 0.0),
+            boundary: BoundaryCondition2D::DirichletZero,
+        },
+    };
+
+    let err = dispatcher
+        .execute(&SimdOnlyKernel, &input, &mut output, params)
+        .unwrap_err();
+
+    match err {
+        Error::UnsupportedOperation(message) => {
+            assert!(
+                message.contains("does not support requested backend Cpu"),
+                "unexpected unsupported-backend error: {message}"
+            );
+        }
+        other => panic!("expected unsupported backend error, got {other:?}"),
+    }
+    assert_eq!(output, [9.0_f64, 9.0, 9.0]);
 }
 
 #[cfg(feature = "gpu")]

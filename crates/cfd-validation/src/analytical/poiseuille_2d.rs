@@ -29,9 +29,12 @@
 //! - Merrill, E.W. et al. (1969) "Rheology of blood"
 
 use super::AnalyticalSolution;
+use crate::scalar;
+use crate::scalar::ValidationScalar;
 use cfd_core::physics::fluid::blood::CassonBlood;
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::geometry::Vector3;
 
 // ============================================================================
 // Rheological Model Trait
@@ -62,7 +65,7 @@ pub struct PowerLawModel<T: RealField + Copy> {
     pub index: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> PowerLawModel<T> {
+impl<T: RealField + FloatElement + Copy> PowerLawModel<T> {
     /// Create power-law model
     ///
     /// # Arguments
@@ -76,7 +79,7 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawModel<T> {
     pub fn newtonian(viscosity: T) -> Self {
         Self {
             consistency: viscosity,
-            index: T::one(),
+            index: scalar::one::<T>(),
         }
     }
 
@@ -84,22 +87,28 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawModel<T> {
     pub fn blood_like(consistency: T) -> Self {
         Self {
             consistency,
-            index: T::from_f64(0.6).unwrap_or_else(num_traits::Zero::zero),
+            index: scalar::from_f64(0.6),
         }
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> RheologicalModel<T> for PowerLawModel<T> {
+impl<T: RealField + FloatElement + Copy> RheologicalModel<T> for PowerLawModel<T> {
     fn shear_stress(&self, shear_rate: T) -> T {
-        self.consistency * shear_rate.abs().powf(self.index) * shear_rate.signum()
+        let magnitude = scalar::powf(scalar::abs(shear_rate), self.index);
+        let sign = if shear_rate >= scalar::zero::<T>() {
+            scalar::one::<T>()
+        } else {
+            -scalar::one::<T>()
+        };
+        self.consistency * magnitude * sign
     }
 
     fn viscosity(&self, shear_rate: T) -> T {
-        if shear_rate.abs() < T::from_f64(1e-12).unwrap_or_else(num_traits::Zero::zero) {
+        if scalar::abs(shear_rate) < scalar::from_f64::<T>(1e-12) {
             // Avoid division by zero at centerline
-            return T::from_f64(1e12).unwrap_or_else(num_traits::Zero::zero);
+            return scalar::from_f64(1e12);
         }
-        self.consistency * shear_rate.abs().powf(self.index - T::one())
+        self.consistency * scalar::powf(scalar::abs(shear_rate), self.index - scalar::one::<T>())
     }
 
     fn model_name(&self) -> &'static str {
@@ -126,7 +135,7 @@ pub struct PowerLawPoiseuille<T: RealField + Copy> {
     pub length: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> PowerLawPoiseuille<T> {
+impl<T: RealField + FloatElement + Copy> PowerLawPoiseuille<T> {
     /// Create power-law Poiseuille flow
     ///
     /// # Arguments
@@ -152,7 +161,7 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawPoiseuille<T> {
     /// ```
     pub fn centerline_velocity(&self) -> T {
         let n = self.model.index;
-        let one = T::one();
+        let one = scalar::one::<T>();
         let h = self.half_width;
         let dp_dx = self.pressure_gradient;
         let k = self.model.consistency;
@@ -161,7 +170,7 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawPoiseuille<T> {
         let factor = n / (n + one);
         let term = (dp_dx * h) / k;
 
-        factor * h * term.powf(one / n)
+        factor * h * scalar::powf(term, one / n)
     }
 
     /// Velocity profile u(y) for power-law fluid
@@ -174,16 +183,16 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawPoiseuille<T> {
         let h = self.half_width;
         let u_c = self.centerline_velocity();
 
-        let y_normalized = (y / h).abs();
+        let y_normalized = scalar::abs(y / h);
 
-        if y_normalized >= T::one() {
+        if y_normalized >= scalar::one::<T>() {
             // Outside channel
-            return T::zero();
+            return scalar::zero::<T>();
         }
 
         // Exponent: (n+1)/n
-        let exponent = (n + T::one()) / n;
-        u_c * (T::one() - y_normalized.powf(exponent))
+        let exponent = (n + scalar::one::<T>()) / n;
+        u_c * (scalar::one::<T>() - scalar::powf(y_normalized, exponent))
     }
 
     /// Flow rate per unit depth Q' [m²/s]
@@ -197,8 +206,8 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawPoiseuille<T> {
         let u_c = self.centerline_velocity();
 
         // Q' = 2·u_c·H·[n/(2n+1)]
-        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-        let factor = n / (two * n + T::one());
+        let two = scalar::from_f64::<T>(2.0);
+        let factor = n / (two * n + scalar::one::<T>());
 
         two * u_c * h * factor
     }
@@ -223,7 +232,7 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawPoiseuille<T> {
         let k = self.model.consistency;
         let n = self.model.index;
 
-        (tau_w / k).powf(T::one() / n)
+        scalar::powf(tau_w / k, scalar::one::<T>() / n)
     }
 
     /// Reynolds number for power-law fluid
@@ -238,15 +247,14 @@ impl<T: RealField + FromPrimitive + Copy> PowerLawPoiseuille<T> {
         let h = self.half_width;
         let k = self.model.consistency;
 
-        density * u_c.powf(T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero) - n) * h.powf(n)
-            / k
+        density * scalar::powf(u_c, scalar::from_f64::<T>(2.0) - n) * scalar::powf(h, n) / k
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for PowerLawPoiseuille<T> {
+impl<T: RealField + FloatElement + Copy> AnalyticalSolution<T> for PowerLawPoiseuille<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         let u = self.velocity_at(y);
-        Vector3::new(u, T::zero(), T::zero())
+        Vector3::new(u, scalar::zero::<T>(), scalar::zero::<T>())
     }
 
     fn pressure(&self, x: T, _y: T, _z: T, _t: T) -> T {
@@ -260,12 +268,12 @@ impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for PowerLawPois
 
     fn domain_bounds(&self) -> [T; 6] {
         [
-            T::zero(),
+            scalar::zero::<T>(),
             self.length, // x: [0, L]
             -self.half_width,
             self.half_width, // y: [-H, H]
-            T::zero(),
-            T::zero(), // z: 0 (2D)
+            scalar::zero::<T>(),
+            scalar::zero::<T>(), // z: 0 (2D)
         ]
     }
 
@@ -283,19 +291,24 @@ impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for PowerLawPois
 // ============================================================================
 
 /// Wrapper for Casson blood rheology in Poiseuille flow
-impl<T: RealField + FromPrimitive + Copy> RheologicalModel<T> for CassonBlood<T> {
+impl<T: ValidationScalar> RheologicalModel<T> for CassonBlood<T> {
     fn shear_stress(&self, shear_rate: T) -> T {
-        let gamma_dot = shear_rate.abs();
-        let sqrt_tau_y = self.yield_stress.sqrt();
-        let sqrt_mu_inf = self.infinite_shear_viscosity.sqrt();
-        let sqrt_gamma = gamma_dot.sqrt();
+        let gamma_dot = scalar::abs(shear_rate);
+        let sqrt_tau_y = scalar::sqrt(self.yield_stress);
+        let sqrt_mu_inf = scalar::sqrt(self.infinite_shear_viscosity);
+        let sqrt_gamma = scalar::sqrt(gamma_dot);
 
         let sqrt_tau = sqrt_tau_y + sqrt_mu_inf * sqrt_gamma;
-        sqrt_tau * sqrt_tau * shear_rate.signum()
+        let sign = if shear_rate >= scalar::zero::<T>() {
+            scalar::one::<T>()
+        } else {
+            -scalar::one::<T>()
+        };
+        sqrt_tau * sqrt_tau * sign
     }
 
     fn viscosity(&self, shear_rate: T) -> T {
-        self.apparent_viscosity(shear_rate.abs())
+        self.apparent_viscosity(scalar::abs(shear_rate))
     }
 
     fn model_name(&self) -> &'static str {
@@ -312,7 +325,7 @@ impl<T: RealField + FromPrimitive + Copy> RheologicalModel<T> for CassonBlood<T>
 /// The velocity profile for Casson fluid must be solved numerically.
 /// We provide numerical integration and validation methods.
 #[derive(Debug, Clone)]
-pub struct CassonPoiseuille<T: RealField + Copy> {
+pub struct CassonPoiseuille<T: ValidationScalar> {
     /// Casson blood model
     pub model: CassonBlood<T>,
     /// Channel half-width H \[m]
@@ -325,7 +338,7 @@ pub struct CassonPoiseuille<T: RealField + Copy> {
     pub plug_radius: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
+impl<T: ValidationScalar> CassonPoiseuille<T> {
     /// Create Casson Poiseuille flow
     ///
     /// # Arguments
@@ -369,10 +382,10 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
     /// ```
     /// where γ̇(η) is obtained from Casson equation inverted.
     pub fn velocity_at_numerical(&self, y: T) -> T {
-        let y_abs = y.abs();
+        let y_abs = scalar::abs(y);
 
         if y_abs >= self.half_width {
-            return T::zero();
+            return scalar::zero::<T>();
         }
 
         if y_abs < self.plug_radius {
@@ -382,33 +395,33 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
 
         // Numerical integration using Simpson's rule
         let n_points = 100;
-        let dy = (self.half_width - y_abs) / T::from_usize(n_points).unwrap();
-        let mut integral = T::zero();
+        let dy = (self.half_width - y_abs) / scalar::from_usize::<T>(n_points);
+        let mut integral = scalar::zero::<T>();
 
-        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-        let four = T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero);
-        let three = T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero);
-        let sqrt_tau_y = self.model.yield_stress.sqrt();
-        let sqrt_mu_inf = self.model.infinite_shear_viscosity.sqrt();
+        let two = scalar::from_f64::<T>(2.0);
+        let four = scalar::from_f64::<T>(4.0);
+        let three = scalar::from_f64::<T>(3.0);
+        let sqrt_tau_y = scalar::sqrt(self.model.yield_stress);
+        let sqrt_mu_inf = scalar::sqrt(self.model.infinite_shear_viscosity);
 
         for i in 0..=n_points {
-            let eta = y_abs + T::from_usize(i).unwrap() * dy;
+            let eta = y_abs + scalar::from_usize::<T>(i) * dy;
             let tau = self.pressure_gradient * eta;
 
             // Casson equation: √τ = √τ_y + √(μ_∞·γ̇)
             // Solve for γ̇: γ̇ = [(√τ - √τ_y)² / μ_∞]
-            let sqrt_tau = tau.sqrt();
+            let sqrt_tau = scalar::sqrt(tau);
 
             let gamma_dot = if tau > self.model.yield_stress {
                 let diff = sqrt_tau - sqrt_tau_y;
                 (diff / sqrt_mu_inf) * (diff / sqrt_mu_inf)
             } else {
-                T::zero()
+                scalar::zero::<T>()
             };
 
             // Simpson's rule weights
             let weight = if i == 0 || i == n_points {
-                T::one()
+                scalar::one::<T>()
             } else if i % 2 == 0 {
                 two
             } else {
@@ -430,19 +443,19 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
     pub fn flow_rate_per_depth(&self) -> T {
         // Q' = 2·∫[0 to H] u(y) dy
         let n_points = 100;
-        let dy = self.half_width / T::from_usize(n_points).unwrap();
-        let mut integral = T::zero();
+        let dy = self.half_width / scalar::from_usize::<T>(n_points);
+        let mut integral = scalar::zero::<T>();
 
-        let two = T::from_f64(2.0).unwrap_or_else(num_traits::Zero::zero);
-        let four = T::from_f64(4.0).unwrap_or_else(num_traits::Zero::zero);
-        let three = T::from_f64(3.0).unwrap_or_else(num_traits::Zero::zero);
+        let two = scalar::from_f64::<T>(2.0);
+        let four = scalar::from_f64::<T>(4.0);
+        let three = scalar::from_f64::<T>(3.0);
 
         for i in 0..=n_points {
-            let y = T::from_usize(i).unwrap() * dy;
+            let y = scalar::from_usize::<T>(i) * dy;
             let u = self.velocity_at_numerical(y);
 
             let weight = if i == 0 || i == n_points {
-                T::one()
+                scalar::one::<T>()
             } else if i % 2 == 0 {
                 two
             } else {
@@ -456,10 +469,10 @@ impl<T: RealField + FromPrimitive + Copy> CassonPoiseuille<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for CassonPoiseuille<T> {
+impl<T: ValidationScalar> AnalyticalSolution<T> for CassonPoiseuille<T> {
     fn evaluate(&self, _x: T, y: T, _z: T, _t: T) -> Vector3<T> {
         let u = self.velocity_at_numerical(y);
-        Vector3::new(u, T::zero(), T::zero())
+        Vector3::new(u, scalar::zero::<T>(), scalar::zero::<T>())
     }
 
     fn pressure(&self, x: T, _y: T, _z: T, _t: T) -> T {
@@ -472,12 +485,12 @@ impl<T: RealField + FromPrimitive + Copy> AnalyticalSolution<T> for CassonPoiseu
 
     fn domain_bounds(&self) -> [T; 6] {
         [
-            T::zero(),
+            scalar::zero::<T>(),
             self.length,
             -self.half_width,
             self.half_width,
-            T::zero(),
-            T::zero(),
+            scalar::zero::<T>(),
+            scalar::zero::<T>(),
         ]
     }
 
@@ -600,7 +613,7 @@ mod tests {
 
         // Wall velocity should be zero
         let u_wall = flow.velocity_at_numerical(h);
-        assert!(u_wall.abs() < 1e-6, "Wall velocity {} should be ~0", u_wall);
+        assert!(u_wall.abs() < 1e-6, "Wall velocity {u_wall} should be ~0");
     }
 
     #[test]
@@ -614,6 +627,6 @@ mod tests {
         let q = flow.flow_rate_per_depth();
 
         // Flow rate should be positive and finite
-        assert!(q > 0.0 && q.is_finite(), "Flow rate {} invalid", q);
+        assert!(q > 0.0 && q.is_finite(), "Flow rate {q} invalid");
     }
 }

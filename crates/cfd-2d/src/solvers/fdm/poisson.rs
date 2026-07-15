@@ -14,23 +14,25 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::{Error, Result};
 use cfd_math::sparse::SparseMatrixBuilder;
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, RealField as EunomiaRealField};
+use leto::Array1;
 use std::collections::HashMap;
 
 use super::config::FdmConfig;
 use super::linear_solver::solve_gauss_seidel;
-use crate::grid::{Grid2D, StructuredGrid2D};
+use crate::grid::StructuredGrid2D;
+use crate::scalar;
 
 /// Poisson equation solver
-pub struct PoissonSolver<T: RealField + Copy> {
+pub struct PoissonSolver<T: Cfd2dScalar + EunomiaRealField + Copy> {
     config: FdmConfig<T>,
     matrix_builder: core::cell::RefCell<Option<SparseMatrixBuilder<T>>>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
+impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> PoissonSolver<T> {
     /// Create new Poisson solver
     pub fn new(config: FdmConfig<T>) -> Self {
         Self {
@@ -69,13 +71,15 @@ impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
             .borrow_mut()
             .take()
             .unwrap_or_else(|| SparseMatrixBuilder::new(n, n));
-        let mut rhs = DVector::from_element(n, T::zero());
+        let zero: T = scalar::zero();
+        let one: T = scalar::one();
+        let mut rhs = Array1::from_elem([n], zero);
 
         // Build system matrix and RHS vector
         for (linear_idx, (i, j)) in grid.iter().enumerate() {
             if let Some(boundary_value) = dirichlet_boundaries.get(&(i, j)).copied() {
                 // Dirichlet boundary condition: φ = boundary_value
-                matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
+                matrix_builder.add_entry(linear_idx, linear_idx, one)?;
                 rhs[linear_idx] = boundary_value;
             } else if let Some(gradient) = neumann_boundaries.get(&(i, j)).copied() {
                 // Neumann boundary condition: ∂φ/∂n = gradient
@@ -120,7 +124,7 @@ impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
     fn add_neumann_bc(
         &self,
         matrix_builder: &mut SparseMatrixBuilder<T>,
-        rhs: &mut DVector<T>,
+        rhs: &mut Array1<T>,
         grid: &StructuredGrid2D<T>,
         i: usize,
         j: usize,
@@ -130,28 +134,32 @@ impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
         let (dx, dy) = grid.spacing();
 
         if i == 0 {
+            let one: T = scalar::one();
             // Left wall, normal -x: T_{0,j} - T_{1,j} = g * dx
             let neighbor_idx = Self::linear_index(grid, i + 1, j);
-            matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-            matrix_builder.add_entry(linear_idx, neighbor_idx, -T::one())?;
+            matrix_builder.add_entry(linear_idx, linear_idx, one)?;
+            matrix_builder.add_entry(linear_idx, neighbor_idx, -one)?;
             rhs[linear_idx] = gradient * dx;
         } else if i == grid.nx() - 1 {
+            let one: T = scalar::one();
             // Right wall, normal +x: T_{nx-1,j} - T_{nx-2,j} = g * dx
             let neighbor_idx = Self::linear_index(grid, i - 1, j);
-            matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-            matrix_builder.add_entry(linear_idx, neighbor_idx, -T::one())?;
+            matrix_builder.add_entry(linear_idx, linear_idx, one)?;
+            matrix_builder.add_entry(linear_idx, neighbor_idx, -one)?;
             rhs[linear_idx] = gradient * dx;
         } else if j == 0 {
+            let one: T = scalar::one();
             // Bottom wall, normal -y: T_{i,0} - T_{i,1} = g * dy
             let neighbor_idx = Self::linear_index(grid, i, j + 1);
-            matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-            matrix_builder.add_entry(linear_idx, neighbor_idx, -T::one())?;
+            matrix_builder.add_entry(linear_idx, linear_idx, one)?;
+            matrix_builder.add_entry(linear_idx, neighbor_idx, -one)?;
             rhs[linear_idx] = gradient * dy;
         } else if j == grid.ny() - 1 {
+            let one: T = scalar::one();
             // Top wall, normal +y: T_{i,ny-1} - T_{i,ny-2} = g * dy
             let neighbor_idx = Self::linear_index(grid, i, j - 1);
-            matrix_builder.add_entry(linear_idx, linear_idx, T::one())?;
-            matrix_builder.add_entry(linear_idx, neighbor_idx, -T::one())?;
+            matrix_builder.add_entry(linear_idx, linear_idx, one)?;
+            matrix_builder.add_entry(linear_idx, neighbor_idx, -one)?;
             rhs[linear_idx] = gradient * dy;
         } else {
             return Err(Error::InvalidConfiguration(
@@ -166,7 +174,7 @@ impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
     fn add_laplacian_stencil(
         &self,
         matrix_builder: &mut SparseMatrixBuilder<T>,
-        rhs: &mut DVector<T>,
+        rhs: &mut Array1<T>,
         grid: &StructuredGrid2D<T>,
         i: usize,
         j: usize,
@@ -178,7 +186,8 @@ impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
         let dy2 = dy * dy;
 
         // Laplacian can include non-uniform spacing
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::zero());
+        let one: T = scalar::one();
+        let two = scalar::from_f64::<T>(2.0);
 
         // Correct 5-point stencil for ∇²φ = f:
         // Center: φ_i,j coefficient = -(2/dx² + 2/dy²)
@@ -189,29 +198,32 @@ impl<T: RealField + Copy + FromPrimitive> PoissonSolver<T> {
         // Left neighbor (i-1)
         if i > 0 {
             let neighbor_idx = Self::linear_index(grid, i - 1, j);
-            matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dx2)?;
+            matrix_builder.add_entry(linear_idx, neighbor_idx, one / dx2)?;
         }
 
         // Right neighbor (i+1)
         if i < grid.nx() - 1 {
             let neighbor_idx = Self::linear_index(grid, i + 1, j);
-            matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dx2)?;
+            matrix_builder.add_entry(linear_idx, neighbor_idx, one / dx2)?;
         }
 
         // Bottom neighbor (j-1)
         if j > 0 {
             let neighbor_idx = Self::linear_index(grid, i, j - 1);
-            matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dy2)?;
+            matrix_builder.add_entry(linear_idx, neighbor_idx, one / dy2)?;
         }
 
         // Top neighbor (j+1)
         if j < grid.ny() - 1 {
             let neighbor_idx = Self::linear_index(grid, i, j + 1);
-            matrix_builder.add_entry(linear_idx, neighbor_idx, T::one() / dy2)?;
+            matrix_builder.add_entry(linear_idx, neighbor_idx, one / dy2)?;
         }
 
         // Set RHS: source term f
-        rhs[linear_idx] = source.get(&(i, j)).copied().unwrap_or_else(T::zero);
+        rhs[linear_idx] = source
+            .get(&(i, j))
+            .copied()
+            .unwrap_or_else(scalar::zero::<T>);
 
         Ok(())
     }

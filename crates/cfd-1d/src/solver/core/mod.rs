@@ -14,6 +14,7 @@ mod state;
 mod status;
 /// Transient solvers for composition and droplet tracking over time.
 pub mod transient;
+mod vector_bridge;
 /// Workspace state and allocation for the 1D solver loop.
 pub mod workspace;
 
@@ -37,24 +38,65 @@ pub use transient::droplets::{
 };
 
 use crate::domain::network::Network;
+use crate::scalar::Cfd1dScalar;
 use cfd_core::compute::solver::{Configurable, Solver, Validatable};
+use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::Result;
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind};
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use cfd_math::nonlinear_solver::{AndersonAccelerator, AndersonConfig, AndersonMethod};
+use eunomia::{FloatElement, NumericElement, RealField as EunomiaRealField};
+use leto_ops::Scalar as LetoScalar;
 use serde::{Deserialize, Serialize};
+
+use self::vector_bridge::{array_l2_norm, copy_array};
+
+/// Scalar contract for the primary 1D network solver.
+///
+/// Binds the Eunomia scalar surface required by the Leto-backed cfd-math
+/// Anderson accelerator and the linear system solver.
+pub trait NetworkSolveScalar:
+    Cfd1dScalar + EunomiaRealField + LetoScalar + Copy + SafeFromF64 + SafeFromUsize + std::fmt::Debug
+{
+}
+
+impl<T> NetworkSolveScalar for T where
+    T: Cfd1dScalar
+        + EunomiaRealField
+        + LetoScalar
+        + Copy
+        + SafeFromF64
+        + SafeFromUsize
+        + std::fmt::Debug
+{
+}
 
 /// Solver configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SolverConfig<T: RealField + Copy> {
+pub struct SolverConfig<T: Cfd1dScalar + Copy> {
     /// Convergence tolerance for solution accuracy
     pub tolerance: T,
     /// Maximum number of solver iterations before termination
     pub max_iterations: usize,
+    /// When `true` (the default), the outer Picard loop also requires the flow
+    /// rates to change by less than `tolerance` between consecutive iterates.
+    ///
+    /// Set to `false` for the reference-trace path where **pressure convergence
+    /// plus a tiny linear-system residual is sufficient** — the flow rates are
+    /// uniquely derived from the converged pressure and do not need an
+    /// independent secondary criterion.  This is particularly important for
+    /// networks with venturi channels whose quadratic loss terms create a
+    /// slowly converging secondary fixed-point that the pressure already
+    /// satisfies in a handful of Picard steps.
+    #[serde(default = "default_require_flow_convergence")]
+    pub require_flow_convergence: bool,
 }
 
-impl<T: RealField + Copy> cfd_core::compute::solver::SolverConfiguration<T> for SolverConfig<T> {
+fn default_require_flow_convergence() -> bool {
+    true
+}
+
+impl<T: Cfd1dScalar + Copy> cfd_core::compute::solver::SolverConfiguration<T> for SolverConfig<T> {
     fn max_iterations(&self) -> usize {
         self.max_iterations
     }
@@ -69,7 +111,7 @@ impl<T: RealField + Copy> cfd_core::compute::solver::SolverConfiguration<T> for 
 }
 
 /// Main network solver implementing the core CFD suite trait system
-pub struct NetworkSolver<T: RealField + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
+pub struct NetworkSolver<T: Cfd1dScalar + Copy, F: FluidTrait<T> = ConstantPropertyFluid<T>> {
     /// Solver configuration
     config: SolverConfig<T>,
     /// Matrix assembler for building the linear system
@@ -79,24 +121,23 @@ pub struct NetworkSolver<T: RealField + Copy, F: FluidTrait<T> = ConstantPropert
     _phantom: std::marker::PhantomData<F>,
 }
 
-impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone> Default
-    for NetworkSolver<T, F>
-{
+impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> Default for NetworkSolver<T, F> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
+impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     /// Create a new network solver with default configuration
     #[must_use]
     pub fn new() -> Self {
         // Default tolerance: 1e-6, falling back to a multiple of machine epsilon
         // so that the solver never panics on exotic numeric types.
-        let tolerance = T::from_f64(1e-6).expect("Mathematical constant conversion compromised");
+        let tolerance = <T as FloatElement>::from_f64(1e-6);
         let config = SolverConfig {
             tolerance,
             max_iterations: 1000,
+            require_flow_convergence: true,
         };
         let convergence = ConvergenceChecker::new(config.tolerance);
         Self {
@@ -130,20 +171,20 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone> NetworkSolve
         }
         network.validate_coefficients()?;
         for props in network.properties.values() {
-            if props.length <= T::zero() || !props.length.is_finite() {
+            if props.length <= T::zero() || !<T as NumericElement>::is_finite(props.length) {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Edge '{}' has invalid physical length",
                     props.id
                 )));
             }
-            if props.area <= T::zero() || !props.area.is_finite() {
+            if props.area <= T::zero() || !<T as NumericElement>::is_finite(props.area) {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Edge '{}' has invalid cross-sectional area",
                     props.id
                 )));
             }
             if let Some(d_h) = props.hydraulic_diameter {
-                if d_h <= T::zero() || !d_h.is_finite() {
+                if d_h <= T::zero() || !<T as NumericElement>::is_finite(d_h) {
                     return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                         "Edge '{}' has invalid hydraulic diameter",
                         props.id
@@ -155,11 +196,7 @@ impl<T: RealField + Copy + FromPrimitive, F: FluidTrait<T> + Clone> NetworkSolve
     }
 }
 
-impl<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
-        F: FluidTrait<T> + Clone,
-    > NetworkSolver<T, F>
-{
+impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
     /// Solve the network flow problem iteratively for non-linear systems.
     ///
     /// ## Algorithm: Anderson-Accelerated Picard Iteration
@@ -229,7 +266,13 @@ impl<
         let mut network = network;
         let n = network.node_count();
         let anderson_depth = 5;
-        let mut workspace = workspace::SolverWorkspace::new(n, anderson_depth);
+        let mut workspace = workspace::SolverWorkspace::new(n);
+        let mut anderson_accelerator = AndersonAccelerator::new(AndersonConfig {
+            history_depth: anderson_depth,
+            relaxation: <T as NumericElement>::ONE,
+            drop_tolerance: <T as FloatElement>::from_f64(1.0e-12),
+            method: AndersonMethod::QR,
+        });
 
         MatrixAssembler::<T>::classify_boundary_conditions_into(
             &network,
@@ -296,8 +339,8 @@ impl<
             }
             let residual_norm = Self::compute_residual_norm(&matrix, &solution, &workspace.rhs, n);
             diagnostics.last_residual_norm = Self::scalar_to_f64(residual_norm);
-            diagnostics.last_solution_change_norm = Self::scalar_to_f64(solution.norm());
-            if !residual_norm.is_finite() {
+            diagnostics.last_solution_change_norm = Self::scalar_to_f64(array_l2_norm(&solution));
+            if !<T as NumericElement>::is_finite(residual_norm) {
                 return Err(PrimarySolveError::new(
                     SolveFailureReason::NonFiniteResidual,
                     diagnostics,
@@ -318,14 +361,13 @@ impl<
         }
 
         let mut max_boundary = T::one();
-        for val in &workspace.dirichlet_values {
-            if let Some(v) = val {
-                if v.abs() > max_boundary {
-                    max_boundary = v.abs();
-                }
+        for v in workspace.dirichlet_values.iter().flatten() {
+            let boundary_magnitude = <T as NumericElement>::abs(*v);
+            if boundary_magnitude > max_boundary {
+                max_boundary = boundary_magnitude;
             }
         }
-        let limit = max_boundary * T::from_f64(1.0e6).unwrap_or_else(T::one);
+        let limit = max_boundary * <T as FloatElement>::from_f64(1.0e6);
 
         let mut selected_method: Option<LinearSolverMethod> = None;
         let mut adaptive_solver: Option<LinearSystemSolver<T>> = None;
@@ -363,9 +405,7 @@ impl<
                 );
             }
 
-            workspace
-                .linear_solution
-                .copy_from(&workspace.last_solution);
+            copy_array(&workspace.last_solution, &mut workspace.linear_solution);
             let picard_solution = adaptive_solver
                 .as_ref()
                 .expect("adaptive solver must be initialized after method detection")
@@ -388,7 +428,7 @@ impl<
             }
             let picard_residual =
                 Self::compute_residual_norm(&matrix, &picard_solution, &workspace.rhs, n);
-            if !picard_residual.is_finite() {
+            if !<T as NumericElement>::is_finite(picard_residual) {
                 diagnostics.last_residual_norm = Self::scalar_to_f64(picard_residual);
                 return Err(PrimarySolveError::new(
                     SolveFailureReason::NonFiniteResidual,
@@ -404,7 +444,7 @@ impl<
                 n,
                 picard_solution,
                 &mut workspace,
-                anderson_depth,
+                &mut anderson_accelerator,
                 &matrix,
                 picard_residual,
             );
@@ -418,12 +458,14 @@ impl<
             }
 
             let residual_norm = Self::compute_residual_norm(&matrix, &solution, &workspace.rhs, n);
-            let rhs_norm = workspace.rhs.norm();
-            let solution_change_norm = (&solution - &workspace.last_solution).norm();
+            let rhs_norm = array_l2_norm(&workspace.rhs);
+            let solution_change_norm = array_l2_norm(&(&solution - &workspace.last_solution));
 
             diagnostics.last_residual_norm = Self::scalar_to_f64(residual_norm);
             diagnostics.last_solution_change_norm = Self::scalar_to_f64(solution_change_norm);
-            if !residual_norm.is_finite() || !solution_change_norm.is_finite() {
+            if !<T as NumericElement>::is_finite(residual_norm)
+                || !<T as NumericElement>::is_finite(solution_change_norm)
+            {
                 return Err(PrimarySolveError::new(
                     SolveFailureReason::NonFiniteResidual,
                     diagnostics,
@@ -436,7 +478,12 @@ impl<
 
             let converged = self
                 .convergence
-                .has_converged_dual(&solution, &workspace.last_solution, residual_norm, rhs_norm)
+                .has_converged_dual(
+                    &solution,
+                    &workspace.last_solution,
+                    residual_norm,
+                    rhs_norm,
+                )
                 .map_err(|source| {
                     let reason = match &source {
                         Error::Convergence(ConvergenceErrorKind::InvalidValue)
@@ -457,28 +504,34 @@ impl<
                     )
                 })?;
 
-            let mut flow_diff_sq = T::zero();
-            let mut flow_norm_sq = T::zero();
-            for (i, &new_flow) in network.flow_rates.iter().enumerate() {
-                let old_flow = last_flow_rates.get(i).copied().unwrap_or(T::zero());
-                let diff = new_flow - old_flow;
-                flow_diff_sq += diff * diff;
-                flow_norm_sq += new_flow * new_flow;
-            }
-            let flow_change = <T as Float>::sqrt(flow_diff_sq);
-            let flow_norm = <T as Float>::sqrt(flow_norm_sq);
-            let relative_flow_change = if flow_norm > T::default_epsilon() {
-                flow_change / flow_norm
+            let flows_converged = if self.config.require_flow_convergence {
+                let mut flow_diff_sq = T::zero();
+                let mut flow_norm_sq = T::zero();
+                for (i, &new_flow) in network.flow_rates.iter().enumerate() {
+                    let old_flow = last_flow_rates.get(i).copied().unwrap_or(T::zero());
+                    let diff = new_flow - old_flow;
+                    flow_diff_sq += diff * diff;
+                    flow_norm_sq += new_flow * new_flow;
+                }
+                let flow_change = <T as NumericElement>::sqrt(flow_diff_sq);
+                let flow_norm = <T as NumericElement>::sqrt(flow_norm_sq);
+                let relative_flow_change = if flow_norm > T::default_epsilon() {
+                    flow_change / flow_norm
+                } else {
+                    flow_change
+                };
+                relative_flow_change < self.config.tolerance
             } else {
-                flow_change
+                // Reference-trace mode: pressure convergence alone is sufficient.
+                // Flow rates are uniquely derived from the converged pressure.
+                true
             };
-            let flows_converged = relative_flow_change < self.config.tolerance;
 
             if converged && flows_converged {
                 return Ok((network, diagnostics));
             }
 
-            workspace.last_solution = solution;
+             workspace.last_solution = solution;
             last_flow_rates.clone_from(&network.flow_rates);
         }
 
@@ -494,17 +547,13 @@ impl<
     fn update_network_solution(
         &self,
         network: &mut Network<T, F>,
-        solution: &nalgebra::DVector<T>,
+        solution: &leto::Array1<T>,
     ) -> Result<()> {
         network.update_from_solution(solution)
     }
 }
 
-impl<
-        T: RealField + Copy + FromPrimitive + ToPrimitive + num_traits::Float,
-        F: FluidTrait<T> + Clone,
-    > Solver<T> for NetworkSolver<T, F>
-{
+impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> Solver<T> for NetworkSolver<T, F> {
     type Problem = NetworkProblem<T, F>;
     type Solution = Network<T, F>;
 
@@ -517,7 +566,7 @@ impl<
     }
 }
 
-impl<T: RealField + Copy, F: FluidTrait<T>> Configurable<T> for NetworkSolver<T, F> {
+impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Configurable<T> for NetworkSolver<T, F> {
     type Config = SolverConfig<T>;
 
     fn config(&self) -> &Self::Config {
@@ -529,9 +578,7 @@ impl<T: RealField + Copy, F: FluidTrait<T>> Configurable<T> for NetworkSolver<T,
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive, F: FluidTrait<T> + Clone> Validatable<T>
-    for NetworkSolver<T, F>
-{
+impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> Validatable<T> for NetworkSolver<T, F> {
     type Problem = NetworkProblem<T, F>;
 
     fn validate_problem(&self, problem: &Self::Problem) -> Result<()> {

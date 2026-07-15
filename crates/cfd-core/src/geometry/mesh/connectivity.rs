@@ -4,7 +4,7 @@
 //! such as finding neighbors, edges, and boundary faces.
 
 use super::Mesh;
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::collections::{HashMap, HashSet};
 
 /// Connectivity information for mesh topology
@@ -216,7 +216,7 @@ fn order_edge(u: usize, v: usize) -> (usize, usize) {
 #[cfg(test)]
 mod tests {
     use crate::geometry::mesh::{ElementType, Mesh};
-    use nalgebra::Point3;
+    use leto::geometry::Point3;
 
     #[test]
     fn test_tetrahedron_edges() {

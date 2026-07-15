@@ -25,39 +25,40 @@ use super::model::ReynoldsStressModel;
 use super::production::production_term as prod_term;
 use super::tensor::ReynoldsStressTensor;
 use cfd_core::error::Result;
-use nalgebra::{DMatrix, RealField, Vector2};
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::RealField;
+use leto::geometry::Vector2;
+use leto::Array2;
 
 // Numerical stability floor for ε
 const EPSILON_MIN: f64 = 1e-12;
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
+impl<T: RealField + Copy> ReynoldsStressModel<T> {
     fn c(v: f64) -> T {
-        T::from_f64(v).expect("transport constant must be representable")
+        T::from_f64(v)
     }
 
     /// Dissolve Reynolds stresses to zero at wall cells.
     pub fn apply_wall_boundary_conditions(
         &self,
-        xx: &mut DMatrix<T>,
-        xy: &mut DMatrix<T>,
-        yy: &mut DMatrix<T>,
-        k: &mut DMatrix<T>,
-        epsilon: &mut DMatrix<T>,
+        xx: &mut Array2<T>,
+        xy: &mut Array2<T>,
+        yy: &mut Array2<T>,
+        k: &mut Array2<T>,
+        epsilon: &mut Array2<T>,
     ) {
         let nx = self.nx;
         let ny = self.ny;
         for i in 0..nx {
-            xx[(i, 0)] = T::zero();
-            xy[(i, 0)] = T::zero();
-            yy[(i, 0)] = T::zero();
-            k[(i, 0)] = T::zero();
-            epsilon[(i, 0)] = T::zero();
-            xx[(i, ny - 1)] = T::zero();
-            xy[(i, ny - 1)] = T::zero();
-            yy[(i, ny - 1)] = T::zero();
-            k[(i, ny - 1)] = T::zero();
-            epsilon[(i, ny - 1)] = T::zero();
+            xx[[i, 0]] = T::ZERO;
+            xy[[i, 0]] = T::ZERO;
+            yy[[i, 0]] = T::ZERO;
+            k[[i, 0]] = T::ZERO;
+            epsilon[[i, 0]] = T::ZERO;
+            xx[[i, ny - 1]] = T::ZERO;
+            xy[[i, ny - 1]] = T::ZERO;
+            yy[[i, ny - 1]] = T::ZERO;
+            k[[i, ny - 1]] = T::ZERO;
+            epsilon[[i, ny - 1]] = T::ZERO;
         }
     }
 
@@ -104,23 +105,23 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     /// Compute the 2D velocity gradient tensor via central differences.
     pub fn calculate_velocity_gradients(
         &self,
-        velocity: &[DMatrix<T>; 2],
+        velocity: &[Array2<T>; 2],
         i: usize,
         j: usize,
         dx: T,
         dy: T,
     ) -> [[T; 2]; 2] {
         let half = Self::c(0.5);
-        let dx_inv = T::one() / dx;
-        let dy_inv = T::one() / dy;
+        let dx_inv = T::ONE / dx;
+        let dy_inv = T::ONE / dy;
         [
             [
-                dx_inv * (velocity[0][(i + 1, j)] - velocity[0][(i - 1, j)]) * half,
-                dy_inv * (velocity[0][(i, j + 1)] - velocity[0][(i, j - 1)]) * half,
+                dx_inv * (velocity[0][[i + 1, j]] - velocity[0][[i - 1, j]]) * half,
+                dy_inv * (velocity[0][[i, j + 1]] - velocity[0][[i, j - 1]]) * half,
             ],
             [
-                dx_inv * (velocity[1][(i + 1, j)] - velocity[1][(i - 1, j)]) * half,
-                dy_inv * (velocity[1][(i, j + 1)] - velocity[1][(i, j - 1)]) * half,
+                dx_inv * (velocity[1][[i + 1, j]] - velocity[1][[i - 1, j]]) * half,
+                dy_inv * (velocity[1][[i, j + 1]] - velocity[1][[i, j - 1]]) * half,
             ],
         ]
     }
@@ -139,7 +140,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         let w12 = half * (du_dy - dv_dx);
         (
             [[du_dx, s12], [s12, dv_dy]],
-            [[T::zero(), w12], [-w12, T::zero()]],
+            [[T::ZERO, w12], [-w12, T::ZERO]],
         )
     }
 
@@ -153,16 +154,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
         dy: T,
     ) -> [[T; 2]; 2] {
         let half = Self::c(0.5);
-        let dx_inv = T::one() / dx;
-        let dy_inv = T::one() / dy;
+        let dx_inv = T::ONE / dx;
+        let dy_inv = T::ONE / dy;
         [
             [
-                dx_inv * (rs.xx[(i + 1, j)] - rs.xx[(i - 1, j)]) * half,
-                dy_inv * (rs.xx[(i, j + 1)] - rs.xx[(i, j - 1)]) * half,
+                dx_inv * (rs.xx[[i + 1, j]] - rs.xx[[i - 1, j]]) * half,
+                dy_inv * (rs.xx[[i, j + 1]] - rs.xx[[i, j - 1]]) * half,
             ],
             [
-                dx_inv * (rs.xy[(i + 1, j)] - rs.xy[(i - 1, j)]) * half,
-                dy_inv * (rs.xy[(i, j + 1)] - rs.xy[(i, j - 1)]) * half,
+                dx_inv * (rs.xy[[i + 1, j]] - rs.xy[[i - 1, j]]) * half,
+                dy_inv * (rs.xy[[i, j + 1]] - rs.xy[[i, j - 1]]) * half,
             ],
         ]
     }
@@ -170,23 +171,24 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ReynoldsStressModel<T> {
     /// Compute the 5-point Laplacian $\nabla^2 \phi$ for a scalar field.
     pub fn calculate_scalar_laplacian(
         &self,
-        scalar: &DMatrix<T>,
+        scalar: &Array2<T>,
         i: usize,
         j: usize,
         dx: T,
         dy: T,
     ) -> T {
         let two = Self::c(2.0);
-        (scalar[(i + 1, j)] - two * scalar[(i, j)] + scalar[(i - 1, j)]) / (dx * dx)
-            + (scalar[(i, j + 1)] - two * scalar[(i, j)] + scalar[(i, j - 1)]) / (dy * dy)
+        (scalar[[i + 1, j]] - two * scalar[[i, j]] + scalar[[i - 1, j]]) / (dx * dx)
+            + (scalar[[i, j + 1]] - two * scalar[[i, j]] + scalar[[i, j - 1]]) / (dy * dy)
     }
 }
 
 // TurbulenceModel trait compatibility implementation
 use super::super::traits::TurbulenceModel;
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> TurbulenceModel<T>
-    for ReynoldsStressModel<T>
+impl<T> TurbulenceModel<T> for ReynoldsStressModel<T>
+where
+    T: RealField,
 {
     fn turbulent_viscosity(&self, k: T, epsilon: T, _density: T) -> T {
         self.c_mu * k * k / epsilon

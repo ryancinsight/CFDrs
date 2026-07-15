@@ -64,53 +64,45 @@
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::{
-    ConjugateGradient, IdentityPreconditioner, IterativeLinearSolver, GMRES,
-};
+use cfd_math::linear_solver::{ConjugateGradient, IdentityPreconditioner, GMRES};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
-use nalgebra::{DVector, RealField, Vector3};
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement};
+use leto::{Array1, Vector3};
 use std::collections::HashSet;
 
+use crate::fem::leto_bridge::{build_with_vector_rhs, iterative_solve};
+use crate::linalg::{
+    array1_len, array2_column3, matrix3_determinant, matrix3_from_columns,
+    matrix3_try_inverse, matrix3x4_column, reference_tet_gradients, vector3_from_indexed,
+};
 use crate::fem::mesh_utils::compute_mesh_scale;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::solver::extract_vertex_indices;
-use crate::fem::{FemConfig, StokesFlowProblem, StokesFlowSolution};
+use crate::fem::{scalar, FemConfig, StokesFlowProblem, StokesFlowSolution};
+use crate::scalar::Cfd3dScalar;
 
 /// Pressure projection solver for incompressible Stokes/Navier-Stokes equations
-pub struct ProjectionSolver<
-    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + Float + std::fmt::Debug,
-> {
+pub struct ProjectionSolver<T: Cfd3dScalar> {
     _config: FemConfig<T>,
     /// Time step for transient simulations
     dt: T,
     /// Cached momentum matrix builder to avoid reallocation
     momentum_builder: Option<SparseMatrixBuilder<T>>,
     /// Cached momentum RHS vector
-    momentum_rhs: Option<DVector<T>>,
+    momentum_rhs: Option<Array1<T>>,
     /// Cached pressure matrix builder
     pressure_builder: Option<SparseMatrixBuilder<T>>,
     /// Cached pressure RHS vector
-    pressure_rhs: Option<DVector<T>>,
+    pressure_rhs: Option<Array1<T>>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + FromPrimitive
-            + Copy
-            + Float
-            + std::fmt::Debug
-            + From<f64>,
-    > ProjectionSolver<T>
-{
+impl<T: Cfd3dScalar> ProjectionSolver<T> {
     /// Create new projection solver with default time step
     pub fn new(config: FemConfig<T>) -> Self {
         Self {
             _config: config,
-            dt: <T as FromPrimitive>::from_f64(0.001)
-                .expect("0.001 is an IEEE 754 representable f64 constant"),
+            dt: <T as FloatElement>::from_f64(0.001),
             momentum_builder: None,
             momentum_rhs: None,
             pressure_builder: None,
@@ -147,32 +139,32 @@ impl<
         let (momentum_matrix, momentum_rhs) = self.assemble_momentum_system(problem)?;
 
         let mut u_star = if let Some(sol) = previous_solution {
-            sol.velocity.clone()
+            sol.velocity.to_array()
         } else {
-            DVector::zeros(n_velocity_dof)
+            Array1::zeros([n_velocity_dof])
         };
 
         // Use GMRES for momentum (non-symmetric due to convection)
         let gmres_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: 10000,
-            tolerance: <T as FromPrimitive>::from_f64(1e-10)
-                .expect("1e-10 is an IEEE 754 representable f64 constant"),
+            tolerance: <T as FloatElement>::from_f64(1e-10),
             ..cfd_math::linear_solver::IterativeSolverConfig::default()
         };
 
         let momentum_solver = GMRES::new(gmres_config, 100);
-        let monitor = momentum_solver
-            .solve(
-                &momentum_matrix,
-                &momentum_rhs,
-                &mut u_star,
-                None::<&IdentityPreconditioner>,
-            )
-            .map_err(|e| Error::Solver(format!("Momentum solve failed: {e}")))?;
+        let (momentum_iterations, momentum_residual) = iterative_solve(
+            &momentum_solver,
+            &momentum_matrix,
+            &momentum_rhs,
+            &mut u_star,
+            None::<&IdentityPreconditioner>,
+            "projection momentum",
+        )
+        .map_err(|e| Error::Solver(format!("Momentum solve failed: {e}")))?;
 
         tracing::debug!(
-            iter = monitor.iteration,
-            residual = ?monitor.residual_history.last(),
+            iter = momentum_iterations,
+            residual = ?momentum_residual,
             "Momentum solve converged"
         );
 
@@ -181,25 +173,26 @@ impl<
         let (pressure_matrix, pressure_rhs) = self.assemble_pressure_poisson(problem, &u_star)?;
 
         let mut pressure = if let Some(sol) = previous_solution {
-            sol.pressure.clone()
+            sol.pressure.to_array()
         } else {
-            DVector::zeros(n_corner_nodes)
+            Array1::zeros([n_corner_nodes])
         };
 
         // Use Conjugate Gradient for pressure (symmetric positive definite after pinning)
         let cg_solver = ConjugateGradient::new(gmres_config);
-        let monitor = cg_solver
-            .solve(
-                &pressure_matrix,
-                &pressure_rhs,
-                &mut pressure,
-                None::<&IdentityPreconditioner>,
-            )
-            .map_err(|e| Error::Solver(format!("Pressure solve failed: {e}")))?;
+        let (pressure_iterations, pressure_residual) = iterative_solve(
+            &cg_solver,
+            &pressure_matrix,
+            &pressure_rhs,
+            &mut pressure,
+            None::<&IdentityPreconditioner>,
+            "projection pressure",
+        )
+        .map_err(|e| Error::Solver(format!("Pressure solve failed: {e}")))?;
 
         tracing::debug!(
-            iter = monitor.iteration,
-            residual = ?monitor.residual_history.last(),
+            iter = pressure_iterations,
+            residual = ?pressure_residual,
             "Pressure solve converged"
         );
 
@@ -225,7 +218,7 @@ impl<
     fn assemble_momentum_system(
         &mut self,
         problem: &StokesFlowProblem<T>,
-    ) -> Result<(SparseMatrix<T>, DVector<T>)> {
+    ) -> Result<(SparseMatrix<T>, Array1<T>)> {
         let n_nodes = problem.mesh.vertex_count();
         let n_velocity_dof = n_nodes * 3;
 
@@ -245,14 +238,14 @@ impl<
         if self
             .momentum_rhs
             .as_ref()
-            .is_none_or(|r| r.len() != n_velocity_dof)
+            .is_none_or(|r| array1_len(r) != n_velocity_dof)
         {
-            self.momentum_rhs = Some(DVector::zeros(n_velocity_dof));
+            self.momentum_rhs = Some(Array1::zeros([n_velocity_dof]));
         } else {
             self.momentum_rhs
                 .as_mut()
                 .expect("checked Some above")
-                .fill(T::zero());
+                .fill(scalar::zero::<T>());
         }
 
         let mut builder = self
@@ -268,7 +261,7 @@ impl<
             .mesh
             .vertices
             .iter()
-            .map(|v| v.1.position.coords)
+            .map(|v| vector3_from_indexed(&v.1.position.coords))
             .collect();
 
         tracing::debug!(
@@ -299,7 +292,7 @@ impl<
 
         // Apply boundary conditions
         self.apply_velocity_boundary_conditions(&mut builder, &mut rhs_out, problem)?;
-        let matrix = builder.build_with_rhs(&mut rhs_out)?;
+        let (matrix, rhs_out) = build_with_vector_rhs(builder, rhs_out, "projection momentum RHS")?;
 
         Ok((matrix, rhs_out))
     }
@@ -308,8 +301,8 @@ impl<
     fn assemble_pressure_poisson(
         &mut self,
         problem: &StokesFlowProblem<T>,
-        u_star: &DVector<T>,
-    ) -> Result<(SparseMatrix<T>, DVector<T>)> {
+        u_star: &Array1<T>,
+    ) -> Result<(SparseMatrix<T>, Array1<T>)> {
         let n_corner_nodes = problem.n_corner_nodes;
 
         if self
@@ -328,14 +321,14 @@ impl<
         if self
             .pressure_rhs
             .as_ref()
-            .is_none_or(|r| r.len() != n_corner_nodes)
+            .is_none_or(|r| array1_len(r) != n_corner_nodes)
         {
-            self.pressure_rhs = Some(DVector::zeros(n_corner_nodes));
+            self.pressure_rhs = Some(Array1::zeros([n_corner_nodes]));
         } else {
             self.pressure_rhs
                 .as_mut()
                 .expect("checked Some above")
-                .fill(T::zero());
+                .fill(scalar::zero::<T>());
         }
 
         let mut builder = self
@@ -351,7 +344,7 @@ impl<
             .mesh
             .vertices
             .iter()
-            .map(|v| v.1.position.coords)
+            .map(|v| vector3_from_indexed(&v.1.position.coords))
             .collect();
 
         tracing::debug!("Assembling pressure Poisson matrix");
@@ -377,7 +370,7 @@ impl<
 
         // Pin one pressure DOF to remove null space
         self.pin_pressure_reference(&mut builder, &mut rhs_out)?;
-        let matrix = builder.build_with_rhs(&mut rhs_out)?;
+        let (matrix, rhs_out) = build_with_vector_rhs(builder, rhs_out, "projection pressure RHS")?;
 
         Ok((matrix, rhs_out))
     }
@@ -386,14 +379,14 @@ impl<
     fn correct_velocity(
         &self,
         problem: &StokesFlowProblem<T>,
-        u_star: &DVector<T>,
-        pressure: &DVector<T>,
-    ) -> Result<DVector<T>> {
+        u_star: &Array1<T>,
+        pressure: &Array1<T>,
+    ) -> Result<Array1<T>> {
         let vertex_positions: Vec<Vector3<T>> = problem
             .mesh
             .vertices
             .iter()
-            .map(|v| v.1.position.coords)
+            .map(|v| vector3_from_indexed(&v.1.position.coords))
             .collect();
 
         let mut velocity = u_star.clone();
@@ -433,7 +426,7 @@ impl<
     fn assemble_element_momentum(
         &self,
         builder: &mut SparseMatrixBuilder<T>,
-        _rhs: &mut DVector<T>,
+        _rhs: &mut Array1<T>,
         indices: &[usize],
         positions: &[Vector3<T>],
         viscosity: T,
@@ -449,40 +442,22 @@ impl<
         let v2 = positions[2];
         let v3 = positions[3];
 
-        let j_mat = nalgebra::Matrix3::from_columns(&[v1 - v0, v2 - v0, v3 - v0]);
+        let j_mat = matrix3_from_columns(v1 - v0, v2 - v0, v3 - v0);
+        let det_j = matrix3_determinant(&j_mat);
+        let abs_det = NumericElement::abs(det_j);
 
-        let det_j = j_mat.determinant();
-        let abs_det = Float::abs(det_j);
-
-        if abs_det
-            < <T as FromPrimitive>::from_f64(1e-20)
-                .expect("1e-20 is an IEEE 754 representable f64 constant")
-        {
+        if abs_det < <T as FloatElement>::from_f64(1e-20) {
             return Err(Error::Solver(
                 "Near-zero element volume in momentum assembly".to_string(),
             ));
         }
 
-        let j_inv_t = j_mat
-            .try_inverse()
+        let j_inv_t = matrix3_try_inverse(&j_mat)
             .ok_or_else(|| Error::Solver("Singular Jacobian in momentum assembly".to_string()))?
             .transpose();
 
         // P1 gradients in reference space
-        let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            -T::one(),
-            T::one(),
-            T::zero(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::one(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::zero(),
-            T::one(),
-        );
+        let grad_ref_p1 = reference_tet_gradients();
 
         // Transform to physical space
         let p1_gradients_phys = j_inv_t * grad_ref_p1;
@@ -494,7 +469,7 @@ impl<
         // Integrate using quadrature
         for (qp, &qw) in quad.points().iter().zip(quad.weights().iter()) {
             let weight = qw * abs_det;
-            let l = [T::one() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
+            let l = [scalar::one::<T>() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
 
             // P2 shape function values and gradients
             let n_p2 = shape.values(&l);
@@ -505,18 +480,18 @@ impl<
                 for i in 0..indices.len().min(10) {
                     let gi = indices[i];
                     let dof_i = gi + d * v_offset;
-                    let grad_i = grad_p2.column(i);
+                    let grad_i = array2_column3(&grad_p2, i);
 
                     for j in 0..indices.len().min(10) {
                         let gj = indices[j];
                         let dof_j = gj + d * v_offset;
-                        let grad_j = grad_p2.column(j);
+                        let grad_j = array2_column3(&grad_p2, j);
 
                         // Mass matrix term: (ρ/Δt) N_i N_j
                         let mass_term = mass_coeff * n_p2[i] * n_p2[j] * weight;
 
                         // Viscous term: μ ∇N_i · ∇N_j
-                        let visc_term = viscosity * grad_i.dot(&grad_j) * weight;
+                        let visc_term = viscosity * grad_i.dot(grad_j) * weight;
 
                         builder.add_entry(dof_i, dof_j, mass_term + visc_term)?;
                     }
@@ -534,11 +509,11 @@ impl<
     fn assemble_element_pressure_laplacian(
         &self,
         builder: &mut SparseMatrixBuilder<T>,
-        rhs: &mut DVector<T>,
+        rhs: &mut Array1<T>,
         corner_indices: &[usize],
         positions: &[Vector3<T>],
         density: T,
-        u_star: &DVector<T>,
+        u_star: &Array1<T>,
     ) -> Result<()> {
         // Compute element volume
         let v0 = positions[0];
@@ -546,40 +521,22 @@ impl<
         let v2 = positions[2];
         let v3 = positions[3];
 
-        let j_mat = nalgebra::Matrix3::from_columns(&[v1 - v0, v2 - v0, v3 - v0]);
+        let j_mat = matrix3_from_columns(v1 - v0, v2 - v0, v3 - v0);
+        let det_j = matrix3_determinant(&j_mat);
+        let abs_det = NumericElement::abs(det_j);
 
-        let det_j = j_mat.determinant();
-        let abs_det = Float::abs(det_j);
-
-        if abs_det
-            < <T as FromPrimitive>::from_f64(1e-20)
-                .expect("1e-20 is an IEEE 754 representable f64 constant")
-        {
+        if abs_det < <T as FloatElement>::from_f64(1e-20) {
             return Err(Error::Solver(
                 "Near-zero element volume in pressure assembly".to_string(),
             ));
         }
 
-        let j_inv_t = j_mat
-            .try_inverse()
+        let j_inv_t = matrix3_try_inverse(&j_mat)
             .ok_or_else(|| Error::Solver("Singular Jacobian in pressure assembly".to_string()))?
             .transpose();
 
         // P1 gradients in reference space
-        let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            -T::one(),
-            T::one(),
-            T::zero(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::one(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::zero(),
-            T::one(),
-        );
+        let grad_ref_p1 = reference_tet_gradients();
 
         // Transform to physical space (constant for P1)
         let grad_p1_phys = j_inv_t * grad_ref_p1;
@@ -587,15 +544,13 @@ impl<
         // For P1 elements, the Laplacian matrix is constant over the element
         // K_ij = ∫ ∇N_i · ∇N_j dV = (∇N_i · ∇N_j) * V/4
         // Using exact integration for linear elements
-        let vol = abs_det
-            / <T as FromPrimitive>::from_f64(6.0)
-                .expect("6.0 is representable in all IEEE 754 types");
+        let vol = abs_det / <T as FloatElement>::from_f64(6.0);
 
         for i in 0..4 {
-            let grad_i = grad_p1_phys.column(i);
+            let grad_i = matrix3x4_column(&grad_p1_phys, i);
             for j in 0..4 {
-                let grad_j = grad_p1_phys.column(j);
-                let laplacian_term = grad_i.dot(&grad_j) * vol;
+                let grad_j = matrix3x4_column(&grad_p1_phys, j);
+                let laplacian_term = grad_i.dot(grad_j) * vol;
                 builder.add_entry(corner_indices[i], corner_indices[j], laplacian_term)?;
             }
         }
@@ -607,7 +562,7 @@ impl<
 
         for (qp, &qw) in quad.points().iter().zip(quad.weights().iter()) {
             let weight = qw * abs_det;
-            let l = [T::one() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
+            let l = [scalar::one::<T>() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
 
             // Compute divergence of u* at this quadrature point
             let div_u =
@@ -625,10 +580,10 @@ impl<
     fn compute_divergence_at_quad_point(
         &self,
         corner_indices: &[usize],
-        grad_p1_phys: &nalgebra::Matrix3x4<T>,
-        velocity: &DVector<T>,
+        grad_p1_phys: &crate::linalg::Matrix3x4<T>,
+        velocity: &Array1<T>,
     ) -> T {
-        let mut div = T::zero();
+        let mut div = scalar::zero::<T>();
 
         // ∇·u = Σ (∂u_x/∂x + ∂u_y/∂y + ∂u_z/∂z)
         // For P1 interpolation: u = Σ N_i u_i
@@ -636,7 +591,7 @@ impl<
         // ∇·u = Σ u_i · ∇N_i (sum over components)
 
         for (i, &node_idx) in corner_indices.iter().enumerate() {
-            let grad_n = grad_p1_phys.column(i);
+            let grad_n = matrix3x4_column(grad_p1_phys, i);
 
             // Get velocity at this node
             let u_x = velocity[node_idx * 3];
@@ -660,35 +615,20 @@ impl<
         &self,
         corner_indices: &[usize],
         positions: &[Vector3<T>],
-        pressure: &DVector<T>,
+        pressure: &Array1<T>,
     ) -> Result<Vector3<T>> {
         let v0 = positions[0];
         let v1 = positions[1];
         let v2 = positions[2];
         let v3 = positions[3];
 
-        let j_mat = nalgebra::Matrix3::from_columns(&[v1 - v0, v2 - v0, v3 - v0]);
-
-        let j_inv_t = j_mat
-            .try_inverse()
+        let j_mat = matrix3_from_columns(v1 - v0, v2 - v0, v3 - v0);
+        let j_inv_t = matrix3_try_inverse(&j_mat)
             .ok_or_else(|| Error::Solver("Singular Jacobian in pressure gradient".to_string()))?
             .transpose();
 
         // P1 gradients in reference space
-        let grad_ref_p1 = nalgebra::Matrix3x4::new(
-            -T::one(),
-            T::one(),
-            T::zero(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::one(),
-            T::zero(),
-            -T::one(),
-            T::zero(),
-            T::zero(),
-            T::one(),
-        );
+        let grad_ref_p1 = reference_tet_gradients();
 
         let grad_p1_phys = j_inv_t * grad_ref_p1;
 
@@ -696,9 +636,9 @@ impl<
         let mut grad_p = Vector3::zeros();
 
         for (i, &node_idx) in corner_indices.iter().enumerate() {
-            if node_idx < pressure.len() {
+            if node_idx < array1_len(pressure) {
                 let p_i = pressure[node_idx];
-                let grad_n = grad_p1_phys.column(i);
+                let grad_n = matrix3x4_column(&grad_p1_phys, i);
                 grad_p += grad_n * p_i;
             }
         }
@@ -710,7 +650,7 @@ impl<
     fn apply_velocity_boundary_conditions(
         &self,
         builder: &mut SparseMatrixBuilder<T>,
-        rhs: &mut DVector<T>,
+        rhs: &mut Array1<T>,
         problem: &StokesFlowProblem<T>,
     ) -> Result<()> {
         let n_nodes = problem.mesh.vertex_count();
@@ -741,8 +681,8 @@ impl<
                     for d in 0..3 {
                         let dof = node_idx + d * v_offset;
                         if !applied_bcs.contains(&dof) {
-                            builder.set_dirichlet_row(dof, diag_scale, T::zero());
-                            rhs[dof] = T::zero();
+                            builder.set_dirichlet_row(dof, diag_scale, scalar::zero::<T>());
+                            rhs[dof] = scalar::zero::<T>();
                             applied_bcs.insert(dof);
                         }
                     }
@@ -786,7 +726,7 @@ impl<
     fn apply_velocity_correction_bcs(
         &self,
         problem: &StokesFlowProblem<T>,
-        velocity: &mut DVector<T>,
+        velocity: &mut Array1<T>,
     ) -> Result<()> {
         let mut sorted_bcs: Vec<_> = problem.boundary_conditions.iter().collect();
         sorted_bcs.sort_unstable_by_key(|(&k, _)| k);
@@ -802,7 +742,7 @@ impl<
                 }
                 BoundaryCondition::Wall { .. } => {
                     for d in 0..3 {
-                        velocity[node_idx * 3 + d] = T::zero();
+                        velocity[node_idx * 3 + d] = scalar::zero::<T>();
                     }
                 }
                 BoundaryCondition::Dirichlet {
@@ -831,19 +771,19 @@ impl<
     fn pin_pressure_reference(
         &self,
         builder: &mut SparseMatrixBuilder<T>,
-        rhs: &mut DVector<T>,
+        rhs: &mut Array1<T>,
     ) -> Result<()> {
-        let n_dof = rhs.len();
+        let n_dof = array1_len(rhs);
         if n_dof == 0 {
             return Ok(());
         }
 
         // Compute diagonal scale for pressure DOF
-        let diag_scale = T::one();
+        let diag_scale = scalar::one::<T>();
 
         // Pin first pressure DOF to zero
-        builder.set_dirichlet_row(0, diag_scale, T::zero());
-        rhs[0] = T::zero();
+        builder.set_dirichlet_row(0, diag_scale, scalar::zero::<T>());
+        rhs[0] = scalar::zero::<T>();
 
         tracing::debug!("Pinned pressure DOF 0 to zero (reference pressure)");
 
@@ -854,16 +794,16 @@ impl<
     fn compute_max_divergence(
         &self,
         problem: &StokesFlowProblem<T>,
-        velocity: &DVector<T>,
+        velocity: &Array1<T>,
     ) -> Result<T> {
         let vertex_positions: Vec<Vector3<T>> = problem
             .mesh
             .vertices
             .iter()
-            .map(|v| v.1.position.coords)
+            .map(|v| vector3_from_indexed(&v.1.position.coords))
             .collect();
 
-        let mut max_div = T::zero();
+        let mut max_div = scalar::zero::<T>();
 
         for cell in &problem.mesh.cells {
             let idxs = extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)?;
@@ -878,35 +818,22 @@ impl<
             let v2 = positions[2];
             let v3 = positions[3];
 
-            let j_mat = nalgebra::Matrix3::from_columns(&[v1 - v0, v2 - v0, v3 - v0]);
-
-            let j_inv_t = match j_mat.try_inverse() {
+            let j_mat = matrix3_from_columns(v1 - v0, v2 - v0, v3 - v0);
+            let j_inv_t = match matrix3_try_inverse(&j_mat) {
                 Some(inv) => inv.transpose(),
                 None => continue,
             };
 
             // P1 gradients
-            let grad_ref_p1 = nalgebra::Matrix3x4::new(
-                -T::one(),
-                T::one(),
-                T::zero(),
-                T::zero(),
-                -T::one(),
-                T::zero(),
-                T::one(),
-                T::zero(),
-                -T::one(),
-                T::zero(),
-                T::zero(),
-                T::one(),
-            );
+            let grad_ref_p1 = reference_tet_gradients();
             let grad_p1_phys = j_inv_t * grad_ref_p1;
 
             // Compute divergence at element center
             let div = self.compute_divergence_at_quad_point(&corner_idxs, &grad_p1_phys, velocity);
 
-            if Float::abs(div) > max_div {
-                max_div = Float::abs(div);
+            let abs_div = NumericElement::abs(div);
+            if abs_div > max_div {
+                max_div = abs_div;
             }
         }
 

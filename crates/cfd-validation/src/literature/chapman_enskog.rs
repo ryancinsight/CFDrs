@@ -4,9 +4,9 @@
 //! Cambridge University Press, 3rd Edition.
 
 use super::{LiteratureValidation, ValidationReport};
+use crate::scalar;
 use cfd_core::error::Result;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, RealField};
 
 /// Chapman-Enskog validation for transport coefficients
 pub struct ChapmanEnskogValidation<T: RealField + Copy> {
@@ -31,7 +31,7 @@ pub enum GasType {
     Argon,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ChapmanEnskogValidation<T> {
+impl<T: RealField + Copy + FloatElement> ChapmanEnskogValidation<T> {
     /// Create new Chapman-Enskog validation test
     pub fn new(temperature: T, pressure: T, gas_type: GasType) -> Self {
         Self {
@@ -44,7 +44,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ChapmanEnskogValidation<
     /// Calculate viscosity using Chapman-Enskog theory
     /// μ = 5/16 * sqrt(π*m*k*T) / (π*σ²*Ω)
     fn theoretical_viscosity(&self) -> T {
-        let t = self.temperature.to_f64().unwrap_or(300.0);
+        let t = scalar::to_f64(self.temperature);
 
         // Molecular constants for different gases (Chapman & Enskog, 1970)
         // Values: (molecular mass [kg], collision diameter [m], collision integral)
@@ -59,7 +59,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ChapmanEnskogValidation<
         let mu = 5.0 / 16.0 * (std::f64::consts::PI * m * k_b * t).sqrt()
             / (std::f64::consts::PI * sigma * sigma * omega);
 
-        T::from_f64(mu).unwrap_or_else(T::zero)
+        scalar::from_f64(mu)
     }
 
     /// Calculate thermal conductivity using Chapman-Enskog theory
@@ -74,13 +74,11 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> ChapmanEnskogValidation<
         };
         let k_b = 1.380649e-23;
 
-        T::from_f64(15.0 / 4.0 * k_b / m).unwrap_or_else(T::zero) * mu
+        scalar::from_f64::<T>(15.0 / 4.0 * k_b / m) * mu
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
-    for ChapmanEnskogValidation<T>
-{
+impl<T: RealField + Copy + FloatElement> LiteratureValidation<T> for ChapmanEnskogValidation<T> {
     fn validate(&self) -> Result<ValidationReport<T>> {
         let theoretical_mu = self.theoretical_viscosity();
         let theoretical_k = self.theoretical_thermal_conductivity();
@@ -92,16 +90,16 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
             test_name: format!(
                 "Chapman-Enskog {:?} at T={:.0}K",
                 self.gas_type,
-                self.temperature.to_f64().unwrap_or(0.0)
+                scalar::to_f64(self.temperature)
             ),
             citation: self.citation().to_string(),
-            max_error: T::from_f64(0.01).unwrap_or_else(T::zero),
-            avg_error: T::from_f64(0.005).unwrap_or_else(T::zero),
+            max_error: scalar::from_f64(0.01),
+            avg_error: scalar::from_f64(0.005),
             passed: true,
             details: format!(
                 "μ={:.2e} Pa·s, k={:.3e} W/(m·K)",
-                theoretical_mu.to_f64().unwrap_or(0.0),
-                theoretical_k.to_f64().unwrap_or(0.0)
+                scalar::to_f64(theoretical_mu),
+                scalar::to_f64(theoretical_k)
             ),
         })
     }
@@ -111,6 +109,49 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive> LiteratureValidation<T>
     }
 
     fn expected_accuracy(&self) -> T {
-        T::from_f64(0.02).unwrap_or_else(T::one) // 2% accuracy for transport properties
+        scalar::from_f64(0.02) // 2% accuracy for transport properties
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ChapmanEnskogValidation, GasType, LiteratureValidation};
+
+    fn close(actual: f64, expected: f64, tolerance: f64) {
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "actual={actual:e}, expected={expected:e}, tolerance={tolerance:e}"
+        );
+    }
+
+    #[test]
+    fn air_transport_matches_chapman_enskog_reference() {
+        let validation = ChapmanEnskogValidation::new(300.0_f64, 101_325.0, GasType::Air);
+
+        close(
+            validation.theoretical_viscosity(),
+            1.639_815_115_994_874e-5,
+            1.0e-18,
+        );
+        close(
+            validation.theoretical_thermal_conductivity(),
+            1.765_079_859_732_229_8e-2,
+            1.0e-15,
+        );
+    }
+
+    #[test]
+    fn validation_report_uses_eunomia_scalar_values() {
+        let validation = ChapmanEnskogValidation::new(300.0_f64, 101_325.0, GasType::Air);
+        let report = validation
+            .validate()
+            .expect("invariant: validation is deterministic");
+
+        assert_eq!(report.max_error, 0.01);
+        assert_eq!(report.avg_error, 0.005);
+        assert_eq!(validation.expected_accuracy(), 0.02);
+        assert!(report.test_name.contains("Chapman-Enskog Air"));
+        assert!(report.details.contains("Pa"));
+        assert!(report.passed);
     }
 }

@@ -34,11 +34,12 @@
 //! (1997, §3). Solving that local linear system yields the face-specific update.
 //! □
 
+use crate::scalar::Cfd2dScalar;
+use crate::scalar::{from_f64, one, zero};
 use crate::solvers::lbm::lattice::D2Q9;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 use std::collections::HashMap;
 
 /// Types of LBM boundary conditions
@@ -65,20 +66,20 @@ enum BoundaryFace {
 }
 
 /// Boundary handler for applying boundary conditions
-pub struct BoundaryHandler<T: RealField + Copy> {
+pub struct BoundaryHandler<T: Cfd2dScalar + Copy> {
     /// Boundary type for each edge
     boundary_types: HashMap<String, BoundaryType>,
     /// Phantom data for type parameter
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for BoundaryHandler<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> Default for BoundaryHandler<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> BoundaryHandler<T> {
     /// Create new boundary handler
     #[must_use]
     pub fn new() -> Self {
@@ -95,11 +96,12 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
 
     #[inline]
     fn validate_low_mach_velocity(velocity: [T; 2]) -> Result<()> {
-        let cs = T::from_f64(crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED)
-            .expect("cs² is an exact f64 constant")
-            .sqrt();
-        let mach_limit = T::from_f64(0.1).expect("0.1 is an exact f64 constant");
-        let speed = (velocity[0] * velocity[0] + velocity[1] * velocity[1]).sqrt();
+        let cs = <T as NumericElement>::sqrt(from_f64(
+            crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED,
+        ));
+        let mach_limit = from_f64(0.1);
+        let speed =
+            <T as NumericElement>::sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
 
         if speed / cs > mach_limit {
             return Err(Error::InvalidConfiguration(
@@ -135,8 +137,8 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
                 BoundaryFace::North
             }),
             (true, true) => {
-                let velocity_x = velocity_hint[0].abs();
-                let velocity_y = velocity_hint[1].abs();
+                let velocity_x = <T as NumericElement>::abs(velocity_hint[0]);
+                let velocity_y = <T as NumericElement>::abs(velocity_hint[1]);
                 if velocity_x >= velocity_y {
                     Some(if on_west {
                         BoundaryFace::West
@@ -159,7 +161,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     fn load_cell_populations(f: &[T], i: usize, j: usize, nx: usize) -> [T; 9] {
         use crate::solvers::lbm::streaming::f_idx;
 
-        let mut values = [T::zero(); 9];
+        let mut values = [zero(); 9];
         for q in 0..9 {
             values[q] = f[f_idx(j, i, q, nx)];
         }
@@ -182,9 +184,9 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         density: T,
         velocity: [T; 2],
     ) {
-        let half = T::from_f64(0.5).expect("0.5 is an exact f64 constant");
-        let one_sixth = T::from_f64(1.0 / 6.0).expect("1/6 is an exact f64 constant");
-        let two_thirds = T::from_f64(2.0 / 3.0).expect("2/3 is an exact f64 constant");
+        let half = from_f64::<T>(0.5);
+        let one_sixth = from_f64::<T>(1.0 / 6.0);
+        let two_thirds = from_f64::<T>(2.0 / 3.0);
         let u_x = velocity[0];
         let u_y = velocity[1];
 
@@ -233,29 +235,29 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
                 let known = values[0]
                     + values[2]
                     + values[4]
-                    + T::from_f64(2.0).expect("2 is exact") * (values[3] + values[6] + values[7]);
-                known / (T::one() - velocity[0])
+                    + from_f64::<T>(2.0) * (values[3] + values[6] + values[7]);
+                known / (one::<T>() - velocity[0])
             }
             BoundaryFace::East => {
                 let known = values[0]
                     + values[2]
                     + values[4]
-                    + T::from_f64(2.0).expect("2 is exact") * (values[1] + values[5] + values[8]);
-                known / (T::one() + velocity[0])
+                    + from_f64::<T>(2.0) * (values[1] + values[5] + values[8]);
+                known / (one::<T>() + velocity[0])
             }
             BoundaryFace::South => {
                 let known = values[0]
                     + values[1]
                     + values[3]
-                    + T::from_f64(2.0).expect("2 is exact") * (values[4] + values[7] + values[8]);
-                known / (T::one() - velocity[1])
+                    + from_f64::<T>(2.0) * (values[4] + values[7] + values[8]);
+                known / (one::<T>() - velocity[1])
             }
             BoundaryFace::North => {
                 let known = values[0]
                     + values[1]
                     + values[3]
-                    + T::from_f64(2.0).expect("2 is exact") * (values[2] + values[5] + values[6]);
-                known / (T::one() + velocity[1])
+                    + from_f64::<T>(2.0) * (values[2] + values[5] + values[6]);
+                known / (one::<T>() + velocity[1])
             }
         }
     }
@@ -267,29 +269,29 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
                 let known = values[0]
                     + values[2]
                     + values[4]
-                    + T::from_f64(2.0).expect("2 is exact") * (values[3] + values[6] + values[7]);
-                [T::one() - known / density, T::zero()]
+                    + from_f64::<T>(2.0) * (values[3] + values[6] + values[7]);
+                [one::<T>() - known / density, zero()]
             }
             BoundaryFace::East => {
                 let known = values[0]
                     + values[2]
                     + values[4]
-                    + T::from_f64(2.0).expect("2 is exact") * (values[1] + values[5] + values[8]);
-                [known / density - T::one(), T::zero()]
+                    + from_f64::<T>(2.0) * (values[1] + values[5] + values[8]);
+                [known / density - one::<T>(), zero()]
             }
             BoundaryFace::South => {
                 let known = values[0]
                     + values[1]
                     + values[3]
-                    + T::from_f64(2.0).expect("2 is exact") * (values[4] + values[7] + values[8]);
-                [T::zero(), T::one() - known / density]
+                    + from_f64::<T>(2.0) * (values[4] + values[7] + values[8]);
+                [zero(), one::<T>() - known / density]
             }
             BoundaryFace::North => {
                 let known = values[0]
                     + values[1]
                     + values[3]
-                    + T::from_f64(2.0).expect("2 is exact") * (values[2] + values[5] + values[6]);
-                [T::zero(), known / density - T::one()]
+                    + from_f64::<T>(2.0) * (values[2] + values[5] + values[6]);
+                [zero(), known / density - one::<T>()]
             }
         }
     }
@@ -301,7 +303,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     pub fn apply_bounce_back(f: &mut [T], i: usize, j: usize, nx: usize) {
         use crate::solvers::lbm::streaming::f_idx;
         // Snapshot the 9 values before overwriting
-        let mut f_buf = [T::zero(); 9];
+        let mut f_buf = [zero(); 9];
         for q in 0..9 {
             f_buf[q] = f[f_idx(j, i, q, nx)];
         }
@@ -363,8 +365,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     ) -> Result<()> {
         let cell = j * nx + i;
 
-        let cs2 = T::from_f64(crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED)
-            .expect("cs² is an exact f64 constant");
+        let cs2 = from_f64(crate::constants::physics::LATTICE_SOUND_SPEED_SQUARED);
         let rho = p_boundary / cs2;
         let mut cell_values = Self::load_cell_populations(f, i, j, nx);
         let velocity_hint = Self::extrapolate_velocity_flat(velocity, nx, ny, i, j);
@@ -426,7 +427,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
     /// Compute density sum at node from flat buffer (used internally).
     fn _compute_boundary_density(f: &[T], i: usize, j: usize, nx: usize) -> T {
         use crate::solvers::lbm::streaming::f_idx;
-        (0..9).fold(T::zero(), |acc, q| acc + f[f_idx(j, i, q, nx)])
+        (0..9).fold(zero(), |acc, q| acc + f[f_idx(j, i, q, nx)])
     }
 
     /// First-order velocity extrapolation from interior at boundary node (i, j).
@@ -452,7 +453,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
         } else if j + 1 == ny && j > 0 {
             cell(j - 1, i)
         } else {
-            [T::zero(), T::zero()]
+            [zero(), zero()]
         }
     }
 
@@ -476,7 +477,7 @@ impl<T: RealField + Copy + FromPrimitive> BoundaryHandler<T> {
             BoundaryFace::East if i > 0 => cell(j, i - 1),
             BoundaryFace::South if j + 1 < ny => cell(j + 1, i),
             BoundaryFace::North if j > 0 => cell(j - 1, i),
-            _ => [T::zero(), T::zero()],
+            _ => [zero(), zero()],
         }
     }
 }
@@ -526,7 +527,7 @@ mod tests {
         let mut f = vec![0.0_f64; nx * ny * 9];
         let mut density = vec![0.0_f64; nx * ny];
         let mut velocity = vec![0.0_f64; nx * ny * 2];
-        let cell = 1 * nx;
+        let cell = nx;
         let values = [0.31, 0.12, 0.23, 0.47, 0.19, 0.15, 0.17, 0.21, 0.29];
         write_cell(&mut f, 0, 1, nx, values);
 
@@ -558,11 +559,11 @@ mod tests {
         assert_relative_eq!(density[cell], rho_expected, epsilon = 1e-12);
         assert_relative_eq!(velocity[cell * 2], u[0], epsilon = 1e-12);
         assert_relative_eq!(velocity[cell * 2 + 1], u[1], epsilon = 1e-12);
-        let west_base = (1 * nx + 0) * 9;
+        let west_base = nx * 9;
         assert_relative_eq!(f[west_base + 1], f1_expected, epsilon = 1e-12);
         assert_relative_eq!(f[west_base + 5], f5_expected, epsilon = 1e-12);
         assert_relative_eq!(f[west_base + 8], f8_expected, epsilon = 1e-12);
-        assert_relative_eq!(f[west_base + 0], values[0], epsilon = 1e-12);
+        assert_relative_eq!(f[west_base], values[0], epsilon = 1e-12);
         assert_relative_eq!(f[west_base + 2], values[2], epsilon = 1e-12);
         assert_relative_eq!(f[west_base + 3], values[3], epsilon = 1e-12);
         assert_relative_eq!(f[west_base + 4], values[4], epsilon = 1e-12);
@@ -579,7 +580,7 @@ mod tests {
         let mut velocity = vec![0.0_f64; nx * ny * 2];
         let values = [0.22, 0.34, 0.18, 0.29, 0.27, 0.11, 0.16, 0.25, 0.19];
         write_cell(&mut f, 3, 1, nx, values);
-        let left_neighbor = 1 * nx + 2;
+        let left_neighbor = nx + 2;
         velocity[left_neighbor * 2] = 0.07;
         velocity[left_neighbor * 2 + 1] = -0.04;
 
@@ -609,18 +610,19 @@ mod tests {
             - (1.0 / 6.0) * rho * u_x
             - 0.5 * rho * velocity_hint[1];
 
-        assert_relative_eq!(density[1 * nx + 3], rho, epsilon = 1e-12);
+        let east_cell = nx + 3;
+        assert_relative_eq!(density[east_cell], rho, epsilon = 1e-12);
         assert_relative_eq!(
-            velocity[(1 * nx + 3) * 2],
+            velocity[east_cell * 2],
             expected_velocity[0],
             epsilon = 1e-12
         );
         assert_relative_eq!(
-            velocity[(1 * nx + 3) * 2 + 1],
+            velocity[east_cell * 2 + 1],
             expected_velocity[1],
             epsilon = 1e-12
         );
-        let east_base = (1 * nx + 3) * 9;
+        let east_base = east_cell * 9;
         assert_relative_eq!(f[east_base + 3], f3_expected, epsilon = 1e-12);
         assert_relative_eq!(f[east_base + 6], f6_expected, epsilon = 1e-12);
         assert_relative_eq!(f[east_base + 7], f7_expected, epsilon = 1e-12);

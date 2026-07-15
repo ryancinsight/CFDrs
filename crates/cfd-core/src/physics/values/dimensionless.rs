@@ -1,8 +1,7 @@
 //! Dimensionless numbers for CFD
 
 use crate::error::Result;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -43,12 +42,12 @@ pub enum DimensionlessType {
 
 /// Generic dimensionless number
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub struct DimensionlessNumber<T: RealField + Copy> {
+pub struct DimensionlessNumber<T: FloatElement + Copy> {
     value: T,
     number_type: DimensionlessType,
 }
 
-impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
+impl<T: FloatElement + Copy> DimensionlessNumber<T> {
     /// Create a new dimensionless number
     ///
     /// # Errors
@@ -61,7 +60,7 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
             | DimensionlessType::Prandtl
             | DimensionlessType::Schmidt
             | DimensionlessType::Lewis
-                if value < T::zero() =>
+                if value < <T as NumericElement>::ZERO =>
             {
                 return Err(crate::error::Error::InvalidConfiguration(format!(
                     "{number_type:?} must be non-negative"
@@ -88,7 +87,7 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn reynolds(density: T, velocity: T, length: T, viscosity: T) -> Result<Self> {
-        if viscosity <= T::zero() {
+        if viscosity <= <T as NumericElement>::ZERO {
             return Err(crate::error::Error::InvalidConfiguration(
                 "Viscosity must be positive".into(),
             ));
@@ -103,7 +102,7 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn prandtl(viscosity: T, specific_heat: T, thermal_conductivity: T) -> Result<Self> {
-        if thermal_conductivity <= T::zero() {
+        if thermal_conductivity <= <T as NumericElement>::ZERO {
             return Err(crate::error::Error::InvalidConfiguration(
                 "Thermal conductivity must be positive".into(),
             ));
@@ -118,7 +117,7 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn nusselt(heat_transfer_coeff: T, length: T, thermal_conductivity: T) -> Result<Self> {
-        if thermal_conductivity <= T::zero() {
+        if thermal_conductivity <= <T as NumericElement>::ZERO {
             return Err(crate::error::Error::InvalidConfiguration(
                 "Thermal conductivity must be positive".into(),
             ));
@@ -133,7 +132,7 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn mach(velocity: T, speed_of_sound: T) -> Result<Self> {
-        if speed_of_sound <= T::zero() {
+        if speed_of_sound <= <T as NumericElement>::ZERO {
             return Err(crate::error::Error::InvalidConfiguration(
                 "Speed of sound must be positive".into(),
             ));
@@ -148,12 +147,12 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn froude(velocity: T, gravity: T, length: T) -> Result<Self> {
-        if gravity <= T::zero() || length <= T::zero() {
+        if gravity <= <T as NumericElement>::ZERO || length <= <T as NumericElement>::ZERO {
             return Err(crate::error::Error::InvalidConfiguration(
                 "Gravity and length must be positive".into(),
             ));
         }
-        let fr = velocity / (gravity * length).sqrt();
+        let fr = velocity / <T as NumericElement>::sqrt(gravity * length);
         Self::new(fr, DimensionlessType::Froude)
     }
 
@@ -163,7 +162,7 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn weber(density: T, velocity: T, length: T, surface_tension: T) -> Result<Self> {
-        if surface_tension <= T::zero() {
+        if surface_tension <= <T as NumericElement>::ZERO {
             return Err(crate::error::Error::InvalidConfiguration(
                 "Surface tension must be positive".into(),
             ));
@@ -173,7 +172,7 @@ impl<T: RealField + Copy + FromPrimitive> DimensionlessNumber<T> {
     }
 }
 
-impl<T: RealField + Copy + fmt::Display> fmt::Display for DimensionlessNumber<T> {
+impl<T: FloatElement + Copy + fmt::Display> fmt::Display for DimensionlessNumber<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?} = {}", self.number_type, self.value)
     }

@@ -30,11 +30,11 @@ mod tests {
 
         let mut grid = Grid2D::<f64>::new(nx, ny, dx, dy, ghost);
 
-        let (rows, cols) = grid.data.shape();
+        let [rows, cols] = grid.data.shape();
         for i in 0..rows {
             for j in 0..cols {
                 let x = i as f64;
-                grid.data[(i, j)] = x.powi(4);
+                grid.data[[i, j]] = x.powi(4);
             }
         }
 
@@ -47,9 +47,9 @@ mod tests {
         let x_interface = (i as f64) + 0.5;
         let expected = x_interface.powi(4);
 
-        println!("x^4 Test: i: {}, x_interface: {}", i, x_interface);
-        println!("Reconstructed: {}", flux);
-        println!("Expected:      {}", expected);
+        println!("x^4 Test: i: {i}, x_interface: {x_interface}");
+        println!("Reconstructed: {flux}");
+        println!("Expected:      {expected}");
 
         assert_relative_eq!(flux, expected, epsilon = 1e-8);
     }
@@ -66,13 +66,13 @@ mod tests {
 
         let mut grid = Grid2D::<f64>::new(nx, ny, dx, dy, ghost);
 
-        let (rows, cols) = grid.data.shape();
+        let [rows, cols] = grid.data.shape();
         for i in 0..rows {
             for j in 0..cols {
                 // Map index to x. Center of domain is around i=50.
                 // x = (i - ghost) * dx
                 let x = (i as f64 - ghost as f64) * dx;
-                grid.data[(i, j)] = x.powi(8);
+                grid.data[[i, j]] = x.powi(8);
             }
         }
 
@@ -91,9 +91,9 @@ mod tests {
         let x_interface = ((i as f64 - ghost as f64) + 0.5) * dx;
         let expected = x_interface.powi(8);
 
-        println!("x^8 Test: x_interface: {}", x_interface);
-        println!("Reconstructed: {}", flux);
-        println!("Expected:      {}", expected);
+        println!("x^8 Test: x_interface: {x_interface}");
+        println!("Reconstructed: {flux}");
+        println!("Expected:      {expected}");
         println!("Error:         {}", (flux - expected).abs());
 
         // For 9th order, error should be tiny.
@@ -110,11 +110,11 @@ mod tests {
             let ghost = 3;
             let mut grid = Grid2D::<f64>::new(nx, ny, dx, 1.0, ghost);
 
-            let (rows, cols) = grid.data.shape();
+            let [rows, cols] = grid.data.shape();
             for i in 0..rows {
                 for j in 0..cols {
                     let x = (i as f64 - ghost as f64) * dx;
-                    grid.data[(i, j)] = x.powi(4);
+                    grid.data[[i, j]] = x.powi(4);
                 }
             }
 
@@ -145,7 +145,7 @@ mod tests {
         let ghost = 3;
 
         let mut grid = Grid2D::<f64>::new(nx, ny, dx, dy, ghost);
-        let (rows, cols) = grid.data.shape();
+        let [rows, cols] = grid.data.shape();
         let i = ghost + 10;
         let j = 0;
         let x_interface = (i as f64 - ghost as f64 + 0.5) * dx;
@@ -154,7 +154,7 @@ mod tests {
             for y_j in 0..cols {
                 let x = (x_i as f64 - ghost as f64) * dx;
                 let shifted = x - x_interface;
-                grid.data[(x_i, y_j)] = 1.0 + 8.0 * shifted.powi(3) + 0.5 * shifted.powi(4);
+                grid.data[[x_i, y_j]] = 1.0 + 8.0 * shifted.powi(3) + 0.5 * shifted.powi(4);
             }
         }
 

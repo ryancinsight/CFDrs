@@ -2,7 +2,8 @@
 //!
 //! Reference: Patankar (1980), Numerical Heat Transfer and Fluid Flow
 
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::geometry::Vector3;
 use serde::{Deserialize, Serialize};
 
 /// Inlet boundary condition types

@@ -2,12 +2,15 @@
 
 use super::traits::Interpolation;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::{FloatElement, RealField};
 
 // Named constants for spline calculations
 const TWO: f64 = 2.0;
 const THREE: f64 = 3.0;
+
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
 
 /// Cubic spline interpolation
 ///
@@ -29,7 +32,7 @@ struct SplineCoefficients<T> {
     d: Vec<T>, // third derivatives / 6
 }
 
-impl<T: RealField + FromPrimitive + Copy> CubicSplineInterpolation<T> {
+impl<T: RealField + FloatElement + Copy> CubicSplineInterpolation<T> {
     /// Create new cubic spline interpolation
     pub fn new(x_data: Vec<T>, y_data: Vec<T>) -> Result<Self> {
         if x_data.len() != y_data.len() {
@@ -73,32 +76,30 @@ impl<T: RealField + FromPrimitive + Copy> CubicSplineInterpolation<T> {
         for i in 1..n - 1 {
             let term1 = (y_data[i + 1] - y_data[i]) / h[i];
             let term2 = (y_data[i] - y_data[i - 1]) / h[i - 1];
-            alpha.push(T::from_f64(THREE).unwrap_or_else(|| T::zero()) * (term1 - term2));
+            alpha.push(from_f64::<T>(THREE) * (term1 - term2));
         }
 
         // Solve tridiagonal system for c coefficients
-        let mut l = vec![T::one(); n];
-        let mut mu = vec![T::zero(); n];
-        let mut z = vec![T::zero(); n];
+        let mut l = vec![T::ONE; n];
+        let mut mu = vec![T::ZERO; n];
+        let mut z = vec![T::ZERO; n];
 
         for i in 1..n - 1 {
-            l[i] = T::from_f64(TWO).unwrap_or_else(|| T::zero()) * (x_data[i + 1] - x_data[i - 1])
-                - h[i - 1] * mu[i - 1];
+            l[i] = from_f64::<T>(TWO) * (x_data[i + 1] - x_data[i - 1]) - h[i - 1] * mu[i - 1];
             mu[i] = h[i] / l[i];
             z[i] = (alpha[i - 1] - h[i - 1] * z[i - 1]) / l[i];
         }
 
         // Back substitution
-        let mut c = vec![T::zero(); n];
-        let mut b = vec![T::zero(); n - 1];
-        let mut d = vec![T::zero(); n - 1];
+        let mut c = vec![T::ZERO; n];
+        let mut b = vec![T::ZERO; n - 1];
+        let mut d = vec![T::ZERO; n - 1];
 
         for j in (0..n - 1).rev() {
             c[j] = z[j] - mu[j] * c[j + 1];
             b[j] = (y_data[j + 1] - y_data[j]) / h[j]
-                - h[j] * (c[j + 1] + T::from_f64(TWO).unwrap_or_else(|| T::zero()) * c[j])
-                    / T::from_f64(THREE).unwrap_or_else(|| T::zero());
-            d[j] = (c[j + 1] - c[j]) / (T::from_f64(THREE).unwrap_or_else(|| T::zero()) * h[j]);
+                - h[j] * (c[j + 1] + from_f64::<T>(TWO) * c[j]) / from_f64::<T>(THREE);
+            d[j] = (c[j + 1] - c[j]) / (from_f64::<T>(THREE) * h[j]);
         }
 
         Ok(SplineCoefficients {
@@ -117,7 +118,7 @@ impl<T: RealField + FromPrimitive + Copy> CubicSplineInterpolation<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> Interpolation<T> for CubicSplineInterpolation<T> {
+impl<T: RealField + FloatElement + Copy> Interpolation<T> for CubicSplineInterpolation<T> {
     fn interpolate(&self, x: T) -> Result<T> {
         // Check bounds
         if x < self.x_data[0] || x > self.x_data[self.x_data.len() - 1] {

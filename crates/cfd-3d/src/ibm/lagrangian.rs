@@ -15,7 +15,8 @@
 //! **Reference:** Peskin, C.S., "The immersed boundary method",
 //! Acta Numerica 11, 2002, pp. 479–517.
 
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::Vector3;
 use serde::{Deserialize, Serialize};
 
 /// Lagrangian point representing an immersed boundary

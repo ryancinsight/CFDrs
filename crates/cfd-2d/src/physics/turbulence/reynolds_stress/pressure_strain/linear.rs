@@ -7,8 +7,7 @@
 //! exponentially with time-scale k/ε under the linear model, recovering the
 //! isotropic state as the unique fixed point (Rotta, 1951).
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
 
 /// Compute `Φ_ij` for the linear return-to-isotropy (Rotta, 1951) model.
 ///
@@ -19,7 +18,7 @@ use num_traits::FromPrimitive;
 /// * `k`       — turbulent kinetic energy
 /// * `i`, `j`  — tensor index pair
 #[inline]
-pub fn pressure_strain_linear<T: RealField + Copy + FromPrimitive>(
+pub fn pressure_strain_linear<T: RealField + Copy>(
     c1: T,
     a_xx: T,
     a_xy: T,
@@ -34,6 +33,6 @@ pub fn pressure_strain_linear<T: RealField + Copy + FromPrimitive>(
         (0, 0) => c1_term * a_xx,
         (0, 1) | (1, 0) => c1_term * a_xy,
         (1, 1) => c1_term * a_yy,
-        _ => T::zero(),
+        _ => T::ZERO,
     }
 }

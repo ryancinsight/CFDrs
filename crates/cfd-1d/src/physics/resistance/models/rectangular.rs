@@ -47,11 +47,10 @@
 //!   Fully-Developed, Laminar Flow in Microchannels of Arbitrary Cross-Section*.
 //!   Journal of Fluids Engineering, 128(5), 1036-1044.
 
-use super::traits::{FlowConditions, ResistanceModel};
+use super::traits::{scalar_from_f64, FlowConditions, ResistanceModel, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 // Named constants for hydraulic calculations
@@ -60,7 +59,7 @@ const PERIMETER_FACTOR: f64 = 2.0;
 
 /// Rectangular channel resistance model with exact solution
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RectangularChannelModel<T: RealField + Copy> {
+pub struct RectangularChannelModel<T> {
     /// Channel width \[m]
     pub width: T,
     /// Channel height \[m]
@@ -69,7 +68,7 @@ pub struct RectangularChannelModel<T: RealField + Copy> {
     pub length: T,
 }
 
-impl<T: RealField + Copy> RectangularChannelModel<T> {
+impl<T: ResistanceScalar> RectangularChannelModel<T> {
     /// Create a new rectangular channel model
     pub fn new(width: T, height: T, length: T) -> Self {
         Self {
@@ -80,7 +79,7 @@ impl<T: RealField + Copy> RectangularChannelModel<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChannelModel<T> {
+impl<T: ResistanceScalar> ResistanceModel<T> for RectangularChannelModel<T> {
     fn calculate_resistance<F: FluidTrait<T>>(
         &self,
         fluid: &F,
@@ -123,14 +122,23 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChan
             }
             shear_rate
         } else {
-            T::from_f64(8.0).expect("8.0 must convert to scalar") * v_abs / dh
+            scalar_from_f64::<T>(8.0) * v_abs / dh
         };
         let viscosity =
             fluid.viscosity_at_shear(shear_rate, conditions.temperature, conditions.pressure)?;
 
         // Calculate aspect ratio epsilon (always <= 1 for consistency in Bahrami)
-        let epsilon =
-            RealField::min(self.width, self.height) / RealField::max(self.width, self.height);
+        let width_min = if self.width <= self.height {
+            self.width
+        } else {
+            self.height
+        };
+        let width_max = if self.width >= self.height {
+            self.width
+        } else {
+            self.height
+        };
+        let epsilon = width_min / width_max;
 
         // Calculate Poiseuille number using Bahrami (2006) exact rational fit
         // Po = f_darcy * Re
@@ -176,7 +184,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChan
         let dh = self.hydraulic_diameter();
 
         let ratio = self.length / dh;
-        let limit = T::from_f64(10.0).expect("Mathematical constant conversion compromised");
+        let limit = scalar_from_f64::<T>(10.0);
 
         if ratio < limit {
             return Err(cfd_core::error::Error::PhysicsViolation(format!(
@@ -190,21 +198,16 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceModel<T> for RectangularChan
     }
 
     fn reynolds_range(&self) -> (T, T) {
-        (T::zero(), T::from_f64(2300.0).unwrap_or_else(|| T::zero()))
+        (T::zero(), scalar_from_f64::<T>(2300.0))
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> RectangularChannelModel<T> {
+impl<T: ResistanceScalar> RectangularChannelModel<T> {
     /// Hydraulic diameter: Dh = 4A/P = 2wh/(w+h)
     fn hydraulic_diameter(&self) -> T {
         let area = self.width * self.height;
-        let perimeter = T::from_f64(PERIMETER_FACTOR)
-            .expect("Mathematical constant conversion compromised")
-            * (self.width + self.height);
-        T::from_f64(HYDRAULIC_DIAMETER_FACTOR)
-            .expect("Mathematical constant conversion compromised")
-            * area
-            / perimeter
+        let perimeter = scalar_from_f64::<T>(PERIMETER_FACTOR) * (self.width + self.height);
+        scalar_from_f64::<T>(HYDRAULIC_DIAMETER_FACTOR) * area / perimeter
     }
 
     /// Calculate Poiseuille number for rectangular channels using Bahrami (2006) exact fit
@@ -223,21 +226,18 @@ impl<T: RealField + Copy + FromPrimitive> RectangularChannelModel<T> {
         // Po_Darcy = 96 / [ (1 + ε)^2 * (1 - (192*ε/π^5) * tanh(π / 2ε)) ]
         if epsilon == T::zero() {
             // Infinite parallel plates limit: fRe = 96
-            T::from_f64(96.0).expect("Mathematical constant conversion compromised")
+            scalar_from_f64::<T>(96.0)
         } else {
-            let pi = T::from_f64(std::f64::consts::PI)
-                .expect("Mathematical constant conversion compromised");
-            let c_192 = T::from_f64(192.0).expect("Mathematical constant conversion compromised");
-            let pi_pow_5 = pi.powi(5);
+            let pi = scalar_from_f64::<T>(std::f64::consts::PI);
+            let c_192 = scalar_from_f64::<T>(192.0);
+            let pi_pow_5 = <T as FloatElement>::powi(pi, 5);
 
             let term1 = (T::one() + epsilon) * (T::one() + epsilon);
-            let tanh_arg = pi
-                / (T::from_f64(2.0).expect("Mathematical constant conversion compromised")
-                    * epsilon);
-            let term2 = T::one() - (c_192 * epsilon / pi_pow_5) * tanh_arg.tanh();
+            let tanh_arg = pi / (scalar_from_f64::<T>(2.0) * epsilon);
+            let term2 =
+                T::one() - (c_192 * epsilon / pi_pow_5) * <T as FloatElement>::tanh(tanh_arg);
 
-            T::from_f64(96.0).expect("Mathematical constant conversion compromised")
-                / (term1 * term2)
+            scalar_from_f64::<T>(96.0) / (term1 * term2)
         }
     }
 }
@@ -380,11 +380,14 @@ mod proptests {
             let po = model.calculate_poiseuille_number(eps);
 
             // Theorem bounds: Square duct (~56.5) < Po <= Parallel Plates (96)
-            prop_assert!(po >= 56.50 && po <= 96.0001, "Poiseuille number {} out of bounds [56.5, 96.0]", po);
+            prop_assert!(
+                (56.50..=96.0001).contains(&po),
+                "Poiseuille number {po} out of bounds [56.5, 96.0]"
+            );
 
             // Asymptotic convergence for low aspect ratio
             if eps < 1e-4 {
-                prop_assert!(po > 95.0, "Did not converge near 96: {}", po);
+                prop_assert!(po > 95.0, "Did not converge near 96: {po}");
             }
         }
 
@@ -395,7 +398,7 @@ mod proptests {
             let po2 = model.calculate_poiseuille_number(eps2);
 
             // Monotonic property holds reliably when points are sufficiently separated and away from the dip near 0.9
-            prop_assert!(po1 > po2, "Failed monotonicity: {} <= {} for {} vs {}", po1, po2, eps1, eps2);
+            prop_assert!(po1 > po2, "Failed monotonicity: {po1} <= {po2} for {eps1} vs {eps2}");
         }
     }
 }

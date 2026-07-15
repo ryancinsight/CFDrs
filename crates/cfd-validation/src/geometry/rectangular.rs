@@ -1,8 +1,9 @@
 //! Rectangular domain geometry implementation
 
 use super::{BoundaryCondition, BoundaryFace, Geometry2D, Point2D};
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
+use crate::scalar;
+use eunomia::FloatElement;
+use eunomia::RealField;
 
 /// Rectangular domain geometry
 #[derive(Debug, Clone)]
@@ -33,11 +34,11 @@ impl<T: RealField> RectangularDomain<T> {
     where
         T: From<f64>,
     {
-        Self::new(T::zero(), T::one(), T::zero(), T::one())
+        Self::new(scalar::zero(), scalar::one(), scalar::zero(), scalar::one())
     }
 }
 
-impl<T: RealField + Copy> Geometry2D<T> for RectangularDomain<T> {
+impl<T: RealField + Copy + FloatElement> Geometry2D<T> for RectangularDomain<T> {
     fn clone_box(&self) -> Box<dyn Geometry2D<T>> {
         Box::new(self.clone())
     }
@@ -73,16 +74,16 @@ impl<T: RealField + Copy> Geometry2D<T> for RectangularDomain<T> {
     }
 
     fn boundary_normal(&self, point: &Point2D<T>) -> Option<Point2D<T>> {
-        let tol = T::from_f64_or_zero(1e-10);
+        let tol = scalar::from_f64::<T>(1e-10);
 
-        if (point.x - self.x_min).abs() < tol {
-            Some(Point2D::new(-T::one(), T::zero(),)) // Left boundary
-        } else if (point.x - self.x_max).abs() < tol {
-            Some(Point2D::new(T::one(), T::zero(),)) // Right boundary
-        } else if (point.y - self.y_min).abs() < tol {
-            Some(Point2D::new(T::zero(), -T::one(),)) // Bottom boundary
-        } else if (point.y - self.y_max).abs() < tol {
-            Some(Point2D::new(T::zero(), T::one(),)) // Top boundary
+        if scalar::abs(point.x - self.x_min) < tol {
+            Some(Point2D::new(-scalar::one::<T>(), scalar::zero())) // Left boundary
+        } else if scalar::abs(point.x - self.x_max) < tol {
+            Some(Point2D::new(scalar::one(), scalar::zero())) // Right boundary
+        } else if scalar::abs(point.y - self.y_min) < tol {
+            Some(Point2D::new(scalar::zero(), -scalar::one::<T>())) // Bottom boundary
+        } else if scalar::abs(point.y - self.y_max) < tol {
+            Some(Point2D::new(scalar::zero(), scalar::one())) // Top boundary
         } else {
             None
         }
@@ -96,45 +97,45 @@ impl<T: RealField + Copy> Geometry2D<T> for RectangularDomain<T> {
         // Specific MMS implementations can override this
         match face {
             BoundaryFace::Bottom | BoundaryFace::Top | BoundaryFace::Left | BoundaryFace::Right => {
-                BoundaryCondition::Dirichlet(T::zero())
+                BoundaryCondition::Dirichlet(scalar::zero())
             }
-            _ => BoundaryCondition::Dirichlet(T::zero()),
+            _ => BoundaryCondition::Dirichlet(scalar::zero()),
         }
     }
 
     fn bounds(&self) -> (Point2D<T>, Point2D<T>) {
         (
-            Point2D::new(self.x_min, self.y_min,),
-            Point2D::new(self.x_max, self.y_max,),
+            Point2D::new(self.x_min, self.y_min),
+            Point2D::new(self.x_max, self.y_max),
         )
     }
 
     fn boundary_parameter(&self, face: BoundaryFace, point: &Point2D<T>) -> Option<T> {
-        let tol = T::from_f64_or_zero(1e-10);
+        let tol = scalar::from_f64::<T>(1e-10);
         match face {
             BoundaryFace::Bottom => {
-                if (point.y - self.y_min).abs() < tol {
+                if scalar::abs(point.y - self.y_min) < tol {
                     Some((point.x - self.x_min) / (self.x_max - self.x_min))
                 } else {
                     None
                 }
             }
             BoundaryFace::Top => {
-                if (point.y - self.y_max).abs() < tol {
+                if scalar::abs(point.y - self.y_max) < tol {
                     Some((point.x - self.x_min) / (self.x_max - self.x_min))
                 } else {
                     None
                 }
             }
             BoundaryFace::Left => {
-                if (point.x - self.x_min).abs() < tol {
+                if scalar::abs(point.x - self.x_min) < tol {
                     Some((point.y - self.y_min) / (self.y_max - self.y_min))
                 } else {
                     None
                 }
             }
             BoundaryFace::Right => {
-                if (point.x - self.x_max).abs() < tol {
+                if scalar::abs(point.x - self.x_max) < tol {
                     Some((point.y - self.y_min) / (self.y_max - self.y_min))
                 } else {
                     None
@@ -146,10 +147,10 @@ impl<T: RealField + Copy> Geometry2D<T> for RectangularDomain<T> {
 
     fn on_boundary(&self, point: &Point2D<T>, face: BoundaryFace, tolerance: T) -> bool {
         match face {
-            BoundaryFace::Bottom => (point.y - self.y_min).abs() < tolerance,
-            BoundaryFace::Top => (point.y - self.y_max).abs() < tolerance,
-            BoundaryFace::Left => (point.x - self.x_min).abs() < tolerance,
-            BoundaryFace::Right => (point.x - self.x_max).abs() < tolerance,
+            BoundaryFace::Bottom => scalar::abs(point.y - self.y_min) < tolerance,
+            BoundaryFace::Top => scalar::abs(point.y - self.y_max) < tolerance,
+            BoundaryFace::Left => scalar::abs(point.x - self.x_min) < tolerance,
+            BoundaryFace::Right => scalar::abs(point.x - self.x_max) < tolerance,
             _ => false,
         }
     }

@@ -34,8 +34,7 @@
 //! - Plesset, M. S. & Prosperetti, A. (1977). "Bubble dynamics and cavitation."
 //!   *Ann. Rev. Fluid Mech.* 9:145–185.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, NumericalErrorKind, Result};
@@ -53,7 +52,7 @@ const REFERENCE_FAR_FIELD_PRESSURE_PA: f64 = 101_325.0;
 /// Describes the growth and collapse of a spherical bubble in an infinite liquid
 /// based on Rayleigh (1917) and Plesset (1949).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct RayleighPlesset<T: RealField + Copy> {
+pub struct RayleighPlesset<T: FloatElement + Copy> {
     /// Initial bubble radius (m)
     pub initial_radius: T,
     /// Liquid density (kg/m³)
@@ -70,7 +69,7 @@ pub struct RayleighPlesset<T: RealField + Copy> {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[allow(missing_docs)]
-pub struct SonoluminescenceEstimate<T: RealField + Copy> {
+pub struct SonoluminescenceEstimate<T: FloatElement + Copy> {
     #[allow(missing_docs)]
     pub peak_temperature: T,
     #[allow(missing_docs)]
@@ -79,7 +78,7 @@ pub struct SonoluminescenceEstimate<T: RealField + Copy> {
     pub radiated_energy: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
+impl<T: FloatElement + Copy> RayleighPlesset<T> {
     /// Calculate bubble wall acceleration (d²R/dt²)
     ///
     /// Implements the full Rayleigh-Plesset equation:
@@ -101,29 +100,28 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
     ///
     /// **References**: Plesset & Prosperetti (1977), Brennen (1995) §2.2.
     pub fn bubble_acceleration(&self, radius: T, velocity: T, ambient_pressure: T) -> T {
-        if radius <= T::zero() {
-            return T::zero();
+        if radius <= <T as NumericElement>::ZERO {
+            return <T as NumericElement>::ZERO;
         }
 
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one());
-        let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
+        let two = <T as FloatElement>::from_f64(2.0);
+        let three = <T as FloatElement>::from_f64(3.0);
         let four = two * two;
-        let three_halves = T::from_f64(1.5).unwrap_or_else(|| T::one());
+        let three_halves = <T as FloatElement>::from_f64(1.5);
 
         // Equilibrium gas pressure from normal-stress balance at R = R_0:
         //   p_v + p_g0 = p_ref + 2σ/R_0  →  p_g0 = p_ref − p_v + 2σ/R_0
         // A fixed far-field reference keeps the initial bubble state from
         // re-equilibrating itself to the instantaneous ambient pressure.
-        let reference_pressure =
-            T::from_f64(REFERENCE_FAR_FIELD_PRESSURE_PA).unwrap_or(ambient_pressure);
+        let reference_pressure = <T as FloatElement>::from_f64(REFERENCE_FAR_FIELD_PRESSURE_PA);
         let p_g0 = (reference_pressure - self.vapor_pressure
             + two * self.surface_tension / self.initial_radius)
-            .max(T::zero());
+            .max_scalar(<T as NumericElement>::ZERO);
 
         // Polytropic gas contribution: p_g = p_g0 · (R_0/R)^{3κ}
         let ratio = self.initial_radius / radius;
         let exponent = three * self.polytropic_index;
-        let p_gas = p_g0 * ratio.powf(exponent);
+        let p_gas = p_g0 * <T as FloatElement>::powf(ratio, exponent);
 
         // Internal bubble pressure: p_B(R) = p_v + p_gas
         let p_bubble = self.vapor_pressure + p_gas;
@@ -134,10 +132,11 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
         // Rayleigh-Plesset equation terms:
         //   R̈ = (p_B − p_∞)/(ρR) − (3/2)Ṙ²/R − 4μṘ/(ρR²) − 2σ/(ρR²)
         let term1 = pressure_diff / (self.liquid_density * radius);
-        let term2 = -three_halves * velocity * velocity / radius;
-        let term3 =
-            -four * self.liquid_viscosity * velocity / (self.liquid_density * radius * radius);
-        let term4 = -two * self.surface_tension / (self.liquid_density * radius * radius);
+        let term2 = <T as NumericElement>::ZERO - three_halves * velocity * velocity / radius;
+        let term3 = <T as NumericElement>::ZERO
+            - four * self.liquid_viscosity * velocity / (self.liquid_density * radius * radius);
+        let term4 = <T as NumericElement>::ZERO
+            - two * self.surface_tension / (self.liquid_density * radius * radius);
 
         term1 + term2 + term3 + term4
     }
@@ -150,28 +149,28 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
         ambient_pressure: T,
         dt: T,
     ) -> Result<(T, T)> {
-        if radius < T::zero() {
+        if radius < <T as NumericElement>::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Bubble radius must be non-negative".to_string(),
             ));
         }
-        if dt <= T::zero() {
+        if dt <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Time step must be positive".to_string(),
             ));
         }
-        if !ambient_pressure.is_finite() {
+        if !<T as NumericElement>::is_finite(ambient_pressure) {
             return Err(Error::InvalidConfiguration(
                 "Ambient pressure must be finite".to_string(),
             ));
         }
 
-        if radius == T::zero() {
-            return Ok((T::zero(), T::zero()));
+        if radius == <T as NumericElement>::ZERO {
+            return Ok((<T as NumericElement>::ZERO, <T as NumericElement>::ZERO));
         }
 
         let accel = self.bubble_acceleration(radius, velocity, ambient_pressure);
-        if !accel.is_finite() {
+        if !<T as NumericElement>::is_finite(accel) {
             return Err(Error::Numerical(NumericalErrorKind::InvalidValue {
                 value: "Rayleigh-Plesset acceleration is non-finite".to_string(),
             }));
@@ -179,8 +178,8 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
 
         let new_velocity = velocity + accel * dt;
         let new_radius = radius + new_velocity * dt;
-        if new_radius <= T::zero() {
-            return Ok((T::zero(), T::zero()));
+        if new_radius <= <T as NumericElement>::ZERO {
+            return Ok((<T as NumericElement>::ZERO, <T as NumericElement>::ZERO));
         }
 
         Ok((new_radius, new_velocity))
@@ -195,12 +194,12 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
         emissivity: T,
         flash_duration: T,
     ) -> Result<SonoluminescenceEstimate<T>> {
-        if self.initial_radius <= T::zero() {
+        if self.initial_radius <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Initial bubble radius must be positive".to_string(),
             ));
         }
-        if collapse_radius <= T::zero() {
+        if collapse_radius <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Collapse radius must be positive".to_string(),
             ));
@@ -210,69 +209,87 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
                 "Collapse radius must not exceed initial radius".to_string(),
             ));
         }
-        if ambient_temperature <= T::zero() || !ambient_temperature.is_finite() {
+        if ambient_temperature <= <T as NumericElement>::ZERO
+            || !<T as NumericElement>::is_finite(ambient_temperature)
+        {
             return Err(Error::InvalidConfiguration(
                 "Ambient temperature must be finite and positive".to_string(),
             ));
         }
-        if ambient_pressure <= T::zero() || !ambient_pressure.is_finite() {
+        if ambient_pressure <= <T as NumericElement>::ZERO
+            || !<T as NumericElement>::is_finite(ambient_pressure)
+        {
             return Err(Error::InvalidConfiguration(
                 "Ambient pressure must be finite and positive".to_string(),
             ));
         }
-        if emissivity < T::zero() || emissivity > T::one() || !emissivity.is_finite() {
+        if emissivity < <T as NumericElement>::ZERO
+            || emissivity > <T as NumericElement>::ONE
+            || !<T as NumericElement>::is_finite(emissivity)
+        {
             return Err(Error::InvalidConfiguration(
                 "Emissivity must be finite and within [0, 1]".to_string(),
             ));
         }
-        if flash_duration <= T::zero() || !flash_duration.is_finite() {
+        if flash_duration <= <T as NumericElement>::ZERO
+            || !<T as NumericElement>::is_finite(flash_duration)
+        {
             return Err(Error::InvalidConfiguration(
                 "Flash duration must be finite and positive".to_string(),
             ));
         }
-        if self.polytropic_index <= T::one() || !self.polytropic_index.is_finite() {
+        if self.polytropic_index <= <T as NumericElement>::ONE
+            || !<T as NumericElement>::is_finite(self.polytropic_index)
+        {
             return Err(Error::InvalidConfiguration(
                 "Polytropic index must be finite and > 1".to_string(),
             ));
         }
 
-        let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
-        let four = T::from_f64(4.0).unwrap_or_else(|| T::one() + T::one() + T::one() + T::one());
-        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(T::zero);
+        let three = <T as FloatElement>::from_f64(3.0);
+        let four = <T as FloatElement>::from_f64(4.0);
+        let pi = <T as FloatElement>::from_f64(std::f64::consts::PI);
 
         let ratio = self.initial_radius / collapse_radius;
-        if !ratio.is_finite() || ratio < T::one() {
+        if !<T as NumericElement>::is_finite(ratio) || ratio < <T as NumericElement>::ONE {
             return Err(Error::Numerical(NumericalErrorKind::InvalidValue {
                 value: "Invalid radius ratio for sonoluminescence estimate".to_string(),
             }));
         }
 
         let gamma = self.polytropic_index;
-        let exponent_t = three * (gamma - T::one());
+        let exponent_t = three * (gamma - <T as NumericElement>::ONE);
         let exponent_p = three * gamma;
 
-        let peak_temperature = ambient_temperature * ratio.powf(exponent_t);
-        let peak_pressure = ambient_pressure * ratio.powf(exponent_p);
+        let peak_temperature = ambient_temperature * <T as FloatElement>::powf(ratio, exponent_t);
+        let peak_pressure = ambient_pressure * <T as FloatElement>::powf(ratio, exponent_p);
 
-        if !peak_temperature.is_finite() || !peak_pressure.is_finite() {
+        if !<T as NumericElement>::is_finite(peak_temperature)
+            || !<T as NumericElement>::is_finite(peak_pressure)
+        {
             return Err(Error::Numerical(NumericalErrorKind::InvalidValue {
                 value: "Non-finite peak temperature/pressure in sonoluminescence estimate"
                     .to_string(),
             }));
         }
 
-        let sigma_sb = T::from_f64(5.670_374_419e-8).unwrap_or_else(T::zero);
-        if sigma_sb <= T::zero() {
+        let sigma_sb = <T as FloatElement>::from_f64(5.670_374_419e-8);
+        if sigma_sb <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidConfiguration(
                 "Failed to construct Stefan-Boltzmann constant".to_string(),
             ));
         }
 
         let area = four * pi * collapse_radius * collapse_radius;
-        let radiated_energy =
-            emissivity * sigma_sb * peak_temperature.powi(4) * area * flash_duration;
+        let radiated_energy = emissivity
+            * sigma_sb
+            * <T as FloatElement>::powi(peak_temperature, 4)
+            * area
+            * flash_duration;
 
-        if !radiated_energy.is_finite() || radiated_energy < T::zero() {
+        if !<T as NumericElement>::is_finite(radiated_energy)
+            || radiated_energy < <T as NumericElement>::ZERO
+        {
             return Err(Error::Numerical(NumericalErrorKind::InvalidValue {
                 value: "Non-finite radiated energy in sonoluminescence estimate".to_string(),
             }));
@@ -290,51 +307,53 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
     pub fn growth_rate_inviscid(&self, _radius: T, ambient_pressure: T) -> T {
         let pressure_difference = self.vapor_pressure - ambient_pressure;
 
-        if pressure_difference <= T::zero() {
-            return T::zero(); // No growth if ambient pressure exceeds vapor pressure
+        if pressure_difference <= <T as NumericElement>::ZERO {
+            return <T as NumericElement>::ZERO; // No growth if ambient pressure exceeds vapor pressure
         }
 
         // Rayleigh equation for inviscid growth: dR/dt = sqrt(2/3 * Δp/ρ)
         // This is the exact solution for constant pressure difference
-        let two_thirds = T::from_f64(2.0 / 3.0).unwrap_or_else(|| T::one());
-        (two_thirds * pressure_difference / self.liquid_density).sqrt()
+        let two_thirds = <T as FloatElement>::from_f64(2.0 / 3.0);
+        <T as NumericElement>::sqrt(two_thirds * pressure_difference / self.liquid_density)
     }
 
     /// Calculate collapse time from Rayleigh collapse formula
     pub fn collapse_time(&self, initial_radius: T, pressure_difference: T) -> T {
         // Rayleigh collapse time: t_c = 0.915 * R_0 * sqrt(ρ/Δp)
-        let coefficient = T::from_f64(0.915).unwrap_or_else(|| T::one());
+        let coefficient = <T as FloatElement>::from_f64(0.915);
 
-        if pressure_difference > T::zero() {
-            coefficient * initial_radius * (self.liquid_density / pressure_difference).sqrt()
+        if pressure_difference > <T as NumericElement>::ZERO {
+            coefficient
+                * initial_radius
+                * <T as NumericElement>::sqrt(self.liquid_density / pressure_difference)
         } else {
-            T::from_f64(1e10).unwrap_or_else(|| T::one()) // Very large time for no pressure difference
+            <T as FloatElement>::from_f64(1e10) // Very large time for no pressure difference
         }
     }
 
     /// Calculate maximum bubble radius during growth (Rayleigh-Plesset)
     pub fn maximum_radius(&self, pressure_ratio: T) -> T {
         // R_max/R_0 = (p_∞/p_v)^(1/3γ) for isothermal growth
-        let exponent =
-            T::one() / (T::from_f64(3.0).unwrap_or_else(|| T::one()) * self.polytropic_index);
-        self.initial_radius * pressure_ratio.powf(exponent)
+        let exponent = <T as NumericElement>::ONE
+            / (<T as FloatElement>::from_f64(3.0) * self.polytropic_index);
+        self.initial_radius * <T as FloatElement>::powf(pressure_ratio, exponent)
     }
 
     /// Calculate bubble natural frequency
     pub fn natural_frequency(&self, radius: T, ambient_pressure: T) -> T {
-        if radius <= T::zero() {
-            return T::zero();
+        if radius <= <T as NumericElement>::ZERO {
+            return <T as NumericElement>::ZERO;
         }
 
         // ω_0 = 1/R * sqrt(3γ(p_0 - p_v)/ρ)
-        let three = T::from_f64(3.0).unwrap_or_else(|| T::one() + T::one() + T::one());
+        let three = <T as FloatElement>::from_f64(3.0);
         let pressure_term =
             three * self.polytropic_index * (ambient_pressure - self.vapor_pressure);
 
-        if pressure_term > T::zero() {
-            (pressure_term / self.liquid_density).sqrt() / radius
+        if pressure_term > <T as NumericElement>::ZERO {
+            <T as NumericElement>::sqrt(pressure_term / self.liquid_density) / radius
         } else {
-            T::zero()
+            <T as NumericElement>::ZERO
         }
     }
 
@@ -342,14 +361,14 @@ impl<T: RealField + Copy + FromPrimitive> RayleighPlesset<T> {
     pub fn blake_critical_radius(&self, ambient_pressure: T) -> T {
         // R_c = 0.85 * (2σ/(p_∞ - p_v))
         let coefficient =
-            T::from_f64(super::constants::BLAKE_CRITICAL_COEFFICIENT).unwrap_or_else(|| T::one());
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::one() + T::one());
+            <T as FloatElement>::from_f64(super::constants::BLAKE_CRITICAL_COEFFICIENT);
+        let two = <T as FloatElement>::from_f64(2.0);
 
         let pressure_diff = ambient_pressure - self.vapor_pressure;
-        if pressure_diff > T::zero() {
+        if pressure_diff > <T as NumericElement>::ZERO {
             coefficient * two * self.surface_tension / pressure_diff
         } else {
-            T::from_f64(1e10).unwrap_or_else(|| T::one()) // Very large radius
+            <T as FloatElement>::from_f64(1e10) // Very large radius
         }
     }
 }

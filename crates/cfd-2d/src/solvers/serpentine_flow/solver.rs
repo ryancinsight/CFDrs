@@ -1,14 +1,15 @@
 //! Discretized 2D serpentine flow solver using FVM.
 
 use super::{AdvectionDiffusionMixing, SerpentineGeometry, SerpentineMixingSolution};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::{BloodModel, NavierStokesSolver2D, SIMPLEConfig, StaggeredGrid2D};
 use crate::solvers::scalar_transport_2d::{ScalarTransportConfig, ScalarTransportSolver2D};
 use cfd_core::error::Result as CfdResult;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement};
 
 /// Discretized 2D Serpentine Flow Solver
-pub struct SerpentineSolver2D<T: RealField + Copy + Float + FromPrimitive> {
+pub struct SerpentineSolver2D<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<Output = T>> {
     /// Serpentine channel geometry definition.
     pub geometry: SerpentineGeometry<T>,
     /// Navier-Stokes flow solver on a staggered grid.
@@ -17,7 +18,7 @@ pub struct SerpentineSolver2D<T: RealField + Copy + Float + FromPrimitive> {
     pub scalar_solver: ScalarTransportSolver2D<T>,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
+impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement + std::ops::Rem<Output = T>> SerpentineSolver2D<T> {
     /// Create new discretized serpentine solver
     pub fn new(
         geometry: SerpentineGeometry<T>,
@@ -67,7 +68,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
             diffusion_coeff,
             c_left,
             c_right,
-            T::from_f64(1e-5).expect("analytical constant conversion"),
+            scalar::from_f64(1e-5),
         )
     }
 
@@ -94,7 +95,9 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
 
         // Define inlet concentration profile (step function)
         let ny = self.ns_solver.grid.ny;
-        let mut boundary_c = vec![T::zero(); ny];
+        let zero: T = scalar::zero();
+        let one: T = scalar::one();
+        let mut boundary_c = vec![zero; ny];
         for j in 0..ny {
             if j < ny / 2 {
                 boundary_c[j] = c_left;
@@ -124,8 +127,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
         // Compute mixing efficiency at outlet
         // ISO = 1 - variance / variance_inlet
         let nx = self.ns_solver.grid.nx;
-        let mut sum_c = T::zero();
-        let mut sum_c_sq = T::zero();
+        let mut sum_c = zero;
+        let mut sum_c_sq = zero;
         let mut count = 0;
 
         // Find last fluid column (outlet)
@@ -138,28 +141,25 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
             }
         }
 
-        let mut mixing_frac = T::zero();
+        let mut mixing_frac = zero;
         if count > 0 {
-            let n = T::from_usize(count).expect("analytical constant conversion");
+            let n = scalar::from_usize::<T>(count);
             let c_mean = sum_c / n;
             let variance = (sum_c_sq / n) - (c_mean * c_mean);
 
             // Expected variance for perfectly unmixed: 0.25 for c_left=0, c_right=1
             let var_inlet = half_sq(c_left - c_right);
-            mixing_frac = T::one()
-                - Float::sqrt(
+            mixing_frac = one
+                - <T as NumericElement>::sqrt(
                     variance
-                        / num_traits::Float::max(
-                            var_inlet,
-                            T::from_f64(1e-10).expect("analytical constant conversion"),
-                        ),
+                        / <T as NumericElement>::max_scalar(var_inlet, scalar::from_f64(1e-10)),
                 );
         }
 
         // Compute pressure drop between inlet and outlet regions
-        let mut p_in = T::zero();
+        let mut p_in = zero;
         let mut count_in = 0;
-        let mut p_out = T::zero();
+        let mut p_out = zero;
         let mut count_out = 0;
 
         for j in 0..ny {
@@ -173,11 +173,10 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
             }
         }
 
-        let mut pressure_drop = T::zero();
+        let mut pressure_drop = zero;
         if count_in > 0 && count_out > 0 {
-            pressure_drop = (p_in
-                / T::from_usize(count_in).expect("analytical constant conversion"))
-                - (p_out / T::from_usize(count_out).expect("analytical constant conversion"));
+            pressure_drop = (p_in / scalar::from_usize::<T>(count_in))
+                - (p_out / scalar::from_usize::<T>(count_out));
         }
 
         Ok(SerpentineMixingSolution {
@@ -192,8 +191,8 @@ impl<T: RealField + Copy + Float + FromPrimitive> SerpentineSolver2D<T> {
     }
 }
 
-fn half_sq<T: RealField + Copy + FromPrimitive>(val: T) -> T {
-    let half = T::from_f64(0.5).expect("analytical constant conversion");
+fn half_sq<T: Cfd2dScalar + Copy + FloatElement>(val: T) -> T {
+    let half = scalar::from_f64::<T>(0.5);
     (val * half) * (val * half)
 }
 
@@ -234,7 +233,7 @@ mod tests_discretized {
         );
         let sol = result.unwrap();
 
-        println!("Serpentine Mixing Solution: {:?}", sol);
+        println!("Serpentine Mixing Solution: {sol:?}");
 
         // Qualitative checks
         assert!(sol.peclet > 0.0, "Peclet should be positive");

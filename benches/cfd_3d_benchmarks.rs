@@ -7,10 +7,9 @@
 //! - Level set reinitialization
 //! - IBM interpolation
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use nalgebra::{DMatrix, Vector3};
 use apollo_fft::{fft_3d_array, ifft_3d_array};
-use ndarray::Array3;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use leto::{geometry::Vector3, Array2, Array3};
 
 /// Benchmark FEM element matrix assembly
 pub fn bench_fem_element_assembly(c: &mut Criterion) {
@@ -18,7 +17,7 @@ pub fn bench_fem_element_assembly(c: &mut Criterion) {
         b.iter(|| {
             // Simulate tetrahedral element with 4 nodes, 10 DOF (3 velocity + 1 pressure per node)
             let n_dof = 16;
-            let mut element_matrix = DMatrix::<f64>::zeros(n_dof, n_dof);
+            let mut element_matrix = Array2::<f64>::zeros([n_dof, n_dof]);
             let viscosity = 0.01;
             let volume = 1.0 / 6.0; // Tetrahedron volume
 
@@ -28,7 +27,7 @@ pub fn bench_fem_element_assembly(c: &mut Criterion) {
                     for d in 0..3 {
                         let row = i * 4 + d;
                         let col = j * 4 + d;
-                        element_matrix[(row, col)] = viscosity * volume;
+                        element_matrix[[row, col]] = viscosity * volume;
                     }
                 }
             }
@@ -43,7 +42,7 @@ pub fn bench_spectral_fft(c: &mut Criterion) {
     let mut group = c.benchmark_group("spectral_fft");
 
     for &size in [8, 16, 32, 64].iter() {
-        let field = Array3::from_shape_fn((size, size, size), |(i, j, k)| {
+        let field = Array3::from_shape_fn([size, size, size], |[i, j, k]| {
             ((i + j + k) as f64 * 0.3).sin() + 0.25 * ((i * j + k) as f64 * 0.1).cos()
         });
         let spectrum = fft_3d_array(&field);

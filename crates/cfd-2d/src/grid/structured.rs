@@ -12,14 +12,15 @@
 
 use super::boundary::BoundaryType;
 use super::traits::Grid2D;
+use crate::scalar::{from_f64, from_usize};
 use cfd_core::error::{Error, Result};
-use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use leto::geometry::Vector2;
 use std::collections::HashMap;
 
 /// 2D structured grid implementation
 #[derive(Debug, Clone)]
-pub struct StructuredGrid2D<T: RealField + Copy> {
+pub struct StructuredGrid2D<T> {
     /// Number of cells in x direction
     pub nx: usize,
     /// Number of cells in y direction
@@ -34,9 +35,12 @@ pub struct StructuredGrid2D<T: RealField + Copy> {
     pub boundaries: HashMap<(usize, usize), BoundaryType>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> StructuredGrid2D<T> {
+impl<T> StructuredGrid2D<T> {
     /// Create a new structured grid
-    pub fn new(nx: usize, ny: usize, x_min: T, x_max: T, y_min: T, y_max: T) -> Result<Self> {
+    pub fn new(nx: usize, ny: usize, x_min: T, x_max: T, y_min: T, y_max: T) -> Result<Self>
+    where
+        T: FloatElement,
+    {
         if nx == 0 || ny == 0 {
             return Err(Error::InvalidConfiguration(
                 "Grid dimensions must be positive".to_string(),
@@ -51,8 +55,8 @@ impl<T: RealField + FromPrimitive + Copy> StructuredGrid2D<T> {
 
         // Grid spacing: For n points, there are (n-1) intervals
         // This is the standard finite difference discretization
-        let dx = (x_max - x_min) / T::from_usize(nx - 1).unwrap_or_else(|| T::one());
-        let dy = (y_max - y_min) / T::from_usize(ny - 1).unwrap_or_else(|| T::one());
+        let dx = (x_max - x_min) / from_usize(nx - 1);
+        let dy = (y_max - y_min) / from_usize(ny - 1);
 
         Ok(Self {
             nx,
@@ -65,8 +69,21 @@ impl<T: RealField + FromPrimitive + Copy> StructuredGrid2D<T> {
     }
 
     /// Create a unit square grid
-    pub fn unit_square(nx: usize, ny: usize) -> Result<Self> {
-        Self::new(nx, ny, T::zero(), T::one(), T::zero(), T::one())
+    pub fn unit_square(nx: usize, ny: usize) -> Result<Self>
+    where
+        T: FloatElement,
+    {
+        Self::new(nx, ny, T::ZERO, T::ONE, T::ZERO, T::ONE)
+    }
+
+    /// Get the number of cells in x direction.
+    pub fn nx(&self) -> usize {
+        self.nx
+    }
+
+    /// Get the number of cells in y direction.
+    pub fn ny(&self) -> usize {
+        self.ny
     }
 
     /// Set boundary type for a cell
@@ -95,7 +112,10 @@ impl<T: RealField + FromPrimitive + Copy> StructuredGrid2D<T> {
     }
 
     /// Get grid spacing
-    pub fn spacing(&self) -> (T, T) {
+    pub fn spacing(&self) -> (T, T)
+    where
+        T: Copy,
+    {
         (self.dx, self.dy)
     }
 
@@ -114,33 +134,32 @@ impl<T: RealField + FromPrimitive + Copy> StructuredGrid2D<T> {
         }
         Ok(())
     }
-}
 
-impl<T: RealField + FromPrimitive + Copy> Grid2D<T> for StructuredGrid2D<T> {
-    fn nx(&self) -> usize {
-        self.nx
-    }
-
-    fn ny(&self) -> usize {
-        self.ny
-    }
-
-    fn cell_center(&self, i: usize, j: usize) -> Result<Vector2<T>> {
+    /// Get cell center coordinates.
+    pub fn cell_center(&self, i: usize, j: usize) -> Result<Vector2<T>>
+    where
+        T: FloatElement,
+    {
         self.check_indices(i, j)?;
 
-        let half = T::from_f64(0.5).unwrap_or_else(|| T::zero());
-        let x = self.bounds.0 + (T::from_usize(i).unwrap_or_else(|| T::zero()) + half) * self.dx;
-        let y = self.bounds.2 + (T::from_usize(j).unwrap_or_else(|| T::zero()) + half) * self.dy;
+        let half = from_f64::<T>(0.5);
+        let x = self.bounds.0 + (from_usize::<T>(i) + half) * self.dx;
+        let y = self.bounds.2 + (from_usize::<T>(j) + half) * self.dy;
 
         Ok(Vector2::new(x, y))
     }
 
-    fn cell_area(&self, i: usize, j: usize) -> Result<T> {
+    /// Get cell volume/area.
+    pub fn cell_area(&self, i: usize, j: usize) -> Result<T>
+    where
+        T: Copy + core::ops::Mul<Output = T>,
+    {
         self.check_indices(i, j)?;
         Ok(self.dx * self.dy)
     }
 
-    fn neighbors(&self, i: usize, j: usize) -> Vec<(usize, usize)> {
+    /// Get neighboring cell indices.
+    pub fn neighbors(&self, i: usize, j: usize) -> Vec<(usize, usize)> {
         let mut neighbors = Vec::with_capacity(4);
 
         if i > 0 {
@@ -159,7 +178,8 @@ impl<T: RealField + FromPrimitive + Copy> Grid2D<T> for StructuredGrid2D<T> {
         neighbors
     }
 
-    fn neighbor_iter(&self, i: usize, j: usize) -> impl Iterator<Item = (usize, usize)> {
+    /// Get neighboring cell indices as an iterator.
+    pub fn neighbor_iter(&self, i: usize, j: usize) -> impl Iterator<Item = (usize, usize)> {
         let nx = self.nx;
         let ny = self.ny;
 
@@ -173,11 +193,47 @@ impl<T: RealField + FromPrimitive + Copy> Grid2D<T> for StructuredGrid2D<T> {
         .filter(move |(ii, jj)| *ii < nx && *jj < ny && (*ii != i || *jj != j))
     }
 
-    fn is_boundary(&self, i: usize, j: usize) -> bool {
+    /// Check if cell is on a structured-grid boundary.
+    pub fn is_boundary(&self, i: usize, j: usize) -> bool {
         i == 0 || i == self.nx - 1 || j == 0 || j == self.ny - 1
     }
 
-    fn boundary_type(&self, i: usize, j: usize) -> Option<BoundaryType> {
+    /// Get the configured boundary type for a cell.
+    pub fn boundary_type(&self, i: usize, j: usize) -> Option<BoundaryType> {
         self.boundaries.get(&(i, j)).copied()
+    }
+}
+
+impl<T: FloatElement> Grid2D<T> for StructuredGrid2D<T> {
+    fn nx(&self) -> usize {
+        self.nx()
+    }
+
+    fn ny(&self) -> usize {
+        self.ny()
+    }
+
+    fn cell_center(&self, i: usize, j: usize) -> Result<Vector2<T>> {
+        self.cell_center(i, j)
+    }
+
+    fn cell_area(&self, i: usize, j: usize) -> Result<T> {
+        self.cell_area(i, j)
+    }
+
+    fn neighbors(&self, i: usize, j: usize) -> Vec<(usize, usize)> {
+        self.neighbors(i, j)
+    }
+
+    fn neighbor_iter(&self, i: usize, j: usize) -> impl Iterator<Item = (usize, usize)> {
+        self.neighbor_iter(i, j)
+    }
+
+    fn is_boundary(&self, i: usize, j: usize) -> bool {
+        self.is_boundary(i, j)
+    }
+
+    fn boundary_type(&self, i: usize, j: usize) -> Option<BoundaryType> {
+        self.boundary_type(i, j)
     }
 }

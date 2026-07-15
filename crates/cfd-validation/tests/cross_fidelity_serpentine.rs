@@ -28,7 +28,9 @@ use cfd_1d::physics::resistance::calculator::dispatch::{
 };
 use cfd_1d::physics::resistance::models::FlowConditions;
 use cfd_2d::solvers::ns_fvm::BloodModel as BloodModel2D;
-use cfd_2d::solvers::serpentine_flow::{SerpentineGeometry as SerpentineGeometry2D, SerpentineSolver2D};
+use cfd_2d::solvers::serpentine_flow::{
+    SerpentineGeometry as SerpentineGeometry2D, SerpentineSolver2D,
+};
 use cfd_3d::serpentine::{SerpentineConfig3D, SerpentineSolver3D};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_mesh::SerpentineMeshBuilder;
@@ -41,12 +43,12 @@ fn cross_fidelity_dean_flow_resistance() {
     let l_straight = 0.0010; // 1 mm
     let turn_radius = 0.0004; // 400 μm
     let n_cycles = 4; // 4 full cycles = 8 straight segments, 8 turns
-    
+
     // Inlet velocity to trigger moderate Dean flow
     let u_inlet_2d = 0.05; // m/s
     let area = width * height;
     let flow_rate = u_inlet_2d * area;
-    
+
     // Blood properties
     let density = 1050.0;
     let viscosity = 0.0035; // 3.5 cP
@@ -59,7 +61,7 @@ fn cross_fidelity_dean_flow_resistance() {
         speed_of_sound: 1540.0,
     };
     let fluid_2d = BloodModel2D::Newtonian(viscosity);
-    
+
     let conditions = FlowConditions {
         flow_rate: Some(flow_rate),
         velocity: Some(u_inlet_2d),
@@ -70,41 +72,47 @@ fn cross_fidelity_dean_flow_resistance() {
     };
 
     // 2. [1D] Baseline Hagen-Poiseuille Straight Duct Limit
-    let length_straight = l_straight * 8.0 + (std::f64::consts::PI * turn_radius) * 4.0; 
-    let r_straight_1d = calculate_rectangular(
-        width, height, length_straight, &fluid_1d, &conditions
-    ).expect("1D straight calculation failed");
+    let length_straight = l_straight * 8.0 + (std::f64::consts::PI * turn_radius) * 4.0;
+    let r_straight_1d =
+        calculate_rectangular(width, height, length_straight, &fluid_1d, &conditions)
+            .expect("1D straight calculation failed");
     let dp_straight_1d = r_straight_1d * flow_rate;
 
     // 3. [1D] Analytical Dean Flow Perturbation (Ito/Dean Corrected)
     let total_straight_segments_length = l_straight * 8.0;
     let num_segments = 8;
     let r_serp_1d = calculate_serpentine_rectangular(
-        width, height, total_straight_segments_length, num_segments, turn_radius, &fluid_1d, &conditions
-    ).expect("1D serpentine calculation failed");
+        width,
+        height,
+        total_straight_segments_length,
+        num_segments,
+        turn_radius,
+        &fluid_1d,
+        &conditions,
+    )
+    .expect("1D serpentine calculation failed");
     let dp_serp_1d = r_serp_1d * flow_rate;
 
     // 4. [2D] Planar Serpentine 2D Navier-Stokes Solver
-    let geom_2d = SerpentineGeometry2D::new(
-        width, height, l_straight, turn_radius, n_cycles
-    );
+    let geom_2d = SerpentineGeometry2D::new(width, height, l_straight, turn_radius, n_cycles);
     // Use medium resolution for stable validation speed
     let nx = 120;
-    let ny = 40; 
+    let ny = 40;
     let mut solver_2d = SerpentineSolver2D::new(geom_2d.clone(), fluid_2d, density, nx, ny);
     // Scalar transport is irrelevant here, use D=1e-9, C=0, C=1
-    let sol_2d = solver_2d.solve(u_inlet_2d, 1e-9, 0.0, 1.0)
+    let sol_2d = solver_2d
+        .solve(u_inlet_2d, 1e-9, 0.0, 1.0)
         .expect("2D serpentine calculation failed");
     let dp_serp_2d = sol_2d.pressure_drop;
 
     // 5. [3D] Volumetric FEM Navier-Stokes
     let builder_3d = SerpentineMeshBuilder::new(
-        width,             // Approximating square equivalent hydraulic diameter 
+        width,             // Approximating square equivalent hydraulic diameter
         turn_radius * 2.0, // amplitude
         l_straight * 4.0,  // wavelength
     )
     .with_periods(n_cycles);
-        
+
     let config_3d = SerpentineConfig3D {
         inlet_flow_rate: flow_rate,
         inlet_pressure: 101325.0 + dp_serp_1d, // Initial guess overhead
@@ -115,18 +123,20 @@ fn cross_fidelity_dean_flow_resistance() {
         circular: false,
     };
     let solver_3d = SerpentineSolver3D::new(builder_3d, config_3d);
-    let sol_3d = solver_3d.solve(fluid_1d)
+    let sol_3d = solver_3d
+        .solve(fluid_1d)
         .expect("3D serpentine calculation failed");
     let dp_serp_3d = sol_3d.dp_total;
 
     // 6. Cross-Fidelity Verification of Invariants
-    
+
     // [2D Baseline] Infinite Parallel Plates
     // L_2d = n_cycles * (2*L_straight + pi/2 * R_turn) Wait, in SerpentineGeometry2D total_length is:
     // n_cycles * (2*L_s + pi/2 * R_c)
-    let length_2d = (n_cycles as f64) * (2.0 * l_straight + (std::f64::consts::PI / 2.0) * turn_radius);
+    let length_2d =
+        (n_cycles as f64) * (2.0 * l_straight + (std::f64::consts::PI / 2.0) * turn_radius);
     let dp_straight_2d = 12.0 * viscosity * length_2d * u_inlet_2d / (width * width);
-    
+
     // Invariant 1: Dean 1D Analytical formulation strictly enforces curvature friction enhancement
     assert!(
         dp_serp_1d > dp_straight_1d,
@@ -150,6 +160,7 @@ fn cross_fidelity_dean_flow_resistance() {
     assert!(
         dp_serp_3d > dp_straight_1d,
         "Violation of 3D Dean vortex limits: 3D Serpentine ({:.4} Pa) <= 1D Straight ({:.4} Pa)",
-        dp_serp_3d, dp_straight_1d
+        dp_serp_3d,
+        dp_straight_1d
     );
 }

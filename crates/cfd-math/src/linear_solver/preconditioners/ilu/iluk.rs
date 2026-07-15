@@ -7,8 +7,8 @@
 //! Reference: Saad, Y. (2003). Iterative Methods for Sparse Linear Systems (2nd ed.). SIAM, §10.4.
 
 use cfd_core::error::{Error, NumericalErrorKind, Result};
-use nalgebra::RealField;
-use nalgebra_sparse::CsrMatrix;
+use eunomia::{NumericElement, RealField};
+use leto_ops::{CsrMatrix, Scalar as LetoScalar};
 use std::collections::HashMap;
 
 use super::utils;
@@ -23,7 +23,10 @@ use super::utils;
 /// # Returns
 ///
 /// LU factors as a single CSR matrix (L below diagonal with unit diagonal, U on and above diagonal)
-pub fn factorize<T: RealField + Copy>(a: &CsrMatrix<T>, k: usize) -> Result<CsrMatrix<T>> {
+pub fn factorize<T: RealField + Copy + LetoScalar>(
+    a: &CsrMatrix<T>,
+    k: usize,
+) -> Result<CsrMatrix<T>> {
     let n = a.nrows();
 
     // Phase 1: Symbolic factorization - determine sparsity pattern with level-k fill
@@ -35,13 +38,15 @@ pub fn factorize<T: RealField + Copy>(a: &CsrMatrix<T>, k: usize) -> Result<CsrM
     // Phase 3: Numeric factorization on the extended sparsity pattern
     numeric_phase(&mut lu_vals, &lu_offsets, &lu_indices, n)?;
 
-    CsrMatrix::try_from_csr_data(n, n, lu_offsets, lu_indices, lu_vals).map_err(|_| {
-        Error::InvalidInput("Failed to create CSR matrix from ILU(k) factorization".to_string())
+    CsrMatrix::from_parts(lu_vals, lu_indices, lu_offsets, n, n).map_err(|error| {
+        Error::InvalidInput(format!(
+            "Failed to create Leto CSR matrix from ILU(k) factorization: {error}"
+        ))
     })
 }
 
 /// Phase 1: Symbolic factorization - determine sparsity pattern
-fn symbolic_phase<T: RealField + Copy>(
+fn symbolic_phase<T: RealField + Copy + LetoScalar>(
     a: &CsrMatrix<T>,
     k: usize,
 ) -> HashMap<(usize, usize), usize> {
@@ -50,10 +55,8 @@ fn symbolic_phase<T: RealField + Copy>(
 
     // Initialize levels from original matrix A (level 0)
     for i in 0..n {
-        let row_start = a.row_offsets()[i];
-        let row_end = a.row_offsets()[i + 1];
-        for idx in row_start..row_end {
-            let j = a.col_indices()[idx];
+        let row = a.row(i);
+        for &j in row.col_indices() {
             levels.insert((i, j), 0);
         }
     }
@@ -102,7 +105,7 @@ fn symbolic_phase<T: RealField + Copy>(
 
 /// Phase 2: Build CSR structure for new sparsity pattern
 #[allow(clippy::type_complexity)]
-fn build_csr_structure<T: RealField + Copy>(
+fn build_csr_structure<T: RealField + Copy + LetoScalar>(
     a: &CsrMatrix<T>,
     levels: &HashMap<(usize, usize), usize>,
     k: usize,
@@ -129,21 +132,22 @@ fn build_csr_structure<T: RealField + Copy>(
                 let val = if let Some(&level) = levels.get(&(row, col)) {
                     if level == 0 {
                         // Original entry from A
-                        let a_row_start = a.row_offsets()[row];
-                        let a_row_end = a.row_offsets()[row + 1];
-                        let mut found_val = T::zero();
-                        for idx in a_row_start..a_row_end {
-                            if a.col_indices()[idx] == col {
-                                found_val = a.values()[idx];
+                        let mut found_val = <T as NumericElement>::ZERO;
+                        let a_row = a.row(row);
+                        for (&candidate_col, &candidate_val) in
+                            a_row.col_indices().iter().zip(a_row.values())
+                        {
+                            if candidate_col == col {
+                                found_val = candidate_val;
                                 break;
                             }
                         }
                         found_val
                     } else {
-                        T::zero() // Fill entry
+                        <T as NumericElement>::ZERO // Fill entry
                     }
                 } else {
-                    T::zero()
+                    <T as NumericElement>::ZERO
                 };
                 values.push(val);
             }
@@ -165,7 +169,7 @@ fn numeric_phase<T: RealField + Copy>(
         let diag_idx = utils::find_diagonal_index(lu_offsets, lu_indices, k_idx)?;
         let a_kk = lu_vals[diag_idx];
 
-        if a_kk.abs() <= T::default_epsilon() {
+        if a_kk.abs() <= <T as RealField>::EPSILON {
             return Err(Error::Numerical(NumericalErrorKind::SingularMatrix));
         }
 

@@ -2,10 +2,9 @@
 //!
 //! Implements Richardson extrapolation following ASME V&V 20-2009 guidelines.
 
-use cfd_core::conversion::SafeFromF64;
+use crate::scalar;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, RealField};
 
 /// Richardson extrapolation calculator
 ///
@@ -18,16 +17,16 @@ pub struct RichardsonExtrapolation<T: RealField + Copy> {
     pub refinement_ratio: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
+impl<T: RealField + Copy + FloatElement> RichardsonExtrapolation<T> {
     /// Create a new Richardson extrapolation with known order
     pub fn with_order(order: T, refinement_ratio: T) -> Result<Self> {
-        if order <= T::zero() {
+        if order <= scalar::zero::<T>() {
             return Err(Error::InvalidInput(
                 "Order of accuracy must be positive".to_string(),
             ));
         }
 
-        if refinement_ratio <= T::one() {
+        if refinement_ratio <= scalar::one::<T>() {
             return Err(Error::InvalidInput(
                 "Refinement ratio must be greater than 1".to_string(),
             ));
@@ -41,7 +40,7 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
 
     /// Create with standard second-order accuracy
     pub fn second_order(refinement_ratio: T) -> Result<Self> {
-        let two = T::from_f64_or_one(2.0);
+        let two = scalar::from_f64::<T>(2.0);
         Self::with_order(two, refinement_ratio)
     }
 
@@ -54,18 +53,18 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
     /// # Returns
     /// Extrapolated solution at h→0
     pub fn extrapolate(&self, f_fine: T, f_coarse: T) -> T {
-        let r_p = self.refinement_ratio.powf(self.order);
-        (r_p * f_fine - f_coarse) / (r_p - T::one())
+        let r_p = scalar::powf(self.refinement_ratio, self.order);
+        (r_p * f_fine - f_coarse) / (r_p - scalar::one::<T>())
     }
 
     /// Compute grid convergence index (GCI) following Roache (1998)
     ///
     /// GCI provides an error band for the grid-converged solution
     pub fn grid_convergence_index(&self, f_fine: T, f_coarse: T, safety_factor: T) -> T {
-        let epsilon = (f_fine - f_coarse).abs();
-        let r_p = self.refinement_ratio.powf(self.order);
+        let epsilon = scalar::abs(f_fine - f_coarse);
+        let r_p = scalar::powf(self.refinement_ratio, self.order);
 
-        safety_factor * epsilon / (r_p - T::one())
+        safety_factor * epsilon / (r_p - scalar::one::<T>())
     }
 
     /// Estimate order of accuracy from three grid solutions
@@ -73,22 +72,23 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
     /// Uses the generalized Richardson extrapolation formula
     pub fn estimate_order(f_coarse: T, f_medium: T, f_fine: T, refinement_ratio: T) -> Result<T>
     where
-        T: RealField + Copy + FromPrimitive,
+        T: RealField + Copy + FloatElement,
     {
         let epsilon_21 = f_medium - f_fine;
         let epsilon_32 = f_coarse - f_medium;
 
-        let epsilon_tolerance =
-            T::from_f64_or_zero(cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE);
+        let epsilon_tolerance = scalar::from_f64::<T>(
+            cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE,
+        );
 
-        if epsilon_21.abs() < epsilon_tolerance {
+        if scalar::abs(epsilon_21) < epsilon_tolerance {
             return Err(Error::InvalidInput(
                 "Solutions too close to estimate order".to_string(),
             ));
         }
 
         let ratio = epsilon_32 / epsilon_21;
-        let order = ratio.ln() / refinement_ratio.ln();
+        let order = scalar::ln(ratio) / scalar::ln(refinement_ratio);
 
         Ok(order)
     }
@@ -97,22 +97,23 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
     ///
     /// Returns true if the convergence ratio is consistent with the expected order
     pub fn is_asymptotic(&self, f_coarse: T, f_medium: T, f_fine: T) -> bool {
-        let epsilon_21 = (f_medium - f_fine).abs();
-        let epsilon_32 = (f_coarse - f_medium).abs();
+        let epsilon_21 = scalar::abs(f_medium - f_fine);
+        let epsilon_32 = scalar::abs(f_coarse - f_medium);
 
-        let epsilon_tolerance =
-            T::from_f64_or_zero(cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE);
+        let epsilon_tolerance = scalar::from_f64::<T>(
+            cfd_core::physics::constants::numerical::solver::EPSILON_TOLERANCE,
+        );
 
         if epsilon_21 < epsilon_tolerance {
             return false;
         }
 
         let observed_ratio = epsilon_32 / epsilon_21;
-        let expected_ratio = self.refinement_ratio.powf(self.order);
+        let expected_ratio = scalar::powf(self.refinement_ratio, self.order);
 
         // Check if within 10% of expected ratio
-        let relative_diff = ((observed_ratio - expected_ratio) / expected_ratio).abs();
-        let ten_percent = T::from_f64_or_one(0.1);
+        let relative_diff = scalar::abs((observed_ratio - expected_ratio) / expected_ratio);
+        let ten_percent = scalar::from_f64::<T>(0.1);
         relative_diff < ten_percent
     }
 }
@@ -122,7 +123,7 @@ impl<T: RealField + Copy + FromPrimitive> RichardsonExtrapolation<T> {
 /// Uses three grid levels to estimate order and extrapolate
 pub fn richardson_extrapolate<T>(solutions: &[T], grid_sizes: &[T]) -> Result<(T, T)>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: RealField + Copy + FloatElement,
 {
     if solutions.len() < 2 || solutions.len() != grid_sizes.len() {
         return Err(Error::InvalidInput(
@@ -152,9 +153,9 @@ where
         let r32 = h_coarse_actual / h_medium; // Refinement ratio between medium and coarse
 
         // Check if refinement ratios are uniform (within 1% tolerance)
-        let one_percent = T::from_f64_or_one(0.01);
+        let one_percent = scalar::from_f64::<T>(0.01);
 
-        if ((r21 - r32).abs() / r21) > one_percent {
+        if (scalar::abs(r21 - r32) / r21) > one_percent {
             return Err(Error::InvalidInput(format!(
                 "Non-uniform grid refinement ratios ({r21:?} and {r32:?}) detected. \
                  Richardson extrapolation requires constant refinement ratio."
@@ -166,7 +167,7 @@ where
         RichardsonExtrapolation::estimate_order(f_coarse_actual, f_medium, f_fine, r21)?
     } else {
         // Assume second order if not enough data
-        T::from_f64_or_one(2.0)
+        scalar::from_f64::<T>(2.0)
     };
 
     let extrapolator = RichardsonExtrapolation::with_order(order, r21)?;

@@ -1,9 +1,9 @@
 use super::state::MixtureComposition;
-use nalgebra::RealField;
+use crate::scalar::Cfd1dScalar;
 
 /// Piecewise-constant inlet hematocrit event for blood-fraction transport.
 #[derive(Debug, Clone)]
-pub struct InletHematocritEvent<T: RealField + Copy> {
+pub struct InletHematocritEvent<T: Cfd1dScalar + Copy> {
     /// Event activation time.
     pub time: T,
     /// Node index where the inlet hematocrit applies.
@@ -14,7 +14,7 @@ pub struct InletHematocritEvent<T: RealField + Copy> {
 
 /// Piecewise-constant inlet mixture event.
 #[derive(Debug, Clone)]
-pub struct InletCompositionEvent<T: RealField + Copy> {
+pub struct InletCompositionEvent<T: Cfd1dScalar + Copy> {
     /// Event activation time.
     pub time: T,
     /// Node index where the inlet composition applies.
@@ -25,7 +25,7 @@ pub struct InletCompositionEvent<T: RealField + Copy> {
 
 /// Piecewise-constant edge flow event for transient pump-style control.
 #[derive(Debug, Clone)]
-pub struct EdgeFlowEvent<T: RealField + Copy> {
+pub struct EdgeFlowEvent<T: Cfd1dScalar + Copy> {
     /// Event activation time.
     pub time: T,
     /// Edge index whose flow is updated.
@@ -36,7 +36,7 @@ pub struct EdgeFlowEvent<T: RealField + Copy> {
 
 /// Piecewise-constant node pressure boundary event for transient pressure-pump control.
 #[derive(Debug, Clone)]
-pub struct PressureBoundaryEvent<T: RealField + Copy> {
+pub struct PressureBoundaryEvent<T: Cfd1dScalar + Copy> {
     /// Event activation time.
     pub time: T,
     /// Node index whose pressure boundary is updated.

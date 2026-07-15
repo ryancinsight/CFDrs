@@ -3,14 +3,15 @@
 use super::blood_safety::{BloodShearLimits, HemolysisLimitViolation, ShearLimitViolation};
 use crate::domain::channel::FlowRegime;
 use crate::physics::hemolysis::{giersiepen_hi, taskin_hi};
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
+use eunomia::NumericElement;
 use std::collections::HashMap;
 use std::iter::Sum;
 
 /// Comprehensive flow analysis for network systems
 #[derive(Debug, Clone)]
-pub struct FlowAnalysis<T: RealField + Copy> {
+pub struct FlowAnalysis<T: Cfd1dScalar + Copy> {
     /// Total flow rate through the network [m³/s]
     pub total_flow_rate: T,
     /// Flow rates through individual components [m³/s]
@@ -27,7 +28,7 @@ pub struct FlowAnalysis<T: RealField + Copy> {
     pub flow_regimes: HashMap<String, FlowRegime>,
 }
 
-impl<T: RealField + Copy + Sum> FlowAnalysis<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> FlowAnalysis<T> {
     /// Create a new flow analysis
     #[must_use]
     pub fn new() -> Self {
@@ -86,7 +87,7 @@ impl<T: RealField + Copy + Sum> FlowAnalysis<T> {
             T::zero()
         } else {
             let sum: T = self.component_flows.values().copied().sum();
-            sum / T::from_usize(self.component_flows.len()).unwrap_or_else(T::one)
+            sum / T::from_usize_or_one(self.component_flows.len())
         }
     }
 
@@ -142,7 +143,7 @@ impl<T: RealField + Copy + Sum> FlowAnalysis<T> {
     }
 }
 
-impl<T: RealField + Copy + Sum + FromPrimitive + ToPrimitive> FlowAnalysis<T> {
+impl<T: Cfd1dScalar + Copy + Sum + SafeFromF64> FlowAnalysis<T> {
     /// Flag components whose time-integrated hemolysis exceeds configured limits.
     ///
     /// Residence times are provided externally because the reduced-order flow
@@ -165,15 +166,15 @@ impl<T: RealField + Copy + Sum + FromPrimitive + ToPrimitive> FlowAnalysis<T> {
                 continue;
             };
 
-            let shear_pa = wall_shear_stress.to_f64().unwrap_or(0.0);
-            let duration_s = exposure_time_s.to_f64().unwrap_or(0.0);
+            let shear_pa = <T as NumericElement>::to_f64(*wall_shear_stress);
+            let duration_s = <T as NumericElement>::to_f64(exposure_time_s);
 
             let giersiepen_value = limits
                 .max_giersiepen_hi
-                .and_then(|_| T::from_f64(giersiepen_hi(shear_pa, duration_s)));
+                .map(|_| T::from_f64_or_zero(giersiepen_hi(shear_pa, duration_s)));
             let taskin_value = limits
                 .max_taskin_hi
-                .and_then(|_| T::from_f64(taskin_hi(shear_pa, duration_s)));
+                .map(|_| T::from_f64_or_zero(taskin_hi(shear_pa, duration_s)));
 
             let giersiepen_ratio = match (giersiepen_value, limits.max_giersiepen_hi) {
                 (Some(value), Some(limit)) if limit > T::zero() => Some(value / limit),
@@ -212,7 +213,7 @@ impl<T: RealField + Copy + Sum + FromPrimitive + ToPrimitive> FlowAnalysis<T> {
     }
 }
 
-impl<T: RealField + Copy + Sum> Default for FlowAnalysis<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> Default for FlowAnalysis<T> {
     fn default() -> Self {
         Self::new()
     }

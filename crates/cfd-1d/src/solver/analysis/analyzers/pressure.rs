@@ -2,24 +2,24 @@
 
 use super::traits::NetworkAnalyzer;
 use crate::domain::network::Network;
+use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::PressureAnalysis;
+use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::Result;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
 use std::iter::Sum;
 
 /// Pressure analyzer for network components
-pub struct PressureAnalyzer<T: RealField + Copy> {
+pub struct PressureAnalyzer<T: Cfd1dScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> Default for PressureAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy> Default for PressureAnalyzer<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy> PressureAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy> PressureAnalyzer<T> {
     /// Create new pressure analyzer
     #[must_use]
     pub fn new() -> Self {
@@ -29,7 +29,9 @@ impl<T: RealField + Copy> PressureAnalyzer<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Sum> NetworkAnalyzer<T> for PressureAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<T>
+    for PressureAnalyzer<T>
+{
     type Result = PressureAnalysis<T>;
 
     fn analyze(&mut self, network: &Network<T>) -> Result<PressureAnalysis<T>> {

@@ -5,8 +5,8 @@
 
 use super::profile::WomersleyProfile;
 use super::WomersleyNumber;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd1dScalar;
+use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 /// Complete Womersley flow solver for arterial segments
@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 /// Provides time-varying flow solutions for vessel segments with
 /// given inlet conditions and geometry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WomersleyFlow<T: RealField + Copy> {
+pub struct WomersleyFlow<T: Cfd1dScalar + Copy> {
     /// Vessel radius \[m]
     pub radius: T,
     /// Vessel length \[m]
@@ -31,7 +31,7 @@ pub struct WomersleyFlow<T: RealField + Copy> {
     pub mean_pressure_gradient: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> WomersleyFlow<T> {
+impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyFlow<T> {
     /// Create new Womersley flow solver
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -89,11 +89,11 @@ impl<T: RealField + FromPrimitive + Copy> WomersleyFlow<T> {
         let rho = self.density;
         let omega = self.omega;
         let pi = T::pi();
-        let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
+        let eight = <T as FloatElement>::from_f64(8.0);
 
         if alpha < T::one() {
             // Low α: Z ≈ 8μL/(πR⁴) (Poiseuille resistance dominates)
-            eight * mu * self.length / (pi * r.powi(4))
+            eight * mu * self.length / (pi * <T as FloatElement>::powi(r, 4))
         } else {
             // High α: Z ≈ ρωL/(πR²) (inertance dominates)
             rho * omega * self.length / (pi * r * r)

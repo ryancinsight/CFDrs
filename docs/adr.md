@@ -12,6 +12,7 @@
 | **GPU Acceleration** | 2023-Q4 | Parallel compute acceleration | WGPU backend, async dispatch | ✅ Scalability ⚠️ Complexity |
 | **Production CFD Physics** | 2024-Sprint1.27 | Functional solver requirement | Operational momentum solver | ✅ Real CFD ⚠️ Implementation effort |
 | **GMRES Linear Solver** | 2024-Sprint1.36 | Industry standard for SIMPLE/PISO | Configurable backend, GMRES default | ✅ Robust convergence ⚠️ Memory O(mn) |
+| **Provider-owned CSR execution** | 2026-07-10 | Leto is the CSR SpMV SSOT; CFDrs parallel flags had no behavioral effect | One `spmv`/`try_spmv` family; zero ignored execution flags | Breaking removal of inert compatibility APIs |
 
 ## Architecture Overview
 
@@ -70,6 +71,283 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-10: delete generic GPU pipeline ownership [arch]
+
+**Context**: After every live CFD GPU operation moved to a typed Hephaestus
+kernel, `GpuPipelineManager`, `GpuKernel<T>`, and a raw context pipeline helper
+had no consumers or implementors. They duplicated shader compilation, layout,
+uniform, bind-group, dispatch, and submission responsibilities already owned by
+Hephaestus.
+
+**Decision**: Delete all three surfaces. CFD owns numerical operation contracts;
+Hephaestus owns GPU lifecycle and typed storage dispatch. No generic name-keyed
+registry or raw-device operation trait remains between those layers.
+
+**Rejected alternative**: Reimplementing the manager over
+`WgslMultiStorageKernel` was rejected because there are no dynamic consumers and
+it would erase typed operation contracts behind strings. Retaining an empty
+trait for future backends was rejected because `ComputeBackend` is the intended
+backend seam.
+
+**Consequences**: New GPU operations must declare a typed, operation-specific
+contract and delegate provider mechanics to Hephaestus. The public surface is
+smaller by 319 lines and cannot revive the old untyped uniform layout.
+
+**Evidence**: Static audit finds no consumers, implementors, shader-module
+creation, or compute-pipeline creation in `cfd-core::compute::gpu`. Cfd-core
+nextest passes 243/243; clippy, GPU/no-default and downstream checks, doctests,
+docs, and migration audit pass.
+
+### 2026-07-10: Hephaestus owns GPU turbulence dispatch [arch]
+
+**Context**: Two fake-generic turbulence kernels duplicated raw WGPU lifecycle
+and a facade duplicated their buffer state. DES accepted but ignored velocity
+fields, wall distance was unreachable, performance estimation was hardcoded by
+device class, and cfd-2d narrowed concrete f64 fields to f32 before silently
+falling back to CPU on provider failure.
+
+**Decision**: Retain `GpuTurbulenceCompute` as the sole consumer facade and
+compile Smagorinsky viscosity, DES grid cutoff, and rectangular wall distance
+as separate Hephaestus kernels. Introduce `TurbulenceGrid` as the validated
+shape/spacing contract and require caller-owned output slices. Delete public raw
+kernel/buffer access, the hardcoded estimator, the wall-clock test, and the
+precision-changing cfd-2d bridge.
+
+**Rejected alternative**: Keeping velocity inputs on DES was rejected because
+the grid-cutoff branch is independent of resolved velocity. Preserving the f64
+consumer through conversion was rejected because it violates the concrete
+precision contract. Silent provider fallback was rejected as defect masking.
+
+**Consequences**: The provider API is explicitly f32 and allocation ownership
+is visible at the call site. The cfd-2d f64 Smagorinsky model remains a
+native-f64 CPU implementation until a real f64-capable accelerator substrate
+exists. Criterion benchmarks exercise the production facade.
+
+**Verification contract**: Exact tests cover linear strain, boundary zeros,
+DES grid scale, rectangular distance, partial workgroups, invalid grids,
+lengths, constants, and non-finite fields. Cross-crate all-target compilation,
+full nextest, clippy, doctests, benchmark compilation, and static audits gate
+the change.
+
+**Evidence**: Focused nextest passes 4/4; full cfd-core passes 243/243; full
+cfd-2d passes 570/570 with 27 existing skips; warning-denied dual-package
+clippy, legacy benchmark compilation, doctests, and migration audit pass.
+
+### 2026-07-10: Hephaestus owns GPU pressure dispatch [arch]
+
+**Context**: `GpuPressureKernel<T>` stored an optional raw WGPU shader module,
+advertised arbitrary precision over `f32` storage, and returned
+`UnsupportedOperation`. Its shader contained iteration and residual entry
+points, but the raw surface compiled a nonexistent entry point, bound no
+resources, and exposed neither numerical operation.
+
+**Decision**: Replace the cosmetic generic type with one `f32` pressure family
+containing separate Hephaestus kernels for weighted-Jacobi iteration and
+absolute pointwise residual evaluation. Introduce `PressureConfig` for grid,
+spacing, inverse-square coefficients, and relaxation. Clamp every boundary
+coordinate to the interior for homogeneous Neumann faces, edges, and corners.
+Move the implementation to `pressure/{mod,kernel,tests}` and consolidate 3D
+dispatch sizing at the common kernel-family ancestor.
+
+**Rejected alternative**: Retaining the advertised SOR range above one was
+rejected because this is simultaneous weighted Jacobi, not sequential SOR.
+Arbitrary `T` conversion to `f32` and retention of the unsupported trait were
+rejected as fake-generic compatibility paths.
+
+**Consequences**: Callers construct the kernel with a `GpuContext`, handle
+`Result`, and supply `f32` fields plus `PressureConfig`. Relaxation is validated
+in `(0, 1]`. Both previously embedded operations have direct typed APIs.
+
+**Verification contract**: Exact analytical tests cover the discrete
+Laplacian of a quadratic field, weighted source response, pointwise residual,
+Neumann faces/edges/corners, multiple z-planes, and partial workgroups. Typed
+tests cover dimensions, spacing, relaxation, lengths, and non-finite fields.
+
+**Evidence**: Focused pressure nextest passes 6/6; full `cfd-core` nextest
+passes 247/247; GPU and no-default checks pass; all-target clippy passes with
+warnings denied; doctests pass 3/3; docs are warning-clean; migration allowlist
+and provider/fake-generic audits are clean.
+
+### 2026-07-10: Hephaestus owns GPU velocity dispatch [arch]
+
+**Context**: `GpuVelocityKernel<T>` stored an optional raw WGPU shader module,
+advertised arbitrary precision over `f32` storage, and returned
+`UnsupportedOperation` from its only compute-trait method. Its shader contained
+velocity correction and divergence entry points, but the raw pipeline surface
+compiled only correction and bound none of the declared resources.
+
+**Decision**: Replace the cosmetic generic type with one `f32` velocity family
+containing separate Hephaestus kernels for SIMPLE correction and
+pressure-source divergence. Introduce `VelocityConfig` for grid, spacing,
+timestep, density, and derived centered-gradient factors. Request the seven
+storage buffers required by correction while acquiring the provider device.
+Move the implementation to `velocity/{mod,kernel,tests}` with one WGSL leaf per
+operation.
+
+**Rejected alternative**: Packing vector components into interleaved buffers
+to remain under Hephaestus' downlevel four-buffer default was rejected because
+it would impose conversion and duplicated layout policy in CFDrs. Arbitrary
+`T` conversion to `f32` and retention of the unsupported trait were rejected as
+fake-generic compatibility paths.
+
+**Consequences**: Callers construct the kernel with a `GpuContext`, handle
+`Result`, and supply `f32` component fields plus `VelocityConfig`. Provider
+acquisition rejects adapters unable to support the seven-buffer correction
+contract. Both operations impose zero values at outer cells.
+
+**Verification contract**: Exact analytical tests cover linear pressure
+gradients, linear velocity divergence, boundary values, multiple z-planes, and
+partial workgroups. Typed tests cover dimensions, spacing, timestep, density,
+lengths, and non-finite fields. Static audit must find no raw WGPU lifecycle,
+unsupported placeholder, fake generic, or old flat velocity module.
+
+**Evidence**: Focused velocity nextest passes 5/5; full `cfd-core` nextest
+passes 242/242; GPU and no-default checks pass; all-target clippy passes with
+warnings denied; doctests pass 3/3; docs are warning-clean; migration allowlist
+and provider/fake-generic audits are clean.
+
+### 2026-07-10: Hephaestus owns GPU diffusion dispatch [arch]
+
+**Context**: `GpuDiffusionKernel<T>` stored an optional raw WGPU shader module,
+advertised arbitrary scalar precision while its WGSL storage was fixed to
+`f32`, and returned `UnsupportedOperation` from its only compute-trait method.
+Its raw pipeline surface did not bind the documented uniform or storage
+resources and had no numerical execution coverage.
+
+**Decision**: Replace the cosmetic generic type with a real `f32` kernel
+compiled and dispatched through Hephaestus `WgslMultiStorageKernel`. Introduce
+one validated `DiffusionConfig` as the grid, timestep, diffusivity, and
+stability contract. Move the implementation into the vertical
+`diffusion/{mod,kernel,tests}` family and colocate its WGSL source. Represent
+the uniform as two four-lane blocks shared exactly between Rust and WGSL.
+
+**Rejected alternative**: Retaining `ComputeKernel<T>` with an unsupported host
+method or converting arbitrary `T` fields to `f32` was rejected as a fake
+generic and compatibility shim. Consumer-owned raw pipeline setup was rejected
+because Hephaestus already owns typed compilation, binding, dispatch, and
+readback.
+
+**Consequences**: Callers construct the kernel with a `GpuContext`, handle
+`Result`, and supply `f32` fields plus `DiffusionConfig`. All outer boundary
+values are copied unchanged. Other scalar precisions require real provider
+kernels rather than conversion.
+
+**Verification contract**: Exact tests cover constant-field identity, the
+closed-form Laplacian of a quadratic field, copied boundaries, multiple
+z-planes, and partial workgroups. Typed negative tests cover dimensions,
+spacing, timestep, diffusivity, stability, field lengths, and non-finite input.
+Static audit must find no raw WGPU lifecycle, unsupported placeholder, fake
+generic, or old flat module in the diffusion family.
+
+**Evidence**: Focused diffusion nextest passes 4/4; full `cfd-core` nextest
+passes 238/238; GPU and no-default checks pass; all-target clippy passes with
+warnings denied; doctests pass 3/3; docs are warning-clean; migration allowlist
+and provider/fake-generic audits are clean.
+
+### 2026-07-10: Hephaestus owns GPU advection dispatch [arch]
+
+**Context**: `GpuAdvectionKernel<T>` stored an optional raw WGPU shader module,
+advertised arbitrary scalar precision while its WGSL storage was fixed to
+`f32`, and returned `UnsupportedOperation` from its only compute-trait method.
+The integration test asserted only its name/complexity and separately attempted
+raw pipeline registration without executing the numerical operation.
+
+**Decision**: Replace the cosmetic generic type with a real `f32` kernel
+compiled and dispatched through Hephaestus `WgslMultiStorageKernel`. Introduce
+one validated `AdvectionConfig` as the grid/timestep contract, enforce finite
+fields and the unsplit upwind CFL limit before dispatch, and expose one direct
+operation over scalar and velocity fields. Move the implementation into the
+vertical `advection/{mod,kernel,tests}` family and colocate its WGSL source.
+
+**Rejected alternative**: Retaining `ComputeKernel<T>` with an unsupported host
+method or converting arbitrary `T` fields to `f32` was rejected as a fake
+generic and compatibility shim. A second raw-pipeline route was rejected because
+Hephaestus already owns typed compilation, binding, dispatch, and readback.
+
+**Consequences**: Callers construct the kernel with a `GpuContext`, handle
+`Result`, and supply `f32` fields plus `AdvectionConfig`. X/Y boundaries are
+copied unchanged; each z-plane advances independently. Other scalar precisions
+require real provider kernels rather than conversion.
+
+**Verification contract**: Exact tests cover zero-velocity identity,
+positive/negative directional upwinding, copied boundaries, multiple z-planes,
+and partial workgroups. Typed negative tests cover dimensions, spacing,
+timestep, field lengths, non-finite values, and CFL violation. Static audit must
+find no raw WGPU lifecycle, unsupported placeholder, fake generic, or old flat
+module in the advection family.
+
+**Evidence**: Focused advection nextest passes 6/6; full `cfd-core` nextest
+passes 234/234; GPU and no-default checks pass; all-target clippy passes with
+warnings denied; doctests pass 3/3; docs are warning-clean; migration allowlist
+and provider/fake-generic audits are clean.
+
+### 2026-07-10: Hephaestus owns GPU Laplacian dispatch [arch]
+
+**Context**: `Laplacian2DKernel` duplicated WGSL compilation, bind-group and
+uniform construction, dispatch sizing, staging readback, polling, and timeout
+handling already owned by Hephaestus. Its host API silently recomputed on CPU
+for small inputs and every provider failure. The downstream math operator was
+generic over `T` although the WGSL source and parameter block always interpreted
+storage as `f32`.
+
+**Decision**: Retain the CFD-specific stencil and boundary-condition contract,
+but compile and dispatch it through Hephaestus `WgslMultiStorageKernel` and
+typed provider buffers. Make kernel construction and execution fallible, delete
+all production CPU fallback/readback orchestration, and expose the downstream
+GPU operator at its real `f32` precision. Provider errors propagate unchanged
+through `Error::GpuProvider`.
+
+**Rejected alternative**: A generic `T` wrapper around an `f32` shader was
+rejected because it reinterprets non-`f32` storage rather than computing in the
+declared scalar precision. A consumer-local Hephaestus adapter was rejected
+because the provider already exposes the required multi-storage contract.
+
+**Consequences**: GPU callers handle `Result`; non-`f32` GPU Laplacian support
+requires a real provider kernel for that scalar, not a conversion or fake
+generic. The independent CPU implementation remains test-only as a differential
+oracle.
+
+**Verification contract**: Exact and analytically bounded GPU/CPU differential
+tests cover all boundary policies and partial workgroups; typed tests cover
+shape, grid, and spacing failures. Static audit must find no raw WGPU pipeline,
+staging, timeout, or production CPU-fallback code in the Laplacian family.
+
+**Evidence**: GPU/no-default checks pass; focused Laplacian nextest passes
+10/10; full `cfd-core` and `cfd-math` nextest pass 231/231 and 362/362;
+all-target GPU clippy passes with warnings denied; doctests pass 6/6 with 3
+intentionally ignored; package docs are warning-clean; targeted raw-provider
+and fake-generic audits are clean.
+
+### 2026-07-10: Hephaestus owns GPU field arithmetic [arch]
+
+**Context**: `cfd-core` duplicated field addition and scalar multiplication as
+raw WGPU pipelines, staging buffers, polling loops, and local WGSL. Both paths
+silently recomputed on the CPU after any GPU error; the readback loops also
+consumed the successful map notification before waiting for it a second time.
+Hephaestus already provides typed, cached, monomorphized `AddOp` and `MulOp`
+elementwise kernels with checked lengths and partial-workgroup handling.
+
+**Decision**: Delete the CFDRS arithmetic kernel types and shaders. Keep
+`GpuFieldOps` as the sole CFD-facing facade and implement its arithmetic methods
+through Hephaestus typed buffers, `binary_elementwise::<AddOp, f32>`, and
+`scalar_elementwise::<MulOp, f32>`. Propagate provider failures through a typed
+`cfd_core::error::Error` variant; never downgrade a failed GPU operation to CPU.
+
+**Consequences**: Arithmetic kernel compilation, dispatch sizing, buffer
+ownership, and readback live in one upstream implementation. The public
+`FieldAddKernel` and `FieldMulKernel` transitional types are removed; callers
+use the fallible `GpuFieldOps::{add_fields,multiply_field}` methods.
+
+**Verification contract**: Exact-value tests cover nonuniform inputs spanning
+partial workgroups, empty inputs, and typed length mismatches. Package GPU
+clippy, full nextest, doctests, docs, and static raw-WGPU residue checks gate the
+change.
+
+**Evidence**: No-default and GPU checks pass; all-target GPU clippy passes;
+cfd-core nextest passes 230/230 with no skips; doctests pass 5/5; package docs
+are warning-clean; and static audit finds no arithmetic WGSL, raw WGPU,
+polling, timeout, or CPU fallback residue.
 
 ### Sprint 1.48.0: Production Readiness Micro-Sprint (CURRENT)
 **Context**: Post-Sprint 1.47.0 advection fix, comprehensive audit per IEEE 29148  

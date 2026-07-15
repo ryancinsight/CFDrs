@@ -1,36 +1,4 @@
-//! GPU shader definitions for field operations
-
-/// WGSL shader for field addition
-pub const FIELD_ADD_SHADER: &str = r"
-@group(0) @binding(0) var<storage, read> a: array<f32>;
-@group(0) @binding(1) var<storage, read> b: array<f32>;
-@group(0) @binding(2) var<storage, read_write> result: array<f32>;
-
-@compute @workgroup_size(64)
-fn add_fields(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let index = global_id.x;
-    if (index >= arrayLength(&a)) {
-        return;
-    }
-    result[index] = a[index] + b[index];
-}
-";
-
-/// WGSL shader for scalar multiplication
-pub const FIELD_MUL_SHADER: &str = r"
-@group(0) @binding(0) var<storage, read> field: array<f32>;
-@group(0) @binding(1) var<uniform> scalar: f32;
-@group(0) @binding(2) var<storage, read_write> result: array<f32>;
-
-@compute @workgroup_size(64)
-fn multiply_field(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let index = global_id.x;
-    if (index >= arrayLength(&field)) {
-        return;
-    }
-    result[index] = field[index] * scalar;
-}
-";
+//! GPU shader definitions for stencil operations
 
 /// WGSL shader for 2D Laplacian with rigorous boundary handling
 /// Implements a mathematically correct 5‑point stencil for elliptic PDEs
@@ -97,7 +65,7 @@ fn laplacian_2d(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 laplacian += (right - 2.0 * center + right) * uniforms.inv2.x;
             }
         } else if (uniforms.dims_bc.z == 2u) { // Periodic
-            let left = field[j * uniforms.dims_bc.x + (uniforms.dims_bc.x - 1u)];
+            let left = field[j * uniforms.dims_bc.x + (uniforms.dims_bc.x - 2u)];
             let center = field[idx];
             let right = field[j * uniforms.dims_bc.x + (i + 1u)];
             laplacian += (left - 2.0 * center + right) * uniforms.inv2.x;
@@ -125,7 +93,7 @@ fn laplacian_2d(@builtin(global_invocation_id) global_id: vec3<u32>) {
         } else if (uniforms.dims_bc.z == 2u) { // Periodic
             let left = field[j * uniforms.dims_bc.x + (i - 1u)];
             let center = field[idx];
-            let right = field[j * uniforms.dims_bc.x + 0u];
+            let right = field[j * uniforms.dims_bc.x + 1u];
             laplacian += (left - 2.0 * center + right) * uniforms.inv2.x;
         }
     }
@@ -158,7 +126,7 @@ fn laplacian_2d(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 laplacian += (top - 2.0 * center + top) * uniforms.inv2.y;
             }
         } else if (uniforms.dims_bc.z == 2u) { // Periodic
-            let bottom = field[(uniforms.dims_bc.y - 1u) * uniforms.dims_bc.x + i];
+            let bottom = field[(uniforms.dims_bc.y - 2u) * uniforms.dims_bc.x + i];
             let center = field[idx];
             let top = field[(j + 1u) * uniforms.dims_bc.x + i];
             laplacian += (bottom - 2.0 * center + top) * uniforms.inv2.y;
@@ -186,7 +154,7 @@ fn laplacian_2d(@builtin(global_invocation_id) global_id: vec3<u32>) {
         } else if (uniforms.dims_bc.z == 2u) { // Periodic
             let bottom = field[(j - 1u) * uniforms.dims_bc.x + i];
             let center = field[idx];
-            let top = field[0u * uniforms.dims_bc.x + i];
+            let top = field[uniforms.dims_bc.x + i];
             laplacian += (bottom - 2.0 * center + top) * uniforms.inv2.y;
         }
     }

@@ -21,12 +21,14 @@
 //! with safety factor $F_s = 1.25$ for three-grid studies.
 
 use super::solver::{VenturiConfig3D, VenturiSolution3D};
+use crate::scalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_mesh::VenturiMeshBuilder;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::FloatElement;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
 // ============================================================================
 // ISO 5167 Validation Logic
@@ -50,15 +52,14 @@ use serde::{Deserialize, Serialize};
 /// Venturi tubes are insensitive to wall roughness within the standard's
 /// applicability range.
 pub fn iso_discharge_coefficient<
-    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive,
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
 >(
     _reynolds_d: T,
     _beta: T,
     _pipe_roughness: T,
     _d_inlet: T,
 ) -> T {
-    <T as FromPrimitive>::from_f64(0.995)
-        .expect("ISO 5167-4 C_d = 0.995 is an IEEE 754 representable f64 constant")
+    scalar::from_f64::<T>(0.995)
 }
 
 // ============================================================================
@@ -66,24 +67,22 @@ pub fn iso_discharge_coefficient<
 // ============================================================================
 
 /// Validator for 3D Venturi tube flow results
-pub struct VenturiValidator3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy + Float> {
+pub struct VenturiValidator3D<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> {
     /// Mesh builder holding Venturi geometry parameters
-    pub mesh_builder: VenturiMeshBuilder<T>,
+    pub mesh_builder: VenturiMeshBuilder,
+    _marker: PhantomData<T>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64
-            + Float,
-    > VenturiValidator3D<T>
+impl<T> VenturiValidator3D<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeFromF64,
 {
     /// Create a new Venturi validator from the mesh builder
-    pub fn new(mesh_builder: VenturiMeshBuilder<T>) -> Self {
-        Self { mesh_builder }
+    pub fn new(mesh_builder: VenturiMeshBuilder) -> Self {
+        Self {
+            mesh_builder,
+            _marker: PhantomData,
+        }
     }
 
     /// Validate Venturi flow results
@@ -99,22 +98,22 @@ impl<
         // or re-calculate it. FemSolver ensures mass conservation weakly.
         // We'll trust solver.u_inlet * A_in vs solution.u_throat * A_throat vs Q_in
 
+        let d_inlet = scalar::from_f64::<T>(self.mesh_builder.d_inlet);
+        let d_throat = scalar::from_f64::<T>(self.mesh_builder.d_throat);
         let a_inlet = if config.circular {
-            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0)
-                .expect("PI/4 is an IEEE 754 representable f64 constant")
-                * self.mesh_builder.d_inlet
-                * self.mesh_builder.d_inlet
+            scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
+                * d_inlet
+                * d_inlet
         } else {
-            self.mesh_builder.d_inlet * self.mesh_builder.d_inlet
+            d_inlet * d_inlet
         };
 
         let a_throat = if config.circular {
-            <T as FromPrimitive>::from_f64(std::f64::consts::PI / 4.0)
-                .expect("PI/4 is an IEEE 754 representable f64 constant")
-                * self.mesh_builder.d_throat
-                * self.mesh_builder.d_throat
+            scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
+                * d_throat
+                * d_throat
         } else {
-            self.mesh_builder.d_throat * self.mesh_builder.d_throat
+            d_throat * d_throat
         };
 
         // Check continuity at throat: u_throat_avg * A_throat should ≈ Q_in
@@ -129,7 +128,7 @@ impl<
         // velocity profile (no-slip walls reduce effective flow rate vs. plug-flow
         // demand). Falls back to config.inlet_flow_rate if q_in_face is zero.
 
-        let actual_flow = if solution.q_in_face > T::zero() {
+        let actual_flow = if solution.q_in_face > scalar::zero::<T>() {
             solution.q_in_face
         } else {
             config.inlet_flow_rate
@@ -137,26 +136,23 @@ impl<
         let u_in_avg = actual_flow / a_inlet;
         let area_ratio = a_inlet / a_throat; // > 1
 
-        let dp_bernoulli = <T as FromPrimitive>::from_f64(0.5)
-            .expect("0.5 is exactly representable in IEEE 754")
+        let dp_bernoulli = scalar::from_f64::<T>(0.5)
             * fluid_density
             * u_in_avg
             * u_in_avg
-            * (area_ratio * area_ratio - T::one());
+            * (area_ratio * area_ratio - scalar::one::<T>());
 
         let dp_actual = solution.p_inlet - solution.p_throat;
 
         // For viscous flow, dp_actual >= dp_bernoulli in physically admissible solutions.
         // Allow tolerance for P1 discretization and non-uniform velocity profile effects.
         let error_dp = (dp_actual - dp_bernoulli) / dp_bernoulli;
-        let numerical_tol = <T as FromPrimitive>::from_f64(0.10)
-            .expect("0.10 is an IEEE 754 representable f64 constant");
+        let numerical_tol = scalar::from_f64::<T>(0.10);
 
         // 3. Pressure Recovery Check
         // Should recover some pressure. dp_recovery (p_out - p_in) is normally negative (loss).
-        let recovery_ok = solution.dp_recovery < T::zero();
-        let bernoulli_ok =
-            dp_actual + numerical_tol * num_traits::Float::abs(dp_bernoulli) >= dp_bernoulli;
+        let recovery_ok = solution.dp_recovery < scalar::zero::<T>();
+        let bernoulli_ok = dp_actual + numerical_tol * scalar::abs(dp_bernoulli) >= dp_bernoulli;
 
         let mut result = VenturiValidationResult3D::new("Venturi Flow Validation".to_string());
         result.dp_error = Some(error_dp);

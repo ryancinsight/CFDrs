@@ -4,12 +4,11 @@
 //! two-way branch solutions through the network hierarchy.
 
 use super::physics::{TwoWayBranchJunction, TwoWayBranchSolution};
+use crate::scalar::Cfd1dScalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_core::physics::fluid::traits::NonNewtonianFluid;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -18,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 /// Configuration for branching network solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BranchingNetworkConfig<T: RealField + Copy> {
+pub struct BranchingNetworkConfig<T: Cfd1dScalar + Copy> {
     /// Inlet pressure \[Pa]
     pub inlet_pressure: T,
     /// Inlet volumetric flow rate [m³/s]
@@ -31,9 +30,7 @@ pub struct BranchingNetworkConfig<T: RealField + Copy> {
     pub convergence_tolerance: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> Default
-    for BranchingNetworkConfig<T>
-{
+impl<T: Cfd1dScalar + Copy + SafeFromF64> Default for BranchingNetworkConfig<T> {
     fn default() -> Self {
         Self {
             inlet_pressure: T::from_f64_or_one(1000.0),
@@ -78,11 +75,11 @@ pub enum DownstreamBranchRoute {
 /// 2. Solve each branch junction in series
 /// 3. Pass downstream pressures upstream for convergence
 /// 4. Iterate until pressure distribution converges
-pub struct BranchingNetworkSolver<T: RealField + Copy> {
+pub struct BranchingNetworkSolver<T: Cfd1dScalar + Copy> {
     config: BranchingNetworkConfig<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingNetworkSolver<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> BranchingNetworkSolver<T> {
     /// Create new network solver
     pub fn new(config: BranchingNetworkConfig<T>) -> Self {
         Self { config }
@@ -247,7 +244,7 @@ impl<T: RealField + Copy + FromPrimitive + ToPrimitive + SafeFromF64> BranchingN
 
 /// Results from network analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NetworkSolutionSummary<T: RealField + Copy> {
+pub struct NetworkSolutionSummary<T: Cfd1dScalar + Copy> {
     /// Total number of branch junctions solved
     pub num_branch_junctions: usize,
     /// Total pressure drop across network \[Pa]

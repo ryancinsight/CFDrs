@@ -30,8 +30,16 @@ fn rectangular_bifurcation_blueprint(
     let mut bp = NetworkBlueprint::new_with_explicit_positions(name);
     bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (-1.0, 0.0)));
     bp.add_node(NodeSpec::new_at("junction", NodeKind::Junction, (0.0, 0.0)));
-    bp.add_node(NodeSpec::new_at("daughter1_outlet", NodeKind::Outlet, (1.0, 1.0)));
-    bp.add_node(NodeSpec::new_at("daughter2_outlet", NodeKind::Outlet, (1.0, -1.0)));
+    bp.add_node(NodeSpec::new_at(
+        "daughter1_outlet",
+        NodeKind::Outlet,
+        (1.0, 1.0),
+    ));
+    bp.add_node(NodeSpec::new_at(
+        "daughter2_outlet",
+        NodeKind::Outlet,
+        (1.0, -1.0),
+    ));
 
     let rectangular_section = |width_m: f64| CrossSectionSpec::Rectangular {
         width_m,
@@ -137,10 +145,13 @@ fn cross_fidelity_public_api_symmetric_bifurcation() {
     let trace_1d = solve_reference_trace::<f64>(&blueprint, RHO, MU, target_total_flow_m3_s)
         .expect("1D reference trace");
 
-    let trace_mass_error =
-        ((trace_1d.total_inlet_flow_m3_s - trace_1d.total_outlet_flow_m3_s) / trace_1d.total_inlet_flow_m3_s)
-            .abs();
-    assert!(trace_mass_error < 1e-4, "1D mass error {trace_mass_error} exceeds 0.01%");
+    let trace_mass_error = ((trace_1d.total_inlet_flow_m3_s - trace_1d.total_outlet_flow_m3_s)
+        / trace_1d.total_inlet_flow_m3_s)
+        .abs();
+    assert!(
+        trace_mass_error < 1e-4,
+        "1D mass error {trace_mass_error} exceeds 0.01%"
+    );
 
     let q1_1d = channel_flow(&trace_1d, "daughter1");
     let q2_1d = channel_flow(&trace_1d, "daughter2");
@@ -160,21 +171,21 @@ fn cross_fidelity_public_api_symmetric_bifurcation() {
         max_iterations: 500,
         ..SIMPLEConfig::default()
     };
-    let mut solver = BifurcationSolver2D::new(
-        geometry,
-        BloodModel::Newtonian(MU),
-        RHO,
-        60,
-        40,
-        config,
-    );
-    let result = solver.solve(inlet_velocity_m_s).expect("2D bifurcation solve");
+    let mut solver =
+        BifurcationSolver2D::new(geometry, BloodModel::Newtonian(MU), RHO, 60, 40, config);
+    let result = solver
+        .solve(inlet_velocity_m_s)
+        .expect("2D bifurcation solve");
 
     let q1_2d = result.q_daughter1.abs();
     let q2_2d = result.q_daughter2.abs();
     let share1_2d = q1_2d / (q1_2d + q2_2d).max(1e-30);
 
-    assert!(result.mass_balance_error < 0.10, "2D mass error {} exceeds 10%", result.mass_balance_error);
+    assert!(
+        result.mass_balance_error < 0.10,
+        "2D mass error {} exceeds 10%",
+        result.mass_balance_error
+    );
     assert!(
         (share1_2d - share1_1d).abs() < 0.10,
         "Symmetric bifurcation daughter-1 share mismatch: 1D={share1_1d:.3}, 2D={share1_2d:.3}"
@@ -227,23 +238,29 @@ fn cross_fidelity_public_api_asymmetric_bifurcation() {
         max_iterations: 1000,
         ..SIMPLEConfig::default()
     };
-    let mut solver = BifurcationSolver2D::new(
-        geometry,
-        BloodModel::Newtonian(MU),
-        RHO,
-        100,
-        60,
-        config,
-    );
-    let result = solver.solve(inlet_velocity_m_s).expect("2D bifurcation solve");
+    let mut solver =
+        BifurcationSolver2D::new(geometry, BloodModel::Newtonian(MU), RHO, 100, 60, config);
+    let result = solver
+        .solve(inlet_velocity_m_s)
+        .expect("2D bifurcation solve");
 
     let q1_2d = result.q_daughter1.abs();
     let q2_2d = result.q_daughter2.abs();
     let share1_2d = q1_2d / (q1_2d + q2_2d).max(1e-30);
 
-    assert!(share1_1d > 0.5, "1D wider daughter must receive more than half the flow");
-    assert!(share1_2d > 0.5, "2D wider daughter must receive more than half the flow");
-    assert!(result.mass_balance_error < 0.10, "2D mass error {} exceeds 10%", result.mass_balance_error);
+    assert!(
+        share1_1d > 0.5,
+        "1D wider daughter must receive more than half the flow"
+    );
+    assert!(
+        share1_2d > 0.5,
+        "2D wider daughter must receive more than half the flow"
+    );
+    assert!(
+        result.mass_balance_error < 0.10,
+        "2D mass error {} exceeds 10%",
+        result.mass_balance_error
+    );
     assert!(
         (share1_2d - share1_1d).abs() < 0.20,
         "Asymmetric bifurcation wider-daughter share mismatch: 1D={share1_1d:.3}, 2D={share1_2d:.3}"

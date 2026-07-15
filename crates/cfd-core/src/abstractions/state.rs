@@ -1,8 +1,8 @@
 //! Simulation state representations.
 
+use eunomia::{FloatElement, RealField};
 use indexmap::IndexMap;
-use nalgebra::{DVector, RealField, Vector3};
-use num_traits::cast::FromPrimitive;
+use leto::{geometry::Vector3, Array1};
 use serde::{Deserialize, Serialize};
 
 /// Trait for simulation states
@@ -51,7 +51,7 @@ pub enum FieldVariable {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FieldData<T: RealField + Copy> {
     /// Scalar field
-    Scalar(DVector<T>),
+    Scalar(Array1<T>),
     /// Vector field
     Vector(Vec<Vector3<T>>),
 }
@@ -60,7 +60,7 @@ impl<T: RealField + Copy> FieldData<T> {
     /// Create a scalar field with given size
     #[must_use]
     pub fn scalar(size: usize) -> Self {
-        Self::Scalar(DVector::zeros(size))
+        Self::Scalar(Array1::from_elem([size], T::ZERO))
     }
 
     /// Create a vector field with given size
@@ -73,7 +73,7 @@ impl<T: RealField + Copy> FieldData<T> {
     #[must_use]
     pub fn len(&self) -> usize {
         match self {
-            Self::Scalar(v) => v.len(),
+            Self::Scalar(v) => v.size(),
             Self::Vector(v) => v.len(),
         }
     }
@@ -98,18 +98,20 @@ pub struct FieldState<T: RealField + Copy> {
     pub fields: IndexMap<FieldVariable, FieldData<T>>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> FieldState<T> {
+impl<T: RealField + FloatElement + Copy> FieldState<T> {
     /// Create a new field state
     #[must_use]
     pub fn new() -> Self {
         Self {
-            time: T::zero(),
-            time_step: T::from_f64(1e-3).unwrap_or_else(|| T::one()),
+            time: T::ZERO,
+            time_step: <T as FloatElement>::from_f64(1e-3),
             iteration: 0,
             fields: IndexMap::new(),
         }
     }
+}
 
+impl<T: RealField + Copy> FieldState<T> {
     /// Add a scalar field
     pub fn add_scalar_field(&mut self, var: FieldVariable, size: usize) {
         self.fields.insert(var, FieldData::scalar(size));
@@ -121,7 +123,7 @@ impl<T: RealField + FromPrimitive + Copy> FieldState<T> {
     }
 
     /// Get a scalar field
-    pub fn scalar_field(&self, var: FieldVariable) -> Option<&DVector<T>> {
+    pub fn scalar_field(&self, var: FieldVariable) -> Option<&Array1<T>> {
         match self.fields.get(&var) {
             Some(FieldData::Scalar(v)) => Some(v),
             _ => None,
@@ -129,7 +131,7 @@ impl<T: RealField + FromPrimitive + Copy> FieldState<T> {
     }
 
     /// Get a mutable scalar field
-    pub fn scalar_field_mut(&mut self, var: FieldVariable) -> Option<&mut DVector<T>> {
+    pub fn scalar_field_mut(&mut self, var: FieldVariable) -> Option<&mut Array1<T>> {
         match self.fields.get_mut(&var) {
             Some(FieldData::Scalar(v)) => Some(v),
             _ => None,
@@ -153,7 +155,7 @@ impl<T: RealField + FromPrimitive + Copy> FieldState<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for FieldState<T> {
+impl<T: RealField + FloatElement + Copy> Default for FieldState<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -187,12 +189,12 @@ impl<T: RealField + Copy> SimulationState for FieldState<T> {
     }
 
     fn reset(&mut self) {
-        self.time = T::zero();
+        self.time = T::ZERO;
         self.iteration = 0;
         // Reset field data to zeros
         for field in self.fields.values_mut() {
             match field {
-                FieldData::Scalar(v) => v.fill(T::zero()),
+                FieldData::Scalar(v) => v.fill(T::ZERO),
                 FieldData::Vector(v) => v.iter_mut().for_each(|x| *x = Vector3::zeros()),
             }
         }
@@ -213,6 +215,7 @@ pub struct StateSnapshot<T: RealField + Copy> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use leto::Storage;
 
     #[test]
     fn test_core_state() {
@@ -228,5 +231,52 @@ mod tests {
         state.increment_iteration();
         assert_eq!(state.time(), 1.0);
         assert_eq!(state.iteration(), 1);
+    }
+
+    #[test]
+    fn field_state_reset_clears_leto_fields() {
+        let mut state = FieldState::<f64>::new();
+        state.add_scalar_field(FieldVariable::Pressure, 3);
+        state.add_vector_field(FieldVariable::Velocity, 2);
+
+        state.scalar_field_mut(FieldVariable::Pressure).unwrap()[1] = 5.0;
+        state.vector_field_mut(FieldVariable::Velocity).unwrap()[0] = Vector3::new(1.0, 2.0, 3.0);
+        state.set_time(2.0);
+        state.increment_iteration();
+
+        state.reset();
+
+        assert_eq!(state.time(), 0.0);
+        assert_eq!(state.iteration(), 0);
+        assert_eq!(
+            state
+                .scalar_field(FieldVariable::Pressure)
+                .unwrap()
+                .storage()
+                .as_slice(),
+            &[0.0, 0.0, 0.0]
+        );
+        assert_eq!(
+            state.vector_field(FieldVariable::Velocity).unwrap(),
+            &[Vector3::zeros(), Vector3::zeros()]
+        );
+    }
+
+    #[test]
+    fn field_data_scalar_round_trips_as_leto_array() {
+        let mut state = FieldState::<f64>::new();
+        state.add_scalar_field(FieldVariable::Pressure, 2);
+        state.scalar_field_mut(FieldVariable::Pressure).unwrap()[0] = 4.0;
+
+        let encoded = serde_json::to_string(&state.fields[&FieldVariable::Pressure]).unwrap();
+        let decoded: FieldData<f64> = serde_json::from_str(&encoded).unwrap();
+
+        match decoded {
+            FieldData::Scalar(values) => {
+                assert_eq!(values.shape(), [2]);
+                assert_eq!(values.storage().as_slice(), &[4.0, 0.0]);
+            }
+            FieldData::Vector(_) => panic!("expected scalar field data"),
+        }
     }
 }

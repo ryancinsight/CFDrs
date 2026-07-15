@@ -5,15 +5,14 @@
 //! Dean flow corrections.
 
 use super::model::SerpentineModel;
-use super::traits::FlowConditions;
+use super::traits::{scalar_from_f64, scalar_to_f64, FlowConditions, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::NumericElement;
 
 /// Detailed serpentine flow analysis result
 #[derive(Debug, Clone)]
-pub struct SerpentineAnalysis<T: RealField + Copy> {
+pub struct SerpentineAnalysis<T> {
     /// Reynolds number
     pub reynolds: T,
     /// Dean number
@@ -40,7 +39,7 @@ pub struct SerpentineAnalysis<T: RealField + Copy> {
     pub num_bends: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
+impl<T: ResistanceScalar> SerpentineModel<T> {
     /// Curvature enhancement using Bayat & Rezai (2017) millifluidic correlation.
     ///
     /// This is recommended over [`curvature_enhancement`](Self::curvature_enhancement)
@@ -51,8 +50,8 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
     /// `SerpentineModel` method API so users can easily switch between
     /// Ito (1959) and Bayat & Rezai (2017) correlations.
     pub fn curvature_enhancement_millifluidic(&self, de: T) -> T {
-        let de_f64 = nalgebra::try_convert::<T, f64>(de).unwrap_or(0.0);
-        T::from_f64(bayat_rezai_enhancement(de_f64)).unwrap_or(T::one())
+        let de_f64 = scalar_to_f64::<T>(de);
+        scalar_from_f64::<T>(bayat_rezai_enhancement(de_f64))
     }
 
     /// Perform detailed serpentine flow analysis
@@ -64,8 +63,8 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
         let state = fluid.properties_at(conditions.temperature, conditions.pressure)?;
         let density = state.density;
 
-        let dh = T::from_f64(self.cross_section.hydraulic_diameter()).unwrap_or_else(T::one);
-        let area = T::from_f64(self.cross_section.area()).unwrap_or_else(T::one);
+        let dh = scalar_from_f64::<T>(self.cross_section.hydraulic_diameter());
+        let area = scalar_from_f64::<T>(self.cross_section.area());
 
         let velocity = if let Some(v) = conditions.velocity {
             v
@@ -76,12 +75,11 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
                 "Serpentine analysis requires velocity or flow_rate".to_string(),
             ));
         };
-        let velocity_magnitude = velocity.abs();
+        let velocity_magnitude = <T as NumericElement>::abs(velocity);
 
         let f_re = self.cross_section.shah_london_fre_factor() * 64.0;
-        let shape_correction =
-            T::from_f64(f_re / 64.0).expect("Mathematical constant conversion compromised");
-        let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
+        let shape_correction = scalar_from_f64::<T>(f_re / 64.0);
+        let eight = scalar_from_f64::<T>(8.0);
         let shear_rate = shape_correction * eight * velocity_magnitude / dh;
 
         let viscosity =
@@ -91,7 +89,7 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
         let re_safe = if reynolds > T::default_epsilon() {
             reynolds
         } else {
-            T::from_f64(0.01).expect("Mathematical constant conversion compromised")
+            scalar_from_f64::<T>(0.01)
         };
 
         let dean = self.dean_number(re_safe);
@@ -109,7 +107,7 @@ impl<T: RealField + Copy + FromPrimitive> SerpentineModel<T> {
             * velocity_magnitude
             * velocity_magnitude;
 
-        let n_bends = T::from_usize(self.num_bends()).unwrap_or_else(T::zero);
+        let n_bends = scalar_from_f64::<T>(self.num_bends() as f64);
         let k_bend = self.bend_type.loss_coefficient(re_safe);
         let dp_bends = n_bends * k_bend * half * density * velocity_magnitude * velocity_magnitude;
 

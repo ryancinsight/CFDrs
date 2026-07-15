@@ -678,41 +678,6 @@ pub fn generate_ga_mutations(
     Ok(mutated)
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
-
-    use super::{generate_ga_crossover_children, generate_ga_mutations};
-
-    #[test]
-    fn ga_crossover_children_remain_valid() {
-        let seed = canonical_option2_candidate("seed", operating_point(2.0e-6, 30_000.0, 0.18));
-        let donor_topology = generate_ga_mutations(&seed)
-            .expect("mutations")
-            .into_iter()
-            .find(|candidate| candidate.id.contains("-ga-s"))
-            .expect("serpentine mutation");
-        let donor = crate::domain::BlueprintCandidate::new(
-            "donor".to_string(),
-            donor_topology.blueprint.clone(),
-            crate::domain::OperatingPoint {
-                flow_rate_m3_s: seed.operating_point.flow_rate_m3_s * 1.1,
-                inlet_gauge_pa: seed.operating_point.inlet_gauge_pa * 0.9,
-                feed_hematocrit: seed.operating_point.feed_hematocrit,
-                patient_context: seed.operating_point.patient_context.clone(),
-            },
-        );
-
-        let children = generate_ga_crossover_children(&seed, &donor).expect("crossovers");
-        assert!(!children.is_empty());
-        for child in children {
-            let topology = child.topology_spec().expect("topology metadata");
-            cfd_schematics::BlueprintTopologyFactory::validate_spec(topology)
-                .expect("crossover topology must remain valid");
-        }
-    }
-}
-
 pub fn promote_option1_candidate_to_ga_seed(
     seed: &BlueprintCandidate,
 ) -> Result<BlueprintCandidate, OptimError> {
@@ -874,4 +839,39 @@ pub fn build_milestone12_ga_seed_pair(
         promote_option1_candidate_to_ga_seed(&option1)?,
         promote_option2_candidate_to_ga_seed(&option2)?,
     ])
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
+
+    use super::{generate_ga_crossover_children, generate_ga_mutations};
+
+    #[test]
+    fn ga_crossover_children_remain_valid() {
+        let seed = canonical_option2_candidate("seed", operating_point(2.0e-6, 30_000.0, 0.18));
+        let donor_topology = generate_ga_mutations(&seed)
+            .expect("mutations")
+            .into_iter()
+            .find(|candidate| candidate.id.contains("-ga-s"))
+            .expect("serpentine mutation");
+        let donor = crate::domain::BlueprintCandidate::new(
+            "donor".to_string(),
+            donor_topology.blueprint.clone(),
+            crate::domain::OperatingPoint {
+                flow_rate_m3_s: seed.operating_point.flow_rate_m3_s * 1.1,
+                inlet_gauge_pa: seed.operating_point.inlet_gauge_pa * 0.9,
+                feed_hematocrit: seed.operating_point.feed_hematocrit,
+                patient_context: seed.operating_point.patient_context.clone(),
+            },
+        );
+
+        let children = generate_ga_crossover_children(&seed, &donor).expect("crossovers");
+        assert!(!children.is_empty());
+        for child in children {
+            let topology = child.topology_spec().expect("topology metadata");
+            cfd_schematics::BlueprintTopologyFactory::validate_spec(topology)
+                .expect("crossover topology must remain valid");
+        }
+    }
 }

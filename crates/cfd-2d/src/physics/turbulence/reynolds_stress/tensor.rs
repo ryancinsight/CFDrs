@@ -14,7 +14,8 @@
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
-use nalgebra::{DMatrix, RealField};
+use eunomia::RealField;
+use leto::Array2;
 
 /// Reynolds stress tensor storage (6 independent components for 2D: xx, xy, yy)
 ///
@@ -26,19 +27,19 @@ use nalgebra::{DMatrix, RealField};
 #[derive(Debug, Clone)]
 pub struct ReynoldsStressTensor<T: RealField + Copy> {
     /// ⟨u'u'⟩ — streamwise normal stress
-    pub xx: DMatrix<T>,
+    pub xx: Array2<T>,
     /// ⟨u'v'⟩ — shear stress
-    pub xy: DMatrix<T>,
+    pub xy: Array2<T>,
     /// ⟨v'v'⟩ — wall-normal normal stress
-    pub yy: DMatrix<T>,
+    pub yy: Array2<T>,
     /// Turbulent kinetic energy k = (1/2)(⟨u'u'⟩ + ⟨v'v'⟩)
-    pub k: DMatrix<T>,
+    pub k: Array2<T>,
     /// Dissipation rate ε
-    pub epsilon: DMatrix<T>,
+    pub epsilon: Array2<T>,
     /// Optional anisotropic dissipation tensor ε_xx component
-    pub epsilon_xx: Option<DMatrix<T>>,
+    pub epsilon_xx: Option<Array2<T>>,
     /// Optional anisotropic dissipation tensor ε_xy component
-    pub epsilon_xy: Option<DMatrix<T>>,
+    pub epsilon_xy: Option<Array2<T>>,
     /// Optional anisotropic dissipation tensor ε_yy component
-    pub epsilon_yy: Option<DMatrix<T>>,
+    pub epsilon_yy: Option<Array2<T>>,
 }

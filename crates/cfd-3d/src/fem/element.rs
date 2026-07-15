@@ -30,29 +30,31 @@
 //!
 //! **Reference:** Zienkiewicz & Taylor, "The Finite Element Method", Vol. 1, 6th Ed., §7.3.
 
-use crate::fem::constants;
-use nalgebra::{DMatrix, DVector, Matrix3, RealField, Vector3};
-use num_traits::{Float, FromPrimitive};
+use crate::fem::{constants, scalar};
+use crate::linalg::{array2_set_column3, symmetric_part, Matrix3};
+use eunomia::{FloatElement, NumericElement};
+use eunomia::RealField;
+use leto::{Array2, Vector3};
 
 /// Element matrices for FEM assembly
 #[derive(Debug, Clone)]
 pub struct ElementMatrices<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Element stiffness matrix
-    pub k_e: DMatrix<T>,
+    pub k_e: Array2<T>,
     /// Element mass matrix
-    pub m_e: DMatrix<T>,
+    pub m_e: Array2<T>,
     /// Element force vector
-    pub f_e: DMatrix<T>,
+    pub f_e: Array2<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ElementMatrices<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> ElementMatrices<T> {
     /// Create new element matrices
     #[must_use]
     pub fn new(n_dof: usize) -> Self {
         Self {
-            k_e: DMatrix::zeros(n_dof, n_dof),
-            m_e: DMatrix::zeros(n_dof, n_dof),
-            f_e: DMatrix::zeros(n_dof, 1),
+            k_e: Array2::zeros([n_dof, n_dof]),
+            m_e: Array2::zeros([n_dof, n_dof]),
+            f_e: Array2::zeros([n_dof, 1]),
         }
     }
 }
@@ -65,18 +67,18 @@ pub struct FluidElement<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     /// Element volume
     pub volume: T,
     /// Shape function derivatives (3 rows for x/y/z, 4 columns for nodes 1-4 for P1, or 10 columns for P2)
-    pub shape_derivatives: DMatrix<T>,
+    pub shape_derivatives: Array2<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Float> FluidElement<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> FluidElement<T> {
     /// Create new fluid element
     #[must_use]
     pub fn new(nodes: Vec<usize>) -> Self {
         let n = nodes.len();
         Self {
             nodes,
-            volume: T::zero(),
-            shape_derivatives: DMatrix::zeros(3, n),
+            volume: scalar::zero::<T>(),
+            shape_derivatives: Array2::zeros([3, n]),
         }
     }
 
@@ -94,22 +96,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     /// $\mathbb{R}^3$). The sign of $\det J$ encodes orientation.
     pub fn calculate_volume(&mut self, vertices: &[Vector3<T>]) -> T {
         if vertices.len() < 4 {
-            return T::zero();
+            return scalar::zero::<T>();
         }
 
-        let v0 = &vertices[0];
-        let v1 = &vertices[1];
-        let v2 = &vertices[2];
-        let v3 = &vertices[3];
+        let e1 = vertices[1] - vertices[0];
+        let e2 = vertices[2] - vertices[0];
+        let e3 = vertices[3] - vertices[0];
 
-        let e1 = v1 - v0;
-        let e2 = v2 - v0;
-        let e3 = v3 - v0;
-
-        let det_j = e1.dot(&e2.cross(&e3)); // Signed 6V
-        self.volume = num_traits::Float::abs(det_j)
-            / <T as FromPrimitive>::from_f64(6.0)
-                .expect("6.0 is representable in all IEEE 754 types");
+        let det_j = e1.dot(e2.cross(e3)); // Signed 6V
+        self.volume = <T as NumericElement>::abs(det_j) / scalar::constant::<T>(6.0);
         det_j // Return signed 6V for orientation-correct assembly
     }
 
@@ -145,13 +140,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let d1_vec = v2 - v1;
         let d2_vec = v3 - v1;
         let d3_vec = v4 - v1;
-        let six_v = d1_vec.dot(&d2_vec.cross(&d3_vec));
+        let six_v = d1_vec.dot(d2_vec.cross(d3_vec));
 
-        if num_traits::Float::abs(six_v)
-            < <T as FromPrimitive>::from_f64(1e-24)
-                .expect("1e-24 is an IEEE 754 representable f64 constant")
-        {
-            self.shape_derivatives = DMatrix::zeros(3, 4);
+        if <T as NumericElement>::abs(six_v) < scalar::constant::<T>(1e-24) {
+            self.shape_derivatives = Array2::zeros([3, 4]);
             return;
         }
 
@@ -189,19 +181,19 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
         let grad_n3 = -(grad_n0 + grad_n1 + grad_n2);
 
         // CRITICAL FIX: Columns must correspond to nodes [0, 1, 2, 3]
-        let c0 = DVector::from_iterator(3, grad_n0.iter().copied());
-        let c1 = DVector::from_iterator(3, grad_n1.iter().copied());
-        let c2 = DVector::from_iterator(3, grad_n2.iter().copied());
-        let c3 = DVector::from_iterator(3, grad_n3.iter().copied());
-        self.shape_derivatives = DMatrix::from_columns(&[c0, c1, c2, c3]);
+        self.shape_derivatives = Array2::zeros([3, 4]);
+        array2_set_column3(&mut self.shape_derivatives, 0, grad_n0);
+        array2_set_column3(&mut self.shape_derivatives, 1, grad_n1);
+        array2_set_column3(&mut self.shape_derivatives, 2, grad_n2);
+        array2_set_column3(&mut self.shape_derivatives, 3, grad_n3);
     }
 
     /// Calculate element stiffness matrix contribution for Stokes flow
     /// Based on Hughes, "The Finite Element Method", Dover Publications, 2000
-    pub fn stiffness_contribution(&self, viscosity: T) -> DMatrix<T> {
+    pub fn stiffness_contribution(&self, viscosity: T) -> Array2<T> {
         let n_nodes = self.nodes.len();
         let n_dof = n_nodes * constants::VELOCITY_COMPONENTS;
-        let mut k_e = DMatrix::zeros(n_dof, n_dof);
+        let mut k_e = Array2::zeros([n_dof, n_dof]);
 
         if n_nodes == 4 {
             // Tetrahedral element: Single-point integration is exact for linear elements
@@ -215,24 +207,21 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
                         let col = j * 3 + d;
 
                         // Viscous contribution: μ ∫ (∇Ni : ∇Nj) dΩ
-                        let mut visc_term = T::zero();
+                        let mut visc_term = scalar::zero::<T>();
                         for k in 0..3 {
                             visc_term +=
-                                self.shape_derivatives[(k, i)] * self.shape_derivatives[(k, j)];
+                                self.shape_derivatives[[k, i]] * self.shape_derivatives[[k, j]];
                         }
-                        k_e[(row, col)] += factor * visc_term;
+                        k_e[[row, col]] += factor * visc_term;
 
                         // Additional viscous terms from strain rate tensor: μ ∫ (∂Ni/∂xk)(∂Nj/∂xk)
                         for k in 0..3 {
                             if k != d {
-                                let cross_term = self.shape_derivatives[(d, i)]
-                                    * self.shape_derivatives[(k, j)]
-                                    + self.shape_derivatives[(k, i)]
-                                        * self.shape_derivatives[(d, j)];
-                                k_e[(row, col)] += factor
-                                    * cross_term
-                                    * <T as FromPrimitive>::from_f64(0.5)
-                                        .expect("0.5 is exactly representable in IEEE 754");
+                                let cross_term = self.shape_derivatives[[d, i]]
+                                    * self.shape_derivatives[[k, j]]
+                                    + self.shape_derivatives[[k, i]]
+                                        * self.shape_derivatives[[d, j]];
+                                k_e[[row, col]] += factor * cross_term * scalar::constant::<T>(0.5);
                             }
                         }
                     }
@@ -244,8 +233,6 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
     /// Calculate strain rate from velocity gradient
     pub fn strain_rate(&self, velocity_gradient: &Matrix3<T>) -> Matrix3<T> {
-        let half =
-            <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
-        (velocity_gradient + velocity_gradient.transpose()) * half
+        symmetric_part(velocity_gradient)
     }
 }

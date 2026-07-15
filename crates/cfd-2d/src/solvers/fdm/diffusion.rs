@@ -12,9 +12,11 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd2dScalar;
+use eunomia::FloatElement;
 use std::collections::HashMap;
+
+use crate::scalar;
 
 /// A 2D heat diffusion solver implementing an explicit, first-order time-stepping
 /// scheme and second-order central differences for spatial discretization.
@@ -24,7 +26,7 @@ use std::collections::HashMap;
 /// # Type Parameters
 ///
 /// * `T`: The floating-point type for calculations, e.g., `f64`.
-pub struct DiffusionSolver<T: RealField + Copy + FromPrimitive> {
+pub struct DiffusionSolver<T: Cfd2dScalar + Copy + FloatElement> {
     nx: usize,
     ny: usize,
     dx: T,
@@ -33,7 +35,7 @@ pub struct DiffusionSolver<T: RealField + Copy + FromPrimitive> {
     solution: HashMap<(usize, usize), T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> DiffusionSolver<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> DiffusionSolver<T> {
     /// Creates a new `DiffusionSolver`.
     ///
     /// # Arguments
@@ -74,10 +76,9 @@ impl<T: RealField + Copy + FromPrimitive> DiffusionSolver<T> {
         t_final: T,
         source_fn: &impl Fn(T, T, T) -> T,
     ) -> HashMap<(usize, usize), T> {
-        let dt =
-            T::from_f64(0.25 * 0.9).expect("analytical constant conversion") * self.dx * self.dx
-                / self.alpha;
-        let mut t = T::zero();
+        let dt = scalar::from_f64::<T>(0.25 * 0.9) * self.dx * self.dx / self.alpha;
+        let mut t: T = scalar::zero();
+        let two = scalar::from_f64::<T>(2.0);
 
         while t < t_final {
             let mut next_solution = self.solution.clone();
@@ -109,16 +110,11 @@ impl<T: RealField + Copy + FromPrimitive> DiffusionSolver<T> {
                         .copied()
                         .expect("analytical constant conversion");
 
-                    let laplacian = (un_e
-                        - T::from_f64(2.0).expect("analytical constant conversion") * un
-                        + un_w)
-                        / (self.dx * self.dx)
-                        + (un_n - T::from_f64(2.0).expect("analytical constant conversion") * un
-                            + un_s)
-                            / (self.dy * self.dy);
+                    let laplacian = (un_e - two * un + un_w) / (self.dx * self.dx)
+                        + (un_n - two * un + un_s) / (self.dy * self.dy);
 
-                    let x = T::from_usize(i).expect("analytical constant conversion") * self.dx;
-                    let y = T::from_usize(j).expect("analytical constant conversion") * self.dy;
+                    let x = scalar::from_usize::<T>(i) * self.dx;
+                    let y = scalar::from_usize::<T>(j) * self.dy;
                     let source = source_fn(x, y, t);
                     let un_plus_1 = un + dt * (self.alpha * laplacian + source);
                     next_solution.insert((i, j), un_plus_1);

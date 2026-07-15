@@ -4,8 +4,8 @@
 
 use super::FluidProperties;
 use crate::error::Error;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 
 /// Physical bounds for fluid properties
 pub struct PropertyBounds<T: RealField + Copy> {
@@ -27,21 +27,21 @@ pub struct PropertyBounds<T: RealField + Copy> {
     pub thermal_conductivity_max: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> Default for PropertyBounds<T> {
+impl<T: RealField + FloatElement + Copy> Default for PropertyBounds<T> {
     fn default() -> Self {
         Self {
             // Covers gases to heavy liquids
-            density_min: T::from_f64(0.01).unwrap_or_else(T::zero),
-            density_max: T::from_f64(20000.0).unwrap_or_else(T::one),
+            density_min: <T as FloatElement>::from_f64(0.01),
+            density_max: <T as FloatElement>::from_f64(20000.0),
             // From superfluid helium to highly viscous materials
-            viscosity_min: T::from_f64(1e-7).unwrap_or_else(T::zero),
-            viscosity_max: T::from_f64(1e6).unwrap_or_else(T::one),
+            viscosity_min: <T as FloatElement>::from_f64(1e-7),
+            viscosity_max: <T as FloatElement>::from_f64(1e6),
             // Reasonable range for most fluids
-            specific_heat_min: T::from_f64(100.0).unwrap_or_else(T::zero),
-            specific_heat_max: T::from_f64(10000.0).unwrap_or_else(T::one),
+            specific_heat_min: <T as FloatElement>::from_f64(100.0),
+            specific_heat_max: <T as FloatElement>::from_f64(10000.0),
             // From insulators to liquid metals
-            thermal_conductivity_min: T::from_f64(0.001).unwrap_or_else(T::zero),
-            thermal_conductivity_max: T::from_f64(1000.0).unwrap_or_else(T::one),
+            thermal_conductivity_min: <T as FloatElement>::from_f64(0.001),
+            thermal_conductivity_max: <T as FloatElement>::from_f64(1000.0),
         }
     }
 }
@@ -58,7 +58,7 @@ pub fn validate_properties<T: RealField + Copy>(
     // Check density
     if properties.density < bounds.density_min || properties.density > bounds.density_max {
         return Err(Error::InvalidInput(format!(
-            "Density {} is outside valid range [{}, {}]",
+            "Density {:?} is outside valid range [{:?}, {:?}]",
             properties.density, bounds.density_min, bounds.density_max
         )));
     }
@@ -68,7 +68,7 @@ pub fn validate_properties<T: RealField + Copy>(
         || properties.dynamic_viscosity > bounds.viscosity_max
     {
         return Err(Error::InvalidInput(format!(
-            "Viscosity {} is outside valid range [{}, {}]",
+            "Viscosity {:?} is outside valid range [{:?}, {:?}]",
             properties.dynamic_viscosity, bounds.viscosity_min, bounds.viscosity_max
         )));
     }
@@ -78,7 +78,7 @@ pub fn validate_properties<T: RealField + Copy>(
         || properties.specific_heat > bounds.specific_heat_max
     {
         return Err(Error::InvalidInput(format!(
-            "Specific heat {} is outside valid range [{}, {}]",
+            "Specific heat {:?} is outside valid range [{:?}, {:?}]",
             properties.specific_heat, bounds.specific_heat_min, bounds.specific_heat_max
         )));
     }
@@ -88,7 +88,7 @@ pub fn validate_properties<T: RealField + Copy>(
         || properties.thermal_conductivity > bounds.thermal_conductivity_max
     {
         return Err(Error::InvalidInput(format!(
-            "Thermal conductivity {} is outside valid range [{}, {}]",
+            "Thermal conductivity {:?} is outside valid range [{:?}, {:?}]",
             properties.thermal_conductivity,
             bounds.thermal_conductivity_min,
             bounds.thermal_conductivity_max
@@ -103,18 +103,18 @@ pub fn validate_properties<T: RealField + Copy>(
 /// # Errors
 ///
 /// Returns `Error::InvalidInput` if Reynolds number is negative or exceeds typical range (>1e8).
-pub fn validate_reynolds<T: RealField + Copy>(reynolds: T) -> Result<(), Error> {
-    if reynolds < T::zero() {
+pub fn validate_reynolds<T: RealField + FloatElement + Copy>(reynolds: T) -> Result<(), Error> {
+    if reynolds < <T as NumericElement>::ZERO {
         return Err(Error::InvalidInput(
             "Reynolds number cannot be negative".to_string(),
         ));
     }
 
     // Warn for extreme Reynolds numbers
-    let re_max = T::from_f64(1e8).unwrap_or_else(T::one);
+    let re_max = <T as FloatElement>::from_f64(1e8);
     if reynolds > re_max {
         return Err(Error::InvalidInput(format!(
-            "Reynolds number {reynolds} exceeds typical range (may indicate error)"
+            "Reynolds number {reynolds:?} exceeds typical range (may indicate error)"
         )));
     }
 
@@ -126,20 +126,20 @@ pub fn validate_reynolds<T: RealField + Copy>(reynolds: T) -> Result<(), Error> 
 /// # Errors
 ///
 /// Returns `Error::InvalidInput` if Prandtl number is non-positive or outside typical range (0.001-100000).
-pub fn validate_prandtl<T: RealField + Copy>(prandtl: T) -> Result<(), Error> {
-    if prandtl <= T::zero() {
+pub fn validate_prandtl<T: RealField + FloatElement + Copy>(prandtl: T) -> Result<(), Error> {
+    if prandtl <= <T as NumericElement>::ZERO {
         return Err(Error::InvalidInput(
             "Prandtl number must be positive".to_string(),
         ));
     }
 
     // Typical range: 0.001 (liquid metals) to 100000 (heavy oils)
-    let pr_min = T::from_f64(0.001).unwrap_or_else(T::zero);
-    let pr_max = T::from_f64(100_000.0).unwrap_or_else(T::one);
+    let pr_min = <T as FloatElement>::from_f64(0.001);
+    let pr_max = <T as FloatElement>::from_f64(100_000.0);
 
     if prandtl < pr_min || prandtl > pr_max {
         return Err(Error::InvalidInput(format!(
-            "Prandtl number {prandtl} is outside typical range [{pr_min}, {pr_max}]"
+            "Prandtl number {prandtl:?} is outside typical range [{pr_min:?}, {pr_max:?}]"
         )));
     }
 
@@ -151,9 +151,11 @@ pub fn validate_prandtl<T: RealField + Copy>(prandtl: T) -> Result<(), Error> {
 /// # Errors
 ///
 /// Returns `Error::InvalidInput` if temperature is non-positive (at/below absolute zero) or exceeds 10000 K.
-pub fn validate_temperature<T: RealField + Copy>(temperature: T) -> Result<(), Error> {
-    let t_min = T::zero(); // Absolute zero
-    let t_max = T::from_f64(10000.0).unwrap_or_else(T::one); // Reasonable upper limit
+pub fn validate_temperature<T: RealField + FloatElement + Copy>(
+    temperature: T,
+) -> Result<(), Error> {
+    let t_min = <T as NumericElement>::ZERO; // Absolute zero
+    let t_max = <T as FloatElement>::from_f64(10000.0); // Reasonable upper limit
 
     if temperature <= t_min {
         return Err(Error::InvalidInput(
@@ -163,7 +165,7 @@ pub fn validate_temperature<T: RealField + Copy>(temperature: T) -> Result<(), E
 
     if temperature > t_max {
         return Err(Error::InvalidInput(format!(
-            "Temperature {temperature} K exceeds reasonable range"
+            "Temperature {temperature:?} K exceeds reasonable range"
         )));
     }
 
@@ -175,16 +177,16 @@ pub fn validate_temperature<T: RealField + Copy>(temperature: T) -> Result<(), E
 /// # Errors
 ///
 /// Returns `Error::InvalidInput` if pressure is non-positive or exceeds 1 GPa.
-pub fn validate_pressure<T: RealField + Copy>(pressure: T) -> Result<(), Error> {
-    if pressure <= T::zero() {
+pub fn validate_pressure<T: RealField + FloatElement + Copy>(pressure: T) -> Result<(), Error> {
+    if pressure <= <T as NumericElement>::ZERO {
         return Err(Error::InvalidInput("Pressure must be positive".to_string()));
     }
 
     // Maximum pressure: ~1 GPa (deep ocean/industrial)
-    let p_max = T::from_f64(1e9).unwrap_or_else(T::one);
+    let p_max = <T as FloatElement>::from_f64(1e9);
     if pressure > p_max {
         return Err(Error::InvalidInput(format!(
-            "Pressure {pressure} Pa exceeds typical range"
+            "Pressure {pressure:?} Pa exceeds typical range"
         )));
     }
 

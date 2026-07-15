@@ -27,10 +27,9 @@ pub mod dispatch;
 
 use super::geometry::ChannelGeometry;
 use super::models::{FlowConditions, SerpentineModel, VenturiModel};
+use super::traits::{scalar_from_f64, ResistanceScalar};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
 
 pub(crate) fn populate_shear_aware_conditions<T, F>(
     geometry: &ChannelGeometry<T>,
@@ -38,7 +37,7 @@ pub(crate) fn populate_shear_aware_conditions<T, F>(
     local_conditions: &mut FlowConditions<T>,
 ) -> Result<()>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: ResistanceScalar,
     F: FluidTrait<T>,
 {
     if local_conditions.reynolds_number.is_some() {
@@ -80,7 +79,7 @@ where
     let shear_rate = if let Some(sr) = local_conditions.shear_rate {
         sr
     } else {
-        T::from_f64(8.0).expect("Mathematical constant conversion compromised") * velocity_abs / dh
+        scalar_from_f64::<T>(8.0) * velocity_abs / dh
     };
     let apparent_viscosity = fluid.viscosity_at_shear(
         shear_rate,
@@ -99,7 +98,7 @@ where
     Ok(())
 }
 
-pub(crate) fn rectangular_auto_selection_error<T: RealField + Copy>(
+pub(crate) fn rectangular_auto_selection_error<T: ResistanceScalar>(
     conditions: &FlowConditions<T>,
 ) -> Error {
     match conditions.reynolds_number {
@@ -113,11 +112,11 @@ pub(crate) fn rectangular_auto_selection_error<T: RealField + Copy>(
 }
 
 /// Resistance calculator with model selection and validation
-pub struct ResistanceCalculator<T: RealField + Copy> {
+pub struct ResistanceCalculator<T> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
+impl<T: ResistanceScalar> ResistanceCalculator<T> {
     /// Create new resistance calculator
     #[must_use]
     pub fn new() -> Self {
@@ -361,7 +360,7 @@ impl<T: RealField + Copy + FromPrimitive> ResistanceCalculator<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for ResistanceCalculator<T> {
+impl<T: ResistanceScalar> Default for ResistanceCalculator<T> {
     fn default() -> Self {
         Self::new()
     }

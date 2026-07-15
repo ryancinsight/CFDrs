@@ -12,9 +12,9 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
+use crate::scalar::{from_f64, max, one, zero};
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 
 /// Flux scheme for convection terms
 #[derive(Debug, Clone, Copy)]
@@ -37,9 +37,9 @@ pub struct FluxSchemeFactory;
 impl FluxSchemeFactory {
     /// Create a flux calculator based on the scheme
     #[must_use]
-    pub fn create<T: RealField + Copy + FromPrimitive>(
+    pub fn create<T: FloatElement + core::ops::Neg<Output = T> + 'static>(
         scheme: FluxScheme,
-        diffusion: f64,
+        diffusion: T,
     ) -> Box<dyn FluxCalculator<T>> {
         match scheme {
             FluxScheme::CentralDifference => Box::new(CentralDifferenceFlux),
@@ -52,7 +52,7 @@ impl FluxSchemeFactory {
 }
 
 /// Trait for flux calculation
-pub trait FluxCalculator<T: RealField + Copy>: Send + Sync {
+pub trait FluxCalculator<T: FloatElement + core::ops::Neg<Output = T>>: Send + Sync {
     /// Calculate convective flux
     fn calculate_flux(&self, phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T>;
 }
@@ -60,18 +60,18 @@ pub trait FluxCalculator<T: RealField + Copy>: Send + Sync {
 /// Central difference flux calculator
 struct CentralDifferenceFlux;
 
-impl<T: RealField + Copy> FluxCalculator<T> for CentralDifferenceFlux {
+impl<T: FloatElement + core::ops::Neg<Output = T>> FluxCalculator<T> for CentralDifferenceFlux {
     fn calculate_flux(&self, _phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T> {
-        Ok(u * (phi_e - phi_w) / (T::from_f64(2.0).expect("analytical constant conversion") * dx))
+        Ok(u * (phi_e - phi_w) / (from_f64::<T>(2.0) * dx))
     }
 }
 
 /// Upwind flux calculator
 struct UpwindFlux;
 
-impl<T: RealField + Copy> FluxCalculator<T> for UpwindFlux {
+impl<T: FloatElement + core::ops::Neg<Output = T>> FluxCalculator<T> for UpwindFlux {
     fn calculate_flux(&self, phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T> {
-        if u > T::zero() {
+        if u > zero() {
             Ok(u * (phi_p - phi_w) / dx)
         } else {
             Ok(u * (phi_e - phi_p) / dx)
@@ -82,14 +82,14 @@ impl<T: RealField + Copy> FluxCalculator<T> for UpwindFlux {
 /// QUICK flux calculator
 struct QuadraticUpwindFlux;
 
-impl<T: RealField + Copy> FluxCalculator<T> for QuadraticUpwindFlux {
+impl<T: FloatElement + core::ops::Neg<Output = T>> FluxCalculator<T> for QuadraticUpwindFlux {
     fn calculate_flux(&self, phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T> {
         // Quadratic upstream interpolation
-        let three_eighths = T::from_f64(3.0 / 8.0).expect("analytical constant conversion");
-        let six_eighths = T::from_f64(6.0 / 8.0).expect("analytical constant conversion");
-        let one_eighth = T::from_f64(1.0 / 8.0).expect("analytical constant conversion");
+        let three_eighths = from_f64::<T>(3.0 / 8.0);
+        let six_eighths = from_f64::<T>(6.0 / 8.0);
+        let one_eighth = from_f64::<T>(1.0 / 8.0);
 
-        if u > T::zero() {
+        if u > zero() {
             let phi_face = six_eighths * phi_p + three_eighths * phi_e - one_eighth * phi_w;
             Ok(u * phi_face / dx)
         } else {
@@ -101,37 +101,40 @@ impl<T: RealField + Copy> FluxCalculator<T> for QuadraticUpwindFlux {
 
 /// Power law flux calculator
 /// Based on Patankar (1980) "Numerical Heat Transfer and Fluid Flow"
-struct PowerLawFlux {
+struct PowerLawFlux<T> {
     /// Diffusion coefficient
-    diffusion: f64,
+    diffusion: T,
 }
 
-impl PowerLawFlux {
-    fn new(diffusion: f64) -> Self {
+impl<T> PowerLawFlux<T> {
+    fn new(diffusion: T) -> Self {
         Self { diffusion }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> FluxCalculator<T> for PowerLawFlux {
+impl<T: FloatElement + core::ops::Neg<Output = T>> FluxCalculator<T> for PowerLawFlux<T> {
     fn calculate_flux(&self, phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T> {
         // Power law scheme from Patankar (1980) Section 5.2.4
-        let gamma = T::from_f64(self.diffusion).ok_or(Error::InvalidConfiguration(
-            "Invalid diffusion coefficient".to_string(),
-        ))?;
+        if !<T as NumericElement>::is_finite(self.diffusion) {
+            return Err(Error::InvalidConfiguration(
+                "Invalid diffusion coefficient".to_string(),
+            ));
+        }
+        let gamma = self.diffusion;
 
         // Peclet number Pe = ρu∆x/Γ
         let peclet = u * dx / gamma;
-        let abs_pe = peclet.abs();
+        let abs_pe = <T as NumericElement>::abs(peclet);
 
         // Power law function A(|P|) = max(0, (1 - 0.1|P|)^5)
-        let a_func = if abs_pe < T::from_f64(10.0).expect("analytical constant conversion") {
-            let one = T::one();
-            let point_one = T::from_f64(0.1).expect("analytical constant conversion");
+        let a_func = if abs_pe < from_f64::<T>(10.0) {
+            let one = one::<T>();
+            let point_one = from_f64::<T>(0.1);
             let term = one - point_one * abs_pe;
-            let five = T::from_f64(5.0).expect("analytical constant conversion");
-            term.powf(five).max(T::zero())
+            let five = from_f64::<T>(5.0);
+            max(<T as FloatElement>::powf(term, five), zero())
         } else {
-            T::zero()
+            zero()
         };
 
         // Coefficients for power law scheme
@@ -139,8 +142,8 @@ impl<T: RealField + Copy + FromPrimitive> FluxCalculator<T> for PowerLawFlux {
         let f = u;
 
         // Face values using power law interpolation
-        let a_e = d * a_func + (-f).max(T::zero());
-        let a_w = d * a_func + f.max(T::zero());
+        let a_e = d * a_func + max(-f, zero());
+        let a_w = d * a_func + max(f, zero());
 
         // Calculate flux
         let flux = a_w * phi_w - (a_w + a_e - f) * phi_p + a_e * phi_e;
@@ -151,27 +154,30 @@ impl<T: RealField + Copy + FromPrimitive> FluxCalculator<T> for PowerLawFlux {
 
 /// Hybrid flux calculator
 /// Based on Spalding (1972) and Patankar (1980)
-struct HybridFlux {
+struct HybridFlux<T> {
     /// Diffusion coefficient
-    diffusion: f64,
+    diffusion: T,
 }
 
-impl HybridFlux {
-    fn new(diffusion: f64) -> Self {
+impl<T> HybridFlux<T> {
+    fn new(diffusion: T) -> Self {
         Self { diffusion }
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive> FluxCalculator<T> for HybridFlux {
+impl<T: FloatElement + core::ops::Neg<Output = T>> FluxCalculator<T> for HybridFlux<T> {
     fn calculate_flux(&self, phi_p: T, phi_e: T, phi_w: T, u: T, dx: T) -> Result<T> {
         // Hybrid scheme from Patankar (1980) Section 5.2.3
-        let gamma = T::from_f64(self.diffusion).ok_or(Error::InvalidConfiguration(
-            "Invalid diffusion coefficient".to_string(),
-        ))?;
+        if !<T as NumericElement>::is_finite(self.diffusion) {
+            return Err(Error::InvalidConfiguration(
+                "Invalid diffusion coefficient".to_string(),
+            ));
+        }
+        let gamma = self.diffusion;
 
         // Peclet number Pe = ρu∆x/Γ
         let peclet = u * dx / gamma;
-        let abs_pe = peclet.abs();
+        let abs_pe = <T as NumericElement>::abs(peclet);
 
         // Diffusion conductance
         let d = gamma / dx;
@@ -181,16 +187,16 @@ impl<T: RealField + Copy + FromPrimitive> FluxCalculator<T> for HybridFlux {
         // Hybrid scheme coefficients
         // For |Pe| < 2: use central differencing
         // For |Pe| >= 2: use upwind differencing
-        let two = T::from_f64(2.0).expect("analytical constant conversion");
+        let two = from_f64::<T>(2.0);
 
         let (a_w, a_e) = if abs_pe < two {
             // Central differencing with deferred correction
             let a_w = d + f / two;
             let a_e = d - f / two;
-            (a_w.max(T::zero()), a_e.max(T::zero()))
+            (max(a_w, zero()), max(a_e, zero()))
         } else {
             // Pure upwind
-            if peclet > T::zero() {
+            if peclet > zero() {
                 // Flow from west to east
                 (d + f, d)
             } else {
@@ -210,6 +216,10 @@ impl<T: RealField + Copy + FromPrimitive> FluxCalculator<T> for HybridFlux {
 mod tests {
     use super::*;
 
+    fn abs(value: f64) -> f64 {
+        <f64 as NumericElement>::abs(value)
+    }
+
     // ── Central Difference ──────────────────────────────────────────
 
     #[test]
@@ -218,7 +228,7 @@ mod tests {
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::CentralDifference, 1.0);
         let flux = calc.calculate_flux(1.0, 1.0, 1.0, 5.0, 0.1).unwrap();
         assert!(
-            flux.abs() < 1e-14,
+            abs(flux) < 1e-14,
             "Uniform field flux should be zero, got {flux}"
         );
     }
@@ -228,7 +238,7 @@ mod tests {
         // φ_w=0, φ_p=1, φ_e=2, u=1, dx=1 => u*(φ_e−φ_w)/(2*dx) = 1*2/2 = 1
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::CentralDifference, 1.0);
         let flux = calc.calculate_flux(1.0, 2.0, 0.0, 1.0, 1.0).unwrap();
-        assert!((flux - 1.0).abs() < 1e-14, "Expected 1.0, got {flux}");
+        assert!(abs(flux - 1.0) < 1e-14, "Expected 1.0, got {flux}");
     }
 
     // ── Upwind ──────────────────────────────────────────────────────
@@ -239,7 +249,7 @@ mod tests {
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::Upwind, 1.0);
         let flux = calc.calculate_flux(3.0, 5.0, 1.0, 2.0, 1.0).unwrap();
         // 2.0 * (3.0 − 1.0) / 1.0 = 4.0
-        assert!((flux - 4.0).abs() < 1e-14, "Expected 4.0, got {flux}");
+        assert!(abs(flux - 4.0) < 1e-14, "Expected 4.0, got {flux}");
     }
 
     #[test]
@@ -248,14 +258,14 @@ mod tests {
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::Upwind, 1.0);
         let flux = calc.calculate_flux(3.0, 5.0, 1.0, -2.0, 1.0).unwrap();
         // -2.0 * (5.0 − 3.0) / 1.0 = -4.0
-        assert!((flux - (-4.0)).abs() < 1e-14, "Expected -4.0, got {flux}");
+        assert!(abs(flux - (-4.0)) < 1e-14, "Expected -4.0, got {flux}");
     }
 
     #[test]
     fn test_upwind_uniform_field_zero_flux() {
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::Upwind, 1.0);
         let flux = calc.calculate_flux(7.0, 7.0, 7.0, 3.0, 0.5).unwrap();
-        assert!(flux.abs() < 1e-14, "Uniform field should give zero flux");
+        assert!(abs(flux) < 1e-14, "Uniform field should give zero flux");
     }
 
     // ── QUICK ───────────────────────────────────────────────────────
@@ -268,7 +278,7 @@ mod tests {
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::QuadraticUpwind, 1.0);
         let flux = calc.calculate_flux(1.0, 2.0, 0.0, 1.0, 1.0).unwrap();
         assert!(
-            (flux - 1.5).abs() < 1e-14,
+            abs(flux - 1.5) < 1e-14,
             "QUICK linear field expected 1.5, got {flux}"
         );
     }
@@ -297,6 +307,18 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_power_law_rejects_nonfinite_diffusion() {
+        let calc = FluxSchemeFactory::create::<f64>(FluxScheme::PowerLaw, f64::NAN);
+
+        let error = calc.calculate_flux(1.0, 2.0, 0.0, 1.0, 1.0).unwrap_err();
+
+        assert!(
+            matches!(&error, Error::InvalidConfiguration(message) if message == "Invalid diffusion coefficient"),
+            "expected invalid diffusion coefficient error, got {error:?}"
+        );
+    }
+
     // ── Hybrid ──────────────────────────────────────────────────────
 
     #[test]
@@ -313,5 +335,17 @@ mod tests {
         let calc = FluxSchemeFactory::create::<f64>(FluxScheme::Hybrid, 0.001);
         let flux = calc.calculate_flux(1.0, 2.0, 0.0, 100.0, 1.0).unwrap();
         assert!(flux.is_finite(), "Hybrid flux at high Pe should be finite");
+    }
+
+    #[test]
+    fn test_hybrid_rejects_nonfinite_diffusion() {
+        let calc = FluxSchemeFactory::create::<f64>(FluxScheme::Hybrid, f64::INFINITY);
+
+        let error = calc.calculate_flux(1.0, 2.0, 0.0, 1.0, 1.0).unwrap_err();
+
+        assert!(
+            matches!(&error, Error::InvalidConfiguration(message) if message == "Invalid diffusion coefficient"),
+            "expected invalid diffusion coefficient error, got {error:?}"
+        );
     }
 }

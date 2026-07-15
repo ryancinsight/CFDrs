@@ -4,7 +4,7 @@
 //! plans and reports the observed round-trip error.
 
 use cfd_3d::spectral::{FourierTransform, SpectralDerivative};
-use nalgebra::DVector;
+use leto::Array1;
 use std::f64::consts::PI;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -12,13 +12,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let n = 32usize;
     let transform = FourierTransform::<f64>::new(n)?;
-    let signal = DVector::from_iterator(
-        n,
-        (0..n).map(|i| {
+    let signal = Array1::from_shape_fn([n], |[i]| {
             let x = 2.0 * PI * i as f64 / n as f64;
             x.sin() + 0.5 * (2.0 * x).cos()
-        }),
-    );
+        });
 
     let spectrum = transform.forward(&signal)?;
     let recovered = transform.inverse(&spectrum)?;

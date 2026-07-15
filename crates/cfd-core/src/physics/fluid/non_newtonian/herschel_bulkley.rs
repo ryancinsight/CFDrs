@@ -5,8 +5,8 @@
 use super::super::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
 use crate::error::Error;
 use crate::physics::constants::physics::universal::GAS_CONSTANT;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Herschel-Bulkley fluid model (generalized Bingham plastic)
@@ -44,7 +44,7 @@ pub struct HerschelBulkley<T: RealField + Copy> {
     pub activation_energy_tau: Option<T>,
 }
 
-impl<T: RealField + FromPrimitive + Copy> HerschelBulkley<T> {
+impl<T: RealField + FloatElement + Copy> HerschelBulkley<T> {
     /// Create a new Herschel-Bulkley fluid
     pub fn new(
         name: String,
@@ -88,34 +88,37 @@ impl<T: RealField + FromPrimitive + Copy> HerschelBulkley<T> {
 
     /// Calculate apparent viscosity at given shear rate
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
-        if shear_rate <= T::zero() {
-            return T::from_f64(1e6).unwrap_or_else(T::one);
+        if shear_rate <= <T as NumericElement>::ZERO {
+            return <T as FloatElement>::from_f64(1e6);
         }
 
-        let power_law_term =
-            self.consistency_index * shear_rate.powf(self.flow_behavior_index - T::one());
+        let power_law_term = self.consistency_index
+            * <T as FloatElement>::powf(
+                shear_rate,
+                self.flow_behavior_index - <T as NumericElement>::ONE,
+            );
         self.yield_stress / shear_rate + power_law_term
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for HerschelBulkley<T> {
+impl<T: RealField + FloatElement + Copy> FluidTrait<T> for HerschelBulkley<T> {
     fn properties_at(&self, temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         let (k_adj, tau_adj) = if let Some(t_ref) = self.reference_temperature {
-            let r_gas = T::from_f64(GAS_CONSTANT).unwrap_or_else(T::one);
-            let inv_t = T::one() / temperature;
-            let inv_t_ref = T::one() / t_ref;
+            let r_gas = <T as FloatElement>::from_f64(GAS_CONSTANT);
+            let inv_t = <T as NumericElement>::ONE / temperature;
+            let inv_t_ref = <T as NumericElement>::ONE / t_ref;
             let diff_inv_t = inv_t - inv_t_ref;
 
             let k = if let Some(ea_k) = self.activation_energy_k {
                 let arg = (ea_k / r_gas) * diff_inv_t;
-                self.consistency_index * arg.exp()
+                self.consistency_index * <T as FloatElement>::exp(arg)
             } else {
                 self.consistency_index
             };
 
             let tau = if let Some(ea_tau) = self.activation_energy_tau {
                 let arg = (ea_tau / r_gas) * diff_inv_t;
-                self.yield_stress * arg.exp()
+                self.yield_stress * <T as FloatElement>::exp(arg)
             } else {
                 self.yield_stress
             };
@@ -126,10 +129,14 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for HerschelBulkley<T> {
         };
 
         let shear_rate = self.reference_shear_rate;
-        let apparent_viscosity = if shear_rate <= T::zero() {
-            T::from_f64(1e6).unwrap_or_else(T::one)
+        let apparent_viscosity = if shear_rate <= <T as NumericElement>::ZERO {
+            <T as FloatElement>::from_f64(1e6)
         } else {
-            let power_law_term = k_adj * shear_rate.powf(self.flow_behavior_index - T::one());
+            let power_law_term = k_adj
+                * <T as FloatElement>::powf(
+                    shear_rate,
+                    self.flow_behavior_index - <T as NumericElement>::ONE,
+                );
             tau_adj / shear_rate + power_law_term
         };
 
@@ -155,7 +162,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for HerschelBulkley<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for HerschelBulkley<T> {
+impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for HerschelBulkley<T> {
     fn apparent_viscosity(&self, shear_rate: T) -> T {
         HerschelBulkley::apparent_viscosity(self, shear_rate)
     }

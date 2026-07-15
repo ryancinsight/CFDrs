@@ -11,10 +11,11 @@ use super::super::{
 use super::network_builder::NetworkBuilder;
 use super::venturi_coefficients::venturi_coefficients;
 use crate::physics::resistance::models::BendType;
+use crate::scalar::Cfd1dScalar;
+use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::{Error, Result};
 use cfd_schematics::domain::model::{ChannelShape, EdgeKind, NetworkBlueprint};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::NumericElement;
 use petgraph::graph::NodeIndex;
 use std::collections::HashMap;
 use std::hash::BuildHasher;
@@ -48,7 +49,7 @@ pub fn network_from_blueprint<T, F>(
     fluid: F,
 ) -> Result<crate::domain::network::wrapper::Network<T, F>>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + NumericElement,
     F: FluidTrait<T> + Clone,
 {
     validate_blueprint_for_1d_solve(blueprint)?;
@@ -161,11 +162,7 @@ where
                 ch_spec.resistance
             )));
         }
-        let seed_r = T::from_f64(ch_spec.resistance.max(f64::EPSILON)).ok_or_else(|| {
-            cfd_core::error::Error::InvalidConfiguration(
-                "Numeric conversion failed for resistance".to_string(),
-            )
-        })?;
+        let seed_r = T::from_f64_or_zero(ch_spec.resistance.max(f64::EPSILON));
         let mut edge = Edge::new(ch_spec.id.as_str().to_string(), ch_spec.kind);
         edge.resistance = seed_r;
         edge.area = match ch_spec.cross_section {
@@ -177,11 +174,7 @@ where
                         diameter_m
                     )));
                 }
-                T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2)).ok_or_else(|| {
-                    cfd_core::error::Error::InvalidConfiguration(
-                        "Numeric conversion failed for area".to_string(),
-                    )
-                })?
+                T::from_f64_or_zero(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
                 if width_m <= 0.0
@@ -196,11 +189,7 @@ where
                         height_m
                     )));
                 }
-                T::from_f64(width_m * height_m).ok_or_else(|| {
-                    cfd_core::error::Error::InvalidConfiguration(
-                        "Numeric conversion failed for area".to_string(),
-                    )
-                })?
+                T::from_f64_or_zero(width_m * height_m)
             }
         };
 
@@ -216,13 +205,11 @@ where
         .to_ascii_lowercase()
         .contains("blood");
     let blood_state = network.fluid().properties_at(
-        T::from_f64(cfd_core::physics::constants::physics::thermo::T_STANDARD)
-            .unwrap_or_else(T::one),
-        T::from_f64(cfd_core::physics::constants::physics::thermo::P_ATM).unwrap_or_else(T::zero),
+        T::from_f64_or_one(cfd_core::physics::constants::physics::thermo::T_STANDARD),
+        T::from_f64_or_zero(cfd_core::physics::constants::physics::thermo::P_ATM),
     )?;
-    let default_hematocrit = T::from_f64(0.45).unwrap_or_else(T::zero);
-    let default_plasma_viscosity =
-        blood_state.dynamic_viscosity / T::from_f64(3.2).unwrap_or_else(T::one);
+    let default_hematocrit = T::from_f64_or_zero(0.45);
+    let default_plasma_viscosity = blood_state.dynamic_viscosity / T::from_f64_or_one(3.2);
 
     let calculator: ResistanceCalculator<T> = ResistanceCalculator::new();
 
@@ -234,73 +221,42 @@ where
                 ch_spec.length_m
             )));
         }
-        let length = T::from_f64(ch_spec.length_m).ok_or_else(|| {
-            cfd_core::error::Error::InvalidConfiguration(
-                "Numeric conversion failed for length".to_string(),
-            )
-        })?;
+        let length = T::from_f64_or_zero(ch_spec.length_m);
 
-        let (area, dh, cross_section, res_geom) =
-            match ch_spec.cross_section {
-                CrossSectionSpec::Circular { diameter_m } => {
-                    let d = T::from_f64(diameter_m).ok_or_else(|| {
-                        cfd_core::error::Error::InvalidConfiguration(
-                            "Numeric conversion failed for diameter".to_string(),
-                        )
-                    })?;
-                    let a = T::from_f64(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
-                        .ok_or_else(|| {
-                            cfd_core::error::Error::InvalidConfiguration(
-                                "Numeric conversion failed for area".to_string(),
-                            )
-                        })?;
-                    (
-                        a,
-                        Some(d),
-                        CrossSection::Circular { diameter: d },
-                        ResGeometry::Circular {
-                            diameter: d,
-                            length,
-                        },
-                    )
-                }
-                CrossSectionSpec::Rectangular { width_m, height_m } => {
-                    let w = T::from_f64(width_m).ok_or_else(|| {
-                        cfd_core::error::Error::InvalidConfiguration(
-                            "Numeric conversion failed for width".to_string(),
-                        )
-                    })?;
-                    let h = T::from_f64(height_m).ok_or_else(|| {
-                        cfd_core::error::Error::InvalidConfiguration(
-                            "Numeric conversion failed for height".to_string(),
-                        )
-                    })?;
-                    let a = T::from_f64(width_m * height_m).ok_or_else(|| {
-                        cfd_core::error::Error::InvalidConfiguration(
-                            "Numeric conversion failed for area".to_string(),
-                        )
-                    })?;
-                    let dh = T::from_f64(2.0 * width_m * height_m / (width_m + height_m))
-                        .ok_or_else(|| {
-                            cfd_core::error::Error::InvalidConfiguration(
-                                "Numeric conversion failed for hydraulic diameter".to_string(),
-                            )
-                        })?;
-                    (
-                        a,
-                        Some(dh),
-                        CrossSection::Rectangular {
-                            width: w,
-                            height: h,
-                        },
-                        ResGeometry::Rectangular {
-                            width: w,
-                            height: h,
-                            length,
-                        },
-                    )
-                }
-            };
+        let (area, dh, cross_section, res_geom) = match ch_spec.cross_section {
+            CrossSectionSpec::Circular { diameter_m } => {
+                let d = T::from_f64_or_zero(diameter_m);
+                let a = T::from_f64_or_zero(std::f64::consts::PI * (diameter_m / 2.0).powi(2));
+                (
+                    a,
+                    Some(d),
+                    CrossSection::Circular { diameter: d },
+                    ResGeometry::Circular {
+                        diameter: d,
+                        length,
+                    },
+                )
+            }
+            CrossSectionSpec::Rectangular { width_m, height_m } => {
+                let w = T::from_f64_or_zero(width_m);
+                let h = T::from_f64_or_zero(height_m);
+                let a = T::from_f64_or_zero(width_m * height_m);
+                let dh = T::from_f64_or_zero(2.0 * width_m * height_m / (width_m + height_m));
+                (
+                    a,
+                    Some(dh),
+                    CrossSection::Rectangular {
+                        width: w,
+                        height: h,
+                    },
+                    ResGeometry::Rectangular {
+                        width: w,
+                        height: h,
+                        length,
+                    },
+                )
+            }
+        };
 
         let channel_type = match ch_spec.channel_shape {
             ChannelShape::Serpentine { segments, .. } => ChannelType::Serpentine {
@@ -314,7 +270,7 @@ where
             length,
             cross_section,
             surface: SurfaceProperties {
-                roughness: T::from_f64(1e-7).expect("Mathematical constant conversion compromised"),
+                roughness: T::from_f64_or_zero(1e-7),
                 contact_angle: None,
                 surface_energy: None,
                 wettability: Wettability::Hydrophilic,
@@ -338,8 +294,7 @@ where
             length,
             area,
             hydraulic_diameter: dh,
-            resistance: T::from_f64(ch_spec.resistance)
-                .expect("Mathematical constant conversion compromised"),
+            resistance: T::from_f64_or_zero(ch_spec.resistance),
             geometry: Some(channel_geometry),
             resistance_update_policy: ResistanceUpdatePolicy::FlowDependent,
             properties: edge_property_overrides,
@@ -357,8 +312,7 @@ where
         }
 
         let mut conds = FlowConditions::new(T::zero());
-        conds.flow_rate =
-            Some(T::from_f64(1e-12).expect("Mathematical constant conversion compromised"));
+        conds.flow_rate = Some(T::from_f64_or_zero(1e-12));
         if refined.is_none() {
             refined = calculator
                 .calculate_coefficients_auto(&res_geom, network.fluid(), &conds)
@@ -368,8 +322,8 @@ where
         if let Some((r, k)) = refined {
             let mut resistance_scale = T::one();
             if let Some(dh_val) = dh {
-                let dh_f64 = nalgebra::try_convert::<T, f64>(dh_val).unwrap_or(1e-3);
-                let l_f64 = nalgebra::try_convert::<T, f64>(length).unwrap_or(0.01);
+                let dh_f64 = <T as NumericElement>::to_f64(dh_val);
+                let l_f64 = <T as NumericElement>::to_f64(length);
                 let l_over_dh = l_f64 / dh_f64.max(1e-12);
 
                 if l_over_dh < 50.0 {
@@ -379,13 +333,13 @@ where
                             re_estimate,
                             l_over_dh,
                         );
-                    resistance_scale *= T::from_f64(multiplier).unwrap_or(T::one());
+                    resistance_scale *= T::from_f64_or_one(multiplier);
                 }
 
                 if is_blood_like && dh_f64 < 300.0e-6 {
                     let q_seed_t = conds.flow_rate.unwrap_or_else(T::zero);
-                    let q_seed = nalgebra::try_convert::<T, f64>(q_seed_t).unwrap_or(0.0);
-                    let area_f64 = nalgebra::try_convert::<T, f64>(area).unwrap_or(0.0);
+                    let q_seed = <T as NumericElement>::to_f64(q_seed_t);
+                    let area_f64 = <T as NumericElement>::to_f64(area);
                     if let Some(target_mu) = blood_microchannel_apparent_viscosity(
                         dh_val,
                         q_seed_t,
@@ -401,7 +355,7 @@ where
                         let local_mu = network
                             .fluid()
                             .viscosity_at_shear(
-                                T::from_f64(local_shear_rate).unwrap_or_else(T::zero),
+                                T::from_f64_or_zero(local_shear_rate),
                                 conds.temperature,
                                 conds.pressure,
                             )
@@ -435,7 +389,7 @@ where
             ChannelShape::Straight => network.graph.edge_weight(*edge_idx).map_or(
                 ResistanceUpdatePolicy::FlowDependent,
                 |edge| {
-                    if edge.quad_coeff.abs() <= eps {
+                    if <T as NumericElement>::abs(edge.quad_coeff) <= eps {
                         ResistanceUpdatePolicy::FlowInvariant
                     } else {
                         ResistanceUpdatePolicy::FlowDependent
@@ -464,12 +418,7 @@ where
                 continue;
             };
 
-            let length_t = T::from_f64(ch_spec.length_m).ok_or_else(|| {
-                cfd_core::error::Error::InvalidConfiguration(format!(
-                    "Numeric conversion failed for length {}",
-                    ch_spec.id.as_str()
-                ))
-            })?;
+            let length_t = T::from_f64_or_zero(ch_spec.length_m);
             let bend_r = if bend_radius_m <= 0.0 || !bend_radius_m.is_finite() {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Channel '{}' has invalid serpentine bend radius: {}",
@@ -477,11 +426,7 @@ where
                     bend_radius_m
                 )));
             } else {
-                T::from_f64(bend_radius_m).ok_or_else(|| {
-                    cfd_core::error::Error::InvalidConfiguration(
-                        "Numeric conversion failed for bend_radius".to_string(),
-                    )
-                })?
+                T::from_f64_or_zero(bend_radius_m)
             };
 
             let cross_section = match ch_spec.cross_section {
@@ -496,7 +441,7 @@ where
                 }
             };
 
-            let total_length = length_t * T::from_usize(total_segments).unwrap_or(T::one());
+            let total_length = length_t * T::from_usize_or_one(total_segments);
 
             let serp_model = {
                 use cfd_schematics::SerpentineWaveType;
@@ -509,13 +454,12 @@ where
             };
 
             let mut conds: FC<T> = FC::new(T::zero());
-            conds.flow_rate =
-                Some(T::from_f64(1e-12).expect("Mathematical constant conversion compromised"));
+            conds.flow_rate = Some(T::from_f64_or_zero(1e-12));
 
             if let Ok((r_total, k_total)) =
                 serp_model.calculate_coefficients(network.fluid(), &conds)
             {
-                let n_segs = T::from_usize(total_segments.max(1)).unwrap_or(T::one());
+                let n_segs = T::from_usize_or_one(total_segments.max(1));
                 let r_seg = r_total / n_segs;
                 let k_seg = k_total / n_segs;
 
@@ -558,7 +502,7 @@ pub fn apply_blueprint_boundary_conditions<T, F, S>(
     outlet_pressure: T,
 ) -> Result<()>
 where
-    T: RealField + Copy + FromPrimitive,
+    T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + NumericElement,
     F: FluidTrait<T>,
     S: BuildHasher,
 {
@@ -579,21 +523,11 @@ where
         {
             match boundary.boundary {
                 BranchBoundarySpecification::Pressure { pressure_pa } => {
-                    let pressure = T::from_f64(pressure_pa).ok_or_else(|| {
-                        cfd_core::error::Error::InvalidConfiguration(format!(
-                            "Blueprint node '{}' pressure boundary could not be converted",
-                            node.id.as_str()
-                        ))
-                    })?;
+                    let pressure = T::from_f64_or_zero(pressure_pa);
                     network.set_pressure(node_idx, pressure);
                 }
                 BranchBoundarySpecification::FlowRate { flow_rate_m3_s } => {
-                    let flow_rate = T::from_f64(flow_rate_m3_s).ok_or_else(|| {
-                        cfd_core::error::Error::InvalidConfiguration(format!(
-                            "Blueprint node '{}' flow boundary could not be converted",
-                            node.id.as_str()
-                        ))
-                    })?;
+                    let flow_rate = T::from_f64_or_zero(flow_rate_m3_s);
                     network.set_neumann_flow(node_idx, flow_rate);
                 }
             }

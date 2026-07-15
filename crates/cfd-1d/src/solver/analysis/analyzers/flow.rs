@@ -3,25 +3,26 @@
 use super::traits::NetworkAnalyzer;
 use crate::domain::channel::FlowRegime;
 use crate::domain::network::Network;
+use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::FlowAnalysis;
+use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::Result;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::NumericElement;
 use petgraph::visit::EdgeRef;
 use std::iter::Sum;
 
 /// Flow analyzer for network components
-pub struct FlowAnalyzer<T: RealField + Copy> {
+pub struct FlowAnalyzer<T: Cfd1dScalar + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> Default for FlowAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy> Default for FlowAnalyzer<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy> FlowAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy> FlowAnalyzer<T> {
     /// Create new flow analyzer
     #[must_use]
     pub fn new() -> Self {
@@ -31,7 +32,9 @@ impl<T: RealField + Copy> FlowAnalyzer<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> for FlowAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<T>
+    for FlowAnalyzer<T>
+{
     type Result = FlowAnalysis<T>;
 
     fn analyze(&mut self, network: &Network<T>) -> Result<FlowAnalysis<T>> {
@@ -45,12 +48,12 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> for F
 
                 let area = edge.properties.area;
                 let velocity = flow_rate / area;
-                let velocity_mag = Float::abs(velocity);
+                let velocity_mag = <T as NumericElement>::abs(velocity);
                 analysis.add_velocity(edge.id.clone(), velocity_mag);
 
                 let hydraulic_diameter = edge.properties.hydraulic_diameter.unwrap_or_else(|| {
                     (T::one() + T::one() + T::one() + T::one()) * area
-                        / (T::pi() * Float::sqrt(area))
+                        / (T::pi() * <T as NumericElement>::sqrt(area))
                 });
 
                 let reynolds = network.fluid().density * velocity_mag * hydraulic_diameter
@@ -58,8 +61,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> for F
                 analysis.add_reynolds_number(edge.id.clone(), reynolds);
 
                 if hydraulic_diameter > T::zero() {
-                    let eight =
-                        T::from_f64(8.0).expect("Mathematical constant conversion compromised");
+                    let eight = T::from_f64_or_one(8.0);
                     let shear_rate = eight * velocity_mag / hydraulic_diameter;
                     let shear_stress = network.fluid().viscosity * shear_rate;
                     analysis.add_wall_shear_rate(edge.id.clone(), shear_rate);
@@ -84,7 +86,7 @@ impl<T: RealField + Copy + FromPrimitive + Float + Sum> NetworkAnalyzer<T> for F
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Float> FlowAnalyzer<T> {
+impl<T: Cfd1dScalar + Copy + SafeFromF64> FlowAnalyzer<T> {
     fn determine_flow_regime(
         &self,
         network: &Network<T>,
@@ -97,11 +99,13 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowAnalyzer<T> {
         // Calculate Reynolds number
         let area = properties.area;
         let hydraulic_diameter = properties.hydraulic_diameter.unwrap_or_else(|| {
-            (T::one() + T::one() + T::one() + T::one()) * area / (T::pi() * Float::sqrt(area))
+            (T::one() + T::one() + T::one() + T::one()) * area
+                / (T::pi() * <T as NumericElement>::sqrt(area))
         });
 
         let velocity = flow_rate / area;
-        let reynolds = fluid.density * Float::abs(velocity) * hydraulic_diameter / fluid.viscosity;
+        let reynolds = fluid.density * <T as NumericElement>::abs(velocity) * hydraulic_diameter
+            / fluid.viscosity;
 
         FlowRegime::from_reynolds_number(reynolds)
     }
@@ -117,7 +121,7 @@ impl<T: RealField + Copy + FromPrimitive + Float> FlowAnalyzer<T> {
                 for edge_ref in network.graph.edges(node_idx) {
                     let edge_idx = edge_ref.id();
                     if let Some(&flow) = network.flow_rates().get(edge_idx.index()) {
-                        total += Float::abs(flow);
+                        total += <T as NumericElement>::abs(flow);
                     }
                 }
             }

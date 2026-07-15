@@ -2,7 +2,7 @@
 
 use super::traits::Interpolation;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
+use eunomia::RealField;
 
 /// Lagrange polynomial interpolation
 pub struct LagrangeInterpolation<T: RealField + Copy> {
@@ -25,6 +25,12 @@ impl<T: RealField + Copy> LagrangeInterpolation<T> {
             ));
         }
 
+        if !x_data.windows(2).all(|w| w[0] < w[1]) {
+            return Err(Error::InvalidConfiguration(
+                "x_data must be strictly increasing (no duplicate nodes)".to_string(),
+            ));
+        }
+
         Ok(Self { x_data, y_data })
     }
 
@@ -34,7 +40,7 @@ impl<T: RealField + Copy> LagrangeInterpolation<T> {
             .iter()
             .enumerate()
             .filter(|(j, _)| *j != i)
-            .fold(T::one(), |acc, (_j, xj)| {
+            .fold(T::ONE, |acc, (_j, xj)| {
                 acc * (*x - *xj) / (self.x_data[i] - *xj)
             })
     }
@@ -48,24 +54,11 @@ impl<T: RealField + Copy> Interpolation<T> for LagrangeInterpolation<T> {
             .iter()
             .enumerate()
             .map(|(i, yi)| *yi * self.lagrange_basis(i, &x))
-            .reduce(|acc, term| acc + term)
-            .unwrap_or_else(|| T::zero()))
+            .fold(T::ZERO, |acc, term| acc + term))
     }
 
     /// Get the bounds of the interpolation domain
     fn bounds(&self) -> (T, T) {
-        let min = self
-            .x_data
-            .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        let max = self
-            .x_data
-            .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-
-        match (min, max) {
-            (Some(min_val), Some(max_val)) => (*min_val, *max_val),
-            _ => (T::zero(), T::zero()), // Should never happen due to constructor validation
-        }
+        (self.x_data[0], self.x_data[self.x_data.len() - 1])
     }
 }

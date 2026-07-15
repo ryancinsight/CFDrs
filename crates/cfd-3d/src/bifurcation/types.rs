@@ -1,8 +1,8 @@
 //! Data types for the 3D bifurcation solver.
 
-use cfd_core::conversion::SafeFromF64;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use crate::scalar;
+use eunomia::FloatElement;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 use super::geometry::BifurcationGeometry3D;
@@ -37,27 +37,22 @@ pub struct BifurcationConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + C
     pub mesh_resolution: usize,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64,
-    > Default for BifurcationConfig3D<T>
+impl<T> Default for BifurcationConfig3D<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
 {
     fn default() -> Self {
         Self {
-            inlet_flow_rate: T::from_f64_or_one(1e-8),
-            inlet_pressure: T::from_f64_or_one(100.0),
-            outlet_pressure: T::zero(),
-            time_step: T::from_f64_or_one(0.001),
+            inlet_flow_rate: scalar::from_f64::<T>(1e-8),
+            inlet_pressure: scalar::from_f64::<T>(100.0),
+            outlet_pressure: scalar::zero::<T>(),
+            time_step: scalar::from_f64::<T>(0.001),
             num_time_steps: 1,
             steady_state: true,
             max_nonlinear_iterations: 20,
-            nonlinear_tolerance: T::from_f64_or_one(1e-4),
+            nonlinear_tolerance: scalar::from_f64::<T>(1e-4),
             max_linear_iterations: 1000,
-            linear_tolerance: T::from_f64_or_one(1e-6),
+            linear_tolerance: scalar::from_f64::<T>(1e-6),
             mesh_resolution: 8,
         }
     }
@@ -104,28 +99,31 @@ pub struct BifurcationSolution3D<T: cfd_mesh::domain::core::Scalar + RealField +
     pub mass_conservation_error: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> BifurcationSolution3D<T> {
+impl<T> BifurcationSolution3D<T>
+where
+    T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy,
+{
     /// Create a zero-initialized bifurcation solution for the given geometry
     pub fn new(_geometry: &BifurcationGeometry3D<T>) -> Self {
         Self {
-            q_parent: T::zero(),
-            q_daughter1: T::zero(),
-            q_daughter2: T::zero(),
-            u_parent_mean: T::zero(),
-            u_daughter1_mean: T::zero(),
-            u_daughter2_mean: T::zero(),
-            p_inlet: T::zero(),
-            p_junction_mid: T::zero(),
-            p_daughter1_outlet: T::zero(),
-            p_daughter2_outlet: T::zero(),
-            p_outlet: T::zero(),
-            dp_parent: T::zero(),
-            dp_daughter1: T::zero(),
-            dp_daughter2: T::zero(),
-            wall_shear_stress_parent: T::zero(),
-            wall_shear_stress_daughter1: T::zero(),
-            wall_shear_stress_daughter2: T::zero(),
-            mass_conservation_error: T::zero(),
+            q_parent: scalar::zero::<T>(),
+            q_daughter1: scalar::zero::<T>(),
+            q_daughter2: scalar::zero::<T>(),
+            u_parent_mean: scalar::zero::<T>(),
+            u_daughter1_mean: scalar::zero::<T>(),
+            u_daughter2_mean: scalar::zero::<T>(),
+            p_inlet: scalar::zero::<T>(),
+            p_junction_mid: scalar::zero::<T>(),
+            p_daughter1_outlet: scalar::zero::<T>(),
+            p_daughter2_outlet: scalar::zero::<T>(),
+            p_outlet: scalar::zero::<T>(),
+            dp_parent: scalar::zero::<T>(),
+            dp_daughter1: scalar::zero::<T>(),
+            dp_daughter2: scalar::zero::<T>(),
+            wall_shear_stress_parent: scalar::zero::<T>(),
+            wall_shear_stress_daughter1: scalar::zero::<T>(),
+            wall_shear_stress_daughter2: scalar::zero::<T>(),
+            mass_conservation_error: scalar::zero::<T>(),
         }
     }
 

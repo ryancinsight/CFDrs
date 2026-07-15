@@ -3,20 +3,21 @@
 //! This module provides standard CFD benchmark problems for validating
 //! solver implementations against known solutions.
 
+use crate::scalar;
 use cfd_core::error::Result;
-use nalgebra::RealField;
+use eunomia::{FloatElement, RealField};
 use serde::{Deserialize, Serialize};
 
 pub mod bifurcation;
 pub mod cavity;
 pub mod cylinder;
 pub mod runner;
-pub mod vorticity_stream;
 pub mod serpentine;
 pub mod step;
 pub mod threed;
 pub mod trifurcation;
 pub mod venturi;
+pub mod vorticity_stream;
 // NOTE: poiseuille_bifurcation module temporarily disabled due to API compatibility.
 // Awaiting alignment with updated cfd-1d/cfd-2d solver interfaces.
 // pub mod poiseuille_bifurcation;
@@ -25,15 +26,15 @@ pub use bifurcation::BifurcationFlow;
 pub use cavity::LidDrivenCavity;
 pub use cylinder::FlowOverCylinder;
 pub use runner::{BenchmarkRunner, ValidationReport};
-pub use vorticity_stream::{
-    VorticityStreamCavityBenchmark, VorticityStreamCavityConfig,
-    VorticityStreamCavityHistory, VorticityStreamCavityReport,
-};
 pub use serpentine::SerpentineFlow;
 pub use step::BackwardFacingStep;
 pub use threed::*;
 pub use trifurcation::TrifurcationFlow;
 pub use venturi::VenturiFlow;
+pub use vorticity_stream::{
+    VorticityStreamCavityBenchmark, VorticityStreamCavityConfig, VorticityStreamCavityHistory,
+    VorticityStreamCavityReport,
+};
 // pub use poiseuille_bifurcation::*;
 
 /// Trait for CFD benchmark problems
@@ -105,15 +106,13 @@ pub struct BenchmarkConfig<T: RealField + Copy> {
     pub parallel: bool,
 }
 
-impl<T: RealField + Copy> Default for BenchmarkConfig<T> {
+impl<T: RealField + Copy + FloatElement> Default for BenchmarkConfig<T> {
     fn default() -> Self {
         Self {
             resolution: 64,
-            tolerance: T::from_f64(1e-6)
-                .unwrap_or_else(|| T::from_f64(0.000001).unwrap_or_else(num_traits::Zero::zero)),
+            tolerance: scalar::from_f64(1e-6),
             max_iterations: 1000,
-            reynolds_number: T::from_f64(100.0)
-                .unwrap_or_else(|| T::from_i32(100).unwrap_or_else(num_traits::Zero::zero)),
+            reynolds_number: scalar::from_f64(100.0),
             time_step: None,
             parallel: true,
         }

@@ -1,14 +1,14 @@
 //! NUFFT-backed coupling helpers for immersed-boundary marker and probe transfer.
 
+use crate::atlas_array::{fft_3d_array, ifft_3d_array, map, nufft_type1_3d, nufft_type2_3d, value};
 use apollo_fft::Complex64;
-use apollo_fft::{fft_3d_array, ifft_3d_array};
-use apollo_nufft::{nufft_type1_3d, nufft_type2_3d, UniformGrid3D};
+use apollo_nufft::UniformGrid3D;
 use cfd_core::{
     error::{Error, Result},
     physics::fluid_dynamics::VelocityField,
 };
-use nalgebra::Vector3;
-use ndarray::Array3;
+use leto::Array3;
+use leto::Vector3;
 
 use super::lagrangian::LagrangianPoint;
 
@@ -68,10 +68,10 @@ impl NufftMarkerCoupler3D {
     ) -> Result<Vec<f64>> {
         self.validate_scalar_field(field)?;
 
-        let field_hat = fft_3d_array(field);
+        let field_hat = fft_3d_array(field)?;
         let normalized_hat = self.normalize_spectrum(&field_hat);
         let probe_positions = self.positions_to_tuples(positions);
-        let samples = nufft_type2_3d(&probe_positions, &normalized_hat, self.grid);
+        let samples = nufft_type2_3d(&probe_positions, &normalized_hat, self.grid)?;
 
         Ok(samples.into_iter().map(|sample| sample.re).collect())
     }
@@ -88,14 +88,14 @@ impl NufftMarkerCoupler3D {
         let uy = self.component_to_array(field, 1)?;
         let uz = self.component_to_array(field, 2)?;
 
-        let ux_hat = self.normalize_spectrum(&fft_3d_array(&ux));
-        let uy_hat = self.normalize_spectrum(&fft_3d_array(&uy));
-        let uz_hat = self.normalize_spectrum(&fft_3d_array(&uz));
+        let ux_hat = self.normalize_spectrum(&fft_3d_array(&ux)?);
+        let uy_hat = self.normalize_spectrum(&fft_3d_array(&uy)?);
+        let uz_hat = self.normalize_spectrum(&fft_3d_array(&uz)?);
 
         let probe_positions = self.positions_to_tuples(positions);
-        let sampled_x = nufft_type2_3d(&probe_positions, &ux_hat, self.grid);
-        let sampled_y = nufft_type2_3d(&probe_positions, &uy_hat, self.grid);
-        let sampled_z = nufft_type2_3d(&probe_positions, &uz_hat, self.grid);
+        let sampled_x = nufft_type2_3d(&probe_positions, &ux_hat, self.grid)?;
+        let sampled_y = nufft_type2_3d(&probe_positions, &uy_hat, self.grid)?;
+        let sampled_z = nufft_type2_3d(&probe_positions, &uz_hat, self.grid)?;
 
         Ok(sampled_x
             .into_iter()
@@ -134,22 +134,22 @@ impl NufftMarkerCoupler3D {
             .map(|marker| Complex64::new(marker.force.z * marker.weight, 0.0))
             .collect();
 
-        let force_hat_x = nufft_type1_3d(&positions, &forces_x, self.grid);
-        let force_hat_y = nufft_type1_3d(&positions, &forces_y, self.grid);
-        let force_hat_z = nufft_type1_3d(&positions, &forces_z, self.grid);
+        let force_hat_x = nufft_type1_3d(&positions, &forces_x, self.grid)?;
+        let force_hat_y = nufft_type1_3d(&positions, &forces_y, self.grid)?;
+        let force_hat_z = nufft_type1_3d(&positions, &forces_z, self.grid)?;
 
-        let force_x = ifft_3d_array(&force_hat_x);
-        let force_y = ifft_3d_array(&force_hat_y);
-        let force_z = ifft_3d_array(&force_hat_z);
+        let force_x = ifft_3d_array(&force_hat_x)?;
+        let force_y = ifft_3d_array(&force_hat_y)?;
+        let force_z = ifft_3d_array(&force_hat_z)?;
 
         Ok(self.velocity_field_from_components(force_x, force_y, force_z))
     }
 
     fn validate_scalar_field(&self, field: &Array3<f64>) -> Result<()> {
-        if field.dim() != (self.grid.nx, self.grid.ny, self.grid.nz) {
+        if field.shape() != [self.grid.nx, self.grid.ny, self.grid.nz] {
             return Err(Error::DimensionMismatch {
                 expected: self.grid.nx * self.grid.ny * self.grid.nz,
-                actual: field.len(),
+                actual: field.size(),
             });
         }
         Ok(())
@@ -184,8 +184,8 @@ impl NufftMarkerCoupler3D {
         }
 
         Ok(Array3::from_shape_fn(
-            (self.grid.nx, self.grid.ny, self.grid.nz),
-            |(i, j, k)| {
+            [self.grid.nx, self.grid.ny, self.grid.nz],
+            |[i, j, k]| {
                 let index = k * self.grid.nx * self.grid.ny + j * self.grid.nx + i;
                 field.components[index][component]
             },
@@ -203,7 +203,12 @@ impl NufftMarkerCoupler3D {
         for k in 0..self.grid.nz {
             for j in 0..self.grid.ny {
                 for i in 0..self.grid.nx {
-                    components.push(Vector3::new(x[[i, j, k]], y[[i, j, k]], z[[i, j, k]]));
+                    let index = [i, j, k];
+                    components.push(leto::geometry::Vector3::new(
+                        value(&x, index),
+                        value(&y, index),
+                        value(&z, index),
+                    ));
                 }
             }
         }
@@ -239,7 +244,7 @@ impl NufftMarkerCoupler3D {
 
     fn normalize_spectrum(&self, spectrum: &Array3<Complex64>) -> Array3<Complex64> {
         let scale = (self.grid.nx * self.grid.ny * self.grid.nz) as f64;
-        spectrum.mapv(|value| value / scale)
+        map(spectrum, |value| value / scale)
     }
 }
 
@@ -260,7 +265,7 @@ mod tests {
                     let u = 1.0 + 0.25 * (2.0 * std::f64::consts::PI * x / lx).cos();
                     let v = -0.5 * (2.0 * std::f64::consts::PI * y / ly).sin();
                     let w = 0.125 * (2.0 * std::f64::consts::PI * z / lz).cos();
-                    components.push(Vector3::new(u, v, w));
+                    components.push(leto::geometry::Vector3::new(u, v, w));
                 }
             }
         }

@@ -17,8 +17,12 @@
 //! **Reference:** Keast, P., "Moderate-degree tetrahedral quadrature formulas",
 //! CMAME 55(3), 1986, pp. 339–348.
 
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use leto::Vector3;
+
+use eunomia::FloatElement;
+
+use super::scalar;
 
 /// Numerical integration for tetrahedra
 pub struct TetrahedronQuadrature<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
@@ -26,24 +30,17 @@ pub struct TetrahedronQuadrature<T: cfd_mesh::domain::core::Scalar + RealField +
     weights: Vec<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
-    TetrahedronQuadrature<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> TetrahedronQuadrature<T> {
     /// Keast degree 3 quadrature rule (5 points)
     /// Precision O(h^4), enough for quadratic elements
     pub fn keast_degree_3() -> Self {
-        let a = <T as FromPrimitive>::from_f64(0.25)
-            .expect("0.25 is exactly representable in IEEE 754");
-        let b =
-            <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
-        let c = <T as FromPrimitive>::from_f64(1.0 / 6.0)
-            .expect("1/6 is an IEEE 754 representable f64 constant");
+        let a = scalar::constant(0.25);
+        let b = scalar::constant(0.5);
+        let c = scalar::constant(1.0 / 6.0);
 
         let p1 = Vector3::new(a, a, a);
-        let w1 = <T as FromPrimitive>::from_f64(-0.8)
-            .expect("-0.8 is an IEEE 754 representable f64 constant")
-            / <T as FromPrimitive>::from_f64(6.0)
-                .expect("6.0 is representable in all IEEE 754 types"); // Normalized volume = 1/6
+        let six = scalar::constant(6.0);
+        let w1 = scalar::constant::<T>(-0.8) / six; // Normalized volume = 1/6
 
         // Other 4 points are permutations of (1/2, 1/6, 1/6)
         let points = vec![
@@ -54,10 +51,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
             Vector3::new(c, c, c),
         ];
 
-        let w2 = <T as FromPrimitive>::from_f64(0.45)
-            .expect("0.45 is an IEEE 754 representable f64 constant")
-            / <T as FromPrimitive>::from_f64(6.0)
-                .expect("6.0 is representable in all IEEE 754 types");
+        let w2 = scalar::constant::<T>(0.45) / six;
         let weights = vec![w1, w2, w2, w2, w2];
 
         Self { points, weights }

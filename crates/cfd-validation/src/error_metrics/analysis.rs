@@ -1,16 +1,15 @@
 //! Error analysis utilities and convergence rate computation
 
-use cfd_core::conversion::SafeFromF64;
+use crate::scalar;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
-use num_traits::cast::FromPrimitive;
+use eunomia::{FloatElement, RealField};
 
 /// Utility functions for error analysis
 pub struct ErrorAnalysis;
 
 impl ErrorAnalysis {
     /// Compute convergence rate from error measurements at different grid sizes
-    pub fn convergence_rate<T: RealField + Copy + FromPrimitive + Copy>(
+    pub fn convergence_rate<T: RealField + Copy + FloatElement>(
         grid_sizes: &[T],
         errors: &[T],
     ) -> Result<T> {
@@ -22,25 +21,21 @@ impl ErrorAnalysis {
 
         // Use least squares fit to log(error) = log(C) + p*log(h)
         // where p is the convergence rate
-        let n = T::from_usize(grid_sizes.len()).ok_or_else(|| {
-            Error::InvalidConfiguration(
-                "Failed to convert grid size length to target type".to_string(),
-            )
-        })?;
+        let n = scalar::from_usize::<T>(grid_sizes.len());
 
-        let log_h: Vec<T> = grid_sizes.iter().map(|h| h.ln()).collect();
-        let log_e: Vec<T> = errors.iter().map(|e| e.ln()).collect();
+        let log_h: Vec<T> = grid_sizes.iter().map(|h| scalar::ln(*h)).collect();
+        let log_e: Vec<T> = errors.iter().map(|e| scalar::ln(*e)).collect();
 
         // Compute means
-        let mean_log_h = log_h.iter().fold(T::zero(), |acc, x| acc + *x) / n;
-        let mean_log_e = log_e.iter().fold(T::zero(), |acc, x| acc + *x) / n;
+        let mean_log_h = log_h.iter().fold(scalar::zero::<T>(), |acc, x| acc + *x) / n;
+        let mean_log_e = log_e.iter().fold(scalar::zero::<T>(), |acc, x| acc + *x) / n;
 
         // Compute slope (convergence rate)
         let numerator: T = log_h
             .iter()
             .zip(log_e.iter())
             .map(|(h, e)| (*h - mean_log_h) * (*e - mean_log_e))
-            .fold(T::zero(), |acc, x| acc + x);
+            .fold(scalar::zero::<T>(), |acc, x| acc + x);
 
         let denominator: T = log_h
             .iter()
@@ -48,9 +43,9 @@ impl ErrorAnalysis {
                 let diff = *h - mean_log_h;
                 diff * diff
             })
-            .fold(T::zero(), |acc, x| acc + x);
+            .fold(scalar::zero::<T>(), |acc, x| acc + x);
 
-        if denominator == T::zero() {
+        if denominator == scalar::zero::<T>() {
             return Err(Error::InvalidConfiguration(
                 "Cannot compute convergence rate: grid sizes are identical".to_string(),
             ));
@@ -65,12 +60,12 @@ impl ErrorAnalysis {
     }
 
     /// Compute error reduction factor between two measurements
-    pub fn error_reduction_factor<T: RealField + Copy>(coarse_error: T, fine_error: T) -> T {
-        if fine_error == T::zero() {
-            return T::max_value().unwrap_or_else(|| {
-                // Fallback to a large finite value
-                <T as SafeFromF64>::try_from_f64(1e10).unwrap_or(T::from_f64_or_one(1_000_000.0))
-            });
+    pub fn error_reduction_factor<T: RealField + Copy + FloatElement>(
+        coarse_error: T,
+        fine_error: T,
+    ) -> T {
+        if fine_error == scalar::zero::<T>() {
+            return <T as RealField>::max_value();
         }
         coarse_error / fine_error
     }

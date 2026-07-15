@@ -1,7 +1,9 @@
 //! Forcing methods for IBM
 
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::Vector3;
 
 /// Forcing method for IBM
 pub trait ForcingMethod<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
@@ -43,7 +45,7 @@ impl Default for DirectForcing {
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ForcingMethod<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> ForcingMethod<T>
     for DirectForcing
 {
     fn calculate_force(
@@ -53,8 +55,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Forci
         dt: T,
     ) -> Vector3<T> {
         // Exact direct-forcing: f = (u_desired − u*) / Δt
-        if dt > T::zero() {
-            (desired_velocity - current_velocity) / dt
+        if dt > scalar::zero::<T>() {
+            (*desired_velocity - *current_velocity) / dt
         } else {
             Vector3::zeros()
         }
@@ -72,7 +74,7 @@ pub struct FeedbackForcing<T: cfd_mesh::domain::core::Scalar + RealField + Copy>
     integral: Vector3<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> FeedbackForcing<T> {
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> FeedbackForcing<T> {
     /// Create a new feedback forcing method
     pub fn new(kp: T, ki: T) -> Self {
         Self {
@@ -88,7 +90,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Feedb
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> ForcingMethod<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> ForcingMethod<T>
     for FeedbackForcing<T>
 {
     fn calculate_force(
@@ -97,13 +99,13 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Forci
         current_velocity: &Vector3<T>,
         _dt: T,
     ) -> Vector3<T> {
-        let error = desired_velocity - current_velocity;
+        let error = *desired_velocity - *current_velocity;
 
         // PI control
         error * self.kp + self.integral * self.ki
     }
 
     fn update(&mut self, error: &Vector3<T>) {
-        self.integral += error;
+        self.integral += *error;
     }
 }

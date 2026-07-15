@@ -84,13 +84,16 @@
 //! 4. **Narrow Band**: Update index set of cells within `band_width` grid spacings
 //!    of the interface.
 
-use super::{advection, config::LevelSetConfig};
+use super::{
+    advection,
+    config::LevelSetConfig,
+    scalar::{self, LevelSetScalar},
+};
 use cfd_core::error::{Error, Result};
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use leto::geometry::Vector3;
 
 /// Level Set solver for interface tracking
-pub struct LevelSetSolver<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> {
+pub struct LevelSetSolver<T: LevelSetScalar> {
     config: LevelSetConfig,
     /// Grid dimensions
     nx: usize,
@@ -114,7 +117,7 @@ pub struct LevelSetSolver<T: cfd_mesh::domain::core::Scalar + RealField + FromPr
     time_step: usize,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> LevelSetSolver<T> {
+impl<T: LevelSetScalar> LevelSetSolver<T> {
     /// Create a new Level Set solver
     pub fn new(
         config: LevelSetConfig,
@@ -134,9 +137,9 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
             dx,
             dy,
             dz,
-            phi: vec![T::zero(); grid_size],
-            phi_previous: vec![T::zero(); grid_size],
-            phi_reinit: vec![T::zero(); grid_size],
+            phi: vec![scalar::zero::<T>(); grid_size],
+            phi_previous: vec![scalar::zero::<T>(); grid_size],
+            phi_reinit: vec![scalar::zero::<T>(); grid_size],
             velocity: vec![Vector3::zeros(); grid_size],
             narrow_band: Vec::new(),
             time_step: 0,
@@ -185,13 +188,11 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
     /// Update narrow band indices based on current level set
     pub fn update_narrow_band(&mut self) {
         self.narrow_band.clear();
-        let band_width = <T as FromPrimitive>::from_f64(self.config.band_width)
-            .expect("band_width config is an IEEE 754 representable f64");
-        let cell_limit =
-            band_width * num_traits::Float::min(num_traits::Float::min(self.dx, self.dy), self.dz);
+        let band_width = scalar::from_f64::<T>(self.config.band_width);
+        let cell_limit = band_width * scalar::min::<T>(scalar::min::<T>(self.dx, self.dy), self.dz);
 
         for idx in 0..self.phi.len() {
-            if num_traits::Float::abs(self.phi[idx]) <= cell_limit {
+            if scalar::abs(self.phi[idx]) <= cell_limit {
                 self.narrow_band.push(idx);
             }
         }
@@ -264,21 +265,15 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
     /// in place. Away from the interface, the Godunov Hamiltonian propagates
     /// information outward (S > 0) or inward (S < 0) until |∇φ| = 1.
     fn reinitialize(&mut self) -> Result<()> {
-        use num_traits::Float;
-
-        let dx_min = Float::min(Float::min(self.dx, self.dy), self.dz);
+        let dx_min = scalar::min::<T>(scalar::min::<T>(self.dx, self.dy), self.dz);
         if self.config.max_iterations == 0 {
             return Ok(());
         }
 
-        let cfl = <T as FromPrimitive>::from_f64(self.config.cfl_number)
-            .expect("cfl_number is an IEEE 754 representable f64 constant");
+        let cfl = scalar::from_f64::<T>(self.config.cfl_number);
         // Keep the previous default dtau = dx_min / 6.0 when cfl_number = 0.5.
-        let dtau = dx_min * cfl
-            / <T as FromPrimitive>::from_f64(3.0)
-                .expect("3.0 is representable in all IEEE 754 types");
-        let tol = <T as FromPrimitive>::from_f64(self.config.tolerance)
-            .expect("tolerance is an IEEE 754 representable f64 constant");
+        let dtau = dx_min * cfl / scalar::from_f64::<T>(3.0);
+        let tol = scalar::from_f64::<T>(self.config.tolerance);
 
         // Store φ₀ for the sign function (must not be overwritten during iteration).
         self.phi_reinit.copy_from_slice(&self.phi);
@@ -288,7 +283,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
         for _ in 0..max_iters {
             std::mem::swap(&mut self.phi, &mut self.phi_previous);
 
-            let mut max_err = T::zero();
+            let mut max_err = scalar::zero::<T>();
 
             for k in 1..self.nz.saturating_sub(1) {
                 for j in 1..self.ny.saturating_sub(1) {
@@ -298,14 +293,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
                         // S(φ₀) = φ₀ / √(φ₀² + Δx²)
                         let phi0_val = self.phi_reinit[idx];
                         let sign_phi =
-                            phi0_val / Float::sqrt(phi0_val * phi0_val + dx_min * dx_min);
+                            phi0_val / scalar::sqrt::<T>(phi0_val * phi0_val + dx_min * dx_min);
 
                         let grad_mag = self.godunov_gradient_magnitude(i, j, k, sign_phi);
 
-                        self.phi[idx] =
-                            self.phi_previous[idx] - dtau * sign_phi * (grad_mag - T::one());
+                        self.phi[idx] = self.phi_previous[idx]
+                            - dtau * sign_phi * (grad_mag - scalar::one::<T>());
 
-                        let err = Float::abs(grad_mag - T::one());
+                        let err = scalar::abs::<T>(grad_mag - scalar::one::<T>());
                         if err > max_err {
                             max_err = err;
                         }
@@ -343,9 +338,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
     /// - If S > 0: |∇φ|² = Σ_d [ max(max(D⁻,0)², max(−D⁺,0)²) ]
     /// - If S < 0: |∇φ|² = Σ_d [ max(max(D⁺,0)², max(−D⁻,0)²) ]
     fn godunov_gradient_magnitude(&self, i: usize, j: usize, k: usize, sign_phi: T) -> T {
-        use num_traits::Float;
-
-        let zero = T::zero();
+        let zero = scalar::zero::<T>();
         let idx = self.index(i, j, k);
 
         // First-order one-sided differences from phi_previous
@@ -370,36 +363,36 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy> Level
             - self.phi_previous[idx])
             / self.dz;
 
-        let mut grad_sq = T::zero();
+        let mut grad_sq = scalar::zero::<T>();
 
         if sign_phi > zero {
             // Propagate outward: use max(D⁻,0)² and max(-D⁺,0)²
-            let ax = Float::max(dm_x, zero);
-            let bx = Float::min(dp_x, zero);
-            grad_sq += Float::max(ax * ax, bx * bx);
+            let ax = scalar::max::<T>(dm_x, zero);
+            let bx = scalar::min::<T>(dp_x, zero);
+            grad_sq += scalar::max::<T>(ax * ax, bx * bx);
 
-            let ay = Float::max(dm_y, zero);
-            let by = Float::min(dp_y, zero);
-            grad_sq += Float::max(ay * ay, by * by);
+            let ay = scalar::max::<T>(dm_y, zero);
+            let by = scalar::min::<T>(dp_y, zero);
+            grad_sq += scalar::max::<T>(ay * ay, by * by);
 
-            let az = Float::max(dm_z, zero);
-            let bz = Float::min(dp_z, zero);
-            grad_sq += Float::max(az * az, bz * bz);
+            let az = scalar::max::<T>(dm_z, zero);
+            let bz = scalar::min::<T>(dp_z, zero);
+            grad_sq += scalar::max::<T>(az * az, bz * bz);
         } else {
             // Propagate inward: use max(D⁺,0)² and max(-D⁻,0)²
-            let ax = Float::min(dm_x, zero);
-            let bx = Float::max(dp_x, zero);
-            grad_sq += Float::max(ax * ax, bx * bx);
+            let ax = scalar::min::<T>(dm_x, zero);
+            let bx = scalar::max::<T>(dp_x, zero);
+            grad_sq += scalar::max::<T>(ax * ax, bx * bx);
 
-            let ay = Float::min(dm_y, zero);
-            let by = Float::max(dp_y, zero);
-            grad_sq += Float::max(ay * ay, by * by);
+            let ay = scalar::min::<T>(dm_y, zero);
+            let by = scalar::max::<T>(dp_y, zero);
+            grad_sq += scalar::max::<T>(ay * ay, by * by);
 
-            let az = Float::min(dm_z, zero);
-            let bz = Float::max(dp_z, zero);
-            grad_sq += Float::max(az * az, bz * bz);
+            let az = scalar::min::<T>(dm_z, zero);
+            let bz = scalar::max::<T>(dp_z, zero);
+            grad_sq += scalar::max::<T>(az * az, bz * bz);
         }
 
-        Float::sqrt(grad_sq)
+        scalar::sqrt::<T>(grad_sq)
     }
 }

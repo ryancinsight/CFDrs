@@ -75,26 +75,27 @@
 
 use super::weno_helpers::{weno5_candidate_fluxes, weno5_js_weights, weno5_smoothness_indicators};
 use super::{constants, weno_constants, Grid2D, SpatialDiscretization};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::FloatElement;
 
 /// Fifth-order WENO scheme
-pub struct WENO5<T: RealField + Copy> {
+pub struct WENO5<T: Cfd2dScalar + Copy> {
     epsilon: T,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Default for WENO5<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> Default for WENO5<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> WENO5<T> {
     /// Create new WENO5 scheme
     pub fn new() -> Self {
         Self {
-            epsilon: T::from_f64(constants::WENO_EPSILON).expect("analytical constant conversion"),
+            epsilon: scalar::from_f64(constants::WENO_EPSILON),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -110,15 +111,15 @@ impl<T: RealField + Copy + FromPrimitive + Copy> WENO5<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for WENO5<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> SpatialDiscretization<T> for WENO5<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         // Extract stencil
         let v = [
-            grid.data[(i - 2, j)],
-            grid.data[(i - 1, j)],
-            grid.data[(i, j)],
-            grid.data[(i + 1, j)],
-            grid.data[(i + 2, j)],
+            grid.data[[i - 2, j]],
+            grid.data[[i - 1, j]],
+            grid.data[[i, j]],
+            grid.data[[i + 1, j]],
+            grid.data[[i + 2, j]],
         ];
 
         // Compute smoothness indicators
@@ -173,22 +174,22 @@ impl<T: RealField + Copy + FromPrimitive + Copy> SpatialDiscretization<T> for WE
 /// ### CFL Condition
 /// WENO9 requires CFL ≤ 1/18 due to extreme high-order accuracy requirements
 /// and nonlinear stability constraints.
-pub struct WENO9<T: RealField + Copy> {
+pub struct WENO9<T: Cfd2dScalar + Copy> {
     epsilon: T,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> Default for WENO9<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement + std::iter::Sum> Default for WENO9<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement + std::iter::Sum> WENO9<T> {
     /// Create new WENO9 scheme
     pub fn new() -> Self {
         Self {
-            epsilon: T::from_f64(constants::WENO_EPSILON).expect("analytical constant conversion"),
+            epsilon: scalar::from_f64(constants::WENO_EPSILON),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -198,102 +199,62 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
         // WENO9 smoothness indicators based on Jiang-Shu formulation
         // These are the optimized coefficients for 9th-order accuracy
 
-        let mut beta = [T::zero(); 5];
+        let mut beta: [T; 5] = [scalar::zero(); 5];
+        let beta_quad: T = scalar::from_f64(0.0015308084989341916);
+        let beta_biquad: T = scalar::from_f64(0.002_740_988_421_902_865);
+        let beta_oct: T = scalar::from_f64(0.031254897785245544);
+        let four: T = scalar::from_f64(4.0);
+        let five: T = scalar::from_f64(5.0);
 
         // Beta_0 (stencil 0: u[j-5..j])
-        beta[0] = T::from_f64(0.0015308084989341916).expect("analytical constant conversion")
-            * (v[0] - T::from_f64(4.0).expect("analytical constant conversion") * v[1]
-                + T::from_f64(5.0).expect("analytical constant conversion") * v[2])
-                .powi(2)
-            + T::from_f64(0.002_740_988_421_902_865).expect("analytical constant conversion")
-                * (v[0] - T::from_f64(4.0).expect("analytical constant conversion") * v[1]
-                    + T::from_f64(4.0).expect("analytical constant conversion") * v[2]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[3]
-                    + v[4])
-                    .powi(2)
-            + T::from_f64(0.031254897785245544).expect("analytical constant conversion")
-                * (v[0] - T::from_f64(4.0).expect("analytical constant conversion") * v[1]
-                    + T::from_f64(4.0).expect("analytical constant conversion") * v[2]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[3]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[4]
-                    + T::from_f64(5.0).expect("analytical constant conversion") * v[5])
-                    .powi(2);
+        beta[0] = beta_quad * FloatElement::powi(v[0] - four * v[1] + five * v[2], 2)
+            + beta_biquad
+                * FloatElement::powi(v[0] - four * v[1] + four * v[2] - four * v[3] + v[4], 2)
+            + beta_oct
+                * FloatElement::powi(
+                    v[0] - four * v[1] + four * v[2] - four * v[3] - four * v[4] + five * v[5],
+                    2,
+                );
 
         // Beta_1 (stencil 1: u[j-4..j+1])
-        beta[1] = T::from_f64(0.0015308084989341916).expect("analytical constant conversion")
-            * (v[1] - T::from_f64(4.0).expect("analytical constant conversion") * v[2]
-                + T::from_f64(5.0).expect("analytical constant conversion") * v[3])
-                .powi(2)
-            + T::from_f64(0.002_740_988_421_902_865).expect("analytical constant conversion")
-                * (v[1] - T::from_f64(4.0).expect("analytical constant conversion") * v[2]
-                    + T::from_f64(4.0).expect("analytical constant conversion") * v[3]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[4]
-                    + v[5])
-                    .powi(2)
-            + T::from_f64(0.031254897785245544).expect("analytical constant conversion")
-                * (v[1] - T::from_f64(4.0).expect("analytical constant conversion") * v[2]
-                    + T::from_f64(4.0).expect("analytical constant conversion") * v[3]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[4]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[5]
-                    + T::from_f64(5.0).expect("analytical constant conversion") * v[6])
-                    .powi(2);
+        beta[1] = beta_quad * FloatElement::powi(v[1] - four * v[2] + five * v[3], 2)
+            + beta_biquad
+                * FloatElement::powi(v[1] - four * v[2] + four * v[3] - four * v[4] + v[5], 2)
+            + beta_oct
+                * FloatElement::powi(
+                    v[1] - four * v[2] + four * v[3] - four * v[4] - four * v[5] + five * v[6],
+                    2,
+                );
 
         // Beta_2 (stencil 2: u[j-3..j+2])
-        beta[2] = T::from_f64(0.0015308084989341916).expect("analytical constant conversion")
-            * (v[2] - T::from_f64(4.0).expect("analytical constant conversion") * v[3]
-                + T::from_f64(5.0).expect("analytical constant conversion") * v[4])
-                .powi(2)
-            + T::from_f64(0.002_740_988_421_902_865).expect("analytical constant conversion")
-                * (v[2] - T::from_f64(4.0).expect("analytical constant conversion") * v[3]
-                    + T::from_f64(4.0).expect("analytical constant conversion") * v[4]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[5]
-                    + v[6])
-                    .powi(2)
-            + T::from_f64(0.031254897785245544).expect("analytical constant conversion")
-                * (v[2] - T::from_f64(4.0).expect("analytical constant conversion") * v[3]
-                    + T::from_f64(4.0).expect("analytical constant conversion") * v[4]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[5]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[6]
-                    + T::from_f64(5.0).expect("analytical constant conversion") * v[7])
-                    .powi(2);
+        beta[2] = beta_quad * FloatElement::powi(v[2] - four * v[3] + five * v[4], 2)
+            + beta_biquad
+                * FloatElement::powi(v[2] - four * v[3] + four * v[4] - four * v[5] + v[6], 2)
+            + beta_oct
+                * FloatElement::powi(
+                    v[2] - four * v[3] + four * v[4] - four * v[5] - four * v[6] + five * v[7],
+                    2,
+                );
 
         // Beta_3 (stencil 3: u[j-2..j+3])
-        beta[3] = T::from_f64(0.0015308084989341916).expect("analytical constant conversion")
-            * (v[3] - T::from_f64(4.0).expect("analytical constant conversion") * v[4]
-                + T::from_f64(5.0).expect("analytical constant conversion") * v[5])
-                .powi(2)
-            + T::from_f64(0.002_740_988_421_902_865).expect("analytical constant conversion")
-                * (v[3] - T::from_f64(4.0).expect("analytical constant conversion") * v[4]
-                    + T::from_f64(4.0).expect("analytical constant conversion") * v[5]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[6]
-                    + v[7])
-                    .powi(2)
-            + T::from_f64(0.031254897785245544).expect("analytical constant conversion")
-                * (v[3] - T::from_f64(4.0).expect("analytical constant conversion") * v[4]
-                    + T::from_f64(4.0).expect("analytical constant conversion") * v[5]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[6]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[7]
-                    + T::from_f64(5.0).expect("analytical constant conversion") * v[8])
-                    .powi(2);
+        beta[3] = beta_quad * FloatElement::powi(v[3] - four * v[4] + five * v[5], 2)
+            + beta_biquad
+                * FloatElement::powi(v[3] - four * v[4] + four * v[5] - four * v[6] + v[7], 2)
+            + beta_oct
+                * FloatElement::powi(
+                    v[3] - four * v[4] + four * v[5] - four * v[6] - four * v[7] + five * v[8],
+                    2,
+                );
 
         // Beta_4 (stencil 4: u[j-1..j+4])
-        beta[4] = T::from_f64(0.0015308084989341916).expect("analytical constant conversion")
-            * (v[4] - T::from_f64(4.0).expect("analytical constant conversion") * v[5]
-                + T::from_f64(5.0).expect("analytical constant conversion") * v[6])
-                .powi(2)
-            + T::from_f64(0.002_740_988_421_902_865).expect("analytical constant conversion")
-                * (v[4] - T::from_f64(4.0).expect("analytical constant conversion") * v[5]
-                    + T::from_f64(4.0).expect("analytical constant conversion") * v[6]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[7]
-                    + v[8])
-                    .powi(2)
-            + T::from_f64(0.031254897785245544).expect("analytical constant conversion")
-                * (v[4] - T::from_f64(4.0).expect("analytical constant conversion") * v[5]
-                    + T::from_f64(4.0).expect("analytical constant conversion") * v[6]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[7]
-                    - T::from_f64(4.0).expect("analytical constant conversion") * v[8]
-                    + T::from_f64(5.0).expect("analytical constant conversion") * v[9])
-                    .powi(2);
+        beta[4] = beta_quad * FloatElement::powi(v[4] - four * v[5] + five * v[6], 2)
+            + beta_biquad
+                * FloatElement::powi(v[4] - four * v[5] + four * v[6] - four * v[7] + v[8], 2)
+            + beta_oct
+                * FloatElement::powi(
+                    v[4] - four * v[5] + four * v[6] - four * v[7] - four * v[8] + five * v[9],
+                    2,
+                );
 
         beta
     }
@@ -301,26 +262,21 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
     /// Compute WENO9 weights using optimized coefficients
     fn weno_weights(&self, beta: &[T; 5]) -> [T; 5] {
         // Optimized weights for WENO9 (Henrick et al. 2005)
-        let d = [
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[0])
-                .expect("analytical constant conversion"),
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[1])
-                .expect("analytical constant conversion"),
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[2])
-                .expect("analytical constant conversion"),
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[3])
-                .expect("analytical constant conversion"),
-            T::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[4])
-                .expect("analytical constant conversion"),
+        let d: [T; 5] = [
+            scalar::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[0]),
+            scalar::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[1]),
+            scalar::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[2]),
+            scalar::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[3]),
+            scalar::from_f64(weno_constants::WENO9_LINEAR_WEIGHTS[4]),
         ];
 
-        let mut alpha = [T::zero(); 5];
+        let mut alpha: [T; 5] = [scalar::zero(); 5];
         for i in 0..5 {
-            alpha[i] = d[i] / (self.epsilon + beta[i]).powi(2);
+            alpha[i] = d[i] / FloatElement::powi(self.epsilon + beta[i], 2);
         }
 
         let sum: T = alpha.iter().copied().sum();
-        let mut weights = [T::zero(); 5];
+        let mut weights: [T; 5] = [scalar::zero(); 5];
         for i in 0..5 {
             weights[i] = alpha[i] / sum;
         }
@@ -329,21 +285,21 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> WENO9<T> {
     }
 }
 
-impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> SpatialDiscretization<T> for WENO9<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement + std::iter::Sum> SpatialDiscretization<T> for WENO9<T> {
     fn compute_derivative(&self, grid: &Grid2D<T>, i: usize, j: usize) -> T {
         // Extract 11-point stencil (requires boundary checking in real implementation)
         let v = [
-            grid.data[(i - 5, j)],
-            grid.data[(i - 4, j)],
-            grid.data[(i - 3, j)],
-            grid.data[(i - 2, j)],
-            grid.data[(i - 1, j)],
-            grid.data[(i, j)],
-            grid.data[(i + 1, j)],
-            grid.data[(i + 2, j)],
-            grid.data[(i + 3, j)],
-            grid.data[(i + 4, j)],
-            grid.data[(i + 5, j)],
+            grid.data[[i - 5, j]],
+            grid.data[[i - 4, j]],
+            grid.data[[i - 3, j]],
+            grid.data[[i - 2, j]],
+            grid.data[[i - 1, j]],
+            grid.data[[i, j]],
+            grid.data[[i + 1, j]],
+            grid.data[[i + 2, j]],
+            grid.data[[i + 3, j]],
+            grid.data[[i + 4, j]],
+            grid.data[[i + 5, j]],
         ];
 
         // Compute smoothness indicators
@@ -353,20 +309,18 @@ impl<T: RealField + Copy + FromPrimitive + std::iter::Sum> SpatialDiscretization
         let w = self.weno_weights(&beta);
 
         // Compute reconstructed flux using 5 candidate stencils
-        let mut flux = T::zero();
-        let denom = T::from_f64(weno_constants::WENO9_STENCIL_DENOM)
-            .expect("analytical constant conversion");
+        let mut flux: T = scalar::zero();
+        let denom: T = scalar::from_f64(weno_constants::WENO9_STENCIL_DENOM);
 
         for k in 0..5 {
-            let mut q_k = T::zero();
+            let mut q_k: T = scalar::zero();
             // Stencil k uses points from v[1+k] to v[1+k+4]
             // v indices correspond to: v[5] is u_i
             // k=0: v[1]..v[5] (u_{i-4}..u_i)
             // ...
             // k=4: v[5]..v[9] (u_i..u_{i+4})
             for j in 0..5 {
-                let coeff = T::from_f64(weno_constants::WENO9_STENCIL_COEFFS[k][j])
-                    .expect("analytical constant conversion");
+                let coeff: T = scalar::from_f64(weno_constants::WENO9_STENCIL_COEFFS[k][j]);
                 q_k += coeff * v[1 + k + j];
             }
             q_k /= denom;

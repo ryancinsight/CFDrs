@@ -1,8 +1,8 @@
 use super::constants;
 use crate::error::Error;
 use crate::physics::fluid::traits::{Fluid as FluidTrait, FluidState, NonNewtonianFluid};
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Cross blood model (simpler alternative to Carreau-Yasuda)
@@ -39,27 +39,25 @@ pub struct CrossBlood<T: RealField + Copy> {
     pub reference_shear_rate: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> CrossBlood<T> {
+impl<T: RealField + FloatElement + Copy> CrossBlood<T> {
     /// Create Cross blood model with default parameters
     pub fn normal_blood() -> Self {
         Self {
             name: "Normal Human Blood (Cross)".to_string(),
-            density: T::from_f64(constants::BLOOD_DENSITY).unwrap_or_else(num_traits::Zero::zero),
-            zero_shear_viscosity: T::from_f64(constants::ZERO_SHEAR_VISCOSITY)
-                .unwrap_or_else(num_traits::Zero::zero),
-            infinite_shear_viscosity: T::from_f64(constants::INFINITE_SHEAR_VISCOSITY)
-                .unwrap_or_else(num_traits::Zero::zero),
-            time_constant: T::from_f64(1.007).unwrap_or_else(num_traits::Zero::zero), // Fitted for blood
-            rate_index: T::from_f64(1.028).unwrap_or_else(num_traits::Zero::zero), // Fitted for blood
-            hematocrit: T::from_f64(constants::NORMAL_HEMATOCRIT)
-                .unwrap_or_else(num_traits::Zero::zero),
-            specific_heat: T::from_f64(constants::BLOOD_SPECIFIC_HEAT)
-                .unwrap_or_else(num_traits::Zero::zero),
-            thermal_conductivity: T::from_f64(constants::BLOOD_THERMAL_CONDUCTIVITY)
-                .unwrap_or_else(num_traits::Zero::zero),
-            speed_of_sound: T::from_f64(constants::BLOOD_SPEED_OF_SOUND)
-                .unwrap_or_else(num_traits::Zero::zero),
-            reference_shear_rate: T::from_f64(100.0).unwrap_or_else(num_traits::Zero::zero),
+            density: <T as FloatElement>::from_f64(constants::BLOOD_DENSITY),
+            zero_shear_viscosity: <T as FloatElement>::from_f64(constants::ZERO_SHEAR_VISCOSITY),
+            infinite_shear_viscosity: <T as FloatElement>::from_f64(
+                constants::INFINITE_SHEAR_VISCOSITY,
+            ),
+            time_constant: <T as FloatElement>::from_f64(1.007), // Fitted for blood
+            rate_index: <T as FloatElement>::from_f64(1.028),    // Fitted for blood
+            hematocrit: <T as FloatElement>::from_f64(constants::NORMAL_HEMATOCRIT),
+            specific_heat: <T as FloatElement>::from_f64(constants::BLOOD_SPECIFIC_HEAT),
+            thermal_conductivity: <T as FloatElement>::from_f64(
+                constants::BLOOD_THERMAL_CONDUCTIVITY,
+            ),
+            speed_of_sound: <T as FloatElement>::from_f64(constants::BLOOD_SPEED_OF_SOUND),
+            reference_shear_rate: <T as FloatElement>::from_f64(100.0),
         }
     }
 
@@ -67,21 +65,20 @@ impl<T: RealField + FromPrimitive + Copy> CrossBlood<T> {
     ///
     /// μ(γ̇) = μ_∞ + (μ_0 - μ_∞) / (1 + (K·γ̇)^n)
     pub fn apparent_viscosity(&self, shear_rate: T) -> T {
-        let one = T::one();
-
-        if shear_rate <= T::zero() {
+        if shear_rate <= <T as NumericElement>::ZERO {
             return self.zero_shear_viscosity;
         }
 
         let k_gamma = self.time_constant * shear_rate;
-        let denominator = one + k_gamma.powf(self.rate_index);
+        let denominator =
+            <T as NumericElement>::ONE + <T as FloatElement>::powf(k_gamma, self.rate_index);
 
         self.infinite_shear_viscosity
             + (self.zero_shear_viscosity - self.infinite_shear_viscosity) / denominator
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CrossBlood<T> {
+impl<T: RealField + FloatElement + Copy> FluidTrait<T> for CrossBlood<T> {
     fn properties_at(&self, _temperature: T, _pressure: T) -> Result<FluidState<T>, Error> {
         let apparent_viscosity = self.apparent_viscosity(self.reference_shear_rate);
 
@@ -104,7 +101,7 @@ impl<T: RealField + FromPrimitive + Copy> FluidTrait<T> for CrossBlood<T> {
     }
 }
 
-impl<T: RealField + FromPrimitive + Copy> NonNewtonianFluid<T> for CrossBlood<T> {
+impl<T: RealField + FloatElement + Copy> NonNewtonianFluid<T> for CrossBlood<T> {
     fn apparent_viscosity(&self, shear_rate: T) -> T {
         CrossBlood::apparent_viscosity(self, shear_rate)
     }

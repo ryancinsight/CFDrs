@@ -28,10 +28,10 @@
 //! - `bessel_j1(z)` computes $J_1(z)$
 //! - `bessel_j0_j1(z)` computes both series in one recurrence pass
 
-use nalgebra::{Complex, ComplexField, RealField};
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd1dScalar;
+use eunomia::{Complex, FloatElement};
 
-fn bessel_j0_j1_series<T: RealField + FromPrimitive + Copy>(
+fn bessel_j0_j1_series<T: Cfd1dScalar + FloatElement + Copy>(
     z: Complex<T>,
 ) -> (Complex<T>, Complex<T>) {
     let mut sum_j0 = Complex::new(T::one(), T::zero());
@@ -43,12 +43,11 @@ fn bessel_j0_j1_series<T: RealField + FromPrimitive + Copy>(
 
     let mut m = 1_u32;
     let max_iter = 150_u32; // Guaranteed convergence for |z| < 30
-    let tolerance = T::from_f64(1e-15).expect("Mathematical constant conversion compromised");
+    let tolerance = <T as FloatElement>::from_f64(1e-15);
 
     while m < max_iter {
-        let m_t = T::from_u32(m).expect("u32 to generic Bessel series index conversion failed");
-        let m_plus_1 =
-            T::from_u32(m + 1).expect("u32 to generic Bessel series index conversion failed");
+        let m_t = <T as FloatElement>::from_f64(f64::from(m));
+        let m_plus_1 = <T as FloatElement>::from_f64(f64::from(m + 1));
 
         // term(m) = term(m-1) * (-z^2 / 4) / m^2
         term_j0 = term_j0 * (-z_half_sq) / (m_t * m_t);
@@ -58,7 +57,7 @@ fn bessel_j0_j1_series<T: RealField + FromPrimitive + Copy>(
         sum_j0 += term_j0;
         sum_j1 += term_j1;
 
-        if term_j0.modulus() < tolerance && term_j1.modulus() < tolerance {
+        if term_j0.norm() < tolerance && term_j1.norm() < tolerance {
             break;
         }
         m += 1;
@@ -71,7 +70,7 @@ fn bessel_j0_j1_series<T: RealField + FromPrimitive + Copy>(
 ///
 /// Evaluates the exact infinite series:
 /// $J_0(z) = \sum_{m=0}^\infty \frac{(-1)^m}{(m!)^2} \left(\frac{z}{2}\right)^{2m}$
-pub fn bessel_j0<T: RealField + FromPrimitive + Copy>(z: Complex<T>) -> Complex<T> {
+pub fn bessel_j0<T: Cfd1dScalar + FloatElement + Copy>(z: Complex<T>) -> Complex<T> {
     bessel_j0_j1_series(z).0
 }
 
@@ -79,7 +78,7 @@ pub fn bessel_j0<T: RealField + FromPrimitive + Copy>(z: Complex<T>) -> Complex<
 ///
 /// Evaluates the exact infinite series:
 /// $J_1(z) = \sum_{m=0}^\infty \frac{(-1)^m}{m!(m+1)!} \left(\frac{z}{2}\right)^{2m+1}$
-pub fn bessel_j1<T: RealField + FromPrimitive + Copy>(z: Complex<T>) -> Complex<T> {
+pub fn bessel_j1<T: Cfd1dScalar + FloatElement + Copy>(z: Complex<T>) -> Complex<T> {
     bessel_j0_j1_series(z).1
 }
 
@@ -87,7 +86,7 @@ pub fn bessel_j1<T: RealField + FromPrimitive + Copy>(z: Complex<T>) -> Complex<
 ///
 /// Sharing the recurrence reduces work in Womersley wall-stress and flow-rate
 /// evaluations, where both functions are required at the same complex argument.
-pub fn bessel_j0_j1<T: RealField + FromPrimitive + Copy>(
+pub fn bessel_j0_j1<T: Cfd1dScalar + FloatElement + Copy>(
     z: Complex<T>,
 ) -> (Complex<T>, Complex<T>) {
     bessel_j0_j1_series(z)

@@ -81,6 +81,7 @@ fn solve_dirichlet(
     let solver = NetworkSolver::<f64, Water>::with_config(SolverConfig {
         tolerance: 1e-10,
         max_iterations: 500,
+        require_flow_convergence: true,
     });
     let (solved, _diag) = solver
         .solve_network_with_diagnostics(&NetworkProblem::new(network))
@@ -425,6 +426,7 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
     let solver = NetworkSolver::with_config(SolverConfig {
         tolerance: 1e-9,
         max_iterations: 500,
+        require_flow_convergence: true,
     });
     let (network, diag) = solver
         .solve_network_with_diagnostics(&NetworkProblem::new(network))

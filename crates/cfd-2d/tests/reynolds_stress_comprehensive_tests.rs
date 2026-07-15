@@ -24,7 +24,7 @@ use cfd_validation::manufactured::{
     ManufacturedReynoldsStressMMS, ManufacturedSolution, PressureStrainModelMMS,
     ReynoldsStressConvergenceStudy,
 };
-use nalgebra::DMatrix;
+use leto::Array2;
 use std::f64::consts::PI;
 
 /// Test RSM initialization and basic tensor operations
@@ -36,15 +36,15 @@ fn test_rsm_initialization() {
 
     // Check isotropic initialization: ⟨u'u'⟩ = ⟨v'v'⟩ = 2/3 k
     let expected_normal = 2.0 / 3.0;
-    assert_relative_eq!(stresses.xx[(5, 5)], expected_normal, epsilon = 1e-10);
-    assert_relative_eq!(stresses.yy[(5, 5)], expected_normal, epsilon = 1e-10);
-    assert_relative_eq!(stresses.xy[(5, 5)], 0.0, epsilon = 1e-10);
-    assert_relative_eq!(stresses.k[(5, 5)], 1.0, epsilon = 1e-10);
-    assert_relative_eq!(stresses.epsilon[(5, 5)], 0.1, epsilon = 1e-10);
+    assert_relative_eq!(stresses.xx[[5, 5]], expected_normal, epsilon = 1e-10);
+    assert_relative_eq!(stresses.yy[[5, 5]], expected_normal, epsilon = 1e-10);
+    assert_relative_eq!(stresses.xy[[5, 5]], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.k[[5, 5]], 1.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.epsilon[[5, 5]], 0.1, epsilon = 1e-10);
 
     // Check tensor consistency: k = (1/2)(⟨u'u'⟩ + ⟨v'v'⟩)
-    let computed_k = 0.5 * (stresses.xx[(5, 5)] + stresses.yy[(5, 5)]);
-    assert_relative_eq!(computed_k, stresses.k[(5, 5)], epsilon = 1e-10);
+    let computed_k = 0.5 * (stresses.xx[[5, 5]] + stresses.yy[[5, 5]]);
+    assert_relative_eq!(computed_k, stresses.k[[5, 5]], epsilon = 1e-10);
 }
 
 /// Test production term calculation
@@ -65,7 +65,7 @@ fn test_production_term() {
 
     // Test production for xy component: P_xy = -⟨u'u'⟩ du/dy - ⟨v'v'⟩ du/dy
     let p_xy = model.production_term(&stresses, &velocity_gradient, 0, 1, 2, 2);
-    let expected_p_xy = -stresses.xx[(2, 2)] - stresses.yy[(2, 2)]; // Both terms equal
+    let expected_p_xy = -stresses.xx[[2, 2]] - stresses.yy[[2, 2]]; // Both terms equal
     assert_relative_eq!(p_xy, expected_p_xy, epsilon = 1e-10);
 }
 
@@ -104,15 +104,15 @@ fn test_homogeneous_shear_flow() {
     // Analytical solution for linear pressure-strain model
     // d⟨u'v'⟩/dt = -⟨u'u'⟩ S - ⟨v'v'⟩ S - C1 ε/k ⟨u'v'⟩
     let dt = 0.01;
-    let time_scale = stresses.k[(0, 0)] / stresses.epsilon[(0, 0)];
+    let time_scale = stresses.k[[0, 0]] / stresses.epsilon[[0, 0]];
 
     // Expected equilibrium shear stress
-    let _equilibrium_uv = -time_scale * (stresses.xx[(0, 0)] + stresses.yy[(0, 0)])
+    let _equilibrium_uv = -time_scale * (stresses.xx[[0, 0]] + stresses.yy[[0, 0]])
         / (1.0 + model.c1 * time_scale / time_scale);
 
     // Run a few time steps
     for _ in 0..10 {
-        let velocity = [DMatrix::zeros(3, 3), DMatrix::zeros(3, 3)]; // Dummy 3x3 for boundaries
+        let velocity = [Array2::zeros([3, 3]), Array2::zeros([3, 3])]; // Dummy 3x3 for boundaries
         let _ = model.update_reynolds_stresses(
             &mut stresses,
             &[velocity[0].clone(), velocity[1].clone()],
@@ -123,8 +123,8 @@ fn test_homogeneous_shear_flow() {
     }
 
     // Check that shear stress develops towards equilibrium
-    assert!(stresses.xy[(0, 0)] < 0.0); // Negative in this shear configuration
-    assert!(stresses.xy[(0, 0)].abs() > 0.01); // Non-zero shear stress develops
+    assert!(stresses.xy[[0, 0]] < 0.0); // Negative in this shear configuration
+    assert!(stresses.xy[[0, 0]].abs() > 0.01); // Non-zero shear stress develops
 }
 
 /// Test wall boundary conditions
@@ -143,18 +143,18 @@ fn test_wall_boundary_conditions() {
     );
 
     // Check bottom wall (j=0)
-    assert_relative_eq!(stresses.xx[(2, 0)], 0.0, epsilon = 1e-10);
-    assert_relative_eq!(stresses.xy[(2, 0)], 0.0, epsilon = 1e-10);
-    assert_relative_eq!(stresses.yy[(2, 0)], 0.0, epsilon = 1e-10);
-    assert_relative_eq!(stresses.k[(2, 0)], 0.0, epsilon = 1e-10);
-    assert_relative_eq!(stresses.epsilon[(2, 0)], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.xx[[2, 0]], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.xy[[2, 0]], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.yy[[2, 0]], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.k[[2, 0]], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.epsilon[[2, 0]], 0.0, epsilon = 1e-10);
 
     // Check top wall (j=4)
-    assert_relative_eq!(stresses.xx[(2, 4)], 0.0, epsilon = 1e-10);
-    assert_relative_eq!(stresses.xy[(2, 4)], 0.0, epsilon = 1e-10);
-    assert_relative_eq!(stresses.yy[(2, 4)], 0.0, epsilon = 1e-10);
-    assert_relative_eq!(stresses.k[(2, 4)], 0.0, epsilon = 1e-10);
-    assert_relative_eq!(stresses.epsilon[(2, 4)], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.xx[[2, 4]], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.xy[[2, 4]], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.yy[[2, 4]], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.k[[2, 4]], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.epsilon[[2, 4]], 0.0, epsilon = 1e-10);
 }
 
 /// Test turbulent channel flow benchmark
@@ -182,14 +182,14 @@ fn test_channel_flow_benchmark() {
             0.01
         };
 
-        stresses.k[(10, j)] = k_profile;
-        stresses.epsilon[(10, j)] = k_profile.powf(1.5) / (0.1 * h); // ε = k^{3/2}/l
+        stresses.k[[10, j]] = k_profile;
+        stresses.epsilon[[10, j]] = k_profile.powf(1.5) / (0.1 * h); // ε = k^{3/2}/l
 
         // Anisotropic initialization (streamwise stronger than wall-normal)
         let anisotropy = 0.3; // Typical value
-        stresses.xx[(10, j)] = (2.0 / 3.0 + anisotropy) * k_profile;
-        stresses.yy[(10, j)] = (2.0 / 3.0 - anisotropy) * k_profile;
-        stresses.xy[(10, j)] = 0.0; // No mean shear in channel center
+        stresses.xx[[10, j]] = (2.0 / 3.0 + anisotropy) * k_profile;
+        stresses.yy[[10, j]] = (2.0 / 3.0 - anisotropy) * k_profile;
+        stresses.xy[[10, j]] = 0.0; // No mean shear in channel center
     }
 
     // Apply wall BCs
@@ -202,12 +202,12 @@ fn test_channel_flow_benchmark() {
     );
 
     // Check wall values are zero
-    assert_relative_eq!(stresses.k[(10, 0)], 0.0, epsilon = 1e-10);
-    assert_relative_eq!(stresses.k[(10, 19)], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.k[[10, 0]], 0.0, epsilon = 1e-10);
+    assert_relative_eq!(stresses.k[[10, 19]], 0.0, epsilon = 1e-10);
 
     // Check channel center has non-zero values
-    assert!(stresses.k[(10, 10)] > 0.05);
-    assert!(stresses.xx[(10, 10)] > stresses.yy[(10, 10)]); // Streamwise > wall-normal
+    assert!(stresses.k[[10, 10]] > 0.05);
+    assert!(stresses.xx[[10, 10]] > stresses.yy[[10, 10]]); // Streamwise > wall-normal
 }
 
 /// Test convergence and stability
@@ -217,14 +217,14 @@ fn test_convergence_stability() {
     let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
 
     // Create simple velocity field
-    let mut u = DMatrix::zeros(10, 10);
-    let mut v = DMatrix::zeros(10, 10);
+    let mut u = Array2::zeros([10, 10]);
+    let mut v = Array2::zeros([10, 10]);
 
     // Add some perturbation
     for i in 0..10 {
         for j in 0..10 {
-            u[(i, j)] = 0.1 * (i as f64 / 9.0);
-            v[(i, j)] = 0.0;
+            u[[i, j]] = 0.1 * (i as f64 / 9.0);
+            v[[i, j]] = 0.0;
         }
     }
 
@@ -236,30 +236,30 @@ fn test_convergence_stability() {
     // Run multiple time steps
     let mut k_history = Vec::new();
     for step in 0..50 {
-        let k_before = stresses.k[(5, 5)];
+        let k_before = stresses.k[[5, 5]];
         k_history.push(k_before);
 
         let result = model.update_reynolds_stresses(&mut stresses, &velocity, dt, dx, dy);
         assert!(result.is_ok(), "Update should succeed at step {}", step);
 
         // Check boundedness
-        assert!(stresses.k[(5, 5)] >= 0.0, "k should remain non-negative");
+        assert!(stresses.k[[5, 5]] >= 0.0, "k should remain non-negative");
         assert!(
-            stresses.epsilon[(5, 5)] >= 0.0,
+            stresses.epsilon[[5, 5]] >= 0.0,
             "ε should remain non-negative"
         );
         assert!(
-            stresses.xx[(5, 5)] >= 0.0,
+            stresses.xx[[5, 5]] >= 0.0,
             "⟨u'u'⟩ should remain non-negative"
         );
         assert!(
-            stresses.yy[(5, 5)] >= 0.0,
+            stresses.yy[[5, 5]] >= 0.0,
             "⟨v'v'⟩ should remain non-negative"
         );
     }
 
     // Check that solution doesn't blow up (basic stability test)
-    let k_final = stresses.k[(5, 5)];
+    let k_final = stresses.k[[5, 5]];
     assert!(k_final.is_finite(), "k must remain finite");
     assert!(k_final < 10.0, "Solution should not diverge");
     assert!(k_final >= 0.0, "k must remain non-negative (realizability)");
@@ -291,17 +291,17 @@ fn test_boundary_layer_anisotropy() {
 
         // Simple explicit update
         let dt = 0.001;
-        stresses.xy[(0, 10)] += dt * (p_xy + phi_xy);
+        stresses.xy[[0, 10]] += dt * (p_xy + phi_xy);
 
         // Clamp to prevent instability
-        if stresses.xy[(0, 10)].abs() > 1.0 {
-            stresses.xy[(0, 10)] = stresses.xy[(0, 10)].signum();
+        if stresses.xy[[0, 10]].abs() > 1.0 {
+            stresses.xy[[0, 10]] = stresses.xy[[0, 10]].signum();
         }
     }
 
     // Check that anisotropy develops
     assert!(
-        stresses.xy[(0, 10)].abs() > 0.01,
+        stresses.xy[[0, 10]].abs() > 0.01,
         "Shear stress should develop"
     );
 }
@@ -362,9 +362,9 @@ fn test_dissipation_tensor() {
         &stresses.epsilon_yy,
     ) {
         let expected_iso = 2.0 / 3.0 * 0.1;
-        assert_relative_eq!(eps_xx[(2, 2)], expected_iso, epsilon = 1e-10);
-        assert_relative_eq!(eps_xy[(2, 2)], 0.0, epsilon = 1e-10);
-        assert_relative_eq!(eps_yy[(2, 2)], expected_iso, epsilon = 1e-10);
+        assert_relative_eq!(eps_xx[[2, 2]], expected_iso, epsilon = 1e-10);
+        assert_relative_eq!(eps_xy[[2, 2]], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(eps_yy[[2, 2]], expected_iso, epsilon = 1e-10);
     }
 
     // Test dissipation tensor access
@@ -407,8 +407,8 @@ fn test_numerical_stability() {
     let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
 
     // Test with extreme values
-    stresses.k[(5, 5)] = 1e-6; // Very small k
-    stresses.epsilon[(5, 5)] = 1e-8; // Very small ε
+    stresses.k[[5, 5]] = 1e-6; // Very small k
+    stresses.epsilon[[5, 5]] = 1e-8; // Very small ε
 
     let _velocity_gradient = [[0.0, 1.0], [0.0, 0.0]];
     let strain_rate = [[0.0, 0.5], [0.5, 0.0]];
@@ -419,7 +419,7 @@ fn test_numerical_stability() {
     assert!(phi.is_finite(), "Should handle small k/ε gracefully");
 
     // Test with zero epsilon (should return zero)
-    stresses.epsilon[(5, 5)] = 0.0;
+    stresses.epsilon[[5, 5]] = 0.0;
     let phi_zero = model.pressure_strain_term(&stresses, &strain_rate, &rotation_rate, 0, 1, 5, 5);
     assert_relative_eq!(phi_zero, 0.0, epsilon = 1e-10);
 }
@@ -432,15 +432,15 @@ fn test_rsm_with_simple_solver() {
     let mut stresses = model.initialize_reynolds_stresses(0.5, 0.05);
 
     // Create simple Couette flow velocity field
-    let mut u = DMatrix::zeros(5, 5);
-    let mut v = DMatrix::zeros(5, 5);
+    let mut u = Array2::zeros([5, 5]);
+    let mut v = Array2::zeros([5, 5]);
 
     // Linear velocity profile: u(y) = y
     for j in 0..5 {
         let y = j as f64 / 4.0;
         for i in 0..5 {
-            u[(i, j)] = y;
-            v[(i, j)] = 0.0;
+            u[[i, j]] = y;
+            v[[i, j]] = 0.0;
         }
     }
 
@@ -457,11 +457,11 @@ fn test_rsm_with_simple_solver() {
         // Check realizability: normal stresses >= 0, |shear| <= sqrt(xx*yy)
         for i in 1..4 {
             for j in 1..4 {
-                assert!(stresses.xx[(i, j)] >= 0.0, "⟨u'u'⟩ should be non-negative");
-                assert!(stresses.yy[(i, j)] >= 0.0, "⟨v'v'⟩ should be non-negative");
-                let max_shear = (stresses.xx[(i, j)] * stresses.yy[(i, j)]).sqrt();
+                assert!(stresses.xx[[i, j]] >= 0.0, "⟨u'u'⟩ should be non-negative");
+                assert!(stresses.yy[[i, j]] >= 0.0, "⟨v'v'⟩ should be non-negative");
+                let max_shear = (stresses.xx[[i, j]] * stresses.yy[[i, j]]).sqrt();
                 assert!(
-                    stresses.xy[(i, j)].abs() <= max_shear + 1e-6,
+                    stresses.xy[[i, j]].abs() <= max_shear + 1e-6,
                     "Shear stress should satisfy realizability"
                 );
             }
@@ -557,9 +557,9 @@ fn test_reynolds_stress_mms_convergence() {
         let t = 0.0; // Initial time for simplicity
 
         // Create numerical solution arrays for direct MMS residual evaluation
-        let mut num_xx = DMatrix::zeros(nx, ny);
-        let mut num_xy = DMatrix::zeros(nx, ny);
-        let mut num_yy = DMatrix::zeros(nx, ny);
+        let mut num_xx = Array2::zeros([nx, ny]);
+        let mut num_xy = Array2::zeros([nx, ny]);
+        let mut num_yy = Array2::zeros([nx, ny]);
 
         // Evaluate MMS at grid points using the MMS captured in the study
         for i in 0..nx {
@@ -567,9 +567,9 @@ fn test_reynolds_stress_mms_convergence() {
                 let x = i as f64 * dx;
                 let y = j as f64 * dy;
 
-                num_xx[(i, j)] = study.mms.exact_reynolds_stress(0, 0, x, y, t);
-                num_xy[(i, j)] = study.mms.exact_reynolds_stress(0, 1, x, y, t);
-                num_yy[(i, j)] = study.mms.exact_reynolds_stress(1, 1, x, y, t);
+                num_xx[[i, j]] = study.mms.exact_reynolds_stress(0, 0, x, y, t);
+                num_xy[[i, j]] = study.mms.exact_reynolds_stress(0, 1, x, y, t);
+                num_yy[[i, j]] = study.mms.exact_reynolds_stress(1, 1, x, y, t);
             }
         }
 
@@ -692,11 +692,11 @@ fn test_mms_rsm_solver_integration() {
 
     // Initialize with MMS exact solution at t=0
     let mut stresses = ReynoldsStressTensor {
-        xx: DMatrix::zeros(5, 5),
-        xy: DMatrix::zeros(5, 5),
-        yy: DMatrix::zeros(5, 5),
-        k: DMatrix::zeros(5, 5),
-        epsilon: DMatrix::zeros(5, 5),
+        xx: Array2::zeros([5, 5]),
+        xy: Array2::zeros([5, 5]),
+        yy: Array2::zeros([5, 5]),
+        k: Array2::zeros([5, 5]),
+        epsilon: Array2::zeros([5, 5]),
         epsilon_xx: None,
         epsilon_xy: None,
         epsilon_yy: None,
@@ -712,17 +712,17 @@ fn test_mms_rsm_solver_integration() {
             let y = j as f64 * dy;
             let t = 0.0;
 
-            stresses.xx[(i, j)] = mms.exact_reynolds_stress(0, 0, x, y, t);
-            stresses.xy[(i, j)] = mms.exact_reynolds_stress(0, 1, x, y, t);
-            stresses.yy[(i, j)] = mms.exact_reynolds_stress(1, 1, x, y, t);
-            stresses.k[(i, j)] = mms.exact_tke(x, y, t);
-            stresses.epsilon[(i, j)] = mms.exact_dissipation(x, y, t);
+            stresses.xx[[i, j]] = mms.exact_reynolds_stress(0, 0, x, y, t);
+            stresses.xy[[i, j]] = mms.exact_reynolds_stress(0, 1, x, y, t);
+            stresses.yy[[i, j]] = mms.exact_reynolds_stress(1, 1, x, y, t);
+            stresses.k[[i, j]] = mms.exact_tke(x, y, t);
+            stresses.epsilon[[i, j]] = mms.exact_dissipation(x, y, t);
         }
     }
 
     // Create velocity field from MMS
-    let mut u = DMatrix::zeros(5, 5);
-    let mut v = DMatrix::zeros(5, 5);
+    let mut u = Array2::zeros([5, 5]);
+    let mut v = Array2::zeros([5, 5]);
 
     for i in 0..5 {
         for j in 0..5 {
@@ -730,8 +730,8 @@ fn test_mms_rsm_solver_integration() {
             let y = j as f64 * dy;
             let t = 0.0;
 
-            u[(i, j)] = mms.exact_mean_velocity(0, x, y, t);
-            v[(i, j)] = mms.exact_mean_velocity(1, x, y, t);
+            u[[i, j]] = mms.exact_mean_velocity(0, x, y, t);
+            v[[i, j]] = mms.exact_mean_velocity(1, x, y, t);
         }
     }
 
@@ -746,23 +746,23 @@ fn test_mms_rsm_solver_integration() {
     for i in 1..4 {
         for j in 1..4 {
             assert!(
-                stresses.xx[(i, j)] >= 0.0,
+                stresses.xx[[i, j]] >= 0.0,
                 "⟨u'u'⟩ should remain non-negative"
             );
             assert!(
-                stresses.yy[(i, j)] >= 0.0,
+                stresses.yy[[i, j]] >= 0.0,
                 "⟨v'v'⟩ should remain non-negative"
             );
-            assert!(stresses.k[(i, j)] >= 0.0, "k should remain non-negative");
+            assert!(stresses.k[[i, j]] >= 0.0, "k should remain non-negative");
             assert!(
-                stresses.epsilon[(i, j)] >= 0.0,
+                stresses.epsilon[[i, j]] >= 0.0,
                 "ε should remain non-negative"
             );
 
             // Check realizability
-            let max_shear = (stresses.xx[(i, j)] * stresses.yy[(i, j)]).sqrt();
+            let max_shear = (stresses.xx[[i, j]] * stresses.yy[[i, j]]).sqrt();
             assert!(
-                stresses.xy[(i, j)].abs() <= max_shear + 1e-6,
+                stresses.xy[[i, j]].abs() <= max_shear + 1e-6,
                 "Shear stress should satisfy realizability"
             );
         }

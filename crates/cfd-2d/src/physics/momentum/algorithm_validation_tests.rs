@@ -30,7 +30,7 @@ mod momentum_algorithm_validation {
     use crate::physics::momentum::{MomentumComponent, MomentumSolver};
     use approx::assert_relative_eq;
     use cfd_core::physics::boundary::{BoundaryCondition, WallType};
-    use nalgebra::Vector3;
+    use leto::geometry::Vector3;
 
     /// Test CFL number calculation
     /// Reference: Ferziger & Perić (2019) - Courant number constraints

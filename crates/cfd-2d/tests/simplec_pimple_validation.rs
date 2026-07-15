@@ -6,10 +6,31 @@ use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::pressure_velocity::PressureLinearSolver;
 use cfd_2d::schemes::SpatialScheme;
 use cfd_2d::simplec_pimple::{AlgorithmType, SimplecPimpleConfig, SimplecPimpleSolver};
+use cfd_2d::Cfd2dScalar;
 use cfd_core::physics::boundary::{BoundaryCondition, WallType};
-use nalgebra::Vector3;
-use nalgebra::{RealField, Vector2};
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
+use leto::geometry::{Vector2, Vector3};
+
+#[inline]
+fn from_f64<T: FloatElement>(value: f64) -> T {
+    <T as FloatElement>::from_f64(value)
+}
+
+#[inline]
+fn from_usize<T: FloatElement>(value: usize) -> T {
+    let value_u64 = u64::try_from(value).expect("invariant: sample count fits in u64");
+    from_f64(<u64 as NumericElement>::to_f64(value_u64))
+}
+
+#[inline]
+fn zero<T: NumericElement>() -> T {
+    <T as NumericElement>::ZERO
+}
+
+#[inline]
+fn one<T: NumericElement>() -> T {
+    <T as NumericElement>::ONE
+}
 
 /// Fast SIMPLEC smoke test on a coarse grid (sanity check for automated runs)
 #[test]
@@ -216,15 +237,18 @@ fn run_lid_driven_cavity<T>(
     run: LidDrivenCavityRun<T>,
 ) -> cfd_core::error::Result<()>
 where
-    T: RealField + Copy + FromPrimitive + ToPrimitive + std::fmt::LowerExp,
+    T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement,
 {
+    let zero: T = zero();
+    let one: T = one();
+
     // Set up lid-driven cavity boundary conditions
     // Top boundary: u = 1.0, v = 0.0 (moving lid)
     solver.set_boundary(
         "north".to_string(),
         BoundaryCondition::Wall {
             wall_type: WallType::Moving {
-                velocity: Vector3::new(T::one(), T::zero(), T::zero()),
+                velocity: Vector3::new(one, zero, zero),
             },
         },
     );
@@ -248,7 +272,7 @@ where
     );
 
     for i in 0..run.nx {
-        fields.set_velocity_at(i, run.ny - 1, &Vector2::new(T::one(), T::zero()));
+        fields.set_velocity_at(i, run.ny - 1, &Vector2::new(one, zero));
     }
     fields.density.map_inplace(|d| *d = run.rho);
     fields.viscosity.map_inplace(|v| *v = run.nu);
@@ -268,12 +292,12 @@ where
 
         // Check convergence (steady state - residual becomes very small)
         if residual < run.convergence_tolerance {
-            println!("Converged at step {}, residual: {:.2e}", step, residual);
+            println!("Converged at step {step}, residual: {residual:.2e}");
             break;
         }
 
         if step % 100 == 0 {
-            println!("Step {}, residual: {:.2e}", step, residual);
+            println!("Step {step}, residual: {residual:.2e}");
         }
     }
 
@@ -318,7 +342,7 @@ impl GhiaReferenceData {
 /// Extract centerline u-velocity profile from fields
 fn extract_centerline_u<T>(fields: &SimulationFields<T>, nx: usize, ny: usize) -> Vec<T>
 where
-    T: RealField + Copy,
+    T: Cfd2dScalar + Copy,
 {
     let centerline_i = nx / 2; // Center x location
     (0..ny).map(|j| fields.u.at(centerline_i, j)).collect()
@@ -327,16 +351,16 @@ where
 /// Calculate L2 error between computed and reference u-velocity profiles
 fn calculate_l2_error<T>(computed: &[T], y_computed: &[T], reference: &GhiaReferenceData) -> T
 where
-    T: RealField + Copy + FromPrimitive + ToPrimitive,
+    T: Cfd2dScalar + Copy + FloatElement,
 {
     // Interpolate reference data to match computed grid points
-    let mut l2_error = T::zero();
+    let mut l2_error: T = zero();
     let mut count = 0;
 
     for (&y_comp, &u_comp) in y_computed.iter().zip(computed.iter()) {
         // Convert reference data to T for comparison
-        let y_min = T::from_f64(reference.y[0]).unwrap_or_else(num_traits::Zero::zero);
-        let y_max = T::from_f64(reference.y[reference.y.len() - 1]).unwrap();
+        let y_min: T = from_f64(reference.y[0]);
+        let y_max: T = from_f64(reference.y[reference.y.len() - 1]);
 
         if y_comp < y_min || y_comp > y_max {
             continue; // Skip boundary points that may not be accurate
@@ -344,7 +368,7 @@ where
 
         // Find interpolated reference value at y_comp
         // Convert y_comp to f64 for binary search on f64 reference data
-        let y_f64 = y_comp.to_f64().unwrap();
+        let y_f64 = <T as NumericElement>::to_f64(y_comp);
 
         let idx = match reference
             .y
@@ -353,12 +377,10 @@ where
             Ok(idx) => idx,
             Err(idx) if idx > 0 && idx < reference.y.len() => {
                 // Linear interpolation between reference points
-                let y1 = T::from_f64(reference.y[idx - 1]).unwrap_or_else(num_traits::Zero::zero);
-                let y2 = T::from_f64(reference.y[idx]).unwrap_or_else(num_traits::Zero::zero);
-                let u1 = T::from_f64(reference.u_centerline[idx - 1])
-                    .unwrap_or_else(num_traits::Zero::zero);
-                let u2 =
-                    T::from_f64(reference.u_centerline[idx]).unwrap_or_else(num_traits::Zero::zero);
+                let y1: T = from_f64(reference.y[idx - 1]);
+                let y2: T = from_f64(reference.y[idx]);
+                let u1: T = from_f64(reference.u_centerline[idx - 1]);
+                let u2: T = from_f64(reference.u_centerline[idx]);
 
                 let u_ref = u1 + (u2 - u1) * (y_comp - y1) / (y2 - y1);
                 let error = u_comp - u_ref;
@@ -369,16 +391,17 @@ where
             _ => continue,
         };
 
-        let u_ref = T::from_f64(reference.u_centerline[idx]).unwrap_or_else(num_traits::Zero::zero);
+        let u_ref: T = from_f64(reference.u_centerline[idx]);
         let error = u_comp - u_ref;
         l2_error += error * error;
         count += 1;
     }
 
     if count > 0 {
-        (l2_error / T::from_usize(count).unwrap()).sqrt()
+        let count_t: T = from_usize(count);
+        <T as NumericElement>::sqrt(l2_error / count_t)
     } else {
-        T::zero()
+        zero()
     }
 }
 
@@ -454,11 +477,10 @@ fn test_simplec_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     // This threshold tracks regression in the present SIMPLEC/PIMPLE configuration.
     assert!(
         l2_error < 0.30,
-        "SIMPLEC Re=100 L2 error {:.4} exceeds 30% threshold. Check algorithm implementation.",
-        l2_error
+        "SIMPLEC Re=100 L2 error {l2_error:.4} exceeds 30% threshold. Check algorithm implementation."
     );
 
-    println!("✅ SIMPLEC Ghia cavity Re=100: L2 error = {:.4}", l2_error);
+    println!("✅ SIMPLEC Ghia cavity Re=100: L2 error = {l2_error:.4}");
     println!("  Iterations: {}", solver.iterations());
 
     Ok(())
@@ -529,11 +551,10 @@ fn test_simplec_ghia_cavity_re400() -> cfd_core::error::Result<()> {
     // Future improvements needed for production accuracy
     assert!(
         l2_error < 0.35,
-        "SIMPLEC Re=400 L2 error {:.4} exceeds 35% threshold (target: <8%)",
-        l2_error
+        "SIMPLEC Re=400 L2 error {l2_error:.4} exceeds 35% threshold (target: <8%)"
     );
 
-    println!("✅ SIMPLEC Ghia cavity Re=400: L2 error = {:.4}", l2_error);
+    println!("✅ SIMPLEC Ghia cavity Re=400: L2 error = {l2_error:.4}");
     Ok(())
 }
 
@@ -603,11 +624,10 @@ fn test_pimple_ghia_cavity_re100() -> cfd_core::error::Result<()> {
     // PIMPLE requires more sophisticated pressure-velocity coupling than current SIMPLEC
     assert!(
         l2_error < 0.35,
-        "PIMPLE Re=100 L2 error {:.4} exceeds 35% threshold (target: <5%)",
-        l2_error
+        "PIMPLE Re=100 L2 error {l2_error:.4} exceeds 35% threshold (target: <5%)"
     );
 
-    println!("✅ PIMPLE Ghia cavity Re=100: L2 error = {:.4}", l2_error);
+    println!("✅ PIMPLE Ghia cavity Re=100: L2 error = {l2_error:.4}");
     Ok(())
 }
 
@@ -702,16 +722,12 @@ fn test_pimple_vs_simplec_performance() -> cfd_core::error::Result<()> {
     let pimple_time = start.elapsed();
 
     println!("🚀 Performance comparison:");
-    println!(
-        "  SIMPLEC: {:.2} ms, {} iterations",
-        simplec_time.as_millis(),
-        simplec_solver.iterations()
-    );
-    println!(
-        "  PIMPLE:  {:.2} ms, {} iterations",
-        pimple_time.as_millis(),
-        pimple_solver.iterations()
-    );
+    let simplec_ms = simplec_time.as_secs_f64() * 1000.0;
+    let simplec_iterations = simplec_solver.iterations();
+    println!("  SIMPLEC: {simplec_ms:.2} ms, {simplec_iterations} iterations",);
+    let pimple_ms = pimple_time.as_secs_f64() * 1000.0;
+    let pimple_iterations = pimple_solver.iterations();
+    println!("  PIMPLE:  {pimple_ms:.2} ms, {pimple_iterations} iterations",);
 
     // Both should converge
     assert!(simplec_solver.iterations() > 0);

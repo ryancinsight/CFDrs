@@ -4,8 +4,8 @@
 //! bifurcation following Murray's Law principles.
 
 use super::law::MurraysLaw;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd1dScalar;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Complete optimal bifurcation geometry
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 /// Calculates optimal diameters, angles, and flow distribution for a
 /// bifurcation following Murray's Law principles.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct OptimalBifurcation<T: RealField + Copy> {
+pub struct OptimalBifurcation<T: Cfd1dScalar + Copy> {
     /// Parent vessel diameter \[m]
     pub parent_diameter: T,
     /// Major daughter diameter \[m]
@@ -32,7 +32,7 @@ pub struct OptimalBifurcation<T: RealField + Copy> {
     pub daughter2_flow: T,
 }
 
-impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
+impl<T: Cfd1dScalar + FloatElement + Copy> OptimalBifurcation<T> {
     /// Create symmetric bifurcation following Murray's Law
     ///
     /// # Theorem: Optimal Symmetric Branching Angle
@@ -57,8 +57,8 @@ impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
 
         // cos(θ) = 2^(−1/3)
         let one_third = T::one() / (T::one() + T::one() + T::one());
-        let cos_theta = two.powf(-one_third);
-        let angle = cos_theta.acos();
+        let cos_theta = <T as FloatElement>::powf(two, -one_third);
+        let angle = <T as FloatElement>::acos(cos_theta);
 
         Self {
             parent_diameter,
@@ -91,8 +91,8 @@ impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
 
         // D₁ = D₀ · (Q₁/Q₀)^(1/3), D₂ = D₀ · (Q₂/Q₀)^(1/3)
         let one_third = one / (T::one() + T::one() + T::one());
-        let d1 = parent_diameter * flow_ratio.powf(one_third);
-        let d2 = parent_diameter * (one - flow_ratio).powf(one_third);
+        let d1 = parent_diameter * <T as FloatElement>::powf(flow_ratio, one_third);
+        let d2 = parent_diameter * <T as FloatElement>::powf(one - flow_ratio, one_third);
 
         // Zamir (1978) branching angle formula
         let d0_sq = parent_diameter * parent_diameter;
@@ -103,15 +103,23 @@ impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
         let d2_4 = d2_sq * d2_sq;
         let two = T::one() + T::one();
 
-        let cos_theta1 = ((d0_4 + d1_4 - d2_4) / (two * d0_sq * d1_sq)).clamp(-one, one);
-        let cos_theta2 = ((d0_4 + d2_4 - d1_4) / (two * d0_sq * d2_sq)).clamp(-one, one);
+        let cos_theta1 = <T as eunomia::RealField>::clamp(
+            (d0_4 + d1_4 - d2_4) / (two * d0_sq * d1_sq),
+            -one,
+            one,
+        );
+        let cos_theta2 = <T as eunomia::RealField>::clamp(
+            (d0_4 + d2_4 - d1_4) / (two * d0_sq * d2_sq),
+            -one,
+            one,
+        );
 
         Self {
             parent_diameter,
             daughter1_diameter: d1,
             daughter2_diameter: d2,
-            angle1: cos_theta1.acos(),
-            angle2: cos_theta2.acos(),
+            angle1: <T as FloatElement>::acos(cos_theta1),
+            angle2: <T as FloatElement>::acos(cos_theta2),
             parent_flow,
             daughter1_flow: q1,
             daughter2_flow: q2,
@@ -150,7 +158,7 @@ impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
     /// Check mass conservation: Q₀ = Q₁ + Q₂
     pub fn mass_conservation_error(&self) -> T {
         let sum = self.daughter1_flow + self.daughter2_flow;
-        (self.parent_flow - sum).abs() / self.parent_flow
+        <T as NumericElement>::abs(self.parent_flow - sum) / self.parent_flow
     }
 
     /// Calculate pressure drop through major daughter branch
@@ -158,8 +166,8 @@ impl<T: RealField + FromPrimitive + Copy> OptimalBifurcation<T> {
     /// Uses Poiseuille resistance: ΔP = 8μLQ/(πR⁴)
     pub fn pressure_drop_daughter1(&self, viscosity: T, length: T) -> T {
         let pi = T::pi();
-        let eight = T::from_f64(8.0).expect("Mathematical constant conversion compromised");
+        let eight = <T as FloatElement>::from_f64(8.0);
         let r = self.daughter1_diameter / (T::one() + T::one());
-        eight * viscosity * length * self.daughter1_flow / (pi * r.powi(4))
+        eight * viscosity * length * self.daughter1_flow / (pi * <T as FloatElement>::powi(r, 4))
     }
 }

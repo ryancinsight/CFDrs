@@ -366,6 +366,7 @@ fn test_solver_convergence_simple() -> Result<()> {
     let config = SolverConfig {
         tolerance: 1e-10,
         max_iterations: 100,
+        require_flow_convergence: true,
     };
 
     let problem = NetworkProblem::new(network);

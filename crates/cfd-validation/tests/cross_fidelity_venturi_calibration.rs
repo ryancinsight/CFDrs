@@ -26,7 +26,10 @@ fn rectangular_dims(cross_section: &CrossSectionSpec) -> (f64, f64) {
     }
 }
 
-fn channel<'a>(blueprint: &'a NetworkBlueprint, channel_id: &str) -> &'a cfd_schematics::domain::model::ChannelSpec {
+fn channel<'a>(
+    blueprint: &'a NetworkBlueprint,
+    channel_id: &str,
+) -> &'a cfd_schematics::domain::model::ChannelSpec {
     blueprint
         .channels
         .iter()
@@ -48,8 +51,14 @@ fn inlet_outlet_pressures(trace: &cfd_2d::network::NetworkReferenceTrace<f64>) -
         .map(|node| node.pressure_pa)
         .fold(f64::INFINITY, f64::min);
 
-    assert!(inlet_pressure.is_finite(), "Missing inlet pressure in 1D venturi trace");
-    assert!(outlet_pressure.is_finite(), "Missing outlet pressure in 1D venturi trace");
+    assert!(
+        inlet_pressure.is_finite(),
+        "Missing inlet pressure in 1D venturi trace"
+    );
+    assert!(
+        outlet_pressure.is_finite(),
+        "Missing outlet pressure in 1D venturi trace"
+    );
     (inlet_pressure, outlet_pressure)
 }
 
@@ -107,13 +116,7 @@ fn cross_fidelity_venturi_total_loss_coefficient() {
         l_diverge,
         height_m,
     );
-    let mut solver_2d = VenturiSolver2D::new(
-        geometry_2d,
-        BloodModel::Newtonian(MU),
-        RHO,
-        120,
-        48,
-    );
+    let mut solver_2d = VenturiSolver2D::new(geometry_2d, BloodModel::Newtonian(MU), RHO, 120, 48);
     let solution_2d = solver_2d
         .solve(inlet_mean_velocity_m_s)
         .expect("2D venturi solve");
@@ -156,8 +159,14 @@ fn cross_fidelity_venturi_total_loss_coefficient() {
     let ratio_3d_to_1d = total_loss_coeff_3d / total_loss_coeff_1d;
     let ratio_3d_to_2d = total_loss_coeff_3d / total_loss_coeff_2d;
 
-    println!("CALIBRATION: 1D={}, 2D={}, 3D={}", total_loss_coeff_1d, total_loss_coeff_2d, total_loss_coeff_3d);
-    println!("CALIBRATION RATIOS: 2D/1D={}, 3D/1D={}, 3D/2D={}", ratio_2d_to_1d, ratio_3d_to_1d, ratio_3d_to_2d);
+    println!(
+        "CALIBRATION: 1D={}, 2D={}, 3D={}",
+        total_loss_coeff_1d, total_loss_coeff_2d, total_loss_coeff_3d
+    );
+    println!(
+        "CALIBRATION RATIOS: 2D/1D={}, 3D/1D={}, 3D/2D={}",
+        ratio_2d_to_1d, ratio_3d_to_1d, ratio_3d_to_2d
+    );
 
     assert!(
         solution_2d.u_throat_mean > inlet_mean_velocity_m_s,

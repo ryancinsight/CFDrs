@@ -4,16 +4,17 @@
 //! $R(z) = 1 + z\,b^T (I - z\,A)^{-1} \mathbf{1}$ (Hairer et al. 1993, §IV.2).
 
 use super::{
-    ComplexPoint, MethodInfo, NumericalScheme, StabilityAnalyzer, StabilityRegion, StabilityType,
+    abs, from_f64, matrix_from_row_slice, one, to_f64, vector_from_vec, zero, ComplexPoint,
+    MethodInfo, NumericalScheme, StabilityAnalyzer, StabilityRegion, StabilityType,
     VonNeumannAnalysis,
 };
 use cfd_core::error::{Error, Result};
-use nalgebra::{DMatrix, DVector, RealField};
-use num_complex::Complex as NumComplex;
-use num_traits::ToPrimitive;
+use eunomia::Complex as AtlasComplex;
+use eunomia::{FloatElement, RealField};
+use leto::{Array1, Array2};
 use std::f64::consts::PI;
 
-impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
+impl<T: RealField + Copy + FloatElement> StabilityAnalyzer<T> {
     /// Compute stability region for explicit Runge-Kutta method
     ///
     /// For an s-stage explicit RK method with Butcher tableau (A, b, c),
@@ -28,32 +29,32 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
     /// Stability region boundary as vector of complex numbers
     pub fn compute_rk_stability_region(
         &self,
-        a: &DMatrix<T>,
-        b: &DVector<T>,
-        c: &DVector<T>,
+        a: &Array2<T>,
+        b: &Array1<T>,
+        c: &Array1<T>,
     ) -> Result<StabilityRegion<T>> {
-        let s = b.len();
+        let s = b.shape()[0];
 
         // Validate Butcher tableau dimensions
-        if a.nrows() != s || a.ncols() != s || c.len() != s {
+        if a.shape()[0] != s || a.shape()[1] != s || c.shape()[0] != s {
             return Err(Error::InvalidInput(format!(
                 "Invalid Butcher tableau dimensions: A is {}x{}, b has {}, c has {}",
-                a.nrows(),
-                a.ncols(),
-                b.len(),
-                c.len()
+                a.shape()[0],
+                a.shape()[1],
+                b.shape()[0],
+                c.shape()[0]
             )));
         }
 
         // Check if method is explicit (lower triangular A with zero diagonal)
         for i in 0..s {
-            if a[(i, i)] != T::zero() {
+            if a[[i, i]] != zero::<T>() {
                 return Err(Error::InvalidInput(
                     "Not an explicit Runge-Kutta method".to_string(),
                 ));
             }
             for j in (i + 1)..s {
-                if a[(i, j)] != T::zero() {
+                if a[[i, j]] != zero::<T>() {
                     return Err(Error::InvalidInput(
                         "Not a lower triangular A matrix".to_string(),
                     ));
@@ -61,10 +62,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             }
         }
 
-        let max_r = self
-            .max_z
-            .to_f64()
-            .ok_or_else(|| Error::InvalidInput("max_z must be convertible to f64".to_string()))?;
+        let max_r = to_f64(self.max_z);
 
         let mut boundary_points = Vec::with_capacity(self.resolution);
         let mut interior_points = Vec::with_capacity(self.resolution * 3);
@@ -75,17 +73,9 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             let theta = 2.0 * PI * i as f64 / self.resolution as f64;
             let r_boundary = self.find_rk_boundary_radius(a, b, c, theta, max_r)?;
 
-            let z = NumComplex::new(r_boundary * theta.cos(), r_boundary * theta.sin());
-            let z_real = T::from_f64(z.re).ok_or_else(|| {
-                Error::InvalidInput(
-                    "stability boundary real part not representable in T".to_string(),
-                )
-            })?;
-            let z_imag = T::from_f64(z.im).ok_or_else(|| {
-                Error::InvalidInput(
-                    "stability boundary imag part not representable in T".to_string(),
-                )
-            })?;
+            let z = AtlasComplex::new(r_boundary * theta.cos(), r_boundary * theta.sin());
+            let z_real = from_f64(z.re);
+            let z_imag = from_f64(z.im);
 
             boundary_points.push(ComplexPoint {
                 real: z_real,
@@ -96,17 +86,9 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             // Add a few interior samples along the same ray (useful for visualization).
             for frac in [0.25_f64, 0.5_f64, 0.75_f64] {
                 let r = r_boundary * frac;
-                let zi = NumComplex::new(r * theta.cos(), r * theta.sin());
-                let zi_real = T::from_f64(zi.re).ok_or_else(|| {
-                    Error::InvalidInput(
-                        "stability interior sample real part not representable in T".to_string(),
-                    )
-                })?;
-                let zi_imag = T::from_f64(zi.im).ok_or_else(|| {
-                    Error::InvalidInput(
-                        "stability interior sample imag part not representable in T".to_string(),
-                    )
-                })?;
+                let zi = AtlasComplex::new(r * theta.cos(), r * theta.sin());
+                let zi_real = from_f64(zi.re);
+                let zi_imag = from_f64(zi.im);
                 interior_points.push(ComplexPoint {
                     real: zi_real,
                     imag: zi_imag,
@@ -132,28 +114,23 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
     /// Returns the largest $r \ge 0$ such that $|R(-r)| \le 1$.
     pub fn compute_rk_absolute_stability_limit(
         &self,
-        a: &DMatrix<T>,
-        b: &DVector<T>,
-        c: &DVector<T>,
+        a: &Array2<T>,
+        b: &Array1<T>,
+        c: &Array1<T>,
     ) -> Result<T> {
-        let max_r = self
-            .max_z
-            .to_f64()
-            .ok_or_else(|| Error::InvalidInput("max_z must be convertible to f64".to_string()))?;
+        let max_r = to_f64(self.max_z);
 
         // θ = π corresponds to the negative real axis.
         let r = self.find_rk_boundary_radius(a, b, c, PI, max_r)?;
 
-        T::from_f64(r).ok_or_else(|| {
-            Error::InvalidInput("absolute stability limit not representable in T".to_string())
-        })
+        Ok(from_f64(r))
     }
 
     fn find_rk_boundary_radius(
         &self,
-        a: &DMatrix<T>,
-        b: &DVector<T>,
-        c: &DVector<T>,
+        a: &Array2<T>,
+        b: &Array1<T>,
+        c: &Array1<T>,
         theta: f64,
         max_r: f64,
     ) -> Result<f64> {
@@ -170,7 +147,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         // Coarse scan from 0 -> max_r looking for first instability.
         for step in 1..=RADIAL_SCAN_STEPS {
             let r = max_r * (step as f64) / (RADIAL_SCAN_STEPS as f64);
-            let z = NumComplex::new(r * theta.cos(), r * theta.sin());
+            let z = AtlasComplex::new(r * theta.cos(), r * theta.sin());
             let r_z = self.compute_rk_stability_function(a, b, c, z)?;
             let stable = r_z.norm() <= 1.0 + STABLE_TOL;
 
@@ -193,7 +170,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         // Refine boundary via bisection.
         for _ in 0..BISECTION_ITERS {
             let mid = 0.5 * (low + high);
-            let z = NumComplex::new(mid * theta.cos(), mid * theta.sin());
+            let z = AtlasComplex::new(mid * theta.cos(), mid * theta.sin());
             let r_z = self.compute_rk_stability_function(a, b, c, z)?;
             let stable = r_z.norm() <= 1.0 + STABLE_TOL;
             if stable {
@@ -209,63 +186,50 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
     /// Compute stability function for explicit Runge-Kutta method
     fn compute_rk_stability_function(
         &self,
-        a: &DMatrix<T>,
-        b: &DVector<T>,
-        _c: &DVector<T>,
-        z: NumComplex<f64>,
-    ) -> Result<NumComplex<f64>> {
-        let s = b.len();
+        a: &Array2<T>,
+        b: &Array1<T>,
+        _c: &Array1<T>,
+        z: AtlasComplex<f64>,
+    ) -> Result<AtlasComplex<f64>> {
+        let s = b.shape()[0];
 
         // For explicit methods, R(z) = 1 + z·b^T (I - z·A)^{-1} 𝟏
         //
-        // This matrix form evaluates the stability polynomial *exactly*
-        // for any s-stage explicit RK method.  For an order-p method the
-        // polynomial satisfies R(z) = Σ_{k=0}^{p} z^k/k! + O(z^{p+1}),
-        // matching the Taylor expansion of exp(z) through order p.
+        // Since explicit RK tableaux have strictly lower-triangular A, the
+        // system (I - z·A)x = 𝟏 has unit diagonal and is solved exactly by
+        // forward substitution. For an order-p method the polynomial satisfies
+        // R(z) = Σ_{k=0}^{p} z^k/k! + O(z^{p+1}), matching the Taylor
+        // expansion of exp(z) through order p.
         //
         // Reference: Hairer, Nørsett & Wanner (1993) §IV.2, Theorem 2.1.
 
-        // Convert matrices to complex
-        let mut a_complex = DMatrix::<NumComplex<f64>>::zeros(s, s);
-        let mut b_complex = DVector::<NumComplex<f64>>::zeros(s);
-
+        let one = AtlasComplex::new(1.0, 0.0);
+        let mut stage_values = vec![one; s];
         for i in 0..s {
-            b_complex[i] = NumComplex::new(b[i].to_f64().unwrap(), 0.0);
-            for j in 0..s {
-                a_complex[(i, j)] = NumComplex::new(a[(i, j)].to_f64().unwrap(), 0.0);
+            let mut lower_sum = AtlasComplex::new(0.0, 0.0);
+            for j in 0..i {
+                let a_ij = to_f64(a[[i, j]]);
+                lower_sum += stage_values[j] * a_ij;
             }
+            stage_values[i] = one + z * lower_sum;
         }
 
-        // Compute (I - z*A)
-        let identity = DMatrix::<NumComplex<f64>>::identity(s, s);
-        let z_a = &a_complex * z; // Matrix * scalar, not scalar * matrix
-        let matrix = &identity - &z_a;
-
-        // Compute inverse
-        match matrix.try_inverse() {
-            Some(inv_matrix) => {
-                // Compute b^T * inv_matrix * 1 (ones vector)
-                let ones = DVector::<NumComplex<f64>>::from_element(s, NumComplex::new(1.0, 0.0));
-                let temp = &inv_matrix * &ones;
-                let coeff = b_complex.dot(&temp);
-                let r_z = NumComplex::new(1.0, 0.0) + z * coeff;
-                Ok(r_z)
-            }
-            None => {
-                // Singular matrix - method is unstable for this z
-                Ok(NumComplex::new(f64::INFINITY, f64::INFINITY))
-            }
+        let mut coeff = AtlasComplex::new(0.0, 0.0);
+        for i in 0..s {
+            let b_i = to_f64(b[i]);
+            coeff += stage_values[i] * b_i;
         }
+        Ok(one + z * coeff)
     }
 
     /// Estimate order of Runge-Kutta method from Butcher tableau
-    fn estimate_rk_order(&self, _a: &DMatrix<T>, _b: &DVector<T>, _c: &DVector<T>) -> usize {
-        let _s = _b.len();
+    fn estimate_rk_order(&self, _a: &Array2<T>, _b: &Array1<T>, _c: &Array1<T>) -> usize {
+        let _s = _b.shape()[0];
 
         // Basic order conditions checks
         // Order 1: sum b_i = 1
-        let sum_b = _b.iter().fold(T::zero(), |acc, &x| acc + x);
-        if (sum_b - T::one()).abs() > T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero) {
+        let sum_b = _b.iter().fold(zero::<T>(), |acc, &x| acc + x);
+        if abs(sum_b - one::<T>()) > from_f64(1e-10) {
             return 0;
         }
 
@@ -273,10 +237,8 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         let sum_b_c = _b
             .iter()
             .zip(_c.iter())
-            .fold(T::zero(), |acc, (&bi, &ci)| acc + bi * ci);
-        if (sum_b_c - T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero)).abs()
-            > T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero)
-        {
+            .fold(zero::<T>(), |acc, (&bi, &ci)| acc + bi * ci);
+        if abs(sum_b_c - from_f64(0.5)) > from_f64(1e-10) {
             return 1;
         }
 
@@ -284,10 +246,8 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         let sum_b_c2 = _b
             .iter()
             .zip(_c.iter())
-            .fold(T::zero(), |acc, (&bi, &ci)| acc + bi * ci * ci);
-        if (sum_b_c2 - T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero)).abs()
-            > T::from_f64(1e-10).unwrap_or_else(num_traits::Zero::zero)
-        {
+            .fold(zero::<T>(), |acc, (&bi, &ci)| acc + bi * ci * ci);
+        if abs(sum_b_c2 - from_f64(1.0 / 3.0)) > from_f64(1e-10) {
             return 2;
         }
 
@@ -316,23 +276,23 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         wave_numbers: &[T],
     ) -> Result<VonNeumannAnalysis<T>>
     where
-        F: Fn(NumComplex<f64>) -> NumComplex<f64>, // L_hat(k) - spatial operator in frequency domain
+        F: Fn(AtlasComplex<f64>) -> AtlasComplex<f64>, // L_hat(k) - spatial operator in frequency domain
     {
         let mut amplification_factors = Vec::with_capacity(wave_numbers.len());
-        let mut max_amplification = T::zero();
-        let mut critical_wave_number = T::zero();
+        let mut max_amplification = zero::<T>();
+        let mut critical_wave_number = zero::<T>();
 
         for &k in wave_numbers {
-            let k_complex = NumComplex::new(0.0, k.to_f64().unwrap());
+            let k_complex = AtlasComplex::new(0.0, to_f64(k));
 
             // Compute spatial operator in frequency domain
             let l_hat = spatial_operator(k_complex);
 
             // Amplification factor for forward Euler: g = 1 + dt * L_hat(k)
-            let dt_f64 = dt.to_f64().unwrap();
-            let g = NumComplex::new(1.0, 0.0) + NumComplex::new(dt_f64, 0.0) * l_hat;
+            let dt_f64 = to_f64(dt);
+            let g = AtlasComplex::new(1.0, 0.0) + AtlasComplex::new(dt_f64, 0.0) * l_hat;
 
-            let amplification = T::from_f64(g.norm()).unwrap();
+            let amplification = from_f64(g.norm());
             amplification_factors.push(amplification);
 
             if amplification > max_amplification {
@@ -341,8 +301,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             }
         }
 
-        let is_stable =
-            max_amplification <= T::from_f64(1.0001).unwrap_or_else(num_traits::Zero::zero); // Allow small numerical errors
+        let is_stable = max_amplification <= from_f64(1.0001); // Allow small numerical errors
 
         Ok(VonNeumannAnalysis {
             wave_numbers: wave_numbers.to_vec(),
@@ -350,8 +309,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             max_amplification,
             critical_wave_number,
             is_stable,
-            stability_margin: T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero)
-                - max_amplification,
+            stability_margin: from_f64::<T>(1.0) - max_amplification,
         })
     }
 
@@ -361,31 +319,29 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
     /// amplification factor $g(k) = R(\Delta t\,\hat L(k))$.
     pub fn von_neumann_analysis_explicit_rk<F>(
         &self,
-        a: &DMatrix<T>,
-        b: &DVector<T>,
-        c: &DVector<T>,
+        a: &Array2<T>,
+        b: &Array1<T>,
+        c: &Array1<T>,
         spatial_operator: F,
         dt: T,
         wave_numbers: &[T],
     ) -> Result<VonNeumannAnalysis<T>>
     where
-        F: Fn(NumComplex<f64>) -> NumComplex<f64>,
+        F: Fn(AtlasComplex<f64>) -> AtlasComplex<f64>,
     {
-        let dt_f64 = dt
-            .to_f64()
-            .ok_or_else(|| Error::InvalidInput("dt must be convertible to f64".to_string()))?;
+        let dt_f64 = to_f64(dt);
 
         let mut amplification_factors = Vec::with_capacity(wave_numbers.len());
-        let mut max_amplification = T::zero();
-        let mut critical_wave_number = T::zero();
+        let mut max_amplification = zero::<T>();
+        let mut critical_wave_number = zero::<T>();
 
         for &k in wave_numbers {
-            let k_complex = NumComplex::new(0.0, k.to_f64().unwrap());
+            let k_complex = AtlasComplex::new(0.0, to_f64(k));
             let l_hat = spatial_operator(k_complex);
-            let z = NumComplex::new(dt_f64, 0.0) * l_hat;
+            let z = AtlasComplex::new(dt_f64, 0.0) * l_hat;
 
             let g = self.compute_rk_stability_function(a, b, c, z)?;
-            let amplification = T::from_f64(g.norm()).unwrap();
+            let amplification = from_f64(g.norm());
             amplification_factors.push(amplification);
 
             if amplification > max_amplification {
@@ -394,8 +350,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             }
         }
 
-        let is_stable =
-            max_amplification <= T::from_f64(1.0001).unwrap_or_else(num_traits::Zero::zero);
+        let is_stable = max_amplification <= from_f64(1.0001);
 
         Ok(VonNeumannAnalysis {
             wave_numbers: wave_numbers.to_vec(),
@@ -403,8 +358,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             max_amplification,
             critical_wave_number,
             is_stable,
-            stability_margin: T::from_f64(1.0).unwrap_or_else(num_traits::Zero::zero)
-                - max_amplification,
+            stability_margin: from_f64::<T>(1.0) - max_amplification,
         })
     }
 
@@ -420,7 +374,7 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
         wave_numbers: &[T],
     ) -> Result<VonNeumannAnalysis<T>>
     where
-        F: Fn(NumComplex<f64>) -> NumComplex<f64>,
+        F: Fn(AtlasComplex<f64>) -> AtlasComplex<f64>,
     {
         match scheme {
             NumericalScheme::ForwardEuler => {
@@ -428,31 +382,23 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
             }
             NumericalScheme::RK3 => {
                 // Heun/Kutta 3rd-order as used in validation
-                let a = DMatrix::from_row_slice(
+                let a = matrix_from_row_slice(
                     3,
                     3,
                     &[
-                        T::zero(),
-                        T::zero(),
-                        T::zero(),
-                        T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
-                        T::zero(),
-                        T::zero(),
-                        T::zero(),
-                        T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
-                        T::zero(),
+                        zero(),
+                        zero(),
+                        zero(),
+                        from_f64(1.0 / 3.0),
+                        zero(),
+                        zero(),
+                        zero(),
+                        from_f64(2.0 / 3.0),
+                        zero(),
                     ],
                 );
-                let b = DVector::from_vec(vec![
-                    T::from_f64(0.25).unwrap_or_else(num_traits::Zero::zero),
-                    T::zero(),
-                    T::from_f64(0.75).unwrap_or_else(num_traits::Zero::zero),
-                ]);
-                let c = DVector::from_vec(vec![
-                    T::zero(),
-                    T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
-                    T::from_f64(2.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
-                ]);
+                let b = vector_from_vec(vec![from_f64(0.25), zero(), from_f64(0.75)]);
+                let c = vector_from_vec(vec![zero(), from_f64(1.0 / 3.0), from_f64(2.0 / 3.0)]);
                 self.von_neumann_analysis_explicit_rk(
                     &a,
                     &b,
@@ -463,36 +409,36 @@ impl<T: RealField + Copy + ToPrimitive> StabilityAnalyzer<T> {
                 )
             }
             NumericalScheme::RK4 => {
-                let one_half = T::from_f64(0.5).unwrap_or_else(num_traits::Zero::zero);
-                let a = DMatrix::from_row_slice(
+                let one_half = from_f64(0.5);
+                let a = matrix_from_row_slice(
                     4,
                     4,
                     &[
-                        T::zero(),
-                        T::zero(),
-                        T::zero(),
-                        T::zero(),
+                        zero(),
+                        zero(),
+                        zero(),
+                        zero(),
                         one_half,
-                        T::zero(),
-                        T::zero(),
-                        T::zero(),
-                        T::zero(),
+                        zero(),
+                        zero(),
+                        zero(),
+                        zero(),
                         one_half,
-                        T::zero(),
-                        T::zero(),
-                        T::zero(),
-                        T::zero(),
-                        T::one(),
-                        T::zero(),
+                        zero(),
+                        zero(),
+                        zero(),
+                        zero(),
+                        one(),
+                        zero(),
                     ],
                 );
-                let b = DVector::from_vec(vec![
-                    T::from_f64(1.0 / 6.0).unwrap_or_else(num_traits::Zero::zero),
-                    T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
-                    T::from_f64(1.0 / 3.0).unwrap_or_else(num_traits::Zero::zero),
-                    T::from_f64(1.0 / 6.0).unwrap_or_else(num_traits::Zero::zero),
+                let b = vector_from_vec(vec![
+                    from_f64(1.0 / 6.0),
+                    from_f64(1.0 / 3.0),
+                    from_f64(1.0 / 3.0),
+                    from_f64(1.0 / 6.0),
                 ]);
-                let c = DVector::from_vec(vec![T::zero(), one_half, one_half, T::one()]);
+                let c = vector_from_vec(vec![zero(), one_half, one_half, one()]);
                 self.von_neumann_analysis_explicit_rk(
                     &a,
                     &b,

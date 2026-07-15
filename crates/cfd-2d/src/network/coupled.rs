@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::scalar::Cfd2dScalar;
 use cfd_1d::domain::network::{apply_blueprint_boundary_conditions, network_from_blueprint};
 use cfd_1d::{NetworkSolver, SolverConfig};
 use cfd_core::error::{Error, Result as CfdResult};
@@ -9,11 +10,13 @@ use cfd_schematics::domain::model::{NetworkBlueprint, NodeKind};
 use cfd_schematics::geometry::metadata::{
     BranchBoundaryMetadata, BranchBoundarySpecification, JunctionFamily, JunctionGeometryMetadata,
 };
-use nalgebra::{DVector, RealField};
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
+use leto::{Array1, Storage, StorageMut};
+use moirai::{map_collect_mut_with, Adaptive};
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
-use moirai::{map_collect_mut_with, Adaptive};
+
+use crate::scalar;
 
 use super::channel::solve_channel_entry;
 use super::reference::{
@@ -35,7 +38,7 @@ const COUPLING_AITKEN_DROP_TOLERANCE: f64 = 1e-12;
 
 struct CoupledPassOutcome<T>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive,
+    T: Cfd2dScalar + Copy + FloatElement,
 {
     network: cfd_1d::domain::network::Network<T, ConstantPropertyFluid<T>>,
     reference_trace: NetworkReferenceTrace<T>,
@@ -47,7 +50,7 @@ where
 
 struct ResistanceUpdateCandidate<T>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive,
+    T: Cfd2dScalar + Copy + FloatElement,
 {
     edge_idx: EdgeIndex,
     current_linear: T,
@@ -55,11 +58,11 @@ where
 
 struct CoupledResistanceMixer<T>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive,
+    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField,
 {
     anderson: AndersonAccelerator<T>,
-    previous_residual: Option<DVector<T>>,
-    previous_relaxation: Option<DVector<T>>,
+    previous_residual: Option<Array1<T>>,
+    previous_relaxation: Option<Array1<T>>,
     relaxation_floor: T,
     relaxation_ceiling: T,
     residual_drop_tolerance: T,
@@ -67,30 +70,28 @@ where
 
 impl<T> CoupledResistanceMixer<T>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug,
+    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     fn new(history_depth: usize) -> Self {
         Self {
             anderson: AndersonAccelerator::new(AndersonConfig::<T> {
                 history_depth,
-                relaxation: T::one(),
-                drop_tolerance: T::from_f64(COUPLING_AITKEN_DROP_TOLERANCE)
-                    .unwrap_or_else(T::default_epsilon),
+                relaxation: scalar::one(),
+                drop_tolerance: scalar::from_f64(COUPLING_AITKEN_DROP_TOLERANCE),
                 method: AndersonMethod::QR,
             }),
             previous_residual: None,
             previous_relaxation: None,
-            relaxation_floor: T::from_f64(COUPLING_AITKEN_RELAXATION_MIN)
-                .expect("analytical constant conversion"),
-            relaxation_ceiling: T::from_f64(COUPLING_AITKEN_RELAXATION_MAX)
-                .expect("analytical constant conversion"),
-            residual_drop_tolerance: T::from_f64(COUPLING_AITKEN_DROP_TOLERANCE)
-                .unwrap_or_else(T::default_epsilon),
+            relaxation_floor: scalar::from_f64(COUPLING_AITKEN_RELAXATION_MIN),
+            relaxation_ceiling: scalar::from_f64(COUPLING_AITKEN_RELAXATION_MAX),
+            residual_drop_tolerance: scalar::from_f64(COUPLING_AITKEN_DROP_TOLERANCE),
         }
     }
 
-    fn mix(&mut self, current: &DVector<T>, target: &DVector<T>) -> DVector<T> {
-        if current.len() != target.len() || !vector_is_finite(current) || !vector_is_finite(target)
+    fn mix(&mut self, current: &Array1<T>, target: &Array1<T>) -> Array1<T> {
+        if vector_len(current) != vector_len(target)
+            || !vector_is_finite(current)
+            || !vector_is_finite(target)
         {
             self.reset();
             return target.clone();
@@ -117,25 +118,25 @@ where
         self.anderson.reset();
     }
 
-    fn vector_aitken_candidate(&mut self, current: &DVector<T>, target: &DVector<T>) -> DVector<T> {
-        let residual = target - current;
-        let mut relaxation = DVector::from_element(residual.len(), T::one());
+    fn vector_aitken_candidate(&mut self, current: &Array1<T>, target: &Array1<T>) -> Array1<T> {
+        let residual = vector_sub(target, current);
+        let mut relaxation = Array1::from_elem([vector_len(&residual)], scalar::one());
 
         if let (Some(previous_residual), Some(previous_relaxation)) =
             (&self.previous_residual, &self.previous_relaxation)
         {
-            if previous_residual.len() == residual.len()
-                && previous_relaxation.len() == residual.len()
+            if vector_len(previous_residual) == vector_len(&residual)
+                && vector_len(previous_relaxation) == vector_len(&residual)
             {
-                let residual_delta = &residual - previous_residual;
-                for i in 0..residual.len() {
-                    let previous_factor = previous_relaxation[i];
-                    let delta = residual_delta[i];
-                    relaxation[i] = if delta.is_finite()
-                        && Float::abs(delta) > self.residual_drop_tolerance
-                        && previous_factor.is_finite()
+                let residual_delta = vector_sub(&residual, previous_residual);
+                for i in 0..vector_len(&residual) {
+                    let previous_factor = previous_relaxation[[i]];
+                    let delta = residual_delta[[i]];
+                    relaxation[[i]] = if <T as NumericElement>::is_finite(delta)
+                        && <T as NumericElement>::abs(delta) > self.residual_drop_tolerance
+                        && <T as NumericElement>::is_finite(previous_factor)
                     {
-                        let raw = -previous_factor * previous_residual[i] / delta;
+                        let raw = -previous_factor * previous_residual[[i]] / delta;
                         clamp_relaxation(raw, self.relaxation_floor, self.relaxation_ceiling)
                     } else {
                         clamp_relaxation(
@@ -152,13 +153,13 @@ where
 
         self.previous_residual = Some(residual.clone());
         self.previous_relaxation = Some(relaxation.clone());
-        current + residual.component_mul(&relaxation)
+        vector_add_component_scaled(current, &residual, &relaxation)
     }
 }
 
 impl<T> Network2DSolver<T>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug,
+    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     /// Solve the junction-aware network using coupled 1D/2D iterations.
     ///
@@ -167,11 +168,8 @@ where
     /// blueprint. That keeps the coupled pass stable while letting split and
     /// merge branches relax at different rates.
     pub fn solve_coupled(&mut self, tolerance: f64) -> CfdResult<CoupledNetwork2dResult<T>> {
-        let target_total_flow_m3_s = self
-            .reference_trace
-            .total_inlet_flow_m3_s
-            .to_f64()
-            .unwrap_or(0.0);
+        let target_total_flow_m3_s =
+            <T as NumericElement>::to_f64(self.reference_trace.total_inlet_flow_m3_s);
         let fluid =
             reference_fluid::<T>(self.reference_density_kg_m3, self.reference_viscosity_pa_s)?;
         let mut working_network =
@@ -194,21 +192,20 @@ where
             &mut working_network,
             &self.blueprint,
             &node_indices,
-            T::one(),
-            T::zero(),
+            scalar::one(),
+            scalar::zero(),
         )?;
         let seed_state_by_channel_id: HashMap<&str, (T, T)> = self
             .channels
             .iter()
             .map(|entry| {
-                let seed_flow =
-                    T::from_f64(entry.flow_rate_m3_s).expect("analytical constant conversion");
+                let seed_flow = scalar::from_f64(entry.flow_rate_m3_s);
                 let seed_reference_flow = entry.reference_trace.flow_rate_m3_s;
                 let seed_reference_drop = entry.reference_trace.pressure_drop_pa;
-                let seed_resistance = if Float::abs(seed_reference_flow)
-                    > T::from_f64(MIN_LINEAR_RESISTANCE).expect("analytical constant conversion")
+                let seed_resistance = if <T as NumericElement>::abs(seed_reference_flow)
+                    > scalar::from_f64(MIN_LINEAR_RESISTANCE)
                 {
-                    Float::abs(seed_reference_drop / seed_reference_flow)
+                    <T as NumericElement>::abs(seed_reference_drop / seed_reference_flow)
                 } else {
                     entry.reference_trace.resistance_pa_s_per_m3
                 };
@@ -221,9 +218,10 @@ where
                 .edge_weight(edge_idx)
                 .map(|edge| edge.id.clone());
             if let Some(edge) = working_network.graph.edge_weight_mut(edge_idx) {
-                if !edge.resistance.is_finite() || edge.resistance <= T::zero() {
-                    edge.resistance =
-                        T::from_f64(MIN_LINEAR_RESISTANCE).expect("analytical constant conversion");
+                if !<T as NumericElement>::is_finite(edge.resistance)
+                    || edge.resistance <= scalar::zero()
+                {
+                    edge.resistance = scalar::from_f64(MIN_LINEAR_RESISTANCE);
                 }
                 if let Some(edge_id) = edge_id.as_deref() {
                     if let Some((seed_flow, seed_resistance)) =
@@ -234,12 +232,13 @@ where
                         edge.resistance = *seed_resistance;
                     }
                 }
-                edge.quad_coeff = T::zero();
+                edge.quad_coeff = scalar::zero();
             }
             if let Some(props) = working_network.properties.get_mut(&edge_idx) {
-                if !props.resistance.is_finite() || props.resistance <= T::zero() {
-                    props.resistance =
-                        T::from_f64(MIN_LINEAR_RESISTANCE).expect("analytical constant conversion");
+                if !<T as NumericElement>::is_finite(props.resistance)
+                    || props.resistance <= scalar::zero()
+                {
+                    props.resistance = scalar::from_f64(MIN_LINEAR_RESISTANCE);
                 }
                 if let Some(edge_id) = edge_id.as_deref() {
                     if let Some((_, seed_resistance)) = seed_state_by_channel_id.get(edge_id) {
@@ -253,21 +252,21 @@ where
 
         let edge_index_by_id = edge_index_by_id(&working_network);
         let solver = NetworkSolver::<T, ConstantPropertyFluid<T>>::with_config(SolverConfig::<T> {
-            tolerance: T::from_f64(1e-12).unwrap_or_else(T::default_epsilon),
+            tolerance: scalar::from_f64(1e-12),
             max_iterations: 500,
+            require_flow_convergence: true,
         });
         let mut coupling_mixer = CoupledResistanceMixer::<T>::new(COUPLING_ANDERSON_DEPTH);
         let channel_coupling_weights = build_channel_coupling_weights::<T>(&self.blueprint);
         let convergence_threshold_pct =
-            T::from_f64(tolerance.max(COUPLING_CONVERGENCE_FLOOR_RELATIVE) * 100.0)
-                .expect("analytical constant conversion");
+            scalar::from_f64(tolerance.max(COUPLING_CONVERGENCE_FLOOR_RELATIVE) * 100.0);
         let mut previous_reference_trace: Option<NetworkReferenceTrace<T>> = None;
         let mut final_reference_trace = self.reference_trace.clone();
         let mut final_channel_results = Vec::new();
         let mut coupling_iterations = 0usize;
         let mut converged = false;
-        let mut max_relative_flow_change_pct = T::zero();
-        let mut max_relative_resistance_change_pct = T::zero();
+        let mut max_relative_flow_change_pct: T = scalar::zero();
+        let mut max_relative_resistance_change_pct: T = scalar::zero();
 
         for iteration in 0..MAX_COUPLING_ITERATIONS {
             let outcome = run_coupled_pass(
@@ -310,13 +309,14 @@ where
             .zip(final_reference_trace.channel_traces.iter())
         {
             entry.reference_trace = channel_trace.clone();
-            entry.flow_rate_m3_s = channel_trace.flow_rate_m3_s.to_f64().unwrap_or(0.0);
+            entry.flow_rate_m3_s = <T as NumericElement>::to_f64(channel_trace.flow_rate_m3_s);
         }
 
         let mut results = Vec::with_capacity(final_channel_results.len());
-        let mut total_hi = T::zero();
-        let mut total_outlet_error_pct = T::zero();
-        let mut max_outlet_error_pct = T::zero();
+        let zero: T = scalar::zero();
+        let mut total_hi = zero;
+        let mut total_outlet_error_pct = zero;
+        let mut max_outlet_error_pct = zero;
         let mut converged_count = 0usize;
 
         for channel in final_channel_results {
@@ -332,10 +332,9 @@ where
         }
 
         let mean_outlet_error_pct = if results.is_empty() {
-            T::zero()
+            zero
         } else {
-            total_outlet_error_pct
-                / T::from_usize(results.len()).expect("analytical constant conversion")
+            total_outlet_error_pct / scalar::from_usize::<T>(results.len())
         };
 
         let result = Network2dResult {
@@ -373,7 +372,7 @@ fn run_coupled_pass<T>(
     separation_tracking_enabled: bool,
 ) -> CfdResult<CoupledPassOutcome<T>>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug,
+    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     let solve_input = working_network.clone();
     let solve_result = solver.solve_owned_network_with_diagnostics(solve_input);
@@ -388,7 +387,7 @@ where
         blueprint,
         &solved_network,
         diagnostics,
-        T::one(),
+        scalar::one(),
         target_total_flow_m3_s,
     ) {
         trace
@@ -404,7 +403,7 @@ where
             solve_channel_entry(
                 entry,
                 tolerance,
-                channel_trace.flow_rate_m3_s.to_f64().unwrap_or(0.0),
+                <T as NumericElement>::to_f64(channel_trace.flow_rate_m3_s),
                 channel_trace,
                 separation_tracking_enabled,
             )
@@ -426,13 +425,12 @@ where
         )));
     }
 
-    let flow_floor = T::from_f64(1e-30).expect("analytical constant conversion");
-    let min_linear_resistance =
-        T::from_f64(MIN_LINEAR_RESISTANCE).expect("analytical constant conversion");
+    let flow_floor: T = scalar::from_f64(1e-30);
+    let min_linear_resistance: T = scalar::from_f64(MIN_LINEAR_RESISTANCE);
     let mut current_linear_values = Vec::with_capacity(channel_results.len());
     let mut weighted_target_values = Vec::with_capacity(channel_results.len());
     let mut update_candidates = Vec::with_capacity(channel_results.len());
-    let mut max_relative_resistance_change = T::zero();
+    let mut max_relative_resistance_change: T = scalar::zero();
 
     for ((channel_result, channel_trace), weight) in channel_results
         .iter()
@@ -447,7 +445,7 @@ where
         };
 
         let (current_linear, current_quad) = if fell_back_to_seed_reference {
-            (channel_trace.resistance_pa_s_per_m3, T::zero())
+            (channel_trace.resistance_pa_s_per_m3, scalar::zero())
         } else {
             let Some(edge_weight) = solved_network.graph.edge_weight(edge_idx) else {
                 return Err(Error::InvalidInput(format!(
@@ -457,13 +455,10 @@ where
             };
             (edge_weight.resistance, edge_weight.quad_coeff)
         };
-        let flow_abs = Float::abs(channel_trace.flow_rate_m3_s);
+        let flow_abs = <T as NumericElement>::abs(channel_trace.flow_rate_m3_s);
         let target_linear = if flow_abs > flow_floor {
             let total_effective = channel_result.field_effective_resistance_pa_s_per_m3;
-            Float::max(
-                total_effective - current_quad * flow_abs,
-                min_linear_resistance,
-            )
+            (total_effective - current_quad * flow_abs).max_scalar(min_linear_resistance)
         } else {
             current_linear
         };
@@ -477,8 +472,8 @@ where
         });
     }
 
-    let current_linear = DVector::from_vec(current_linear_values);
-    let mut weighted_target = DVector::from_vec(weighted_target_values);
+    let current_linear = vector_from_vec(current_linear_values);
+    let mut weighted_target = vector_from_vec(weighted_target_values);
     clamp_vector_to_floor(&mut weighted_target, min_linear_resistance);
     if !vector_is_finite(&current_linear) || !vector_is_finite(&weighted_target) {
         return Err(Error::InvalidInput(
@@ -497,16 +492,13 @@ where
     for ((candidate, channel_trace), next_linear_value) in update_candidates
         .iter()
         .zip(current_reference_trace.channel_traces.iter())
-        .zip(next_linear.iter())
+        .zip(vector_slice(&next_linear).iter())
     {
-        let denom = Float::max(
-            Float::max(
-                Float::abs(candidate.current_linear),
-                Float::abs(*next_linear_value),
-            ),
-            min_linear_resistance,
-        );
-        let relative_change = Float::abs(*next_linear_value - candidate.current_linear) / denom;
+        let denom = <T as NumericElement>::abs(candidate.current_linear)
+            .max_scalar(<T as NumericElement>::abs(*next_linear_value))
+            .max_scalar(min_linear_resistance);
+        let relative_change =
+            <T as NumericElement>::abs(*next_linear_value - candidate.current_linear) / denom;
         if relative_change > max_relative_resistance_change {
             max_relative_resistance_change = relative_change;
         }
@@ -522,21 +514,19 @@ where
         }
     }
 
-    let mut max_relative_flow_change = T::zero();
+    let mut max_relative_flow_change: T = scalar::zero();
     if let Some(previous) = previous_reference_trace {
         for (current, previous) in current_reference_trace
             .channel_traces
             .iter()
             .zip(previous.channel_traces.iter())
         {
-            let denom = Float::max(
-                Float::max(
-                    Float::abs(current.flow_rate_m3_s),
-                    Float::abs(previous.flow_rate_m3_s),
-                ),
-                flow_floor,
-            );
-            let change = Float::abs(current.flow_rate_m3_s - previous.flow_rate_m3_s) / denom;
+            let denom = <T as NumericElement>::abs(current.flow_rate_m3_s)
+                .max_scalar(<T as NumericElement>::abs(previous.flow_rate_m3_s))
+                .max_scalar(flow_floor);
+            let change =
+                <T as NumericElement>::abs(current.flow_rate_m3_s - previous.flow_rate_m3_s)
+                    / denom;
             if change > max_relative_flow_change {
                 max_relative_flow_change = change;
             }
@@ -548,16 +538,15 @@ where
         reference_trace: current_reference_trace,
         channel_results,
         all_channels_converged,
-        max_relative_flow_change_pct: max_relative_flow_change
-            * T::from_f64(100.0).expect("analytical constant conversion"),
+        max_relative_flow_change_pct: max_relative_flow_change * scalar::from_f64::<T>(100.0),
         max_relative_resistance_change_pct: max_relative_resistance_change
-            * T::from_f64(100.0).expect("analytical constant conversion"),
+            * scalar::from_f64::<T>(100.0),
     })
 }
 
 pub(crate) fn build_channel_coupling_weights<T>(blueprint: &NetworkBlueprint) -> Vec<T>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive,
+    T: Cfd2dScalar + Copy + FloatElement,
 {
     let node_lookup: HashMap<
         &str,
@@ -605,8 +594,7 @@ where
             } else {
                 endpoint_weights.iter().copied().sum::<f64>() / endpoint_weights.len() as f64
             };
-            T::from_f64(clamp_coupling_weight(combined_weight))
-                .expect("analytical constant conversion")
+            scalar::from_f64(clamp_coupling_weight(combined_weight))
         })
         .collect()
 }
@@ -738,29 +726,81 @@ fn representative_abs_angle_deg(angles: &[f64]) -> Option<f64> {
         .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
 }
 
-fn vector_is_finite<T>(vector: &DVector<T>) -> bool
+fn vector_from_vec<T>(values: Vec<T>) -> Array1<T> {
+    Array1::from_shape_vec([values.len()], values)
+        .expect("invariant: vector shape matches produced element count")
+}
+
+fn vector_len<T>(vector: &Array1<T>) -> usize {
+    vector.shape()[0]
+}
+
+fn vector_slice<T>(vector: &Array1<T>) -> &[T] {
+    vector.storage().as_slice()
+}
+
+fn vector_slice_mut<T>(vector: &mut Array1<T>) -> &mut [T] {
+    vector.storage_mut().as_mut_slice()
+}
+
+fn vector_sub<T>(lhs: &Array1<T>, rhs: &Array1<T>) -> Array1<T>
 where
-    T: Float,
+    T: FloatElement + Copy,
 {
-    vector.iter().all(|value| value.is_finite())
+    vector_from_vec(
+        vector_slice(lhs)
+            .iter()
+            .zip(vector_slice(rhs))
+            .map(|(&left, &right)| left - right)
+            .collect(),
+    )
+}
+
+fn vector_add_component_scaled<T>(
+    base: &Array1<T>,
+    residual: &Array1<T>,
+    relaxation: &Array1<T>,
+) -> Array1<T>
+where
+    T: FloatElement + Copy,
+{
+    vector_from_vec(
+        vector_slice(base)
+            .iter()
+            .zip(vector_slice(residual))
+            .zip(vector_slice(relaxation))
+            .map(|((&base_value, &residual_value), &relaxation_value)| {
+                base_value + residual_value * relaxation_value
+            })
+            .collect(),
+    )
+}
+
+fn vector_is_finite<T>(vector: &Array1<T>) -> bool
+where
+    T: NumericElement,
+{
+    vector_slice(vector)
+        .iter()
+        .all(|&value| <T as NumericElement>::is_finite(value))
 }
 
 fn clamp_relaxation<T>(value: T, floor: T, ceiling: T) -> T
 where
-    T: Float + Copy,
+    T: FloatElement + Copy,
 {
-    if !value.is_finite() {
+    if !<T as NumericElement>::is_finite(value) {
         return floor;
     }
-    Float::max(Float::min(value, ceiling), floor)
+    value.min_scalar(ceiling).max_scalar(floor)
 }
 
-fn clamp_vector_to_floor<T>(vector: &mut DVector<T>, floor: T)
+fn clamp_vector_to_floor<T>(vector: &mut Array1<T>, floor: T)
 where
-    T: Float + Copy,
+    T: FloatElement + Copy,
 {
-    for value in vector.iter_mut() {
-        if !value.is_finite() || *value <= floor {
+    for value in vector_slice_mut(vector) {
+        if !<T as NumericElement>::is_finite(*value) || *value <= floor {
             *value = floor;
         }
     }
@@ -770,7 +810,7 @@ fn edge_index_by_id<T>(
     network: &cfd_1d::domain::network::Network<T, ConstantPropertyFluid<T>>,
 ) -> HashMap<String, EdgeIndex>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive,
+    T: Cfd2dScalar + Copy + FloatElement,
 {
     network
         .graph

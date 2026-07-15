@@ -5,8 +5,8 @@
 
 use super::Mesh;
 use crate::error::Result;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -15,7 +15,7 @@ pub struct MeshQualityService;
 
 impl MeshQualityService {
     /// Assess overall mesh quality and provide recommendations
-    pub fn assess_quality<T: RealField + FromPrimitive + Copy>(
+    pub fn assess_quality<T: RealField + FloatElement + Copy>(
         aspect_ratio_stats: &MetricStatistics<T>,
         skewness_stats: &MetricStatistics<T>,
         orthogonality_stats: &MetricStatistics<T>,
@@ -47,12 +47,12 @@ impl MeshQualityService {
         }
     }
 
-    fn assess_aspect_ratio<T: RealField + FromPrimitive + Copy>(
+    fn assess_aspect_ratio<T: RealField + FloatElement + Copy>(
         stats: &MetricStatistics<T>,
     ) -> QualityLevel {
-        let thresh_level4 = T::from_f64(2.0).unwrap_or_else(|| T::one());
-        let thresh_level3 = T::from_f64(5.0).unwrap_or_else(|| T::one());
-        let thresh_level2 = T::from_f64(10.0).unwrap_or_else(|| T::one());
+        let thresh_level4 = <T as FloatElement>::from_f64(2.0);
+        let thresh_level3 = <T as FloatElement>::from_f64(5.0);
+        let thresh_level2 = <T as FloatElement>::from_f64(10.0);
 
         if stats.max < thresh_level4 {
             QualityLevel::Level4
@@ -65,12 +65,12 @@ impl MeshQualityService {
         }
     }
 
-    fn assess_skewness<T: RealField + FromPrimitive + Copy>(
+    fn assess_skewness<T: RealField + FloatElement + Copy>(
         stats: &MetricStatistics<T>,
     ) -> QualityLevel {
-        let thresh_level4 = T::from_f64(0.25).unwrap_or_else(|| T::one());
-        let thresh_level3 = T::from_f64(0.5).unwrap_or_else(|| T::one());
-        let thresh_level2 = T::from_f64(0.8).unwrap_or_else(|| T::one());
+        let thresh_level4 = <T as FloatElement>::from_f64(0.25);
+        let thresh_level3 = <T as FloatElement>::from_f64(0.5);
+        let thresh_level2 = <T as FloatElement>::from_f64(0.8);
 
         if stats.max < thresh_level4 {
             QualityLevel::Level4
@@ -83,12 +83,12 @@ impl MeshQualityService {
         }
     }
 
-    fn assess_orthogonality<T: RealField + FromPrimitive + Copy>(
+    fn assess_orthogonality<T: RealField + FloatElement + Copy>(
         stats: &MetricStatistics<T>,
     ) -> QualityLevel {
-        let thresh_level4 = T::from_f64(0.95).unwrap_or_else(|| T::one());
-        let thresh_level3 = T::from_f64(0.85).unwrap_or_else(|| T::one());
-        let thresh_level2 = T::from_f64(0.7).unwrap_or_else(|| T::one());
+        let thresh_level4 = <T as FloatElement>::from_f64(0.95);
+        let thresh_level3 = <T as FloatElement>::from_f64(0.85);
+        let thresh_level2 = <T as FloatElement>::from_f64(0.7);
 
         if stats.min > thresh_level4 {
             QualityLevel::Level4
@@ -213,4 +213,72 @@ pub struct QualityStatistics<T: RealField + Copy> {
     pub avg_skewness: T,
     /// Distribution of quality scores into buckets
     pub quality_distribution: HashMap<String, usize>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MeshQualityService, MetricStatistics, QualityLevel};
+
+    fn stats(min: f64, max: f64) -> MetricStatistics<f64> {
+        MetricStatistics {
+            min,
+            max,
+            mean: (min + max) * 0.5,
+            std_dev: 0.0,
+        }
+    }
+
+    #[test]
+    fn mesh_quality_reports_level4_when_all_metrics_are_inside_best_thresholds() {
+        let assessment = MeshQualityService::assess_quality(
+            &stats(1.0, 1.5),
+            &stats(0.0, 0.2),
+            &stats(0.97, 1.0),
+        );
+
+        assert_eq!(assessment.aspect_ratio_quality, QualityLevel::Level4);
+        assert_eq!(assessment.skewness_quality, QualityLevel::Level4);
+        assert_eq!(assessment.orthogonality_quality, QualityLevel::Level4);
+        assert_eq!(assessment.overall_quality, QualityLevel::Level4);
+        assert_eq!(
+            assessment.recommendations,
+            vec!["Mesh quality is acceptable for CFD simulation".to_string()]
+        );
+    }
+
+    #[test]
+    fn mesh_quality_reports_worst_metric_and_targeted_recommendations() {
+        let assessment = MeshQualityService::assess_quality(
+            &stats(1.0, 12.0),
+            &stats(0.0, 0.9),
+            &stats(0.6, 1.0),
+        );
+
+        assert_eq!(assessment.aspect_ratio_quality, QualityLevel::Level1);
+        assert_eq!(assessment.skewness_quality, QualityLevel::Level1);
+        assert_eq!(assessment.orthogonality_quality, QualityLevel::Level1);
+        assert_eq!(assessment.overall_quality, QualityLevel::Level1);
+        assert_eq!(
+            assessment.recommendations,
+            vec![
+                "Consider refining mesh in regions with high aspect ratio cells".to_string(),
+                "Improve mesh quality by reducing cell skewness".to_string(),
+                "Enhance mesh orthogonality for better numerical accuracy".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn mesh_quality_threshold_boundaries_use_strict_comparison_contracts() {
+        let assessment = MeshQualityService::assess_quality(
+            &stats(1.0, 5.0),
+            &stats(0.0, 0.5),
+            &stats(0.85, 1.0),
+        );
+
+        assert_eq!(assessment.aspect_ratio_quality, QualityLevel::Level2);
+        assert_eq!(assessment.skewness_quality, QualityLevel::Level2);
+        assert_eq!(assessment.orthogonality_quality, QualityLevel::Level2);
+        assert_eq!(assessment.overall_quality, QualityLevel::Level2);
+    }
 }

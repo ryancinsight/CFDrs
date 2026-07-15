@@ -2,7 +2,7 @@
 
 use super::traits::Interpolation;
 use cfd_core::error::{Error, Result};
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::cmp::Ordering;
 
 /// Linear interpolation between data points

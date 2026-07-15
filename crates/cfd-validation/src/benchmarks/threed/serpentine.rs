@@ -5,35 +5,26 @@
 
 use super::super::{Benchmark, BenchmarkConfig, BenchmarkResult};
 use crate::geometry::threed::Serpentine3D;
+use crate::scalar;
+use crate::scalar::ValidationScalar;
 use cfd_3d::serpentine::{SerpentineConfig3D, SerpentineSolver3D};
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_mesh::SerpentineMeshBuilder;
-use nalgebra::RealField;
 
 /// 3D Serpentine Flow benchmark
-pub struct SerpentineFlow3D<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
+pub struct SerpentineFlow3D<T: ValidationScalar> {
     /// The 3D serpentine geometry
     pub geometry: Serpentine3D<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy> SerpentineFlow3D<T> {
+impl<T: ValidationScalar> SerpentineFlow3D<T> {
     /// Create a new 3D serpentine flow benchmark
     pub fn new(geometry: Serpentine3D<T>) -> Self {
         Self { geometry }
     }
 }
 
-impl<
-        T: RealField
-            + Copy
-            + num_traits::Float
-            + num_traits::FromPrimitive
-            + num_traits::ToPrimitive
-            + cfd_core::conversion::SafeFromF64
-            + std::convert::From<f64>
-            + cfd_mesh::domain::core::Scalar,
-    > Benchmark<T> for SerpentineFlow3D<T>
-{
+impl<T: ValidationScalar> Benchmark<T> for SerpentineFlow3D<T> {
     fn name(&self) -> &'static str {
         "3D Serpentine Micromixer Flow"
     }
@@ -46,12 +37,10 @@ impl<
         let mut result = BenchmarkResult::new(self.name());
 
         // 1. Setup Mesh Builder
-        // Note: Serpentine3D fields might be named differently from SerpentineMeshBuilder
-        // I'll check Serpentine3D again.
         let builder = SerpentineMeshBuilder::new(
-            self.geometry.diameter,
-            self.geometry.amplitude,
-            self.geometry.wavelength,
+            scalar::to_f64(self.geometry.diameter),
+            scalar::to_f64(self.geometry.amplitude),
+            scalar::to_f64(self.geometry.wavelength),
         )
         .with_periods(self.geometry.num_periods);
 

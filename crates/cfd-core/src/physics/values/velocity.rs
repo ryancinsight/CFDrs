@@ -1,8 +1,8 @@
 //! Velocity value object
 
 use crate::error::Result;
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::geometry::Vector3;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -18,12 +18,12 @@ const SUPERSONIC_MACH_LIMIT: f64 = 1.2;
 
 /// Velocity vector with magnitude and direction
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct Velocity<T: RealField + Copy> {
+pub struct Velocity<T: FloatElement + Copy> {
     /// Velocity components in m/s (SI units)
     components: Vector3<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Velocity<T> {
+impl<T: FloatElement + Copy + RealField> Velocity<T> {
     /// Create zero velocity
     #[must_use]
     pub fn zero() -> Self {
@@ -46,7 +46,11 @@ impl<T: RealField + Copy + FromPrimitive> Velocity<T> {
 
     /// Create uniform velocity in x-direction
     pub fn uniform_x(speed: T) -> Self {
-        Self::from_components(speed, T::zero(), T::zero())
+        Self::from_components(
+            speed,
+            <T as NumericElement>::ZERO,
+            <T as NumericElement>::ZERO,
+        )
     }
 
     /// Get velocity components
@@ -62,7 +66,7 @@ impl<T: RealField + Copy + FromPrimitive> Velocity<T> {
     /// Get velocity direction (unit vector)
     pub fn direction(&self) -> Option<Vector3<T>> {
         let mag = self.magnitude();
-        if mag > T::zero() {
+        if mag > <T as NumericElement>::ZERO {
             Some(self.components / mag)
         } else {
             None
@@ -86,33 +90,33 @@ impl<T: RealField + Copy + FromPrimitive> Velocity<T> {
 
     /// Get magnitude in km/h
     pub fn kmh(&self) -> T {
-        self.magnitude() * T::from_f64(MS_TO_KMH).unwrap_or_else(T::zero)
+        self.magnitude() * <T as FloatElement>::from_f64(MS_TO_KMH)
     }
 
     /// Get magnitude in mph
     pub fn mph(&self) -> T {
-        self.magnitude() * T::from_f64(MS_TO_MPH).unwrap_or_else(T::zero)
+        self.magnitude() * <T as FloatElement>::from_f64(MS_TO_MPH)
     }
 
     /// Get magnitude in knots
     pub fn knots(&self) -> T {
-        self.magnitude() * T::from_f64(MS_TO_KNOT).unwrap_or_else(T::zero)
+        self.magnitude() * <T as FloatElement>::from_f64(MS_TO_KNOT)
     }
 
     /// Get magnitude in ft/s
     pub fn fps(&self) -> T {
-        self.magnitude() * T::from_f64(MS_TO_FTS).unwrap_or_else(T::zero)
+        self.magnitude() * <T as FloatElement>::from_f64(MS_TO_FTS)
     }
 
     /// Check if velocity is subsonic (Mach < `SUBSONIC_MACH_LIMIT`)
     pub fn is_subsonic(&self, speed_of_sound: T) -> bool {
-        let mach_limit = T::from_f64(SUBSONIC_MACH_LIMIT).unwrap_or_else(T::zero);
+        let mach_limit = <T as FloatElement>::from_f64(SUBSONIC_MACH_LIMIT);
         self.magnitude() < mach_limit * speed_of_sound
     }
 
     /// Check if velocity is supersonic (Mach > `SUPERSONIC_MACH_LIMIT`)
     pub fn is_supersonic(&self, speed_of_sound: T) -> bool {
-        let mach_limit = T::from_f64(SUPERSONIC_MACH_LIMIT).unwrap_or_else(T::zero);
+        let mach_limit = <T as FloatElement>::from_f64(SUPERSONIC_MACH_LIMIT);
         self.magnitude() > mach_limit * speed_of_sound
     }
 
@@ -122,7 +126,7 @@ impl<T: RealField + Copy + FromPrimitive> Velocity<T> {
     ///
     /// Returns an error if the input value is not finite or is outside valid range.
     pub fn mach_number(&self, speed_of_sound: T) -> Result<T> {
-        if speed_of_sound <= T::zero() {
+        if speed_of_sound <= <T as NumericElement>::ZERO {
             return Err(crate::error::Error::InvalidConfiguration(
                 "Speed of sound must be positive".into(),
             ));
@@ -131,7 +135,7 @@ impl<T: RealField + Copy + FromPrimitive> Velocity<T> {
     }
 }
 
-impl<T: RealField + Copy + fmt::Display> fmt::Display for Velocity<T> {
+impl<T: FloatElement + Copy + fmt::Display> fmt::Display for Velocity<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

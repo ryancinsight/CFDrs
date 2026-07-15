@@ -1,10 +1,10 @@
 //! Core traits for network analysis
 
+use crate::scalar::Cfd1dScalar;
 use cfd_core::error::Result;
-use nalgebra::RealField;
 
 /// Trait for domain-specific network analyzers
-pub trait NetworkAnalyzer<T: RealField + Copy> {
+pub trait NetworkAnalyzer<T: Cfd1dScalar + Copy> {
     /// Analysis result type
     type Result;
 

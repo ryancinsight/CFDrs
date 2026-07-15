@@ -1,18 +1,18 @@
 //! CSV writing functionality
 
-use cfd_core::error::{Error, Result};
+use crate::error::{Error, Result};
 use csv::Writer as CsvWriterImpl;
-use nalgebra::RealField;
+use eunomia::RealField;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
 
 /// CSV writer for simulation data
-pub struct CsvWriter<T: RealField + Copy> {
+pub struct CsvWriter<T: RealField> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> CsvWriter<T> {
+impl<T: RealField> CsvWriter<T> {
     /// Create a new CSV writer
     #[must_use]
     pub fn new() -> Self {
@@ -93,7 +93,7 @@ impl<T: RealField + Copy> CsvWriter<T> {
     }
 }
 
-impl<T: RealField + Copy> Default for CsvWriter<T> {
+impl<T: RealField> Default for CsvWriter<T> {
     fn default() -> Self {
         Self::new()
     }

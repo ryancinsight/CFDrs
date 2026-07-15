@@ -22,7 +22,7 @@
 //! enforces these constraints either through exact transport equations or bounded eddy-viscosity
 //! formulations, ensuring physical realizability and numerical stability.
 
-use nalgebra::DMatrix;
+use leto::Array2;
 
 /// Dynamic Smagorinsky procedure for computing the Smagorinsky constant
 ///
@@ -45,14 +45,14 @@ use nalgebra::DMatrix;
 /// 3. Compute resolved stress M_ij = |Ŝ| * |Ŝ| - α^2 * |S| * |S|
 /// 4. Solve C_s^2 = <L_ij * M_ij> / <M_ij * M_ij> (with averaging)
 pub fn update_dynamic_constant(
-    dynamic_constant: &mut DMatrix<f64>,
-    velocity_u: &DMatrix<f64>,
-    velocity_v: &DMatrix<f64>,
+    dynamic_constant: &mut Array2<f64>,
+    velocity_u: &Array2<f64>,
+    velocity_v: &Array2<f64>,
     dx: f64,
     dy: f64,
 ) {
-    let nx = velocity_u.nrows();
-    let ny = velocity_u.ncols();
+    let nx = velocity_u.shape()[0];
+    let ny = velocity_u.shape()[1];
 
     // Test filter ratio (α = 2 is standard for dynamic procedure)
     let alpha = 2.0;
@@ -89,8 +89,8 @@ pub fn update_dynamic_constant(
             );
 
             // Compute resolved stress M_11 = |Ŝ|² - α²|S|²
-            let strain_grid_sq = strain_grid[(i, j)] * strain_grid[(i, j)];
-            let strain_test_sq = strain_test[(i, j)] * strain_test[(i, j)];
+            let strain_grid_sq = strain_grid[[i, j]] * strain_grid[[i, j]];
+            let strain_test_sq = strain_test[[i, j]] * strain_test[[i, j]];
             let resolved_stress_11 = strain_test_sq - alpha * alpha * strain_grid_sq;
 
             // Accumulate for least squares solution
@@ -117,7 +117,7 @@ pub fn update_dynamic_constant(
     // Advanced implementations could use local C_s values
     for i in 0..nx {
         for j in 0..ny {
-            dynamic_constant[(i, j)] = smoothed_c_s_squared;
+            dynamic_constant[[i, j]] = smoothed_c_s_squared;
         }
     }
 }
@@ -130,10 +130,10 @@ pub fn update_dynamic_constant(
 /// # Arguments
 /// * `field` - Input field to filter
 /// * `filter_width` - Width of the box filter (typically 2 for α=2)
-fn apply_box_filter(field: &DMatrix<f64>, filter_width: usize) -> DMatrix<f64> {
-    let nx = field.nrows();
-    let ny = field.ncols();
-    let mut filtered = DMatrix::zeros(nx, ny);
+fn apply_box_filter(field: &Array2<f64>, filter_width: usize) -> Array2<f64> {
+    let nx = field.shape()[0];
+    let ny = field.shape()[1];
+    let mut filtered = Array2::zeros([nx, ny]);
 
     let hw = filter_width / 2; // Half width
 
@@ -149,16 +149,16 @@ fn apply_box_filter(field: &DMatrix<f64>, filter_width: usize) -> DMatrix<f64> {
                     let jj = j as isize + dj;
 
                     if ii >= 0 && ii < nx as isize && jj >= 0 && jj < ny as isize {
-                        sum += field[(ii as usize, jj as usize)];
+                        sum += field[[ii as usize, jj as usize]];
                         count += 1;
                     }
                 }
             }
 
-            filtered[(i, j)] = if count > 0 {
+            filtered[[i, j]] = if count > 0 {
                 sum / f64::from(count)
             } else {
-                field[(i, j)]
+                field[[i, j]]
             };
         }
     }
@@ -170,11 +170,11 @@ fn apply_box_filter(field: &DMatrix<f64>, filter_width: usize) -> DMatrix<f64> {
 ///
 /// This is the same function used in the Smagorinsky model.
 fn compute_strain_rate_magnitude(
-    velocity_u: &DMatrix<f64>,
-    velocity_v: &DMatrix<f64>,
+    velocity_u: &Array2<f64>,
+    velocity_v: &Array2<f64>,
     dx: f64,
     dy: f64,
-) -> DMatrix<f64> {
+) -> Array2<f64> {
     use super::strain::compute_strain_rate_magnitude;
     compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy)
 }
@@ -189,10 +189,10 @@ fn compute_strain_rate_magnitude(
 ///
 /// For the dynamic procedure, we use the (1,1) component of the Leonard tensor.
 fn compute_leonard_tensor_component(
-    u_grid: &DMatrix<f64>,  // Grid-filtered u velocity
-    _v_grid: &DMatrix<f64>, // Grid-filtered v velocity
-    u_test: &DMatrix<f64>,  // Test-filtered u velocity
-    _v_test: &DMatrix<f64>, // Test-filtered v velocity
+    u_grid: &Array2<f64>,  // Grid-filtered u velocity
+    _v_grid: &Array2<f64>, // Grid-filtered v velocity
+    u_test: &Array2<f64>,  // Test-filtered u velocity
+    _v_test: &Array2<f64>, // Test-filtered v velocity
     i: usize,
     j: usize,
     _dx: f64,
@@ -202,10 +202,10 @@ fn compute_leonard_tensor_component(
     // This represents the subgrid-scale stress component
 
     // Grid-filtered velocity products
-    let uu_grid = u_grid[(i, j)] * u_grid[(i, j)];
+    let uu_grid = u_grid[[i, j]] * u_grid[[i, j]];
 
     // Test-filtered velocities (already filtered)
-    let u_test_filtered = u_test[(i, j)];
+    let u_test_filtered = u_test[[i, j]];
 
     // Leonard tensor: L_11 = <û û> - <û><û>
     // In discrete form: L_11 ≈ û² - (û_test)²
@@ -213,8 +213,8 @@ fn compute_leonard_tensor_component(
 }
 
 /// Initialize dynamic constant field
-pub fn initialize_dynamic_constant(nx: usize, ny: usize, initial_value: f64) -> DMatrix<f64> {
-    DMatrix::from_element(nx, ny, initial_value)
+pub fn initialize_dynamic_constant(nx: usize, ny: usize, initial_value: f64) -> Array2<f64> {
+    Array2::from_elem([nx, ny], initial_value)
 }
 
 #[cfg(test)]
@@ -222,15 +222,15 @@ mod tests {
     use super::*;
     use approx::assert_relative_eq;
 
-    fn create_test_velocity_fields(nx: usize, ny: usize) -> (DMatrix<f64>, DMatrix<f64>) {
-        let mut velocity_u = DMatrix::zeros(nx, ny);
-        let mut velocity_v = DMatrix::zeros(nx, ny);
+    fn create_test_velocity_fields(nx: usize, ny: usize) -> (Array2<f64>, Array2<f64>) {
+        let mut velocity_u = Array2::zeros([nx, ny]);
+        let mut velocity_v = Array2::zeros([nx, ny]);
 
         // Simple shear flow
         for i in 0..nx {
             for j in 0..ny {
-                velocity_u[(i, j)] = (j as f64) * 0.1; // Linear shear
-                velocity_v[(i, j)] = 0.0;
+                velocity_u[[i, j]] = (j as f64) * 0.1; // Linear shear
+                velocity_v[[i, j]] = 0.0;
             }
         }
 
@@ -241,8 +241,8 @@ mod tests {
     fn test_dynamic_constant_initialization() {
         let dynamic_constant = initialize_dynamic_constant(10, 10, 0.15);
 
-        assert_eq!(dynamic_constant.nrows(), 10);
-        assert_eq!(dynamic_constant.ncols(), 10);
+        assert_eq!(dynamic_constant.shape()[0], 10);
+        assert_eq!(dynamic_constant.shape()[1], 10);
 
         for &val in dynamic_constant.iter() {
             assert_relative_eq!(val, 0.15, epsilon = 1e-10);

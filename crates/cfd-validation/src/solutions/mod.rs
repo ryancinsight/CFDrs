@@ -3,7 +3,8 @@
 //! This module provides exact solutions to fundamental fluid dynamics problems
 //! for verification of numerical methods.
 
-use nalgebra::{RealField, Vector3};
+use eunomia::RealField;
+use leto::geometry::Vector3;
 
 /// Trait for analytical solutions
 pub trait Solution<T: RealField + Copy> {

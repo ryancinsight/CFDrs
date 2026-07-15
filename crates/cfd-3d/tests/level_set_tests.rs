@@ -11,7 +11,7 @@
 
 use cfd_3d::level_set::{LevelSetConfig, LevelSetSolver};
 use cfd_core::error::Error;
-use nalgebra::Vector3;
+use leto::geometry::Vector3;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers

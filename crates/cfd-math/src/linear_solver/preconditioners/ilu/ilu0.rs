@@ -3,8 +3,8 @@
 //! Reference: Saad, Y. (2003). Iterative Methods for Sparse Linear Systems (2nd ed.). SIAM, §10.4.
 
 use cfd_core::error::{Error, NumericalErrorKind, Result};
-use nalgebra::RealField;
-use nalgebra_sparse::CsrMatrix;
+use eunomia::RealField;
+use leto_ops::{CsrMatrix, Scalar as LetoScalar};
 
 use super::utils;
 
@@ -12,11 +12,11 @@ use super::utils;
 ///
 /// ILU(0) maintains the same sparsity pattern as the input matrix A.
 /// The algorithm performs in-place factorization without adding any fill-in.
-pub fn factorize<T: RealField + Copy>(a: &CsrMatrix<T>) -> Result<CsrMatrix<T>> {
+pub fn factorize<T: RealField + Copy + LetoScalar>(a: &CsrMatrix<T>) -> Result<CsrMatrix<T>> {
     // Create a mutable copy of the matrix
     let mut lu_vals = a.values().to_vec();
     let lu_indices = a.col_indices().to_vec();
-    let lu_offsets = a.row_offsets().to_vec();
+    let lu_offsets = a.row_ptr().to_vec();
 
     let n = a.nrows();
 
@@ -25,7 +25,7 @@ pub fn factorize<T: RealField + Copy>(a: &CsrMatrix<T>) -> Result<CsrMatrix<T>> 
         let diag_idx = utils::find_diagonal_index(&lu_offsets, &lu_indices, k)?;
         let a_kk = lu_vals[diag_idx];
 
-        if a_kk.abs() <= T::default_epsilon() {
+        if a_kk.abs() <= <T as RealField>::EPSILON {
             return Err(Error::Numerical(NumericalErrorKind::SingularMatrix));
         }
 
@@ -69,7 +69,9 @@ pub fn factorize<T: RealField + Copy>(a: &CsrMatrix<T>) -> Result<CsrMatrix<T>> 
         }
     }
 
-    CsrMatrix::try_from_csr_data(n, n, lu_offsets, lu_indices, lu_vals).map_err(|_| {
-        Error::InvalidInput("Failed to create CSR matrix from ILU(0) factorization".to_string())
+    CsrMatrix::from_parts(lu_vals, lu_indices, lu_offsets, n, n).map_err(|error| {
+        Error::InvalidInput(format!(
+            "Failed to create Leto CSR matrix from ILU(0) factorization: {error}"
+        ))
     })
 }

@@ -4,8 +4,12 @@
 //! such as translation, rotation, and scaling.
 
 use super::Mesh;
-use nalgebra::{Matrix3, Point3, RealField, Vector3};
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use eunomia::RealField;
+use leto::{
+    geometry::{Point3, Vector3},
+    FixedMatrix, FixedVector,
+};
 
 /// Trait for geometric operations on meshes
 pub trait MeshOperations<T: RealField + Copy> {
@@ -13,7 +17,7 @@ pub trait MeshOperations<T: RealField + Copy> {
     fn translate(&mut self, displacement: Vector3<T>);
 
     /// Rotate the mesh around its centroid using a rotation matrix
-    fn rotate(&mut self, rotation: Matrix3<T>);
+    fn rotate(&mut self, rotation: FixedMatrix<T, 3, 3>);
 
     /// Scale the mesh relative to its centroid
     fn scale(&mut self, scale_factor: T);
@@ -25,18 +29,19 @@ pub trait MeshOperations<T: RealField + Copy> {
     fn centroid(&self) -> Point3<T>;
 }
 
-impl<T: RealField + Copy + FromPrimitive> MeshOperations<T> for Mesh<T> {
+impl<T: RealField + Copy + FloatElement> MeshOperations<T> for Mesh<T> {
     fn translate(&mut self, displacement: Vector3<T>) {
         for node in &mut self.nodes {
             *node += displacement;
         }
     }
 
-    fn rotate(&mut self, rotation: Matrix3<T>) {
+    fn rotate(&mut self, rotation: FixedMatrix<T, 3, 3>) {
         let centroid = self.centroid();
         for node in &mut self.nodes {
             let relative = *node - centroid;
-            let rotated = rotation * relative;
+            let rotated =
+                Vector3::from_array((rotation * FixedVector::new(relative.data)).into_array());
             *node = centroid + rotated;
         }
     }
@@ -54,8 +59,8 @@ impl<T: RealField + Copy + FromPrimitive> MeshOperations<T> for Mesh<T> {
             return (Point3::origin(), Point3::origin());
         }
 
-        let mut min = self.nodes[0];
-        let mut max = self.nodes[0];
+        let mut min = self.nodes[0].coords.data;
+        let mut max = self.nodes[0].coords.data;
 
         for node in &self.nodes[1..] {
             for i in 0..3 {
@@ -68,7 +73,7 @@ impl<T: RealField + Copy + FromPrimitive> MeshOperations<T> for Mesh<T> {
             }
         }
 
-        (min, max)
+        (Point3::from_array(min), Point3::from_array(max))
     }
 
     fn centroid(&self) -> Point3<T> {
@@ -80,7 +85,7 @@ impl<T: RealField + Copy + FromPrimitive> MeshOperations<T> for Mesh<T> {
             .nodes
             .iter()
             .fold(Vector3::zeros(), |acc, p| acc + p.coords);
-        let count = T::from_usize(self.nodes.len()).unwrap_or_else(T::one);
+        let count = <T as FloatElement>::from_f64(self.nodes.len() as f64);
         Point3::from(sum / count)
     }
 }

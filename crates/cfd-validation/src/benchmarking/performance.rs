@@ -5,9 +5,10 @@
 
 use super::timing::BenchmarkStats;
 use crate::manufactured::navier_stokes::NavierStokesManufacturedSolution;
+use crate::scalar::{self, ValidationScalar};
 use cfd_core::error::{Error, Result};
-use nalgebra::{RealField, Scalar};
-use nalgebra_sparse::CsrMatrix;
+use cfd_math::sparse::SparseMatrix;
+use leto_ops::Scalar as LetoScalar;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -578,19 +579,16 @@ impl CfdPerformanceBenchmarks {
             }
 
             let matrix = builder.build()?;
-            let vector = vec![1.0; matrix_size];
-            let result = vec![0.0; matrix_size];
-
             let data_size = matrix.nnz() * 8 * 2; // nnz * 8 bytes * 2 (indices + values)
             let matrix_density = matrix.nnz() as f64 / (matrix_size * matrix_size) as f64;
 
-            let vector_dv = nalgebra::DVector::from_vec(vector.clone());
-            let mut result_dv = nalgebra::DVector::from_vec(result.clone());
+            let vector = leto::Array1::from_elem([matrix_size], 1.0_f64);
+            let mut result = leto::Array1::from_elem([matrix_size], 0.0_f64);
 
             let profile = self.create_performance_profile(
                 "SPMV_Poisson_64x64",
                 || {
-                    cfd_math::sparse::spmv(&matrix, &vector_dv, &mut result_dv);
+                    cfd_math::sparse::spmv(&matrix, &vector, &mut result);
                 },
                 spmv_complexity.clone(),
                 data_size,
@@ -662,18 +660,18 @@ impl CfdPerformanceBenchmarks {
     }
 
     /// Benchmark matrix-vector multiplication (key CFD operation)
-    pub fn benchmark_spmv<T>(&self, matrix: &CsrMatrix<T>, vector: &[T]) -> Result<TimingResult>
+    pub fn benchmark_spmv<T>(&self, matrix: &SparseMatrix<T>, vector: &[T]) -> Result<TimingResult>
     where
-        T: RealField + Copy + Scalar + std::fmt::Display,
+        T: ValidationScalar + LetoScalar + std::fmt::Display,
     {
-        let result = vec![T::zero(); matrix.nrows()];
-        let vector_dv = nalgebra::DVector::from_vec(vector.to_vec());
-        let mut result_dv = nalgebra::DVector::from_vec(result);
+        let vector_array = leto::Array1::from_shape_vec([vector.len()], vector.to_vec())
+            .map_err(|error| Error::InvalidConfiguration(error.to_string()))?;
+        let mut result_array = leto::Array1::from_elem([matrix.nrows()], scalar::zero::<T>());
 
         self.benchmark.benchmark_simple(
             &format!("SPMV_{}x{}", matrix.nrows(), matrix.ncols()),
             || {
-                cfd_math::sparse::spmv(matrix, &vector_dv, &mut result_dv);
+                cfd_math::sparse::spmv(matrix, &vector_array, &mut result_array);
             },
         )
     }
@@ -683,10 +681,7 @@ impl CfdPerformanceBenchmarks {
         &self,
         solver_name: &str,
         solver_fn: impl Fn() -> Result<Vec<T>>,
-    ) -> Result<TimingResult>
-    where
-        T: nalgebra::RealField + Copy,
-    {
+    ) -> Result<TimingResult> {
         self.benchmark
             .benchmark(&format!("Solver_{solver_name}"), solver_fn)
     }
@@ -794,7 +789,10 @@ mod tests {
         assert_eq!(result.measurements.len(), 10);
         assert!(result.stats.mean > 0.0);
         assert!(result.stats.samples == result.measurements.len());
-        assert!(result.measurements.iter().all(|value| value.is_finite() && *value > 0.0));
+        assert!(result
+            .measurements
+            .iter()
+            .all(|value| value.is_finite() && *value > 0.0));
     }
 
     #[test]

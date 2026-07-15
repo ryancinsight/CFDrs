@@ -5,10 +5,13 @@
 //! Smaller domains fall back to first-order upwind so the solver remains
 //! well-defined on the boundary-test meshes used throughout the crate.
 
-use super::{config::LevelSetConfig, weno::weno5_derivative};
+use super::{
+    config::LevelSetConfig,
+    scalar::{self, LevelSetScalar},
+    weno::weno5_derivative,
+};
 use cfd_core::error::{Error, Result};
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use leto::geometry::Vector3;
 
 #[inline]
 fn linear_index(nx: usize, ny: usize, i: usize, j: usize, k: usize) -> usize {
@@ -32,7 +35,7 @@ pub(super) fn advance<T>(
     phi_reinit: &mut [T],
 ) -> Result<()>
 where
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    T: LevelSetScalar,
 {
     validate_transport_inputs(dx, dy, dz, dt, velocity)?;
 
@@ -62,23 +65,21 @@ where
 
 fn validate_transport_inputs<T>(dx: T, dy: T, dz: T, dt: T, velocity: &[Vector3<T>]) -> Result<()>
 where
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    T: LevelSetScalar,
 {
-    use num_traits::Float;
-
-    if !Float::is_finite(dt) || dt <= T::zero() {
+    if !scalar::is_finite(dt) || dt <= scalar::zero::<T>() {
         return Err(Error::InvalidConfiguration(
             "level-set time step must be finite and positive for Hamilton-Jacobi transport"
                 .to_string(),
         ));
     }
 
-    if !Float::is_finite(dx)
-        || !Float::is_finite(dy)
-        || !Float::is_finite(dz)
-        || dx <= T::zero()
-        || dy <= T::zero()
-        || dz <= T::zero()
+    if !scalar::is_finite(dx)
+        || !scalar::is_finite(dy)
+        || !scalar::is_finite(dz)
+        || dx <= scalar::zero::<T>()
+        || dy <= scalar::zero::<T>()
+        || dz <= scalar::zero::<T>()
     {
         return Err(Error::InvalidConfiguration(
             "level-set grid spacing must be finite and positive for Hamilton-Jacobi transport"
@@ -87,7 +88,7 @@ where
     }
 
     for vel in velocity {
-        if !Float::is_finite(vel.x) || !Float::is_finite(vel.y) || !Float::is_finite(vel.z) {
+        if !scalar::is_finite(vel.x) || !scalar::is_finite(vel.y) || !scalar::is_finite(vel.z) {
             return Err(Error::InvalidConfiguration(
                 "level-set velocity field must be finite for Hamilton-Jacobi transport".to_string(),
             ));
@@ -185,17 +186,14 @@ fn advance_weno5_rk3<T>(
     phi: &mut [T],
     phi_reinit: &mut [T],
 ) where
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    T: LevelSetScalar,
 {
-    let zero = T::zero();
-    let one = T::one();
-    let quarter = <T as FromPrimitive>::from_f64(0.25).expect("0.25 is representable in IEEE 754");
-    let three_quarters =
-        <T as FromPrimitive>::from_f64(0.75).expect("0.75 is representable in IEEE 754");
-    let one_third =
-        <T as FromPrimitive>::from_f64(1.0 / 3.0).expect("1/3 is representable in IEEE 754");
-    let two_thirds =
-        <T as FromPrimitive>::from_f64(2.0 / 3.0).expect("2/3 is representable in IEEE 754");
+    let zero = scalar::zero::<T>();
+    let one = scalar::one::<T>();
+    let quarter = scalar::from_f64::<T>(0.25);
+    let three_quarters = scalar::from_f64::<T>(0.75);
+    let one_third = scalar::from_f64::<T>(1.0 / 3.0);
+    let two_thirds = scalar::from_f64::<T>(2.0 / 3.0);
 
     rk3_stage_weno(
         nx,
@@ -265,7 +263,7 @@ fn rk3_stage_weno<T>(
     source_weight: T,
     stage_weight: T,
 ) where
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    T: LevelSetScalar,
 {
     for k in 3..nz.saturating_sub(3) {
         for j in 3..ny.saturating_sub(3) {
@@ -293,7 +291,7 @@ fn advance_first_order_euler<T>(
     phi_previous: &[T],
     phi: &mut [T],
 ) where
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    T: LevelSetScalar,
 {
     for k in 1..nz.saturating_sub(1) {
         for j in 1..ny.saturating_sub(1) {
@@ -324,7 +322,7 @@ fn weno_transport_term<T>(
     k: usize,
 ) -> T
 where
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    T: LevelSetScalar,
 {
     let idx = linear_index(nx, ny, i, j, k);
 
@@ -376,32 +374,32 @@ fn first_order_transport_term<T>(
     k: usize,
 ) -> T
 where
-    T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
+    T: LevelSetScalar,
 {
     let idx = linear_index(nx, ny, i, j, k);
 
-    let dphi_dx = if vel.x > T::zero() {
+    let dphi_dx = if vel.x > scalar::zero::<T>() {
         (state[idx] - state[linear_index(nx, ny, i - 1, j, k)]) / dx
-    } else if vel.x < T::zero() {
+    } else if vel.x < scalar::zero::<T>() {
         (state[linear_index(nx, ny, i + 1, j, k)] - state[idx]) / dx
     } else {
-        T::zero()
+        scalar::zero::<T>()
     };
 
-    let dphi_dy = if vel.y > T::zero() {
+    let dphi_dy = if vel.y > scalar::zero::<T>() {
         (state[idx] - state[linear_index(nx, ny, i, j - 1, k)]) / dy
-    } else if vel.y < T::zero() {
+    } else if vel.y < scalar::zero::<T>() {
         (state[linear_index(nx, ny, i, j + 1, k)] - state[idx]) / dy
     } else {
-        T::zero()
+        scalar::zero::<T>()
     };
 
-    let dphi_dz = if vel.z > T::zero() {
+    let dphi_dz = if vel.z > scalar::zero::<T>() {
         (state[idx] - state[linear_index(nx, ny, i, j, k - 1)]) / dz
-    } else if vel.z < T::zero() {
+    } else if vel.z < scalar::zero::<T>() {
         (state[linear_index(nx, ny, i, j, k + 1)] - state[idx]) / dz
     } else {
-        T::zero()
+        scalar::zero::<T>()
     };
 
     vel.x * dphi_dx + vel.y * dphi_dy + vel.z * dphi_dz

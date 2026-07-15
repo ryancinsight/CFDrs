@@ -5,8 +5,9 @@
 //! Default relaxation factors satisfy the Patankar stability constraint
 //! $\alpha_u + \alpha_p \le 1$ (typically $\alpha_u = 0.7$, $\alpha_p = 0.3$).
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
+use eunomia::{FloatElement, RealField as EunomiaRealField};
 use serde::{Deserialize, Serialize};
 
 /// Linear solver choice for pressure Poisson equation
@@ -34,7 +35,7 @@ impl Default for PressureLinearSolver {
 
 /// Pressure-velocity coupling configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PressureVelocityConfig<T: RealField + Copy> {
+pub struct PressureVelocityConfig<T: Cfd2dScalar + EunomiaRealField + Copy> {
     /// Base solver configuration
     pub base: cfd_core::compute::solver::SolverConfig<T>,
     /// Time step (for unsteady problems)
@@ -54,46 +55,26 @@ pub struct PressureVelocityConfig<T: RealField + Copy> {
     pub pressure_linear_solver: PressureLinearSolver,
 }
 
-impl<T: RealField + Copy + FromPrimitive> PressureVelocityConfig<T> {
+impl<T: Cfd2dScalar + EunomiaRealField + Copy + FloatElement> PressureVelocityConfig<T> {
     /// Create new configuration with validation
     pub fn new() -> cfd_core::error::Result<Self> {
         Ok(Self {
             base: cfd_core::compute::solver::SolverConfig::builder()
                 .max_iterations(crate::constants::solver::DEFAULT_MAX_ITERATIONS)
-                .tolerance(
-                    T::from_f64(
-                        cfd_core::physics::constants::numerical::solver::CONVERGENCE_TOLERANCE,
-                    )
-                    .ok_or_else(|| {
-                        cfd_core::error::Error::InvalidConfiguration(
-                            "Cannot convert tolerance".into(),
-                        )
-                    })?,
-                )
+                .tolerance(<T as FloatElement>::from_f64(
+                    cfd_core::physics::constants::numerical::solver::CONVERGENCE_TOLERANCE,
+                ))
                 .build(),
-            dt: T::from_f64(
+            dt: <T as FloatElement>::from_f64(
                 cfd_core::physics::constants::numerical::time::DEFAULT_CFL
                     * crate::constants::cfl::SAFETY_FACTOR,
-            )
-            .ok_or_else(|| {
-                cfd_core::error::Error::InvalidConfiguration("Cannot convert time step".into())
-            })?,
-            alpha_u: T::from_f64(
+            ),
+            alpha_u: <T as FloatElement>::from_f64(
                 cfd_core::physics::constants::numerical::relaxation::VELOCITY_RELAXATION,
-            )
-            .ok_or_else(|| {
-                cfd_core::error::Error::InvalidConfiguration(
-                    "Cannot convert velocity relaxation".into(),
-                )
-            })?,
-            alpha_p: T::from_f64(
+            ),
+            alpha_p: <T as FloatElement>::from_f64(
                 cfd_core::physics::constants::numerical::relaxation::PRESSURE_RELAXATION,
-            )
-            .ok_or_else(|| {
-                cfd_core::error::Error::InvalidConfiguration(
-                    "Cannot convert pressure relaxation".into(),
-                )
-            })?,
+            ),
             use_rhie_chow: true,
             convection_scheme: crate::schemes::SpatialScheme::SecondOrderUpwind,
             implicit_momentum: true,
@@ -103,17 +84,17 @@ impl<T: RealField + Copy + FromPrimitive> PressureVelocityConfig<T> {
 
     /// Validate configuration parameters
     pub fn validate(&self) -> cfd_core::error::Result<()> {
-        if self.alpha_u <= T::zero() || self.alpha_u >= T::one() {
+        if self.alpha_u <= scalar::zero::<T>() || self.alpha_u >= scalar::one::<T>() {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Velocity relaxation factor must be in (0, 1)".into(),
             ));
         }
-        if self.alpha_p <= T::zero() || self.alpha_p >= T::one() {
+        if self.alpha_p <= scalar::zero::<T>() || self.alpha_p >= scalar::one::<T>() {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Pressure relaxation factor must be in (0, 1)".into(),
             ));
         }
-        if self.dt <= T::zero() {
+        if self.dt <= scalar::zero::<T>() {
             return Err(cfd_core::error::Error::InvalidConfiguration(
                 "Time step must be positive".into(),
             ));

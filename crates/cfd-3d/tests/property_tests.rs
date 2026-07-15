@@ -41,12 +41,12 @@ proptest! {
 fn spectral_poisson_error_is_finite() {
     use cfd_3d::spectral::solver::{PoissonProblem, SpectralConfig, SpectralSolver};
     use cfd_3d::spectral::PoissonBoundaryCondition;
-    use nalgebra::DVector;
+    use leto::Array1;
 
     let n = 4;
     let config = SpectralConfig::<f64>::new(n, n, n).unwrap();
     let mut solver = SpectralSolver::new(config).unwrap();
-    let source = DVector::from_element(n * n * n, 1.0);
+    let source = Array1::from_elem([n * n * n], 1.0);
     let problem = PoissonProblem {
         source_term: source,
         bc_x: (
@@ -76,14 +76,14 @@ fn spectral_poisson_error_is_finite() {
 fn spectral_poisson_solution_dimensions() {
     use cfd_3d::spectral::solver::{PoissonProblem, SpectralConfig, SpectralSolver};
     use cfd_3d::spectral::PoissonBoundaryCondition;
-    use nalgebra::DVector;
+    use leto::Array1;
 
     let nx = 4;
     let ny = 5;
     let nz = 3;
     let config = SpectralConfig::<f64>::new(nx, ny, nz).unwrap();
     let mut solver = SpectralSolver::new(config).unwrap();
-    let source = DVector::from_element(nx * ny * nz, 0.0);
+    let source = Array1::from_elem([nx * ny * nz], 0.0);
     let problem = PoissonProblem {
         source_term: source,
         bc_x: (
@@ -105,7 +105,7 @@ fn spectral_poisson_solution_dimensions() {
     assert_eq!(solution.ny, ny, "Solution ny must match config");
     assert_eq!(solution.nz, nz, "Solution nz must match config");
     assert_eq!(
-        solution.u.len(),
+        solution.u.size(),
         nx * ny * nz,
         "Solution vector length must equal nx*ny*nz"
     );

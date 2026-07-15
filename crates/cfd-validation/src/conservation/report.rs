@@ -1,6 +1,6 @@
 //! Conservation report structures
 
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

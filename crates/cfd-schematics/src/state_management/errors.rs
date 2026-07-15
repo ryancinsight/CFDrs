@@ -23,7 +23,6 @@ pub use cfd_core::error::Error as StateManagementError;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use cfd_core::error::{ConstraintErrorKind, ParameterErrorKind, ValidationErrorKind};
 
     #[test]

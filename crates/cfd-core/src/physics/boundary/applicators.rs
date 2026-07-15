@@ -3,20 +3,21 @@
 use super::applicator::BoundaryConditionApplicator;
 use super::specification::BoundaryConditionSpec;
 use crate::physics::boundary::BoundaryCondition;
-use nalgebra::RealField;
+use eunomia::FloatElement;
+use eunomia::RealField;
 
 /// Dirichlet boundary condition applicator
-pub struct DirichletApplicator<T: RealField + Copy> {
+pub struct DirichletApplicator<T: RealField + FloatElement + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> Default for DirichletApplicator<T> {
+impl<T: RealField + FloatElement + Copy> Default for DirichletApplicator<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy> DirichletApplicator<T> {
+impl<T: RealField + FloatElement + Copy> DirichletApplicator<T> {
     /// Create a new Dirichlet applicator
     #[must_use]
     pub fn new() -> Self {
@@ -26,7 +27,7 @@ impl<T: RealField + Copy> DirichletApplicator<T> {
     }
 }
 
-impl<T: RealField + Copy> BoundaryConditionApplicator<T> for DirichletApplicator<T> {
+impl<T: RealField + FloatElement + Copy> BoundaryConditionApplicator<T> for DirichletApplicator<T> {
     fn apply(
         &self,
         field: &mut [T],
@@ -83,17 +84,17 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for DirichletApplicator
 }
 
 /// Neumann boundary condition applicator
-pub struct NeumannApplicator<T: RealField + Copy> {
+pub struct NeumannApplicator<T: RealField + FloatElement + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> Default for NeumannApplicator<T> {
+impl<T: RealField + FloatElement + Copy> Default for NeumannApplicator<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy> NeumannApplicator<T> {
+impl<T: RealField + FloatElement + Copy> NeumannApplicator<T> {
     /// Create a new Neumann applicator
     #[must_use]
     pub fn new() -> Self {
@@ -103,7 +104,7 @@ impl<T: RealField + Copy> NeumannApplicator<T> {
     }
 }
 
-impl<T: RealField + Copy> BoundaryConditionApplicator<T> for NeumannApplicator<T> {
+impl<T: RealField + FloatElement + Copy> BoundaryConditionApplicator<T> for NeumannApplicator<T> {
     fn apply(
         &self,
         field: &mut [T],
@@ -160,17 +161,17 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for NeumannApplicator<T
 }
 
 /// Robin boundary condition applicator
-pub struct RobinApplicator<T: RealField + Copy> {
+pub struct RobinApplicator<T: RealField + FloatElement + Copy> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: RealField + Copy> Default for RobinApplicator<T> {
+impl<T: RealField + FloatElement + Copy> Default for RobinApplicator<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: RealField + Copy> RobinApplicator<T> {
+impl<T: RealField + FloatElement + Copy> RobinApplicator<T> {
     /// Create a new Robin applicator
     #[must_use]
     pub fn new() -> Self {
@@ -180,7 +181,7 @@ impl<T: RealField + Copy> RobinApplicator<T> {
     }
 }
 
-impl<T: RealField + Copy> BoundaryConditionApplicator<T> for RobinApplicator<T> {
+impl<T: RealField + FloatElement + Copy> BoundaryConditionApplicator<T> for RobinApplicator<T> {
     fn apply(
         &self,
         field: &mut [T],
@@ -195,25 +196,25 @@ impl<T: RealField + Copy> BoundaryConditionApplicator<T> for RobinApplicator<T> 
             // Using finite difference: du/dn ≈ (u_boundary - u_interior) / dx
             // Rearranging: u_boundary = (gamma + beta*u_interior/dx) / (alpha + beta/dx)
 
-            let dx = T::one(); // Assuming unit spacing
+            let dx = T::ONE; // Assuming unit spacing
 
             match boundary_spec.region_id.as_str() {
                 "west" | "left" => {
-                    if field.len() >= 2 && *alpha != T::zero() {
+                    if field.len() >= 2 && *alpha != T::ZERO {
                         // u[0] = (gamma + beta*u[1]/dx) / (alpha + beta/dx)
                         field[0] = (*gamma + *beta * field[1] / dx) / (*alpha + *beta / dx);
                     }
                 }
                 "east" | "right" => {
                     let n = field.len();
-                    if n >= 2 && *alpha != T::zero() {
+                    if n >= 2 && *alpha != T::ZERO {
                         // u[n-1] = (gamma + beta*u[n-2]/dx) / (alpha + beta/dx)
                         field[n - 1] = (*gamma + *beta * field[n - 2] / dx) / (*alpha + *beta / dx);
                     }
                 }
                 _ => {
                     // Apply to both boundaries
-                    if field.len() >= 2 && *alpha != T::zero() {
+                    if field.len() >= 2 && *alpha != T::ZERO {
                         field[0] = (*gamma + *beta * field[1] / dx) / (*alpha + *beta / dx);
                         let n = field.len();
                         field[n - 1] = (*gamma + *beta * field[n - 2] / dx) / (*alpha + *beta / dx);

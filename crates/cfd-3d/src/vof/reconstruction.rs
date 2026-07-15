@@ -63,9 +63,9 @@
 
 use super::config::{constants, VofConfig, VOF_EPSILON, VOF_INTERFACE_LOWER, VOF_INTERFACE_UPPER};
 use super::plic_geometry::volume_under_plane_3d;
+use super::scalar::{self, VofScalar};
 use super::solver::VofSolver;
-use nalgebra::{RealField, Vector3};
-use num_traits::FromPrimitive;
+use leto::geometry::Vector3;
 use std::cmp::Ordering;
 
 // ── Height-Function Normal Estimation ────────────────────────────────────────
@@ -224,17 +224,15 @@ pub fn youngs_normal_2d(alpha: &[Vec<f64>], i: usize, j: usize, dx: f64, dy: f64
     [-da_dx / mag, -da_dy / mag]
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
-    DirectionalHeightCache<T>
-{
+impl<T: VofScalar> DirectionalHeightCache<T> {
     fn build(solver: &VofSolver<T>) -> Self {
-        let mut x_heights = vec![T::zero(); solver.ny * solver.nz];
-        let mut y_heights = vec![T::zero(); solver.nx * solver.nz];
-        let mut z_heights = vec![T::zero(); solver.nx * solver.ny];
+        let mut x_heights = vec![scalar::zero(); solver.ny * solver.nz];
+        let mut y_heights = vec![scalar::zero(); solver.nx * solver.nz];
+        let mut z_heights = vec![scalar::zero(); solver.nx * solver.ny];
 
         for k in 0..solver.nz {
             for j in 0..solver.ny {
-                let mut height = T::zero();
+                let mut height = scalar::zero();
                 for i in 0..solver.nx {
                     height += solver.alpha[solver.index(i, j, k)] * solver.dx;
                 }
@@ -244,7 +242,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
 
         for k in 0..solver.nz {
             for i in 0..solver.nx {
-                let mut height = T::zero();
+                let mut height = scalar::zero();
                 for j in 0..solver.ny {
                     height += solver.alpha[solver.index(i, j, k)] * solver.dy;
                 }
@@ -254,7 +252,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>
 
         for j in 0..solver.ny {
             for i in 0..solver.nx {
-                let mut height = T::zero();
+                let mut height = scalar::zero();
                 for k in 0..solver.nz {
                     height += solver.alpha[solver.index(i, j, k)] * solver.dz;
                 }
@@ -297,10 +295,7 @@ impl InterfaceReconstruction {
     }
 
     /// Reconstruct interface normals and curvature
-    pub fn reconstruct<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
-        self,
-        solver: &mut VofSolver<T>,
-    ) {
+    pub fn reconstruct<T: VofScalar>(self, solver: &mut VofSolver<T>) {
         let height_cache = if matches!(self, Self::PLIC) {
             Some(DirectionalHeightCache::build(solver))
         } else {
@@ -314,15 +309,13 @@ impl InterfaceReconstruction {
     /// Calculate interface normal vectors using gradient of volume fraction.
     ///
     /// Uses cache blocking for improved memory access patterns on 3D grids.
-    fn calculate_normals<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+    fn calculate_normals<T: VofScalar>(
         self,
         solver: &mut VofSolver<T>,
         height_cache: Option<&DirectionalHeightCache<T>>,
     ) {
-        let interface_lower = <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
-            .expect("VOF_INTERFACE_LOWER is an IEEE 754 representable f64 constant");
-        let interface_upper = <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
-            .expect("VOF_INTERFACE_UPPER is an IEEE 754 representable f64 constant");
+        let interface_lower = scalar::constant::<T>(VOF_INTERFACE_LOWER);
+        let interface_upper = scalar::constant::<T>(VOF_INTERFACE_UPPER);
 
         for k_block in (1..solver.nz - 1).step_by(CACHE_BLOCK_SIZE_K) {
             for j_block in (1..solver.ny - 1).step_by(CACHE_BLOCK_SIZE_J) {
@@ -349,15 +342,15 @@ impl InterfaceReconstruction {
                                         }
                                         Self::Gradient => {
                                             let normal = self.calculate_gradient(solver, i, j, k);
-                                            let epsilon = <T as FromPrimitive>::from_f64(
-                                                VOF_EPSILON,
-                                            )
-                                            .expect("VOF_EPSILON is an IEEE 754 representable f64 constant");
+                                            let epsilon = scalar::constant::<T>(VOF_EPSILON);
                                             if normal.norm() > epsilon {
                                                 solver.normals[idx] = normal.normalize();
                                             } else {
-                                                solver.normals[idx] =
-                                                    Vector3::new(T::zero(), T::zero(), T::one());
+                                                solver.normals[idx] = Vector3::new(
+                                                    scalar::zero(),
+                                                    scalar::zero(),
+                                                    scalar::one(),
+                                                );
                                             }
                                         }
                                     }
@@ -374,7 +367,7 @@ impl InterfaceReconstruction {
 
     /// Determine whether the local interface is graph-like enough to justify
     /// a directional height function.
-    fn hybrid_selection<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+    fn hybrid_selection<T: VofScalar>(
         self,
         solver: &VofSolver<T>,
         i: usize,
@@ -382,8 +375,7 @@ impl InterfaceReconstruction {
         k: usize,
     ) -> HybridSelection<T> {
         let reference = self.calculate_gradient(solver, i, j, k);
-        let epsilon = <T as FromPrimitive>::from_f64(VOF_EPSILON)
-            .expect("VOF_EPSILON is an IEEE 754 representable f64 constant");
+        let epsilon = scalar::constant::<T>(VOF_EPSILON);
         let reference_norm = reference.norm();
 
         if reference_norm <= epsilon {
@@ -394,9 +386,9 @@ impl InterfaceReconstruction {
         }
 
         let abs_components = [
-            num_traits::Float::abs(reference.x),
-            num_traits::Float::abs(reference.y),
-            num_traits::Float::abs(reference.z),
+            scalar::abs(reference.x),
+            scalar::abs(reference.y),
+            scalar::abs(reference.z),
         ];
         let mut axes = [1usize, 0, 2];
         axes.sort_by(|lhs, rhs| {
@@ -405,8 +397,7 @@ impl InterfaceReconstruction {
                 .unwrap_or(Ordering::Equal)
         });
 
-        let axis_dominance = <T as FromPrimitive>::from_f64(HYBRID_AXIS_DOMINANCE)
-            .expect("hybrid axis dominance threshold is representable in IEEE 754");
+        let axis_dominance = scalar::constant::<T>(HYBRID_AXIS_DOMINANCE);
         let axis = if abs_components[axes[0]] / reference_norm >= axis_dominance {
             Some(axes[0])
         } else {
@@ -418,15 +409,14 @@ impl InterfaceReconstruction {
 
     /// Calculate interface normal from the volume-fraction gradient using
     /// Youngs' mixed finite-difference stencil.
-    fn calculate_gradient<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+    fn calculate_gradient<T: VofScalar>(
         self,
         solver: &VofSolver<T>,
         i: usize,
         j: usize,
         k: usize,
     ) -> Vector3<T> {
-        let two = <T as FromPrimitive>::from_f64(2.0)
-            .expect("2.0 is representable in all IEEE 754 types");
+        let two = scalar::constant::<T>(2.0);
 
         let dx = (solver.alpha[solver.index(i + 1, j, k)]
             - solver.alpha[solver.index(i - 1, j, k)])
@@ -445,7 +435,7 @@ impl InterfaceReconstruction {
 
     /// Hybrid normal reconstruction: prefer a directional height function when
     /// the local gradient is graph-like, otherwise fall back to Youngs.
-    fn hybrid_normal<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+    fn hybrid_normal<T: VofScalar>(
         self,
         solver: &VofSolver<T>,
         cache: &DirectionalHeightCache<T>,
@@ -458,14 +448,13 @@ impl InterfaceReconstruction {
             return selection.reference;
         };
 
-        let epsilon = <T as FromPrimitive>::from_f64(VOF_EPSILON)
-            .expect("VOF_EPSILON is an IEEE 754 representable f64 constant");
+        let epsilon = scalar::constant::<T>(VOF_EPSILON);
         let candidate = Self::directional_height_normal(solver, cache, axis, i, j, k);
         if candidate.norm() <= epsilon {
             return selection.reference;
         }
 
-        if candidate.dot(&selection.reference) < T::zero() {
+        if candidate.dot(selection.reference) < scalar::zero() {
             -candidate
         } else {
             candidate
@@ -473,9 +462,7 @@ impl InterfaceReconstruction {
     }
 
     /// Directional height-function normal using a cached column integral.
-    fn directional_height_normal<
-        T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
-    >(
+    fn directional_height_normal<T: VofScalar>(
         solver: &VofSolver<T>,
         cache: &DirectionalHeightCache<T>,
         axis: usize,
@@ -483,8 +470,7 @@ impl InterfaceReconstruction {
         j: usize,
         k: usize,
     ) -> Vector3<T> {
-        let two = <T as FromPrimitive>::from_f64(2.0)
-            .expect("2.0 is representable in all IEEE 754 types");
+        let two = scalar::constant::<T>(2.0);
 
         match axis {
             0 => {
@@ -498,7 +484,7 @@ impl InterfaceReconstruction {
                 let h_kp = cache.x[kp * solver.ny + j];
                 let dh_dy = -(h_jp - h_jm) / (two * solver.dy);
                 let dh_dz = -(h_kp - h_km) / (two * solver.dz);
-                Vector3::new(T::one(), dh_dy, dh_dz)
+                Vector3::new(scalar::one(), dh_dy, dh_dz)
             }
             1 => {
                 let im = i - 1;
@@ -511,7 +497,7 @@ impl InterfaceReconstruction {
                 let h_kp = cache.y[kp * solver.nx + i];
                 let dh_dx = -(h_ip - h_im) / (two * solver.dx);
                 let dh_dz = -(h_kp - h_km) / (two * solver.dz);
-                Vector3::new(dh_dx, T::one(), dh_dz)
+                Vector3::new(dh_dx, scalar::one(), dh_dz)
             }
             _ => {
                 let im = i - 1;
@@ -524,7 +510,7 @@ impl InterfaceReconstruction {
                 let h_jp = cache.z[jp * solver.nx + i];
                 let dh_dx = -(h_ip - h_im) / (two * solver.dx);
                 let dh_dy = -(h_jp - h_jm) / (two * solver.dy);
-                Vector3::new(dh_dx, dh_dy, T::one())
+                Vector3::new(dh_dx, dh_dy, scalar::one())
             }
         }
     }
@@ -540,7 +526,7 @@ impl InterfaceReconstruction {
     ///
     /// **Volume formula**: The exact formula of Scardovelli & Zaleski (2000)
     /// Eqs. 2.34–2.38 is used, implemented in `volume_under_plane_3d`.
-    fn plic_reconstruction<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+    fn plic_reconstruction<T: VofScalar>(
         self,
         solver: &VofSolver<T>,
         cache: &DirectionalHeightCache<T>,
@@ -551,13 +537,12 @@ impl InterfaceReconstruction {
         // 1. Interface normal from a dominant-axis height function when it is
         // graph-like, otherwise use the Youngs gradient fallback.
         let mut normal = self.hybrid_normal(solver, cache, i, j, k);
-        let epsilon = <T as FromPrimitive>::from_f64(VOF_EPSILON)
-            .expect("VOF_EPSILON is an IEEE 754 representable f64 constant");
+        let epsilon = scalar::constant::<T>(VOF_EPSILON);
 
         if normal.norm() > epsilon {
             normal = normal.normalize();
         } else {
-            normal = Vector3::new(T::zero(), T::zero(), T::one());
+            normal = Vector3::new(scalar::zero(), scalar::zero(), scalar::one());
         }
 
         // 2. Find plane constant that conserves volume
@@ -572,9 +557,7 @@ impl InterfaceReconstruction {
     ///
     /// Returns the curvature together with the unnormalised directional
     /// height normal so the caller can preserve the outward orientation.
-    fn directional_height_curvature<
-        T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
-    >(
+    fn directional_height_curvature<T: VofScalar>(
         solver: &VofSolver<T>,
         cache: &DirectionalHeightCache<T>,
         axis: usize,
@@ -582,10 +565,8 @@ impl InterfaceReconstruction {
         j: usize,
         k: usize,
     ) -> (Vector3<T>, T) {
-        let two = <T as FromPrimitive>::from_f64(2.0)
-            .expect("2.0 is representable in all IEEE 754 types");
-        let four = <T as FromPrimitive>::from_f64(4.0)
-            .expect("4.0 is representable in all IEEE 754 types");
+        let two = scalar::constant::<T>(2.0);
+        let four = scalar::constant::<T>(4.0);
 
         match axis {
             0 => {
@@ -604,13 +585,13 @@ impl InterfaceReconstruction {
                 let p_yy = (h_jp - two * h + h_jm) / (solver.dy * solver.dy);
                 let q_zz = (h_kp - two * h + h_km) / (solver.dz * solver.dz);
                 let p_yz = (h_jp_kp - h_jp_km - h_jm_kp + h_jm_km) / (four * solver.dy * solver.dz);
-                let base = T::one() + p * p + q * q;
-                let denom = base * num_traits::Float::sqrt(base);
-                let curvature = ((T::one() + q * q) * p_yy - two * p * q * p_yz
-                    + (T::one() + p * p) * q_zz)
+                let base = scalar::one::<T>() + p * p + q * q;
+                let denom = base * scalar::sqrt(base);
+                let curvature = ((scalar::one::<T>() + q * q) * p_yy - two * p * q * p_yz
+                    + (scalar::one::<T>() + p * p) * q_zz)
                     / denom;
 
-                (Vector3::new(T::one(), -p, -q), curvature)
+                (Vector3::new(scalar::one(), -p, -q), curvature)
             }
             1 => {
                 let h = cache.y[k * solver.nx + i];
@@ -628,13 +609,13 @@ impl InterfaceReconstruction {
                 let p_xx = (h_ip - two * h + h_im) / (solver.dx * solver.dx);
                 let q_zz = (h_kp - two * h + h_km) / (solver.dz * solver.dz);
                 let p_xz = (h_ip_kp - h_ip_km - h_im_kp + h_im_km) / (four * solver.dx * solver.dz);
-                let base = T::one() + p * p + q * q;
-                let denom = base * num_traits::Float::sqrt(base);
-                let curvature = ((T::one() + q * q) * p_xx - two * p * q * p_xz
-                    + (T::one() + p * p) * q_zz)
+                let base = scalar::one::<T>() + p * p + q * q;
+                let denom = base * scalar::sqrt(base);
+                let curvature = ((scalar::one::<T>() + q * q) * p_xx - two * p * q * p_xz
+                    + (scalar::one::<T>() + p * p) * q_zz)
                     / denom;
 
-                (Vector3::new(-p, T::one(), -q), curvature)
+                (Vector3::new(-p, scalar::one(), -q), curvature)
             }
             _ => {
                 let h = cache.z[j * solver.nx + i];
@@ -652,13 +633,13 @@ impl InterfaceReconstruction {
                 let p_xx = (h_ip - two * h + h_im) / (solver.dx * solver.dx);
                 let q_yy = (h_jp - two * h + h_jm) / (solver.dy * solver.dy);
                 let p_xy = (h_ip_jp - h_ip_jm - h_im_jp + h_im_jm) / (four * solver.dx * solver.dy);
-                let base = T::one() + p * p + q * q;
-                let denom = base * num_traits::Float::sqrt(base);
-                let curvature = ((T::one() + q * q) * p_xx - two * p * q * p_xy
-                    + (T::one() + p * p) * q_yy)
+                let base = scalar::one::<T>() + p * p + q * q;
+                let denom = base * scalar::sqrt(base);
+                let curvature = ((scalar::one::<T>() + q * q) * p_xx - two * p * q * p_xy
+                    + (scalar::one::<T>() + p * p) * q_yy)
                     / denom;
 
-                (Vector3::new(-p, -q, T::one()), curvature)
+                (Vector3::new(-p, -q, scalar::one()), curvature)
             }
         }
     }
@@ -669,7 +650,7 @@ impl InterfaceReconstruction {
     /// The bisection terminates when the volume residual is smaller than
     /// `PLIC_TOLERANCE * dx * dy * dz`, with a finite-precision guard that
     /// returns the last midpoint if the interval stops shrinking.
-    fn find_plane_constant<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+    fn find_plane_constant<T: VofScalar>(
         self,
         normal: Vector3<T>,
         target_volume: T,
@@ -677,24 +658,20 @@ impl InterfaceReconstruction {
         dy: T,
         dz: T,
     ) -> T {
-        use num_traits::Float;
-
         let cell_volume = dx * dy * dz;
-        let mut c_min = T::zero();
+        let mut c_min = scalar::zero();
         let mut c_max =
-            Float::abs(normal.x) * dx + Float::abs(normal.y) * dy + Float::abs(normal.z) * dz;
+            scalar::abs(normal.x) * dx + scalar::abs(normal.y) * dy + scalar::abs(normal.z) * dz;
 
-        let tolerance = <T as FromPrimitive>::from_f64(constants::PLIC_TOLERANCE)
-            .expect("PLIC_TOLERANCE is an IEEE 754 representable f64 constant");
+        let tolerance = scalar::constant::<T>(constants::PLIC_TOLERANCE);
         let volume_tolerance = tolerance * cell_volume;
-        let half =
-            <T as FromPrimitive>::from_f64(0.5).expect("0.5 is exactly representable in IEEE 754");
+        let half = scalar::constant::<T>(0.5);
 
         loop {
             let c_mid = c_min + (c_max - c_min) * half;
             let volume = volume_under_plane_3d(normal, c_mid, dx, dy, dz);
 
-            if Float::abs(volume - target_volume * cell_volume) < volume_tolerance {
+            if scalar::abs(volume - target_volume * cell_volume) < volume_tolerance {
                 return c_mid;
             }
 
@@ -717,17 +694,14 @@ impl InterfaceReconstruction {
     /// fall back to the divergence of the pre-computed normal field:
     ///
     /// `κ = −∇·n̂ = −(∂n̂_x/∂x + ∂n̂_y/∂y + ∂n̂_z/∂z)`
-    fn calculate_curvature<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy>(
+    fn calculate_curvature<T: VofScalar>(
         self,
         solver: &mut VofSolver<T>,
         height_cache: Option<&DirectionalHeightCache<T>>,
     ) {
-        let two = <T as FromPrimitive>::from_f64(2.0)
-            .expect("2.0 is representable in all IEEE 754 types");
-        let interface_lower = <T as FromPrimitive>::from_f64(VOF_INTERFACE_LOWER)
-            .expect("VOF_INTERFACE_LOWER is an IEEE 754 representable f64 constant");
-        let interface_upper = <T as FromPrimitive>::from_f64(VOF_INTERFACE_UPPER)
-            .expect("VOF_INTERFACE_UPPER is an IEEE 754 representable f64 constant");
+        let two = scalar::constant::<T>(2.0);
+        let interface_lower = scalar::constant::<T>(VOF_INTERFACE_LOWER);
+        let interface_upper = scalar::constant::<T>(VOF_INTERFACE_UPPER);
 
         for k_block in (1..solver.nz - 1).step_by(CACHE_BLOCK_SIZE_K) {
             for j_block in (1..solver.ny - 1).step_by(CACHE_BLOCK_SIZE_J) {
@@ -752,7 +726,7 @@ impl InterfaceReconstruction {
                                                     solver, cache, axis, i, j, k,
                                                 );
                                             solver.curvature[idx] =
-                                                if candidate.dot(&normal) < T::zero() {
+                                                if candidate.dot(normal) < scalar::zero() {
                                                     -curvature
                                                 } else {
                                                     curvature
@@ -780,7 +754,7 @@ impl InterfaceReconstruction {
 
                                     solver.curvature[idx] = -(dnx_dx + dny_dy + dnz_dz);
                                 } else {
-                                    solver.curvature[idx] = T::zero();
+                                    solver.curvature[idx] = scalar::zero();
                                 }
                             }
                         }
@@ -792,15 +766,11 @@ impl InterfaceReconstruction {
 
     /// Determine whether a precomputed normal is graph-like enough to justify
     /// a directional height-function curvature estimate.
-    fn dominant_axis_from_normal<
-        T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy,
-    >(
-        normal: &Vector3<T>,
-    ) -> Option<usize> {
+    fn dominant_axis_from_normal<T: VofScalar>(normal: &Vector3<T>) -> Option<usize> {
         let abs_components = [
-            num_traits::Float::abs(normal.x),
-            num_traits::Float::abs(normal.y),
-            num_traits::Float::abs(normal.z),
+            scalar::abs(normal.x),
+            scalar::abs(normal.y),
+            scalar::abs(normal.z),
         ];
         let mut axes = [1usize, 0, 2];
         axes.sort_by(|lhs, rhs| {
@@ -809,8 +779,7 @@ impl InterfaceReconstruction {
                 .unwrap_or(Ordering::Equal)
         });
 
-        let axis_dominance = <T as FromPrimitive>::from_f64(HYBRID_AXIS_DOMINANCE)
-            .expect("hybrid axis dominance threshold is representable in IEEE 754");
+        let axis_dominance = scalar::constant::<T>(HYBRID_AXIS_DOMINANCE);
         if abs_components[axes[0]] >= axis_dominance {
             Some(axes[0])
         } else {
@@ -919,7 +888,7 @@ mod tests {
         solver.reconstruct_interface();
 
         let idx = solver.linear_index(5, ny / 2, 1);
-        let normal: nalgebra::Vector3<f64> = solver.normals()[idx];
+        let normal: Vector3<f64> = solver.normals()[idx];
         assert!(
             normal.x.abs() < 1e-10_f64,
             "n_x should be ~0 for flat interface"
@@ -970,7 +939,7 @@ mod tests {
         solver.reconstruct_interface();
 
         let idx = solver.linear_index(nx / 2, ny / 2, nz / 2);
-        let normal: nalgebra::Vector3<f64> = solver.normals()[idx];
+        let normal: Vector3<f64> = solver.normals()[idx];
         assert!(
             normal.x > 0.99,
             "n_x should be ~1 for the vertical interface, got {}",
@@ -1039,11 +1008,11 @@ mod tests {
             "diagonal interface should not be treated as graph-like"
         );
 
-        let normal: nalgebra::Vector3<f64> = solver.normals()[idx];
-        let expected = nalgebra::Vector3::new(1.0, 1.0, 1.0).normalize();
+        let normal: Vector3<f64> = solver.normals()[idx];
+        let expected = Vector3::new(1.0, 1.0, 1.0).normalize();
         assert!(
             (normal - expected).norm() < 0.05,
-            "fallback normal should track the Youngs gradient, got {} vs {}",
+            "fallback normal should track the Youngs gradient, got {:?} vs {:?}",
             normal,
             expected
         );

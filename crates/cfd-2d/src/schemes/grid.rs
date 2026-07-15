@@ -11,14 +11,15 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
-use nalgebra::{DMatrix, RealField};
-use num_traits::FromPrimitive;
+use crate::scalar::Cfd2dScalar;
+use eunomia::FloatElement;
+use leto::Array2;
 
 /// 2D grid for finite difference operations
 #[derive(Debug, Clone)]
-pub struct Grid2D<T: RealField + Copy> {
+pub struct Grid2D<T: Cfd2dScalar + Copy> {
     /// Grid values
-    pub data: DMatrix<T>,
+    pub data: Array2<T>,
     /// Grid spacing in x-direction
     pub dx: T,
     /// Grid spacing in y-direction
@@ -27,14 +28,14 @@ pub struct Grid2D<T: RealField + Copy> {
     pub ghost_cells: usize,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> Grid2D<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> Grid2D<T> {
     /// Create a new 2D grid
     pub fn new(nx: usize, ny: usize, dx: T, dy: T, ghost_cells: usize) -> Self {
         let total_nx = nx + 2 * ghost_cells;
         let total_ny = ny + 2 * ghost_cells;
 
         Self {
-            data: DMatrix::zeros(total_nx, total_ny),
+            data: Array2::zeros([total_nx, total_ny]),
             dx,
             dy,
             ghost_cells,
@@ -43,7 +44,7 @@ impl<T: RealField + Copy + FromPrimitive + Copy> Grid2D<T> {
 
     /// Get interior dimensions (excluding ghost cells)
     pub fn interior_shape(&self) -> (usize, usize) {
-        let (total_nx, total_ny) = self.data.shape();
+        let [total_nx, total_ny] = self.data.shape();
         (
             total_nx - 2 * self.ghost_cells,
             total_ny - 2 * self.ghost_cells,

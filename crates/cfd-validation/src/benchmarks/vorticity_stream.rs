@@ -12,7 +12,7 @@ use cfd_2d::physics::vorticity_stream::VorticityStreamConfig;
 use cfd_2d::physics::VorticityStreamSolver;
 use cfd_core::compute::solver::SolverConfig;
 use cfd_core::error::{Error, Result};
-use nalgebra::Vector2;
+use leto::geometry::Vector2;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
@@ -20,8 +20,7 @@ use std::time::Instant;
 type CenterlineProfiles = (Vec<(f64, f64)>, Vec<(f64, f64)>);
 
 /// Configuration for the vorticity-stream cavity benchmark.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)
-]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VorticityStreamCavityConfig {
     /// Number of grid points `(nx, ny)`.
     pub grid_points: (usize, usize),
@@ -294,9 +293,12 @@ impl VorticityStreamCavityBenchmark {
         }
 
         let elapsed = start.elapsed().as_secs_f64();
-        let final_checkpoint = history
-            .final_checkpoint()
-            .ok_or_else(|| Error::InvalidConfiguration("VorticityStreamCavityBenchmark: history must contain at least one checkpoint".into()))?;
+        let final_checkpoint = history.final_checkpoint().ok_or_else(|| {
+            Error::InvalidConfiguration(
+                "VorticityStreamCavityBenchmark: history must contain at least one checkpoint"
+                    .into(),
+            )
+        })?;
 
         let mut result = BenchmarkResult::new(self.name());
         result.execution_time = elapsed;
@@ -305,26 +307,22 @@ impl VorticityStreamCavityBenchmark {
             "grid_points".to_string(),
             format!("({}, {})", config.grid_points.0, config.grid_points.1),
         );
-        result.metadata.insert(
-            "size".to_string(),
-            format!("{:.6}", config.size),
-        );
+        result
+            .metadata
+            .insert("size".to_string(), format!("{:.6}", config.size));
         result.metadata.insert(
             "lid_velocity".to_string(),
             format!("{:.6}", config.lid_velocity),
         );
-        result.metadata.insert(
-            "reynolds".to_string(),
-            format!("{:.6}", config.reynolds),
-        );
-        result.metadata.insert(
-            "time_step".to_string(),
-            format!("{:.6}", config.time_step),
-        );
-        result.metadata.insert(
-            "max_steps".to_string(),
-            format!("{}", config.max_steps),
-        );
+        result
+            .metadata
+            .insert("reynolds".to_string(), format!("{:.6}", config.reynolds));
+        result
+            .metadata
+            .insert("time_step".to_string(), format!("{:.6}", config.time_step));
+        result
+            .metadata
+            .insert("max_steps".to_string(), format!("{}", config.max_steps));
         result.metadata.insert(
             "sample_stride".to_string(),
             format!("{}", config.sample_stride),
@@ -334,25 +332,29 @@ impl VorticityStreamCavityBenchmark {
             format!("{}", config.poisson_iterations),
         );
 
-        let (vertical_positions, vertical_reference_values, horizontal_positions, horizontal_reference_values) =
-            reference_profiles.as_ref().map_or_else(
-                || {
-                    (
-                        Self::uniform_positions(ny, config.size),
-                        Vec::new(),
-                        Self::uniform_positions(nx, config.size),
-                        Vec::new(),
-                    )
-                },
-                |reference| {
-                    (
-                        reference.0.iter().map(|(position, _)| *position).collect(),
-                        reference.0.iter().map(|(_, value)| *value).collect(),
-                        reference.1.iter().map(|(position, _)| *position).collect(),
-                        reference.1.iter().map(|(_, value)| *value).collect(),
-                    )
-                },
-            );
+        let (
+            vertical_positions,
+            vertical_reference_values,
+            horizontal_positions,
+            horizontal_reference_values,
+        ) = reference_profiles.as_ref().map_or_else(
+            || {
+                (
+                    Self::uniform_positions(ny, config.size),
+                    Vec::new(),
+                    Self::uniform_positions(nx, config.size),
+                    Vec::new(),
+                )
+            },
+            |reference| {
+                (
+                    reference.0.iter().map(|(position, _)| *position).collect(),
+                    reference.0.iter().map(|(_, value)| *value).collect(),
+                    reference.1.iter().map(|(position, _)| *position).collect(),
+                    reference.1.iter().map(|(_, value)| *value).collect(),
+                )
+            },
+        );
 
         let final_vertical_u = Self::sample_vertical_centerline(
             solver.velocity_field(),
@@ -398,10 +400,9 @@ impl VorticityStreamCavityBenchmark {
         result.values.extend(final_horizontal_v.iter().copied());
         result.errors = reference_errors;
 
-        result.metrics.insert(
-            "Final Residual".to_string(),
-            final_checkpoint.residual,
-        );
+        result
+            .metrics
+            .insert("Final Residual".to_string(), final_checkpoint.residual);
         result.metrics.insert(
             "Final Stream Center".to_string(),
             final_checkpoint.stream_center,
@@ -410,18 +411,16 @@ impl VorticityStreamCavityBenchmark {
             "Final Vorticity Center".to_string(),
             final_checkpoint.vorticity_center,
         );
-        result.metrics.insert(
-            "Final Max Speed".to_string(),
-            final_checkpoint.max_speed,
-        );
+        result
+            .metrics
+            .insert("Final Max Speed".to_string(), final_checkpoint.max_speed);
         result.metrics.insert(
             "Final Divergence Max".to_string(),
             final_checkpoint.max_divergence,
         );
-        result.metrics.insert(
-            "Final Enstrophy".to_string(),
-            final_checkpoint.enstrophy,
-        );
+        result
+            .metrics
+            .insert("Final Enstrophy".to_string(), final_checkpoint.enstrophy);
         result.metrics.insert(
             "Checkpoint Count".to_string(),
             history.checkpoints.len() as f64,
@@ -502,8 +501,8 @@ impl VorticityStreamCavityBenchmark {
 
         for i in 1..grid.nx - 1 {
             for j in 1..grid.ny - 1 {
-                let du_dx = (field[(i + 1, j)].x - field[(i - 1, j)].x) / two_dx;
-                let dv_dy = (field[(i, j + 1)].y - field[(i, j - 1)].y) / two_dy;
+                let du_dx = (field[(i + 1, j)][0] - field[(i - 1, j)][0]) / two_dx;
+                let dv_dy = (field[(i, j + 1)][1] - field[(i, j - 1)][1]) / two_dy;
                 max_divergence = max_divergence.max((du_dx + dv_dy).abs());
             }
         }
@@ -513,7 +512,11 @@ impl VorticityStreamCavityBenchmark {
 
     fn enstrophy(field: &Array2D<f64>, grid: &StructuredGrid2D<f64>) -> f64 {
         let cell_area = grid.dx * grid.dy;
-        0.5 * field.iter().map(|vorticity| vorticity * vorticity).sum::<f64>() * cell_area
+        0.5 * field
+            .iter()
+            .map(|vorticity| vorticity * vorticity)
+            .sum::<f64>()
+            * cell_area
     }
 
     fn uniform_positions(count: usize, size: f64) -> Vec<f64> {
@@ -533,7 +536,7 @@ impl VorticityStreamCavityBenchmark {
     ) -> Vec<f64> {
         y_positions
             .iter()
-            .map(|y| Self::sample_velocity(field, grid, x, *y).x)
+            .map(|y| Self::sample_velocity(field, grid, x, *y)[0])
             .collect()
     }
 
@@ -545,7 +548,7 @@ impl VorticityStreamCavityBenchmark {
     ) -> Vec<f64> {
         x_positions
             .iter()
-            .map(|x| Self::sample_velocity(field, grid, *x, y).y)
+            .map(|x| Self::sample_velocity(field, grid, *x, y)[1])
             .collect()
     }
 
@@ -594,8 +597,8 @@ impl VorticityStreamCavityBenchmark {
         };
 
         Vector2::new(
-            interpolate(v00.x, v10.x, v01.x, v11.x),
-            interpolate(v00.y, v10.y, v01.y, v11.y),
+            interpolate(v00[0], v10[0], v01[0], v11[0]),
+            interpolate(v00[1], v10[1], v01[1], v11[1]),
         )
     }
 
@@ -633,18 +636,14 @@ impl VorticityStreamCavityBenchmark {
             return false;
         };
 
-        history
-            .checkpoints
-            .iter()
-            .all(|checkpoint| {
-                checkpoint.residual.is_finite()
-                    && checkpoint.stream_center.is_finite()
-                    && checkpoint.vorticity_center.is_finite()
-                    && checkpoint.max_speed.is_finite()
-                    && checkpoint.max_divergence.is_finite()
-                    && checkpoint.enstrophy.is_finite()
-            })
-            && final_checkpoint.max_speed > 0.0
+        history.checkpoints.iter().all(|checkpoint| {
+            checkpoint.residual.is_finite()
+                && checkpoint.stream_center.is_finite()
+                && checkpoint.vorticity_center.is_finite()
+                && checkpoint.max_speed.is_finite()
+                && checkpoint.max_divergence.is_finite()
+                && checkpoint.enstrophy.is_finite()
+        }) && final_checkpoint.max_speed > 0.0
             && final_checkpoint.enstrophy > 0.0
     }
 }
@@ -771,7 +770,9 @@ mod tests {
         let result = BenchmarkRunner::run_benchmark(&benchmark, &runtime)
             .expect("benchmark runner should execute the vorticity-stream cavity benchmark");
 
-        assert!(benchmark.validate(&result).expect("validation should be computable"));
+        assert!(benchmark
+            .validate(&result)
+            .expect("validation should be computable"));
         assert!(result.metrics.contains_key("Final Residual"));
         assert!(result.metrics.contains_key("Final Enstrophy"));
         assert!(result.metrics.contains_key("Final Max Speed"));

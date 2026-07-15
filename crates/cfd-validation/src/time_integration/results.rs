@@ -1,6 +1,6 @@
 //! Time integration validation results.
 
-use nalgebra::RealField;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 /// Result of a time integration validation test

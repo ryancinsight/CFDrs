@@ -7,10 +7,103 @@ use crate::linear_solver::preconditioners::{
 use crate::linear_solver::traits::IterativeLinearSolver;
 use crate::linear_solver::IterativeSolverConfig;
 use crate::linear_solver::{BiCGSTAB, ConjugateGradient, Preconditioner, GMRES};
-use crate::sparse::{SparseMatrix, SparseMatrixBuilder};
+use crate::sparse::{self, SparseMatrix, SparseMatrixBuilder};
 use approx::assert_relative_eq;
-use nalgebra::DVector;
-use nalgebra_sparse::{CooMatrix, CsrMatrix};
+use cfd_core::error::Error;
+use leto::Array1;
+use leto_ops::CsrMatrix;
+
+fn array(values: Vec<f64>) -> Array1<f64> {
+    Array1::from_shape_vec([values.len()], values).expect("valid Leto vector shape")
+}
+
+fn array_from_fn(len: usize, mut value_at: impl FnMut(usize) -> f64) -> Array1<f64> {
+    array((0..len).map(&mut value_at).collect())
+}
+
+fn filled_array(len: usize, value: f64) -> Array1<f64> {
+    Array1::from_shape_vec([len], vec![value; len]).expect("valid Leto vector shape")
+}
+
+fn fill_array(values: &mut Array1<f64>, value: f64) {
+    for idx in 0..values.shape()[0] {
+        values[idx] = value;
+    }
+}
+
+fn matrix_from_entries(
+    n: usize,
+    entries: impl IntoIterator<Item = (usize, usize, f64)>,
+) -> CsrMatrix<f64> {
+    let mut builder = SparseMatrixBuilder::new(n, n);
+    builder
+        .add_triplets(entries)
+        .expect("invariant: test matrix entries are in bounds");
+    builder
+        .build()
+        .expect("invariant: test CSR matrix is valid")
+}
+
+fn diagonal_matrix(diagonal: &[f64]) -> CsrMatrix<f64> {
+    matrix_from_entries(
+        diagonal.len(),
+        diagonal
+            .iter()
+            .enumerate()
+            .map(|(idx, &value)| (idx, idx, value)),
+    )
+}
+
+fn vector_norm(values: &Array1<f64>) -> f64 {
+    (0..values.shape()[0])
+        .map(|idx| values[idx] * values[idx])
+        .sum::<f64>()
+        .sqrt()
+}
+
+fn vector_distance(lhs: &Array1<f64>, rhs: &Array1<f64>) -> f64 {
+    assert_eq!(lhs.shape(), rhs.shape(), "vector shapes must match");
+    (0..lhs.shape()[0])
+        .map(|idx| {
+            let diff = lhs[idx] - rhs[idx];
+            diff * diff
+        })
+        .sum::<f64>()
+        .sqrt()
+}
+
+fn residual_norm(a: &CsrMatrix<f64>, x: &Array1<f64>, b: &Array1<f64>) -> f64 {
+    let mut ax = Array1::zeros([b.shape()[0]]);
+    sparse::spmv(a, x, &mut ax);
+    vector_distance(&ax, b)
+}
+
+fn relative_residual_norm(a: &CsrMatrix<f64>, x: &Array1<f64>, b: &Array1<f64>) -> f64 {
+    residual_norm(a, x, b) / vector_norm(b)
+}
+
+fn assert_spmv_matches(a: &CsrMatrix<f64>, x: &Array1<f64>, b: &Array1<f64>, epsilon: f64) {
+    let mut ax = Array1::zeros([b.shape()[0]]);
+    sparse::spmv(a, x, &mut ax);
+    for idx in 0..b.shape()[0] {
+        assert_relative_eq!(ax[idx], b[idx], epsilon = epsilon);
+    }
+}
+
+fn assert_array_close(actual: &Array1<f64>, expected: &Array1<f64>, epsilon: f64) {
+    assert_eq!(actual.shape(), expected.shape(), "vector shapes must match");
+    for idx in 0..actual.shape()[0] {
+        assert_relative_eq!(actual[idx], expected[idx], epsilon = epsilon);
+    }
+}
+
+fn all_finite(values: &Array1<f64>) -> bool {
+    (0..values.shape()[0]).all(|idx| values[idx].is_finite())
+}
+
+fn all_not_nan(values: &Array1<f64>) -> bool {
+    (0..values.shape()[0]).all(|idx| !values[idx].is_nan())
+}
 
 fn create_tridiagonal_matrix(
     n: usize,
@@ -31,23 +124,32 @@ fn create_tridiagonal_matrix(
     Ok(builder.build()?)
 }
 
+fn basic_preconditioner_matrix(matrix: &CsrMatrix<f64>) -> CsrMatrix<f64> {
+    matrix.clone()
+}
+
+fn assert_invalid_configuration(result: cfd_core::error::Result<()>, expected_message: &str) {
+    match result {
+        Err(Error::InvalidConfiguration(message)) => assert_eq!(message, expected_message),
+        Err(error) => panic!("expected invalid configuration, got {error:?}"),
+        Ok(()) => panic!("expected invalid configuration error"),
+    }
+}
+
 #[test]
 fn test_conjugate_gradient() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let n = 5;
     let a = create_tridiagonal_matrix(n)?;
-    let b = DVector::from_element(n, 1.0);
+    let b = filled_array(n, 1.0);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
 
     let solver = ConjugateGradient::new(config);
-    let mut x = DVector::zeros(n);
+    let mut x = Array1::zeros([n]);
     let identity_precond = IdentityPreconditioner;
     solver.solve(&a, &b, &mut x, Some(&identity_precond))?;
 
-    let ax = &a * &x;
-    for i in 0..n {
-        assert_relative_eq!(ax[i], b[i], epsilon = 1e-8);
-    }
+    assert_spmv_matches(&a, &x, &b, 1e-8);
     Ok(())
 }
 
@@ -55,19 +157,16 @@ fn test_conjugate_gradient() -> std::result::Result<(), Box<dyn std::error::Erro
 fn test_bicgstab() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let n = 5;
     let a = create_tridiagonal_matrix(n)?;
-    let b = DVector::from_element(n, 1.0);
+    let b = filled_array(n, 1.0);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
 
     let solver = BiCGSTAB::new(config);
-    let mut x = DVector::zeros(n);
+    let mut x = Array1::zeros([n]);
     let identity_precond = IdentityPreconditioner;
     solver.solve(&a, &b, &mut x, Some(&identity_precond))?;
 
-    let ax = &a * &x;
-    for i in 0..n {
-        assert_relative_eq!(ax[i], b[i], epsilon = 1e-8);
-    }
+    assert_spmv_matches(&a, &x, &b, 1e-8);
     Ok(())
 }
 
@@ -75,10 +174,11 @@ fn test_bicgstab() -> std::result::Result<(), Box<dyn std::error::Error>> {
 fn test_jacobi_preconditioner() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let n = 5;
     let a = create_tridiagonal_matrix(n)?;
-    let precond = JacobiPreconditioner::new(&a)?;
+    let preconditioner_matrix = basic_preconditioner_matrix(&a);
+    let precond = JacobiPreconditioner::new(&preconditioner_matrix)?;
 
-    let r = DVector::from_element(n, 1.0);
-    let mut z = DVector::zeros(n);
+    let r = filled_array(n, 1.0);
+    let mut z = Array1::zeros([n]);
     precond.apply_to(&r, &mut z)?;
 
     for i in 0..n {
@@ -91,8 +191,9 @@ fn test_jacobi_preconditioner() -> std::result::Result<(), Box<dyn std::error::E
 fn test_sor_preconditioner() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let n = 5;
     let a = create_tridiagonal_matrix(n)?;
+    let preconditioner_matrix = basic_preconditioner_matrix(&a);
 
-    let sor = SORPreconditioner::with_omega_for_1d_poisson(&a)?;
+    let sor = SORPreconditioner::with_omega_for_1d_poisson(&preconditioner_matrix)?;
 
     assert!(
         sor.omega() > 1.0 && sor.omega() < 2.0,
@@ -100,8 +201,8 @@ fn test_sor_preconditioner() -> std::result::Result<(), Box<dyn std::error::Erro
         sor.omega()
     );
 
-    let r = DVector::from_element(n, 1.0);
-    let mut z = DVector::zeros(n);
+    let r = filled_array(n, 1.0);
+    let mut z = Array1::zeros([n]);
     sor.apply_to(&r, &mut z)?;
 
     for i in 0..n {
@@ -135,6 +236,45 @@ fn test_sor_preconditioner() -> std::result::Result<(), Box<dyn std::error::Erro
 }
 
 #[test]
+fn basic_preconditioners_reject_mismatched_leto_vector_lengths(
+) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    let n = 5;
+    let a = create_tridiagonal_matrix(n)?;
+    let preconditioner_matrix = basic_preconditioner_matrix(&a);
+    let identity = IdentityPreconditioner;
+    let jacobi = JacobiPreconditioner::new(&preconditioner_matrix)?;
+    let sor = SORPreconditioner::with_omega_for_1d_poisson(&preconditioner_matrix)?;
+
+    let r_short = leto::Array1::zeros([n - 1]);
+    let mut z = leto::Array1::zeros([n]);
+    assert_invalid_configuration(
+        jacobi.apply_to(&r_short, &mut z),
+        "Jacobi residual length mismatch: expected 5, got 4",
+    );
+    assert_invalid_configuration(
+        sor.apply_to(&r_short, &mut z),
+        "SOR residual length mismatch: expected 5, got 4",
+    );
+
+    let r = leto::Array1::zeros([n]);
+    let mut z_short = leto::Array1::zeros([n - 1]);
+    assert_invalid_configuration(
+        identity.apply_to(&r, &mut z_short),
+        "identity preconditioner output length mismatch: expected 5, got 4",
+    );
+    assert_invalid_configuration(
+        jacobi.apply_to(&r, &mut z_short),
+        "Jacobi output length mismatch: expected 5, got 4",
+    );
+    assert_invalid_configuration(
+        sor.apply_to(&r, &mut z_short),
+        "SOR output length mismatch: expected 5, got 4",
+    );
+
+    Ok(())
+}
+
+#[test]
 fn test_ilu_works_on_non_tridiagonal() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let n = 3;
     let mut builder = SparseMatrixBuilder::new(n, n);
@@ -145,7 +285,8 @@ fn test_ilu_works_on_non_tridiagonal() -> std::result::Result<(), Box<dyn std::e
     builder.add_entry(2, 2, 2.0)?;
     let non_tridiag = builder.build()?;
 
-    let result = IncompleteLU::new(&non_tridiag);
+    let preconditioner_matrix = basic_preconditioner_matrix(&non_tridiag);
+    let result = IncompleteLU::new(&preconditioner_matrix);
     assert!(result.is_ok());
     Ok(())
 }
@@ -154,19 +295,17 @@ fn test_ilu_works_on_non_tridiagonal() -> std::result::Result<(), Box<dyn std::e
 fn test_preconditioned_cg() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let n = 5;
     let a = create_tridiagonal_matrix(n)?;
-    let b = DVector::from_element(n, 1.0);
-    let precond = JacobiPreconditioner::new(&a)?;
+    let b = filled_array(n, 1.0);
+    let preconditioner_matrix = basic_preconditioner_matrix(&a);
+    let precond = JacobiPreconditioner::new(&preconditioner_matrix)?;
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
 
     let solver = ConjugateGradient::new(config);
-    let mut x = DVector::zeros(n);
+    let mut x = Array1::zeros([n]);
     solver.solve(&a, &b, &mut x, Some(&precond))?;
 
-    let ax = &a * &x;
-    for i in 0..n {
-        assert_relative_eq!(ax[i], b[i], epsilon = 1e-8);
-    }
+    assert_spmv_matches(&a, &x, &b, 1e-8);
     Ok(())
 }
 
@@ -174,10 +313,11 @@ fn test_preconditioned_cg() -> std::result::Result<(), Box<dyn std::error::Error
 fn test_gauss_seidel() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let n = 5;
     let a = create_tridiagonal_matrix(n)?;
-    let precond = SORPreconditioner::new(&a, 1.0)?;
+    let preconditioner_matrix = basic_preconditioner_matrix(&a);
+    let precond = SORPreconditioner::new(&preconditioner_matrix, 1.0)?;
 
-    let r = DVector::from_element(n, 1.0);
-    let mut z = DVector::zeros(n);
+    let r = filled_array(n, 1.0);
+    let mut z = Array1::zeros([n]);
     precond.apply_to(&r, &mut z)?;
 
     assert_relative_eq!(z[0], 0.5, epsilon = 1e-10);
@@ -215,7 +355,7 @@ fn test_convergence_with_different_tolerances(
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let n = 10;
     let a = create_tridiagonal_matrix(n)?;
-    let b = DVector::from_element(n, 1.0);
+    let b = filled_array(n, 1.0);
 
     let tolerances = vec![1e-4, 1e-6, 1e-8];
 
@@ -223,13 +363,11 @@ fn test_convergence_with_different_tolerances(
         let config = IterativeSolverConfig::new(tol).with_max_iterations(1000);
 
         let solver = ConjugateGradient::new(config);
-        let mut x = DVector::zeros(n);
+        let mut x = Array1::zeros([n]);
         let identity_precond = IdentityPreconditioner;
         solver.solve(&a, &b, &mut x, Some(&identity_precond))?;
 
-        let ax = &a * &x;
-        let residual = &b - &ax;
-        let relative_residual = residual.norm() / b.norm();
+        let relative_residual = relative_residual_norm(&a, &x, &b);
         assert!(relative_residual < tol * 10.0);
     }
     Ok(())
@@ -238,224 +376,193 @@ fn test_convergence_with_different_tolerances(
 #[test]
 fn test_gmres_diagonal_matrix() {
     let n = 4;
-    let mut coo = CooMatrix::new(n, n);
-    for i in 0..n {
-        coo.push(i, i, (i + 1) as f64);
-    }
-    let a = CsrMatrix::from(&coo);
+    let a = diagonal_matrix(&[1.0, 2.0, 3.0, 4.0]);
 
-    let b = DVector::from_vec(vec![1.0, 4.0, 9.0, 16.0]);
-    let mut x = DVector::zeros(n);
+    let b = array(vec![1.0, 4.0, 9.0, 16.0]);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = GMRES::new(config, 10);
     let precond = IdentityPreconditioner;
 
-    solver
-        .solve_preconditioned(&a, &b, &precond, &mut x)
-        .unwrap();
+    solver.solve(&a, &b, &mut x, Some(&precond)).unwrap();
 
-    let expected = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0]);
-    let error = (&x - &expected).norm();
+    let expected = array(vec![1.0, 2.0, 3.0, 4.0]);
+    let error = vector_distance(&x, &expected);
     assert!(error < 1e-9, "Solution error: {error}");
 }
 
 #[test]
 fn test_gmres_non_symmetric() {
     let n = 3;
-    let mut coo = CooMatrix::new(n, n);
-    coo.push(0, 0, 4.0);
-    coo.push(0, 1, 1.0);
-    coo.push(1, 0, 2.0);
-    coo.push(1, 1, 5.0);
-    coo.push(1, 2, 1.0);
-    coo.push(2, 1, 3.0);
-    coo.push(2, 2, 6.0);
-    let a = CsrMatrix::from(&coo);
+    let a = matrix_from_entries(
+        n,
+        [
+            (0, 0, 4.0),
+            (0, 1, 1.0),
+            (1, 0, 2.0),
+            (1, 1, 5.0),
+            (1, 2, 1.0),
+            (2, 1, 3.0),
+            (2, 2, 6.0),
+        ],
+    );
 
-    let b = DVector::from_vec(vec![5.0, 8.0, 9.0]);
-    let mut x = DVector::zeros(n);
+    let b = array(vec![5.0, 8.0, 9.0]);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = GMRES::new(config, 10);
     let precond = IdentityPreconditioner;
 
-    solver
-        .solve_preconditioned(&a, &b, &precond, &mut x)
-        .unwrap();
+    solver.solve(&a, &b, &mut x, Some(&precond)).unwrap();
 
-    let ax = &a * &x;
-    let residual = (&ax - &b).norm();
+    let residual = residual_norm(&a, &x, &b);
     assert!(residual < 1e-9, "Residual: {residual}");
 }
 
 #[test]
 fn test_gmres_zero_rhs() {
     let n = 4;
-    let mut coo = CooMatrix::new(n, n);
-    for i in 0..n {
-        coo.push(i, i, (i + 1) as f64);
-    }
-    let a = CsrMatrix::from(&coo);
+    let a = diagonal_matrix(&[1.0, 2.0, 3.0, 4.0]);
 
-    let b = DVector::zeros(n);
-    let mut x = DVector::from_element(n, 1.0);
+    let b = Array1::zeros([n]);
+    let mut x = filled_array(n, 1.0);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = GMRES::new(config, 10);
     let precond = IdentityPreconditioner;
 
-    solver
-        .solve_preconditioned(&a, &b, &precond, &mut x)
-        .unwrap();
+    solver.solve(&a, &b, &mut x, Some(&precond)).unwrap();
 
-    assert!(x.norm() < 1e-14, "Solution should be zero for zero RHS");
+    assert!(
+        vector_norm(&x) < 1e-14,
+        "Solution should be zero for zero RHS"
+    );
 }
 
 #[test]
 fn test_gmres_restart_dimension() {
     let n = 5;
-    let mut coo = CooMatrix::new(n, n);
-    for i in 0..n {
-        coo.push(i, i, 4.0);
-        if i > 0 {
-            coo.push(i, i - 1, 1.0);
-        }
-        if i < n - 1 {
-            coo.push(i, i + 1, 1.0);
-        }
-    }
-    let a = CsrMatrix::from(&coo);
+    let a = matrix_from_entries(
+        n,
+        (0..n).flat_map(|i| {
+            let mut entries = vec![(i, i, 4.0)];
+            if i > 0 {
+                entries.push((i, i - 1, 1.0));
+            }
+            if i < n - 1 {
+                entries.push((i, i + 1, 1.0));
+            }
+            entries
+        }),
+    );
 
-    let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
-    let mut x = DVector::zeros(n);
+    let b = array(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = GMRES::new(config, 3);
     let precond = IdentityPreconditioner;
 
-    solver
-        .solve_preconditioned(&a, &b, &precond, &mut x)
-        .unwrap();
+    solver.solve(&a, &b, &mut x, Some(&precond)).unwrap();
 
-    let ax = &a * &x;
-    let residual = (&ax - &b).norm();
+    let residual = residual_norm(&a, &x, &b);
     assert!(residual < 1e-9, "Residual: {residual}");
 }
 
 #[test]
 fn test_gmres_with_initial_guess() {
-    let n = 4;
-    let mut coo = CooMatrix::new(n, n);
-    for i in 0..n {
-        coo.push(i, i, (i + 1) as f64);
-    }
-    let a = CsrMatrix::from(&coo);
+    let a = diagonal_matrix(&[1.0, 2.0, 3.0, 4.0]);
 
-    let b = DVector::from_vec(vec![1.0, 4.0, 9.0, 16.0]);
-    let mut x = DVector::from_vec(vec![0.5, 1.5, 2.5, 3.5]);
+    let b = array(vec![1.0, 4.0, 9.0, 16.0]);
+    let mut x = array(vec![0.5, 1.5, 2.5, 3.5]);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = GMRES::new(config, 10);
     let precond = IdentityPreconditioner;
 
-    solver
-        .solve_preconditioned(&a, &b, &precond, &mut x)
-        .unwrap();
+    solver.solve(&a, &b, &mut x, Some(&precond)).unwrap();
 
-    let expected = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0]);
-    let error = (&x - &expected).norm();
+    let expected = array(vec![1.0, 2.0, 3.0, 4.0]);
+    let error = vector_distance(&x, &expected);
     assert!(error < 1e-9, "Solution error: {error}");
 }
 
 #[test]
 fn test_gmres_larger_nonsymmetric() {
     let n = 5;
-    let mut coo = CooMatrix::new(n, n);
-    for i in 0..n {
-        coo.push(i, i, 5.0);
-        if i > 0 {
-            coo.push(i, i - 1, 2.0);
-        }
-        if i < n - 1 {
-            coo.push(i, i + 1, 1.0);
-        }
-    }
-    let a = CsrMatrix::from(&coo);
+    let a = matrix_from_entries(
+        n,
+        (0..n).flat_map(|i| {
+            let mut entries = vec![(i, i, 5.0)];
+            if i > 0 {
+                entries.push((i, i - 1, 2.0));
+            }
+            if i < n - 1 {
+                entries.push((i, i + 1, 1.0));
+            }
+            entries
+        }),
+    );
 
-    let b = DVector::from_vec(vec![6.0, 11.0, 11.0, 11.0, 8.0]);
-    let mut x = DVector::zeros(n);
+    let b = array(vec![6.0, 11.0, 11.0, 11.0, 8.0]);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = GMRES::new(config, 10);
     let precond = IdentityPreconditioner;
 
-    solver
-        .solve_preconditioned(&a, &b, &precond, &mut x)
-        .unwrap();
+    solver.solve(&a, &b, &mut x, Some(&precond)).unwrap();
 
-    let ax = &a * &x;
-    let residual = (&ax - &b).norm();
+    let residual = residual_norm(&a, &x, &b);
     assert!(residual < 1e-9, "Residual: {residual}");
 }
 
 #[test]
 fn test_gmres_convergence_tight_tolerance() {
     let n = 4;
-    let mut coo = CooMatrix::new(n, n);
-    for i in 0..n {
-        coo.push(i, i, (i + 1) as f64);
-    }
-    let a = CsrMatrix::from(&coo);
+    let a = diagonal_matrix(&[1.0, 2.0, 3.0, 4.0]);
 
-    let b = DVector::from_vec(vec![1.0, 4.0, 9.0, 16.0]);
-    let mut x = DVector::zeros(n);
+    let b = array(vec![1.0, 4.0, 9.0, 16.0]);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-14).with_max_iterations(100);
     let solver = GMRES::new(config, 10);
     let precond = IdentityPreconditioner;
 
-    let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
+    let result = solver.solve(&a, &b, &mut x, Some(&precond));
     assert!(result.is_ok());
 }
 
 #[test]
 fn test_gmres_max_iterations_exceeded() {
     let n = 4;
-    let mut coo = CooMatrix::new(n, n);
-    for i in 0..n {
-        coo.push(i, i, (i + 1) as f64);
-    }
-    let a = CsrMatrix::from(&coo);
+    let a = diagonal_matrix(&[1.0, 2.0, 3.0, 4.0]);
 
-    let b = DVector::from_vec(vec![1.0, 4.0, 9.0, 16.0]);
-    let mut x = DVector::zeros(n);
+    let b = array(vec![1.0, 4.0, 9.0, 16.0]);
+    let mut x = Array1::zeros([n]);
 
     let config = IterativeSolverConfig::new(1e-14).with_max_iterations(1);
     let solver = GMRES::new(config, 1);
     let precond = IdentityPreconditioner;
 
-    let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
+    let result = solver.solve(&a, &b, &mut x, Some(&precond));
     assert!(result.is_err());
 }
 
 #[test]
 fn test_gmres_dimension_mismatch() {
-    let n = 4;
-    let mut coo = CooMatrix::new(n, n);
-    for i in 0..n {
-        coo.push(i, i, (i + 1) as f64);
-    }
-    let a = CsrMatrix::from(&coo);
+    let a = diagonal_matrix(&[1.0, 2.0, 3.0, 4.0]);
 
-    let b = DVector::from_vec(vec![1.0, 4.0]);
-    let mut x = DVector::zeros(2);
+    let b = array(vec![1.0, 4.0]);
+    let mut x = Array1::zeros([2]);
 
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = GMRES::new(config, 10);
     let precond = IdentityPreconditioner;
 
-    let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
+    let result = solver.solve(&a, &b, &mut x, Some(&precond));
     assert!(result.is_err());
 }
 

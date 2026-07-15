@@ -25,14 +25,15 @@
 //! Scarborough criterion.
 
 use crate::grid::array2d::Array2D;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for scalar transport solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScalarTransportConfig<T: RealField + Copy> {
+pub struct ScalarTransportConfig<T: Cfd2dScalar + Copy> {
     /// Maximum inner iterations
     pub max_iterations: usize,
     /// Convergence tolerance
@@ -41,7 +42,7 @@ pub struct ScalarTransportConfig<T: RealField + Copy> {
     pub diffusion_coeff: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive> Default for ScalarTransportConfig<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> Default for ScalarTransportConfig<T> {
     fn default() -> Self {
         Self {
             max_iterations: 5000,
@@ -49,26 +50,26 @@ impl<T: RealField + Copy + FromPrimitive> Default for ScalarTransportConfig<T> {
             // coarse grids (Δx ~ 0.003 m → Δx² ~ 1e-5).  Using 1e-8 demands
             // residuals an order of magnitude below the discretisation error,
             // which is unachievable with Gauss-Seidel on advection-dominated flows.
-            tolerance: T::from_f64(1e-5).expect("analytical constant conversion"),
-            diffusion_coeff: T::from_f64(1e-9).expect("analytical constant conversion"), // Typical diffusion
+            tolerance: scalar::from_f64(1e-5),
+            diffusion_coeff: scalar::from_f64(1e-9), // Typical diffusion
         }
     }
 }
 
 /// 2D Scalar Transport Solver
-pub struct ScalarTransportSolver2D<T: RealField + Copy + Float + FromPrimitive> {
+pub struct ScalarTransportSolver2D<T: Cfd2dScalar + Copy + FloatElement> {
     /// Concentration field \[nx]\[ny] (stored at cell centers)
     pub c: Array2D<T>,
     /// Previous iteration for convergence check.
     _c_old: Array2D<T>,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> ScalarTransportSolver2D<T> {
     /// Create new scalar transport solver
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
-            c: Array2D::new(nx, ny, T::zero()),
-            _c_old: Array2D::new(nx, ny, T::zero()),
+            c: Array2D::new(nx, ny, scalar::zero()),
+            _c_old: Array2D::new(nx, ny, scalar::zero()),
         }
     }
 
@@ -87,10 +88,11 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
         let dx = grid.dx;
         let dy = grid.dy;
         let gamma = config.diffusion_coeff;
-        let zero = T::zero();
-        let half = T::from_f64(0.5).expect("analytical constant conversion");
-        let one = T::one();
-        let omega = T::from_f64(0.8).expect("analytical constant conversion"); // Relaxation
+        let zero: T = scalar::zero();
+        let half = scalar::from_f64::<T>(0.5);
+        let one: T = scalar::one();
+        let omega = scalar::from_f64::<T>(0.8); // Relaxation
+        let tiny = scalar::from_f64::<T>(1e-30);
 
         for iteration in 0..config.max_iterations {
             let mut max_diff = zero;
@@ -111,7 +113,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
                     let f_e = field.u[(i + 1, j)] * dy;
                     let d_e = gamma * dy / dx;
                     if i < nx - 1 && field.mask[(i + 1, j)] {
-                        a_e = d_e + Float::max(-f_e, zero);
+                        a_e = d_e + <T as NumericElement>::max_scalar(-f_e, zero);
                     } else if i == nx - 1 || !field.mask[(i + 1, j)] {
                         // Outlet or internal wall boundary (zero gradient)
                     }
@@ -120,7 +122,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
                     let f_w = field.u[(i, j)] * dy;
                     let d_w = gamma * dy / dx;
                     if i > 0 && field.mask[(i - 1, j)] {
-                        a_w = d_w + Float::max(f_w, zero);
+                        a_w = d_w + <T as NumericElement>::max_scalar(f_w, zero);
                     } else {
                         // Inlet or wall. If u > 0, it's an inlet.
                         if f_w > zero {
@@ -133,14 +135,14 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
                     let f_n = field.v[(i, j + 1)] * dx;
                     let d_n = gamma * dx / dy;
                     if j < ny - 1 && field.mask[(i, j + 1)] {
-                        a_n = d_n + Float::max(-f_n, zero);
+                        a_n = d_n + <T as NumericElement>::max_scalar(-f_n, zero);
                     }
 
                     // South
                     let f_s = field.v[(i, j)] * dx;
                     let d_s = gamma * dx / dy;
                     if j > 0 && field.mask[(i, j - 1)] {
-                        a_s = d_s + Float::max(f_s, zero);
+                        a_s = d_s + <T as NumericElement>::max_scalar(f_s, zero);
                     }
 
                     let a_p = a_e + a_w + a_n + a_s + (f_e - f_w + f_n - f_s);
@@ -151,9 +153,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
                         a_p_eff += d_in;
                     }
 
-                    if Float::abs(a_p_eff)
-                        > T::from_f64(1e-30).expect("analytical constant conversion")
-                    {
+                    if <T as NumericElement>::abs(a_p_eff) > tiny {
                         let c_e = if i < nx - 1 && field.mask[(i + 1, j)] {
                             self.c[(i + 1, j)]
                         } else {
@@ -179,7 +179,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> ScalarTransportSolver2D<T> {
                             (a_e * c_e + a_w * c_w + a_n * c_n + a_s * c_s + b) / a_p_eff;
                         let c_new = (one - omega) * self.c[(i, j)] + omega * c_target;
 
-                        let diff = Float::abs(c_new - self.c[(i, j)]);
+                        let diff = <T as NumericElement>::abs(c_new - self.c[(i, j)]);
                         if diff > max_diff {
                             max_diff = diff;
                         }

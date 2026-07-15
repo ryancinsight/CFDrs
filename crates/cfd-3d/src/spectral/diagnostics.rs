@@ -5,13 +5,13 @@
 //! spectra, enstrophy spectra, probe-signal power spectra, and normalized
 //! temporal autocorrelation series.
 
-use apollo_fft::{fft_1d_array, fft_3d_array, Complex64};
+use crate::atlas_array::{fft_1d_array, fft_3d_array, set, value, values};
+use apollo_fft::Complex64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
-use nalgebra::{RealField, Vector3};
-use ndarray::Array1;
-use ndarray::Array3;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::{NumericElement, RealField};
+use leto::geometry::Vector3;
+use leto::{Array1, Array3};
 use serde::{Deserialize, Serialize};
 
 /// Isotropic kinetic energy spectrum for a 3D velocity field.
@@ -92,7 +92,7 @@ pub struct ProbeSignalSpectrum {
 /// implied by Parseval's identity.
 pub fn kinetic_energy_spectrum<T>(velocity: &VelocityField<T>) -> Result<KineticEnergySpectrum>
 where
-    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive,
+    T: cfd_mesh::domain::core::Scalar + RealField + NumericElement + Copy,
 {
     let (nx, ny, nz) = velocity.dimensions;
     if nx == 0 || ny == 0 || nz == 0 {
@@ -117,13 +117,13 @@ where
         )));
     }
 
-    let ux = component_to_array(velocity, |value| value.x, "u")?;
-    let uy = component_to_array(velocity, |value| value.y, "v")?;
-    let uz = component_to_array(velocity, |value| value.z, "w")?;
+    let ux = component_to_array(velocity, |value| value.x)?;
+    let uy = component_to_array(velocity, |value| value.y)?;
+    let uz = component_to_array(velocity, |value| value.z)?;
 
-    let ux_hat = fft_3d_array(&ux);
-    let uy_hat = fft_3d_array(&uy);
-    let uz_hat = fft_3d_array(&uz);
+    let ux_hat = fft_3d_array(&ux)?;
+    let uy_hat = fft_3d_array(&uy)?;
+    let uz_hat = fft_3d_array(&uz)?;
 
     let max_shell = radial_shell_index(nx / 2, ny / 2, nz / 2);
     let mut shell_energy = vec![0.0; max_shell + 1];
@@ -134,10 +134,11 @@ where
         for j in 0..ny {
             for i in 0..nx {
                 let shell = shell_index(i, j, k, nx, ny, nz);
+                let index = [i, j, k];
                 let mode_energy = 0.5
-                    * (ux_hat[[i, j, k]].norm_sqr()
-                        + uy_hat[[i, j, k]].norm_sqr()
-                        + uz_hat[[i, j, k]].norm_sqr())
+                    * (value(&ux_hat, index).norm_sqr()
+                        + value(&uy_hat, index).norm_sqr()
+                        + value(&uz_hat, index).norm_sqr())
                     / normalization;
                 shell_energy[shell] += mode_energy;
                 shell_mode_counts[shell] += 1;
@@ -167,7 +168,7 @@ pub fn enstrophy_spectrum<T>(
     domain_lengths: (f64, f64, f64),
 ) -> Result<EnstrophySpectrum>
 where
-    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive,
+    T: cfd_mesh::domain::core::Scalar + RealField + NumericElement + Copy,
 {
     let (nx, ny, nz) = velocity.dimensions;
     if nx == 0 || ny == 0 || nz == 0 {
@@ -200,13 +201,13 @@ where
         )));
     }
 
-    let ux = component_to_array(velocity, |value| value.x, "u")?;
-    let uy = component_to_array(velocity, |value| value.y, "v")?;
-    let uz = component_to_array(velocity, |value| value.z, "w")?;
+    let ux = component_to_array(velocity, |value| value.x)?;
+    let uy = component_to_array(velocity, |value| value.y)?;
+    let uz = component_to_array(velocity, |value| value.z)?;
 
-    let ux_hat = fft_3d_array(&ux);
-    let uy_hat = fft_3d_array(&uy);
-    let uz_hat = fft_3d_array(&uz);
+    let ux_hat = fft_3d_array(&ux)?;
+    let uy_hat = fft_3d_array(&uy)?;
+    let uz_hat = fft_3d_array(&uz)?;
 
     let max_shell = radial_shell_index(nx / 2, ny / 2, nz / 2);
     let mut shell_enstrophy = vec![0.0; max_shell + 1];
@@ -222,9 +223,13 @@ where
                 let kx = wavenumber_axis(i, nx, lx);
                 let shell = shell_index(i, j, k, nx, ny, nz);
 
-                let omega_x_hat = omega_imag * (ky * uz_hat[[i, j, k]] - kz * uy_hat[[i, j, k]]);
-                let omega_y_hat = omega_imag * (kz * ux_hat[[i, j, k]] - kx * uz_hat[[i, j, k]]);
-                let omega_z_hat = omega_imag * (kx * uy_hat[[i, j, k]] - ky * ux_hat[[i, j, k]]);
+                let index = [i, j, k];
+                let omega_x_hat =
+                    omega_imag * (value(&uz_hat, index) * ky - value(&uy_hat, index) * kz);
+                let omega_y_hat =
+                    omega_imag * (value(&ux_hat, index) * kz - value(&uz_hat, index) * kx);
+                let omega_z_hat =
+                    omega_imag * (value(&uy_hat, index) * kx - value(&ux_hat, index) * ky);
                 let mode_enstrophy = 0.5
                     * (omega_x_hat.norm_sqr() + omega_y_hat.norm_sqr() + omega_z_hat.norm_sqr())
                     / normalization;
@@ -316,8 +321,8 @@ pub fn probe_signal_spectrum(samples: &[f64], sample_period: f64) -> Result<Prob
     }
 
     let mean = samples.iter().sum::<f64>() / samples.len() as f64;
-    let demeaned = Array1::from_iter(samples.iter().map(|value| value - mean));
-    let spectrum = fft_1d_array(&demeaned);
+    let demeaned = Array1::from_shape_fn([samples.len()], |[index]| samples[index] - mean);
+    let spectrum = fft_1d_array(&demeaned)?;
     let sample_count = samples.len();
     let normalization = sample_count as f64;
     let frequencies_hz = (0..sample_count)
@@ -326,8 +331,8 @@ pub fn probe_signal_spectrum(samples: &[f64], sample_period: f64) -> Result<Prob
                 / (sample_count as f64 * sample_period)
         })
         .collect();
-    let spectral_energy: Vec<f64> = spectrum
-        .iter()
+    let spectral_energy: Vec<f64> = values(&spectrum)
+        .into_iter()
         .map(|value| value.norm_sqr() / normalization)
         .collect();
     let total_fluctuation_energy = spectral_energy.iter().sum();
@@ -344,29 +349,23 @@ pub fn probe_signal_spectrum(samples: &[f64], sample_period: f64) -> Result<Prob
     })
 }
 
-fn component_to_array<T, F>(
-    velocity: &VelocityField<T>,
-    component: F,
-    component_name: &str,
-) -> Result<Array3<f64>>
+fn component_to_array<T, F>(velocity: &VelocityField<T>, component: F) -> Result<Array3<f64>>
 where
-    T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive + ToPrimitive,
+    T: cfd_mesh::domain::core::Scalar + RealField + NumericElement + Copy,
     F: Fn(&Vector3<T>) -> T,
 {
     let (nx, ny, nz) = velocity.dimensions;
-    let mut values = Array3::<f64>::zeros((nx, ny, nz));
+    let mut values = Array3::<f64>::zeros([nx, ny, nz]);
 
     for k in 0..nz {
         for j in 0..ny {
             for i in 0..nx {
                 let idx = k * nx * ny + j * nx + i;
-                values[[i, j, k]] = component(&velocity.components[idx]).to_f64().ok_or_else(
-                    || {
-                        Error::InvalidConfiguration(format!(
-                            "kinetic_energy_spectrum: unable to convert {component_name} component to f64"
-                        ))
-                    },
-                )?;
+                set(
+                    &mut values,
+                    [i, j, k],
+                    <T as NumericElement>::to_f64(component(&velocity.components[idx])),
+                );
             }
         }
     }
@@ -413,7 +412,7 @@ fn shell_index(i: usize, j: usize, k: usize, nx: usize, ny: usize, nz: usize) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::Vector3;
+    use leto::geometry::Vector3;
 
     #[test]
     fn constant_velocity_energy_lives_in_zero_shell() {

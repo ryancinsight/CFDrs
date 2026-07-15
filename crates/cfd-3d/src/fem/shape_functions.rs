@@ -25,8 +25,12 @@
 //!
 //! **Reference:** Brenner & Scott, "Math. Theory of FEM", 3rd Ed., Thm. 4.4.20.
 
-use nalgebra::{DMatrix, Matrix3x4, RealField};
-use num_traits::{Float, FromPrimitive};
+use crate::linalg::{array2_set_column3, matrix3x4_column, Matrix3x4};
+use eunomia::{FloatElement, NumericElement};
+use leto::Array2;
+use eunomia::RealField;
+
+use super::scalar;
 
 /// Quadratic Lagrange shape functions for 10-node tetrahedra (P2)
 pub struct LagrangeTet10<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
@@ -34,9 +38,7 @@ pub struct LagrangeTet10<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     p1_gradients: Matrix3x4<T>,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Float>
-    LagrangeTet10<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> LagrangeTet10<T> {
     /// Create new P2 shape functions from elemental P1 gradients
     pub fn new(p1_gradients: Matrix3x4<T>) -> Self {
         Self { p1_gradients }
@@ -45,15 +47,14 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
     /// Calculate shape function values N_i at barycentric coordinates L
     /// L = [L1, L2, L3, L4] where sum(L) = 1.0
     pub fn values(&self, l: &[T; 4]) -> [T; 10] {
-        let mut n = [T::zero(); 10];
-        let two = <T as FromPrimitive>::from_f64(2.0)
-            .expect("2.0 is representable in all IEEE 754 types");
-        let four = <T as FromPrimitive>::from_f64(4.0)
-            .expect("4.0 is representable in all IEEE 754 types");
+        let mut n = [scalar::zero::<T>(); 10];
+        let one = scalar::one::<T>();
+        let two = scalar::constant::<T>(2.0);
+        let four = scalar::constant::<T>(4.0);
 
         // Corner nodes (0-3)
         for i in 0..4 {
-            n[i] = (two * l[i] - T::one()) * l[i];
+            n[i] = (two * l[i] - one) * l[i];
         }
 
         // Mid-edge nodes (4-9)
@@ -75,24 +76,25 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FromPrimitive + Copy + Floa
 
     /// Calculate shape function gradients ∇N_i at barycentric coordinates L
     /// Returns 3x10 matrix (rows for x,y,z; columns for nodes 0-9)
-    pub fn gradients(&self, l: &[T; 4]) -> DMatrix<T> {
-        let mut grad = DMatrix::zeros(3, 10);
-        let four = <T as FromPrimitive>::from_f64(4.0)
-            .expect("4.0 is representable in all IEEE 754 types");
+    pub fn gradients(&self, l: &[T; 4]) -> Array2<T> {
+        let mut grad = Array2::zeros([3, 10]);
+        let one = <T as NumericElement>::ONE;
+        let four = scalar::constant::<T>(4.0);
 
         // Corner nodes (0-3): ∇Ni = (4Li - 1) ∇Li
         for (i, &li) in l.iter().enumerate() {
-            let factor = four * li - T::one();
-            let g_i = self.p1_gradients.column(i) * factor;
-            grad.set_column(i, &g_i);
+            let factor = four * li - one;
+            let g_i = matrix3x4_column(&self.p1_gradients, i) * factor;
+            array2_set_column3(&mut grad, i, g_i);
         }
 
         // Mid-edge nodes (4-9): ∇Nij = 4(Li ∇Lj + Lj ∇Li)
         let edges = [(0, 1), (1, 2), (2, 0), (0, 3), (1, 3), (2, 3)];
         for (idx, &(i, j)) in edges.iter().enumerate() {
-            let g_ij =
-                (self.p1_gradients.column(j) * l[i] + self.p1_gradients.column(i) * l[j]) * four;
-            grad.set_column(4 + idx, &g_ij);
+            let g_ij = (matrix3x4_column(&self.p1_gradients, j) * l[i]
+                + matrix3x4_column(&self.p1_gradients, i) * l[j])
+                * four;
+            array2_set_column3(&mut grad, 4 + idx, g_ij);
         }
 
         grad
@@ -109,11 +111,7 @@ mod tests {
     /// Barycentric coords: L1=1-x-y-z, L2=x, L3=y, L4=z.
     /// ∇L1=(-1,-1,-1), ∇L2=(1,0,0), ∇L3=(0,1,0), ∇L4=(0,0,1).
     fn reference_tet_shape() -> LagrangeTet10<f64> {
-        let p1_gradients = Matrix3x4::new(
-            -1.0, 1.0, 0.0, 0.0, // row x
-            -1.0, 0.0, 1.0, 0.0, // row y
-            -1.0, 0.0, 0.0, 1.0, // row z
-        );
+        let p1_gradients = crate::linalg::reference_tet_gradients();
         LagrangeTet10::new(p1_gradients)
     }
 
@@ -196,7 +194,7 @@ mod tests {
 
         // Sum over all 10 shape function gradients (columns)
         for row in 0..3 {
-            let sum: f64 = (0..10).map(|col| grad[(row, col)]).sum();
+            let sum: f64 = (0..10).map(|col| grad[[row, col]]).sum();
             assert_relative_eq!(sum, 0.0, epsilon = 1e-13);
         }
     }

@@ -10,7 +10,7 @@ use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::physics::turbulence::{
     KEpsilonModel, KOmegaSSTModel, SpalartAllmaras, TurbulenceModel,
 };
-use nalgebra::Vector2;
+use leto::geometry::Vector2;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Turbulence Models Demonstration");

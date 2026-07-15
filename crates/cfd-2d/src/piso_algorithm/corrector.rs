@@ -2,15 +2,17 @@
 
 use crate::fields::{Field2D, SimulationFields};
 use crate::grid::StructuredGrid2D;
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Result;
-use nalgebra::{RealField, Vector2};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
+use leto::geometry::Vector2;
 
 // Named constants
 const ONE: f64 = 1.0;
 
 /// Pressure corrector for PISO algorithm
-pub struct PressureCorrector<T: RealField + Copy> {
+pub struct PressureCorrector<T: Cfd2dScalar + Copy> {
     /// Grid dimensions
     nx: usize,
     ny: usize,
@@ -23,10 +25,7 @@ pub struct PressureCorrector<T: RealField + Copy> {
     pressure_relaxation: T,
 }
 
-impl<T: RealField + Copy + FromPrimitive + Copy> PressureCorrector<T>
-where
-    T: Copy,
-{
+impl<T: Cfd2dScalar + Copy + FloatElement> PressureCorrector<T> {
     /// Create new pressure corrector
     pub fn new(grid: &StructuredGrid2D<T>, num_correctors: usize, pressure_relaxation: T) -> Self {
         Self {
@@ -64,11 +63,11 @@ where
     /// Reference: Issa, R.I. (1986). "Solution of the implicitly discretised fluid flow equations by operator-splitting"
     /// Journal of Computational Physics, 62(1), 40-65.
     fn solve_pressure_correction(&self, fields: &SimulationFields<T>, dt: T) -> Result<Field2D<T>> {
-        let mut p_prime = Field2D::new(self.nx, self.ny, T::zero());
-        let mut residual = T::from_f64(ONE).expect("analytical constant conversion");
-        let tolerance =
-            T::from_f64(cfd_core::physics::constants::numerical::solver::CONVERGENCE_TOLERANCE)
-                .unwrap_or_else(|| T::from_f64(1e-6).expect("analytical constant conversion"));
+        let mut p_prime = Field2D::new(self.nx, self.ny, scalar::zero::<T>());
+        let mut residual = scalar::from_f64::<T>(ONE);
+        let tolerance = scalar::from_f64(
+            cfd_core::physics::constants::numerical::solver::CONVERGENCE_TOLERANCE,
+        );
         let max_iter = cfd_core::physics::constants::numerical::solver::MAX_ITERATIONS_OUTER;
         let mut iter = 0;
 
@@ -76,7 +75,7 @@ where
         let h_operator = self.calculate_h_operator(fields);
 
         while residual > tolerance && iter < max_iter {
-            residual = T::zero();
+            residual = scalar::zero::<T>();
 
             // Gauss-Seidel iteration with H(u) correction
             for i in 1..self.nx - 1 {
@@ -106,7 +105,7 @@ where
                     }
 
                     // Calculate residual
-                    let diff = (p_updated - p_current).abs();
+                    let diff = <T as NumericElement>::abs(p_updated - p_current);
                     if diff > residual {
                         residual = diff;
                     }
@@ -137,7 +136,7 @@ where
                 let visc = fields.viscosity.at(i, j);
                 let density = fields.density.at(i, j);
 
-                let two_t = T::one() + T::one();
+                let two_t = scalar::one::<T>() + scalar::one::<T>();
 
                 // Face velocities (using upwind values)
                 let u_e_face = (fields.u.at(i, j) + fields.u.at(i + 1, j)) / two_t;
@@ -158,15 +157,29 @@ where
                 let d_s = visc * self.dx / self.dy;
 
                 // Hybrid differencing scheme coefficients
-                let half = T::one() / (T::one() + T::one());
-                let ae = d_e * T::max(T::zero(), T::one() - half * f_e.abs() / d_e)
-                    + T::max(-f_e, T::zero());
-                let aw = d_w * T::max(T::zero(), T::one() - half * f_w.abs() / d_w)
-                    + T::max(f_w, T::zero());
-                let an = d_n * T::max(T::zero(), T::one() - half * f_n.abs() / d_n)
-                    + T::max(-f_n, T::zero());
-                let as_ = d_s * T::max(T::zero(), T::one() - half * f_s.abs() / d_s)
-                    + T::max(f_s, T::zero());
+                let half = scalar::one::<T>() / (scalar::one::<T>() + scalar::one::<T>());
+                let zero = scalar::zero::<T>();
+                let one = scalar::one::<T>();
+                let ae =
+                    d_e * <T as NumericElement>::max_scalar(
+                        zero,
+                        one - half * <T as NumericElement>::abs(f_e) / d_e,
+                    ) + <T as NumericElement>::max_scalar(-f_e, zero);
+                let aw =
+                    d_w * <T as NumericElement>::max_scalar(
+                        zero,
+                        one - half * <T as NumericElement>::abs(f_w) / d_w,
+                    ) + <T as NumericElement>::max_scalar(f_w, zero);
+                let an =
+                    d_n * <T as NumericElement>::max_scalar(
+                        zero,
+                        one - half * <T as NumericElement>::abs(f_n) / d_n,
+                    ) + <T as NumericElement>::max_scalar(-f_n, zero);
+                let as_ =
+                    d_s * <T as NumericElement>::max_scalar(
+                        zero,
+                        one - half * <T as NumericElement>::abs(f_s) / d_s,
+                    ) + <T as NumericElement>::max_scalar(f_s, zero);
 
                 // H(u) = -sum(A_nb * u_nb)
                 let h_u = -(u_e * ae + u_w * aw + u_n * an + u_s * as_);
@@ -192,11 +205,11 @@ where
         let mass_imbalance = self.calculate_mass_imbalance(fields, i, j);
 
         // Add H(u) correction terms
-        let two_t = T::one() + T::one();
+        let two_t = scalar::one::<T>() + scalar::one::<T>();
         let h_correction_x =
-            (h_operator.at(i + 1, j).x - h_operator.at(i - 1, j).x) / (two_t * self.dx);
+            (h_operator.at(i + 1, j)[0] - h_operator.at(i - 1, j)[0]) / (two_t * self.dx);
         let h_correction_y =
-            (h_operator.at(i, j + 1).y - h_operator.at(i, j - 1).y) / (two_t * self.dy);
+            (h_operator.at(i, j + 1)[1] - h_operator.at(i, j - 1)[1]) / (two_t * self.dy);
 
         mass_imbalance + h_correction_x + h_correction_y
     }
@@ -271,17 +284,17 @@ where
     /// Omitting `(∇p)_cells` reduces this to plain pressure interpolation which does
     /// NOT suppress checkerboard oscillations. Both terms are mathematically mandatory.
     fn update_face_fluxes(&self, fields: &mut SimulationFields<T>, dt: T) {
-        let tiny = T::from_f64(1e-30).unwrap_or_else(T::default_epsilon);
+        let tiny = scalar::from_f64::<T>(1e-30);
         for i in 1..self.nx - 1 {
             for j in 1..self.ny - 1 {
-                let two_t = T::one() + T::one();
+                let two_t = scalar::one::<T>() + scalar::one::<T>();
 
                 // Transient Rhie-Chow coefficient: for the current uniform-cell
                 // transient discretization, d_f reduces to Δt/ρ_f.
                 let rho_face_x = (fields.density.at(i, j) + fields.density.at(i + 1, j)) / two_t;
                 let rho_face_y = (fields.density.at(i, j) + fields.density.at(i, j + 1)) / two_t;
-                let d_u = dt / rho_face_x.max(tiny);
-                let d_v = dt / rho_face_y.max(tiny);
+                let d_u = dt / <T as NumericElement>::max_scalar(rho_face_x, tiny);
+                let d_v = dt / <T as NumericElement>::max_scalar(rho_face_y, tiny);
 
                 // ─── U-velocity on east face ──────────────────────────────────────
                 let u_bar = (fields.u.at(i, j) + fields.u.at(i + 1, j)) / two_t;

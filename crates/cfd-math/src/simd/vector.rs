@@ -3,12 +3,13 @@
 //! This module provides vectorized operations using platform-specific SIMD instructions
 //! when available, with automatic fallback to scalar operations.
 
-use moirai::prelude::ParallelSlice;
+use eunomia::NumericElement;
+use leto::Array1;
+use leto_ops::{spmv, CsrMatrix, Scalar};
 use moirai::{map_collect_index_with, reduce_index_with, Adaptive};
-use nalgebra::{DVector, RealField};
 
 /// Trait for SIMD-optimized vector operations
-pub trait SimdVectorOps<T: RealField + Copy + Send + Sync> {
+pub trait SimdVectorOps<T: NumericElement + Send + Sync> {
     /// Compute element-wise product with SIMD optimization
     fn simd_mul(&self, other: &Self) -> Self;
 
@@ -24,38 +25,44 @@ pub trait SimdVectorOps<T: RealField + Copy + Send + Sync> {
         F: Fn(T) -> T + Send + Sync;
 }
 
-impl<T: RealField + Copy + Send + Sync> SimdVectorOps<T> for DVector<T> {
+impl<T: NumericElement + Send + Sync> SimdVectorOps<T> for Array1<T> {
     #[inline]
     fn simd_mul(&self, other: &Self) -> Self {
-        assert_eq!(self.len(), other.len(), "Vector dimensions must match");
+        assert_eq!(self.shape(), other.shape(), "Vector dimensions must match");
 
         // Parallel element-wise product; Adaptive routes small inputs to the
         // sequential path automatically.
-        let a = self.data.as_slice();
-        let b = other.data.as_slice();
-        let data = map_collect_index_with::<Adaptive, _, _>(a.len(), |i| a[i] * b[i]);
-        DVector::from_vec(data)
+        let len = self.shape()[0];
+        let data = map_collect_index_with::<Adaptive, _, _>(len, |i| self[i] * other[i]);
+        Array1::from_shape_vec([data.len()], data)
+            .expect("invariant: SIMD product preserves vector length")
     }
 
     #[inline]
     fn simd_dot(&self, other: &Self) -> T {
-        assert_eq!(self.len(), other.len(), "Vector dimensions must match");
+        assert_eq!(self.shape(), other.shape(), "Vector dimensions must match");
 
         // Parallel dot product (index-aligned reduction over both slices).
-        let a = self.data.as_slice();
-        let b = other.data.as_slice();
-        reduce_index_with::<Adaptive, _, _, _>(a.len(), T::zero(), |i| a[i] * b[i], |acc, x| acc + x)
+        let len = self.shape()[0];
+        reduce_index_with::<Adaptive, _, _, _>(
+            len,
+            T::ZERO,
+            |i| self[i] * other[i],
+            |acc, x| acc + x,
+        )
     }
 
     #[inline]
     fn simd_norm(&self) -> T {
         // Parallel sum of squares, then sqrt.
-        let sum_sq = self
-            .data
-            .as_slice()
-            .par()
-            .map_reduce(T::zero(), |&x| x * x, |acc, x| acc + x);
-        sum_sq.sqrt()
+        let len = self.shape()[0];
+        let sum_sq = reduce_index_with::<Adaptive, _, _, _>(
+            len,
+            T::ZERO,
+            |i| self[i] * self[i],
+            |acc, x| acc + x,
+        );
+        NumericElement::sqrt(sum_sq)
     }
 
     #[inline]
@@ -63,18 +70,21 @@ impl<T: RealField + Copy + Send + Sync> SimdVectorOps<T> for DVector<T> {
     where
         F: Fn(T) -> T + Send + Sync,
     {
-        let data: Vec<T> = self.data.as_slice().par().map_collect(|&x| f(x));
-        DVector::from_vec(data)
+        let len = self.shape()[0];
+        let data = map_collect_index_with::<Adaptive, _, _>(len, |i| f(self[i]));
+        Array1::from_shape_vec([data.len()], data)
+            .expect("invariant: SIMD map preserves vector length")
     }
 }
 
 /// Sparse matrix-vector multiplication
-pub fn sparse_matvec<T: RealField + Copy + Send + Sync>(
-    matrix: &nalgebra_sparse::CsrMatrix<T>,
-    vector: &DVector<T>,
-) -> DVector<T> {
-    // Use nalgebra's sparse matrix-vector multiplication
-    matrix * vector
+pub fn sparse_matvec<T: Scalar + Send + Sync>(
+    matrix: &CsrMatrix<T>,
+    vector: &Array1<T>,
+) -> crate::error::Result<Array1<T>> {
+    spmv(matrix, &vector.view()).map_err(|err| {
+        cfd_core::error::Error::InvalidInput(format!("Leto sparse matvec error: {err}"))
+    })
 }
 
 #[cfg(test)]
@@ -85,13 +95,13 @@ mod tests {
     #[test]
     fn test_simd_operations() {
         let n = 2000;
-        let v1 = DVector::from_element(n, 2.0);
-        let v2 = DVector::from_element(n, 3.0);
+        let v1 = Array1::from_elem([n], 2.0);
+        let v2 = Array1::from_elem([n], 3.0);
 
         // Test SIMD multiplication
         let result = v1.simd_mul(&v2);
-        assert_eq!(result.len(), n);
-        assert_relative_eq!(result[0], 6.0);
+        assert_eq!(result.shape(), [n]);
+        assert_relative_eq!(result[[0]], 6.0);
 
         // Test SIMD dot product
         let dot = v1.simd_dot(&v2);

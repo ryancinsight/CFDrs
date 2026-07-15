@@ -7,6 +7,7 @@
 
 pub mod anderson;
 pub mod jfnk;
+mod linalg;
 
 pub use anderson::{AndersonAccelerator, AndersonConfig, AndersonMethod};
 pub use jfnk::{JfnkConfig, JfnkConvergence, JfnkSolver};

@@ -16,11 +16,12 @@
 //! removes the component parallel to `k`, so the resulting Fourier-space
 //! forcing satisfies `k · f_⊥ = 0` and is divergence-free.
 
-use apollo_fft::{ifft_3d_array, Complex64};
+use crate::atlas_array::{ifft_3d_array, set, value};
+use apollo_fft::Complex64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid_dynamics::VelocityField;
-use nalgebra::Vector3;
-use ndarray::Array3;
+use leto::geometry::Vector3;
+use leto::Array3;
 use serde::{Deserialize, Serialize};
 
 /// Seeded random-phase forcing configuration for periodic DNS.
@@ -108,9 +109,9 @@ impl BandLimitedRandomPhaseForcing3D {
     /// Sample the forcing directly in Fourier space.
     pub fn sample_spectral_forcing(&self) -> Result<[Array3<Complex64>; 3]> {
         let (nx, ny, nz) = self.config.dimensions;
-        let mut force_x = Array3::<Complex64>::zeros((nx, ny, nz));
-        let mut force_y = Array3::<Complex64>::zeros((nx, ny, nz));
-        let mut force_z = Array3::<Complex64>::zeros((nx, ny, nz));
+        let mut force_x = Array3::<Complex64>::zeros([nx, ny, nz]);
+        let mut force_y = Array3::<Complex64>::zeros([nx, ny, nz]);
+        let mut force_z = Array3::<Complex64>::zeros([nx, ny, nz]);
 
         let lower_shell = self
             .config
@@ -144,15 +145,17 @@ impl BandLimitedRandomPhaseForcing3D {
                         coeff.z.im = 0.0;
                     }
 
-                    force_x[[i, j, k]] = coeff.x;
-                    force_y[[i, j, k]] = coeff.y;
-                    force_z[[i, j, k]] = coeff.z;
+                    let index = [i, j, k];
+                    set(&mut force_x, index, coeff.x);
+                    set(&mut force_y, index, coeff.y);
+                    set(&mut force_z, index, coeff.z);
 
                     let (mi, mj, mk) = self.mirror_index(i, j, k);
                     if (mi, mj, mk) != (i, j, k) {
-                        force_x[[mi, mj, mk]] = coeff.x.conj();
-                        force_y[[mi, mj, mk]] = coeff.y.conj();
-                        force_z[[mi, mj, mk]] = coeff.z.conj();
+                        let mirror_index = [mi, mj, mk];
+                        set(&mut force_x, mirror_index, coeff.x.conj());
+                        set(&mut force_y, mirror_index, coeff.y.conj());
+                        set(&mut force_z, mirror_index, coeff.z.conj());
                     }
                 }
             }
@@ -164,9 +167,9 @@ impl BandLimitedRandomPhaseForcing3D {
     /// Sample the forcing in physical space.
     pub fn sample_physical_forcing(&self) -> Result<VelocityField<f64>> {
         let spectra = self.sample_spectral_forcing()?;
-        let force_x = ifft_3d_array(&spectra[0]);
-        let force_y = ifft_3d_array(&spectra[1]);
-        let force_z = ifft_3d_array(&spectra[2]);
+        let force_x = ifft_3d_array(&spectra[0])?;
+        let force_y = ifft_3d_array(&spectra[1])?;
+        let force_z = ifft_3d_array(&spectra[2])?;
         Ok(self.arrays_to_velocity(force_x, force_y, force_z))
     }
 
@@ -190,7 +193,7 @@ impl BandLimitedRandomPhaseForcing3D {
     }
 
     fn project_divergence_free(&self, mode: &Vector3<f64>, coeff: &mut Vector3<Complex64>) {
-        let k2 = mode.dot(mode);
+        let k2 = mode.dot(*mode);
         if k2 <= 0.0 {
             return;
         }
@@ -270,7 +273,12 @@ impl BandLimitedRandomPhaseForcing3D {
         for k in 0..nz {
             for j in 0..ny {
                 for i in 0..nx {
-                    components.push(Vector3::new(u[[i, j, k]], v[[i, j, k]], w[[i, j, k]]));
+                    let index = [i, j, k];
+                    components.push(Vector3::new(
+                        value(&u, index),
+                        value(&v, index),
+                        value(&w, index),
+                    ));
                 }
             }
         }
@@ -362,6 +370,8 @@ impl TimeResampledBandLimitedForcing3D {
 
 #[cfg(test)]
 mod tests {
+    use crate::atlas_array::value;
+
     use super::{
         BandLimitedRandomPhaseForcing3D, BandLimitedRandomPhaseForcingConfig,
         TimeResampledBandLimitedForcing3D, TimeResampledBandLimitedForcingConfig,
@@ -403,9 +413,10 @@ mod tests {
                         + signed_kz * signed_kz) as f64)
                         .sqrt()
                         .floor() as usize;
-                    let coeff_x = spectra[0][[i, j, k]];
-                    let coeff_y = spectra[1][[i, j, k]];
-                    let coeff_z = spectra[2][[i, j, k]];
+                    let index = [i, j, k];
+                    let coeff_x = value(&spectra[0], index);
+                    let coeff_y = value(&spectra[1], index);
+                    let coeff_z = value(&spectra[2], index);
 
                     if shell < lower || shell > upper || shell == 0 {
                         assert!(coeff_x.norm() < 1e-12);

@@ -5,11 +5,12 @@
 //! convergence check.
 
 use super::{BloodModel, PoiseuilleFlow2D};
+use crate::scalar;
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::Error;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement};
 
-impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
+impl<T: Cfd2dScalar + FloatElement + Copy> PoiseuilleFlow2D<T> {
     /// Solve linear system for velocity with current viscosity
     ///
     /// Solves tridiagonal system using Thomas algorithm (direct solver)
@@ -24,29 +25,30 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
         let dp_dx = self.config.pressure_gradient;
 
         // Allocate tridiagonal matrix coefficients
-        let mut a = vec![T::zero(); ny]; // Sub-diagonal
-        let mut b = vec![T::zero(); ny]; // Diagonal
-        let mut c = vec![T::zero(); ny]; // Super-diagonal
-        let mut d = vec![T::zero(); ny]; // RHS
+        let zero: T = scalar::zero();
+        let one: T = scalar::one();
+        let two = scalar::from_f64::<T>(2.0);
+        let mut a = vec![zero; ny]; // Sub-diagonal
+        let mut b = vec![zero; ny]; // Diagonal
+        let mut c = vec![zero; ny]; // Super-diagonal
+        let mut d = vec![zero; ny]; // RHS
 
         // Boundary conditions: u(0) = 0, u(ny-1) = 0
-        b[0] = T::one();
-        c[0] = T::zero();
-        d[0] = T::zero();
+        b[0] = one;
+        c[0] = zero;
+        d[0] = zero;
 
-        b[ny - 1] = T::one();
-        a[ny - 1] = T::zero();
-        d[ny - 1] = T::zero();
+        b[ny - 1] = one;
+        a[ny - 1] = zero;
+        d[ny - 1] = zero;
 
         // Interior points: j = 1, 2, ..., ny-2
         let dy2 = dy * dy;
 
         for j in 1..ny - 1 {
             // Viscosity at cell faces (harmonic mean for better stability)
-            let mu_jm12 = T::from_f64(2.0).expect("analytical constant conversion")
-                / (T::one() / self.viscosity[j - 1] + T::one() / self.viscosity[j]);
-            let mu_jp12 = T::from_f64(2.0).expect("analytical constant conversion")
-                / (T::one() / self.viscosity[j] + T::one() / self.viscosity[j + 1]);
+            let mu_jm12 = two / (one / self.viscosity[j - 1] + one / self.viscosity[j]);
+            let mu_jp12 = two / (one / self.viscosity[j] + one / self.viscosity[j + 1]);
 
             // Coefficients for interior stencil
             a[j] = -mu_jm12 / dy2;
@@ -70,16 +72,17 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
     pub(super) fn calculate_shear_rate(&mut self) {
         let ny = self.config.ny;
         let dy = self.dy;
-        let two = T::from_f64(2.0).expect("analytical constant conversion");
+        let two = scalar::from_f64::<T>(2.0);
 
         // Boundaries: use one-sided differences
-        self.shear_rate[0] = Float::abs((self.velocity[1] - self.velocity[0]) / dy);
-        self.shear_rate[ny - 1] = Float::abs((self.velocity[ny - 1] - self.velocity[ny - 2]) / dy);
+        self.shear_rate[0] = <T as NumericElement>::abs((self.velocity[1] - self.velocity[0]) / dy);
+        self.shear_rate[ny - 1] =
+            <T as NumericElement>::abs((self.velocity[ny - 1] - self.velocity[ny - 2]) / dy);
 
         // Interior: central differences
         for j in 1..ny - 1 {
             let du_dy = (self.velocity[j + 1] - self.velocity[j - 1]) / (two * dy);
-            self.shear_rate[j] = Float::abs(du_dy);
+            self.shear_rate[j] = <T as NumericElement>::abs(du_dy);
         }
     }
 
@@ -99,8 +102,8 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
 
     /// Calculate L2 norm of viscosity change (for convergence check)
     pub(super) fn calculate_viscosity_residual(&self, viscosity_old: &[T]) -> T {
-        let mut sum_sq = T::zero();
-        let mut sum_sq_old = T::zero();
+        let mut sum_sq: T = scalar::zero();
+        let mut sum_sq_old: T = scalar::zero();
 
         for j in 0..self.config.ny {
             let diff = self.viscosity[j] - viscosity_old[j];
@@ -109,9 +112,7 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
         }
 
         // Relative L2 norm
-        Float::sqrt(
-            sum_sq / (sum_sq_old + T::from_f64(1e-20).expect("analytical constant conversion")),
-        )
+        <T as NumericElement>::sqrt(sum_sq / (sum_sq_old + scalar::from_f64::<T>(1e-20)))
     }
 }
 
@@ -124,20 +125,23 @@ impl<T: RealField + FromPrimitive + Float + Copy> PoiseuilleFlow2D<T> {
 /// - d: right-hand side
 ///
 /// Returns solution vector x
-pub(super) fn thomas_algorithm<T: RealField + Copy + Float>(
+pub(super) fn thomas_algorithm<T: Cfd2dScalar + Copy + FloatElement>(
     a: &[T],
     b: &[T],
     c: &[T],
-    d: &[T],    ) -> Result<Vec<T>, Error> {
+    d: &[T],
+) -> Result<Vec<T>, Error> {
     let n = b.len();
 
     if a.len() != n || c.len() != n || d.len() != n {
         return Err(Error::InvalidInput("Array lengths must match".to_string()));
     }
 
-    let mut c_prime = vec![T::zero(); n];
-    let mut d_prime = vec![T::zero(); n];
-    let mut x = vec![T::zero(); n];
+    let zero: T = scalar::zero();
+    let pivot_tolerance = scalar::from_f64::<T>(1e-14);
+    let mut c_prime = vec![zero; n];
+    let mut d_prime = vec![zero; n];
+    let mut x = vec![zero; n];
 
     // Forward sweep
     c_prime[0] = c[0] / b[0];
@@ -146,7 +150,7 @@ pub(super) fn thomas_algorithm<T: RealField + Copy + Float>(
     for i in 1..n {
         let denom = b[i] - a[i] * c_prime[i - 1];
 
-        if Float::abs(denom) < T::from_f64(1e-14).expect("analytical constant conversion") {
+        if <T as NumericElement>::abs(denom) < pivot_tolerance {
             return Err(Error::Solver(
                 "Near-zero pivot in Thomas algorithm".to_string(),
             ));

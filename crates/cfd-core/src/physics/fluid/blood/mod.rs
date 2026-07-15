@@ -51,8 +51,8 @@ pub use casson::{temperature_viscosity_factor, CassonBlood};
 pub use cross::CrossBlood;
 pub use fahraeus_lindqvist::FahraeuasLindqvist;
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
+use eunomia::RealField;
 
 /// Dispatch enum for blood rheology models.
 ///
@@ -69,7 +69,7 @@ pub enum BloodModel<T: RealField + Copy> {
     Newtonian(T),
 }
 
-impl<T: RealField + Copy + FromPrimitive> BloodModel<T> {
+impl<T: RealField + Copy + FloatElement> BloodModel<T> {
     /// Compute apparent dynamic viscosity at `shear_rate` [s⁻¹].
     #[must_use]
     pub fn viscosity(&self, shear_rate: T) -> T {

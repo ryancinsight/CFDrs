@@ -30,5 +30,3 @@ pub use performance::{
 pub use scaling::{ScalingAnalysis, ScalingResult};
 pub use suite::{BenchmarkResult, BenchmarkStatus, BenchmarkSuite};
 pub use timing::{BenchmarkStats, BenchmarkTimer};
-
-

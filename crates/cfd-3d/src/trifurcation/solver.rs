@@ -37,13 +37,19 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
+use crate::scalar;
+use crate::linalg::{
+    matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3,
+};
 use crate::trifurcation::geometry::TrifurcationGeometry3D;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::{Fluid as FluidTrait, NonNewtonianFluid};
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
-use nalgebra::{RealField, Vector3};
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::FloatElement;
+use leto::geometry::Vector3 as LetoVector3;
+use eunomia::RealField;
+use leto::Vector3;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for 3D trifurcation solver
@@ -67,24 +73,22 @@ pub struct TrifurcationConfig3D<T: cfd_mesh::domain::core::Scalar + RealField + 
     pub target_mesh_size: Option<T>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64,
-    > Default for TrifurcationConfig3D<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Default
+    for TrifurcationConfig3D<T>
 {
     fn default() -> Self {
         Self {
-            inlet_flow_rate: T::from_f64_or_one(1e-8),
-            inlet_pressure: T::from_f64_or_one(100.0),
-            outlet_pressures: [T::zero(), T::zero(), T::zero()],
+            inlet_flow_rate: scalar::from_f64::<T>(1e-8),
+            inlet_pressure: scalar::from_f64::<T>(100.0),
+            outlet_pressures: [
+                scalar::zero::<T>(),
+                scalar::zero::<T>(),
+                scalar::zero::<T>(),
+            ],
             max_nonlinear_iterations: 20,
-            nonlinear_tolerance: T::from_f64_or_one(1e-4),
+            nonlinear_tolerance: scalar::from_f64::<T>(1e-4),
             max_linear_iterations: 1000,
-            linear_tolerance: T::from_f64_or_one(1e-6),
+            linear_tolerance: scalar::from_f64::<T>(1e-6),
             target_mesh_size: None,
         }
     }
@@ -113,16 +117,8 @@ pub struct TrifurcationSolver3D<T: cfd_mesh::domain::core::Scalar + RealField + 
     pub config: TrifurcationConfig3D<T>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64
-            + Float
-            + From<f64>,
-    > TrifurcationSolver3D<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeFromF64>
+    TrifurcationSolver3D<T>
 {
     /// Create a new trifurcation solver with the given geometry and config
     pub fn new(geometry: TrifurcationGeometry3D<T>, config: TrifurcationConfig3D<T>) -> Self {
@@ -141,30 +137,30 @@ impl<
 
         // 1. Generate Volumetric Mesh from exact SDF
         let geom_f64 = crate::trifurcation::TrifurcationGeometry3D {
-            d_parent: self.geometry.d_parent.to_f64().unwrap(),
-            l_parent: self.geometry.l_parent.to_f64().unwrap(),
+            d_parent: scalar::to_f64(self.geometry.d_parent),
+            l_parent: scalar::to_f64(self.geometry.l_parent),
             d_daughters: [
-                self.geometry.d_daughters[0].to_f64().unwrap(),
-                self.geometry.d_daughters[1].to_f64().unwrap(),
-                self.geometry.d_daughters[2].to_f64().unwrap(),
+                scalar::to_f64(self.geometry.d_daughters[0]),
+                scalar::to_f64(self.geometry.d_daughters[1]),
+                scalar::to_f64(self.geometry.d_daughters[2]),
             ],
             l_daughters: [
-                self.geometry.l_daughters[0].to_f64().unwrap(),
-                self.geometry.l_daughters[1].to_f64().unwrap(),
-                self.geometry.l_daughters[2].to_f64().unwrap(),
+                scalar::to_f64(self.geometry.l_daughters[0]),
+                scalar::to_f64(self.geometry.l_daughters[1]),
+                scalar::to_f64(self.geometry.l_daughters[2]),
             ],
-            l_transition: self.geometry.l_transition.to_f64().unwrap(),
+            l_transition: scalar::to_f64(self.geometry.l_transition),
             transition: crate::bifurcation::ConicalTransition::SmoothCone {
-                length: self.geometry.l_transition.to_f64().unwrap(),
+                length: scalar::to_f64(self.geometry.l_transition),
             },
             branching_angles: [
-                self.geometry.branching_angles[0].to_f64().unwrap(),
-                self.geometry.branching_angles[1].to_f64().unwrap(),
-                self.geometry.branching_angles[2].to_f64().unwrap(),
+                scalar::to_f64(self.geometry.branching_angles[0]),
+                scalar::to_f64(self.geometry.branching_angles[1]),
+                scalar::to_f64(self.geometry.branching_angles[2]),
             ],
         };
         let target_h = if let Some(h) = self.config.target_mesh_size {
-            h.to_f64().unwrap()
+            scalar::to_f64(h)
         } else {
             geom_f64.d_parent / 8.0_f64
         };
@@ -200,46 +196,47 @@ impl<
         // 2. Define Boundary Conditions
         let mut boundary_conditions = HashMap::new();
         let fluid_props =
-            fluid.properties_at(T::from_f64_or_one(310.0), self.config.inlet_pressure)?;
+            fluid.properties_at(scalar::from_f64::<T>(310.0), self.config.inlet_pressure)?;
 
-        let inlet_area = T::from_f64_or_one(std::f64::consts::PI / 4.0)
-            * num_traits::Float::powf(self.geometry.d_parent, T::from_f64_or_one(2.0));
+        let inlet_area = scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
+            * self.geometry.d_parent
+            * self.geometry.d_parent;
         let q_inlet_target = self.config.inlet_flow_rate;
         let u_inlet = q_inlet_target / inlet_area;
 
         // ── Classify boundary faces ───────────────────────────────────────────
         // The TrifurcationGeometry3D branches in the XY plane, so AxialBoundaryClassifier (Z-axis)
         // is invalid. We manually classify based on Euclidean distance to geometric endpoints.
-        let inlet_axis = nalgebra::Vector3::new(-1.0, 0.0, 0.0);
-        let mut outlet_axes = [nalgebra::Vector3::zeros(); 3];
+        let inlet_axis = leto::Vector3::new(-1.0, 0.0, 0.0);
+        let mut outlet_axes = [leto::Vector3::zeros(); 3];
         for i in 0..3 {
             let angle = geom_f64.branching_angles[i];
-            let dir = nalgebra::Vector3::new(angle.cos(), angle.sin(), 0.0);
+            let dir = leto::Vector3::new(angle.cos(), angle.sin(), 0.0);
             outlet_axes[i] = dir;
         }
         let axial_tol = 1.5 * target_h;
         let radial_tol = target_h;
 
-        let radial_distance = |point: nalgebra::Point3<f64>, axis: nalgebra::Vector3<f64>| {
-            let axial = point.coords.dot(&axis);
+        let radial_distance = |point: leto::Point3<f64>, axis: leto::Vector3<f64>| {
+            let axial = point.coords.dot(axis);
             (point.coords - axis * axial).norm()
         };
         let face_axis_alignment =
             |face: &cfd_mesh::infrastructure::storage::face_store::FaceData,
-             axis: nalgebra::Vector3<f64>|
+             axis: leto::Vector3<f64>|
              -> f64 {
                 if face.vertices.len() < 3 {
                     return 0.0_f64;
                 }
-                let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
-                let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
-                let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
-                let n_vec = (v1 - v0).cross(&(v2 - v0));
+                let v0 = vector3_from_indexed(&mesh.vertices.get(face.vertices[0]).position.coords);
+                let v1 = vector3_from_indexed(&mesh.vertices.get(face.vertices[1]).position.coords);
+                let v2 = vector3_from_indexed(&mesh.vertices.get(face.vertices[2]).position.coords);
+                let n_vec = (v1 - v0).cross(v2 - v0);
                 let norm = n_vec.norm();
                 if norm <= 1e-12_f64 {
                     return 0.0_f64;
                 }
-                n_vec.normalize().dot(&axis).abs()
+                n_vec.normalize().dot(axis).abs()
             };
         let classify_boundary_faces = |min_alignment: f64| {
             let mut local_face_sets = crate::fem::boundary_classifier::BoundaryFaceSets::default();
@@ -250,20 +247,20 @@ impl<
 
             for f_id in mesh.boundary_faces() {
                 let face = mesh.faces.get(f_id);
-                let mut z_sum = nalgebra::Vector3::zeros();
+                let mut z_sum = leto::Vector3::zeros();
                 let mut count = 0.0;
                 for &v_idx in &face.vertices {
-                    z_sum += mesh.vertices.get(v_idx).position.coords;
+                    z_sum += vector3_from_indexed(&mesh.vertices.get(v_idx).position.coords);
                     count += 1.0;
                     local_face_sets.boundary_vertices.insert(v_idx.as_usize());
                 }
-                let centroid = nalgebra::Point3::from(z_sum / count);
+                let centroid = leto::Point3::from(z_sum / count);
 
                 if radial_distance(centroid, inlet_axis) <= geom_f64.d_parent / 2.0 + radial_tol
                     && face_axis_alignment(face, inlet_axis) >= min_alignment
                 {
                     local_inlet_projection_max =
-                        local_inlet_projection_max.max(centroid.coords.dot(&inlet_axis));
+                        local_inlet_projection_max.max(centroid.coords.dot(inlet_axis));
                 }
                 for i in 0..3 {
                     if radial_distance(centroid, outlet_axes[i])
@@ -271,7 +268,7 @@ impl<
                         && face_axis_alignment(face, outlet_axes[i]) >= min_alignment
                     {
                         local_outlet_projection_max[i] = local_outlet_projection_max[i]
-                            .max(centroid.coords.dot(&outlet_axes[i]));
+                            .max(centroid.coords.dot(outlet_axes[i]));
                     }
                 }
                 local_boundary_face_centroids.push((f_id, centroid));
@@ -280,7 +277,7 @@ impl<
             for (f_id, centroid) in local_boundary_face_centroids {
                 let face = mesh.faces.get(f_id);
 
-                let inlet_projection = centroid.coords.dot(&inlet_axis);
+                let inlet_projection = centroid.coords.dot(inlet_axis);
                 let inlet_radial = radial_distance(centroid, inlet_axis);
                 if inlet_projection >= local_inlet_projection_max - axial_tol
                     && inlet_radial <= geom_f64.d_parent / 2.0 + radial_tol
@@ -299,7 +296,7 @@ impl<
                 let mut is_outlet = false;
                 for i in 0..3 {
                     let outlet_axis = outlet_axes[i];
-                    let outlet_projection = centroid.coords.dot(&outlet_axis);
+                    let outlet_projection = centroid.coords.dot(outlet_axis);
                     let outlet_radial = radial_distance(centroid, outlet_axis);
                     if outlet_projection >= local_outlet_projection_max[i] - axial_tol
                         && outlet_radial <= geom_f64.d_daughters[i] / 2.0 + radial_tol
@@ -360,11 +357,7 @@ impl<
             boundary_conditions.insert(
                 v_idx,
                 cfd_core::physics::boundary::BoundaryCondition::VelocityInlet {
-                    velocity: nalgebra::Vector3::new(
-                        u_inlet.to_f64().unwrap_or(0.0),
-                        0.0_f64,
-                        0.0_f64,
-                    ),
+                    velocity: LetoVector3::new(scalar::to_f64(u_inlet), 0.0_f64, 0.0_f64),
                 },
             );
         }
@@ -376,7 +369,7 @@ impl<
                 .and_then(|s| s.parse::<usize>().ok())
                 .unwrap_or(0)
                 .min(self.config.outlet_pressures.len().saturating_sub(1));
-            let pressure = self.config.outlet_pressures[idx].to_f64().unwrap_or(0.0);
+            let pressure = scalar::to_f64(self.config.outlet_pressures[idx]);
             for &v_idx in nodes {
                 boundary_conditions.entry(v_idx).or_insert(
                     cfd_core::physics::boundary::BoundaryCondition::PressureOutlet { pressure },
@@ -405,11 +398,11 @@ impl<
         // 3. Set up FEM Problem
         let constant_fluid = cfd_core::physics::fluid::ConstantPropertyFluid::<f64> {
             name: "Picard Iteration Basis".to_string(),
-            density: fluid_props.density.to_f64().unwrap_or(0.0),
-            viscosity: fluid_props.dynamic_viscosity.to_f64().unwrap_or(0.0),
-            specific_heat: fluid_props.specific_heat.to_f64().unwrap_or(0.0),
-            thermal_conductivity: fluid_props.thermal_conductivity.to_f64().unwrap_or(0.0),
-            speed_of_sound: fluid_props.speed_of_sound.to_f64().unwrap_or(0.0),
+            density: scalar::to_f64(fluid_props.density),
+            viscosity: scalar::to_f64(fluid_props.dynamic_viscosity),
+            specific_heat: scalar::to_f64(fluid_props.specific_heat),
+            thermal_conductivity: scalar::to_f64(fluid_props.thermal_conductivity),
+            speed_of_sound: scalar::to_f64(fluid_props.speed_of_sound),
         };
 
         let total_vertices = mesh.vertex_count();
@@ -421,14 +414,13 @@ impl<
         );
         let n_elements = problem.mesh.cell_count();
         let mut element_viscosities =
-            vec![fluid_props.dynamic_viscosity.to_f64().unwrap_or(0.0); n_elements];
+            vec![scalar::to_f64(fluid_props.dynamic_viscosity); n_elements];
         let mut next_viscosities = Vec::with_capacity(n_elements);
 
         // 4. Picard Iteration Loop
         let mut fem_config = FemConfig::<f64>::default();
         fem_config.base.convergence.max_iterations = self.config.max_linear_iterations;
-        fem_config.base.convergence.tolerance =
-            self.config.linear_tolerance.to_f64().unwrap_or(1e-6_f64);
+        fem_config.base.convergence.tolerance = scalar::to_f64(self.config.linear_tolerance);
         let mut solver = FemSolver::new(fem_config);
         let mut last_solution: Option<crate::fem::StokesFlowSolution<f64>> = None;
         let mut anderson_accelerator = cfd_math::nonlinear_solver::AndersonAccelerator::<f64>::new(
@@ -456,8 +448,11 @@ impl<
 
             // Apply Anderson Acceleration
             let updated_solution = if let Some(ref prev) = last_solution {
-                let acc_velocity =
-                    anderson_accelerator.compute_next(&prev.velocity, &fem_solution.velocity);
+                let acc_velocity = crate::atlas_anderson::accelerate_velocity(
+                    &mut anderson_accelerator,
+                    &prev.velocity,
+                    &fem_solution.velocity,
+                );
                 let mut acc_sol = fem_solution;
                 acc_sol.velocity = acc_velocity;
                 acc_sol
@@ -475,11 +470,10 @@ impl<
             for (i, cell) in problem.mesh.cells.iter().enumerate() {
                 let shear_rate_f64 =
                     self.calculate_element_shear_rate_f64(cell, &problem.mesh, &updated_solution)?;
-                let shear_rate = <T as From<f64>>::from(shear_rate_f64);
+                let shear_rate = scalar::from_f64::<T>(shear_rate_f64);
                 let new_visc_t = fluid.apparent_viscosity(shear_rate);
-                let new_visc = new_visc_t.to_f64().unwrap_or(0.0);
-                let change = num_traits::Float::abs(new_visc - current_viscosities[i])
-                    / current_viscosities[i];
+                let new_visc = scalar::to_f64(new_visc_t);
+                let change = (new_visc - current_viscosities[i]).abs() / current_viscosities[i];
                 if change > max_change_f64 {
                     max_change_f64 = change;
                 }
@@ -497,7 +491,7 @@ impl<
                 visc_change = max_change_f64,
                 "Trifurcation Picard iteration"
             );
-            if max_change_f64 < self.config.nonlinear_tolerance.to_f64().unwrap_or(1e-4) {
+            if max_change_f64 < scalar::to_f64(self.config.nonlinear_tolerance) {
                 break;
             }
         }
@@ -509,7 +503,7 @@ impl<
         // 5. Build Result
         let empty_faces: [FaceId; 0] = [];
 
-        let q_parent_fem = <T as From<f64>>::from(
+        let q_parent_fem = scalar::from_f64::<T>(
             self.calculate_boundary_flow_on_faces_f64(
                 mesh,
                 &fem_solution,
@@ -519,7 +513,7 @@ impl<
                 "inlet",
             )?,
         );
-        let q_d1 = <T as From<f64>>::from(
+        let q_d1 = scalar::from_f64::<T>(
             self.calculate_boundary_flow_on_faces_f64(
                 mesh,
                 &fem_solution,
@@ -529,7 +523,7 @@ impl<
                 "outlet_0",
             )?,
         );
-        let q_d2 = <T as From<f64>>::from(
+        let q_d2 = scalar::from_f64::<T>(
             self.calculate_boundary_flow_on_faces_f64(
                 mesh,
                 &fem_solution,
@@ -539,7 +533,7 @@ impl<
                 "outlet_1",
             )?,
         );
-        let q_d3 = <T as From<f64>>::from(
+        let q_d3 = scalar::from_f64::<T>(
             self.calculate_boundary_flow_on_faces_f64(
                 mesh,
                 &fem_solution,
@@ -550,13 +544,13 @@ impl<
             )?,
         );
 
-        let a_d1 = T::from_f64_or_one(std::f64::consts::PI / 4.0)
+        let a_d1 = scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
             * self.geometry.d_daughters[0]
             * self.geometry.d_daughters[0];
-        let a_d2 = T::from_f64_or_one(std::f64::consts::PI / 4.0)
+        let a_d2 = scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
             * self.geometry.d_daughters[1]
             * self.geometry.d_daughters[1];
-        let a_d3 = T::from_f64_or_one(std::f64::consts::PI / 4.0)
+        let a_d3 = scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
             * self.geometry.d_daughters[2]
             * self.geometry.d_daughters[2];
 
@@ -565,8 +559,8 @@ impl<
         let u_d3 = q_d3 / a_d3;
 
         let compute_poiseuille_wss = |q: T, d: T, mu: T| -> T {
-            T::from_f64_or_one(32.0) * mu * q
-                / (T::from_f64_or_one(std::f64::consts::PI) * d * d * d)
+            scalar::from_f64::<T>(32.0) * mu * q
+                / (scalar::from_f64::<T>(std::f64::consts::PI) * d * d * d)
         };
 
         let mu_eff = fluid_props.dynamic_viscosity;
@@ -585,7 +579,7 @@ impl<
                     .get("inlet")
                     .map_or(empty_faces.as_slice(), Vec::as_slice),
             )
-            .map_or(self.config.inlet_pressure, T::from_f64_or_one);
+            .map_or(self.config.inlet_pressure, scalar::from_f64::<T>);
 
         let p_out0 = self
             .average_boundary_pressure_on_faces_f64(
@@ -595,7 +589,7 @@ impl<
                     .get("outlet_0")
                     .map_or(empty_faces.as_slice(), Vec::as_slice),
             )
-            .map_or_else(T::zero, T::from_f64_or_one);
+            .map_or_else(|| scalar::zero::<T>(), scalar::from_f64::<T>);
         let p_out1 = self
             .average_boundary_pressure_on_faces_f64(
                 mesh,
@@ -604,7 +598,7 @@ impl<
                     .get("outlet_1")
                     .map_or(empty_faces.as_slice(), Vec::as_slice),
             )
-            .map_or_else(T::zero, T::from_f64_or_one);
+            .map_or_else(|| scalar::zero::<T>(), scalar::from_f64::<T>);
         let p_out2 = self
             .average_boundary_pressure_on_faces_f64(
                 mesh,
@@ -613,14 +607,14 @@ impl<
                     .get("outlet_2")
                     .map_or(empty_faces.as_slice(), Vec::as_slice),
             )
-            .map_or_else(T::zero, T::from_f64_or_one);
+            .map_or_else(|| scalar::zero::<T>(), scalar::from_f64::<T>);
 
-        let p_out_mean = (p_out0 + p_out1 + p_out2) / T::from_f64_or_one(3.0);
+        let p_out_mean = (p_out0 + p_out1 + p_out2) / scalar::from_f64::<T>(3.0);
         let dp = [
-            Float::abs(p_inlet_avg - p_out_mean),
-            Float::abs(p_inlet_avg - p_out0),
-            Float::abs(p_inlet_avg - p_out1),
-            Float::abs(p_inlet_avg - p_out2),
+            scalar::abs(p_inlet_avg - p_out_mean),
+            scalar::abs(p_inlet_avg - p_out0),
+            scalar::abs(p_inlet_avg - p_out1),
+            scalar::abs(p_inlet_avg - p_out2),
         ];
 
         let solution = TrifurcationSolution3D {
@@ -628,7 +622,7 @@ impl<
             mean_velocities: [u_inlet, u_d1, u_d2, u_d3],
             wall_shear_stresses: wss,
             pressure_drops: dp,
-            mass_conservation_error: Float::abs(q_parent_fem - (q_d1 + q_d2 + q_d3)),
+            mass_conservation_error: scalar::abs(q_parent_fem - (q_d1 + q_d2 + q_d3)),
         };
 
         Ok(solution)
@@ -647,26 +641,26 @@ impl<
         for &fid in face_ids {
             let face = mesh.faces.get(fid);
             if face.vertices.len() >= 3 {
-                let v0 = mesh.vertices.get(face.vertices[0]).position.coords;
-                let v1 = mesh.vertices.get(face.vertices[1]).position.coords;
-                let v2 = mesh.vertices.get(face.vertices[2]).position.coords;
-                let n_vec = (v1 - v0).cross(&(v2 - v0));
+                let v0 = vector3_from_indexed(&mesh.vertices.get(face.vertices[0]).position.coords);
+                let v1 = vector3_from_indexed(&mesh.vertices.get(face.vertices[1]).position.coords);
+                let v2 = vector3_from_indexed(&mesh.vertices.get(face.vertices[2]).position.coords);
+                let n_vec = (v1 - v0).cross(v2 - v0);
                 let area = n_vec.norm() * 0.5_f64;
                 if area <= 0.0_f64 {
                     continue;
                 }
                 let mut face_normal = n_vec.normalize();
                 if let Some(ref_n) = reference_normal {
-                    if face_normal.dot(&ref_n) < 0.0_f64 {
+                    if face_normal.dot(ref_n) < 0.0_f64 {
                         face_normal = -face_normal;
                     }
                 }
-                let mut u_avg = nalgebra::Vector3::zeros();
+                let mut u_avg = leto::Vector3::zeros();
                 for &v_idx in &face.vertices {
                     u_avg += solution.get_velocity(v_idx.as_usize());
                 }
                 u_avg /= face.vertices.len() as f64;
-                total_q += u_avg.dot(&face_normal) * area;
+                total_q += u_avg.dot(face_normal) * area;
             }
         }
         Ok(total_q.abs())
@@ -694,20 +688,20 @@ impl<
         (cnt > 0).then(|| sum / cnt as f64)
     }
 
-    fn boundary_reference_normal(&self, label: &str) -> Option<nalgebra::Vector3<f64>> {
+    fn boundary_reference_normal(&self, label: &str) -> Option<leto::Vector3<f64>> {
         match label {
-            "inlet" => Some(nalgebra::Vector3::new(-1.0_f64, 0.0_f64, 0.0_f64)),
+            "inlet" => Some(leto::Vector3::new(-1.0_f64, 0.0_f64, 0.0_f64)),
             "outlet_0" => {
-                let theta = self.geometry.branching_angles[0].to_f64().unwrap_or(0.0);
-                Some(nalgebra::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
+                let theta = scalar::to_f64(self.geometry.branching_angles[0]);
+                Some(leto::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
             }
             "outlet_1" => {
-                let theta = self.geometry.branching_angles[1].to_f64().unwrap_or(0.0);
-                Some(nalgebra::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
+                let theta = scalar::to_f64(self.geometry.branching_angles[1]);
+                Some(leto::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
             }
             "outlet_2" => {
-                let theta = self.geometry.branching_angles[2].to_f64().unwrap_or(0.0);
-                Some(nalgebra::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
+                let theta = scalar::to_f64(self.geometry.branching_angles[2]);
+                Some(leto::Vector3::new(theta.cos(), theta.sin(), 0.0_f64))
             }
             _ => None,
         }
@@ -729,9 +723,11 @@ impl<
         }
         let mut local_verts = Vec::with_capacity(idxs.len());
         for &idx in &idxs {
-            local_verts.push(mesh.vertices.get(VertexId::from_usize(idx)).position.coords);
+            local_verts.push(vector3_from_indexed(
+                &mesh.vertices.get(VertexId::from_usize(idx)).position.coords,
+            ));
         }
-        let mut l = nalgebra::Matrix3::zeros();
+        let mut l: Matrix3<f64> = Matrix3::zeros();
         if idxs.len() == 10 {
             use crate::fem::shape_functions::LagrangeTet10;
             let mut tet4 = crate::fem::element::FluidElement::<f64>::new(idxs[0..4].to_vec());
@@ -740,26 +736,26 @@ impl<
                 return Ok(0.0_f64);
             }
             tet4.calculate_shape_derivatives(&local_verts[0..4]);
-            let p1_grads = nalgebra::Matrix3x4::from_columns(&[
+            let p1_grads = matrix3x4_from_columns([
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 0)],
-                    tet4.shape_derivatives[(1, 0)],
-                    tet4.shape_derivatives[(2, 0)],
+                    tet4.shape_derivatives[[0, 0]],
+                    tet4.shape_derivatives[[1, 0]],
+                    tet4.shape_derivatives[[2, 0]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 1)],
-                    tet4.shape_derivatives[(1, 1)],
-                    tet4.shape_derivatives[(2, 1)],
+                    tet4.shape_derivatives[[0, 1]],
+                    tet4.shape_derivatives[[1, 1]],
+                    tet4.shape_derivatives[[2, 1]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 2)],
-                    tet4.shape_derivatives[(1, 2)],
-                    tet4.shape_derivatives[(2, 2)],
+                    tet4.shape_derivatives[[0, 2]],
+                    tet4.shape_derivatives[[1, 2]],
+                    tet4.shape_derivatives[[2, 2]],
                 ),
                 Vector3::new(
-                    tet4.shape_derivatives[(0, 3)],
-                    tet4.shape_derivatives[(1, 3)],
-                    tet4.shape_derivatives[(2, 3)],
+                    tet4.shape_derivatives[[0, 3]],
+                    tet4.shape_derivatives[[1, 3]],
+                    tet4.shape_derivatives[[2, 3]],
                 ),
             ]);
             let tet10 = LagrangeTet10::new(p1_grads);
@@ -769,7 +765,7 @@ impl<
                 let u = solution.get_velocity(idxs[i]);
                 for row in 0..3 {
                     for col in 0..3 {
-                        l[(row, col)] += p2_grads[(col, i)] * u[row];
+                        l[(row, col)] += p2_grads[[col, i]] * u[row];
                     }
                 }
             }
@@ -780,12 +776,12 @@ impl<
                 let u = solution.get_velocity(idx);
                 for row in 0..3 {
                     for col in 0..3 {
-                        l[(row, col)] += element.shape_derivatives[(col, i)] * u[row];
+                        l[(row, col)] += element.shape_derivatives[[col, i]] * u[row];
                     }
                 }
             }
         }
-        let epsilon = (l + l.transpose()) * 0.5_f64;
+        let epsilon = symmetric_part(&l);
         let mut inner_prod = 0.0_f64;
         for i in 0..3 {
             for j in 0..3 {

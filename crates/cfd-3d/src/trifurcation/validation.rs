@@ -15,10 +15,10 @@
 
 use super::geometry::TrifurcationGeometry3D;
 use super::solver::TrifurcationSolution3D;
-use cfd_core::conversion::SafeFromF64;
+use crate::scalar;
 use cfd_core::error::Error;
-use nalgebra::RealField;
-use num_traits::{FromPrimitive, ToPrimitive};
+use eunomia::FloatElement;
+use eunomia::RealField;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -36,20 +36,14 @@ pub struct MeshRefinementConfig<T: cfd_mesh::domain::core::Scalar + RealField + 
     pub expected_order: T,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64,
-    > Default for MeshRefinementConfig<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Default
+    for MeshRefinementConfig<T>
 {
     fn default() -> Self {
         Self {
             n_levels: 3,
-            refinement_factor: T::from_f64_or_one(2.0),
-            expected_order: T::from_f64_or_one(2.0),
+            refinement_factor: scalar::from_f64::<T>(2.0),
+            expected_order: scalar::from_f64::<T>(2.0),
         }
     }
 }
@@ -66,16 +60,8 @@ pub struct TrifurcationValidator3D<T: cfd_mesh::domain::core::Scalar + RealField
     pub mesh_config: MeshRefinementConfig<T>,
 }
 
-impl<
-        T: cfd_mesh::domain::core::Scalar
-            + RealField
-            + Copy
-            + FromPrimitive
-            + ToPrimitive
-            + SafeFromF64
-            + num_traits::Float
-            + From<f64>,
-    > TrifurcationValidator3D<T>
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy>
+    TrifurcationValidator3D<T>
 {
     /// Create a new trifurcation validator
     pub fn new(geometry: TrifurcationGeometry3D<T>, mesh_config: MeshRefinementConfig<T>) -> Self {
@@ -93,7 +79,7 @@ impl<
         // 1. Mass Conservation Check
         // sum(Q_out) should equal Q_in
         let mass_error = solution.mass_conservation_error;
-        let mass_ok = mass_error < T::from_f64_or_one(1e-6);
+        let mass_ok = mass_error < scalar::from_f64::<T>(1e-6);
 
         // 2. Flow Split Symmetry Check (for symmetric geometry)
         // Q_d1 should equal Q_d3 (top and bottom), Q_d2 is middle
@@ -102,16 +88,15 @@ impl<
 
         // For symmetric trifurcation, we expect top/bottom symmetry
         // Middle branch might be different
-        let symmetry_error =
-            num_traits::Float::abs(q_d1 - q_d3) / (q_d1 + T::from_f64_or_one(1e-12));
-        let symmetry_ok = symmetry_error < T::from_f64_or_one(0.05); // 5% tolerance
+        let symmetry_error = scalar::abs(q_d1 - q_d3) / (q_d1 + scalar::from_f64::<T>(1e-12));
+        let symmetry_ok = symmetry_error < scalar::from_f64::<T>(0.05); // 5% tolerance
 
         // 3. Wall Shear Stress Check
         // Should be positive and within physiological range (0-1000 Pa for blood)
         let wss_ok = solution
             .wall_shear_stresses
             .iter()
-            .all(|&wss| wss >= T::from_f64_or_one(0.0) && wss < T::from_f64_or_one(2000.0));
+            .all(|&wss| wss >= scalar::zero::<T>() && wss < scalar::from_f64::<T>(2000.0));
 
         let mut result = TrifurcationValidationResult3D::new("Blood Flow Validation".to_string());
         result.mass_error = Some(mass_error);

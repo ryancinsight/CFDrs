@@ -5,13 +5,14 @@
 //! per-channel occupancy summaries. This keeps the 2D solver aligned with the
 //! topology authority instead of assuming rectangular channels.
 
+use crate::scalar::Cfd2dScalar;
 use cfd_core::error::{Error, Result as CfdResult};
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive, ToPrimitive};
+use eunomia::{FloatElement, NumericElement};
 
 use cfd_schematics::domain::model::{ChannelSpec, CrossSectionSpec};
 use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
 
+use crate::scalar;
 use crate::solvers::ns_fvm::NavierStokesSolver2D;
 
 use super::types::ChannelProjectionSummary;
@@ -217,7 +218,7 @@ pub(crate) fn populate_channel_projection_mask<T>(
     domain: ProjectionDomain,
 ) -> CfdResult<ChannelProjectionSummary<T>>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive + std::fmt::Debug,
+    T: Cfd2dScalar + Copy + FloatElement + eunomia::RealField + std::fmt::Debug,
 {
     let metrics = path_metrics(&channel.path).ok_or_else(|| {
         Error::InvalidInput(format!(
@@ -262,7 +263,7 @@ where
     let mut fluid_cells = 0usize;
 
     for i in 0..nx {
-        let x = solver.grid.x_center(i).to_f64().unwrap_or(0.0);
+        let x = <T as NumericElement>::to_f64(solver.grid.x_center(i));
         let center_y = interpolate_piecewise_linear(&transformed, x);
         let min_half_width = 2.0 * grid_half_step;
         let half_width = match venturi_meta.as_ref() {
@@ -271,7 +272,7 @@ where
         };
 
         for j in 0..ny {
-            let y = solver.grid.y_center(j).to_f64().unwrap_or(0.0);
+            let y = <T as NumericElement>::to_f64(solver.grid.y_center(j));
             let is_fluid = (y - center_y).abs() <= half_width;
             solver.field.mask[(i, j)] = is_fluid;
             if is_fluid {
@@ -281,17 +282,15 @@ where
     }
 
     let total_cells = nx.saturating_mul(ny).max(1);
-    let fluid_fraction = T::from_f64(fluid_cells as f64 / total_cells as f64)
-        .expect("analytical constant conversion");
+    let fluid_fraction = scalar::from_f64(fluid_cells as f64 / total_cells as f64);
 
     Ok(ChannelProjectionSummary {
         channel_id: channel.id.as_str().to_owned(),
-        grid_length_m: T::from_f64(domain.length_m).expect("analytical constant conversion"),
-        grid_width_m: T::from_f64(domain.width_m).expect("analytical constant conversion"),
-        path_length_m: T::from_f64(metrics.length).expect("analytical constant conversion"),
-        path_span_x_m: T::from_f64(metrics.x_max - metrics.x_min)
-            .expect("analytical constant conversion"),
-        path_span_y_m: T::from_f64(y_span).expect("analytical constant conversion"),
+        grid_length_m: scalar::from_f64(domain.length_m),
+        grid_width_m: scalar::from_f64(domain.width_m),
+        path_length_m: scalar::from_f64(metrics.length),
+        path_span_x_m: scalar::from_f64(metrics.x_max - metrics.x_min),
+        path_span_y_m: scalar::from_f64(y_span),
         fluid_cell_count: fluid_cells,
         fluid_fraction,
     })
@@ -301,19 +300,20 @@ pub(crate) fn summarize_projection<T>(
     summaries: Vec<ChannelProjectionSummary<T>>,
 ) -> NetworkProjectionSummary<T>
 where
-    T: RealField + Copy + Float + FromPrimitive + ToPrimitive,
+    T: Cfd2dScalar + Copy + FloatElement,
 {
     let total_fluid_cell_count = summaries
         .iter()
         .map(|summary| summary.fluid_cell_count)
         .sum();
     let mean_fluid_fraction = if summaries.is_empty() {
-        T::zero()
+        scalar::zero()
     } else {
+        let zero: T = scalar::zero();
         let sum = summaries
             .iter()
-            .fold(T::zero(), |acc, summary| acc + summary.fluid_fraction);
-        sum / T::from_usize(summaries.len()).expect("analytical constant conversion")
+            .fold(zero, |acc, summary| acc + summary.fluid_fraction);
+        sum / scalar::from_usize::<T>(summaries.len())
     };
 
     NetworkProjectionSummary {

@@ -70,7 +70,7 @@ fn main() -> Result<()> {
     let mut total_error = 0.0;
     for &(y_pos, u_ghia) in GHIA_RE100_U.iter() {
         let j = ((y_pos * (ny - 1) as f64).round() as usize).min(ny - 1);
-        let u_computed = velocity_field[(i_center, j)].x;
+        let u_computed = velocity_field[(i_center, j)][0];
         let error = (u_computed - u_ghia).abs();
         total_error += error * error;
 

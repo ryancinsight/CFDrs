@@ -4,8 +4,7 @@
 //! characteristics, and flow conditions using Blake and Apfel–Holland
 //! thresholds.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
@@ -15,7 +14,7 @@ use super::types::CavitationRegime;
 
 /// Cavitation regime classifier
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CavitationRegimeClassifier<T: RealField + Copy> {
+pub struct CavitationRegimeClassifier<T: FloatElement + Copy> {
     /// Rayleigh-Plesset bubble model
     pub(super) bubble_model: RayleighPlesset<T>,
     /// Ambient pressure (Pa)
@@ -26,7 +25,7 @@ pub struct CavitationRegimeClassifier<T: RealField + Copy> {
     pub(super) acoustic_frequency: Option<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
+impl<T: FloatElement + Copy> CavitationRegimeClassifier<T> {
     /// Create new cavitation regime classifier
     pub fn new(
         bubble_model: RayleighPlesset<T>,
@@ -65,19 +64,19 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
                 CavitationRegime::Stable
             }
         } else {
-            let two = T::from_f64(2.0).unwrap_or_else(|| T::one());
+            let two = <T as FloatElement>::from_f64(2.0);
             let v_sq =
                 (self.ambient_pressure - min_pressure) * two / self.bubble_model.liquid_density;
-            let current_velocity = if v_sq > T::zero() {
-                v_sq.sqrt()
+            let current_velocity = if v_sq > <T as NumericElement>::ZERO {
+                <T as NumericElement>::sqrt(v_sq)
             } else {
-                T::from_f64(1e-6).unwrap_or_else(|| T::one())
+                <T as FloatElement>::from_f64(1e-6)
             };
 
             let sigma = self.cavitation_number(min_pressure, current_velocity);
 
-            let one_half = T::from_f64(0.5).unwrap_or_else(|| T::one());
-            let one_and_half = T::from_f64(1.5).unwrap_or_else(|| T::one());
+            let one_half = <T as FloatElement>::from_f64(0.5);
+            let one_and_half = <T as FloatElement>::from_f64(1.5);
 
             if sigma > one_and_half {
                 CavitationRegime::None
@@ -91,7 +90,7 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
 
     /// Calculate Blake threshold pressure
     pub fn blake_threshold(&self) -> T {
-        let four_thirds = T::from_f64(4.0 / 3.0).unwrap_or_else(|| T::one());
+        let four_thirds = <T as FloatElement>::from_f64(4.0 / 3.0);
         let r_critical = self
             .bubble_model
             .blake_critical_radius(self.ambient_pressure);
@@ -102,19 +101,19 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
 
     /// Calculate inertial cavitation threshold (Apfel & Holland 1991)
     pub fn inertial_threshold(&self) -> T {
-        let two = T::from_f64(2.0).unwrap_or_else(|| T::one());
-        let three = T::from_f64(3.0).unwrap_or_else(|| T::one());
-        let eight = T::from_f64(8.0).unwrap_or_else(|| T::one());
+        let two = <T as FloatElement>::from_f64(2.0);
+        let three = <T as FloatElement>::from_f64(3.0);
+        let eight = <T as FloatElement>::from_f64(8.0);
 
         let r0 = self.bubble_model.initial_radius;
         let sigma = self.bubble_model.surface_tension;
         let p_inf = self.ambient_pressure;
 
         let inner = (eight * sigma) / (three * r0) * (p_inf + two * sigma / r0);
-        if inner > T::zero() {
-            inner.sqrt()
+        if inner > <T as NumericElement>::ZERO {
+            <T as NumericElement>::sqrt(inner)
         } else {
-            T::zero()
+            <T as NumericElement>::ZERO
         }
     }
 
@@ -123,15 +122,15 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
         match regime {
             CavitationRegime::None => self.bubble_model.initial_radius,
             CavitationRegime::Stable => {
-                let two = T::from_f64(2.0).unwrap_or_else(|| T::one());
+                let two = <T as FloatElement>::from_f64(2.0);
                 two * self.bubble_model.initial_radius
             }
             CavitationRegime::Inertial => {
-                let fifty = T::from_f64(50.0).unwrap_or_else(|| T::one());
+                let fifty = <T as FloatElement>::from_f64(50.0);
                 fifty * self.bubble_model.initial_radius
             }
             CavitationRegime::Mixed => {
-                let ten = T::from_f64(10.0).unwrap_or_else(|| T::one());
+                let ten = <T as FloatElement>::from_f64(10.0);
                 ten * self.bubble_model.initial_radius
             }
         }
@@ -139,31 +138,31 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
 
     /// Calculate cavitation number σ = (P - P_v) / (0.5 ρ v²)
     pub(super) fn cavitation_number(&self, local_pressure: T, velocity: T) -> T {
-        let half = T::from_f64(0.5).unwrap_or_else(|| T::one());
+        let half = <T as FloatElement>::from_f64(0.5);
         let dynamic_pressure = half * self.bubble_model.liquid_density * velocity * velocity;
-        if dynamic_pressure > T::default_epsilon() {
+        if dynamic_pressure > <T as FloatElement>::from_f64(f64::EPSILON) {
             (local_pressure - self.bubble_model.vapor_pressure) / dynamic_pressure
         } else {
-            T::from_f64(1e10).unwrap_or_else(|| T::one())
+            <T as FloatElement>::from_f64(1e10)
         }
     }
 
     /// Calculate mechanical index (MI) for ultrasound cavitation
     pub fn mechanical_index(&self) -> Result<T> {
         let Some(p_ac) = self.acoustic_pressure else {
-            return Ok(T::zero());
+            return Ok(<T as NumericElement>::ZERO);
         };
         let Some(freq) = self.acoustic_frequency else {
-            return Ok(T::zero());
+            return Ok(<T as NumericElement>::ZERO);
         };
 
-        let mhz = T::from_f64(1e6).unwrap_or_else(|| T::one());
+        let mhz = <T as FloatElement>::from_f64(1e6);
         let freq_mhz = freq / mhz;
 
-        if freq_mhz > T::zero() {
-            Ok(p_ac / freq_mhz.sqrt())
+        if freq_mhz > <T as NumericElement>::ZERO {
+            Ok(p_ac / <T as NumericElement>::sqrt(freq_mhz))
         } else {
-            Ok(T::zero())
+            Ok(<T as NumericElement>::ZERO)
         }
     }
 
@@ -172,10 +171,10 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
         let regime = self.classify_regime();
 
         match regime {
-            CavitationRegime::None => T::zero(),
-            CavitationRegime::Stable => T::from_f64(0.7).unwrap_or_else(|| T::one()),
-            CavitationRegime::Inertial => T::from_f64(0.95).unwrap_or_else(|| T::one()),
-            CavitationRegime::Mixed => T::from_f64(0.80).unwrap_or_else(|| T::one()),
+            CavitationRegime::None => <T as NumericElement>::ZERO,
+            CavitationRegime::Stable => <T as FloatElement>::from_f64(0.7),
+            CavitationRegime::Inertial => <T as FloatElement>::from_f64(0.95),
+            CavitationRegime::Mixed => <T as FloatElement>::from_f64(0.80),
         }
     }
 
@@ -184,10 +183,10 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
         let regime = self.classify_regime();
 
         match regime {
-            CavitationRegime::None => T::zero(),
-            CavitationRegime::Stable => T::from_f64(0.1).unwrap_or_else(|| T::zero()),
-            CavitationRegime::Inertial => T::from_f64(1.0).unwrap_or_else(|| T::one()),
-            CavitationRegime::Mixed => T::from_f64(0.6).unwrap_or_else(|| T::one()),
+            CavitationRegime::None => <T as NumericElement>::ZERO,
+            CavitationRegime::Stable => <T as FloatElement>::from_f64(0.1),
+            CavitationRegime::Inertial => <T as NumericElement>::ONE,
+            CavitationRegime::Mixed => <T as FloatElement>::from_f64(0.6),
         }
     }
 
@@ -197,13 +196,13 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
         let damage = self.damage_potential();
 
         match regime {
-            CavitationRegime::None => T::zero(),
-            CavitationRegime::Stable => T::from_f64(0.05).unwrap_or_else(|| T::zero()),
+            CavitationRegime::None => <T as NumericElement>::ZERO,
+            CavitationRegime::Stable => <T as FloatElement>::from_f64(0.05),
             CavitationRegime::Inertial => {
                 if let Some(p_ac) = self.acoustic_pressure {
                     let threshold = self.inertial_threshold();
-                    if threshold > T::zero() {
-                        (p_ac / threshold).min(T::one())
+                    if threshold > <T as NumericElement>::ZERO {
+                        (p_ac / threshold).min_scalar(<T as NumericElement>::ONE)
                     } else {
                         damage
                     }
@@ -211,7 +210,7 @@ impl<T: RealField + Copy + FromPrimitive> CavitationRegimeClassifier<T> {
                     damage
                 }
             }
-            CavitationRegime::Mixed => T::from_f64(0.4).unwrap_or_else(|| T::one()),
+            CavitationRegime::Mixed => <T as FloatElement>::from_f64(0.4),
         }
     }
 }

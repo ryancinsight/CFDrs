@@ -31,8 +31,7 @@
 
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use eunomia::FloatElement;
 
 use super::constants::AMD_C_A_SECOND_ORDER;
 use super::field_ops::{
@@ -42,8 +41,7 @@ use super::sgs_energy::kinetic_energy_from_eddy_viscosity;
 
 /// Anisotropic Minimum Dissipation closure for large-eddy simulation.
 #[derive(Debug, Clone)]
-pub struct AnisotropicMinimumDissipationModel<T: cfd_mesh::domain::core::Scalar + RealField + Copy>
-{
+pub struct AnisotropicMinimumDissipationModel<T: cfd_mesh::domain::core::Scalar + FloatElement> {
     /// AMD coefficient `C_A`.
     pub c_a: T,
     /// Physical grid spacing in the x direction \[m].
@@ -54,20 +52,17 @@ pub struct AnisotropicMinimumDissipationModel<T: cfd_mesh::domain::core::Scalar 
     pub dz: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
-    AnisotropicMinimumDissipationModel<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> AnisotropicMinimumDissipationModel<T> {
     /// Create an AMD model on a unit Cartesian grid.
     ///
     /// Uses `C_A = 1/3`, the second-order central-difference correction from
     /// Rozema et al. (2015).
     pub fn new() -> Self {
         Self {
-            c_a: <T as FromPrimitive>::from_f64(AMD_C_A_SECOND_ORDER)
-                .expect("AMD_C_A_SECOND_ORDER is an IEEE 754 representable f64 constant"),
-            dx: T::one(),
-            dy: T::one(),
-            dz: T::one(),
+            c_a: <T as FloatElement>::from_f64(AMD_C_A_SECOND_ORDER),
+            dx: T::ONE,
+            dy: T::ONE,
+            dz: T::ONE,
         }
     }
 
@@ -79,8 +74,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
     /// Create an AMD model using the default coefficient and physical spacings.
     pub fn with_grid_spacing(dx: T, dy: T, dz: T) -> Self {
         Self {
-            c_a: <T as FromPrimitive>::from_f64(AMD_C_A_SECOND_ORDER)
-                .expect("AMD_C_A_SECOND_ORDER is an IEEE 754 representable f64 constant"),
+            c_a: <T as FloatElement>::from_f64(AMD_C_A_SECOND_ORDER),
             dx,
             dy,
             dz,
@@ -90,10 +84,10 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
     #[inline]
     fn gradient_metric(&self, gradient: &[[T; 3]; 3]) -> SymmetricTensor6<T> {
         let spacing_sq = [self.dx * self.dx, self.dy * self.dy, self.dz * self.dz];
-        let mut beta = [[T::zero(); 3]; 3];
+        let mut beta = [[T::ZERO; 3]; 3];
         for i in 0..3 {
             for j in i..3 {
-                let mut value = T::zero();
+                let mut value = T::ZERO;
                 for k in 0..3 {
                     value += spacing_sq[k] * gradient[i][k] * gradient[j][k];
                 }
@@ -114,7 +108,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
 
     #[inline]
     fn gradient_frobenius_norm_sq(gradient: &[[T; 3]; 3]) -> T {
-        let mut norm_sq = T::zero();
+        let mut norm_sq = T::ZERO;
         for row in gradient {
             for &value in row {
                 norm_sq += value * value;
@@ -140,24 +134,23 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive>
         let strain = strain_components(&gradient);
         let metric = self.gradient_metric(&gradient);
         let numerator = -symmetric_contract(metric, strain);
-        let numerator = if numerator > T::zero() {
+        let numerator = if numerator > T::ZERO {
             numerator
         } else {
-            T::zero()
+            T::ZERO
         };
         let denominator = Self::gradient_frobenius_norm_sq(&gradient);
-        let eps = <T as FromPrimitive>::from_f64(1e-30)
-            .expect("1e-30 is an IEEE 754 representable f64 constant");
+        let eps = <T as FloatElement>::from_f64(1e-30);
 
-        if denominator <= eps || numerator <= T::zero() {
-            T::zero()
+        if denominator <= eps || numerator <= T::ZERO {
+            T::ZERO
         } else {
             self.c_a * numerator / denominator
         }
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Default
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> Default
     for AnisotropicMinimumDissipationModel<T>
 {
     fn default() -> Self {
@@ -165,7 +158,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Defau
     }
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> TurbulenceModel<T>
+impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T>
     for AnisotropicMinimumDissipationModel<T>
 {
     fn turbulent_viscosity(&self, flow_field: &FlowField<T>) -> Vec<T> {
@@ -204,7 +197,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + Copy + FromPrimitive> Turbu
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use nalgebra::Vector3;
+    use leto::geometry::Vector3;
 
     fn fill_velocity_field<F>(flow: &mut FlowField<f64>, mut generator: F)
     where

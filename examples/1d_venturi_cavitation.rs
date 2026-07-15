@@ -33,12 +33,17 @@
 //!    A1         A(x)            A2         A(x)            A3
 //! ```
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use cfd_1d::Cfd1dScalar;
+use cfd_core::conversion::SafeFromF64;
+
+#[inline]
+fn from_f64<T: Cfd1dScalar>(value: f64) -> T {
+    <T as SafeFromF64>::from_f64_or_zero(value)
+}
 
 /// 1D Channel Geometry with Cavitation
 #[derive(Debug, Clone)]
-struct CavitatingChannel1D<T: RealField + Copy> {
+struct CavitatingChannel1D<T: Cfd1dScalar> {
     /// Channel length (m)
     length: T,
     /// Inlet cross-sectional area (m²)
@@ -63,7 +68,7 @@ struct CavitatingChannel1D<T: RealField + Copy> {
 
 /// 1D Cavitation Analysis Results
 #[derive(Debug, Clone)]
-struct CavitationAnalysis1D<T: RealField + Copy> {
+struct CavitationAnalysis1D<T: Cfd1dScalar> {
     /// Position along channel (m)
     position: Vec<T>,
     /// Local cross-sectional area (m²)
@@ -83,7 +88,7 @@ struct CavitationAnalysis1D<T: RealField + Copy> {
     void_fraction: Vec<T>,
 }
 
-impl<T: RealField + Copy + FromPrimitive> CavitatingChannel1D<T> {
+impl<T: Cfd1dScalar> CavitatingChannel1D<T> {
     /// Create a standard venturi geometry
     fn venturi(
         length: T,
@@ -92,7 +97,7 @@ impl<T: RealField + Copy + FromPrimitive> CavitatingChannel1D<T> {
         converging_length: T,
         diverging_length: T,
     ) -> Self {
-        let pi = T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::one() + T::one());
+        let pi = from_f64::<T>(std::f64::consts::PI);
 
         // Calculate areas
         let inlet_radius = inlet_diameter / (T::one() + T::one());
@@ -108,10 +113,10 @@ impl<T: RealField + Copy + FromPrimitive> CavitatingChannel1D<T> {
             outlet_area,
             converging_length,
             diverging_length,
-            density: T::from_f64(998.0).unwrap_or_else(|| T::one()), // Water
-            vapor_pressure: T::from_f64(2330.0).unwrap_or_else(|| T::zero()), // Water at 20°C
-            inlet_pressure: T::from_f64(101325.0).unwrap_or_else(|| T::one()), // Atmospheric
-            inlet_velocity: T::from_f64(1.0).unwrap_or_else(|| T::one()), // 1 m/s default
+            density: from_f64::<T>(998.0),            // Water
+            vapor_pressure: from_f64::<T>(2330.0),    // Water at 20°C
+            inlet_pressure: from_f64::<T>(101325.0),  // Atmospheric
+            inlet_velocity: from_f64::<T>(1.0),       // 1 m/s default
         }
     }
 
@@ -150,7 +155,7 @@ impl<T: RealField + Copy + FromPrimitive> CavitatingChannel1D<T> {
         let inlet_velocity = self.inlet_velocity;
 
         // Bernoulli: P + 0.5ρV² = constant (assuming no losses)
-        let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
+        let half = from_f64::<T>(0.5);
         let dynamic_pressure_inlet = half * self.density * inlet_velocity * inlet_velocity;
         let dynamic_pressure_local = half * self.density * velocity * velocity;
 
@@ -162,12 +167,12 @@ impl<T: RealField + Copy + FromPrimitive> CavitatingChannel1D<T> {
         let pressure = self.pressure_at_position(x);
         let velocity = self.velocity_at_position(x);
 
-        let half = T::from_f64(0.5).unwrap_or_else(|| T::one() / (T::one() + T::one()));
+        let half = from_f64::<T>(0.5);
 
         if velocity > T::zero() {
             (pressure - self.vapor_pressure) / (half * self.density * velocity * velocity)
         } else {
-            T::from_f64(1e10).unwrap_or_else(|| T::one())
+            from_f64::<T>(1e10)
         }
     }
 
@@ -184,16 +189,14 @@ impl<T: RealField + Copy + FromPrimitive> CavitatingChannel1D<T> {
 
         // Simplified cavity length correlation
         // L/D = K * (1/σ - 1/σ_i)^n
-        let k_coefficient = T::from_f64(0.5).unwrap_or_else(|| T::one());
-        let exponent = T::from_f64(0.8).unwrap_or_else(|| T::one());
-        let sigma_incipient = T::from_f64(0.3).unwrap_or_else(|| T::one());
+        let k_coefficient = from_f64::<T>(0.5);
+        let exponent = from_f64::<T>(0.8);
+        let sigma_incipient = from_f64::<T>(0.3);
 
         if cavitation_number < sigma_incipient && cavitation_number > T::zero() {
             let term = T::one() / cavitation_number - T::one() / sigma_incipient;
-            let throat_diameter = T::from_f64(2.0).unwrap_or_else(|| T::one())
-                * (self.throat_area
-                    / T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::one()))
-                .sqrt();
+            let throat_diameter = from_f64::<T>(2.0)
+                * (self.throat_area / from_f64::<T>(std::f64::consts::PI)).sqrt();
 
             if term > T::zero() {
                 k_coefficient * term.powf(exponent) * throat_diameter
@@ -216,10 +219,10 @@ impl<T: RealField + Copy + FromPrimitive> CavitatingChannel1D<T> {
         let mut cavity_length = Vec::with_capacity(num_points);
         let mut void_fraction = Vec::with_capacity(num_points);
 
-        let dx = self.length / T::from_usize(num_points - 1).unwrap_or_else(|| T::one());
+        let dx = self.length / from_f64::<T>((num_points - 1) as f64);
 
         for i in 0..num_points {
-            let x = T::from_usize(i).unwrap_or_else(|| T::zero()) * dx;
+            let x = from_f64::<T>(i as f64) * dx;
 
             let local_area = self.area_at_position(x);
             let local_velocity = self.velocity_at_position(x);
@@ -229,10 +232,8 @@ impl<T: RealField + Copy + FromPrimitive> CavitatingChannel1D<T> {
             let local_cavity_length = self.cavity_length_at_position(x, local_sigma);
 
             // Estimate void fraction based on cavity length
-            let throat_diameter = T::from_f64(2.0).unwrap_or_else(|| T::one())
-                * (self.throat_area
-                    / T::from_f64(std::f64::consts::PI).unwrap_or_else(|| T::one()))
-                .sqrt();
+            let throat_diameter = from_f64::<T>(2.0)
+                * (self.throat_area / from_f64::<T>(std::f64::consts::PI)).sqrt();
 
             let local_void_fraction =
                 if local_cavity_length > T::zero() && throat_diameter > T::zero() {
@@ -341,13 +342,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .cloned()
             .fold(f64::INFINITY, |a, b| a.min(b));
 
-        let max_velocity = analysis.velocity.iter().cloned().fold(0.0, |a, b| a.max(b));
+        let max_velocity = analysis
+            .velocity
+            .iter()
+            .cloned()
+            .fold(0.0_f64, |a, b| a.max(b));
 
         let max_cavity = analysis
             .cavity_length
             .iter()
             .cloned()
-            .fold(0.0, |a, b| a.max(b));
+            .fold(0.0_f64, |a, b| a.max(b));
 
         let has_cavitation = analysis.is_cavitating.iter().any(|&x| x);
 

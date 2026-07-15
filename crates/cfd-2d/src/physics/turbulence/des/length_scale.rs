@@ -13,20 +13,20 @@
 //! Combines DDES shielding with WMLES capability via blending function f_B.
 
 use super::{DESVariant, DetachedEddySimulation};
-use nalgebra::DMatrix;
+use leto::Array2;
 
 impl DetachedEddySimulation {
     /// Compute DES length scale
     pub(super) fn compute_des_length_scale(
         &self,
-        velocity_u: &DMatrix<f64>,
-        velocity_v: &DMatrix<f64>,
+        velocity_u: &Array2<f64>,
+        velocity_v: &Array2<f64>,
         dx: f64,
         dy: f64,
-    ) -> DMatrix<f64> {
-        let nx = velocity_u.nrows();
-        let ny = velocity_v.ncols();
-        let mut length_scale = DMatrix::zeros(nx, ny);
+    ) -> Array2<f64> {
+        let nx = velocity_u.shape()[0];
+        let ny = velocity_v.shape()[1];
+        let mut length_scale = Array2::zeros([nx, ny]);
 
         // Compute strain rate magnitude for DDES and IDDES
         // Needed for shielding function r_d
@@ -34,7 +34,7 @@ impl DetachedEddySimulation {
             if matches!(self.config.variant, DESVariant::DDES | DESVariant::IDDES) {
                 self.compute_strain_rate_magnitude(velocity_u, velocity_v, dx, dy)
             } else {
-                DMatrix::zeros(1, 1) // Dummy for DES97
+                Array2::zeros([1, 1]) // Dummy for DES97
             };
 
         for i in 0..nx {
@@ -43,10 +43,10 @@ impl DetachedEddySimulation {
                 let delta = dx.max(dy);
 
                 // RANS length scale is the wall distance in SA model
-                let rans_length = self.wall_distance[(i, j)];
+                let rans_length = self.wall_distance[[i, j]];
 
                 // Get current modified viscosity state (nu_tilde)
-                let nu_tilde_val = self.nu_tilde[(i, j)];
+                let nu_tilde_val = self.nu_tilde[[i, j]];
 
                 // DES length scale based on variant
                 let des_length = match self.config.variant {
@@ -56,7 +56,7 @@ impl DetachedEddySimulation {
                     }
                     DESVariant::DDES => {
                         // Delayed DES with shielding function
-                        let strain_mag = strain_magnitude[(i, j)];
+                        let strain_mag = strain_magnitude[[i, j]];
                         self.compute_ddes_length_scale(
                             rans_length,
                             delta,
@@ -68,7 +68,7 @@ impl DetachedEddySimulation {
                     }
                     DESVariant::IDDES => {
                         // Improved DDES
-                        let strain_mag = strain_magnitude[(i, j)];
+                        let strain_mag = strain_magnitude[[i, j]];
                         self.compute_iddes_length_scale(
                             rans_length,
                             dx,
@@ -83,7 +83,7 @@ impl DetachedEddySimulation {
                     }
                 };
 
-                length_scale[(i, j)] = des_length;
+                length_scale[[i, j]] = des_length;
             }
         }
 
@@ -100,7 +100,7 @@ impl DetachedEddySimulation {
         i: usize,
         j: usize,
     ) -> f64 {
-        let d_w = self.wall_distance[(i, j)];
+        let d_w = self.wall_distance[[i, j]];
 
         match self.config.variant {
             DESVariant::DDES => {
@@ -168,7 +168,7 @@ impl DetachedEddySimulation {
         let h_wn = self.wall_normal_spacing(nx, ny, i, j, dx, dy);
 
         // Wall distance
-        let d_w = self.wall_distance[(i, j)];
+        let d_w = self.wall_distance[[i, j]];
 
         // 1. Definition of Delta_IDDES
         // Delta_IDDES = min(max(Cw * dw, Cw * h_max, h_wn), h_max)
@@ -232,29 +232,29 @@ impl DetachedEddySimulation {
     /// Compute strain rate magnitude (shared with Smagorinsky)
     pub(super) fn compute_strain_rate_magnitude(
         &self,
-        velocity_u: &DMatrix<f64>,
-        velocity_v: &DMatrix<f64>,
+        velocity_u: &Array2<f64>,
+        velocity_v: &Array2<f64>,
         dx: f64,
         dy: f64,
-    ) -> DMatrix<f64> {
-        let nx = velocity_u.nrows();
-        let ny = velocity_u.ncols();
-        let mut strain_magnitude = DMatrix::zeros(nx, ny);
+    ) -> Array2<f64> {
+        let nx = velocity_u.shape()[0];
+        let ny = velocity_u.shape()[1];
+        let mut strain_magnitude = Array2::zeros([nx, ny]);
 
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
                 // Velocity gradients
-                let du_dx = (velocity_u[(i + 1, j)] - velocity_u[(i - 1, j)]) / (2.0 * dx);
-                let du_dy = (velocity_u[(i, j + 1)] - velocity_u[(i, j - 1)]) / (2.0 * dy);
-                let dv_dx = (velocity_v[(i + 1, j)] - velocity_v[(i - 1, j)]) / (2.0 * dx);
-                let dv_dy = (velocity_v[(i, j + 1)] - velocity_v[(i, j - 1)]) / (2.0 * dy);
+                let du_dx = (velocity_u[[i + 1, j]] - velocity_u[[i - 1, j]]) / (2.0 * dx);
+                let du_dy = (velocity_u[[i, j + 1]] - velocity_u[[i, j - 1]]) / (2.0 * dy);
+                let dv_dx = (velocity_v[[i + 1, j]] - velocity_v[[i - 1, j]]) / (2.0 * dx);
+                let dv_dy = (velocity_v[[i, j + 1]] - velocity_v[[i, j - 1]]) / (2.0 * dy);
 
                 // Strain rate tensor magnitude
                 let s11 = du_dx;
                 let s22 = dv_dy;
                 let s12 = 0.5 * (du_dy + dv_dx);
 
-                strain_magnitude[(i, j)] =
+                strain_magnitude[[i, j]] =
                     (2.0 * s11 * s11 + 2.0 * s22 * s22 + 4.0 * s12 * s12).sqrt();
             }
         }
@@ -277,12 +277,12 @@ mod tests {
         };
         let mut des = DetachedEddySimulation::new(10, 10, 0.1, 0.2, config, &[]);
 
-        let velocity_u = DMatrix::from_element(10, 10, 1.0);
-        let velocity_v = DMatrix::from_element(10, 10, 0.5);
-        des.nu_tilde[(5, 0)] = 0.0;
+        let velocity_u = Array2::from_elem([10, 10], 1.0);
+        let velocity_v = Array2::from_elem([10, 10], 0.5);
+        des.nu_tilde[[5, 0]] = 0.0;
 
         let length_scale = des.compute_des_length_scale(&velocity_u, &velocity_v, 0.1, 0.2);
 
-        assert_relative_eq!(length_scale[(5, 0)], 0.65 * 0.2, epsilon = 1e-12);
+        assert_relative_eq!(length_scale[[5, 0]], 0.65 * 0.2, epsilon = 1e-12);
     }
 }

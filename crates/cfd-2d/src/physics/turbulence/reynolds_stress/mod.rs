@@ -66,7 +66,7 @@ pub enum PressureStrainModel {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
-    use nalgebra::DMatrix;
+    use leto::Array2;
 
     /// DNS channel flow validation (Moser et al., 1999) at Re_τ = 590.
     #[test]
@@ -87,8 +87,8 @@ mod tests {
                 2.5 * (y_plus / 100.0).ln() + 1.0
             };
             let k_dns = k_plus * nu * nu * re_tau * re_tau;
-            stresses.k[(20, j)] = k_dns;
-            stresses.epsilon[(20, j)] = k_dns.powf(1.5) / 0.09;
+            stresses.k[[20, j]] = k_dns;
+            stresses.epsilon[[20, j]] = k_dns.powf(1.5) / 0.09;
             let anis = if y_plus <= 10.0 {
                 0.8
             } else if y_plus <= 50.0 {
@@ -96,9 +96,9 @@ mod tests {
             } else {
                 0.4
             };
-            stresses.xx[(20, j)] = (2.0 / 3.0 + anis) * k_dns;
-            stresses.yy[(20, j)] = (2.0 / 3.0 - anis) * k_dns;
-            stresses.xy[(20, j)] = 0.0;
+            stresses.xx[[20, j]] = (2.0 / 3.0 + anis) * k_dns;
+            stresses.yy[[20, j]] = (2.0 / 3.0 - anis) * k_dns;
+            stresses.xy[[20, j]] = 0.0;
         }
 
         model.apply_wall_boundary_conditions(
@@ -109,20 +109,20 @@ mod tests {
             &mut stresses.epsilon,
         );
 
-        assert_relative_eq!(stresses.k[(20, 0)], 0.0, epsilon = 1e-10);
-        assert_relative_eq!(stresses.k[(20, 39)], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(stresses.k[[20, 0]], 0.0, epsilon = 1e-10);
+        assert_relative_eq!(stresses.k[[20, 39]], 0.0, epsilon = 1e-10);
 
         for j in 1..39 {
-            assert!(stresses.xx[(20, j)] >= 0.0, "⟨u'u'⟩ must be non-negative");
-            assert!(stresses.yy[(20, j)] >= 0.0, "⟨v'v'⟩ must be non-negative");
-            let max_shear = (stresses.xx[(20, j)] * stresses.yy[(20, j)]).sqrt();
+            assert!(stresses.xx[[20, j]] >= 0.0, "⟨u'u'⟩ must be non-negative");
+            assert!(stresses.yy[[20, j]] >= 0.0, "⟨v'v'⟩ must be non-negative");
+            let max_shear = (stresses.xx[[20, j]] * stresses.yy[[20, j]]).sqrt();
             assert!(
-                stresses.xy[(20, j)].abs() <= max_shear + 1e-10,
+                stresses.xy[[20, j]].abs() <= max_shear + 1e-10,
                 "Cauchy-Schwarz violated"
             );
-            let k = stresses.k[(20, j)];
-            let bij_xx = stresses.xx[(20, j)] / k - 2.0 / 3.0;
-            let bij_yy = stresses.yy[(20, j)] / k - 2.0 / 3.0;
+            let k = stresses.k[[20, j]];
+            let bij_xx = stresses.xx[[20, j]] / k - 2.0 / 3.0;
+            let bij_yy = stresses.yy[[20, j]] / k - 2.0 / 3.0;
             assert!(
                 bij_xx.abs() <= 2.0 / 3.0 + 1e-6,
                 "b_xx anisotropy out of bounds"
@@ -141,11 +141,11 @@ mod tests {
         let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
 
         let shear_rate = 1.0f64;
-        let mut u = DMatrix::zeros(3, 3);
-        let v = DMatrix::zeros(3, 3);
+        let mut u = Array2::zeros([3, 3]);
+        let v = Array2::zeros([3, 3]);
         for j in 0..3 {
             for i in 0..3 {
-                u[(i, j)] = shear_rate * j as f64 * 0.1;
+                u[[i, j]] = shear_rate * j as f64 * 0.1;
             }
         }
         let velocity = [u, v];
@@ -158,7 +158,7 @@ mod tests {
             let result =
                 model.update_reynolds_stresses_optimized(&mut stresses, &velocity, dt, dx, dy);
             assert!(result.is_ok(), "RSM update failed at step {step}");
-            uv_history.push(stresses.xy[(1, 1)]);
+            uv_history.push(stresses.xy[[1, 1]]);
             if step > 10
                 && (uv_history[step] - uv_history[step - 1]).abs()
                     / uv_history[step].abs().max(1e-12)
@@ -168,7 +168,7 @@ mod tests {
             }
         }
 
-        let eq = stresses.xy[(1, 1)];
+        let eq = stresses.xy[[1, 1]];
         assert!(
             eq < 0.0,
             "Shear stress must be negative in shear flow: {eq:.6}"
@@ -183,11 +183,11 @@ mod tests {
     fn test_reynolds_stress_initialization() {
         let model = ReynoldsStressModel::<f64>::new(10, 10);
         let s = model.initialize_reynolds_stresses(1.0, 0.1);
-        assert_relative_eq!(s.xx[(5, 5)], 2.0 / 3.0, epsilon = 1e-6);
-        assert_relative_eq!(s.yy[(5, 5)], 2.0 / 3.0, epsilon = 1e-6);
-        assert_relative_eq!(s.xy[(5, 5)], 0.0, epsilon = 1e-6);
-        assert_relative_eq!(s.k[(5, 5)], 1.0, epsilon = 1e-6);
-        assert_relative_eq!(s.epsilon[(5, 5)], 0.1, epsilon = 1e-6);
+        assert_relative_eq!(s.xx[[5, 5]], 2.0 / 3.0, epsilon = 1e-6);
+        assert_relative_eq!(s.yy[[5, 5]], 2.0 / 3.0, epsilon = 1e-6);
+        assert_relative_eq!(s.xy[[5, 5]], 0.0, epsilon = 1e-6);
+        assert_relative_eq!(s.k[[5, 5]], 1.0, epsilon = 1e-6);
+        assert_relative_eq!(s.epsilon[[5, 5]], 0.1, epsilon = 1e-6);
     }
 
     #[test]
@@ -204,10 +204,10 @@ mod tests {
         let s = model.initialize_reynolds_stresses(1.0, 0.1);
         for y in 0..10 {
             for x in 0..10 {
-                let xx = s.xx[(x, y)];
-                let xy = s.xy[(x, y)];
-                let yy = s.yy[(x, y)];
-                let k = s.k[(x, y)];
+                let xx = s.xx[[x, y]];
+                let xy = s.xy[[x, y]];
+                let yy = s.yy[[x, y]];
+                let k = s.k[[x, y]];
                 assert!(xx >= 0.0, "⟨u'u'⟩ non-negative");
                 assert!(yy >= 0.0, "⟨v'v'⟩ non-negative");
                 assert!(xy.abs() <= (xx * yy).sqrt() + 1e-12, "Cauchy-Schwarz");
@@ -223,11 +223,11 @@ mod tests {
     fn test_production_term_correctness() {
         let model = ReynoldsStressModel::<f64>::new(1, 1);
         let rs = ReynoldsStressTensor {
-            xx: DMatrix::from_element(1, 1, 1.0),
-            xy: DMatrix::from_element(1, 1, 0.5),
-            yy: DMatrix::from_element(1, 1, 0.8),
-            k: DMatrix::from_element(1, 1, 1.35),
-            epsilon: DMatrix::from_element(1, 1, 0.1),
+            xx: Array2::from_elem([1, 1], 1.0),
+            xy: Array2::from_elem([1, 1], 0.5),
+            yy: Array2::from_elem([1, 1], 0.8),
+            k: Array2::from_elem([1, 1], 1.35),
+            epsilon: Array2::from_elem([1, 1], 0.1),
             epsilon_xx: None,
             epsilon_xy: None,
             epsilon_yy: None,
@@ -248,11 +248,11 @@ mod tests {
         let mut model = ReynoldsStressModel::<f64>::new(3, 3);
         model.pressure_strain_model = PressureStrainModel::SSG;
         let mut stresses = model.initialize_reynolds_stresses(1.0, 0.1);
-        let mut u = DMatrix::zeros(3, 3);
-        let v = DMatrix::zeros(3, 3);
+        let mut u = Array2::zeros([3, 3]);
+        let v = Array2::zeros([3, 3]);
         for j in 0..3 {
             for i in 0..3 {
-                u[(i, j)] = j as f64 * 0.1;
+                u[[i, j]] = j as f64 * 0.1;
             }
         }
         let velocity = [u, v];
@@ -262,7 +262,7 @@ mod tests {
             assert!(r.is_ok(), "SSG update failed");
         }
         assert!(
-            stresses.xy[(1, 1)] < 0.0,
+            stresses.xy[[1, 1]] < 0.0,
             "Shear stress must be negative in shear flow"
         );
     }

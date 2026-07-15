@@ -196,7 +196,7 @@ mod tests {
                 a[(i, j)] = (i * 4 + j) as f64;
             }
         }
-        let expected: Vec<f64> = (0..12).map(|x| x as f64).collect();
+        let expected: Vec<f64> = (0..12).map(f64::from).collect();
         assert_eq!(a.as_slice(), &expected[..]);
     }
 

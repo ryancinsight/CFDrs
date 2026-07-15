@@ -13,8 +13,8 @@
 //! $0 \le \phi(r) \le \min(2r, 2)$ and $\phi(1) = 1$. The implemented scheme
 //! enforces these bounds, guaranteeing monotonicity preservation.
 
-use nalgebra::RealField;
-use num_traits::FromPrimitive;
+use crate::scalar;
+use eunomia::FloatElement;
 
 // ============================================================================
 // CFL Stability Limits
@@ -110,6 +110,6 @@ pub const WENO5_WEIGHTS: [f64; 3] = [0.1, 0.6, 0.3];
 // ============================================================================
 
 /// Convert f64 constant to generic `RealField` type
-pub fn to_realfield<T: RealField + FromPrimitive>(value: f64) -> T {
-    T::from_f64(value).expect("analytical constant conversion")
+pub fn to_realfield<T: FloatElement>(value: f64) -> T {
+    scalar::from_f64(value)
 }

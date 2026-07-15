@@ -28,22 +28,23 @@
 //! - Patankar, S.V. (1980). *Numerical Heat Transfer and Fluid Flow*. Hemisphere Publishing.
 
 use crate::grid::array2d::Array2D;
+use crate::scalar::Cfd2dScalar;
+use crate::scalar::{from_f64, max, one, zero};
 use crate::solvers::ns_fvm::{FlowField2D, StaggeredGrid2D};
 use crate::solvers::scalar_transport_2d::ScalarTransportConfig;
-use nalgebra::RealField;
-use num_traits::{Float, FromPrimitive};
+use eunomia::{FloatElement, NumericElement};
 
 /// 2D Drift-Diffusion Transport Solver
-pub struct DriftDiffusionSolver2D<T: RealField + Copy + Float + FromPrimitive> {
+pub struct DriftDiffusionSolver2D<T: Cfd2dScalar + Copy + FloatElement> {
     /// Concentration field \[nx]\[ny] (stored at cell centers)
     pub c: Array2D<T>,
 }
 
-impl<T: RealField + Copy + Float + FromPrimitive> DriftDiffusionSolver2D<T> {
+impl<T: Cfd2dScalar + Copy + FloatElement> DriftDiffusionSolver2D<T> {
     /// Create new drift-diffusion transport solver
     pub fn new(nx: usize, ny: usize) -> Self {
         Self {
-            c: Array2D::new(nx, ny, T::zero()),
+            c: Array2D::new(nx, ny, zero()),
         }
     }
 
@@ -63,10 +64,10 @@ impl<T: RealField + Copy + Float + FromPrimitive> DriftDiffusionSolver2D<T> {
         let dx = grid.dx;
         let dy = grid.dy;
         let gamma = config.diffusion_coeff;
-        let zero = T::zero();
-        let half = T::from_f64(0.5).unwrap();
-        let one = T::one();
-        let omega = T::from_f64(0.8).unwrap(); // Under-relaxation
+        let zero = zero::<T>();
+        let half = from_f64::<T>(0.5);
+        let one = one::<T>();
+        let omega = from_f64::<T>(0.8); // Under-relaxation
 
         for iteration in 0..config.max_iterations {
             let mut max_diff = zero;
@@ -88,14 +89,14 @@ impl<T: RealField + Copy + Float + FromPrimitive> DriftDiffusionSolver2D<T> {
                     let f_e = (field.u[(i + 1, j)] + drift_field.u[(i + 1, j)]) * dy;
                     let d_e = gamma * dy / dx;
                     if i < nx - 1 && field.mask[(i + 1, j)] {
-                        a_e = d_e + Float::max(-f_e, zero);
+                        a_e = d_e + max(-f_e, zero);
                     }
 
                     // West face
                     let f_w = (field.u[(i, j)] + drift_field.u[(i, j)]) * dy;
                     let d_w = gamma * dy / dx;
                     if i > 0 && field.mask[(i - 1, j)] {
-                        a_w = d_w + Float::max(f_w, zero);
+                        a_w = d_w + max(f_w, zero);
                     } else if f_w > zero {
                         // Inlet boundary
                         let d_in = gamma * dy / (half * dx);
@@ -111,7 +112,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> DriftDiffusionSolver2D<T> {
                     let f_n = v_n_eff * dx;
                     let d_n = gamma * dx / dy;
                     if j < ny - 1 && field.mask[(i, j + 1)] {
-                        a_n = d_n + Float::max(-f_n, zero);
+                        a_n = d_n + max(-f_n, zero);
                     }
 
                     // South face
@@ -122,7 +123,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> DriftDiffusionSolver2D<T> {
                     let f_s = v_s_eff * dx;
                     let d_s = gamma * dx / dy;
                     if j > 0 && field.mask[(i, j - 1)] {
-                        a_s = d_s + Float::max(f_s, zero);
+                        a_s = d_s + max(f_s, zero);
                     }
 
                     // Patankar central coefficient:
@@ -134,7 +135,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> DriftDiffusionSolver2D<T> {
                         a_p_eff += d_in;
                     }
 
-                    if Float::abs(a_p_eff) > T::from_f64(1e-30).unwrap() {
+                    if <T as NumericElement>::abs(a_p_eff) > from_f64::<T>(1e-30) {
                         let c_e = if i < nx - 1 && field.mask[(i + 1, j)] {
                             self.c[(i + 1, j)]
                         } else {
@@ -160,7 +161,7 @@ impl<T: RealField + Copy + Float + FromPrimitive> DriftDiffusionSolver2D<T> {
                             (a_e * c_e + a_w * c_w + a_n * c_n + a_s * c_s + b) / a_p_eff;
                         let c_new = (one - omega) * self.c[(i, j)] + omega * c_target;
 
-                        let diff = Float::abs(c_new - self.c[(i, j)]);
+                        let diff = <T as NumericElement>::abs(c_new - self.c[(i, j)]);
                         if diff > max_diff {
                             max_diff = diff;
                         }

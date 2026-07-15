@@ -6,14 +6,16 @@
 //! - periodic boundaries wrap to the opposite edge
 //! - all other boundaries use a zero-gradient copy from the nearest interior cell
 
+use crate::scalar::zero;
+use crate::scalar::Cfd2dScalar;
 use crate::solvers::lbm::lattice::D2Q9;
 use crate::solvers::lbm::streaming::f_idx;
 use cfd_core::physics::boundary::BoundaryCondition;
-use nalgebra::RealField;
+use eunomia::NumericElement;
 use std::collections::HashMap;
 
 #[inline]
-pub(crate) fn apply_scalar_boundaries<T: RealField + Copy>(
+pub(crate) fn apply_scalar_boundaries<T: Cfd2dScalar + Copy + NumericElement>(
     g: &mut [T],
     boundaries: &HashMap<(usize, usize), BoundaryCondition<T>>,
     nx: usize,
@@ -37,8 +39,13 @@ pub(crate) fn apply_scalar_boundaries<T: RealField + Copy>(
 }
 
 #[inline]
-fn apply_scalar_bounce_back<T: RealField + Copy>(g: &mut [T], i: usize, j: usize, nx: usize) {
-    let mut values = [T::zero(); 9];
+fn apply_scalar_bounce_back<T: Cfd2dScalar + Copy + NumericElement>(
+    g: &mut [T],
+    i: usize,
+    j: usize,
+    nx: usize,
+) {
+    let mut values = [zero(); 9];
     for q in 0..9 {
         values[q] = g[f_idx(j, i, q, nx)];
     }
@@ -49,7 +56,7 @@ fn apply_scalar_bounce_back<T: RealField + Copy>(g: &mut [T], i: usize, j: usize
 }
 
 #[inline]
-fn copy_scalar_populations<T: RealField + Copy>(
+fn copy_scalar_populations<T: Cfd2dScalar + Copy + NumericElement>(
     g: &mut [T],
     nx: usize,
     src_i: usize,
@@ -57,7 +64,7 @@ fn copy_scalar_populations<T: RealField + Copy>(
     dst_i: usize,
     dst_j: usize,
 ) {
-    let mut values = [T::zero(); 9];
+    let mut values = [zero(); 9];
     for q in 0..9 {
         values[q] = g[f_idx(src_j, src_i, q, nx)];
     }

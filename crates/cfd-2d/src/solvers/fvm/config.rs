@@ -12,7 +12,7 @@
 //! monotonically. Convergence is guaranteed by the spectral radius of the iteration matrix
 //! being strictly less than 1.
 
-use nalgebra::RealField;
+use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
 
 // Named constants for FVM
@@ -24,7 +24,7 @@ const DEFAULT_DIFFUSION_COEFFICIENT: f64 = 1e-3;
 
 /// Configuration for FVM solver
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FvmConfig<T: RealField + Copy> {
+pub struct FvmConfig<T: FloatElement + Copy> {
     /// Grid size in x-direction
     pub nx: usize,
     /// Grid size in y-direction
@@ -47,22 +47,40 @@ pub struct FvmConfig<T: RealField + Copy> {
     pub diffusion_coefficient: T,
 }
 
-impl<T: RealField + Copy + num_traits::FromPrimitive> Default for FvmConfig<T> {
+impl<T: FloatElement + Copy> Default for FvmConfig<T> {
     fn default() -> Self {
         Self {
             nx: 100,
             ny: 100,
-            dx: T::from_f64(0.01).expect("analytical constant conversion"),
-            dy: T::from_f64(0.01).expect("analytical constant conversion"),
-            dt: T::from_f64(0.001).expect("analytical constant conversion"),
-            convergence_tolerance: T::from_f64(DEFAULT_CONVERGENCE_TOLERANCE)
-                .expect("analytical constant conversion"),
+            dx: <T as FloatElement>::from_f64(0.01),
+            dy: <T as FloatElement>::from_f64(0.01),
+            dt: <T as FloatElement>::from_f64(0.001),
+            convergence_tolerance: <T as FloatElement>::from_f64(DEFAULT_CONVERGENCE_TOLERANCE),
             max_iterations: DEFAULT_MAX_ITERATIONS,
-            cfl_number: T::from_f64(DEFAULT_CFL_NUMBER).expect("analytical constant conversion"),
-            relaxation_factor: T::from_f64(DEFAULT_RELAXATION_FACTOR)
-                .expect("analytical constant conversion"),
-            diffusion_coefficient: T::from_f64(DEFAULT_DIFFUSION_COEFFICIENT)
-                .expect("analytical constant conversion"),
+            cfl_number: <T as FloatElement>::from_f64(DEFAULT_CFL_NUMBER),
+            relaxation_factor: <T as FloatElement>::from_f64(DEFAULT_RELAXATION_FACTOR),
+            diffusion_coefficient: <T as FloatElement>::from_f64(DEFAULT_DIFFUSION_COEFFICIENT),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_fvm_config_preserves_physical_constants() {
+        let config = FvmConfig::<f64>::default();
+
+        assert_eq!(config.nx, 100);
+        assert_eq!(config.ny, 100);
+        assert_eq!(config.dx, 0.01);
+        assert_eq!(config.dy, 0.01);
+        assert_eq!(config.dt, 0.001);
+        assert_eq!(config.convergence_tolerance, DEFAULT_CONVERGENCE_TOLERANCE);
+        assert_eq!(config.max_iterations, DEFAULT_MAX_ITERATIONS);
+        assert_eq!(config.cfl_number, DEFAULT_CFL_NUMBER);
+        assert_eq!(config.relaxation_factor, DEFAULT_RELAXATION_FACTOR);
+        assert_eq!(config.diffusion_coefficient, DEFAULT_DIFFUSION_COEFFICIENT);
     }
 }

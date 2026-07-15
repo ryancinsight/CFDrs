@@ -8,23 +8,26 @@
 //! - Golub, G. H., & Van Loan, C. F. (2013): *Matrix Computations* (4th ed.).
 //! - Meurant, G. (1999): *Computer Solution of Large Linear Systems*.
 
+use super::array_ops::{
+    assign_residual, axpy, copy_array, dot, norm, scale_add, validate_vector_len, vector_len,
+};
 use super::config::IterativeSolverConfig;
 use super::traits::{
     Configurable, ConvergenceMonitor, IterativeLinearSolver, LinearOperator, Preconditioner,
 };
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
-use nalgebra::{DVector, RealField};
-use num_traits::FromPrimitive;
+use eunomia::{FloatElement, NumericElement, RealField};
+use leto::Array1;
 use std::fmt::Debug;
 use std::sync::Mutex;
 
 /// Workspace for CG solver to avoid repeated allocations
 struct Workspace<T: RealField + Copy> {
-    r: DVector<T>,
-    p: DVector<T>,
-    z: DVector<T>,
-    ap: DVector<T>,
-    ax: DVector<T>,
+    r: Array1<T>,
+    p: Array1<T>,
+    z: Array1<T>,
+    ap: Array1<T>,
+    ax: Array1<T>,
 }
 
 /// Preconditioned Conjugate Gradient solver
@@ -51,7 +54,7 @@ pub struct ConjugateGradient<T: RealField + Copy> {
     workspace: Mutex<Option<Workspace<T>>>,
 }
 
-impl<T: RealField + Copy> ConjugateGradient<T> {
+impl<T: RealField + Copy + NumericElement> ConjugateGradient<T> {
     /// Create new CG solver
     pub const fn new(config: IterativeSolverConfig<T>) -> Self {
         Self {
@@ -64,7 +67,7 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
     #[must_use]
     pub fn default() -> Self
     where
-        T: FromPrimitive,
+        T: FloatElement,
     {
         Self::new(IterativeSolverConfig::default())
     }
@@ -73,11 +76,12 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
     pub fn solve_preconditioned<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
         a: &Op,
-        b: &DVector<T>,
+        b: &Array1<T>,
         preconditioner: &P,
-        x: &mut DVector<T>,
+        x: &mut Array1<T>,
     ) -> Result<ConvergenceMonitor<T>> {
-        let n = b.len();
+        let n = vector_len(b);
+        validate_vector_len("CG solution", x, n)?;
         let a_size = a.size();
         if a_size != 0 && a_size != n {
             return Err(Error::InvalidConfiguration(format!(
@@ -89,26 +93,22 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
         let mut guard = self.workspace.lock().unwrap();
 
         // Initialize or resize workspace if needed
-        if guard.as_ref().is_none_or(|ws| ws.r.len() != n) {
+        if guard.as_ref().is_none_or(|ws| vector_len(&ws.r) != n) {
             *guard = Some(Workspace {
-                r: DVector::zeros(n),
-                p: DVector::zeros(n),
-                z: DVector::zeros(n),
-                ap: DVector::zeros(n),
-                ax: DVector::zeros(n),
+                r: Array1::zeros([n]),
+                p: Array1::zeros([n]),
+                z: Array1::zeros([n]),
+                ap: Array1::zeros([n]),
+                ax: Array1::zeros([n]),
             });
         }
 
         let Workspace { r, p, z, ap, ax } = guard.as_mut().unwrap();
 
-        // Note: r, p, z, ap, ax are now &mut DVector<T>
-        // We must use dereferencing for operators where necessary
-
         a.apply(x, ax)?;
-        r.copy_from(b);
-        *r -= &*ax;
+        assign_residual(r, b, ax);
 
-        let initial_residual_norm = r.norm();
+        let initial_residual_norm = norm(r);
         let mut monitor = ConvergenceMonitor::new(initial_residual_norm);
 
         if initial_residual_norm < self.config.tolerance {
@@ -116,38 +116,42 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
         }
 
         preconditioner.apply_to(r, z)?;
-        p.copy_from(z);
+        copy_array(z, p);
 
-        let epsilon = T::default_epsilon();
+        let epsilon = <T as RealField>::EPSILON;
         let breakdown_tolerance = epsilon * epsilon;
 
-        let mut r_dot_z = r.dot(z);
-        let r_dot_z_scale = r.norm() * z.norm();
-        if r_dot_z.abs() < breakdown_tolerance * (T::one() + r_dot_z_scale) {
+        let mut r_dot_z = dot(r, z);
+        let r_dot_z_scale = norm(r) * norm(z);
+        if NumericElement::abs(r_dot_z)
+            < breakdown_tolerance * (<T as NumericElement>::ONE + r_dot_z_scale)
+        {
             return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
         }
-        if r_dot_z < T::zero() {
+        if r_dot_z < <T as NumericElement>::ZERO {
             return Err(Error::Numerical(NumericalErrorKind::NotPositiveDefinite));
         }
 
         for _iter in 0..self.config.max_iterations {
             a.apply(p, ap)?;
 
-            let p_dot_ap = p.dot(ap);
-            let p_dot_ap_scale = p.norm() * ap.norm();
-            if p_dot_ap.abs() < breakdown_tolerance * (T::one() + p_dot_ap_scale) {
+            let p_dot_ap = dot(p, ap);
+            let p_dot_ap_scale = norm(p) * norm(ap);
+            if NumericElement::abs(p_dot_ap)
+                < breakdown_tolerance * (<T as NumericElement>::ONE + p_dot_ap_scale)
+            {
                 return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
             }
-            if p_dot_ap < T::zero() {
+            if p_dot_ap < <T as NumericElement>::ZERO {
                 return Err(Error::Numerical(NumericalErrorKind::NotPositiveDefinite));
             }
 
             let alpha = r_dot_z / p_dot_ap;
 
-            x.axpy(alpha, p, T::one());
-            r.axpy(-alpha, ap, T::one());
+            axpy(x, alpha, p);
+            axpy(r, -alpha, ap);
 
-            let residual_norm = r.norm();
+            let residual_norm = norm(r);
             monitor.record_residual(residual_norm);
 
             if residual_norm < self.config.tolerance {
@@ -156,19 +160,20 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
 
             preconditioner.apply_to(r, z)?;
 
-            let r_dot_z_new = r.dot(z);
-            let r_dot_z_new_scale = r.norm() * z.norm();
-            if r_dot_z_new.abs() < breakdown_tolerance * (T::one() + r_dot_z_new_scale) {
+            let r_dot_z_new = dot(r, z);
+            let r_dot_z_new_scale = norm(r) * norm(z);
+            if NumericElement::abs(r_dot_z_new)
+                < breakdown_tolerance * (<T as NumericElement>::ONE + r_dot_z_new_scale)
+            {
                 return Err(Error::Convergence(ConvergenceErrorKind::Breakdown));
             }
-            if r_dot_z_new < T::zero() {
+            if r_dot_z_new < <T as NumericElement>::ZERO {
                 return Err(Error::Numerical(NumericalErrorKind::NotPositiveDefinite));
             }
 
             let beta = r_dot_z_new / r_dot_z;
 
-            *p *= beta;
-            *p += &*z;
+            scale_add(p, beta, z);
 
             r_dot_z = r_dot_z_new;
         }
@@ -184,8 +189,8 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
     pub fn solve_unpreconditioned<Op: LinearOperator<T> + ?Sized>(
         &self,
         a: &Op,
-        b: &DVector<T>,
-        x: &mut DVector<T>,
+        b: &Array1<T>,
+        x: &mut Array1<T>,
     ) -> Result<ConvergenceMonitor<T>> {
         use super::preconditioners::IdentityPreconditioner;
         let preconditioner = IdentityPreconditioner;
@@ -193,7 +198,7 @@ impl<T: RealField + Copy> ConjugateGradient<T> {
     }
 }
 
-impl<T: RealField + Debug + Copy> Configurable<T> for ConjugateGradient<T> {
+impl<T: RealField + Debug + Copy + NumericElement> Configurable<T> for ConjugateGradient<T> {
     type Config = IterativeSolverConfig<T>;
 
     fn config(&self) -> &Self::Config {
@@ -201,12 +206,14 @@ impl<T: RealField + Debug + Copy> Configurable<T> for ConjugateGradient<T> {
     }
 }
 
-impl<T: RealField + Debug + Copy> IterativeLinearSolver<T> for ConjugateGradient<T> {
+impl<T: RealField + Debug + Copy + NumericElement> IterativeLinearSolver<T>
+    for ConjugateGradient<T>
+{
     fn solve<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
         a: &Op,
-        b: &DVector<T>,
-        x: &mut DVector<T>,
+        b: &Array1<T>,
+        x: &mut Array1<T>,
         preconditioner: Option<&P>,
     ) -> Result<ConvergenceMonitor<T>> {
         if let Some(p) = preconditioner {
@@ -217,19 +224,19 @@ impl<T: RealField + Debug + Copy> IterativeLinearSolver<T> for ConjugateGradient
     }
 }
 
-impl<T: RealField + Copy + num_traits::FromPrimitive> super::traits::LinearSolver<T>
+impl<T: RealField + Copy + FloatElement + NumericElement> super::traits::LinearSolver<T>
     for ConjugateGradient<T>
 {
     fn solve_system(
         &self,
         a: &dyn LinearOperator<T>,
-        b: &DVector<T>,
-        x0: Option<&DVector<T>>,
-    ) -> Result<DVector<T>> {
+        b: &Array1<T>,
+        x0: Option<&Array1<T>>,
+    ) -> Result<Array1<T>> {
         let mut x = if let Some(initial) = x0 {
             initial.clone()
         } else {
-            DVector::zeros(b.len())
+            Array1::zeros(b.shape())
         };
 
         self.solve(
@@ -248,15 +255,44 @@ mod tests {
     use super::super::traits::{Configurable, LinearSolver};
     use super::*;
     use approx::assert_relative_eq;
-    use nalgebra_sparse::CsrMatrix;
+    use leto_ops::CsrMatrix;
+
+    fn array(values: Vec<f64>) -> Array1<f64> {
+        Array1::from_shape_vec([values.len()], values).expect("valid Leto vector shape")
+    }
+
+    fn assert_solves(a: &CsrMatrix<f64>, x: &Array1<f64>, b: &Array1<f64>, epsilon: f64) {
+        let mut ax = Array1::zeros([vector_len(b)]);
+        a.apply(x, &mut ax).expect("operator application");
+        for idx in 0..vector_len(b) {
+            assert_relative_eq!(ax[idx], b[idx], epsilon = epsilon);
+        }
+    }
+
+    fn assert_invalid_configuration<T>(result: Result<T>, expected_message: &str) {
+        match result {
+            Err(Error::InvalidConfiguration(message)) => assert_eq!(message, expected_message),
+            Err(error) => panic!("expected invalid configuration, got {error:?}"),
+            Ok(_) => panic!("expected invalid configuration error"),
+        }
+    }
+
+    fn assert_max_iterations<T>(result: Result<T>, expected_max: usize) {
+        match result {
+            Err(Error::Convergence(ConvergenceErrorKind::MaxIterationsExceeded { max })) => {
+                assert_eq!(max, expected_max);
+            }
+            Err(error) => panic!("expected max-iteration convergence error, got {error:?}"),
+            Ok(_) => panic!("expected max-iteration convergence error"),
+        }
+    }
 
     fn create_simple_spd_matrix() -> CsrMatrix<f64> {
         let row_offsets = vec![0, 2, 5, 7];
         let col_indices = vec![0, 1, 0, 1, 2, 1, 2];
         let values = vec![4.0, 1.0, 1.0, 4.0, 1.0, 1.0, 4.0];
 
-        CsrMatrix::try_from_csr_data(3, 3, row_offsets, col_indices, values)
-            .expect("Valid CSR matrix")
+        CsrMatrix::from_parts(values, col_indices, row_offsets, 3, 3).expect("Valid CSR matrix")
     }
 
     #[test]
@@ -273,26 +309,27 @@ mod tests {
     #[test]
     fn test_solve_simple_system() {
         let a = create_simple_spd_matrix();
-        let b = DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let mut x = DVector::zeros(3);
+        let b = array(vec![1.0, 2.0, 3.0]);
+        let mut x = Array1::zeros([3]);
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
 
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
-        assert!(result.is_ok());
+        assert!(
+            result.is_ok(),
+            "CG should converge from nonzero initial guess"
+        );
+        assert_solves(&a, &x, &b, 1e-6);
 
-        let ax = &a * &x;
-        for i in 0..3 {
-            assert_relative_eq!(ax[i], b[i], epsilon = 1e-6);
-        }
+        assert_solves(&a, &x, &b, 1e-6);
     }
 
     #[test]
     fn test_solve_with_initial_guess() {
         let a = create_simple_spd_matrix();
-        let b = DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let mut x = DVector::from_vec(vec![0.1, 0.2, 0.3]);
+        let b = array(vec![1.0, 2.0, 3.0]);
+        let mut x = array(vec![0.1, 0.2, 0.3]);
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
@@ -306,11 +343,11 @@ mod tests {
         let row_offsets = vec![0, 1, 2, 3];
         let col_indices = vec![0, 1, 2];
         let values = vec![1.0, 1.0, 1.0];
-        let a = CsrMatrix::try_from_csr_data(3, 3, row_offsets, col_indices, values)
+        let a = CsrMatrix::from_parts(values, col_indices, row_offsets, 3, 3)
             .expect("Valid CSR matrix");
 
-        let b = DVector::from_vec(vec![5.0, 10.0, 15.0]);
-        let mut x = DVector::zeros(3);
+        let b = array(vec![5.0, 10.0, 15.0]);
+        let mut x = Array1::zeros([3]);
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
@@ -328,11 +365,11 @@ mod tests {
         let row_offsets = vec![0, 1, 2, 3];
         let col_indices = vec![0, 1, 2];
         let values = vec![2.0, 3.0, 4.0];
-        let a = CsrMatrix::try_from_csr_data(3, 3, row_offsets, col_indices, values)
+        let a = CsrMatrix::from_parts(values, col_indices, row_offsets, 3, 3)
             .expect("Valid CSR matrix");
 
-        let b = DVector::from_vec(vec![6.0, 9.0, 12.0]);
-        let mut x = DVector::zeros(3);
+        let b = array(vec![6.0, 9.0, 12.0]);
+        let mut x = Array1::zeros([3]);
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
@@ -348,21 +385,21 @@ mod tests {
     #[test]
     fn test_mismatched_dimensions() {
         let a = create_simple_spd_matrix();
-        let b = DVector::from_vec(vec![1.0, 2.0]);
-        let mut x = DVector::zeros(2);
+        let b = array(vec![1.0, 2.0]);
+        let mut x = Array1::zeros([2]);
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
 
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
-        assert!(result.is_err());
+        assert_invalid_configuration(result, "Operator size (3) doesn't match RHS vector (2)");
     }
 
     #[test]
     fn test_convergence_with_tight_tolerance() {
         let a = create_simple_spd_matrix();
-        let b = DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let mut x = DVector::zeros(3);
+        let b = array(vec![1.0, 2.0, 3.0]);
+        let mut x = Array1::zeros([3]);
         let config = IterativeSolverConfig::<f64> {
             tolerance: 1e-12,
             ..Default::default()
@@ -371,14 +408,15 @@ mod tests {
         let precond = IdentityPreconditioner;
 
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "CG should converge with tight tolerance");
+        assert_solves(&a, &x, &b, 1e-12);
     }
 
     #[test]
     fn test_max_iterations_exceeded() {
         let a = create_simple_spd_matrix();
-        let b = DVector::from_vec(vec![1.0, 2.0, 3.0]);
-        let mut x = DVector::zeros(3);
+        let b = array(vec![1.0, 2.0, 3.0]);
+        let mut x = Array1::zeros([3]);
         let config = IterativeSolverConfig::<f64> {
             max_iterations: 1,
             tolerance: 1e-12,
@@ -388,7 +426,7 @@ mod tests {
         let precond = IdentityPreconditioner;
 
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
-        assert!(result.is_err());
+        assert_max_iterations(result, 1);
     }
 
     #[test]
@@ -398,11 +436,11 @@ mod tests {
         let values = vec![
             4.0, 1.0, 1.0, 4.0, 1.0, 1.0, 4.0, 1.0, 1.0, 4.0, 1.0, 1.0, 4.0,
         ];
-        let a = CsrMatrix::try_from_csr_data(5, 5, row_offsets, col_indices, values)
+        let a = CsrMatrix::from_parts(values, col_indices, row_offsets, 5, 5)
             .expect("Valid CSR matrix");
 
-        let b = DVector::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
-        let mut x = DVector::zeros(5);
+        let b = array(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        let mut x = Array1::zeros([5]);
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
         let precond = IdentityPreconditioner;
@@ -410,10 +448,7 @@ mod tests {
         let result = solver.solve_preconditioned(&a, &b, &precond, &mut x);
         assert!(result.is_ok());
 
-        let ax = &a * &x;
-        for i in 0..5 {
-            assert_relative_eq!(ax[i], b[i], epsilon = 1e-6);
-        }
+        assert_solves(&a, &x, &b, 1e-6);
     }
 
     #[test]
@@ -434,7 +469,7 @@ mod tests {
     #[test]
     fn test_linear_solver_trait() {
         let a = create_simple_spd_matrix();
-        let b = DVector::from_vec(vec![1.0, 2.0, 3.0]);
+        let b = array(vec![1.0, 2.0, 3.0]);
         let config = IterativeSolverConfig::default();
         let solver = ConjugateGradient::new(config);
 
@@ -442,9 +477,6 @@ mod tests {
         assert!(result.is_ok());
 
         let x = result.unwrap();
-        let ax = &a * &x;
-        for i in 0..3 {
-            assert_relative_eq!(ax[i], b[i], epsilon = 1e-6);
-        }
+        assert_solves(&a, &x, &b, 1e-6);
     }
 }

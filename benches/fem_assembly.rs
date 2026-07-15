@@ -71,7 +71,7 @@ fn bench_fem_solve_structured(c: &mut Criterion) {
             boundary_conditions.insert(
                 v,
                 cfd_core::physics::boundary::BoundaryCondition::VelocityInlet {
-                    velocity: nalgebra::Vector3::new(0.0, 0.0, 0.01),
+                    velocity: leto::geometry::Vector3::new(0.0, 0.0, 0.01),
                 },
             );
         }

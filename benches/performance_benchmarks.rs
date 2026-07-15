@@ -6,7 +6,7 @@ use cfd_core::physics::fluid_dynamics::{FlowField, FlowOperations};
 use cfd_math::linear_solver::{ConjugateGradient, IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixBuilder;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use nalgebra::DVector;
+use leto::{Array1, Array2};
 
 /// Benchmark flow field operations at different scales
 fn benchmark_flow_operations(c: &mut Criterion) {
@@ -51,7 +51,7 @@ fn benchmark_linear_solver(c: &mut Criterion) {
             }
         }
         let matrix = builder.build().unwrap();
-        let b = DVector::from_element(*size, 1.0);
+        let b = Array1::from_elem([*size], 1.0);
 
         group.throughput(Throughput::Elements(*size as u64));
 
@@ -60,7 +60,7 @@ fn benchmark_linear_solver(c: &mut Criterion) {
             size,
             |bench, _| {
                 let solver = ConjugateGradient::<f64>::default();
-                let mut x = DVector::from_element(*size, 0.0);
+                let mut x = Array1::from_elem([*size], 0.0);
                 bench.iter(|| {
                     black_box(
                         solver
@@ -103,7 +103,7 @@ fn benchmark_memory_patterns(c: &mut Criterion) {
 
     group.bench_function("matrix_allocation_1000x1000", |b| {
         b.iter(|| {
-            let m = nalgebra::DMatrix::<f64>::zeros(1000, 1000);
+            let m = Array2::<f64>::zeros([1000, 1000]);
             black_box(m)
         })
     });

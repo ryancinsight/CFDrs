@@ -8,7 +8,7 @@ use cfd_schematics::application::ports::GraphSink;
 use cfd_schematics::geometry::generator::PrimitiveSelectiveSplitKind;
 use cfd_schematics::interface::presets::{primitive_selective_split_tree_rect, venturi_rect};
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use nalgebra::Vector2;
+use leto::geometry::Vector2;
 use std::collections::HashMap;
 
 fn benchmark_lbm_solver(c: &mut Criterion) {
