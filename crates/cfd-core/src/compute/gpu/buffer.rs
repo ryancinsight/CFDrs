@@ -5,14 +5,14 @@ use crate::compute::traits::ComputeBuffer;
 use crate::error::{Error, Result};
 use bytemuck::{Pod, Zeroable};
 use eunomia::RealField;
-use hephaestus_wgpu::{wgpu, ComputeDevice, WgpuBuffer as HephaestusWgpuBuffer};
+use hephaestus_wgpu::{ComputeDevice, WgpuBuffer as HephaestusWgpuBuffer};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// GPU buffer wrapper
 pub struct GpuBuffer<T: RealField + Pod + Zeroable> {
     /// Hephaestus-owned WGPU buffer.
-    pub buffer: HephaestusWgpuBuffer<T>,
+    pub(crate) buffer: HephaestusWgpuBuffer<T>,
     /// Buffer size in elements
     size: usize,
     /// GPU context
@@ -69,11 +69,6 @@ impl<T: RealField + Pod + Zeroable + Copy> GpuBuffer<T> {
             context,
             _phantom: PhantomData,
         })
-    }
-
-    /// Get underlying wgpu buffer
-    pub fn buffer(&self) -> &wgpu::Buffer {
-        self.buffer.raw()
     }
 }
 

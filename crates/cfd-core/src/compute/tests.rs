@@ -196,6 +196,9 @@ fn test_gpu_context_creation() {
                 "Max buffer size: {} MB",
                 context.max_buffer_size() / (1024 * 1024)
             );
+            context
+                .synchronize()
+                .expect("Hephaestus provider must observe an idle context");
         }
         Err(e) => {
             println!("GPU not available: {e}");

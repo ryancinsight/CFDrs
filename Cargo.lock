@@ -421,7 +421,7 @@ dependencies = [
 
 [[package]]
 name = "cfd-1d"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "approx",
@@ -444,7 +444,7 @@ dependencies = [
 
 [[package]]
 name = "cfd-2d"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "approx",
@@ -472,7 +472,7 @@ dependencies = [
 
 [[package]]
 name = "cfd-3d"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "apollo-fft",
@@ -499,7 +499,7 @@ dependencies = [
 
 [[package]]
 name = "cfd-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "approx",
@@ -523,7 +523,7 @@ dependencies = [
 
 [[package]]
 name = "cfd-io"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "approx",
  "bincode",
@@ -545,7 +545,7 @@ dependencies = [
 
 [[package]]
 name = "cfd-math"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "approx",
  "bytemuck",
@@ -567,7 +567,7 @@ dependencies = [
 
 [[package]]
 name = "cfd-optim"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -613,7 +613,7 @@ dependencies = [
 
 [[package]]
 name = "cfd-schematics"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cfd-core",
  "petgraph",
@@ -626,7 +626,7 @@ dependencies = [
 
 [[package]]
 name = "cfd-suite"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "apollo-fft",
  "approx",
@@ -657,7 +657,7 @@ dependencies = [
 
 [[package]]
 name = "cfd-validation"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "approx",
