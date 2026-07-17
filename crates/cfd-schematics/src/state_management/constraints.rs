@@ -381,7 +381,7 @@ mod tests {
         let constraint = ParameterConstraints::range(0.0, 10.0);
         let description = constraint.description();
         assert!(description.contains("between"));
-        assert!(description.contains("0"));
+        assert!(description.contains('0'));
         assert!(description.contains("10"));
     }
 }

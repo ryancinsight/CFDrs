@@ -32,6 +32,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - Error Consolidation
 
+### Changed
+
+- Updated CFDrs to merged Moirai `main` and regenerated the locked Atlas
+  provider graph. The resolved workspace uses Moirai 0.4 with Themis 0.10.
+- Replaced the serpentine-Venturi demo's untyped configuration tuple with a
+  named geometry record and repaired warning-denied `cfd-schematics`
+  test/example diagnostics.
+
 ### Breaking
 
 - Removed `spmv_parallel`, `IterativeSolverConfig::use_parallel_spmv`,

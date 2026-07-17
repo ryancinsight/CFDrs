@@ -1,4 +1,15 @@
 # CFDrs Work Checklist
+- [x] `cfd-schematics` [patch]: Replace the unnamed serpentine-Venturi tuple
+  with a typed geometry record and repair all warning-denied test/example
+  diagnostics. Exact bit equality preserves the direct-value contract for
+  geometry bounds and bilateral phase direction. Evidence: all-target,
+  all-feature Clippy passes with warnings denied; focused nextest and doctests
+  pass.
+- [x] DEP-657-01 [patch]: Pin Moirai to merged `main`
+  `5ead788c70c728d971237d7afa0b915ea7cf87e3` and regenerate the locked Atlas
+  provider graph. Evidence: locked metadata and all-feature `cfd-schematics`
+  check pass with Moirai 0.4 and Themis 0.10. PR publication remains the
+  integration step.
 - [x] `cfd-1d`/`cfd-3d` [patch]: Delete the two stale scalar-file entries from
   `xtask/legacy_surface.allowlist`; exact source scans are clean and the legacy
   migration audit reports no cleanup candidates while retaining clean status.
