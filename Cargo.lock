@@ -2133,7 +2133,7 @@ dependencies = [
 [[package]]
 name = "moirai-gpu"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#4ad652028ead6e80944942b8a2c59e84f83035fe"
+source = "git+https://github.com/ryancinsight/Moirai.git#83098256222201994bac08af075d8d39b98f7bc9"
 dependencies = [
  "mnemosyne-core",
  "moirai-core",
@@ -2201,7 +2201,7 @@ dependencies = [
 [[package]]
 name = "moirai-sync"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#4ad652028ead6e80944942b8a2c59e84f83035fe"
+source = "git+https://github.com/ryancinsight/Moirai.git#83098256222201994bac08af075d8d39b98f7bc9"
 dependencies = [
  "libc",
  "moirai-core",
@@ -2225,7 +2225,7 @@ version = "0.4.0"
 [[package]]
 name = "moirai-utils"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#4ad652028ead6e80944942b8a2c59e84f83035fe"
+source = "git+https://github.com/ryancinsight/Moirai.git#83098256222201994bac08af075d8d39b98f7bc9"
 
 [[package]]
 name = "munge"
