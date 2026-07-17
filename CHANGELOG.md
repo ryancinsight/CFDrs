@@ -32,6 +32,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced root serpentine and 2D bifurcation validation examples with the
+  canonical cfd-2d analytical and discretized solver paths. The 1D blood-flow
+  example now validates its pressure-balanced split and Fåhræus-Lindqvist
+  trend from calculated values.
+
+### Removed
+
+- Removed the unreferenced comprehensive, wall-shear, and 3D FEM root reports
+  because they presented static or invalid validation values rather than
+  successful solver results.
+
 ## [0.3.0] - 2026-07-17 - Typed GPU Capability Boundary
 
 ### Changed

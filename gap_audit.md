@@ -45,10 +45,20 @@
   The root all-target example lint baseline is independently tracked by
   CFD-EXAMPLE-CLIPPY-1.
 
-- 2026-07-17 (open): root `cfd-suite --all-targets` Clippy reports 29
-  pre-existing diagnostics across seven validation examples. The current
-  provider migration targets pass warning-denied Clippy; the exact example
-  scope and clean-gate acceptance are tracked by CFD-EXAMPLE-CLIPPY-1.
+- 2026-07-17 (resolved): root `cfd-suite --all-targets` Clippy no longer
+  reports the 29 diagnostics formerly distributed across seven validation
+  examples. Four retained examples now execute provider-owned cfd-1d/cfd-2d
+  calculations; three unreferenced static reports are deleted rather than
+  presenting hardcoded validation outputs. Evidence tier: executable examples
+  plus warning-denied all-target Clippy.
+
+- 2026-07-17 (open): `BifurcationSolver3D` builds an unlabeled SDF volume mesh
+  but integrates daughter flow only across `outlet_0` and `outlet_1` labels.
+  The resulting zero daughter flows are deterministic, so the invalid root FEM
+  example is deleted. CFD-3D-BIFURCATION-BOUNDARIES-1 owns the upstream mesh
+  terminal-facet contract and cfd-3d flow regressions. Evidence tier: direct
+  executable reproduction and source inspection of mesh construction and
+  label-based integration.
 
 - 2026-07-17: `cfd-core::compute::gpu::GpuContext::synchronize` now delegates
   completion to Hephaestus `ComputeDevice::synchronize`; `GpuContext` no longer

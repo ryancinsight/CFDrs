@@ -386,7 +386,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
     ///
     /// The solver finds the unique split `Q_1` in `[0, Q_parent]` such that the
     /// daughter pressure drops match: `ΔP_1(Q_1) = ΔP_2(Q_parent - Q_1)`.
-    pub fn solve<F: FluidTrait<T> + Copy>(
+    pub fn solve<F: FluidTrait<T>>(
         &self,
         fluid: F,
         q_parent: T,
