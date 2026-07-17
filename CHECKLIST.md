@@ -8,8 +8,12 @@
 - [x] DEP-657-01 [patch]: Pin Moirai to merged `main`
   `5ead788c70c728d971237d7afa0b915ea7cf87e3` and regenerate the locked Atlas
   provider graph. Evidence: locked metadata and all-feature `cfd-schematics`
-  check pass with Moirai 0.4 and Themis 0.10. PR publication remains the
-  integration step.
+  check pass with Moirai 0.4 and Themis 0.10. Merged as PR #292.
+- [x] DEP-657-02 [patch]: Preserve the peer's merged Leto `main` source pin
+  `6aedde0c7835238867d6f3cd17b030f7e69cb6f2` and update the accompanying
+  Moirai pin to `5ead788c70c728d971237d7afa0b915ea7cf87e3`. Evidence: locked
+  metadata plus all-feature `cfd-schematics` check and warning-denied Clippy
+  pass after merging current CFDrs `main`.
 - [x] `cfd-1d`/`cfd-3d` [patch]: Delete the two stale scalar-file entries from
   `xtask/legacy_surface.allowlist`; exact source scans are clean and the legacy
   migration audit reports no cleanup candidates while retaining clean status.
