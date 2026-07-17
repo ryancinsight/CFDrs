@@ -1,6 +1,6 @@
 //! GPU integration tests
 //!
-//! Tests GPU compute functionality with wgpu.
+//! Tests GPU compute functionality through the Hephaestus provider.
 //! Detailed GPU kernel tests live in `crates/cfd-core/tests/gpu_integration_test.rs`.
 
 #[cfg(feature = "gpu")]
@@ -14,7 +14,9 @@ mod gpu_tests {
         // GPU context creation can fail in headless environments, which is OK
         if let Ok(context) = GpuContext::create() {
             println!("GPU context created successfully");
-            assert!(context.limits.max_texture_dimension_2d > 0);
+            assert_eq!(context.backend_name(), "wgpu");
+            assert!(context.max_work_group_size() > 0);
+            assert!(context.max_buffer_size() > 0);
         } else {
             println!("GPU not available (expected in CI/headless environments)");
         }

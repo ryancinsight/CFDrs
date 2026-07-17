@@ -7,3 +7,26 @@ failure-output = "immediate"
 
 # Emit status updates for passing/slow tests to see progress in long suites.
 status-level = "all"
+
+# WGPU device creation is a process-global driver resource on this host. The
+# GPU contracts and compute capability detection create their own provider, so
+# Nextest serializes only those hardware-owning tests while unrelated CPU
+# contracts retain normal parallelism.
+[test-groups]
+gpu-device = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = 'package(cfd-core) & (test(/compute::gpu/) | test(/compute::tests/) | test(/gpu_tests/))'
+test-group = 'gpu-device'
+
+[[profile.default.overrides]]
+filter = 'package(cfd-math) & test(/gpu_metrics_tests/)'
+test-group = 'gpu-device'
+
+[[profile.default.overrides]]
+filter = 'package(cfd-2d) & test(/accelerated/)'
+test-group = 'gpu-device'
+
+[[profile.default.overrides]]
+filter = 'package(cfd-suite) & test(/gpu_tests/)'
+test-group = 'gpu-device'

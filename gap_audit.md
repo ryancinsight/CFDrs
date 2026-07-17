@@ -31,6 +31,25 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+- 2026-07-17 (resolved): `GpuContext` acquires and queries through
+  Hephaestus's `ComputeDeviceAcquisition` and `ComputeDeviceCapabilities`
+  seams after provider release 0.16.1 repaired typed downlevel acquisition.
+  The derived seven-storage-binding request preserves the full downlevel
+  descriptor; raw adapter and feature methods are deleted. Nextest serializes
+  only provider-acquiring tests through `gpu-device`, eliminating process-level
+  WGPU device races while CPU tests remain concurrent. Evidence tier:
+  compile-time API removal and empty source scan; value-semantic typed-limit
+  regression; cfd-core GPU 245/245, cfd-math GPU 362/362, cfd-2d GPU 570/570
+  (27 pre-existing skips), root integration 26/26; warning-denied touched
+  targets; doctest/rustdoc; and SemVer's expected major-only classification.
+  The root all-target example lint baseline is independently tracked by
+  CFD-EXAMPLE-CLIPPY-1.
+
+- 2026-07-17 (open): root `cfd-suite --all-targets` Clippy reports 29
+  pre-existing diagnostics across seven validation examples. The current
+  provider migration targets pass warning-denied Clippy; the exact example
+  scope and clean-gate acceptance are tracked by CFD-EXAMPLE-CLIPPY-1.
+
 - 2026-07-17: `cfd-core::compute::gpu::GpuContext::synchronize` now delegates
   completion to Hephaestus `ComputeDevice::synchronize`; `GpuContext` no longer
   exposes raw WGPU device, queue, or limit fields; and cfd-2d creates its
@@ -39,8 +58,8 @@
   coverage (244/244 cfd-core and 2/2 accelerated cfd-2d nextest),
   warning-denied cfd-core all-target Clippy, and exact source audits with no
   `device.poll`, old Poisson constructor, context device/queue access, or
-  public raw-buffer accessor. WGPU-specific adapter/feature introspection
-  remains a separate provider-boundary risk.
+  public raw-buffer accessor. The remaining adapter/feature introspection risk
+  is resolved by the 0.3.0 typed capability boundary above.
 
 - **Verification closure (2026-07-17)**: `cargo doc -p cfd-core --no-deps
   --features gpu --locked` completes warning-clean after the final raw-buffer

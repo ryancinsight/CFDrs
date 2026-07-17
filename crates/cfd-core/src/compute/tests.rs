@@ -188,9 +188,7 @@ fn test_gpu_context_creation() {
     // Try to create GPU context
     match GpuContext::create() {
         Ok(context) => {
-            let info = context.adapter_info();
-            println!("GPU Adapter: {:?}", info.name);
-            println!("GPU Backend: {:?}", info.backend);
+            println!("GPU Backend: {}", context.backend_name());
             println!("Max work group size: {}", context.max_work_group_size());
             println!(
                 "Max buffer size: {} MB",

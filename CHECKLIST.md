@@ -1,6 +1,14 @@
 # CFDrs Work Checklist
 
-Target version: `0.2.0` (pre-1.0 breaking provider-boundary release).
+Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
+
+- [x] `cfd-core` [major]: Delete the remaining public WGPU adapter/feature
+  capability surface from `GpuContext`; acquire and query through Hephaestus
+  traits, preserve the seven-binding downlevel limit contract, and serialize
+  only process-global GPU tests through Nextest. Acceptance: empty raw API
+  consumer scan; value-semantic limit regression; complete cfd-core GPU,
+  cfd-math GPU, cfd-2d GPU, and root integration nextest; warning-denied
+  diagnostics; doctest/rustdoc; and pre-1.0 SemVer classification.
 
 - [x] `cfd-core` [major]: Make the Hephaestus buffer handle crate-private and
   delete `GpuBuffer::buffer`, which exposed a raw WGPU buffer despite having no

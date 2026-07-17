@@ -31,6 +31,24 @@
 
 ## Active integration
 
+- **CFD-GPU-CAPABILITY-1 [major] - Remove the remaining public WGPU
+  capability surface (DONE; owner=Codex; scope=`cfd-core` GPU context,
+  provider consumers, Nextest GPU resource group, release/PM artifacts).**
+  Acquire devices and query capabilities through Hephaestus's typed contracts,
+  preserve the downlevel descriptor while requiring seven storage bindings,
+  delete raw adapter/feature accessors, and serialize only hardware-owning
+  tests. Evidence: empty raw API scan; 245/245 cfd-core GPU, 362/362 cfd-math
+  GPU, 570/570 cfd-2d GPU (27 pre-existing skips), and 26/26 root nextest;
+  warning-denied touched-target Clippy; doctest/rustdoc; and expected
+  major-only SemVer classification for pre-1.0 `0.3.0`.
+
+- **CFD-EXAMPLE-CLIPPY-1 [patch] - Repair root validation-example diagnostics
+  (TODO; scope=`examples/{serpentine_mixing_comprehensive,bifurcation_3d_wall_shear_validation,comprehensive_cfd_validation_suite,venturi_blood_flow_validation,blood_flow_1d_validation,bifurcation_2d_blood_validation,bifurcation_3d_fem_validation}.rs`).**
+  Resolve the 29 warning-denied Clippy findings before restoring a clean
+  `cfd-suite --all-targets` gate. Acceptance: native examples compile and run
+  where CI-safe; no lint suppressions, placeholders, or changed numerical
+  assertions; root all-target Clippy passes with warnings denied.
+
 - **DEP-657-01 [patch] - Publish the merged Moirai provider revision (DONE;
   owner=Codex; scope=`Cargo.toml`, `Cargo.lock`, `cfd-schematics` lint
   remediation, PM artifacts).** Replace the stale explicit Moirai revision
