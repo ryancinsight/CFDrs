@@ -31,6 +31,13 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+- 2026-07-17: Preserved the stale peer's valid Leto source revision
+  `6aedde0c7835238867d6f3cd17b030f7e69cb6f2`, which is merged on Leto `main`,
+  and advanced its Moirai companion pin to merged `main`
+  `5ead788c70c728d971237d7afa0b915ea7cf87e3`. Locked metadata, all-feature
+  `cfd-schematics` check, and warning-denied Clippy pass; evidence tier is
+  compile-time integration.
+
 - 2026-07-16: Updated the workspace Moirai source pin to merged `main`
   `5ead788c70c728d971237d7afa0b915ea7cf87e3`. Locked metadata resolves Moirai
   0.4 and Themis 0.10; `cfd-schematics` all-feature check, warning-denied

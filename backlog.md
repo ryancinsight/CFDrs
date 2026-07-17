@@ -31,15 +31,21 @@
 
 ## Active integration
 
-- **DEP-657-01 [patch] - Publish the merged Moirai provider revision (REVIEW;
+- **DEP-657-01 [patch] - Publish the merged Moirai provider revision (DONE;
   owner=Codex; scope=`Cargo.toml`, `Cargo.lock`, `cfd-schematics` lint
   remediation, PM artifacts).** Replace the stale explicit Moirai revision
   with merged `main` commit `5ead788c70c728d971237d7afa0b915ea7cf87e3` so the
   locked graph resolves Moirai 0.4 with Themis 0.10. `cfd-schematics` now
   compiles its examples and tests under warning-denied Clippy. Acceptance
   evidence: locked metadata, all-feature package check and Clippy, focused
-  nextest, doctests, and no whitespace errors. Publish and merge after the PR
-  check suite succeeds.
+  nextest, doctests, and no whitespace errors. Merged as PR #292.
+- **DEP-657-02 [patch] - Advance merged Leto and Moirai source pins (REVIEW;
+  owner=Codex; scope=`Cargo.toml`, `Cargo.lock`, PM artifacts).** Preserve the
+  stale peer's valid Leto `main` revision `6aedde0c7835238867d6f3cd17b030f7e69cb6f2`
+  and replace its superseded Moirai revision with merged `main`
+  `5ead788c70c728d971237d7afa0b915ea7cf87e3`. Acceptance: locked metadata
+  plus all-feature `cfd-schematics` check and warning-denied Clippy pass on the
+  branch rebased through current CFDrs `main`.
 
 ## Structural Improvements
 - [x] `cfd-1d`/`cfd-3d` [patch]: Remove obsolete legacy-audit exemptions for

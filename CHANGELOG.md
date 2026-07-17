@@ -36,6 +36,7 @@ All notable changes to this project will be documented in this file.
 
 - Updated CFDrs to merged Moirai `main` and regenerated the locked Atlas
   provider graph. The resolved workspace uses Moirai 0.4 with Themis 0.10.
+- Advanced the direct Leto and Leto-ops source pins to merged `main`.
 - Replaced the serpentine-Venturi demo's untyped configuration tuple with a
   named geometry record and repaired warning-denied `cfd-schematics`
   test/example diagnostics.
