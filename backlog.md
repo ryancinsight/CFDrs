@@ -42,12 +42,29 @@
   warning-denied touched-target Clippy; doctest/rustdoc; and expected
   major-only SemVer classification for pre-1.0 `0.3.0`.
 
-- **CFD-EXAMPLE-CLIPPY-1 [patch] - Repair root validation-example diagnostics
-  (TODO; scope=`examples/{serpentine_mixing_comprehensive,bifurcation_3d_wall_shear_validation,comprehensive_cfd_validation_suite,venturi_blood_flow_validation,blood_flow_1d_validation,bifurcation_2d_blood_validation,bifurcation_3d_fem_validation}.rs`).**
-  Resolve the 29 warning-denied Clippy findings before restoring a clean
-  `cfd-suite --all-targets` gate. Acceptance: native examples compile and run
-  where CI-safe; no lint suppressions, placeholders, or changed numerical
-  assertions; root all-target Clippy passes with warnings denied.
+- **CFD-EXAMPLE-CLIPPY-1 [patch] - Restore executable root validation examples
+  (DONE; owner=Codex; scope=`examples/{serpentine_mixing_comprehensive,venturi_blood_flow_validation,blood_flow_1d_validation,bifurcation_2d_blood_validation}.rs` and removal of three false reports).**
+  Resolved all 29 warning-denied diagnostics, replaced the local serpentine and
+  bifurcation calculations with canonical cfd-2d solvers, and corrected the
+  1D pressure-balanced and Fåhræus-Lindqvist oracles. Removed the unreferenced
+  comprehensive, wall-shear, and FEM reports because they presented preset
+  values instead of solver results. Evidence: warning-denied root all-target
+  Clippy; executable runs of all four retained examples; focused cfd-1d
+  nextest and documentation gates; and no lint suppressions or placeholder
+  result paths.
+
+- **CFD-3D-BIFURCATION-BOUNDARIES-1 [arch] - Preserve bifurcation terminal
+  boundary identity through SDF meshing (TODO; driver=`cfd-3d`; owner=unassigned;
+  scope=`Gaia SdfMesher`, `cfd-3d::bifurcation`).**
+  The SDF volume mesh has unlabeled terminal facets while bifurcation
+  post-processing integrates only `outlet_0` and `outlet_1`; both daughter
+  flow rates are therefore zero. Define and preserve planar inlet and distinct
+  daughter outlet boundaries through the mesh and FEM classifier, then add a
+  value-semantic symmetric and asymmetric flow-conservation regression. The
+  invalid root FEM validation example is removed until this cross-repository
+  boundary contract exists. Acceptance: nonzero daughter flows, derived mass
+  balance, labeled-facet assertions, and focused cfd-3d nextest under the
+  committed timeout.
 
 - **DEP-657-01 [patch] - Publish the merged Moirai provider revision (DONE;
   owner=Codex; scope=`Cargo.toml`, `Cargo.lock`, `cfd-schematics` lint

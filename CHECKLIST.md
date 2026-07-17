@@ -2,6 +2,14 @@
 
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
+- [x] CFD-EXAMPLE-CLIPPY-1 [patch]: Replace false root validation reports with
+  canonical cfd-1d/cfd-2d computations, remove three unreferenced reports that
+  contained preset results, and restore warning-denied root example builds.
+  Evidence: four retained examples execute with calculated outputs; root
+  all-target Clippy passes with warnings denied; focused cfd-1d nextest and
+  docs pass. Next increment: CFD-3D-BIFURCATION-BOUNDARIES-1 owns labeled SDF
+  terminal facets before a 3D bifurcation example can return.
+
 - [x] `cfd-core` [major]: Delete the remaining public WGPU adapter/feature
   capability surface from `GpuContext`; acquire and query through Hephaestus
   traits, preserve the seven-binding downlevel limit contract, and serialize
