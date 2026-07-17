@@ -116,7 +116,7 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
 name = "apollo-fft"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "apollo-fft-macros",
  "apollo-leto-interop",
@@ -146,7 +146,7 @@ dependencies = [
 
 [[package]]
 name = "apollo-leto-interop"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "leto",
 ]
@@ -1466,7 +1466,7 @@ dependencies = [
 
 [[package]]
 name = "gaia"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "approx",
@@ -2133,7 +2133,7 @@ dependencies = [
 [[package]]
 name = "moirai-gpu"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#83098256222201994bac08af075d8d39b98f7bc9"
+source = "git+https://github.com/ryancinsight/Moirai.git#e26413230ed334e20ee8589f336496414dcc09ba"
 dependencies = [
  "mnemosyne-core",
  "moirai-core",
@@ -2201,7 +2201,7 @@ dependencies = [
 [[package]]
 name = "moirai-sync"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#83098256222201994bac08af075d8d39b98f7bc9"
+source = "git+https://github.com/ryancinsight/Moirai.git#e26413230ed334e20ee8589f336496414dcc09ba"
 dependencies = [
  "libc",
  "moirai-core",
@@ -2225,7 +2225,7 @@ version = "0.4.0"
 [[package]]
 name = "moirai-utils"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#83098256222201994bac08af075d8d39b98f7bc9"
+source = "git+https://github.com/ryancinsight/Moirai.git#e26413230ed334e20ee8589f336496414dcc09ba"
 
 [[package]]
 name = "munge"
