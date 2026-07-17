@@ -8,6 +8,12 @@ use hephaestus_wgpu::{
 
 const REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE: u32 = 7;
 
+/// The velocity-correction kernel binds seven storage buffers (three velocity
+/// inputs, pressure, three corrected outputs) plus one uniform `Params` buffer.
+/// WGPU 30 counts all eight against the combined per-stage budget, so this must
+/// exceed `REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE` by the uniform binding.
+const REQUIRED_BUFFERS_AND_ACCELERATION_STRUCTURES_PER_SHADER_STAGE: u32 = 8;
+
 pub mod buffer;
 pub mod constants;
 pub mod field_ops;
@@ -100,6 +106,11 @@ fn required_device_limits() -> DeviceLimits {
     // Three velocity inputs, pressure, and three corrected outputs are bound
     // in one operation; provider acquisition rejects unsupported adapters.
     limits.max_storage_buffers_per_shader_stage = Some(REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE);
+    // Those seven storage buffers plus the uniform Params buffer count against
+    // WGPU 30's combined per-stage budget; request all eight explicitly so the
+    // provider does not derive a seven-slot ceiling from the storage limit.
+    limits.max_buffers_and_acceleration_structures_per_shader_stage =
+        Some(REQUIRED_BUFFERS_AND_ACCELERATION_STRUCTURES_PER_SHADER_STAGE);
     limits
 }
 
@@ -113,6 +124,8 @@ mod tests {
         let mut expected = WgpuDevice::downlevel_device_limits();
         expected.max_storage_buffers_per_shader_stage =
             Some(REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE);
+        expected.max_buffers_and_acceleration_structures_per_shader_stage =
+            Some(REQUIRED_BUFFERS_AND_ACCELERATION_STRUCTURES_PER_SHADER_STAGE);
 
         assert_eq!(limits, expected);
     }
