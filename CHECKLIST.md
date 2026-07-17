@@ -2,6 +2,15 @@
 
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
+- [ ] CFD-SPARSE-DIRECT-OWNERSHIP-1 [patch]: Reconcile the stale
+  rsparse-removal work without changing solver semantics.
+  - [ ] Restore the rsparse workspace/package dependency and exact sparse-LU
+    implementation.
+  - [ ] Record Leto sparse-direct factorization as the required upstream
+    replacement boundary.
+  - [ ] Run focused formatting, warning-denied Clippy, and direct/chain
+    Nextest gates; synchronize PM evidence.
+
 - [x] CFD-EXAMPLE-CLIPPY-1 [patch]: Replace false root validation reports with
   canonical cfd-1d/cfd-2d computations, remove three unreferenced reports that
   contained preset results, and restore warning-denied root example builds.
