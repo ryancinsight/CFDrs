@@ -376,14 +376,14 @@ mod tests {
         let upper_phase = calculator
             .calculate_phase_direction(&upper_context)
             .expect("structural invariant");
-        assert_eq!(upper_phase, 1.0);
+        assert_eq!(upper_phase.to_bits(), 1.0_f64.to_bits());
 
         // Test lower channel (should have negative phase)
         let lower_context = create_test_context((10.0, 10.0), (40.0, 15.0));
         let lower_phase = calculator
             .calculate_phase_direction(&lower_context)
             .expect("structural invariant");
-        assert_eq!(lower_phase, -1.0);
+        assert_eq!(lower_phase.to_bits(), (-1.0_f64).to_bits());
     }
 
     #[test]

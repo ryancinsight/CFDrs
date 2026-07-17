@@ -255,18 +255,11 @@ mod tests {
         for (name, value) in wave_params {
             assert!(
                 value.is_finite(),
-                "Parameter {} has invalid value: {}",
-                name,
-                value
+                "Parameter {name} has invalid value: {value}"
             );
             if name != "phase_offset" {
                 // phase_offset can be 0
-                assert!(
-                    value > 0.0,
-                    "Parameter {} should be positive: {}",
-                    name,
-                    value
-                );
+                assert!(value > 0.0, "Parameter {name} should be positive: {value}");
             }
         }
     }

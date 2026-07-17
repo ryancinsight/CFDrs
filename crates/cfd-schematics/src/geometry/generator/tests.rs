@@ -130,7 +130,7 @@ fn generated_serpentine_channels_persist_physical_length_and_shape() {
                     channel.id
                 );
             }
-            ref shape => panic!(
+            shape @ ChannelShape::Straight => panic!(
                 "channel {:?} should be marked serpentine for 1D modeling, got {:?}",
                 channel.id, shape
             ),
