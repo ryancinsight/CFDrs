@@ -31,6 +31,19 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+- 2026-07-17 (resolved stale work; upstream gap open): removing rsparse by
+  routing `DirectSparseSolver` through unpreconditioned GMRES is not a valid
+  provider migration. The solver chain already attempts GMRES after its exact
+  sparse-LU tier, while cfd-2d invokes the direct tier specifically after GMRES
+  stagnation or breakdown; the substitution therefore destroys failure-mode
+  independence and contradicts the public direct-solver contract. Leto 0.38
+  exposes sparse CG and GMRES but no sparse direct factorization. CFDrs retains
+  rsparse until upstream item `LETO-SPARSE-DIRECT-1` provides a generic sparse
+  direct API and differential conformance. Evidence tier: source-level
+  dependency/call-graph inspection, exact tree equivalence to `main`, focused
+  value-semantic Nextest (4/4 cfd-math and 1/1 cfd-2d), and warning-denied
+  cfd-math Clippy.
+
 - 2026-07-17 (resolved): `GpuContext` acquires and queries through
   Hephaestus's `ComputeDeviceAcquisition` and `ComputeDeviceCapabilities`
   seams after provider release 0.16.1 repaired typed downlevel acquisition.

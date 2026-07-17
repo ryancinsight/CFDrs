@@ -2,6 +2,18 @@
 
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
+- [x] CFD-SPARSE-DIRECT-OWNERSHIP-1 [patch]: Reconcile the stale
+  rsparse-removal work without changing solver semantics.
+  - [x] Restore the rsparse workspace/package dependency and exact sparse-LU
+    implementation.
+  - [x] Record `LETO-SPARSE-DIRECT-1` as the required upstream replacement
+    boundary.
+  - [x] Run focused formatting, warning-denied Clippy, and direct/consumer
+    Nextest gates; synchronize PM evidence. Package formatting and cfd-math
+    all-target/all-feature Clippy pass; direct-solver Nextest passes 4/4; the
+    cfd-2d independent direct/GMRES regression passes 1/1. Workspace-wide
+    formatting remains blocked before source inspection by Windows error 206.
+
 - [x] CFD-EXAMPLE-CLIPPY-1 [patch]: Replace false root validation reports with
   canonical cfd-1d/cfd-2d computations, remove three unreferenced reports that
   contained preset results, and restore warning-denied root example builds.

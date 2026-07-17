@@ -31,6 +31,19 @@
 
 ## Active integration
 
+- **CFD-SPARSE-DIRECT-OWNERSHIP-1 [patch] - Preserve the independent sparse
+  direct fallback (DONE; owner=Codex; scope=`Cargo.toml`,
+  `crates/cfd-math/{Cargo.toml,src/linear_solver/direct_solver.rs}`, PM
+  artifacts).** Reconcile stale uncommitted work that replaced the rsparse LU
+  tier with unpreconditioned GMRES. Restore the exact direct-solver contract
+  because callers already reach this tier after GMRES stagnation or breakdown,
+  and record `LETO-SPARSE-DIRECT-1` as the upstream replacement requirement.
+  Evidence: the sparse-LU dependency and implementation are unchanged from
+  `main`; cfd-math direct-solver Nextest passes 4/4; the cfd-2d independent
+  direct/GMRES consumer regression passes 1/1; cfd-math all-target,
+  all-feature Clippy passes with warnings denied; and package formatting is
+  clean.
+
 - **CFD-GPU-CAPABILITY-1 [major] - Remove the remaining public WGPU
   capability surface (DONE; owner=Codex; scope=`cfd-core` GPU context,
   provider consumers, Nextest GPU resource group, release/PM artifacts).**

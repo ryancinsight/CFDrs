@@ -34,6 +34,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Preserved the independent rsparse sparse-LU fallback after rejecting a stale
+  unpreconditioned-GMRES substitution. Leto sparse direct factorization remains
+  an explicit upstream requirement rather than a consumer-side semantic
+  downgrade.
 - Replaced root serpentine and 2D bifurcation validation examples with the
   canonical cfd-2d analytical and discretized solver paths. The 1D blood-flow
   example now validates its pressure-balanced split and Fåhræus-Lindqvist
