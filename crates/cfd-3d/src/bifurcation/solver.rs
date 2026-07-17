@@ -48,9 +48,8 @@ use crate::scalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
-use eunomia::FloatElement;
+use eunomia::{FloatElement, RealField};
 use leto::geometry::Vector3 as LetoVector3;
-use eunomia::RealField;
 
 // ============================================================================
 // 3D Bifurcation Solver
@@ -189,7 +188,7 @@ where
                                     (pi.y + pj.y) * 0.5,
                                     (pi.z + pj.z) * 0.5,
                                 ),
-                                leto::Vector3::new(0.0, 0.0, 0.0),
+                                LetoVector3::new(0.0, 0.0, 0.0),
                             )
                             .as_usize()
                         });
@@ -477,7 +476,7 @@ where
         let p_junc_f64 = self.extract_point_pressure_f64(
             mesh,
             &fem_solution,
-            leto::Vector3::new(scalar::to_f64(self.geometry.l_parent), 0.0_f64, 0.0_f64),
+            LetoVector3::new(scalar::to_f64(self.geometry.l_parent), 0.0_f64, 0.0_f64),
         )?;
         solution.p_junction_mid = scalar::from_f64::<T>(p_junc_f64);
 

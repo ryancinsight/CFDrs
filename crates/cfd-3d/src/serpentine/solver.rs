@@ -53,10 +53,8 @@ use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use cfd_mesh::domain::core::index::{FaceId, VertexId};
 use cfd_mesh::SerpentineMeshBuilder;
-use eunomia::{FloatElement, NumericElement};
+use eunomia::{FloatElement, NumericElement, RealField};
 use leto::geometry::Vector3 as LetoVector3;
-use eunomia::RealField;
-use leto::Vector3;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -368,22 +366,22 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
             }
             tet4.calculate_shape_derivatives(&local_verts[0..4]);
             let p1_grads = matrix3x4_from_columns([
-                Vector3::new(
+                LetoVector3::new(
                     tet4.shape_derivatives[[0, 0]],
                     tet4.shape_derivatives[[1, 0]],
                     tet4.shape_derivatives[[2, 0]],
                 ),
-                Vector3::new(
+                LetoVector3::new(
                     tet4.shape_derivatives[[0, 1]],
                     tet4.shape_derivatives[[1, 1]],
                     tet4.shape_derivatives[[2, 1]],
                 ),
-                Vector3::new(
+                LetoVector3::new(
                     tet4.shape_derivatives[[0, 2]],
                     tet4.shape_derivatives[[1, 2]],
                     tet4.shape_derivatives[[2, 2]],
                 ),
-                Vector3::new(
+                LetoVector3::new(
                     tet4.shape_derivatives[[0, 3]],
                     tet4.shape_derivatives[[1, 3]],
                     tet4.shape_derivatives[[2, 3]],
