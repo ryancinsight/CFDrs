@@ -32,6 +32,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-17 - Typed GPU Capability Boundary
+
+### Changed
+
+- `GpuContext` acquires its provider through Hephaestus'
+  `ComputeDeviceAcquisition` contract and reports capabilities through
+  `ComputeDeviceCapabilities`. The derived seven-storage-binding requirement
+  retains the provider's full downlevel compatibility baseline.
+- Nextest serializes only WGPU provider-acquiring tests through the
+  `gpu-device` group; CPU-only tests remain concurrent.
+
+### Breaking
+
+- `GpuContext::adapter_info` and `GpuContext::supports_features` are removed.
+  Consumers use `backend_name`, `supports_timestamp_queries`,
+  `max_work_group_size`, and `max_buffer_size`; new provider capabilities land
+  in Hephaestus rather than exposing WGPU types through CFDrs.
+
 ## [0.2.0] - 2026-07-17 - Error Consolidation
 
 ### Changed

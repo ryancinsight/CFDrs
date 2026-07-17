@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 /// GPU buffer wrapper
 pub struct GpuBuffer<T: RealField + Pod + Zeroable> {
-    /// Hephaestus-owned WGPU buffer.
+    /// Hephaestus-owned device buffer.
     pub(crate) buffer: HephaestusWgpuBuffer<T>,
     /// Buffer size in elements
     size: usize,
@@ -122,7 +122,7 @@ impl<T: RealField + Pod + Zeroable> std::fmt::Debug for GpuBuffer<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GpuBuffer")
             .field("size", &self.size)
-            .field("buffer", &"<wgpu::Buffer>")
+            .field("buffer", &"<HephaestusDeviceBuffer>")
             .field("context", &"<GpuContext>") // Avoid recursive Debug
             .finish()
     }

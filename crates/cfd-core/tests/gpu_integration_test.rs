@@ -21,9 +21,7 @@ mod gpu_tests {
             return;
         };
 
-        let info = context.adapter_info();
-        println!("GPU Device: {}", info.name);
-        println!("Driver: {}", info.driver);
+        assert_eq!(context.backend_name(), "wgpu");
 
         assert!(context.max_work_group_size() > 0);
         assert!(context.max_buffer_size() > 0);
