@@ -31,6 +31,19 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+- 2026-07-16: Updated the workspace Moirai source pin to merged `main`
+  `5ead788c70c728d971237d7afa0b915ea7cf87e3`. Locked metadata resolves Moirai
+  0.4 and Themis 0.10; `cfd-schematics` all-feature check, warning-denied
+  Clippy, focused nextest, doctests, and docs pass. The source- and
+  test-level evidence is compile-time integration plus value-semantic test
+  coverage.
+- 2026-07-16: Removed the `cfd-schematics` strict-Clippy baseline in the
+  touched test/example cone. Direct geometry/phase values use exact
+  bit-pattern assertions, and the Venturi example exposes named physical
+  fields instead of positional tuple entries. The workspace-wide formatter
+  remains blocked by unrelated pre-existing formatting in
+  `crates/cfd-schematics/src/error.rs`; touched files pass `rustfmt`.
+
 - 2026-07-10: Removed stale allowlist entries for `cfd-1d/src/scalar.rs` and
   `cfd-3d/src/scalar.rs`. Both seams are provider-native and contain no legacy
   dependency tokens; the active `cfd-core` compute-dispatch diff is untouched.

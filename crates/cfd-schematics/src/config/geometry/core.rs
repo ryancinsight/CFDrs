@@ -150,9 +150,18 @@ mod tests {
         )
         .expect("canonical bounds should validate");
 
-        assert_eq!(config.wall_clearance, constants::MIN_WALL_CLEARANCE);
-        assert_eq!(config.channel_width, constants::MIN_CHANNEL_WIDTH * 2.0);
-        assert_eq!(config.channel_height, constants::MAX_CHANNEL_HEIGHT);
+        assert_eq!(
+            config.wall_clearance.to_bits(),
+            constants::MIN_WALL_CLEARANCE.to_bits()
+        );
+        assert_eq!(
+            config.channel_width.to_bits(),
+            (constants::MIN_CHANNEL_WIDTH * 2.0).to_bits()
+        );
+        assert_eq!(
+            config.channel_height.to_bits(),
+            constants::MAX_CHANNEL_HEIGHT.to_bits()
+        );
     }
 
     #[test]
@@ -172,7 +181,7 @@ mod tests {
                 constraint,
             } => {
                 assert_eq!(field, "wall_clearance");
-                assert_eq!(value, constants::MIN_WALL_CLEARANCE);
+                assert_eq!(value.to_bits(), constants::MIN_WALL_CLEARANCE.to_bits());
                 assert!(constraint.contains("channel_width"));
             }
             other => panic!("unexpected error: {other:?}"),

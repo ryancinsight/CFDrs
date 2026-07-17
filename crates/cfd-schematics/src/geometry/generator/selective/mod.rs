@@ -309,8 +309,7 @@ mod tests {
 
         assert!(
             lane_keys.len() >= 3,
-            "Tri->Tri selective trees must preserve multiple treatment-window lanes instead of collapsing to a centerline surrogate, got {:?}",
-            lane_keys
+            "Tri->Tri selective trees must preserve multiple treatment-window lanes instead of collapsing to a centerline surrogate, got {lane_keys:?}"
         );
     }
 

@@ -29,6 +29,18 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # CFDrs Backlog
 
+## Active integration
+
+- **DEP-657-01 [patch] - Publish the merged Moirai provider revision (REVIEW;
+  owner=Codex; scope=`Cargo.toml`, `Cargo.lock`, `cfd-schematics` lint
+  remediation, PM artifacts).** Replace the stale explicit Moirai revision
+  with merged `main` commit `5ead788c70c728d971237d7afa0b915ea7cf87e3` so the
+  locked graph resolves Moirai 0.4 with Themis 0.10. `cfd-schematics` now
+  compiles its examples and tests under warning-denied Clippy. Acceptance
+  evidence: locked metadata, all-feature package check and Clippy, focused
+  nextest, doctests, and no whitespace errors. Publish and merge after the PR
+  check suite succeeds.
+
 ## Structural Improvements
 - [x] `cfd-1d`/`cfd-3d` [patch]: Remove obsolete legacy-audit exemptions for
   the Eunomia/Leto scalar seams after confirming both files contain no legacy

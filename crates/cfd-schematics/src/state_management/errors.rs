@@ -43,7 +43,7 @@ mod tests {
     fn test_constraint_error_creation() {
         let error = ConstraintErrorKind::range_violation(&-1.0, &0.0, &10.0);
         assert!(error.to_string().contains("-1"));
-        assert!(error.to_string().contains("0"));
+        assert!(error.to_string().contains('0'));
         assert!(error.to_string().contains("10"));
     }
 }
