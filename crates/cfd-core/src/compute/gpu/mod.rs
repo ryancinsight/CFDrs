@@ -1,8 +1,7 @@
 //! GPU compute backend using Hephaestus' WGPU provider ABI.
 
 use crate::error::{Error, Result};
-use hephaestus_wgpu::{wgpu, WgpuDevice};
-use std::sync::Arc;
+use hephaestus_wgpu::{ComputeDevice, WgpuDevice, wgpu};
 
 const REQUIRED_STORAGE_BUFFERS_PER_SHADER_STAGE: u32 = 7;
 
@@ -29,12 +28,8 @@ pub struct GpuContext {
     adapter_info: wgpu::AdapterInfo,
     /// Enabled WGPU features for this provider device.
     features: wgpu::Features,
-    /// GPU device
-    pub device: Arc<wgpu::Device>,
-    /// Command queue
-    pub queue: Arc<wgpu::Queue>,
     /// Device limits
-    pub limits: wgpu::Limits,
+    limits: wgpu::Limits,
 }
 
 impl GpuContext {
@@ -72,22 +67,17 @@ impl GpuContext {
 
         let features = provider.features();
         let limits = provider.limits();
-        let device = provider.device().clone();
-        let queue = provider.queue().clone();
-
         Ok(Self {
             provider,
             adapter_info,
             features,
-            device,
-            queue,
             limits,
         })
     }
 
     /// Get the Hephaestus WGPU provider.
     #[must_use]
-    pub fn provider(&self) -> &WgpuDevice {
+    pub(crate) fn provider(&self) -> &WgpuDevice {
         &self.provider
     }
 
@@ -112,12 +102,9 @@ impl GpuContext {
     /// Block until submitted GPU work visible to this context has completed.
     ///
     /// # Errors
-    /// Returns an error if WGPU reports that polling failed.
+    /// Returns an error if the Hephaestus provider cannot observe completion.
     pub fn synchronize(&self) -> Result<()> {
-        self.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|error| {
-            Error::InvalidConfiguration(format!("GPU device poll failed: {error:?}"))
-        })?;
-        Ok(())
+        self.provider.synchronize().map_err(Error::from)
     }
 
     /// Get maximum work group size

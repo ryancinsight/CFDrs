@@ -40,9 +40,8 @@ impl AcceleratedPoissonSolver {
         #[cfg(feature = "gpu")]
         {
             if let Ok(gpu_context) = cfd_core::compute::gpu::GpuContext::create() {
-                if let Ok(gpu_solver) = cfd_core::compute::gpu::GpuPoissonSolver::new(
-                    gpu_context.device.clone(),
-                    gpu_context.queue.clone(),
+                if let Ok(gpu_solver) = cfd_core::compute::gpu::GpuPoissonSolver::from_context(
+                    &gpu_context,
                     _nx,
                     _ny,
                     _dx,

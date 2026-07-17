@@ -1,14 +1,13 @@
 //! GPU-accelerated Poisson equation solver.
 //!
-//! The solver owns Hephaestus WGPU provider kernels and buffers; raw WGPU
-//! handles appear only at the public constructor boundary for existing callers.
+//! The solver owns Hephaestus WGPU provider kernels and buffers.
 
+use super::GpuContext;
 use crate::error::{Error, Result};
 use hephaestus_wgpu::{
-    wgpu, ComputeDevice, DispatchGrid, MultiStorageKernel, WgpuBuffer, WgpuDevice,
+    ComputeDevice, DispatchGrid, MultiStorageKernel, WgpuBuffer, WgpuDevice,
     WgslMultiStorageKernel, WgslStorageBinding, WgslStorageBindingLayout,
 };
-use std::sync::Arc;
 
 /// GPU Poisson solver parameters.
 #[repr(C)]
@@ -39,21 +38,20 @@ pub struct GpuPoissonSolver {
 }
 
 impl GpuPoissonSolver {
-    /// Create a new GPU Poisson solver.
+    /// Create a new GPU Poisson solver from an acquired Hephaestus context.
     ///
     /// # Errors
     ///
     /// Returns an error if the Hephaestus WGSL kernels cannot be compiled for
-    /// the supplied WGPU device.
-    pub fn new(
-        device: Arc<wgpu::Device>,
-        queue: Arc<wgpu::Queue>,
+    /// the context's provider device.
+    pub fn from_context(
+        context: &GpuContext,
         nx: usize,
         ny: usize,
         dx: f32,
         dy: f32,
     ) -> Result<Self> {
-        let provider = WgpuDevice::new(device, queue);
+        let provider = context.provider().clone();
         let storage_layouts = [
             WgslStorageBindingLayout::read_only(1),
             WgslStorageBindingLayout::read_only(2),

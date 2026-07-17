@@ -31,6 +31,30 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+- 2026-07-17: `cfd-core::compute::gpu::GpuContext::synchronize` now delegates
+  completion to Hephaestus `ComputeDevice::synchronize`; `GpuContext` no longer
+  exposes raw WGPU device, queue, or limit fields; and cfd-2d creates its
+  Poisson solver through `GpuPoissonSolver::from_context`. Evidence tier:
+  compile-time provider integration plus GPU-enabled value-semantic regression
+  coverage (244/244 cfd-core and 2/2 accelerated cfd-2d nextest),
+  warning-denied cfd-core all-target Clippy, and exact source audits with no
+  `device.poll`, old Poisson constructor, context device/queue access, or
+  public raw-buffer accessor. WGPU-specific adapter/feature introspection
+  remains a separate provider-boundary risk.
+
+- **Verification closure (2026-07-17)**: `cargo doc -p cfd-core --no-deps
+  --features gpu --locked` completes warning-clean after the final raw-buffer
+  visibility change. The final source state is verified by cfd-core GPU
+  nextest 244/244, cfd-2d accelerated nextest 2/2, warning-denied cfd-core/
+  cfd-2d Clippy, and the package documentation gate.
+
+- **SemVer classification (2026-07-17)**: Git-baseline semver checks identify
+  the intentional removals as three breaking API classes under a minor-change
+  assumption. The explicit major-change classification passes. CFDrs remains
+  pre-1.0, so the workspace advances from `0.1.0` to `0.2.0` and records the
+  migration in the `0.2.0` changelog section without retaining a compatibility
+  surface.
+
 - 2026-07-17: Preserved the stale peer's valid Leto source revision
   `6aedde0c7835238867d6f3cd17b030f7e69cb6f2`, which is merged on Leto `main`,
   and advanced its Moirai companion pin to merged `main`

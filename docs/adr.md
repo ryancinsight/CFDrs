@@ -72,6 +72,34 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-17: Hephaestus owns acquired Poisson devices [major]
+
+**Context**: `GpuContext` acquired a Hephaestus WGPU provider but then exposed
+its raw device, queue, and limits. cfd-2d rebuilt a `WgpuDevice` only to
+construct `GpuPoissonSolver`, creating a second ownership boundary for the same
+provider resource.
+
+**Decision**: Delete the public raw context fields,
+`GpuPoissonSolver::new(device, queue, ...)`, and `GpuBuffer` raw-buffer
+access. `GpuPoissonSolver::from_context` clones the context's already-acquired
+provider internally; raw buffer handles stay within cfd-core typed kernels.
+cfd-2d therefore depends on the CFD context contract rather than a WGPU handle
+pair.
+
+**Rejected alternative**: Retaining a forwarding raw-handle constructor would
+preserve the duplicate boundary and allow consumers to reconstruct providers.
+A context-local wrapper around the old constructor was rejected for the same
+reason.
+
+**Consequences**: The public migration is breaking: callers construct a
+`GpuContext` and pass it to `from_context`; raw buffers cannot cross the
+cfd-core boundary. WGPU-specific adapter/feature reporting remains a separate
+audit item.
+
+**Evidence**: GPU-enabled cfd-core nextest passes 244/244 and cfd-2d
+accelerated-solver nextest passes 2/2. Exact source audits find no old
+constructor or context device/queue accesses.
+
 ### 2026-07-10: delete generic GPU pipeline ownership [arch]
 
 **Context**: After every live CFD GPU operation moved to a typed Hephaestus

@@ -48,6 +48,21 @@
   branch rebased through current CFDrs `main`.
 
 ## Structural Improvements
+- [x] `cfd-core` [major]: Remove public raw WGPU access from `GpuBuffer`.
+  Restrict its Hephaestus buffer handle to cfd-core and delete the unused raw
+  accessor. Acceptance: GPU core regressions pass and typed-kernel dispatch is
+  the only remaining handle consumer.
+- [x] `cfd-core`/`cfd-2d` [major]: Make the acquired Hephaestus context the
+  sole GPU Poisson construction boundary. Delete public raw WGPU device, queue,
+  and limit fields plus `GpuPoissonSolver::new(device, queue, ...)`; use
+  `GpuPoissonSolver::from_context` at every live caller. Acceptance: GPU
+  accelerated-solver and cfd-core regressions pass, with empty old-constructor
+  and context device/queue consumer scans.
+- [x] `cfd-core` [patch]: Delegate GPU completion through Hephaestus
+  `ComputeDevice::synchronize` and remove the direct WGPU polling call from
+  `GpuContext`. Evidence: GPU core nextest 244/244, warning-denied all-target
+  Clippy, formatter check, and an exact GPU-tree source audit with no
+  `device.poll` residue.
 - [x] `cfd-1d`/`cfd-3d` [patch]: Remove obsolete legacy-audit exemptions for
   the Eunomia/Leto scalar seams after confirming both files contain no legacy
   dependency tokens. Preserve the active `cfd-core` compute-dispatch work.

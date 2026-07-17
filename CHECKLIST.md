@@ -1,4 +1,21 @@
 # CFDrs Work Checklist
+
+Target version: `0.2.0` (pre-1.0 breaking provider-boundary release).
+
+- [x] `cfd-core` [major]: Make the Hephaestus buffer handle crate-private and
+  delete `GpuBuffer::buffer`, which exposed a raw WGPU buffer despite having no
+  external consumer. Evidence: GPU-enabled cfd-core nextest 244/244 and source
+  audit shows the handle is used only by the typed Laplacian dispatch.
+- [x] `cfd-core`/`cfd-2d` [major]: Remove public raw WGPU device, queue, and
+  limit fields from `GpuContext`; replace `GpuPoissonSolver::new(device,
+  queue, ...)` with `from_context(&GpuContext, ...)`. Evidence: GPU-enabled
+  accelerated-solver nextest 2/2, cfd-core nextest 244/244, and exact consumer
+  scans contain no old constructor or context device/queue access.
+- [x] `cfd-core` [patch]: Route `GpuContext::synchronize` through the
+  Hephaestus `ComputeDevice` contract instead of calling the raw WGPU polling
+  API. Evidence: touched-file `rustfmt --check`, GPU-enabled core nextest
+  (244/244), and warning-denied GPU all-target Clippy pass; the GPU compute
+  tree contains no direct `device.poll` call.
 - [x] `cfd-schematics` [patch]: Replace the unnamed serpentine-Venturi tuple
   with a typed geometry record and repair all warning-denied test/example
   diagnostics. Exact bit equality preserves the direct-value contract for

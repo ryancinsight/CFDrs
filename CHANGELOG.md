@@ -30,10 +30,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - Error Consolidation
+## [Unreleased]
+
+## [0.2.0] - 2026-07-17 - Error Consolidation
 
 ### Changed
 
+- `cfd-core::compute::gpu::GpuContext::synchronize` now uses Hephaestus'
+  backend-neutral `ComputeDevice` completion contract rather than polling the
+  underlying WGPU device directly.
 - Updated CFDrs to merged Moirai `main` and regenerated the locked Atlas
   provider graph. The resolved workspace uses Moirai 0.4 with Themis 0.10.
 - Advanced the direct Leto and Leto-ops source pins to merged `main`.
@@ -43,6 +48,11 @@ All notable changes to this project will be documented in this file.
 
 ### Breaking
 
+- `GpuContext` no longer exposes raw WGPU device, queue, or limit fields, and
+  `GpuPoissonSolver::new(device, queue, ...)` is removed. Construct the solver
+  with `GpuPoissonSolver::from_context(&context, ...)` so Hephaestus retains
+  provider ownership. `GpuBuffer` no longer exposes its raw buffer handle or
+  a `buffer` accessor.
 - Removed `spmv_parallel`, `IterativeSolverConfig::use_parallel_spmv`,
   `IterativeSolverConfig::with_parallel_spmv`, and
   `MomentumSolver::with_parallel_spmv`. Callers use `spmv`, `try_spmv`, and
