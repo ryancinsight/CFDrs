@@ -1,6 +1,6 @@
 //! Types for the 2D Laplacian GPU kernel.
 
-use bytemuck::{Pod, Zeroable};
+use hephaestus_wgpu::BoundaryCondition;
 
 /// Boundary condition type for Laplacian operator
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -14,14 +14,6 @@ pub enum BoundaryType {
 }
 
 impl BoundaryType {
-    pub(super) fn as_u32(self) -> u32 {
-        match self {
-            BoundaryType::Dirichlet => 0,
-            BoundaryType::Neumann => 1,
-            BoundaryType::Periodic => 2,
-        }
-    }
-
     #[allow(missing_docs)]
     #[must_use]
     pub fn description(self) -> &'static str {
@@ -45,11 +37,13 @@ impl BoundaryType {
     }
 }
 
-/// Uniform parameters for 2D Laplacian
-/// Use 16-byte aligned fields to guarantee consistent WGSL uniform layout.
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
-pub(super) struct Laplacian2DUniforms {
-    pub dims_bc: [u32; 4], // (nx, ny, bc_type, pad)
-    pub inv2: [f32; 4],    // (dx_inv2, dy_inv2, 0.0, 0.0)
+impl From<BoundaryType> for BoundaryCondition {
+    fn from(value: BoundaryType) -> Self {
+        match value {
+            BoundaryType::Dirichlet => BoundaryCondition::Dirichlet,
+            BoundaryType::Neumann => BoundaryCondition::Neumann,
+            BoundaryType::Periodic => BoundaryCondition::Periodic,
+        }
+    }
 }
+
