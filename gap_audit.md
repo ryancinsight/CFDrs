@@ -313,6 +313,11 @@
 - **Resolved fake generic**: `GpuLaplacianOperator2D` now exposes its actual
   WGSL `f32` contract. The prior generic path converted spacing to `f32` while
   reinterpreting arbitrary `T` device storage as `f32`.
+- **Resolved dimensional ambiguity**: The CFD facade, kernel wrapper, and
+  matrix-free operator now carry Aequitas `Length<f32>` spacing. CFDrs
+  validates finite positive metre values, and Hephaestus converts quantities
+  once into its provider-owned POD parameter block; no unit wrapper enters
+  device storage or the WGSL loop.
 - **Resolved periodic-boundary drift**: Endpoint-inclusive periodic neighbors
   now wrap to the opposite inner point (`nx-2`/`1`, `ny-2`/`1`) as documented
   and as implemented by the independent CPU oracle.
@@ -320,8 +325,9 @@
   `Option::map_or`, closing the warning surfaced by the full all-target gate.
 - **Evidence tier**: Compile-time provider integration, exact and
   analytically-bounded GPU/CPU differential tests, typed negative tests, and
-  static source audit. No-default and GPU checks pass; focused Laplacian
-  nextest passes 10/10; full `cfd-core` and `cfd-math` nextest pass 231/231 and
+  static source audit. No-default and GPU checks pass; the typed-spacing
+  focused Laplacian nextest passes 13/13; full `cfd-core` and `cfd-math`
+  nextest for the provider migration pass 231/231 and
   362/362; warning-denied all-target clippy passes; doctests pass 6/6 with 3
   intentionally ignored; package docs are warning-clean.
 - **SemVer evidence limit**: `cargo-semver-checks check-release -p cfd-core -p

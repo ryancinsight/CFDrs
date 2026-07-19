@@ -34,6 +34,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking / architecture**: GPU Laplacian spacing now uses Aequitas
+  `Length<f32>` through the CFDrs facade and Hephaestus provider boundary.
+  Raw metre comments no longer carry the dimensional contract; unit conversion
+  is resolved once before dispatch.
+
 - Preserved the independent rsparse sparse-LU fallback after rejecting a stale
   unpreconditioned-GMRES substitution. Leto sparse direct factorization remains
   an explicit upstream requirement rather than a consumer-side semantic

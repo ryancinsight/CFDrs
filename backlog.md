@@ -167,6 +167,12 @@
   stencil only as an independent test oracle. Complete with 10/10 focused,
   231/231 core, and 362/362 math tests; warning-denied clippy; doctests; docs;
   and static provider-residue verification.
+- [x] `cfd-core`/`cfd-math` [arch]: Enforce the Laplacian spacing dimension
+  through Aequitas `Length<f32>` from the CFD facade to the Hephaestus
+  parameter boundary. Validate finite positive metre values before dispatch
+  and retain raw scalars only in the provider-owned POD/WGSL representation.
+  Evidence: GPU-feature checks and warning-denied all-target Clippy pass;
+  focused Laplacian Nextest passes 13/13; doctests pass 6/6 with 2 ignored.
 - [x] `cfd-core` [arch]: Consolidate GPU add and scalar multiply on the
   Hephaestus elementwise SSOT. Delete the raw WGPU pipelines, local WGSL,
   staging/polling code, and silent CPU fallbacks; retain one fallible

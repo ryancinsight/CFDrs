@@ -1,11 +1,16 @@
 use super::GpuFieldOps;
 use crate::compute::gpu::GpuContext;
 use crate::error::Error;
+use aequitas::systems::si::{quantities::Length, units::Meter};
 use std::sync::Arc;
 
 fn operations() -> GpuFieldOps {
     let context = GpuContext::create().expect("GPU arithmetic tests require a WGPU provider");
     GpuFieldOps::new(Arc::new(context)).expect("field kernels must compile through Hephaestus")
+}
+
+fn meters(value: f32) -> Length<f32> {
+    Length::from_unit::<Meter>(value)
 }
 
 #[test]
@@ -103,7 +108,7 @@ fn laplacian_rejects_invalid_contracts() {
 
     let mut output = [0.0; 4];
     let input_error = operations
-        .laplacian_2d(&[1.0; 3], 2, 2, 1.0, 1.0, &mut output)
+        .laplacian_2d(&[1.0; 3], 2, 2, meters(1.0), meters(1.0), &mut output)
         .unwrap_err();
     assert!(matches!(
         input_error,
@@ -115,7 +120,7 @@ fn laplacian_rejects_invalid_contracts() {
 
     let mut short_output = [0.0; 3];
     let output_error = operations
-        .laplacian_2d(&[1.0; 4], 2, 2, 1.0, 1.0, &mut short_output)
+        .laplacian_2d(&[1.0; 4], 2, 2, meters(1.0), meters(1.0), &mut short_output)
         .unwrap_err();
     assert!(matches!(
         output_error,
@@ -126,7 +131,7 @@ fn laplacian_rejects_invalid_contracts() {
     ));
 
     let spacing_error = operations
-        .laplacian_2d(&[1.0; 4], 2, 2, 0.0, 1.0, &mut output)
+        .laplacian_2d(&[1.0; 4], 2, 2, meters(0.0), meters(1.0), &mut output)
         .unwrap_err();
     assert!(matches!(spacing_error, Error::InvalidConfiguration(_)));
 }

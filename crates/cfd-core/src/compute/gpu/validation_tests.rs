@@ -5,6 +5,7 @@
 mod tests {
     use super::super::field_ops::GpuFieldOps;
     use crate::compute::gpu::GpuContext;
+    use aequitas::systems::si::{quantities::Length, units::Meter};
     use approx::assert_relative_eq;
     use std::sync::Arc;
 
@@ -38,7 +39,14 @@ mod tests {
 
         let mut gpu_result = vec![0.0; field.len()];
         gpu_ops
-            .laplacian_2d(&field, nx as usize, ny as usize, dx, dy, &mut gpu_result)
+            .laplacian_2d(
+                &field,
+                nx as usize,
+                ny as usize,
+                Length::from_unit::<Meter>(dx),
+                Length::from_unit::<Meter>(dy),
+                &mut gpu_result,
+            )
             .expect("Hephaestus Laplacian dispatch must succeed");
 
         // Interior points should have Laplacian ≈ 4

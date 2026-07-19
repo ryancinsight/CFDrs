@@ -72,6 +72,27 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-19: Aequitas owns GPU stencil spacing [arch]
+
+**Context**: The CFD Laplacian and its Hephaestus provider accepted unlabelled
+`f32` grid spacing. Documentation called the values spacing but could not
+prevent metres and other length units from being mixed at the dispatch
+boundary.
+
+**Decision**: The public CFD Laplacian facade, matrix-free operator, and
+Hephaestus parameter constructor accept Aequitas `Length<f32>`. CFDrs retains
+grid and boundary validation; Hephaestus converts typed lengths to canonical
+metres once while constructing the POD parameter block.
+
+**Rejected alternative**: Retaining raw scalars with metre comments was
+rejected because comments do not enforce dimensional compatibility. A
+CFDrs-local quantity wrapper was rejected because Aequitas is the Atlas
+physical-quantity SSOT.
+
+**Consequences**: Callers construct spacing with an Aequitas unit marker.
+Device buffers and WGSL remain native `f32`, so no quantity metadata or dynamic
+dispatch enters the kernel path.
+
 ### 2026-07-17: Hephaestus owns acquired Poisson devices [major]
 
 **Context**: `GpuContext` acquired a Hephaestus WGPU provider but then exposed

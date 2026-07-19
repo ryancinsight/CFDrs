@@ -9,7 +9,10 @@ use crate::compute::gpu::buffer::GpuBuffer;
 use crate::compute::gpu::GpuContext;
 use crate::compute::traits::ComputeBuffer;
 use crate::error::{Error, Result};
-use hephaestus_wgpu::{ComputeDevice, Laplacian2DParams, Laplacian2DKernel as HephaestusLaplacian2DKernel};
+use aequitas::systems::si::{quantities::Length, units::Meter};
+use hephaestus_wgpu::{
+    ComputeDevice, Laplacian2DKernel as HephaestusLaplacian2DKernel, Laplacian2DParams,
+};
 use std::sync::Arc;
 
 /// GPU kernel for the second-order two-dimensional Laplacian.
@@ -39,8 +42,8 @@ impl Laplacian2DKernel {
         field: &[f32],
         nx: usize,
         ny: usize,
-        dx: f32,
-        dy: f32,
+        dx: Length<f32>,
+        dy: Length<f32>,
         result: &mut [f32],
     ) -> Result<()> {
         self.execute_with_bc(field, nx, ny, dx, dy, BoundaryType::Dirichlet, result)
@@ -56,8 +59,8 @@ impl Laplacian2DKernel {
         field: &[f32],
         nx: usize,
         ny: usize,
-        dx: f32,
-        dy: f32,
+        dx: Length<f32>,
+        dy: Length<f32>,
         bc: BoundaryType,
         result: &mut [f32],
     ) -> Result<()> {
@@ -81,13 +84,17 @@ impl Laplacian2DKernel {
         output: &mut GpuBuffer<f32>,
         nx: usize,
         ny: usize,
-        dx: f32,
-        dy: f32,
+        dx: Length<f32>,
+        dy: Length<f32>,
         bc: BoundaryType,
     ) -> Result<()> {
         let params = validate_contract(input.size(), output.size(), nx, ny, dx, dy, bc)?;
-        self.kernel
-            .dispatch(self.context.provider(), &input.buffer, &output.buffer, &params)?;
+        self.kernel.dispatch(
+            self.context.provider(),
+            &input.buffer,
+            &output.buffer,
+            &params,
+        )?;
         Ok(())
     }
 }
@@ -97,8 +104,8 @@ fn validate_contract(
     output_len: usize,
     nx: usize,
     ny: usize,
-    dx: f32,
-    dy: f32,
+    dx: Length<f32>,
+    dy: Length<f32>,
     bc: BoundaryType,
 ) -> Result<Laplacian2DParams> {
     if nx < 2 || ny < 2 {
@@ -106,9 +113,11 @@ fn validate_contract(
             "Laplacian grid axes must contain at least two points: nx={nx}, ny={ny}"
         )));
     }
-    if !dx.is_finite() || dx <= 0.0 || !dy.is_finite() || dy <= 0.0 {
+    let dx_m = dx.in_unit::<Meter>();
+    let dy_m = dy.in_unit::<Meter>();
+    if !dx_m.is_finite() || dx_m <= 0.0 || !dy_m.is_finite() || dy_m <= 0.0 {
         return Err(Error::InvalidConfiguration(format!(
-            "Laplacian spacing must be finite and positive: dx={dx}, dy={dy}"
+            "Laplacian spacing must be finite and positive: dx={dx_m} m, dy={dy_m} m"
         )));
     }
     let expected = nx.checked_mul(ny).ok_or_else(|| {
@@ -135,4 +144,3 @@ fn validate_contract(
 
     Ok(Laplacian2DParams::new(nx, ny, dx, dy, bc.into())?)
 }
-

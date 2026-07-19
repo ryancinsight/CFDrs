@@ -18,6 +18,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
+name = "aequitas"
+version = "0.1.0"
+source = "git+https://github.com/ryancinsight/aequitas?rev=49ee8004e008a480ac871c3782d00d921ba41c01#49ee8004e008a480ac871c3782d00d921ba41c01"
+dependencies = [
+ "eunomia",
+ "typenum",
+]
+
+[[package]]
 name = "ahash"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -501,6 +510,7 @@ dependencies = [
 name = "cfd-core"
 version = "0.3.0"
 dependencies = [
+ "aequitas",
  "anyhow",
  "approx",
  "bytemuck",
@@ -547,6 +557,7 @@ dependencies = [
 name = "cfd-math"
 version = "0.3.0"
 dependencies = [
+ "aequitas",
  "approx",
  "bytemuck",
  "cfd-core",
@@ -1626,6 +1637,7 @@ dependencies = [
 name = "hephaestus-wgpu"
 version = "0.18.0"
 dependencies = [
+ "aequitas",
  "bytemuck",
  "eunomia",
  "hephaestus-core",

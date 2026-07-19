@@ -2,6 +2,7 @@
 
 use super::GpuFieldOps;
 use crate::error::Result;
+use aequitas::systems::si::quantities::Length;
 
 impl GpuFieldOps {
     /// Compute the two-dimensional Laplacian of `field` into `result`.
@@ -13,8 +14,8 @@ impl GpuFieldOps {
         field: &[f32],
         nx: usize,
         ny: usize,
-        dx: f32,
-        dy: f32,
+        dx: Length<f32>,
+        dy: Length<f32>,
         result: &mut [f32],
     ) -> Result<()> {
         self.laplacian_kernel.execute(field, nx, ny, dx, dy, result)
