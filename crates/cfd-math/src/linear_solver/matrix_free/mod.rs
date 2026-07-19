@@ -20,7 +20,7 @@ pub use crate::linear_solver::traits::LinearOperator;
 
 #[cfg(feature = "gpu")]
 pub use crate::linear_solver::operators::gpu::{
-    BoundaryType, DispatchMetrics, GpuLaplacianOperator2D,
+    BoundaryCondition, DispatchMetrics, GpuLaplacianOperator2D,
 };
 
 #[cfg(test)]

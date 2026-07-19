@@ -9,7 +9,7 @@ pub mod momentum;
 pub mod poisson;
 
 #[cfg(feature = "gpu")]
-pub use gpu::{BoundaryType, GpuLaplacianOperator2D};
+pub use gpu::{BoundaryCondition, GpuLaplacianOperator2D};
 pub use momentum::{EnergyOperator2D, MomentumOperator1D, MomentumOperator2D};
 pub use poisson::{LaplacianOperator2D, PoissonOperator3D};
 

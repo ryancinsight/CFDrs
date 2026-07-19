@@ -7,7 +7,7 @@ use crate::linear_solver::traits::{GpuLinearOperator, LinearOperator};
 #[cfg(feature = "gpu")]
 use aequitas::systems::si::quantities::Length;
 #[cfg(feature = "gpu")]
-pub use cfd_core::compute::gpu::kernels::laplacian::BoundaryType;
+pub use cfd_core::compute::gpu::kernels::laplacian::BoundaryCondition;
 #[cfg(feature = "gpu")]
 use cfd_core::compute::gpu::{kernels::laplacian::Laplacian2DKernel, GpuBuffer, GpuContext};
 #[cfg(feature = "gpu")]
@@ -39,7 +39,7 @@ pub struct GpuLaplacianOperator2D {
     ny: usize,
     dx: Length<f32>,
     dy: Length<f32>,
-    bc: BoundaryType,
+    bc: BoundaryCondition,
 }
 
 #[cfg(feature = "gpu")]
@@ -54,7 +54,7 @@ impl GpuLaplacianOperator2D {
         ny: usize,
         dx: Length<f32>,
         dy: Length<f32>,
-        bc: BoundaryType,
+        bc: BoundaryCondition,
     ) -> Result<Self> {
         let kernel = Laplacian2DKernel::new(gpu_context.clone())?;
         Ok(Self {

@@ -2,7 +2,7 @@
 
 use super::cpu_reference::execute_cpu_reference;
 use super::kernel::Laplacian2DKernel;
-use super::types::BoundaryType;
+use super::types::BoundaryCondition;
 use crate::compute::gpu::GpuContext;
 use aequitas::systems::si::{quantities::Length, units::Meter};
 use std::sync::Arc;
@@ -20,7 +20,7 @@ fn execute_gpu(
     ny: usize,
     dx: f32,
     dy: f32,
-    bc: BoundaryType,
+    bc: BoundaryCondition,
     result: &mut [f32],
 ) {
     kernel
@@ -42,7 +42,7 @@ fn execute_cpu_reference_path(
     ny: usize,
     dx: f32,
     dy: f32,
-    bc: BoundaryType,
+    bc: BoundaryCondition,
     result: &mut [f32],
 ) {
     execute_cpu_reference(field, nx, ny, dx, dy, bc, result);
@@ -94,7 +94,7 @@ fn test_laplacian_accuracy_polynomial() {
         n,
         dx,
         dy,
-        BoundaryType::Dirichlet,
+        BoundaryCondition::Dirichlet,
         &mut result,
     );
 
@@ -148,7 +148,7 @@ fn test_laplacian_convergence_rate() {
             n,
             dx,
             dy,
-            BoundaryType::Dirichlet,
+            BoundaryCondition::Dirichlet,
             &mut result,
         );
 
@@ -199,7 +199,7 @@ fn test_boundary_conditions_dirichlet() {
         n,
         dx,
         dy,
-        BoundaryType::Dirichlet,
+        BoundaryCondition::Dirichlet,
         &mut result,
     );
 
@@ -245,7 +245,7 @@ fn test_boundary_conditions_neumann() {
         n,
         dx,
         dy,
-        BoundaryType::Neumann,
+        BoundaryCondition::Neumann,
         &mut result,
     );
 
@@ -308,7 +308,7 @@ fn test_boundary_conditions_periodic() {
         n,
         dx,
         dy,
-        BoundaryType::Periodic,
+        BoundaryCondition::Periodic,
         &mut result,
     );
 
@@ -396,9 +396,9 @@ fn test_boundary_conditions_comprehensive() {
         }
 
         let bc = match bc_type {
-            "Neumann" => BoundaryType::Neumann,
-            "Periodic" => BoundaryType::Periodic,
-            _ => BoundaryType::Dirichlet,
+            "Neumann" => BoundaryCondition::Neumann,
+            "Periodic" => BoundaryCondition::Periodic,
+            _ => BoundaryCondition::Dirichlet,
         };
         execute_gpu(&kernel, &field, n, n, dx, dy, bc, &mut result);
 
@@ -501,7 +501,7 @@ fn test_gpu_cpu_consistency() {
         n,
         dx,
         dy,
-        BoundaryType::Dirichlet,
+        BoundaryCondition::Dirichlet,
         &mut cpu_result,
     );
 
@@ -513,7 +513,7 @@ fn test_gpu_cpu_consistency() {
         n,
         dx,
         dy,
-        BoundaryType::Dirichlet,
+        BoundaryCondition::Dirichlet,
         &mut gpu_result,
     );
 
@@ -580,7 +580,7 @@ fn test_gpu_cpu_performance_benchmark() {
                     n,
                     dx,
                     dy,
-                    BoundaryType::Dirichlet,
+                    BoundaryCondition::Dirichlet,
                     &mut cpu_result,
                 );
             }
@@ -594,7 +594,7 @@ fn test_gpu_cpu_performance_benchmark() {
                     n,
                     dx,
                     dy,
-                    BoundaryType::Dirichlet,
+                    BoundaryCondition::Dirichlet,
                     &mut cpu_result,
                 );
             }
@@ -613,7 +613,7 @@ fn test_gpu_cpu_performance_benchmark() {
                     n,
                     dx,
                     dy,
-                    BoundaryType::Dirichlet,
+                    BoundaryCondition::Dirichlet,
                     &mut gpu_result,
                 );
             }
@@ -628,7 +628,7 @@ fn test_gpu_cpu_performance_benchmark() {
                     n,
                     dx,
                     dy,
-                    BoundaryType::Dirichlet,
+                    BoundaryCondition::Dirichlet,
                     &mut gpu_result,
                 );
             }

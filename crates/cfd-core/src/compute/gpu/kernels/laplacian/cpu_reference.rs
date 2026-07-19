@@ -2,7 +2,7 @@
 //!
 //! Provides a numerically deterministic fallback for validation and small grids.
 
-use super::types::BoundaryType;
+use super::types::BoundaryCondition;
 
 /// CPU reference implementation of the 2D Laplacian with full boundary condition support.
 ///
@@ -13,7 +13,7 @@ pub(super) fn execute_cpu_reference(
     ny: usize,
     dx: f32,
     dy: f32,
-    bc: BoundaryType,
+    bc: BoundaryCondition,
     result: &mut [f32],
 ) {
     let dx_inv2_64 = 1.0f64 / (f64::from(dx) * f64::from(dx));
@@ -32,11 +32,11 @@ pub(super) fn execute_cpu_reference(
                     (f64::from(left) - 2.0f64 * f64::from(center) + f64::from(right)) * dx_inv2_64;
             } else if x == 0 {
                 match bc {
-                    BoundaryType::Dirichlet => {
+                    BoundaryCondition::Dirichlet => {
                         let center = field[idx];
                         laplacian += (-2.0f64 * f64::from(center)) * dx_inv2_64;
                     }
-                    BoundaryType::Neumann => {
+                    BoundaryCondition::Neumann => {
                         let center = field[idx];
                         if nx >= 4 {
                             let u0 = center;
@@ -52,7 +52,7 @@ pub(super) fn execute_cpu_reference(
                                 * dx_inv2_64;
                         }
                     }
-                    BoundaryType::Periodic => {
+                    BoundaryCondition::Periodic => {
                         let left = field[y * nx + (nx - 2)];
                         let center = field[idx];
                         let right = field[y * nx + (x + 1)];
@@ -63,11 +63,11 @@ pub(super) fn execute_cpu_reference(
                 }
             } else if x == nx - 1 {
                 match bc {
-                    BoundaryType::Dirichlet => {
+                    BoundaryCondition::Dirichlet => {
                         let center = field[idx];
                         laplacian += (-2.0f64 * f64::from(center)) * dx_inv2_64;
                     }
-                    BoundaryType::Neumann => {
+                    BoundaryCondition::Neumann => {
                         let center = field[idx];
                         if nx >= 4 {
                             let u0 = center;
@@ -83,7 +83,7 @@ pub(super) fn execute_cpu_reference(
                                 * dx_inv2_64;
                         }
                     }
-                    BoundaryType::Periodic => {
+                    BoundaryCondition::Periodic => {
                         let left = field[y * nx + (x - 1)];
                         let center = field[idx];
                         let right = field[y * nx + 1];
@@ -102,11 +102,11 @@ pub(super) fn execute_cpu_reference(
                     (f64::from(bottom) - 2.0f64 * f64::from(center) + f64::from(top)) * dy_inv2_64;
             } else if y == 0 {
                 match bc {
-                    BoundaryType::Dirichlet => {
+                    BoundaryCondition::Dirichlet => {
                         let center = field[idx];
                         laplacian += (-2.0f64 * f64::from(center)) * dy_inv2_64;
                     }
-                    BoundaryType::Neumann => {
+                    BoundaryCondition::Neumann => {
                         let center = field[idx];
                         if ny >= 4 {
                             let u0 = center;
@@ -122,7 +122,7 @@ pub(super) fn execute_cpu_reference(
                                 * dy_inv2_64;
                         }
                     }
-                    BoundaryType::Periodic => {
+                    BoundaryCondition::Periodic => {
                         let bottom = field[(ny - 2) * nx + x];
                         let center = field[idx];
                         let top = field[(y + 1) * nx + x];
@@ -133,11 +133,11 @@ pub(super) fn execute_cpu_reference(
                 }
             } else if y == ny - 1 {
                 match bc {
-                    BoundaryType::Dirichlet => {
+                    BoundaryCondition::Dirichlet => {
                         let center = field[idx];
                         laplacian += (-2.0f64 * f64::from(center)) * dy_inv2_64;
                     }
-                    BoundaryType::Neumann => {
+                    BoundaryCondition::Neumann => {
                         let center = field[idx];
                         if ny >= 4 {
                             let u0 = center;
@@ -153,7 +153,7 @@ pub(super) fn execute_cpu_reference(
                                 * dy_inv2_64;
                         }
                     }
-                    BoundaryType::Periodic => {
+                    BoundaryCondition::Periodic => {
                         let bottom = field[(y - 1) * nx + x];
                         let center = field[idx];
                         let top = field[nx + x];

@@ -2,7 +2,7 @@
 
 use super::GpuContext;
 use aequitas::systems::si::{quantities::Length, units::Meter};
-use crate::linear_solver::operators::gpu::{BoundaryType, GpuLaplacianOperator2D};
+use crate::linear_solver::operators::gpu::{BoundaryCondition, GpuLaplacianOperator2D};
 
 #[test]
 fn test_gpu_dispatch_metrics_present_or_skip() {
@@ -23,7 +23,7 @@ fn test_gpu_dispatch_metrics_present_or_skip() {
         ny,
         Length::from_unit::<Meter>(dx),
         Length::from_unit::<Meter>(dy),
-        BoundaryType::Dirichlet,
+        BoundaryCondition::Dirichlet,
     )
     .expect("Laplacian kernel must compile through Hephaestus");
 

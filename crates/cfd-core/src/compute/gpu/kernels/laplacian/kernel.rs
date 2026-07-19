@@ -4,7 +4,7 @@
 //! this module is a thin typed consumer that validates the CFD grid contract
 //! and forwards to `hephaestus_wgpu::Laplacian2DKernel`.
 
-use super::types::BoundaryType;
+use super::types::BoundaryCondition;
 use crate::compute::gpu::buffer::GpuBuffer;
 use crate::compute::gpu::GpuContext;
 use crate::compute::traits::ComputeBuffer;
@@ -46,7 +46,7 @@ impl Laplacian2DKernel {
         dy: Length<f32>,
         result: &mut [f32],
     ) -> Result<()> {
-        self.execute_with_bc(field, nx, ny, dx, dy, BoundaryType::Dirichlet, result)
+        self.execute_with_bc(field, nx, ny, dx, dy, BoundaryCondition::Dirichlet, result)
     }
 
     /// Compute the Laplacian with an explicit boundary condition.
@@ -61,10 +61,10 @@ impl Laplacian2DKernel {
         ny: usize,
         dx: Length<f32>,
         dy: Length<f32>,
-        bc: BoundaryType,
-        result: &mut [f32],
-    ) -> Result<()> {
-        let params = validate_contract(field.len(), result.len(), nx, ny, dx, dy, bc)?;
+    bc: BoundaryCondition,
+    result: &mut [f32],
+) -> Result<()> {
+    let params = validate_contract(field.len(), result.len(), nx, ny, dx, dy, bc)?;
         let provider = self.context.provider();
         let input = provider.upload(field)?;
         let output = provider.alloc_zeroed(field.len())?;
@@ -86,9 +86,9 @@ impl Laplacian2DKernel {
         ny: usize,
         dx: Length<f32>,
         dy: Length<f32>,
-        bc: BoundaryType,
-    ) -> Result<()> {
-        let params = validate_contract(input.size(), output.size(), nx, ny, dx, dy, bc)?;
+    bc: BoundaryCondition,
+) -> Result<()> {
+    let params = validate_contract(input.size(), output.size(), nx, ny, dx, dy, bc)?;
         self.kernel.dispatch(
             self.context.provider(),
             &input.buffer,
@@ -106,7 +106,7 @@ fn validate_contract(
     ny: usize,
     dx: Length<f32>,
     dy: Length<f32>,
-    bc: BoundaryType,
+    bc: BoundaryCondition,
 ) -> Result<Laplacian2DParams> {
     if nx < 2 || ny < 2 {
         return Err(Error::InvalidConfiguration(format!(
