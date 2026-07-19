@@ -18,6 +18,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
+name = "aequitas"
+version = "0.1.0"
+source = "git+https://github.com/ryancinsight/aequitas?rev=49ee8004e008a480ac871c3782d00d921ba41c01#49ee8004e008a480ac871c3782d00d921ba41c01"
+dependencies = [
+ "eunomia",
+ "typenum",
+]
+
+[[package]]
 name = "ahash"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -501,6 +510,7 @@ dependencies = [
 name = "cfd-core"
 version = "0.3.0"
 dependencies = [
+ "aequitas",
  "anyhow",
  "approx",
  "bytemuck",
@@ -547,6 +557,7 @@ dependencies = [
 name = "cfd-math"
 version = "0.3.0"
 dependencies = [
+ "aequitas",
  "approx",
  "bytemuck",
  "cfd-core",
@@ -817,7 +828,6 @@ version = "0.9.0"
 dependencies = [
  "bytemuck",
  "eunomia",
- "half",
  "hermes-simd",
  "mnemosyne",
  "moirai",
@@ -856,7 +866,7 @@ dependencies = [
  "coeus-leto",
  "coeus-sparse",
  "coeus-tensor",
- "half",
+ "eunomia",
  "leto-ops",
  "melinoe",
  "smallvec",
@@ -1236,12 +1246,10 @@ dependencies = [
 
 [[package]]
 name = "eunomia"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "bytemuck",
- "half",
  "libm",
- "num-traits",
  "rkyv 0.7.46",
  "serde",
 ]
@@ -1562,7 +1570,6 @@ version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ea2d84b969582b4b1864a92dc5d27cd2b77b622a8d79306834f1be5ba20d84b"
 dependencies = [
- "bytemuck",
  "cfg-if",
  "crunchy",
  "num-traits",
@@ -1618,7 +1625,7 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hephaestus-core"
-version = "0.16.1"
+version = "0.18.0"
 dependencies = [
  "bytemuck",
  "leto",
@@ -1628,9 +1635,11 @@ dependencies = [
 
 [[package]]
 name = "hephaestus-wgpu"
-version = "0.16.1"
+version = "0.18.0"
 dependencies = [
+ "aequitas",
  "bytemuck",
+ "eunomia",
  "hephaestus-core",
  "leto",
  "leto-ops",
@@ -1638,7 +1647,6 @@ dependencies = [
  "moirai",
  "moirai-gpu",
  "moirai-sync 0.4.0 (git+https://github.com/ryancinsight/Moirai.git)",
- "num-complex",
  "themis",
  "wgpu",
  "windows 0.62.2",
@@ -1646,10 +1654,9 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "eunomia",
- "half",
  "hermes-simd-core",
  "hermes-simd-intrinsics",
  "hermes-simd-macros",
@@ -1659,11 +1666,10 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "bytemuck",
  "eunomia",
- "half",
  "mnemosyne",
  "rkyv 0.7.46",
  "themis",
@@ -1671,16 +1677,15 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-intrinsics"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "eunomia",
- "half",
  "hermes-simd-core",
 ]
 
 [[package]]
 name = "hermes-simd-macros"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1689,9 +1694,8 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
- "half",
  "hermes-simd-core",
  "hermes-simd-intrinsics",
 ]
@@ -1845,11 +1849,10 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "leto"
-version = "0.38.0"
+version = "0.39.0"
 dependencies = [
  "bytemuck",
  "eunomia",
- "half",
  "mnemosyne",
  "serde",
  "thiserror 2.0.18",
@@ -1857,11 +1860,10 @@ dependencies = [
 
 [[package]]
 name = "leto-ops"
-version = "0.38.0"
+version = "0.39.0"
 dependencies = [
  "bytemuck",
  "eunomia",
- "half",
  "hermes-simd",
  "leto",
  "moirai",
@@ -2133,7 +2135,7 @@ dependencies = [
 [[package]]
 name = "moirai-gpu"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#e26413230ed334e20ee8589f336496414dcc09ba"
+source = "git+https://github.com/ryancinsight/Moirai.git#8a51b2a7c5240bbeee6f1b766af2c54ac2898af6"
 dependencies = [
  "mnemosyne-core",
  "moirai-core",
@@ -2201,7 +2203,7 @@ dependencies = [
 [[package]]
 name = "moirai-sync"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#e26413230ed334e20ee8589f336496414dcc09ba"
+source = "git+https://github.com/ryancinsight/Moirai.git#8a51b2a7c5240bbeee6f1b766af2c54ac2898af6"
 dependencies = [
  "libc",
  "moirai-core",
@@ -2225,7 +2227,7 @@ version = "0.4.0"
 [[package]]
 name = "moirai-utils"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#e26413230ed334e20ee8589f336496414dcc09ba"
+source = "git+https://github.com/ryancinsight/Moirai.git#8a51b2a7c5240bbeee6f1b766af2c54ac2898af6"
 
 [[package]]
 name = "munge"
@@ -2315,7 +2317,6 @@ version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73f88a1307638156682bada9d7604135552957b7818057dcef22705b4d509495"
 dependencies = [
- "bytemuck",
  "num-traits",
 ]
 
@@ -3057,6 +3058,7 @@ dependencies = [
  "coeus-ops",
  "coeus-optim",
  "coeus-tensor",
+ "rand 0.9.5",
  "ritk-spatial",
  "ritk-wgpu-compat",
 ]

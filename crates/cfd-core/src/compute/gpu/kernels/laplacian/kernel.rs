@@ -1,23 +1,24 @@
 //! Hephaestus-backed GPU implementation of the two-dimensional Laplacian.
+//!
+//! The WGSL source and dispatch machinery now live in the Hephaestus provider;
+//! this module is a thin typed consumer that validates the CFD grid contract
+//! and forwards to `hephaestus_wgpu::Laplacian2DKernel`.
 
-use super::types::{BoundaryType, Laplacian2DUniforms};
+use super::types::BoundaryType;
 use crate::compute::gpu::buffer::GpuBuffer;
-use crate::compute::gpu::shaders::LAPLACIAN_2D_SHADER;
 use crate::compute::gpu::GpuContext;
 use crate::compute::traits::ComputeBuffer;
 use crate::error::{Error, Result};
+use aequitas::systems::si::{quantities::Length, units::Meter};
 use hephaestus_wgpu::{
-    ComputeDevice, DispatchGrid, MultiStorageKernel, WgslMultiStorageKernel, WgslStorageBinding,
-    WgslStorageBindingLayout,
+    ComputeDevice, Laplacian2DKernel as HephaestusLaplacian2DKernel, Laplacian2DParams,
 };
 use std::sync::Arc;
-
-const WORKGROUP: [usize; 3] = [8, 8, 1];
 
 /// GPU kernel for the second-order two-dimensional Laplacian.
 pub struct Laplacian2DKernel {
     context: Arc<GpuContext>,
-    kernel: WgslMultiStorageKernel,
+    kernel: HephaestusLaplacian2DKernel,
 }
 
 impl Laplacian2DKernel {
@@ -27,17 +28,7 @@ impl Laplacian2DKernel {
     /// Returns [`Error::GpuProvider`] when the provider rejects the WGSL
     /// source or binding layout.
     pub fn new(context: Arc<GpuContext>) -> Result<Self> {
-        let kernel = WgslMultiStorageKernel::new(
-            context.provider(),
-            "CFD Laplacian 2D",
-            LAPLACIAN_2D_SHADER,
-            "laplacian_2d",
-            &[
-                WgslStorageBindingLayout::read_only(0),
-                WgslStorageBindingLayout::read_write(2),
-            ],
-            1,
-        )?;
+        let kernel = HephaestusLaplacian2DKernel::new(context.provider())?;
         Ok(Self { context, kernel })
     }
 
@@ -51,8 +42,8 @@ impl Laplacian2DKernel {
         field: &[f32],
         nx: usize,
         ny: usize,
-        dx: f32,
-        dy: f32,
+        dx: Length<f32>,
+        dy: Length<f32>,
         result: &mut [f32],
     ) -> Result<()> {
         self.execute_with_bc(field, nx, ny, dx, dy, BoundaryType::Dirichlet, result)
@@ -68,8 +59,8 @@ impl Laplacian2DKernel {
         field: &[f32],
         nx: usize,
         ny: usize,
-        dx: f32,
-        dy: f32,
+        dx: Length<f32>,
+        dy: Length<f32>,
         bc: BoundaryType,
         result: &mut [f32],
     ) -> Result<()> {
@@ -77,7 +68,7 @@ impl Laplacian2DKernel {
         let provider = self.context.provider();
         let input = provider.upload(field)?;
         let output = provider.alloc_zeroed(field.len())?;
-        self.dispatch(&input, &output, &params, nx, ny)?;
+        self.kernel.dispatch(provider, &input, &output, &params)?;
         provider.download(&output, result)?;
         Ok(())
     }
@@ -93,31 +84,16 @@ impl Laplacian2DKernel {
         output: &mut GpuBuffer<f32>,
         nx: usize,
         ny: usize,
-        dx: f32,
-        dy: f32,
+        dx: Length<f32>,
+        dy: Length<f32>,
         bc: BoundaryType,
     ) -> Result<()> {
         let params = validate_contract(input.size(), output.size(), nx, ny, dx, dy, bc)?;
-        self.dispatch(&input.buffer, &output.buffer, &params, nx, ny)
-    }
-
-    fn dispatch(
-        &self,
-        input: &hephaestus_wgpu::WgpuBuffer<f32>,
-        output: &hephaestus_wgpu::WgpuBuffer<f32>,
-        params: &Laplacian2DUniforms,
-        nx: usize,
-        ny: usize,
-    ) -> Result<()> {
-        let grid = DispatchGrid::covering_domain([nx, ny, 1], WORKGROUP)?;
         self.kernel.dispatch(
             self.context.provider(),
-            [
-                WgslStorageBinding::new(0, input),
-                WgslStorageBinding::new(2, output),
-            ],
-            params,
-            grid,
+            &input.buffer,
+            &output.buffer,
+            &params,
         )?;
         Ok(())
     }
@@ -128,18 +104,20 @@ fn validate_contract(
     output_len: usize,
     nx: usize,
     ny: usize,
-    dx: f32,
-    dy: f32,
+    dx: Length<f32>,
+    dy: Length<f32>,
     bc: BoundaryType,
-) -> Result<Laplacian2DUniforms> {
+) -> Result<Laplacian2DParams> {
     if nx < 2 || ny < 2 {
         return Err(Error::InvalidConfiguration(format!(
             "Laplacian grid axes must contain at least two points: nx={nx}, ny={ny}"
         )));
     }
-    if !dx.is_finite() || dx <= 0.0 || !dy.is_finite() || dy <= 0.0 {
+    let dx_m = dx.in_unit::<Meter>();
+    let dy_m = dy.in_unit::<Meter>();
+    if !dx_m.is_finite() || dx_m <= 0.0 || !dy_m.is_finite() || dy_m <= 0.0 {
         return Err(Error::InvalidConfiguration(format!(
-            "Laplacian spacing must be finite and positive: dx={dx}, dy={dy}"
+            "Laplacian spacing must be finite and positive: dx={dx_m} m, dy={dy_m} m"
         )));
     }
     let expected = nx.checked_mul(ny).ok_or_else(|| {
@@ -164,8 +142,5 @@ fn validate_contract(
     let ny = u32::try_from(ny)
         .map_err(|_| Error::InvalidConfiguration(format!("Laplacian ny {ny} exceeds u32::MAX")))?;
 
-    Ok(Laplacian2DUniforms {
-        dims_bc: [nx, ny, bc.as_u32(), 0],
-        inv2: [dx.recip().powi(2), dy.recip().powi(2), 0.0, 0.0],
-    })
+    Ok(Laplacian2DParams::new(nx, ny, dx, dy, bc.into())?)
 }

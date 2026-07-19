@@ -4,6 +4,7 @@ use super::cpu_reference::execute_cpu_reference;
 use super::kernel::Laplacian2DKernel;
 use super::types::BoundaryType;
 use crate::compute::gpu::GpuContext;
+use aequitas::systems::si::{quantities::Length, units::Meter};
 use std::sync::Arc;
 
 fn create_kernel() -> Laplacian2DKernel {
@@ -23,7 +24,15 @@ fn execute_gpu(
     result: &mut [f32],
 ) {
     kernel
-        .execute_with_bc(field, nx, ny, dx, dy, bc, result)
+        .execute_with_bc(
+            field,
+            nx,
+            ny,
+            Length::from_unit::<Meter>(dx),
+            Length::from_unit::<Meter>(dy),
+            bc,
+            result,
+        )
         .expect("Hephaestus Laplacian dispatch must succeed");
 }
 

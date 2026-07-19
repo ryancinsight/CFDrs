@@ -19,7 +19,6 @@ pub mod constants;
 pub mod field_ops;
 pub mod kernels;
 pub mod poisson_solver;
-pub mod shaders;
 pub mod turbulence_compute;
 pub mod validation_tests;
 

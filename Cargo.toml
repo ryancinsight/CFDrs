@@ -36,6 +36,7 @@ tracing-subscriber = "0.3"
 
 # Math and numerical
 rsparse = "1.2"
+aequitas = { git = "https://github.com/ryancinsight/aequitas", rev = "49ee8004e008a480ac871c3782d00d921ba41c01" }
 eunomia = { git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
 approx = "0.5"
 bytemuck = "1.14"

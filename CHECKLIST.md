@@ -142,6 +142,12 @@ Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
   `cargo-semver-checks` cannot select a registry baseline because `cfd-core`
   and `cfd-math` are not published; the breaking API delta is recorded in the
   ADR and CHANGELOG migration section.
+- [x] Extend the provider boundary with Aequitas `Length<f32>` so callers
+  cannot pass dimensionless grid spacing. CFDrs validates finite positive
+  metre values before dispatch, while Hephaestus performs the single
+  quantity-to-POD conversion. Evidence: GPU-feature checks and warning-denied
+  all-target Clippy pass; focused Laplacian Nextest passes 13/13; doctests pass
+  6/6 with 2 intentionally ignored.
 - [x] `cfd-core` [arch]: Delete duplicated raw-WGPU field addition and scalar
   multiplication kernels and route the fallible `GpuFieldOps` arithmetic
   facade through Hephaestus typed elementwise operations. Exact tests cover
