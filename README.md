@@ -87,6 +87,8 @@ The suite is organized into 10 specialized crates:
 - **Adaptive Refinement**: Local mesh refinement based on solution features
 
 ### Thermal Physics & Conjugate Heat Transfer
+- **Proteus Constitutive Boundary**: Shared, dimensionally validated linear
+  temperature response for fluid density
 - **Boussinesq Approximation**: Temperature-dependent density for natural convection
 - **Buoyancy Coupling**: Momentum-energy equation integration with thermal expansion
 - **Conjugate Interfaces**: Solid-fluid thermal coupling with interface continuity

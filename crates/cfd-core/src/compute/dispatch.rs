@@ -124,9 +124,14 @@ impl ComputeDispatcher {
         }
         #[cfg(not(feature = "gpu"))]
         {
-            Err(crate::error::Error::UnsupportedOperation(
-                "GPU backend was requested but the gpu feature is disabled".to_string(),
-            ))
+            Err(crate::error::Error::UnsupportedOperation(format!(
+                "GPU backend was requested for kernel '{}' with input length {}, output \
+                     length {}, and problem size {}, but the gpu feature is disabled",
+                kernel.name(),
+                input.len(),
+                output.len(),
+                params.size
+            )))
         }
     }
 
