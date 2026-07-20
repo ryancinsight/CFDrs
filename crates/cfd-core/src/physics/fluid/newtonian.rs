@@ -1,5 +1,6 @@
 //! Newtonian fluid models with constant and variable properties
 
+use super::thermophysical;
 use super::traits::{ConstantFluid, Fluid as FluidTrait, FluidState};
 use crate::error::Error;
 use eunomia::RealField;
@@ -46,31 +47,29 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
         }
     }
 
-    /// Validate that all properties are physically reasonable
+    /// Validate that all properties are physically reasonable.
+    ///
+    /// Density, specific heat, and thermal conductivity are validated through the
+    /// Proteus `ThermophysicalProperties` contract (finite, non-negative). Viscosity
+    /// and speed of sound are checked separately since Proteus does not yet model those
+    /// property kinds.
     ///
     /// # Errors
-    /// Returns an error if any physical property is non-positive or invalid
+    /// Returns a descriptive error naming the first violated physical constraint.
     pub fn validate(&self) -> Result<(), Error>
     where
         T: NumericElement,
     {
-        if self.density <= <T as NumericElement>::ZERO {
-            return Err(Error::InvalidInput("Density must be positive".to_string()));
-        }
+        // Route the thermophysical subset through Proteus — this checks finiteness
+        // and non-negativeness with descriptive error messages.
+        thermophysical::validate_thermophysical_subset(
+            self.density,
+            self.specific_heat,
+            self.thermal_conductivity,
+        )?;
+
         if self.viscosity <= <T as NumericElement>::ZERO {
-            return Err(Error::InvalidInput(
-                "Viscosity must be positive".to_string(),
-            ));
-        }
-        if self.specific_heat <= <T as NumericElement>::ZERO {
-            return Err(Error::InvalidInput(
-                "Specific heat must be positive".to_string(),
-            ));
-        }
-        if self.thermal_conductivity <= <T as NumericElement>::ZERO {
-            return Err(Error::InvalidInput(
-                "Thermal conductivity must be positive".to_string(),
-            ));
+            return Err(Error::InvalidInput("Viscosity must be positive".to_string()));
         }
         if self.speed_of_sound <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
@@ -270,5 +269,115 @@ impl<T: RealField + FloatElement + Copy> FluidTrait<T> for IdealGas<T> {
 
     fn is_pressure_dependent(&self) -> bool {
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn base_fluid() -> ConstantPropertyFluid<f64> {
+        ConstantPropertyFluid::new(
+            "test".to_string(),
+            998.2,    // density [kg/m³]
+            0.001_002, // viscosity [Pa·s]
+            4186.0,   // specific heat [J/(kg·K)]
+            0.599,    // thermal conductivity [W/(m·K)]
+            1482.0,   // speed of sound [m/s]
+        )
+    }
+
+    #[test]
+    fn water_20c_is_physically_valid() {
+        ConstantPropertyFluid::<f64>::water_20c().expect("NIST water properties pass validation");
+    }
+
+    #[test]
+    fn air_20c_is_physically_valid() {
+        ConstantPropertyFluid::<f64>::air_20c().expect("NIST air properties pass validation");
+    }
+
+    #[test]
+    fn validate_rejects_negative_density_with_proteus_message() {
+        let mut fluid = base_fluid();
+        fluid.density = -1.0;
+        let err = fluid.validate().expect_err("negative density is invalid");
+        match err {
+            Error::InvalidInput(msg) => assert!(
+                msg.contains("MassDensity"),
+                "Proteus error must name the violated property; got: {msg}"
+            ),
+            other => panic!("unexpected error variant: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn validate_rejects_nan_density_with_proteus_message() {
+        let mut fluid = base_fluid();
+        fluid.density = f64::NAN;
+        let err = fluid.validate().expect_err("NaN density is invalid");
+        match err {
+            Error::InvalidInput(msg) => assert!(msg.contains("MassDensity")),
+            other => panic!("unexpected error variant: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn validate_rejects_negative_specific_heat_with_proteus_message() {
+        let mut fluid = base_fluid();
+        fluid.specific_heat = -1.0;
+        let err = fluid.validate().expect_err("negative specific heat is invalid");
+        match err {
+            Error::InvalidInput(msg) => assert!(
+                msg.contains("SpecificHeatCapacity"),
+                "Proteus error must name the violated property; got: {msg}"
+            ),
+            other => panic!("unexpected error variant: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn validate_rejects_negative_thermal_conductivity_with_proteus_message() {
+        let mut fluid = base_fluid();
+        fluid.thermal_conductivity = -0.1;
+        let err = fluid
+            .validate()
+            .expect_err("negative thermal conductivity is invalid");
+        match err {
+            Error::InvalidInput(msg) => assert!(
+                msg.contains("ThermalConductivity"),
+                "Proteus error must name the violated property; got: {msg}"
+            ),
+            other => panic!("unexpected error variant: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn validate_rejects_zero_viscosity_with_descriptive_message() {
+        let mut fluid = base_fluid();
+        fluid.viscosity = 0.0;
+        let err = fluid.validate().expect_err("zero viscosity is invalid");
+        match err {
+            Error::InvalidInput(msg) => {
+                assert!(msg.to_lowercase().contains("viscosity"), "got: {msg}")
+            }
+            other => panic!("unexpected error variant: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn validate_rejects_zero_speed_of_sound_with_descriptive_message() {
+        let mut fluid = base_fluid();
+        fluid.speed_of_sound = 0.0;
+        let err = fluid
+            .validate()
+            .expect_err("zero speed of sound is invalid");
+        match err {
+            Error::InvalidInput(msg) => assert!(
+                msg.to_lowercase().contains("speed"),
+                "got: {msg}"
+            ),
+            other => panic!("unexpected error variant: {other:?}"),
+        }
     }
 }
