@@ -158,8 +158,10 @@ pub enum OptimMode {
     ///
     /// Rewards designs that deliver strong cancer-cell cavitation treatment while
     /// minimising RBC haemolysis risk through selective flow routing and channel
-    /// size asymmetry.  Uses the composite [`SdtMetrics::lysis_risk_index`] and
-    /// [`SdtMetrics::therapeutic_window_score`] metrics.
+    /// size asymmetry. Uses the composite
+    /// [`SdtMetrics::lysis_risk_index`](crate::SdtMetrics::lysis_risk_index) and
+    /// [`SdtMetrics::therapeutic_window_score`](crate::SdtMetrics::therapeutic_window_score)
+    /// metrics.
     ///
     /// Hard constraints: `fda_main_compliant`, `pressure_feasible`, `plate_fits`.
     ///

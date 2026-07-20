@@ -2979,6 +2979,10 @@
 - [x] `cfd-3d`: Replace the Spalart-Allmaras all-zero turbulent-kinetic-energy path with a Yoshizawa wall-distance diagnostic.
 - [x] `cfd-3d`: Reject uninitialized k-epsilon turbulence state instead of synthesizing zero viscosity, TKE, or dissipation fields.
 - [x] `cfd-schematics`: Optimize memory layout with indexed node-layout caches and zero-copy parallel-group lookup.
+- [x] `cfd-optim` [minor]: Expose the dormant Milestone 12 stratified design,
+  delegate Latin-hypercube sampling to Tyche, map fixed const-generic samples
+  directly into candidates, and remove the duplicate sampler and `rand`
+  dependency.
 
 ## Rigor & Correctness
 - [x] Review all numerical bounds and geometry assumptions in `cfd-schematics`.

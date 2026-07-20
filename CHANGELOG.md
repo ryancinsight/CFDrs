@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- `cfd-optim` now exposes Milestone 12 Latin-hypercube candidate generation
+  through Tyche's const-generic, counter-addressed design. The consumer maps
+  fixed unit-sample arrays directly into CFD parameters; its duplicate
+  mutable-RNG sampler and direct `rand` dependency are removed. The provider
+  closure advances Aequitas and Proteus together so CFDrs, Proteus, and
+  Hephaestus share one dimensional-type identity.
 - **Breaking / architecture**: `FluidState::thermal_diffusivity` now returns a
   typed `Result`, and both fluid-property entry points delegate dimensional
   validation and `alpha = k / (rho c_p)` to Proteus. CFDrs retains rheology and

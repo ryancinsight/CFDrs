@@ -3820,3 +3820,6 @@ Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 - [ ] Optimize performance and memory efficiency representation in `cfd-schematics`.
 - [x] Ensure no placeholders, stubs, approximations, or simplifications exist in `cfd-schematics` (implemented native math handling for `n_furcation`).
 - [x] Sync README, backlog, and checklist artifacts.
+- [x] Integrate Tyche Latin-hypercube sampling into `cfd-optim`, including
+  deterministic seed differentiation, invalid-count rejection, value-semantic
+  consumer tests, provider-residue scans, and package gates.

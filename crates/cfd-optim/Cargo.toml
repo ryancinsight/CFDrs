@@ -19,7 +19,6 @@ sha2 = "0.10"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
-rand.workspace = true
 moirai.workspace = true
 petgraph.workspace = true
 plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series"] }
@@ -31,6 +30,7 @@ cfd-mesh.workspace = true
 cfd-math.workspace = true
 cfd-schematics.workspace = true
 cfd-validation.workspace = true
+tyche-core.workspace = true
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 

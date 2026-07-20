@@ -132,7 +132,7 @@ pub const PEDIATRIC_FLOW_EXCESSIVE_ML_MIN: f64 = PEDIATRIC_FLOW_CAUTION_ML_MIN *
 /// Milestone-12 therapy window for cumulative hemolysis projection \[min].
 pub const MILESTONE_TREATMENT_DURATION_MIN: f64 = 15.0;
 
-/// Normalisation reference for [`SdtMetrics::therapeutic_window_score`].
+/// Normalisation reference for [`SdtMetrics::therapeutic_window_score`](crate::SdtMetrics::therapeutic_window_score).
 ///
 /// Chosen so that `cancer_targeted_cavitation = 0.5` with
 /// `lysis_risk_index = 0.001` yields a score of 1.0:

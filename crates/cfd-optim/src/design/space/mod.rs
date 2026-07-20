@@ -6,13 +6,16 @@
 //! |--------|----------------|
 //! | [`builder`] | Primitive selective blueprint candidate construction |
 //! | [`dimensions`] | Milestone 12 selective sweep dimensions |
+//! | `sampling` | Tyche-backed stratified Milestone 12 candidate generation |
 //! | [`sweep`] | Milestone 12 selective sweep |
 
 mod builder;
 mod dimensions;
+mod sampling;
 mod sweep;
 
 use crate::domain::BlueprintCandidate;
+pub use sampling::{generate_milestone12_lhs_params, generate_milestone12_lhs_params_seeded};
 pub use sweep::milestone12::CandidateParams;
 
 /// Return lightweight parameter tuples (~100 bytes each) for lazy
