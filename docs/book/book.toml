@@ -1,0 +1,17 @@
+[book]
+title = "CFDrs: Computational Fluid Dynamics Simulation Guide"
+authors = ["Ryan Clanton"]
+description = "A structured, example-driven guide to CFDrs physics, numerics, validation, and Atlas-stack integration."
+language = "en"
+multilingual = false
+src = "."
+
+[build]
+build-dir = "../../target/book/cfdrs"
+create-missing = false
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/ryancinsight/CFDrs"
+edit-url-template = "https://github.com/ryancinsight/CFDrs/edit/main/docs/book/{path}"
