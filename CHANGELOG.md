@@ -34,6 +34,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking / architecture**: `FluidState::thermal_diffusivity` now returns a
+  typed `Result`, and both fluid-property entry points delegate dimensional
+  validation and `alpha = k / (rho c_p)` to Proteus. CFDrs retains rheology and
+  flow closure while the shared thermophysical law has one Atlas owner.
 - **Breaking / architecture**: GPU Laplacian spacing now uses Aequitas
   `Length<f32>` through the CFDrs facade and Hephaestus provider boundary.
   Raw metre comments no longer carry the dimensional contract; unit conversion

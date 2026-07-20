@@ -1,6 +1,7 @@
 //! Basic fluid properties and calculations
 
 use crate::error::Error;
+use crate::physics::fluid::thermophysical;
 use eunomia::NumericElement;
 use eunomia::RealField;
 use serde::{Deserialize, Serialize};
@@ -86,16 +87,14 @@ impl<T: RealField + NumericElement + Copy> FluidProperties<T> {
     /// Calculate thermal diffusivity [m²/s]
     ///
     /// # Errors
-    /// Returns an error if density or specific heat are non-positive
+    /// Returns an error if density, specific heat, or thermal conductivity
+    /// violates the Proteus thermophysical-property contract.
     pub fn thermal_diffusivity(&self) -> Result<T, Error> {
-        if self.density <= <T as NumericElement>::ZERO
-            || self.specific_heat <= <T as NumericElement>::ZERO
-        {
-            return Err(Error::InvalidInput(
-                "Density and specific heat must be positive".to_string(),
-            ));
-        }
-        Ok(self.thermal_conductivity / (self.density * self.specific_heat))
+        thermophysical::thermal_diffusivity(
+            self.density,
+            self.specific_heat,
+            self.thermal_conductivity,
+        )
     }
 
     /// Calculate speed of sound for ideal gas \[m/s]

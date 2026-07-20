@@ -142,5 +142,5 @@ fn validate_contract(
     let ny = u32::try_from(ny)
         .map_err(|_| Error::InvalidConfiguration(format!("Laplacian ny {ny} exceeds u32::MAX")))?;
 
-    Ok(Laplacian2DParams::new(nx, ny, dx, dy, bc.into())?)
+    Ok(Laplacian2DParams::new(nx, ny, dx, dy, bc)?)
 }

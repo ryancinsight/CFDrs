@@ -9,6 +9,7 @@ pub mod newtonian;
 pub mod non_newtonian;
 pub mod properties;
 pub mod temperature;
+mod thermophysical;
 pub mod traits;
 pub mod validation;
 

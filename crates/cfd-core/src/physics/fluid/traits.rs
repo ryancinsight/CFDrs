@@ -4,6 +4,7 @@
 //! reconciling the needs of both constant and variable property models.
 
 use crate::error::Error;
+use crate::physics::fluid::thermophysical;
 use eunomia::NumericElement;
 use eunomia::RealField;
 
@@ -36,9 +37,18 @@ impl<T: RealField + NumericElement + Copy> FluidState<T> {
     }
 
     /// Calculate thermal diffusivity [m²/s]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if density, specific heat, or thermal conductivity
+    /// violates the Proteus thermophysical-property contract.
     #[inline]
-    pub fn thermal_diffusivity(&self) -> T {
-        self.thermal_conductivity / (self.density * self.specific_heat)
+    pub fn thermal_diffusivity(&self) -> Result<T, Error> {
+        thermophysical::thermal_diffusivity(
+            self.density,
+            self.specific_heat,
+            self.thermal_conductivity,
+        )
     }
 
     /// Calculate Reynolds number
