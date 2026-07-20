@@ -1,21 +1,21 @@
 //! Direct sparse solver for linear systems.
 //!
-//! Uses rsparse (CSparse-based LU) for sparse solves and Leto LU for the dense
-//! fallback path over the public Leto CSR sparse-solver storage boundary.
+//! Uses [`leto_ops::SparseLuSolver`] — the atlas-native sparse direct solver
+//! backed by dense partial-pivoting LU — for systems up to `max_size`. The
+//! dense LU path in `leto-ops` serves as both the primary sparse solver and
+//! the fallback, eliminating the external `rsparse` dependency.
 //!
 //! # Theorem — LU Factorisation Uniqueness
 //!
 //! For a nonsingular matrix $A$, the LU factorisation $PA = LU$ exists and is
-//! unique up to diagonal scaling when $A$ is strongly regular (all leading
-//! principal minors are nonzero). The rsparse implementation uses
-//! Markowitz pivoting to maintain sparsity.
+//! unique up to diagonal scaling when $A$ is strongly regular. The
+//! `leto-ops` implementation uses partial pivoting (largest-magnitude pivot
+//! selection) to maintain numerical stability.
 
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
-use leto_ops::{CsrMatrix, RealScalar as LetoRealScalar};
-use rsparse::data::Sprs;
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use leto_ops::{CsrMatrix, RealScalar as LetoRealScalar, SparseLuSolver as LetoCsrLuSolver};
 
 use super::dense_bridge::solve_leto_csr_with_leto_dense_array;
 
@@ -24,7 +24,8 @@ use super::dense_bridge::solve_leto_csr_with_leto_dense_array;
 pub struct DirectSparseSolver {
     /// Maximum system size (number of rows) to attempt with direct solve.
     pub max_size: usize,
-    /// Ordering strategy: -1 natural, 0 Cholesky, 1 LU, 2 QR.
+    /// Ordering strategy (reserved for API compatibility; the atlas-native solver
+    /// uses partial-column pivoting regardless of this value).
     pub ordering: i8,
     /// Pivot tolerance for LU factorization.
     pub pivot_tolerance: f64,
@@ -33,7 +34,7 @@ pub struct DirectSparseSolver {
 impl Default for DirectSparseSolver {
     fn default() -> Self {
         Self {
-            max_size: 20000,
+            max_size: 2048,
             ordering: 1,
             pivot_tolerance: 1e-12,
         }
@@ -46,7 +47,7 @@ impl DirectSparseSolver {
         size <= self.max_size
     }
 
-    /// Solve Ax = b using sparse LU factorization.
+    /// Solve Ax = b using the atlas-native sparse LU factorization.
     pub fn solve<T>(&self, matrix: &CsrMatrix<T>, rhs: &Array1<T>) -> Result<Array1<T>>
     where
         T: RealField + Copy + FloatElement + LetoRealScalar,
@@ -66,34 +67,25 @@ impl DirectSparseSolver {
             ));
         }
 
-        let (sprs, mut b) = csr_to_csc_sprs_f64(matrix, rhs)?;
+        let atlas_solver = LetoCsrLuSolver {
+            max_size: self.max_size,
+            pivot_tolerance: self.pivot_tolerance,
+        };
 
-        let sparse_result = catch_unwind(AssertUnwindSafe(|| {
-            rsparse::lusol(&sprs, &mut b, self.ordering, self.pivot_tolerance)
-        }));
+        let rhs_slice: Vec<T> = rhs.iter().copied().collect();
 
-        match sparse_result {
-            Ok(Ok(())) => {
+        match atlas_solver.solve(matrix, &rhs_slice) {
+            Ok(solution) => {
                 let mut x = Array1::from_elem([nrows], <T as NumericElement>::ZERO);
-                for (i, value) in b.iter().enumerate() {
-                    x[i] = Self::convert_solution_value(*value)?;
+                for (i, value) in solution.into_iter().enumerate() {
+                    x[i] = value;
                 }
+                Self::ensure_finite_solution(&x)?;
                 Ok(x)
             }
-            Ok(Err(e)) => self.retry_dense_or_error(matrix, rhs, nrows, e.to_string()),
-            Err(_) => {
-                tracing::warn!(
-                    size = nrows,
-                    ordering = self.ordering,
-                    pivot_tolerance = self.pivot_tolerance,
-                    "Direct sparse LU panicked; retrying with dense LU"
-                );
-                self.retry_dense_or_error(
-                    matrix,
-                    rhs,
-                    nrows,
-                    "direct sparse LU panicked".to_string(),
-                )
+            Err(e) => {
+                let sparse_error = e.to_string();
+                self.retry_dense_or_error(matrix, rhs, nrows, sparse_error)
             }
         }
     }
@@ -118,10 +110,11 @@ impl DirectSparseSolver {
             );
             let dense_solution =
                 solve_leto_csr_with_leto_dense_array(matrix, rhs).map_err(|dense_error| {
-                Error::Solver(format!(
-                    "Direct sparse LU failed: {sparse_error}; dense LU fallback failed: {dense_error}"
-                ))
-            })?;
+                    Error::Solver(format!(
+                        "Direct sparse LU failed: {sparse_error}; dense LU fallback failed: \
+                         {dense_error}"
+                    ))
+                })?;
             Self::ensure_finite_solution(&dense_solution)?;
             return Ok(dense_solution);
         }
@@ -131,19 +124,6 @@ impl DirectSparseSolver {
         )))
     }
 
-    fn convert_solution_value<T>(value: f64) -> Result<T>
-    where
-        T: RealField + Copy + FloatElement,
-    {
-        let converted = <T as FloatElement>::from_f64(value);
-        if !NumericElement::to_f64(converted).is_finite() {
-            return Err(Error::ConversionError(format!(
-                "Direct sparse LU solution value {value} cannot be represented in target precision"
-            )));
-        }
-        Ok(converted)
-    }
-
     fn ensure_finite_solution<T>(solution: &Array1<T>) -> Result<()>
     where
         T: RealField + Copy + FloatElement,
@@ -151,78 +131,12 @@ impl DirectSparseSolver {
         for (index, value) in solution.iter().enumerate() {
             if !NumericElement::to_f64(*value).is_finite() {
                 return Err(Error::ConversionError(format!(
-                    "Direct dense LU solution entry {index} cannot be represented in target precision"
+                    "Direct LU solution entry {index} is not finite"
                 )));
             }
         }
         Ok(())
     }
-}
-
-fn csr_to_csc_sprs_f64<T>(matrix: &CsrMatrix<T>, rhs: &Array1<T>) -> Result<(Sprs<f64>, Vec<f64>)>
-where
-    T: RealField + Copy + FloatElement + LetoRealScalar,
-{
-    let nrows = matrix.nrows();
-    let ncols = matrix.ncols();
-    let nnz = matrix.nnz();
-    let row_offsets = matrix.row_ptr();
-    let col_indices = matrix.col_indices();
-    let values = matrix.values();
-
-    let mut col_counts = vec![0usize; ncols];
-    for &col in col_indices {
-        col_counts[col] += 1;
-    }
-
-    let mut p = vec![0isize; ncols + 1];
-    for col in 0..ncols {
-        p[col + 1] = p[col] + col_counts[col] as isize;
-    }
-
-    let mut next = p[..ncols].iter().map(|&v| v as usize).collect::<Vec<_>>();
-    let mut i = vec![0usize; nnz];
-    let mut x = vec![0f64; nnz];
-
-    for row in 0..nrows {
-        let row_start = row_offsets[row];
-        let row_end = row_offsets[row + 1];
-        for idx in row_start..row_end {
-            let col = col_indices[idx];
-            let dst = next[col];
-            i[dst] = row;
-            let value = NumericElement::to_f64(values[idx]);
-            if !value.is_finite() {
-                return Err(Error::InvalidConfiguration(
-                    "Matrix value is not finite for direct sparse LU".to_string(),
-                ));
-            }
-            x[dst] = value;
-            next[col] += 1;
-        }
-    }
-
-    let mut b = Vec::with_capacity(rhs.shape()[0]);
-    for value in rhs.iter() {
-        let value = NumericElement::to_f64(*value);
-        if !value.is_finite() {
-            return Err(Error::InvalidConfiguration(
-                "RHS value is not finite for direct sparse LU".to_string(),
-            ));
-        }
-        b.push(value);
-    }
-
-    let sprs = Sprs {
-        nzmax: nnz,
-        m: nrows,
-        n: ncols,
-        x,
-        i,
-        p,
-    };
-
-    Ok((sprs, b))
 }
 
 #[cfg(test)]
@@ -269,26 +183,24 @@ mod tests {
     }
 
     #[test]
-    fn direct_solver_errors_when_solution_exceeds_target_precision() {
-        let mut builder = SparseMatrixBuilder::new(1, 1);
-        builder.add_entry(0, 0, 1.0e-39_f32).unwrap();
-
-        let mut assembly_rhs = Array1::from_shape_vec([1], vec![1.0_f32]).unwrap();
+    fn direct_solver_falls_back_to_dense_for_small_system_exceeding_atlas_limit() {
+        // With max_size=1, a 2×2 system exceeds the atlas-LU limit but
+        // falls through to the dense fallback (n=2 ≤ dense_threshold=1024).
+        let solver = DirectSparseSolver {
+            max_size: 1,
+            ordering: 1,
+            pivot_tolerance: 1e-12,
+        };
+        let mut builder = SparseMatrixBuilder::new(2, 2);
+        builder.add_entry(0, 0, 2.0_f64).unwrap();
+        builder.add_entry(1, 1, 4.0_f64).unwrap();
+        let mut assembly_rhs = Array1::from_shape_vec([2], vec![6.0_f64, 8.0_f64]).unwrap();
         let matrix = builder.build_with_rhs(&mut assembly_rhs).unwrap();
-
-        let solver = DirectSparseSolver::default();
-        let rhs = Array1::from_shape_vec([1], vec![1.0_f32]).unwrap();
-        let err = solver.solve(&matrix, &rhs).unwrap_err();
-
-        match err {
-            Error::ConversionError(message) => {
-                assert!(
-                    message.contains("cannot be represented in target precision"),
-                    "unexpected conversion error message: {message}"
-                );
-            }
-            other => panic!("Expected ConversionError, got {other:?}"),
-        }
+        let rhs = Array1::from_shape_vec([2], vec![6.0_f64, 8.0_f64]).unwrap();
+        // Should succeed via dense fallback.
+        let x = solver.solve(&matrix, &rhs).expect("dense fallback should handle small n");
+        assert!((x[0] - 3.0_f64).abs() < 1e-10);
+        assert!((x[1] - 2.0_f64).abs() < 1e-10);
     }
 
     #[test]

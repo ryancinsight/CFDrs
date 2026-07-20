@@ -11,7 +11,6 @@ description = "Mathematical utilities and numerical methods for CFD simulations"
 [dependencies]
 aequitas.workspace = true
 cfd-core.workspace = true
-rsparse.workspace = true
 eunomia.workspace = true
 leto.workspace = true
 leto-ops.workspace = true
