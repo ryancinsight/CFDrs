@@ -60,7 +60,3 @@ mod tests;
 
 pub use kernel::Laplacian2DKernel;
 pub use types::BoundaryCondition;
-
-/// Deprecated alias for [`BoundaryCondition`].
-#[allow(deprecated)]
-pub use types::BoundaryType;
