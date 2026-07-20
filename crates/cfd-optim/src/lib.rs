@@ -26,13 +26,13 @@
 //!
 //! | Module | Purpose |
 //! |--------|---------|
-//! [`domain`]        | Blueprint-native candidate and optimisation goal types |
-//! [`application`]   | Goal evaluation, deterministic search, GA refinement, reporting |
-//! [`metrics`]       | Blueprint-native and legacy physics evaluation layers |
+//! `domain`          | Blueprint-native candidate and optimisation goal types |
+//! `application`     | Goal evaluation, deterministic search, GA refinement, reporting |
+//! `metrics`         | Blueprint-native and legacy physics evaluation layers |
 //! [`constraints`]   | 96-well plate geometry, blood properties, FDA limits |
-//! [`delivery`]      | JSON/SVG export |
-//! [`design`]        | Milestone 12 blueprint candidate-space helpers |
-//! [`error`]         | Error types |
+//! `delivery`        | JSON/SVG export |
+//! `design`          | Milestone 12 blueprint candidate-space helpers |
+//! `error`           | Error types |
 
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
@@ -126,6 +126,7 @@ pub use delivery::{
 };
 pub use design::build_milestone12_blueprint_candidate_space;
 pub use design::build_milestone12_candidate_params;
+pub use design::{generate_milestone12_lhs_params, generate_milestone12_lhs_params_seeded};
 pub use domain::{BlueprintCandidate, OperatingPoint, OptimizationGoal, PatientContext};
 pub use error::OptimError;
 pub use metrics::{

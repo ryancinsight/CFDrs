@@ -13,7 +13,8 @@ The suite is organized into 10 specialized crates:
 - **cfd-2d**: 2D solvers, SIMPLE/PISO algorithms, LBM foundations
 - **cfd-3d**: 3D FEM, spectral methods, multiphase foundations
 - **cfd-schematics**: Microfluidic schematic design, geometry generation, configuration, visualization
-- **cfd-optim**: Design optimization, genetic algorithms, blueprint candidates
+- **cfd-optim**: Design optimization, genetic algorithms, blueprint candidates,
+  and Tyche-backed reproducible stratified designs
 - **cfd-validation**: Convergence studies, error metrics, benchmarks
 - **cfd-python**: Python bindings for the CFD suite
 

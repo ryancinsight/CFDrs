@@ -116,7 +116,7 @@ impl BlueprintObjectiveEvaluation {
 
     /// Construct from pre-extracted identity strings and a shared evaluation.
     ///
-    /// Used by [`EvaluatedPool`] which stores only the candidate ID and
+    /// Used by [`EvaluatedPool`](crate::EvaluatedPool), which stores only the candidate ID and
     /// blueprint name (not the full `BlueprintCandidate`) to avoid OOM at
     /// scale.
     #[must_use]

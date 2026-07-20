@@ -1,5 +1,5 @@
 //! The [`SdtMetrics`] output struct — all physics-derived metrics for one
-//! [`BlueprintCandidate`](crate::design::BlueprintCandidate).
+//! [`BlueprintCandidate`](crate::BlueprintCandidate).
 
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -29,7 +29,7 @@ pub struct ChannelHemolysis {
     pub flow_fraction: f64,
 }
 
-/// All physics-derived metrics for one [`BlueprintCandidate`](crate::design::BlueprintCandidate).
+/// All physics-derived metrics for one [`BlueprintCandidate`](crate::BlueprintCandidate).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SdtMetrics {
     // ── Cavitation ──
@@ -52,7 +52,7 @@ pub struct SdtMetrics {
 
     /// Whether the throat shear stress exceeds FDA 150 Pa.
     /// Expected `true` for effective SDT; cumulative haemolysis is tracked
-    /// separately via [`hemolysis_index_per_pass`].
+    /// separately via [`Self::hemolysis_index_per_pass`].
     pub throat_exceeds_fda: bool,
 
     // ── Main-channel safety ──
@@ -158,7 +158,7 @@ pub struct SdtMetrics {
     // ── Leukapheresis-style parallel or recirculating blueprints ──
     /// Fraction of WBCs focused into the center outlet channel.
     ///
-    /// Computed using [`enhanced_lateral_equilibrium`] with CFL correction at
+    /// Computed using [`enhanced_lateral_equilibrium`](cfd_1d::physics::cell_separation::enhanced_lateral_equilibrium) with CFL correction at
     /// the candidate's `feed_hematocrit`.  `0.0` for non-leukapheresis topologies.
     pub wbc_recovery: f64,
 
