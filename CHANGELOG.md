@@ -40,6 +40,11 @@ All notable changes to this project will be documented in this file.
   mutable-RNG sampler and direct `rand` dependency are removed. The provider
   closure advances Aequitas and Proteus together so CFDrs, Proteus, and
   Hephaestus share one dimensional-type identity.
+- **Breaking / architecture**: `PolynomialViscosity::calculate_density` now
+  returns a typed `Result` and delegates its linear thermal-expansion response
+  to Proteus. The response remains generic over the native scalar, while
+  invalid reference states, coefficients, temperatures, and evaluated
+  densities are rejected at the shared material-law boundary.
 - **Breaking / architecture**: `FluidState::thermal_diffusivity` now returns a
   typed `Result`, and both fluid-property entry points delegate dimensional
   validation and `alpha = k / (rho c_p)` to Proteus. CFDrs retains rheology and

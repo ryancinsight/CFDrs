@@ -2983,6 +2983,10 @@
   delegate Latin-hypercube sampling to Tyche, map fixed const-generic samples
   directly into candidates, and remove the duplicate sampler and `rand`
   dependency.
+- [x] `cfd-core` [major/arch]: Delegate the polynomial fluid model's linear
+  temperature-density response to Proteus, propagate its typed validation
+  failure, and verify the generic response against an independent closed-form
+  oracle and a negative-density rejection case.
 
 ## Rigor & Correctness
 - [x] Review all numerical bounds and geometry assumptions in `cfd-schematics`.

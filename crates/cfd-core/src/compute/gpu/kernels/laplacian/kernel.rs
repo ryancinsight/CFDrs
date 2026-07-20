@@ -61,10 +61,10 @@ impl Laplacian2DKernel {
         ny: usize,
         dx: Length<f32>,
         dy: Length<f32>,
-    bc: BoundaryCondition,
-    result: &mut [f32],
-) -> Result<()> {
-    let params = validate_contract(field.len(), result.len(), nx, ny, dx, dy, bc)?;
+        bc: BoundaryCondition,
+        result: &mut [f32],
+    ) -> Result<()> {
+        let params = validate_contract(field.len(), result.len(), nx, ny, dx, dy, bc)?;
         let provider = self.context.provider();
         let input = provider.upload(field)?;
         let output = provider.alloc_zeroed(field.len())?;
@@ -86,9 +86,9 @@ impl Laplacian2DKernel {
         ny: usize,
         dx: Length<f32>,
         dy: Length<f32>,
-    bc: BoundaryCondition,
-) -> Result<()> {
-    let params = validate_contract(input.size(), output.size(), nx, ny, dx, dy, bc)?;
+        bc: BoundaryCondition,
+    ) -> Result<()> {
+        let params = validate_contract(input.size(), output.size(), nx, ny, dx, dy, bc)?;
         self.kernel.dispatch(
             self.context.provider(),
             &input.buffer,

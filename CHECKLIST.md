@@ -3823,3 +3823,14 @@ Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 - [x] Integrate Tyche Latin-hypercube sampling into `cfd-optim`, including
   deterministic seed differentiation, invalid-count rejection, value-semantic
   consumer tests, provider-residue scans, and package gates.
+
+## Proteus temperature-response increment
+
+- [x] Advance Aequitas and Proteus to their merged temperature-response
+  revisions.
+- [x] Replace the local polynomial-fluid density equation with the generic
+  Proteus `TemperatureLaw`, using a linear density strategy and zero-sized
+  constant heat-capacity and conductivity strategies.
+- [x] Propagate material-domain failures through `cfd_core::Error::InvalidInput`.
+- [x] Document the ownership decision and verify the independent closed-form
+  density oracle plus negative-response rejection.

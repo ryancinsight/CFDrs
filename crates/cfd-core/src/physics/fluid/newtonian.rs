@@ -69,7 +69,9 @@ impl<T: RealField + Copy> ConstantPropertyFluid<T> {
         )?;
 
         if self.viscosity <= <T as NumericElement>::ZERO {
-            return Err(Error::InvalidInput("Viscosity must be positive".to_string()));
+            return Err(Error::InvalidInput(
+                "Viscosity must be positive".to_string(),
+            ));
         }
         if self.speed_of_sound <= <T as NumericElement>::ZERO {
             return Err(Error::InvalidInput(
@@ -279,11 +281,11 @@ mod tests {
     fn base_fluid() -> ConstantPropertyFluid<f64> {
         ConstantPropertyFluid::new(
             "test".to_string(),
-            998.2,    // density [kg/m³]
+            998.2,     // density [kg/m³]
             0.001_002, // viscosity [Pa·s]
-            4186.0,   // specific heat [J/(kg·K)]
-            0.599,    // thermal conductivity [W/(m·K)]
-            1482.0,   // speed of sound [m/s]
+            4186.0,    // specific heat [J/(kg·K)]
+            0.599,     // thermal conductivity [W/(m·K)]
+            1482.0,    // speed of sound [m/s]
         )
     }
 
@@ -326,7 +328,9 @@ mod tests {
     fn validate_rejects_negative_specific_heat_with_proteus_message() {
         let mut fluid = base_fluid();
         fluid.specific_heat = -1.0;
-        let err = fluid.validate().expect_err("negative specific heat is invalid");
+        let err = fluid
+            .validate()
+            .expect_err("negative specific heat is invalid");
         match err {
             Error::InvalidInput(msg) => assert!(
                 msg.contains("SpecificHeatCapacity"),
@@ -359,7 +363,7 @@ mod tests {
         let err = fluid.validate().expect_err("zero viscosity is invalid");
         match err {
             Error::InvalidInput(msg) => {
-                assert!(msg.to_lowercase().contains("viscosity"), "got: {msg}")
+                assert!(msg.to_lowercase().contains("viscosity"), "got: {msg}");
             }
             other => panic!("unexpected error variant: {other:?}"),
         }
@@ -373,10 +377,7 @@ mod tests {
             .validate()
             .expect_err("zero speed of sound is invalid");
         match err {
-            Error::InvalidInput(msg) => assert!(
-                msg.to_lowercase().contains("speed"),
-                "got: {msg}"
-            ),
+            Error::InvalidInput(msg) => assert!(msg.to_lowercase().contains("speed"), "got: {msg}"),
             other => panic!("unexpected error variant: {other:?}"),
         }
     }

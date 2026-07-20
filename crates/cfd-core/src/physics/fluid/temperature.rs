@@ -1,5 +1,6 @@
 //! Temperature-dependent fluid models
 
+use super::thermophysical::linear_density_at;
 use super::traits::{Fluid as FluidTrait, FluidState};
 use crate::error::Error;
 use eunomia::RealField;
@@ -45,10 +46,22 @@ impl<T: RealField + NumericElement + Copy> PolynomialViscosity<T> {
         viscosity
     }
 
-    /// Calculate density with thermal expansion
-    pub fn calculate_density(&self, temperature: T) -> T {
-        let dt = temperature - self.t_ref;
-        self.density_ref * (<T as NumericElement>::ONE - self.thermal_expansion * dt)
+    /// Calculate density with the shared Proteus linear temperature response.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidInput`] when the reference thermophysical state,
+    /// response coefficient, evaluation temperature, or resulting density lies
+    /// outside the Proteus material-property contract.
+    pub fn calculate_density(&self, temperature: T) -> Result<T, Error> {
+        linear_density_at(
+            self.density_ref,
+            self.thermal_expansion,
+            self.t_ref,
+            self.specific_heat,
+            self.thermal_conductivity,
+            temperature,
+        )
     }
 }
 
@@ -60,7 +73,7 @@ impl<T: RealField + NumericElement + Copy> FluidTrait<T> for PolynomialViscosity
             ));
         }
 
-        let density = self.calculate_density(temperature);
+        let density = self.calculate_density(temperature)?;
         let viscosity = self.calculate_viscosity(temperature);
 
         Ok(FluidState {
@@ -370,9 +383,39 @@ mod tests {
         let expected_viscosity = 1.0 - 0.01 * 310.0 + 0.0001 * 310.0 * 310.0;
         assert!((viscosity - expected_viscosity).abs() <= 16.0 * f64::EPSILON);
 
-        let density = fluid.calculate_density(310.0);
+        let density = fluid
+            .calculate_density(310.0)
+            .expect("finite positive thermophysical state");
         let expected_density = 1000.0 * (1.0 - 2.0e-4 * 10.0);
-        assert!((density - expected_density).abs() <= 16.0 * f64::EPSILON * expected_density);
+        // Proteus evaluates the response with an FMA. Four native roundings
+        // bound that path, this independent expression, and density scaling.
+        let rounding = 4.0 * f64::EPSILON * expected_density.abs();
+        assert!((density - expected_density).abs() <= rounding);
+    }
+
+    #[test]
+    fn polynomial_density_rejects_a_negative_proteus_state() {
+        let fluid = PolynomialViscosity::<f64> {
+            name: "Invalid response".to_string(),
+            density_ref: 1000.0,
+            thermal_expansion: 0.2,
+            viscosity_coeffs: vec![1.0],
+            t_ref: 300.0,
+            specific_heat: 4180.0,
+            thermal_conductivity: 0.6,
+            speed_of_sound: 1480.0,
+        };
+
+        let error = fluid
+            .calculate_density(310.0)
+            .expect_err("the linear response produces negative density");
+        match error {
+            Error::InvalidInput(message) => {
+                assert!(message.contains("MassDensity"));
+                assert!(message.contains("FiniteNonNegative"));
+            }
+            other => panic!("unexpected error variant: {other}"),
+        }
     }
 
     #[test]
