@@ -303,7 +303,7 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
 
     let _ = write!(
         s,
-        r##"  <text x="{leg_x:.0}" y="{:.0}"
+        r##"  <text x="{:.0}" y="{:.0}"
         font-family="Arial,sans-serif" font-size="9" font-weight="bold" fill="#333">
     Cancer Cavitation Score:</text>
   <rect x="{:.0}" y="{:.0}" width="180" height="11" fill="url(#cavGrad)" rx="2"/>
@@ -311,6 +311,7 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
   <text x="{:.0}" y="{:.0}" font-family="Arial,sans-serif" font-size="8"
         fill="#555" text-anchor="end">1.0 (high)</text>
 "##,
+        leg_x,
         leg_y + 12.0,
         leg_x + 180.0,
         leg_y + 18.0,
