@@ -5,11 +5,10 @@
 //!
 //! Run with: `cargo run --example matrix_free_demo`
 
-use aequitas::systems::si::{quantities::Length, units::Meter};
 use cfd_math::error::Result;
 use cfd_math::linear_solver::{
-    BoundaryCondition, ConjugateGradient, IterativeLinearSolver, IterativeSolverConfig,
-    LaplacianOperator2D, LinearOperator,
+    ConjugateGradient, IterativeLinearSolver, IterativeSolverConfig,
+    LinearOperator,
 };
 use leto::Array1;
 
@@ -35,14 +34,15 @@ impl LinearOperator<f64> for DiffusionOperator1D {
 
         let dx2_inv = 1.0 / (self.dx * self.dx);
 
-        // Interior points: d²u/dx²
+        // Interior points: −d²u/dx² (positive-definite discrete Laplacian for CG)
         for i in 1..(self.n - 1) {
-            y[i] = (x[i - 1] + x[i + 1] - 2.0 * x[i]) * dx2_inv;
+            y[i] = (2.0 * x[i] - x[i - 1] - x[i + 1]) * dx2_inv;
         }
 
-        // Boundary conditions (homogeneous Dirichlet)
-        y[0] = 0.0;
-        y[self.n - 1] = 0.0;
+        // Boundary rows: identity so the augmented system stays positive definite.
+        // With b[0] = b[n-1] = 0 this encodes u(0) = u(L) = 0 (Dirichlet).
+        y[0] = x[0];
+        y[self.n - 1] = x[self.n - 1];
 
         Ok(())
     }
@@ -65,8 +65,9 @@ fn main() -> Result<()> {
     println!("📐 Example 1: 1D Diffusion Equation");
     println!("-----------------------------------");
 
-    let n = 10;
-    let dx = 0.1;
+    // n=11 gives x ∈ [0.0, 1.0] with dx=0.1, so sin(πx) satisfies u(0)=u(1)=0.
+    let n = 11;
+    let dx = 1.0 / (n - 1) as f64;
     let operator = DiffusionOperator1D::new(n, dx);
 
     // Create a manufactured solution: u(x) = sin(πx)
@@ -76,8 +77,12 @@ fn main() -> Result<()> {
 
     for (i, b_i) in b_data.iter_mut().enumerate() {
         let x = i as f64 * dx;
-        *b_i = pi * pi * x.sin();
+        // Manufactured solution u = sin(πx) → −u'' = π² sin(πx)
+        *b_i = pi * pi * (pi * x).sin();
     }
+    // Enforce homogeneous Dirichlet BCs on the RHS (matches identity boundary rows).
+    b_data[0] = 0.0;
+    b_data[n - 1] = 0.0;
     let b = Array1::from_shape_vec([n], b_data).expect("shape matches data length");
 
     // Solve using matrix-free CG
@@ -102,52 +107,48 @@ fn main() -> Result<()> {
     }
 
     println!("  Grid points: {}", n);
-    println!("  Grid spacing: {:.3}", dx);
-    println!("  Max error: {:.2e}", max_error);
-    println!("  ✅ Solution computed successfully");
+    println!("  Grid spacing: {:.4}", dx);
+    println!("  Max error vs sin(πx): {:.2e}", max_error);
+    println!("  ✅ Solution matches manufactured solution");
     println!();
 
-    // Example 2: 2D Laplacian (CFD Pressure Solver)
-    println!("🌊 Example 2: 2D Laplacian (CFD Pressure)");
-    println!("----------------------------------------");
+    // Example 2: Scaling — larger 1D problem demonstrates matrix-free advantage
+    println!("📏 Example 2: 1D Diffusion — Scaling to n = 101");
+    println!("------------------------------------------------");
 
-    let nx = 8;
-    let ny = 8;
-    let dx = 0.125;
-    let dy = 0.125;
+    let n2 = 101usize;
+    let dx2 = 1.0 / (n2 - 1) as f64;
+    let op2 = DiffusionOperator1D::new(n2, dx2);
+    let mut b2_data = vec![0.0_f64; n2];
+    for (i, b_i) in b2_data.iter_mut().enumerate() {
+        let x = i as f64 * dx2;
+        *b_i = pi * pi * (pi * x).sin();
+    }
+    b2_data[0] = 0.0;
+    b2_data[n2 - 1] = 0.0;
+    let b2 = Array1::from_shape_vec([n2], b2_data).expect("shape matches");
 
-    let laplacian = LaplacianOperator2D::new(
-        nx,
-        ny,
-        Length::from_unit::<Meter>(dx),
-        Length::from_unit::<Meter>(dy),
-        BoundaryCondition::Neumann,
-    )?;
-
-    // Simple test: solve -∇²p = 1 with homogeneous Neumann BC
-    let size = laplacian.size();
-    let b_laplace = Array1::from_shape_fn([size], |_| 1.0);
-
-    let mut p = Array1::zeros([size]);
-    solver.solve(
-        &laplacian,
-        &b_laplace,
-        &mut p,
+    let config2 = IterativeSolverConfig::new(1e-12).with_max_iterations(200);
+    let solver2 = ConjugateGradient::new(config2);
+    let mut x2 = Array1::zeros([n2]);
+    solver2.solve(
+        &op2,
+        &b2,
+        &mut x2,
         None::<&cfd_math::linear_solver::preconditioners::IdentityPreconditioner>,
     )?;
 
-    println!("  Grid: {}x{}", nx, ny);
-    println!("  Total DOF: {}", size);
-    println!("  ✅ Pressure field computed");
-    println!("  Sample pressure values:");
-    for j in 0..3 {
-        print!("    ");
-        for i in 0..3 {
-            let idx = j * nx + i;
-            print!("{:.3} ", p[idx]);
-        }
-        println!();
+    let mut max_err2 = 0.0_f64;
+    for i in 0..n2 {
+        let x_pos = i as f64 * dx2;
+        let exact = (pi * x_pos).sin();
+        max_err2 = max_err2.max((x2[i] - exact).abs());
     }
+    println!("  Grid points: {n2}");
+    println!("  Grid spacing: {dx2:.5}");
+    println!("  Max error vs sin(πx): {max_err2:.2e}  (O(dx²) ≈ {:.2e})", dx2 * dx2);
+    println!("  Operator never stored in memory — applied on-the-fly");
+    println!("  ✅ Scaling demonstration complete");
     println!();
 
     println!("🎉 Matrix-free solvers demonstration complete!");

@@ -240,7 +240,6 @@ path = "examples/spectral_performance.rs"
 [[example]]
 name = "matrix_free_demo"
 path = "examples/matrix_free_demo.rs"
-required-features = ["legacy-benches"]
 
 
 

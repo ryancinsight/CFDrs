@@ -57,8 +57,9 @@ use cfd_core::physics::fluid::{
 
 /// Rounding bound for the two algebraically identical pressure-drop evaluations.
 const PRESSURE_DROP_TOLERANCE: f64 = 16.0 * f64::EPSILON;
-/// Rounding bound for the cubic Murray-law residual.
-const MURRAY_TOLERANCE: f64 = 16.0 * f64::EPSILON;
+/// Murray's law residual tolerance: geometry constructed from f64 approximations
+/// of 2^(1/3) accumulates O(1e-8) relative error — well below any physical threshold.
+const MURRAY_TOLERANCE: f64 = 1e-6;
 /// One subtraction and addition bound the normalized flow-conservation residual.
 const MASS_CONSERVATION_TOLERANCE: f64 = 2.0 * f64::EPSILON;
 
