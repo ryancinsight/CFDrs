@@ -218,6 +218,13 @@ impl Color {
     }
 }
 
+impl From<iris::color::Rgba> for Color {
+    fn from(color: iris::color::Rgba) -> Self {
+        let [red, green, blue, alpha] = color.to_rgba8();
+        Self::rgba(red, green, blue, alpha)
+    }
+}
+
 /// Style configuration for drawing lines.
 #[derive(Debug, Clone)]
 pub struct LineStyle {

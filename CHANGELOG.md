@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking / architecture**: schematic analysis overlays now consume Iris
+  `NamedColorMap` values directly, accept borrowed or owned scalar maps through
+  `Cow`, validate finite fields at construction, and precompute scalar ranges.
+  The duplicate `ColormapKind` and local blue-red, Viridis, and grayscale laws
+  are removed. Builders now return typed `Result`s, and scalar-map fields are
+  exposed through borrowed accessors instead of public mutable storage.
 - **Breaking / architecture**: `cfd-math::LaplacianOperator2D::new` now accepts
   Aequitas lengths and an explicit Leto boundary condition, returns a typed
   `Result`, and delegates CPU evaluation to `leto-ops::laplacian_2d_into`.

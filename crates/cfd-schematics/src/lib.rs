@@ -79,6 +79,8 @@
 //! - `NodeSpec` / `ChannelSpec` — topology and cross-section geometry
 //! - `CrossSectionSpec` — circular or rectangular geometry for resistance calc
 //! - `AnalysisOverlay` — typed CFD field visualization on the schematic
+//!   using Iris color laws, borrowed-or-owned scalar maps, and ranges validated
+//!   and reduced once before rendering
 //!
 //! ### Relationship with `cfd-2d`
 //!

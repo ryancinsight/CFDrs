@@ -21,12 +21,8 @@ pub struct CenterSerpentineSpec {
 pub(super) fn normalized_center_serpentine(
     center_serpentine: Option<CenterSerpentineSpec>,
 ) -> Option<CenterSerpentineSpec> {
-    center_serpentine.and_then(|spec| {
-        if spec.segments < 2 || spec.bend_radius_m <= 0.0 || spec.segment_length_m <= 0.0 {
-            None
-        } else {
-            Some(spec)
-        }
+    center_serpentine.filter(|spec| {
+        spec.segments >= 2 && spec.bend_radius_m > 0.0 && spec.segment_length_m > 0.0
     })
 }
 

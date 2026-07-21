@@ -13,6 +13,7 @@
 | **Production CFD Physics** | 2024-Sprint1.27 | Functional solver requirement | Operational momentum solver | ✅ Real CFD ⚠️ Implementation effort |
 | **GMRES Linear Solver** | 2024-Sprint1.36 | Industry standard for SIMPLE/PISO | Configurable backend, GMRES default | ✅ Robust convergence ⚠️ Memory O(mn) |
 | **Provider-owned CSR execution** | 2026-07-10 | Leto is the CSR SpMV SSOT; CFDrs parallel flags had no behavioral effect | One `spmv`/`try_spmv` family; zero ignored execution flags | Breaking removal of inert compatibility APIs |
+| **Iris-owned color laws** | 2026-07-21 | `cfd-schematics` duplicated color formulas and rescanned field maps per rendered element | One direct `NamedColorMap` contract; linear range preprocessing; zero transient range allocations | Breaking overlay builders and field visibility |
 
 ## Architecture Overview
 
@@ -71,6 +72,47 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-21: Iris owns schematic color laws [major] [arch]
+
+**Context**: `cfd-schematics` defined its own color-map enum and blue-red,
+Viridis, and grayscale formulas even though Iris owns normalized color laws.
+Overlay color lookup collected and rescanned every scalar on each rendered
+edge or node, creating `E + V` temporary vectors and `Theta(E^2 + V^2)` range
+work over a complete render.
+
+**Decision**: Consumers pass Iris `NamedColorMap` values directly.
+`AnalysisOverlay` uses `Cow<'a, HashMap<usize, f64>>` to represent the real
+borrow-or-own variation without parallel APIs. Fallible builders validate
+finite inputs and reduce each scalar range once; map fields remain private and
+are exposed as borrowed views. Iris's static maps remain zero-sized and enum
+dispatch occurs once per color sample without heap or vtable allocation.
+
+**Rejected alternatives**: A CFDrs wrapper or re-export was rejected because
+it would preserve duplicate ownership and API drift. Lazy range caching over
+public mutable maps was rejected because mutation would invalidate the cache.
+Moving scalar-range semantics into Iris was rejected because field validation
+and constant-field normalization belong to the CFD consumer.
+
+**Migration**: replace `ColormapKind` with `iris::color::NamedColorMap`; pass
+`Cow::Borrowed(&map)` or `Cow::Owned(map)` to `with_node_data` and
+`with_edge_data`; propagate their `VisualizationResult`; use `node_data()` and
+`edge_data()` for read access. Constant finite fields map to the midpoint.
+
+**Consequences**: construction is `Theta(E + V)` with no transient range
+allocation, and each subsequent lookup has expected `O(1)` map access and
+constant-time normalization. This analytical result does not establish a
+measured wall-clock speedup. A GAT or execution-policy seam is not introduced:
+the API lends one fixed map type and has no associated type family or execution
+regime variation.
+
+**Verification**: exact unit tests cover endpoints, quantization, borrowed
+identity, ranges, constant fields, missing IDs, and invalid inputs. The real
+Venturi solver produces a visually inspected pressure overlay with coherent
+units and color direction. Major SemVer classification is specified but the
+tool's isolated temporary graph is blocked before API comparison by existing
+divergent Aequitas and Leto Git source identities in cfd-core's dependency
+closure; workspace-local compile, test, Clippy, doctest, and Rustdoc gates pass.
 
 ### 2026-07-20: Leto owns typed Cartesian Laplacian contracts [major] [arch]
 

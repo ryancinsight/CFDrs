@@ -18,6 +18,10 @@ The suite is organized into 10 specialized crates:
 - **cfd-validation**: Convergence studies, error metrics, benchmarks
 - **cfd-python**: Python bindings for the CFD suite
 
+Normalized color laws are owned by Iris. `cfd-schematics` retains CFD field
+semantics and sparse node/channel association, borrowing or owning solver maps
+through `Cow` and precomputing finite scalar ranges before rendering.
+
 ## Current State: BETA - Sprint 1.86.0 (Validation & Benchmarking Complete) ✅ PRODUCTION READY
 
 ### 🎯 Sprint 1.86.0 Achievement - Validation & Benchmarking Complete ✅

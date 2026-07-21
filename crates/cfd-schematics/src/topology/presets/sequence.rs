@@ -12,8 +12,9 @@ use super::super::model::SplitKind;
 /// # Nomenclature
 ///
 /// Each variant name reads left-to-right as root → leaf.  `Bi`, `Tri`,
-/// `Quad`, and `Penta` denote [`NFurcation(2)`], [`NFurcation(3)`],
-/// [`NFurcation(4)`], and [`NFurcation(5)`] respectively.
+/// `Quad`, and `Penta` denote
+/// [`SplitKind::NFurcation`] with
+/// arities two through five, respectively.
 ///
 /// # Example
 ///
@@ -159,7 +160,8 @@ impl PrimitiveSplitSequence {
 
 /// The tri-first primitive selective lineage sequences used by the
 /// Milestone 12 design-space sweep.  Every entry starts with an
-/// [`NFurcation(3)`] trifurcation to guarantee a center-lane treatment
+/// [`SplitKind::NFurcation`]
+/// trifurcation with arity three to guarantee a center-lane treatment
 /// path flanked by peripheral bypass channels.
 pub const TRI_FIRST_SEQUENCES: [PrimitiveSplitSequence; 9] = [
     PrimitiveSplitSequence::Tri,

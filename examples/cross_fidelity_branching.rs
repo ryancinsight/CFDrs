@@ -13,6 +13,7 @@
 //! # Execution
 //! `cargo run --example cross_fidelity_branching --release`
 
+use cfd_1d::physics::cell_separation::{CellProperties, CellSeparationModel};
 use cfd_3d::blueprint_integration::{
     process_blueprint_with_reference_trace, Blueprint3dProcessingConfig,
 };
@@ -20,13 +21,12 @@ use cfd_schematics::interface::presets::{
     bifurcation_rect, pentafurcation_rect, quadfurcation_rect, trifurcation_rect,
 };
 use cfd_schematics::visualizations::{
-    create_plotters_renderer, AnalysisField, AnalysisOverlay, ColormapKind, RenderConfig,
-    SchematicRenderer,
+    create_plotters_renderer, AnalysisField, AnalysisOverlay, RenderConfig, SchematicRenderer,
 };
-use cfd_1d::physics::cell_separation::{CellProperties, CellSeparationModel};
-use std::collections::HashMap;
+use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
+use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔬 Cross-Fidelity Branching Validation");
@@ -66,12 +66,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let bp_quad = quadfurcation_rect(
         "Symmetric Quadfurcation",
-        60e-3, 10e-3, 4.0e-3, 4.0e-3, 4.0e-3,
+        60e-3,
+        10e-3,
+        4.0e-3,
+        4.0e-3,
+        4.0e-3,
     );
 
     let _bp_penta = pentafurcation_rect(
         "Symmetric Pentafurcation",
-        60e-3, 10e-3, 4.0e-3, 4.0e-3, 4.0e-3,
+        60e-3,
+        10e-3,
+        4.0e-3,
+        4.0e-3,
+        4.0e-3,
     );
 
     let cell_cancer = CellProperties::mcf7_breast_cancer();
@@ -104,9 +112,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  • 1D vs 2D Results Table\n");
         println!(
             "  {:<15} | {:<16} | {:<16} | {:<16} | {:<10} | {:<14} | {:<14} | {:<10}",
-            "Channel", "1D Flow [m³/s]", "2D Conv Flow", "2D Err [%]", "1D dP [Pa]", "1D Sep Eff [%]", "2D Sep Eff [%]", "2D Shear [Pa]"
+            "Channel",
+            "1D Flow [m³/s]",
+            "2D Conv Flow",
+            "2D Err [%]",
+            "1D dP [Pa]",
+            "1D Sep Eff [%]",
+            "2D Sep Eff [%]",
+            "2D Shear [Pa]"
         );
-        println!("  {:-<15}-+-{:-<16}-+-{:-<16}-+-{:-<16}-+-{:-<10}-+-{:-<14}-+-{:-<14}-+-{:-<10}", "", "", "", "", "", "", "", "");
+        println!(
+            "  {:-<15}-+-{:-<16}-+-{:-<16}-+-{:-<16}-+-{:-<10}-+-{:-<14}-+-{:-<14}-+-{:-<10}",
+            "", "", "", "", "", "", "", ""
+        );
 
         let mut edge_flow_map = HashMap::new();
         let mut node_flow_map = HashMap::new();
@@ -136,10 +154,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut sep_eff_str = "N/A".to_string();
             // Look up channel geometry to evaluate cell separation efficiency
-            if let Some(geom) = bp.channels.iter().find(|ch| ch.id.as_str() == trace.channel_id.as_str()) {
-                if let cfd_schematics::domain::model::CrossSectionSpec::Rectangular { width_m, height_m } = geom.cross_section {
+            if let Some(geom) = bp
+                .channels
+                .iter()
+                .find(|ch| ch.id.as_str() == trace.channel_id.as_str())
+            {
+                if let cfd_schematics::domain::model::CrossSectionSpec::Rectangular {
+                    width_m,
+                    height_m,
+                } = geom.cross_section
+                {
                     if geom.length_m > 0.0 && width_m > 0.0 && height_m > 0.0 {
-                        let sep_model = CellSeparationModel::new(width_m, height_m, geom.length_m, None);
+                        let sep_model =
+                            CellSeparationModel::new(width_m, height_m, geom.length_m, None);
                         if let Some(analysis) = sep_model.analyze(
                             &cell_cancer,
                             &cell_rbc,
@@ -147,7 +174,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             viscosity_pa_s,
                             trace.reference_mean_velocity_m_s,
                         ) {
-                            sep_eff_str = format!("{:>6.2}%", analysis.separation_efficiency * 100.0);
+                            sep_eff_str =
+                                format!("{:>6.2}%", analysis.separation_efficiency * 100.0);
                         }
                     }
                 }
@@ -160,7 +188,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!(
                 "  {:<15} | {:<16.2e} | {:<16} | {:<16} | {:<10.1} | {:<14} | {:<14} | {:<10}",
-                trace.channel_id, flow_1d, flow_2d_str, err_2d_str, dp_1d, sep_eff_str, sep_2d_str, shear_2d_str
+                trace.channel_id,
+                flow_1d,
+                flow_2d_str,
+                err_2d_str,
+                dp_1d,
+                sep_eff_str,
+                sep_2d_str,
+                shear_2d_str
             );
 
             // Mapping for Visualization (assuming channel IDs end in an index for basic visualization,
@@ -175,7 +210,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .find(|t| t.channel_id == ch.id.as_str())
             {
                 edge_flow_map.insert(i, trace.reference_flow_rate_m3_s);
-                
+
                 // Hacky node mapping: from/to node IDs to indices
                 let mut from_idx = 0;
                 let mut to_idx = 0;
@@ -194,9 +229,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // ── 3. Overlay Visualization ────────────────────────────────────────
         let renderer = create_plotters_renderer();
-        let overlay = AnalysisOverlay::new(AnalysisField::FlowRate, ColormapKind::Viridis)
-            .with_edge_data(edge_flow_map)
-            .with_node_data(node_flow_map);
+        let overlay = AnalysisOverlay::new(AnalysisField::FlowRate, NamedColorMap::Viridis)
+            .with_edge_data(Cow::Owned(edge_flow_map))?
+            .with_node_data(Cow::Owned(node_flow_map))?;
 
         let overlay_cfg = RenderConfig {
             width: 1000,
@@ -208,15 +243,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let overlay_path = out_dir.join(format!("{}_flow_overlay.svg", filename_prefix));
         renderer.render_analysis(
             &bp,
-            overlay_path.to_str().unwrap(),
+            overlay_path
+                .to_str()
+                .expect("invariant: the manifest path and output suffix are valid UTF-8"),
             &overlay_cfg,
             &overlay,
         )?;
-        
+
         let overlay_path_png = out_dir.join(format!("{}_flow_overlay.png", filename_prefix));
         renderer.render_analysis(
             &bp,
-            overlay_path_png.to_str().unwrap(),
+            overlay_path_png
+                .to_str()
+                .expect("invariant: the manifest path and output suffix are valid UTF-8"),
             &overlay_cfg,
             &overlay,
         )?;

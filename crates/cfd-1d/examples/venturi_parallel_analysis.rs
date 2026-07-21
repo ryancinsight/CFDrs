@@ -31,15 +31,14 @@ use cfd_schematics::domain::model::NodeKind;
 use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::SplitType;
 use cfd_schematics::plot_geometry;
-use cfd_schematics::visualizations::analysis_field::{
-    AnalysisField, AnalysisOverlay, ColormapKind,
-};
+use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
 use cfd_schematics::visualizations::RenderConfig;
-use std::collections::HashMap;
+use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
+use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔬 Venturi Throat Analysis — Parallel Millifluidic Sections");
@@ -92,9 +91,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // ── 1. Generate Frustum Geometry ─────────────────────────────────────
         let box_dims = (90.0, 42.0); // mm — 96-well plate footprint
         let splits = vec![SplitType::Bifurcation];
-        let mut geo_config = GeometryConfig::default();
-        geo_config.channel_width = frustum_config.inlet_width;
-        geo_config.channel_height = 0.5; // 500 µm depth
+        let geo_config = GeometryConfig {
+            channel_width: frustum_config.inlet_width,
+            channel_height: 0.5, // 500 µm depth
+            ..Default::default()
+        };
         let channel_type = ChannelTypeConfig::AllFrustum(*frustum_config);
 
         let system = create_geometry(box_dims, &splits, &geo_config, &channel_type);
@@ -106,7 +107,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Render schematic
         let schematic_path = out.join(format!("venturi_parallel/{label}_schematic.png"));
-        plot_geometry(&system, schematic_path.to_str().unwrap())?;
+        plot_geometry(
+            &system,
+            schematic_path
+                .to_str()
+                .expect("invariant: the manifest path and output suffix are valid UTF-8"),
+        )?;
         println!("  Rendered schematic → {label}_schematic.png");
 
         // ── 2. Convert to Network Specs ──────────────────────────────────────
@@ -144,7 +150,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let inlet_id = node_specs
             .iter()
             .find(|n| matches!(n.kind, NodeKind::Inlet))
-            .unwrap()
+            .expect("invariant: the generated topology contains an inlet")
             .id
             .as_str()
             .to_string();
@@ -163,7 +169,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let config = SolverConfig {
             tolerance: 1e-8,
             max_iterations: 200,
-        require_flow_convergence: true,
+            require_flow_convergence: true,
         };
         let solver = NetworkSolver::<f64, ConstantPropertyFluid<f64>>::with_config(config);
         let solution = solver.solve(&NetworkProblem::new(network))?;
@@ -181,7 +187,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         for spec in &channel_specs {
             let eidx = edge_id_map[spec.id.as_str()];
-            let e = solution.graph.edge_weight(eidx).unwrap();
+            let e = solution
+                .graph
+                .edge_weight(eidx)
+                .expect("invariant: the channel-to-edge map names a solved graph edge");
             let q = solution
                 .flow_rates
                 .get(eidx.index())
@@ -190,7 +199,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .abs();
 
             // Upstream/downstream pressures
-            let (src, tgt) = solution.graph.edge_endpoints(eidx).unwrap();
+            let (src, tgt) = solution
+                .graph
+                .edge_endpoints(eidx)
+                .expect("invariant: every solved graph edge has two endpoints");
             let p_up = solution.pressures.get(src.index()).copied().unwrap_or(0.0);
             let p_dn = solution.pressures.get(tgt.index()).copied().unwrap_or(0.0);
             let dp = (p_up - p_dn).abs();
@@ -277,42 +289,50 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // ── 7. Visualization Overlays ────────────────────────────────────────
         let renderer = create_plotters_renderer();
 
-        let overlays: Vec<(&str, AnalysisField, &HashMap<usize, f64>, ColormapKind)> = vec![
+        let overlays: Vec<(&str, AnalysisField, &HashMap<usize, f64>, NamedColorMap)> = vec![
             (
                 "cavitation_sigma",
                 AnalysisField::Custom("σ".to_string()),
                 &edge_cavitation_sigma,
-                ColormapKind::BlueRed,
+                NamedColorMap::BlueRed,
             ),
             (
                 "throat_velocity",
                 AnalysisField::Velocity,
                 &edge_throat_velocity,
-                ColormapKind::Viridis,
+                NamedColorMap::Viridis,
             ),
             (
                 "throat_pressure",
                 AnalysisField::Pressure,
                 &edge_throat_pressure,
-                ColormapKind::BlueRed,
+                NamedColorMap::BlueRed,
             ),
             (
                 "pressure_drop",
                 AnalysisField::Custom("ΔP".to_string()),
                 &edge_pressure_drop,
-                ColormapKind::Viridis,
+                NamedColorMap::Viridis,
             ),
         ];
 
         for (filename, field, data, cmap) in &overlays {
             let overlay =
-                AnalysisOverlay::new(field.clone(), *cmap).with_edge_data((*data).clone());
-            let mut rc = RenderConfig::default();
-            rc.title = format!("{label} venturi — {filename}");
-            rc.show_axes = true;
-            rc.show_grid = false;
+                AnalysisOverlay::new(field.clone(), *cmap).with_edge_data(Cow::Borrowed(*data))?;
+            let rc = RenderConfig {
+                title: format!("{label} venturi — {filename}"),
+                show_axes: true,
+                show_grid: false,
+                ..Default::default()
+            };
             let path = out.join(format!("venturi_parallel/{label}_{filename}.png"));
-            renderer.render_analysis(&system, path.to_str().unwrap(), &rc, &overlay)?;
+            renderer.render_analysis(
+                &system,
+                path.to_str()
+                    .expect("invariant: the manifest path and output suffix are valid UTF-8"),
+                &rc,
+                &overlay,
+            )?;
         }
         println!("  Rendered 4 overlay maps.");
 
@@ -321,7 +341,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .graph
             .node_indices()
             .map(|idx| {
-                let n = solution.graph.node_weight(idx).unwrap();
+                let n = solution
+                    .graph
+                    .node_weight(idx)
+                    .expect("invariant: graph iteration yields live node indices");
                 serde_json::json!({
                     "id": n.id,
                     "pressure_pa": solution.pressures.get(idx.index()).unwrap_or(&0.0),

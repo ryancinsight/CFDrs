@@ -63,9 +63,11 @@ pub enum BlueprintTopologyMutation {
 /// ## SSOT Architecture
 ///
 /// This factory is a **thin facade** that delegates all geometry generation
-/// to the canonical [`GeometryGeneratorBuilder`] pipeline.  No ad-hoc
+/// to the canonical
+/// [`GeometryGeneratorBuilder`](crate::geometry::generator::GeometryGeneratorBuilder)
+/// pipeline. No ad-hoc
 /// node/channel construction is performed here — that logic lives exclusively
-/// in [`GeometryGenerator`](crate::geometry::generator::GeometryGenerator).
+/// in the private `GeometryGenerator` implementation.
 pub struct BlueprintTopologyFactory;
 
 mod build_impl;

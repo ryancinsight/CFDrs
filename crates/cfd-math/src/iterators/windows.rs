@@ -105,12 +105,9 @@ where
 
         // Advance by stride
         for _ in 0..self.stride {
-            if let Some(val) = self.iter.next() {
-                self.buffer.push_back(val);
-                self.buffer.pop_front();
-            } else {
-                return None;
-            }
+            let value = self.iter.next()?;
+            self.buffer.push_back(value);
+            self.buffer.pop_front();
         }
 
         Some(self.buffer.iter().cloned().collect())

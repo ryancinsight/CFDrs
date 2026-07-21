@@ -2,10 +2,11 @@ use crate::config::ConstantsRegistry;
 use crate::domain::model::{ChannelShape, NetworkBlueprint};
 use crate::error::{VisualizationError, VisualizationResult};
 use crate::geometry::{ChannelTypeCategory, Point2D};
-use crate::visualizations::analysis_field::{AnalysisField, AnalysisOverlay, ColormapKind};
+use crate::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use crate::visualizations::traits::{
     Color as CfdColor, LineStyle, OutputFormat, RenderConfig, SchematicRenderer,
 };
+use iris::color::NamedColorMap;
 use plotters::coord::Shift;
 use plotters::prelude::*;
 use plotters::style::Color as PlottersColor;
@@ -30,7 +31,7 @@ impl SchematicRenderer for PlottersRenderer {
             system,
             output_path,
             config,
-            &AnalysisOverlay::new(AnalysisField::FlowRate, ColormapKind::BlueRed),
+            &AnalysisOverlay::new(AnalysisField::FlowRate, NamedColorMap::BlueRed),
         )
     }
 
@@ -39,7 +40,7 @@ impl SchematicRenderer for PlottersRenderer {
         system: &NetworkBlueprint,
         output_path: &str,
         config: &RenderConfig,
-        overlay: &AnalysisOverlay,
+        overlay: &AnalysisOverlay<'_>,
     ) -> VisualizationResult<()> {
         if system.channels.is_empty() && system.nodes.is_empty() {
             return Err(VisualizationError::EmptyChannelSystem);
@@ -96,7 +97,7 @@ impl PlottersRenderer {
         #[allow(unused_variables)] system: &NetworkBlueprint,
         #[allow(unused_variables)] output_path: &str,
         #[allow(unused_variables)] config: &RenderConfig,
-        #[allow(unused_variables)] overlay: &AnalysisOverlay,
+        #[allow(unused_variables)] overlay: &AnalysisOverlay<'_>,
     ) -> VisualizationResult<()> {
         #[cfg(target_arch = "wasm32")]
         {
@@ -120,7 +121,7 @@ impl PlottersRenderer {
         system: &NetworkBlueprint,
         output_path: &str,
         config: &RenderConfig,
-        overlay: &AnalysisOverlay,
+        overlay: &AnalysisOverlay<'_>,
     ) -> VisualizationResult<()> {
         let root = SVGBackend::new(output_path, (config.width, config.height)).into_drawing_area();
         root.fill(&convert_color(&config.background_color))
@@ -134,7 +135,7 @@ impl PlottersRenderer {
         config: &RenderConfig,
         root: DrawingArea<DB, Shift>,
         output_path: &str,
-        overlay: &AnalysisOverlay,
+        overlay: &AnalysisOverlay<'_>,
     ) -> VisualizationResult<()> {
         let renderable =
             channel_system_from_blueprint(system, Some(system.box_dims), Some(output_path));
@@ -200,7 +201,7 @@ impl PlottersRenderer {
             (mult.round() as u32).clamp(1, MAX_STROKE_MULT)
         };
 
-        let has_edge_data = !overlay.edge_data.is_empty();
+        let has_edge_data = !overlay.edge_data().is_empty();
         for (i, channel) in system.channels.iter().enumerate() {
             let base_style = if has_edge_data {
                 let color = overlay
@@ -247,7 +248,7 @@ impl PlottersRenderer {
                 .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
         }
 
-        let has_node_data = !overlay.node_data.is_empty();
+        let has_node_data = !overlay.node_data().is_empty();
         if has_node_data {
             let node_radius = (length.min(width) * 0.02).max(0.5);
             for (i, node) in system.nodes.iter().enumerate() {

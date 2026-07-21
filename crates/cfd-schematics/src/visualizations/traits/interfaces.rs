@@ -21,7 +21,7 @@ pub trait SchematicRenderer {
         system: &NetworkBlueprint,
         output_path: &str,
         config: &RenderConfig,
-        overlay: &AnalysisOverlay,
+        overlay: &AnalysisOverlay<'_>,
     ) -> VisualizationResult<()>;
 
     /// Get the supported output formats for this renderer.

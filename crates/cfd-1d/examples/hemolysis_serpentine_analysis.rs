@@ -27,15 +27,14 @@ use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::SplitType;
 use cfd_schematics::plot_geometry;
-use cfd_schematics::visualizations::analysis_field::{
-    AnalysisField, AnalysisOverlay, ColormapKind,
-};
+use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
 use cfd_schematics::visualizations::RenderConfig;
-use std::collections::HashMap;
+use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
+use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🩸 Hemolysis Analysis — Serpentine Millifluidic Channel");
@@ -48,8 +47,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("1. Generating serpentine bifurcation geometry...");
     let box_dims = (80.0, 40.0); // mm — fits within 96-well plate footprint
     let splits = vec![SplitType::Bifurcation, SplitType::Bifurcation];
-    let mut geo_config = GeometryConfig::default();
-    geo_config.channel_width = 0.8; // 800 µm — millifluidic scale
+    let geo_config = GeometryConfig {
+        channel_width: 0.8, // 800 µm — millifluidic scale
+        ..Default::default()
+    };
     let serpentine_config = smooth_serpentine();
     let channel_type = ChannelTypeConfig::AllSerpentine(serpentine_config);
 
@@ -66,7 +67,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &system,
         out.join("hemolysis/channel_schematic.png")
             .to_str()
-            .unwrap(),
+            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
     )?;
 
     // ── 3. Convert to 1D simulation specs ────────────────────────────────────
@@ -231,42 +232,49 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let hemolysis_overlay = AnalysisOverlay::new(
         AnalysisField::Custom("Hemolysis Index (Giersiepen)".into()),
-        ColormapKind::BlueRed,
+        NamedColorMap::BlueRed,
     )
-    .with_edge_data(edge_hemolysis.clone())
-    .with_node_data(node_pressure.clone());
+    .with_edge_data(Cow::Borrowed(&edge_hemolysis))?
+    .with_node_data(Cow::Borrowed(&node_pressure))?;
 
-    let mut config_hi = RenderConfig::default();
-    config_hi.title = format!(
-        "Hemolysis Index — Giersiepen–Wurzinger (max HI = {:.2e})",
-        max_hemolysis
-    );
-    config_hi.show_axes = true;
-    config_hi.show_grid = false;
+    let config_hi = RenderConfig {
+        title: format!(
+            "Hemolysis Index — Giersiepen–Wurzinger (max HI = {:.2e})",
+            max_hemolysis
+        ),
+        show_axes: true,
+        show_grid: false,
+        ..Default::default()
+    };
 
     renderer.render_analysis(
         &system,
-        out.join("hemolysis/hemolysis_index.png").to_str().unwrap(),
+        out.join("hemolysis/hemolysis_index.png")
+            .to_str()
+            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
         &config_hi,
         &hemolysis_overlay,
     )?;
 
     // ── 9. Render wall shear stress overlay ──────────────────────────────────
     println!("9. Rendering wall shear stress overlay...");
-    let shear_overlay = AnalysisOverlay::new(AnalysisField::WallShearStress, ColormapKind::BlueRed)
-        .with_edge_data(edge_shear.clone())
-        .with_node_data(node_pressure.clone());
+    let shear_overlay =
+        AnalysisOverlay::new(AnalysisField::WallShearStress, NamedColorMap::BlueRed)
+            .with_edge_data(Cow::Borrowed(&edge_shear))?
+            .with_node_data(Cow::Borrowed(&node_pressure))?;
 
-    let mut config_wss = RenderConfig::default();
-    config_wss.title = format!("Wall Shear Stress (max τ_w = {:.2} Pa)", max_shear);
-    config_wss.show_axes = true;
-    config_wss.show_grid = false;
+    let config_wss = RenderConfig {
+        title: format!("Wall Shear Stress (max τ_w = {:.2} Pa)", max_shear),
+        show_axes: true,
+        show_grid: false,
+        ..Default::default()
+    };
 
     renderer.render_analysis(
         &system,
         out.join("hemolysis/wall_shear_stress.png")
             .to_str()
-            .unwrap(),
+            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
         &config_wss,
         &shear_overlay,
     )?;
@@ -275,19 +283,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("10. Rendering cavitation risk overlay...");
     let cavitation_overlay = AnalysisOverlay::new(
         AnalysisField::Custom("Cavitation Risk (1/σ)".into()),
-        ColormapKind::BlueRed,
+        NamedColorMap::BlueRed,
     )
-    .with_edge_data(edge_cavitation.clone())
-    .with_node_data(node_pressure.clone());
+    .with_edge_data(Cow::Borrowed(&edge_cavitation))?
+    .with_node_data(Cow::Borrowed(&node_pressure))?;
 
-    let mut config_cav = RenderConfig::default();
-    config_cav.title = "Cavitation Risk Index (1/σ)".to_string();
-    config_cav.show_axes = true;
-    config_cav.show_grid = false;
+    let config_cav = RenderConfig {
+        title: "Cavitation Risk Index (1/σ)".to_string(),
+        show_axes: true,
+        show_grid: false,
+        ..Default::default()
+    };
 
     renderer.render_analysis(
         &system,
-        out.join("hemolysis/cavitation_risk.png").to_str().unwrap(),
+        out.join("hemolysis/cavitation_risk.png")
+            .to_str()
+            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
         &config_cav,
         &cavitation_overlay,
     )?;

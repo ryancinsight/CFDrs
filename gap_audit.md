@@ -31,6 +31,26 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+- 2026-07-21 (resolved in CFD-IRIS-COLOR-1): `cfd-schematics` duplicated
+  Iris's normalized color-law role with a consumer-owned enum and three local
+  formulas. Each edge or node lookup also rebuilt a value vector and rescanned
+  its full map. The duplicate laws and wrapper enum are deleted; callers use
+  Iris `NamedColorMap` directly. `AnalysisOverlay` now lends or owns maps with
+  `Cow`, rejects non-finite values at construction, and stores one finite range
+  per map. The old render cost was `Theta(E^2 + V^2)` range work with `E + V`
+  transient allocations and `Theta(max(E, V))` transient elements; the new
+  cost is `Theta(E + V)` construction, zero transient range allocations, and
+  expected `O(1)` map/color lookup. This is an asymptotic and allocation proof,
+  not a measured speedup claim. Evidence tier: source-level ownership and
+  residue audit; focused value-semantic Nextest 176/176; warning-denied
+  all-target/all-feature Clippy; affected example compilation; 16 passing
+  doctests; warning-denied Rustdoc; and an executed, visually inspected Venturi
+  pressure overlay. Major SemVer classification was attempted but its isolated
+  temporary graph cannot build cfd-core because existing CFDrs direct pins and
+  Proteus/Hephaestus transitive pins select distinct Aequitas and Leto source
+  identities. That provider-pin coherence gap is independent of Iris. Kwavers
+  volume rendering remains a separately claimed consumer migration.
+
 - 2026-07-20 (resolved in CFD-LAPLACIAN-PROVIDER-1): cfd-math directly
   implemented the two-dimensional CPU Laplacian and cfd-core carried another
   copy as a GPU test oracle, although Hephaestus already owned the WGPU stencil.

@@ -2,6 +2,26 @@
 
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
+- [x] CFD-IRIS-COLOR-1 [major] [arch]: make Iris the normalized color-law
+  owner for schematic analysis overlays.
+  - [x] Add Iris as a direct dependency and remove the local map enum and
+    blue-red, Viridis, and grayscale formulas without a compatibility layer.
+  - [x] Accept borrowed or owned node/edge maps through `Cow`, keep map storage
+    private, validate finite values once, and precompute scalar ranges.
+  - [x] Migrate every cfd-1d, cfd-2d, and root example call site to the direct
+    Iris contract and fallible builders.
+  - [x] Verify exact colors, byte quantization, borrowed identity, range
+    normalization, constant fields, missing IDs, and non-finite rejection;
+    focused Nextest passes 176/176, warning-denied all-target/all-feature
+    Clippy passes, all affected examples compile, 16 doctests pass, and
+    warning-denied Rustdoc is clean.
+  - [x] Execute the real Venturi 2D solver and inspect its pressure-overlay PNG;
+    computed high/low pressure colors, units, axes, and legend are coherent.
+  - [x] Attempt major SemVer classification. The tool's isolated dependency
+    graph cannot build cfd-core because CFDrs and Proteus/Hephaestus resolve
+    different pre-existing Aequitas and Leto Git revisions; the intentional
+    removal and builder changes remain classified `[major]`.
+
 - [x] CFD-LAPLACIAN-PROVIDER-1 [major] [arch]: replace the complete cfd-math
   two-dimensional CPU/GPU solver pair with Leto/Hephaestus execution.
   - [x] Add the Leto typed stencil and CPU implementation upstream.

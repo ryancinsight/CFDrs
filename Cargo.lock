@@ -424,6 +424,7 @@ dependencies = [
  "cfd-schematics",
  "criterion",
  "eunomia",
+ "iris",
  "leto",
  "leto-ops",
  "petgraph",
@@ -451,6 +452,7 @@ dependencies = [
  "criterion",
  "eunomia",
  "gaia",
+ "iris",
  "leto",
  "leto-ops",
  "moirai",
@@ -613,6 +615,7 @@ name = "cfd-schematics"
 version = "0.3.0"
 dependencies = [
  "cfd-core",
+ "iris",
  "petgraph",
  "plotters",
  "serde",
@@ -640,6 +643,7 @@ dependencies = [
  "chrono",
  "criterion",
  "gaia",
+ "iris",
  "leto",
  "leto-ops",
  "num_cpus",
@@ -1752,7 +1756,6 @@ dependencies = [
 [[package]]
 name = "iris"
 version = "0.1.0"
-source = "git+https://github.com/ryancinsight/iris?rev=e2edd47615454111b4b0df2e68dc6076161ba457#e2edd47615454111b4b0df2e68dc6076161ba457"
 
 [[package]]
 name = "is-terminal"

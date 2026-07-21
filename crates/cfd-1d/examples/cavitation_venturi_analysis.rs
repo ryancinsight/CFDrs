@@ -25,15 +25,14 @@ use cfd_schematics::geometry::generator::create_geometry;
 
 use cfd_schematics::geometry::SplitType;
 use cfd_schematics::plot_geometry;
-use cfd_schematics::visualizations::analysis_field::{
-    AnalysisField, AnalysisOverlay, ColormapKind,
-};
+use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
 use cfd_schematics::visualizations::RenderConfig;
-use std::collections::HashMap;
+use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
+use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("💧 Cavitation Risk Analysis — Venturi Millifluidic Device");
@@ -46,8 +45,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("1. Generating bifurcation geometry with frustum channels...");
     let box_dims = (100.0, 50.0); // mm
     let splits = vec![SplitType::Bifurcation, SplitType::Bifurcation];
-    let mut geo_config = GeometryConfig::default();
-    geo_config.channel_width = 1.5; // 1.5 mm — wider inlet for venturi acceleration
+    let geo_config = GeometryConfig {
+        channel_width: 1.5, // 1.5 mm — wider inlet for venturi acceleration
+        ..Default::default()
+    };
     let channel_type = ChannelTypeConfig::AllStraight;
 
     let system = create_geometry(box_dims, &splits, &geo_config, &channel_type);
@@ -63,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &system,
         out.join("cavitation/channel_schematic.png")
             .to_str()
-            .unwrap(),
+            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
     )?;
 
     // ── 3. Convert geometry → 1D specs ───────────────────────────────────────
@@ -178,7 +179,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let (src, dst) = solution
                 .graph
                 .edge_endpoints(petgraph::graph::EdgeIndex::new(eidx))
-                .unwrap();
+                .expect("invariant: every solved channel index names a graph edge");
             let p_src = *solution
                 .pressures
                 .get(src.index())
@@ -240,64 +241,70 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cav_overlay = AnalysisOverlay::new(
         AnalysisField::Custom("Cavitation Number σ".into()),
-        ColormapKind::BlueRed,
+        NamedColorMap::BlueRed,
     )
-    .with_edge_data(inverted_sigma)
-    .with_node_data(node_pressure_data.clone());
+    .with_edge_data(Cow::Owned(inverted_sigma))?
+    .with_node_data(Cow::Borrowed(&node_pressure_data))?;
 
-    let mut config_cav = RenderConfig::default();
-    config_cav.title = format!(
-        "Cavitation Number σ (red = low σ = high risk, max σ = {:.1})",
-        max_sigma
-    );
-    config_cav.show_axes = true;
-    config_cav.show_grid = false;
+    let config_cav = RenderConfig {
+        title: format!(
+            "Cavitation Number σ (red = low σ = high risk, max σ = {:.1})",
+            max_sigma
+        ),
+        show_axes: true,
+        show_grid: false,
+        ..Default::default()
+    };
 
     renderer.render_analysis(
         &system,
         out.join("cavitation/cavitation_number.png")
             .to_str()
-            .unwrap(),
+            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
         &config_cav,
         &cav_overlay,
     )?;
 
     // ── 9. Render pressure distribution overlay ──────────────────────────────
     println!("9. Rendering pressure distribution overlay...");
-    let pressure_overlay = AnalysisOverlay::new(AnalysisField::Pressure, ColormapKind::Viridis)
-        .with_edge_data(edge_pressure.clone())
-        .with_node_data(node_pressure_data.clone());
+    let pressure_overlay = AnalysisOverlay::new(AnalysisField::Pressure, NamedColorMap::Viridis)
+        .with_edge_data(Cow::Borrowed(&edge_pressure))?
+        .with_node_data(Cow::Borrowed(&node_pressure_data))?;
 
-    let mut config_p = RenderConfig::default();
-    config_p.title = "Pressure Distribution [Pa]".to_string();
-    config_p.show_axes = true;
-    config_p.show_grid = false;
+    let config_p = RenderConfig {
+        title: "Pressure Distribution [Pa]".to_string(),
+        show_axes: true,
+        show_grid: false,
+        ..Default::default()
+    };
 
     renderer.render_analysis(
         &system,
         out.join("cavitation/pressure_distribution.png")
             .to_str()
-            .unwrap(),
+            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
         &config_p,
         &pressure_overlay,
     )?;
 
     // ── 10. Render velocity overlay ──────────────────────────────────────────
     println!("10. Rendering velocity overlay...");
-    let vel_overlay = AnalysisOverlay::new(AnalysisField::Velocity, ColormapKind::Viridis)
-        .with_edge_data(edge_velocity.clone())
-        .with_node_data(node_pressure_data.clone());
+    let vel_overlay = AnalysisOverlay::new(AnalysisField::Velocity, NamedColorMap::Viridis)
+        .with_edge_data(Cow::Borrowed(&edge_velocity))?
+        .with_node_data(Cow::Borrowed(&node_pressure_data))?;
 
-    let mut config_v = RenderConfig::default();
-    config_v.title = "Mean Velocity [m/s]".to_string();
-    config_v.show_axes = true;
-    config_v.show_grid = false;
+    let config_v = RenderConfig {
+        title: "Mean Velocity [m/s]".to_string(),
+        show_axes: true,
+        show_grid: false,
+        ..Default::default()
+    };
 
     renderer.render_analysis(
         &system,
         out.join("cavitation/velocity_distribution.png")
             .to_str()
-            .unwrap(),
+            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
         &config_v,
         &vel_overlay,
     )?;

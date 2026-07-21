@@ -12,10 +12,10 @@ pub(super) fn draw_colorbar<DB: DrawingBackend>(
     system: &NetworkBlueprint,
     x_buffer: f64,
     y_buffer: f64,
-    overlay: &AnalysisOverlay,
+    overlay: &AnalysisOverlay<'_>,
 ) -> VisualizationResult<()> {
     let (length, width) = system.box_dims;
-    let has_edge_data = !overlay.edge_data.is_empty();
+    let has_edge_data = !overlay.edge_data().is_empty();
 
     let (min_val, max_val) = if has_edge_data {
         overlay.edge_range()
@@ -32,7 +32,7 @@ pub(super) fn draw_colorbar<DB: DrawingBackend>(
 
     for idx in 0..bar_steps {
         let t = 1.0 - (idx as f64) / (bar_steps as f64);
-        let color = colorize(t, overlay.colormap);
+        let color = colorize(t, overlay.color_map)?;
         let y_top = bar_y_start + (idx as f64) * step_height;
         let y_bot = y_top + step_height;
         let rect_pts = vec![

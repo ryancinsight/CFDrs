@@ -36,15 +36,14 @@ use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::SplitType;
 use cfd_schematics::plot_geometry;
-use cfd_schematics::visualizations::analysis_field::{
-    AnalysisField, AnalysisOverlay, ColormapKind,
-};
+use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
 use cfd_schematics::visualizations::RenderConfig;
-use std::collections::HashMap;
+use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
+use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🏥 Medical-Grade Millifluidic CFD Screening");
@@ -57,8 +56,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("1. Generating serpentine bifurcation geometry...");
     let box_dims = (90.0, 42.0); // mm — within ANSI/SLAS 1-2004 constraints
     let splits = vec![SplitType::Bifurcation, SplitType::Bifurcation];
-    let mut geo_config = GeometryConfig::default();
-    geo_config.channel_width = 1.0; // 1 mm — millifluidic scale
+    let geo_config = GeometryConfig {
+        channel_width: 1.0, // 1 mm — millifluidic scale
+        ..Default::default()
+    };
     let serpentine = smooth_serpentine();
     let channel_type = ChannelTypeConfig::AllSerpentine(serpentine);
 
@@ -79,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &system,
         out.join("medical_screening/schematic.png")
             .to_str()
-            .unwrap(),
+            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
     )?;
 
     // ── 3. Convert & build network ───────────────────────────────────────────
@@ -214,7 +215,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let (src, dst) = solution
                 .graph
                 .edge_endpoints(petgraph::graph::EdgeIndex::new(eidx))
-                .unwrap();
+                .expect("invariant: every solved channel index names a graph edge");
             let p_src = *solution
                 .pressures
                 .get(src.index())
@@ -282,42 +283,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n7. Rendering analysis overlays...");
     let renderer = create_plotters_renderer();
 
-    let overlays: Vec<(&str, AnalysisOverlay, String)> = vec![
+    let fda_binary: HashMap<usize, f64> = edge_shear
+        .iter()
+        .map(|(&channel, &shear)| {
+            let ratio = shear / fda_limits.max_wall_shear_stress_pa;
+            (channel, ratio.min(3.0))
+        })
+        .collect();
+
+    let overlays: Vec<(&str, AnalysisOverlay<'_>, String)> = vec![
         (
             "hemolysis_index.png",
             AnalysisOverlay::new(
                 AnalysisField::Custom("Hemolysis Index (Giersiepen)".into()),
-                ColormapKind::BlueRed,
+                NamedColorMap::BlueRed,
             )
-            .with_edge_data(edge_hemolysis.clone())
-            .with_node_data(node_pressure.clone()),
+            .with_edge_data(Cow::Borrowed(&edge_hemolysis))?
+            .with_node_data(Cow::Borrowed(&node_pressure))?,
             format!("Hemolysis Index (max HI = {:.2e})", max_hi),
         ),
         (
             "wall_shear_stress.png",
-            AnalysisOverlay::new(AnalysisField::WallShearStress, ColormapKind::BlueRed)
-                .with_edge_data(edge_shear.clone())
-                .with_node_data(node_pressure.clone()),
+            AnalysisOverlay::new(AnalysisField::WallShearStress, NamedColorMap::BlueRed)
+                .with_edge_data(Cow::Borrowed(&edge_shear))?
+                .with_node_data(Cow::Borrowed(&node_pressure))?,
             format!("Wall Shear Stress (max = {:.2} Pa)", max_wss),
         ),
         (
             "fda_shear_screening.png",
-            {
-                // Binary overlay: 0 = safe, 1 = violation
-                let fda_binary: HashMap<usize, f64> = edge_shear
-                    .iter()
-                    .map(|(&k, &v)| {
-                        let ratio = v / fda_limits.max_wall_shear_stress_pa;
-                        (k, ratio.min(3.0))
-                    })
-                    .collect();
-                AnalysisOverlay::new(
-                    AnalysisField::Custom("FDA Shear Exceedance Ratio".into()),
-                    ColormapKind::BlueRed,
-                )
-                .with_edge_data(fda_binary)
-                .with_node_data(node_pressure.clone())
-            },
+            AnalysisOverlay::new(
+                AnalysisField::Custom("FDA Shear Exceedance Ratio".into()),
+                NamedColorMap::BlueRed,
+            )
+            .with_edge_data(Cow::Borrowed(&fda_binary))?
+            .with_node_data(Cow::Borrowed(&node_pressure))?,
             format!(
                 "FDA Shear Screening (limit: {:.0} Pa, {} violations)",
                 fda_limits.max_wall_shear_stress_pa,
@@ -328,35 +327,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "cavitation_risk.png",
             AnalysisOverlay::new(
                 AnalysisField::Custom("Cavitation Risk (1/σ)".into()),
-                ColormapKind::BlueRed,
+                NamedColorMap::BlueRed,
             )
-            .with_edge_data(edge_cavitation.clone())
-            .with_node_data(node_pressure.clone()),
+            .with_edge_data(Cow::Borrowed(&edge_cavitation))?
+            .with_node_data(Cow::Borrowed(&node_pressure))?,
             "Cavitation Risk (1/σ — red = high risk)".to_string(),
         ),
         (
             "flow_rate.png",
-            AnalysisOverlay::new(AnalysisField::FlowRate, ColormapKind::Viridis)
-                .with_edge_data(edge_flow.clone())
-                .with_node_data(node_pressure.clone()),
+            AnalysisOverlay::new(AnalysisField::FlowRate, NamedColorMap::Viridis)
+                .with_edge_data(Cow::Borrowed(&edge_flow))?
+                .with_node_data(Cow::Borrowed(&node_pressure))?,
             "Flow Rate Distribution [m³/s]".to_string(),
         ),
         (
             "pressure.png",
-            AnalysisOverlay::new(AnalysisField::Pressure, ColormapKind::Viridis)
-                .with_edge_data(edge_pressure.clone())
-                .with_node_data(node_pressure.clone()),
+            AnalysisOverlay::new(AnalysisField::Pressure, NamedColorMap::Viridis)
+                .with_edge_data(Cow::Borrowed(&edge_pressure))?
+                .with_node_data(Cow::Borrowed(&node_pressure))?,
             "Pressure Distribution [Pa]".to_string(),
         ),
     ];
 
     for (filename, overlay, title) in &overlays {
         let path = out.join(format!("medical_screening/{filename}"));
-        let mut rc = RenderConfig::default();
-        rc.title = title.clone();
-        rc.show_axes = true;
-        rc.show_grid = false;
-        renderer.render_analysis(&system, path.to_str().unwrap(), &rc, overlay)?;
+        let rc = RenderConfig {
+            title: title.clone(),
+            show_axes: true,
+            show_grid: false,
+            ..Default::default()
+        };
+        let output_path = path.to_str().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "visualization output path is not valid UTF-8",
+            )
+        })?;
+        renderer.render_analysis(&system, output_path, &rc, overlay)?;
         println!("   ✓ {filename}");
     }
 
