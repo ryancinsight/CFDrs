@@ -3836,6 +3836,9 @@ Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 - [x] Integrate Tyche Latin-hypercube sampling into `cfd-optim`, including
   deterministic seed differentiation, invalid-count rejection, value-semantic
   consumer tests, provider-residue scans, and package gates.
+- [x] Complete CFD-TYCHE-STREAM-1: pin Tyche's typed stream contract, remove
+  local patch masking, verify `cfd-optim`, and record the intentional replay
+  break.
 
 ## Proteus temperature-response increment
 

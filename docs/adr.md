@@ -13,6 +13,7 @@
 | **Production CFD Physics** | 2024-Sprint1.27 | Functional solver requirement | Operational momentum solver | ✅ Real CFD ⚠️ Implementation effort |
 | **GMRES Linear Solver** | 2024-Sprint1.36 | Industry standard for SIMPLE/PISO | Configurable backend, GMRES default | ✅ Robust convergence ⚠️ Memory O(mn) |
 | **Provider-owned CSR execution** | 2026-07-10 | Leto is the CSR SpMV SSOT; CFDrs parallel flags had no behavioral effect | One `spmv`/`try_spmv` family; zero ignored execution flags | Breaking removal of inert compatibility APIs |
+| **Typed Tyche sampling streams** | 2026-07-21 | Tyche owns counter scheduling and sampling algorithms | One versioned, domain-separated design stream | Intentional replay break from the untyped schedule |
 
 ## Architecture Overview
 
@@ -71,6 +72,30 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-21: Tyche owns versioned design streams [major] [arch]
+
+**Context**: `cfd-optim` consumed Tyche's initial untyped counter surface and a
+local path patch masked the declared Git revision. The counter schedule could
+therefore change without an explicit consumer domain or dependency-pin change.
+
+**Decision**: CFDrs derives each Latin-hypercube seed through Tyche's versioned
+`Counter<UserDomain<...>, SplitMix64>` contract. The eight-byte `cfddesgn`
+domain tag is part of the reproducibility contract, and the design names its
+counter algorithm in its type. The consumer resolves the pinned upstream Git
+revision directly; Tyche remains the single owner of counter mixing,
+stratification, and sampling arithmetic.
+
+**Rejected alternative**: preserving the old replay through a compatibility
+adapter was rejected because it would duplicate Tyche's retired schedule and
+leave the consumer with a second sampling owner. Retaining the local patch was
+rejected because it makes the manifest pin non-authoritative.
+
+**Consequences**: seeded candidate coordinates intentionally change once. A
+stable Tyche revision, stream version, algorithm type, domain tag, seed,
+design ordinal, and sample count reproduce the new coordinates bitwise. The
+consumer continues to map one borrowed fixed-size unit point directly into one
+candidate without an intermediate design matrix.
 
 ### 2026-07-20: Leto owns typed Cartesian Laplacian contracts [major] [arch]
 

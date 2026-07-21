@@ -37,7 +37,7 @@ tracing-subscriber = "0.3"
 # Math and numerical
 aequitas = { version = "0.1.0", git = "https://github.com/ryancinsight/aequitas", rev = "be3a1ac91286a17aecf18f0065d2aa6b385eb67b", default-features = false, features = ["std"] }
 proteus = { git = "https://github.com/ryancinsight/proteus", rev = "335e5297b28c334987bd18bd85a09393a90dfe5f" }
-tyche-core = { git = "https://github.com/ryancinsight/tyche", rev = "87923da922ec7bd17f12324c40d1da026be6b04e" }
+tyche-core = { git = "https://github.com/ryancinsight/tyche", rev = "0fc810befc6df43a5e24139080489313d31b0f87" }
 eunomia = { git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
 approx = "0.5"
 bytemuck = "1.14"
@@ -145,9 +145,6 @@ melinoe = { path = "../melinoe" }
 
 [patch."https://github.com/ryancinsight/themis"]
 themis = { path = "../themis" }
-
-[patch."https://github.com/ryancinsight/tyche"]
-tyche-core = { path = "../tyche/crates/tyche-core" }
 
 [profile.release]
 opt-level = 3

@@ -39,6 +39,8 @@ validation/references/
 # Example/optimiser output directories (all crates)
 outputs/
 report/
+!crates/cfd-optim/tests/fixtures/milestone_contract/report/
+!crates/cfd-optim/tests/fixtures/milestone_contract/report/*.md
 
 # Large root-level generated and binary files
 *.out

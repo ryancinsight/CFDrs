@@ -32,13 +32,15 @@
 ## Active integration
 
 - **CFD-TYCHE-STREAM-1 [major] [arch] - Adopt Tyche's versioned sampling
-  contract (IN PROGRESS; owner=/root; scope=`Cargo.toml`, `Cargo.lock`,
-  `cfd-optim` sampling, focused tests, changelog, and checklist).** Advance the
-  remote Tyche pin, remove the local patch override, give derived design seeds
-  a stable typed domain, and select `SplitMix64` explicitly for the
-  Latin-hypercube design. Acceptance: the remote dependency resolves without
-  local masking; cfd-optim compiles warning-free; value-semantic candidate
-  tests pass; documentation records the replay break and exact evidence.
+  contract (DONE; owner=/root; scope=`Cargo.toml`, `Cargo.lock`, `cfd-optim`
+  sampling, focused tests and fixtures, changelog, ADR, and checklist).** The
+  merged Tyche revision resolves without local masking; derived design seeds
+  use the `cfddesgn` domain and explicit `SplitMix64` policy; a known-answer
+  vector fixes stream version 1. The package check and all-target/all-feature
+  warning-denied Clippy pass; configured Nextest passes 129/129; doctests pass
+  2/2 with three intentionally ignored examples. Package-scoped formatting
+  passes; workspace formatting remains unavailable on Windows because its
+  generated rustfmt command exceeds path limit 206.
 
 - **CFD-LAPLACIAN-PROVIDER-1 [major] [arch] - Migrate the complete 2D
   CPU/GPU solver operator pair (DONE; owner=Codex; scope=`cfd-math`

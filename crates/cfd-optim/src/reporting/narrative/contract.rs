@@ -73,17 +73,14 @@ fn ensure_contains(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
-    fn load_contract_text_from_workspace() {
-        let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .expect("crate parent")
-            .parent()
-            .expect("workspace root")
-            .to_path_buf();
-        let txt = load_m12_contract_text(&workspace_root).expect("contract text must load");
+    fn load_contract_text_from_committed_fixture() {
+        let fixture_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("milestone_contract");
+        let txt = load_m12_contract_text(&fixture_root).expect("contract text must load");
         assert!(txt.description.contains("hydrodynamic"));
         assert!(txt.deliverable.contains("Final report"));
     }

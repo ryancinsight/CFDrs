@@ -8,6 +8,10 @@
 //! Tyche is the single source of truth for the Latin-hypercube algorithm and
 //! its stratification proof. This module owns only the mapping from unit-space
 //! samples into CFD candidate parameters.
+//!
+//! The replay contract fixes Tyche's stream version, `SplitMix64`, the
+//! `cfddesgn` domain tag, root seed, tier ordinal, and sample count. Changing
+//! any member deliberately selects a different deterministic design.
 
 use core::num::NonZeroU32;
 use std::sync::Arc;
@@ -16,7 +20,9 @@ use cfd_schematics::topology::presets::{
     enumerate_milestone12_topologies, Milestone12TopologyRequest,
 };
 use cfd_schematics::TreatmentActuationMode;
-use tyche_core::{Design, LatinHypercube, Seed, SplitMix64};
+use tyche_core::{Counter, Design, LatinHypercube, Seed, SplitMix64, UserDomain};
+
+const DESIGN_SEED_DOMAIN: u64 = u64::from_le_bytes(*b"cfddesgn");
 
 use crate::design::space::sweep::milestone12::CandidateParams;
 use crate::error::OptimError;
@@ -251,9 +257,11 @@ fn next_design<const PARAMETERS: usize>(
     root_seed: Seed,
     ordinal: u64,
     sample_count: NonZeroU32,
-) -> LatinHypercube<PARAMETERS> {
-    let seed = Seed::new(SplitMix64::word(root_seed, ordinal, 0));
-    LatinHypercube::new(seed, sample_count)
+) -> LatinHypercube<PARAMETERS, SplitMix64> {
+    let seed = Seed::new(Counter::<UserDomain<DESIGN_SEED_DOMAIN>, SplitMix64>::word(
+        root_seed, ordinal, 0,
+    ));
+    LatinHypercube::<PARAMETERS, SplitMix64>::new(seed, sample_count)
 }
 
 fn supports_venturi(request: &Milestone12TopologyRequest) -> bool {
@@ -341,6 +349,18 @@ mod tests {
             assert_eq!(pa.gauge, pb.gauge);
             assert_eq!(pa.w_ch, pb.w_ch);
         }
+    }
+
+    #[test]
+    fn design_seed_schedule_matches_versioned_tyche_contract() {
+        let count = NonZeroU32::new(16).expect("positive sample count");
+        let design = next_design::<ACOUSTIC_DIMS>(Seed::new(42), 0, count);
+
+        assert_eq!(
+            Counter::<UserDomain<DESIGN_SEED_DOMAIN>, SplitMix64>::VERSION.get(),
+            1
+        );
+        assert_eq!(design.seed().bits(), 0x6c5f_8c23_6030_53a7);
     }
 
     #[test]
