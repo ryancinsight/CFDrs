@@ -1,8 +1,8 @@
 #![cfg(feature = "gpu")]
 
 use super::GpuContext;
+use crate::linear_solver::operators::{BoundaryCondition, GpuLaplacianOperator2D};
 use aequitas::systems::si::{quantities::Length, units::Meter};
-use crate::linear_solver::operators::gpu::{BoundaryCondition, GpuLaplacianOperator2D};
 
 #[test]
 fn test_gpu_dispatch_metrics_present_or_skip() {

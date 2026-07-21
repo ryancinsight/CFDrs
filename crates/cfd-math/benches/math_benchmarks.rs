@@ -1,6 +1,7 @@
+use aequitas::systems::si::{quantities::Length, units::Meter};
 use cfd_math::linear_solver::matrix_free::{LaplacianOperator2D, LinearOperator};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use leto::Array1;
+use leto::{Array1, BoundaryCondition};
 
 fn bench_laplacian_cpu(c: &mut Criterion) {
     let mut group = c.benchmark_group("laplacian_cpu");
@@ -9,7 +10,14 @@ fn bench_laplacian_cpu(c: &mut Criterion) {
         let ny = n;
         let dx = 1.0f64 / (nx as f64 - 1.0);
         let dy = 1.0f64 / (ny as f64 - 1.0);
-        let op = LaplacianOperator2D::new(nx, ny, dx, dy);
+        let op = LaplacianOperator2D::new(
+            nx,
+            ny,
+            Length::from_unit::<Meter>(dx),
+            Length::from_unit::<Meter>(dy),
+            BoundaryCondition::Dirichlet,
+        )
+        .expect("valid benchmark grid");
         let mut field = Array1::zeros([nx * ny]);
         for j in 0..ny {
             for i in 0..nx {

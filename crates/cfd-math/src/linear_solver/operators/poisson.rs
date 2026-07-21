@@ -1,81 +1,49 @@
 use crate::linear_solver::traits::LinearOperator;
+use aequitas::systems::si::quantities::Length;
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
-use leto::Array1;
+use leto::{Array1, BoundaryCondition, Laplacian2D, LaplacianPolarity};
+use leto_ops::{laplacian_2d_into, RealScalar};
 
 #[inline]
 fn from_f64<T: FloatElement>(value: f64) -> T {
     <T as FloatElement>::from_f64(value)
 }
 
-/// 2D Laplacian operator using finite differences.
-pub struct LaplacianOperator2D<T: RealField + Copy> {
-    nx: usize,
-    ny: usize,
-    dx: T,
-    dy: T,
+/// Provider-backed negative two-dimensional Laplacian operator.
+pub struct LaplacianOperator2D<T> {
+    stencil: Laplacian2D<T>,
 }
 
-impl<T: RealField + Copy> LaplacianOperator2D<T> {
-    /// Create a new 2D Laplacian operator
-    pub fn new(nx: usize, ny: usize, dx: T, dy: T) -> Self {
-        Self { nx, ny, dx, dy }
-    }
-
-    fn apply_boundary_conditions(&self, y: &mut Array1<T>) {
-        for j in 0..self.ny {
-            let left_idx = j * self.nx;
-            let right_idx = j * self.nx + (self.nx - 1);
-            if self.nx > 1 {
-                y[left_idx] = y[left_idx + 1];
-                y[right_idx] = y[right_idx - 1];
-            }
-        }
-        for i in 0..self.nx {
-            let bottom_idx = i;
-            let top_idx = (self.ny - 1) * self.nx + i;
-            if self.ny > 1 {
-                y[bottom_idx] = y[bottom_idx + self.nx];
-                y[top_idx] = y[top_idx - self.nx];
-            }
-        }
+impl<T: RealScalar> LaplacianOperator2D<T> {
+    /// Create a typed negative-Laplacian operator over a uniform Cartesian grid.
+    ///
+    /// # Errors
+    ///
+    /// Returns an invalid-configuration error when the Leto provider rejects
+    /// the grid dimensions or physical spacing.
+    pub fn new(
+        nx: usize,
+        ny: usize,
+        dx: Length<T>,
+        dy: Length<T>,
+        boundary: BoundaryCondition,
+    ) -> Result<Self> {
+        let stencil = Laplacian2D::new(nx, ny, dx, dy, boundary)
+            .map_err(|error| Error::InvalidConfiguration(error.to_string()))?
+            .with_polarity(LaplacianPolarity::NegativeLaplacian);
+        Ok(Self { stencil })
     }
 }
 
-impl<T: RealField + Copy + FloatElement> LinearOperator<T> for LaplacianOperator2D<T> {
+impl<T: RealField + RealScalar> LinearOperator<T> for LaplacianOperator2D<T> {
     fn apply(&self, x: &Array1<T>, y: &mut Array1<T>) -> Result<()> {
-        if x.shape()[0] != self.size() || y.shape()[0] != self.size() {
-            return Err(Error::InvalidConfiguration(
-                "Vector dimensions don't match operator size".to_string(),
-            ));
-        }
-
-        let dx2_inv = <T as NumericElement>::ONE / (self.dx * self.dx);
-        let dy2_inv = <T as NumericElement>::ONE / (self.dy * self.dy);
-        let two: T = from_f64(2.0);
-
-        for j in 1..(self.ny - 1) {
-            for i in 1..(self.nx - 1) {
-                let idx = j * self.nx + i;
-                let center = x[idx];
-
-                let d2x_dx2 = (x[idx - 1] + x[idx + 1] - two * center) * dx2_inv;
-                let d2x_dy2 = (x[idx - self.nx] + x[idx + self.nx] - two * center) * dy2_inv;
-
-                y[idx] = -(d2x_dx2 + d2x_dy2);
-            }
-        }
-
-        self.apply_boundary_conditions(y);
-        Ok(())
+        laplacian_2d_into(&self.stencil, &x.view(), &mut y.view_mut())
+            .map_err(|error| Error::InvalidConfiguration(error.to_string()))
     }
 
     fn size(&self) -> usize {
-        self.nx * self.ny
-    }
-
-    fn is_symmetric(&self) -> bool {
-        true
+        self.stencil.len()
     }
 }
 
@@ -146,11 +114,18 @@ impl<T: RealField + Copy + FloatElement> LinearOperator<T> for PoissonOperator3D
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::units::Meter;
     use leto::Array1;
 
     #[test]
     fn laplacian_center_impulse_matches_five_point_stencil() -> Result<()> {
-        let operator = LaplacianOperator2D::new(3, 3, 1.0, 1.0);
+        let operator = LaplacianOperator2D::new(
+            3,
+            3,
+            Length::from_unit::<Meter>(1.0),
+            Length::from_unit::<Meter>(1.0),
+            BoundaryCondition::Dirichlet,
+        )?;
         let x = Array1::from_shape_vec([9], vec![0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0])
             .expect("valid shape");
         let mut y = Array1::zeros([9]);
@@ -158,6 +133,40 @@ mod tests {
         operator.apply(&x, &mut y)?;
 
         assert_eq!(y[4], 4.0);
+        Ok(())
+    }
+
+    #[test]
+    fn laplacian_neumann_quadratic_matches_closed_form_at_every_point() -> Result<()> {
+        let nx = 4;
+        let ny = 4;
+        let dx = 0.5f32;
+        let dy = 0.25f32;
+        let values = (0..ny)
+            .flat_map(|j| {
+                (0..nx).map(move |i| {
+                    let x = f32::from(u16::try_from(i).expect("small test index")) * dx;
+                    let y = f32::from(u16::try_from(j).expect("small test index")) * dy;
+                    x * x + 3.0 * y * y
+                })
+            })
+            .collect();
+        let input = Array1::from_shape_vec([nx * ny], values).expect("valid shape");
+        let mut output = Array1::zeros([nx * ny]);
+        let operator = LaplacianOperator2D::new(
+            nx,
+            ny,
+            Length::from_unit::<Meter>(dx),
+            Length::from_unit::<Meter>(dy),
+            BoundaryCondition::Neumann,
+        )?;
+
+        operator.apply(&input, &mut output)?;
+
+        assert_eq!(
+            output.iter().copied().collect::<Vec<_>>(),
+            vec![-8.0; nx * ny]
+        );
         Ok(())
     }
 

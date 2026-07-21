@@ -2,6 +2,19 @@
 
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
+- [x] CFD-LAPLACIAN-PROVIDER-1 [major] [arch]: replace the complete cfd-math
+  two-dimensional CPU/GPU solver pair with Leto/Hephaestus execution.
+  - [x] Add the Leto typed stencil and CPU implementation upstream.
+  - [x] Derive Hephaestus parameters from the shared boundary and polarity.
+  - [x] Delete the cfd-math CPU formula and cfd-core test-only oracle.
+  - [x] Add full-grid anisotropic Neumann quadratic regressions.
+  - [x] Pass focused formatting, all-feature and CPU-only checks,
+    warning-denied Clippy, configured Nextest (622/622), doctests (6 passed,
+    2 existing ignored), warning-denied Rustdoc, and the updated example check.
+    `cargo-semver-checks` was attempted but its nightly Rustdoc subprocess
+    remained blocked by a long-lived shared-target Leto IDE check; the public
+    constructor break is classified `[major]` in the ADR and changelog.
+
 - [x] CFD-SPARSE-DIRECT-OWNERSHIP-1 [patch]: Reconcile the stale
   rsparse-removal work without changing solver semantics.
   - [x] Restore the rsparse workspace/package dependency and exact sparse-LU

@@ -31,6 +31,21 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+- 2026-07-20 (resolved in CFD-LAPLACIAN-PROVIDER-1): cfd-math directly
+  implemented the two-dimensional CPU Laplacian and cfd-core carried another
+  copy as a GPU test oracle, although Hephaestus already owned the WGPU stencil.
+  The CPU solver evaluated `-∇²` while the GPU solver evaluated `∇²`.
+  Leto now owns the validated spacing, boundary, polarity, and native-precision
+  CPU operation; Hephaestus consumes that contract; both CFD solver operators
+  select negative polarity. The local formulas are deleted. Evidence tier:
+  provider type unification; exact full-grid CPU and real-WGPU regressions;
+  configured Nextest 622/622; all-feature and CPU-only checks;
+  warning-denied Clippy/Rustdoc; six runnable doctests; and the updated example
+  check. Three-dimensional, variable-coefficient, and SIMD diffusion operators
+  remain separate contracts outside this slice. `cargo-semver-checks` was
+  attempted but blocked in nightly Rustdoc by a long-lived shared-target Leto
+  IDE check; the public constructor break remains classified `[major]`.
+
 - 2026-07-17 (resolved stale work; upstream gap open): removing rsparse by
   routing `DirectSparseSolver` through unpreconditioned GMRES is not a valid
   provider migration. The solver chain already attempts GMRES after its exact

@@ -7,9 +7,12 @@ use crate::linear_solver::traits::{GpuLinearOperator, LinearOperator};
 #[cfg(feature = "gpu")]
 use aequitas::systems::si::quantities::Length;
 #[cfg(feature = "gpu")]
-pub use cfd_core::compute::gpu::kernels::laplacian::BoundaryCondition;
+use cfd_core::compute::gpu::kernels::laplacian::BoundaryCondition;
 #[cfg(feature = "gpu")]
-use cfd_core::compute::gpu::{kernels::laplacian::Laplacian2DKernel, GpuBuffer, GpuContext};
+use cfd_core::compute::gpu::{
+    kernels::laplacian::{Laplacian2DKernel, LaplacianPolarity},
+    GpuBuffer, GpuContext,
+};
 #[cfg(feature = "gpu")]
 use cfd_core::error::Error;
 #[cfg(feature = "gpu")]
@@ -27,7 +30,7 @@ pub struct DispatchMetrics {
     pub timestamp_supported: bool,
 }
 
-/// GPU-accelerated two-dimensional Laplacian operator.
+/// GPU-accelerated negative two-dimensional Laplacian operator.
 ///
 /// WGSL defines this operation over `f32`; exposing a generic scalar here would
 /// claim unsupported precision and reinterpret non-`f32` buffers incorrectly.
@@ -44,7 +47,7 @@ pub struct GpuLaplacianOperator2D {
 
 #[cfg(feature = "gpu")]
 impl GpuLaplacianOperator2D {
-    /// Create a GPU-accelerated two-dimensional Laplacian operator.
+    /// Create a GPU-accelerated negative two-dimensional Laplacian operator.
     ///
     /// # Errors
     /// Returns a typed provider error when the kernel cannot be compiled.
@@ -79,6 +82,7 @@ impl GpuLaplacianOperator2D {
             self.dx,
             self.dy,
             self.bc,
+            LaplacianPolarity::NegativeLaplacian,
         )?;
         use cfd_core::compute::ComputeBuffer;
         output.copy_from_slice(&output_buffer.read()?);
@@ -135,10 +139,6 @@ impl LinearOperator<f32> for GpuLaplacianOperator2D {
     fn size(&self) -> usize {
         self.nx * self.ny
     }
-
-    fn is_symmetric(&self) -> bool {
-        true
-    }
 }
 
 #[cfg(feature = "gpu")]
@@ -157,6 +157,55 @@ impl GpuLinearOperator<f32> for GpuLaplacianOperator2D {
             self.dx,
             self.dy,
             self.bc,
+            LaplacianPolarity::NegativeLaplacian,
         )
+    }
+}
+
+#[cfg(all(test, feature = "gpu"))]
+mod tests {
+    use super::*;
+    use aequitas::systems::si::units::Meter;
+
+    #[test]
+    fn negative_neumann_quadratic_matches_closed_form_on_gpu() -> Result<()> {
+        let context = match GpuContext::create() {
+            Ok(context) => Arc::new(context),
+            Err(error) => {
+                eprintln!("skipping GPU Laplacian regression: {error}");
+                return Ok(());
+            }
+        };
+        let nx = 4;
+        let ny = 4;
+        let dx = 0.5f32;
+        let dy = 0.25f32;
+        let values = (0..ny)
+            .flat_map(|j| {
+                (0..nx).map(move |i| {
+                    let x = f32::from(u16::try_from(i).expect("small test index")) * dx;
+                    let y = f32::from(u16::try_from(j).expect("small test index")) * dy;
+                    x * x + 3.0 * y * y
+                })
+            })
+            .collect();
+        let input = Array1::from_shape_vec([nx * ny], values).expect("valid shape");
+        let mut output = Array1::zeros([nx * ny]);
+        let operator = GpuLaplacianOperator2D::new(
+            context,
+            nx,
+            ny,
+            Length::from_unit::<Meter>(dx),
+            Length::from_unit::<Meter>(dy),
+            BoundaryCondition::Neumann,
+        )?;
+
+        operator.apply(&input, &mut output)?;
+
+        assert_eq!(
+            output.iter().copied().collect::<Vec<_>>(),
+            vec![-8.0; nx * ny]
+        );
+        Ok(())
     }
 }

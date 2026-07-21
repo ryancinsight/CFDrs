@@ -13,7 +13,7 @@ storing the coefficient matrix.
 | API | Purpose |
 |---|---|
 | `LinearOperator<f64>` trait | Implement a matrix-free operator |
-| `LaplacianOperator2D` | Built-in 2D Laplacian |
+| `LaplacianOperator2D` | Typed provider-backed negative 2D Laplacian |
 | `ConjugateGradient` | Iterative solver for SPD systems |
 | `IterativeSolverConfig` | Tolerance, max-iteration control |
 

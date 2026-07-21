@@ -198,7 +198,9 @@ mod tests {
         let matrix = builder.build_with_rhs(&mut assembly_rhs).unwrap();
         let rhs = Array1::from_shape_vec([2], vec![6.0_f64, 8.0_f64]).unwrap();
         // Should succeed via dense fallback.
-        let x = solver.solve(&matrix, &rhs).expect("dense fallback should handle small n");
+        let x = solver
+            .solve(&matrix, &rhs)
+            .expect("dense fallback should handle small n");
         assert!((x[0] - 3.0_f64).abs() < 1e-10);
         assert!((x[1] - 2.0_f64).abs() < 1e-10);
     }
