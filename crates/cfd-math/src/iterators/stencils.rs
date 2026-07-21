@@ -98,11 +98,8 @@ where
     fn apply_stencil(&mut self, coefficients: Vec<T>) -> Option<T> {
         // Fill buffer if needed
         while self.buffer.len() < self.pattern.size() {
-            if let Some(val) = self.iter.next() {
-                self.buffer.push(val);
-            } else {
-                return None;
-            }
+            let value = self.iter.next()?;
+            self.buffer.push(value);
         }
 
         // Apply coefficients

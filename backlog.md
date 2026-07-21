@@ -31,6 +31,24 @@
 
 ## Active integration
 
+- **CFD-IRIS-COLOR-1 [major] [arch] - Consolidate schematic color laws on
+  Iris (DONE; owner=Codex; scope=`cfd-schematics` analysis overlays/rendering,
+  cfd-1d/cfd-2d/root examples, dependency lock, ADR and PM artifacts).**
+  Delete the consumer-owned color enum and formulas, use Iris
+  `NamedColorMap` directly, accept scalar maps through `Cow`, and validate and
+  reduce each range once at overlay construction. Acceptance: no local map
+  law or compatibility wrapper remains; borrowed storage preserves identity;
+  non-finite fields fail at the boundary; rendering performs constant-time
+  lookup after linear preprocessing. Evidence: focused cfd-schematics
+  Nextest passes 176/176, warning-denied all-target/all-feature Clippy passes,
+  all affected examples compile, and exact endpoint, quantization, borrowed-
+  identity, range, constant-field, and invalid-input regressions pass. Sixteen
+  doctests and warning-denied Rustdoc pass; the real Venturi solver renders a
+  visually inspected pressure overlay with coherent units, axes, legend, and
+  high-to-low color direction. Major SemVer classification was attempted, but
+  its isolated temporary graph exposes pre-existing divergent Aequitas and Leto
+  Git revisions between CFDrs and Proteus/Hephaestus and cannot build cfd-core.
+
 - **CFD-LAPLACIAN-PROVIDER-1 [major] [arch] - Migrate the complete 2D
   CPU/GPU solver operator pair (DONE; owner=Codex; scope=`cfd-math`
   Laplacian operators/callers, `cfd-core` facade and test oracle, provider

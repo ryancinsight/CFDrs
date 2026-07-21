@@ -133,7 +133,8 @@ pub fn cascade_tri_bi_tri_selective_rect(
 /// `center_throat_count` serial venturi throats.
 ///
 /// **FDA MI compliance**: each throat on the center channels is tagged with
-/// [`ChannelVenturiSpec`] so that `compute_metrics` can enforce
+/// [`ChannelVenturiSpec`](crate::geometry::metadata::ChannelVenturiSpec) so
+/// that `compute_metrics` can enforce
 /// `MI_equiv < 1.9` independently per throat.
 ///
 /// # Parameters

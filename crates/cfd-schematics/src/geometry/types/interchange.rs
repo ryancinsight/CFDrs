@@ -292,7 +292,8 @@ impl NetworkBlueprint {
 
 // ── Shell Cuboid interchange types ─────────────────────────────────────────────
 
-/// Interchange payload describing a single port of a [`ShellCuboid`].
+/// Interchange payload describing a single port of a
+/// [`ShellCuboid`](crate::geometry::types::ShellCuboid).
 ///
 /// Each port is defined by two points: one on the **outer** wall surface and
 /// one on the **inner** cavity surface, forming a short stub through the shell.
@@ -306,7 +307,8 @@ pub struct InterchangeShellPort {
     pub inner_point_mm: Point2D,
 }
 
-/// Interchange export payload for a [`ShellCuboid`].
+/// Interchange export payload for a
+/// [`ShellCuboid`](crate::geometry::types::ShellCuboid).
 ///
 /// Designed to give downstream mesh/CFD toolchains everything they need to
 /// reconstruct the device geometry without depending on the schematic's visual

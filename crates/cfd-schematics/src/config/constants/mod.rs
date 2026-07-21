@@ -7,11 +7,11 @@
 //! # Submodules
 //!
 //! - [`primitives`]: Raw `const` values (min/max/default bounds)
-//! - [`strategy`]: [`StrategyThresholds`] for channel-type selection
-//! - [`wave`]: [`WaveGenerationConstants`] for serpentine wave shaping
-//! - [`geometry`]: [`GeometryGenerationConstants`] for point generation
-//! - [`optimization`]: [`OptimizationConstants`] for solver tuning
-//! - [`visualization`]: [`VisualizationConstants`] for chart rendering
+//! - `strategy`: [`StrategyThresholds`] for channel-type selection
+//! - `wave`: [`WaveGenerationConstants`] for serpentine wave shaping
+//! - `geometry`: [`GeometryGenerationConstants`] for point generation
+//! - `optimization`: [`OptimizationConstants`] for solver tuning
+//! - `visualization`: [`VisualizationConstants`] for chart rendering
 
 mod geometry;
 mod optimization;

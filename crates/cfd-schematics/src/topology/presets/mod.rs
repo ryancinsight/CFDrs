@@ -1,9 +1,13 @@
-//! Canonical preset constructors for [`BlueprintTopologySpec`].
+//! Canonical preset constructors for
+//! [`BlueprintTopologySpec`](crate::topology::BlueprintTopologySpec).
 //!
 //! Each constructor returns a declarative spec that can be fed to
-//! [`BlueprintTopologyFactory::build()`] to generate the corresponding
-//! [`NetworkBlueprint`].  The GA composes arbitrary topologies by chaining
-//! [`BlueprintTopologyMutation`] operations on these seeds.
+//! [`BlueprintTopologyFactory::build()`](crate::topology::BlueprintTopologyFactory::build)
+//! to generate the corresponding
+//! [`NetworkBlueprint`](crate::domain::model::NetworkBlueprint). The GA
+//! composes arbitrary topologies by chaining
+//! [`BlueprintTopologyMutation`](crate::topology::BlueprintTopologyMutation)
+//! operations on these seeds.
 //!
 //! ## Three-stage optimisation pipeline
 //!

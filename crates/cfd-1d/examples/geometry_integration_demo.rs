@@ -17,15 +17,14 @@ use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 use cfd_schematics::domain::model::NodeKind;
 use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::SplitType;
-use cfd_schematics::visualizations::analysis_field::{
-    AnalysisField, AnalysisOverlay, ColormapKind,
-};
+use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
 use cfd_schematics::visualizations::RenderConfig;
-use std::collections::HashMap;
+use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
+use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Geometry Integration Demo");
@@ -35,8 +34,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("DATA: Generating bifurcation geometry...");
     let box_dims = (100.0, 50.0); // mm
     let splits = vec![SplitType::Bifurcation, SplitType::Bifurcation];
-    let mut geo_config = GeometryConfig::default();
-    geo_config.channel_width = 1.0; // mm
+    let geo_config = GeometryConfig {
+        channel_width: 1.0, // mm
+        ..Default::default()
+    };
     let channel_type_config = ChannelTypeConfig::AllStraight;
 
     let system = create_geometry(box_dims, &splits, &geo_config, &channel_type_config);
@@ -93,7 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let inlet_id = node_specs
         .iter()
         .find(|n| matches!(n.kind, NodeKind::Inlet))
-        .unwrap()
+        .expect("invariant: the generated topology contains an inlet")
         .id
         .as_str()
         .to_string();
@@ -151,9 +152,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let max_flow = edge_flow_data.values().cloned().fold(0.0_f64, f64::max);
 
     // FlowRate overlay with Viridis colormap
-    let overlay = AnalysisOverlay::new(AnalysisField::FlowRate, ColormapKind::Viridis)
-        .with_edge_data(edge_flow_data)
-        .with_node_data(node_pressure_data);
+    let overlay = AnalysisOverlay::new(AnalysisField::FlowRate, NamedColorMap::Viridis)
+        .with_edge_data(Cow::Borrowed(&edge_flow_data))?
+        .with_node_data(Cow::Borrowed(&node_pressure_data))?;
 
     // ── 7. Render ────────────────────────────────────────────────────────────
     let output_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -162,14 +163,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(&output_dir)?;
 
     let renderer = create_plotters_renderer();
-    let mut render_config = RenderConfig::default();
-    render_config.title = format!("Flow Distribution (Max Q = {:.2e} m³/s)", max_flow);
-    render_config.show_axes = true;
-    render_config.show_grid = false;
+    let render_config = RenderConfig {
+        title: format!("Flow Distribution (Max Q = {:.2e} m³/s)", max_flow),
+        show_axes: true,
+        show_grid: false,
+        ..Default::default()
+    };
 
     renderer.render_analysis(
         &system,
-        output_dir.join("flow_analysis.png").to_str().unwrap(),
+        output_dir
+            .join("flow_analysis.png")
+            .to_str()
+            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
         &render_config,
         &overlay,
     )?;

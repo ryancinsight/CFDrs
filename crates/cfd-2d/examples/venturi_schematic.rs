@@ -18,12 +18,12 @@ use cfd_2d::solvers::ns_fvm::BloodModel;
 use cfd_2d::solvers::venturi_flow::{BernoulliVenturi, VenturiGeometry, VenturiSolver2D};
 use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 use cfd_schematics::visualizations::{
-    create_plotters_renderer, AnalysisField, AnalysisOverlay, ColormapKind, RenderConfig,
-    SchematicRenderer,
+    create_plotters_renderer, AnalysisField, AnalysisOverlay, RenderConfig, SchematicRenderer,
 };
-use std::collections::HashMap;
+use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
+use std::{borrow::Cow, collections::HashMap};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔬 Venturi Schematic + 2D CFD Example");
@@ -93,7 +93,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let schematic_path = out.join("venturi_schematic.png");
-    renderer.render_system(&system, schematic_path.to_str().unwrap(), &schematic_cfg)?;
+    renderer.render_system(
+        &system,
+        schematic_path
+            .to_str()
+            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
+        &schematic_cfg,
+    )?;
     println!("  ✅ Schematic → {}", schematic_path.display());
 
     // ── Phase 2: Simulation (cfd-2d) ─────────────────────────────────────────
@@ -170,9 +176,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     .into_iter()
     .collect();
 
-    let overlay = AnalysisOverlay::new(AnalysisField::Pressure, ColormapKind::BlueRed)
-        .with_node_data(node_p)
-        .with_edge_data(edge_p);
+    let overlay = AnalysisOverlay::new(AnalysisField::Pressure, NamedColorMap::BlueRed)
+        .with_node_data(Cow::Owned(node_p))?
+        .with_edge_data(Cow::Owned(edge_p))?;
 
     let overlay_cfg = RenderConfig {
         width: 1200,
@@ -184,7 +190,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let overlay_path = out.join("venturi_pressure_overlay.png");
     renderer.render_analysis(
         &system,
-        overlay_path.to_str().unwrap(),
+        overlay_path
+            .to_str()
+            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
         &overlay_cfg,
         &overlay,
     )?;

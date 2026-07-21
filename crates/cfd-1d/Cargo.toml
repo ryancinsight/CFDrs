@@ -28,6 +28,7 @@ approx.workspace = true
 tracing = "0.1"
 
 [dev-dependencies]
+iris.workspace = true
 tracing-subscriber = "0.3"
 proptest = "1.0"
 criterion.workspace = true

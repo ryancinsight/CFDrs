@@ -283,7 +283,7 @@ fn build_svg(top_candidates: &[CandidateZoneData]) -> String {
                 "  <text x=\"{:.1}\" y=\"{:.1}\"\n          font-family=\"Arial,sans-serif\" font-size=\"7.5\"\n          fill=\"white\" font-weight=\"bold\" text-anchor=\"middle\">{}</text>\n",
                 lbl_x,
                 bar_top + 10.0,
-                &cand.label
+                cand.label
             );
 
             // Cancer cav score (bottom of bar)

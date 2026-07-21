@@ -13,6 +13,7 @@ default = []
 
 [dependencies]
 cfd-core = { path = "../cfd-core" }
+iris.workspace = true
 petgraph.workspace = true
 plotters = { version = "0.3.5", default-features = false, features = ["bitmap_backend", "bitmap_encoder", "svg_backend", "line_series", "ttf"] }
 thiserror.workspace = true

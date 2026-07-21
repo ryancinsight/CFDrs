@@ -39,6 +39,7 @@ aequitas = { version = "0.1.0", git = "https://github.com/ryancinsight/aequitas"
 proteus = { git = "https://github.com/ryancinsight/proteus", rev = "335e5297b28c334987bd18bd85a09393a90dfe5f" }
 tyche-core = { git = "https://github.com/ryancinsight/tyche", rev = "87923da922ec7bd17f12324c40d1da026be6b04e" }
 eunomia = { git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
+iris = { git = "https://github.com/ryancinsight/iris", rev = "ef43861ae480ed199768580e0842968d98487e0f" }
 approx = "0.5"
 bytemuck = "1.14"
 rand = "0.8"
@@ -140,6 +141,9 @@ hephaestus-wgpu = { path = "../hephaestus/crates/hephaestus-wgpu" }
 [patch."https://github.com/ryancinsight/hermes.git"]
 hermes-simd = { path = "../hermes/crates/hermes-simd" }
 
+[patch."https://github.com/ryancinsight/iris"]
+iris = { path = "../iris" }
+
 [patch."https://github.com/ryancinsight/melinoe.git"]
 melinoe = { path = "../melinoe" }
 
@@ -196,6 +200,7 @@ cfd-schematics.workspace = true
 cfd-1d.workspace = true
 cfd-2d.workspace = true
 cfd-3d.workspace = true
+iris.workspace = true
 # cfd-validation is optional — compile explicitly with `cargo test -p cfd-validation`
 # or enable via `--features validation`.
 cfd-validation = { workspace = true, optional = true }
