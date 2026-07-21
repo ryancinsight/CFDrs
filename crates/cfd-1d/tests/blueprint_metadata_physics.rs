@@ -1,5 +1,3 @@
-#![allow(deprecated)]
-
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::physics::resistance::models::{
     FlowConditions, SerpentineCrossSection, SerpentineModel,

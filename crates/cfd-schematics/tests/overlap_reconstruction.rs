@@ -1,9 +1,7 @@
-#![allow(deprecated)] // NetworkBlueprint::new() used intentionally; all nodes use NodeSpec::new_at() with explicit positions.
-
 use cfd_schematics::domain::model::{ChannelSpec, NetworkBlueprint, NodeKind, NodeSpec};
 
 fn crossing_system() -> NetworkBlueprint {
-    let mut bp = NetworkBlueprint::new("crossing");
+    let mut bp = NetworkBlueprint::new_with_explicit_positions("crossing");
     bp.box_dims = (1.0, 1.0);
 
     bp.add_node(NodeSpec::new_at("0", NodeKind::Inlet, (0.0, 0.5)));

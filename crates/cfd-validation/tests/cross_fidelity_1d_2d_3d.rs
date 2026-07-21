@@ -33,9 +33,8 @@ fn blood_fluid() -> ConstantPropertyFluid<f64> {
     ConstantPropertyFluid::new("blood".to_string(), RHO, MU, 3617.0, 0.52, 1570.0)
 }
 
-#[allow(deprecated)]
 fn straight_blueprint(w: f64, h: f64, l: f64) -> NetworkBlueprint {
-    let mut bp = NetworkBlueprint::new("duct");
+    let mut bp = NetworkBlueprint::new_with_explicit_positions("duct");
     bp.add_node(NodeSpec::new_at("inlet", NodeKind::Inlet, (0.0, 0.0)));
     bp.add_node(NodeSpec::new_at("outlet", NodeKind::Outlet, (1.0, 0.0)));
     bp.add_channel(ChannelSpec {

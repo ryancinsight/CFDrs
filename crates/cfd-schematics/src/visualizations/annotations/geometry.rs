@@ -1,5 +1,3 @@
-#![allow(deprecated)] // NetworkBlueprint::new() used in tests with NodeSpec::new_at().
-
 use crate::domain::model::{ChannelSpec, NetworkBlueprint};
 use crate::domain::therapy_metadata::{TherapyZone, TherapyZoneMetadata};
 use crate::geometry::metadata::{ChannelVenturiSpec, ChannelVisualRole, VenturiGeometryMetadata};
@@ -444,7 +442,7 @@ mod tests {
 
     #[test]
     fn throat_count_uses_ctc_stream_metadata() {
-        let mut blueprint = NetworkBlueprint::new("test");
+        let mut blueprint = NetworkBlueprint::new_with_explicit_positions("test");
 
         let c1 = ChannelSpec::new_pipe_rect("c1", "n0", "n1", 1.0, 1.0, 1.0, 1.0, 0.0)
             .with_metadata(ChannelVenturiSpec {

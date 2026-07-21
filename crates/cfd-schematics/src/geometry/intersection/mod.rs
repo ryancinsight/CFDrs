@@ -122,9 +122,8 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn intersection_detection_finds_manual_crossing() {
-        let mut system = NetworkBlueprint::new("crossing");
+        let mut system = NetworkBlueprint::new_with_explicit_positions("crossing");
         system.box_dims = (1.0, 1.0);
         system.nodes = vec![
             NodeSpec::new_at("0".to_string(), NodeKind::Junction, (0.0, 0.5)),
