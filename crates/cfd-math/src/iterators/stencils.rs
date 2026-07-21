@@ -123,7 +123,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn first_derivative_coefficients_match_known_stencils() {

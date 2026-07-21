@@ -4,7 +4,7 @@ use crate::physics::turbulence::constants::{
     C1_EPSILON, C2_EPSILON, C_MU, EPSILON_MIN, REALIZABLE_A0, SIGMA_EPSILON, SIGMA_K,
 };
 use crate::physics::turbulence::traits::TurbulenceModel;
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use leto::geometry::Vector2;
 
 #[test]

@@ -225,7 +225,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> MurraysLaw<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     /// Symmetric daughter diameter: D₁ = D₂ = D₀ / 2^(1/3).
     /// Analytical: D₀ = 1.0 mm → D_d = 1.0 / 2^(1/3) ≈ 0.7937 mm.

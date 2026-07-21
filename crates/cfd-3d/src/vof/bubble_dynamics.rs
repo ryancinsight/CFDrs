@@ -210,7 +210,7 @@ impl BubbleDynamicsSolver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn collapse_pressure_and_frequency_use_initialized_bubble_state() {

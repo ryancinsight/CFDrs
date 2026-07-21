@@ -2,7 +2,7 @@
 
 use crate::domain::channel::flow::{Channel, FlowRegime};
 use crate::domain::channel::geometry::ChannelGeometry;
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 
 #[test]
 fn test_circular_shape_factor_is_64() {

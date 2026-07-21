@@ -375,7 +375,7 @@ pub fn durst_resistance_multiplier(re: f64, l_over_dh: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use cfd_core::error::Result;
 
     fn water() -> impl FluidTrait<f64> {

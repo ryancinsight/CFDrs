@@ -14,7 +14,7 @@ use crate::linear_solver::traits::{IterativeLinearSolver, Preconditioner};
 use crate::linear_solver::IterativeSolverConfig;
 use crate::linear_solver::{BiCGSTAB, ConjugateGradient, GMRES};
 use crate::sparse::SparseMatrixBuilder;
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use leto::Array1;
 use leto_ops::CsrMatrix as AtlasSparseMatrix;
 use proptest::prelude::*;

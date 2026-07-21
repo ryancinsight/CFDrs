@@ -36,7 +36,6 @@ experimental = []
 proptest.workspace = true
 criterion.workspace = true
 tracing-subscriber.workspace = true
-approx.workspace = true
 leto-ops.workspace = true
 
 [[bench]]

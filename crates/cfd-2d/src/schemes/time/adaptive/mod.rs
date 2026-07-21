@@ -285,7 +285,7 @@ where
 mod tests {
     use super::*;
     use crate::schemes::TimeScheme;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use leto::Array1;
 
     /// Test ODE: dy/dt = -2y, exact solution: y(t) = y0 * exp(-2t)

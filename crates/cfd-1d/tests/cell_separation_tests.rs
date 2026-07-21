@@ -6,7 +6,7 @@
 //! 3. Cancer/RBC cells separate correctly in physiological channels
 //! 4. Edge cases (zero velocity, large deformability) are handled correctly
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_1d::physics::cell_separation::{
     dean_drag_force_n, dean_number, inertial_lift_force_n, lateral_equilibrium, CellProperties,
     CellSeparationModel,

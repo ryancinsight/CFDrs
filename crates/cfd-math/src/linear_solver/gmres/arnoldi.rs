@@ -131,7 +131,7 @@ where
 mod tests {
     use super::*;
     use crate::sparse::spmv;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use leto::Array1;
     use leto_ops::CsrMatrix;
 

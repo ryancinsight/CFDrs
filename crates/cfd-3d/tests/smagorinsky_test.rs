@@ -1,4 +1,4 @@
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_3d::physics::turbulence::SmagorinskyModel;
 use cfd_core::physics::fluid_dynamics::fields::FlowField;
 use cfd_core::physics::fluid_dynamics::turbulence::TurbulenceModel;

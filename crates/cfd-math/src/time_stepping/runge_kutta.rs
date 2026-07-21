@@ -349,7 +349,7 @@ impl<T: RealField + Copy + FloatElement> TimeStepper<T> for LowStorageRK4<T> {
 mod tests {
     use super::*;
     use crate::time_stepping::traits::{state_from_vec, state_neg};
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     // Test function: du/dt = -u (exponential decay)
     fn exponential_decay(_t: f64, u: &TimeState<f64>) -> Result<TimeState<f64>> {

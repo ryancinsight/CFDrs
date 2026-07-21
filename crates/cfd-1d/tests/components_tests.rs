@@ -3,7 +3,7 @@
 //! Sprint 8 updates: Micromixer and FlowSensor use first-principles
 //! constructors (validated, returns Result) with Idelchik physics model.
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_1d::domain::components::mixers::{Micromixer, MixerType};
 use cfd_1d::domain::components::sensors::FlowSensor;
 use cfd_1d::domain::components::Component;

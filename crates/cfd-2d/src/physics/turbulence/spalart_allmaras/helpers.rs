@@ -60,7 +60,7 @@ pub fn wall_distance_field_2d<T: RealField>(nx: usize, ny: usize, dx: T, dy: T) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_cbrt_function() {

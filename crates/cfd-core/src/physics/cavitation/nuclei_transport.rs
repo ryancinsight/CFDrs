@@ -143,7 +143,7 @@ impl<T: FloatElement + Copy> NucleiTransport<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_nuclei_adjusted_vapor_pressure_scales_linearly() {

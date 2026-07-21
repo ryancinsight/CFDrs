@@ -306,7 +306,7 @@ mod tests {
             NumericalScheme::ForwardEuler,
         );
 
-        use approx::assert_relative_eq;
+        use eunomia::assert_relative_eq;
         assert_relative_eq!(result.cfl_number, 3.0, epsilon = 1e-10);
         assert!(matches!(result.stability, StabilityStatus::Unstable));
     }
@@ -338,7 +338,7 @@ mod tests {
 
     #[test]
     fn test_absolute_stability_limits_rk1_rk3_rk4() {
-        use approx::assert_relative_eq;
+        use eunomia::assert_relative_eq;
 
         let analyzer = StabilityAnalyzer::<f64>::with_params(128, 10.0);
 

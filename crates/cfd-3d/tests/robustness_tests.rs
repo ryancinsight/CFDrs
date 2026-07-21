@@ -6,7 +6,7 @@
 //! stabilisation-parameter limits, quadrature exactness, and
 //! shape-function gradient completeness.
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use leto::{FixedMatrix, Vector3};
 
 type Matrix3<T> = FixedMatrix<T, 3, 3>;

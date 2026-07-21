@@ -117,7 +117,7 @@ mod tests {
     use crate::physics::resistance::models::{
         FlowConditions, RectangularChannelModel, ResistanceModel,
     };
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::ConstantPropertyFluid;
 
     const MU: f64 = 0.001; // Water viscosity [Pa·s]

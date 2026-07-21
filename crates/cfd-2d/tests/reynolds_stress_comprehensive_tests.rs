@@ -15,7 +15,7 @@
 //! - Launder, B. E., et al. (1975). Progress in RSTM development. J. Fluid Mech.
 //! - Speziale, C. G., et al. (1991). Modelling pressure-strain correlation. J. Fluid Mech.
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_2d::physics::turbulence::reynolds_stress::{
     PressureStrainModel, ReynoldsStressModel, ReynoldsStressTensor,
 };

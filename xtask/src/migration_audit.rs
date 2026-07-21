@@ -11,9 +11,6 @@ const LEGACY_MANIFEST_DEPS: &[&str] = &[
     "burn-ndarray",
     "tokio",
     "rayon",
-    "approx",
-    "num-traits",
-    "rustfft",
 ];
 
 const LEGACY_SOURCE_TOKENS: &[&str] = &[
@@ -23,9 +20,6 @@ const LEGACY_SOURCE_TOKENS: &[&str] = &[
     "burn_ndarray",
     "tokio::",
     "rayon::",
-    "approx::",
-    "num_traits::",
-    "rustfft::",
 ];
 
 const ATLAS_MANIFEST_DEPS: &[&str] = &["moirai", "leto", "hephaestus", "coeus"];

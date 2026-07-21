@@ -153,7 +153,7 @@ mod tests {
     /// for all shear rates. The fluid behaves as Newtonian.
     #[test]
     fn newtonian_limit_n_equals_one() {
-        use approx::assert_relative_eq;
+        use eunomia::assert_relative_eq;
         let model = CarreauYasudaModel::<f64> {
             density: 1060.0,
             mu_0: 0.022,
@@ -170,7 +170,7 @@ mod tests {
     /// Kinematic viscosity: ν = μ/ρ, verified for typical blood parameters.
     #[test]
     fn kinematic_viscosity_consistency() {
-        use approx::assert_relative_eq;
+        use eunomia::assert_relative_eq;
         let model = CarreauYasudaModel::<f64>::typical_blood();
         let sr = 100.0_f64;
         let mu = model.apparent_viscosity(sr);

@@ -8,7 +8,7 @@
 //! - Kirchhoff, G. (1847). "Ueber die Auflösung der Gleichungen". Annalen der Physik.
 //! - Hardy Cross (1936). "Analysis of flow in networks of conduits or conductors". University of Illinois Bulletin.
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_core::error::Result;

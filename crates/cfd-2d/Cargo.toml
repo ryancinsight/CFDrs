@@ -35,7 +35,6 @@ iris.workspace = true
 plotters = { version = "0.3.5", default-features = false, features = ["bitmap_backend", "bitmap_encoder", "svg_backend", "line_series", "ttf"] }
 serde_json.workspace = true
 proptest.workspace = true
-approx.workspace = true
 criterion.workspace = true
 rand.workspace = true
 

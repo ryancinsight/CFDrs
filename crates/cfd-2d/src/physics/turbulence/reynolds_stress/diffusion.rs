@@ -112,7 +112,7 @@ pub fn turbulent_transport<T: RealField + Copy>(
 mod tests {
     use super::*;
     use crate::physics::turbulence::reynolds_stress::model::ReynoldsStressModel;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use leto::Array2;
 
     #[test]

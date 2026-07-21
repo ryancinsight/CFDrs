@@ -11,7 +11,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::ChebyshevPolynomial;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use leto::Array1;
     use std::f64::consts::PI;
 

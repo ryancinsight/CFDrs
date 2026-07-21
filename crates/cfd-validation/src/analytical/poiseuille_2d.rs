@@ -510,7 +510,7 @@ impl<T: ValidationScalar> AnalyticalSolution<T> for CassonPoiseuille<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_power_law_newtonian_limit() {

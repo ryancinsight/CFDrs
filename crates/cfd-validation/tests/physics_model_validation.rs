@@ -4,7 +4,7 @@
 //! literature values and against each other, ensuring consistency across
 //! the different fidelity levels.
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 
 // ── Test 1: Durst Entrance Length vs Schlichting ─────────────────────────────
 

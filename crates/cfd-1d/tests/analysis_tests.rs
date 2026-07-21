@@ -3,7 +3,7 @@
 //! Tests verify the correctness of accumulation invariants, series/parallel
 //! resistance laws, flow rate aggregation, and blood shear safety limits.
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_1d::solver::analysis::{
     BloodShearLimits, FlowAnalysis, PressureAnalysis, ResistanceAnalysis,
 };

@@ -3,7 +3,7 @@
 //! Tests based on literature and industry standards for microfluidic network simulation,
 //! inspired by mmft-modular-1D-simulator functionality for production-ready validation.
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::*;
 use cfd_core::compute::solver::{Configurable, Solver};

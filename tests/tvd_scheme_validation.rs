@@ -17,7 +17,7 @@
 //! - Yee, H.C. (1987). "Upwind and Symmetric Shock-Capturing Schemes"
 //! - Roe, P.L. (1986). "Characteristic-Based Schemes for the Euler Equations"
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_2d::schemes::grid::Grid2D as Grid2DT;
 use cfd_2d::schemes::tvd::{FluxLimiter, MUSCLOrder, MUSCLScheme};
 use cfd_2d::schemes::{FaceReconstruction, Grid2D};

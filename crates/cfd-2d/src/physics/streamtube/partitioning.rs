@@ -142,7 +142,7 @@ fn half<T: FloatElement>() -> T {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     fn abs(value: f64) -> f64 {
         <f64 as NumericElement>::abs(value)

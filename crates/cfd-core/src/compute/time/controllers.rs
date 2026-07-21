@@ -124,7 +124,7 @@ mod tests {
     use super::{AdaptiveTimeStepController, VariableTimeStep};
     use crate::compute::time::integrators::ForwardEuler;
     use crate::compute::time::integrators::TimeIntegrator;
-    use approx::assert_abs_diff_eq;
+    use eunomia::assert_abs_diff_eq;
     use leto::Array1;
 
     fn state_from(values: Vec<f64>) -> Array1<f64> {

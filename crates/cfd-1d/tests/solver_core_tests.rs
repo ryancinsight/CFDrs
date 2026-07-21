@@ -3,7 +3,7 @@
 //!
 //! All tests use the correct `NetworkBuilder → Network → NetworkProblem → NetworkSolver` chain.
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_1d::solver::core::ConvergenceChecker;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_core::physics::fluid::database::water_20c;

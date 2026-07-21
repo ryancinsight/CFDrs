@@ -403,7 +403,7 @@ fn matrix_scale<T: RealScalar>(matrix: &TimeMatrix<T>, scale: T) -> TimeMatrix<T
 mod tests {
     use super::*;
     use crate::time_stepping::traits::{state_from_vec, state_len, state_neg, state_scale};
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_imex_properties() {

@@ -254,7 +254,7 @@ pub struct NFurcationSolution<T: Cfd2dScalar + Copy> {
 #[cfg(test)]
 mod tests {
     use super::{BranchGeometry, NFurcationGeometry};
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn bounding_box_includes_full_rotated_branch_footprint() {

@@ -282,7 +282,7 @@ fn calculate_min_edge_length<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_grad_div_parameter_scales_with_h_squared() {

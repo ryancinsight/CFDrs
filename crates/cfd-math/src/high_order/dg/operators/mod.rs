@@ -395,7 +395,7 @@ impl DGOperator {
 mod tests {
     use super::*;
     use crate::high_order::dg::{matrix_cols, matrix_rows, vector_from_element};
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_dg_operator_new() {

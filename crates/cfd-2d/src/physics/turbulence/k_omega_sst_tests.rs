@@ -22,7 +22,7 @@
 mod tests {
     use super::super::k_omega_sst::KOmegaSSTModel;
     use super::super::traits::TurbulenceModel;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     /// Test k-ω SST turbulent viscosity with full Bradshaw limiter
     /// Reference: Menter (1994) - Equation 14

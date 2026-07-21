@@ -8,7 +8,7 @@ use std::collections::HashMap;
 #[cfg(test)]
 mod energy_tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_new_solver_initialization() {

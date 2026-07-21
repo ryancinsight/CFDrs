@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod differentiation_tests {
     use super::super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use leto::geometry::Vector3;
 
     #[test]

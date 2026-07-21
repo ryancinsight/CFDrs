@@ -131,7 +131,7 @@ mod tests {
     use crate::fields::{Field2D, SimulationFields};
     use crate::grid::StructuredGrid2D;
     use crate::pressure_velocity::RhieChowInterpolation;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use leto::geometry::Vector2;
 
     #[test]

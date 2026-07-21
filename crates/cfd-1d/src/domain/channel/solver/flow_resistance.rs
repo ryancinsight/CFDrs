@@ -228,7 +228,7 @@ mod tests {
     use super::*;
     use crate::domain::channel::geometry::ChannelGeometry;
     use crate::physics::resistance::models::ResistanceModel;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     fn water() -> ConstantPropertyFluid<f64> {
         ConstantPropertyFluid::new(

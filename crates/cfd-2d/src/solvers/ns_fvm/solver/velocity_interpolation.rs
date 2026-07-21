@@ -255,7 +255,7 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> VelocityFieldInt
 mod tests {
     use super::*;
     use crate::solvers::ns_fvm::StaggeredGrid2D;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::BloodModel;
     use cfd_math::pressure_velocity::SIMPLEConfig;
 

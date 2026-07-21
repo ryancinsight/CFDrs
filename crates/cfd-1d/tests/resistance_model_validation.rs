@@ -12,7 +12,7 @@
 //! - Colebrook, C. F. (1939). "Turbulent flow in pipes". *Journal of the Institution
 //!   of Civil Engineers*, 11(4), 133-156.
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_1d::physics::resistance::{
     DarcyWeisbachModel, EntranceEffectsModel, FlowConditions, HagenPoiseuilleModel,
     RectangularChannelModel, ResistanceModel,

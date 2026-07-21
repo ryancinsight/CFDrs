@@ -153,7 +153,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> GorkovPotential<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     /// Theorem: Solid particles (like cells) in water move to pressure nodes,
     /// meaning $\Phi > 0$. Microbubbles ($\rho_p \ll \rho_0, \kappa_p \gg \kappa_0$)

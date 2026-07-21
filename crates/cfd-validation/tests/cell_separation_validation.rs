@@ -26,7 +26,7 @@
 //! in the center (treatment) arm of a cascade junction tree while
 //! diverting healthy blood cells to peripheral bypass channels.
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_1d::{
     cascade_junction_separation, cascade_junction_separation_from_qfracs,
     cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs_cross_junction,

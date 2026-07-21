@@ -458,7 +458,7 @@ impl LimiterFactory {
 mod tests {
     use super::*;
     use crate::high_order::dg::matrix_from_vec;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_minmod_limiter() {

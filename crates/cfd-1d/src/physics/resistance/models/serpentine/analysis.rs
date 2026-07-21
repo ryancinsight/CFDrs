@@ -155,7 +155,7 @@ pub fn bayat_rezai_enhancement(dean_number: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn validate_bayat_rezai_dns_bounds() {

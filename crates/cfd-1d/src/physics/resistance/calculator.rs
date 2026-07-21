@@ -372,7 +372,7 @@ mod tests {
     use crate::physics::resistance::models::{
         DarcyWeisbachModel, HagenPoiseuilleModel, RectangularChannelModel, ResistanceModel,
     };
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
     use cfd_core::physics::fluid::ConstantFluid;
 

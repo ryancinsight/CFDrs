@@ -419,7 +419,7 @@ fn test_5_incipient_cavitation() {
 #[cfg(test)]
 mod validation_tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     /// Test continuity equation for throat velocity
     #[test]

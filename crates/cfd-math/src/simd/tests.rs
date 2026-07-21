@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 use super::*;
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 
 #[test]
 fn test_simd_add_f32() {

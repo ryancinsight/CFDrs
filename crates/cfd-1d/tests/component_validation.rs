@@ -9,7 +9,7 @@
 //! - Stone, H. A., Stroock, A. D., & Ajdari, A. (2004). "Engineering flows in
 //!   small devices". *Annual Review of Fluid Mechanics*, 36, 381-411.
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_1d::*;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid;

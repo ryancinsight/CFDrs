@@ -1,4 +1,4 @@
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_1d::domain::network::ComponentType;
 use cfd_1d::{
     Edge, EdgeProperties, EdgeType, Network, NetworkBuilder, NetworkProblem, NetworkSolver,

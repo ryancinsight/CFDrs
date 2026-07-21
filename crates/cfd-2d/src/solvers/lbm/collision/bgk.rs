@@ -120,7 +120,7 @@ impl<T: FloatElement> CollisionOperator<T> for BgkCollision<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     /// BGK H-theorem: after collision, H* ≤ H (monotone entropy decrease).
     #[test]

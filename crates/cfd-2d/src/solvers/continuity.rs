@@ -159,7 +159,7 @@ mod tests {
         max_central_continuity_residual, max_face_continuity_residual,
         max_forward_continuity_residual, pointwise_forward_continuity_residual,
     };
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn continuity_helpers_reproduce_affine_divergence() {

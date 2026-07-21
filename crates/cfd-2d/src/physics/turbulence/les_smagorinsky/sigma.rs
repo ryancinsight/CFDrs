@@ -214,7 +214,7 @@ impl<T: RealField + Copy> Default for SigmaModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     fn zero_gradient() -> Array2<f64> {
         Array2::zeros([2, 2])

@@ -20,7 +20,7 @@
 //! 4. **Venturi cavitation onset** — For throat diameter 100 µm at Q=5 mL/min,
 //!    σ < 1 (cavitation onset).  For 500 µm throat, σ >> 1 (no cavitation).
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_1d::physics::cell_separation::{
     margination::{dean_number, lateral_equilibrium},
     CellProperties, CellSeparationModel,

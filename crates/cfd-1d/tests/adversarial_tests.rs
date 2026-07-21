@@ -6,7 +6,7 @@
 //! 3. Solver correctly handles NaN/infinite resistance edges without panicking
 //! 4. Womersley and Bessel functions produce correct limits at degenerate inputs
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_1d::{
     domain::components::channels::CircularChannel,
     domain::components::membranes::PorousMembrane,

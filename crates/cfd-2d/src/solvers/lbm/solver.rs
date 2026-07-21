@@ -447,7 +447,7 @@ where
 mod tests {
     use super::*;
     use crate::grid::StructuredGrid2D;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_equilibrium_distribution() -> Result<()> {

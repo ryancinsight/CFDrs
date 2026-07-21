@@ -16,7 +16,6 @@ leto.workspace = true
 leto-ops.workspace = true
 moirai.workspace = true
 hermes-simd.workspace = true
-approx.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 serde = { workspace = true, features = ["derive"] }
@@ -27,7 +26,6 @@ rand.workspace = true
 [dev-dependencies]
 proptest.workspace = true
 criterion.workspace = true
-approx.workspace = true
 
 [features]
 default = []

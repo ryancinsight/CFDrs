@@ -29,7 +29,7 @@ mod tests {
     use super::super::{
         tvd::FluxLimiter, tvd::MUSCLOrder, FaceReconstruction, Grid2D, MUSCLScheme,
     };
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers

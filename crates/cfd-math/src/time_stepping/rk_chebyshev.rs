@@ -371,7 +371,7 @@ impl<T: RealField + Copy + FloatElement> Default for RungeKuttaChebyshev<T> {
 mod tests {
     use super::*;
     use crate::time_stepping::traits::{state_from_vec, state_scale};
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     struct ExponentialDecay<T: RealField + Copy> {
         lambda: T,

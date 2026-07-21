@@ -40,7 +40,6 @@ proteus = { git = "https://github.com/ryancinsight/proteus", rev = "335e5297b28c
 tyche-core = { git = "https://github.com/ryancinsight/tyche", rev = "87923da922ec7bd17f12324c40d1da026be6b04e" }
 eunomia = { git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
 iris = { git = "https://github.com/ryancinsight/iris", rev = "ef43861ae480ed199768580e0842968d98487e0f" }
-approx = "0.5"
 bytemuck = "1.14"
 rand = "0.8"
 
@@ -210,10 +209,10 @@ rand.workspace = true
 tracing = { workspace = true }
 
 [dev-dependencies]
+eunomia.workspace = true
 aequitas.workspace = true
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.0"
-approx = "0.5"
 leto-ops.workspace = true
 serde_json.workspace = true
 serde = { workspace = true, features = ["derive"] }

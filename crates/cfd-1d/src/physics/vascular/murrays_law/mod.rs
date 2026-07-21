@@ -79,7 +79,7 @@ pub fn non_newtonian_flow_split_exponent(power_law_index_n: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_symmetric_daughter_k3() {

@@ -452,7 +452,7 @@ pub fn hllc_flux(
 mod tests {
     use super::super::vector_from_vec;
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_central_flux() {

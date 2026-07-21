@@ -329,7 +329,7 @@ pub struct BifurcationSolution<T: Cfd2dScalar + Copy> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::blood::CassonBlood;
 
     #[test]

@@ -13,7 +13,7 @@ mod time_integration_edge_tests {
         state_from_elem, state_from_vec, state_len, state_zeros, ForwardEuler, RungeKutta2, State,
         TimeIntegratorTrait,
     };
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     fn scaled(state: &State<f64>, factor: f64) -> State<f64> {
         let mut values = Vec::with_capacity(state_len(state));

@@ -485,7 +485,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> BoundaryHandler<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     fn write_cell(f: &mut [f64], i: usize, j: usize, nx: usize, values: [f64; 9]) {
         use crate::solvers::lbm::streaming::f_idx;

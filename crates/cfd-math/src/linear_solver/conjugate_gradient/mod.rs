@@ -254,7 +254,7 @@ mod tests {
     use super::super::preconditioners::IdentityPreconditioner;
     use super::super::traits::{Configurable, LinearSolver};
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use leto_ops::CsrMatrix;
 
     fn array(values: Vec<f64>) -> Array1<f64> {

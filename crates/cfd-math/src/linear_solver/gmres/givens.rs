@@ -86,7 +86,7 @@ pub fn solve_upper_triangular<T: RealField + Copy>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_solve_upper_triangular() {

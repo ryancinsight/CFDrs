@@ -14,7 +14,7 @@
 #[cfg(test)]
 mod unit {
     use super::super::{TimeIntegrator, TimeScheme};
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use leto::Array1;
 
     fn state(values: Vec<f64>) -> Array1<f64> {

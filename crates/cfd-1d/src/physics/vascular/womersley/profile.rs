@@ -168,7 +168,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
 #[cfg(test)]
 mod proptests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use proptest::prelude::*;
 
     proptest! {

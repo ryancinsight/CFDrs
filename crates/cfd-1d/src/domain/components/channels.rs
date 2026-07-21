@@ -222,7 +222,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for CircularChannel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::database::water_20c;
 
     #[test]

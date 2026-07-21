@@ -14,7 +14,7 @@
 //! - ASME V&V 20-2009. "Standard for Verification and Validation in Computational
 //!   Fluid Dynamics and Heat Transfer."
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_validation::manufactured::TaylorGreenManufactured;
 use std::f64::consts::PI;
 

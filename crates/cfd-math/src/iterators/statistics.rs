@@ -61,7 +61,7 @@ impl<T: Iterator> StatisticsIteratorExt for T {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn mean_returns_none_for_empty_iterator() {

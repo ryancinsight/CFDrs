@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn local_tau_satisfies_fixed_point_residual() {
-        use approx::assert_relative_eq;
+        use eunomia::assert_relative_eq;
 
         let cy = CarreauYasudaModel::typical_blood();
         let dx = 1e-4_f64;

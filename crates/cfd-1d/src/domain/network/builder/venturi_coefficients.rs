@@ -94,7 +94,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::venturi_coefficients;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::database::water_20c;
     use cfd_schematics::geometry::metadata::VenturiGeometryMetadata;
 

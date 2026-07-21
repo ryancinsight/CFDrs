@@ -119,7 +119,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     fn create_test_velocity_fields(nx: usize, ny: usize) -> (Array2<f64>, Array2<f64>) {
         let mut velocity_u = Array2::zeros([nx, ny]);

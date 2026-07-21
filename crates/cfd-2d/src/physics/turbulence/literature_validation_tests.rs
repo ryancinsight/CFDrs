@@ -23,7 +23,7 @@
 mod tests {
     use crate::physics::turbulence::k_omega_sst::KOmegaSSTModel;
     use crate::physics::turbulence::spalart_allmaras::SpalartAllmaras;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     /// Test k-ω SST model initialization with literature-based parameters
     /// Reference: Menter (1994) - Standard model coefficients

@@ -231,7 +231,7 @@ fn stiffness_matrix(derivative: &Array2<f64>, mass: &Array2<f64>) -> Array2<f64>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_legendre_poly() {

@@ -175,7 +175,7 @@ impl<T: RealField + Copy + FloatElement> ManufacturedSolution<T>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_advection_diffusion_initial_condition() {

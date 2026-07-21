@@ -364,7 +364,7 @@ fn state_scale<T: RealScalar>(state: &TimeState<T>, scale: T) -> TimeState<T> {
 mod tests {
     use super::*;
     use crate::time_stepping::traits::{state_from_vec, state_neg};
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     fn matrix_from_row_slice(rows: usize, cols: usize, values: &[f64]) -> TimeMatrix<f64> {
         TimeMatrix::from_shape_vec([rows, cols], values.to_vec())

@@ -250,7 +250,7 @@ pub mod schemes {
 mod tests {
     use super::*;
     use crate::physics::momentum::tvd_limiters::{Superbee, VanLeer};
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_muscl2_superbee_smooth_solution() {

@@ -153,7 +153,7 @@ impl<T: ResistanceScalar> VenturiModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::database::water_20c;
     use proptest::prelude::*;
 

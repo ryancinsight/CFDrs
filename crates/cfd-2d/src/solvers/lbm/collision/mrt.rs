@@ -246,7 +246,7 @@ impl<T: FloatElement> MrtCollision<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     /// Viscosity-relaxation round-trip: ν → τ → ν.
     /// MRT uses the same viscosity formula as BGK (stress moment relaxation).

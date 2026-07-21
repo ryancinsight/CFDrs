@@ -340,7 +340,7 @@ impl DGSolver {
 mod tests {
     use super::super::{matrix_from_element, matrix_neg, vector_from_vec};
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     use crate::high_order::{DGOperatorParams, FluxType, LimiterType};
     type Jacobian = dyn Fn(f64, &Array2<f64>) -> Result<Array2<f64>>;

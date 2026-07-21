@@ -1,4 +1,4 @@
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_2d::fields::{Field2D, SimulationFields};
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::{

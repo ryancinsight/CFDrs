@@ -244,7 +244,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> TurbulenceModel<T> for Si
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use leto::geometry::Vector3;
 
     fn fill_velocity_field<F>(flow: &mut FlowField<f64>, mut generator: F)

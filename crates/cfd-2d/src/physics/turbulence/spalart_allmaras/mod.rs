@@ -469,7 +469,7 @@ impl<T: RealField> SpalartAllmaras<T> {
 mod tests {
     use super::*;
     use crate::physics::turbulence::traits::TurbulenceModel;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_spalart_allmaras_creation() {

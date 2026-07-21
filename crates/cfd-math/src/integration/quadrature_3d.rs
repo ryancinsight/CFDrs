@@ -165,7 +165,7 @@ impl<T: RealField + Copy> Quadrature3D<T> for TetrahedronQuadrature<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn degree_one_rule_has_centroid_and_unit_weight() {

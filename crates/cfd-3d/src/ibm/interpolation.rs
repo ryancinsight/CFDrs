@@ -161,7 +161,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Interp
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     /// Compact support: δ(r) = 0 for |r| ≥ support radius.
     ///

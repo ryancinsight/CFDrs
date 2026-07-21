@@ -146,7 +146,7 @@ pub fn compute_sgs_viscosity_no_damping(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     fn create_test_strain_and_filter(nx: usize, ny: usize) -> (Array2<f64>, Array2<f64>) {
         let mut strain = Array2::zeros([nx, ny]);

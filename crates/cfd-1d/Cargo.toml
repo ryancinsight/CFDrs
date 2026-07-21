@@ -24,7 +24,6 @@ serde_json.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 rand.workspace = true
-approx.workspace = true
 tracing = "0.1"
 
 [dev-dependencies]

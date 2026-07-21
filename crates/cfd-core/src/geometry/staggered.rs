@@ -212,7 +212,7 @@ impl<T: RealField + Copy + FloatElement> StaggeredGrid2D<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn cell_centres_are_staggered_from_faces() {

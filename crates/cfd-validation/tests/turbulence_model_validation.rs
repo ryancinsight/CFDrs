@@ -11,7 +11,7 @@
 //! - Menter, F.R. (1994). "Two-equation eddy-viscosity turbulence models for
 //!   engineering applications". AIAA Journal, 32(8), 1598-1605.
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_2d::physics::turbulence::{k_epsilon::KEpsilonModel, traits::TurbulenceModel};
 
 /// Flat plate boundary layer test case per White (2006)

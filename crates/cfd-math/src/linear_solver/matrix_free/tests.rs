@@ -5,7 +5,7 @@ use crate::linear_solver::preconditioners::IdentityPreconditioner;
 use crate::linear_solver::traits::IterativeLinearSolver;
 use crate::linear_solver::{ConjugateGradient, IterativeSolverConfig, GMRES};
 use aequitas::systems::si::{quantities::Length, units::Meter};
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_core::error::Error;
 use leto::{Array1, BoundaryCondition};
 

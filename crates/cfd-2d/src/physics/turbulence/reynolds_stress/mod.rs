@@ -65,7 +65,7 @@ pub enum PressureStrainModel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use leto::Array2;
 
     /// DNS channel flow validation (Moser et al., 1999) at Re_τ = 590.

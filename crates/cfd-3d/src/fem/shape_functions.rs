@@ -104,7 +104,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Lagran
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     /// Reference tetrahedron P1 gradients: vertices at
     /// v0=(0,0,0), v1=(1,0,0), v2=(0,1,0), v3=(0,0,1).

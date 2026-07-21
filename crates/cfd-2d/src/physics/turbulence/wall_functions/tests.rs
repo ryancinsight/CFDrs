@@ -3,7 +3,7 @@ use super::*;
 use crate::physics::turbulence::constants::{
     C_MU, E_WALL_FUNCTION, KAPPA, Y_PLUS_VISCOUS_SUBLAYER,
 };
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 
 #[test]
 fn test_new_standard_wall_treatment() {

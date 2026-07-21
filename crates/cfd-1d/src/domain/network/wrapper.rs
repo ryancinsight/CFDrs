@@ -1140,7 +1140,7 @@ pub fn blood_microchannel_apparent_viscosity<T: crate::scalar::Cfd1dScalar + Cop
 mod tests {
     use super::*;
     use crate::physics::cell_separation::fahraeus_lindqvist::secomb_network_viscosity;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn blood_microchannel_apparent_viscosity_falls_back_to_secomb_when_quemada_invalid() {

@@ -70,7 +70,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Tetrah
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     /// Weight sum: Σw_k = 1/6 (volume of the reference tetrahedron).
     ///

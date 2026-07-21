@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::linear_solver::Preconditioner;
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_core::error::Error;
 use leto::Array1;
 use leto_ops::CsrMatrix;

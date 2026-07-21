@@ -428,7 +428,7 @@ pub mod time_integration {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use leto::Array1;
 
     #[test]

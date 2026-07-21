@@ -24,7 +24,7 @@ pub use power_law::PowerLawFluid;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_herschel_bulkley_constant() {

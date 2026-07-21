@@ -95,7 +95,7 @@ pub fn bessel_j0_j1<T: Cfd1dScalar + FloatElement + Copy>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_bessel_j0_real() {

@@ -8,7 +8,7 @@
 //! - Manufactured solutions
 //! - Tensor product operator accuracy
 
-use approx::assert_relative_eq;
+use eunomia::assert_relative_eq;
 use cfd_3d::spectral::poisson::{PoissonBoundaryCondition, PoissonSolver};
 use leto::Array1;
 use std::f64::consts::PI;

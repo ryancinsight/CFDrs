@@ -267,7 +267,7 @@ impl DetachedEddySimulation {
 mod tests {
     use super::super::DESConfig;
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn iddes_wall_normal_spacing_tracks_nearest_wall_orientation() {

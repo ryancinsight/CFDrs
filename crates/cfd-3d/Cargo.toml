@@ -34,7 +34,6 @@ default = []
 
 [dev-dependencies]
 proptest.workspace = true
-approx.workspace = true
 criterion.workspace = true
 cfd-validation.workspace = true
 cfd-schematics.workspace = true

@@ -79,7 +79,7 @@ impl<Q> VariableQuadrature<Q> {
 mod tests {
     use super::*;
     use crate::integration::quadrature::GaussQuadrature;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn adaptive_quadrature_refines_until_tolerance() {

@@ -115,7 +115,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OlufsenParameters<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn construct_olufsen_tree_terminates_at_rmin() {

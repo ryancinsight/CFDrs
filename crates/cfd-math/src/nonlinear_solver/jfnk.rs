@@ -472,7 +472,7 @@ impl<T: RealField + Copy + FloatElement + std::fmt::Debug> JfnkSolver<T> {
 mod tests {
     use super::super::linalg::vector_from_vec;
     use super::*;
-    use approx::assert_relative_eq;
+    use eunomia::assert_relative_eq;
     use leto::Array2;
 
     fn vec(values: Vec<f64>) -> Array1<f64> {
