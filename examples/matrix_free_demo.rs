@@ -5,10 +5,11 @@
 //!
 //! Run with: `cargo run --example matrix_free_demo`
 
+use aequitas::systems::si::{quantities::Length, units::Meter};
 use cfd_math::error::Result;
 use cfd_math::linear_solver::{
-    ConjugateGradient, IterativeLinearSolver, IterativeSolverConfig, LaplacianOperator2D,
-    LinearOperator,
+    BoundaryCondition, ConjugateGradient, IterativeLinearSolver, IterativeSolverConfig,
+    LaplacianOperator2D, LinearOperator,
 };
 use leto::Array1;
 
@@ -115,7 +116,13 @@ fn main() -> Result<()> {
     let dx = 0.125;
     let dy = 0.125;
 
-    let laplacian = LaplacianOperator2D::new(nx, ny, dx, dy);
+    let laplacian = LaplacianOperator2D::new(
+        nx,
+        ny,
+        Length::from_unit::<Meter>(dx),
+        Length::from_unit::<Meter>(dy),
+        BoundaryCondition::Neumann,
+    )?;
 
     // Simple test: solve -∇²p = 1 with homogeneous Neumann BC
     let size = laplacian.size();

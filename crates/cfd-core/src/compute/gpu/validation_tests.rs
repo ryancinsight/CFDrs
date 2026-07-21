@@ -6,7 +6,6 @@ mod tests {
     use super::super::field_ops::GpuFieldOps;
     use crate::compute::gpu::GpuContext;
     use aequitas::systems::si::{quantities::Length, units::Meter};
-    use approx::assert_relative_eq;
     use std::sync::Arc;
 
     #[test]
@@ -49,19 +48,12 @@ mod tests {
             )
             .expect("Hephaestus Laplacian dispatch must succeed");
 
-        // Interior points should have Laplacian ≈ 4
-        // Boundary handling may differ, so only check interior
+        // Integer quadratic samples and unit spacing make the interior result
+        // exactly representable in f32.
         for j in 1..3 {
             for i in 1..3 {
                 let idx = (j * nx + i) as usize;
-                // Finite difference approximation
-                let laplacian_x = (field[idx - 1] - 2.0 * field[idx] + field[idx + 1]) / (dx * dx);
-                let laplacian_y = (field[idx - nx as usize] - 2.0 * field[idx]
-                    + field[idx + nx as usize])
-                    / (dy * dy);
-                let expected = laplacian_x + laplacian_y;
-
-                assert_relative_eq!(gpu_result[idx], expected, epsilon = 0.1);
+                assert_eq!(gpu_result[idx], 4.0);
             }
         }
     }

@@ -1,10 +1,11 @@
 //! Tests for the 2D Laplacian GPU kernel.
 
-use super::cpu_reference::execute_cpu_reference;
 use super::kernel::Laplacian2DKernel;
-use super::types::BoundaryCondition;
+use super::BoundaryCondition;
 use crate::compute::gpu::GpuContext;
 use aequitas::systems::si::{quantities::Length, units::Meter};
+use leto::{Array1, Laplacian2D};
+use leto_ops::laplacian_2d_into;
 use std::sync::Arc;
 
 fn create_kernel() -> Laplacian2DKernel {
@@ -36,7 +37,7 @@ fn execute_gpu(
         .expect("Hephaestus Laplacian dispatch must succeed");
 }
 
-fn execute_cpu_reference_path(
+fn execute_leto_reference(
     field: &[f32],
     nx: usize,
     ny: usize,
@@ -45,7 +46,22 @@ fn execute_cpu_reference_path(
     bc: BoundaryCondition,
     result: &mut [f32],
 ) {
-    execute_cpu_reference(field, nx, ny, dx, dy, bc, result);
+    let input =
+        Array1::from_shape_vec([field.len()], field.to_vec()).expect("valid reference input shape");
+    let mut output = Array1::zeros([result.len()]);
+    let stencil = Laplacian2D::new(
+        nx,
+        ny,
+        Length::from_unit::<Meter>(dx),
+        Length::from_unit::<Meter>(dy),
+        bc,
+    )
+    .expect("valid reference stencil");
+    laplacian_2d_into(&stencil, &input.view(), &mut output.view_mut())
+        .expect("matching reference storage");
+    for (target, value) in result.iter_mut().zip(output.iter().copied()) {
+        *target = value;
+    }
 }
 
 /// Test function: u(x,y) = sin(πx)sin(πy) on \[0,1]×\[0,1]
@@ -495,7 +511,7 @@ fn test_gpu_cpu_consistency() {
     }
 
     // Force CPU execution
-    execute_cpu_reference_path(
+    execute_leto_reference(
         &field,
         n,
         n,
@@ -523,8 +539,8 @@ fn test_gpu_cpu_consistency() {
         max_diff = max_diff.max(diff);
     }
 
-    // The CPU oracle evaluates each stencil in f64 before narrowing, while
-    // WGSL evaluates eight arithmetic stages in native f32. For
+    // Leto and WGSL both evaluate in native f32, but backend contraction and
+    // instruction selection can still differ. For
     // |u_left| + 2|u_center| + |u_right| <= 4 max|u| per axis, Higham's
     // gamma_n model bounds the absolute forward error by
     // gamma_8 * 4 max|u| * (dx^-2 + dy^-2).
@@ -574,7 +590,7 @@ fn test_gpu_cpu_performance_benchmark() {
         let cpu_time = {
             // Warmup runs
             for _ in 0..num_warmup_runs {
-                execute_cpu_reference_path(
+                execute_leto_reference(
                     &field,
                     n,
                     n,
@@ -588,7 +604,7 @@ fn test_gpu_cpu_performance_benchmark() {
             // Timing runs
             let start = Instant::now();
             for _ in 0..num_timing_runs {
-                execute_cpu_reference_path(
+                execute_leto_reference(
                     &field,
                     n,
                     n,

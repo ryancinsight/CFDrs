@@ -4,12 +4,12 @@
 //! this module is a thin typed consumer that validates the CFD grid contract
 //! and forwards to `hephaestus_wgpu::Laplacian2DKernel`.
 
-use super::types::BoundaryCondition;
+use super::{BoundaryCondition, LaplacianPolarity};
 use crate::compute::gpu::buffer::GpuBuffer;
 use crate::compute::gpu::GpuContext;
 use crate::compute::traits::ComputeBuffer;
 use crate::error::{Error, Result};
-use aequitas::systems::si::{quantities::Length, units::Meter};
+use aequitas::systems::si::quantities::Length;
 use hephaestus_wgpu::{
     ComputeDevice, Laplacian2DKernel as HephaestusLaplacian2DKernel, Laplacian2DParams,
 };
@@ -64,7 +64,16 @@ impl Laplacian2DKernel {
         bc: BoundaryCondition,
         result: &mut [f32],
     ) -> Result<()> {
-        let params = validate_contract(field.len(), result.len(), nx, ny, dx, dy, bc)?;
+        let params = validate_contract(
+            field.len(),
+            result.len(),
+            nx,
+            ny,
+            dx,
+            dy,
+            bc,
+            LaplacianPolarity::Laplacian,
+        )?;
         let provider = self.context.provider();
         let input = provider.upload(field)?;
         let output = provider.alloc_zeroed(field.len())?;
@@ -73,7 +82,8 @@ impl Laplacian2DKernel {
         Ok(())
     }
 
-    /// Dispatch directly over existing `f32` provider buffers.
+    /// Dispatch the selected Laplacian polarity over existing `f32` provider
+    /// buffers.
     ///
     /// # Errors
     /// Returns a typed configuration, dimension, or provider error when the
@@ -87,8 +97,9 @@ impl Laplacian2DKernel {
         dx: Length<f32>,
         dy: Length<f32>,
         bc: BoundaryCondition,
+        polarity: LaplacianPolarity,
     ) -> Result<()> {
-        let params = validate_contract(input.size(), output.size(), nx, ny, dx, dy, bc)?;
+        let params = validate_contract(input.size(), output.size(), nx, ny, dx, dy, bc, polarity)?;
         self.kernel.dispatch(
             self.context.provider(),
             &input.buffer,
@@ -107,19 +118,8 @@ fn validate_contract(
     dx: Length<f32>,
     dy: Length<f32>,
     bc: BoundaryCondition,
+    polarity: LaplacianPolarity,
 ) -> Result<Laplacian2DParams> {
-    if nx < 2 || ny < 2 {
-        return Err(Error::InvalidConfiguration(format!(
-            "Laplacian grid axes must contain at least two points: nx={nx}, ny={ny}"
-        )));
-    }
-    let dx_m = dx.in_unit::<Meter>();
-    let dy_m = dy.in_unit::<Meter>();
-    if !dx_m.is_finite() || dx_m <= 0.0 || !dy_m.is_finite() || dy_m <= 0.0 {
-        return Err(Error::InvalidConfiguration(format!(
-            "Laplacian spacing must be finite and positive: dx={dx_m} m, dy={dy_m} m"
-        )));
-    }
     let expected = nx.checked_mul(ny).ok_or_else(|| {
         Error::InvalidConfiguration(format!(
             "Laplacian grid size overflows usize: nx={nx}, ny={ny}"
@@ -142,5 +142,6 @@ fn validate_contract(
     let ny = u32::try_from(ny)
         .map_err(|_| Error::InvalidConfiguration(format!("Laplacian ny {ny} exceeds u32::MAX")))?;
 
-    Ok(Laplacian2DParams::new(nx, ny, dx, dy, bc)?)
+    Laplacian2DParams::new(nx, ny, dx, dy, bc, polarity)
+        .map_err(|error| Error::InvalidConfiguration(error.to_string()))
 }

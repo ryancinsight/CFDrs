@@ -31,6 +31,22 @@
 
 ## Active integration
 
+- **CFD-LAPLACIAN-PROVIDER-1 [major] [arch] - Migrate the complete 2D
+  CPU/GPU solver operator pair (DONE; owner=Codex; scope=`cfd-math`
+  Laplacian operators/callers, `cfd-core` facade and test oracle, provider
+  lock, ADR and PM artifacts).** Replace the live CPU stencil with Leto Ops,
+  select the same negative-Laplacian polarity through Hephaestus, delete local
+  reference implementations, and verify an anisotropic Neumann quadratic at
+  every grid point on CPU and GPU. Acceptance: no direct two-dimensional
+  Laplacian formula remains in the slice; typed spacing/boundary/polarity reach
+  both providers; focused cfd-core/cfd-math gates pass.
+  Evidence: exact full-grid CPU and real-WGPU regressions pass; configured
+  Nextest passes 622/622; all-feature and CPU-only checks, warning-denied
+  Clippy/Rustdoc, six runnable doctests, and the updated example check pass.
+  Two existing doctests remain ignored. The SemVer checker was attempted but
+  its nightly Rustdoc subprocess remained blocked by the shared-target Leto
+  IDE check; the intentional constructor break is documented `[major]`.
+
 - **CFD-SPARSE-DIRECT-OWNERSHIP-1 [patch] - Preserve the independent sparse
   direct fallback (DONE; owner=Codex; scope=`Cargo.toml`,
   `crates/cfd-math/{Cargo.toml,src/linear_solver/direct_solver.rs}`, PM

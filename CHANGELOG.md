@@ -34,6 +34,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking / architecture**: `cfd-math::LaplacianOperator2D::new` now accepts
+  Aequitas lengths and an explicit Leto boundary condition, returns a typed
+  `Result`, and delegates CPU evaluation to `leto-ops::laplacian_2d_into`.
+  The GPU solver operator selects the same negative-Laplacian polarity. Local
+  CPU formulas and the duplicate cfd-core test oracle are removed.
 - `cfd-optim` now exposes Milestone 12 Latin-hypercube candidate generation
   through Tyche's const-generic, counter-addressed design. The consumer maps
   fixed unit-sample arrays directly into CFD parameters; its duplicate

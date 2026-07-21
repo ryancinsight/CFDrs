@@ -4,9 +4,10 @@ use crate::linear_solver::operators::{IdentityOperator, ScaledOperator};
 use crate::linear_solver::preconditioners::IdentityPreconditioner;
 use crate::linear_solver::traits::IterativeLinearSolver;
 use crate::linear_solver::{ConjugateGradient, IterativeSolverConfig, GMRES};
+use aequitas::systems::si::{quantities::Length, units::Meter};
 use approx::assert_relative_eq;
 use cfd_core::error::Error;
-use leto::Array1;
+use leto::{Array1, BoundaryCondition};
 
 fn array(values: Vec<f64>) -> Array1<f64> {
     Array1::from_shape_vec([values.len()], values).expect("valid Leto vector shape")
@@ -76,7 +77,14 @@ fn test_operator_size_mismatch() {
     // IdentityOperator returns size 0 currently, but solvers check b.len() vs operator.size()
     // Let's use a real operator like LaplacianOperator2D
     use crate::linear_solver::operators::LaplacianOperator2D;
-    let operator = LaplacianOperator2D::new(2, 2, 1.0, 1.0);
+    let operator = LaplacianOperator2D::new(
+        2,
+        2,
+        Length::from_unit::<Meter>(1.0),
+        Length::from_unit::<Meter>(1.0),
+        BoundaryCondition::Dirichlet,
+    )
+    .expect("valid Laplacian grid");
     let config = IterativeSolverConfig::new(1e-10).with_max_iterations(100);
     let solver = ConjugateGradient::new(config);
 

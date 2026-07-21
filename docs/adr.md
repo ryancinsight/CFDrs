@@ -72,7 +72,40 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 
 ## Recent Decisions
 
+### 2026-07-20: Leto owns typed Cartesian Laplacian contracts [major] [arch]
+
+**Context**: cfd-math implemented the two-dimensional CPU Laplacian directly,
+cfd-core kept a second formula as its GPU oracle, and Hephaestus owned the WGSL
+form. The CPU solver applied `-∇²`, while the GPU solver applied
+`∇²`; boundary policy and operator sign therefore depended on the selected
+backend.
+
+**Decision**: Leto owns `Laplacian2D<T>`, the boundary and polarity types, and
+the native-precision CPU operation. Hephaestus derives its POD parameter block
+from that contract. `LaplacianOperator2D::new` accepts Aequitas `Length<T>`
+spacing plus an explicit boundary condition and returns `Result`; the CPU and
+GPU solver operators both select negative polarity. Boundary closures no longer
+claim symmetry because their one-sided rows are not generally symmetric.
+
+**Rejected alternative**: a CFDrs-local shared helper was rejected because it
+would keep the provider contract consumer-owned. Retaining the test formula was
+rejected because differential evidence must compare independent provider paths,
+not a copied implementation.
+
+**Migration**: replace `LaplacianOperator2D::new(nx, ny, dx, dy)` with
+`LaplacianOperator2D::new(nx, ny, typed_dx, typed_dy, boundary)?`. GPU callers
+retain their constructor and now receive the same negative-Laplacian semantics
+as CPU callers.
+
+**Consequences**: the constructor change is public and breaking. There is one
+typed uniform-grid contract and one CPU implementation; Hephaestus retains only
+device execution. Three-dimensional and variable-coefficient stencils remain
+separate operation families.
+
 ### 2026-07-19: Aequitas owns GPU stencil spacing [arch]
+
+**Status**: Superseded by the 2026-07-20 typed Cartesian Laplacian decision;
+Aequitas remains the quantity owner while Leto now owns stencil validation.
 
 **Context**: The CFD Laplacian and its Hephaestus provider accepted unlabelled
 `f32` grid spacing. Documentation called the values spacing but could not
