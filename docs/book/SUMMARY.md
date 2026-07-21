@@ -86,15 +86,28 @@
   - [Example: microfluidic_chip](examples/microfluidic_chip.md)
   - [Example: fda_shear_limit_screening](examples/fda_shear_limit_screening.md)
   - [Example: venturi_parallel_analysis](examples/venturi_parallel_analysis.md)
+  - [Example: tpms_blood_1d](examples/tpms_blood_1d.md)
+  - [Example: cavitation_venturi_analysis](examples/cavitation_venturi_analysis.md)
+  - [Example: medical_millifluidic_screening](examples/medical_millifluidic_screening.md)
+  - [Example: hemolysis_serpentine_analysis](examples/hemolysis_serpentine_analysis.md)
 
-- [Geometry Schematics](crate_schematics.md)
-  - [Example: comprehensive_serpentine_demo](examples/comprehensive_serpentine_demo.md)
-  - [Example: unified_generator_demo](examples/unified_generator_demo.md)
-  - [Example: frustum_channel_demo](examples/frustum_channel_demo.md)
+- [2-D and Schematic Examples](crate_schematics.md)
+  - [Example: bifurcation_schematic](examples/bifurcation_schematic.md)
+  - [Example: venturi_schematic](examples/venturi_schematic.md)
+  - [Example: serpentine_mixing_schematic](examples/serpentine_mixing_schematic.md)
+  - [Example: blood_venturi](examples/blood_venturi.md)
+  - [Example: tpms_blood_2d](examples/tpms_blood_2d.md)
+  - [Example: serpentine_venturi_1d_vs_2d](examples/serpentine_venturi_1d_vs_2d.md)
+  - [Example: schematic_demo_integration](examples/schematic_demo_integration.md)
+  - [Example: geometry_integration_demo](examples/geometry_integration_demo.md)
 
 - [Optimization](crate_optim.md)
   - [Example: cell_sep_audit](examples/cell_sep_audit.md)
   - [Example: milestone12_validation](examples/milestone12_validation.md)
+  - [Example: milestone12_report](examples/milestone12_report.md)
+  - [Example: milestone12_option1](examples/milestone12_option1.md)
+  - [Example: milestone12_option2](examples/milestone12_option2.md)
+  - [Example: milestone12_ga](examples/milestone12_ga.md)
 
 ---
 
