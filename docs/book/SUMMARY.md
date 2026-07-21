@@ -68,6 +68,36 @@
 
 ---
 
+# Part VIII — Crate-Level Examples
+
+- [Validation Suite](crate_validation.md)
+  - [Example: comprehensive_validation_suite](examples/comprehensive_validation_suite.md)
+  - [Example: richardson_convergence](examples/richardson_convergence.md)
+  - [Example: blood_poiseuille_2d](examples/blood_poiseuille_2d.md)
+
+- [3-D Flows](crate_3d_flows.md)
+  - [Example: spectral_poisson_3d (cfd-3d)](examples/spectral_poisson_3d_crate.md)
+  - [Example: bifurcation_3d_blood](examples/bifurcation_3d_blood.md)
+  - [Example: venturi_3d_cavitation](examples/venturi_3d_cavitation.md)
+  - [Example: serpentine_3d_dean](examples/serpentine_3d_dean.md)
+
+- [1-D Biomedical Flows](crate_1d_flows.md)
+  - [Example: blood_bifurcation (cfd-1d)](examples/blood_bifurcation.md)
+  - [Example: microfluidic_chip](examples/microfluidic_chip.md)
+  - [Example: fda_shear_limit_screening](examples/fda_shear_limit_screening.md)
+  - [Example: venturi_parallel_analysis](examples/venturi_parallel_analysis.md)
+
+- [Geometry Schematics](crate_schematics.md)
+  - [Example: comprehensive_serpentine_demo](examples/comprehensive_serpentine_demo.md)
+  - [Example: unified_generator_demo](examples/unified_generator_demo.md)
+  - [Example: frustum_channel_demo](examples/frustum_channel_demo.md)
+
+- [Optimization](crate_optim.md)
+  - [Example: cell_sep_audit](examples/cell_sep_audit.md)
+  - [Example: milestone12_validation](examples/milestone12_validation.md)
+
+---
+
 # Appendix
 
 - [Atlas Crate Dependency Map](appendix_dependencies.md)
