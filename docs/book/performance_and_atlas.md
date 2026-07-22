@@ -83,5 +83,5 @@ parity test that promotes the migration from *bulk* to *cleanup*.
 ## Further Reading
 
 - [Atlas Dependency Map](appendix_dependencies.md)
-- [Atlas Book (cross-reference)](../../../README.md)
+- [Atlas Book (cross-reference)](../../../../README.md)
 - [`BOOK_ORGANIZATION.md`](BOOK_ORGANIZATION.md) — forward roadmap

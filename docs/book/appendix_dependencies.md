@@ -62,7 +62,7 @@ Markers that the migration is complete and legacy crates can be removed:
 
 ## Further Reading
 
-- [Atlas Book](../../../README.md)
+- [Atlas Book](../../../../README.md)
 - [Migration Overview](migration_overview.md)
 - [Leto Arrays](migration_arrays.md)
 - [Leto Tiling](migration_gat_tiles.md)

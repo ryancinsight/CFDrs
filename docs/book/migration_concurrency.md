@@ -87,5 +87,5 @@ oversubscription — three wins the legacy code reproduced per-iteration.
 
 ## Further Reading
 
-- [`moirai` source](../../../moirai/crates/)
+- [`moirai` source](../../../moirai/README.md)
 - [Mnemosyne and Themis: Memory](migration_memory.md)

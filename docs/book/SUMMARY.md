@@ -134,3 +134,4 @@ documents the CFDrs migration to Atlas.
 - [C. Atlas Glossary](appendix_glossary.md)
 - [D. Changelog](appendix_changelog.md)
 - [E. Book Organization Forward Roadmap](BOOK_ORGANIZATION.md)
+- [F. Parity Artefacts Archive (CI Gate Evidence)](../../../parity_artefacts/INDEX.md)
