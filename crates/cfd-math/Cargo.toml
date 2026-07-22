@@ -26,6 +26,10 @@ rand.workspace = true
 [dev-dependencies]
 proptest.workspace = true
 criterion.workspace = true
+# nalgebra is added exclusively as a dev-dependency so legacy and Atlas
+# parity benchmarks can compare the two stacks side-by-side on the same
+# 1D Poisson problem. It is NOT pulled into runtime dependencies.
+nalgebra = { version = "0.33", default-features = false, features = ["std"] }
 
 [features]
 default = []

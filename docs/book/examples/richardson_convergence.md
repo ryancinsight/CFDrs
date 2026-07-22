@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-validation`
 **Run**: `cargo run -p cfd-validation --example richardson_convergence`
-**Source**: [`crates/cfd-validation/examples/richardson_convergence.rs`](../../crates/cfd-validation/examples/richardson_convergence.rs)
+**Source**: [`crates/cfd-validation/examples/richardson_convergence.rs`](../../../crates/cfd-validation/examples/richardson_convergence.rs)
 
 ## What This Example Demonstrates
 

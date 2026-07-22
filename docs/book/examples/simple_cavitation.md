@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example simple_cavitation`
-**Source**: [`examples/simple_cavitation.rs`](../../examples/simple_cavitation.rs)
+**Source**: [`examples/simple_cavitation.rs`](../../../examples/simple_cavitation.rs)
 
 ## What This Example Demonstrates
 

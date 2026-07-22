@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example pipe_flow_validation`  
-**Source**: [`examples/pipe_flow_validation.rs`](../../examples/pipe_flow_validation.rs)
+**Source**: [`examples/pipe_flow_validation.rs`](../../../examples/pipe_flow_validation.rs)
 
 ## What This Example Demonstrates
 

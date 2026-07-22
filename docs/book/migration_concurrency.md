@@ -1,4 +1,4 @@
-# Moirai: Concurrency — Executors, Task Graphs, Channels
+# Chapter 14 — Moirai: Concurrency
 
 CFDrs migrates parallel execution from `rayon::ParIter` and bespoke
 `std::thread::spawn` calls to **Moirai**'s unified executor.  Moirai

@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example turbulence_validation_demo`  
-**Source**: [`examples/turbulence_validation_demo.rs`](../../examples/turbulence_validation_demo.rs)
+**Source**: [`examples/turbulence_validation_demo.rs`](../../../examples/turbulence_validation_demo.rs)
 
 ## What This Example Demonstrates
 

@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example matrix_free_demo`  
-**Source**: [`examples/matrix_free_demo.rs`](../../examples/matrix_free_demo.rs)
+**Source**: [`examples/matrix_free_demo.rs`](../../../examples/matrix_free_demo.rs)
 
 ## What This Example Demonstrates
 

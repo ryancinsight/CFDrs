@@ -1,4 +1,4 @@
-# Migration Overview: ndarray/nalgebra → Atlas Stack
+# Chapter 8 — Migration Overview: ndarray/nalgebra → Atlas
 
 CFDrs is mid-flight in a bulk-then-cleanup migration from third-party mathematics
 crates to the unified **Atlas** stack.  This Part documents the destination

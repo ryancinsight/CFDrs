@@ -1,4 +1,4 @@
-# Turbulence, Multiphase, and Cavitation
+# Chapter 3 — Turbulence Models and Cavitation
 
 CFDrs models three coupled physical regimes: **turbulence** (RANS / LES
 closures), **multiphase flows** (phases with distinct equations of state),

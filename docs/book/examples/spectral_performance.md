@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example spectral_performance`  
-**Source**: [`examples/spectral_performance.rs`](../../examples/spectral_performance.rs)
+**Source**: [`examples/spectral_performance.rs`](../../../examples/spectral_performance.rs)
 
 ## What This Example Demonstrates
 

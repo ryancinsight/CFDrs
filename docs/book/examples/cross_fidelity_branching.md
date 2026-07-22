@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example cross_fidelity_branching`
-**Source**: [`examples/cross_fidelity_branching.rs`](../../examples/cross_fidelity_branching.rs)
+**Source**: [`examples/cross_fidelity_branching.rs`](../../../examples/cross_fidelity_branching.rs)
 
 ## What This Example Demonstrates
 

@@ -1,4 +1,4 @@
-# Migration Type Reference: ndarray/nalgebra/tokio/rayon → Atlas
+# Appendix B — Migration Notes: ndarray/nalgebra/burn → leto/hephaestus/coeus
 
 This appendix is the **type-mapping quick reference** for the CFDrs
 Atlas migration.  Use it when porting a specific call site — the

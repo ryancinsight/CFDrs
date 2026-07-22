@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example fem_3d_stokes`  
-**Source**: [`examples/fem_3d_stokes.rs`](../../examples/fem_3d_stokes.rs)
+**Source**: [`examples/fem_3d_stokes.rs`](../../../examples/fem_3d_stokes.rs)
 
 ## What This Example Demonstrates
 

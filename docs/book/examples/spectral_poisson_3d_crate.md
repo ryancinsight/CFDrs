@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-3d`
 **Run**: `cargo run -p cfd-3d --example spectral_poisson_3d`
-**Source**: [`crates/cfd-3d/examples/spectral_poisson_3d.rs`](../../crates/cfd-3d/examples/spectral_poisson_3d.rs)
+**Source**: [`crates/cfd-3d/examples/spectral_poisson_3d.rs`](../../../crates/cfd-3d/examples/spectral_poisson_3d.rs)
 
 ## What This Example Demonstrates
 

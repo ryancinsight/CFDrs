@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example gpu_detection`  
-**Source**: [`examples/gpu_detection.rs`](../../examples/gpu_detection.rs)
+**Source**: [`examples/gpu_detection.rs`](../../../examples/gpu_detection.rs)
 
 ## What This Example Demonstrates
 

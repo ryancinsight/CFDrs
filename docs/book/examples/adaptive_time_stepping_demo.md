@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example adaptive_time_stepping_demo`  
-**Source**: [`examples/adaptive_time_stepping_demo.rs`](../../examples/adaptive_time_stepping_demo.rs)
+**Source**: [`examples/adaptive_time_stepping_demo.rs`](../../../examples/adaptive_time_stepping_demo.rs)
 
 ## What This Example Demonstrates
 

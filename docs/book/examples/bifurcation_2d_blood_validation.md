@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example bifurcation_2d_blood_validation`  
-**Source**: [`examples/bifurcation_2d_blood_validation.rs`](../../examples/bifurcation_2d_blood_validation.rs)
+**Source**: [`examples/bifurcation_2d_blood_validation.rs`](../../../examples/bifurcation_2d_blood_validation.rs)
 
 ## What This Example Demonstrates
 

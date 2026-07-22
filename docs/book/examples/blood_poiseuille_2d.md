@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-validation`
 **Run**: `cargo run -p cfd-validation --example blood_poiseuille_2d`
-**Source**: [`crates/cfd-validation/examples/blood_poiseuille_2d.rs`](../../crates/cfd-validation/examples/blood_poiseuille_2d.rs)
+**Source**: [`crates/cfd-validation/examples/blood_poiseuille_2d.rs`](../../../crates/cfd-validation/examples/blood_poiseuille_2d.rs)
 
 ## What This Example Demonstrates
 

@@ -1,4 +1,4 @@
-# Geometry, Meshing, and CSG
+# Chapter 6 — Geometry Construction and CFD Coupling
 
 CFDrs geometry is built constructively: a **CSG primitive catalogue**
 composes with a **mesh generator** and a **fluid-solid mapping**.  The

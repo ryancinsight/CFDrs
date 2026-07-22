@@ -1,4 +1,4 @@
-# Migration Validation: Legacy ↔ Atlas Parity
+# Chapter 17 — Migration Validation: Legacy ↔ Atlas Parity
 
 The Atlas migration is governed by a **parity test harness** that runs
 both the legacy and the Atlas ports of each solver on the same input and

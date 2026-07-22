@@ -6,21 +6,21 @@
 
 # Part I — Foundations
 
-- [CFDrs Architecture and Problem Setup](foundations.md)
+- [1. CFDrs Architecture and Problem Setup](foundations.md)
   - [Example: cfd_demo](examples/cfd_demo.md)
   - [Example: enhanced_cfd_demo](examples/enhanced_cfd_demo.md)
   - [Example: adaptive_time_stepping_demo](examples/adaptive_time_stepping_demo.md)
 
 # Part II — Core Flow Cases and Validation
 
-- [Canonical Incompressible Benchmarks](core_flows.md)
+- [2. Canonical Incompressible Benchmarks](core_flows.md)
   - [Example: cavity_validation](examples/cavity_validation.md)
   - [Example: pipe_flow_validation](examples/pipe_flow_validation.md)
   - [Example: turbulent_channel_flow](examples/turbulent_channel_flow.md)
 
 # Part III — Turbulence and Multiphase
 
-- [Turbulence Models and Cavitation](turbulence_multiphase.md)
+- [3. Turbulence Models and Cavitation](turbulence_multiphase.md)
   - [Example: turbulence_models_demo](examples/turbulence_models_demo.md)
   - [Example: turbulence_validation_demo](examples/turbulence_validation_demo.md)
   - [Example: turbulence_momentum_integration_demo](examples/turbulence_momentum_integration_demo.md)
@@ -31,7 +31,7 @@
 
 # Part IV — Biomedical and Specialized Flows
 
-- [Blood Flow and Rheology Workflows](biomedical_flows.md)
+- [4. Blood Flow and Rheology Workflows](biomedical_flows.md)
   - [Example: blood_flow_1d_validation](examples/blood_flow_1d_validation.md)
   - [Example: bifurcation_2d_blood_validation](examples/bifurcation_2d_blood_validation.md)
   - [Example: blood_rheology_models](examples/blood_rheology_models.md)
@@ -41,7 +41,7 @@
 
 # Part V — Discretization and Solvers
 
-- [Spectral, FEM, MUSCL, and Matrix-Free Methods](numerics_and_solvers.md)
+- [5. Spectral, FEM, MUSCL, and Matrix-Free Methods](numerics_and_solvers.md)
   - [Example: spectral_3d_poisson](examples/spectral_3d_poisson.md)
   - [Example: fem_3d_stokes](examples/fem_3d_stokes.md)
   - [Example: matrix_free_demo](examples/matrix_free_demo.md)
@@ -51,7 +51,7 @@
 
 # Part VI — Geometry, Meshing, and CSG
 
-- [Geometry Construction and CFD Coupling](geometry_and_meshing.md)
+- [6. Geometry Construction and CFD Coupling](geometry_and_meshing.md)
   - [Example: csg_primitives_demo](examples/csg_primitives_demo.md)
   - [Example: csg_operations](examples/csg_operations.md)
   - [Example: csg_cfd_simulation](examples/csg_cfd_simulation.md)
@@ -65,38 +65,39 @@ moirai / apollo / coeus / hephaestus / ritk — is the unified replacement
 for `ndarray`/`nalgebra`/`tokio`/`rayon`/`rustfft`/etc.  This part
 documents the CFDrs migration to Atlas.
 
-- [Performance and Atlas Integration Overview](performance_and_atlas.md)
-- [Migration Overview: ndarray/nalgebra → Atlas](migration_overview.md)
-- [Eunomia: Numeric Trait Unification](migration_eunomia.md)
-- [Leto: Arrays and Linear Algebra](migration_arrays.md)
-- [Leto: Geometry — Points, Vectors, Isometries](migration_geometry.md)
-- [Hermes: SIMD Lanes and Vectorized Kernels](migration_simd.md)
-- [Mnemosyne and Themis: Memory](migration_memory.md)
-- [Moirai: Concurrency](migration_concurrency.md)
-- [Apollo: FFT and Spectral Methods](migration_fft.md)
-- [Leto: GAT-Based Tiling and Lending Iterators](migration_gat_tiles.md)
-- [Migration Validation: Legacy ↔ Atlas Parity](migration_validation.md)
+- [7. Performance and Atlas Integration Overview](performance_and_atlas.md)
+- [8. Migration Overview: ndarray/nalgebra → Atlas](migration_overview.md)
+- [9. Eunomia: Numeric Trait Unification](migration_eunomia.md)
+- [10. Leto: Arrays and Linear Algebra](migration_arrays.md)
+- [11. Leto: Geometry — Points, Vectors, Isometries](migration_geometry.md)
+- [12. Hermes: SIMD Lanes and Vectorized Kernels](migration_simd.md)
+- [13. Mnemosyne and Themis: Memory](migration_memory.md)
+- [14. Moirai: Concurrency](migration_concurrency.md)
+- [15. Apollo: FFT and Spectral Methods](migration_fft.md)
+- [16. Leto: GAT-Based Tiling and Lending Iterators](migration_gat_tiles.md)
+- [17. Migration Validation: Legacy ↔ Atlas Parity](migration_validation.md)
   - [Example: simd_performance_benchmark](examples/simd_performance_benchmark.md)
   - [Example: gpu_detection](examples/gpu_detection.md)
   - [Example: spectral_performance](examples/spectral_performance.md)
   - [Example: venturi_validated](examples/venturi_validated.md)
+  - [Example: migration_cfd_math_parity](examples/migration_cfd_math_parity.md)
 
 ---
 
 # Part VIII — Crate-Level Examples
 
-- [Validation Suite](crate_validation.md)
+- [18. Validation Suite](crate_validation.md)
   - [Example: comprehensive_validation_suite](examples/comprehensive_validation_suite.md)
   - [Example: richardson_convergence](examples/richardson_convergence.md)
   - [Example: blood_poiseuille_2d](examples/blood_poiseuille_2d.md)
 
-- [3-D Flows](crate_3d_flows.md)
+- [19. 3-D Flows](crate_3d_flows.md)
   - [Example: spectral_poisson_3d (cfd-3d)](examples/spectral_poisson_3d_crate.md)
   - [Example: bifurcation_3d_blood](examples/bifurcation_3d_blood.md)
   - [Example: venturi_3d_cavitation](examples/venturi_3d_cavitation.md)
   - [Example: serpentine_3d_dean](examples/serpentine_3d_dean.md)
 
-- [1-D Biomedical Flows](crate_1d_flows.md)
+- [20. 1-D Biomedical Flows](crate_1d_flows.md)
   - [Example: blood_bifurcation (cfd-1d)](examples/blood_bifurcation.md)
   - [Example: microfluidic_chip](examples/microfluidic_chip.md)
   - [Example: fda_shear_limit_screening](examples/fda_shear_limit_screening.md)
@@ -106,7 +107,7 @@ documents the CFDrs migration to Atlas.
   - [Example: medical_millifluidic_screening](examples/medical_millifluidic_screening.md)
   - [Example: hemolysis_serpentine_analysis](examples/hemolysis_serpentine_analysis.md)
 
-- [2-D and Schematic Examples](crate_schematics.md)
+- [21. 2-D and Schematic Examples](crate_schematics.md)
   - [Example: bifurcation_schematic](examples/bifurcation_schematic.md)
   - [Example: venturi_schematic](examples/venturi_schematic.md)
   - [Example: serpentine_mixing_schematic](examples/serpentine_mixing_schematic.md)
@@ -116,7 +117,7 @@ documents the CFDrs migration to Atlas.
   - [Example: schematic_demo_integration](examples/schematic_demo_integration.md)
   - [Example: geometry_integration_demo](examples/geometry_integration_demo.md)
 
-- [Optimization](crate_optim.md)
+- [22. Optimization](crate_optim.md)
   - [Example: cell_sep_audit](examples/cell_sep_audit.md)
   - [Example: milestone12_validation](examples/milestone12_validation.md)
   - [Example: milestone12_report](examples/milestone12_report.md)
@@ -128,8 +129,8 @@ documents the CFDrs migration to Atlas.
 
 # Appendix
 
-- [Atlas Crate Dependency Map](appendix_dependencies.md)
-- [Migration Notes: ndarray/nalgebra/burn → leto/hephaestus/coeus](appendix_migration.md)
-- [Atlas Glossary](appendix_glossary.md)
-- [Changelog](appendix_changelog.md)
-- [Book Organization Forward Roadmap](BOOK_ORGANIZATION.md)
+- [A. Atlas Crate Dependency Map](appendix_dependencies.md)
+- [B. Migration Notes: ndarray/nalgebra/burn → leto/hephaestus/coeus](appendix_migration.md)
+- [C. Atlas Glossary](appendix_glossary.md)
+- [D. Changelog](appendix_changelog.md)
+- [E. Book Organization Forward Roadmap](BOOK_ORGANIZATION.md)

@@ -1,4 +1,4 @@
-# Apollo: FFT and Spectral Methods
+# Chapter 15 — Apollo: FFT and Spectral Methods
 
 CFDrs's spectral Poisson solver, FFT-based filters, and boundary-layer
 analyses migrate from `rustfft` (and `realfft` for real-to-real) to

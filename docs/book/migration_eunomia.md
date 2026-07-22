@@ -1,4 +1,4 @@
-# Eunomia: Numeric Trait Unification
+# Chapter 9 — Eunomia: Numeric Trait Unification
 
 Every Atlas crate depends on [`eunomia::RealField`] for scalar arithmetic and
 on [`eunomia::ComplexField`] when complex numbers appear.  Eunomia is the

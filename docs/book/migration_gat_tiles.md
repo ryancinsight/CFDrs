@@ -1,4 +1,4 @@
-# Leto: GAT-Based Tiling and Lending Iterators
+# Chapter 16 — Leto: GAT-Based Tiling and Lending Iterators
 
 CFDrs iterates over volumetric data in **tiles** (sliding windows, boundary
 extrusions, ghost-cell haloes) at multiple granularities.  The legacy approach

@@ -1,4 +1,4 @@
-# CFDrs Changelog
+# Appendix D — Changelog
 
 ## Unreleased
 

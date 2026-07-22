@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-validation`
 **Run**: `cargo run -p cfd-validation --example comprehensive_validation_suite`
-**Source**: [`crates/cfd-validation/examples/comprehensive_validation_suite.rs`](../../crates/cfd-validation/examples/comprehensive_validation_suite.rs)
+**Source**: [`crates/cfd-validation/examples/comprehensive_validation_suite.rs`](../../../crates/cfd-validation/examples/comprehensive_validation_suite.rs)
 
 ## What This Example Demonstrates
 

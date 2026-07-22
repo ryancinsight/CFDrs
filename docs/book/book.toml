@@ -3,8 +3,14 @@ title = "CFDrs: Computational Fluid Dynamics Simulation Guide"
 authors = ["Ryan Clanton"]
 description = "A structured, example-driven guide to CFDrs physics, numerics, validation, and Atlas-stack integration."
 language = "en"
-multilingual = false
 src = "."
+
+# Toolchain compatibility notes:
+#   - `multilingual = false` was dropped from `[book]` because mdbook v0.5.4
+#     rejects the field at the top of `[book]` ("unknown field 'multilingual' at
+#     line 6 column 1"). Default single-language is preserved by omission.
+#   - All other v0.5.4-supported fields (title, authors, description, language,
+#     src, [build], [output.html.*]) are unchanged.
 
 [build]
 build-dir = "../../target/book/cfdrs"

@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example cavity_validation`  
-**Source**: [`examples/cavity_validation.rs`](../../examples/cavity_validation.rs)
+**Source**: [`examples/cavity_validation.rs`](../../../examples/cavity_validation.rs)
 
 ## What This Example Demonstrates
 

@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example muscl_schemes_demo`
-**Source**: [`examples/muscl_schemes_demo.rs`](../../examples/muscl_schemes_demo.rs)
+**Source**: [`examples/muscl_schemes_demo.rs`](../../../examples/muscl_schemes_demo.rs)
 
 ## What This Example Demonstrates
 

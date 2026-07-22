@@ -1,4 +1,4 @@
-# Optimization
+# Chapter 22 — Optimization
 
 `cfd-optim` provides design-space exploration and Pareto-front optimization
 for CFD geometries.  Key examples demonstrate the Latin-hypercube sampler

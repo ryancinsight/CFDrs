@@ -1,4 +1,4 @@
-# Leto: Geometry — Points, Vectors, Isometries
+# Chapter 11 — Leto: Geometry — Points, Vectors, Isometries
 
 CFDrs geometry — cell centres, face normals, mesh indices, coordinate
 transforms — migrates from `nalgebra::Point3`/`Vector3`/`Isometry3` to the

@@ -1,4 +1,4 @@
-# Atlas Glossary
+# Appendix C — Atlas Glossary
 
 A consolidated glossary spanning every Atlas crate that CFDrs, Helios, and
 Kwavers consume.  Where a term has an Atlas-crate-specific meaning,

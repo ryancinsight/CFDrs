@@ -1,4 +1,4 @@
-# 2-D and Schematic Examples
+# Chapter 21 — 2-D and Schematic Examples
 
 This chapter covers schematic-driven 2D CFD — the two-phase pattern of
 designing a device in `cfd-schematics` and simulating it in `cfd-2d` or

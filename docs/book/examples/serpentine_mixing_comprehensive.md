@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example serpentine_mixing_comprehensive`
-**Source**: [`examples/serpentine_mixing_comprehensive.rs`](../../examples/serpentine_mixing_comprehensive.rs)
+**Source**: [`examples/serpentine_mixing_comprehensive.rs`](../../../examples/serpentine_mixing_comprehensive.rs)
 
 ## What This Example Demonstrates
 

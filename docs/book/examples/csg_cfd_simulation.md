@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example csg_cfd_simulation`  
-**Source**: [`examples/csg_cfd_simulation.rs`](../../examples/csg_cfd_simulation.rs)
+**Source**: [`examples/csg_cfd_simulation.rs`](../../../examples/csg_cfd_simulation.rs)
 
 ## What This Example Demonstrates
 

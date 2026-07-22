@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example csg_operations --features csg`  
-**Source**: [`examples/csg_operations.rs`](../../examples/csg_operations.rs)
+**Source**: [`examples/csg_operations.rs`](../../../examples/csg_operations.rs)
 
 ## What This Example Demonstrates
 

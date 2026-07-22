@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example cfd_demo`  
-**Source**: [`examples/cfd_demo.rs`](../../examples/cfd_demo.rs)
+**Source**: [`examples/cfd_demo.rs`](../../../examples/cfd_demo.rs)
 
 ## What This Example Demonstrates
 

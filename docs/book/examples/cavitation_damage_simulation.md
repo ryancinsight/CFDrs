@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example cavitation_damage_simulation`
-**Source**: [`examples/cavitation_damage_simulation.rs`](../../examples/cavitation_damage_simulation.rs)
+**Source**: [`examples/cavitation_damage_simulation.rs`](../../../examples/cavitation_damage_simulation.rs)
 
 ## What This Example Demonstrates
 

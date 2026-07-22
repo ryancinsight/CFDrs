@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example venturi_blood_flow_validation`
-**Source**: [`examples/venturi_blood_flow_validation.rs`](../../examples/venturi_blood_flow_validation.rs)
+**Source**: [`examples/venturi_blood_flow_validation.rs`](../../../examples/venturi_blood_flow_validation.rs)
 
 ## What This Example Demonstrates
 

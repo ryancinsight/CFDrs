@@ -105,9 +105,7 @@ where
 
         // Advance by stride
         for _ in 0..self.stride {
-            let Some(value) = self.iter.next() else {
-                return None;
-            };
+            let value = self.iter.next()?;
             self.buffer.push_back(value);
             self.buffer.pop_front();
         }

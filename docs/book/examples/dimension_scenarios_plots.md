@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example dimension_scenarios_plots`
-**Source**: [`examples/dimension_scenarios_plots.rs`](../../examples/dimension_scenarios_plots.rs)
+**Source**: [`examples/dimension_scenarios_plots.rs`](../../../examples/dimension_scenarios_plots.rs)
 
 ## What This Example Demonstrates
 

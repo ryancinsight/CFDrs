@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example mesh_3d_integration`
-**Source**: [`examples/mesh_3d_integration.rs`](../../examples/mesh_3d_integration.rs)
+**Source**: [`examples/mesh_3d_integration.rs`](../../../examples/mesh_3d_integration.rs)
 
 ## What This Example Demonstrates
 

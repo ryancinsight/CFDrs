@@ -1,4 +1,4 @@
-# Atlas Crate Dependency Map (CFDrs view)
+# Appendix A — Atlas Crate Dependency Map
 
 A CFDrs-centric view of the Atlas stack — which crate owns which surface, which
 CFDrs crate consumes it, and the migration phase each consumer is in.

@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example simplec_pimple_demo`
-**Source**: [`examples/simplec_pimple_demo.rs`](../../examples/simplec_pimple_demo.rs)
+**Source**: [`examples/simplec_pimple_demo.rs`](../../../examples/simplec_pimple_demo.rs)
 
 ## What This Example Demonstrates
 

@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example blood_flow_1d_validation --no-default-features`  
-**Source**: [`examples/blood_flow_1d_validation.rs`](../../examples/blood_flow_1d_validation.rs)
+**Source**: [`examples/blood_flow_1d_validation.rs`](../../../examples/blood_flow_1d_validation.rs)
 
 ## What This Example Demonstrates
 

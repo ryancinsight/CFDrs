@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example 2d_heat_diffusion`
-**Source**: [`examples/2d_heat_diffusion.rs`](../../examples/2d_heat_diffusion.rs)
+**Source**: [`examples/2d_heat_diffusion.rs`](../../../examples/2d_heat_diffusion.rs)
 
 ## What This Example Demonstrates
 

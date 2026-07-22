@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example spectral_3d_poisson`  
-**Source**: [`examples/spectral_3d_poisson.rs`](../../examples/spectral_3d_poisson.rs)
+**Source**: [`examples/spectral_3d_poisson.rs`](../../../examples/spectral_3d_poisson.rs)
 
 ## What This Example Demonstrates
 

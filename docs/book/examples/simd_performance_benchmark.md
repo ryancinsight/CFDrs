@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example simd_performance_benchmark`  
-**Source**: [`examples/simd_performance_benchmark.rs`](../../examples/simd_performance_benchmark.rs)
+**Source**: [`examples/simd_performance_benchmark.rs`](../../../examples/simd_performance_benchmark.rs)
 
 ## What This Example Demonstrates
 

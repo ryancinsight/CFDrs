@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example venturi_cavitation`  
-**Source**: [`examples/venturi_cavitation.rs`](../../examples/venturi_cavitation.rs)
+**Source**: [`examples/venturi_cavitation.rs`](../../../examples/venturi_cavitation.rs)
 
 ## What This Example Demonstrates
 

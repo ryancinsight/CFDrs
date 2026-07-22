@@ -1,4 +1,4 @@
-# Numerical Methods, Solvers, and Discretizations
+# Chapter 5 — Spectral, FEM, MUSCL, and Matrix-Free Methods
 
 CFDrs's solver layer decomposes into **discretization** (stencil/FEM),
 **linear algebra** (matrix-free, sparse direct, Krylov), and **time

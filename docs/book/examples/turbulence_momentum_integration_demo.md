@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example turbulence_momentum_integration_demo`
-**Source**: [`examples/turbulence_momentum_integration_demo.rs`](../../examples/turbulence_momentum_integration_demo.rs)
+**Source**: [`examples/turbulence_momentum_integration_demo.rs`](../../../examples/turbulence_momentum_integration_demo.rs)
 
 ## What This Example Demonstrates
 

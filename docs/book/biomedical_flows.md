@@ -1,4 +1,4 @@
-# Biomedical and Specialized Fluid Flow Workflows
+# Chapter 4 — Blood Flow and Rheology Workflows
 
 CFDrs supports a focused subset of physiologically relevant geometries —
 **vascular bifurcations**, **venturi / stenosis regions**, **microfluidic

@@ -1,4 +1,4 @@
-# 3-D Flows
+# Chapter 19 — 3-D Flows
 
 Three-dimensional CFD examples live in `cfd-3d`.  They exercise the full
 3-D pressure-velocity coupling, turbulence, and cavitation pathways.

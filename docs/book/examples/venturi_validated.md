@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example venturi_validated`
-**Source**: [`examples/venturi_validated.rs`](../../examples/venturi_validated.rs)
+**Source**: [`examples/venturi_validated.rs`](../../../examples/venturi_validated.rs)
 
 ## What This Example Demonstrates
 

@@ -1,4 +1,4 @@
-# CFDrs Architecture and Problem Setup
+# Chapter 1 — CFDrs Architecture and Problem Setup
 
 CFDrs is a workspace of CFD-focused crates organized so that *physics,
 geometry, and solver* concerns live in **distinct** crates and compose through

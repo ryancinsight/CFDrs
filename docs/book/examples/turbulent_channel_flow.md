@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example turbulent_channel_flow`  
-**Source**: [`examples/turbulent_channel_flow.rs`](../../examples/turbulent_channel_flow.rs)
+**Source**: [`examples/turbulent_channel_flow.rs`](../../../examples/turbulent_channel_flow.rs)
 
 ## What This Example Demonstrates
 

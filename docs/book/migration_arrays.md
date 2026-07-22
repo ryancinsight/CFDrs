@@ -1,4 +1,4 @@
-# Leto: Arrays and Linear Algebra
+# Chapter 10 — Leto: Arrays and Linear Algebra
 
 The bulk of CFDrs's tensor arithmetic — state vectors, velocity fields,
 pressure fields, sparse system matrices — migrates from `ndarray::Array*` and

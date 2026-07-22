@@ -1,4 +1,4 @@
-# Performance and Atlas Stack Integration
+# Chapter 7 — Performance and Atlas Integration Overview
 
 This Part is the **Atlas stack migration reference** for CFDrs.  It documents
 how the legacy third-party crates have been — or are being — replaced

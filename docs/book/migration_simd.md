@@ -1,4 +1,4 @@
-# Hermes: SIMD Lanes and Vectorized Kernels
+# Chapter 12 — Hermes: SIMD Lanes and Vectorized Kernels
 
 CFDrs's hot paths — Stencil sweeps, sparse kernels, element-wise arrays —
 migrate from hand-written SIMD intrinsics and `packed_simd` to **Hermes**'

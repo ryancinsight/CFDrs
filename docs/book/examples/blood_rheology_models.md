@@ -2,7 +2,7 @@
 
 **Crate**: `cfd-suite` (workspace root)  
 **Run**: `cargo run --example blood_rheology_models`  
-**Source**: [`examples/blood_rheology_models.rs`](../../examples/blood_rheology_models.rs)
+**Source**: [`examples/blood_rheology_models.rs`](../../../examples/blood_rheology_models.rs)
 
 ## What This Example Demonstrates
 

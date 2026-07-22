@@ -1,4 +1,4 @@
-# CFDrs Book Organization Plan (Forward Roadmap)
+# Appendix E — Book Organization Forward Roadmap
 
 > **Authoritative TOC:** [`SUMMARY.md`](SUMMARY.md) is the single source of
 > truth for the *current* book (the file mdBook renders).  This document is
