@@ -80,7 +80,7 @@ documents the CFDrs migration to Atlas.
   - [Example: gpu_detection](examples/gpu_detection.md)
   - [Example: spectral_performance](examples/spectral_performance.md)
   - [Example: venturi_validated](examples/venturi_validated.md)
-  - [Example: migration_cfd_math_parity](examples/migration_cfd_math_parity.md)
+  - [Example: migration_cfd_math_parity (leto-ops)](examples/migration_cfd_math_parity.md)
 
 ---
 

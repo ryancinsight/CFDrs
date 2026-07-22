@@ -2,6 +2,10 @@
 
 > **Status**: ✅ **parity pass** — Atlas-native kernels produce bit-equivalent
 > solutions to the parity reference within the documented tolerance budget.
+>
+> **Parity harness location**: `D:\atlas\repos\leto\crates\leto-ops\examples\nalgebra_parity.rs`
+> (canonical home — `leto-ops` is the direct replacement for `nalgebra`; parity
+> evidence belongs at the source, not in downstream consumers like `cfd-math`)
 
 This report records the end-to-end validation of CFDrs's
 `cfd-math::sparse` (CSR storage, SpMV) and `cfd-math::linear_solver`
