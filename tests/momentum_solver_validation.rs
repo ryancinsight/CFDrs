@@ -86,12 +86,21 @@ fn test_momentum_solver_pure_diffusion() -> Result<()> {
     let max_time_steps = 1000;
     let convergence_tolerance = 1e-4;
 
+    // AUDIT: pre-allocate u_old once outside the loop; swap with fields.u each
+    // iteration so u_old holds the pre-solve state for the convergence check.
+    // O(1) swap avoids per-iteration `fields.u.clone()` (each would reallocate
+    // a Vec of nx*ny f64). Do not move the `let mut u_old = fields.u.clone();`
+    // back inside the loop -- that silently re-introduces the clone pattern.
+    let mut u_old = fields.u.clone();
+
     for step in 0..max_time_steps {
-        let u_old = fields.u.clone();
+        // Swap: u_old <- pre-solve state, fields.u <- u_old's stale Vec
+        // (which solver.solve() overwrites anyway).
+        std::mem::swap(&mut fields.u, &mut u_old);
 
         solver.solve(MomentumComponent::U, &mut fields, dt)?;
 
-        // Check convergence
+        // Check convergence (u_old holds the pre-solve state)
         let mut max_change = 0.0;
         for i in 0..nx {
             for j in 0..ny {
@@ -196,11 +205,21 @@ fn test_momentum_solver_deferred_correction() -> Result<()> {
     let convergence_tolerance = 1e-4;
     let mut converged_steps = 0;
 
+    // AUDIT: pre-allocate u_old once outside the loop; swap with fields.u each
+    // iteration so u_old holds the pre-solve state for the convergence check.
+    // O(1) swap avoids per-iteration `fields.u.clone()` (each would reallocate
+    // a Vec of nx*ny f64). Do not move the `let mut u_old = fields.u.clone();`
+    // back inside the loop -- that silently re-introduces the clone pattern.
+    let mut u_old = fields.u.clone();
+
     for step in 0..max_time_steps {
-        let u_old = fields.u.clone();
+        // Swap: u_old <- pre-solve state, fields.u <- u_old's stale Vec
+        // (which solver.solve() overwrites anyway).
+        std::mem::swap(&mut fields.u, &mut u_old);
 
         solver.solve(MomentumComponent::U, &mut fields, dt)?;
 
+        // Check convergence (u_old holds the pre-solve state)
         let mut max_change = 0.0;
         for i in 0..nx {
             for j in 0..ny {
