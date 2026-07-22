@@ -70,13 +70,13 @@ tridiagonal Laplacian with stencil \((-1, 2, -1)\) (after dividing by
 
 ### 2a. Legacy reference (`nalgebra`)
 
-`nalgebra = "0.33"` is added **exclusively as a dev-dependency** to
-`cfd-math/Cargo.toml` so a `nalgebra::DMatrix`-based dense CG can be
-wired up alongside the Atlas path; it never enters the runtime
-dependency graph. The legacy solver builds an \(N\times N\) dense
-Laplacian and runs a textbook Hestenes–Stiefel CG (Section 3 of the
-parity harness). It is *not* the long-term CFDrs baseline — it's a
-known-good reference.
+`nalgebra` is added **exclusively as a dev-dependency** in
+`leto-ops/Cargo.toml` so a `nalgebra::DMatrix`-based dense reference can
+run alongside the Atlas path in the canonical `leto-ops` harness. It
+never enters CFDrs runtime dependency graphs. The legacy solver builds
+an \(N\times N\) dense Laplacian and runs a textbook Hestenes–Stiefel
+CG (Section 3 of the parity harness). It is *not* the long-term CFDrs
+baseline — it's a known-good reference.
 
 ### 2b. Atlas candidate (`cfd-math`)
 
@@ -96,10 +96,8 @@ The Atlas candidate uses the production code path:
 ## 3. Reproducing the Run
 
 ```sh
-# Inside the CFDrs workspace:
-cargo run --release \
-  --manifest-path crates/cfd-math/Cargo.toml \
-  --example migration_cfd_math_parity
+# Inside the leto workspace:
+cargo run --release --example nalgebra_parity -p leto-ops
 ```
 
 The example emits a single JSON line on stdout with the parity report,
@@ -107,8 +105,7 @@ greppable for CI gates:
 
 ```text
 # Run this to obtain authoritative numbers for this host:
-cargo run --release --manifest-path crates/cfd-math/Cargo.toml \
-    --example migration_cfd_math_parity
+cargo run --release --example nalgebra_parity -p leto-ops
 ```
 
 The JSON payload emitted by that command has the schema below. Recorded
@@ -195,12 +192,12 @@ returns **no matches** for the runtime graph.
 
 | File | Change | Purpose                                                    |
 | ---- | ------ | ---------------------------------------------------------- |
-| `crates/cfd-math/Cargo.toml`            | + `nalgebra = "0.33" ...` under `[dev-dependencies]` | Adds nalgebra dev-dep for parity harness only |
-| `crates/cfd-math/examples/migration_cfd_math_parity.rs` | **NEW** (~280 lines) | Legacy + Atlas parity harness for 1D Poisson |
+| `../leto/crates/leto-ops/Cargo.toml`            | + `nalgebra` under `[dev-dependencies]` | Keeps legacy oracle parity in the Atlas source crate only |
+| `../leto/crates/leto-ops/examples/nalgebra_parity.rs` | **NEW** (~220 lines) | Canonical legacy + Atlas parity harness for 1D Poisson |
 | `validation_reports/migration_cfd_math.md` | **NEW** (this file) | Migration-validation contract artefact       |
 
-No runtime `Cargo.toml` deps changed. The dev-dep is gated to
-`[dev-dependencies]` only.
+No CFDrs runtime `Cargo.toml` deps changed. The legacy oracle stays
+gated behind `leto-ops` dev-dependencies.
 
 ---
 
@@ -208,7 +205,8 @@ No runtime `Cargo.toml` deps changed. The dev-dep is gated to
 
 - **Multi-N sweep parity**: extend the harness to \(N \in \{256, 512,
   1024, 4096, 16384\}\) and emit a CSV for plotting (Atlas speedup vs
-  N). Add a `criterion` benchmark to `crates/cfd-math/benches/`.
+  N). Add a `criterion` benchmark in `leto-ops` so parity remains
+  anchored in the Atlas source layer.
 - **MoIrai parallelism**: rerun with multi-threaded CG parallel
   reduction. The Atlas path uses Moirai's `fold_reduce_with` for the
   assembly phase (`sparse/builder.rs`) and would extend cleanly to the
@@ -219,7 +217,7 @@ No runtime `Cargo.toml` deps changed. The dev-dep is gated to
 - **Phase 2 migration features** flagged by `cfd_math::sparse`
   submodules (multi-grid, block preconditioners, matrix-free) follow
   once the CG/CSR migration is signed off.
-- Once `cargo run --example migration_cfd_math_parity` is wired into
+- Once `cargo run --example nalgebra_parity -p leto-ops` is wired into
   CI, the `migration_validation.md` "graduation" gate is met.
 
 ---

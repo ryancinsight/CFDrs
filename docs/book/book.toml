@@ -17,6 +17,9 @@ build-dir = "../../target/book/cfdrs"
 create-missing = false
 
 [output.html]
+# Math support: enables MathJax rendering for $...$ / $$...$$ blocks,
+# copied from kwavers/docs/book/book.toml convention.
+mathjax-support = true
 default-theme = "light"
 preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/ryancinsight/CFDrs"

@@ -1,4 +1,4 @@
-# Example: migration_cfd_math_parity (moved to leto-ops)
+# Example: nalgebra_parity (leto-ops canonical)
 
 > **Canonical location**: `D:\atlas\repos\leto\crates\leto-ops\examples\nalgebra_parity.rs`  
 > **Crate**: `leto-ops`  
@@ -32,4 +32,3 @@ solutions to `nalgebra` LU. `cfd-math` has **zero** `nalgebra` dependencies.
 ## Part Reference
 
 Part VII — Migration Validation: Legacy ↔ Atlas Parity
-

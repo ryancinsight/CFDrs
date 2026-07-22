@@ -57,6 +57,18 @@
   - [Example: csg_cfd_simulation](examples/csg_cfd_simulation.md)
   - [Example: mesh_3d_integration](examples/mesh_3d_integration.md)
   - [Example: dimension_scenarios_plots](examples/dimension_scenarios_plots.md)
+  - [Example: unified_generator_demo](examples/unified_generator_demo.md)
+  - [Example: comprehensive_split_patterns](examples/comprehensive_split_patterns.md)
+  - [Example: symmetric_split_demo](examples/symmetric_split_demo.md)
+  - [Example: asymmetric_demo](examples/asymmetric_demo.md)
+  - [Example: mirrored_bifurcation](examples/mirrored_bifurcation.md)
+  - [Example: bifurcation_serpentine_swap](examples/bifurcation_serpentine_swap.md)
+  - [Example: comprehensive_arc_demo](examples/comprehensive_arc_demo.md)
+  - [Example: serpentine_venturi_demo](examples/serpentine_venturi_demo.md)
+  - [Example: comprehensive_serpentine_demo](examples/comprehensive_serpentine_demo.md)
+  - [Example: frustum_channel_demo](examples/frustum_channel_demo.md)
+  - [Example: shell_cuboid_demo](examples/shell_cuboid_demo.md)
+  - [Example: optimization_profile_comparison](examples/optimization_profile_comparison.md)
 
 # Part VII — Atlas Stack Integration (Migration Reference)
 
@@ -80,7 +92,10 @@ documents the CFDrs migration to Atlas.
   - [Example: gpu_detection](examples/gpu_detection.md)
   - [Example: spectral_performance](examples/spectral_performance.md)
   - [Example: venturi_validated](examples/venturi_validated.md)
-  - [Example: migration_cfd_math_parity (leto-ops)](examples/migration_cfd_math_parity.md)
+  - [Example: nalgebra_parity (leto-ops)](examples/migration_cfd_math_parity.md)
+  - [Example: check_2d_seam_root](examples/check_2d_seam_root.md)
+  - [Example: csgrs_api_test](examples/csgrs_api_test.md)
+  - [Example: test_csgrs](examples/test_csgrs.md)
 
 ---
 
@@ -92,6 +107,7 @@ documents the CFDrs migration to Atlas.
   - [Example: blood_poiseuille_2d](examples/blood_poiseuille_2d.md)
 
 - [19. 3-D Flows](crate_3d_flows.md)
+  - [Example: spectral_poisson_3d](examples/spectral_poisson_3d.md)
   - [Example: spectral_poisson_3d (cfd-3d)](examples/spectral_poisson_3d_crate.md)
   - [Example: bifurcation_3d_blood](examples/bifurcation_3d_blood.md)
   - [Example: venturi_3d_cavitation](examples/venturi_3d_cavitation.md)
