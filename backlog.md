@@ -31,6 +31,20 @@
 
 ## Active integration
 
+- **CFD-BOOK-CLOSEOUT-1 [patch] - Recover source-backed book content
+  (DONE; owner=Codex; scope=book navigation/example pages, linear-algebra
+  parity report, lockfile, and PM artifacts).** Retain the twelve real
+  example pages from the stale documentation commit, restore generated
+  chapters whose added contracts had no source definitions, and route the
+  parity archive through an in-book navigation page so mdBook cannot overwrite
+  tracked HTML outside its source tree. Acceptance: locked metadata and every
+  documented example target compile; the book builds without changing the
+  parity archive; focused warning-denied Clippy, configured Nextest, and
+  doctests pass. Evidence: all documented example checks pass, cfd-schematics
+  Nextest passes 177/177, 16/16 doctests pass, warning-denied all-target Clippy
+  passes, the fabricated-symbol scan is empty, and the parity HTML blob remains
+  `85af4889c39f6d03d78b0dfceeb217f5d260efb5` before and after the book build.
+
 - **CFD-SCHEMATIC-PATH-1 [major] [arch] - Preserve native renderer paths
   (DONE; owner=Codex; scope=`cfd-schematics`, renderer consumers, ADR, and PM
   artifacts).** Replace the string-only renderer seam with borrowed `Path`

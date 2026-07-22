@@ -418,7 +418,6 @@ name = "cfd-1d"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "approx",
  "cfd-core",
  "cfd-math",
  "cfd-schematics",
@@ -442,7 +441,6 @@ name = "cfd-2d"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "approx",
  "cfd-1d",
  "cfd-core",
  "cfd-io",
@@ -473,7 +471,6 @@ dependencies = [
  "anyhow",
  "apollo-fft",
  "apollo-nufft",
- "approx",
  "cfd-1d",
  "cfd-2d",
  "cfd-core",
@@ -499,7 +496,6 @@ version = "0.3.0"
 dependencies = [
  "aequitas",
  "anyhow",
- "approx",
  "bytemuck",
  "chrono",
  "criterion",
@@ -524,7 +520,6 @@ dependencies = [
 name = "cfd-io"
 version = "0.3.0"
 dependencies = [
- "approx",
  "bincode",
  "consus-core 0.1.0 (git+https://github.com/ryancinsight/consus.git)",
  "consus-hdf5",
@@ -547,7 +542,6 @@ name = "cfd-math"
 version = "0.3.0"
 dependencies = [
  "aequitas",
- "approx",
  "bytemuck",
  "cfd-core",
  "criterion",
@@ -664,7 +658,6 @@ name = "cfd-validation"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "approx",
  "cfd-1d",
  "cfd-2d",
  "cfd-3d",

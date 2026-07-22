@@ -69,6 +69,9 @@
   - [Example: frustum_channel_demo](examples/frustum_channel_demo.md)
   - [Example: shell_cuboid_demo](examples/shell_cuboid_demo.md)
   - [Example: optimization_profile_comparison](examples/optimization_profile_comparison.md)
+  - [Example: check_2d_seam_root](examples/check_2d_seam_root.md)
+  - [Example: csgrs_api_test](examples/csgrs_api_test.md)
+  - [Example: test_csgrs](examples/test_csgrs.md)
 
 # Part VII — Atlas Stack Integration (Migration Reference)
 
@@ -93,9 +96,6 @@ documents the CFDrs migration to Atlas.
   - [Example: spectral_performance](examples/spectral_performance.md)
   - [Example: venturi_validated](examples/venturi_validated.md)
   - [Example: nalgebra_parity (leto-ops)](examples/migration_cfd_math_parity.md)
-  - [Example: check_2d_seam_root](examples/check_2d_seam_root.md)
-  - [Example: csgrs_api_test](examples/csgrs_api_test.md)
-  - [Example: test_csgrs](examples/test_csgrs.md)
 
 ---
 
@@ -107,7 +107,6 @@ documents the CFDrs migration to Atlas.
   - [Example: blood_poiseuille_2d](examples/blood_poiseuille_2d.md)
 
 - [19. 3-D Flows](crate_3d_flows.md)
-  - [Example: spectral_poisson_3d](examples/spectral_poisson_3d.md)
   - [Example: spectral_poisson_3d (cfd-3d)](examples/spectral_poisson_3d_crate.md)
   - [Example: bifurcation_3d_blood](examples/bifurcation_3d_blood.md)
   - [Example: venturi_3d_cavitation](examples/venturi_3d_cavitation.md)
@@ -150,4 +149,4 @@ documents the CFDrs migration to Atlas.
 - [C. Atlas Glossary](appendix_glossary.md)
 - [D. Changelog](appendix_changelog.md)
 - [E. Book Organization Forward Roadmap](BOOK_ORGANIZATION.md)
-- [F. Parity Artefacts Archive (CI Gate Evidence)](../../../parity_artefacts/INDEX.md)
+- [F. Parity Artefacts Archive (CI Gate Evidence)](parity_archive.md)

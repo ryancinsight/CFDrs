@@ -5,8 +5,8 @@
 
 // Re-export all error types from cfd-core
 pub use cfd_core::error::{
-    AdaptationErrorKind, ConfigurationErrorKind, ConstraintErrorKind, DependencyErrorKind,
-    Error, GeometryErrorKind, ParameterErrorKind, RegistryErrorKind, Result, StrategyErrorKind,
+    AdaptationErrorKind, ConfigurationErrorKind, ConstraintErrorKind, DependencyErrorKind, Error,
+    GeometryErrorKind, ParameterErrorKind, RegistryErrorKind, Result, StrategyErrorKind,
     ValidationErrorKind, VisualizationErrorKind,
 };
 

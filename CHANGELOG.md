@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Recovered the mdBook example index with source-linked pages for twelve
+  shipped examples, corrected their Cargo target names and behavior summaries,
+  and consolidated the linear-algebra parity narrative on the analytical Leto
+  Ops oracle. Book builds now remain inside the book output boundary and no
+  longer overwrite the tracked parity archive.
+
 - **Breaking / architecture**: schematic rendering now carries native `Path`
   values through renderer traits, plotter backends, layout sidecars, exports,
   tests, and examples. Public plotting facades accept `impl AsRef<Path>`, so

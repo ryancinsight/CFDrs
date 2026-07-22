@@ -1,11 +1,12 @@
 # Example: check_2d_seam_root
 
-**Source**: `examples/check_2d_seam_root.rs`  
-**Crate**: `cfd-suite` (workspace root)  
+**Source**: [`examples/check_2d_seam_root.rs`](../../../examples/check_2d_seam_root.rs)
+**Crate**: `cfd-suite` (workspace root)
 **Run**: `cargo run --example check_2d_seam_root`
 
-Compatibility diagnostic that exercises canonical `cfd-schematics` venturi and serpentine presets and validates their geometry-authored topology metadata.
+Builds union, intersection, and difference meshes for two overlapping disks and
+reports boundary and non-manifold edge counts for each result.
 
 ## Part Reference
 
-Part VII — Atlas Stack Integration (Migration Reference)
+Part VI — Geometry, Meshing, and CSG
