@@ -63,12 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── 2. Render plain schematic ────────────────────────────────────────────
     println!("2. Rendering plain channel schematic...");
-    plot_geometry(
-        &system,
-        out.join("hemolysis/channel_schematic.png")
-            .to_str()
-            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
-    )?;
+    plot_geometry(&system, out.join("hemolysis/channel_schematic.png"))?;
 
     // ── 3. Convert to 1D simulation specs ────────────────────────────────────
     // The system.nodes and system.channels are already the specs needed.
@@ -249,9 +244,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     renderer.render_analysis(
         &system,
-        out.join("hemolysis/hemolysis_index.png")
-            .to_str()
-            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
+        &out.join("hemolysis/hemolysis_index.png"),
         &config_hi,
         &hemolysis_overlay,
     )?;
@@ -272,9 +265,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     renderer.render_analysis(
         &system,
-        out.join("hemolysis/wall_shear_stress.png")
-            .to_str()
-            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
+        &out.join("hemolysis/wall_shear_stress.png"),
         &config_wss,
         &shear_overlay,
     )?;
@@ -297,9 +288,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     renderer.render_analysis(
         &system,
-        out.join("hemolysis/cavitation_risk.png")
-            .to_str()
-            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
+        &out.join("hemolysis/cavitation_risk.png"),
         &config_cav,
         &cavitation_overlay,
     )?;

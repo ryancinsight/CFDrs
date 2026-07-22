@@ -31,6 +31,17 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+- 2026-07-22 (resolved in CFD-SCHEMATIC-PATH-1): the stale
+  `codex/cfd-example-paths` branch contained a valid native-path boundary that
+  never reached main. Current main still required ten lossy or fallible UTF-8
+  conversions around renderer calls. The recovery ports only that contract
+  onto the current tree: renderer traits borrow `Path`, plotting facades accept
+  `AsRef<Path>`, sidecar naming stays in `OsStr`, and every live caller passes
+  its native path directly. Evidence tier: exact branch/content comparison,
+  affected package/example compilation, warning-denied Clippy, and a clean
+  renderer conversion scan. Configured Nextest passes all 177
+  `cfd-schematics` tests, including native non-UTF-8 path format detection.
+
 - 2026-07-21 (resolved in CFD-IRIS-COLOR-1): `cfd-schematics` duplicated
   Iris's normalized color-law role with a consumer-owned enum and three local
   formulas. Each edge or node lookup also rebuilt a value vector and rescanned

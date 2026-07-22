@@ -176,6 +176,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "approx"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cab112f0a86d568ea0e627cc1d6be74a1e9cd55214684db5561995f6dad897c6"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -409,6 +418,7 @@ name = "cfd-1d"
 version = "0.3.0"
 dependencies = [
  "anyhow",
+ "approx",
  "cfd-core",
  "cfd-math",
  "cfd-schematics",
@@ -432,6 +442,7 @@ name = "cfd-2d"
 version = "0.3.0"
 dependencies = [
  "anyhow",
+ "approx",
  "cfd-1d",
  "cfd-core",
  "cfd-io",
@@ -462,6 +473,7 @@ dependencies = [
  "anyhow",
  "apollo-fft",
  "apollo-nufft",
+ "approx",
  "cfd-1d",
  "cfd-2d",
  "cfd-core",
@@ -487,6 +499,7 @@ version = "0.3.0"
 dependencies = [
  "aequitas",
  "anyhow",
+ "approx",
  "bytemuck",
  "chrono",
  "criterion",
@@ -511,6 +524,7 @@ dependencies = [
 name = "cfd-io"
 version = "0.3.0"
 dependencies = [
+ "approx",
  "bincode",
  "consus-core 0.1.0 (git+https://github.com/ryancinsight/consus.git)",
  "consus-hdf5",
@@ -533,6 +547,7 @@ name = "cfd-math"
 version = "0.3.0"
 dependencies = [
  "aequitas",
+ "approx",
  "bytemuck",
  "cfd-core",
  "criterion",
@@ -553,6 +568,7 @@ dependencies = [
 name = "cfd-optim"
 version = "0.3.0"
 dependencies = [
+ "aequitas",
  "anyhow",
  "bincode",
  "cfd-1d",
@@ -564,6 +580,7 @@ dependencies = [
  "cfd-validation",
  "chrono",
  "gaia",
+ "hyperion",
  "moirai",
  "petgraph",
  "plotters",
@@ -615,6 +632,7 @@ version = "0.3.0"
 dependencies = [
  "aequitas",
  "apollo-fft",
+ "approx",
  "cfd-1d",
  "cfd-2d",
  "cfd-3d",
@@ -626,7 +644,6 @@ dependencies = [
  "cfd-validation",
  "chrono",
  "criterion",
- "eunomia",
  "gaia",
  "iris",
  "leto",
@@ -647,6 +664,7 @@ name = "cfd-validation"
 version = "0.3.0"
 dependencies = [
  "anyhow",
+ "approx",
  "cfd-1d",
  "cfd-2d",
  "cfd-3d",
@@ -1680,6 +1698,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 
 [[package]]
+name = "hyperion"
+version = "0.1.0"
+dependencies = [
+ "aequitas",
+ "eunomia",
+ "proteus",
+]
+
+[[package]]
 name = "iana-time-zone"
 version = "0.1.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2638,6 +2665,7 @@ dependencies = [
 [[package]]
 name = "proteus"
 version = "0.1.0"
+source = "git+https://github.com/ryancinsight/proteus#bb51ac414f74fb47d8001310206c5aea2e3a160c"
 dependencies = [
  "aequitas",
  "eunomia",
@@ -3366,7 +3394,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",

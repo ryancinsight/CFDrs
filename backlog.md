@@ -31,6 +31,35 @@
 
 ## Active integration
 
+- **CFD-SCHEMATIC-PATH-1 [major] [arch] - Preserve native renderer paths
+  (DONE; owner=Codex; scope=`cfd-schematics`, renderer consumers, ADR, and PM
+  artifacts).** Replace the string-only renderer seam with borrowed `Path`
+  values, expose borrow-generic `AsRef<Path>` plotting facades, and construct
+  layout sidecar names from `OsStr` without UTF-8 conversion. All live callers
+  migrate in the same change; no overload or compatibility adapter remains.
+  Acceptance: affected examples compile, warning-denied Clippy passes,
+  warning-denied Clippy passes, all 177 rendering tests pass through configured
+  Nextest, and conversion scans find no renderer-bound `to_str` or
+  `to_string_lossy` call.
+
+- **CFD-HYPERION-OPTICAL-1 [patch] [arch] - Consolidate 405-nm transport on
+  Hyperion (DONE; owner=`/root`; scope=`Cargo.toml`, `Cargo.lock`,
+  `cfd-optim` report metric/tests, PM artifacts).** Retain the empirical blood
+  coefficient, treatment-channel path selection, and hematocrit scaling in
+  CFDrs; move coefficient/path validation, optical-depth construction, and
+  Beer-Lambert transmission to Hyperion. Delete the raw production `exp(-mu L)`
+  expression without a wrapper or fallback. Acceptance: analytical zero-path,
+  hematocrit-policy, and finite-path consumer regressions; exact residue and
+  dependency-identity scans; locked cfd-optim check, Nextest, Clippy, doctest,
+  and Rustdoc gates. Evidence: the four optical regressions pass, including the
+  exact zero-path and nonpositive-hematocrit identities, a finite analytical
+  oracle within Hyperion's `gamma(32)` bound, and typed negative-path
+  rejection. Configured Nextest passes 132/132; warning-denied all-target
+  Clippy, two runnable
+  doctests, and warning-denied Rustdoc pass. The lock contains one Aequitas,
+  Hyperion, and Proteus entry, and the production residue scan finds no raw
+  optical exponential.
+
 - **CFD-IRIS-COLOR-1 [major] [arch] - Consolidate schematic color laws on
   Iris (DONE; owner=Codex; scope=`cfd-schematics` analysis overlays/rendering,
   cfd-1d/cfd-2d/root examples, dependency lock, ADR and PM artifacts).**

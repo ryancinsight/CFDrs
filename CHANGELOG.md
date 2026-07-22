@@ -34,6 +34,17 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking / architecture**: schematic rendering now carries native `Path`
+  values through renderer traits, plotter backends, layout sidecars, exports,
+  tests, and examples. Public plotting facades accept `impl AsRef<Path>`, so
+  callers no longer allocate strings or assume output paths are valid UTF-8.
+
+- **Architecture**: `cfd-optim` now evaluates 405-nm delivery through Hyperion's
+  validated coefficient, path, optical-depth, and Beer-Lambert transmission
+  types. CFDrs retains the empirical blood coefficient, treatment-channel path
+  selection, and nonnegative hematocrit policy; the duplicate raw production
+  exponential is removed.
+
 - **Breaking / architecture**: schematic analysis overlays now consume Iris
   `NamedColorMap` values directly, accept borrowed or owned scalar maps through
   `Cow`, validate finite fields at construction, and precompute scalar ranges.

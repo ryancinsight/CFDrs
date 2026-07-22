@@ -5,6 +5,7 @@ use crate::geometry::Point2D;
 use crate::visualizations::annotations::SchematicAnnotations;
 use crate::visualizations::plotters_backend::PlottersRenderer;
 use crate::visualizations::traits::{RenderConfig, SchematicRenderer};
+use std::path::Path;
 
 mod auto_annotations;
 mod channel_system;
@@ -17,34 +18,37 @@ pub(crate) use channel_system::channel_system_from_blueprint;
 use channel_system::resolved_channel_paths;
 use layout::blueprint_node_positions;
 
-pub fn plot_geometry(blueprint: &NetworkBlueprint, output_path: &str) -> VisualizationResult<()> {
+pub fn plot_geometry(
+    blueprint: &NetworkBlueprint,
+    output_path: impl AsRef<Path>,
+) -> VisualizationResult<()> {
     plot_blueprint_auto_annotated(blueprint, output_path, &RenderConfig::default())
 }
 
 pub fn plot_geometry_with_config(
     blueprint: &NetworkBlueprint,
-    output_path: &str,
+    output_path: impl AsRef<Path>,
     config: &RenderConfig,
 ) -> VisualizationResult<()> {
     let renderer = PlottersRenderer;
-    renderer.render_system(blueprint, output_path, config)
+    renderer.render_system(blueprint, output_path.as_ref(), config)
 }
 
 pub fn plot_geometry_with_annotations(
     blueprint: &NetworkBlueprint,
-    output_path: &str,
+    output_path: impl AsRef<Path>,
     config: &RenderConfig,
     annotations: &SchematicAnnotations,
 ) -> VisualizationResult<()> {
     let renderer = PlottersRenderer;
     let mut annotated_config = config.clone();
     annotated_config.annotations = Some(annotations.clone());
-    renderer.render_system(blueprint, output_path, &annotated_config)
+    renderer.render_system(blueprint, output_path.as_ref(), &annotated_config)
 }
 
 pub fn plot_blueprint(
     blueprint: &NetworkBlueprint,
-    output_path: &str,
+    output_path: impl AsRef<Path>,
     config: &RenderConfig,
 ) -> VisualizationResult<()> {
     plot_geometry_with_config(blueprint, output_path, config)
@@ -52,7 +56,7 @@ pub fn plot_blueprint(
 
 pub fn plot_blueprint_with_annotations(
     blueprint: &NetworkBlueprint,
-    output_path: &str,
+    output_path: impl AsRef<Path>,
     config: &RenderConfig,
     annotations: &SchematicAnnotations,
 ) -> VisualizationResult<()> {
@@ -61,7 +65,7 @@ pub fn plot_blueprint_with_annotations(
 
 pub fn plot_blueprint_auto_annotated(
     blueprint: &NetworkBlueprint,
-    output_path: &str,
+    output_path: impl AsRef<Path>,
     config: &RenderConfig,
 ) -> VisualizationResult<()> {
     let annotations = build_auto_annotations(blueprint);
@@ -101,7 +105,7 @@ pub(crate) fn materialize_blueprint_layout(blueprint: &mut NetworkBlueprint) {
 
 pub fn plot_geometry_auto_annotated(
     blueprint: &NetworkBlueprint,
-    output_path: &str,
+    output_path: impl AsRef<Path>,
     config: &RenderConfig,
 ) -> VisualizationResult<()> {
     plot_blueprint_auto_annotated(blueprint, output_path, config)
@@ -109,11 +113,11 @@ pub fn plot_geometry_auto_annotated(
 
 pub fn plot_geometry_with_renderer<R: SchematicRenderer>(
     blueprint: &NetworkBlueprint,
-    output_path: &str,
+    output_path: impl AsRef<Path>,
     renderer: &R,
     config: &RenderConfig,
 ) -> VisualizationResult<()> {
-    renderer.render_system(blueprint, output_path, config)
+    renderer.render_system(blueprint, output_path.as_ref(), config)
 }
 
 /// Collect all centerline vertices from a rendered system, including routed

@@ -35,11 +35,13 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 
 # Math and numerical
-aequitas = { version = "0.1.0", git = "https://github.com/ryancinsight/aequitas", rev = "be3a1ac91286a17aecf18f0065d2aa6b385eb67b", default-features = false, features = ["std"] }
-proteus = { git = "https://github.com/ryancinsight/proteus", rev = "bb51ac414f74fb47d8001310206c5aea2e3a160c" }
+aequitas = { version = "0.1.0", git = "https://github.com/ryancinsight/aequitas", default-features = false, features = ["std"] }
+proteus = { version = "0.1.0", git = "https://github.com/ryancinsight/proteus" }
+hyperion = { version = "0.1.0", git = "https://github.com/ryancinsight/hyperion", default-features = false, features = ["std"] }
 tyche-core = { git = "https://github.com/ryancinsight/tyche", rev = "87923da922ec7bd17f12324c40d1da026be6b04e" }
 eunomia = { git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
 iris = { git = "https://github.com/ryancinsight/iris", rev = "ef43861ae480ed199768580e0842968d98487e0f" }
+approx = "0.5"
 bytemuck = "1.14"
 rand = "0.8"
 
@@ -137,6 +139,9 @@ gaia = { path = "../gaia" }
 [patch."https://github.com/ryancinsight/hephaestus.git"]
 hephaestus-wgpu = { path = "../hephaestus/crates/hephaestus-wgpu" }
 
+[patch."https://github.com/ryancinsight/hyperion"]
+hyperion = { path = "../hyperion" }
+
 [patch."https://github.com/ryancinsight/hermes.git"]
 hermes-simd = { path = "../hermes/crates/hermes-simd" }
 
@@ -151,9 +156,6 @@ themis = { path = "../themis" }
 
 [patch."https://github.com/ryancinsight/tyche"]
 tyche-core = { path = "../tyche/crates/tyche-core" }
-
-[patch."https://github.com/ryancinsight/proteus"]
-proteus = { path = "../proteus" }
 
 [profile.release]
 opt-level = 3
@@ -212,10 +214,10 @@ rand.workspace = true
 tracing = { workspace = true }
 
 [dev-dependencies]
-eunomia.workspace = true
 aequitas.workspace = true
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.0"
+approx = "0.5"
 leto-ops.workspace = true
 serde_json.workspace = true
 serde = { workspace = true, features = ["derive"] }
