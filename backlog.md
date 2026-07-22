@@ -31,6 +31,17 @@
 
 ## Active integration
 
+- **CFD-SCHEMATIC-PATH-1 [major] [arch] - Preserve native renderer paths
+  (DONE; owner=Codex; scope=`cfd-schematics`, renderer consumers, ADR, and PM
+  artifacts).** Replace the string-only renderer seam with borrowed `Path`
+  values, expose borrow-generic `AsRef<Path>` plotting facades, and construct
+  layout sidecar names from `OsStr` without UTF-8 conversion. All live callers
+  migrate in the same change; no overload or compatibility adapter remains.
+  Acceptance: affected examples compile, warning-denied Clippy passes,
+  warning-denied Clippy passes, all 177 rendering tests pass through configured
+  Nextest, and conversion scans find no renderer-bound `to_str` or
+  `to_string_lossy` call.
+
 - **CFD-HYPERION-OPTICAL-1 [patch] [arch] - Consolidate 405-nm transport on
   Hyperion (DONE; owner=`/root`; scope=`Cargo.toml`, `Cargo.lock`,
   `cfd-optim` report metric/tests, PM artifacts).** Retain the empirical blood

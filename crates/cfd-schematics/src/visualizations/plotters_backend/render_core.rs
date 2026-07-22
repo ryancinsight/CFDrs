@@ -24,7 +24,7 @@ impl SchematicRenderer for PlottersRenderer {
     fn render_system(
         &self,
         system: &NetworkBlueprint,
-        output_path: &str,
+        output_path: &Path,
         config: &RenderConfig,
     ) -> VisualizationResult<()> {
         self.render_analysis(
@@ -38,7 +38,7 @@ impl SchematicRenderer for PlottersRenderer {
     fn render_analysis(
         &self,
         system: &NetworkBlueprint,
-        output_path: &str,
+        output_path: &Path,
         config: &RenderConfig,
         overlay: &AnalysisOverlay<'_>,
     ) -> VisualizationResult<()> {
@@ -66,16 +66,15 @@ impl SchematicRenderer for PlottersRenderer {
 impl PlottersRenderer {
     pub(super) fn detect_output_format(
         &self,
-        output_path: &str,
+        output_path: &Path,
     ) -> VisualizationResult<OutputFormat> {
-        let path = Path::new(output_path);
-        let extension = path
+        let extension = output_path
             .extension()
             .and_then(|ext| ext.to_str())
             .map(str::to_lowercase)
             .ok_or_else(|| {
                 VisualizationError::invalid_output_path(
-                    output_path,
+                    &output_path.display().to_string(),
                     "File must have a valid extension",
                 )
             })?;
@@ -86,7 +85,7 @@ impl PlottersRenderer {
             "svg" => Ok(OutputFormat::SVG),
             "pdf" => Ok(OutputFormat::PDF),
             _ => Err(VisualizationError::invalid_output_path(
-                output_path,
+                &output_path.display().to_string(),
                 &format!("Unsupported file extension: .{extension}"),
             )),
         }
@@ -95,7 +94,7 @@ impl PlottersRenderer {
     fn render_bitmap(
         &self,
         #[allow(unused_variables)] system: &NetworkBlueprint,
-        #[allow(unused_variables)] output_path: &str,
+        #[allow(unused_variables)] output_path: &Path,
         #[allow(unused_variables)] config: &RenderConfig,
         #[allow(unused_variables)] overlay: &AnalysisOverlay<'_>,
     ) -> VisualizationResult<()> {
@@ -119,7 +118,7 @@ impl PlottersRenderer {
     fn render_svg(
         &self,
         system: &NetworkBlueprint,
-        output_path: &str,
+        output_path: &Path,
         config: &RenderConfig,
         overlay: &AnalysisOverlay<'_>,
     ) -> VisualizationResult<()> {
@@ -134,7 +133,7 @@ impl PlottersRenderer {
         system: &NetworkBlueprint,
         config: &RenderConfig,
         root: DrawingArea<DB, Shift>,
-        output_path: &str,
+        output_path: &Path,
         overlay: &AnalysisOverlay<'_>,
     ) -> VisualizationResult<()> {
         let renderable =
@@ -293,7 +292,40 @@ impl PlottersRenderer {
         root.present()
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
-        ::tracing::info!("Schematic plot saved to {output_path}");
+        ::tracing::info!(path = %output_path.display(), "Schematic plot saved");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{OutputFormat, PlottersRenderer};
+    use std::ffi::OsString;
+    use std::path::PathBuf;
+
+    #[cfg(unix)]
+    fn native_non_utf8_svg_path() -> PathBuf {
+        use std::os::unix::ffi::OsStringExt;
+
+        PathBuf::from(OsString::from_vec(b"schematic_\xff.svg".to_vec()))
+    }
+
+    #[cfg(windows)]
+    fn native_non_utf8_svg_path() -> PathBuf {
+        use std::os::windows::ffi::OsStringExt;
+
+        let mut path = vec![0x0073, 0xD800];
+        path.extend(".svg".encode_utf16());
+        PathBuf::from(OsString::from_wide(&path))
+    }
+
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn detects_format_without_requiring_a_utf8_stem() {
+        let format = PlottersRenderer
+            .detect_output_format(&native_non_utf8_svg_path())
+            .expect("a native non-UTF-8 stem with an SVG extension is supported");
+
+        assert_eq!(format, OutputFormat::SVG);
     }
 }

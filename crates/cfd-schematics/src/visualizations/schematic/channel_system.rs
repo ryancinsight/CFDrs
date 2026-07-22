@@ -2,6 +2,7 @@ use crate::domain::model::{ChannelShape, ChannelSpec, NetworkBlueprint, NodeKind
 use crate::geometry::metadata::ChannelPathMetadata;
 use crate::geometry::{ChannelTypeCategory, Point2D};
 use std::collections::HashMap;
+use std::path::Path;
 
 use super::layout::{blueprint_node_positions, save_auto_layout_json, BlueprintNodeLayout};
 use super::path_generation::{
@@ -18,7 +19,7 @@ pub(crate) struct RenderChannelSystem {
 pub(crate) fn channel_system_from_blueprint(
     blueprint: &NetworkBlueprint,
     box_dims_hint: Option<(f64, f64)>,
-    output_path: Option<&str>,
+    output_path: Option<&Path>,
 ) -> RenderChannelSystem {
     let box_dims = box_dims_hint.unwrap_or(blueprint.box_dims);
     let node_layout = blueprint_node_positions(blueprint, box_dims);

@@ -60,12 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── 2. Plain schematic ───────────────────────────────────────────────────
     println!("2. Rendering plain schematic...");
-    plot_geometry(
-        &system,
-        out.join("cavitation/channel_schematic.png")
-            .to_str()
-            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
-    )?;
+    plot_geometry(&system, out.join("cavitation/channel_schematic.png"))?;
 
     // ── 3. Convert geometry → 1D specs ───────────────────────────────────────
     let node_specs = system.nodes.clone();
@@ -258,9 +253,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     renderer.render_analysis(
         &system,
-        out.join("cavitation/cavitation_number.png")
-            .to_str()
-            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
+        &out.join("cavitation/cavitation_number.png"),
         &config_cav,
         &cav_overlay,
     )?;
@@ -280,9 +273,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     renderer.render_analysis(
         &system,
-        out.join("cavitation/pressure_distribution.png")
-            .to_str()
-            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
+        &out.join("cavitation/pressure_distribution.png"),
         &config_p,
         &pressure_overlay,
     )?;
@@ -302,9 +293,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     renderer.render_analysis(
         &system,
-        out.join("cavitation/velocity_distribution.png")
-            .to_str()
-            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
+        &out.join("cavitation/velocity_distribution.png"),
         &config_v,
         &vel_overlay,
     )?;

@@ -120,9 +120,8 @@ fn annotated_svg_contains_markers_labels_and_role_colors() {
 
     let config = RenderConfig::well_plate_96_report_annotated();
     let path = unique_svg_path("cfd_schematic_annotations");
-    let path_str = path.to_string_lossy();
 
-    plot_geometry_with_annotations(&system, path_str.as_ref(), &config, &annotations)
+    plot_geometry_with_annotations(&system, &path, &config, &annotations)
         .expect("annotated schematic render must succeed");
 
     let svg = std::fs::read_to_string(&path).expect("must read rendered svg");
@@ -141,9 +140,8 @@ fn plot_geometry_with_config_still_renders_without_annotations() {
     let system = synthetic_system();
     let config = RenderConfig::well_plate_96();
     let path = unique_svg_path("cfd_schematic_plain");
-    let path_str = path.to_string_lossy();
 
-    plot_geometry_with_config(&system, path_str.as_ref(), &config)
+    plot_geometry_with_config(&system, &path, &config)
         .expect("non-annotated render must still succeed");
 
     let svg = std::fs::read_to_string(&path).expect("must read rendered svg");
@@ -154,9 +152,8 @@ fn plot_geometry_with_config_still_renders_without_annotations() {
 fn auto_annotations_include_computed_volume_label() {
     let system = synthetic_system();
     let path = unique_svg_path("cfd_schematic_auto_volume");
-    let path_str = path.to_string_lossy();
 
-    plot_geometry(&system, path_str.as_ref()).expect("auto-annotated render must succeed");
+    plot_geometry(&system, &path).expect("auto-annotated render must succeed");
 
     let svg = std::fs::read_to_string(&path).expect("must read rendered svg");
     assert!(svg.contains("Volume:"));
@@ -167,9 +164,8 @@ fn auto_annotations_include_computed_volume_label() {
 fn auto_annotations_with_render_hints_render_volume_once() {
     let system = synthetic_hinted_system();
     let path = unique_svg_path("cfd_schematic_auto_hinted_volume");
-    let path_str = path.to_string_lossy();
 
-    plot_geometry(&system, path_str.as_ref()).expect("hinted schematic render must succeed");
+    plot_geometry(&system, &path).expect("hinted schematic render must succeed");
 
     let svg = std::fs::read_to_string(&path).expect("must read rendered svg");
     assert_eq!(svg.matches("Volume:").count(), 1);
@@ -188,9 +184,8 @@ fn legend_notes_render_as_compact_segments() {
 
     let config = RenderConfig::well_plate_96_report_annotated();
     let path = unique_svg_path("cfd_schematic_legend_note");
-    let path_str = path.to_string_lossy();
 
-    plot_geometry_with_annotations(&system, path_str.as_ref(), &config, &annotations)
+    plot_geometry_with_annotations(&system, &path, &config, &annotations)
         .expect("legend note render must succeed");
 
     let svg = std::fs::read_to_string(&path).expect("must read rendered svg");

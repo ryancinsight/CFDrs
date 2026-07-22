@@ -172,10 +172,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     renderer.render_analysis(
         &system,
-        output_dir
-            .join("flow_analysis.png")
-            .to_str()
-            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
+        &output_dir.join("flow_analysis.png"),
         &render_config,
         &overlay,
     )?;

@@ -107,12 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Render schematic
         let schematic_path = out.join(format!("venturi_parallel/{label}_schematic.png"));
-        plot_geometry(
-            &system,
-            schematic_path
-                .to_str()
-                .expect("invariant: the manifest path and output suffix are valid UTF-8"),
-        )?;
+        plot_geometry(&system, &schematic_path)?;
         println!("  Rendered schematic → {label}_schematic.png");
 
         // ── 2. Convert to Network Specs ──────────────────────────────────────
@@ -326,13 +321,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ..Default::default()
             };
             let path = out.join(format!("venturi_parallel/{label}_{filename}.png"));
-            renderer.render_analysis(
-                &system,
-                path.to_str()
-                    .expect("invariant: the manifest path and output suffix are valid UTF-8"),
-                &rc,
-                &overlay,
-            )?;
+            renderer.render_analysis(&system, &path, &rc, &overlay)?;
         }
         println!("  Rendered 4 overlay maps.");
 

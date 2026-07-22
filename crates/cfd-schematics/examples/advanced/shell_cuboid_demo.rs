@@ -93,7 +93,6 @@ fn main() {
 
     fs::create_dir_all(&output_dir).expect("could not create outputs dir");
     let output_path = output_dir.join("shell_cuboid_demo.svg");
-    let output_path_str = output_path.to_str().unwrap().to_string();
 
     let config = RenderConfig {
         title: "TPMS-Filled Shell Cuboid — 96-well (Gyroid λ=5mm)".to_string(),
@@ -104,7 +103,7 @@ fn main() {
 
     let renderer = PlottersRenderer;
     renderer
-        .render_shell_cuboid(&shell, &output_path_str, &config)
+        .render_shell_cuboid(&shell, &output_path, &config)
         .expect("rendering failed");
 
     // ── 4. Interchange JSON ──────────────────────────────────────────────────

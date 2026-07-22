@@ -2,6 +2,7 @@ use crate::domain::model::NetworkBlueprint;
 use crate::error::VisualizationResult;
 use crate::geometry::Point2D;
 use crate::visualizations::analysis_field::AnalysisOverlay;
+use std::path::Path;
 
 use super::styles::{Color, LineStyle, OutputFormat, RenderConfig, TextStyle};
 
@@ -11,7 +12,7 @@ pub trait SchematicRenderer {
     fn render_system(
         &self,
         system: &NetworkBlueprint,
-        output_path: &str,
+        output_path: &Path,
         config: &RenderConfig,
     ) -> VisualizationResult<()>;
 
@@ -19,7 +20,7 @@ pub trait SchematicRenderer {
     fn render_analysis(
         &self,
         system: &NetworkBlueprint,
-        output_path: &str,
+        output_path: &Path,
         config: &RenderConfig,
         overlay: &AnalysisOverlay<'_>,
     ) -> VisualizationResult<()>;
@@ -28,12 +29,15 @@ pub trait SchematicRenderer {
     fn supported_formats(&self) -> Vec<OutputFormat>;
 
     /// Validate that the output path has a supported format.
-    fn validate_output_path(&self, path: &str) -> VisualizationResult<()> {
+    fn validate_output_path(&self, path: &Path) -> VisualizationResult<()> {
         let formats = self.supported_formats();
-        let path_lower = path.to_lowercase();
 
         for format in &formats {
-            if path_lower.ends_with(&format.extension()) {
+            if path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case(format.extension()))
+            {
                 return Ok(());
             }
         }
@@ -43,8 +47,9 @@ pub trait SchematicRenderer {
             .map(|format| format!(".{}", format.extension()))
             .collect();
 
+        let path_display = path.display().to_string();
         Err(crate::error::VisualizationError::invalid_output_path(
-            path,
+            &path_display,
             &format!(
                 "Unsupported format. Supported formats: {}",
                 supported_extensions.join(", ")
