@@ -642,8 +642,8 @@ pub struct SdtMetrics {
 
     /// Relative 405 nm light-delivery index ∈ [0, 1].
     ///
-    /// Beer-Lambert-style proxy:
-    /// `exp(-μ_eff,405 · optical_path_length_405_m · hematocrit_scale)`.
+    /// Hyperion Beer-Lambert transmission for the CFDrs-owned empirical
+    /// 405-nm blood attenuation coefficient and hematocrit scaling policy.
     ///
     /// Higher values indicate stronger blue-light delivery to circulating cells.
     #[serde(default)]

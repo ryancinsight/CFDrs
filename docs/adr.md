@@ -14,6 +14,7 @@
 | **GMRES Linear Solver** | 2024-Sprint1.36 | Industry standard for SIMPLE/PISO | Configurable backend, GMRES default | ✅ Robust convergence ⚠️ Memory O(mn) |
 | **Provider-owned CSR execution** | 2026-07-10 | Leto is the CSR SpMV SSOT; CFDrs parallel flags had no behavioral effect | One `spmv`/`try_spmv` family; zero ignored execution flags | Breaking removal of inert compatibility APIs |
 | **Iris-owned color laws** | 2026-07-21 | `cfd-schematics` duplicated color formulas and rescanned field maps per rendered element | One direct `NamedColorMap` contract; linear range preprocessing; zero transient range allocations | Breaking overlay builders and field visibility |
+| **Hyperion-owned optical transport** | 2026-07-21 | `cfd-optim` evaluated a raw Beer-Lambert expression without the stack's validated optical types | One typed coefficient/path/optical-depth/transmission chain; zero duplicate production laws | CFDrs retains its empirical coefficient and hematocrit policy |
 
 ## Architecture Overview
 
@@ -72,6 +73,37 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-21: Hyperion owns 405-nm optical transport [patch] [arch]
+
+**Context**: `cfd-optim` selected an optical path from the solved treatment
+channels, then evaluated a raw `exp(-mu L)` expression. This duplicated the
+validated coefficient, path, optical-depth, and Beer-Lambert law already owned
+by Hyperion.
+
+**Decision**: CFDrs retains its empirical 405-nm blood attenuation coefficient,
+nonnegative hematocrit policy, and treatment-channel path selection. It converts
+those consumer inputs into Aequitas quantities and delegates validation,
+optical-depth construction, and transmission evaluation directly to Hyperion.
+Hyperion failures retain the candidate ID and enter the existing typed CFDrs
+physics-error boundary.
+
+**Rejected alternative**: a CFDrs wrapper type or local attenuation function was
+rejected because either would preserve a second optical-law owner. Moving the
+empirical blood coefficient or hematocrit policy upstream was rejected because
+they are SDT report assumptions, not general photon-transport laws.
+
+**Consequences**: production has one Beer-Lambert implementation and one
+dimensional validity boundary. Adding another optical consumer reuses the same
+Hyperion hierarchy instead of adding a sibling formula. No public CFDrs
+signature changes; invalid derived paths now fail rather than producing a
+clamped value.
+
+**Verification**: consumer regressions cover the exact zero-path identity,
+the local negative-hematocrit policy, a finite analytical Beer-Lambert oracle
+within the provider's documented `gamma(32)` exponential bound, and negative
+path rejection. Locked package checks, configured Nextest, Clippy, doctest,
+Rustdoc, dependency-identity, and raw-law residue scans close the change.
 
 ### 2026-07-21: Iris owns schematic color laws [major] [arch]
 
