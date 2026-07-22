@@ -2,6 +2,19 @@
 
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
+- [x] CFD-HYPERION-OPTICAL-1 [patch] [arch]: replace the raw 405-nm
+      Beer-Lambert report expression with direct Hyperion ownership.
+  - [x] Align the Aequitas, Proteus, and Hyperion Git source identities.
+  - [x] Retain empirical coefficient and hematocrit policy locally, but move
+        coefficient/path validation and transmission evaluation to Hyperion.
+  - [x] Delete the raw production exponential and add analytical consumer
+        regressions for zero path, hematocrit policy, and finite attenuation.
+  - [x] Pass the cfd-optim compile, configured Nextest (132/132),
+        warning-denied all-target Clippy, doctest (2 passed, 3 existing
+        ignored), warning-denied Rustdoc, dependency identity, and production-
+        residue gates. The linked verification lane mounted the canonical,
+        gitignored contract fixtures so the full suite ran without exclusions.
+
 - [x] CFD-IRIS-COLOR-1 [major] [arch]: make Iris the normalized color-law
   owner for schematic analysis overlays.
   - [x] Add Iris as a direct dependency and remove the local map enum and

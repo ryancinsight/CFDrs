@@ -568,6 +568,7 @@ dependencies = [
 name = "cfd-optim"
 version = "0.3.0"
 dependencies = [
+ "aequitas",
  "anyhow",
  "bincode",
  "cfd-1d",
@@ -579,6 +580,7 @@ dependencies = [
  "cfd-validation",
  "chrono",
  "gaia",
+ "hyperion",
  "moirai",
  "petgraph",
  "plotters",
@@ -1237,7 +1239,7 @@ dependencies = [
 
 [[package]]
 name = "eunomia"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "bytemuck",
  "libm",
@@ -1468,7 +1470,6 @@ name = "gaia"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "approx",
  "cfd-schematics",
  "eunomia",
  "geometry-predicates",
@@ -1644,7 +1645,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "eunomia",
  "hermes-simd-core",
@@ -1656,7 +1657,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-core"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "bytemuck",
  "eunomia",
@@ -1667,7 +1668,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-intrinsics"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "eunomia",
  "hermes-simd-core",
@@ -1675,7 +1676,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-macros"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1684,7 +1685,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-types"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "hermes-simd-core",
  "hermes-simd-intrinsics",
@@ -1695,6 +1696,15 @@ name = "hermit-abi"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
+
+[[package]]
+name = "hyperion"
+version = "0.1.0"
+dependencies = [
+ "aequitas",
+ "eunomia",
+ "proteus",
+]
 
 [[package]]
 name = "iana-time-zone"
@@ -1824,7 +1834,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "leto"
-version = "0.39.0"
+version = "0.40.0"
 dependencies = [
  "aequitas",
  "bytemuck",
@@ -1836,7 +1846,7 @@ dependencies = [
 
 [[package]]
 name = "leto-ops"
-version = "0.39.0"
+version = "0.40.0"
 dependencies = [
  "bytemuck",
  "eunomia",
@@ -2655,7 +2665,7 @@ dependencies = [
 [[package]]
 name = "proteus"
 version = "0.1.0"
-source = "git+https://github.com/ryancinsight/proteus?rev=335e5297b28c334987bd18bd85a09393a90dfe5f#335e5297b28c334987bd18bd85a09393a90dfe5f"
+source = "git+https://github.com/ryancinsight/proteus#bb51ac414f74fb47d8001310206c5aea2e3a160c"
 dependencies = [
  "aequitas",
  "eunomia",

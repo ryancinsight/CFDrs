@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::{Length, ReciprocalLength};
 use cfd_1d::{
     acoustic_contrast_factor, acoustic_energy_density, cavitation_amplified_hi,
     cavitation_hemolysis_amplification, giersiepen_hi, sonosensitizer_activation_efficiency,
@@ -5,6 +6,10 @@ use cfd_1d::{
     SENSITIZER_K_ACT_HEMATOPORPHYRIN,
 };
 use cfd_schematics::topology::TreatmentActuationMode;
+use hyperion::{
+    coefficient::{InteractionCoefficient, LinearAttenuation},
+    quantity::PathLength,
+};
 
 use super::report_math::{
     coefficient_of_variation, cumulative_pass_damage, direct_linear_risk, inverse_linear_risk,
@@ -35,6 +40,18 @@ use crate::metrics::{
 fn cavitation_strength_from_sigma(cavitation_number: f64) -> f64 {
     let strength = (1.0 - cavitation_number).max(0.0);
     strength / (1.0 + strength)
+}
+
+fn blue_light_delivery_index(
+    optical_path_length_m: f64,
+    feed_hematocrit: f64,
+) -> Result<f64, hyperion::TransportError<f64>> {
+    let attenuation = InteractionCoefficient::<f64, LinearAttenuation>::new(
+        ReciprocalLength::from_base(BLOOD_ATTENUATION_405NM_INV_M * feed_hematocrit.max(0.0)),
+    )?;
+    let path = PathLength::new(Length::from_base(optical_path_length_m))?;
+    let transmission = attenuation.optical_depth(path)?.transmission();
+    Ok(transmission.into_quantity().into_base())
 }
 
 /// Compute the full set of report-grade SDT metrics for a single blueprint candidate.
@@ -347,11 +364,14 @@ pub fn compute_blueprint_report_metrics(
         .map(|sample| sample.cross_section.dims().1)
         .reduce(f64::max)
         .unwrap_or(0.0);
-    let blue_light_delivery_index_405nm = (-BLOOD_ATTENUATION_405NM_INV_M
-        * optical_path_length_405_m
-        * candidate.operating_point.feed_hematocrit.max(0.0))
-    .exp()
-    .clamp(0.0, 1.0);
+    let blue_light_delivery_index_405nm = blue_light_delivery_index(
+        optical_path_length_405_m,
+        candidate.operating_point.feed_hematocrit,
+    )
+    .map_err(|source| OptimError::PhysicsError {
+        id: candidate.id.clone(),
+        reason: format!("405-nm optical transport: {source}"),
+    })?;
 
     metrics.cavitation_number = cavitation_number;
     metrics.cavitation_potential = cavitation_potential;
@@ -714,6 +734,51 @@ mod tests {
         solve_blueprint_candidate,
     };
     use cfd_schematics::topology::VenturiPlacementMode;
+
+    #[test]
+    fn blue_light_delivery_is_unity_for_zero_path() {
+        let transmission = blue_light_delivery_index(0.0, 0.42).expect("valid optical input");
+
+        assert_eq!(transmission, 1.0);
+    }
+
+    #[test]
+    fn blue_light_delivery_preserves_nonnegative_hematocrit_policy() {
+        let transmission = blue_light_delivery_index(0.002, -0.2).expect("valid optical input");
+
+        assert_eq!(transmission, 1.0);
+    }
+
+    #[test]
+    fn blue_light_delivery_matches_beer_lambert_oracle() {
+        let optical_path_length_m = 0.002;
+        let feed_hematocrit = 0.42;
+        let transmission = blue_light_delivery_index(optical_path_length_m, feed_hematocrit)
+            .expect("valid optical input");
+        let expected =
+            (-BLOOD_ATTENUATION_405NM_INV_M * optical_path_length_m * feed_hematocrit).exp();
+        let scaled_epsilon = 32.0 * f64::EPSILON;
+        let tolerance = scaled_epsilon / (1.0 - scaled_epsilon) * expected.abs().max(1.0);
+
+        assert!(
+            (transmission - expected).abs() <= tolerance,
+            "Hyperion transmission {transmission} differs from the f64 Beer-Lambert oracle {expected} by more than {tolerance}"
+        );
+    }
+
+    #[test]
+    fn blue_light_delivery_rejects_negative_path() {
+        let error = blue_light_delivery_index(-0.001, 0.42)
+            .expect_err("negative optical path must fail validation");
+
+        assert!(matches!(
+            error,
+            hyperion::TransportError::InvalidValue {
+                field: hyperion::ValueKind::PathLength,
+                ..
+            }
+        ));
+    }
 
     #[test]
     fn test_sdt_acoustic_metrics_computable() {

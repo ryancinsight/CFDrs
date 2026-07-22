@@ -30,6 +30,8 @@ cfd-mesh.workspace = true
 cfd-math.workspace = true
 cfd-schematics.workspace = true
 cfd-validation.workspace = true
+aequitas.workspace = true
+hyperion.workspace = true
 tyche-core.workspace = true
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
