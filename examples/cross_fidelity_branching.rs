@@ -241,24 +241,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         let overlay_path = out_dir.join(format!("{}_flow_overlay.svg", filename_prefix));
-        renderer.render_analysis(
-            &bp,
-            overlay_path
-                .to_str()
-                .expect("invariant: the manifest path and output suffix are valid UTF-8"),
-            &overlay_cfg,
-            &overlay,
-        )?;
+        renderer.render_analysis(&bp, &overlay_path, &overlay_cfg, &overlay)?;
 
         let overlay_path_png = out_dir.join(format!("{}_flow_overlay.png", filename_prefix));
-        renderer.render_analysis(
-            &bp,
-            overlay_path_png
-                .to_str()
-                .expect("invariant: the manifest path and output suffix are valid UTF-8"),
-            &overlay_cfg,
-            &overlay,
-        )?;
+        renderer.render_analysis(&bp, &overlay_path_png, &overlay_cfg, &overlay)?;
 
         println!("  ✅ Rendered overlay → {}", overlay_path.display());
     }

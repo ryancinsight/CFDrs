@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let svg_path = output_dir.join("ui_venturi_rect.svg");
     let mut render = RenderConfig::well_plate_96_report_annotated();
     render.title = "Canonical venturi schematic export".to_string();
-    plot_blueprint_auto_annotated(&blueprint, &svg_path.to_string_lossy(), &render)?;
+    plot_blueprint_auto_annotated(&blueprint, &svg_path, &render)?;
 
     println!("Blueprint: {}", blueprint.name);
     println!("Geometry-authored: {}", blueprint.is_geometry_authored());

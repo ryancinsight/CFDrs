@@ -126,16 +126,17 @@ struct NodePositionRecord {
 pub(super) fn save_auto_layout_json(
     layout: &BlueprintNodeLayout<'_>,
     box_dims: (f64, f64),
-    output_path: &str,
+    output_path: &std::path::Path,
 ) {
-    let stem = std::path::Path::new(output_path)
+    let stem = output_path
         .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("layout");
-    let dir = std::path::Path::new(output_path)
+        .unwrap_or_else(|| std::ffi::OsStr::new("layout"));
+    let dir = output_path
         .parent()
         .unwrap_or_else(|| std::path::Path::new("."));
-    let json_path = dir.join(format!("{stem}_layout.json"));
+    let mut json_file_name = stem.to_os_string();
+    json_file_name.push("_layout.json");
+    let json_path = dir.join(json_file_name);
 
     let record = AutoLayoutRecord {
         source: "auto_layout",

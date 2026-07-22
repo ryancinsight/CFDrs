@@ -5,6 +5,7 @@ use crate::visualizations::traits::{OutputFormat, RenderConfig, SchematicRendere
 use plotters::coord::Shift;
 use plotters::prelude::*;
 use plotters::style::Color as PlottersColor;
+use std::path::Path;
 
 use super::convert_color;
 use super::render_core::PlottersRenderer;
@@ -14,7 +15,7 @@ impl PlottersRenderer {
     pub fn render_shell_cuboid(
         &self,
         cuboid: &ShellCuboid,
-        output_path: &str,
+        output_path: &Path,
         config: &RenderConfig,
     ) -> VisualizationResult<()> {
         self.validate_output_path(output_path)?;
@@ -33,7 +34,7 @@ impl PlottersRenderer {
     fn render_shell_bitmap(
         &self,
         #[allow(unused_variables)] cuboid: &ShellCuboid,
-        #[allow(unused_variables)] output_path: &str,
+        #[allow(unused_variables)] output_path: &Path,
         #[allow(unused_variables)] config: &RenderConfig,
     ) -> VisualizationResult<()> {
         #[cfg(target_arch = "wasm32")]
@@ -56,7 +57,7 @@ impl PlottersRenderer {
     fn render_shell_svg(
         &self,
         cuboid: &ShellCuboid,
-        output_path: &str,
+        output_path: &Path,
         config: &RenderConfig,
     ) -> VisualizationResult<()> {
         let root = SVGBackend::new(output_path, (config.width, config.height)).into_drawing_area();
@@ -70,7 +71,7 @@ impl PlottersRenderer {
         cuboid: &ShellCuboid,
         config: &RenderConfig,
         root: DrawingArea<DB, Shift>,
-        output_path: &str,
+        output_path: &Path,
     ) -> VisualizationResult<()> {
         let (w, h) = cuboid.outer_dims;
         let x_buffer = w * config.margin_fraction;
@@ -175,14 +176,17 @@ impl PlottersRenderer {
         root.present()
             .map_err(|e| VisualizationError::rendering_error(&e.to_string()))?;
 
-        ::tracing::info!("Shell cuboid schematic saved to {output_path}");
+        ::tracing::info!(path = %output_path.display(), "Shell cuboid schematic saved");
         Ok(())
     }
 }
 
 /// Convenience function: render a shell-cuboid with default config.
-pub fn plot_shell_cuboid(cuboid: &ShellCuboid, output_path: &str) -> VisualizationResult<()> {
+pub fn plot_shell_cuboid(
+    cuboid: &ShellCuboid,
+    output_path: impl AsRef<Path>,
+) -> VisualizationResult<()> {
     let renderer = PlottersRenderer;
     let config = RenderConfig::default();
-    renderer.render_shell_cuboid(cuboid, output_path, &config)
+    renderer.render_shell_cuboid(cuboid, output_path.as_ref(), &config)
 }

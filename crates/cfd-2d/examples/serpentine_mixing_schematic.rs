@@ -101,13 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let schematic_path = out.join("serpentine_schematic.png");
-    renderer.render_system(
-        &system,
-        schematic_path
-            .to_str()
-            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
-        &schematic_cfg,
-    )?;
+    renderer.render_system(&system, &schematic_path, &schematic_cfg)?;
     println!("  ✅ Schematic → {}", schematic_path.display());
 
     // ── Phase 2: Simulation (cfd-2d) ─────────────────────────────────────────
@@ -216,14 +210,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let overlay_path = out.join("serpentine_mixing_overlay.png");
-    renderer.render_analysis(
-        &system,
-        overlay_path
-            .to_str()
-            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
-        &overlay_cfg,
-        &overlay,
-    )?;
+    renderer.render_analysis(&system, &overlay_path, &overlay_cfg, &overlay)?;
     println!("  ✅ Pressure overlay → {}", overlay_path.display());
 
     println!("\n✅ Serpentine mixing example complete.");

@@ -76,12 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── 2. Plain schematic ───────────────────────────────────────────────────
     println!("2. Rendering plain schematic...");
-    plot_geometry(
-        &system,
-        out.join("medical_screening/schematic.png")
-            .to_str()
-            .expect("invariant: the manifest path and output suffix are valid UTF-8"),
-    )?;
+    plot_geometry(&system, out.join("medical_screening/schematic.png"))?;
 
     // ── 3. Convert & build network ───────────────────────────────────────────
     println!("3. Building 1D network with Carreau-Yasuda blood...");
@@ -357,13 +352,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             show_grid: false,
             ..Default::default()
         };
-        let output_path = path.to_str().ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "visualization output path is not valid UTF-8",
-            )
-        })?;
-        renderer.render_analysis(&system, output_path, &rc, overlay)?;
+        renderer.render_analysis(&system, &path, &rc, overlay)?;
         println!("   ✓ {filename}");
     }
 

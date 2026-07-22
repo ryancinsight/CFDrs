@@ -15,6 +15,7 @@
 | **Provider-owned CSR execution** | 2026-07-10 | Leto is the CSR SpMV SSOT; CFDrs parallel flags had no behavioral effect | One `spmv`/`try_spmv` family; zero ignored execution flags | Breaking removal of inert compatibility APIs |
 | **Iris-owned color laws** | 2026-07-21 | `cfd-schematics` duplicated color formulas and rescanned field maps per rendered element | One direct `NamedColorMap` contract; linear range preprocessing; zero transient range allocations | Breaking overlay builders and field visibility |
 | **Hyperion-owned optical transport** | 2026-07-21 | `cfd-optim` evaluated a raw Beer-Lambert expression without the stack's validated optical types | One typed coefficient/path/optical-depth/transmission chain; zero duplicate production laws | CFDrs retains its empirical coefficient and hematocrit policy |
+| **Native schematic output paths** | 2026-07-22 | String-only renderer seams forced UTF-8 conversion at every filesystem boundary | Renderer traits borrow `Path`; public facades accept `AsRef<Path>`; sidecar naming stays in `OsStr` | Breaking change for external renderer-trait implementations |
 
 ## Architecture Overview
 
@@ -73,6 +74,28 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-22: Preserve native schematic output paths [major] [arch]
+
+**Context**: the renderer trait and plotting facade accepted output paths as
+`&str`. Native `PathBuf` callers therefore allocated lossy strings or asserted
+UTF-8 validity before filesystem I/O. The stale `codex/cfd-example-paths`
+branch had solved this boundary, but its long-lived base could not be replayed
+over current main without overwriting later example and PM work.
+
+**Decision**: renderer implementations borrow `&Path`; public plotting
+facades accept `impl AsRef<Path>` and borrow once at the operation boundary.
+Layout sidecar names derive from `OsStr`/`OsString`. Every in-tree renderer
+caller passes its existing path directly, with no compatibility overload.
+
+**Rejected alternative**: retaining `&str` and centralizing conversion still
+rejects or alters valid native paths. Adding parallel string and path methods
+would create two public operation families and preserve the obsolete contract.
+
+**Consequences**: literals and strings remain accepted by the borrow-generic
+facades without allocation, while renderer-trait implementors migrate to
+`&Path`. The trait signature change is intentionally breaking; all in-tree
+implementors and consumers migrate in this delivery.
 
 ### 2026-07-21: Hyperion owns 405-nm optical transport [patch] [arch]
 
