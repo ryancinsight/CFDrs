@@ -31,6 +31,24 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+- 2026-07-22 (resolved in CFD-BOOK-CLOSEOUT-1): the stale book commit expanded
+  source-backed chapter indexes with public types and behavioral contracts that
+  do not exist in CFDrs, and its SUMMARY linked directly to
+  `../../../parity_artefacts/INDEX.md`. mdBook treated that path as a source
+  page and overwrote tracked archive HTML outside the book on every build.
+  The fix-forward retains the twelve non-duplicated pages backed by real examples, restores
+  the expanded chapters to their prior source-grounded content, consolidates
+  linear-algebra parity on Leto Ops' analytical oracle, and routes archive
+  navigation through a local book page. Exact scans find no Rust definitions
+  for the rejected contracts (`NonDimParams`, `BoundaryKind`, `GhiaOracle`,
+  `ShearReport`, `ScreeningConfig`, `GiersiepenWurzinger`,
+  `HemolysisPath`, or `ParetoFront`). The parity HTML blob is byte-identical
+  before and after mdBook
+  (`85af4889c39f6d03d78b0dfceeb217f5d260efb5`). Evidence tier:
+  source-definition audit, cumulative-diff review, successful book rebuild,
+  documented example compilation, warning-denied Clippy, configured Nextest
+  177/177, and doctests 16/16.
+
 - 2026-07-22 (resolved in CFD-SCHEMATIC-PATH-1): the stale
   `codex/cfd-example-paths` branch contained a valid native-path boundary that
   never reached main. Current main still required ten lossy or fallible UTF-8

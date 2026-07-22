@@ -25,34 +25,25 @@ Every solver crate depends on `cfd-core` and `cfd-math`; geometry crates
 contracts — boundary conditions, time-stepping, state vectors — live in
 `cfd-core` and are referenced by example chapters throughout this book.
 
-## State Vector and Boundary Types
+## Boundary Conditions
 
-A CFDrs solver entry point looks like:
+`cfd-core` owns the generic `BoundaryCondition<T>` enum and the named
+`BoundaryConditionSet<T>` collection. Solver crates consume these contracts
+through their grid- or mesh-specific setup paths.
 
 ```rust
-use cfd_core::boundary::{Boundary, BoundaryKind};
-use cfd_core::state::StateVec;
-use cfd_2d::grid::StructuredGrid2D;
-use cfd_2d::physics::vorticity_stream::{VorticityStreamConfig, VorticityStreamSolver};
+use cfd_core::physics::boundary::{BoundaryCondition, BoundaryConditionSet};
+use leto::geometry::Vector3;
 
-let grid = StructuredGrid2D::<f64>::unit_square(41, 41)?;
-
-let mut state = StateVec::<f64, Ix2>::with_capacity(&grid)?;
-state.set_pressure(1.0)?;
-
-let boundaries = [
-    Boundary::new(BoundaryKind::Lid { velocity: 1.0 }),
-    Boundary::new(BoundaryKind::Wall),
-    Boundary::new(BoundaryKind::Wall),
-    Boundary::new(BoundaryKind::Wall),
-];
-
-let mut solver = VorticityStreamSolver::new(grid, boundaries, state)?;
-solver.run_until_steady(1e-6, 10000)?;
+let mut boundaries = BoundaryConditionSet::<f64>::new();
+boundaries
+    .add(
+        "inlet",
+        BoundaryCondition::velocity_inlet(Vector3::new(1.0, 0.0, 0.0)),
+    )
+    .add("walls", BoundaryCondition::wall_no_slip())
+    .add("outlet", BoundaryCondition::pressure_outlet(0.0));
 ```
-
-The `grid + boundaries + state` triple is the **canonical problem setup**.
-Every part of this book references one of those three components.
 
 ## The CFDrs Simulation Lifecycle
 
@@ -71,7 +62,7 @@ Every part of this book references one of those three components.
 ```
 
 - **Geometry → Mesh** is handled in `cfd-schematics` (CSG) and `cfd-{2,3}d/grid.rs`.
-- **Boundary wiring** lives in [`cfd_core::boundary`].
+- **Boundary contracts** live in [`cfd_core::physics::boundary`].
 - **Time stepping** is configurable per solver (`cfd-2d::time` /
   `cfd-3d::time` / adaptive in `cfd-2d::adaptive`).
 - **Posterior** means DVH-equivalent (cavitation risk, shear envelope,

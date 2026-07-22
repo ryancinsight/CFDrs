@@ -223,9 +223,10 @@ land cache-hot.
 **TileStreaming** (`leto`).  A trait with a GAT-based iterator
 that yields `&Tile<'a>` over an Atlas volume.
 
-**Typed Boundary**.  An Atlas boundary condition carried as a
-compile-time enum (`BoundaryKind::Lid`, `::Wall`, …) rather than
-runtime string tags.
+**Typed Boundary**. A CFD boundary condition carried by
+`cfd_core::physics::boundary::BoundaryCondition<T>` variants such as
+`VelocityInlet`, `PressureOutlet`, and `Wall`, rather than by runtime
+string tags.
 
 ## Z
 

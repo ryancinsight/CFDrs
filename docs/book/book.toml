@@ -17,6 +17,7 @@ build-dir = "../../target/book/cfdrs"
 create-missing = false
 
 [output.html]
+mathjax-support = true
 default-theme = "light"
 preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/ryancinsight/CFDrs"

@@ -34,4 +34,3 @@ cargo run -p cfd-2d --example blood_venturi
 cargo run -p cfd-1d --example schematic_demo_integration
 cargo run -p cfd-1d --example geometry_integration_demo
 ```
-

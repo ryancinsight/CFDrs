@@ -2,6 +2,19 @@
 
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
+- [x] CFD-BOOK-CLOSEOUT-1 [patch]: recover the stale book increment without
+      retaining fabricated API or performance claims.
+  - [x] Preserve twelve source-backed example pages and correct every source
+        link, Cargo target name, and behavioral summary.
+  - [x] Replace the false downstream parity narrative with Leto Ops' analytical
+        backward/forward-error contract and one canonical upstream owner.
+  - [x] Stop mdBook from traversing out of its source tree and overwriting the
+        tracked parity archive; prove byte identity across a rebuild.
+  - [x] Reconcile the lock with locked Cargo metadata, compile all documented
+        examples, pass warning-denied cfd-schematics Clippy, configured Nextest
+        (177/177), doctests (16/16), mdBook, locked metadata, and exact residue
+        checks. The shared target measured 2.98 GiB at closeout.
+
 - [x] CFD-SCHEMATIC-PATH-1 [major] [arch]: recover the unmerged native output-
       path boundary from `codex/cfd-example-paths` onto current main.
   - [x] Change the renderer seam from `&str` to `&Path`; keep public plotting
