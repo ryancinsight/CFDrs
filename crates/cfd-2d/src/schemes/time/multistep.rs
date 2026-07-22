@@ -103,9 +103,13 @@ where
         let t_next = t + dt;
         let coeff = two_thirds * dt;
 
+        // AUDIT: pre-allocate y_old once (see backward_euler). `mem::swap` is
+        // also wrong here -- f reads &y_next. Don't move the pre-allocate
+        // line back inside the loop -- that silently re-introduces clones.
+        let mut y_old = y_next.clone();
         // Fixed-point iteration: y^{k+1} = rhs + (2/3)h*f(t_{n+1}, y^k)
         for iter in 0..max_iter {
-            let y_old = y_next.clone();
+            y_old.assign(&y_next);
 
             // Evaluate f at current iterate
             let f_val = f(t_next, &y_next);
@@ -190,9 +194,13 @@ where
         let t_next = t + dt;
         let coeff = six_elevenths * dt;
 
+        // AUDIT: pre-allocate y_old once (see backward_euler). `mem::swap` is
+        // also wrong here -- f reads &y_next. Don't move the pre-allocate
+        // line back inside the loop -- that silently re-introduces clones.
+        let mut y_old = y_next.clone();
         // Fixed-point iteration: y^{k+1} = rhs + (6/11)h*f(t_{n+1}, y^k)
         for iter in 0..max_iter {
-            let y_old = y_next.clone();
+            y_old.assign(&y_next);
 
             // Evaluate f at current iterate
             let f_val = f(t_next, &y_next);

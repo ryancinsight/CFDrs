@@ -23,6 +23,21 @@ pub struct AdaptiveTimeIntegrator<T: Cfd2dScalar + Copy> {
 }
 
 impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
+    /// Update the y_prev buffer used by Richardson-extrapolation error estimators.
+    ///
+    /// AUDIT: allocates ONCE on the first call (when the `Option` is `None`),
+    /// then reuses the existing `Array1` buffer on every subsequent call via
+    /// in-place memcpy (`prev.assign(y)`). Saves 1 Vec-clone allocation per
+    /// call after the first. Functionally identical to a `mem::take +
+    /// copy_from_slice` pattern, just with a tighter API.
+    fn store_y_prev(&mut self, y: &StateVector<T>) {
+        if let Some(prev) = self.y_prev.as_mut() {
+            prev.assign(y);
+        } else {
+            self.y_prev = Some(y.clone());
+        }
+    }
+
     /// Create new adaptive time integrator
     pub fn new(scheme: super::super::TimeScheme, controller: AdaptiveController<T>) -> Self {
         let base_integrator = super::super::TimeIntegrator::new(scheme);
@@ -70,9 +85,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
         // For CFL-based adaptation, always accept the step
         // (CFL condition ensures stability)
         self.controller.steps_accepted += 1;
-
-        // Update previous solution
-        self.y_prev = Some(y.clone());
+        self.store_y_prev(y);
 
         (y_new, t + dt_optimal, dt_optimal, true)
     }
@@ -109,7 +122,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
                 self.controller.dt_current = dt_fallback;
                 self.controller.steps_rejected += 1;
                 self.controller.steps_accepted += 1;
-                self.y_prev = Some(y.clone());
+                self.store_y_prev(y);
                 return (y_fallback, t + dt_fallback, dt_fallback, true);
             }
 
@@ -137,7 +150,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
 
             if accepted {
                 // Step accepted
-                self.y_prev = Some(y.clone());
+                self.store_y_prev(y);
                 return (y_full, t + dt_current, new_dt, true);
             }
             // Step rejected - try again with smaller step
@@ -220,13 +233,12 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
                     * <T as FloatElement>::powf(
                         error_tolerance / error_estimate,
                         scalar::from_f64::<T>(1.0 / 4.0),
-                    );
-                self.controller.dt_current =
-                    <T as NumericElement>::min_scalar(dt_current * factor, self.controller.dt_max);
+                    );                    self.controller.dt_current =
+                        <T as NumericElement>::min_scalar(dt_current * factor, self.controller.dt_max);
 
-                self.y_prev = Some(y.clone());
-                return (y_full, t + dt_current, self.controller.dt_current, true);
-            }
+                    self.store_y_prev(y);
+                    return (y_full, t + dt_current, self.controller.dt_current, true);
+                }
 
             // Step rejected - reduce step size
             self.controller.steps_rejected += 1;

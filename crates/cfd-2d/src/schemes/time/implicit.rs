@@ -36,9 +36,16 @@ where
     let predictor = &f(t, y) * dt;
     let mut y_next = y + &predictor;
 
+    // AUDIT: pre-allocate y_old once outside the loop; `y_old.assign(&y_next)`
+    // inside the loop is a memcpy (saves ~99 of 100 Vec-allocs per fixed-point
+    // call). `mem::swap` would be wrong here -- `f(&y_next)` reads y_next, so
+    // swap would feed it stale pre_iter_{k-1} from iter 1 onward. Don't move
+    // the `let mut y_old = ...` line back inside the loop.
+    let mut y_old = y_next.clone();
+
     // Fixed-point iteration: y^{k+1} = y_n + dt*f(t_{n+1}, y^k)
     for iter in 0..max_iter {
-        let y_old = y_next.clone();
+        y_old.assign(&y_next);
 
         // Evaluate f at current iterate
         let f_val = f(t_next, &y_next);
@@ -90,9 +97,15 @@ where
     let explicit_predictor = &explicit_part * scalar::from_f64::<T>(TWO);
     let mut y_next: StateVector<T> = y + &explicit_predictor;
 
+    // AUDIT: pre-allocate y_old once (see backward_euler). `mem::swap` is also
+    // wrong here -- f reads &y_next, so swap would feed stale input from iter 1.
+    // Don't move the pre-allocate line back inside the loop -- that silently
+    // re-introduces per-iter clones.
+    let mut y_old = y_next.clone();
+
     // Fixed-point iteration: y^{k+1} = y_n + (dt/2)*(f(t_n, y_n) + f(t_{n+1}, y^k))
     for iter in 0..max_iter {
-        let y_old = y_next.clone();
+        y_old.assign(&y_next);
 
         // Implicit part: dt/2 * f(t_{n+1}, y^k)
         let implicit_part = &f(t_next, &y_next) * (dt * half);
