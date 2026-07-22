@@ -31,6 +31,17 @@
 
 ## Active integration
 
+- **CFD-HYPERION-OPTICAL-1 [patch] [arch] - Consolidate 405-nm transport on
+  Hyperion (IN PROGRESS; owner=`/root`; scope=`Cargo.toml`, `Cargo.lock`,
+  `cfd-optim` report metric/tests, PM artifacts).** Retain the empirical blood
+  coefficient, treatment-channel path selection, and hematocrit scaling in
+  CFDrs; move coefficient/path validation, optical-depth construction, and
+  Beer-Lambert transmission to Hyperion. Delete the raw production `exp(-mu L)`
+  expression without a wrapper or fallback. Acceptance: analytical zero-path,
+  hematocrit-policy, and finite-path consumer regressions; exact residue and
+  dependency-identity scans; locked cfd-optim check, Nextest, Clippy, doctest,
+  and Rustdoc gates.
+
 - **CFD-IRIS-COLOR-1 [major] [arch] - Consolidate schematic color laws on
   Iris (DONE; owner=Codex; scope=`cfd-schematics` analysis overlays/rendering,
   cfd-1d/cfd-2d/root examples, dependency lock, ADR and PM artifacts).**
