@@ -58,6 +58,16 @@ fn square_wave(phi: &mut Grid2D<f64>, amplitude: f64, width: f64, center: f64) {
     }
 }
 
+/// AUDIT: Reset a grid's data from another grid without re-allocating the
+/// underlying `Vec`. Used by `test_muscl3_vs_muscl2_accuracy` to avoid
+/// per-timestep Vec allocations when reseeding MUSCL buffers from the
+/// unchanging initial-condition `phi`.
+fn reset_grid_from(src: &Grid2DT<f64>, dst: &mut Grid2DT<f64>) {
+    let src_slice = src.data.as_slice().expect("src grid must be contiguous");
+    let dst_slice = dst.data.as_slice_mut().expect("dst grid must be contiguous");
+    dst_slice.copy_from_slice(src_slice);
+}
+
 /// Create linear advection exact solution
 fn exact_solution_advection(
     x: f64,
@@ -167,9 +177,17 @@ fn test_muscl3_vs_muscl2_accuracy() {
             // Evolve both schemes
             let dt = DX / velocity.abs() * 0.4; // CFL = 0.4
 
+            // AUDIT: pre-allocate MUSCL buffers once outside the timestep loop;
+            // reset their data from phi each timestep to avoid per-timestep
+            // Vec allocations. (Do not move the `create_test_grid()` calls
+            // inside the `_t` loop -- that would silently re-introduce the
+            // clone pattern this refactor removes.)
+            let mut phi_muscl2 = create_test_grid();
+            let mut phi_muscl3 = create_test_grid();
+
             for _t in 0..3 {
-                let mut phi_muscl2 = phi.clone();
-                let mut phi_muscl3 = phi.clone();
+                reset_grid_from(&phi, &mut phi_muscl2);
+                reset_grid_from(&phi, &mut phi_muscl3);
 
                 for _step in 0..10 {
                     for i in 0..NX - 1 {
