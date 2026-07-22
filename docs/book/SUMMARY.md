@@ -58,9 +58,24 @@
   - [Example: mesh_3d_integration](examples/mesh_3d_integration.md)
   - [Example: dimension_scenarios_plots](examples/dimension_scenarios_plots.md)
 
-# Part VII — Performance and Atlas Integration
+# Part VII — Atlas Stack Integration (Migration Reference)
 
-- [SIMD, GPU, and Backend Migration](performance_and_atlas.md)
+The Atlas stack — eunomia / leto / hermes-simd / mnemosyne / themis /
+moirai / apollo / coeus / hephaestus / ritk — is the unified replacement
+for `ndarray`/`nalgebra`/`tokio`/`rayon`/`rustfft`/etc.  This part
+documents the CFDrs migration to Atlas.
+
+- [Performance and Atlas Integration Overview](performance_and_atlas.md)
+- [Migration Overview: ndarray/nalgebra → Atlas](migration_overview.md)
+- [Eunomia: Numeric Trait Unification](migration_eunomia.md)
+- [Leto: Arrays and Linear Algebra](migration_arrays.md)
+- [Leto: Geometry — Points, Vectors, Isometries](migration_geometry.md)
+- [Hermes: SIMD Lanes and Vectorized Kernels](migration_simd.md)
+- [Mnemosyne and Themis: Memory](migration_memory.md)
+- [Moirai: Concurrency](migration_concurrency.md)
+- [Apollo: FFT and Spectral Methods](migration_fft.md)
+- [Leto: GAT-Based Tiling and Lending Iterators](migration_gat_tiles.md)
+- [Migration Validation: Legacy ↔ Atlas Parity](migration_validation.md)
   - [Example: simd_performance_benchmark](examples/simd_performance_benchmark.md)
   - [Example: gpu_detection](examples/gpu_detection.md)
   - [Example: spectral_performance](examples/spectral_performance.md)
@@ -115,3 +130,6 @@
 
 - [Atlas Crate Dependency Map](appendix_dependencies.md)
 - [Migration Notes: ndarray/nalgebra/burn → leto/hephaestus/coeus](appendix_migration.md)
+- [Atlas Glossary](appendix_glossary.md)
+- [Changelog](appendix_changelog.md)
+- [Book Organization Forward Roadmap](BOOK_ORGANIZATION.md)
