@@ -18,6 +18,7 @@ create-missing = false
 
 [output.html]
 mathjax-support = true
+site-url = "/CFDrs/"
 default-theme = "light"
 preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/ryancinsight/CFDrs"
