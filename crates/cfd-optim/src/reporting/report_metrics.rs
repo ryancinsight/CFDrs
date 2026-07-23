@@ -1,9 +1,12 @@
-use aequitas::systems::si::quantities::{Length, ReciprocalLength};
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, Length, Power, Pressure, ReciprocalLength, ReciprocalTime, Time, Velocity,
+    VolumetricFlowRate,
+};
 use cfd_1d::{
-    acoustic_contrast_factor, acoustic_energy_density, cavitation_amplified_hi,
-    cavitation_hemolysis_amplification, giersiepen_hi, sonosensitizer_activation_efficiency,
     KAPPA_CTC, KAPPA_PLASMA, KAPPA_RBC, RHO_CTC, RHO_PLASMA, RHO_RBC,
-    SENSITIZER_K_ACT_HEMATOPORPHYRIN,
+    SENSITIZER_K_ACT_HEMATOPORPHYRIN, acoustic_contrast_factor, acoustic_energy_density,
+    cavitation_amplified_hi, cavitation_hemolysis_amplification, giersiepen_hi,
+    sonosensitizer_activation_efficiency,
 };
 use cfd_schematics::topology::TreatmentActuationMode;
 use hyperion::{
@@ -17,24 +20,25 @@ use super::report_math::{
 };
 use crate::constraints::{
     BLOOD_ATTENUATION_405NM_INV_M, BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA,
-    BLOOD_VISCOSITY_PA_S, BUBBLE_POLYTROPIC_K, CLOTTING_BFR_CAUTION_ML_MIN,
+    BLOOD_VISCOSITY_PA_S, BUBBLE_POLYTROPIC_K, C_P_BLOOD_J_KG_K, CLOTTING_BFR_CAUTION_ML_MIN,
     CLOTTING_BFR_HIGH_RISK_ML_MIN, CLOTTING_BFR_LOW_RISK_ML_MIN, CLOTTING_BFR_STRICT_10MLS_ML_MIN,
     CLOTTING_RESIDENCE_HIGH_RISK_S, CLOTTING_RESIDENCE_LOW_RISK_S, CLOTTING_SHEAR_HIGH_RISK_INV_S,
-    CLOTTING_SHEAR_LOW_RISK_INV_S, C_P_BLOOD_J_KG_K, DEAD_VOLUME_SHEAR_THRESHOLD_INV_S,
-    EXPANSION_RATIO_LOW_RISK, FDA_MAX_WALL_SHEAR_PA, FDA_THROAT_TEMP_RISE_LIMIT_K,
-    FDA_TRANSIENT_SHEAR_PA, FDA_TRANSIENT_TIME_S, MILESTONE_TREATMENT_DURATION_MIN,
-    PATIENT_BLOOD_VOLUME_ML, PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_FLOW_CAUTION_ML_MIN,
+    CLOTTING_SHEAR_LOW_RISK_INV_S, DEAD_VOLUME_SHEAR_THRESHOLD_INV_S, EXPANSION_RATIO_LOW_RISK,
+    FDA_MAX_WALL_SHEAR_PA, FDA_THROAT_TEMP_RISE_LIMIT_K, FDA_TRANSIENT_SHEAR_PA,
+    FDA_TRANSIENT_TIME_S, MILESTONE_TREATMENT_DURATION_MIN, P_ATM_PA, PATIENT_BLOOD_VOLUME_ML,
+    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_FLOW_CAUTION_ML_MIN,
     PEDIATRIC_FLOW_EXCESSIVE_ML_MIN, PEDIATRIC_REFERENCE_WEIGHT_KG, PLATE_HEIGHT_MM,
-    PLATE_WIDTH_MM, P_ATM_PA, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
-    VENTURI_EXPANSION_RATIO_HIGH_RISK, VENTURI_VEL_RATIO_REF,
+    PLATE_WIDTH_MM, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF, VENTURI_EXPANSION_RATIO_HIGH_RISK,
+    VENTURI_VEL_RATIO_REF,
 };
 use crate::domain::BlueprintCandidate;
 use crate::error::OptimError;
 use crate::metrics::{
-    compute_blueprint_safety_metrics, compute_blueprint_separation_metrics,
-    compute_blueprint_venturi_metrics, compute_residence_metrics,
+    ChannelHemolysis, SdtMetrics, compute_blueprint_safety_metrics,
+    compute_blueprint_separation_metrics, compute_blueprint_venturi_metrics,
+    compute_residence_metrics,
     healthy_cell_protection_index as compute_healthy_cell_protection_index,
-    solve_blueprint_candidate, ChannelHemolysis, SdtMetrics,
+    solve_blueprint_candidate,
 };
 
 fn cavitation_strength_from_sigma(cavitation_number: f64) -> f64 {
@@ -52,6 +56,13 @@ fn blue_light_delivery_index(
     let path = PathLength::new(Length::from_base(optical_path_length_m))?;
     let transmission = attenuation.optical_depth(path)?.transmission();
     Ok(transmission.into_quantity().into_base())
+}
+
+fn mechanical_power(pressure_drop_pa: f64, flow_rate_m3_s: f64) -> f64 {
+    let pressure = Pressure::from_base(pressure_drop_pa);
+    let flow_rate = VolumetricFlowRate::from_base(flow_rate_m3_s);
+    let power: Power = pressure * flow_rate;
+    power.into_base()
 }
 
 /// Compute the full set of report-grade SDT metrics for a single blueprint candidate.
@@ -113,7 +124,8 @@ pub fn compute_blueprint_report_metrics(
     let mut metrics = SdtMetrics::default();
     let flow_rate_m3_s = candidate.operating_point.flow_rate_m3_s.max(1.0e-18);
     let flow_rate_ml_min = flow_rate_m3_s * 6.0e7;
-    let total_volume_m3 = solve.mean_residence_time_s * flow_rate_m3_s;
+    let flow_rate = VolumetricFlowRate::from_base(flow_rate_m3_s);
+    let total_volume_m3 = (Time::from_base(solve.mean_residence_time_s) * flow_rate).into_base();
     let total_path_length_mm = solve
         .channel_samples
         .iter()
@@ -172,8 +184,12 @@ pub fn compute_blueprint_report_metrics(
         let area_m2 = sample.cross_section.area().max(1.0e-18);
         let velocity_m_s = sample.flow_m3_s.abs() / area_m2;
         let shear_rate_inv_s = sample.cross_section.wall_shear_rate(velocity_m_s);
-        let shear_pa = BLOOD_VISCOSITY_PA_S * shear_rate_inv_s;
-        let transit_time_s = sample.length_m / velocity_m_s.max(1.0e-18);
+        let shear = DynamicViscosity::from_base(BLOOD_VISCOSITY_PA_S)
+            * ReciprocalTime::from_base(shear_rate_inv_s);
+        let shear_pa = shear.into_base();
+        let transit_time =
+            Length::from_base(sample.length_m) / Velocity::from_base(velocity_m_s.max(1.0e-18));
+        let transit_time_s = transit_time.into_base();
         let flow_fraction = (sample.flow_m3_s.abs() / flow_rate_m3_s).clamp(0.0, 1.0);
         let local_cavitation = venturi
             .placements
@@ -524,7 +540,7 @@ pub fn compute_blueprint_report_metrics(
     metrics.wall_shear_cv = wall_shear_cv;
     metrics.fda_shear_percentile_compliant =
         wall_shear_p95_pa <= FDA_MAX_WALL_SHEAR_PA && wall_shear_p99_pa <= FDA_TRANSIENT_SHEAR_PA;
-    metrics.mechanical_power_w = safety.pressure_drop_pa * flow_rate_m3_s;
+    metrics.mechanical_power_w = mechanical_power(safety.pressure_drop_pa, flow_rate_m3_s);
     metrics.acoustic_capture_efficiency =
         (cavitation_potential * (safety.max_venturi_shear_pa / P_ATM_PA)).clamp(0.0, 1.0);
     metrics.specific_cavitation_energy_j_ml = if flow_rate_ml_min > 1.0e-18 {
@@ -884,5 +900,10 @@ mod tests {
             metrics.cancer_dose_fraction, 0.0,
             "zero cavitation intensity must not inject cancer dose"
         );
+    }
+
+    #[test]
+    fn mechanical_power_composes_pressure_and_volumetric_flow() {
+        assert_eq!(mechanical_power(12.0, 0.5).to_bits(), 6.0_f64.to_bits());
     }
 }
