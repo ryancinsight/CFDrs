@@ -273,7 +273,7 @@ mod tests {
         // Ca ≈ 0.001 * 1.0 / 0.035 ≈ 0.029
         let ca = capillary_number(MU_WATER, 1.0, SIGMA_WATER_OIL)?;
         assert!(
-            ca >= 0.01 && ca < 0.1,
+            (0.01..0.1).contains(&ca),
             "Ca={ca:.6} should be in dripping range [0.01, 0.1)"
         );
         assert_eq!(classify_regime(ca)?, FlowRegime::Dripping);
@@ -285,7 +285,7 @@ mod tests {
     fn fast_flow_jetting() -> Result<()> {
         let ca = capillary_number(MU_WATER, 5.0, SIGMA_WATER_OIL)?;
         assert!(
-            ca >= 0.1 && ca < 1.0,
+            (0.1..1.0).contains(&ca),
             "Ca={ca:.6} should be in jetting range [0.1, 1.0)"
         );
         assert_eq!(classify_regime(ca)?, FlowRegime::Jetting);

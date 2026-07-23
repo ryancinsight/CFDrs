@@ -864,7 +864,7 @@ mod tests {
         );
         eprintln!("  RBC center fraction:     {:.2}%", rbc_center * 100.0);
         eprintln!("  Separation efficiency:   {:.4}", r.separation_efficiency);
-        eprintln!("  CTC/RBC enrichment:      {:.4}×", enrichment);
+        eprintln!("  CTC/RBC enrichment:      {enrichment:.4}×");
         eprintln!(
             "  Center HCT ratio:        {:.4}",
             r.center_hematocrit_ratio
@@ -940,7 +940,7 @@ mod tests {
             r_high.rbc_peripheral_fraction * 100.0
         );
         eprintln!("  RBC center fraction:     {:.2}%", rbc_center * 100.0);
-        eprintln!("  CTC/RBC enrichment:      {:.4}×", enrichment);
+        eprintln!("  CTC/RBC enrichment:      {enrichment:.4}×");
     }
 
     #[test]

@@ -920,7 +920,7 @@ mod tests {
             channel_height_m,
         );
 
-        for (actual, expected) in actual.into_iter().zip(expected.into_iter()) {
+        for (actual, expected) in actual.into_iter().zip(expected) {
             assert!(
                 (actual - expected).abs() < 2.0e-5,
                 "negligible minor-loss limit should recover the rectangular conductance split to within the residual junction term: actual={actual}, expected={expected}"

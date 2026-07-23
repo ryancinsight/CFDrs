@@ -128,9 +128,7 @@ mod tests {
         let k_expected = (K0 + K_INF * sqrt_r) / (1.0 + sqrt_r);
         assert!(
             (k_expected - K_INF).abs() < 0.15,
-            "At high shear, k = {:.4} should approach k_∞ = {:.4}",
-            k_expected,
-            K_INF
+            "At high shear, k = {k_expected:.4} should approach k_∞ = {K_INF:.4}"
         );
 
         // Viscosity should be finite and above plasma
@@ -146,9 +144,7 @@ mod tests {
 
         assert!(
             mu_low > mu_high,
-            "Low-shear viscosity ({:.6} Pa·s) should exceed high-shear ({:.6} Pa·s) due to rouleaux",
-            mu_low,
-            mu_high
+            "Low-shear viscosity ({mu_low:.6} Pa·s) should exceed high-shear ({mu_high:.6} Pa·s) due to rouleaux"
         );
     }
 
@@ -158,9 +154,7 @@ mod tests {
         let mu = quemada_viscosity(10.0, 0.0, MU_PLASMA);
         assert!(
             (mu - MU_PLASMA).abs() < 1e-15,
-            "Zero hematocrit viscosity ({:.10}) should equal plasma viscosity ({:.10})",
-            mu,
-            MU_PLASMA
+            "Zero hematocrit viscosity ({mu:.10}) should equal plasma viscosity ({MU_PLASMA:.10})"
         );
     }
 
@@ -197,10 +191,7 @@ mod tests {
 
         assert!(
             mu_low < mu_mid && mu_mid < mu_high,
-            "Viscosity should increase with hematocrit: {:.6} < {:.6} < {:.6}",
-            mu_low,
-            mu_mid,
-            mu_high
+            "Viscosity should increase with hematocrit: {mu_low:.6} < {mu_mid:.6} < {mu_high:.6}"
         );
     }
 

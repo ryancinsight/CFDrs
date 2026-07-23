@@ -172,7 +172,7 @@ fn test_nan_resistance_does_not_panic() {
         Err(_) => {} // Graceful rejection
         Ok(solved) => {
             // Solver ran; check either NaN propagated or flow is trivially zero/nan
-            let pressures: Vec<f64> = solved.pressures().iter().copied().collect();
+            let pressures: Vec<f64> = solved.pressures().to_vec();
             let flows: Vec<f64> = solved
                 .graph
                 .edge_references()

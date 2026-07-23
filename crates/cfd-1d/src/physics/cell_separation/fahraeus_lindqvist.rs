@@ -164,8 +164,7 @@ mod tests {
         let eta_rel = mu / MU_PLASMA;
         assert!(
             eta_rel > 2.0 && eta_rel < 5.0,
-            "Large vessel eta_rel = {:.3} should be ~3-4 (bulk)",
-            eta_rel
+            "Large vessel eta_rel = {eta_rel:.3} should be ~3-4 (bulk)"
         );
     }
 
@@ -178,9 +177,7 @@ mod tests {
 
         assert!(
             mu_micro < mu_bulk,
-            "Microchannel viscosity ({:.4} Pa·s) should be less than bulk ({:.4} Pa·s)",
-            mu_micro,
-            mu_bulk,
+            "Microchannel viscosity ({mu_micro:.4} Pa·s) should be less than bulk ({mu_bulk:.4} Pa·s)",
         );
     }
 
@@ -199,26 +196,21 @@ mod tests {
         // All values should be finite and above plasma viscosity
         assert!(
             mu_7.is_finite() && mu_7 > MU_PLASMA,
-            "Viscosity at 7 µm ({:.6}) should be finite and > plasma",
-            mu_7,
+            "Viscosity at 7 µm ({mu_7:.6}) should be finite and > plasma",
         );
 
         // D=30 µm (in the FL minimum region) should have lower viscosity
         // than D=200 µm (approaching bulk), demonstrating the FL effect.
         assert!(
             mu_30 < mu_200,
-            "Viscosity at 30 µm ({:.6}) should be less than at 200 µm ({:.6}) — FL effect",
-            mu_30,
-            mu_200,
+            "Viscosity at 30 µm ({mu_30:.6}) should be less than at 200 µm ({mu_200:.6}) — FL effect",
         );
 
         // D=7 µm should have higher viscosity than D=30 µm (rise at very
         // small diameters due to near-occlusion / single-file effects).
         assert!(
             mu_7 > mu_30,
-            "Viscosity at 7 µm ({:.6}) should exceed 30 µm ({:.6}) — near-occlusion rise",
-            mu_7,
-            mu_30,
+            "Viscosity at 7 µm ({mu_7:.6}) should exceed 30 µm ({mu_30:.6}) — near-occlusion rise",
         );
     }
 
@@ -233,10 +225,7 @@ mod tests {
 
         assert!(
             mu_low < mu_mid && mu_mid < mu_high,
-            "Viscosity should increase with hematocrit: {:.4} < {:.4} < {:.4}",
-            mu_low,
-            mu_mid,
-            mu_high
+            "Viscosity should increase with hematocrit: {mu_low:.4} < {mu_mid:.4} < {mu_high:.4}"
         );
     }
 
@@ -247,8 +236,7 @@ mod tests {
         let eta_rel = mu / MU_PLASMA;
         assert!(
             (eta_rel - 1.0).abs() < 0.01,
-            "Zero hematocrit eta_rel = {:.4} should be ~1.0",
-            eta_rel
+            "Zero hematocrit eta_rel = {eta_rel:.4} should be ~1.0"
         );
     }
 
@@ -269,10 +257,7 @@ mod tests {
         let rel_diff = (mu_secomb - mu_pries).abs() / mu_pries;
         assert!(
             rel_diff < 0.05,
-            "Secomb ({:.6}) and Pries ({:.6}) should agree for large vessels, rel_diff = {:.4}",
-            mu_secomb,
-            mu_pries,
-            rel_diff
+            "Secomb ({mu_secomb:.6}) and Pries ({mu_pries:.6}) should agree for large vessels, rel_diff = {rel_diff:.4}"
         );
     }
 
@@ -285,9 +270,7 @@ mod tests {
 
         assert!(
             mu_micro < mu_bulk,
-            "Secomb microchannel viscosity ({:.6}) should be < bulk ({:.6})",
-            mu_micro,
-            mu_bulk
+            "Secomb microchannel viscosity ({mu_micro:.6}) should be < bulk ({mu_bulk:.6})"
         );
     }
 
@@ -301,10 +284,7 @@ mod tests {
 
         assert!(
             x0_small > x0_medium && x0_medium > x0_large,
-            "X₀ should decrease with diameter: {:.6} > {:.6} > {:.6}",
-            x0_small,
-            x0_medium,
-            x0_large
+            "X₀ should decrease with diameter: {x0_small:.6} > {x0_medium:.6} > {x0_large:.6}"
         );
         Ok(())
     }
@@ -320,10 +300,7 @@ mod tests {
 
         assert!(
             mu_low < mu_mid && mu_mid < mu_high,
-            "Secomb viscosity should increase with hematocrit: {:.6} < {:.6} < {:.6}",
-            mu_low,
-            mu_mid,
-            mu_high
+            "Secomb viscosity should increase with hematocrit: {mu_low:.6} < {mu_mid:.6} < {mu_high:.6}"
         );
     }
 }

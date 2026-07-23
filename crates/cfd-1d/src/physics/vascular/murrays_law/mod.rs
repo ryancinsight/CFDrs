@@ -114,8 +114,7 @@ mod tests {
         let deviation = murray.deviation(d0, d1, d2);
         assert!(
             deviation > 0.0 && deviation < 0.2,
-            "Deviation {} should be positive but small",
-            deviation
+            "Deviation {deviation} should be positive but small"
         );
     }
 
@@ -231,9 +230,7 @@ mod tests {
             let m = non_newtonian_flow_split_exponent(n);
             assert!(
                 m > 0.0,
-                "Exponent must be positive for n={}, got m={}",
-                n,
-                m
+                "Exponent must be positive for n={n}, got m={m}"
             );
         }
     }
