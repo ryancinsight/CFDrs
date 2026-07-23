@@ -31,6 +31,15 @@
 
 ## Active integration
 
+- **CFD-BOOK-PAGES-1 [patch] - Publish the source-backed mdBook through
+  GitHub Pages (IN-PROGRESS; owner=Codex; scope=`.github/workflows/book-pages.yml`,
+  `docs/book/book.toml`, `README.md`, and PM artifacts).** Build the existing
+  mdBook source with the pinned mdBook release and deploy the generated static
+  site through the repository-owned GitHub Pages environment. Acceptance:
+  the workflow builds `docs/book`, uploads the configured output directory,
+  deploys only from `main`, and the project-site base path is declared in
+  `book.toml`.
+
 - **CFD-BOOK-CLOSEOUT-1 [patch] - Recover source-backed book content
   (DONE; owner=Codex; scope=book navigation/example pages, linear-algebra
   parity report, lockfile, and PM artifacts).** Retain the twelve real
