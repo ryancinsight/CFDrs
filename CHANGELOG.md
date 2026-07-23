@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Atlas-native memory boundary**: `cfd-math::DirectSparseSolver` now passes
+  its native `leto::Array1` view to `leto_ops::SparseLuSolver::solve_view` and
+  returns the provider-owned `Array1` result directly. This removes the
+  consumer-side RHS `Vec` staging and result copy without changing LU,
+  fallback, finiteness, or scalar contracts.
+
 - Recovered the mdBook example index with source-linked pages for twelve
   shipped examples, corrected their Cargo target names and behavior summaries,
   and consolidated the linear-algebra parity narrative on the analytical Leto

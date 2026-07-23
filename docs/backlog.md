@@ -1,5 +1,45 @@
 # CFD Suite Backlog
 
+## Sprint 1.96.167: cfd-math native sparse-LU result ownership
+**Status**: Completed
+**Owner**: Codex `/root`
+**Change Class**: [minor] provider API + [patch] consumer allocation removal
+**Start Date**: July 22, 2026
+
+### Scope
+- Consume `leto_ops::SparseLuSolver::solve_view` from the direct solver.
+- Remove the consumer-owned RHS `Vec` staging and solution `Vec` to `Array1`
+  copy while preserving the existing fallback and finiteness contracts.
+- Synchronize the direct-solver tests, Rustdoc, changelog, and gap evidence.
+
+### Non-Goals
+- No change to dense-backed LU arithmetic, sparse storage, pivot policy,
+  fallback thresholds, or the legacy provider slice API.
+- No broad solver-family migration in this increment.
+
+### Acceptance and Verification
+- `DirectSparseSolver::solve` passes `rhs.view()` and returns the provider's
+  owned `Array1` result on the primary path.
+- Existing small-system, singular-input, dense-fallback, and generic scalar
+  value tests pass through the configured native test runner.
+- Format, warning-denied check/Clippy, focused Nextest, doctest, Rustdoc, and
+  public provider API SemVer checks pass on the exact delivered revisions.
+
+### Claimed Files
+`crates/cfd-math/src/linear_solver/direct_solver.rs`, its focused tests, and
+the corresponding `docs/{backlog,checklist,gap_audit}.md` plus `CHANGELOG.md`.
+
+### Current Evidence
+- Provider `leto-ops` check, warning-denied all-target Clippy, sparse Nextest
+  (29/29), doctests (8/8), and Rustdoc pass against the local provider source.
+- Consumer `cfd-math` check, lib Clippy, direct-solver Nextest (4/4), doctest,
+  and Rustdoc pass. The package fmt check reports six pre-existing import-order
+  diffs outside the claimed file; the touched direct-solver file passes
+  standalone rustfmt.
+- Provider public-surface SemVer classification passes 196/196 checks with
+  57 skips, and the consumer pin is updated to merged Leto commit
+  `b24fc860864abad84af3118aa2bb27c32bb81265`.
+
 ## Sprint 1.96.166: cfd-math IncompleteCholesky Leto CSR
 **Status**: Completed
 **Start Date**: July 5, 2026

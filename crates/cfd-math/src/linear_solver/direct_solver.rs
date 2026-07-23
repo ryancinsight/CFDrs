@@ -3,7 +3,8 @@
 //! Uses [`leto_ops::SparseLuSolver`] — the atlas-native sparse direct solver
 //! backed by dense partial-pivoting LU — for systems up to `max_size`. The
 //! dense LU path in `leto-ops` serves as both the primary sparse solver and
-//! the fallback, eliminating the external `rsparse` dependency.
+//! the fallback, eliminating the external `rsparse` dependency. The primary
+//! path preserves native Leto array ownership across the provider boundary.
 //!
 //! # Theorem — LU Factorisation Uniqueness
 //!
@@ -72,16 +73,10 @@ impl DirectSparseSolver {
             pivot_tolerance: self.pivot_tolerance,
         };
 
-        let rhs_slice: Vec<T> = rhs.iter().copied().collect();
-
-        match atlas_solver.solve(matrix, &rhs_slice) {
+        match atlas_solver.solve_view(matrix, &rhs.view()) {
             Ok(solution) => {
-                let mut x = Array1::from_elem([nrows], <T as NumericElement>::ZERO);
-                for (i, value) in solution.into_iter().enumerate() {
-                    x[i] = value;
-                }
-                Self::ensure_finite_solution(&x)?;
-                Ok(x)
+                Self::ensure_finite_solution(&solution)?;
+                Ok(solution)
             }
             Err(e) => {
                 let sparse_error = e.to_string();

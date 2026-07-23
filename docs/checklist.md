@@ -1,3 +1,23 @@
+# Sprint 1.96.167 Checklist: cfd-math native sparse-LU result ownership
+**Goal**: Consume the provider-owned native array view/result boundary from
+the direct solver without redundant consumer-side allocations.
+
+**Success Criteria**:
+- [x] `direct_solver.rs` passes `rhs.view()` to `SparseLuSolver::solve_view`.
+- [x] The primary path returns the provider-owned `Array1` directly.
+- [x] Existing positive, singular, fallback, and generic scalar value tests
+      pass without weakening assertions.
+- [x] Direct-solver Rustdoc, changelog, and gap evidence describe the native
+      ownership boundary and its evidence limits.
+- [x] Focused format, check, warning-denied Clippy, Nextest, doctest, and
+      Rustdoc gates pass.
+
+**Closure**: Leto PR #70 is merged at
+`b24fc860864abad84af3118aa2bb27c32bb81265`; the `CFDrs` manifest pin and
+locked consumer gates now use that exact provider revision.
+
+---
+
 # Sprint 1.96.166 Checklist: cfd-math IncompleteCholesky Leto CSR
 **Goal**: Move IncompleteCholesky construction and factors to Leto CSR.
 
