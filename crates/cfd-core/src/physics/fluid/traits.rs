@@ -5,6 +5,10 @@
 
 use crate::error::Error;
 use crate::physics::fluid::thermophysical;
+use aequitas::systems::si::quantities::{
+    Dimensionless, DynamicViscosity, Length, MassDensity, SpecificHeatCapacity,
+    ThermalConductivity, Velocity,
+};
 use eunomia::NumericElement;
 use eunomia::RealField;
 
@@ -27,13 +31,20 @@ impl<T: RealField + NumericElement + Copy> FluidState<T> {
     /// Calculate kinematic viscosity [m²/s]
     #[inline]
     pub fn kinematic_viscosity(&self) -> T {
-        self.dynamic_viscosity / self.density
+        let dynamic_viscosity = DynamicViscosity::from_base(self.dynamic_viscosity);
+        let density = MassDensity::from_base(self.density);
+        let kinematic = dynamic_viscosity / density;
+        kinematic.into_base()
     }
 
     /// Calculate Prandtl number
     #[inline]
     pub fn prandtl_number(&self) -> T {
-        self.dynamic_viscosity * self.specific_heat / self.thermal_conductivity
+        let dynamic_viscosity = DynamicViscosity::from_base(self.dynamic_viscosity);
+        let specific_heat = SpecificHeatCapacity::from_base(self.specific_heat);
+        let thermal_conductivity = ThermalConductivity::from_base(self.thermal_conductivity);
+        let prandtl: Dimensionless<T> = dynamic_viscosity * specific_heat / thermal_conductivity;
+        prandtl.into_base()
     }
 
     /// Calculate thermal diffusivity [m²/s]
@@ -54,7 +65,12 @@ impl<T: RealField + NumericElement + Copy> FluidState<T> {
     /// Calculate Reynolds number
     #[inline]
     pub fn reynolds_number(&self, velocity: T, length: T) -> T {
-        self.density * velocity * length / self.dynamic_viscosity
+        let density = MassDensity::from_base(self.density);
+        let velocity = Velocity::from_base(velocity);
+        let length = Length::from_base(length);
+        let dynamic_viscosity = DynamicViscosity::from_base(self.dynamic_viscosity);
+        let reynolds: Dimensionless<T> = density * velocity * length / dynamic_viscosity;
+        reynolds.into_base()
     }
 
     /// Calculate Peclet number
@@ -176,3 +192,29 @@ pub trait CompressibleFluid<T: RealField + Copy>: Fluid<T> {
 }
 
 // Note: Individual types must implement the domains trait explicitly to avoid conflicts
+
+#[cfg(test)]
+mod tests {
+    use super::FluidState;
+
+    #[test]
+    fn typed_fluid_numbers_preserve_dimensionless_oracles() {
+        let state = FluidState {
+            density: 1_000.0_f64,
+            dynamic_viscosity: 0.004,
+            specific_heat: 4_000.0,
+            thermal_conductivity: 0.6,
+            speed_of_sound: 1_500.0,
+        };
+
+        assert_eq!(state.kinematic_viscosity().to_bits(), 4.0e-6_f64.to_bits());
+        assert_eq!(
+            state.prandtl_number().to_bits(),
+            (0.004_f64 * 4_000.0 / 0.6).to_bits()
+        );
+        assert_eq!(
+            state.reynolds_number(0.2, 0.01).to_bits(),
+            (1_000.0_f64 * 0.2 * 0.01 / 0.004).to_bits()
+        );
+    }
+}

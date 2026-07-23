@@ -170,11 +170,13 @@ fn test_pressure_driven_channel_positive_x_velocity() {
                     .vertices
                     .get(VertexId::from_usize(node_idx))
                     .position;
-                if (p.x - 0.5).abs() < 0.3 && (p.y - 0.5).abs() < 0.3 && (p.z - 0.5).abs() < 0.3 {
-                    if sol.velocity[node_idx * 3] > 0.0 {
-                        found_positive = true;
-                        break;
-                    }
+                if (p.x - 0.5).abs() < 0.3
+                    && (p.y - 0.5).abs() < 0.3
+                    && (p.z - 0.5).abs() < 0.3
+                    && sol.velocity[node_idx * 3] > 0.0
+                {
+                    found_positive = true;
+                    break;
                 }
             }
             assert!(

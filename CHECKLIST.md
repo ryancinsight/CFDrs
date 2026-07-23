@@ -2,6 +2,10 @@
 
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
+- [x] CFD-AEQUITAS-FLUID-ACOUSTIC-1 [patch]: route `cfd-core` fluid-number
+      equations and `cfd-3d` cascade inlet flow through Aequitas quantities;
+      typed provider tests and locked package checks pass.
+
 - [x] CFD-BOOK-PAGES-1 [patch]: add the repository-owned mdBook GitHub Pages
       workflow, declare the `/CFDrs/` project-site base path, and link the
       published book from the repository README. Local mdBook build and
