@@ -468,6 +468,7 @@ dependencies = [
 name = "cfd-3d"
 version = "0.3.0"
 dependencies = [
+ "aequitas",
  "anyhow",
  "apollo-fft",
  "apollo-nufft",

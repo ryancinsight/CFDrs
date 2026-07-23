@@ -34,6 +34,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Aequitas fluid dimensions**: `cfd-core` now evaluates kinematic
+  viscosity, Prandtl number, and Reynolds number through typed SI quantities;
+  `cfd-3d` computes cascade inlet velocity from typed volumetric flow and
+  area before crossing into the FEM scalar boundary.
+
 - **Atlas-native memory boundary**: `cfd-math::DirectSparseSolver` now passes
   its native `leto::Array1` view to `leto_ops::SparseLuSolver::solve_view` and
   returns the provider-owned `Array1` result directly. This removes the

@@ -17,6 +17,7 @@ cfd-mesh = { workspace = true, features = ["cfdrs-integration"] }
 cfd-io.workspace = true
 apollo-fft.workspace = true
 apollo-nufft.workspace = true
+aequitas.workspace = true
 leto.workspace = true
 leto-ops.workspace = true
 eunomia.workspace = true

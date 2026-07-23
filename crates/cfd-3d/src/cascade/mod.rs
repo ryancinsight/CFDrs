@@ -47,6 +47,7 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
+use aequitas::systems::si::quantities::{Area, VolumetricFlowRate, Velocity};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
@@ -276,8 +277,10 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         }
 
         // 2. Compute inlet velocity from flow rate.
-        let inlet_area = spec.width * spec.height;
-        let u_inlet = spec.flow_rate_m3_s / inlet_area;
+        let inlet_area = Area::from_base(spec.width * spec.height);
+        let flow_rate = VolumetricFlowRate::from_base(spec.flow_rate_m3_s);
+        let inlet_velocity: Velocity = flow_rate / inlet_area;
+        let u_inlet = inlet_velocity.into_base();
 
         // 3. Assign boundary conditions.
         let mut boundary_conditions: HashMap<usize, BoundaryCondition<f64>> = HashMap::new();
