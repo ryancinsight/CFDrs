@@ -31,14 +31,14 @@ use leto::{Array1, Vector3};
 use tracing;
 
 use crate::fem::leto_bridge::build_with_vector_rhs;
-use crate::linalg::{
-    array1_copy, array1_l2_norm, array1_len, array1_subarray, matrix3_determinant,
-    matrix3_from_columns, matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed,
-};
 use crate::fem::mid_node_cache::MidNodeCache;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::{scalar, FemConfig, StokesFlowProblem, StokesFlowSolution};
+use crate::linalg::{
+    array1_copy, array1_l2_norm, array1_len, array1_subarray, matrix3_determinant,
+    matrix3_from_columns, matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed,
+};
 use crate::scalar::Cfd3dScalar;
 use moirai::{fold_reduce_with, Adaptive};
 use std::collections::HashMap;
@@ -55,6 +55,20 @@ pub struct FemSolver<T: Cfd3dScalar> {
     matrix_builder: Option<SparseMatrixBuilder<T>>,
     /// Reusable RHS vector
     rhs: Option<Array1<T>>,
+    /// Reusable edge→mid-node lookup cache (GAP-PERF-001).
+    ///
+    /// Built once per mesh (keyed by `n_corner_nodes` + vertex count) and reused
+    /// across Picard iterations. The mid-edge scan inside `extract_vertex_indices`
+    /// is O(n_mid) per cell; the cached variant `extract_vertex_indices_cached`
+    /// shrinks that to O(1) amortised. Without this hoist the per-iteration cost
+    /// is O(n_elements × n_mid) which dominates large FEM assemblies.
+    mid_node_cache: Option<MidNodeCache>,
+    /// Cache key for `mid_node_cache`: `(n_corner_nodes, vertex_count)`.
+    mid_cache_key: Option<(usize, usize)>,
+    /// Reusable vertex-position array (one entry per mesh node, in mesh order).
+    /// Avoids rebuilding the `Vec<Vector3<T>>` per Picard iteration since the
+    /// mesh is immutable across Picard iterations of the same problem.
+    vertex_positions: Option<Vec<Vector3<T>>>,
 }
 
 impl<T: Cfd3dScalar> FemSolver<T> {
@@ -71,6 +85,9 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             config,
             matrix_builder: None,
             rhs: None,
+            mid_node_cache: None,
+            mid_cache_key: None,
+            vertex_positions: None,
         }
     }
 
@@ -114,7 +131,8 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         // was previously duplicated across fem/solver.rs and fem/projection_solver.rs.
         // Tier order: Direct LU → GMRES+BlockDiag → GMRES (unprec) → GMRES+ILU → BiCGSTAB.
         let rel_tol = self.config.base.convergence.tolerance;
-        let abs_tol = (rel_tol * array1_l2_norm(&rhs)).max_scalar(<T as FloatElement>::from_f64(1e-14));
+        let abs_tol =
+            (rel_tol * array1_l2_norm(&rhs)).max_scalar(<T as FloatElement>::from_f64(1e-14));
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: self.config.base.convergence.max_iterations,
             tolerance: abs_tol,
@@ -127,7 +145,16 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             "FemSolver: starting linear solve"
         );
         let chain = LinearSolverChain::new(solver_config)
-            .with_direct_threshold(100_000)
+            // Direct LU threshold lowered from 100_000 to 512: the upstream
+            // `leto_ops::SparseLuSolver` is a misnamed dense partial-pivoting LU
+            // (see crates/cfd-math/src/linear_solver/direct_solver.rs:3-7), which
+            // is O(n^3) and dominates per-Picard-iteration cost for any meaningfully
+            // sized FEM system (1700-DOF saddle-point: ~3s/iter). For n <= 512 the
+            // dense cost is <~0.05s, so direct LU stays the right call; above that,
+            // GMRES+AMG / GMRES+BlockDiag (Tier 2/3) is faster for the saddle-point
+            // structure. The strategic fix is a real sparse LU upstream in leto-ops
+            // (arch board item); the threshold lowers is the tactical routing.
+            .with_direct_threshold(512)
             .with_krylov_restart(std::cmp::min(200, n_total_dof.max(1)));
         let x_array = chain.solve(&matrix, &rhs, n_velocity_dof)?;
 
@@ -196,7 +223,8 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             1.0_f64
         };
         let rel_tol = <T as FloatElement>::from_f64(base_tol * adaptive_factor);
-        let abs_tol = (rel_tol * array1_l2_norm(&rhs)).max_scalar(<T as FloatElement>::from_f64(1e-14));
+        let abs_tol =
+            (rel_tol * array1_l2_norm(&rhs)).max_scalar(<T as FloatElement>::from_f64(1e-14));
 
         let solver_config = cfd_math::linear_solver::IterativeSolverConfig {
             max_iterations: self.config.base.convergence.max_iterations,
@@ -205,7 +233,10 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         };
 
         let chain = LinearSolverChain::new(solver_config)
-            .with_direct_threshold(100_000)
+            // See `solve` above for the threshold rationale: dense-LU-as-sparse-LU
+            // defeats O(n^3) cost above ~512 DOF, so route saddle-point Picard
+            // iters to GMRES+AMG / GMRES+BlockDiag (Tier 2/3) instead.
+            .with_direct_threshold(512)
             .with_krylov_restart(std::cmp::min(200, n_total_dof.max(1)));
 
         // Warm-start: reconstruct DOF vector from previous Picard solution.
@@ -284,6 +315,12 @@ impl<T: Cfd3dScalar> FemSolver<T> {
 
         // Per-cell contribution is purely read-only on mesh and solution;
         // accumulate per-thread local residual vectors, then merge.
+        //
+        // If `assemble_system` already ran on this `FemSolver` for the same mesh,
+        // the `MidNodeCache` is cached on `self` and we use the cache-accelerated
+        // index extraction; otherwise we fall back to the uncached variant to
+        // preserve independent callability and identical element-wise output.
+        let mid_cache = self.mid_node_cache.as_ref();
 
         let (residual, max_abs, sum_abs, l2, net) = fold_reduce_with::<Adaptive, _, _, _, _>(
             problem.mesh.cells.len(),
@@ -298,7 +335,13 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             },
             |(mut res, mut mx, mut sm, mut l2acc, mut nt), cell_idx| {
                 let cell = &problem.mesh.cells[cell_idx];
-                let idxs = match extract_vertex_indices(cell, &problem.mesh, n_corner) {
+                let idxs = match mid_cache {
+                    Some(cache) => {
+                        extract_vertex_indices_cached(cell, &problem.mesh, n_corner, cache)
+                    }
+                    None => extract_vertex_indices(cell, &problem.mesh, n_corner),
+                };
+                let idxs = match idxs {
                     Ok(v) => v,
                     Err(_) => return (res, mx, sm, l2acc, nt),
                 };
@@ -319,8 +362,11 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                     })
                     .collect();
 
-                let j_mat =
-                    matrix3_from_columns(verts[1] - verts[0], verts[2] - verts[0], verts[3] - verts[0]);
+                let j_mat = matrix3_from_columns(
+                    verts[1] - verts[0],
+                    verts[2] - verts[0],
+                    verts[3] - verts[0],
+                );
                 let det_j = matrix3_determinant(&j_mat);
                 let abs_det = NumericElement::abs(det_j);
                 if abs_det <= <T as FloatElement>::from_f64(1e-24) {
@@ -456,7 +502,11 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                 .clear();
         }
 
-        if self.rhs.as_ref().is_none_or(|r| array1_len(r) != n_total_dof) {
+        if self
+            .rhs
+            .as_ref()
+            .is_none_or(|r| array1_len(r) != n_total_dof)
+        {
             self.rhs = Some(Array1::zeros([n_total_dof]));
         } else {
             self.rhs
@@ -471,18 +521,48 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             .expect("matrix_builder initialized above");
         let mut rhs_store = self.rhs.take().expect("rhs initialized above");
 
-        let vertex_positions: Vec<Vector3<T>> = problem
-            .mesh
-            .vertices
-            .iter()
-            .map(|v| vector3_from_indexed(&v.1.position.coords))
-            .collect();
+        // GAP-PERF-001 (audited Session 12): `MidNodeCache::build` is O(n_mid × ~6)
+        // and was being recomputed per Picard iteration only to be discarded — the
+        // worker closure was calling the un-cached `extract_vertex_indices`, paying
+        // O(n_mid) per cell. Hoist the cache to `FemSolver` and rebuild it only
+        // when the mesh shape changes. The cached variant `extract_vertex_indices_cached`
+        // is element-wise identical by the cache invariant (see mesh_utils docs).
+        let mid_cache_key_now = (n_corner_nodes, n_nodes);
+        if self
+            .mid_node_cache
+            .as_ref()
+            .is_none_or(|_| self.mid_cache_key != Some(mid_cache_key_now))
+        {
+            self.mid_node_cache = Some(MidNodeCache::build(&problem.mesh, n_corner_nodes));
+            self.mid_cache_key = Some(mid_cache_key_now);
+        }
+        let mid_cache = self
+            .mid_node_cache
+            .as_ref()
+            .expect("mid_node_cache built above");
 
-        // GAP-PERF-001: Build edge→mid-node lookup cache once per mesh (O(n_mid × n_edges))
-        // rather than doing O(n_mid) brute-force nearest-midpoint scan per edge per element.
-        //
-        // # Theorem — MidNodeCache amortized O(1) edge lookup (see mid_node_cache module docs)
-        let _mid_cache = MidNodeCache::build(&problem.mesh, n_corner_nodes);
+        // Hoist `vertex_positions` likewise: it depends only on the mesh, so an
+        // immutable mesh across Picard iterations yields an immutable mapping.
+        // Invalidate when the vertex count changes (the only free dimension of the
+        // `vertex_positions[idx]` indexing used by the worker closure below).
+        if self
+            .vertex_positions
+            .as_ref()
+            .is_none_or(|v| v.len() != n_nodes)
+        {
+            self.vertex_positions = Some(
+                problem
+                    .mesh
+                    .vertices
+                    .iter()
+                    .map(|v| vector3_from_indexed(&v.1.position.coords))
+                    .collect(),
+            );
+        }
+        let vertex_positions = self
+            .vertex_positions
+            .as_ref()
+            .expect("vertex_positions built above");
 
         tracing::info!(
             n_elements = problem.mesh.cells.len(),
@@ -498,9 +578,13 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                     .element_viscosities
                     .as_ref()
                     .map_or(problem.fluid.viscosity, |v| v[i]);
-                // Use cache-accelerated index extraction (O(1) per edge vs O(N_mid))
-                let idxs = match extract_vertex_indices(cell, &problem.mesh, problem.n_corner_nodes)
-                {
+                // Cache-accelerated index extraction: O(1) per edge vs O(N_mid)
+                let idxs = match extract_vertex_indices_cached(
+                    cell,
+                    &problem.mesh,
+                    problem.n_corner_nodes,
+                    mid_cache,
+                ) {
                     Ok(v) => v,
                     Err(_) => return (local_map, local_rhs), // skip degenerate cell
                 };
@@ -601,7 +685,11 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         let weights = quad.weights();
         let grad_div_penalty = self.config.grad_div_penalty;
 
-        let j_mat = matrix3_from_columns(verts[1] - verts[0], verts[2] - verts[0], verts[3] - verts[0]);
+        let j_mat = matrix3_from_columns(
+            verts[1] - verts[0],
+            verts[2] - verts[0],
+            verts[3] - verts[0],
+        );
         let det_j = matrix3_determinant(&j_mat);
         let abs_det = NumericElement::abs(det_j);
         let j_inv_t = match matrix3_try_inverse(&j_mat) {
