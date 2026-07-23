@@ -94,7 +94,7 @@ fn node_pressure(network: &Network<f64, Water>, id: &str) -> f64 {
     let idx = network
         .graph
         .node_indices()
-        .find(|&i| network.graph.node_weight(i).map_or(false, |n| n.id == id))
+        .find(|&i| network.graph.node_weight(i).is_some_and(|n| n.id == id))
         .unwrap_or_else(|| panic!("node '{}' not found", id));
     *network
         .pressures()
@@ -107,7 +107,7 @@ fn edge_flow(network: &Network<f64, Water>, id: &str) -> f64 {
     let eidx = network
         .graph
         .edge_indices()
-        .find(|&i| network.graph.edge_weight(i).map_or(false, |e| e.id == id))
+        .find(|&i| network.graph.edge_weight(i).is_some_and(|e| e.id == id))
         .unwrap_or_else(|| panic!("edge '{}' not found", id));
     *network
         .flow_rates()
@@ -120,7 +120,7 @@ fn edge_resistance(network: &Network<f64, Water>, id: &str) -> f64 {
     let eidx = network
         .graph
         .edge_indices()
-        .find(|&i| network.graph.edge_weight(i).map_or(false, |e| e.id == id))
+        .find(|&i| network.graph.edge_weight(i).is_some_and(|e| e.id == id))
         .unwrap_or_else(|| panic!("edge '{}' not found", id));
     network
         .graph
@@ -392,7 +392,7 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
             network
                 .graph
                 .node_weight(i)
-                .map_or(false, |n| n.node_type == NodeType::Inlet)
+                .is_some_and(|n| n.node_type == NodeType::Inlet)
         })
         .collect();
     let outlet_nodes: Vec<_> = network
@@ -402,7 +402,7 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
             network
                 .graph
                 .node_weight(i)
-                .map_or(false, |n| n.node_type == NodeType::Outlet)
+                .is_some_and(|n| n.node_type == NodeType::Outlet)
         })
         .collect();
 
@@ -451,7 +451,7 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
         let is_outlet = network
             .graph
             .node_weight(petgraph::graph::NodeIndex::new(idx))
-            .map_or(false, |n| n.node_type == NodeType::Outlet);
+            .is_some_and(|n| n.node_type == NodeType::Outlet);
         if is_outlet {
             assert!(
                 (p - P_REF).abs() < 1e-6,

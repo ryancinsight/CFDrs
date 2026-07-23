@@ -321,10 +321,7 @@ mod tests {
         let rel_err = (ht - HT_NORMAL).abs() / HT_NORMAL;
         assert!(
             rel_err < 0.05,
-            "Equal split hematocrit ({:.4}) should be ~feed ({:.4}), rel_err = {:.4}",
-            ht,
-            HT_NORMAL,
-            rel_err
+            "Equal split hematocrit ({ht:.4}) should be ~feed ({HT_NORMAL:.4}), rel_err = {rel_err:.4}"
         );
         Ok(())
     }
@@ -336,9 +333,7 @@ mod tests {
         let ht_small = plasma_skimming_hematocrit(HT_NORMAL, 0.2, 60.0, D_FEED)?;
         assert!(
             ht_small < HT_NORMAL,
-            "Smaller daughter Ht ({:.4}) should be < feed Ht ({:.4})",
-            ht_small,
-            HT_NORMAL
+            "Smaller daughter Ht ({ht_small:.4}) should be < feed Ht ({HT_NORMAL:.4})"
         );
         Ok(())
     }
@@ -359,12 +354,7 @@ mod tests {
             let result = plasma_skimming_hematocrit(ht, fq, dd, df)?;
             assert!(
                 (0.0..=1.0).contains(&result),
-                "Ht={}, fq={}, dd={}, df={} → result {} out of [0,1]",
-                ht,
-                fq,
-                dd,
-                df,
-                result
+                "Ht={ht}, fq={fq}, dd={dd}, df={df} → result {result} out of [0,1]"
             );
         }
         Ok(())
@@ -377,8 +367,7 @@ mod tests {
         let ht = plasma_skimming_hematocrit(HT_NORMAL, 0.0, 50.0, D_FEED)?;
         assert!(
             ht.abs() < 1e-15,
-            "Zero flow fraction should give zero hematocrit, got {:.10}",
-            ht
+            "Zero flow fraction should give zero hematocrit, got {ht:.10}"
         );
         Ok(())
     }
@@ -396,10 +385,7 @@ mod tests {
 
         assert!(
             ht_low < ht_mid && ht_mid < ht_high,
-            "Daughter Ht should increase with feed Ht: {:.4} < {:.4} < {:.4}",
-            ht_low,
-            ht_mid,
-            ht_high
+            "Daughter Ht should increase with feed Ht: {ht_low:.4} < {ht_mid:.4} < {ht_high:.4}"
         );
         Ok(())
     }

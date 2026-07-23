@@ -403,7 +403,7 @@ mod tests {
             r, 0.0,
             "Linear coefficient should be zero for entrance effects"
         );
-        assert!(k > 0.0, "Quadratic coefficient must be positive, got {}", k);
+        assert!(k > 0.0, "Quadratic coefficient must be positive, got {k}");
         assert!(k.is_finite(), "Quadratic coefficient must be finite");
 
         // Verify magnitude: k ≈ 0.375 × 998.2 / (2 × 1e-12) ≈ 1.87e14
@@ -467,9 +467,7 @@ mod tests {
         // Higher Re → smaller 1/Re correction → smaller K → smaller k
         assert!(
             k_high < k_low,
-            "k at Re=1000 ({}) should be < k at Re=100 ({})",
-            k_high,
-            k_low
+            "k at Re=1000 ({k_high}) should be < k at Re=100 ({k_low})"
         );
         Ok(())
     }

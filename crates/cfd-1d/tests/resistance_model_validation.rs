@@ -70,7 +70,7 @@ fn test_hagen_poiseuille_reynolds_range() {
     assert_eq!(re_min, 0.0);
 
     // Verify upper bound is at laminar-turbulent transition (Re ≈ 2300)
-    assert!(re_max >= 2000.0 && re_max <= 2400.0, "Re_max = {}", re_max);
+    assert!((2000.0..=2400.0).contains(&re_max), "Re_max = {}", re_max);
 }
 
 /// Test Darcy-Weisbach with Colebrook-White for smooth pipes.

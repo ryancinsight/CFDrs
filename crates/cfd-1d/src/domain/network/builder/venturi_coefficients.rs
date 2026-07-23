@@ -137,11 +137,11 @@ mod tests {
         )?;
         let total_length = metadata.throat_length_m + conv_len + diff_len;
 
-        let inlet_d_t = f64::from(inlet_d);
-        let throat_d_t = f64::from(throat_d);
-        let outlet_d_t = f64::from(outlet_d);
-        let throat_len_t = f64::from(metadata.throat_length_m);
-        let total_len_t = f64::from(total_length);
+        let inlet_d_t = inlet_d;
+        let throat_d_t = throat_d;
+        let outlet_d_t = outlet_d;
+        let throat_len_t = metadata.throat_length_m;
+        let total_len_t = total_length;
 
         let manual =
             VenturiModel::new(inlet_d_t, throat_d_t, outlet_d_t, throat_len_t, total_len_t)
