@@ -357,9 +357,7 @@ where
 
         let d_inlet = scalar::from_f64::<T>(self.builder.d_inlet);
         let area_inlet = if self.config.circular {
-            scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
-                * d_inlet
-                * d_inlet
+            scalar::from_f64::<T>(std::f64::consts::PI / 4.0) * d_inlet * d_inlet
         } else {
             // Rectangular: width × height (height may differ from width)
             let h = self.config.rect_height.unwrap_or(d_inlet);
@@ -1058,9 +1056,7 @@ where
         // q_in_face/q_out_face = integrated boundary flux
         let d_throat = scalar::from_f64::<T>(self.builder.d_throat);
         let area_throat = if self.config.circular {
-            scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
-                * d_throat
-                * d_throat
+            scalar::from_f64::<T>(std::f64::consts::PI / 4.0) * d_throat * d_throat
         } else {
             let h = self.config.rect_height.unwrap_or(d_throat);
             d_throat * h
