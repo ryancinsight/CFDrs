@@ -12,8 +12,9 @@ the direct solver without redundant consumer-side allocations.
 - [x] Focused format, check, warning-denied Clippy, Nextest, doctest, and
       Rustdoc gates pass.
 
-**Residual**: provider branch/API integration and exact-head downstream
-verification remain open until both repositories are delivered.
+**Closure**: Leto PR #70 is merged at
+`b24fc860864abad84af3118aa2bb27c32bb81265`; the `CFDrs` manifest pin and
+locked consumer gates now use that exact provider revision.
 
 ---
 

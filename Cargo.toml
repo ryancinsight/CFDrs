@@ -78,8 +78,8 @@ cfd-io = { path = "crates/cfd-io" }
 cfd-mesh = { package = "gaia", git = "https://github.com/ryancinsight/gaia.git" }
 apollo-fft = { git = "https://github.com/ryancinsight/apollo.git" }
 apollo-nufft = { git = "https://github.com/ryancinsight/apollo.git" }
-leto = { git = "https://github.com/ryancinsight/leto.git", rev = "6545b6efe235daac04d78f2aa2522d3ccfaf284e", default-features = false, features = ["std"] }
-leto-ops = { git = "https://github.com/ryancinsight/leto.git", rev = "6545b6efe235daac04d78f2aa2522d3ccfaf284e", default-features = false, features = ["std"] }
+leto = { git = "https://github.com/ryancinsight/leto.git", rev = "b24fc860864abad84af3118aa2bb27c32bb81265", default-features = false, features = ["std"] }
+leto-ops = { git = "https://github.com/ryancinsight/leto.git", rev = "b24fc860864abad84af3118aa2bb27c32bb81265", default-features = false, features = ["std"] }
 # consus: pure-Rust scientific storage formats (HDF5 etc.). Consumed by cfd-io
 # behind the `hdf5` feature for real HDF5 output.
 consus-core = { git = "https://github.com/ryancinsight/consus.git", default-features = false }

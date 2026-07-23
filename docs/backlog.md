@@ -1,7 +1,7 @@
 # CFD Suite Backlog
 
 ## Sprint 1.96.167: cfd-math native sparse-LU result ownership
-**Status**: In Progress
+**Status**: Completed
 **Owner**: Codex `/root`
 **Change Class**: [minor] provider API + [patch] consumer allocation removal
 **Start Date**: July 22, 2026
@@ -36,8 +36,9 @@ the corresponding `docs/{backlog,checklist,gap_audit}.md` plus `CHANGELOG.md`.
   and Rustdoc pass. The package fmt check reports six pre-existing import-order
   diffs outside the claimed file; the touched direct-solver file passes
   standalone rustfmt.
-- Provider public-surface SemVer classification and exact merged dependency
-  integration remain open.
+- Provider public-surface SemVer classification passes 196/196 checks with
+  57 skips, and the consumer pin is updated to merged Leto commit
+  `b24fc860864abad84af3118aa2bb27c32bb81265`.
 
 ## Sprint 1.96.166: cfd-math IncompleteCholesky Leto CSR
 **Status**: Completed

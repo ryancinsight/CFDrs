@@ -24,8 +24,9 @@
   provider check, consumer `cfd-math` check, consumer lib Clippy, and focused
   direct-solver Nextest pass. Allocation reduction is established by the
   source/data-flow audit; no runtime allocation profile is claimed.
-- **Residual**: the provider public API addition requires exact-head SemVer
-  classification and downstream lock/git revision integration before merge.
+- **Closure**: provider SemVer classification passes 196/196 checks with 57
+  skips; Leto PR #70 merged at `b24fc860864abad84af3118aa2bb27c32bb81265`;
+  the `CFDrs` manifest pin and exact-head consumer gates use that revision.
 
 # Sprint 1.96.166 Resolution: cfd-math IncompleteCholesky Still Required nalgebra CSR
 
