@@ -29,6 +29,16 @@
 `crates/cfd-math/src/linear_solver/direct_solver.rs`, its focused tests, and
 the corresponding `docs/{backlog,checklist,gap_audit}.md` plus `CHANGELOG.md`.
 
+### Current Evidence
+- Provider `leto-ops` check, warning-denied all-target Clippy, sparse Nextest
+  (29/29), doctests (8/8), and Rustdoc pass against the local provider source.
+- Consumer `cfd-math` check, lib Clippy, direct-solver Nextest (4/4), doctest,
+  and Rustdoc pass. The package fmt check reports six pre-existing import-order
+  diffs outside the claimed file; the touched direct-solver file passes
+  standalone rustfmt.
+- Provider public-surface SemVer classification and exact merged dependency
+  integration remain open.
+
 ## Sprint 1.96.166: cfd-math IncompleteCholesky Leto CSR
 **Status**: Completed
 **Start Date**: July 5, 2026

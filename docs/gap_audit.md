@@ -6,6 +6,27 @@
 **Date**: November 18, 2025 (Updated: February 23, 2026 - Sprint 1.95.0)
 **Status**: ✅ ALL CRITICAL ISSUES RESOLVED
 
+# Sprint 1.96.167 Resolution: cfd-math native sparse-LU result ownership
+
+### RESOLVED-196: Direct Solver Staged Native Arrays Through `Vec`
+- **Location**:
+  `crates/cfd-math/src/linear_solver/direct_solver.rs`.
+- **Issue**: the primary direct-solve path collected the native `Array1` RHS
+  into a temporary `Vec`, called the provider's slice API, then copied the
+  returned `Vec` into another `Array1`. This added two consumer-owned linear
+  buffers to every successful direct solve.
+- **Remediation**: `leto-ops` now owns the `ArrayView1`-based `solve_view`
+  contract. `DirectSparseSolver` passes `rhs.view()` and returns the provider
+  `Array1` directly; dense fallback and finite-result validation remain
+  unchanged.
+- **Evidence**: provider and consumer direct-solve tests preserve the exact
+  2×2 solution for `f32` and `f64`; provider all-target warning-denied Clippy,
+  provider check, consumer `cfd-math` check, consumer lib Clippy, and focused
+  direct-solver Nextest pass. Allocation reduction is established by the
+  source/data-flow audit; no runtime allocation profile is claimed.
+- **Residual**: the provider public API addition requires exact-head SemVer
+  classification and downstream lock/git revision integration before merge.
+
 # Sprint 1.96.166 Resolution: cfd-math IncompleteCholesky Still Required nalgebra CSR
 
 ### RESOLVED-PENDING-195: IncompleteCholesky Constructor Still Required nalgebra Sparse CSR

@@ -3,13 +3,13 @@
 the direct solver without redundant consumer-side allocations.
 
 **Success Criteria**:
-- [ ] `direct_solver.rs` passes `rhs.view()` to `SparseLuSolver::solve_view`.
-- [ ] The primary path returns the provider-owned `Array1` directly.
-- [ ] Existing positive, singular, fallback, and generic scalar value tests
+- [x] `direct_solver.rs` passes `rhs.view()` to `SparseLuSolver::solve_view`.
+- [x] The primary path returns the provider-owned `Array1` directly.
+- [x] Existing positive, singular, fallback, and generic scalar value tests
       pass without weakening assertions.
-- [ ] Direct-solver Rustdoc, changelog, and gap evidence describe the native
+- [x] Direct-solver Rustdoc, changelog, and gap evidence describe the native
       ownership boundary and its evidence limits.
-- [ ] Focused format, check, warning-denied Clippy, Nextest, doctest, and
+- [x] Focused format, check, warning-denied Clippy, Nextest, doctest, and
       Rustdoc gates pass.
 
 **Residual**: provider branch/API integration and exact-head downstream
