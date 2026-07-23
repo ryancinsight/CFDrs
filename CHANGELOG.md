@@ -34,6 +34,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- `cfd-optim` now composes report mechanical power, residence volume, wall
+  shear, and transit time through Aequitas typed quantities; report storage
+  remains scalar at the established metrics boundary.
+
 - **Aequitas fluid dimensions**: `cfd-core` now evaluates kinematic
   viscosity, Prandtl number, and Reynolds number through typed SI quantities;
   `cfd-3d` computes cascade inlet velocity from typed volumetric flow and

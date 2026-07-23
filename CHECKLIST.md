@@ -2,6 +2,11 @@
 
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
+- [x] CFD-AEQUITAS-REPORT-UNITS-1 [patch]: compose report mechanical power,
+      residence volume, wall shear, and transit time through Aequitas quantities;
+      the focused `cfd-optim` check, test, and lint gates are required before
+      delivery.
+
 - [x] CFD-AEQUITAS-FLUID-ACOUSTIC-1 [patch]: route `cfd-core` fluid-number
       equations and `cfd-3d` cascade inlet flow through Aequitas quantities;
       typed provider tests and locked package checks pass.
