@@ -2,9 +2,10 @@
 
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
-- [ ] CFD-BOOK-PAGES-1 [patch]: add the repository-owned mdBook GitHub Pages
+- [x] CFD-BOOK-PAGES-1 [patch]: add the repository-owned mdBook GitHub Pages
       workflow, declare the `/CFDrs/` project-site base path, and link the
-      published book from the repository README.
+      published book from the repository README. Local mdBook build and
+      workflow syntax checks pass.
 
 - [x] CFD-BOOK-CLOSEOUT-1 [patch]: recover the stale book increment without
       retaining fabricated API or performance claims.

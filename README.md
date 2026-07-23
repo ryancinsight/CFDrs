@@ -2,6 +2,11 @@
 
 A modular Computational Fluid Dynamics (CFD) simulation framework in Rust with MPI parallelization, emphasizing clean architecture, performance optimization, and production readiness.
 
+## Documentation
+
+- [Published CFDrs book](https://ryancinsight.github.io/CFDrs/) — hosted mdBook site.
+- [Book source](docs/book/) — Markdown chapters and local build configuration.
+
 ## Architecture
 
 The suite is organized into 10 specialized crates:
