@@ -31,6 +31,44 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Aequitas metric gap audit (2026-07-23)
+
+This inventory is limited to physical quantities crossing CFDrs computation,
+candidate, solve-summary, or report boundaries. Dimensionless separation and
+risk values, empirical coefficients, and serialized scalar compatibility at a
+single explicit I/O boundary are not counted as missing units.
+
+### Existing coverage
+
+`cfd-optim/src/reporting/report_metrics.rs` now composes
+`VolumetricFlowRate`, `Power`, `Pressure`, `DynamicViscosity`,
+`ReciprocalTime`, `Time`, `Length`, and `Velocity` for report arithmetic. The
+calculation therefore has a provider-typed interior, but
+`cfd-optim/src/metrics/sdt_metrics.rs`, `metrics/residence.rs`, and
+`metrics/safety.rs` still publish physical outputs as `f64` fields for
+`Serialize`/`Deserialize` report DTOs.
+
+### Open implementation ledger
+
+| ID | Evidence | Remaining implementation | Owner | Status / acceptance oracle |
+|---|---|---|---|---|
+| `CFDRS-AEQ-MET-01` | `SdtMetrics` contains pressure drop, path length, residence time, flow, ECV, mechanical power, shear stress/rate, transit time, optical path, temperature rise, and acoustic-energy fields as suffixed `f64`; `ResidenceMetrics` and `BlueprintSafetyMetrics` repeat the same physical dimensions. | Add one typed internal/report metric carrier and one explicit scalar serialization adapter. Do not retain parallel typed/raw fields. | CFDrs | Ready. Existing report value regressions, serde round-trip at the adapter, and compile-time mismatched-unit rejection. |
+| `CFDRS-AEQ-MET-02` | `report_metrics.rs:671` and `:736` expose `acoustic_energy_density_j_m3` as raw `f64`; the Aequitas source has `VolumetricPowerDensity` but no semantic volumetric energy-density alias/unit. | Extend Aequitas with the J/m³ semantic contract, then type this output. | Aequitas → CFDrs | Provider-blocked. Preserve `E_ac = p₀²/(4ρc²)` against the existing analytical calculation. |
+| `CFDRS-AEQ-MET-03` | `metrics/residence.rs` returns `treatment_volume_m3`, `treatment_residence_time_s`, and `mean_treatment_velocity_m_s`; `metrics/safety.rs` returns pressure, shear, and residence metrics as scalars. | Move typed quantities to the computation boundary before they are assembled into `SdtMetrics`; keep only dimensionless fractions and margins scalar. | CFDrs | Sequenced behind `CFDRS-AEQ-MET-01`; conservation of `V = Q·t`, pressure feasibility, and report equality are the oracles. |
+| `CFDRS-AEQ-MET-04` | `ChannelHemolysis` carries `wall_shear_pa` and `transit_time_s`; `operating_point.rs` and `blueprint_graph.rs` carry raw flow, pressure, length, volume, and velocity. | Migrate the channel and network DTO boundaries in dependency order. | CFDrs | Ready after the report carrier. Per-channel hemolysis and total-flow value semantics must remain unchanged. |
+
+### Explicit non-gaps
+
+- `cavitation_number`, separation fractions, CVs, safety margins, risk scores,
+  contrast factors, Giersiepen/PAI indices, and empirical correlation
+  coefficients are dimensionless or model-owned and stay scalar.
+- JSON/report storage may remain scalar only at one named boundary because the
+  current DTOs derive `Serialize`/`Deserialize`; that boundary does not justify
+  raw scalars inside the physical computation graph.
+- The next CFDrs slice is `CFDRS-AEQ-MET-01`. It must land with a value-semantic
+  report regression and an updated implementation ledger before any additional
+  consumer metric is added.
+
 - 2026-07-22 (resolved in CFD-BOOK-CLOSEOUT-1): the stale book commit expanded
   source-backed chapter indexes with public types and behavioral contracts that
   do not exist in CFDrs, and its SUMMARY linked directly to
