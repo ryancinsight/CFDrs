@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- `cfd-optim` now assembles unit-bearing physical report values in one private
+  Aequitas carrier and converts them once into the existing serialized
+  `SdtMetrics` display units. The adapter has value and JSON round-trip
+  regressions; residence/safety DTO and provider semantic gaps remain tracked
+  in `gap_audit.md`.
+
 - `cfd-optim` now composes report mechanical power, residence volume, wall
   shear, and transit time through Aequitas typed quantities; report storage
   remains scalar at the established metrics boundary.

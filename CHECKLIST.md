@@ -2,6 +2,14 @@
 
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
+- [x] CFD-AEQUITAS-REPORT-CARRIER-1 [patch] [arch]: consolidate the
+      unit-bearing `cfd-optim` report values in one private Aequitas carrier
+      and one scalar `SdtMetrics` serialization adapter. The adapter regression
+      covers SI-to-report-unit conversion and JSON round-trip equality; focused
+      `cfd-optim` Nextest passes 11/11 and warning-denied package Clippy passes.
+      Full library execution remains path-sensitive in a linked lane because
+      one existing contract fixture resolves only from the canonical checkout.
+
 - [x] CFD-AEQUITAS-REPORT-UNITS-1 [patch]: compose report mechanical power,
       residence volume, wall shear, and transit time through Aequitas quantities;
       the focused `cfd-optim` check, test, and lint gates are required before

@@ -1,12 +1,12 @@
 use aequitas::systems::si::quantities::{
-    DynamicViscosity, Length, Power, Pressure, ReciprocalLength, ReciprocalTime, Time, Velocity,
-    VolumetricFlowRate,
+    DynamicViscosity, Length, Power, Pressure, ReciprocalLength, ReciprocalTime,
+    ThermodynamicTemperature, Time, Velocity, Volume, VolumetricFlowRate,
 };
 use cfd_1d::{
+    acoustic_contrast_factor, acoustic_energy_density, cavitation_amplified_hi,
+    cavitation_hemolysis_amplification, giersiepen_hi, sonosensitizer_activation_efficiency,
     KAPPA_CTC, KAPPA_PLASMA, KAPPA_RBC, RHO_CTC, RHO_PLASMA, RHO_RBC,
-    SENSITIZER_K_ACT_HEMATOPORPHYRIN, acoustic_contrast_factor, acoustic_energy_density,
-    cavitation_amplified_hi, cavitation_hemolysis_amplification, giersiepen_hi,
-    sonosensitizer_activation_efficiency,
+    SENSITIZER_K_ACT_HEMATOPORPHYRIN,
 };
 use cfd_schematics::topology::TreatmentActuationMode;
 use hyperion::{
@@ -20,26 +20,106 @@ use super::report_math::{
 };
 use crate::constraints::{
     BLOOD_ATTENUATION_405NM_INV_M, BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA,
-    BLOOD_VISCOSITY_PA_S, BUBBLE_POLYTROPIC_K, C_P_BLOOD_J_KG_K, CLOTTING_BFR_CAUTION_ML_MIN,
+    BLOOD_VISCOSITY_PA_S, BUBBLE_POLYTROPIC_K, CLOTTING_BFR_CAUTION_ML_MIN,
     CLOTTING_BFR_HIGH_RISK_ML_MIN, CLOTTING_BFR_LOW_RISK_ML_MIN, CLOTTING_BFR_STRICT_10MLS_ML_MIN,
     CLOTTING_RESIDENCE_HIGH_RISK_S, CLOTTING_RESIDENCE_LOW_RISK_S, CLOTTING_SHEAR_HIGH_RISK_INV_S,
-    CLOTTING_SHEAR_LOW_RISK_INV_S, DEAD_VOLUME_SHEAR_THRESHOLD_INV_S, EXPANSION_RATIO_LOW_RISK,
-    FDA_MAX_WALL_SHEAR_PA, FDA_THROAT_TEMP_RISE_LIMIT_K, FDA_TRANSIENT_SHEAR_PA,
-    FDA_TRANSIENT_TIME_S, MILESTONE_TREATMENT_DURATION_MIN, P_ATM_PA, PATIENT_BLOOD_VOLUME_ML,
-    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_FLOW_CAUTION_ML_MIN,
+    CLOTTING_SHEAR_LOW_RISK_INV_S, C_P_BLOOD_J_KG_K, DEAD_VOLUME_SHEAR_THRESHOLD_INV_S,
+    EXPANSION_RATIO_LOW_RISK, FDA_MAX_WALL_SHEAR_PA, FDA_THROAT_TEMP_RISE_LIMIT_K,
+    FDA_TRANSIENT_SHEAR_PA, FDA_TRANSIENT_TIME_S, MILESTONE_TREATMENT_DURATION_MIN,
+    PATIENT_BLOOD_VOLUME_ML, PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_FLOW_CAUTION_ML_MIN,
     PEDIATRIC_FLOW_EXCESSIVE_ML_MIN, PEDIATRIC_REFERENCE_WEIGHT_KG, PLATE_HEIGHT_MM,
-    PLATE_WIDTH_MM, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF, VENTURI_EXPANSION_RATIO_HIGH_RISK,
-    VENTURI_VEL_RATIO_REF,
+    PLATE_WIDTH_MM, P_ATM_PA, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
+    VENTURI_EXPANSION_RATIO_HIGH_RISK, VENTURI_VEL_RATIO_REF,
 };
 use crate::domain::BlueprintCandidate;
 use crate::error::OptimError;
 use crate::metrics::{
-    ChannelHemolysis, SdtMetrics, compute_blueprint_safety_metrics,
-    compute_blueprint_separation_metrics, compute_blueprint_venturi_metrics,
-    compute_residence_metrics,
+    compute_blueprint_safety_metrics, compute_blueprint_separation_metrics,
+    compute_blueprint_venturi_metrics, compute_residence_metrics,
     healthy_cell_protection_index as compute_healthy_cell_protection_index,
-    solve_blueprint_candidate,
+    solve_blueprint_candidate, ChannelHemolysis, SdtMetrics,
 };
+
+const MILLIMETRES_PER_METRE: f64 = 1_000.0;
+const MILLILITRES_PER_CUBIC_METRE: f64 = 1_000_000.0;
+const SECONDS_PER_MINUTE: f64 = 60.0;
+
+/// Unit-bearing report values before conversion to the legacy serialized DTO.
+///
+/// `SdtMetrics` is a persisted/reporting contract whose field names encode
+/// display units. Keeping the physical values together here makes the
+/// computation boundary dimension-safe while [`write_to`] remains the sole
+/// explicit conversion into those display units.
+#[derive(Debug, Clone, Copy)]
+struct TypedReportPhysicalMetrics {
+    throat_shear_rate: ReciprocalTime,
+    throat_shear: Pressure,
+    max_main_channel_shear: Pressure,
+    mean_residence_time: Time,
+    total_pressure_drop: Pressure,
+    total_path_length: Length,
+    total_ecv: Volume,
+    flow_rate: VolumetricFlowRate,
+    main_channel_shear_rate: ReciprocalTime,
+    throat_transit_time: Time,
+    optical_path_length: Length,
+    safety_margin: Pressure,
+    wall_shear_p95: Pressure,
+    wall_shear_p99: Pressure,
+    wall_shear_mean: Pressure,
+    diffuser_recovery: Pressure,
+    mechanical_power: Power,
+    treatment_zone_dwell_time: Time,
+    throat_temperature_rise: ThermodynamicTemperature,
+}
+
+impl TypedReportPhysicalMetrics {
+    /// Convert the typed computation result into the serialized report units.
+    fn write_to(self, metrics: &mut SdtMetrics) {
+        let Self {
+            throat_shear_rate,
+            throat_shear,
+            max_main_channel_shear,
+            mean_residence_time,
+            total_pressure_drop,
+            total_path_length,
+            total_ecv,
+            flow_rate,
+            main_channel_shear_rate,
+            throat_transit_time,
+            optical_path_length,
+            safety_margin,
+            wall_shear_p95,
+            wall_shear_p99,
+            wall_shear_mean,
+            diffuser_recovery,
+            mechanical_power,
+            treatment_zone_dwell_time,
+            throat_temperature_rise,
+        } = self;
+
+        metrics.throat_shear_rate_inv_s = throat_shear_rate.into_base();
+        metrics.throat_shear_pa = throat_shear.into_base();
+        metrics.max_main_channel_shear_pa = max_main_channel_shear.into_base();
+        metrics.mean_residence_time_s = mean_residence_time.into_base();
+        metrics.total_pressure_drop_pa = total_pressure_drop.into_base();
+        metrics.total_path_length_mm = total_path_length.into_base() * MILLIMETRES_PER_METRE;
+        metrics.total_ecv_ml = total_ecv.into_base() * MILLILITRES_PER_CUBIC_METRE;
+        metrics.flow_rate_ml_min =
+            flow_rate.into_base() * MILLILITRES_PER_CUBIC_METRE * SECONDS_PER_MINUTE;
+        metrics.main_channel_shear_rate_inv_s = main_channel_shear_rate.into_base();
+        metrics.throat_transit_time_s = throat_transit_time.into_base();
+        metrics.optical_path_length_405_m = optical_path_length.into_base();
+        metrics.safety_margin_pa = safety_margin.into_base();
+        metrics.wall_shear_p95_pa = wall_shear_p95.into_base();
+        metrics.wall_shear_p99_pa = wall_shear_p99.into_base();
+        metrics.wall_shear_mean_pa = wall_shear_mean.into_base();
+        metrics.diffuser_recovery_pa = diffuser_recovery.into_base();
+        metrics.mechanical_power_w = mechanical_power.into_base();
+        metrics.treatment_zone_dwell_time_s = treatment_zone_dwell_time.into_base();
+        metrics.throat_temperature_rise_k = throat_temperature_rise.into_base();
+    }
+}
 
 fn cavitation_strength_from_sigma(cavitation_number: f64) -> f64 {
     let strength = (1.0 - cavitation_number).max(0.0);
@@ -58,11 +138,10 @@ fn blue_light_delivery_index(
     Ok(transmission.into_quantity().into_base())
 }
 
-fn mechanical_power(pressure_drop_pa: f64, flow_rate_m3_s: f64) -> f64 {
+fn mechanical_power(pressure_drop_pa: f64, flow_rate_m3_s: f64) -> Power {
     let pressure = Pressure::from_base(pressure_drop_pa);
     let flow_rate = VolumetricFlowRate::from_base(flow_rate_m3_s);
-    let power: Power = pressure * flow_rate;
-    power.into_base()
+    pressure * flow_rate
 }
 
 /// Compute the full set of report-grade SDT metrics for a single blueprint candidate.
@@ -125,13 +204,15 @@ pub fn compute_blueprint_report_metrics(
     let flow_rate_m3_s = candidate.operating_point.flow_rate_m3_s.max(1.0e-18);
     let flow_rate_ml_min = flow_rate_m3_s * 6.0e7;
     let flow_rate = VolumetricFlowRate::from_base(flow_rate_m3_s);
-    let total_volume_m3 = (Time::from_base(solve.mean_residence_time_s) * flow_rate).into_base();
-    let total_path_length_mm = solve
-        .channel_samples
-        .iter()
-        .map(|sample| sample.length_m)
-        .sum::<f64>()
-        * 1.0e3;
+    let total_volume: Volume = Time::from_base(solve.mean_residence_time_s) * flow_rate;
+    let total_volume_m3 = total_volume.into_base();
+    let total_path_length = Length::from_base(
+        solve
+            .channel_samples
+            .iter()
+            .map(|sample| sample.length_m)
+            .sum::<f64>(),
+    );
 
     let active_venturi_throat_count = topology
         .venturi_placements
@@ -373,13 +454,16 @@ pub fn compute_blueprint_report_metrics(
     let projected_hemolysis_15min_adult =
         cumulative_pass_damage(corrected_hi, projected_passes_15min_adult);
 
-    let optical_path_length_405_m = solve
-        .channel_samples
-        .iter()
-        .filter(|sample| sample.is_treatment_channel)
-        .map(|sample| sample.cross_section.dims().1)
-        .reduce(f64::max)
-        .unwrap_or(0.0);
+    let optical_path_length = Length::from_base(
+        solve
+            .channel_samples
+            .iter()
+            .filter(|sample| sample.is_treatment_channel)
+            .map(|sample| sample.cross_section.dims().1)
+            .reduce(f64::max)
+            .unwrap_or(0.0),
+    );
+    let optical_path_length_405_m = optical_path_length.into_base();
     let blue_light_delivery_index_405nm = blue_light_delivery_index(
         optical_path_length_405_m,
         candidate.operating_point.feed_hematocrit,
@@ -391,10 +475,7 @@ pub fn compute_blueprint_report_metrics(
 
     metrics.cavitation_number = cavitation_number;
     metrics.cavitation_potential = cavitation_potential;
-    metrics.throat_shear_rate_inv_s = max_venturi_shear_rate_inv_s;
-    metrics.throat_shear_pa = safety.max_venturi_shear_pa;
     metrics.throat_exceeds_fda = safety.max_venturi_shear_pa > FDA_MAX_WALL_SHEAR_PA;
-    metrics.max_main_channel_shear_pa = safety.max_main_channel_shear_pa;
     metrics.fda_main_compliant = safety.max_main_channel_shear_pa <= FDA_MAX_WALL_SHEAR_PA;
     metrics.bulk_hemolysis_index_per_pass = bulk_hi;
     metrics.hemolysis_index_per_pass = corrected_hi;
@@ -404,9 +485,6 @@ pub fn compute_blueprint_report_metrics(
     // The treatment zone is the subset of channels where therapy (cavitation,
     // ultrasound) is applied.  The total device residence includes all bypass
     // arms and is always longer.
-    metrics.mean_residence_time_s = residence.treatment_residence_time_s;
-    metrics.total_pressure_drop_pa = safety.pressure_drop_pa;
-    metrics.total_path_length_mm = total_path_length_mm;
     metrics.pressure_feasible = safety.pressure_feasible;
     metrics.cell_separation_efficiency = separation.separation_efficiency;
     metrics.cancer_center_fraction = separation.cancer_center_fraction;
@@ -424,8 +502,6 @@ pub fn compute_blueprint_report_metrics(
     } else {
         0.0
     };
-    metrics.total_ecv_ml = total_volume_m3 * 1.0e6;
-    metrics.flow_rate_ml_min = flow_rate_ml_min;
     metrics.plate_fits =
         topology.box_dims_mm.0 <= PLATE_WIDTH_MM && topology.box_dims_mm.1 <= PLATE_HEIGHT_MM;
     let overlap = candidate.blueprint.channel_overlap_analysis();
@@ -437,8 +513,6 @@ pub fn compute_blueprint_report_metrics(
         .iter()
         .filter(|node| matches!(node.kind, cfd_schematics::domain::model::NodeKind::Outlet))
         .count();
-    metrics.main_channel_shear_rate_inv_s =
-        safety.max_main_channel_shear_pa / BLOOD_VISCOSITY_PA_S.max(1.0e-18);
     metrics.low_flow_stasis_risk = inverse_linear_risk(
         flow_rate_ml_min,
         CLOTTING_BFR_HIGH_RISK_ML_MIN,
@@ -513,7 +587,6 @@ pub fn compute_blueprint_report_metrics(
     metrics.rbc_venturi_protection = rbc_venturi_protection;
     metrics.healthy_cell_protection_index = healthy_cell_protection_index;
     metrics.sonoluminescence_proxy = sonoluminescence_proxy;
-    metrics.throat_transit_time_s = max_venturi_transit_time_s;
     metrics.fda_overall_compliant = metrics.fda_main_compliant
         && (safety.max_venturi_shear_pa <= FDA_MAX_WALL_SHEAR_PA
             || (max_venturi_transit_time_s <= FDA_TRANSIENT_TIME_S
@@ -530,22 +603,18 @@ pub fn compute_blueprint_report_metrics(
     metrics.projected_hemolysis_15min_adult = projected_hemolysis_15min_adult;
     metrics.cancer_therapy_zone_fraction =
         separation.cancer_center_fraction.clamp(0.0, 1.0) * solve.venturi_flow_fraction;
-    metrics.optical_path_length_405_m = optical_path_length_405_m;
     metrics.blue_light_delivery_index_405nm = blue_light_delivery_index_405nm;
-    metrics.safety_margin_pa = FDA_MAX_WALL_SHEAR_PA - safety.max_main_channel_shear_pa;
     metrics.therapy_channel_fraction = treatment_fraction;
-    metrics.wall_shear_p95_pa = wall_shear_p95_pa;
-    metrics.wall_shear_p99_pa = wall_shear_p99_pa;
-    metrics.wall_shear_mean_pa = wall_shear_mean_pa;
     metrics.wall_shear_cv = wall_shear_cv;
     metrics.fda_shear_percentile_compliant =
         wall_shear_p95_pa <= FDA_MAX_WALL_SHEAR_PA && wall_shear_p99_pa <= FDA_TRANSIENT_SHEAR_PA;
-    metrics.mechanical_power_w = mechanical_power(safety.pressure_drop_pa, flow_rate_m3_s);
+    let hydraulic_power = mechanical_power(safety.pressure_drop_pa, flow_rate_m3_s);
+    let hydraulic_power_w = hydraulic_power.into_base();
     metrics.acoustic_capture_efficiency =
         (cavitation_potential * (safety.max_venturi_shear_pa / P_ATM_PA)).clamp(0.0, 1.0);
     metrics.specific_cavitation_energy_j_ml = if flow_rate_ml_min > 1.0e-18 {
         metrics.acoustic_capture_efficiency
-            * metrics.mechanical_power_w
+            * hydraulic_power_w
             * residence.treatment_residence_time_s
             / (flow_rate_ml_min / 60_000.0)
             * 1.0e3
@@ -560,8 +629,6 @@ pub fn compute_blueprint_report_metrics(
     metrics.acoustic_resonance_factor = channel_resonance_score;
     metrics.channel_resonance_score = channel_resonance_score;
     metrics.serial_cavitation_dose_fraction = serial_dose_fraction;
-    metrics.treatment_zone_dwell_time_s = residence.treatment_residence_time_s;
-    metrics.throat_temperature_rise_k = throat_temperature_rise_k;
     metrics.fda_thermal_compliant = throat_temperature_rise_k <= FDA_THROAT_TEMP_RISE_LIMIT_K;
 
     // ── Previously unset metrics ─────────────────────────────────────────────
@@ -569,7 +636,7 @@ pub fn compute_blueprint_report_metrics(
     metrics.platelet_activation_index = pai_accumulator;
 
     // Diffuser pressure recovery: maximum across all venturi placements.
-    metrics.diffuser_recovery_pa = venturi
+    let diffuser_recovery_pa = venturi
         .placements
         .iter()
         .map(|p| p.diffuser_recovery_pa)
@@ -645,6 +712,33 @@ pub fn compute_blueprint_report_metrics(
         metrics.hemolysis_index_per_pass_cavitation_amplified *=
             sdt_acoustic.rayleigh_plesset_amplification;
     }
+
+    let physical_metrics = TypedReportPhysicalMetrics {
+        throat_shear_rate: ReciprocalTime::from_base(max_venturi_shear_rate_inv_s),
+        throat_shear: Pressure::from_base(safety.max_venturi_shear_pa),
+        max_main_channel_shear: Pressure::from_base(safety.max_main_channel_shear_pa),
+        mean_residence_time: Time::from_base(residence.treatment_residence_time_s),
+        total_pressure_drop: Pressure::from_base(safety.pressure_drop_pa),
+        total_path_length,
+        total_ecv: total_volume,
+        flow_rate,
+        main_channel_shear_rate: ReciprocalTime::from_base(
+            safety.max_main_channel_shear_pa / BLOOD_VISCOSITY_PA_S.max(1.0e-18),
+        ),
+        throat_transit_time: Time::from_base(max_venturi_transit_time_s),
+        optical_path_length,
+        safety_margin: Pressure::from_base(
+            FDA_MAX_WALL_SHEAR_PA - safety.max_main_channel_shear_pa,
+        ),
+        wall_shear_p95: Pressure::from_base(wall_shear_p95_pa),
+        wall_shear_p99: Pressure::from_base(wall_shear_p99_pa),
+        wall_shear_mean: Pressure::from_base(wall_shear_mean_pa),
+        diffuser_recovery: Pressure::from_base(diffuser_recovery_pa),
+        mechanical_power: hydraulic_power,
+        treatment_zone_dwell_time: Time::from_base(residence.treatment_residence_time_s),
+        throat_temperature_rise: ThermodynamicTemperature::from_base(throat_temperature_rise_k),
+    };
+    physical_metrics.write_to(&mut metrics);
 
     Ok(metrics)
 }
@@ -904,6 +998,51 @@ mod tests {
 
     #[test]
     fn mechanical_power_composes_pressure_and_volumetric_flow() {
-        assert_eq!(mechanical_power(12.0, 0.5).to_bits(), 6.0_f64.to_bits());
+        assert_eq!(
+            mechanical_power(12.0, 0.5).into_base().to_bits(),
+            6.0_f64.to_bits()
+        );
+    }
+
+    #[test]
+    fn typed_report_physical_metrics_preserve_serialized_units() {
+        let mut metrics = SdtMetrics::default();
+        TypedReportPhysicalMetrics {
+            throat_shear_rate: ReciprocalTime::from_base(2_000.0),
+            throat_shear: Pressure::from_base(12.0),
+            max_main_channel_shear: Pressure::from_base(8.0),
+            mean_residence_time: Time::from_base(0.25),
+            total_pressure_drop: Pressure::from_base(40.0),
+            total_path_length: Length::from_base(0.012),
+            total_ecv: Volume::from_base(3.0e-6),
+            flow_rate: VolumetricFlowRate::from_base(2.0e-6),
+            main_channel_shear_rate: ReciprocalTime::from_base(800.0),
+            throat_transit_time: Time::from_base(0.001),
+            optical_path_length: Length::from_base(0.002),
+            safety_margin: Pressure::from_base(142.0),
+            wall_shear_p95: Pressure::from_base(10.0),
+            wall_shear_p99: Pressure::from_base(11.0),
+            wall_shear_mean: Pressure::from_base(6.0),
+            diffuser_recovery: Pressure::from_base(4.0),
+            mechanical_power: Power::from_base(80.0),
+            treatment_zone_dwell_time: Time::from_base(0.25),
+            throat_temperature_rise: ThermodynamicTemperature::from_base(0.02),
+        }
+        .write_to(&mut metrics);
+
+        assert_eq!(metrics.total_path_length_mm, 12.0);
+        assert_eq!(metrics.total_ecv_ml, 3.0);
+        assert_eq!(metrics.flow_rate_ml_min, 120.0);
+        assert_eq!(metrics.total_pressure_drop_pa, 40.0);
+        assert_eq!(metrics.mechanical_power_w, 80.0);
+        assert_eq!(metrics.throat_temperature_rise_k, 0.02);
+
+        let encoded = serde_json::to_string(&metrics).expect("report metrics serialize");
+        let decoded: SdtMetrics =
+            serde_json::from_str(&encoded).expect("report metrics deserialize");
+        assert_eq!(decoded.total_path_length_mm, 12.0);
+        assert_eq!(decoded.total_ecv_ml, 3.0);
+        assert_eq!(decoded.flow_rate_ml_min, 120.0);
+        assert_eq!(decoded.mechanical_power_w, 80.0);
     }
 }
