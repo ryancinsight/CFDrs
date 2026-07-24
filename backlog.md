@@ -31,6 +31,22 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-08 [major] - Type Venturi and selective-cavitation physical
+  metrics (IMPLEMENTATION COMPLETE; verification blocked; owner=Codex;
+  scope=`cfd-core` selective cavitation, `cfd-1d` Venturi screening,
+  `cfd-optim` Venturi metrics, Aequitas serde, design note, and PM artifacts).**
+  Public physical fields now carry Aequitas `Pressure`, `MassDensity`,
+  `Velocity`, `Length`, `DynamicViscosity`, and `SurfaceTension` through the
+  producer and optimization boundaries. Scalar conversion remains only at
+  formula kernels and the documented serialized report DTO. Acceptance is
+  touched-file formatting/diff checks, residue scans, value-semantic package
+  tests, locked Nextest, doctests, warning-denied Clippy, and Rustdoc. The
+  implementation evidence is complete; package gates are blocked before source
+  compilation by the peer root path transition selecting duplicate
+  Aequitas/Eunomia/Proteus identities and by missing
+  `D:\tmp\cutile-rs\cutile\Cargo.toml`. Re-open when the peer graph is
+  coherent.
+
 - **CFD-BOOK-DETERMINISTIC-FIGURES-1 [patch] - Publish CFDrs mdbook
   deterministic figure set and prebook xtask (DONE; owner=`/root`;
   scope=`CFDrs/xtask/src/prebook.rs`, `CFDrs/xtask/src/main.rs`,

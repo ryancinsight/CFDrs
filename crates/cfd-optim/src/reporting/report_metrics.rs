@@ -422,7 +422,7 @@ pub fn compute_blueprint_report_metrics(
                                 * spec.throat_geometry.throat_height_m)
                                 .max(1.0e-18);
                             let upstream_velocity = sample.flow_m3_s.into_base().abs() / inlet_area;
-                            let ratio = placement.effective_throat_velocity_m_s
+                            let ratio = placement.effective_throat_velocity_m_s.into_base()
                                 / upstream_velocity.max(1.0e-18);
                             ratio.max(1.0).ln() / VENTURI_VEL_RATIO_REF.ln()
                         })
@@ -682,7 +682,7 @@ pub fn compute_blueprint_report_metrics(
     let diffuser_recovery_pa = venturi
         .placements
         .iter()
-        .map(|p| p.diffuser_recovery_pa)
+        .map(|p| p.diffuser_recovery_pa.into_base())
         .fold(0.0_f64, f64::max);
     metrics.venturi_total_loss_coefficient = venturi
         .placements

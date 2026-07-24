@@ -247,7 +247,9 @@ mod tests {
                 dominant_selective_population: Some(
                     cfd_core::physics::cavitation::CellPopulationIdentity::CirculatingTumorCell,
                 ),
-                mean_selectivity_margin_pa: 4_000.0,
+                mean_selectivity_margin_pa: aequitas::systems::si::quantities::Pressure::from_base(
+                    4_000.0,
+                ),
                 selective_targeting_fraction: 1.0,
             },
             safety: BlueprintSafetyMetrics {
@@ -310,17 +312,24 @@ mod tests {
                         placement_id: "p0".to_string(),
                         target_channel_id: "stage0_ctc".to_string(),
                         cavitation_number: 0.8,
-                        effective_throat_velocity_m_s: 12.0,
-                        throat_static_pressure_pa: 20_000.0,
-                        upstream_pressure_pa: 121_325.0,
-                        diffuser_recovery_pa: 0.0,
+                        effective_throat_velocity_m_s:
+                            aequitas::systems::si::quantities::Velocity::from_base(12.0),
+                        throat_static_pressure_pa:
+                            aequitas::systems::si::quantities::Pressure::from_base(20_000.0),
+                        upstream_pressure_pa:
+                            aequitas::systems::si::quantities::Pressure::from_base(121_325.0),
+                        diffuser_recovery_pa:
+                            aequitas::systems::si::quantities::Pressure::from_base(0.0),
                         total_loss_coefficient: 0.0,
                         dean_number: 45.0,
-                        curvature_radius_m: 0.002,
-                        arc_length_m: 0.01,
+                        curvature_radius_m:
+                            aequitas::systems::si::quantities::Length::from_base(0.002),
+                        arc_length_m: aequitas::systems::si::quantities::Length::from_base(0.01),
                         dominant_selective_population: Some(cfd_core::physics::cavitation::CellPopulationIdentity::CirculatingTumorCell),
-                        selectivity_margin_pa: 4_000.0,
-                        mixture_inception_threshold_pa: 6_000.0,
+                        selectivity_margin_pa:
+                            aequitas::systems::si::quantities::Pressure::from_base(4_000.0),
+                        mixture_inception_threshold_pa:
+                            aequitas::systems::si::quantities::Pressure::from_base(6_000.0),
                         screening_regime: cfd_1d::VenturiSelectiveScreeningRegime::SelectiveTargetingLikely,
                     }];
                 }

@@ -1,5 +1,22 @@
 # CFDrs Work Checklist
 
+## Owner: Codex — CFDRS-AEQ-MET-08 typed Venturi and selective-cavitation metrics [major] — implementation complete 2026-07-24
+
+- [x] Type selective-cavitation pressure, density, radius, and surface-tension
+      contracts in `cfd-core`; type Venturi pressure, velocity, geometry,
+      density, and viscosity contracts in `cfd-1d`.
+- [x] Preserve those Aequitas values through `cfd-optim` placement and
+      blueprint metrics; convert only at numerical and serialized display-unit
+      boundaries.
+- [x] Add the Aequitas serde capability required by typed public metrics and
+      migrate every in-tree constructor without a scalar compatibility facade.
+- [x] Synchronize the design note, gap audit, and changelog.
+- [ ] Run locked package checks, Nextest, doctests, Clippy, and Rustdoc after
+      the peer root dependency graph is repaired. Current blockers are the
+      duplicate local/Git Aequitas, Eunomia, and Proteus identities caused by
+      the peer root path transition and the missing
+      `D:\tmp\cutile-rs\cutile\Cargo.toml` workspace path.
+
 ## Owner: Codex — CFDRS-AEQ-MET-07 typed hemolysis exposure metrics [major] — implemented 2026-07-24
 
 - [x] Type hemolysis shear stress and exposure duration with Aequitas

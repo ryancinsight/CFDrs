@@ -35,6 +35,17 @@
 
 | ID | Evidence | Closure |
 |---|---|---|
+| `CFDRS-AEQ-MET-08` | `cfd-core` selective cavitation, `cfd-1d` Venturi screening, and `cfd-optim` Venturi placement/blueprint metrics discarded Aequitas types at public boundaries for pressure, density, velocity, length, viscosity, radius, and surface tension. | **IMPLEMENTED in this increment.** The public physical contracts now carry Aequitas quantities and all in-tree constructors are migrated. Scalar conversion remains only in numerical formula kernels and the documented serialized report DTO boundary. Provider support is in Aequitas commits `07e2252` and `6dc68c4`. Touched-file rustfmt, diff checks, and residue scans pass. Cargo verification remains blocked before CFDrs source compilation by the peer root path transition producing duplicate Aequitas/Eunomia/Proteus identities and by missing `D:\tmp\cutile-rs\cutile\Cargo.toml`. See [`venturi-physical-metrics.md`](docs/atlas-migration/venturi-physical-metrics.md). |
+
+The remaining raw SI fields in `cfd-optim::metrics::SdtMetrics` are an explicit
+serialized display-unit DTO: its module contract states that typed values are
+assembled upstream and converted once for reporting. They are not an
+unclassified provider-boundary gap. The remaining CFDrs work is therefore
+verification after the peer dependency graph is repaired, not another local
+compatibility layer.
+
+| ID | Evidence | Closure |
+|---|---|---|
 | `CFDRS-AEQ-MET-07` | `cfd-1d/src/physics/hemolysis/mod.rs` exposed wall shear stress and exposure duration as raw `f64` arguments and fields, while the returned Giersiepen/Taskin indices were dimensionless. `cfd-1d` flow analysis, `cfd-optim` reporting, and `cfd-validation` passed those scalars directly. | **IMPLEMENTED in this increment.** Giersiepen and Taskin now accept Aequitas `Pressure` and `Time`; `HemolysisExposure` stores the same typed inputs, all in-tree callers are migrated, and the formula owner remains cfd-core/local model code. Rustfmt and residue scans pass. Focused checks, Nextest, warning-denied Clippy, doctests, and Rustdoc remain blocked before CFDrs source compilation by the peer Coeus manifest path. See [`hemolysis-exposure-metrics.md`](docs/atlas-migration/hemolysis-exposure-metrics.md). |
 | `CFDRS-AEQ-MET-06` | `cfd-3d::cascade` exposed channel geometry, flow rate, outlet pressure, wall shear, pressure drop, and maximum velocity as raw SI scalars. The inlet calculation already constructed Aequitas area, flow, and velocity internally, so the public boundary discarded the provider types. | **IMPLEMENTED.** `CascadeChannelSpec`, `CascadeConfig3D`, `ChannelResult3D`, and `CascadeResult3D` now carry Aequitas `Length`, `VolumetricFlowRate`, `Pressure`, and `Velocity`. Serde keeps the established SI scalar wire keys through explicit representation adapters; FEM and mesh code convert only at the scalar numerical boundary. All in-tree cascade, validation, example, and adversarial callers are migrated. The current focused check is blocked before CFDrs source compilation by the peer provider graph: the local Coeus dependency is declared at `D:\atlas\repos\coeus\coeus-core`, while its manifest is currently under `D:\atlas\repos\coeus\crates\coeus-core`. See [`cascade-physical-metrics.md`](docs/atlas-migration/cascade-physical-metrics.md). |
 

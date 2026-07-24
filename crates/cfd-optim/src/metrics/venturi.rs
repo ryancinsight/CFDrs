@@ -1,4 +1,7 @@
-use cfd_1d::{VenturiScreeningInput, VenturiSelectiveScreeningRegime, evaluate_venturi_screening};
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, Length, MassDensity, Pressure, SurfaceTension, Velocity,
+};
+use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput, VenturiSelectiveScreeningRegime};
 use cfd_core::physics::cavitation::{
     CellMechanicalState, CellPopulationIdentity, PopulationNucleationState,
     SelectiveCavitationInput, SelectiveCavitationPopulation,
@@ -47,17 +50,17 @@ fn selective_cavitation_input(
     let total = (cancer_fraction + wbc_fraction + rbc_fraction).max(1.0e-12);
 
     SelectiveCavitationInput {
-        base_vapor_pressure_pa: vapor_pressure_pa,
-        ambient_pressure_pa,
-        density_kg_m3: BLOOD_DENSITY_KG_M3,
+        base_vapor_pressure_pa: Pressure::from_base(vapor_pressure_pa),
+        ambient_pressure_pa: Pressure::from_base(ambient_pressure_pa),
+        density_kg_m3: MassDensity::from_base(BLOOD_DENSITY_KG_M3),
         populations: vec![
             SelectiveCavitationPopulation {
                 identity: CellPopulationIdentity::CirculatingTumorCell,
                 label: "ctc".to_string(),
                 mechanical_state: CellMechanicalState {
-                    membrane_stiffness_pa: 20_000.0,
-                    interfacial_tension_n_m: 0.03,
-                    particle_radius_m: 9.0e-6,
+                    membrane_stiffness_pa: Pressure::from_base(20_000.0),
+                    interfacial_tension_n_m: SurfaceTension::from_base(0.03),
+                    particle_radius_m: Length::from_base(9.0e-6),
                     deformability_factor: 1.2,
                 },
                 nucleation_state: PopulationNucleationState {
@@ -71,9 +74,9 @@ fn selective_cavitation_input(
                 identity: CellPopulationIdentity::HealthyWbc,
                 label: "wbc".to_string(),
                 mechanical_state: CellMechanicalState {
-                    membrane_stiffness_pa: 65_000.0,
-                    interfacial_tension_n_m: 0.05,
-                    particle_radius_m: 6.0e-6,
+                    membrane_stiffness_pa: Pressure::from_base(65_000.0),
+                    interfacial_tension_n_m: SurfaceTension::from_base(0.05),
+                    particle_radius_m: Length::from_base(6.0e-6),
                     deformability_factor: 1.0,
                 },
                 nucleation_state: PopulationNucleationState {
@@ -87,9 +90,9 @@ fn selective_cavitation_input(
                 identity: CellPopulationIdentity::HealthyRbc,
                 label: "rbc".to_string(),
                 mechanical_state: CellMechanicalState {
-                    membrane_stiffness_pa: 120_000.0,
-                    interfacial_tension_n_m: 0.07,
-                    particle_radius_m: 4.0e-6,
+                    membrane_stiffness_pa: Pressure::from_base(120_000.0),
+                    interfacial_tension_n_m: SurfaceTension::from_base(0.07),
+                    particle_radius_m: Length::from_base(4.0e-6),
                     deformability_factor: 1.0,
                 },
                 nucleation_state: PopulationNucleationState {
@@ -108,22 +111,22 @@ pub struct VenturiPlacementMetrics {
     pub placement_id: String,
     pub target_channel_id: String,
     pub cavitation_number: f64,
-    pub effective_throat_velocity_m_s: f64,
-    pub throat_static_pressure_pa: f64,
+    pub effective_throat_velocity_m_s: Velocity,
+    pub throat_static_pressure_pa: Pressure,
     #[serde(default)]
-    pub upstream_pressure_pa: f64,
-    pub diffuser_recovery_pa: f64,
+    pub upstream_pressure_pa: Pressure,
+    pub diffuser_recovery_pa: Pressure,
     #[serde(default)]
     pub total_loss_coefficient: f64,
     pub dean_number: f64,
-    pub curvature_radius_m: f64,
-    pub arc_length_m: f64,
+    pub curvature_radius_m: Length,
+    pub arc_length_m: Length,
     #[serde(default)]
     pub dominant_selective_population: Option<CellPopulationIdentity>,
     #[serde(default)]
-    pub selectivity_margin_pa: f64,
+    pub selectivity_margin_pa: Pressure,
     #[serde(default)]
-    pub mixture_inception_threshold_pa: f64,
+    pub mixture_inception_threshold_pa: Pressure,
     #[serde(default)]
     pub screening_regime: VenturiSelectiveScreeningRegime,
 }
@@ -138,7 +141,7 @@ pub struct BlueprintVenturiMetrics {
     #[serde(default)]
     pub dominant_selective_population: Option<CellPopulationIdentity>,
     #[serde(default)]
-    pub mean_selectivity_margin_pa: f64,
+    pub mean_selectivity_margin_pa: Pressure,
     #[serde(default)]
     pub selective_targeting_fraction: f64,
 }
@@ -260,23 +263,26 @@ pub fn compute_blueprint_venturi_metrics(
             let upstream_dynamic_pressure_pa =
                 dynamic_pressure_pa(BLOOD_DENSITY_KG_M3, upstream_velocity_m_s).max(1.0e-18);
             let screening = evaluate_venturi_screening(VenturiScreeningInput {
-                upstream_pressure_pa: candidate
-                    .operating_point
-                    .absolute_inlet_pressure_pa()
-                    .into_base()
-                    + sample.from_pressure_pa.into_base().max(0.0),
-                upstream_velocity_m_s,
-                throat_velocity_m_s,
-                throat_hydraulic_diameter_m: 2.0
-                    * placement.throat_geometry.throat_width_m
-                    * placement.throat_geometry.throat_height_m
-                    / (placement.throat_geometry.throat_width_m
-                        + placement.throat_geometry.throat_height_m)
-                        .max(1.0e-18),
-                throat_length_m: placement.throat_geometry.throat_length_m,
-                density_kg_m3: BLOOD_DENSITY_KG_M3,
-                viscosity_pa_s: BLOOD_VISCOSITY_PA_S,
-                vapor_pressure_pa: BLOOD_VAPOR_PRESSURE_PA,
+                upstream_pressure_pa: Pressure::from_base(
+                    candidate
+                        .operating_point
+                        .absolute_inlet_pressure_pa()
+                        .into_base()
+                        + sample.from_pressure_pa.into_base().max(0.0),
+                ),
+                upstream_velocity_m_s: Velocity::from_base(upstream_velocity_m_s),
+                throat_velocity_m_s: Velocity::from_base(throat_velocity_m_s),
+                throat_hydraulic_diameter_m: Length::from_base(
+                    2.0 * placement.throat_geometry.throat_width_m
+                        * placement.throat_geometry.throat_height_m
+                        / (placement.throat_geometry.throat_width_m
+                            + placement.throat_geometry.throat_height_m)
+                            .max(1.0e-18),
+                ),
+                throat_length_m: Length::from_base(placement.throat_geometry.throat_length_m),
+                density_kg_m3: MassDensity::from_base(BLOOD_DENSITY_KG_M3),
+                viscosity_pa_s: DynamicViscosity::from_base(BLOOD_VISCOSITY_PA_S),
+                vapor_pressure_pa: Pressure::from_base(BLOOD_VAPOR_PRESSURE_PA),
                 vena_contracta_coeff: VENTURI_CC,
                 diffuser_recovery_coeff: DIFFUSER_DISCHARGE_COEFF,
                 upstream_nuclei_fraction: phi_arrival,
@@ -295,9 +301,10 @@ pub fn compute_blueprint_venturi_metrics(
                 reason: error.to_string(),
             })?;
             phi_out = screening.outlet_nuclei_fraction;
-            let total_loss_pa = (screening.bernoulli_drop_pa + screening.throat_friction_drop_pa
-                - screening.diffuser_recovery_pa)
-                .max(0.0);
+            let total_loss_pa = (screening.bernoulli_drop_pa.into_base()
+                + screening.throat_friction_drop_pa.into_base()
+                - screening.diffuser_recovery_pa.into_base())
+            .max(0.0);
 
             let dean_site = cfd_schematics::BlueprintTopologyFactory::estimate_dean_site(
                 &candidate.blueprint,
@@ -308,7 +315,7 @@ pub fn compute_blueprint_venturi_metrics(
             .unwrap_or_default();
 
             cavitation_strength_sum += cavitation_strength_from_sigma(screening.cavitation_number);
-            selectivity_margin_sum += screening.selectivity_margin_pa.max(0.0);
+            selectivity_margin_sum += screening.selectivity_margin_pa.into_base().max(0.0);
             if matches!(
                 screening.screening_regime,
                 VenturiSelectiveScreeningRegime::SelectiveTargetingLikely
@@ -329,16 +336,18 @@ pub fn compute_blueprint_venturi_metrics(
                 cavitation_number: screening.cavitation_number,
                 effective_throat_velocity_m_s: screening.effective_throat_velocity_m_s,
                 throat_static_pressure_pa: screening.throat_static_pressure_pa,
-                upstream_pressure_pa: candidate
-                    .operating_point
-                    .absolute_inlet_pressure_pa()
-                    .into_base()
-                    + sample.from_pressure_pa.into_base().max(0.0),
+                upstream_pressure_pa: Pressure::from_base(
+                    candidate
+                        .operating_point
+                        .absolute_inlet_pressure_pa()
+                        .into_base()
+                        + sample.from_pressure_pa.into_base().max(0.0),
+                ),
                 diffuser_recovery_pa: screening.diffuser_recovery_pa,
                 total_loss_coefficient: total_loss_pa / upstream_dynamic_pressure_pa,
                 dean_number: dean_site.dean_number,
-                curvature_radius_m: dean_site.curvature_radius_m,
-                arc_length_m: dean_site.arc_length_m,
+                curvature_radius_m: Length::from_base(dean_site.curvature_radius_m),
+                arc_length_m: Length::from_base(dean_site.arc_length_m),
                 dominant_selective_population: screening.dominant_selective_population,
                 selectivity_margin_pa: screening.selectivity_margin_pa,
                 mixture_inception_threshold_pa: screening.mixture_inception_threshold_pa,
@@ -397,14 +406,17 @@ pub fn compute_blueprint_venturi_metrics(
         rbc_exposure_fraction,
         wbc_exposure_fraction,
         dominant_selective_population,
-        mean_selectivity_margin_pa: selectivity_margin_sum / n_placements,
+        mean_selectivity_margin_pa: Pressure::from_base(selectivity_margin_sum / n_placements),
         selective_targeting_fraction: targeting_fraction,
     })
 }
 
 #[cfg(test)]
 mod tests {
-    use cfd_1d::{VenturiScreeningInput, evaluate_venturi_screening};
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, Length, MassDensity, Pressure, Velocity,
+    };
+    use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput};
     use cfd_schematics::VenturiPlacementMode;
 
     use crate::constraints::{
@@ -560,23 +572,26 @@ mod tests {
         let upstream_velocity_m_s = sample.flow_m3_s.into_base().abs() / inlet_area_m2;
         let throat_velocity_m_s = sample.flow_m3_s.into_base().abs() / throat_area_m2;
         let screening = evaluate_venturi_screening(VenturiScreeningInput {
-            upstream_pressure_pa: candidate
-                .operating_point
-                .absolute_inlet_pressure_pa()
-                .into_base()
-                + sample.from_pressure_pa.into_base().max(0.0),
-            upstream_velocity_m_s,
-            throat_velocity_m_s,
-            throat_hydraulic_diameter_m: 2.0
-                * placement_spec.throat_geometry.throat_width_m
-                * placement_spec.throat_geometry.throat_height_m
-                / (placement_spec.throat_geometry.throat_width_m
-                    + placement_spec.throat_geometry.throat_height_m)
-                    .max(1.0e-18),
-            throat_length_m: placement_spec.throat_geometry.throat_length_m,
-            density_kg_m3: BLOOD_DENSITY_KG_M3,
-            viscosity_pa_s: BLOOD_VISCOSITY_PA_S,
-            vapor_pressure_pa: BLOOD_VAPOR_PRESSURE_PA,
+            upstream_pressure_pa: Pressure::from_base(
+                candidate
+                    .operating_point
+                    .absolute_inlet_pressure_pa()
+                    .into_base()
+                    + sample.from_pressure_pa.into_base().max(0.0),
+            ),
+            upstream_velocity_m_s: Velocity::from_base(upstream_velocity_m_s),
+            throat_velocity_m_s: Velocity::from_base(throat_velocity_m_s),
+            throat_hydraulic_diameter_m: Length::from_base(
+                2.0 * placement_spec.throat_geometry.throat_width_m
+                    * placement_spec.throat_geometry.throat_height_m
+                    / (placement_spec.throat_geometry.throat_width_m
+                        + placement_spec.throat_geometry.throat_height_m)
+                        .max(1.0e-18),
+            ),
+            throat_length_m: Length::from_base(placement_spec.throat_geometry.throat_length_m),
+            density_kg_m3: MassDensity::from_base(BLOOD_DENSITY_KG_M3),
+            viscosity_pa_s: DynamicViscosity::from_base(BLOOD_VISCOSITY_PA_S),
+            vapor_pressure_pa: Pressure::from_base(BLOOD_VAPOR_PRESSURE_PA),
             vena_contracta_coeff: VENTURI_CC,
             diffuser_recovery_coeff: DIFFUSER_DISCHARGE_COEFF,
             upstream_nuclei_fraction: 0.0,
@@ -591,10 +606,10 @@ mod tests {
             )),
         })
         .expect("venturi screening should succeed for the reference contract");
-        let expected_total_loss_pa = (screening.bernoulli_drop_pa
-            + screening.throat_friction_drop_pa
-            - screening.diffuser_recovery_pa)
-            .max(0.0);
+        let expected_total_loss_pa = (screening.bernoulli_drop_pa.into_base()
+            + screening.throat_friction_drop_pa.into_base()
+            - screening.diffuser_recovery_pa.into_base())
+        .max(0.0);
         let expected_total_loss_coefficient = expected_total_loss_pa
             / super::dynamic_pressure_pa(BLOOD_DENSITY_KG_M3, upstream_velocity_m_s).max(1.0e-18);
 

@@ -20,9 +20,10 @@
 
 use crate::error::{Error, Result};
 use crate::physics::cavitation::nuclei_transport::NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION;
+use aequitas::systems::si::quantities::{Length, MassDensity, Pressure, SurfaceTension};
 use serde::{Deserialize, Serialize};
 
-const REFERENCE_MEMBRANE_STIFFNESS_PA: f64 = 100_000.0;
+const REFERENCE_MEMBRANE_STIFFNESS: Pressure = Pressure::from_base(100_000.0);
 const MAX_COMPLIANCE_GAIN: f64 = 4.0;
 const MIN_COMPLIANCE_GAIN: f64 = 0.25;
 const MAX_RADIUS_AMPLIFICATION: f64 = 0.35;
@@ -54,12 +55,12 @@ impl CellPopulationIdentity {
 /// Mechanical state entering the selective cavitation model.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct CellMechanicalState {
-    /// Effective membrane stiffness \[Pa].
-    pub membrane_stiffness_pa: f64,
-    /// Effective interfacial tension [N/m].
-    pub interfacial_tension_n_m: f64,
-    /// Characteristic nuclei seed radius \[m].
-    pub particle_radius_m: f64,
+    /// Effective membrane stiffness in pascals.
+    pub membrane_stiffness_pa: Pressure,
+    /// Effective interfacial tension in newtons per metre.
+    pub interfacial_tension_n_m: SurfaceTension,
+    /// Characteristic nuclei seed radius in metres.
+    pub particle_radius_m: Length,
     /// Optional bounded deformability multiplier; 1.0 means neutral.
     #[serde(default = "unit_f64")]
     pub deformability_factor: f64,
@@ -97,12 +98,12 @@ pub struct SelectiveCavitationPopulation {
 /// Input state for selective cavitation evaluation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SelectiveCavitationInput {
-    /// Base vapor pressure \[Pa].
-    pub base_vapor_pressure_pa: f64,
-    /// Ambient static pressure \[Pa].
-    pub ambient_pressure_pa: f64,
-    /// Fluid density [kg/m^3].
-    pub density_kg_m3: f64,
+    /// Base vapor pressure in pascals.
+    pub base_vapor_pressure_pa: Pressure,
+    /// Ambient static pressure in pascals.
+    pub ambient_pressure_pa: Pressure,
+    /// Fluid density in kilograms per cubic metre.
+    pub density_kg_m3: MassDensity,
     /// Population set.
     pub populations: Vec<SelectiveCavitationPopulation>,
 }
@@ -116,14 +117,14 @@ pub struct PopulationCavitationThreshold {
     pub label: String,
     /// Compliance gain used internally.
     pub compliance_gain: f64,
-    /// Effective seed radius \[m].
-    pub effective_particle_radius_m: f64,
-    /// Effective interfacial tension [N/m].
-    pub effective_interfacial_tension_n_m: f64,
-    /// Classical Blake threshold before nuclei lifting \[Pa].
-    pub blake_threshold_pressure_pa: f64,
-    /// Effective threshold after nuclei lifting \[Pa].
-    pub effective_threshold_pressure_pa: f64,
+    /// Effective seed radius in metres.
+    pub effective_particle_radius_m: Length,
+    /// Effective interfacial tension in newtons per metre.
+    pub effective_interfacial_tension_n_m: SurfaceTension,
+    /// Classical Blake threshold before nuclei lifting in pascals.
+    pub blake_threshold_pressure_pa: Pressure,
+    /// Effective threshold after nuclei lifting in pascals.
+    pub effective_threshold_pressure_pa: Pressure,
     /// Weight used in mixture aggregation.
     pub mixture_weight: f64,
 }
@@ -134,13 +135,13 @@ pub struct SelectiveCavitationResult {
     /// Per-population thresholds sorted from highest to lowest effective threshold.
     pub population_thresholds: Vec<PopulationCavitationThreshold>,
     /// Volume-weighted mixture inception threshold \[Pa].
-    pub mixture_inception_threshold_pa: f64,
+    pub mixture_inception_threshold_pa: Pressure,
     /// Highest effective threshold among target populations \[Pa].
-    pub target_inception_threshold_pa: f64,
+    pub target_inception_threshold_pa: Pressure,
     /// Highest effective threshold among healthy populations \[Pa].
-    pub healthy_inception_threshold_pa: f64,
+    pub healthy_inception_threshold_pa: Pressure,
     /// Positive means the best target cavitates earlier than the best healthy population.
-    pub selectivity_margin_pa: f64,
+    pub selectivity_margin_pa: Pressure,
     /// Dominant selective population if one exists.
     pub dominant_selective_population: Option<CellPopulationIdentity>,
     /// Dominant selective label if one exists.
@@ -153,33 +154,38 @@ pub struct CellularPopulation {
     /// Volume fraction of instances.
     pub volume_fraction: f64,
     /// Absolute membrane stiffness scaling \[Pa].
-    pub membrane_stiffness_pa: f64,
+    pub membrane_stiffness_pa: Pressure,
     /// Interfacial tension of the cellular envelope [N/m].
-    pub interfacial_tension_n_m: f64,
+    pub interfacial_tension_n_m: SurfaceTension,
     /// Nominal particle / cell radius acting as initial nuclei seed \[m].
-    pub particle_radius_m: f64,
+    pub particle_radius_m: Length,
 }
 
 fn unit_f64() -> f64 {
     1.0
 }
 
-fn compliance_gain(stiffness_pa: f64, deformability_factor: f64) -> f64 {
-    let stiffness_term = (REFERENCE_MEMBRANE_STIFFNESS_PA / stiffness_pa.max(1.0))
-        .sqrt()
-        .clamp(MIN_COMPLIANCE_GAIN, MAX_COMPLIANCE_GAIN);
+fn compliance_gain(stiffness: Pressure, deformability_factor: f64) -> f64 {
+    let stiffness_term = (REFERENCE_MEMBRANE_STIFFNESS.into_base()
+        / stiffness.into_base().max(1.0))
+    .sqrt()
+    .clamp(MIN_COMPLIANCE_GAIN, MAX_COMPLIANCE_GAIN);
     (stiffness_term * deformability_factor.max(0.25))
         .clamp(MIN_COMPLIANCE_GAIN, MAX_COMPLIANCE_GAIN)
 }
 
-fn blake_threshold_pressure_pa(
-    vapor_pressure_pa: f64,
-    ambient_pressure_pa: f64,
-    sigma_n_m: f64,
-    seed_radius_m: f64,
-) -> f64 {
+fn blake_threshold_pressure(
+    vapor_pressure: Pressure,
+    ambient_pressure: Pressure,
+    sigma: SurfaceTension,
+    seed_radius: Length,
+) -> Pressure {
+    let vapor_pressure_pa = vapor_pressure.into_base();
+    let ambient_pressure_pa = ambient_pressure.into_base();
+    let sigma_n_m = sigma.into_base();
+    let seed_radius_m = seed_radius.into_base();
     if sigma_n_m <= 0.0 {
-        return vapor_pressure_pa;
+        return vapor_pressure;
     }
 
     let gas_overpressure =
@@ -189,20 +195,20 @@ fn blake_threshold_pressure_pa(
         .max(seed_radius_m);
     // Classical Blake threshold:
     // P_B = P_v - 4σ / (3 R_B)
-    vapor_pressure_pa - (4.0 * sigma_n_m) / (3.0 * critical_radius)
+    Pressure::from_base(vapor_pressure_pa - (4.0 * sigma_n_m) / (3.0 * critical_radius))
 }
 
 /// Validate a selective cavitation input contract.
 pub fn validate_selective_cavitation_input(input: &SelectiveCavitationInput) -> Result<()> {
-    if !input.base_vapor_pressure_pa.is_finite()
-        || !input.ambient_pressure_pa.is_finite()
-        || !input.density_kg_m3.is_finite()
+    if !input.base_vapor_pressure_pa.into_base().is_finite()
+        || !input.ambient_pressure_pa.into_base().is_finite()
+        || !input.density_kg_m3.into_base().is_finite()
     {
         return Err(Error::InvalidConfiguration(
             "selective cavitation scalar inputs must be finite".to_string(),
         ));
     }
-    if input.base_vapor_pressure_pa < 0.0 {
+    if input.base_vapor_pressure_pa.into_base() < 0.0 {
         return Err(Error::InvalidConfiguration(
             "base vapor pressure must be nonnegative".to_string(),
         ));
@@ -213,7 +219,7 @@ pub fn validate_selective_cavitation_input(input: &SelectiveCavitationInput) -> 
                 .to_string(),
         ));
     }
-    if input.density_kg_m3 <= 0.0 {
+    if input.density_kg_m3.into_base() <= 0.0 {
         return Err(Error::InvalidConfiguration(
             "fluid density must be positive".to_string(),
         ));
@@ -232,9 +238,9 @@ pub fn validate_selective_cavitation_input(input: &SelectiveCavitationInput) -> 
                 "population labels must be non-empty".to_string(),
             ));
         }
-        if !mechanics.membrane_stiffness_pa.is_finite()
-            || !mechanics.interfacial_tension_n_m.is_finite()
-            || !mechanics.particle_radius_m.is_finite()
+        if !mechanics.membrane_stiffness_pa.into_base().is_finite()
+            || !mechanics.interfacial_tension_n_m.into_base().is_finite()
+            || !mechanics.particle_radius_m.into_base().is_finite()
             || !mechanics.deformability_factor.is_finite()
             || !nucleation.volume_fraction.is_finite()
             || !nucleation.upstream_nuclei_fraction.is_finite()
@@ -245,9 +251,9 @@ pub fn validate_selective_cavitation_input(input: &SelectiveCavitationInput) -> 
                 "population cavitation inputs must be finite".to_string(),
             ));
         }
-        if mechanics.membrane_stiffness_pa <= 0.0
-            || mechanics.interfacial_tension_n_m < 0.0
-            || mechanics.particle_radius_m <= 0.0
+        if mechanics.membrane_stiffness_pa.into_base() <= 0.0
+            || mechanics.interfacial_tension_n_m.into_base() < 0.0
+            || mechanics.particle_radius_m.into_base() <= 0.0
             || mechanics.deformability_factor <= 0.0
         {
             return Err(Error::InvalidConfiguration(
@@ -277,8 +283,8 @@ pub fn evaluate_selective_cavitation_thresholds(
     let mut thresholds = Vec::with_capacity(input.populations.len());
     let mut weighted_sum = 0.0;
     let mut total_weight = 0.0;
-    let mut target_best = f64::NEG_INFINITY;
-    let mut healthy_best = f64::NEG_INFINITY;
+    let mut target_best = None;
+    let mut healthy_best = None;
     let mut dominant_identity = None;
     let mut dominant_label = None;
 
@@ -293,7 +299,7 @@ pub fn evaluate_selective_cavitation_thresholds(
         let sigma_relaxation = gain.sqrt().max(1.0);
         let effective_radius = mechanics.particle_radius_m * radius_amplification;
         let effective_sigma = mechanics.interfacial_tension_n_m / sigma_relaxation;
-        let base_threshold = blake_threshold_pressure_pa(
+        let base_threshold = blake_threshold_pressure(
             input.base_vapor_pressure_pa,
             input.ambient_pressure_pa,
             effective_sigma,
@@ -304,16 +310,20 @@ pub fn evaluate_selective_cavitation_thresholds(
             * (nucleation.upstream_nuclei_fraction
                 + MAX_SEED_DENSITY_FACTOR * bounded_seed_density)
             * NUCLEI_VAPOR_PRESSURE_BOOST_PA_PER_UNIT_FRACTION;
-        let effective_threshold = base_threshold + nuclei_lift;
+        let effective_threshold = Pressure::from_base(base_threshold.into_base() + nuclei_lift);
 
-        weighted_sum += effective_threshold * nucleation.volume_fraction;
+        weighted_sum += effective_threshold.into_base() * nucleation.volume_fraction;
         total_weight += nucleation.volume_fraction;
 
-        if population.identity.is_target() && effective_threshold > target_best {
-            target_best = effective_threshold;
+        if population.identity.is_target()
+            && target_best.is_none_or(|current| effective_threshold > current)
+        {
+            target_best = Some(effective_threshold);
         }
-        if !population.identity.is_target() && effective_threshold > healthy_best {
-            healthy_best = effective_threshold;
+        if !population.identity.is_target()
+            && healthy_best.is_none_or(|current| effective_threshold > current)
+        {
+            healthy_best = Some(effective_threshold);
         }
 
         thresholds.push(PopulationCavitationThreshold {
@@ -340,20 +350,12 @@ pub fn evaluate_selective_cavitation_thresholds(
     }
 
     let mixture_inception_threshold_pa = if total_weight > 0.0 {
-        weighted_sum / total_weight
+        Pressure::from_base(weighted_sum / total_weight)
     } else {
         input.base_vapor_pressure_pa
     };
-    let target_inception_threshold_pa = if target_best.is_finite() {
-        target_best
-    } else {
-        mixture_inception_threshold_pa
-    };
-    let healthy_inception_threshold_pa = if healthy_best.is_finite() {
-        healthy_best
-    } else {
-        mixture_inception_threshold_pa
-    };
+    let target_inception_threshold_pa = target_best.unwrap_or(mixture_inception_threshold_pa);
+    let healthy_inception_threshold_pa = healthy_best.unwrap_or(mixture_inception_threshold_pa);
     let selectivity_margin_pa = target_inception_threshold_pa - healthy_inception_threshold_pa;
 
     Ok(SelectiveCavitationResult {
@@ -376,8 +378,8 @@ pub fn rank_population_selectivity(
 
 /// Compatibility adapter for the legacy coarse mixture helper.
 pub fn heterogeneous_inception_threshold_pa(
-    base_vapor_pressure_pa: f64,
-    ambient_pressure_pa: f64,
+    base_vapor_pressure_pa: Pressure,
+    ambient_pressure_pa: Pressure,
     populations: &[CellularPopulation],
 ) -> f64 {
     let mapped = populations
@@ -404,7 +406,7 @@ pub fn heterogeneous_inception_threshold_pa(
     let input = SelectiveCavitationInput {
         base_vapor_pressure_pa,
         ambient_pressure_pa,
-        density_kg_m3: 1_000.0,
+        density_kg_m3: MassDensity::from_base(1_000.0),
         populations: mapped,
     };
 
@@ -419,14 +421,30 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
 
+    fn pressure(value: f64) -> Pressure {
+        Pressure::from_base(value)
+    }
+
+    fn tension(value: f64) -> SurfaceTension {
+        SurfaceTension::from_base(value)
+    }
+
+    fn length(value: f64) -> Length {
+        Length::from_base(value)
+    }
+
+    fn density(value: f64) -> MassDensity {
+        MassDensity::from_base(value)
+    }
+
     fn healthy_population() -> SelectiveCavitationPopulation {
         SelectiveCavitationPopulation {
             identity: CellPopulationIdentity::HealthyRbc,
             label: "healthy_rbc".to_string(),
             mechanical_state: CellMechanicalState {
-                membrane_stiffness_pa: 120_000.0,
-                interfacial_tension_n_m: 0.07,
-                particle_radius_m: 4.0e-6,
+                membrane_stiffness_pa: pressure(120_000.0),
+                interfacial_tension_n_m: tension(0.07),
+                particle_radius_m: length(4.0e-6),
                 deformability_factor: 1.0,
             },
             nucleation_state: PopulationNucleationState {
@@ -443,9 +461,9 @@ mod tests {
             identity: CellPopulationIdentity::CirculatingTumorCell,
             label: "ctc".to_string(),
             mechanical_state: CellMechanicalState {
-                membrane_stiffness_pa: 20_000.0,
-                interfacial_tension_n_m: 0.03,
-                particle_radius_m: 9.0e-6,
+                membrane_stiffness_pa: pressure(20_000.0),
+                interfacial_tension_n_m: tension(0.03),
+                particle_radius_m: length(9.0e-6),
                 deformability_factor: 1.25,
             },
             nucleation_state: PopulationNucleationState {
@@ -460,14 +478,14 @@ mod tests {
     #[test]
     fn selective_target_cavitates_earlier_than_healthy_population() {
         let result = evaluate_selective_cavitation_thresholds(&SelectiveCavitationInput {
-            base_vapor_pressure_pa: 3_170.0,
-            ambient_pressure_pa: 101_325.0,
-            density_kg_m3: 1_000.0,
+            base_vapor_pressure_pa: pressure(3_170.0),
+            ambient_pressure_pa: pressure(101_325.0),
+            density_kg_m3: density(1_000.0),
             populations: vec![healthy_population(), target_population()],
         })
         .expect("selective cavitation should evaluate");
 
-        assert!(result.selectivity_margin_pa > 0.0);
+        assert!(result.selectivity_margin_pa.into_base() > 0.0);
         assert_eq!(
             result.dominant_selective_population,
             Some(CellPopulationIdentity::CirculatingTumorCell)
@@ -490,23 +508,23 @@ mod tests {
             .max(seed_radius_m);
         let expected = vapor_pressure_pa - (4.0_f64 * sigma_n_m) / (3.0_f64 * critical_radius);
 
-        let actual = blake_threshold_pressure_pa(
-            vapor_pressure_pa,
-            ambient_pressure_pa,
-            sigma_n_m,
-            seed_radius_m,
+        let actual = blake_threshold_pressure(
+            pressure(vapor_pressure_pa),
+            pressure(ambient_pressure_pa),
+            tension(sigma_n_m),
+            length(seed_radius_m),
         );
 
-        assert!((actual - expected).abs() < 1e-12);
-        assert!(actual < vapor_pressure_pa);
+        assert!((actual.into_base() - expected).abs() < 1e-12);
+        assert!(actual.into_base() < vapor_pressure_pa);
     }
 
     #[test]
     fn mixture_threshold_is_bounded_by_population_extrema() {
         let result = evaluate_selective_cavitation_thresholds(&SelectiveCavitationInput {
-            base_vapor_pressure_pa: 3_170.0,
-            ambient_pressure_pa: 101_325.0,
-            density_kg_m3: 1_000.0,
+            base_vapor_pressure_pa: pressure(3_170.0),
+            ambient_pressure_pa: pressure(101_325.0),
+            density_kg_m3: density(1_000.0),
             populations: vec![healthy_population(), target_population()],
         })
         .expect("selective cavitation should evaluate");
@@ -514,16 +532,16 @@ mod tests {
         let min_threshold = result
             .population_thresholds
             .iter()
-            .map(|entry| entry.effective_threshold_pressure_pa)
+            .map(|entry| entry.effective_threshold_pressure_pa.into_base())
             .fold(f64::INFINITY, f64::min);
         let max_threshold = result
             .population_thresholds
             .iter()
-            .map(|entry| entry.effective_threshold_pressure_pa)
+            .map(|entry| entry.effective_threshold_pressure_pa.into_base())
             .fold(f64::NEG_INFINITY, f64::max);
 
-        assert!(result.mixture_inception_threshold_pa >= min_threshold);
-        assert!(result.mixture_inception_threshold_pa <= max_threshold);
+        assert!(result.mixture_inception_threshold_pa.into_base() >= min_threshold);
+        assert!(result.mixture_inception_threshold_pa.into_base() <= max_threshold);
     }
 
     #[test]
@@ -531,21 +549,21 @@ mod tests {
         let populations = [
             CellularPopulation {
                 volume_fraction: 0.25,
-                membrane_stiffness_pa: 85_000.0,
-                interfacial_tension_n_m: 0.052,
-                particle_radius_m: 4.0e-6,
+                membrane_stiffness_pa: pressure(85_000.0),
+                interfacial_tension_n_m: tension(0.052),
+                particle_radius_m: length(4.0e-6),
             },
             CellularPopulation {
                 volume_fraction: 0.75,
-                membrane_stiffness_pa: 130_000.0,
-                interfacial_tension_n_m: 0.071,
-                particle_radius_m: 5.5e-6,
+                membrane_stiffness_pa: pressure(130_000.0),
+                interfacial_tension_n_m: tension(0.071),
+                particle_radius_m: length(5.5e-6),
             },
         ];
         let expected = evaluate_selective_cavitation_thresholds(&SelectiveCavitationInput {
-            base_vapor_pressure_pa: 3_170.0,
-            ambient_pressure_pa: 101_325.0,
-            density_kg_m3: 1_000.0,
+            base_vapor_pressure_pa: pressure(3_170.0),
+            ambient_pressure_pa: pressure(101_325.0),
+            density_kg_m3: density(1_000.0),
             populations: vec![
                 SelectiveCavitationPopulation {
                     identity: CellPopulationIdentity::GenericHealthy,
@@ -584,9 +602,13 @@ mod tests {
         .expect("equivalent selective input should evaluate")
         .mixture_inception_threshold_pa;
 
-        let actual = heterogeneous_inception_threshold_pa(3_170.0, 101_325.0, &populations);
+        let actual = heterogeneous_inception_threshold_pa(
+            pressure(3_170.0),
+            pressure(101_325.0),
+            &populations,
+        );
 
-        assert!((actual - expected).abs() <= 1.0e-12);
+        assert!((actual.into_base() - expected.into_base()).abs() <= 1.0e-12);
     }
 
     proptest! {
@@ -599,31 +621,31 @@ mod tests {
         ) {
             let healthy = SelectiveCavitationPopulation {
                 mechanical_state: CellMechanicalState {
-                    membrane_stiffness_pa: 120_000.0,
-                    interfacial_tension_n_m: healthy_sigma,
-                    particle_radius_m: healthy_radius,
+                    membrane_stiffness_pa: pressure(120_000.0),
+                    interfacial_tension_n_m: tension(healthy_sigma),
+                    particle_radius_m: length(healthy_radius),
                     deformability_factor: 1.0,
                 },
                 ..healthy_population()
             };
             let target = SelectiveCavitationPopulation {
                 mechanical_state: CellMechanicalState {
-                    membrane_stiffness_pa: 20_000.0,
-                    interfacial_tension_n_m: target_sigma,
-                    particle_radius_m: target_radius,
+                    membrane_stiffness_pa: pressure(20_000.0),
+                    interfacial_tension_n_m: tension(target_sigma),
+                    particle_radius_m: length(target_radius),
                     deformability_factor: 1.2,
                 },
                 ..target_population()
             };
 
             let result = evaluate_selective_cavitation_thresholds(&SelectiveCavitationInput {
-                base_vapor_pressure_pa: 3_170.0,
-                ambient_pressure_pa: 101_325.0,
-                density_kg_m3: 1_000.0,
+                base_vapor_pressure_pa: pressure(3_170.0),
+                ambient_pressure_pa: pressure(101_325.0),
+                density_kg_m3: density(1_000.0),
                 populations: vec![healthy, target],
             }).expect("selective cavitation should evaluate");
 
-            prop_assert!(result.selectivity_margin_pa > 0.0);
+            prop_assert!(result.selectivity_margin_pa.into_base() > 0.0);
         }
     }
 }

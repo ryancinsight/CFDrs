@@ -14,13 +14,12 @@ use std::collections::HashSet;
 
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_optim::{
-    BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
     evaluate_blueprint_candidate, evaluate_goal, evaluate_selective_venturi_cavitation,
-    orchestration_lineage_key,
+    orchestration_lineage_key, BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
 };
 use cfd_schematics::{
-    SplitKind, TreatmentActuationMode, VenturiPlacementMode, build_milestone12_blueprint,
-    enumerate_milestone12_topologies,
+    build_milestone12_blueprint, enumerate_milestone12_topologies, SplitKind,
+    TreatmentActuationMode, VenturiPlacementMode,
 };
 
 // ---------------------------------------------------------------------------
@@ -261,10 +260,10 @@ fn option2_cavitation_number_is_physically_consistent() {
             );
 
             assert!(
-                placement.effective_throat_velocity_m_s > 0.0,
+                placement.effective_throat_velocity_m_s.into_base() > 0.0,
                 "throat velocity must be positive for '{}' (v={})",
                 candidate.id,
-                placement.effective_throat_velocity_m_s
+                placement.effective_throat_velocity_m_s.into_base()
             );
         }
 

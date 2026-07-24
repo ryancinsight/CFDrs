@@ -407,10 +407,10 @@ fn extract_dean_venturi_points(
             label: format!("Bend {} ({})", idx + 1, bend_type),
             dean_number: placement.dean_number,
             cavitation_number: placement.cavitation_number,
-            throat_velocity_m_s: placement.effective_throat_velocity_m_s,
+            throat_velocity_m_s: placement.effective_throat_velocity_m_s.into_base(),
             total_loss_coefficient: placement.total_loss_coefficient,
-            upstream_pressure_kpa: placement.upstream_pressure_pa * 1e-3,
-            bend_radius_mm: placement.curvature_radius_m * 1e3,
+            upstream_pressure_kpa: placement.upstream_pressure_pa.into_base() * 1e-3,
+            bend_radius_mm: placement.curvature_radius_m.into_base() * 1e3,
         });
     }
     Ok(points)

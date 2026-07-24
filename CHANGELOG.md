@@ -34,6 +34,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: selective-cavitation, Venturi screening, and optimization
+  placement metrics now carry Aequitas pressure, density, velocity, length,
+  viscosity, and surface-tension quantities through their public Rust
+  contracts. Scalar conversion remains at numerical and serialized report
+  boundaries. See
+  [`venturi-physical-metrics.md`](docs/atlas-migration/venturi-physical-metrics.md).
+
 - **Breaking**: `cfd-1d` hemolysis model inputs now use Aequitas `Pressure`
   for wall shear stress and `Time` for exposure duration. Giersiepen and
   Taskin indices, cavitation potential, and other model coefficients remain

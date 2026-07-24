@@ -9,7 +9,7 @@ documentation.workspace = true
 description = "Core abstractions and plugin system for the CFD simulation suite"
 
 [dependencies]
-aequitas.workspace = true
+aequitas = { workspace = true, features = ["serde"] }
 proteus.workspace = true
 chrono = { version = "0.4", features = ["serde"] }
 thiserror.workspace = true
