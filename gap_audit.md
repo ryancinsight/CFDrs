@@ -31,6 +31,17 @@
 > Mirror reference: atlas-meta backlog.md / checklist.md / gap_audit.md + repos/ritk/{CHANGELOG.md, checklist.md, gap_audit.md} (same six canonical + three disallowed compounds in the same one-page rubric form).
 # Gap Audit: CFDrs
 
+## Aequitas public metric gap audit (2026-07-24)
+
+| ID | Evidence | Closure |
+|---|---|---|
+| `CFDRS-AEQ-MET-06` | `cfd-3d::cascade` exposed channel geometry, flow rate, outlet pressure, wall shear, pressure drop, and maximum velocity as raw SI scalars. The inlet calculation already constructed Aequitas area, flow, and velocity internally, so the public boundary discarded the provider types. | **IMPLEMENTED.** `CascadeChannelSpec`, `CascadeConfig3D`, `ChannelResult3D`, and `CascadeResult3D` now carry Aequitas `Length`, `VolumetricFlowRate`, `Pressure`, and `Velocity`. Serde keeps the established SI scalar wire keys through explicit representation adapters; FEM and mesh code convert only at the scalar numerical boundary. All in-tree cascade, validation, example, and adversarial callers are migrated. The current focused check is blocked before CFDrs source compilation by the peer provider graph: the local Coeus dependency is declared at `D:\atlas\repos\coeus\coeus-core`, while its manifest is currently under `D:\atlas\repos\coeus\crates\coeus-core`. See [`cascade-physical-metrics.md`](docs/atlas-migration/cascade-physical-metrics.md). |
+
+The result field names retain their established serialized keys for wire
+compatibility; their Rust types now carry the unit contract. The remaining
+`cfd-3d` venturi/bifurcation generic geometry kernels are separate scalar
+algorithm boundaries and are not silently classified as closed by this slice.
+
 - 2026-07-22 (resolved in CFD-BOOK-CLOSEOUT-1): the stale book commit expanded
   source-backed chapter indexes with public types and behavioral contracts that
   do not exist in CFDrs, and its SUMMARY linked directly to

@@ -324,3 +324,6 @@ harness = false
 [[bench]]
 name = "fem_assembly"
 harness = false
+
+[patch."https://github.com/ryancinsight/proteus"]
+proteus = { path = "../proteus" }

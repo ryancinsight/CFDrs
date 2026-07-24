@@ -29,6 +29,7 @@ num_cpus = "1.16"
 eunomia.workspace = true
 moirai.workspace = true
 petgraph.workspace = true
+aequitas.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

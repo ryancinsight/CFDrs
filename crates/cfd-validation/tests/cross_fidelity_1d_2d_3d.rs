@@ -15,6 +15,7 @@
 //! We verify that all three fidelity levels agree on core invariants: mass
 //! conservation, directional pressure relationships, and wall shear ordering.
 
+use aequitas::systems::si::quantities::{Length, VolumetricFlowRate};
 use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
 use cfd_3d::cascade::{CascadeChannelSpec, CascadeConfig3D, CascadeSolver3D};
 use cfd_core::physics::fluid::{BloodModel, ConstantPropertyFluid};
@@ -121,10 +122,10 @@ fn cross_fidelity_straight_duct_pressure_and_mass() {
     // 3D (FEM Cascade)
     let spec = CascadeChannelSpec {
         id: "duct".to_string(),
-        length: l,
-        width: w,
-        height: h,
-        flow_rate_m3_s: q,
+        length: Length::from_base(l),
+        width: Length::from_base(w),
+        height: Length::from_base(h),
+        flow_rate_m3_s: VolumetricFlowRate::from_base(q),
         is_venturi_throat: false,
         throat_width: None,
         local_hematocrit: None,
@@ -137,7 +138,7 @@ fn cross_fidelity_straight_duct_pressure_and_mass() {
         .solve(&[spec])
         .expect("3D solve must succeed");
 
-    let dp_3d = res3d.channel_results[0].pressure_drop_pa;
+    let dp_3d = res3d.channel_results[0].pressure_drop_pa.into_base();
 
     // Output and Assertion bounds
     eprintln!("[Straight Duct] 1D DP: {dp_1d:.4} Pa, 3D DP: {dp_3d:.4} Pa");
@@ -207,22 +208,22 @@ fn cross_fidelity_venturi_constriction() {
     // ── 3D: Cascade FEM
     let main_spec = CascadeChannelSpec {
         id: "inlet_section".to_string(),
-        length: 2e-3,
-        width: 2e-3,
-        height: 0.5e-3,
-        flow_rate_m3_s: q,
+        length: Length::from_base(2e-3),
+        width: Length::from_base(2e-3),
+        height: Length::from_base(0.5e-3),
+        flow_rate_m3_s: VolumetricFlowRate::from_base(q),
         is_venturi_throat: false,
         throat_width: None,
         local_hematocrit: None,
     };
     let throat_spec = CascadeChannelSpec {
         id: "throat_section".to_string(),
-        length: 2e-3,
-        width: 0.5e-3,
-        height: 0.5e-3,
-        flow_rate_m3_s: q,
+        length: Length::from_base(2e-3),
+        width: Length::from_base(0.5e-3),
+        height: Length::from_base(0.5e-3),
+        flow_rate_m3_s: VolumetricFlowRate::from_base(q),
         is_venturi_throat: true,
-        throat_width: Some(0.5e-3),
+        throat_width: Some(Length::from_base(0.5e-3)),
         local_hematocrit: None,
     };
     let config = CascadeConfig3D {
@@ -233,8 +234,8 @@ fn cross_fidelity_venturi_constriction() {
         .solve(&[main_spec, throat_spec])
         .expect("3D solve");
 
-    let dp_inlet_3d = res3d.channel_results[0].pressure_drop_pa;
-    let dp_throat_3d = res3d.channel_results[1].pressure_drop_pa;
+    let dp_inlet_3d = res3d.channel_results[0].pressure_drop_pa.into_base();
+    let dp_throat_3d = res3d.channel_results[1].pressure_drop_pa.into_base();
 
     assert!(
         dp_throat_3d > dp_inlet_3d,

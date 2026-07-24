@@ -35,7 +35,7 @@ fn solve_poiseuille(u_avg: f64, resolution: (usize, usize)) -> VenturiSolution3D
     let config = VenturiConfig3D {
         inlet_flow_rate: q_in,
         inlet_pressure: 0.0, // Should be calculated, but initial guess
-        outlet_pressure: 0.0,
+        outlet_pressure: aequitas::systems::si::quantities::Pressure::from_base(0.0),
         resolution,
         circular: true,
         max_nonlinear_iterations: 20,

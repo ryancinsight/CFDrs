@@ -269,6 +269,7 @@ mod level_set_tests {
 
 #[cfg(test)]
 mod cross_fidelity_physics_tests {
+    use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
     use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
     use cfd_core::physics::fluid::{BloodModel, ConstantPropertyFluid};
     use cfd_schematics::application::ports::GraphSink;
@@ -324,10 +325,10 @@ mod cross_fidelity_physics_tests {
     fn three_d_straight_channel_dp_positive_and_finite() {
         let spec = CascadeChannelSpec {
             id: "duct".to_string(),
-            length: 5e-3,
-            width: 1e-3,
-            height: 1e-3,
-            flow_rate_m3_s: 1e-7,
+            length: Length::from_base(5e-3),
+            width: Length::from_base(1e-3),
+            height: Length::from_base(1e-3),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(1e-7),
             is_venturi_throat: false,
             throat_width: None,
             local_hematocrit: None,
@@ -341,14 +342,14 @@ mod cross_fidelity_physics_tests {
             .expect("3D straight channel must solve");
         let ch = &result.channel_results[0];
         assert!(
-            ch.pressure_drop_pa > 0.0 && ch.pressure_drop_pa.is_finite(),
+            ch.pressure_drop_pa.into_base() > 0.0 && ch.pressure_drop_pa.into_base().is_finite(),
             "3D dp={:.2} Pa must be positive and finite",
-            ch.pressure_drop_pa
+            ch.pressure_drop_pa.into_base()
         );
         assert!(
-            ch.max_velocity > 0.0,
+            ch.max_velocity.into_base() > 0.0,
             "3D max velocity={:.4} m/s must be positive",
-            ch.max_velocity
+            ch.max_velocity.into_base()
         );
     }
 
@@ -367,10 +368,10 @@ mod cross_fidelity_physics_tests {
 
         let spec = CascadeChannelSpec {
             id: "duct".to_string(),
-            length: 5e-3,
-            width: w,
-            height: h,
-            flow_rate_m3_s: q,
+            length: Length::from_base(5e-3),
+            width: Length::from_base(w),
+            height: Length::from_base(h),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(q),
             is_venturi_throat: false,
             throat_width: None,
             local_hematocrit: None,
@@ -382,7 +383,7 @@ mod cross_fidelity_physics_tests {
         let result = CascadeSolver3D::new(config, blood_fluid())
             .solve(&[spec])
             .expect("solve");
-        let tau_3d = result.channel_results[0].wall_shear_mean_pa;
+        let tau_3d = result.channel_results[0].wall_shear_mean_pa.into_base();
         let ratio = tau_3d / tau_hp;
         assert!(
             ratio > 0.1 && ratio < 10.0,
@@ -400,22 +401,22 @@ mod cross_fidelity_physics_tests {
 
         let main = CascadeChannelSpec {
             id: "main".to_string(),
-            length: l,
-            width: 2e-3,
-            height: h,
-            flow_rate_m3_s: q,
+            length: Length::from_base(l),
+            width: Length::from_base(2e-3),
+            height: Length::from_base(h),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(q),
             is_venturi_throat: false,
             throat_width: None,
             local_hematocrit: None,
         };
         let throat = CascadeChannelSpec {
             id: "throat".to_string(),
-            length: l,
-            width: 0.5e-3,
-            height: h,
-            flow_rate_m3_s: q,
+            length: Length::from_base(l),
+            width: Length::from_base(0.5e-3),
+            height: Length::from_base(h),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(q),
             is_venturi_throat: true,
-            throat_width: Some(0.5e-3),
+            throat_width: Some(Length::from_base(0.5e-3)),
             local_hematocrit: None,
         };
         let config = CascadeConfig3D {
@@ -425,8 +426,8 @@ mod cross_fidelity_physics_tests {
         let result = CascadeSolver3D::new(config, blood_fluid())
             .solve(&[main, throat])
             .expect("solve");
-        let dp_main = result.channel_results[0].pressure_drop_pa;
-        let dp_throat = result.channel_results[1].pressure_drop_pa;
+        let dp_main = result.channel_results[0].pressure_drop_pa.into_base();
+        let dp_throat = result.channel_results[1].pressure_drop_pa.into_base();
         assert!(
             dp_throat > dp_main,
             "3D throat dp={dp_throat:.2} Pa must exceed main dp={dp_main:.2} Pa \
@@ -472,10 +473,10 @@ mod cross_fidelity_physics_tests {
         // 3D FEM (coarse mesh — sufficient for ordering / magnitude check).
         let spec = CascadeChannelSpec {
             id: "duct".to_string(),
-            length: l,
-            width: w,
-            height: h,
-            flow_rate_m3_s: q,
+            length: Length::from_base(l),
+            width: Length::from_base(w),
+            height: Length::from_base(h),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(q),
             is_venturi_throat: false,
             throat_width: None,
             local_hematocrit: None,
@@ -488,7 +489,8 @@ mod cross_fidelity_physics_tests {
             .solve(&[spec])
             .expect("3D solve")
             .channel_results[0]
-            .pressure_drop_pa;
+            .pressure_drop_pa
+            .into_base();
 
         let ratio = dp_3d / dp_1d;
         assert!(
@@ -563,22 +565,22 @@ mod cross_fidelity_physics_tests {
         // 3D: same ordering for dp (throat narrower → higher resistance)
         let main = CascadeChannelSpec {
             id: "inlet_section".to_string(),
-            length: 2e-3,
-            width: 2e-3,
-            height: 0.5e-3,
-            flow_rate_m3_s: q,
+            length: Length::from_base(2e-3),
+            width: Length::from_base(2e-3),
+            height: Length::from_base(0.5e-3),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(q),
             is_venturi_throat: false,
             throat_width: None,
             local_hematocrit: None,
         };
         let throat = CascadeChannelSpec {
             id: "throat_section".to_string(),
-            length: 2e-3,
-            width: 0.5e-3,
-            height: 0.5e-3,
-            flow_rate_m3_s: q,
+            length: Length::from_base(2e-3),
+            width: Length::from_base(0.5e-3),
+            height: Length::from_base(0.5e-3),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(q),
             is_venturi_throat: true,
-            throat_width: Some(0.5e-3),
+            throat_width: Some(Length::from_base(0.5e-3)),
             local_hematocrit: None,
         };
         let config = CascadeConfig3D {
@@ -588,8 +590,8 @@ mod cross_fidelity_physics_tests {
         let res3d = CascadeSolver3D::new(config, blood_fluid())
             .solve(&[main, throat])
             .expect("3D solve");
-        let dp_inlet_3d = res3d.channel_results[0].pressure_drop_pa;
-        let dp_throat_3d = res3d.channel_results[1].pressure_drop_pa;
+        let dp_inlet_3d = res3d.channel_results[0].pressure_drop_pa.into_base();
+        let dp_throat_3d = res3d.channel_results[1].pressure_drop_pa.into_base();
         assert!(
             dp_throat_3d > dp_inlet_3d,
             "3D: throat dp={dp_throat_3d:.2} Pa must exceed inlet dp={dp_inlet_3d:.2} Pa"

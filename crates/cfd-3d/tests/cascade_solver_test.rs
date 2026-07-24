@@ -1,6 +1,7 @@
 //! Integration tests for `CascadeSolver3D` — validates multi-channel CIF
 //! network 3D FEM solves with both Newtonian and non-Newtonian fluids.
 
+use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
 use cfd_3d::cascade::{CascadeChannelSpec, CascadeConfig3D, CascadeSolver3D};
 use cfd_core::physics::fluid::blood::CassonBlood;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
@@ -12,10 +13,10 @@ fn cif_two_channel_specs() -> Vec<CascadeChannelSpec> {
         // Outer (wide) arm — no venturi, higher flow fraction
         CascadeChannelSpec {
             id: "outer".into(),
-            length: 10.0e-3,
-            width: 2.0e-3,
-            height: 1.0e-3,
-            flow_rate_m3_s: 5e-8,
+            length: Length::from_base(10.0e-3),
+            width: Length::from_base(2.0e-3),
+            height: Length::from_base(1.0e-3),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(5e-8),
             is_venturi_throat: false,
             throat_width: None,
             local_hematocrit: None,
@@ -23,12 +24,12 @@ fn cif_two_channel_specs() -> Vec<CascadeChannelSpec> {
         // Central (narrow) arm — venturi throat for SDT
         CascadeChannelSpec {
             id: "center".into(),
-            length: 10.0e-3,
-            width: 1.0e-3,
-            height: 1.0e-3,
-            flow_rate_m3_s: 2e-8,
+            length: Length::from_base(10.0e-3),
+            width: Length::from_base(1.0e-3),
+            height: Length::from_base(1.0e-3),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(2e-8),
             is_venturi_throat: true,
-            throat_width: Some(0.5e-3),
+            throat_width: Some(Length::from_base(0.5e-3)),
             local_hematocrit: None,
         },
     ]
@@ -37,7 +38,7 @@ fn cif_two_channel_specs() -> Vec<CascadeChannelSpec> {
 /// Low-resolution config for fast CI tests.
 fn ci_config() -> CascadeConfig3D {
     CascadeConfig3D {
-        outlet_pressure: 0.0,
+        outlet_pressure: Pressure::from_base(0.0),
         resolution: (20, 5, 5),
         max_picard_iterations: 5,
         picard_tolerance: 1e-2,
@@ -55,13 +56,13 @@ fn cascade_water_solves_two_channels() {
     assert_eq!(result.channel_results.len(), 2);
     for cr in &result.channel_results {
         assert!(
-            cr.wall_shear_mean_pa >= 0.0,
-            "Channel {} has negative mean shear: {}",
+            cr.wall_shear_mean_pa.into_base() >= 0.0,
+            "Channel {} has negative mean shear: {:?}",
             cr.channel_id,
             cr.wall_shear_mean_pa
         );
         assert!(
-            cr.max_velocity > 0.0,
+            cr.max_velocity.into_base() > 0.0,
             "Channel {} has zero max velocity",
             cr.channel_id
         );
@@ -89,16 +90,16 @@ fn cascade_channels_produce_distinct_shear() {
 
     // Both channels must produce non-zero wall shear.
     assert!(
-        outer.wall_shear_max_pa > 0.0,
+        outer.wall_shear_max_pa.into_base() > 0.0,
         "Outer channel has zero max shear"
     );
     assert!(
-        center.wall_shear_max_pa > 0.0,
+        center.wall_shear_max_pa.into_base() > 0.0,
         "Center channel has zero max shear"
     );
     // The shear values should differ (different geometry).
     assert!(
-        (outer.wall_shear_max_pa - center.wall_shear_max_pa).abs() > 1e-10,
+        (outer.wall_shear_max_pa.into_base() - center.wall_shear_max_pa.into_base()).abs() > 1e-10,
         "Both channels report identical shear — suspicious"
     );
     // The max_shear_channel_id must reference a valid channel.
@@ -149,17 +150,17 @@ fn cascade_single_straight_channel() {
     let solver = CascadeSolver3D::new(ci_config(), water);
     let specs = vec![CascadeChannelSpec {
         id: "straight".into(),
-        length: 5.0e-3,
-        width: 1.5e-3,
-        height: 1.0e-3,
-        flow_rate_m3_s: 3e-8,
+        length: Length::from_base(5.0e-3),
+        width: Length::from_base(1.5e-3),
+        height: Length::from_base(1.0e-3),
+        flow_rate_m3_s: VolumetricFlowRate::from_base(3e-8),
         is_venturi_throat: false,
         throat_width: None,
         local_hematocrit: None,
     }];
     let result = solver.solve(&specs).unwrap();
     assert_eq!(result.channel_results.len(), 1);
-    assert!(result.channel_results[0].max_velocity > 0.0);
+    assert!(result.channel_results[0].max_velocity.into_base() > 0.0);
 }
 
 // ── Hematocrit coupling (D2) ──────────────────────────────────────────
@@ -173,30 +174,30 @@ fn cascade_hematocrit_sets_local_field() {
     let specs = vec![
         CascadeChannelSpec {
             id: "bypass".into(),
-            length: 10.0e-3,
-            width: 1.5e-3,
-            height: 1.0e-3,
-            flow_rate_m3_s: 3e-8,
+            length: Length::from_base(10.0e-3),
+            width: Length::from_base(1.5e-3),
+            height: Length::from_base(1.0e-3),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(3e-8),
             is_venturi_throat: false,
             throat_width: None,
             local_hematocrit: Some(0.20),
         },
         CascadeChannelSpec {
             id: "center".into(),
-            length: 10.0e-3,
-            width: 1.5e-3,
-            height: 1.0e-3,
-            flow_rate_m3_s: 3e-8,
+            length: Length::from_base(10.0e-3),
+            width: Length::from_base(1.5e-3),
+            height: Length::from_base(1.0e-3),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(3e-8),
             is_venturi_throat: false,
             throat_width: None,
             local_hematocrit: Some(0.55),
         },
         CascadeChannelSpec {
             id: "default".into(),
-            length: 10.0e-3,
-            width: 1.5e-3,
-            height: 1.0e-3,
-            flow_rate_m3_s: 3e-8,
+            length: Length::from_base(10.0e-3),
+            width: Length::from_base(1.5e-3),
+            height: Length::from_base(1.0e-3),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(3e-8),
             is_venturi_throat: false,
             throat_width: None,
             local_hematocrit: None,

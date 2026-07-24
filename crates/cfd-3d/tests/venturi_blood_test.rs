@@ -46,7 +46,7 @@ fn validate_venturi_blood_flow() {
     let config = VenturiConfig3D {
         inlet_flow_rate: q_in,
         inlet_pressure: 100.0, // Arbitrary reference, we check DP
-        outlet_pressure: 0.0,
+        outlet_pressure: aequitas::systems::si::quantities::Pressure::from_base(0.0),
         resolution: (40, 6), // Coarse for speed, but fine enough for bulk flow
         circular: true,
         max_nonlinear_iterations: 25, // Iterating for viscosity

@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = SerpentineConfig3D {
         inlet_flow_rate: 5e-7, // 0.5 mL/s
         inlet_pressure: 200.0,
-        outlet_pressure: 0.0,
+        outlet_pressure: aequitas::systems::si::quantities::Pressure::from_base(0.0),
         ..SerpentineConfig3D::default()
     };
 

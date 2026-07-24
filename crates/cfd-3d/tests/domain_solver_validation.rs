@@ -122,7 +122,7 @@ fn venturi_nonzero_pressure_difference() {
     let config = VenturiConfig3D {
         inlet_flow_rate: 1e-7,
         inlet_pressure: 200.0,
-        outlet_pressure: 0.0,
+        outlet_pressure: aequitas::systems::si::quantities::Pressure::from_base(0.0),
         resolution: (30, 5),
         ..VenturiConfig3D::default()
     };
@@ -168,7 +168,7 @@ fn venturi_pressure_coefficients_require_positive_dynamic_pressure() {
     let config = VenturiConfig3D {
         inlet_flow_rate: 0.0,
         inlet_pressure: 200.0,
-        outlet_pressure: 0.0,
+        outlet_pressure: aequitas::systems::si::quantities::Pressure::from_base(0.0),
         resolution: (30, 5),
         ..VenturiConfig3D::default()
     };
@@ -200,7 +200,7 @@ fn serpentine_positive_pressure_drop() {
     let config = SerpentineConfig3D {
         inlet_flow_rate: 5e-7,
         inlet_pressure: 200.0,
-        outlet_pressure: 0.0,
+        outlet_pressure: aequitas::systems::si::quantities::Pressure::from_base(0.0),
         ..SerpentineConfig3D::default()
     };
     let solver = SerpentineSolver3D::new(builder, config);
@@ -227,7 +227,7 @@ fn serpentine_dean_number_positive() {
     let config = SerpentineConfig3D {
         inlet_flow_rate: 5e-7,
         inlet_pressure: 200.0,
-        outlet_pressure: 0.0,
+        outlet_pressure: aequitas::systems::si::quantities::Pressure::from_base(0.0),
         ..SerpentineConfig3D::default()
     };
     let solver = SerpentineSolver3D::new(builder, config);

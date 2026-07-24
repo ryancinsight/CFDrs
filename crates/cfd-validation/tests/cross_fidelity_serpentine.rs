@@ -116,7 +116,7 @@ fn cross_fidelity_dean_flow_resistance() {
     let config_3d = SerpentineConfig3D {
         inlet_flow_rate: flow_rate,
         inlet_pressure: 101325.0 + dp_serp_1d, // Initial guess overhead
-        outlet_pressure: 101325.0,
+        outlet_pressure: aequitas::systems::si::quantities::Pressure::from_base(101325.0),
         max_nonlinear_iterations: 15,
         nonlinear_tolerance: 1e-3,
         resolution: (40, 6), // coarse structured grid to ensure test speed limits

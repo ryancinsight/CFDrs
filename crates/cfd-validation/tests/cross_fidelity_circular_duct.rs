@@ -50,7 +50,7 @@ fn solve_circular_pipe_3d_poiseuille(mean_velocity_m_s: f64) -> CircularPipe3dMe
     let config = VenturiConfig3D {
         inlet_flow_rate: flow_rate_m3_s,
         inlet_pressure: 0.0,
-        outlet_pressure: 0.0,
+        outlet_pressure: aequitas::systems::si::quantities::Pressure::from_base(0.0),
         resolution: (16, 4),
         circular: true,
         max_nonlinear_iterations: 20,

@@ -6,6 +6,19 @@ Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
       equations and `cfd-3d` cascade inlet flow through Aequitas quantities;
       typed provider tests and locked package checks pass.
 
+- [x] CFD-AEQUITAS-CASCADE-METRICS-1 [major]: carry public 3D cascade geometry,
+      flow, pressure, shear, and velocity metrics through Aequitas; migrate all
+      in-tree callers and preserve scalar SI serialization keys.
+  - [x] Add explicit typed-to-scalar adapters at mesh/FEM and serialization
+        boundaries; add the cascade design note and gap-audit closure.
+  - [x] Migrate cascade solver, adversarial, cross-fidelity, example, and
+        validation callers.
+  - [ ] Run focused cfd-3d/cfd-validation gates after the peer provider graph
+        is repaired. The current `cargo check -p cfd-3d --offline` fails before
+        CFDrs source compilation because the local Coeus dependency resolves to
+        `D:\atlas\repos\coeus\coeus-core\Cargo.toml`, while the checked-out
+        manifest is at `D:\atlas\repos\coeus\crates\coeus-core\Cargo.toml`.
+
 - [x] CFD-BOOK-PAGES-1 [patch]: add the repository-owned mdBook GitHub Pages
       workflow, declare the `/CFDrs/` project-site base path, and link the
       published book from the repository README. Local mdBook build and

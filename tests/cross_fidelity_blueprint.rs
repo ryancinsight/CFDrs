@@ -6,6 +6,7 @@
 //! 2. 2D Depth-Averaged LBM Solver (captures lateral flow features)
 //! 3. 3D Cascade / Domain Solver (captures full volumetric flow)
 
+use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
 use cfd_2d::network::solve_reference_trace;
 use cfd_3d::blueprint_integration::{
     process_blueprint_with_reference_trace, Blueprint3dProcessingConfig,
@@ -131,7 +132,7 @@ fn cross_fidelity_blueprint_consistency() {
         speed_of_sound: 1500.0,
     };
     let cascade_config = CascadeConfig3D {
-        outlet_pressure: 0.0,
+        outlet_pressure: Pressure::from_base(0.0),
         resolution: (10, 4, 4),
         max_picard_iterations: 3,
         picard_tolerance: 1e-2,
@@ -152,12 +153,12 @@ fn cross_fidelity_blueprint_consistency() {
 
             specs.push(CascadeChannelSpec {
                 id: ch.id.as_str().to_owned(),
-                length: ch.length_m,
-                width: w,
-                height: h,
-                flow_rate_m3_s: trace.reference_flow_rate_m3_s,
+                length: Length::from_base(ch.length_m),
+                width: Length::from_base(w),
+                height: Length::from_base(h),
+                flow_rate_m3_s: VolumetricFlowRate::from_base(trace.reference_flow_rate_m3_s),
                 is_venturi_throat: is_venturi,
-                throat_width: throat_w,
+                throat_width: throat_w.map(Length::from_base),
                 local_hematocrit: None,
             });
         }
@@ -170,12 +171,12 @@ fn cross_fidelity_blueprint_consistency() {
     for cr in &cascade_result.channel_results {
         println!(
             "3D Channel {}: dP={:.2} Pa, Vel_max={:.4}m/s, Shear={:.4} Pa",
-            cr.channel_id, cr.pressure_drop_pa, cr.max_velocity, cr.wall_shear_mean_pa
+            cr.channel_id, cr.pressure_drop_pa.into_base(), cr.max_velocity.into_base(), cr.wall_shear_mean_pa.into_base()
         );
 
-        assert!(cr.max_velocity > 0.0, "3D velocity should be non-zero");
+        assert!(cr.max_velocity.into_base() > 0.0, "3D velocity should be non-zero");
         assert!(
-            cr.pressure_drop_pa > 0.0,
+            cr.pressure_drop_pa.into_base() > 0.0,
             "3D pressure drop should be positive"
         );
     }
@@ -243,7 +244,7 @@ fn cross_fidelity_blueprint_complex_branching() {
         speed_of_sound: 1500.0,
     };
     let cascade_config = CascadeConfig3D {
-        outlet_pressure: 0.0,
+        outlet_pressure: Pressure::from_base(0.0),
         resolution: (10, 4, 4),
         max_picard_iterations: 1,
         picard_tolerance: 1e-2,
@@ -263,12 +264,12 @@ fn cross_fidelity_blueprint_complex_branching() {
 
             specs.push(CascadeChannelSpec {
                 id: ch.id.as_str().to_owned(),
-                length: ch.length_m,
-                width: w,
-                height: h,
-                flow_rate_m3_s: ch_trace.flow_rate_m3_s,
+                length: Length::from_base(ch.length_m),
+                width: Length::from_base(w),
+                height: Length::from_base(h),
+                flow_rate_m3_s: VolumetricFlowRate::from_base(ch_trace.flow_rate_m3_s),
                 is_venturi_throat: is_venturi,
-                throat_width: throat_w,
+                throat_width: throat_w.map(Length::from_base),
                 local_hematocrit: None,
             });
         }
@@ -281,7 +282,7 @@ fn cross_fidelity_blueprint_complex_branching() {
     for cr in &cascade_result.channel_results {
         println!(
             "Branch [{:<15}] | 3D dP: {:>6.2} Pa | 3D Shear: {:>6.2} Pa",
-            cr.channel_id, cr.pressure_drop_pa, cr.wall_shear_mean_pa
+            cr.channel_id, cr.pressure_drop_pa.into_base(), cr.wall_shear_mean_pa.into_base()
         );
     }
 }

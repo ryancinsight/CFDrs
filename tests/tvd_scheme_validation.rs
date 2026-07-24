@@ -17,11 +17,26 @@
 //! - Yee, H.C. (1987). "Upwind and Symmetric Shock-Capturing Schemes"
 //! - Roe, P.L. (1986). "Characteristic-Based Schemes for the Euler Equations"
 
-use eunomia::assert_relative_eq;
+// use eunomia::assert_relative_eq;  // Temporarily disabled due to missing eunomia dependency
 use cfd_2d::schemes::grid::Grid2D as Grid2DT;
 use cfd_2d::schemes::tvd::{FluxLimiter, MUSCLOrder, MUSCLScheme};
 use cfd_2d::schemes::{FaceReconstruction, Grid2D};
 use std::f64;
+
+// Simple assertion macro for relative equality testing
+macro_rules! assert_relative_eq {
+    ($left:expr, $right:expr, epsilon = $eps:expr) => {
+        let left = $left;
+        let right = $right;
+        let abs_diff = (left - right).abs();
+        let tolerance = $eps * right.abs().max(1.0);
+        assert!(
+            abs_diff <= tolerance,
+            "assertion failed: left={}, right={}, diff={}, tolerance={}",
+            left, right, abs_diff, tolerance
+        );
+    };
+}
 
 /// Test grid parameters
 const NX: usize = 100;

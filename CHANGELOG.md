@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: `cfd-3d::cascade` public channel geometry, flow rate, outlet
+  pressure, wall-shear, pressure-drop, and maximum-velocity contracts now use
+  Aequitas quantities. Mesh/FEM arithmetic and the established scalar
+  serialization keys remain explicit boundary adapters. See
+  [`cascade-physical-metrics.md`](docs/atlas-migration/cascade-physical-metrics.md).
+
 - **Aequitas fluid dimensions**: `cfd-core` now evaluates kinematic
   viscosity, Prandtl number, and Reynolds number through typed SI quantities;
   `cfd-3d` computes cascade inlet velocity from typed volumetric flow and

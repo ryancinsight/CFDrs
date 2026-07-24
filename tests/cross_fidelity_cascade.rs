@@ -7,6 +7,7 @@
 //!    to produce physically consistent wall shear and pressure drop.
 //! 3. Flow conservation holds: total 3D inlet flow ≈ sum of channel flow.
 
+use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
 use cfd_3d::cascade::{CascadeChannelSpec, CascadeConfig3D, CascadeSolver3D};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 
@@ -97,7 +98,7 @@ fn cross_fidelity_1d_to_3d_cascade() {
     // 3D: drive CascadeSolver3D with the 1D flow rates.
     let water = ConstantPropertyFluid::<f64>::water_20c().unwrap();
     let config = CascadeConfig3D {
-        outlet_pressure: 0.0,
+        outlet_pressure: Pressure::from_base(0.0),
         resolution: (20, 5, 5),
         max_picard_iterations: 3,
         picard_tolerance: 1e-2,
@@ -107,22 +108,22 @@ fn cross_fidelity_1d_to_3d_cascade() {
     let specs = vec![
         CascadeChannelSpec {
             id: "bypass".into(),
-            length: CH_LENGTH,
-            width: W_BYPASS,
-            height: CH_HEIGHT,
-            flow_rate_m3_s: q_bypass,
+            length: Length::from_base(CH_LENGTH),
+            width: Length::from_base(W_BYPASS),
+            height: Length::from_base(CH_HEIGHT),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(q_bypass),
             is_venturi_throat: false,
             throat_width: None,
             local_hematocrit: None,
         },
         CascadeChannelSpec {
             id: "center".into(),
-            length: CH_LENGTH,
-            width: W_CENTER,
-            height: CH_HEIGHT,
-            flow_rate_m3_s: q_center,
+            length: Length::from_base(CH_LENGTH),
+            width: Length::from_base(W_CENTER),
+            height: Length::from_base(CH_HEIGHT),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(q_center),
             is_venturi_throat: true,
-            throat_width: Some(W_THROAT),
+            throat_width: Some(Length::from_base(W_THROAT)),
             local_hematocrit: None,
         },
     ];
@@ -132,13 +133,13 @@ fn cross_fidelity_1d_to_3d_cascade() {
     assert_eq!(result.channel_results.len(), 2);
     for cr in &result.channel_results {
         assert!(
-            cr.max_velocity > 0.0,
+            cr.max_velocity.into_base() > 0.0,
             "Channel {} has zero velocity",
             cr.channel_id
         );
         assert!(
-            cr.wall_shear_mean_pa >= 0.0,
-            "Channel {} has negative mean shear: {}",
+            cr.wall_shear_mean_pa.into_base() >= 0.0,
+            "Channel {} has negative mean shear: {:?}",
             cr.channel_id,
             cr.wall_shear_mean_pa
         );
@@ -160,8 +161,8 @@ fn cross_fidelity_1d_to_3d_cascade() {
         .pressure_drop_pa;
 
     // Sanity: 3D pressure drops are positive.
-    assert!(dp_3d_bypass > 0.0, "3D bypass ΔP should be positive");
-    assert!(dp_3d_center > 0.0, "3D center ΔP should be positive");
+    assert!(dp_3d_bypass.into_base() > 0.0, "3D bypass ΔP should be positive");
+    assert!(dp_3d_center.into_base() > 0.0, "3D center ΔP should be positive");
 
     // Log for manual inspection.
     eprintln!("Cross-fidelity comparison:");
@@ -171,7 +172,7 @@ fn cross_fidelity_1d_to_3d_cascade() {
     );
     eprintln!(
         "  3D:  ΔP_bypass = {:.4} Pa, ΔP_center = {:.4} Pa",
-        dp_3d_bypass, dp_3d_center
+        dp_3d_bypass.into_base(), dp_3d_center.into_base()
     );
     eprintln!(
         "  Flow split: Q_bypass/Q_total = {:.3}, Q_center/Q_total = {:.3}",

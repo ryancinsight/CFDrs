@@ -47,7 +47,7 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
-use aequitas::systems::si::quantities::{Area, VolumetricFlowRate, Velocity};
+use aequitas::systems::si::quantities::{Area, Length, Pressure, Velocity, VolumetricFlowRate};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
@@ -83,22 +83,22 @@ fn hematocrit_viscosity_ratio(hct_local: f64, hct_reference: f64) -> f64 {
 // ── Configuration ─────────────────────────────────────────────────────────────
 
 /// Specification for a single channel in the cascade.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct CascadeChannelSpec {
     /// Identifier matching the `NetworkBlueprint` channel ID.
     pub id: String,
     /// Axial length \[m].
-    pub length: f64,
+    pub length: Length,
     /// Channel width \[m] (cross-stream, varies for venturi).
-    pub width: f64,
+    pub width: Length,
     /// Channel height \[m] (constant for rectangular ducts).
-    pub height: f64,
+    pub height: Length,
     /// Assigned volumetric flow rate [m³/s] from 1D presolver.
-    pub flow_rate_m3_s: f64,
+    pub flow_rate_m3_s: VolumetricFlowRate,
     /// Whether this channel contains a Venturi throat.
     pub is_venturi_throat: bool,
     /// Throat width \[m] (only when `is_venturi_throat`).
-    pub throat_width: Option<f64>,
+    pub throat_width: Option<Length>,
     /// Local hematocrit [-] from Zweifach-Fung junction routing.
     ///
     /// When set, the solver creates a `CassonBlood::with_hematocrit()` model
@@ -111,10 +111,10 @@ pub struct CascadeChannelSpec {
 }
 
 /// Configuration for the 3D cascade solver.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct CascadeConfig3D {
     /// Reference pressure at outlets \[Pa].
-    pub outlet_pressure: f64,
+    pub outlet_pressure: Pressure,
     /// Mesh resolution: (axial, cross-width, cross-height).
     pub resolution: (usize, usize, usize),
     /// Maximum Picard iterations for non-Newtonian viscosity coupling.
@@ -126,7 +126,7 @@ pub struct CascadeConfig3D {
 impl Default for CascadeConfig3D {
     fn default() -> Self {
         Self {
-            outlet_pressure: 0.0,
+            outlet_pressure: Pressure::from_base(0.0),
             resolution: (40, 8, 8),
             max_picard_iterations: 10,
             picard_tolerance: 1e-3,
@@ -137,18 +137,18 @@ impl Default for CascadeConfig3D {
 // ── Results ───────────────────────────────────────────────────────────────────
 
 /// Per-channel result from the 3D solve.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ChannelResult3D {
     /// Channel identifier.
     pub channel_id: String,
     /// Mean wall shear stress \[Pa].
-    pub wall_shear_mean_pa: f64,
+    pub wall_shear_mean_pa: Pressure,
     /// Maximum wall shear stress \[Pa].
-    pub wall_shear_max_pa: f64,
+    pub wall_shear_max_pa: Pressure,
     /// Pressure drop inlet → outlet \[Pa].
-    pub pressure_drop_pa: f64,
+    pub pressure_drop_pa: Pressure,
     /// Maximum velocity magnitude \[m/s].
-    pub max_velocity: f64,
+    pub max_velocity: Velocity,
     /// Whether the solver converged.
     pub converged: bool,
     /// Number of Picard iterations used.
@@ -160,16 +160,192 @@ pub struct ChannelResult3D {
 }
 
 /// Aggregate result for the entire cascade.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct CascadeResult3D {
     /// Per-channel results in the order supplied.
     pub channel_results: Vec<ChannelResult3D>,
     /// Sum of per-channel pressure drops \[Pa].
-    pub total_pressure_drop_pa: f64,
+    pub total_pressure_drop_pa: Pressure,
     /// Channel with the highest wall shear stress.
     pub max_shear_channel_id: String,
     /// Highest wall shear stress across all channels \[Pa].
-    pub max_shear_pa: f64,
+    pub max_shear_pa: Pressure,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CascadeChannelSpecRepr {
+    id: String,
+    length: f64,
+    width: f64,
+    height: f64,
+    flow_rate_m3_s: f64,
+    is_venturi_throat: bool,
+    throat_width: Option<f64>,
+    local_hematocrit: Option<f64>,
+}
+
+impl Serialize for CascadeChannelSpec {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        CascadeChannelSpecRepr {
+            id: self.id.clone(),
+            length: self.length.into_base(),
+            width: self.width.into_base(),
+            height: self.height.into_base(),
+            flow_rate_m3_s: self.flow_rate_m3_s.into_base(),
+            is_venturi_throat: self.is_venturi_throat,
+            throat_width: self.throat_width.map(Length::into_base),
+            local_hematocrit: self.local_hematocrit,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for CascadeChannelSpec {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let repr = CascadeChannelSpecRepr::deserialize(deserializer)?;
+        Ok(Self {
+            id: repr.id,
+            length: Length::from_base(repr.length),
+            width: Length::from_base(repr.width),
+            height: Length::from_base(repr.height),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(repr.flow_rate_m3_s),
+            is_venturi_throat: repr.is_venturi_throat,
+            throat_width: repr.throat_width.map(Length::from_base),
+            local_hematocrit: repr.local_hematocrit,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CascadeConfig3DRepr {
+    outlet_pressure: f64,
+    resolution: (usize, usize, usize),
+    max_picard_iterations: usize,
+    picard_tolerance: f64,
+}
+
+impl Serialize for CascadeConfig3D {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        CascadeConfig3DRepr {
+            outlet_pressure: self.outlet_pressure.into_base(),
+            resolution: self.resolution,
+            max_picard_iterations: self.max_picard_iterations,
+            picard_tolerance: self.picard_tolerance,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for CascadeConfig3D {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let repr = CascadeConfig3DRepr::deserialize(deserializer)?;
+        Ok(Self {
+            outlet_pressure: Pressure::from_base(repr.outlet_pressure),
+            resolution: repr.resolution,
+            max_picard_iterations: repr.max_picard_iterations,
+            picard_tolerance: repr.picard_tolerance,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ChannelResult3DRepr {
+    channel_id: String,
+    wall_shear_mean_pa: f64,
+    wall_shear_max_pa: f64,
+    pressure_drop_pa: f64,
+    max_velocity: f64,
+    converged: bool,
+    picard_iterations: usize,
+    local_hematocrit: f64,
+}
+
+impl Serialize for ChannelResult3D {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        ChannelResult3DRepr {
+            channel_id: self.channel_id.clone(),
+            wall_shear_mean_pa: self.wall_shear_mean_pa.into_base(),
+            wall_shear_max_pa: self.wall_shear_max_pa.into_base(),
+            pressure_drop_pa: self.pressure_drop_pa.into_base(),
+            max_velocity: self.max_velocity.into_base(),
+            converged: self.converged,
+            picard_iterations: self.picard_iterations,
+            local_hematocrit: self.local_hematocrit,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ChannelResult3D {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let repr = ChannelResult3DRepr::deserialize(deserializer)?;
+        Ok(Self {
+            channel_id: repr.channel_id,
+            wall_shear_mean_pa: Pressure::from_base(repr.wall_shear_mean_pa),
+            wall_shear_max_pa: Pressure::from_base(repr.wall_shear_max_pa),
+            pressure_drop_pa: Pressure::from_base(repr.pressure_drop_pa),
+            max_velocity: Velocity::from_base(repr.max_velocity),
+            converged: repr.converged,
+            picard_iterations: repr.picard_iterations,
+            local_hematocrit: repr.local_hematocrit,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CascadeResult3DRepr {
+    channel_results: Vec<ChannelResult3D>,
+    total_pressure_drop_pa: f64,
+    max_shear_channel_id: String,
+    max_shear_pa: f64,
+}
+
+impl Serialize for CascadeResult3D {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        CascadeResult3DRepr {
+            channel_results: self.channel_results.clone(),
+            total_pressure_drop_pa: self.total_pressure_drop_pa.into_base(),
+            max_shear_channel_id: self.max_shear_channel_id.clone(),
+            max_shear_pa: self.max_shear_pa.into_base(),
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for CascadeResult3D {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let repr = CascadeResult3DRepr::deserialize(deserializer)?;
+        Ok(Self {
+            channel_results: repr.channel_results,
+            total_pressure_drop_pa: Pressure::from_base(repr.total_pressure_drop_pa),
+            max_shear_channel_id: repr.max_shear_channel_id,
+            max_shear_pa: Pressure::from_base(repr.max_shear_pa),
+        })
+    }
 }
 
 // ── Solver ────────────────────────────────────────────────────────────────────
@@ -208,12 +384,18 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
             channel_results.push(result);
         }
 
-        let total_dp: f64 = channel_results.iter().map(|r| r.pressure_drop_pa).sum();
+        let total_dp = Pressure::from_base(
+            channel_results
+                .iter()
+                .map(|r| r.pressure_drop_pa.into_base())
+                .sum(),
+        );
         let (max_id, max_tau) = channel_results
             .iter()
             .max_by(|a, b| {
                 a.wall_shear_max_pa
-                    .partial_cmp(&b.wall_shear_max_pa)
+                    .into_base()
+                    .partial_cmp(&b.wall_shear_max_pa.into_base())
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|r| (r.channel_id.clone(), r.wall_shear_max_pa))
@@ -243,19 +425,19 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
             .build()
             .map_err(|e| Error::Solver(e.to_string()))?;
 
-        let half_h = spec.height / 2.0;
-        let total_l = spec.length;
+        let half_h = spec.height.into_base() / 2.0;
+        let total_l = spec.length.into_base();
 
         // Compute local width at each axial station for venturi channels.
         let width_at = |z_frac: f64| -> f64 {
             if !spec.is_venturi_throat {
-                return spec.width;
+                return spec.width.into_base();
             }
-            let throat_w = spec.throat_width.unwrap_or(spec.width);
+            let throat_w = spec.throat_width.unwrap_or(spec.width).into_base();
             // Simple symmetric constriction: linear convergent-divergent
             // with throat at the midpoint of the channel.
             let t = 2.0 * (z_frac - 0.5).abs(); // 0 at center, 1 at ends
-            throat_w + (spec.width - throat_w) * t
+            throat_w + (spec.width.into_base() - throat_w) * t
         };
 
         for i in 0..mesh.vertex_count() {
@@ -277,9 +459,8 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         }
 
         // 2. Compute inlet velocity from flow rate.
-        let inlet_area = Area::from_base(spec.width * spec.height);
-        let flow_rate = VolumetricFlowRate::from_base(spec.flow_rate_m3_s);
-        let inlet_velocity: Velocity = flow_rate / inlet_area;
+        let inlet_area = Area::from_base(spec.width.into_base() * spec.height.into_base());
+        let inlet_velocity: Velocity = spec.flow_rate_m3_s / inlet_area;
         let u_inlet = inlet_velocity.into_base();
 
         // 3. Assign boundary conditions.
@@ -321,7 +502,7 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
             } else if is_outlet {
                 // Outlet face: zero-gauge pressure.
                 BoundaryCondition::PressureOutlet {
-                    pressure: self.config.outlet_pressure,
+                    pressure: self.config.outlet_pressure.into_base(),
                 }
             } else {
                 // Wall: no-slip.
@@ -441,10 +622,10 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
 
         Ok(ChannelResult3D {
             channel_id: spec.id.clone(),
-            wall_shear_mean_pa: wall_shear_mean,
-            wall_shear_max_pa: wall_shear_max,
-            pressure_drop_pa: pressure_drop,
-            max_velocity: max_vel,
+            wall_shear_mean_pa: Pressure::from_base(wall_shear_mean),
+            wall_shear_max_pa: Pressure::from_base(wall_shear_max),
+            pressure_drop_pa: Pressure::from_base(pressure_drop),
+            max_velocity: Velocity::from_base(max_vel),
             converged,
             picard_iterations: picard_iter,
             local_hematocrit: spec.local_hematocrit.unwrap_or(0.45),
@@ -729,10 +910,10 @@ mod tests {
     fn simple_channel(id: &str) -> CascadeChannelSpec {
         CascadeChannelSpec {
             id: id.to_string(),
-            length: 0.01,   // 10 mm
-            width: 0.001,   // 1 mm
-            height: 0.0005, // 0.5 mm
-            flow_rate_m3_s: 1e-8,
+            length: Length::from_base(0.01),   // 10 mm
+            width: Length::from_base(0.001),   // 1 mm
+            height: Length::from_base(0.0005), // 0.5 mm
+            flow_rate_m3_s: VolumetricFlowRate::from_base(1e-8),
             is_venturi_throat: false,
             throat_width: None,
             local_hematocrit: None,
@@ -762,6 +943,7 @@ mod tests {
     #[test]
     fn channel_count_matches_input() {
         let config = CascadeConfig3D {
+            outlet_pressure: Pressure::from_base(0.0),
             resolution: (4, 2, 2), // very coarse for speed
             max_picard_iterations: 1,
             ..CascadeConfig3D::default()
