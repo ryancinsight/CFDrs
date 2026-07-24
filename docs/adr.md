@@ -6,6 +6,7 @@
 
 | Decision | Date | Rationale | Metrics | Trade-offs |
 |----------|------|-----------|---------|------------|
+| **Aequitas-owned component geometry and volume metrics** | 2026-07-24 | Public component geometry and volume contracts documented SI units but stored lengths, areas, roughness, and volumes as raw scalars | Length, Area, and Volume remain typed through channels, membranes, organs, and network channel properties | Breaking change for external component constructors and `Component` implementors |
 | **Aequitas-owned surface and wetting metrics** | 2026-07-24 | Public surface contracts documented SI units but stored roughness, angles, surface energy, and tension as raw scalars | Length, Angle, EnergyPerArea, and SurfaceTension remain typed through public material and channel boundaries | Breaking change for external surface/interface constructors and trait implementors |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
@@ -75,6 +76,29 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-24: Aequitas owns component geometry and volume quantities [major] [arch]
+
+Context: cfd-1d channel, membrane, and organ components documented length,
+area, roughness, and volume units but exposed bare scalar fields and a scalar
+`Component::volume` result. `ChannelProperties` repeated the same ambiguity.
+
+Decision: store component linear dimensions and roughness as Aequitas Length,
+return Area from area methods, return Volume from the shared component contract,
+and type ChannelProperties. Convert only at resistance-model and dynamic
+parameter boundaries.
+
+Rejected alternative: retaining scalar fields with unit comments or adding
+parallel typed accessors would preserve dimensional ambiguity or duplicate the
+geometry owner. Both alternatives are rejected.
+
+Consequences: component constructors and `Component` implementors are breaking
+for external users; factories and setters remain scalar configuration adapters
+that immediately construct typed values.
+
+Verification: cfd-1d check and Nextest cover the component implementations,
+factory, property, adversarial, and membrane-parity callers. Doctest, Rustdoc,
+residue, and known-warning evidence are recorded in the child gap audit.
 
 ### 2026-07-24: Aequitas owns surface and wetting quantities [major] [arch]
 

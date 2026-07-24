@@ -3,6 +3,7 @@
 use super::{real_from_f64, Component};
 use crate::physics::resistance::models::{FlowConditions, MembranePoreModel, ResistanceModel};
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::{Area, Length, Volume};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
@@ -13,13 +14,13 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PorousMembrane<T: Cfd1dScalar + Copy> {
     /// Membrane thickness \[m]
-    pub thickness: T,
+    pub thickness: Length<T>,
     /// Membrane width \[m]
-    pub width: T,
+    pub width: Length<T>,
     /// Membrane height \[m]
-    pub height: T,
+    pub height: Length<T>,
     /// Pore radius \[m]
-    pub pore_radius: T,
+    pub pore_radius: Length<T>,
     /// Fraction of open pore area (0..1)
     pub porosity: T,
     /// Additional parameters
@@ -28,7 +29,13 @@ pub struct PorousMembrane<T: Cfd1dScalar + Copy> {
 
 impl<T: Cfd1dScalar + Copy + SafeFromF64> PorousMembrane<T> {
     /// Create a new porous membrane component.
-    pub fn new(thickness: T, width: T, height: T, pore_radius: T, porosity: T) -> Self {
+    pub fn new(
+        thickness: Length<T>,
+        width: Length<T>,
+        height: Length<T>,
+        pore_radius: Length<T>,
+        porosity: T,
+    ) -> Self {
         Self {
             thickness,
             width,
@@ -40,18 +47,18 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> PorousMembrane<T> {
     }
 
     /// Membrane frontal area \[m²]
-    pub fn area(&self) -> T {
-        self.width * self.height
+    pub fn area(&self) -> Area<T> {
+        Area::from_base(self.width.into_base() * self.height.into_base())
     }
 }
 
 impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for PorousMembrane<T> {
     fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
         let model = MembranePoreModel::new(
-            self.thickness,
-            self.width,
-            self.height,
-            self.pore_radius,
+            self.thickness.into_base(),
+            self.width.into_base(),
+            self.height.into_base(),
+            self.pore_radius.into_base(),
             self.porosity,
         );
         let conditions = FlowConditions::new(T::zero());
@@ -70,10 +77,10 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for PorousMembrane<T> {
 
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
-            "thickness" => self.thickness = value,
-            "width" => self.width = value,
-            "height" => self.height = value,
-            "pore_radius" => self.pore_radius = value,
+            "thickness" => self.thickness = Length::from_base(value),
+            "width" => self.width = Length::from_base(value),
+            "height" => self.height = Length::from_base(value),
+            "pore_radius" => self.pore_radius = Length::from_base(value),
             "porosity" => self.porosity = value,
             _ => {
                 self.parameters.insert(key.to_string(), value);
@@ -82,8 +89,10 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for PorousMembrane<T> {
         Ok(())
     }
 
-    fn volume(&self) -> Option<T> {
-        Some(self.thickness * self.area())
+    fn volume(&self) -> Option<Volume<T>> {
+        Some(Volume::from_base(
+            self.thickness.into_base() * self.area().into_base(),
+        ))
     }
 }
 
@@ -91,11 +100,11 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for PorousMembrane<T> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrganCompartment<T: Cfd1dScalar + Copy> {
     /// Chamber length \[m]
-    pub length: T,
+    pub length: Length<T>,
     /// Chamber width \[m]
-    pub width: T,
+    pub width: Length<T>,
     /// Chamber height \[m]
-    pub height: T,
+    pub height: Length<T>,
     /// Lumped hydraulic resistance [Pa·s/m³]
     pub hydraulic_resistance: T,
     /// Additional parameters
@@ -104,7 +113,12 @@ pub struct OrganCompartment<T: Cfd1dScalar + Copy> {
 
 impl<T: Cfd1dScalar + Copy + SafeFromF64> OrganCompartment<T> {
     /// Create a new organ compartment component.
-    pub fn new(length: T, width: T, height: T, hydraulic_resistance: T) -> Self {
+    pub fn new(
+        length: Length<T>,
+        width: Length<T>,
+        height: Length<T>,
+        hydraulic_resistance: T,
+    ) -> Self {
         Self {
             length,
             width,
@@ -115,8 +129,8 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> OrganCompartment<T> {
     }
 
     /// Chamber area \[m²]
-    pub fn area(&self) -> T {
-        self.width * self.height
+    pub fn area(&self) -> Area<T> {
+        Area::from_base(self.width.into_base() * self.height.into_base())
     }
 }
 
@@ -135,9 +149,9 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for OrganCompartment<T> {
 
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
-            "length" => self.length = value,
-            "width" => self.width = value,
-            "height" => self.height = value,
+            "length" => self.length = Length::from_base(value),
+            "width" => self.width = Length::from_base(value),
+            "height" => self.height = Length::from_base(value),
             "hydraulic_resistance" => self.hydraulic_resistance = value,
             _ => {
                 self.parameters.insert(key.to_string(), value);
@@ -146,7 +160,9 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for OrganCompartment<T> {
         Ok(())
     }
 
-    fn volume(&self) -> Option<T> {
-        Some(self.length * self.area())
+    fn volume(&self) -> Option<Volume<T>> {
+        Some(Volume::from_base(
+            self.length.into_base() * self.area().into_base(),
+        ))
     }
 }

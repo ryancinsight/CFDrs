@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: cfd-1d channel, membrane, and organ component geometry now
+  carries Aequitas Length and Area values, Component::volume returns Volume,
+  and ChannelProperties stores typed lengths. Scalar extraction remains at
+  resistance-model and dynamic-parameter boundaries. See
+  docs/atlas-migration/component-geometry-metrics.md.
+
 - **Breaking**: cfd-1d SurfaceProperties now carries Aequitas Length, Angle, and
   EnergyPerArea for roughness, contact angle, and surface energy. cfd-core
   material interfaces carry SurfaceTension and typed contact angles; adhesion

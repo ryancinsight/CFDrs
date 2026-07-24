@@ -32,6 +32,7 @@
 use super::{real_from_f64, Component};
 use crate::physics::resistance::models::ResistanceModel;
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::{Area, Length, Volume};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
@@ -42,20 +43,25 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RectangularChannel<T: Cfd1dScalar + Copy> {
     /// Channel length \[m]
-    pub length: T,
+    pub length: Length<T>,
     /// Channel width \[m]
-    pub width: T,
+    pub width: Length<T>,
     /// Channel height \[m]
-    pub height: T,
+    pub height: Length<T>,
     /// Surface roughness \[m]
-    pub roughness: T,
+    pub roughness: Length<T>,
     /// Additional parameters
     pub parameters: HashMap<String, T>,
 }
 
 impl<T: Cfd1dScalar + Copy + SafeFromF64> RectangularChannel<T> {
     /// Create a new rectangular channel
-    pub fn new(length: T, width: T, height: T, roughness: T) -> Self {
+    pub fn new(
+        length: Length<T>,
+        width: Length<T>,
+        height: Length<T>,
+        roughness: Length<T>,
+    ) -> Self {
         Self {
             length,
             width,
@@ -66,24 +72,26 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> RectangularChannel<T> {
     }
 
     /// Create a square channel
-    pub fn square(length: T, side: T, roughness: T) -> Self {
+    pub fn square(length: Length<T>, side: Length<T>, roughness: Length<T>) -> Self {
         Self::new(length, side, side, roughness)
     }
 
     /// Get cross-sectional area
-    pub fn area(&self) -> T {
-        self.width * self.height
+    pub fn area(&self) -> Area<T> {
+        Area::from_base(self.width.into_base() * self.height.into_base())
     }
 
     /// Get hydraulic diameter
-    pub fn hydraulic_diameter(&self) -> T {
+    pub fn hydraulic_diameter(&self) -> Length<T> {
         let two = T::one() + T::one();
-        two * self.area() / (self.width + self.height)
+        Length::from_base(
+            two * self.area().into_base() / (self.width.into_base() + self.height.into_base()),
+        )
     }
 
     /// Get aspect ratio (width/height)
     pub fn aspect_ratio(&self) -> T {
-        self.width / self.height
+        self.width.into_base() / self.height.into_base()
     }
 }
 
@@ -91,9 +99,9 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for RectangularChannel<T>
     fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
         // Use the validated RectangularChannelModel for consistency
         let model = crate::physics::resistance::models::RectangularChannelModel {
-            width: self.width,
-            height: self.height,
-            length: self.length,
+            width: self.width.into_base(),
+            height: self.height.into_base(),
+            length: self.length.into_base(),
         };
 
         // FlowConditions with zero flow rate to get purely laminar R
@@ -122,10 +130,10 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for RectangularChannel<T>
 
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
-            "length" => self.length = value,
-            "width" => self.width = value,
-            "height" => self.height = value,
-            "roughness" => self.roughness = value,
+            "length" => self.length = Length::from_base(value),
+            "width" => self.width = Length::from_base(value),
+            "height" => self.height = Length::from_base(value),
+            "roughness" => self.roughness = Length::from_base(value),
             _ => {
                 self.parameters.insert(key.to_string(), value);
             }
@@ -133,8 +141,10 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for RectangularChannel<T>
         Ok(())
     }
 
-    fn volume(&self) -> Option<T> {
-        Some(self.length * self.area())
+    fn volume(&self) -> Option<Volume<T>> {
+        Some(Volume::from_base(
+            self.length.into_base() * self.area().into_base(),
+        ))
     }
 }
 
@@ -142,18 +152,18 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for RectangularChannel<T>
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CircularChannel<T: Cfd1dScalar + Copy> {
     /// Channel length \[m]
-    pub length: T,
+    pub length: Length<T>,
     /// Channel diameter \[m]
-    pub diameter: T,
+    pub diameter: Length<T>,
     /// Surface roughness \[m]
-    pub roughness: T,
+    pub roughness: Length<T>,
     /// Additional parameters
     pub parameters: HashMap<String, T>,
 }
 
 impl<T: Cfd1dScalar + Copy + SafeFromF64> CircularChannel<T> {
     /// Create a new circular channel
-    pub fn new(length: T, diameter: T, roughness: T) -> Self {
+    pub fn new(length: Length<T>, diameter: Length<T>, roughness: Length<T>) -> Self {
         Self {
             length,
             diameter,
@@ -163,13 +173,16 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> CircularChannel<T> {
     }
 
     /// Get cross-sectional area
-    pub fn area(&self) -> T {
+    pub fn area(&self) -> Area<T> {
         let pi = T::pi();
-        pi * self.diameter * self.diameter / (T::one() + T::one() + T::one() + T::one())
+        Area::from_base(
+            pi * self.diameter.into_base() * self.diameter.into_base()
+                / (T::one() + T::one() + T::one() + T::one()),
+        )
     }
 
     /// Get hydraulic diameter (equals diameter for circular channels)
-    pub fn hydraulic_diameter(&self) -> T {
+    pub fn hydraulic_diameter(&self) -> Length<T> {
         self.diameter
     }
 }
@@ -178,8 +191,8 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for CircularChannel<T> {
     fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
         // Use Hagen-Poiseuille model for laminar circular flow
         let model = crate::physics::resistance::models::HagenPoiseuilleModel {
-            diameter: self.diameter,
-            length: self.length,
+            diameter: self.diameter.into_base(),
+            length: self.length.into_base(),
         };
         let conditions = crate::physics::resistance::models::FlowConditions::new(T::zero());
         model
@@ -204,9 +217,9 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for CircularChannel<T> {
 
     fn set_parameter(&mut self, key: &str, value: T) -> Result<()> {
         match key {
-            "length" => self.length = value,
-            "diameter" => self.diameter = value,
-            "roughness" => self.roughness = value,
+            "length" => self.length = Length::from_base(value),
+            "diameter" => self.diameter = Length::from_base(value),
+            "roughness" => self.roughness = Length::from_base(value),
             _ => {
                 self.parameters.insert(key.to_string(), value);
             }
@@ -214,16 +227,18 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for CircularChannel<T> {
         Ok(())
     }
 
-    fn volume(&self) -> Option<T> {
-        Some(self.length * self.area())
+    fn volume(&self) -> Option<Volume<T>> {
+        Some(Volume::from_base(
+            self.length.into_base() * self.area().into_base(),
+        ))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::database::water_20c;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_rectangular_channel_resistance_matches_formula() {
@@ -231,7 +246,12 @@ mod tests {
         let width = 1e-3;
         let height = 1e-3;
         let length = 0.1;
-        let chan = RectangularChannel::new(length, width, height, 0.0);
+        let chan = RectangularChannel::new(
+            Length::from_base(length),
+            Length::from_base(width),
+            Length::from_base(height),
+            Length::from_base(0.0),
+        );
         let r = chan.resistance(&fluid);
 
         // For square channel, Bahrami exact fit yields slightly different Po (~56.4-56.9)
@@ -245,16 +265,34 @@ mod tests {
 
     #[test]
     fn test_rectangular_channel_hydraulic_diameter() {
-        let chan = RectangularChannel::<f64>::new(0.1, 2e-3, 1e-3, 0.0);
+        let chan = RectangularChannel::<f64>::new(
+            Length::from_base(0.1),
+            Length::from_base(2e-3),
+            Length::from_base(1e-3),
+            Length::from_base(0.0),
+        );
         let expected = 2.0 * 2e-3 * 1e-3 / (2e-3 + 1e-3);
-        assert_relative_eq!(chan.hydraulic_diameter(), expected, epsilon = 1e-15);
+        assert_relative_eq!(
+            chan.hydraulic_diameter().into_base(),
+            expected,
+            epsilon = 1e-15
+        );
     }
 
     #[test]
     fn test_rectangular_channel_volume() {
-        let chan = RectangularChannel::<f64>::new(0.05, 1e-3, 5e-4, 0.0);
+        let chan = RectangularChannel::<f64>::new(
+            Length::from_base(0.05),
+            Length::from_base(1e-3),
+            Length::from_base(5e-4),
+            Length::from_base(0.0),
+        );
         let expected = 0.05 * 1e-3 * 5e-4;
-        assert_relative_eq!(chan.volume().unwrap(), expected, epsilon = 1e-20);
+        assert_relative_eq!(
+            chan.volume().unwrap().into_base(),
+            expected,
+            epsilon = 1e-20
+        );
     }
 
     #[test]
@@ -262,7 +300,11 @@ mod tests {
         let fluid = water_20c::<f64>().unwrap();
         let d = 1e-3;
         let l = 0.1;
-        let chan = CircularChannel::new(l, d, 0.0);
+        let chan = CircularChannel::new(
+            Length::from_base(l),
+            Length::from_base(d),
+            Length::from_base(0.0),
+        );
         let r = chan.resistance(&fluid);
 
         // Hagen-Poiseuille: R = 128 mu L / (pi D^4)
@@ -272,16 +314,28 @@ mod tests {
 
     #[test]
     fn test_circular_channel_hydraulic_diameter_equals_diameter() {
-        let chan = CircularChannel::<f64>::new(0.1, 2e-3, 0.0);
-        assert_relative_eq!(chan.hydraulic_diameter(), 2e-3, epsilon = 1e-15);
+        let chan = CircularChannel::<f64>::new(
+            Length::from_base(0.1),
+            Length::from_base(2e-3),
+            Length::from_base(0.0),
+        );
+        assert_relative_eq!(chan.hydraulic_diameter().into_base(), 2e-3, epsilon = 1e-15);
     }
 
     #[test]
     fn test_circular_channel_volume() {
         let d = 1e-3_f64;
         let l = 0.1_f64;
-        let chan = CircularChannel::<f64>::new(l, d, 0.0);
+        let chan = CircularChannel::<f64>::new(
+            Length::from_base(l),
+            Length::from_base(d),
+            Length::from_base(0.0),
+        );
         let expected = l * std::f64::consts::PI * d * d / 4.0;
-        assert_relative_eq!(chan.volume().unwrap(), expected, epsilon = 1e-15);
+        assert_relative_eq!(
+            chan.volume().unwrap().into_base(),
+            expected,
+            epsilon = 1e-15
+        );
     }
 }

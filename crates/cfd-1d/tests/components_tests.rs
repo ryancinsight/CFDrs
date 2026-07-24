@@ -3,7 +3,7 @@
 //! Sprint 8 updates: Micromixer and FlowSensor use first-principles
 //! constructors (validated, returns Result) with Idelchik physics model.
 
-use eunomia::assert_relative_eq;
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::domain::components::mixers::{Micromixer, MixerType};
 use cfd_1d::domain::components::sensors::FlowSensor;
 use cfd_1d::domain::components::Component;
@@ -12,9 +12,62 @@ use cfd_1d::domain::components::{
 };
 use cfd_1d::solver::core::ConvergenceChecker;
 use cfd_core::physics::fluid::database::water_20c;
+use eunomia::assert_relative_eq;
 
 fn water() -> cfd_core::physics::fluid::ConstantPropertyFluid<f64> {
     water_20c::<f64>().expect("test invariant")
+}
+
+fn rectangular_channel(
+    length: f64,
+    width: f64,
+    height: f64,
+    roughness: f64,
+) -> RectangularChannel<f64> {
+    RectangularChannel::new(
+        Length::from_base(length),
+        Length::from_base(width),
+        Length::from_base(height),
+        Length::from_base(roughness),
+    )
+}
+
+fn circular_channel(length: f64, diameter: f64, roughness: f64) -> CircularChannel<f64> {
+    CircularChannel::new(
+        Length::from_base(length),
+        Length::from_base(diameter),
+        Length::from_base(roughness),
+    )
+}
+
+fn porous_membrane(
+    thickness: f64,
+    width: f64,
+    height: f64,
+    pore_radius: f64,
+    porosity: f64,
+) -> PorousMembrane<f64> {
+    PorousMembrane::new(
+        Length::from_base(thickness),
+        Length::from_base(width),
+        Length::from_base(height),
+        Length::from_base(pore_radius),
+        porosity,
+    )
+}
+
+fn organ_compartment(
+    length: f64,
+    width: f64,
+    height: f64,
+    hydraulic_resistance: f64,
+) -> OrganCompartment<f64> {
+    OrganCompartment::new(
+        Length::from_base(length),
+        Length::from_base(width),
+        Length::from_base(height),
+        hydraulic_resistance,
+    )
 }
 
 // ========================  RectangularChannel  ============
@@ -22,7 +75,7 @@ fn water() -> cfd_core::physics::fluid::ConstantPropertyFluid<f64> {
 #[test]
 fn test_rect_channel_resistance_positive_finite() {
     let fluid = water();
-    let chan = RectangularChannel::new(0.1, 1e-3, 1e-3, 0.0);
+    let chan = rectangular_channel(0.1, 1e-3, 1e-3, 0.0);
     let r = chan.resistance(&fluid);
     assert!(r > 0.0 && r.is_finite());
 }
@@ -30,8 +83,8 @@ fn test_rect_channel_resistance_positive_finite() {
 #[test]
 fn test_rect_channel_linear_in_length() {
     let fluid = water();
-    let c1 = RectangularChannel::new(0.1, 1e-3, 1e-3, 0.0);
-    let c2 = RectangularChannel::new(0.2, 1e-3, 1e-3, 0.0);
+    let c1 = rectangular_channel(0.1, 1e-3, 1e-3, 0.0);
+    let c2 = rectangular_channel(0.2, 1e-3, 1e-3, 0.0);
     let r1 = c1.resistance(&fluid);
     let r2 = c2.resistance(&fluid);
     assert_relative_eq!(r2 / r1, 2.0, max_relative = 0.001);
@@ -40,7 +93,7 @@ fn test_rect_channel_linear_in_length() {
 #[test]
 fn test_rect_channel_coefficients_pure_linear() {
     let fluid = water();
-    let chan = RectangularChannel::new(0.1, 1e-3, 1e-3, 0.0);
+    let chan = rectangular_channel(0.1, 1e-3, 1e-3, 0.0);
     let (r, k) = chan.coefficients(&fluid);
     assert!(r > 0.0);
     assert_relative_eq!(k, 0.0, epsilon = 1e-30);
@@ -49,7 +102,7 @@ fn test_rect_channel_coefficients_pure_linear() {
 #[test]
 fn test_rect_channel_pressure_drop() {
     let fluid = water();
-    let chan = RectangularChannel::new(0.1, 1e-3, 1e-3, 0.0);
+    let chan = rectangular_channel(0.1, 1e-3, 1e-3, 0.0);
     let r = chan.resistance(&fluid);
     let q = 1e-9;
     assert_relative_eq!(chan.pressure_drop(q, &fluid), r * q, epsilon = 1e-30);
@@ -60,7 +113,7 @@ fn test_rect_channel_pressure_drop() {
 #[test]
 fn test_circ_channel_resistance_positive_finite() {
     let fluid = water();
-    let chan = CircularChannel::new(0.1, 1e-3, 0.0);
+    let chan = circular_channel(0.1, 1e-3, 0.0);
     let r = chan.resistance(&fluid);
     assert!(r > 0.0 && r.is_finite());
 }
@@ -68,8 +121,8 @@ fn test_circ_channel_resistance_positive_finite() {
 #[test]
 fn test_circ_channel_inverse_d4_scaling() {
     let fluid = water();
-    let r1 = CircularChannel::new(0.1, 1e-3, 0.0).resistance(&fluid);
-    let r2 = CircularChannel::new(0.1, 2e-3, 0.0).resistance(&fluid);
+    let r1 = circular_channel(0.1, 1e-3, 0.0).resistance(&fluid);
+    let r2 = circular_channel(0.1, 2e-3, 0.0).resistance(&fluid);
     // R ∝ D^(-4): R(D) / R(2D) = 16
     assert_relative_eq!(r1 / r2, 16.0, max_relative = 1e-6);
 }
@@ -287,7 +340,7 @@ fn test_mixer_efficiency_clamped_below_zero() {
 #[test]
 fn test_porous_membrane_resistance_positive() {
     let fluid = water();
-    let membrane = PorousMembrane::new(1e-4, 1e-3, 1e-3, 5e-7, 0.3);
+    let membrane = porous_membrane(1e-4, 1e-3, 1e-3, 5e-7, 0.3);
     let r = membrane.resistance(&fluid);
     assert!(r > 0.0 && r.is_finite());
 }
@@ -295,8 +348,8 @@ fn test_porous_membrane_resistance_positive() {
 #[test]
 fn test_porous_membrane_larger_pore_less_resistance() {
     let fluid = water();
-    let m_small = PorousMembrane::new(1e-4, 1e-3, 1e-3, 1e-7, 0.3);
-    let m_large = PorousMembrane::new(1e-4, 1e-3, 1e-3, 5e-7, 0.3);
+    let m_small = porous_membrane(1e-4, 1e-3, 1e-3, 1e-7, 0.3);
+    let m_large = porous_membrane(1e-4, 1e-3, 1e-3, 5e-7, 0.3);
     // Larger pore radius → lower R (HP pore: R ∝ 1/r^2 per unit porosity)
     assert!(m_large.resistance(&fluid) < m_small.resistance(&fluid));
 }
@@ -306,16 +359,16 @@ fn test_porous_membrane_larger_pore_less_resistance() {
 #[test]
 fn test_organ_compartment_resistance_exact() {
     let fluid = water();
-    let compartment = OrganCompartment::new(0.01, 2e-3, 1e-3, 1.5e8);
+    let compartment = organ_compartment(0.01, 2e-3, 1e-3, 1.5e8);
     assert_relative_eq!(compartment.resistance(&fluid), 1.5e8, epsilon = 1e-30);
 }
 
 #[test]
 fn test_organ_compartment_volume() {
-    let compartment = OrganCompartment::new(0.01, 2e-3, 1e-3, 1.5e8_f64);
+    let compartment = organ_compartment(0.01, 2e-3, 1e-3, 1.5e8_f64);
     let expected = 0.01 * 2e-3 * 1e-3;
     assert_relative_eq!(
-        compartment.volume().expect("test invariant"),
+        compartment.volume().expect("test invariant").into_base(),
         expected,
         epsilon = 1e-25
     );

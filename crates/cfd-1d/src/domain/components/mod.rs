@@ -5,6 +5,7 @@
 //! hydraulic properties and behaviors.
 
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::Volume;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
@@ -62,7 +63,7 @@ pub trait Component<T: Cfd1dScalar + Copy + NumericElement> {
     }
 
     /// Get the volume of the component (for transient analysis)
-    fn volume(&self) -> Option<T> {
+    fn volume(&self) -> Option<Volume<T>> {
         None
     }
 }

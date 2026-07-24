@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::domain::components::channels::CircularChannel;
 use cfd_1d::domain::components::Component;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
@@ -6,6 +7,14 @@ use proptest::prelude::*;
 
 fn water() -> cfd_core::physics::fluid::ConstantPropertyFluid<f64> {
     water_20c::<f64>().expect("test invariant")
+}
+
+fn circular_channel(length: f64, diameter: f64, roughness: f64) -> CircularChannel<f64> {
+    CircularChannel::new(
+        Length::from_base(length),
+        Length::from_base(diameter),
+        Length::from_base(roughness),
+    )
 }
 
 // Property: Hagen-Poiseuille resistance is strictly monotonic with length
@@ -21,8 +30,8 @@ proptest! {
         // Sorting ensures l_short <= l_long
         let (l_short, l_long) = if l1 < l2 { (l1, l2) } else { (l2, l1) };
 
-        let ch_short = CircularChannel::new(l_short, d, 0.0);
-        let ch_long = CircularChannel::new(l_long, d, 0.0);
+        let ch_short = circular_channel(l_short, d, 0.0);
+        let ch_long = circular_channel(l_long, d, 0.0);
 
         let r_short = ch_short.resistance(&fluid);
         let r_long = ch_long.resistance(&fluid);
@@ -47,8 +56,8 @@ proptest! {
 
         let (d_small, d_large) = if d1 < d2 { (d1, d2) } else { (d2, d1) };
 
-        let ch_small = CircularChannel::new(l, d_small, 0.0);
-        let ch_large = CircularChannel::new(l, d_large, 0.0);
+        let ch_small = circular_channel(l, d_small, 0.0);
+        let ch_large = circular_channel(l, d_large, 0.0);
 
         let r_small = ch_small.resistance(&fluid);
         let r_large = ch_large.resistance(&fluid);
@@ -69,7 +78,7 @@ proptest! {
         d in 1e-6_f64..0.1,
     ) {
         let fluid = water();
-        let ch = CircularChannel::new(l, d, 0.0);
+        let ch = circular_channel(l, d, 0.0);
         let r = ch.resistance(&fluid);
 
         prop_assert!(r > 0.0, "Resistance must be strictly positive");
@@ -87,8 +96,8 @@ proptest! {
         let fluid = water();
         let l = 0.1;
 
-        let ch1 = CircularChannel::new(l, d1, 0.0);
-        let ch2 = CircularChannel::new(l, d2, 0.0);
+        let ch1 = circular_channel(l, d1, 0.0);
+        let ch2 = circular_channel(l, d2, 0.0);
 
         let r1 = ch1.resistance(&fluid);
         let r2 = ch2.resistance(&fluid);
@@ -110,8 +119,8 @@ proptest! {
         let fluid = water();
         let d = 1e-3;
 
-        let ch1 = CircularChannel::new(l1, d, 0.0);
-        let ch2 = CircularChannel::new(l2, d, 0.0);
+        let ch1 = circular_channel(l1, d, 0.0);
+        let ch2 = circular_channel(l2, d, 0.0);
 
         let r1 = ch1.resistance(&fluid);
         let r2 = ch2.resistance(&fluid);
@@ -149,9 +158,9 @@ proptest! {
         let mut graph = builder.build().expect("test invariant");
 
         // Define resistances dynamically
-        let r1 = CircularChannel::new(0.01, 0.001, 0.0).resistance(&fluid);
-        let r2 = CircularChannel::new(0.05, 0.0005, 0.0).resistance(&fluid);
-        let r3 = CircularChannel::new(0.02, 0.0008, 0.0).resistance(&fluid);
+        let r1 = circular_channel(0.01, 0.001, 0.0).resistance(&fluid);
+        let r2 = circular_channel(0.05, 0.0005, 0.0).resistance(&fluid);
+        let r3 = circular_channel(0.02, 0.0008, 0.0).resistance(&fluid);
 
         let edges = graph.edge_indices().collect::<Vec<_>>();
 

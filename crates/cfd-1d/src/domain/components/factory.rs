@@ -5,6 +5,7 @@ use super::{
     OrganCompartment, PorousMembrane, RectangularChannel,
 };
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::Length;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 
@@ -52,7 +53,10 @@ impl ComponentFactory {
                     "default roughness",
                 )?;
                 Ok(Box::new(RectangularChannel::new(
-                    length, width, height, roughness,
+                    Length::from_base(length),
+                    Length::from_base(width),
+                    Length::from_base(height),
+                    Length::from_base(roughness),
                 )))
             }
             "CircularChannel" => {
@@ -64,7 +68,11 @@ impl ComponentFactory {
                     constants::DEFAULT_ROUGHNESS,
                     "default roughness",
                 )?;
-                Ok(Box::new(CircularChannel::new(length, diameter, roughness)))
+                Ok(Box::new(CircularChannel::new(
+                    Length::from_base(length),
+                    Length::from_base(diameter),
+                    Length::from_base(roughness),
+                )))
             }
             "Micropump" => {
                 let max_flow_rate = Self::required_param(params, "max_flow_rate")?;
@@ -87,10 +95,10 @@ impl ComponentFactory {
                 let pore_radius = Self::required_param(params, "pore_radius")?;
                 let porosity = Self::required_param(params, "porosity")?;
                 Ok(Box::new(PorousMembrane::new(
-                    thickness,
-                    width,
-                    height,
-                    pore_radius,
+                    Length::from_base(thickness),
+                    Length::from_base(width),
+                    Length::from_base(height),
+                    Length::from_base(pore_radius),
                     porosity,
                 )))
             }
@@ -100,9 +108,9 @@ impl ComponentFactory {
                 let height = Self::required_param(params, "height")?;
                 let hydraulic_resistance = Self::required_param(params, "hydraulic_resistance")?;
                 Ok(Box::new(OrganCompartment::new(
-                    length,
-                    width,
-                    height,
+                    Length::from_base(length),
+                    Length::from_base(width),
+                    Length::from_base(height),
                     hydraulic_resistance,
                 )))
             }

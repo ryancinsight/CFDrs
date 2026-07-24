@@ -6,7 +6,7 @@
 //! 3. Solver correctly handles NaN/infinite resistance edges without panicking
 //! 4. Womersley and Bessel functions produce correct limits at degenerate inputs
 
-use eunomia::assert_relative_eq;
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::{
     domain::components::channels::CircularChannel,
     domain::components::membranes::PorousMembrane,
@@ -15,10 +15,35 @@ use cfd_1d::{
     Network, NetworkBuilder, NetworkProblem, NetworkSolver,
 };
 use cfd_core::physics::fluid::database::water_20c;
+use eunomia::assert_relative_eq;
 use petgraph::visit::EdgeRef;
 
 fn water() -> cfd_core::physics::fluid::ConstantPropertyFluid<f64> {
     water_20c::<f64>().expect("test invariant")
+}
+
+fn circular_channel(length: f64, diameter: f64, roughness: f64) -> CircularChannel<f64> {
+    CircularChannel::new(
+        Length::from_base(length),
+        Length::from_base(diameter),
+        Length::from_base(roughness),
+    )
+}
+
+fn porous_membrane(
+    thickness: f64,
+    width: f64,
+    height: f64,
+    pore_radius: f64,
+    porosity: f64,
+) -> PorousMembrane<f64> {
+    PorousMembrane::new(
+        Length::from_base(thickness),
+        Length::from_base(width),
+        Length::from_base(height),
+        Length::from_base(pore_radius),
+        porosity,
+    )
 }
 
 fn hp_resistance(d: f64, l: f64, mu: f64) -> f64 {
@@ -33,7 +58,7 @@ fn hp_resistance(d: f64, l: f64, mu: f64) -> f64 {
 #[test]
 fn test_zero_diameter_returns_inf_resistance() {
     let fluid = water();
-    let chan = CircularChannel::new(0.1, 0.0, 0.0);
+    let chan = circular_channel(0.1, 0.0, 0.0);
     let r = chan.resistance(&fluid);
     assert!(
         r.is_infinite(),
@@ -46,7 +71,7 @@ fn test_zero_diameter_returns_inf_resistance() {
 #[test]
 fn test_zero_length_returns_zero_resistance() {
     let fluid = water();
-    let chan = CircularChannel::new(0.0, 1e-3, 0.0);
+    let chan = circular_channel(0.0, 1e-3, 0.0);
     let r = chan.resistance(&fluid);
     assert_eq!(r, 0.0, "Zero length must yield exactly zero resistance");
 }
@@ -55,7 +80,7 @@ fn test_zero_length_returns_zero_resistance() {
 #[test]
 fn test_tiny_diameter_large_resistance() {
     let fluid = water();
-    let chan = CircularChannel::new(0.1, 1e-9, 0.0); // 1 nm diameter
+    let chan = circular_channel(0.1, 1e-9, 0.0); // 1 nm diameter
     let r = chan.resistance(&fluid);
     assert!(
         r > 1e30,
@@ -72,7 +97,7 @@ fn test_tiny_diameter_large_resistance() {
 #[test]
 fn test_extreme_length_stays_finite() {
     let fluid = water();
-    let chan = CircularChannel::new(1e6, 1e-3, 0.0); // 1000 km pipe
+    let chan = circular_channel(1e6, 1e-3, 0.0); // 1000 km pipe
     let r = chan.resistance(&fluid);
     assert!(
         r.is_finite(),
@@ -208,7 +233,7 @@ fn test_nan_resistance_does_not_panic() {
 #[test]
 fn test_membrane_zero_pore_radius_is_very_high() {
     let fluid = water();
-    let membrane = PorousMembrane::new(1e-4, 1e-3, 1e-3, 0.0, 0.3);
+    let membrane = porous_membrane(1e-4, 1e-3, 1e-3, 0.0, 0.3);
     let r = membrane.resistance(&fluid);
     assert!(
         r > 1e11,
@@ -221,7 +246,7 @@ fn test_membrane_zero_pore_radius_is_very_high() {
 #[test]
 fn test_membrane_zero_porosity_is_very_high() {
     let fluid = water();
-    let membrane = PorousMembrane::new(1e-4, 1e-3, 1e-3, 500e-9, 0.0);
+    let membrane = porous_membrane(1e-4, 1e-3, 1e-3, 500e-9, 0.0);
     let r = membrane.resistance(&fluid);
     assert!(
         r > 1e11,
@@ -331,7 +356,7 @@ fn test_womersley_near_zero_frequency_no_panic() {
 #[test]
 fn test_circular_channel_high_roughness_finite() {
     let fluid = water();
-    let chan = CircularChannel::new(0.1, 1e-3, 1e-3); // roughness = diameter
+    let chan = circular_channel(0.1, 1e-3, 1e-3); // roughness = diameter
     let r = chan.resistance(&fluid);
     assert!(
         r.is_finite(),
@@ -353,7 +378,7 @@ fn test_near_inviscid_fluid_resistance_near_zero() {
         0.0_f64,    // thermal_conductivity
         1500.0_f64, // speed_of_sound
     );
-    let chan = CircularChannel::new(0.1, 1e-3, 0.0);
+    let chan = circular_channel(0.1, 1e-3, 0.0);
     let r = chan.resistance(&inviscid);
     assert!(r >= 0.0, "Resistance must be non-negative, got {}", r);
     assert!(r < 1.0, "Near-inviscid resistance must be tiny, got {}", r);

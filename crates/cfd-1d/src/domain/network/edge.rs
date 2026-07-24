@@ -1,6 +1,7 @@
 //! Network edge definitions
 
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::Length;
 use cfd_core::conversion::SafeFromF64;
 use cfd_schematics::domain::model::EdgeKind;
 use eunomia::NumericElement;
@@ -92,9 +93,9 @@ impl<T: Cfd1dScalar + Copy> Edge<T> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelProperties<T: Cfd1dScalar + Copy> {
     /// Length of the channel
-    pub length: T,
+    pub length: Length<T>,
     /// Diameter or characteristic dimension
-    pub diameter: T,
+    pub diameter: Length<T>,
     /// Surface roughness
-    pub roughness: T,
+    pub roughness: Length<T>,
 }

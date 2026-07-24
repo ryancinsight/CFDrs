@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::domain::components::{Component, ComponentFactory, OrganCompartment, PorousMembrane};
 use cfd_1d::physics::resistance::{FlowConditions, ResistanceCalculator};
 use std::collections::HashMap;
@@ -5,7 +6,13 @@ use std::collections::HashMap;
 #[test]
 fn porous_membrane_component_returns_positive_resistance() {
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
-    let membrane = PorousMembrane::new(10e-6, 1e-3, 1e-3, 0.5e-6, 0.2);
+    let membrane = PorousMembrane::new(
+        Length::from_base(10e-6),
+        Length::from_base(1e-3),
+        Length::from_base(1e-3),
+        Length::from_base(0.5e-6),
+        0.2,
+    );
     let r = membrane.resistance(&fluid);
     assert!(r > 0.0);
 }
@@ -49,7 +56,12 @@ fn component_factory_creates_membrane_and_organ_components() {
 
 #[test]
 fn organ_compartment_exposes_volume() {
-    let organ = OrganCompartment::new(2e-3, 1e-3, 0.5e-3, 1e12);
+    let organ = OrganCompartment::new(
+        Length::from_base(2e-3),
+        Length::from_base(1e-3),
+        Length::from_base(0.5e-3),
+        1e12,
+    );
     let volume = organ.volume().expect("volume");
-    assert!(volume > 0.0);
+    assert!(volume.into_base() > 0.0);
 }
