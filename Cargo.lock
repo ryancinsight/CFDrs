@@ -523,7 +523,7 @@ name = "cfd-io"
 version = "0.3.0"
 dependencies = [
  "bincode",
- "consus-core 0.1.0 (git+https://github.com/ryancinsight/consus.git)",
+ "consus-core 0.1.0",
  "consus-hdf5",
  "consus-io 0.1.0 (git+https://github.com/ryancinsight/consus.git)",
  "csv",
@@ -911,10 +911,18 @@ checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 [[package]]
 name = "consus-compression"
 version = "0.1.0"
-source = "git+https://github.com/ryancinsight/consus.git#0106b709212033823a22782b0c491603e8ce1229"
 dependencies = [
  "byteorder",
- "consus-core 0.1.0 (git+https://github.com/ryancinsight/consus.git)",
+ "consus-core 0.1.0",
+]
+
+[[package]]
+name = "consus-core"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "smallvec",
+ "zerocopy",
 ]
 
 [[package]]
@@ -940,12 +948,18 @@ dependencies = [
 [[package]]
 name = "consus-hdf5"
 version = "0.1.0"
-source = "git+https://github.com/ryancinsight/consus.git#0106b709212033823a22782b0c491603e8ce1229"
 dependencies = [
  "byteorder",
  "consus-compression",
- "consus-core 0.1.0 (git+https://github.com/ryancinsight/consus.git)",
- "consus-io 0.1.0 (git+https://github.com/ryancinsight/consus.git)",
+ "consus-core 0.1.0",
+ "consus-io 0.1.0",
+]
+
+[[package]]
+name = "consus-io"
+version = "0.1.0"
+dependencies = [
+ "consus-core 0.1.0",
 ]
 
 [[package]]
@@ -1642,7 +1656,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd"
-version = "0.5.0"
+version = "0.4.1"
 dependencies = [
  "eunomia",
  "hermes-simd-core",
@@ -1654,7 +1668,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-core"
-version = "0.5.0"
+version = "0.4.1"
 dependencies = [
  "bytemuck",
  "eunomia",
@@ -1665,7 +1679,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-intrinsics"
-version = "0.5.0"
+version = "0.4.1"
 dependencies = [
  "eunomia",
  "hermes-simd-core",
@@ -1673,7 +1687,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-macros"
-version = "0.5.0"
+version = "0.4.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1682,7 +1696,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-types"
-version = "0.5.0"
+version = "0.4.1"
 dependencies = [
  "hermes-simd-core",
  "hermes-simd-intrinsics",
