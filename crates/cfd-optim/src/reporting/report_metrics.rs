@@ -4,10 +4,10 @@ use aequitas::systems::si::quantities::{
 };
 use aequitas::systems::si::units::{JoulePerCubicMeter, JoulePerMilliliter, Kelvin};
 use cfd_1d::{
-    acoustic_contrast_factor, acoustic_energy_density, cavitation_amplified_hi,
-    cavitation_hemolysis_amplification, giersiepen_hi, sonosensitizer_activation_efficiency,
     KAPPA_CTC, KAPPA_PLASMA, KAPPA_RBC, RHO_CTC, RHO_PLASMA, RHO_RBC,
-    SENSITIZER_K_ACT_HEMATOPORPHYRIN,
+    SENSITIZER_K_ACT_HEMATOPORPHYRIN, acoustic_contrast_factor, acoustic_energy_density,
+    cavitation_amplified_hi, cavitation_hemolysis_amplification, giersiepen_hi,
+    sonosensitizer_activation_efficiency,
 };
 use cfd_schematics::topology::TreatmentActuationMode;
 use hyperion::{
@@ -21,24 +21,25 @@ use super::report_math::{
 };
 use crate::constraints::{
     BLOOD_ATTENUATION_405NM_INV_M, BLOOD_DENSITY_KG_M3, BLOOD_VAPOR_PRESSURE_PA,
-    BLOOD_VISCOSITY_PA_S, BUBBLE_POLYTROPIC_K, CLOTTING_BFR_CAUTION_ML_MIN,
+    BLOOD_VISCOSITY_PA_S, BUBBLE_POLYTROPIC_K, C_P_BLOOD_J_KG_K, CLOTTING_BFR_CAUTION_ML_MIN,
     CLOTTING_BFR_HIGH_RISK_ML_MIN, CLOTTING_BFR_LOW_RISK_ML_MIN, CLOTTING_BFR_STRICT_10MLS_ML_MIN,
     CLOTTING_RESIDENCE_HIGH_RISK_S, CLOTTING_RESIDENCE_LOW_RISK_S, CLOTTING_SHEAR_HIGH_RISK_INV_S,
-    CLOTTING_SHEAR_LOW_RISK_INV_S, C_P_BLOOD_J_KG_K, DEAD_VOLUME_SHEAR_THRESHOLD_INV_S,
-    EXPANSION_RATIO_LOW_RISK, FDA_MAX_WALL_SHEAR_PA, FDA_THROAT_TEMP_RISE_LIMIT_K,
-    FDA_TRANSIENT_SHEAR_PA, FDA_TRANSIENT_TIME_S, MILESTONE_TREATMENT_DURATION_MIN,
-    PATIENT_BLOOD_VOLUME_ML, PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_FLOW_CAUTION_ML_MIN,
+    CLOTTING_SHEAR_LOW_RISK_INV_S, DEAD_VOLUME_SHEAR_THRESHOLD_INV_S, EXPANSION_RATIO_LOW_RISK,
+    FDA_MAX_WALL_SHEAR_PA, FDA_THROAT_TEMP_RISE_LIMIT_K, FDA_TRANSIENT_SHEAR_PA,
+    FDA_TRANSIENT_TIME_S, MILESTONE_TREATMENT_DURATION_MIN, P_ATM_PA, PATIENT_BLOOD_VOLUME_ML,
+    PEDIATRIC_BLOOD_VOLUME_ML_PER_KG, PEDIATRIC_FLOW_CAUTION_ML_MIN,
     PEDIATRIC_FLOW_EXCESSIVE_ML_MIN, PEDIATRIC_REFERENCE_WEIGHT_KG, PLATE_HEIGHT_MM,
-    PLATE_WIDTH_MM, P_ATM_PA, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF,
-    VENTURI_EXPANSION_RATIO_HIGH_RISK, VENTURI_VEL_RATIO_REF,
+    PLATE_WIDTH_MM, SONO_REF_P_ABS_PA, THERAPEUTIC_WINDOW_REF, VENTURI_EXPANSION_RATIO_HIGH_RISK,
+    VENTURI_VEL_RATIO_REF,
 };
 use crate::domain::BlueprintCandidate;
 use crate::error::OptimError;
 use crate::metrics::{
-    compute_blueprint_separation_metrics, compute_blueprint_venturi_metrics,
-    compute_typed_blueprint_safety_metrics, compute_typed_residence_metrics,
+    ChannelHemolysis, SdtMetrics, compute_blueprint_separation_metrics,
+    compute_blueprint_venturi_metrics, compute_typed_blueprint_safety_metrics,
+    compute_typed_residence_metrics,
     healthy_cell_protection_index as compute_healthy_cell_protection_index,
-    solve_blueprint_candidate, ChannelHemolysis, SdtMetrics,
+    solve_blueprint_candidate,
 };
 
 const MILLIMETRES_PER_METRE: f64 = 1_000.0;
@@ -237,16 +238,20 @@ pub fn compute_blueprint_report_metrics(
     let mean_residence_time_s = residence.treatment_residence_time.into_base();
 
     let mut metrics = SdtMetrics::default();
-    let flow_rate_m3_s = candidate.operating_point.flow_rate_m3_s.max(1.0e-18);
+    let flow_rate_m3_s = candidate
+        .operating_point
+        .flow_rate_m3_s
+        .into_base()
+        .max(1.0e-18);
     let flow_rate_ml_min = flow_rate_m3_s * 6.0e7;
     let flow_rate = VolumetricFlowRate::from_base(flow_rate_m3_s);
-    let total_volume: Volume = Time::from_base(solve.mean_residence_time_s) * flow_rate;
+    let total_volume: Volume = solve.mean_residence_time_s * flow_rate;
     let total_volume_m3 = total_volume.into_base();
     let total_path_length = Length::from_base(
         solve
             .channel_samples
             .iter()
-            .map(|sample| sample.length_m)
+            .map(|sample| sample.length_m.into_base())
             .sum::<f64>(),
     );
 
@@ -299,15 +304,14 @@ pub fn compute_blueprint_report_metrics(
 
     for sample in &solve.channel_samples {
         let area_m2 = sample.cross_section.area().max(1.0e-18);
-        let velocity_m_s = sample.flow_m3_s.abs() / area_m2;
+        let velocity_m_s = sample.flow_m3_s.into_base().abs() / area_m2;
         let shear_rate_inv_s = sample.cross_section.wall_shear_rate(velocity_m_s);
         let shear = DynamicViscosity::from_base(BLOOD_VISCOSITY_PA_S)
             * ReciprocalTime::from_base(shear_rate_inv_s);
         let shear_pa = shear.into_base();
-        let transit_time =
-            Length::from_base(sample.length_m) / Velocity::from_base(velocity_m_s.max(1.0e-18));
+        let transit_time = sample.length_m / Velocity::from_base(velocity_m_s.max(1.0e-18));
         let transit_time_s = transit_time.into_base();
-        let flow_fraction = (sample.flow_m3_s.abs() / flow_rate_m3_s).clamp(0.0, 1.0);
+        let flow_fraction = (sample.flow_m3_s.into_base().abs() / flow_rate_m3_s).clamp(0.0, 1.0);
         let local_cavitation = venturi
             .placements
             .iter()
@@ -347,7 +351,7 @@ pub fn compute_blueprint_report_metrics(
             main_transits.push(transit_time_s);
         }
         if shear_rate_inv_s < DEAD_VOLUME_SHEAR_THRESHOLD_INV_S {
-            dead_volume_m3 += sample.length_m * area_m2;
+            dead_volume_m3 += sample.length_m.into_base() * area_m2;
         }
 
         per_channel_hemolysis.push(TypedChannelHemolysis {
@@ -418,7 +422,7 @@ pub fn compute_blueprint_report_metrics(
                             let inlet_area = (spec.throat_geometry.inlet_width_m
                                 * spec.throat_geometry.throat_height_m)
                                 .max(1.0e-18);
-                            let upstream_velocity = sample.flow_m3_s.abs() / inlet_area;
+                            let upstream_velocity = sample.flow_m3_s.into_base().abs() / inlet_area;
                             let ratio = placement.effective_throat_velocity_m_s
                                 / upstream_velocity.max(1.0e-18);
                             ratio.max(1.0).ln() / VENTURI_VEL_RATIO_REF.ln()
@@ -446,7 +450,10 @@ pub fn compute_blueprint_report_metrics(
     let healthy_cell_protection_index =
         compute_healthy_cell_protection_index(wbc_targeted_cavitation, rbc_venturi_protection);
 
-    let absolute_inlet_pressure = candidate.operating_point.absolute_inlet_pressure_pa();
+    let absolute_inlet_pressure = candidate
+        .operating_point
+        .absolute_inlet_pressure_pa()
+        .into_base();
     let collapse_ratio = (absolute_inlet_pressure / BLOOD_VAPOR_PRESSURE_PA.max(1.0))
         .powf((BUBBLE_POLYTROPIC_K - 1.0) / BUBBLE_POLYTROPIC_K);
     let collapse_ref = (SONO_REF_P_ABS_PA / BLOOD_VAPOR_PRESSURE_PA.max(1.0))
@@ -1131,7 +1138,7 @@ mod tests {
             .channel_samples
             .iter()
             .filter(|sample| sample.is_treatment_channel)
-            .map(|sample| sample.length_m * sample.cross_section.area())
+            .map(|sample| sample.length_m.into_base() * sample.cross_section.area())
             .sum::<f64>();
 
         assert_eq!(

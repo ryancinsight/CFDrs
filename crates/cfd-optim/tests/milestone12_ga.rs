@@ -11,14 +11,15 @@
 //! 5. GA scoring includes lineage bonus and Dean number contribution
 //! 6. GA can bootstrap venturi placements from an Option 1 seed
 
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_optim::{
-    build_milestone12_ga_seed_pair, evaluate_blueprint_candidate, evaluate_goal,
-    generate_ga_mutations, promote_option1_candidate_to_ga_seed, BlueprintCandidate,
-    BlueprintEvaluationStatus, BlueprintGeneticOptimizer, OperatingPoint, OptimizationGoal,
+    BlueprintCandidate, BlueprintEvaluationStatus, BlueprintGeneticOptimizer, OperatingPoint,
+    OptimizationGoal, build_milestone12_ga_seed_pair, evaluate_blueprint_candidate, evaluate_goal,
+    generate_ga_mutations, promote_option1_candidate_to_ga_seed,
 };
 use cfd_schematics::{
-    build_milestone12_blueprint, enumerate_milestone12_topologies, SplitKind,
-    TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementMode,
+    SplitKind, TopologyOptimizationStage, TreatmentActuationMode, VenturiPlacementMode,
+    build_milestone12_blueprint, enumerate_milestone12_topologies,
 };
 
 // ---------------------------------------------------------------------------
@@ -28,8 +29,8 @@ use cfd_schematics::{
 
 fn test_operating_point() -> OperatingPoint {
     OperatingPoint {
-        flow_rate_m3_s: 2.0e-6,
-        inlet_gauge_pa: 30_000.0,
+        flow_rate_m3_s: VolumetricFlowRate::from_base(2.0e-6),
+        inlet_gauge_pa: Pressure::from_base(30_000.0),
         feed_hematocrit: 0.45,
         patient_context: None,
     }

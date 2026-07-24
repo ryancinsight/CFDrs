@@ -30,7 +30,15 @@ Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
       serialize once into `ChannelHemolysis`. Acceptance: the adapter value
       regression, residence/safety regression, package check, and warning-
       denied package Clippy pass. The operating-point and solve-sample DTOs
-      remain the next `CFDRS-AEQ-MET-04` breaking boundary.
+      are closed by `CFDRS-AEQ-MET-04` in the same typed-boundary sequence.
+
+- [x] CFD-AEQUITAS-OPERATING-SOLVE-CARRIERS-1 [major] [arch]: type
+      `OperatingPoint` flow/pressure and `BlueprintSolveSample`/
+      `BlueprintSolveSummary` length, flow, pressure, and residence values with
+      Aequitas quantities. Preserve the existing JSON field names through an
+      explicit serde representation and convert only at solver/report DTO
+      boundaries. Acceptance: cfd-optim check, focused Nextest value tests,
+      warning-denied package Clippy, and integration-test compilation pass.
 
 - [x] CFD-AEQUITAS-REPORT-UNITS-1 [patch]: compose report mechanical power,
       residence volume, wall shear, and transit time through Aequitas quantities;

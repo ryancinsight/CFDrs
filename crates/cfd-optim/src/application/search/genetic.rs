@@ -6,6 +6,7 @@ use crate::application::objectives::{evaluate_goal, BlueprintObjectiveEvaluation
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
 use crate::metrics::healthy_cell_protection_index;
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_schematics::{TopologyLineageEvent, TopologyLineageMetadata};
 use serde::{Deserialize, Serialize};
 
@@ -740,8 +741,8 @@ fn diversity_signature(candidate: &BlueprintRankedCandidate) -> DiversitySignatu
         .map(|placement| placement.dean_number)
         .fold(0.0_f64, f64::max);
     DiversitySignature {
-        flow_rate_m3_s: candidate.candidate.operating_point.flow_rate_m3_s,
-        inlet_gauge_pa: candidate.candidate.operating_point.inlet_gauge_pa,
+        flow_rate_m3_s: candidate.candidate.operating_point.flow_rate_m3_s.into_base(),
+        inlet_gauge_pa: candidate.candidate.operating_point.inlet_gauge_pa.into_base(),
         throat_width_m: if throat_width_m.is_finite() {
             throat_width_m
         } else {
@@ -986,8 +987,8 @@ fn focused_operating_point_perturbations(
 ) -> Result<Vec<BlueprintCandidate>, OptimError> {
     let q_factors = [0.85, 0.95, 1.05, 1.15];
     let p_factors = [0.85, 0.95, 1.05, 1.15];
-    let base_q = seed.operating_point.flow_rate_m3_s;
-    let base_p = seed.operating_point.inlet_gauge_pa;
+    let base_q = seed.operating_point.flow_rate_m3_s.into_base();
+    let base_p = seed.operating_point.inlet_gauge_pa.into_base();
     let base_ht = seed.operating_point.feed_hematocrit;
     let mut perturbations = Vec::with_capacity(limit.min(q_factors.len() * p_factors.len()));
     let mut seen = HashSet::with_capacity(limit.min(q_factors.len() * p_factors.len()));
@@ -1007,8 +1008,8 @@ fn focused_operating_point_perturbations(
                 format!("{}-refine-q{:.0}-p{:.0}", seed.id, qf * 100.0, pf * 100.0),
                 blueprint,
                 crate::domain::OperatingPoint {
-                    flow_rate_m3_s: base_q * qf,
-                    inlet_gauge_pa: base_p * pf,
+                    flow_rate_m3_s: VolumetricFlowRate::from_base(base_q * qf),
+                    inlet_gauge_pa: Pressure::from_base(base_p * pf),
                     feed_hematocrit: base_ht,
                     patient_context: seed.operating_point.patient_context.clone(),
                 },
@@ -1059,8 +1060,9 @@ fn candidate_key(candidate: &BlueprintCandidate) -> Result<CandidateFingerprint,
     topology.hash(&mut hasher);
     Ok(CandidateFingerprint {
         topology_hash: hasher.finish(),
-        flow_rate_quantized: (candidate.operating_point.flow_rate_m3_s * 1.0e12).round() as i64,
-        inlet_gauge_quantized: (candidate.operating_point.inlet_gauge_pa * 1.0e3).round() as i64,
+        flow_rate_quantized: (candidate.operating_point.flow_rate_m3_s.into_base() * 1.0e12).round() as i64,
+        inlet_gauge_quantized: (candidate.operating_point.inlet_gauge_pa.into_base() * 1.0e3)
+            .round() as i64,
         hematocrit_quantized: (candidate.operating_point.feed_hematocrit * 1.0e6).round() as i64,
     })
 }

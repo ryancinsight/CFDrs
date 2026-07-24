@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::constraints::{FDA_MAX_WALL_SHEAR_PA, FDA_TRANSIENT_TIME_S};
 use crate::domain::BlueprintCandidate;
-use aequitas::systems::si::quantities::{Length, Pressure, Time, Velocity};
+use aequitas::systems::si::quantities::{Pressure, Time, Velocity};
 use cfd_2d::physics::non_newtonian::CarreauYasudaModel;
 
 use super::blueprint_graph::BlueprintSolveSummary;
@@ -55,14 +55,14 @@ pub(crate) fn compute_typed_blueprint_safety_metrics(
 
     for sample in &solve.channel_samples {
         let area_m2 = sample.cross_section.area().max(1.0e-18);
-        let mean_velocity = Velocity::from_base(sample.flow_m3_s.abs() / area_m2);
+        let mean_velocity = Velocity::from_base(sample.flow_m3_s.into_base().abs() / area_m2);
         let shear_rate_inv_s = sample
             .cross_section
             .wall_shear_rate(mean_velocity.into_base());
         let apparent_viscosity_pa_s = cy_model.apparent_viscosity(shear_rate_inv_s);
         let shear = Pressure::from_base(apparent_viscosity_pa_s * shear_rate_inv_s);
-        let transit_time = Length::from_base(sample.length_m)
-            / Velocity::from_base(mean_velocity.into_base().max(1.0e-18));
+        let transit_time =
+            sample.length_m / Velocity::from_base(mean_velocity.into_base().max(1.0e-18));
 
         if sample.is_venturi_channel {
             if shear > max_venturi_shear {
@@ -76,10 +76,16 @@ pub(crate) fn compute_typed_blueprint_safety_metrics(
         }
     }
 
-    let pressure_drop =
-        Pressure::from_base(solve.inlet_pressure_pa.max(0.0) + solve.remerge_loss_pa.max(0.0));
-    let pressure_feasible =
-        pressure_drop.into_base() <= candidate.operating_point.inlet_gauge_pa.max(0.0) + 1.0e-9;
+    let pressure_drop = Pressure::from_base(
+        solve.inlet_pressure_pa.into_base().max(0.0) + solve.remerge_loss_pa.into_base().max(0.0),
+    );
+    let pressure_feasible = pressure_drop.into_base()
+        <= candidate
+            .operating_point
+            .inlet_gauge_pa
+            .into_base()
+            .max(0.0)
+            + 1.0e-9;
     let main_channel_margin =
         (1.0 - max_main_channel_shear.into_base() / FDA_MAX_WALL_SHEAR_PA).clamp(0.0, 1.0);
     let cavitation_safety_margin = if max_venturi_transit_time.into_base() <= 1.0e-18 {
@@ -95,7 +101,7 @@ pub(crate) fn compute_typed_blueprint_safety_metrics(
         pressure_feasible,
         main_channel_margin,
         cavitation_safety_margin,
-        mean_device_residence_time: Time::from_base(solve.mean_residence_time_s),
+        mean_device_residence_time: solve.mean_residence_time_s,
     }
 }
 

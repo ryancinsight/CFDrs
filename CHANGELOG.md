@@ -50,8 +50,9 @@ All notable changes to this project will be documented in this file.
 
 - `cfd-optim` now carries per-channel hemolysis wall shear and transit time
   through private Aequitas quantities before the single `ChannelHemolysis`
-  serialization adapter. Operating-point and solve-sample physical DTOs remain
-  an explicit follow-up boundary rather than parallel raw/typed fields.
+  serialization adapter. Operating-point and solve-summary physical DTOs now
+  carry Aequitas quantities as well, with explicit serde and solver/report
+  scalar boundaries and no parallel raw/typed fields.
 
 - **Aequitas fluid dimensions**: `cfd-core` now evaluates kinematic
   viscosity, Prandtl number, and Reynolds number through typed SI quantities;

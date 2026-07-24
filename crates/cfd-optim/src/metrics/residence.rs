@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::domain::BlueprintCandidate;
-use aequitas::systems::si::quantities::{Area, Length, Time, Velocity, Volume, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{Area, Time, Velocity, Volume, VolumetricFlowRate};
 
 use super::blueprint_graph::BlueprintSolveSummary;
 
@@ -45,11 +45,13 @@ pub(crate) fn compute_typed_residence_metrics(
             continue;
         }
         let area_m2 = sample.cross_section.area().max(1.0e-18);
-        let volume = Length::from_base(sample.length_m) * Area::from_base(area_m2);
-        let flow = VolumetricFlowRate::from_base(sample.flow_m3_s.abs().max(1.0e-18));
+        let volume = sample.length_m * Area::from_base(area_m2);
+        let flow = VolumetricFlowRate::from_base(sample.flow_m3_s.into_base().abs().max(1.0e-18));
         treatment_volume += volume;
-        treatment_flow_fraction +=
-            (sample.flow_m3_s.abs() / solve.inlet_flow_m3_s.max(1.0e-18)).clamp(0.0, 1.0);
+        treatment_flow_fraction += (sample.flow_m3_s.into_base()
+            / solve.inlet_flow_m3_s.into_base().max(1.0e-18))
+        .abs()
+        .clamp(0.0, 1.0);
         velocities.push(flow / Area::from_base(area_m2));
     }
 
@@ -57,7 +59,7 @@ pub(crate) fn compute_typed_residence_metrics(
         .channel_samples
         .iter()
         .filter(|s| s.is_treatment_channel)
-        .map(|s| s.flow_m3_s.abs())
+        .map(|s| s.flow_m3_s.into_base().abs())
         .sum::<f64>()
         .max(1.0e-18);
     let treatment_residence_time = solve
@@ -66,10 +68,10 @@ pub(crate) fn compute_typed_residence_metrics(
         .filter(|s| s.is_treatment_channel)
         .map(|s| {
             let area = s.cross_section.area().max(1.0e-18);
-            let volume = Length::from_base(s.length_m) * Area::from_base(area);
-            let flow = VolumetricFlowRate::from_base(s.flow_m3_s.abs().max(1.0e-18));
+            let volume = s.length_m * Area::from_base(area);
+            let flow = VolumetricFlowRate::from_base(s.flow_m3_s.into_base().abs().max(1.0e-18));
             let residence = volume / flow;
-            residence * (s.flow_m3_s.abs() / total_treatment_flow)
+            residence * (s.flow_m3_s.into_base().abs() / total_treatment_flow)
         })
         .fold(Time::from_base(0.0), |total, residence| total + residence);
 

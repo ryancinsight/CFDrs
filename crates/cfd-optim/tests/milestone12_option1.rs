@@ -11,12 +11,13 @@
 //!    channel asymmetry ratios
 //! 6. FDA safety constraints are respected (wall shear < 150 Pa sustained)
 
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_optim::{
-    build_milestone12_candidate_params, evaluate_blueprint_candidate, evaluate_goal,
     BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
+    build_milestone12_candidate_params, evaluate_blueprint_candidate, evaluate_goal,
 };
 use cfd_schematics::{
-    build_milestone12_blueprint, enumerate_milestone12_topologies, TreatmentActuationMode,
+    TreatmentActuationMode, build_milestone12_blueprint, enumerate_milestone12_topologies,
 };
 use std::collections::HashSet;
 
@@ -39,8 +40,8 @@ fn root_family_label(request: &cfd_schematics::Milestone12TopologyRequest) -> &'
 
 fn test_op(flow: f64, gauge: f64) -> OperatingPoint {
     OperatingPoint {
-        flow_rate_m3_s: flow,
-        inlet_gauge_pa: gauge,
+        flow_rate_m3_s: VolumetricFlowRate::from_base(flow),
+        inlet_gauge_pa: Pressure::from_base(gauge),
         feed_hematocrit: 0.45,
         patient_context: None,
     }
