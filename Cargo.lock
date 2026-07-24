@@ -417,6 +417,7 @@ dependencies = [
 name = "cfd-1d"
 version = "0.3.0"
 dependencies = [
+ "aequitas",
  "anyhow",
  "cfd-core",
  "cfd-math",

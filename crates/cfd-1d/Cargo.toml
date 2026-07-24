@@ -12,6 +12,7 @@ description = "1D CFD simulations for microfluidic networks"
 default = []
 
 [dependencies]
+aequitas.workspace = true
 cfd-core = { path = "../cfd-core" }
 cfd-math = { path = "../cfd-math" }
 cfd-schematics = { path = "../cfd-schematics" }

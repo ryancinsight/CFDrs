@@ -4,6 +4,7 @@
 //! literature values and against each other, ensuring consistency across
 //! the different fidelity levels.
 
+use aequitas::systems::si::quantities::{Pressure, Time};
 use eunomia::assert_relative_eq;
 
 // ── Test 1: Durst Entrance Length vs Schlichting ─────────────────────────────
@@ -85,8 +86,8 @@ fn taskin_and_giersiepen_agree_within_factor_of_two() {
     let shear = 100.0; // Pa
     let time = 1.0; // s
 
-    let hi_giersiepen = cfd_1d::giersiepen_hi(shear, time);
-    let hi_taskin = cfd_1d::taskin_hi(shear, time);
+    let hi_giersiepen = cfd_1d::giersiepen_hi(Pressure::from_base(shear), Time::from_base(time));
+    let hi_taskin = cfd_1d::taskin_hi(Pressure::from_base(shear), Time::from_base(time));
 
     assert!(
         hi_giersiepen > 0.0,
@@ -735,7 +736,7 @@ fn multi_layer_bifurcation_with_sdt_acoustic_physics() {
     );
 
     // Step 4: Hemolysis check
-    let hi = cfd_1d::giersiepen_hi(100.0, transit_time);
+    let hi = cfd_1d::giersiepen_hi(Pressure::from_base(100.0), Time::from_base(transit_time));
     assert!(
         hi < 0.01,
         "Hemolysis index should be very low for 500 µs transit"

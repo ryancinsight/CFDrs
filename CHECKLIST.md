@@ -1,5 +1,21 @@
 # CFDrs Work Checklist
 
+## Owner: Codex — CFDRS-AEQ-MET-07 typed hemolysis exposure metrics [major] — implemented 2026-07-24
+
+- [x] Type hemolysis shear stress and exposure duration with Aequitas
+      `Pressure` and `Time`; retain the Giersiepen/Taskin indices and
+      cavitation potential as dimensionless model values.
+- [x] Migrate all CFDrs callers, examples, and validation tests without a
+      scalar compatibility facade; keep the cfd-core model as the formula
+      owner and convert only at that provider kernel boundary.
+- [x] Synchronize the gap audit, design note, and changelog, then run focused
+      format/check, locked package checks, Nextest, warning-denied production Clippy,
+      doctests, and Rustdoc gates.
+- [ ] Resolve the pre-existing all-targets Clippy debt in
+      `tests/primary_solve_reliability.rs`, `tests/channel_solver_tests.rs`,
+      and `benches/primitive_selective_solver.rs`; it is outside this metric
+      slice.
+
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
 - [x] CFD-AEQUITAS-FLUID-ACOUSTIC-1 [patch]: route `cfd-core` fluid-number

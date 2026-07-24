@@ -34,6 +34,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: `cfd-1d` hemolysis model inputs now use Aequitas `Pressure`
+  for wall shear stress and `Time` for exposure duration. Giersiepen and
+  Taskin indices, cavitation potential, and other model coefficients remain
+  dimensionless scalars; scalar conversion is confined to the cfd-core model
+  and numerical reporting boundaries. See
+  [`hemolysis-exposure-metrics.md`](docs/atlas-migration/hemolysis-exposure-metrics.md).
+
 - **Breaking**: `cfd-3d::cascade` public channel geometry, flow rate, outlet
   pressure, wall-shear, pressure-drop, and maximum-velocity contracts now use
   Aequitas quantities. Mesh/FEM arithmetic and the established scalar

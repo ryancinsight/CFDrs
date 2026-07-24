@@ -35,7 +35,17 @@
 
 | ID | Evidence | Closure |
 |---|---|---|
+| `CFDRS-AEQ-MET-07` | `cfd-1d/src/physics/hemolysis/mod.rs` exposed wall shear stress and exposure duration as raw `f64` arguments and fields, while the returned Giersiepen/Taskin indices were dimensionless. `cfd-1d` flow analysis, `cfd-optim` reporting, and `cfd-validation` passed those scalars directly. | **IMPLEMENTED in this increment.** Giersiepen and Taskin now accept Aequitas `Pressure` and `Time`; `HemolysisExposure` stores the same typed inputs, all in-tree callers are migrated, and the formula owner remains cfd-core/local model code. Rustfmt and residue scans pass. Focused checks, Nextest, warning-denied Clippy, doctests, and Rustdoc remain blocked before CFDrs source compilation by the peer Coeus manifest path. See [`hemolysis-exposure-metrics.md`](docs/atlas-migration/hemolysis-exposure-metrics.md). |
 | `CFDRS-AEQ-MET-06` | `cfd-3d::cascade` exposed channel geometry, flow rate, outlet pressure, wall shear, pressure drop, and maximum velocity as raw SI scalars. The inlet calculation already constructed Aequitas area, flow, and velocity internally, so the public boundary discarded the provider types. | **IMPLEMENTED.** `CascadeChannelSpec`, `CascadeConfig3D`, `ChannelResult3D`, and `CascadeResult3D` now carry Aequitas `Length`, `VolumetricFlowRate`, `Pressure`, and `Velocity`. Serde keeps the established SI scalar wire keys through explicit representation adapters; FEM and mesh code convert only at the scalar numerical boundary. All in-tree cascade, validation, example, and adversarial callers are migrated. The current focused check is blocked before CFDrs source compilation by the peer provider graph: the local Coeus dependency is declared at `D:\atlas\repos\coeus\coeus-core`, while its manifest is currently under `D:\atlas\repos\coeus\crates\coeus-core`. See [`cascade-physical-metrics.md`](docs/atlas-migration/cascade-physical-metrics.md). |
+
+### Verification refresh for CFDRS-AEQ-MET-07
+
+The typed hemolysis slice is verified by locked checks for `cfd-1d`, `cfd-optim`,
+and `cfd-validation`, Nextest (728/728 passed, 3 skipped), doctests (8/8 passed,
+3 ignored), and production-library warning-denied Clippy. `cargo doc --no-deps`
+completes with pre-existing unrelated rustdoc link warnings. All-targets Clippy
+reports pre-existing test/bench lint debt outside this slice; it is not claimed
+as resolved here.
 
 The result field names retain their established serialized keys for wire
 compatibility; their Rust types now carry the unit contract. The remaining

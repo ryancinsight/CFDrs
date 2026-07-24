@@ -36,6 +36,8 @@
 
 pub mod acoustic_radiation;
 
+use aequitas::systems::si::quantities::{Pressure, Time};
+
 // ── Giersiepen model constants (re-exported from cfd-core SSOT) ───────────────
 //
 // These are the single source of truth from cfd-core, aliased here for backward
@@ -73,21 +75,22 @@ pub use cfd_core::physics::hemolysis::CAVITATION_HI_SLOPE;
 ///
 /// # Arguments
 ///
-/// * `shear_pa`   — wall shear stress \[Pa]
-/// * `duration_s` — exposure duration \[s]
+/// * `shear`    — wall shear stress as an Aequitas `Pressure`
+/// * `duration` — exposure duration as an Aequitas `Time`
 ///
 /// # Example
 ///
 /// ```
+/// use aequitas::systems::si::quantities::{Pressure, Time};
 /// use cfd_1d::giersiepen_hi;
-/// let hi = giersiepen_hi(50.0, 0.01);
+/// let hi = giersiepen_hi(Pressure::from_base(50.0), Time::from_base(0.01));
 /// assert!((hi - 2.578_444_864_181_722_3e-3).abs() < 1e-15);
 /// ```
 #[inline]
 #[must_use]
-pub fn giersiepen_hi(shear_pa: f64, duration_s: f64) -> f64 {
+pub fn giersiepen_hi(shear: Pressure, duration: Time) -> f64 {
     cfd_core::physics::hemolysis::HemolysisModel::giersiepen_millifluidic()
-        .damage_index(shear_pa, duration_s)
+        .damage_index(shear.into_base(), duration.into_base())
         .unwrap_or(0.0)
 }
 
@@ -115,8 +118,9 @@ pub fn giersiepen_hi(shear_pa: f64, duration_s: f64) -> f64 {
 /// # Example
 ///
 /// ```
+/// use aequitas::systems::si::quantities::{Pressure, Time};
 /// use cfd_1d::{cavitation_amplified_hi, giersiepen_hi};
-/// let base = giersiepen_hi(100.0, 1.0);
+/// let base = giersiepen_hi(Pressure::from_base(100.0), Time::from_base(1.0));
 /// let amplified = cavitation_amplified_hi(base, 1.0);
 /// assert!((amplified - base * 4.0).abs() < 1e-15);  // 1 + 3×1.0 = 4×
 /// ```
@@ -181,11 +185,13 @@ pub const TASKIN_BETA: f64 = 1.9918;
 /// Haemolysis index (dimensionless). Returns `0.0` for non-positive inputs.
 #[inline]
 #[must_use]
-pub fn taskin_hi(shear_stress: f64, exposure_time: f64) -> f64 {
-    if shear_stress <= 0.0 || exposure_time <= 0.0 {
+pub fn taskin_hi(shear_stress: Pressure, exposure_time: Time) -> f64 {
+    let shear_pa = shear_stress.into_base();
+    let duration_s = exposure_time.into_base();
+    if shear_pa <= 0.0 || duration_s <= 0.0 {
         return 0.0;
     }
-    TASKIN_C * shear_stress.abs().max(1e-30).powf(TASKIN_BETA) * exposure_time
+    TASKIN_C * shear_pa.abs().max(1e-30).powf(TASKIN_BETA) * duration_s
 }
 
 // ── Convenience struct ────────────────────────────────────────────────────────
@@ -198,9 +204,9 @@ pub fn taskin_hi(shear_stress: f64, exposure_time: f64) -> f64 {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HemolysisExposure {
     /// Wall shear stress at the exposure site \[Pa].
-    pub shear_pa: f64,
+    pub shear: Pressure,
     /// Duration of the exposure event \[s].
-    pub duration_s: f64,
+    pub duration: Time,
     /// Local cavitation potential ∈ [0, 1]; 0 for non-venturi regions.
     pub cavitation_potential: f64,
 }
@@ -208,18 +214,18 @@ pub struct HemolysisExposure {
 impl HemolysisExposure {
     /// Create a new exposure event.
     #[must_use]
-    pub fn new(shear_pa: f64, duration_s: f64, cavitation_potential: f64) -> Self {
+    pub fn new(shear: Pressure, duration: Time, cavitation_potential: f64) -> Self {
         Self {
-            shear_pa,
-            duration_s,
+            shear,
+            duration,
             cavitation_potential,
         }
     }
 
     /// Create an exposure event with no cavitation contribution.
     #[must_use]
-    pub fn shear_only(shear_pa: f64, duration_s: f64) -> Self {
-        Self::new(shear_pa, duration_s, 0.0)
+    pub fn shear_only(shear: Pressure, duration: Time) -> Self {
+        Self::new(shear, duration, 0.0)
     }
 
     /// Compute the amplified haemolysis index for this exposure event.
@@ -228,7 +234,7 @@ impl HemolysisExposure {
     #[must_use]
     pub fn compute_index(&self) -> f64 {
         cavitation_amplified_hi(
-            giersiepen_hi(self.shear_pa, self.duration_s),
+            giersiepen_hi(self.shear, self.duration),
             self.cavitation_potential,
         )
     }
@@ -411,22 +417,30 @@ pub fn cavitation_hemolysis_amplification(r_max: f64, r_0: f64, p_inf: f64) -> f
 mod tests {
     use super::*;
 
+    fn shear(value: f64) -> Pressure {
+        Pressure::from_base(value)
+    }
+
+    fn duration(value: f64) -> Time {
+        Time::from_base(value)
+    }
+
     // ── giersiepen_hi ────────────────────────────────────────────────────────
 
     #[test]
     fn giersiepen_zero_shear_returns_zero() {
-        assert_eq!(giersiepen_hi(0.0, 1.0), 0.0);
+        assert_eq!(giersiepen_hi(shear(0.0), duration(1.0)), 0.0);
     }
 
     #[test]
     fn giersiepen_zero_duration_returns_zero() {
-        assert_eq!(giersiepen_hi(100.0, 0.0), 0.0);
+        assert_eq!(giersiepen_hi(shear(100.0), duration(0.0)), 0.0);
     }
 
     #[test]
     fn giersiepen_negative_inputs_return_zero() {
-        assert_eq!(giersiepen_hi(-10.0, 1.0), 0.0);
-        assert_eq!(giersiepen_hi(10.0, -1.0), 0.0);
+        assert_eq!(giersiepen_hi(shear(-10.0), duration(1.0)), 0.0);
+        assert_eq!(giersiepen_hi(shear(10.0), duration(-1.0)), 0.0);
     }
 
     #[test]
@@ -434,7 +448,7 @@ mod tests {
         // HI = 3.62e-5 × 1^0.765 × 100^1.991
         let expected =
             GIERSIEPEN_C * 1.0_f64.powf(GIERSIEPEN_ALPHA) * 100.0_f64.powf(GIERSIEPEN_BETA);
-        let hi = giersiepen_hi(100.0, 1.0);
+        let hi = giersiepen_hi(shear(100.0), duration(1.0));
         assert!(
             (hi - expected).abs() < 1e-15,
             "got {hi}, expected {expected}"
@@ -443,12 +457,16 @@ mod tests {
 
     #[test]
     fn giersiepen_increases_with_shear() {
-        assert!(giersiepen_hi(200.0, 1.0) > giersiepen_hi(100.0, 1.0));
+        assert!(
+            giersiepen_hi(shear(200.0), duration(1.0)) > giersiepen_hi(shear(100.0), duration(1.0))
+        );
     }
 
     #[test]
     fn giersiepen_increases_with_duration() {
-        assert!(giersiepen_hi(100.0, 2.0) > giersiepen_hi(100.0, 1.0));
+        assert!(
+            giersiepen_hi(shear(100.0), duration(2.0)) > giersiepen_hi(shear(100.0), duration(1.0))
+        );
     }
 
     // ── cavitation_amplified_hi ──────────────────────────────────────────────
@@ -486,15 +504,15 @@ mod tests {
 
     #[test]
     fn exposure_shear_only_matches_giersiepen() {
-        let exposure = HemolysisExposure::shear_only(80.0, 0.5);
-        let expected = giersiepen_hi(80.0, 0.5);
+        let exposure = HemolysisExposure::shear_only(shear(80.0), duration(0.5));
+        let expected = giersiepen_hi(shear(80.0), duration(0.5));
         assert!((exposure.compute_index() - expected).abs() < 1e-15);
     }
 
     #[test]
     fn exposure_with_cavitation_exceeds_base() {
-        let base = HemolysisExposure::shear_only(80.0, 0.5).compute_index();
-        let cav = HemolysisExposure::new(80.0, 0.5, 0.5).compute_index();
+        let base = HemolysisExposure::shear_only(shear(80.0), duration(0.5)).compute_index();
+        let cav = HemolysisExposure::new(shear(80.0), duration(0.5), 0.5).compute_index();
         assert!(cav > base);
     }
 
@@ -502,17 +520,17 @@ mod tests {
 
     #[test]
     fn test_taskin_zero_inputs() {
-        assert_eq!(taskin_hi(0.0, 1.0), 0.0);
-        assert_eq!(taskin_hi(100.0, 0.0), 0.0);
-        assert_eq!(taskin_hi(-10.0, 1.0), 0.0);
-        assert_eq!(taskin_hi(10.0, -1.0), 0.0);
+        assert_eq!(taskin_hi(shear(0.0), duration(1.0)), 0.0);
+        assert_eq!(taskin_hi(shear(100.0), duration(0.0)), 0.0);
+        assert_eq!(taskin_hi(shear(-10.0), duration(1.0)), 0.0);
+        assert_eq!(taskin_hi(shear(10.0), duration(-1.0)), 0.0);
     }
 
     #[test]
     fn test_taskin_reference_value() {
         // HI = C_T × τ^β_T × t = 1.228e-5 × 100^1.9918 × 1.0
         let expected = TASKIN_C * 100.0_f64.powf(TASKIN_BETA) * 1.0;
-        let hi = taskin_hi(100.0, 1.0);
+        let hi = taskin_hi(shear(100.0), duration(1.0));
         assert!(
             (hi - expected).abs() < 1e-15,
             "got {hi}, expected {expected}"
@@ -524,9 +542,9 @@ mod tests {
     #[test]
     fn test_taskin_monotonic() {
         // HI increases with shear stress
-        assert!(taskin_hi(200.0, 1.0) > taskin_hi(100.0, 1.0));
+        assert!(taskin_hi(shear(200.0), duration(1.0)) > taskin_hi(shear(100.0), duration(1.0)));
         // HI increases with exposure time
-        assert!(taskin_hi(100.0, 2.0) > taskin_hi(100.0, 1.0));
+        assert!(taskin_hi(shear(100.0), duration(2.0)) > taskin_hi(shear(100.0), duration(1.0)));
     }
 
     #[test]
@@ -535,8 +553,8 @@ mod tests {
         // because they use different constants and time dependence.
         let tau = 100.0;
         let t = 1.0;
-        let hi_g = giersiepen_hi(tau, t);
-        let hi_t = taskin_hi(tau, t);
+        let hi_g = giersiepen_hi(shear(tau), duration(t));
+        let hi_t = taskin_hi(shear(tau), duration(t));
         // Both should be positive
         assert!(hi_g > 0.0);
         assert!(hi_t > 0.0);

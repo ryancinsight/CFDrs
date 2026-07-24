@@ -4,6 +4,7 @@ use super::blood_safety::{BloodShearLimits, HemolysisLimitViolation, ShearLimitV
 use crate::domain::channel::FlowRegime;
 use crate::physics::hemolysis::{giersiepen_hi, taskin_hi};
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::{Pressure, Time};
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use eunomia::NumericElement;
 use std::collections::HashMap;
@@ -169,12 +170,18 @@ impl<T: Cfd1dScalar + Copy + Sum + SafeFromF64> FlowAnalysis<T> {
             let shear_pa = <T as NumericElement>::to_f64(*wall_shear_stress);
             let duration_s = <T as NumericElement>::to_f64(exposure_time_s);
 
-            let giersiepen_value = limits
-                .max_giersiepen_hi
-                .map(|_| T::from_f64_or_zero(giersiepen_hi(shear_pa, duration_s)));
-            let taskin_value = limits
-                .max_taskin_hi
-                .map(|_| T::from_f64_or_zero(taskin_hi(shear_pa, duration_s)));
+            let giersiepen_value = limits.max_giersiepen_hi.map(|_| {
+                T::from_f64_or_zero(giersiepen_hi(
+                    Pressure::from_base(shear_pa),
+                    Time::from_base(duration_s),
+                ))
+            });
+            let taskin_value = limits.max_taskin_hi.map(|_| {
+                T::from_f64_or_zero(taskin_hi(
+                    Pressure::from_base(shear_pa),
+                    Time::from_base(duration_s),
+                ))
+            });
 
             let giersiepen_ratio = match (giersiepen_value, limits.max_giersiepen_hi) {
                 (Some(value), Some(limit)) if limit > T::zero() => Some(value / limit),
