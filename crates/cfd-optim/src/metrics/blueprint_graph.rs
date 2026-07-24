@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use aequitas::systems::si::quantities::{Length, Pressure, Time, VolumetricFlowRate};
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::{NetworkProblem, NetworkSolver, SolvePathStatus};
 use cfd_core::physics::fluid::blood::CassonBlood;
@@ -20,11 +21,11 @@ pub struct BlueprintSolveSample<'a> {
     pub id: &'a str,
     pub from_node: &'a str,
     pub to_node: &'a str,
-    pub length_m: f64,
+    pub length_m: Length,
     pub cross_section: CrossSectionSpec,
     pub channel_shape: ChannelShape,
-    pub flow_m3_s: f64,
-    pub from_pressure_pa: f64,
+    pub flow_m3_s: VolumetricFlowRate,
+    pub from_pressure_pa: Pressure,
     pub is_treatment_channel: bool,
     pub is_venturi_channel: bool,
     pub venturi_throat_count: u8,
@@ -32,13 +33,13 @@ pub struct BlueprintSolveSample<'a> {
 
 #[derive(Debug, Clone)]
 pub struct BlueprintSolveSummary<'a> {
-    pub inlet_pressure_pa: f64,
-    pub inlet_flow_m3_s: f64,
+    pub inlet_pressure_pa: Pressure,
+    pub inlet_flow_m3_s: VolumetricFlowRate,
     pub flow_uniformity: f64,
     pub venturi_flow_fraction: f64,
-    pub mean_residence_time_s: f64,
+    pub mean_residence_time_s: Time,
     pub solve_path_status: SolvePathStatus,
-    pub remerge_loss_pa: f64,
+    pub remerge_loss_pa: Pressure,
     pub channel_samples: Vec<BlueprintSolveSample<'a>>,
 }
 
@@ -71,7 +72,8 @@ pub fn solve_blueprint_candidate(
         });
     }
 
-    let q_per_inlet = candidate.operating_point.flow_rate_m3_s / inlet_nodes.len() as f64;
+    let q_per_inlet =
+        candidate.operating_point.flow_rate_m3_s.into_base() / inlet_nodes.len() as f64;
     for inlet in &inlet_nodes {
         network.set_neumann_flow(*inlet, q_per_inlet);
     }
@@ -114,15 +116,14 @@ pub fn solve_blueprint_candidate(
             }
 
             let fallback_problem = NetworkProblem::new(linear_network);
-            let mut fallback_solved =
-                solver
-                    .solve_network(&fallback_problem)
-                    .map_err(|fallback_error| OptimError::PhysicsError {
-                        id: candidate.id.clone(),
-                        reason: format!(
+            let mut fallback_solved = solver.solve_network(&fallback_problem).map_err(
+                |fallback_error| OptimError::PhysicsError {
+                    id: candidate.id.clone(),
+                    reason: format!(
                         "NetworkSolver failed: {primary_error}; fallback failed: {fallback_error}"
                     ),
-                    })?;
+                },
+            )?;
 
             let mut inlet_flow_unit = 0.0_f64;
             for edge_ref in fallback_solved.graph.edge_references() {
@@ -145,7 +146,7 @@ pub fn solve_blueprint_candidate(
                     reason: "fallback solve produced zero inlet flow".to_string(),
                 });
             }
-            let scale = candidate.operating_point.flow_rate_m3_s / inlet_flow_unit;
+            let scale = candidate.operating_point.flow_rate_m3_s.into_base() / inlet_flow_unit;
             for pressure in &mut fallback_solved.pressures {
                 *pressure *= scale;
             }
@@ -232,11 +233,11 @@ pub fn solve_blueprint_candidate(
             id: channel.id.as_str(),
             from_node: channel.from.as_str(),
             to_node: channel.to.as_str(),
-            length_m: channel.length_m,
+            length_m: Length::from_base(channel.length_m),
             cross_section: channel.cross_section,
             channel_shape: channel.channel_shape,
-            flow_m3_s,
-            from_pressure_pa,
+            flow_m3_s: VolumetricFlowRate::from_base(flow_m3_s),
+            from_pressure_pa: Pressure::from_base(from_pressure_pa),
             is_treatment_channel,
             is_venturi_channel,
             venturi_throat_count,
@@ -244,21 +245,29 @@ pub fn solve_blueprint_candidate(
     }
 
     let venturi_flow_fraction = (venturi_flows.iter().sum::<f64>()
-        / candidate.operating_point.flow_rate_m3_s.max(1.0e-12))
+        / candidate
+            .operating_point
+            .flow_rate_m3_s
+            .into_base()
+            .max(1.0e-12))
     .clamp(0.0, 1.0);
     let flow_uniformity = compute_blueprint_flow_uniformity(&candidate.blueprint, &channel_samples);
-    let mean_residence_time_s =
-        total_volume_m3 / candidate.operating_point.flow_rate_m3_s.max(1.0e-12);
+    let mean_residence_time_s = total_volume_m3
+        / candidate
+            .operating_point
+            .flow_rate_m3_s
+            .into_base()
+            .max(1.0e-12);
     let remerge_loss_pa = compute_blueprint_remerge_loss(&candidate.blueprint, &channel_samples);
 
     Ok(BlueprintSolveSummary {
-        inlet_pressure_pa,
+        inlet_pressure_pa: Pressure::from_base(inlet_pressure_pa),
         inlet_flow_m3_s: candidate.operating_point.flow_rate_m3_s,
         flow_uniformity,
         venturi_flow_fraction,
-        mean_residence_time_s,
+        mean_residence_time_s: Time::from_base(mean_residence_time_s),
         solve_path_status,
-        remerge_loss_pa,
+        remerge_loss_pa: Pressure::from_base(remerge_loss_pa),
         channel_samples,
     })
 }
@@ -295,7 +304,7 @@ fn compute_blueprint_flow_uniformity(
         samples
             .iter()
             .filter(|sample| !from_nodes.contains(sample.to_node))
-            .map(|sample| sample.flow_m3_s.abs())
+            .map(|sample| sample.flow_m3_s.into_base().abs())
             .collect::<Vec<_>>()
     } else {
         samples
@@ -305,7 +314,7 @@ fn compute_blueprint_flow_uniformity(
                     .iter()
                     .any(|target| sample.id == target || sample.id.starts_with(target))
             })
-            .map(|sample| sample.flow_m3_s.abs())
+            .map(|sample| sample.flow_m3_s.into_base().abs())
             .collect::<Vec<_>>()
     };
 
@@ -333,7 +342,7 @@ fn compute_blueprint_remerge_loss(
     for sample in samples {
         let entry = incoming.entry(sample.to_node).or_insert((0, 0.0));
         entry.0 += 1;
-        entry.1 += sample.flow_m3_s.abs();
+        entry.1 += sample.flow_m3_s.into_base().abs();
         let out_entry = outgoing_area.entry(sample.from_node).or_insert(0.0);
         *out_entry = out_entry.max(sample.cross_section.area());
     }

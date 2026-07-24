@@ -128,6 +128,39 @@ within the provider's documented `gamma(32)` exponential bound, and negative
 path rejection. Locked package checks, configured Nextest, Clippy, doctest,
 Rustdoc, dependency-identity, and raw-law residue scans close the change.
 
+### 2026-07-23: Keep the typed physical report carrier at the cfd-optim boundary [patch] [arch]
+
+**Context**: `SdtMetrics` is a large serialized DTO whose field names encode
+display units such as millimetres, millilitres, and millilitres per minute.
+Writing those fields directly from scalar intermediates allowed unit conversion
+to spread through report assembly, while replacing the DTO would widen the
+change into every scoring and narrative consumer.
+
+**Decision**: `cfd-optim` assembles unit-bearing report values in one private
+`TypedReportPhysicalMetrics` carrier using Aequitas quantities. Its `write_to`
+method is the only conversion into the existing scalar `SdtMetrics` report
+contract. Dimensionless indices and empirical coefficients remain scalar; the
+serialized DTO is not duplicated with a parallel typed public representation.
+
+**Rejected alternative**: Adding typed fields beside the existing serialized
+fields was rejected because it creates two mutable sources of report truth.
+Changing `SdtMetrics` to typed public fields was rejected because it forces an
+unbounded migration through scoring, narrative, and persisted report callers
+before the provider-blocked energy-density and temperature-difference contracts
+are available.
+
+**Consequences**: Unit-bearing values are dimension-checked through report
+assembly, and the existing JSON/display contract remains stable at one named
+boundary. Residence/safety intermediates and channel/network DTOs remain
+follow-on CFDrs work; energy-per-volume and temperature-difference semantics
+remain Aequitas provider gaps.
+
+**Verification**: The adapter regression covers pressure, time, length, volume,
+flow-rate, power, and temperature conversions plus JSON round-trip equality.
+The focused `cfd-optim` Nextest filter passes 11/11 and warning-denied package
+Clippy passes. Full library execution remains path-sensitive in the linked lane
+because one existing contract fixture resolves only from the canonical checkout.
+
 ### 2026-07-21: Iris owns schematic color laws [major] [arch]
 
 **Context**: `cfd-schematics` defined its own color-map enum and blue-red,

@@ -4,7 +4,8 @@
 //! blueprint-native physics metrics, plus mesh generation from
 //! `NetworkBlueprint`.
 
-use cfd_optim::{evaluate_blueprint_candidate, BlueprintCandidate, OperatingPoint};
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+use cfd_optim::{BlueprintCandidate, OperatingPoint, evaluate_blueprint_candidate};
 use cfd_schematics::domain::therapy_metadata::TherapyZone;
 use cfd_schematics::{
     BlueprintTopologyFactory, BlueprintTopologySpec, BranchRole, BranchSpec, ChannelRouteSpec,
@@ -97,8 +98,8 @@ fn selective_venturi_candidate() -> BlueprintCandidate {
         "test-selective-venturi",
         BlueprintTopologyFactory::build(&selective_venturi_spec()).expect("blueprint must build"),
         OperatingPoint {
-            flow_rate_m3_s: 1.0e-7,
-            inlet_gauge_pa: 5_000.0,
+            flow_rate_m3_s: VolumetricFlowRate::from_base(1.0e-7),
+            inlet_gauge_pa: Pressure::from_base(5_000.0),
             feed_hematocrit: 0.45,
             patient_context: None,
         },

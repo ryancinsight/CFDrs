@@ -1,5 +1,9 @@
 //! The [`SdtMetrics`] output struct — all physics-derived metrics for one
 //! [`BlueprintCandidate`](crate::BlueprintCandidate).
+//!
+//! Unit-bearing values are assembled with Aequitas in the report producer and
+//! converted once into this serialized display-unit DTO. The scalar fields
+//! here are therefore an I/O contract, not the physical computation boundary.
 
 use serde::{Deserialize, Deserializer, Serialize};
 

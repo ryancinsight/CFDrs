@@ -509,7 +509,7 @@ dependencies = [
  "moirai",
  "num_cpus",
  "proptest",
- "proteus",
+ "proteus 0.1.0 (git+https://github.com/ryancinsight/proteus?rev=1b25af10636931193457adb00ff8f144d37f6c90)",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -2660,7 +2660,16 @@ dependencies = [
 [[package]]
 name = "proteus"
 version = "0.1.0"
-source = "git+https://github.com/ryancinsight/proteus#bb51ac414f74fb47d8001310206c5aea2e3a160c"
+source = "git+https://github.com/ryancinsight/proteus?rev=1b25af10636931193457adb00ff8f144d37f6c90#1b25af10636931193457adb00ff8f144d37f6c90"
+dependencies = [
+ "aequitas",
+ "eunomia",
+]
+
+[[package]]
+name = "proteus"
+version = "0.1.0"
+source = "git+https://github.com/ryancinsight/proteus#1b25af10636931193457adb00ff8f144d37f6c90"
 dependencies = [
  "aequitas",
  "eunomia",

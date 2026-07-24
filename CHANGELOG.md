@@ -34,9 +34,25 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- `cfd-math` now preserves Leto's default sparse-LU dispatch thresholds when
+  constructing the provider solver, keeping the existing max-size and pivot
+  policy explicit while adapting to the provider's expanded configuration.
+
+- `cfd-optim` now assembles unit-bearing physical report values in one private
+  Aequitas carrier and converts them once into the existing serialized
+  `SdtMetrics` display units. Energy-density and temperature-difference fields
+  now use Aequitas semantic quantities; residence and safety producers now use
+  the same typed computation boundary before their explicit DTO adapters.
+
 - `cfd-optim` now composes report mechanical power, residence volume, wall
   shear, and transit time through Aequitas typed quantities; report storage
   remains scalar at the established metrics boundary.
+
+- `cfd-optim` now carries per-channel hemolysis wall shear and transit time
+  through private Aequitas quantities before the single `ChannelHemolysis`
+  serialization adapter. Operating-point and solve-summary physical DTOs now
+  carry Aequitas quantities as well, with explicit serde and solver/report
+  scalar boundaries and no parallel raw/typed fields.
 
 - **Aequitas fluid dimensions**: `cfd-core` now evaluates kinematic
   viscosity, Prandtl number, and Reynolds number through typed SI quantities;

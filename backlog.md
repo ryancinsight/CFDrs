@@ -31,6 +31,18 @@
 
 ## Active integration
 
+- **CFD-AEQUITAS-REPORT-CARRIER-1 [patch] [arch] - Keep one typed physical
+  report carrier at the `cfd-optim` producer boundary (DONE; owner=Codex;
+  scope=`cfd-optim/src/reporting/report_metrics.rs`, ADR, gap audit, and PM
+  artifacts).** Compose pressure, time, length, volume, flow-rate, power,
+  reciprocal-time, and temperature values with Aequitas, then convert them
+  once into the existing serialized `SdtMetrics` display units. Acceptance:
+  no parallel typed/raw fields, value-semantic unit conversion, and serde
+  round-trip equality. Evidence: focused `cfd-optim` Nextest passes 11/11;
+  warning-denied package Clippy passes; the linked lane's full library run
+  reaches 79 passing tests before the pre-existing canonical-path contract
+  fixture fails.
+
 - **CFD-BOOK-PAGES-1 [patch] - Publish the source-backed mdBook through
   GitHub Pages (DONE; owner=Codex; scope=`.github/workflows/book-pages.yml`,
   `docs/book/book.toml`, `README.md`, and PM artifacts).** Build the existing

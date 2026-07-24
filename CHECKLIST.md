@@ -2,6 +2,44 @@
 
 Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
 
+- [x] CFD-AEQUITAS-REPORT-CARRIER-1 [patch] [arch]: consolidate the
+      unit-bearing `cfd-optim` report values in one private Aequitas carrier
+      and one scalar `SdtMetrics` serialization adapter. The adapter regression
+      covers SI-to-report-unit conversion and JSON round-trip equality; focused
+      `cfd-optim` Nextest passes 11/11 and warning-denied package Clippy passes.
+      Full library execution remains path-sensitive in a linked lane because
+      one existing contract fixture resolves only from the canonical checkout.
+
+- [x] CFD-AEQUITAS-ENERGY-TEMPERATURE-1 [patch]: carry SDT acoustic energy
+      density, specific cavitation energy, and throat temperature rise through
+      Aequitas `EnergyPerVolume` and `TemperatureDifference` before the scalar
+      report adapter. Acceptance: the existing equations and serialized values
+      remain unchanged; positive-energy, thermal-threshold, and serde
+      round-trip regressions pass; the direct Aequitas pin is the merged
+      provider revision `e0fc5f3`. Proteus now consumes the merged
+      `TemperatureDifference` contract at `1b25af1`.
+
+- [x] CFD-AEQUITAS-RESIDENCE-SAFETY-1 [patch]: compute residence volume/time/
+      velocity and safety pressure/shear/time through private Aequitas carriers,
+      then adapt once to the existing serialized DTOs. Acceptance: cfd-optim
+      package check and focused Nextest adapter/conservation regression pass;
+      Leto sparse-LU configuration drift is adapted through provider defaults.
+
+- [x] CFD-AEQUITAS-CHANNEL-CARRIER-1 [patch]: compute per-channel hemolysis
+      report values through private Aequitas `Pressure` and `Time` fields, then
+      serialize once into `ChannelHemolysis`. Acceptance: the adapter value
+      regression, residence/safety regression, package check, and warning-
+      denied package Clippy pass. The operating-point and solve-sample DTOs
+      are closed by `CFDRS-AEQ-MET-04` in the same typed-boundary sequence.
+
+- [x] CFD-AEQUITAS-OPERATING-SOLVE-CARRIERS-1 [major] [arch]: type
+      `OperatingPoint` flow/pressure and `BlueprintSolveSample`/
+      `BlueprintSolveSummary` length, flow, pressure, and residence values with
+      Aequitas quantities. Preserve the existing JSON field names through an
+      explicit serde representation and convert only at solver/report DTO
+      boundaries. Acceptance: cfd-optim check, focused Nextest value tests,
+      warning-denied package Clippy, and integration-test compilation pass.
+
 - [x] CFD-AEQUITAS-REPORT-UNITS-1 [patch]: compose report mechanical power,
       residence volume, wall shear, and transit time through Aequitas quantities;
       the focused `cfd-optim` check, test, and lint gates are required before

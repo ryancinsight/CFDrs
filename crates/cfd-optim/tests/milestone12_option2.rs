@@ -12,13 +12,15 @@
 
 use std::collections::HashSet;
 
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_optim::{
+    BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
     evaluate_blueprint_candidate, evaluate_goal, evaluate_selective_venturi_cavitation,
-    orchestration_lineage_key, BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
+    orchestration_lineage_key,
 };
 use cfd_schematics::{
-    build_milestone12_blueprint, enumerate_milestone12_topologies, SplitKind,
-    TreatmentActuationMode, VenturiPlacementMode,
+    SplitKind, TreatmentActuationMode, VenturiPlacementMode, build_milestone12_blueprint,
+    enumerate_milestone12_topologies,
 };
 
 // ---------------------------------------------------------------------------
@@ -28,8 +30,8 @@ use cfd_schematics::{
 
 fn test_op(flow: f64, gauge: f64) -> OperatingPoint {
     OperatingPoint {
-        flow_rate_m3_s: flow,
-        inlet_gauge_pa: gauge,
+        flow_rate_m3_s: VolumetricFlowRate::from_base(flow),
+        inlet_gauge_pa: Pressure::from_base(gauge),
         feed_hematocrit: 0.45,
         patient_context: None,
     }
