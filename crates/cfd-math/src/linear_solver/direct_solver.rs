@@ -1,10 +1,25 @@
 //! Direct sparse solver for linear systems.
 //!
 //! Uses [`leto_ops::SparseLuSolver`] — the atlas-native sparse direct solver
-//! backed by dense partial-pivoting LU — for systems up to `max_size`. The
-//! dense LU path in `leto-ops` serves as both the primary sparse solver and
-//! the fallback, eliminating the external `rsparse` dependency. The primary
-//! path preserves native Leto array ownership across the provider boundary.
+//! — for systems up to `max_size`. Per ADR 0031 the upstream solver dispatches
+//! between two paths:
+//!
+//! - **Dense path** (matrices with `n ≤ small_switch=32` or `nnz/n² ≥
+//!   density_threshold=0.1`): the CSR input is expanded to dense storage and
+//!   forwarded to the SSOT dense partial-pivoting LU (`lu_decompose`).
+//! - **Sparse path** (other matrices): the CSR input is converted to CSC and
+//!   factorised by the real left-looking symbolic + numeric sparse LU.
+//!   The symbolic phase runs the sequential Gilbert–Peierls reach
+//!   (Davis 2006 §6.1); the numeric phase performs a slot-indexed
+//!   left-looking factorisation. If partial pivoting is required (the
+//!   symbolic convention alone produces a numerically broken factor),
+//!   the sparse path transparently falls back to the dense path internally.
+//!
+//! The CFDrs-side `dense_threshold` retry below catches the orthogonal
+//! case where the upstream solver refuses on the `max_size` cap and the
+//! matrix is small enough to attempt a dense direct solve through the
+//! `dense_bridge` provider — a CFDrs user-intent safety net,
+//! not a duplicate of the upstream internal fallback.
 //!
 //! # Theorem — LU Factorisation Uniqueness
 //!
@@ -25,8 +40,11 @@ use super::dense_bridge::solve_leto_csr_with_leto_dense_array;
 pub struct DirectSparseSolver {
     /// Maximum system size (number of rows) to attempt with direct solve.
     pub max_size: usize,
-    /// Ordering strategy (reserved for API compatibility; the atlas-native solver
-    /// uses partial-column pivoting regardless of this value).
+    /// Ordering strategy (reserved for API compatibility; the atlas-native
+    /// solver performs natural column ordering for the sparse path and
+    /// partial pivoting for the dense path — this field does not affect
+    /// either dispatch). Tracked for AMD fill-reducing ordering per
+    /// `ATLAS-LETO-OPS-AMD-ORDERING-001`.
     pub ordering: i8,
     /// Pivot tolerance for LU factorization.
     pub pivot_tolerance: f64,
