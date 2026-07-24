@@ -3,6 +3,7 @@
 use super::{NetworkGraph, Node};
 use crate::domain::channel::ChannelGeometry;
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::Length;
 use cfd_core::{
     conversion::{SafeFromF64, SafeFromUsize},
     error::{Error, Result},
@@ -118,7 +119,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for EdgeProperties<
             length,
             cross_section,
             surface: SurfaceProperties {
-                roughness: T::zero(),
+                roughness: Length::from_base(T::zero()),
                 contact_angle: None,
                 surface_energy: None,
                 wettability: Wettability::Hydrophilic,

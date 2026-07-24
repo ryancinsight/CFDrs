@@ -38,6 +38,7 @@
 use crate::domain::channel::cross_section::CrossSection;
 use crate::domain::channel::geometry::{ChannelGeometry, ChannelType};
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::Length;
 use cfd_core::physics::constants::mathematical::{numeric, PI};
 use eunomia::{FloatElement, NumericElement};
 
@@ -50,7 +51,7 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
             length,
             cross_section: CrossSection::Rectangular { width, height },
             surface: SurfaceProperties {
-                roughness,
+                roughness: Length::from_base(roughness),
                 contact_angle: None,
                 surface_energy: None,
                 wettability: Wettability::Hydrophilic,
@@ -67,7 +68,7 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
             length,
             cross_section: CrossSection::Circular { diameter },
             surface: SurfaceProperties {
-                roughness,
+                roughness: Length::from_base(roughness),
                 contact_angle: None,
                 surface_energy: None,
                 wettability: Wettability::Hydrophilic,

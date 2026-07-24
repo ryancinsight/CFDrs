@@ -204,7 +204,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
             dh,
             area,
             self.geometry.length,
-            self.geometry.surface.roughness,
+            self.geometry.surface.roughness.into_base(),
         );
         let mut conditions = FlowConditions::new(velocity);
         conditions.reynolds_number = Some(re);

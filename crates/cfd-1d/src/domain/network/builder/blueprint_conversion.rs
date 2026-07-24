@@ -12,6 +12,7 @@ use super::network_builder::NetworkBuilder;
 use super::venturi_coefficients::venturi_coefficients;
 use crate::physics::resistance::models::BendType;
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::Length;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::{Error, Result};
 use cfd_schematics::domain::model::{ChannelShape, EdgeKind, NetworkBlueprint};
@@ -270,7 +271,7 @@ where
             length,
             cross_section,
             surface: SurfaceProperties {
-                roughness: T::from_f64_or_zero(1e-7),
+                roughness: Length::from_base(T::from_f64_or_zero(1e-7)),
                 contact_angle: None,
                 surface_energy: None,
                 wettability: Wettability::Hydrophilic,

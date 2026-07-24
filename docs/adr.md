@@ -6,6 +6,7 @@
 
 | Decision | Date | Rationale | Metrics | Trade-offs |
 |----------|------|-----------|---------|------------|
+| **Aequitas-owned surface and wetting metrics** | 2026-07-24 | Public surface contracts documented SI units but stored roughness, angles, surface energy, and tension as raw scalars | Length, Angle, EnergyPerArea, and SurfaceTension remain typed through public material and channel boundaries | Breaking change for external surface/interface constructors and trait implementors |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
 | **Zero-Copy Performance** | 2023-Q2 | Memory efficiency in CFD loops | Iterator-based APIs, slice returns | ✅ Performance ⚠️ API complexity |
 | **SIMD Vectorization** | 2023-Q3 | Critical path optimization | AVX2/SSE/NEON/SWAR support | ✅ 4x throughput ⚠️ Platform deps |
@@ -74,6 +75,32 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-24: Aequitas owns surface and wetting quantities [major] [arch]
+
+Context: cfd-1d SurfaceProperties and cfd-core material interfaces documented
+physical units but exposed roughness, contact angles, surface energy, and
+surface tension as bare scalars. The public contracts therefore could not
+reject dimensionally incompatible values at construction.
+
+Decision: store roughness as Aequitas Length, contact angles as Angle, surface
+energy and adhesion as EnergyPerArea, and interfacial tension as
+SurfaceTension. Convert only at the existing Darcy resistance or cosine
+formula boundaries, then return the typed result.
+
+Rejected alternative: retaining scalar fields with unit comments or adding a
+CFDrs wrapper would preserve either dimensional ambiguity or a second quantity
+owner. Both alternatives are rejected.
+
+Consequences: the public surface/interface field and trait contracts are
+breaking for external implementors; all in-tree constructors use Aequitas
+values, and serde remains the canonical scalar SI representation through the
+provider quantity implementation.
+
+Verification: typed value regressions cover roughness, angle, surface energy,
+water-air tension, advancing/receding angles, and adhesion energy. Locked
+package checks and focused validation gates are recorded in the child gap
+audit.
 
 ### 2026-07-22: Preserve native schematic output paths [major] [arch]
 

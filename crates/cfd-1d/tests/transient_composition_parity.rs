@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder, ResistanceUpdatePolicy};
 use cfd_1d::pries_phase_separation;
 use cfd_1d::solver::core::{
@@ -598,7 +599,7 @@ fn coupled_pressure_event_blood_hematocrit_feeds_back_on_flow_split() {
             length,
             cross_section: CrossSection::Circular { diameter },
             surface: SurfaceProperties {
-                roughness: 0.0,
+                roughness: Length::from_base(0.0),
                 contact_angle: None,
                 surface_energy: None,
                 wettability: Wettability::Hydrophilic,
@@ -714,7 +715,7 @@ fn blood_edge_transport_relaxes_single_channel_hematocrit_front() {
                 length: 1.0,
                 cross_section: CrossSection::Circular { diameter: 1.0 },
                 surface: SurfaceProperties {
-                    roughness: 0.0,
+                    roughness: Length::from_base(0.0),
                     contact_angle: None,
                     surface_energy: None,
                     wettability: Wettability::Hydrophilic,
@@ -793,7 +794,7 @@ fn blood_edge_transport_relaxes_mixed_outlet_hematocrit() {
                 length: 2.0,
                 cross_section: CrossSection::Circular { diameter: 1.0 },
                 surface: SurfaceProperties {
-                    roughness: 0.0,
+                    roughness: Length::from_base(0.0),
                     contact_angle: None,
                     surface_energy: None,
                     wettability: Wettability::Hydrophilic,
@@ -863,7 +864,7 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
                 length: 1.0,
                 cross_section: CrossSection::Circular { diameter: 1.0 },
                 surface: SurfaceProperties {
-                    roughness: 0.0,
+                    roughness: Length::from_base(0.0),
                     contact_angle: None,
                     surface_energy: None,
                     wettability: Wettability::Hydrophilic,
@@ -976,7 +977,7 @@ fn blood_segmented_edge_transport_advects_front_one_cell_per_step() {
                 length: 1.0,
                 cross_section: CrossSection::Circular { diameter: 1.0 },
                 surface: SurfaceProperties {
-                    roughness: 0.0,
+                    roughness: Length::from_base(0.0),
                     contact_angle: None,
                     surface_energy: None,
                     wettability: Wettability::Hydrophilic,
@@ -1046,7 +1047,7 @@ fn blood_segmented_edge_transport_delays_mixed_outlet_more_than_single_volume_mo
                 length: 2.0,
                 cross_section: CrossSection::Circular { diameter: 1.0 },
                 surface: SurfaceProperties {
-                    roughness: 0.0,
+                    roughness: Length::from_base(0.0),
                     contact_angle: None,
                     surface_energy: None,
                     wettability: Wettability::Hydrophilic,
@@ -1127,7 +1128,7 @@ fn blood_segmented_edge_transport_applies_pries_split_at_bifurcation() {
                 diameter: hydraulic_diameter,
             },
             surface: SurfaceProperties {
-                roughness: 0.0,
+                roughness: Length::from_base(0.0),
                 contact_angle: None,
                 surface_energy: None,
                 wettability: Wettability::Hydrophilic,
@@ -1209,7 +1210,7 @@ fn coupled_pressure_event_segmented_blood_transport_feeds_back_on_resistance_upd
             length,
             cross_section: CrossSection::Circular { diameter },
             surface: SurfaceProperties {
-                roughness: 0.0,
+                roughness: Length::from_base(0.0),
                 contact_angle: None,
                 surface_energy: None,
                 wettability: Wettability::Hydrophilic,

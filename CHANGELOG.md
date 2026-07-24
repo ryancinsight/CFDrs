@@ -34,6 +34,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: cfd-1d SurfaceProperties now carries Aequitas Length, Angle, and
+  EnergyPerArea for roughness, contact angle, and surface energy. cfd-core
+  material interfaces carry SurfaceTension and typed contact angles; adhesion
+  returns EnergyPerArea. Scalar conversion remains only at resistance and
+  trigonometric formula boundaries. See
+  docs/atlas-migration/surface-wetting-metrics.md.
+
 - **Breaking**: cell-separation `CellProperties`, kappa-aware cascade stages,
   Zweifach–Fung channel inputs, and optimization stage-width summaries now
   carry Aequitas length, density, and velocity quantities. Scalar extraction

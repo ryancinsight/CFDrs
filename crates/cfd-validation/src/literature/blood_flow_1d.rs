@@ -11,6 +11,7 @@
 
 use super::{LiteratureValidation, ValidationReport};
 use crate::scalar::{self, ValidationScalar};
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::{
     // Channel geometry types — re-exported at crate root from domain::channel
     ChannelGeometry,
@@ -115,7 +116,7 @@ impl<T: ValidationScalar> LiteratureValidation<T> for StenosisValidation<T> {
                     length: l,
                     cross_section: CrossSection::Circular { diameter: d },
                     surface: SurfaceProperties {
-                        roughness: T::zero(),
+                        roughness: Length::from_base(T::zero()),
                         contact_angle: None,
                         surface_energy: None,
                         wettability: Wettability::Hydrophilic,
@@ -300,7 +301,7 @@ impl<T: ValidationScalar> LiteratureValidation<T> for BifurcationValidation<T> {
                     length: l,
                     cross_section: CrossSection::Circular { diameter: d },
                     surface: SurfaceProperties {
-                        roughness: T::zero(),
+                        roughness: Length::from_base(T::zero()),
                         contact_angle: None,
                         surface_energy: None,
                         wettability: Wettability::Hydrophilic,

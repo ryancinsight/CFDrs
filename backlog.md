@@ -32,14 +32,17 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-10 [major] - Type surface and wetting physical metrics
-  (IN PROGRESS; owner=Codex; scope=`cfd-1d` `SurfaceProperties`, `cfd-core`
-  material interfaces, in-tree constructors/tests, ADR/design note, and PM
-  artifacts).** Public roughness, contact-angle, surface-energy, and
-  surface-tension contracts still expose raw SI scalars even though Aequitas
-  owns `Length`, `Angle`, `EnergyPerArea`, and `SurfaceTension`. Acceptance is
-  typed public storage, scalar extraction only at the numerical, trigonometric,
-  or resistance boundary, migrated value-semantic tests, residue scans, and
-  locked focused gates.
+  (IMPLEMENTATION COMPLETE; focused verification complete with one independent
+  validation timeout and pre-existing Clippy debt; owner=Codex; scope=`cfd-1d`
+  `SurfaceProperties`, `cfd-core` material interfaces, in-tree
+  constructors/tests, ADR/design note, and PM artifacts).** Public roughness,
+  contact-angle, surface-energy, and surface-tension contracts now use
+  Aequitas `Length`, `Angle`, `EnergyPerArea`, and `SurfaceTension`. Scalar
+  extraction remains only at the Darcy resistance and cosine-law boundaries.
+  Evidence: cfd-core Nextest 259/259, cfd-1d Nextest 729/729 with 3 skipped,
+  doctests 11 passed with 3 ignored, and focused shape-factor validation 1/1.
+  The non-Newtonian validation binary exceeded the committed 30-second budget;
+  Clippy remains blocked by the pre-existing cfd-math `matrix_zeros` warning.
 
 - **CFDRS-AEQ-MET-09 [major] - Type cell-separation physical metrics
   (IMPLEMENTATION and focused verification COMPLETE; full package verification

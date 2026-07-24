@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::{
     ChannelGeometry, ChannelType, ComponentType, CrossSection, EdgeProperties, Network,
     NetworkBuilder, ResistanceUpdatePolicy, SurfaceProperties, Wettability,
@@ -79,7 +80,7 @@ fn cross_fidelity_poiseuille_circular_vs_square() {
                     length,
                     cross_section,
                     surface: SurfaceProperties {
-                        roughness: 0.0,
+                        roughness: Length::from_base(0.0),
                         contact_angle: None,
                         surface_energy: None,
                         wettability: Wettability::Hydrophilic,

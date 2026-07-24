@@ -1,4 +1,4 @@
-use leto::Array1;
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::domain::network::{
     Edge, EdgeProperties, EdgeType, Network, NetworkBuilder, ResistanceUpdatePolicy,
     EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
@@ -15,6 +15,7 @@ use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
 use cfd_core::physics::fluid::{ConstantPropertyFluid, FluidTrait};
+use leto::Array1;
 
 fn network_two_node<T: cfd_1d::Cfd1dScalar + Copy + SafeFromF64>() -> (
     Network<T>,
@@ -59,7 +60,8 @@ fn negative_coefficients_rejected_in_update() {
         e.resistance = -1.0;
         e.quad_coeff = 0.0;
     }
-    let mut x = Array1::<F>::zeros([net.node_count()]);    x[inlet.index()] = 5.0;
+    let mut x = Array1::<F>::zeros([net.node_count()]);
+    x[inlet.index()] = 5.0;
     x[outlet.index()] = 0.0;
     let err = net.update_from_solution(&x).unwrap_err();
     match err {
@@ -91,7 +93,7 @@ fn flow_invariant_edges_skip_resistance_recomputation() -> Result<()> {
                 length: 1.0e-2,
                 cross_section: CrossSection::Circular { diameter: 1.0e-3 },
                 surface: SurfaceProperties {
-                    roughness: 0.0,
+                    roughness: Length::from_base(0.0),
                     contact_angle: None,
                     surface_energy: None,
                     wettability: Wettability::Hydrophilic,
@@ -134,7 +136,7 @@ fn flow_dependent_short_channel_reapplies_durst_correction() -> Result<()> {
                 length,
                 cross_section: CrossSection::Circular { diameter },
                 surface: SurfaceProperties {
-                    roughness: 0.0,
+                    roughness: Length::from_base(0.0),
                     contact_angle: None,
                     surface_energy: None,
                     wettability: Wettability::Hydrophilic,
@@ -205,7 +207,7 @@ fn flow_dependent_blood_microchannel_uses_hematocrit_aware_apparent_viscosity() 
                 length,
                 cross_section: CrossSection::Circular { diameter },
                 surface: SurfaceProperties {
-                    roughness: 0.0,
+                    roughness: Length::from_base(0.0),
                     contact_angle: None,
                     surface_energy: None,
                     wettability: Wettability::Hydrophilic,
@@ -288,7 +290,7 @@ fn blood_microchannel_override_properties_change_resistance() -> Result<()> {
                 length,
                 cross_section: CrossSection::Circular { diameter },
                 surface: SurfaceProperties {
-                    roughness: 0.0,
+                    roughness: Length::from_base(0.0),
                     contact_angle: None,
                     surface_energy: None,
                     wettability: Wettability::Hydrophilic,
@@ -369,7 +371,7 @@ fn local_apparent_viscosity_override_changes_blood_edge_resistance() -> Result<(
                 length,
                 cross_section: CrossSection::Circular { diameter },
                 surface: SurfaceProperties {
-                    roughness: 0.0,
+                    roughness: Length::from_base(0.0),
                     contact_angle: None,
                     surface_energy: None,
                     wettability: Wettability::Hydrophilic,
@@ -459,7 +461,7 @@ fn flow_dependent_recompute_uses_shear_aware_reynolds_for_blood() -> Result<()> 
                 length,
                 cross_section: CrossSection::Circular { diameter },
                 surface: SurfaceProperties {
-                    roughness: 0.0,
+                    roughness: Length::from_base(0.0),
                     contact_angle: None,
                     surface_energy: None,
                     wettability: Wettability::Hydrophilic,
@@ -549,7 +551,7 @@ fn bifurcation_transport_propagates_phase_separated_hematocrit() -> Result<()> {
                     length,
                     cross_section: CrossSection::Circular { diameter },
                     surface: SurfaceProperties {
-                        roughness: 0.0,
+                        roughness: Length::from_base(0.0),
                         contact_angle: None,
                         surface_energy: None,
                         wettability: Wettability::Hydrophilic,
@@ -659,7 +661,7 @@ fn cascade_transport_uses_parent_daughter_hematocrit_as_next_feed() -> Result<()
                     length,
                     cross_section: CrossSection::Circular { diameter },
                     surface: SurfaceProperties {
-                        roughness: 0.0,
+                        roughness: Length::from_base(0.0),
                         contact_angle: None,
                         surface_energy: None,
                         wettability: Wettability::Hydrophilic,
@@ -776,7 +778,7 @@ fn reconverging_transport_mixes_incoming_rbc_fluxes() -> Result<()> {
                 length,
                 cross_section: CrossSection::Circular { diameter },
                 surface: SurfaceProperties {
-                    roughness: 0.0,
+                    roughness: Length::from_base(0.0),
                     contact_angle: None,
                     surface_energy: None,
                     wettability: Wettability::Hydrophilic,
