@@ -29,7 +29,7 @@ pub enum ChannelType {
     /// Curved channel
     Curved {
         /// Radius of curvature in meters
-        radius: f64,
+        radius: Length<f64>,
     },
     /// Tapered channel
     Tapered,
@@ -54,4 +54,22 @@ pub struct GeometricVariation<T: Cfd1dScalar + Copy> {
     pub scale_factor: T,
     /// Local roughness modification
     pub roughness_factor: T,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ChannelType;
+    use aequitas::systems::si::quantities::Length;
+
+    #[test]
+    fn curved_channel_radius_preserves_si_length() {
+        let channel = ChannelType::Curved {
+            radius: Length::from_base(5.0e-3),
+        };
+
+        let ChannelType::Curved { radius } = channel else {
+            panic!("invariant: channel is curved");
+        };
+        assert_eq!(radius.into_base(), 5.0e-3);
+    }
 }

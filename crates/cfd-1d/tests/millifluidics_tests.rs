@@ -3,12 +3,13 @@
 //! Tests based on literature and industry standards for microfluidic network simulation,
 //! inspired by mmft-modular-1D-simulator functionality for production-ready validation.
 
-use eunomia::assert_relative_eq;
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::*;
 use cfd_core::compute::solver::{Configurable, Solver};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid;
+use eunomia::assert_relative_eq;
 use std::collections::HashMap;
 
 /// Test micropump component behavior and pressure-flow characteristics
@@ -49,9 +50,9 @@ fn test_micromixer_flow_characteristics() -> Result<()> {
     // Test Y-junction mixer for two-fluid mixing
     let mut mixer = Micromixer::<f64>::new(
         MixerType::YJunction,
-        100e-6, // 100 μm hydraulic diameter
-        1e-3,   // 1 mm length
-        2,      // 2 bends
+        Length::from_base(100e-6), // 100 μm hydraulic diameter
+        Length::from_base(1e-3),   // 1 mm length
+        2,                         // 2 bends
     )?;
 
     // Validate mixer properties
@@ -401,9 +402,9 @@ fn test_component_parameter_validation() -> Result<()> {
     // Test mixer parameter validation
     let mut mixer = Micromixer::<f64>::new(
         MixerType::Serpentine,
-        100e-6, // 100 μm
-        1e-3,   // 1 mm
-        3,      // 3 bends
+        Length::from_base(100e-6), // 100 μm
+        Length::from_base(1e-3),   // 1 mm
+        3,                         // 3 bends
     )?;
 
     // Test efficiency clamping

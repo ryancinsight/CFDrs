@@ -32,12 +32,13 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-13 [major] - Type curved-channel and micromixer geometry
-  (IN PROGRESS; owner=Codex; scope=`cfd-1d` `ChannelType::Curved` radius,
+  (IMPLEMENTATION COMPLETE; owner=Codex; scope=`cfd-1d` `ChannelType::Curved` radius,
   `Micromixer` hydraulic diameter/length, in-tree callers/tests, and PM
-  artifacts).** Public curved-channel and micromixer geometry remains exposed
-  as raw SI scalars after MET-12. Acceptance evidence: typed public storage,
-  scalar extraction only at numerical/dynamic-parameter boundaries, migrated
-  value-semantic tests, and locked focused gates.
+  artifacts).** Public curved-channel and micromixer geometry was exposed
+  as raw SI scalars after MET-12. The public fields now use typed `Length`
+  values, scalar extraction remains at numerical/dynamic-parameter boundaries,
+  and the locked cfd-1d check plus Nextest pass. Doctest, Rustdoc, and lint
+  limits are recorded in `gap_audit.md`.
 
 - **CFDRS-AEQ-MET-12 [major] - Type channel cross-section and edge geometry
   (IMPLEMENTATION COMPLETE; owner=Codex; scope=`cfd-1d`

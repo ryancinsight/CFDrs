@@ -9,10 +9,11 @@
 //! - Stone, H. A., Stroock, A. D., & Ajdari, A. (2004). "Engineering flows in
 //!   small devices". *Annual Review of Fluid Mechanics*, 36, 381-411.
 
-use eunomia::assert_relative_eq;
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::*;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid;
+use eunomia::assert_relative_eq;
 use std::collections::HashMap;
 
 /// Test circular channel Hagen-Poiseuille resistance.
@@ -263,15 +264,30 @@ fn test_microvalve_opening_mechanics() -> Result<()> {
 #[test]
 fn test_micromixer_inlet_validation() -> Result<()> {
     // Valid mixer with 2 bends
-    let mixer2 = Micromixer::<f64>::new(MixerType::YJunction, 100e-6, 1e-3, 2)?;
+    let mixer2 = Micromixer::<f64>::new(
+        MixerType::YJunction,
+        Length::from_base(100e-6),
+        Length::from_base(1e-3),
+        2,
+    )?;
     assert_eq!(mixer2.n_bends, 2);
 
     // Valid mixer with 3 bends
-    let mixer3 = Micromixer::<f64>::new(MixerType::Serpentine, 100e-6, 1e-3, 3)?;
+    let mixer3 = Micromixer::<f64>::new(
+        MixerType::Serpentine,
+        Length::from_base(100e-6),
+        Length::from_base(1e-3),
+        3,
+    )?;
     assert_eq!(mixer3.n_bends, 3);
 
     // Edge case: 1 bend (minimum enforced by constructor)
-    let mixer1 = Micromixer::<f64>::new(MixerType::TJunction, 100e-6, 1e-3, 1)?;
+    let mixer1 = Micromixer::<f64>::new(
+        MixerType::TJunction,
+        Length::from_base(100e-6),
+        Length::from_base(1e-3),
+        1,
+    )?;
     assert_eq!(mixer1.n_bends, 1);
 
     Ok(())

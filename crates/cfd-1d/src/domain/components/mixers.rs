@@ -49,8 +49,9 @@
 //! - `n_bends ≥ 1` for serpentine/herringbone
 //! - `efficiency ∈ [0, 1]` (clamped on set)
 
-use super::{real_from_f64, Component};
+use super::{Component, real_from_f64};
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::Length;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::ConstantPropertyFluid;
@@ -102,9 +103,9 @@ pub struct Micromixer<T: Cfd1dScalar + Copy> {
     /// Mixer geometry type
     pub mixer_type: MixerType,
     /// Hydraulic diameter of the mixer channel \[m] (must be > 0)
-    pub hydraulic_diameter: T,
+    pub hydraulic_diameter: Length<T>,
     /// Total channel path length \[m] (must be > 0)
-    pub length: T,
+    pub length: Length<T>,
     /// Number of bends (used for Serpentine and Herringbone mixers; ≥ 1)
     pub n_bends: usize,
     /// Mixing efficiency in [0, 1] (calibration parameter, no effect on resistance)
@@ -121,16 +122,16 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Micromixer<T> {
     /// Returns `Error::InvalidConfiguration` if `hydraulic_diameter ≤ 0` or `length ≤ 0`.
     pub fn new(
         mixer_type: MixerType,
-        hydraulic_diameter: T,
-        length: T,
+        hydraulic_diameter: Length<T>,
+        length: Length<T>,
         n_bends: usize,
     ) -> Result<Self> {
-        if hydraulic_diameter <= T::zero() {
+        if hydraulic_diameter.into_base() <= T::zero() {
             return Err(Error::InvalidConfiguration(
                 "Micromixer hydraulic_diameter must be > 0".into(),
             ));
         }
-        if length <= T::zero() {
+        if length.into_base() <= T::zero() {
             return Err(Error::InvalidConfiguration(
                 "Micromixer length must be > 0".into(),
             ));
@@ -167,7 +168,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Micromixer<T> {
     #[must_use]
     fn channel_area(&self) -> T {
         let pi = T::pi();
-        let r = self.hydraulic_diameter / (T::one() + T::one());
+        let r = self.hydraulic_diameter.into_base() / (T::one() + T::one());
         pi * r * r
     }
 }
@@ -192,8 +193,8 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Component<T> for Micro
     fn resistance(&self, fluid: &ConstantPropertyFluid<T>) -> T {
         let mu = fluid.viscosity;
 
-        let d = self.hydraulic_diameter;
-        let l = self.length;
+        let d = self.hydraulic_diameter.into_base();
+        let l = self.length.into_base();
         let a = self.channel_area();
 
         let c128: T = real_from_f64(128.0);
@@ -240,13 +241,13 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize> Component<T> for Micro
                         "hydraulic_diameter must be > 0".into(),
                     ));
                 }
-                self.hydraulic_diameter = value;
+                self.hydraulic_diameter = Length::from_base(value);
             }
             "length" => {
                 if value <= T::zero() {
                     return Err(Error::InvalidConfiguration("length must be > 0".into()));
                 }
-                self.length = value;
+                self.length = Length::from_base(value);
             }
             _ => {
                 self.parameters.insert(key.to_string(), value);

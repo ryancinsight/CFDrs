@@ -4,9 +4,9 @@
 //! constructors (validated, returns Result) with Idelchik physics model.
 
 use aequitas::systems::si::quantities::Length;
+use cfd_1d::domain::components::Component;
 use cfd_1d::domain::components::mixers::{Micromixer, MixerType};
 use cfd_1d::domain::components::sensors::FlowSensor;
-use cfd_1d::domain::components::Component;
 use cfd_1d::domain::components::{
     CircularChannel, Micropump, Microvalve, OrganCompartment, PorousMembrane, RectangularChannel,
 };
@@ -238,8 +238,13 @@ fn test_flow_sensor_overrange_detection() {
 #[test]
 fn test_mixer_t_junction_resistance_positive() {
     let fluid = water();
-    let mixer =
-        Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 5e-3, 1).expect("test invariant");
+    let mixer = Micromixer::<f64>::new(
+        MixerType::TJunction,
+        Length::from_base(200e-6),
+        Length::from_base(5e-3),
+        1,
+    )
+    .expect("test invariant");
     let r = mixer.resistance(&fluid);
     assert!(r > 0.0 && r.is_finite(), "R = {r}");
 }
@@ -250,12 +255,22 @@ fn test_mixer_t_junction_resistance_positive() {
 #[test]
 fn test_mixer_serpentine_increases_with_bends() {
     let fluid = water();
-    let r2 = Micromixer::<f64>::new(MixerType::Serpentine, 200e-6, 5e-3, 2)
-        .expect("test invariant")
-        .resistance(&fluid);
-    let r8 = Micromixer::<f64>::new(MixerType::Serpentine, 200e-6, 5e-3, 8)
-        .expect("test invariant")
-        .resistance(&fluid);
+    let r2 = Micromixer::<f64>::new(
+        MixerType::Serpentine,
+        Length::from_base(200e-6),
+        Length::from_base(5e-3),
+        2,
+    )
+    .expect("test invariant")
+    .resistance(&fluid);
+    let r8 = Micromixer::<f64>::new(
+        MixerType::Serpentine,
+        Length::from_base(200e-6),
+        Length::from_base(5e-3),
+        8,
+    )
+    .expect("test invariant")
+    .resistance(&fluid);
     assert!(r8 > r2, "R(8 bends)={r8} must exceed R(2 bends)={r2}");
 }
 
@@ -263,12 +278,22 @@ fn test_mixer_serpentine_increases_with_bends() {
 #[test]
 fn test_mixer_resistance_increases_with_length() {
     let fluid = water();
-    let r1 = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 1e-3, 1)
-        .expect("test invariant")
-        .resistance(&fluid);
-    let r10 = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 10e-3, 1)
-        .expect("test invariant")
-        .resistance(&fluid);
+    let r1 = Micromixer::<f64>::new(
+        MixerType::TJunction,
+        Length::from_base(200e-6),
+        Length::from_base(1e-3),
+        1,
+    )
+    .expect("test invariant")
+    .resistance(&fluid);
+    let r10 = Micromixer::<f64>::new(
+        MixerType::TJunction,
+        Length::from_base(200e-6),
+        Length::from_base(10e-3),
+        1,
+    )
+    .expect("test invariant")
+    .resistance(&fluid);
     assert!(r10 > r1, "R(10mm)={r10} must exceed R(1mm)={r1}");
 }
 
@@ -276,12 +301,22 @@ fn test_mixer_resistance_increases_with_length() {
 #[test]
 fn test_mixer_resistance_decreases_with_diameter() {
     let fluid = water();
-    let r_small = Micromixer::<f64>::new(MixerType::TJunction, 50e-6, 5e-3, 1)
-        .expect("test invariant")
-        .resistance(&fluid);
-    let r_large = Micromixer::<f64>::new(MixerType::TJunction, 500e-6, 5e-3, 1)
-        .expect("test invariant")
-        .resistance(&fluid);
+    let r_small = Micromixer::<f64>::new(
+        MixerType::TJunction,
+        Length::from_base(50e-6),
+        Length::from_base(5e-3),
+        1,
+    )
+    .expect("test invariant")
+    .resistance(&fluid);
+    let r_large = Micromixer::<f64>::new(
+        MixerType::TJunction,
+        Length::from_base(500e-6),
+        Length::from_base(5e-3),
+        1,
+    )
+    .expect("test invariant")
+    .resistance(&fluid);
     assert!(
         r_large < r_small,
         "R(500μm)={r_large} must be < R(50μm)={r_small}"
@@ -291,33 +326,64 @@ fn test_mixer_resistance_decreases_with_diameter() {
 /// Invalid geometry (D=0) must be rejected.
 #[test]
 fn test_mixer_rejects_zero_diameter() {
-    assert!(Micromixer::<f64>::new(MixerType::TJunction, 0.0, 5e-3, 1).is_err());
+    assert!(
+        Micromixer::<f64>::new(
+            MixerType::TJunction,
+            Length::from_base(0.0),
+            Length::from_base(5e-3),
+            1,
+        )
+        .is_err()
+    );
 }
 
 /// Invalid geometry (L=0) must be rejected.
 #[test]
 fn test_mixer_rejects_zero_length() {
-    assert!(Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 0.0, 1).is_err());
+    assert!(
+        Micromixer::<f64>::new(
+            MixerType::TJunction,
+            Length::from_base(200e-6),
+            Length::from_base(0.0),
+            1,
+        )
+        .is_err()
+    );
 }
 
 /// T-junction K_loss=1.5 > Y-junction K_loss=0.9 → R_T > R_Y for same geometry.
 #[test]
 fn test_mixer_t_junction_higher_than_y_junction() {
     let fluid = water();
-    let rt = Micromixer::<f64>::new(MixerType::TJunction, 200e-6, 5e-3, 1)
-        .expect("test invariant")
-        .resistance(&fluid);
-    let ry = Micromixer::<f64>::new(MixerType::YJunction, 200e-6, 5e-3, 1)
-        .expect("test invariant")
-        .resistance(&fluid);
+    let rt = Micromixer::<f64>::new(
+        MixerType::TJunction,
+        Length::from_base(200e-6),
+        Length::from_base(5e-3),
+        1,
+    )
+    .expect("test invariant")
+    .resistance(&fluid);
+    let ry = Micromixer::<f64>::new(
+        MixerType::YJunction,
+        Length::from_base(200e-6),
+        Length::from_base(5e-3),
+        1,
+    )
+    .expect("test invariant")
+    .resistance(&fluid);
     assert!(rt > ry, "R_T={rt} must exceed R_Y={ry} (K_T=1.5 > K_Y=0.9)");
 }
 
 /// Efficiency clamping above 1.
 #[test]
 fn test_mixer_efficiency_clamped_above_one() {
-    let mut mixer =
-        Micromixer::<f64>::new(MixerType::Serpentine, 200e-6, 5e-3, 4).expect("test invariant");
+    let mut mixer = Micromixer::<f64>::new(
+        MixerType::Serpentine,
+        Length::from_base(200e-6),
+        Length::from_base(5e-3),
+        4,
+    )
+    .expect("test invariant");
     mixer
         .set_parameter("efficiency", 1.5)
         .expect("test invariant");
@@ -327,12 +393,36 @@ fn test_mixer_efficiency_clamped_above_one() {
 /// Efficiency clamping below zero.
 #[test]
 fn test_mixer_efficiency_clamped_below_zero() {
-    let mut mixer =
-        Micromixer::<f64>::new(MixerType::Herringbone, 200e-6, 5e-3, 4).expect("test invariant");
+    let mut mixer = Micromixer::<f64>::new(
+        MixerType::Herringbone,
+        Length::from_base(200e-6),
+        Length::from_base(5e-3),
+        4,
+    )
+    .expect("test invariant");
     mixer
         .set_parameter("efficiency", -0.1)
         .expect("test invariant");
     assert_relative_eq!(mixer.efficiency, 0.0, epsilon = 1e-15);
+}
+
+#[test]
+fn test_mixer_geometry_parameter_preserves_typed_lengths() {
+    let mut mixer = Micromixer::<f64>::new(
+        MixerType::TJunction,
+        Length::from_base(200e-6),
+        Length::from_base(5e-3),
+        1,
+    )
+    .expect("test invariant");
+
+    mixer
+        .set_parameter("hydraulic_diameter", 300e-6)
+        .expect("test invariant");
+    mixer.set_parameter("length", 8e-3).expect("test invariant");
+
+    assert_eq!(mixer.hydraulic_diameter.into_base(), 300e-6);
+    assert_eq!(mixer.length.into_base(), 8e-3);
 }
 
 // ========================  PorousMembrane  ================

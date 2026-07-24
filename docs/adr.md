@@ -6,6 +6,7 @@
 
 | Decision | Date | Rationale | Metrics | Trade-offs |
 |----------|------|-----------|---------|------------|
+| **Aequitas-owned curved-channel and micromixer geometry** | 2026-07-24 | Public curved-channel radius and micromixer hydraulic diameter/path length documented SI units but remained raw scalars | Length remains typed through curved geometry and micromixer storage; numerical and dynamic-parameter boundaries extract explicit base scalars | Breaking change for external channel and component constructors |
 | **Aequitas-owned channel and network geometry metrics** | 2026-07-24 | Public channel cross-sections, lengths, edge areas, and hydraulic diameters documented SI units but remained raw scalars across the network boundary | Length and Area remain typed through cross-sections, channel geometry, edges, blueprint conversion, analyzers, and transient transport | Breaking change for external network constructors and property implementors |
 | **Aequitas-owned component geometry and volume metrics** | 2026-07-24 | Public component geometry and volume contracts documented SI units but stored lengths, areas, roughness, and volumes as raw scalars | Length, Area, and Volume remain typed through channels, membranes, organs, and network channel properties | Breaking change for external component constructors and `Component` implementors |
 | **Aequitas-owned surface and wetting metrics** | 2026-07-24 | Public surface contracts documented SI units but stored roughness, angles, surface energy, and tension as raw scalars | Length, Angle, EnergyPerArea, and SurfaceTension remain typed through public material and channel boundaries | Breaking change for external surface/interface constructors and trait implementors |
@@ -77,6 +78,27 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-24: Aequitas owns curved-channel and micromixer geometry [major] [arch]
+
+Context: `cfd-1d` `ChannelType::Curved` and `Micromixer` documented radius,
+hydraulic diameter, and path length in metres but exposed raw scalar storage.
+
+Decision: store the curved-channel radius and micromixer hydraulic
+diameter/path length as Aequitas `Length` values. Extract base scalars only at
+the existing resistance formulas and scalar dynamic-parameter boundary.
+
+Rejected alternative: retaining scalar fields with unit comments or adding
+parallel typed accessors would preserve dimensional ambiguity or duplicate the
+geometry owner. Both alternatives are rejected.
+
+Consequences: external curved-channel and micromixer constructors are breaking;
+the string-keyed parameter setter remains an explicit scalar adapter that
+immediately constructs a typed length.
+
+Verification: locked cfd-1d check passes and Nextest passes 731/731 with
+3 skips, including curved-geometry, component, validation, and adversarial
+tests. Doctest, Rustdoc, and lint limits are recorded in the child gap audit.
 
 ### 2026-07-24: Aequitas owns channel and network geometry quantities [major] [arch]
 

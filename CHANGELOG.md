@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: `cfd-1d` curved-channel radius and micromixer hydraulic
+  diameter/path length now use Aequitas `Length` values. Scalar extraction
+  remains at resistance and dynamic-parameter boundaries; all in-tree
+  constructors and value-semantic tests are migrated. See
+  [`curved-micromixer-metrics.md`](docs/atlas-migration/curved-micromixer-metrics.md).
+
 - **Breaking**: `cfd-1d` channel cross-sections, channel geometry, network
   edge area, and edge-property length/area/hydraulic-diameter fields now use
   Aequitas `Length` and `Area`. Scalar extraction remains at resistance,
