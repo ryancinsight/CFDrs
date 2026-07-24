@@ -1,5 +1,14 @@
 # CFDrs Work Checklist
 
+## Owner: Codex — CFDRS-AEQ-MET-13 typed curved-channel and micromixer geometry [major] — in progress 2026-07-24
+
+- [ ] Type `ChannelType::Curved` radius and `Micromixer` hydraulic
+      diameter/length with Aequitas `Length` values.
+- [ ] Keep scalar extraction at resistance and dynamic-parameter boundaries;
+      migrate all in-tree constructors and value-semantic tests.
+- [ ] Synchronize the ADR, design note, gap audit, backlog, and changelog;
+      run formatting, residue, check, and Nextest gates.
+
 ## Owner: Codex — CFDRS-AEQ-MET-12 typed channel cross-section and edge geometry [major] — implementation complete 2026-07-24
 
 - [x] Type `CrossSection`, `ChannelGeometry`, `Edge`, and `EdgeProperties`

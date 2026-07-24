@@ -35,6 +35,7 @@
 
 | ID | Evidence | Closure |
 |---|---|---|
+| `CFDRS-AEQ-MET-13` | `cfd-1d` `ChannelType::Curved` and `Micromixer` expose curvature radius, hydraulic diameter, and path length as raw SI scalars at public construction and storage boundaries. | **IN PROGRESS.** This increment types the curved-channel radius and micromixer geometry with Aequitas `Length`, retains explicit scalar adapters only at resistance and dynamic-parameter boundaries, and migrates all in-tree callers/tests. Vascular and Womersley public metrics remain outside this bounded slice. |
 | `CFDRS-AEQ-MET-12` | `cfd-1d` `CrossSection`, `ChannelGeometry`, `Edge`, and `EdgeProperties` exposed channel dimensions, area, hydraulic diameter, and length as raw SI scalars across public network construction and analysis. | **IMPLEMENTED.** Cross-section dimensions/custom area, channel length, edge area, and edge-property geometry now use Aequitas `Length` and `Area`. Scalar extraction remains at resistance, junction-loss, transient-transport, and analysis kernels; blueprint conversion, examples, and test fixtures use explicit adapters. The locked check passes and Nextest passes 729/729 with 3 skipped. Doctest, Rustdoc, Clippy, and runtime-budget limits remain recorded below. See [`channel-geometry-metrics.md`](docs/atlas-migration/channel-geometry-metrics.md). |
 | CFDRS-AEQ-MET-11 | cfd-1d RectangularChannel, CircularChannel, PorousMembrane, OrganCompartment, and ChannelProperties exposed linear geometry, roughness, area, or volume as raw SI scalars; Component::volume returned Option<T>. | **IMPLEMENTED.** Component geometry now uses Aequitas Length, area methods return Area, Component::volume returns Volume, and ChannelProperties stores Length. Factory and setter scalar inputs convert immediately at their dynamic-parameter boundary; resistance models extract base scalars only for numerical formulas. cfd-1d check passes; Nextest passes 729/729 with 3 skipped; doctests pass 8/8 with 3 ignored; Rustdoc completes with 11 existing link warnings. Clippy remains blocked by the pre-existing cfd-math matrix_zeros dead-code warning. See docs/atlas-migration/component-geometry-metrics.md. |
 | CFDRS-AEQ-MET-10 | cfd-1d SurfaceProperties stored roughness, contact angle, and surface energy as raw SI scalars. cfd-core WettingProperties, FluidSolidInterface, and InterfaceProperties likewise exposed surface tension and static/advancing/receding angles without Aequitas dimensions. | **IMPLEMENTED.** Public channel surface contracts now use Aequitas Length, Angle, and EnergyPerArea; material interfaces use SurfaceTension and Angle, and adhesion returns EnergyPerArea. Scalar extraction is confined to the Darcy resistance and cosine-law boundaries. cfd-core Nextest passes 259/259; cfd-1d Nextest passes 729/729 with 3 skipped; doctests pass 11 with 3 ignored; focused shape-factor validation passes 1/1. The non-Newtonian validation binary exceeds the committed 30-second budget, and Clippy remains blocked by the pre-existing cfd-math `matrix_zeros` warning. See docs/atlas-migration/surface-wetting-metrics.md. |
@@ -48,10 +49,10 @@ unclassified provider-boundary gap. A fresh source scan after MET-10 identified
 public component geometry and network channel-property contracts that still
 stored lengths, areas, volumes, and roughness as raw scalars; those are now
 closed by MET-11 and MET-12. A follow-up scan now finds remaining public
-geometry outside the channel/network boundary: `GeometricVariation` and
-curved-channel radius, `Micromixer` hydraulic diameter/length, and vascular
-vessel/Womersley lengths. Those are the next audit boundary and are not
-silently classified as closed.
+geometry outside the channel/network boundary: `ChannelType::Curved` radius,
+`Micromixer` hydraulic diameter/length, and vascular vessel/Womersley metrics.
+MET-13 covers the first two; vascular/Womersley metrics remain the next audit
+boundary and are not silently classified as closed.
 
 | ID | Evidence | Closure |
 |---|---|---|
