@@ -31,6 +31,15 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-14 [major] - Type Womersley and bifurcation metrics
+  (IN PROGRESS; owner=Codex; scope=`cfd-1d` vascular `Womersley*` and
+  `Bifurcation*` public contracts, callers/tests, and PM artifacts).** The
+  provider now exposes the required pressure-gradient, hydraulic-resistance,
+  hydraulic-inertance, and compliance dimensions in Aequitas `446eb9f`.
+  Acceptance evidence: typed public vascular storage/results, scalar
+  extraction only at analytical kernels, migrated value-semantic tests, and
+  locked focused gates.
+
 - **CFDRS-AEQ-MET-13 [major] - Type curved-channel and micromixer geometry
   (IMPLEMENTATION COMPLETE; owner=Codex; scope=`cfd-1d` `ChannelType::Curved` radius,
   `Micromixer` hydraulic diameter/length, in-tree callers/tests, and PM
