@@ -140,3 +140,5 @@
 - [D. Changelog](appendix_changelog.md)
 - [E. Book Organization](BOOK_ORGANIZATION.md)
 - [F. Parity Artefacts Archive (CI Gate Evidence)](../../../parity_artefacts/INDEX.md)
+
+- [Stray test figure (drift fixture)](figures/atlas_drift_fixture_test_only_no_such_figure.svg)
