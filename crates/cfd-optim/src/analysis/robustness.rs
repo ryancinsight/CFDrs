@@ -6,6 +6,7 @@
 //!
 //! A design is considered *robust* when CV < 0.10 (< 10 % relative variation).
 
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -51,7 +52,8 @@ pub fn robustness_sweep_blueprint(
     // ── Inlet pressure perturbations ─────────────────────────────────────────
     for &frac in perturbation_fracs {
         let mut c = candidate.clone();
-        c.operating_point.inlet_gauge_pa *= 1.0 + frac;
+        c.operating_point.inlet_gauge_pa =
+            Pressure::from_base(c.operating_point.inlet_gauge_pa.into_base() * (1.0 + frac));
         let s = evaluate_goal(&c, goal).map_or(0.0, |e| e.score_or_zero());
         scored.push((s, format!("inlet_pressure{:+.0}%", frac * 100.0)));
     }
@@ -62,7 +64,9 @@ pub fn robustness_sweep_blueprint(
     for &frac in perturbation_fracs {
         let mut c = candidate.clone();
         if true {
-            c.operating_point.flow_rate_m3_s *= 1.0 + frac;
+            c.operating_point.flow_rate_m3_s = VolumetricFlowRate::from_base(
+                c.operating_point.flow_rate_m3_s.into_base() * (1.0 + frac),
+            );
             let s = evaluate_goal(&c, goal).map_or(0.0, |e| e.score_or_zero());
             scored.push((s, format!("flow_rate{:+.0}%", frac * 100.0)));
         }

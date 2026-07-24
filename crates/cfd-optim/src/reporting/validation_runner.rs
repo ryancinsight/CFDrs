@@ -7,7 +7,7 @@
 use std::path::Path;
 
 use cfd_validation::numerical::venturi_cross_fidelity::{
-    validate_venturi, VenturiCrossFidelityResult, VenturiValidationInput,
+    VenturiCrossFidelityResult, VenturiValidationInput, validate_venturi,
 };
 
 use crate::constraints::BLOOD_DENSITY_KG_M3;
@@ -23,11 +23,7 @@ fn total_loss_coefficient(dp_pa: f64, inlet_velocity_m_s: f64) -> f64 {
 }
 
 fn sanitize_report_scalar(value: f64) -> f64 {
-    if value.is_finite() {
-        value
-    } else {
-        0.0
-    }
+    if value.is_finite() { value } else { 0.0 }
 }
 
 fn validation_row_from_result(
@@ -88,7 +84,7 @@ fn validate_venturi_candidate(
     let parallel_paths = (metrics.active_venturi_throat_count
         / metrics.serial_venturi_stages_per_path.max(1))
     .max(1) as f64;
-    let q = candidate.operating_point.flow_rate_m3_s * metrics.therapy_channel_fraction
+    let q = candidate.operating_point.flow_rate_m3_s.into_base() * metrics.therapy_channel_fraction
         / parallel_paths;
 
     let input = VenturiValidationInput {
@@ -97,7 +93,7 @@ fn validate_venturi_candidate(
         throat_diameter_m: venturi.throat_geometry.throat_width_m,
         throat_length_m: venturi.throat_geometry.throat_length_m,
         flow_rate_m3_s: q,
-        inlet_gauge_pa: candidate.operating_point.inlet_gauge_pa,
+        inlet_gauge_pa: candidate.operating_point.inlet_gauge_pa.into_base(),
     };
 
     let result = validate_venturi(&input);

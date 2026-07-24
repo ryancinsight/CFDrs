@@ -1,9 +1,10 @@
 //! Primitive selective blueprint-candidate construction.
 use crate::constraints::{SERPENTINE_BEND_RADIUS_M, TREATMENT_WIDTH_MM};
 use crate::domain::{BlueprintCandidate, OperatingPoint};
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_schematics::topology::{
-    presets::{build_milestone12_blueprint, Milestone12TopologyRequest},
     SerpentineSpec, TreatmentActuationMode, VenturiPlacementMode,
+    presets::{Milestone12TopologyRequest, build_milestone12_blueprint},
 };
 
 #[must_use]
@@ -57,8 +58,8 @@ pub(crate) fn primitive_selective_candidate(
         id,
         blueprint,
         OperatingPoint {
-            flow_rate_m3_s,
-            inlet_gauge_pa,
+            flow_rate_m3_s: VolumetricFlowRate::from_base(flow_rate_m3_s),
+            inlet_gauge_pa: Pressure::from_base(inlet_gauge_pa),
             feed_hematocrit: 0.45,
             patient_context: None,
         },

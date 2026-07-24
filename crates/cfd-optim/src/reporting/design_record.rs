@@ -112,12 +112,12 @@ impl Milestone12ReportDesign {
 
     #[must_use]
     pub fn flow_rate_ml_min(&self) -> f64 {
-        self.candidate.operating_point.flow_rate_m3_s * 6.0e7
+        self.candidate.operating_point.flow_rate_m3_s.into_base() * 6.0e7
     }
 
     #[must_use]
     pub fn inlet_gauge_kpa(&self) -> f64 {
-        self.candidate.operating_point.inlet_gauge_pa * 1.0e-3
+        self.candidate.operating_point.inlet_gauge_pa.into_base() * 1.0e-3
     }
 
     #[must_use]
@@ -294,7 +294,7 @@ pub fn compute_blueprint_report_metrics(
 
 #[cfg(test)]
 mod tests {
-    use super::{pareto_point_from_report_design, Milestone12ReportDesign, ParetoTag};
+    use super::{Milestone12ReportDesign, ParetoTag, pareto_point_from_report_design};
     use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
     use crate::reporting::compute_blueprint_report_metrics;
 

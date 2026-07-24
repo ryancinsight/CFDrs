@@ -1,6 +1,7 @@
 use crate::application::objectives::evaluate_goal;
 use crate::domain::{BlueprintCandidate, OptimizationGoal};
 use crate::error::OptimError;
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_schematics::{
     domain::model::NetworkBlueprint, promote_milestone12_option1_to_option2,
     BlueprintTopologyFactory, BlueprintTopologyMutation, SerpentineSpec, SplitKind,
@@ -394,10 +395,14 @@ pub fn generate_ga_crossover_children(
         right,
         "blend",
         crate::domain::OperatingPoint {
-            flow_rate_m3_s: 0.5
-                * (left.operating_point.flow_rate_m3_s + right.operating_point.flow_rate_m3_s),
-            inlet_gauge_pa: 0.5
-                * (left.operating_point.inlet_gauge_pa + right.operating_point.inlet_gauge_pa),
+            flow_rate_m3_s: VolumetricFlowRate::from_base(
+                0.5 * (left.operating_point.flow_rate_m3_s.into_base()
+                    + right.operating_point.flow_rate_m3_s.into_base()),
+            ),
+            inlet_gauge_pa: Pressure::from_base(
+                0.5 * (left.operating_point.inlet_gauge_pa.into_base()
+                    + right.operating_point.inlet_gauge_pa.into_base()),
+            ),
             feed_hematocrit: 0.5
                 * (left.operating_point.feed_hematocrit + right.operating_point.feed_hematocrit),
             patient_context: left.operating_point.patient_context.clone(),
@@ -587,8 +592,8 @@ pub fn generate_ga_mutations(
     // These produce genuinely different scores because they change the
     // 1D CFD solve inputs (Re, ΔP, σ), unlike stacked serpentine
     // mutations which are nearly idempotent on the same channel.
-    let base_q = seed.operating_point.flow_rate_m3_s;
-    let base_p = seed.operating_point.inlet_gauge_pa;
+    let base_q = seed.operating_point.flow_rate_m3_s.into_base();
+    let base_p = seed.operating_point.inlet_gauge_pa.into_base();
     let base_ht = seed.operating_point.feed_hematocrit;
     for &q_factor in &[0.7, 0.85, 1.15, 1.3] {
         let blueprint = append_operating_point_lineage(
@@ -601,8 +606,8 @@ pub fn generate_ga_mutations(
             format!("{}-ga-qf{:.0}", seed.id, q_factor * 100.0),
             blueprint,
             crate::domain::OperatingPoint {
-                flow_rate_m3_s: base_q * q_factor,
-                inlet_gauge_pa: base_p,
+                flow_rate_m3_s: VolumetricFlowRate::from_base(base_q * q_factor),
+                inlet_gauge_pa: Pressure::from_base(base_p),
                 feed_hematocrit: base_ht,
                 patient_context: seed.operating_point.patient_context.clone(),
             },
@@ -619,8 +624,8 @@ pub fn generate_ga_mutations(
             format!("{}-ga-pf{:.0}", seed.id, p_factor * 100.0),
             blueprint,
             crate::domain::OperatingPoint {
-                flow_rate_m3_s: base_q,
-                inlet_gauge_pa: base_p * p_factor,
+                flow_rate_m3_s: VolumetricFlowRate::from_base(base_q),
+                inlet_gauge_pa: Pressure::from_base(base_p * p_factor),
                 feed_hematocrit: base_ht,
                 patient_context: seed.operating_point.patient_context.clone(),
             },
@@ -843,6 +848,8 @@ pub fn build_milestone12_ga_seed_pair(
 
 #[cfg(test)]
 mod tests {
+    use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+
     use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
 
     use super::{generate_ga_crossover_children, generate_ga_mutations};
@@ -859,8 +866,12 @@ mod tests {
             "donor".to_string(),
             donor_topology.blueprint.clone(),
             crate::domain::OperatingPoint {
-                flow_rate_m3_s: seed.operating_point.flow_rate_m3_s * 1.1,
-                inlet_gauge_pa: seed.operating_point.inlet_gauge_pa * 0.9,
+                flow_rate_m3_s: VolumetricFlowRate::from_base(
+                    seed.operating_point.flow_rate_m3_s.into_base() * 1.1,
+                ),
+                inlet_gauge_pa: Pressure::from_base(
+                    seed.operating_point.inlet_gauge_pa.into_base() * 0.9,
+                ),
                 feed_hematocrit: seed.operating_point.feed_hematocrit,
                 patient_context: seed.operating_point.patient_context.clone(),
             },

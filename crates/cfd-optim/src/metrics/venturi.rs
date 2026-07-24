@@ -1,4 +1,4 @@
-use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput, VenturiSelectiveScreeningRegime};
+use cfd_1d::{VenturiScreeningInput, VenturiSelectiveScreeningRegime, evaluate_venturi_screening};
 use cfd_core::physics::cavitation::{
     CellMechanicalState, CellPopulationIdentity, PopulationNucleationState,
     SelectiveCavitationInput, SelectiveCavitationPopulation,
@@ -240,8 +240,8 @@ pub fn compute_blueprint_venturi_metrics(
         let sample = &solve.channel_samples[idx];
         let phi_in = node_nuclei.get(sample.from_node).copied().unwrap_or(0.0);
 
-        let velocity = sample.flow_m3_s.abs() / sample.cross_section.area().max(1e-18);
-        let transit_time_s = sample.length_m / velocity.max(1e-9);
+        let velocity = sample.flow_m3_s.into_base().abs() / sample.cross_section.area().max(1e-18);
+        let transit_time_s = sample.length_m.into_base() / velocity.max(1e-9);
         let phi_arrival = transport.advect_1d_dissolution(phi_in, transit_time_s);
         let mut phi_out = phi_arrival;
 
@@ -255,13 +255,16 @@ pub fn compute_blueprint_venturi_metrics(
             let area_throat_m2 = (placement.throat_geometry.throat_width_m
                 * placement.throat_geometry.throat_height_m)
                 .max(1.0e-18);
-            let upstream_velocity_m_s = sample.flow_m3_s.abs() / area_inlet_m2;
-            let throat_velocity_m_s = sample.flow_m3_s.abs() / area_throat_m2;
+            let upstream_velocity_m_s = sample.flow_m3_s.into_base().abs() / area_inlet_m2;
+            let throat_velocity_m_s = sample.flow_m3_s.into_base().abs() / area_throat_m2;
             let upstream_dynamic_pressure_pa =
                 dynamic_pressure_pa(BLOOD_DENSITY_KG_M3, upstream_velocity_m_s).max(1.0e-18);
             let screening = evaluate_venturi_screening(VenturiScreeningInput {
-                upstream_pressure_pa: candidate.operating_point.absolute_inlet_pressure_pa()
-                    + sample.from_pressure_pa.max(0.0),
+                upstream_pressure_pa: candidate
+                    .operating_point
+                    .absolute_inlet_pressure_pa()
+                    .into_base()
+                    + sample.from_pressure_pa.into_base().max(0.0),
                 upstream_velocity_m_s,
                 throat_velocity_m_s,
                 throat_hydraulic_diameter_m: 2.0
@@ -280,8 +283,11 @@ pub fn compute_blueprint_venturi_metrics(
                 selective_cavitation: Some(selective_cavitation_input(
                     separation,
                     BLOOD_VAPOR_PRESSURE_PA,
-                    candidate.operating_point.absolute_inlet_pressure_pa()
-                        + sample.from_pressure_pa.max(0.0),
+                    candidate
+                        .operating_point
+                        .absolute_inlet_pressure_pa()
+                        .into_base()
+                        + sample.from_pressure_pa.into_base().max(0.0),
                 )),
             })
             .map_err(|error| OptimError::PhysicsError {
@@ -296,7 +302,7 @@ pub fn compute_blueprint_venturi_metrics(
             let dean_site = cfd_schematics::BlueprintTopologyFactory::estimate_dean_site(
                 &candidate.blueprint,
                 &resolved_placement,
-                sample.flow_m3_s.abs(),
+                sample.flow_m3_s.into_base().abs(),
                 BLOOD_VISCOSITY_PA_S / BLOOD_DENSITY_KG_M3,
             )
             .unwrap_or_default();
@@ -323,8 +329,11 @@ pub fn compute_blueprint_venturi_metrics(
                 cavitation_number: screening.cavitation_number,
                 effective_throat_velocity_m_s: screening.effective_throat_velocity_m_s,
                 throat_static_pressure_pa: screening.throat_static_pressure_pa,
-                upstream_pressure_pa: candidate.operating_point.absolute_inlet_pressure_pa()
-                    + sample.from_pressure_pa.max(0.0),
+                upstream_pressure_pa: candidate
+                    .operating_point
+                    .absolute_inlet_pressure_pa()
+                    .into_base()
+                    + sample.from_pressure_pa.into_base().max(0.0),
                 diffuser_recovery_pa: screening.diffuser_recovery_pa,
                 total_loss_coefficient: total_loss_pa / upstream_dynamic_pressure_pa,
                 dean_number: dean_site.dean_number,
@@ -395,7 +404,7 @@ pub fn compute_blueprint_venturi_metrics(
 
 #[cfg(test)]
 mod tests {
-    use cfd_1d::{evaluate_venturi_screening, VenturiScreeningInput};
+    use cfd_1d::{VenturiScreeningInput, evaluate_venturi_screening};
     use cfd_schematics::VenturiPlacementMode;
 
     use crate::constraints::{
@@ -548,11 +557,14 @@ mod tests {
         let throat_area_m2 = (placement_spec.throat_geometry.throat_width_m
             * placement_spec.throat_geometry.throat_height_m)
             .max(1.0e-18);
-        let upstream_velocity_m_s = sample.flow_m3_s.abs() / inlet_area_m2;
-        let throat_velocity_m_s = sample.flow_m3_s.abs() / throat_area_m2;
+        let upstream_velocity_m_s = sample.flow_m3_s.into_base().abs() / inlet_area_m2;
+        let throat_velocity_m_s = sample.flow_m3_s.into_base().abs() / throat_area_m2;
         let screening = evaluate_venturi_screening(VenturiScreeningInput {
-            upstream_pressure_pa: candidate.operating_point.absolute_inlet_pressure_pa()
-                + sample.from_pressure_pa.max(0.0),
+            upstream_pressure_pa: candidate
+                .operating_point
+                .absolute_inlet_pressure_pa()
+                .into_base()
+                + sample.from_pressure_pa.into_base().max(0.0),
             upstream_velocity_m_s,
             throat_velocity_m_s,
             throat_hydraulic_diameter_m: 2.0
@@ -571,8 +583,11 @@ mod tests {
             selective_cavitation: Some(super::selective_cavitation_input(
                 &separation,
                 BLOOD_VAPOR_PRESSURE_PA,
-                candidate.operating_point.absolute_inlet_pressure_pa()
-                    + sample.from_pressure_pa.max(0.0),
+                candidate
+                    .operating_point
+                    .absolute_inlet_pressure_pa()
+                    .into_base()
+                    + sample.from_pressure_pa.into_base().max(0.0),
             )),
         })
         .expect("venturi screening should succeed for the reference contract");
