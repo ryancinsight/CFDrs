@@ -57,7 +57,7 @@ serialized DTO remains scalar only at the explicit evaluation boundary.
 | `CFDRS-AEQ-MET-01` | `SdtMetrics` contains pressure drop, path length, residence time, flow, ECV, mechanical power, shear stress/rate, transit time, optical path, temperature-rise, and acoustic-energy fields as suffixed `f64`; `ResidenceMetrics` and `BlueprintSafetyMetrics` repeat some of the same physical dimensions. | Add one typed internal/report metric carrier and one explicit scalar serialization adapter. Do not retain parallel typed/raw fields. | CFDrs | **Resolved in this increment.** Value-semantic adapter and serde round-trip regressions pass; unit mismatch is rejected by the carrier field types. |
 | `CFDRS-AEQ-MET-02` | `report_metrics.rs` exposes `acoustic_energy_density_j_m3` and `specific_cavitation_energy_j_ml` as raw `f64` energy-per-volume values; the Aequitas provider now owns the semantic energy-density aliases and units. | Carry both values as `EnergyPerVolume` through report computation and convert only in the explicit `SdtMetrics` adapter. | Aequitas → CFDrs | **Resolved in this increment.** `JoulePerCubicMeter` and `JoulePerMilliliter` preserve the existing serialized values; positive-energy and report round-trip regressions remain the oracle. |
 | `CFDRS-AEQ-MET-03` | `metrics/residence.rs` and `metrics/safety.rs` returned physical intermediates as raw scalars before report assembly. | Move typed quantities to the computation boundary before they are assembled into `SdtMetrics`; keep only dimensionless fractions and margins scalar. | CFDrs | **Resolved in this increment.** Private Aequitas carriers type treatment volume/time/velocity and safety pressure/shear/time; explicit adapters preserve serialized values. Focused Nextest passes the conservation and adapter equality regression. |
-| `CFDRS-AEQ-MET-04` | `ChannelHemolysis` carries `wall_shear_pa` and `transit_time_s`; `operating_point.rs` and `blueprint_graph.rs` carry raw flow, pressure, length, volume, and velocity. | Migrate the channel and network DTO boundaries in dependency order. | CFDrs | Ready after `CFDRS-AEQ-MET-03`. Per-channel hemolysis and total-flow value semantics must remain unchanged. |
+| `CFDRS-AEQ-MET-04` | `ChannelHemolysis` carries `wall_shear_pa` and `transit_time_s`; `operating_point.rs` and `blueprint_graph.rs` carry raw flow, pressure, length, volume, and velocity. | Migrate the remaining channel and network DTO boundaries in dependency order. | CFDrs | **Partial in this increment.** Per-channel hemolysis now computes through a private Aequitas `Pressure`/`Time` carrier and converts once at the serialized DTO boundary; `OperatingPoint` and `BlueprintSolveSample` remain the next breaking typed-boundary slice. |
 | `CFDRS-AEQ-MET-05` | `throat_temperature_rise_k` is a temperature difference and must not use the absolute-temperature dimension. | Carry the field as Aequitas `TemperatureDifference` and convert through the Kelvin unit only at serialization. | Aequitas → CFDrs | **Resolved in this increment.** The thermal-compliance threshold and serialized kelvin value are unchanged; the carrier type rejects absolute-temperature substitution. |
 
 ### Explicit non-gaps
@@ -70,9 +70,10 @@ serialized DTO remains scalar only at the explicit evaluation boundary.
   that boundary does not justify raw scalars inside the physical computation graph.
 - Dimensionless indices, empirical coefficients, and model parameters remain
   scalar unless their governing law introduces a physical unit.
-- The next CFDrs slice is `CFDRS-AEQ-MET-04`; it must preserve the report
-  carrier's single-adapter ownership while typing channel and network physical
-  boundaries after the residence/safety computation carriers.
+- `CFDRS-AEQ-MET-04` remains open for the `OperatingPoint` and
+  `BlueprintSolveSample` flow/pressure/length/volume/velocity contracts. The
+  per-channel report carrier is complete and must remain the sole conversion
+  point for `ChannelHemolysis` serialization.
 
 ### Consumer/provider synchronization
 

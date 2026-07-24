@@ -76,6 +76,29 @@ struct TypedReportPhysicalMetrics {
     throat_temperature_rise: TemperatureDifference,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct TypedChannelHemolysis<'a> {
+    channel_id: &'a str,
+    is_venturi_throat: bool,
+    hi_contribution: f64,
+    wall_shear: Pressure,
+    transit_time: Time,
+    flow_fraction: f64,
+}
+
+impl TypedChannelHemolysis<'_> {
+    fn into_serialized(self) -> ChannelHemolysis {
+        ChannelHemolysis {
+            channel_id: self.channel_id.to_owned(),
+            is_venturi_throat: self.is_venturi_throat,
+            hi_contribution: self.hi_contribution,
+            wall_shear_pa: self.wall_shear.into_base(),
+            transit_time_s: self.transit_time.into_base(),
+            flow_fraction: self.flow_fraction,
+        }
+    }
+}
+
 impl TypedReportPhysicalMetrics {
     /// Convert the typed computation result into the serialized report units.
     fn write_to(self, metrics: &mut SdtMetrics) {
@@ -327,12 +350,12 @@ pub fn compute_blueprint_report_metrics(
             dead_volume_m3 += sample.length_m * area_m2;
         }
 
-        per_channel_hemolysis.push(ChannelHemolysis {
-            channel_id: sample.id.to_string(),
+        per_channel_hemolysis.push(TypedChannelHemolysis {
+            channel_id: sample.id,
             is_venturi_throat: sample.is_venturi_channel,
             hi_contribution: corrected_channel_hi,
-            wall_shear_pa: shear_pa,
-            transit_time_s,
+            wall_shear: shear,
+            transit_time,
             flow_fraction,
         });
     }
@@ -636,7 +659,10 @@ pub fn compute_blueprint_report_metrics(
     metrics.treatment_channel_hi = treatment_hi;
     metrics.bypass_channel_hi_mean = mean(&bypass_hi_values);
     metrics.bypass_channel_hi_max = bypass_hi_values.into_iter().fold(0.0, f64::max);
-    metrics.per_channel_hemolysis = per_channel_hemolysis;
+    metrics.per_channel_hemolysis = per_channel_hemolysis
+        .into_iter()
+        .map(TypedChannelHemolysis::into_serialized)
+        .collect();
     metrics.acoustic_resonance_factor = channel_resonance_score;
     metrics.channel_resonance_score = channel_resonance_score;
     metrics.serial_cavitation_dose_fraction = serial_dose_fraction;
@@ -1064,6 +1090,27 @@ mod tests {
         assert_eq!(decoded.total_ecv_ml, 3.0);
         assert_eq!(decoded.flow_rate_ml_min, 120.0);
         assert_eq!(decoded.mechanical_power_w, 80.0);
+    }
+
+    #[test]
+    fn typed_channel_hemolysis_serializes_provider_values() {
+        let typed = TypedChannelHemolysis {
+            channel_id: "treatment-0",
+            is_venturi_throat: true,
+            hi_contribution: 0.25,
+            wall_shear: Pressure::from_base(18.0),
+            transit_time: Time::from_base(0.004),
+            flow_fraction: 0.75,
+        };
+
+        let serialized = typed.into_serialized();
+
+        assert_eq!(serialized.channel_id, "treatment-0");
+        assert!(serialized.is_venturi_throat);
+        assert_eq!(serialized.hi_contribution.to_bits(), 0.25_f64.to_bits());
+        assert_eq!(serialized.wall_shear_pa.to_bits(), 18.0_f64.to_bits());
+        assert_eq!(serialized.transit_time_s.to_bits(), 0.004_f64.to_bits());
+        assert_eq!(serialized.flow_fraction.to_bits(), 0.75_f64.to_bits());
     }
 
     #[test]

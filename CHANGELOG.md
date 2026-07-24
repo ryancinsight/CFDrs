@@ -48,6 +48,11 @@ All notable changes to this project will be documented in this file.
   shear, and transit time through Aequitas typed quantities; report storage
   remains scalar at the established metrics boundary.
 
+- `cfd-optim` now carries per-channel hemolysis wall shear and transit time
+  through private Aequitas quantities before the single `ChannelHemolysis`
+  serialization adapter. Operating-point and solve-sample physical DTOs remain
+  an explicit follow-up boundary rather than parallel raw/typed fields.
+
 - **Aequitas fluid dimensions**: `cfd-core` now evaluates kinematic
   viscosity, Prandtl number, and Reynolds number through typed SI quantities;
   `cfd-3d` computes cascade inlet velocity from typed volumetric flow and

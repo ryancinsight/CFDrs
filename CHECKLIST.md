@@ -25,6 +25,13 @@ Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
       package check and focused Nextest adapter/conservation regression pass;
       Leto sparse-LU configuration drift is adapted through provider defaults.
 
+- [x] CFD-AEQUITAS-CHANNEL-CARRIER-1 [patch]: compute per-channel hemolysis
+      report values through private Aequitas `Pressure` and `Time` fields, then
+      serialize once into `ChannelHemolysis`. Acceptance: the adapter value
+      regression, residence/safety regression, package check, and warning-
+      denied package Clippy pass. The operating-point and solve-sample DTOs
+      remain the next `CFDRS-AEQ-MET-04` breaking boundary.
+
 - [x] CFD-AEQUITAS-REPORT-UNITS-1 [patch]: compose report mechanical power,
       residence volume, wall shear, and transit time through Aequitas quantities;
       the focused `cfd-optim` check, test, and lint gates are required before
