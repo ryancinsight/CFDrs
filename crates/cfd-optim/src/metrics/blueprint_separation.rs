@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::{Length, Velocity};
 use cfd_1d::{
     acoustic_contrast_factor, mixed_cascade_separation_kappa_aware,
     parallel_channel_flow_fractions, CascadeStage, PeripheralRecovery, KAPPA_CTC, KAPPA_PLASMA,
@@ -16,8 +17,8 @@ pub struct StageBlueprintSeparationSummary {
     pub treatment_flow_fraction: f64,
     pub wbc_exclusion_flow_fraction: f64,
     pub rbc_bypass_flow_fraction: f64,
-    pub treatment_width_m: f64,
-    pub total_branch_width_m: f64,
+    pub treatment_width_m: Length,
+    pub total_branch_width_m: Length,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,8 +89,10 @@ pub fn compute_blueprint_separation_metrics(
             }
         }
 
-        let treatment_dh_m = 2.0 * treatment_width_m * stage.branches[0].route.height_m
-            / (treatment_width_m + stage.branches[0].route.height_m).max(1.0e-18);
+        let treatment_dh_m = Length::from_base(
+            2.0 * treatment_width_m * stage.branches[0].route.height_m
+                / (treatment_width_m + stage.branches[0].route.height_m).max(1.0e-18),
+        );
 
         // Build peripheral recovery entries from recovery_sub_split specs.
         let mut peripheral_recoveries: [Option<PeripheralRecovery>; 4] = [None; 4];
@@ -121,8 +124,9 @@ pub fn compute_blueprint_separation_metrics(
                         .sub_branches
                         .get(sub_split.recovery_arm_index)
                         .map_or(sub_widths[0], |sb| sb.width_m);
-                    let recovery_dh_m =
-                        2.0 * recovery_w * sub_height / (recovery_w + sub_height).max(1e-18);
+                    let recovery_dh_m = Length::from_base(
+                        2.0 * recovery_w * sub_height / (recovery_w + sub_height).max(1e-18),
+                    );
                     // source_arm_idx uses the same index as in arm_q_fracs
                     let source_idx = if branch_idx == 0 {
                         0
@@ -147,9 +151,9 @@ pub fn compute_blueprint_separation_metrics(
         // In a real network this would be scaled by upstream splits, but for the linear blueprint proxy
         // we assume the full chip flow (per parallel sequence) passes through this stage's parent.
         let parent_v_in_m_s = if parent_area_m2 > 1e-12 {
-            chip_flow_rate_m3_s / parent_area_m2
+            Velocity::from_base(chip_flow_rate_m3_s / parent_area_m2)
         } else {
-            0.0
+            Velocity::from_base(0.0)
         };
 
         cascade_stages.push(CascadeStage {
@@ -166,8 +170,8 @@ pub fn compute_blueprint_separation_metrics(
             treatment_flow_fraction,
             wbc_exclusion_flow_fraction,
             rbc_bypass_flow_fraction,
-            treatment_width_m,
-            total_branch_width_m,
+            treatment_width_m: Length::from_base(treatment_width_m),
+            total_branch_width_m: Length::from_base(total_branch_width_m),
         });
     }
 
@@ -189,11 +193,13 @@ pub fn compute_blueprint_separation_metrics(
         let mu = 0.0035_f64;
 
         for stage in &cascade_stages {
-            if stage.treatment_dh_m > 0.0 && stage.parent_v_in_m_s > 0.0 {
+            let treatment_dh_m = stage.treatment_dh_m.into_base();
+            let parent_v_in_m_s = stage.parent_v_in_m_s.into_base();
+            if treatment_dh_m > 0.0 && parent_v_in_m_s > 0.0 {
                 // Approximate treatment length per stage
                 let stage_length_m = 0.04;
-                let t_transit = stage_length_m / stage.parent_v_in_m_s;
-                let w = stage.treatment_dh_m;
+                let t_transit = stage_length_m / parent_v_in_m_s;
+                let w = treatment_dh_m;
                 let k = std::f64::consts::PI / w;
 
                 // Theorem: Gor'kov Acoustic Radiation Force Drift.
@@ -218,7 +224,7 @@ pub fn compute_blueprint_separation_metrics(
         // For narrow treatment channels (D_h < 200 µm), cancer cells experience
         // enhanced focusing due to wall confinement (κ > κ_ref = 0.1).
         if let Some(last_stage) = cascade_stages.last() {
-            let treatment_dh_m = last_stage.treatment_dh_m;
+            let treatment_dh_m = last_stage.treatment_dh_m.into_base();
             if treatment_dh_m > 0.0 {
                 let ctc_diameter = 17.5e-6; // MCF7 breast cancer CTC diameter [m]
                 let kappa = (ctc_diameter / (2.0 * treatment_dh_m).max(1e-9)).clamp(0.0, 0.5);

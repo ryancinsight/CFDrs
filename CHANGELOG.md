@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: cell-separation `CellProperties`, kappa-aware cascade stages,
+  Zweifach–Fung channel inputs, and optimization stage-width summaries now
+  carry Aequitas length, density, and velocity quantities. Scalar extraction
+  remains at validation and numerical formula boundaries. See
+  [`cell-separation-physical-metrics.md`](docs/atlas-migration/cell-separation-physical-metrics.md).
+
 - **Breaking**: selective-cavitation, Venturi screening, and optimization
   placement metrics now carry Aequitas pressure, density, velocity, length,
   viscosity, and surface-tension quantities through their public Rust

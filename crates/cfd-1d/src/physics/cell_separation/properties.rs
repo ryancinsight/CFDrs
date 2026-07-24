@@ -31,6 +31,10 @@
 //! - Suresh, S. (2007). Biomechanics and biophysics of cancer cells. *Acta Biomater.*, 3, 413–438.
 //! - Hochmuth, R. M. (2000). Micropipette aspiration of living cells. *J. Biomech.*, 33, 15–22.
 
+use aequitas::systems::si::{
+    quantities::{Length, MassDensity},
+    units::{KilogramPerCubicMeter, Meter},
+};
 use serde::{Deserialize, Serialize};
 
 /// Minimum confinement ratio κ = a/D_h for measurable inertial focusing.
@@ -55,7 +59,7 @@ pub struct CellProperties {
     ///
     /// For non-spherical cells (e.g. RBCs), use the effective hydrodynamic
     /// diameter measured in flow (typically the biconcave disc diameter).
-    pub diameter_m: f64,
+    pub diameter_m: Length,
 
     /// Cell deformability index (DI) ∈ [0, 1].
     ///
@@ -71,7 +75,7 @@ pub struct CellProperties {
     ///
     /// Cancer cells are typically slightly denser than RBCs due to higher
     /// nuclear-to-cytoplasm ratio.
-    pub density_kg_m3: f64,
+    pub density_kg_m3: MassDensity,
 }
 
 impl CellProperties {
@@ -84,9 +88,9 @@ impl CellProperties {
     pub fn mcf7_breast_cancer() -> Self {
         Self {
             name: "MCF-7 breast cancer",
-            diameter_m: 17.5e-6,
+            diameter_m: Length::from_unit::<Meter>(17.5e-6),
             deformability_index: 0.15,
-            density_kg_m3: 1050.0,
+            density_kg_m3: MassDensity::from_unit::<KilogramPerCubicMeter>(1050.0),
         }
     }
 
@@ -99,9 +103,9 @@ impl CellProperties {
     pub fn mda_mb231_metastatic() -> Self {
         Self {
             name: "MDA-MB-231 metastatic",
-            diameter_m: 15.5e-6,
+            diameter_m: Length::from_unit::<Meter>(15.5e-6),
             deformability_index: 0.35,
-            density_kg_m3: 1045.0,
+            density_kg_m3: MassDensity::from_unit::<KilogramPerCubicMeter>(1045.0),
         }
     }
 
@@ -114,9 +118,9 @@ impl CellProperties {
     pub fn red_blood_cell() -> Self {
         Self {
             name: "Red blood cell (RBC)",
-            diameter_m: 7.0e-6,
+            diameter_m: Length::from_unit::<Meter>(7.0e-6),
             deformability_index: 0.85,
-            density_kg_m3: 1090.0,
+            density_kg_m3: MassDensity::from_unit::<KilogramPerCubicMeter>(1090.0),
         }
     }
 
@@ -129,9 +133,9 @@ impl CellProperties {
     pub fn white_blood_cell() -> Self {
         Self {
             name: "White blood cell (WBC)",
-            diameter_m: 10.0e-6,
+            diameter_m: Length::from_unit::<Meter>(10.0e-6),
             deformability_index: 0.45,
-            density_kg_m3: 1060.0,
+            density_kg_m3: MassDensity::from_unit::<KilogramPerCubicMeter>(1060.0),
         }
     }
 
@@ -144,9 +148,9 @@ impl CellProperties {
     pub fn platelet() -> Self {
         Self {
             name: "Platelet",
-            diameter_m: 2.5e-6,
+            diameter_m: Length::from_unit::<Meter>(2.5e-6),
             deformability_index: 0.70,
-            density_kg_m3: 1040.0,
+            density_kg_m3: MassDensity::from_unit::<KilogramPerCubicMeter>(1040.0),
         }
     }
 
@@ -162,9 +166,9 @@ impl CellProperties {
     pub fn neutrophil() -> Self {
         Self {
             name: "Neutrophil",
-            diameter_m: 13.5e-6,
+            diameter_m: Length::from_unit::<Meter>(13.5e-6),
             deformability_index: 0.30,
-            density_kg_m3: 1060.0,
+            density_kg_m3: MassDensity::from_unit::<KilogramPerCubicMeter>(1060.0),
         }
     }
 
@@ -180,9 +184,9 @@ impl CellProperties {
     pub fn monocyte() -> Self {
         Self {
             name: "Monocyte",
-            diameter_m: 17.5e-6,
+            diameter_m: Length::from_unit::<Meter>(17.5e-6),
             deformability_index: 0.38,
-            density_kg_m3: 1060.0,
+            density_kg_m3: MassDensity::from_unit::<KilogramPerCubicMeter>(1060.0),
         }
     }
 
@@ -198,9 +202,9 @@ impl CellProperties {
     pub fn lymphocyte() -> Self {
         Self {
             name: "Lymphocyte",
-            diameter_m: 8.5e-6,
+            diameter_m: Length::from_unit::<Meter>(8.5e-6),
             deformability_index: 0.45,
-            density_kg_m3: 1060.0,
+            density_kg_m3: MassDensity::from_unit::<KilogramPerCubicMeter>(1060.0),
         }
     }
 
@@ -220,9 +224,9 @@ impl CellProperties {
     pub fn neonatal_rbc() -> Self {
         Self {
             name: "Neonatal RBC",
-            diameter_m: 8.5e-6,
+            diameter_m: Length::from_unit::<Meter>(8.5e-6),
             deformability_index: 0.80,
-            density_kg_m3: 1090.0,
+            density_kg_m3: MassDensity::from_unit::<KilogramPerCubicMeter>(1090.0),
         }
     }
 
@@ -232,8 +236,8 @@ impl CellProperties {
     /// Strong focusing occurs when κ > 0.2.
     #[inline]
     #[must_use]
-    pub fn confinement_ratio(&self, hydraulic_diameter_m: f64) -> f64 {
-        self.diameter_m / hydraulic_diameter_m
+    pub fn confinement_ratio(&self, hydraulic_diameter_m: Length) -> f64 {
+        self.diameter_m.into_base() / hydraulic_diameter_m.into_base()
     }
 
     /// Returns `true` if this cell type will exhibit measurable inertial focusing
@@ -242,7 +246,7 @@ impl CellProperties {
     /// Threshold: κ > 0.07 (Di Carlo 2009).
     #[inline]
     #[must_use]
-    pub fn will_focus(&self, hydraulic_diameter_m: f64) -> bool {
+    pub fn will_focus(&self, hydraulic_diameter_m: Length) -> bool {
         self.confinement_ratio(hydraulic_diameter_m) > INERTIAL_FOCUSING_THRESHOLD
     }
 
@@ -250,7 +254,7 @@ impl CellProperties {
     /// (κ > 0.2, Di Carlo 2009).
     #[inline]
     #[must_use]
-    pub fn will_focus_strongly(&self, hydraulic_diameter_m: f64) -> bool {
+    pub fn will_focus_strongly(&self, hydraulic_diameter_m: Length) -> bool {
         self.confinement_ratio(hydraulic_diameter_m) > 0.2
     }
 }
@@ -263,26 +267,26 @@ mod tests {
     #[test]
     fn test_mcf7_breast_cancer_diameter() {
         let ctc = CellProperties::mcf7_breast_cancer();
-        assert_relative_eq!(ctc.diameter_m, 17.5e-6, epsilon = 1e-10);
+        assert_relative_eq!(ctc.diameter_m.in_unit::<Meter>(), 17.5e-6, epsilon = 1e-10);
     }
 
     #[test]
     fn test_wbc_diameter() {
         let wbc = CellProperties::white_blood_cell();
-        assert_relative_eq!(wbc.diameter_m, 10.0e-6, epsilon = 1e-10);
+        assert_relative_eq!(wbc.diameter_m.in_unit::<Meter>(), 10.0e-6, epsilon = 1e-10);
     }
 
     #[test]
     fn test_rbc_diameter() {
         let rbc = CellProperties::red_blood_cell();
-        assert_relative_eq!(rbc.diameter_m, 7.0e-6, epsilon = 1e-10);
+        assert_relative_eq!(rbc.diameter_m.in_unit::<Meter>(), 7.0e-6, epsilon = 1e-10);
     }
 
     #[test]
     fn test_confinement_ratio_kappa() {
         let rbc = CellProperties::red_blood_cell();
         // κ = diameter / D_h = 7e-6 / 100e-6 = 0.07
-        let dh = 100.0e-6;
+        let dh = Length::from_unit::<Meter>(100.0e-6);
         let kappa = rbc.confinement_ratio(dh);
         assert_relative_eq!(kappa, 7.0e-6 / 100.0e-6, epsilon = 1e-10);
     }
@@ -291,20 +295,20 @@ mod tests {
     fn test_will_focus_true_when_kappa_above_threshold() {
         let ctc = CellProperties::mcf7_breast_cancer();
         // κ = 17.5e-6 / 100e-6 = 0.175 > 0.07 → should focus
-        assert!(ctc.will_focus(100.0e-6));
+        assert!(ctc.will_focus(Length::from_unit::<Meter>(100.0e-6)));
     }
 
     #[test]
     fn test_will_focus_false_when_kappa_below_threshold() {
         let rbc = CellProperties::red_blood_cell();
         // κ = 7e-6 / 1000e-6 = 0.007 < 0.07 → should NOT focus
-        assert!(!rbc.will_focus(1000.0e-6));
+        assert!(!rbc.will_focus(Length::from_unit::<Meter>(1000.0e-6)));
     }
 
     #[test]
     fn test_will_focus_boundary() {
         let rbc = CellProperties::red_blood_cell();
         // κ = 7e-6 / 100e-6 = 0.07, exactly at threshold → NOT focused (> not >=)
-        assert!(!rbc.will_focus(100.0e-6));
+        assert!(!rbc.will_focus(Length::from_unit::<Meter>(100.0e-6)));
     }
 }

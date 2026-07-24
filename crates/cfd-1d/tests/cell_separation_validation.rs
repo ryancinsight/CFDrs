@@ -20,12 +20,13 @@
 //! 4. **Venturi cavitation onset** — For throat diameter 100 µm at Q=5 mL/min,
 //!    σ < 1 (cavitation onset).  For 500 µm throat, σ >> 1 (no cavitation).
 
-use eunomia::assert_relative_eq;
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::physics::cell_separation::{
     margination::{dean_number, lateral_equilibrium},
     CellProperties, CellSeparationModel,
 };
 use cfd_1d::physics::resistance::{FlowConditions, VenturiModel};
+use eunomia::assert_relative_eq;
 
 // ── Blood properties (Casson model at 37°C) ───────────────────────────────────
 const BLOOD_DENSITY: f64 = 1060.0; // kg/m³
@@ -52,7 +53,7 @@ fn test_segre_silberberg_equilibrium_cancer_vs_rbc() {
     // D_h = 2×500×100/(500+100) = 166.7 µm
     let w = 500e-6;
     let h = 100e-6;
-    let dh = 2.0 * w * h / (w + h);
+    let dh = Length::from_base(2.0 * w * h / (w + h));
 
     let cancer = CellProperties::mcf7_breast_cancer(); // 17.5 µm, DI=0.15
     let rbc = CellProperties::red_blood_cell(); // 7.0 µm, DI=0.85

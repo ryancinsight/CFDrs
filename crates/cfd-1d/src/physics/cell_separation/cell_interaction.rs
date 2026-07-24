@@ -123,8 +123,12 @@ pub fn checked_enhanced_lateral_equilibrium(
     let dh = 2.0 * width * height / (width + height);
 
     // 3. Apply CFL + margination enhancement factor
-    let x_tilde_corrected =
-        ci::apply_cell_interaction(result.x_tilde_eq, wbc.diameter_m, hematocrit, dh);
+    let x_tilde_corrected = ci::apply_cell_interaction(
+        result.x_tilde_eq,
+        wbc.diameter_m.into_base(),
+        hematocrit,
+        dh,
+    );
 
     // 4. Update result with corrected position
     result.x_tilde_eq = x_tilde_corrected;

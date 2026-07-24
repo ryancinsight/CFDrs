@@ -1,5 +1,20 @@
 # CFDrs Work Checklist
 
+## Owner: Codex — CFDRS-AEQ-MET-09 typed cell-separation metrics [major] — implementation and focused verification complete 2026-07-24
+
+- [x] Type cell diameter and density in `CellProperties` and migrate
+      cell-interaction, margination, and test callers.
+- [x] Type cascade treatment/recovery hydraulic diameters, parent velocity,
+      optimization stage-width summaries, and Zweifach–Fung channel diameter;
+      convert only at validation and numerical formula boundaries.
+- [x] Synchronize the cell-separation design note, gap audit, backlog, and
+      changelog; run touched-file formatting, diff, and residue scans.
+- [x] Run locked `cfd-1d` Nextest (728/728, 3 skipped), `cfd-optim` Nextest
+      (137/137), and focused cell-separation validation Nextest (16/16).
+- [ ] Run the full `cfd-validation` package gate. It remains blocked by the
+      committed 30-second budget in two pre-existing Venturi tests;
+      `gap_audit.md` records the exact timeout evidence.
+
 ## Owner: Codex — CFDRS-AEQ-MET-08 typed Venturi and selective-cavitation metrics [major] — implementation complete 2026-07-24
 
 - [x] Type selective-cavitation pressure, density, radius, and surface-tension

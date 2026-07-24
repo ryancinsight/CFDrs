@@ -35,6 +35,7 @@
 
 | ID | Evidence | Closure |
 |---|---|---|
+| `CFDRS-AEQ-MET-09` | `cfd-1d` cell-separation and kappa-aware cascade APIs exposed cell diameter, density, treatment/recovery hydraulic diameter, parent inflow velocity, Zweifach–Fung channel diameter, and optimization stage widths as raw SI scalars. The values cross public constructors, routing validation, and `cfd-optim` blueprint summaries. | **IMPLEMENTED in this increment.** `CellProperties`, `PeripheralRecovery`, `CascadeStage`, the public Zweifach–Fung functions, and `StageBlueprintSeparationSummary` now carry Aequitas `Length`, `MassDensity`, and `Velocity` values. Scalar extraction is confined to validation and numerical formula boundaries; all in-tree tests and blueprint construction are migrated. See [`cell-separation-physical-metrics.md`](docs/atlas-migration/cell-separation-physical-metrics.md). Touched-file rustfmt, scoped diff checks, residue scans, `cfd-1d` Nextest (728/728, 3 skipped), `cfd-optim` Nextest (137/137), and focused cell-separation validation Nextest (16/16) pass. The full `cfd-validation` package gate remains blocked by the committed 30-second budget: `test_venturi_flow_3d` and `microventuri_35um_case_produces_converged_informative_2d_result` timed out at approximately 31 seconds; those tests are outside this slice. |
 | `CFDRS-AEQ-MET-08` | `cfd-core` selective cavitation, `cfd-1d` Venturi screening, and `cfd-optim` Venturi placement/blueprint metrics discarded Aequitas types at public boundaries for pressure, density, velocity, length, viscosity, radius, and surface tension. | **IMPLEMENTED in this increment.** The public physical contracts now carry Aequitas quantities and all in-tree constructors are migrated. Scalar conversion remains only in numerical formula kernels and the documented serialized report DTO boundary. Provider support is in Aequitas commits `07e2252` and `6dc68c4`. Touched-file rustfmt, diff checks, and residue scans pass. Cargo verification remains blocked before CFDrs source compilation by the peer root path transition producing duplicate Aequitas/Eunomia/Proteus identities and by missing `D:\tmp\cutile-rs\cutile\Cargo.toml`. See [`venturi-physical-metrics.md`](docs/atlas-migration/venturi-physical-metrics.md). |
 
 The remaining raw SI fields in `cfd-optim::metrics::SdtMetrics` are an explicit
@@ -42,7 +43,7 @@ serialized display-unit DTO: its module contract states that typed values are
 assembled upstream and converted once for reporting. They are not an
 unclassified provider-boundary gap. The remaining CFDrs work is therefore
 verification after the peer dependency graph is repaired, not another local
-compatibility layer.
+compatibility layer for these closed rows.
 
 | ID | Evidence | Closure |
 |---|---|---|

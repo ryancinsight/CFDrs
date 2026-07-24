@@ -49,6 +49,8 @@ pub mod cascade_routing;
 pub mod incremental_filtration;
 pub mod routing_probability;
 
+use aequitas::systems::si::quantities::{Length, Velocity};
+
 // ── Type definitions ────────────────────────────────────────────────────────
 
 /// Peripheral recovery sub-split descriptor.
@@ -66,8 +68,8 @@ pub struct PeripheralRecovery {
     pub n_sub_arms: u8,
     /// Index of the sub-arm that feeds back to the treatment path.
     pub recovery_arm_idx: usize,
-    /// Hydraulic diameter of the recovery sub-arm \[m].
-    pub recovery_dh_m: f64,
+    /// Hydraulic diameter of the recovery sub-arm.
+    pub recovery_dh_m: Length,
 }
 
 /// Per-stage descriptor for a mixed Bi/Tri selective-routing cascade.
@@ -86,12 +88,12 @@ pub struct CascadeStage {
     pub arm_q_fracs: [f64; 5],
     /// Number of active arms (2 = bifurcation, 3 = trifurcation, 4 = quad, 5 = penta).
     pub n_arms: u8,
-    /// Hydraulic diameter of the treatment arm \[m] at this stage.
+    /// Hydraulic diameter of the treatment arm at this stage.
     /// Used to compute κ = cell_diameter / Dh for β amplification.
-    pub treatment_dh_m: f64,
-    /// Inflow velocity into the junction \[m/s].
+    pub treatment_dh_m: Length,
+    /// Inflow velocity into the junction.
     /// Used for PMC5114676 Zweifach-Fung high-velocity inversion mechanics.
-    pub parent_v_in_m_s: f64,
+    pub parent_v_in_m_s: Velocity,
     /// Optional peripheral recovery sub-splits (up to 4 per stage).
     pub peripheral_recoveries: [Option<PeripheralRecovery>; 4],
     /// Number of active peripheral recoveries.
@@ -613,8 +615,8 @@ mod tests {
         let stage = CascadeStage {
             arm_q_fracs: [q, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
-            treatment_dh_m: dh,
-            parent_v_in_m_s: 0.02,
+            treatment_dh_m: Length::from_base(dh),
+            parent_v_in_m_s: Velocity::from_base(0.02),
             peripheral_recoveries: [None; 4],
             n_recoveries: 0,
         };
@@ -649,13 +651,13 @@ mod tests {
         let stage = CascadeStage {
             arm_q_fracs: [q_c, q_l, q_r, 0.0, 0.0],
             n_arms: 3,
-            treatment_dh_m: dh,
-            parent_v_in_m_s: 0.02,
+            treatment_dh_m: Length::from_base(dh),
+            parent_v_in_m_s: Velocity::from_base(0.02),
             peripheral_recoveries: [None; 4],
             n_recoveries: 0,
         };
         let n = stage.n_arms as usize;
-        let dh_s = stage.treatment_dh_m.max(1e-9);
+        let dh_s = stage.treatment_dh_m.into_base().max(1e-9);
         let beta = beta_kappa_adjusted(SE_CANCER, D_CANCER_M / dh_s, 0.02, false);
         let p_to_left = p_arm_general(&stage.arm_q_fracs[..n], 1, beta);
         let p_to_right = p_arm_general(&stage.arm_q_fracs[..n], 2, beta);
@@ -680,8 +682,8 @@ mod tests {
             stages.push(CascadeStage {
                 arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
                 n_arms: 3,
-                treatment_dh_m: dh,
-                parent_v_in_m_s: 0.02,
+                treatment_dh_m: Length::from_base(dh),
+                parent_v_in_m_s: Velocity::from_base(0.02),
                 peripheral_recoveries: [None; 4],
                 n_recoveries: 0,
             });
@@ -755,8 +757,8 @@ mod tests {
         let stage = CascadeStage {
             arm_q_fracs: [q, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
-            treatment_dh_m: dh,
-            parent_v_in_m_s: 0.02,
+            treatment_dh_m: Length::from_base(dh),
+            parent_v_in_m_s: Velocity::from_base(0.02),
             peripheral_recoveries: [None; 4],
             n_recoveries: 0,
         };
@@ -808,16 +810,16 @@ mod tests {
             CascadeStage {
                 arm_q_fracs: [arm_q_1[0], arm_q_1[1], arm_q_1[2], 0.0, 0.0],
                 n_arms: 3,
-                treatment_dh_m: dh_1,
-                parent_v_in_m_s: 0.02,
+                treatment_dh_m: Length::from_base(dh_1),
+                parent_v_in_m_s: Velocity::from_base(0.02),
                 peripheral_recoveries: [None; 4],
                 n_recoveries: 0,
             },
             CascadeStage {
                 arm_q_fracs: [arm_q_2[0], arm_q_2[1], arm_q_2[2], 0.0, 0.0],
                 n_arms: 3,
-                treatment_dh_m: dh_2,
-                parent_v_in_m_s: 0.02,
+                treatment_dh_m: Length::from_base(dh_2),
+                parent_v_in_m_s: Velocity::from_base(0.02),
                 peripheral_recoveries: [None; 4],
                 n_recoveries: 0,
             },
@@ -896,16 +898,16 @@ mod tests {
             CascadeStage {
                 arm_q_fracs: [arm_q_1[0], arm_q_1[1], arm_q_1[2], 0.0, 0.0],
                 n_arms: 3,
-                treatment_dh_m: dh_1,
-                parent_v_in_m_s: 0.02,
+                treatment_dh_m: Length::from_base(dh_1),
+                parent_v_in_m_s: Velocity::from_base(0.02),
                 peripheral_recoveries: [None; 4],
                 n_recoveries: 0,
             },
             CascadeStage {
                 arm_q_fracs: [arm_q_2[0], arm_q_2[1], arm_q_2[2], 0.0, 0.0],
                 n_arms: 3,
-                treatment_dh_m: dh_2,
-                parent_v_in_m_s: 0.02,
+                treatment_dh_m: Length::from_base(dh_2),
+                parent_v_in_m_s: Velocity::from_base(0.02),
                 peripheral_recoveries: [None; 4],
                 n_recoveries: 0,
             },
@@ -976,8 +978,8 @@ mod tests {
         let stage_no_recovery = CascadeStage {
             arm_q_fracs: [q, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
-            treatment_dh_m: dh,
-            parent_v_in_m_s: 0.02,
+            treatment_dh_m: Length::from_base(dh),
+            parent_v_in_m_s: Velocity::from_base(0.02),
             peripheral_recoveries: [None; 4],
             n_recoveries: 0,
         };
@@ -996,8 +998,8 @@ mod tests {
         let stage_no_recovery = CascadeStage {
             arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
-            treatment_dh_m: dh,
-            parent_v_in_m_s: 0.02,
+            treatment_dh_m: Length::from_base(dh),
+            parent_v_in_m_s: Velocity::from_base(0.02),
             peripheral_recoveries: [None; 4],
             n_recoveries: 0,
         };
@@ -1007,13 +1009,13 @@ mod tests {
             sub_arm_q_fracs: [0.70, 0.30, 0.0, 0.0, 0.0],
             n_sub_arms: 2,
             recovery_arm_idx: 0,
-            recovery_dh_m: 0.5e-3,
+            recovery_dh_m: Length::from_base(0.5e-3),
         };
         let stage_with_recovery = CascadeStage {
             arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
-            treatment_dh_m: dh,
-            parent_v_in_m_s: 0.02,
+            treatment_dh_m: Length::from_base(dh),
+            parent_v_in_m_s: Velocity::from_base(0.02),
             peripheral_recoveries: [Some(recovery), None, None, None],
             n_recoveries: 1,
         };
@@ -1038,14 +1040,14 @@ mod tests {
                 sub_arm_q_fracs: [0.90, 0.10, 0.0, 0.0, 0.0],
                 n_sub_arms: 2,
                 recovery_arm_idx: 0,
-                recovery_dh_m: 0.3e-3,
+                recovery_dh_m: Length::from_base(0.3e-3),
             }),
             Some(PeripheralRecovery {
                 source_arm_idx: 2,
                 sub_arm_q_fracs: [0.90, 0.10, 0.0, 0.0, 0.0],
                 n_sub_arms: 2,
                 recovery_arm_idx: 0,
-                recovery_dh_m: 0.3e-3,
+                recovery_dh_m: Length::from_base(0.3e-3),
             }),
             None,
             None,
@@ -1053,8 +1055,8 @@ mod tests {
         let stage = CascadeStage {
             arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
             n_arms: 3,
-            treatment_dh_m: 1e-3,
-            parent_v_in_m_s: 0.02,
+            treatment_dh_m: Length::from_base(1e-3),
+            parent_v_in_m_s: Velocity::from_base(0.02),
             peripheral_recoveries: recovery_both,
             n_recoveries: 2,
         };

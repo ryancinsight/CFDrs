@@ -26,7 +26,7 @@
 //! in the center (treatment) arm of a cascade junction tree while
 //! diverting healthy blood cells to peripheral bypass channels.
 
-use eunomia::assert_relative_eq;
+use aequitas::systems::si::quantities::{Length, Velocity};
 use cfd_1d::{
     cascade_junction_separation, cascade_junction_separation_from_qfracs,
     cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs_cross_junction,
@@ -37,6 +37,7 @@ use cfd_1d::{
     tri_center_q_frac, tri_center_q_frac_cross_junction, CascadeJunctionResult, CascadeStage,
     IncrementalFiltrationResult,
 };
+use eunomia::assert_relative_eq;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -466,8 +467,8 @@ fn test_kappa_aware_cascade_selective_enrichment() {
     let stage = CascadeStage {
         arm_q_fracs: [0.5, 0.25, 0.25, 0.0, 0.0],
         n_arms: 3,
-        treatment_dh_m: treatment_dh,
-        parent_v_in_m_s: 0.02,
+        treatment_dh_m: Length::from_base(treatment_dh),
+        parent_v_in_m_s: Velocity::from_base(0.02),
         peripheral_recoveries: [None, None, None, None],
         n_recoveries: 0,
     };

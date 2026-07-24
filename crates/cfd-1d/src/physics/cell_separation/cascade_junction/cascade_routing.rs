@@ -116,13 +116,15 @@ fn validate_kappa_aware_stage_sequence(stages: &[CascadeStage]) -> Result<()> {
             &stage.arm_q_fracs[..n_arms],
         )?;
 
-        if !stage.treatment_dh_m.is_finite() || stage.treatment_dh_m <= 0.0 {
+        let treatment_dh_m = stage.treatment_dh_m.into_base();
+        if !treatment_dh_m.is_finite() || treatment_dh_m <= 0.0 {
             return Err(Error::InvalidConfiguration(format!(
                 "Kappa-aware cascade stage {stage_index} treatment hydraulic diameter must be finite and positive"
             )));
         }
 
-        if !stage.parent_v_in_m_s.is_finite() || stage.parent_v_in_m_s < 0.0 {
+        let parent_v_in_m_s = stage.parent_v_in_m_s.into_base();
+        if !parent_v_in_m_s.is_finite() || parent_v_in_m_s < 0.0 {
             return Err(Error::InvalidConfiguration(format!(
                 "Kappa-aware cascade stage {stage_index} parent inflow velocity must be finite and nonnegative"
             )));
@@ -170,7 +172,8 @@ fn validate_kappa_aware_stage_sequence(stages: &[CascadeStage]) -> Result<()> {
                 )));
             }
 
-            if !recovery.recovery_dh_m.is_finite() || recovery.recovery_dh_m <= 0.0 {
+            let recovery_dh_m = recovery.recovery_dh_m.into_base();
+            if !recovery_dh_m.is_finite() || recovery_dh_m <= 0.0 {
                 return Err(Error::InvalidConfiguration(format!(
                     "Kappa-aware cascade stage {stage_index} recovery {recovery_index} hydraulic diameter must be finite and positive"
                 )));
@@ -720,9 +723,9 @@ fn accumulate_peripheral_recoveries(
             let p_leak_rbc = p_arm_general(arms, source_arm_idx, beta_rbc);
 
             let sub_dh = if legacy_fallback {
-                pr.recovery_dh_m.max(1.0e-9)
+                pr.recovery_dh_m.into_base().max(1.0e-9)
             } else {
-                pr.recovery_dh_m
+                pr.recovery_dh_m.into_base()
             };
             let source_arm_q = if legacy_fallback {
                 arms[source_arm_idx].max(1.0e-9)
@@ -779,14 +782,14 @@ fn mixed_cascade_separation_kappa_aware_impl(
         };
         let arms = &stage.arm_q_fracs[..n];
         let dh = if legacy_fallback {
-            stage.treatment_dh_m.max(1.0e-9)
+            stage.treatment_dh_m.into_base().max(1.0e-9)
         } else {
-            stage.treatment_dh_m
+            stage.treatment_dh_m.into_base()
         };
         let v_in = if legacy_fallback {
-            stage.parent_v_in_m_s.max(0.0)
+            stage.parent_v_in_m_s.into_base().max(0.0)
         } else {
-            stage.parent_v_in_m_s
+            stage.parent_v_in_m_s.into_base()
         };
 
         let beta_cancer = (beta_kappa_adjusted(SE_CANCER, D_CANCER_M / dh, v_in, false)
@@ -877,6 +880,7 @@ mod tests {
         tri_asymmetric_q_fracs, tri_center_q_frac_cross_junction,
     };
     use crate::physics::resistance::parallel_channel_flow_fractions;
+    use aequitas::systems::si::quantities::{Length, Velocity};
 
     #[test]
     fn cross_junction_matches_rectangular_baseline_when_minor_losses_vanish() {
@@ -933,8 +937,8 @@ mod tests {
         let stage = CascadeStage {
             arm_q_fracs: [0.50, 0.25, 0.25, 0.0, 0.0],
             n_arms: 3,
-            treatment_dh_m: 1.0e-3,
-            parent_v_in_m_s: 0.02,
+            treatment_dh_m: Length::from_base(1.0e-3),
+            parent_v_in_m_s: Velocity::from_base(0.02),
             peripheral_recoveries: [None; 4],
             n_recoveries: 5,
         };
@@ -951,15 +955,15 @@ mod tests {
         let stage = CascadeStage {
             arm_q_fracs: [0.55, 0.25, 0.20, 0.0, 0.0],
             n_arms: 3,
-            treatment_dh_m: 1.0e-3,
-            parent_v_in_m_s: 0.02,
+            treatment_dh_m: Length::from_base(1.0e-3),
+            parent_v_in_m_s: Velocity::from_base(0.02),
             peripheral_recoveries: [
                 Some(PeripheralRecovery {
                     source_arm_idx: 0,
                     sub_arm_q_fracs: [0.70, 0.30, 0.0, 0.0, 0.0],
                     n_sub_arms: 2,
                     recovery_arm_idx: 0,
-                    recovery_dh_m: 0.4e-3,
+                    recovery_dh_m: Length::from_base(0.4e-3),
                 }),
                 None,
                 None,
@@ -980,8 +984,8 @@ mod tests {
         let invalid = CascadeStage {
             arm_q_fracs: [0.50, 0.25, 0.25, 0.0, 0.0],
             n_arms: 3,
-            treatment_dh_m: 1.0e-3,
-            parent_v_in_m_s: 0.02,
+            treatment_dh_m: Length::from_base(1.0e-3),
+            parent_v_in_m_s: Velocity::from_base(0.02),
             peripheral_recoveries: [None; 4],
             n_recoveries: 5,
         };
@@ -1008,8 +1012,8 @@ mod tests {
         let stage = CascadeStage {
             arm_q_fracs: [0.55, 0.225, 0.225, 0.0, 0.0],
             n_arms: 3,
-            treatment_dh_m: 1.0e-3,
-            parent_v_in_m_s: 0.02,
+            treatment_dh_m: Length::from_base(1.0e-3),
+            parent_v_in_m_s: Velocity::from_base(0.02),
             peripheral_recoveries: [None; 4],
             n_recoveries: 0,
         };

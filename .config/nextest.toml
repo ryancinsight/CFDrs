@@ -26,7 +26,3 @@ test-group = 'gpu-device'
 [[profile.default.overrides]]
 filter = 'package(cfd-2d) & test(/accelerated/)'
 test-group = 'gpu-device'
-
-[[profile.default.overrides]]
-filter = 'package(cfd-suite) & test(/gpu_tests/)'
-test-group = 'gpu-device'

@@ -6,11 +6,12 @@
 //! 3. Cancer/RBC cells separate correctly in physiological channels
 //! 4. Edge cases (zero velocity, large deformability) are handled correctly
 
-use eunomia::assert_relative_eq;
+use aequitas::systems::si::quantities::Length;
 use cfd_1d::physics::cell_separation::{
     dean_drag_force_n, dean_number, inertial_lift_force_n, lateral_equilibrium, CellProperties,
     CellSeparationModel,
 };
+use eunomia::assert_relative_eq;
 
 const BLOOD_DENSITY: f64 = 1060.0;
 const BLOOD_VISCOSITY: f64 = 3.5e-3;
@@ -58,7 +59,7 @@ fn test_dean_drag_force_scaling() {
 #[test]
 fn test_mcf7_confinement_ratio_exceeds_threshold() {
     let cancer = CellProperties::mcf7_breast_cancer();
-    let dh = 2.0 * 200e-6 * 100e-6 / (200e-6 + 100e-6); // 133 µm
+    let dh = Length::from_base(2.0 * 200e-6 * 100e-6 / (200e-6 + 100e-6)); // 133 µm
     let kappa = cancer.confinement_ratio(dh);
     assert!(kappa > 0.07, "MCF-7 must have κ > 0.07, got {}", kappa);
     assert!(cancer.will_focus(dh), "MCF-7 must focus");
@@ -68,7 +69,7 @@ fn test_mcf7_confinement_ratio_exceeds_threshold() {
 #[test]
 fn test_platelet_below_focusing_threshold() {
     let platelet = CellProperties::platelet();
-    let dh = 2.0 * 200e-6 * 100e-6 / (200e-6 + 100e-6); // 133 µm
+    let dh = Length::from_base(2.0 * 200e-6 * 100e-6 / (200e-6 + 100e-6)); // 133 µm
     let kappa = platelet.confinement_ratio(dh);
     assert!(kappa < 0.07, "Platelet must have κ < 0.07, got {}", kappa);
     assert!(!platelet.will_focus(dh), "Platelet must not focus");

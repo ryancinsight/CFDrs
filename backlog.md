@@ -31,6 +31,22 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-09 [major] - Type cell-separation physical metrics
+  (IMPLEMENTATION and focused verification COMPLETE; full package verification
+  blocked by two pre-existing 30-second Venturi test timeouts;
+  owner=Codex; scope=`cfd-1d` cell separation, `cfd-optim` blueprint summary,
+  `cfd-validation` validation, design note, and PM artifacts).** Public cell
+  diameter, density, cascade hydraulic diameters, parent velocity, and stage
+  widths now use Aequitas quantities. Formula kernels extract base scalars at
+  their numerical boundary. Acceptance evidence includes touched-file
+  formatting/diff checks, residue scans, cfd-1d Nextest (728/728, 3 skipped),
+  cfd-optim Nextest (137/137), and focused cell-separation validation Nextest
+  (16/16). The full cfd-validation package gate remains open because
+  `test_venturi_flow_3d` and
+  `microventuri_35um_case_produces_converged_informative_2d_result` exceed the
+  committed 30-second budget. Re-open that package gate when the tests are
+  optimized or receive a separately derived reviewed budget.
+
 - **CFDRS-AEQ-MET-08 [major] - Type Venturi and selective-cavitation physical
   metrics (IMPLEMENTATION COMPLETE; verification blocked; owner=Codex;
   scope=`cfd-core` selective cavitation, `cfd-1d` Venturi screening,

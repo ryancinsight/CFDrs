@@ -114,6 +114,7 @@
 //!   inertial microfluidics. *Lab Chip*, 11, 912–920.
 
 use crate::physics::cell_separation::properties::CellProperties;
+use aequitas::systems::si::quantities::Length;
 use cfd_core::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 
@@ -385,7 +386,7 @@ pub fn checked_inertial_lift_force_n(
             "Margination mean velocity must be finite".to_string(),
         ));
     }
-    if !cell.diameter_m.is_finite() || cell.diameter_m <= 0.0 {
+    if !cell.diameter_m.into_base().is_finite() || cell.diameter_m.into_base() <= 0.0 {
         return Err(Error::InvalidConfiguration(
             "Margination cell diameter must be finite and positive".to_string(),
         ));
@@ -393,7 +394,7 @@ pub fn checked_inertial_lift_force_n(
 
     Ok(dimensional_lift_force_n(
         x_tilde,
-        cell.diameter_m,
+        cell.diameter_m.into_base(),
         deformability_index,
         fluid_density_kg_m3,
         mean_velocity_m_s,
@@ -445,7 +446,7 @@ pub fn lateral_velocity_m_s(
         if r > 0.0 {
             let re = fluid_density_kg_m3 * mean_velocity_m_s * dh / dynamic_viscosity_pa_s;
             let de = dean_number(re, dh, r);
-            dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m)
+            dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m.into_base())
         } else {
             0.0
         }
@@ -454,7 +455,8 @@ pub fn lateral_velocity_m_s(
     };
 
     let net_force_n = f_lift - f_dean;
-    let stokes_coeff = 3.0 * std::f64::consts::PI * dynamic_viscosity_pa_s * cell.diameter_m;
+    let stokes_coeff =
+        3.0 * std::f64::consts::PI * dynamic_viscosity_pa_s * cell.diameter_m.into_base();
 
     net_force_n / stokes_coeff.max(1e-30)
 }
@@ -490,13 +492,14 @@ pub fn checked_lateral_velocity_m_s(
     let f_dean = if let Some(r) = bend_radius_m {
         let re = fluid_density_kg_m3 * mean_velocity_m_s * dh / dynamic_viscosity_pa_s;
         let de = dean_number(re, dh, r);
-        dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m)
+        dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m.into_base())
     } else {
         0.0
     };
 
     let net_force_n = f_lift - f_dean;
-    let stokes_coeff = 3.0 * std::f64::consts::PI * dynamic_viscosity_pa_s * cell.diameter_m;
+    let stokes_coeff =
+        3.0 * std::f64::consts::PI * dynamic_viscosity_pa_s * cell.diameter_m.into_base();
     Ok(net_force_n / stokes_coeff.max(1e-30))
 }
 
@@ -574,7 +577,7 @@ pub fn lateral_equilibrium(
     let w = channel_width_m;
     let dh = 2.0 * w * h / (w + h); // hydraulic diameter
 
-    let kappa = cell.confinement_ratio(dh);
+    let kappa = cell.confinement_ratio(Length::from_base(dh));
     let will_focus = kappa > 0.07;
 
     // Reynolds number: Re = ρ U D_h / μ
@@ -584,7 +587,7 @@ pub fn lateral_equilibrium(
     let (de, f_dean) = if let Some(r) = bend_radius_m {
         if r > 0.0 {
             let de = dean_number(re, dh, r);
-            let fd = dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m);
+            let fd = dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m.into_base());
             (de, fd)
         } else {
             (0.0, 0.0)
@@ -683,13 +686,13 @@ pub fn checked_lateral_equilibrium(
     let h = channel_height_m;
     let w = channel_width_m;
     let dh = 2.0 * w * h / (w + h);
-    let kappa = cell.confinement_ratio(dh);
+    let kappa = cell.confinement_ratio(Length::from_base(dh));
     let will_focus = kappa > 0.07;
     let re = fluid_density_kg_m3 * mean_velocity_m_s * dh / dynamic_viscosity_pa_s;
 
     let (de, f_dean) = if let Some(r) = bend_radius_m {
         let de = dean_number(re, dh, r);
-        let fd = dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m);
+        let fd = dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m.into_base());
         (de, fd)
     } else {
         (0.0, 0.0)
@@ -917,8 +920,8 @@ mod tests {
         let u = 0.05;
         let h = 200.0e-6;
         let x = 0.75;
-        let kappa = cell.diameter_m / h;
-        let area = cell.diameter_m * cell.diameter_m;
+        let kappa = cell.diameter_m.into_base() / h;
+        let area = cell.diameter_m.into_base() * cell.diameter_m.into_base();
         let expected = rho
             * u
             * u
