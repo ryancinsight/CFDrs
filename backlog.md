@@ -31,6 +31,15 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-11 [major] - Type component geometry and volume metrics
+  (IN PROGRESS; owner=Codex; scope=`cfd-1d` component geometry, the Component
+  volume contract, `ChannelProperties`, in-tree factories/tests, and PM
+  artifacts).** Public channel, membrane, and organ component boundaries still
+  expose lengths, areas, roughness, and volumes as raw scalars. Acceptance is
+  typed geometry and volume storage, scalar extraction only at resistance or
+  dynamic-parameter boundaries, migrated value-semantic tests, residue scans,
+  and locked focused gates.
+
 - **CFDRS-AEQ-MET-10 [major] - Type surface and wetting physical metrics
   (IMPLEMENTATION COMPLETE; focused verification complete with one independent
   validation timeout and pre-existing Clippy debt; owner=Codex; scope=`cfd-1d`

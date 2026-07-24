@@ -1,5 +1,16 @@
 # CFDrs Work Checklist
 
+## Owner: Codex — CFDRS-AEQ-MET-11 typed component geometry and volume metrics [major] — in progress 2026-07-24
+
+- [ ] Type channel, membrane, and organ component geometry with Aequitas
+      `Length` and `Area`; type the shared component volume result with
+      `Volume` and `ChannelProperties` with `Length`.
+- [ ] Keep scalar conversion at resistance-model and dynamic-parameter
+      boundaries; migrate factories, setters, tests, and value-semantic oracles.
+- [ ] Synchronize the gap audit and changelog; run formatting and residue scans.
+- [ ] Run the locked focused cfd-1d check, Nextest, doctests, and Rustdoc; record
+      any independent timeout or pre-existing lint blocker exactly.
+
 ## Owner: Codex — CFDRS-AEQ-MET-10 typed surface and wetting metrics [major] — implementation complete 2026-07-24
 
 - [x] Type `cfd-1d` surface roughness, contact angle, and surface energy with
