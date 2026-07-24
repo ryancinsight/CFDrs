@@ -71,6 +71,7 @@ impl DirectSparseSolver {
         let atlas_solver = LetoCsrLuSolver {
             max_size: self.max_size,
             pivot_tolerance: self.pivot_tolerance,
+            ..LetoCsrLuSolver::default()
         };
 
         match atlas_solver.solve_view(matrix, &rhs.view()) {

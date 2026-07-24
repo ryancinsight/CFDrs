@@ -42,22 +42,23 @@ single explicit I/O boundary are not counted as missing units.
 
 `cfd-optim/src/reporting/report_metrics.rs` composes
 `VolumetricFlowRate`, `Power`, `Pressure`, `DynamicViscosity`,
-`ReciprocalTime`, `Time`, `Length`, `Volume`, `ThermodynamicTemperature`, and
-`Velocity` for report arithmetic. `TypedReportPhysicalMetrics` now owns the
-unit-bearing report snapshot and `write_to` is the single explicit conversion
-to the serialized `SdtMetrics` display units. `metrics/residence.rs` and
-`metrics/safety.rs` still publish scalar intermediate DTOs and remain the next
-computation-boundary migration.
+`ReciprocalTime`, `Time`, `Length`, `Volume`, `EnergyPerVolume`,
+`TemperatureDifference`, and `Velocity` for report arithmetic.
+`TypedReportPhysicalMetrics` now owns the unit-bearing report snapshot and
+`write_to` is the single explicit conversion to the serialized `SdtMetrics`
+display units. `metrics/residence.rs` and
+`metrics/safety.rs` now computes through private Aequitas carriers; its public
+serialized DTO remains scalar only at the explicit evaluation boundary.
 
 ### Open implementation ledger
 
 | ID | Evidence | Remaining implementation | Owner | Status / acceptance oracle |
 |---|---|---|---|---|
 | `CFDRS-AEQ-MET-01` | `SdtMetrics` contains pressure drop, path length, residence time, flow, ECV, mechanical power, shear stress/rate, transit time, optical path, temperature-rise, and acoustic-energy fields as suffixed `f64`; `ResidenceMetrics` and `BlueprintSafetyMetrics` repeat some of the same physical dimensions. | Add one typed internal/report metric carrier and one explicit scalar serialization adapter. Do not retain parallel typed/raw fields. | CFDrs | **Resolved in this increment.** Value-semantic adapter and serde round-trip regressions pass; unit mismatch is rejected by the carrier field types. |
-| `CFDRS-AEQ-MET-02` | `report_metrics.rs` exposes `acoustic_energy_density_j_m3` and `specific_cavitation_energy_j_ml` as raw `f64` energy-per-volume values; the Aequitas source has `VolumetricPowerDensity` but no semantic volumetric energy-density alias/unit. | Extend Aequitas with the energy-per-volume semantic contract, then type both outputs. | Aequitas → CFDrs | Provider-blocked. Preserve `E_ac = p₀²/(4ρc²)` and the existing specific-energy report equation. |
-| `CFDRS-AEQ-MET-03` | `metrics/residence.rs` returns `treatment_volume_m3`, `treatment_residence_time_s`, and `mean_treatment_velocity_m_s`; `metrics/safety.rs` returns pressure, shear, and residence metrics as scalars. | Move typed quantities to the computation boundary before they are assembled into `SdtMetrics`; keep only dimensionless fractions and margins scalar. | CFDrs | Ready now that `CFDRS-AEQ-MET-01` is resolved; conservation of `V = Q·t`, pressure feasibility, and report equality are the oracles. |
+| `CFDRS-AEQ-MET-02` | `report_metrics.rs` exposes `acoustic_energy_density_j_m3` and `specific_cavitation_energy_j_ml` as raw `f64` energy-per-volume values; the Aequitas provider now owns the semantic energy-density aliases and units. | Carry both values as `EnergyPerVolume` through report computation and convert only in the explicit `SdtMetrics` adapter. | Aequitas → CFDrs | **Resolved in this increment.** `JoulePerCubicMeter` and `JoulePerMilliliter` preserve the existing serialized values; positive-energy and report round-trip regressions remain the oracle. |
+| `CFDRS-AEQ-MET-03` | `metrics/residence.rs` and `metrics/safety.rs` returned physical intermediates as raw scalars before report assembly. | Move typed quantities to the computation boundary before they are assembled into `SdtMetrics`; keep only dimensionless fractions and margins scalar. | CFDrs | **Resolved in this increment.** Private Aequitas carriers type treatment volume/time/velocity and safety pressure/shear/time; explicit adapters preserve serialized values. Focused Nextest passes the conservation and adapter equality regression. |
 | `CFDRS-AEQ-MET-04` | `ChannelHemolysis` carries `wall_shear_pa` and `transit_time_s`; `operating_point.rs` and `blueprint_graph.rs` carry raw flow, pressure, length, volume, and velocity. | Migrate the channel and network DTO boundaries in dependency order. | CFDrs | Ready after `CFDRS-AEQ-MET-03`. Per-channel hemolysis and total-flow value semantics must remain unchanged. |
-| `CFDRS-AEQ-MET-05` | `throat_temperature_rise_k` is a temperature difference, while the current provider exposes only the absolute-temperature dimension `ThermodynamicTemperature`. | Add an explicit Aequitas temperature-difference semantic contract and migrate this report field without conflating absolute temperature with ΔT. | Aequitas → CFDrs | Provider-blocked. Preserve the existing thermal-compliance threshold in kelvin. |
+| `CFDRS-AEQ-MET-05` | `throat_temperature_rise_k` is a temperature difference and must not use the absolute-temperature dimension. | Carry the field as Aequitas `TemperatureDifference` and convert through the Kelvin unit only at serialization. | Aequitas → CFDrs | **Resolved in this increment.** The thermal-compliance threshold and serialized kelvin value are unchanged; the carrier type rejects absolute-temperature substitution. |
 
 ### Explicit non-gaps
 
@@ -69,9 +70,20 @@ computation-boundary migration.
   that boundary does not justify raw scalars inside the physical computation graph.
 - Dimensionless indices, empirical coefficients, and model parameters remain
   scalar unless their governing law introduces a physical unit.
-- The next CFDrs slice is `CFDRS-AEQ-MET-03`; it must preserve the report
-  carrier's single-adapter ownership while typing residence and safety
-  intermediates before any channel/network DTO migration.
+- The next CFDrs slice is `CFDRS-AEQ-MET-04`; it must preserve the report
+  carrier's single-adapter ownership while typing channel and network physical
+  boundaries after the residence/safety computation carriers.
+
+### Consumer/provider synchronization
+
+- Aequitas PR #7 merged to `e0fc5f32f07fbf0bde6a7a7086d085983195abad`.
+- This consumer branch updates its direct Aequitas revision and uses the
+  merged provider's `EnergyPerVolume` and `TemperatureDifference` contracts.
+- The remaining carrier work is `CFDRS-AEQ-MET-04`; residence/safety DTO
+  ownership now precedes the channel/network boundary.
+- Proteus PR #3 merged as `1b25af1`; its temperature response laws now consume
+  Aequitas `TemperatureDifference`, which is required by the merged provider
+  subtraction semantics.
 
 - 2026-07-22 (resolved in CFD-BOOK-CLOSEOUT-1): the stale book commit expanded
   source-backed chapter indexes with public types and behavioral contracts that

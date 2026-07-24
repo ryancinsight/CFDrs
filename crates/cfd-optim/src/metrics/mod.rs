@@ -17,7 +17,9 @@ pub use blueprint_separation::{
 };
 pub use cfd_1d::physics::hemolysis::giersiepen_hi;
 pub use healthy_cell_protection::healthy_cell_protection_index;
+pub(crate) use residence::compute_typed_residence_metrics;
 pub use residence::{compute_residence_metrics, ResidenceMetrics};
+pub(crate) use safety::compute_typed_blueprint_safety_metrics;
 pub use safety::{compute_blueprint_safety_metrics, BlueprintSafetyMetrics};
 pub use sdt_metrics::{ChannelHemolysis, SdtMetrics};
 pub use venturi::{

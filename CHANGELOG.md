@@ -34,11 +34,15 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- `cfd-math` now preserves Leto's default sparse-LU dispatch thresholds when
+  constructing the provider solver, keeping the existing max-size and pivot
+  policy explicit while adapting to the provider's expanded configuration.
+
 - `cfd-optim` now assembles unit-bearing physical report values in one private
   Aequitas carrier and converts them once into the existing serialized
-  `SdtMetrics` display units. The adapter has value and JSON round-trip
-  regressions; residence/safety DTO and provider semantic gaps remain tracked
-  in `gap_audit.md`.
+  `SdtMetrics` display units. Energy-density and temperature-difference fields
+  now use Aequitas semantic quantities; residence and safety producers now use
+  the same typed computation boundary before their explicit DTO adapters.
 
 - `cfd-optim` now composes report mechanical power, residence volume, wall
   shear, and transit time through Aequitas typed quantities; report storage

@@ -10,6 +10,21 @@ Target version: `0.3.0` (pre-1.0 breaking provider-boundary release).
       Full library execution remains path-sensitive in a linked lane because
       one existing contract fixture resolves only from the canonical checkout.
 
+- [x] CFD-AEQUITAS-ENERGY-TEMPERATURE-1 [patch]: carry SDT acoustic energy
+      density, specific cavitation energy, and throat temperature rise through
+      Aequitas `EnergyPerVolume` and `TemperatureDifference` before the scalar
+      report adapter. Acceptance: the existing equations and serialized values
+      remain unchanged; positive-energy, thermal-threshold, and serde
+      round-trip regressions pass; the direct Aequitas pin is the merged
+      provider revision `e0fc5f3`. Proteus now consumes the merged
+      `TemperatureDifference` contract at `1b25af1`.
+
+- [x] CFD-AEQUITAS-RESIDENCE-SAFETY-1 [patch]: compute residence volume/time/
+      velocity and safety pressure/shear/time through private Aequitas carriers,
+      then adapt once to the existing serialized DTOs. Acceptance: cfd-optim
+      package check and focused Nextest adapter/conservation regression pass;
+      Leto sparse-LU configuration drift is adapted through provider defaults.
+
 - [x] CFD-AEQUITAS-REPORT-UNITS-1 [patch]: compose report mechanical power,
       residence volume, wall shear, and transit time through Aequitas quantities;
       the focused `cfd-optim` check, test, and lint gates are required before
