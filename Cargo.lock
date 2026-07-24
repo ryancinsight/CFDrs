@@ -658,6 +658,7 @@ dependencies = [
 name = "cfd-validation"
 version = "0.3.0"
 dependencies = [
+ "aequitas",
  "anyhow",
  "cfd-1d",
  "cfd-2d",
