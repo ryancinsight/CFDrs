@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: `cfd-1d` channel cross-sections, channel geometry, network
+  edge area, and edge-property length/area/hydraulic-diameter fields now use
+  Aequitas `Length` and `Area`. Scalar extraction remains at resistance,
+  junction-loss, transient-transport, and analysis kernels. See
+  [`channel-geometry-metrics.md`](docs/atlas-migration/channel-geometry-metrics.md).
+
 - **Breaking**: cfd-1d channel, membrane, and organ component geometry now
   carries Aequitas Length and Area values, Component::volume returns Volume,
   and ChannelProperties stores typed lengths. Scalar extraction remains at

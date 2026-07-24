@@ -5,11 +5,11 @@ use super::types::{
 };
 use crate::domain::network::{Network, NodeType};
 use crate::scalar::Cfd1dScalar;
+use crate::solver::core::NetworkSolveScalar;
 use crate::solver::core::transient::composition::{
     CompositionState, EdgeFlowEvent, InletCompositionEvent, PressureBoundaryEvent,
     TransientCompositionSimulator,
 };
-use crate::solver::core::NetworkSolveScalar;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::{FloatElement, NumericElement};
@@ -300,10 +300,10 @@ impl TransientDropletSimulator {
         edge: EdgeIndex,
     ) -> T {
         let one = T::one();
-        network
-            .properties
-            .get(&edge)
-            .map_or(one, |p| if p.area > T::zero() { p.area } else { one })
+        network.properties.get(&edge).map_or(one, |p| {
+            let area = p.area.into_base();
+            if area > T::zero() { area } else { one }
+        })
     }
 
     fn edge_length<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
@@ -311,10 +311,10 @@ impl TransientDropletSimulator {
         edge: EdgeIndex,
     ) -> T {
         let one = T::one();
-        network
-            .properties
-            .get(&edge)
-            .map_or(one, |p| if p.length > T::zero() { p.length } else { one })
+        network.properties.get(&edge).map_or(one, |p| {
+            let length = p.length.into_base();
+            if length > T::zero() { length } else { one }
+        })
     }
 
     fn advance_droplet<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(

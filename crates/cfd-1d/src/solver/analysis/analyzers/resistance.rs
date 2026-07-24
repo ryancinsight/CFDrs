@@ -204,10 +204,11 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> ResistanceAnalyzer<T> {
         // Require hydraulic diameter - no silent fallbacks
         let hydraulic_diameter = properties
             .hydraulic_diameter
-            .ok_or(ResistanceCalculationError::MissingHydraulicDiameter)?;
+            .ok_or(ResistanceCalculationError::MissingHydraulicDiameter)?
+            .into_base();
 
         // Create resistance model with validated parameters
-        let model = HagenPoiseuilleModel::new(hydraulic_diameter, properties.length);
+        let model = HagenPoiseuilleModel::new(hydraulic_diameter, properties.length.into_base());
 
         const REF_TEMPERATURE_KEY: &str = "reference_temperature";
         const REF_PRESSURE_KEY: &str = "reference_pressure";
@@ -225,10 +226,10 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> ResistanceAnalyzer<T> {
 
         let conditions = FlowConditions {
             reynolds_number: flow_rate.map(|q| {
-                let velocity = q / properties.area;
+                let velocity = q / properties.area.into_base();
                 fluid.density * velocity * hydraulic_diameter / fluid.viscosity
             }),
-            velocity: flow_rate.map(|q| q / properties.area),
+            velocity: flow_rate.map(|q| q / properties.area.into_base()),
             flow_rate,
             shear_rate: None,
             temperature,

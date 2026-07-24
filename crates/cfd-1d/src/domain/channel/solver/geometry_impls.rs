@@ -38,8 +38,8 @@
 use crate::domain::channel::cross_section::CrossSection;
 use crate::domain::channel::geometry::{ChannelGeometry, ChannelType};
 use crate::scalar::Cfd1dScalar;
-use aequitas::systems::si::quantities::Length;
-use cfd_core::physics::constants::mathematical::{numeric, PI};
+use aequitas::systems::si::quantities::{Area, Length};
+use cfd_core::physics::constants::mathematical::{PI, numeric};
 use eunomia::{FloatElement, NumericElement};
 
 impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
@@ -48,8 +48,11 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
         use crate::domain::channel::surface::{SurfaceProperties, Wettability};
         Self {
             channel_type: ChannelType::Straight,
-            length,
-            cross_section: CrossSection::Rectangular { width, height },
+            length: Length::from_base(length),
+            cross_section: CrossSection::Rectangular {
+                width: Length::from_base(width),
+                height: Length::from_base(height),
+            },
             surface: SurfaceProperties {
                 roughness: Length::from_base(roughness),
                 contact_angle: None,
@@ -65,8 +68,10 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
         use crate::domain::channel::surface::{SurfaceProperties, Wettability};
         Self {
             channel_type: ChannelType::Straight,
-            length,
-            cross_section: CrossSection::Circular { diameter },
+            length: Length::from_base(length),
+            cross_section: CrossSection::Circular {
+                diameter: Length::from_base(diameter),
+            },
             surface: SurfaceProperties {
                 roughness: Length::from_base(roughness),
                 contact_angle: None,
@@ -78,13 +83,13 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
     }
 
     /// Cross-sectional area `A` \[m²].
-    pub fn area(&self) -> T {
-        match &self.cross_section {
-            CrossSection::Rectangular { width, height } => *width * *height,
+    pub fn area(&self) -> Area<T> {
+        let area = match &self.cross_section {
+            CrossSection::Rectangular { width, height } => width.into_base() * height.into_base(),
             CrossSection::Circular { diameter } => {
                 let pi = T::from_f64_or_zero(PI);
                 let two = T::from_f64_or_zero(numeric::TWO);
-                let radius = *diameter / two;
+                let radius = diameter.into_base() / two;
                 pi * radius * radius
             }
             CrossSection::Elliptical {
@@ -93,78 +98,94 @@ impl<T: Cfd1dScalar + Copy + FloatElement> ChannelGeometry<T> {
             } => {
                 let pi = T::from_f64_or_zero(PI);
                 let four = T::from_f64_or_zero(numeric::FOUR);
-                pi * *major_axis * *minor_axis / four
-            }
-            CrossSection::Trapezoidal {
-                top_width,
-                bottom_width,
-                height,
-            } => (*top_width + *bottom_width) * *height / (T::one() + T::one()),
-            CrossSection::Custom { area, .. } => *area,
-        }
-    }
-
-    /// Hydraulic diameter `D_h = 4A / P` \[m].
-    pub fn hydraulic_diameter(&self) -> T {
-        match &self.cross_section {
-            CrossSection::Rectangular { width, height } => {
-                let four = T::one() + T::one() + T::one() + T::one();
-                four * self.area() / ((T::one() + T::one()) * (*width + *height))
-            }
-            CrossSection::Circular { diameter } => *diameter,
-            CrossSection::Elliptical { .. } => {
-                let four = T::one() + T::one() + T::one() + T::one();
-                four * self.area() / self.wetted_perimeter()
+                pi * major_axis.into_base() * minor_axis.into_base() / four
             }
             CrossSection::Trapezoidal {
                 top_width,
                 bottom_width,
                 height,
             } => {
-                let area = self.area();
-                let hw = (*top_width - *bottom_width) / (T::one() + T::one());
+                (top_width.into_base() + bottom_width.into_base()) * height.into_base()
+                    / (T::one() + T::one())
+            }
+            CrossSection::Custom { area, .. } => area.into_base(),
+        };
+        Area::from_base(area)
+    }
+
+    /// Hydraulic diameter `D_h = 4A / P` \[m].
+    pub fn hydraulic_diameter(&self) -> Length<T> {
+        let hydraulic_diameter = match &self.cross_section {
+            CrossSection::Rectangular { width, height } => {
+                let four = T::one() + T::one() + T::one() + T::one();
+                four * self.area().into_base()
+                    / ((T::one() + T::one()) * (width.into_base() + height.into_base()))
+            }
+            CrossSection::Circular { diameter } => diameter.into_base(),
+            CrossSection::Elliptical { .. } => {
+                let four = T::one() + T::one() + T::one() + T::one();
+                four * self.area().into_base() / self.wetted_perimeter().into_base()
+            }
+            CrossSection::Trapezoidal {
+                top_width,
+                bottom_width,
+                height,
+            } => {
+                let area = self.area().into_base();
+                let hw = (top_width.into_base() - bottom_width.into_base()) / (T::one() + T::one());
                 let side_length = <T as NumericElement>::sqrt(
-                    <T as FloatElement>::powi(*height, 2) + <T as FloatElement>::powi(hw, 2),
+                    <T as FloatElement>::powi(height.into_base(), 2)
+                        + <T as FloatElement>::powi(hw, 2),
                 );
-                let perimeter = *top_width + *bottom_width + (T::one() + T::one()) * side_length;
+                let perimeter = top_width.into_base()
+                    + bottom_width.into_base()
+                    + (T::one() + T::one()) * side_length;
                 (T::one() + T::one() + T::one() + T::one()) * area / perimeter
             }
             CrossSection::Custom {
                 hydraulic_diameter, ..
-            } => *hydraulic_diameter,
-        }
+            } => hydraulic_diameter.into_base(),
+        };
+        Length::from_base(hydraulic_diameter)
     }
 
     /// Wetted perimeter `P` \[m].
     ///
     /// For elliptical cross-sections, this uses the exact AGM method for the
     /// complete elliptic integral of the second kind (see module-level docs).
-    pub fn wetted_perimeter(&self) -> T {
-        match &self.cross_section {
+    pub fn wetted_perimeter(&self) -> Length<T> {
+        let perimeter = match &self.cross_section {
             CrossSection::Rectangular { width, height } => {
-                (T::one() + T::one()) * (*width + *height)
+                (T::one() + T::one()) * (width.into_base() + height.into_base())
             }
-            CrossSection::Circular { diameter } => T::pi() * *diameter,
+            CrossSection::Circular { diameter } => T::pi() * diameter.into_base(),
             CrossSection::Elliptical {
                 major_axis,
                 minor_axis,
-            } => self.ellipse_perimeter_agm(*major_axis, *minor_axis),
+            } => self.ellipse_perimeter_agm(major_axis.into_base(), minor_axis.into_base()),
             CrossSection::Trapezoidal {
                 top_width,
                 bottom_width,
                 height,
             } => {
-                let hw = (*top_width - *bottom_width) / (T::one() + T::one());
+                let hw = (top_width.into_base() - bottom_width.into_base()) / (T::one() + T::one());
                 let side_length = <T as NumericElement>::sqrt(
-                    <T as FloatElement>::powi(*height, 2) + <T as FloatElement>::powi(hw, 2),
+                    <T as FloatElement>::powi(height.into_base(), 2)
+                        + <T as FloatElement>::powi(hw, 2),
                 );
-                *top_width + *bottom_width + (T::one() + T::one()) * side_length
+                top_width.into_base()
+                    + bottom_width.into_base()
+                    + (T::one() + T::one()) * side_length
             }
             CrossSection::Custom {
                 area,
                 hydraulic_diameter,
-            } => (T::one() + T::one() + T::one() + T::one()) * *area / *hydraulic_diameter,
-        }
+            } => {
+                (T::one() + T::one() + T::one() + T::one()) * area.into_base()
+                    / hydraulic_diameter.into_base()
+            }
+        };
+        Length::from_base(perimeter)
     }
 
     /// Exact ellipse perimeter via the Arithmetic-Geometric Mean (AGM) method

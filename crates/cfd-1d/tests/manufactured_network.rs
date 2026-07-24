@@ -1,4 +1,4 @@
-use eunomia::assert_relative_eq;
+use aequitas::systems::si::quantities::{Area, Length};
 use cfd_1d::domain::network::ComponentType;
 use cfd_1d::{
     Edge, EdgeProperties, EdgeType, Network, NetworkBuilder, NetworkProblem, NetworkSolver,
@@ -7,6 +7,7 @@ use cfd_1d::{
 use cfd_core::compute::solver::traits::Solver;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::database;
+use eunomia::assert_relative_eq;
 
 #[test]
 fn test_series_additivity() -> Result<()> {
@@ -32,8 +33,8 @@ fn test_series_additivity() -> Result<()> {
     let props1 = EdgeProperties {
         id: "e1".into(),
         component_type: ComponentType::Pipe,
-        length: 1.0,
-        area: 1.0,
+        length: Length::from_base(1.0),
+        area: Area::from_base(1.0),
         hydraulic_diameter: None,
         resistance: 2.0,
         geometry: None,
@@ -43,8 +44,8 @@ fn test_series_additivity() -> Result<()> {
     let props2 = EdgeProperties {
         id: "e2".into(),
         component_type: ComponentType::Pipe,
-        length: 1.0,
-        area: 1.0,
+        length: Length::from_base(1.0),
+        area: Area::from_base(1.0),
         hydraulic_diameter: None,
         resistance: 3.0,
         geometry: None,
@@ -104,8 +105,8 @@ fn test_parallel_quadratic_branches() -> Result<()> {
     let props1 = EdgeProperties {
         id: "e1".into(),
         component_type: ComponentType::Pipe,
-        length: 1.0,
-        area: 1.0,
+        length: Length::from_base(1.0),
+        area: Area::from_base(1.0),
         hydraulic_diameter: None,
         resistance: 1.0,
         geometry: None,
@@ -115,8 +116,8 @@ fn test_parallel_quadratic_branches() -> Result<()> {
     let props2 = EdgeProperties {
         id: "e2".into(),
         component_type: ComponentType::Pipe,
-        length: 1.0,
-        area: 1.0,
+        length: Length::from_base(1.0),
+        area: Area::from_base(1.0),
         hydraulic_diameter: None,
         resistance: 2.0,
         geometry: None,
@@ -126,8 +127,8 @@ fn test_parallel_quadratic_branches() -> Result<()> {
     let props3 = EdgeProperties {
         id: "merge".into(),
         component_type: ComponentType::Pipe,
-        length: 1.0,
-        area: 1.0,
+        length: Length::from_base(1.0),
+        area: Area::from_base(1.0),
         hydraulic_diameter: None,
         resistance: 1e-9,
         geometry: None,
@@ -211,8 +212,8 @@ fn test_parallel_additivity() -> Result<()> {
     let props1 = EdgeProperties {
         id: "e1".into(),
         component_type: ComponentType::Pipe,
-        length: 1.0,
-        area: 1.0,
+        length: Length::from_base(1.0),
+        area: Area::from_base(1.0),
         hydraulic_diameter: None,
         resistance: 2.0,
         geometry: None,
@@ -222,8 +223,8 @@ fn test_parallel_additivity() -> Result<()> {
     let props2 = EdgeProperties {
         id: "e2".into(),
         component_type: ComponentType::Pipe,
-        length: 1.0,
-        area: 1.0,
+        length: Length::from_base(1.0),
+        area: Area::from_base(1.0),
         hydraulic_diameter: None,
         resistance: 3.0,
         geometry: None,
@@ -233,8 +234,8 @@ fn test_parallel_additivity() -> Result<()> {
     let props3 = EdgeProperties {
         id: "merge".into(),
         component_type: ComponentType::Pipe,
-        length: 1.0,
-        area: 1.0,
+        length: Length::from_base(1.0),
+        area: Area::from_base(1.0),
         hydraulic_diameter: None,
         resistance: 1e-9,
         geometry: None,
@@ -341,8 +342,8 @@ fn test_quadratic_resistance() -> Result<()> {
     let props1 = EdgeProperties {
         id: "e1".into(),
         component_type: ComponentType::Pipe,
-        length: 1.0,
-        area: 1.0,
+        length: Length::from_base(1.0),
+        area: Area::from_base(1.0),
         hydraulic_diameter: None,
         resistance: 1.0,
         geometry: None,

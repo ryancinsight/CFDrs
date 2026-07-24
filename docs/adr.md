@@ -6,6 +6,7 @@
 
 | Decision | Date | Rationale | Metrics | Trade-offs |
 |----------|------|-----------|---------|------------|
+| **Aequitas-owned channel and network geometry metrics** | 2026-07-24 | Public channel cross-sections, lengths, edge areas, and hydraulic diameters documented SI units but remained raw scalars across the network boundary | Length and Area remain typed through cross-sections, channel geometry, edges, blueprint conversion, analyzers, and transient transport | Breaking change for external network constructors and property implementors |
 | **Aequitas-owned component geometry and volume metrics** | 2026-07-24 | Public component geometry and volume contracts documented SI units but stored lengths, areas, roughness, and volumes as raw scalars | Length, Area, and Volume remain typed through channels, membranes, organs, and network channel properties | Breaking change for external component constructors and `Component` implementors |
 | **Aequitas-owned surface and wetting metrics** | 2026-07-24 | Public surface contracts documented SI units but stored roughness, angles, surface energy, and tension as raw scalars | Length, Angle, EnergyPerArea, and SurfaceTension remain typed through public material and channel boundaries | Breaking change for external surface/interface constructors and trait implementors |
 | **Modular Crate Architecture** | 2023-Q1 | Compile bottlenecks in monolith | 8 specialized crates, 0.13s build | ✅ Parallel builds ⚠️ API coordination |
@@ -76,6 +77,29 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-24: Aequitas owns channel and network geometry quantities [major] [arch]
+
+Context: `cfd-1d` `CrossSection`, `ChannelGeometry`, `Edge`, and
+`EdgeProperties` documented length, area, and hydraulic-diameter units but
+exposed untyped scalar fields across public network construction and analysis.
+
+Decision: store public cross-section dimensions, custom area, channel length,
+edge area, and edge-property geometry as Aequitas `Length` and `Area` values.
+Extract base scalars only at resistance, junction-loss, transient, analysis,
+and other numerical kernel boundaries.
+
+Rejected alternative: retaining scalar fields or adding typed accessors beside
+them would preserve dimensional ambiguity or duplicate the geometry owner.
+
+Consequences: external network constructors and property implementors have a
+breaking migration; blueprint conversion and dynamic examples remain explicit
+scalar adapters.
+
+Verification: locked `cfd-1d` check and Nextest pass 729/729 with 3 skips,
+including network assembly, transient transport, analyzers, blueprint
+conversion, property, and adversarial tests. Doctest, Rustdoc, and lint limits
+are recorded in the child gap audit.
 
 ### 2026-07-24: Aequitas owns component geometry and volume quantities [major] [arch]
 

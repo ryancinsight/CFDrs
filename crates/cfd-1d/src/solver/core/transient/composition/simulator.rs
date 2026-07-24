@@ -3,8 +3,8 @@ use super::events::{
 };
 use super::state::{CompositionState, MixtureComposition};
 use crate::domain::network::{
-    Network, EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
-    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
+    EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
+    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S, Network,
 };
 use crate::scalar::Cfd1dScalar;
 use crate::solver::core::{NetworkSolveScalar, NetworkSolver};
@@ -1882,9 +1882,11 @@ impl TransientCompositionSimulator {
                 .copied();
             let flow_rate = flow_rates.get(edge_index).copied().unwrap_or_else(T::zero);
             let Some(segment_mu) = Self::segment_integrated_blood_apparent_viscosity(
-                props.hydraulic_diameter,
+                props
+                    .hydraulic_diameter
+                    .map(|diameter| diameter.into_base()),
                 flow_rate,
-                props.area,
+                props.area.into_base(),
                 segments,
                 plasma_viscosity,
             ) else {
@@ -2271,10 +2273,9 @@ impl TransientCompositionSimulator {
         edge_idx: petgraph::graph::EdgeIndex,
     ) -> bool {
         let tolerance = scalar::<T>(1.0e-12);
-        network
-            .properties
-            .get(&edge_idx)
-            .is_some_and(|props| props.area > tolerance && props.length > tolerance)
+        network.properties.get(&edge_idx).is_some_and(|props| {
+            props.area.into_base() > tolerance && props.length.into_base() > tolerance
+        })
     }
 
     fn advance_blood_edge_mixtures<
@@ -2310,7 +2311,8 @@ impl TransientCompositionSimulator {
             let Some(props) = network.properties.get(&edge_idx) else {
                 continue;
             };
-            let residence_time = props.area * props.length / <T as NumericElement>::abs(flow_rate);
+            let residence_time = props.area.into_base() * props.length.into_base()
+                / <T as NumericElement>::abs(flow_rate);
             if residence_time <= tolerance {
                 continue;
             }
@@ -2385,8 +2387,8 @@ impl TransientCompositionSimulator {
                 current_segments.len(),
                 "invariant: segment count fits in u32 for transport substepping",
             );
-            let segment_residence_time =
-                props.area * props.length / (<T as NumericElement>::abs(flow_rate) * segment_count);
+            let segment_residence_time = props.area.into_base() * props.length.into_base()
+                / (<T as NumericElement>::abs(flow_rate) * segment_count);
             if segment_residence_time <= tolerance {
                 continue;
             }
@@ -2515,7 +2517,8 @@ impl TransientCompositionSimulator {
                     }
                     continue;
                 };
-                let Some(parent_diameter) = parent_props.hydraulic_diameter else {
+                let Some(parent_diameter) = parent_props.hydraulic_diameter.map(|d| d.into_base())
+                else {
                     for &(edge_idx, _) in &outgoing {
                         edge_inlet_hematocrits.insert(edge_idx, node_hct);
                     }
@@ -2527,12 +2530,12 @@ impl TransientCompositionSimulator {
                     let left_d = network
                         .properties
                         .get(&petgraph::graph::EdgeIndex::new(left.0))
-                        .and_then(|props| props.hydraulic_diameter)
+                        .and_then(|props| props.hydraulic_diameter.map(|d| d.into_base()))
                         .unwrap_or_else(T::zero);
                     let right_d = network
                         .properties
                         .get(&petgraph::graph::EdgeIndex::new(right.0))
-                        .and_then(|props| props.hydraulic_diameter)
+                        .and_then(|props| props.hydraulic_diameter.map(|d| d.into_base()))
                         .unwrap_or_else(T::zero);
                     left_d
                         .partial_cmp(&right_d)
@@ -2560,13 +2563,15 @@ impl TransientCompositionSimulator {
                     }
                     continue;
                 };
-                let Some(first_diameter) = first_props.hydraulic_diameter else {
+                let Some(first_diameter) = first_props.hydraulic_diameter.map(|d| d.into_base())
+                else {
                     for &(edge_idx, _) in &daughters {
                         edge_inlet_hematocrits.insert(edge_idx, node_hct);
                     }
                     continue;
                 };
-                let Some(second_diameter) = second_props.hydraulic_diameter else {
+                let Some(second_diameter) = second_props.hydraulic_diameter.map(|d| d.into_base())
+                else {
                     for &(edge_idx, _) in &daughters {
                         edge_inlet_hematocrits.insert(edge_idx, node_hct);
                     }

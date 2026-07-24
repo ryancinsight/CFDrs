@@ -32,21 +32,19 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-12 [major] - Type channel cross-section and edge geometry
-  (IN PROGRESS; owner=Codex; scope=`cfd-1d` CrossSection/ChannelGeometry,
-  Edge/EdgeProperties, network and resistance callers/tests, and PM artifacts).**
-  Public network geometry still exposes lengths, widths, diameters, areas, and
-  hydraulic diameters as raw scalars. Acceptance is typed Length/Area geometry,
-  scalar extraction only at resistance and solver kernels, migrated callers,
-  value-semantic tests, residue scans, and locked focused gates.
+  (IMPLEMENTATION COMPLETE; owner=Codex; scope=`cfd-1d`
+  CrossSection/ChannelGeometry, Edge/EdgeProperties, network and resistance
+  callers/tests, and PM artifacts).** Public channel/network geometry now uses
+  typed Length/Area values; scalar extraction remains at numerical kernels.
+  Acceptance evidence: locked cfd-1d check passes and Nextest passes 729/729
+  with 3 skipped. Doctest, Rustdoc, Clippy, and runtime-budget limits are
+  recorded in `gap_audit.md`.
 
 - **CFDRS-AEQ-MET-11 [major] - Type component geometry and volume metrics
-  (IN PROGRESS; owner=Codex; scope=`cfd-1d` component geometry, the Component
-  volume contract, `ChannelProperties`, in-tree factories/tests, and PM
-  artifacts).** Public channel, membrane, and organ component boundaries still
-  expose lengths, areas, roughness, and volumes as raw scalars. Acceptance is
-  typed geometry and volume storage, scalar extraction only at resistance or
-  dynamic-parameter boundaries, migrated value-semantic tests, residue scans,
-  and locked focused gates.
+  (IMPLEMENTATION COMPLETE; owner=Codex; scope=`cfd-1d` component geometry,
+  the Component volume contract, `ChannelProperties`, in-tree
+  factories/tests, and PM artifacts).** Component geometry and volume now use
+  typed Length/Area/Volume values. Evidence is recorded in the child audit.
 
 - **CFDRS-AEQ-MET-10 [major] - Type surface and wetting physical metrics
   (IMPLEMENTATION COMPLETE; focused verification complete with one independent

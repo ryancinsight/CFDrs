@@ -4,15 +4,15 @@
 //! [`Network`] with physically refined resistance coefficients.
 
 use super::super::{
+    Edge, EdgeProperties, Node, ResistanceUpdatePolicy,
     blueprint_validation::validate_blueprint_for_1d_solve,
-    junction_losses::apply_blueprint_junction_losses, Edge, EdgeProperties, Node,
-    ResistanceUpdatePolicy,
+    junction_losses::apply_blueprint_junction_losses,
 };
 use super::network_builder::NetworkBuilder;
 use super::venturi_coefficients::venturi_coefficients;
 use crate::physics::resistance::models::BendType;
 use crate::scalar::Cfd1dScalar;
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{Area, Length};
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::{Error, Result};
 use cfd_schematics::domain::model::{ChannelShape, EdgeKind, NetworkBlueprint};
@@ -22,8 +22,8 @@ use std::collections::HashMap;
 use std::hash::BuildHasher;
 
 use crate::domain::network::wrapper::{
-    blood_microchannel_apparent_viscosity, EDGE_PROPERTY_HEMATOCRIT,
-    EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
+    EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
+    blood_microchannel_apparent_viscosity,
 };
 use cfd_core::physics::fluid::FluidTrait;
 
@@ -175,7 +175,9 @@ where
                         diameter_m
                     )));
                 }
-                T::from_f64_or_zero(std::f64::consts::PI * (diameter_m / 2.0).powi(2))
+                Area::from_base(T::from_f64_or_zero(
+                    std::f64::consts::PI * (diameter_m / 2.0).powi(2),
+                ))
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
                 if width_m <= 0.0
@@ -190,7 +192,7 @@ where
                         height_m
                     )));
                 }
-                T::from_f64_or_zero(width_m * height_m)
+                Area::from_base(T::from_f64_or_zero(width_m * height_m))
             }
         };
 
@@ -222,27 +224,31 @@ where
                 ch_spec.length_m
             )));
         }
-        let length = T::from_f64_or_zero(ch_spec.length_m);
+        let length = Length::from_base(T::from_f64_or_zero(ch_spec.length_m));
 
         let (area, dh, cross_section, res_geom) = match ch_spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
-                let d = T::from_f64_or_zero(diameter_m);
-                let a = T::from_f64_or_zero(std::f64::consts::PI * (diameter_m / 2.0).powi(2));
+                let d = Length::from_base(T::from_f64_or_zero(diameter_m));
+                let a = Area::from_base(T::from_f64_or_zero(
+                    std::f64::consts::PI * (diameter_m / 2.0).powi(2),
+                ));
                 (
                     a,
                     Some(d),
                     CrossSection::Circular { diameter: d },
                     ResGeometry::Circular {
-                        diameter: d,
-                        length,
+                        diameter: d.into_base(),
+                        length: length.into_base(),
                     },
                 )
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
-                let w = T::from_f64_or_zero(width_m);
-                let h = T::from_f64_or_zero(height_m);
-                let a = T::from_f64_or_zero(width_m * height_m);
-                let dh = T::from_f64_or_zero(2.0 * width_m * height_m / (width_m + height_m));
+                let w = Length::from_base(T::from_f64_or_zero(width_m));
+                let h = Length::from_base(T::from_f64_or_zero(height_m));
+                let a = Area::from_base(T::from_f64_or_zero(width_m * height_m));
+                let dh = Length::from_base(T::from_f64_or_zero(
+                    2.0 * width_m * height_m / (width_m + height_m),
+                ));
                 (
                     a,
                     Some(dh),
@@ -251,9 +257,9 @@ where
                         height: h,
                     },
                     ResGeometry::Rectangular {
-                        width: w,
-                        height: h,
-                        length,
+                        width: w.into_base(),
+                        height: h.into_base(),
+                        length: length.into_base(),
                     },
                 )
             }
@@ -323,8 +329,9 @@ where
         if let Some((r, k)) = refined {
             let mut resistance_scale = T::one();
             if let Some(dh_val) = dh {
+                let dh_val = dh_val.into_base();
                 let dh_f64 = <T as NumericElement>::to_f64(dh_val);
-                let l_f64 = <T as NumericElement>::to_f64(length);
+                let l_f64 = <T as NumericElement>::to_f64(length.into_base());
                 let l_over_dh = l_f64 / dh_f64.max(1e-12);
 
                 if l_over_dh < 50.0 {
@@ -340,6 +347,7 @@ where
                 if is_blood_like && dh_f64 < 300.0e-6 {
                     let q_seed_t = conds.flow_rate.unwrap_or_else(T::zero);
                     let q_seed = <T as NumericElement>::to_f64(q_seed_t);
+                    let area = area.into_base();
                     let area_f64 = <T as NumericElement>::to_f64(area);
                     if let Some(target_mu) = blood_microchannel_apparent_viscosity(
                         dh_val,

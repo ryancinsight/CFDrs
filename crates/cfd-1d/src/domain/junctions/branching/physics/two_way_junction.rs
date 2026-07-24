@@ -10,7 +10,7 @@ use cfd_core::error::Error;
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
 use eunomia::{FloatElement, NumericElement};
 
-use super::pressure_balance::{bisect_root, ScalarSolveTolerances};
+use super::pressure_balance::{ScalarSolveTolerances, bisect_root};
 use super::two_way_solution::TwoWayBranchSolution;
 
 /// Two-way branch junction connecting parent channel to two daughter channels
@@ -74,12 +74,14 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
     /// Get hydraulic diameter from a channel's cross section
     pub(crate) fn hydraulic_diameter(channel: &Channel<T>) -> T {
         match &channel.geometry.cross_section {
-            CrossSection::Circular { diameter } => *diameter,
+            CrossSection::Circular { diameter } => diameter.into_base(),
             CrossSection::Rectangular { width, height } => {
                 let four = T::from_f64_or_one(4.0);
                 let two = T::from_f64_or_one(2.0);
-                let area = *width * *height;
-                let perimeter = two * (*width + *height);
+                let width = width.into_base();
+                let height = height.into_base();
+                let area = width * height;
+                let perimeter = two * (width + height);
                 four * area / perimeter
             }
             CrossSection::Elliptical {
@@ -90,8 +92,8 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
                 let two = T::from_f64_or_one(2.0);
                 let four = T::from_f64_or_one(4.0);
 
-                let a_val = *major_axis / two;
-                let b_val = *minor_axis / two;
+                let a_val = major_axis.into_base() / two;
+                let b_val = minor_axis.into_base() / two;
 
                 let (a, b) = if a_val > b_val {
                     (a_val, b_val)
@@ -142,17 +144,20 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
             } => {
                 let two = T::from_f64_or_one(2.0);
                 let four = T::from_f64_or_one(4.0);
-                let area = (*top_width + *bottom_width) * *height / two;
+                let top_width = top_width.into_base();
+                let bottom_width = bottom_width.into_base();
+                let height = height.into_base();
+                let area = (top_width + bottom_width) * height / two;
                 let side_length = <T as NumericElement>::sqrt(
-                    <T as FloatElement>::powi(*top_width - *bottom_width, 2) / four
-                        + <T as FloatElement>::powi(*height, 2),
+                    <T as FloatElement>::powi(top_width - bottom_width, 2) / four
+                        + <T as FloatElement>::powi(height, 2),
                 );
-                let perimeter = *top_width + *bottom_width + two * side_length;
+                let perimeter = top_width + bottom_width + two * side_length;
                 four * area / perimeter
             }
             CrossSection::Custom {
                 hydraulic_diameter, ..
-            } => *hydraulic_diameter,
+            } => hydraulic_diameter.into_base(),
         }
     }
 
@@ -230,7 +235,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> TwoWayBranchJunction<T> {
             pressure,
         );
         let d = Self::hydraulic_diameter(channel);
-        let l = channel.geometry.length;
+        let l = channel.geometry.length.into_base();
         (one_two_eight * mu * q * l) / (pi * d * d * d * d)
     }
 

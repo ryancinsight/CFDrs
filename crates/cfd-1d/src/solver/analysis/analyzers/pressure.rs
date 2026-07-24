@@ -57,7 +57,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
                 analysis.add_pressure_drop(edge.id.clone(), pressure_drop);
 
                 // Calculate pressure gradient
-                let length = edge.properties.length;
+                let length = edge.properties.length.into_base();
                 if length > T::zero() {
                     let gradient = pressure_drop / length;
                     analysis.add_pressure_gradient(edge.id.clone(), gradient);

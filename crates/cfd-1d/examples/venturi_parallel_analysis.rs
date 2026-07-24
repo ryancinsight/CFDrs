@@ -28,13 +28,13 @@ use cfd_core::physics::cavitation::VenturiCavitation;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_schematics::config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, TaperProfile};
 use cfd_schematics::domain::model::NodeKind;
-use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::SplitType;
+use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::plot_geometry;
+use cfd_schematics::visualizations::RenderConfig;
 use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
-use cfd_schematics::visualizations::RenderConfig;
 use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
@@ -203,7 +203,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let dp = (p_up - p_dn).abs();
 
             let props = solution.properties.get(&eidx);
-            let length = props.map(|p| p.length).unwrap_or(0.01);
+            let length = props.map(|p| p.length.into_base()).unwrap_or(0.01);
 
             // Throat geometry from FrustumConfig (SI units)
             let inlet_d = frustum_config.inlet_width / 1000.0; // mm → m

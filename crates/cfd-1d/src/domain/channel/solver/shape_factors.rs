@@ -100,10 +100,12 @@ pub fn poiseuille_number<T: Cfd1dScalar + Copy + SafeFromF64>(
         }
         CrossSection::Rectangular { width, height } => {
             // Shah-London polynomial for rectangular ducts
-            let (a, b) = if *width >= *height {
-                (*width, *height)
+            let width = width.into_base();
+            let height = height.into_base();
+            let (a, b) = if width >= height {
+                (width, height)
             } else {
-                (*height, *width)
+                (height, width)
             };
             if b <= T::zero() {
                 return T::from_f64_or_one(64.0);
@@ -117,8 +119,8 @@ pub fn poiseuille_number<T: Cfd1dScalar + Copy + SafeFromF64>(
             // Exact Stokes solution: Po = 2π(a² + b²) / (a·b)
             // (Dryden, Murnaghan & Bateman 1932)
             let two = T::one() + T::one();
-            let a = *major_axis / two;
-            let b = *minor_axis / two;
+            let a = major_axis.into_base() / two;
+            let b = minor_axis.into_base() / two;
             if a <= T::zero() || b <= T::zero() {
                 return T::from_f64_or_one(64.0);
             }
@@ -131,14 +133,17 @@ pub fn poiseuille_number<T: Cfd1dScalar + Copy + SafeFromF64>(
         } => {
             // Muzychka & Yovanovich (2002) equivalent rectangle method:
             // use mean width as the effective rectangular width.
-            let avg_width = (*top_width + *bottom_width) / (T::one() + T::one());
-            if *height <= T::zero() || avg_width <= T::zero() {
+            let top_width = top_width.into_base();
+            let bottom_width = bottom_width.into_base();
+            let height = height.into_base();
+            let avg_width = (top_width + bottom_width) / (T::one() + T::one());
+            if height <= T::zero() || avg_width <= T::zero() {
                 return T::from_f64_or_one(64.0);
             }
-            let (a, b) = if avg_width >= *height {
-                (avg_width, *height)
+            let (a, b) = if avg_width >= height {
+                (avg_width, height)
             } else {
-                (*height, avg_width)
+                (height, avg_width)
             };
             shah_london_po(a / b)
         }
@@ -152,6 +157,7 @@ pub fn poiseuille_number<T: Cfd1dScalar + Copy + SafeFromF64>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::Length;
 
     /// Square channel (α = 1): Po should be ≈ 56.908 per Shah-London Table 48.
     #[test]
@@ -192,7 +198,9 @@ mod tests {
     /// Circular cross-section gives Po = 64 exactly.
     #[test]
     fn test_circular_po() {
-        let cs = CrossSection::Circular { diameter: 0.001 };
+        let cs = CrossSection::Circular {
+            diameter: Length::from_base(0.001),
+        };
         let po: f64 = poiseuille_number(&cs);
         assert!(
             (po - 64.0).abs() < 1e-12,
@@ -204,8 +212,8 @@ mod tests {
     #[test]
     fn test_rectangular_po() {
         let cs = CrossSection::Rectangular {
-            width: 0.002,
-            height: 0.001,
+            width: Length::from_base(0.002),
+            height: Length::from_base(0.001),
         };
         let po: f64 = poiseuille_number(&cs);
         let expected: f64 = shah_london_po(2.0);

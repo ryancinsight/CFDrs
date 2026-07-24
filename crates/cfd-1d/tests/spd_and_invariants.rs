@@ -1,14 +1,14 @@
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{Area, Length};
 use cfd_1d::domain::network::{
-    Edge, EdgeProperties, EdgeType, Network, NetworkBuilder, ResistanceUpdatePolicy,
     EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
-    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
+    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S, Edge, EdgeProperties,
+    EdgeType, Network, NetworkBuilder, ResistanceUpdatePolicy,
 };
 use cfd_1d::solver::core::{LinearSolverMethod, NetworkProblem, NetworkSolver};
 use cfd_1d::{
-    blood_microchannel_apparent_viscosity, durst_resistance_multiplier, pries_phase_separation,
     ChannelGeometry, CrossSection, FlowConditions, ResistanceCalculator, ResistanceChannelGeometry,
-    SurfaceProperties, Wettability,
+    SurfaceProperties, Wettability, blood_microchannel_apparent_viscosity,
+    durst_resistance_multiplier, pries_phase_separation,
 };
 use cfd_core::compute::solver::Solver;
 use cfd_core::conversion::SafeFromF64;
@@ -84,14 +84,16 @@ fn flow_invariant_edges_skip_resistance_recomputation() -> Result<()> {
         EdgeProperties {
             id: "e".to_string(),
             component_type: cfd_1d::ComponentType::Pipe,
-            length: 1.0e-2,
-            area: 1.0e-6,
-            hydraulic_diameter: Some(1.0e-3),
+            length: Length::from_base(1.0e-2),
+            area: Area::from_base(1.0e-6),
+            hydraulic_diameter: Some(Length::from_base(1.0e-3)),
             resistance: 7.5,
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
-                length: 1.0e-2,
-                cross_section: CrossSection::Circular { diameter: 1.0e-3 },
+                length: Length::from_base(1.0e-2),
+                cross_section: CrossSection::Circular {
+                    diameter: Length::from_base(1.0e-3),
+                },
                 surface: SurfaceProperties {
                     roughness: Length::from_base(0.0),
                     contact_angle: None,
@@ -127,14 +129,16 @@ fn flow_dependent_short_channel_reapplies_durst_correction() -> Result<()> {
         EdgeProperties {
             id: "e".to_string(),
             component_type: cfd_1d::ComponentType::Pipe,
-            length,
-            area,
-            hydraulic_diameter: Some(diameter),
+            length: Length::from_base(length),
+            area: Area::from_base(area),
+            hydraulic_diameter: Some(Length::from_base(diameter)),
             resistance: 0.0,
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
-                length,
-                cross_section: CrossSection::Circular { diameter },
+                length: Length::from_base(length),
+                cross_section: CrossSection::Circular {
+                    diameter: Length::from_base(diameter),
+                },
                 surface: SurfaceProperties {
                     roughness: Length::from_base(0.0),
                     contact_angle: None,
@@ -198,14 +202,16 @@ fn flow_dependent_blood_microchannel_uses_hematocrit_aware_apparent_viscosity() 
         EdgeProperties {
             id: "e".to_string(),
             component_type: cfd_1d::ComponentType::Pipe,
-            length,
-            area,
-            hydraulic_diameter: Some(diameter),
+            length: Length::from_base(length),
+            area: Area::from_base(area),
+            hydraulic_diameter: Some(Length::from_base(diameter)),
             resistance: 0.0,
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
-                length,
-                cross_section: CrossSection::Circular { diameter },
+                length: Length::from_base(length),
+                cross_section: CrossSection::Circular {
+                    diameter: Length::from_base(diameter),
+                },
                 surface: SurfaceProperties {
                     roughness: Length::from_base(0.0),
                     contact_angle: None,
@@ -281,14 +287,16 @@ fn blood_microchannel_override_properties_change_resistance() -> Result<()> {
         EdgeProperties {
             id: "e".to_string(),
             component_type: cfd_1d::ComponentType::Pipe,
-            length,
-            area,
-            hydraulic_diameter: Some(diameter),
+            length: Length::from_base(length),
+            area: Area::from_base(area),
+            hydraulic_diameter: Some(Length::from_base(diameter)),
             resistance: 0.0,
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
-                length,
-                cross_section: CrossSection::Circular { diameter },
+                length: Length::from_base(length),
+                cross_section: CrossSection::Circular {
+                    diameter: Length::from_base(diameter),
+                },
                 surface: SurfaceProperties {
                     roughness: Length::from_base(0.0),
                     contact_angle: None,
@@ -362,14 +370,16 @@ fn local_apparent_viscosity_override_changes_blood_edge_resistance() -> Result<(
         EdgeProperties {
             id: "e".to_string(),
             component_type: cfd_1d::ComponentType::Pipe,
-            length,
-            area,
-            hydraulic_diameter: Some(diameter),
+            length: Length::from_base(length),
+            area: Area::from_base(area),
+            hydraulic_diameter: Some(Length::from_base(diameter)),
             resistance: 0.0,
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
-                length,
-                cross_section: CrossSection::Circular { diameter },
+                length: Length::from_base(length),
+                cross_section: CrossSection::Circular {
+                    diameter: Length::from_base(diameter),
+                },
                 surface: SurfaceProperties {
                     roughness: Length::from_base(0.0),
                     contact_angle: None,
@@ -452,14 +462,16 @@ fn flow_dependent_recompute_uses_shear_aware_reynolds_for_blood() -> Result<()> 
         EdgeProperties {
             id: "e".to_string(),
             component_type: cfd_1d::ComponentType::Pipe,
-            length,
-            area,
-            hydraulic_diameter: Some(diameter),
+            length: Length::from_base(length),
+            area: Area::from_base(area),
+            hydraulic_diameter: Some(Length::from_base(diameter)),
             resistance: 0.0,
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
-                length,
-                cross_section: CrossSection::Circular { diameter },
+                length: Length::from_base(length),
+                cross_section: CrossSection::Circular {
+                    diameter: Length::from_base(diameter),
+                },
                 surface: SurfaceProperties {
                     roughness: Length::from_base(0.0),
                     contact_angle: None,
@@ -542,14 +554,16 @@ fn bifurcation_transport_propagates_phase_separated_hematocrit() -> Result<()> {
             EdgeProperties {
                 id: id.to_string(),
                 component_type: cfd_1d::ComponentType::Pipe,
-                length,
-                area: std::f64::consts::PI * diameter * diameter / 4.0,
-                hydraulic_diameter: Some(diameter),
+                length: Length::from_base(length),
+                area: Area::from_base(std::f64::consts::PI * diameter * diameter / 4.0),
+                hydraulic_diameter: Some(Length::from_base(diameter)),
                 resistance: 0.0,
                 geometry: Some(ChannelGeometry {
                     channel_type: cfd_1d::ChannelType::Straight,
-                    length,
-                    cross_section: CrossSection::Circular { diameter },
+                    length: Length::from_base(length),
+                    cross_section: CrossSection::Circular {
+                        diameter: Length::from_base(diameter),
+                    },
                     surface: SurfaceProperties {
                         roughness: Length::from_base(0.0),
                         contact_angle: None,
@@ -652,14 +666,16 @@ fn cascade_transport_uses_parent_daughter_hematocrit_as_next_feed() -> Result<()
             EdgeProperties {
                 id: id.to_string(),
                 component_type: cfd_1d::ComponentType::Pipe,
-                length,
-                area: std::f64::consts::PI * diameter * diameter / 4.0,
-                hydraulic_diameter: Some(diameter),
+                length: Length::from_base(length),
+                area: Area::from_base(std::f64::consts::PI * diameter * diameter / 4.0),
+                hydraulic_diameter: Some(Length::from_base(diameter)),
                 resistance: 0.0,
                 geometry: Some(ChannelGeometry {
                     channel_type: cfd_1d::ChannelType::Straight,
-                    length,
-                    cross_section: CrossSection::Circular { diameter },
+                    length: Length::from_base(length),
+                    cross_section: CrossSection::Circular {
+                        diameter: Length::from_base(diameter),
+                    },
                     surface: SurfaceProperties {
                         roughness: Length::from_base(0.0),
                         contact_angle: None,
@@ -769,14 +785,16 @@ fn reconverging_transport_mixes_incoming_rbc_fluxes() -> Result<()> {
         |id: &str, properties: std::collections::HashMap<String, f64>| EdgeProperties {
             id: id.to_string(),
             component_type: cfd_1d::ComponentType::Pipe,
-            length,
-            area: std::f64::consts::PI * diameter * diameter / 4.0,
-            hydraulic_diameter: Some(diameter),
+            length: Length::from_base(length),
+            area: Area::from_base(std::f64::consts::PI * diameter * diameter / 4.0),
+            hydraulic_diameter: Some(Length::from_base(diameter)),
             resistance: 0.0,
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
-                length,
-                cross_section: CrossSection::Circular { diameter },
+                length: Length::from_base(length),
+                cross_section: CrossSection::Circular {
+                    diameter: Length::from_base(diameter),
+                },
                 surface: SurfaceProperties {
                     roughness: Length::from_base(0.0),
                     contact_angle: None,

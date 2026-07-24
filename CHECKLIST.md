@@ -1,25 +1,27 @@
 # CFDrs Work Checklist
 
-## Owner: Codex — CFDRS-AEQ-MET-12 typed channel cross-section and edge geometry [major] — in progress 2026-07-24
+## Owner: Codex — CFDRS-AEQ-MET-12 typed channel cross-section and edge geometry [major] — implementation complete 2026-07-24
 
-- [ ] Type `CrossSection`, `ChannelGeometry`, `Edge`, and `EdgeProperties`
+- [x] Type `CrossSection`, `ChannelGeometry`, `Edge`, and `EdgeProperties`
       with Aequitas `Length` and `Area` values.
-- [ ] Keep scalar extraction at resistance and solver kernels; migrate network
+- [x] Keep scalar extraction at resistance and solver kernels; migrate network
       conversions, geometry methods, tests, validation, and examples.
-- [ ] Synchronize the gap audit and changelog; run formatting and residue scans.
-- [ ] Run the locked focused cfd-1d check, Nextest, doctests, and Rustdoc; record
-      any independent timeout or pre-existing lint blocker exactly.
+- [x] Synchronize the ADR, design note, gap audit, backlog, and changelog; run
+      formatting and residue scans.
+- [x] Run the locked focused cfd-1d check and Nextest: 729/729 passed with 3
+      skips. Record doctest, Rustdoc, and lint limits exactly in the audit.
 
-## Owner: Codex — CFDRS-AEQ-MET-11 typed component geometry and volume metrics [major] — in progress 2026-07-24
+## Owner: Codex — CFDRS-AEQ-MET-11 typed component geometry and volume metrics [major] — implementation complete 2026-07-24
 
-- [ ] Type channel, membrane, and organ component geometry with Aequitas
+- [x] Type channel, membrane, and organ component geometry with Aequitas
       `Length` and `Area`; type the shared component volume result with
       `Volume` and `ChannelProperties` with `Length`.
-- [ ] Keep scalar conversion at resistance-model and dynamic-parameter
+- [x] Keep scalar conversion at resistance-model and dynamic-parameter
       boundaries; migrate factories, setters, tests, and value-semantic oracles.
-- [ ] Synchronize the gap audit and changelog; run formatting and residue scans.
-- [ ] Run the locked focused cfd-1d check, Nextest, doctests, and Rustdoc; record
-      any independent timeout or pre-existing lint blocker exactly.
+- [x] Synchronize the ADR, design note, gap audit, backlog, and changelog; run
+      formatting and residue scans.
+- [x] Run the locked focused cfd-1d check, Nextest, doctests, and Rustdoc; the
+      independent timeout and pre-existing Clippy blocker remain recorded.
 
 ## Owner: Codex — CFDRS-AEQ-MET-10 typed surface and wetting metrics [major] — implementation complete 2026-07-24
 

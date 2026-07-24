@@ -29,8 +29,8 @@
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
-use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 
 /// Hagen-Poiseuille resistance for a circular tube: R = 128·μ·L / (π·D⁴)
@@ -254,8 +254,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let props = solution.properties.get(&idx);
 
         let (velocity, shear_rate) = if let Some(p) = props {
-            let vel = q.abs() / p.area;
-            let sr = p.hydraulic_diameter.map(|d| 8.0 * vel / d).unwrap_or(0.0);
+            let vel = q.abs() / p.area.into_base();
+            let sr = p
+                .hydraulic_diameter
+                .map(|d| 8.0 * vel / d.into_base())
+                .unwrap_or(0.0);
             (vel, sr)
         } else {
             (0.0, 0.0)

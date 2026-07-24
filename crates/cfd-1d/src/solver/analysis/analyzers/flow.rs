@@ -46,15 +46,18 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
             if flow_rate != T::zero() {
                 analysis.add_component_flow(edge.id.clone(), flow_rate);
 
-                let area = edge.properties.area;
+                let area = edge.properties.area.into_base();
                 let velocity = flow_rate / area;
                 let velocity_mag = <T as NumericElement>::abs(velocity);
                 analysis.add_velocity(edge.id.clone(), velocity_mag);
 
-                let hydraulic_diameter = edge.properties.hydraulic_diameter.unwrap_or_else(|| {
-                    (T::one() + T::one() + T::one() + T::one()) * area
-                        / (T::pi() * <T as NumericElement>::sqrt(area))
-                });
+                let hydraulic_diameter = edge.properties.hydraulic_diameter.map_or_else(
+                    || {
+                        (T::one() + T::one() + T::one() + T::one()) * area
+                            / (T::pi() * <T as NumericElement>::sqrt(area))
+                    },
+                    |diameter| diameter.into_base(),
+                );
 
                 let reynolds = network.fluid().density * velocity_mag * hydraulic_diameter
                     / network.fluid().viscosity;
@@ -97,11 +100,14 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> FlowAnalyzer<T> {
         let properties = edge.properties;
 
         // Calculate Reynolds number
-        let area = properties.area;
-        let hydraulic_diameter = properties.hydraulic_diameter.unwrap_or_else(|| {
-            (T::one() + T::one() + T::one() + T::one()) * area
-                / (T::pi() * <T as NumericElement>::sqrt(area))
-        });
+        let area = properties.area.into_base();
+        let hydraulic_diameter = properties.hydraulic_diameter.map_or_else(
+            || {
+                (T::one() + T::one() + T::one() + T::one()) * area
+                    / (T::pi() * <T as NumericElement>::sqrt(area))
+            },
+            |diameter| diameter.into_base(),
+        );
 
         let velocity = flow_rate / area;
         let reynolds = fluid.density * <T as NumericElement>::abs(velocity) * hydraulic_diameter
@@ -153,9 +159,11 @@ mod tests {
             EdgeProperties {
                 id: "pipe".to_string(),
                 component_type: ComponentType::Pipe,
-                length: 0.1,
-                area: 1.0e-4,
-                hydraulic_diameter: Some(0.01),
+                length: aequitas::systems::si::quantities::Length::from_base(0.1),
+                area: aequitas::systems::si::quantities::Area::from_base(1.0e-4),
+                hydraulic_diameter: Some(aequitas::systems::si::quantities::Length::from_base(
+                    0.01,
+                )),
                 resistance: 1.0,
                 geometry: None,
                 resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,

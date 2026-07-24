@@ -99,7 +99,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
     /// Kn = λ / D_h
     /// ```
     fn update_flow_state(&mut self, fluid: &ConstantPropertyFluid<T>) -> Result<()> {
-        let dh = self.geometry.hydraulic_diameter();
+        let dh = self.geometry.hydraulic_diameter().into_base();
 
         let kn_opt = if dh > T::zero() {
             let sqrt_half_pi = T::from_f64_or_one(std::f64::consts::FRAC_PI_2.sqrt());
@@ -134,7 +134,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
                 }
                 FlowRegime::SlipFlow => dh * T::from_f64_or_one(0.06) * re,
             };
-            self.flow_state.entrance_effects = self.geometry.length < entrance_length;
+            self.flow_state.entrance_effects = self.geometry.length.into_base() < entrance_length;
         }
 
         Ok(())
@@ -154,10 +154,10 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
     /// `R = Po · μ · L / (2 · A · D_h²)`
     /// where `Po = f·Re` is the Poiseuille number (shape-dependent).
     pub fn laminar_resistance(&self, fluid: &ConstantPropertyFluid<T>) -> Result<T> {
-        let area = self.geometry.area();
-        let dh = self.geometry.hydraulic_diameter();
+        let area = self.geometry.area().into_base();
+        let dh = self.geometry.hydraulic_diameter().into_base();
         let po = poiseuille_number(&self.geometry.cross_section);
-        let resistance = po * fluid.dynamic_viscosity() * self.geometry.length
+        let resistance = po * fluid.dynamic_viscosity() * self.geometry.length.into_base()
             / ((T::one() + T::one()) * area * dh * dh);
         Ok(resistance)
     }
@@ -195,15 +195,15 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Channel<T> {
             )
         })?;
 
-        let area = self.geometry.area();
-        let dh = self.geometry.hydraulic_diameter();
+        let area = self.geometry.area().into_base();
+        let dh = self.geometry.hydraulic_diameter().into_base();
         let density = fluid.density;
         let viscosity = fluid.dynamic_viscosity();
         let velocity = (re * viscosity) / (density * dh);
         let model = DarcyWeisbachModel::new(
             dh,
             area,
-            self.geometry.length,
+            self.geometry.length.into_base(),
             self.geometry.surface.roughness.into_base(),
         );
         let mut conditions = FlowConditions::new(velocity);
@@ -271,15 +271,15 @@ mod tests {
         chan.flow_state.reynolds_number = Some(10_000.0);
         let fluid = water();
 
-        let d = chan.geometry.hydraulic_diameter();
-        let area = chan.geometry.area();
+        let d = chan.geometry.hydraulic_diameter().into_base();
+        let area = chan.geometry.area().into_base();
         let viscosity = fluid.dynamic_viscosity();
         let density = fluid.density;
         let velocity = (10_000.0 * viscosity) / (density * d);
         let mut conditions = FlowConditions::new(velocity);
         conditions.reynolds_number = Some(10_000.0);
 
-        let expected = DarcyWeisbachModel::new(d, area, chan.geometry.length, 1e-6)
+        let expected = DarcyWeisbachModel::new(d, area, chan.geometry.length.into_base(), 1e-6)
             .calculate_resistance(&fluid, &conditions)
             .unwrap();
         let actual = chan.turbulent_resistance(&fluid).unwrap();

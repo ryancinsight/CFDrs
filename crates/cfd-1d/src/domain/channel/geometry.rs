@@ -3,6 +3,7 @@
 use super::cross_section::CrossSection;
 use super::surface::SurfaceProperties;
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::Length;
 use serde::{Deserialize, Serialize};
 
 /// Extended channel geometry representation
@@ -11,7 +12,7 @@ pub struct ChannelGeometry<T: Cfd1dScalar + Copy> {
     /// Channel type
     pub channel_type: ChannelType,
     /// Length \[m]
-    pub length: T,
+    pub length: Length<T>,
     /// Cross-sectional parameters
     pub cross_section: CrossSection<T>,
     /// Surface properties

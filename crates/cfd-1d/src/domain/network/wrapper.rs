@@ -3,7 +3,7 @@
 use super::{NetworkGraph, Node};
 use crate::domain::channel::ChannelGeometry;
 use crate::scalar::Cfd1dScalar;
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{Area, Length};
 use cfd_core::{
     conversion::{SafeFromF64, SafeFromUsize},
     error::{Error, Result},
@@ -12,9 +12,9 @@ use cfd_core::{
 };
 use eunomia::{FloatElement, NumericElement};
 use leto::Array1;
+use petgraph::Direction;
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
-use petgraph::Direction;
 use std::collections::HashMap;
 
 /// Extended network with fluid properties and convenience methods
@@ -46,11 +46,11 @@ pub struct EdgeProperties<T: Cfd1dScalar + Copy> {
     /// Physical component type
     pub component_type: super::ComponentType,
     /// Length of the channel
-    pub length: T,
+    pub length: Length<T>,
     /// Cross-sectional area
-    pub area: T,
+    pub area: Area<T>,
     /// Hydraulic diameter
-    pub hydraulic_diameter: Option<T>,
+    pub hydraulic_diameter: Option<Length<T>>,
     /// Resistance coefficient
     pub resistance: T,
     /// Channel geometry if applicable
@@ -89,20 +89,24 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for EdgeProperties<
     /// 1D solver. It eliminates the need for examples to import `cfd_1d::channel`
     /// types directly.
     fn from(spec: &ChannelSpec) -> Self {
-        let length = T::from_f64_or_zero(spec.length_m);
+        let length = Length::from_base(T::from_f64_or_zero(spec.length_m));
         let resistance = T::from_f64_or_zero(spec.resistance);
 
         let (cross_section, area, hydraulic_diameter) = match spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
-                let d = T::from_f64_or_zero(diameter_m);
-                let a = T::from_f64_or_zero(std::f64::consts::PI * (diameter_m / 2.0).powi(2));
+                let d = Length::from_base(T::from_f64_or_zero(diameter_m));
+                let a = Area::from_base(T::from_f64_or_zero(
+                    std::f64::consts::PI * (diameter_m / 2.0).powi(2),
+                ));
                 (CrossSection::Circular { diameter: d }, a, Some(d))
             }
             CrossSectionSpec::Rectangular { width_m, height_m } => {
-                let w = T::from_f64_or_zero(width_m);
-                let h = T::from_f64_or_zero(height_m);
-                let a = T::from_f64_or_zero(width_m * height_m);
-                let dh = T::from_f64_or_zero(2.0 * width_m * height_m / (width_m + height_m));
+                let w = Length::from_base(T::from_f64_or_zero(width_m));
+                let h = Length::from_base(T::from_f64_or_zero(height_m));
+                let a = Area::from_base(T::from_f64_or_zero(width_m * height_m));
+                let dh = Length::from_base(T::from_f64_or_zero(
+                    2.0 * width_m * height_m / (width_m + height_m),
+                ));
                 (
                     CrossSection::Rectangular {
                         width: w,
@@ -327,7 +331,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             let total_length: T = self
                 .properties
                 .values()
-                .map(|p| p.length)
+                .map(|p| p.length.into_base())
                 .fold(T::zero(), |a, b| a + b);
             total_length / T::from_usize_or_one(self.properties.len())
         }
@@ -448,8 +452,10 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         conditions.temperature = t_std;
         let mut apparent_viscosity = None;
         if let Some(d_h) = props.hydraulic_diameter {
-            if d_h > epsilon && props.area > epsilon {
-                let velocity = <T as NumericElement>::abs(flow_rate) / props.area;
+            let d_h = d_h.into_base();
+            let area = props.area.into_base();
+            if d_h > epsilon && area > epsilon {
+                let velocity = <T as NumericElement>::abs(flow_rate) / area;
                 let shear_rate = eight * velocity / d_h;
                 let apparent_viscosity_local = self.fluid.viscosity_at_shear(
                     shear_rate,
@@ -516,7 +522,8 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 return Ok(());
             };
 
-            let res_geometry = channel_to_res_geometry(&geometry.cross_section, geometry.length);
+            let res_geometry =
+                channel_to_res_geometry(&geometry.cross_section, geometry.length.into_base());
             let (conditions, apparent_viscosity) = self.build_edge_flow_conditions(
                 props,
                 flow_rate,
@@ -543,16 +550,17 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                     Error::InvalidConfiguration(
                         "Rectangular branch requires hydraulic diameter for explicit Darcy-Weisbach surrogate".to_string(),
                     )
-                })?;
-                if props.area <= context.epsilon {
+                })?.into_base();
+                let area = props.area.into_base();
+                if area <= context.epsilon {
                     return Err(Error::InvalidConfiguration(
                         "Rectangular branch requires positive area for explicit Darcy-Weisbach surrogate".to_string(),
                     ));
                 }
                 crate::physics::resistance::models::DarcyWeisbachModel::new(
                     d_h,
-                    props.area,
-                    props.length,
+                    area,
+                    props.length.into_base(),
                     T::zero(),
                 )
                 .calculate_coefficients(&self.fluid, &conditions)?
@@ -567,9 +575,9 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             if let Some(d_h) = props.hydraulic_diameter {
                 apply_resistance_corrections(
                     &mut resistance,
-                    d_h,
-                    props.area,
-                    props.length,
+                    d_h.into_base(),
+                    props.area.into_base(),
+                    props.length.into_base(),
                     flow_rate,
                     context.density,
                     context.viscosity,
@@ -852,17 +860,17 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             .properties
             .get(&parent_edge)?
             .hydraulic_diameter
-            .map(<T as NumericElement>::to_f64)?;
+            .map(|d| d.into_base().to_f64())?;
         let daughter_a_diameter = self
             .properties
             .get(&daughter_a.0)?
             .hydraulic_diameter
-            .map(<T as NumericElement>::to_f64)?;
+            .map(|d| d.into_base().to_f64())?;
         let daughter_b_diameter = self
             .properties
             .get(&daughter_b.0)?
             .hydraulic_diameter
-            .map(<T as NumericElement>::to_f64)?;
+            .map(|d| d.into_base().to_f64())?;
         let q_a = daughter_a.1.to_f64();
         let q_b = daughter_b.1.to_f64();
         let h_feed = feed_hematocrit.to_f64();
@@ -977,14 +985,14 @@ fn channel_to_res_geometry<T: crate::scalar::Cfd1dScalar + Copy>(
     match cross_section {
         crate::domain::channel::CrossSection::Circular { diameter } => {
             crate::physics::resistance::ChannelGeometry::Circular {
-                diameter: *diameter,
+                diameter: diameter.into_base(),
                 length,
             }
         }
         crate::domain::channel::CrossSection::Rectangular { width, height } => {
             crate::physics::resistance::ChannelGeometry::Rectangular {
-                width: *width,
-                height: *height,
+                width: width.into_base(),
+                height: height.into_base(),
                 length,
             }
         }
@@ -992,8 +1000,8 @@ fn channel_to_res_geometry<T: crate::scalar::Cfd1dScalar + Copy>(
             major_axis,
             minor_axis,
         } => crate::physics::resistance::ChannelGeometry::Elliptical {
-            major_axis: *major_axis,
-            minor_axis: *minor_axis,
+            major_axis: major_axis.into_base(),
+            minor_axis: minor_axis.into_base(),
             length,
         },
         crate::domain::channel::CrossSection::Trapezoidal {
@@ -1001,17 +1009,17 @@ fn channel_to_res_geometry<T: crate::scalar::Cfd1dScalar + Copy>(
             bottom_width,
             height,
         } => crate::physics::resistance::ChannelGeometry::Trapezoidal {
-            top_width: *top_width,
-            bottom_width: *bottom_width,
-            height: *height,
+            top_width: top_width.into_base(),
+            bottom_width: bottom_width.into_base(),
+            height: height.into_base(),
             length,
         },
         crate::domain::channel::CrossSection::Custom {
             area,
             hydraulic_diameter,
         } => crate::physics::resistance::ChannelGeometry::Custom {
-            area: *area,
-            hydraulic_diameter: *hydraulic_diameter,
+            area: area.into_base(),
+            hydraulic_diameter: hydraulic_diameter.into_base(),
             length,
         },
     }

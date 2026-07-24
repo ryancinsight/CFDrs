@@ -1,7 +1,7 @@
 //! Network edge definitions
 
 use crate::scalar::Cfd1dScalar;
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{Area, Length};
 use cfd_core::conversion::SafeFromF64;
 use cfd_schematics::domain::model::EdgeKind;
 use eunomia::NumericElement;
@@ -25,7 +25,7 @@ pub struct Edge<T: Cfd1dScalar + Copy> {
     pub quad_coeff: T,
     /// Cross-sectional area \[m²\] derived from the channel geometry.
     /// Used for junction minor-loss K-factor corrections: ΔP = K·ρQ²/(2A²).
-    pub area: T,
+    pub area: Area<T>,
 }
 
 use cfd_schematics::domain::model::ChannelSpec;
@@ -69,7 +69,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for Edge<T> {
             flow_rate: T::zero(),
             resistance,
             quad_coeff,
-            area,
+            area: Area::from_base(area),
         }
     }
 }
@@ -84,7 +84,7 @@ impl<T: Cfd1dScalar + Copy> Edge<T> {
             flow_rate: T::zero(),
             resistance: T::one(),
             quad_coeff: T::zero(),
-            area: T::zero(),
+            area: Area::from_base(T::zero()),
         }
     }
 }

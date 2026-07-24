@@ -28,9 +28,9 @@ pub use status::{PrimarySolveDiagnostics, PrimarySolveError, SolveFailureReason,
 pub use workspace::SolverWorkspace;
 
 pub use transient::composition::{
-    BloodEdgeTransportConfig, CompositionState, EdgeFlowEvent, InletCompositionEvent,
-    InletHematocritEvent, MixtureComposition, PressureBoundaryEvent, SimulationTimeConfig,
-    TransientCompositionSimulator, BLOOD_PLASMA_FLUID_ID, BLOOD_RBC_FLUID_ID,
+    BLOOD_PLASMA_FLUID_ID, BLOOD_RBC_FLUID_ID, BloodEdgeTransportConfig, CompositionState,
+    EdgeFlowEvent, InletCompositionEvent, InletHematocritEvent, MixtureComposition,
+    PressureBoundaryEvent, SimulationTimeConfig, TransientCompositionSimulator,
 };
 pub use transient::droplets::{
     ChannelOccupancy, DropletBoundary, DropletInjection, DropletPosition, DropletSnapshot,
@@ -171,19 +171,22 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
         }
         network.validate_coefficients()?;
         for props in network.properties.values() {
-            if props.length <= T::zero() || !<T as NumericElement>::is_finite(props.length) {
+            let length = props.length.into_base();
+            if length <= T::zero() || !<T as NumericElement>::is_finite(length) {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Edge '{}' has invalid physical length",
                     props.id
                 )));
             }
-            if props.area <= T::zero() || !<T as NumericElement>::is_finite(props.area) {
+            let area = props.area.into_base();
+            if area <= T::zero() || !<T as NumericElement>::is_finite(area) {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Edge '{}' has invalid cross-sectional area",
                     props.id
                 )));
             }
             if let Some(d_h) = props.hydraulic_diameter {
+                let d_h = d_h.into_base();
                 if d_h <= T::zero() || !<T as NumericElement>::is_finite(d_h) {
                     return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                         "Edge '{}' has invalid hydraulic diameter",
@@ -478,12 +481,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
 
             let converged = self
                 .convergence
-                .has_converged_dual(
-                    &solution,
-                    &workspace.last_solution,
-                    residual_norm,
-                    rhs_norm,
-                )
+                .has_converged_dual(&solution, &workspace.last_solution, residual_norm, rhs_norm)
                 .map_err(|source| {
                     let reason = match &source {
                         Error::Convergence(ConvergenceErrorKind::InvalidValue)
@@ -531,7 +529,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
                 return Ok((network, diagnostics));
             }
 
-             workspace.last_solution = solution;
+            workspace.last_solution = solution;
             last_flow_rates.clone_from(&network.flow_rates);
         }
 

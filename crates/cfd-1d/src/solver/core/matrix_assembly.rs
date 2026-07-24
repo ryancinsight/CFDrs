@@ -293,7 +293,7 @@ mod tests {
                 flow_rate: 0.0,
                 resistance: 1.0 / g1,
                 quad_coeff: 0.0,
-                area: 1.0,
+                area: aequitas::systems::si::quantities::Area::from_base(1.0),
             },
         );
         graph.add_edge(
@@ -305,7 +305,7 @@ mod tests {
                 flow_rate: 0.0,
                 resistance: 1.0 / g2,
                 quad_coeff: 0.0,
-                area: 1.0,
+                area: aequitas::systems::si::quantities::Area::from_base(1.0),
             },
         );
 
@@ -334,14 +334,8 @@ mod tests {
         assert!((rhs[2] - 0.0).abs() < 1e-12);
 
         // Off-diagonals in Dirichlet rows should be zero
-        assert!(
-            mat.get(0, 1).is_none()
-                || mat.get(0, 1).unwrap().abs() < 1e-12
-        );
-        assert!(
-            mat.get(2, 1).is_none()
-                || mat.get(2, 1).unwrap().abs() < 1e-12
-        );
+        assert!(mat.get(0, 1).is_none() || mat.get(0, 1).unwrap().abs() < 1e-12);
+        assert!(mat.get(2, 1).is_none() || mat.get(2, 1).unwrap().abs() < 1e-12);
     }
 
     #[test]
@@ -411,7 +405,7 @@ mod tests {
             flow_rate: 0.0,
             resistance: 1.0 / g,
             quad_coeff: 0.0,
-            area: 1.0,
+            area: aequitas::systems::si::quantities::Area::from_base(1.0),
         };
         graph.add_edge(a, b, mk_edge("AB", 1.0));
         graph.add_edge(a, c, mk_edge("AC", 2.0));

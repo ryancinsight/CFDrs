@@ -25,10 +25,10 @@ use cfd_schematics::geometry::generator::create_geometry;
 
 use cfd_schematics::geometry::SplitType;
 use cfd_schematics::plot_geometry;
+use cfd_schematics::visualizations::RenderConfig;
 use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
-use cfd_schematics::visualizations::RenderConfig;
 use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
@@ -168,7 +168,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .properties
             .get(&petgraph::graph::EdgeIndex::new(eidx))
         {
-            let velocity = q.abs() / p.area;
+            let velocity = q.abs() / p.area.into_base();
 
             // Local pressure estimate: average of upstream/downstream node pressures
             let (src, dst) = solution

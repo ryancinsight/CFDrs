@@ -1,6 +1,7 @@
 //! Cross-sectional geometry definitions for channels
 
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::{Area, Length};
 use serde::{Deserialize, Serialize};
 
 /// Cross-sectional geometry
@@ -9,36 +10,36 @@ pub enum CrossSection<T: Cfd1dScalar + Copy> {
     /// Rectangular cross-section
     Rectangular {
         /// Width of the rectangular channel
-        width: T,
+        width: Length<T>,
         /// Height of the rectangular channel
-        height: T,
+        height: Length<T>,
     },
     /// Circular cross-section
     Circular {
         /// Diameter of the circular channel
-        diameter: T,
+        diameter: Length<T>,
     },
     /// Elliptical cross-section
     Elliptical {
         /// Major axis length of the ellipse
-        major_axis: T,
+        major_axis: Length<T>,
         /// Minor axis length of the ellipse
-        minor_axis: T,
+        minor_axis: Length<T>,
     },
     /// Trapezoidal cross-section
     Trapezoidal {
         /// Width at the top of the trapezoid
-        top_width: T,
+        top_width: Length<T>,
         /// Width at the bottom of the trapezoid
-        bottom_width: T,
+        bottom_width: Length<T>,
         /// Height of the trapezoid
-        height: T,
+        height: Length<T>,
     },
     /// Custom cross-section with area and hydraulic diameter
     Custom {
         /// Cross-sectional area
-        area: T,
+        area: Area<T>,
         /// Hydraulic diameter (4 * area / perimeter)
-        hydraulic_diameter: T,
+        hydraulic_diameter: Length<T>,
     },
 }

@@ -18,19 +18,19 @@ use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
 use cfd_core::physics::cavitation::CavitationNumber;
-use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::fluid::FluidTrait;
+use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
 use cfd_core::physics::hemolysis::HemolysisModel;
 use cfd_schematics::config::presets::smooth_serpentine;
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 
-use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::geometry::SplitType;
+use cfd_schematics::geometry::generator::create_geometry;
 use cfd_schematics::plot_geometry;
+use cfd_schematics::visualizations::RenderConfig;
 use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
-use cfd_schematics::visualizations::RenderConfig;
 use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
@@ -174,10 +174,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         if let Some(p) = props {
-            let velocity = q.abs() / p.area;
+            let velocity = q.abs() / p.area.into_base();
             let shear_rate = p
                 .hydraulic_diameter
-                .map(|d| 8.0 * velocity / d)
+                .map(|d| 8.0 * velocity / d.into_base())
                 .unwrap_or(0.0);
 
             // Apparent viscosity at this shear rate
@@ -188,7 +188,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Exposure time = channel length / mean velocity
             let exposure_time = if velocity > 1e-12 {
-                p.length / velocity
+                p.length.into_base() / velocity
             } else {
                 0.0
             };

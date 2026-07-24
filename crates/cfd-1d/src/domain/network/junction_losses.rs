@@ -151,24 +151,25 @@ where
         let run_area = run_edges
             .first()
             .and_then(|eidx| network.graph.edge_weight(*eidx))
-            .map(|edge| edge.area);
+            .map(|edge| edge.area.into_base());
         let branch_area_sum = branch_edges.iter().fold(T::zero(), |acc, eidx| {
             acc + network
                 .graph
                 .edge_weight(*eidx)
-                .map_or(T::zero(), |edge| edge.area)
+                .map_or(T::zero(), |edge| edge.area.into_base())
         });
 
         for eidx in &branch_edges {
             if let Some(edge) = network.graph.edge_weight_mut(*eidx) {
-                let area_sq = edge.area * edge.area;
+                let area = edge.area.into_base();
+                let area_sq = area * area;
                 if area_sq <= T::zero() {
                     continue;
                 }
                 let area_ratio_scale = run_area
                     .filter(|area| *area > T::zero())
                     .map_or(T::one(), |run_area| {
-                        <T as eunomia::FloatElement>::powf(edge.area / run_area, exp_t)
+                        <T as eunomia::FloatElement>::powf(area / run_area, exp_t)
                     });
                 let k_correction = (k_branch_t * area_ratio_scale) * rho_blood / (two * area_sq);
                 edge.quad_coeff += k_correction;
@@ -177,13 +178,14 @@ where
 
         for eidx in &run_edges {
             if let Some(edge) = network.graph.edge_weight_mut(*eidx) {
-                let area_sq = edge.area * edge.area;
+                let area = edge.area.into_base();
+                let area_sq = area * area;
                 if area_sq <= T::zero() {
                     continue;
                 }
-                let area_ratio_scale = if branch_area_sum > T::zero() && edge.area > T::zero() {
+                let area_ratio_scale = if branch_area_sum > T::zero() && area > T::zero() {
                     <T as eunomia::FloatElement>::powf(
-                        branch_area_sum / edge.area,
+                        branch_area_sum / area,
                         T::from_f64_or_zero(0.25),
                     )
                 } else {
