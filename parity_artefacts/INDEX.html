@@ -29,16 +29,18 @@
 
         <!-- Custom theme stylesheets -->
 
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
 
         <!-- Provide site root and default themes to javascript -->
         <script>
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-a07ad57e.js";
+            window.path_to_searchindex_js = "../searchindex-44d84cc1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-6aface8a.js"></script>
+        <script src="../toc-bcd88caf.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -198,6 +200,24 @@ INDEX from their <code>docs/book/SUMMARY.md</code> appendix:</p>
 emits <code>Access is denied. (os error 5)</code> during <code>mdbook build</code>.  This
 INDEX is the canonical landing page that satisfies mdbook’s file-based
 chapter resolution.</p>
+<h2 id="per-book-figure-manifests"><a class="header" href="#per-book-figure-manifests">Per-book figure manifests</a></h2>
+<p>Each atlas mdbook commits its deterministic figure set under
+<code>docs/book/figures/</code>. The manifest written by the per-repository
+<code>xtask prebook</code> subcommand pins every figure to the byte fingerprint
+of the file on disk; re-running <code>prebook</code> on unchanged inputs produces
+a byte-identical <code>MANIFEST.json</code>, satisfying the CI deterministic-
+evidence chain.</p>
+<ul>
+<li><strong>CFDrs</strong> – seven deterministic figures under
+<code>repos/CFDrs/docs/book/figures/</code>, regenerated into <code>MANIFEST.json</code>
+by <code>cargo run -p xtask -- prebook</code>; full list in
+<a href="../CFDrs/docs/book/README.html"><code>repos/CFDrs/docs/book/README.md</code></a>.</li>
+<li><strong>helios</strong> – seven deterministic figures under
+<code>repos/helios/docs/book/figures/</code>, regenerated into
+<code>MANIFEST.json</code> by <code>cargo run -p xtask -- prebook</code>; full list in
+<a href="../helios/docs/book/README.html"><code>repos/helios/docs/book/README.md</code></a>.</li>
+<li><strong>kwavers</strong> – figure set under <code>repos/kwavers/docs/book/figures/</code>.</li>
+</ul>
 <h2 id="what-this-archive-contains"><a class="header" href="#what-this-archive-contains">What this archive contains</a></h2>
 <div class="table-wrapper">
 <table>

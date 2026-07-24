@@ -43,6 +43,10 @@ Dω/Dt  = γ P_k/νt − β' ω² + ∇·[(ν + σ_ω νt) ∇ω] + CDkω
 The cross-diffusion term CDkω activates in the transition zone.  
 Reference: Menter (1994), AIAA J. 32(8), 1598–1605.
 
+## Generated Figure
+
+![Semi-log L2 residual vs iteration, SIMPLE vs PISO (two corrector steps)](../figures/residual_convergence_semilog.svg)
+
 ## Book Chapter
 
 [← Turbulence Models and Cavitation](../turbulence_multiphase.md)

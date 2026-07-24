@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 320" width="360" height="320" role="img" aria-label="Lid-driven cavity 2D primary-vortex streamfunction">
+  <defs>
+    <style>
+      .ax { stroke: #222; stroke-width: 1; fill: none; }
+      .lb { font: 11px sans-serif; fill: #222; }
+      .tx { font: 12px sans-serif; fill: #222; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="360" height="320" fill="#fafafa"/>
+  <g transform="translate(40,40)">
+    <rect x="0" y="0" width="240" height="240" fill="#ffffff" stroke="#222" stroke-width="1.5"/>
+    <g fill="none" stroke="#2266cc" stroke-width="1">
+      <path d="M40,120 Q120,30 200,120 Q120,210 40,120 Z"/>
+      <path d="M55,120 Q120,50 185,120 Q120,190 55,120 Z"/>
+      <path d="M70,120 Q120,70 170,120 Q120,170 70,120 Z"/>
+      <path d="M85,120 Q120,90 155,120 Q120,150 85,120 Z"/>
+      <path d="M100,120 Q120,105 140,120 Q120,135 100,120 Z"/>
+    </g>
+    <ellipse cx="120" cy="120" rx="60" ry="50" fill="#ccddee" fill-opacity="0.4"/>
+    <line x1="0" y1="0" x2="240" y2="0" stroke="#cc2222" stroke-width="3" marker-end="url(#lid)"/>
+    <defs>
+      <marker id="lid" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="#cc2222"/>
+      </marker>
+    </defs>
+    <text class="lb" x="120" y="14" text-anchor="middle" fill="#cc2222">U_lid</text>
+    <text class="lb" x="-4" y="125" text-anchor="end">y</text>
+    <text class="lb" x="120" y="255" text-anchor="middle">x</text>
+    <text class="lb" x="2" y="14">0,1</text>
+    <text class="lb" x="240" y="14" text-anchor="end">1,1</text>
+    <text class="lb" x="2" y="244">0,0</text>
+    <text class="lb" x="240" y="244" text-anchor="end">1,0</text>
+    <text class="lb" x="120" y="118" text-anchor="middle" fill="#2266cc">(vortex core)</text>
+  </g>
+  <text class="tx" x="20" y="20">Lid-driven cavity: streamfunction contours</text>
+</svg>

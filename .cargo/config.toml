@@ -5,6 +5,8 @@
 [profile.test]
 debug = 0
 
+env = { PKG_CONFIG_PATH = "/usr/lib/x86_64-linux-gnu/pkgconfig" }
+
 [target.x86_64-pc-windows-gnu]
 linker = "D:/msys64/ucrt64/bin/clang.exe"
 rustflags = [

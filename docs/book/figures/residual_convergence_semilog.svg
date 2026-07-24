@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 280" width="480" height="280" role="img" aria-label="Iterative solver residual convergence, semi-log">
+  <defs>
+    <style>
+      .ax { stroke: #222; stroke-width: 1; fill: none; }
+      .gl { stroke: #ddd; stroke-width: 0.5; fill: none; }
+      .tx { font: 12px sans-serif; fill: #222; }
+      .lb { font: 11px sans-serif; fill: #222; }
+      .a1 { stroke: #2266cc; stroke-width: 2; fill: none; }
+      .a2 { stroke: #cc6622; stroke-width: 2; fill: none; stroke-dasharray: 4,3; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="480" height="280" fill="#fafafa"/>
+  <g transform="translate(60,30)">
+    <line class="ax" x1="0" y1="200" x2="380" y2="200"/>
+    <line class="ax" x1="0" y1="0" x2="0" y2="200"/>
+    <g class="gl">
+      <line x1="0" y1="40" x2="380" y2="40"/>
+      <line x1="0" y1="80" x2="380" y2="80"/>
+      <line x1="0" y1="120" x2="380" y2="120"/>
+      <line x1="0" y1="160" x2="380" y2="160"/>
+    </g>
+    <path class="a1" d="M0,10 L30,30 L60,55 L90,80 L120,100 L150,118 L180,132 L210,144 L240,153 L270,162 L300,170 L330,178 L360,184"/>
+    <path class="a2" d="M0,4 L25,18 L50,38 L75,55 L100,72 L125,85 L150,98 L175,110 L200,121 L225,130 L250,139 L275,146 L300,153 L325,159 L350,165 L375,170"/>
+    <text class="tx" x="378" y="214" text-anchor="end">iterations</text>
+    <text class="tx" x="-6" y="6" text-anchor="end">log10(r)</text>
+    <text class="lb" x="0" y="204">1e0</text>
+    <text class="lb" x="-4" y="44">1e-2</text>
+    <text class="lb" x="-4" y="84">1e-4</text>
+    <text class="lb" x="-4" y="124">1e-6</text>
+    <text class="lb" x="-4" y="164">1e-8</text>
+    <text class="lb" x="0" y="216">0</text>
+    <text class="lb" x="380" y="216">500</text>
+    <text class="lb" x="200" y="38" fill="#2266cc">SIMPLE</text>
+    <text class="lb" x="200" y="58" fill="#cc6622">PISO (2 corrector steps)</text>
+  </g>
+  <text class="tx" x="20" y="20">L2 residual vs iteration (semilog)</text>
+</svg>

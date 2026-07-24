@@ -153,6 +153,53 @@ pub mod time_stepping;
 pub use self::interpolation::Interpolation;
 pub use self::sparse::SparseMatrix;
 
+/// Re-export the SSOT iterative-solver types from `leto-ops` so consumers of
+/// `cfd-math` can use the Atlas-canonical implementations directly:
+///
+/// ```rust,no_run
+/// use cfd_math::iterative::{ConjugateGradient, IterativeSolverConfig, LinearOperator};
+/// ```
+pub mod iterative {
+    pub use leto_ops::{
+        BiCGSTAB, Configurable, ConvergenceMonitor, ConjugateGradient,
+        IdentityPreconditioner, ILUPreconditioner, IterativeLinearSolver,
+        IterativeSolverConfig, JacobiPreconditioner, LinearOperator, LinearSolver,
+        LsqrConfig, LsqrResult, LsqrSolver, LsqrStopReason, Preconditioner, GMRES,
+    };
+}
+
+/// Re-export the SSOT interpolation types from `leto-ops`.
+///
+/// ```rust,no_run
+/// use cfd_math::interp::{LinearInterpolation, CubicSplineInterpolation, Interpolation1D};
+/// ```
+pub mod interp {
+    pub use leto_ops::{
+        CubicSplineInterpolation, Interpolation1D, LagrangeInterpolation, LinearInterpolation,
+    };
+}
+
+/// Re-export the SSOT finite-difference operators from `leto-ops`.
+///
+/// ```rust,no_run
+/// use cfd_math::fd::{FiniteDifference, FiniteDifferenceScheme};
+/// ```
+pub mod fd {
+    pub use leto_ops::{FiniteDifference, FiniteDifferenceScheme};
+}
+
+/// Re-export the SSOT quadrature rules from `leto-ops`.
+///
+/// ```rust,no_run
+/// use cfd_math::quadrature::{GaussLegendre3, CompositeQuadrature, Quadrature};
+/// ```
+pub mod quadrature_rules {
+    pub use leto_ops::{
+        CompositeQuadrature, GaussLegendre2, GaussLegendre3, GaussLegendre5, Quadrature,
+        SimpsonsRule, TrapezoidalRule,
+    };
+}
+
 // The primary API is through the public modules themselves.
 // This creates a hierarchical, self-documenting structure.
 // Example usage:

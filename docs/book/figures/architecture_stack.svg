@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 360" width="620" height="360" role="img" aria-label="CFDrs layered architecture on the Atlas stack">
+  <defs>
+    <style>
+      .lb { font: 12px sans-serif; fill: #222; }
+      .sm { font: 11px monospace; fill: #333; }
+      .tx { font: 12px sans-serif; fill: #222; }
+      .re { fill: #e0e8f5; stroke: #2255aa; stroke-width: 1; }
+      .or { fill: #f5e8d0; stroke: #aa7722; stroke-width: 1; }
+      .gn { fill: #dfeede; stroke: #228822; stroke-width: 1; }
+      .gy { fill: #f0f0f0; stroke: #555; stroke-width: 1; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="620" height="360" fill="#fafafa"/>
+  <text class="tx" x="20" y="22">CFDrs layered architecture on the Atlas stack</text>
+
+  <rect class="re" x="20" y="40" width="580" height="48" rx="6"/>
+  <text class="lb" x="34" y="60" fill="#2255aa">cfd-validation  |  cfd-optim  |  cfd-python</text>
+  <text class="sm" x="34" y="80">benchmarks, planning, Python bindings</text>
+
+  <rect class="re" x="20" y="100" width="580" height="48" rx="6"/>
+  <text class="lb" x="34" y="120" fill="#2255aa">cfd-3d  |  cfd-2d  |  cfd-1d  |  cfd-schematics</text>
+  <text class="sm" x="34" y="140">dimensional scheme matrices, biomedical networks, CSG channels</text>
+
+  <rect class="re" x="20" y="160" width="580" height="48" rx="6"/>
+  <text class="lb" x="34" y="180" fill="#2255aa">cfd-core  |  cfd-math  |  cfd-io</text>
+  <text class="sm" x="34" y="200">traits, scalar/math utilities, persistence</text>
+
+  <rect class="or" x="20" y="220" width="580" height="40" rx="6"/>
+  <text class="lb" x="34" y="244" fill="#aa7722">Atlas: leto  |  hephaestus  |  coeus  |  eunomia  |  hermes  |  moirai  |  mnemosyne  |  themis</text>
+
+  <rect class="gn" x="20" y="270" width="280" height="34" rx="6"/>
+  <text class="lb" x="34" y="290" fill="#228822">CPU: leto + hermes + moirai + eunomia</text>
+
+  <rect class="gn" x="310" y="270" width="290" height="34" rx="6"/>
+  <text class="lb" x="324" y="290" fill="#228822">GPU: hephaestus-wgpu + coeus + ritk</text>
+
+  <rect class="gy" x="20" y="312" width="580" height="34" rx="6"/>
+  <text class="lb" x="34" y="332" fill="#555">managed memory: mnemosyne allocators + themis pool</text>
+
+  <line x1="310" y1="160" x2="310" y2="304" stroke="#999" stroke-dasharray="3,3"/>
+</svg>

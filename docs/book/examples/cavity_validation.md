@@ -46,6 +46,10 @@ The Ghia et al. Re = 100 vertical-centreline u-velocity benchmark points used he
 | 0.055 | −0.03717 |
 | 0.000 | 0.00000 (wall) |
 
+## Generated Figure
+
+![Lid-driven cavity primary-vortex streamfunction contours](../figures/cavity_streamfunction_contour.svg)
+
 ## Book Chapter
 
 [← Canonical Incompressible Benchmarks](../core_flows.md)

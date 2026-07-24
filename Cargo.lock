@@ -854,6 +854,7 @@ dependencies = [
  "coeus-sparse",
  "coeus-tensor",
  "eunomia",
+ "leto",
  "leto-ops",
  "melinoe",
  "smallvec",
@@ -1631,7 +1632,7 @@ dependencies = [
  "mnemosyne-core",
  "moirai",
  "moirai-gpu",
- "moirai-sync 0.4.0 (git+https://github.com/ryancinsight/Moirai.git)",
+ "moirai-sync",
  "themis",
  "wgpu",
  "windows 0.62.2",
@@ -1847,6 +1848,7 @@ dependencies = [
  "hermes-simd",
  "leto",
  "moirai",
+ "serde",
  "themis",
  "thiserror 2.0.18",
 ]
@@ -1959,7 +1961,7 @@ dependencies = [
 
 [[package]]
 name = "mnemosyne"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "eunomia",
  "mnemosyne-arena",
@@ -1974,7 +1976,7 @@ dependencies = [
 
 [[package]]
 name = "mnemosyne-arena"
-version = "0.3.0"
+version = "0.6.0"
 dependencies = [
  "eunomia",
  "mnemosyne-backend",
@@ -1984,22 +1986,22 @@ dependencies = [
 
 [[package]]
 name = "mnemosyne-backend"
-version = "0.4.0"
+version = "0.6.0"
 dependencies = [
  "mnemosyne-core",
 ]
 
 [[package]]
 name = "mnemosyne-build-util"
-version = "0.2.0"
+version = "0.6.0"
 
 [[package]]
 name = "mnemosyne-core"
-version = "0.2.0"
+version = "0.6.0"
 
 [[package]]
 name = "mnemosyne-decay"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "mnemosyne-arena",
  "mnemosyne-backend",
@@ -2008,14 +2010,14 @@ dependencies = [
 
 [[package]]
 name = "mnemosyne-hardened"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "mnemosyne-core",
 ]
 
 [[package]]
 name = "mnemosyne-heap"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "melinoe",
  "mnemosyne-arena",
@@ -2028,7 +2030,7 @@ dependencies = [
 
 [[package]]
 name = "mnemosyne-local"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "melinoe",
  "mnemosyne-arena",
@@ -2042,7 +2044,7 @@ dependencies = [
 
 [[package]]
 name = "mnemosyne-prof"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "backtrace",
  "mnemosyne-build-util",
@@ -2061,9 +2063,9 @@ dependencies = [
  "moirai-iter",
  "moirai-parallel",
  "moirai-scheduler",
- "moirai-sync 0.4.0",
+ "moirai-sync",
  "moirai-transport",
- "moirai-utils 0.4.0",
+ "moirai-utils",
 ]
 
 [[package]]
@@ -2077,7 +2079,7 @@ dependencies = [
  "moirai-executor",
  "moirai-pal",
  "moirai-transport",
- "moirai-utils 0.4.0",
+ "moirai-utils",
  "socket2",
 ]
 
@@ -2097,7 +2099,7 @@ dependencies = [
  "bytemuck",
  "libc",
  "mnemosyne",
- "moirai-utils 0.4.0",
+ "moirai-utils",
 ]
 
 [[package]]
@@ -2109,17 +2111,16 @@ dependencies = [
  "moirai-core",
  "moirai-pal",
  "moirai-scheduler",
- "moirai-utils 0.4.0",
+ "moirai-utils",
 ]
 
 [[package]]
 name = "moirai-gpu"
 version = "0.4.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#8a51b2a7c5240bbeee6f1b766af2c54ac2898af6"
 dependencies = [
  "mnemosyne-core",
  "moirai-core",
- "moirai-utils 0.4.0 (git+https://github.com/ryancinsight/Moirai.git)",
+ "moirai-utils",
  "themis",
 ]
 
@@ -2132,7 +2133,7 @@ dependencies = [
  "moirai-core",
  "moirai-executor",
  "moirai-scheduler",
- "moirai-utils 0.4.0",
+ "moirai-utils",
  "num_cpus",
  "themis",
  "thiserror 1.0.69",
@@ -2167,7 +2168,7 @@ version = "0.4.0"
 dependencies = [
  "mnemosyne",
  "moirai-core",
- "moirai-utils 0.4.0",
+ "moirai-utils",
  "num_cpus",
  "themis",
 ]
@@ -2178,17 +2179,7 @@ version = "0.4.0"
 dependencies = [
  "libc",
  "moirai-core",
- "moirai-utils 0.4.0",
-]
-
-[[package]]
-name = "moirai-sync"
-version = "0.4.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#8a51b2a7c5240bbeee6f1b766af2c54ac2898af6"
-dependencies = [
- "libc",
- "moirai-core",
- "moirai-utils 0.4.0 (git+https://github.com/ryancinsight/Moirai.git)",
+ "moirai-utils",
 ]
 
 [[package]]
@@ -2198,17 +2189,12 @@ dependencies = [
  "bytemuck",
  "moirai-core",
  "moirai-scheduler",
- "moirai-utils 0.4.0",
+ "moirai-utils",
 ]
 
 [[package]]
 name = "moirai-utils"
 version = "0.4.0"
-
-[[package]]
-name = "moirai-utils"
-version = "0.4.0"
-source = "git+https://github.com/ryancinsight/Moirai.git#8a51b2a7c5240bbeee6f1b766af2c54ac2898af6"
 
 [[package]]
 name = "munge"
@@ -4245,6 +4231,7 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
+ "sha2",
  "toml",
  "xshell",
 ]

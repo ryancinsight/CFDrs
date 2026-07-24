@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 280" width="540" height="280" role="img" aria-label="Reynolds regime map: laminar, transitional, turbulent bands">
+  <defs>
+    <style>
+      .ax { stroke: #222; stroke-width: 1; fill: none; }
+      .tx { font: 12px sans-serif; fill: #222; }
+      .lb { font: 11px sans-serif; fill: #222; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="540" height="280" fill="#fafafa"/>
+  <g transform="translate(60,40)">
+    <rect x="0" y="0" width="120" height="180" fill="#ddeedd"/>
+    <rect x="120" y="0" width="60" height="180" fill="#ffeec0"/>
+    <rect x="180" y="0" width="240" height="180" fill="#f5d6d6"/>
+    <line class="ax" x1="0" y1="180" x2="420" y2="180"/>
+    <line class="ax" x1="0" y1="0" x2="0" y2="180"/>
+    <text class="tx" x="60" y="50" text-anchor="middle">laminar</text>
+    <text class="tx" x="150" y="50" text-anchor="middle">transitional</text>
+    <text class="tx" x="300" y="50" text-anchor="middle">turbulent</text>
+    <text class="tx" x="60" y="68" text-anchor="middle" font-size="10">Re &lt; 2300</text>
+    <text class="tx" x="150" y="68" text-anchor="middle" font-size="10">2300 &lt;= Re &lt; 4000</text>
+    <text class="tx" x="300" y="68" text-anchor="middle" font-size="10">Re &gt;= 4000</text>
+    <line class="ax" x1="120" y1="0" x2="120" y2="180" stroke="#888"/>
+    <line class="ax" x1="180" y1="0" x2="180" y2="180" stroke="#888"/>
+    <circle cx="40" cy="160" r="5" fill="#2266cc"/>
+    <text class="lb" x="40" y="156" text-anchor="middle" fill="#2266cc" font-size="10">example</text>
+    <text class="lb" x="0" y="156" font-size="10">microfluidics Re ~ 10</text>
+    <text class="lb" x="120" y="170" font-size="10" text-anchor="middle">vessel Re</text>
+    <text class="lb" x="180" y="170" font-size="10" text-anchor="middle">aorta Re</text>
+    <text class="tx" x="420" y="194" text-anchor="end">Reynolds number (log)</text>
+    <text class="lb" x="0" y="194">10^0</text>
+    <text class="lb" x="120" y="194">10^3</text>
+    <text class="lb" x="180" y="194">2.3x10^3</text>
+    <text class="lb" x="240" y="194">10^4</text>
+    <text class="lb" x="300" y="194">10^4.6</text>
+    <text class="lb" x="360" y="194">10^5</text>
+    <text class="lb" x="420" y="194">10^6</text>
+  </g>
+  <text class="tx" x="20" y="20">Pipe-flow Reynolds regime map</text>
+</svg>

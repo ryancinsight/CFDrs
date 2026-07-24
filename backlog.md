@@ -31,6 +31,103 @@
 
 ## Active integration
 
+- **CFD-BOOK-DETERMINISTIC-FIGURES-1 [patch] - Publish CFDrs mdbook
+  deterministic figure set and prebook xtask (DONE; owner=`/root`;
+  scope=`CFDrs/xtask/src/prebook.rs`, `CFDrs/xtask/src/main.rs`,
+  `CFDrs/xtask/Cargo.toml`, `CFDrs/docs/book/{SUMMARY.md,README.md,
+  examples/{cavity_validation,pipe_flow_validation,richardson_convergence,
+  turbulent_channel_flow}.md}`, `repos/parity_artefacts/INDEX.md`).
+  Mirror the helios BOOK-087 prebook contract (FIGURE_SPECS SSOT,
+  ManifestEntry serialise-only, `MANIFEST.json` byte-deterministic on
+  identical input).  Seven CFDrs-specific SVG figures committed:
+  `poiseuille_parabolic_profile.svg`, `cavity_streamfunction_contour.svg`,
+  `residual_convergence_semilog.svg`, `channel_mesh_layout.svg`,
+  `reynolds_regime_map.svg`, `richardson_loglog.svg`,
+  `architecture_stack.svg`.  SUMMARY figure links pinned to chapters
+  4, 11, 15, 16; Appendix F now resolves to
+  `parity_artefacts/INDEX.md`.  Acceptance: `cargo check -p xtask --all-targets` clean; `cargo clippy -p xtask --all-targets -D warnings`
+  clean; `mdbook build docs/book` exit 0; detector `FILE_MISSING : 0`;
+  `cargo run -p xtask -- prebook` byte-deterministic across two
+  consecutive runs.
+
+- **CFD-BOOK-CHECK-FIGURES-1 [patch] - Add `prebook check-figures`
+  SSOT drift lint (DONE; owner=`/root`;
+  scope=`CFDrs/xtask/src/{main.rs,check_figures.rs}`).** Adds a new
+  `prebook check-figures` subcommand that byte-scans
+  `docs/book/SUMMARY.md` + `docs/book/README.md` for `figures/*.svg`
+  references and asserts each one is listed in
+  `super::prebook::FIGURE_SPECS`. Drift (orphan docs refs, or spec
+  entries with no docs caller) exits non-zero; SSOT_IN_SYNC exits 0.
+  Closes the SSOT-drift risk the BOOK-DETERMINISTIC-FIGURES-1 review
+  flagged: a future SUMMARY.md edit adding a new figure link without a
+  matching FIGURE_SPECS entry will now fail the lint at CI time.
+  Acceptance: `cargo clippy -p xtask --all-targets -- -D warnings`
+  clean; `cargo run -p xtask -- check-figures` reports
+  `SSOT_IN_SYNC: 7/7`; prebook determinism + detector regression suites
+  still pass; `mdbook build docs/book` exits 0.
+
+- **CFD-BOOK-MDBOOK-DUPLICATES-1 [patch] - Resolve pre-existing
+  duplicate file references in CFDrs SUMMARY (DONE; owner=`/root`;
+  scope=`docs/book/SUMMARY.md`, four new chapter files
+  `cavitation.md`, `vascular_bifurcations.md`,
+  `matrix_free_operators.md`, `schematic_integration_2d.md`,
+  plus deletion of redundant Ch 15 example anchor).** mdbook v0.5.4
+  on this install REJECTS `[file.md#anchor]` syntax in any SUMMARY
+  entry with `failed to read chapter - The system cannot find the
+  file specified (os error 2)`, treating the anchor as a literal
+  filename (anchors DO render correctly in body links; the failure is
+  specific to SUMMARY entries). 5 distinct duplicate file references
+  were resolved by FILE-SPLIT (Option B from the documented options
+  set): Ch 5 → cavitation.md, Ch 7 → vascular_bifurcations.md,
+  Ch 10 → matrix_free_operators.md, Ch 14 → schematic_integration_2d.md,
+  and the redundant `examples/turbulent_channel_flow.md#physics-background`
+  anchor under Ch 15 was dropped (the example remains discoverable via
+  Ch 4 Turbulence Models, its more semantic home). Acceptance:
+  `mdbook build docs/book` exits 0 for CFDrs; detector reports
+  FILE_MISSING : 0, ANCHOR_MISSING : 0, READ_FAIL : 0 across all
+  116 files / 377 links; helios and kwavers mdbook builds remain
+  exit-0. Residual dependency: see
+  `CFD-BOOK-PARENT-H2-DEDUPE-1` for DRY cleanup of extracted H2 sections.
+  * G3 orphan closed: parity_archive.md reduced to single-line redirect stub pointing at SUMMARY Appendix F (parity_artefacts/INDEX.md); preserved for GitHub-history backlinks only, not re-added to nav.
+
+- **CFD-BOOK-PARENT-H2-DEDUPE-1 [patch] - Prune extracted H2 sections from
+  parent chapter files (DONE; owner=`/root`;
+  scope=`docs/book/{turbulence_multiphase,biomedical_flows,numerics_and_solvers,crate_schematics}.md`).**
+  After the file-split pivot in CFD-BOOK-MDBOOK-DUPLICATES-1, the four
+  parent files still contained the H2 sections that the new dedicated
+  chapter files (`cavitation.md`, `vascular_bifurcations.md`,
+  `matrix_free_operators.md`, `schematic_integration_2d.md`) now own.
+  Closure pivot: replaced each duplicated H2/H3 block with a one-line
+  "see chapter X" pointer so the dedicated files own canonical content
+  (SSOT) while the parent files retain SUMMARY nav order. `crate_schematics.md`
+  body collapsed entirely (was a near-verbatim duplicate of
+  `schematic_integration_2d.md`); the H1 chapter title is preserved
+  for SUMMARY-anchor identity. Acceptance: `mdbook build docs/book` exits
+  0; detector reports `FILE_MISSING : 0 / ANCHOR_MISSING : 0 /
+  READ_FAIL : 0` across 116 files / 382 links; helios + kwavers mdbook
+  builds regression-clean; `prebook check-figures` lint still
+  `SSOT_IN_SYNC : 7/7`. Line-count reduction: turbulence_multiphase 89,
+  biomedical_flows 76, numerics_and_solvers 79 (added back `## Iterative
+  Solvers` H2 with pointer after first review pass flagged the asymmetry),
+  crate_schematics 3.
+
+- **CFD-BOOK-MDBOOK-ANCHOR-FORK-1 [patch] [residual] - Document mdbook
+  v0.5.4 [file.md#anchor] incompatibility in this toolchain (TODO;
+  owner=unassigned; scope=`docs/book/README.md`, arch docs).** mdbook
+  v0.5.4 installed under `~/.cargo/bin/mdbook.exe` rejects
+  `[file.md#anchor]` syntax in `SUMMARY.md` chapter + example entries
+  with `failed to read chapter - The system cannot find the file
+  specified (os error 2)` (anchors in body prose links still resolve
+  to per-file heading ids correctly). Future contributors must not
+  reach for anchor links to disambiguate duplicate file references in
+  SUMMARY; use file-split or entry deletion instead. Discovered during
+  CFD-BOOK-MDBOOK-DUPLICATES-1; documented here for the next person
+  debugging the same symptom. Evidence limit: README appendix / arch
+  doc carries the note; cleaner long-term fix is upgrade mdbook to a
+  build that resolves `#anchor` in SUMMARY entries correctly.
+
+
+
 - **CFD-BOOK-PAGES-1 [patch] - Publish the source-backed mdBook through
   GitHub Pages (DONE; owner=Codex; scope=`.github/workflows/book-pages.yml`,
   `docs/book/book.toml`, `README.md`, and PM artifacts).** Build the existing

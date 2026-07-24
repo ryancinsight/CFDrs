@@ -52,6 +52,10 @@ and a small GCI certifies that the resolved grids lie in the asymptotic regime.
 This example serves as CFDrs's code-verification oracle: a dip in `p` flags
 implementation drift.
 
+## Generated Figure
+
+![Richardson extrapolation: log L2 error vs log grid spacing, with slope-2 reference line](../figures/richardson_loglog.svg)
+
 ## Book Chapter
 
 [← Validation Suite](../crate_validation.md)

@@ -163,7 +163,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
             geom_f64.d_parent / 8.0_f64
         };
         let mut mesher = SdfMesher::<f64>::new(target_h);
-        // Disable boundary snapping to prevent degenerate tetrahedra (slivers) and rsparse panics
+        // Disable boundary snapping to prevent degenerate tetrahedra (slivers)
         mesher.snap_iterations = 0;
         let mesh = mesher.build_volume(&geom_f64);
 

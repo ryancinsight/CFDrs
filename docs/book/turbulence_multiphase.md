@@ -46,27 +46,7 @@ schemes; SSE-style momentum exchange is supported through
 
 ## Cavitation Physics
 
-Cavitation is modeled as a **phase transition** whose rate depends on
-local pressure-vs-vapor-pressure:
-
-```rust
-pub trait Cavitation {
-    fn inception_pressure<F: FloatElement>(&self) -> F;
-    fn collapse_rate<F: FloatElement>(&self, p: F) -> F;
-}
-```
-
-The default model is a **Rayleigh–Plesset** closure; an
-**Eulerian–Eulerian** variant is available for strong cloud-cavitation
-flows.
-
-Damage accumulation is integrated per timestep as
-
-  damage += (inception_indicator) · (collapse_rate · dt)
-
-and reported through the [`cfd-3d::posterior::damage`] hook.  Outputs are
-dimensionally consistent (kg/m²/s) so that downstream fatigue models can
-post-process without re-scaling.
+For details on phase transition models, Rayleigh–Plesset closures, and damage integration, see [Cavitation: Liquid-Vapour Phase Transition](cavitation.md).
 
 ## Integration Contract
 

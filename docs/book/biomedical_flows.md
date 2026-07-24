@@ -9,41 +9,7 @@ rheology** for blood.
 
 ## The Vascular Bifurcation
 
-A bifurcation is generated as a CSG composition:
-
-```rust
-use cfd_schematics::bifurcation::BifurcationBuilder;
-use leto::Point3;
-
-let bif = BifurcationBuilder::new()
-    .parent(Point3::new(0.0, 0.0, 0.0), 2.5)            // 5 mm diameter, mm units
-    .child_a(Point3::new(0.0, 4.0, 0.0), 1.8, 0.35)    // 3.6 mm, 35° angle
-    .child_b(Point3::new(0.0, 4.0, 0.0), 1.8, -0.35)   // mirror child
-    .stenosed_a(0.55)                                   // 55% area stenosis
-    .build();
-```
-
-Boundary conditions follow the Murray-style split, with Reynolds-scaled
-flow division between children A and B.  CFDrs composes this CSG with the
-1-D reduced solver to compute pressure and shear stress along each
-parent / child branch.
-
-### Rheology Choices
-
-```rust
-use cfd_1d::blood_rheology::Rheology;
-
-let rheo = Rheology::carreau {          // μ_0, μ_∞, λ, n
-    mu_inf: 0.00345,
-    mu_0:   0.056,
-    lambda: 3.313,
-    n:      0.3568,
-};
-```
-
-Carreau, Carreau-Yasuda, Casson, and Power-law models are all supported.
-The rheology is a trait the solver consumes per timestep — switching models
-is a single field change.
+For CSG composition of vascular domains and non-Newtonian blood rheology modeling, see [Vascular Bifurcations and Stenosis](vascular_bifurcations.md).
 
 ## Microfluidic Mixing Screens
 

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 280" width="480" height="280" role="img" aria-label="Plane Poiseuille parabolic velocity profile">
+  <defs>
+    <style>
+      .ax { stroke: #222; stroke-width: 1; fill: none; }
+      .gl { stroke: #bbb; stroke-width: 0.5; fill: none; }
+      .tx { font: 12px sans-serif; fill: #222; }
+      .lb { font: 12px sans-serif; fill: #222; }
+      .fm { font: italic 12px sans-serif; fill: #333; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="480" height="280" fill="#fafafa"/>
+  <g transform="translate(60,30)">
+    <line class="ax" x1="0" y1="220" x2="380" y2="220"/>
+    <line class="ax" x1="190" y1="0" x2="190" y2="220"/>
+    <line class="gl" x1="0" y1="55" x2="380" y2="55"/>
+    <line class="gl" x1="0" y1="110" x2="380" y2="110"/>
+    <line class="gl" x1="0" y1="165" x2="380" y2="165"/>
+    <line class="gl" x1="95" y1="0" x2="95" y2="220"/>
+    <line class="gl" x1="285" y1="0" x2="285" y2="220"/>
+    <path fill="none" stroke="#2266cc" stroke-width="2" d="M0,220 Q190,1 380,220"/>
+    <text class="tx" x="378" y="234" text-anchor="end">y</text>
+    <text class="tx" x="184" y="-6" text-anchor="end">u</text>
+    <text class="lb" x="190" y="220" text-anchor="middle" dy="14">0</text>
+    <text class="lb" x="95" y="220" text-anchor="middle" dy="14">-H/2</text>
+    <text class="lb" x="285" y="220" text-anchor="middle" dy="14">+H/2</text>
+    <text class="lb" x="195" y="113" text-anchor="start" dy="4">u_max</text>
+    <line class="gl" x1="148" y1="0" x2="232" y2="0" stroke-dasharray="3,3"/>
+    <text class="fm" x="240" y="14">u(y) = u_max (1 - (2y/H)^2)</text>
+    <text class="lb" x="0" y="-4">u = 0 (wall)</text>
+    <text class="lb" x="0" y="216">u = 0 (wall)</text>
+  </g>
+  <text class="tx" x="20" y="20">Plane Poiseuille flow (1-D analytical)</text>
+</svg>

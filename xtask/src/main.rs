@@ -14,6 +14,8 @@
 //!   cargo xtask install-fenics    # Install `FEniCS` for validation
 //!   cargo xtask validate          # Run validation suite
 //!   cargo xtask all               # Complete workflow
+//!   cargo run -p xtask -- prebook      # regenerate docs/book/figures/MANIFEST.json
+//!   cargo run -p xtask -- check-figures # SSOT drift verification
 
 #![allow(clippy::redundant_pattern_matching)]
 #![allow(clippy::manual_let_else)]
@@ -25,7 +27,9 @@ use std::env;
 use std::path::{Path, PathBuf};
 use xshell::{cmd, Shell};
 
+mod check_figures;
 mod migration_audit;
+mod prebook;
 
 #[derive(Parser)]
 #[command(name = "xtask")]
@@ -112,6 +116,15 @@ enum Commands {
     LegacyMigrationAudit,
     /// Refresh the legacy migration allowlist baseline file.
     RefreshLegacyAllowlist,
+    /// Verify the deterministic figure set committed at `docs/book/figures/`
+    /// and write a `MANIFEST.json` next to it. The manifest hash is the
+    /// byte fingerprint each file currently has on disk; re-running on
+    /// unchanged inputs produces byte-identical output (CI evidence chain).
+    Prebook,
+    /// Verify SUMMARY.md + README.md figure links are listed in FIGURE_SPECS.
+    /// Returns exit code 1 on drift so the CI gate fails loudly when the
+    /// SSOT contract between figures and book source breaks.
+    CheckFigures,
 }
 
 fn main() -> Result<()> {
@@ -134,7 +147,46 @@ fn main() -> Result<()> {
         Commands::Check => check_compilation(&sh),
         Commands::LegacyMigrationAudit => migration_audit::print_legacy_migration_audit(&project_root()),
         Commands::RefreshLegacyAllowlist => migration_audit::refresh_legacy_allowlist(&project_root()),
+        Commands::Prebook => run_prebook(&project_root()),
+        Commands::CheckFigures => run_check_figures(&project_root()),
     }
+}
+
+/// Run prebook against the workspace root. Prints the verified entries
+/// (one line per figure) plus the path to the regenerated manifest.
+fn run_prebook(workspace_root: &Path) -> Result<()> {
+    let report = prebook::run_prebook(workspace_root)?;
+    println!(
+        "prebook: verified {} figures under {}",
+        report.entries.len(),
+        workspace_root.join("docs/book/figures").display()
+    );
+    for entry in &report.entries {
+        let source = match entry.source_example {
+            Some(e) => format!("{}::{}", e.crate_name, e.example_name),
+            None => "schematic".to_string(),
+        };
+        println!(
+            "  - {:<32} {:>7}B  sha256:{}  ({})",
+            entry.name, entry.bytes, entry.sha256_16, source
+        );
+    }
+    println!("manifest: {}", report.manifest_path.display());
+    Ok(())
+}
+
+/// Run the SSOT drift verification (check-figures). Parses
+/// `docs/book/SUMMARY.md` and `docs/book/README.md` for `figures/*.svg`
+/// references and asserts each one is listed in `prebook::FIGURE_SPECS`.
+/// Returns exit code 1 on drift via `std::process::exit(1)` so CI sees the
+/// failure loudly.
+fn run_check_figures(workspace_root: &Path) -> Result<()> {
+    let report = check_figures::run_check_figures(workspace_root)?;
+    let exit_code = check_figures::print_check_figures_report(&report);
+    if exit_code != 0 {
+        std::process::exit(exit_code);
+    }
+    Ok(())
 }
 
 /// Get project root directory

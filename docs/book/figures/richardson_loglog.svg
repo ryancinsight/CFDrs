@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 280" width="480" height="280" role="img" aria-label="Richardson extrapolation: log-log L2 error vs grid spacing">
+  <defs>
+    <style>
+      .ax { stroke: #222; stroke-width: 1; fill: none; }
+      .gl { stroke: #ddd; stroke-width: 0.5; fill: none; }
+      .tx { font: 12px sans-serif; fill: #222; }
+      .lb { font: 11px sans-serif; fill: #222; }
+      .ref { stroke: #cc2222; stroke-width: 1.5; fill: none; stroke-dasharray: 5,3; }
+      .data { fill: #2266cc; stroke: none; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="480" height="280" fill="#fafafa"/>
+  <g transform="translate(70,30)">
+    <line class="ax" x1="0" y1="220" x2="370" y2="220"/>
+    <line class="ax" x1="0" y1="0" x2="0" y2="220"/>
+    <g class="gl">
+      <line x1="0" y1="55" x2="370" y2="55"/>
+      <line x1="0" y1="110" x2="370" y2="110"/>
+      <line x1="0" y1="165" x2="370" y2="165"/>
+      <line x1="92" y1="0" x2="92" y2="220"/>
+      <line x1="185" y1="0" x2="185" y2="220"/>
+      <line x1="277" y1="0" x2="277" y2="220"/>
+    </g>
+    <line class="ref" x1="0" y1="0" x2="370" y2="220"/>
+    <circle class="data" cx="30" cy="190" r="4"/>
+    <circle class="data" cx="92" cy="151" r="4"/>
+    <circle class="data" cx="185" cy="112" r="4"/>
+    <circle class="data" cx="277" cy="73" r="4"/>
+    <circle class="data" cx="350" cy="42" r="4"/>
+    <text class="tx" x="368" y="234" text-anchor="end">log(h)</text>
+    <text class="tx" x="-6" y="6" text-anchor="end">log(L2)</text>
+    <text class="lb" x="0" y="234">h_coarse</text>
+    <text class="lb" x="370" y="234" text-anchor="end">h_fine</text>
+    <text class="lb" x="0" y="224">log(L2)</text>
+    <text class="lb" x="365" y="-6" text-anchor="end" fill="#cc2222">slope 2 (2nd-order ref)</text>
+    <text class="lb" x="-8" y="222" text-anchor="start">measured</text>
+  </g>
+  <text class="tx" x="20" y="20">Richardson extrapolation: log L2 error vs log grid spacing</text>
+</svg>

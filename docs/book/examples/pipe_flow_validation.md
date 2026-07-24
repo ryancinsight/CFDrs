@@ -41,6 +41,11 @@ Q       = π R⁴ (−dp/dz) / (8μ)
 The numerical peak velocity at the centreline should match the analytical
 value to within the FEM discretisation error.
 
+## Generated Figure
+
+![Plane Poiseuille parabolic profile u(y) = u_max(1 - (2y/H)^2)](../figures/poiseuille_parabolic_profile.svg)
+![Pipe-flow Reynolds regime map](../figures/reynolds_regime_map.svg)
+
 ## Book Chapter
 
 [← Canonical Incompressible Benchmarks](../core_flows.md)
