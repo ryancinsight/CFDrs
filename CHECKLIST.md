@@ -1,5 +1,15 @@
 # CFDrs Work Checklist
 
+## Owner: Codex — CFDRS-AEQ-MET-12 typed channel cross-section and edge geometry [major] — in progress 2026-07-24
+
+- [ ] Type `CrossSection`, `ChannelGeometry`, `Edge`, and `EdgeProperties`
+      with Aequitas `Length` and `Area` values.
+- [ ] Keep scalar extraction at resistance and solver kernels; migrate network
+      conversions, geometry methods, tests, validation, and examples.
+- [ ] Synchronize the gap audit and changelog; run formatting and residue scans.
+- [ ] Run the locked focused cfd-1d check, Nextest, doctests, and Rustdoc; record
+      any independent timeout or pre-existing lint blocker exactly.
+
 ## Owner: Codex — CFDRS-AEQ-MET-11 typed component geometry and volume metrics [major] — in progress 2026-07-24
 
 - [ ] Type channel, membrane, and organ component geometry with Aequitas
