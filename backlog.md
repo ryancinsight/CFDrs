@@ -31,6 +31,16 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-10 [major] - Type surface and wetting physical metrics
+  (IN PROGRESS; owner=Codex; scope=`cfd-1d` `SurfaceProperties`, `cfd-core`
+  material interfaces, in-tree constructors/tests, ADR/design note, and PM
+  artifacts).** Public roughness, contact-angle, surface-energy, and
+  surface-tension contracts still expose raw SI scalars even though Aequitas
+  owns `Length`, `Angle`, `EnergyPerArea`, and `SurfaceTension`. Acceptance is
+  typed public storage, scalar extraction only at the numerical, trigonometric,
+  or resistance boundary, migrated value-semantic tests, residue scans, and
+  locked focused gates.
+
 - **CFDRS-AEQ-MET-09 [major] - Type cell-separation physical metrics
   (IMPLEMENTATION and focused verification COMPLETE; full package verification
   blocked by two pre-existing 30-second Venturi test timeouts;

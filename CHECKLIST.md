@@ -1,5 +1,19 @@
 # CFDrs Work Checklist
 
+## Owner: Codex — CFDRS-AEQ-MET-10 typed surface and wetting metrics [major] — in progress 2026-07-24
+
+- [ ] Type `cfd-1d` surface roughness, contact angle, and surface energy with
+      Aequitas `Length`, `Angle`, and `EnergyPerArea`; migrate the material
+      interface's surface tension and static/advancing/receding angles to
+      `SurfaceTension` and `Angle`.
+- [ ] Keep scalar conversion at the resistance and trigonometric formula
+      boundaries; update all in-tree constructors and value-semantic tests
+      without compatibility fields or forwarding wrappers.
+- [ ] Synchronize the ADR, design note, gap audit, backlog, and changelog;
+      run formatting and residue checks.
+- [ ] Run the locked focused package checks and Nextest gates; record any
+      pre-source dependency blocker exactly.
+
 ## Owner: Codex — CFDRS-AEQ-MET-09 typed cell-separation metrics [major] — implementation and focused verification complete 2026-07-24
 
 - [x] Type cell diameter and density in `CellProperties` and migrate
