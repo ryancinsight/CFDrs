@@ -107,8 +107,8 @@ impl<T: Cfd1dScalar + Copy> NetworkBuilder<T> {
         for edge_ref in self.graph.edge_references() {
             let idx = edge_ref.id();
             let w = edge_ref.weight();
-            let r = w.resistance;
-            let k = w.quad_coeff;
+            let r = w.resistance.into_base();
+            let k = w.quad_coeff.into_base();
             if r < T::zero() {
                 return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                     "Edge {} has negative resistance: {}",

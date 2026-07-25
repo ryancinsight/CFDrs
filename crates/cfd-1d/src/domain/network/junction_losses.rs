@@ -7,6 +7,7 @@
 
 use super::wrapper::Network;
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::QuadraticHydraulicResistance;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::physics::fluid::FluidTrait;
 use cfd_schematics::domain::model::NetworkBlueprint;
@@ -172,7 +173,9 @@ where
                         <T as eunomia::FloatElement>::powf(area / run_area, exp_t)
                     });
                 let k_correction = (k_branch_t * area_ratio_scale) * rho_blood / (two * area_sq);
-                edge.quad_coeff += k_correction;
+                edge.quad_coeff = QuadraticHydraulicResistance::from_base(
+                    edge.quad_coeff.into_base() + k_correction,
+                );
             }
         }
 
@@ -192,7 +195,9 @@ where
                     T::one()
                 };
                 let k_correction = (k_run_t * area_ratio_scale) * rho_blood / (two * area_sq);
-                edge.quad_coeff += k_correction;
+                edge.quad_coeff = QuadraticHydraulicResistance::from_base(
+                    edge.quad_coeff.into_base() + k_correction,
+                );
             }
         }
     }

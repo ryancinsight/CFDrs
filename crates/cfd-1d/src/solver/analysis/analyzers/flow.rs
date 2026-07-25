@@ -42,7 +42,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
 
         // Analyze flow in each edge
         for edge in network.edges_with_properties() {
-            let flow_rate = edge.flow_rate;
+            let flow_rate = edge.flow_rate.into_base();
             if flow_rate != T::zero() {
                 analysis.add_component_flow(edge.id.clone(), flow_rate);
 
@@ -142,6 +142,7 @@ mod tests {
     use crate::domain::network::{
         ComponentType, EdgeProperties, Network, NetworkBuilder, ResistanceUpdatePolicy,
     };
+    use aequitas::systems::si::quantities::HydraulicResistance;
     use cfd_core::physics::fluid::database::water_20c;
     use std::collections::HashMap;
 
@@ -164,7 +165,7 @@ mod tests {
                 hydraulic_diameter: Some(aequitas::systems::si::quantities::Length::from_base(
                     0.01,
                 )),
-                resistance: 1.0,
+                resistance: HydraulicResistance::from_base(1.0),
                 geometry: None,
                 resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
                 properties: HashMap::new(),

@@ -1,7 +1,9 @@
 //! Network edge definitions
 
 use crate::scalar::Cfd1dScalar;
-use aequitas::systems::si::quantities::{Area, Length};
+use aequitas::systems::si::quantities::{
+    Area, HydraulicResistance, Length, QuadraticHydraulicResistance, VolumetricFlowRate,
+};
 use cfd_core::conversion::SafeFromF64;
 use cfd_schematics::domain::model::EdgeKind;
 use eunomia::NumericElement;
@@ -15,14 +17,14 @@ pub struct Edge<T: Cfd1dScalar + Copy> {
     /// Type of edge
     pub edge_type: EdgeKind,
     /// Flow rate through the edge
-    pub flow_rate: T,
+    pub flow_rate: VolumetricFlowRate<T>,
     /// Resistance coefficient
-    pub resistance: T,
+    pub resistance: HydraulicResistance<T>,
     /// Quadratic loss coefficient for dissipative term in the form ΔP = R·Q + k·Q|Q|
     /// where `k = quad_coeff ≥ 0`. This ensures the nonlinear loss opposes the flow
     /// direction and preserves monotonic positivity in the effective resistance
     /// linearization: R_eff = R + 2k|Q_k|.
-    pub quad_coeff: T,
+    pub quad_coeff: QuadraticHydraulicResistance<T>,
     /// Cross-sectional area \[m²\] derived from the channel geometry.
     /// Used for junction minor-loss K-factor corrections: ΔP = K·ρQ²/(2A²).
     pub area: Area<T>,
@@ -66,9 +68,9 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for Edge<T> {
         Self {
             id: spec.id.as_str().to_string(),
             edge_type: spec.kind,
-            flow_rate: T::zero(),
-            resistance,
-            quad_coeff,
+            flow_rate: VolumetricFlowRate::from_base(T::zero()),
+            resistance: HydraulicResistance::from_base(resistance),
+            quad_coeff: QuadraticHydraulicResistance::from_base(quad_coeff),
             area: Area::from_base(area),
         }
     }
@@ -81,9 +83,9 @@ impl<T: Cfd1dScalar + Copy> Edge<T> {
         Self {
             id,
             edge_type,
-            flow_rate: T::zero(),
-            resistance: T::one(),
-            quad_coeff: T::zero(),
+            flow_rate: VolumetricFlowRate::from_base(T::zero()),
+            resistance: HydraulicResistance::from_base(T::one()),
+            quad_coeff: QuadraticHydraulicResistance::from_base(T::zero()),
             area: Area::from_base(T::zero()),
         }
     }

@@ -35,8 +35,10 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - **Breaking**: `cfd-1d` network edge hydraulic flow, linear resistance,
-  quadratic loss resistance, and parallel conductance are moving onto Aequitas
-  quantities; solver-state vectors remain a separate audit boundary.
+  quadratic loss resistance, and parallel conductance now use Aequitas
+  quantities; solver-state vectors remain a separate audit boundary. Scalar
+  extraction is confined to resistance, analysis, validation, and matrix
+  assembly kernels.
 
 - **Breaking**: `cfd-1d` vascular Womersley, bifurcation, Murray, and
   Olufsen public contracts now use Aequitas quantities for physical inputs

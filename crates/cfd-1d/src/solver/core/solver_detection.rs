@@ -19,7 +19,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
         let all_edges_linear = network
             .graph
             .edge_weights()
-            .all(|edge| <T as NumericElement>::abs(edge.quad_coeff) <= eps);
+            .all(|edge| <T as NumericElement>::abs(edge.quad_coeff.into_base()) <= eps);
         let no_geometry_updates = network
             .properties
             .values()

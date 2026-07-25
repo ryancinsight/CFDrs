@@ -12,7 +12,9 @@ use super::network_builder::NetworkBuilder;
 use super::venturi_coefficients::venturi_coefficients;
 use crate::physics::resistance::models::BendType;
 use crate::scalar::Cfd1dScalar;
-use aequitas::systems::si::quantities::{Area, Length};
+use aequitas::systems::si::quantities::{
+    Area, HydraulicResistance, Length, QuadraticHydraulicResistance,
+};
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::{Error, Result};
 use cfd_schematics::domain::model::{ChannelShape, EdgeKind, NetworkBlueprint};
@@ -165,7 +167,7 @@ where
         }
         let seed_r = T::from_f64_or_zero(ch_spec.resistance.max(f64::EPSILON));
         let mut edge = Edge::new(ch_spec.id.as_str().to_string(), ch_spec.kind);
-        edge.resistance = seed_r;
+        edge.resistance = HydraulicResistance::from_base(seed_r);
         edge.area = match ch_spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
                 if diameter_m <= 0.0 || !diameter_m.is_finite() {
@@ -301,7 +303,7 @@ where
             length,
             area,
             hydraulic_diameter: dh,
-            resistance: T::from_f64_or_zero(ch_spec.resistance),
+            resistance: HydraulicResistance::from_base(T::from_f64_or_zero(ch_spec.resistance)),
             geometry: Some(channel_geometry),
             resistance_update_policy: ResistanceUpdatePolicy::FlowDependent,
             properties: edge_property_overrides,
@@ -377,8 +379,8 @@ where
             }
 
             if let Some(edge) = network.graph.edge_weight_mut(*edge_idx) {
-                edge.resistance = r * resistance_scale;
-                edge.quad_coeff = k;
+                edge.resistance = HydraulicResistance::from_base(r * resistance_scale);
+                edge.quad_coeff = QuadraticHydraulicResistance::from_base(k);
             }
         }
     }
@@ -398,7 +400,7 @@ where
             ChannelShape::Straight => network.graph.edge_weight(*edge_idx).map_or(
                 ResistanceUpdatePolicy::FlowDependent,
                 |edge| {
-                    if <T as NumericElement>::abs(edge.quad_coeff) <= eps {
+                    if <T as NumericElement>::abs(edge.quad_coeff.into_base()) <= eps {
                         ResistanceUpdatePolicy::FlowInvariant
                     } else {
                         ResistanceUpdatePolicy::FlowDependent
@@ -473,8 +475,8 @@ where
                 let k_seg = k_total / n_segs;
 
                 if let Some(edge) = network.graph.edge_weight_mut(*edge_idx) {
-                    edge.resistance = r_seg;
-                    edge.quad_coeff = k_seg;
+                    edge.resistance = HydraulicResistance::from_base(r_seg);
+                    edge.quad_coeff = QuadraticHydraulicResistance::from_base(k_seg);
                 }
             }
         }
@@ -482,13 +484,13 @@ where
 
     for edge_ref in network.graph.edge_references() {
         let edge = edge_ref.weight();
-        if !edge.resistance.is_finite() || edge.resistance <= T::zero() {
+        if !edge.resistance.into_base().is_finite() || edge.resistance.into_base() <= T::zero() {
             return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                 "Edge '{}' has invalid effective linear resistance after refinement",
                 edge.id
             )));
         }
-        if !edge.quad_coeff.is_finite() || edge.quad_coeff < T::zero() {
+        if !edge.quad_coeff.into_base().is_finite() || edge.quad_coeff.into_base() < T::zero() {
             return Err(cfd_core::error::Error::InvalidConfiguration(format!(
                 "Edge '{}' has invalid effective quadratic coefficient after refinement",
                 edge.id

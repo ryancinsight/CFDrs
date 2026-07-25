@@ -64,10 +64,10 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
         let fluid = network.fluid();
 
         for edge in network.edges_with_properties() {
-            let flow_rate = if edge.flow_rate == T::zero() {
+            let flow_rate = if edge.flow_rate.into_base() == T::zero() {
                 None
             } else {
-                Some(edge.flow_rate)
+                Some(edge.flow_rate.into_base())
             };
 
             let resistance = self
@@ -154,7 +154,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
                                     .resistances
                                     .get(&edge.id)
                                     .copied()
-                                    .unwrap_or(edge.resistance);
+                                    .unwrap_or(edge.resistance.into_base());
                                 resistance_sum += resistance;
                                 edge_ids.push(edge.id.clone());
                             } else {

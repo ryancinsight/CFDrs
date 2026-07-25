@@ -125,7 +125,7 @@ impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> PerformanceAn
         let mut total_power = T::zero();
 
         for edge in network.edges_with_properties() {
-            let flow_rate = edge.flow_rate;
+            let flow_rate = edge.flow_rate.into_base();
             if flow_rate != T::zero() {
                 let (from_idx, to_idx) = edge.nodes;
                 let pressures = network.pressures();

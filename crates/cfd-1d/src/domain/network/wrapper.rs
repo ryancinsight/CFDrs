@@ -3,7 +3,10 @@
 use super::{NetworkGraph, Node};
 use crate::domain::channel::ChannelGeometry;
 use crate::scalar::Cfd1dScalar;
-use aequitas::systems::si::quantities::{Area, Length};
+use aequitas::systems::si::quantities::{
+    Area, HydraulicConductance, HydraulicResistance, Length, QuadraticHydraulicResistance,
+    VolumetricFlowRate,
+};
 use cfd_core::{
     conversion::{SafeFromF64, SafeFromUsize},
     error::{Error, Result},
@@ -52,7 +55,7 @@ pub struct EdgeProperties<T: Cfd1dScalar + Copy> {
     /// Hydraulic diameter
     pub hydraulic_diameter: Option<Length<T>>,
     /// Resistance coefficient
-    pub resistance: T,
+    pub resistance: HydraulicResistance<T>,
     /// Channel geometry if applicable
     pub geometry: Option<ChannelGeometry<T>>,
     /// Whether the hydraulic coefficients must be recomputed as flow changes.
@@ -90,7 +93,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> From<&ChannelSpec> for EdgeProperties<
     /// types directly.
     fn from(spec: &ChannelSpec) -> Self {
         let length = Length::from_base(T::from_f64_or_zero(spec.length_m));
-        let resistance = T::from_f64_or_zero(spec.resistance);
+        let resistance = HydraulicResistance::from_base(T::from_f64_or_zero(spec.resistance));
 
         let (cross_section, area, hydraulic_diameter) = match spec.cross_section {
             CrossSectionSpec::Circular { diameter_m } => {
@@ -156,7 +159,7 @@ pub struct EdgeWithProperties<'a, T: Cfd1dScalar + Copy> {
     /// Edge identifier
     pub id: String,
     /// Flow rate
-    pub flow_rate: T,
+    pub flow_rate: VolumetricFlowRate<T>,
     /// Node indices (from, to)
     pub nodes: (NodeIndex, NodeIndex),
     /// Properties
@@ -168,7 +171,7 @@ pub struct ParallelEdge<T: Cfd1dScalar + Copy> {
     /// Node indices (from, to) as usize
     pub nodes: (usize, usize),
     /// Conductance (1/resistance)
-    pub conductance: T,
+    pub conductance: HydraulicConductance<T>,
 }
 
 struct ResistanceUpdateContext<T: Cfd1dScalar + Copy> {
@@ -222,11 +225,12 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                     .get(&edge_idx)
                     .map(|props| EdgeWithProperties {
                         id: edge_data.id.clone(),
-                        flow_rate: self
-                            .flow_rates
-                            .get(edge_idx.index())
-                            .copied()
-                            .unwrap_or(T::zero()),
+                        flow_rate: VolumetricFlowRate::from_base(
+                            self.flow_rates
+                                .get(edge_idx.index())
+                                .copied()
+                                .unwrap_or(T::zero()),
+                        ),
                         nodes: (from, to),
                         properties: props,
                     })
@@ -300,7 +304,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         }
         self.flow_rates[idx] = flow_rate;
         if let Some(edge_data) = self.graph.edge_weight_mut(edge) {
-            edge_data.flow_rate = flow_rate;
+            edge_data.flow_rate = VolumetricFlowRate::from_base(flow_rate);
         }
     }
 
@@ -366,9 +370,9 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .edge_weight(edge_idx)
                 .map(|edge| {
                     (
-                        edge.resistance,
-                        edge.quad_coeff,
-                        <T as NumericElement>::abs(edge.flow_rate),
+                        edge.resistance.into_base(),
+                        edge.quad_coeff.into_base(),
+                        <T as NumericElement>::abs(edge.flow_rate.into_base()),
                     )
                 })
                 .ok_or_else(|| Error::InvalidConfiguration("Missing edge data".into()))?;
@@ -416,7 +420,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             self.flow_rates[edge_idx.index()] = flow;
 
             if let Some(edge) = self.graph.edge_weight_mut(edge_idx) {
-                edge.flow_rate = flow;
+                edge.flow_rate = VolumetricFlowRate::from_base(flow);
             }
         }
 
@@ -611,8 +615,8 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         };
 
         if let Some(edge) = self.graph.edge_weight_mut(edge_idx) {
-            edge.resistance = resistance;
-            edge.quad_coeff = quad_coeff;
+            edge.resistance = HydraulicResistance::from_base(resistance);
+            edge.quad_coeff = QuadraticHydraulicResistance::from_base(quad_coeff);
         }
         Ok(())
     }
@@ -915,8 +919,8 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         for edge_ref in self.graph.edge_references() {
             let idx = edge_ref.id();
             let w = edge_ref.weight();
-            let r = w.resistance;
-            let k = w.quad_coeff;
+            let r = w.resistance.into_base();
+            let k = w.quad_coeff.into_base();
             if r < T::zero() {
                 return Err(Error::InvalidConfiguration(format!(
                     "Edge {} has negative resistance: {}",
@@ -955,11 +959,11 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             let (from, to) = (edge_ref.source(), edge_ref.target());
             let edge_data = edge_ref.weight();
 
-            let q = <T as NumericElement>::abs(edge_data.flow_rate);
+            let q = <T as NumericElement>::abs(edge_data.flow_rate.into_base());
             // Using Picard iteration (secant modulus):
             // ΔP ≈ (R + k|Q_k|)·Q.
             // Thus, effective resistance R_eff = R + k|Q_k|.
-            let r_eff = edge_data.resistance + edge_data.quad_coeff * q;
+            let r_eff = edge_data.resistance.into_base() + edge_data.quad_coeff.into_base() * q;
             let eps = T::default_epsilon();
             // Conductance is 1/R_eff. We enforce R_eff > ε to avoid division by zero.
             // If R_eff is effectively zero or invalid, we return zero conductance (infinite resistance).
@@ -971,7 +975,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
 
             ParallelEdge {
                 nodes: (from.index(), to.index()),
-                conductance,
+                conductance: HydraulicConductance::from_base(conductance),
             }
         })
     }

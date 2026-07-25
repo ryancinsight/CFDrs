@@ -1,4 +1,4 @@
-use aequitas::systems::si::quantities::{Area, Length};
+use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length};
 use cfd_1d::domain::network::{
     EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
     EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S, Edge, EdgeProperties,
@@ -38,8 +38,9 @@ fn spd_heuristic_selects_cg() -> Result<()> {
     type F = f64;
     let (mut net, edge, inlet, _outlet) = network_two_node::<F>();
     if let Some(e) = net.graph.edge_weight_mut(edge) {
-        e.resistance = 4.0;
-        e.quad_coeff = 0.0;
+        e.resistance = HydraulicResistance::from_base(4.0);
+        e.quad_coeff =
+            aequitas::systems::si::quantities::QuadraticHydraulicResistance::from_base(0.0);
     }
     net.set_pressure(inlet, 10.0);
     let problem = NetworkProblem::new(net.clone());
@@ -57,8 +58,9 @@ fn negative_coefficients_rejected_in_update() {
     type F = f64;
     let (mut net, edge, inlet, outlet) = network_two_node::<F>();
     if let Some(e) = net.graph.edge_weight_mut(edge) {
-        e.resistance = -1.0;
-        e.quad_coeff = 0.0;
+        e.resistance = HydraulicResistance::from_base(-1.0);
+        e.quad_coeff =
+            aequitas::systems::si::quantities::QuadraticHydraulicResistance::from_base(0.0);
     }
     let mut x = Array1::<F>::zeros([net.node_count()]);
     x[inlet.index()] = 5.0;
@@ -75,8 +77,9 @@ fn flow_invariant_edges_skip_resistance_recomputation() -> Result<()> {
     type F = f64;
     let (mut net, edge, _inlet, _outlet) = network_two_node::<F>();
     if let Some(e) = net.graph.edge_weight_mut(edge) {
-        e.resistance = 7.5;
-        e.quad_coeff = 0.0;
+        e.resistance = HydraulicResistance::from_base(7.5);
+        e.quad_coeff =
+            aequitas::systems::si::quantities::QuadraticHydraulicResistance::from_base(0.0);
     }
     net.set_flow_rate(edge, 3.0e-9);
     net.add_edge_properties(
@@ -87,7 +90,7 @@ fn flow_invariant_edges_skip_resistance_recomputation() -> Result<()> {
             length: Length::from_base(1.0e-2),
             area: Area::from_base(1.0e-6),
             hydraulic_diameter: Some(Length::from_base(1.0e-3)),
-            resistance: 7.5,
+            resistance: HydraulicResistance::from_base(7.5),
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
                 length: Length::from_base(1.0e-2),
@@ -132,7 +135,7 @@ fn flow_dependent_short_channel_reapplies_durst_correction() -> Result<()> {
             length: Length::from_base(length),
             area: Area::from_base(area),
             hydraulic_diameter: Some(Length::from_base(diameter)),
-            resistance: 0.0,
+            resistance: HydraulicResistance::from_base(0.0),
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
                 length: Length::from_base(length),
@@ -205,7 +208,7 @@ fn flow_dependent_blood_microchannel_uses_hematocrit_aware_apparent_viscosity() 
             length: Length::from_base(length),
             area: Area::from_base(area),
             hydraulic_diameter: Some(Length::from_base(diameter)),
-            resistance: 0.0,
+            resistance: HydraulicResistance::from_base(0.0),
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
                 length: Length::from_base(length),
@@ -290,7 +293,7 @@ fn blood_microchannel_override_properties_change_resistance() -> Result<()> {
             length: Length::from_base(length),
             area: Area::from_base(area),
             hydraulic_diameter: Some(Length::from_base(diameter)),
-            resistance: 0.0,
+            resistance: HydraulicResistance::from_base(0.0),
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
                 length: Length::from_base(length),
@@ -373,7 +376,7 @@ fn local_apparent_viscosity_override_changes_blood_edge_resistance() -> Result<(
             length: Length::from_base(length),
             area: Area::from_base(area),
             hydraulic_diameter: Some(Length::from_base(diameter)),
-            resistance: 0.0,
+            resistance: HydraulicResistance::from_base(0.0),
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
                 length: Length::from_base(length),
@@ -465,7 +468,7 @@ fn flow_dependent_recompute_uses_shear_aware_reynolds_for_blood() -> Result<()> 
             length: Length::from_base(length),
             area: Area::from_base(area),
             hydraulic_diameter: Some(Length::from_base(diameter)),
-            resistance: 0.0,
+            resistance: HydraulicResistance::from_base(0.0),
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
                 length: Length::from_base(length),
@@ -557,7 +560,7 @@ fn bifurcation_transport_propagates_phase_separated_hematocrit() -> Result<()> {
                 length: Length::from_base(length),
                 area: Area::from_base(std::f64::consts::PI * diameter * diameter / 4.0),
                 hydraulic_diameter: Some(Length::from_base(diameter)),
-                resistance: 0.0,
+                resistance: HydraulicResistance::from_base(0.0),
                 geometry: Some(ChannelGeometry {
                     channel_type: cfd_1d::ChannelType::Straight,
                     length: Length::from_base(length),
@@ -669,7 +672,7 @@ fn cascade_transport_uses_parent_daughter_hematocrit_as_next_feed() -> Result<()
                 length: Length::from_base(length),
                 area: Area::from_base(std::f64::consts::PI * diameter * diameter / 4.0),
                 hydraulic_diameter: Some(Length::from_base(diameter)),
-                resistance: 0.0,
+                resistance: HydraulicResistance::from_base(0.0),
                 geometry: Some(ChannelGeometry {
                     channel_type: cfd_1d::ChannelType::Straight,
                     length: Length::from_base(length),
@@ -788,7 +791,7 @@ fn reconverging_transport_mixes_incoming_rbc_fluxes() -> Result<()> {
             length: Length::from_base(length),
             area: Area::from_base(std::f64::consts::PI * diameter * diameter / 4.0),
             hydraulic_diameter: Some(Length::from_base(diameter)),
-            resistance: 0.0,
+            resistance: HydraulicResistance::from_base(0.0),
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
                 length: Length::from_base(length),

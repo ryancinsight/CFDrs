@@ -179,7 +179,7 @@ impl<T: Cfd1dScalar + Copy + Send + Sync + NumericElement> MatrixAssembler<T> {
         // - Accumulate neighbor contributions into RHS for non-Dirichlet nodes
         for edge in network.edges_parallel() {
             let (i, j) = edge.nodes;
-            let conductance = edge.conductance;
+            let conductance = edge.conductance.into_base();
 
             if i == j {
                 return Err(Error::InvalidConfiguration(
@@ -267,6 +267,9 @@ impl<T: Cfd1dScalar + Copy + Send + Sync + NumericElement> MatrixAssembler<T> {
 mod tests {
     use super::*;
     use crate::domain::network::{Edge, Network, Node};
+    use aequitas::systems::si::quantities::{
+        HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+    };
     use cfd_core::physics::fluid::ConstantPropertyFluid;
     use cfd_schematics::domain::model::{EdgeKind, NodeKind};
     use petgraph::graph::Graph;
@@ -290,9 +293,9 @@ mod tests {
             Edge {
                 id: "AB".into(),
                 edge_type: EdgeKind::Pipe,
-                flow_rate: 0.0,
-                resistance: 1.0 / g1,
-                quad_coeff: 0.0,
+                flow_rate: VolumetricFlowRate::from_base(0.0),
+                resistance: HydraulicResistance::from_base(1.0 / g1),
+                quad_coeff: QuadraticHydraulicResistance::from_base(0.0),
                 area: aequitas::systems::si::quantities::Area::from_base(1.0),
             },
         );
@@ -302,9 +305,9 @@ mod tests {
             Edge {
                 id: "BC".into(),
                 edge_type: EdgeKind::Pipe,
-                flow_rate: 0.0,
-                resistance: 1.0 / g2,
-                quad_coeff: 0.0,
+                flow_rate: VolumetricFlowRate::from_base(0.0),
+                resistance: HydraulicResistance::from_base(1.0 / g2),
+                quad_coeff: QuadraticHydraulicResistance::from_base(0.0),
                 area: aequitas::systems::si::quantities::Area::from_base(1.0),
             },
         );
@@ -402,9 +405,9 @@ mod tests {
         let mk_edge = |id: &str, g: f64| Edge {
             id: id.into(),
             edge_type: EdgeKind::Pipe,
-            flow_rate: 0.0,
-            resistance: 1.0 / g,
-            quad_coeff: 0.0,
+            flow_rate: VolumetricFlowRate::from_base(0.0),
+            resistance: HydraulicResistance::from_base(1.0 / g),
+            quad_coeff: QuadraticHydraulicResistance::from_base(0.0),
             area: aequitas::systems::si::quantities::Area::from_base(1.0),
         };
         graph.add_edge(a, b, mk_edge("AB", 1.0));
