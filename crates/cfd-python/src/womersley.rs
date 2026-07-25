@@ -1,5 +1,8 @@
 //! Womersley pulsatile flow `PyO3` wrappers
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, Length, MassDensity, Pressure, PressureGradient, ReciprocalTime, Time,
+};
 use cfd_1d::physics::vascular::womersley::{
     WomersleyFlow as RustWomersleyFlow, WomersleyNumber as RustWomersleyNumber,
     WomersleyProfile as RustWomersleyProfile,
@@ -35,7 +38,12 @@ impl PyWomersleyNumber {
     #[new]
     fn new(radius: f64, omega: f64, density: f64, viscosity: f64) -> Self {
         PyWomersleyNumber {
-            inner: RustWomersleyNumber::<f64>::new(radius, omega, density, viscosity),
+            inner: RustWomersleyNumber::<f64>::new(
+                Length::from_base(radius),
+                ReciprocalTime::from_base(omega),
+                MassDensity::from_base(density),
+                DynamicViscosity::from_base(viscosity),
+            ),
         }
     }
 
@@ -44,10 +52,10 @@ impl PyWomersleyNumber {
     fn from_heart_rate(diameter: f64, heart_rate_hz: f64, density: f64, viscosity: f64) -> Self {
         PyWomersleyNumber {
             inner: RustWomersleyNumber::<f64>::from_heart_rate(
-                diameter,
-                heart_rate_hz,
-                density,
-                viscosity,
+                Length::from_base(diameter),
+                aequitas::systems::si::quantities::Frequency::from_base(heart_rate_hz),
+                MassDensity::from_base(density),
+                DynamicViscosity::from_base(viscosity),
             ),
         }
     }
@@ -70,17 +78,17 @@ impl PyWomersleyNumber {
 
     /// Calculate the Womersley number alpha [-]
     fn value(&self) -> f64 {
-        self.inner.value()
+        self.inner.value().into_base()
     }
 
     /// Stokes layer thickness delta \[m]
     fn stokes_layer_thickness(&self) -> f64 {
-        self.inner.stokes_layer_thickness()
+        self.inner.stokes_layer_thickness().into_base()
     }
 
     /// Ratio R / delta [-]
     fn radius_to_stokes_ratio(&self) -> f64 {
-        self.inner.radius_to_stokes_ratio()
+        self.inner.radius_to_stokes_ratio().into_base()
     }
 
     /// Classify flow regime as string
@@ -123,9 +131,17 @@ impl PyWomersleyProfile {
     /// - `pressure_amplitude`: Oscillatory pressure gradient amplitude [Pa/m]
     #[new]
     fn new(radius: f64, omega: f64, density: f64, viscosity: f64, pressure_amplitude: f64) -> Self {
-        let wom = RustWomersleyNumber::<f64>::new(radius, omega, density, viscosity);
+        let wom = RustWomersleyNumber::<f64>::new(
+            Length::from_base(radius),
+            ReciprocalTime::from_base(omega),
+            MassDensity::from_base(density),
+            DynamicViscosity::from_base(viscosity),
+        );
         PyWomersleyProfile {
-            inner: RustWomersleyProfile::<f64>::new(wom, pressure_amplitude),
+            inner: RustWomersleyProfile::<f64>::new(
+                wom,
+                PressureGradient::from_base(pressure_amplitude),
+            ),
         }
     }
 
@@ -138,28 +154,30 @@ impl PyWomersleyProfile {
     /// # Returns
     /// Axial velocity u \[m/s]
     fn velocity(&self, xi: f64, t: f64) -> f64 {
-        self.inner.velocity(xi, t)
+        self.inner.velocity(xi, Time::from_base(t)).into_base()
     }
 
     /// Centerline velocity at time t \[m/s]
     fn centerline_velocity(&self, t: f64) -> f64 {
-        self.inner.centerline_velocity(t)
+        self.inner
+            .centerline_velocity(Time::from_base(t))
+            .into_base()
     }
 
     /// Wall shear stress at time t \[Pa]
     fn wall_shear_stress(&self, t: f64) -> f64 {
-        self.inner.wall_shear_stress(t)
+        self.inner.wall_shear_stress(Time::from_base(t)).into_base()
     }
 
     /// Volumetric flow rate at time t [m^3/s]
     fn flow_rate(&self, t: f64) -> f64 {
-        self.inner.flow_rate(t)
+        self.inner.flow_rate(Time::from_base(t)).into_base()
     }
 
     fn __str__(&self) -> String {
         format!(
             "WomersleyProfile(alpha={:.4})",
-            self.inner.womersley.value()
+            self.inner.womersley.value().into_base()
         )
     }
 
@@ -201,38 +219,38 @@ impl PyWomersleyFlow {
     ) -> Self {
         PyWomersleyFlow {
             inner: RustWomersleyFlow::<f64>::new(
-                radius,
-                length,
-                density,
-                viscosity,
-                omega,
-                inlet_pressure_amplitude,
-                mean_pressure_gradient,
+                Length::from_base(radius),
+                Length::from_base(length),
+                MassDensity::from_base(density),
+                DynamicViscosity::from_base(viscosity),
+                ReciprocalTime::from_base(omega),
+                Pressure::from_base(inlet_pressure_amplitude),
+                PressureGradient::from_base(mean_pressure_gradient),
             ),
         }
     }
 
     /// Womersley number alpha [-]
     fn womersley_number(&self) -> f64 {
-        self.inner.womersley_number().value()
+        self.inner.womersley_number().value().into_base()
     }
 
     /// Total velocity (mean + pulsatile) at xi = r/R and time t \[m/s]
     fn velocity(&self, xi: f64, t: f64) -> f64 {
-        self.inner.velocity(xi, t)
+        self.inner.velocity(xi, Time::from_base(t)).into_base()
     }
 
     /// Impedance magnitude |Z| [Pa.s/m^3]
     fn impedance_magnitude(&self) -> f64 {
-        self.inner.impedance_magnitude()
+        self.inner.impedance_magnitude().into_base()
     }
 
     fn __str__(&self) -> String {
         format!(
             "WomersleyFlow(alpha={:.4}, R={:.1} um, L={:.1} mm)",
             self.womersley_number(),
-            self.inner.radius * 1e6,
-            self.inner.length * 1e3,
+            self.inner.radius.into_base() * 1e6,
+            self.inner.length.into_base() * 1e3,
         )
     }
 

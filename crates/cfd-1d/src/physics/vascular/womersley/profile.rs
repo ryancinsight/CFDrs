@@ -6,6 +6,9 @@
 use super::WomersleyNumber;
 use crate::physics::vascular::bessel::{bessel_j0, bessel_j0_j1};
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::{
+    Pressure, PressureGradient, Time, Velocity, VolumetricFlowRate,
+};
 use eunomia::{Complex, FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -23,12 +26,12 @@ pub struct WomersleyProfile<T: Cfd1dScalar + Copy> {
     /// Womersley number parameters
     pub womersley: WomersleyNumber<T>,
     /// Pressure gradient amplitude [Pa/m]
-    pub pressure_amplitude: T,
+    pub pressure_amplitude: PressureGradient<T>,
 }
 
 impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
     /// Create velocity profile calculator
-    pub fn new(womersley: WomersleyNumber<T>, pressure_amplitude: T) -> Self {
+    pub fn new(womersley: WomersleyNumber<T>, pressure_amplitude: PressureGradient<T>) -> Self {
         Self {
             womersley,
             pressure_amplitude,
@@ -43,11 +46,11 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
     ///
     /// # Returns
     /// Axial velocity u(r,t) \[m/s]
-    pub fn velocity(&self, xi: T, t: T) -> T {
-        let alpha = self.womersley.value();
-        let rho = self.womersley.density;
-        let omega = self.womersley.omega;
-        let p_hat = self.pressure_amplitude;
+    pub fn velocity(&self, xi: T, t: Time<T>) -> Velocity<T> {
+        let alpha = self.womersley.value().into_base();
+        let rho = self.womersley.density.into_base();
+        let omega = self.womersley.omega.into_base();
+        let p_hat = self.pressure_amplitude.into_base();
         let one = T::one();
 
         // Clamp xi to valid range
@@ -77,31 +80,31 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
         let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
 
         // e^{i \omega t} = cos(\omega t) + i \sin(\omega t)
-        let phase = omega * t;
+        let phase = omega * t.into_base();
         let exp_iwt = Complex::new(
             <T as FloatElement>::cos(phase),
             <T as FloatElement>::sin(phase),
         );
 
         // Final: Re{ coeff * term_brackets * exp_iwt }
-        (coeff * term_brackets * exp_iwt).re
+        Velocity::from_base((coeff * term_brackets * exp_iwt).re)
     }
 
     /// Calculate centerline velocity (maximum velocity)
-    pub fn centerline_velocity(&self, t: T) -> T {
+    pub fn centerline_velocity(&self, t: Time<T>) -> Velocity<T> {
         self.velocity(T::zero(), t)
     }
 
     /// Calculate wall shear stress using exact Bessel functions
     ///
     /// τ_w(t) = -μ · (∂u/∂r)|_{r=R}
-    pub fn wall_shear_stress(&self, t: T) -> T {
-        let alpha = self.womersley.value();
-        let r = self.womersley.radius;
-        let rho = self.womersley.density;
-        let mu = self.womersley.viscosity;
-        let omega = self.womersley.omega;
-        let p_hat = self.pressure_amplitude;
+    pub fn wall_shear_stress(&self, t: Time<T>) -> Pressure<T> {
+        let alpha = self.womersley.value().into_base();
+        let r = self.womersley.radius.into_base();
+        let rho = self.womersley.density.into_base();
+        let mu = self.womersley.viscosity.into_base();
+        let omega = self.womersley.omega.into_base();
+        let p_hat = self.pressure_amplitude.into_base();
         let one = T::one();
 
         let sqrt2 = <T as NumericElement>::sqrt(T::one() + T::one());
@@ -116,7 +119,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
         // P_hat / (i * rho * omega)
         let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
 
-        let phase = omega * t;
+        let phase = omega * t.into_base();
         let exp_iwt = Complex::new(
             <T as FloatElement>::cos(phase),
             <T as FloatElement>::sin(phase),
@@ -126,16 +129,16 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
         let du_dxi = (coeff * term * exp_iwt).re;
 
         // tau_w = -mu / R * du/dxi
-        -mu / r * du_dxi
+        Pressure::from_base(-mu / r * du_dxi)
     }
 
     /// Calculate volumetric flow rate Q(t) using exact Bessel functions
-    pub fn flow_rate(&self, t: T) -> T {
-        let alpha = self.womersley.value();
-        let r = self.womersley.radius;
-        let rho = self.womersley.density;
-        let omega = self.womersley.omega;
-        let p_hat = self.pressure_amplitude;
+    pub fn flow_rate(&self, t: Time<T>) -> VolumetricFlowRate<T> {
+        let alpha = self.womersley.value().into_base();
+        let r = self.womersley.radius.into_base();
+        let rho = self.womersley.density.into_base();
+        let omega = self.womersley.omega.into_base();
+        let p_hat = self.pressure_amplitude.into_base();
         let one = T::one();
         let two = T::one() + T::one();
         let pi = T::pi();
@@ -154,20 +157,23 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyProfile<T> {
         // P_hat / (i * rho * omega)
         let coeff = Complex::new(T::zero(), -p_hat / (rho * omega));
 
-        let phase = omega * t;
+        let phase = omega * t.into_base();
         let exp_iwt = Complex::new(
             <T as FloatElement>::cos(phase),
             <T as FloatElement>::sin(phase),
         );
 
         // Q = pi * R^2 * Re{ coeff * bracket * exp_iwt }
-        pi * r * r * (coeff * bracket * exp_iwt).re
+        VolumetricFlowRate::from_base(pi * r * r * (coeff * bracket * exp_iwt).re)
     }
 }
 
 #[cfg(test)]
 mod proptests {
     use super::*;
+    use aequitas::systems::si::quantities::{
+        DynamicViscosity, Length, MassDensity, PressureGradient, ReciprocalTime, Time,
+    };
     use eunomia::assert_relative_eq;
     use proptest::prelude::*;
 
@@ -181,14 +187,22 @@ mod proptests {
             // omega = (alpha^2 * mu) / (R^2 * rho)
             let omega = (alpha * alpha * mu) / (r * r * rho);
 
-            let womersley = WomersleyNumber::new(r, rho, mu, omega);
-            let profile = WomersleyProfile::new(womersley, 100.0);
+            let womersley = WomersleyNumber::new(
+                Length::from_base(r),
+                ReciprocalTime::from_base(omega),
+                MassDensity::from_base(rho),
+                DynamicViscosity::from_base(mu),
+            );
+            let profile = WomersleyProfile::new(
+                womersley,
+                PressureGradient::from_base(100.0),
+            );
 
             // Wall location is mathematically defined at radial vector xi = r/R = 1.0
-            let u_wall = profile.velocity(1.0, t);
+            let u_wall = profile.velocity(1.0, Time::from_base(t));
 
             // Physics Theorem: Velocity uniformly zero at solid boundary (No-Slip Condition)
-            assert_relative_eq!(u_wall, 0.0, epsilon = 1e-10);
+            assert_relative_eq!(u_wall.into_base(), 0.0, epsilon = 1e-10);
         }
     }
 }

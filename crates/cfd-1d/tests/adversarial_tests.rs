@@ -6,7 +6,9 @@
 //! 3. Solver correctly handles NaN/infinite resistance edges without panicking
 //! 4. Womersley and Bessel functions produce correct limits at degenerate inputs
 
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, Length, MassDensity, Pressure, PressureGradient, ReciprocalTime, Time,
+};
 use cfd_1d::{
     domain::components::channels::CircularChannel,
     domain::components::membranes::PorousMembrane,
@@ -317,11 +319,12 @@ fn test_two_dirichlet_nodes_solve_correctly() {
 #[test]
 fn test_womersley_zero_frequency_alpha_is_zero() {
     let alpha_num = WomersleyNumber::<f64>::new(
-        0.005, // R = 5 mm
-        0.0,   // ω = 0 (static)
-        1060.0, 0.0035,
+        Length::from_base(0.005),
+        ReciprocalTime::from_base(0.0),
+        MassDensity::from_base(1060.0),
+        DynamicViscosity::from_base(0.0035),
     );
-    let alpha = alpha_num.value();
+    let alpha = alpha_num.value().into_base();
     assert_eq!(
         alpha, 0.0,
         "Zero-frequency Womersley number must be exactly 0"
@@ -332,15 +335,15 @@ fn test_womersley_zero_frequency_alpha_is_zero() {
 #[test]
 fn test_womersley_near_zero_frequency_no_panic() {
     let flow = WomersleyFlow::<f64>::new(
-        0.005,  // R = 5 mm
-        0.1,    // L = 10 cm
-        1060.0, // blood density
-        0.0035, // blood viscosity
-        1e-10,  // Effectively ω → 0
-        133.0,  // pressure amplitude
-        -100.0, // steady gradient
+        Length::from_base(0.005),
+        Length::from_base(0.1),
+        MassDensity::from_base(1060.0),
+        DynamicViscosity::from_base(0.0035),
+        ReciprocalTime::from_base(1e-10),
+        Pressure::from_base(133.0),
+        PressureGradient::from_base(-100.0),
     );
-    let u = flow.velocity(0.5, 0.0);
+    let u = flow.velocity(0.5, Time::from_base(0.0)).into_base();
     assert!(
         u.is_finite(),
         "Near-zero-frequency velocity must be finite, got {}",

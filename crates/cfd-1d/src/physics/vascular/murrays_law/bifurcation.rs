@@ -5,6 +5,9 @@
 
 use super::law::MurraysLaw;
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::{
+    Angle, Dimensionless, DynamicViscosity, Length, Pressure, VolumetricFlowRate,
+};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -15,21 +18,21 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct OptimalBifurcation<T: Cfd1dScalar + Copy> {
     /// Parent vessel diameter \[m]
-    pub parent_diameter: T,
+    pub parent_diameter: Length<T>,
     /// Major daughter diameter \[m]
-    pub daughter1_diameter: T,
+    pub daughter1_diameter: Length<T>,
     /// Minor daughter diameter \[m]
-    pub daughter2_diameter: T,
+    pub daughter2_diameter: Length<T>,
     /// Half-angle of major daughter branch from parent axis \[rad]
-    pub angle1: T,
+    pub angle1: Angle<T>,
     /// Half-angle of minor daughter branch from parent axis \[rad]
-    pub angle2: T,
+    pub angle2: Angle<T>,
     /// Flow rate in parent [m³/s]
-    pub parent_flow: T,
+    pub parent_flow: VolumetricFlowRate<T>,
     /// Flow rate in daughter 1 [m³/s]
-    pub daughter1_flow: T,
+    pub daughter1_flow: VolumetricFlowRate<T>,
     /// Flow rate in daughter 2 [m³/s]
-    pub daughter2_flow: T,
+    pub daughter2_flow: VolumetricFlowRate<T>,
 }
 
 impl<T: Cfd1dScalar + FloatElement + Copy> OptimalBifurcation<T> {
@@ -48,22 +51,22 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OptimalBifurcation<T> {
     ///
     /// **Proof sketch**: substitute r₁ = r₂ into the general angle formula,
     /// cancelling the r₂⁴ terms, yielding cos(θ) = 2^(2/3) / 2 = 2^(−1/3).
-    pub fn symmetric(parent_diameter: T, parent_flow: T) -> Self {
+    pub fn symmetric(parent_diameter: Length<T>, parent_flow: VolumetricFlowRate<T>) -> Self {
         let murray = MurraysLaw::<T>::new();
-        let d_daughter = murray.symmetric_daughter_diameter(parent_diameter);
+        let d_daughter = murray.symmetric_daughter_diameter(parent_diameter.into_base());
 
         let two = T::one() + T::one();
-        let daughter_flow = parent_flow / two;
+        let daughter_flow = VolumetricFlowRate::from_base(parent_flow.into_base() / two);
 
         // cos(θ) = 2^(−1/3)
         let one_third = T::one() / (T::one() + T::one() + T::one());
         let cos_theta = <T as FloatElement>::powf(two, -one_third);
-        let angle = <T as FloatElement>::acos(cos_theta);
+        let angle = Angle::from_base(<T as FloatElement>::acos(cos_theta));
 
         Self {
             parent_diameter,
-            daughter1_diameter: d_daughter,
-            daughter2_diameter: d_daughter,
+            daughter1_diameter: Length::from_base(d_daughter),
+            daughter2_diameter: Length::from_base(d_daughter),
             angle1: angle,
             angle2: angle,
             parent_flow,
@@ -83,19 +86,25 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OptimalBifurcation<T> {
     /// cos(θ₁) = (r₀⁴ + r₁⁴ − r₂⁴) / (2·r₀²·r₁²)
     /// cos(θ₂) = (r₀⁴ + r₂⁴ − r₁⁴) / (2·r₀²·r₂²)
     /// ```
-    pub fn asymmetric(parent_diameter: T, parent_flow: T, flow_ratio: T) -> Self {
+    pub fn asymmetric(
+        parent_diameter: Length<T>,
+        parent_flow: VolumetricFlowRate<T>,
+        flow_ratio: T,
+    ) -> Self {
         let one = T::one();
+        let parent_diameter_base = parent_diameter.into_base();
+        let parent_flow_base = parent_flow.into_base();
 
-        let q1 = parent_flow * flow_ratio;
-        let q2 = parent_flow * (one - flow_ratio);
+        let q1 = VolumetricFlowRate::from_base(parent_flow_base * flow_ratio);
+        let q2 = VolumetricFlowRate::from_base(parent_flow_base * (one - flow_ratio));
 
         // D₁ = D₀ · (Q₁/Q₀)^(1/3), D₂ = D₀ · (Q₂/Q₀)^(1/3)
         let one_third = one / (T::one() + T::one() + T::one());
-        let d1 = parent_diameter * <T as FloatElement>::powf(flow_ratio, one_third);
-        let d2 = parent_diameter * <T as FloatElement>::powf(one - flow_ratio, one_third);
+        let d1 = parent_diameter_base * <T as FloatElement>::powf(flow_ratio, one_third);
+        let d2 = parent_diameter_base * <T as FloatElement>::powf(one - flow_ratio, one_third);
 
         // Zamir (1978) branching angle formula
-        let d0_sq = parent_diameter * parent_diameter;
+        let d0_sq = parent_diameter_base * parent_diameter_base;
         let d1_sq = d1 * d1;
         let d2_sq = d2 * d2;
         let d0_4 = d0_sq * d0_sq;
@@ -116,10 +125,10 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OptimalBifurcation<T> {
 
         Self {
             parent_diameter,
-            daughter1_diameter: d1,
-            daughter2_diameter: d2,
-            angle1: <T as FloatElement>::acos(cos_theta1),
-            angle2: <T as FloatElement>::acos(cos_theta2),
+            daughter1_diameter: Length::from_base(d1),
+            daughter2_diameter: Length::from_base(d2),
+            angle1: Angle::from_base(<T as FloatElement>::acos(cos_theta1)),
+            angle2: Angle::from_base(<T as FloatElement>::acos(cos_theta2)),
             parent_flow,
             daughter1_flow: q1,
             daughter2_flow: q2,
@@ -130,44 +139,52 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OptimalBifurcation<T> {
     pub fn is_murray_compliant(&self, tolerance: T) -> bool {
         let murray = MurraysLaw::<T>::new();
         murray.is_valid(
-            self.parent_diameter,
-            self.daughter1_diameter,
-            self.daughter2_diameter,
+            self.parent_diameter.into_base(),
+            self.daughter1_diameter.into_base(),
+            self.daughter2_diameter.into_base(),
             tolerance,
         )
     }
 
     /// Calculate Murray's Law deviation
-    pub fn murray_deviation(&self) -> T {
+    pub fn murray_deviation(&self) -> Dimensionless<T> {
         let murray = MurraysLaw::<T>::new();
-        murray.deviation(
-            self.parent_diameter,
-            self.daughter1_diameter,
-            self.daughter2_diameter,
-        )
+        Dimensionless::from_base(murray.deviation(
+            self.parent_diameter.into_base(),
+            self.daughter1_diameter.into_base(),
+            self.daughter2_diameter.into_base(),
+        ))
     }
 
     /// Calculate total daughter area to parent area ratio
-    pub fn area_ratio(&self) -> T {
-        let a0 = self.parent_diameter * self.parent_diameter;
-        let a1 = self.daughter1_diameter * self.daughter1_diameter;
-        let a2 = self.daughter2_diameter * self.daughter2_diameter;
-        (a1 + a2) / a0
+    pub fn area_ratio(&self) -> Dimensionless<T> {
+        let a0 = self.parent_diameter.into_base() * self.parent_diameter.into_base();
+        let a1 = self.daughter1_diameter.into_base() * self.daughter1_diameter.into_base();
+        let a2 = self.daughter2_diameter.into_base() * self.daughter2_diameter.into_base();
+        Dimensionless::from_base((a1 + a2) / a0)
     }
 
     /// Check mass conservation: Q₀ = Q₁ + Q₂
-    pub fn mass_conservation_error(&self) -> T {
-        let sum = self.daughter1_flow + self.daughter2_flow;
-        <T as NumericElement>::abs(self.parent_flow - sum) / self.parent_flow
+    pub fn mass_conservation_error(&self) -> Dimensionless<T> {
+        let parent_flow = self.parent_flow.into_base();
+        let sum = self.daughter1_flow.into_base() + self.daughter2_flow.into_base();
+        Dimensionless::from_base(<T as NumericElement>::abs(parent_flow - sum) / parent_flow)
     }
 
     /// Calculate pressure drop through major daughter branch
     ///
     /// Uses Poiseuille resistance: ΔP = 8μLQ/(πR⁴)
-    pub fn pressure_drop_daughter1(&self, viscosity: T, length: T) -> T {
+    pub fn pressure_drop_daughter1(
+        &self,
+        viscosity: DynamicViscosity<T>,
+        length: Length<T>,
+    ) -> Pressure<T> {
         let pi = T::pi();
         let eight = <T as FloatElement>::from_f64(8.0);
-        let r = self.daughter1_diameter / (T::one() + T::one());
-        eight * viscosity * length * self.daughter1_flow / (pi * <T as FloatElement>::powi(r, 4))
+        let r = self.daughter1_diameter.into_base() / (T::one() + T::one());
+        Pressure::from_base(
+            eight * viscosity.into_base() * length.into_base() * self.daughter1_flow.into_base()
+                / (pi * <T as FloatElement>::powi(r, 4)),
+        )
     }
 }

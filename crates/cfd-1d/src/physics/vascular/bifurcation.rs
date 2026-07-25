@@ -36,6 +36,10 @@ use crate::solver::analysis::resistance::{
     parallel_resistance as combine_parallel_resistances,
     series_resistance as combine_series_resistances,
 };
+use aequitas::systems::si::quantities::{
+    Area, Compliance, DynamicViscosity, HydraulicInertance, HydraulicResistance, Length,
+    MassDensity, Pressure, Velocity, VolumetricFlowRate,
+};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 
@@ -77,13 +81,13 @@ pub struct VesselSegment<T: Cfd1dScalar + Copy> {
     /// Segment identifier
     pub id: usize,
     /// Vessel radius \[m]
-    pub radius: T,
+    pub radius: Length<T>,
     /// Vessel length \[m]
-    pub length: T,
+    pub length: Length<T>,
     /// Wall thickness \[m]
-    pub wall_thickness: T,
+    pub wall_thickness: Length<T>,
     /// Young's modulus of wall \[Pa]
-    pub youngs_modulus: T,
+    pub youngs_modulus: Pressure<T>,
     /// Inlet node ID
     pub inlet_node: usize,
     /// Outlet node ID
@@ -92,59 +96,86 @@ pub struct VesselSegment<T: Cfd1dScalar + Copy> {
 
 impl<T: Cfd1dScalar + FloatElement + Copy> VesselSegment<T> {
     /// Create new vessel segment
-    pub fn new(id: usize, radius: T, length: T, inlet_node: usize, outlet_node: usize) -> Self {
+    pub fn new(
+        id: usize,
+        radius: Length<T>,
+        length: Length<T>,
+        inlet_node: usize,
+        outlet_node: usize,
+    ) -> Self {
+        let radius_base = radius.into_base();
         Self {
             id,
             radius,
             length,
-            wall_thickness: radius * <T as FloatElement>::from_f64(0.1), // 10% of radius
-            youngs_modulus: <T as FloatElement>::from_f64(0.4e6),        // ~0.4 MPa for arteries
+            wall_thickness: Length::from_base(radius_base * <T as FloatElement>::from_f64(0.1)), // 10% of radius
+            youngs_modulus: Pressure::from_base(<T as FloatElement>::from_f64(0.4e6)),
+            // ~0.4 MPa for arteries
             inlet_node,
             outlet_node,
         }
     }
 
     /// Calculate Poiseuille resistance R = 8μL/(πR⁴)
-    pub fn resistance(&self, viscosity: T) -> T {
+    pub fn resistance(&self, viscosity: DynamicViscosity<T>) -> HydraulicResistance<T> {
         let pi = T::pi();
         let eight = <T as FloatElement>::from_f64(8.0);
-        eight * viscosity * self.length / (pi * <T as FloatElement>::powi(self.radius, 4))
+        let viscosity = viscosity.into_base();
+        let length = self.length.into_base();
+        let radius = self.radius.into_base();
+        HydraulicResistance::from_base(
+            eight * viscosity * length / (pi * <T as FloatElement>::powi(radius, 4)),
+        )
     }
 
     /// Calculate inertance L = ρL/(πR²)
-    pub fn inertance(&self, density: T) -> T {
+    pub fn inertance(&self, density: MassDensity<T>) -> HydraulicInertance<T> {
         let pi = T::pi();
-        density * self.length / (pi * self.radius * self.radius)
+        let density = density.into_base();
+        let length = self.length.into_base();
+        let radius = self.radius.into_base();
+        HydraulicInertance::from_base(density * length / (pi * radius * radius))
     }
 
     /// Calculate compliance C = 3πR³L/(2Eh)
     /// Based on thin-walled tube approximation
-    pub fn compliance(&self) -> T {
+    pub fn compliance(&self) -> Compliance<T> {
         let pi = T::pi();
         let three = T::one() + T::one() + T::one();
         let two = T::one() + T::one();
-        three * pi * <T as FloatElement>::powi(self.radius, 3) * self.length
-            / (two * self.youngs_modulus * self.wall_thickness)
-    }
-
-    /// Calculate wave speed c = √(Eh/(2ρR))
-    pub fn wave_speed(&self, density: T) -> T {
-        let two = T::one() + T::one();
-        <T as NumericElement>::sqrt(
-            self.youngs_modulus * self.wall_thickness / (two * density * self.radius),
+        let radius = self.radius.into_base();
+        let length = self.length.into_base();
+        let youngs_modulus = self.youngs_modulus.into_base();
+        let wall_thickness = self.wall_thickness.into_base();
+        Compliance::from_base(
+            three * pi * <T as FloatElement>::powi(radius, 3) * length
+                / (two * youngs_modulus * wall_thickness),
         )
     }
 
+    /// Calculate wave speed c = √(Eh/(2ρR))
+    pub fn wave_speed(&self, density: MassDensity<T>) -> Velocity<T> {
+        let two = T::one() + T::one();
+        let density = density.into_base();
+        let radius = self.radius.into_base();
+        let wall_thickness = self.wall_thickness.into_base();
+        let youngs_modulus = self.youngs_modulus.into_base();
+        Velocity::from_base(<T as NumericElement>::sqrt(
+            youngs_modulus * wall_thickness / (two * density * radius),
+        ))
+    }
+
     /// Calculate cross-sectional area
-    pub fn area(&self) -> T {
+    pub fn area(&self) -> Area<T> {
         let pi = T::pi();
-        pi * self.radius * self.radius
+        let radius = self.radius.into_base();
+        Area::from_base(pi * radius * radius)
     }
 
     /// Calculate diameter
-    pub fn diameter(&self) -> T {
+    pub fn diameter(&self) -> Length<T> {
         let two = T::one() + T::one();
-        two * self.radius
+        Length::from_base(two * self.radius.into_base())
     }
 }
 
@@ -168,9 +199,9 @@ pub struct Bifurcation<T: Cfd1dScalar + Copy> {
     /// Outgoing vessel IDs
     pub daughter_vessels: Vec<usize>,
     /// Current pressure at junction \[Pa]
-    pub pressure: T,
+    pub pressure: Pressure<T>,
     /// Current flow rates [m³/s] - indexed by vessel ID
-    pub flow_rates: Vec<T>,
+    pub flow_rates: Vec<VolumetricFlowRate<T>>,
 }
 
 impl<T: Cfd1dScalar + FloatElement + Copy> Bifurcation<T> {
@@ -188,8 +219,9 @@ impl<T: Cfd1dScalar + FloatElement + Copy> Bifurcation<T> {
             k_factor: <T as FloatElement>::from_f64(0.1),
             parent_vessels: vec![parent_id],
             daughter_vessels: daughter_ids,
-            pressure: <T as FloatElement>::from_f64(13_332.0), // ~100 mmHg
-            flow_rates: vec![T::zero(); n_flows],
+            pressure: Pressure::from_base(<T as FloatElement>::from_f64(13_332.0)),
+            // ~100 mmHg
+            flow_rates: vec![VolumetricFlowRate::from_base(T::zero()); n_flows],
         }
     }
 
@@ -203,8 +235,9 @@ impl<T: Cfd1dScalar + FloatElement + Copy> Bifurcation<T> {
             k_factor: <T as FloatElement>::from_f64(0.05),
             parent_vessels: parent_ids,
             daughter_vessels: vec![daughter_id],
-            pressure: <T as FloatElement>::from_f64(1_333.0), // ~10 mmHg for veins
-            flow_rates: vec![T::zero(); n_flows],
+            pressure: Pressure::from_base(<T as FloatElement>::from_f64(1_333.0)),
+            // ~10 mmHg for veins
+            flow_rates: vec![VolumetricFlowRate::from_base(T::zero()); n_flows],
         }
     }
 
@@ -218,12 +251,12 @@ impl<T: Cfd1dScalar + FloatElement + Copy> Bifurcation<T> {
             .flow_rates
             .iter()
             .take(self.parent_vessels.len())
-            .fold(T::zero(), |acc, &f| acc + f);
+            .fold(T::zero(), |acc, f| acc + f.into_base());
         let daughter_flow: T = self
             .flow_rates
             .iter()
             .skip(self.parent_vessels.len())
-            .fold(T::zero(), |acc, &f| acc + f);
+            .fold(T::zero(), |acc, f| acc + f.into_base());
 
         if <T as NumericElement>::abs(parent_flow) < <T as FloatElement>::from_f64(1e-20) {
             return T::zero();
@@ -234,17 +267,32 @@ impl<T: Cfd1dScalar + FloatElement + Copy> Bifurcation<T> {
     }
 
     /// Apply junction loss model to get pressure at daughters
-    pub fn daughter_pressure(&self, parent_pressure: T, parent_velocity: T, density: T) -> T {
+    pub fn daughter_pressure(
+        &self,
+        parent_pressure: Pressure<T>,
+        parent_velocity: Velocity<T>,
+        density: MassDensity<T>,
+    ) -> Pressure<T> {
+        let parent_pressure_base = parent_pressure.into_base();
+        let parent_velocity_base = parent_velocity.into_base();
+        let density_base = density.into_base();
         match self.loss_model {
-            JunctionLossModel::None => parent_pressure,
+            JunctionLossModel::None => Pressure::from_base(parent_pressure_base),
             JunctionLossModel::KFactor => {
                 let half = T::one() / (T::one() + T::one());
-                parent_pressure - self.k_factor * half * density * parent_velocity * parent_velocity
+                Pressure::from_base(
+                    parent_pressure_base
+                        - self.k_factor
+                            * half
+                            * density_base
+                            * parent_velocity_base
+                            * parent_velocity_base,
+                )
             }
             JunctionLossModel::EnergyPreserving => {
                 // Energy preservation: p + ρv²/2 = const
                 // More complex model would account for velocity changes
-                parent_pressure
+                Pressure::from_base(parent_pressure_base)
             }
         }
     }
@@ -262,13 +310,13 @@ pub struct BifurcationNetwork<T: Cfd1dScalar + Copy> {
     /// All junction nodes
     pub junctions: Vec<Bifurcation<T>>,
     /// Inlet boundary pressure \[Pa]
-    pub inlet_pressure: T,
+    pub inlet_pressure: Pressure<T>,
     /// Outlet boundary resistance [Pa·s/m³]
-    pub outlet_resistance: T,
+    pub outlet_resistance: HydraulicResistance<T>,
     /// Blood density [kg/m³]
-    pub density: T,
+    pub density: MassDensity<T>,
     /// Blood viscosity [Pa·s]
-    pub viscosity: T,
+    pub viscosity: DynamicViscosity<T>,
 }
 
 impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
@@ -277,10 +325,11 @@ impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
         Self {
             vessels: Vec::new(),
             junctions: Vec::new(),
-            inlet_pressure: <T as FloatElement>::from_f64(13_332.0), // 100 mmHg
-            outlet_resistance: <T as FloatElement>::from_f64(1e9),
-            density: <T as FloatElement>::from_f64(1060.0),
-            viscosity: <T as FloatElement>::from_f64(0.0035),
+            inlet_pressure: Pressure::from_base(<T as FloatElement>::from_f64(13_332.0)),
+            // 100 mmHg
+            outlet_resistance: HydraulicResistance::from_base(<T as FloatElement>::from_f64(1e9)),
+            density: MassDensity::from_base(<T as FloatElement>::from_f64(1060.0)),
+            viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(0.0035)),
         }
     }
 
@@ -306,8 +355,8 @@ impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
     /// * `generations` - Number of bifurcation generations (1 = just root)
     /// * `length_ratio` - Length of daughter / length of parent
     pub fn create_symmetric_tree(
-        root_radius: T,
-        root_length: T,
+        root_radius: Length<T>,
+        root_length: Length<T>,
         generations: usize,
         length_ratio: T,
     ) -> Self {
@@ -331,8 +380,8 @@ impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
             // Add parent vessel
             let vessel = VesselSegment::new(
                 network.vessels.len(),
-                parent_radius,
-                parent_length,
+                Length::from_base(parent_radius),
+                Length::from_base(parent_length),
                 inlet_node,
                 outlet_node,
             );
@@ -394,8 +443,8 @@ impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
             &mut network,
             &murray,
             0,
-            root_radius,
-            root_length,
+            root_radius.into_base(),
+            root_length.into_base(),
             length_ratio,
             1,
             generations,
@@ -406,9 +455,9 @@ impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
     }
 
     /// Calculate total network resistance
-    pub fn total_resistance(&self) -> T {
+    pub fn total_resistance(&self) -> HydraulicResistance<T> {
         if self.vessels.is_empty() {
-            return T::zero();
+            return HydraulicResistance::from_base(T::zero());
         }
 
         let mut parent_to_junction: std::collections::HashMap<usize, usize> =
@@ -433,7 +482,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
             .collect();
 
         if root_vessels.is_empty() {
-            return T::zero();
+            return HydraulicResistance::from_base(T::zero());
         }
 
         root_vessels.sort_unstable();
@@ -449,7 +498,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
             ));
         }
 
-        combine_parallel_resistances(root_resistances)
+        HydraulicResistance::from_base(combine_parallel_resistances(root_resistances))
     }
 
     fn branch_equivalent_resistance(
@@ -466,7 +515,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
             return T::zero();
         };
 
-        let series_resistance = vessel.resistance(self.viscosity);
+        let series_resistance = vessel.resistance(self.viscosity).into_base();
         let equivalent = if let Some(&junction_index) = parent_to_junction.get(&vessel_id) {
             let junction = &self.junctions[junction_index];
             let mut downstream_resistances = Vec::with_capacity(junction.daughter_vessels.len());
@@ -523,7 +572,12 @@ impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
             let d1 = &self.vessels[junction.daughter_vessels[0]];
             let d2 = &self.vessels[junction.daughter_vessels[1]];
 
-            if !murray.is_valid(parent.diameter(), d1.diameter(), d2.diameter(), tolerance) {
+            if !murray.is_valid(
+                parent.diameter().into_base(),
+                d1.diameter().into_base(),
+                d2.diameter().into_base(),
+                tolerance,
+            ) {
                 return false;
             }
         }
@@ -548,20 +602,26 @@ mod tests {
 
     #[test]
     fn test_vessel_segment_resistance() {
-        let vessel = VesselSegment::<f64>::new(0, 0.003, 0.1, 0, 1);
-        let r = vessel.resistance(0.0035);
+        let vessel =
+            VesselSegment::<f64>::new(0, Length::from_base(0.003), Length::from_base(0.1), 0, 1);
+        let r = vessel.resistance(DynamicViscosity::from_base(0.0035));
 
         // R = 8μL/(πR⁴) should be finite and positive
-        assert!(r > 0.0 && r.is_finite());
+        assert!(r.into_base() > 0.0 && r.into_base().is_finite());
     }
 
     #[test]
     fn test_vessel_wave_speed() {
-        let vessel = VesselSegment::<f64>::new(0, 0.003, 0.1, 0, 1);
-        let c = vessel.wave_speed(1060.0);
+        let vessel =
+            VesselSegment::<f64>::new(0, Length::from_base(0.003), Length::from_base(0.1), 0, 1);
+        let c = vessel.wave_speed(MassDensity::from_base(1060.0));
 
         // Wave speed should be ~5-10 m/s for arteries
-        assert!(c > 1.0 && c < 20.0, "Wave speed {c} should be 5-10 m/s");
+        assert!(
+            c.into_base() > 1.0 && c.into_base() < 20.0,
+            "Wave speed {} should be 5-10 m/s",
+            c.into_base()
+        );
     }
 
     #[test]
@@ -593,10 +653,10 @@ mod tests {
     #[test]
     fn test_symmetric_tree_generation() {
         let network = BifurcationNetwork::<f64>::create_symmetric_tree(
-            0.01, // 1 cm root radius
-            0.1,  // 10 cm root length
-            2,    // 2 generations
-            0.8,  // 80% length ratio
+            Length::from_base(0.01), // 1 cm root radius
+            Length::from_base(0.1),  // 10 cm root length
+            2,                       // 2 generations
+            0.8,                     // 80% length ratio
         );
 
         // 2 generations: 1 + 2 = 3 vessels minimum
@@ -605,7 +665,12 @@ mod tests {
 
     #[test]
     fn test_murray_validation() {
-        let network = BifurcationNetwork::<f64>::create_symmetric_tree(0.01, 0.1, 2, 0.8);
+        let network = BifurcationNetwork::<f64>::create_symmetric_tree(
+            Length::from_base(0.01),
+            Length::from_base(0.1),
+            2,
+            0.8,
+        );
 
         // Symmetric tree should satisfy Murray's Law
         let valid = network.validate_murrays_law(0.01);
@@ -615,13 +680,15 @@ mod tests {
     #[test]
     fn test_total_resistance() {
         let mut network = BifurcationNetwork::<f64>::new();
-        let root = VesselSegment::new(0, 0.003, 0.1, 0, 1);
-        let daughter_a = VesselSegment::new(1, 0.002, 0.05, 1, 2);
-        let daughter_b = VesselSegment::new(2, 0.002, 0.05, 1, 3);
+        let root = VesselSegment::new(0, Length::from_base(0.003), Length::from_base(0.1), 0, 1);
+        let daughter_a =
+            VesselSegment::new(1, Length::from_base(0.002), Length::from_base(0.05), 1, 2);
+        let daughter_b =
+            VesselSegment::new(2, Length::from_base(0.002), Length::from_base(0.05), 1, 3);
 
-        let root_resistance = root.resistance(network.viscosity);
-        let daughter_a_resistance = daughter_a.resistance(network.viscosity);
-        let daughter_b_resistance = daughter_b.resistance(network.viscosity);
+        let root_resistance = root.resistance(network.viscosity).into_base();
+        let daughter_a_resistance = daughter_a.resistance(network.viscosity).into_base();
+        let daughter_b_resistance = daughter_b.resistance(network.viscosity).into_base();
         let expected =
             root_resistance + 1.0 / (1.0 / daughter_a_resistance + 1.0 / daughter_b_resistance);
 
@@ -630,7 +697,7 @@ mod tests {
         network.add_vessel(daughter_b);
         network.add_junction(Bifurcation::new(1, 0, vec![1, 2]));
 
-        let r = network.total_resistance();
+        let r = network.total_resistance().into_base();
         assert!((r - expected).abs() < 1e-12, "got {r}, expected {expected}");
     }
 }

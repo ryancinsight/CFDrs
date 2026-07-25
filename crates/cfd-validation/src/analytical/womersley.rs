@@ -12,6 +12,9 @@
 use super::AnalyticalSolution;
 use crate::scalar;
 use crate::scalar::ValidationScalar;
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, Length, MassDensity, PressureGradient, ReciprocalTime, Time,
+};
 use cfd_1d::physics::vascular::womersley::{
     WomersleyNumber as ExactWomersleyNumber, WomersleyProfile as ExactWomersleyProfile,
 };
@@ -95,8 +98,13 @@ impl<T: ValidationScalar> WomersleyFlow<T> {
     /// Create the canonical exact Womersley profile evaluator.
     fn exact_profile(&self) -> ExactWomersleyProfile<T> {
         ExactWomersleyProfile::new(
-            ExactWomersleyNumber::new(self.radius, self.omega, self.density, self.viscosity),
-            self.pressure_gradient_amplitude,
+            ExactWomersleyNumber::new(
+                Length::from_base(self.radius),
+                ReciprocalTime::from_base(self.omega),
+                MassDensity::from_base(self.density),
+                DynamicViscosity::from_base(self.viscosity),
+            ),
+            PressureGradient::from_base(self.pressure_gradient_amplitude),
         )
     }
 
@@ -117,18 +125,24 @@ impl<T: ValidationScalar> WomersleyFlow<T> {
     /// form with shared `J0/J1` recurrence. ∎
     pub fn velocity(&self, r: T, t: T) -> T {
         let xi = scalar::min(scalar::abs(r) / self.radius, scalar::one::<T>());
-        self.exact_profile().velocity(xi, t)
+        self.exact_profile()
+            .velocity(xi, Time::from_base(t))
+            .into_base()
     }
 
     /// Calculate wall shear stress at given time
     /// τ_w = μ * (∂u/∂r)|_{r=R}
     pub fn wall_shear_stress(&self, t: T) -> T {
-        self.exact_profile().wall_shear_stress(t)
+        self.exact_profile()
+            .wall_shear_stress(Time::from_base(t))
+            .into_base()
     }
 
     /// Calculate instantaneous flow rate
     pub fn flow_rate(&self, t: T) -> T {
-        self.exact_profile().flow_rate(t)
+        self.exact_profile()
+            .flow_rate(Time::from_base(t))
+            .into_base()
     }
 }
 

@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: `cfd-1d` vascular Womersley, bifurcation, Murray, and
+  Olufsen public contracts now use Aequitas quantities for physical inputs
+  and derived results. Validation and PyO3 consumers convert at explicit
+  boundaries; analytical kernels remain scalar. See
+  [`vascular-metrics.md`](docs/atlas-migration/vascular-metrics.md).
+
 - **Breaking**: `cfd-1d` curved-channel radius and micromixer hydraulic
   diameter/path length now use Aequitas `Length` values. Scalar extraction
   remains at resistance and dynamic-parameter boundaries; all in-tree

@@ -1,13 +1,15 @@
 # CFDrs Work Checklist
 
-## Owner: Codex — CFDRS-AEQ-MET-14 typed Womersley and bifurcation metrics [major] — in progress 2026-07-24
+## Owner: Codex — CFDRS-AEQ-MET-15 complete vascular metrics [major] — implementation complete 2026-07-24
 
-- [ ] Type Womersley radius, length, frequency, pressure, density, viscosity,
+- [x] Type Womersley radius, length, frequency, pressure, density, viscosity,
       velocity, shear, flow, and analytical result fields with Aequitas.
-- [ ] Type bifurcation vessel geometry/material, pressure, flow, density,
+- [x] Type bifurcation vessel geometry/material, pressure, flow, density,
       viscosity, resistance, inertance, compliance, area, and wave speed;
       migrate all in-tree callers and value-semantic tests.
-- [ ] Synchronize the ADR, design note, gap audit, backlog, and changelog;
+- [x] Type Murray optimal geometry and Olufsen terminal radius/impedance;
+      migrate validation and PyO3 consumers at explicit boundaries.
+- [x] Synchronize the ADR, design note, gap audit, backlog, and changelog;
       run formatting, residue, check, and Nextest gates.
 
 ## Owner: Codex — CFDRS-AEQ-MET-13 typed curved-channel and micromixer geometry [major] — implementation complete 2026-07-24

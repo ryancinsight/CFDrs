@@ -6,6 +6,7 @@
 
 | Decision | Date | Rationale | Metrics | Trade-offs |
 |----------|------|-----------|---------|------------|
+| **Aequitas-owned vascular metrics** | 2026-07-24 | Womersley, bifurcation, Murray, and Olufsen public contracts stored physical values as raw scalars | Typed geometry, material, pressure, flow, frequency, velocity, resistance, inertance, compliance, and dimensionless results; scalar extraction only at analytical kernels | Breaking change for external vascular constructors and consumers |
 | **Aequitas-owned curved-channel and micromixer geometry** | 2026-07-24 | Public curved-channel radius and micromixer hydraulic diameter/path length documented SI units but remained raw scalars | Length remains typed through curved geometry and micromixer storage; numerical and dynamic-parameter boundaries extract explicit base scalars | Breaking change for external channel and component constructors |
 | **Aequitas-owned channel and network geometry metrics** | 2026-07-24 | Public channel cross-sections, lengths, edge areas, and hydraulic diameters documented SI units but remained raw scalars across the network boundary | Length and Area remain typed through cross-sections, channel geometry, edges, blueprint conversion, analyzers, and transient transport | Breaking change for external network constructors and property implementors |
 | **Aequitas-owned component geometry and volume metrics** | 2026-07-24 | Public component geometry and volume contracts documented SI units but stored lengths, areas, roughness, and volumes as raw scalars | Length, Area, and Volume remain typed through channels, membranes, organs, and network channel properties | Breaking change for external component constructors and `Component` implementors |
@@ -78,6 +79,31 @@ UnifiedCompute → Backend selection (CPU/GPU/Hybrid)
 | **Performance Validation** | ⚠️ PENDING | HIGH | SIMD benchmarks needed to quantify 2-4x speedup |
 
 ## Recent Decisions
+
+### 2026-07-24: Aequitas owns vascular metrics [major] [arch]
+
+Context: the vascular Womersley, bifurcation, Murray, and Olufsen public
+contracts documented SI units but stored raw scalar geometry, material values,
+boundary conditions, and derived results.
+
+Decision: carry Aequitas quantities through the public vascular data plane:
+`Length`, `ReciprocalTime`, `Frequency`, `MassDensity`, `DynamicViscosity`,
+`Pressure`, `PressureGradient`, `Velocity`, `VolumetricFlowRate`, `Angle`,
+`Dimensionless`, `HydraulicResistance`, `HydraulicInertance`, and `Compliance`.
+Extract base scalars only inside the established analytical formula kernels.
+
+Rejected alternative: retaining scalar fields with unit comments or adding
+typed accessors beside the old fields would preserve dimensional ambiguity and
+duplicate the provider boundary.
+
+Consequences: external vascular constructors and Python-facing conversions are
+breaking at the Rust boundary; PyO3 and validation wrappers retain scalar
+external values by converting explicitly at their boundary.
+
+Verification: Aequitas locked check and Nextest 28/28 passed; CFDrs `cfd-1d`
+locked check and Nextest 731/731 passed with 3 skipped; Womersley adversarial
+tests pass 2/2; `cfd-validation` locked check passes. See
+[`vascular-metrics.md`](atlas-migration/vascular-metrics.md).
 
 ### 2026-07-24: Aequitas owns curved-channel and micromixer geometry [major] [arch]
 

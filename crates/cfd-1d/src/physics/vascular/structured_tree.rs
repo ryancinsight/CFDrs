@@ -37,6 +37,7 @@
 //!   larger systemic arteries". *American Journal of Physiology*.
 
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::{DynamicViscosity, HydraulicResistance, Length};
 use cfd_core::error::{Error, Result};
 use eunomia::FloatElement;
 use serde::{Deserialize, Serialize};
@@ -51,13 +52,13 @@ pub struct OlufsenParameters<T: Cfd1dScalar + Copy> {
     /// Length-to-radius proportionality constant ($\lambda \approx 50$)
     pub length_ratio: T,
     /// Minimum terminal branching radius before truncation ($r_{min}$)
-    pub r_min: T,
+    pub r_min: Length<T>,
 }
 
 impl<T: Cfd1dScalar + FloatElement + Copy> OlufsenParameters<T> {
     /// Creates a physiologically-backed generic parameter set
     /// Uses accepted systemic values where $\alpha=0.9$, $\beta=0.6$, $\lambda=50$.
-    pub fn new_systemic(r_min: T) -> Self {
+    pub fn new_systemic(r_min: Length<T>) -> Self {
         Self {
             alpha: <T as FloatElement>::from_f64(0.90),
             beta: <T as FloatElement>::from_f64(0.60),
@@ -68,8 +69,12 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OlufsenParameters<T> {
 
     /// Recursively calculates the Olufsen zero-frequency structured tree resistance
     /// Limits recursion to structurally valid $r_min$ depths to avoid stack overflow.
-    pub fn compute_steady_impedance(&self, root_radius: T, dynamic_viscosity: T) -> Result<T> {
-        if root_radius <= T::zero() || self.r_min <= T::zero() {
+    pub fn compute_steady_impedance(
+        &self,
+        root_radius: Length<T>,
+        dynamic_viscosity: DynamicViscosity<T>,
+    ) -> Result<HydraulicResistance<T>> {
+        if root_radius.into_base() <= T::zero() || self.r_min.into_base() <= T::zero() {
             return Err(Error::PhysicsViolation(
                 "Tree generation requires strictly positive root and minimum radii limits"
                     .to_string(),
@@ -83,8 +88,8 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OlufsenParameters<T> {
 
         // Fast computation down to r_min via recursive depth-first iteration
         // In systemic modeling, alpha^3 + beta^3 ≈ 1 (Murray's Law)
-        let z_0 = self.recursive_resistance(root_radius, dynamic_viscosity);
-        Ok(z_0)
+        let z_0 = self.recursive_resistance(root_radius.into_base(), dynamic_viscosity.into_base());
+        Ok(HydraulicResistance::from_base(z_0))
     }
 
     fn recursive_resistance(&self, current_r: T, viscosity: T) -> T {
@@ -95,7 +100,7 @@ impl<T: Cfd1dScalar + FloatElement + Copy> OlufsenParameters<T> {
         let r3 = current_r * current_r * current_r;
         let segment_resistance = (eight * viscosity * self.length_ratio) / (pi * r3);
 
-        if current_r < self.r_min {
+        if current_r < self.r_min.into_base() {
             // Leaf termination
             segment_resistance
         } else {
@@ -123,13 +128,16 @@ mod tests {
             alpha: 0.8_f64,
             beta: 0.6_f64, // (0.8^3 + 0.6^3 = 0.512 + 0.216 = 0.728) < 1 means shrinking areas
             length_ratio: 50.0,
-            r_min: 0.05, // 50 microns
+            r_min: Length::from_base(0.05), // 50 microns
         };
 
         let root_r = 0.2; // 200 microns
         let mu = 0.003; // roughly blood viscosity
 
-        let res = params.compute_steady_impedance(root_r, mu).unwrap();
+        let res = params
+            .compute_steady_impedance(Length::from_base(root_r), DynamicViscosity::from_base(mu))
+            .unwrap()
+            .into_base();
 
         // Ensure result is > 0 and bounded
         assert!(res > 0.0);
@@ -148,14 +156,17 @@ mod tests {
             alpha: 0.5_f64,
             beta: 0.5_f64,
             length_ratio: 50.0,
-            r_min: 0.1_f64, // Set high so only 1 level of branching happens
+            r_min: Length::from_base(0.1), // Set high so only 1 level of branching happens
         };
         // root = 0.4 -> Level 1 daughters = 0.2 -> Level 2 daughters = 0.1 (termination)
 
         let root = 0.4_f64;
         let mu = 0.001_f64;
 
-        let z_total = params.compute_steady_impedance(root, mu).unwrap();
+        let z_total = params
+            .compute_steady_impedance(Length::from_base(root), DynamicViscosity::from_base(mu))
+            .unwrap()
+            .into_base();
 
         // Analytical construction:
         let r0 = root;
@@ -188,9 +199,12 @@ mod tests {
             alpha: 1.05_f64, // Invalid > 1
             beta: 0.8,
             length_ratio: 50.0,
-            r_min: 0.1,
+            r_min: Length::from_base(0.1),
         };
-        let res = params.compute_steady_impedance(1.0_f64, 0.001);
+        let res = params.compute_steady_impedance(
+            Length::from_base(1.0_f64),
+            DynamicViscosity::from_base(0.001),
+        );
         assert!(matches!(res, Err(Error::PhysicsViolation(_))));
     }
 }

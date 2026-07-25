@@ -11,7 +11,7 @@
 
 use super::{LiteratureValidation, ValidationReport};
 use crate::scalar::{self, ValidationScalar};
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{Area, Length};
 use cfd_1d::{
     // Channel geometry types — re-exported at crate root from domain::channel
     ChannelGeometry,
@@ -97,7 +97,7 @@ impl<T: ValidationScalar> LiteratureValidation<T> for StenosisValidation<T> {
         // Helper to create properties
         let create_props = |d: T, l: T| -> EdgeProperties<T> {
             let pi = scalar::from_f64::<T>(std::f64::consts::PI);
-            let area = pi * d * d / scalar::from_f64::<T>(4.0);
+            let area = Area::from_base(pi * d * d / scalar::from_f64::<T>(4.0));
             // Estimate initial resistance using Poiseuille for water (approx) to avoid huge initial flows
             // R = 128 * mu * L / (pi * D^4). mu_water ~ 1e-3.
             let mu = scalar::from_f64::<T>(1e-3);
@@ -107,14 +107,16 @@ impl<T: ValidationScalar> LiteratureValidation<T> for StenosisValidation<T> {
                 id: String::new(), // Overwritten by network map
                 resistance_update_policy: cfd_1d::ResistanceUpdatePolicy::FlowDependent,
                 component_type: ComponentType::Pipe,
-                length: l,
+                length: Length::from_base(l),
                 area,
-                hydraulic_diameter: Some(d),
+                hydraulic_diameter: Some(Length::from_base(d)),
                 resistance: r_init,
                 geometry: Some(ChannelGeometry {
                     channel_type: ChannelType::Straight,
-                    length: l,
-                    cross_section: CrossSection::Circular { diameter: d },
+                    length: Length::from_base(l),
+                    cross_section: CrossSection::Circular {
+                        diameter: Length::from_base(d),
+                    },
                     surface: SurfaceProperties {
                         roughness: Length::from_base(T::zero()),
                         contact_angle: None,
@@ -283,7 +285,7 @@ impl<T: ValidationScalar> LiteratureValidation<T> for BifurcationValidation<T> {
 
         let create_props = |d: T, l: T| -> EdgeProperties<T> {
             let pi = scalar::from_f64::<T>(std::f64::consts::PI);
-            let area = pi * d * d / scalar::from_f64::<T>(4.0);
+            let area = Area::from_base(pi * d * d / scalar::from_f64::<T>(4.0));
             // Initial resistance guess
             let mu = scalar::from_f64::<T>(1e-3);
             let r_init = scalar::from_f64::<T>(128.0) * mu * l / (pi * scalar::powi(d, 4));
@@ -292,14 +294,16 @@ impl<T: ValidationScalar> LiteratureValidation<T> for BifurcationValidation<T> {
                 id: String::new(),
                 resistance_update_policy: cfd_1d::ResistanceUpdatePolicy::FlowDependent,
                 component_type: ComponentType::Pipe,
-                length: l,
+                length: Length::from_base(l),
                 area,
-                hydraulic_diameter: Some(d),
+                hydraulic_diameter: Some(Length::from_base(d)),
                 resistance: r_init,
                 geometry: Some(ChannelGeometry {
                     channel_type: ChannelType::Straight,
-                    length: l,
-                    cross_section: CrossSection::Circular { diameter: d },
+                    length: Length::from_base(l),
+                    cross_section: CrossSection::Circular {
+                        diameter: Length::from_base(d),
+                    },
                     surface: SurfaceProperties {
                         roughness: Length::from_base(T::zero()),
                         contact_angle: None,

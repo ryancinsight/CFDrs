@@ -31,14 +31,21 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-15 [major] - Complete vascular metric typing
+  (IMPLEMENTATION COMPLETE; owner=Codex; scope=`cfd-1d` Womersley,
+  bifurcation, Murray, and Olufsen public contracts, cfd-validation/PyO3
+  consumers, tests, and PM artifacts).** Aequitas now owns the named vascular
+  dimensions; public storage/results are typed and scalar extraction remains
+  only at analytical kernels. Acceptance evidence: locked cfd-1d check,
+  Nextest 731/731 with 3 skipped, focused Womersley adversarial 2/2, and
+  locked cfd-validation check.
+
 - **CFDRS-AEQ-MET-14 [major] - Type Womersley and bifurcation metrics
-  (IN PROGRESS; owner=Codex; scope=`cfd-1d` vascular `Womersley*` and
-  `Bifurcation*` public contracts, callers/tests, and PM artifacts).** The
-  provider now exposes the required pressure-gradient, hydraulic-resistance,
-  hydraulic-inertance, and compliance dimensions in Aequitas `446eb9f`.
-  Acceptance evidence: typed public vascular storage/results, scalar
-  extraction only at analytical kernels, migrated value-semantic tests, and
-  locked focused gates.
+  (IMPLEMENTATION COMPLETE; owner=Codex; scope=`cfd-1d` vascular `Womersley*`
+  and `Bifurcation*` public contracts, callers/tests, and PM artifacts).** The
+  provider dimensions landed in Aequitas `446eb9f`; typed storage/results and
+  analytical-kernel boundaries are complete. Murray and Olufsen completion is
+  tracked by MET-15.
 
 - **CFDRS-AEQ-MET-13 [major] - Type curved-channel and micromixer geometry
   (IMPLEMENTATION COMPLETE; owner=Codex; scope=`cfd-1d` `ChannelType::Curved` radius,

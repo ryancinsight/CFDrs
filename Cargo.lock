@@ -594,6 +594,7 @@ dependencies = [
 name = "cfd-python"
 version = "0.1.0"
 dependencies = [
+ "aequitas",
  "cfd-1d",
  "cfd-2d",
  "cfd-3d",

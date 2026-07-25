@@ -79,6 +79,7 @@ pub fn non_newtonian_flow_split_exponent(power_law_index_n: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{DynamicViscosity, Length, VolumetricFlowRate};
     use eunomia::assert_relative_eq;
 
     #[test]
@@ -160,28 +161,42 @@ mod tests {
 
     #[test]
     fn test_symmetric_bifurcation() {
-        let bif = OptimalBifurcation::<f64>::symmetric(0.01, 1e-6);
+        let bif = OptimalBifurcation::<f64>::symmetric(
+            Length::from_base(0.01),
+            VolumetricFlowRate::from_base(1e-6),
+        );
         assert!(bif.is_murray_compliant(0.001));
-        assert!(bif.mass_conservation_error() < 1e-10);
+        assert!(bif.mass_conservation_error().into_base() < 1e-10);
         assert_relative_eq!(
-            bif.daughter1_diameter,
-            bif.daughter2_diameter,
+            bif.daughter1_diameter.into_base(),
+            bif.daughter2_diameter.into_base(),
             epsilon = 1e-10
         );
     }
 
     #[test]
     fn test_asymmetric_bifurcation() {
-        let bif = OptimalBifurcation::<f64>::asymmetric(0.01, 1e-6, 0.7);
-        assert!(bif.mass_conservation_error() < 1e-10);
-        assert_relative_eq!(bif.daughter1_flow / bif.parent_flow, 0.7, epsilon = 1e-10);
-        assert!(bif.daughter1_diameter > bif.daughter2_diameter);
+        let bif = OptimalBifurcation::<f64>::asymmetric(
+            Length::from_base(0.01),
+            VolumetricFlowRate::from_base(1e-6),
+            0.7,
+        );
+        assert!(bif.mass_conservation_error().into_base() < 1e-10);
+        assert_relative_eq!(
+            bif.daughter1_flow.into_base() / bif.parent_flow.into_base(),
+            0.7,
+            epsilon = 1e-10
+        );
+        assert!(bif.daughter1_diameter.into_base() > bif.daughter2_diameter.into_base());
     }
 
     #[test]
     fn test_area_ratio_symmetric() {
-        let bif = OptimalBifurcation::<f64>::symmetric(0.01, 1e-6);
-        let ratio = bif.area_ratio();
+        let bif = OptimalBifurcation::<f64>::symmetric(
+            Length::from_base(0.01),
+            VolumetricFlowRate::from_base(1e-6),
+        );
+        let ratio = bif.area_ratio().into_base();
         let murray = MurraysLaw::<f64>::new();
         assert_relative_eq!(ratio, murray.ideal_area_ratio(), epsilon = 0.01);
     }
@@ -199,9 +214,13 @@ mod tests {
 
     #[test]
     fn test_pressure_drop() {
-        let bif = OptimalBifurcation::<f64>::symmetric(0.01, 1e-6);
-        let dp = bif.pressure_drop_daughter1(0.0035, 0.1);
-        assert!(dp > 0.0 && dp.is_finite());
+        let bif = OptimalBifurcation::<f64>::symmetric(
+            Length::from_base(0.01),
+            VolumetricFlowRate::from_base(1e-6),
+        );
+        let dp = bif
+            .pressure_drop_daughter1(DynamicViscosity::from_base(0.0035), Length::from_base(0.1));
+        assert!(dp.into_base() > 0.0 && dp.into_base().is_finite());
     }
 
     // ── Non-Newtonian flow-split exponent tests ─────────────────────────
@@ -228,10 +247,7 @@ mod tests {
     fn test_non_newtonian_exponent_positive() {
         for &n in &[0.1, 0.3, 0.5, 0.8, 1.0, 1.5, 2.0] {
             let m = non_newtonian_flow_split_exponent(n);
-            assert!(
-                m > 0.0,
-                "Exponent must be positive for n={n}, got m={m}"
-            );
+            assert!(m > 0.0, "Exponent must be positive for n={n}, got m={m}");
         }
     }
 

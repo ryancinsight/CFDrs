@@ -40,6 +40,9 @@ pub mod profile;
 pub mod pulsatility;
 
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::{
+    Dimensionless, DynamicViscosity, Frequency, Length, MassDensity, ReciprocalTime,
+};
 use eunomia::{FloatElement, NumericElement};
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
@@ -62,18 +65,23 @@ pub use pulsatility::womersley_pulsatility_index;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WomersleyNumber<T: Cfd1dScalar + Copy> {
     /// Vessel radius \[m]
-    pub radius: T,
+    pub radius: Length<T>,
     /// Angular frequency of pulsation \[rad/s]
-    pub omega: T,
+    pub omega: ReciprocalTime<T>,
     /// Fluid density [kg/m³]
-    pub density: T,
+    pub density: MassDensity<T>,
     /// Dynamic viscosity [Pa·s]
-    pub viscosity: T,
+    pub viscosity: DynamicViscosity<T>,
 }
 
 impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyNumber<T> {
     /// Create Womersley number calculator from physical parameters
-    pub fn new(radius: T, omega: T, density: T, viscosity: T) -> Self {
+    pub fn new(
+        radius: Length<T>,
+        omega: ReciprocalTime<T>,
+        density: MassDensity<T>,
+        viscosity: DynamicViscosity<T>,
+    ) -> Self {
         Self {
             radius,
             omega,
@@ -83,12 +91,17 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyNumber<T> {
     }
 
     /// Create from vessel diameter and heart rate (frequency in Hz)
-    pub fn from_heart_rate(diameter: T, heart_rate_hz: T, density: T, viscosity: T) -> Self {
+    pub fn from_heart_rate(
+        diameter: Length<T>,
+        heart_rate_hz: Frequency<T>,
+        density: MassDensity<T>,
+        viscosity: DynamicViscosity<T>,
+    ) -> Self {
         let two = T::one() + T::one();
         let pi = T::pi();
         Self {
-            radius: diameter / two,
-            omega: two * pi * heart_rate_hz,
+            radius: Length::from_base(diameter.into_base() / two),
+            omega: ReciprocalTime::from_base(two * pi * heart_rate_hz.into_base()),
             density,
             viscosity,
         }
@@ -100,10 +113,10 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyNumber<T> {
         // Heart rate 72 bpm = 1.2 Hz
         // Blood: ρ = 1060 kg/m³, μ = 0.0035 Pa·s
         Self {
-            radius: <T as FloatElement>::from_f64(0.0125),
-            omega: <T as FloatElement>::from_f64(2.0 * PI * 1.2),
-            density: <T as FloatElement>::from_f64(1060.0),
-            viscosity: <T as FloatElement>::from_f64(0.0035),
+            radius: Length::from_base(<T as FloatElement>::from_f64(0.0125)),
+            omega: ReciprocalTime::from_base(<T as FloatElement>::from_f64(2.0 * PI * 1.2)),
+            density: MassDensity::from_base(<T as FloatElement>::from_f64(1060.0)),
+            viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(0.0035)),
         }
     }
 
@@ -111,39 +124,47 @@ impl<T: Cfd1dScalar + FloatElement + Copy> WomersleyNumber<T> {
     pub fn human_femoral() -> Self {
         // Femoral diameter ~6 mm
         Self {
-            radius: <T as FloatElement>::from_f64(0.003),
-            omega: <T as FloatElement>::from_f64(2.0 * PI * 1.2),
-            density: <T as FloatElement>::from_f64(1060.0),
-            viscosity: <T as FloatElement>::from_f64(0.0035),
+            radius: Length::from_base(<T as FloatElement>::from_f64(0.003)),
+            omega: ReciprocalTime::from_base(<T as FloatElement>::from_f64(2.0 * PI * 1.2)),
+            density: MassDensity::from_base(<T as FloatElement>::from_f64(1060.0)),
+            viscosity: DynamicViscosity::from_base(<T as FloatElement>::from_f64(0.0035)),
         }
     }
 
     /// Calculate the Womersley number α
     ///
     /// α = R · √(ω·ρ/μ)
-    pub fn value(&self) -> T {
-        self.radius * <T as NumericElement>::sqrt(self.omega * self.density / self.viscosity)
+    pub fn value(&self) -> Dimensionless<T> {
+        let radius = self.radius.into_base();
+        let omega = self.omega.into_base();
+        let density = self.density.into_base();
+        let viscosity = self.viscosity.into_base();
+        Dimensionless::from_base(radius * <T as NumericElement>::sqrt(omega * density / viscosity))
     }
 
     /// The Stokes layer thickness δ = √(2μ/(ρω))
     ///
     /// This is the characteristic length over which viscous effects penetrate
     /// from the wall into the flow during one oscillation cycle.
-    pub fn stokes_layer_thickness(&self) -> T {
+    pub fn stokes_layer_thickness(&self) -> Length<T> {
         let two = T::one() + T::one();
-        <T as NumericElement>::sqrt(two * self.viscosity / (self.density * self.omega))
+        Length::from_base(<T as NumericElement>::sqrt(
+            two * self.viscosity.into_base() / (self.density.into_base() * self.omega.into_base()),
+        ))
     }
 
     /// Ratio of radius to Stokes layer thickness R/δ
     ///
     /// For α >> 1, R/δ = α/√2
-    pub fn radius_to_stokes_ratio(&self) -> T {
-        self.radius / self.stokes_layer_thickness()
+    pub fn radius_to_stokes_ratio(&self) -> Dimensionless<T> {
+        Dimensionless::from_base(
+            self.radius.into_base() / self.stokes_layer_thickness().into_base(),
+        )
     }
 
     /// Classify flow regime based on Womersley number
     pub fn flow_regime(&self) -> FlowRegime {
-        let alpha = self.value();
+        let alpha = self.value().into_base();
         let one = T::one();
         let three = T::one() + T::one() + T::one();
         let ten = <T as FloatElement>::from_f64(10.0);
@@ -180,12 +201,13 @@ pub enum FlowRegime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{Pressure, PressureGradient, Time};
     use eunomia::assert_relative_eq;
 
     #[test]
     fn test_womersley_number_calculation() {
         let wom = WomersleyNumber::<f64>::human_aorta();
-        let alpha = wom.value();
+        let alpha = wom.value().into_base();
         assert!(
             alpha > 10.0 && alpha < 25.0,
             "Aortic α = {alpha} should be ~18"
@@ -195,7 +217,7 @@ mod tests {
     #[test]
     fn test_womersley_femoral() {
         let wom = WomersleyNumber::<f64>::human_femoral();
-        let alpha = wom.value();
+        let alpha = wom.value().into_base();
         assert!(
             alpha > 2.0 && alpha < 5.0,
             "Femoral α = {alpha} should be ~3.3"
@@ -204,7 +226,12 @@ mod tests {
 
     #[test]
     fn test_flow_regime_classification() {
-        let low_alpha = WomersleyNumber::<f64>::new(0.0001, 7.54, 1060.0, 0.0035);
+        let low_alpha = WomersleyNumber::<f64>::new(
+            Length::from_base(0.0001),
+            ReciprocalTime::from_base(7.54),
+            MassDensity::from_base(1060.0),
+            DynamicViscosity::from_base(0.0035),
+        );
         assert_eq!(low_alpha.flow_regime(), FlowRegime::QuasiSteady);
 
         let high_alpha = WomersleyNumber::<f64>::human_aorta();
@@ -217,7 +244,7 @@ mod tests {
     #[test]
     fn test_stokes_layer_thickness() {
         let wom = WomersleyNumber::<f64>::human_aorta();
-        let delta = wom.stokes_layer_thickness();
+        let delta = wom.stokes_layer_thickness().into_base();
         assert!(
             delta > 0.0005 && delta < 0.002,
             "δ = {delta} should be ~1 mm"
@@ -227,8 +254,10 @@ mod tests {
     #[test]
     fn test_velocity_profile_centerline() {
         let wom = WomersleyNumber::<f64>::human_aorta();
-        let profile = WomersleyProfile::<f64>::new(wom, 100.0);
-        let u_center = profile.centerline_velocity(0.25);
+        let profile = WomersleyProfile::<f64>::new(wom, PressureGradient::from_base(100.0));
+        let u_center = profile
+            .centerline_velocity(Time::from_base(0.25))
+            .into_base();
         assert!(
             u_center.abs() < 1.0,
             "Centerline velocity should be < 1 m/s"
@@ -238,20 +267,25 @@ mod tests {
     #[test]
     fn test_velocity_profile_wall_zero() {
         let wom = WomersleyNumber::<f64>::human_femoral();
-        let profile = WomersleyProfile::<f64>::new(wom, 100.0);
-        let u_wall = profile.velocity(1.0, 0.1);
+        let profile = WomersleyProfile::<f64>::new(wom, PressureGradient::from_base(100.0));
+        let u_wall = profile.velocity(1.0, Time::from_base(0.1)).into_base();
         assert!(u_wall.abs() < 0.01, "Wall velocity {u_wall} should be ~0");
     }
 
     #[test]
     fn test_velocity_decreases_radially() {
-        let wom = WomersleyNumber::<f64>::new(0.003, 7.54, 1060.0, 0.0035);
-        let profile = WomersleyProfile::<f64>::new(wom, 100.0);
+        let wom = WomersleyNumber::<f64>::new(
+            Length::from_base(0.003),
+            ReciprocalTime::from_base(7.54),
+            MassDensity::from_base(1060.0),
+            DynamicViscosity::from_base(0.0035),
+        );
+        let profile = WomersleyProfile::<f64>::new(wom, PressureGradient::from_base(100.0));
 
         let t = 0.0_f64;
-        let u_center = profile.velocity(0.0, t).abs();
-        let u_mid = profile.velocity(0.5, t).abs();
-        let u_wall = profile.velocity(1.0, t).abs();
+        let u_center = profile.velocity(0.0, Time::from_base(t)).into_base().abs();
+        let u_mid = profile.velocity(0.5, Time::from_base(t)).into_base().abs();
+        let u_wall = profile.velocity(1.0, Time::from_base(t)).into_base().abs();
 
         assert!(
             u_center >= u_wall,
@@ -263,8 +297,8 @@ mod tests {
     #[test]
     fn test_flow_rate_positive() {
         let wom = WomersleyNumber::<f64>::human_femoral();
-        let profile = WomersleyProfile::<f64>::new(wom, 100.0);
-        let q = profile.flow_rate(0.1);
+        let profile = WomersleyProfile::<f64>::new(wom, PressureGradient::from_base(100.0));
+        let q = profile.flow_rate(Time::from_base(0.1)).into_base();
         let q_liters_per_second = q * 1000.0;
         assert!(
             q.abs() < 0.001,
@@ -274,17 +308,33 @@ mod tests {
 
     #[test]
     fn test_womersley_flow_solver() {
-        let flow = WomersleyFlow::<f64>::new(0.003, 0.1, 1060.0, 0.0035, 7.54, 133.0, -1000.0);
-        let alpha = flow.womersley_number().value();
+        let flow = WomersleyFlow::<f64>::new(
+            Length::from_base(0.003),
+            Length::from_base(0.1),
+            MassDensity::from_base(1060.0),
+            DynamicViscosity::from_base(0.0035),
+            ReciprocalTime::from_base(7.54),
+            Pressure::from_base(133.0),
+            PressureGradient::from_base(-1000.0),
+        );
+        let alpha = flow.womersley_number().value().into_base();
         assert!(alpha > 2.0 && alpha < 5.0);
-        let u = flow.velocity(0.5, 0.3);
+        let u = flow.velocity(0.5, Time::from_base(0.3)).into_base();
         assert!(u.abs() < 1.0, "Velocity {u} should be < 1 m/s");
     }
 
     #[test]
     fn test_impedance_magnitude() {
-        let flow = WomersleyFlow::<f64>::new(0.003, 0.1, 1060.0, 0.0035, 7.54, 133.0, -1000.0);
-        let z = flow.impedance_magnitude();
+        let flow = WomersleyFlow::<f64>::new(
+            Length::from_base(0.003),
+            Length::from_base(0.1),
+            MassDensity::from_base(1060.0),
+            DynamicViscosity::from_base(0.0035),
+            ReciprocalTime::from_base(7.54),
+            Pressure::from_base(133.0),
+            PressureGradient::from_base(-1000.0),
+        );
+        let z = flow.impedance_magnitude().into_base();
         assert!(
             z > 0.0 && z.is_finite(),
             "Impedance {z} should be finite positive"
@@ -294,8 +344,8 @@ mod tests {
     #[test]
     fn test_wall_shear_stress() {
         let wom = WomersleyNumber::<f64>::human_femoral();
-        let profile = WomersleyProfile::<f64>::new(wom, 100.0);
-        let tau_w = profile.wall_shear_stress(0.2);
+        let profile = WomersleyProfile::<f64>::new(wom, PressureGradient::from_base(100.0));
+        let tau_w = profile.wall_shear_stress(Time::from_base(0.2)).into_base();
         assert!(tau_w.abs() < 200.0, "WSS {tau_w} Pa should be < 200 Pa");
     }
 
@@ -308,10 +358,18 @@ mod tests {
         let r = 0.01;
         let omega = (alpha / r) * (alpha / r) * mu / rho;
 
-        let wom = WomersleyNumber::<f64>::new(r, omega, rho, mu);
-        let profile = WomersleyProfile::<f64>::new(wom, p_hat);
+        let wom = WomersleyNumber::<f64>::new(
+            Length::from_base(r),
+            ReciprocalTime::from_base(omega),
+            MassDensity::from_base(rho),
+            DynamicViscosity::from_base(mu),
+        );
+        let profile = WomersleyProfile::<f64>::new(wom, PressureGradient::from_base(p_hat));
 
-        let u_womersley = profile.centerline_velocity(0.0).abs();
+        let u_womersley = profile
+            .centerline_velocity(Time::from_base(0.0))
+            .into_base()
+            .abs();
         let u_poiseuille = (p_hat * r * r) / (4.0 * mu);
 
         assert_relative_eq!(u_womersley, u_poiseuille, max_relative = 0.01);
@@ -319,15 +377,20 @@ mod tests {
 
     #[test]
     fn test_womersley_flow_rate_oscillates() {
-        let wom = WomersleyNumber::<f64>::new(0.005, 2.0 * PI, 1000.0, 0.001);
-        let profile = WomersleyProfile::<f64>::new(wom, 10.0);
+        let wom = WomersleyNumber::<f64>::new(
+            Length::from_base(0.005),
+            ReciprocalTime::from_base(2.0 * PI),
+            MassDensity::from_base(1000.0),
+            DynamicViscosity::from_base(0.001),
+        );
+        let profile = WomersleyProfile::<f64>::new(wom, PressureGradient::from_base(10.0));
 
         let mut net_volume = 0.0;
         let steps = 1000;
         let dt = 1.0 / f64::from(steps);
         for i in 0..steps {
             let t = f64::from(i) * dt;
-            net_volume += profile.flow_rate(t) * dt;
+            net_volume += profile.flow_rate(Time::from_base(t)).into_base() * dt;
         }
 
         assert!(
@@ -339,10 +402,10 @@ mod tests {
     #[test]
     fn test_womersley_wall_bc_satisfied() {
         let wom = WomersleyNumber::<f64>::human_aorta();
-        let profile = WomersleyProfile::<f64>::new(wom, 120.0);
+        let profile = WomersleyProfile::<f64>::new(wom, PressureGradient::from_base(120.0));
 
         for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
-            let u_wall = profile.velocity(1.0, t);
+            let u_wall = profile.velocity(1.0, Time::from_base(t)).into_base();
             assert!(
                 u_wall.abs() < 1e-12,
                 "No-slip violated at t={t}: u={u_wall}"
