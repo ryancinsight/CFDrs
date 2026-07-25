@@ -1,6 +1,6 @@
 # CFDrs Work Checklist
 
-## Owner: Codex — CFDRS-AEQ-MET-16 typed network hydraulic metrics [major] — implementation complete; verification blocked 2026-07-24
+## Owner: Codex — CFDRS-AEQ-MET-16 typed network hydraulic metrics [major] — verified 2026-07-25
 
 - [x] Add the provider aliases for quadratic hydraulic resistance and
       hydraulic conductance; prove their dimensions with value-semantic laws.
@@ -9,10 +9,10 @@
 - [x] Migrate all in-tree builders, junction-loss updates, solver assembly, and
       analysis callers at explicit scalar-kernel boundaries without adapters.
 - [x] Synchronize the ADR table, gap audit, backlog, and changelog.
-- [ ] Run the locked cfd-1d check, focused Nextest, doctests, rustdoc, and
-      residue scans; preserve peer-owned dirty solver files. **Blocked before
-      cfd-1d tests by duplicate `leto` identities in `hephaestus-wgpu`:
-      `D:\atlas\repos\leto` and the cached git checkout.**
+- [x] Run the locked cfd-1d check and focused Nextest; check passes and
+      Nextest passes 731/731 with 3 skipped. The cfd-1d doctests pass 8/8 with
+      3 ignored. Preserve peer-owned dirty solver files; the remaining
+      rustdoc/link and lint baseline notes are outside this metric slice.
 
 ## Owner: Codex — CFDRS-AEQ-MET-15 complete vascular metrics [major] — implementation complete 2026-07-24
 

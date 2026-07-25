@@ -34,6 +34,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Verified the typed network hydraulic metric slice with locked cfd-1d check,
+  focused Nextest (731/731, 3 skipped), and doctests (8/8, 3 ignored).
+
 - **Breaking**: `cfd-1d` network edge hydraulic flow, linear resistance,
   quadratic loss resistance, and parallel conductance now use Aequitas
   quantities; solver-state vectors remain a separate audit boundary. Scalar
