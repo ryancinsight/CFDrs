@@ -172,6 +172,10 @@ fn bench_network_from_blueprint(c: &mut Criterion) {
     group.finish();
 }
 
+#[expect(
+    clippy::result_large_err,
+    reason = "The public solver error remains unboxed; this benchmark measures its Result contract."
+)]
 fn bench_solve_network(c: &mut Criterion) {
     let mut group = c.benchmark_group("primitive_selective_solve_network");
     let solver = NetworkSolver::<f64, CassonBlood<f64>>::new();

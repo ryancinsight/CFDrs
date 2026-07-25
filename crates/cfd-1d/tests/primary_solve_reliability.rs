@@ -43,6 +43,10 @@ fn primitive_tree(
     )
 }
 
+#[expect(
+    clippy::result_large_err,
+    reason = "The public solver error remains unboxed; this regression exercises the public Result contract."
+)]
 fn solve_blueprint(
     blueprint: &cfd_schematics::NetworkBlueprint,
     inlet_flow_m3_s: f64,
@@ -91,6 +95,10 @@ fn solve_blueprint(
     solver.solve_network_with_diagnostics(&NetworkProblem::new(network))
 }
 
+#[expect(
+    clippy::type_complexity,
+    reason = "The test return tuple preserves all diagnostic context needed to classify a representative case."
+)]
 fn representative_case_search_with_failure_detail(
     sequence: &[PrimitiveSelectiveSplitKind],
 ) -> (

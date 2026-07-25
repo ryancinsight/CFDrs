@@ -112,7 +112,8 @@
   optimized or receive a separately derived reviewed budget.
 
 - **CFDRS-AEQ-MET-08 [major] - Type Venturi and selective-cavitation physical
-  metrics (IMPLEMENTATION COMPLETE; verification blocked; owner=Codex;
+  metrics (IMPLEMENTATION COMPLETE; focused verification complete; broad
+  runtime residual; owner=Codex;
   scope=`cfd-core` selective cavitation, `cfd-1d` Venturi screening,
   `cfd-optim` Venturi metrics, Aequitas serde, design note, and PM artifacts).**
   Public physical fields now carry Aequitas `Pressure`, `MassDensity`,
@@ -121,11 +122,25 @@
   formula kernels and the documented serialized report DTO. Acceptance is
   touched-file formatting/diff checks, residue scans, value-semantic package
   tests, locked Nextest, doctests, warning-denied Clippy, and Rustdoc. The
-  implementation evidence is complete; package gates are blocked before source
-  compilation by the peer root path transition selecting duplicate
-  Aequitas/Eunomia/Proteus identities and by missing
-  `D:\tmp\cutile-rs\cutile\Cargo.toml`. Re-open when the peer graph is
-  coherent.
+  implementation evidence is complete; locked cfd-3d/cfd-validation checks
+  pass through the current graph and the producer suite passes 1,127/1,127
+  with 3 skips. The broad validation gate remains open on eight solver-heavy
+  tests exceeding the committed 30-second runtime budget.
+
+- **CFDRS-AEQ-MET-07 [major] - Type hemolysis exposure metrics (focused
+  verification complete 2026-07-25; broad runtime residual; owner=Codex).**
+  Giersiepen and Taskin expose Aequitas `Pressure` and `Time`, while their
+  dimensionless indices remain model outputs. The producer suite passes
+  1,127/1,127 with 3 skips. The broad cfd-validation gate retains eight
+  solver-heavy tests over the committed 30-second budget; that performance
+  residual is outside the typed hemolysis contract.
+
+- **CFDRS-AEQ-MET-06 [major] - Type 3D cascade physical metrics (source
+  verification complete 2026-07-25; broad runtime residual; owner=Codex).**
+  Cascade geometry, flow, pressure, shear, and velocity now use Aequitas at
+  public boundaries with explicit scalar numerical/serialization adapters.
+  Locked cfd-3d/cfd-validation checks pass; the broad 825-test gate passes
+  817 and times out eight solver-heavy tests at 30 seconds.
 
 - **CFD-BOOK-DETERMINISTIC-FIGURES-1 [patch] - Publish CFDrs mdbook
   deterministic figure set and prebook xtask (DONE; owner=`/root`;

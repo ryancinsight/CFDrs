@@ -87,7 +87,7 @@
       committed 30-second budget in two pre-existing Venturi tests;
       `gap_audit.md` records the exact timeout evidence.
 
-## Owner: Codex — CFDRS-AEQ-MET-08 typed Venturi and selective-cavitation metrics [major] — implementation complete 2026-07-24
+## Owner: Codex — CFDRS-AEQ-MET-08 typed Venturi and selective-cavitation metrics [major] — focused verification complete; broad runtime residual 2026-07-25
 
 - [x] Type selective-cavitation pressure, density, radius, and surface-tension
       contracts in `cfd-core`; type Venturi pressure, velocity, geometry,
@@ -98,13 +98,16 @@
 - [x] Add the Aequitas serde capability required by typed public metrics and
       migrate every in-tree constructor without a scalar compatibility facade.
 - [x] Synchronize the design note, gap audit, and changelog.
-- [ ] Run locked package checks, Nextest, doctests, Clippy, and Rustdoc after
-      the peer root dependency graph is repaired. Current blockers are the
-      duplicate local/Git Aequitas, Eunomia, and Proteus identities caused by
-      the peer root path transition and the missing
-      `D:\tmp\cutile-rs\cutile\Cargo.toml` workspace path.
+- [x] Locked cfd-3d/cfd-validation checks pass through the current local Atlas
+      graph; the focused cfd-core/cfd-1d/cfd-optim Nextest suite passes
+      1,127/1,127 with 3 skips.
+- [x] Warning-denied all-targets Clippy passes for cfd-core, cfd-1d, and
+      cfd-optim; their doctests pass 13/13 with 6 intentionally ignored.
+- [ ] The broad cfd-3d/cfd-validation Nextest gate remains open on eight
+      solver-heavy tests timing out at the committed 30-second budget; optimize
+      those production workloads before marking the broad validation gate done.
 
-## Owner: Codex — CFDRS-AEQ-MET-07 typed hemolysis exposure metrics [major] — implemented 2026-07-24
+## Owner: Codex — CFDRS-AEQ-MET-07 typed hemolysis exposure metrics [major] — focused verification complete; broad runtime residual 2026-07-25
 
 - [x] Type hemolysis shear stress and exposure duration with Aequitas
       `Pressure` and `Time`; retain the Giersiepen/Taskin indices and
@@ -113,8 +116,12 @@
       scalar compatibility facade; keep the cfd-core model as the formula
       owner and convert only at that provider kernel boundary.
 - [x] Synchronize the gap audit, design note, and changelog, then run focused
-      format/check, locked package checks, Nextest, warning-denied production Clippy,
-      doctests, and Rustdoc gates.
+      format/check and the producer-package Nextest suite; 1,127/1,127 tests
+      pass with 3 skips.
+- [x] Warning-denied all-targets Clippy and doctests pass for the producer
+      packages; the typed hemolysis doctests pass 8/8 with 3 ignored.
+- [ ] The broad cfd-validation package gate remains open on the eight documented
+      solver-heavy runtime timeouts, which are outside the typed hemolysis path.
 - [ ] Resolve the pre-existing all-targets Clippy debt in
       `tests/primary_solve_reliability.rs`, `tests/channel_solver_tests.rs`,
       and `benches/primitive_selective_solver.rs`; it is outside this metric

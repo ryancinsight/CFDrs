@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Reconcile the Aequitas metric audit with the current local Atlas graph:
+  cfd-3d/cfd-validation source checks pass, the cfd-core/cfd-1d/cfd-optim
+  producer suite passes 1,127/1,127 with 3 skips, and stale Coeus/cutile path
+  blockers are removed from the audit. The broad 825-test validation gate still
+  records eight solver-heavy tests over the committed 30-second budget.
+
 - Verified the typed network hydraulic metric slice with locked cfd-1d check,
   focused Nextest (731/731, 3 skipped), and doctests (8/8, 3 ignored).
 

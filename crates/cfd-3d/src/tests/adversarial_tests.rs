@@ -269,7 +269,7 @@ mod level_set_tests {
 
 #[cfg(test)]
 mod cross_fidelity_physics_tests {
-    use aequitas::systems::si::quantities::{Length, Pressure, VolumetricFlowRate};
+    use aequitas::systems::si::quantities::{Length, VolumetricFlowRate};
     use cfd_2d::network::{solve_reference_trace, Network2dBuilderSink};
     use cfd_core::physics::fluid::{BloodModel, ConstantPropertyFluid};
     use cfd_schematics::application::ports::GraphSink;

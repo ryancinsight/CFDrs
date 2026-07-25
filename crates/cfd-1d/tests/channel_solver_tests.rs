@@ -107,7 +107,6 @@ fn test_kn_below_threshold_stays_continuum() {
 
 /// The Shah-London polynomial value can be computed analytically and checked
 /// for key known points without needing access to private channel methods.
-
 /// Helper: compute Shah-London Po for aspect ratio alpha = a/b >= 1.
 fn shah_london_po(alpha: f64) -> f64 {
     assert!(alpha >= 1.0);
