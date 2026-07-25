@@ -1,5 +1,17 @@
 # CFDrs Work Checklist
 
+## Owner: Codex — CFDRS-AEQ-MET-16 typed network hydraulic metrics [major] — implementation in progress 2026-07-24
+
+- [ ] Add the provider aliases for quadratic hydraulic resistance and
+      hydraulic conductance; prove their dimensions with value-semantic laws.
+- [ ] Type edge flow, linear resistance, quadratic resistance, edge-property
+      resistance, edge-iteration flow, and parallel conductance.
+- [ ] Migrate all in-tree builders, junction-loss updates, solver assembly, and
+      analysis callers at explicit scalar-kernel boundaries without adapters.
+- [ ] Synchronize the ADR table, gap audit, backlog, and changelog.
+- [ ] Run the locked cfd-1d check, focused Nextest, doctests, rustdoc, and
+      residue scans; preserve peer-owned dirty solver files.
+
 ## Owner: Codex — CFDRS-AEQ-MET-15 complete vascular metrics [major] — implementation complete 2026-07-24
 
 - [x] Type Womersley radius, length, frequency, pressure, density, viscosity,

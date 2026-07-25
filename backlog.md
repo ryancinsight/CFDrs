@@ -31,6 +31,16 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-16 [major] - Type network hydraulic coefficient metrics
+  (IMPLEMENTATION IN PROGRESS; owner=Codex; scope=`cfd-1d` Edge,
+  EdgeProperties, EdgeWithProperties, ParallelEdge, and their in-tree
+  coefficient/flow callers).** Current network edge objects still store flow,
+  linear resistance, quadratic resistance, and conductance as raw scalars
+  after the geometry and vascular-result cutovers. Acceptance requires named
+  Aequitas hydraulic quantities at the public edge boundaries and scalar
+  extraction only at numerical kernels; network state vectors remain a
+  separately audited solver-state boundary.
+
 - **CFDRS-AEQ-MET-15 [major] - Complete vascular metric typing
   (IMPLEMENTATION COMPLETE; owner=Codex; scope=`cfd-1d` Womersley,
   bifurcation, Murray, and Olufsen public contracts, cfd-validation/PyO3
