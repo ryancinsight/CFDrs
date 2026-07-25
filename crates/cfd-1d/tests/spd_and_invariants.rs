@@ -112,8 +112,8 @@ fn flow_invariant_edges_skip_resistance_recomputation() -> Result<()> {
 
     net.update_resistances()?;
     let edge_ref = net.graph.edge_weight(edge).expect("edge must exist");
-    assert!((edge_ref.resistance - 7.5).abs() < 1.0e-12);
-    assert!(edge_ref.quad_coeff.abs() < 1.0e-12);
+    assert!((edge_ref.resistance.into_base() - 7.5).abs() < 1.0e-12);
+    assert!(edge_ref.quad_coeff.into_base().abs() < 1.0e-12);
     Ok(())
 }
 
@@ -177,9 +177,9 @@ fn flow_dependent_short_channel_reapplies_durst_correction() -> Result<()> {
     let expected_multiplier = durst_resistance_multiplier(reynolds, length / diameter);
 
     let edge_ref = net.graph.edge_weight(edge).expect("edge must exist");
-    assert!((edge_ref.resistance - base_resistance * expected_multiplier).abs() < 1.0e-9);
-    assert!(edge_ref.resistance > base_resistance);
-    assert!(edge_ref.quad_coeff.abs() < 1.0e-12);
+    assert!((edge_ref.resistance.into_base() - base_resistance * expected_multiplier).abs() < 1.0e-9);
+    assert!(edge_ref.resistance.into_base() > base_resistance);
+    assert!(edge_ref.quad_coeff.into_base().abs() < 1.0e-12);
     Ok(())
 }
 
@@ -260,8 +260,8 @@ fn flow_dependent_blood_microchannel_uses_hematocrit_aware_apparent_viscosity() 
     let expected_factor = target_mu / base_mu;
 
     let edge_ref = net.graph.edge_weight(edge).expect("edge must exist");
-    assert!((edge_ref.resistance - base_resistance * expected_factor).abs() < 1.0e-9);
-    assert!(edge_ref.quad_coeff.abs() < 1.0e-12);
+    assert!((edge_ref.resistance.into_base() - base_resistance * expected_factor).abs() < 1.0e-9);
+    assert!(edge_ref.quad_coeff.into_base().abs() < 1.0e-12);
     Ok(())
 }
 
@@ -342,7 +342,7 @@ fn blood_microchannel_override_properties_change_resistance() -> Result<()> {
         .resistance;
 
     assert!(
-        (overridden_resistance - default_resistance).abs() > 1.0e-12,
+        (overridden_resistance.into_base() - default_resistance.into_base()).abs() > 1.0e-12,
         "hematocrit/plasma-viscosity override should change the edge resistance"
     );
     Ok(())
@@ -418,7 +418,7 @@ fn local_apparent_viscosity_override_changes_blood_edge_resistance() -> Result<(
         .expect("edge must exist")
         .resistance;
 
-    assert!((overridden - baseline).abs() > 1.0e-12);
+    assert!((overridden.into_base() - baseline.into_base()).abs() > 1.0e-12);
     Ok(())
 }
 
@@ -506,9 +506,9 @@ fn flow_dependent_recompute_uses_shear_aware_reynolds_for_blood() -> Result<()> 
     )?;
 
     let edge_ref = net.graph.edge_weight(edge).expect("edge must exist");
-    assert!((edge_ref.resistance - expected_resistance).abs() < 1.0e-9);
-    assert!((edge_ref.quad_coeff - expected_k).abs() < 1.0e-12);
-    assert!(edge_ref.quad_coeff.abs() < 1.0e-12);
+    assert!((edge_ref.resistance.into_base() - expected_resistance).abs() < 1.0e-9);
+    assert!((edge_ref.quad_coeff.into_base() - expected_k).abs() < 1.0e-12);
+    assert!(edge_ref.quad_coeff.into_base().abs() < 1.0e-12);
     Ok(())
 }
 

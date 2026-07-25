@@ -213,13 +213,13 @@ fn representative_primitive_selective_trees_primary_converge() {
 
         for edge in network.graph.edge_weights() {
             assert!(
-                edge.resistance.is_finite() && edge.resistance > 0.0,
+                edge.resistance.into_base().is_finite() && edge.resistance.into_base() > 0.0,
                 "effective linear resistance must stay positive and finite for edge '{}' in {:?}",
                 edge.id,
                 case.sequence
             );
             assert!(
-                edge.quad_coeff.is_finite() && edge.quad_coeff >= 0.0,
+                edge.quad_coeff.into_base().is_finite() && edge.quad_coeff.into_base() >= 0.0,
                 "effective quadratic coefficient must stay finite and non-negative for edge '{}' in {:?}",
                 edge.id,
                 case.sequence
@@ -254,8 +254,8 @@ fn aggressive_primitive_selective_case_primary_converges_without_recovery() {
     );
     assert!(!diagnostics.degraded_geometry_for_recovery);
     for edge in network.graph.edge_weights() {
-        assert!(edge.resistance.is_finite() && edge.resistance > 0.0);
-        assert!(edge.quad_coeff.is_finite() && edge.quad_coeff >= 0.0);
+        assert!(edge.resistance.into_base().is_finite() && edge.resistance.into_base() > 0.0);
+        assert!(edge.quad_coeff.into_base().is_finite() && edge.quad_coeff.into_base() >= 0.0);
     }
 }
 

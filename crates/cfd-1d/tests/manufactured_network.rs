@@ -1,4 +1,6 @@
-use aequitas::systems::si::quantities::{Area, Length};
+use aequitas::systems::si::quantities::{
+    Area, HydraulicResistance, Length, QuadraticHydraulicResistance,
+};
 use cfd_1d::domain::network::ComponentType;
 use cfd_1d::{
     Edge, EdgeProperties, EdgeType, Network, NetworkBuilder, NetworkProblem, NetworkSolver,
@@ -19,9 +21,9 @@ fn test_series_additivity() -> Result<()> {
     let n_out = builder.add_outlet("out".to_string());
 
     let mut e1 = Edge::<T>::new("e1".to_string(), EdgeType::Pipe);
-    e1.resistance = 2.0;
+    e1.resistance = HydraulicResistance::from_base(2.0);
     let mut e2 = Edge::<T>::new("e2".to_string(), EdgeType::Pipe);
-    e2.resistance = 3.0;
+    e2.resistance = HydraulicResistance::from_base(3.0);
 
     let eidx1 = builder.add_edge(n_in, n_mid, e1);
     let eidx2 = builder.add_edge(n_mid, n_out, e2);
@@ -36,7 +38,7 @@ fn test_series_additivity() -> Result<()> {
         length: Length::from_base(1.0),
         area: Area::from_base(1.0),
         hydraulic_diameter: None,
-        resistance: 2.0,
+        resistance: HydraulicResistance::from_base(2.0),
         geometry: None,
         resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
@@ -47,7 +49,7 @@ fn test_series_additivity() -> Result<()> {
         length: Length::from_base(1.0),
         area: Area::from_base(1.0),
         hydraulic_diameter: None,
-        resistance: 3.0,
+        resistance: HydraulicResistance::from_base(3.0),
         geometry: None,
         resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
@@ -86,13 +88,13 @@ fn test_parallel_quadratic_branches() -> Result<()> {
     let n_out = builder.add_outlet("out".to_string());
 
     let mut e1 = Edge::<T>::new("e1".to_string(), EdgeType::Pipe);
-    e1.resistance = 1.0;
-    e1.quad_coeff = 0.5;
+    e1.resistance = HydraulicResistance::from_base(1.0);
+    e1.quad_coeff = QuadraticHydraulicResistance::from_base(0.5);
     let mut e2 = Edge::<T>::new("e2".to_string(), EdgeType::Pipe);
-    e2.resistance = 2.0;
-    e2.quad_coeff = 1.0;
+    e2.resistance = HydraulicResistance::from_base(2.0);
+    e2.quad_coeff = QuadraticHydraulicResistance::from_base(1.0);
     let mut merge = Edge::<T>::new("merge".to_string(), EdgeType::Pipe);
-    merge.resistance = 1e-9;
+    merge.resistance = HydraulicResistance::from_base(1e-9);
 
     let eidx1 = builder.add_edge(n_in, n_split, e1);
     let eidx2 = builder.add_edge(n_in, n_split, e2);
@@ -108,7 +110,7 @@ fn test_parallel_quadratic_branches() -> Result<()> {
         length: Length::from_base(1.0),
         area: Area::from_base(1.0),
         hydraulic_diameter: None,
-        resistance: 1.0,
+        resistance: HydraulicResistance::from_base(1.0),
         geometry: None,
         resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
@@ -119,7 +121,7 @@ fn test_parallel_quadratic_branches() -> Result<()> {
         length: Length::from_base(1.0),
         area: Area::from_base(1.0),
         hydraulic_diameter: None,
-        resistance: 2.0,
+        resistance: HydraulicResistance::from_base(2.0),
         geometry: None,
         resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
@@ -130,7 +132,7 @@ fn test_parallel_quadratic_branches() -> Result<()> {
         length: Length::from_base(1.0),
         area: Area::from_base(1.0),
         hydraulic_diameter: None,
-        resistance: 1e-9,
+        resistance: HydraulicResistance::from_base(1e-9),
         geometry: None,
         resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
@@ -140,10 +142,10 @@ fn test_parallel_quadratic_branches() -> Result<()> {
     net.add_edge_properties(eidx3, props3);
 
     if let Some(edge) = net.graph.edge_weight_mut(eidx1) {
-        edge.quad_coeff = 0.5;
+        edge.quad_coeff = QuadraticHydraulicResistance::from_base(0.5);
     }
     if let Some(edge) = net.graph.edge_weight_mut(eidx2) {
-        edge.quad_coeff = 1.0;
+        edge.quad_coeff = QuadraticHydraulicResistance::from_base(1.0);
     }
 
     net.set_pressure(n_in, 2.0);
@@ -195,11 +197,11 @@ fn test_parallel_additivity() -> Result<()> {
     let n_out = builder.add_outlet("out".to_string());
 
     let mut e1 = Edge::<T>::new("e1".to_string(), EdgeType::Pipe);
-    e1.resistance = 2.0;
+    e1.resistance = HydraulicResistance::from_base(2.0);
     let mut e2 = Edge::<T>::new("e2".to_string(), EdgeType::Pipe);
-    e2.resistance = 3.0;
+    e2.resistance = HydraulicResistance::from_base(3.0);
     let mut merge = Edge::<T>::new("merge".to_string(), EdgeType::Pipe);
-    merge.resistance = 1e-9;
+    merge.resistance = HydraulicResistance::from_base(1e-9);
 
     let eidx1 = builder.add_edge(n_in, n_split, e1);
     let eidx2 = builder.add_edge(n_in, n_split, e2);
@@ -215,7 +217,7 @@ fn test_parallel_additivity() -> Result<()> {
         length: Length::from_base(1.0),
         area: Area::from_base(1.0),
         hydraulic_diameter: None,
-        resistance: 2.0,
+        resistance: HydraulicResistance::from_base(2.0),
         geometry: None,
         resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
@@ -226,7 +228,7 @@ fn test_parallel_additivity() -> Result<()> {
         length: Length::from_base(1.0),
         area: Area::from_base(1.0),
         hydraulic_diameter: None,
-        resistance: 3.0,
+        resistance: HydraulicResistance::from_base(3.0),
         geometry: None,
         resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
@@ -237,7 +239,7 @@ fn test_parallel_additivity() -> Result<()> {
         length: Length::from_base(1.0),
         area: Area::from_base(1.0),
         hydraulic_diameter: None,
-        resistance: 1e-9,
+        resistance: HydraulicResistance::from_base(1e-9),
         geometry: None,
         resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
@@ -279,11 +281,11 @@ fn test_conservation_at_junction() -> Result<()> {
     let n_out2 = builder.add_outlet("o2".to_string());
 
     let mut e_in = Edge::<T>::new("ein".to_string(), EdgeType::Pipe);
-    e_in.resistance = 1.0;
+    e_in.resistance = HydraulicResistance::from_base(1.0);
     let mut e1 = Edge::<T>::new("e1".to_string(), EdgeType::Pipe);
-    e1.resistance = 2.0;
+    e1.resistance = HydraulicResistance::from_base(2.0);
     let mut e2 = Edge::<T>::new("e2".to_string(), EdgeType::Pipe);
-    e2.resistance = 3.0;
+    e2.resistance = HydraulicResistance::from_base(3.0);
 
     let _ein = builder.add_edge(n_in, n_j, e_in);
     let _eidx1 = builder.add_edge(n_j, n_out1, e1);
@@ -329,8 +331,8 @@ fn test_quadratic_resistance() -> Result<()> {
     let n_out = builder.add_outlet("out".to_string());
 
     let mut e1 = Edge::<T>::new("e1".to_string(), EdgeType::Pipe);
-    e1.resistance = 1.0;
-    e1.quad_coeff = 1.0; // Non-zero quadratic coefficient
+    e1.resistance = HydraulicResistance::from_base(1.0);
+    e1.quad_coeff = QuadraticHydraulicResistance::from_base(1.0); // Non-zero quadratic coefficient
 
     let eidx1 = builder.add_edge(n_in, n_out, e1);
 
@@ -345,7 +347,7 @@ fn test_quadratic_resistance() -> Result<()> {
         length: Length::from_base(1.0),
         area: Area::from_base(1.0),
         hydraulic_diameter: None,
-        resistance: 1.0,
+        resistance: HydraulicResistance::from_base(1.0),
         geometry: None,
         resistance_update_policy: ResistanceUpdatePolicy::FlowInvariant,
         properties: std::collections::HashMap::new(),
@@ -356,7 +358,7 @@ fn test_quadratic_resistance() -> Result<()> {
     // add_edge_properties might not overwrite it or might not expose it.
     // The Edge struct has quad_coeff. Let's make sure it's set.
     if let Some(edge) = net.graph.edge_weight_mut(eidx1) {
-        edge.quad_coeff = 1.0;
+        edge.quad_coeff = QuadraticHydraulicResistance::from_base(1.0);
     }
 
     net.set_pressure(n_in, 2.0);

@@ -35,12 +35,12 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 
 # Math and numerical
-aequitas = { version = "0.1.0", git = "https://github.com/ryancinsight/aequitas", rev = "ce3ef7a6ea26a025b91df99034cadbbcf9b01330", default-features = false, features = ["std"] }
-proteus = { version = "0.1.0", git = "https://github.com/ryancinsight/proteus" }
-hyperion = { version = "0.1.0", git = "https://github.com/ryancinsight/hyperion", default-features = false, features = ["std"] }
-tyche-core = { git = "https://github.com/ryancinsight/tyche", rev = "87923da922ec7bd17f12324c40d1da026be6b04e" }
-eunomia = { git = "https://github.com/ryancinsight/eunomia", default-features = false, features = ["std"] }
-iris = { git = "https://github.com/ryancinsight/iris", rev = "ef43861ae480ed199768580e0842968d98487e0f" }
+aequitas = { path = "../aequitas", version = "0.1.0", default-features = false, features = ["std"] }
+proteus = { path = "../proteus", version = "0.1.0" }
+hyperion = { path = "../hyperion", version = "0.1.0", default-features = false, features = ["std"] }
+tyche-core = { path = "../tyche/crates/tyche-core", version = "0.1.0" }
+eunomia = { path = "../eunomia/crates/eunomia", default-features = false, features = ["std"] }
+iris = { path = "../iris", version = "0.1.0" }
 approx = "0.5"
 bytemuck = "1.14"
 rand = "0.8"
@@ -103,227 +103,25 @@ cfd-3d = { path = "crates/cfd-3d" }
 cfd-optim = { path = "crates/cfd-optim" }
 cfd-validation = { path = "crates/cfd-validation" }
 
+# Redirect all git sources to local working copies so the entire CFDrs dep
+# graph uses a single version of each Atlas foundation crate.
 [patch."https://github.com/ryancinsight/aequitas"]
 aequitas = { path = "../aequitas" }
-
-[patch."https://github.com/ryancinsight/CFDrs.git"]
-cfd-schematics = { path = "crates/cfd-schematics" }
-
-[patch."https://github.com/ryancinsight/apollo.git"]
-apollo-fft = { path = "../apollo/crates/apollo-fft" }
-apollo-nufft = { path = "../apollo/crates/apollo-nufft" }
-
-[patch."https://github.com/ryancinsight/Mnemosyne.git"]
-mnemosyne = { path = "../mnemosyne/crates/mnemosyne" }
-mnemosyne-core = { path = "../mnemosyne/crates/mnemosyne-core" }
-mnemosyne-arena = { path = "../mnemosyne/crates/mnemosyne-arena" }
-mnemosyne-local = { path = "../mnemosyne/crates/mnemosyne-local" }
-mnemosyne-heap = { path = "../mnemosyne/crates/mnemosyne-heap" }
-
-[patch."https://github.com/ryancinsight/Moirai.git"]
-moirai = { path = "../moirai/moirai" }
-moirai-core = { path = "../moirai/moirai-core" }
-moirai-scheduler = { path = "../moirai/moirai-scheduler" }
-moirai-parallel = { path = "../moirai/moirai-parallel" }
 
 [patch."https://github.com/ryancinsight/eunomia"]
 eunomia = { path = "../eunomia/crates/eunomia" }
 
+[patch."https://github.com/ryancinsight/eunomia.git"]
+eunomia = { path = "../eunomia/crates/eunomia" }
+
+# hephaestus pulls leto from git; redirect to local so VecStorage/Storage
+# impls are the same object across the whole dependency graph.
 [patch."https://github.com/ryancinsight/leto.git"]
 leto = { path = "../leto/crates/leto" }
 leto-ops = { path = "../leto/crates/leto-ops" }
 
-[patch."https://github.com/ryancinsight/gaia.git"]
-gaia = { path = "../gaia" }
-
-[patch."https://github.com/ryancinsight/hephaestus.git"]
-hephaestus-wgpu = { path = "../hephaestus/crates/hephaestus-wgpu" }
-
-[patch."https://github.com/ryancinsight/hyperion"]
-hyperion = { path = "../hyperion" }
-
-[patch."https://github.com/ryancinsight/hermes.git"]
-hermes-simd = { path = "../hermes/crates/hermes-simd" }
-
-[patch."https://github.com/ryancinsight/iris"]
-iris = { path = "../iris" }
-
-[patch."https://github.com/ryancinsight/melinoe.git"]
-melinoe = { path = "../melinoe" }
+[patch."https://github.com/ryancinsight/Mnemosyne.git"]
+mnemosyne = { path = "../mnemosyne/crates/mnemosyne" }
 
 [patch."https://github.com/ryancinsight/themis"]
 themis = { path = "../themis" }
-
-[patch."https://github.com/ryancinsight/tyche"]
-tyche-core = { path = "../tyche/crates/tyche-core" }
-
-[profile.release]
-opt-level = 3
-
-[profile.bench]
-inherits = "release"
-
-[profile.dev]
-opt-level = 0
-
-[profile.test]
-opt-level = 2
-
-# Root package for examples
-[package]
-name = "cfd-suite"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-license.workspace = true
-repository.workspace = true
-documentation.workspace = true
-description = "Computational Fluid Dynamics Simulation Suite"
-keywords.workspace = true
-categories.workspace = true
-readme.workspace = true
-
-[features]
-default = ["gpu"]
-gpu = ["cfd-core/gpu"]
-
-simd = ["cfd-core/simd"]
-millifluidic = ["cfd-mesh/millifluidic"]
-scheme-io = ["cfd-mesh/scheme-io"]
-legacy-benches = []
-# Gate validation suite behind an opt-in feature so it does not block
-# default workspace builds when its imports are stale.
-validation = ["dep:cfd-validation"]
-
-[dependencies]
-cfd-core.workspace = true
-cfd-math.workspace = true
-cfd-io.workspace = true
-cfd-mesh.workspace = true
-cfd-schematics.workspace = true
-cfd-1d.workspace = true
-cfd-2d.workspace = true
-cfd-3d.workspace = true
-iris.workspace = true
-# cfd-validation is optional — compile explicitly with `cargo test -p cfd-validation`
-# or enable via `--features validation`.
-cfd-validation = { workspace = true, optional = true }
-leto.workspace = true
-petgraph.workspace = true
-rand.workspace = true
-tracing = { workspace = true }
-
-[dev-dependencies]
-aequitas.workspace = true
-criterion = { version = "0.5", features = ["html_reports"] }
-proptest = "1.0"
-approx = "0.5"
-leto-ops.workspace = true
-serde_json.workspace = true
-serde = { workspace = true, features = ["derive"] }
-chrono = { version = "0.4", features = ["serde"] }
-num_cpus = "1.17"
-tracing-subscriber = { workspace = true }
-plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series"] }
-cfd-optim.workspace = true
-apollo-fft.workspace = true
-
-[[bench]]
-name = "core_benchmarks"
-harness = false
-
-[[bench]]
-name = "cfd_benchmarks"
-harness = false
-
-
-[[example]]
-name = "spectral_performance"
-path = "examples/spectral_performance.rs"
-
-[[example]]
-name = "matrix_free_demo"
-path = "examples/matrix_free_demo.rs"
-
-
-
-
-
-
-[[example]]
-name = "venturi_cavitation"
-path = "examples/venturi_cavitation.rs"
-
-
-
-[[example]]
-name = "csg_primitives_demo"
-path = "examples/csg_primitives_demo.rs"
-
-
-[[example]]
-name = "csg_cfd_simulation"
-path = "examples/csg_cfd_simulation.rs"
-
-
-[[example]]
-name = "csg_operations"
-path = "examples/csg_operations.rs"
-
-
-[[example]]
-name = "mesh_3d_integration"
-path = "examples/mesh_3d_integration.rs"
-
-
-[[example]]
-name = "csgrs_api_test"
-path = "examples/csgrs_api_test.rs"
-
-
-[[example]]
-name = "test_csgrs"
-path = "examples/test_csgrs.rs"
-
-
-[[bench]]
-name = "performance_benchmarks"
-harness = false
-
-[[bench]]
-name = "gpu_turbulence_benchmark"
-harness = false
-required-features = ["legacy-benches"]
-
-[[bench]]
-name = "solver_performance"
-harness = false
-
-[[bench]]
-name = "preconditioner_benchmark"
-harness = false
-
-[[bench]]
-name = "turbulence_model_benchmarks"
-harness = false
-required-features = ["legacy-benches"]
-
-[[bench]]
-name = "vector_simd_benchmark"
-harness = false
-required-features = ["simd"]
-
-[[bench]]
-name = "cfd_3d_benchmarks"
-harness = false
-
-[[bench]]
-name = "delaunay_3d"
-harness = false
-
-[[bench]]
-name = "fem_assembly"
-harness = false
-
-[patch."https://github.com/ryancinsight/proteus"]
-proteus = { path = "../proteus" }

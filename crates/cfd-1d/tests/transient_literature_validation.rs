@@ -10,6 +10,7 @@
 //!
 //! These tests validate transient implementations against analytical expectations.
 
+use aequitas::systems::si::quantities::HydraulicResistance;
 use cfd_1d::domain::network::{Network, NetworkBuilder};
 use cfd_1d::solver::core::{
     DropletInjection, EdgeFlowEvent, InletCompositionEvent, MixtureComposition,
@@ -193,7 +194,7 @@ fn pressure_event_validation_operates_in_laminar_reynolds_range() {
     network.set_pressure(outlet, 0.0);
 
     if let Some(edge_data) = network.graph.edge_weight_mut(edge) {
-        edge_data.resistance = 1.0e12;
+        edge_data.resistance = HydraulicResistance::from_base(1.0e12);
     }
 
     let composition_events = vec![InletCompositionEvent {

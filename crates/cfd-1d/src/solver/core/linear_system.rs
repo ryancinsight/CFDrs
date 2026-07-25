@@ -31,7 +31,7 @@ use cfd_math::linear_solver::Preconditioner;
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Storage};
-use leto_ops::{lu_decompose, qr_decompose, CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};
+use leto_ops::{CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar, lu_decompose, qr_decompose};
 use serde::{Deserialize, Serialize};
 
 use super::NetworkSolveScalar;
@@ -226,11 +226,7 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
         }
     }
 
-    fn compute_equilibrated_residual_norm(
-        a: &LetoCsrMatrix<T>,
-        x: &Array1<T>,
-        b: &Array1<T>,
-    ) -> T {
+    fn compute_equilibrated_residual_norm(a: &LetoCsrMatrix<T>, x: &Array1<T>, b: &Array1<T>) -> T {
         let mut norm = T::zero();
         for row_idx in 0..a.nrows() {
             let row = a.row(row_idx);

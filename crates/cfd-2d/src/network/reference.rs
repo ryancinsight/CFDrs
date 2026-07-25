@@ -177,7 +177,7 @@ where
     let edge_flow_by_id: HashMap<String, T> = solved
         .edges_with_properties()
         .into_iter()
-        .map(|edge| (edge.id, edge.flow_rate))
+        .map(|edge| (edge.id, edge.flow_rate.into_base()))
         .collect();
 
     let solved_pressure_by_id: HashMap<String, T> = solved
@@ -211,7 +211,7 @@ where
     let mut min_edge_resistance = f64::INFINITY;
     let mut max_edge_resistance = 0.0_f64;
     for edge in solved.edges_with_properties() {
-        let resistance = to_f64(edge.properties.resistance).abs();
+        let resistance = to_f64(edge.properties.resistance.into_base()).abs();
         min_edge_resistance = min_edge_resistance.min(resistance);
         max_edge_resistance = max_edge_resistance.max(resistance);
     }

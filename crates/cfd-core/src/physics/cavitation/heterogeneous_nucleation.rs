@@ -381,7 +381,7 @@ pub fn heterogeneous_inception_threshold_pa(
     base_vapor_pressure_pa: Pressure,
     ambient_pressure_pa: Pressure,
     populations: &[CellularPopulation],
-) -> f64 {
+) -> Pressure {
     let mapped = populations
         .iter()
         .enumerate()

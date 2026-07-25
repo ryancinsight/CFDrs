@@ -1,4 +1,4 @@
-use aequitas::systems::si::quantities::{Area, Length};
+use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder, ResistanceUpdatePolicy};
 use cfd_1d::pries_phase_separation;
 use cfd_1d::solver::core::{
@@ -595,7 +595,7 @@ fn coupled_pressure_event_blood_hematocrit_feeds_back_on_flow_split() {
         length: Length::from_base(length),
         area: Area::from_base(std::f64::consts::PI * diameter * diameter / 4.0),
         hydraulic_diameter: Some(Length::from_base(diameter)),
-        resistance: 0.0,
+        resistance: HydraulicResistance::from_base(0.0),
         geometry: Some(ChannelGeometry {
             channel_type: cfd_1d::ChannelType::Straight,
             length: Length::from_base(length),
@@ -713,7 +713,7 @@ fn blood_edge_transport_relaxes_single_channel_hematocrit_front() {
             length: Length::from_base(1.0),
             area: Area::from_base(1.0),
             hydraulic_diameter: Some(Length::from_base(1.0)),
-            resistance: 1.0,
+            resistance: HydraulicResistance::from_base(1.0),
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
                 length: Length::from_base(1.0),
@@ -794,7 +794,7 @@ fn blood_edge_transport_relaxes_mixed_outlet_hematocrit() {
             length: Length::from_base(2.0),
             area: Area::from_base(2.0),
             hydraulic_diameter: Some(Length::from_base(1.0)),
-            resistance: 1.0,
+            resistance: HydraulicResistance::from_base(1.0),
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
                 length: Length::from_base(2.0),
@@ -866,7 +866,7 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
             length: Length::from_base(1.0),
             area: Area::from_base(1.0),
             hydraulic_diameter: Some(Length::from_base(1.0)),
-            resistance: 1.0,
+            resistance: HydraulicResistance::from_base(1.0),
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
                 length: Length::from_base(1.0),
@@ -981,7 +981,7 @@ fn blood_segmented_edge_transport_advects_front_one_cell_per_step() {
             length: Length::from_base(1.0),
             area: Area::from_base(1.0),
             hydraulic_diameter: Some(Length::from_base(1.0)),
-            resistance: 1.0,
+            resistance: HydraulicResistance::from_base(1.0),
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
                 length: Length::from_base(1.0),
@@ -1053,7 +1053,7 @@ fn blood_segmented_edge_transport_delays_mixed_outlet_more_than_single_volume_mo
             length: Length::from_base(2.0),
             area: Area::from_base(2.0),
             hydraulic_diameter: Some(Length::from_base(1.0)),
-            resistance: 1.0,
+            resistance: HydraulicResistance::from_base(1.0),
             geometry: Some(ChannelGeometry {
                 channel_type: cfd_1d::ChannelType::Straight,
                 length: Length::from_base(2.0),
@@ -1134,7 +1134,7 @@ fn blood_segmented_edge_transport_applies_pries_split_at_bifurcation() {
         length: Length::from_base(1.0),
         area: Area::from_base(1.0),
         hydraulic_diameter: Some(Length::from_base(hydraulic_diameter)),
-        resistance: 1.0,
+        resistance: HydraulicResistance::from_base(1.0),
         geometry: Some(ChannelGeometry {
             channel_type: cfd_1d::ChannelType::Straight,
             length: Length::from_base(1.0),
@@ -1218,7 +1218,7 @@ fn coupled_pressure_event_segmented_blood_transport_feeds_back_on_resistance_upd
         length: Length::from_base(length),
         area: Area::from_base(std::f64::consts::PI * diameter * diameter / 4.0),
         hydraulic_diameter: Some(Length::from_base(diameter)),
-        resistance: 0.0,
+        resistance: HydraulicResistance::from_base(0.0),
         geometry: Some(ChannelGeometry {
             channel_type: cfd_1d::ChannelType::Straight,
             length: Length::from_base(length),

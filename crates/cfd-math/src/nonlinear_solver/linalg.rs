@@ -1,5 +1,5 @@
 use eunomia::NumericElement;
-use leto::{Array1, Array2};
+use leto::Array1;
 
 #[inline]
 pub(super) fn vector_from_vec<T>(values: Vec<T>) -> Array1<T> {
@@ -10,11 +10,6 @@ pub(super) fn vector_from_vec<T>(values: Vec<T>) -> Array1<T> {
 #[inline]
 pub(super) fn vector_zeros<T: NumericElement>(len: usize) -> Array1<T> {
     Array1::from_elem([len], T::ZERO)
-}
-
-#[inline]
-pub(super) fn matrix_zeros<T: NumericElement>(rows: usize, cols: usize) -> Array2<T> {
-    Array2::from_elem([rows, cols], T::ZERO)
 }
 
 #[inline]

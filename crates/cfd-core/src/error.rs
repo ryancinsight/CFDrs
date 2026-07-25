@@ -1565,6 +1565,15 @@ impl From<ValidationErrorKind> for ParameterErrorKind {
     }
 }
 
+/// Bridge `LetoError` into `cfd_core::Error` so that `leto-ops` interpolation,
+/// quadrature, and differentiation results can be surfaced through the CFD
+/// error hierarchy without re-implementing the underlying algorithms.
+impl From<leto::LetoError> for Error {
+    fn from(e: leto::LetoError) -> Self {
+        Self::InvalidInput(e.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

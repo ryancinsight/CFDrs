@@ -7,6 +7,7 @@
 //! 4. Womersley and Bessel functions produce correct limits at degenerate inputs
 
 use aequitas::systems::si::quantities::{
+    HydraulicResistance,
     DynamicViscosity, Length, MassDensity, Pressure, PressureGradient, ReciprocalTime, Time,
 };
 use cfd_1d::{
@@ -178,13 +179,13 @@ fn test_nan_resistance_does_not_panic() {
     // Pre-set a valid resistance to pass validation, then overwrite with NaN
     for edge in graph.edge_indices() {
         if let Some(e) = graph.edge_weight_mut(edge) {
-            e.resistance = r;
+            e.resistance = HydraulicResistance::from_base(r);
         }
     }
     // Now inject NaN after validation
     let edge_idx = graph.edge_indices().next().expect("test invariant");
     if let Some(e) = graph.edge_weight_mut(edge_idx) {
-        e.resistance = f64::NAN;
+        e.resistance = HydraulicResistance::from_base(f64::NAN);
     }
 
     let mut network = Network::new(graph, fluid);
@@ -214,7 +215,7 @@ fn test_nan_resistance_does_not_panic() {
                         .get(e.target().index())
                         .copied()
                         .unwrap_or(0.0);
-                    (p_src - p_tgt) / e.weight().resistance
+                    (p_src - p_tgt) / e.weight().resistance.into_base()
                 })
                 .collect();
             let has_nan_or_inf = pressures.iter().any(|p| p.is_nan() || p.is_infinite())
@@ -278,7 +279,7 @@ fn test_two_dirichlet_nodes_solve_correctly() {
     let mut graph = builder.build().expect("test invariant");
     for edge in graph.edge_indices() {
         if let Some(e) = graph.edge_weight_mut(edge) {
-            e.resistance = r;
+            e.resistance = HydraulicResistance::from_base(r);
         }
     }
 
@@ -305,7 +306,7 @@ fn test_two_dirichlet_nodes_solve_correctly() {
                 .get(e.target().index())
                 .copied()
                 .unwrap_or(0.0);
-            (p_src - p_tgt) / e.weight().resistance
+            (p_src - p_tgt) / e.weight().resistance.into_base()
         })
         .collect();
     assert_relative_eq!(flows[0], expected_q, max_relative = 1e-9);

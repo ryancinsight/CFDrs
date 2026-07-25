@@ -1,64 +1,36 @@
-//! Lagrange polynomial interpolation.
+//! Lagrange polynomial interpolation — thin wrapper around `leto-ops` SSOT implementation.
 
 use super::traits::Interpolation;
-use cfd_core::error::{Error, Result};
-use eunomia::RealField;
+use cfd_core::error::Result;
+use eunomia::{FloatElement, RealField};
+use leto_ops::application::interpolation::Interpolation1D;
 
-/// Lagrange polynomial interpolation
-pub struct LagrangeInterpolation<T: RealField + Copy> {
-    x_data: Vec<T>,
-    y_data: Vec<T>,
-}
+/// Barycentric Lagrange polynomial interpolation.
+///
+/// Delegates to the Atlas-canonical [`leto_ops::application::interpolation::LagrangeInterpolation`].
+#[derive(Clone)]
+pub struct LagrangeInterpolation<T: RealField + FloatElement + Copy>(
+    leto_ops::application::interpolation::LagrangeInterpolation<T>,
+);
 
-impl<T: RealField + Copy> LagrangeInterpolation<T> {
-    /// Create new Lagrange interpolation
+impl<T: RealField + FloatElement + Copy> LagrangeInterpolation<T> {
+    /// Construct from sorted `x_data` and corresponding `y_data` (≥ 2 points required).
+    ///
+    /// # Errors
+    /// Returns `Err` when nodes are not strictly increasing.
     pub fn new(x_data: Vec<T>, y_data: Vec<T>) -> Result<Self> {
-        if x_data.len() != y_data.len() {
-            return Err(Error::InvalidConfiguration(
-                "x_data and y_data must have the same length".to_string(),
-            ));
-        }
-
-        if x_data.is_empty() {
-            return Err(Error::InvalidConfiguration(
-                "Need at least 1 point for interpolation".to_string(),
-            ));
-        }
-
-        if !x_data.windows(2).all(|w| w[0] < w[1]) {
-            return Err(Error::InvalidConfiguration(
-                "x_data must be strictly increasing (no duplicate nodes)".to_string(),
-            ));
-        }
-
-        Ok(Self { x_data, y_data })
-    }
-
-    /// Compute Lagrange basis polynomial L_i(x)
-    fn lagrange_basis(&self, i: usize, x: &T) -> T {
-        self.x_data
-            .iter()
-            .enumerate()
-            .filter(|(j, _)| *j != i)
-            .fold(T::ONE, |acc, (_j, xj)| {
-                acc * (*x - *xj) / (self.x_data[i] - *xj)
-            })
+        leto_ops::application::interpolation::LagrangeInterpolation::new(x_data, y_data)
+            .map(Self)
+            .map_err(cfd_core::error::Error::from)
     }
 }
 
-impl<T: RealField + Copy> Interpolation<T> for LagrangeInterpolation<T> {
+impl<T: RealField + FloatElement + Copy> Interpolation<T> for LagrangeInterpolation<T> {
     fn interpolate(&self, x: T) -> Result<T> {
-        // Use iterator combinators with enumerate for zero-copy optimization
-        Ok(self
-            .y_data
-            .iter()
-            .enumerate()
-            .map(|(i, yi)| *yi * self.lagrange_basis(i, &x))
-            .fold(T::ZERO, |acc, term| acc + term))
+        self.0.interpolate(x).map_err(cfd_core::error::Error::from)
     }
 
-    /// Get the bounds of the interpolation domain
     fn bounds(&self) -> (T, T) {
-        (self.x_data[0], self.x_data[self.x_data.len() - 1])
+        self.0.bounds()
     }
 }

@@ -1,97 +1,41 @@
-//! Linear interpolation between data points.
+//! Linear interpolation — thin wrapper around `leto-ops` SSOT implementation.
+//!
+//! All algorithmic logic lives in `leto_ops::application::interpolation`.
+//! This module re-exports the canonical type and adapts its error to
+//! `cfd_core::Error` via the `From<LetoError>` bridge.
 
 use super::traits::Interpolation;
-use cfd_core::error::{Error, Result};
-use eunomia::RealField;
-use std::cmp::Ordering;
+use cfd_core::error::Result;
+use eunomia::{FloatElement, RealField};
+use leto_ops::application::interpolation::Interpolation1D;
 
-/// Linear interpolation between data points
+/// Linear interpolation between data points.
+///
+/// Delegates to the Atlas-canonical [`leto_ops::application::interpolation::LinearInterpolation`].
 #[derive(Clone)]
-pub struct LinearInterpolation<T: RealField + Copy> {
-    /// X coordinates (must be sorted)
-    x_data: Vec<T>,
-    /// Y values corresponding to x_data
-    y_data: Vec<T>,
-}
+pub struct LinearInterpolation<T: RealField + FloatElement + Copy>(
+    leto_ops::application::interpolation::LinearInterpolation<T>,
+);
 
-impl<T: RealField + Copy> LinearInterpolation<T> {
-    /// Create new linear interpolation from data points
+impl<T: RealField + FloatElement + Copy> LinearInterpolation<T> {
+    /// Construct from sorted `x_data` and corresponding `y_data`.
+    ///
+    /// # Errors
+    /// Returns `Err` when data is empty, has fewer than 2 points, or nodes are not strictly increasing.
     pub fn new(x_data: Vec<T>, y_data: Vec<T>) -> Result<Self> {
-        if x_data.len() != y_data.len() {
-            return Err(Error::InvalidConfiguration(
-                "x_data and y_data must have the same length".to_string(),
-            ));
-        }
-
-        if x_data.len() < 2 {
-            return Err(Error::InvalidConfiguration(
-                "Need at least 2 points for interpolation".to_string(),
-            ));
-        }
-
-        // Verify x_data is strictly increasing (no duplicates)
-        if !x_data.windows(2).all(|w| w[0] < w[1]) {
-            return Err(Error::InvalidConfiguration(
-                "x_data must be strictly increasing (no duplicate nodes)".to_string(),
-            ));
-        }
-
-        Ok(Self { x_data, y_data })
-    }
-
-    /// Find the interval containing x using binary search
-    fn find_interval(&self, x: &T) -> Option<usize> {
-        match self.x_data.binary_search_by(|probe| {
-            if probe < x {
-                Ordering::Less
-            } else if probe > x {
-                Ordering::Greater
-            } else {
-                Ordering::Equal
-            }
-        }) {
-            Ok(idx) => Some(idx),
-            Err(idx) => {
-                if idx == 0 || idx >= self.x_data.len() {
-                    None
-                } else {
-                    Some(idx - 1)
-                }
-            }
-        }
+        leto_ops::application::interpolation::LinearInterpolation::new(x_data, y_data)
+            .map(Self)
+            .map_err(cfd_core::error::Error::from)
     }
 }
 
-impl<T: RealField + Copy> Interpolation<T> for LinearInterpolation<T> {
+impl<T: RealField + FloatElement + Copy> Interpolation<T> for LinearInterpolation<T> {
     fn interpolate(&self, x: T) -> Result<T> {
-        // Check bounds
-        if x < self.x_data[0] || x > self.x_data[self.x_data.len() - 1] {
-            return Err(Error::InvalidConfiguration(
-                "Interpolation point is outside the data range".to_string(),
-            ));
-        }
-
-        // Find interval
-        let idx = self.find_interval(&x).ok_or_else(|| {
-            Error::InvalidConfiguration("Failed to find interpolation interval".to_string())
-        })?;
-
-        // Handle exact match
-        if self.x_data[idx] == x {
-            return Ok(self.y_data[idx]);
-        }
-
-        // Linear interpolation
-        let x0 = &self.x_data[idx];
-        let x1 = &self.x_data[idx + 1];
-        let y0 = &self.y_data[idx];
-        let y1 = &self.y_data[idx + 1];
-
-        let t = (x - *x0) / (*x1 - *x0);
-        Ok(*y0 + t * (*y1 - *y0))
+        self.0.interpolate(x).map_err(cfd_core::error::Error::from)
     }
 
     fn bounds(&self) -> (T, T) {
-        (self.x_data[0], self.x_data[self.x_data.len() - 1])
+        self.0.bounds()
     }
 }
+

@@ -22,7 +22,10 @@ fn throat_edge_coefficients(bp: &NetworkBlueprint) -> (f64, f64) {
         .edge_references()
         .find(|edge| edge.weight().id == "throat_section")
         .expect("throat edge must exist");
-    (throat.weight().resistance, throat.weight().quad_coeff)
+    (
+        throat.weight().resistance.into_base(),
+        throat.weight().quad_coeff.into_base(),
+    )
 }
 
 fn branch_quad_coeff(bp: &NetworkBlueprint, edge_id: &str) -> f64 {
@@ -34,7 +37,7 @@ fn branch_quad_coeff(bp: &NetworkBlueprint, edge_id: &str) -> f64 {
         .find(|edge| edge.weight().id == edge_id)
         .expect("branch edge must exist")
         .weight()
-        .quad_coeff
+        .quad_coeff.into_base()
 }
 
 fn edge_coefficients(bp: &NetworkBlueprint, edge_id: &str) -> (f64, f64) {
@@ -45,7 +48,10 @@ fn edge_coefficients(bp: &NetworkBlueprint, edge_id: &str) -> (f64, f64) {
         .edge_references()
         .find(|candidate| candidate.weight().id == edge_id)
         .expect("edge must exist");
-    (edge.weight().resistance, edge.weight().quad_coeff)
+    (
+        edge.weight().resistance.into_base(),
+        edge.weight().quad_coeff.into_base(),
+    )
 }
 
 fn blueprint_channel<'a>(bp: &'a NetworkBlueprint, edge_id: &str) -> &'a ChannelSpec {
@@ -331,11 +337,11 @@ fn predicted_branch_split(bp: &NetworkBlueprint, inlet_flow_m3_s: f64) -> (f64, 
     for edge in network.graph.edges(split) {
         match edge.weight().id.as_str() {
             "treatment_edge" => {
-                let resistance = edge.weight().resistance.max(1.0e-12);
+                let resistance = edge.weight().resistance.into_base().max(1.0e-12);
                 treatment = Some((resistance, 1.0 / resistance));
             }
             "bypass_edge" => {
-                let resistance = edge.weight().resistance.max(1.0e-12);
+                let resistance = edge.weight().resistance.into_base().max(1.0e-12);
                 bypass = Some((resistance, 1.0 / resistance));
             }
             _ => {}

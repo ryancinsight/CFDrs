@@ -150,7 +150,7 @@ fn cfd_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyVenturiResult1D>()?;
 
     // Add submodule for validation utilities
-    let validation = PyModule::new_bound(m.py(), "validation")?;
+    let validation = PyModule::new(m.py(), "validation")?;
     validation.add("__doc__", "Validation utilities for CFD comparisons")?;
     m.add_submodule(&validation)?;
 

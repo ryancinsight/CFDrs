@@ -1,4 +1,4 @@
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length};
 use cfd_1d::{
     ChannelGeometry, ChannelType, ComponentType, CrossSection, EdgeProperties, Network,
     NetworkBuilder, ResistanceUpdatePolicy, SurfaceProperties, Wettability,
@@ -52,12 +52,17 @@ fn cross_fidelity_poiseuille_circular_vs_square() {
 
         let (cross_section, area) = if is_circular {
             let a = std::f64::consts::PI * d * d / 4.0;
-            (CrossSection::Circular { diameter: d }, a)
+            (
+                CrossSection::Circular {
+                    diameter: Length::from_base(d),
+                },
+                a,
+            )
         } else {
             (
                 CrossSection::Rectangular {
-                    width: d,
-                    height: d,
+                    width: Length::from_base(d),
+                    height: Length::from_base(d),
                 },
                 d * d,
             )
@@ -71,13 +76,13 @@ fn cross_fidelity_poiseuille_circular_vs_square() {
                 id: String::new(),
                 resistance_update_policy: ResistanceUpdatePolicy::FlowDependent,
                 component_type: ComponentType::Pipe,
-                length,
-                area,
-                hydraulic_diameter: Some(d),
-                resistance: 1.0, // Initial dummy, updated by shape_factors
+                length: Length::from_base(length),
+                area: Area::from_base(area),
+                hydraulic_diameter: Some(Length::from_base(d)),
+                resistance: HydraulicResistance::from_base(1.0), // Initial dummy, updated by shape_factors
                 geometry: Some(ChannelGeometry {
                     channel_type: ChannelType::Straight,
-                    length,
+                    length: Length::from_base(length),
                     cross_section,
                     surface: SurfaceProperties {
                         roughness: Length::from_base(0.0),
@@ -94,7 +99,7 @@ fn cross_fidelity_poiseuille_circular_vs_square() {
         network.update_resistances().unwrap();
 
         let edge_data = network.graph.edge_weight(edge).expect("edge exists");
-        flow_rate * edge_data.resistance
+        flow_rate * edge_data.resistance.into_base()
     };
 
     let dp_1d_circ = build_1d_duct(true);

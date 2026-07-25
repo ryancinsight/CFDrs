@@ -191,7 +191,7 @@ pub mod fd {
 /// Re-export the SSOT quadrature rules from `leto-ops`.
 ///
 /// ```rust,no_run
-/// use cfd_math::quadrature::{GaussLegendre3, CompositeQuadrature, Quadrature};
+/// use cfd_math::quadrature_rules::{GaussLegendre3, CompositeQuadrature, Quadrature};
 /// ```
 pub mod quadrature_rules {
     pub use leto_ops::{

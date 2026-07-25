@@ -22,6 +22,7 @@ name = "aequitas"
 version = "0.1.0"
 dependencies = [
  "eunomia",
+ "serde",
  "typenum",
 ]
 
@@ -173,15 +174,6 @@ dependencies = [
  "moirai",
  "serde",
  "thiserror 2.0.18",
-]
-
-[[package]]
-name = "approx"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cab112f0a86d568ea0e627cc1d6be74a1e9cd55214684db5561995f6dad897c6"
-dependencies = [
- "num-traits",
 ]
 
 [[package]]
@@ -441,6 +433,7 @@ dependencies = [
 name = "cfd-2d"
 version = "0.3.0"
 dependencies = [
+ "aequitas",
  "anyhow",
  "cfd-1d",
  "cfd-core",
@@ -621,39 +614,6 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tracing",
-]
-
-[[package]]
-name = "cfd-suite"
-version = "0.3.0"
-dependencies = [
- "aequitas",
- "apollo-fft",
- "approx",
- "cfd-1d",
- "cfd-2d",
- "cfd-3d",
- "cfd-core",
- "cfd-io",
- "cfd-math",
- "cfd-optim",
- "cfd-schematics",
- "cfd-validation",
- "chrono",
- "criterion",
- "gaia",
- "iris",
- "leto",
- "leto-ops",
- "num_cpus",
- "petgraph",
- "plotters",
- "proptest",
- "rand 0.8.7",
- "serde",
- "serde_json",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -859,7 +819,7 @@ dependencies = [
  "eunomia",
  "leto",
  "leto-ops",
- "melinoe",
+ "melinoe 0.9.0",
  "smallvec",
  "thiserror 2.0.18",
 ]
@@ -929,16 +889,6 @@ dependencies = [
 [[package]]
 name = "consus-core"
 version = "0.1.0"
-source = "git+https://github.com/ryancinsight/consus?rev=ec386e3e14241343f9a1beca6921463f2b2f0fc9#ec386e3e14241343f9a1beca6921463f2b2f0fc9"
-dependencies = [
- "byteorder",
- "smallvec",
- "zerocopy",
-]
-
-[[package]]
-name = "consus-core"
-version = "0.1.0"
 source = "git+https://github.com/ryancinsight/consus.git#0106b709212033823a22782b0c491603e8ce1229"
 dependencies = [
  "byteorder",
@@ -961,14 +911,6 @@ name = "consus-io"
 version = "0.1.0"
 dependencies = [
  "consus-core 0.1.0",
-]
-
-[[package]]
-name = "consus-io"
-version = "0.1.0"
-source = "git+https://github.com/ryancinsight/consus?rev=ec386e3e14241343f9a1beca6921463f2b2f0fc9#ec386e3e14241343f9a1beca6921463f2b2f0fc9"
-dependencies = [
- "consus-core 0.1.0 (git+https://github.com/ryancinsight/consus?rev=ec386e3e14241343f9a1beca6921463f2b2f0fc9)",
 ]
 
 [[package]]
@@ -1488,7 +1430,7 @@ dependencies = [
  "hashbrown 0.15.5",
  "indexmap",
  "leto",
- "melinoe",
+ "melinoe 0.9.0",
  "rand 0.8.7",
  "serde",
  "serde_json",
@@ -1657,7 +1599,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "eunomia",
  "hermes-simd-core",
@@ -1669,7 +1611,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-core"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "bytemuck",
  "eunomia",
@@ -1680,7 +1622,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-intrinsics"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "eunomia",
  "hermes-simd-core",
@@ -1688,7 +1630,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-macros"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1697,7 +1639,7 @@ dependencies = [
 
 [[package]]
 name = "hermes-simd-types"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "hermes-simd-core",
  "hermes-simd-intrinsics",
@@ -1764,15 +1706,6 @@ checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
 dependencies = [
  "equivalent",
  "hashbrown 0.17.1",
-]
-
-[[package]]
-name = "indoc"
-version = "2.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79cf5c93f93228cf8efb3ba362535fb11199ac548a09ce117c9b1adc3030d706"
-dependencies = [
- "rustversion",
 ]
 
 [[package]]
@@ -1952,19 +1885,15 @@ name = "melinoe"
 version = "0.9.0"
 
 [[package]]
+name = "melinoe"
+version = "0.9.0"
+source = "git+https://github.com/ryancinsight/melinoe.git#40278ac8e99286f373d20c6e890b740bd1cf3f21"
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
-
-[[package]]
-name = "memoffset"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
-dependencies = [
- "autocfg",
-]
 
 [[package]]
 name = "miniz_oxide"
@@ -2036,7 +1965,7 @@ dependencies = [
 name = "mnemosyne-heap"
 version = "0.3.0"
 dependencies = [
- "melinoe",
+ "melinoe 0.9.0",
  "mnemosyne-arena",
  "mnemosyne-backend",
  "mnemosyne-core",
@@ -2049,7 +1978,7 @@ dependencies = [
 name = "mnemosyne-local"
 version = "0.3.0"
 dependencies = [
- "melinoe",
+ "melinoe 0.9.0",
  "mnemosyne-arena",
  "mnemosyne-backend",
  "mnemosyne-build-util",
@@ -2072,7 +2001,7 @@ dependencies = [
 name = "moirai"
 version = "0.4.0"
 dependencies = [
- "melinoe",
+ "melinoe 0.9.0 (git+https://github.com/ryancinsight/melinoe.git)",
  "mnemosyne",
  "moirai-async",
  "moirai-core",
@@ -2123,7 +2052,7 @@ dependencies = [
 name = "moirai-executor"
 version = "0.4.0"
 dependencies = [
- "melinoe",
+ "melinoe 0.9.0 (git+https://github.com/ryancinsight/melinoe.git)",
  "mnemosyne",
  "moirai-core",
  "moirai-pal",
@@ -2162,7 +2091,7 @@ version = "0.4.0"
 dependencies = [
  "js-sys",
  "libc",
- "melinoe",
+ "melinoe 0.9.0 (git+https://github.com/ryancinsight/melinoe.git)",
  "moirai-core",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -2174,7 +2103,7 @@ dependencies = [
 name = "moirai-parallel"
 version = "0.4.0"
 dependencies = [
- "melinoe",
+ "melinoe 0.9.0 (git+https://github.com/ryancinsight/melinoe.git)",
  "moirai-core",
  "moirai-executor",
 ]
@@ -2335,9 +2264,9 @@ dependencies = [
 
 [[package]]
 name = "numpy"
-version = "0.22.1"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edb929bc0da91a4d85ed6c0a84deaa53d411abfb387fc271124f91bf6b89f14e"
+checksum = "6a5b15d63a5ff39e378daed0e1340d3a5964703ea9712eb09a0dc66fade996f4"
 dependencies = [
  "libc",
  "ndarray",
@@ -2345,7 +2274,8 @@ dependencies = [
  "num-integer",
  "num-traits",
  "pyo3",
- "rustc-hash 1.1.0",
+ "pyo3-build-config",
+ "rustc-hash 2.1.3",
 ]
 
 [[package]]
@@ -2710,37 +2640,32 @@ dependencies = [
 
 [[package]]
 name = "pyo3"
-version = "0.22.6"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f402062616ab18202ae8319da13fa4279883a2b8a9d9f83f20dbade813ce1884"
+checksum = "cd274650b21d4bfc26a0a47587962c1edb425f69287324355cd040c3ea66071c"
 dependencies = [
- "cfg-if",
- "indoc",
  "libc",
- "memoffset",
  "once_cell",
  "portable-atomic",
  "pyo3-build-config",
  "pyo3-ffi",
  "pyo3-macros",
- "unindent",
 ]
 
 [[package]]
 name = "pyo3-build-config"
-version = "0.22.6"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b14b5775b5ff446dd1056212d778012cbe8a0fbffd368029fd9e25b514479c38"
+checksum = "c5e2a7d2f0d013342f295c048ad19237add5154a55b1c5a254c0ec93d4109078"
 dependencies = [
- "once_cell",
  "target-lexicon",
 ]
 
 [[package]]
 name = "pyo3-ffi"
-version = "0.22.6"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ab5bcf04a2cdcbb50c7d6105de943f543f9ed92af55818fd17b660390fc8636"
+checksum = "ca85c467da1bbc8d866eea5deff9cf29ea5f7785054a17da36e65bda9c05845b"
 dependencies = [
  "libc",
  "pyo3-build-config",
@@ -2748,9 +2673,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-macros"
-version = "0.22.6"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fd24d897903a9e6d80b968368a34e1525aeb719d568dba8b3d4bfa5dc67d453"
+checksum = "9ac53762fd065daa3194dd09337a38bd793a188100fd1a9304c4ab312d901771"
 dependencies = [
  "proc-macro2",
  "pyo3-macros-backend",
@@ -2760,13 +2685,12 @@ dependencies = [
 
 [[package]]
 name = "pyo3-macros-backend"
-version = "0.22.6"
+version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36c011a03ba1e50152b4b394b479826cad97e7a21eb52df179cd91ac411cbfbe"
+checksum = "4ca3a1557399783172dc5bf39cfca835157732532cba56b71d2292161e53b362"
 dependencies = [
  "heck",
  "proc-macro2",
- "pyo3-build-config",
  "quote",
  "syn 2.0.119",
 ]
@@ -3045,7 +2969,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "coeus-core",
- "consus-io 0.1.0 (git+https://github.com/ryancinsight/consus?rev=ec386e3e14241343f9a1beca6921463f2b2f0fc9)",
+ "consus-io 0.1.0",
  "gaia",
  "iris",
  "ritk-image",
@@ -3380,9 +3304,9 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "target-lexicon"
-version = "0.12.16"
+version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
+checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
 
 [[package]]
 name = "tempfile"
@@ -3391,7 +3315,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -3401,7 +3325,7 @@ dependencies = [
 name = "themis"
 version = "0.10.1"
 dependencies = [
- "melinoe",
+ "melinoe 0.9.0 (git+https://github.com/ryancinsight/melinoe.git)",
 ]
 
 [[package]]
@@ -3616,12 +3540,6 @@ name = "unicode-width"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
-
-[[package]]
-name = "unindent"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7264e107f553ccae879d21fbea1d6724ac785e8c3bfc762137959b5802826ef3"
 
 [[package]]
 name = "unty"

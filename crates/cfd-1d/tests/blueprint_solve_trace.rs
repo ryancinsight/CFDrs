@@ -125,7 +125,7 @@ fn edge_resistance(network: &Network<f64, Water>, id: &str) -> f64 {
     network
         .graph
         .edge_weight(eidx)
-        .map(|e| e.resistance)
+        .map(|e| e.resistance.into_base())
         .unwrap_or_else(|| panic!("no weight for edge '{}'", id))
 }
 

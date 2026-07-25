@@ -1,3 +1,6 @@
+use aequitas::systems::si::quantities::{
+    HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+};
 use cfd_1d::domain::network::{Edge, EdgeType, Network, NetworkBuilder};
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::Result;
@@ -34,15 +37,15 @@ fn linearization_effective_resistance_matches_r_plus_k_abs_q() -> Result<()> {
 
     // Set physical coefficients
     if let Some(edge) = network.graph.edge_weight_mut(edge_idx) {
-        edge.resistance = 3.0;
-        edge.quad_coeff = 1.5;
-        edge.flow_rate = -2.0; // current iterate Q_k
+        edge.resistance = HydraulicResistance::from_base(3.0);
+        edge.quad_coeff = QuadraticHydraulicResistance::from_base(1.5);
+        edge.flow_rate = VolumetricFlowRate::from_base(-2.0); // current iterate Q_k
     }
 
     // Compute parallel edges and check conductance
     let pe: Vec<_> = network.edges_parallel().collect();
     assert_eq!(pe.len(), 1);
-    let conductance = pe[0].conductance;
+    let conductance = pe[0].conductance.into_base();
 
     let q_abs = 2.0_f64;
     // Picard secant: R_eff = R + k|Q_k|  (not the Newton Jacobian R + 2k|Q_k|)
@@ -69,8 +72,8 @@ fn update_from_solution_picard_step_correct_sign_and_magnitude() -> Result<()> {
     let (mut network, edge_idx, inlet, outlet) = build_simple_network::<F>();
     // Coefficients
     if let Some(edge) = network.graph.edge_weight_mut(edge_idx) {
-        edge.resistance = 2.0;
-        edge.quad_coeff = 4.0;
+        edge.resistance = HydraulicResistance::from_base(2.0);
+        edge.quad_coeff = QuadraticHydraulicResistance::from_base(4.0);
     }
 
     // Prepare a solution vector with a pressure drop of 6 Pa
@@ -106,8 +109,8 @@ fn dirichlet_enforcement_row_identity_and_rhs() -> Result<()> {
     let (mut network, edge_idx, inlet, outlet) = build_simple_network::<F>();
     // Set coefficients to linear to simplify assembly inspection
     if let Some(edge) = network.graph.edge_weight_mut(edge_idx) {
-        edge.resistance = 5.0;
-        edge.quad_coeff = 0.0;
+        edge.resistance = HydraulicResistance::from_base(5.0);
+        edge.quad_coeff = QuadraticHydraulicResistance::from_base(0.0);
     }
 
     // Apply Dirichlet at inlet, free at outlet
@@ -160,9 +163,9 @@ fn dirichlet_enforcement_interior_junction() -> Result<()> {
     let mut e1 = Edge::new("b1".to_string(), EdgeType::Pipe);
     let mut e2 = Edge::new("b2".to_string(), EdgeType::Pipe);
     let mut merge = Edge::new("merge".to_string(), EdgeType::Pipe);
-    e1.resistance = 4.0;
-    e2.resistance = 6.0;
-    merge.resistance = 1e-9;
+    e1.resistance = HydraulicResistance::from_base(4.0);
+    e2.resistance = HydraulicResistance::from_base(6.0);
+    merge.resistance = HydraulicResistance::from_base(1e-9);
 
     let _ = builder.add_edge(inlet, split, e1);
     let _ = builder.add_edge(inlet, split, e2);

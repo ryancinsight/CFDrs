@@ -48,7 +48,7 @@ pub(super) fn pyarray2_from_leto(
         values.chunks(cols).map(<[f64]>::to_vec).collect()
     };
 
-    PyArray2::from_vec2_bound(py, &rows).map_err(|error| {
+    PyArray2::from_vec2(py, &rows).map_err(|error| {
         PyRuntimeError::new_err(format!("NumPy array construction failed: {error}"))
     })
 }

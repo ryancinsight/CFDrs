@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use aequitas::systems::si::quantities::{Length, Pressure, Time, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{
+    Length, Pressure, QuadraticHydraulicResistance, Time, VolumetricFlowRate,
+};
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::{NetworkProblem, NetworkSolver, SolvePathStatus};
 use cfd_core::physics::fluid::blood::CassonBlood;
@@ -104,8 +106,9 @@ pub fn solve_blueprint_candidate(
             }
             for edge_index in linear_network.graph.edge_indices() {
                 if let Some(edge) = linear_network.graph.edge_weight_mut(edge_index) {
-                    edge.quad_coeff = 0.0;
-                    edge.resistance = edge.resistance.max(1.0e-12);
+                    edge.quad_coeff = QuadraticHydraulicResistance::from_base(0.0);
+                    let r = edge.resistance.into_base().max(1.0e-12);
+                    edge.resistance = aequitas::systems::si::quantities::HydraulicResistance::from_base(r);
                 }
             }
             for inlet in &inlet_nodes {
@@ -136,7 +139,7 @@ pub fn solve_blueprint_candidate(
                         .flow_rates
                         .get(edge_index.index())
                         .copied()
-                        .unwrap_or(edge_ref.weight().flow_rate)
+                        .unwrap_or_else(|| edge_ref.weight().flow_rate.into_base())
                         .abs();
                 }
             }
@@ -156,10 +159,11 @@ pub fn solve_blueprint_candidate(
                 if let Some(flow) = fallback_solved.flow_rates.get_mut(idx) {
                     *flow *= scale;
                     if let Some(edge) = fallback_solved.graph.edge_weight_mut(edge_index) {
-                        edge.flow_rate = *flow;
+                        edge.flow_rate = VolumetricFlowRate::from_base(*flow);
                     }
                 } else if let Some(edge) = fallback_solved.graph.edge_weight_mut(edge_index) {
-                    edge.flow_rate *= scale;
+                    let scaled = edge.flow_rate.into_base() * scale;
+                    edge.flow_rate = VolumetricFlowRate::from_base(scaled);
                 }
             }
             (
@@ -194,7 +198,7 @@ pub fn solve_blueprint_candidate(
             .flow_rates
             .get(edge_index.index())
             .copied()
-            .unwrap_or(edge_ref.weight().flow_rate);
+            .unwrap_or_else(|| edge_ref.weight().flow_rate.into_base());
         edge_by_id.insert(edge_ref.weight().id.as_str(), (flow_m3_s, from_pressure_pa));
     }
 

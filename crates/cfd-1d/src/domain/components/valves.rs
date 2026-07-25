@@ -143,8 +143,8 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> Component<T> for Microvalve<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::database::water_20c;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_valve_fully_closed_high_resistance() {

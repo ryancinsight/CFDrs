@@ -8,6 +8,7 @@
 //! - Kirchhoff, G. (1847). "Ueber die Auflösung der Gleichungen". Annalen der Physik.
 //! - Hardy Cross (1936). "Analysis of flow in networks of conduits or conductors". University of Illinois Bulletin.
 
+use aequitas::systems::si::quantities::HydraulicResistance;
 use eunomia::assert_relative_eq;
 use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
@@ -37,7 +38,7 @@ fn compute_flow_rates(network: &Network<f64>) -> Vec<f64> {
             .unwrap_or(0.0);
 
         // Q = (P_from - P_to) / R
-        let flow = (p_from - p_to) / edge_data.resistance;
+        let flow = (p_from - p_to) / edge_data.resistance.into_base();
         flows.push(flow);
     }
 
@@ -103,7 +104,7 @@ fn test_series_resistance_addition() -> Result<()> {
     // Set resistance directly on graph edges
     for edge in graph.edge_indices() {
         if let Some(edge_data) = graph.edge_weight_mut(edge) {
-            edge_data.resistance = resistance;
+            edge_data.resistance = HydraulicResistance::from_base(resistance);
         }
     }
 
@@ -192,17 +193,17 @@ fn test_parallel_conductance_addition() -> Result<()> {
     let mut edge_iter = graph.edge_indices();
     if let Some(e_in) = edge_iter.next() {
         if let Some(edge_data) = graph.edge_weight_mut(e_in) {
-            edge_data.resistance = r_in;
+            edge_data.resistance = HydraulicResistance::from_base(r_in);
         }
     }
     if let Some(e_branch1) = edge_iter.next() {
         if let Some(edge_data) = graph.edge_weight_mut(e_branch1) {
-            edge_data.resistance = r1;
+            edge_data.resistance = HydraulicResistance::from_base(r1);
         }
     }
     if let Some(e_branch2) = edge_iter.next() {
         if let Some(edge_data) = graph.edge_weight_mut(e_branch2) {
-            edge_data.resistance = r2;
+            edge_data.resistance = HydraulicResistance::from_base(r2);
         }
     }
 
@@ -284,7 +285,7 @@ fn test_junction_mass_conservation() -> Result<()> {
     // Set resistance on all edges
     for edge in graph.edge_indices() {
         if let Some(edge_data) = graph.edge_weight_mut(edge) {
-            edge_data.resistance = resistance;
+            edge_data.resistance = HydraulicResistance::from_base(resistance);
         }
     }
 
@@ -352,7 +353,7 @@ fn test_solver_convergence_simple() -> Result<()> {
     // Set resistance on edge
     for edge in graph.edge_indices() {
         if let Some(edge_data) = graph.edge_weight_mut(edge) {
-            edge_data.resistance = resistance;
+            edge_data.resistance = HydraulicResistance::from_base(resistance);
         }
     }
 
@@ -417,7 +418,7 @@ fn test_reynolds_number_laminar_regime() -> Result<()> {
     // Set resistance on edge
     for edge in graph.edge_indices() {
         if let Some(edge_data) = graph.edge_weight_mut(edge) {
-            edge_data.resistance = resistance;
+            edge_data.resistance = HydraulicResistance::from_base(resistance);
         }
     }
 
@@ -482,7 +483,7 @@ fn test_pressure_flow_linearity() -> Result<()> {
     // Set resistance on edge
     for edge in graph.edge_indices() {
         if let Some(edge_data) = graph.edge_weight_mut(edge) {
-            edge_data.resistance = resistance;
+            edge_data.resistance = HydraulicResistance::from_base(resistance);
         }
     }
 

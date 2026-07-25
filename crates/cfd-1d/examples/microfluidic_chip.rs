@@ -8,7 +8,7 @@
 //!
 //! Run with: cargo run --example microfluidic_chip
 
-use aequitas::systems::si::quantities::{Area, Length};
+use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length};
 use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::{EdgeProperties, Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 
@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 cfd_1d::domain::network::ResistanceUpdatePolicy::FlowInvariant,
             id: id.to_string(),
             component_type: cfd_1d::domain::network::ComponentType::Pipe,
-            resistance,
+            resistance: HydraulicResistance::from_base(resistance),
             length: Length::from_base(CHANNEL_LENGTH),
             area: Area::from_base(area),
             hydraulic_diameter: Some(Length::from_base(hydraulic_diameter)),

@@ -220,10 +220,10 @@ impl PyPoiseuilleSolver {
     fn solve(&self, blood: &Bound<'_, PyAny>) -> PyResult<PyPoiseuilleResult> {
         // Convert Python blood model to Rust blood model
         // Try to downcast to each blood model type
-        let rust_blood_model = if blood.downcast::<PyCassonBlood>().is_ok() {
+        let rust_blood_model = if blood.clone().cast_into::<PyCassonBlood>().is_ok() {
             // Use the normal_blood() constructor which has all fields set
             RustBloodModel::Casson(CassonBlood::<f64>::normal_blood())
-        } else if blood.downcast::<PyCarreauYasudaBlood>().is_ok() {
+        } else if blood.clone().cast_into::<PyCarreauYasudaBlood>().is_ok() {
             // Use the normal_blood() constructor which has all fields set
             RustBloodModel::CarreauYasuda(CarreauYasudaBlood::<f64>::normal_blood())
         } else {

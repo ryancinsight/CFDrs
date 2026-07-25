@@ -3,6 +3,7 @@
 //!
 //! All tests use the correct `NetworkBuilder → Network → NetworkProblem → NetworkSolver` chain.
 
+use aequitas::systems::si::quantities::HydraulicResistance;
 use eunomia::assert_relative_eq;
 use cfd_1d::solver::core::ConvergenceChecker;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
@@ -43,7 +44,7 @@ fn test_solver_ohms_law_single_edge() {
     let mut graph = builder.build().expect("test invariant");
     for edge in graph.edge_indices() {
         if let Some(e) = graph.edge_weight_mut(edge) {
-            e.resistance = r;
+            e.resistance = HydraulicResistance::from_base(r);
         }
     }
 
@@ -69,7 +70,7 @@ fn test_solver_ohms_law_single_edge() {
                 .get(e.target().index())
                 .copied()
                 .unwrap_or(0.0);
-            (p_from - p_to) / e.weight().resistance
+            (p_from - p_to) / e.weight().resistance.into_base()
         })
         .collect();
 
@@ -101,7 +102,7 @@ fn test_solver_y_junction_kcl() {
     let mut graph = builder.build().expect("test invariant");
     for edge in graph.edge_indices() {
         if let Some(e) = graph.edge_weight_mut(edge) {
-            e.resistance = r;
+            e.resistance = HydraulicResistance::from_base(r);
         }
     }
 
@@ -127,7 +128,7 @@ fn test_solver_y_junction_kcl() {
             .get(e.target().index())
             .copied()
             .unwrap_or(0.0);
-        let q = (p_from - p_to) / e.weight().resistance;
+        let q = (p_from - p_to) / e.weight().resistance.into_base();
         if e.target() == n_mid {
             q_into_mid += q;
         }
@@ -157,7 +158,7 @@ fn test_owned_solver_matches_borrowed_problem_path() {
     let mut graph = builder.build().expect("test invariant");
     for edge in graph.edge_indices() {
         if let Some(e) = graph.edge_weight_mut(edge) {
-            e.resistance = r;
+            e.resistance = HydraulicResistance::from_base(r);
         }
     }
 
@@ -209,7 +210,7 @@ fn test_solver_no_dirichlet_bc_singular_system() {
     let mut graph = builder.build().expect("test invariant");
     for edge in graph.edge_indices() {
         if let Some(e) = graph.edge_weight_mut(edge) {
-            e.resistance = r;
+            e.resistance = HydraulicResistance::from_base(r);
         }
     }
 

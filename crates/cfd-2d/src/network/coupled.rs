@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 
+use aequitas::systems::si::quantities::{
+    HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+};
+
 use crate::scalar::Cfd2dScalar;
 use cfd_1d::domain::network::{apply_blueprint_boundary_conditions, network_from_blueprint};
 use cfd_1d::{NetworkSolver, SolverConfig};
@@ -218,31 +222,31 @@ where
                 .edge_weight(edge_idx)
                 .map(|edge| edge.id.clone());
             if let Some(edge) = working_network.graph.edge_weight_mut(edge_idx) {
-                if !<T as NumericElement>::is_finite(edge.resistance)
-                    || edge.resistance <= scalar::zero()
+                if !<T as NumericElement>::is_finite(edge.resistance.into_base())
+                    || edge.resistance.into_base() <= scalar::zero()
                 {
-                    edge.resistance = scalar::from_f64(MIN_LINEAR_RESISTANCE);
+                    edge.resistance = HydraulicResistance::from_base(scalar::from_f64(MIN_LINEAR_RESISTANCE));
                 }
                 if let Some(edge_id) = edge_id.as_deref() {
                     if let Some((seed_flow, seed_resistance)) =
                         seed_state_by_channel_id.get(edge_id)
                     {
                         working_network.flow_rates[edge_idx.index()] = *seed_flow;
-                        edge.flow_rate = *seed_flow;
-                        edge.resistance = *seed_resistance;
+                        edge.flow_rate = VolumetricFlowRate::from_base(*seed_flow);
+                        edge.resistance = HydraulicResistance::from_base(*seed_resistance);
                     }
                 }
-                edge.quad_coeff = scalar::zero();
+                edge.quad_coeff = QuadraticHydraulicResistance::from_base(scalar::zero());
             }
             if let Some(props) = working_network.properties.get_mut(&edge_idx) {
-                if !<T as NumericElement>::is_finite(props.resistance)
-                    || props.resistance <= scalar::zero()
+                if !<T as NumericElement>::is_finite(props.resistance.into_base())
+                    || props.resistance.into_base() <= scalar::zero()
                 {
-                    props.resistance = scalar::from_f64(MIN_LINEAR_RESISTANCE);
+                    props.resistance = HydraulicResistance::from_base(scalar::from_f64(MIN_LINEAR_RESISTANCE));
                 }
                 if let Some(edge_id) = edge_id.as_deref() {
                     if let Some((_, seed_resistance)) = seed_state_by_channel_id.get(edge_id) {
-                        props.resistance = *seed_resistance;
+                        props.resistance = HydraulicResistance::from_base(*seed_resistance);
                     }
                 }
                 props.resistance_update_policy =
@@ -453,7 +457,7 @@ where
                     channel_result.channel_id.as_str()
                 )));
             };
-            (edge_weight.resistance, edge_weight.quad_coeff)
+            (edge_weight.resistance.into_base(), edge_weight.quad_coeff.into_base())
         };
         let flow_abs = <T as NumericElement>::abs(channel_trace.flow_rate_m3_s);
         let target_linear = if flow_abs > flow_floor {
@@ -504,11 +508,11 @@ where
         }
 
         if let Some(edge) = solved_network.graph.edge_weight_mut(candidate.edge_idx) {
-            edge.resistance = *next_linear_value;
-            edge.flow_rate = channel_trace.flow_rate_m3_s;
+            edge.resistance = HydraulicResistance::from_base(*next_linear_value);
+            edge.flow_rate = VolumetricFlowRate::from_base(channel_trace.flow_rate_m3_s);
         }
         if let Some(props) = solved_network.properties.get_mut(&candidate.edge_idx) {
-            props.resistance = *next_linear_value;
+            props.resistance = HydraulicResistance::from_base(*next_linear_value);
             props.resistance_update_policy =
                 cfd_1d::domain::network::ResistanceUpdatePolicy::FlowInvariant;
         }

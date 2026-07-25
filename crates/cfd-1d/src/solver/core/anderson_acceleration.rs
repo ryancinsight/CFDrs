@@ -59,8 +59,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
             return picard_solution;
         }
 
-        let picard_step_norm =
-            array_l2_norm(&(&picard_solution - &workspace.last_solution));
+        let picard_step_norm = array_l2_norm(&(&picard_solution - &workspace.last_solution));
         let accelerated = Self::anderson_accelerate(
             n,
             picard_solution.clone(),
@@ -69,8 +68,7 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
         );
 
         if Self::vector_is_finite(&accelerated) {
-            let accelerated_step_norm =
-                array_l2_norm(&(&accelerated - &workspace.last_solution));
+            let accelerated_step_norm = array_l2_norm(&(&accelerated - &workspace.last_solution));
             let accelerated_residual =
                 Self::compute_residual_norm(matrix, &accelerated, &workspace.rhs, n);
             if <T as NumericElement>::is_finite(accelerated_residual)
@@ -88,11 +86,9 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
         } else {
             0.2
         };
-        let backup_damped =
-            Self::damped_picard(&workspace.last_solution, &picard_solution, alpha);
+        let backup_damped = Self::damped_picard(&workspace.last_solution, &picard_solution, alpha);
         if Self::vector_is_finite(&backup_damped) {
-            let damped_step_norm =
-                array_l2_norm(&(&backup_damped - &workspace.last_solution));
+            let damped_step_norm = array_l2_norm(&(&backup_damped - &workspace.last_solution));
             if damped_step_norm < picard_step_norm {
                 return backup_damped;
             }

@@ -1,4 +1,4 @@
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length};
 use cfd_1d::{
     ChannelGeometry, ChannelType, ComponentType, CrossSection, EdgeProperties, Network,
     NetworkBuilder, ResistanceUpdatePolicy, SurfaceProperties, Wettability,
@@ -77,15 +77,15 @@ fn cross_fidelity_stenosis_shear_thinning() {
                 id: String::new(),
                 resistance_update_policy: ResistanceUpdatePolicy::FlowDependent,
                 component_type: ComponentType::Pipe,
-                length: length_narrow,
-                area,
-                hydraulic_diameter: Some(diameter_narrow),
-                resistance: r_init,
+                length: Length::from_base(length_narrow),
+                area: Area::from_base(area),
+                hydraulic_diameter: Some(Length::from_base(diameter_narrow)),
+                resistance: HydraulicResistance::from_base(r_init),
                 geometry: Some(ChannelGeometry {
                     channel_type: ChannelType::Straight,
-                    length: length_narrow,
+                    length: Length::from_base(length_narrow),
                     cross_section: CrossSection::Circular {
-                        diameter: diameter_narrow,
+                        diameter: Length::from_base(diameter_narrow),
                     },
                     surface: SurfaceProperties {
                         roughness: Length::from_base(0.0),
@@ -102,7 +102,7 @@ fn cross_fidelity_stenosis_shear_thinning() {
         network.update_resistances().unwrap();
 
         let edge_data = network.graph.edge_weight(edge).expect("edge exists");
-        flow_rate * edge_data.resistance
+        flow_rate * edge_data.resistance.into_base()
     };
 
     let dp_1d_newt = build_1d_network(true);

@@ -11,7 +11,7 @@
 
 use super::{LiteratureValidation, ValidationReport};
 use crate::scalar::{self, ValidationScalar};
-use aequitas::systems::si::quantities::{Area, Length};
+use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length};
 use cfd_1d::{
     // Channel geometry types — re-exported at crate root from domain::channel
     ChannelGeometry,
@@ -110,7 +110,7 @@ impl<T: ValidationScalar> LiteratureValidation<T> for StenosisValidation<T> {
                 length: Length::from_base(l),
                 area,
                 hydraulic_diameter: Some(Length::from_base(d)),
-                resistance: r_init,
+                resistance: HydraulicResistance::from_base(r_init),
                 geometry: Some(ChannelGeometry {
                     channel_type: ChannelType::Straight,
                     length: Length::from_base(l),
@@ -192,8 +192,8 @@ impl<T: ValidationScalar> LiteratureValidation<T> for StenosisValidation<T> {
             details.push_str(&format!(
                 "Edge {} R: {:e}, k: {:e}\n",
                 edge_ref.id().index(),
-                scalar::to_f64(w.resistance),
-                scalar::to_f64(w.quad_coeff)
+                scalar::to_f64(w.resistance.into_base()),
+                scalar::to_f64(w.quad_coeff.into_base())
             ));
         }
 
@@ -297,7 +297,7 @@ impl<T: ValidationScalar> LiteratureValidation<T> for BifurcationValidation<T> {
                 length: Length::from_base(l),
                 area,
                 hydraulic_diameter: Some(Length::from_base(d)),
-                resistance: r_init,
+                resistance: HydraulicResistance::from_base(r_init),
                 geometry: Some(ChannelGeometry {
                     channel_type: ChannelType::Straight,
                     length: Length::from_base(l),
