@@ -44,6 +44,11 @@ skip. The broader solver-validation gate retains the eight named solver-heavy
 tests at or above the committed 30-second budget; those runtime defects remain
 open and are not classified as missing metric types.
 
+Production-library warning-denied Clippy is green. The full all-target warning
+gate still reports 47 pre-existing lint findings in untouched cfd-3d solver and
+test surfaces; four isolated test findings were fixed in `2474604c`, and the
+remaining baseline is not an Aequitas metric gap.
+
 This increment warm-starts cfd-2d momentum solves, preserves face-pressure CSR
 topology across iterations, rejects unrecoverable large pressure-solver
 failure instead of accepting an incomplete correction, fixes SIMPLEC/PIMPLE
