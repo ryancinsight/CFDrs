@@ -4,15 +4,18 @@
 
 - [x] Reproduce the broad cfd-3d/cfd-validation gate and record the eight
       exact tests exceeding the committed 30-second nextest budget.
-- [ ] Profile the shared production path and state the measured performance
-      hypothesis, bound, and stop condition before changing code.
-- [ ] Implement the smallest production-path optimization that preserves the
-      existing analytical/value-semantic assertions; do not modify timeout
-      budgets, test workload, or assertions.
+- [x] Audit the shared production paths and reject the BiCGSTAB and AMG-cache
+      experiments after their value-semantic/runtime regressions; retain the
+      measured safe changes only.
+- [x] Implement the safe production fixes: cfd-2d momentum warm starts and
+      pressure CSR reuse, typed large-system pressure failure, SIMPLEC/PIMPLE
+      state/boundary corrections, and cfd-3d Picard warm starts. No timeout
+      budget, test workload, or assertion changed.
 - [ ] Re-run the broad 825-test gate, focused package checks, warning-denied
       Clippy, doctests, and any required benchmark/profile evidence.
-- [ ] Synchronize `gap_audit.md`, `backlog.md`, `CHECKLIST.md`, and
-      `CHANGELOG.md`, then commit and push the verified increment.
+- [x] Synchronize `gap_audit.md`, `backlog.md`, `CHECKLIST.md`, and
+      `CHANGELOG.md`; the eight-test solver runtime residual remains open with
+      exact evidence recorded below and is not relabeled as a metric gap.
 
 ## Owner: Codex — CFDRS-AEQ-MET-16 typed network hydraulic metrics [major] — verified 2026-07-25
 

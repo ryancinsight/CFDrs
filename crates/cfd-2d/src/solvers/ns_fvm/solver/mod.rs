@@ -77,6 +77,16 @@ pub struct NavierStokesSolver2D<T: Cfd2dScalar + Copy + FloatElement> {
     pressure_poisson_p_prime: Array2D<T>,
     /// Pressure correction right-hand-side workspace reused across SIMPLE iterations.
     pressure_poisson_rhs: Array2D<T>,
+    /// East pressure-correction coefficient workspace reused across SOR sweeps.
+    pressure_poisson_a_e: Array2D<T>,
+    /// West pressure-correction coefficient workspace reused across SOR sweeps.
+    pressure_poisson_a_w: Array2D<T>,
+    /// North pressure-correction coefficient workspace reused across SOR sweeps.
+    pressure_poisson_a_n: Array2D<T>,
+    /// South pressure-correction coefficient workspace reused across SOR sweeps.
+    pressure_poisson_a_s: Array2D<T>,
+    /// Diagonal pressure-correction coefficient workspace reused across SOR sweeps.
+    pressure_poisson_a_p: Array2D<T>,
     /// Optional k-omega SST turbulence model.  When Some, the solver
     /// computes turbulent viscosity nu_t each iteration and adds it to
     /// the molecular viscosity in the momentum equation diffusion terms.
@@ -114,6 +124,11 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
         let pressure_poisson_d_v = Array2D::new(grid.nx, grid.ny + 1, zero);
         let pressure_poisson_p_prime = Array2D::new(grid.nx, grid.ny, zero);
         let pressure_poisson_rhs = Array2D::new(grid.nx, grid.ny, zero);
+        let pressure_poisson_a_e = Array2D::new(grid.nx, grid.ny, zero);
+        let pressure_poisson_a_w = Array2D::new(grid.nx, grid.ny, zero);
+        let pressure_poisson_a_n = Array2D::new(grid.nx, grid.ny, zero);
+        let pressure_poisson_a_s = Array2D::new(grid.nx, grid.ny, zero);
+        let pressure_poisson_a_p = Array2D::new(grid.nx, grid.ny, zero);
         Self {
             grid,
             field,
@@ -128,6 +143,11 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             pressure_poisson_d_v,
             pressure_poisson_p_prime,
             pressure_poisson_rhs,
+            pressure_poisson_a_e,
+            pressure_poisson_a_w,
+            pressure_poisson_a_n,
+            pressure_poisson_a_s,
+            pressure_poisson_a_p,
             turbulence: None,
         }
     }
@@ -393,44 +413,46 @@ impl<T: Cfd2dScalar + Copy + FloatElement> NavierStokesSolver2D<T> {
             let (res_cont, res_pcorr, res_max) = self.compute_residuals();
             last_residual = res_cont.max_scalar(res_pcorr);
 
-            let mut max_u: T = scalar::zero();
-            let mut max_v: T = scalar::zero();
-            let mut max_p: T = scalar::zero();
-            for i in 0..=self.grid.nx {
-                for j in 0..self.grid.ny {
-                    let val = <T as NumericElement>::abs(self.field.u[(i, j)]);
-                    if val > max_u {
-                        max_u = val;
+            if tracing::enabled!(tracing::Level::DEBUG) {
+                let mut max_u: T = scalar::zero();
+                let mut max_v: T = scalar::zero();
+                let mut max_p: T = scalar::zero();
+                for i in 0..=self.grid.nx {
+                    for j in 0..self.grid.ny {
+                        let val = <T as NumericElement>::abs(self.field.u[(i, j)]);
+                        if val > max_u {
+                            max_u = val;
+                        }
                     }
                 }
-            }
-            for i in 0..self.grid.nx {
-                for j in 0..=self.grid.ny {
-                    let val = <T as NumericElement>::abs(self.field.v[(i, j)]);
-                    if val > max_v {
-                        max_v = val;
+                for i in 0..self.grid.nx {
+                    for j in 0..=self.grid.ny {
+                        let val = <T as NumericElement>::abs(self.field.v[(i, j)]);
+                        if val > max_v {
+                            max_v = val;
+                        }
                     }
                 }
-            }
-            for i in 0..self.grid.nx {
-                for j in 0..self.grid.ny {
-                    let val = <T as NumericElement>::abs(self.field.p[(i, j)]);
-                    if val > max_p {
-                        max_p = val;
+                for i in 0..self.grid.nx {
+                    for j in 0..self.grid.ny {
+                        let val = <T as NumericElement>::abs(self.field.p[(i, j)]);
+                        if val > max_p {
+                            max_p = val;
+                        }
                     }
                 }
-            }
 
-            println!(
-                "SIMPLE iteration {} residuals: cont={:.6e}, pcorr={:.6e}, max_pointwise={:.6e} | max_u={:.4e}, max_v={:.4e}, max_p={:.4e}",
-                iteration,
-                <T as NumericElement>::to_f64(res_cont),
-                <T as NumericElement>::to_f64(res_pcorr),
-                <T as NumericElement>::to_f64(res_max),
-                <T as NumericElement>::to_f64(max_u),
-                <T as NumericElement>::to_f64(max_v),
-                <T as NumericElement>::to_f64(max_p),
-            );
+                tracing::debug!(
+                    iteration,
+                    cont = <T as NumericElement>::to_f64(res_cont),
+                    pcorr = <T as NumericElement>::to_f64(res_pcorr),
+                    max_pointwise = <T as NumericElement>::to_f64(res_max),
+                    max_u = <T as NumericElement>::to_f64(max_u),
+                    max_v = <T as NumericElement>::to_f64(max_v),
+                    max_p = <T as NumericElement>::to_f64(max_p),
+                    "SIMPLE residuals"
+                );
+            }
 
             // Divergence guard: detect NaN/Inf or residual growth.
             if self.check_divergence() || !<T as NumericElement>::is_finite(last_residual) {

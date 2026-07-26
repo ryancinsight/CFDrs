@@ -32,7 +32,7 @@ use cfd_math::linear_solver::preconditioners::{AlgebraicMultigrid, IdentityPreco
 use cfd_math::linear_solver::{DirectSparseSolver, IterativeLinearSolver};
 use eunomia::FloatElement;
 use leto::Array1;
-use leto_ops::{norm_l2, Scalar as LetoScalar};
+use leto_ops::{Scalar as LetoScalar, norm_l2};
 use std::fmt::Debug;
 
 impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrectionSolver<T> {
@@ -50,20 +50,30 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
         // For pressure Poisson equations on fixed grid topologies, the non-zero pattern remains invariant
         // while coefficients change slowly. We exactly recompute A_c = R A_f P without graph re-coarsening.
         let mut amg_cache = self._amg_preconditioner.borrow_mut();
-        if amg_cache.is_none() {
-            let config = cfd_math::linear_solver::AMGConfig::default();
-            // Initialize the AMG preconditioner and cache it
-            if let Ok(amg) = AlgebraicMultigrid::new(matrix, config) {
-                *amg_cache = Some(amg);
+        let matrix_values_unchanged = amg_cache.is_some()
+            && self
+                ._amg_matrix_values
+                .borrow()
+                .as_deref()
+                .is_some_and(|cached| cached == matrix.values());
+        if !matrix_values_unchanged {
+            if amg_cache.is_none() {
+                let config = cfd_math::linear_solver::AMGConfig::default();
+                // Initialize the AMG preconditioner and cache it.
+                if let Ok(amg) = AlgebraicMultigrid::new(matrix, config) {
+                    *amg_cache = Some(amg);
+                }
+            } else {
+                // Hot-path optimization: A_c = R A_f P. Recalculate coarse
+                // matrices only when the fine-grid coefficients changed.
+                amg_cache
+                    .as_mut()
+                    .expect("invariant: non-empty AMG cache checked above")
+                    .recompute(matrix)?;
             }
-        } else {
-            // Hot-path optimization: $A_c = R A_f P$
-            // Recalculates coarse matrices exactly mapping changing continuity coefficients
-            // while bypassing O(N) Ruge-Stüben strong-connection heuristics.
-            let _ = amg_cache
-                .as_mut()
-                .expect("guarded by is_none check")
-                .recompute(matrix);
+            if amg_cache.is_some() {
+                *self._amg_matrix_values.borrow_mut() = Some(matrix.values().to_vec());
+            }
         }
 
         let amg_preconditioner: Option<&AlgebraicMultigrid<T>> = amg_cache.as_ref();
@@ -154,8 +164,11 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
                         solver = ?self.solver_type,
                         max_iterations = max,
                         size = matrix.nrows(),
-                        "Pressure solve stalled, but system size exceeds direct solver limit of 500; continuing with iterative solution"
+                        "Pressure solve stalled and system size exceeds direct solver limit of 500"
                     );
+                    return Err(cfd_core::error::Error::Convergence(
+                        cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max },
+                    ));
                 }
                 Ok(())
             }
@@ -178,8 +191,11 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
                     tracing::warn!(
                         solver = ?self.solver_type,
                         size = matrix.nrows(),
-                        "Pressure solve breakdown, but system size exceeds direct solver limit of 500; continuing with iterative solution"
+                        "Pressure solve broke down and system size exceeds direct solver limit of 500"
                     );
+                    return Err(cfd_core::error::Error::Convergence(
+                        cfd_core::error::ConvergenceErrorKind::Breakdown,
+                    ));
                 }
                 Ok(())
             }

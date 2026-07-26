@@ -3,8 +3,14 @@
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
 use crate::solvers::ns_fvm::solver::NavierStokesSolver2D;
+use crate::solvers::ns_fvm::BloodModel;
 use cfd_core::error::Error;
 use eunomia::FloatElement;
+
+// A conservative fixed SOR factor for the masked pressure-correction grid.
+// The classical Poisson optimum approaches 2 on large regular grids; 1.7
+// retains stability when the Venturi mask removes neighboring coefficients.
+const PRESSURE_SOR_RELAXATION: f64 = 1.7;
 
 impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolver2D<T> {
     /// Solves the pressure-correction Poisson equation.
@@ -25,11 +31,21 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
         let d_v = &mut self.pressure_poisson_d_v;
         let p_prime = &mut self.pressure_poisson_p_prime;
         let b = &mut self.pressure_poisson_rhs;
+        let a_e_workspace = &mut self.pressure_poisson_a_e;
+        let a_w_workspace = &mut self.pressure_poisson_a_w;
+        let a_n_workspace = &mut self.pressure_poisson_a_n;
+        let a_s_workspace = &mut self.pressure_poisson_a_s;
+        let a_p_workspace = &mut self.pressure_poisson_a_p;
 
         d_u.fill(zero);
         d_v.fill(zero);
         p_prime.fill(zero);
         b.fill(zero);
+        a_e_workspace.fill(zero);
+        a_w_workspace.fill(zero);
+        a_n_workspace.fill(zero);
+        a_s_workspace.fill(zero);
+        a_p_workspace.fill(zero);
 
         {
             let field = &self.field;
@@ -71,50 +87,70 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
                 }
             }
 
+            for i in 0..nx {
+                for j in 0..ny {
+                    if !field.mask[(i, j)] {
+                        continue;
+                    }
+                    let dy_j = self.grid.dy_at(j);
+                    let a_e = if i + 1 < nx {
+                        if field.mask[(i + 1, j)] {
+                            rho * d_u[(i + 1, j)] * dy_j
+                        } else {
+                            zero
+                        }
+                    } else {
+                        rho * d_u[(i + 1, j)] * dy_j
+                    };
+                    let a_w = if i > 0 {
+                        if field.mask[(i - 1, j)] {
+                            rho * d_u[(i, j)] * dy_j
+                        } else {
+                            zero
+                        }
+                    } else {
+                        zero
+                    };
+                    let a_n = if j + 1 < ny {
+                        if field.mask[(i, j + 1)] {
+                            rho * d_v[(i, j + 1)] * dx
+                        } else {
+                            zero
+                        }
+                    } else {
+                        zero
+                    };
+                    let a_s = if j > 0 {
+                        if field.mask[(i, j - 1)] {
+                            rho * d_v[(i, j)] * dx
+                        } else {
+                            zero
+                        }
+                    } else {
+                        zero
+                    };
+                    a_e_workspace[(i, j)] = a_e;
+                    a_w_workspace[(i, j)] = a_w;
+                    a_n_workspace[(i, j)] = a_n;
+                    a_s_workspace[(i, j)] = a_s;
+                    a_p_workspace[(i, j)] = a_e + a_w + a_n + a_s;
+                }
+            }
+
+            let relaxation = match &self.blood {
+                BloodModel::Newtonian(_) => scalar::one(),
+                BloodModel::Casson(_) | BloodModel::CarreauYasuda(_) => {
+                    scalar::from_f64::<T>(PRESSURE_SOR_RELAXATION)
+                }
+            };
             for _ in 0..200 {
                 for i in 0..nx {
                     for j in 0..ny {
-                        if !field.mask[(i, j)] {
-                            continue;
-                        }
-                        let dy_j = self.grid.dy_at(j);
-                        let a_e = if i + 1 < nx {
-                            if field.mask[(i + 1, j)] {
-                                rho * d_u[(i + 1, j)] * dy_j
-                            } else {
-                                zero
-                            }
-                        } else {
-                            rho * d_u[(i + 1, j)] * dy_j
-                        };
-                        let a_w = if i > 0 {
-                            if field.mask[(i - 1, j)] {
-                                rho * d_u[(i, j)] * dy_j
-                            } else {
-                                zero
-                            }
-                        } else {
-                            zero
-                        };
-                        let a_n = if j + 1 < ny {
-                            if field.mask[(i, j + 1)] {
-                                rho * d_v[(i, j + 1)] * dx
-                            } else {
-                                zero
-                            }
-                        } else {
-                            zero
-                        };
-                        let a_s = if j > 0 {
-                            if field.mask[(i, j - 1)] {
-                                rho * d_v[(i, j)] * dx
-                            } else {
-                                zero
-                            }
-                        } else {
-                            zero
-                        };
-                        let a_p = a_e + a_w + a_n + a_s;
+                        let a_e = a_e_workspace[(i, j)];
+                        let a_w = a_w_workspace[(i, j)];
+                        let a_n = a_n_workspace[(i, j)];
+                        let a_s = a_s_workspace[(i, j)];
+                        let a_p = a_p_workspace[(i, j)];
                         if a_p < tiny {
                             continue;
                         }
@@ -138,8 +174,10 @@ impl<T: Cfd2dScalar + eunomia::RealField + Copy + FloatElement> NavierStokesSolv
                         } else {
                             p_prime[(i, j)]
                         };
-                        p_prime[(i, j)] =
+                        let gauss_seidel_value =
                             (a_e * pe + a_w * pw + a_n * pn + a_s * ps + b[(i, j)]) / a_p;
+                        let previous = p_prime[(i, j)];
+                        p_prime[(i, j)] = previous + relaxation * (gauss_seidel_value - previous);
                     }
                 }
             }

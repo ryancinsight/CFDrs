@@ -61,6 +61,8 @@ pub struct MomentumSolver<T: Cfd2dScalar + Copy> {
     pub(crate) matrix_builder_v: Option<SparseMatrixBuilder<T>>,
     pub(crate) rhs_u: Option<Array1<T>>,
     pub(crate) rhs_v: Option<Array1<T>>,
+    pub(crate) solution_u: Option<Array1<T>>,
+    pub(crate) solution_v: Option<Array1<T>>,
 }
 
 impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
@@ -103,6 +105,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
             matrix_builder_v: None,
             rhs_u: None,
             rhs_v: None,
+            solution_u: None,
+            solution_v: None,
         }
     }
 
@@ -145,6 +149,8 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
             matrix_builder_v: None,
             rhs_u: None,
             rhs_v: None,
+            solution_u: None,
+            solution_v: None,
         }
     }
 

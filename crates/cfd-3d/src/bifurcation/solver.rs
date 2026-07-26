@@ -370,7 +370,12 @@ where
 
             // Solve Stokes system
             let fem_solution = solver
-                .solve(&problem, last_solution.as_ref())
+                .solve_picard(
+                    &problem,
+                    last_solution.as_ref(),
+                    iter,
+                    self.config.max_nonlinear_iterations,
+                )
                 .map_err(|e| Error::Solver(e.to_string()))?;
 
             // Apply Anderson Acceleration

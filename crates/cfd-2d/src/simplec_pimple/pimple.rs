@@ -126,6 +126,11 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
                             fields.set_velocity_at(i, j, &self.u_corrected_workspace[(i, j)]);
                         }
                     }
+
+                    // PISO correctors are sequential pressure-velocity updates:
+                    // the next correction acts on the state produced by the
+                    // previous one, not on the original momentum predictor.
+                    self.u_star_workspace.copy_from(&self.u_corrected_workspace);
                 }
             }
 

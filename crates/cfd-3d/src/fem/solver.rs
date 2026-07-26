@@ -170,7 +170,9 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         let pressure = array1_subarray(&x_array, n_velocity_dof, n_corner_nodes);
         let solution =
             StokesFlowSolution::new_with_corners(velocity, pressure, n_nodes, n_corner_nodes);
-        self.print_continuity_residual_stats(problem, &solution)?;
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            self.print_continuity_residual_stats(problem, &solution)?;
+        }
 
         Ok(solution)
     }
@@ -294,7 +296,9 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         let pressure = array1_subarray(&x_array, n_velocity_dof, n_corner_nodes);
         let solution =
             StokesFlowSolution::new_with_corners(velocity, pressure, n_nodes, n_corner_nodes);
-        self.print_continuity_residual_stats(problem, &solution)?;
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            self.print_continuity_residual_stats(problem, &solution)?;
+        }
 
         Ok(solution)
     }

@@ -45,6 +45,13 @@ use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement};
 use leto::geometry::Vector2;
 
+type PressureLayer = Box<[(usize, usize)]>;
+
+struct SolidPressureLayers {
+    mask: Box<[bool]>,
+    layers: Box<[PressureLayer]>,
+}
+
 /// SIMPLEC/PIMPLE pressure-velocity coupling solver
 ///
 /// This solver extends the basic SIMPLE algorithm with:
@@ -68,6 +75,7 @@ pub struct SimplecPimpleSolver<T: Cfd2dScalar + Copy> {
     pub(super) _vel_field_cache: std::cell::RefCell<Option<crate::fields::Field2D<Vector2<T>>>>,
     pub(super) _cons_vel_cache:
         std::cell::RefCell<Option<crate::grid::array2d::Array2D<Vector2<T>>>>,
+    _solid_pressure_layers: std::cell::RefCell<Option<SolidPressureLayers>>,
 }
 
 impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSolver<T> {
@@ -157,6 +165,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
             _d_y_cache: std::cell::RefCell::new(None),
             _vel_field_cache: std::cell::RefCell::new(None),
             _cons_vel_cache: std::cell::RefCell::new(None),
+            _solid_pressure_layers: std::cell::RefCell::new(None),
         })
     }
 
@@ -192,56 +201,101 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
         let nx = self.grid.nx;
         let ny = self.grid.ny;
 
-        let mut valid = Array2D::new(nx, ny, false);
-        for j in 0..ny {
-            for i in 0..nx {
-                if fields.mask.at(i, j) {
-                    valid[(i, j)] = true;
-                }
-            }
-        }
-
-        let max_passes = nx.max(ny);
-        for _pass in 0..max_passes {
-            let mut updates = Vec::new();
+        let mask = fields.mask.as_slice();
+        let mut layers_cache = self._solid_pressure_layers.borrow_mut();
+        if layers_cache
+            .as_ref()
+            .is_none_or(|cached| cached.mask.as_ref() != mask)
+        {
+            let mut valid = mask.to_vec();
+            let mut queued = vec![false; nx * ny];
+            let mut frontier = Vec::new();
             for j in 0..ny {
                 for i in 0..nx {
-                    if !valid[(i, j)] {
-                        let mut sum: T = scalar::zero();
-                        let mut count = 0;
-
-                        if i > 0 && valid[(i - 1, j)] {
-                            sum += fields.p.at(i - 1, j);
-                            count += 1;
-                        }
-                        if i < nx - 1 && valid[(i + 1, j)] {
-                            sum += fields.p.at(i + 1, j);
-                            count += 1;
-                        }
-                        if j > 0 && valid[(i, j - 1)] {
-                            sum += fields.p.at(i, j - 1);
-                            count += 1;
-                        }
-                        if j < ny - 1 && valid[(i, j + 1)] {
-                            sum += fields.p.at(i, j + 1);
-                            count += 1;
-                        }
-
-                        if count > 0 {
-                            let avg = sum / scalar::from_usize(count);
-                            updates.push(((i, j), avg));
-                        }
+                    if valid[i * ny + j] {
+                        frontier.push((i, j));
                     }
                 }
             }
 
-            if updates.is_empty() {
-                break;
+            let mut layers = Vec::new();
+            // Discover synchronous distance layers once per mask. A layer is
+            // updated from the fluid cells and every earlier layer, matching
+            // the former full-grid sweep exactly.
+            while !frontier.is_empty() {
+                let mut candidates = Vec::new();
+                for &(i, j) in &frontier {
+                    let neighbors = [
+                        (i.checked_sub(1), Some(j)),
+                        (i.checked_add(1).filter(|&next_i| next_i < nx), Some(j)),
+                        (Some(i), j.checked_sub(1)),
+                        (Some(i), j.checked_add(1).filter(|&next_j| next_j < ny)),
+                    ];
+                    for (maybe_i, maybe_j) in neighbors {
+                        let (Some(candidate_i), Some(candidate_j)) = (maybe_i, maybe_j) else {
+                            continue;
+                        };
+                        let candidate_idx = candidate_i * ny + candidate_j;
+                        if !valid[candidate_idx] && !queued[candidate_idx] {
+                            queued[candidate_idx] = true;
+                            candidates.push((candidate_i, candidate_j));
+                        }
+                    }
+                }
+
+                if candidates.is_empty() {
+                    break;
+                }
+
+                candidates.sort_unstable_by_key(|&(i, j)| j * nx + i);
+                layers.push(candidates.clone().into_boxed_slice());
+                for &(i, j) in &candidates {
+                    valid[i * ny + j] = true;
+                }
+                frontier = candidates;
             }
 
-            for ((i, j), val) in updates {
-                fields.p.set(i, j, val);
-                valid[(i, j)] = true;
+            *layers_cache = Some(SolidPressureLayers {
+                mask: mask.to_vec().into_boxed_slice(),
+                layers: layers.into_boxed_slice(),
+            });
+        }
+
+        let cached = layers_cache
+            .as_ref()
+            .expect("invariant: pressure layers are initialized above");
+        let mut valid = mask.to_vec();
+        for layer in &cached.layers {
+            let mut updates = Vec::with_capacity(layer.len());
+            for &(i, j) in layer {
+                let mut sum: T = scalar::zero();
+                let mut count = 0;
+
+                if i > 0 && valid[(i - 1) * ny + j] {
+                    sum += fields.p.at(i - 1, j);
+                    count += 1;
+                }
+                if i < nx - 1 && valid[(i + 1) * ny + j] {
+                    sum += fields.p.at(i + 1, j);
+                    count += 1;
+                }
+                if j > 0 && valid[i * ny + j - 1] {
+                    sum += fields.p.at(i, j - 1);
+                    count += 1;
+                }
+                if j < ny - 1 && valid[i * ny + j + 1] {
+                    sum += fields.p.at(i, j + 1);
+                    count += 1;
+                }
+
+                if count > 0 {
+                    updates.push(((i, j), sum / scalar::from_usize(count)));
+                }
+            }
+
+            for ((i, j), value) in updates {
+                fields.p.set(i, j, value);
+                valid[i * ny + j] = true;
             }
         }
     }

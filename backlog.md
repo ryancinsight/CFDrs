@@ -34,14 +34,15 @@
 - **CFDRS-RUNTIME-001 [perf] - Close solver-heavy validation runtime budget
   residual (IN PROGRESS; owner=Codex; claimed 2026-07-25; scope=`cfd-3d`
   and `cfd-validation` solver/validation production paths, focused tests, and
-  CFDrs PM artifacts).** Reproduce and profile the eight tests that exceeded
-  the committed 30-second nextest budget: mesh convergence, blood Venturi,
-  Casson bifurcation, 3D Venturi, microventuri cross-fidelity,
-  shear-thinning cross-fidelity, trifurcation cross-fidelity, and 3D
-  bifurcation integration. Acceptance is the unchanged broad 825-test gate
-  with all 825 tests completing within budget, preserved value-semantic
-  assertions, a measured production-path improvement, and synchronized audit
-  evidence. Test timeout or workload reduction is not an acceptance path.
+  CFDrs PM artifacts).** The audit reproduced the eight named residuals and
+  retained only verified production fixes: cfd-2d momentum warm starts and
+  pressure CSR reuse, typed large-system pressure failure, SIMPLEC/PIMPLE
+  state/boundary corrections, and cfd-3d Picard warm starts. cfd-2d library
+  Nextest is 517/517 with 1 skipped; cfd-3d/cfd-validation still have
+  solver-heavy cases at or above 30 seconds. Acceptance remains the unchanged
+  broad 825-test gate with all tests completing within budget, preserved
+  value-semantic assertions, and measured production-path improvement. Test
+  timeout or workload reduction is not an acceptance path.
 
 - **CFDRS-AEQ-MET-16 [major] - Type network hydraulic coefficient metrics
   (VERIFIED 2026-07-25; owner=Codex; scope=`cfd-1d` Edge,

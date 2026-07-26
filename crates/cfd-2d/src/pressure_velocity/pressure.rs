@@ -35,11 +35,14 @@ pub struct PressureCorrectionSolver<T: Cfd2dScalar + Copy> {
     pub(super) bicgstab_solver: BiCGSTAB<T>,
     pub(super) gmres_solver: Option<GMRES<T>>,
     pub(super) _amg_preconditioner: std::cell::RefCell<Option<AlgebraicMultigrid<T>>>,
+    pub(super) _amg_matrix_values: std::cell::RefCell<Option<Vec<T>>>,
     pub(super) _laplacian_cache: std::cell::RefCell<Option<cfd_math::sparse::SparseMatrix<T>>>,
     pub(super) _rhs_cache: std::cell::RefCell<Option<Array1<T>>>,
     pub(super) _solution_cache: std::cell::RefCell<Option<Array1<T>>>,
     pub(super) _p_correction_cache: std::cell::RefCell<Option<Array2D<T>>>,
     pub(super) _matrix_builder_cache: std::cell::RefCell<Option<SparseMatrixBuilder<T>>>,
+    pub(super) _face_matrix_mask: std::cell::RefCell<Option<Vec<bool>>>,
+    pub(super) _face_matrix_dirichlet: std::cell::RefCell<Option<[bool; 4]>>,
 }
 
 impl<T: Cfd2dScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
@@ -73,11 +76,14 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement> PressureCorrectionSolver<T> {
             bicgstab_solver: BiCGSTAB::new(config),
             gmres_solver,
             _amg_preconditioner: std::cell::RefCell::new(None),
+            _amg_matrix_values: std::cell::RefCell::new(None),
             _laplacian_cache: std::cell::RefCell::new(None),
             _rhs_cache: std::cell::RefCell::new(None),
             _solution_cache: std::cell::RefCell::new(None),
             _p_correction_cache: std::cell::RefCell::new(None),
             _matrix_builder_cache: std::cell::RefCell::new(None),
+            _face_matrix_mask: std::cell::RefCell::new(None),
+            _face_matrix_dirichlet: std::cell::RefCell::new(None),
         })
     }
 

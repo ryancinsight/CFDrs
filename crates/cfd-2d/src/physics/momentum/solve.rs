@@ -7,7 +7,24 @@ use cfd_math::linear_solver::{DirectSparseSolver, IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::{FloatElement, NumericElement};
 use leto::Array1;
-use leto_ops::norm_l2;
+
+fn velocity_solution_guess<T: Cfd2dScalar + Copy>(
+    component: MomentumComponent,
+    fields: &SimulationFields<T>,
+    nx: usize,
+    ny: usize,
+) -> Array1<T> {
+    let mut solution = Array1::from_elem([nx * ny], scalar::zero::<T>());
+    for j in 0..ny {
+        for i in 0..nx {
+            solution[j * nx + i] = match component {
+                MomentumComponent::U => fields.u.at(i, j),
+                MomentumComponent::V => fields.v.at(i, j),
+            };
+        }
+    }
+    solution
+}
 
 impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
     /// Solve momentum equation for specified component.
@@ -36,7 +53,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
 
         // Diagnostic: Check if coefficients are non-zero (helps debug false convergence)
         #[cfg(debug_assertions)]
-        {
+        if tracing::enabled!(tracing::Level::DEBUG) {
             let coeffs = match component {
                 MomentumComponent::U => &self.coeffs_u,
                 MomentumComponent::V => &self.coeffs_v,
@@ -88,13 +105,25 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
         }
 
         // Solve linear system
-        let mut solution = Array1::from_elem([matrix.nrows()], scalar::zero::<T>());
-        let _rhs_norm =
-            norm_l2(&rhs.view()).expect("invariant: momentum RHS Leto vector has a valid layout");
+        let mut solution = match component {
+            MomentumComponent::U => self
+                .solution_u
+                .take()
+                .filter(|candidate| candidate.shape()[0] == matrix.nrows())
+                .unwrap_or_else(|| {
+                    velocity_solution_guess(component, fields, self.grid.nx, self.grid.ny)
+                }),
+            MomentumComponent::V => self
+                .solution_v
+                .take()
+                .filter(|candidate| candidate.shape()[0] == matrix.nrows())
+                .unwrap_or_else(|| {
+                    velocity_solution_guess(component, fields, self.grid.nx, self.grid.ny)
+                }),
+        };
         let solve_result =
             self.linear_solver
                 .solve(matrix, rhs, &mut solution, None::<&IdentityPreconditioner>);
-
         match solve_result {
             Ok(_) => {}
             Err(cfd_core::error::Error::Convergence(
@@ -103,7 +132,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
                 tracing::warn!(
                     component = ?component,
                     max_iterations = max,
-                    "Momentum GMRES stalled; falling back to direct sparse solve"
+                    "Momentum iterative solve stalled; falling back to direct sparse solve"
                 );
                 let direct_solver = DirectSparseSolver::default();
                 solution = direct_solver.solve(matrix, rhs).map_err(|error| {
@@ -117,7 +146,7 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
             )) => {
                 tracing::warn!(
                     component = ?component,
-                    "Momentum GMRES breakdown; falling back to direct sparse solve"
+                    "Momentum iterative solve broke down; falling back to direct sparse solve"
                 );
                 let direct_solver = DirectSparseSolver::default();
                 solution = direct_solver.solve(matrix, rhs).map_err(|error| {
@@ -131,6 +160,10 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
 
         // Update velocity field
         self.update_velocity(component, fields, &solution);
+        match component {
+            MomentumComponent::U => self.solution_u = Some(solution),
+            MomentumComponent::V => self.solution_v = Some(solution),
+        }
 
         Ok(())
     }

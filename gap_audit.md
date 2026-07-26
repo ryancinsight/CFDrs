@@ -33,16 +33,23 @@
 
 ## Aequitas public metric gap audit (2026-07-24)
 
-### Verification refresh (2026-07-25)
+### Verification refresh (2026-07-26)
 
 The former Coeus and missing-cutile path blockers are stale: CFDrs has no
-Coeus dependency in its current manifest, and locked `cargo check -p cfd-3d
--p cfd-validation` passes through the current local Atlas graph. The focused
-producer suite (`cfd-core`, `cfd-1d`, and `cfd-optim`) passes 1,127/1,127 with
-three skips. The broader `cfd-3d`/`cfd-validation` suite passes 817/825 but
-times out eight solver-heavy tests at the committed 30-second budget; those
-runtime defects remain open and are not classified as missing metric types.
-The cfd-3d test-only unused `Pressure` import exposed by the gate is removed.
+Coeus dependency in its current manifest, and locked `cargo check -p cfd-2d
+-p cfd-3d -p cfd-validation` passes through the current local Atlas graph. The
+focused producer suite (`cfd-core`, `cfd-1d`, and `cfd-optim`) passes
+1,127/1,127 with three skips. The cfd-2d library gate passes 517/517 with one
+skip. The broader solver-validation gate retains the eight named solver-heavy
+tests at or above the committed 30-second budget; those runtime defects remain
+open and are not classified as missing metric types.
+
+This increment warm-starts cfd-2d momentum solves, preserves face-pressure CSR
+topology across iterations, rejects unrecoverable large pressure-solver
+failure instead of accepting an incomplete correction, fixes SIMPLEC/PIMPLE
+state and symmetry/slip boundary handling, and routes cfd-3d bifurcation
+iterations through the FEM Picard warm-start path. No additional Aequitas
+metric definition is required for CFDrs in this audit pass.
 
 | ID | Evidence | Closure |
 |---|---|---|

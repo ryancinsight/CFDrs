@@ -34,6 +34,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Hardened solver paths during the Aequitas audit: cfd-2d momentum now reuses
+  value-semantic warm starts, pressure face matrices reuse exact CSR topology,
+  large pressure-solver failure propagates as a typed error, SIMPLEC/PIMPLE
+  state and symmetry/slip boundaries are corrected, and cfd-3d bifurcation
+  Picard iterations use the FEM warm-start path. The eight solver-heavy
+  validation runtime residuals remain tracked separately from metric typing.
+
 - Reconcile the Aequitas metric audit with the current local Atlas graph:
   cfd-3d/cfd-validation source checks pass, the cfd-core/cfd-1d/cfd-optim
   producer suite passes 1,127/1,127 with 3 skips, and stale Coeus/cutile path

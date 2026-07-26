@@ -53,14 +53,23 @@ fn apply_velocity_boundary_conditions_impl<T: Cfd2dScalar + Copy + FloatElement>
     use cfd_core::physics::boundary::{BoundaryCondition, WallType};
 
     // North boundary (j = ny-2)
-    if let Some(BoundaryCondition::Wall { wall_type }) = boundary_conditions.get("north") {
+    if let Some(boundary) = boundary_conditions.get("north") {
         for i in 0..grid.nx {
-            match wall_type {
-                WallType::NoSlip => {
-                    face_velocity[(i, grid.ny - 2)] = Vector2::zeros();
-                }
-                WallType::Moving { velocity } => {
-                    face_velocity[(i, grid.ny - 2)] = Vector2::new(velocity[0], velocity[1]);
+            match boundary {
+                BoundaryCondition::Wall { wall_type } => match wall_type {
+                    WallType::NoSlip => {
+                        face_velocity[(i, grid.ny - 2)] = Vector2::zeros();
+                    }
+                    WallType::Moving { velocity } => {
+                        face_velocity[(i, grid.ny - 2)] = Vector2::new(velocity[0], velocity[1]);
+                    }
+                    WallType::Slip => {
+                        face_velocity[(i, grid.ny - 2)][1] = scalar::zero();
+                    }
+                    WallType::Rotating { .. } => {}
+                },
+                BoundaryCondition::Symmetry => {
+                    face_velocity[(i, grid.ny - 2)][1] = scalar::zero();
                 }
                 _ => {}
             }
@@ -68,14 +77,23 @@ fn apply_velocity_boundary_conditions_impl<T: Cfd2dScalar + Copy + FloatElement>
     }
 
     // South boundary (j = 0)
-    if let Some(BoundaryCondition::Wall { wall_type }) = boundary_conditions.get("south") {
+    if let Some(boundary) = boundary_conditions.get("south") {
         for i in 0..grid.nx {
-            match wall_type {
-                WallType::NoSlip => {
-                    face_velocity[(i, 0)] = Vector2::zeros();
-                }
-                WallType::Moving { velocity } => {
-                    face_velocity[(i, 0)] = Vector2::new(velocity[0], velocity[1]);
+            match boundary {
+                BoundaryCondition::Wall { wall_type } => match wall_type {
+                    WallType::NoSlip => {
+                        face_velocity[(i, 0)] = Vector2::zeros();
+                    }
+                    WallType::Moving { velocity } => {
+                        face_velocity[(i, 0)] = Vector2::new(velocity[0], velocity[1]);
+                    }
+                    WallType::Slip => {
+                        face_velocity[(i, 0)][1] = scalar::zero();
+                    }
+                    WallType::Rotating { .. } => {}
+                },
+                BoundaryCondition::Symmetry => {
+                    face_velocity[(i, 0)][1] = scalar::zero();
                 }
                 _ => {}
             }
@@ -83,19 +101,28 @@ fn apply_velocity_boundary_conditions_impl<T: Cfd2dScalar + Copy + FloatElement>
     }
 
     // West boundary (i = 0)
-    if let Some(BoundaryCondition::Wall { wall_type }) = boundary_conditions.get("west") {
+    if let Some(boundary) = boundary_conditions.get("west") {
         // Leave the corner nodes to the horizontal walls so the lid owns
         // the top corners and the lower wall owns the bottom corners.
         for j in 1..grid.ny {
             if j == grid.ny - 2 {
                 continue;
             }
-            match wall_type {
-                WallType::NoSlip => {
-                    face_velocity[(0, j)] = Vector2::zeros();
-                }
-                WallType::Moving { velocity } => {
-                    face_velocity[(0, j)] = Vector2::new(velocity[0], velocity[1]);
+            match boundary {
+                BoundaryCondition::Wall { wall_type } => match wall_type {
+                    WallType::NoSlip => {
+                        face_velocity[(0, j)] = Vector2::zeros();
+                    }
+                    WallType::Moving { velocity } => {
+                        face_velocity[(0, j)] = Vector2::new(velocity[0], velocity[1]);
+                    }
+                    WallType::Slip => {
+                        face_velocity[(0, j)][0] = scalar::zero();
+                    }
+                    WallType::Rotating { .. } => {}
+                },
+                BoundaryCondition::Symmetry => {
+                    face_velocity[(0, j)][0] = scalar::zero();
                 }
                 _ => {}
             }
@@ -103,19 +130,28 @@ fn apply_velocity_boundary_conditions_impl<T: Cfd2dScalar + Copy + FloatElement>
     }
 
     // East boundary (i = nx-2)
-    if let Some(BoundaryCondition::Wall { wall_type }) = boundary_conditions.get("east") {
+    if let Some(boundary) = boundary_conditions.get("east") {
         // Leave the corner nodes to the horizontal walls so the lid owns
         // the top corners and the lower wall owns the bottom corners.
         for j in 1..grid.ny {
             if j == grid.ny - 2 {
                 continue;
             }
-            match wall_type {
-                WallType::NoSlip => {
-                    face_velocity[(grid.nx - 2, j)] = Vector2::zeros();
-                }
-                WallType::Moving { velocity } => {
-                    face_velocity[(grid.nx - 2, j)] = Vector2::new(velocity[0], velocity[1]);
+            match boundary {
+                BoundaryCondition::Wall { wall_type } => match wall_type {
+                    WallType::NoSlip => {
+                        face_velocity[(grid.nx - 2, j)] = Vector2::zeros();
+                    }
+                    WallType::Moving { velocity } => {
+                        face_velocity[(grid.nx - 2, j)] = Vector2::new(velocity[0], velocity[1]);
+                    }
+                    WallType::Slip => {
+                        face_velocity[(grid.nx - 2, j)][0] = scalar::zero();
+                    }
+                    WallType::Rotating { .. } => {}
+                },
+                BoundaryCondition::Symmetry => {
+                    face_velocity[(grid.nx - 2, j)][0] = scalar::zero();
                 }
                 _ => {}
             }
@@ -413,6 +449,28 @@ mod tests {
         assert_eq!(face_velocity[(0, 1)], Vector2::zeros());
         assert_eq!(face_velocity[(grid.nx - 2, 1)], Vector2::zeros());
         assert_eq!(face_velocity[(1, 0)], Vector2::zeros());
+    }
+
+    #[test]
+    fn symmetry_boundary_removes_normal_face_velocity() {
+        let grid = StructuredGrid2D::new(4, 4, 0.0_f64, 1.0_f64, 0.0_f64, 1.0_f64)
+            .expect("grid creation failed");
+        let config = crate::simplec_pimple::config::SimplecPimpleConfig::simplec();
+        let mut solver =
+            SimplecPimpleSolver::new(grid.clone(), config).expect("solver creation failed");
+        solver.set_boundary(
+            "south".to_string(),
+            cfd_core::physics::boundary::BoundaryCondition::Symmetry,
+        );
+
+        let fields = SimulationFields::new(grid.nx, grid.ny);
+        let mut face_velocity = Array2D::new(grid.nx, grid.ny, Vector2::new(2.0, -3.0));
+        solver.apply_velocity_boundary_conditions(&mut face_velocity, &fields);
+
+        for i in 0..grid.nx {
+            assert_eq!(face_velocity[(i, 0)][0], 2.0);
+            assert_eq!(face_velocity[(i, 0)][1], 0.0);
+        }
     }
 
     #[test]
