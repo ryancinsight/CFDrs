@@ -6,8 +6,8 @@ use cfd_schematics::interface::presets::{
     symmetric_bifurcation, trifurcation_serpentine_rect, venturi_chain,
 };
 
-fn reference_flow<'a>(
-    trace: &'a cfd_3d::blueprint_integration::Blueprint3dTrace,
+fn reference_flow(
+    trace: &cfd_3d::blueprint_integration::Blueprint3dTrace,
     channel_id: &str,
 ) -> f64 {
     trace
@@ -18,8 +18,8 @@ fn reference_flow<'a>(
         .reference_flow_rate_m3_s
 }
 
-fn continuity_residual<'a>(
-    trace: &'a cfd_3d::blueprint_integration::Blueprint3dTrace,
+fn continuity_residual(
+    trace: &cfd_3d::blueprint_integration::Blueprint3dTrace,
     node_id: &str,
 ) -> f64 {
     trace
@@ -30,8 +30,8 @@ fn continuity_residual<'a>(
         .continuity_residual_m3_s
 }
 
-fn reference_pressure_coefficient<'a>(
-    trace: &'a cfd_3d::blueprint_integration::Blueprint3dTrace,
+fn reference_pressure_coefficient(
+    trace: &cfd_3d::blueprint_integration::Blueprint3dTrace,
     channel_id: &str,
 ) -> f64 {
     trace

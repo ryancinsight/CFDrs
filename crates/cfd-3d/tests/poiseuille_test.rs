@@ -44,9 +44,7 @@ fn solve_poiseuille(u_avg: f64, resolution: (usize, usize)) -> VenturiSolution3D
     };
 
     let solver = VenturiSolver3D::new(builder, config);
-    let solution = solver.solve(fluid).unwrap();
-
-    solution
+    solver.solve(fluid).unwrap()
 }
 
 fn relative_error(measured: f64, analytical: f64) -> f64 {

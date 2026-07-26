@@ -788,7 +788,7 @@ mod tests {
         assert!(!result.measurements.is_empty());
         assert_eq!(result.measurements.len(), 10);
         assert!(result.stats.mean > 0.0);
-        assert!(result.stats.samples == result.measurements.len());
+        assert_eq!(result.stats.samples, result.measurements.len());
         assert!(result
             .measurements
             .iter()

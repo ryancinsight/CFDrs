@@ -50,7 +50,7 @@ fn test_smagorinsky_turbulent_viscosity() {
     let expected_viscosity = (cs * delta).powi(2) * expected_strain_mag;
 
     // Index for (1, 1, 1)
-    let idx = 1 * nx * ny + 1 * nx + 1;
+    let idx = nx * ny + nx + 1;
     let computed = viscosity[idx];
 
     println!("Computed: {}, Expected: {}", computed, expected_viscosity);
@@ -86,7 +86,7 @@ fn test_smagorinsky_anisotropic_filter_width() {
     let delta = (dx * dy * dz).cbrt();
     let expected_strain_mag = (6.0f64).sqrt();
     let expected_viscosity = (cs * delta).powi(2) * expected_strain_mag;
-    let center = 1 * nx * ny + 1 * nx + 1;
+    let center = nx * ny + nx + 1;
 
     assert_relative_eq!(viscosity[center], expected_viscosity, epsilon = 1e-12);
 }
