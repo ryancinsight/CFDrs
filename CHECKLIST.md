@@ -1,5 +1,19 @@
 # CFDrs Work Checklist
 
+## Owner: Codex — CFDRS-RUNTIME-001 solver-heavy validation runtime [perf] — in progress 2026-07-25
+
+- [x] Reproduce the broad cfd-3d/cfd-validation gate and record the eight
+      exact tests exceeding the committed 30-second nextest budget.
+- [ ] Profile the shared production path and state the measured performance
+      hypothesis, bound, and stop condition before changing code.
+- [ ] Implement the smallest production-path optimization that preserves the
+      existing analytical/value-semantic assertions; do not modify timeout
+      budgets, test workload, or assertions.
+- [ ] Re-run the broad 825-test gate, focused package checks, warning-denied
+      Clippy, doctests, and any required benchmark/profile evidence.
+- [ ] Synchronize `gap_audit.md`, `backlog.md`, `CHECKLIST.md`, and
+      `CHANGELOG.md`, then commit and push the verified increment.
+
 ## Owner: Codex — CFDRS-AEQ-MET-16 typed network hydraulic metrics [major] — verified 2026-07-25
 
 - [x] Add the provider aliases for quadratic hydraulic resistance and
