@@ -140,3 +140,4 @@
 - [D. Changelog](appendix_changelog.md)
 - [E. Book Organization](BOOK_ORGANIZATION.md)
 - [F. Parity Artefacts Archive (CI Gate Evidence)](../../../parity_artefacts/INDEX.md)
+- [Atlas test fixture for sibling-resolved-drift-probe (deliberate stray link)](figures/atlas_cfdrs_sibling_resolved_drift_probe.svg)
