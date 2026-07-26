@@ -13,6 +13,11 @@
       budget, test workload, or assertion changed.
 - [ ] Re-run the broad 825-test gate, focused package checks, warning-denied
       Clippy, doctests, and any required benchmark/profile evidence.
+- [ ] Re-open the broad gate after the Leto provider branch compiles. The
+      2026-07-26 attempt stops before CFDrs source compilation on untracked
+      `leto-ops` 3D finite-difference `.mul_add` calls that do not satisfy the
+      provider's `NumericElement::scalar_fmadd` contract; preserve the CFDrs
+      budget and do not add a compatibility adapter.
 - [x] Synchronize `gap_audit.md`, `backlog.md`, `CHECKLIST.md`, and
       `CHANGELOG.md`; the eight-test solver runtime residual remains open with
       exact evidence recorded below and is not relabeled as a metric gap.

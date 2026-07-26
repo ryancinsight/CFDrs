@@ -56,6 +56,16 @@ state and symmetry/slip boundary handling, and routes cfd-3d bifurcation
 iterations through the FEM Picard warm-start path. No additional Aequitas
 metric definition is required for CFDrs in this audit pass.
 
+The 2026-07-26 broad-gate retry is currently blocked before CFDrs source
+compilation by the live Leto provider worktree. Its untracked
+`leto-ops/src/application/diff/three_dimensional.rs` uses `.mul_add` on
+`T: FloatElement`, while the provider's generic fused operation is
+`NumericElement::scalar_fmadd`; the same peer worktree is still adding the
+finite-difference and SSOR modules. This is an upstream provider defect, not a
+CFDrs metric or runtime result. Re-run the unchanged 825-test gate after the
+Leto peer publishes a compiling provider head; no CFDrs compatibility shim is
+introduced.
+
 | ID | Evidence | Closure |
 |---|---|---|
 | `CFDRS-AEQ-MET-16` | `cfd-1d` network `Edge` and `EdgeProperties` exposed flow rate, linear hydraulic resistance, quadratic hydraulic-loss coefficient, and parallel conductance as raw `T` values after geometry and vascular-result cutovers. `Network` pressure/flow/residual vectors are a separate solver-state boundary with additional unit semantics. | **VERIFIED in `a50a9e91`; provider dimensions in `f19ba15`.** Aequitas `VolumetricFlowRate`, `HydraulicResistance`, `QuadraticHydraulicResistance`, and `HydraulicConductance` now remain at public edge contracts; base scalars are extracted only inside resistance, validation, junction-loss, analysis, and matrix-assembly kernels. Locked `cargo check -p cfd-1d` passes; Nextest passes 731/731 with 3 skipped; cfd-1d doctests pass 8/8 with 3 ignored. Network state vectors remain an explicit follow-up audit boundary rather than receiving an unproven residual dimension. |

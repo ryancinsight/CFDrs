@@ -42,7 +42,12 @@
   solver-heavy cases at or above 30 seconds. Acceptance remains the unchanged
   broad 825-test gate with all tests completing within budget, preserved
   value-semantic assertions, and measured production-path improvement. Test
-  timeout or workload reduction is not an acceptance path.
+  timeout or workload reduction is not an acceptance path. The 2026-07-26
+  rerun is blocked before CFDrs compilation by the live Leto provider branch:
+  untracked `leto-ops` 3D finite-difference code calls `.mul_add` on a generic
+  `FloatElement` instead of the provider's `NumericElement::scalar_fmadd` seam.
+  Re-open the unchanged gate after Leto publishes a compiling head; do not add
+  a CFDrs adapter or alter the budget.
 
 - **CFDRS-AEQ-MET-16 [major] - Type network hydraulic coefficient metrics
   (VERIFIED 2026-07-25; owner=Codex; scope=`cfd-1d` Edge,
