@@ -24,7 +24,7 @@
 
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::{LinearSolverChain, GMRES};
+use cfd_math::linear_solver::{LinearSolverChain, LinearSolverState, GMRES};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Vector3};
@@ -36,8 +36,8 @@ use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::{scalar, FemConfig, StokesFlowProblem, StokesFlowSolution};
 use crate::linalg::{
-    array1_copy, array1_l2_norm, array1_len, array1_subarray, matrix3_determinant,
-    matrix3_from_columns, matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed,
+    array1_l2_norm, array1_len, array1_subarray, matrix3_determinant, matrix3_from_columns,
+    matrix3_try_inverse, reference_tet_gradients, vector3_from_indexed, Matrix3x4,
 };
 use crate::scalar::Cfd3dScalar;
 use moirai::{fold_reduce_with, Adaptive};
@@ -69,6 +69,20 @@ pub struct FemSolver<T: Cfd3dScalar> {
     /// Avoids rebuilding the `Vec<Vector3<T>>` per Picard iteration since the
     /// mesh is immutable across Picard iterations of the same problem.
     vertex_positions: Option<Vec<Vector3<T>>>,
+    /// Mesh geometry terms reused across Picard assemblies.
+    element_geometry: Option<Vec<Option<ElementGeometry<T>>>>,
+    /// Cache key for `element_geometry`: `(corner nodes, vertices, cells)`.
+    element_geometry_key: Option<(usize, usize, usize)>,
+    /// Immutable Keast degree-3 quadrature rule shared by all elements.
+    quadrature: TetrahedronQuadrature<T>,
+    /// AMG transfer state reused across Picard solves with the same CSR pattern.
+    linear_solver_state: LinearSolverState<T>,
+}
+
+struct ElementGeometry<T: Cfd3dScalar> {
+    indices: Vec<usize>,
+    abs_det: T,
+    p1_gradients_phys: Matrix3x4<T>,
 }
 
 impl<T: Cfd3dScalar> FemSolver<T> {
@@ -88,6 +102,10 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             mid_node_cache: None,
             mid_cache_key: None,
             vertex_positions: None,
+            element_geometry: None,
+            element_geometry_key: None,
+            quadrature: TetrahedronQuadrature::keast_degree_3(),
+            linear_solver_state: LinearSolverState::default(),
         }
     }
 
@@ -275,7 +293,13 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         );
 
         let solve_start = std::time::Instant::now();
-        let x_array = chain.solve_with_guess(&matrix, &rhs, n_velocity_dof, initial_guess_array)?;
+        let x_array = chain.solve_with_guess_state(
+            &matrix,
+            &rhs,
+            n_velocity_dof,
+            initial_guess_array,
+            &mut self.linear_solver_state,
+        )?;
         let solve_elapsed = solve_start.elapsed();
 
         tracing::info!(
@@ -385,8 +409,12 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                 let p1_gradients_phys = j_inv_t * grad_ref_p1;
                 let shape = LagrangeTet10::new(p1_gradients_phys);
 
-                let quad = TetrahedronQuadrature::keast_degree_3();
-                for (qp, &qw) in quad.points().iter().zip(quad.weights().iter()) {
+                for (qp, &qw) in self
+                    .quadrature
+                    .points()
+                    .iter()
+                    .zip(self.quadrature.weights().iter())
+                {
                     let weight = qw * abs_det;
                     let l = [scalar::one::<T>() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
                     let grad_p2 = shape.gradients(&l);
@@ -523,7 +551,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             .matrix_builder
             .take()
             .expect("matrix_builder initialized above");
-        let mut rhs_store = self.rhs.take().expect("rhs initialized above");
+        let rhs_store = self.rhs.take().expect("rhs initialized above");
 
         // GAP-PERF-001 (audited Session 12): `MidNodeCache::build` is O(n_mid × ~6)
         // and was being recomputed per Picard iteration only to be discarded — the
@@ -568,77 +596,99 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             .as_ref()
             .expect("vertex_positions built above");
 
+        let geometry_key = (n_corner_nodes, n_nodes, problem.mesh.cells.len());
+        if self
+            .element_geometry
+            .as_ref()
+            .is_none_or(|_| self.element_geometry_key != Some(geometry_key))
+        {
+            self.element_geometry = Some(
+                problem
+                    .mesh
+                    .cells
+                    .iter()
+                    .map(|cell| {
+                        let indices = extract_vertex_indices_cached(
+                            cell,
+                            &problem.mesh,
+                            n_corner_nodes,
+                            mid_cache,
+                        )
+                        .ok()?;
+                        if indices.len() < 4 {
+                            return None;
+                        }
+
+                        let vertices = indices
+                            .iter()
+                            .map(|&idx| vertex_positions[idx])
+                            .collect::<Vec<_>>();
+                        let v0 = vertices[0];
+                        let v1 = vertices[1];
+                        let v2 = vertices[2];
+                        let v3 = vertices[3];
+                        let six = <T as FloatElement>::from_f64(6.0);
+                        let volume = ((v1 - v0).cross(v2 - v0)).dot(v3 - v0) / six;
+                        let vol_tol = <T as FloatElement>::from_f64(1e-22);
+                        if NumericElement::abs(volume) < vol_tol {
+                            return None;
+                        }
+
+                        let jacobian = matrix3_from_columns(v1 - v0, v2 - v0, v3 - v0);
+                        let abs_det = NumericElement::abs(matrix3_determinant(&jacobian));
+                        let inverse_transpose = matrix3_try_inverse(&jacobian)?.transpose();
+                        let p1_gradients_phys = inverse_transpose * reference_tet_gradients();
+
+                        Some(ElementGeometry {
+                            indices,
+                            abs_det,
+                            p1_gradients_phys,
+                        })
+                    })
+                    .collect(),
+            );
+            self.element_geometry_key = Some(geometry_key);
+        }
+        let element_geometry = self
+            .element_geometry
+            .as_ref()
+            .expect("element geometry cache built above");
+
         tracing::info!(
             n_elements = problem.mesh.cells.len(),
             "Assembling elements in parallel"
         );
 
-        let (entry_map, mut rhs) = fold_reduce_with::<Adaptive, _, _, _, _>(
+        let entry_map = fold_reduce_with::<Adaptive, _, _, _, _>(
             problem.mesh.cells.len(),
-            || (HashMap::with_capacity(512), Array1::zeros([n_total_dof])),
-            |(mut local_map, local_rhs), i| {
-                let cell = &problem.mesh.cells[i];
+            || HashMap::with_capacity(512),
+            |mut local_map, i| {
                 let viscosity = problem
                     .element_viscosities
                     .as_ref()
                     .map_or(problem.fluid.viscosity, |v| v[i]);
-                // Cache-accelerated index extraction: O(1) per edge vs O(N_mid)
-                let idxs = match extract_vertex_indices_cached(
-                    cell,
-                    &problem.mesh,
-                    problem.n_corner_nodes,
-                    mid_cache,
-                ) {
-                    Ok(v) => v,
-                    Err(_) => return (local_map, local_rhs), // skip degenerate cell
+                let Some(geometry) = element_geometry[i].as_ref() else {
+                    return local_map;
                 };
-                let local_verts: Vec<Vector3<T>> =
-                    idxs.iter().map(|&idx| vertex_positions[idx]).collect();
 
-                if local_verts.len() < 4_usize {
-                    // Only tetrahedral cells are supported by this assembler.
-                    // Mesh extraction can occasionally surface malformed cells
-                    // with insufficient recovered corner vertices; they carry no
-                    // valid tetra contribution and must be skipped.
-                    return (local_map, local_rhs);
-                }
-
-                let v0 = local_verts[0];
-                let v1 = local_verts[1];
-                let v2 = local_verts[2];
-                let v3 = local_verts[3];
-
-                let six = <T as FloatElement>::from_f64(6.0);
-                let vol = ((v1 - v0).cross(v2 - v0)).dot(v3 - v0) / six;
-                let vol_tol = <T as FloatElement>::from_f64(1e-22);
-                if NumericElement::abs(vol) < vol_tol {
-                    // Skip degenerate element — zero volume means zero
-                    // contribution to the global stiffness matrix
-                    return (local_map, local_rhs);
-                }
-
-                let u_avg = self.calculate_u_avg(&idxs, previous_solution);
+                let u_avg = self.calculate_u_avg(&geometry.indices, previous_solution);
 
                 self.assemble_element_local(
                     &mut local_map,
-                    &idxs,
-                    &local_verts,
+                    geometry,
                     viscosity,
                     problem.fluid.density,
                     u_avg,
                     n_nodes,
                 );
 
-                (local_map, local_rhs)
+                local_map
             },
-            |(mut map1, mut rhs1), (map2, rhs2)| {
+            |mut map1, map2| {
                 for (k, v) in map2 {
                     *map1.entry(k).or_insert(scalar::zero::<T>()) += v;
                 }
-                for index in 0..array1_len(&rhs1) {
-                    rhs1[index] += rhs2[index];
-                }
-                (map1, rhs1)
+                map1
             },
         );
 
@@ -648,6 +698,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
             matrix_builder.add_entry(row, col, val)?;
         }
 
+        let mut rhs = rhs_store;
         self.apply_boundary_conditions_block(&mut matrix_builder, &mut rhs, problem, n_nodes)?;
 
         let velocity_dofs_constrained = problem.boundary_conditions.len() * 3;
@@ -669,41 +720,41 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         let (matrix, rhs_after_assembly) =
             build_with_vector_rhs(matrix_builder, rhs, "FEM saddle-point RHS")?;
         rhs = rhs_after_assembly;
-        array1_copy(&rhs, &mut rhs_store);
-        self.rhs = Some(rhs_store);
+        self.rhs = Some(rhs.clone());
         Ok((matrix, rhs))
     }
 
     fn assemble_element_local(
         &self,
         local_map: &mut HashMap<(usize, usize), T>,
-        idxs: &[usize],
-        verts: &[Vector3<T>],
+        geometry: &ElementGeometry<T>,
         viscosity: T,
         density: T,
         u_avg: Vector3<T>,
         n_nodes: usize,
     ) {
-        let quad = TetrahedronQuadrature::keast_degree_3();
-        let points = quad.points();
-        let weights = quad.weights();
+        let points = self.quadrature.points();
+        let weights = self.quadrature.weights();
         let grad_div_penalty = self.config.grad_div_penalty;
 
-        let j_mat = matrix3_from_columns(
-            verts[1] - verts[0],
-            verts[2] - verts[0],
-            verts[3] - verts[0],
-        );
-        let det_j = matrix3_determinant(&j_mat);
-        let abs_det = NumericElement::abs(det_j);
-        let j_inv_t = match matrix3_try_inverse(&j_mat) {
-            Some(inv) => inv.transpose(),
-            None => return, // Degenerate element — skip assembly
-        };
+        let idxs = geometry.indices.as_slice();
+        let abs_det = geometry.abs_det;
+        let p1_gradients_phys = geometry.p1_gradients_phys;
+        if idxs.len() == 4 {
+            self.assemble_element_linear(
+                local_map,
+                idxs,
+                p1_gradients_phys,
+                abs_det,
+                viscosity,
+                density,
+                u_avg,
+                n_nodes,
+            );
+            return;
+        }
 
-        let grad_ref_p1 = reference_tet_gradients();
-        let p1_gradients_phys = j_inv_t * grad_ref_p1;
-        let shape = LagrangeTet10::new(p1_gradients_phys);
+        let p2_shape = (idxs.len() != 4).then(|| LagrangeTet10::new(p1_gradients_phys));
 
         let v_offset = n_nodes;
         let p_offset = n_nodes * 3;
@@ -711,46 +762,42 @@ impl<T: Cfd3dScalar> FemSolver<T> {
         for (qp, &qw) in points.iter().zip(weights.iter()) {
             let weight = qw * abs_det;
             let l = [scalar::one::<T>() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
-            let n_p2 = shape.values(&l);
-            let grad_p2_mat = shape.gradients(&l);
-            let n_p1 = l;
-
-            for i in 0..idxs.len().min(10) {
-                let gi = idxs[i];
-                let grad_i = if idxs.len() == 4 {
-                    Vector3::new(
-                        p1_gradients_phys[(0, i)],
-                        p1_gradients_phys[(1, i)],
-                        p1_gradients_phys[(2, i)],
-                    )
-                } else {
-                    Vector3::new(
+            let zero = scalar::zero::<T>();
+            let mut shape_values = [zero; 10];
+            let mut shape_gradients = [Vector3::new(zero, zero, zero); 10];
+            if let Some(shape) = p2_shape.as_ref() {
+                let n_p2 = shape.values(&l);
+                let grad_p2_mat = shape.gradients(&l);
+                for i in 0..10 {
+                    shape_values[i] = n_p2[i];
+                    shape_gradients[i] = Vector3::new(
                         grad_p2_mat[[0, i]],
                         grad_p2_mat[[1, i]],
                         grad_p2_mat[[2, i]],
-                    )
-                };
-                let n_i = if idxs.len() == 4 { n_p1[i] } else { n_p2[i] };
+                    );
+                }
+            } else {
+                shape_values[..4].copy_from_slice(&l);
+                for i in 0..4 {
+                    shape_gradients[i] = Vector3::new(
+                        p1_gradients_phys[(0, i)],
+                        p1_gradients_phys[(1, i)],
+                        p1_gradients_phys[(2, i)],
+                    );
+                }
+            }
+
+            for i in 0..idxs.len().min(10) {
+                let gi = idxs[i];
+                let grad_i = shape_gradients[i];
+                let n_i = shape_values[i];
 
                 for d in 0..3 {
                     let gv_i = gi + d * v_offset;
                     for j in 0..idxs.len().min(10) {
                         let gj = idxs[j];
                         let gv_j = gj + d * v_offset;
-                        let grad_j = if idxs.len() == 4 {
-                            Vector3::new(
-                                p1_gradients_phys[(0, j)],
-                                p1_gradients_phys[(1, j)],
-                                p1_gradients_phys[(2, j)],
-                            )
-                        } else {
-                            Vector3::new(
-                                grad_p2_mat[[0, j]],
-                                grad_p2_mat[[1, j]],
-                                grad_p2_mat[[2, j]],
-                            )
-                        };
-                        let _n_j = if idxs.len() == 4 { n_p1[j] } else { n_p2[j] };
+                        let grad_j = shape_gradients[j];
 
                         // GAP-PERF-002: Fuse viscous + advection into a single HashMap probe.
                         // Before: two separate `entry().or_insert() += visc` and `+= adv`
@@ -775,7 +822,7 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                     for j in 0..4 {
                         let gj = idxs[j];
                         let gp_j = p_offset + gj;
-                        let b_val = n_p1[j] * grad_i[d] * weight;
+                        let b_val = shape_values[j] * grad_i[d] * weight;
                         *local_map.entry((gv_i, gp_j)).or_insert(scalar::zero::<T>()) -= b_val;
                         *local_map.entry((gp_j, gv_i)).or_insert(scalar::zero::<T>()) += b_val;
                     }
@@ -811,6 +858,113 @@ impl<T: Cfd3dScalar> FemSolver<T> {
                         );
                         let pspg = tau_bp * grad_p_i.dot(grad_p_j) * vol_e;
                         *local_map.entry((gp_i, gp_j)).or_insert(scalar::zero::<T>()) += pspg;
+                    }
+                }
+            }
+        }
+    }
+
+    fn assemble_element_linear(
+        &self,
+        local_map: &mut HashMap<(usize, usize), T>,
+        idxs: &[usize],
+        p1_gradients_phys: Matrix3x4<T>,
+        abs_det: T,
+        viscosity: T,
+        density: T,
+        u_avg: Vector3<T>,
+        n_nodes: usize,
+    ) {
+        let points = self.quadrature.points();
+        let weights = self.quadrature.weights();
+        let zero = scalar::zero::<T>();
+        let mut weight_sum = zero;
+        let mut basis_integrals = [zero; 4];
+        for (qp, &qw) in points.iter().zip(weights.iter()) {
+            weight_sum += qw;
+            let l = [scalar::one::<T>() - qp.x - qp.y - qp.z, qp.x, qp.y, qp.z];
+            for i in 0..4 {
+                basis_integrals[i] += qw * l[i];
+            }
+        }
+
+        let gradients = [
+            Vector3::new(
+                p1_gradients_phys[(0, 0)],
+                p1_gradients_phys[(1, 0)],
+                p1_gradients_phys[(2, 0)],
+            ),
+            Vector3::new(
+                p1_gradients_phys[(0, 1)],
+                p1_gradients_phys[(1, 1)],
+                p1_gradients_phys[(2, 1)],
+            ),
+            Vector3::new(
+                p1_gradients_phys[(0, 2)],
+                p1_gradients_phys[(1, 2)],
+                p1_gradients_phys[(2, 2)],
+            ),
+            Vector3::new(
+                p1_gradients_phys[(0, 3)],
+                p1_gradients_phys[(1, 3)],
+                p1_gradients_phys[(2, 3)],
+            ),
+        ];
+        let integrated_weight = abs_det * weight_sum;
+        let v_offset = n_nodes;
+        let p_offset = n_nodes * 3;
+
+        for i in 0..4 {
+            let gi = idxs[i];
+            let grad_i = gradients[i];
+            for d in 0..3 {
+                let gv_i = gi + d * v_offset;
+                for j in 0..4 {
+                    let gj = idxs[j];
+                    let grad_j = gradients[j];
+                    let gv_j = gj + d * v_offset;
+                    let visc = viscosity * grad_i.dot(grad_j) * integrated_weight;
+                    let adv = density * basis_integrals[i] * u_avg.dot(grad_j) * abs_det;
+                    *local_map.entry((gv_i, gv_j)).or_insert(zero) += visc + adv;
+                    if self.config.grad_div_penalty > zero {
+                        for e in 0..3 {
+                            let gv_j_e = gj + e * v_offset;
+                            let grad_div = self.config.grad_div_penalty
+                                * grad_i[d]
+                                * grad_j[e]
+                                * integrated_weight;
+                            *local_map.entry((gv_i, gv_j_e)).or_insert(zero) += grad_div;
+                        }
+                    }
+                }
+                for j in 0..4 {
+                    let gj = idxs[j];
+                    let gp_j = p_offset + gj;
+                    let b_val = basis_integrals[j] * grad_i[d] * abs_det;
+                    *local_map.entry((gv_i, gp_j)).or_insert(zero) -= b_val;
+                    *local_map.entry((gp_j, gv_i)).or_insert(zero) += b_val;
+                }
+            }
+        }
+
+        // Preserve the existing P1 stabilization contribution: the legacy
+        // quadrature loop adds the quadrature-independent term once per point.
+        if viscosity > zero {
+            let one_third = <T as FloatElement>::from_f64(1.0 / 3.0);
+            let h_e = FloatElement::powf(abs_det, one_third);
+            let twelve = <T as FloatElement>::from_f64(12.0);
+            let tau_bp = h_e * h_e / (twelve * viscosity);
+            let vol_e = abs_det / <T as FloatElement>::from_f64(6.0);
+            let repetitions = points.len();
+            for i in 0..4 {
+                let gi = idxs[i];
+                let gp_i = p_offset + gi;
+                for j in 0..4 {
+                    let gj = idxs[j];
+                    let gp_j = p_offset + gj;
+                    let pspg = tau_bp * gradients[i].dot(gradients[j]) * vol_e;
+                    for _ in 0..repetitions {
+                        *local_map.entry((gp_i, gp_j)).or_insert(zero) += pspg;
                     }
                 }
             }

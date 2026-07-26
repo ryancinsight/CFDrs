@@ -9,15 +9,20 @@
       measured safe changes only.
 - [x] Implement the safe production fixes: cfd-2d momentum warm starts and
       pressure CSR reuse, typed large-system pressure failure, SIMPLEC/PIMPLE
-      state/boundary corrections, and cfd-3d Picard warm starts. No timeout
-      budget, test workload, or assertion changed.
+      state/boundary corrections, cfd-3d Picard warm starts, cached FEM
+      geometry, reusable AMG workspaces/hierarchy state, allocation-free Atlas
+      SpMV, and contiguous GMRES basis storage. No timeout budget, test
+      workload, or assertion changed.
 - [ ] Re-run the broad 825-test gate, focused package checks, warning-denied
       Clippy, doctests, and any required benchmark/profile evidence.
-- [ ] Re-open the broad gate after the Leto provider branch compiles. The
-      2026-07-26 attempt stops before CFDrs source compilation on untracked
-      `leto-ops` 3D finite-difference `.mul_add` calls that do not satisfy the
-      provider's `NumericElement::scalar_fmadd` contract; preserve the CFDrs
-      budget and do not add a compatibility adapter.
+- [x] Re-run focused production checks after the local Leto graph compiles:
+      `cargo check -p cfd-math --offline --locked`, cfd-math Nextest 357/357,
+      GMRES tests 21/21, SpMV tests 7/7, and cfd-3d's 1 mm Venturi regression
+      1/1 in 18.350 s. The exact 5 mm Venturi regression remains a 30.042 s
+      timeout; the broad gate is still open.
+- [ ] Re-run the unchanged broad 825-test gate when the shared build state
+      permits it. The prior Leto `.mul_add` blocker is stale; preserve the
+      CFDrs budget and do not add a compatibility adapter.
 - [x] Synchronize `gap_audit.md`, `backlog.md`, `CHECKLIST.md`, and
       `CHANGELOG.md`; the eight-test solver runtime residual remains open with
       exact evidence recorded below and is not relabeled as a metric gap.

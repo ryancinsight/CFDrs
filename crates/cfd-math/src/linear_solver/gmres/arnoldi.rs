@@ -11,13 +11,13 @@ type KrylovBasis<T> = Array2<T>;
 type Hessenberg<T> = Array2<T>;
 
 #[inline]
-fn basis_entry<T: Copy>(basis: &KrylovBasis<T>, row: usize, col: usize) -> T {
-    basis[[row, col]]
+fn basis_entry<T: Copy>(basis: &KrylovBasis<T>, basis_index: usize, row: usize) -> T {
+    basis[[basis_index, row]]
 }
 
 #[inline]
-fn set_basis_entry<T>(basis: &mut KrylovBasis<T>, row: usize, col: usize, value: T) {
-    basis[[row, col]] = value;
+fn set_basis_entry<T>(basis: &mut KrylovBasis<T>, basis_index: usize, row: usize, value: T) {
+    basis[[basis_index, row]] = value;
 }
 
 #[inline]
@@ -25,15 +25,19 @@ fn set_hessenberg_entry<T>(hessenberg: &mut Hessenberg<T>, row: usize, col: usiz
     hessenberg[[row, col]] = value;
 }
 
-fn fill_basis_column<T: Copy>(basis: &KrylovBasis<T>, col: usize, column: &mut Array1<T>) {
+fn fill_basis_column<T: Copy>(basis: &KrylovBasis<T>, basis_index: usize, column: &mut Array1<T>) {
     for row in 0..column.shape()[0] {
-        column[row] = basis_entry(basis, row, col);
+        column[row] = basis_entry(basis, basis_index, row);
     }
 }
 
-fn dot_work_column<T: RealField + Copy>(work: &Array1<T>, basis: &KrylovBasis<T>, col: usize) -> T {
+fn dot_work_column<T: RealField + Copy>(
+    work: &Array1<T>,
+    basis: &KrylovBasis<T>,
+    basis_index: usize,
+) -> T {
     (0..work.shape()[0])
-        .map(|row| work[row] * basis_entry(basis, row, col))
+        .map(|row| work[row] * basis_entry(basis, basis_index, row))
         .fold(<T as NumericElement>::ZERO, |acc, value| acc + value)
 }
 
@@ -53,7 +57,7 @@ fn vector_norm<T: NumericElement>(work: &Array1<T>) -> T {
 /// # Arguments
 ///
 /// * `a` - System operator
-/// * `v` - Orthonormal basis vectors (n × (m+1))
+/// * `v` - Orthonormal basis vectors ((m+1) × n), one contiguous row per vector
 /// * `h` - Upper Hessenberg matrix ((m+1) × m)
 /// * `k` - Current iteration index
 /// * `basis_work` - Workspace vector for the extracted k-th basis column
@@ -108,7 +112,7 @@ where
 
         // w = w - h_jk * v_j
         for i in 0..n {
-            work[i] -= h_jk * basis_entry(v, i, j);
+            work[i] -= h_jk * basis_entry(v, j, i);
         }
     }
 
@@ -120,7 +124,7 @@ where
         // Store normalized vector as (k+1)-th basis
         let inv_norm = <T as NumericElement>::ONE / norm;
         for i in 0..n {
-            set_basis_entry(v, i, k + 1, work[i] * inv_norm);
+            set_basis_entry(v, k + 1, i, work[i] * inv_norm);
         }
     }
 
@@ -155,7 +159,7 @@ mod tests {
         let a = CsrMatrix::from_parts(vec![1.0; n], (0..n).collect(), (0..=n).collect(), n, n)
             .expect("valid identity CSR");
 
-        let mut v = KrylovBasis::zeros([n, 3]);
+        let mut v = KrylovBasis::zeros([3, n]);
         let mut h = Hessenberg::zeros([3, 2]);
         let mut basis_work = Array1::zeros([n]);
         let mut work = Array1::zeros([n]);

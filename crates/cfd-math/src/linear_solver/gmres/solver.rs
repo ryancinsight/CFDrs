@@ -182,10 +182,13 @@ impl<T: RealField + Copy + FloatElement + Debug> GMRES<T> {
         let mut cache_ref = self.workspace.lock().unwrap();
         if cache_ref
             .as_ref()
-            .is_none_or(|cache| cache.v.shape() != [n, m + 1])
+            .is_none_or(|cache| cache.v.shape() != [m + 1, n])
         {
             *cache_ref = Some(GMRESWorkspace {
-                v: Array2::zeros([n, m + 1]),
+                // Basis vectors are consumed one at a time by Arnoldi. Store
+                // each vector as a contiguous row instead of striding by the
+                // restart size during orthogonalization.
+                v: Array2::zeros([m + 1, n]),
                 h: Array2::zeros([m + 1, m]),
                 g: Array1::zeros([m + 1]),
                 c: Array1::zeros([m]),
@@ -237,7 +240,7 @@ impl<T: RealField + Copy + FloatElement + Debug> GMRES<T> {
 
             let inv_beta = <T as NumericElement>::ONE / beta_restart;
             for row in 0..n {
-                ws.v[[row, 0]] = ws.work[row] * inv_beta;
+                ws.v[[0, row]] = ws.work[row] * inv_beta;
             }
 
             array_matrix_fill(&mut ws.h, <T as NumericElement>::ZERO);
@@ -294,7 +297,7 @@ impl<T: RealField + Copy + FloatElement + Debug> GMRES<T> {
 
             for i in 0..k_final {
                 for row in 0..n {
-                    x[row] += y[i] * ws.v[[row, i]];
+                    x[row] += y[i] * ws.v[[i, row]];
                 }
             }
 

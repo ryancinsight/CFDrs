@@ -35,19 +35,19 @@
   residual (IN PROGRESS; owner=Codex; claimed 2026-07-25; scope=`cfd-3d`
   and `cfd-validation` solver/validation production paths, focused tests, and
   CFDrs PM artifacts).** The audit reproduced the eight named residuals and
-  retained only verified production fixes: cfd-2d momentum warm starts and
-  pressure CSR reuse, typed large-system pressure failure, SIMPLEC/PIMPLE
-  state/boundary corrections, and cfd-3d Picard warm starts. cfd-2d library
-  Nextest is 517/517 with 1 skipped; cfd-3d/cfd-validation still have
-  solver-heavy cases at or above 30 seconds. Acceptance remains the unchanged
-  broad 825-test gate with all tests completing within budget, preserved
-  value-semantic assertions, and measured production-path improvement. Test
-  timeout or workload reduction is not an acceptance path. The 2026-07-26
-  rerun is blocked before CFDrs compilation by the live Leto provider branch:
-  untracked `leto-ops` 3D finite-difference code calls `.mul_add` on a generic
-  `FloatElement` instead of the provider's `NumericElement::scalar_fmadd` seam.
-  Re-open the unchanged gate after Leto publishes a compiling head; do not add
-  a CFDrs adapter or alter the budget.
+  retained verified production fixes: cfd-2d momentum warm starts and pressure
+  CSR reuse, typed large-system pressure failure, SIMPLEC/PIMPLE
+  state/boundary corrections, cfd-3d Picard warm starts, cached FEM element
+  and shear geometry, reusable AMG state/workspaces, allocation-free Atlas
+  SpMV, and contiguous GMRES basis storage. cfd-math Nextest is 357/357 and
+  the 1 mm cfd-3d Venturi regression passes in 18.350 s; the exact 5 mm
+  cfd-3d Venturi case still terminates at 30.042 s. Acceptance remains the
+  unchanged broad 825-test gate with all tests completing within budget,
+  preserved value-semantic assertions, and measured production-path
+  improvement. Test timeout or workload reduction is not an acceptance path.
+  The prior Leto `.mul_add` blocker is stale because CFDrs now compiles and
+  runs through the local provider graph; re-run the unchanged broad gate when
+  the shared build state permits it. No CFDrs compatibility adapter is added.
 
 - **CFDRS-AEQ-MET-16 [major] - Type network hydraulic coefficient metrics
   (VERIFIED 2026-07-25; owner=Codex; scope=`cfd-1d` Edge,

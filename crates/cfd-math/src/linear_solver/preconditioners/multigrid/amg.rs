@@ -50,7 +50,8 @@ use crate::linear_solver::traits::Preconditioner;
 use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
-use leto_ops::{spgemm, spmv as leto_spmv, Scalar as LetoScalar};
+use leto_ops::{spgemm, spmv_into as leto_spmv_into, Scalar as LetoScalar};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 #[inline]
@@ -71,12 +72,36 @@ fn sparse_product<T: RealField + Copy + LetoScalar>(
         .map_err(|error| Error::InvalidConfiguration(format!("AMG sparse product failed: {error}")))
 }
 
-fn sparse_apply<T: RealField + Copy + LetoScalar>(
+fn sparse_apply_into<T: RealField + Copy + LetoScalar>(
     matrix: &SparseMatrix<T>,
     vector: &Array1<T>,
-) -> Result<Array1<T>> {
-    leto_spmv(matrix, &vector.view())
+    output: &mut Array1<T>,
+) -> Result<()> {
+    let output_slice = output.as_slice_mut().ok_or_else(|| {
+        Error::InvalidConfiguration("AMG workspace vector must be contiguous".to_string())
+    })?;
+    leto_spmv_into(matrix, &vector.view(), output_slice)
         .map_err(|error| Error::InvalidConfiguration(format!("AMG SpMV failed: {error}")))
+}
+
+struct AMGLevelWorkspace<T: RealField + Copy> {
+    applied: Array1<T>,
+    residual: Array1<T>,
+    coarse_residual: Array1<T>,
+    coarse_solution: Array1<T>,
+    correction: Array1<T>,
+}
+
+impl<T: RealField + Copy + LetoScalar> AMGLevelWorkspace<T> {
+    fn new(size: usize, coarse_size: usize) -> Self {
+        Self {
+            applied: Array1::zeros([size]),
+            residual: Array1::zeros([size]),
+            coarse_residual: Array1::zeros([coarse_size]),
+            coarse_solution: Array1::zeros([coarse_size]),
+            correction: Array1::zeros([size]),
+        }
+    }
 }
 
 /// Algebraic Multigrid preconditioner
@@ -92,6 +117,8 @@ pub struct AlgebraicMultigrid<T: RealField + Copy + LetoScalar> {
     is_setup: bool,
     /// Optional cached hierarchy operators
     hierarchy: Option<AMGHierarchy<T>>,
+    /// Reusable V-cycle vectors, serialized per preconditioner application.
+    workspace: Arc<Mutex<Option<Vec<AMGLevelWorkspace<T>>>>>,
 }
 
 impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
@@ -103,6 +130,7 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
             statistics: AMGStatistics::default(),
             is_setup: false,
             hierarchy: None,
+            workspace: Arc::new(Mutex::new(None)),
         };
 
         amg.setup(matrix)?;
@@ -126,6 +154,7 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
             statistics: AMGStatistics::default(),
             is_setup: false,
             hierarchy: Some(hierarchy),
+            workspace: Arc::new(Mutex::new(None)),
         };
 
         amg.setup(matrix)?;
@@ -366,8 +395,17 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
     }
 
     /// Perform a single V-cycle
-    fn v_cycle(&self, level_idx: usize, b: &MultigridVector<T>, x: &mut MultigridVector<T>) {
+    fn v_cycle(
+        &self,
+        level_idx: usize,
+        b: &MultigridVector<T>,
+        x: &mut MultigridVector<T>,
+        workspace: &mut [AMGLevelWorkspace<T>],
+    ) {
         let current_level = &self.levels[level_idx];
+        let (current_workspace, remaining_workspace) = workspace
+            .split_first_mut()
+            .expect("invariant: AMG workspace matches hierarchy levels");
 
         // 1. Pre-smoothing
         current_level.smoother.apply(
@@ -379,28 +417,43 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
 
         if level_idx < self.levels.len() - 1 {
             // 2. Compute residual: r = b - A*x
-            let applied = sparse_apply(&current_level.matrix, x)
+            sparse_apply_into(&current_level.matrix, x, &mut current_workspace.applied)
                 .expect("invariant: AMG SpMV inputs are valid");
-            let mut r = MultigridVector::zeros([b.shape()[0]]);
+            let r = &mut current_workspace.residual;
             for i in 0..b.shape()[0] {
-                r[i] = b[i] - applied[i];
+                r[i] = b[i] - current_workspace.applied[i];
             }
 
             // 3. Restriction: r_coarse = R * r
-            let r_coarse = sparse_apply(current_level.restriction.as_ref().unwrap(), &r)
-                .expect("invariant: AMG restriction dimensions are valid");
+            sparse_apply_into(
+                current_level.restriction.as_ref().unwrap(),
+                r,
+                &mut current_workspace.coarse_residual,
+            )
+            .expect("invariant: AMG restriction dimensions are valid");
 
             // 4. Recursive call to coarse level
-            let mut e_coarse = MultigridVector::zeros([r_coarse.shape()[0]]);
-            self.v_cycle(level_idx + 1, &r_coarse, &mut e_coarse);
+            current_workspace
+                .coarse_solution
+                .fill(<T as NumericElement>::ZERO);
+            self.v_cycle(
+                level_idx + 1,
+                &current_workspace.coarse_residual,
+                &mut current_workspace.coarse_solution,
+                remaining_workspace,
+            );
 
             // 5. Interpolation: e = P * e_coarse
-            let e = sparse_apply(current_level.interpolation.as_ref().unwrap(), &e_coarse)
-                .expect("invariant: AMG interpolation dimensions are valid");
+            sparse_apply_into(
+                current_level.interpolation.as_ref().unwrap(),
+                &current_workspace.coarse_solution,
+                &mut current_workspace.correction,
+            )
+            .expect("invariant: AMG interpolation dimensions are valid");
 
             // 6. Correction: x = x + e
             for i in 0..x.shape()[0] {
-                x[i] += e[i];
+                x[i] += current_workspace.correction[i];
             }
 
             // 7. Post-smoothing
@@ -421,20 +474,50 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
 
 impl<T: RealField + Copy + FloatElement + LetoScalar> Preconditioner<T> for AlgebraicMultigrid<T> {
     fn apply_to(&self, r: &MultigridVector<T>, z: &mut MultigridVector<T>) -> Result<()> {
-        for i in 0..z.shape()[0] {
-            z[i] = <T as NumericElement>::ZERO;
+        if r.shape() != z.shape() {
+            return Err(Error::InvalidConfiguration(format!(
+                "AMG preconditioner vector length mismatch: {} != {}",
+                r.shape()[0],
+                z.shape()[0]
+            )));
         }
-
-        let rhs = MultigridVector::from_shape_vec(r.shape(), r.iter().copied().collect()).map_err(
-            |error| Error::InvalidConfiguration(format!("Invalid AMG RHS bridge: {error}")),
-        )?;
-        let mut correction = MultigridVector::zeros(z.shape());
-
-        self.v_cycle(0, &rhs, &mut correction);
-
-        for i in 0..z.shape()[0] {
-            z[i] = correction[i];
+        let mut workspace_guard = self
+            .workspace
+            .lock()
+            .map_err(|_| Error::InvalidConfiguration("AMG workspace lock poisoned".to_string()))?;
+        let needs_workspace = workspace_guard.as_ref().is_none_or(|workspace| {
+            workspace.len() != self.levels.len()
+                || workspace.iter().zip(&self.levels).enumerate().any(
+                    |(level_idx, (workspace, level))| {
+                        let coarse_size = self
+                            .levels
+                            .get(level_idx + 1)
+                            .map_or(0, |coarse_level| coarse_level.matrix.nrows());
+                        workspace.applied.shape() != [level.matrix.nrows()]
+                            || workspace.coarse_residual.shape() != [coarse_size]
+                    },
+                )
+        });
+        if needs_workspace {
+            *workspace_guard = Some(
+                self.levels
+                    .iter()
+                    .enumerate()
+                    .map(|(level_idx, level)| {
+                        let coarse_size = self
+                            .levels
+                            .get(level_idx + 1)
+                            .map_or(0, |coarse_level| coarse_level.matrix.nrows());
+                        AMGLevelWorkspace::new(level.matrix.nrows(), coarse_size)
+                    })
+                    .collect(),
+            );
         }
+        let workspace = workspace_guard
+            .as_mut()
+            .expect("invariant: AMG workspace initialized above");
+        z.fill(<T as NumericElement>::ZERO);
+        self.v_cycle(0, r, z, workspace);
 
         Ok(())
     }

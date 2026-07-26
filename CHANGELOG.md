@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Reduced repeated solver-path overhead in cfd-math and cfd-3d: FEM and shear
+  geometry, AMG hierarchy/workspace state, Atlas SpMV output storage, and GMRES
+  Krylov basis layout are now reused without changing solver tolerances or test
+  workloads. The exact 5 mm Venturi validation residual remains tracked at the
+  committed 30-second budget.
+
 - Hardened solver paths during the Aequitas audit: cfd-2d momentum now reuses
   value-semantic warm starts, pressure face matrices reuse exact CSR topology,
   large pressure-solver failure propagates as a typed error, SIMPLEC/PIMPLE

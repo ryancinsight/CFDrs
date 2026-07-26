@@ -1,6 +1,6 @@
 use crate::{scalar, scalar::Cfd3dScalar};
-use leto::{Array1, Array2, FixedMatrix};
 use leto::geometry::Vector3;
+use leto::{Array1, Array2, FixedMatrix};
 
 pub(crate) type Matrix3<T> = FixedMatrix<T, 3, 3>;
 pub(crate) type Matrix3x4<T> = FixedMatrix<T, 3, 4>;
@@ -13,17 +13,6 @@ pub(crate) fn array1_len<T>(array: &Array1<T>) -> usize {
 #[inline]
 pub(crate) fn array1_subarray<T: Copy>(array: &Array1<T>, start: usize, len: usize) -> Array1<T> {
     Array1::from_shape_fn([len], |[i]| array[start + i])
-}
-
-#[inline]
-pub(crate) fn array1_copy<T: Copy>(source: &Array1<T>, target: &mut Array1<T>) {
-    let source = source
-        .as_slice()
-        .expect("invariant: solver arrays are dense one-dimensional Leto arrays");
-    let target = target
-        .as_slice_mut()
-        .expect("invariant: solver arrays are dense one-dimensional Leto arrays");
-    target.copy_from_slice(source);
 }
 
 #[inline]
@@ -91,7 +80,11 @@ pub(crate) fn reference_tet_gradients<T: Cfd3dScalar>() -> Matrix3x4<T> {
 
 #[inline]
 pub(crate) fn matrix3x4_column<T: Copy>(matrix: &Matrix3x4<T>, column: usize) -> Vector3<T> {
-    Vector3::new(matrix[(0, column)], matrix[(1, column)], matrix[(2, column)])
+    Vector3::new(
+        matrix[(0, column)],
+        matrix[(1, column)],
+        matrix[(2, column)],
+    )
 }
 
 #[inline]
@@ -179,7 +172,11 @@ where
 #[inline]
 pub(crate) fn symmetric_part<T>(matrix: &Matrix3<T>) -> Matrix3<T>
 where
-    T: eunomia::FloatElement + Copy + Default + core::ops::Add<Output = T> + core::ops::Mul<Output = T>,
+    T: eunomia::FloatElement
+        + Copy
+        + Default
+        + core::ops::Add<Output = T>
+        + core::ops::Mul<Output = T>,
 {
     let half = <T as eunomia::FloatElement>::from_f64(0.5);
     let transpose = matrix.transpose();

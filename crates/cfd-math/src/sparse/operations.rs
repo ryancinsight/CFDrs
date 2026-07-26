@@ -76,12 +76,13 @@ where
         )));
     }
 
-    let mut output = vec![<T as NumericElement>::ZERO; a.nrows()];
-    leto_spmv_into(a, &x.view(), &mut output)
+    let output = y.as_slice_mut().ok_or_else(|| {
+        Error::InvalidConfiguration(
+            "Sparse SpMV output must be a contiguous one-dimensional array".to_string(),
+        )
+    })?;
+    leto_spmv_into(a, &x.view(), output)
         .map_err(|e| Error::InvalidConfiguration(format!("Leto SpMV failed: {e}")))?;
-    for idx in 0..output.len() {
-        y[idx] = output[idx];
-    }
     Ok(())
 }
 

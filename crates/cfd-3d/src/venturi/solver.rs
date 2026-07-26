@@ -67,6 +67,7 @@ use cfd_mesh::VenturiMeshBuilder;
 use eunomia::FloatElement;
 use leto::geometry::Vector3;
 
+use super::analysis::prepare_cell_shear_geometry;
 pub use super::types::{VenturiConfig3D, VenturiSolution3D};
 
 // ============================================================================
@@ -558,6 +559,12 @@ where
         let fem_config = crate::fem::FemConfig::<f64>::default();
         let mut solver = crate::fem::FemSolver::new(fem_config);
         let mut last_solution: Option<crate::fem::StokesFlowSolution<f64>> = None;
+        let shear_geometries = problem
+            .mesh
+            .cells
+            .iter()
+            .map(|cell| prepare_cell_shear_geometry(cell, &problem.mesh, problem.n_corner_nodes))
+            .collect::<Result<Vec<_>>>()?;
         let mut anderson_accelerator = cfd_math::nonlinear_solver::AndersonAccelerator::<f64>::new(
             cfd_math::nonlinear_solver::AndersonConfig {
                 history_depth: 5,
@@ -625,10 +632,11 @@ where
             // α ramps from 0.5 (iter 0) to 1.0 (iter ≥ 3)
             let relax_alpha = (0.5 + (iter as f64) / 6.0).min(1.0);
 
-            for (i, cell) in problem.mesh.cells.iter().enumerate() {
+            for (i, shear_geometry) in shear_geometries.iter().enumerate() {
                 // Handle hex-to-tet averaging for shear rate
-                let shear_rate_f64 =
-                    self.calculate_cell_shear_rate_f64(cell, &problem.mesh, &updated_solution)?;
+                let shear_rate_f64 = shear_geometry.as_ref().map_or(0.0_f64, |geometry| {
+                    self.calculate_cell_shear_rate_f64(geometry, &updated_solution)
+                });
 
                 if shear_rate_f64 < shear_min_f64 {
                     shear_min_f64 = shear_rate_f64;

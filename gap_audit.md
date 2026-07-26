@@ -52,19 +52,19 @@ remaining baseline is not an Aequitas metric gap.
 This increment warm-starts cfd-2d momentum solves, preserves face-pressure CSR
 topology across iterations, rejects unrecoverable large pressure-solver
 failure instead of accepting an incomplete correction, fixes SIMPLEC/PIMPLE
-state and symmetry/slip boundary handling, and routes cfd-3d bifurcation
-iterations through the FEM Picard warm-start path. No additional Aequitas
-metric definition is required for CFDrs in this audit pass.
+state and symmetry/slip boundary handling, routes cfd-3d bifurcation iterations
+through the FEM Picard warm-start path, caches FEM and shear geometry, reuses
+AMG hierarchy/workspace state, and removes temporary sparse/GMRES hot-path
+allocations. cfd-math Nextest passes 357/357; GMRES-focused tests pass 21/21;
+SpMV-focused tests pass 7/7; and the 1 mm cfd-3d Venturi regression passes 1/1
+in 18.350 s. The exact 5 mm cfd-3d Venturi regression still times out at
+30.042 s, so the broad runtime item remains open. No additional Aequitas metric
+definition is required for CFDrs in this audit pass.
 
-The 2026-07-26 broad-gate retry is currently blocked before CFDrs source
-compilation by the live Leto provider worktree. Its untracked
-`leto-ops/src/application/diff/three_dimensional.rs` uses `.mul_add` on
-`T: FloatElement`, while the provider's generic fused operation is
-`NumericElement::scalar_fmadd`; the same peer worktree is still adding the
-finite-difference and SSOR modules. This is an upstream provider defect, not a
-CFDrs metric or runtime result. Re-run the unchanged 825-test gate after the
-Leto peer publishes a compiling provider head; no CFDrs compatibility shim is
-introduced.
+The earlier Leto `.mul_add` blocker is stale: the current CFDrs checks compile
+and execute through the local provider graph. The broad 825-test gate has not
+been rerun in this refresh; its unchanged budget and value-semantic assertions
+remain the acceptance oracle. No CFDrs compatibility shim is introduced.
 
 | ID | Evidence | Closure |
 |---|---|---|

@@ -32,6 +32,7 @@
 //! - Benzi, M., Golub, G.H. & Liesen, J. (2005). "Numerical solution of
 //!   saddle point problems." *Acta Numerica* 14:1–137.
 
+use crate::linear_solver::preconditioners::multigrid::AMGHierarchy;
 use crate::linear_solver::{
     AMGConfig, AlgebraicMultigrid, BiCGSTAB, BlockDiagonalPreconditioner, DirectSparseSolver,
     IncompleteLU, IterativeSolverConfig, GMRES,
@@ -71,6 +72,33 @@ pub struct LinearSolverChain<T: RealField + Copy + FloatElement + LetoRealScalar
     /// Default: 100.  Larger values reduce restart overhead but increase
     /// memory O(n·m); for saddle-point systems m ∈ [50, 200] is typical.
     krylov_restart: usize,
+}
+
+/// Reusable state for successive solves with the same sparse matrix pattern.
+///
+/// The state caches only AMG transfer operators. Matrix values are rebuilt for
+/// every solve, while exact CSR row and column arrays gate reuse across mesh or
+/// boundary-topology changes.
+pub struct LinearSolverState<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> {
+    amg: Option<CachedAmg<T>>,
+}
+
+struct CachedAmg<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> {
+    hierarchy: AMGHierarchy<T>,
+    row_ptr: Vec<usize>,
+    col_indices: Vec<usize>,
+}
+
+impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> Default for LinearSolverState<T> {
+    fn default() -> Self {
+        Self { amg: None }
+    }
+}
+
+impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> CachedAmg<T> {
+    fn matches(&self, matrix: &SparseMatrix<T>) -> bool {
+        self.row_ptr == matrix.row_ptr() && self.col_indices == matrix.col_indices()
+    }
 }
 
 impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverChain<T> {
@@ -261,6 +289,24 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
         n_velocity_dof: usize,
         initial_guess: Option<&Array1<T>>,
     ) -> Result<Array1<T>> {
+        let mut state = LinearSolverState::default();
+        self.solve_with_guess_state(matrix, rhs, n_velocity_dof, initial_guess, &mut state)
+    }
+
+    /// Solve with a warm start and reusable AMG state.
+    ///
+    /// `state` may be retained across Picard or continuation solves. AMG
+    /// transfer operators are reused only when the complete CSR sparsity
+    /// pattern matches; changing mesh connectivity or constrained topology
+    /// rebuilds the hierarchy before solving.
+    pub fn solve_with_guess_state(
+        &self,
+        matrix: &SparseMatrix<T>,
+        rhs: &Array1<T>,
+        n_velocity_dof: usize,
+        initial_guess: Option<&Array1<T>>,
+        state: &mut LinearSolverState<T>,
+    ) -> Result<Array1<T>> {
         let n_total_dof = rhs.shape()[0];
         let n_pressure_dof = n_total_dof.saturating_sub(n_velocity_dof);
         let initial_guess_vector = initial_guess.cloned();
@@ -296,20 +342,49 @@ impl<T: RealField + Copy + FloatElement + LetoRealScalar + Debug> LinearSolverCh
         let solver = GMRES::new(self.config, restart);
 
         // ── Tier 2: GMRES + Algebraic Multigrid (AMG) ─────────────────────────
-        match AlgebraicMultigrid::new(matrix, AMGConfig::default()) {
-            Ok(amg) => match solver.solve_preconditioned(matrix, rhs, &amg, &mut x) {
-                Ok(monitor) => {
-                    tracing::debug!(
-                        "LinearSolverChain(warm): GMRES+AMG converged in {} iters",
-                        monitor.iteration
+        let cached_hierarchy = state
+            .amg
+            .take()
+            .filter(|cached| cached.matches(matrix))
+            .map(|cached| cached.hierarchy);
+        let amg = match cached_hierarchy {
+            Some(hierarchy) => {
+                match AlgebraicMultigrid::with_hierarchy(matrix, AMGConfig::default(), hierarchy) {
+                    Ok(amg) => {
+                        tracing::debug!("LinearSolverChain(warm): reused AMG hierarchy");
+                        Ok(amg)
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                        "LinearSolverChain(warm): cached AMG hierarchy failed ({e}); rebuilding"
                     );
-                    return Ok(x);
+                        AlgebraicMultigrid::new(matrix, AMGConfig::default())
+                    }
                 }
-                Err(e) => {
-                    tracing::warn!("LinearSolverChain(warm): GMRES+AMG failed ({e})");
-                    reset(&mut x);
+            }
+            None => AlgebraicMultigrid::new(matrix, AMGConfig::default()),
+        };
+        match amg {
+            Ok(amg) => {
+                state.amg = Some(CachedAmg {
+                    hierarchy: amg.get_hierarchy(),
+                    row_ptr: matrix.row_ptr().to_vec(),
+                    col_indices: matrix.col_indices().to_vec(),
+                });
+                match solver.solve_preconditioned(matrix, rhs, &amg, &mut x) {
+                    Ok(monitor) => {
+                        tracing::debug!(
+                            "LinearSolverChain(warm): GMRES+AMG converged in {} iters",
+                            monitor.iteration
+                        );
+                        return Ok(x);
+                    }
+                    Err(e) => {
+                        tracing::warn!("LinearSolverChain(warm): GMRES+AMG failed ({e})");
+                        reset(&mut x);
+                    }
                 }
-            },
+            }
             Err(e) => {
                 tracing::debug!("LinearSolverChain(warm): AMG setup skipped/failed ({e})");
             }

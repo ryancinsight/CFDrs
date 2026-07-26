@@ -34,7 +34,7 @@ pub mod preconditioners;
 mod traits;
 
 pub use bicgstab::BiCGSTAB;
-pub use chain::LinearSolverChain;
+pub use chain::{LinearSolverChain, LinearSolverState};
 pub use config::IterativeSolverConfig;
 pub use conjugate_gradient::ConjugateGradient;
 pub use direct_solver::DirectSparseSolver;

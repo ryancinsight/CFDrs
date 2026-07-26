@@ -475,10 +475,18 @@ where
     T: RealField + FloatElement + Copy + LetoScalar,
 {
     fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> Result<()> {
+        validate_vector_len(
+            "block diagonal preconditioner input",
+            r,
+            self.n_velocity + self.n_pressure,
+        )?;
         validate_vector_len("block diagonal preconditioner output", z, vector_len(r))?;
-        let result = self.apply(r)?;
-        for idx in 0..vector_len(z) {
-            z[idx] = result[idx];
+        for idx in 0..self.n_velocity {
+            z[idx] = r[idx] * self.momentum_preconditioner.diag_inv[idx];
+        }
+        for idx in 0..self.n_pressure {
+            let pressure_idx = self.n_velocity + idx;
+            z[pressure_idx] = r[pressure_idx] * self.pressure_preconditioner.diag_inv[idx];
         }
         Ok(())
     }
