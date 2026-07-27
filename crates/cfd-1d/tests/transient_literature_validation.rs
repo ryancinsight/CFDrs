@@ -10,13 +10,27 @@
 //!
 //! These tests validate transient implementations against analytical expectations.
 
-use aequitas::systems::si::quantities::{HydraulicResistance, Pressure};
+use aequitas::systems::si::quantities::{
+    Dimensionless, HydraulicResistance, Pressure, Time, Volume,
+};
 use cfd_1d::domain::network::{Network, NetworkBuilder};
 use cfd_1d::solver::core::{
     DropletInjection, EdgeFlowEvent, InletCompositionEvent, MixtureComposition,
     PressureBoundaryEvent, TransientCompositionSimulator, TransientDropletSimulator,
 };
 use std::collections::HashMap;
+
+fn fraction(value: f64) -> Dimensionless<f64> {
+    Dimensionless::from_base(value)
+}
+
+fn time(value: f64) -> Time<f64> {
+    Time::from_base(value)
+}
+
+fn volume(value: f64) -> Volume<f64> {
+    Volume::from_base(value)
+}
 
 fn pure(fluid_id: i32) -> MixtureComposition<f64> {
     let mut map = HashMap::new();
@@ -155,10 +169,10 @@ fn droplet_advection_matches_velocity_relation_dx_equals_q_over_a_dt() {
     let injections = vec![DropletInjection {
         droplet_id: 99,
         fluid_id: 1,
-        volume: 1e-6,
-        injection_time: 0.0,
+        volume: volume(1e-6),
+        injection_time: time(0.0),
         channel_index: edge.index(),
-        relative_position: 0.1,
+        relative_position: fraction(0.1),
     }];
 
     let states = TransientDropletSimulator::simulate_with_flow_events(
@@ -178,7 +192,7 @@ fn droplet_advection_matches_velocity_relation_dx_equals_q_over_a_dt() {
 
     // area defaults to 1 and length defaults to 1 for this network setup:
     // dx = (Q/A)/L * dt = 0.5 * 0.2 = 0.1, so x = 0.1 + 0.1 = 0.2.
-    assert!((pos - 0.2).abs() < 1e-9);
+    assert!((pos.into_base() - 0.2).abs() < 1e-9);
 }
 
 #[test]

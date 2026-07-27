@@ -1,5 +1,6 @@
 use crate::scalar::Cfd1dScalar;
 use crate::solver::core::transient::composition::MixtureComposition;
+use aequitas::systems::si::quantities::{Dimensionless, Time, Volume};
 use eunomia::FloatElement;
 use std::collections::HashMap;
 
@@ -21,9 +22,9 @@ pub struct DropletSplitPolicy<T: Cfd1dScalar + Copy> {
     pub mode: SplitMode,
     /// Minimum secondary-flow fraction needed to trigger split in auto mode.
     /// Example: 0.2 means the non-dominant outgoing flow must be at least 20%.
-    pub min_secondary_flow_fraction: T,
+    pub min_secondary_flow_fraction: Dimensionless<T>,
     /// Minimum child droplet volume allowed after splitting.
-    pub min_child_volume: T,
+    pub min_child_volume: Volume<T>,
     /// Maximum number of outgoing branches to distribute into.
     pub max_split_branches: usize,
 }
@@ -32,8 +33,10 @@ impl<T: Cfd1dScalar + Copy + FloatElement> Default for DropletSplitPolicy<T> {
     fn default() -> Self {
         Self {
             mode: SplitMode::AutoFlowWeighted,
-            min_secondary_flow_fraction: <T as FloatElement>::from_f64(0.2),
-            min_child_volume: <T as FloatElement>::from_f64(1e-15),
+            min_secondary_flow_fraction: Dimensionless::from_base(<T as FloatElement>::from_f64(
+                0.2,
+            )),
+            min_child_volume: Volume::from_base(<T as FloatElement>::from_f64(1e-15)),
             max_split_branches: 2,
         }
     }
@@ -60,13 +63,13 @@ pub struct DropletInjection<T: Cfd1dScalar + Copy> {
     /// Carrier fluid id (for provenance).
     pub fluid_id: i32,
     /// Droplet volume \[m³].
-    pub volume: T,
+    pub volume: Volume<T>,
     /// Injection time.
-    pub injection_time: T,
+    pub injection_time: Time<T>,
     /// Injection edge index.
     pub channel_index: usize,
     /// Relative position in edge [0, 1].
-    pub relative_position: T,
+    pub relative_position: Dimensionless<T>,
 }
 
 /// Droplet boundary point on a channel.
@@ -75,7 +78,7 @@ pub struct DropletBoundary<T: Cfd1dScalar + Copy> {
     /// Channel index.
     pub channel_index: usize,
     /// Relative position in channel [0, 1].
-    pub relative_position: T,
+    pub relative_position: Dimensionless<T>,
 }
 
 /// Occupancy span for one channel segment [start, end].
@@ -84,9 +87,9 @@ pub struct ChannelOccupancy<T: Cfd1dScalar + Copy> {
     /// Channel index.
     pub channel_index: usize,
     /// Start of occupied interval in channel coordinates.
-    pub start: T,
+    pub start: Dimensionless<T>,
     /// End of occupied interval in channel coordinates.
-    pub end: T,
+    pub end: Dimensionless<T>,
 }
 
 /// Position of a droplet while in network.
@@ -95,7 +98,7 @@ pub struct DropletPosition<T: Cfd1dScalar + Copy> {
     /// Current edge index.
     pub channel_index: usize,
     /// Relative position in edge [0, 1].
-    pub relative_position: T,
+    pub relative_position: Dimensionless<T>,
 }
 
 /// Per-timepoint droplet snapshot.
@@ -126,7 +129,7 @@ pub struct DropletSnapshot<T: Cfd1dScalar + Copy> {
     /// Boundary points for finite-length tracking.
     pub boundaries: Vec<DropletBoundary<T>>,
     /// Total volume currently represented by this droplet \[m³].
-    pub total_volume: T,
+    pub total_volume: Volume<T>,
     /// Fluid id associated with droplet.
     pub fluid_id: i32,
     /// Optional local mixture sampled from composition pipeline.
@@ -155,9 +158,11 @@ impl<T: Cfd1dScalar + Copy> DropletSnapshot<T> {
     /// Validate that finite-length occupancy spans define the snapshot.
     #[must_use]
     pub fn has_consistent_finite_length_occupancy(&self) -> bool {
-        self.occupancy_spans
-            .iter()
-            .all(|span| span.start <= span.end && span.start >= T::zero() && span.end <= T::one())
+        self.occupancy_spans.iter().all(|span| {
+            span.start <= span.end
+                && span.start >= Dimensionless::from_base(T::zero())
+                && span.end <= Dimensionless::from_base(T::one())
+        })
     }
 }
 
@@ -165,7 +170,7 @@ impl<T: Cfd1dScalar + Copy> DropletSnapshot<T> {
 #[derive(Debug, Clone)]
 pub struct DropletTrackingState<T: Cfd1dScalar + Copy> {
     /// Simulation time.
-    pub time: T,
+    pub time: Time<T>,
     /// Droplet snapshots keyed by droplet id.
     pub droplets: HashMap<i32, DropletSnapshot<T>>,
 }
@@ -179,8 +184,8 @@ pub(crate) struct ActiveDroplet<T: Cfd1dScalar + Copy> {
 #[derive(Debug, Clone)]
 pub(crate) struct DropletBranch<T: Cfd1dScalar + Copy> {
     pub(crate) channel_index: usize,
-    pub(crate) center: T,
-    pub(crate) volume: T,
+    pub(crate) center: Dimensionless<T>,
+    pub(crate) volume: Volume<T>,
 }
 
 #[cfg(test)]
@@ -194,7 +199,7 @@ mod tests {
             position: None,
             occupancy_spans: spans,
             boundaries: Vec::new(),
-            total_volume: 0.0,
+            total_volume: Volume::from_base(0.0),
             fluid_id: 1,
             local_mixture: None,
         }
@@ -205,18 +210,18 @@ mod tests {
         let snapshot = snapshot_with_spans(vec![
             ChannelOccupancy {
                 channel_index: 3,
-                start: 0.10,
-                end: 0.30,
+                start: Dimensionless::from_base(0.10),
+                end: Dimensionless::from_base(0.30),
             },
             ChannelOccupancy {
                 channel_index: 5,
-                start: 0.00,
-                end: 0.20,
+                start: Dimensionless::from_base(0.00),
+                end: Dimensionless::from_base(0.20),
             },
             ChannelOccupancy {
                 channel_index: 3,
-                start: 0.35,
-                end: 0.60,
+                start: Dimensionless::from_base(0.35),
+                end: Dimensionless::from_base(0.60),
             },
         ]);
 
@@ -232,8 +237,8 @@ mod tests {
     fn inconsistent_span_interval_is_rejected_by_snapshot_contract() {
         let snapshot = snapshot_with_spans(vec![ChannelOccupancy {
             channel_index: 2,
-            start: 0.70,
-            end: 0.20,
+            start: Dimensionless::from_base(0.70),
+            end: Dimensionless::from_base(0.20),
         }]);
 
         assert!(!snapshot.has_consistent_finite_length_occupancy());

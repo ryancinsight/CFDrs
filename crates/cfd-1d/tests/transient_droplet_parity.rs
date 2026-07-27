@@ -1,4 +1,6 @@
-use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{
+    Dimensionless, Pressure, Time, Volume, VolumetricFlowRate,
+};
 use cfd_1d::domain::network::{Network, NetworkBuilder};
 use cfd_1d::solver::core::{
     CompositionState, DropletInjection, DropletSplitPolicy, DropletState, EdgeFlowEvent,
@@ -6,6 +8,18 @@ use cfd_1d::solver::core::{
     TransientCompositionSimulator, TransientDropletSimulator,
 };
 use std::collections::HashMap;
+
+fn fraction(value: f64) -> Dimensionless<f64> {
+    Dimensionless::from_base(value)
+}
+
+fn time(value: f64) -> Time<f64> {
+    Time::from_base(value)
+}
+
+fn volume(value: f64) -> Volume<f64> {
+    Volume::from_base(value)
+}
 
 fn pure(fluid_id: i32) -> MixtureComposition<f64> {
     let mut map = HashMap::new();
@@ -43,10 +57,10 @@ fn droplet_transitions_to_sink_with_channel_occupancy_tracking() {
     let injections = vec![DropletInjection {
         droplet_id: 7,
         fluid_id: 1,
-        volume: 1e-12,
-        injection_time: 0.2,
+        volume: volume(1e-12),
+        injection_time: time(0.2),
         channel_index: e0.index(),
-        relative_position: 0.1,
+        relative_position: fraction(0.1),
     }];
 
     let states =
@@ -88,10 +102,10 @@ fn droplet_transitions_to_trapped_when_no_outgoing_path() {
     let injections = vec![DropletInjection {
         droplet_id: 8,
         fluid_id: 1,
-        volume: 1e-12,
-        injection_time: 0.0,
+        volume: volume(1e-12),
+        injection_time: time(0.0),
         channel_index: e0.index(),
-        relative_position: 0.5,
+        relative_position: fraction(0.5),
     }];
 
     let states =
@@ -125,10 +139,10 @@ fn droplet_splits_flow_weighted_with_volume_conservation() {
     let injections = vec![DropletInjection {
         droplet_id: 11,
         fluid_id: 1,
-        volume: 0.3,
-        injection_time: 0.0,
+        volume: volume(0.3),
+        injection_time: time(0.0),
         channel_index: e0.index(),
-        relative_position: 0.2,
+        relative_position: fraction(0.2),
     }];
 
     let states =
@@ -139,7 +153,7 @@ fn droplet_splits_flow_weighted_with_volume_conservation() {
     assert_eq!(s2.state, DropletState::Network);
     assert!(s2.occupied_channels().contains(&e1.index()));
     assert!(s2.occupied_channels().contains(&e2.index()));
-    assert!((s2.total_volume - 0.3).abs() < 1e-9);
+    assert!((s2.total_volume.into_base() - 0.3).abs() < 1e-9);
 }
 
 #[test]
@@ -173,10 +187,10 @@ fn split_branches_merge_back_at_reconvergence() {
     let injections = vec![DropletInjection {
         droplet_id: 12,
         fluid_id: 1,
-        volume: 0.2,
-        injection_time: 0.0,
+        volume: volume(0.2),
+        injection_time: time(0.0),
         channel_index: e0.index(),
-        relative_position: 0.1,
+        relative_position: fraction(0.1),
     }];
 
     let states =
@@ -191,7 +205,7 @@ fn split_branches_merge_back_at_reconvergence() {
     assert_eq!(merged_state.state, DropletState::Network);
     assert_eq!(merged_state.occupied_channels().len(), 1);
     assert_eq!(merged_state.occupied_channels()[0], e5.index());
-    assert!((merged_state.total_volume - 0.2).abs() < 1e-9);
+    assert!((merged_state.total_volume.into_base() - 0.2).abs() < 1e-9);
 }
 
 #[test]
@@ -216,16 +230,16 @@ fn auto_policy_uses_no_split_for_dominant_branch_scenarios() {
     let injections = vec![DropletInjection {
         droplet_id: 21,
         fluid_id: 1,
-        volume: 0.3,
-        injection_time: 0.0,
+        volume: volume(0.3),
+        injection_time: time(0.0),
         channel_index: e0.index(),
-        relative_position: 0.2,
+        relative_position: fraction(0.2),
     }];
 
     let policy = DropletSplitPolicy {
         mode: SplitMode::AutoFlowWeighted,
-        min_secondary_flow_fraction: 0.2,
-        min_child_volume: 1e-15,
+        min_secondary_flow_fraction: fraction(0.2),
+        min_child_volume: volume(1e-15),
         max_split_branches: 2,
     };
 
@@ -241,7 +255,7 @@ fn auto_policy_uses_no_split_for_dominant_branch_scenarios() {
     assert_eq!(s2.state, DropletState::Network);
     assert_eq!(s2.occupied_channels().len(), 1);
     assert_eq!(s2.occupied_channels()[0], e1.index());
-    assert!((s2.total_volume - 0.3).abs() < 1e-9);
+    assert!((s2.total_volume.into_base() - 0.3).abs() < 1e-9);
 }
 
 #[test]
@@ -279,10 +293,10 @@ fn pressure_event_droplet_api_matches_manual_composition_pipeline() {
     let injections = vec![DropletInjection {
         droplet_id: 40,
         fluid_id: 1,
-        volume: 1e-3,
-        injection_time: 0.0,
+        volume: volume(1e-3),
+        injection_time: time(0.0),
         channel_index: e0.index(),
-        relative_position: 0.1,
+        relative_position: fraction(0.1),
     }];
 
     let states_api = TransientDropletSimulator::simulate_with_pressure_events(
@@ -310,12 +324,12 @@ fn pressure_event_droplet_api_matches_manual_composition_pipeline() {
 
     assert_eq!(states_api.len(), states_manual.len());
     for (api, manual) in states_api.iter().zip(states_manual.iter()) {
-        assert!((api.time - manual.time).abs() < 1e-12);
+        assert!((api.time.into_base() - manual.time.into_base()).abs() < 1e-12);
         let d_api = &api.droplets[&40];
         let d_manual = &manual.droplets[&40];
         assert_eq!(d_api.state, d_manual.state);
         assert_eq!(d_api.occupied_channels(), d_manual.occupied_channels());
-        assert!((d_api.total_volume - d_manual.total_volume).abs() < 1e-12);
+        assert!((d_api.total_volume.into_base() - d_manual.total_volume.into_base()).abs() < 1e-12);
     }
 }
 
@@ -341,10 +355,10 @@ fn higher_pressure_event_drives_faster_droplet_progress() {
     let injections = vec![DropletInjection {
         droplet_id: 41,
         fluid_id: 1,
-        volume: 1e-3,
-        injection_time: 0.0,
+        volume: volume(1e-3),
+        injection_time: time(0.0),
         channel_index: e0.index(),
-        relative_position: 0.1,
+        relative_position: fraction(0.1),
     }];
 
     let low_pressure_states = TransientDropletSimulator::simulate_with_pressure_events(
@@ -421,10 +435,10 @@ fn flow_event_droplet_api_matches_manual_composition_pipeline() {
     let injections = vec![DropletInjection {
         droplet_id: 50,
         fluid_id: 1,
-        volume: 1e-3,
-        injection_time: 0.0,
+        volume: volume(1e-3),
+        injection_time: time(0.0),
         channel_index: e0.index(),
-        relative_position: 0.1,
+        relative_position: fraction(0.1),
     }];
 
     let states_api = TransientDropletSimulator::simulate_with_flow_events(
@@ -452,12 +466,12 @@ fn flow_event_droplet_api_matches_manual_composition_pipeline() {
 
     assert_eq!(states_api.len(), states_manual.len());
     for (api, manual) in states_api.iter().zip(states_manual.iter()) {
-        assert!((api.time - manual.time).abs() < 1e-12);
+        assert!((api.time.into_base() - manual.time.into_base()).abs() < 1e-12);
         let d_api = &api.droplets[&50];
         let d_manual = &manual.droplets[&50];
         assert_eq!(d_api.state, d_manual.state);
         assert_eq!(d_api.occupied_channels(), d_manual.occupied_channels());
-        assert!((d_api.total_volume - d_manual.total_volume).abs() < 1e-12);
+        assert!((d_api.total_volume.into_base() - d_manual.total_volume.into_base()).abs() < 1e-12);
     }
 }
 
@@ -505,16 +519,16 @@ fn end_to_end_flow_event_policy_controls_branching_behavior() {
     let injections = vec![DropletInjection {
         droplet_id: 51,
         fluid_id: 1,
-        volume: 0.3,
-        injection_time: 0.0,
+        volume: volume(0.3),
+        injection_time: time(0.0),
         channel_index: e0.index(),
-        relative_position: 0.2,
+        relative_position: fraction(0.2),
     }];
 
     let policy = DropletSplitPolicy {
         mode: SplitMode::AutoFlowWeighted,
-        min_secondary_flow_fraction: 0.2,
-        min_child_volume: 1e-15,
+        min_secondary_flow_fraction: fraction(0.2),
+        min_child_volume: volume(1e-15),
         max_split_branches: 2,
     };
 
@@ -537,5 +551,5 @@ fn end_to_end_flow_event_policy_controls_branching_behavior() {
     assert_eq!(post_switch.state, DropletState::Network);
     assert!(post_switch.occupied_channels().contains(&e1.index()));
     assert!(post_switch.occupied_channels().contains(&e2.index()));
-    assert!((post_switch.total_volume - 0.3).abs() < 1e-9);
+    assert!((post_switch.total_volume.into_base() - 0.3).abs() < 1e-9);
 }

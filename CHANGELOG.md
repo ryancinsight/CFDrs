@@ -34,6 +34,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type transient droplet volume, time, normalized position,
+  occupancy, and split-policy metrics with Aequitas quantities. Composition
+  event/time contracts remain a separate transient audit item.
+
 - **Breaking**: Type cfd-1d node pressure, thermodynamic temperature, network
   volume, and pressure/temperature ranges with Aequitas quantities. Arbitrary
   metadata remains scalar because its physical dimension is unspecified.

@@ -1,16 +1,17 @@
 # CFDrs Work Checklist
 
-## Owner: Codex — CFDRS-AEQ-MET-19 transient droplet physical metrics [major] — in progress
+## Owner: Codex — CFDRS-AEQ-MET-19 transient droplet physical metrics [major] — source-verified 2026-07-27
 
 - [x] Confirm the live droplet public contracts expose volume, time, and
       normalized position as raw scalars; verify no peer edits overlap the
       transient droplet scope.
-- [ ] Type droplet volume/time/fraction fields with Aequitas and migrate all
+- [x] Type droplet volume/time/fraction fields with Aequitas and migrate all
       simulator, constructor, and test callers without a compatibility facade.
-- [ ] Add value-semantic volume/time/fraction regressions and run focused
-      cfd-1d gates; preserve peer-owned cfd-math and solver edits.
-- [ ] Synchronize the design note, gap audit, backlog, checklist, and changelog;
-      commit and push the verified slice.
+- [x] Add value-semantic volume/time/fraction regressions and run the cfd-1d
+      test-target check; preserve peer-owned cfd-math and solver edits.
+- [x] Synchronize the design note, gap audit, backlog, checklist, and changelog;
+      commit and push the source-verified slice. Focused Nextest remains
+      blocked by the peer cfd-math error-contract mismatch.
 
 ## Owner: Codex — CFDRS-AEQ-MET-18 typed node and network metadata metrics [major] — verified 2026-07-27
 

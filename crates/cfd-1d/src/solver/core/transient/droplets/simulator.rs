@@ -5,12 +5,12 @@ use super::types::{
 };
 use crate::domain::network::{Network, NodeType};
 use crate::scalar::Cfd1dScalar;
+use crate::solver::core::NetworkSolveScalar;
 use crate::solver::core::transient::composition::{
     CompositionState, EdgeFlowEvent, InletCompositionEvent, PressureBoundaryEvent,
     TransientCompositionSimulator,
 };
-use crate::solver::core::NetworkSolveScalar;
-use aequitas::systems::si::quantities::VolumetricFlowRate;
+use aequitas::systems::si::quantities::{Dimensionless, Time, Volume, VolumetricFlowRate};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::{FloatElement, NumericElement};
@@ -216,12 +216,19 @@ impl TransientDropletSimulator {
                     branches: Vec::new(),
                 });
 
-                if entry.state == DropletState::Injection && state.time >= injection.injection_time
+                if entry.state == DropletState::Injection
+                    && state.time >= injection.injection_time.into_base()
                 {
                     entry.state = DropletState::Network;
                     entry.branches = vec![DropletBranch {
                         channel_index: injection.channel_index,
-                        center: injection.relative_position.max(T::zero()).min(T::one()),
+                        center: Dimensionless::from_base(
+                            injection
+                                .relative_position
+                                .into_base()
+                                .max(T::zero())
+                                .min(T::one()),
+                        ),
                         volume: injection.volume,
                     }];
                 }
@@ -258,20 +265,20 @@ impl TransientDropletSimulator {
 
                 if droplet.state == DropletState::Network {
                     for branch in &droplet.branches {
-                        total_volume += branch.volume;
+                        total_volume += branch.volume.into_base();
                         let (start, end) = Self::branch_interval(&state_network, branch)?;
                         occupancy_spans.push(ChannelOccupancy {
                             channel_index: branch.channel_index,
-                            start,
-                            end,
+                            start: Dimensionless::from_base(start),
+                            end: Dimensionless::from_base(end),
                         });
                         boundaries.push(DropletBoundary {
                             channel_index: branch.channel_index,
-                            relative_position: start,
+                            relative_position: Dimensionless::from_base(start),
                         });
                         boundaries.push(DropletBoundary {
                             channel_index: branch.channel_index,
-                            relative_position: end,
+                            relative_position: Dimensionless::from_base(end),
                         });
                     }
                 }
@@ -283,7 +290,7 @@ impl TransientDropletSimulator {
                         position: representative_position,
                         occupancy_spans,
                         boundaries,
-                        total_volume,
+                        total_volume: Volume::from_base(total_volume),
                         fluid_id: injection.fluid_id,
                         local_mixture,
                     },
@@ -291,7 +298,7 @@ impl TransientDropletSimulator {
             }
 
             output.push(DropletTrackingState {
-                time: state.time,
+                time: Time::from_base(state.time),
                 droplets: snapshots,
             });
         }
@@ -306,11 +313,7 @@ impl TransientDropletSimulator {
         let one = T::one();
         network.properties.get(&edge).map_or(one, |p| {
             let area = p.area.into_base();
-            if area > T::zero() {
-                area
-            } else {
-                one
-            }
+            if area > T::zero() { area } else { one }
         })
     }
 
@@ -321,11 +324,7 @@ impl TransientDropletSimulator {
         let one = T::one();
         network.properties.get(&edge).map_or(one, |p| {
             let length = p.length.into_base();
-            if length > T::zero() {
-                length
-            } else {
-                one
-            }
+            if length > T::zero() { length } else { one }
         })
     }
 
@@ -394,10 +393,11 @@ impl TransientDropletSimulator {
             ));
         }
         let half = T::one() / (T::one() + T::one());
-        let frac_len = (branch.volume / (area * length)).max(T::zero());
+        let frac_len = (branch.volume.into_base() / (area * length)).max(T::zero());
         let half_len = frac_len * half;
-        let start = branch.center - half_len;
-        let end = branch.center + half_len;
+        let center = branch.center.into_base();
+        let start = center - half_len;
+        let end = center + half_len;
         Ok((start, end))
     }
 
@@ -439,10 +439,10 @@ impl TransientDropletSimulator {
             }
 
             let dp = dt * (q / area) / length;
-            let new_center = branch.center + dp;
+            let new_center = branch.center.into_base() + dp;
             let moved_branch = DropletBranch {
                 channel_index: branch.channel_index,
-                center: new_center,
+                center: Dimensionless::from_base(new_center),
                 volume: branch.volume,
             };
             let (start2, end) = Self::branch_interval_raw(network, &moved_branch)?;
@@ -451,7 +451,7 @@ impl TransientDropletSimulator {
                 || (q < T::zero() && start2 < T::zero() + eps);
 
             if !crosses_downstream {
-                branch.center = new_center.max(T::zero()).min(T::one());
+                branch.center = Dimensionless::from_base(new_center.max(T::zero()).min(T::one()));
                 out_branches.push(branch);
                 return Ok(());
             }
@@ -491,8 +491,8 @@ impl TransientDropletSimulator {
             // Flow-weighted split with exact volume conservation.
             for (next_edge, start_position, flow_mag) in selected {
                 let fraction = flow_mag / total_flow;
-                let child_volume = branch.volume * fraction;
-                if child_volume <= eps {
+                let child_volume = Volume::from_base(branch.volume.into_base() * fraction);
+                if child_volume.into_base() <= eps {
                     continue;
                 }
 
@@ -502,7 +502,7 @@ impl TransientDropletSimulator {
                     continue;
                 }
 
-                let frac_len = child_volume / (next_area * next_length);
+                let frac_len = child_volume.into_base() / (next_area * next_length);
                 let half = T::one() / (T::one() + T::one());
                 let half_len = frac_len * half;
                 let center = if start_position <= T::zero() + eps {
@@ -515,7 +515,7 @@ impl TransientDropletSimulator {
 
                 out_branches.push(DropletBranch {
                     channel_index: next_edge.index(),
-                    center,
+                    center: Dimensionless::from_base(center),
                     volume: child_volume,
                 });
             }
@@ -527,7 +527,7 @@ impl TransientDropletSimulator {
     }
 
     fn select_split_targets<T: Cfd1dScalar + Copy + FloatElement>(
-        branch_volume: T,
+        branch_volume: Volume<T>,
         mut outgoing: Vec<(EdgeIndex, T, T)>,
         split_policy: &DropletSplitPolicy<T>,
         eps: T,
@@ -554,14 +554,14 @@ impl TransientDropletSimulator {
                 if total <= eps {
                     return dominant_only;
                 }
-                let mut min_child = branch_volume;
+                let mut min_child = branch_volume.into_base();
                 for (_, _, flow_mag) in &outgoing {
-                    let child = branch_volume * (*flow_mag / total);
+                    let child = branch_volume.into_base() * (*flow_mag / total);
                     if child < min_child {
                         min_child = child;
                     }
                 }
-                if min_child < split_policy.min_child_volume {
+                if min_child < split_policy.min_child_volume.into_base() {
                     dominant_only
                 } else {
                     outgoing
@@ -577,18 +577,18 @@ impl TransientDropletSimulator {
                 let secondary = total - dominant;
                 let secondary_frac = secondary / total;
 
-                if secondary_frac < split_policy.min_secondary_flow_fraction {
+                if secondary_frac < split_policy.min_secondary_flow_fraction.into_base() {
                     return dominant_only;
                 }
 
-                let mut min_child = branch_volume;
+                let mut min_child = branch_volume.into_base();
                 for (_, _, flow_mag) in &outgoing {
-                    let child = branch_volume * (*flow_mag / total);
+                    let child = branch_volume.into_base() * (*flow_mag / total);
                     if child < min_child {
                         min_child = child;
                     }
                 }
-                if min_child < split_policy.min_child_volume {
+                if min_child < split_policy.min_child_volume.into_base() {
                     dominant_only
                 } else {
                     outgoing
@@ -624,16 +624,20 @@ impl TransientDropletSimulator {
                 let (n_start, n_end) = Self::branch_interval(network, &next)?;
                 if n_start <= c_end {
                     // Overlap -> merge by volume-weighted center.
-                    let v_total = current.volume + next.volume;
+                    let v_total = current.volume.into_base() + next.volume.into_base();
                     let center = if v_total > T::zero() {
-                        (current.center * current.volume + next.center * next.volume) / v_total
+                        (current.center.into_base() * current.volume.into_base()
+                            + next.center.into_base() * next.volume.into_base())
+                            / v_total
                     } else {
-                        current.center
+                        current.center.into_base()
                     };
                     current = DropletBranch {
                         channel_index: current.channel_index,
-                        center: center.max(c_start.min(n_start)).min(c_end.max(n_end)),
-                        volume: v_total,
+                        center: Dimensionless::from_base(
+                            center.max(c_start.min(n_start)).min(c_end.max(n_end)),
+                        ),
+                        volume: Volume::from_base(v_total),
                     };
                 } else {
                     merged.push(current);
