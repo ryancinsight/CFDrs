@@ -26,6 +26,22 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Materialize parent-atlas parity_artefacts/INDEX.md
+        # SUMMARY.md Appendix F (line 142) points at
+        # ../../../parity_artefacts/INDEX.md; on a default-checkout runner,
+        # those three `..` resolve to the parent of CFDrs, so the file lives
+        # at ../parity_artefacts/INDEX.md relative to $GITHUB_WORKSPACE.
+        run: |
+          set -euo pipefail
+          mkdir -p ../parity_artefacts
+          curl --fail --location --silent --show-error \
+            --max-time 60 --retry 3 --retry-delay 5 \
+            "https://raw.githubusercontent.com/ryancinsight/atlas/51d8600cf3077e6ad6aafa5603b3289444b1719f/repos/parity_artefacts/INDEX.md" \
+            --output ../parity_artefacts/INDEX.md
+          printf '%s  ../parity_artefacts/INDEX.md\n' \
+            18b7d9def0625f312776e15b2f70b681f38cbcb8838c9a9fd0b6ffb38af50a5a \
+            | sha256sum -c
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
