@@ -34,6 +34,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type cfd-1d node pressure, thermodynamic temperature, network
+  volume, and pressure/temperature ranges with Aequitas quantities. Arbitrary
+  metadata remains scalar because its physical dimension is unspecified.
+
 - Reduced repeated solver-path overhead in cfd-math and cfd-3d: FEM and shear
   geometry, AMG hierarchy/workspace state, Atlas SpMV output storage, and GMRES
   Krylov basis layout are now reused without changing solver tolerances or test
