@@ -6,6 +6,7 @@ The public transient-composition control boundary carries physical and
 dimensionless metrics as Aequitas quantities:
 
 - event activation times and `SimulationTimeConfig` intervals use `Time`;
+- requested, calculated, and returned timepoint vectors use `Vec<Time>`;
 - inlet hematocrit uses `Dimensionless`;
 - edge-flow overrides and composition snapshots use
   `VolumetricFlowRate`;
@@ -14,7 +15,9 @@ dimensionless metrics as Aequitas quantities:
 
 The simulator converts quantities to its scalar representation only when it
 sorts or compares timepoints, applies pressure and flow to numerical network
-solvers, or evaluates the CFL substep formula. Mixture fraction maps remain
+solvers, or evaluates the CFL substep formula. Private transport kernels may
+therefore retain scalar time vectors, but no public timepoint contract does.
+Mixture fraction maps remain
 scalar in this increment because their dimensionless storage contract is a
 separate public representation change; solver residuals remain scalar because
 their units depend on the assembled and scaled equation.
@@ -30,7 +33,7 @@ construction path instead of moving callers to the Aequitas contract.
 ## Verification
 
 - `cargo check -p cfd-1d --tests --offline` passes after the public contract
-  migration.
+  migration, including the typed timepoint vector boundary.
 - Existing transient droplet and literature lanes remain value-semantic
   regression coverage for the shared event and snapshot boundary.
 - A dedicated typed-control regression covers time, flow, pressure,

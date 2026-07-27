@@ -26,6 +26,10 @@ fn time(value: f64) -> Time<f64> {
     Time::from_base(value)
 }
 
+fn timepoints(values: &[f64]) -> Vec<Time<f64>> {
+    values.iter().copied().map(time).collect()
+}
+
 fn flow(value: f64) -> VolumetricFlowRate<f64> {
     VolumetricFlowRate::from_base(value)
 }
@@ -67,9 +71,12 @@ fn switches_inlet_mixture_over_time() {
         },
     ];
 
-    let states =
-        TransientCompositionSimulator::simulate(&network, events, vec![0.0, 1.0, 2.0, 3.0])
-            .expect("simulate");
+    let states = TransientCompositionSimulator::simulate(
+        &network,
+        events,
+        timepoints(&[0.0, 1.0, 2.0, 3.0]),
+    )
+    .expect("simulate");
 
     assert_eq!(states.len(), 4);
 
@@ -112,8 +119,8 @@ fn mixes_two_inlet_streams_at_junction() {
         },
     ];
 
-    let states =
-        TransientCompositionSimulator::simulate(&network, events, vec![0.0]).expect("simulate");
+    let states = TransientCompositionSimulator::simulate(&network, events, timepoints(&[0.0]))
+        .expect("simulate");
     let out_mix = states[0]
         .edge_mixtures
         .get(&e3.index())
@@ -132,10 +139,10 @@ fn timing_config_generates_expected_result_timepoints() {
     let points = config.result_timepoints().expect("result points");
 
     assert_eq!(points.len(), 4);
-    assert!((points[0] - 0.0).abs() < 1e-12);
-    assert!((points[1] - 0.4).abs() < 1e-12);
-    assert!((points[2] - 0.8).abs() < 1e-12);
-    assert!((points[3] - 1.0).abs() < 1e-12);
+    assert!((points[0].into_base() - 0.0).abs() < 1e-12);
+    assert!((points[1].into_base() - 0.4).abs() < 1e-12);
+    assert!((points[2].into_base() - 0.8).abs() < 1e-12);
+    assert!((points[3].into_base() - 1.0).abs() < 1e-12);
 }
 
 #[test]
@@ -235,7 +242,7 @@ fn duplicate_requested_timepoints_are_sampled_consistently() {
     let states = TransientCompositionSimulator::simulate_blood_hematocrit_with_edge_transport(
         &network,
         events,
-        vec![0.0, 0.5, 0.5, 1.0],
+        timepoints(&[0.0, 0.5, 0.5, 1.0]),
     )
     .expect("simulate duplicate timepoints");
 
@@ -280,8 +287,8 @@ fn edge_average_concentrations_query_matches_snapshot_mixture() {
         },
     ];
 
-    let states =
-        TransientCompositionSimulator::simulate(&network, events, vec![0.0]).expect("simulate");
+    let states = TransientCompositionSimulator::simulate(&network, events, timepoints(&[0.0]))
+        .expect("simulate");
     let avg = states[0]
         .average_fluid_concentrations_in_edge(e3.index())
         .expect("average concentrations");
@@ -308,8 +315,8 @@ fn edge_average_concentrations_query_returns_none_for_missing_edge() {
         mixture: mixture(&[(1, 1.0)]),
     }];
 
-    let states =
-        TransientCompositionSimulator::simulate(&network, events, vec![0.0]).expect("simulate");
+    let states = TransientCompositionSimulator::simulate(&network, events, timepoints(&[0.0]))
+        .expect("simulate");
     assert!(states[0]
         .average_fluid_concentrations_in_edge(usize::MAX)
         .is_none());
@@ -368,7 +375,7 @@ fn scheduled_flow_events_update_mixture_distribution_over_time() {
     let states = TransientCompositionSimulator::simulate_with_flow_events(
         &network,
         composition_events,
-        vec![0.0, 1.0],
+        timepoints(&[0.0, 1.0]),
         flow_events,
     )
     .expect("simulate");
@@ -443,7 +450,7 @@ fn scheduled_pressure_events_resolve_flows_and_update_mixture_distribution() {
     let states = TransientCompositionSimulator::simulate_with_pressure_events(
         &network,
         composition_events,
-        vec![0.0, 1.0],
+        timepoints(&[0.0, 1.0]),
         pressure_events,
     )
     .expect("simulate");
@@ -489,7 +496,7 @@ fn blood_hematocrit_switches_over_time() {
     let states = TransientCompositionSimulator::simulate_blood_hematocrit(
         &network,
         events,
-        vec![0.0, 1.0, 2.0, 3.0],
+        timepoints(&[0.0, 1.0, 2.0, 3.0]),
     )
     .expect("simulate blood hematocrit");
 
@@ -529,9 +536,12 @@ fn blood_hematocrit_mixes_two_inlets_at_junction() {
         },
     ];
 
-    let states =
-        TransientCompositionSimulator::simulate_blood_hematocrit(&network, events, vec![0.0])
-            .expect("simulate blood hematocrit");
+    let states = TransientCompositionSimulator::simulate_blood_hematocrit(
+        &network,
+        events,
+        timepoints(&[0.0]),
+    )
+    .expect("simulate blood hematocrit");
     let out_hct = states[0]
         .edge_hematocrit(e3.index())
         .expect("outlet hematocrit");
@@ -595,7 +605,7 @@ fn pressure_event_blood_hematocrit_tracks_flow_redistribution() {
     let states = TransientCompositionSimulator::simulate_blood_hematocrit_with_pressure_events(
         &network,
         hematocrit_events,
-        vec![0.0, 1.0],
+        timepoints(&[0.0, 1.0]),
         pressure_events,
     )
     .expect("simulate blood hematocrit");
@@ -689,7 +699,7 @@ fn coupled_pressure_event_blood_hematocrit_feeds_back_on_flow_split() {
     let uncoupled = TransientCompositionSimulator::simulate_blood_hematocrit_with_pressure_events(
         &network,
         hematocrit_events.clone(),
-        vec![0.0],
+        timepoints(&[0.0]),
         pressure_events.clone(),
     )
     .expect("uncoupled blood simulation");
@@ -697,7 +707,7 @@ fn coupled_pressure_event_blood_hematocrit_feeds_back_on_flow_split() {
         TransientCompositionSimulator::simulate_blood_hematocrit_with_coupled_pressure_events(
             &network,
             hematocrit_events,
-            vec![0.0],
+            timepoints(&[0.0]),
             pressure_events,
         )
         .expect("coupled blood simulation");
@@ -789,7 +799,7 @@ fn blood_edge_transport_relaxes_single_channel_hematocrit_front() {
     let states = TransientCompositionSimulator::simulate_blood_hematocrit_with_edge_transport(
         &network,
         events,
-        vec![0.0, 0.5, 1.0, 2.0],
+        timepoints(&[0.0, 0.5, 1.0, 2.0]),
     )
     .expect("simulate transported blood hematocrit");
 
@@ -877,7 +887,7 @@ fn blood_edge_transport_relaxes_mixed_outlet_hematocrit() {
     let states = TransientCompositionSimulator::simulate_blood_hematocrit_with_edge_transport(
         &network,
         events,
-        vec![0.0, 0.5, 1.0],
+        timepoints(&[0.0, 0.5, 1.0]),
     )
     .expect("simulate transported mixed blood hematocrit");
 
@@ -972,7 +982,7 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
         TransientCompositionSimulator::simulate_blood_hematocrit_with_pressure_events(
             &network,
             hematocrit_events.clone(),
-            vec![0.0, 1.0, 2.0],
+            timepoints(&[0.0, 1.0, 2.0]),
             pressure_events.clone(),
         )
         .expect("simulate instantaneous pressure-event blood transport");
@@ -980,7 +990,7 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
         TransientCompositionSimulator::simulate_blood_hematocrit_with_pressure_events_and_edge_transport(
             &network,
             hematocrit_events,
-            vec![0.0, 1.0, 2.0],
+            timepoints(&[0.0, 1.0, 2.0]),
             pressure_events,
         )
         .expect("simulate pressure-event edge transport");
@@ -1058,7 +1068,7 @@ fn blood_segmented_edge_transport_advects_front_one_cell_per_step() {
                 node_index: inlet.index(),
                 hematocrit: fraction(0.45),
             }],
-            vec![0.0, 0.25, 0.50, 0.75, 1.0],
+            timepoints(&[0.0, 0.25, 0.50, 0.75, 1.0]),
             segmented_transport_config(),
         )
         .expect("simulate segmented blood transport");
@@ -1138,14 +1148,14 @@ fn blood_segmented_edge_transport_delays_mixed_outlet_more_than_single_volume_mo
     let lumped = TransientCompositionSimulator::simulate_blood_hematocrit_with_edge_transport(
         &network,
         events.clone(),
-        vec![0.0, 0.25, 0.50, 0.75, 1.0],
+        timepoints(&[0.0, 0.25, 0.50, 0.75, 1.0]),
     )
     .expect("simulate lumped edge transport");
     let segmented =
         TransientCompositionSimulator::simulate_blood_hematocrit_with_segmented_edge_transport(
             &network,
             events,
-            vec![0.0, 0.25, 0.50, 0.75, 1.0],
+            timepoints(&[0.0, 0.25, 0.50, 0.75, 1.0]),
             segmented_transport_config(),
         )
         .expect("simulate segmented edge transport");
@@ -1220,7 +1230,7 @@ fn blood_segmented_edge_transport_applies_pries_split_at_bifurcation() {
                 node_index: inlet.index(),
                 hematocrit: fraction(0.45),
             }],
-            vec![0.0, 0.25],
+            timepoints(&[0.0, 0.25]),
             BloodEdgeTransportConfig::new(1, fraction(1.0)),
         )
         .expect("simulate bifurcation segmented transport");
@@ -1318,7 +1328,7 @@ fn coupled_pressure_event_segmented_blood_transport_feeds_back_on_resistance_upd
         simulate_blood_hematocrit_with_coupled_pressure_events_and_segmented_edge_transport(
             &network,
             hematocrit_events,
-            vec![0.0, 1.0],
+        timepoints(&[0.0, 1.0]),
             pressure_events,
             segmented_transport_config(),
         )

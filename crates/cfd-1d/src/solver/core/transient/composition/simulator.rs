@@ -135,21 +135,26 @@ impl<T: Cfd1dScalar + Copy + FloatElement> SimulationTimeConfig<T> {
     }
 
     /// Generate output snapshot timepoints in `[0, duration]`.
-    pub fn result_timepoints(&self) -> Result<Vec<T>> {
+    pub fn result_timepoints(&self) -> Result<Vec<Time<T>>> {
         self.validate()?;
-        Ok(Self::uniform_timepoints(
-            self.duration.into_base(),
-            self.result_time_step.into_base(),
-        ))
+        Ok(
+            Self::uniform_timepoints(self.duration.into_base(), self.result_time_step.into_base())
+                .into_iter()
+                .map(Time::from_base)
+                .collect(),
+        )
     }
 
     /// Generate internal calculation timepoints in `[0, duration]`.
-    pub fn calculation_timepoints(&self) -> Result<Vec<T>> {
+    pub fn calculation_timepoints(&self) -> Result<Vec<Time<T>>> {
         self.validate()?;
         Ok(Self::uniform_timepoints(
             self.duration.into_base(),
             self.calculation_time_step.into_base(),
-        ))
+        )
+        .into_iter()
+        .map(Time::from_base)
+        .collect())
     }
 
     fn uniform_timepoints(duration: T, dt: T) -> Vec<T> {
@@ -309,6 +314,14 @@ impl TransientCompositionSimulator {
             .collect()
     }
 
+    fn base_timepoints<T: Cfd1dScalar + Copy>(timepoints: Vec<Time<T>>) -> Vec<T> {
+        timepoints.into_iter().map(Time::into_base).collect()
+    }
+
+    fn typed_timepoints<T: Cfd1dScalar + Copy>(timepoints: Vec<T>) -> Vec<Time<T>> {
+        timepoints.into_iter().map(Time::from_base).collect()
+    }
+
     /// Simulate transported blood hematocrit using canonical RBC/plasma mixture keys.
     pub fn simulate_blood_hematocrit<
         T: Cfd1dScalar + Copy + FloatElement,
@@ -316,7 +329,7 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
         Self::simulate(
             network,
@@ -332,7 +345,7 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
         Self::simulate_blood_hematocrit_with_edge_transport(network, events, timepoints)
     }
@@ -344,12 +357,12 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
         Self::simulate_blood_mixture_with_flow_events_and_edge_transport(
             network,
             Self::hematocrit_events_to_mixture_events(events)?,
-            timepoints,
+            Self::base_timepoints(timepoints),
             Vec::new(),
         )
     }
@@ -361,14 +374,14 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         config: BloodEdgeTransportConfig<T>,
     ) -> Result<Vec<CompositionState<T>>> {
         config.validate()?;
         Self::simulate_blood_mixture_with_flow_events_and_segmented_edge_transport(
             network,
             Self::hematocrit_events_to_mixture_events(events)?,
-            timepoints,
+            Self::base_timepoints(timepoints),
             Vec::new(),
             config,
         )
@@ -381,7 +394,7 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         flow_events: Vec<EdgeFlowEvent<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
         Self::simulate_with_flow_events(
@@ -399,7 +412,7 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         flow_events: Vec<EdgeFlowEvent<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
         Self::simulate_blood_hematocrit_with_flow_events_and_edge_transport(
@@ -417,13 +430,13 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         flow_events: Vec<EdgeFlowEvent<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
         Self::simulate_blood_mixture_with_flow_events_and_edge_transport(
             network,
             Self::hematocrit_events_to_mixture_events(events)?,
-            timepoints,
+            Self::base_timepoints(timepoints),
             flow_events,
         )
     }
@@ -435,7 +448,7 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         flow_events: Vec<EdgeFlowEvent<T>>,
         config: BloodEdgeTransportConfig<T>,
     ) -> Result<Vec<CompositionState<T>>> {
@@ -443,7 +456,7 @@ impl TransientCompositionSimulator {
         Self::simulate_blood_mixture_with_flow_events_and_segmented_edge_transport(
             network,
             Self::hematocrit_events_to_mixture_events(events)?,
-            timepoints,
+            Self::base_timepoints(timepoints),
             flow_events,
             config,
         )
@@ -456,7 +469,7 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         pressure_events: Vec<PressureBoundaryEvent<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
         Self::simulate_with_pressure_events(
@@ -474,13 +487,13 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         pressure_events: Vec<PressureBoundaryEvent<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
         Self::simulate_blood_mixture_with_pressure_events_and_edge_transport(
             network,
             Self::hematocrit_events_to_mixture_events(events)?,
-            timepoints,
+            Self::base_timepoints(timepoints),
             pressure_events,
         )
     }
@@ -492,7 +505,7 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         pressure_events: Vec<PressureBoundaryEvent<T>>,
         config: BloodEdgeTransportConfig<T>,
     ) -> Result<Vec<CompositionState<T>>> {
@@ -500,7 +513,7 @@ impl TransientCompositionSimulator {
         Self::simulate_blood_mixture_with_pressure_events_and_segmented_edge_transport(
             network,
             Self::hematocrit_events_to_mixture_events(events)?,
-            timepoints,
+            Self::base_timepoints(timepoints),
             pressure_events,
             config,
         )
@@ -528,13 +541,13 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         pressure_events: Vec<PressureBoundaryEvent<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
         Self::simulate_blood_mixture_with_coupled_pressure_events(
             network,
             Self::hematocrit_events_to_mixture_events(events)?,
-            timepoints,
+            Self::base_timepoints(timepoints),
             pressure_events,
         )
     }
@@ -546,13 +559,13 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         pressure_events: Vec<PressureBoundaryEvent<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
         Self::simulate_blood_mixture_with_coupled_pressure_events_and_edge_transport(
             network,
             Self::hematocrit_events_to_mixture_events(events)?,
-            timepoints,
+            Self::base_timepoints(timepoints),
             pressure_events,
         )
     }
@@ -564,7 +577,7 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         events: Vec<InletHematocritEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         pressure_events: Vec<PressureBoundaryEvent<T>>,
         config: BloodEdgeTransportConfig<T>,
     ) -> Result<Vec<CompositionState<T>>> {
@@ -572,7 +585,7 @@ impl TransientCompositionSimulator {
         Self::simulate_blood_mixture_with_coupled_pressure_events_and_segmented_edge_transport(
             network,
             Self::hematocrit_events_to_mixture_events(events)?,
-            timepoints,
+            Self::base_timepoints(timepoints),
             pressure_events,
             config,
         )
@@ -616,8 +629,8 @@ impl TransientCompositionSimulator {
         timing: SimulationTimeConfig<T>,
     ) -> Result<Vec<CompositionState<T>>> {
         let result_timepoints = timing.result_timepoints()?;
-        let mut internal_timepoints = result_timepoints.clone();
-        internal_timepoints.extend(timing.calculation_timepoints()?);
+        let mut internal_timepoints = Self::base_timepoints(result_timepoints.clone());
+        internal_timepoints.extend(Self::base_timepoints(timing.calculation_timepoints()?));
         for event in &events {
             if event.time.into_base() >= T::zero()
                 && event.time.into_base() <= timing.duration.into_base()
@@ -630,9 +643,13 @@ impl TransientCompositionSimulator {
         let states = Self::simulate_blood_hematocrit_with_edge_transport(
             network,
             events,
-            merged_timepoints,
+            Self::typed_timepoints(merged_timepoints),
         )?;
-        Self::sample_states_at_timepoints(states, result_timepoints, tolerance)
+        Self::sample_states_at_timepoints(
+            states,
+            Self::base_timepoints(result_timepoints),
+            tolerance,
+        )
     }
 
     /// Simulate blood hematocrit on MMFT-style timing controls with segmented axial advection.
@@ -647,8 +664,8 @@ impl TransientCompositionSimulator {
     ) -> Result<Vec<CompositionState<T>>> {
         config.validate()?;
         let result_timepoints = timing.result_timepoints()?;
-        let mut internal_timepoints = result_timepoints.clone();
-        internal_timepoints.extend(timing.calculation_timepoints()?);
+        let mut internal_timepoints = Self::base_timepoints(result_timepoints.clone());
+        internal_timepoints.extend(Self::base_timepoints(timing.calculation_timepoints()?));
         for event in &events {
             if event.time.into_base() >= T::zero()
                 && event.time.into_base() <= timing.duration.into_base()
@@ -661,10 +678,14 @@ impl TransientCompositionSimulator {
         let states = Self::simulate_blood_hematocrit_with_segmented_edge_transport(
             network,
             events,
-            merged_timepoints,
+            Self::typed_timepoints(merged_timepoints),
             config,
         )?;
-        Self::sample_states_at_timepoints(states, result_timepoints, tolerance)
+        Self::sample_states_at_timepoints(
+            states,
+            Self::base_timepoints(result_timepoints),
+            tolerance,
+        )
     }
 
     fn simulate_blood_mixture_with_coupled_pressure_events<
@@ -1748,8 +1769,8 @@ impl TransientCompositionSimulator {
         let mut all_timepoints = Vec::with_capacity(
             result_timepoints.len() + calculation_timepoints.len() + events.len(),
         );
-        all_timepoints.extend(result_timepoints.iter().copied());
-        all_timepoints.extend(calculation_timepoints);
+        all_timepoints.extend(Self::base_timepoints(result_timepoints.clone()));
+        all_timepoints.extend(Self::base_timepoints(calculation_timepoints));
 
         for event in &events {
             if event.time.into_base() >= T::zero()
@@ -1761,20 +1782,24 @@ impl TransientCompositionSimulator {
 
         let tolerance = scalar::<T>(1e-12);
         let merged_timepoints = Self::sort_unique_timepoints(all_timepoints, tolerance);
-        let all_states = Self::simulate(network, events, merged_timepoints)?;
-        Self::sample_states_at_timepoints(all_states, result_timepoints, tolerance).map_err(
-            |source| Error::WithContext {
-                context: "Failed to sample one or more configured result timepoints".to_string(),
-                source: Box::new(source),
-            },
+        let all_states =
+            Self::simulate(network, events, Self::typed_timepoints(merged_timepoints))?;
+        Self::sample_states_at_timepoints(
+            all_states,
+            Self::base_timepoints(result_timepoints),
+            tolerance,
         )
+        .map_err(|source| Error::WithContext {
+            context: "Failed to sample one or more configured result timepoints".to_string(),
+            source: Box::new(source),
+        })
     }
 
     /// Simulate composition over the provided timepoints using the network flow field.
     pub fn simulate<T: Cfd1dScalar + Copy + FloatElement, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         events: Vec<InletCompositionEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
         Self::simulate_with_flow_events(network, events, timepoints, Vec::new())
     }
@@ -1786,9 +1811,10 @@ impl TransientCompositionSimulator {
     >(
         network: &Network<T, F>,
         mut events: Vec<InletCompositionEvent<T>>,
-        mut timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         mut flow_events: Vec<EdgeFlowEvent<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
+        let mut timepoints = Self::base_timepoints(timepoints);
         if timepoints.is_empty() {
             return Err(Error::InvalidInput(
                 "Transient composition simulation requires at least one timepoint".to_string(),
@@ -1862,9 +1888,10 @@ impl TransientCompositionSimulator {
     pub fn simulate_with_pressure_events<T: NetworkSolveScalar, F: FluidTrait<T> + Clone>(
         network: &Network<T, F>,
         mut composition_events: Vec<InletCompositionEvent<T>>,
-        mut timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         mut pressure_events: Vec<PressureBoundaryEvent<T>>,
     ) -> Result<Vec<CompositionState<T>>> {
+        let mut timepoints = Self::base_timepoints(timepoints);
         if timepoints.is_empty() {
             return Err(Error::InvalidInput(
                 "Transient composition simulation requires at least one timepoint".to_string(),

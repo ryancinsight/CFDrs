@@ -34,6 +34,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type transient composition and droplet requested, calculated,
+  and returned timepoint vectors as `Vec<Time<T>>`; scalar time vectors remain
+  private to sorting and solver boundaries.
+
 - **Breaking**: Type transient composition event time, hematocrit, flow,
   pressure, CFL, and snapshot time/flow contracts with Aequitas. Mixture
   fraction storage remains a separate dimensionless-representation item.

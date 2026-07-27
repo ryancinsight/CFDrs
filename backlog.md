@@ -32,7 +32,7 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-21 [major] - Type transient composition timepoint vectors
-  (IN PROGRESS; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
+  (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
   transient composition public timepoint arguments/results, in-tree callers,
   tests, design note, and synchronized PM artifacts).** The composition
   event and timing-control contracts now use Aequitas `Time`, but public
@@ -42,6 +42,9 @@
   Mixture fraction storage and equation-dependent residual norms are
   non-goals. Acceptance is a public-signature residue audit, value-semantic
   timepoint regressions, focused cfd-1d checks, and no compatibility facade.
+  The test-target check passes; package Nextest passes 736/736 with 3 skips;
+  warning-denied all-target Clippy passes; and the transient composition,
+  droplet, and literature tests remain included in that package gate.
 
 - **CFDRS-AEQ-MET-20 [major] - Type transient composition control metrics
   (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`

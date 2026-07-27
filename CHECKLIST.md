@@ -1,17 +1,21 @@
 # CFDrs Work Checklist
 
-## Owner: Codex — CFDRS-AEQ-MET-21 transient composition timepoint vectors [major] — in progress 2026-07-27
+## Owner: Codex — CFDRS-AEQ-MET-21 transient composition timepoint vectors [major] — verified 2026-07-27
 
-- [ ] Confirm every public transient composition timepoint argument and
+- [x] Confirm every public transient composition timepoint argument and
       accessor still uses `Vec<T>`; separate internal scalar solver vectors
       from public physical time values.
-- [ ] Type public requested, calculated, and returned timepoint vectors as
+- [x] Type public requested, calculated, and returned timepoint vectors as
       `Vec<Time<T>>`; migrate all in-tree callers without a compatibility
       facade and keep scalar extraction at sorting/tolerance/solver kernels.
-- [ ] Add value-semantic timepoint regressions and run focused cfd-1d gates.
-- [ ] Synchronize the design note, gap audit, backlog, checklist, and
-      changelog; commit and push the verified slice. Mixture fraction storage
-      remains a separate dimensionless representation item.
+- [x] Add value-semantic timepoint regressions and run focused cfd-1d gates.
+      The test-target check passes; package Nextest passes 736/736 with 3
+      skips; warning-denied all-target Clippy passes; and the transient
+      composition, droplet, and literature tests remain included in that
+      package gate.
+- [x] Synchronize the design note, gap audit, backlog, checklist, and
+      changelog. Mixture fraction storage remains a separate dimensionless
+      representation item.
 
 ## Owner: Codex — CFDRS-AEQ-MET-19 transient droplet physical metrics [major] — verified 2026-07-27
 

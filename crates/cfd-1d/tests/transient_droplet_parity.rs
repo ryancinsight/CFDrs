@@ -17,6 +17,10 @@ fn time(value: f64) -> Time<f64> {
     Time::from_base(value)
 }
 
+fn typed_timepoints(values: &[f64]) -> Vec<Time<f64>> {
+    values.iter().copied().map(time).collect()
+}
+
 fn flow(value: f64) -> VolumetricFlowRate<f64> {
     VolumetricFlowRate::from_base(value)
 }
@@ -45,7 +49,8 @@ fn composition_over_times(
         node_index: inlet_node,
         mixture: pure(1),
     }];
-    TransientCompositionSimulator::simulate(network, events, times).expect("composition")
+    TransientCompositionSimulator::simulate(network, events, times.into_iter().map(time).collect())
+        .expect("composition")
 }
 
 #[test]
@@ -297,7 +302,7 @@ fn pressure_event_droplet_api_matches_manual_composition_pipeline() {
         },
     ];
 
-    let timepoints = vec![0.0, 0.2, 0.6];
+    let timepoints = typed_timepoints(&[0.0, 0.2, 0.6]);
     let injections = vec![DropletInjection {
         droplet_id: 40,
         fluid_id: 1,
@@ -358,7 +363,7 @@ fn higher_pressure_event_drives_faster_droplet_progress() {
         node_index: inlet.index(),
         mixture: pure(1),
     }];
-    let timepoints = vec![0.0, 0.2];
+    let timepoints = typed_timepoints(&[0.0, 0.2]);
 
     let injections = vec![DropletInjection {
         droplet_id: 41,
@@ -438,7 +443,7 @@ fn flow_event_droplet_api_matches_manual_composition_pipeline() {
             flow_rate: flow(2.0),
         },
     ];
-    let timepoints = vec![0.0, 0.2, 0.6];
+    let timepoints = typed_timepoints(&[0.0, 0.2, 0.6]);
 
     let injections = vec![DropletInjection {
         droplet_id: 50,
@@ -544,7 +549,7 @@ fn end_to_end_flow_event_policy_controls_branching_behavior() {
         &network,
         injections,
         composition_events,
-        vec![0.0, 0.2, 0.6],
+        typed_timepoints(&[0.0, 0.2, 0.6]),
         flow_events,
         policy,
     )

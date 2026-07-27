@@ -58,7 +58,7 @@ impl TransientDropletSimulator {
         network: &Network<T, F>,
         injections: Vec<DropletInjection<T>>,
         composition_events: Vec<InletCompositionEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         flow_events: Vec<EdgeFlowEvent<T>>,
     ) -> Result<Vec<DropletTrackingState<T>>> {
         Self::simulate_with_flow_events_and_policy(
@@ -79,7 +79,7 @@ impl TransientDropletSimulator {
         network: &Network<T, F>,
         injections: Vec<DropletInjection<T>>,
         composition_events: Vec<InletCompositionEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         flow_events: Vec<EdgeFlowEvent<T>>,
         split_policy: DropletSplitPolicy<T>,
     ) -> Result<Vec<DropletTrackingState<T>>> {
@@ -106,7 +106,7 @@ impl TransientDropletSimulator {
         network: &Network<T, F>,
         injections: Vec<DropletInjection<T>>,
         composition_events: Vec<InletCompositionEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         pressure_events: Vec<PressureBoundaryEvent<T>>,
     ) -> Result<Vec<DropletTrackingState<T>>> {
         Self::simulate_with_pressure_events_and_policy(
@@ -127,7 +127,7 @@ impl TransientDropletSimulator {
         network: &Network<T, F>,
         injections: Vec<DropletInjection<T>>,
         composition_events: Vec<InletCompositionEvent<T>>,
-        timepoints: Vec<T>,
+        timepoints: Vec<Time<T>>,
         pressure_events: Vec<PressureBoundaryEvent<T>>,
         split_policy: DropletSplitPolicy<T>,
     ) -> Result<Vec<DropletTrackingState<T>>> {

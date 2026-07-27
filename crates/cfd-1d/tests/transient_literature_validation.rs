@@ -28,6 +28,10 @@ fn time(value: f64) -> Time<f64> {
     Time::from_base(value)
 }
 
+fn timepoints(values: &[f64]) -> Vec<Time<f64>> {
+    values.iter().copied().map(time).collect()
+}
+
 fn flow(value: f64) -> VolumetricFlowRate<f64> {
     VolumetricFlowRate::from_base(value)
 }
@@ -80,7 +84,7 @@ fn pressure_event_flow_ratio_matches_hagen_poiseuille_scaling() {
     let states = TransientCompositionSimulator::simulate_with_pressure_events(
         &network,
         composition_events,
-        vec![0.0, 1.0],
+        timepoints(&[0.0, 1.0]),
         pressure_events,
     )
     .expect("transient composition");
@@ -138,7 +142,7 @@ fn junction_mixing_matches_flow_weighted_mass_conservation() {
     let states = TransientCompositionSimulator::simulate_with_pressure_events(
         &network,
         composition_events,
-        vec![0.0],
+        timepoints(&[0.0]),
         pressure_events,
     )
     .expect("transient composition");
@@ -187,7 +191,7 @@ fn droplet_advection_matches_velocity_relation_dx_equals_q_over_a_dt() {
         &network,
         injections,
         composition_events,
-        vec![0.0, 0.2],
+        timepoints(&[0.0, 0.2]),
         flow_events,
     )
     .expect("droplet simulation");
@@ -241,7 +245,7 @@ fn pressure_event_validation_operates_in_laminar_reynolds_range() {
     let states = TransientCompositionSimulator::simulate_with_pressure_events(
         &network,
         composition_events,
-        vec![0.0, 1.0],
+        timepoints(&[0.0, 1.0]),
         pressure_events,
     )
     .expect("transient composition");
@@ -291,7 +295,7 @@ fn flow_event_validation_operates_in_laminar_reynolds_range() {
     let states = TransientCompositionSimulator::simulate_with_flow_events(
         &network,
         composition_events,
-        vec![0.0, 1.0],
+        timepoints(&[0.0, 1.0]),
         flow_events,
     )
     .expect("transient composition");

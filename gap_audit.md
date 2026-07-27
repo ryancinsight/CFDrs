@@ -140,8 +140,24 @@ The existing `MixtureComposition::fractions` map remains scalar as an explicit
 dimensionless-storage residual for a follow-on representation slice; solver
 residuals remain equation-dependent and are not assigned an SI dimension.
 
+### Verification refresh (2026-07-27, CFDRS-AEQ-MET-21)
+
+The remaining public transient time boundary is now typed. Requested timepoint
+arguments for composition and droplet simulation use `Vec<Time<T>>`, and
+`SimulationTimeConfig` returns typed result and calculation timepoint vectors.
+Private transport kernels retain scalar vectors only after an explicit
+conversion at sorting, tolerance, and solver boundaries. No public `Vec<T>`
+timepoint contract remains in the audited composition or droplet simulators.
+
+The cfd-1d test-target check passes; package Nextest passes 736/736 with 3
+skips; warning-denied all-target Clippy passes; and the transient composition,
+droplet, and literature tests remain included in that package gate. Mixture
+fraction storage remains the separate dimensionless-representation residual;
+solver residuals remain equation-dependent and are not assigned an SI unit.
+
 | ID | Evidence | Closure |
 |---|---|---|
+| `CFDRS-AEQ-MET-21` | Public transient composition and droplet simulation APIs accepted requested, calculated, and returned timepoints as `Vec<T>` after event/configuration time had been typed. | **IMPLEMENTED and package-verified.** Public timepoint vectors and timing accessors now use `Time<T>`; scalar conversion is private to sorting, tolerance, and solver boundaries. Test-target check passes; cfd-1d Nextest passes 736/736 with 3 skips; warning-denied all-target Clippy passes; no compatibility facade exists. Mixture fraction storage remains separately tracked as dimensionless representation. See [`transient-composition-metrics.md`](docs/atlas-migration/transient-composition-metrics.md). |
 | `CFDRS-AEQ-MET-20` | Transient composition events, timing/control configuration, and snapshots exposed activation time, hematocrit, flow, pressure, CFL, and snapshot flow/time as raw scalars. | **IMPLEMENTED and focused-verified.** Public contracts now carry Aequitas `Time`, `Dimensionless`, `VolumetricFlowRate`, and `Pressure`; simulator conversion is confined to numerical boundaries. The cfd-1d test-target check passes; composition parity passes 21/21; droplet parity passes 9/9; literature validation passes 5/5; and the typed control regression proves value preservation. Mixture fraction storage remains a separate residual; no compatibility facade exists. See [`transient-composition-metrics.md`](docs/atlas-migration/transient-composition-metrics.md). |
 | `CFDRS-AEQ-MET-18` | `cfd-1d` `NodeProperties` and `NetworkMetadata` exposed pressure, temperature, total volume, and pressure/temperature ranges as raw scalar values after MET-17. | **IMPLEMENTED in this increment.** Public metadata contracts now carry Aequitas `Pressure`, `ThermodynamicTemperature`, and `Volume`; typed builder setters, default values, and range preservation are covered by value-semantic tests. `HashMap<String, T>` remains dimension-unknown metadata by contract. Locked `cfd-1d` check passes; Nextest passes 735/735 with 3 skips; doctests pass 8/8 with 3 ignored. Warning-denied Clippy reaches the peer-owned cfd-math missing-docs residual and is not a clean gate for this slice. |
 | `CFDRS-AEQ-MET-19` | The transient droplet public boundary exposed droplet volume, injection/snapshot time, normalized positions, occupancy spans, and split thresholds as raw scalar values. | **IMPLEMENTED and focused-verified.** Public and internal droplet state now carries Aequitas `Volume`, `Time`, and `Dimensionless` quantities, with scalar extraction confined to transport formulas. The same revision passes `cargo check -p cfd-1d --tests --offline`; focused Nextest passes 9/9 droplet-parity tests and 5/5 literature-validation tests. Composition event/time contracts remain a separately tracked residual. See [`transient-droplet-metrics.md`](docs/atlas-migration/transient-droplet-metrics.md). |
