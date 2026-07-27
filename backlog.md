@@ -31,6 +31,20 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-20 [major] - Type transient composition control metrics
+  (IN PROGRESS 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
+  transient composition events, timing/control configuration, snapshots,
+  callers, tests, design note, and synchronized PM artifacts).** Composition
+  event timestamps, hematocrit, flow overrides, pressure overrides, simulation
+  timing, CFL, and snapshot time/flow remain raw scalar values at public
+  contracts. Carry them as Aequitas `Time`, `Dimensionless`,
+  `VolumetricFlowRate`, and `Pressure`; extract base scalars only at transport,
+  solver, and timestep formulas. Mixture fraction maps and solver residuals
+  are non-goals for this slice because their representations need separate
+  dimensionless-storage and equation-dependent classifications. Acceptance is
+  a public-contract residue audit, value-semantic transient regressions,
+  focused cfd-1d checks, and no compatibility facade.
+
 - **CFDRS-AEQ-MET-19 [major] - Type transient droplet physical metrics
   (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
   transient droplet types, simulator/caller migration, tests, and synchronized
