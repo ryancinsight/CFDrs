@@ -31,6 +31,17 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-18 [major] - Type network node and metadata metrics
+  (IN PROGRESS; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
+  `NodeProperties` and `NetworkMetadata`, their in-tree construction/tests,
+  and synchronized PM artifacts).** Pressure, temperature, and network volume
+  remain raw scalars in public metadata contracts after MET-17. Carry pressure
+  and thermodynamic temperature as Aequitas quantities, carry total volume and
+  pressure/temperature ranges as typed quantities, and keep arbitrary metadata
+  scalar because its semantic dimension is explicitly unknown. Acceptance is
+  a source audit with typed public fields/setters, value-semantic defaults and
+  range regressions, focused cfd-1d checks, and no compatibility facade.
+
 - **CFDRS-AEQ-MET-17 [major] - Type network pressure and flow state
   metrics (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
   `Network`/`NetworkState`, in-tree cfd-2d/cfd-validation/cfd-optim callers,

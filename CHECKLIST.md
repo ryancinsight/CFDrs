@@ -1,5 +1,15 @@
 # CFDrs Work Checklist
 
+## Owner: Codex — CFDRS-AEQ-MET-18 typed node and network metadata metrics [major] — in progress
+
+- [x] Confirm the live `NodeProperties` and `NetworkMetadata` public fields
+      still carry pressure, temperature, and volume as raw scalars.
+- [ ] Type those contracts with Aequitas and preserve arbitrary metadata as
+      dimension-unknown scalar values.
+- [ ] Add default/range value regressions and run focused cfd-1d gates;
+      preserve the staged cfd-math migration.
+- [ ] Commit and push the verified slice.
+
 ## Owner: Codex — CFDRS-AEQ-MET-17 typed network pressure and flow state metrics [major] — verified 2026-07-27
 
 - [x] Audit the live `Network`, `NetworkState`, analysis, and every in-tree
@@ -14,7 +24,7 @@
       cfd-1d Nextest (731/731 with 3 skips in 23.458 s); doctests pass 8/8 with
       3 ignored. Warning-denied library Clippy is blocked by concurrent
       cfd-math module-tree deletion outside this metric slice.
-- [ ] Commit and push the verified fixups, preserving peer-owned dirt.
+- [x] Commit and push the verified fixups, preserving peer-owned dirt.
 
 ## Owner: Codex — CFDRS-RUNTIME-001 solver-heavy validation runtime [perf] — in progress 2026-07-25
 
