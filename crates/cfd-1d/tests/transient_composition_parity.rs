@@ -13,13 +13,20 @@ use std::collections::HashMap;
 fn mixture(pairs: &[(i32, f64)]) -> MixtureComposition<f64> {
     let mut map = HashMap::new();
     for (id, frac) in pairs {
-        map.insert(*id, *frac);
+        map.insert(*id, fraction(*frac));
     }
     MixtureComposition::new(map)
 }
 
 fn fraction(value: f64) -> Dimensionless<f64> {
     Dimensionless::from_base(value)
+}
+
+fn concentration(map: &HashMap<i32, Dimensionless<f64>>, fluid_id: i32) -> f64 {
+    map.get(&fluid_id)
+        .copied()
+        .map(Dimensionless::into_base)
+        .unwrap_or(0.0)
 }
 
 fn time(value: f64) -> Time<f64> {
@@ -81,10 +88,10 @@ fn switches_inlet_mixture_over_time() {
     assert_eq!(states.len(), 4);
 
     let edge0_t1 = states[1].edge_mixtures.get(&edge.index()).expect("edge t1");
-    assert!((edge0_t1.fractions.get(&1).copied().unwrap_or(0.0) - 1.0).abs() < 1e-12);
+    assert!((concentration(&edge0_t1.fractions, 1) - 1.0).abs() < 1e-12);
 
     let edge0_t3 = states[3].edge_mixtures.get(&edge.index()).expect("edge t3");
-    assert!((edge0_t3.fractions.get(&2).copied().unwrap_or(0.0) - 1.0).abs() < 1e-12);
+    assert!((concentration(&edge0_t3.fractions, 2) - 1.0).abs() < 1e-12);
 }
 
 #[test]
@@ -126,8 +133,8 @@ fn mixes_two_inlet_streams_at_junction() {
         .get(&e3.index())
         .expect("out edge mixture");
 
-    let f10 = out_mix.fractions.get(&10).copied().unwrap_or(0.0);
-    let f20 = out_mix.fractions.get(&20).copied().unwrap_or(0.0);
+    let f10 = concentration(&out_mix.fractions, 10);
+    let f20 = concentration(&out_mix.fractions, 20);
 
     assert!((f10 - (2.0 / 3.0)).abs() < 1e-9);
     assert!((f20 - (1.0 / 3.0)).abs() < 1e-9);
@@ -212,13 +219,13 @@ fn simulate_with_time_config_samples_result_grid_and_switches_events() {
         .edge_mixtures
         .get(&edge.index())
         .expect("edge t0.25");
-    assert!((before_switch.fractions.get(&1).copied().unwrap_or(0.0) - 1.0).abs() < 1e-12);
+    assert!((concentration(&before_switch.fractions, 1) - 1.0).abs() < 1e-12);
 
     let at_switch = states[2]
         .edge_mixtures
         .get(&edge.index())
         .expect("edge t0.5");
-    assert!((at_switch.fractions.get(&2).copied().unwrap_or(0.0) - 1.0).abs() < 1e-12);
+    assert!((concentration(&at_switch.fractions, 2) - 1.0).abs() < 1e-12);
 }
 
 #[test]
@@ -250,8 +257,14 @@ fn duplicate_requested_timepoints_are_sampled_consistently() {
     assert!((states[1].time.into_base() - 0.5).abs() < 1.0e-12);
     assert!((states[2].time.into_base() - 0.5).abs() < 1.0e-12);
 
-    let hct_1 = states[1].edge_hematocrit(edge.index()).expect("edge hct");
-    let hct_2 = states[2].edge_hematocrit(edge.index()).expect("edge hct");
+    let hct_1 = states[1]
+        .edge_hematocrit(edge.index())
+        .map(Dimensionless::into_base)
+        .expect("edge hct");
+    let hct_2 = states[2]
+        .edge_hematocrit(edge.index())
+        .map(Dimensionless::into_base)
+        .expect("edge hct");
     assert!((hct_1 - hct_2).abs() < 1.0e-12);
 }
 
@@ -293,8 +306,8 @@ fn edge_average_concentrations_query_matches_snapshot_mixture() {
         .average_fluid_concentrations_in_edge(e3.index())
         .expect("average concentrations");
 
-    assert!((avg.get(&10).copied().unwrap_or(0.0) - 0.75).abs() < 1e-9);
-    assert!((avg.get(&20).copied().unwrap_or(0.0) - 0.25).abs() < 1e-9);
+    assert!((concentration(&avg, 10) - 0.75).abs() < 1e-9);
+    assert!((concentration(&avg, 20) - 0.25).abs() < 1e-9);
 }
 
 #[test]
@@ -317,9 +330,11 @@ fn edge_average_concentrations_query_returns_none_for_missing_edge() {
 
     let states = TransientCompositionSimulator::simulate(&network, events, timepoints(&[0.0]))
         .expect("simulate");
-    assert!(states[0]
-        .average_fluid_concentrations_in_edge(usize::MAX)
-        .is_none());
+    assert!(
+        states[0]
+            .average_fluid_concentrations_in_edge(usize::MAX)
+            .is_none()
+    );
 }
 
 #[test]
@@ -383,14 +398,14 @@ fn scheduled_flow_events_update_mixture_distribution_over_time() {
     let before = states[0]
         .average_fluid_concentrations_in_edge(e3.index())
         .expect("before");
-    assert!((before.get(&10).copied().unwrap_or(0.0) - 0.75).abs() < 1e-9);
-    assert!((before.get(&20).copied().unwrap_or(0.0) - 0.25).abs() < 1e-9);
+    assert!((concentration(&before, 10) - 0.75).abs() < 1e-9);
+    assert!((concentration(&before, 20) - 0.25).abs() < 1e-9);
 
     let after = states[1]
         .average_fluid_concentrations_in_edge(e3.index())
         .expect("after");
-    assert!((after.get(&10).copied().unwrap_or(0.0) - 0.25).abs() < 1e-9);
-    assert!((after.get(&20).copied().unwrap_or(0.0) - 0.75).abs() < 1e-9);
+    assert!((concentration(&after, 10) - 0.25).abs() < 1e-9);
+    assert!((concentration(&after, 20) - 0.75).abs() < 1e-9);
 }
 
 #[test]
@@ -458,14 +473,14 @@ fn scheduled_pressure_events_resolve_flows_and_update_mixture_distribution() {
     let before = states[0]
         .average_fluid_concentrations_in_edge(e3.index())
         .expect("before concentrations");
-    assert!((before.get(&10).copied().unwrap_or(0.0) - (2.0 / 3.0)).abs() < 1e-9);
-    assert!((before.get(&20).copied().unwrap_or(0.0) - (1.0 / 3.0)).abs() < 1e-9);
+    assert!((concentration(&before, 10) - (2.0 / 3.0)).abs() < 1e-9);
+    assert!((concentration(&before, 20) - (1.0 / 3.0)).abs() < 1e-9);
 
     let after = states[1]
         .average_fluid_concentrations_in_edge(e3.index())
         .expect("after concentrations");
-    assert!((after.get(&10).copied().unwrap_or(0.0) - (1.0 / 3.0)).abs() < 1e-9);
-    assert!((after.get(&20).copied().unwrap_or(0.0) - (2.0 / 3.0)).abs() < 1e-9);
+    assert!((concentration(&after, 10) - (1.0 / 3.0)).abs() < 1e-9);
+    assert!((concentration(&after, 20) - (2.0 / 3.0)).abs() < 1e-9);
 }
 
 #[test]
@@ -500,8 +515,24 @@ fn blood_hematocrit_switches_over_time() {
     )
     .expect("simulate blood hematocrit");
 
-    assert!((states[1].edge_hematocrit(edge.index()).unwrap_or(0.0) - 0.45).abs() < 1e-12);
-    assert!((states[3].edge_hematocrit(edge.index()).unwrap_or(0.0) - 0.20).abs() < 1e-12);
+    assert!(
+        (states[1]
+            .edge_hematocrit(edge.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - 0.45)
+            .abs()
+            < 1e-12
+    );
+    assert!(
+        (states[3]
+            .edge_hematocrit(edge.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - 0.20)
+            .abs()
+            < 1e-12
+    );
 }
 
 #[test]
@@ -544,6 +575,7 @@ fn blood_hematocrit_mixes_two_inlets_at_junction() {
     .expect("simulate blood hematocrit");
     let out_hct = states[0]
         .edge_hematocrit(e3.index())
+        .map(Dimensionless::into_base)
         .expect("outlet hematocrit");
 
     assert!((out_hct - 0.375).abs() < 1e-9);
@@ -617,8 +649,8 @@ fn pressure_event_blood_hematocrit_tracks_flow_redistribution() {
         .edge_hematocrit(e3.index())
         .expect("after hematocrit");
 
-    assert!((before - 0.35).abs() < 1e-9);
-    assert!((after - 0.25).abs() < 1e-9);
+    assert!((before.into_base() - 0.35).abs() < 1e-9);
+    assert!((after.into_base() - 0.25).abs() < 1e-9);
 }
 
 #[test]
@@ -714,6 +746,7 @@ fn coupled_pressure_event_blood_hematocrit_feeds_back_on_flow_split() {
 
     let coupled_hct = coupled[0]
         .edge_hematocrit(e3.index())
+        .map(Dimensionless::into_base)
         .expect("coupled outlet hematocrit");
     let uncoupled_q1 = uncoupled[0]
         .edge_flow_rates
@@ -739,8 +772,14 @@ fn coupled_pressure_event_blood_hematocrit_feeds_back_on_flow_split() {
         .copied()
         .map(|q| q.into_base())
         .expect("coupled branch 2 flow");
-    let coupled_h1 = coupled[0].edge_hematocrit(e1.index()).unwrap_or(-1.0);
-    let coupled_h2 = coupled[0].edge_hematocrit(e2.index()).unwrap_or(-1.0);
+    let coupled_h1 = coupled[0]
+        .edge_hematocrit(e1.index())
+        .map(Dimensionless::into_base)
+        .unwrap_or(-1.0);
+    let coupled_h2 = coupled[0]
+        .edge_hematocrit(e2.index())
+        .map(Dimensionless::into_base)
+        .unwrap_or(-1.0);
 
     assert!((uncoupled_q1 - uncoupled_q2).abs() < 1.0e-12);
     assert!(coupled_q1.is_finite() && coupled_q1 > 0.0);
@@ -810,18 +849,37 @@ fn blood_edge_transport_relaxes_single_channel_hematocrit_front() {
     assert!(
         states[0]
             .edge_hematocrit(edge.index())
+            .map(Dimensionless::into_base)
             .unwrap_or(-1.0)
             .abs()
             < 1.0e-12
     );
     assert!(
-        (states[1].edge_hematocrit(edge.index()).unwrap_or(0.0) - expected_t05).abs() < 1.0e-12
+        (states[1]
+            .edge_hematocrit(edge.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - expected_t05)
+            .abs()
+            < 1.0e-12
     );
     assert!(
-        (states[2].edge_hematocrit(edge.index()).unwrap_or(0.0) - expected_t10).abs() < 1.0e-12
+        (states[2]
+            .edge_hematocrit(edge.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - expected_t10)
+            .abs()
+            < 1.0e-12
     );
     assert!(
-        (states[3].edge_hematocrit(edge.index()).unwrap_or(0.0) - expected_t20).abs() < 1.0e-12
+        (states[3]
+            .edge_hematocrit(edge.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - expected_t20)
+            .abs()
+            < 1.0e-12
     );
 }
 
@@ -894,9 +952,32 @@ fn blood_edge_transport_relaxes_mixed_outlet_hematocrit() {
     let expected_t05 = cstr_relaxation(0.0, 0.375, 0.5, 1.0);
     let expected_t10 = cstr_relaxation(expected_t05, 0.375, 0.5, 1.0);
 
-    assert!(states[0].edge_hematocrit(e3.index()).unwrap_or(-1.0).abs() < 1.0e-12);
-    assert!((states[1].edge_hematocrit(e3.index()).unwrap_or(0.0) - expected_t05).abs() < 1.0e-9);
-    assert!((states[2].edge_hematocrit(e3.index()).unwrap_or(0.0) - expected_t10).abs() < 1.0e-9);
+    assert!(
+        states[0]
+            .edge_hematocrit(e3.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(-1.0)
+            .abs()
+            < 1.0e-12
+    );
+    assert!(
+        (states[1]
+            .edge_hematocrit(e3.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - expected_t05)
+            .abs()
+            < 1.0e-9
+    );
+    assert!(
+        (states[2]
+            .edge_hematocrit(e3.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - expected_t10)
+            .abs()
+            < 1.0e-9
+    );
 }
 
 #[test]
@@ -995,8 +1076,14 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
         )
         .expect("simulate pressure-event edge transport");
 
-    let instant_t0 = instant_states[0].edge_hematocrit(e3.index()).unwrap_or(0.0);
-    let instant_t1 = instant_states[1].edge_hematocrit(e3.index()).unwrap_or(0.0);
+    let instant_t0 = instant_states[0]
+        .edge_hematocrit(e3.index())
+        .map(Dimensionless::into_base)
+        .unwrap_or(0.0);
+    let instant_t1 = instant_states[1]
+        .edge_hematocrit(e3.index())
+        .map(Dimensionless::into_base)
+        .unwrap_or(0.0);
     let tau_t0 = 1.0
         / instant_states[0]
             .edge_flow_rates
@@ -1016,9 +1103,32 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
     let expected_t10 = cstr_relaxation(0.0, instant_t0, 1.0, tau_t0);
     let expected_t20 = cstr_relaxation(expected_t10, instant_t1, 1.0, tau_t1);
 
-    assert!(states[0].edge_hematocrit(e3.index()).unwrap_or(-1.0).abs() < 1.0e-12);
-    assert!((states[1].edge_hematocrit(e3.index()).unwrap_or(0.0) - expected_t10).abs() < 1.0e-9);
-    assert!((states[2].edge_hematocrit(e3.index()).unwrap_or(0.0) - expected_t20).abs() < 1.0e-9);
+    assert!(
+        states[0]
+            .edge_hematocrit(e3.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(-1.0)
+            .abs()
+            < 1.0e-12
+    );
+    assert!(
+        (states[1]
+            .edge_hematocrit(e3.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - expected_t10)
+            .abs()
+            < 1.0e-9
+    );
+    assert!(
+        (states[2]
+            .edge_hematocrit(e3.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - expected_t20)
+            .abs()
+            < 1.0e-9
+    );
 }
 
 #[test]
@@ -1076,14 +1186,47 @@ fn blood_segmented_edge_transport_advects_front_one_cell_per_step() {
     assert!(
         states[0]
             .edge_hematocrit(edge.index())
+            .map(Dimensionless::into_base)
             .unwrap_or(-1.0)
             .abs()
             < 1.0e-12
     );
-    assert!((states[1].edge_hematocrit(edge.index()).unwrap_or(0.0) - 0.1125).abs() < 1.0e-12);
-    assert!((states[2].edge_hematocrit(edge.index()).unwrap_or(0.0) - 0.2250).abs() < 1.0e-12);
-    assert!((states[3].edge_hematocrit(edge.index()).unwrap_or(0.0) - 0.3375).abs() < 1.0e-12);
-    assert!((states[4].edge_hematocrit(edge.index()).unwrap_or(0.0) - 0.4500).abs() < 1.0e-12);
+    assert!(
+        (states[1]
+            .edge_hematocrit(edge.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - 0.1125)
+            .abs()
+            < 1.0e-12
+    );
+    assert!(
+        (states[2]
+            .edge_hematocrit(edge.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - 0.2250)
+            .abs()
+            < 1.0e-12
+    );
+    assert!(
+        (states[3]
+            .edge_hematocrit(edge.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - 0.3375)
+            .abs()
+            < 1.0e-12
+    );
+    assert!(
+        (states[4]
+            .edge_hematocrit(edge.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - 0.4500)
+            .abs()
+            < 1.0e-12
+    );
 }
 
 #[test]
@@ -1160,11 +1303,33 @@ fn blood_segmented_edge_transport_delays_mixed_outlet_more_than_single_volume_mo
         )
         .expect("simulate segmented edge transport");
 
-    assert!((segmented[1].edge_hematocrit(e3.index()).unwrap_or(0.0) - 0.09375).abs() < 1.0e-12);
-    assert!((segmented[4].edge_hematocrit(e3.index()).unwrap_or(0.0) - 0.37500).abs() < 1.0e-12);
     assert!(
-        segmented[1].edge_hematocrit(e3.index()).unwrap_or(0.0)
-            > lumped[1].edge_hematocrit(e3.index()).unwrap_or(0.0)
+        (segmented[1]
+            .edge_hematocrit(e3.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - 0.09375)
+            .abs()
+            < 1.0e-12
+    );
+    assert!(
+        (segmented[4]
+            .edge_hematocrit(e3.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            - 0.37500)
+            .abs()
+            < 1.0e-12
+    );
+    assert!(
+        segmented[1]
+            .edge_hematocrit(e3.index())
+            .map(Dimensionless::into_base)
+            .unwrap_or(0.0)
+            > lumped[1]
+                .edge_hematocrit(e3.index())
+                .map(Dimensionless::into_base)
+                .unwrap_or(0.0)
     );
 }
 
@@ -1239,8 +1404,14 @@ fn blood_segmented_edge_transport_applies_pries_split_at_bifurcation() {
     let expected_large_inlet = ((1.0 - expected_small.cell_fraction) * 0.45 / 0.5).clamp(0.0, 1.0);
     let step_factor = 0.25 / (1.0 / 0.5);
 
-    let small_hct = states[1].edge_hematocrit(small.index()).expect("small hct");
-    let large_hct = states[1].edge_hematocrit(large.index()).expect("large hct");
+    let small_hct = states[1]
+        .edge_hematocrit(small.index())
+        .map(Dimensionless::into_base)
+        .expect("small hct");
+    let large_hct = states[1]
+        .edge_hematocrit(large.index())
+        .map(Dimensionless::into_base)
+        .expect("large hct");
 
     assert!((small_hct - expected_small.daughter_hematocrit * step_factor).abs() < 1.0e-12);
     assert!((large_hct - expected_large_inlet * step_factor).abs() < 1.0e-12);
@@ -1334,8 +1505,14 @@ fn coupled_pressure_event_segmented_blood_transport_feeds_back_on_resistance_upd
         )
         .expect("simulate coupled segmented blood transport");
 
-    let t0_hct = states[0].edge_hematocrit(e3.index()).unwrap_or(-1.0);
-    let t1_hct = states[1].edge_hematocrit(e3.index()).unwrap_or(-1.0);
+    let t0_hct = states[0]
+        .edge_hematocrit(e3.index())
+        .map(Dimensionless::into_base)
+        .unwrap_or(-1.0);
+    let t1_hct = states[1]
+        .edge_hematocrit(e3.index())
+        .map(Dimensionless::into_base)
+        .unwrap_or(-1.0);
     let t1_q1 = states[1]
         .edge_flow_rates
         .get(&e1.index())
@@ -1348,8 +1525,14 @@ fn coupled_pressure_event_segmented_blood_transport_feeds_back_on_resistance_upd
         .copied()
         .map(|q| q.into_base())
         .expect("branch 2 flow");
-    let t1_h1 = states[1].edge_hematocrit(e1.index()).unwrap_or(-1.0);
-    let t1_h2 = states[1].edge_hematocrit(e2.index()).unwrap_or(-1.0);
+    let t1_h1 = states[1]
+        .edge_hematocrit(e1.index())
+        .map(Dimensionless::into_base)
+        .unwrap_or(-1.0);
+    let t1_h2 = states[1]
+        .edge_hematocrit(e2.index())
+        .map(Dimensionless::into_base)
+        .unwrap_or(-1.0);
     assert!(t0_hct.abs() < 1.0e-12);
     assert!(t1_hct.is_finite());
     assert!(t1_hct.abs() < 1.0e-12);

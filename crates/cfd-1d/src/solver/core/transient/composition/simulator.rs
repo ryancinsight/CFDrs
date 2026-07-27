@@ -3,8 +3,8 @@ use super::events::{
 };
 use super::state::{CompositionState, MixtureComposition};
 use crate::domain::network::{
-    Network, EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
-    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
+    EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
+    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S, Network,
 };
 use crate::scalar::Cfd1dScalar;
 use crate::solver::core::{NetworkSolveScalar, NetworkSolver};
@@ -1986,7 +1986,7 @@ impl TransientCompositionSimulator {
             converted.push(InletCompositionEvent {
                 time: event.time,
                 node_index: event.node_index,
-                mixture: MixtureComposition::from_blood_hematocrit(event.hematocrit.into_base()),
+                mixture: MixtureComposition::from_blood_hematocrit(event.hematocrit),
             });
         }
         Ok(converted)
@@ -2002,6 +2002,7 @@ impl TransientCompositionSimulator {
         let mut max_change = T::zero();
         for (edge_index, mixture) in edge_mixtures {
             if let Some(hematocrit) = mixture.hematocrit() {
+                let hematocrit = hematocrit.into_base();
                 let edge_idx = petgraph::graph::EdgeIndex::new(*edge_index);
                 if let Some(props) = network.properties.get_mut(&edge_idx) {
                     let current = props
@@ -2091,7 +2092,8 @@ impl TransientCompositionSimulator {
                 .entry(edge_idx.index())
                 .or_insert_with(MixtureComposition::empty);
             if entry.hematocrit().is_none() {
-                *entry = MixtureComposition::from_blood_hematocrit(hematocrit);
+                *entry =
+                    MixtureComposition::from_blood_hematocrit(Dimensionless::from_base(hematocrit));
             }
         }
     }
@@ -2199,9 +2201,9 @@ impl TransientCompositionSimulator {
                     .unwrap_or_else(T::zero);
                 edge_mixtures.insert(
                     edge_idx.index(),
-                    MixtureComposition::from_blood_hematocrit(
+                    MixtureComposition::from_blood_hematocrit(Dimensionless::from_base(
                         hematocrit.max(T::zero()).min(T::one()),
-                    ),
+                    )),
                 );
             }
         }
@@ -2500,16 +2502,18 @@ impl TransientCompositionSimulator {
             let inlet_hct = previous_node_mixtures
                 .get(&upstream_node)
                 .and_then(MixtureComposition::hematocrit)
-                .unwrap_or_else(T::zero);
+                .map_or_else(T::zero, Dimensionless::into_base);
             let previous_hct = previous_edge_mixtures
                 .get(&edge_idx.index())
                 .and_then(MixtureComposition::hematocrit)
-                .unwrap_or_else(T::zero);
+                .map_or_else(T::zero, Dimensionless::into_base);
             let decay = <T as FloatElement>::exp(-(dt / residence_time));
             let updated_hct = inlet_hct + (previous_hct - inlet_hct) * decay;
             advanced.insert(
                 edge_idx.index(),
-                MixtureComposition::from_blood_hematocrit(clamp_unit(updated_hct)),
+                MixtureComposition::from_blood_hematocrit(Dimensionless::from_base(clamp_unit(
+                    updated_hct,
+                ))),
             );
         }
 
@@ -2580,6 +2584,7 @@ impl TransientCompositionSimulator {
                     previous_node_mixtures
                         .get(&upstream_node)
                         .and_then(MixtureComposition::hematocrit)
+                        .map(Dimensionless::into_base)
                 })
                 .unwrap_or_else(T::zero);
 
@@ -2642,7 +2647,7 @@ impl TransientCompositionSimulator {
             let node_hct = node_mixtures
                 .get(&node_id)
                 .and_then(MixtureComposition::hematocrit)
-                .unwrap_or_else(T::zero);
+                .map_or_else(T::zero, Dimensionless::into_base);
 
             incoming.clear();
             outgoing.clear();
@@ -2871,7 +2876,9 @@ impl TransientCompositionSimulator {
                 incoming.clear();
 
                 let should_update = match node_mixtures.get(&node_id) {
-                    Some(current) => !current.approximately_equals(&mixed, tolerance),
+                    Some(current) => {
+                        !current.approximately_equals(&mixed, Dimensionless::from_base(tolerance))
+                    }
                     None => true,
                 };
 
@@ -2933,7 +2940,9 @@ impl TransientCompositionSimulator {
                                 let edge_hct =
                                     Self::outlet_segment_hematocrit(segments, q >= T::zero());
                                 incoming_owned.push((
-                                    MixtureComposition::from_blood_hematocrit(edge_hct),
+                                    MixtureComposition::from_blood_hematocrit(
+                                        Dimensionless::from_base(edge_hct),
+                                    ),
                                     q_abs,
                                 ));
                                 continue;
@@ -2947,8 +2956,12 @@ impl TransientCompositionSimulator {
                         if let Some(segments) = segment_state.get(&incident.edge_index) {
                             let edge_hct =
                                 Self::outlet_segment_hematocrit(segments, q >= T::zero());
-                            incoming_owned
-                                .push((MixtureComposition::from_blood_hematocrit(edge_hct), q_abs));
+                            incoming_owned.push((
+                                MixtureComposition::from_blood_hematocrit(
+                                    Dimensionless::from_base(edge_hct),
+                                ),
+                                q_abs,
+                            ));
                             continue;
                         }
 
@@ -2966,7 +2979,9 @@ impl TransientCompositionSimulator {
                 incoming_owned.clear();
 
                 let should_update = match node_mixtures.get(&node_id) {
-                    Some(current) => !current.approximately_equals(&mixed, tolerance),
+                    Some(current) => {
+                        !current.approximately_equals(&mixed, Dimensionless::from_base(tolerance))
+                    }
                     None => true,
                 };
 
@@ -3031,8 +3046,8 @@ impl TransientCompositionSimulator {
             if let Some(segments) = segment_state.get(&edge_idx.index()) {
                 edge_mixtures.insert(
                     edge_idx.index(),
-                    MixtureComposition::from_blood_hematocrit(Self::average_segment_hematocrit(
-                        segments,
+                    MixtureComposition::from_blood_hematocrit(Dimensionless::from_base(
+                        Self::average_segment_hematocrit(segments),
                     )),
                 );
                 continue;
@@ -3104,7 +3119,9 @@ impl TransientCompositionSimulator {
 
                 let mixed = MixtureComposition::blend_weighted_owned(&incoming);
                 let should_update = match node_mixtures.get(&node_id) {
-                    Some(current) => !current.approximately_equals(&mixed, tolerance),
+                    Some(current) => {
+                        !current.approximately_equals(&mixed, Dimensionless::from_base(tolerance))
+                    }
                     None => true,
                 };
 

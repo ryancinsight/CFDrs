@@ -1,5 +1,5 @@
 use crate::scalar::Cfd1dScalar;
-use aequitas::systems::si::quantities::{Time, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{Dimensionless, Time, VolumetricFlowRate};
 use std::collections::HashMap;
 
 /// Canonical mixture key for transported RBC volume fraction.
@@ -11,20 +11,21 @@ pub const BLOOD_PLASMA_FLUID_ID: i32 = -10_002;
 #[derive(Debug, Clone)]
 pub struct MixtureComposition<T: Cfd1dScalar + Copy> {
     /// Fraction per fluid id.
-    pub fractions: HashMap<i32, T>,
+    pub fractions: HashMap<i32, Dimensionless<T>>,
 }
 
 impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
     /// Create a new mixture and normalize to unit sum (when non-empty).
     #[must_use]
-    pub fn new(mut fractions: HashMap<i32, T>) -> Self {
+    pub fn new(mut fractions: HashMap<i32, Dimensionless<T>>) -> Self {
         let sum = fractions
             .values()
             .copied()
+            .map(Dimensionless::into_base)
             .fold(T::zero(), |acc, v| acc + v);
         if sum > T::zero() {
             for value in fractions.values_mut() {
-                *value /= sum;
+                *value = Dimensionless::from_base(value.into_base() / sum);
             }
         }
         Self { fractions }
@@ -39,42 +40,47 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
     }
 
     /// Construct a two-species blood mixture from hematocrit.
-    pub fn from_blood_hematocrit(hematocrit: T) -> Self {
-        let hct = hematocrit.max(T::zero()).min(T::one());
+    pub fn from_blood_hematocrit(hematocrit: Dimensionless<T>) -> Self {
+        let hct = hematocrit.into_base().max(T::zero()).min(T::one());
         let mut fractions = HashMap::new();
-        fractions.insert(BLOOD_RBC_FLUID_ID, hct);
-        fractions.insert(BLOOD_PLASMA_FLUID_ID, T::one() - hct);
+        fractions.insert(BLOOD_RBC_FLUID_ID, Dimensionless::from_base(hct));
+        fractions.insert(
+            BLOOD_PLASMA_FLUID_ID,
+            Dimensionless::from_base(T::one() - hct),
+        );
         Self::new(fractions)
     }
 
     /// Return the transported blood hematocrit if the canonical RBC key exists.
     #[must_use]
-    pub fn hematocrit(&self) -> Option<T> {
+    pub fn hematocrit(&self) -> Option<Dimensionless<T>> {
         self.fractions.get(&BLOOD_RBC_FLUID_ID).copied()
     }
 
     /// Weighted blend of incoming mixtures.
     #[must_use]
-    pub fn blend_weighted(inputs: &[(&Self, T)]) -> Self {
+    pub fn blend_weighted(inputs: &[(&Self, Dimensionless<T>)]) -> Self {
         if inputs.is_empty() {
             return Self::empty();
         }
 
         let total_weight = inputs
             .iter()
-            .map(|(_, w)| *w)
+            .map(|(_, w)| w.into_base())
             .fold(T::zero(), |acc, v| acc + v);
 
         if total_weight <= T::zero() {
             return Self::empty();
         }
 
-        let mut blended: HashMap<i32, T> = HashMap::new();
+        let mut blended: HashMap<i32, Dimensionless<T>> = HashMap::new();
         for (mixture, weight) in inputs {
             for (fluid_id, frac) in &mixture.fractions {
-                let contribution = (*frac) * (*weight) / total_weight;
-                let entry = blended.entry(*fluid_id).or_insert(T::zero());
-                *entry += contribution;
+                let contribution = frac.into_base() * weight.into_base() / total_weight;
+                let entry = blended
+                    .entry(*fluid_id)
+                    .or_insert_with(|| Dimensionless::from_base(T::zero()));
+                *entry = Dimensionless::from_base(entry.into_base() + contribution);
             }
         }
 
@@ -96,12 +102,14 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
             return Self::empty();
         }
 
-        let mut blended: HashMap<i32, T> = HashMap::new();
+        let mut blended: HashMap<i32, Dimensionless<T>> = HashMap::new();
         for (mixture, weight) in inputs {
             for (fluid_id, frac) in &mixture.fractions {
-                let contribution = (*frac) * (*weight) / total_weight;
-                let entry = blended.entry(*fluid_id).or_insert(T::zero());
-                *entry += contribution;
+                let contribution = frac.into_base() * *weight / total_weight;
+                let entry = blended
+                    .entry(*fluid_id)
+                    .or_insert_with(|| Dimensionless::from_base(T::zero()));
+                *entry = Dimensionless::from_base(entry.into_base() + contribution);
             }
         }
 
@@ -110,7 +118,7 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
 
     /// Compare with tolerance.
     #[must_use]
-    pub fn approximately_equals(&self, other: &Self, tolerance: T) -> bool {
+    pub fn approximately_equals(&self, other: &Self, tolerance: Dimensionless<T>) -> bool {
         let mut keys: Vec<i32> = self.fractions.keys().copied().collect();
         for key in other.fractions.keys() {
             if !keys.contains(key) {
@@ -119,9 +127,19 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
         }
 
         keys.into_iter().all(|k| {
-            let a = *self.fractions.get(&k).unwrap_or(&T::zero());
-            let b = *other.fractions.get(&k).unwrap_or(&T::zero());
-            <T as eunomia::NumericElement>::abs(a - b) <= tolerance
+            let a = self
+                .fractions
+                .get(&k)
+                .copied()
+                .unwrap_or_else(|| Dimensionless::from_base(T::zero()))
+                .into_base();
+            let b = other
+                .fractions
+                .get(&k)
+                .copied()
+                .unwrap_or_else(|| Dimensionless::from_base(T::zero()))
+                .into_base();
+            <T as eunomia::NumericElement>::abs(a - b) <= tolerance.into_base()
         })
     }
 }
@@ -148,7 +166,7 @@ impl<T: Cfd1dScalar + Copy> CompositionState<T> {
     pub fn average_fluid_concentrations_in_edge(
         &self,
         edge_index: usize,
-    ) -> Option<HashMap<i32, T>> {
+    ) -> Option<HashMap<i32, Dimensionless<T>>> {
         self.edge_mixtures
             .get(&edge_index)
             .map(|mixture| mixture.fractions.clone())
@@ -156,7 +174,7 @@ impl<T: Cfd1dScalar + Copy> CompositionState<T> {
 
     /// Return the transported hematocrit in a node mixture, if present.
     #[must_use]
-    pub fn node_hematocrit(&self, node_index: usize) -> Option<T> {
+    pub fn node_hematocrit(&self, node_index: usize) -> Option<Dimensionless<T>> {
         self.node_mixtures
             .get(&node_index)
             .and_then(MixtureComposition::hematocrit)
@@ -164,7 +182,7 @@ impl<T: Cfd1dScalar + Copy> CompositionState<T> {
 
     /// Return the transported hematocrit in an edge mixture, if present.
     #[must_use]
-    pub fn edge_hematocrit(&self, edge_index: usize) -> Option<T> {
+    pub fn edge_hematocrit(&self, edge_index: usize) -> Option<Dimensionless<T>> {
         self.edge_mixtures
             .get(&edge_index)
             .and_then(MixtureComposition::hematocrit)

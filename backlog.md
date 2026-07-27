@@ -32,16 +32,18 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-22 [major] - Type transient mixture fractions
-  (IN PROGRESS; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
+  (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
   `MixtureComposition` fractions/constructors/accessors, in-tree callers,
   tests, design note, and synchronized PM artifacts).** Mixture fraction maps,
   hematocrit accessors, concentration queries, and public blend tolerances
-  still expose raw scalar dimensionless values. Carry them as Aequitas
-  `Dimensionless<T>` and convert only inside mixture arithmetic and numerical
-  transport boundaries. Solver residual norms remain equation-dependent and
-  are a non-goal. Acceptance is a public-signature residue audit,
-  value-semantic mixture regressions, focused cfd-1d gates, and no
-  compatibility facade.
+  carried raw scalar dimensionless values. They now use Aequitas
+  `Dimensionless<T>` and convert only inside mixture normalization, arithmetic,
+  and numerical transport boundaries. Solver residual norms remain
+  equation-dependent and are a non-goal. Acceptance is a public-signature
+  residue audit, value-semantic mixture regressions, focused cfd-1d gates, and
+  no compatibility facade. The test-target check passes; package Nextest passes
+  736/736 with 3 skips; warning-denied all-target Clippy passes; and doctests
+  pass 8/8 with 3 ignored.
 
 - **CFDRS-AEQ-MET-21 [major] - Type transient composition timepoint vectors
   (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`

@@ -35,7 +35,7 @@ fn volume(value: f64) -> Volume<f64> {
 
 fn pure(fluid_id: i32) -> MixtureComposition<f64> {
     let mut map = HashMap::new();
-    map.insert(fluid_id, 1.0);
+    map.insert(fluid_id, fraction(1.0));
     MixtureComposition::new(map)
 }
 

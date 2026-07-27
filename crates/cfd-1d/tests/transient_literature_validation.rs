@@ -24,6 +24,13 @@ fn fraction(value: f64) -> Dimensionless<f64> {
     Dimensionless::from_base(value)
 }
 
+fn concentration(map: &HashMap<i32, Dimensionless<f64>>, fluid_id: i32) -> f64 {
+    map.get(&fluid_id)
+        .copied()
+        .map(Dimensionless::into_base)
+        .unwrap_or(0.0)
+}
+
 fn time(value: f64) -> Time<f64> {
     Time::from_base(value)
 }
@@ -46,7 +53,7 @@ fn volume(value: f64) -> Volume<f64> {
 
 fn pure(fluid_id: i32) -> MixtureComposition<f64> {
     let mut map = HashMap::new();
-    map.insert(fluid_id, 1.0);
+    map.insert(fluid_id, fraction(1.0));
     MixtureComposition::new(map)
 }
 
@@ -151,8 +158,8 @@ fn junction_mixing_matches_flow_weighted_mass_conservation() {
         .average_fluid_concentrations_in_edge(e3.index())
         .expect("outlet edge composition");
 
-    assert!((mix.get(&10).copied().unwrap_or(0.0) - 0.8).abs() < 1e-9);
-    assert!((mix.get(&20).copied().unwrap_or(0.0) - 0.2).abs() < 1e-9);
+    assert!((concentration(&mix, 10) - 0.8).abs() < 1e-9);
+    assert!((concentration(&mix, 20) - 0.2).abs() < 1e-9);
 }
 
 #[test]

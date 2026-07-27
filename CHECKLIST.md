@@ -1,16 +1,18 @@
 # CFDrs Work Checklist
 
-## Owner: Codex — CFDRS-AEQ-MET-22 transient mixture fractions [major] — in progress 2026-07-27
+## Owner: Codex — CFDRS-AEQ-MET-22 transient mixture fractions [major] — verified 2026-07-27
 
-- [ ] Confirm raw dimensionless fraction maps and public hematocrit/concentration
+- [x] Confirm raw dimensionless fraction maps and public hematocrit/concentration
       accessors at the `MixtureComposition` boundary.
-- [ ] Type fraction storage, constructors, blends, tolerances, and public
+- [x] Type fraction storage, constructors, blends, tolerances, and public
       queries with Aequitas `Dimensionless`; migrate callers without a
       compatibility facade and keep scalar extraction at arithmetic/transport
       boundaries.
-- [ ] Add value-semantic fraction/hematocrit/concentration regressions and run
-      focused cfd-1d gates.
-- [ ] Synchronize the design note, gap audit, backlog, checklist, and
+- [x] Add value-semantic fraction/hematocrit/concentration regressions and run
+      focused cfd-1d gates. The test-target check passes; package Nextest passes
+      736/736 with 3 skips; warning-denied all-target Clippy passes; and
+      doctests pass 8/8 with 3 ignored.
+- [x] Synchronize the design note, gap audit, backlog, checklist, and
       changelog; commit and push the verified slice. Solver residuals remain a
       separate equation-dependent classification.
 

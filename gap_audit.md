@@ -124,9 +124,8 @@ was repaired forward in `32be436b`; no droplet compatibility facade exists.
 The composition temporal/control boundary is now typed. Event timestamps and
 simulation intervals use `Time`, hematocrit and CFL use `Dimensionless`, flow
 overrides and snapshot flow use `VolumetricFlowRate`, and pressure overrides
-use `Pressure`. Dense mixture arithmetic and solver residuals remain separate
-classification items because their values are equation or storage
-representations.
+use `Pressure`. Solver residuals remain a separate classification because
+their units depend on the assembled equation and scaling policy.
 
 ### Verification refresh (2026-07-27, CFDRS-AEQ-MET-20)
 
@@ -136,7 +135,7 @@ transient_composition_parity --offline` passes 21/21, including the typed
 control-value regression; transient droplet parity passes 9/9; and literature
 validation passes 5/5. Scalar extraction remains at event sorting, solver
 application, and CFL formula boundaries. No compatibility facade was added.
-The existing `MixtureComposition::fractions` map remains scalar as an explicit
+The existing `MixtureComposition::fractions` map was the remaining public
 dimensionless-storage residual for a follow-on representation slice; solver
 residuals remain equation-dependent and are not assigned an SI dimension.
 
@@ -152,13 +151,29 @@ timepoint contract remains in the audited composition or droplet simulators.
 The cfd-1d test-target check passes; package Nextest passes 736/736 with 3
 skips; warning-denied all-target Clippy passes; and the transient composition,
 droplet, and literature tests remain included in that package gate. Mixture
-fraction storage remains the separate dimensionless-representation residual;
-solver residuals remain equation-dependent and are not assigned an SI unit.
+Solver residuals remain equation-dependent and are not assigned an SI unit.
+
+### Verification refresh (2026-07-27, CFDRS-AEQ-MET-22)
+
+The final audited transient composition metric boundary is now typed.
+`MixtureComposition::fractions`, blood-hematocrit construction and accessors,
+weighted public blends, approximate-equality tolerances, and edge/node
+concentration queries now carry Aequitas `Dimensionless<T>`. Scalar extraction
+is confined to normalization, mixture arithmetic, solver transport, and
+value-semantic assertions. No public raw dimensionless fraction map or
+hematocrit/concentration accessor remains in the audited cfd-1d transient
+composition surface. Solver residual norms remain equation-dependent and are
+not assigned an SI dimension.
+
+The cfd-1d test-target check passes; package Nextest passes 736/736 with 3
+skips; warning-denied all-target Clippy passes; and doctests pass 8/8 with 3
+ignored. No compatibility facade was added.
 
 | ID | Evidence | Closure |
 |---|---|---|
 | `CFDRS-AEQ-MET-21` | Public transient composition and droplet simulation APIs accepted requested, calculated, and returned timepoints as `Vec<T>` after event/configuration time had been typed. | **IMPLEMENTED and package-verified.** Public timepoint vectors and timing accessors now use `Time<T>`; scalar conversion is private to sorting, tolerance, and solver boundaries. Test-target check passes; cfd-1d Nextest passes 736/736 with 3 skips; warning-denied all-target Clippy passes; no compatibility facade exists. Mixture fraction storage remains separately tracked as dimensionless representation. See [`transient-composition-metrics.md`](docs/atlas-migration/transient-composition-metrics.md). |
-| `CFDRS-AEQ-MET-20` | Transient composition events, timing/control configuration, and snapshots exposed activation time, hematocrit, flow, pressure, CFL, and snapshot flow/time as raw scalars. | **IMPLEMENTED and focused-verified.** Public contracts now carry Aequitas `Time`, `Dimensionless`, `VolumetricFlowRate`, and `Pressure`; simulator conversion is confined to numerical boundaries. The cfd-1d test-target check passes; composition parity passes 21/21; droplet parity passes 9/9; literature validation passes 5/5; and the typed control regression proves value preservation. Mixture fraction storage remains a separate residual; no compatibility facade exists. See [`transient-composition-metrics.md`](docs/atlas-migration/transient-composition-metrics.md). |
+| `CFDRS-AEQ-MET-22` | Public transient mixture fraction storage, blood-hematocrit construction/accessors, weighted blends, tolerances, and node/edge concentration queries still exposed raw dimensionless scalars. | **IMPLEMENTED and package-verified.** Public maps, constructors, accessors, blends, and tolerances now use `Dimensionless<T>`; scalar extraction is limited to normalization, arithmetic, transport, and assertions. Test-target check passes; cfd-1d Nextest passes 736/736 with 3 skips; warning-denied all-target Clippy passes; doctests pass 8/8 with 3 ignored. No compatibility facade exists. Solver residuals remain equation-dependent. See [`transient-composition-metrics.md`](docs/atlas-migration/transient-composition-metrics.md). |
+| `CFDRS-AEQ-MET-20` | Transient composition events, timing/control configuration, and snapshots exposed activation time, hematocrit, flow, pressure, CFL, and snapshot flow/time as raw scalars. | **IMPLEMENTED and focused-verified.** Public contracts now carry Aequitas `Time`, `Dimensionless`, `VolumetricFlowRate`, and `Pressure`; simulator conversion is confined to numerical boundaries. The cfd-1d test-target check passes; composition parity passes 21/21; droplet parity passes 9/9; literature validation passes 5/5; and the typed control regression proves value preservation. Solver residuals remain a separate equation-dependent classification; no compatibility facade exists. See [`transient-composition-metrics.md`](docs/atlas-migration/transient-composition-metrics.md). |
 | `CFDRS-AEQ-MET-18` | `cfd-1d` `NodeProperties` and `NetworkMetadata` exposed pressure, temperature, total volume, and pressure/temperature ranges as raw scalar values after MET-17. | **IMPLEMENTED in this increment.** Public metadata contracts now carry Aequitas `Pressure`, `ThermodynamicTemperature`, and `Volume`; typed builder setters, default values, and range preservation are covered by value-semantic tests. `HashMap<String, T>` remains dimension-unknown metadata by contract. Locked `cfd-1d` check passes; Nextest passes 735/735 with 3 skips; doctests pass 8/8 with 3 ignored. Warning-denied Clippy reaches the peer-owned cfd-math missing-docs residual and is not a clean gate for this slice. |
 | `CFDRS-AEQ-MET-19` | The transient droplet public boundary exposed droplet volume, injection/snapshot time, normalized positions, occupancy spans, and split thresholds as raw scalar values. | **IMPLEMENTED and focused-verified.** Public and internal droplet state now carries Aequitas `Volume`, `Time`, and `Dimensionless` quantities, with scalar extraction confined to transport formulas. The same revision passes `cargo check -p cfd-1d --tests --offline`; focused Nextest passes 9/9 droplet-parity tests and 5/5 literature-validation tests. Composition event/time contracts remain a separately tracked residual. See [`transient-droplet-metrics.md`](docs/atlas-migration/transient-droplet-metrics.md). |
 | `CFDRS-AEQ-MET-17` | `cfd-1d` `Network` and `NetworkState` exposed pressure, volumetric-flow, and simulation-time state as raw scalar vectors; network analysis returned additional physical hydraulic metrics as raw scalars. Residual norms have model-dependent units. | **IMPLEMENTED in the current typed network-state increment; provider dimensions in `f19ba15`.** Public state and analysis contracts now use Aequitas quantities, and all in-tree callers are migrated without adapters. Residuals remain scalar under the documented equation-dependent classification. Locked library, test-target, and example checks pass; cfd-1d Nextest passes 731/731 with 3 skips in 23.458 s; doctests pass 8/8 with 3 ignored. Warning-denied library Clippy is pending the concurrent cfd-math module deletion being reconciled. See [`network-state-metrics.md`](docs/atlas-migration/network-state-metrics.md). |

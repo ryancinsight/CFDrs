@@ -34,6 +34,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type transient `MixtureComposition` fraction maps, blood
+  hematocrit construction/accessors, weighted blends, tolerances, and node/edge
+  concentration queries with Aequitas `Dimensionless<T>`. Scalar extraction is
+  confined to normalization, mixture arithmetic, transport, and assertions;
+  solver residual norms remain equation-dependent.
+
 - **Breaking**: Type transient composition and droplet requested, calculated,
   and returned timepoint vectors as `Vec<Time<T>>`; scalar time vectors remain
   private to sorting and solver boundaries.
