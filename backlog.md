@@ -32,7 +32,7 @@
 ## Active integration
 
 - **CFDRS-AEQ-MET-19 [major] - Type transient droplet physical metrics
-  (VERIFIED-SOURCE 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
+  (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
   transient droplet types, simulator/caller migration, tests, and synchronized
   PM artifacts).** Droplet volume and simulation time remain raw `T` values in
   public transient contracts, and fractional positions remain unclassified
@@ -40,9 +40,10 @@
   positions/flow fractions as `Dimensionless`; extract scalars only at
   transport formulas. Acceptance is a residue-free source audit, migrated
   value-semantic transient tests, focused cfd-1d gates, and no compatibility
-  facade. Same-revision cfd-1d test-target check passes; focused Nextest is
-  blocked by the peer cfd-math `apply_to` error-contract mismatch, recorded in
-  `gap_audit.md`.
+  facade. Same-revision cfd-1d test-target check passes; transient droplet
+  parity Nextest passes 9/9; literature validation passes 5/5; and the peer
+  cfd-math `apply_to` error-contract mismatch is repaired forward in
+  `32be436b`.
 
 - **CFDRS-AEQ-MET-18 [major] - Type network node and metadata metrics
   (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
