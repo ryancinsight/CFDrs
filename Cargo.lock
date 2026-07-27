@@ -4214,16 +4214,8 @@ dependencies = [
 ]
 
 [[patch.unused]]
-name = "horae"
+name = "consus-zarr"
 version = "0.1.0"
-
-[[patch.unused]]
-name = "hephaestus-cuda"
-version = "0.18.0"
-
-[[patch.unused]]
-name = "hephaestus-cuda"
-version = "0.18.0"
 
 [[patch.unused]]
 name = "asclepius"
@@ -4234,20 +4226,12 @@ name = "asclepius-coeus"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "athena-core"
-version = "0.1.0"
+name = "hephaestus-cuda"
+version = "0.18.0"
 
 [[patch.unused]]
-name = "consus-npy"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "consus-onnx"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "consus-zarr"
-version = "0.1.0"
+name = "hephaestus-cuda"
+version = "0.18.0"
 
 [[patch.unused]]
 name = "ritk-core"
@@ -4266,5 +4250,21 @@ name = "ritk-registration"
 version = "0.53.0"
 
 [[patch.unused]]
+name = "consus-npy"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "consus-onnx"
+version = "0.1.0"
+
+[[patch.unused]]
 name = "consus-zarr"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "horae"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "athena-core"
 version = "0.1.0"
