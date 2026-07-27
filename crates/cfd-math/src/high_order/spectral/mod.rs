@@ -205,8 +205,7 @@ fn dot(lhs: &Array1<f64>, rhs: &Array1<f64>) -> f64 {
         rhs.shape(),
         "invariant: dot operands must have equal length"
     );
-
-    lhs.iter().zip(rhs.iter()).map(|(&l, &r)| l * r).sum()
+    leto_ops::Scalar::dot_slice(lhs.as_slice().unwrap(), rhs.as_slice().unwrap())
 }
 
 fn stiffness_matrix(derivative: &Array2<f64>, mass: &Array2<f64>) -> Array2<f64> {

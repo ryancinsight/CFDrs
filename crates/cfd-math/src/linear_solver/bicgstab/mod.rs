@@ -10,6 +10,7 @@ use super::traits::{
 use cfd_core::error::{ConvergenceErrorKind, Error, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
+use leto_ops::Scalar;
 use std::fmt::Debug;
 
 /// BiCGSTAB solver with efficient memory management
@@ -75,7 +76,7 @@ fn is_finite_scalar<T: RealField + Copy + NumericElement>(x: T) -> bool {
     NumericElement::to_f64(x).is_finite()
 }
 
-impl<T: RealField + Copy + NumericElement> BiCGSTAB<T> {
+impl<T: RealField + Copy + NumericElement + Scalar> BiCGSTAB<T> {
     /// Create new BiCGSTAB solver
     pub const fn new(config: IterativeSolverConfig<T>) -> Self {
         Self { config }
@@ -267,7 +268,7 @@ impl<T: RealField + Copy + NumericElement> BiCGSTAB<T> {
     }
 }
 
-impl<T: RealField + Debug + Copy + NumericElement> Configurable<T> for BiCGSTAB<T> {
+impl<T: RealField + Debug + Copy + NumericElement + Scalar> Configurable<T> for BiCGSTAB<T> {
     type Config = IterativeSolverConfig<T>;
 
     fn config(&self) -> &Self::Config {
@@ -275,7 +276,7 @@ impl<T: RealField + Debug + Copy + NumericElement> Configurable<T> for BiCGSTAB<
     }
 }
 
-impl<T: RealField + Debug + Copy + NumericElement> IterativeLinearSolver<T> for BiCGSTAB<T> {
+impl<T: RealField + Debug + Copy + NumericElement + Scalar> IterativeLinearSolver<T> for BiCGSTAB<T> {
     fn solve<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
         &self,
         a: &Op,
@@ -291,7 +292,7 @@ impl<T: RealField + Debug + Copy + NumericElement> IterativeLinearSolver<T> for 
     }
 }
 
-impl<T: RealField + Copy + FloatElement + NumericElement> super::traits::LinearSolver<T>
+impl<T: RealField + Copy + FloatElement + NumericElement + Scalar> super::traits::LinearSolver<T>
     for BiCGSTAB<T>
 {
     fn solve_system(

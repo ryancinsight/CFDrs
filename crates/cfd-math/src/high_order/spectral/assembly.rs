@@ -4,117 +4,7 @@
 //! from element-local contributions in spectral element methods.
 
 use leto::{Array1, Array2};
-
-/// Represents a global sparse matrix in compressed sparse row (CSR) format
-#[derive(Debug, Clone)]
-pub struct SparseMatrixCSR {
-    /// Number of rows
-    nrows: usize,
-    /// Number of columns
-    ncols: usize,
-    /// Row pointers (size nrows + 1)
-    row_ptr: Vec<usize>,
-    /// Column indices (size nnz)
-    col_ind: Vec<usize>,
-    /// Non-zero values (size nnz)
-    values: Vec<f64>,
-}
-
-impl SparseMatrixCSR {
-    /// Create a new empty sparse matrix
-    pub fn new(nrows: usize, ncols: usize) -> Self {
-        Self {
-            nrows,
-            ncols,
-            row_ptr: vec![0; nrows + 1],
-            col_ind: Vec::new(),
-            values: Vec::new(),
-        }
-    }
-
-    /// Get the number of non-zero elements
-    pub fn nnz(&self) -> usize {
-        self.values.len()
-    }
-
-    /// Get the number of rows
-    pub fn nrows(&self) -> usize {
-        self.nrows
-    }
-
-    /// Get the number of columns
-    pub fn ncols(&self) -> usize {
-        self.ncols
-    }
-
-    /// Get a reference to the row pointers
-    pub fn row_ptr(&self) -> &[usize] {
-        &self.row_ptr
-    }
-
-    /// Get a reference to the column indices
-    pub fn col_ind(&self) -> &[usize] {
-        &self.col_ind
-    }
-
-    /// Get a reference to the values
-    pub fn values(&self) -> &[f64] {
-        &self.values
-    }
-
-    /// Convert to a dense Leto matrix for debugging and small problems.
-    pub fn to_dense(&self) -> Array2<f64> {
-        let mut mat = Array2::zeros([self.nrows, self.ncols]);
-
-        for i in 0..self.nrows {
-            for j in self.row_ptr[i]..self.row_ptr[i + 1] {
-                mat[[i, self.col_ind[j]]] = self.values[j];
-            }
-        }
-
-        mat
-    }
-
-    /// Matrix-vector product: y = A * x
-    pub fn multiply(&self, x: &[f64], y: &mut [f64]) {
-        assert_eq!(x.len(), self.ncols);
-        assert_eq!(y.len(), self.nrows);
-
-        for i in 0..self.nrows {
-            y[i] = 0.0;
-
-            for j in self.row_ptr[i]..self.row_ptr[i + 1] {
-                y[i] += self.values[j] * x[self.col_ind[j]];
-            }
-        }
-    }
-
-    /// Add a value to the matrix at (i,j)
-    pub fn add_element(&mut self, i: usize, j: usize, value: f64) {
-        assert!(i < self.nrows);
-        assert!(j < self.ncols);
-
-        // Find the position to insert
-        let pos = match self.col_ind[self.row_ptr[i]..self.row_ptr[i + 1]].binary_search(&j) {
-            Ok(idx) => self.row_ptr[i] + idx,
-            Err(idx) => {
-                // Insert new element
-                let pos = self.row_ptr[i] + idx;
-                self.col_ind.insert(pos, j);
-                self.values.insert(pos, 0.0);
-
-                // Update row pointers
-                for k in i + 1..=self.nrows {
-                    self.row_ptr[k] += 1;
-                }
-
-                pos
-            }
-        };
-
-        self.values[pos] += value;
-    }
-}
+use leto_ops::{CooMatrix, CsrMatrix};
 
 /// Represents a global assembly for spectral element methods
 pub struct GlobalAssembly {
@@ -180,70 +70,21 @@ impl GlobalAssembly {
     }
 
     /// Assemble the global sparse matrix in CSR format
-    pub fn assemble_matrix(&self) -> SparseMatrixCSR {
+    pub fn assemble_matrix(&self) -> CsrMatrix<f64> {
         if self.coo_rows.is_empty() {
-            return SparseMatrixCSR::new(self.num_dofs, self.num_dofs);
+            return CsrMatrix::zeros(self.num_dofs, self.num_dofs);
         }
 
-        // 1. Collect and sort COO entries
-        let mut entries: Vec<(usize, usize, f64)> = self
-            .coo_rows
-            .iter()
-            .zip(self.coo_cols.iter())
-            .zip(self.coo_vals.iter())
-            .map(|((&r, &c), &v)| (r, c, v))
-            .collect();
+        let coo = CooMatrix::from_triplets(
+            self.num_dofs,
+            self.num_dofs,
+            self.coo_rows.clone(),
+            self.coo_cols.clone(),
+            self.coo_vals.clone(),
+        )
+        .expect("invariant: COO triplets are valid");
 
-        // Sort by row, then by column
-        entries.sort_by(|a, b| {
-            if a.0 == b.0 {
-                a.1.cmp(&b.1)
-            } else {
-                a.0.cmp(&b.0)
-            }
-        });
-
-        // 2. Consolidate duplicates
-        let mut consolidated = Vec::with_capacity(entries.len());
-        if !entries.is_empty() {
-            let (mut curr_r, mut curr_c, mut curr_v) = entries[0];
-            for i in 1..entries.len() {
-                let (r, c, v) = entries[i];
-                if r == curr_r && c == curr_c {
-                    curr_v += v;
-                } else {
-                    consolidated.push((curr_r, curr_c, curr_v));
-                    curr_r = r;
-                    curr_c = c;
-                    curr_v = v;
-                }
-            }
-            consolidated.push((curr_r, curr_c, curr_v));
-        }
-
-        // 3. Build CSR
-        let mut mat = SparseMatrixCSR::new(self.num_dofs, self.num_dofs);
-        mat.row_ptr = vec![0; self.num_dofs + 1];
-        mat.col_ind = Vec::with_capacity(consolidated.len());
-        mat.values = Vec::with_capacity(consolidated.len());
-
-        let mut current_row = 0;
-        for (r, c, v) in consolidated {
-            while current_row < r {
-                current_row += 1;
-                mat.row_ptr[current_row] = mat.col_ind.len();
-            }
-            mat.col_ind.push(c);
-            mat.values.push(v);
-        }
-
-        // Fill remaining row pointers
-        while current_row < self.num_dofs {
-            current_row += 1;
-            mat.row_ptr[current_row] = mat.col_ind.len();
-        }
-
-        mat
+        coo.to_csr()
     }
 
     /// Get the global right-hand side vector
@@ -402,22 +243,22 @@ mod tests {
     #[test]
     fn test_sparse_matrix() {
         let n = 5;
-        let mut mat = SparseMatrixCSR::new(n, n);
+        let mut coo = CooMatrix::<f64>::new(n, n);
 
         // Set up a tridiagonal matrix
         for i in 0..n {
             if i > 0 {
-                mat.add_element(i, i - 1, -1.0);
+                coo.push(i, i - 1, -1.0);
             }
 
-            mat.add_element(i, i, 2.0);
+            coo.push(i, i, 2.0);
 
             if i < n - 1 {
-                mat.add_element(i, i + 1, -1.0);
+                coo.push(i, i + 1, -1.0);
             }
         }
 
-        // Convert to dense and check
+        let mat = coo.to_csr();
         let dense = mat.to_dense();
 
         for i in 0..n {

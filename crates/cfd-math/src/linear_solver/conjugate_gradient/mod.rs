@@ -18,6 +18,7 @@ use super::traits::{
 use cfd_core::error::{ConvergenceErrorKind, Error, NumericalErrorKind, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
+use leto_ops::Scalar;
 use std::fmt::Debug;
 use std::sync::Mutex;
 
@@ -54,7 +55,7 @@ pub struct ConjugateGradient<T: RealField + Copy> {
     workspace: Mutex<Option<Workspace<T>>>,
 }
 
-impl<T: RealField + Copy + NumericElement> ConjugateGradient<T> {
+impl<T: RealField + Copy + NumericElement + Scalar> ConjugateGradient<T> {
     /// Create new CG solver
     pub const fn new(config: IterativeSolverConfig<T>) -> Self {
         Self {
@@ -198,7 +199,7 @@ impl<T: RealField + Copy + NumericElement> ConjugateGradient<T> {
     }
 }
 
-impl<T: RealField + Debug + Copy + NumericElement> Configurable<T> for ConjugateGradient<T> {
+impl<T: RealField + Debug + Copy + NumericElement + Scalar> Configurable<T> for ConjugateGradient<T> {
     type Config = IterativeSolverConfig<T>;
 
     fn config(&self) -> &Self::Config {
@@ -206,7 +207,7 @@ impl<T: RealField + Debug + Copy + NumericElement> Configurable<T> for Conjugate
     }
 }
 
-impl<T: RealField + Debug + Copy + NumericElement> IterativeLinearSolver<T>
+impl<T: RealField + Debug + Copy + NumericElement + Scalar> IterativeLinearSolver<T>
     for ConjugateGradient<T>
 {
     fn solve<Op: LinearOperator<T> + ?Sized, P: Preconditioner<T>>(
@@ -224,7 +225,7 @@ impl<T: RealField + Debug + Copy + NumericElement> IterativeLinearSolver<T>
     }
 }
 
-impl<T: RealField + Copy + FloatElement + NumericElement> super::traits::LinearSolver<T>
+impl<T: RealField + Copy + FloatElement + NumericElement + Scalar> super::traits::LinearSolver<T>
     for ConjugateGradient<T>
 {
     fn solve_system(

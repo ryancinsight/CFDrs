@@ -1,6 +1,6 @@
 use cfd_core::error::{Error, Result};
-use eunomia::{NumericElement, RealField};
 use leto::Array1;
+use leto_ops::Scalar;
 
 #[inline]
 pub(super) fn vector_len<T>(vector: &Array1<T>) -> usize {
@@ -21,42 +21,40 @@ pub(super) fn validate_vector_len<T>(
     Ok(())
 }
 
-pub(super) fn dot<T: RealField + Copy + NumericElement>(lhs: &Array1<T>, rhs: &Array1<T>) -> T {
-    let mut sum = <T as NumericElement>::ZERO;
-    for idx in 0..vector_len(lhs) {
-        sum += lhs[idx] * rhs[idx];
-    }
-    sum
+pub(super) fn dot<T: Scalar>(lhs: &Array1<T>, rhs: &Array1<T>) -> T {
+    T::dot_slice(lhs.as_slice().unwrap(), rhs.as_slice().unwrap())
 }
 
-pub(super) fn norm<T: RealField + Copy + NumericElement>(vector: &Array1<T>) -> T {
-    NumericElement::sqrt(dot(vector, vector))
+pub(super) fn norm<T: Scalar>(vector: &Array1<T>) -> T {
+    eunomia::NumericElement::sqrt(dot(vector, vector))
 }
 
-pub(super) fn copy_array<T: Copy>(src: &Array1<T>, dst: &mut Array1<T>) {
-    for idx in 0..vector_len(src) {
-        dst[idx] = src[idx];
-    }
+pub(super) fn copy_array<T: Scalar>(src: &Array1<T>, dst: &mut Array1<T>) {
+    dst.as_slice_mut()
+        .unwrap()
+        .copy_from_slice(src.as_slice().unwrap());
 }
 
-pub(super) fn assign_residual<T: RealField + Copy + NumericElement>(
-    residual: &mut Array1<T>,
-    rhs: &Array1<T>,
-    ax: &Array1<T>,
-) {
-    for idx in 0..vector_len(rhs) {
-        residual[idx] = rhs[idx] - ax[idx];
-    }
+pub(super) fn assign_residual<T: Scalar>(residual: &mut Array1<T>, rhs: &Array1<T>, ax: &Array1<T>) {
+    T::sub_slice(
+        rhs.as_slice().unwrap(),
+        ax.as_slice().unwrap(),
+        residual.as_slice_mut().unwrap(),
+    );
 }
 
-pub(super) fn axpy<T: RealField + Copy>(x: &mut Array1<T>, alpha: T, y: &Array1<T>) {
-    for idx in 0..vector_len(x) {
-        x[idx] += alpha * y[idx];
-    }
+pub(super) fn axpy<T: Scalar>(x: &mut Array1<T>, alpha: T, y: &Array1<T>) {
+    T::axpy_slice(
+        alpha,
+        y.as_slice().unwrap(),
+        x.as_slice_mut().unwrap(),
+    );
 }
 
-pub(super) fn scale_add<T: RealField + Copy>(x: &mut Array1<T>, scale: T, y: &Array1<T>) {
-    for idx in 0..vector_len(x) {
-        x[idx] = x[idx] * scale + y[idx];
+pub(super) fn scale_add<T: Scalar>(x: &mut Array1<T>, scale: T, y: &Array1<T>) {
+    let x_slice = x.as_slice_mut().unwrap();
+    let y_slice = y.as_slice().unwrap();
+    for i in 0..x_slice.len() {
+        x_slice[i] = x_slice[i] * scale + y_slice[i];
     }
 }

@@ -55,6 +55,7 @@
 use cfd_core::error::Result;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
+use leto_ops::Scalar;
 
 use super::linalg::{
     add, add_scaled, add_scaled_in_place, dot, neg, norm, scale, sub, sub_in_place_scaled,
@@ -136,7 +137,7 @@ where
 
 impl<T, F> JvpOperator<'_, T, F>
 where
-    T: RealField + Copy + FloatElement,
+    T: RealField + Copy + FloatElement + Scalar,
     F: Fn(&Array1<T>) -> Array1<T>,
 {
     /// Compute $J(x) v \approx [F(x + \varepsilon v) - F(x)] / \varepsilon$.
@@ -161,7 +162,7 @@ pub struct JfnkSolver<T: RealField + Copy> {
     config: JfnkConfig<T>,
 }
 
-impl<T: RealField + Copy + FloatElement + std::fmt::Debug> JfnkSolver<T> {
+impl<T: RealField + Copy + FloatElement + Scalar + std::fmt::Debug> JfnkSolver<T> {
     /// Create a new JFNK solver with the given configuration.
     pub fn new(config: JfnkConfig<T>) -> Self {
         Self { config }
@@ -470,23 +471,24 @@ impl<T: RealField + Copy + FloatElement + std::fmt::Debug> JfnkSolver<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::linalg::vector_from_vec;
     use super::*;
     use eunomia::assert_relative_eq;
     use leto::Array2;
 
     fn vec(values: Vec<f64>) -> Array1<f64> {
-        vector_from_vec(values)
+        Array1::from_shape_vec([values.len()], values).expect("valid vector shape")
     }
 
     fn mat_vec(matrix: &Array2<f64>, vector: &Array1<f64>) -> Array1<f64> {
         let [rows, cols] = matrix.shape();
         assert_eq!(cols, vector.shape()[0]);
-        vector_from_vec(
+        Array1::from_shape_vec(
+            [rows],
             (0..rows)
                 .map(|row| (0..cols).fold(0.0, |acc, col| acc + matrix[[row, col]] * vector[col]))
                 .collect(),
         )
+        .expect("valid vector shape")
     }
 
     /// Theorem: JFNK on a linear system F(x) = Ax - b must recover the exact solution
