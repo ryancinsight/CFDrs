@@ -4,8 +4,26 @@
 //! literature values and against each other, ensuring consistency across
 //! the different fidelity levels.
 
-use aequitas::systems::si::quantities::{Pressure, Time};
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, Length, Pressure, ReciprocalTime, Time, VolumetricFlowRate,
+};
 use eunomia::assert_relative_eq;
+
+fn diameter_um(value: f64) -> Length {
+    Length::from_base(value * 1.0e-6)
+}
+
+fn length(value: f64) -> Length {
+    Length::from_base(value)
+}
+
+fn viscosity(value: f64) -> DynamicViscosity {
+    DynamicViscosity::from_base(value)
+}
+
+fn shear_rate(value: f64) -> ReciprocalTime {
+    ReciprocalTime::from_base(value)
+}
 
 // ── Test 1: Durst Entrance Length vs Schlichting ─────────────────────────────
 
@@ -255,25 +273,27 @@ fn fahraeus_lindqvist_reduces_viscosity_in_microchannels() {
     // significantly lower than bulk blood viscosity (μ_bulk ≈ 3.5 mPa·s).
     // Pries (1992): μ_app/μ_plasma ≈ 2.0-2.5 at D=50 µm, Ht=0.45
     // vs μ_bulk/μ_plasma ≈ 3.5 for bulk blood
-    let mu_plasma = 0.0012; // Pa·s
+    let mu_plasma = viscosity(0.0012);
 
-    let mu_50um = cfd_1d::fahraeus_lindqvist_viscosity(50.0, 0.45, mu_plasma);
-    let mu_bulk = cfd_1d::fahraeus_lindqvist_viscosity(1000.0, 0.45, mu_plasma);
+    let mu_50um = cfd_1d::fahraeus_lindqvist_viscosity(diameter_um(50.0), 0.45, mu_plasma);
+    let mu_bulk = cfd_1d::fahraeus_lindqvist_viscosity(diameter_um(1000.0), 0.45, mu_plasma);
 
     // Microchannel viscosity should be lower than bulk
     assert!(
-        mu_50um < mu_bulk,
-        "FL effect should reduce viscosity: 50µm={mu_50um:.4e} vs bulk={mu_bulk:.4e}"
+        mu_50um.into_base() < mu_bulk.into_base(),
+        "FL effect should reduce viscosity: 50µm={:.4e} vs bulk={:.4e}",
+        mu_50um.into_base(),
+        mu_bulk.into_base()
     );
 
     // But still higher than plasma
     assert!(
-        mu_50um > mu_plasma,
+        mu_50um.into_base() > mu_plasma.into_base(),
         "Apparent viscosity must exceed plasma viscosity"
     );
 
     // Reduction should be 20-50% compared to bulk
-    let reduction_pct = (1.0 - mu_50um / mu_bulk) * 100.0;
+    let reduction_pct = (1.0 - mu_50um.into_base() / mu_bulk.into_base()) * 100.0;
     assert!(
         reduction_pct > 10.0 && reduction_pct < 60.0,
         "FL reduction should be 10-60%, got {reduction_pct:.1}%"
@@ -284,14 +304,14 @@ fn fahraeus_lindqvist_reduces_viscosity_in_microchannels() {
 
 #[test]
 fn fahraeus_lindqvist_viscosity_increases_with_hematocrit() {
-    let mu_plasma = 0.0012;
-    let d = 100.0; // 100 µm
+    let mu_plasma = viscosity(0.0012);
+    let d = diameter_um(100.0);
 
     let mu_30 = cfd_1d::fahraeus_lindqvist_viscosity(d, 0.30, mu_plasma);
     let mu_45 = cfd_1d::fahraeus_lindqvist_viscosity(d, 0.45, mu_plasma);
 
     assert!(
-        mu_45 > mu_30,
+        mu_45.into_base() > mu_30.into_base(),
         "Higher hematocrit should give higher viscosity"
     );
 }
@@ -392,15 +412,15 @@ fn fahraeus_lindqvist_vs_casson_viscosity_comparison() {
     // Compare Fahraeus-Lindqvist apparent viscosity with Casson model
     // at a reference shear rate. Both should give similar magnitudes
     // for bulk blood (D > 300 µm).
-    let mu_plasma = 0.0012;
-    let mu_fl_bulk = cfd_1d::fahraeus_lindqvist_viscosity(1000.0, 0.45, mu_plasma);
+    let mu_plasma = viscosity(0.0012);
+    let mu_fl_bulk = cfd_1d::fahraeus_lindqvist_viscosity(diameter_um(1000.0), 0.45, mu_plasma);
 
     // Casson model at high shear (γ̇ = 100 s⁻¹): μ_Casson ≈ 3.5 mPa·s
     // FL bulk at Ht=0.45 should also be ~3-4 mPa·s
     assert!(
-        mu_fl_bulk > 0.002 && mu_fl_bulk < 0.006,
+        mu_fl_bulk.into_base() > 0.002 && mu_fl_bulk.into_base() < 0.006,
         "FL bulk viscosity at Ht=0.45 should be 2-6 mPa·s, got {:.4e}",
-        mu_fl_bulk
+        mu_fl_bulk.into_base()
     );
 }
 
@@ -411,25 +431,25 @@ fn quemada_and_fahraeus_lindqvist_consistent_at_high_shear() {
     // At high shear (γ̇ = 200 s⁻¹), Quemada should give viscosity
     // consistent with Fahraeus-Lindqvist for bulk blood (D > 300 µm).
     // Both should be in the 3-5 mPa·s range for Ht=0.45.
-    let mu_plasma = 0.0012;
+    let mu_plasma = viscosity(0.0012);
 
-    let mu_quemada = cfd_1d::quemada_viscosity(200.0, 0.45, mu_plasma);
-    let mu_fl = cfd_1d::fahraeus_lindqvist_viscosity(1000.0, 0.45, mu_plasma);
+    let mu_quemada = cfd_1d::quemada_viscosity(shear_rate(200.0), 0.45, mu_plasma);
+    let mu_fl = cfd_1d::fahraeus_lindqvist_viscosity(diameter_um(1000.0), 0.45, mu_plasma);
 
     // Both should be in 2-6 mPa·s range
     assert!(
-        mu_quemada > 0.002 && mu_quemada < 0.006,
+        mu_quemada.into_base() > 0.002 && mu_quemada.into_base() < 0.006,
         "Quemada viscosity at Ht=0.45, γ̇=200 should be 2-6 mPa·s, got {:.4e}",
-        mu_quemada
+        mu_quemada.into_base()
     );
     assert!(
-        mu_fl > 0.002 && mu_fl < 0.006,
+        mu_fl.into_base() > 0.002 && mu_fl.into_base() < 0.006,
         "FL viscosity at Ht=0.45, D=1000µm should be 2-6 mPa·s, got {:.4e}",
-        mu_fl
+        mu_fl.into_base()
     );
 
     // They should agree within a factor of 2
-    let ratio = mu_quemada / mu_fl;
+    let ratio = mu_quemada.into_base() / mu_fl.into_base();
     assert!(
         ratio > 0.5 && ratio < 2.0,
         "Quemada/FL ratio should be 0.5-2.0, got {:.4}",
@@ -443,23 +463,23 @@ fn quemada_and_fahraeus_lindqvist_consistent_at_high_shear() {
 fn quemada_viscosity_shear_thinning_matches_literature() {
     // Literature: blood viscosity at Ht=0.45 should be ~50 mPa·s at γ̇=0.1 s⁻¹
     // and ~3.5 mPa·s at γ̇=200 s⁻¹ (Chien 1970, Quemada 1978)
-    let mu_plasma = 0.0012;
-    let mu_low = cfd_1d::quemada_viscosity(0.1, 0.45, mu_plasma);
-    let mu_high = cfd_1d::quemada_viscosity(200.0, 0.45, mu_plasma);
+    let mu_plasma = viscosity(0.0012);
+    let mu_low = cfd_1d::quemada_viscosity(shear_rate(0.1), 0.45, mu_plasma);
+    let mu_high = cfd_1d::quemada_viscosity(shear_rate(200.0), 0.45, mu_plasma);
 
     // Low-shear should be much higher (rouleaux)
     assert!(
-        mu_low > mu_high * 3.0,
+        mu_low.into_base() > mu_high.into_base() * 3.0,
         "Shear-thinning ratio should be > 3×: low={:.4e}, high={:.4e}",
-        mu_low,
-        mu_high
+        mu_low.into_base(),
+        mu_high.into_base()
     );
 
     // High-shear ~3-5 mPa·s
     assert!(
-        mu_high > 0.002 && mu_high < 0.006,
+        mu_high.into_base() > 0.002 && mu_high.into_base() < 0.006,
         "High-shear Quemada viscosity should be 2-6 mPa·s, got {:.4e}",
-        mu_high
+        mu_high.into_base()
     );
 }
 
@@ -471,10 +491,12 @@ fn plasma_skimming_reduces_hematocrit_in_minor_daughter() {
     let d_feed = 100.0; // µm
 
     // Minor daughter (20% of flow) should have lower Ht
-    let h_minor = cfd_1d::plasma_skimming_hematocrit(h_feed, 0.2, 50.0, d_feed)
-        .expect("plasma skimming should succeed for minor daughter");
-    let h_major = cfd_1d::plasma_skimming_hematocrit(h_feed, 0.8, 80.0, d_feed)
-        .expect("plasma skimming should succeed for major daughter");
+    let h_minor =
+        cfd_1d::plasma_skimming_hematocrit(h_feed, 0.2, diameter_um(50.0), diameter_um(d_feed))
+            .expect("plasma skimming should succeed for minor daughter");
+    let h_major =
+        cfd_1d::plasma_skimming_hematocrit(h_feed, 0.8, diameter_um(80.0), diameter_um(d_feed))
+            .expect("plasma skimming should succeed for major daughter");
 
     assert!(
         h_minor < h_feed,
@@ -499,10 +521,16 @@ fn plasma_skimming_conserves_rbc_mass() {
     let d_feed = 100.0;
     let frac = 0.3; // 30/70 split
 
-    let h_d1 = cfd_1d::plasma_skimming_hematocrit(h_feed, frac, 60.0, d_feed)
-        .expect("plasma skimming should succeed for daughter 1");
-    let h_d2 = cfd_1d::plasma_skimming_hematocrit(h_feed, 1.0 - frac, 80.0, d_feed)
-        .expect("plasma skimming should succeed for daughter 2");
+    let h_d1 =
+        cfd_1d::plasma_skimming_hematocrit(h_feed, frac, diameter_um(60.0), diameter_um(d_feed))
+            .expect("plasma skimming should succeed for daughter 1");
+    let h_d2 = cfd_1d::plasma_skimming_hematocrit(
+        h_feed,
+        1.0 - frac,
+        diameter_um(80.0),
+        diameter_um(d_feed),
+    )
+    .expect("plasma skimming should succeed for daughter 2");
 
     let rbc_out = h_d1 * frac + h_d2 * (1.0 - frac);
     let rbc_in = h_feed;
@@ -579,24 +607,30 @@ fn quemada_gives_reasonable_blood_viscosity_across_shear_range() {
     // - ~10 mPa.s at gamma_dot=1 s^-1
     // - ~4 mPa.s at gamma_dot=100 s^-1
     // - ~3.5 mPa.s at gamma_dot=1000 s^-1
-    let mu_plasma = 0.0012;
+    let mu_plasma = viscosity(0.0012);
 
-    let mu_001 = cfd_1d::quemada_viscosity(0.01, 0.45, mu_plasma);
-    let mu_1 = cfd_1d::quemada_viscosity(1.0, 0.45, mu_plasma);
-    let mu_100 = cfd_1d::quemada_viscosity(100.0, 0.45, mu_plasma);
-    let mu_1000 = cfd_1d::quemada_viscosity(1000.0, 0.45, mu_plasma);
+    let mu_001 = cfd_1d::quemada_viscosity(shear_rate(0.01), 0.45, mu_plasma);
+    let mu_1 = cfd_1d::quemada_viscosity(shear_rate(1.0), 0.45, mu_plasma);
+    let mu_100 = cfd_1d::quemada_viscosity(shear_rate(100.0), 0.45, mu_plasma);
+    let mu_1000 = cfd_1d::quemada_viscosity(shear_rate(1000.0), 0.45, mu_plasma);
 
     // Monotone decreasing (shear-thinning)
     assert!(
-        mu_001 > mu_1 && mu_1 > mu_100 && mu_100 > mu_1000,
-        "Viscosity must be monotone decreasing: {mu_001:.4e} > {mu_1:.4e} > {mu_100:.4e} > {mu_1000:.4e}"
+        mu_001.into_base() > mu_1.into_base()
+            && mu_1.into_base() > mu_100.into_base()
+            && mu_100.into_base() > mu_1000.into_base(),
+        "Viscosity must be monotone decreasing: {:.4e} > {:.4e} > {:.4e} > {:.4e}",
+        mu_001.into_base(),
+        mu_1.into_base(),
+        mu_100.into_base(),
+        mu_1000.into_base()
     );
 
     // High-shear should be 3-5 mPa.s
     assert!(
-        mu_1000 > 0.002 && mu_1000 < 0.006,
+        mu_1000.into_base() > 0.002 && mu_1000.into_base() < 0.006,
         "High-shear viscosity should be 2-6 mPa.s, got {:.4e}",
-        mu_1000
+        mu_1000.into_base()
     );
 }
 
@@ -714,7 +748,13 @@ fn multi_layer_bifurcation_with_sdt_acoustic_physics() {
     // 3. Transit-time-dependent sensitizer activation
 
     // Step 1: Cell separation
-    let result = cfd_1d::cascade_junction_separation(2, 0.45, 2e-3, 1e-3, 1e-6);
+    let result = cfd_1d::cascade_junction_separation(
+        2,
+        0.45,
+        length(2e-3),
+        length(1e-3),
+        VolumetricFlowRate::from_base(1e-6),
+    );
 
     // Step 2: Acoustic contrast factors
     let phi_ctc = cfd_1d::acoustic_contrast_factor(1050.0, 1060.0, 4.2e-10, 4.48e-10);
