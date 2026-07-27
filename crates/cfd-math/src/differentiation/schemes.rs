@@ -1,17 +1,7 @@
-//! Finite difference schemes for numerical differentiation.
+﻿//! Finite-difference scheme enumeration — re-export from the Atlas SSOT.
+//!
+//! The canonical definition lives in `leto-ops::application::diff`; this
+//! module re-exports it under the `cfd-math` vocabulary so that higher
+//! layers depend on one import path.
 
-/// Finite difference schemes
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub enum FiniteDifferenceScheme {
-    /// Forward difference: f'(x) ≈ (f(x+h) - f(x)) / h
-    Forward,
-    /// Backward difference: f'(x) ≈ (f(x) - f(x-h)) / h
-    Backward,
-    /// Central difference: f'(x) ≈ (f(x+h) - f(x-h)) / (2h)
-    #[default]
-    Central,
-    /// Second-order forward: f'(x) ≈ (-3f(x) + 4f(x+h) - f(x+2h)) / (2h)
-    ForwardSecondOrder,
-    /// Second-order backward: f'(x) ≈ (f(x-2h) - 4f(x-h) + 3f(x)) / (2h)
-    BackwardSecondOrder,
-}
+pub use leto_ops::FiniteDifferenceScheme;
