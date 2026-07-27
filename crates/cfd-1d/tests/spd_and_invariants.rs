@@ -601,9 +601,9 @@ fn bifurcation_transport_propagates_phase_separated_hematocrit() -> Result<()> {
     let expected_a = pries_phase_separation(
         feed_hct,
         q_a / (q_a + q_b),
-        daughter_a_d * 1.0e6,
-        daughter_b_d * 1.0e6,
-        parent_d * 1.0e6,
+        Length::from_base(daughter_a_d),
+        Length::from_base(daughter_b_d),
+        Length::from_base(parent_d),
     )?;
     let expected_b =
         ((1.0 - expected_a.cell_fraction) * feed_hct / (q_b / (q_a + q_b))).clamp(0.0, 1.0);
@@ -721,18 +721,18 @@ fn cascade_transport_uses_parent_daughter_hematocrit_as_next_feed() -> Result<()
     let first_split = pries_phase_separation(
         feed_hct,
         q_b / (q_b + q_trunk),
-        branch_b_d * 1.0e6,
-        trunk_d * 1.0e6,
-        parent_d * 1.0e6,
+        Length::from_base(branch_b_d),
+        Length::from_base(trunk_d),
+        Length::from_base(parent_d),
     )?;
     let trunk_hct = ((1.0 - first_split.cell_fraction) * feed_hct / (q_trunk / (q_b + q_trunk)))
         .clamp(0.0, 1.0);
     let second_split = pries_phase_separation(
         trunk_hct,
         q_c / (q_c + q_d),
-        branch_c_d * 1.0e6,
-        branch_d_d * 1.0e6,
-        trunk_d * 1.0e6,
+        Length::from_base(branch_c_d),
+        Length::from_base(branch_d_d),
+        Length::from_base(trunk_d),
     )?;
     let expected_d =
         ((1.0 - second_split.cell_fraction) * trunk_hct / (q_d / (q_c + q_d))).clamp(0.0, 1.0);

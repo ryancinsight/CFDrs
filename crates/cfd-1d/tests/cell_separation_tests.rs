@@ -6,15 +6,31 @@
 //! 3. Cancer/RBC cells separate correctly in physiological channels
 //! 4. Edge cases (zero velocity, large deformability) are handled correctly
 
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Velocity};
 use cfd_1d::physics::cell_separation::{
-    dean_drag_force_n, dean_number, inertial_lift_force_n, lateral_equilibrium, CellProperties,
+    dean_drag_force, dean_number, inertial_lift_force, lateral_equilibrium, CellProperties,
     CellSeparationModel,
 };
 use eunomia::assert_relative_eq;
 
 const BLOOD_DENSITY: f64 = 1060.0;
 const BLOOD_VISCOSITY: f64 = 3.5e-3;
+
+fn density(value: f64) -> MassDensity {
+    MassDensity::from_base(value)
+}
+
+fn viscosity(value: f64) -> DynamicViscosity {
+    DynamicViscosity::from_base(value)
+}
+
+fn velocity(value: f64) -> Velocity {
+    Velocity::from_base(value)
+}
+
+fn length(value: f64) -> Length {
+    Length::from_base(value)
+}
 
 // ============================================================================
 // Dean number formula
@@ -26,7 +42,7 @@ fn test_dean_number_formula() {
     let re = 100.0_f64;
     let dh = 200e-6_f64; // 200 µm hydraulic diameter
     let r = 5e-3_f64; // 5 mm bend radius
-    let de = dean_number(re, dh, r);
+    let de = dean_number(re, length(dh), length(r));
     let expected = re * (dh / (2.0 * r)).sqrt();
     assert_relative_eq!(de, expected, max_relative = 1e-12);
 }
@@ -43,8 +59,8 @@ fn test_dean_drag_force_scaling() {
     let de1 = 5.0_f64;
     let de2 = 10.0_f64;
 
-    let fd1 = dean_drag_force_n(mu, de1, a);
-    let fd2 = dean_drag_force_n(mu, de2, a);
+    let fd1 = dean_drag_force(viscosity(mu), de1, length(a)).into_base();
+    let fd2 = dean_drag_force(viscosity(mu), de2, length(a)).into_base();
 
     // Expected ratio: (de2/de1)^1.63
     let expected_ratio = (de2 / de1).powf(1.63);
@@ -89,22 +105,22 @@ fn test_cancer_focuses_closer_to_center_than_rbc() {
 
     let cancer_eq = lateral_equilibrium(
         &cancer,
-        BLOOD_DENSITY,
-        BLOOD_VISCOSITY,
-        0.05,
-        500e-6,
-        200e-6,
+        density(BLOOD_DENSITY),
+        viscosity(BLOOD_VISCOSITY),
+        velocity(0.05),
+        length(500e-6),
+        length(200e-6),
         None,
     )
     .expect("MCF-7 must focus (κ > 0.07)");
 
     let rbc_eq = lateral_equilibrium(
         &rbc,
-        BLOOD_DENSITY,
-        BLOOD_VISCOSITY,
-        0.05,
-        500e-6,
-        200e-6,
+        density(BLOOD_DENSITY),
+        viscosity(BLOOD_VISCOSITY),
+        velocity(0.05),
+        length(500e-6),
+        length(200e-6),
         None,
     )
     .expect("RBC must focus in this channel");
@@ -124,19 +140,19 @@ fn test_bisection_residual_near_zero() {
     let cancer = CellProperties::mcf7_breast_cancer();
     let eq = lateral_equilibrium(
         &cancer,
-        BLOOD_DENSITY,
-        BLOOD_VISCOSITY,
-        0.05,
-        500e-6,
-        200e-6,
+        density(BLOOD_DENSITY),
+        viscosity(BLOOD_VISCOSITY),
+        velocity(0.05),
+        length(500e-6),
+        length(200e-6),
         None,
     )
     .expect("test invariant");
     // Residual force should be machine-epsilon small (< 1 pN = 1e-12 N)
     assert!(
-        eq.residual_force_n.abs() < 1e-12,
+        eq.residual_force.into_base().abs() < 1e-12,
         "Bisection residual must be < 1 pN, got {:.3e} N",
-        eq.residual_force_n
+        eq.residual_force.into_base()
     );
 }
 
@@ -147,12 +163,23 @@ fn test_bisection_residual_near_zero() {
 /// Cancer vs RBC separation efficiency must be positive in a 200µm × 100µm channel.
 #[test]
 fn test_cancer_rbc_separation_efficiency_positive() {
-    let model = CellSeparationModel::new(200e-6, 100e-6, 0.01, None);
+    let model = CellSeparationModel::new(
+        Length::from_base(200e-6),
+        Length::from_base(100e-6),
+        Length::from_base(0.01),
+        None,
+    );
     let cancer = CellProperties::mcf7_breast_cancer();
     let rbc = CellProperties::red_blood_cell();
 
     let analysis = model
-        .analyze(&cancer, &rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, 0.05)
+        .analyze(
+            &cancer,
+            &rbc,
+            MassDensity::from_base(BLOOD_DENSITY),
+            DynamicViscosity::from_base(BLOOD_VISCOSITY),
+            Velocity::from_base(0.05),
+        )
         .expect("Separation analysis must succeed");
 
     assert!(
@@ -165,12 +192,23 @@ fn test_cancer_rbc_separation_efficiency_positive() {
 /// Purity must be in [0, 1] for the default channel and flow conditions.
 #[test]
 fn test_purity_bounded_in_zero_to_one() {
-    let model = CellSeparationModel::new(200e-6, 100e-6, 0.01, None);
+    let model = CellSeparationModel::new(
+        Length::from_base(200e-6),
+        Length::from_base(100e-6),
+        Length::from_base(0.01),
+        None,
+    );
     let cancer = CellProperties::mcf7_breast_cancer();
     let rbc = CellProperties::red_blood_cell();
 
     let analysis = model
-        .analyze(&cancer, &rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, 0.05)
+        .analyze(
+            &cancer,
+            &rbc,
+            MassDensity::from_base(BLOOD_DENSITY),
+            DynamicViscosity::from_base(BLOOD_VISCOSITY),
+            Velocity::from_base(0.05),
+        )
         .expect("test invariant");
 
     assert!(
@@ -191,22 +229,22 @@ fn test_curved_channel_shifts_equilibrium_outward() {
     let cancer = CellProperties::mcf7_breast_cancer();
     let straight = lateral_equilibrium(
         &cancer,
-        BLOOD_DENSITY,
-        BLOOD_VISCOSITY,
-        0.05,
-        500e-6,
-        200e-6,
+        density(BLOOD_DENSITY),
+        viscosity(BLOOD_VISCOSITY),
+        velocity(0.05),
+        length(500e-6),
+        length(200e-6),
         None,
     )
     .expect("test invariant");
     let curved = lateral_equilibrium(
         &cancer,
-        BLOOD_DENSITY,
-        BLOOD_VISCOSITY,
-        0.05,
-        500e-6,
-        200e-6,
-        Some(5e-3),
+        density(BLOOD_DENSITY),
+        viscosity(BLOOD_VISCOSITY),
+        velocity(0.05),
+        length(500e-6),
+        length(200e-6),
+        Some(length(5e-3)),
     )
     .expect("test invariant");
 
@@ -223,11 +261,22 @@ fn test_curved_channel_shifts_equilibrium_outward() {
 /// `will_focus = false`) so callers can use a partial signal.
 #[test]
 fn test_large_channel_returns_none_for_neither_focuses() {
-    let model = CellSeparationModel::new(10e-3, 10e-3, 0.01, None); // 1 cm × 1 cm — huge
+    let model = CellSeparationModel::new(
+        Length::from_base(10e-3),
+        Length::from_base(10e-3),
+        Length::from_base(0.01),
+        None,
+    ); // 1 cm × 1 cm — huge
     let cancer = CellProperties::mcf7_breast_cancer();
     let rbc = CellProperties::red_blood_cell();
 
-    let result = model.analyze(&cancer, &rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, 0.001);
+    let result = model.analyze(
+        &cancer,
+        &rbc,
+        MassDensity::from_base(BLOOD_DENSITY),
+        DynamicViscosity::from_base(BLOOD_VISCOSITY),
+        Velocity::from_base(0.001),
+    );
     let analysis = result.expect("analyze always returns Some for dispersed cells");
     assert!(
         !analysis.target_equilibrium.will_focus,
@@ -244,7 +293,14 @@ fn test_large_channel_returns_none_for_neither_focuses() {
 #[test]
 fn test_inertial_lift_at_center_is_negative() {
     let cancer = CellProperties::mcf7_breast_cancer();
-    let fl = inertial_lift_force_n(0.0, &cancer, BLOOD_DENSITY, 0.05, 200e-6);
+    let fl = inertial_lift_force(
+        0.0,
+        &cancer,
+        density(BLOOD_DENSITY),
+        velocity(0.05),
+        length(200e-6),
+    )
+    .into_base();
     // At center (x̃=0), C_wall=0, C_center=0.3 → C_L = -0.3 → F_L < 0
     assert!(
         fl < 0.0,
@@ -258,7 +314,14 @@ fn test_inertial_lift_at_center_is_negative() {
 #[test]
 fn test_inertial_lift_near_wall_is_positive() {
     let cancer = CellProperties::mcf7_breast_cancer();
-    let fl = inertial_lift_force_n(0.9, &cancer, BLOOD_DENSITY, 0.05, 200e-6);
+    let fl = inertial_lift_force(
+        0.9,
+        &cancer,
+        density(BLOOD_DENSITY),
+        velocity(0.05),
+        length(200e-6),
+    )
+    .into_base();
     // Near wall C_wall diverges, C_L should be positive
     assert!(
         fl > 0.0,

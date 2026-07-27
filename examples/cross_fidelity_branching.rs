@@ -13,6 +13,7 @@
 //! # Execution
 //! `cargo run --example cross_fidelity_branching --release`
 
+use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Velocity};
 use cfd_1d::physics::cell_separation::{CellProperties, CellSeparationModel};
 use cfd_3d::blueprint_integration::{
     process_blueprint_with_reference_trace, Blueprint3dProcessingConfig,
@@ -165,14 +166,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 } = geom.cross_section
                 {
                     if geom.length_m > 0.0 && width_m > 0.0 && height_m > 0.0 {
-                        let sep_model =
-                            CellSeparationModel::new(width_m, height_m, geom.length_m, None);
+                        let sep_model = CellSeparationModel::new(
+                            Length::from_base(width_m),
+                            Length::from_base(height_m),
+                            Length::from_base(geom.length_m),
+                            None,
+                        );
                         if let Some(analysis) = sep_model.analyze(
                             &cell_cancer,
                             &cell_rbc,
-                            density_kg_m3,
-                            viscosity_pa_s,
-                            trace.reference_mean_velocity_m_s,
+                            MassDensity::from_base(density_kg_m3),
+                            DynamicViscosity::from_base(viscosity_pa_s),
+                            Velocity::from_base(trace.reference_mean_velocity_m_s),
                         ) {
                             sep_eff_str =
                                 format!("{:>6.2}%", analysis.separation_efficiency * 100.0);

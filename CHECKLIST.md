@@ -1,5 +1,20 @@
 # CFDrs Work Checklist
 
+## Owner: Codex — CFDRS-AEQ-MET-23 cell-separation force metrics [major] — in progress 2026-07-27
+
+- [ ] Add and verify the Aequitas `Force`/`Newton` provider seam before
+      migrating CFDrs result fields.
+- [ ] Replace unit-suffixed scalar equilibrium position/force fields, direct
+      margination/cell-interaction inputs, Fahraeus/CFL/rheology metrics,
+      plasma-skimming diameters, cross-junction geometry/flow, and model
+      geometry with typed Aequitas quantities; migrate all in-tree callers
+      with no compatibility facade and retain scalar extraction only in
+      formulas.
+- [ ] Add value-semantic force/position regressions and run the focused cfd-1d
+      package gates.
+- [ ] Synchronize the design note, gap audit, backlog, checklist, and changelog;
+      commit and push the verified slice.
+
 ## Owner: Codex — CFDRS-AEQ-MET-22 transient mixture fractions [major] — verified 2026-07-27
 
 - [x] Confirm raw dimensionless fraction maps and public hematocrit/concentration

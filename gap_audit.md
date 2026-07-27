@@ -33,6 +33,25 @@
 
 ## Aequitas public metric gap audit (2026-07-24)
 
+### Verification refresh (2026-07-27, CFDRS-AEQ-MET-23)
+
+The live cell-separation audit found the remaining public physical boundary
+after MET-09: equilibrium lateral position, residual force, Dean drag, direct
+margination/cell-interaction inputs, Fahraeus/CFL diameters and widths,
+viscosities, shear rate, plasma-skimming diameters, and cross-junction
+geometry/flow inputs still crossed the public API as raw SI scalars. The
+provider now owns `Force`/`Newton`; the migrated contracts use `Length`,
+`MassDensity`, `DynamicViscosity`, `Velocity`, `ReciprocalTime`, and
+`VolumetricFlowRate`. Scalar extraction is confined to validation and the
+numerical force, transport, viscosity, and conductance formulas. All
+unit-suffixed identifiers were removed from the migrated public family without
+a compatibility facade. The focused `cfd-1d` package check and its full
+Nextest suite pass (736/736, three skipped); focused cfd-validation cell
+separation, multi-layer junction, and physics-model validation passes 57/57;
+and cfd-1d doctests pass 8/8 with three ignored. Warning-denied cfd-1d
+Clippy is green. Shared Atlas patch and `profile.test.env` warnings are
+environmental and do not affect these gates.
+
 ### Verification refresh (2026-07-26)
 
 The former Coeus and missing-cutile path blockers are stale: CFDrs has no
@@ -185,6 +204,7 @@ ignored. No compatibility facade was added.
 | CFDRS-AEQ-MET-11 | cfd-1d RectangularChannel, CircularChannel, PorousMembrane, OrganCompartment, and ChannelProperties exposed linear geometry, roughness, area, or volume as raw SI scalars; Component::volume returned Option<T>. | **IMPLEMENTED.** Component geometry now uses Aequitas Length, area methods return Area, Component::volume returns Volume, and ChannelProperties stores Length. Factory and setter scalar inputs convert immediately at their dynamic-parameter boundary; resistance models extract base scalars only for numerical formulas. cfd-1d check passes; Nextest passes 729/729 with 3 skipped; doctests pass 8/8 with 3 ignored; Rustdoc completes with 11 existing link warnings. Clippy remains blocked by the pre-existing cfd-math matrix_zeros dead-code warning. See docs/atlas-migration/component-geometry-metrics.md. |
 | CFDRS-AEQ-MET-10 | cfd-1d SurfaceProperties stored roughness, contact angle, and surface energy as raw SI scalars. cfd-core WettingProperties, FluidSolidInterface, and InterfaceProperties likewise exposed surface tension and static/advancing/receding angles without Aequitas dimensions. | **IMPLEMENTED.** Public channel surface contracts now use Aequitas Length, Angle, and EnergyPerArea; material interfaces use SurfaceTension and Angle, and adhesion returns EnergyPerArea. Scalar extraction is confined to the Darcy resistance and cosine-law boundaries. cfd-core Nextest passes 259/259; cfd-1d Nextest passes 729/729 with 3 skipped; doctests pass 11 with 3 ignored; focused shape-factor validation passes 1/1. The non-Newtonian validation binary exceeds the committed 30-second budget, and Clippy remains blocked by the pre-existing cfd-math `matrix_zeros` warning. See docs/atlas-migration/surface-wetting-metrics.md. |
 | `CFDRS-AEQ-MET-09` | `cfd-1d` cell-separation and kappa-aware cascade APIs exposed cell diameter, density, treatment/recovery hydraulic diameter, parent inflow velocity, Zweifach–Fung channel diameter, and optimization stage widths as raw SI scalars. The values cross public constructors, routing validation, and `cfd-optim` blueprint summaries. | **IMPLEMENTED in this increment.** `CellProperties`, `PeripheralRecovery`, `CascadeStage`, the public Zweifach–Fung functions, and `StageBlueprintSeparationSummary` now carry Aequitas `Length`, `MassDensity`, and `Velocity` values. Scalar extraction is confined to validation and numerical formula boundaries; all in-tree tests and blueprint construction are migrated. See [`cell-separation-physical-metrics.md`](docs/atlas-migration/cell-separation-physical-metrics.md). Touched-file rustfmt, scoped diff checks, residue scans, `cfd-1d` Nextest (728/728, 3 skipped), `cfd-optim` Nextest (137/137), and focused cell-separation validation Nextest (16/16) pass. The full `cfd-validation` package gate remains blocked by the committed 30-second budget: `test_venturi_flow_3d` and `microventuri_35um_case_produces_converged_informative_2d_result` timed out at approximately 31 seconds; those tests are outside this slice. |
+| `CFDRS-AEQ-MET-23` | The remaining public cell-separation family exposed equilibrium position, residual force, Dean drag, direct fluid/geometry inputs, Fahraeus/CFL diameters and widths, viscosity/shear metrics, plasma-skimming diameters, and cross-junction geometry/flow inputs as raw SI scalars after MET-09. | **IMPLEMENTED; focused value-semantic gates pass.** Aequitas adds `Force`/`Newton`; the public cell-separation family now uses typed `Length`, `MassDensity`, `DynamicViscosity`, `Velocity`, `ReciprocalTime`, and `VolumetricFlowRate` contracts. Scalar extraction remains at validation and numerical formula boundaries; callers, tests, and cross-fidelity validation are migrated with no compatibility facade. Rustfmt, metadata, diff checks, residue scans, `cfd-1d` check, full cfd-1d Nextest (736/736, three skipped), focused cfd-validation Nextest (57/57), cfd-1d doctests (8/8, three ignored), and warning-denied cfd-1d Clippy pass. See [`cell-separation-force-metrics.md`](docs/atlas-migration/cell-separation-force-metrics.md). |
 | `CFDRS-AEQ-MET-08` | `cfd-core` selective cavitation, `cfd-1d` Venturi screening, and `cfd-optim` Venturi placement/blueprint metrics discarded Aequitas types at public boundaries for pressure, density, velocity, length, viscosity, radius, and surface tension. | **FOCUSED VERIFIED.** The public physical contracts carry Aequitas quantities and all in-tree constructors are migrated. Scalar conversion remains only in numerical formula kernels and the documented serialized report DTO boundary. Provider support is in Aequitas commits `07e2252` and `6dc68c4`. The producer suite passes 1,127/1,127 with 3 skips; warning-denied all-targets Clippy and doctests pass for cfd-core/cfd-1d/cfd-optim. The broad cfd-3d/cfd-validation gate remains open on eight solver-heavy tests exceeding 30 seconds. See [`venturi-physical-metrics.md`](docs/atlas-migration/venturi-physical-metrics.md). |
 
 The remaining raw SI fields in `cfd-optim::metrics::SdtMetrics` are an explicit

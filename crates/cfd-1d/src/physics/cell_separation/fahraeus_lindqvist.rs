@@ -8,6 +8,7 @@
 //! flow: dependence on diameter and hematocrit", *Am. J. Physiol.*
 //! 263(6):H1770-H1778.
 
+use aequitas::systems::si::quantities::{DynamicViscosity, Length};
 use cfd_core::physics::fluid::blood::FahraeuasLindqvist;
 
 /// Fahraeus-Lindqvist apparent viscosity for microvessels (Pries et al. 1992).
@@ -44,17 +45,20 @@ use cfd_core::physics::fluid::blood::FahraeuasLindqvist;
 /// *Am. J. Physiol.* 263(6):H1770-H1778.
 ///
 /// # Arguments
-/// * `diameter_um` - Tube/channel diameter in micrometers (µm)
+/// * `diameter` - Tube/channel diameter
 /// * `hematocrit` - Feed hematocrit (volume fraction, typically 0.30-0.50)
-/// * `mu_plasma_pa_s` - Plasma viscosity in Pa·s (typically 0.0012)
+/// * `mu_plasma` - Plasma dynamic viscosity
 ///
 /// # Returns
 /// Apparent dynamic viscosity in Pa·s
 #[must_use]
-pub fn fahraeus_lindqvist_viscosity(diameter_um: f64, hematocrit: f64, mu_plasma_pa_s: f64) -> f64 {
-    let diameter_m = diameter_um * 1e-6;
-    let fl = FahraeuasLindqvist::<f64>::new(diameter_m, hematocrit);
-    fl.pries_relative_viscosity() * mu_plasma_pa_s
+pub fn fahraeus_lindqvist_viscosity(
+    diameter: Length,
+    hematocrit: f64,
+    mu_plasma: DynamicViscosity,
+) -> DynamicViscosity {
+    let fl = FahraeuasLindqvist::<f64>::new(diameter.into_base(), hematocrit);
+    DynamicViscosity::from_base(fl.pries_relative_viscosity() * mu_plasma.into_base())
 }
 
 /// Secomb (2017) in-vivo apparent viscosity for microvascular networks.
@@ -91,17 +95,20 @@ pub fn fahraeus_lindqvist_viscosity(diameter_um: f64, hematocrit: f64, mu_plasma
 /// *Annu. Rev. Fluid Mech.* 49:443-461.
 ///
 /// # Arguments
-/// * `diameter_um` - Tube/channel diameter in micrometers (µm)
+/// * `diameter` - Tube/channel diameter
 /// * `hematocrit` - Feed hematocrit (volume fraction, typically 0.30-0.50)
-/// * `mu_plasma_pa_s` - Plasma viscosity in Pa·s (typically 0.0012)
+/// * `mu_plasma` - Plasma dynamic viscosity
 ///
 /// # Returns
 /// Apparent dynamic viscosity in Pa·s
 #[must_use]
-pub fn secomb_network_viscosity(diameter_um: f64, hematocrit: f64, mu_plasma_pa_s: f64) -> f64 {
-    let diameter_m = diameter_um * 1e-6;
-    let fl = FahraeuasLindqvist::<f64>::new(diameter_m, hematocrit);
-    fl.secomb_relative_viscosity() * mu_plasma_pa_s
+pub fn secomb_network_viscosity(
+    diameter: Length,
+    hematocrit: f64,
+    mu_plasma: DynamicViscosity,
+) -> DynamicViscosity {
+    let fl = FahraeuasLindqvist::<f64>::new(diameter.into_base(), hematocrit);
+    DynamicViscosity::from_base(fl.secomb_relative_viscosity() * mu_plasma.into_base())
 }
 
 /// Secomb (2017) phase-separation parameter for bifurcation hematocrit partitioning.
@@ -123,16 +130,17 @@ pub fn secomb_network_viscosity(diameter_um: f64, hematocrit: f64, mu_plasma_pa_
 /// *Annu. Rev. Fluid Mech.* 49:443-461.
 ///
 /// # Arguments
-/// * `diameter_um` - Vessel diameter in micrometers (µm)
+/// * `diameter` - Vessel diameter
 /// * `hematocrit` - Hematocrit (volume fraction, 0.0-1.0)
 ///
 /// # Returns
 /// Phase-separation parameter X₀ (dimensionless)
 #[inline]
 pub fn secomb_phase_separation_x0(
-    diameter_um: f64,
+    diameter: Length,
     hematocrit: f64,
 ) -> cfd_core::error::Result<f64> {
+    let diameter_um = diameter.into_base() * 1.0e6;
     if !diameter_um.is_finite() || diameter_um <= 0.0 || !hematocrit.is_finite() {
         return Err(cfd_core::error::Error::InvalidConfiguration(
             "Secomb phase-separation inputs must be finite and diameter must be positive"
@@ -152,16 +160,20 @@ pub fn secomb_phase_separation_x0(
 mod tests {
     use super::*;
 
-    const MU_PLASMA: f64 = 0.0012; // Pa·s
+    const MU_PLASMA: DynamicViscosity = DynamicViscosity::from_base(0.0012);
+
+    fn diameter_um(value: f64) -> Length {
+        Length::from_base(value * 1.0e-6)
+    }
 
     /// Bulk blood viscosity at 45% hematocrit is approximately 3-4 mPa·s.
     /// For D=1000 µm (large vessel), the apparent viscosity should remain in the
     /// bulk-blood range.
     #[test]
     fn test_fahraeus_lindqvist_large_vessel() {
-        let mu = fahraeus_lindqvist_viscosity(1000.0, 0.45, MU_PLASMA);
+        let mu = fahraeus_lindqvist_viscosity(diameter_um(1000.0), 0.45, MU_PLASMA);
         // Bulk blood viscosity ~3.0-4.5 mPa·s
-        let eta_rel = mu / MU_PLASMA;
+        let eta_rel = mu.into_base() / MU_PLASMA.into_base();
         assert!(
             eta_rel > 2.0 && eta_rel < 5.0,
             "Large vessel eta_rel = {eta_rel:.3} should be ~3-4 (bulk)"
@@ -172,12 +184,14 @@ mod tests {
     /// due to the cell-free layer effect.
     #[test]
     fn test_fahraeus_lindqvist_reduction_in_microchannel() {
-        let mu_bulk = fahraeus_lindqvist_viscosity(1000.0, 0.45, MU_PLASMA);
-        let mu_micro = fahraeus_lindqvist_viscosity(50.0, 0.45, MU_PLASMA);
+        let mu_bulk = fahraeus_lindqvist_viscosity(diameter_um(1000.0), 0.45, MU_PLASMA);
+        let mu_micro = fahraeus_lindqvist_viscosity(diameter_um(50.0), 0.45, MU_PLASMA);
 
         assert!(
-            mu_micro < mu_bulk,
-            "Microchannel viscosity ({mu_micro:.4} Pa·s) should be less than bulk ({mu_bulk:.4} Pa·s)",
+            mu_micro.into_base() < mu_bulk.into_base(),
+            "Microchannel viscosity ({:.4} Pa·s) should be less than bulk ({:.4} Pa·s)",
+            mu_micro.into_base(),
+            mu_bulk.into_base(),
         );
     }
 
@@ -189,28 +203,33 @@ mod tests {
     /// small and very large diameters.
     #[test]
     fn test_fahraeus_lindqvist_minimum_near_7um() {
-        let mu_7 = fahraeus_lindqvist_viscosity(7.0, 0.45, MU_PLASMA);
-        let mu_30 = fahraeus_lindqvist_viscosity(30.0, 0.45, MU_PLASMA);
-        let mu_200 = fahraeus_lindqvist_viscosity(200.0, 0.45, MU_PLASMA);
+        let mu_7 = fahraeus_lindqvist_viscosity(diameter_um(7.0), 0.45, MU_PLASMA);
+        let mu_30 = fahraeus_lindqvist_viscosity(diameter_um(30.0), 0.45, MU_PLASMA);
+        let mu_200 = fahraeus_lindqvist_viscosity(diameter_um(200.0), 0.45, MU_PLASMA);
 
         // All values should be finite and above plasma viscosity
         assert!(
-            mu_7.is_finite() && mu_7 > MU_PLASMA,
-            "Viscosity at 7 µm ({mu_7:.6}) should be finite and > plasma",
+            mu_7.into_base().is_finite() && mu_7.into_base() > MU_PLASMA.into_base(),
+            "Viscosity at 7 µm ({:.6}) should be finite and > plasma",
+            mu_7.into_base(),
         );
 
         // D=30 µm (in the FL minimum region) should have lower viscosity
         // than D=200 µm (approaching bulk), demonstrating the FL effect.
         assert!(
-            mu_30 < mu_200,
-            "Viscosity at 30 µm ({mu_30:.6}) should be less than at 200 µm ({mu_200:.6}) — FL effect",
+            mu_30.into_base() < mu_200.into_base(),
+            "Viscosity at 30 µm ({:.6}) should be less than at 200 µm ({:.6}) — FL effect",
+            mu_30.into_base(),
+            mu_200.into_base(),
         );
 
         // D=7 µm should have higher viscosity than D=30 µm (rise at very
         // small diameters due to near-occlusion / single-file effects).
         assert!(
-            mu_7 > mu_30,
-            "Viscosity at 7 µm ({mu_7:.6}) should exceed 30 µm ({mu_30:.6}) — near-occlusion rise",
+            mu_7.into_base() > mu_30.into_base(),
+            "Viscosity at 7 µm ({:.6}) should exceed 30 µm ({:.6}) — near-occlusion rise",
+            mu_7.into_base(),
+            mu_30.into_base(),
         );
     }
 
@@ -218,22 +237,25 @@ mod tests {
     /// at any given diameter.
     #[test]
     fn test_fahraeus_lindqvist_increases_with_hematocrit() {
-        let d = 100.0; // 100 µm channel
+        let d = diameter_um(100.0);
         let mu_low = fahraeus_lindqvist_viscosity(d, 0.30, MU_PLASMA);
         let mu_mid = fahraeus_lindqvist_viscosity(d, 0.40, MU_PLASMA);
         let mu_high = fahraeus_lindqvist_viscosity(d, 0.50, MU_PLASMA);
 
         assert!(
-            mu_low < mu_mid && mu_mid < mu_high,
-            "Viscosity should increase with hematocrit: {mu_low:.4} < {mu_mid:.4} < {mu_high:.4}"
+            mu_low.into_base() < mu_mid.into_base() && mu_mid.into_base() < mu_high.into_base(),
+            "Viscosity should increase with hematocrit: {:.4} < {:.4} < {:.4}",
+            mu_low.into_base(),
+            mu_mid.into_base(),
+            mu_high.into_base()
         );
     }
 
     /// Zero hematocrit should return plasma viscosity.
     #[test]
     fn test_fahraeus_lindqvist_zero_hematocrit() {
-        let mu = fahraeus_lindqvist_viscosity(100.0, 0.0, MU_PLASMA);
-        let eta_rel = mu / MU_PLASMA;
+        let mu = fahraeus_lindqvist_viscosity(diameter_um(100.0), 0.0, MU_PLASMA);
+        let eta_rel = mu.into_base() / MU_PLASMA.into_base();
         assert!(
             (eta_rel - 1.0).abs() < 0.01,
             "Zero hematocrit eta_rel = {eta_rel:.4} should be ~1.0"
@@ -244,20 +266,22 @@ mod tests {
 
     #[test]
     fn test_secomb_phase_separation_rejects_nonpositive_diameter() {
-        assert!(secomb_phase_separation_x0(0.0, 0.45).is_err());
+        assert!(secomb_phase_separation_x0(diameter_um(0.0), 0.45).is_err());
     }
 
     /// For large vessels (D=1000 µm), Secomb and Pries should agree closely
     /// because both converge to the same bulk-blood regime.
     #[test]
     fn test_secomb_agrees_with_pries_for_large_vessels() {
-        let mu_pries = fahraeus_lindqvist_viscosity(1000.0, 0.45, MU_PLASMA);
-        let mu_secomb = secomb_network_viscosity(1000.0, 0.45, MU_PLASMA);
+        let mu_pries = fahraeus_lindqvist_viscosity(diameter_um(1000.0), 0.45, MU_PLASMA);
+        let mu_secomb = secomb_network_viscosity(diameter_um(1000.0), 0.45, MU_PLASMA);
 
-        let rel_diff = (mu_secomb - mu_pries).abs() / mu_pries;
+        let rel_diff = (mu_secomb.into_base() - mu_pries.into_base()).abs() / mu_pries.into_base();
         assert!(
             rel_diff < 0.05,
-            "Secomb ({mu_secomb:.6}) and Pries ({mu_pries:.6}) should agree for large vessels, rel_diff = {rel_diff:.4}"
+            "Secomb ({:.6}) and Pries ({:.6}) should agree for large vessels, rel_diff = {rel_diff:.4}",
+            mu_secomb.into_base(),
+            mu_pries.into_base()
         );
     }
 
@@ -265,12 +289,14 @@ mod tests {
     /// bulk viscosity (the Fahraeus-Lindqvist effect is preserved).
     #[test]
     fn test_secomb_lower_than_bulk_in_microchannel() {
-        let mu_bulk = secomb_network_viscosity(1000.0, 0.45, MU_PLASMA);
-        let mu_micro = secomb_network_viscosity(50.0, 0.45, MU_PLASMA);
+        let mu_bulk = secomb_network_viscosity(diameter_um(1000.0), 0.45, MU_PLASMA);
+        let mu_micro = secomb_network_viscosity(diameter_um(50.0), 0.45, MU_PLASMA);
 
         assert!(
-            mu_micro < mu_bulk,
-            "Secomb microchannel viscosity ({mu_micro:.6}) should be < bulk ({mu_bulk:.6})"
+            mu_micro.into_base() < mu_bulk.into_base(),
+            "Secomb microchannel viscosity ({:.6}) should be < bulk ({:.6})",
+            mu_micro.into_base(),
+            mu_bulk.into_base()
         );
     }
 
@@ -278,9 +304,9 @@ mod tests {
     /// vessel diameter (larger vessels have proportionally thinner CFL).
     #[test]
     fn test_secomb_phase_separation_decreases_with_diameter() -> cfd_core::error::Result<()> {
-        let x0_small = secomb_phase_separation_x0(20.0, 0.45)?;
-        let x0_medium = secomb_phase_separation_x0(100.0, 0.45)?;
-        let x0_large = secomb_phase_separation_x0(500.0, 0.45)?;
+        let x0_small = secomb_phase_separation_x0(diameter_um(20.0), 0.45)?;
+        let x0_medium = secomb_phase_separation_x0(diameter_um(100.0), 0.45)?;
+        let x0_large = secomb_phase_separation_x0(diameter_um(500.0), 0.45)?;
 
         assert!(
             x0_small > x0_medium && x0_medium > x0_large,
@@ -293,14 +319,17 @@ mod tests {
     /// given diameter.
     #[test]
     fn test_secomb_increases_with_hematocrit() {
-        let d = 100.0;
+        let d = diameter_um(100.0);
         let mu_low = secomb_network_viscosity(d, 0.30, MU_PLASMA);
         let mu_mid = secomb_network_viscosity(d, 0.40, MU_PLASMA);
         let mu_high = secomb_network_viscosity(d, 0.50, MU_PLASMA);
 
         assert!(
-            mu_low < mu_mid && mu_mid < mu_high,
-            "Secomb viscosity should increase with hematocrit: {mu_low:.6} < {mu_mid:.6} < {mu_high:.6}"
+            mu_low.into_base() < mu_mid.into_base() && mu_mid.into_base() < mu_high.into_base(),
+            "Secomb viscosity should increase with hematocrit: {:.6} < {:.6} < {:.6}",
+            mu_low.into_base(),
+            mu_mid.into_base(),
+            mu_high.into_base()
         );
     }
 }

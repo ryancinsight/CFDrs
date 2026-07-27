@@ -49,9 +49,9 @@ pub struct PhaseSeparationResult {
 pub fn pries_phase_separation(
     feed_hematocrit: f64,
     flow_fraction: f64,
-    diameter_daughter_alpha: f64,
-    diameter_daughter_beta: f64,
-    diameter_feed: f64,
+    diameter_daughter_alpha: Length,
+    diameter_daughter_beta: Length,
+    diameter_feed: Length,
 ) -> Result<PhaseSeparationResult> {
     let checked = checked_pries_phase_separation(
         feed_hematocrit,
@@ -74,15 +74,18 @@ pub fn pries_phase_separation(
 pub fn checked_pries_phase_separation(
     feed_hematocrit: f64,
     flow_fraction: f64,
-    diameter_daughter_alpha: f64,
-    diameter_daughter_beta: f64,
-    diameter_feed: f64,
+    diameter_daughter_alpha: Length,
+    diameter_daughter_beta: Length,
+    diameter_feed: Length,
 ) -> Result<PhaseSeparationResult> {
+    let diameter_daughter_alpha_m = diameter_daughter_alpha.into_base();
+    let diameter_daughter_beta_m = diameter_daughter_beta.into_base();
+    let diameter_feed_m = diameter_feed.into_base();
     if !feed_hematocrit.is_finite()
         || !flow_fraction.is_finite()
-        || !diameter_daughter_alpha.is_finite()
-        || !diameter_daughter_beta.is_finite()
-        || !diameter_feed.is_finite()
+        || !diameter_daughter_alpha_m.is_finite()
+        || !diameter_daughter_beta_m.is_finite()
+        || !diameter_feed_m.is_finite()
     {
         return Err(Error::InvalidConfiguration(
             "Pries phase-separation inputs must be finite".to_string(),
@@ -98,16 +101,17 @@ pub fn checked_pries_phase_separation(
             "Pries phase-separation flow fraction must lie in [0, 1]".to_string(),
         ));
     }
-    if diameter_daughter_alpha <= 0.0 || diameter_daughter_beta <= 0.0 || diameter_feed <= 0.0 {
+    if diameter_daughter_alpha_m <= 0.0 || diameter_daughter_beta_m <= 0.0 || diameter_feed_m <= 0.0
+    {
         return Err(Error::InvalidConfiguration(
             "Pries phase-separation diameters must be positive".to_string(),
         ));
     }
 
     let h_feed = feed_hematocrit;
-    let d_feed = diameter_feed;
-    let d_alpha = diameter_daughter_alpha;
-    let d_beta = diameter_daughter_beta;
+    let d_feed = diameter_feed_m * 1.0e6;
+    let d_alpha = diameter_daughter_alpha_m * 1.0e6;
+    let d_beta = diameter_daughter_beta_m * 1.0e6;
 
     if flow_fraction <= 0.0 {
         return Ok(PhaseSeparationResult {
@@ -213,8 +217,8 @@ pub fn checked_pries_phase_separation(
 /// * `feed_hematocrit` - Feed (parent) hematocrit [0, 1]
 /// * `flow_fraction` - Fractional volumetric flow to this daughter branch,
 ///   Q_daughter / Q_total [0, 1]
-/// * `diameter_daughter` - Daughter branch diameter \[µm]
-/// * `diameter_feed` - Feed (parent) branch diameter \[µm]
+/// * `diameter_daughter` - Daughter branch diameter as an SI `Length`.
+/// * `diameter_feed` - Feed (parent) branch diameter as an SI `Length`.
 ///
 /// # Returns
 /// Daughter branch hematocrit, clamped to [0, min(1, 2 × H_feed)].
@@ -279,10 +283,14 @@ pub fn checked_plasma_skimming_hematocrit(
     }
 
     let sibling = inferred_murray_sibling_diameter(d_daughter, d_feed);
-    Ok(
-        checked_pries_phase_separation(ht_feed, fq, d_daughter, sibling, d_feed)?
-            .daughter_hematocrit,
-    )
+    Ok(checked_pries_phase_separation(
+        ht_feed,
+        fq,
+        Length::from_base(d_daughter / 1.0e6),
+        Length::from_base(sibling / 1.0e6),
+        Length::from_base(d_feed / 1.0e6),
+    )?
+    .daughter_hematocrit)
 }
 
 #[inline]

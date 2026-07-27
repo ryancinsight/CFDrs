@@ -34,6 +34,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **Breaking**: Type the cell-separation public family, including equilibrium
+  position/force, direct fluid and geometry inputs, Fahraeus/CFL/rheology
+  metrics, plasma-skimming diameters, and cross-junction geometry/flow with
+  Aequitas quantities. The provider owns the `Newton` unit; scalar extraction
+  remains at numerical formula boundaries. All in-tree callers, tests, and the
+  cross-fidelity example use the typed contract. See
+  [`cell-separation-force-metrics.md`](docs/atlas-migration/cell-separation-force-metrics.md).
+
 - **Breaking**: Type transient `MixtureComposition` fraction maps, blood
   hematocrit construction/accessors, weighted blends, tolerances, and node/edge
   concentration queries with Aequitas `Dimensionless<T>`. Scalar extraction is

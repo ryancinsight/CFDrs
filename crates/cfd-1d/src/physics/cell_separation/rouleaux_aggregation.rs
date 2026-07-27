@@ -30,6 +30,7 @@
 //! systems III. General features of the proposed non-Newtonian model.
 //! Comparison with experimental data", *Rheol. Acta* 17:643-653.
 
+use aequitas::systems::si::quantities::{DynamicViscosity, ReciprocalTime};
 use cfd_core::error::{Error, Result};
 
 /// Quemada zero-shear intrinsic viscosity parameter.
@@ -60,8 +61,12 @@ const GAMMA_C: f64 = 1.88;
 /// domain enforcement for concentrated-suspension validity.
 #[inline]
 #[must_use]
-pub fn quemada_viscosity(shear_rate: f64, hematocrit: f64, mu_plasma: f64) -> f64 {
-    let gamma = shear_rate.max(0.0);
+pub fn quemada_viscosity(
+    shear_rate: ReciprocalTime,
+    hematocrit: f64,
+    mu_plasma: DynamicViscosity,
+) -> DynamicViscosity {
+    let gamma = shear_rate.into_base().max(0.0);
     let ht = hematocrit.clamp(0.0, 0.99);
 
     // Intrinsic viscosity function k(γ̇)
@@ -72,12 +77,18 @@ pub fn quemada_viscosity(shear_rate: f64, hematocrit: f64, mu_plasma: f64) -> f6
     // The checked variant enforces the physical validity domain.
     let denom = 1.0 - 0.5 * k * ht;
 
-    mu_plasma / (denom * denom)
+    DynamicViscosity::from_base(mu_plasma.into_base() / (denom * denom))
 }
 
 /// Checked Quemada viscosity evaluation for callers that require explicit
 /// model-boundary enforcement.
-pub fn checked_quemada_viscosity(shear_rate: f64, hematocrit: f64, mu_plasma: f64) -> Result<f64> {
+pub fn checked_quemada_viscosity(
+    shear_rate: ReciprocalTime,
+    hematocrit: f64,
+    mu_plasma: DynamicViscosity,
+) -> Result<DynamicViscosity> {
+    let shear_rate = shear_rate.into_base();
+    let mu_plasma_base = mu_plasma.into_base();
     if !shear_rate.is_finite() || shear_rate < 0.0 {
         return Err(Error::InvalidConfiguration(
             "Quemada shear rate must be finite and nonnegative".to_string(),
@@ -88,7 +99,7 @@ pub fn checked_quemada_viscosity(shear_rate: f64, hematocrit: f64, mu_plasma: f6
             "Quemada hematocrit must lie in [0, 0.99)".to_string(),
         ));
     }
-    if !mu_plasma.is_finite() || mu_plasma <= 0.0 {
+    if !mu_plasma_base.is_finite() || mu_plasma_base <= 0.0 {
         return Err(Error::InvalidConfiguration(
             "Quemada plasma viscosity must be finite and positive".to_string(),
         ));
@@ -103,15 +114,21 @@ pub fn checked_quemada_viscosity(shear_rate: f64, hematocrit: f64, mu_plasma: f6
         ));
     }
 
-    Ok(mu_plasma / (denom * denom))
+    Ok(DynamicViscosity::from_base(
+        mu_plasma_base / (denom * denom),
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const MU_PLASMA: f64 = 0.0012; // Pa·s
+    const MU_PLASMA: DynamicViscosity = DynamicViscosity::from_base(0.0012);
     const HT_NORMAL: f64 = 0.45;
+
+    fn shear_rate(value: f64) -> ReciprocalTime {
+        ReciprocalTime::from_base(value)
+    }
 
     /// At high shear rate (γ̇ = 1000 s⁻¹), k → k_∞ = 2.07.
     /// The Einstein-Batchelor hard-sphere limit for 45% hematocrit gives
@@ -120,7 +137,7 @@ mod tests {
     /// (High because Quemada's k_∞ is fitted for concentrated suspensions.)
     #[test]
     fn test_quemada_high_shear_approaches_einstein() {
-        let mu_high = quemada_viscosity(1000.0, HT_NORMAL, MU_PLASMA);
+        let mu_high = quemada_viscosity(shear_rate(1000.0), HT_NORMAL, MU_PLASMA);
 
         // At γ̇ = 1000, sqrt(1000/1.88) ≈ 23.1, so k ≈ (4.33 + 2.07×23.1)/(1+23.1) ≈ 2.10
         // Very close to k_∞ = 2.07
@@ -132,29 +149,33 @@ mod tests {
         );
 
         // Viscosity should be finite and above plasma
-        assert!(mu_high.is_finite() && mu_high > MU_PLASMA);
+        assert!(mu_high.into_base().is_finite() && mu_high.into_base() > MU_PLASMA.into_base());
     }
 
     /// At low shear rate (γ̇ = 0.1 s⁻¹), rouleaux form and viscosity is
     /// significantly higher than at high shear rate.
     #[test]
     fn test_quemada_low_shear_augmented() {
-        let mu_low = quemada_viscosity(0.1, HT_NORMAL, MU_PLASMA);
-        let mu_high = quemada_viscosity(1000.0, HT_NORMAL, MU_PLASMA);
+        let mu_low = quemada_viscosity(shear_rate(0.1), HT_NORMAL, MU_PLASMA);
+        let mu_high = quemada_viscosity(shear_rate(1000.0), HT_NORMAL, MU_PLASMA);
 
         assert!(
-            mu_low > mu_high,
-            "Low-shear viscosity ({mu_low:.6} Pa·s) should exceed high-shear ({mu_high:.6} Pa·s) due to rouleaux"
+            mu_low.into_base() > mu_high.into_base(),
+            "Low-shear viscosity ({:.6} Pa·s) should exceed high-shear ({:.6} Pa·s) due to rouleaux",
+            mu_low.into_base(),
+            mu_high.into_base()
         );
     }
 
     /// Zero hematocrit means no cells — viscosity should equal plasma viscosity.
     #[test]
     fn test_quemada_zero_hematocrit_returns_plasma() {
-        let mu = quemada_viscosity(10.0, 0.0, MU_PLASMA);
+        let mu = quemada_viscosity(shear_rate(10.0), 0.0, MU_PLASMA);
         assert!(
-            (mu - MU_PLASMA).abs() < 1e-15,
-            "Zero hematocrit viscosity ({mu:.10}) should equal plasma viscosity ({MU_PLASMA:.10})"
+            (mu.into_base() - MU_PLASMA.into_base()).abs() < 1e-15,
+            "Zero hematocrit viscosity ({:.10}) should equal plasma viscosity ({:.10})",
+            mu.into_base(),
+            MU_PLASMA.into_base()
         );
     }
 
@@ -165,7 +186,7 @@ mod tests {
         let shear_rates = [0.01, 0.1, 1.0, 10.0, 100.0, 1000.0];
         let viscosities: Vec<f64> = shear_rates
             .iter()
-            .map(|&sr| quemada_viscosity(sr, HT_NORMAL, MU_PLASMA))
+            .map(|&sr| quemada_viscosity(shear_rate(sr), HT_NORMAL, MU_PLASMA).into_base())
             .collect();
 
         for i in 1..viscosities.len() {
@@ -185,36 +206,39 @@ mod tests {
     #[test]
     fn test_quemada_increases_with_hematocrit() {
         let gamma = 50.0; // moderate shear
-        let mu_low = quemada_viscosity(gamma, 0.20, MU_PLASMA);
-        let mu_mid = quemada_viscosity(gamma, 0.35, MU_PLASMA);
-        let mu_high = quemada_viscosity(gamma, 0.50, MU_PLASMA);
+        let mu_low = quemada_viscosity(shear_rate(gamma), 0.20, MU_PLASMA);
+        let mu_mid = quemada_viscosity(shear_rate(gamma), 0.35, MU_PLASMA);
+        let mu_high = quemada_viscosity(shear_rate(gamma), 0.50, MU_PLASMA);
 
         assert!(
-            mu_low < mu_mid && mu_mid < mu_high,
-            "Viscosity should increase with hematocrit: {mu_low:.6} < {mu_mid:.6} < {mu_high:.6}"
+            mu_low.into_base() < mu_mid.into_base() && mu_mid.into_base() < mu_high.into_base(),
+            "Viscosity should increase with hematocrit: {:.6} < {:.6} < {:.6}",
+            mu_low.into_base(),
+            mu_mid.into_base(),
+            mu_high.into_base()
         );
     }
 
     #[test]
     fn test_checked_quemada_rejects_negative_shear() {
-        let err = checked_quemada_viscosity(-0.1, HT_NORMAL, MU_PLASMA)
+        let err = checked_quemada_viscosity(shear_rate(-0.1), HT_NORMAL, MU_PLASMA)
             .expect_err("checked Quemada viscosity must reject negative shear rate");
         assert!(err.to_string().contains("shear rate"));
     }
 
     #[test]
     fn test_checked_quemada_rejects_out_of_domain_hematocrit() {
-        let err = checked_quemada_viscosity(10.0, 1.0, MU_PLASMA)
+        let err = checked_quemada_viscosity(shear_rate(10.0), 1.0, MU_PLASMA)
             .expect_err("checked Quemada viscosity must reject hematocrit above the fitted domain");
         assert!(err.to_string().contains("hematocrit"));
     }
 
     #[test]
     fn test_checked_quemada_matches_legacy_nominal_case() {
-        let legacy = quemada_viscosity(50.0, 0.45, MU_PLASMA);
-        let checked = checked_quemada_viscosity(50.0, 0.45, MU_PLASMA)
+        let legacy = quemada_viscosity(shear_rate(50.0), 0.45, MU_PLASMA);
+        let checked = checked_quemada_viscosity(shear_rate(50.0), 0.45, MU_PLASMA)
             .expect("checked Quemada viscosity should succeed on a nominal blood case");
 
-        assert!((legacy - checked).abs() < 1e-12);
+        assert!((legacy.into_base() - checked.into_base()).abs() < 1e-12);
     }
 }

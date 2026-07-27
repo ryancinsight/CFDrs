@@ -26,7 +26,9 @@
 //! in the center (treatment) arm of a cascade junction tree while
 //! diverting healthy blood cells to peripheral bypass channels.
 
-use aequitas::systems::si::quantities::{Length, Velocity};
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, Length, MassDensity, Velocity, VolumetricFlowRate,
+};
 use cfd_1d::{
     cascade_junction_separation, cascade_junction_separation_from_qfracs,
     cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs_cross_junction,
@@ -42,6 +44,14 @@ use eunomia::assert_relative_eq;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+fn length(value: f64) -> Length {
+    Length::from_base(value)
+}
+
+fn flow(value: f64) -> VolumetricFlowRate {
+    VolumetricFlowRate::from_base(value)
+}
 
 /// Assert that all cell fractions and efficiency are physically bounded.
 fn assert_cascade_bounds(r: &CascadeJunctionResult) {
@@ -102,11 +112,11 @@ fn assert_filtration_bounds(r: &IncrementalFiltrationResult) {
 #[test]
 fn test_cascade_junction_equal_trifurcation() {
     let r = cascade_junction_separation(
-        1,     // n_levels
-        0.333, // center_frac (equal widths)
-        2e-3,  // channel_width
-        1e-3,  // channel_height
-        1e-6,  // flow_rate
+        1,            // n_levels
+        0.333,        // center_frac (equal widths)
+        length(2e-3), // channel_width
+        length(1e-3), // channel_height
+        flow(1e-6),   // flow_rate
     );
 
     assert_cascade_bounds(&r);
@@ -127,8 +137,8 @@ fn test_cascade_junction_equal_trifurcation() {
 
 #[test]
 fn test_cascade_junction_biased_center_increases_cancer_enrichment() {
-    let r_equal = cascade_junction_separation(1, 0.333, 2e-3, 1e-3, 1e-6);
-    let r_biased = cascade_junction_separation(1, 0.5, 2e-3, 1e-3, 1e-6);
+    let r_equal = cascade_junction_separation(1, 0.333, length(2e-3), length(1e-3), flow(1e-6));
+    let r_biased = cascade_junction_separation(1, 0.5, length(2e-3), length(1e-3), flow(1e-6));
 
     assert_cascade_bounds(&r_biased);
 
@@ -148,8 +158,8 @@ fn test_cascade_junction_biased_center_increases_cancer_enrichment() {
 
 #[test]
 fn test_multilevel_cascade_increases_separation() {
-    let r1 = cascade_junction_separation(1, 0.4, 2e-3, 1e-3, 1e-6);
-    let r2 = cascade_junction_separation(2, 0.4, 2e-3, 1e-3, 1e-6);
+    let r1 = cascade_junction_separation(1, 0.4, length(2e-3), length(1e-3), flow(1e-6));
+    let r2 = cascade_junction_separation(2, 0.4, length(2e-3), length(1e-3), flow(1e-6));
 
     assert_cascade_bounds(&r1);
     assert_cascade_bounds(&r2);
@@ -260,13 +270,13 @@ fn test_mixed_cascade_separation() {
 #[test]
 fn test_three_population_equilibria_straight() {
     let eq = three_population_equilibria(
-        2e-3,   // width
-        1e-3,   // height
-        1e-6,   // flow_rate
-        1060.0, // blood density
-        3.5e-3, // viscosity
-        0.45,   // hematocrit
-        None,   // no bend (straight channel)
+        Length::from_base(2e-3),
+        Length::from_base(1e-3),
+        VolumetricFlowRate::from_base(1e-6),
+        MassDensity::from_base(1060.0),
+        DynamicViscosity::from_base(3.5e-3),
+        0.45, // hematocrit
+        None, // no bend (straight channel)
     );
 
     // All equilibrium positions should be in [0, 1] (center=0, wall=1).
@@ -318,23 +328,23 @@ fn test_three_population_equilibria_straight() {
 #[test]
 fn test_three_population_equilibria_serpentine() {
     let eq_straight = three_population_equilibria(
-        2e-3,   // width
-        1e-3,   // height
-        1e-6,   // flow_rate
-        1060.0, // blood density
-        3.5e-3, // viscosity
-        0.45,   // hematocrit
-        None,   // straight
+        Length::from_base(2e-3),
+        Length::from_base(1e-3),
+        VolumetricFlowRate::from_base(1e-6),
+        MassDensity::from_base(1060.0),
+        DynamicViscosity::from_base(3.5e-3),
+        0.45, // hematocrit
+        None, // straight
     );
 
     let eq_serpentine = three_population_equilibria(
-        2e-3,       // width
-        1e-3,       // height
-        1e-6,       // flow_rate
-        1060.0,     // blood density
-        3.5e-3,     // viscosity
-        0.45,       // hematocrit
-        Some(2e-3), // bend radius = 2mm (tight serpentine)
+        Length::from_base(2e-3),
+        Length::from_base(1e-3),
+        VolumetricFlowRate::from_base(1e-6),
+        MassDensity::from_base(1060.0),
+        DynamicViscosity::from_base(3.5e-3),
+        0.45,                          // hematocrit
+        Some(Length::from_base(2e-3)), // bend radius = 2mm (tight serpentine)
     );
 
     // All equilibrium positions should remain bounded.
@@ -378,7 +388,7 @@ fn test_three_population_equilibria_serpentine() {
 fn test_tri_center_q_frac_equal_widths() {
     // With center_frac = 1/3 (equal arm widths), the center arm should
     // carry exactly 1/3 of the total flow.
-    let q = tri_center_q_frac_cross_junction(1.0 / 3.0, 3e-3, 1e-3);
+    let q = tri_center_q_frac_cross_junction(1.0 / 3.0, length(3e-3), length(1e-3));
 
     assert_relative_eq!(q, 1.0 / 3.0, epsilon = 1e-6);
 }
@@ -394,7 +404,7 @@ fn test_tri_center_q_frac_wide_center() {
     // conductance weighting used by the geometry-aware cross-junction model.
     let parent_width_m = 2e-3;
     let channel_height_m = 1e-3;
-    let q = tri_center_q_frac_cross_junction(0.5, parent_width_m, channel_height_m);
+    let q = tri_center_q_frac_cross_junction(0.5, length(parent_width_m), length(channel_height_m));
     let expected = parallel_channel_flow_fractions(&[
         (parent_width_m * 0.5, channel_height_m),
         (parent_width_m * 0.25, channel_height_m),
@@ -422,10 +432,10 @@ fn test_tri_asymmetric_q_fracs_sum_to_one() {
     // Total width = 6 parts, so center_frac = 2/6, left_periph_frac = 1/6,
     // right_periph = 3/6.
     let fracs = tri_asymmetric_q_fracs(
-        2.0 / 6.0, // center_frac
-        1.0 / 6.0, // left_periph_frac
-        6e-3,      // parent_width_m (6mm so branches are 1mm, 2mm, 3mm)
-        1e-3,      // channel_height_m
+        2.0 / 6.0,    // center_frac
+        1.0 / 6.0,    // left_periph_frac
+        length(6e-3), // parent_width_m (6mm so branches are 1mm, 2mm, 3mm)
+        length(1e-3), // channel_height_m
     );
 
     assert_eq!(fracs.len(), 3, "should return exactly 3 flow fractions");
@@ -515,16 +525,16 @@ fn test_incremental_filtration_cross_junction_from_qfracs_consistency() {
         pretri_center_frac,
         terminal_tri_frac,
         terminal_bi_treat_frac,
-        parent_width_m,
-        channel_height_m,
+        length(parent_width_m),
+        length(channel_height_m),
     );
 
     let pretri_q = cif_pretri_stage_q_fracs_cross_junction(
         1,
         pretri_center_frac,
         terminal_tri_frac,
-        parent_width_m,
-        channel_height_m,
+        length(parent_width_m),
+        length(channel_height_m),
     );
     let terminal_parent_width_m =
         cif_pretri_stage_center_fracs(1, pretri_center_frac, terminal_tri_frac)
@@ -534,8 +544,8 @@ fn test_incremental_filtration_cross_junction_from_qfracs_consistency() {
             });
     let terminal_tri_q = tri_center_q_frac_cross_junction(
         terminal_tri_frac,
-        terminal_parent_width_m,
-        channel_height_m,
+        length(terminal_parent_width_m),
+        length(channel_height_m),
     );
 
     let r_qfracs = incremental_filtration_separation_from_qfracs(
@@ -570,7 +580,7 @@ fn test_incremental_filtration_cross_junction_from_qfracs_consistency() {
 fn test_mixed_cascade_matches_single_trifurcation() {
     let q = tri_center_q_frac(0.45);
 
-    let r_cascade = cascade_junction_separation(1, 0.45, 2e-3, 1e-3, 1e-6);
+    let r_cascade = cascade_junction_separation(1, 0.45, length(2e-3), length(1e-3), flow(1e-6));
     let r_mixed = mixed_cascade_separation(&[(q, true)]);
 
     assert_relative_eq!(
@@ -594,7 +604,7 @@ fn test_mixed_cascade_matches_single_trifurcation() {
 /// cancer > WBC > RBC center fraction for asymmetric trifurcations.
 #[test]
 fn test_zweifach_fung_cell_type_ordering() {
-    let r = cascade_junction_separation(1, 0.5, 2e-3, 1e-3, 1e-6);
+    let r = cascade_junction_separation(1, 0.5, length(2e-3), length(1e-3), flow(1e-6));
 
     // Cancer (beta=1.85) > WBC (beta=1.40) > RBC (beta=1.00) at the center arm
     // when center_frac > 1/3 (biased flow toward center).

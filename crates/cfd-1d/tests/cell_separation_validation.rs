@@ -20,7 +20,7 @@
 //! 4. **Venturi cavitation onset** — For throat diameter 100 µm at Q=5 mL/min,
 //!    σ < 1 (cavitation onset).  For 500 µm throat, σ >> 1 (no cavitation).
 
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{DynamicViscosity, Length, MassDensity, Velocity};
 use cfd_1d::physics::cell_separation::{
     margination::{dean_number, lateral_equilibrium},
     CellProperties, CellSeparationModel,
@@ -32,6 +32,22 @@ use eunomia::assert_relative_eq;
 const BLOOD_DENSITY: f64 = 1060.0; // kg/m³
 const BLOOD_VISCOSITY: f64 = 3.5e-3; // Pa·s (apparent at mid-shear)
 const BLOOD_VAPOR_PRESSURE: f64 = 6_200.0; // Pa at 37°C
+
+fn density(value: f64) -> MassDensity {
+    MassDensity::from_base(value)
+}
+
+fn viscosity(value: f64) -> DynamicViscosity {
+    DynamicViscosity::from_base(value)
+}
+
+fn velocity(value: f64) -> Velocity {
+    Velocity::from_base(value)
+}
+
+fn length(value: f64) -> Length {
+    Length::from_base(value)
+}
 
 // ── Test 1: Segré-Silberberg equilibrium positions ────────────────────────────
 
@@ -74,11 +90,27 @@ fn test_segre_silberberg_equilibrium_cancer_vs_rbc() {
     let q = 1e-6 / 60.0; // 1 mL/min in m³/s
     let v = q / (w * h);
 
-    let cancer_eq = lateral_equilibrium(&cancer, BLOOD_DENSITY, BLOOD_VISCOSITY, v, w, h, None)
-        .expect("MCF-7 must focus in this channel");
+    let cancer_eq = lateral_equilibrium(
+        &cancer,
+        density(BLOOD_DENSITY),
+        viscosity(BLOOD_VISCOSITY),
+        velocity(v),
+        length(w),
+        length(h),
+        None,
+    )
+    .expect("MCF-7 must focus in this channel");
 
     // RBCs (7 µm) in 100 µm channel have κ < 0.07 so they remain dispersed
-    let rbc_eq = lateral_equilibrium(&rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, v, w, h, None);
+    let rbc_eq = lateral_equilibrium(
+        &rbc,
+        density(BLOOD_DENSITY),
+        viscosity(BLOOD_VISCOSITY),
+        velocity(v),
+        length(w),
+        length(h),
+        None,
+    );
 
     println!("MCF-7 equilibrium x̃ = {:.4}", cancer_eq.x_tilde_eq);
     println!("RBC focuses? {}", rbc_eq.is_some());
@@ -109,13 +141,25 @@ fn test_cell_separation_model_cancer_rbc_purity() {
     let rbc = CellProperties::red_blood_cell();
 
     // 500 µm × 100 µm channel, straight
-    let model = CellSeparationModel::new(500e-6, 100e-6, 0.01, None).with_split(0.35);
+    let model = CellSeparationModel::new(
+        Length::from_base(500e-6),
+        Length::from_base(100e-6),
+        Length::from_base(0.01),
+        None,
+    )
+    .with_split(0.35);
 
     let q = 1e-6 / 60.0; // 1 mL/min
     let v = q / (500e-6 * 100e-6);
 
     let analysis = model
-        .analyze(&cancer, &rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, v)
+        .analyze(
+            &cancer,
+            &rbc,
+            MassDensity::from_base(BLOOD_DENSITY),
+            DynamicViscosity::from_base(BLOOD_VISCOSITY),
+            Velocity::from_base(v),
+        )
         .expect("analysis must succeed for these cell types");
 
     println!(
@@ -174,7 +218,7 @@ fn test_dean_number_curved_channel() {
     let q = 1e-6 / 60.0; // 1 mL/min
     let v = q / (w * h);
     let re = BLOOD_DENSITY * v * dh / BLOOD_VISCOSITY;
-    let de = dean_number(re, dh, bend_r);
+    let de = dean_number(re, length(dh), length(bend_r));
 
     println!("D_h = {:.1} µm", dh * 1e6);
     println!("Re  = {:.2}", re);
@@ -205,15 +249,37 @@ fn test_dean_flow_enhances_separation() {
     let v = q / (w * h);
 
     // Straight channel
-    let straight = CellSeparationModel::new(w, h, 0.01, None);
+    let straight = CellSeparationModel::new(
+        Length::from_base(w),
+        Length::from_base(h),
+        Length::from_base(0.01),
+        None,
+    );
     let straight_analysis = straight
-        .analyze(&cancer, &rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, v)
+        .analyze(
+            &cancer,
+            &rbc,
+            MassDensity::from_base(BLOOD_DENSITY),
+            DynamicViscosity::from_base(BLOOD_VISCOSITY),
+            Velocity::from_base(v),
+        )
         .expect("straight channel analysis must succeed");
 
     // Curved channel (R = 5 mm)
-    let curved = CellSeparationModel::new(w, h, 0.01, Some(5e-3));
+    let curved = CellSeparationModel::new(
+        Length::from_base(w),
+        Length::from_base(h),
+        Length::from_base(0.01),
+        Some(Length::from_base(5e-3)),
+    );
     let curved_analysis = curved
-        .analyze(&cancer, &rbc, BLOOD_DENSITY, BLOOD_VISCOSITY, v)
+        .analyze(
+            &cancer,
+            &rbc,
+            MassDensity::from_base(BLOOD_DENSITY),
+            DynamicViscosity::from_base(BLOOD_VISCOSITY),
+            Velocity::from_base(v),
+        )
         .expect("curved channel analysis must succeed");
 
     println!(
@@ -236,11 +302,14 @@ fn test_dean_flow_enhances_separation() {
     // At minimum, the Dean force must be non-zero in the curved case
     // Check Dean drag on focused cells (Cancer)
     assert!(
-        curved_analysis.target_equilibrium.dean_drag_n > 0.0,
+        curved_analysis.target_equilibrium.dean_drag.into_base() > 0.0,
         "Dean drag must be positive for focused cells in curved channel"
     );
     assert_relative_eq!(
-        straight_analysis.background_equilibrium.dean_drag_n,
+        straight_analysis
+            .background_equilibrium
+            .dean_drag
+            .into_base(),
         0.0,
         epsilon = 1e-30
     );

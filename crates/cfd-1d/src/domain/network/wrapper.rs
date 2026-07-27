@@ -5,7 +5,7 @@ use crate::domain::channel::ChannelGeometry;
 use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
     Area, DynamicViscosity, HydraulicConductance, HydraulicResistance, Length, Pressure,
-    QuadraticHydraulicResistance, ReciprocalTime, VolumetricFlowRate,
+    QuadraticHydraulicResistance, VolumetricFlowRate,
 };
 use cfd_core::{
     conversion::{SafeFromF64, SafeFromUsize},
@@ -890,9 +890,9 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         let result_a = crate::physics::cell_separation::plasma_skimming::pries_phase_separation(
             h_feed.clamp(0.0, 1.0),
             (q_a / total_q).clamp(0.0, 1.0),
-            daughter_a_diameter * 1.0e6,
-            daughter_b_diameter * 1.0e6,
-            parent_diameter * 1.0e6,
+            Length::from_base(daughter_a_diameter),
+            Length::from_base(daughter_b_diameter),
+            Length::from_base(parent_diameter),
         )
         .ok()?;
 
@@ -1146,8 +1146,7 @@ pub fn blood_microchannel_apparent_viscosity<T: crate::scalar::Cfd1dScalar + Cop
         hematocrit.clamp(0.0, 0.95),
         DynamicViscosity::from_base(plasma_viscosity),
     )
-    .map(DynamicViscosity::into_base)
-    .unwrap_or(secomb);
+    .map_or(secomb, DynamicViscosity::into_base);
 
     let target = secomb.max(quemada);
     Some(T::from_f64_or_zero(target))

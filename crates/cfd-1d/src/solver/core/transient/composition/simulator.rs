@@ -2771,9 +2771,9 @@ impl TransientCompositionSimulator {
                     crate::physics::cell_separation::plasma_skimming::pries_phase_separation(
                         to_f64(node_hct.max(T::zero()).min(T::one()))?,
                         to_f64((q_first / total_q).max(T::zero()).min(T::one()))?,
-                        to_f64(first_diameter)? * 1.0e6,
-                        to_f64(second_diameter)? * 1.0e6,
-                        to_f64(parent_diameter)? * 1.0e6,
+                        Length::from_base(to_f64(first_diameter)?),
+                        Length::from_base(to_f64(second_diameter)?),
+                        Length::from_base(to_f64(parent_diameter)?),
                     )
                     .ok();
 

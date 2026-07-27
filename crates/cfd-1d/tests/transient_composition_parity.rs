@@ -330,11 +330,9 @@ fn edge_average_concentrations_query_returns_none_for_missing_edge() {
 
     let states = TransientCompositionSimulator::simulate(&network, events, timepoints(&[0.0]))
         .expect("simulate");
-    assert!(
-        states[0]
-            .average_fluid_concentrations_in_edge(usize::MAX)
-            .is_none()
-    );
+    assert!(states[0]
+        .average_fluid_concentrations_in_edge(usize::MAX)
+        .is_none());
 }
 
 #[test]
@@ -1400,7 +1398,14 @@ fn blood_segmented_edge_transport_applies_pries_split_at_bifurcation() {
         )
         .expect("simulate bifurcation segmented transport");
 
-    let expected_small = pries_phase_separation(0.45, 0.5, 40.0, 80.0, 60.0).expect("pries split");
+    let expected_small = pries_phase_separation(
+        0.45,
+        0.5,
+        Length::from_base(40.0e-6),
+        Length::from_base(80.0e-6),
+        Length::from_base(60.0e-6),
+    )
+    .expect("pries split");
     let expected_large_inlet = ((1.0 - expected_small.cell_fraction) * 0.45 / 0.5).clamp(0.0, 1.0);
     let step_factor = 0.25 / (1.0 / 0.5);
 

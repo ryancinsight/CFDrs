@@ -58,13 +58,17 @@
 /// Valid for tube diameters $D \in [20, 100]\,\mu m$ and hematocrit $H_t \in [0.1, 0.5]$.
 ///
 /// # Arguments
-/// * `diameter_um` — Channel diameter \[µm]
+/// * `diameter` — Channel diameter
 /// * `hematocrit` — Feed hematocrit [0, 1]
 ///
 /// # Returns
-/// CFL width \[µm]
+/// CFL width
 #[inline]
-pub fn cfl_width_fedosov(diameter_um: f64, hematocrit: f64) -> cfd_core::error::Result<f64> {
+pub fn cfl_width_fedosov(
+    diameter: aequitas::systems::si::quantities::Length,
+    hematocrit: f64,
+) -> cfd_core::error::Result<aequitas::systems::si::quantities::Length> {
+    let diameter_um = diameter.into_base() * 1.0e6;
     if !diameter_um.is_finite() || diameter_um <= 0.0 || !hematocrit.is_finite() {
         return Err(cfd_core::error::Error::InvalidConfiguration(
             "Fedosov CFL inputs must be finite and diameter must be positive".to_string(),
@@ -78,7 +82,9 @@ pub fn cfl_width_fedosov(diameter_um: f64, hematocrit: f64) -> cfd_core::error::
 
     let r = diameter_um / 2.0;
     let delta_over_r = 0.29 * (1.0 - hematocrit).powf(0.84);
-    Ok(r * delta_over_r)
+    Ok(aequitas::systems::si::quantities::Length::from_base(
+        r * delta_over_r * 1.0e-6,
+    ))
 }
 
 /// Sharan-Popel (2001) CFL width from the Fahraeus ratio.
@@ -91,12 +97,16 @@ pub fn cfl_width_fedosov(diameter_um: f64, hematocrit: f64) -> cfd_core::error::
 /// ratio model (see [`super::fahraeus_effect::tube_hematocrit_ratio`]).
 ///
 /// # Arguments
-/// * `diameter_um` — Channel diameter \[µm]
+/// * `diameter` — Channel diameter
 /// * `hematocrit` — Feed hematocrit [0, 1]
 ///
 /// # Returns
-/// CFL width \[µm]
-pub fn cfl_width_sharan_popel(diameter_um: f64, hematocrit: f64) -> cfd_core::error::Result<f64> {
+/// CFL width
+pub fn cfl_width_sharan_popel(
+    diameter: aequitas::systems::si::quantities::Length,
+    hematocrit: f64,
+) -> cfd_core::error::Result<aequitas::systems::si::quantities::Length> {
+    let diameter_um = diameter.into_base() * 1.0e6;
     if !diameter_um.is_finite() || diameter_um <= 0.0 || !hematocrit.is_finite() {
         return Err(cfd_core::error::Error::InvalidConfiguration(
             "Sharan-Popel CFL inputs must be finite and diameter must be positive".to_string(),
@@ -110,13 +120,17 @@ pub fn cfl_width_sharan_popel(diameter_um: f64, hematocrit: f64) -> cfd_core::er
 
     if hematocrit < 1e-15 {
         // Pure plasma: CFL = full radius
-        return Ok(diameter_um / 2.0);
+        return Ok(aequitas::systems::si::quantities::Length::from_base(
+            diameter.into_base() / 2.0,
+        ));
     }
     let r = diameter_um / 2.0;
-    let ht_ratio = super::fahraeus_effect::tube_hematocrit_ratio(diameter_um)?;
+    let ht_ratio = super::fahraeus_effect::tube_hematocrit_ratio(diameter)?;
     // H_T / H_F = ht_ratio, so sqrt(ht_ratio) gives the core radius fraction
     let delta_over_r = (1.0 - ht_ratio.sqrt()).max(0.0);
-    Ok(r * delta_over_r)
+    Ok(aequitas::systems::si::quantities::Length::from_base(
+        r * delta_over_r * 1.0e-6,
+    ))
 }
 
 /// Two-layer (core + CFL) apparent viscosity model.
@@ -144,19 +158,22 @@ pub fn cfl_width_sharan_popel(diameter_um: f64, hematocrit: f64) -> cfd_core::er
 /// when $\delta = R$ (pure plasma) and to $\mu_c$ when $\delta = 0$ (no CFL).
 ///
 /// # Arguments
-/// * `diameter_um` — Channel diameter \[µm]
+/// * `diameter` — Channel diameter
 /// * `hematocrit` — Feed hematocrit [0, 1]
-/// * `mu_plasma_pa_s` — Plasma viscosity [Pa·s] (typically 0.0012)
-/// * `mu_core_pa_s` — Core (RBC-rich) viscosity [Pa·s] (typically 3.5-5× plasma)
+/// * `mu_plasma` — Plasma dynamic viscosity
+/// * `mu_core` — Core (RBC-rich) dynamic viscosity
 ///
 /// # Returns
-/// Apparent viscosity [Pa·s]
+/// Apparent dynamic viscosity
 pub fn two_layer_viscosity(
-    diameter_um: f64,
+    diameter: aequitas::systems::si::quantities::Length,
     hematocrit: f64,
-    mu_plasma_pa_s: f64,
-    mu_core_pa_s: f64,
-) -> cfd_core::error::Result<f64> {
+    mu_plasma: aequitas::systems::si::quantities::DynamicViscosity,
+    mu_core: aequitas::systems::si::quantities::DynamicViscosity,
+) -> cfd_core::error::Result<aequitas::systems::si::quantities::DynamicViscosity> {
+    let diameter_um = diameter.into_base() * 1.0e6;
+    let mu_plasma_pa_s = mu_plasma.into_base();
+    let mu_core_pa_s = mu_core.into_base();
     if !diameter_um.is_finite()
         || diameter_um <= 0.0
         || !hematocrit.is_finite()
@@ -180,39 +197,44 @@ pub fn two_layer_viscosity(
     }
 
     if hematocrit < 1e-15 {
-        return Ok(mu_plasma_pa_s);
+        return Ok(mu_plasma);
     }
 
     let r = diameter_um / 2.0;
-    let delta = cfl_width_fedosov(diameter_um, hematocrit)?;
-    let delta_over_r = (delta / r).clamp(0.0, 1.0);
+    let delta = cfl_width_fedosov(diameter, hematocrit)?;
+    let delta_over_r = (delta.into_base() * 1.0e6 / r).clamp(0.0, 1.0);
     let core_ratio = 1.0 - delta_over_r; // (R-δ)/R
 
     let denom = 1.0 - core_ratio.powi(4) * (1.0 - mu_plasma_pa_s / mu_core_pa_s);
     if denom.abs() < 1e-15 {
-        return Ok(mu_core_pa_s);
+        return Ok(mu_core);
     }
 
-    Ok(mu_plasma_pa_s / denom)
+    Ok(aequitas::systems::si::quantities::DynamicViscosity::from_base(mu_plasma_pa_s / denom))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aequitas::systems::si::quantities::{DynamicViscosity, Length};
 
-    const MU_PLASMA: f64 = 0.0012;
+    const MU_PLASMA: DynamicViscosity = DynamicViscosity::from_base(0.0012);
+
+    fn diameter_um(value: f64) -> Length {
+        Length::from_base(value * 1.0e-6)
+    }
 
     #[test]
     fn cfl_width_fedosov_rejects_nonpositive_diameter() {
-        assert!(cfl_width_fedosov(0.0, 0.45).is_err());
+        assert!(cfl_width_fedosov(diameter_um(0.0), 0.45).is_err());
     }
 
     /// CFL width increases with diameter (larger tubes → larger absolute CFL).
     #[test]
     fn cfl_width_increases_with_diameter() -> cfd_core::error::Result<()> {
-        let d_small = cfl_width_fedosov(20.0, 0.45)?;
-        let d_medium = cfl_width_fedosov(50.0, 0.45)?;
-        let d_large = cfl_width_fedosov(100.0, 0.45)?;
+        let d_small = cfl_width_fedosov(diameter_um(20.0), 0.45)?.into_base();
+        let d_medium = cfl_width_fedosov(diameter_um(50.0), 0.45)?.into_base();
+        let d_large = cfl_width_fedosov(diameter_um(100.0), 0.45)?.into_base();
         assert!(
             d_small < d_medium && d_medium < d_large,
             "CFL: {d_small:.3} < {d_medium:.3} < {d_large:.3}"
@@ -223,10 +245,10 @@ mod tests {
     /// CFL width decreases with hematocrit (more RBCs → thinner CFL).
     #[test]
     fn cfl_width_decreases_with_hematocrit() -> cfd_core::error::Result<()> {
-        let d = 50.0;
-        let cfl_low = cfl_width_fedosov(d, 0.20)?;
-        let cfl_mid = cfl_width_fedosov(d, 0.35)?;
-        let cfl_high = cfl_width_fedosov(d, 0.50)?;
+        let d = diameter_um(50.0);
+        let cfl_low = cfl_width_fedosov(d, 0.20)?.into_base();
+        let cfl_mid = cfl_width_fedosov(d, 0.35)?.into_base();
+        let cfl_high = cfl_width_fedosov(d, 0.50)?.into_base();
         assert!(
             cfl_low > cfl_mid && cfl_mid > cfl_high,
             "CFL: {cfl_low:.3} > {cfl_mid:.3} > {cfl_high:.3}"
@@ -239,7 +261,7 @@ mod tests {
     fn cfl_width_bounded() -> cfd_core::error::Result<()> {
         for d in [10.0, 30.0, 50.0, 100.0, 200.0] {
             for ht in [0.1, 0.3, 0.45, 0.6] {
-                let cfl = cfl_width_fedosov(d, ht)?;
+                let cfl = cfl_width_fedosov(diameter_um(d), ht)?.into_base();
                 assert!(cfl > 0.0, "CFL must be positive: d={d}, ht={ht}");
                 assert!(
                     cfl < d / 2.0,
@@ -254,10 +276,17 @@ mod tests {
     /// Two-layer viscosity: pure plasma (Ht=0) returns plasma viscosity.
     #[test]
     fn two_layer_pure_plasma() -> cfd_core::error::Result<()> {
-        let mu = two_layer_viscosity(50.0, 0.0, MU_PLASMA, 0.005)?;
+        let mu = two_layer_viscosity(
+            diameter_um(50.0),
+            0.0,
+            MU_PLASMA,
+            DynamicViscosity::from_base(0.005),
+        )?;
         assert!(
-            (mu - MU_PLASMA).abs() < 1e-10,
-            "Pure plasma viscosity: {mu:.6} should be {MU_PLASMA:.6}"
+            (mu.into_base() - MU_PLASMA.into_base()).abs() < 1e-10,
+            "Pure plasma viscosity: {:.6} should be {:.6}",
+            mu.into_base(),
+            MU_PLASMA.into_base()
         );
         Ok(())
     }
@@ -265,13 +294,16 @@ mod tests {
     /// Two-layer viscosity increases with hematocrit.
     #[test]
     fn two_layer_viscosity_increases_with_hematocrit() -> cfd_core::error::Result<()> {
-        let mu_core = 0.005;
-        let mu_low = two_layer_viscosity(50.0, 0.20, MU_PLASMA, mu_core)?;
-        let mu_mid = two_layer_viscosity(50.0, 0.35, MU_PLASMA, mu_core)?;
-        let mu_high = two_layer_viscosity(50.0, 0.50, MU_PLASMA, mu_core)?;
+        let mu_core = DynamicViscosity::from_base(0.005);
+        let mu_low = two_layer_viscosity(diameter_um(50.0), 0.20, MU_PLASMA, mu_core)?;
+        let mu_mid = two_layer_viscosity(diameter_um(50.0), 0.35, MU_PLASMA, mu_core)?;
+        let mu_high = two_layer_viscosity(diameter_um(50.0), 0.50, MU_PLASMA, mu_core)?;
         assert!(
-            mu_low < mu_mid && mu_mid < mu_high,
-            "Viscosity: {mu_low:.6} < {mu_mid:.6} < {mu_high:.6}"
+            mu_low.into_base() < mu_mid.into_base() && mu_mid.into_base() < mu_high.into_base(),
+            "Viscosity: {:.6} < {:.6} < {:.6}",
+            mu_low.into_base(),
+            mu_mid.into_base(),
+            mu_high.into_base()
         );
         Ok(())
     }
@@ -279,11 +311,14 @@ mod tests {
     /// Two-layer viscosity is between plasma and core viscosity.
     #[test]
     fn two_layer_viscosity_between_bounds() -> cfd_core::error::Result<()> {
-        let mu_core = 0.005;
-        let mu = two_layer_viscosity(50.0, 0.45, MU_PLASMA, mu_core)?;
+        let mu_core = DynamicViscosity::from_base(0.005);
+        let mu = two_layer_viscosity(diameter_um(50.0), 0.45, MU_PLASMA, mu_core)?;
         assert!(
-            mu > MU_PLASMA && mu < mu_core,
-            "Apparent viscosity {mu:.6} should be between {MU_PLASMA} and {mu_core}"
+            mu.into_base() > MU_PLASMA.into_base() && mu.into_base() < mu_core.into_base(),
+            "Apparent viscosity {:.6} should be between {:.6} and {:.6}",
+            mu.into_base(),
+            MU_PLASMA.into_base(),
+            mu_core.into_base()
         );
         Ok(())
     }

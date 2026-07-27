@@ -10,6 +10,7 @@ use super::routing_probability::{
 };
 use super::{CascadeJunctionResult, CascadeStage};
 use crate::physics::resistance::parallel_channel_flow_fractions;
+use aequitas::systems::si::quantities::{Length, VolumetricFlowRate};
 use cfd_core::error::{Error, Result};
 
 const CASCADE_LEVEL_MIN: u8 = 1;
@@ -327,22 +328,22 @@ pub fn checked_tri_center_q_frac(center_frac: f64) -> Result<f64> {
 ///
 /// # Arguments
 /// * `center_frac` — fraction of parent width allocated to the center arm.
-/// * `parent_width_m` — parent channel width \[m].
-/// * `channel_height_m` — channel height \[m] (shared across all arms).
+/// * `parent_width` — parent channel width as an SI `Length`.
+/// * `channel_height` — channel height as an SI `Length` (shared across all arms).
 ///
 /// # Returns
 /// Center-arm flow fraction ∈ (0, 1).
 pub fn tri_center_q_frac_cross_junction(
     center_frac: f64,
-    parent_width_m: f64,
-    channel_height_m: f64,
+    parent_width: Length,
+    channel_height: Length,
 ) -> f64 {
-    checked_tri_center_q_frac_cross_junction(center_frac, parent_width_m, channel_height_m)
+    checked_tri_center_q_frac_cross_junction(center_frac, parent_width, channel_height)
         .unwrap_or_else(|_| {
             tri_center_q_frac_cross_junction_impl(
                 center_frac.clamp(1e-6, 1.0 - 1e-6),
-                parent_width_m,
-                channel_height_m.max(1e-9),
+                parent_width.into_base(),
+                channel_height.into_base().max(1e-9),
             )
         })
 }
@@ -350,12 +351,13 @@ pub fn tri_center_q_frac_cross_junction(
 /// Checked center-arm flow fraction with cross-junction resistance correction.
 pub fn checked_tri_center_q_frac_cross_junction(
     center_frac: f64,
-    parent_width_m: f64,
-    channel_height_m: f64,
+    parent_width: Length,
+    channel_height: Length,
 ) -> Result<f64> {
     let center_frac = validate_unit_open_fraction("center-arm width fraction", center_frac)?;
-    let parent_width_m = validate_positive_geometry("parent width", parent_width_m)?;
-    let channel_height_m = validate_positive_geometry("channel height", channel_height_m)?;
+    let parent_width_m = validate_positive_geometry("parent width", parent_width.into_base())?;
+    let channel_height_m =
+        validate_positive_geometry("channel height", channel_height.into_base())?;
     Ok(tri_center_q_frac_cross_junction_impl(
         center_frac,
         parent_width_m,
@@ -378,38 +380,33 @@ pub fn checked_tri_center_q_frac_cross_junction(
 /// * `center_frac`       — center-arm width as fraction of parent width.
 /// * `left_periph_frac`  — left peripheral width as fraction of parent width.
 ///   Right peripheral = `1 − center_frac − left_periph_frac`.
-/// * `parent_width_m`    — parent channel width \[m].
-/// * `channel_height_m`  — shared channel height \[m].
+/// * `parent_width`      — parent channel width as an SI `Length`.
+/// * `channel_height`    — shared channel height as an SI `Length`.
 pub fn tri_asymmetric_q_fracs(
     center_frac: f64,
     left_periph_frac: f64,
-    parent_width_m: f64,
-    channel_height_m: f64,
+    parent_width: Length,
+    channel_height: Length,
 ) -> [f64; 3] {
-    checked_tri_asymmetric_q_fracs(
-        center_frac,
-        left_periph_frac,
-        parent_width_m,
-        channel_height_m,
-    )
-    .unwrap_or_else(|_| {
-        let clamped_center = center_frac.clamp(1e-6, 1.0 - 2e-6);
-        let clamped_left = left_periph_frac.clamp(1e-6, 1.0 - clamped_center - 1e-6);
-        tri_asymmetric_q_fracs_impl(
-            clamped_center,
-            clamped_left,
-            parent_width_m,
-            channel_height_m.max(1e-9),
-        )
-    })
+    checked_tri_asymmetric_q_fracs(center_frac, left_periph_frac, parent_width, channel_height)
+        .unwrap_or_else(|_| {
+            let clamped_center = center_frac.clamp(1e-6, 1.0 - 2e-6);
+            let clamped_left = left_periph_frac.clamp(1e-6, 1.0 - clamped_center - 1e-6);
+            tri_asymmetric_q_fracs_impl(
+                clamped_center,
+                clamped_left,
+                parent_width.into_base(),
+                channel_height.into_base().max(1e-9),
+            )
+        })
 }
 
 /// Checked flow fractions for an asymmetric trifurcation.
 pub fn checked_tri_asymmetric_q_fracs(
     center_frac: f64,
     left_periph_frac: f64,
-    parent_width_m: f64,
-    channel_height_m: f64,
+    parent_width: Length,
+    channel_height: Length,
 ) -> Result<[f64; 3]> {
     let center_frac = validate_unit_open_fraction("center-arm width fraction", center_frac)?;
     let left_periph_frac =
@@ -420,8 +417,9 @@ pub fn checked_tri_asymmetric_q_fracs(
                 .to_string(),
         ));
     }
-    let parent_width_m = validate_positive_geometry("parent width", parent_width_m)?;
-    let channel_height_m = validate_positive_geometry("channel height", channel_height_m)?;
+    let parent_width_m = validate_positive_geometry("parent width", parent_width.into_base())?;
+    let channel_height_m =
+        validate_positive_geometry("channel height", channel_height.into_base())?;
 
     Ok(tri_asymmetric_q_fracs_impl(
         center_frac,
@@ -446,9 +444,9 @@ pub fn checked_tri_asymmetric_q_fracs(
 pub fn cascade_junction_separation(
     n_levels: u8,
     center_frac: f64,
-    channel_width: f64,
-    channel_height: f64,
-    flow_rate: f64,
+    channel_width: Length,
+    channel_height: Length,
+    flow_rate: VolumetricFlowRate,
 ) -> CascadeJunctionResult {
     checked_cascade_junction_separation(
         n_levels,
@@ -468,14 +466,14 @@ pub fn cascade_junction_separation(
 pub fn checked_cascade_junction_separation(
     n_levels: u8,
     center_frac: f64,
-    channel_width: f64,
-    channel_height: f64,
-    flow_rate: f64,
+    channel_width: Length,
+    channel_height: Length,
+    flow_rate: VolumetricFlowRate,
 ) -> Result<CascadeJunctionResult> {
     let n_levels = validate_cascade_levels(n_levels)?;
-    validate_positive_geometry("channel width", channel_width)?;
-    validate_positive_geometry("channel height", channel_height)?;
-    if !flow_rate.is_finite() || flow_rate < 0.0 {
+    validate_positive_geometry("channel width", channel_width.into_base())?;
+    validate_positive_geometry("channel height", channel_height.into_base())?;
+    if !flow_rate.into_base().is_finite() || flow_rate.into_base() < 0.0 {
         return Err(Error::InvalidConfiguration(
             "Cascade routing flow rate must be finite and nonnegative".to_string(),
         ));
@@ -513,25 +511,22 @@ pub fn checked_cascade_junction_separation_from_qfracs(
 pub fn cascade_junction_separation_cross_junction(
     n_levels: u8,
     center_frac: f64,
-    parent_width_m: f64,
-    channel_height_m: f64,
+    parent_width: Length,
+    channel_height: Length,
 ) -> CascadeJunctionResult {
     checked_cascade_junction_separation_cross_junction(
         n_levels,
         center_frac,
-        parent_width_m,
-        channel_height_m,
+        parent_width,
+        channel_height,
     )
     .unwrap_or_else(|_| {
-        let mut current_parent_w = parent_width_m;
+        let mut current_parent_w = parent_width;
         let q_fracs: Vec<f64> = (0..n_levels)
             .map(|_| {
-                let q = tri_center_q_frac_cross_junction(
-                    center_frac,
-                    current_parent_w,
-                    channel_height_m,
-                );
-                current_parent_w *= center_frac;
+                let q =
+                    tri_center_q_frac_cross_junction(center_frac, current_parent_w, channel_height);
+                current_parent_w = Length::from_base(current_parent_w.into_base() * center_frac);
                 q
             })
             .collect();
@@ -543,13 +538,15 @@ pub fn cascade_junction_separation_cross_junction(
 pub fn checked_cascade_junction_separation_cross_junction(
     n_levels: u8,
     center_frac: f64,
-    parent_width_m: f64,
-    channel_height_m: f64,
+    parent_width: Length,
+    channel_height: Length,
 ) -> Result<CascadeJunctionResult> {
     let n_levels = validate_cascade_levels(n_levels)?;
     let center_frac = validate_unit_open_fraction("center-arm width fraction", center_frac)?;
-    let mut current_parent_w = validate_positive_geometry("parent width", parent_width_m)?;
-    let channel_height_m = validate_positive_geometry("channel height", channel_height_m)?;
+    let mut current_parent_w =
+        validate_positive_geometry("parent width", parent_width.into_base())?;
+    let channel_height_m =
+        validate_positive_geometry("channel height", channel_height.into_base())?;
 
     let q_fracs: Vec<f64> = (0..n_levels)
         .map(|_| {
@@ -894,8 +891,11 @@ mod tests {
             (peripheral_width_m, channel_height_m),
             (peripheral_width_m, channel_height_m),
         ])[0];
-        let actual =
-            tri_center_q_frac_cross_junction(center_frac, parent_width_m, channel_height_m);
+        let actual = tri_center_q_frac_cross_junction(
+            center_frac,
+            Length::from_base(parent_width_m),
+            Length::from_base(channel_height_m),
+        );
 
         assert!(
             (actual - expected).abs() < 2.0e-5,
@@ -920,8 +920,8 @@ mod tests {
         let actual = tri_asymmetric_q_fracs(
             center_frac,
             left_periph_frac,
-            parent_width_m,
-            channel_height_m,
+            Length::from_base(parent_width_m),
+            Length::from_base(channel_height_m),
         );
 
         for (actual, expected) in actual.into_iter().zip(expected) {

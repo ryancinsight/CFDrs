@@ -114,7 +114,7 @@
 //!   inertial microfluidics. *Lab Chip*, 11, 912–920.
 
 use crate::physics::cell_separation::properties::CellProperties;
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{DynamicViscosity, Force, Length, MassDensity, Velocity};
 use cfd_core::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 
@@ -311,15 +311,17 @@ fn dimensional_lift_force_n(
 ///
 /// # Arguments
 /// - `re` — channel Reynolds number `ρ U D_h / μ`
-/// - `hydraulic_diameter_m` — `D_h = 2wh/(w+h)` \[m]
-/// - `bend_radius_m` — radius of curvature of the channel centreline \[m]
+/// - `hydraulic_diameter` — hydraulic diameter as an Aequitas [`Length`]
+/// - `bend_radius` — bend radius as an Aequitas [`Length`]
 ///
 /// # Panics
-/// Panics in debug mode if `bend_radius_m ≤ 0`.
+/// Panics in debug mode if `bend_radius ≤ 0`.
 #[inline]
 #[must_use]
-pub fn dean_number(re: f64, hydraulic_diameter_m: f64, bend_radius_m: f64) -> f64 {
-    debug_assert!(bend_radius_m > 0.0, "bend_radius_m must be positive");
+pub fn dean_number(re: f64, hydraulic_diameter: Length, bend_radius: Length) -> f64 {
+    let hydraulic_diameter_m = hydraulic_diameter.into_base();
+    let bend_radius_m = bend_radius.into_base();
+    debug_assert!(bend_radius_m > 0.0, "bend_radius must be positive");
     re * (hydraulic_diameter_m / (2.0 * bend_radius_m)).sqrt()
 }
 
@@ -332,8 +334,16 @@ pub fn dean_number(re: f64, hydraulic_diameter_m: f64, bend_radius_m: f64) -> f6
 /// the outer wall of the curved channel.
 #[inline]
 #[must_use]
-pub fn dean_drag_force_n(dynamic_viscosity_pa_s: f64, de: f64, cell_diameter_m: f64) -> f64 {
-    5.4e-4 * std::f64::consts::PI * dynamic_viscosity_pa_s * de.powf(1.63) * cell_diameter_m
+pub fn dean_drag_force(
+    dynamic_viscosity: DynamicViscosity,
+    de: f64,
+    cell_diameter: Length,
+) -> Force {
+    let dynamic_viscosity_pa_s = dynamic_viscosity.into_base();
+    let cell_diameter_m = cell_diameter.into_base();
+    Force::from_base(
+        5.4e-4 * std::f64::consts::PI * dynamic_viscosity_pa_s * de.powf(1.63) * cell_diameter_m,
+    )
 }
 
 // ── Inertial lift force ───────────────────────────────────────────────────────
@@ -347,36 +357,33 @@ pub fn dean_drag_force_n(dynamic_viscosity_pa_s: f64, de: f64, cell_diameter_m: 
 /// # Arguments
 /// - `x_tilde` — normalised lateral position ∈ [0, 1] (0 = center, 1 = wall)
 /// - `cell` — cell physical properties
-/// - `fluid_density_kg_m3` — fluid density [kg/m³]
-/// - `mean_velocity_m_s` — mean channel velocity \[m/s]
-/// - `channel_height_m` — channel height (shorter dimension) \[m]
+/// - `fluid_density` — fluid density as an Aequitas [`MassDensity`]
+/// - `mean_velocity` — mean velocity as an Aequitas [`Velocity`]
+/// - `channel_height` — channel height as an Aequitas [`Length`]
 #[inline]
 #[must_use]
-pub fn inertial_lift_force_n(
+pub fn inertial_lift_force(
     x_tilde: f64,
     cell: &CellProperties,
-    fluid_density_kg_m3: f64,
-    mean_velocity_m_s: f64,
-    channel_height_m: f64,
-) -> f64 {
-    checked_inertial_lift_force_n(
-        x_tilde,
-        cell,
-        fluid_density_kg_m3,
-        mean_velocity_m_s,
-        channel_height_m,
-    )
-    .expect("inertial lift inputs must satisfy the validated margination envelope")
+    fluid_density: MassDensity,
+    mean_velocity: Velocity,
+    channel_height: Length,
+) -> Force {
+    checked_inertial_lift_force(x_tilde, cell, fluid_density, mean_velocity, channel_height)
+        .expect("inertial lift inputs must satisfy the validated margination envelope")
 }
 
 /// Checked inertial lift force evaluation using the validated margination model.
-pub fn checked_inertial_lift_force_n(
+pub fn checked_inertial_lift_force(
     x_tilde: f64,
     cell: &CellProperties,
-    fluid_density_kg_m3: f64,
-    mean_velocity_m_s: f64,
-    channel_height_m: f64,
-) -> Result<f64> {
+    fluid_density: MassDensity,
+    mean_velocity: Velocity,
+    channel_height: Length,
+) -> Result<Force> {
+    let fluid_density_kg_m3 = fluid_density.into_base();
+    let mean_velocity_m_s = mean_velocity.into_base();
+    let channel_height_m = channel_height.into_base();
     let x_tilde = validate_lateral_position(x_tilde)?;
     let deformability_index = validate_deformability_index(cell.deformability_index)?;
     let fluid_density_kg_m3 = validate_positive_finite("fluid density", fluid_density_kg_m3)?;
@@ -392,14 +399,14 @@ pub fn checked_inertial_lift_force_n(
         ));
     }
 
-    Ok(dimensional_lift_force_n(
+    Ok(Force::from_base(dimensional_lift_force_n(
         x_tilde,
         cell.diameter_m.into_base(),
         deformability_index,
         fluid_density_kg_m3,
         mean_velocity_m_s,
         channel_height_m,
-    ))
+    )))
 }
 
 // ── Lateral Drift Velocity ────────────────────────────────────────────────────
@@ -414,39 +421,41 @@ pub fn checked_inertial_lift_force_n(
 /// # Arguments
 /// - `x_tilde` — normalised lateral position ∈ [0, 1] (0 = center, 1 = wall)
 /// - `cell` — cell physical properties
-/// - `fluid_density_kg_m3` — fluid density [kg/m³]
-/// - `dynamic_viscosity_pa_s` — fluid dynamic viscosity [Pa·s]
-/// - `mean_velocity_m_s` — mean channel velocity \[m/s]
-/// - `channel_width_m` — channel width \[m]
-/// - `channel_height_m` — channel height (shorter dimension) \[m]
-/// - `bend_radius_m` — radius of curvature \[m], or `None` for a straight channel
+/// - `fluid_density` — fluid density as an Aequitas [`MassDensity`]
+/// - `dynamic_viscosity` — dynamic viscosity as an Aequitas [`DynamicViscosity`]
+/// - `mean_velocity` — mean velocity as an Aequitas [`Velocity`]
+/// - `channel_width` — channel width as an Aequitas [`Length`]
+/// - `channel_height` — channel height as an Aequitas [`Length`]
+/// - `bend_radius` — radius as `Option<Length>`, or `None` for a straight channel
 #[inline]
 #[must_use]
-pub fn lateral_velocity_m_s(
+pub fn lateral_velocity(
     x_tilde: f64,
     cell: &CellProperties,
-    fluid_density_kg_m3: f64,
-    dynamic_viscosity_pa_s: f64,
-    mean_velocity_m_s: f64,
-    channel_width_m: f64,
-    channel_height_m: f64,
-    bend_radius_m: Option<f64>,
-) -> f64 {
+    fluid_density: MassDensity,
+    dynamic_viscosity: DynamicViscosity,
+    mean_velocity: Velocity,
+    channel_width: Length,
+    channel_height: Length,
+    bend_radius: Option<Length>,
+) -> Velocity {
+    let fluid_density_kg_m3 = fluid_density.into_base();
+    let dynamic_viscosity_pa_s = dynamic_viscosity.into_base();
+    let mean_velocity_m_s = mean_velocity.into_base();
+    let channel_width_m = channel_width.into_base();
+    let channel_height_m = channel_height.into_base();
+    let bend_radius_m = bend_radius.map(|radius| radius.into_base());
     let dh = 2.0 * channel_width_m * channel_height_m / (channel_width_m + channel_height_m);
-    let f_lift = checked_inertial_lift_force_n(
-        x_tilde,
-        cell,
-        fluid_density_kg_m3,
-        mean_velocity_m_s,
-        channel_height_m,
-    )
-    .expect("lateral velocity inputs must satisfy the validated margination envelope");
+    let f_lift =
+        checked_inertial_lift_force(x_tilde, cell, fluid_density, mean_velocity, channel_height)
+            .expect("lateral velocity inputs must satisfy the validated margination envelope")
+            .into_base();
 
     let f_dean = if let Some(r) = bend_radius_m {
         if r > 0.0 {
             let re = fluid_density_kg_m3 * mean_velocity_m_s * dh / dynamic_viscosity_pa_s;
-            let de = dean_number(re, dh, r);
-            dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m.into_base())
+            let de = dean_number(re, Length::from_base(dh), Length::from_base(r));
+            dean_drag_force(dynamic_viscosity, de, cell.diameter_m).into_base()
         } else {
             0.0
         }
@@ -458,20 +467,26 @@ pub fn lateral_velocity_m_s(
     let stokes_coeff =
         3.0 * std::f64::consts::PI * dynamic_viscosity_pa_s * cell.diameter_m.into_base();
 
-    net_force_n / stokes_coeff.max(1e-30)
+    Velocity::from_base(net_force_n / stokes_coeff.max(1e-30))
 }
 
 /// Checked lateral drift velocity evaluation using explicit model bounds.
-pub fn checked_lateral_velocity_m_s(
+pub fn checked_lateral_velocity(
     x_tilde: f64,
     cell: &CellProperties,
-    fluid_density_kg_m3: f64,
-    dynamic_viscosity_pa_s: f64,
-    mean_velocity_m_s: f64,
-    channel_width_m: f64,
-    channel_height_m: f64,
-    bend_radius_m: Option<f64>,
-) -> Result<f64> {
+    fluid_density: MassDensity,
+    dynamic_viscosity: DynamicViscosity,
+    mean_velocity: Velocity,
+    channel_width: Length,
+    channel_height: Length,
+    bend_radius: Option<Length>,
+) -> Result<Velocity> {
+    let fluid_density_kg_m3 = fluid_density.into_base();
+    let dynamic_viscosity_pa_s = dynamic_viscosity.into_base();
+    let mean_velocity_m_s = mean_velocity.into_base();
+    let channel_width_m = channel_width.into_base();
+    let channel_height_m = channel_height.into_base();
+    let bend_radius_m = bend_radius.map(|radius| radius.into_base());
     let channel_width_m = validate_positive_finite("channel width", channel_width_m)?;
     let channel_height_m = validate_positive_finite("channel height", channel_height_m)?;
     let dynamic_viscosity_pa_s =
@@ -481,18 +496,14 @@ pub fn checked_lateral_velocity_m_s(
     }
 
     let dh = 2.0 * channel_width_m * channel_height_m / (channel_width_m + channel_height_m);
-    let f_lift = checked_inertial_lift_force_n(
-        x_tilde,
-        cell,
-        fluid_density_kg_m3,
-        mean_velocity_m_s,
-        channel_height_m,
-    )?;
+    let f_lift =
+        checked_inertial_lift_force(x_tilde, cell, fluid_density, mean_velocity, channel_height)?
+            .into_base();
 
     let f_dean = if let Some(r) = bend_radius_m {
         let re = fluid_density_kg_m3 * mean_velocity_m_s * dh / dynamic_viscosity_pa_s;
-        let de = dean_number(re, dh, r);
-        dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m.into_base())
+        let de = dean_number(re, Length::from_base(dh), Length::from_base(r));
+        dean_drag_force(dynamic_viscosity, de, cell.diameter_m).into_base()
     } else {
         0.0
     };
@@ -500,7 +511,7 @@ pub fn checked_lateral_velocity_m_s(
     let net_force_n = f_lift - f_dean;
     let stokes_coeff =
         3.0 * std::f64::consts::PI * dynamic_viscosity_pa_s * cell.diameter_m.into_base();
-    Ok(net_force_n / stokes_coeff.max(1e-30))
+    Ok(Velocity::from_base(net_force_n / stokes_coeff.max(1e-30)))
 }
 
 // ── Equilibrium position solver ───────────────────────────────────────────────
@@ -515,13 +526,13 @@ pub struct EquilibriumResult {
     pub x_tilde_eq: f64,
 
     /// Dimensional lateral position from channel center \[m].
-    pub lateral_position_m: f64,
+    pub lateral_position: Length,
 
     /// Inertial lift force at equilibrium \[N] (should be ≈ 0).
-    pub residual_force_n: f64,
+    pub residual_force: Force,
 
     /// Dean drag force at equilibrium \[N] (0 if no curvature).
-    pub dean_drag_n: f64,
+    pub dean_drag: Force,
 
     /// Channel Reynolds number.
     pub reynolds_number: f64,
@@ -542,7 +553,7 @@ pub struct EquilibriumResult {
 /// larger Dean forces shift the equilibrium toward the wall, as observed
 /// experimentally (Gossett & Di Carlo 2009).
 ///
-/// For straight channels (`bend_radius_m = None`), `F_D = 0` and the
+/// For straight channels (`bend_radius = None`), `F_D = 0` and the
 /// equilibrium is determined by inertial lift alone.
 ///
 /// For curved channels, the Dean drag pushes cells toward the outer wall
@@ -550,12 +561,12 @@ pub struct EquilibriumResult {
 ///
 /// # Arguments
 /// - `cell` — cell physical properties
-/// - `fluid_density_kg_m3` — fluid density [kg/m³]
-/// - `dynamic_viscosity_pa_s` — fluid dynamic viscosity [Pa·s]
-/// - `mean_velocity_m_s` — mean channel velocity \[m/s]
-/// - `channel_width_m` — channel width \[m]
-/// - `channel_height_m` — channel height \[m] (shorter dimension)
-/// - `bend_radius_m` — radius of curvature \[m], or `None` for straight channel
+/// - `fluid_density` — fluid density as an Aequitas [`MassDensity`]
+/// - `dynamic_viscosity` — dynamic viscosity as an Aequitas [`DynamicViscosity`]
+/// - `mean_velocity` — mean velocity as an Aequitas [`Velocity`]
+/// - `channel_width` — channel width as an Aequitas [`Length`]
+/// - `channel_height` — channel height as an Aequitas [`Length`]
+/// - `bend_radius` — radius as `Option<Length>`, or `None` for a straight channel
 ///
 /// # Returns
 /// [`EquilibriumResult`] with the equilibrium position and force balance.
@@ -566,13 +577,19 @@ pub struct EquilibriumResult {
 #[must_use]
 pub fn lateral_equilibrium(
     cell: &CellProperties,
-    fluid_density_kg_m3: f64,
-    dynamic_viscosity_pa_s: f64,
-    mean_velocity_m_s: f64,
-    channel_width_m: f64,
-    channel_height_m: f64,
-    bend_radius_m: Option<f64>,
+    fluid_density: MassDensity,
+    dynamic_viscosity: DynamicViscosity,
+    mean_velocity: Velocity,
+    channel_width: Length,
+    channel_height: Length,
+    bend_radius: Option<Length>,
 ) -> Option<EquilibriumResult> {
+    let fluid_density_kg_m3 = fluid_density.into_base();
+    let dynamic_viscosity_pa_s = dynamic_viscosity.into_base();
+    let mean_velocity_m_s = mean_velocity.into_base();
+    let channel_width_m = channel_width.into_base();
+    let channel_height_m = channel_height.into_base();
+    let bend_radius_m = bend_radius.map(|radius| radius.into_base());
     let h = channel_height_m;
     let w = channel_width_m;
     let dh = 2.0 * w * h / (w + h); // hydraulic diameter
@@ -586,9 +603,9 @@ pub fn lateral_equilibrium(
     // Dean number and drag force (0 for straight channels)
     let (de, f_dean) = if let Some(r) = bend_radius_m {
         if r > 0.0 {
-            let de = dean_number(re, dh, r);
-            let fd = dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m.into_base());
-            (de, fd)
+            let de = dean_number(re, Length::from_base(dh), Length::from_base(r));
+            let fd = dean_drag_force(dynamic_viscosity, de, cell.diameter_m);
+            (de, fd.into_base())
         } else {
             (0.0, 0.0)
         }
@@ -608,7 +625,8 @@ pub fn lateral_equilibrium(
     // For straight channel (f_dean=0) this gives F_L = 0 (Segré-Silberberg).
     // For curved channels f_dean > 0 forces equilibrium to larger x̃ (toward wall).
     let net_force = |x: f64| -> f64 {
-        inertial_lift_force_n(x, cell, fluid_density_kg_m3, mean_velocity_m_s, h) - f_dean
+        inertial_lift_force(x, cell, fluid_density, mean_velocity, Length::from_base(h)).into_base()
+            - f_dean
     };
 
     // Bisection on [0, 1] over the validated nonsingular half-channel domain.
@@ -650,9 +668,9 @@ pub fn lateral_equilibrium(
 
     Some(EquilibriumResult {
         x_tilde_eq: x_eq,
-        lateral_position_m: lateral_pos_m,
-        residual_force_n: residual,
-        dean_drag_n: f_dean,
+        lateral_position: Length::from_base(lateral_pos_m),
+        residual_force: Force::from_base(residual),
+        dean_drag: Force::from_base(f_dean),
         reynolds_number: re,
         dean_number: de,
         will_focus,
@@ -662,13 +680,19 @@ pub fn lateral_equilibrium(
 /// Checked lateral equilibrium solver using explicit model-boundary validation.
 pub fn checked_lateral_equilibrium(
     cell: &CellProperties,
-    fluid_density_kg_m3: f64,
-    dynamic_viscosity_pa_s: f64,
-    mean_velocity_m_s: f64,
-    channel_width_m: f64,
-    channel_height_m: f64,
-    bend_radius_m: Option<f64>,
+    fluid_density: MassDensity,
+    dynamic_viscosity: DynamicViscosity,
+    mean_velocity: Velocity,
+    channel_width: Length,
+    channel_height: Length,
+    bend_radius: Option<Length>,
 ) -> Result<EquilibriumResult> {
+    let fluid_density_kg_m3 = fluid_density.into_base();
+    let dynamic_viscosity_pa_s = dynamic_viscosity.into_base();
+    let mean_velocity_m_s = mean_velocity.into_base();
+    let channel_width_m = channel_width.into_base();
+    let channel_height_m = channel_height.into_base();
+    let bend_radius_m = bend_radius.map(|radius| radius.into_base());
     let channel_width_m = validate_positive_finite("channel width", channel_width_m)?;
     let channel_height_m = validate_positive_finite("channel height", channel_height_m)?;
     let dynamic_viscosity_pa_s =
@@ -691,18 +715,23 @@ pub fn checked_lateral_equilibrium(
     let re = fluid_density_kg_m3 * mean_velocity_m_s * dh / dynamic_viscosity_pa_s;
 
     let (de, f_dean) = if let Some(r) = bend_radius_m {
-        let de = dean_number(re, dh, r);
-        let fd = dean_drag_force_n(dynamic_viscosity_pa_s, de, cell.diameter_m.into_base());
-        (de, fd)
+        let de = dean_number(re, Length::from_base(dh), Length::from_base(r));
+        let fd = dean_drag_force(dynamic_viscosity, de, cell.diameter_m);
+        (de, fd.into_base())
     } else {
         (0.0, 0.0)
     };
 
     let net_force = |x: f64| -> Result<f64> {
-        Ok(
-            checked_inertial_lift_force_n(x, cell, fluid_density_kg_m3, mean_velocity_m_s, h)?
-                - f_dean,
-        )
+        Ok(checked_inertial_lift_force(
+            x,
+            cell,
+            fluid_density,
+            mean_velocity,
+            Length::from_base(h),
+        )?
+        .into_base()
+            - f_dean)
     };
 
     let mut lo = 0.0_f64;
@@ -738,9 +767,9 @@ pub fn checked_lateral_equilibrium(
     let residual = net_force(x_eq)?;
     Ok(EquilibriumResult {
         x_tilde_eq: x_eq,
-        lateral_position_m: x_eq * (h / 2.0),
-        residual_force_n: residual,
-        dean_drag_n: f_dean,
+        lateral_position: Length::from_base(x_eq * (h / 2.0)),
+        residual_force: Force::from_base(residual),
+        dean_drag: Force::from_base(f_dean),
         reynolds_number: re,
         dean_number: de,
         will_focus,
@@ -752,6 +781,22 @@ pub fn checked_lateral_equilibrium(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn density(value: f64) -> MassDensity {
+        MassDensity::from_base(value)
+    }
+
+    fn viscosity(value: f64) -> DynamicViscosity {
+        DynamicViscosity::from_base(value)
+    }
+
+    fn velocity(value: f64) -> Velocity {
+        Velocity::from_base(value)
+    }
+
+    fn length(value: f64) -> Length {
+        Length::from_base(value)
+    }
 
     // ── amini_confinement_correction ─────────────────────────────────────────
 
@@ -819,9 +864,14 @@ mod tests {
     #[test]
     fn test_checked_inertial_lift_rejects_out_of_domain_position() {
         let cell = CellProperties::mcf7_breast_cancer();
-        let err = checked_inertial_lift_force_n(1.01, &cell, 1_000.0, 0.05, 200e-6).expect_err(
-            "checked margination lift must reject x_tilde outside the validated domain",
-        );
+        let err = checked_inertial_lift_force(
+            1.01,
+            &cell,
+            density(1_000.0),
+            velocity(0.05),
+            length(200e-6),
+        )
+        .expect_err("checked margination lift must reject x_tilde outside the validated domain");
         assert!(err.to_string().contains("x_tilde"));
     }
 
@@ -829,28 +879,59 @@ mod tests {
     #[should_panic(expected = "validated margination envelope")]
     fn legacy_inertial_lift_rejects_instead_of_clamping_position() {
         let cell = CellProperties::mcf7_breast_cancer();
-        let _ = inertial_lift_force_n(1.01, &cell, 1_000.0, 0.05, 200e-6);
+        let _ = inertial_lift_force(
+            1.01,
+            &cell,
+            density(1_000.0),
+            velocity(0.05),
+            length(200e-6),
+        );
     }
 
     #[test]
     fn test_checked_lateral_equilibrium_rejects_nonphysical_geometry() {
         let cell = CellProperties::mcf7_breast_cancer();
-        let err = checked_lateral_equilibrium(&cell, 1_000.0, 1.0e-3, 0.05, 100e-6, 0.0, None)
-            .expect_err("checked lateral equilibrium must reject zero channel height");
+        let err = checked_lateral_equilibrium(
+            &cell,
+            density(1_000.0),
+            viscosity(1.0e-3),
+            velocity(0.05),
+            length(100e-6),
+            length(0.0),
+            None,
+        )
+        .expect_err("checked lateral equilibrium must reject zero channel height");
         assert!(err.to_string().contains("channel height"));
     }
 
     #[test]
     fn test_checked_lateral_equilibrium_matches_legacy_on_nominal_case() {
         let cell = CellProperties::mcf7_breast_cancer();
-        let legacy = lateral_equilibrium(&cell, 1_000.0, 1.0e-3, 0.05, 200e-6, 100e-6, None)
-            .expect("legacy margination equilibrium should succeed");
-        let checked =
-            checked_lateral_equilibrium(&cell, 1_000.0, 1.0e-3, 0.05, 200e-6, 100e-6, None)
-                .expect("checked margination equilibrium should succeed");
+        let legacy = lateral_equilibrium(
+            &cell,
+            density(1_000.0),
+            viscosity(1.0e-3),
+            velocity(0.05),
+            length(200e-6),
+            length(100e-6),
+            None,
+        )
+        .expect("legacy margination equilibrium should succeed");
+        let checked = checked_lateral_equilibrium(
+            &cell,
+            density(1_000.0),
+            viscosity(1.0e-3),
+            velocity(0.05),
+            length(200e-6),
+            length(100e-6),
+            None,
+        )
+        .expect("checked margination equilibrium should succeed");
 
         assert!((legacy.x_tilde_eq - checked.x_tilde_eq).abs() < 1e-12);
-        assert!((legacy.residual_force_n - checked.residual_force_n).abs() < 1e-18);
+        assert!(
+            (legacy.residual_force.into_base() - checked.residual_force.into_base()).abs() < 1e-18
+        );
         assert_eq!(legacy.will_focus, checked.will_focus);
     }
 
@@ -933,7 +1014,8 @@ mod tests {
                 * kappa.powi(4)
                 - (1.0 - x * x) * area * kappa);
 
-        let actual = checked_inertial_lift_force_n(x, &cell, rho, u, h)?;
+        let actual = checked_inertial_lift_force(x, &cell, density(rho), velocity(u), length(h))?
+            .into_base();
         assert!((actual - expected).abs() < 1.0e-24);
         assert!(actual > 0.0);
         Ok(())

@@ -9,6 +9,9 @@
 //! 4. Plasma skimming reduces hematocrit in smaller branches
 //! 5. Quemada viscosity is physically bounded across all flow conditions
 
+use aequitas::systems::si::quantities::{
+    DynamicViscosity, Length, MassDensity, ReciprocalTime, VolumetricFlowRate,
+};
 use cfd_1d::{
     cascade_junction_separation, cascade_junction_separation_from_qfracs,
     cif_pretri_stage_center_fracs, cif_pretri_stage_q_fracs_cross_junction,
@@ -20,10 +23,18 @@ use cfd_1d::{
 
 // ── Physical constants ──────────────────────────────────────────────────
 
-const MU_PLASMA: f64 = 0.0012; // Pa·s
+const MU_PLASMA: DynamicViscosity = DynamicViscosity::from_base(0.0012);
 const HT_NORMAL: f64 = 0.45;
 const BLOOD_DENSITY: f64 = 1060.0; // kg/m³
 const BLOOD_VISCOSITY: f64 = 3.5e-3; // Pa·s
+
+fn length(value: f64) -> Length {
+    Length::from_base(value)
+}
+
+fn flow(value: f64) -> VolumetricFlowRate {
+    VolumetricFlowRate::from_base(value)
+}
 
 // ── Helper: simulate N-way junction as cascade of bifurcations ──────────
 
@@ -72,8 +83,8 @@ fn test_1_layer_bifurcation_cancer_enrichment() {
 /// separation_efficiency increases.
 #[test]
 fn test_2_layer_bifurcation_deeper_enrichment() {
-    let r1 = cascade_junction_separation(1, 0.45, 2e-3, 1e-3, 1e-6);
-    let r2 = cascade_junction_separation(2, 0.45, 2e-3, 1e-3, 1e-6);
+    let r1 = cascade_junction_separation(1, 0.45, length(2e-3), length(1e-3), flow(1e-6));
+    let r2 = cascade_junction_separation(2, 0.45, length(2e-3), length(1e-3), flow(1e-6));
 
     assert!(
         r2.separation_efficiency >= r1.separation_efficiency,
@@ -106,9 +117,9 @@ fn test_2_layer_bifurcation_deeper_enrichment() {
 /// Test 3: 3-layer cascade enrichment is monotonically increasing: 3 > 2 > 1.
 #[test]
 fn test_3_layer_bifurcation_monotone_enrichment() {
-    let r1 = cascade_junction_separation(1, 0.45, 2e-3, 1e-3, 1e-6);
-    let r2 = cascade_junction_separation(2, 0.45, 2e-3, 1e-3, 1e-6);
-    let r3 = cascade_junction_separation(3, 0.45, 2e-3, 1e-3, 1e-6);
+    let r1 = cascade_junction_separation(1, 0.45, length(2e-3), length(1e-3), flow(1e-6));
+    let r2 = cascade_junction_separation(2, 0.45, length(2e-3), length(1e-3), flow(1e-6));
+    let r3 = cascade_junction_separation(3, 0.45, length(2e-3), length(1e-3), flow(1e-6));
 
     assert!(
         r3.separation_efficiency >= r2.separation_efficiency
@@ -127,7 +138,7 @@ fn test_3_layer_bifurcation_monotone_enrichment() {
 /// Test 4: Single trifurcation enriches CTCs at center arm (three-population).
 #[test]
 fn test_1_layer_trifurcation_three_population() {
-    let r = cascade_junction_separation(1, 0.5, 2e-3, 1e-3, 1e-6);
+    let r = cascade_junction_separation(1, 0.5, length(2e-3), length(1e-3), flow(1e-6));
 
     // With center_frac=0.5, cancer cells (beta=1.85) should strongly
     // prefer the center arm over RBCs (beta=1.0).
@@ -143,8 +154,8 @@ fn test_1_layer_trifurcation_three_population() {
 /// Test 5: 2-layer trifurcation improves separation over 1-layer.
 #[test]
 fn test_2_layer_trifurcation_improved_separation() {
-    let r1 = cascade_junction_separation(1, 0.5, 2e-3, 1e-3, 1e-6);
-    let r2 = cascade_junction_separation(2, 0.5, 2e-3, 1e-3, 1e-6);
+    let r1 = cascade_junction_separation(1, 0.5, length(2e-3), length(1e-3), flow(1e-6));
+    let r2 = cascade_junction_separation(2, 0.5, length(2e-3), length(1e-3), flow(1e-6));
 
     assert!(
         r2.separation_efficiency >= r1.separation_efficiency,
@@ -158,9 +169,9 @@ fn test_2_layer_trifurcation_improved_separation() {
 /// with depth (RBCs are increasingly excluded from center arm).
 #[test]
 fn test_3_layer_trifurcation_rbc_exclusion() {
-    let r1 = cascade_junction_separation(1, 0.45, 2e-3, 1e-3, 1e-6);
-    let r2 = cascade_junction_separation(2, 0.45, 2e-3, 1e-3, 1e-6);
-    let r3 = cascade_junction_separation(3, 0.45, 2e-3, 1e-3, 1e-6);
+    let r1 = cascade_junction_separation(1, 0.45, length(2e-3), length(1e-3), flow(1e-6));
+    let r2 = cascade_junction_separation(2, 0.45, length(2e-3), length(1e-3), flow(1e-6));
+    let r3 = cascade_junction_separation(3, 0.45, length(2e-3), length(1e-3), flow(1e-6));
 
     // RBC peripheral fraction should increase (or remain stable) with depth:
     // deeper cascades push more RBCs to peripheral arms.
@@ -185,7 +196,7 @@ fn test_1_layer_quadfurcation_mass_conservation() {
     // Simulate a 4-way split as 2-level cascade with center_frac=0.5
     // (first level splits into center + 2 peripheral; second level
     //  re-splits the center arm, yielding 4 terminal branches).
-    let r = cascade_junction_separation(2, 0.5, 2e-3, 1e-3, 1e-6);
+    let r = cascade_junction_separation(2, 0.5, length(2e-3), length(1e-3), flow(1e-6));
 
     assert!(
         (0.0..=1.0).contains(&r.cancer_center_fraction),
@@ -214,7 +225,7 @@ fn test_1_layer_quadfurcation_mass_conservation() {
 #[test]
 fn test_1_layer_pentafurcation_mass_conservation() {
     // 2-level cascade at center_frac=0.4 produces ~5 effective branches
-    let r = cascade_junction_separation(2, 0.4, 2e-3, 1e-3, 1e-6);
+    let r = cascade_junction_separation(2, 0.4, length(2e-3), length(1e-3), flow(1e-6));
 
     assert!(
         (0.0..=1.0).contains(&r.cancer_center_fraction),
@@ -239,7 +250,7 @@ fn test_1_layer_pentafurcation_mass_conservation() {
 #[test]
 fn test_quadfurcation_vs_bifurcation_cascade() {
     // Quad: 2-level trifurcation cascade at center_frac=0.5
-    let r_quad = cascade_junction_separation(2, 0.5, 2e-3, 1e-3, 1e-6);
+    let r_quad = cascade_junction_separation(2, 0.5, length(2e-3), length(1e-3), flow(1e-6));
 
     // 2-layer bifurcation cascade (from explicit q_fracs at 0.6 per stage)
     let r_bi2 = cascade_junction_separation_from_qfracs(&[0.6, 0.6]);
@@ -280,7 +291,10 @@ fn test_fahraeus_lindqvist_at_each_cascade_level() {
 
     let viscosities: Vec<f64> = diameters_um
         .iter()
-        .map(|&d| fahraeus_lindqvist_viscosity(d, HT_NORMAL, MU_PLASMA))
+        .map(|&d| {
+            fahraeus_lindqvist_viscosity(Length::from_base(d * 1.0e-6), HT_NORMAL, MU_PLASMA)
+                .into_base()
+        })
         .collect();
 
     // For these diameters (all > 30 µm), viscosity should decrease with
@@ -304,8 +318,10 @@ fn test_quemada_low_shear_at_bifurcation_stagnation() {
     // At the stagnation point of a bifurcation junction, shear rate drops
     // to near zero. The Quemada model should produce significantly higher
     // viscosity than at the bulk flow shear rate.
-    let mu_stagnation = quemada_viscosity(0.01, HT_NORMAL, MU_PLASMA);
-    let mu_bulk_shear = quemada_viscosity(200.0, HT_NORMAL, MU_PLASMA);
+    let mu_stagnation =
+        quemada_viscosity(ReciprocalTime::from_base(0.01), HT_NORMAL, MU_PLASMA).into_base();
+    let mu_bulk_shear =
+        quemada_viscosity(ReciprocalTime::from_base(200.0), HT_NORMAL, MU_PLASMA).into_base();
 
     assert!(
         mu_stagnation > 2.0 * mu_bulk_shear,
@@ -315,8 +331,8 @@ fn test_quemada_low_shear_at_bifurcation_stagnation() {
     );
 
     // Quemada viscosity must always be finite and above plasma viscosity
-    assert!(mu_stagnation.is_finite() && mu_stagnation > MU_PLASMA);
-    assert!(mu_bulk_shear.is_finite() && mu_bulk_shear > MU_PLASMA);
+    assert!(mu_stagnation.is_finite() && mu_stagnation > MU_PLASMA.into_base());
+    assert!(mu_bulk_shear.is_finite() && mu_bulk_shear > MU_PLASMA.into_base());
 }
 
 /// Test 12: Plasma skimming reduces hematocrit in smaller daughter branches.
@@ -327,14 +343,17 @@ fn test_plasma_skimming_reduces_hematocrit_in_smaller_daughters() {
     let d_parent = 100.0; // µm
 
     // Small daughter (30 µm, gets 20% of flow)
-    let ht_small = plasma_skimming_hematocrit(HT_NORMAL, 0.2, 30.0, d_parent)
-        .expect("small daughter: valid plasma skimming parameters");
+    let ht_small =
+        plasma_skimming_hematocrit(HT_NORMAL, 0.2, length(30.0e-6), length(d_parent * 1.0e-6))
+            .expect("small daughter: valid plasma skimming parameters");
     // Medium daughter (60 µm, gets 40% of flow)
-    let ht_medium = plasma_skimming_hematocrit(HT_NORMAL, 0.4, 60.0, d_parent)
-        .expect("medium daughter: valid plasma skimming parameters");
+    let ht_medium =
+        plasma_skimming_hematocrit(HT_NORMAL, 0.4, length(60.0e-6), length(d_parent * 1.0e-6))
+            .expect("medium daughter: valid plasma skimming parameters");
     // Large daughter (90 µm, gets 60% of flow)
-    let ht_large = plasma_skimming_hematocrit(HT_NORMAL, 0.6, 90.0, d_parent)
-        .expect("large daughter: valid plasma skimming parameters");
+    let ht_large =
+        plasma_skimming_hematocrit(HT_NORMAL, 0.6, length(90.0e-6), length(d_parent * 1.0e-6))
+            .expect("large daughter: valid plasma skimming parameters");
 
     // Smaller daughters should receive lower hematocrit
     assert!(
@@ -361,22 +380,22 @@ fn test_plasma_skimming_reduces_hematocrit_in_smaller_daughters() {
 fn test_three_population_equilibria_across_channel_sizes() {
     // Narrow channel: 500 µm x 200 µm
     let eq_narrow = three_population_equilibria(
-        500e-6,
-        200e-6,
-        1e-6,
-        BLOOD_DENSITY,
-        BLOOD_VISCOSITY,
+        Length::from_base(500e-6),
+        Length::from_base(200e-6),
+        VolumetricFlowRate::from_base(1e-6),
+        MassDensity::from_base(BLOOD_DENSITY),
+        DynamicViscosity::from_base(BLOOD_VISCOSITY),
         HT_NORMAL,
         None,
     );
 
     // Wide channel: 2000 µm x 1000 µm
     let eq_wide = three_population_equilibria(
-        2e-3,
-        1e-3,
-        1e-6,
-        BLOOD_DENSITY,
-        BLOOD_VISCOSITY,
+        Length::from_base(2e-3),
+        Length::from_base(1e-3),
+        VolumetricFlowRate::from_base(1e-6),
+        MassDensity::from_base(BLOOD_DENSITY),
+        DynamicViscosity::from_base(BLOOD_VISCOSITY),
         HT_NORMAL,
         None,
     );
@@ -454,8 +473,8 @@ fn test_incremental_filtration_staged_vs_explicit_qfracs_consistency() {
         pretri_center_frac,
         terminal_tri_frac,
         terminal_bi_treat_frac,
-        parent_width_m,
-        channel_height_m,
+        length(parent_width_m),
+        length(channel_height_m),
     );
 
     // Path B: extract the exact same q_fracs the staged API uses, then call
@@ -464,8 +483,8 @@ fn test_incremental_filtration_staged_vs_explicit_qfracs_consistency() {
         n_pretri,
         pretri_center_frac,
         terminal_tri_frac,
-        parent_width_m,
-        channel_height_m,
+        length(parent_width_m),
+        length(channel_height_m),
     );
     let terminal_parent_width_m =
         cif_pretri_stage_center_fracs(n_pretri, pretri_center_frac, terminal_tri_frac)
@@ -475,8 +494,8 @@ fn test_incremental_filtration_staged_vs_explicit_qfracs_consistency() {
             });
     let terminal_q = tri_center_q_frac_cross_junction(
         terminal_tri_frac,
-        terminal_parent_width_m,
-        channel_height_m,
+        length(terminal_parent_width_m),
+        length(channel_height_m),
     );
 
     let r_qfracs = incremental_filtration_separation_from_qfracs(

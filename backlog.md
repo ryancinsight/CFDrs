@@ -31,6 +31,18 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-23 [major] - Type cell-separation physical metrics
+  (IN PROGRESS; owner=Codex; claimed 2026-07-27; scope=`cfd-1d` cell-separation
+  public family and direct callers, cascade and three-population callers/tests,
+  and synchronized PM artifacts).** The public cell-separation family exposed
+  equilibrium position/force, fluid properties, channel geometry,
+  Fahraeus/CFL/rheology metrics, plasma-skimming diameters, and cross-junction
+  geometry/flow as unit-suffixed scalars. Add the provider-owned `Force`/`Newton`
+  quantity, carry typed dimensional values through the public model, migrate
+  callers without a compatibility facade, and keep scalar extraction at
+  formula boundaries. Equation-independent normalized positions and fractions
+  remain dimensionless.
+
 - **CFDRS-AEQ-MET-22 [major] - Type transient mixture fractions
   (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
   `MixtureComposition` fractions/constructors/accessors, in-tree callers,

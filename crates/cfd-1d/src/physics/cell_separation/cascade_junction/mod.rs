@@ -173,12 +173,21 @@ mod tests {
     use super::incremental_filtration::*;
     use super::routing_probability::*;
     use super::*;
+    use aequitas::systems::si::quantities::{Length, Velocity, VolumetricFlowRate};
+
+    fn length(value: f64) -> Length {
+        Length::from_base(value)
+    }
+
+    fn flow(value: f64) -> VolumetricFlowRate {
+        VolumetricFlowRate::from_base(value)
+    }
 
     #[test]
     fn symmetric_split_equal_distribution() {
         // With symmetric 1/3 split all cell types should distribute by flow fraction
         // (cancer biased slightly more toward center, RBC less so).
-        let r = cascade_junction_separation(1, 1.0 / 3.0, 2e-3, 1e-3, 5e-6);
+        let r = cascade_junction_separation(1, 1.0 / 3.0, length(2e-3), length(1e-3), flow(5e-6));
         // Center arm carries 1/3 of flow → q_frac = (1/3)³/((1/3)³+2*(1/3)³) = 1/3
         // After 1 level: cancer_center_fraction > rbc_center_fraction (stiffness effect)
         assert!(
@@ -192,16 +201,17 @@ mod tests {
     #[test]
     fn center_biased_increases_separation() {
         // Center-biased split should increase separation relative to symmetric.
-        let r_sym = cascade_junction_separation(2, 1.0 / 3.0, 2e-3, 1e-3, 5e-6);
-        let r_bias = cascade_junction_separation(2, 0.55, 2e-3, 1e-3, 5e-6);
+        let r_sym =
+            cascade_junction_separation(2, 1.0 / 3.0, length(2e-3), length(1e-3), flow(5e-6));
+        let r_bias = cascade_junction_separation(2, 0.55, length(2e-3), length(1e-3), flow(5e-6));
         // Biased split: q_center_frac > 1/3 → stronger Zweifach-Fung routing
         assert!(r_bias.cancer_center_fraction >= r_sym.cancer_center_fraction - 1e-10);
     }
 
     #[test]
     fn more_levels_increases_enrichment() {
-        let r1 = cascade_junction_separation(1, 0.45, 2e-3, 1e-3, 5e-6);
-        let r3 = cascade_junction_separation(3, 0.45, 2e-3, 1e-3, 5e-6);
+        let r1 = cascade_junction_separation(1, 0.45, length(2e-3), length(1e-3), flow(5e-6));
+        let r3 = cascade_junction_separation(3, 0.45, length(2e-3), length(1e-3), flow(5e-6));
         // More cascade levels → more cancer enriched in center, more RBCs in bypass
         assert!(r3.rbc_peripheral_fraction >= r1.rbc_peripheral_fraction - 1e-10);
     }
@@ -295,7 +305,8 @@ mod tests {
 
     #[test]
     fn cascade_qfrac_api_matches_uniform_width_model() {
-        let width_model = cascade_junction_separation(3, 0.45, 2e-3, 1e-3, 5e-6);
+        let width_model =
+            cascade_junction_separation(3, 0.45, length(2e-3), length(1e-3), flow(5e-6));
         let q = tri_center_q_frac(0.45);
         let solved_like = cascade_junction_separation_from_qfracs(&[q, q, q]);
         assert!(
@@ -318,9 +329,10 @@ mod tests {
 
     #[test]
     fn checked_cascade_junction_matches_legacy_nominal_case() {
-        let legacy = cascade_junction_separation(3, 0.45, 2e-3, 1e-3, 5e-6);
-        let checked = checked_cascade_junction_separation(3, 0.45, 2e-3, 1e-3, 5e-6)
-            .expect("checked cascade junction API should succeed on a nominal case");
+        let legacy = cascade_junction_separation(3, 0.45, length(2e-3), length(1e-3), flow(5e-6));
+        let checked =
+            checked_cascade_junction_separation(3, 0.45, length(2e-3), length(1e-3), flow(5e-6))
+                .expect("checked cascade junction API should succeed on a nominal case");
 
         assert!((legacy.cancer_center_fraction - checked.cancer_center_fraction).abs() < 1e-12);
         assert!((legacy.rbc_peripheral_fraction - checked.rbc_peripheral_fraction).abs() < 1e-12);
@@ -399,7 +411,7 @@ mod tests {
         // With symmetric 1/3 split, cross-junction model should give similar
         // result to the basic model (identical for symmetric).
         let q_basic = tri_center_q_frac(1.0 / 3.0);
-        let q_cross = tri_center_q_frac_cross_junction(1.0 / 3.0, 2e-3, 1e-3);
+        let q_cross = tri_center_q_frac_cross_junction(1.0 / 3.0, length(2e-3), length(1e-3));
         // Both should be ~1/3 for symmetric geometry
         assert!((q_basic - 1.0 / 3.0).abs() < 1e-10);
         assert!(
@@ -416,7 +428,7 @@ mod tests {
         // *decreases*.  This is the desired physics: more flow is diverted
         // to peripheral arms, improving RBC peripheral enrichment.
         let q_basic = tri_center_q_frac(0.55);
-        let q_cross = tri_center_q_frac_cross_junction(0.55, 2e-3, 1e-3);
+        let q_cross = tri_center_q_frac_cross_junction(0.55, length(2e-3), length(1e-3));
         assert!(q_cross <= q_basic + 1e-6,
             "cross-junction correction should reduce center fraction: basic={q_basic}, cross={q_cross}");
     }
@@ -424,8 +436,14 @@ mod tests {
     #[test]
     fn cross_junction_cif_pushes_more_rbc_to_periphery() {
         let basic = incremental_filtration_separation_staged(2, 0.45, 0.50, 0.68);
-        let cross =
-            incremental_filtration_separation_cross_junction(2, 0.45, 0.50, 0.68, 2e-3, 1e-3);
+        let cross = incremental_filtration_separation_cross_junction(
+            2,
+            0.45,
+            0.50,
+            0.68,
+            length(2e-3),
+            length(1e-3),
+        );
         assert!(cross.rbc_peripheral_fraction >= basic.rbc_peripheral_fraction - 0.01,
             "cross-junction selective routing should push more RBCs to periphery: basic={}, cross={}",
             basic.rbc_peripheral_fraction, cross.rbc_peripheral_fraction);
@@ -433,8 +451,8 @@ mod tests {
 
     #[test]
     fn cross_junction_cct_pushes_more_rbc_to_periphery() {
-        let basic = cascade_junction_separation(2, 0.45, 2e-3, 1e-3, 5e-6);
-        let cross = cascade_junction_separation_cross_junction(2, 0.45, 2e-3, 1e-3);
+        let basic = cascade_junction_separation(2, 0.45, length(2e-3), length(1e-3), flow(5e-6));
+        let cross = cascade_junction_separation_cross_junction(2, 0.45, length(2e-3), length(1e-3));
         assert!(
             cross.rbc_peripheral_fraction >= basic.rbc_peripheral_fraction - 0.01,
             "cross-junction cascade routing should push more RBCs to periphery: basic={}, cross={}",
@@ -561,7 +579,7 @@ mod tests {
 
     #[test]
     fn tri_asymmetric_q_fracs_sum_to_one() {
-        let [qc, ql, qr] = tri_asymmetric_q_fracs(0.45, 0.30, 4e-3, 1e-3);
+        let [qc, ql, qr] = tri_asymmetric_q_fracs(0.45, 0.30, length(4e-3), length(1e-3));
         assert!(
             (qc + ql + qr - 1.0).abs() < 1e-10,
             "asymmetric arm fracs must sum to 1: {qc}+{ql}+{qr}={:.6}",
@@ -572,7 +590,7 @@ mod tests {
     #[test]
     fn tri_asymmetric_wider_periph_gets_more_flow() {
         // Left peripheral wider than right → left gets more flow.
-        let [_qc, ql, qr] = tri_asymmetric_q_fracs(0.40, 0.40, 4e-3, 1e-3);
+        let [_qc, ql, qr] = tri_asymmetric_q_fracs(0.40, 0.40, length(4e-3), length(1e-3));
         // left_frac=0.40, right_frac=0.20 → left should carry more
         assert!(
             ql > qr,
@@ -582,9 +600,10 @@ mod tests {
 
     #[test]
     fn checked_tri_asymmetric_q_fracs_reject_overfull_width_budget() {
-        let err = checked_tri_asymmetric_q_fracs(0.70, 0.35, 4e-3, 1e-3).expect_err(
-            "checked asymmetric trifurcation flow fractions must reject overfull width budgets",
-        );
+        let err = checked_tri_asymmetric_q_fracs(0.70, 0.35, length(4e-3), length(1e-3))
+            .expect_err(
+                "checked asymmetric trifurcation flow fractions must reject overfull width budgets",
+            );
         assert!(err.to_string().contains("positive right-arm width"));
     }
 
@@ -593,8 +612,9 @@ mod tests {
         // With equal peripherals, tri_asymmetric_q_fracs should match tri_center_q_frac_cross_junction.
         let center_frac = 0.45_f64;
         let left_frac = (1.0 - center_frac) / 2.0; // symmetric
-        let [qc_asym, _, _] = tri_asymmetric_q_fracs(center_frac, left_frac, 4e-3, 1e-3);
-        let qc_sym = tri_center_q_frac_cross_junction(center_frac, 4e-3, 1e-3);
+        let [qc_asym, _, _] =
+            tri_asymmetric_q_fracs(center_frac, left_frac, length(4e-3), length(1e-3));
+        let qc_sym = tri_center_q_frac_cross_junction(center_frac, length(4e-3), length(1e-3));
         assert!(
             (qc_asym - qc_sym).abs() < 1e-8,
             "symmetric asymmetric must match cross-junction: asym={qc_asym}, sym={qc_sym}"
@@ -606,7 +626,7 @@ mod tests {
         // In a narrow channel (Dh = 0.5mm), cancer cell κ ≈ 0.035 (above zero).
         // The kappa-aware model should produce HIGHER cancer_center_fraction than
         // the legacy model using constant β.
-        let q = tri_center_q_frac_cross_junction(0.45, 0.8e-3, 1e-3);
+        let q = tri_center_q_frac_cross_junction(0.45, length(0.8e-3), length(1e-3));
         let q_p = (1.0 - q) / 2.0;
         let w_center = 0.45 * 0.8e-3;
         let h = 1e-3_f64;
@@ -643,7 +663,7 @@ mod tests {
     fn kappa_aware_asymmetric_arms_biases_cells_to_wider_peripheral() {
         // Asymmetric trifurcation: left peripheral wider than right.
         // Cancer cells should preferentially go to the wider LEFT arm (higher q_l).
-        let [q_c, q_l, q_r] = tri_asymmetric_q_fracs(0.40, 0.40, 4e-3, 1e-3);
+        let [q_c, q_l, q_r] = tri_asymmetric_q_fracs(0.40, 0.40, length(4e-3), length(1e-3));
         // q_l > q_r → more cells should route to left
         let w_center = 0.40 * 4e-3;
         let h = 1e-3_f64;
@@ -677,7 +697,7 @@ mod tests {
         for _ in 0..3 {
             let w_c = center_frac * parent_w;
             let dh = 2.0 * w_c * h / (w_c + h);
-            let q_c = tri_center_q_frac_cross_junction(center_frac, parent_w, h);
+            let q_c = tri_center_q_frac_cross_junction(center_frac, length(parent_w), length(h));
             let q_p = (1.0 - q_c) / 2.0;
             stages.push(CascadeStage {
                 arm_q_fracs: [q_c, q_p, q_p, 0.0, 0.0],
@@ -748,7 +768,7 @@ mod tests {
     fn kappa_aware_with_fahrae_boosts_cancer_over_legacy() {
         // The Fåhræus correction in the kappa-aware model should boost cancer routing
         // beyond what the legacy mixed_cascade_separation (no κ, no Fåhræus) provides.
-        let q = tri_center_q_frac_cross_junction(0.45, 4e-3, 1e-3);
+        let q = tri_center_q_frac_cross_junction(0.45, length(4e-3), length(1e-3));
         let q_p = (1.0 - q) / 2.0;
         let w_center = 0.45 * 4e-3;
         let h = 1e-3_f64;
@@ -796,13 +816,13 @@ mod tests {
 
         // Build 2-stage TriTri with cross-junction corrections (as used by compute.rs)
         let left_periph = (1.0 - pcf) / 2.0;
-        let arm_q_1 = tri_asymmetric_q_fracs(pcf, left_periph, parent_w, h);
+        let arm_q_1 = tri_asymmetric_q_fracs(pcf, left_periph, length(parent_w), length(h));
         let w_center_1 = pcf * parent_w;
         let dh_1 = 2.0 * w_center_1 * h / (w_center_1 + h);
 
         let parent_w_2 = w_center_1;
         let left_periph_2 = (1.0 - tcf) / 2.0;
-        let arm_q_2 = tri_asymmetric_q_fracs(tcf, left_periph_2, parent_w_2, h);
+        let arm_q_2 = tri_asymmetric_q_fracs(tcf, left_periph_2, length(parent_w_2), length(h));
         let w_center_2 = tcf * parent_w_2;
         let dh_2 = 2.0 * w_center_2 * h / (w_center_2 + h);
 
@@ -884,13 +904,13 @@ mod tests {
         // Build with tcf=0.55 (asymmetric terminal tri)
         let tcf = 0.55;
         let left_periph = (1.0 - pcf) / 2.0;
-        let arm_q_1 = tri_asymmetric_q_fracs(pcf, left_periph, parent_w, h);
+        let arm_q_1 = tri_asymmetric_q_fracs(pcf, left_periph, length(parent_w), length(h));
         let w_center_1 = pcf * parent_w;
         let dh_1 = 2.0 * w_center_1 * h / (w_center_1 + h);
 
         let parent_w_2 = w_center_1;
         let left_periph_2 = (1.0 - tcf) / 2.0;
-        let arm_q_2 = tri_asymmetric_q_fracs(tcf, left_periph_2, parent_w_2, h);
+        let arm_q_2 = tri_asymmetric_q_fracs(tcf, left_periph_2, length(parent_w_2), length(h));
         let w_center_2 = tcf * parent_w_2;
         let dh_2 = 2.0 * w_center_2 * h / (w_center_2 + h);
 

@@ -33,6 +33,7 @@
 //! - Pries, A.R. et al. (1990). Blood flow in microvascular networks.
 //!   *Circ. Res.* 67:826-834.
 
+use aequitas::systems::si::quantities::Length;
 use cfd_core::error::{Error, Result};
 
 /// Pries et al. (1990) tube-to-discharge hematocrit ratio.
@@ -48,12 +49,13 @@ use cfd_core::error::{Error, Result};
 /// hematocrit $H_F = 0.45$, consistent with the Pries parameterisation.
 ///
 /// # Arguments
-/// * `diameter_um` — Tube diameter \[µm]
+/// * `diameter` — Tube diameter
 ///
 /// # Returns
 /// $H_T / H_F \in (0, 1]$
 #[inline]
-pub fn tube_hematocrit_ratio(diameter_um: f64) -> Result<f64> {
+pub fn tube_hematocrit_ratio(diameter: Length) -> Result<f64> {
+    let diameter_um = diameter.into_base() * 1.0e6;
     if !diameter_um.is_finite() || diameter_um < 3.0 {
         return Err(Error::InvalidConfiguration(
             "Fahraeus ratio diameter must be finite and at least 3 µm".to_string(),
@@ -85,19 +87,19 @@ pub fn tube_hematocrit_ratio(diameter_um: f64) -> Result<f64> {
 ///
 /// # Arguments
 /// * `feed_hematocrit` — Discharge (feed) hematocrit $H_F \in [0, 1]$
-/// * `diameter_um` — Tube diameter \[µm]
+/// * `diameter` — Tube diameter
 ///
 /// # Returns
 /// Tube hematocrit $H_T \in [0, H_F]$
 #[inline]
-pub fn tube_hematocrit(feed_hematocrit: f64, diameter_um: f64) -> Result<f64> {
+pub fn tube_hematocrit(feed_hematocrit: f64, diameter: Length) -> Result<f64> {
     if !feed_hematocrit.is_finite() || !(0.0..=1.0).contains(&feed_hematocrit) {
         return Err(Error::InvalidConfiguration(
             "Feed hematocrit must be finite and lie in [0, 1]".to_string(),
         ));
     }
 
-    let ratio = tube_hematocrit_ratio(diameter_um)?;
+    let ratio = tube_hematocrit_ratio(diameter)?;
     Ok((feed_hematocrit * ratio).clamp(0.0, feed_hematocrit))
 }
 
@@ -113,19 +115,19 @@ pub fn tube_hematocrit(feed_hematocrit: f64, diameter_um: f64) -> Result<f64> {
 ///
 /// # Arguments
 /// * `tube_ht` — Tube hematocrit $H_T \in [0, 1]$
-/// * `diameter_um` — Tube diameter \[µm]
+/// * `diameter` — Tube diameter
 ///
 /// # Returns
 /// Feed (discharge) hematocrit $H_F \in [H_T, 1]$
 #[inline]
-pub fn discharge_hematocrit(tube_ht: f64, diameter_um: f64) -> Result<f64> {
+pub fn discharge_hematocrit(tube_ht: f64, diameter: Length) -> Result<f64> {
     if !tube_ht.is_finite() || !(0.0..=1.0).contains(&tube_ht) {
         return Err(Error::InvalidConfiguration(
             "Tube hematocrit must be finite and lie in [0, 1]".to_string(),
         ));
     }
 
-    let ratio = tube_hematocrit_ratio(diameter_um)?;
+    let ratio = tube_hematocrit_ratio(diameter)?;
     if ratio < 1e-15 {
         return Ok(tube_ht);
     }
@@ -136,11 +138,15 @@ pub fn discharge_hematocrit(tube_ht: f64, diameter_um: f64) -> Result<f64> {
 mod tests {
     use super::*;
 
+    fn diameter_um(value: f64) -> Length {
+        Length::from_base(value * 1.0e-6)
+    }
+
     /// For large tubes (D=1000 µm), the Fahraeus effect is negligible:
     /// H_T ≈ H_F.
     #[test]
     fn large_tube_no_fahraeus_effect() -> Result<()> {
-        let ratio = tube_hematocrit_ratio(1000.0)?;
+        let ratio = tube_hematocrit_ratio(diameter_um(1000.0))?;
         assert!(
             (ratio - 1.0).abs() < 0.05,
             "Large tube ratio {ratio:.4} should be ~1.0"
@@ -152,7 +158,7 @@ mod tests {
     /// H_T / H_F < 0.8.
     #[test]
     fn small_tube_strong_fahraeus() -> Result<()> {
-        let ratio = tube_hematocrit_ratio(10.0)?;
+        let ratio = tube_hematocrit_ratio(diameter_um(10.0))?;
         assert!(ratio < 0.8, "Small tube ratio {ratio:.4} should be < 0.8");
         Ok(())
     }
@@ -161,7 +167,7 @@ mod tests {
     #[test]
     fn tube_ht_leq_feed() -> Result<()> {
         for d in [5.0, 10.0, 30.0, 50.0, 100.0, 300.0, 1000.0] {
-            let ht = tube_hematocrit(0.45, d)?;
+            let ht = tube_hematocrit(0.45, diameter_um(d))?;
             assert!(
                 ht <= 0.45 + 1e-10,
                 "H_T={ht:.6} should be ≤ H_F=0.45 at D={d}"
@@ -175,9 +181,9 @@ mod tests {
     /// non-monotonic due to single-file flow effects.
     #[test]
     fn ratio_increases_with_diameter() -> Result<()> {
-        let mut prev = tube_hematocrit_ratio(10.0)?;
+        let mut prev = tube_hematocrit_ratio(diameter_um(10.0))?;
         for d in [20.0, 50.0, 100.0, 300.0] {
-            let ratio = tube_hematocrit_ratio(d)?;
+            let ratio = tube_hematocrit_ratio(diameter_um(d))?;
             assert!(
                 ratio >= prev - 1e-10,
                 "Ratio at D={d} ({ratio:.4}) should be ≥ prev ({prev:.4})"
@@ -192,8 +198,9 @@ mod tests {
     fn fahraeus_round_trip() -> Result<()> {
         let hf = 0.45;
         for d in [10.0, 30.0, 50.0, 100.0, 300.0] {
-            let ht = tube_hematocrit(hf, d)?;
-            let hf_recovered = discharge_hematocrit(ht, d)?;
+            let diameter = diameter_um(d);
+            let ht = tube_hematocrit(hf, diameter)?;
+            let hf_recovered = discharge_hematocrit(ht, diameter)?;
             assert!(
                 (hf_recovered - hf).abs() < 0.01,
                 "Round-trip at D={d}: {hf_recovered:.4} should be ~{hf:.4}"
@@ -205,7 +212,7 @@ mod tests {
     /// Zero hematocrit stays zero.
     #[test]
     fn zero_ht_remains_zero() -> Result<()> {
-        assert!(tube_hematocrit(0.0, 50.0)?.abs() < 1e-15);
+        assert!(tube_hematocrit(0.0, diameter_um(50.0))?.abs() < 1e-15);
         Ok(())
     }
 }

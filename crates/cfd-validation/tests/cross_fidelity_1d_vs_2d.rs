@@ -624,6 +624,7 @@ fn cross_fidelity_poiseuille_2d_vs_analytical() {
 /// Zweifach-Fung approximation against the 2D inertial-lift physics.
 #[test]
 fn cross_fidelity_cell_routing_asymmetric_bifurcation() {
+    use aequitas::systems::si::quantities::{Length, VolumetricFlowRate};
     use cfd_1d::cascade_junction_separation;
     use cfd_2d::solvers::cell_tracking::{
         AsymmetricBifurcationFlow, CellPopulation, CellTracker, CellTrackerConfig, OutletZone,
@@ -642,9 +643,9 @@ fn cross_fidelity_cell_routing_asymmetric_bifurcation() {
     let result_1d = cascade_junction_separation(
         1,           // 1 level
         center_frac, // center-arm width fraction
-        parent_w,    // channel width
-        1.0e-3,      // height
-        2.0e-6,      // flow rate
+        Length::from_base(parent_w),
+        Length::from_base(1.0e-3),
+        VolumetricFlowRate::from_base(2.0e-6),
     );
     let ccf_1d = result_1d.cancer_center_fraction;
     let rbc_periph_1d = result_1d.rbc_peripheral_fraction;
