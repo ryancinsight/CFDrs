@@ -280,9 +280,9 @@ impl CellSeparationModel {
     /// # Arguments
     /// - `target` — target (cancer) cell properties
     /// - `background` — background (healthy) cell properties
-    /// - `fluid_density_kg_m3` — fluid density [kg/m³]
-    /// - `dynamic_viscosity_pa_s` — fluid dynamic viscosity [Pa·s]
-    /// - `mean_velocity_m_s` — mean channel velocity \[m/s]
+    /// - `fluid_density` — fluid density as an Aequitas [`MassDensity`]
+    /// - `dynamic_viscosity` — dynamic viscosity as an Aequitas [`DynamicViscosity`]
+    /// - `mean_velocity` — mean velocity as an Aequitas [`Velocity`]
     ///
     /// # Returns
     /// Always `Some(CellSeparationAnalysis)`.  Equilibrium positions are used
@@ -324,22 +324,22 @@ impl CellSeparationModel {
 
         let mut target_eq = checked_lateral_equilibrium(
             target,
-            fluid_density.into_base(),
-            dynamic_viscosity.into_base(),
-            mean_velocity.into_base(),
-            self.channel_width.into_base(),
-            self.channel_height.into_base(),
-            self.bend_radius.map(|radius| radius.into_base()),
+            fluid_density,
+            dynamic_viscosity,
+            mean_velocity,
+            self.channel_width,
+            self.channel_height,
+            self.bend_radius,
         )?;
 
         let mut background_eq = checked_lateral_equilibrium(
             background,
-            fluid_density.into_base(),
-            dynamic_viscosity.into_base(),
-            mean_velocity.into_base(),
-            self.channel_width.into_base(),
-            self.channel_height.into_base(),
-            self.bend_radius.map(|radius| radius.into_base()),
+            fluid_density,
+            dynamic_viscosity,
+            mean_velocity,
+            self.channel_width,
+            self.channel_height,
+            self.bend_radius,
         )?;
 
         // RK4 Transient Integration
@@ -365,12 +365,12 @@ impl CellSeparationModel {
                     let v = checked_lateral_velocity(
                         pos.clamp(0.0, 0.95),
                         cell,
-                        fluid_density.into_base(),
-                        dynamic_viscosity.into_base(),
-                        mean_velocity.into_base(),
-                        self.channel_width.into_base(),
-                        self.channel_height.into_base(),
-                        self.bend_radius.map(|radius| radius.into_base()),
+                        fluid_density,
+                        dynamic_viscosity,
+                        mean_velocity,
+                        self.channel_width,
+                        self.channel_height,
+                        self.bend_radius,
                     )?;
                     Ok(-v.into_base() / length_scale)
                 };

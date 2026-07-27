@@ -4,8 +4,8 @@ use super::{NetworkGraph, Node};
 use crate::domain::channel::ChannelGeometry;
 use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
-    Area, HydraulicConductance, HydraulicResistance, Length, QuadraticHydraulicResistance,
-    Pressure, VolumetricFlowRate,
+    Area, DynamicViscosity, HydraulicConductance, HydraulicResistance, Length, Pressure,
+    QuadraticHydraulicResistance, ReciprocalTime, VolumetricFlowRate,
 };
 use cfd_core::{
     conversion::{SafeFromF64, SafeFromUsize},
@@ -350,8 +350,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
     {
         // Direct copy: pressures[i] = solution[i]
         let n = solution.size();
-        self.pressures
-            .resize(n, Pressure::from_base(T::zero()));
+        self.pressures.resize(n, Pressure::from_base(T::zero()));
         for i in 0..n {
             self.pressures[i] = Pressure::from_base(solution[i]);
         }
@@ -1133,20 +1132,21 @@ pub fn blood_microchannel_apparent_viscosity<T: crate::scalar::Cfd1dScalar + Cop
 
     let velocity = flow_rate_m3_s / area_m2;
     let shear_rate = (8.0 * velocity / d_h_m).abs();
-    let diameter_um = d_h_m * 1.0e6;
     let secomb = crate::physics::cell_separation::fahraeus_lindqvist::secomb_network_viscosity(
-        diameter_um,
+        Length::from_base(d_h_m),
         hematocrit.clamp(0.0, 0.95),
-        plasma_viscosity,
-    );
+        DynamicViscosity::from_base(plasma_viscosity),
+    )
+    .into_base();
     if flow_rate_m3_s == 0.0 {
         return Some(T::from_f64_or_zero(secomb));
     }
     let quemada = crate::physics::cell_separation::rouleaux_aggregation::checked_quemada_viscosity(
-        shear_rate,
+        aequitas::systems::si::quantities::ReciprocalTime::from_base(shear_rate),
         hematocrit.clamp(0.0, 0.95),
-        plasma_viscosity,
+        DynamicViscosity::from_base(plasma_viscosity),
     )
+    .map(DynamicViscosity::into_base)
     .unwrap_or(secomb);
 
     let target = secomb.max(quemada);
@@ -1170,7 +1170,12 @@ mod tests {
             blood_microchannel_apparent_viscosity(d_h, 0.0, area, hematocrit, plasma_viscosity)
                 .expect("microchannel apparent viscosity");
 
-        let expected = secomb_network_viscosity(d_h * 1.0e6, hematocrit, plasma_viscosity);
+        let expected = secomb_network_viscosity(
+            Length::from_base(d_h),
+            hematocrit,
+            DynamicViscosity::from_base(plasma_viscosity),
+        )
+        .into_base();
         assert!((result - expected).abs() < 1e-15 * expected.max(1.0));
     }
 

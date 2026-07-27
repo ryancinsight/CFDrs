@@ -29,6 +29,7 @@
 //! in vivo and the endothelial surface layer", *Am. J. Physiol.* 289:H2657-H2664.
 
 use super::fahraeus_lindqvist::secomb_phase_separation_x0;
+use aequitas::systems::si::quantities::Length;
 use cfd_core::error::{Error, Result};
 
 /// Result of the Pries phase-separation model for one daughter branch.
@@ -134,7 +135,7 @@ pub fn checked_pries_phase_separation(
         });
     }
 
-    let x0 = secomb_phase_separation_x0(d_feed, h_feed)?;
+    let x0 = secomb_phase_separation_x0(Length::from_base(d_feed * 1.0e-6), h_feed)?;
     if x0 >= 0.5 {
         return Err(Error::InvalidConfiguration(
             "Pries phase-separation x0 must be less than 0.5".to_string(),
@@ -221,8 +222,8 @@ pub fn checked_pries_phase_separation(
 pub fn plasma_skimming_hematocrit(
     feed_hematocrit: f64,
     flow_fraction: f64,
-    diameter_daughter: f64,
-    diameter_feed: f64,
+    diameter_daughter: Length,
+    diameter_feed: Length,
 ) -> Result<f64> {
     Ok(checked_plasma_skimming_hematocrit(
         feed_hematocrit,
@@ -237,13 +238,13 @@ pub fn plasma_skimming_hematocrit(
 pub fn checked_plasma_skimming_hematocrit(
     feed_hematocrit: f64,
     flow_fraction: f64,
-    diameter_daughter: f64,
-    diameter_feed: f64,
+    diameter_daughter: Length,
+    diameter_feed: Length,
 ) -> Result<f64> {
     if !feed_hematocrit.is_finite()
         || !flow_fraction.is_finite()
-        || !diameter_daughter.is_finite()
-        || !diameter_feed.is_finite()
+        || !diameter_daughter.into_base().is_finite()
+        || !diameter_feed.into_base().is_finite()
     {
         return Err(Error::InvalidConfiguration(
             "Plasma-skimming inputs must be finite".to_string(),
@@ -259,7 +260,7 @@ pub fn checked_plasma_skimming_hematocrit(
             "Plasma-skimming flow fraction must lie in [0, 1]".to_string(),
         ));
     }
-    if diameter_daughter <= 0.0 || diameter_feed <= 0.0 {
+    if diameter_daughter.into_base() <= 0.0 || diameter_feed.into_base() <= 0.0 {
         return Err(Error::InvalidConfiguration(
             "Plasma-skimming diameters must be positive".to_string(),
         ));
@@ -267,8 +268,8 @@ pub fn checked_plasma_skimming_hematocrit(
 
     let ht_feed = feed_hematocrit;
     let fq = flow_fraction;
-    let d_daughter = diameter_daughter;
-    let d_feed = diameter_feed;
+    let d_daughter = diameter_daughter.into_base() * 1.0e6;
+    let d_feed = diameter_feed.into_base() * 1.0e6;
 
     if ht_feed < 1e-15 || fq < 1e-15 {
         return Ok(0.0);
@@ -310,7 +311,11 @@ mod tests {
     use super::*;
 
     const HT_NORMAL: f64 = 0.45;
-    const D_FEED: f64 = 100.0; // 100 µm parent vessel
+    const D_FEED: Length = Length::from_base(100.0e-6);
+
+    fn diameter_um(value: f64) -> Length {
+        Length::from_base(value * 1.0e-6)
+    }
 
     /// Equal 50/50 flow split with equal diameters: daughter hematocrit
     /// should be approximately equal to feed hematocrit (symmetric case,
@@ -330,7 +335,7 @@ mod tests {
     /// less hematocrit than the feed due to plasma skimming.
     #[test]
     fn test_plasma_skimming_smaller_daughter_less_hematocrit() -> cfd_core::error::Result<()> {
-        let ht_small = plasma_skimming_hematocrit(HT_NORMAL, 0.2, 60.0, D_FEED)?;
+        let ht_small = plasma_skimming_hematocrit(HT_NORMAL, 0.2, diameter_um(60.0), D_FEED)?;
         assert!(
             ht_small < HT_NORMAL,
             "Smaller daughter Ht ({ht_small:.4}) should be < feed Ht ({HT_NORMAL:.4})"
@@ -351,7 +356,7 @@ mod tests {
         ];
 
         for &(ht, fq, dd, df) in &test_cases {
-            let result = plasma_skimming_hematocrit(ht, fq, dd, df)?;
+            let result = plasma_skimming_hematocrit(ht, fq, diameter_um(dd), diameter_um(df))?;
             assert!(
                 (0.0..=1.0).contains(&result),
                 "Ht={ht}, fq={fq}, dd={dd}, df={df} → result {result} out of [0,1]"
@@ -364,7 +369,7 @@ mod tests {
     /// so its hematocrit should be zero.
     #[test]
     fn test_plasma_skimming_zero_flow_zero_hematocrit() -> cfd_core::error::Result<()> {
-        let ht = plasma_skimming_hematocrit(HT_NORMAL, 0.0, 50.0, D_FEED)?;
+        let ht = plasma_skimming_hematocrit(HT_NORMAL, 0.0, diameter_um(50.0), D_FEED)?;
         assert!(
             ht.abs() < 1e-15,
             "Zero flow fraction should give zero hematocrit, got {ht:.10}"
@@ -379,9 +384,9 @@ mod tests {
         let fq = 0.4;
         let dd = 70.0;
 
-        let ht_low = plasma_skimming_hematocrit(0.20, fq, dd, D_FEED)?;
-        let ht_mid = plasma_skimming_hematocrit(0.35, fq, dd, D_FEED)?;
-        let ht_high = plasma_skimming_hematocrit(0.50, fq, dd, D_FEED)?;
+        let ht_low = plasma_skimming_hematocrit(0.20, fq, diameter_um(dd), D_FEED)?;
+        let ht_mid = plasma_skimming_hematocrit(0.35, fq, diameter_um(dd), D_FEED)?;
+        let ht_high = plasma_skimming_hematocrit(0.50, fq, diameter_um(dd), D_FEED)?;
 
         assert!(
             ht_low < ht_mid && ht_mid < ht_high,
@@ -392,7 +397,13 @@ mod tests {
 
     #[test]
     fn test_pries_phase_separation_enforces_x0_threshold() -> cfd_core::error::Result<()> {
-        let result = pries_phase_separation(HT_NORMAL, 0.01, 30.0, 90.0, 20.0)?;
+        let result = pries_phase_separation(
+            HT_NORMAL,
+            0.01,
+            diameter_um(30.0),
+            diameter_um(90.0),
+            diameter_um(20.0),
+        )?;
         assert!(
             result.x0 > 0.01,
             "Expected meaningful X0, got {:.4}",
@@ -405,8 +416,20 @@ mod tests {
 
     #[test]
     fn test_pries_phase_separation_biases_wider_daughter() -> cfd_core::error::Result<()> {
-        let wide = pries_phase_separation(HT_NORMAL, 0.55, 90.0, 40.0, 100.0)?;
-        let narrow = pries_phase_separation(HT_NORMAL, 0.45, 40.0, 90.0, 100.0)?;
+        let wide = pries_phase_separation(
+            HT_NORMAL,
+            0.55,
+            diameter_um(90.0),
+            diameter_um(40.0),
+            diameter_um(100.0),
+        )?;
+        let narrow = pries_phase_separation(
+            HT_NORMAL,
+            0.45,
+            diameter_um(40.0),
+            diameter_um(90.0),
+            diameter_um(100.0),
+        )?;
         assert!(
             wide.cell_fraction > narrow.cell_fraction,
             "Wider daughter should receive more RBC flux than the narrower sibling: wide={:.4}, narrow={:.4}",
@@ -418,8 +441,20 @@ mod tests {
 
     #[test]
     fn test_checked_pries_matches_legacy_nominal_case() -> cfd_core::error::Result<()> {
-        let legacy = pries_phase_separation(HT_NORMAL, 0.55, 90.0, 40.0, 100.0)?;
-        let checked = checked_pries_phase_separation(HT_NORMAL, 0.55, 90.0, 40.0, 100.0)?;
+        let legacy = pries_phase_separation(
+            HT_NORMAL,
+            0.55,
+            diameter_um(90.0),
+            diameter_um(40.0),
+            diameter_um(100.0),
+        )?;
+        let checked = checked_pries_phase_separation(
+            HT_NORMAL,
+            0.55,
+            diameter_um(90.0),
+            diameter_um(40.0),
+            diameter_um(100.0),
+        )?;
 
         assert!((legacy.cell_fraction - checked.cell_fraction).abs() < 1e-12);
         assert!((legacy.daughter_hematocrit - checked.daughter_hematocrit).abs() < 1e-12);
@@ -428,15 +463,16 @@ mod tests {
 
     #[test]
     fn test_checked_compact_wrapper_rejects_nonphysical_diameter() {
-        let err = checked_plasma_skimming_hematocrit(HT_NORMAL, 0.5, 0.0, D_FEED)
+        let err = checked_plasma_skimming_hematocrit(HT_NORMAL, 0.5, diameter_um(0.0), D_FEED)
             .expect_err("checked plasma-skimming wrapper must reject zero daughter diameter");
         assert!(err.to_string().contains("diameters"));
     }
 
     #[test]
     fn test_checked_compact_wrapper_matches_legacy_nominal_case() -> cfd_core::error::Result<()> {
-        let legacy = plasma_skimming_hematocrit(HT_NORMAL, 0.4, 60.0, D_FEED)?;
-        let checked = checked_plasma_skimming_hematocrit(HT_NORMAL, 0.4, 60.0, D_FEED)?;
+        let legacy = plasma_skimming_hematocrit(HT_NORMAL, 0.4, diameter_um(60.0), D_FEED)?;
+        let checked =
+            checked_plasma_skimming_hematocrit(HT_NORMAL, 0.4, diameter_um(60.0), D_FEED)?;
 
         assert!((legacy - checked).abs() < 1e-12);
         Ok(())
@@ -444,7 +480,7 @@ mod tests {
 
     #[test]
     fn test_compact_wrapper_preserves_pries_x0_threshold() -> cfd_core::error::Result<()> {
-        let ht = plasma_skimming_hematocrit(HT_NORMAL, 0.01, 30.0, 20.0)?;
+        let ht = plasma_skimming_hematocrit(HT_NORMAL, 0.01, diameter_um(30.0), diameter_um(20.0))?;
         assert_eq!(
             ht, 0.0,
             "Compact wrapper must inherit the Pries cell-entry threshold"
@@ -454,9 +490,9 @@ mod tests {
 
     #[test]
     fn test_legacy_wrapper_monotone_for_validation_triplet() -> cfd_core::error::Result<()> {
-        let small = plasma_skimming_hematocrit(HT_NORMAL, 0.2, 30.0, D_FEED)?;
-        let medium = plasma_skimming_hematocrit(HT_NORMAL, 0.4, 60.0, D_FEED)?;
-        let large = plasma_skimming_hematocrit(HT_NORMAL, 0.6, 90.0, D_FEED)?;
+        let small = plasma_skimming_hematocrit(HT_NORMAL, 0.2, diameter_um(30.0), D_FEED)?;
+        let medium = plasma_skimming_hematocrit(HT_NORMAL, 0.4, diameter_um(60.0), D_FEED)?;
+        let large = plasma_skimming_hematocrit(HT_NORMAL, 0.6, diameter_um(90.0), D_FEED)?;
         assert!(
             small < medium && medium < large,
             "Legacy wrapper should preserve monotone hematocrit ranking for typical design-space scans: small={small:.4}, medium={medium:.4}, large={large:.4}"

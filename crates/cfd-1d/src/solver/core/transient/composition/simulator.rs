@@ -3,12 +3,12 @@ use super::events::{
 };
 use super::state::{CompositionState, MixtureComposition};
 use crate::domain::network::{
-    EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
-    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S, Network,
+    Network, EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
+    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
 };
 use crate::scalar::Cfd1dScalar;
 use crate::solver::core::{NetworkSolveScalar, NetworkSolver};
-use aequitas::systems::si::quantities::{Dimensionless, Time, VolumetricFlowRate};
+use aequitas::systems::si::quantities::{Dimensionless, Length, Time, VolumetricFlowRate};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::{FloatElement, NumericElement};
@@ -2634,7 +2634,6 @@ impl TransientCompositionSimulator {
         flow_rates: &HashMap<usize, T>,
     ) -> Result<HashMap<usize, T>> {
         let tolerance = scalar::<T>(1.0e-12);
-        let micron_scale = 1.0e6_f64;
         let tiny_fraction = 1.0e-15_f64;
         let to_f64 = |value: T| finite_f64(value, "Segmented blood transport Pries f64 bridge");
         let mut edge_inlet_hematocrits = HashMap::with_capacity(network.edge_count());
@@ -2772,9 +2771,9 @@ impl TransientCompositionSimulator {
                     crate::physics::cell_separation::plasma_skimming::pries_phase_separation(
                         to_f64(node_hct.max(T::zero()).min(T::one()))?,
                         to_f64((q_first / total_q).max(T::zero()).min(T::one()))?,
-                        to_f64(first_diameter)? * micron_scale,
-                        to_f64(second_diameter)? * micron_scale,
-                        to_f64(parent_diameter)? * micron_scale,
+                        to_f64(first_diameter)? * 1.0e6,
+                        to_f64(second_diameter)? * 1.0e6,
+                        to_f64(parent_diameter)? * 1.0e6,
                     )
                     .ok();
 
