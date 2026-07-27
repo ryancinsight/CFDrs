@@ -6,9 +6,10 @@
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
 use leto::{Array1, Array2};
-use std::f64::consts::PI;
+use leto_ops::{legendre_poly, legendre_poly_and_deriv};
 
 use super::{matrix_solve, matrix_zeros, vector_len, vector_zeros};
+use crate::high_order::lgl;
 
 /// Type of basis functions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,7 +80,7 @@ impl DGBasis {
                 match basis_type {
                     BasisType::Orthogonal => {
                         phi[[i, q]] = legendre_poly(i, xq);
-                        dphi_dx[[i, q]] = legendre_poly_deriv(i, xq);
+                        dphi_dx[[i, q]] = legendre_poly_and_deriv(i, xq).1;
                     }
                     BasisType::Nodal => {
                         phi[[i, q]] = lagrange_basis(i, xq, &nodes);
@@ -118,7 +119,7 @@ impl DGBasis {
         for i in 0..num_basis {
             for j in 0..num_basis {
                 diff_matrix[[i, j]] = match basis_type {
-                    BasisType::Orthogonal => legendre_poly_deriv(j, quad_points[i]),
+                    BasisType::Orthogonal => legendre_poly_and_deriv(j, quad_points[i]).1,
                     BasisType::Nodal => lagrange_basis_deriv(j, quad_points[i], &nodes),
                 };
             }
@@ -153,7 +154,7 @@ impl DGBasis {
     /// Evaluate the derivative of the i-th basis function at point x
     pub fn evaluate_basis_deriv(&self, i: usize, x: f64) -> f64 {
         match self.basis_type {
-            BasisType::Orthogonal => legendre_poly_deriv(i, x),
+            BasisType::Orthogonal => legendre_poly_and_deriv(i, x).1,
             BasisType::Nodal => {
                 // For nodal basis, we need the original nodes
                 let nodes = self.quad_points.iter().copied().collect::<Vec<_>>();
@@ -180,44 +181,6 @@ impl DGBasis {
         // Solve M c = rhs, where M is the mass matrix
         matrix_solve(&self.mass_matrix, &rhs)
     }
-}
-
-/// Compute Legendre polynomial of degree n at point x
-pub fn legendre_poly(n: usize, x: f64) -> f64 {
-    match n {
-        0 => 1.0,
-        1 => x,
-        _ => {
-            let mut p0 = 1.0;
-            let mut p1 = x;
-
-            for k in 2..=n {
-                let p2 = ((2 * k - 1) as f64 * x * p1 - (k - 1) as f64 * p0) / k as f64;
-                p0 = p1;
-                p1 = p2;
-            }
-
-            p1
-        }
-    }
-}
-
-/// Compute derivative of Legendre polynomial of degree n at point x
-pub fn legendre_poly_deriv(n: usize, x: f64) -> f64 {
-    if n == 0 {
-        return 0.0;
-    }
-
-    // Handle endpoints to avoid division by zero
-    if (x - 1.0).abs() < 1e-15 {
-        return (n * (n + 1)) as f64 / 2.0;
-    }
-    if (x + 1.0).abs() < 1e-15 {
-        let val = (n * (n + 1)) as f64 / 2.0;
-        return if (n - 1).is_multiple_of(2) { val } else { -val };
-    }
-
-    n as f64 / (1.0 - x * x) * (legendre_poly(n - 1, x) - x * legendre_poly(n, x))
 }
 
 /// Compute Lagrange basis function i at point x
@@ -259,108 +222,23 @@ pub fn lagrange_basis_deriv(i: usize, x: f64, nodes: &[f64]) -> f64 {
 }
 
 /// Compute Gauss-Lobatto quadrature points and weights
+///
+/// This is a thin compatibility wrapper around `lgl::lgl_nodes_and_weights`.
+/// `n` is the **number of points** (= order + 1).
 pub fn gauss_lobatto_quadrature(n: usize) -> Result<(Array1<f64>, Array1<f64>)> {
     if n < 2 {
         return Err(Error::InvalidInput(format!(
             "Gauss-Lobatto quadrature requires at least 2 points, got {n}"
         )));
     }
-
-    let mut nodes = vector_zeros(n);
-    let mut weights = vector_zeros(n);
-
-    // Endpoints are always included in Gauss-Lobatto quadrature
-    nodes[0] = -1.0;
-    nodes[n - 1] = 1.0;
-
-    // Initial guess for interior points (Chebyshev points)
-    for i in 1..n - 1 {
-        nodes[i] = -((i as f64 * PI) / (n - 1) as f64).cos();
-    }
-
-    // Newton iteration to find the roots of P_{n-1}'
-    let max_iter = 100;
-    let tol = 1e-15;
-
-    for i in 1..n - 1 {
-        let mut x = nodes[i];
-        let mut iter = 0;
-        let mut delta = 1.0;
-
-        while delta > tol && iter < max_iter {
-            let (p, dp) = legendre_poly_deriv_with_prev(n - 1, x);
-
-            // P''_{n-1} = (2x P'_{n-1} - (n-1)n P_{n-1}) / (1-x^2)
-            let denominator = 1.0 - x * x;
-            if denominator.abs() < 1e-15 {
-                return Err(Error::Solver(format!(
-                    "Newton iteration hit endpoint at x={x}"
-                )));
-            }
-            let d2p = (2.0 * x * dp - ((n - 1) * n) as f64 * p) / denominator;
-
-            if d2p.abs() < f64::EPSILON {
-                return Err(Error::Solver(format!(
-                    "Zero second derivative at x = {x} for n = {}",
-                    n - 1
-                )));
-            }
-
-            let dx = dp / d2p;
-            x -= dx;
-            delta = dx.abs();
-            iter += 1;
-        }
-
-        if iter >= max_iter {
-            return Err(Error::Solver(format!(
-                "Failed to converge for node {i} of {n}"
-            )));
-        }
-
-        nodes[i] = x;
-    }
-
-    // Compute weights
-    for i in 0..n {
-        let x = nodes[i];
-        let p = legendre_poly(n - 1, x);
-        if p.abs() < 1e-15 {
-            return Err(Error::Solver(format!("P_{}({x}) is zero", n - 1)));
-        }
-        weights[i] = 2.0 / (n as f64 * (n - 1) as f64) / (p * p);
-        if weights[i].is_nan() {
-            return Err(Error::Solver(format!(
-                "Weight {i} is NaN (n={n}, x={x}, p={p})"
-            )));
-        }
-    }
-
+    let order = n - 1;
+    let (nodes_vec, weights_vec) = lgl::lgl_nodes_and_weights(order)
+        .context("computing LGL nodes/weights for Gauss-Lobatto quadrature")?;
+    let nodes = Array1::from_shape_vec([n], nodes_vec)
+        .expect("invariant: LGL returns exactly n nodes");
+    let weights = Array1::from_shape_vec([n], weights_vec)
+        .expect("invariant: LGL returns exactly n weights");
     Ok((nodes, weights))
-}
-
-/// Compute Legendre polynomial and its derivative using recurrence
-fn legendre_poly_deriv_with_prev(n: usize, x: f64) -> (f64, f64) {
-    if n == 0 {
-        return (1.0, 0.0);
-    }
-
-    let mut p_prev = 1.0;
-    let mut p_curr = x;
-    let mut dp_prev = 0.0;
-    let mut dp_curr = 1.0;
-
-    for k in 1..n {
-        let p_next = ((2 * k + 1) as f64 * x * p_curr - k as f64 * p_prev) / (k + 1) as f64;
-        let dp_next = dp_prev + (2 * k + 1) as f64 * p_curr;
-
-        p_prev = p_curr;
-        p_curr = p_next;
-        dp_prev = dp_curr;
-        dp_curr = dp_next;
-    }
-
-    (p_curr, dp_curr)
 }
 
 #[cfg(test)]

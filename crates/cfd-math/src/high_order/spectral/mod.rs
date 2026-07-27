@@ -18,133 +18,19 @@ pub use element::*;
 pub use operators::*;
 
 use crate::error::Result;
-use cfd_core::error::Error;
 use leto::{Array1, Array2};
-use std::f64::consts::PI;
+use leto_ops::legendre_poly;
 
-/// Legendre polynomial evaluation
-fn legendre_poly(n: usize, x: f64) -> f64 {
-    match n {
-        0 => 1.0,
-        1 => x,
-        _ => {
-            let mut p0 = 1.0;
-            let mut p1 = x;
+use crate::high_order::lgl;
 
-            for k in 2..=n {
-                let p2 = ((2 * k - 1) as f64 * x * p1 - (k - 1) as f64 * p0) / k as f64;
-                p0 = p1;
-                p1 = p2;
-            }
-
-            p1
-        }
-    }
+/// Compute Legendre-Gauss-Lobatto nodes — delegates to the shared `lgl` SSOT module.
+fn compute_lgl_nodes(order: usize) -> Result<Vec<f64>> {
+    lgl::lgl_nodes(order)
 }
 
-/// Compute Legendre-Gauss-Lobatto nodes using Newton's method
-fn compute_lgl_nodes(n: usize) -> Result<Vec<f64>> {
-    if n < 1 {
-        return Err(Error::InvalidInput(format!(
-            "Polynomial order must be at least 1, got {n}"
-        )));
-    }
-
-    let mut nodes = vec![0.0; n + 1];
-    nodes[0] = -1.0;
-    nodes[n] = 1.0;
-
-    // Initial guess for interior nodes (Chebyshev points)
-    for i in 1..n {
-        nodes[i] = -((i as f64 * PI) / n as f64).cos();
-    }
-
-    // Newton iteration to find roots of P_n'
-    let max_iter = 100;
-    let tol = 1e-15;
-
-    for i in 1..n {
-        let mut x = nodes[i];
-        let mut iter = 0;
-        let mut delta = 1.0;
-
-        while delta > tol && iter < max_iter {
-            let (p, dp) = legendre_poly_deriv_with_prev(n, x);
-
-            // P''_n = (2x P'_n - n(n+1) P_n) / (1-x^2)
-            let denominator = 1.0 - x * x;
-            if denominator.abs() < 1e-15 {
-                return Err(Error::Solver(format!(
-                    "Newton iteration hit endpoint at x={x}"
-                )));
-            }
-            let d2p = (2.0 * x * dp - (n * (n + 1)) as f64 * p) / denominator;
-
-            if d2p.abs() < f64::EPSILON {
-                return Err(Error::Solver(format!(
-                    "Zero second derivative at x = {x} for n = {n}"
-                )));
-            }
-
-            let dx = dp / d2p;
-            x -= dx;
-            delta = dx.abs();
-            iter += 1;
-        }
-
-        if iter >= max_iter {
-            return Err(Error::Solver(format!(
-                "Failed to converge for node {i} of {n}"
-            )));
-        }
-
-        nodes[i] = x;
-    }
-
-    // Ensure symmetry
-    for i in 0..=(n / 2) {
-        let val = nodes[i].abs();
-        nodes[i] = -val;
-        nodes[n - i] = val;
-    }
-
-    Ok(nodes)
-}
-
-/// Compute Legendre polynomial and its derivative using recurrence
-fn legendre_poly_deriv_with_prev(n: usize, x: f64) -> (f64, f64) {
-    if n == 0 {
-        return (1.0, 0.0);
-    }
-
-    let mut p_prev = 1.0;
-    let mut p_curr = x;
-    let mut dp_prev = 0.0;
-    let mut dp_curr = 1.0;
-
-    for k in 1..n {
-        let p_next = ((2 * k + 1) as f64 * x * p_curr - k as f64 * p_prev) / (k + 1) as f64;
-        let dp_next = dp_prev + (2 * k + 1) as f64 * p_curr;
-
-        p_prev = p_curr;
-        p_curr = p_next;
-        dp_prev = dp_curr;
-        dp_curr = dp_next;
-    }
-
-    (p_curr, dp_curr)
-}
-
-/// Compute Legendre-Gauss-Lobatto weights
-fn compute_lgl_weights(nodes: &[f64], n: usize) -> Vec<f64> {
-    let mut weights = vec![0.0; nodes.len()];
-
-    for (i, &x) in nodes.iter().enumerate() {
-        let pn = legendre_poly(n, x);
-        weights[i] = 2.0 / (n as f64 * (n + 1) as f64) / (pn * pn);
-    }
-
-    weights
+/// Compute Legendre-Gauss-Lobatto weights — delegates to the shared `lgl` SSOT module.
+fn compute_lgl_weights(nodes: &[f64], order: usize) -> Vec<f64> {
+    lgl::lgl_weights(nodes, order)
 }
 
 /// Compute the derivative matrix for Legendre-Gauss-Lobatto points

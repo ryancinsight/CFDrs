@@ -11,7 +11,6 @@ use super::{
 use crate::error::Result;
 use cfd_core::error::{Error, ErrorContext};
 use leto::{Array1, Array2};
-
 /// Represents a spectral element with nodes, weights, and differentiation matrices
 #[derive(Debug, Clone)]
 pub struct SpectralElement {

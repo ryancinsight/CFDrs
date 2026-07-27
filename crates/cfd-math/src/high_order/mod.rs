@@ -81,6 +81,8 @@
 #![allow(clippy::float_cmp)]
 
 pub mod dg;
+/// Legendre-Gauss-Lobatto nodes and weights — SSOT for DG and SEM methods.
+pub mod lgl;
 pub mod spectral;
 pub mod weno;
 

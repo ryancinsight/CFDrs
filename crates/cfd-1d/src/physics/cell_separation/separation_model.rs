@@ -59,9 +59,10 @@
 //! - Hur, S. C. et al. (2011). *Lab Chip*, 11, 912–920.
 
 use crate::physics::cell_separation::margination::{
-    checked_lateral_equilibrium, checked_lateral_velocity_m_s, EquilibriumResult,
+    checked_lateral_equilibrium, checked_lateral_velocity, EquilibriumResult,
 };
 use crate::physics::cell_separation::properties::CellProperties;
+use aequitas::systems::si::quantities::{DynamicViscosity, Force, Length, MassDensity, Velocity};
 use cfd_core::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 
@@ -112,23 +113,26 @@ pub struct CellSeparationAnalysis {
 ///
 /// ```rust,ignore
 /// use cfd_1d::cell_separation::{CellProperties, CellSeparationModel};
+/// use aequitas::systems::si::quantities::{
+///     DynamicViscosity, Length, MassDensity, Velocity,
+/// };
 ///
 /// let cancer = CellProperties::mcf7_breast_cancer();
 /// let healthy = CellProperties::red_blood_cell();
 ///
 /// let model = CellSeparationModel::new(
-///     500e-6,  // channel width \[m]
-///     200e-6,  // channel height \[m]
-///     0.01,    // channel length \[m]
-///     None,    // straight channel (no curvature)
+///     Length::from_base(500e-6), // channel width [m]
+///     Length::from_base(200e-6), // channel height [m]
+///     Length::from_base(0.01),   // channel length [m]
+///     None,                      // straight channel (no curvature)
 /// );
 ///
 /// let analysis = model.analyze(
 ///     &cancer,
 ///     &healthy,
-///     1060.0,  // blood density [kg/m³]
-///     3.5e-3,  // blood viscosity [Pa·s]
-///     0.05,    // mean velocity \[m/s]
+///     MassDensity::from_base(1060.0),
+///     DynamicViscosity::from_base(3.5e-3),
+///     Velocity::from_base(0.05),
 /// ).expect("cell focusing requires κ > 0.07");
 ///
 /// println!("Separation efficiency: {:.2}", analysis.separation_efficiency);
@@ -136,13 +140,13 @@ pub struct CellSeparationAnalysis {
 #[derive(Debug, Clone)]
 pub struct CellSeparationModel {
     /// Channel width \[m].
-    pub channel_width_m: f64,
+    pub channel_width: Length,
     /// Channel height \[m] (shorter dimension for rectangular channels).
-    pub channel_height_m: f64,
+    pub channel_height: Length,
     /// Channel length \[m].
-    pub channel_length_m: f64,
+    pub channel_length: Length,
     /// Radius of curvature \[m] for curved channels, or `None` for straight.
-    pub bend_radius_m: Option<f64>,
+    pub bend_radius: Option<Length>,
     /// Center-channel split position `x̃_split` ∈ (0, 1).
     ///
     /// Cells with `x̃ < x̃_split` are collected in the center channel.
@@ -158,9 +162,9 @@ impl CellSeparationModel {
     fn dispersed_equilibrium() -> EquilibriumResult {
         EquilibriumResult {
             x_tilde_eq: 0.5,
-            lateral_position_m: 0.0,
-            residual_force_n: 0.0,
-            dean_drag_n: 0.0,
+            lateral_position: Length::from_base(0.0),
+            residual_force: Force::from_base(0.0),
+            dean_drag: Force::from_base(0.0),
             reynolds_number: 0.0,
             dean_number: 0.0,
             will_focus: false,
@@ -195,9 +199,9 @@ impl CellSeparationModel {
 
     fn validate_configuration(&self) -> Result<()> {
         for (name, value) in [
-            ("channel width", self.channel_width_m),
-            ("channel height", self.channel_height_m),
-            ("channel length", self.channel_length_m),
+            ("channel width", self.channel_width.into_base()),
+            ("channel height", self.channel_height.into_base()),
+            ("channel length", self.channel_length.into_base()),
             ("x_tilde_split", self.x_tilde_split),
         ] {
             if !value.is_finite() {
@@ -206,9 +210,9 @@ impl CellSeparationModel {
                 )));
             }
         }
-        if self.channel_width_m <= 0.0
-            || self.channel_height_m <= 0.0
-            || self.channel_length_m <= 0.0
+        if self.channel_width.into_base() <= 0.0
+            || self.channel_height.into_base() <= 0.0
+            || self.channel_length.into_base() <= 0.0
         {
             return Err(Error::InvalidConfiguration(
                 "Cell separation channel dimensions must be positive".to_string(),
@@ -219,8 +223,8 @@ impl CellSeparationModel {
                 "Cell separation split position must lie in (0, 1)".to_string(),
             ));
         }
-        if let Some(radius) = self.bend_radius_m {
-            if !radius.is_finite() || radius <= 0.0 {
+        if let Some(radius) = self.bend_radius {
+            if !radius.into_base().is_finite() || radius.into_base() <= 0.0 {
                 return Err(Error::InvalidConfiguration(
                     "Cell separation bend radius must be finite and positive".to_string(),
                 ));
@@ -232,22 +236,22 @@ impl CellSeparationModel {
     /// Construct a new model for a rectangular channel.
     ///
     /// # Arguments
-    /// - `channel_width_m` — channel width \[m]
-    /// - `channel_height_m` — channel height \[m] (shorter dimension)
-    /// - `channel_length_m` — channel length \[m]
-    /// - `bend_radius_m` — radius of curvature \[m], or `None` for straight
+    /// - `channel_width` — channel width as an Aequitas [`Length`]
+    /// - `channel_height` — channel height as an Aequitas [`Length`]
+    /// - `channel_length` — channel length as an Aequitas [`Length`]
+    /// - `bend_radius` — radius as `Option<Length>`, or `None` for straight
     #[must_use]
     pub fn new(
-        channel_width_m: f64,
-        channel_height_m: f64,
-        channel_length_m: f64,
-        bend_radius_m: Option<f64>,
+        channel_width: Length,
+        channel_height: Length,
+        channel_length: Length,
+        bend_radius: Option<Length>,
     ) -> Self {
         Self {
-            channel_width_m,
-            channel_height_m,
-            channel_length_m,
-            bend_radius_m,
+            channel_width,
+            channel_height,
+            channel_length,
+            bend_radius,
             x_tilde_split: 0.3,
         }
     }
@@ -265,10 +269,10 @@ impl CellSeparationModel {
     /// Hydraulic diameter `D_h = 2wh / (w + h)` \[m].
     #[inline]
     #[must_use]
-    pub fn hydraulic_diameter_m(&self) -> f64 {
-        let w = self.channel_width_m;
-        let h = self.channel_height_m;
-        2.0 * w * h / (w + h)
+    pub fn hydraulic_diameter(&self) -> Length {
+        let w = self.channel_width.into_base();
+        let h = self.channel_height.into_base();
+        Length::from_base(2.0 * w * h / (w + h))
     }
 
     /// Analyse the separation of two cell populations in this channel.
@@ -291,17 +295,17 @@ impl CellSeparationModel {
         &self,
         target: &CellProperties,
         background: &CellProperties,
-        fluid_density_kg_m3: f64,
-        dynamic_viscosity_pa_s: f64,
-        mean_velocity_m_s: f64,
+        fluid_density: MassDensity,
+        dynamic_viscosity: DynamicViscosity,
+        mean_velocity: Velocity,
     ) -> Option<CellSeparationAnalysis> {
         Some(
             self.analyze_checked(
                 target,
                 background,
-                fluid_density_kg_m3,
-                dynamic_viscosity_pa_s,
-                mean_velocity_m_s,
+                fluid_density,
+                dynamic_viscosity,
+                mean_velocity,
             )
             .unwrap_or_else(|_| self.dispersed_analysis()),
         )
@@ -312,43 +316,43 @@ impl CellSeparationModel {
         &self,
         target: &CellProperties,
         background: &CellProperties,
-        fluid_density_kg_m3: f64,
-        dynamic_viscosity_pa_s: f64,
-        mean_velocity_m_s: f64,
+        fluid_density: MassDensity,
+        dynamic_viscosity: DynamicViscosity,
+        mean_velocity: Velocity,
     ) -> Result<CellSeparationAnalysis> {
         self.validate_configuration()?;
 
         let mut target_eq = checked_lateral_equilibrium(
             target,
-            fluid_density_kg_m3,
-            dynamic_viscosity_pa_s,
-            mean_velocity_m_s,
-            self.channel_width_m,
-            self.channel_height_m,
-            self.bend_radius_m,
+            fluid_density.into_base(),
+            dynamic_viscosity.into_base(),
+            mean_velocity.into_base(),
+            self.channel_width.into_base(),
+            self.channel_height.into_base(),
+            self.bend_radius.map(|radius| radius.into_base()),
         )?;
 
         let mut background_eq = checked_lateral_equilibrium(
             background,
-            fluid_density_kg_m3,
-            dynamic_viscosity_pa_s,
-            mean_velocity_m_s,
-            self.channel_width_m,
-            self.channel_height_m,
-            self.bend_radius_m,
+            fluid_density.into_base(),
+            dynamic_viscosity.into_base(),
+            mean_velocity.into_base(),
+            self.channel_width.into_base(),
+            self.channel_height.into_base(),
+            self.bend_radius.map(|radius| radius.into_base()),
         )?;
 
         // RK4 Transient Integration
         // Compute the actual geometric focusing over the physically bounded residence time.
         // dx/dt = - v_drift / (H/2)   (where positive v_drift points toward center reducing x_tilde).
         let integrate_trajectory = |cell: &CellProperties, x_tilde_limit: f64| -> Result<f64> {
-            if mean_velocity_m_s <= 1e-12 || self.channel_length_m <= 1e-12 {
+            if mean_velocity.into_base() <= 1e-12 || self.channel_length.into_base() <= 1e-12 {
                 return Ok(0.5);
             }
-            let t_transit = self.channel_length_m / mean_velocity_m_s;
+            let t_transit = self.channel_length.into_base() / mean_velocity.into_base();
             let n_steps = 100;
             let dt = t_transit / f64::from(n_steps);
-            let length_scale = self.channel_height_m / 2.0;
+            let length_scale = self.channel_height.into_base() / 2.0;
 
             let mut x = 0.5; // Start horizontally dispersed
             for _ in 0..n_steps {
@@ -358,17 +362,17 @@ impl CellSeparationModel {
                 }
 
                 let dxdt = |pos: f64| -> Result<f64> {
-                    let v = checked_lateral_velocity_m_s(
+                    let v = checked_lateral_velocity(
                         pos.clamp(0.0, 0.95),
                         cell,
-                        fluid_density_kg_m3,
-                        dynamic_viscosity_pa_s,
-                        mean_velocity_m_s,
-                        self.channel_width_m,
-                        self.channel_height_m,
-                        self.bend_radius_m,
+                        fluid_density.into_base(),
+                        dynamic_viscosity.into_base(),
+                        mean_velocity.into_base(),
+                        self.channel_width.into_base(),
+                        self.channel_height.into_base(),
+                        self.bend_radius.map(|radius| radius.into_base()),
                     )?;
-                    Ok(-v / length_scale)
+                    Ok(-v.into_base() / length_scale)
                 };
 
                 let k1 = dxdt(x)?;
@@ -384,12 +388,14 @@ impl CellSeparationModel {
 
         if target_eq.will_focus {
             target_eq.x_tilde_eq = integrate_trajectory(target, target_eq.x_tilde_eq)?;
-            target_eq.lateral_position_m = target_eq.x_tilde_eq * (self.channel_height_m * 0.5);
+            target_eq.lateral_position =
+                Length::from_base(target_eq.x_tilde_eq * (self.channel_height.into_base() * 0.5));
         }
         if background_eq.will_focus {
             background_eq.x_tilde_eq = integrate_trajectory(background, background_eq.x_tilde_eq)?;
-            background_eq.lateral_position_m =
-                background_eq.x_tilde_eq * (self.channel_height_m * 0.5);
+            background_eq.lateral_position = Length::from_base(
+                background_eq.x_tilde_eq * (self.channel_height.into_base() * 0.5),
+            );
         }
 
         // Separation efficiency: |x̃_target − x̃_background|.
@@ -440,19 +446,36 @@ mod tests {
 
     #[test]
     fn analyze_checked_rejects_nonphysical_geometry() {
-        let model = CellSeparationModel::new(500e-6, 0.0, 0.01, None);
+        let model = CellSeparationModel::new(
+            Length::from_base(500e-6),
+            Length::from_base(0.0),
+            Length::from_base(0.01),
+            None,
+        );
         let cancer = CellProperties::mcf7_breast_cancer();
         let rbc = CellProperties::red_blood_cell();
 
         let err = model
-            .analyze_checked(&cancer, &rbc, 1060.0, 3.5e-3, 0.05)
+            .analyze_checked(
+                &cancer,
+                &rbc,
+                MassDensity::from_base(1060.0),
+                DynamicViscosity::from_base(3.5e-3),
+                Velocity::from_base(0.05),
+            )
             .expect_err("checked analysis must reject zero channel height");
         assert!(err.to_string().contains("dimensions"));
     }
 
     #[test]
     fn analyze_checked_matches_legacy_nominal_case() {
-        let model = CellSeparationModel::new(500e-6, 100e-6, 0.01, None).with_split(0.35);
+        let model = CellSeparationModel::new(
+            Length::from_base(500e-6),
+            Length::from_base(100e-6),
+            Length::from_base(0.01),
+            None,
+        )
+        .with_split(0.35);
         let cancer = CellProperties::mcf7_breast_cancer();
         let rbc = CellProperties::red_blood_cell();
 
@@ -460,18 +483,18 @@ mod tests {
             .analyze(
                 &cancer,
                 &rbc,
-                1060.0,
-                3.5e-3,
-                1e-6 / 60.0 / (500e-6 * 100e-6),
+                MassDensity::from_base(1060.0),
+                DynamicViscosity::from_base(3.5e-3),
+                Velocity::from_base(1e-6 / 60.0 / (500e-6 * 100e-6)),
             )
             .expect("legacy analysis should succeed");
         let checked = model
             .analyze_checked(
                 &cancer,
                 &rbc,
-                1060.0,
-                3.5e-3,
-                1e-6 / 60.0 / (500e-6 * 100e-6),
+                MassDensity::from_base(1060.0),
+                DynamicViscosity::from_base(3.5e-3),
+                Velocity::from_base(1e-6 / 60.0 / (500e-6 * 100e-6)),
             )
             .expect("checked analysis should succeed");
 
