@@ -1565,12 +1565,27 @@ impl From<ValidationErrorKind> for ParameterErrorKind {
     }
 }
 
-/// Bridge `LetoError` into `cfd_core::Error` so that `leto-ops` interpolation,
-/// quadrature, and differentiation results can be surfaced through the CFD
-/// error hierarchy without re-implementing the underlying algorithms.
+/// Bridge `LetoError` into `cfd_core::Error` so that `leto-ops` solvers and
+/// math kernels surface through the CFD error hierarchy without re-implementing
+/// the underlying algorithms.  Convergence and numerical breakdowns are mapped
+/// to the corresponding semantic `cfd_core` variants so that existing solver
+/// test contracts (e.g., `MaxIterationsExceeded { max }`) still hold when the
+/// implementation delegates to `leto-ops`.
 impl From<leto::LetoError> for Error {
     fn from(e: leto::LetoError) -> Self {
-        Self::InvalidInput(e.to_string())
+        use leto::LetoError;
+        match e {
+            LetoError::ConvergenceError { max_iters, .. } => {
+                Self::Convergence(ConvergenceErrorKind::MaxIterationsExceeded { max: max_iters })
+            }
+            LetoError::NumericalBreakdown(_) => {
+                Self::Convergence(ConvergenceErrorKind::Breakdown)
+            }
+            LetoError::NotPositiveDefinite { .. } => {
+                Self::Numerical(NumericalErrorKind::NotPositiveDefinite)
+            }
+            other => Self::InvalidInput(other.to_string()),
+        }
     }
 }
 

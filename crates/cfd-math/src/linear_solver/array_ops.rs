@@ -1,3 +1,6 @@
+//! Internal primitive array ops — retained for potential future use.
+#![allow(dead_code)]
+
 use cfd_core::error::{Error, Result};
 use leto::Array1;
 use leto_ops::Scalar;

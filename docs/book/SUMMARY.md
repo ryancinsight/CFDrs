@@ -135,7 +135,7 @@
 # Appendix
 
 - [A. Atlas Crate Dependency Map](appendix_dependencies.md)
-- [B. Atlas Stack Reference: ndarray/nalgebra → leto/hephaestus/coeus](appendix_migration.md)
+- [B. Atlas Stack Reference (leto/hephaestus/coeus backends)](appendix_migration.md)
 - [C. Glossary](appendix_glossary.md)
 - [D. Changelog](appendix_changelog.md)
 - [E. Book Organization](BOOK_ORGANIZATION.md)

@@ -22,6 +22,7 @@
 mod array_ops;
 mod bicgstab;
 pub mod block_preconditioner;
+mod bridge;
 pub mod chain;
 mod config;
 mod conjugate_gradient;
