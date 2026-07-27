@@ -23,7 +23,7 @@ use cfd_core::physics::fluid::blood::CassonBlood;
 /// **Note:** This is an analytical calculator using Hagen-Poiseuille formula
 /// with constant viscosity evaluated at γ̇=100 s⁻¹. Grid parameters
 /// (nr, ntheta, nz) are stored but not used in computation.
-#[pyclass(name = "Poiseuille3DSolver")]
+#[pyclass(name = "Poiseuille3DSolver", skip_from_py_object)]
 pub struct PyPoiseuille3DSolver {
     #[pyo3(get)]
     diameter: f64,
@@ -115,7 +115,7 @@ impl PyPoiseuille3DSolver {
     }
 }
 
-#[pyclass(name = "Poiseuille3DResult")]
+#[pyclass(name = "Poiseuille3DResult", skip_from_py_object)]
 pub struct PyPoiseuille3DResult {
     #[pyo3(get)]
     pub max_velocity: f64,

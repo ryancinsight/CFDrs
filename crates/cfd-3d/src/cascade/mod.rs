@@ -674,9 +674,7 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
         let n = positions.len() as f64;
         let centroid = positions.iter().fold(
             leto::Point3::<f64>::origin(),
-            |acc: leto::Point3<f64>, p| {
-                leto::Point3::new(acc.x + p.x, acc.y + p.y, acc.z + p.z)
-            },
+            |acc: leto::Point3<f64>, p| leto::Point3::new(acc.x + p.x, acc.y + p.y, acc.z + p.z),
         );
         let centroid = leto::Point3::new(centroid.x / n, centroid.y / n, centroid.z / n);
         let h = positions
@@ -757,17 +755,13 @@ impl<F: FluidTrait<f64> + Clone> CascadeSolver3D<F> {
 
             // Face centroid.
             let n_fv = face.vertices.len() as f64;
-            let centroid =
-                face.vertices
-                    .iter()
-                    .fold(leto::Point3::<f64>::origin(), |acc, vid| {
-                        let p = mesh.vertices.position(*vid);
-                        leto::Point3::new(
-                            acc.x + p.x / n_fv,
-                            acc.y + p.y / n_fv,
-                            acc.z + p.z / n_fv,
-                        )
-                    });
+            let centroid = face
+                .vertices
+                .iter()
+                .fold(leto::Point3::<f64>::origin(), |acc, vid| {
+                    let p = mesh.vertices.position(*vid);
+                    leto::Point3::new(acc.x + p.x / n_fv, acc.y + p.y / n_fv, acc.z + p.z / n_fv)
+                });
 
             // Skip inlet/outlet faces — process only lateral walls.
             if (centroid.z - z_range.0).abs() < z_tol || (centroid.z - z_range.1).abs() < z_tol {

@@ -3,10 +3,13 @@
 //! Tests verify the correctness of accumulation invariants, series/parallel
 //! resistance laws, flow rate aggregation, and blood shear safety limits.
 
-use eunomia::assert_relative_eq;
 use cfd_1d::solver::analysis::{
     BloodShearLimits, FlowAnalysis, PressureAnalysis, ResistanceAnalysis,
 };
+use aequitas::systems::si::quantities::{
+    HydraulicResistance, Pressure, ReciprocalTime, Time, VolumetricFlowRate,
+};
+use eunomia::assert_relative_eq;
 use std::collections::HashMap;
 
 // ============================================================================
@@ -17,40 +20,40 @@ use std::collections::HashMap;
 #[test]
 fn test_pressure_max_min_tracking() {
     let mut analysis = PressureAnalysis::<f64>::new();
-    analysis.add_pressure("n1".into(), 300.0);
-    analysis.add_pressure("n2".into(), 100.0);
-    analysis.add_pressure("n3".into(), 200.0);
+    analysis.add_pressure("n1".into(), Pressure::from_base(300.0));
+    analysis.add_pressure("n2".into(), Pressure::from_base(100.0));
+    analysis.add_pressure("n3".into(), Pressure::from_base(200.0));
 
-    assert_relative_eq!(analysis.max_pressure, 300.0, epsilon = 1e-12);
-    assert_relative_eq!(analysis.min_pressure, 100.0, epsilon = 1e-12);
+    assert_relative_eq!(analysis.max_pressure.into_base(), 300.0, epsilon = 1e-12);
+    assert_relative_eq!(analysis.min_pressure.into_base(), 100.0, epsilon = 1e-12);
 }
 
 /// Pressure range must equal max − min.
 #[test]
 fn test_pressure_range_equals_max_minus_min() {
     let mut analysis = PressureAnalysis::<f64>::new();
-    analysis.add_pressure("a".into(), 500.0);
-    analysis.add_pressure("b".into(), 200.0);
+    analysis.add_pressure("a".into(), Pressure::from_base(500.0));
+    analysis.add_pressure("b".into(), Pressure::from_base(200.0));
 
-    assert_relative_eq!(analysis.pressure_range(), 300.0, epsilon = 1e-12);
+    assert_relative_eq!(analysis.pressure_range().into_base(), 300.0, epsilon = 1e-12);
 }
 
 /// Empty pressure analysis: range must return 0.
 #[test]
 fn test_pressure_range_empty_returns_zero() {
     let analysis = PressureAnalysis::<f64>::new();
-    assert_eq!(analysis.pressure_range(), 0.0);
+    assert_eq!(analysis.pressure_range(), Pressure::from_base(0.0));
 }
 
 /// Average pressure must equal arithmetic mean of inputs.
 #[test]
 fn test_pressure_average_correct() {
     let mut analysis = PressureAnalysis::<f64>::new();
-    analysis.add_pressure("a".into(), 100.0);
-    analysis.add_pressure("b".into(), 200.0);
-    analysis.add_pressure("c".into(), 300.0);
+    analysis.add_pressure("a".into(), Pressure::from_base(100.0));
+    analysis.add_pressure("b".into(), Pressure::from_base(200.0));
+    analysis.add_pressure("c".into(), Pressure::from_base(300.0));
 
-    assert_relative_eq!(analysis.average_pressure(), 200.0, epsilon = 1e-10);
+    assert_relative_eq!(analysis.average_pressure().into_base(), 200.0, epsilon = 1e-10);
 }
 
 // ============================================================================
@@ -61,31 +64,31 @@ fn test_pressure_average_correct() {
 #[test]
 fn test_resistance_series_greater_than_max() {
     let mut analysis = ResistanceAnalysis::<f64>::new();
-    analysis.add_resistance("r1".into(), 100.0);
-    analysis.add_resistance("r2".into(), 200.0);
-    analysis.add_resistance("r3".into(), 300.0);
+    analysis.add_resistance("r1".into(), HydraulicResistance::from_base(100.0));
+    analysis.add_resistance("r2".into(), HydraulicResistance::from_base(200.0));
+    analysis.add_resistance("r3".into(), HydraulicResistance::from_base(300.0));
 
     let series = analysis.series_resistance();
     let max_r = 300.0_f64;
 
-    assert_relative_eq!(series, 600.0, epsilon = 1e-10);
-    assert!(series >= max_r, "R_series must be ≥ max(R_i)");
+    assert_relative_eq!(series.into_base(), 600.0, epsilon = 1e-10);
+    assert!(series.into_base() >= max_r, "R_series must be ≥ max(R_i)");
 }
 
 /// `parallel_resistance` must equal 1/Σ(1/Rᵢ) and be ≤ min individual resistance.
 #[test]
 fn test_resistance_parallel_less_than_min() {
     let mut analysis = ResistanceAnalysis::<f64>::new();
-    analysis.add_resistance("r1".into(), 100.0);
-    analysis.add_resistance("r2".into(), 200.0);
-    analysis.add_resistance("r3".into(), 300.0);
+    analysis.add_resistance("r1".into(), HydraulicResistance::from_base(100.0));
+    analysis.add_resistance("r2".into(), HydraulicResistance::from_base(200.0));
+    analysis.add_resistance("r3".into(), HydraulicResistance::from_base(300.0));
 
     let parallel = analysis.parallel_resistance();
     let expected = 1.0 / (1.0 / 100.0 + 1.0 / 200.0 + 1.0 / 300.0);
     let min_r = 100.0_f64;
 
-    assert_relative_eq!(parallel, expected, max_relative = 1e-10);
-    assert!(parallel <= min_r, "R_parallel must be ≤ min(R_i)");
+    assert_relative_eq!(parallel.into_base(), expected, max_relative = 1e-10);
+    assert!(parallel.into_base() <= min_r, "R_parallel must be ≤ min(R_i)");
 }
 
 /// Series/Parallel duality bound: R_parallel ≤ min ≤ max ≤ R_series.
@@ -93,7 +96,7 @@ fn test_resistance_parallel_less_than_min() {
 fn test_resistance_duality_bound() {
     let mut analysis = ResistanceAnalysis::<f64>::new();
     for (i, &r) in [50.0, 150.0, 400.0, 800.0].iter().enumerate() {
-        analysis.add_resistance(format!("r{i}"), r);
+        analysis.add_resistance(format!("r{i}"), HydraulicResistance::from_base(r));
     }
 
     let r_par = analysis.parallel_resistance();
@@ -102,14 +105,14 @@ fn test_resistance_duality_bound() {
     let r_ser = analysis.series_resistance();
 
     assert!(
-        r_par <= r_min,
+        r_par.into_base() <= r_min.into_base(),
         "R_parallel ({}) must be ≤ min(R_i) ({})",
         r_par,
         r_min
     );
-    assert!(r_min <= r_max, "min(R_i) must be ≤ max(R_i)");
+    assert!(r_min.into_base() <= r_max.into_base(), "min(R_i) must be ≤ max(R_i)");
     assert!(
-        r_max <= r_ser,
+        r_max.into_base() <= r_ser.into_base(),
         "max(R_i) ({}) must be ≤ R_series ({})",
         r_max,
         r_ser
@@ -120,9 +123,9 @@ fn test_resistance_duality_bound() {
 #[test]
 fn test_resistance_total_accumulates_on_add() {
     let mut analysis = ResistanceAnalysis::<f64>::new();
-    analysis.add_resistance("a".into(), 10.0);
-    analysis.add_resistance("b".into(), 20.0);
-    assert_relative_eq!(analysis.total_resistance, 30.0, epsilon = 1e-12);
+    analysis.add_resistance("a".into(), HydraulicResistance::from_base(10.0));
+    analysis.add_resistance("b".into(), HydraulicResistance::from_base(20.0));
+    assert_relative_eq!(analysis.total_resistance.into_base(), 30.0, epsilon = 1e-12);
 }
 
 // ============================================================================
@@ -133,21 +136,21 @@ fn test_resistance_total_accumulates_on_add() {
 #[test]
 fn test_flow_average_correct() {
     let mut analysis = FlowAnalysis::<f64>::new();
-    analysis.add_component_flow("c1".into(), 1e-9_f64);
-    analysis.add_component_flow("c2".into(), 3e-9_f64);
+    analysis.add_component_flow("c1".into(), VolumetricFlowRate::from_base(1e-9_f64));
+    analysis.add_component_flow("c2".into(), VolumetricFlowRate::from_base(3e-9_f64));
 
-    assert_relative_eq!(analysis.average_flow_rate(), 2e-9_f64, epsilon = 1e-21);
+    assert_relative_eq!(analysis.average_flow_rate().into_base(), 2e-9_f64, epsilon = 1e-21);
 }
 
 /// `flag_fda_shear_limit_violations` must flag components exceeding stress limit.
 #[test]
 fn test_blood_shear_violation_stress_limit() {
     let mut analysis = FlowAnalysis::<f64>::new();
-    analysis.add_wall_shear_stress("edge_1".into(), 180.0_f64);
-    analysis.add_wall_shear_rate("edge_1".into(), 20_000.0);
+    analysis.add_wall_shear_stress("edge_1".into(), Pressure::from_base(180.0_f64));
+    analysis.add_wall_shear_rate("edge_1".into(), ReciprocalTime::from_base(20_000.0));
 
     let limits = BloodShearLimits {
-        max_wall_shear_stress_pa: 150.0,
+        max_wall_shear_stress_pa: Pressure::from_base(150.0),
         max_wall_shear_rate_per_s: None,
         max_giersiepen_hi: None,
         max_taskin_hi: None,
@@ -156,19 +159,19 @@ fn test_blood_shear_violation_stress_limit() {
     let violations = analysis.flag_fda_shear_limit_violations(&limits);
     assert_eq!(violations.len(), 1);
     assert_eq!(violations[0].component_id, "edge_1");
-    assert!(violations[0].stress_exceedance_ratio > 1.0);
+    assert!(violations[0].stress_exceedance_ratio.into_base() > 1.0);
 }
 
 /// `flag_fda_shear_limit_violations` must flag components exceeding the optional rate limit.
 #[test]
 fn test_blood_shear_violation_rate_limit() {
     let mut analysis = FlowAnalysis::<f64>::new();
-    analysis.add_wall_shear_stress("edge_2".into(), 80.0_f64);
-    analysis.add_wall_shear_rate("edge_2".into(), 60_000.0);
+    analysis.add_wall_shear_stress("edge_2".into(), Pressure::from_base(80.0_f64));
+    analysis.add_wall_shear_rate("edge_2".into(), ReciprocalTime::from_base(60_000.0));
 
     let limits = BloodShearLimits {
-        max_wall_shear_stress_pa: 150.0,
-        max_wall_shear_rate_per_s: Some(40_000.0),
+        max_wall_shear_stress_pa: Pressure::from_base(150.0),
+        max_wall_shear_rate_per_s: Some(ReciprocalTime::from_base(40_000.0)),
         max_giersiepen_hi: None,
         max_taskin_hi: None,
     };
@@ -181,12 +184,12 @@ fn test_blood_shear_violation_rate_limit() {
 #[test]
 fn test_blood_shear_no_violation_within_limits() {
     let mut analysis = FlowAnalysis::<f64>::new();
-    analysis.add_wall_shear_stress("safe_edge".into(), 50.0_f64);
-    analysis.add_wall_shear_rate("safe_edge".into(), 10_000.0);
+    analysis.add_wall_shear_stress("safe_edge".into(), Pressure::from_base(50.0_f64));
+    analysis.add_wall_shear_rate("safe_edge".into(), ReciprocalTime::from_base(10_000.0));
 
     let limits = BloodShearLimits {
-        max_wall_shear_stress_pa: 150.0,
-        max_wall_shear_rate_per_s: Some(40_000.0),
+        max_wall_shear_stress_pa: Pressure::from_base(150.0),
+        max_wall_shear_rate_per_s: Some(ReciprocalTime::from_base(40_000.0)),
         max_giersiepen_hi: None,
         max_taskin_hi: None,
     };
@@ -202,19 +205,19 @@ fn test_blood_shear_no_violation_within_limits() {
 #[test]
 fn test_blood_damage_violation_respects_residence_time() {
     let mut analysis = FlowAnalysis::<f64>::new();
-    analysis.add_wall_shear_stress("edge_damage".into(), 180.0_f64);
+    analysis.add_wall_shear_stress("edge_damage".into(), Pressure::from_base(180.0_f64));
 
     let limits = BloodShearLimits::<f64>::fda_conservative_whole_blood()
         .with_hemolysis_limits(Some(1e-3), Some(5e-3));
-    let residence_times = HashMap::from([("edge_damage".to_string(), 0.5_f64)]);
+    let residence_times = HashMap::from([("edge_damage".to_string(), Time::from_base(0.5_f64))]);
 
     let violations = analysis.flag_hemolysis_limit_violations(&limits, &residence_times);
     assert_eq!(violations.len(), 1);
     assert_eq!(violations[0].component_id, "edge_damage");
     assert!(violations[0]
         .giersiepen_exceedance_ratio
-        .is_some_and(|ratio| ratio > 1.0));
+        .is_some_and(|ratio| ratio.into_base() > 1.0));
     assert!(violations[0]
         .taskin_exceedance_ratio
-        .is_some_and(|ratio| ratio > 1.0));
+        .is_some_and(|ratio| ratio.into_base() > 1.0));
 }

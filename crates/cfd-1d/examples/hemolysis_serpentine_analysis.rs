@@ -14,23 +14,24 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example hemolysis_serpentine_analysis`
 
+use aequitas::systems::si::quantities::Pressure;
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
 use cfd_core::physics::cavitation::CavitationNumber;
-use cfd_core::physics::fluid::FluidTrait;
 use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
+use cfd_core::physics::fluid::FluidTrait;
 use cfd_core::physics::hemolysis::HemolysisModel;
 use cfd_schematics::config::presets::smooth_serpentine;
 use cfd_schematics::config::{ChannelTypeConfig, GeometryConfig};
 
-use cfd_schematics::geometry::SplitType;
 use cfd_schematics::geometry::generator::create_geometry;
+use cfd_schematics::geometry::SplitType;
 use cfd_schematics::plot_geometry;
-use cfd_schematics::visualizations::RenderConfig;
 use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
+use cfd_schematics::visualizations::RenderConfig;
 use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
@@ -112,10 +113,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let idx = id_map[spec.id.as_str()];
         match spec.kind {
             cfd_schematics::domain::model::NodeKind::Inlet => {
-                network.set_pressure(idx, inlet_pressure_pa)
+                network.set_pressure(idx, Pressure::from_base(inlet_pressure_pa))
             }
             cfd_schematics::domain::model::NodeKind::Outlet => {
-                network.set_pressure(idx, outlet_pressure_pa)
+                network.set_pressure(idx, Pressure::from_base(outlet_pressure_pa))
             }
             _ => {}
         }
@@ -143,6 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Extract node pressures
     for (nidx, &p) in solution.pressures.iter().enumerate() {
+        let p = p.into_base();
         if let Some(node) = solution
             .graph
             .node_weight(petgraph::graph::NodeIndex::new(nidx))
@@ -157,6 +159,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut max_shear = 0.0_f64;
 
     for (eidx, &q) in solution.flow_rates.iter().enumerate() {
+        let q = q.into_base();
         let Some(edge) = solution
             .graph
             .edge_weight(petgraph::graph::EdgeIndex::new(eidx))

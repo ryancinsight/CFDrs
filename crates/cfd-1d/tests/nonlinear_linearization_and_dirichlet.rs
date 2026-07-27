@@ -1,5 +1,5 @@
 use aequitas::systems::si::quantities::{
-    HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+    HydraulicResistance, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
 };
 use cfd_1d::domain::network::{Edge, EdgeType, Network, NetworkBuilder};
 use cfd_core::conversion::SafeFromF64;
@@ -81,9 +81,11 @@ fn update_from_solution_picard_step_correct_sign_and_magnitude() -> Result<()> {
     x[inlet.index()] = 10.0; // Pa
     x[outlet.index()] = 4.0; // Pa
     network.update_from_solution(&x)?;
-    let q = *network
+    let q = network
         .flow_rates
         .get(edge_idx.index())
+        .copied()
+        .map(VolumetricFlowRate::into_base)
         .expect("test invariant");
 
     // Sign must align with the positive ΔP direction (inlet higher than outlet).
@@ -114,7 +116,7 @@ fn dirichlet_enforcement_row_identity_and_rhs() -> Result<()> {
     }
 
     // Apply Dirichlet at inlet, free at outlet
-    network.set_pressure(inlet, 12.0);
+    network.set_pressure(inlet, Pressure::from_base(12.0));
 
     let assembler = cfd_1d::solver::core::MatrixAssembler::<F>::new();
     let (a, b) = assembler.assemble(&network)?;
@@ -175,7 +177,7 @@ fn dirichlet_enforcement_interior_junction() -> Result<()> {
     let fluid = ConstantPropertyFluid::<F>::water_20c().expect("test invariant");
     let mut network = Network::new(graph, fluid);
 
-    network.set_pressure(split, 10.0);
+    network.set_pressure(split, Pressure::from_base(10.0));
 
     let assembler = cfd_1d::solver::core::MatrixAssembler::<F>::new();
     let (a, b) = assembler.assemble(&network)?;

@@ -7,7 +7,7 @@ use pyo3::prelude::*;
 use crate::blood::{PyCarreauYasudaBlood, PyCassonBlood};
 
 /// Configuration for 2D Poiseuille flow solver
-#[pyclass(name = "PoiseuilleConfig2D")]
+#[pyclass(name = "PoiseuilleConfig2D", skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyPoiseuilleConfig {
     /// Channel height \[m]
@@ -94,7 +94,7 @@ impl PyPoiseuilleConfig {
 }
 
 /// Result from 2D Poiseuille flow solver
-#[pyclass(name = "PoiseuilleResult2D")]
+#[pyclass(name = "PoiseuilleResult2D", skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyPoiseuilleResult {
     /// Y coordinates \[m]
@@ -166,7 +166,7 @@ impl PyPoiseuilleResult {
 }
 
 /// 2D Poiseuille flow solver with non-Newtonian blood rheology
-#[pyclass(name = "PoiseuilleSolver2D_Legacy")]
+#[pyclass(name = "PoiseuilleSolver2D_Legacy", skip_from_py_object)]
 pub struct PyPoiseuilleSolver {
     config: PyPoiseuilleConfig,
 }

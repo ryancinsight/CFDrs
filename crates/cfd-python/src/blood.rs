@@ -24,7 +24,7 @@ use pyo3::prelude::*;
 /// - Normal blood at 37°C
 /// - Yield stress: 0.5 Pa (typical range 0.4-0.6 Pa)
 /// - Viscosity: 3-10 cP depending on shear rate
-#[pyclass(name = "CassonBlood")]
+#[pyclass(name = "CassonBlood", skip_from_py_object)]
 pub struct PyCassonBlood {
     inner: RustCassonBlood<f64>,
 }
@@ -99,7 +99,7 @@ impl PyCassonBlood {
 /// - λ: Relaxation time
 /// - n: Power law index
 /// - a: Carreau-Yasuda parameter
-#[pyclass(name = "CarreauYasudaBlood")]
+#[pyclass(name = "CarreauYasudaBlood", skip_from_py_object)]
 pub struct PyCarreauYasudaBlood {
     inner: RustCarreauYasudaBlood<f64>,
 }
@@ -169,7 +169,7 @@ impl PyCarreauYasudaBlood {
 /// ```
 ///
 /// Parameters fitted for normal human blood.
-#[pyclass(name = "CrossBlood")]
+#[pyclass(name = "CrossBlood", skip_from_py_object)]
 pub struct PyCrossBlood {
     inner: RustCrossBlood<f64>,
 }
@@ -241,7 +241,7 @@ impl PyCrossBlood {
 ///
 /// Uses the shared core implementation with Pries (1992) and Secomb (2017)
 /// apparent-viscosity parameterisations.
-#[pyclass(name = "FahraeuasLindqvist")]
+#[pyclass(name = "FahraeuasLindqvist", skip_from_py_object)]
 pub struct PyFahraeuasLindqvist {
     inner: RustFahraeuasLindqvist<f64>,
 }

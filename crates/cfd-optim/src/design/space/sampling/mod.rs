@@ -16,7 +16,9 @@ use cfd_schematics::topology::presets::{
     enumerate_milestone12_topologies, Milestone12TopologyRequest,
 };
 use cfd_schematics::TreatmentActuationMode;
-use tyche_core::{sampling::Counter, sampling::UserDomain, Design, LatinHypercube, Seed, SplitMix64};
+use tyche_core::{
+    sampling::Counter, sampling::UserDomain, Design, LatinHypercube, Seed, SplitMix64,
+};
 
 use crate::design::space::sweep::milestone12::CandidateParams;
 use crate::error::OptimError;
@@ -252,7 +254,9 @@ fn next_design<const PARAMETERS: usize>(
     ordinal: u64,
     sample_count: NonZeroU32,
 ) -> LatinHypercube<PARAMETERS, SplitMix64> {
-    let seed = Seed::new(Counter::<UserDomain<0>, SplitMix64>::word(root_seed, ordinal, 0));
+    let seed = Seed::new(Counter::<UserDomain<0>, SplitMix64>::word(
+        root_seed, ordinal, 0,
+    ));
     LatinHypercube::new(seed, sample_count)
 }
 

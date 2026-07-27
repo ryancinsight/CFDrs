@@ -8,7 +8,7 @@ use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
 // ── 2D Venturi Solver ────────────────────────────────────────────────────────
 
 /// 2D Venturi throat flow solver with Bernoulli validation
-#[pyclass(name = "VenturiSolver2D")]
+#[pyclass(name = "VenturiSolver2D", skip_from_py_object)]
 pub struct PyVenturiSolver2D {
     #[pyo3(get)]
     w_inlet: f64,
@@ -135,7 +135,7 @@ impl PyVenturiSolver2D {
 // ── 2D Venturi Result ────────────────────────────────────────────────────────
 
 /// Result from 2D Venturi flow simulation
-#[pyclass(name = "VenturiResult2D")]
+#[pyclass(name = "VenturiResult2D", skip_from_py_object)]
 pub struct PyVenturiResult2D {
     #[pyo3(get)]
     pub cp_throat: f64,
@@ -174,7 +174,7 @@ impl PyVenturiResult2D {
 /// `ΔP_contraction` = (`ρV_t²/2)(1` - `β⁴)/C_d²` where β = `D_t/D_1`
 /// `ΔP_friction` = f*(`L_t/D_t`)*(ρV_t²/2)
 /// `ΔP_expansion` = `K_exp`*(ρ/2)*(`V_t` - `V_3)²`
-#[pyclass(name = "VenturiSolver1D")]
+#[pyclass(name = "VenturiSolver1D", skip_from_py_object)]
 pub struct PyVenturiSolver1D {
     #[pyo3(get)]
     inlet_diameter: f64,
@@ -282,7 +282,7 @@ impl PyVenturiSolver1D {
 // ── 1D Venturi Result ────────────────────────────────────────────────────────
 
 /// Result from 1D Venturi resistance calculation
-#[pyclass(name = "VenturiResult1D")]
+#[pyclass(name = "VenturiResult1D", skip_from_py_object)]
 #[derive(Debug, Clone, Copy)]
 pub struct PyVenturiResult1D {
     #[pyo3(get)]

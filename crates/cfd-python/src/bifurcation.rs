@@ -49,7 +49,7 @@ use crate::result_types::PyBifurcationResult;
 /// print(f"Flow split: {result.flow_split_ratio():.3f}")
 /// print(f"Pressure drop D1: {result.dp_1:.3f} Pa")
 /// ```
-#[pyclass(name = "BifurcationSolver")]
+#[pyclass(name = "BifurcationSolver", skip_from_py_object)]
 pub struct PyBifurcationSolver {
     #[pyo3(get)]
     d_parent: f64,
@@ -229,7 +229,7 @@ impl PyBifurcationSolver {
     }
 }
 /// 1D trifurcation flow solver
-#[pyclass(name = "TrifurcationSolver")]
+#[pyclass(name = "TrifurcationSolver", skip_from_py_object)]
 pub struct PyTrifurcationSolver {
     #[pyo3(get)]
     d_parent: f64,
@@ -313,7 +313,7 @@ impl PyTrifurcationSolver {
     }
 }
 
-#[pyclass(name = "TrifurcationResult")]
+#[pyclass(name = "TrifurcationResult", skip_from_py_object)]
 pub struct PyTrifurcationResult {
     #[pyo3(get)]
     pub q_parent: f64,

@@ -10,6 +10,7 @@
 use cfd_1d::{
     domain::network::network_from_blueprint, Network, NetworkProblem, NetworkSolver, SolverConfig,
 };
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_core::physics::fluid::database::water_20c;
 use cfd_schematics::domain::model::{
     ChannelShape, ChannelSpec, CrossSectionSpec, EdgeId, EdgeKind, NetworkBlueprint, NodeId,
@@ -75,7 +76,7 @@ fn solve_dirichlet(
             .find(|(_, id)| id == id_str)
             .map(|(idx, _)| *idx)
             .unwrap_or_else(|| panic!("boundary node '{}' not found in network", id_str));
-        network.set_pressure(idx, *pressure);
+        network.set_pressure(idx, Pressure::from_base(*pressure));
     }
 
     let solver = NetworkSolver::<f64, Water>::with_config(SolverConfig {
@@ -417,10 +418,10 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
 
     let q_per_inlet = Q_INLET / inlet_nodes.len() as f64;
     for &i in &inlet_nodes {
-        network.set_neumann_flow(i, q_per_inlet);
+        network.set_neumann_flow(i, VolumetricFlowRate::from_base(q_per_inlet));
     }
     for &o in &outlet_nodes {
-        network.set_pressure(o, P_REF);
+        network.set_pressure(o, Pressure::from_base(P_REF));
     }
 
     let solver = NetworkSolver::with_config(SolverConfig {

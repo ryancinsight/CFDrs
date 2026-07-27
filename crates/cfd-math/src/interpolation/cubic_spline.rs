@@ -34,4 +34,3 @@ impl<T: RealField + FloatElement + Copy> Interpolation<T> for CubicSplineInterpo
         self.0.bounds()
     }
 }
-

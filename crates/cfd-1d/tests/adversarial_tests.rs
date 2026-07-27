@@ -7,8 +7,8 @@
 //! 4. Womersley and Bessel functions produce correct limits at degenerate inputs
 
 use aequitas::systems::si::quantities::{
-    HydraulicResistance,
-    DynamicViscosity, Length, MassDensity, Pressure, PressureGradient, ReciprocalTime, Time,
+    DynamicViscosity, HydraulicResistance, Length, MassDensity, Pressure, PressureGradient,
+    ReciprocalTime, Time,
 };
 use cfd_1d::{
     domain::components::channels::CircularChannel,
@@ -189,8 +189,8 @@ fn test_nan_resistance_does_not_panic() {
     }
 
     let mut network = Network::new(graph, fluid);
-    network.set_pressure(n1, 1000.0);
-    network.set_pressure(n2, 0.0);
+    network.set_pressure(n1, Pressure::from_base(1000.0));
+    network.set_pressure(n2, Pressure::from_base(0.0));
 
     let problem = NetworkProblem::new(network);
     let solver = NetworkSolver::new();
@@ -200,7 +200,12 @@ fn test_nan_resistance_does_not_panic() {
         Err(_) => {} // Graceful rejection
         Ok(solved) => {
             // Solver ran; check either NaN propagated or flow is trivially zero/nan
-            let pressures: Vec<f64> = solved.pressures().to_vec();
+            let pressures: Vec<f64> = solved
+                .pressures()
+                .iter()
+                .copied()
+                .map(Pressure::into_base)
+                .collect();
             let flows: Vec<f64> = solved
                 .graph
                 .edge_references()
@@ -209,11 +214,13 @@ fn test_nan_resistance_does_not_panic() {
                         .pressures()
                         .get(e.source().index())
                         .copied()
+                        .map(Pressure::into_base)
                         .unwrap_or(0.0);
                     let p_tgt = solved
                         .pressures()
                         .get(e.target().index())
                         .copied()
+                        .map(Pressure::into_base)
                         .unwrap_or(0.0);
                     (p_src - p_tgt) / e.weight().resistance.into_base()
                 })
@@ -284,8 +291,8 @@ fn test_two_dirichlet_nodes_solve_correctly() {
     }
 
     let mut network = Network::new(graph, fluid.clone());
-    network.set_pressure(n1, 200.0);
-    network.set_pressure(n2, 100.0);
+    network.set_pressure(n1, Pressure::from_base(200.0));
+    network.set_pressure(n2, Pressure::from_base(100.0));
 
     let problem = NetworkProblem::new(network);
     let solver = NetworkSolver::new();
@@ -300,11 +307,13 @@ fn test_two_dirichlet_nodes_solve_correctly() {
                 .pressures()
                 .get(e.source().index())
                 .copied()
+                .map(Pressure::into_base)
                 .unwrap_or(0.0);
             let p_tgt = result
                 .pressures()
                 .get(e.target().index())
                 .copied()
+                .map(Pressure::into_base)
                 .unwrap_or(0.0);
             (p_src - p_tgt) / e.weight().resistance.into_base()
         })

@@ -124,6 +124,11 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
         let mut momentum_solver = MomentumSolver::new(&grid);
         momentum_solver.set_convection_scheme(momentum_convection);
         momentum_solver.set_velocity_relaxation(config.alpha_u);
+        // Eisenstat-Walker-style inexact coupling: the linear momentum solve
+        // is one order tighter than the SIMPLE nonlinear residual contract.
+        // This prevents the default 1e-8 linear target from over-solving a
+        // configuration whose outer tolerance is materially looser.
+        momentum_solver.set_linear_solver_tolerance(config.tolerance * scalar::from_f64(0.1));
 
         // Create pressure solver using configuration
         let pressure_solver =

@@ -4,16 +4,17 @@
 //! [`Network`] with physically refined resistance coefficients.
 
 use super::super::{
-    Edge, EdgeProperties, Node, ResistanceUpdatePolicy,
     blueprint_validation::validate_blueprint_for_1d_solve,
-    junction_losses::apply_blueprint_junction_losses,
+    junction_losses::apply_blueprint_junction_losses, Edge, EdgeProperties, Node,
+    ResistanceUpdatePolicy,
 };
 use super::network_builder::NetworkBuilder;
 use super::venturi_coefficients::venturi_coefficients;
 use crate::physics::resistance::models::BendType;
 use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
-    Area, HydraulicResistance, Length, QuadraticHydraulicResistance,
+    Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance,
+    VolumetricFlowRate,
 };
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::{Error, Result};
@@ -24,8 +25,8 @@ use std::collections::HashMap;
 use std::hash::BuildHasher;
 
 use crate::domain::network::wrapper::{
-    EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
-    blood_microchannel_apparent_viscosity,
+    blood_microchannel_apparent_viscosity, EDGE_PROPERTY_HEMATOCRIT,
+    EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
 };
 use cfd_core::physics::fluid::FluidTrait;
 
@@ -509,8 +510,8 @@ pub fn apply_blueprint_boundary_conditions<T, F, S>(
     network: &mut crate::domain::network::wrapper::Network<T, F>,
     blueprint: &NetworkBlueprint,
     node_indices: &HashMap<String, NodeIndex, S>,
-    inlet_pressure: T,
-    outlet_pressure: T,
+    inlet_pressure: Pressure<T>,
+    outlet_pressure: Pressure<T>,
 ) -> Result<()>
 where
     T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + NumericElement,
@@ -534,11 +535,11 @@ where
         {
             match boundary.boundary {
                 BranchBoundarySpecification::Pressure { pressure_pa } => {
-                    let pressure = T::from_f64_or_zero(pressure_pa);
+                    let pressure = Pressure::from_base(T::from_f64_or_zero(pressure_pa));
                     network.set_pressure(node_idx, pressure);
                 }
                 BranchBoundarySpecification::FlowRate { flow_rate_m3_s } => {
-                    let flow_rate = T::from_f64_or_zero(flow_rate_m3_s);
+                    let flow_rate = VolumetricFlowRate::from_base(T::from_f64_or_zero(flow_rate_m3_s));
                     network.set_neumann_flow(node_idx, flow_rate);
                 }
             }

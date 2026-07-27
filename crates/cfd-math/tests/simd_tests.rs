@@ -8,8 +8,8 @@
 //! - Accuracy validation across different vector sizes
 //! - CFD integration tests
 
-use eunomia::assert_relative_eq;
 use cfd_math::simd::SimdOps;
+use eunomia::assert_relative_eq;
 
 #[cfg(test)]
 mod tests {

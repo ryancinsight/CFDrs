@@ -16,6 +16,7 @@
 //!   Inlet ─ ch_in ─ J1                               J3 ─ ch_out ─ Outlet
 //!                 └─ ch_lower_1 ─ J4 ─ ch_lower_2 ─┘
 //! ```
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 //!
 //! This mirrors how a Gyroid lattice naturally bifurcates flow into parallel
 //! paths through its bicontinuous pore network, then recombines at the outlet.
@@ -29,8 +30,8 @@
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
-use cfd_core::physics::fluid::FluidTrait;
 use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
+use cfd_core::physics::fluid::FluidTrait;
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 
 /// Hagen-Poiseuille resistance for a circular tube: R = 128·μ·L / (π·D⁴)
@@ -201,16 +202,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let outlet_idx = node_indices["Outlet"];
     let q_inlet = 2.0 / 60.0 * 1e-6; // 2 mL/min → m³/s
 
-    network.set_neumann_flow(inlet_idx, q_inlet);
-    network.set_pressure(outlet_idx, 101_325.0);
+    network.set_neumann_flow(inlet_idx, VolumetricFlowRate::from_base(q_inlet));
+    network.set_pressure(outlet_idx, Pressure::from_base(101_325.0));
 
     // Initial flow rate guesses (split evenly between branches)
-    network.set_flow_rate(edge_indices["ch_in"], q_inlet);
-    network.set_flow_rate(edge_indices["ch_upper_1"], q_inlet / 2.0);
-    network.set_flow_rate(edge_indices["ch_upper_2"], q_inlet / 2.0);
-    network.set_flow_rate(edge_indices["ch_lower_1"], q_inlet / 2.0);
-    network.set_flow_rate(edge_indices["ch_lower_2"], q_inlet / 2.0);
-    network.set_flow_rate(edge_indices["ch_out"], q_inlet);
+    network.set_flow_rate(
+        edge_indices["ch_in"],
+        VolumetricFlowRate::from_base(q_inlet),
+    );
+    network.set_flow_rate(
+        edge_indices["ch_upper_1"],
+        VolumetricFlowRate::from_base(q_inlet / 2.0),
+    );
+    network.set_flow_rate(
+        edge_indices["ch_upper_2"],
+        VolumetricFlowRate::from_base(q_inlet / 2.0),
+    );
+    network.set_flow_rate(
+        edge_indices["ch_lower_1"],
+        VolumetricFlowRate::from_base(q_inlet / 2.0),
+    );
+    network.set_flow_rate(
+        edge_indices["ch_lower_2"],
+        VolumetricFlowRate::from_base(q_inlet / 2.0),
+    );
+    network.set_flow_rate(
+        edge_indices["ch_out"],
+        VolumetricFlowRate::from_base(q_inlet),
+    );
     network.update_resistances()?;
 
     println!("Boundary Conditions:");
@@ -235,7 +254,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("═══════════════════════════════════════════════════════");
     for idx in solution.graph.node_indices() {
         let n = solution.graph.node_weight(idx).unwrap();
-        let p = *solution.pressures.get(idx.index()).unwrap_or(&0.0);
+        let p = solution
+            .pressures
+            .get(idx.index())
+            .copied()
+            .map(Pressure::into_base)
+            .unwrap_or(0.0);
         println!(
             "  {:10} : {:>10.2} Pa  ({:>7.2} mmHg)",
             n.id,
@@ -250,7 +274,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("═══════════════════════════════════════════════════════");
     for idx in solution.graph.edge_indices() {
         let e = solution.graph.edge_weight(idx).unwrap();
-        let q = *solution.flow_rates.get(idx.index()).unwrap_or(&0.0);
+        let q = solution
+            .flow_rates
+            .get(idx.index())
+            .copied()
+            .map(VolumetricFlowRate::into_base)
+            .unwrap_or(0.0);
         let props = solution.properties.get(&idx);
 
         let (velocity, shear_rate) = if let Some(p) = props {
@@ -281,12 +310,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let q_upper = solution
         .flow_rates
         .get(edge_indices["ch_upper_1"].index())
-        .unwrap_or(&0.0)
+        .copied()
+        .map(VolumetricFlowRate::into_base)
+        .unwrap_or(0.0)
         .abs();
     let q_lower = solution
         .flow_rates
         .get(edge_indices["ch_lower_1"].index())
-        .unwrap_or(&0.0)
+        .copied()
+        .map(VolumetricFlowRate::into_base)
+        .unwrap_or(0.0)
         .abs();
     let q_total = q_upper + q_lower;
 

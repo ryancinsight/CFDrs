@@ -307,26 +307,20 @@ mod tests {
         let previous = vector(vec![10.0, 20.0]);
 
         // Both change=0 and residual tiny => converged
-        assert!(
-            checker
-                .has_converged_dual(&current, &previous, 1e-8, 1.0)
-                .unwrap()
-        );
+        assert!(checker
+            .has_converged_dual(&current, &previous, 1e-8, 1.0)
+            .unwrap());
 
         // Change converged but residual large => not converged
-        assert!(
-            !checker
-                .has_converged_dual(&current, &previous, 10.0, 1.0)
-                .unwrap()
-        );
+        assert!(!checker
+            .has_converged_dual(&current, &previous, 10.0, 1.0)
+            .unwrap());
 
         // Residual converged but change large => not converged
         let far_previous = vector(vec![0.0, 0.0]);
-        assert!(
-            !checker
-                .has_converged_dual(&current, &far_previous, 1e-8, 1.0)
-                .unwrap()
-        );
+        assert!(!checker
+            .has_converged_dual(&current, &far_previous, 1e-8, 1.0)
+            .unwrap());
     }
 
     #[test]

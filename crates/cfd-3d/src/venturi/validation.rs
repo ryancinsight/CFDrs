@@ -101,17 +101,13 @@ where
         let d_inlet = scalar::from_f64::<T>(self.mesh_builder.d_inlet);
         let d_throat = scalar::from_f64::<T>(self.mesh_builder.d_throat);
         let a_inlet = if config.circular {
-            scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
-                * d_inlet
-                * d_inlet
+            scalar::from_f64::<T>(std::f64::consts::PI / 4.0) * d_inlet * d_inlet
         } else {
             d_inlet * d_inlet
         };
 
         let a_throat = if config.circular {
-            scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
-                * d_throat
-                * d_throat
+            scalar::from_f64::<T>(std::f64::consts::PI / 4.0) * d_throat * d_throat
         } else {
             d_throat * d_throat
         };

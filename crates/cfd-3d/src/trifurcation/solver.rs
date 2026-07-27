@@ -37,10 +37,8 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
+use crate::linalg::{matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3};
 use crate::scalar;
-use crate::linalg::{
-    matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3,
-};
 use crate::trifurcation::geometry::TrifurcationGeometry3D;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
@@ -265,8 +263,8 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
                         <= geom_f64.d_daughters[i] / 2.0 + radial_tol
                         && face_axis_alignment(face, outlet_axes[i]) >= min_alignment
                     {
-                        local_outlet_projection_max[i] = local_outlet_projection_max[i]
-                            .max(centroid.coords.dot(outlet_axes[i]));
+                        local_outlet_projection_max[i] =
+                            local_outlet_projection_max[i].max(centroid.coords.dot(outlet_axes[i]));
                     }
                 }
                 local_boundary_face_centroids.push((f_id, centroid));
@@ -434,7 +432,12 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
             if problem.element_viscosities.is_none() {
                 problem.element_viscosities = Some(element_viscosities);
             }
-            let fem_result = solver.solve(&problem, last_solution.as_ref());
+            let fem_result = solver.solve_picard(
+                &problem,
+                last_solution.as_ref(),
+                iter,
+                self.config.max_nonlinear_iterations,
+            );
 
             let fem_solution = match fem_result {
                 Ok(sol) => sol,

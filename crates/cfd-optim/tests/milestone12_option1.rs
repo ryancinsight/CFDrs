@@ -13,11 +13,11 @@
 
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_optim::{
-    BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
     build_milestone12_candidate_params, evaluate_blueprint_candidate, evaluate_goal,
+    BlueprintCandidate, EvaluatedPool, OperatingPoint, OptimizationGoal,
 };
 use cfd_schematics::{
-    TreatmentActuationMode, build_milestone12_blueprint, enumerate_milestone12_topologies,
+    build_milestone12_blueprint, enumerate_milestone12_topologies, TreatmentActuationMode,
 };
 use std::collections::HashSet;
 

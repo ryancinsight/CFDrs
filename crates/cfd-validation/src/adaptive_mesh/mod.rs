@@ -13,8 +13,8 @@
 mod error_estimators;
 mod indicators;
 
-use cfd_core::error::Result;
 use crate::matrix::DMatrix;
+use cfd_core::error::Result;
 
 /// Refinement criteria for adaptive mesh refinement
 #[derive(Debug, Clone, PartialEq)]

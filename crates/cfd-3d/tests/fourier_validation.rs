@@ -8,8 +8,8 @@
 //! - Spectral derivative accuracy
 //! - Edge cases and numerical stability
 
-use eunomia::assert_relative_eq;
 use cfd_3d::spectral::fourier::{FourierTransform, SpectralDerivative};
+use eunomia::assert_relative_eq;
 use eunomia::Complex;
 use leto::Array1;
 use std::f64::consts::PI;

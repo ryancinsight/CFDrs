@@ -4,6 +4,7 @@ use super::traits::NetworkAnalyzer;
 use crate::domain::network::Network;
 use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::PressureAnalysis;
+use aequitas::systems::si::quantities::{Pressure, PressureGradient};
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::Result;
 use std::iter::Sum;
@@ -42,7 +43,10 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
         let pressures = network.pressures();
         for (idx, node) in network.nodes().enumerate() {
             if let Some(&pressure) = pressures.get(idx) {
-                analysis.add_pressure(node.id.clone(), pressure);
+                analysis.add_pressure(
+                    node.id.clone(),
+                    Pressure::from_base(pressure.into_base()),
+                );
             }
         }
 
@@ -53,14 +57,17 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
                 pressures.get(from_idx.index()),
                 pressures.get(to_idx.index()),
             ) {
-                let pressure_drop = p_from - p_to;
-                analysis.add_pressure_drop(edge.id.clone(), pressure_drop);
+                let pressure_drop = p_from.into_base() - p_to.into_base();
+                analysis.add_pressure_drop(edge.id.clone(), Pressure::from_base(pressure_drop));
 
                 // Calculate pressure gradient
                 let length = edge.properties.length.into_base();
                 if length > T::zero() {
                     let gradient = pressure_drop / length;
-                    analysis.add_pressure_gradient(edge.id.clone(), gradient);
+                    analysis.add_pressure_gradient(
+                        edge.id.clone(),
+                        PressureGradient::from_base(gradient),
+                    );
                 }
             }
         }

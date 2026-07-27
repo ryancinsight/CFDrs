@@ -32,8 +32,8 @@
 
 use crate::fem::{constants, scalar};
 use crate::linalg::{array2_set_column3, symmetric_part, Matrix3};
-use eunomia::{FloatElement, NumericElement};
 use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use leto::{Array2, Vector3};
 
 /// Element matrices for FEM assembly

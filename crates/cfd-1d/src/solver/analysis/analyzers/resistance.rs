@@ -4,6 +4,7 @@ use super::traits::NetworkAnalyzer;
 use crate::domain::network::{Network, NetworkGraphExt};
 use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::ResistanceAnalysis;
+use aequitas::systems::si::quantities::HydraulicResistance;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::ResistanceCalculationErrorKind as ResistanceCalculationError;
 use cfd_core::error::Result;
@@ -79,10 +80,13 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
                     ))
                 })?;
 
-            analysis.add_resistance(edge.id.clone(), resistance);
+            analysis.add_resistance(edge.id.clone(), HydraulicResistance::from_base(resistance));
 
             let component_type = edge.properties.component_type;
-            analysis.add_resistance_by_type(component_type.as_str().to_string(), resistance);
+            analysis.add_resistance_by_type(
+                component_type.as_str().to_string(),
+                HydraulicResistance::from_base(resistance),
+            );
         }
 
         Ok(())
@@ -154,7 +158,8 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + Sum> ResistanceAnalyzer<T> {
                                     .resistances
                                     .get(&edge.id)
                                     .copied()
-                                    .unwrap_or(edge.resistance.into_base());
+                                    .unwrap_or(edge.resistance)
+                                    .into_base();
                                 resistance_sum += resistance;
                                 edge_ids.push(edge.id.clone());
                             } else {

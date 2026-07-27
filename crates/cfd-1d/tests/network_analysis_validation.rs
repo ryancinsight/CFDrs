@@ -8,12 +8,12 @@
 //! - Kirchhoff, G. (1847). "Ueber die Auflösung der Gleichungen". Annalen der Physik.
 //! - Hardy Cross (1936). "Analysis of flow in networks of conduits or conductors". University of Illinois Bulletin.
 
-use aequitas::systems::si::quantities::HydraulicResistance;
-use eunomia::assert_relative_eq;
+use aequitas::systems::si::quantities::{HydraulicResistance, Pressure};
 use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_core::error::Result;
 use cfd_core::physics::fluid::database;
+use eunomia::assert_relative_eq;
 use petgraph::visit::EdgeRef;
 
 /// Helper function to compute flow rates from pressure solution
@@ -30,11 +30,13 @@ fn compute_flow_rates(network: &Network<f64>) -> Vec<f64> {
             .pressures()
             .get(from_node.index())
             .copied()
+            .map(Pressure::into_base)
             .unwrap_or(0.0);
         let p_to = network
             .pressures()
             .get(to_node.index())
             .copied()
+            .map(Pressure::into_base)
             .unwrap_or(0.0);
 
         // Q = (P_from - P_to) / R
@@ -111,8 +113,8 @@ fn test_series_resistance_addition() -> Result<()> {
     let mut network = Network::new(graph, fluid.clone());
 
     // Set boundary conditions
-    network.set_pressure(inlet, 1000.0); // 1000 Pa inlet
-    network.set_pressure(outlet, 0.0); // 0 Pa outlet
+    network.set_pressure(inlet, Pressure::from_base(1000.0)); // 1000 Pa inlet
+    network.set_pressure(outlet, Pressure::from_base(0.0)); // 0 Pa outlet
 
     // Solve network
     let problem = NetworkProblem::new(network);
@@ -210,8 +212,8 @@ fn test_parallel_conductance_addition() -> Result<()> {
     let mut network = Network::new(graph, fluid.clone());
 
     // Set boundary conditions
-    network.set_pressure(inlet, 1000.0);
-    network.set_pressure(outlet, 0.0);
+    network.set_pressure(inlet, Pressure::from_base(1000.0));
+    network.set_pressure(outlet, Pressure::from_base(0.0));
 
     // Solve
     let problem = NetworkProblem::new(network);
@@ -292,9 +294,9 @@ fn test_junction_mass_conservation() -> Result<()> {
     let mut network = Network::new(graph, fluid.clone());
 
     // Set boundary conditions: different inlet pressures
-    network.set_pressure(inlet1, 1500.0); // Higher pressure
-    network.set_pressure(inlet2, 1000.0); // Lower pressure
-    network.set_pressure(outlet, 0.0);
+    network.set_pressure(inlet1, Pressure::from_base(1500.0)); // Higher pressure
+    network.set_pressure(inlet2, Pressure::from_base(1000.0)); // Lower pressure
+    network.set_pressure(outlet, Pressure::from_base(0.0));
 
     // Solve
     let problem = NetworkProblem::new(network);
@@ -360,8 +362,8 @@ fn test_solver_convergence_simple() -> Result<()> {
     let mut network = Network::new(graph, fluid.clone());
 
     // Set boundary conditions
-    network.set_pressure(inlet, 1000.0);
-    network.set_pressure(outlet, 0.0);
+    network.set_pressure(inlet, Pressure::from_base(1000.0));
+    network.set_pressure(outlet, Pressure::from_base(0.0));
 
     // Solve with tight tolerance
     let config = SolverConfig {
@@ -425,8 +427,8 @@ fn test_reynolds_number_laminar_regime() -> Result<()> {
     let mut network = Network::new(graph, fluid.clone());
 
     // Set moderate pressure drop (reduced for lower Re)
-    network.set_pressure(inlet, 2000.0); // 2 kPa (reduced from 5 kPa)
-    network.set_pressure(outlet, 0.0);
+    network.set_pressure(inlet, Pressure::from_base(2000.0)); // 2 kPa (reduced from 5 kPa)
+    network.set_pressure(outlet, Pressure::from_base(0.0));
 
     // Solve
     let problem = NetworkProblem::new(network);
@@ -495,8 +497,8 @@ fn test_pressure_flow_linearity() -> Result<()> {
 
     for &p_in in &pressures {
         let mut test_network = network.clone();
-        test_network.set_pressure(inlet, p_in);
-        test_network.set_pressure(outlet, 0.0);
+        test_network.set_pressure(inlet, Pressure::from_base(p_in));
+        test_network.set_pressure(outlet, Pressure::from_base(0.0));
 
         let problem = NetworkProblem::new(test_network);
         let solver = NetworkSolver::new();

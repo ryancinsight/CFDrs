@@ -25,8 +25,8 @@ pub use two_way_solution::TwoWayBranchSolution;
 mod tests {
     use super::*;
     use crate::domain::channel::{Channel, ChannelGeometry};
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::blood::CassonBlood;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_two_way_branch_mass_conservation() {

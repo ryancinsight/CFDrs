@@ -18,6 +18,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
         dt: T,
         _nu: T,
         rho: T,
+        convergence_tolerance: T,
     ) -> cfd_core::error::Result<T> {
         let u_initial = self.extract_velocity_field(fields);
         self.extrapolate_pressure_to_solids(fields);
@@ -140,7 +141,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
                 &self.u_corrected_workspace,
             );
 
-            if outer_residual < self.config.tolerance * scalar::from_f64(5.0) {
+            if outer_residual < convergence_tolerance * scalar::from_f64(5.0) {
                 break;
             }
         }
@@ -150,7 +151,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
             &self.extract_velocity_field(fields),
         );
 
-        if final_residual > self.config.tolerance * scalar::from_f64(10.0) {
+        if final_residual > convergence_tolerance * scalar::from_f64(10.0) {
             tracing::warn!(
                 "PIMPLE did not achieve desired convergence, residual: {:.2e}",
                 final_residual

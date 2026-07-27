@@ -7,16 +7,15 @@ use crate::linear_solver::Preconditioner;
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
-use leto_ops::{CsrMatrix, Scalar as LetoScalar};
+use leto_ops::{
+    CsrMatrix, IdentityPreconditioner as LetoIdentityPreconditioner,
+    JacobiPreconditioner as LetoJacobiPreconditioner, Preconditioner as LetoPreconditioner,
+    SORPreconditioner as LetoSORPreconditioner, Scalar as LetoScalar,
+};
 
 #[inline]
 fn from_f64<T: FloatElement>(value: f64) -> T {
     <T as FloatElement>::from_f64(value)
-}
-
-#[inline]
-fn diagonal_epsilon<T: FloatElement>() -> T {
-    from_f64(1e-14)
 }
 
 #[inline]
@@ -41,16 +40,13 @@ pub struct IdentityPreconditioner;
 impl<T: RealField + Copy> Preconditioner<T> for IdentityPreconditioner {
     fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> Result<()> {
         validate_vector_len("identity preconditioner output", z, vector_len(r))?;
-        for idx in 0..vector_len(r) {
-            z[idx] = r[idx];
-        }
-        Ok(())
+        LetoPreconditioner::apply_to(&LetoIdentityPreconditioner, r, z).map_err(Into::into)
     }
 }
 
 /// Jacobi (diagonal) preconditioner with memory management
 pub struct JacobiPreconditioner<T: RealField + Copy> {
-    inv_diagonal: Array1<T>,
+    inner: LetoJacobiPreconditioner<T>,
 }
 
 impl<T: RealField + FloatElement + Copy + LetoScalar> JacobiPreconditioner<T> {
@@ -71,41 +67,24 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> JacobiPreconditioner<T> {
             ));
         }
 
-        // Extract diagonal directly
-        let diag = a.diagonal();
-        let mut inv_diagonal = Array1::zeros([n]);
-
-        let zero_tol = diagonal_epsilon();
-        for i in 0..diag.len() {
-            let val = diag[i];
-            if NumericElement::abs(val) < zero_tol {
-                // Replace zero diagonal with 1.0 (identity for this row)
-                // This handles DOFs with no element contributions
-                inv_diagonal[i] = <T as NumericElement>::ONE;
-            } else {
-                inv_diagonal[i] = <T as NumericElement>::ONE / val;
-            }
-        }
-
-        Ok(Self { inv_diagonal })
+        Ok(Self {
+            inner: LetoJacobiPreconditioner::from_matrix_identity_on_zero(a),
+        })
     }
 }
 
-impl<T: RealField + Copy> Preconditioner<T> for JacobiPreconditioner<T> {
+impl<T: RealField + FloatElement + Copy + LetoScalar> Preconditioner<T> for JacobiPreconditioner<T> {
     fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> Result<()> {
-        validate_vector_len("Jacobi residual", r, vector_len(&self.inv_diagonal))?;
-        validate_vector_len("Jacobi output", z, vector_len(&self.inv_diagonal))?;
-        for idx in 0..vector_len(r) {
-            z[idx] = r[idx] * self.inv_diagonal[idx];
-        }
-        Ok(())
+        let n = self.inner.nrows();
+        validate_vector_len("Jacobi residual", r, n)?;
+        validate_vector_len("Jacobi output", z, n)?;
+        LetoPreconditioner::apply_to(&self.inner, r, z).map_err(Into::into)
     }
 }
 
 /// SOR (Successive Over-Relaxation) preconditioner with validation.
 pub struct SORPreconditioner<T: RealField + Copy + LetoScalar> {
-    matrix: CsrMatrix<T>,
-    pub(crate) omega: T,
+    inner: LetoSORPreconditioner<T>,
 }
 
 impl<T: RealField + FloatElement + Copy + LetoScalar> SORPreconditioner<T> {
@@ -128,14 +107,13 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SORPreconditioner<T> {
         }
 
         Ok(Self {
-            matrix: a.clone(),
-            omega,
+            inner: LetoSORPreconditioner::new(a.clone(), omega)?,
         })
     }
 
     /// Get the relaxation parameter omega
     pub fn omega(&self) -> T {
-        self.omega
+        self.inner.omega()
     }
 
     /// Create SOR preconditioner with omega tuned for 1D Poisson problems
@@ -181,34 +159,9 @@ impl<T: RealField + FloatElement + Copy + LetoScalar> SORPreconditioner<T> {
 
 impl<T: RealField + Copy + NumericElement + LetoScalar> Preconditioner<T> for SORPreconditioner<T> {
     fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> Result<()> {
-        let n = self.matrix.nrows();
+        let n = self.inner.nrows();
         validate_vector_len("SOR residual", r, n)?;
         validate_vector_len("SOR output", z, n)?;
-        for idx in 0..n {
-            z[idx] = <T as NumericElement>::ZERO;
-        }
-
-        // Forward SOR sweep with in-place operations (standard SOR: (D/ω - L) z = r)
-        for i in 0..n {
-            let mut sum = <T as NumericElement>::ZERO;
-            let row = self.matrix.row(i);
-            let mut diag = <T as NumericElement>::ONE;
-
-            // Process row entries
-            for (j, val) in row.col_indices().iter().zip(row.values()) {
-                if *j < i {
-                    // Accumulate strictly lower part L z
-                    sum += *val * z[*j];
-                } else if *j == i {
-                    diag = *val;
-                }
-            }
-
-            // Standard SOR preconditioner solves (D/ω - L) z = r
-            // => (diag/ω) z_i = r_i + (L z)_i
-            z[i] = (r[i] + sum) * self.omega / diag;
-        }
-
-        Ok(())
+        LetoPreconditioner::apply_to(&self.inner, r, z).map_err(Into::into)
     }
 }

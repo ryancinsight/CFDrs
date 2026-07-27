@@ -1,4 +1,3 @@
-use eunomia::assert_relative_eq;
 use cfd_2d::fields::{Field2D, SimulationFields};
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::simplec_pimple::{
@@ -12,6 +11,7 @@ use cfd_math::linear_solver::{
 };
 use cfd_math::sparse::SparseMatrixBuilder;
 use cfd_validation::analytical_benchmarks::lid_driven_cavity as ghia_lid_driven_cavity;
+use eunomia::assert_relative_eq;
 use leto::{geometry::Vector3, Array1};
 
 /// Step 1: 1D Linear Convection

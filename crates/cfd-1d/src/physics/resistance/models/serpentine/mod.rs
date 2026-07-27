@@ -186,8 +186,8 @@ pub use model::SerpentineModel;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::FluidTrait;
+    use eunomia::assert_relative_eq;
     use traits::{FlowConditions, ResistanceModel};
 
     fn water() -> impl FluidTrait<f64> {

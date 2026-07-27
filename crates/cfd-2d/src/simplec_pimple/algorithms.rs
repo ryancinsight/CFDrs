@@ -43,6 +43,17 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
         nu: T,
         rho: T,
     ) -> cfd_core::error::Result<T> {
+        self.solve_time_step_with_tolerance(fields, dt, nu, rho, self.config.tolerance)
+    }
+
+    fn solve_time_step_with_tolerance(
+        &mut self,
+        fields: &mut SimulationFields<T>,
+        dt: T,
+        nu: T,
+        rho: T,
+        convergence_tolerance: T,
+    ) -> cfd_core::error::Result<T> {
         // Capture start-of-step velocities for transient momentum consistency
         fields.u_old.data.copy_from_slice(&fields.u.data);
         fields.v_old.data.copy_from_slice(&fields.v.data);
@@ -75,8 +86,10 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
         }
 
         match self.config.algorithm {
-            AlgorithmType::Simplec => self.solve_simplec(fields, dt, nu, rho),
-            AlgorithmType::Pimple => self.solve_pimple(fields, dt, nu, rho),
+            AlgorithmType::Simplec => {
+                self.solve_simplec(fields, dt, nu, rho, convergence_tolerance)
+            }
+            AlgorithmType::Pimple => self.solve_pimple(fields, dt, nu, rho, convergence_tolerance),
         }
     }
 
@@ -105,7 +118,9 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
         let max_dt = scalar::from_f64(1e10);
 
         while step_count < max_steps {
-            let residual = self.solve_time_step(fields, dt, nu, rho)?;
+            let convergence_tolerance = target_residual.min_scalar(self.config.tolerance);
+            let residual =
+                self.solve_time_step_with_tolerance(fields, dt, nu, rho, convergence_tolerance)?;
             residuals.push(residual);
 
             if residual < target_residual {

@@ -125,12 +125,12 @@ mod scalar;
 pub mod bifurcation;
 /// Canonical blueprint-driven preprocessing and cross-fidelity tracing for 3D workflows.
 pub mod blueprint_integration;
-/// Phase-transition cavitation model (Rayleigh-Plesset / Eulerian-Eulerian).
-pub mod cavitation;
 /// Legacy multi-stage cascade 3D FEM solver for CIF networks.
 ///
 /// Prefer [`blueprint_integration`] for new blueprint-driven preprocessing flows.
 pub mod cascade;
+/// Phase-transition cavitation model (Rayleigh-Plesset / Eulerian-Eulerian).
+pub mod cavitation;
 pub mod fem;
 pub mod ibm;
 pub mod level_set;
@@ -139,10 +139,10 @@ pub mod multiphase;
 pub mod physics;
 pub mod serpentine;
 pub mod spectral;
-/// k-ε, k-ω SST, and Smagorinsky turbulence closures.
-pub mod turbulence;
 /// 3D trifurcation (three-way branching) flow solvers and validation
 pub mod trifurcation;
+/// k-ε, k-ω SST, and Smagorinsky turbulence closures.
+pub mod turbulence;
 pub mod venturi;
 pub mod vof;
 

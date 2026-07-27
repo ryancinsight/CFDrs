@@ -42,8 +42,8 @@
 //!   for convection dominated flows with particular emphasis on the incompressible Navier-Stokes equations"
 //! - Tezduyar, T.E. (1991). "Stabilized finite element formulations for incompressible flow computations"
 
-use eunomia::{FloatElement, NumericElement};
 use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use leto::Vector3;
 
 use super::scalar;

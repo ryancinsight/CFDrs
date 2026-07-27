@@ -447,8 +447,8 @@ impl<T: ResistanceScalar> DarcyWeisbachModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::{CassonBlood, ConstantPropertyFluid};
+    use eunomia::assert_relative_eq;
 
     /// Helper: water at 20C, circular pipe, with given Re passed directly.
     fn conditions_with_re(re: f64) -> FlowConditions<f64> {

@@ -6,8 +6,8 @@
 use cfd_core::error::Result;
 use cfd_mesh::domain::topology::Cell;
 use cfd_mesh::IndexedMesh;
-use eunomia::{FloatElement, NumericElement};
 use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use leto::Vector3;
 use std::collections::HashSet;
 

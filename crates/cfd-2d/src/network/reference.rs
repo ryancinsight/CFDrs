@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use aequitas::systems::si::quantities::Pressure;
 use crate::scalar::Cfd2dScalar;
 use cfd_1d::domain::network::{apply_blueprint_boundary_conditions, network_from_blueprint};
 use cfd_1d::BoundaryCondition;
@@ -117,8 +118,8 @@ where
         &mut network,
         blueprint,
         &node_indices,
-        normalized_inlet_pressure_pa,
-        scalar::zero(),
+        Pressure::from_base(normalized_inlet_pressure_pa),
+        Pressure::from_base(scalar::zero()),
     )?;
 
     let solver = NetworkSolver::<T, ConstantPropertyFluid<T>>::with_config(SolverConfig::<T> {
@@ -187,10 +188,12 @@ where
             solved.graph.node_weight(idx).map(|node| {
                 (
                     node.id.clone(),
-                    *solved
+                    solved
                         .pressures()
                         .get(idx.index())
-                        .unwrap_or(&scalar::zero()),
+                        .copied()
+                        .unwrap_or_else(|| Pressure::from_base(scalar::zero()))
+                        .into_base(),
                 )
             })
         })

@@ -18,7 +18,7 @@ use pyo3::prelude::*;
 /// Curved friction enhancement: `f_curved/f_straight` depends on De regime
 /// Bend loss: `K_bend` = C1 + C2/Re (per 180° turn)
 /// Total: ΔP = f*(`L/D_h`)*(ρV²/2) + N*K_bend*(ρV²/2)
-#[pyclass(name = "SerpentineSolver1D")]
+#[pyclass(name = "SerpentineSolver1D", skip_from_py_object)]
 pub struct PySerpentineSolver1D {
     #[pyo3(get)]
     width: f64,
@@ -137,7 +137,7 @@ impl PySerpentineSolver1D {
 // ── Result ───────────────────────────────────────────────────────────────────
 
 /// Result from 1D serpentine resistance calculation
-#[pyclass(name = "SerpentineResult1D")]
+#[pyclass(name = "SerpentineResult1D", skip_from_py_object)]
 #[derive(Debug, Clone, Copy)]
 pub struct PySerpentineResult1D {
     #[pyo3(get)]

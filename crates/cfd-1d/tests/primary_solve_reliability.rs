@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_1d::domain::network::network_from_blueprint;
 use cfd_1d::{NetworkProblem, NetworkSolver, SolveFailureReason, SolverConfig};
 use cfd_core::physics::fluid::blood::CassonBlood;
@@ -81,10 +82,13 @@ fn solve_blueprint(
         })
         .collect();
     for inlet in &inlet_nodes {
-        network.set_neumann_flow(*inlet, inlet_flow_m3_s / inlet_nodes.len() as f64);
+        network.set_neumann_flow(
+            *inlet,
+            VolumetricFlowRate::from_base(inlet_flow_m3_s / inlet_nodes.len() as f64),
+        );
     }
     for outlet in &outlet_nodes {
-        network.set_pressure(*outlet, 0.0);
+        network.set_pressure(*outlet, Pressure::from_base(0.0));
     }
 
     let solver = NetworkSolver::<f64, CassonBlood<f64>>::with_config(SolverConfig {

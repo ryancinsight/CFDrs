@@ -1,14 +1,16 @@
-use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length};
+use aequitas::systems::si::quantities::{
+    Area, HydraulicResistance, Length, Pressure, VolumetricFlowRate,
+};
 use cfd_1d::domain::network::{
+    Edge, EdgeProperties, EdgeType, Network, NetworkBuilder, ResistanceUpdatePolicy,
     EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
-    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S, Edge, EdgeProperties,
-    EdgeType, Network, NetworkBuilder, ResistanceUpdatePolicy,
+    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
 };
 use cfd_1d::solver::core::{LinearSolverMethod, NetworkProblem, NetworkSolver};
 use cfd_1d::{
+    blood_microchannel_apparent_viscosity, durst_resistance_multiplier, pries_phase_separation,
     ChannelGeometry, CrossSection, FlowConditions, ResistanceCalculator, ResistanceChannelGeometry,
-    SurfaceProperties, Wettability, blood_microchannel_apparent_viscosity,
-    durst_resistance_multiplier, pries_phase_separation,
+    SurfaceProperties, Wettability,
 };
 use cfd_core::compute::solver::Solver;
 use cfd_core::conversion::SafeFromF64;
@@ -42,7 +44,7 @@ fn spd_heuristic_selects_cg() -> Result<()> {
         e.quad_coeff =
             aequitas::systems::si::quantities::QuadraticHydraulicResistance::from_base(0.0);
     }
-    net.set_pressure(inlet, 10.0);
+    net.set_pressure(inlet, Pressure::from_base(10.0));
     let problem = NetworkProblem::new(net.clone());
     let solver = NetworkSolver::<F>::new();
     let solved = solver.solve(&problem)?;
@@ -81,7 +83,7 @@ fn flow_invariant_edges_skip_resistance_recomputation() -> Result<()> {
         e.quad_coeff =
             aequitas::systems::si::quantities::QuadraticHydraulicResistance::from_base(0.0);
     }
-    net.set_flow_rate(edge, 3.0e-9);
+    net.set_flow_rate(edge, VolumetricFlowRate::from_base(3.0e-9));
     net.add_edge_properties(
         edge,
         EdgeProperties {
@@ -126,7 +128,7 @@ fn flow_dependent_short_channel_reapplies_durst_correction() -> Result<()> {
     let area = std::f64::consts::PI * diameter * diameter / 4.0;
     let flow_rate = 2.0e-9;
 
-    net.set_flow_rate(edge, flow_rate);
+    net.set_flow_rate(edge, VolumetricFlowRate::from_base(flow_rate));
     net.add_edge_properties(
         edge,
         EdgeProperties {
@@ -177,7 +179,9 @@ fn flow_dependent_short_channel_reapplies_durst_correction() -> Result<()> {
     let expected_multiplier = durst_resistance_multiplier(reynolds, length / diameter);
 
     let edge_ref = net.graph.edge_weight(edge).expect("edge must exist");
-    assert!((edge_ref.resistance.into_base() - base_resistance * expected_multiplier).abs() < 1.0e-9);
+    assert!(
+        (edge_ref.resistance.into_base() - base_resistance * expected_multiplier).abs() < 1.0e-9
+    );
     assert!(edge_ref.resistance.into_base() > base_resistance);
     assert!(edge_ref.quad_coeff.into_base().abs() < 1.0e-12);
     Ok(())
@@ -199,7 +203,7 @@ fn flow_dependent_blood_microchannel_uses_hematocrit_aware_apparent_viscosity() 
     let area = std::f64::consts::PI * diameter * diameter / 4.0;
     let flow_rate = 2.0e-9;
 
-    net.set_flow_rate(edge, flow_rate);
+    net.set_flow_rate(edge, VolumetricFlowRate::from_base(flow_rate));
     net.add_edge_properties(
         edge,
         EdgeProperties {
@@ -281,7 +285,7 @@ fn blood_microchannel_override_properties_change_resistance() -> Result<()> {
     let area = std::f64::consts::PI * diameter * diameter / 4.0;
     let flow_rate = 1.5e-9;
 
-    net.set_flow_rate(edge, flow_rate);
+    net.set_flow_rate(edge, VolumetricFlowRate::from_base(flow_rate));
     let mut properties = std::collections::HashMap::new();
     properties.insert(EDGE_PROPERTY_HEMATOCRIT.to_string(), 0.25);
     properties.insert(EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S.to_string(), 1.05e-3);
@@ -364,7 +368,7 @@ fn local_apparent_viscosity_override_changes_blood_edge_resistance() -> Result<(
     let area = std::f64::consts::PI * diameter * diameter / 4.0;
     let flow_rate = 1.5e-9;
 
-    net.set_flow_rate(edge, flow_rate);
+    net.set_flow_rate(edge, VolumetricFlowRate::from_base(flow_rate));
     let mut properties = std::collections::HashMap::new();
     properties.insert(EDGE_PROPERTY_HEMATOCRIT.to_string(), 0.25);
     properties.insert(EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S.to_string(), 1.05e-3);
@@ -459,7 +463,7 @@ fn flow_dependent_recompute_uses_shear_aware_reynolds_for_blood() -> Result<()> 
         "expected shear-aware Reynolds to remain laminar, got {shear_aware_re}"
     );
 
-    net.set_flow_rate(edge, flow_rate);
+    net.set_flow_rate(edge, VolumetricFlowRate::from_base(flow_rate));
     net.add_edge_properties(
         edge,
         EdgeProperties {
@@ -548,9 +552,9 @@ fn bifurcation_transport_propagates_phase_separated_hematocrit() -> Result<()> {
     let q_a = 2.0e-9;
     let q_b = 1.0e-9;
 
-    net.set_flow_rate(parent, q_parent);
-    net.set_flow_rate(daughter_a, q_a);
-    net.set_flow_rate(daughter_b, q_b);
+    net.set_flow_rate(parent, VolumetricFlowRate::from_base(q_parent));
+    net.set_flow_rate(daughter_a, VolumetricFlowRate::from_base(q_a));
+    net.set_flow_rate(daughter_b, VolumetricFlowRate::from_base(q_b));
 
     let make_props =
         |id: &str, diameter: f64, properties: std::collections::HashMap<String, f64>| {
@@ -658,11 +662,11 @@ fn cascade_transport_uses_parent_daughter_hematocrit_as_next_feed() -> Result<()
     let q_c = 2.0e-9;
     let q_d = 1.0e-9;
 
-    net.set_flow_rate(parent, q_parent);
-    net.set_flow_rate(branch_b, q_b);
-    net.set_flow_rate(trunk, q_trunk);
-    net.set_flow_rate(branch_c, q_c);
-    net.set_flow_rate(branch_d, q_d);
+    net.set_flow_rate(parent, VolumetricFlowRate::from_base(q_parent));
+    net.set_flow_rate(branch_b, VolumetricFlowRate::from_base(q_b));
+    net.set_flow_rate(trunk, VolumetricFlowRate::from_base(q_trunk));
+    net.set_flow_rate(branch_c, VolumetricFlowRate::from_base(q_c));
+    net.set_flow_rate(branch_d, VolumetricFlowRate::from_base(q_d));
 
     let make_props =
         |id: &str, diameter: f64, properties: std::collections::HashMap<String, f64>| {
@@ -780,9 +784,9 @@ fn reconverging_transport_mixes_incoming_rbc_fluxes() -> Result<()> {
     let hct_a = 0.20;
     let hct_b = 0.45;
 
-    net.set_flow_rate(edge_a, q_a);
-    net.set_flow_rate(edge_b, q_b);
-    net.set_flow_rate(outlet_edge, q_a + q_b);
+    net.set_flow_rate(edge_a, VolumetricFlowRate::from_base(q_a));
+    net.set_flow_rate(edge_b, VolumetricFlowRate::from_base(q_b));
+    net.set_flow_rate(outlet_edge, VolumetricFlowRate::from_base(q_a + q_b));
 
     let make_props =
         |id: &str, properties: std::collections::HashMap<String, f64>| EdgeProperties {

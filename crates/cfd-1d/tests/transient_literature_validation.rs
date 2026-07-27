@@ -10,7 +10,7 @@
 //!
 //! These tests validate transient implementations against analytical expectations.
 
-use aequitas::systems::si::quantities::HydraulicResistance;
+use aequitas::systems::si::quantities::{HydraulicResistance, Pressure};
 use cfd_1d::domain::network::{Network, NetworkBuilder};
 use cfd_1d::solver::core::{
     DropletInjection, EdgeFlowEvent, InletCompositionEvent, MixtureComposition,
@@ -34,7 +34,7 @@ fn pressure_event_flow_ratio_matches_hagen_poiseuille_scaling() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let mut network = Network::new(graph, fluid);
-    network.set_pressure(outlet, 0.0);
+    network.set_pressure(outlet, Pressure::from_base(0.0));
 
     let composition_events = vec![InletCompositionEvent {
         time: 0.0,
@@ -83,7 +83,7 @@ fn junction_mixing_matches_flow_weighted_mass_conservation() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let mut network = Network::new(graph, fluid);
-    network.set_pressure(out, 0.0);
+    network.set_pressure(out, Pressure::from_base(0.0));
 
     let composition_events = vec![
         InletCompositionEvent {
@@ -191,7 +191,7 @@ fn pressure_event_validation_operates_in_laminar_reynolds_range() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let mut network = Network::new(graph, fluid.clone());
-    network.set_pressure(outlet, 0.0);
+    network.set_pressure(outlet, Pressure::from_base(0.0));
 
     if let Some(edge_data) = network.graph.edge_weight_mut(edge) {
         edge_data.resistance = HydraulicResistance::from_base(1.0e12);

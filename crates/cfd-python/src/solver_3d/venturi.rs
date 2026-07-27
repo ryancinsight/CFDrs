@@ -11,7 +11,7 @@ use cfd_mesh::{SerpentineMeshBuilder, VenturiMeshBuilder};
 // ── 3D Venturi Solver ─────────────────────────────────────────────────────────
 
 /// 3D Venturi flow solver
-#[pyclass(name = "Venturi3DSolver")]
+#[pyclass(name = "Venturi3DSolver", skip_from_py_object)]
 pub struct PyVenturi3DSolver {
     #[pyo3(get)]
     d_inlet: f64,
@@ -112,7 +112,7 @@ impl PyVenturi3DSolver {
     }
 }
 
-#[pyclass(name = "Venturi3DResult")]
+#[pyclass(name = "Venturi3DResult", skip_from_py_object)]
 pub struct PyVenturi3DResult {
     #[pyo3(get)]
     pub u_inlet: f64,
@@ -137,7 +137,7 @@ pub struct PyVenturi3DResult {
 // ── 3D Serpentine Solver ──────────────────────────────────────────────────────
 
 /// 3D Serpentine flow solver
-#[pyclass(name = "Serpentine3DSolver")]
+#[pyclass(name = "Serpentine3DSolver", skip_from_py_object)]
 pub struct PySerpentine3DSolver {
     #[pyo3(get)]
     diameter: f64,
@@ -196,7 +196,7 @@ impl PySerpentine3DSolver {
     }
 }
 
-#[pyclass(name = "Serpentine3DResult")]
+#[pyclass(name = "Serpentine3DResult", skip_from_py_object)]
 pub struct PySerpentine3DResult {
     #[pyo3(get)]
     pub u_inlet: f64,

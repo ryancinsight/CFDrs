@@ -165,7 +165,14 @@ where
             // mesh_resolution is deliberately coarse here because these tests validate
             // physical consistency (mass conservation, sign of dp), not spatial accuracy.
             let cell_size = r_p * 2.0;
-            let tet_mesh = SdfMesher::new(cell_size).build_volume(&bifurcation_sdf);
+            let mut mesher = SdfMesher::new(cell_size);
+            // The coarse BCC lattice already supplies the boundary band used by
+            // the classifier.  Projection iterations create sliver tetrahedra
+            // at this resolution and duplicate work for every Picard solve;
+            // retain the unprojected lattice points as the validated trifurcation
+            // path does for the same coarse-flow regime.
+            mesher.snap_iterations = 0;
+            let tet_mesh = mesher.build_volume(&bifurcation_sdf);
 
             // P2 promotion: inject one midpoint vertex per unique tetrahedral edge.
             // Mid-nodes occupy indices [n_corner_nodes, vertex_count).

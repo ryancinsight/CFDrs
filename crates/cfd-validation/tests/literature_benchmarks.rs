@@ -14,8 +14,8 @@
 //! - Ferziger, J.H., & Perić, M. (2019). "Computational Methods for Fluid Dynamics"
 //!   (4th ed.). Springer.
 
-use eunomia::assert_relative_eq;
 use cfd_validation::analytical::{AnalyticalSolution, PoiseuilleFlow, PoiseuilleGeometry};
+use eunomia::assert_relative_eq;
 
 /// Test Poiseuille flow analytical solution against White (2006) exact solution
 ///

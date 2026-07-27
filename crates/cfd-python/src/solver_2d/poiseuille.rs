@@ -27,7 +27,7 @@ use cfd_core::physics::fluid::blood::{CarreauYasudaBlood, CassonBlood};
 /// - W: channel width
 /// - μ: dynamic viscosity
 /// - dp/dx: pressure gradient
-#[pyclass(name = "Poiseuille2DSolver")]
+#[pyclass(name = "Poiseuille2DSolver", skip_from_py_object)]
 pub struct PyPoiseuille2DSolver {
     #[pyo3(get)]
     height: f64,
@@ -157,7 +157,7 @@ impl PyPoiseuille2DSolver {
 // ── Result ───────────────────────────────────────────────────────────────────
 
 /// Result from 2D Poiseuille flow simulation
-#[pyclass(name = "Poiseuille2DResult")]
+#[pyclass(name = "Poiseuille2DResult", skip_from_py_object)]
 pub struct PyPoiseuille2DResult {
     #[pyo3(get)]
     pub max_velocity: f64,

@@ -38,4 +38,3 @@ impl<T: RealField + FloatElement + Copy> Interpolation<T> for LinearInterpolatio
         self.0.bounds()
     }
 }
-

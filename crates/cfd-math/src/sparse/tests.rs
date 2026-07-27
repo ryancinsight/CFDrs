@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 use super::*;
-use eunomia::assert_relative_eq;
 use cfd_core::error::Result;
+use eunomia::assert_relative_eq;
 use leto::Array1;
 
 #[test]

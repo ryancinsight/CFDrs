@@ -84,9 +84,9 @@ pub mod edge_case_testing;
 pub mod error_metrics;
 pub mod geometry;
 pub mod literature;
+pub mod manufactured;
 /// Atlas-native 2D matrix wrapper used by validation internals.
 pub mod matrix;
-pub mod manufactured;
 pub mod numerical;
 pub mod reporting;
 mod scalar;

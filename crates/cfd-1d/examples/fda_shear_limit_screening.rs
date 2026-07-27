@@ -11,6 +11,7 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example fda_shear_limit_screening`
 
+use aequitas::systems::si::quantities::Pressure;
 use cfd_1d::{
     BloodShearLimits, EdgeProperties, Network, NetworkAnalysisResult, NetworkAnalyzerOrchestrator,
     NetworkBuilder,
@@ -58,8 +59,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     network.update_resistances()?;
 
     // Pressure-driven setup.
-    network.set_pressure(inlet, 12_000.0);
-    network.set_pressure(outlet, 0.0);
+    network.set_pressure(inlet, Pressure::from_base(12_000.0));
+    network.set_pressure(outlet, Pressure::from_base(0.0));
 
     let mut analyzer = NetworkAnalyzerOrchestrator::<f64>::new();
     let result: NetworkAnalysisResult<f64> = analyzer.analyze(&mut network)?;

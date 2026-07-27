@@ -5,7 +5,7 @@ use crate::domain::channel::ChannelGeometry;
 use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::{
     Area, HydraulicConductance, HydraulicResistance, Length, QuadraticHydraulicResistance,
-    VolumetricFlowRate,
+    Pressure, VolumetricFlowRate,
 };
 use cfd_core::{
     conversion::{SafeFromF64, SafeFromUsize},
@@ -15,9 +15,9 @@ use cfd_core::{
 };
 use eunomia::{FloatElement, NumericElement};
 use leto::Array1;
-use petgraph::Direction;
 use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
+use petgraph::Direction;
 use std::collections::HashMap;
 
 /// Extended network with fluid properties and convenience methods
@@ -30,9 +30,9 @@ pub struct Network<T: Cfd1dScalar + Copy, F: FluidTrait<T> = ConstantPropertyFlu
     /// Prescribed boundary conditions
     boundary_conditions: HashMap<NodeIndex, BoundaryCondition<T>>,
     /// Node pressures indexed by `NodeIndex::index()`.
-    pub pressures: Vec<T>,
+    pub pressures: Vec<Pressure<T>>,
     /// Edge flow rates indexed by `EdgeIndex::index()`.
-    pub flow_rates: Vec<T>,
+    pub flow_rates: Vec<VolumetricFlowRate<T>>,
     /// Edge properties
     pub properties: HashMap<EdgeIndex, EdgeProperties<T>>,
     /// Residuals from the last solver run
@@ -200,8 +200,8 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             graph,
             fluid,
             boundary_conditions: HashMap::new(),
-            pressures: vec![T::zero(); n_nodes],
-            flow_rates: vec![T::zero(); n_edges],
+            pressures: vec![Pressure::from_base(T::zero()); n_nodes],
+            flow_rates: vec![VolumetricFlowRate::from_base(T::zero()); n_edges],
             properties: HashMap::new(),
             residuals: Vec::new(),
             last_solver_method: None,
@@ -225,12 +225,11 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                     .get(&edge_idx)
                     .map(|props| EdgeWithProperties {
                         id: edge_data.id.clone(),
-                        flow_rate: VolumetricFlowRate::from_base(
-                            self.flow_rates
-                                .get(edge_idx.index())
-                                .copied()
-                                .unwrap_or(T::zero()),
-                        ),
+                        flow_rate: self
+                            .flow_rates
+                            .get(edge_idx.index())
+                            .copied()
+                            .unwrap_or_else(|| VolumetricFlowRate::from_base(T::zero())),
                         nodes: (from, to),
                         properties: props,
                     })
@@ -244,12 +243,12 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
     }
 
     /// Get node pressures as a slice indexed by `NodeIndex::index()`.
-    pub fn pressures(&self) -> &[T] {
+    pub fn pressures(&self) -> &[Pressure<T>] {
         &self.pressures
     }
 
     /// Get edge flow rates as a slice indexed by `EdgeIndex::index()`.
-    pub fn flow_rates(&self) -> &[T] {
+    pub fn flow_rates(&self) -> &[VolumetricFlowRate<T>] {
         &self.flow_rates
     }
 
@@ -259,27 +258,28 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
     }
 
     /// Set a Dirichlet pressure boundary condition
-    pub fn set_pressure(&mut self, node: NodeIndex, pressure: T) {
+    pub fn set_pressure(&mut self, node: NodeIndex, pressure: Pressure<T>) {
         self.boundary_conditions.insert(
             node,
             BoundaryCondition::Dirichlet {
-                value: pressure,
+                value: pressure.into_base(),
                 component_values: None,
             },
         );
         let idx = node.index();
         if idx >= self.pressures.len() {
-            self.pressures.resize(idx + 1, T::zero());
+            self.pressures
+                .resize(idx + 1, Pressure::from_base(T::zero()));
         }
         self.pressures[idx] = pressure;
     }
 
     /// Set a Neumann (flow) boundary condition
-    pub fn set_neumann_flow(&mut self, node: NodeIndex, flow_rate: T) {
+    pub fn set_neumann_flow(&mut self, node: NodeIndex, flow_rate: VolumetricFlowRate<T>) {
         self.boundary_conditions.insert(
             node,
             BoundaryCondition::Neumann {
-                gradient: flow_rate,
+                gradient: flow_rate.into_base(),
             },
         );
     }
@@ -289,22 +289,24 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
         if let BoundaryCondition::Dirichlet { value, .. } = &condition {
             let idx = node.index();
             if idx >= self.pressures.len() {
-                self.pressures.resize(idx + 1, T::zero());
+                self.pressures
+                    .resize(idx + 1, Pressure::from_base(T::zero()));
             }
-            self.pressures[idx] = *value;
+            self.pressures[idx] = Pressure::from_base(*value);
         }
         self.boundary_conditions.insert(node, condition);
     }
 
     /// Set flow rate for an edge
-    pub fn set_flow_rate(&mut self, edge: EdgeIndex, flow_rate: T) {
+    pub fn set_flow_rate(&mut self, edge: EdgeIndex, flow_rate: VolumetricFlowRate<T>) {
         let idx = edge.index();
         if idx >= self.flow_rates.len() {
-            self.flow_rates.resize(idx + 1, T::zero());
+            self.flow_rates
+                .resize(idx + 1, VolumetricFlowRate::from_base(T::zero()));
         }
         self.flow_rates[idx] = flow_rate;
         if let Some(edge_data) = self.graph.edge_weight_mut(edge) {
-            edge_data.flow_rate = VolumetricFlowRate::from_base(flow_rate);
+            edge_data.flow_rate = flow_rate;
         }
     }
 
@@ -348,14 +350,16 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
     {
         // Direct copy: pressures[i] = solution[i]
         let n = solution.size();
-        self.pressures.resize(n, T::zero());
+        self.pressures
+            .resize(n, Pressure::from_base(T::zero()));
         for i in 0..n {
-            self.pressures[i] = solution[i];
+            self.pressures[i] = Pressure::from_base(solution[i]);
         }
 
         let epsilon = T::default_epsilon();
         let n_edges = self.graph.edge_count();
-        self.flow_rates.resize(n_edges, T::zero());
+        self.flow_rates
+            .resize(n_edges, VolumetricFlowRate::from_base(T::zero()));
         let edge_indices: Vec<_> = self.graph.edge_indices().collect();
         let update_context = self.resistance_update_context()?;
 
@@ -417,7 +421,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
             }
             let flow = dp / r_eff;
 
-            self.flow_rates[edge_idx.index()] = flow;
+            self.flow_rates[edge_idx.index()] = VolumetricFlowRate::from_base(flow);
 
             if let Some(edge) = self.graph.edge_weight_mut(edge_idx) {
                 edge.flow_rate = VolumetricFlowRate::from_base(flow);
@@ -430,6 +434,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
+                .map(VolumetricFlowRate::into_base)
                 .unwrap_or(T::zero());
             self.update_single_edge_resistance(edge_idx, flow, &update_context)?;
         }
@@ -635,6 +640,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
+                .map(VolumetricFlowRate::into_base)
                 .unwrap_or(T::zero());
             self.update_single_edge_resistance(edge_idx, flow_rate, &context)?;
         }
@@ -813,6 +819,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
+                .map(VolumetricFlowRate::into_base)
                 .unwrap_or_else(T::zero);
             if inflow && flow > T::zero() {
                 fluxes.push((edge_idx, flow));
@@ -827,6 +834,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
+                .map(VolumetricFlowRate::into_base)
                 .unwrap_or_else(T::zero);
             if inflow && flow < T::zero() {
                 fluxes.push((edge_idx, -flow));

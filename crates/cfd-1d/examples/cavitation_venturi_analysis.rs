@@ -14,6 +14,7 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example cavitation_venturi_analysis`
 
+use aequitas::systems::si::quantities::Pressure;
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
@@ -25,10 +26,10 @@ use cfd_schematics::geometry::generator::create_geometry;
 
 use cfd_schematics::geometry::SplitType;
 use cfd_schematics::plot_geometry;
-use cfd_schematics::visualizations::RenderConfig;
 use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
+use cfd_schematics::visualizations::RenderConfig;
 use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
@@ -111,10 +112,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let idx = id_map[spec.id.as_str()];
         match spec.kind {
             cfd_schematics::domain::model::NodeKind::Inlet => {
-                network.set_pressure(idx, inlet_pressure)
+                network.set_pressure(idx, Pressure::from_base(inlet_pressure))
             }
             cfd_schematics::domain::model::NodeKind::Outlet => {
-                network.set_pressure(idx, outlet_pressure)
+                network.set_pressure(idx, Pressure::from_base(outlet_pressure))
             }
             _ => {}
         }
@@ -142,6 +143,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Node pressures
     for (nidx, &p) in solution.pressures.iter().enumerate() {
+        let p = p.into_base();
         if let Some(node) = solution
             .graph
             .node_weight(petgraph::graph::NodeIndex::new(nidx))
@@ -153,6 +155,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     for (eidx, &q) in solution.flow_rates.iter().enumerate() {
+        let q = q.into_base();
         let Some(edge) = solution
             .graph
             .edge_weight(petgraph::graph::EdgeIndex::new(eidx))
@@ -175,14 +178,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .graph
                 .edge_endpoints(petgraph::graph::EdgeIndex::new(eidx))
                 .expect("invariant: every solved channel index names a graph edge");
-            let p_src = *solution
+            let p_src = solution
                 .pressures
                 .get(src.index())
-                .unwrap_or(&inlet_pressure);
-            let p_dst = *solution
+                .copied()
+                .map(aequitas::systems::si::quantities::Pressure::into_base)
+                .unwrap_or(inlet_pressure);
+            let p_dst = solution
                 .pressures
                 .get(dst.index())
-                .unwrap_or(&outlet_pressure);
+                .copied()
+                .map(aequitas::systems::si::quantities::Pressure::into_base)
+                .unwrap_or(outlet_pressure);
             let local_pressure = (p_src + p_dst) / 2.0;
 
             let cav_num = CavitationNumber {

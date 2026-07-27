@@ -11,8 +11,8 @@
 //!   Journal of Fluid Mechanics, 130, 411-452.
 //! - White, F.M. (2006). "Viscous Fluid Flow" (3rd ed.). McGraw-Hill.
 
-use eunomia::assert_relative_eq;
 use cfd_validation::analytical::{AnalyticalSolution, CouetteFlow, TaylorGreenVortex};
+use eunomia::assert_relative_eq;
 
 /// Test Taylor-Green vortex energy decay
 ///

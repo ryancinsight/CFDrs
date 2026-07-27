@@ -16,17 +16,17 @@
 
 use crate::domain::network::Network;
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::{Pressure, Time, VolumetricFlowRate};
 use cfd_core::physics::fluid::FluidTrait;
-use leto::Array1;
 /// State representation for a 1D network
 #[derive(Debug, Clone)]
 pub struct NetworkState<T: Cfd1dScalar + Copy> {
     /// Node pressures
-    pub pressures: Array1<T>,
+    pub pressures: Vec<Pressure<T>>,
     /// Edge flow rates
-    pub flow_rates: Array1<T>,
+    pub flow_rates: Vec<VolumetricFlowRate<T>>,
     /// Time for transient simulations
-    pub time: T,
+    pub time: Time<T>,
 }
 
 impl<T: Cfd1dScalar + Copy> NetworkState<T> {
@@ -34,9 +34,9 @@ impl<T: Cfd1dScalar + Copy> NetworkState<T> {
     #[must_use]
     pub fn new(num_nodes: usize, num_edges: usize) -> Self {
         Self {
-            pressures: Array1::from_elem([num_nodes], T::zero()),
-            flow_rates: Array1::from_elem([num_edges], T::zero()),
-            time: T::zero(),
+            pressures: vec![Pressure::from_base(T::zero()); num_nodes],
+            flow_rates: vec![VolumetricFlowRate::from_base(T::zero()); num_edges],
+            time: Time::from_base(T::zero()),
         }
     }
 
@@ -45,7 +45,7 @@ impl<T: Cfd1dScalar + Copy> NetworkState<T> {
         let num_nodes = network.node_count();
         let num_edges = network.edge_count();
 
-        let mut pressures = vec![T::zero(); num_nodes];
+        let mut pressures = vec![Pressure::from_base(T::zero()); num_nodes];
         for (pressure, value) in pressures
             .iter_mut()
             .zip(network.pressures().iter().copied())
@@ -53,7 +53,7 @@ impl<T: Cfd1dScalar + Copy> NetworkState<T> {
             *pressure = value;
         }
 
-        let mut flow_rates = vec![T::zero(); num_edges];
+        let mut flow_rates = vec![VolumetricFlowRate::from_base(T::zero()); num_edges];
         for (flow_rate, value) in flow_rates
             .iter_mut()
             .zip(network.flow_rates().iter().copied())
@@ -62,21 +62,19 @@ impl<T: Cfd1dScalar + Copy> NetworkState<T> {
         }
 
         Self {
-            pressures: Array1::from_shape_vec([num_nodes], pressures)
-                .expect("invariant: pressure vector length matches network node count"),
-            flow_rates: Array1::from_shape_vec([num_edges], flow_rates)
-                .expect("invariant: flow-rate vector length matches network edge count"),
-            time: T::zero(),
+            pressures,
+            flow_rates,
+            time: Time::from_base(T::zero()),
         }
     }
 
     /// Get time
-    pub fn time(&self) -> T {
+    pub fn time(&self) -> Time<T> {
         self.time
     }
 
     /// Set time
-    pub fn set_time(&mut self, time: T) {
+    pub fn set_time(&mut self, time: Time<T>) {
         self.time = time;
     }
 }
@@ -84,43 +82,44 @@ impl<T: Cfd1dScalar + Copy> NetworkState<T> {
 #[cfg(test)]
 mod tests {
     use super::NetworkState;
+    use aequitas::systems::si::quantities::{Pressure, Time, VolumetricFlowRate};
 
     #[test]
     fn new_allocates_leto_state_vectors_with_zero_values() {
         let state = NetworkState::<f64>::new(3, 2);
 
-        assert_eq!(state.pressures.shape(), [3]);
-        assert_eq!(state.flow_rates.shape(), [2]);
-        assert_eq!(state.time(), 0.0);
+        assert_eq!(state.pressures.len(), 3);
+        assert_eq!(state.flow_rates.len(), 2);
+        assert_eq!(state.time(), Time::from_base(0.0));
         assert_eq!(
-            (0..state.pressures.shape()[0])
+            (0..state.pressures.len())
                 .map(|idx| state.pressures[idx])
                 .collect::<Vec<_>>(),
-            vec![0.0, 0.0, 0.0]
+            vec![Pressure::from_base(0.0); 3]
         );
         assert_eq!(
-            (0..state.flow_rates.shape()[0])
+            (0..state.flow_rates.len())
                 .map(|idx| state.flow_rates[idx])
                 .collect::<Vec<_>>(),
-            vec![0.0, 0.0]
+            vec![VolumetricFlowRate::from_base(0.0); 2]
         );
     }
 
     #[test]
     fn cloned_state_preserves_leto_vector_values() {
         let mut state = NetworkState::<f64>::new(2, 1);
-        state.pressures[0] = 101_325.0;
-        state.pressures[1] = 99_000.0;
-        state.flow_rates[0] = 0.25;
-        state.set_time(1.5);
+        state.pressures[0] = Pressure::from_base(101_325.0);
+        state.pressures[1] = Pressure::from_base(99_000.0);
+        state.flow_rates[0] = VolumetricFlowRate::from_base(0.25);
+        state.set_time(Time::from_base(1.5));
 
         let cloned = state.clone();
 
-        assert_eq!(cloned.pressures.shape(), [2]);
-        assert_eq!(cloned.flow_rates.shape(), [1]);
-        assert_eq!(cloned.pressures[0], 101_325.0);
-        assert_eq!(cloned.pressures[1], 99_000.0);
-        assert_eq!(cloned.flow_rates[0], 0.25);
-        assert_eq!(cloned.time(), 1.5);
+        assert_eq!(cloned.pressures.len(), 2);
+        assert_eq!(cloned.flow_rates.len(), 1);
+        assert_eq!(cloned.pressures[0], Pressure::from_base(101_325.0));
+        assert_eq!(cloned.pressures[1], Pressure::from_base(99_000.0));
+        assert_eq!(cloned.flow_rates[0], VolumetricFlowRate::from_base(0.25));
+        assert_eq!(cloned.time(), Time::from_base(1.5));
     }
 }

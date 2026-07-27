@@ -21,12 +21,12 @@
 
 use cfd_mesh::domain::core::Scalar;
 use cfd_mesh::IndexedMesh;
-use eunomia::{FloatElement, NumericElement};
 use eunomia::RealField;
+use eunomia::{FloatElement, NumericElement};
 use std::collections::HashMap;
 
-use crate::linalg::vector3_from_indexed;
 use super::scalar;
+use crate::linalg::vector3_from_indexed;
 
 /// Map from canonical edge pair `(min(v_i, v_j), max(v_i, v_j))` → mid-node index.
 ///

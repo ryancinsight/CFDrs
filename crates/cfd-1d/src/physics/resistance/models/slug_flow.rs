@@ -191,8 +191,8 @@ impl<T: ResistanceScalar> ResistanceModel<T> for SlugFlowModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::ConstantPropertyFluid;
+    use eunomia::assert_relative_eq;
 
     fn test_fluid() -> ConstantPropertyFluid<f64> {
         ConstantPropertyFluid::new(

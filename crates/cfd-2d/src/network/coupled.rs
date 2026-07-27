@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use aequitas::systems::si::quantities::{
-    HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+    HydraulicResistance, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
 };
 
 use crate::scalar::Cfd2dScalar;
@@ -196,8 +196,8 @@ where
             &mut working_network,
             &self.blueprint,
             &node_indices,
-            scalar::one(),
-            scalar::zero(),
+            Pressure::from_base(scalar::one()),
+            Pressure::from_base(scalar::zero()),
         )?;
         let seed_state_by_channel_id: HashMap<&str, (T, T)> = self
             .channels
@@ -225,13 +225,15 @@ where
                 if !<T as NumericElement>::is_finite(edge.resistance.into_base())
                     || edge.resistance.into_base() <= scalar::zero()
                 {
-                    edge.resistance = HydraulicResistance::from_base(scalar::from_f64(MIN_LINEAR_RESISTANCE));
+                    edge.resistance =
+                        HydraulicResistance::from_base(scalar::from_f64(MIN_LINEAR_RESISTANCE));
                 }
                 if let Some(edge_id) = edge_id.as_deref() {
                     if let Some((seed_flow, seed_resistance)) =
                         seed_state_by_channel_id.get(edge_id)
                     {
-                        working_network.flow_rates[edge_idx.index()] = *seed_flow;
+                        working_network.flow_rates[edge_idx.index()] =
+                            VolumetricFlowRate::from_base(*seed_flow);
                         edge.flow_rate = VolumetricFlowRate::from_base(*seed_flow);
                         edge.resistance = HydraulicResistance::from_base(*seed_resistance);
                     }
@@ -242,7 +244,8 @@ where
                 if !<T as NumericElement>::is_finite(props.resistance.into_base())
                     || props.resistance.into_base() <= scalar::zero()
                 {
-                    props.resistance = HydraulicResistance::from_base(scalar::from_f64(MIN_LINEAR_RESISTANCE));
+                    props.resistance =
+                        HydraulicResistance::from_base(scalar::from_f64(MIN_LINEAR_RESISTANCE));
                 }
                 if let Some(edge_id) = edge_id.as_deref() {
                     if let Some((_, seed_resistance)) = seed_state_by_channel_id.get(edge_id) {
@@ -457,7 +460,10 @@ where
                     channel_result.channel_id.as_str()
                 )));
             };
-            (edge_weight.resistance.into_base(), edge_weight.quad_coeff.into_base())
+            (
+                edge_weight.resistance.into_base(),
+                edge_weight.quad_coeff.into_base(),
+            )
         };
         let flow_abs = <T as NumericElement>::abs(channel_trace.flow_rate_m3_s);
         let target_linear = if flow_abs > flow_floor {

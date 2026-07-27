@@ -134,8 +134,7 @@ impl<T: cfd_mesh::domain::core::Scalar + FloatElement> KEpsilonModel<T> {
         let mut k_field = Vec::with_capacity(n);
 
         for vel in &flow_field.velocity.components {
-            let u_mag =
-                <T as NumericElement>::sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+            let u_mag = <T as NumericElement>::sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
             let three_half = (T::ONE + T::ONE + T::ONE) / (T::ONE + T::ONE);
             let k = three_half * <T as FloatElement>::powi(u_mag * turbulence_intensity, 2);
             k_field.push(k);

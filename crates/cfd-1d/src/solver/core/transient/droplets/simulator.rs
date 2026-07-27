@@ -5,11 +5,12 @@ use super::types::{
 };
 use crate::domain::network::{Network, NodeType};
 use crate::scalar::Cfd1dScalar;
-use crate::solver::core::NetworkSolveScalar;
 use crate::solver::core::transient::composition::{
     CompositionState, EdgeFlowEvent, InletCompositionEvent, PressureBoundaryEvent,
     TransientCompositionSimulator,
 };
+use crate::solver::core::NetworkSolveScalar;
+use aequitas::systems::si::quantities::VolumetricFlowRate;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::{FloatElement, NumericElement};
@@ -203,7 +204,10 @@ impl TransientDropletSimulator {
             let dt = (state.time - previous_time).max(T::zero());
             previous_time = state.time;
             for (edge_idx, flow_rate) in &state.edge_flow_rates {
-                state_network.set_flow_rate(EdgeIndex::new(*edge_idx), *flow_rate);
+                state_network.set_flow_rate(
+                    EdgeIndex::new(*edge_idx),
+                    VolumetricFlowRate::from_base(*flow_rate),
+                );
             }
 
             for injection in &injections_sorted {
@@ -302,7 +306,11 @@ impl TransientDropletSimulator {
         let one = T::one();
         network.properties.get(&edge).map_or(one, |p| {
             let area = p.area.into_base();
-            if area > T::zero() { area } else { one }
+            if area > T::zero() {
+                area
+            } else {
+                one
+            }
         })
     }
 
@@ -313,7 +321,11 @@ impl TransientDropletSimulator {
         let one = T::one();
         network.properties.get(&edge).map_or(one, |p| {
             let length = p.length.into_base();
-            if length > T::zero() { length } else { one }
+            if length > T::zero() {
+                length
+            } else {
+                one
+            }
         })
     }
 
@@ -412,6 +424,7 @@ impl TransientDropletSimulator {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
+                .map(VolumetricFlowRate::into_base)
                 .unwrap_or(T::zero());
             if <T as NumericElement>::abs(q) <= eps {
                 out_branches.push(branch);
@@ -671,6 +684,7 @@ impl TransientDropletSimulator {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
+                .map(VolumetricFlowRate::into_base)
                 .unwrap_or(T::zero());
 
             if <T as NumericElement>::abs(q) <= eps {

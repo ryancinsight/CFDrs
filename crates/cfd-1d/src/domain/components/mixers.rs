@@ -49,7 +49,7 @@
 //! - `n_bends ≥ 1` for serpentine/herringbone
 //! - `efficiency ∈ [0, 1]` (clamped on set)
 
-use super::{Component, real_from_f64};
+use super::{real_from_f64, Component};
 use crate::scalar::Cfd1dScalar;
 use aequitas::systems::si::quantities::Length;
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};

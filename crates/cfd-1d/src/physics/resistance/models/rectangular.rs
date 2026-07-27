@@ -245,8 +245,8 @@ impl<T: ResistanceScalar> RectangularChannelModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::{CassonBlood, ConstantPropertyFluid};
+    use eunomia::assert_relative_eq;
 
     fn water() -> ConstantPropertyFluid<f64> {
         ConstantPropertyFluid::new(

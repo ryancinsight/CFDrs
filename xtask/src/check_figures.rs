@@ -47,8 +47,8 @@ fn parse_figure_refs(path: &Path) -> Result<(String, Vec<DocsFigureRef>)> {
         .and_then(|n| n.to_str())
         .ok_or_else(|| anyhow!("path has no filename: {}", path.display()))?
         .to_owned();
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("reading {}", path.display()))?;
+    let content =
+        fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let mut refs: Vec<DocsFigureRef> = Vec::new();
 
     for (lineno, line) in content.lines().enumerate() {
@@ -97,10 +97,7 @@ pub fn run_check_figures(workspace_root: &Path) -> Result<CheckFiguresReport> {
     let (_, readme_refs) = parse_figure_refs(&readme_path)
         .with_context(|| format!("parsing {}", readme_path.display()))?;
 
-    let all_docs_refs: Vec<DocsFigureRef> = summary_refs
-        .into_iter()
-        .chain(readme_refs)
-        .collect();
+    let all_docs_refs: Vec<DocsFigureRef> = summary_refs.into_iter().chain(readme_refs).collect();
 
     let mut docs_figures: BTreeSet<String> = BTreeSet::new();
     for r in &all_docs_refs {
@@ -131,9 +128,7 @@ pub fn run_check_figures(workspace_root: &Path) -> Result<CheckFiguresReport> {
 /// 0 = in sync, 1 = drift detected.  The caller (`main.rs`) is expected
 /// to map a `1` to `std::process::exit(1)` so CI sees the failure.
 pub fn print_check_figures_report(report: &CheckFiguresReport) -> i32 {
-    println!(
-        "check-figures: SSOT drift verification (SUMMARY.md + README.md vs FIGURE_SPECS)"
-    );
+    println!("check-figures: SSOT drift verification (SUMMARY.md + README.md vs FIGURE_SPECS)");
     println!();
     println!("  FIGURE_SPECS entries  : {}", report.specs_figures.len());
     println!("  Docs references       : {}", report.docs_figures.len());

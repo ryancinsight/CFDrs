@@ -37,7 +37,8 @@ fn branch_quad_coeff(bp: &NetworkBlueprint, edge_id: &str) -> f64 {
         .find(|edge| edge.weight().id == edge_id)
         .expect("branch edge must exist")
         .weight()
-        .quad_coeff.into_base()
+        .quad_coeff
+        .into_base()
 }
 
 fn edge_coefficients(bp: &NetworkBlueprint, edge_id: &str) -> (f64, f64) {

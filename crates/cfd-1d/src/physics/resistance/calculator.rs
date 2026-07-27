@@ -372,9 +372,9 @@ mod tests {
     use crate::physics::resistance::models::{
         DarcyWeisbachModel, HagenPoiseuilleModel, RectangularChannelModel, ResistanceModel,
     };
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::blood::CarreauYasudaBlood;
     use cfd_core::physics::fluid::ConstantFluid;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_hagen_poiseuille() -> Result<()> {

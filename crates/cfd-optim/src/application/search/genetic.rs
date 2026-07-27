@@ -741,8 +741,16 @@ fn diversity_signature(candidate: &BlueprintRankedCandidate) -> DiversitySignatu
         .map(|placement| placement.dean_number)
         .fold(0.0_f64, f64::max);
     DiversitySignature {
-        flow_rate_m3_s: candidate.candidate.operating_point.flow_rate_m3_s.into_base(),
-        inlet_gauge_pa: candidate.candidate.operating_point.inlet_gauge_pa.into_base(),
+        flow_rate_m3_s: candidate
+            .candidate
+            .operating_point
+            .flow_rate_m3_s
+            .into_base(),
+        inlet_gauge_pa: candidate
+            .candidate
+            .operating_point
+            .inlet_gauge_pa
+            .into_base(),
         throat_width_m: if throat_width_m.is_finite() {
             throat_width_m
         } else {
@@ -1060,7 +1068,8 @@ fn candidate_key(candidate: &BlueprintCandidate) -> Result<CandidateFingerprint,
     topology.hash(&mut hasher);
     Ok(CandidateFingerprint {
         topology_hash: hasher.finish(),
-        flow_rate_quantized: (candidate.operating_point.flow_rate_m3_s.into_base() * 1.0e12).round() as i64,
+        flow_rate_quantized: (candidate.operating_point.flow_rate_m3_s.into_base() * 1.0e12).round()
+            as i64,
         inlet_gauge_quantized: (candidate.operating_point.inlet_gauge_pa.into_base() * 1.0e3)
             .round() as i64,
         hematocrit_quantized: (candidate.operating_point.feed_hematocrit * 1.0e6).round() as i64,

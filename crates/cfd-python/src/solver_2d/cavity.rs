@@ -69,7 +69,7 @@ const GHIA_V_RE100: [(f64, f64); 17] = [
 ///   Ghia, U.K.N.G., Ghia, K.N., Shin, C.T. (1982). "High-Re solutions for
 ///   incompressible flow using the Navier-Stokes equations and a multigrid
 ///   method". Journal of Computational Physics, 48(3):387-411.
-#[pyclass(name = "CavitySolver2D")]
+#[pyclass(name = "CavitySolver2D", skip_from_py_object)]
 pub struct PyCavitySolver2D {
     #[pyo3(get)]
     reynolds: f64,
@@ -194,7 +194,7 @@ impl PyCavitySolver2D {
 // ── Result ───────────────────────────────────────────────────────────────────
 
 /// Result from lid-driven cavity simulation
-#[pyclass(name = "CavityResult2D")]
+#[pyclass(name = "CavityResult2D", skip_from_py_object)]
 #[derive(Debug, Clone)]
 pub struct PyCavityResult2D {
     #[pyo3(get)]

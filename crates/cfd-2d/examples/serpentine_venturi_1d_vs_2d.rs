@@ -33,6 +33,7 @@
 #![allow(clippy::cast_precision_loss)]
 
 use std::fs;
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use std::path::PathBuf;
 
 // ── cfd-schematics ──────────────────────────────────────────────────────────
@@ -145,10 +146,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let q_per_inlet = INLET_FLOW_M3_S / inlet_nodes.len() as f64;
     for &n in &inlet_nodes {
-        network.set_neumann_flow(n, q_per_inlet);
+        network.set_neumann_flow(n, VolumetricFlowRate::from_base(q_per_inlet));
     }
     for &n in &outlet_nodes {
-        network.set_pressure(n, 0.0);
+        network.set_pressure(n, Pressure::from_base(0.0));
     }
 
     let config_1d = SolverConfig {
@@ -163,7 +164,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Extract 1D results per channel
     let inlet_p: f64 = inlet_nodes
         .iter()
-        .filter_map(|idx| solved.pressures.get(idx.index()).copied())
+        .filter_map(|idx| {
+            solved
+                .pressures
+                .get(idx.index())
+                .copied()
+                .map(Pressure::into_base)
+        })
         .sum::<f64>()
         / inlet_nodes.len() as f64;
 
@@ -193,13 +200,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .flow_rates
             .get(eid.index())
             .copied()
+            .map(VolumetricFlowRate::into_base)
             .unwrap_or(edge.flow_rate.into_base());
         let p_from = solved
             .pressures
             .get(from_idx.index())
             .copied()
+            .map(Pressure::into_base)
             .unwrap_or(0.0);
-        let p_to = solved.pressures.get(to_idx.index()).copied().unwrap_or(0.0);
+        let p_to = solved
+            .pressures
+            .get(to_idx.index())
+            .copied()
+            .map(Pressure::into_base)
+            .unwrap_or(0.0);
         let dp = (p_from - p_to).abs();
 
         // Estimate wall shear from 1D Poiseuille: τ_w = 6μQ / (w·h²) (rectangular)

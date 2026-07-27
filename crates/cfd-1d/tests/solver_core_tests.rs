@@ -3,11 +3,11 @@
 //!
 //! All tests use the correct `NetworkBuilder → Network → NetworkProblem → NetworkSolver` chain.
 
-use aequitas::systems::si::quantities::HydraulicResistance;
-use eunomia::assert_relative_eq;
+use aequitas::systems::si::quantities::{HydraulicResistance, Pressure};
 use cfd_1d::solver::core::ConvergenceChecker;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 use cfd_core::physics::fluid::database::water_20c;
+use eunomia::assert_relative_eq;
 use leto::Array1;
 use petgraph::visit::EdgeRef;
 
@@ -49,8 +49,8 @@ fn test_solver_ohms_law_single_edge() {
     }
 
     let mut network = Network::new(graph, fluid.clone());
-    network.set_pressure(inlet, p_in);
-    network.set_pressure(outlet, 0.0);
+    network.set_pressure(inlet, Pressure::from_base(p_in));
+    network.set_pressure(outlet, Pressure::from_base(0.0));
 
     let problem = NetworkProblem::new(network);
     let solver = NetworkSolver::new();
@@ -64,11 +64,13 @@ fn test_solver_ohms_law_single_edge() {
                 .pressures()
                 .get(e.source().index())
                 .copied()
+                .map(Pressure::into_base)
                 .unwrap_or(0.0);
             let p_to = solved
                 .pressures()
                 .get(e.target().index())
                 .copied()
+                .map(Pressure::into_base)
                 .unwrap_or(0.0);
             (p_from - p_to) / e.weight().resistance.into_base()
         })
@@ -107,9 +109,9 @@ fn test_solver_y_junction_kcl() {
     }
 
     let mut network = Network::new(graph, fluid.clone());
-    network.set_pressure(n_in, 1000.0);
-    network.set_pressure(n_out1, 0.0);
-    network.set_pressure(n_out2, 0.0);
+    network.set_pressure(n_in, Pressure::from_base(1000.0));
+    network.set_pressure(n_out1, Pressure::from_base(0.0));
+    network.set_pressure(n_out2, Pressure::from_base(0.0));
 
     let problem = NetworkProblem::new(network);
     let solver = NetworkSolver::new();
@@ -122,11 +124,13 @@ fn test_solver_y_junction_kcl() {
             .pressures()
             .get(e.source().index())
             .copied()
+            .map(Pressure::into_base)
             .unwrap_or(0.0);
         let p_to = solved
             .pressures()
             .get(e.target().index())
             .copied()
+            .map(Pressure::into_base)
             .unwrap_or(0.0);
         let q = (p_from - p_to) / e.weight().resistance.into_base();
         if e.target() == n_mid {
@@ -163,9 +167,9 @@ fn test_owned_solver_matches_borrowed_problem_path() {
     }
 
     let mut network = Network::new(graph, fluid);
-    network.set_pressure(inlet, 1000.0);
-    network.set_pressure(out1, 0.0);
-    network.set_pressure(out2, 0.0);
+    network.set_pressure(inlet, Pressure::from_base(1000.0));
+    network.set_pressure(out1, Pressure::from_base(0.0));
+    network.set_pressure(out2, Pressure::from_base(0.0));
 
     let solver = NetworkSolver::new();
     let borrowed = solver
@@ -177,10 +181,10 @@ fn test_owned_solver_matches_borrowed_problem_path() {
     assert_eq!(borrowed.flow_rates().len(), owned.flow_rates().len());
 
     for (lhs, rhs) in borrowed.pressures().iter().zip(owned.pressures().iter()) {
-        assert_relative_eq!(*lhs, *rhs, max_relative = 1e-12, epsilon = 1e-12);
+        assert_relative_eq!(lhs.into_base(), rhs.into_base(), max_relative = 1e-12, epsilon = 1e-12);
     }
     for (lhs, rhs) in borrowed.flow_rates().iter().zip(owned.flow_rates().iter()) {
-        assert_relative_eq!(*lhs, *rhs, max_relative = 1e-12, epsilon = 1e-12);
+        assert_relative_eq!(lhs.into_base(), rhs.into_base(), max_relative = 1e-12, epsilon = 1e-12);
     }
 }
 

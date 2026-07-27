@@ -9,7 +9,7 @@ use cfd_validation::benchmarks::{Benchmark, BenchmarkConfig, TrifurcationFlow};
 // ── Trifurcation Solver ──────────────────────────────────────────────────────
 
 /// 2D Trifurcation flow solver
-#[pyclass(name = "TrifurcationSolver2D")]
+#[pyclass(name = "TrifurcationSolver2D", skip_from_py_object)]
 pub struct PyTrifurcationSolver2D {
     #[pyo3(get)]
     pub width: f64,
@@ -55,7 +55,7 @@ impl PyTrifurcationSolver2D {
 }
 
 /// Result from 2D trifurcation simulation
-#[pyclass(name = "TrifurcationResult2D")]
+#[pyclass(name = "TrifurcationResult2D", skip_from_py_object)]
 #[derive(Debug, Clone, Copy)]
 pub struct PyTrifurcationResult2D {
     #[pyo3(get)]
@@ -86,7 +86,7 @@ impl PyTrifurcationResult2D {
 ///
 /// Mass conservation: `Q_parent` = `Q_daughter1` + `Q_daughter2`
 /// Murray's law (optimal branching): `r_p^3` = `r_d1^3` + `r_d2^3`
-#[pyclass(name = "BifurcationSolver2D")]
+#[pyclass(name = "BifurcationSolver2D", skip_from_py_object)]
 pub struct PyBifurcationSolver2D {
     #[pyo3(get)]
     parent_width: f64,
@@ -200,7 +200,7 @@ impl PyBifurcationSolver2D {
 // ── Bifurcation Result ───────────────────────────────────────────────────────
 
 /// Result from 2D bifurcation simulation
-#[pyclass(name = "BifurcationResult2D")]
+#[pyclass(name = "BifurcationResult2D", skip_from_py_object)]
 #[derive(Debug, Clone, Copy)]
 pub struct PyBifurcationResult2D {
     #[pyo3(get)]

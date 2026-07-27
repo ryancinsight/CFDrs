@@ -279,8 +279,8 @@ impl<T: ResistanceScalar> ResistanceModel<T> for JunctionLossModel {
 mod tests {
     use super::*;
     use crate::physics::resistance::models::FlowConditions;
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::CassonBlood;
+    use eunomia::assert_relative_eq;
 
     fn make_model(jtype: JunctionType, direction: JunctionFlowDirection) -> JunctionLossModel {
         JunctionLossModel {

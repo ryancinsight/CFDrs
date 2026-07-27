@@ -28,8 +28,8 @@ mod momentum_algorithm_validation {
     use crate::fields::SimulationFields;
     use crate::grid::StructuredGrid2D;
     use crate::physics::momentum::{MomentumComponent, MomentumSolver};
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::boundary::{BoundaryCondition, WallType};
+    use eunomia::assert_relative_eq;
     use leto::geometry::Vector3;
 
     /// Test CFL number calculation

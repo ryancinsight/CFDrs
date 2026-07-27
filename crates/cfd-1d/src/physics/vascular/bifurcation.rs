@@ -498,7 +498,11 @@ impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
             ));
         }
 
-        HydraulicResistance::from_base(combine_parallel_resistances(root_resistances))
+        combine_parallel_resistances(
+            root_resistances
+                .into_iter()
+                .map(HydraulicResistance::from_base),
+        )
     }
 
     fn branch_equivalent_resistance(
@@ -529,12 +533,17 @@ impl<T: Cfd1dScalar + FloatElement + Copy> BifurcationNetwork<T> {
             }
 
             combine_series_resistances([
-                series_resistance,
-                combine_parallel_resistances(downstream_resistances),
+                HydraulicResistance::from_base(series_resistance),
+                combine_parallel_resistances(
+                    downstream_resistances
+                        .into_iter()
+                        .map(HydraulicResistance::from_base),
+                ),
             ])
         } else {
-            series_resistance
-        };
+            HydraulicResistance::from_base(series_resistance)
+        }
+        .into_base();
 
         memo.insert(vessel_id, equivalent);
         equivalent

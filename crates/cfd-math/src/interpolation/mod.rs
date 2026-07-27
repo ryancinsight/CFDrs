@@ -66,8 +66,8 @@ pub use traits::Interpolation;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eunomia::assert_relative_eq;
     use cfd_core::error::Result;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_linear_interpolation() -> Result<()> {

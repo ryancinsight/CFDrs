@@ -1,4 +1,4 @@
-use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length};
+use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length, VolumetricFlowRate};
 use cfd_1d::{
     ChannelGeometry, ChannelType, ComponentType, CrossSection, EdgeProperties, Network,
     NetworkBuilder, ResistanceUpdatePolicy, SurfaceProperties, Wettability,
@@ -95,7 +95,7 @@ fn cross_fidelity_poiseuille_circular_vs_square() {
                 properties: HashMap::new(),
             },
         );
-        network.set_flow_rate(edge, flow_rate);
+        network.set_flow_rate(edge, VolumetricFlowRate::from_base(flow_rate));
         network.update_resistances().unwrap();
 
         let edge_data = network.graph.edge_weight(edge).expect("edge exists");

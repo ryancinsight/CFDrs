@@ -7,6 +7,7 @@
 //!
 //! Run with: cargo run -p cfd-1d --example schematic_demo_integration
 
+use aequitas::systems::si::quantities::Pressure;
 use cfd_1d::domain::network::{Edge, Network, NetworkBuilder, Node};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
@@ -70,8 +71,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Set boundary conditions
     // Inlet pressure: 1000 Pa
     // Outlet pressure: 0 Pa
-    network.set_pressure(inlet_idx, 1000.0);
-    network.set_pressure(outlet_idx, 0.0);
+    network.set_pressure(inlet_idx, Pressure::from_base(1000.0));
+    network.set_pressure(outlet_idx, Pressure::from_base(0.0));
 
     // Solver configuration
     let config = SolverConfig {
@@ -97,7 +98,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .edge_references()
         .find(|e| e.weight().id == "valve1")
     {
-        let flow = solution.flow_rates.get(edge_ref.id().index()).unwrap();
+        let flow = solution
+            .flow_rates
+            .get(edge_ref.id().index())
+            .copied()
+            .map(aequitas::systems::si::quantities::VolumetricFlowRate::into_base)
+            .unwrap_or(0.0);
         println!("   Valve Flow Rate: {:.4e} m^3/s", flow);
         println!("   Valve Flow Rate: {:.2} mL/min", flow * 1e6 * 60.0);
     }
@@ -108,7 +114,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .node_indices()
         .find(|&i| solution.graph[i].id == "junction")
     {
-        let pressure = solution.pressures.get(node_idx.index()).unwrap();
+        let pressure = solution
+            .pressures
+            .get(node_idx.index())
+            .copied()
+            .map(aequitas::systems::si::quantities::Pressure::into_base)
+            .unwrap_or(0.0);
         println!("   Junction Pressure: {:.2} Pa", pressure);
     }
 

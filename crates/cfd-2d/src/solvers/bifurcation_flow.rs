@@ -329,8 +329,8 @@ pub struct BifurcationSolution<T: Cfd2dScalar + Copy> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::blood::CassonBlood;
+    use eunomia::assert_relative_eq;
 
     #[test]
     fn test_symmetric_bifurcation_mass_conservation() {

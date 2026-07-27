@@ -28,9 +28,9 @@ pub use status::{PrimarySolveDiagnostics, PrimarySolveError, SolveFailureReason,
 pub use workspace::SolverWorkspace;
 
 pub use transient::composition::{
-    BLOOD_PLASMA_FLUID_ID, BLOOD_RBC_FLUID_ID, BloodEdgeTransportConfig, CompositionState,
-    EdgeFlowEvent, InletCompositionEvent, InletHematocritEvent, MixtureComposition,
-    PressureBoundaryEvent, SimulationTimeConfig, TransientCompositionSimulator,
+    BloodEdgeTransportConfig, CompositionState, EdgeFlowEvent, InletCompositionEvent,
+    InletHematocritEvent, MixtureComposition, PressureBoundaryEvent, SimulationTimeConfig,
+    TransientCompositionSimulator, BLOOD_PLASMA_FLUID_ID, BLOOD_RBC_FLUID_ID,
 };
 pub use transient::droplets::{
     ChannelOccupancy, DropletBoundary, DropletInjection, DropletPosition, DropletSnapshot,
@@ -290,7 +290,11 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
             )
         })?;
 
-        let mut last_flow_rates = network.flow_rates.clone();
+        let mut last_flow_rates: Vec<T> = network
+            .flow_rates
+            .iter()
+            .map(|flow_rate| flow_rate.into_base())
+            .collect();
         let mut diagnostics = PrimarySolveDiagnostics::default();
         network.residuals.clear();
         network.residuals.reserve(self.config.max_iterations);
@@ -505,7 +509,8 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
             let flows_converged = if self.config.require_flow_convergence {
                 let mut flow_diff_sq = T::zero();
                 let mut flow_norm_sq = T::zero();
-                for (i, &new_flow) in network.flow_rates.iter().enumerate() {
+                for (i, new_flow) in network.flow_rates.iter().enumerate() {
+                    let new_flow = new_flow.into_base();
                     let old_flow = last_flow_rates.get(i).copied().unwrap_or(T::zero());
                     let diff = new_flow - old_flow;
                     flow_diff_sq += diff * diff;
@@ -530,7 +535,13 @@ impl<T: NetworkSolveScalar, F: FluidTrait<T> + Clone> NetworkSolver<T, F> {
             }
 
             workspace.last_solution = solution;
-            last_flow_rates.clone_from(&network.flow_rates);
+            last_flow_rates.clear();
+            last_flow_rates.extend(
+                network
+                    .flow_rates
+                    .iter()
+                    .map(|flow_rate| flow_rate.into_base()),
+            );
         }
 
         Err(PrimarySolveError::new(

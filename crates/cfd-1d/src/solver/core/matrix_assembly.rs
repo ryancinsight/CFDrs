@@ -268,7 +268,7 @@ mod tests {
     use super::*;
     use crate::domain::network::{Edge, Network, Node};
     use aequitas::systems::si::quantities::{
-        HydraulicResistance, QuadraticHydraulicResistance, VolumetricFlowRate,
+        HydraulicResistance, Pressure, QuadraticHydraulicResistance, VolumetricFlowRate,
     };
     use cfd_core::physics::fluid::ConstantPropertyFluid;
     use cfd_schematics::domain::model::{EdgeKind, NodeKind};
@@ -314,10 +314,10 @@ mod tests {
 
         let fluid = ConstantPropertyFluid::new("test".into(), 1000.0, 1e-3, 4180.0, 0.6, 2.1e9);
         let mut net = Network::new(graph, fluid);
-        net.set_pressure(a, p_a);
-        net.set_pressure(c, p_c);
+        net.set_pressure(a, Pressure::from_base(p_a));
+        net.set_pressure(c, Pressure::from_base(p_c));
         if let Some(q) = neumann_b {
-            net.set_neumann_flow(b, q);
+            net.set_neumann_flow(b, VolumetricFlowRate::from_base(q));
         }
         net
     }
@@ -417,8 +417,8 @@ mod tests {
 
         let fluid = ConstantPropertyFluid::new("test".into(), 1000.0, 1e-3, 4180.0, 0.6, 2.1e9);
         let mut net = Network::new(graph, fluid);
-        net.set_pressure(a, 100.0);
-        net.set_pressure(d, 0.0);
+        net.set_pressure(a, Pressure::from_base(100.0));
+        net.set_pressure(d, Pressure::from_base(0.0));
 
         let assembler = MatrixAssembler::<f64>::new();
         let (mat, _rhs) = assembler.assemble(&net).unwrap();

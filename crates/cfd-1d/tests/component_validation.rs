@@ -9,7 +9,7 @@
 //! - Stone, H. A., Stroock, A. D., & Ajdari, A. (2004). "Engineering flows in
 //!   small devices". *Annual Review of Fluid Mechanics*, 36, 381-411.
 
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{Length, Power, Pressure, Time, VolumetricFlowRate};
 use cfd_1d::*;
 use cfd_core::error::Result;
 use cfd_core::physics::fluid;
@@ -478,27 +478,27 @@ fn test_performance_metrics_calculation() -> Result<()> {
     let flow_rate = 1e-9; // 1 nL/s
     let pressure_drop = 5000.0; // 5 kPa
 
-    metrics.set_total_flow_rate(flow_rate);
-    metrics.set_total_pressure_drop(pressure_drop);
-    metrics.set_power_consumption(flow_rate * pressure_drop);
+    metrics.set_total_flow_rate(VolumetricFlowRate::from_base(flow_rate));
+    metrics.set_total_pressure_drop(Pressure::from_base(pressure_drop));
+    metrics.set_power_consumption(Power::from_base(flow_rate * pressure_drop));
 
     // Verify values
-    assert_relative_eq!(metrics.throughput, flow_rate, epsilon = 1e-15);
+    assert_relative_eq!(metrics.throughput.into_base(), flow_rate, epsilon = 1e-15);
     assert_relative_eq!(
-        metrics.power_consumption,
+        metrics.power_consumption.into_base(),
         flow_rate * pressure_drop,
         epsilon = 1e-15
     );
 
     // Add residence times
-    metrics.add_residence_time("channel1".to_string(), 0.5);
-    metrics.add_residence_time("channel2".to_string(), 1.5);
+    metrics.add_residence_time("channel1".to_string(), Time::from_base(0.5));
+    metrics.add_residence_time("channel2".to_string(), Time::from_base(1.5));
 
     let avg_time = metrics.average_residence_time();
-    assert_relative_eq!(avg_time, 1.0, epsilon = 1e-10);
+    assert_relative_eq!(avg_time.into_base(), 1.0, epsilon = 1e-10);
 
     let max_time = metrics.max_residence_time().expect("test invariant");
-    assert_relative_eq!(max_time, 1.5, epsilon = 1e-10);
+    assert_relative_eq!(max_time.into_base(), 1.5, epsilon = 1e-10);
 
     Ok(())
 }

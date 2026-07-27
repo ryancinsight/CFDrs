@@ -7,7 +7,7 @@
 use std::path::Path;
 
 use cfd_validation::numerical::venturi_cross_fidelity::{
-    VenturiCrossFidelityResult, VenturiValidationInput, validate_venturi,
+    validate_venturi, VenturiCrossFidelityResult, VenturiValidationInput,
 };
 
 use crate::constraints::BLOOD_DENSITY_KG_M3;
@@ -23,7 +23,11 @@ fn total_loss_coefficient(dp_pa: f64, inlet_velocity_m_s: f64) -> f64 {
 }
 
 fn sanitize_report_scalar(value: f64) -> f64 {
-    if value.is_finite() { value } else { 0.0 }
+    if value.is_finite() {
+        value
+    } else {
+        0.0
+    }
 }
 
 fn validation_row_from_result(

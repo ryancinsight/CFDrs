@@ -32,8 +32,12 @@ use cfd_math::linear_solver::preconditioners::{AlgebraicMultigrid, IdentityPreco
 use cfd_math::linear_solver::{DirectSparseSolver, IterativeLinearSolver};
 use eunomia::FloatElement;
 use leto::Array1;
-use leto_ops::{Scalar as LetoScalar, norm_l2};
+use leto_ops::{norm_l2, Scalar as LetoScalar};
 use std::fmt::Debug;
+
+/// Largest pressure system for which default AMG setup stays within the
+/// committed validation-test runtime budget on the supported CPU path.
+const AMG_SETUP_MATRIX_SIZE_LIMIT: usize = 10_000;
 
 impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrectionSolver<T> {
     /// Dispatch a linear solve to the configured solver backend
@@ -56,7 +60,15 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
                 .borrow()
                 .as_deref()
                 .is_some_and(|cached| cached == matrix.values());
-        if !matrix_values_unchanged {
+        let amg_setup_allowed = matrix.nrows() < AMG_SETUP_MATRIX_SIZE_LIMIT;
+        if !amg_setup_allowed {
+            tracing::debug!(
+                matrix_size = matrix.nrows(),
+                setup_limit = AMG_SETUP_MATRIX_SIZE_LIMIT,
+                "Using the configured iterative solver without AMG because setup exceeds the runtime budget"
+            );
+        }
+        if amg_setup_allowed && !matrix_values_unchanged {
             if amg_cache.is_none() {
                 let config = cfd_math::linear_solver::AMGConfig::default();
                 // Initialize the AMG preconditioner and cache it.
@@ -77,7 +89,6 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
         }
 
         let amg_preconditioner: Option<&AlgebraicMultigrid<T>> = amg_cache.as_ref();
-
         let solve_result = match self.solver_type {
             PressureLinearSolver::ConjugateGradient => {
                 let result = if let Some(amg) = amg_preconditioner {
@@ -251,6 +262,12 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
             || is_dirichlet("east")
             || is_dirichlet("south")
             || is_dirichlet("north");
+        let dirichlet_sides = [
+            is_dirichlet("west"),
+            is_dirichlet("east"),
+            is_dirichlet("south"),
+            is_dirichlet("north"),
+        ];
 
         let (system_size, reference_idx) = if has_dirichlet {
             (n, None)
@@ -275,7 +292,6 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
             }
         };
 
-        let mut builder = self.take_matrix_builder(system_size, system_size);
         let mut rhs = self
             ._rhs_cache
             .borrow_mut()
@@ -284,77 +300,109 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
             .unwrap_or_else(|| Array1::from_elem([system_size], scalar::zero::<T>()));
         rhs.fill(scalar::zero::<T>());
 
-        let dx2_inv = scalar::one::<T>() / (dx * dx);
-        let dy2_inv = scalar::one::<T>() / (dy * dy);
         let coeff = rho / dt;
 
         let two =
             <T as FloatElement>::from_f64(cfd_core::physics::constants::mathematical::numeric::TWO);
 
-        let mut n_fluid = 0;
-        let mut n_solid = 0;
+        let mask = fields.mask.as_slice();
+        let matrix_cache_valid = self._laplacian_cache.borrow().as_ref().is_some_and(|_| {
+            self._face_matrix_mask
+                .borrow()
+                .as_deref()
+                .is_some_and(|cached| cached == mask)
+                && self
+                    ._face_matrix_dirichlet
+                    .borrow()
+                    .is_some_and(|cached| cached == dirichlet_sides)
+        });
+
+        let matrix = if matrix_cache_valid {
+            self._laplacian_cache
+                .borrow()
+                .as_ref()
+                .expect("invariant: pressure matrix cache validity was established above")
+                .clone()
+        } else {
+            let mut builder = self.take_matrix_builder(system_size, system_size);
+            let dx2_inv = scalar::one::<T>() / (dx * dx);
+            let dy2_inv = scalar::one::<T>() / (dy * dy);
+
+            for i in 1..nx - 1 {
+                for j in 1..ny - 1 {
+                    let idx = (i - 1) * (ny - 2) + (j - 1);
+                    if Some(idx) == reference_idx {
+                        continue;
+                    }
+                    let row_idx = map_index(idx).expect("row index must exist");
+
+                    if !fields.mask.at(i, j) {
+                        builder.add_entry(row_idx, row_idx, scalar::one::<T>())?;
+                        continue;
+                    }
+
+                    let mut ap = scalar::zero::<T>();
+
+                    // West neighbour
+                    if i > 1 && fields.mask.at(i - 1, j) {
+                        ap += dx2_inv;
+                        let ni = idx - (ny - 2);
+                        if let Some(ci) = map_index(ni) {
+                            builder.add_entry(row_idx, ci, -dx2_inv)?;
+                        }
+                    } else if i == 1 && dirichlet_sides[0] {
+                        ap += dx2_inv;
+                    }
+                    // East neighbour
+                    if i < nx - 2 && fields.mask.at(i + 1, j) {
+                        ap += dx2_inv;
+                        let ni = idx + (ny - 2);
+                        if let Some(ci) = map_index(ni) {
+                            builder.add_entry(row_idx, ci, -dx2_inv)?;
+                        }
+                    } else if i == nx - 2 && dirichlet_sides[1] {
+                        ap += dx2_inv;
+                    }
+                    // South neighbour
+                    if j > 1 && fields.mask.at(i, j - 1) {
+                        ap += dy2_inv;
+                        let ni = idx - 1;
+                        if let Some(ci) = map_index(ni) {
+                            builder.add_entry(row_idx, ci, -dy2_inv)?;
+                        }
+                    } else if j == 1 && dirichlet_sides[2] {
+                        ap += dy2_inv;
+                    }
+                    // North neighbour
+                    if j < ny - 2 && fields.mask.at(i, j + 1) {
+                        ap += dy2_inv;
+                        let ni = idx + 1;
+                        if let Some(ci) = map_index(ni) {
+                            builder.add_entry(row_idx, ci, -dy2_inv)?;
+                        }
+                    } else if j == ny - 2 && dirichlet_sides[3] {
+                        ap += dy2_inv;
+                    }
+
+                    builder.add_entry(row_idx, row_idx, ap)?;
+                }
+            }
+
+            let matrix = builder.build()?;
+            self.reset_matrix_builder_cache(system_size, system_size);
+            *self._laplacian_cache.borrow_mut() = Some(matrix.clone());
+            *self._face_matrix_mask.borrow_mut() = Some(mask.to_vec());
+            *self._face_matrix_dirichlet.borrow_mut() = Some(dirichlet_sides);
+            matrix
+        };
 
         for i in 1..nx - 1 {
             for j in 1..ny - 1 {
                 let idx = (i - 1) * (ny - 2) + (j - 1);
-                if Some(idx) == reference_idx {
+                if Some(idx) == reference_idx || !fields.mask.at(i, j) {
                     continue;
                 }
                 let row_idx = map_index(idx).expect("row index must exist");
-
-                if !fields.mask.at(i, j) {
-                    n_solid += 1;
-                    builder.add_entry(row_idx, row_idx, scalar::one::<T>())?;
-                    rhs[row_idx] = scalar::zero::<T>();
-                    continue;
-                }
-                n_fluid += 1;
-
-                let mut ap = scalar::zero::<T>();
-
-                // West neighbour
-                if i > 1 && fields.mask.at(i - 1, j) {
-                    ap += dx2_inv;
-                    let ni = idx - (ny - 2);
-                    if let Some(ci) = map_index(ni) {
-                        builder.add_entry(row_idx, ci, -dx2_inv)?;
-                    }
-                } else if i == 1 && is_dirichlet("west") {
-                    ap += dx2_inv;
-                }
-                // East neighbour
-                if i < nx - 2 && fields.mask.at(i + 1, j) {
-                    ap += dx2_inv;
-                    let ni = idx + (ny - 2);
-                    if let Some(ci) = map_index(ni) {
-                        builder.add_entry(row_idx, ci, -dx2_inv)?;
-                    }
-                } else if i == nx - 2 && is_dirichlet("east") {
-                    ap += dx2_inv;
-                }
-                // South neighbour
-                if j > 1 && fields.mask.at(i, j - 1) {
-                    ap += dy2_inv;
-                    let ni = idx - 1;
-                    if let Some(ci) = map_index(ni) {
-                        builder.add_entry(row_idx, ci, -dy2_inv)?;
-                    }
-                } else if j == 1 && is_dirichlet("south") {
-                    ap += dy2_inv;
-                }
-                // North neighbour
-                if j < ny - 2 && fields.mask.at(i, j + 1) {
-                    ap += dy2_inv;
-                    let ni = idx + 1;
-                    if let Some(ci) = map_index(ni) {
-                        builder.add_entry(row_idx, ci, -dy2_inv)?;
-                    }
-                } else if j == ny - 2 && is_dirichlet("north") {
-                    ap += dy2_inv;
-                }
-
-                builder.add_entry(row_idx, row_idx, ap)?;
-
                 let div_u = (fields.u.at(i + 1, j) - fields.u.at(i - 1, j)) / (two * dx)
                     + (fields.v.at(i, j + 1) - fields.v.at(i, j - 1)) / (two * dy);
                 rhs[row_idx] = -coeff * div_u;
@@ -364,12 +412,11 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
         let rhs_norm =
             norm_l2(&rhs.view()).expect("invariant: pressure RHS Leto vector has a valid layout");
         tracing::debug!(
-            "Pressure Solve: n_fluid={n_fluid}, n_solid={n_solid}, \
-             system_size={system_size}, rhs_norm={rhs_norm:?}"
+            cached = matrix_cache_valid,
+            system_size,
+            rhs_norm = ?rhs_norm,
+            "Pressure Solve"
         );
-
-        let matrix = builder.build()?;
-        self.reset_matrix_builder_cache(system_size, system_size);
         let mut p_correction_vec = self
             ._solution_cache
             .borrow_mut()

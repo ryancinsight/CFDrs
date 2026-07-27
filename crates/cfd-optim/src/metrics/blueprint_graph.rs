@@ -77,10 +77,10 @@ pub fn solve_blueprint_candidate(
     let q_per_inlet =
         candidate.operating_point.flow_rate_m3_s.into_base() / inlet_nodes.len() as f64;
     for inlet in &inlet_nodes {
-        network.set_neumann_flow(*inlet, q_per_inlet);
+        network.set_neumann_flow(*inlet, VolumetricFlowRate::from_base(q_per_inlet));
     }
     for outlet in &outlet_nodes {
-        network.set_pressure(*outlet, 0.0);
+        network.set_pressure(*outlet, Pressure::from_base(0.0));
     }
 
     let config = cfd_1d::solver::core::SolverConfig {
@@ -98,7 +98,10 @@ pub fn solve_blueprint_candidate(
             let mut linear_network = primary_problem.network.clone();
             let edge_indices: Vec<_> = linear_network.graph.edge_indices().collect();
             for edge_index in edge_indices {
-                linear_network.set_flow_rate(edge_index, q_per_inlet);
+                linear_network.set_flow_rate(
+                    edge_index,
+                    VolumetricFlowRate::from_base(q_per_inlet),
+                );
             }
             let _ = linear_network.update_resistances();
             for properties in linear_network.properties.values_mut() {
@@ -108,25 +111,27 @@ pub fn solve_blueprint_candidate(
                 if let Some(edge) = linear_network.graph.edge_weight_mut(edge_index) {
                     edge.quad_coeff = QuadraticHydraulicResistance::from_base(0.0);
                     let r = edge.resistance.into_base().max(1.0e-12);
-                    edge.resistance = aequitas::systems::si::quantities::HydraulicResistance::from_base(r);
+                    edge.resistance =
+                        aequitas::systems::si::quantities::HydraulicResistance::from_base(r);
                 }
             }
             for inlet in &inlet_nodes {
-                linear_network.set_pressure(*inlet, 1.0);
+                linear_network.set_pressure(*inlet, Pressure::from_base(1.0));
             }
             for outlet in &outlet_nodes {
-                linear_network.set_pressure(*outlet, 0.0);
+                linear_network.set_pressure(*outlet, Pressure::from_base(0.0));
             }
 
             let fallback_problem = NetworkProblem::new(linear_network);
-            let mut fallback_solved = solver.solve_network(&fallback_problem).map_err(
-                |fallback_error| OptimError::PhysicsError {
-                    id: candidate.id.clone(),
-                    reason: format!(
+            let mut fallback_solved =
+                solver
+                    .solve_network(&fallback_problem)
+                    .map_err(|fallback_error| OptimError::PhysicsError {
+                        id: candidate.id.clone(),
+                        reason: format!(
                         "NetworkSolver failed: {primary_error}; fallback failed: {fallback_error}"
                     ),
-                },
-            )?;
+                    })?;
 
             let mut inlet_flow_unit = 0.0_f64;
             for edge_ref in fallback_solved.graph.edge_references() {
@@ -139,6 +144,7 @@ pub fn solve_blueprint_candidate(
                         .flow_rates
                         .get(edge_index.index())
                         .copied()
+                        .map(VolumetricFlowRate::into_base)
                         .unwrap_or_else(|| edge_ref.weight().flow_rate.into_base())
                         .abs();
                 }
@@ -151,15 +157,15 @@ pub fn solve_blueprint_candidate(
             }
             let scale = candidate.operating_point.flow_rate_m3_s.into_base() / inlet_flow_unit;
             for pressure in &mut fallback_solved.pressures {
-                *pressure *= scale;
+                *pressure = Pressure::from_base(pressure.into_base() * scale);
             }
             let edge_indices: Vec<_> = fallback_solved.graph.edge_indices().collect();
             for edge_index in edge_indices {
                 let idx = edge_index.index();
                 if let Some(flow) = fallback_solved.flow_rates.get_mut(idx) {
-                    *flow *= scale;
+                    *flow = VolumetricFlowRate::from_base(flow.into_base() * scale);
                     if let Some(edge) = fallback_solved.graph.edge_weight_mut(edge_index) {
-                        edge.flow_rate = VolumetricFlowRate::from_base(*flow);
+                        edge.flow_rate = *flow;
                     }
                 } else if let Some(edge) = fallback_solved.graph.edge_weight_mut(edge_index) {
                     let scaled = edge.flow_rate.into_base() * scale;
@@ -178,7 +184,13 @@ pub fn solve_blueprint_candidate(
 
     let inlet_pressure_pa = inlet_nodes
         .iter()
-        .filter_map(|index| solved.pressures.get(index.index()).copied())
+        .filter_map(|index| {
+            solved
+                .pressures
+                .get(index.index())
+                .copied()
+                .map(Pressure::into_base)
+        })
         .sum::<f64>()
         / inlet_nodes.len() as f64;
 
@@ -193,11 +205,13 @@ pub fn solve_blueprint_candidate(
             .pressures
             .get(from_index.index())
             .copied()
+            .map(Pressure::into_base)
             .unwrap_or_default();
         let flow_m3_s = solved
             .flow_rates
             .get(edge_index.index())
             .copied()
+            .map(VolumetricFlowRate::into_base)
             .unwrap_or_else(|| edge_ref.weight().flow_rate.into_base());
         edge_by_id.insert(edge_ref.weight().id.as_str(), (flow_m3_s, from_pressure_pa));
     }

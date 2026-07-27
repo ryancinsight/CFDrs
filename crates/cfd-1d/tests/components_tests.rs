@@ -4,9 +4,9 @@
 //! constructors (validated, returns Result) with Idelchik physics model.
 
 use aequitas::systems::si::quantities::Length;
-use cfd_1d::domain::components::Component;
 use cfd_1d::domain::components::mixers::{Micromixer, MixerType};
 use cfd_1d::domain::components::sensors::FlowSensor;
+use cfd_1d::domain::components::Component;
 use cfd_1d::domain::components::{
     CircularChannel, Micropump, Microvalve, OrganCompartment, PorousMembrane, RectangularChannel,
 };
@@ -326,29 +326,25 @@ fn test_mixer_resistance_decreases_with_diameter() {
 /// Invalid geometry (D=0) must be rejected.
 #[test]
 fn test_mixer_rejects_zero_diameter() {
-    assert!(
-        Micromixer::<f64>::new(
-            MixerType::TJunction,
-            Length::from_base(0.0),
-            Length::from_base(5e-3),
-            1,
-        )
-        .is_err()
-    );
+    assert!(Micromixer::<f64>::new(
+        MixerType::TJunction,
+        Length::from_base(0.0),
+        Length::from_base(5e-3),
+        1,
+    )
+    .is_err());
 }
 
 /// Invalid geometry (L=0) must be rejected.
 #[test]
 fn test_mixer_rejects_zero_length() {
-    assert!(
-        Micromixer::<f64>::new(
-            MixerType::TJunction,
-            Length::from_base(200e-6),
-            Length::from_base(0.0),
-            1,
-        )
-        .is_err()
-    );
+    assert!(Micromixer::<f64>::new(
+        MixerType::TJunction,
+        Length::from_base(200e-6),
+        Length::from_base(0.0),
+        1,
+    )
+    .is_err());
 }
 
 /// T-junction K_loss=1.5 > Y-junction K_loss=0.9 → R_T > R_Y for same geometry.

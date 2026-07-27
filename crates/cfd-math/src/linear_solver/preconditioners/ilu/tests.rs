@@ -2,8 +2,8 @@
 
 use super::*;
 use crate::linear_solver::Preconditioner;
-use eunomia::assert_relative_eq;
 use cfd_core::error::Error;
+use eunomia::assert_relative_eq;
 use leto::Array1;
 use leto_ops::CsrMatrix;
 

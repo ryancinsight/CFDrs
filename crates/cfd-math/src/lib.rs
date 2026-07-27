@@ -161,10 +161,10 @@ pub use self::sparse::SparseMatrix;
 /// ```
 pub mod iterative {
     pub use leto_ops::{
-        BiCGSTAB, Configurable, ConvergenceMonitor, ConjugateGradient,
-        IdentityPreconditioner, ILUPreconditioner, IterativeLinearSolver,
-        IterativeSolverConfig, JacobiPreconditioner, LinearOperator, LinearSolver,
-        LsqrConfig, LsqrResult, LsqrSolver, LsqrStopReason, Preconditioner, GMRES,
+        BiCGSTAB, Configurable, ConjugateGradient, ConvergenceMonitor, ILUPreconditioner,
+        IdentityPreconditioner, IterativeLinearSolver, IterativeSolverConfig, JacobiPreconditioner,
+        LinearOperator, LinearSolver, LsqrConfig, LsqrResult, LsqrSolver, LsqrStopReason,
+        Preconditioner, GMRES,
     };
 }
 

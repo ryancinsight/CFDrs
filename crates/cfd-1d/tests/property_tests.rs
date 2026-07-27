@@ -1,4 +1,4 @@
-use aequitas::systems::si::quantities::{HydraulicResistance, Length};
+use aequitas::systems::si::quantities::{HydraulicResistance, Length, Pressure};
 use cfd_1d::domain::components::channels::CircularChannel;
 use cfd_1d::domain::components::Component;
 use cfd_1d::{Network, NetworkBuilder, NetworkProblem, NetworkSolver};
@@ -169,8 +169,8 @@ proptest! {
         if let Some(e) = graph.edge_weight_mut(edges[2]) { e.resistance = HydraulicResistance::from_base(r3); }
 
         let mut network = Network::new(graph, fluid.clone());
-        network.set_pressure(n_in, p_inlet);
-        network.set_pressure(n_out, p_outlet);
+        network.set_pressure(n_in, Pressure::from_base(p_inlet));
+        network.set_pressure(n_out, Pressure::from_base(p_outlet));
 
         let problem = NetworkProblem::new(network);
         let solver = NetworkSolver::new();
@@ -184,8 +184,18 @@ proptest! {
         for edge_idx in edges {
             let e = solved.graph.edge_weight(edge_idx).expect("test invariant");
             let (src, tgt) = solved.graph.edge_endpoints(edge_idx).expect("test invariant");
-            let p_src = solved.pressures().get(src.index()).copied().unwrap_or(0.0);
-            let p_tgt = solved.pressures().get(tgt.index()).copied().unwrap_or(0.0);
+            let p_src = solved
+                .pressures()
+                .get(src.index())
+                .copied()
+                .map(Pressure::into_base)
+                .unwrap_or(0.0);
+            let p_tgt = solved
+                .pressures()
+                .get(tgt.index())
+                .copied()
+                .map(Pressure::into_base)
+                .unwrap_or(0.0);
             let q = (p_src - p_tgt) / e.resistance.into_base();
 
             if tgt == n_split {

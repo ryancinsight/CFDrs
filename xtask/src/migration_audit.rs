@@ -225,7 +225,8 @@ fn compare_with_allowlist(root: &Path, report: &LegacyMigrationReport) -> Result
 }
 
 fn load_allowlist(path: &Path) -> Result<BTreeSet<String>> {
-    let text = fs::read_to_string(path).with_context(|| format!("failed reading {}", path.display()))?;
+    let text =
+        fs::read_to_string(path).with_context(|| format!("failed reading {}", path.display()))?;
     let mut entries = BTreeSet::new();
     for line in text.lines() {
         let trimmed = line.trim();
@@ -249,7 +250,8 @@ fn has_any_manifest_dep(text: &str, deps: &[&str]) -> bool {
         };
 
         let key = raw_key.trim();
-        deps.iter().any(|dep| key == *dep || key == format!("{dep}.workspace"))
+        deps.iter()
+            .any(|dep| key == *dep || key == format!("{dep}.workspace"))
     })
 }
 

@@ -214,6 +214,18 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
         }
     }
 
+    /// Set the linear tolerance used by the SIMPLE outer iteration.
+    ///
+    /// Inexact SIMPLE only needs the momentum residual below the nonlinear
+    /// coupling residual; solving several orders tighter than that contract
+    /// spends work without improving the outer fixed point.  The caller owns
+    /// the tolerance derivation from its pressure-velocity configuration.
+    pub(crate) fn set_linear_solver_tolerance(&mut self, tolerance: T) {
+        let mut config = Self::linear_solver_config();
+        config.tolerance = tolerance;
+        self.linear_solver = GMRES::new(config, 30);
+    }
+
     /// Get the last computed A_p and A_p_consistent coefficients for both velocity components
     pub fn get_ap_coefficients(&self) -> (&Field2D<T>, &Field2D<T>, &Field2D<T>, &Field2D<T>) {
         (

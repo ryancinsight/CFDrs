@@ -1,4 +1,6 @@
-use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length};
+use aequitas::systems::si::quantities::{
+    Area, HydraulicResistance, Length, Pressure, VolumetricFlowRate,
+};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder, ResistanceUpdatePolicy};
 use cfd_1d::pries_phase_separation;
 use cfd_1d::solver::core::{
@@ -34,7 +36,7 @@ fn switches_inlet_mixture_over_time() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("fluid");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(edge, 1.0);
+    network.set_flow_rate(edge, VolumetricFlowRate::from_base(1.0));
 
     let events = vec![
         InletCompositionEvent {
@@ -77,9 +79,9 @@ fn mixes_two_inlet_streams_at_junction() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("fluid");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e1, 2.0);
-    network.set_flow_rate(e2, 1.0);
-    network.set_flow_rate(e3, 3.0);
+    network.set_flow_rate(e1, VolumetricFlowRate::from_base(2.0));
+    network.set_flow_rate(e2, VolumetricFlowRate::from_base(1.0));
+    network.set_flow_rate(e3, VolumetricFlowRate::from_base(3.0));
 
     let events = vec![
         InletCompositionEvent {
@@ -130,7 +132,7 @@ fn simulate_with_time_config_samples_result_grid_and_switches_events() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("fluid");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(edge, 1.0);
+    network.set_flow_rate(edge, VolumetricFlowRate::from_base(1.0));
 
     let events = vec![
         InletCompositionEvent {
@@ -179,7 +181,7 @@ fn duplicate_requested_timepoints_are_sampled_consistently() {
 
     let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(edge, 1.0);
+    network.set_flow_rate(edge, VolumetricFlowRate::from_base(1.0));
 
     let events = vec![InletHematocritEvent {
         time: 0.0,
@@ -218,9 +220,9 @@ fn edge_average_concentrations_query_matches_snapshot_mixture() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("fluid");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e1, 3.0);
-    network.set_flow_rate(e2, 1.0);
-    network.set_flow_rate(e3, 4.0);
+    network.set_flow_rate(e1, VolumetricFlowRate::from_base(3.0));
+    network.set_flow_rate(e2, VolumetricFlowRate::from_base(1.0));
+    network.set_flow_rate(e3, VolumetricFlowRate::from_base(4.0));
 
     let events = vec![
         InletCompositionEvent {
@@ -255,7 +257,7 @@ fn edge_average_concentrations_query_returns_none_for_missing_edge() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("fluid");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(edge, 1.0);
+    network.set_flow_rate(edge, VolumetricFlowRate::from_base(1.0));
 
     let events = vec![InletCompositionEvent {
         time: 0.0,
@@ -265,11 +267,9 @@ fn edge_average_concentrations_query_returns_none_for_missing_edge() {
 
     let states =
         TransientCompositionSimulator::simulate(&network, events, vec![0.0]).expect("simulate");
-    assert!(
-        states[0]
-            .average_fluid_concentrations_in_edge(usize::MAX)
-            .is_none()
-    );
+    assert!(states[0]
+        .average_fluid_concentrations_in_edge(usize::MAX)
+        .is_none());
 }
 
 #[test]
@@ -287,9 +287,9 @@ fn scheduled_flow_events_update_mixture_distribution_over_time() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("fluid");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e1, 3.0);
-    network.set_flow_rate(e2, 1.0);
-    network.set_flow_rate(e3, 4.0);
+    network.set_flow_rate(e1, VolumetricFlowRate::from_base(3.0));
+    network.set_flow_rate(e2, VolumetricFlowRate::from_base(1.0));
+    network.set_flow_rate(e3, VolumetricFlowRate::from_base(4.0));
 
     let composition_events = vec![
         InletCompositionEvent {
@@ -359,7 +359,7 @@ fn scheduled_pressure_events_resolve_flows_and_update_mixture_distribution() {
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("fluid");
     let mut network = Network::new(graph, fluid);
 
-    network.set_pressure(out, 0.0);
+    network.set_pressure(out, Pressure::from_base(0.0));
 
     let composition_events = vec![
         InletCompositionEvent {
@@ -428,7 +428,7 @@ fn blood_hematocrit_switches_over_time() {
 
     let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(edge, 1.0);
+    network.set_flow_rate(edge, VolumetricFlowRate::from_base(1.0));
 
     let events = vec![
         InletHematocritEvent {
@@ -469,9 +469,9 @@ fn blood_hematocrit_mixes_two_inlets_at_junction() {
 
     let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e1, 3.0);
-    network.set_flow_rate(e2, 1.0);
-    network.set_flow_rate(e3, 4.0);
+    network.set_flow_rate(e1, VolumetricFlowRate::from_base(3.0));
+    network.set_flow_rate(e2, VolumetricFlowRate::from_base(1.0));
+    network.set_flow_rate(e3, VolumetricFlowRate::from_base(4.0));
 
     let events = vec![
         InletHematocritEvent {
@@ -511,7 +511,7 @@ fn pressure_event_blood_hematocrit_tracks_flow_redistribution() {
 
     let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
     let mut network = Network::new(graph, fluid);
-    network.set_pressure(out, 0.0);
+    network.set_pressure(out, Pressure::from_base(0.0));
 
     let hematocrit_events = vec![
         InletHematocritEvent {
@@ -583,7 +583,7 @@ fn coupled_pressure_event_blood_hematocrit_feeds_back_on_flow_split() {
 
     let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
     let mut network = Network::new(graph, fluid);
-    network.set_pressure(out, 0.0);
+    network.set_pressure(out, Pressure::from_base(0.0));
 
     let inlet_diameter = 70.0e-6;
     let inlet_length = 20.0e-3;
@@ -704,7 +704,7 @@ fn blood_edge_transport_relaxes_single_channel_hematocrit_front() {
 
     let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(edge, 1.0);
+    network.set_flow_rate(edge, VolumetricFlowRate::from_base(1.0));
     network.add_edge_properties(
         edge,
         EdgeProperties {
@@ -783,9 +783,9 @@ fn blood_edge_transport_relaxes_mixed_outlet_hematocrit() {
 
     let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e1, 3.0);
-    network.set_flow_rate(e2, 1.0);
-    network.set_flow_rate(e3, 4.0);
+    network.set_flow_rate(e1, VolumetricFlowRate::from_base(3.0));
+    network.set_flow_rate(e2, VolumetricFlowRate::from_base(1.0));
+    network.set_flow_rate(e3, VolumetricFlowRate::from_base(4.0));
     network.add_edge_properties(
         e3,
         EdgeProperties {
@@ -857,7 +857,7 @@ fn blood_pressure_event_edge_transport_uses_edge_inventory() {
 
     let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
     let mut network = Network::new(graph, fluid);
-    network.set_pressure(out, 0.0);
+    network.set_pressure(out, Pressure::from_base(0.0));
     network.add_edge_properties(
         e3,
         EdgeProperties {
@@ -972,7 +972,7 @@ fn blood_segmented_edge_transport_advects_front_one_cell_per_step() {
 
     let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(edge, 1.0);
+    network.set_flow_rate(edge, VolumetricFlowRate::from_base(1.0));
     network.add_edge_properties(
         edge,
         EdgeProperties {
@@ -1042,9 +1042,9 @@ fn blood_segmented_edge_transport_delays_mixed_outlet_more_than_single_volume_mo
 
     let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e1, 3.0);
-    network.set_flow_rate(e2, 1.0);
-    network.set_flow_rate(e3, 4.0);
+    network.set_flow_rate(e1, VolumetricFlowRate::from_base(3.0));
+    network.set_flow_rate(e2, VolumetricFlowRate::from_base(1.0));
+    network.set_flow_rate(e3, VolumetricFlowRate::from_base(4.0));
     network.add_edge_properties(
         e3,
         EdgeProperties {
@@ -1124,9 +1124,9 @@ fn blood_segmented_edge_transport_applies_pries_split_at_bifurcation() {
 
     let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(parent, 1.0);
-    network.set_flow_rate(small, 0.5);
-    network.set_flow_rate(large, 0.5);
+    network.set_flow_rate(parent, VolumetricFlowRate::from_base(1.0));
+    network.set_flow_rate(small, VolumetricFlowRate::from_base(0.5));
+    network.set_flow_rate(large, VolumetricFlowRate::from_base(0.5));
 
     let make_props = |id: &str, hydraulic_diameter: f64| EdgeProperties {
         id: id.to_string(),
@@ -1206,7 +1206,7 @@ fn coupled_pressure_event_segmented_blood_transport_feeds_back_on_resistance_upd
 
     let fluid = cfd_core::physics::fluid::blood::CarreauYasudaBlood::<f64>::normal_blood();
     let mut network = Network::new(graph, fluid);
-    network.set_pressure(out, 0.0);
+    network.set_pressure(out, Pressure::from_base(0.0));
 
     let inlet_diameter = 1.0;
     let inlet_length = 1.0;

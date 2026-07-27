@@ -1,5 +1,6 @@
 use aequitas::systems::si::quantities::{
-    Area, HydraulicResistance, Length, QuadraticHydraulicResistance,
+    Area, HydraulicResistance, Length, Pressure, QuadraticHydraulicResistance,
+    VolumetricFlowRate,
 };
 use cfd_1d::domain::network::ComponentType;
 use cfd_1d::{
@@ -57,21 +58,25 @@ fn test_series_additivity() -> Result<()> {
     net.add_edge_properties(eidx1, props1);
     net.add_edge_properties(eidx2, props2);
 
-    net.set_pressure(n_in, 1.0);
-    net.set_pressure(n_out, 0.0);
+    net.set_pressure(n_in, Pressure::from_base(1.0));
+    net.set_pressure(n_out, Pressure::from_base(0.0));
 
     let problem = NetworkProblem::new(net.clone());
     let solver = NetworkSolver::<T>::new();
     let solved = solver.solve(&problem)?;
 
     let q_expected = 1.0 / 5.0;
-    let q1 = *solved
+    let q1 = solved
         .flow_rates()
         .get(eidx1.index())
+        .copied()
+        .map(VolumetricFlowRate::into_base)
         .expect("test invariant");
-    let q2 = *solved
+    let q2 = solved
         .flow_rates()
         .get(eidx2.index())
+        .copied()
+        .map(VolumetricFlowRate::into_base)
         .expect("test invariant");
     assert_relative_eq!(q1, q_expected, max_relative = 1e-12);
     assert_relative_eq!(q2, q_expected, max_relative = 1e-12);
@@ -148,8 +153,8 @@ fn test_parallel_quadratic_branches() -> Result<()> {
         edge.quad_coeff = QuadraticHydraulicResistance::from_base(1.0);
     }
 
-    net.set_pressure(n_in, 2.0);
-    net.set_pressure(n_out, 0.0);
+    net.set_pressure(n_in, Pressure::from_base(2.0));
+    net.set_pressure(n_out, Pressure::from_base(0.0));
 
     let problem = NetworkProblem::new(net.clone());
     let solver = NetworkSolver::<T>::new();
@@ -161,20 +166,25 @@ fn test_parallel_quadratic_branches() -> Result<()> {
     let q2_mag =
         ((2.0_f64 * 2.0_f64 + 4.0_f64 * 1.0_f64 * dp).sqrt() - 2.0_f64) / (2.0_f64 * 1.0_f64);
 
-    let q1 = *solved
+    let q1 = solved
         .flow_rates()
         .get(eidx1.index())
+        .copied()
+        .map(VolumetricFlowRate::into_base)
         .expect("test invariant");
-    let q2 = *solved
+    let q2 = solved
         .flow_rates()
         .get(eidx2.index())
+        .copied()
+        .map(VolumetricFlowRate::into_base)
         .expect("test invariant");
     assert_relative_eq!(q1, q1_mag, max_relative = 1e-5);
     assert_relative_eq!(q2, q2_mag, max_relative = 1e-5);
 
     let q_total_expected = q1_mag + q2_mag;
     let mut q_total = 0.0;
-    for (edge_idx, &q) in solved.flow_rates().iter().enumerate() {
+    for (edge_idx, q) in solved.flow_rates().iter().enumerate() {
+        let q = q.into_base();
         let (from, _to) = solved
             .graph
             .edge_endpoints(petgraph::graph::EdgeIndex::new(edge_idx))
@@ -248,8 +258,8 @@ fn test_parallel_additivity() -> Result<()> {
     net.add_edge_properties(eidx2, props2);
     net.add_edge_properties(eidx3, props3);
 
-    net.set_pressure(n_in, 1.0);
-    net.set_pressure(n_out, 0.0);
+    net.set_pressure(n_in, Pressure::from_base(1.0));
+    net.set_pressure(n_out, Pressure::from_base(0.0));
 
     let problem = NetworkProblem::new(net.clone());
     let solver = NetworkSolver::<T>::new();
@@ -257,7 +267,8 @@ fn test_parallel_additivity() -> Result<()> {
 
     let q_total_expected = 1.0 * (1.0 / 2.0 + 1.0 / 3.0);
     let mut q_total = 0.0;
-    for (edge_idx, &q) in solved.flow_rates().iter().enumerate() {
+    for (edge_idx, q) in solved.flow_rates().iter().enumerate() {
+        let q = q.into_base();
         let (from, _to) = solved
             .graph
             .edge_endpoints(petgraph::graph::EdgeIndex::new(edge_idx))
@@ -294,16 +305,17 @@ fn test_conservation_at_junction() -> Result<()> {
     let graph = builder.build()?;
     let fluid = database::water_20c::<T>()?;
     let mut net = Network::new(graph, fluid);
-    net.set_pressure(n_in, 1.0);
-    net.set_pressure(n_out1, 0.0);
-    net.set_pressure(n_out2, 0.0);
+    net.set_pressure(n_in, Pressure::from_base(1.0));
+    net.set_pressure(n_out1, Pressure::from_base(0.0));
+    net.set_pressure(n_out2, Pressure::from_base(0.0));
 
     let problem = NetworkProblem::new(net.clone());
     let solver = NetworkSolver::<T>::new();
     let solved = solver.solve(&problem)?;
 
     let mut net = 0.0;
-    for (edge_idx, &q) in solved.flow_rates().iter().enumerate() {
+    for (edge_idx, q) in solved.flow_rates().iter().enumerate() {
+        let q = q.into_base();
         let (from, to) = solved
             .graph
             .edge_endpoints(petgraph::graph::EdgeIndex::new(edge_idx))
@@ -361,16 +373,18 @@ fn test_quadratic_resistance() -> Result<()> {
         edge.quad_coeff = QuadraticHydraulicResistance::from_base(1.0);
     }
 
-    net.set_pressure(n_in, 2.0);
-    net.set_pressure(n_out, 0.0);
+    net.set_pressure(n_in, Pressure::from_base(2.0));
+    net.set_pressure(n_out, Pressure::from_base(0.0));
 
     let problem = NetworkProblem::new(net.clone());
     let solver = NetworkSolver::<T>::new();
     let solved = solver.solve(&problem)?;
 
-    let q = *solved
+    let q = solved
         .flow_rates()
         .get(eidx1.index())
+        .copied()
+        .map(VolumetricFlowRate::into_base)
         .expect("test invariant");
 
     // Expect Q = 1.0

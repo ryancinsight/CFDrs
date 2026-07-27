@@ -5,6 +5,9 @@ use crate::domain::channel::FlowRegime;
 use crate::domain::network::Network;
 use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::FlowAnalysis;
+use aequitas::systems::si::quantities::{
+    Dimensionless, Pressure, ReciprocalTime, Velocity, VolumetricFlowRate,
+};
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use cfd_core::error::Result;
 use eunomia::NumericElement;
@@ -44,12 +47,15 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
         for edge in network.edges_with_properties() {
             let flow_rate = edge.flow_rate.into_base();
             if flow_rate != T::zero() {
-                analysis.add_component_flow(edge.id.clone(), flow_rate);
+                analysis.add_component_flow(
+                    edge.id.clone(),
+                    VolumetricFlowRate::from_base(flow_rate),
+                );
 
                 let area = edge.properties.area.into_base();
                 let velocity = flow_rate / area;
                 let velocity_mag = <T as NumericElement>::abs(velocity);
-                analysis.add_velocity(edge.id.clone(), velocity_mag);
+                analysis.add_velocity(edge.id.clone(), Velocity::from_base(velocity_mag));
 
                 let hydraulic_diameter = edge.properties.hydraulic_diameter.map_or_else(
                     || {
@@ -61,14 +67,23 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
 
                 let reynolds = network.fluid().density * velocity_mag * hydraulic_diameter
                     / network.fluid().viscosity;
-                analysis.add_reynolds_number(edge.id.clone(), reynolds);
+                analysis.add_reynolds_number(
+                    edge.id.clone(),
+                    Dimensionless::from_base(reynolds),
+                );
 
                 if hydraulic_diameter > T::zero() {
                     let eight = T::from_f64_or_one(8.0);
                     let shear_rate = eight * velocity_mag / hydraulic_diameter;
                     let shear_stress = network.fluid().viscosity * shear_rate;
-                    analysis.add_wall_shear_rate(edge.id.clone(), shear_rate);
-                    analysis.add_wall_shear_stress(edge.id.clone(), shear_stress);
+                    analysis.add_wall_shear_rate(
+                        edge.id.clone(),
+                        ReciprocalTime::from_base(shear_rate),
+                    );
+                    analysis.add_wall_shear_stress(
+                        edge.id.clone(),
+                        Pressure::from_base(shear_stress),
+                    );
                 }
 
                 // Determine flow regime
@@ -79,7 +94,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> NetworkAnalyzer<
 
         // Calculate total system flow
         let total_flow = self.calculate_total_flow(network);
-        analysis.set_total_flow(total_flow);
+        analysis.set_total_flow(VolumetricFlowRate::from_base(total_flow));
 
         Ok(analysis)
     }
@@ -127,7 +142,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64> FlowAnalyzer<T> {
                 for edge_ref in network.graph.edges(node_idx) {
                     let edge_idx = edge_ref.id();
                     if let Some(&flow) = network.flow_rates().get(edge_idx.index()) {
-                        total += <T as NumericElement>::abs(flow);
+                        total += <T as NumericElement>::abs(flow.into_base());
                     }
                 }
             }
@@ -171,7 +186,7 @@ mod tests {
                 properties: HashMap::new(),
             },
         );
-        network.set_flow_rate(edge, flow_rate);
+        network.set_flow_rate(edge, VolumetricFlowRate::from_base(flow_rate));
         network
     }
 

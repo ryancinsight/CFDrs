@@ -71,15 +71,15 @@ use leto::{Array1, Vector3};
 use std::collections::HashSet;
 
 use crate::fem::leto_bridge::{build_with_vector_rhs, iterative_solve};
-use crate::linalg::{
-    array1_len, array2_column3, matrix3_determinant, matrix3_from_columns,
-    matrix3_try_inverse, matrix3x4_column, reference_tet_gradients, vector3_from_indexed,
-};
 use crate::fem::mesh_utils::compute_mesh_scale;
 use crate::fem::quadrature::TetrahedronQuadrature;
 use crate::fem::shape_functions::LagrangeTet10;
 use crate::fem::solver::extract_vertex_indices;
 use crate::fem::{scalar, FemConfig, StokesFlowProblem, StokesFlowSolution};
+use crate::linalg::{
+    array1_len, array2_column3, matrix3_determinant, matrix3_from_columns, matrix3_try_inverse,
+    matrix3x4_column, reference_tet_gradients, vector3_from_indexed,
+};
 use crate::scalar::Cfd3dScalar;
 
 /// Pressure projection solver for incompressible Stokes/Navier-Stokes equations

@@ -1,3 +1,4 @@
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_1d::domain::network::{Network, NetworkBuilder};
 use cfd_1d::solver::core::{
     CompositionState, DropletInjection, DropletSplitPolicy, DropletState, EdgeFlowEvent,
@@ -35,7 +36,7 @@ fn droplet_transitions_to_sink_with_channel_occupancy_tracking() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e0, 1.0);
+    network.set_flow_rate(e0, VolumetricFlowRate::from_base(1.0));
 
     let composition = composition_over_times(&network, inlet.index(), vec![0.0, 0.4, 1.2]);
 
@@ -79,8 +80,8 @@ fn droplet_transitions_to_trapped_when_no_outgoing_path() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e0, 1.0);
-    network.set_flow_rate(e1, 0.5);
+    network.set_flow_rate(e0, VolumetricFlowRate::from_base(1.0));
+    network.set_flow_rate(e1, VolumetricFlowRate::from_base(0.5));
 
     let composition = composition_over_times(&network, inlet.index(), vec![0.0, 0.6, 1.4]);
 
@@ -116,9 +117,9 @@ fn droplet_splits_flow_weighted_with_volume_conservation() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e0, 2.0);
-    network.set_flow_rate(e1, 1.5);
-    network.set_flow_rate(e2, 0.5);
+    network.set_flow_rate(e0, VolumetricFlowRate::from_base(2.0));
+    network.set_flow_rate(e1, VolumetricFlowRate::from_base(1.5));
+    network.set_flow_rate(e2, VolumetricFlowRate::from_base(0.5));
 
     let composition = composition_over_times(&network, inlet.index(), vec![0.0, 0.2, 0.8]);
     let injections = vec![DropletInjection {
@@ -161,12 +162,12 @@ fn split_branches_merge_back_at_reconvergence() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e0, 2.0);
-    network.set_flow_rate(e1, 1.0);
-    network.set_flow_rate(e2, 1.0);
-    network.set_flow_rate(e3, 1.0);
-    network.set_flow_rate(e4, 1.0);
-    network.set_flow_rate(e5, 2.0);
+    network.set_flow_rate(e0, VolumetricFlowRate::from_base(2.0));
+    network.set_flow_rate(e1, VolumetricFlowRate::from_base(1.0));
+    network.set_flow_rate(e2, VolumetricFlowRate::from_base(1.0));
+    network.set_flow_rate(e3, VolumetricFlowRate::from_base(1.0));
+    network.set_flow_rate(e4, VolumetricFlowRate::from_base(1.0));
+    network.set_flow_rate(e5, VolumetricFlowRate::from_base(2.0));
 
     let composition = composition_over_times(&network, inlet.index(), vec![0.0, 0.6, 1.6, 2.6]);
     let injections = vec![DropletInjection {
@@ -207,9 +208,9 @@ fn auto_policy_uses_no_split_for_dominant_branch_scenarios() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e0, 2.0);
-    network.set_flow_rate(e1, 1.9);
-    network.set_flow_rate(e2, 0.1);
+    network.set_flow_rate(e0, VolumetricFlowRate::from_base(2.0));
+    network.set_flow_rate(e1, VolumetricFlowRate::from_base(1.9));
+    network.set_flow_rate(e2, VolumetricFlowRate::from_base(0.1));
 
     let composition = composition_over_times(&network, inlet.index(), vec![0.0, 0.2, 0.8]);
     let injections = vec![DropletInjection {
@@ -253,7 +254,7 @@ fn pressure_event_droplet_api_matches_manual_composition_pipeline() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let mut network = Network::new(graph, fluid);
-    network.set_pressure(out, 0.0);
+    network.set_pressure(out, Pressure::from_base(0.0));
 
     let composition_events = vec![InletCompositionEvent {
         time: 0.0,
@@ -328,7 +329,7 @@ fn higher_pressure_event_drives_faster_droplet_progress() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let mut network = Network::new(graph, fluid);
-    network.set_pressure(out, 0.0);
+    network.set_pressure(out, Pressure::from_base(0.0));
 
     let composition_events = vec![InletCompositionEvent {
         time: 0.0,
@@ -396,7 +397,7 @@ fn flow_event_droplet_api_matches_manual_composition_pipeline() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e0, 1.0);
+    network.set_flow_rate(e0, VolumetricFlowRate::from_base(1.0));
 
     let composition_events = vec![InletCompositionEvent {
         time: 0.0,
@@ -474,9 +475,9 @@ fn end_to_end_flow_event_policy_controls_branching_behavior() {
 
     let fluid = cfd_core::physics::fluid::database::water_20c::<f64>().expect("water");
     let mut network = Network::new(graph, fluid);
-    network.set_flow_rate(e0, 2.0);
-    network.set_flow_rate(e1, 1.9);
-    network.set_flow_rate(e2, 0.1);
+    network.set_flow_rate(e0, VolumetricFlowRate::from_base(2.0));
+    network.set_flow_rate(e1, VolumetricFlowRate::from_base(1.9));
+    network.set_flow_rate(e2, VolumetricFlowRate::from_base(0.1));
 
     let composition_events = vec![InletCompositionEvent {
         time: 0.0,

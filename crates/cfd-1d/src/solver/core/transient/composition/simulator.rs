@@ -3,11 +3,12 @@ use super::events::{
 };
 use super::state::{CompositionState, MixtureComposition};
 use crate::domain::network::{
-    EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
-    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S, Network,
+    Network, EDGE_PROPERTY_HEMATOCRIT, EDGE_PROPERTY_LOCAL_APPARENT_VISCOSITY_PA_S,
+    EDGE_PROPERTY_LOCAL_HEMATOCRIT, EDGE_PROPERTY_PLASMA_VISCOSITY_PA_S,
 };
 use crate::scalar::Cfd1dScalar;
 use crate::solver::core::{NetworkSolveScalar, NetworkSolver};
+use aequitas::systems::si::quantities::Pressure;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::{FloatElement, NumericElement};
@@ -279,8 +280,8 @@ impl TransientCompositionSimulator {
             edge_flow_rates.reserve(network.edge_count() - edge_flow_rates.capacity());
         }
         edge_flow_rates.clear();
-        for (edge_index, &flow_rate) in network.flow_rates.iter().enumerate() {
-            edge_flow_rates.insert(edge_index, flow_rate);
+        for (edge_index, flow_rate) in network.flow_rates.iter().enumerate() {
+            edge_flow_rates.insert(edge_index, flow_rate.into_base());
         }
     }
 
@@ -700,7 +701,7 @@ impl TransientCompositionSimulator {
                 let pressure_event = &pressure_events[pressure_event_cursor];
                 working_network.set_pressure(
                     NodeIndex::new(pressure_event.node_index),
-                    pressure_event.pressure,
+                    Pressure::from_base(pressure_event.pressure),
                 );
                 pressure_event_cursor += 1;
             }
@@ -710,13 +711,17 @@ impl TransientCompositionSimulator {
             let mut current_node_mixtures = HashMap::with_capacity(working_network.node_count());
             let mut current_edge_mixtures =
                 HashMap::with_capacity(working_network.flow_rates.len());
-            let mut previous_flow_vector = working_network.flow_rates.clone();
+            let mut previous_flow_vector: Vec<T> = working_network
+                .flow_rates
+                .iter()
+                .map(|flow_rate| flow_rate.into_base())
+                .collect();
 
             for _ in 0..max_coupling_iters {
                 working_network = solver.solve_owned_network(working_network)?;
                 current_flow_rates.clear();
-                for (i, &q) in working_network.flow_rates.iter().enumerate() {
-                    current_flow_rates.insert(i, q);
+                for (i, q) in working_network.flow_rates.iter().enumerate() {
+                    current_flow_rates.insert(i, q.into_base());
                 }
 
                 current_node_mixtures = Self::solve_node_mixtures(
@@ -743,14 +748,19 @@ impl TransientCompositionSimulator {
                     &mut working_network,
                     &current_edge_mixtures,
                 );
+                let current_flow_vector: Vec<T> = working_network
+                    .flow_rates
+                    .iter()
+                    .map(|flow_rate| flow_rate.into_base())
+                    .collect();
                 let max_flow_change =
-                    Self::max_flow_change(&previous_flow_vector, &working_network.flow_rates);
+                    Self::max_flow_change(&previous_flow_vector, &current_flow_vector);
 
                 if max_hct_change <= tolerance && max_flow_change <= tolerance {
                     break;
                 }
 
-                previous_flow_vector.clone_from(&working_network.flow_rates);
+                previous_flow_vector.clone_from(&current_flow_vector);
                 working_network.update_resistances()?;
             }
 
@@ -1114,7 +1124,10 @@ impl TransientCompositionSimulator {
             && pressure_events[pressure_event_cursor].time <= previous_time
         {
             let event = &pressure_events[pressure_event_cursor];
-            working_network.set_pressure(NodeIndex::new(event.node_index), event.pressure);
+            working_network.set_pressure(
+                NodeIndex::new(event.node_index),
+                Pressure::from_base(event.pressure),
+            );
             pressure_event_cursor += 1;
         }
         working_network = solver.solve_owned_network(working_network)?;
@@ -1162,7 +1175,10 @@ impl TransientCompositionSimulator {
                 && pressure_events[pressure_event_cursor].time <= time
             {
                 let event = &pressure_events[pressure_event_cursor];
-                working_network.set_pressure(NodeIndex::new(event.node_index), event.pressure);
+                working_network.set_pressure(
+                    NodeIndex::new(event.node_index),
+                    Pressure::from_base(event.pressure),
+                );
                 pressure_event_cursor += 1;
             }
 
@@ -1251,7 +1267,10 @@ impl TransientCompositionSimulator {
             && pressure_events[pressure_event_cursor].time <= previous_time
         {
             let event = &pressure_events[pressure_event_cursor];
-            working_network.set_pressure(NodeIndex::new(event.node_index), event.pressure);
+            working_network.set_pressure(
+                NodeIndex::new(event.node_index),
+                Pressure::from_base(event.pressure),
+            );
             pressure_event_cursor += 1;
         }
         working_network = solver.solve_owned_network(working_network)?;
@@ -1307,7 +1326,10 @@ impl TransientCompositionSimulator {
                 && pressure_events[pressure_event_cursor].time <= time
             {
                 let event = &pressure_events[pressure_event_cursor];
-                working_network.set_pressure(NodeIndex::new(event.node_index), event.pressure);
+                working_network.set_pressure(
+                    NodeIndex::new(event.node_index),
+                    Pressure::from_base(event.pressure),
+                );
                 pressure_event_cursor += 1;
             }
 
@@ -1395,7 +1417,10 @@ impl TransientCompositionSimulator {
             && pressure_events[pressure_event_cursor].time <= previous_time
         {
             let event = &pressure_events[pressure_event_cursor];
-            working_network.set_pressure(NodeIndex::new(event.node_index), event.pressure);
+            working_network.set_pressure(
+                NodeIndex::new(event.node_index),
+                Pressure::from_base(event.pressure),
+            );
             pressure_event_cursor += 1;
         }
 
@@ -1441,7 +1466,10 @@ impl TransientCompositionSimulator {
                 && pressure_events[pressure_event_cursor].time <= time
             {
                 let event = &pressure_events[pressure_event_cursor];
-                working_network.set_pressure(NodeIndex::new(event.node_index), event.pressure);
+                working_network.set_pressure(
+                    NodeIndex::new(event.node_index),
+                    Pressure::from_base(event.pressure),
+                );
                 pressure_event_cursor += 1;
             }
 
@@ -1529,7 +1557,10 @@ impl TransientCompositionSimulator {
             && pressure_events[pressure_event_cursor].time <= previous_time
         {
             let event = &pressure_events[pressure_event_cursor];
-            working_network.set_pressure(NodeIndex::new(event.node_index), event.pressure);
+            working_network.set_pressure(
+                NodeIndex::new(event.node_index),
+                Pressure::from_base(event.pressure),
+            );
             pressure_event_cursor += 1;
         }
 
@@ -1583,7 +1614,10 @@ impl TransientCompositionSimulator {
                 && pressure_events[pressure_event_cursor].time <= time
             {
                 let event = &pressure_events[pressure_event_cursor];
-                working_network.set_pressure(NodeIndex::new(event.node_index), event.pressure);
+                working_network.set_pressure(
+                    NodeIndex::new(event.node_index),
+                    Pressure::from_base(event.pressure),
+                );
                 pressure_event_cursor += 1;
             }
 
@@ -1782,7 +1816,7 @@ impl TransientCompositionSimulator {
                 let pressure_event = &pressure_events[pressure_event_cursor];
                 working_network.set_pressure(
                     NodeIndex::new(pressure_event.node_index),
-                    pressure_event.pressure,
+                    Pressure::from_base(pressure_event.pressure),
                 );
                 pressure_event_cursor += 1;
             }
@@ -2157,7 +2191,11 @@ impl TransientCompositionSimulator {
     ) -> Result<CoupledBloodSnapshot<T, F>> {
         let mut current_node_mixtures = HashMap::new();
         let mut current_edge_snapshot = HashMap::new();
-        let mut previous_flow_vector = working_network.flow_rates.clone();
+        let mut previous_flow_vector: Vec<T> = working_network
+            .flow_rates
+            .iter()
+            .map(|flow_rate| flow_rate.into_base())
+            .collect();
         let mut current_flow_rates = HashMap::with_capacity(working_network.edge_count());
         Self::fill_edge_flow_rate_map(&working_network, &mut current_flow_rates);
 
@@ -2181,8 +2219,13 @@ impl TransientCompositionSimulator {
                 &mut working_network,
                 &current_edge_snapshot,
             );
+            let current_flow_vector: Vec<T> = working_network
+                .flow_rates
+                .iter()
+                .map(|flow_rate| flow_rate.into_base())
+                .collect();
             let max_flow_change =
-                Self::max_flow_change(&previous_flow_vector, &working_network.flow_rates);
+                Self::max_flow_change(&previous_flow_vector, &current_flow_vector);
             if max_hct_change <= tolerance && max_flow_change <= tolerance {
                 return Ok((
                     current_node_mixtures,
@@ -2192,7 +2235,7 @@ impl TransientCompositionSimulator {
                 ));
             }
 
-            previous_flow_vector.clone_from(&working_network.flow_rates);
+            previous_flow_vector.clone_from(&current_flow_vector);
             working_network.update_resistances()?;
         }
 
@@ -2215,7 +2258,11 @@ impl TransientCompositionSimulator {
     ) -> Result<CoupledBloodSnapshot<T, F>> {
         let mut current_node_mixtures = HashMap::new();
         let mut current_edge_snapshot = HashMap::new();
-        let mut previous_flow_vector = working_network.flow_rates.clone();
+        let mut previous_flow_vector: Vec<T> = working_network
+            .flow_rates
+            .iter()
+            .map(|flow_rate| flow_rate.into_base())
+            .collect();
         let mut current_flow_rates = HashMap::with_capacity(working_network.edge_count());
         Self::fill_edge_flow_rate_map(&working_network, &mut current_flow_rates);
 
@@ -2244,8 +2291,13 @@ impl TransientCompositionSimulator {
                 &mut working_network,
                 &current_edge_snapshot,
             );
+            let current_flow_vector: Vec<T> = working_network
+                .flow_rates
+                .iter()
+                .map(|flow_rate| flow_rate.into_base())
+                .collect();
             let max_flow_change =
-                Self::max_flow_change(&previous_flow_vector, &working_network.flow_rates);
+                Self::max_flow_change(&previous_flow_vector, &current_flow_vector);
             if max_hct_change <= tolerance && max_flow_change <= tolerance {
                 return Ok((
                     current_node_mixtures,
@@ -2255,7 +2307,7 @@ impl TransientCompositionSimulator {
                 ));
             }
 
-            previous_flow_vector.clone_from(&working_network.flow_rates);
+            previous_flow_vector.clone_from(&current_flow_vector);
             working_network.update_resistances()?;
         }
 

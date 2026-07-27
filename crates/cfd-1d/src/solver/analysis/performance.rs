@@ -23,6 +23,9 @@
 //! into moving fluid through the channel resistances.
 
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::{
+    Dimensionless, Power, Pressure, Time, VolumetricFlowRate,
+};
 use cfd_core::conversion::SafeFromUsize;
 use std::collections::HashMap;
 use std::iter::Sum;
@@ -31,15 +34,15 @@ use std::iter::Sum;
 #[derive(Debug, Clone)]
 pub struct PerformanceMetrics<T: Cfd1dScalar + Copy> {
     /// Throughput [m³/s]
-    pub throughput: T,
+    pub throughput: VolumetricFlowRate<T>,
     /// Pressure efficiency (useful pressure / total pressure)
-    pub pressure_efficiency: T,
+    pub pressure_efficiency: Dimensionless<T>,
     /// Power consumption \[W]
-    pub power_consumption: T,
+    pub power_consumption: Power<T>,
     /// Mixing efficiency (for mixing applications)
-    pub mixing_efficiency: Option<T>,
+    pub mixing_efficiency: Option<Dimensionless<T>>,
     /// Residence time distribution
-    pub residence_times: HashMap<String, T>,
+    pub residence_times: HashMap<String, Time<T>>,
 }
 
 impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> PerformanceMetrics<T> {
@@ -47,91 +50,101 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> PerformanceMetrics<T> {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            throughput: T::zero(),
-            pressure_efficiency: T::zero(),
-            power_consumption: T::zero(),
+            throughput: VolumetricFlowRate::from_base(T::zero()),
+            pressure_efficiency: Dimensionless::from_base(T::zero()),
+            power_consumption: Power::from_base(T::zero()),
             mixing_efficiency: None,
             residence_times: HashMap::new(),
         }
     }
 
     /// Set throughput
-    pub fn set_throughput(&mut self, throughput: T) {
+    pub fn set_throughput(&mut self, throughput: VolumetricFlowRate<T>) {
         self.throughput = throughput;
     }
 
     /// Set pressure efficiency
-    pub fn set_pressure_efficiency(&mut self, efficiency: T) {
+    pub fn set_pressure_efficiency(&mut self, efficiency: Dimensionless<T>) {
         self.pressure_efficiency = efficiency;
     }
 
     /// Set power consumption
-    pub fn set_power_consumption(&mut self, power: T) {
+    pub fn set_power_consumption(&mut self, power: Power<T>) {
         self.power_consumption = power;
     }
 
     /// Set total pressure drop
-    pub fn set_total_pressure_drop(&mut self, pressure_drop: T) {
+    pub fn set_total_pressure_drop(&mut self, pressure_drop: Pressure<T>) {
         // Store as part of pressure efficiency calculation
-        if pressure_drop > T::zero() && self.throughput > T::zero() {
-            self.pressure_efficiency = self.throughput / pressure_drop;
+        if pressure_drop.into_base() > T::zero() && self.throughput.into_base() > T::zero() {
+            self.pressure_efficiency = Dimensionless::from_base(
+                self.throughput.into_base() / pressure_drop.into_base(),
+            );
         }
     }
 
     /// Set total flow rate
-    pub fn set_total_flow_rate(&mut self, flow_rate: T) {
+    pub fn set_total_flow_rate(&mut self, flow_rate: VolumetricFlowRate<T>) {
         self.throughput = flow_rate;
     }
 
     /// Set efficiency
-    pub fn set_efficiency(&mut self, efficiency: T) {
+    pub fn set_efficiency(&mut self, efficiency: Dimensionless<T>) {
         self.pressure_efficiency = efficiency;
     }
 
     /// Set mixing efficiency
-    pub fn set_mixing_efficiency(&mut self, efficiency: T) {
+    pub fn set_mixing_efficiency(&mut self, efficiency: Dimensionless<T>) {
         self.mixing_efficiency = Some(efficiency);
     }
 
     /// Add residence time for a component
-    pub fn add_residence_time(&mut self, id: String, time: T) {
+    pub fn add_residence_time(&mut self, id: String, time: Time<T>) {
         self.residence_times.insert(id, time);
     }
 
     /// Calculate hydraulic efficiency
-    pub fn hydraulic_efficiency(&self) -> T {
-        if self.power_consumption > T::zero() {
+    pub fn hydraulic_efficiency(&self) -> Dimensionless<T> {
+        if self.power_consumption.into_base() > T::zero() {
             // Hydraulic efficiency: useful power / total power (White, 2011 - Fluid Mechanics)
             // Useful power = volumetric flow rate × pressure differential
             self.pressure_efficiency
         } else {
-            T::zero()
+            Dimensionless::from_base(T::zero())
         }
     }
 
     /// Get average residence time
-    pub fn average_residence_time(&self) -> T {
+    pub fn average_residence_time(&self) -> Time<T> {
         if self.residence_times.is_empty() {
-            T::zero()
+            Time::from_base(T::zero())
         } else {
-            let sum: T = self.residence_times.values().copied().sum();
-            sum / T::from_usize_or_one(self.residence_times.len())
+            let sum: T = self.residence_times.values().map(|time| time.into_base()).sum();
+            Time::from_base(sum / T::from_usize_or_one(self.residence_times.len()))
         }
     }
 
     /// Get maximum residence time
-    pub fn max_residence_time(&self) -> Option<T> {
+    pub fn max_residence_time(&self) -> Option<Time<T>> {
         self.residence_times
             .values()
-            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.into_base()
+                    .partial_cmp(&b.into_base())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .copied()
     }
 
     /// Get minimum residence time
-    pub fn min_residence_time(&self) -> Option<T> {
+    pub fn min_residence_time(&self) -> Option<Time<T>> {
         self.residence_times
             .values()
-            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .min_by(|a, b| {
+                a.into_base()
+                    .partial_cmp(&b.into_base())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .copied()
     }
 

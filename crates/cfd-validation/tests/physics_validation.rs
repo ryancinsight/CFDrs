@@ -3,8 +3,8 @@
 //! These tests verify that our numerical implementations
 //! match known analytical solutions to required accuracy.
 
-use eunomia::assert_relative_eq;
 use cfd_validation::analytical_benchmarks::{CouetteFlow, PoiseuilleFlow, TaylorGreenVortex};
+use eunomia::assert_relative_eq;
 
 #[test]
 fn validate_couette_flow_profile() {

@@ -31,4 +31,4 @@ pub use events::{
 pub use simulator::{
     BloodEdgeTransportConfig, SimulationTimeConfig, TransientCompositionSimulator,
 };
-pub use state::{BLOOD_PLASMA_FLUID_ID, BLOOD_RBC_FLUID_ID, CompositionState, MixtureComposition};
+pub use state::{CompositionState, MixtureComposition, BLOOD_PLASMA_FLUID_ID, BLOOD_RBC_FLUID_ID};

@@ -23,7 +23,7 @@ use cfd_core::physics::fluid::blood::CassonBlood;
 /// Wall shear stress: `τ_w` = μ (∂u/∂n)|_wall
 /// TAWSS (Time-Averaged WSS): Used in hemodynamic studies
 /// OSI (Oscillatory Shear Index): Measures flow reversal
-#[pyclass(name = "Bifurcation3DSolver")]
+#[pyclass(name = "Bifurcation3DSolver", skip_from_py_object)]
 pub struct PyBifurcation3DSolver {
     #[pyo3(get)]
     d_parent: f64,
@@ -138,7 +138,7 @@ impl PyBifurcation3DSolver {
 }
 
 /// Result from 3D bifurcation simulation
-#[pyclass(name = "Bifurcation3DResult")]
+#[pyclass(name = "Bifurcation3DResult", skip_from_py_object)]
 pub struct PyBifurcation3DResult {
     #[pyo3(get)]
     pub max_wss: f64,
@@ -167,7 +167,7 @@ impl PyBifurcation3DResult {
 // ── 3D Trifurcation Solver ────────────────────────────────────────────────────
 
 /// 3D trifurcation flow solver
-#[pyclass(name = "Trifurcation3DSolver")]
+#[pyclass(name = "Trifurcation3DSolver", skip_from_py_object)]
 pub struct PyTrifurcation3DSolver {
     #[pyo3(get)]
     d_parent: f64,
@@ -232,7 +232,7 @@ impl PyTrifurcation3DSolver {
     }
 }
 
-#[pyclass(name = "Trifurcation3DResult")]
+#[pyclass(name = "Trifurcation3DResult", skip_from_py_object)]
 pub struct PyTrifurcation3DResult {
     #[pyo3(get)]
     pub max_wss: f64,

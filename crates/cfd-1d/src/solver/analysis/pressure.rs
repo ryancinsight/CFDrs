@@ -16,6 +16,7 @@
 //! Both operations preserve `max_pressure ≥ min_pressure` by induction. ∎
 
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::{Pressure, PressureGradient};
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use std::collections::HashMap;
 use std::iter::Sum;
@@ -24,15 +25,15 @@ use std::iter::Sum;
 #[derive(Debug, Clone)]
 pub struct PressureAnalysis<T: Cfd1dScalar + Copy> {
     /// Pressure distribution \[Pa]
-    pub pressures: HashMap<String, T>,
+    pub pressures: HashMap<String, Pressure<T>>,
     /// Pressure drops across components \[Pa]
-    pub pressure_drops: HashMap<String, T>,
+    pub pressure_drops: HashMap<String, Pressure<T>>,
     /// Maximum pressure in system \[Pa]
-    pub max_pressure: T,
+    pub max_pressure: Pressure<T>,
     /// Minimum pressure in system \[Pa]
-    pub min_pressure: T,
+    pub min_pressure: Pressure<T>,
     /// Pressure gradient statistics
-    pub pressure_gradients: HashMap<String, T>,
+    pub pressure_gradients: HashMap<String, PressureGradient<T>>,
 }
 
 impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> PressureAnalysis<T> {
@@ -41,55 +42,55 @@ impl<T: Cfd1dScalar + Copy + SafeFromF64 + SafeFromUsize + Sum> PressureAnalysis
         Self {
             pressures: HashMap::new(),
             pressure_drops: HashMap::new(),
-            max_pressure: T::from_f64_or_zero(f64::NEG_INFINITY),
-            min_pressure: T::from_f64_or_zero(f64::INFINITY),
+            max_pressure: Pressure::from_base(T::from_f64_or_zero(f64::NEG_INFINITY)),
+            min_pressure: Pressure::from_base(T::from_f64_or_zero(f64::INFINITY)),
             pressure_gradients: HashMap::new(),
         }
     }
 
     /// Add pressure data for a node
-    pub fn add_pressure(&mut self, id: String, pressure: T) {
+    pub fn add_pressure(&mut self, id: String, pressure: Pressure<T>) {
         self.pressures.insert(id, pressure);
 
-        if pressure > self.max_pressure {
+        if pressure.into_base() > self.max_pressure.into_base() {
             self.max_pressure = pressure;
         }
-        if pressure < self.min_pressure {
+        if pressure.into_base() < self.min_pressure.into_base() {
             self.min_pressure = pressure;
         }
     }
 
     /// Add pressure drop data for a component
-    pub fn add_pressure_drop(&mut self, id: String, drop: T) {
+    pub fn add_pressure_drop(&mut self, id: String, drop: Pressure<T>) {
         self.pressure_drops.insert(id, drop);
     }
 
     /// Add pressure gradient data for a component
-    pub fn add_pressure_gradient(&mut self, id: String, gradient: T) {
+    pub fn add_pressure_gradient(&mut self, id: String, gradient: PressureGradient<T>) {
         self.pressure_gradients.insert(id, gradient);
     }
 
     /// Get the average pressure
-    pub fn average_pressure(&self) -> T {
+    pub fn average_pressure(&self) -> Pressure<T> {
         if self.pressures.is_empty() {
-            T::zero()
+            Pressure::from_base(T::zero())
         } else {
-            let sum: T = self.pressures.values().copied().sum();
-            sum / T::from_usize_or_one(self.pressures.len())
+            let sum: T = self.pressures.values().map(|p| p.into_base()).sum();
+            Pressure::from_base(sum / T::from_usize_or_one(self.pressures.len()))
         }
     }
 
     /// Get the total pressure drop
-    pub fn total_pressure_drop(&self) -> T {
-        self.pressure_drops.values().copied().sum()
+    pub fn total_pressure_drop(&self) -> Pressure<T> {
+        Pressure::from_base(self.pressure_drops.values().map(|p| p.into_base()).sum())
     }
 
     /// Get the pressure range
-    pub fn pressure_range(&self) -> T {
-        if self.max_pressure > self.min_pressure {
-            self.max_pressure - self.min_pressure
+    pub fn pressure_range(&self) -> Pressure<T> {
+        if self.max_pressure.into_base() > self.min_pressure.into_base() {
+            Pressure::from_base(self.max_pressure.into_base() - self.min_pressure.into_base())
         } else {
-            T::zero()
+            Pressure::from_base(T::zero())
         }
     }
 

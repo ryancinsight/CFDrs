@@ -2,7 +2,7 @@ use super::solver::{MomentumComponent, MomentumSolver};
 use crate::fields::SimulationFields;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
-use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
+use cfd_math::linear_solver::preconditioners::SORPreconditioner;
 use cfd_math::linear_solver::{DirectSparseSolver, IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::{FloatElement, NumericElement};
@@ -121,9 +121,22 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
                     velocity_solution_guess(component, fields, self.grid.nx, self.grid.ny)
                 }),
         };
+        // The momentum matrix is diagonally dominant for the upwind/hybrid
+        // stencils used here.  A forward SOR sweep preserves that operator
+        // while reducing the Krylov work required by the former identity-
+        // preconditioned GMRES path.  Rebuild it after each coefficient update
+        // because the transient and nonlinear terms change the stencil values
+        // between SIMPLE corrections.  ω=1 is the Gauss–Seidel preconditioner;
+        // it requires no problem-specific relaxation estimate and is stable for
+        // the positive diagonal momentum operator.
+        let preconditioner = SORPreconditioner::new(matrix, T::one()).map_err(|error| {
+            cfd_core::error::Error::Solver(format!(
+                "Momentum SOR preconditioner construction failed for {component:?}: {error}"
+            ))
+        })?;
         let solve_result =
             self.linear_solver
-                .solve(matrix, rhs, &mut solution, None::<&IdentityPreconditioner>);
+                .solve(matrix, rhs, &mut solution, Some(&preconditioner));
         match solve_result {
             Ok(_) => {}
             Err(cfd_core::error::Error::Convergence(

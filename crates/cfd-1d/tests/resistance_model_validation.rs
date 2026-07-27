@@ -12,13 +12,13 @@
 //! - Colebrook, C. F. (1939). "Turbulent flow in pipes". *Journal of the Institution
 //!   of Civil Engineers*, 11(4), 133-156.
 
-use eunomia::assert_relative_eq;
 use cfd_1d::physics::resistance::{
     DarcyWeisbachModel, EntranceEffectsModel, FlowConditions, HagenPoiseuilleModel,
     RectangularChannelModel, ResistanceModel,
 };
 use cfd_core::error::Result;
 use cfd_core::physics::fluid;
+use eunomia::assert_relative_eq;
 
 /// Test Hagen-Poiseuille law for laminar flow in circular pipes.
 ///

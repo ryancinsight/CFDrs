@@ -18,10 +18,11 @@
 //! - Outlet Pressure: 100 mmHg = 13332.2 Pa
 
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
-use cfd_core::physics::fluid::FluidTrait;
 use cfd_core::physics::fluid::non_newtonian::CarreauYasuda;
+use cfd_core::physics::fluid::FluidTrait;
 use cfd_schematics::domain::model::{ChannelSpec, NodeKind, NodeSpec};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -110,15 +111,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let d1_eidx = edge_indices["Daughter1"];
     let d2_eidx = edge_indices["Daughter2"];
 
-    network.set_neumann_flow(inlet_idx, 5e-6);
+    network.set_neumann_flow(inlet_idx, VolumetricFlowRate::from_base(5e-6));
     let p_out = 13332.2_f64;
-    network.set_pressure(outlet1_idx, p_out);
-    network.set_pressure(outlet2_idx, p_out);
+    network.set_pressure(outlet1_idx, Pressure::from_base(p_out));
+    network.set_pressure(outlet2_idx, Pressure::from_base(p_out));
 
     // Initial flow rate guess for non-Newtonian viscosity start
-    network.set_flow_rate(parent_eidx, 5e-6);
-    network.set_flow_rate(d1_eidx, 3e-6);
-    network.set_flow_rate(d2_eidx, 2e-6);
+    network.set_flow_rate(parent_eidx, VolumetricFlowRate::from_base(5e-6));
+    network.set_flow_rate(d1_eidx, VolumetricFlowRate::from_base(3e-6));
+    network.set_flow_rate(d2_eidx, VolumetricFlowRate::from_base(2e-6));
     network.update_resistances()?;
 
     // ── 6. Solve ─────────────────────────────────────────────────────────────
@@ -136,7 +137,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut node_pressures = std::collections::HashMap::<usize, f64>::new();
     for idx in solution.graph.node_indices() {
         let n = solution.graph.node_weight(idx).unwrap();
-        let p = *solution.pressures.get(idx.index()).unwrap_or(&0.0);
+        let p = solution
+            .pressures
+            .get(idx.index())
+            .copied()
+            .map(Pressure::into_base)
+            .unwrap_or(0.0);
         println!("  {}: {:.2} Pa ({:.2} mmHg)", n.id, p, p / 133.322);
         node_pressures.insert(idx.index(), p);
     }
@@ -147,7 +153,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for idx in solution.graph.edge_indices() {
         let e = solution.graph.edge_weight(idx).unwrap();
-        let q = *solution.flow_rates.get(idx.index()).unwrap_or(&0.0);
+        let q = solution
+            .flow_rates
+            .get(idx.index())
+            .copied()
+            .map(VolumetricFlowRate::into_base)
+            .unwrap_or(0.0);
         let props = solution.properties.get(&idx);
 
         let (v, shear_rate) = if let Some(p) = props {
@@ -194,14 +205,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let n = solution.graph.node_weight(idx).unwrap();
             serde_json::json!({
                 "id": n.id,
-                "pressure_pa": solution.pressures.get(idx.index()).unwrap_or(&0.0),
-                "pressure_mmhg": solution.pressures.get(idx.index()).unwrap_or(&0.0) / 133.322,
+                "pressure_pa": solution
+                    .pressures
+                    .get(idx.index())
+                    .copied()
+                    .map(Pressure::into_base)
+                    .unwrap_or(0.0),
+                "pressure_mmhg": solution
+                    .pressures
+                    .get(idx.index())
+                    .copied()
+                    .map(Pressure::into_base)
+                    .unwrap_or(0.0)
+                    / 133.322,
                 "type": format!("{:?}", n.node_type)
             })
         }).collect::<Vec<_>>(),
         "edges": solution.graph.edge_indices().map(|idx| {
             let e = solution.graph.edge_weight(idx).unwrap();
-            let q = solution.flow_rates.get(idx.index()).unwrap_or(&0.0);
+            let q = solution
+                .flow_rates
+                .get(idx.index())
+                .copied()
+                .map(VolumetricFlowRate::into_base)
+                .unwrap_or(0.0);
             let shear = edge_shear.get(&idx.index()).unwrap_or(&0.0);
             serde_json::json!({
                 "id": e.id,

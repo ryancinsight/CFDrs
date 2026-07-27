@@ -15,6 +15,7 @@
 //! These inequalities are strict when `n > 1` and all `R_i` are finite and positive. ∎
 
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::HydraulicResistance;
 use cfd_core::conversion::SafeFromUsize;
 use std::collections::HashMap;
 use std::iter::Sum;
@@ -23,11 +24,11 @@ use std::iter::Sum;
 #[derive(Debug, Clone)]
 pub struct ResistanceAnalysis<T: Cfd1dScalar + Copy> {
     /// Hydraulic resistances [Pa·s/m³]
-    pub resistances: HashMap<String, T>,
+    pub resistances: HashMap<String, HydraulicResistance<T>>,
     /// Equivalent circuit resistance [Pa·s/m³]
-    pub total_resistance: T,
+    pub total_resistance: HydraulicResistance<T>,
     /// Resistance contributions by component type
-    pub resistance_by_type: HashMap<String, T>,
+    pub resistance_by_type: HashMap<String, HydraulicResistance<T>>,
     /// Critical resistance paths
     pub critical_paths: Vec<Vec<String>>,
 }
@@ -35,29 +36,33 @@ pub struct ResistanceAnalysis<T: Cfd1dScalar + Copy> {
 /// Combine a collection of resistances in series.
 ///
 /// The reduction is exact for any 1D chain of components arranged end-to-end.
-pub(crate) fn series_resistance<T, I>(resistances: I) -> T
+pub(crate) fn series_resistance<T, I>(resistances: I) -> HydraulicResistance<T>
 where
     T: Cfd1dScalar + Copy,
-    I: IntoIterator<Item = T>,
+    I: IntoIterator<Item = HydraulicResistance<T>>,
 {
-    resistances
-        .into_iter()
-        .fold(T::zero(), |total, resistance| total + resistance)
+    HydraulicResistance::from_base(
+        resistances
+            .into_iter()
+            .map(|resistance| resistance.into_base())
+            .fold(T::zero(), |total, resistance| total + resistance),
+    )
 }
 
 /// Combine a collection of positive resistances in parallel.
 ///
 /// Non-positive inputs are ignored to avoid division by zero and to keep the
 /// reduction numerically stable on malformed inputs.
-pub(crate) fn parallel_resistance<T, I>(resistances: I) -> T
+pub(crate) fn parallel_resistance<T, I>(resistances: I) -> HydraulicResistance<T>
 where
     T: Cfd1dScalar + Copy,
-    I: IntoIterator<Item = T>,
+    I: IntoIterator<Item = HydraulicResistance<T>>,
 {
     let mut reciprocal_sum = T::zero();
     let mut valid_branch_count = 0usize;
 
     for resistance in resistances {
+        let resistance = resistance.into_base();
         if resistance > T::zero() {
             reciprocal_sum += T::one() / resistance;
             valid_branch_count += 1;
@@ -65,9 +70,9 @@ where
     }
 
     if valid_branch_count > 0 && reciprocal_sum > T::zero() {
-        T::one() / reciprocal_sum
+        HydraulicResistance::from_base(T::one() / reciprocal_sum)
     } else {
-        T::zero()
+        HydraulicResistance::from_base(T::zero())
     }
 }
 
@@ -77,24 +82,31 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> ResistanceAnalysis<T> {
     pub fn new() -> Self {
         Self {
             resistances: HashMap::new(),
-            total_resistance: T::zero(),
+            total_resistance: HydraulicResistance::from_base(T::zero()),
             resistance_by_type: HashMap::new(),
             critical_paths: Vec::new(),
         }
     }
 
     /// Add resistance data for a component
-    pub fn add_resistance(&mut self, id: String, resistance: T) {
+    pub fn add_resistance(&mut self, id: String, resistance: HydraulicResistance<T>) {
         self.resistances.insert(id, resistance);
-        self.total_resistance += resistance;
+        self.total_resistance = HydraulicResistance::from_base(
+            self.total_resistance.into_base() + resistance.into_base(),
+        );
     }
 
     /// Add resistance by type
-    pub fn add_resistance_by_type(&mut self, component_type: String, resistance: T) {
-        *self
+    pub fn add_resistance_by_type(
+        &mut self,
+        component_type: String,
+        resistance: HydraulicResistance<T>,
+    ) {
+        let entry = self
             .resistance_by_type
             .entry(component_type)
-            .or_insert(T::zero()) += resistance;
+            .or_insert(HydraulicResistance::from_base(T::zero()));
+        *entry = HydraulicResistance::from_base((*entry).into_base() + resistance.into_base());
     }
 
     /// Add a critical path
@@ -103,38 +115,46 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> ResistanceAnalysis<T> {
     }
 
     /// Get the average resistance
-    pub fn average_resistance(&self) -> T {
+    pub fn average_resistance(&self) -> HydraulicResistance<T> {
         if self.resistances.is_empty() {
-            T::zero()
+            HydraulicResistance::from_base(T::zero())
         } else {
-            let sum: T = self.resistances.values().copied().sum();
-            sum / T::from_usize_or_one(self.resistances.len())
+            let sum: T = self.resistances.values().map(|r| r.into_base()).sum();
+            HydraulicResistance::from_base(sum / T::from_usize_or_one(self.resistances.len()))
         }
     }
 
     /// Get the maximum resistance component
-    pub fn max_resistance(&self) -> Option<(&String, T)> {
+    pub fn max_resistance(&self) -> Option<(&String, HydraulicResistance<T>)> {
         self.resistances
             .iter()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|(_, a), (_, b)| {
+                a.into_base()
+                    .partial_cmp(&b.into_base())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|(id, &r)| (id, r))
     }
 
     /// Get the minimum resistance component
-    pub fn min_resistance(&self) -> Option<(&String, T)> {
+    pub fn min_resistance(&self) -> Option<(&String, HydraulicResistance<T>)> {
         self.resistances
             .iter()
-            .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .min_by(|(_, a), (_, b)| {
+                a.into_base()
+                    .partial_cmp(&b.into_base())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|(id, &r)| (id, r))
     }
 
     /// Calculate parallel resistance
-    pub fn parallel_resistance(&self) -> T {
+    pub fn parallel_resistance(&self) -> HydraulicResistance<T> {
         parallel_resistance(self.resistances.values().copied())
     }
 
     /// Calculate series resistance
-    pub fn series_resistance(&self) -> T {
+    pub fn series_resistance(&self) -> HydraulicResistance<T> {
         series_resistance(self.resistances.values().copied())
     }
 }

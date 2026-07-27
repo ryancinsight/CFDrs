@@ -46,9 +46,7 @@ pub struct FemConfig<T: cfd_mesh::domain::core::Scalar + RealField + Copy> {
     pub grad_div_gamma: T,
 }
 
-impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Default
-    for FemConfig<T>
-{
+impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy> Default for FemConfig<T> {
     fn default() -> Self {
         Self {
             base: cfd_core::compute::solver::SolverConfig::default(),

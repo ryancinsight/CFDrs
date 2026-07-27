@@ -46,8 +46,8 @@
 //! **Reference:** Hirn, A. (2013). "Finite element approximation of singular
 //! power-law systems." *Math. Comp.* 82:1247–1268.
 
-use crate::scalar;
 use crate::linalg::{matrix3x4_from_columns, symmetric_part, vector3_from_indexed, Matrix3};
+use crate::scalar;
 use cfd_core::conversion::SafeFromF64;
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::traits::Fluid as FluidTrait;
@@ -153,9 +153,7 @@ impl<T: cfd_mesh::domain::core::Scalar + RealField + FloatElement + Copy + SafeF
 
         let diameter = scalar::from_f64::<T>(self.builder.diameter);
         let area_inlet = if self.config.circular {
-            scalar::from_f64::<T>(std::f64::consts::PI / 4.0)
-                * diameter
-                * diameter
+            scalar::from_f64::<T>(std::f64::consts::PI / 4.0) * diameter * diameter
         } else {
             diameter * diameter
         };

@@ -145,8 +145,12 @@ fn main() -> Result<()> {
         Commands::All { with_fenics, plot } => run_all(&sh, with_fenics, plot),
         Commands::Clean => clean(&sh),
         Commands::Check => check_compilation(&sh),
-        Commands::LegacyMigrationAudit => migration_audit::print_legacy_migration_audit(&project_root()),
-        Commands::RefreshLegacyAllowlist => migration_audit::refresh_legacy_allowlist(&project_root()),
+        Commands::LegacyMigrationAudit => {
+            migration_audit::print_legacy_migration_audit(&project_root())
+        }
+        Commands::RefreshLegacyAllowlist => {
+            migration_audit::refresh_legacy_allowlist(&project_root())
+        }
         Commands::Prebook => run_prebook(&project_root()),
         Commands::CheckFigures => run_check_figures(&project_root()),
     }

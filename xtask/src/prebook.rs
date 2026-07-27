@@ -160,8 +160,8 @@ pub fn run_prebook(workspace_root: &Path) -> Result<PrebookReport> {
     let mut entries: Vec<ManifestEntry> = Vec::with_capacity(FIGURE_SPECS.len());
     for spec in FIGURE_SPECS {
         let path = figs_dir.join(spec.name);
-        let bytes = fs::read(&path)
-            .with_context(|| format!("reading figure file {}", path.display()))?;
+        let bytes =
+            fs::read(&path).with_context(|| format!("reading figure file {}", path.display()))?;
         let sha = sha256_hex_first_16(&bytes);
         entries.push(ManifestEntry {
             name: spec.name.to_owned(),
@@ -175,8 +175,7 @@ pub fn run_prebook(workspace_root: &Path) -> Result<PrebookReport> {
     // Serialise with sorted keys (serde_json default) + no pretty-print
     // trailing whitespace; deterministic across runs and machines.
     let manifest_path = figs_dir.join("MANIFEST.json");
-    let json = serde_json::to_string(&entries)
-        .context("serialising MANIFEST.json entries")?;
+    let json = serde_json::to_string(&entries).context("serialising MANIFEST.json entries")?;
     fs::write(&manifest_path, format!("{json}\n"))
         .with_context(|| format!("writing manifest {}", manifest_path.display()))?;
 

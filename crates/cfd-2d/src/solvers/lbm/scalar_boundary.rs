@@ -120,8 +120,8 @@ mod tests {
     use super::apply_scalar_boundaries;
     use crate::solvers::lbm::lattice::D2Q9;
     use crate::solvers::lbm::streaming::f_idx;
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::boundary::BoundaryCondition;
+    use eunomia::assert_relative_eq;
     use std::collections::HashMap;
 
     fn write_cell(g: &mut [f64], i: usize, j: usize, nx: usize, values: [f64; 9]) {

@@ -20,6 +20,7 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example venturi_parallel_analysis`
 
+use aequitas::systems::si::quantities::Pressure;
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::physics::resistance::{FlowConditions, ResistanceCalculator, VenturiModel};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
@@ -28,13 +29,13 @@ use cfd_core::physics::cavitation::VenturiCavitation;
 use cfd_core::physics::fluid::ConstantPropertyFluid;
 use cfd_schematics::config::{ChannelTypeConfig, FrustumConfig, GeometryConfig, TaperProfile};
 use cfd_schematics::domain::model::NodeKind;
-use cfd_schematics::geometry::SplitType;
 use cfd_schematics::geometry::generator::create_geometry;
+use cfd_schematics::geometry::SplitType;
 use cfd_schematics::plot_geometry;
-use cfd_schematics::visualizations::RenderConfig;
 use cfd_schematics::visualizations::analysis_field::{AnalysisField, AnalysisOverlay};
 use cfd_schematics::visualizations::plotters_backend::create_plotters_renderer;
 use cfd_schematics::visualizations::traits::SchematicRenderer;
+use cfd_schematics::visualizations::RenderConfig;
 use iris::color::NamedColorMap;
 use std::fs;
 use std::path::PathBuf;
@@ -151,12 +152,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .to_string();
         let inlet_idx = id_map[&inlet_id];
         // 2 kPa inlet, 0 Pa outlets — millifluidic-scale driving pressure
-        network.set_pressure(inlet_idx, 2_000.0);
+        network.set_pressure(inlet_idx, Pressure::from_base(2_000.0));
 
         for spec in &node_specs {
             if matches!(spec.kind, NodeKind::Outlet) {
                 let idx = id_map[spec.id.as_str()];
-                network.set_pressure(idx, 0.0);
+                network.set_pressure(idx, Pressure::from_base(0.0));
             }
         }
 
@@ -190,6 +191,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .flow_rates
                 .get(eidx.index())
                 .copied()
+                .map(aequitas::systems::si::quantities::VolumetricFlowRate::into_base)
                 .unwrap_or(0.0)
                 .abs();
 
@@ -198,8 +200,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .graph
                 .edge_endpoints(eidx)
                 .expect("invariant: every solved graph edge has two endpoints");
-            let p_up = solution.pressures.get(src.index()).copied().unwrap_or(0.0);
-            let p_dn = solution.pressures.get(tgt.index()).copied().unwrap_or(0.0);
+            let p_up = solution
+                .pressures
+                .get(src.index())
+                .copied()
+                .map(aequitas::systems::si::quantities::Pressure::into_base)
+                .unwrap_or(0.0);
+            let p_dn = solution
+                .pressures
+                .get(tgt.index())
+                .copied()
+                .map(aequitas::systems::si::quantities::Pressure::into_base)
+                .unwrap_or(0.0);
             let dp = (p_up - p_dn).abs();
 
             let props = solution.properties.get(&eidx);
@@ -336,7 +348,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .expect("invariant: graph iteration yields live node indices");
                 serde_json::json!({
                     "id": n.id,
-                    "pressure_pa": solution.pressures.get(idx.index()).unwrap_or(&0.0),
+                    "pressure_pa": solution
+                        .pressures
+                        .get(idx.index())
+                        .copied()
+                        .map(aequitas::systems::si::quantities::Pressure::into_base)
+                        .unwrap_or(0.0),
                     "type": format!("{:?}", n.node_type)
                 })
             })

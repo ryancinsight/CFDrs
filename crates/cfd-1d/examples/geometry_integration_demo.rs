@@ -10,6 +10,7 @@
 //! Run with:
 //! `cargo run -p cfd-1d --example geometry_integration_demo`
 
+use aequitas::systems::si::quantities::Pressure;
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;
@@ -99,12 +100,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .as_str()
         .to_string();
     let inlet_idx = id_map[&inlet_id];
-    network.set_pressure(inlet_idx, 1000.0); // 1 kPa
+    network.set_pressure(inlet_idx, Pressure::from_base(1000.0)); // 1 kPa
 
     for spec in &node_specs {
         if matches!(spec.kind, NodeKind::Outlet) {
             let idx = id_map[spec.id.as_str()];
-            network.set_pressure(idx, 0.0);
+            network.set_pressure(idx, Pressure::from_base(0.0));
         }
     }
 
@@ -126,6 +127,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Channel IDs in the schematic are integers; edge IDs are "chan_<id>"
     let mut edge_flow_data = HashMap::<usize, f64>::new();
     for (eidx, &q) in solution.flow_rates.iter().enumerate() {
+        let q = q.into_base();
         if let Some(edge) = solution
             .graph
             .edge_weight(petgraph::graph::EdgeIndex::new(eidx))
@@ -139,6 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Node pressure data
     let mut node_pressure_data = HashMap::<usize, f64>::new();
     for (nidx, &p) in solution.pressures.iter().enumerate() {
+        let p = p.into_base();
         if let Some(node) = solution
             .graph
             .node_weight(petgraph::graph::NodeIndex::new(nidx))

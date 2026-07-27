@@ -9,8 +9,8 @@
 //! | Adversarial  | NaN velocity, Inf velocity, α outside [0,1] input                |
 //! | Property     | α ∈ [0,1] invariant, volume monotone, curvature sign            |
 
-use eunomia::assert_relative_eq;
 use cfd_3d::vof::{AdvectionMethod, InterfaceReconstruction, VofConfig, VofSolver};
+use eunomia::assert_relative_eq;
 use leto::geometry::Vector3;
 
 // ─────────────────────────────────────────────────────────────────────────────

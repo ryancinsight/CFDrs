@@ -22,14 +22,7 @@ pub trait TurbulenceModel {
     /// `u`, `v`, `w`: cell-centered velocity components (read-only).
     /// `nu_t`: turbulent-viscosity buffer (mutated).
     /// `dt`: timestep size.
-    fn step(
-        &mut self,
-        u: &[f64],
-        v: &[f64],
-        w: &[f64],
-        nu_t: &mut [f64],
-        dt: f64,
-    );
+    fn step(&mut self, u: &[f64], v: &[f64], w: &[f64], nu_t: &mut [f64], dt: f64);
 
     /// Human-readable closure name.
     fn label(&self) -> &'static str;
@@ -49,14 +42,7 @@ pub struct Smagorinsky;
 
 impl TurbulenceModel for KEpsilon {
     type Field = f64;
-    fn step(
-        &mut self,
-        _u: &[f64],
-        _v: &[f64],
-        _w: &[f64],
-        _nu_t: &mut [f64],
-        _dt: f64,
-    ) {
+    fn step(&mut self, _u: &[f64], _v: &[f64], _w: &[f64], _nu_t: &mut [f64], _dt: f64) {
         // TODO(cfd-3d, atlas-team): implement k-ε production + dissipation.
     }
     fn label(&self) -> &'static str {
@@ -66,14 +52,7 @@ impl TurbulenceModel for KEpsilon {
 
 impl TurbulenceModel for KOmegaSST {
     type Field = f64;
-    fn step(
-        &mut self,
-        _u: &[f64],
-        _v: &[f64],
-        _w: &[f64],
-        _nu_t: &mut [f64],
-        _dt: f64,
-    ) {
+    fn step(&mut self, _u: &[f64], _v: &[f64], _w: &[f64], _nu_t: &mut [f64], _dt: f64) {
         // TODO(cfd-3d, atlas-team): implement k-ω SST blend.
     }
     fn label(&self) -> &'static str {
@@ -83,14 +62,7 @@ impl TurbulenceModel for KOmegaSST {
 
 impl TurbulenceModel for Smagorinsky {
     type Field = f64;
-    fn step(
-        &mut self,
-        _u: &[f64],
-        _v: &[f64],
-        _w: &[f64],
-        _nu_t: &mut [f64],
-        _dt: f64,
-    ) {
+    fn step(&mut self, _u: &[f64], _v: &[f64], _w: &[f64], _nu_t: &mut [f64], _dt: f64) {
         // TODO(cfd-3d, atlas-team): implement Smagorinsky LES model.
     }
     fn label(&self) -> &'static str {

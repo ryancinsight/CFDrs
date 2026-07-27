@@ -4,7 +4,9 @@ use super::blood_safety::{BloodShearLimits, HemolysisLimitViolation, ShearLimitV
 use crate::domain::channel::FlowRegime;
 use crate::physics::hemolysis::{giersiepen_hi, taskin_hi};
 use crate::scalar::Cfd1dScalar;
-use aequitas::systems::si::quantities::{Pressure, Time};
+use aequitas::systems::si::quantities::{
+    Dimensionless, Pressure, ReciprocalTime, Time, Velocity, VolumetricFlowRate,
+};
 use cfd_core::conversion::{SafeFromF64, SafeFromUsize};
 use eunomia::NumericElement;
 use std::collections::HashMap;
@@ -14,17 +16,17 @@ use std::iter::Sum;
 #[derive(Debug, Clone)]
 pub struct FlowAnalysis<T: Cfd1dScalar + Copy> {
     /// Total flow rate through the network [m³/s]
-    pub total_flow_rate: T,
+    pub total_flow_rate: VolumetricFlowRate<T>,
     /// Flow rates through individual components [m³/s]
-    pub component_flows: HashMap<String, T>,
+    pub component_flows: HashMap<String, VolumetricFlowRate<T>>,
     /// Average velocities in channels \[m/s]
-    pub velocities: HashMap<String, T>,
+    pub velocities: HashMap<String, Velocity<T>>,
     /// Reynolds numbers for each channel
-    pub reynolds_numbers: HashMap<String, T>,
+    pub reynolds_numbers: HashMap<String, Dimensionless<T>>,
     /// Estimated wall shear rates for each channel [1/s]
-    pub wall_shear_rates: HashMap<String, T>,
+    pub wall_shear_rates: HashMap<String, ReciprocalTime<T>>,
     /// Estimated wall shear stresses for each channel \[Pa]
-    pub wall_shear_stresses: HashMap<String, T>,
+    pub wall_shear_stresses: HashMap<String, Pressure<T>>,
     /// Flow regime classification
     pub flow_regimes: HashMap<String, FlowRegime>,
 }
@@ -34,7 +36,7 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> FlowAnalysis<T> {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            total_flow_rate: T::zero(),
+            total_flow_rate: VolumetricFlowRate::from_base(T::zero()),
             component_flows: HashMap::new(),
             velocities: HashMap::new(),
             reynolds_numbers: HashMap::new(),
@@ -45,30 +47,32 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> FlowAnalysis<T> {
     }
 
     /// Add flow data for a component
-    pub fn add_component_flow(&mut self, id: String, flow_rate: T) {
+    pub fn add_component_flow(&mut self, id: String, flow_rate: VolumetricFlowRate<T>) {
         self.component_flows.insert(id, flow_rate);
-        if flow_rate > T::zero() {
-            self.total_flow_rate += flow_rate;
+        if flow_rate.into_base() > T::zero() {
+            self.total_flow_rate = VolumetricFlowRate::from_base(
+                self.total_flow_rate.into_base() + flow_rate.into_base(),
+            );
         }
     }
 
     /// Add velocity data for a component
-    pub fn add_velocity(&mut self, id: String, velocity: T) {
+    pub fn add_velocity(&mut self, id: String, velocity: Velocity<T>) {
         self.velocities.insert(id, velocity);
     }
 
     /// Add Reynolds number for a component
-    pub fn add_reynolds_number(&mut self, id: String, reynolds: T) {
+    pub fn add_reynolds_number(&mut self, id: String, reynolds: Dimensionless<T>) {
         self.reynolds_numbers.insert(id, reynolds);
     }
 
     /// Add wall shear rate for a component.
-    pub fn add_wall_shear_rate(&mut self, id: String, shear_rate: T) {
+    pub fn add_wall_shear_rate(&mut self, id: String, shear_rate: ReciprocalTime<T>) {
         self.wall_shear_rates.insert(id, shear_rate);
     }
 
     /// Add wall shear stress for a component.
-    pub fn add_wall_shear_stress(&mut self, id: String, shear_stress: T) {
+    pub fn add_wall_shear_stress(&mut self, id: String, shear_stress: Pressure<T>) {
         self.wall_shear_stresses.insert(id, shear_stress);
     }
 
@@ -78,33 +82,47 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> FlowAnalysis<T> {
     }
 
     /// Set total flow rate
-    pub fn set_total_flow(&mut self, total_flow: T) {
+    pub fn set_total_flow(&mut self, total_flow: VolumetricFlowRate<T>) {
         self.total_flow_rate = total_flow;
     }
 
     /// Get the average flow rate
-    pub fn average_flow_rate(&self) -> T {
+    pub fn average_flow_rate(&self) -> VolumetricFlowRate<T> {
         if self.component_flows.is_empty() {
-            T::zero()
+            VolumetricFlowRate::from_base(T::zero())
         } else {
-            let sum: T = self.component_flows.values().copied().sum();
-            sum / T::from_usize_or_one(self.component_flows.len())
+            let sum: T = self
+                .component_flows
+                .values()
+                .map(|flow| flow.into_base())
+                .sum();
+            VolumetricFlowRate::from_base(
+                sum / T::from_usize_or_one(self.component_flows.len()),
+            )
         }
     }
 
     /// Get the maximum flow rate
-    pub fn max_flow_rate(&self) -> Option<T> {
+    pub fn max_flow_rate(&self) -> Option<VolumetricFlowRate<T>> {
         self.component_flows
             .values()
-            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.into_base()
+                    .partial_cmp(&b.into_base())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .copied()
     }
 
     /// Get the minimum flow rate
-    pub fn min_flow_rate(&self) -> Option<T> {
+    pub fn min_flow_rate(&self) -> Option<VolumetricFlowRate<T>> {
         self.component_flows
             .values()
-            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .min_by(|a, b| {
+                a.into_base()
+                    .partial_cmp(&b.into_base())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .copied()
     }
 
@@ -117,18 +135,21 @@ impl<T: Cfd1dScalar + Copy + SafeFromUsize + Sum> FlowAnalysis<T> {
         let mut violations = Vec::new();
 
         for (component_id, wall_shear_stress) in &self.wall_shear_stresses {
-            let exceeds_stress = *wall_shear_stress > limits.max_wall_shear_stress_pa;
+            let exceeds_stress = wall_shear_stress.into_base()
+                > limits.max_wall_shear_stress_pa.into_base();
             let shear_rate = self.wall_shear_rates.get(component_id).copied();
             let exceeds_rate = if let (Some(rate), Some(rate_limit)) =
                 (shear_rate, limits.max_wall_shear_rate_per_s)
             {
-                rate > rate_limit
+                rate.into_base() > rate_limit.into_base()
             } else {
                 false
             };
 
             if exceeds_stress || exceeds_rate {
-                let ratio = *wall_shear_stress / limits.max_wall_shear_stress_pa;
+                let ratio = Dimensionless::from_base(
+                    wall_shear_stress.into_base() / limits.max_wall_shear_stress_pa.into_base(),
+                );
                 violations.push(ShearLimitViolation {
                     component_id: component_id.clone(),
                     wall_shear_stress_pa: *wall_shear_stress,
@@ -154,7 +175,7 @@ impl<T: Cfd1dScalar + Copy + Sum + SafeFromF64> FlowAnalysis<T> {
     pub fn flag_hemolysis_limit_violations(
         &self,
         limits: &BloodShearLimits<T>,
-        residence_times_s: &HashMap<String, T>,
+        residence_times_s: &HashMap<String, Time<T>>,
     ) -> Vec<HemolysisLimitViolation<T>> {
         if limits.max_giersiepen_hi.is_none() && limits.max_taskin_hi.is_none() {
             return Vec::new();
@@ -167,38 +188,46 @@ impl<T: Cfd1dScalar + Copy + Sum + SafeFromF64> FlowAnalysis<T> {
                 continue;
             };
 
-            let shear_pa = <T as NumericElement>::to_f64(*wall_shear_stress);
-            let duration_s = <T as NumericElement>::to_f64(exposure_time_s);
+            let shear_pa = <T as NumericElement>::to_f64(wall_shear_stress.into_base());
+            let duration_s = <T as NumericElement>::to_f64(exposure_time_s.into_base());
 
             let giersiepen_value = limits.max_giersiepen_hi.map(|_| {
-                T::from_f64_or_zero(giersiepen_hi(
+                Dimensionless::from_base(T::from_f64_or_zero(giersiepen_hi(
                     Pressure::from_base(shear_pa),
                     Time::from_base(duration_s),
-                ))
+                )))
             });
             let taskin_value = limits.max_taskin_hi.map(|_| {
-                T::from_f64_or_zero(taskin_hi(
+                Dimensionless::from_base(T::from_f64_or_zero(taskin_hi(
                     Pressure::from_base(shear_pa),
                     Time::from_base(duration_s),
-                ))
+                )))
             });
 
             let giersiepen_ratio = match (giersiepen_value, limits.max_giersiepen_hi) {
-                (Some(value), Some(limit)) if limit > T::zero() => Some(value / limit),
+                (Some(value), Some(limit)) if limit.into_base() > T::zero() => {
+                    Some(Dimensionless::from_base(
+                        value.into_base() / limit.into_base(),
+                    ))
+                }
                 _ => None,
             };
             let taskin_ratio = match (taskin_value, limits.max_taskin_hi) {
-                (Some(value), Some(limit)) if limit > T::zero() => Some(value / limit),
+                (Some(value), Some(limit)) if limit.into_base() > T::zero() => {
+                    Some(Dimensionless::from_base(
+                        value.into_base() / limit.into_base(),
+                    ))
+                }
                 _ => None,
             };
 
             let exceeds_giersiepen = matches!(
                 (giersiepen_value, limits.max_giersiepen_hi),
-                (Some(value), Some(limit)) if value > limit
+                (Some(value), Some(limit)) if value.into_base() > limit.into_base()
             );
             let exceeds_taskin = matches!(
                 (taskin_value, limits.max_taskin_hi),
-                (Some(value), Some(limit)) if value > limit
+                (Some(value), Some(limit)) if value.into_base() > limit.into_base()
             );
 
             if exceeds_giersiepen || exceeds_taskin {
@@ -234,11 +263,14 @@ mod tests {
     #[test]
     fn flags_component_when_stress_exceeds_limit() {
         let mut analysis = FlowAnalysis::<f64>::new();
-        analysis.add_wall_shear_stress("edge_1".to_string(), 180.0);
-        analysis.add_wall_shear_rate("edge_1".to_string(), 40_000.0);
+        analysis.add_wall_shear_stress("edge_1".to_string(), Pressure::from_base(180.0));
+        analysis.add_wall_shear_rate(
+            "edge_1".to_string(),
+            ReciprocalTime::from_base(40_000.0),
+        );
 
         let limits = BloodShearLimits {
-            max_wall_shear_stress_pa: 150.0,
+            max_wall_shear_stress_pa: Pressure::from_base(150.0),
             max_wall_shear_rate_per_s: None,
             max_giersiepen_hi: None,
             max_taskin_hi: None,
@@ -247,18 +279,21 @@ mod tests {
         let violations = analysis.flag_fda_shear_limit_violations(&limits);
         assert_eq!(violations.len(), 1);
         assert_eq!(violations[0].component_id, "edge_1");
-        assert!(violations[0].stress_exceedance_ratio > 1.0);
+        assert!(violations[0].stress_exceedance_ratio.into_base() > 1.0);
     }
 
     #[test]
     fn flags_component_when_rate_exceeds_optional_limit() {
         let mut analysis = FlowAnalysis::<f64>::new();
-        analysis.add_wall_shear_stress("edge_2".to_string(), 80.0);
-        analysis.add_wall_shear_rate("edge_2".to_string(), 50_000.0);
+        analysis.add_wall_shear_stress("edge_2".to_string(), Pressure::from_base(80.0));
+        analysis.add_wall_shear_rate(
+            "edge_2".to_string(),
+            ReciprocalTime::from_base(50_000.0),
+        );
 
         let limits = BloodShearLimits {
-            max_wall_shear_stress_pa: 150.0,
-            max_wall_shear_rate_per_s: Some(40_000.0),
+            max_wall_shear_stress_pa: Pressure::from_base(150.0),
+            max_wall_shear_rate_per_s: Some(ReciprocalTime::from_base(40_000.0)),
             max_giersiepen_hi: None,
             max_taskin_hi: None,
         };
@@ -271,11 +306,14 @@ mod tests {
     #[test]
     fn flags_component_when_hemolysis_exceeds_limit() {
         let mut analysis = FlowAnalysis::<f64>::new();
-        analysis.add_wall_shear_stress("edge_3".to_string(), 180.0);
+        analysis.add_wall_shear_stress("edge_3".to_string(), Pressure::from_base(180.0));
 
         let limits = BloodShearLimits::fda_conservative_whole_blood()
-            .with_hemolysis_limits(Some(1e-3), Some(5e-3));
-        let residence_times = HashMap::from([("edge_3".to_string(), 0.5)]);
+            .with_hemolysis_limits(
+                Some(Dimensionless::from_base(1e-3)),
+                Some(Dimensionless::from_base(5e-3)),
+            );
+        let residence_times = HashMap::from([("edge_3".to_string(), Time::from_base(0.5))]);
 
         let violations = analysis.flag_hemolysis_limit_violations(&limits, &residence_times);
 
@@ -283,9 +321,9 @@ mod tests {
         assert_eq!(violations[0].component_id, "edge_3");
         assert!(violations[0]
             .giersiepen_exceedance_ratio
-            .is_some_and(|ratio| ratio > 1.0));
+            .is_some_and(|ratio| ratio.into_base() > 1.0));
         assert!(violations[0]
             .taskin_exceedance_ratio
-            .is_some_and(|ratio| ratio > 1.0));
+            .is_some_and(|ratio| ratio.into_base() > 1.0));
     }
 }

@@ -3,7 +3,7 @@
 //! Tests based on literature and industry standards for microfluidic network simulation,
 //! inspired by mmft-modular-1D-simulator functionality for production-ready validation.
 
-use aequitas::systems::si::quantities::Length;
+use aequitas::systems::si::quantities::{Length, Power, Pressure, Time, VolumetricFlowRate};
 use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::*;
 use cfd_core::compute::solver::{Configurable, Solver};
@@ -195,14 +195,14 @@ fn test_performance_analysis() -> Result<()> {
     let pressure_drop = 5000.0; // Pa
 
     // Set metrics values using available methods
-    metrics.set_total_flow_rate(expected_flow_rate);
-    metrics.set_total_pressure_drop(pressure_drop);
-    metrics.set_power_consumption(expected_flow_rate * pressure_drop);
+    metrics.set_total_flow_rate(VolumetricFlowRate::from_base(expected_flow_rate));
+    metrics.set_total_pressure_drop(Pressure::from_base(pressure_drop));
+    metrics.set_power_consumption(Power::from_base(expected_flow_rate * pressure_drop));
 
     // Validate metrics
-    assert_relative_eq!(metrics.throughput, expected_flow_rate, epsilon = 1e-15);
+    assert_relative_eq!(metrics.throughput.into_base(), expected_flow_rate, epsilon = 1e-15);
     assert_relative_eq!(
-        metrics.power_consumption,
+        metrics.power_consumption.into_base(),
         expected_flow_rate * pressure_drop,
         epsilon = 1e-15
     );
@@ -212,17 +212,17 @@ fn test_performance_analysis() -> Result<()> {
     assert!(efficiency >= 0.0);
 
     // Test residence time tracking
-    metrics.add_residence_time("inlet_channel".to_string(), 0.1);
-    metrics.add_residence_time("outlet_channel".to_string(), 0.2);
+    metrics.add_residence_time("inlet_channel".to_string(), Time::from_base(0.1));
+    metrics.add_residence_time("outlet_channel".to_string(), Time::from_base(0.2));
 
     let avg_time = metrics.average_residence_time();
-    assert_relative_eq!(avg_time, 0.15, epsilon = 1e-10);
+    assert_relative_eq!(avg_time.into_base(), 0.15, epsilon = 1e-10);
 
     let max_time = metrics.max_residence_time().expect("test invariant");
-    assert_relative_eq!(max_time, 0.2, epsilon = 1e-10);
+    assert_relative_eq!(max_time.into_base(), 0.2, epsilon = 1e-10);
 
     let min_time = metrics.min_residence_time().expect("test invariant");
-    assert_relative_eq!(min_time, 0.1, epsilon = 1e-10);
+    assert_relative_eq!(min_time.into_base(), 0.1, epsilon = 1e-10);
 
     Ok(())
 }

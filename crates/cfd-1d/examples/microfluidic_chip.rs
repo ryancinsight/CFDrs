@@ -8,7 +8,7 @@
 //!
 //! Run with: cargo run --example microfluidic_chip
 
-use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length};
+use aequitas::systems::si::quantities::{Area, HydraulicResistance, Length, Pressure};
 use cfd_1d::solver::core::SolverConfig;
 use cfd_1d::{EdgeProperties, Network, NetworkBuilder, NetworkProblem, NetworkSolver};
 
@@ -101,9 +101,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✅ Exported structure to {}", json_path.display());
 
     // Set boundary pressures
-    network.set_pressure(inlet, INLET_PRESSURE);
-    network.set_pressure(outlet_1, OUTLET_PRESSURE);
-    network.set_pressure(outlet_2, OUTLET_PRESSURE);
+    network.set_pressure(inlet, Pressure::from_base(INLET_PRESSURE));
+    network.set_pressure(outlet_1, Pressure::from_base(OUTLET_PRESSURE));
+    network.set_pressure(outlet_2, Pressure::from_base(OUTLET_PRESSURE));
 
     // Create solver with configuration
     const SOLVER_TOLERANCE: f64 = 1e-6;
@@ -138,7 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let node_names = ["inlet", "junction", "outlet_1", "outlet_2"];
     for (idx, name) in node_indices.iter().zip(node_names.iter()) {
         if let Some(&pressure) = pressures.get(idx.index()) {
-            println!("   {}: {:.1} Pa", name, pressure);
+            println!("   {}: {:.1} Pa", name, pressure.into_base());
         }
     }
 
@@ -146,6 +146,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n➡️  Flow Rates:");
     let mut total_flow: f64 = 0.0;
     for (edge_idx, flow_rate) in flow_rates.iter().enumerate() {
+        let flow_rate = flow_rate.into_base();
         let flow_ml_min = flow_rate * 1e6 * 60.0; // Convert m³/s to mL/min
         println!(
             "   Edge {:?}: {:.3} mL/min ({:.2e} m³/s)",
@@ -162,7 +163,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let fluid = solved_network.fluid();
     let diameter = hydraulic_diameter;
     let avg_velocity: f64 = if let Some((_edge_idx, flow)) = flow_rates.iter().enumerate().next() {
-        flow.abs() / area
+        flow.into_base().abs() / area
     } else {
         0.0
     };

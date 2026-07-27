@@ -16,6 +16,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
         dt: T,
         nu: T,
         rho: T,
+        convergence_tolerance: T,
     ) -> cfd_core::error::Result<T> {
         let mut residual = scalar::zero();
         let max_iterations = self.config.max_inner_iterations;
@@ -160,11 +161,11 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
                 continuity_residual
             );
 
-            let velocity_converged = velocity_residual < self.config.tolerance;
+            let velocity_converged = velocity_residual < convergence_tolerance;
             // Use the configured convergence tolerance rather than a stricter
             // hard-coded threshold so SIMPLEC stops on the same contract as the
             // rest of the pressure-velocity stack.
-            let continuity_converged = continuity_residual < self.config.tolerance;
+            let continuity_converged = continuity_residual < convergence_tolerance;
 
             residual = velocity_residual.max(continuity_residual);
 
@@ -194,7 +195,7 @@ impl<T: Cfd2dScalar + Copy + std::fmt::LowerExp + FloatElement> SimplecPimpleSol
                 tracing::warn!(
                     "SIMPLEC residuals are diverging; switching to the stable PIMPLE correction"
                 );
-                return self.solve_pimple(fields, dt, nu, rho);
+                return self.solve_pimple(fields, dt, nu, rho, convergence_tolerance);
             }
         }
 

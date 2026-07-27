@@ -233,12 +233,13 @@ impl<T: Cfd2dScalar + Copy + FloatElement> AdaptiveTimeIntegrator<T> {
                     * <T as FloatElement>::powf(
                         error_tolerance / error_estimate,
                         scalar::from_f64::<T>(1.0 / 4.0),
-                    );                    self.controller.dt_current =
-                        <T as NumericElement>::min_scalar(dt_current * factor, self.controller.dt_max);
+                    );
+                self.controller.dt_current =
+                    <T as NumericElement>::min_scalar(dt_current * factor, self.controller.dt_max);
 
-                    self.store_y_prev(y);
-                    return (y_full, t + dt_current, self.controller.dt_current, true);
-                }
+                self.store_y_prev(y);
+                return (y_full, t + dt_current, self.controller.dt_current, true);
+            }
 
             // Step rejected - reduce step size
             self.controller.steps_rejected += 1;

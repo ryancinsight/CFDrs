@@ -4,6 +4,7 @@ use super::traits::NetworkAnalyzer;
 use crate::domain::network::Network;
 use crate::scalar::Cfd1dScalar;
 use crate::solver::analysis::PerformanceMetrics;
+use aequitas::systems::si::quantities::{Dimensionless, Power, Pressure, VolumetricFlowRate};
 use cfd_core::conversion::SafeFromUsize;
 use cfd_core::error::Result;
 use eunomia::NumericElement;
@@ -41,19 +42,19 @@ impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> NetworkAnalyz
 
         // Calculate total pressure drop
         let pressure_drop = self.calculate_total_pressure_drop(network);
-        metrics.set_total_pressure_drop(pressure_drop);
+        metrics.set_total_pressure_drop(Pressure::from_base(pressure_drop));
 
         // Calculate total flow rate
         let flow_rate = self.calculate_total_flow_rate(network);
-        metrics.set_total_flow_rate(flow_rate);
+        metrics.set_total_flow_rate(VolumetricFlowRate::from_base(flow_rate));
 
         // Calculate network efficiency
         let efficiency = self.calculate_efficiency(network, pressure_drop, flow_rate);
-        metrics.set_efficiency(efficiency);
+        metrics.set_efficiency(Dimensionless::from_base(efficiency));
 
         // Calculate power consumption
         let power = pressure_drop * flow_rate;
-        metrics.set_power_consumption(power);
+        metrics.set_power_consumption(Power::from_base(power));
 
         Ok(metrics)
     }
@@ -73,11 +74,11 @@ impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> PerformanceAn
         // Find max and min pressures
         let max_pressure = pressures
             .iter()
-            .copied()
+            .map(|pressure| pressure.into_base())
             .fold(T::zero(), |a, b| if a > b { a } else { b });
         let min_pressure = pressures
             .iter()
-            .copied()
+            .map(|pressure| pressure.into_base())
             .fold(max_pressure, |a, b| if a < b { a } else { b });
 
         max_pressure - min_pressure
@@ -93,7 +94,7 @@ impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> PerformanceAn
                 for edge_ref in network.graph.edges(node_idx) {
                     let edge_idx = edge_ref.id();
                     if let Some(&flow) = network.flow_rates().get(edge_idx.index()) {
-                        total += <T as NumericElement>::abs(flow);
+                        total += <T as NumericElement>::abs(flow.into_base());
                     }
                 }
             }
@@ -134,7 +135,9 @@ impl<T: Cfd1dScalar + Copy + NumericElement + SafeFromUsize + Sum> PerformanceAn
                     pressures.get(from_idx.index()),
                     pressures.get(to_idx.index()),
                 ) {
-                    let pressure_drop = <T as NumericElement>::abs(p_from - p_to);
+                    let pressure_drop = <T as NumericElement>::abs(
+                        p_from.into_base() - p_to.into_base(),
+                    );
                     total_power += pressure_drop * <T as NumericElement>::abs(flow_rate);
                 }
             }

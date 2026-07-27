@@ -17,9 +17,9 @@
 //! In this physical state, only pressure *differentials* $\Delta P$ and corresponding
 //! flows $\mathbf{Q}$ are uniquely defined; the absolute pressure floats.
 
-use super::NetworkSolveScalar;
 use super::geometry::NetworkDomain;
 use super::state::NetworkState;
+use super::NetworkSolveScalar;
 use crate::domain::network::Network;
 use crate::scalar::Cfd1dScalar;
 use cfd_core::abstractions::problem::Problem;

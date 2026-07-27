@@ -191,9 +191,9 @@ impl<T: ResistanceScalar> ResistanceModel<T> for HagenPoiseuilleModel<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eunomia::assert_relative_eq;
     use cfd_core::physics::fluid::CassonBlood;
     use cfd_core::physics::fluid::ConstantPropertyFluid;
+    use eunomia::assert_relative_eq;
 
     fn water() -> ConstantPropertyFluid<f64> {
         ConstantPropertyFluid::new(

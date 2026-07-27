@@ -294,7 +294,7 @@ pub fn compute_blueprint_report_metrics(
 
 #[cfg(test)]
 mod tests {
-    use super::{Milestone12ReportDesign, ParetoTag, pareto_point_from_report_design};
+    use super::{pareto_point_from_report_design, Milestone12ReportDesign, ParetoTag};
     use crate::domain::fixtures::{canonical_option2_candidate, operating_point};
     use crate::reporting::compute_blueprint_report_metrics;
 

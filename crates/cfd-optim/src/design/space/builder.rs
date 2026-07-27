@@ -3,8 +3,8 @@ use crate::constraints::{SERPENTINE_BEND_RADIUS_M, TREATMENT_WIDTH_MM};
 use crate::domain::{BlueprintCandidate, OperatingPoint};
 use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_schematics::topology::{
+    presets::{build_milestone12_blueprint, Milestone12TopologyRequest},
     SerpentineSpec, TreatmentActuationMode, VenturiPlacementMode,
-    presets::{Milestone12TopologyRequest, build_milestone12_blueprint},
 };
 
 #[must_use]

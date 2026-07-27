@@ -31,7 +31,7 @@ use cfd_math::linear_solver::Preconditioner;
 use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Storage};
-use leto_ops::{CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar, lu_decompose, qr_decompose};
+use leto_ops::{lu_decompose, qr_decompose, CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};
 use serde::{Deserialize, Serialize};
 
 use super::NetworkSolveScalar;

@@ -8,10 +8,10 @@
 //! - Corner singularities
 //! - Grid convergence
 
-use eunomia::assert_relative_eq;
 use cfd_2d::grid::StructuredGrid2D;
 use cfd_2d::solvers::fdm::config::FdmConfig;
 use cfd_2d::solvers::fdm::poisson::PoissonSolver;
+use eunomia::assert_relative_eq;
 use std::collections::HashMap;
 use std::f64::consts::PI;
 

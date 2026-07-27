@@ -12,8 +12,8 @@ mod preconditioner_edge_tests {
     use crate::linear_solver::preconditioners::ssor::SSOR;
     use crate::linear_solver::Preconditioner;
     use crate::sparse::SparseMatrixBuilder;
-    use eunomia::assert_relative_eq;
     use cfd_core::error::{Error, Result};
+    use eunomia::assert_relative_eq;
     use leto::Array1;
     use leto_ops::CsrMatrix;
 

@@ -21,7 +21,7 @@ use pyo3::prelude::*;
 /// - 1 <= alpha < 3: transitional
 /// - 3 <= alpha < 10: inertia-dominated
 /// - alpha >= 10: plug flow with thin Stokes layer
-#[pyclass(name = "WomersleyNumber")]
+#[pyclass(name = "WomersleyNumber", skip_from_py_object)]
 pub struct PyWomersleyNumber {
     inner: RustWomersleyNumber<f64>,
 }
@@ -114,7 +114,7 @@ impl PyWomersleyNumber {
 /// Computes the unsteady velocity field u(r/R, t) for pulsatile pipe flow
 /// using asymptotic approximations valid for low, intermediate, and high
 /// Womersley numbers.
-#[pyclass(name = "WomersleyProfile")]
+#[pyclass(name = "WomersleyProfile", skip_from_py_object)]
 pub struct PyWomersleyProfile {
     inner: RustWomersleyProfile<f64>,
 }
@@ -190,7 +190,7 @@ impl PyWomersleyProfile {
 ///
 /// Provides time-varying flow solutions combining mean (steady Poiseuille)
 /// and pulsatile (Womersley) components.
-#[pyclass(name = "WomersleyFlow")]
+#[pyclass(name = "WomersleyFlow", skip_from_py_object)]
 pub struct PyWomersleyFlow {
     inner: RustWomersleyFlow<f64>,
 }
