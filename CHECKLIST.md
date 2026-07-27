@@ -1,5 +1,19 @@
 # CFDrs Work Checklist
 
+## Owner: Codex — CFDRS-AEQ-MET-17 typed network pressure and flow state metrics [major] — in progress 2026-07-27
+
+- [ ] Audit the live `Network`, `NetworkState`, analysis, and every in-tree
+      caller; classify residual norms by their solver-equation contract.
+- [ ] Replace raw public pressure, flow-rate, and simulation-time state
+      contracts with Aequitas quantities and migrate all callers without a
+      compatibility facade.
+- [ ] Add positive, boundary, and conversion value-semantic regressions.
+- [ ] Add the ADR and synchronize the child gap audit, backlog, checklist,
+      changelog, and Atlas audit.
+- [ ] Run locked focused checks, Nextest, doctests, Rustdoc, and warning-denied
+      Clippy; record unrelated peer blockers exactly.
+- [ ] Commit and push the verified increment, preserving peer-owned dirt.
+
 ## Owner: Codex — CFDRS-RUNTIME-001 solver-heavy validation runtime [perf] — in progress 2026-07-25
 
 - [x] Reproduce the broad cfd-3d/cfd-validation gate and record the eight
