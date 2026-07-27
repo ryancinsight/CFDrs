@@ -209,7 +209,7 @@ fn test_performance_analysis() -> Result<()> {
 
     // Test hydraulic efficiency calculation
     let efficiency = metrics.hydraulic_efficiency();
-    assert!(efficiency >= 0.0);
+    assert!(efficiency.into_base() >= 0.0);
 
     // Test residence time tracking
     metrics.add_residence_time("inlet_channel".to_string(), Time::from_base(0.1));

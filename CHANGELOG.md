@@ -56,6 +56,13 @@ All notable changes to this project will be documented in this file.
 - Verified the typed network hydraulic metric slice with locked cfd-1d check,
   focused Nextest (731/731, 3 skipped), and doctests (8/8, 3 ignored).
 
+- **Breaking**: `cfd-1d` network pressure and volumetric-flow state vectors,
+  `NetworkState` simulation time, and public network analysis metrics now use
+  Aequitas quantities. Scalar extraction remains at numerical, mesh/GPU, and
+  explicit reporting boundaries. Residual vectors remain scalar because their
+  units are determined by the assembled equation and scaling policy. See
+  [`network-state-metrics.md`](docs/atlas-migration/network-state-metrics.md).
+
 - **Breaking**: `cfd-1d` network edge hydraulic flow, linear resistance,
   quadratic loss resistance, and parallel conductance now use Aequitas
   quantities; solver-state vectors remain a separate audit boundary. Scalar

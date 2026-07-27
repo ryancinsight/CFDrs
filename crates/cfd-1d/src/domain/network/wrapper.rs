@@ -434,8 +434,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
-                .map(VolumetricFlowRate::into_base)
-                .unwrap_or(T::zero());
+                .map_or(T::zero(), VolumetricFlowRate::into_base);
             self.update_single_edge_resistance(edge_idx, flow, &update_context)?;
         }
 
@@ -640,8 +639,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
-                .map(VolumetricFlowRate::into_base)
-                .unwrap_or(T::zero());
+                .map_or(T::zero(), VolumetricFlowRate::into_base);
             self.update_single_edge_resistance(edge_idx, flow_rate, &context)?;
         }
         Ok(())
@@ -819,8 +817,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
-                .map(VolumetricFlowRate::into_base)
-                .unwrap_or_else(T::zero);
+                .map_or_else(T::zero, VolumetricFlowRate::into_base);
             if inflow && flow > T::zero() {
                 fluxes.push((edge_idx, flow));
             } else if !inflow && flow < T::zero() {
@@ -834,8 +831,7 @@ impl<T: Cfd1dScalar + Copy, F: FluidTrait<T>> Network<T, F> {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
-                .map(VolumetricFlowRate::into_base)
-                .unwrap_or_else(T::zero);
+                .map_or_else(T::zero, VolumetricFlowRate::into_base);
             if inflow && flow < T::zero() {
                 fluxes.push((edge_idx, -flow));
             } else if !inflow && flow > T::zero() {

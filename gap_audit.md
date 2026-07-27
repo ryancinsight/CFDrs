@@ -61,14 +61,36 @@ in 18.350 s. The exact 5 mm cfd-3d Venturi regression still times out at
 30.042 s, so the broad runtime item remains open. No additional Aequitas metric
 definition is required for CFDrs in this audit pass.
 
-The earlier Leto `.mul_add` blocker is stale: the current CFDrs checks compile
-and execute through the local provider graph. The broad 825-test gate has not
-been rerun in this refresh; its unchanged budget and value-semantic assertions
-remain the acceptance oracle. No CFDrs compatibility shim is introduced.
+### Verification refresh (2026-07-27)
+
+The live source audit closed the solver-state boundary identified after
+`CFDRS-AEQ-MET-16`. `Network::pressures` and `Network::flow_rates`, their
+accessors and setters, `NetworkState` pressure/flow/time state, and the public
+network analysis results now use Aequitas quantities. In-tree cfd-2d,
+cfd-optim, cfd-validation, test, benchmark, and example callers extract base
+scalars only at numerical formula, mesh/GPU, or explicit reporting boundaries.
+
+Residual vectors and `last_residual_norm` remain scalar by design: their units
+depend on the assembled equation and scaling policy, so assigning one SI
+dimension would misrepresent the solver contract. The classification and
+conversion rules are recorded in
+[`network-state-metrics.md`](docs/atlas-migration/network-state-metrics.md).
+No Aequitas provider addition is required; the existing `Pressure`,
+`VolumetricFlowRate`, `Time`, and derived hydraulic dimensions cover the
+consumer contract.
+
+The focused cfd-1d gate passes 731/731 with three skips in 23.458 s, and cfd-1d
+doctests pass 8/8 with three ignored. The package test-target and example checks
+also pass. The warning-denied library gate is currently blocked by a concurrent
+peer deletion of the cfd-math `linear_solver` and `interpolation` module trees;
+that WIP produces unresolved imports before cfd-1d lint can complete. The
+broader 825-test validation gate remains open on its unchanged solver-runtime
+budget. No CFDrs compatibility shim is introduced.
 
 | ID | Evidence | Closure |
 |---|---|---|
-| `CFDRS-AEQ-MET-16` | `cfd-1d` network `Edge` and `EdgeProperties` exposed flow rate, linear hydraulic resistance, quadratic hydraulic-loss coefficient, and parallel conductance as raw `T` values after geometry and vascular-result cutovers. `Network` pressure/flow/residual vectors are a separate solver-state boundary with additional unit semantics. | **VERIFIED in `a50a9e91`; provider dimensions in `f19ba15`.** Aequitas `VolumetricFlowRate`, `HydraulicResistance`, `QuadraticHydraulicResistance`, and `HydraulicConductance` now remain at public edge contracts; base scalars are extracted only inside resistance, validation, junction-loss, analysis, and matrix-assembly kernels. Locked `cargo check -p cfd-1d` passes; Nextest passes 731/731 with 3 skipped; cfd-1d doctests pass 8/8 with 3 ignored. Network state vectors remain an explicit follow-up audit boundary rather than receiving an unproven residual dimension. |
+| `CFDRS-AEQ-MET-17` | `cfd-1d` `Network` and `NetworkState` exposed pressure, volumetric-flow, and simulation-time state as raw scalar vectors; network analysis returned additional physical hydraulic metrics as raw scalars. Residual norms have model-dependent units. | **IMPLEMENTED in the current typed network-state increment; provider dimensions in `f19ba15`.** Public state and analysis contracts now use Aequitas quantities, and all in-tree callers are migrated without adapters. Residuals remain scalar under the documented equation-dependent classification. Locked library, test-target, and example checks pass; cfd-1d Nextest passes 731/731 with 3 skips in 23.458 s; doctests pass 8/8 with 3 ignored. Warning-denied library Clippy is pending the concurrent cfd-math module deletion being reconciled. See [`network-state-metrics.md`](docs/atlas-migration/network-state-metrics.md). |
+| `CFDRS-AEQ-MET-16` | `cfd-1d` network `Edge` and `EdgeProperties` exposed flow rate, linear hydraulic resistance, quadratic hydraulic-loss coefficient, and parallel conductance as raw `T` values after geometry and vascular-result cutovers. `Network` pressure/flow/residual vectors were a separate solver-state boundary with additional unit semantics. | **VERIFIED in `a50a9e91`; provider dimensions in `f19ba15`.** Aequitas `VolumetricFlowRate`, `HydraulicResistance`, `QuadraticHydraulicResistance`, and `HydraulicConductance` now remain at public edge contracts; base scalars are extracted only inside resistance, validation, junction-loss, analysis, and matrix-assembly kernels. Locked `cargo check -p cfd-1d` passes; Nextest passes 731/731 with 3 skipped; cfd-1d doctests pass 8/8 with 3 ignored. The remaining solver-state boundary was audited and closed by MET-17. |
 | `CFDRS-AEQ-MET-15` | The remaining vascular metric gap covered Murray optimal bifurcation geometry and Olufsen structured-tree terminal radius/impedance after the Womersley and network boundary migration. | **IMPLEMENTED in `e3b664e5`.** `OptimalBifurcation` now uses Aequitas `Length`, `Angle`, `VolumetricFlowRate`, `Dimensionless`, `DynamicViscosity`, and `Pressure`; `OlufsenParameters` uses `Length` and returns `HydraulicResistance`. Validation and PyO3 consumers convert at explicit boundaries. Provider aliases are from `446eb9f`. Locked `cfd-1d` check passes; Nextest passes 731/731 with 3 skipped; focused Womersley adversarial tests pass 2/2; locked `cfd-validation` check passes. See [`vascular-metrics.md`](docs/atlas-migration/vascular-metrics.md). |
 | `CFDRS-AEQ-MET-14` | `cfd-1d` vascular `WomersleyNumber`, `WomersleyFlow`, `WomersleyProfile`, `VesselSegment`, `Bifurcation`, and `BifurcationNetwork` expose length, radius, pressure, density, viscosity, frequency, flow, and derived vascular results as raw scalar values. | **IMPLEMENTED.** Aequitas owns the named pressure-gradient, hydraulic-resistance, hydraulic-inertance, and compliance dimensions in `446eb9f`. The Womersley and bifurcation contracts now carry typed physical inputs/results and extract base scalars only at analytical kernels. Murray/Olufsen completion is recorded in `CFDRS-AEQ-MET-15`. |
 | `CFDRS-AEQ-MET-13` | `cfd-1d` `ChannelType::Curved` and `Micromixer` exposed curvature radius, hydraulic diameter, and path length as raw SI scalars at public construction and storage boundaries. | **IMPLEMENTED.** Curved-channel radius and micromixer hydraulic diameter/path length now use Aequitas `Length`; scalar extraction remains at resistance and dynamic-parameter boundaries. In-tree constructors and value-semantic tests are migrated. `cargo check -p cfd-1d --tests` passes; Nextest passes 731/731 with 3 skipped; doctests pass 8/8 with 3 ignored; Rustdoc exits 0 with 11 pre-existing link warnings. Warning-denied Clippy remains blocked only by the pre-existing `cfd-math::matrix_zeros` dead-code warning, and no MET-13 test exceeds the committed runtime budget. See [`curved-micromixer-metrics.md`](docs/atlas-migration/curved-micromixer-metrics.md). Vascular and Womersley metrics remain outside this slice. |

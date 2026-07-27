@@ -687,98 +687,126 @@ impl TransientCompositionSimulator {
         let max_coupling_iters = working_network.node_count().clamp(2, 10);
 
         for &time in &timepoints {
-            while composition_event_cursor < composition_events.len()
-                && composition_events[composition_event_cursor].time <= time
-            {
-                let event = &composition_events[composition_event_cursor];
-                active_inlet_mixtures.insert(event.node_index, event.mixture.clone());
-                composition_event_cursor += 1;
+            let (next_network, state) = Self::simulate_coupled_pressure_timepoint(
+                working_network,
+                &solver,
+                time,
+                &composition_events,
+                &mut composition_event_cursor,
+                &pressure_events,
+                &mut pressure_event_cursor,
+                &mut active_inlet_mixtures,
+                tolerance,
+                max_coupling_iters,
+            )?;
+            working_network = next_network;
+            states.push(state);
+        }
+
+        Ok(states)
+    }
+
+    fn simulate_coupled_pressure_timepoint<T: NetworkSolveScalar, F: FluidTrait<T> + Clone>(
+        mut working_network: Network<T, F>,
+        solver: &NetworkSolver<T, F>,
+        time: T,
+        composition_events: &[InletCompositionEvent<T>],
+        composition_event_cursor: &mut usize,
+        pressure_events: &[PressureBoundaryEvent<T>],
+        pressure_event_cursor: &mut usize,
+        active_inlet_mixtures: &mut HashMap<usize, MixtureComposition<T>>,
+        tolerance: T,
+        max_coupling_iters: usize,
+    ) -> Result<(Network<T, F>, CompositionState<T>)> {
+        while *composition_event_cursor < composition_events.len()
+            && composition_events[*composition_event_cursor].time <= time
+        {
+            let event = &composition_events[*composition_event_cursor];
+            active_inlet_mixtures.insert(event.node_index, event.mixture.clone());
+            *composition_event_cursor += 1;
+        }
+
+        while *pressure_event_cursor < pressure_events.len()
+            && pressure_events[*pressure_event_cursor].time <= time
+        {
+            let pressure_event = &pressure_events[*pressure_event_cursor];
+            working_network.set_pressure(
+                NodeIndex::new(pressure_event.node_index),
+                Pressure::from_base(pressure_event.pressure),
+            );
+            *pressure_event_cursor += 1;
+        }
+
+        working_network.update_resistances()?;
+        let mut current_flow_rates = HashMap::with_capacity(working_network.flow_rates.len());
+        let mut current_node_mixtures = HashMap::with_capacity(working_network.node_count());
+        let mut current_edge_mixtures = HashMap::with_capacity(working_network.flow_rates.len());
+        let mut previous_flow_vector: Vec<T> = working_network
+            .flow_rates
+            .iter()
+            .map(|flow_rate| flow_rate.into_base())
+            .collect();
+
+        for _ in 0..max_coupling_iters {
+            working_network = solver.solve_owned_network(working_network)?;
+            current_flow_rates.clear();
+            for (i, q) in working_network.flow_rates.iter().enumerate() {
+                current_flow_rates.insert(i, q.into_base());
             }
 
-            while pressure_event_cursor < pressure_events.len()
-                && pressure_events[pressure_event_cursor].time <= time
-            {
-                let pressure_event = &pressure_events[pressure_event_cursor];
-                working_network.set_pressure(
-                    NodeIndex::new(pressure_event.node_index),
-                    Pressure::from_base(pressure_event.pressure),
-                );
-                pressure_event_cursor += 1;
-            }
+            current_node_mixtures = Self::solve_node_mixtures(
+                &working_network,
+                active_inlet_mixtures,
+                &current_flow_rates,
+            )?;
+            current_edge_mixtures = Self::compute_edge_mixtures(
+                &working_network,
+                &current_node_mixtures,
+                &current_flow_rates,
+            );
+            Self::apply_active_inlet_edge_mixtures(
+                &working_network,
+                active_inlet_mixtures,
+                &mut current_edge_mixtures,
+            );
+            Self::backfill_blood_edge_mixtures_from_network(
+                &working_network,
+                &mut current_edge_mixtures,
+            );
 
-            working_network.update_resistances()?;
-            let mut current_flow_rates = HashMap::with_capacity(working_network.flow_rates.len());
-            let mut current_node_mixtures = HashMap::with_capacity(working_network.node_count());
-            let mut current_edge_mixtures =
-                HashMap::with_capacity(working_network.flow_rates.len());
-            let mut previous_flow_vector: Vec<T> = working_network
+            let max_hct_change = Self::stamp_edge_hematocrit_from_mixtures(
+                &mut working_network,
+                &current_edge_mixtures,
+            );
+            let current_flow_vector: Vec<T> = working_network
                 .flow_rates
                 .iter()
                 .map(|flow_rate| flow_rate.into_base())
                 .collect();
+            let max_flow_change =
+                Self::max_flow_change(&previous_flow_vector, &current_flow_vector);
 
-            for _ in 0..max_coupling_iters {
-                working_network = solver.solve_owned_network(working_network)?;
-                current_flow_rates.clear();
-                for (i, q) in working_network.flow_rates.iter().enumerate() {
-                    current_flow_rates.insert(i, q.into_base());
-                }
-
-                current_node_mixtures = Self::solve_node_mixtures(
-                    &working_network,
-                    &active_inlet_mixtures,
-                    &current_flow_rates,
-                )?;
-                current_edge_mixtures = Self::compute_edge_mixtures(
-                    &working_network,
-                    &current_node_mixtures,
-                    &current_flow_rates,
-                );
-                Self::apply_active_inlet_edge_mixtures(
-                    &working_network,
-                    &active_inlet_mixtures,
-                    &mut current_edge_mixtures,
-                );
-                Self::backfill_blood_edge_mixtures_from_network(
-                    &working_network,
-                    &mut current_edge_mixtures,
-                );
-
-                let max_hct_change = Self::stamp_edge_hematocrit_from_mixtures(
-                    &mut working_network,
-                    &current_edge_mixtures,
-                );
-                let current_flow_vector: Vec<T> = working_network
-                    .flow_rates
-                    .iter()
-                    .map(|flow_rate| flow_rate.into_base())
-                    .collect();
-                let max_flow_change =
-                    Self::max_flow_change(&previous_flow_vector, &current_flow_vector);
-
-                if max_hct_change <= tolerance && max_flow_change <= tolerance {
-                    break;
-                }
-
-                previous_flow_vector.clone_from(&current_flow_vector);
-                working_network.update_resistances()?;
+            if max_hct_change <= tolerance && max_flow_change <= tolerance {
+                break;
             }
 
-            let reported_flow_rates = current_flow_rates
-                .iter()
-                .map(|(&edge_index, &flow_rate)| {
-                    (edge_index, <T as NumericElement>::abs(flow_rate))
-                })
-                .collect();
-            states.push(CompositionState {
+            previous_flow_vector.clone_from(&current_flow_vector);
+            working_network.update_resistances()?;
+        }
+
+        let reported_flow_rates = current_flow_rates
+            .iter()
+            .map(|(&edge_index, &flow_rate)| (edge_index, <T as NumericElement>::abs(flow_rate)))
+            .collect();
+        Ok((
+            working_network,
+            CompositionState {
                 time,
                 node_mixtures: current_node_mixtures,
                 edge_mixtures: current_edge_mixtures,
                 edge_flow_rates: reported_flow_rates,
-            });
-        }
-
-        Ok(states)
+            },
+        ))
     }
 
     #[allow(clippy::too_many_lines)]

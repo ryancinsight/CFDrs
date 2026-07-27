@@ -237,7 +237,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let sigma = cav.calculate();
 
             // FDA check
-            if wall_shear > fda_limits.max_wall_shear_stress_pa {
+            if wall_shear > fda_limits.max_wall_shear_stress_pa.into_base() {
                 fda_violations.push((chan_id, wall_shear));
             }
 
@@ -265,7 +265,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!(
         "   FDA limit (τ_w):          {:.1} Pa",
-        fda_limits.max_wall_shear_stress_pa
+        fda_limits.max_wall_shear_stress_pa.into_base()
     );
 
     if !fda_violations.is_empty() {
@@ -275,8 +275,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "     Channel {}: τ_w = {:.2} Pa (limit: {:.1} Pa, {:.1}× exceedance)",
                 id,
                 wss,
-                fda_limits.max_wall_shear_stress_pa,
-                wss / fda_limits.max_wall_shear_stress_pa
+                fda_limits.max_wall_shear_stress_pa.into_base(),
+                wss / fda_limits.max_wall_shear_stress_pa.into_base()
             );
         }
     }
@@ -288,7 +288,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let fda_binary: HashMap<usize, f64> = edge_shear
         .iter()
         .map(|(&channel, &shear)| {
-            let ratio = shear / fda_limits.max_wall_shear_stress_pa;
+            let ratio = shear / fda_limits.max_wall_shear_stress_pa.into_base();
             (channel, ratio.min(3.0))
         })
         .collect();
@@ -321,7 +321,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_node_data(Cow::Borrowed(&node_pressure))?,
             format!(
                 "FDA Shear Screening (limit: {:.0} Pa, {} violations)",
-                fda_limits.max_wall_shear_stress_pa,
+                fda_limits.max_wall_shear_stress_pa.into_base(),
                 fda_violations.len()
             ),
         ),
@@ -378,7 +378,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "local_pressure_pa": edge_pressure.get(&chan_id),
                 "cavitation_risk": edge_cavitation.get(&chan_id),
                 "fda_violation": edge_shear.get(&chan_id)
-                    .map(|&wss| wss > fda_limits.max_wall_shear_stress_pa)
+                    .map(|&wss| wss > fda_limits.max_wall_shear_stress_pa.into_base())
                     .unwrap_or(false)
             })
         })
@@ -416,14 +416,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "cumulative_hemolysis": total_hi
         },
         "fda_screening": {
-            "max_wall_shear_limit_pa": fda_limits.max_wall_shear_stress_pa,
+            "max_wall_shear_limit_pa": fda_limits.max_wall_shear_stress_pa.into_base(),
             "num_violations": fda_violations.len(),
             "max_wall_shear_observed_pa": max_wss,
             "violations": fda_violations.iter().map(|(id, wss)| {
                 serde_json::json!({
                     "channel_id": id,
                     "wall_shear_stress_pa": wss,
-                    "exceedance_ratio": wss / fda_limits.max_wall_shear_stress_pa
+                    "exceedance_ratio": wss / fda_limits.max_wall_shear_stress_pa.into_base()
                 })
             }).collect::<Vec<_>>()
         },

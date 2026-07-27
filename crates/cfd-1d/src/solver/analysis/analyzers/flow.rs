@@ -205,8 +205,9 @@ mod tests {
             .expect("pipe flow regime must be recorded");
 
         assert!(
-            reynolds > 2300.0 && reynolds < 4000.0,
-            "test network must produce transitional Reynolds magnitude, got {reynolds}"
+            reynolds.into_base() > 2300.0 && reynolds.into_base() < 4000.0,
+            "test network must produce transitional Reynolds magnitude, got {:?}",
+            reynolds.into_base()
         );
         assert_eq!(regime, &FlowRegime::Transitional);
         Ok(())

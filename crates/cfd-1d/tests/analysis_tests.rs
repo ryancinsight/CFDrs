@@ -106,16 +106,16 @@ fn test_resistance_duality_bound() {
 
     assert!(
         r_par.into_base() <= r_min.into_base(),
-        "R_parallel ({}) must be ≤ min(R_i) ({})",
-        r_par,
-        r_min
+        "R_parallel ({:?}) must be ≤ min(R_i) ({:?})",
+        r_par.into_base(),
+        r_min.into_base()
     );
     assert!(r_min.into_base() <= r_max.into_base(), "min(R_i) must be ≤ max(R_i)");
     assert!(
         r_max.into_base() <= r_ser.into_base(),
-        "max(R_i) ({}) must be ≤ R_series ({})",
-        r_max,
-        r_ser
+        "max(R_i) ({:?}) must be ≤ R_series ({:?})",
+        r_max.into_base(),
+        r_ser.into_base()
     );
 }
 
@@ -208,7 +208,10 @@ fn test_blood_damage_violation_respects_residence_time() {
     analysis.add_wall_shear_stress("edge_damage".into(), Pressure::from_base(180.0_f64));
 
     let limits = BloodShearLimits::<f64>::fda_conservative_whole_blood()
-        .with_hemolysis_limits(Some(1e-3), Some(5e-3));
+        .with_hemolysis_limits(
+            Some(aequitas::systems::si::quantities::Dimensionless::from_base(1e-3)),
+            Some(aequitas::systems::si::quantities::Dimensionless::from_base(5e-3)),
+        );
     let residence_times = HashMap::from([("edge_damage".to_string(), Time::from_base(0.5_f64))]);
 
     let violations = analysis.flag_hemolysis_limit_violations(&limits, &residence_times);

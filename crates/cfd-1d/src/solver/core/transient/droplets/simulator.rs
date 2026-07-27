@@ -424,8 +424,7 @@ impl TransientDropletSimulator {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
-                .map(VolumetricFlowRate::into_base)
-                .unwrap_or(T::zero());
+                .map_or(T::zero(), VolumetricFlowRate::into_base);
             if <T as NumericElement>::abs(q) <= eps {
                 out_branches.push(branch);
                 return Ok(());
@@ -684,8 +683,7 @@ impl TransientDropletSimulator {
                 .flow_rates
                 .get(edge_idx.index())
                 .copied()
-                .map(VolumetricFlowRate::into_base)
-                .unwrap_or(T::zero());
+                .map_or(T::zero(), VolumetricFlowRate::into_base);
 
             if <T as NumericElement>::abs(q) <= eps {
                 continue;

@@ -73,7 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("FDA-oriented shear screening summary");
     println!(
         "Configured max wall shear stress: {:.1} Pa",
-        limits.max_wall_shear_stress_pa
+        limits.max_wall_shear_stress_pa.into_base()
     );
     println!(
         "Components analyzed: {}",
@@ -88,9 +88,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!(
                 "- {}: tau_w={:.2} Pa (limit {:.2} Pa, x{:.2})",
                 v.component_id,
-                v.wall_shear_stress_pa,
-                v.stress_limit_pa,
-                v.stress_exceedance_ratio
+                v.wall_shear_stress_pa.into_base(),
+                v.stress_limit_pa.into_base(),
+                v.stress_exceedance_ratio.into_base()
             );
         }
     }

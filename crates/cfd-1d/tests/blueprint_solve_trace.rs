@@ -97,10 +97,11 @@ fn node_pressure(network: &Network<f64, Water>, id: &str) -> f64 {
         .node_indices()
         .find(|&i| network.graph.node_weight(i).is_some_and(|n| n.id == id))
         .unwrap_or_else(|| panic!("node '{}' not found", id));
-    *network
+    network
         .pressures()
         .get(idx.index())
         .unwrap_or_else(|| panic!("no pressure for node '{}'", id))
+        .into_base()
 }
 
 /// Return the solved flow rate on a named edge.
@@ -110,10 +111,11 @@ fn edge_flow(network: &Network<f64, Water>, id: &str) -> f64 {
         .edge_indices()
         .find(|&i| network.graph.edge_weight(i).is_some_and(|e| e.id == id))
         .unwrap_or_else(|| panic!("edge '{}' not found", id));
-    *network
+    network
         .flow_rates()
         .get(eidx.index())
         .unwrap_or_else(|| panic!("no flow rate for edge '{}'", id))
+        .into_base()
 }
 
 /// Return the resistance of a named edge as stored in the graph after network_from_blueprint.
@@ -440,7 +442,12 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
     );
 
     // ── 1. All node pressures are finite ────────────────────────────────────
-    let pressures = network.pressures();
+    let pressures: Vec<f64> = network
+        .pressures()
+        .iter()
+        .copied()
+        .map(Pressure::into_base)
+        .collect();
     for (idx, &p) in pressures.iter().enumerate() {
         let id = network
             .graph
@@ -464,7 +471,12 @@ fn primitive_selective_tree_trace_all_nodes_channels() {
     }
 
     // ── 2. All channel flow rates are finite and non-zero ────────────────────
-    let flow_rates = network.flow_rates();
+    let flow_rates: Vec<f64> = network
+        .flow_rates()
+        .iter()
+        .copied()
+        .map(VolumetricFlowRate::into_base)
+        .collect();
     for (idx, &q) in flow_rates.iter().enumerate() {
         let id = network
             .graph

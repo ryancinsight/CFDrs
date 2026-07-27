@@ -16,7 +16,6 @@
 //!   Inlet ─ ch_in ─ J1                               J3 ─ ch_out ─ Outlet
 //!                 └─ ch_lower_1 ─ J4 ─ ch_lower_2 ─┘
 //! ```
-use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 //!
 //! This mirrors how a Gyroid lattice naturally bifurcates flow into parallel
 //! paths through its bicontinuous pore network, then recombines at the outlet.
@@ -27,6 +26,7 @@ use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 //! cargo run -p cfd-1d --example tpms_blood_1d
 //! ```
 
+use aequitas::systems::si::quantities::{Pressure, VolumetricFlowRate};
 use cfd_1d::domain::network::{EdgeProperties, Network, NetworkBuilder};
 use cfd_1d::solver::core::{NetworkProblem, NetworkSolver, SolverConfig};
 use cfd_core::compute::solver::Solver;

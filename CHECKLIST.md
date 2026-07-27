@@ -1,18 +1,20 @@
 # CFDrs Work Checklist
 
-## Owner: Codex — CFDRS-AEQ-MET-17 typed network pressure and flow state metrics [major] — in progress 2026-07-27
+## Owner: Codex — CFDRS-AEQ-MET-17 typed network pressure and flow state metrics [major] — verified 2026-07-27
 
-- [ ] Audit the live `Network`, `NetworkState`, analysis, and every in-tree
+- [x] Audit the live `Network`, `NetworkState`, analysis, and every in-tree
       caller; classify residual norms by their solver-equation contract.
-- [ ] Replace raw public pressure, flow-rate, and simulation-time state
+- [x] Replace raw public pressure, flow-rate, and simulation-time state
       contracts with Aequitas quantities and migrate all callers without a
       compatibility facade.
-- [ ] Add positive, boundary, and conversion value-semantic regressions.
-- [ ] Add the ADR and synchronize the child gap audit, backlog, checklist,
-      changelog, and Atlas audit.
-- [ ] Run locked focused checks, Nextest, doctests, Rustdoc, and warning-denied
-      Clippy; record unrelated peer blockers exactly.
-- [ ] Commit and push the verified increment, preserving peer-owned dirt.
+- [x] Add positive, boundary, and conversion value-semantic regressions.
+- [x] Add the design note and synchronize the child gap audit, backlog,
+      checklist, changelog, and Atlas audit.
+- [x] Run locked focused checks, example checks, test-target compilation, and
+      cfd-1d Nextest (731/731 with 3 skips in 23.458 s); doctests pass 8/8 with
+      3 ignored. Warning-denied library Clippy is blocked by concurrent
+      cfd-math module-tree deletion outside this metric slice.
+- [ ] Commit and push the verified fixups, preserving peer-owned dirt.
 
 ## Owner: Codex — CFDRS-RUNTIME-001 solver-heavy validation runtime [perf] — in progress 2026-07-25
 
