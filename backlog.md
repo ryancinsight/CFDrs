@@ -31,6 +31,19 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-17 [major] - Type network pressure and flow state
+  metrics (IN PROGRESS; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
+  `Network`/`NetworkState`, in-tree cfd-2d/cfd-validation/cfd-optim callers,
+  solver-analysis contracts, tests, and synchronized PM artifacts).** The
+  current audit explicitly leaves pressure/flow/residual vectors as a solver
+  state boundary. Type pressure, volumetric flow, and simulation time wherever
+  they cross public state or setter/getter contracts; keep residual norms
+  scalar until their equation-dependent units have one defensible physical
+  dimension, and record that classification. No numerical storage adapter or
+  compatibility facade is allowed. Acceptance is a source audit with no raw
+  public pressure/flow state contracts, value-semantic conversion regressions,
+  locked focused checks, and synchronized Aequitas audit evidence.
+
 - **CFDRS-RUNTIME-001 [perf] - Close solver-heavy validation runtime budget
   residual (IN PROGRESS; owner=Codex; claimed 2026-07-25; scope=`cfd-3d`
   and `cfd-validation` solver/validation production paths, focused tests, and
