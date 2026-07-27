@@ -1,4 +1,4 @@
-use cfd_math::linear_solver::LinearOperator;
+use cfd_math::iterative::LinearOperator;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use leto::Array1;
 use leto_ops::CsrMatrix;

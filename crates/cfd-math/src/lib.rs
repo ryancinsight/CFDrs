@@ -131,14 +131,18 @@
 #![allow(clippy::should_implement_trait)] // CFD-specific trait implementations
 #![allow(clippy::used_underscore_binding)] // Underscore prefixed bindings used for intentional partial use
 
+pub mod linear_solver;
+
+/// Re-export the CFD-specific AMG preconditioner through the canonical
+/// cfd_math::multigrid path (domain-specific, not part of the leto-ops seam).
+pub mod multigrid {
+    pub use crate::linear_solver::preconditioners::multigrid::*;
+}
 pub mod diagnostics;
 pub mod differentiation;
 pub mod error;
 pub mod high_order;
-pub mod integration;
-pub mod interpolation;
 pub mod iterators;
-pub mod linear_solver;
 pub mod nonlinear_solver;
 pub mod pressure_velocity;
 pub mod simd;
@@ -150,7 +154,7 @@ pub mod time_stepping;
 // Only expose a very small number of absolutely fundamental traits or structs.
 // Users should interact with the module hierarchy for most types.
 
-pub use self::interpolation::Interpolation;
+// `Interpolation` was removed; use `cfd_math::interp::Interpolation` instead.
 pub use self::sparse::SparseMatrix;
 
 /// Re-export the SSOT iterative-solver types from `leto-ops` so consumers of
@@ -159,6 +163,19 @@ pub use self::sparse::SparseMatrix;
 /// ```rust,no_run
 /// use cfd_math::iterative::{ConjugateGradient, IterativeSolverConfig, LinearOperator};
 /// ```
+/// Re-export the SSOT iterative-solver types from `leto-ops` so consumers of
+/// `cfd-math` can use the Atlas-canonical implementations directly:
+///
+/// ```rust,no_run
+/// use cfd_math::iterative::{ConjugateGradient, IterativeSolverConfig, LinearOperator};
+/// ```
+/// Re-export the SSOT iterative-solver types from `leto-ops` so consumers of
+/// `cfd-math` can use the Atlas-canonical implementations directly:
+///
+/// ```rust,no_run
+/// use cfd_math::iterative::{ConjugateGradient, IterativeSolverConfig, LinearOperator};
+/// use cfd_math::iterative::preconditioners::{IdentityPreconditioner, JacobiPreconditioner};
+/// ```
 pub mod iterative {
     pub use leto_ops::{
         BiCGSTAB, Configurable, ConjugateGradient, ConvergenceMonitor, ILUPreconditioner,
@@ -166,7 +183,17 @@ pub mod iterative {
         LinearOperator, LinearSolver, LsqrConfig, LsqrResult, LsqrSolver, LsqrStopReason,
         Preconditioner, GMRES,
     };
+
+    /// Preconditioner implementations (Identity, Jacobi, ILU, SOR, SSOR).
+    pub mod preconditioners {
+        pub use leto_ops::{
+            ILUPreconditioner, IdentityPreconditioner, JacobiPreconditioner,
+            SORPreconditioner, SSORPreconditioner,
+        };
+    }
 }
+
+
 
 /// Re-export the SSOT interpolation types from `leto-ops`.
 ///
@@ -203,17 +230,15 @@ pub mod quadrature_rules {
 // The primary API is through the public modules themselves.
 // This creates a hierarchical, self-documenting structure.
 // Example usage:
-//   use cfd_math::linear_solver::BiCGSTAB;
-//   use cfd_math::interpolation::CubicSplineInterpolation;
-//   use cfd_math::integration::GaussQuadrature;
+//   use cfd_math::iterative::BiCGSTAB;
+//   use cfd_math::interp::CubicSplineInterpolation;
+//   use cfd_math::quadrature_rules::GaussQuadrature;
 
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::{
         differentiation::FiniteDifference,
-        integration::Quadrature,
-        interpolation::{Interpolation, LinearInterpolation},
-        linear_solver::ConjugateGradient,
+        iterative::ConjugateGradient,
         sparse::{SparseMatrix, SparseMatrixBuilder},
     };
 }

@@ -6,9 +6,7 @@ use cfd_2d::simplec_pimple::{
 };
 use cfd_2d::solvers::solve_lid_driven_cavity;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::{
-    preconditioners::IncompleteLU, ConjugateGradient, IterativeSolverConfig,
-};
+use cfd_math::iterative::{preconditioners::IncompleteLU, ConjugateGradient, IterativeSolverConfig, }};
 use cfd_math::sparse::SparseMatrixBuilder;
 use cfd_validation::analytical_benchmarks::lid_driven_cavity as ghia_lid_driven_cavity;
 use eunomia::assert_relative_eq;

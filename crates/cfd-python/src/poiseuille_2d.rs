@@ -186,8 +186,10 @@ impl PyPoiseuilleSolver {
     /// solver = PoiseuilleSolver2D(config)
     /// ```
     #[new]
-    fn new(config: PyPoiseuilleConfig) -> Self {
-        PyPoiseuilleSolver { config }
+    fn new(config: pyo3::PyRef<'_, PyPoiseuilleConfig>) -> Self {
+        PyPoiseuilleSolver {
+            config: config.clone(),
+        }
     }
 
     /// Solve Poiseuille flow with specified blood model

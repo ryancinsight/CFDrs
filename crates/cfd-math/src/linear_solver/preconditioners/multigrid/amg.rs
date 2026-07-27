@@ -46,7 +46,7 @@ use super::{
     SmootherType, SparseMatrix, SymmetricGaussSeidelSmoother,
 };
 use crate::error::Result;
-use crate::linear_solver::traits::Preconditioner;
+use leto_ops::Preconditioner;
 use cfd_core::error::Error;
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
@@ -473,9 +473,9 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> AlgebraicMultigrid<T> {
 }
 
 impl<T: RealField + Copy + FloatElement + LetoScalar> Preconditioner<T> for AlgebraicMultigrid<T> {
-    fn apply_to(&self, r: &MultigridVector<T>, z: &mut MultigridVector<T>) -> Result<()> {
+    fn apply_to(&self, r: &MultigridVector<T>, z: &mut MultigridVector<T>) -> std::result::Result<(), leto::LetoError> {
         if r.shape() != z.shape() {
-            return Err(Error::InvalidConfiguration(format!(
+            return Err(leto::LetoError::InvalidInput(format!(
                 "AMG preconditioner vector length mismatch: {} != {}",
                 r.shape()[0],
                 z.shape()[0]
@@ -484,7 +484,7 @@ impl<T: RealField + Copy + FloatElement + LetoScalar> Preconditioner<T> for Alge
         let mut workspace_guard = self
             .workspace
             .lock()
-            .map_err(|_| Error::InvalidConfiguration("AMG workspace lock poisoned".to_string()))?;
+            .map_err(|_| leto::LetoError::InvalidInput("AMG workspace lock poisoned".to_string()))?;
         let needs_workspace = workspace_guard.as_ref().is_none_or(|workspace| {
             workspace.len() != self.levels.len()
                 || workspace.iter().zip(&self.levels).enumerate().any(

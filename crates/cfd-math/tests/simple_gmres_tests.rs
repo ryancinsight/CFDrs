@@ -1,7 +1,7 @@
 //! Basic GMRES solver tests to validate core functionality
 
-use cfd_math::linear_solver::preconditioners::IdentityPreconditioner;
-use cfd_math::linear_solver::{IterativeLinearSolver, LinearOperator, GMRES};
+use cfd_math::iterative::preconditioners::IdentityPreconditioner;
+use cfd_math::iterative::{IterativeLinearSolver, LinearOperator, GMRES};
 use leto::Array1;
 use leto_ops::CsrMatrix;
 
@@ -81,7 +81,7 @@ fn test_gmres_basic() {
 
     let b = array(vec![1.0, 2.0, 3.0, 2.0, 1.0]);
     let mut x = Array1::zeros([n]);
-    let config = cfd_math::linear_solver::IterativeSolverConfig::new(1e-8).with_max_iterations(100);
+    let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(100);
     let solver = GMRES::new(config, 4); // Restart after 4 iterations
 
     let result = solver.solve(&a, &b, &mut x, None::<&IdentityPreconditioner>);
@@ -110,7 +110,7 @@ fn test_gmres_restart() {
     let mut x = Array1::zeros([n]);
 
     // Use small restart dimension to force restart testing
-    let config = cfd_math::linear_solver::IterativeSolverConfig::new(1e-8).with_max_iterations(200);
+    let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(200);
     let solver = GMRES::new(config, 3); // Small restart dimension
 
     let result = solver.solve(&a, &b, &mut x, None::<&IdentityPreconditioner>);
@@ -130,7 +130,7 @@ fn test_gmres_with_preconditioner() {
 
     let b = filled_array(n, 1.0);
     let mut x = Array1::zeros([n]);
-    let config = cfd_math::linear_solver::IterativeSolverConfig::new(1e-10).with_max_iterations(50);
+    let config = cfd_math::iterative::IterativeSolverConfig::new(1e-10).with_max_iterations(50);
     let solver = GMRES::new(config, n);
     let precond = IdentityPreconditioner;
 

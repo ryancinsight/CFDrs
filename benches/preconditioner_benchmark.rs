@@ -1,8 +1,6 @@
 //! Benchmarks for preconditioner performance comparison
 
-use cfd_math::linear_solver::{
-    IdentityPreconditioner, IncompleteLU, JacobiPreconditioner, Preconditioner, SORPreconditioner,
-};
+use cfd_math::iterative::{IdentityPreconditioner, IncompleteLU, JacobiPreconditioner, Preconditioner, SORPreconditioner, }};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use leto::Array1;
 use leto_ops::CsrMatrix;

@@ -6,8 +6,8 @@
 //! ✅ ILU preconditioner validation
 //! ✅ Numerical accuracy and convergence testing
 
-use cfd_math::linear_solver::preconditioners::{IdentityPreconditioner, JacobiPreconditioner};
-use cfd_math::linear_solver::{BiCGSTAB, IterativeLinearSolver, Preconditioner, GMRES};
+use cfd_math::iterative::preconditioners::{IdentityPreconditioner, JacobiPreconditioner};
+use cfd_math::iterative::{BiCGSTAB, IterativeLinearSolver, Preconditioner, GMRES};
 use cfd_math::sparse;
 use leto::Array1;
 use leto_ops::CsrMatrix;
@@ -106,11 +106,11 @@ fn test_bicgstab_solver_validation() {
     let mut x = Array1::zeros([5]);
 
     // ✅ BiCGSTAB with Jacobi preconditioning
-    let config = cfd_math::linear_solver::IterativeSolverConfig::new(1e-8).with_max_iterations(100);
+    let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(100);
     let solver = BiCGSTAB::new(config);
     let preconditioner_matrix = basic_preconditioner_matrix(&a);
     let jacobi =
-        JacobiPreconditioner::new(&preconditioner_matrix).expect("Valid Jacobi preconditioner");
+        JacobiPreconditioner::from_matrix(&preconditioner_matrix);
 
     solver
         .solve(&a, &b, &mut x, Some(&jacobi))
@@ -142,7 +142,7 @@ fn test_gmres_solver_validation() {
     let mut x = Array1::zeros([6]);
 
     // ✅ GMRES with restart dimension 4
-    let config = cfd_math::linear_solver::IterativeSolverConfig::new(1e-8).with_max_iterations(50);
+    let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(50);
     let solver = GMRES::new(config, 4);
 
     solver
@@ -175,8 +175,7 @@ fn test_preconditioner_integration() {
 
     // Test ILU preconditioner availability
     let preconditioner_matrix = basic_preconditioner_matrix(&a);
-    let jacobi = JacobiPreconditioner::new(&preconditioner_matrix)
-        .expect("✅ Jacobi preconditioner created");
+    let jacobi = JacobiPreconditioner::from_matrix(&preconditioner_matrix);
 
     // Verify preconditioner application works
     let r = filled_array(4, 2.0);
@@ -191,7 +190,7 @@ fn test_preconditioner_integration() {
 
     // Test BiCGSTAB with Jacobi in system
     let mut x = Array1::zeros([4]);
-    let config = cfd_math::linear_solver::IterativeSolverConfig::new(1e-8).with_max_iterations(50);
+    let config = cfd_math::iterative::IterativeSolverConfig::new(1e-8).with_max_iterations(50);
     let solver = BiCGSTAB::new(config);
 
     solver
@@ -221,7 +220,7 @@ fn test_solver_convergence_matrix_conditions() {
 
         // ✅ Test robustness across condition numbers
         let config =
-            cfd_math::linear_solver::IterativeSolverConfig::new(1e-6).with_max_iterations(100);
+            cfd_math::iterative::IterativeSolverConfig::new(1e-6).with_max_iterations(100);
         let solver = BiCGSTAB::new(config);
 
         solver

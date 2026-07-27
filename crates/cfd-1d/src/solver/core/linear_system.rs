@@ -27,8 +27,8 @@
 
 use crate::scalar::Cfd1dScalar;
 use cfd_core::error::{Error, Result};
-use cfd_math::linear_solver::Preconditioner;
-use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
+use cfd_math::iterative::Preconditioner;
+use cfd_math::iterative::{BiCGSTAB, ConjugateGradient, IterativeLinearSolver};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Storage};
 use leto_ops::{lu_decompose, qr_decompose, CsrMatrix as LetoCsrMatrix, Scalar as LetoScalar};
@@ -133,11 +133,9 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
 
         match self.method {
             LinearSolverMethod::ConjugateGradient => {
-                let config = cfd_math::linear_solver::IterativeSolverConfig {
-                    max_iterations: self.max_iterations,
-                    tolerance: self.tolerance,
-                    use_preconditioner: true,
-                };
+                let config = cfd_math::iterative::IterativeSolverConfig::new(self.tolerance)
+                    .with_max_iterations(self.max_iterations)
+                    .with_preconditioner();
                 let solver = ConjugateGradient::<T>::new(config);
                 let precond = DiagJacobi::new(&scaled_a)?;
                 if solver
@@ -154,11 +152,9 @@ impl<T: NetworkSolveScalar> LinearSystemSolver<T> {
                 }
             }
             LinearSolverMethod::BiCGSTAB => {
-                let config = cfd_math::linear_solver::IterativeSolverConfig {
-                    max_iterations: self.max_iterations,
-                    tolerance: self.tolerance,
-                    use_preconditioner: true,
-                };
+                let config = cfd_math::iterative::IterativeSolverConfig::new(self.tolerance)
+                    .with_max_iterations(self.max_iterations)
+                    .with_preconditioner();
                 let solver = BiCGSTAB::<T>::new(config);
                 let precond = DiagJacobi::new(&scaled_a)?;
                 if solver
@@ -322,7 +318,7 @@ impl<T: Cfd1dScalar + Copy + NumericElement + LetoScalar> DiagJacobi<T> {
 }
 
 impl<T: Cfd1dScalar + Copy> Preconditioner<T> for DiagJacobi<T> {
-    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> Result<()> {
+    fn apply_to(&self, r: &Array1<T>, z: &mut Array1<T>) -> leto::Result<()> {
         for idx in 0..r.shape()[0] {
             z[idx] = r[idx] * self.inv_diag[idx];
         }

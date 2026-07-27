@@ -1,4 +1,5 @@
 use crate::scalar::Cfd1dScalar;
+use aequitas::systems::si::quantities::{Time, VolumetricFlowRate};
 use std::collections::HashMap;
 
 /// Canonical mixture key for transported RBC volume fraction.
@@ -129,13 +130,13 @@ impl<T: Cfd1dScalar + Copy> MixtureComposition<T> {
 #[derive(Debug, Clone)]
 pub struct CompositionState<T: Cfd1dScalar + Copy> {
     /// Simulation time.
-    pub time: T,
+    pub time: Time<T>,
     /// Node mixture compositions keyed by node index.
     pub node_mixtures: HashMap<usize, MixtureComposition<T>>,
     /// Edge mixture compositions keyed by edge index.
     pub edge_mixtures: HashMap<usize, MixtureComposition<T>>,
     /// Edge flow rates keyed by edge index for this snapshot.
-    pub edge_flow_rates: HashMap<usize, T>,
+    pub edge_flow_rates: HashMap<usize, VolumetricFlowRate<T>>,
 }
 
 impl<T: Cfd1dScalar + Copy> CompositionState<T> {

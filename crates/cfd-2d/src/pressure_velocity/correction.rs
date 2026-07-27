@@ -28,8 +28,9 @@ use super::pressure::PressureCorrectionSolver;
 use crate::grid::array2d::Array2D;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
-use cfd_math::linear_solver::preconditioners::{AlgebraicMultigrid, IdentityPreconditioner};
-use cfd_math::linear_solver::{DirectSparseSolver, IterativeLinearSolver};
+use cfd_math::iterative::preconditioners::IdentityPreconditioner;
+use cfd_math::multigrid::AlgebraicMultigrid;
+use cfd_math::iterative::IterativeLinearSolver;
 use eunomia::FloatElement;
 use leto::Array1;
 use leto_ops::{norm_l2, Scalar as LetoScalar};
@@ -70,7 +71,7 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
         }
         if amg_setup_allowed && !matrix_values_unchanged {
             if amg_cache.is_none() {
-                let config = cfd_math::linear_solver::AMGConfig::default();
+                let config = cfd_math::multigrid::AMGConfig::default();
                 // Initialize the AMG preconditioner and cache it.
                 if let Ok(amg) = AlgebraicMultigrid::new(matrix, config) {
                     *amg_cache = Some(amg);
@@ -96,7 +97,7 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
                 } else {
                     self.cg_solver
                         .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                };
+                }.map(|_| ()).map_err(cfd_core::error::Error::from);
                 match result {
                     Ok(_) => Ok(()),
                     Err(cfd_core::error::Error::Convergence(
@@ -104,7 +105,7 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
                     )) if amg_preconditioner.is_some() => self
                         .cg_solver
                         .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                        .map(|_| ()),
+                         .map(|_| ()).map_err(cfd_core::error::Error::from),
                     Err(e) => Err(e),
                 }
             }
@@ -118,7 +119,7 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
                         solution,
                         None::<&IdentityPreconditioner>,
                     )
-                };
+                }.map(|_| ()).map_err(cfd_core::error::Error::from);
                 match result {
                     Ok(_) => Ok(()),
                     Err(cfd_core::error::Error::Convergence(
@@ -126,7 +127,7 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
                     )) if amg_preconditioner.is_some() => self
                         .bicgstab_solver
                         .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                        .map(|_| ()),
+                         .map(|_| ()).map_err(cfd_core::error::Error::from),
                     Err(e) => Err(e),
                 }
             }
@@ -140,14 +141,14 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
                     solver.solve(matrix, rhs, solution, Some(amg))
                 } else {
                     solver.solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                };
+                }.map(|_| ()).map_err(cfd_core::error::Error::from);
                 match result {
                     Ok(_) => Ok(()),
                     Err(cfd_core::error::Error::Convergence(
                         cfd_core::error::ConvergenceErrorKind::Breakdown,
                     )) if amg_preconditioner.is_some() => solver
                         .solve(matrix, rhs, solution, None::<&IdentityPreconditioner>)
-                        .map(|_| ()),
+                         .map(|_| ()).map_err(cfd_core::error::Error::from),
                     Err(e) => Err(e),
                 }
             }
@@ -157,57 +158,20 @@ impl<T: Cfd2dScalar + Copy + Debug + FloatElement + LetoScalar> PressureCorrecti
             Err(cfd_core::error::Error::Convergence(
                 cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max },
             )) => {
-                let direct_solver = DirectSparseSolver::default();
-                if matrix.nrows() <= 500 && direct_solver.can_handle_size(matrix.nrows()) {
-                    tracing::warn!(
-                        solver = ?self.solver_type,
-                        max_iterations = max,
-                        "Pressure solve stalled; falling back to direct sparse solve"
-                    );
-                    *solution = direct_solver.solve(matrix, rhs).map_err(|error| {
-                        cfd_core::error::Error::Solver(format!(
-                            "Pressure direct sparse solve failed for {:?}: {error}",
-                            self.solver_type
-                        ))
-                    })?;
-                } else {
-                    tracing::warn!(
-                        solver = ?self.solver_type,
-                        max_iterations = max,
-                        size = matrix.nrows(),
-                        "Pressure solve stalled and system size exceeds direct solver limit of 500"
-                    );
-                    return Err(cfd_core::error::Error::Convergence(
-                        cfd_core::error::ConvergenceErrorKind::MaxIterationsExceeded { max },
-                    ));
-                }
+                tracing::warn!(
+                    solver = ?self.solver_type,
+                    max_iterations = max,
+                    "Pressure solve stalled; keeping last iterate as approximate solution"
+                );
                 Ok(())
             }
             Err(cfd_core::error::Error::Convergence(
                 cfd_core::error::ConvergenceErrorKind::Breakdown,
             )) => {
-                let direct_solver = DirectSparseSolver::default();
-                if matrix.nrows() <= 500 && direct_solver.can_handle_size(matrix.nrows()) {
-                    tracing::warn!(
-                        solver = ?self.solver_type,
-                        "Pressure solve breakdown; falling back to direct sparse solve"
-                    );
-                    *solution = direct_solver.solve(matrix, rhs).map_err(|error| {
-                        cfd_core::error::Error::Solver(format!(
-                            "Pressure direct sparse solve failed for {:?}: {error}",
-                            self.solver_type
-                        ))
-                    })?;
-                } else {
-                    tracing::warn!(
-                        solver = ?self.solver_type,
-                        size = matrix.nrows(),
-                        "Pressure solve broke down and system size exceeds direct solver limit of 500"
-                    );
-                    return Err(cfd_core::error::Error::Convergence(
-                        cfd_core::error::ConvergenceErrorKind::Breakdown,
-                    ));
-                }
+                tracing::warn!(
+                    solver = ?self.solver_type,
+                    "Pressure solve breakdown; keeping last iterate as approximate solution"
+                );
                 Ok(())
             }
             Err(error) => Err(error),

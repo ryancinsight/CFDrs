@@ -24,7 +24,8 @@
 
 use cfd_core::error::Result;
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::{LinearSolverChain, LinearSolverState, GMRES};
+use cfd_math::iterative::GMRES;
+use cfd_math::linear_solver::{LinearSolverChain, LinearSolverState};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Vector3};

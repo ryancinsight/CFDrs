@@ -6,10 +6,7 @@
 //! Run with: `cargo run --example matrix_free_demo`
 
 use cfd_math::error::Result;
-use cfd_math::linear_solver::{
-    ConjugateGradient, IterativeLinearSolver, IterativeSolverConfig,
-    LinearOperator,
-};
+use cfd_math::iterative::{ConjugateGradient, IterativeLinearSolver, IterativeSolverConfig, LinearOperator, }};
 use leto::Array1;
 
 /// Simple 1D diffusion operator for demonstration

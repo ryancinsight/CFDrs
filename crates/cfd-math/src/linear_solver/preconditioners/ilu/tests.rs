@@ -51,11 +51,11 @@ fn create_sparse_matrix() -> CsrMatrix<f64> {
     CsrMatrix::from_parts(values, col_indices, row_offsets, 5, 5).expect("valid CSR matrix")
 }
 
-fn assert_invalid_configuration(result: cfd_core::error::Result<()>, expected_message: &str) {
+fn assert_invalid_configuration(result: std::result::Result<(), leto::LetoError>, expected_message: &str) {
     match result {
-        Err(Error::InvalidConfiguration(message)) => assert_eq!(message, expected_message),
-        Err(error) => panic!("expected invalid configuration, got {error:?}"),
-        Ok(()) => panic!("expected invalid configuration error"),
+        Err(leto::LetoError::InvalidInput(message)) => assert_eq!(message, expected_message),
+        Err(error) => panic!("expected invalid input, got {error:?}"),
+        Ok(()) => panic!("expected invalid input error"),
     }
 }
 

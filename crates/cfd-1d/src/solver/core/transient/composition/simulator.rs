@@ -8,7 +8,7 @@ use crate::domain::network::{
 };
 use crate::scalar::Cfd1dScalar;
 use crate::solver::core::{NetworkSolveScalar, NetworkSolver};
-use aequitas::systems::si::quantities::Pressure;
+use aequitas::systems::si::quantities::{Dimensionless, Pressure, Time, VolumetricFlowRate};
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::fluid::FluidTrait;
 use eunomia::{FloatElement, NumericElement};
@@ -93,17 +93,17 @@ fn clamp_unit<T: NumericElement + PartialOrd>(value: T) -> T {
 #[derive(Debug, Clone)]
 pub struct SimulationTimeConfig<T: Cfd1dScalar + Copy> {
     /// Total simulation duration.
-    pub duration: T,
+    pub duration: Time<T>,
     /// Interval between result snapshots.
-    pub result_time_step: T,
+    pub result_time_step: Time<T>,
     /// Internal calculation/update timestep.
-    pub calculation_time_step: T,
+    pub calculation_time_step: Time<T>,
 }
 
 impl<T: Cfd1dScalar + Copy + FloatElement> SimulationTimeConfig<T> {
     /// Create a new time control configuration.
     #[must_use]
-    pub fn new(duration: T, result_time_step: T, calculation_time_step: T) -> Self {
+    pub fn new(duration: Time<T>, result_time_step: Time<T>, calculation_time_step: Time<T>) -> Self {
         Self {
             duration,
             result_time_step,
@@ -112,17 +112,17 @@ impl<T: Cfd1dScalar + Copy + FloatElement> SimulationTimeConfig<T> {
     }
 
     fn validate(&self) -> Result<()> {
-        if self.duration < T::zero() {
+        if self.duration.into_base() < T::zero() {
             return Err(Error::InvalidInput(
                 "Simulation duration must be non-negative".to_string(),
             ));
         }
-        if self.result_time_step <= T::zero() {
+        if self.result_time_step.into_base() <= T::zero() {
             return Err(Error::InvalidInput(
                 "Simulation result timestep must be positive".to_string(),
             ));
         }
-        if self.calculation_time_step <= T::zero() {
+        if self.calculation_time_step.into_base() <= T::zero() {
             return Err(Error::InvalidInput(
                 "Simulation calculation timestep must be positive".to_string(),
             ));
@@ -134,8 +134,8 @@ impl<T: Cfd1dScalar + Copy + FloatElement> SimulationTimeConfig<T> {
     pub fn result_timepoints(&self) -> Result<Vec<T>> {
         self.validate()?;
         Ok(Self::uniform_timepoints(
-            self.duration,
-            self.result_time_step,
+            self.duration.into_base(),
+            self.result_time_step.into_base(),
         ))
     }
 
@@ -143,8 +143,8 @@ impl<T: Cfd1dScalar + Copy + FloatElement> SimulationTimeConfig<T> {
     pub fn calculation_timepoints(&self) -> Result<Vec<T>> {
         self.validate()?;
         Ok(Self::uniform_timepoints(
-            self.duration,
-            self.calculation_time_step,
+            self.duration.into_base(),
+            self.calculation_time_step.into_base(),
         ))
     }
 
@@ -199,13 +199,13 @@ pub struct BloodEdgeTransportConfig<T: Cfd1dScalar + Copy> {
     /// Number of axial control volumes per transport-capable edge.
     pub segments_per_edge: usize,
     /// Maximum explicit Courant number used for substepping.
-    pub max_courant_number: T,
+    pub max_courant_number: Dimensionless<T>,
 }
 
 impl<T: Cfd1dScalar + Copy + FloatElement> BloodEdgeTransportConfig<T> {
     /// Create a segmented transport configuration.
     #[must_use]
-    pub fn new(segments_per_edge: usize, max_courant_number: T) -> Self {
+    pub fn new(segments_per_edge: usize, max_courant_number: Dimensionless<T>) -> Self {
         Self {
             segments_per_edge,
             max_courant_number,
@@ -218,7 +218,7 @@ impl<T: Cfd1dScalar + Copy + FloatElement> BloodEdgeTransportConfig<T> {
                 "Segmented blood transport requires at least one segment per edge".to_string(),
             ));
         }
-        if self.max_courant_number <= T::zero() {
+        if self.max_courant_number.into_base() <= T::zero() {
             return Err(Error::InvalidInput(
                 "Segmented blood transport requires a positive Courant limit".to_string(),
             ));
@@ -231,7 +231,7 @@ impl<T: Cfd1dScalar + Copy + FloatElement> Default for BloodEdgeTransportConfig<
     fn default() -> Self {
         Self {
             segments_per_edge: 4,
-            max_courant_number: scalar::<T>(0.9),
+            max_courant_number: Dimensionless::from_base(scalar::<T>(0.9)),
         }
     }
 }
@@ -294,6 +294,17 @@ impl TransientCompositionSimulator {
         for (edge_index, flow_rate) in active_flow_overrides {
             edge_flow_rates.insert(*edge_index, *flow_rate);
         }
+    }
+
+    fn typed_flow_rates<T: Cfd1dScalar + Copy>(
+        edge_flow_rates: &HashMap<usize, T>,
+    ) -> HashMap<usize, VolumetricFlowRate<T>> {
+        edge_flow_rates
+            .iter()
+            .map(|(&edge_index, &flow_rate)| {
+                (edge_index, VolumetricFlowRate::from_base(flow_rate))
+            })
+            .collect()
     }
 
     /// Simulate transported blood hematocrit using canonical RBC/plasma mixture keys.
@@ -606,8 +617,10 @@ impl TransientCompositionSimulator {
         let mut internal_timepoints = result_timepoints.clone();
         internal_timepoints.extend(timing.calculation_timepoints()?);
         for event in &events {
-            if event.time >= T::zero() && event.time <= timing.duration {
-                internal_timepoints.push(event.time);
+            if event.time.into_base() >= T::zero()
+                && event.time.into_base() <= timing.duration.into_base()
+            {
+                internal_timepoints.push(event.time.into_base());
             }
         }
         let tolerance = scalar::<T>(1.0e-12);
@@ -635,8 +648,10 @@ impl TransientCompositionSimulator {
         let mut internal_timepoints = result_timepoints.clone();
         internal_timepoints.extend(timing.calculation_timepoints()?);
         for event in &events {
-            if event.time >= T::zero() && event.time <= timing.duration {
-                internal_timepoints.push(event.time);
+            if event.time.into_base() >= T::zero()
+                && event.time.into_base() <= timing.duration.into_base()
+            {
+                internal_timepoints.push(event.time.into_base());
             }
         }
         let tolerance = scalar::<T>(1.0e-12);
@@ -732,7 +747,7 @@ impl TransientCompositionSimulator {
             let pressure_event = &pressure_events[*pressure_event_cursor];
             working_network.set_pressure(
                 NodeIndex::new(pressure_event.node_index),
-                Pressure::from_base(pressure_event.pressure),
+                pressure_event.pressure,
             );
             *pressure_event_cursor += 1;
         }
@@ -801,10 +816,10 @@ impl TransientCompositionSimulator {
         Ok((
             working_network,
             CompositionState {
-                time,
+                time: Time::from_base(time),
                 node_mixtures: current_node_mixtures,
                 edge_mixtures: current_edge_mixtures,
-                edge_flow_rates: reported_flow_rates,
+                edge_flow_rates: Self::typed_flow_rates(&reported_flow_rates),
             },
         ))
     }
@@ -838,8 +853,8 @@ impl TransientCompositionSimulator {
 
         let requested_timepoints = Self::sorted_timepoints(timepoints);
         let mut internal_timepoints = requested_timepoints.clone();
-        internal_timepoints.extend(composition_events.iter().map(|event| event.time));
-        internal_timepoints.extend(flow_events.iter().map(|event| event.time));
+        internal_timepoints.extend(composition_events.iter().map(|event| event.time.into_base()));
+        internal_timepoints.extend(flow_events.iter().map(|event| event.time.into_base()));
         let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
 
@@ -853,17 +868,17 @@ impl TransientCompositionSimulator {
         let mut current_flow_rates = HashMap::with_capacity(network.edge_count());
 
         while event_cursor < composition_events.len()
-            && composition_events[event_cursor].time <= previous_time
+            && composition_events[event_cursor].time.into_base() <= previous_time
         {
             let event = &composition_events[event_cursor];
             active_inlet_mixtures.insert(event.node_index, event.mixture.clone());
             event_cursor += 1;
         }
         while flow_event_cursor < flow_events.len()
-            && flow_events[flow_event_cursor].time <= previous_time
+            && flow_events[flow_event_cursor].time.into_base() <= previous_time
         {
             let event = &flow_events[flow_event_cursor];
-            active_flow_overrides.insert(event.edge_index, event.flow_rate);
+            active_flow_overrides.insert(event.edge_index, event.flow_rate.into_base());
             flow_event_cursor += 1;
         }
         Self::fill_effective_flow_rates_from_overrides(
@@ -886,10 +901,10 @@ impl TransientCompositionSimulator {
             &previous_edge_mixtures,
         );
         states.push(CompositionState {
-            time: previous_time,
+            time: Time::from_base(previous_time),
             node_mixtures: current_node_mixtures.clone(),
             edge_mixtures: current_edge_snapshot.clone(),
-            edge_flow_rates: previous_flow_rates.clone(),
+            edge_flow_rates: Self::typed_flow_rates(&previous_flow_rates),
         });
 
         for &time in merged_timepoints.iter().skip(1) {
@@ -903,17 +918,17 @@ impl TransientCompositionSimulator {
             );
 
             while event_cursor < composition_events.len()
-                && composition_events[event_cursor].time <= time
+                && composition_events[event_cursor].time.into_base() <= time
             {
                 let event = &composition_events[event_cursor];
                 active_inlet_mixtures.insert(event.node_index, event.mixture.clone());
                 event_cursor += 1;
             }
             while flow_event_cursor < flow_events.len()
-                && flow_events[flow_event_cursor].time <= time
+                && flow_events[flow_event_cursor].time.into_base() <= time
             {
                 let event = &flow_events[flow_event_cursor];
-                active_flow_overrides.insert(event.edge_index, event.flow_rate);
+                active_flow_overrides.insert(event.edge_index, event.flow_rate.into_base());
                 flow_event_cursor += 1;
             }
 
@@ -935,10 +950,10 @@ impl TransientCompositionSimulator {
                 &transported_edge_mixtures,
             );
             states.push(CompositionState {
-                time,
+                time: Time::from_base(time),
                 node_mixtures: current_node_mixtures.clone(),
                 edge_mixtures: current_edge_snapshot.clone(),
-                edge_flow_rates: current_flow_rates.clone(),
+                edge_flow_rates: Self::typed_flow_rates(&current_flow_rates),
             });
 
             previous_time = time;
@@ -979,8 +994,8 @@ impl TransientCompositionSimulator {
 
         let requested_timepoints = Self::sorted_timepoints(timepoints);
         let mut internal_timepoints = requested_timepoints.clone();
-        internal_timepoints.extend(composition_events.iter().map(|event| event.time));
-        internal_timepoints.extend(flow_events.iter().map(|event| event.time));
+        internal_timepoints.extend(composition_events.iter().map(|event| event.time.into_base()));
+        internal_timepoints.extend(flow_events.iter().map(|event| event.time.into_base()));
         let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
 
@@ -994,17 +1009,17 @@ impl TransientCompositionSimulator {
         let mut current_flow_rates = HashMap::with_capacity(network.edge_count());
 
         while event_cursor < composition_events.len()
-            && composition_events[event_cursor].time <= previous_time
+            && composition_events[event_cursor].time.into_base() <= previous_time
         {
             let event = &composition_events[event_cursor];
             active_inlet_mixtures.insert(event.node_index, event.mixture.clone());
             event_cursor += 1;
         }
         while flow_event_cursor < flow_events.len()
-            && flow_events[flow_event_cursor].time <= previous_time
+            && flow_events[flow_event_cursor].time.into_base() <= previous_time
         {
             let event = &flow_events[flow_event_cursor];
-            active_flow_overrides.insert(event.edge_index, event.flow_rate);
+            active_flow_overrides.insert(event.edge_index, event.flow_rate.into_base());
             flow_event_cursor += 1;
         }
         Self::fill_effective_flow_rates_from_overrides(
@@ -1027,10 +1042,10 @@ impl TransientCompositionSimulator {
             &previous_segment_state,
         );
         states.push(CompositionState {
-            time: previous_time,
+            time: Time::from_base(previous_time),
             node_mixtures: current_node_mixtures.clone(),
             edge_mixtures: current_edge_snapshot.clone(),
-            edge_flow_rates: previous_flow_rates.clone(),
+            edge_flow_rates: Self::typed_flow_rates(&previous_flow_rates),
         });
 
         for &time in merged_timepoints.iter().skip(1) {
@@ -1052,17 +1067,17 @@ impl TransientCompositionSimulator {
             )?;
 
             while event_cursor < composition_events.len()
-                && composition_events[event_cursor].time <= time
+                && composition_events[event_cursor].time.into_base() <= time
             {
                 let event = &composition_events[event_cursor];
                 active_inlet_mixtures.insert(event.node_index, event.mixture.clone());
                 event_cursor += 1;
             }
             while flow_event_cursor < flow_events.len()
-                && flow_events[flow_event_cursor].time <= time
+                && flow_events[flow_event_cursor].time.into_base() <= time
             {
                 let event = &flow_events[flow_event_cursor];
-                active_flow_overrides.insert(event.edge_index, event.flow_rate);
+                active_flow_overrides.insert(event.edge_index, event.flow_rate.into_base());
                 flow_event_cursor += 1;
             }
 
@@ -1084,10 +1099,10 @@ impl TransientCompositionSimulator {
                 &transported_segment_state,
             );
             states.push(CompositionState {
-                time,
+                time: Time::from_base(time),
                 node_mixtures: current_node_mixtures.clone(),
                 edge_mixtures: current_edge_snapshot.clone(),
-                edge_flow_rates: current_flow_rates.clone(),
+                edge_flow_rates: Self::typed_flow_rates(&current_flow_rates),
             });
 
             previous_time = time;
@@ -1127,8 +1142,8 @@ impl TransientCompositionSimulator {
 
         let requested_timepoints = Self::sorted_timepoints(timepoints);
         let mut internal_timepoints = requested_timepoints.clone();
-        internal_timepoints.extend(composition_events.iter().map(|event| event.time));
-        internal_timepoints.extend(pressure_events.iter().map(|event| event.time));
+        internal_timepoints.extend(composition_events.iter().map(|event| event.time.into_base()));
+        internal_timepoints.extend(pressure_events.iter().map(|event| event.time.into_base()));
         let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
 
@@ -1154,7 +1169,7 @@ impl TransientCompositionSimulator {
             let event = &pressure_events[pressure_event_cursor];
             working_network.set_pressure(
                 NodeIndex::new(event.node_index),
-                Pressure::from_base(event.pressure),
+                event.pressure,
             );
             pressure_event_cursor += 1;
         }
@@ -1205,7 +1220,7 @@ impl TransientCompositionSimulator {
                 let event = &pressure_events[pressure_event_cursor];
                 working_network.set_pressure(
                     NodeIndex::new(event.node_index),
-                    Pressure::from_base(event.pressure),
+                    event.pressure,
                 );
                 pressure_event_cursor += 1;
             }
@@ -1269,8 +1284,8 @@ impl TransientCompositionSimulator {
 
         let requested_timepoints = Self::sorted_timepoints(timepoints);
         let mut internal_timepoints = requested_timepoints.clone();
-        internal_timepoints.extend(composition_events.iter().map(|event| event.time));
-        internal_timepoints.extend(pressure_events.iter().map(|event| event.time));
+        internal_timepoints.extend(composition_events.iter().map(|event| event.time.into_base()));
+        internal_timepoints.extend(pressure_events.iter().map(|event| event.time.into_base()));
         let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
 
@@ -1297,7 +1312,7 @@ impl TransientCompositionSimulator {
             let event = &pressure_events[pressure_event_cursor];
             working_network.set_pressure(
                 NodeIndex::new(event.node_index),
-                Pressure::from_base(event.pressure),
+                event.pressure,
             );
             pressure_event_cursor += 1;
         }
@@ -1356,7 +1371,7 @@ impl TransientCompositionSimulator {
                 let event = &pressure_events[pressure_event_cursor];
                 working_network.set_pressure(
                     NodeIndex::new(event.node_index),
-                    Pressure::from_base(event.pressure),
+                    event.pressure,
                 );
                 pressure_event_cursor += 1;
             }
@@ -1419,8 +1434,8 @@ impl TransientCompositionSimulator {
 
         let requested_timepoints = Self::sorted_timepoints(timepoints);
         let mut internal_timepoints = requested_timepoints.clone();
-        internal_timepoints.extend(composition_events.iter().map(|event| event.time));
-        internal_timepoints.extend(pressure_events.iter().map(|event| event.time));
+        internal_timepoints.extend(composition_events.iter().map(|event| event.time.into_base()));
+        internal_timepoints.extend(pressure_events.iter().map(|event| event.time.into_base()));
         let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
 
@@ -1447,7 +1462,7 @@ impl TransientCompositionSimulator {
             let event = &pressure_events[pressure_event_cursor];
             working_network.set_pressure(
                 NodeIndex::new(event.node_index),
-                Pressure::from_base(event.pressure),
+                event.pressure,
             );
             pressure_event_cursor += 1;
         }
@@ -1496,7 +1511,7 @@ impl TransientCompositionSimulator {
                 let event = &pressure_events[pressure_event_cursor];
                 working_network.set_pressure(
                     NodeIndex::new(event.node_index),
-                    Pressure::from_base(event.pressure),
+                    event.pressure,
                 );
                 pressure_event_cursor += 1;
             }
@@ -1558,8 +1573,8 @@ impl TransientCompositionSimulator {
 
         let requested_timepoints = Self::sorted_timepoints(timepoints);
         let mut internal_timepoints = requested_timepoints.clone();
-        internal_timepoints.extend(composition_events.iter().map(|event| event.time));
-        internal_timepoints.extend(pressure_events.iter().map(|event| event.time));
+        internal_timepoints.extend(composition_events.iter().map(|event| event.time.into_base()));
+        internal_timepoints.extend(pressure_events.iter().map(|event| event.time.into_base()));
         let tolerance = scalar::<T>(1.0e-12);
         let merged_timepoints = Self::sort_unique_timepoints(internal_timepoints, tolerance);
 
@@ -1587,7 +1602,7 @@ impl TransientCompositionSimulator {
             let event = &pressure_events[pressure_event_cursor];
             working_network.set_pressure(
                 NodeIndex::new(event.node_index),
-                Pressure::from_base(event.pressure),
+                event.pressure,
             );
             pressure_event_cursor += 1;
         }
@@ -1644,7 +1659,7 @@ impl TransientCompositionSimulator {
                 let event = &pressure_events[pressure_event_cursor];
                 working_network.set_pressure(
                     NodeIndex::new(event.node_index),
-                    Pressure::from_base(event.pressure),
+                    event.pressure,
                 );
                 pressure_event_cursor += 1;
             }
@@ -1694,8 +1709,10 @@ impl TransientCompositionSimulator {
         all_timepoints.extend(calculation_timepoints);
 
         for event in &events {
-            if event.time >= T::zero() && event.time <= timing.duration {
-                all_timepoints.push(event.time);
+            if event.time.into_base() >= T::zero()
+                && event.time.into_base() <= timing.duration.into_base()
+            {
+                all_timepoints.push(event.time.into_base());
             }
         }
 
@@ -1765,7 +1782,10 @@ impl TransientCompositionSimulator {
                 && flow_events[flow_event_cursor].time <= time
             {
                 let flow_event = &flow_events[flow_event_cursor];
-                active_flow_overrides.insert(flow_event.edge_index, flow_event.flow_rate);
+                active_flow_overrides.insert(
+                    flow_event.edge_index,
+                    flow_event.flow_rate.into_base(),
+                );
                 flow_event_cursor += 1;
             }
 
@@ -1844,7 +1864,7 @@ impl TransientCompositionSimulator {
                 let pressure_event = &pressure_events[pressure_event_cursor];
                 working_network.set_pressure(
                     NodeIndex::new(pressure_event.node_index),
-                    Pressure::from_base(pressure_event.pressure),
+                    pressure_event.pressure,
                 );
                 pressure_event_cursor += 1;
             }
@@ -1883,7 +1903,9 @@ impl TransientCompositionSimulator {
     ) -> Result<Vec<InletCompositionEvent<T>>> {
         let mut converted = Vec::with_capacity(events.len());
         for event in events {
-            if event.hematocrit < T::zero() || event.hematocrit > T::one() {
+            if event.hematocrit.into_base() < T::zero()
+                || event.hematocrit.into_base() > T::one()
+            {
                 return Err(Error::InvalidInput(
                     "Transient hematocrit events require values in [0, 1]".to_string(),
                 ));
@@ -1891,7 +1913,7 @@ impl TransientCompositionSimulator {
             converted.push(InletCompositionEvent {
                 time: event.time,
                 node_index: event.node_index,
-                mixture: MixtureComposition::from_blood_hematocrit(event.hematocrit),
+                mixture: MixtureComposition::from_blood_hematocrit(event.hematocrit.into_base()),
             });
         }
         Ok(converted)
@@ -2490,7 +2512,7 @@ impl TransientCompositionSimulator {
 
             let total_courant = dt / segment_residence_time;
             let steps = checked_substep_count(
-                total_courant / config.max_courant_number,
+                total_courant / config.max_courant_number.into_base(),
                 "Segmented blood transport substep count",
             )?;
             let sub_dt = dt

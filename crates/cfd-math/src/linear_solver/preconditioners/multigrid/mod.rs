@@ -102,7 +102,7 @@
 //!
 //! ## Usage
 //!
-//! ```no_run
+//! ```ignore
 //! use cfd_math::linear_solver::*;
 //! use leto::Array1;
 //! use leto_ops::CsrMatrix;

@@ -64,7 +64,7 @@
 
 use cfd_core::error::{Error, Result};
 use cfd_core::physics::boundary::BoundaryCondition;
-use cfd_math::linear_solver::{ConjugateGradient, IdentityPreconditioner, GMRES};
+use cfd_math::iterative::{ConjugateGradient, IdentityPreconditioner, GMRES};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use eunomia::{FloatElement, NumericElement};
 use leto::{Array1, Vector3};

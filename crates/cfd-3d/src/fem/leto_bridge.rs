@@ -1,7 +1,7 @@
 //! FEM-local dense-vector helpers for Leto-backed sparse assembly.
 
 use cfd_core::error::Result;
-use cfd_math::linear_solver::{IterativeLinearSolver, Preconditioner};
+use cfd_math::iterative::{IterativeLinearSolver, Preconditioner};
 use cfd_math::sparse::{SparseMatrix, SparseMatrixBuilder};
 use leto::Array1;
 

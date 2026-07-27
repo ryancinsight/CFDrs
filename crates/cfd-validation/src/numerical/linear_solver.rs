@@ -1,8 +1,8 @@
 //! Linear solver validation against analytical solutions
 
 use cfd_core::error::Result;
-use cfd_math::linear_solver::IterativeSolverConfig;
-use cfd_math::linear_solver::{BiCGSTAB, ConjugateGradient, LinearSolver};
+use cfd_math::iterative::IterativeSolverConfig;
+use cfd_math::iterative::{BiCGSTAB, ConjugateGradient, LinearSolver};
 
 use super::error_metrics::compute_error_metrics;
 use super::test_cases::{

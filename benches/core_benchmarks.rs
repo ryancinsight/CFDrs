@@ -1,5 +1,5 @@
 use cfd_core::geometry::Domain3D;
-use cfd_math::differentiation::{FiniteDifference, FiniteDifferenceScheme};
+use cfd_math::fd::{FiniteDifference, FiniteDifferenceScheme};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use leto::geometry::Point3;
 

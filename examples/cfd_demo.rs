@@ -3,7 +3,7 @@
 //! This example shows usage of the CFD library components.
 
 use cfd_core::physics::fluid_dynamics::{FlowField, FlowOperations};
-use cfd_math::linear_solver::IterativeLinearSolver;
+use cfd_math::iterative::IterativeLinearSolver;
 use leto::Array1;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n5. Solving linear system...");
 
     let b = Array1::from_shape_vec([3], vec![1.0, 0.0, 1.0]).expect("valid RHS shape");
-    use cfd_math::linear_solver::{preconditioners::IdentityPreconditioner, ConjugateGradient};
+    use cfd_math::iterative::{preconditioners::IdentityPreconditioner, ConjugateGradient}};
     let solver = ConjugateGradient::<f64>::default();
     let mut x = Array1::zeros([3]);
     let preconditioner: Option<&IdentityPreconditioner> = None;

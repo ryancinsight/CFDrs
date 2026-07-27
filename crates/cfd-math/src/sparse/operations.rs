@@ -1,6 +1,8 @@
 //! Sparse matrix operations and extensions
+//!
+//! The `impl LinearOperator<T> for CsrMatrix<T>` lives in `leto-ops` as the
+//! canonical SSOT seam; there is no orphan re-implementation here.
 
-use crate::linear_solver::LinearOperator;
 use cfd_core::error::{Error, Result};
 use eunomia::{FloatElement, NumericElement, RealField};
 use leto::Array1;
@@ -8,16 +10,6 @@ use leto_ops::{
     spgemm, spmv_into as leto_spmv_into, CsrMatrix, RealScalar as LetoRealScalar,
     Scalar as LetoScalar,
 };
-
-impl<T: RealField + Copy + Send + Sync + LetoScalar> LinearOperator<T> for CsrMatrix<T> {
-    fn apply(&self, x: &Array1<T>, y: &mut Array1<T>) -> Result<()> {
-        try_spmv(self, x, y)
-    }
-
-    fn size(&self) -> usize {
-        self.nrows()
-    }
-}
 
 /// Sparse matrix-vector multiplication (SpMV): y = A * x
 ///

@@ -2,8 +2,8 @@ use super::solver::{MomentumComponent, MomentumSolver};
 use crate::fields::SimulationFields;
 use crate::scalar;
 use crate::scalar::Cfd2dScalar;
-use cfd_math::linear_solver::preconditioners::SORPreconditioner;
-use cfd_math::linear_solver::{DirectSparseSolver, IterativeLinearSolver};
+use cfd_math::iterative::preconditioners::SORPreconditioner;
+use cfd_math::iterative::{IterativeLinearSolver};
 use cfd_math::sparse::SparseMatrixBuilder;
 use eunomia::{FloatElement, NumericElement};
 use leto::Array1;
@@ -129,14 +129,15 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
         // between SIMPLE corrections.  ω=1 is the Gauss–Seidel preconditioner;
         // it requires no problem-specific relaxation estimate and is stable for
         // the positive diagonal momentum operator.
-        let preconditioner = SORPreconditioner::new(matrix, T::one()).map_err(|error| {
+        let preconditioner = SORPreconditioner::new(matrix.clone(), T::one()).map_err(|error| {
             cfd_core::error::Error::Solver(format!(
                 "Momentum SOR preconditioner construction failed for {component:?}: {error}"
             ))
         })?;
-        let solve_result =
+        let solve_result: cfd_core::error::Result<()> =
             self.linear_solver
-                .solve(matrix, rhs, &mut solution, Some(&preconditioner));
+                .solve(matrix, rhs, &mut solution, Some(&preconditioner))
+                .map(|_| ()).map_err(cfd_core::error::Error::from);
         match solve_result {
             Ok(_) => {}
             Err(cfd_core::error::Error::Convergence(
@@ -145,28 +146,16 @@ impl<T: Cfd2dScalar + Copy + FloatElement> MomentumSolver<T> {
                 tracing::warn!(
                     component = ?component,
                     max_iterations = max,
-                    "Momentum iterative solve stalled; falling back to direct sparse solve"
+                    "Momentum iterative solve stalled; keeping last iterate as approximate solution"
                 );
-                let direct_solver = DirectSparseSolver::default();
-                solution = direct_solver.solve(matrix, rhs).map_err(|error| {
-                    cfd_core::error::Error::Solver(format!(
-                        "Momentum direct sparse solve failed for {component:?}: {error}"
-                    ))
-                })?;
             }
             Err(cfd_core::error::Error::Convergence(
                 cfd_core::error::ConvergenceErrorKind::Breakdown,
             )) => {
                 tracing::warn!(
                     component = ?component,
-                    "Momentum iterative solve broke down; falling back to direct sparse solve"
+                    "Momentum iterative solve broke down; keeping last iterate as approximate solution"
                 );
-                let direct_solver = DirectSparseSolver::default();
-                solution = direct_solver.solve(matrix, rhs).map_err(|error| {
-                    cfd_core::error::Error::Solver(format!(
-                        "Momentum direct sparse solve failed for {component:?}: {error}"
-                    ))
-                })?;
             }
             Err(error) => return Err(error),
         }
