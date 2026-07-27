@@ -31,6 +31,17 @@
 
 ## Active integration
 
+- **CFDRS-AEQ-MET-19 [major] - Type transient droplet physical metrics
+  (IN PROGRESS; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
+  transient droplet types, simulator/caller migration, tests, and synchronized
+  PM artifacts).** Droplet volume and simulation time remain raw `T` values in
+  public transient contracts, and fractional positions remain unclassified
+  scalars. Carry volume as Aequitas `Volume`, time as `Time`, and normalized
+  positions/flow fractions as `Dimensionless`; extract scalars only at
+  transport formulas. Acceptance is a residue-free source audit, migrated
+  value-semantic transient tests, focused cfd-1d gates, and no compatibility
+  facade.
+
 - **CFDRS-AEQ-MET-18 [major] - Type network node and metadata metrics
   (VERIFIED 2026-07-27; owner=Codex; claimed 2026-07-27; scope=`cfd-1d`
   `NodeProperties` and `NetworkMetadata`, their in-tree construction/tests,
