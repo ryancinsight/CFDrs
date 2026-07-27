@@ -105,57 +105,5 @@ cfd-validation = { path = "crates/cfd-validation" }
 
 # Redirect all git sources to local working copies so the entire CFDrs dep
 # graph uses a single version of each Atlas foundation crate.
-[patch."https://github.com/ryancinsight/aequitas"]
-aequitas = { path = "../aequitas" }
 
-# Coeus case-variant overlay (PATH-DEP-AUDIT-2 hygiene): parallel of
-# the lowercase `[patch."...coeus.git"]` block below. Forward-defense
-# only -- CFDrs's Cargo.lock currently has ZERO resolved coeus-*
-# blocks (verified by ripgrep-driven sweep 2026-07-26; zero
-# `source = "...coeus.git"` lines), so this coverage protects against
-# any future direct consumer that pulls coeus-* via the capital-C
-# `Coeus.git` URL variant used by `repos/helios/Cargo.toml:151`
-# declarations and asclepius's resolved `Cargo.lock` blocks.
-# ASCII-sort rationale: capitals precede lowercase in ASCII order, so
-# capital-C sits immediately BEFORE the lowercase overlay below.
-# Scope: git+https URL redirection only -- does NOT auto-rewrite
-# currently-locked `Cargo.lock` entries; requires
-# `cargo update -p <name>` per consumer.
-[patch."https://github.com/ryancinsight/Coeus.git"]
-coeus-core = { path = "../coeus/crates/coeus-core" }
-coeus-tensor = { path = "../coeus/crates/coeus-tensor" }
-coeus-leto = { path = "../coeus/crates/coeus-leto" }
-
-# Coeus defense-in-depth (PATH-DEP-AUDIT-2 hygiene): redirect any
-# git-source coeus-{core,tensor,leto} pull to the local working copy
-# in repos/coeus so future direct consumers (cfd-io → ritk-vtk etc.)
-# resolve to the same object regardless of gitlink state. Placement:
-# alphabetical-by-sibling -- after `aequitas`, before `eunomia`. Scope:
-# `git+https` source URL redirects only; crates.io semantic-versioned
-# refs and [patch.crates-io] overrides are NOT redirected. The
-# capital-C `Coeus.git` parallel overlay is provided IMMEDIATELY
-# ABOVE this block (cfd-io → ritk-vtk et al. activate through this
-# path); empirical capital-C resolver:
-# `repos/asclepius/Cargo.lock` (all-6 capital-C crates).
-[patch."https://github.com/ryancinsight/coeus.git"]
-coeus-core = { path = "../coeus/crates/coeus-core" }
-coeus-tensor = { path = "../coeus/crates/coeus-tensor" }
-coeus-leto = { path = "../coeus/crates/coeus-leto" }
-
-[patch."https://github.com/ryancinsight/eunomia"]
-eunomia = { path = "../eunomia/crates/eunomia" }
-
-[patch."https://github.com/ryancinsight/eunomia.git"]
-eunomia = { path = "../eunomia/crates/eunomia" }
-
-# hephaestus pulls leto from git; redirect to local so VecStorage/Storage
-# impls are the same object across the whole dependency graph.
-[patch."https://github.com/ryancinsight/leto.git"]
-leto = { path = "../leto/crates/leto" }
-leto-ops = { path = "../leto/crates/leto-ops" }
-
-[patch."https://github.com/ryancinsight/Mnemosyne.git"]
-mnemosyne = { path = "../mnemosyne/crates/mnemosyne" }
-
-[patch."https://github.com/ryancinsight/themis"]
-themis = { path = "../themis" }
+# ATLAS-PATH-DEP-AUDIT-2 round-4 closure
